@@ -79,8 +79,16 @@ public class GlowOverlayAbiTests
     private static GlowSettings Settings(Dictionary<string, string?> values)
         => new(() => values["building_cubemaps"] != "0", () => VariantParse.Atof(values["cl_sun_decay_rate"]));
 
-    private static float[] ViewFloats(int drawSprites, bool wireframe)
+    private readonly SourceSharp.Client.RDrawSpritesConVar _drawSprites = DeclaredConVars.Fresh<SourceSharp.Client.RDrawSpritesConVar>();
+    private readonly SourceSharp.Client.MatWireframeConVar _wireframe = DeclaredConVars.Fresh<SourceSharp.Client.MatWireframeConVar>();
+
+    private GlowHost Host(GlowOverlaySystem system, GlowSettings settings)
+        => new(system, settings, _drawSprites, new SourceSharp.Client.WireframeMode(DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>("1"), _wireframe));
+
+    private float[] ViewFloats(int drawSprites, bool wireframe)
     {
+        _drawSprites.Hold(drawSprites.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        _wireframe.Hold(wireframe ? "1" : "0");
         var v = new float[GlowHost.ViewFloats];
         v[3] = 1;                       // forward +x
         v[6] = 8000;                    // zFar
@@ -90,8 +98,6 @@ public class GlowOverlayAbiTests
             v[7 + i * 4] = 1;
             v[10 + i * 4] = -10;
         }
-        v[27] = wireframe ? 1 : 0;
-        v[28] = drawSprites;
         return v;
     }
 
@@ -104,7 +110,7 @@ public class GlowOverlayAbiTests
         var glow = new GlowOverlay { Pos = new Vector(300, 0, 0), NSprites = 1, HdrColorScale = 2.0f };
         glow.Sprites[0].Color = new Vector(1, 1, 1);
         system.Activate(glow);
-        var host = new GlowHost(system, settings);
+        var host = Host(system, settings);
 
         var words = new int[256];
         int n = host.DrawOverlays(ViewFloats(1, wireframe: true), cacheFullSceneState: false, words);
@@ -136,7 +142,7 @@ public class GlowOverlayAbiTests
         var glow = new GlowOverlay { Pos = new Vector(300, 0, 0), NSprites = 1 };
         glow.Sprites[0].Color = new Vector(1, 1, 1);
         system.Activate(glow);
-        var host = new GlowHost(system, settings);
+        var host = Host(system, settings);
 
         var small = new int[4];
         int n = host.DrawOverlays(ViewFloats(1, wireframe: false), false, small);
@@ -198,7 +204,7 @@ public class GlowOverlayAbiTests
         Assert.Equal(3, system.Count);
 
         // A tenth of a second later all three have faded out and leave at the draw.
-        var host = new GlowHost(system, settings);
+        var host = Host(system, settings);
         var words = new int[1024];
         for (int i = 0; i < 7; i++)
             host.DrawOverlays(ViewFloats(1, false), false, words);

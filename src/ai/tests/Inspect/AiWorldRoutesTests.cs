@@ -125,7 +125,9 @@ public sealed class AiWorldRoutesTests
             Bots = new Hl2mpBots(new WorldPlayers(World), new Runner(), Alive(players), entities, WeaponCatalog.Stock(), frame, _nav, new NoHoldings(),
                                  DispatchProxy.Create<IBotNameSource, Defaults>(), new ScoreboardTags(), log);
             Vision = new VisionPass(World.Engine(), entities, World.Traces());
-            Ai = new Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, log);
+            Ai = new Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
+            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
             Names = new PlayerNames(DispatchProxy.Create<IEngineGameEvents, Defaults>());
             Names.PutInServer(HumanSlot, "Gordon");
             Routes = new AiWorldRoutes(Bots, Vision, Ai, Heard, frame, entities, World.Traces(), Names, _nav);

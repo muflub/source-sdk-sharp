@@ -13,18 +13,17 @@ namespace SourceSharp.Server;
 ///
 /// <para>
 /// Read fresh per command, as native did: every convar is one an operator can
-/// move mid-round. A convar this build does not declare reads 0 (false), which
-/// is what an unresolved CManagedConVarRef answered.
+/// move mid-round.
 /// </para>
 /// </summary>
 public sealed class ServerMoveConstants
 {
-    private readonly ConVarRegistry _convars;
+    private readonly MoveConVars _convars;
     private readonly Func<MovementParams> _params;
     private readonly IEngineEnvironment _environment;
     private readonly Func<float> _engineTime;
 
-    public ServerMoveConstants(ConVarRegistry convars, Func<MovementParams> parameters,
+    public ServerMoveConstants(MoveConVars convars, Func<MovementParams> parameters,
                                IEngineEnvironment environment, Func<float> engineTime)
     {
         _convars = convars ?? throw new ArgumentNullException(nameof(convars));
@@ -44,23 +43,23 @@ public sealed class ServerMoveConstants
 
         var constants = new MoveConstants
         {
-            Friction = Float<SvFrictionConVar>(),
-            Accelerate = Float<SvAccelerateConVar>(),
-            AirAccelerate = Float<SvAirAccelerateConVar>(),
-            StopSpeed = Float<SvStopSpeedConVar>(),
-            MaxVelocity = Float<SvMaxVelocityConVar>(),
-            MaxSpeed = Float<SvMaxSpeedConVar>(),
-            Bounce = Float<SvBounceConVar>(),
-            RollAngle = Float<SvRollAngleConVar>(),
-            RollSpeed = Float<SvRollSpeedConVar>(),
-            NoClipSpeed = Float<SvNoclipSpeedConVar>(),
-            NoClipAccelerate = Float<SvNoclipAccelerateConVar>(),
-            SpecSpeed = Float<SvSpecSpeedConVar>(),
-            SpecAccelerate = Float<SvSpecAccelerateConVar>(),
+            Friction = _convars.Friction.Value,
+            Accelerate = _convars.Accelerate.Value,
+            AirAccelerate = _convars.AirAccelerate.Value,
+            StopSpeed = _convars.StopSpeed.Value,
+            MaxVelocity = _convars.MaxVelocity.Value,
+            MaxSpeed = _convars.MaxSpeed.Value,
+            Bounce = _convars.Bounce.Value,
+            RollAngle = _convars.RollAngle.Value,
+            RollSpeed = _convars.RollSpeed.Value,
+            NoClipSpeed = _convars.NoClipSpeed.Value,
+            NoClipAccelerate = _convars.NoClipAccelerate.Value,
+            SpecSpeed = _convars.SpecSpeed.Value,
+            SpecAccelerate = _convars.SpecAccelerate.Value,
             AirSpeedCap = p.AirSpeedCap,
             DuckSpeedScale = p.DuckSpeedScale,
             Optimizations = Optimizations,
-            SpecNoClip = _convars.Get<SvSpecNoclipConVar>()?.Value ?? false,
+            SpecNoClip = _convars.SpecNoClip.Value,
             MaxClients = globals.IsAvailable ? globals.MaxClients : 0,
             TickInterval = globals.IsAvailable ? globals.IntervalPerTick : 0f,
             View = p.View,
@@ -75,8 +74,32 @@ public sealed class ServerMoveConstants
         };
 
         return new MoveFrameConstants(constants, p.JumpHeight, _engineTime(),
-                                      ModelScale: 1f, CurrentGravity: Float<SvGravityConVar>());
+                                      ModelScale: 1f, CurrentGravity: _convars.Gravity.Value);
     }
+}
 
-    private float Float<T>() where T : FloatConVar => _convars.Get<T>()?.Value ?? 0f;
+/// <summary>The convars a command's constants read, built by the container.</summary>
+public sealed class MoveConVars(SvFrictionConVar friction, SvAccelerateConVar accelerate,
+                                SvAirAccelerateConVar airAccelerate, SvStopSpeedConVar stopSpeed,
+                                SvMaxVelocityConVar maxVelocity, SvMaxSpeedConVar maxSpeed, SvBounceConVar bounce,
+                                SvRollAngleConVar rollAngle, SvRollSpeedConVar rollSpeed,
+                                SvNoclipSpeedConVar noClipSpeed, SvNoclipAccelerateConVar noClipAccelerate,
+                                SvSpecSpeedConVar specSpeed, SvSpecAccelerateConVar specAccelerate,
+                                SvSpecNoclipConVar specNoClip, SvGravityConVar gravity)
+{
+    public readonly SvFrictionConVar Friction = friction;
+    public readonly SvAccelerateConVar Accelerate = accelerate;
+    public readonly SvAirAccelerateConVar AirAccelerate = airAccelerate;
+    public readonly SvStopSpeedConVar StopSpeed = stopSpeed;
+    public readonly SvMaxVelocityConVar MaxVelocity = maxVelocity;
+    public readonly SvMaxSpeedConVar MaxSpeed = maxSpeed;
+    public readonly SvBounceConVar Bounce = bounce;
+    public readonly SvRollAngleConVar RollAngle = rollAngle;
+    public readonly SvRollSpeedConVar RollSpeed = rollSpeed;
+    public readonly SvNoclipSpeedConVar NoClipSpeed = noClipSpeed;
+    public readonly SvNoclipAccelerateConVar NoClipAccelerate = noClipAccelerate;
+    public readonly SvSpecSpeedConVar SpecSpeed = specSpeed;
+    public readonly SvSpecAccelerateConVar SpecAccelerate = specAccelerate;
+    public readonly SvSpecNoclipConVar SpecNoClip = specNoClip;
+    public readonly SvGravityConVar Gravity = gravity;
 }

@@ -70,7 +70,7 @@ public sealed class SenseCostTests
             w.Add(s, new AiVector(s * 64, 900, 0));
         w.Occluder(new AiVector(300, 400, -10), new AiVector(316, 600, 300), SenseWorld.Solid);
         var pass = new VisionPass(w.Engine(), w.Entities(), w.Traces());
-        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud());
+        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(), w.Stance());
         var session = new AiSession(new InlineTransport(), new NoRecording(), VisionPass.Slots, 64);
         foreach (SensedBot b in bots)
         {

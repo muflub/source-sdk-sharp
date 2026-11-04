@@ -742,6 +742,7 @@ public class PhysicsEventsCommandTests
         public string All => string.Concat(Lines);
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => string.Empty;
         public int RegisterConCommand(string name, string help, ConVarFlags flags) => 0;
@@ -825,7 +826,7 @@ public class PhysicsEventsCommandTests
     public void TheReportPrintsNoDrainsLine()
     {
         var (_, console, command) = New();
-        command.Execute("");
+        command.RunLine("");
 
         Assert.Contains("events", console.All);
         Assert.DoesNotContain("drains", console.All);
@@ -878,7 +879,7 @@ public class PhysicsEventsCommandTests
         var (response, console, command) = New();
         response.Respond(new PhysicsEvent { KindRaw = (uint)PhysicsEventKind.Wake });
         response.Respond(new PhysicsEvent { KindRaw = (uint)PhysicsEventKind.Sleep });
-        command.Execute("");
+        command.RunLine("");
 
         foreach (string kind in new[] { "Wake", "Sleep" })
         {
@@ -891,7 +892,7 @@ public class PhysicsEventsCommandTests
     public void TheReportSaysHowManyPhysicsUpdatesWereDelivered()
     {
         var (_, console, command) = New();
-        command.Execute("");
+        command.RunLine("");
 
         Assert.Contains("updates delivered", console.All);
     }
@@ -904,7 +905,7 @@ public class PhysicsEventsCommandTests
         // rather than listing them beside the ones that are acted on.
         var (response, console, command) = New();
         response.Respond(new PhysicsEvent { KindRaw = (uint)PhysicsEventKind.StartTouch });
-        command.Execute("");
+        command.RunLine("");
 
         Assert.Contains("StartTouch", console.All);
         Assert.Contains("carried, nothing consumes it", console.All);
@@ -915,7 +916,7 @@ public class PhysicsEventsCommandTests
     {
         var (response, console, command) = New();
         response.Respond(new PhysicsEvent { KindRaw = (uint)PhysicsEventKind.PostCollision });
-        command.Execute("");
+        command.RunLine("");
 
         string line = console.Lines.Single(l => l.Contains("PostCollision"));
         Assert.DoesNotContain("carried, nothing consumes it", line);
@@ -927,7 +928,7 @@ public class PhysicsEventsCommandTests
         // A table of thirteen zeroes is a table nobody reads. Absence means
         // zero, the way Crossings' own report says it does.
         var (_, console, command) = New();
-        command.Execute("");
+        command.RunLine("");
 
         Assert.DoesNotContain("ConstraintBroken", console.All);
     }
@@ -936,7 +937,7 @@ public class PhysicsEventsCommandTests
     public void TheQueuedImpactSoundsAreReportedAsANumber()
     {
         var (_, console, command) = New();
-        command.Execute("");
+        command.RunLine("");
 
         Assert.Contains("impact sounds", console.All);
     }
@@ -946,8 +947,8 @@ public class PhysicsEventsCommandTests
     {
         var (response, console, command) = New();
         response.Respond(new PhysicsEvent { KindRaw = (uint)PhysicsEventKind.Wake });
-        command.Execute("reset");
-        command.Execute("");
+        command.RunLine("reset");
+        command.RunLine("");
 
         Assert.Contains("counters zeroed", console.All);
         Assert.Contains("events           0", console.All);

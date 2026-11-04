@@ -109,7 +109,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity("CTEBaseBeam", "DT_BaseBeam")]
-public class TeBaseBeam : TempEntState
+public partial class TeBaseBeam : TempEntState
 {
     /// <summary>
     /// The beam's sprite. <c>SendPropModelIndex</c> is

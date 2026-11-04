@@ -57,6 +57,35 @@ namespace SourceSharp.Shared.Bones;
 /// vector.h:1577).</summary>
 public sealed class IkContextIkRule
 {
+    /// <summary>Back to what <c>new</c> makes, for a rule used again (stock's memset).</summary>
+    public void Reset()
+    {
+        Index = 0;
+        Type = 0;
+        Chain = 0;
+        Bone = 0;
+        Slot = 0;
+        Height = 0f;
+        Radius = 0f;
+        Floor = 0f;
+        Pos = default;
+        Q = default;
+        Start = 0f;
+        Peak = 0f;
+        Tail = 0f;
+        End = 0f;
+        Top = 0f;
+        Drop = 0f;
+        Commit = 0f;
+        Release = 0f;
+        FlWeight = 0f;
+        FlRuleWeight = 0f;
+        Latched = 0f;
+        SzLabel = null;
+        KneeDir = default;
+        KneePos = default;
+    }
+
     public int Index;
 
     public int Type;
@@ -89,6 +118,34 @@ public sealed class IkContextIkRule
 
     public Vector KneeDir;
     public Vector KneePos;
+}
+
+/// <summary>
+/// The rules a context hands out and takes back all at once: a context lives as
+/// long as its entity and files new rules on every pose. Each answered reset.
+/// </summary>
+internal sealed class IkRulePool
+{
+    private readonly List<IkContextIkRule> _rules = [];
+    private int _used;
+
+    public IkContextIkRule Take()
+    {
+        if (_used == _rules.Count)
+        {
+            _rules.Add(new IkContextIkRule());
+        }
+
+        IkContextIkRule rule = _rules[_used++];
+        rule.Reset();
+        return rule;
+    }
+
+    /// <summary>The last <see cref="Take"/> back, for a rule that was not kept.</summary>
+    public void GiveBackLast() => _used--;
+
+    /// <summary>Every rule back: the lists that held them have been emptied.</summary>
+    public void GiveBackAll() => _used = 0;
 }
 
 /// <summary><c>CIKTarget</c> (bone_setup.h:162-204). Stock groups the
@@ -458,6 +515,11 @@ public sealed class CIKContext
     /// so the two lock kinds never share an instance in the server flow).</summary>
     private readonly List<IkContextIkRule> _m_ikLock = new();
 
+    // What m_ikChainRule's and m_ikLock's rules come from; each given back when
+    // the list that holds them empties.
+    private readonly IkRulePool _chainRulesHeld = new();
+    private readonly IkRulePool _lockRulesHeld = new();
+
     /// <summary><c>m_target</c>: the 12-slot fixed target vector, empty
     /// until the first rule forces it into existence (stock's grow hack).</summary>
     private CikTarget[] _m_target = Array.Empty<CikTarget>();
@@ -511,6 +573,8 @@ public sealed class CIKContext
         _m_boneMask = 0;
         _m_ikChainRule = Array.Empty<List<IkContextIkRule>>();
         _m_ikLock.Clear();
+        _chainRulesHeld.GiveBackAll();
+        _lockRulesHeld.GiveBackAll();
 
         if (_m_target.Length != 0)
         {
@@ -543,6 +607,7 @@ public sealed class CIKContext
     {
         _m_pStudioHdr = hdr;
         _m_ikChainRule = Array.Empty<List<IkContextIkRule>>(); // RemoveAll
+        _chainRulesHeld.GiveBackAll();
         if (hdr.NumIKChains != 0)
         {
             // RemoveAll, then one empty list per chain: the last Init's lists
@@ -643,10 +708,11 @@ public sealed class CIKContext
         // FIXME (stock): add proper number of rules!!!
         for (int i = 0; i < seqdesc.NumIKRules; i++)
         {
+            IkContextIkRule ikrule = _chainRulesHeld.Take();
             if (!BoneSetupIk.StudioIkSequenceError(
-                    hdr, seqdesc, iSequence, flCycle, i, poseParameter, panim, weight,
-                    out IkContextIkRule ikrule))
+                    hdr, seqdesc, iSequence, flCycle, i, poseParameter, panim, weight, ikrule))
             {
+                _chainRulesHeld.GiveBackLast();
                 continue;
             }
 
@@ -711,7 +777,7 @@ public sealed class CIKContext
             int ikOffset = _m_ikLock.Count;
             for (int i = 0; i < hdr.NumAutoPlayLocks; i++)
             {
-                _m_ikLock.Add(new IkContextIkRule()); // memset of the tail block
+                _m_ikLock.Add(_lockRulesHeld.Take()); // memset of the tail block
             }
 
             for (int i = 0; i < hdr.NumAutoPlayLocks; i++)
@@ -785,7 +851,7 @@ public sealed class CIKContext
             int ikOffset = _m_ikLock.Count;
             for (int i = 0; i < seqdesc.NumIKLocks; i++)
             {
-                _m_ikLock.Add(new IkContextIkRule());
+                _m_ikLock.Add(_lockRulesHeld.Take());
             }
 
             for (int i = 0; i < seqdesc.NumIKLocks; i++)
@@ -924,16 +990,14 @@ public sealed class CIKContext
 
             if (pTarget.ErrorRamp > 0.0f)
             {
-                IkContextIkRule ikrule = new()
-                {
-                    Chain = pTarget.Chain,
-                    Bone = 0,
-                    Type = StudioConstants.IK_RELEASE,
-                    Slot = i,
-                    FlWeight = BoneSetupMath.SimpleSpline(pTarget.ErrorRamp),
-                    FlRuleWeight = 1.0f,
-                    Latched = dt < 0.25f ? 0.0f : BoneSetupMath.SimpleSpline(pTarget.ErrorRamp),
-                };
+                IkContextIkRule ikrule = _chainRulesHeld.Take();
+                ikrule.Chain = pTarget.Chain;
+                ikrule.Bone = 0;
+                ikrule.Type = StudioConstants.IK_RELEASE;
+                ikrule.Slot = i;
+                ikrule.FlWeight = BoneSetupMath.SimpleSpline(pTarget.ErrorRamp);
+                ikrule.FlRuleWeight = 1.0f;
+                ikrule.Latched = dt < 0.25f ? 0.0f : BoneSetupMath.SimpleSpline(pTarget.ErrorRamp);
 
                 // don't bother with AutoIKRelease if the bone isn't going to
                 // be calculated; this code is crashing for some unknown reason.
@@ -1440,7 +1504,7 @@ public sealed class CIKContext
             int ikOffset = _m_ikLock.Count;
             for (int i = 0; i < hdr.NumIKChains; i++)
             {
-                _m_ikLock.Add(new IkContextIkRule()); // memset of the tail block
+                _m_ikLock.Add(_lockRulesHeld.Take()); // memset of the tail block
             }
 
             for (int i = 0; i < hdr.NumIKChains; i++)

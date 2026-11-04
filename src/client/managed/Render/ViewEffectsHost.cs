@@ -69,7 +69,7 @@ public sealed class ShakeShowConVar : BoolConVar
 
 /// <summary>view_effects.cpp's <c>shake_stop</c>.</summary>
 [ConCommand("shake_stop", Help = "Stops all active screen shakes.\n", Flags = ConVarFlags.Cheat)]
-public sealed class ShakeStopCommand(ViewEffectsHost host) : IConCommand
+public sealed class ShakeStopCommand(ViewEffectsHost host)
 {
-    public void Execute(string args) => host.Effects.ClearAllShakes();
+    public void Execute() => host.Effects.ClearAllShakes();
 }

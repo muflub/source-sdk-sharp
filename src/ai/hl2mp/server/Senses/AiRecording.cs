@@ -67,12 +67,11 @@ public sealed class RecordingSwitch : IAiRecordSink
 /// every bot once); <c>off</c> lets them run every tick again.
 /// </summary>
 [ConCommand("ai_step", Help = "ai_step [ticks|off]: hold the bots' brains and let the next ticks' decides run (6 = every bot once); off resumes", Flags = ConVarFlags.Cheat)]
-public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log) : IConCommand
+public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log)
 {
-    public void Execute(string args)
+    public void Execute([Complete("off")] string ticks = "")
     {
-        string a = args.Trim();
-        if (a == "off")
+        if (ticks == "off")
         {
             ai.Session.Stepping = false;
             ai.Session.StepTicks = 0;
@@ -80,9 +79,9 @@ public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log) : IConCommand
             return;
         }
 
-        int ticks = int.TryParse(a, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n >= 0 ? n : DecideSchedule.Period;
+        int count = int.TryParse(ticks, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n >= 0 ? n : DecideSchedule.Period;
         ai.Session.Stepping = true;
-        ai.Session.StepTicks += ticks;
+        ai.Session.StepTicks += count;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] ai_step: held; {ai.Session.StepTicks} tick(s) of decides to run, {ai.Session.Counters.StepsRun} run, {ai.Session.Counters.StepsHeld} held\n"));
     }
@@ -100,7 +99,7 @@ public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log) : IConCommand
 /// Recording changes nothing in play, so it needs no <c>sv_cheats</c>.
 /// </summary>
 [ConCommand("ai_record", Help = "ai_record human | start [path] [tag] | stop: record the AI session (every player's usercmds, anonymised) to an .airec; with no path, <mod>/ai-recordings/human/<utc>.airec")]
-public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngineFrame frame, IModInfo mod, ILog log) : IConCommand
+public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngineFrame frame, IModInfo mod, ILog log)
 {
     /// <summary>Where a recording with no path goes, under the mod's game dir.</summary>
     public const string HumanDirectory = "ai-recordings/human";
@@ -126,14 +125,13 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngin
     public static string HumanPath(string gameDir, DateTime utc)
         => Path.Combine(gameDir, "ai-recordings", "human", utc.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture) + ".airec");
 
-    public void Execute(string args)
+    public void Execute([Complete("human", "start", "stop")] string action, string? file = null, string? mapTag = null)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length >= 1 && (p[0] == "start" || (p[0] == "human" && p.Length == 1)))
+        if (action == "start" || (action == "human" && file is null))
         {
             string path;
-            if (p.Length >= 2 && p[0] == "start")
-                path = p[1];
+            if (file is not null)
+                path = file;
             else
             {
                 path = HumanPath(TreeGameDir(mod.GameDir), DateTime.UtcNow);
@@ -141,7 +139,7 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngin
             }
 
             MemoryWorld? world = ai.Session.World;
-            string tag = p.Length > 2 ? p[2] : world?.Map.Map ?? "";
+            string tag = mapTag ?? world?.Map.Map ?? "";
             ulong nav = world?.Graph?.Hash ?? 0;
             ai.Recording.Start(path, new AiRecordingHeader(Hl2mpBots.MatchSeed, tag, nav, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity),
                                Anonymiser(BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8))));
@@ -158,7 +156,7 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngin
             return;
         }
 
-        if (p.Length == 1 && p[0] == "stop")
+        if (action == "stop" && file is null)
         {
             // Every step handed over is taken back first, so the recording
             // holds the intent of every decide whose snapshot it holds.
@@ -183,19 +181,20 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngin
 /// "human", §6.6), holding where it stands and looks.
 /// </summary>
 [ConCommand("ai_bot_act", Help = "ai_bot_act <name> fire <seconds> | hold <seconds> | reload | select <slot>: a scripted action", Flags = ConVarFlags.Cheat)]
-public sealed class AiBotActCommand(Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiBotActCommand(Hl2mpBots bots, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, Act act, float? amount = null)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        float seconds = 0f;
-        int slot = 0;
-        ActionKind? kind = p.Length < 2 ? null : p[1] switch
+        float seconds = amount ?? 0f;
+        int slot = (int)seconds;
+        ActionKind? kind = (act, amount) switch
         {
-            "fire" when p.Length > 2 && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out seconds) => ActionKind.Fire,
-            "hold" when p.Length > 2 && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out seconds) => ActionKind.None,
-            "reload" => ActionKind.Reload,
-            "select" when p.Length > 2 && int.TryParse(p[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out slot) => ActionKind.SelectWeapon,
+            (Act.Fire, not null) => ActionKind.Fire,
+            (Act.Hold, not null) => ActionKind.None,
+            (Act.Reload, _) => ActionKind.Reload,
+            (Act.Select, not null) => ActionKind.SelectWeapon,
             _ => null,
         };
         if (kind is not { } k)
@@ -204,7 +203,15 @@ public sealed class AiBotActCommand(Hl2mpBots bots, ILog log) : IConCommand
             return;
         }
 
-        if (bots.Act(p[0], k, seconds, slot) is { } refusal)
+        if (bots.Act(name, k, seconds, slot) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_act refused: {refusal}\n");
+    }
+
+    public enum Act
+    {
+        Fire,
+        Hold,
+        Reload,
+        Select,
     }
 }

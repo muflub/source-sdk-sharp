@@ -347,23 +347,23 @@ public static class PhysicsSelect
 #if DEBUG
 /// <summary><c>ss_physworld_recheck</c>: <see cref="PhysWorldProbes.Recheck"/> (tools/3f-gatebisect drives it).</summary>
 [ConCommand("ss_physworld_recheck", Help = "SourceSharp: re-ask vphysics's cached collision filter for every object")]
-public sealed class PhysWorldRecheckCommand(PhysWorldProbes probes) : IConCommand
+public sealed class PhysWorldRecheckCommand(PhysWorldProbes probes)
 {
-    public void Execute(string args) => probes.Recheck();
+    public void Execute() => probes.Recheck();
 }
 
 /// <summary><c>ss_physworld_bounds</c>: <see cref="PhysWorldProbes.Bounds"/> (tools/defect-shadow-probe drives it).</summary>
 [ConCommand("ss_physworld_bounds", Help = "SourceSharp: list physics objects at a non-finite or out-of-map position")]
-public sealed class PhysWorldBoundsCommand(PhysWorldProbes probes) : IConCommand
+public sealed class PhysWorldBoundsCommand(PhysWorldProbes probes)
 {
-    public void Execute(string args) => probes.Bounds();
+    public void Execute() => probes.Bounds();
 }
 
 /// <summary><c>ss_physworld_object &lt;substring&gt;</c>: <see cref="PhysWorldProbes.Object"/>.</summary>
 [ConCommand("ss_physworld_object", Help = "SourceSharp: position, velocity and sleep state of every physics object whose name contains the argument")]
-public sealed class PhysWorldObjectCommand(PhysWorldProbes probes) : IConCommand
+public sealed class PhysWorldObjectCommand(PhysWorldProbes probes)
 {
-    public void Execute(string args) => probes.Object(CommandTokens.Split(args));
+    public void Execute(params string[] nameSubstring) => probes.Object(nameSubstring);
 }
 
 /// <summary>
@@ -374,9 +374,9 @@ public sealed class PhysWorldObjectCommand(PhysWorldProbes probes) : IConCommand
 /// as native's did.
 /// </summary>
 [ConCommand("physics_highlight_active", Help = "Turns on the absbox for all active physics objects")]
-public sealed class PhysicsHighlightActiveCommand(IEnginePlayers players, IEngineHost host) : IConCommand
+public sealed class PhysicsHighlightActiveCommand(IEnginePlayers players, IEngineHost host)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(players, host))
             return;
@@ -388,9 +388,9 @@ public sealed class PhysicsHighlightActiveCommand(IEnginePlayers players, IEngin
 public sealed class PhysicsReportActiveCommand(IVPhysicsInspect inspect, IEngineEntityPhysics physics,
                                                IEngineEntities entities, IEngineEntityRender render,
                                                IEnginePlayers players, IEngineHost host,
-                                               IEngineConsole console, VPhysicsTables vphysics) : IConCommand
+                                               IEngineConsole console, VPhysicsTables vphysics)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(players, host))
             return;
@@ -425,11 +425,11 @@ public sealed class PhysicsReportActiveCommand(IVPhysicsInspect inspect, IEngine
 [ConCommand("physics_select", Help = "Dumps debug info for an entity")]
 public sealed class PhysicsSelectCommand(IVPhysicsInspect inspect, IEngineEntityPhysics physics,
                                          IEngineEntities entities, IEngineWorldQuery world,
-                                         IEnginePlayers players, IEngineHost host) : IConCommand
+                                         IEnginePlayers players, IEngineHost host)
 {
     public const float AimRange = 16384f;
 
-    public void Execute(string args)
+    public void Execute(string? target = null)
     {
         if (!ServerAdmin.MayRun(players, host))
             return;
@@ -440,7 +440,7 @@ public sealed class PhysicsSelectCommand(IVPhysicsInspect inspect, IEngineEntity
             return issuer == EntityHandle.None ? EntityHandle.None : world.TracePlayerAim(issuer, AimRange, out _);
         }
 
-        List<EntityHandle> subjects = PhysicsSelect.Subjects(CommandTokens.Split(args), Aim,
+        List<EntityHandle> subjects = PhysicsSelect.Subjects(target is null ? [] : [target], Aim,
                                                              name => entities.FindAllByName(name),
                                                              entities.FindAllByClassname);
         PhysicsSelect.Mark(subjects, physics.PhysicsObject, inspect);

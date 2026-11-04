@@ -218,7 +218,7 @@ public sealed class DeathServiceTests
         var body = new SsRagdoll(engine) { Handle = Body };
         body.BindEngine(engine);
         body.State.BindLocal();
-        var corpses = new Corpses(log, engine, engine, new Bodies(body), engine);
+        var corpses = new Corpses(log, engine, engine, new Bodies(body));
         Assert.Equal(Body, corpses.Make(Player));
 
         return new Kit(link, host, players, clients, corpses, body, new FakeScreen(), net, log);

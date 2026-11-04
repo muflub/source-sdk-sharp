@@ -74,9 +74,9 @@ public class FormatTests
     public void AnotherFormatVersionIsRefusedByNumber()
     {
         byte[] rec = Recordings.Make(_ => { });
-        rec[8] = 5;
+        rec[8] = 6;
         var e = Assert.Throws<InvalidDataException>(() => Recordings.Replay(rec));
-        Assert.Contains("format 5", e.Message, StringComparison.Ordinal);
+        Assert.Contains("format 6", e.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -88,12 +88,46 @@ public class FormatTests
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(3)]
+    [InlineData(4)]
     public void AnOlderFormatFileStillReads(byte version)
     {
         byte[] rec = Recordings.Make(s => s.AddBot(new ActorId(2, 1), 1, []));
-        Assert.Equal(4, rec[8]);
+        Assert.Equal(5, rec[8]);
         rec[8] = version;
         Assert.Equal(0, Recordings.Replay(rec).RecordedIntentCount);
+    }
+
+    /// <summary>Format 5's tails: a view's second-trigger pool, and each weapon's second trigger.</summary>
+    [Fact]
+    public void TheSecondTriggersRoundTrip()
+    {
+        var ring = new SnapshotRing(8, 8, 4);
+        AiSnapshot s = ring.BeginWrite(new Tick(3));
+        s.Add(new ActorId(2, 1), default(SelfState) with { AltAmmo = 3, Grenades = 2 });
+        s.Add(new ActorId(6, 1), default(SelfState) with { AltAmmo = 7 });
+        ring.Publish(s);
+        var ring2 = new SnapshotRing(8, 8, 4);
+        AiSnapshot back = AiRecordFormat.ReadSnapshot(Reader(Encode(w => AiRecordFormat.Write(w, s))), ring2);
+        Assert.Equal((3, 2, 7), (back.ViewFor(2)!.Self.AltAmmo, back.ViewFor(2)!.Self.Grenades, back.ViewFor(6)!.Self.AltAmmo));
+
+        var alt = new AltFireFacts(AltFireKind.Lob, 1000f, 400f, 250f, 100f, 1, false);
+        var map = new MapKnowledge("m", [], [], new WeaponKnowledge([new WeaponFacts(3, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f, alt)]));
+        byte[] bytes = Encode(w => AiRecordFormat.Write(w, new AiRecordedWorld(map, 0.015f, "{}", 1UL)));
+        Assert.Equal(alt, AiRecordFormat.ReadWorld(new BinaryReader(new MemoryStream(bytes))).Map.Weapons.All[0].Alt);
+    }
+
+    /// <summary>A record from before format 5 ends at its views: no pool, and reading it does not run off its end.</summary>
+    [Fact]
+    public void ASnapshotWithNoTailHasNoPool()
+    {
+        var ring = new SnapshotRing(8, 8, 4);
+        AiSnapshot s = ring.BeginWrite(new Tick(3));
+        s.Add(new ActorId(2, 1), default(SelfState) with { AltAmmo = 3 });
+        ring.Publish(s);
+        byte[] whole = Encode(w => AiRecordFormat.Write(w, s));
+        var ring2 = new SnapshotRing(8, 8, 4);
+        AiSnapshot back = AiRecordFormat.ReadSnapshot(Reader(whole[..^8]), ring2);
+        Assert.Equal(0, back.ViewFor(2)!.Self.AltAmmo);
     }
 
     /// <summary>The World record round-trips: the map's knowledge, the tick, the curves' text and the graph's hash.</summary>

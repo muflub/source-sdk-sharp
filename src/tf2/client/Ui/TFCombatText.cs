@@ -51,7 +51,7 @@ public sealed class TFCombatText : ITFCombatText
     private readonly IGameClock _clock;
     private readonly IEngineHud _screen;
     private readonly IClientStandalones _standalones;
-    private readonly IEngineConsole _console;
+    private readonly HudCombatTextConVar _enabled;
     private readonly ITFPlayerData _players;
     private readonly IClientBeamExecutor _beams;
     private readonly IEngineWorldQuery _world;
@@ -64,11 +64,11 @@ public sealed class TFCombatText : ITFCombatText
     private float _seen;
 
     public TFCombatText(IGameClock clock, IEngineHud screen, IClientStandalones standalones,
-                        IEngineConsole console, ITFPlayerData players, IClientBeamExecutor beams,
+                        HudCombatTextConVar enabled, ITFPlayerData players, IClientBeamExecutor beams,
                         IEngineWorldQuery world, IEngineEffects effects, IFxRender fx, EventLink link)
     {
-        (_clock, _screen, _standalones, _console, _players, _beams, _world, _effects, _fx)
-            = (clock, screen, standalones, console, players, beams, world, effects, fx);
+        (_clock, _screen, _standalones, _enabled, _players, _beams, _world, _effects, _fx)
+            = (clock, screen, standalones, enabled, players, beams, world, effects, fx);
         link.OnHurt(OnHurt);
     }
 
@@ -113,16 +113,8 @@ public sealed class TFCombatText : ITFCombatText
         _count++;
     }
 
-    /// <summary>Whether the text draws: stock's hud_combattext (default on;
-    /// a console without the convar answers stock's default).</summary>
-    private bool Enabled
-    {
-        get
-        {
-            string? raw = _console.FindConVarValue("hud_combattext");
-            return string.IsNullOrEmpty(raw) || raw != "0";
-        }
-    }
+    /// <summary>Whether the text draws: stock's hud_combattext.</summary>
+    private bool Enabled => _enabled.Value;
 
     /// <summary>The local player's user id, the resource rows' way (the
     /// death screen's read).</summary>

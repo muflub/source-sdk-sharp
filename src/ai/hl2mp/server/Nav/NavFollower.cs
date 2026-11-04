@@ -10,6 +10,27 @@ public enum FollowState : byte
 }
 
 /// <summary>
+/// A lane's count of the flow fields its followers built, and how many of them on
+/// the main thread: none while the AI's workers drive the bots (§2.7).
+/// </summary>
+public sealed class NavBuildTally
+{
+    /// <summary>The main thread, as the lane last saw it: the one handing its steps over.</summary>
+    public int MainThread { get; set; }
+
+    public long Builds { get; private set; }
+
+    public long OnMain { get; private set; }
+
+    public void Note()
+    {
+        Builds++;
+        if (Environment.CurrentManagedThreadId == MainThread)
+            OnMain++;
+    }
+}
+
+/// <summary>
 /// A bot holding <c>Follow</c> along a flow field (plan_hl2mp_ai §2.3,
 /// Phase 3 step 5): one field to the objective, and each tick the corridor
 /// the field gives from the bot's cell, funnelled and shortcut into the
@@ -134,10 +155,14 @@ public sealed class NavFollower
         return FormattableString.Invariant($"{_field.ViaFrom(At.Index)} to cell {next.Index} at ({c.X:F0} {c.Y:F0} {c.Z:F0})");
     }
 
+    /// <summary>Where its field builds are counted, or null.</summary>
+    public NavBuildTally? Tally { get; set; }
+
     /// <summary>(Re)builds the field: at the start, and when the obstacles change.</summary>
     public void Rebuild()
     {
         _builds++;
+        Tally?.Note();
         _builtOver = _obstacles.Cells;
         _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null, At);
     }
@@ -172,20 +197,6 @@ public sealed class NavFollower
 
     /// <summary>How many times a field was built again for a thing learned to be on its way.</summary>
     public long Replans { get; private set; }
-
-    /// <summary>
-    /// The first build, on a worker (§2.7's flow-field job): from
-    /// <paramref name="from"/> over <paramref name="obstacles"/> as they stood
-    /// when it was asked. The main thread does not touch the follower until it
-    /// is done.
-    /// </summary>
-    public void BuildFrom(CellId from, NavObstacleState obstacles)
-    {
-        _builds++;
-        At = from;
-        _builtOver = obstacles.Cells;
-        _field.Build(_graph, Objective, Class, obstacles, null, from);
-    }
 
     /// <summary>Field builds so far, for the cost counters.</summary>
     public int Builds => _builds;
@@ -568,7 +579,7 @@ public sealed class NavFollower
     /// it steers by, then the field's cells from the corridor's end on to the
     /// objective, a straight run of them as its two ends. Empty when that move
     /// had no way: arrived, off the graph, no route. Read on the main thread,
-    /// which is the only one that moves this follower once it is driving.
+    /// or a lane's step, which moves this follower once it is driving and never both.
     /// </summary>
     public void Route(List<AiVector> into)
     {

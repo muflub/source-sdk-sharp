@@ -13,88 +13,30 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Soundscapes;
 
 /// <summary>
-/// The arguments a stock CCommand would have split <paramref name="args"/>
-/// into: whitespace-separated, a double-quoted run kept whole.
-/// </summary>
-internal static class SoundscapeArgs
-{
-    public static string[] Split(string args)
-    {
-        var parts = new System.Collections.Generic.List<string>();
-        int i = 0;
-        while (i < args.Length)
-        {
-            while (i < args.Length && char.IsWhiteSpace(args[i]))
-                i++;
-            if (i >= args.Length)
-                break;
-
-            if (args[i] == '"')
-            {
-                int end = args.IndexOf('"', i + 1);
-                if (end < 0)
-                    end = args.Length;
-                parts.Add(args[(i + 1)..end]);
-                i = end + 1;
-            }
-            else
-            {
-                int start = i;
-                while (i < args.Length && !char.IsWhiteSpace(args[i]))
-                    i++;
-                parts.Add(args[start..i]);
-            }
-        }
-
-        return parts.ToArray();
-    }
-}
-
-/// <summary>
 /// <c>playsoundscape name [radius]</c>: force a soundscape (stock's
 /// <c>DEFAULT_SOUND_RADIUS</c> 36 when no radius is given); with no name,
-/// report the current one. Stock's name completion is not carried
-/// (docs/absence-client.md).
+/// report the current one. The name completes as stock's did, from the parsed soundscapes.
 /// </summary>
 [ConCommand("playsoundscape", Help = "Forces a soundscape to play", Flags = ConVarFlags.Cheat)]
-public sealed class PlaySoundscapeCommand(ClientSoundscapes soundscapes) : IConCommand
+public sealed class PlaySoundscapeCommand(ClientSoundscapes soundscapes)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Names()
+        => Enumerable.Range(0, soundscapes.Library.Count).Select(i => soundscapes.Library.ByIndex(i)!.Name);
+
+    public void Execute([Complete(From = nameof(Names))] string? name = null, float radius = ClientSoundscapes.DefaultSoundRadius)
     {
-        string[] argv = SoundscapeArgs.Split(args);
-        if (argv.Length < 1)
-        {
+        if (name is null)
             soundscapes.DevReportSoundscapeName(soundscapes.CurrentSoundscape);
-            return;
-        }
-
-        float radius = argv.Length > 1
-            ? (float)Atof(argv[1])
-            : ClientSoundscapes.DefaultSoundRadius;
-        soundscapes.Force(argv[0], radius);
-    }
-
-    // atof: the leading number, 0 for none.
-    private static double Atof(string s)
-    {
-        int end = 0;
-        while (end < s.Length && (char.IsAsciiDigit(s[end]) || s[end] is '.' or '-' or '+' or 'e' or 'E'))
-            end++;
-        for (; end > 0; end--)
-        {
-            if (double.TryParse(s[..end], NumberStyles.Float, CultureInfo.InvariantCulture, out double v))
-                return v;
-        }
-
-        return 0;
+        else
+            soundscapes.Force(name, radius);
     }
 }
 
 /// <summary><c>stopsoundscape</c>: stop all soundscape processing and fade the loops.</summary>
 [ConCommand("stopsoundscape", Help = "Stops all soundscape processing and fades current looping sounds", Flags = ConVarFlags.Cheat)]
-public sealed class StopSoundscapeCommand(ClientSoundscapes soundscapes) : IConCommand
+public sealed class StopSoundscapeCommand(ClientSoundscapes soundscapes)
 {
-    public void Execute(string args) => soundscapes.Stop();
+    public void Execute() => soundscapes.Stop();
 }
 
 /// <summary>
@@ -104,16 +46,16 @@ public sealed class StopSoundscapeCommand(ClientSoundscapes soundscapes) : IConC
 /// </summary>
 [ConCommand("cl_soundscape_flush", Help = "Flushes the client side soundscapes",
             Flags = ConVarFlags.ServerCanExecute | ConVarFlags.Cheat)]
-public sealed class SoundscapeFlushCommand(ClientSoundscapes soundscapes, ClientSoundscapeDriver driver) : IConCommand
+public sealed class SoundscapeFlushCommand(ClientSoundscapes soundscapes, ClientSoundscapeDriver driver)
 {
-    public void Execute(string args) => soundscapes.Flush(driver.Load(driver.MapName));
+    public void Execute() => soundscapes.Flush(driver.Load(driver.MapName));
 }
 
 /// <summary><c>cl_soundscape_printdebuginfo</c>: every soundscape by index, the forced one and the current one.</summary>
 [ConCommand("cl_soundscape_printdebuginfo", Help = "print soundscapes")]
-public sealed class SoundscapePrintDebugInfoClientCommand(ClientSoundscapes soundscapes, IEngineConsole console) : IConCommand
+public sealed class SoundscapePrintDebugInfoClientCommand(ClientSoundscapes soundscapes, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         var library = soundscapes.Library;
         var text = new System.Text.StringBuilder("\n------- CLIENT SOUNDSCAPES -------\n");
@@ -136,9 +78,9 @@ public sealed class SoundscapePrintDebugInfoClientCommand(ClientSoundscapes soun
 /// </summary>
 [ConCommand("cs_cl_soundscape_report",
             Help = "plan_entity.md 7e: how many soundscapes are parsed, which one is current, how many of its sounds are running, and whether anything has ever pushed one")]
-public sealed class SoundscapeReportClientCommand(ClientSoundscapes soundscapes, IEngineConsole console) : IConCommand
+public sealed class SoundscapeReportClientCommand(ClientSoundscapes soundscapes, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         int current = soundscapes.CurrentSoundscape;
         string name = soundscapes.Library.NameByIndex(current) ?? "none";

@@ -149,7 +149,7 @@ public sealed class WeaponCatalog
     private Built Table => _built ??= Build();
 
     /// <summary>Every row, in index order: the table itself.</summary>
-    public IReadOnlyList<WeaponType> All => Table.Rows;
+    public IReadOnlyList<WeaponType> All => Table.List;
 
     /// <summary>How many weapons this side has, core and mods together.</summary>
     public int Count => Table.Rows.Length;
@@ -218,7 +218,11 @@ public sealed class WeaponCatalog
     }
 
     /// <summary>The rows and their classname index, materialised on first read.</summary>
-    private readonly record struct Built(ImmutableArray<WeaponType> Rows, Dictionary<string, int> ByName);
+    private readonly record struct Built(ImmutableArray<WeaponType> Rows, Dictionary<string, int> ByName)
+    {
+        /// <summary><see cref="Rows"/> boxed the once: reading it as a list otherwise boxes per read.</summary>
+        public IReadOnlyList<WeaponType> List { get; } = Rows;
+    }
 }
 
 /// <summary>
@@ -246,7 +250,7 @@ public sealed class AmmoCatalog
     private Built Table => _built ??= Build();
 
     /// <summary>Every row, in index order.</summary>
-    public IReadOnlyList<AmmoType> All => Table.Rows;
+    public IReadOnlyList<AmmoType> All => Table.List;
 
     /// <summary>How many pools this side has, core and mods together.</summary>
     public int Count => Table.Rows.Length;
@@ -310,5 +314,9 @@ public sealed class AmmoCatalog
     }
 
     /// <summary>The rows and their name index, materialised on first read.</summary>
-    private readonly record struct Built(ImmutableArray<AmmoType> Rows, Dictionary<string, int> ByName);
+    private readonly record struct Built(ImmutableArray<AmmoType> Rows, Dictionary<string, int> ByName)
+    {
+        /// <summary><see cref="Rows"/> boxed the once: reading it as a list otherwise boxes per read.</summary>
+        public IReadOnlyList<AmmoType> List { get; } = Rows;
+    }
 }

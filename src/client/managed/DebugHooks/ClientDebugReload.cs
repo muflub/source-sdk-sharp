@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using Debug.Api.Client.Interfaces;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client;
 
@@ -8,7 +9,7 @@ namespace SourceSharp.Client;
 /// (plan_client_novalve §3.8, §4.4). The trigger is a write: it answers only
 /// with sv_cheats on, and says so otherwise.
 /// </summary>
-public sealed class ClientDebugReload(ClientReloadLedger ledger, ClientReloadRequester requester, IEngineConsole console,
+public sealed class ClientDebugReload(ClientReloadLedger ledger, ClientReloadRequester requester, SvCheatsConVar cheats,
                                      Vgui.UiLoader? ui = null)
     : IDebugClientReload
 {
@@ -30,7 +31,7 @@ public sealed class ClientDebugReload(ClientReloadLedger ledger, ClientReloadReq
 
     public DebugClientReloadRequest Trigger()
     {
-        if (console.FindConVarValue("sv_cheats") is not "1")
+        if (!cheats.Value)
             return new DebugClientReloadRequest(false, "a write: needs sv_cheats 1", ledger.Sequence);
 
         if (requester.Pending)

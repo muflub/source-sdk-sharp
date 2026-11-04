@@ -124,7 +124,7 @@ public class GameModeDefaultsTests
             ConVars.RegisterAll(typeof(GameRules).Assembly);   // the modes' convars
 
             Observers = new Observers(Log, Registry, Engine, Engine, Engine, Engine,
-                                      Engine, Engine, Engine, ConVars, Listeners);
+                                      Engine, Engine, Engine, ConVars.Declare<ForceCameraConVar>(), ConVars.Declare<AllowSpectatorsConVar>(), Listeners);
         }
 
         /// <summary>
@@ -146,7 +146,7 @@ public class GameModeDefaultsTests
         {
             Services.AddInstance(mode.GetType(), mode);
             Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(new Selector(mode.Id)));
-            return new GameModes(Log, Engine, Services, ConVars);
+            return new GameModes(Log, Engine, Services, ConVars.Declare<SvModeSwitchWarmupConVar>(), ConVars.Declare<MpWaitingForPlayersTimeConVar>());
         }
 
         /// <summary>Teams over the same container, the owners registered as the scan registers them.</summary>

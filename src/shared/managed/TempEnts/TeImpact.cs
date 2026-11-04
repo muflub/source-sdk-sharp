@@ -53,7 +53,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeImpact : TeBaseTempEntity
+public partial class TeImpact : TeBaseTempEntity
 {
     /// <summary>Where it hit.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

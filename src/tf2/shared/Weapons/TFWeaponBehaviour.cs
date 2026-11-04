@@ -78,7 +78,7 @@ namespace TF2.Shared;
 /// single-shell weapon fires rapid-fire crits, so the two never share a field.
 /// </para>
 /// </summary>
-public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
+public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes = null) : IWeaponBehaviour
 {
     /// <summary><see cref="WeaponNetState.BehaviourMode"/>'s single-shell-reload bit.</summary>
     public const int ModeReloadingSingly = 1;
@@ -104,6 +104,9 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
     protected const int ModeKindShift = 8;
 
     protected TFWeaponParts Parts { get; } = parts ?? throw new ArgumentNullException(nameof(parts));
+
+    /// <summary>The item attribute reads the charge meter asks through; the composition's own, else the bare chain.</summary>
+    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
 
     /// <summary>The script behind a row, or null for a row without one (it then behaves as stock).</summary>
     protected TFWeaponScript? ScriptOf(in WeaponType type) => Parts.Scripts.Get(type.Name);
@@ -139,6 +142,34 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
 
     public virtual float ModifyReloadTime(in WeaponType type, float duration, int ownerIndex) =>
         ScriptOf(in type) is { } script ? Parts.Hooks.ModifyReloadTime(ContextFor(in type, script, ownerIndex), duration) : duration;
+
+    /// <summary>
+    /// Stock's <c>CTFWeaponBase::Deploy</c> multiplier (<c>tf_weaponbase.cpp:1255-</c>),
+    /// asked where a side writes the deploy clocks. The outgoing weapon's item is
+    /// the carrier's word under its name, the same door
+    /// <see cref="ModifyClipSize"/> asks the incoming one through; the hold of a
+    /// weapon never named is nobody's, as an unheld slot has no stamp.
+    /// </summary>
+    public virtual float ModifyDeployTime(in WeaponType type, float duration, int ownerIndex, string previousWeapon,
+                                          float secondsSincePreviousDeploy) =>
+        ScriptOf(in type) is { } script
+            ? Parts.Hooks.ModifyDeployTime(
+                ContextFor(in type, script, ownerIndex) with
+                {
+                    PreviousItem = ownerIndex > 0 ? Parts.Owners.ItemOf(ownerIndex, previousWeapon) : null,
+                    SecondsSincePreviousDeploy = secondsSincePreviousDeploy,
+                },
+                duration)
+            : duration;
+
+    /// <summary>
+    /// The fired shot's pellets through the chain — stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> over the loop's count
+    /// (<c>tf_fx_shared.cpp:305</c>), asked once per attack before the volley's
+    /// multiplication.
+    /// </summary>
+    public virtual int ModifyPellets(in WeaponAttackContext attack, int pellets) =>
+        ScriptOf(attack.Type) is { } script ? Parts.Hooks.ModifyPellets(Context(in attack, script), pellets) : pellets;
 
     /// <summary>Stock's base <c>SendWeaponAnim</c>: every send restarts the anim.</summary>
     public virtual bool AnimContinuesOnResend(in WeaponAttackContext attack, WeaponAnim anim) => false;
@@ -317,7 +348,12 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
             || (TFWeaponDamageTypes.Of(script.Id) & DamageType.Buckshot) == 0)
             return null;
 
-        return pellets >= WidePelletCount ? WidePattern : NarrowPattern;
+        // The wide/narrow pick compares the scaled count: stock applies
+        // mult_bullets_per_shot before the loop (:305) and tests the scaled
+        // value inside it (:317); the gate above reads the row's own count,
+        // as stock's bFixedSpread line (:302) computes it before the hook.
+        int scaled = Parts.Hooks.ModifyPellets(Context(in attack, script), pellets);
+        return scaled >= WidePelletCount ? WidePattern : NarrowPattern;
     }
 
     /// <summary>
@@ -493,7 +529,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
         var weapon = attack.Weapon;
         var mode = script.Primary;
 
-        if (TFWeaponKinds.ReloadsSingly(script.Id))
+        if (ReloadsSinglyFor(in attack, script))
         {
             StartReloadSingly(in attack, script);
             return;
@@ -517,6 +553,18 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
         if (anim > 0f)
             attack.ViewModel.PlaybackRate = anim / reload;
     }
+
+    /// <summary>
+    /// Whether this reload loads one shell at a time: the kind's own answer
+    /// (the constructor's <c>m_bReloadsSingly</c>,
+    /// <c>tf_weapon_shotgun.cpp:68</c>), with the item's
+    /// <c>set_scattergun_no_reload_single</c> turning the gun's own member off
+    /// before the base's reload runs — stock's hook sits at the same decision
+    /// point (<c>CTFScatterGun::Reload</c>, :299-309), read every reload alike
+    /// on a live run and a replay's.
+    /// </summary>
+    private bool ReloadsSinglyFor(in WeaponAttackContext attack, TFWeaponScript script) =>
+        TFWeaponKinds.ReloadsSingly(script.Id) && !Parts.Hooks.ReloadsWithWholeClip(Context(in attack, script));
 
     /// <summary>
     /// One of the reload's script clocks through the chain — stock's
@@ -547,14 +595,30 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
             Parts.Effects.ClassSpecialSkill(in attack);
         }
 
+        // The carried item's charge meter: stock fills it once a frame from
+        // CTFPlayer::ItemPostFrame (CTFPlayerShared::UpdateItemChargeMeters,
+        // tf_player_shared.cpp:7870-7904); ours runs here, the machine's tail,
+        // so the replay pays the same dt — the command's own span off the
+        // stamp in the blob (WeaponNetState.ItemMeterTime), one clock on both
+        // sides. A span outside a command interval (the first command over a
+        // stamp older than the break) pays nothing, as the medigun's
+        // predicted charge does. An item with no charge attribute answers its
+        // base rates and the bar stands, stock's skip (:7886-7887).
+        float meterDt = attack.Now - weapon.ItemMeterTime;
+        weapon.ItemMeterTime = attack.Now;
+        if (meterDt is >= 0f and <= 1f)
+            TFItemMeter.Tick(weapon, meterDt, _attributes, Parts.Owners, attack.Command.OwnerIndex, attack.Type.Name);
+
         if (ScriptOf(attack.Type) is not { } script)
             return;
 
         if ((weapon.BehaviourMode & ModeReloadingSingly) != 0)
             ReloadSinglyFrame(in attack, script);
         // The machine's empty-click reload starts without asking Reload: a
-        // single-shell weapon takes it over from its first frame.
-        else if (weapon.InReload && TFWeaponKinds.ReloadsSingly(script.Id))
+        // single-shell weapon takes it over from its first frame, and the
+        // item's no_reload_single holds it back to the machine's whole-clip
+        // finish exactly as it held back Reload's own arm.
+        else if (weapon.InReload && ReloadsSinglyFor(in attack, script))
             StartReloadSingly(in attack, script);
 
         if (!HoldsAiming(in attack))

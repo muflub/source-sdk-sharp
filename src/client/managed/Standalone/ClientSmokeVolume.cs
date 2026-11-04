@@ -34,7 +34,7 @@ public sealed class ClientSmokeVolume : ClientStandaloneEntity, IManagedParticle
 {
     public ClientSmokeVolume(IEngineEntityRender render, IClientParticleExecutor executor, IEngineWorldQuery world,
                              IEngineEntities entities, IClientWorldLight light, IClientPlaneTrace trace,
-                             IEngineConsole console, IRandomSeeds seeds)
+                             MatReduceParticlesConVar reduceParticles, IRandomSeeds seeds)
         : base(render)
     {
         _executor = executor;
@@ -42,7 +42,7 @@ public sealed class ClientSmokeVolume : ClientStandaloneEntity, IManagedParticle
         _entities = entities;
         _light = light;
         _trace = trace;
-        _console = console;
+        _reduceParticles = reduceParticles;
         _random = new ParticleStream(seeds.Next());
     }
 
@@ -51,7 +51,7 @@ public sealed class ClientSmokeVolume : ClientStandaloneEntity, IManagedParticle
     private readonly IEngineEntities _entities;
     private readonly IClientWorldLight _light;
     private readonly IClientPlaneTrace _trace;
-    private readonly IEngineConsole _console;
+    private readonly MatReduceParticlesConVar _reduceParticles;
     private readonly IParticleRandom _random;
     private readonly SmokeVolumeSim _sim = new();
     private bool _created;
@@ -71,10 +71,7 @@ public sealed class ClientSmokeVolume : ClientStandaloneEntity, IManagedParticle
     /// <summary>The simulation, for the report and the tests.</summary>
     public SmokeVolumeSim Sim => _sim;
 
-    /// <summary>mat_reduceparticles is the engine's convar; read by name as stock's ConVarRef did.</summary>
-    private bool ReduceParticles
-        => float.TryParse(_console.FindConVarValue("mat_reduceparticles"), System.Globalization.NumberStyles.Float,
-                          System.Globalization.CultureInfo.InvariantCulture, out float v) && (int)v != 0;
+    private bool ReduceParticles => _reduceParticles.Value;
 
     /// <summary>
     /// Stock's SourceSharp_UpdateSmokeVolume: the members on every update, the

@@ -81,23 +81,13 @@ public sealed class TFHolidayTests
 
     private static readonly DateTime Birthday = new(2026, 8, 24, 12, 0, 0, DateTimeKind.Local);
 
-    private static IEngineConsole With(params (string Name, string Value)[] entries)
-        => new ConsoleFake(entries.ToDictionary(e => e.Name, e => e.Value));
-
-    /// <summary>The engine's console, as a name table.</summary>
-    private sealed class ConsoleFake(Dictionary<string, string> values) : IEngineConsole
+    private static TFHolidaySwitches With(params (string Name, string Value)[] entries)
     {
-        public void ExecuteServerCommand(string command) => throw new NotSupportedException();
-        public string? FindConVarValue(string name) => values.GetValueOrDefault(name);
-        public string GetConVarValue(int id) => throw new NotSupportedException();
-        public void Msg(string message) { }
-        public int RegisterConCommand(string name, string help, ConVarFlags flags) => throw new NotSupportedException();
-        public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null) => throw new NotSupportedException();
-        public void SendClientCommand(EntityHandle player, string command) => throw new NotSupportedException();
-        public void SetConVarValue(int id, string value) => throw new NotSupportedException();
-        public void SetConVarValueByName(string name, string value) => throw new NotSupportedException();
-        public int Snapshot() => 0;
-        public bool SnapshotEntry(int index, out NativeConsoleEntry entry) { entry = default; return false; }
-        public void Warning(string message) { }
+        var values = entries.ToDictionary(e => e.Name, e => e.Value);
+        return new TFHolidaySwitches(values.GetValueOrDefault("tf_birthday") == "1", values.GetValueOrDefault("tf_force_holidays_off") == "1",
+                                     int.Parse(values.GetValueOrDefault("tf_forced_holiday", "0"), System.Globalization.CultureInfo.InvariantCulture),
+                                     int.Parse(values.GetValueOrDefault("tf_item_based_forced_holiday", "0"), System.Globalization.CultureInfo.InvariantCulture));
     }
+
+
 }

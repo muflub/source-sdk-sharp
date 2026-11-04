@@ -104,7 +104,7 @@ public class DevCommandsTests
 
         _netState = new FakeNetState();
 
-        var context = new DevContext(engine, engine, engine, engine, giver, directory, new EntityFactories(), engine, new RecordingLog())
+        var context = new DevContext(engine, engine, engine, engine, giver, directory, new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => cheats,
             SinglePlayer = () => singlePlayer,
@@ -152,7 +152,15 @@ public class DevCommandsTests
 
     /// <summary>One command, built and run the way the console runs it.</summary>
     private static void Run<T>(DevContext context, string args = "") where T : DevCommand
-        => Build(typeof(T), context).Execute(args);
+        => Build(typeof(T), context).RunLine(args, context.Log.Msg);
+
+    /// <summary>A line that fits the command's parameters, so a gate is what stops it rather than the binding.</summary>
+    private static string FittingLine(Type type)
+        => string.Join(' ', ConCommandBinding.MethodOf(type)!.GetParameters()
+            .Where(p => !p.IsOptional && !p.IsDefined(typeof(ParamArrayAttribute), false))
+            .Select(p => p.ParameterType == typeof(Vector) ? "1 1 1"
+                       : p.ParameterType == typeof(string) ? "word"
+                       : "1"));
 
     /// <summary>Stubs the reads Describe makes about an entity.</summary>
     private static RecordingEngine Describable(RecordingEngine engine, string className = "prop_physics")
@@ -161,48 +169,6 @@ public class DevCommandsTests
                  .Returns("Entities.GetClassName", className)
                  .Returns("Entities.GetIndex", 11)
                  .Returns("Players.GetTeam", 0);   // the team line (tf2 stage 0.5)
-
-    //-------------------------------------------------------------------------
-    // The tokeniser. A dispatch hands managed code CCommand::ArgS — the
-    // untouched argument text, quotes and all — so this is where an argument
-    // with a space in it survives or is lost.
-    //-------------------------------------------------------------------------
-
-    [Fact]
-    public void APlainLineSplitsIntoItsWords()
-    {
-        Assert.True(CommandTokens.Split("ent_create prop_physics").SequenceEqual(
-                        new[] { "ent_create", "prop_physics" }),
-                    "a plain line splits on spaces");
-
-        Assert.True(CommandTokens.Split("   ent_create    prop_physics  ").SequenceEqual(
-                        new[] { "ent_create", "prop_physics" }),
-                    "and runs of whitespace are one separator, as the engine's tokeniser has it");
-    }
-
-    [Fact]
-    public void AQuotedArgumentStaysOneWord()
-    {
-        Assert.True(CommandTokens.Split("ent_keyvalue door rendercolor \"255 0 0\"").SequenceEqual(
-                        new[] { "ent_keyvalue", "door", "rendercolor", "255 0 0" }),
-                    "a quoted colour is ONE argument — the naive space split that used to " +
-                    "stand here turned it into three and set rendercolor to '255'");
-
-        Assert.True(CommandTokens.Split("setmodel \"models/my model.mdl").SequenceEqual(
-                        new[] { "setmodel", "models/my model.mdl" }),
-                    "an unterminated quote runs to the end of the line rather than " +
-                    "discarding the argument, which is what CCommand::Tokenize does");
-
-        Assert.True(CommandTokens.Split("ent_keyvalue door message \"\"").SequenceEqual(
-                        new[] { "ent_keyvalue", "door", "message", "" }),
-                    "and \"\" is an EMPTY argument, not an absent one — clearing a keyvalue " +
-                    "is a thing a person means");
-    }
-
-    [Fact]
-    public void TabsAndNewlinesSeparateWordsToo()
-        => Assert.True(CommandTokens.Split("give\tar2\n").SequenceEqual(new[] { "give", "ar2" }),
-                       "a line pasted from a config is still a line");
 
     //-------------------------------------------------------------------------
     // The sv_cheats gate. Wrong twice in a week: once too early, once absent.
@@ -235,7 +201,7 @@ public class DevCommandsTests
                 continue;
 
             var (context, engine, _, _) = Rig(cheats: false);
-            Build(type, context).Execute("");
+            Build(type, context).RunLine(FittingLine(type));
 
             Assert.True(engine.Calls.Count == 0, $"{verb} touched the engine with cheats off");
         }
@@ -1398,7 +1364,7 @@ public class DevCommandsTests
         // reader could change.
         var (context, _, giver, _) = Rig(cheats: false);
         context.SinglePlayer = new DevContext(Fake(), Fake(), Fake(), Fake(), giver,
-                                              new FakeDirectory(), new EntityFactories(), Fake(), new RecordingLog()).SinglePlayer;
+                                              new FakeDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog()).SinglePlayer;
 
         Assert.True(!context.SinglePlayer(),
                     "an access question nobody can answer is a NO, the same direction " +
@@ -1858,7 +1824,7 @@ public class DevCommandsTests
         var services = new ServiceContainer();
         var engine = Fake();
         services.AddInstance(new DevContext(engine, engine, engine, engine,
-                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), engine, new RecordingLog()));
+                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog()));
         services.AddInstance<INetState>(new FakeNetState());
 
         // bloodspray's dependency, and playentitysound's. The game's container
@@ -1903,7 +1869,7 @@ services.AddInstance<ILog>(new RecordingLog());
         // god and buddha are registrations over a rule that already existed;
         // the toggles are DamageCheats' and are in the game's container
         // (ServerModule adds the instance beside the arsenal decorator).
-        services.AddInstance(new DamageCheats(new RecordingLog(), new FakeDirectory(), Fake().Ignores("Console.FindConVarValue")));
+        services.AddInstance(new DamageCheats(new RecordingLog(), new FakeDirectory(), DeclaredConVars.Fresh<SvCheatsConVar>()));
         services.AddInstance<IEnginePlayers>(engine);
 
         var registry = new ConCommandRegistry();
@@ -1920,12 +1886,21 @@ services.AddInstance<ILog>(new RecordingLog());
     }
 
     [Fact]
+    public void GiveCompletesWhatTheGameHasByName()
+    {
+        var (context, _, _, _) = Rig();
+        string weapon = WeaponTypes.All[0].Name;
+
+        Assert.Contains($"give {weapon}", Build(typeof(GiveCommand), context).SuggestFor(weapon[..4]));
+    }
+
+    [Fact]
     public void TheVerbIsMatchedWhateverCaseItIsTypedIn()
     {
         var services = new ServiceContainer();
         var engine = Fake();
         services.AddInstance(new DevContext(engine, engine, engine, engine,
-                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), engine, new RecordingLog()));
+                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog()));
         services.AddInstance<INetState>(new FakeNetState());
 
         // bloodspray's dependency. The game's container has every engine area
@@ -1936,7 +1911,7 @@ services.AddInstance<ILog>(new RecordingLog());
         var registry = new ConCommandRegistry();
         registry.RegisterAll(typeof(DevConsole).Assembly, TestServices.UnattachedConsole(), services);
 
-        Assert.True(registry.ByName("GIVE") is GiveCommand,
+        Assert.True(registry.ByName("GIVE") is not null && registry.DeclaredType("GIVE") == typeof(GiveCommand),
                     "a console does not care about case, and neither does the registry it feeds");
     }
 

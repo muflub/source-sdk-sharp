@@ -112,7 +112,7 @@ public sealed class TFLoadoutUi(IFwdEngineClient console, IEngineNetworking netw
             itemName = localiser.Find(itemName) ?? itemName;
 
         return (TFItemStrings.PrefixedName(itemName, qualityWord, australium),
-                def.Keys.GetString("image_inventory", "") ?? "");
+                def.InventoryImage);
     }
 
     /// <summary>Stock's own display strings (tf_item_schema.cpp:1543-1569):

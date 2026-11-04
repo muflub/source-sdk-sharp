@@ -259,8 +259,7 @@ public sealed partial class ClientInput
     private float MPitch()
     {
         float baseValue = _cvars.MPitch.Float;
-        string? cheats = _host.EngineConVar("sv_cheats");
-        if (cheats is null || (int)(float)CRuntime.Atof(cheats) != 0)
+        if (!_cheats.HasValue || _cheats.Value)
             return baseValue;
         return baseValue > 0 ? 0.022f : -0.022f;
     }

@@ -80,17 +80,17 @@ internal sealed class MedigunRig
         Engine.Returns("Players.GetActiveWeapon", "tf_weapon_medigun");
         Engine.WhenCalled("Entities.SetHealth", c => healths[c.ArgAs<EntityHandle>(0).EntryIndex] = c.ArgAs<int>(1));
         Healing = new TFPlayerHealing(Engine, Engine, Conditions, Resupply,
-                                      ConVars.Get<TFMaxHealthBoostConVar>()!, ConVars.Get<TFBoostDrainTimeConVar>()!,
-                                      ConVars.Get<TFInvulnTimeConVar>()!, new FakeClock(),
+                                      ConVars.Declared<TFMaxHealthBoostConVar>(), ConVars.Declared<TFBoostDrainTimeConVar>(),
+                                      ConVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
                                       Stats, Records, Events, Ctf, Data, Owners);
     }
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon
     /// reports its release to the healing, which holds the answer the recalc reads.</summary>
     public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null)
-        => new(Engine, Engine, Engine, Healing, Conditions, Resupply, ConVars.Get<TFInvulnTimeConVar>()!,
-               ConVars.Get<WeaponMedigunChargeRateConVar>()!, Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup,
-               ConVars.Get<TFMedigunLagCompConVar>()!, lag);
+        => new(Engine, Engine, Engine, Healing, Conditions, Resupply, ConVars.Declared<TFInvulnTimeConVar>(),
+               ConVars.Declared<WeaponMedigunChargeRateConVar>(), Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup,
+               ConVars.Declared<TFMedigunLagCompConVar>(), lag);
 
     public void QueueHit(EntityHandle hit) => TraceQueue.Add(new TraceResult(true, 1f, default, default, hit));
     public void QueueMiss() => TraceQueue.Add(new TraceResult(false, 1f, default, default, default));
@@ -120,7 +120,7 @@ internal sealed class MedigunRig
         => Records.Note(victim, new TFHitRecord(HandleFor(9), 10f, (DamageType)0, (TFCritType)0,
                                                 (TFDamageCustom)0, (TFWeaponId)0, "tf_weapon_rocketlauncher", time), damager: true);
 
-    public void Set<T>(string value) where T : ConVarBase => ConVars.Get<T>()!.Bind(-1, ConVars.Get<T>()!.Name, value);
+    public void Set<T>(string value) where T : ConVarBase => ConVars.Declared<T>().Bind(-1, ConVars.Declared<T>().Name, value);
 
     /// <summary>The last call recorded to the engine — the fake's argument reader, the CombatRig pattern.</summary>
     private object?[] Args() => Engine.Calls[^1].Args;

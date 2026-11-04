@@ -15,7 +15,6 @@
 #include "tier1/convar.h"
 
 #include "ishim_areas_client.h"
-#include "managed_convar_ref.h"
 #include "shell_managed_areas_client.h"
 
 class CStandaloneClients;
@@ -45,9 +44,6 @@ public:
 	int32_t PrecipitationScreenWidth() override;
 
 private:
-	// default_fov, for the player's read.
-	CManagedConVarRef m_DefaultFov{"default_fov"};
-
 	const CClientEngineInterfaces& m_Engines;
 	CStandaloneClients& m_Standalone;
 };

@@ -8,11 +8,13 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed class TempEntType
 {
-    internal TempEntType(TeClass declaration, int handle, IReadOnlyDictionary<string, TeField> fields, ILog log)
+    internal TempEntType(TeClass declaration, int handle, IReadOnlyDictionary<string, TeField> fields,
+                         TeField[] slots, ILog log)
     {
         Class  = declaration;
         Handle = handle;
         Fields = fields;
+        Slots  = slots;
         Log    = log;
     }
 
@@ -40,6 +42,14 @@ public sealed class TempEntType
     /// </para>
     /// </summary>
     public IReadOnlyDictionary<string, TeField> Fields { get; }
+
+    /// <summary>
+    /// The same fields, flat, in the order the blob has them: the base chain's root first,
+    /// each table's fields in declaration order, a Color32 as its four props, and a nested
+    /// table's prop followed by the nested table's own fields. A declaration's generated read
+    /// and write address these by position, so a temp entity per bullet impact hashes no name.
+    /// </summary>
+    internal TeField[] Slots { get; }
 
     public int BlobBytes => Class.BlobBytes;
 
@@ -308,6 +318,7 @@ public sealed class TempEntRegistry
         // Every field this class's blob holds: the base chain's first, in the
         // order the wire has them, then its own.
         var fields = new Dictionary<string, TeField>(StringComparer.Ordinal);
+        var slots  = new List<TeField>();
         var chain  = new List<TeClass>();
 
         for (TeClass? at = declaration; at is not null; )
@@ -321,9 +332,11 @@ public sealed class TempEntRegistry
         }
 
         for (int i = chain.Count - 1; i >= 0; i--)
-            AddFieldsOf(chain[i], 0, fields, built, 0);
+            AddFieldsOf(chain[i], 0, fields, slots, built, 0);
 
-        var type = new TempEntType(declaration, handle, fields, _log);
+        CheckGenerated(declaration, slots);
+
+        var type = new TempEntType(declaration, handle, fields, slots.ToArray(), _log);
 
         _byClassName[declaration.ClassName] = type;
         _inOrder.Add(type);
@@ -342,6 +355,31 @@ public sealed class TempEntRegistry
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Refuses, at startup and loudly, a declaration whose generated read and write address a
+    /// different field list from the schema's: a generated position is an index into
+    /// <see cref="TempEntType.Slots"/>, so a disagreement here would put every value in the
+    /// wrong field, with nothing to say so in a frame.
+    /// </summary>
+    private static void CheckGenerated(TeClass declaration, List<TeField> slots)
+    {
+        var generated = declaration.Declaring.GetCustomAttribute<TeGeneratedAttribute>()
+            ?? throw new InvalidOperationException(
+                $"temp entity '{declaration.ClassName}' ({declaration.Declaring.FullName}) has no generated " +
+                "read and write: the assembly declaring it must take SourceSharp.Generators as an analyzer");
+
+        if (generated.ClassName != declaration.ClassName)
+            throw new InvalidOperationException(
+                $"temp entity {declaration.Declaring.FullName}: the generator says it pairs on " +
+                $"'{generated.ClassName}' and the schema on '{declaration.ClassName}'");
+
+        if (!generated.Slots.SequenceEqual(slots.Select(s => s.Name), StringComparer.Ordinal))
+            throw new InvalidOperationException(
+                $"temp entity '{declaration.ClassName}': the generated read and write address " +
+                $"[{string.Join(", ", generated.Slots)}], the schema lays out " +
+                $"[{string.Join(", ", slots.Select(s => s.Name))}]");
     }
 
     /// <summary>
@@ -364,7 +402,7 @@ public sealed class TempEntRegistry
     /// </para>
     /// </summary>
     private static void AddFieldsOf(TeClass declaration, int shift,
-                                    Dictionary<string, TeField> into,
+                                    Dictionary<string, TeField> into, List<TeField> slots,
                                     Dictionary<string, TeClass> built, int depth)
     {
         if (depth > 8)
@@ -375,12 +413,13 @@ public sealed class TempEntRegistry
             TeField placed = shift == 0 ? f : f with { Offset = f.Offset + shift };
 
             into[placed.Name] = placed;
+            slots.Add(placed);
 
             if (f.Kind != TePropKind.DataTable || f.SubTable is null)
                 continue;
 
             if (built.TryGetValue(f.SubTable, out TeClass? nested))
-                AddFieldsOf(nested, placed.Offset, into, built, depth + 1);
+                AddFieldsOf(nested, placed.Offset, into, slots, built, depth + 1);
         }
     }
 

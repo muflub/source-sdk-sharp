@@ -27,6 +27,9 @@
 #       the same definitions (§3.4.5): stuck, wall bump, decision flips,
 #       in-sight not firing by leaf, strafe interval, yaw reversals, idle; the
 #       worst places of each; a headline score with its weights
+#   tools/ai-replay threat <recording.airec>... [--config ..]
+#       per bot, damage and kills a minute against people and everyone, shots and
+#       second triggers a minute by weapon (§12.3, ruling 2026-11-03)
 #   tools/ai-replay style [--skills FILE]
 #       over 500 drawn bots by difficulty: who holds a place, named campers apart,
 #       and what each name's skill does, from the skills file (§10)
@@ -42,6 +45,22 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet="${DOTNET:-$HOME/.dotnet/dotnet}"
 verb="${1:-}"
+# Bot chat's measures (plan_hl2mp_ai §3.6), against the private model of tools/ai-chat-model:
+#   tools/ai-replay chat-truth <out.md>          a hundred questions, graded against the map
+#   tools/ai-replay chat-eval <console.log> <out.md> <lines> <model>...   lines from real kills
+#   tools/ai-replay chat-places                  what every item's place on dm_lockdown reads as
+if [[ "$verb" =~ ^chat-(truth|eval|places)$ ]]; then
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
+  dll="$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll"
+  maps="$root/bin/debug/mods/test/maps"
+  scripts="$root/game/mod_test/scripts/ai"
+  url="${AI_CHAT_URL:-http://127.0.0.1:11435}"
+  case "$verb" in
+    chat-truth) exec "$dotnet" "$dll" chat-truth "$url" "$maps/dm_lockdown.nav3d" "$maps/dm_lockdown.bsp" "$scripts/hl2mp_help.json" "$scripts/hl2mp_chat.json" "$2" "${AI_CHAT_MODEL:-llama3.2:3b}" ;;
+    chat-eval) exec "$dotnet" "$dll" chat-eval "$url" "$2" "$scripts/hl2mp_chat.json" "$3" "$4" "${@:5}" ;;
+    chat-places) exec "$dotnet" "$dll" chat-places "$maps/dm_lockdown.nav3d" "$maps/dm_lockdown.bsp" "$scripts/hl2mp_help.json" ;;
+  esac
+fi
 if [[ "$verb" == "hitrates" && -n "${3:-}" ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" hitrates "$(realpath "$2")" "$3"
@@ -65,7 +84,7 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics)$ && -n "${3:-}" ) ]] || { sed -n '2,40p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics)$ && -n "${3:-}" ) ]] || { sed -n '2,40p' "$0"; exit 2; }
 if [[ "$verb" == tactics ]]; then
   map="$2"; shift 2
   config=debug; recs=()
@@ -80,7 +99,7 @@ if [[ "$verb" == tactics ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" tactics "$maps/$map.nav3d" "$maps/$map.bsp" "${recs[@]}"
 fi
-if [[ "$verb" =~ ^(metrics|jank)$ ]]; then
+if [[ "$verb" =~ ^(metrics|jank|threat)$ ]]; then
   shift
   config=debug; recs=()
   while [[ $# -gt 0 ]]; do

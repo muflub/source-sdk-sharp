@@ -132,9 +132,9 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     /// delays a bot's. The observers' sight events go to <paramref name="observed"/>.
     /// </summary>
     public void Run(Tick tick, float tickSeconds, ReadOnlySpan<SensedBot> bots, ReadOnlySpan<SensedActor> actors, List<AiEvent> events,
-                    ReadOnlySpan<SensedBot> observers, List<AiEvent> observed)
+                    ReadOnlySpan<SensedBot> observers, List<AiEvent> observed, MainThreadBudget? budget = null)
     {
-        Run(tick, tickSeconds, bots, actors, events);
+        Run(tick, tickSeconds, bots, actors, events, budget);
         foreach (SensedBot o in observers)
         {
             if (!_observers.TryGetValue(o.Id.Slot, out BotSight? sight) || sight.Bot != o.Id)
@@ -183,9 +183,21 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     /// One tick: reads every living actor once, runs the stages for every
     /// served bot against every other actor, and appends the sight events
     /// (<c>SightGained</c>, <c>SightLost</c>) to <paramref name="events"/>.
+    ///
+    /// <para>
+    /// Under a <paramref name="budget"/> (user ruling 2026-11-03) a bot whose turn
+    /// does not fit this frame is not looked for this tick: its pairs keep their last
+    /// answer (§4.1's rule for a pair the trace budget did not serve), and it is served
+    /// within <c>ai_budget_wait_ticks</c>. No sight comes of a look not made: a pair
+    /// never traced is never clear. What a held answer can do is what §4.1 allows
+    /// already: a bot sees a target a few ticks late, or holds one a few ticks longer,
+    /// both under the recognition delay. The traces a frame affords may fall below
+    /// <see cref="TracesPerTick"/>, never below what serves each pair within the bound.
+    /// </para>
     /// </summary>
-    public void Run(Tick tick, float tickSeconds, ReadOnlySpan<SensedBot> bots, ReadOnlySpan<SensedActor> actors, List<AiEvent> events)
+    public void Run(Tick tick, float tickSeconds, ReadOnlySpan<SensedBot> bots, ReadOnlySpan<SensedActor> actors, List<AiEvent> events, MainThreadBudget? budget = null)
     {
+        double readStart = budget?.Now ?? 0d;
         LastRun = tick;
         Array.Clear(_reads);
         Array.Clear(_actors);
@@ -196,6 +208,7 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
             _actors[a.Id.Slot] = a.Id;
         }
 
+        budget?.Charge(budget.Now - readStart);
         _keys.Clear();
         _costs.Clear();
         _pending.Clear();
@@ -205,6 +218,15 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
                 continue;
 
             sight.Vision = b.Vision;
+            if (budget?.Turn(sight.Waited, _lookEstimateUs) == BudgetTurn.Defer)
+            {
+                sight.Waited++;
+                LooksDeferred++;
+                continue;
+            }
+
+            sight.Waited = 0;
+            double lookStart = budget?.Now ?? 0d;
             if (_reads[b.Id.Slot] is not { } me)
             {
                 // A dead bot sees nothing: everything it held is lost.
@@ -238,12 +260,20 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
                 else
                     sight.Answered[t] = false;   // a pair that failed range, cone or PVS starts its traces over
             }
+
+            if (budget is not null)
+            {
+                double spent = budget.Now - lookStart;
+                budget.Charge(spent);
+                _lookEstimateUs += (spent - _lookEstimateUs) * EstimateRate;
+            }
         }
 
         if (_served.Length < _keys.Count)
             _served = new bool[Math.Max(_keys.Count, _served.Length * 2)];
+        double traceStart = budget?.Now ?? 0d;
         TracesLastTick = _budget.Select(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_keys),
-                                        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_costs), TracesPerTick, _served);
+                                        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_costs), TracesAfforded(budget, _keys.Count), _served);
         Traces += TracesLastTick;
         for (int i = 0; i < _pending.Count; i++)
         {
@@ -259,6 +289,14 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
                 sight.Stage[t] = sight.Fraction[t] > 0f ? SightStage.Clear : SightStage.Trace;
         }
 
+        if (budget is not null && TracesLastTick > 0)
+        {
+            double spent = budget.Now - traceStart;
+            budget.Charge(spent);
+            _traceEstimateUs += (spent / TracesLastTick - _traceEstimateUs) * EstimateRate;
+        }
+
+        double settleStart = budget?.Now ?? 0d;
         foreach (SensedBot b in bots)
         {
             if (!_bots.TryGetValue(b.Id.Slot, out BotSight? sight) || sight.Bot != b.Id || _reads[b.Id.Slot] is null)
@@ -278,6 +316,30 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
                     sight.Last[t] = them;
             }
         }
+
+        budget?.Charge(budget.Now - settleStart);
+    }
+
+    /// <summary>A bot's looks and pair traces put off by the budget: <c>ai.budget.sense.deferrals</c>.</summary>
+    public long LooksDeferred { get; private set; }
+
+    /// <summary>What a bot's look (its view, the cone and the PVS) and one line cost until measured, and how fast a new measure moves that.</summary>
+    public const double LookEstimateStartUs = 10d, TraceEstimateStartUs = 2d, EstimateRate = 0.1d;
+
+    private double _lookEstimateUs = LookEstimateStartUs, _traceEstimateUs = TraceEstimateStartUs;
+
+    /// <summary>
+    /// The lines a tick can afford: <see cref="TracesPerTick"/> with no budget or
+    /// room for them all; otherwise what is left of the frame, and at the least
+    /// what still serves every waiting pair within the bound.
+    /// </summary>
+    private int TracesAfforded(MainThreadBudget? budget, int pairs)
+    {
+        if (budget is not { Capped: true })
+            return TracesPerTick;
+        int inReach = (int)(budget.RemainingUs / _traceEstimateUs);
+        int least = (int)Math.Ceiling(pairs / (budget.BoundTicks + 1d)) * PlayerSamples;
+        return Math.Min(TracesPerTick, Math.Max(inReach, least));
     }
 
     private void Lose(BotSight sight, int slot, Tick tick, List<AiEvent> events)
@@ -349,6 +411,9 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
 
         public VisionParams Vision { get; set; }
 
+        /// <summary>How many ticks its look has waited for the budget.</summary>
+        public int Waited { get; set; }
+
         public SightStage[] Stage { get; } = new SightStage[Slots];
 
         public float[] Fraction { get; } = new float[Slots];
@@ -417,10 +482,20 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     /// line trace; one that passes is seen present or gone, and an
     /// <c>ItemSeen</c> is pushed when that changes or two seconds after the last.
     /// </summary>
-    public void RunItems(Tick tick, ReadOnlySpan<SensedBot> bots, IReadOnlyList<ItemSpawn> items, List<AiEvent> events)
+    public void RunItems(Tick tick, ReadOnlySpan<SensedBot> bots, IReadOnlyList<ItemSpawn> items, List<AiEvent> events, MainThreadBudget? budget = null)
     {
         if (bots.IsEmpty || items.Count == 0)
             return;
+        // A slice of the pairs in any case; under the budget a later tick's.
+        if (budget?.Turn(_itemsWaited, _itemEstimateUs) == BudgetTurn.Defer)
+        {
+            _itemsWaited++;
+            LooksDeferred++;
+            return;
+        }
+
+        _itemsWaited = 0;
+        double itemStart = budget?.Now ?? 0d;
         _itemPlaces.Clear();
         int pairs = bots.Length * items.Count, traces = 0;
         for (int k = 0; k < Math.Min(ItemChecksPerTick, pairs) && traces < ItemTracesPerTick; k++)
@@ -451,7 +526,17 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
             _itemReported[key] = (present, tick.Value);
             events.Add(AiEvent.ItemSeen(b.Id, tick, item.Index, present));
         }
+
+        if (budget is not null)
+        {
+            double spent = budget.Now - itemStart;
+            budget.Charge(spent);
+            _itemEstimateUs += (spent - _itemEstimateUs) * EstimateRate;
+        }
     }
+
+    private int _itemsWaited;
+    private double _itemEstimateUs = LookEstimateStartUs;
 
     private List<AiVector> Places(string className)
     {

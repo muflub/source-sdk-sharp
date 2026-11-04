@@ -68,7 +68,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity("CBaseTempEntity", "DT_BaseTempEntity", RegistersClass = false)]
-public class TeBaseTempEntity : TempEntState
+public partial class TeBaseTempEntity : TempEntState
 {
     // No fields. DT_BaseTempEntity is empty in stock and empty here; the port
     // does not get to tidy that up, because the two sides pair on exactly the

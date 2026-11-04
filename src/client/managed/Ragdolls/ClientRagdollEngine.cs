@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Shared.Bones;
+using SourceSharp.Shared;
 using NVector = System.Numerics.Vector3;
 
 namespace SourceSharp.Client.Ragdolls;
@@ -67,7 +68,7 @@ public sealed class ClientRagdollClock(IEngineEnvironment environment) : IRagdol
 }
 
 /// <summary><see cref="IRagdollWorld"/> over the client's trace, the sleep convar and <c>developer</c>.</summary>
-public sealed class ClientRagdollWorld(IEngineWorldQuery world, IEngineEntities entities, IEngineConsole console,
+public sealed class ClientRagdollWorld(IEngineWorldQuery world, IEngineEntities entities, DeveloperConVar developer,
                                        RagdollSleepAfterTimeConVar sleepAfterTime) : IRagdollWorld
 {
     public bool TraceSolidHits(Vector start, Vector end, EntityHandle owner)
@@ -75,7 +76,7 @@ public sealed class ClientRagdollWorld(IEngineWorldQuery world, IEngineEntities 
 
     public float SleepAfterTime => sleepAfterTime.Value;
 
-    public int Developer => int.TryParse(console.FindConVarValue("developer"), out int level) ? level : 0;
+    public int Developer => developer.Value;
 }
 
 /// <summary>

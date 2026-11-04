@@ -657,6 +657,14 @@ public abstract unsafe class NetState
     }
 
     /// <summary>
+    /// This state's bytes where they stand, without a copy: for a read that ends
+    /// before anything can write the state or drop its storage. Empty rather
+    /// than a throw when the state has no live storage.
+    /// </summary>
+    public ReadOnlySpan<byte> LiveBytes
+        => IsLive ? new ReadOnlySpan<byte>(_blob, _bytes) : default;
+
+    /// <summary>
     /// This state's bytes as they stand, for tooling. Empty rather than a throw
     /// when the state has no live storage, because the callers of this are the
     /// ones that must survive an entity dying mid-walk.

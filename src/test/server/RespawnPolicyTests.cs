@@ -103,7 +103,7 @@ public class RespawnPolicyTests
             Engine.Returns("Players.IsAlive", false);
             Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>());
 
-            Modes = new GameModes(Log, Engine, Services, ConVars);
+            Modes = new GameModes(Log, Engine, Services, ConVars.Declare<SvModeSwitchWarmupConVar>(), ConVars.Declare<MpWaitingForPlayersTimeConVar>());
             Roster = new Players(Log, Engine, Engine, Engine, NoButtons)
             {
                 DropWeaponOnDeath = false,   // the weapon is not this file's subject

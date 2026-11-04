@@ -39,13 +39,13 @@ public class TFHudMedicChargeTests
     public void The_label_is_the_res_HudFontSmallest_face()
     {
         // hudmediccharge.res:40 fonts ChargeLabel HudFontSmallest — the
-        // Smallest step (TFHudType, 24.75 du), not the caption role's body
+        // Smallest step (TFHudType, 20.5 du), not the caption role's body
         // face; the box grows with the text as the res's autoResize does.
         var (ctx, elements) = Rendered("medic-builds-the-ubercharge");
         var list = ctx.List.AsDrawList();
         int label = Elements(ctx).FindIndex(e => UiTestKit.NameOf(ctx, e) == "uber label");
         var font = GlyphFont(list, label);
-        Assert.Equal(25, font.PxHeight);           // 24.75 du at the 1080 canvas
+        Assert.Equal(20, font.PxHeight);           // 20.5 du at the 1080 canvas
     }
 
     /// <summary>The font of the first glyph run on the named element.</summary>

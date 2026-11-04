@@ -29,7 +29,7 @@ using System.Reflection;
 namespace SourceSharp.Abi;
 
 /// <summary>The real engine, for <see cref="IEngineConsole"/>. Every member is one call.</summary>
-internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlagReader
+internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlagReader, IConVarWatcher
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -57,6 +57,30 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
         }
 
         return EngineSide.FromUtf8(buf);
+    }
+
+    public IReadOnlyList<string> CompleteCommandLine(string line)
+    {
+        byte* lines = stackalloc byte[ConsoleSuggestionBytes];
+        lines[0] = 0;
+
+        var lineBytes = Encoding.UTF8.GetBytes(line + "\0");
+        fixed (byte* pLine = lineBytes)
+        {
+            if (_consoleArea.CompleteCommandLine(pLine, lines, ConsoleSuggestionBytes) <= 0)
+                return [];
+        }
+
+        return ConsoleSuggestionLines.Read(lines);
+    }
+
+    private const int ConsoleSuggestionBytes = 8192;
+
+    public int WatchConVar(string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* pName = nameBytes)
+            return _consoleArea.WatchNamedConVar(pName);
     }
 
     /// <summary>
@@ -1436,8 +1460,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
 /// <summary>The real engine, for <see cref="IEngineEffects"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineEffects : IEngineEffects
 {
-    private readonly IMovementArea _movementArea;
-
     //-------------------------------------------------------------------------
     // TEMP ENTITIES (plan_tmp.md Part 3).
     //-------------------------------------------------------------------------
@@ -1449,15 +1471,6 @@ internal sealed unsafe partial class EngineEffects : IEngineEffects
     /// -1, "this side does not register through here".
     /// </summary>
     public int TempEntRegister(TeClass description) => -1;
-
-    /// <summary>
-    /// <c>GetCurrentGravity()</c>. A slot rather than a constant because
-    /// <c>sv_gravity</c> is a convar: a tempent falling at 600 while the world
-    /// falls at 800 looks almost right, which is the worst kind of wrong for
-    /// something nobody watches closely.
-    /// </summary>
-    public float CurrentGravity()
-        => _movementArea.CurrentGravity();
 }
 
 /// <summary>The real engine, for <see cref="IEngineVisibility"/>. Every member is one call.</summary>

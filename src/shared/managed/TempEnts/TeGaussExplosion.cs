@@ -57,7 +57,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeGaussExplosion : TeParticleSystem
+public partial class TeGaussExplosion : TeParticleSystem
 {
     /// <summary>
     /// Which of the burst's forms. TWO BITS, so 0..3 —

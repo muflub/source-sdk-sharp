@@ -86,12 +86,10 @@ internal sealed unsafe partial class EngineEffects
 
     public EngineEffects(EngineSide side,
                          IEffectsRenderClientArea effectsRenderClientArea,
-                         IMovementArea movementArea,
                          ITempEntBackendsClientArea tempEntBackendsClientArea,
                          ITempEntPoolClientArea tempEntPoolClientArea)
     {
         _effectsRenderClientArea = effectsRenderClientArea ?? throw new ArgumentNullException(nameof(effectsRenderClientArea));
-        _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
         _tempEntBackendsClientArea = tempEntBackendsClientArea ?? throw new ArgumentNullException(nameof(tempEntBackendsClientArea));
         _tempEntPoolClientArea = tempEntPoolClientArea ?? throw new ArgumentNullException(nameof(tempEntPoolClientArea));
     }
@@ -814,6 +812,12 @@ internal sealed unsafe partial class EngineEffects
         _effectsRenderClientArea.ParticleSystemStopSlot(owner.Value, slot);
     }
 
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemViewModelSlot"/>
+    public void ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel)
+    {
+        _effectsRenderClientArea.ParticleSystemViewModelSlot(owner.Value, slot, viewmodel ? 1 : 0);
+    }
+
     /// <summary>
     /// Which of a running particle system's control points are kept at the
     /// entity that owns it, as a bitmask — bit 0 is control point 0.
@@ -859,6 +863,14 @@ internal sealed unsafe partial class EngineEffects
         pOffset[1] = o.Y;
         pOffset[2] = o.Z;
         return _effectsRenderClientArea.ParticleSystemFollowEntitySlot(owner.Value, point, entity.Value, attachment, slot, pOffset) != 0;
+    }
+
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemSetPoints"/>
+    public unsafe bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values)
+    {
+        // Native walks records, ten floats each (CParticleSystemsClient::ParticleSystemSetPoints).
+        fixed (float* pValues = values)
+            return _effectsRenderClientArea.ParticleSystemSetPoints(owner.Value, slot, activeIndex, pValues, values.Length / 10) != 0;
     }
 
     /// <summary>
@@ -1166,6 +1178,12 @@ internal sealed unsafe partial class EngineEntityRender
         float* hi = stackalloc float[3] { maxs.X, maxs.Y, maxs.Z };
 
         _standaloneClientArea.StandaloneSetCustomDraw(entity.Value, lo, hi);
+    }
+
+    /// <inheritdoc cref="IEngineEntityRender.SetShadowHull"/>
+    public void SetShadowHull(EntityHandle entity, bool shadowHull)
+    {
+        _standaloneClientArea.StandaloneSetShadowHull(entity.Value, shadowHull ? 1 : 0);
     }
 
     /// <summary>

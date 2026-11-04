@@ -47,19 +47,19 @@ public sealed class PlayerPickupRules
     private readonly IEngineEntityPhysics _physics;
     private readonly IVPhysicsGrabCalls _v;
     private readonly IEntityDirectory _directory;
-    private readonly ConVarRegistry _convars;
+    private readonly Hl2mpAllowPickupConVar _allowPickup;
     private readonly ILog _log;
 
     private bool _saidCarryMissing;
 
     public PlayerPickupRules(IEngineEntities entities, IEngineEntityPhysics physics, IVPhysicsGrabCalls v,
-                             IEntityDirectory directory, ConVarRegistry convars, ILog log)
+                             IEntityDirectory directory, Hl2mpAllowPickupConVar allowPickup, ILog log)
     {
         _entities = entities;
         _physics = physics;
         _v = v;
         _directory = directory;
-        _convars = convars;
+        _allowPickup = allowPickup;
         _log = log;
     }
 
@@ -107,7 +107,7 @@ public sealed class PlayerPickupRules
     }
 
     /// <summary>Whether stock HL2MP would let a +USE carry anything (<c>hl2mp_allow_pickup</c>).</summary>
-    public bool AllowPickup => _convars.Get<Hl2mpAllowPickupConVar>()?.Value ?? false;
+    public bool AllowPickup => _allowPickup.Value;
 
     /// <summary>
     /// CHL2MP_Player::PickupObject: nothing unless <see cref="AllowPickup"/>;

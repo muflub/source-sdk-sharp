@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Effects;
 
@@ -24,13 +25,15 @@ public sealed class ClientEffectList : IReloadParticipant
 
     private readonly IFxRender _render;
     private readonly IEngineConsole _console;
+    private readonly DeveloperConVar _developer;
     private readonly ClientSideEffect?[] _effects = new ClientSideEffect?[MaxEffects];
     private int _count;
 
-    public ClientEffectList(IFxRender render, IEngineConsole console)
+    public ClientEffectList(IFxRender render, IEngineConsole console, DeveloperConVar developer)
     {
         _render = render;
         _console = console;
+        _developer = developer;
     }
 
     /// <summary>How many effects are on the list.</summary>
@@ -109,7 +112,7 @@ public sealed class ClientEffectList : IReloadParticipant
         if (_count >= MaxEffects)
         {
             Refused++;
-            if (int.TryParse(_console.FindConVarValue("developer"), out int level) && level >= 1)
+            if (_developer.Value >= 1)
                 _console.Warning($"No room for effect {effect.Name}\n");
             return;
         }

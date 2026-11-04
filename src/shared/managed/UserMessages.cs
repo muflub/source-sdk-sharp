@@ -416,6 +416,9 @@ public interface IClientMessageEffects
     void ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions);
     void VoiceMasks(VoiceMask message);
     void VoiceRequestState();
+
+    /// <summary>hud_takesshots: a screenshot when the scoreboard opens.</summary>
+    bool ScoreboardTakesShots { get; }
 }
 
 /// <summary>Shake's payload: stock's ScreenShake_t, as MsgFunc_Shake reads it.</summary>
@@ -493,10 +496,10 @@ public partial struct VguiMenu
 }
 
 [UserMessage("VGUIMenu", Stock = true)]
-public sealed class VguiMenuMessage(IClientMessageEffects? effects, IEngineConsole? console, ILog? log) : IUserMessage<VguiMenu>
+public sealed class VguiMenuMessage(IClientMessageEffects? effects, ILog? log) : IUserMessage<VguiMenu>
 {
     /// <summary>For a side that registers the declaration without dispatching it.</summary>
-    public VguiMenuMessage() : this(null, null, null) { }
+    public VguiMenuMessage() : this(null, null) { }
 
     /// <summary>PANEL_INFO and PANEL_SCOREBOARD (viewport_panel_names.h).</summary>
     public const string InfoPanel = "info";
@@ -541,7 +544,7 @@ public sealed class VguiMenuMessage(IClientMessageEffects? effects, IEngineConso
 
         if (string.Equals(panel, ScoresPanel, StringComparison.OrdinalIgnoreCase))
         {
-            if (IsOn(console?.FindConVarValue("hud_takesshots")))
+            if (effects.ScoreboardTakesShots)
                 actions |= ViewportActions.ScreenShot;
             actions |= ViewportActions.ScreenShotEvent;
         }

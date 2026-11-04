@@ -222,6 +222,16 @@ public enum TraceMask
     /// reason.
     /// </summary>
     SolidDebris = 14,
+
+    /// <summary>
+    /// <c>MASK_SOLID | CONTENTS_HITBOX</c>: the heavy taunt's aim line
+    /// (<c>CTFPlayer::DoTauntAttack</c>'s high noon, tf_player.cpp:18621) —
+    /// <see cref="Solid"/>'s contents plus the hitboxes a body trace stops on,
+    /// because the shot lands on what the aim rests against even when the
+    /// brushes there are open. Mapped on both arms, for <see cref="All"/>'s
+    /// reason.
+    /// </summary>
+    SolidHitbox = 15,
 }
 
 /// <summary>
@@ -578,6 +588,12 @@ public enum WeaponAnim
 
     /// <summary>ACT_VM_HITRIGHT: the heavy's right hook, the second fist's punch (tf_weapon_fists.cpp:164).</summary>
     HitRight = 20,
+
+    /// <summary>
+    /// ACT_ITEM2_VM_CHARGE: the compound bow's draw (<c>CTFCompoundBow::SendWeaponAnim</c>
+    /// retags the PULLBACK ask to it, tf_weapon_compound_bow.cpp:396-399).
+    /// </summary>
+    Charge = 21,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

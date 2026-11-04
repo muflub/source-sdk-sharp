@@ -25,7 +25,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamLaser : TeBaseBeam
+public partial class TeBeamLaser : TeBaseBeam
 {
     /// <summary>Index and attachment of the entity it starts at.</summary>
     [TeProp(Bits = 24, Flags = TeFlags.Unsigned)]

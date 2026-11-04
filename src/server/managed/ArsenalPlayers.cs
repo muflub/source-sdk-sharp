@@ -90,13 +90,7 @@ public sealed class ArsenalPlayers : IEnginePlayers
         if (!IsStandalone(player))
             return _inner.GetActiveWeapon(player);
 
-        foreach (var (className, _, active) in _arsenal.Holdings(player))
-        {
-            if (active)
-                return className;
-        }
-
-        return "";
+        return _arsenal.ActiveWeaponName(player);
     }
 
     //-------------------------------------------------------------------------

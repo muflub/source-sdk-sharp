@@ -179,7 +179,7 @@ public class ConVarCommandLineTests
         // refused: IsRegistered is false for all of them. The policy must be
         // answerable anyway, because it is recorded from the ATTRIBUTE and not
         // from the engine's reply.
-        var declared = registry.Get<PlainConVar>();
+        var declared = registry.Declared<PlainConVar>();
 
         Assert.True(declared is not null && !declared.IsRegistered
                     && registry.TryGetCommandLinePolicy("ss_test_cl_plain", out _),

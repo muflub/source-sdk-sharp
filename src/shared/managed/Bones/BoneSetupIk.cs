@@ -23,6 +23,7 @@
 //   * stock reads seqdesc/poseParameter/panim from the CBoneSetup owning the
 //     context in some paths; anything like that arrives as a parameter here.
 
+using System.Runtime.CompilerServices;
 using System;
 using Vector = System.Numerics.Vector3;
 using Quaternion = System.Numerics.Quaternion;
@@ -38,16 +39,22 @@ namespace SourceSharp.Shared.Bones;
 /// <c>d</c> satisfies <c>(r - B) &lt; d &lt; A</c>.
 /// </summary>
 /// <remarks>
-/// The float[] representation is deliberate: <see cref="Rot"/> must sum in
+/// The float span representation is deliberate: <see cref="Rot"/> must sum in
 /// stock's order, and Vector3 operator order is not stock's. Instance state
 /// is the two 3x3 matrices, exactly as stock's <c>Mfwd</c>/<c>Minv</c>
-/// members; one solver is one solve, so callers new-up per use.
+/// members, held in the struct; one solver is one solve, on the caller's stack.
 /// </remarks>
-public sealed class CikSolver
+public struct CikSolver
 {
+    [InlineArray(9)]
+    private struct Matrix3x3
+    {
+        private float _first;
+    }
+
     // float Mfwd[3][3]; float Minv[3][3];  (row-major)
-    private readonly float[] _mfwd = new float[9];
-    private readonly float[] _minv = new float[9];
+    private Matrix3x3 _mfwd;
+    private Matrix3x3 _minv;
 
     /// <summary><c>CIKSolver::findD</c> (2587-2589).</summary>
     public static float FindD(float a, float b, float c) => (c + (a * a - b * b) / c) / 2;
@@ -58,45 +65,51 @@ public sealed class CikSolver
     /// <summary><c>CIKSolver::solve</c> (2600-2611). <c>P</c>, <c>D</c> are
     /// length-3 (thigh->foot, preferred knee dir); <c>Q</c> receives the
     /// thigh-space knee. Returns the stock accept test.</summary>
-    public bool Solve(float a, float b, float[] p, float[] d, float[] q)
+    public bool Solve(float a, float b, ReadOnlySpan<float> p, ReadOnlySpan<float> d, Span<float> q)
     {
-        float[] r = new float[3];
+        Span<float> r = stackalloc float[3];
         DefineM(p, d);
         Rot(_minv, p, r);
         float rr = Length(r);
         float dd = FindD(a, b, rr);
         float e = FindE(a, dd);
-        float[] s = new float[] { dd, e, 0f };
+        Span<float> s = stackalloc float[3];
+        s[0] = dd;
+        s[1] = e;
+        s[2] = 0f;
         Rot(_mfwd, s, q);
         return dd > (rr - b) && dd < a;
     }
 
     /// <summary><c>CIKSolver::defineM</c> (2619-2645): Minv's rows are
     /// X = unit(P), Y = unit(D - D.X X), Z = X x Y; Mfwd = Minv^T.</summary>
-    public void DefineM(float[] p, float[] d)
+    public void DefineM(ReadOnlySpan<float> p, ReadOnlySpan<float> d)
     {
+        Span<float> minv = _minv;
+        Span<float> mfwd = _mfwd;
+
         // float *X = Minv[0], *Y = Minv[1], *Z = Minv[2];
         for (int i = 0; i < 3; i++)
         {
-            _minv[i] = p[i];
+            minv[i] = p[i];
         }
-        Normalize(_minv.AsSpan(0, 3));
+        Normalize(minv.Slice(0, 3));
 
-        float dDotX = Dot(d, _minv.AsSpan(0, 3));
+        float dDotX = Dot(d, minv.Slice(0, 3));
         for (int i = 0; i < 3; i++)
         {
-            _minv[3 + i] = d[i] - dDotX * _minv[i];
+            minv[3 + i] = d[i] - dDotX * minv[i];
         }
-        Normalize(_minv.AsSpan(3, 3));
+        Normalize(minv.Slice(3, 3));
 
-        Cross(_minv.AsSpan(0, 3), _minv.AsSpan(3, 3), _minv.AsSpan(6, 3));
+        Cross(minv.Slice(0, 3), minv.Slice(3, 3), minv.Slice(6, 3));
 
         // Mfwd = (Minv)T, since transposing inverts a rotation matrix.
         for (int i = 0; i < 3; i++)
         {
-            _mfwd[i * 3 + 0] = _minv[0 * 3 + i];
-            _mfwd[i * 3 + 1] = _minv[1 * 3 + i];
-            _mfwd[i * 3 + 2] = _minv[2 * 3 + i];
+            mfwd[i * 3 + 0] = minv[0 * 3 + i];
+            mfwd[i * 3 + 1] = minv[1 * 3 + i];
+            mfwd[i * 3 + 2] = minv[2 * 3 + i];
         }
     }
 
@@ -128,11 +141,11 @@ public sealed class CikSolver
     }
 
     /// <summary><c>CIKSolver::rot</c> (2665-2668): <c>dst[i] = dot(M[i], src)</c>.</summary>
-    public static void Rot(float[] m, ReadOnlySpan<float> src, Span<float> dst)
+    public static void Rot(ReadOnlySpan<float> m, ReadOnlySpan<float> src, Span<float> dst)
     {
         for (int i = 0; i < 3; i++)
         {
-            dst[i] = Dot(m.AsSpan(3 * i, 3), src);
+            dst[i] = Dot(m.Slice(3 * i, 3), src);
         }
     }
 }
@@ -267,9 +280,11 @@ public static class BoneSetupIk
             ikFoot = ikFoot * minDist;
         }
 
-        float[] pFoot = { ikFoot.X, ikFoot.Y, ikFoot.Z };
-        float[] pTargetKnee = { ikTargetKnee.X, ikTargetKnee.Y, ikTargetKnee.Z };
-        float[] pKnee = new float[3];
+        Span<float> pFoot = stackalloc float[3];
+        Span<float> pTargetKnee = stackalloc float[3];
+        Span<float> pKnee = stackalloc float[3];
+        (pFoot[0], pFoot[1], pFoot[2]) = (ikFoot.X, ikFoot.Y, ikFoot.Z);
+        (pTargetKnee[0], pTargetKnee[1], pTargetKnee[2]) = (ikTargetKnee.X, ikTargetKnee.Y, ikTargetKnee.Z);
 
         CikSolver ik = new();
         if (ik.Solve(l1, l2, pFoot, pTargetKnee, pKnee))
@@ -540,6 +555,16 @@ public static class BoneSetupIk
         out IkContextIkRule ikRule)
     {
         ikRule = new IkContextIkRule();
+        return StudioIkSequenceError(pStudioHdr, unusedSeqdesc, iSequence, flCycle, iRule, unusedPoseParameter, panim, weight, ikRule);
+    }
+
+    /// <summary>The same, into a rule the caller keeps, which holds zeros (stock's memset).</summary>
+    public static bool StudioIkSequenceError(
+        StudioHdr pStudioHdr, MstudioSeqDesc unusedSeqdesc, int iSequence, float flCycle,
+        int iRule, float[] unusedPoseParameter,
+        MstudioAnimDesc[] panim, float[] weight,
+        IkContextIkRule ikRule)
+    {
         // stock: memset + start = peak = tail = end = 0 -- zero fields already.
 
         MstudioIkRule? prevRule = null;

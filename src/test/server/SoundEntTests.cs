@@ -6,6 +6,7 @@ using SourceSharp.Server;
 using static SourceSharp.Tests.TestServices;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -47,7 +48,7 @@ public class SoundEntTests
         clock = new Clock();
         engine = Fake();
         engine.Ignores("Console.FindConVarValue");
-        return new SoundEnt(engine, clock, engine);
+        return new SoundEnt(engine, clock, engine, DeclaredConVars.Fresh<DisplaySoundListConVar>(), DeclaredConVars.Fresh<DeveloperConVar>());
     }
 
     private static SoundEnt Up(int maxClients, out Clock clock)
@@ -423,7 +424,7 @@ public class SoundEntTests
         engine.Ignores("Console.FindConVarValue");
         engine.Returns("Entities.IsValid", false);
 
-        var list = new SoundEnt(engine, clock, engine);
+        var list = new SoundEnt(engine, clock, engine, DeclaredConVars.Fresh<DisplaySoundListConVar>(), DeclaredConVars.Fresh<DeveloperConVar>());
         list.Initialize(0, clock.Now);
 
         list.Insert((int)SoundType.Combat, Vector.Zero, 100, 30.0f, new EntityHandle(0x0001_0001u));
@@ -447,7 +448,7 @@ public class SoundEntTests
         engine.Ignores("Console.FindConVarValue");
         engine.Returns("Entities.IsValid", false);
 
-        var list = new SoundEnt(engine, clock, engine);
+        var list = new SoundEnt(engine, clock, engine, DeclaredConVars.Fresh<DisplaySoundListConVar>(), DeclaredConVars.Fresh<DeveloperConVar>());
         list.Initialize(0, clock.Now);
 
         list.Insert((int)SoundType.Combat, Vector.Zero, 100, 30.0f, new EntityHandle(0u));
@@ -466,7 +467,7 @@ public class SoundEntTests
         engine.Ignores("Console.FindConVarValue");
         engine.Returns("Entities.IsValid", true);
 
-        var list = new SoundEnt(engine, clock, engine);
+        var list = new SoundEnt(engine, clock, engine, DeclaredConVars.Fresh<DisplaySoundListConVar>(), DeclaredConVars.Fresh<DeveloperConVar>());
         list.Initialize(0, clock.Now);
 
         list.Insert((int)SoundType.Combat, Vector.Zero, 100, 30.0f, new EntityHandle(0x0001_0001u));

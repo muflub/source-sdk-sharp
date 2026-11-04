@@ -327,7 +327,7 @@ public sealed class AreaPortalsTests
         _portals.SetWindow(b, Vector.Zero, new Vector(10, 10, 10), 250f);
         var console = new RecordingEngine();
 
-        new AreaPortalsCommand(_portals, console).Execute("");
+        new AreaPortalsCommand(_portals, console).Execute();
 
         Assert.Equal(new[]
         {

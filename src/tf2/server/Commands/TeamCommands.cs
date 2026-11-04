@@ -24,9 +24,9 @@ namespace TF2.Server.Commands;
 /// them (:287).
 /// </summary>
 [ConCommand("mp_switchteams", Help = "Switch teams and restart the game")]
-public sealed class SwitchTeamsCommand(IServiceLocator services, IEnginePlayers players, IEngineHost host) : IConCommand
+public sealed class SwitchTeamsCommand(IServiceLocator services, IEnginePlayers players, IEngineHost host)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(players, host))
             return;
@@ -51,9 +51,9 @@ public sealed class SwitchTeamsCommand(IServiceLocator services, IEnginePlayers 
 /// rounds played too (:309-316).
 /// </summary>
 [ConCommand("mp_scrambleteams", Help = "Scramble the teams and restart the game")]
-public sealed class ScrambleTeamsCommand(IServiceLocator services, IEnginePlayers players, IEngineHost host) : IConCommand
+public sealed class ScrambleTeamsCommand(IServiceLocator services, IEnginePlayers players, IEngineHost host)
 {
-    public void Execute(string args)
+    public void Execute(int keepRounds = 0)
     {
         if (!ServerAdmin.MayRun(players, host))
             return;
@@ -66,10 +66,8 @@ public sealed class ScrambleTeamsCommand(IServiceLocator services, IEnginePlayer
             settings.RestartGame = 5;   // stock's mp_restartgame.SetValue(5)
         rounds.ShouldResetScores(true, false);
 
-        // stock's ArgC() == 2 — the command's own word and one argument
         // ("" and bare whitespace are ArgC() == 1 here).
-        string[] argv = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (argv.Length == 1 && int.TryParse(argv[0], out int keepRounds) && keepRounds == 2)
+        if (keepRounds == 2)
             rounds.ShouldResetRoundsPlayed(false);
     }
 }

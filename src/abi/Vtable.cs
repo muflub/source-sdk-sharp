@@ -87,6 +87,20 @@ public static unsafe class Vtable
     }
 
     /// <summary>
+    /// A managed string as NUL-terminated UTF-8 in the caller's room (a
+    /// stackalloc, for a read per command), or in a new array when it might not fit.
+    /// </summary>
+    public static ReadOnlySpan<byte> Utf8(string text, Span<byte> room)
+    {
+        if (Encoding.UTF8.GetMaxByteCount(text.Length) + 1 > room.Length)
+            return Utf8(text);
+
+        int written = Encoding.UTF8.GetBytes(text, room);
+        room[written] = 0;
+        return room[..(written + 1)];
+    }
+
+    /// <summary>
     /// A managed string as NUL-terminated UTF-8, for a <c>const char *</c>
     /// parameter.
     /// </summary>

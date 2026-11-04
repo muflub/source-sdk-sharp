@@ -31,7 +31,7 @@ public abstract class BreakableBrush : ScriptedEntity
     protected BreakableBrush(IServerPropData propData, IEngineSound sound, IEnginePrecache precache, ITempEnts temps,
                          IEngineHost host, IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
                          IBlastSweep blast, IServerDecals decals, IEngineEntityPhysics physics,
-                         ConVarRegistry? convars = null)
+                         BreakableBrushConVars convars)
     {
         PropData = propData;
         Sound = sound;
@@ -58,7 +58,7 @@ public abstract class BreakableBrush : ScriptedEntity
     private readonly IBlastSweep Blast;
     private readonly IServerDecals Decals;
     protected readonly IEngineEntityPhysics Physics;
-    private readonly ConVarRegistry? ConVars;
+    private readonly BreakableBrushConVars ConVars;
 
     public readonly Output OnBreak = new();
     public readonly Output OnHealthChanged = new();
@@ -146,9 +146,7 @@ public abstract class BreakableBrush : ScriptedEntity
     public override void OnSpawn()
     {
         // Initialize damage modifiers. Must be done before the propdata.
-        _modifiers = new PropDamageModifiers(ConVars?.Get<FuncBreakDmgBulletConVar>()?.Value ?? 0.5f,
-                                             ConVars?.Get<FuncBreakDmgClubConVar>()?.Value ?? 1.5f,
-                                             ConVars?.Get<FuncBreakDmgExplosiveConVar>()?.Value ?? 1.25f);
+        _modifiers = new PropDamageModifiers(ConVars.DmgBullet.Value, ConVars.DmgClub.Value, ConVars.DmgExplosive.Value);
         int health = Vars.Health;
         _explodeMagnitude = Vars.ExplodeMagnitude;
 
@@ -430,14 +428,14 @@ public abstract class BreakableBrush : ScriptedEntity
     private int Gibs(Vector size)
     {
         int count = (int)((size.X * size.Y + size.Y * size.Z + size.Z * size.X) / (3f * 12f * 12f));
-        count = Math.Min(count, ConVars?.Get<FuncBreakMaxPiecesConVar>()?.Value ?? 15);
+        count = Math.Min(count, ConVars.MaxPieces.Value);
 
-        if (!(ConVars?.Get<BreakableDisableGibLimitConVar>()?.Value ?? false) && count != 0)
+        if (!ConVars.DisableGibLimit.Value && count != 0)
         {
             if (Vars.PerformanceMode == NoGibs)
                 count = 0;
             else if (Vars.PerformanceMode == ReducedGibs)
-                count = Math.Max((int)(count * (ConVars?.Get<FuncBreakReductionFactorConVar>()?.Value ?? 0.5f)), 1);
+                count = Math.Max((int)(count * ConVars.ReductionFactor.Value), 1);
         }
 
         return count;

@@ -167,7 +167,7 @@ public class LivenessMirrorCompositionTests
                 ? services.Create<LivenessRerouteCommand>()
                 : throw new InvalidOperationException("the module's container is a ServiceContainer");
 
-            OnServer(() => { command.Execute("0"); return 0; });
+            OnServer(() => { command.RunLine("0"); return 0; });
 
             Assert.False(module.Services.Require<LivenessMirror>().Rerouted,
                          "cs_sv_liveness_reroute 0 reached the mirror EntityIsValid reads");
@@ -230,6 +230,7 @@ public class LivenessMirrorCompositionTests
         public void Frame(float frameTime) { }
         public void LevelInit(string mapName) { }
         public void LevelShutdown() { }
+        public IReadOnlyList<string> ConCommandSuggest(int commandId, string line) => [];
         public void ConCommandDispatch(int commandId, string args) { }
         public void Shutdown() { }
         public void DispatchGameEvent(string eventName, IntPtr handle) { }

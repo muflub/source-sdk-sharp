@@ -194,7 +194,6 @@ internal unsafe interface IMovementArea
 {
     void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6);
     int MoveEffect(int a0, float* a1, float a2, int a3);
-    float CurrentGravity();
     void RegisterMovementParams(MovementParams* a0);
 }
 
@@ -209,7 +208,6 @@ internal unsafe class MovementArea : IMovementArea
 
     public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { _shim.Table->MoveTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public int MoveEffect(int a0, float* a1, float a2, int a3) { return _shim.Table->MoveEffect(_shim.Self, a0, a1, a2, a3); }
-    public float CurrentGravity() { return _shim.Table->CurrentGravity(_shim.Self); }
     public void RegisterMovementParams(MovementParams* a0) { _shim.Table->RegisterMovementParams(_shim.Self, a0); }
 }
 
@@ -258,6 +256,8 @@ internal unsafe interface IConsoleArea
     int ConsoleSnapshot();
     int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1);
     int FindConVarFlags(byte* a0);
+    int CompleteCommandLine(byte* a0, byte* a1, int a2);
+    int WatchNamedConVar(byte* a0);
 }
 
 /// <summary>
@@ -281,6 +281,8 @@ internal sealed unsafe class ConsoleArea : IConsoleArea
     public int ConsoleSnapshot() { return _shim.Table->ConsoleSnapshot(_shim.Self); }
     public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) { return _shim.Table->ConsoleSnapshotEntry(_shim.Self, a0, a1); }
     public int FindConVarFlags(byte* a0) { return _shim.Table->FindConVarFlags(_shim.Self, a0); }
+    public int CompleteCommandLine(byte* a0, byte* a1, int a2) { return _shim.Table->CompleteCommandLine(_shim.Self, a0, a1, a2); }
+    public int WatchNamedConVar(byte* a0) { return _shim.Table->WatchNamedConVar(_shim.Self, a0); }
 }
 
 /// <summary>
@@ -1114,6 +1116,8 @@ internal unsafe interface IEffectsRenderClientArea
     int ParticleSystemStartSlot(uint a0, byte* a1, int a2);
     void ParticleSystemStopSlot(uint a0, int a1);
     int ParticleSystemFollowEntitySlot(uint a0, int a1, uint a2, int a3, int a4, float* a5);
+    int ParticleSystemSetPoints(uint a0, int a1, int a2, float* a3, int a4);
+    void ParticleSystemViewModelSlot(uint a0, int a1, int a2);
 }
 
 /// <summary>
@@ -1160,6 +1164,8 @@ internal sealed unsafe class EffectsRenderClientArea : IEffectsRenderClientArea
     public int ParticleSystemStartSlot(uint a0, byte* a1, int a2) { return _shim.Table->ParticleSystemStartSlot(_shim.Self, a0, a1, a2); }
     public void ParticleSystemStopSlot(uint a0, int a1) { _shim.Table->ParticleSystemStopSlot(_shim.Self, a0, a1); }
     public int ParticleSystemFollowEntitySlot(uint a0, int a1, uint a2, int a3, int a4, float* a5) { return _shim.Table->ParticleSystemFollowEntitySlot(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int ParticleSystemSetPoints(uint a0, int a1, int a2, float* a3, int a4) { return _shim.Table->ParticleSystemSetPoints(_shim.Self, a0, a1, a2, a3, a4); }
+    public void ParticleSystemViewModelSlot(uint a0, int a1, int a2) { _shim.Table->ParticleSystemViewModelSlot(_shim.Self, a0, a1, a2); }
 }
 
 /// <summary>
@@ -1193,6 +1199,7 @@ internal unsafe interface IStandaloneClientArea
     void SurfaceSetPlan(uint a0, int* a1, int a2);
     void ClientInterpAdmitted(uint* a0, int a1);
     void EntitySetModelOverride(uint a0, byte* a1);
+    void StandaloneSetShadowHull(uint a0, int a1);
 }
 
 /// <summary>
@@ -1229,6 +1236,7 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void SurfaceSetPlan(uint a0, int* a1, int a2) { _shim.Table->SurfaceSetPlan(_shim.Self, a0, a1, a2); }
     public void ClientInterpAdmitted(uint* a0, int a1) { _shim.Table->ClientInterpAdmitted(_shim.Self, a0, a1); }
     public void EntitySetModelOverride(uint a0, byte* a1) { _shim.Table->EntitySetModelOverride(_shim.Self, a0, a1); }
+    public void StandaloneSetShadowHull(uint a0, int a1) { _shim.Table->StandaloneSetShadowHull(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1414,6 +1422,7 @@ internal unsafe interface IUiClientArea
     void ClientModeLayout();
     void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4);
     int UiMaterialTexture(byte* a0);
+    void UiDrawMesh(int a0, float* a1, uint* a2, int a3, ushort* a4, int a5);
 }
 
 /// <summary>
@@ -1448,6 +1457,7 @@ internal sealed unsafe class UiClientArea : IUiClientArea
     public void ClientModeLayout() { _shim.Table->ClientModeLayout(_shim.Self); }
     public void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4) { _shim.Table->UiDrawTexturedQuad(_shim.Self, a0, a1, a2, a3, a4); }
     public int UiMaterialTexture(byte* a0) { return _shim.Table->UiMaterialTexture(_shim.Self, a0); }
+    public void UiDrawMesh(int a0, float* a1, uint* a2, int a3, ushort* a4, int a5) { _shim.Table->UiDrawMesh(_shim.Self, a0, a1, a2, a3, a4, a5); }
 }
 
 /// <summary>
@@ -1771,8 +1781,8 @@ internal sealed unsafe class PhysicsClientArea : IPhysicsClientArea
 /// </summary>
 internal unsafe interface IConVarsClientArea
 {
-    int ConVarsClientWatch(byte* a0);
     int ConVarsClientSetValue(byte* a0, float a1);
+    int ConVarsClientAddFlags(byte* a0, int a1);
 }
 
 /// <summary>
@@ -1784,8 +1794,8 @@ internal sealed unsafe class ConVarsClientArea : IConVarsClientArea
 
     internal ConVarsClientArea(ShimRef<ShimConVarsClientFwd> shim) { _shim = shim; }
 
-    public int ConVarsClientWatch(byte* a0) { return _shim.Table->ConVarsClientWatch(_shim.Self, a0); }
     public int ConVarsClientSetValue(byte* a0, float a1) { return _shim.Table->ConVarsClientSetValue(_shim.Self, a0, a1); }
+    public int ConVarsClientAddFlags(byte* a0, int a1) { return _shim.Table->ConVarsClientAddFlags(_shim.Self, a0, a1); }
 }
 
 /// <summary>

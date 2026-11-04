@@ -66,6 +66,9 @@ public sealed class AnimationEventPump
     private readonly IClientStandalones _standalones;
     private readonly IAnimationEventSink _sink;
 
+    // The frame's walk, a copy: an event may start or remove an entity.
+    private readonly List<ClientStandaloneEntity> _live = [];
+
     /// <summary>
     /// One cursor per entity, keyed by the handle's raw value.
     ///
@@ -175,10 +178,12 @@ public sealed class AnimationEventPump
     /// <summary>Every live entity, advanced. Called once a frame by the client module.</summary>
     public void Frame()
     {
-        var live = _standalones.Live();
+        _standalones.CopyLive(_live);
 
-        for (int i = live.Count - 1; i >= 0; i--)
-            Advance(live[i].Handle, live[i].ClassName);
+        for (int i = _live.Count - 1; i >= 0; i--)
+            Advance(_live[i].Handle, _live[i].ClassName);
+
+        _live.Clear();
     }
 
     /// <summary>

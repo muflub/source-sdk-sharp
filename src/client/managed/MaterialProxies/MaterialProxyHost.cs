@@ -2,6 +2,7 @@ using System.Text;
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.MaterialProxies;
 
@@ -51,12 +52,12 @@ public sealed class MaterialProxyHost : IClientMaterialProxies, IMaterialProxyRe
     private readonly BindContext _bind;
     private int _frame = int.MinValue;
 
-    public MaterialProxyHost(IClientMaterialProxyExecutor exec, IEngineHost engine, IEngineConsole console, ILog log,
+    public MaterialProxyHost(IClientMaterialProxyExecutor exec, IEngineHost engine, DeveloperConVar developer, ILog log,
                              MatStubConVar matStub, IPostProxyValues post, Render.Shadows.IShadowProxySource shadows,
                              Func<IReadOnlyList<IMaterialProxyProvider>>? providers = null,
                              IPlayerProxyEyes? eyes = null)
         : this(exec, new EngineUniform(engine),
-               () => int.TryParse(console.FindConVarValue("developer"), out int level) && level >= 1, log,
+               () => developer.Value >= 1, log,
                () => matStub.Value, post, shadows, providers, eyes)
     {
     }

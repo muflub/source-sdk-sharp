@@ -30,7 +30,7 @@ public sealed class WeaponEventTap(Hl2mpSenses senses, VisionPass vision, Hl2mpB
         {
             PlayerWeaponEvent.ReloadStarted => a | ActorActivity.Reloading,
             PlayerWeaponEvent.ReloadFinished => a & ~ActorActivity.Reloading,
-            PlayerWeaponEvent.Fired => a | ActorActivity.Firing,
+            PlayerWeaponEvent.Fired or PlayerWeaponEvent.AltFired => a | ActorActivity.Firing,
             _ => a,
         });
 
@@ -55,6 +55,9 @@ public sealed class WeaponEventTap(Hl2mpSenses senses, VisionPass vision, Hl2mpB
     public static void Perceive(int slot, int weaponType, PlayerWeaponEvent e, int count, IReadOnlyList<(ActorId Bot, SightTracker Sight)> watchers,
                                 Tick tick, List<AiEvent> into)
     {
+        // What a watcher learns of a clip comes from Fired: a grenade or a ball takes nothing from it.
+        if (e == PlayerWeaponEvent.AltFired)
+            return;
         foreach ((ActorId bot, SightTracker sight) in watchers)
         {
             if (bot.Slot == slot || !sight.Sees(slot))

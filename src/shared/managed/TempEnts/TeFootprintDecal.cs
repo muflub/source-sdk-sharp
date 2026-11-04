@@ -41,7 +41,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeFootprintDecal : TeBaseTempEntity
+public partial class TeFootprintDecal : TeBaseTempEntity
 {
     /// <summary>Where the print goes.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

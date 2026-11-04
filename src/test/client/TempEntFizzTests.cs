@@ -8,6 +8,7 @@ using client::SourceSharp.Client.TempEnts;
 using SourceSharp.Shared;
 
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -99,7 +100,7 @@ public class TempEntFizzTests
         var native = new SpawningPool(engine);
         var clock = new Clock();
         var pool = new ClientTempEntPool(log, native, clock, new TempEntPoolTests.NoSimulation());
-        var spawns = new TempEntSpawns(log, pool, engine, engine, clock, new RandomSeeds(1));
+        var spawns = new TempEntSpawns(log, pool, engine, DeclaredConVars.Fresh<FuncBreakMaxPiecesConVar>(), clock, new RandomSeeds(1));
 
         return new Rigging(new ClientTeFizz(log, spawns, engine), spawns, native, engine, clock, log);
     }
@@ -488,7 +489,7 @@ public class TempEntFizzTests
     public void ThePlayerIsStillBuildableByTheContainerTheGameUses()
     {
         var pool = new ClientTempEntPool(new RecordingLog(), TestServices.Fake(), new Clock(), new TempEntPoolTests.NoSimulation());
-        var services = TestServices.Services(new Clock(), pool);
+        var services = TestServices.Services(new Clock(), pool, DeclaredConVars.Fresh<FuncBreakMaxPiecesConVar>());
         // The client's seeds, as the client's composition registers them: the
         // mock's are the server's copy of the shared service (plan_side_isolation P7).
         services.AddInstance<client::SourceSharp.Abi.IRandomSeeds>(new RandomSeeds(20260929));

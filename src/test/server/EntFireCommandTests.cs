@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using Xunit;
+using SourceSharp.Shared;
 using static SourceSharp.Tests.TestServices;
 
 namespace SourceSharp.Tests;
@@ -90,7 +91,7 @@ public class EntFireCommandTests
               });
 
         var context = new DevContext(engine, engine, engine, engine,
-                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), engine, new RecordingLog())
+                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => cheats,
             Issuer = () => issuer ?? Player,
@@ -124,7 +125,7 @@ public class EntFireCommandTests
         // The command's own log, its context's (statics to zero).
         var log = (RecordingLog)command.Context.Log;
         int before = log.Lines.Count;
-        command.Execute(args);
+        command.RunLine(args, log.Msg);
 
         return (posts, string.Concat(log.Lines.Skip(before).Select(l => l.Text)));
     }
@@ -148,7 +149,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a Kill");
+        command.RunLine("gz_probe_a Kill");
 
         var only = Assert.Single(posts);
         Assert.Equal("gz_probe_a", only.Target);
@@ -165,9 +166,9 @@ public class EntFireCommandTests
         // no meaning until the event is delivered.
         var (command, posts) = Rig();
 
-        command.Execute("prop_physics Use");
-        command.Execute("!activator Use");
-        command.Execute("gz_* Use");
+        command.RunLine("prop_physics Use");
+        command.RunLine("!activator Use");
+        command.RunLine("gz_* Use");
 
         Assert.Equal(new[] { "prop_physics", "!activator", "gz_*" },
                      posts.ConvertAll(p => p.Target).ToArray());
@@ -182,7 +183,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a");
+        command.RunLine("gz_probe_a");
 
         Assert.Equal("Use", Assert.Single(posts).Input);
     }
@@ -192,7 +193,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a Kill");
+        command.RunLine("gz_probe_a Kill");
 
         Assert.Equal(string.Empty, Assert.Single(posts).Value);
     }
@@ -202,7 +203,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a Kill");
+        command.RunLine("gz_probe_a Kill");
 
         Assert.Equal(0f, Assert.Single(posts).Delay);
     }
@@ -212,7 +213,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_b SetPosition 0.5");
+        command.RunLine("gz_probe_b SetPosition 0.5");
 
         Assert.Equal("0.5", Assert.Single(posts).Value);
     }
@@ -227,7 +228,7 @@ public class EntFireCommandTests
         // command not existing, i.e. from the bug this file is about.
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a AddOutput \"OnFullyOpen gz_probe_b:SetPosition:0.5:12:2\"");
+        command.RunLine("gz_probe_a AddOutput \"OnFullyOpen gz_probe_b:SetPosition:0.5:12:2\"");
 
         var only = Assert.Single(posts);
         Assert.Equal("AddOutput", only.Input);
@@ -245,7 +246,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a Open \"\" 12");
+        command.RunLine("gz_probe_a Open \"\" 12");
 
         Assert.Equal(12f, Assert.Single(posts).Delay);
     }
@@ -255,19 +256,32 @@ public class EntFireCommandTests
     {
         // atoi("0.5") is 0, which would be "immediately" -- a silent wrong
         // answer, which is the class of bug this whole command is a fix for.
-        Assert.Equal(0.5f, EntFireCommand.ParseDelay("0.5"));
+        var (command, posts) = Rig();
+
+        command.RunLine("gz_probe_a Open \"\" 0.5");
+
+        Assert.Equal(0.5f, Assert.Single(posts).Delay);
     }
 
     [Fact]
-    public void ADelayThatIsNotANumberIsZero()
+    public void ADelayThatIsNotANumberIsRefusedAndNothingPosted()
     {
-        Assert.Equal(0f, EntFireCommand.ParseDelay("soon"));
+        var (command, posts) = Rig();
+
+        var (_, console) = RunCapturing(command, posts, "gz_probe_a Open \"\" soon");
+
+        Assert.Empty(posts);
+        Assert.Contains("'delay' is a number, not 'soon'", console);
     }
 
     [Fact]
     public void ANegativeDelayIsZeroBecauseAnEventDueInThePastIsDueNow()
     {
-        Assert.Equal(0f, EntFireCommand.ParseDelay("-4"));
+        var (command, posts) = Rig();
+
+        command.RunLine("gz_probe_a Open \"\" -4");
+
+        Assert.Equal(0f, Assert.Single(posts).Delay);
     }
 
     //-------------------------------------------------------------------------
@@ -279,7 +293,7 @@ public class EntFireCommandTests
     {
         var (command, posts) = Rig();
 
-        command.Execute("gz_probe_a Use");
+        command.RunLine("gz_probe_a Use");
 
         Assert.Equal(Player, Assert.Single(posts).Activator);
     }
@@ -294,7 +308,7 @@ public class EntFireCommandTests
         // as many words: engine->ServerCommand on a LISTEN server is the host.
         var (command, posts) = Rig(issuer: EntityHandle.None);
 
-        command.Execute("gz_probe_a Use");
+        command.RunLine("gz_probe_a Use");
 
         Assert.Equal(EntityHandle.None, Assert.Single(posts).Activator);
     }
@@ -394,7 +408,7 @@ public class EntFireCommandTests
         // rig, an issuer in slot 1, and it posts.
         var (command, posts) = Rig(issuer: Player, slots: [Player]);
 
-        command.Execute("gz_probe_a Kill");
+        command.RunLine("gz_probe_a Kill");
 
         Assert.Single(posts);
     }
@@ -423,7 +437,7 @@ public class EntFireCommandTests
         var (_, console) = RunCapturing(command, posts, "");
 
         Assert.Empty(posts);
-        Assert.Contains("usage: ent_fire <target> [action] [value] [delay]", console);
+        Assert.Contains("usage: ent_fire <target>", console);
     }
 
     [Fact]

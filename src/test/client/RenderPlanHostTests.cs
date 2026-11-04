@@ -37,7 +37,7 @@ public unsafe class RenderPlanHostTests
         input.Eye.Origin = new Vector(1, 2, 3);
         var answer = default(RenderFrameOut);
 
-        new RenderPlanHost(record).Frame(in input, ref answer);
+        new RenderPlanHost(RenderPlannerTests.ConVars(), record).Frame(in input, ref answer);
 
         Assert.True(record.TryGet(out PlayerView view));
         Assert.Equal(new Vector(1, 2, 3), view.Origin);
@@ -50,7 +50,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void WithNoRequestAFrameIsThePlansAndUnrecorded()
     {
-        RenderFrameOut answer = Ask(new RenderPlanHost());
+        RenderFrameOut answer = Ask(new RenderPlanHost(RenderPlannerTests.ConVars()));
         Assert.Equal(1, answer.Path);
         Assert.Equal(0, answer.Trace);
     }
@@ -58,7 +58,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void ARequestRecordsTheNextFrameAndOnlyThatOne()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         int tag = host.RequestTrace(_ => { });
 
         RenderFrameOut first = Ask(host, 1);
@@ -70,7 +70,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void TheRecordedTextReachesTheRequester()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         string? got = null;
         host.RequestTrace(text => got = text);
         RenderFrameOut answer = Ask(host);
@@ -84,7 +84,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void RequestsAreServedOneFrameEachInOrder()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var got = new List<string>();
         int a = host.RequestTrace(t => got.Add("a:" + t));
         int b = host.RequestTrace(t => got.Add("b:" + t));
@@ -103,7 +103,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void AnUnknownOrRepeatedTagIsIgnored()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         int calls = 0;
         host.RequestTrace(_ => calls++);
         RenderFrameOut answer = Ask(host);
@@ -121,7 +121,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void AFrozenCompareRecordsTheNextPlanFrameAgainstTheFrozenOne()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         RenderTrace frozen = RenderTrace.Parse("frame\tpath=0 framecount=1 rect=0,0,8,8\nmodel.DrawModelEx\tent=5 model=x.mdl\n");
         Assert.True(host.RequestFrozenCompare(frozen, false, out int sequence));
         Assert.False(host.RequestFrozenCompare(frozen, false, out _));
@@ -138,7 +138,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void AFrozenCompareReportsEachFramesStartingCopyTexture()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         RenderTrace frozen = RenderTrace.Parse("frame\tpath=0 framecount=1 rect=0,0,8,8\nctx.SetFrameBufferCopyTexture\ttexture=- index=0\n");
         Assert.True(host.RequestFrozenCompare(frozen, false, out _));
         RenderFrameOut plan = Ask(host, 2);
@@ -151,7 +151,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void TheBindingWritesTheAnswerIntoNativesStructAndCountsTheCrossing()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var crossings = new Crossings();
         var binding = new RenderClientBinding(crossings, new StandardErrorLog(), host);
         int tag = host.RequestTrace(_ => { });
@@ -170,7 +170,7 @@ public unsafe class RenderPlanHostTests
     public void TheBindingRefusesNullBuffersButStillCounts()
     {
         var crossings = new Crossings();
-        var binding = new RenderClientBinding(crossings, new StandardErrorLog(), new RenderPlanHost());
+        var binding = new RenderClientBinding(crossings, new StandardErrorLog(), new RenderPlanHost(RenderPlannerTests.ConVars()));
         Assert.Equal(0, binding.RenderFrame(null, null));
         Assert.Contains(crossings.Active(), op => op.Name == nameof(CrossingOp.ClientRenderFrame) && op.Count == 1);
     }
@@ -178,7 +178,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void TheBindingDecodesTheTraceByItsLengthNotATerminator()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var crossings = new Crossings();
         var binding = new RenderClientBinding(crossings, new StandardErrorLog(), host);
         string? got = null;
@@ -198,7 +198,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void AShadowDepthViewIsPlannedAfterTheFramesPlan()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var shadow = new ViewSetup { Width = 512, Height = 512, Fov = 60, ZNear = 4, ZFar = 500, AspectRatio = 1f };
         var ops = new RenderOp[4096];
         Assert.Equal(-1, host.BuildShadowDepthPlan(shadow, ops, out _));
@@ -220,10 +220,10 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void EveryFrameDecidesItsView()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var frame = new RenderFrameIn
         {
-            Width = 1280, Height = 720, ViewportWidth = 1280, ViewportHeight = 720, ViewportScale = 1f, ScreenAspect = 16f / 9f,
+            Width = 1280, Height = 720, ViewportWidth = 1280, ViewportHeight = 720, ScreenAspect = 16f / 9f,
             Eye = new ViewSetup { Fov = 90, FovViewmodel = 54 }, ClientModeDrawViewModel = 1,
         };
         var answer = default(RenderFrameOut);
@@ -237,10 +237,15 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void SetUpViewsIsViewFrames()
     {
-        var host = new RenderPlanHost();
-        var input = new ViewSetUpIn { FarZ = -1, MapExtents = 16384, DefaultFov = 75, ViewModelFov = 54 };
+        RenderConVars convars = RenderPlannerTests.ConVars();
+        convars.Set("r_farz", -1f);
+        convars.Set("r_mapextents", 16384f);
+        convars.Set("default_fov", 75f);
+        convars.Set("viewmodel_fov", 54f);
+        var host = new RenderPlanHost(convars);
+        var input = new ViewSetUpIn();
         ((IClientRenderPlan)host).ViewSetUp(in input, out ViewSetUpOut output);
-        Assert.Equal(ViewFrame.SetUpView(input), output);
+        Assert.Equal(ViewFrame.SetUpView(input, convars), output);
     }
 
     // CViewRender::FreezeFrame's rule: a new freeze runs from now and
@@ -267,7 +272,7 @@ public unsafe class RenderPlanHostTests
     [Fact]
     public void ThePlanCapturesThenShowsTheFreezeFrame()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var ops = new RenderOp[4096];
         RenderInputs input = RenderPlannerTests.Inputs();
         input.CurTime = 10f;

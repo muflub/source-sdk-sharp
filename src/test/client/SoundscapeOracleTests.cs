@@ -6,6 +6,7 @@ using SourceSharp.Client.Soundscapes;
 using SourceSharp.Shared.Soundscapes;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -129,7 +130,7 @@ public class SoundscapeOracleTests
         var clock = new Clock();
         var audio = new Audio();
         var library = Library();
-        var system = new ClientSoundscapes(audio, audio, clock, engine, engine);
+        var system = new ClientSoundscapes(audio, audio, clock, engine, engine, DeclaredConVars.Fresh<DeveloperConVar>());
         system.LevelInit(library);
 
         // Group the rows by frame: an F row opens one, a Q row closes it.

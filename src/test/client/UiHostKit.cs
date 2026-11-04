@@ -34,12 +34,11 @@ internal static class UiHostKit
     }
 
     public static UiHost Build(UiFidelityTests.RecordingSurface surface, UiScreen[] hudScreens, UiScreen[]? menuScreens = null,
-                               UiMenus? menus = null, RecordingEngine? engine = null, ILog? log = null)
+                               UiMenus? menus = null, RecordingEngine? engine = null, ILog? log = null, HostnameConVar? hostname = null)
     {
         var fonts = new UiFontLibrary();
         var backend = new VguiBackend(surface, fonts, new UiFontFiles([]));
         engine ??= Fake().Returns("Hud.LocalPlayerHealth", 80).Returns("Clock.Now", 3f).Returns("Hud.LocalPlayerIndex", 1)
-                         .Returns("Console.FindConVarValue", "test server")
                          // The scoreboard maxClients load (docs/todo.md): unbound in the kit,
                          // so the header draws the array ceiling, the figure it drew before.
                          .Returns("Environment.Globals", default(Globals));
@@ -47,7 +46,7 @@ internal static class UiHostKit
         var hud = new Hud(new RecordingLog(), engine, engine, new DamageMessage(), new HudMsgMessage(),
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         var player = new LocalPlayerUi(engine, new NoArsenal(), hud);
-        var scores = new ScoreboardUi(new NoStandalones(), engine, new DefaultForwarders.NoEngineClient(), new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), engine, engine);
+        var scores = new ScoreboardUi(new NoStandalones(), engine, new DefaultForwarders.NoEngineClient(), new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), hostname ?? DeclaredConVars.Holding<HostnameConVar>("test server"), engine);
         menus ??= new UiMenus(scores, new TeamMenuUi(scores, engine, new DefaultForwarders.NoEngineClient(), new RecordingLog()), new MotdUi(), new ConsoleUi(new DefaultForwarders.NoEngineClient()));
         var windows = new UiWindows(new MemoryWindowStore());
         var theme = SourceSharpTheme.Create();
@@ -81,10 +80,13 @@ internal static class UiHostKit
             .AddInstance<IAdminKeySource>(new SourceSharp.Client.Ui.Screens.Samples.FakeAdminKey(false))
             .AddInstance<IClientStandalones>(new NoStandalones())
             .AddInstance<IPlayerNames>(new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()))
+            .AddInstance(DeclaredConVars.Holding<HostnameConVar>("test server"))
             .AddInstance<IEngineEnvironment>(engine)
             .AddInstance<IKillFeedSource>(new NoKills())
             .AddInstance<IDamageDealtSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeDamageDealt())
             .AddInstance<IMinimapSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeMinimap { Outline = [] })
+            .AddInstance<IMinimapPingSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeMinimapPings())
+            .AddInstance<IWorldMarkerSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeWorldMarkers())
             .AddInstance<ICentrePrintSource>(new CentrePrint(engine))
             .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
             .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))

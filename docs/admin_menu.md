@@ -1,8 +1,8 @@
 # The admin menu
 
 `adminmenu` (F4 by default) opens a radial menu of what an admin may do on the
-server: change the map, the game mode, kick a player, restart the game, and what
-mods add (`IAdminMenuProvider`: the AI's bots). Menus nest; the server builds them
+server: change the map, the game mode and the game's settings (friendly fire, time
+limit and so on), kick a player, restart the game, and what mods add (`IAdminMenuProvider`: the AI's bots). Menus nest; the server builds them
 and a choice goes back as an id, so nothing a client sends is ever a command.
 
 ## Who is an admin

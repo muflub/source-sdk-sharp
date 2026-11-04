@@ -38,6 +38,16 @@ internal sealed unsafe class ClientUiSurface(IUiClientArea uiClient) : IUiSurfac
             uiClient.UiDrawTexturedQuad(texture, p, xyuv.Length / 4, rgba, additive ? 1 : 0);
     }
 
+    public void Mesh(int texture, ReadOnlySpan<float> xyuv, ReadOnlySpan<uint> rgba, ReadOnlySpan<ushort> indices)
+    {
+        if (indices.Length < 3 || rgba.Length * 4 != xyuv.Length)
+            return;
+        fixed (float* v = xyuv)
+        fixed (uint* c = rgba)
+        fixed (ushort* i = indices)
+            uiClient.UiDrawMesh(texture, v, c, rgba.Length, i, indices.Length);
+    }
+
     public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
     {
         if (text.IsEmpty)

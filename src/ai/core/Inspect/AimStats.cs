@@ -205,6 +205,23 @@ public sealed class AimStats
         }
     }
 
+    /// <summary>The bot's second trigger went, by weapon kind.</summary>
+    public IReadOnlyDictionary<int, long> AltFired => _altFired;
+
+    /// <summary>What the bot's blasts did to the bot itself, in all (ruling 2026-11-03: a grenade's cost counts).</summary>
+    public long SelfBlastDamage { get; private set; }
+
+    private readonly Dictionary<int, long> _altFired = new();
+
+    /// <summary>The bot's second trigger went: told apart from <see cref="Shot"/>, whose hit rate is the aim's.</summary>
+    public void AltShot(int weaponKind) => _altFired[weaponKind] = _altFired.GetValueOrDefault(weaponKind) + 1;
+
+    /// <summary>A blast or a ball took <paramref name="taken"/> off the player in <paramref name="slot"/>: damage, not a hit of an aimed shot.</summary>
+    public void AltHit(int slot, int taken) => _rows[slot].AltDamage += taken;
+
+    /// <summary>The bot's own blast took <paramref name="taken"/> off it.</summary>
+    public void SelfBlast(int taken) => SelfBlastDamage += taken;
+
     /// <summary>
     /// The bot's fire took <paramref name="taken"/> off the player in
     /// <paramref name="slot"/>: one shot's pellets all land on one tick and are
@@ -393,6 +410,9 @@ public sealed class AimStats
         public long Hits { get; internal set; }
 
         public long Damage { get; internal set; }
+
+        /// <summary>What its blasts and balls did: in no hit rate, and part of what it costs its victim.</summary>
+        public long AltDamage { get; internal set; }
 
         /// <summary>The mean angle from the crosshair to the chest, in sight.</summary>
         public double ErrorMean => InSightTicks == 0 ? 0 : ErrorSum / InSightTicks;

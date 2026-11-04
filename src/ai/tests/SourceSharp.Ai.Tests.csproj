@@ -2,6 +2,7 @@
   <!-- The AI's facts (docs/plans/plan_hl2mp_ai.md §8.1): their own project and
        their own leg, `ai`, as the TF2 mod's are. -->
   <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/ai-tests/</OutputPath>
@@ -12,6 +13,9 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
     <!-- The fixtures are written with map-tools' own Nav3dWriter (§8.2). -->
     <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\test\support\ConCommandLines.cs" Link="support\ConCommandLines.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
@@ -34,5 +38,8 @@
     <!-- So facts can find the repository the way the core tests do. -->
     <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
     <Compile Include="..\..\test\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\..\test\common\ByNameConVarReads.cs" Link="common\ByNameConVarReads.cs" />
+    <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
+    <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
   </ItemGroup>
 </Project>

@@ -28,15 +28,18 @@ namespace SourceSharp.Client.Standalone;
 [ClientStandaloneEntity(EntityNames.PointWorldtext)]
 public sealed class ClientWorldText : ClientStandaloneEntity, IManagedWorldTextSource, ISaveCustom
 {
-    public ClientWorldText(IEngineEntityRender render, IClientWorldTextMeshes meshes, IEngineConsole console)
+    public ClientWorldText(IEngineEntityRender render, IClientWorldTextMeshes meshes,
+                           PointworldtextRainbowspeedTimeConVar rainbowTime, PointworldtextRainbowspeedCharConVar rainbowChar)
         : base(render)
     {
         _meshes = meshes;
-        _console = console;
+        _rainbowTime = rainbowTime;
+        _rainbowChar = rainbowChar;
     }
 
     private readonly IClientWorldTextMeshes _meshes;
-    private readonly IEngineConsole _console;
+    private readonly PointworldtextRainbowspeedTimeConVar _rainbowTime;
+    private readonly PointworldtextRainbowspeedCharConVar _rainbowChar;
     private WorldTextVertex[] _scratch = new WorldTextVertex[256];
     private bool _created;
 
@@ -60,19 +63,13 @@ public sealed class ClientWorldText : ClientStandaloneEntity, IManagedWorldTextS
         _created = false;
     }
 
-    /// <summary>
-    /// The two rainbow speeds, read as the engine reads them (<c>atof</c>):
-    /// their defaults carry an 'f' inside the string, stock's to the character.
-    /// </summary>
-    private float Speed(string name) => VariantParse.Atof(_console.FindConVarValue(name));
-
     int IManagedWorldTextSource.Draw(in WorldTextView view, Span<WorldTextVertexRaw> verticesOut)
     {
         float time = 0, chars = 0;
         if (Layout.Rainbow)
         {
-            time = Speed("pointworldtext_rainbowspeed_time");
-            chars = Speed("pointworldtext_rainbowspeed_char");
+            time = _rainbowTime.Value;
+            chars = _rainbowChar.Value;
         }
 
         int n = Layout.Layout(view.Origin, view.Angles, view.Right, view.Up, view.CurTime, time, chars, _scratch);

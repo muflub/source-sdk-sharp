@@ -106,7 +106,9 @@ public sealed class TFAutobalanceTests
             convars.RegisterTypes([typeof(TFAutobalanceDeadCandidatesMaxTimeConVar),
                                    typeof(TFAutobalanceForceCandidatesMaxTimeConVar),
                                    typeof(TFAutobalanceXpBonusConVar)]);
-            Balance = new TFAutobalance(Settings, Roster, Announcer, Clock, Log, Rounds, Stats, Messages, convars, Bots);
+            Balance = new TFAutobalance(Settings, Roster, Announcer, Clock, Log, convars.Declared<TFAutobalanceDeadCandidatesMaxTimeConVar>(),
+                                        convars.Declared<TFAutobalanceForceCandidatesMaxTimeConVar>(),
+                                        convars.Declared<TFAutobalanceXpBonusConVar>(), Rounds, Stats, Messages, Bots);
         }
 
         public void Think() => ((IFrameLifecycle)Balance).OnThink(0.015f);

@@ -39,7 +39,7 @@ public sealed class SpawnProtectConVar : FloatConVar { }
 /// and EndRound is the one new call here that reaches deep into the base rules.
 /// </summary>
 [ConCommand("cs_sv_end_round", Help = "End the current round and go to intermission")]
-public sealed class EndRoundCommand : IConCommand
+public sealed class EndRoundCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -56,7 +56,7 @@ public sealed class EndRoundCommand : IConCommand
 
     private readonly Intermission? _intermission;
 
-    public void Execute(string args)
+    public void Execute()
     {
         _log.Msg("[SourceSharp/Rules] ending round on request\n");
         _intermission?.Begin(_host.CurrentTime);
@@ -112,13 +112,13 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 
     void IFrameLifecycle.OnThink(float frameTime) => Think();
 
-    private readonly RespawnDelayConVar? _respawnDelay;
+    private readonly RespawnDelayConVar _respawnDelay;
     // Declared in ServerModule alongside the relationship rule, and reused here:
     // "are they teammates" and "may teammates hurt each other" are two halves of
     // one setting, so they must not drift apart into two ConVars.
-    private readonly FriendlyFireConVar? _friendlyFire;
-    private readonly SpawnProtectConVar? _spawnProtect;
-    private readonly FragLimitConVar? _fragLimit;
+    private readonly FriendlyFireConVar _friendlyFire;
+    private readonly SpawnProtectConVar _spawnProtect;
+    private readonly FragLimitConVar _fragLimit;
 
     /// <summary>Set once the round has been ended, so it is ended only once.</summary>
     private bool _roundOver;
@@ -137,9 +137,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly IEngineEntities _entities;
     private readonly IScoreboard _scoreboard;
     private readonly Intermission? _intermission;
-    private readonly MpFragLimitConVar? _mpFragLimit;
-    private readonly MpTimeLimitConVar? _mpTimeLimit;
-    private readonly MpRestartGameConVar? _mpRestartGame;
+    private readonly MpFragLimitConVar _mpFragLimit;
+    private readonly MpTimeLimitConVar _mpTimeLimit;
+    private readonly MpRestartGameConVar _mpRestartGame;
     private float _levelStartedAt;
     private readonly GameModes? _modes;
     private readonly IHooks<IDamageRule>? _damageRules;
@@ -169,10 +169,10 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// </summary>
     private IGameMode? Mode => _modes?.Active;
 
-    public GameRules(ILog log, ConVarRegistry convars, IEngineHost host, IEnginePlayers players,
+    public GameRules(ILog log, GameRulesConVars convars, IEngineHost host, IEnginePlayers players,
                      IEngineEntities entities, IScoreboard scoreboard,
                      IGameEvent<PlayerDeathArgs> deaths, Intermission? intermission = null,
-                     ConVarRegistry? mpConVars = null, GameModes? modes = null,
+                     GameModes? modes = null,
                      IHooks<IDamageRule>? damageRules = null,
                      IHooks<ILoadoutProvider>? loadout = null,
                      ISpawnWeapon? spawnWeapon = null,
@@ -203,9 +203,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         _damageModifiers = damageModifiers;
         _loadoutProviders = loadout;
         _intermission = intermission;
-        _mpFragLimit = (mpConVars ?? convars).Get<MpFragLimitConVar>();
-        _mpTimeLimit = (mpConVars ?? convars).Get<MpTimeLimitConVar>();
-        _mpRestartGame = (mpConVars ?? convars).Get<MpRestartGameConVar>();
+        _mpFragLimit = convars.MpFragLimit;
+        _mpTimeLimit = convars.MpTimeLimit;
+        _mpRestartGame = convars.MpRestartGame;
 
         _log = log;
         _host = host;
@@ -216,10 +216,10 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         _messages = messages;
         _events = events;
 
-        _respawnDelay = convars.Get<RespawnDelayConVar>();
-        _friendlyFire = convars.Get<FriendlyFireConVar>();
-        _spawnProtect = convars.Get<SpawnProtectConVar>();
-        _fragLimit    = convars.Get<FragLimitConVar>();
+        _respawnDelay = convars.RespawnDelay;
+        _friendlyFire = convars.FriendlyFire;
+        _spawnProtect = convars.SpawnProtect;
+        _fragLimit    = convars.FragLimit;
 
         // This module's death event, not a process-wide one. It used to be a
         // static event, so the subscription was made once and routed through a
@@ -347,7 +347,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     {
         // Spawn protection. Checked before friendly fire because it should hold
         // regardless of who is shooting — including the world.
-        float protect = _spawnProtect?.Value ?? 0f;
+        float protect = _spawnProtect.Value;
         if (protect > 0f && _spawnedAt.TryGetValue(player.Value, out float spawnedAt))
         {
             if (now - spawnedAt < protect)
@@ -362,7 +362,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         // Friendly fire. Only answered when it is OFF and the two are actually
         // teammates; anything else defers, so this rule can never make damage
         // land that the stock rules would have blocked.
-        if (_friendlyFire?.Value == false && _entities.IsValid(attacker)
+        if (!_friendlyFire.Value && _entities.IsValid(attacker)
             && Teammates(_players.GetTeam(player), _players.GetTeam(attacker)))
             return Decision.No;
 
@@ -459,7 +459,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     public Decision CanRespawn(EntityHandle player) => Decision.UseStockRule;
 
     /// <summary>Seconds until respawn, or negative for the stock rule.</summary>
-    public float GetRespawnDelay(EntityHandle player) => _respawnDelay?.Value ?? -1f;
+    public float GetRespawnDelay(EntityHandle player) => _respawnDelay.Value;
 
     /// <summary>
     /// Hands out the loadout — the mods' when a provider owns a column, the
@@ -527,7 +527,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         if (giveKit)
             _log.Msg($"[SourceSharp/Rules] {player} spawned: gave {given}/{weapons.Count} item(s), " +
                        $"{ammoGiven} ammo" +
-                       $"{((_spawnProtect?.Value ?? 0f) > 0f ? $", protected for {_spawnProtect!.Value:F1}s" : "")}\n");
+                       $"{(_spawnProtect.Value > 0f ? $", protected for {_spawnProtect.Value:F1}s" : "")}\n");
         else
             _log.Msg($"[SourceSharp/Rules] {player} spawned: no kit, a gate refused it\n");
     }
@@ -587,7 +587,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// <summary>Test seam: whether a player is currently spawn-protected.</summary>
     public bool IsProtected(EntityHandle player, float now)
     {
-        float protect = _spawnProtect?.Value ?? 0f;
+        float protect = _spawnProtect.Value;
         return protect > 0f
             && _spawnedAt.TryGetValue(player.Value, out float at)
             && now - at < protect;
@@ -807,7 +807,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
             return;
 
         // GetMapRemainingTime() < 0: mp_timelimit minutes since the level began.
-        float minutes = _mpTimeLimit?.Value ?? 0f;
+        float minutes = _mpTimeLimit.Value;
         if (minutes > 0f && _host.CurrentTime >= _levelStartedAt + minutes * 60f)
         {
             _roundOver = true;
@@ -817,9 +817,9 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         }
 
         // This mod's cs_sv_fraglimit, else stock's mp_fraglimit.
-        int limit = _fragLimit?.Value ?? 0;
+        int limit = _fragLimit.Value;
         if (limit <= 0)
-            limit = _mpFragLimit?.Value ?? 0;
+            limit = _mpFragLimit.Value;
         if (limit <= 0)
             return;
 
@@ -866,7 +866,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private void RestartThink()
     {
         bool armed = _restartGameTime > 0f;
-        if (!armed && (_mpRestartGame is not { } restart || restart.Value <= 0))
+        if (!armed && _mpRestartGame.Value <= 0)
             return;
 
         float now = _host.CurrentTime;
@@ -891,9 +891,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// </summary>
     private void CheckRestartGame(float now)
     {
-        if (_mpRestartGame is not { } restart)
-            return;
-
+        MpRestartGameConVar restart = _mpRestartGame;
         int delay = restart.Value;
 
         if (delay <= 0)
@@ -941,8 +939,8 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         float now = _host.CurrentTime;
 
         // Stock bounds-checks mp_timelimit before anything else.
-        if (_mpTimeLimit is { } timeLimit && timeLimit.Value < 0f)
-            timeLimit.SetValue(0f);
+        if (_mpTimeLimit.Value < 0f)
+            _mpTimeLimit.SetValue(0f);
 
         // m_flGameStartTime: the round's clock restarts with the restart.
         _levelStartedAt = now;
@@ -1039,4 +1037,19 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 
     /// <summary>Test seam: whether an mp_restartgame restart is armed.</summary>
     public bool RestartPending => _restartGameTime > 0f;
+}
+
+/// <summary>The convars the rules read, built by the container.</summary>
+public sealed class GameRulesConVars(RespawnDelayConVar respawnDelay, FriendlyFireConVar friendlyFire,
+                                     SpawnProtectConVar spawnProtect, FragLimitConVar fragLimit,
+                                     MpFragLimitConVar mpFragLimit, MpTimeLimitConVar mpTimeLimit,
+                                     MpRestartGameConVar mpRestartGame)
+{
+    public readonly RespawnDelayConVar RespawnDelay = respawnDelay;
+    public readonly FriendlyFireConVar FriendlyFire = friendlyFire;
+    public readonly SpawnProtectConVar SpawnProtect = spawnProtect;
+    public readonly FragLimitConVar FragLimit = fragLimit;
+    public readonly MpFragLimitConVar MpFragLimit = mpFragLimit;
+    public readonly MpTimeLimitConVar MpTimeLimit = mpTimeLimit;
+    public readonly MpRestartGameConVar MpRestartGame = mpRestartGame;
 }

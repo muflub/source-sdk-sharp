@@ -35,13 +35,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.GameGibManager)]
 public sealed class GameGibManager : ScriptedEntity
 {
-    public GameGibManager(IEngineConsole console)
+    public GameGibManager(MatDxLevelConVar dxLevel)
     {
-        Console = console;
+        _dxLevelConVar = dxLevel;
     }
 
     /// <summary>the console: convars, and commands run on the server or a client.</summary>
-    private readonly IEngineConsole Console;
+    private readonly MatDxLevelConVar _dxLevelConVar;
     /// <summary>What a map may set on this entity. See <see cref="GameGibManagerVars"/>.</summary>
     [ScriptVars] public GameGibManagerVars Vars = new();
 
@@ -62,7 +62,7 @@ public sealed class GameGibManager : ScriptedEntity
     {
         // Read once, as stock does in Activate: the level cannot change without
         // the renderer restarting.
-        _dxLevel = ParseInt(Console.FindConVarValue("mat_dxlevel") ?? string.Empty, DefaultDxLevel);
+        _dxLevel = _dxLevelConVar.Value;
 
         Apply();
     }

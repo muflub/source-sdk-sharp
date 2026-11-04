@@ -82,7 +82,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeEffectDispatch : TeBaseTempEntity
+public partial class TeEffectDispatch : TeBaseTempEntity
 {
     /// <summary>
     /// The whole payload, nested as a table rather than spelled out — see the

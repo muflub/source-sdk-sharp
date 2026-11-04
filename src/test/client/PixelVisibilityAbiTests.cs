@@ -8,6 +8,7 @@ using SourceSharp.Client.Interop;
 using SourceSharp.Client.Render.PixelVisibility;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -201,9 +202,8 @@ public class PixelVisibilityAbiTests
     public void ASpritesPlanCarriesItsRenderersHandleBothWays()
     {
         var glow = new HandleGlow();
-        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!);
+        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!, RenderConVarsKit.DrawSprites(1), RenderConVarsKit.Wireframe(false));
         var input = new float[ClientSpriteHost.InFloats];
-        input[ClientSpriteHost.InDrawSprites] = 1;
         input[ClientSpriteHost.InRenderMode] = (int)RenderMode.Glow;
         input[ClientSpriteHost.InAlpha] = 255;
         input[ClientSpriteHost.InBlend] = 1;
@@ -221,7 +221,7 @@ public class PixelVisibilityAbiTests
     public void ASpriteThatDrawsNothingHandsItsHandleBackUnchanged()
     {
         var glow = new HandleGlow();
-        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!);
+        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!, RenderConVarsKit.DrawSprites(1), RenderConVarsKit.Wireframe(false));
         var input = new float[ClientSpriteHost.InFloats];
         input[ClientSpriteHost.InQueryHandle] = BitConverter.Int32BitsToSingle(0x00010002);
         var output = new float[ClientSpriteHost.OutFloats];
@@ -244,20 +244,6 @@ public class PixelVisibilityAbiTests
         public void Warning(string message) => Lines.Add("W " + message);
     }
 
-    private sealed class Slots : IClientConVarSlots
-    {
-        public readonly Dictionary<string, int> Ids = new(StringComparer.Ordinal);
-
-        public int Watch(string name)
-        {
-            int id = 1000 + Ids.Count;
-            Ids[name] = id;
-            return id;
-        }
-
-        public bool SetValue(string name, float value) => false;
-    }
-
     [Fact]
     public void TheDrawConVarsChangeIsStocksCallback()
     {
@@ -269,22 +255,6 @@ public class PixelVisibilityAbiTests
         draw.NotifyChanged("0", "1");
 
         Assert.Equal([true, false], shown);
-    }
-
-    [Fact]
-    public void BuildingCubemapsIsTheEnginesWatchedByName()
-    {
-        var slots = new Slots();
-        var values = new Dictionary<string, string?>(StringComparer.Ordinal) { [BuildingCubemapsWatch.Name] = "0" };
-        var watch = new BuildingCubemapsWatch(new SourceSharp.Client.Flashlight.WatchedConVarValues(slots, n => values.GetValueOrDefault(n)));
-        watch.Start();
-        Assert.Equal(["building_cubemaps"], slots.Ids.Keys);
-        Assert.False(watch.Value);
-
-        Assert.True(watch.OnChanged(slots.Ids[BuildingCubemapsWatch.Name], "1"));
-        Assert.True(watch.Value);
-        Assert.False(watch.OnChanged(99, "0"));
-        Assert.True(watch.Value);
     }
 
     [Fact]
@@ -304,8 +274,8 @@ public class PixelVisibilityAbiTests
         engine.Strict = false;
         engine.Returns("WorldQuery.ClientTraceLine", new ClientTraceResult(true, 0.5f, Vector.Zero, Vector.Zero, 0, -1, 0, 0));
         var log = new ListLog();
-        string developer = "0";
-        var pixelVis = new ClientPixelVisEngine(null!, null!, engine, () => 95, log, n => n == "developer" ? developer : null);
+        var developer = DeclaredConVars.Holding<DeveloperConVar>("0");
+        var pixelVis = new ClientPixelVisEngine(null!, null!, engine, () => 95, log, developer);
 
         Assert.Equal(0.5f, pixelVis.TraceGlowSight(Vector.Zero, new Vector(10, 0, 0)));
         var call = engine.Last("WorldQuery.ClientTraceLine")!.Value;
@@ -313,7 +283,7 @@ public class PixelVisibilityAbiTests
         Assert.Equal(TraceFilter.Glow, call.ArgAs<TraceFilter>(3));
 
         pixelVis.DevMsg(1, "hidden\n");
-        developer = "1";
+        developer.Hold("1");
         pixelVis.DevMsg(1, "shown\n");
         pixelVis.DevMsg(2, "too deep\n");
         Assert.Equal(["shown\n"], log.Lines);

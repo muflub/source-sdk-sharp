@@ -26,6 +26,7 @@ public sealed class ChatCensusTests
     [
         nameof(ChatDirector), nameof(ChatWorker), nameof(ChatPromptBuilder), nameof(ChatOutputFilter), nameof(ChatWords), nameof(ChatAddress),
         nameof(ChatCounters), nameof(ChatSettings), nameof(ChatRefused), nameof(ChatLine), nameof(ChatFacts), nameof(ChatPersona), nameof(ChatPrompt), nameof(ChatHeard),
+        nameof(ChatAnswerBook), nameof(ChatAnswerCheck), nameof(ChatHelp), nameof(ChatPlaces), nameof(ChatLineRules), nameof(ChatOpenings), nameof(ChatText),
     ];
 
     private static bool IsCoreChat(string caller) => CoreChat.Any(n => caller == "SourceSharp.Ai." + n);
@@ -35,12 +36,14 @@ public sealed class ChatCensusTests
     /// <summary>Every call the chat types make out of themselves into the game's core: what a player's screen shows, and its say path.</summary>
     private static readonly string[] Allowed =
     [
-        "ConVarRegistry::Get", "ConVar`1::get_Value", "IEngineFiles::ReadGameFile", "IEngineFrame::TickCount", "ILog::Msg",
+        "ConVar`1::get_Value", "IEngineFiles::ReadGameFile", "IEngineFrame::TickCount", "ILog::Msg",
         "IEngineEntities::GetIndex", "IClientInfo::ClientConVar", "IPlayerDirectory::get_All", "PlayerRecord::get_Kills", "PlayerRecord::get_Deaths",
         "HostSay::CanHear", "HostSay::Say", "EntityHandle::get_None", "EntityHandle::op_Equality", "EntityHandle::op_Inequality",
         "DeathNoticeFacts::get_Victim", "DeathNoticeFacts::get_Scorer", "DeathNoticeFacts::get_Weapon",
         "PlayerHurt::get_Player", "PlayerHurt::get_Attacker", "PlayerChat::get_Speaker", "PlayerChat::get_Text", "PlayerChat::get_TeamOnly",
         "BoolConVar::.ctor", "IntConVar::.ctor", "StringConVar::.ctor",
+        // The marker on the asker's own screen (§3.6): a generic seam, a place from the map's own list.
+        "IPlayerMarkers::Show", "Vector::.ctor",
     ];
 
     private static bool IsGameCore(MethodBase m)
@@ -87,6 +90,8 @@ public sealed class ChatCensusTests
         var hits = new List<string>();
         foreach (MethodBase m in ChatMethods())
         {
+            if (m.DeclaringType == typeof(ChatAskerEyes))
+                continue;
             foreach (MethodBase callee in IlCallCensus.CalleesOf(m))
             {
                 if (callee.DeclaringType?.Name is { } name && forbidden.Contains(name) && !(name == "BotCommandApplier" && callee.Name == "PlayerOf"))
@@ -95,6 +100,20 @@ public sealed class ChatCensusTests
         }
 
         Assert.Empty(hits);
+    }
+
+    /// <summary>
+    /// The one reader of vision in chat (§3.6): whether this bot sees the asker, and where the
+    /// asker stands, and nothing else a vision pass answers. Only the director's seam reaches it.
+    /// </summary>
+    [Fact]
+    public void TheAskersEyesReadOnlyTheAsker()
+    {
+        const BindingFlags every = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+        string[] calls = [.. typeof(ChatAskerEyes).GetMethods(every).SelectMany(IlCallCensus.CalleesOf).Where(c => c.DeclaringType == typeof(VisionPass)).Select(c => c.Name).Distinct().Order(StringComparer.Ordinal)];
+        Assert.Equal(["ReadOf", "SightOf"], calls);
+        string[] callers = IlCallCensus.Callers(m => m.DeclaringType == typeof(IChatAskerEyes), Binding);
+        Assert.Equal([typeof(Hl2mpBotChat).FullName!], callers);
     }
 
     /// <summary>The control for the two facts above: the same read sees a call the chat type really makes.</summary>

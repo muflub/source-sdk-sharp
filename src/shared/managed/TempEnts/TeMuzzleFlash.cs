@@ -47,7 +47,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeMuzzleFlash : TeBaseTempEntity
+public partial class TeMuzzleFlash : TeBaseTempEntity
 {
     /// <summary>Where the flash is.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

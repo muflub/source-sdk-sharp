@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Globalization;
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
+using SourceSharp.Shared.Bones;
 
 namespace SourceSharp.Server;
 
@@ -29,13 +31,13 @@ namespace SourceSharp.Server;
 /// <summary><c>cs_sv_bonecost</c>: the managed skeletons' running cost.</summary>
 [ConCommand("cs_sv_bonecost",
     Help = "SourceSharp: the managed server skeletons' cost since the last `reset` -- asks, builds, microseconds, hitbox traces, per tick")]
-public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks ticks, IEngineConsole console) : IConCommand
+public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks ticks, IEngineConsole console)
 {
     private int _ticksAtReset;
 
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             skeletons.ResetCost();
             _ticksAtReset = ticks.Count;
@@ -66,18 +68,10 @@ public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks 
 [ConCommand("cs_sv_boneprobe",
     Help = "SourceSharp: the server skeleton fixture -- `seq <n>`, `scale <f>`")]
 public sealed class SkeletonProbeCommand(ServerSkeletons skeletons, IEngineEntityRender render,
-                                         IEntityDirectory directory, IEngineConsole console) : IConCommand
+                                         IEntityDirectory directory, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(ProbeKind kind, float value)
     {
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (words.Length < 2)
-        {
-            console.Msg("usage: cs_sv_boneprobe seq <n> | scale <f>\n");
-            return;
-        }
-
         int touched = 0;
 
         foreach (EntityHandle entity in SkeletonCompareCommand.StandaloneHandles(directory))
@@ -85,26 +79,15 @@ public sealed class SkeletonProbeCommand(ServerSkeletons skeletons, IEngineEntit
             if (skeletons.StudioName(entity).Length == 0)
                 continue;
 
-            if (words[0].Equals("seq", StringComparison.OrdinalIgnoreCase)
-                && int.TryParse(words[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int sequence))
-            {
-                skeletons.SetSequence(entity, sequence, 1.0f, restart: true);
-                touched++;
-            }
-            else if (words[0].Equals("scale", StringComparison.OrdinalIgnoreCase)
-                     && float.TryParse(words[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float scale))
-            {
-                render.SetModelScale(entity, scale);
-                touched++;
-            }
+            if (kind == ProbeKind.Seq)
+                skeletons.SetSequence(entity, (int)value, 1.0f, restart: true);
             else
-            {
-                console.Msg("usage: cs_sv_boneprobe seq <n> | scale <f>\n");
-                return;
-            }
+                render.SetModelScale(entity, value);
+
+            touched++;
         }
 
-        console.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp] boneprobe {words[0]} {words[1]}: {touched} skeleton(s)\n"));
+        console.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp] boneprobe {kind.ToString().ToLowerInvariant()} {value}: {touched} skeleton(s)\n"));
     }
 }
 
@@ -113,11 +96,13 @@ public sealed class SkeletonProbeCommand(ServerSkeletons skeletons, IEngineEntit
     Help = "SourceSharp: every standalone skeleton built natively and in managed code, compared, then rebuilt n times each way and timed")]
 public sealed class SkeletonCompareCommand(ServerSkeletons skeletons, StandaloneSkeletonRoute route,
                                            IEngineEntityRender render, IEntityDirectory directory,
-                                           IEngineConsole console) : IConCommand
+                                           IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(int reps = 20)
     {
-        int reps = int.TryParse(args.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n > 0 ? n : 20;
+        if (reps <= 0)
+            reps = 20;
+
         bool nativeAnswers = route.Skeletons is null;
 
         int entities = 0, compared = 0, exact = 0, differ = 0, nativeOnly = 0, managedOnly = 0;
@@ -287,5 +272,74 @@ public sealed class SkeletonCompareCommand(ServerSkeletons skeletons, Standalone
     private static bool Same(uint[] a, uint[] b) => a.AsSpan().SequenceEqual(b);
 
     private static bool Far(Vector a, Vector b) => (a - b).Length > 1e-3f;
+}
+
+public enum ProbeKind
+{
+    Seq,
+    Scale,
+}
+
+/// <summary>
+/// <c>cs_sv_model_heights &lt;slot&gt;</c> (§3.4.1, the numbers behind the AI's <c>Hl2mpAimHeights</c>): how high over its
+/// feet the model of the player in that slot draws its shoulders, neck and head now, from
+/// the same skeleton and pose a client builds, and where its head's hitbox runs. A
+/// measuring command: a new player model's heights come from here, not from a guess.
+/// </summary>
+[ConCommand("cs_sv_model_heights", Help = "cs_sv_model_heights <slot>: the height over its feet of a player model's shoulders, neck and head, as posed now")]
+public sealed class ModelHeightsCommand(IEnginePlayers players, IEngineEntities entities, ServerSkeletons skeletons, IEntityDirectory directory, IEnginePrecache precache, IEngineEntityRender render, ILog log)
+{
+    public void Execute(int slot)
+    {
+        EntityHandle player = players.GetHandle(slot);
+        if (player == EntityHandle.None)
+        {
+            log.Warning("[SourceSharp] usage: cs_sv_model_heights <slot>\n");
+            return;
+        }
+
+        string model = skeletons.StudioName(player);
+        StudioHdr? hdr = skeletons.Models.OpenStudioHdr(precache.PrecacheModel(render.GetModelName(player)));
+        StandaloneBones? bones = skeletons.BoneMatrices(player);
+        if (hdr is null || bones is null)
+        {
+            log.Warning($"[SourceSharp] cs_sv_model_heights: player {slot} has no posed model ({model})\n");
+            return;
+        }
+
+        float feet = entities.GetOrigin(player).Z;
+        bool ducked = (directory.Get(player) as SsPlayer)?.State.Ducked ?? false;
+        var line = new System.Text.StringBuilder(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp] model {model} ducked {ducked} eye {entities.GetEyePosition(player).Z - feet:0.0}:"));
+        float Z(int bone) => bones.BoneToWorld[bone * StandaloneBones.FloatsPerMatrix + 11] - feet;
+        for (int i = 0; i < hdr.NumBones && i < bones.Count; i++)
+        {
+            string name = hdr.Bone(i).Name;
+            if (name.Contains("UpperArm", StringComparison.Ordinal) || name.Contains("Neck", StringComparison.Ordinal) || name.EndsWith("Head1", StringComparison.Ordinal)
+                || name.Contains("Spine4", StringComparison.Ordinal) || name.Contains("Spine2", StringComparison.Ordinal) || name.Contains("Pelvis", StringComparison.Ordinal))
+                line.Append(CultureInfo.InvariantCulture, $" {name} {Z(i):0.0}");
+        }
+
+        // Each hitbox group's height over the feet, from its boxes' corners through their bones: where a head starts and ends.
+        var low = new SortedDictionary<int, float>();
+        var high = new SortedDictionary<int, float>();
+        MstudioHitboxSet set = hdr.HitboxSet(0);
+        for (int i = 0; i < set.NumHitboxes; i++)
+        {
+            MstudioBBox box = set.Hitbox(i);
+            int m = box.Bone * StandaloneBones.FloatsPerMatrix;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector c = new((corner & 1) != 0 ? box.BbMax.X : box.BbMin.X, (corner & 2) != 0 ? box.BbMax.Y : box.BbMin.Y, (corner & 4) != 0 ? box.BbMax.Z : box.BbMin.Z);
+                float z = bones.BoneToWorld[m + 8] * c.X + bones.BoneToWorld[m + 9] * c.Y + bones.BoneToWorld[m + 10] * c.Z + bones.BoneToWorld[m + 11] - feet;
+                low[box.Group] = Math.Min(low.GetValueOrDefault(box.Group, float.MaxValue), z);
+                high[box.Group] = Math.Max(high.GetValueOrDefault(box.Group, float.MinValue), z);
+            }
+        }
+
+        foreach ((int group, float from) in low)
+            line.Append(CultureInfo.InvariantCulture, $" | group {group} {from:0.0}..{high[group]:0.0}");
+
+        log.Msg(line.Append('\n').ToString());
+    }
 }
 #endif

@@ -20,6 +20,7 @@ public class TraceCostReportTests
         public void Msg(string message) => Lines.Add(message);
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => string.Empty;
         public int RegisterConCommand(string name, string help, ConVarFlags flags) => 0;
@@ -37,7 +38,7 @@ public class TraceCostReportTests
     public void EachKindOfTraceAndTheTimersFloorGetsARow()
     {
         var console = new FakeConsole();
-        new TraceCostReport(console, new ServerTraceCost()).Execute("");
+        new TraceCostReport(console, new ServerTraceCost()).RunLine("");
 
         string all = string.Concat(console.Lines);
         foreach (string name in new[] { "trace.line", "trace.hull", "trace.entity_hull", "trace.water", "timer.empty" })
@@ -52,7 +53,7 @@ public class TraceCostReportTests
         cost.Line.Record(100, 1);
         cost.Water.Record(100, 1);
 
-        new TraceCostReport(new FakeConsole(), cost).Execute("reset");
+        new TraceCostReport(new FakeConsole(), cost).RunLine("reset");
 
         Assert.All(cost.Meters(), m => Assert.Equal(0, m.Meter.Calls));
     }
@@ -63,7 +64,7 @@ public class TraceCostReportTests
         var cost = new ServerTraceCost();
         cost.Hull.Record(100, 1);
 
-        new TraceCostReport(new FakeConsole(), cost).Execute("");
+        new TraceCostReport(new FakeConsole(), cost).RunLine("");
 
         Assert.Equal(1, cost.Hull.Calls);
     }

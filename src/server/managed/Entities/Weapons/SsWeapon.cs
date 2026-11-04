@@ -97,3 +97,22 @@ public sealed class SsViewmodelAttachment : ScriptedEntity
     // viewmodel; see SsWeapon above for why the dressing lives on the
     // switcher's side.
 }
+
+/// <summary>
+/// One of a weapon's attached models — stock's <c>attachedmodel_t</c>
+/// (econ_item_schema.h:887): the flamethrower's pilot light, and whatever
+/// other second model an item's visuals name. Stock bonemerges each onto the
+/// weapon's bones and draws it from the weapon's own draw, in the world for
+/// everyone and again in the viewmodel pass for the carrier
+/// (<c>CEconEntity::DrawEconEntityAttachedModels</c>); here the server creates
+/// one per row entry beside the carried pair, and the client's half decides
+/// which skeleton and which pass each viewer's copy hangs from.
+/// </summary>
+[ScriptedEntity(EntityNames.SsAttachedModel, ScriptedEntityKind.Effect)]
+public sealed class SsAttachedModel : ScriptedEntity
+{
+    /// <summary>The attached model's replicated state.</summary>
+    [NetState] public AttachedModelNetState State = new();
+
+    // Dressed by Arsenal beside the weapon; see SsWeapon above.
+}

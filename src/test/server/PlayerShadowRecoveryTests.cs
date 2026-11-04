@@ -347,7 +347,7 @@ public class PlayerShadowRecoveryTests
     private static SsPlayer RotPushed()
     {
         var engine = Fake();
-        return new SsPlayer(engine, engine, Impacts(engine), Fluid())
+        return new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage())
         {
             PhysicsFlags = SsPlayer.PhysicsFlagGamePhysicsRotPush,
         };
@@ -370,7 +370,7 @@ public class PlayerShadowRecoveryTests
     public void Without_a_rotating_push_the_same_player_is_left_alone()
     {
         var (recovery, engine) = World(State(new Vector(1f, 0f, 0f)), solidAt: p => p.Equals(Vector.Zero),
-                                       player: new SsPlayer(Fake(), Fake(), Impacts(Fake()), Fluid()));
+                                       player: new SsPlayer(Fake(), Fake(), Impacts(Fake()), Fluid(), InfiniteAux(), PrintDamage()));
 
         recovery.Update(Player);
 
@@ -399,7 +399,7 @@ public class PlayerShadowRecoveryTests
     private static SsPlayer OnMotionController()
     {
         var engine = Fake();
-        return new SsPlayer(engine, engine, Impacts(engine), Fluid())
+        return new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage())
         {
             PhysicsFlags = SsPlayer.PhysicsFlagVPhysicsMotionController,
         };

@@ -68,6 +68,7 @@ public interface IObjectiveResource
     void SetCPLocked(int index, bool locked);
     bool GetCPLocked(int index);
     void SetCPUnlockTime(int index, float time);
+    float GetCPUnlockTime(int index);
     void SetCPTimerTime(int index, float time);
     void SetCPCapTimeScalesWithPlayers(int index, bool scales);
     void SetNumPlayers(int index, int team, int players);
@@ -580,6 +581,8 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
         if (_state is { } s)
             s.UnlockTimes[index] = time;
     }
+
+    public float GetCPUnlockTime(int index) => _unlockTimes[Point(index)];
 
     public void SetCPTimerTime(int index, float time)
     {

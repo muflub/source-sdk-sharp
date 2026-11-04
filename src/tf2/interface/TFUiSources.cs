@@ -662,6 +662,27 @@ public interface ITFMedicCharge
 }
 
 /// <summary>
+/// The timed item's charge bar (tf_hud_itemeffectmeter.cpp, stock's plain
+/// <c>CHudItemEffectMeter</c>): the carried item's charge as
+/// <c>m_flItemChargeMeter</c> on its own state (tf_player_shared.cpp:7832),
+/// present when the item sets <c>item_meter_charge_rate</c>, its label the
+/// <c>meter_label</c> string attribute stock's SetLabelText reads (:607-628).
+/// </summary>
+public interface ITFItemMeter
+{
+    /// <summary>The held item carries a charge meter at all (stock's meter
+    /// draws only for an item whose charge rate is set).</summary>
+    bool Present { get; }
+
+    /// <summary>The bar, 0..1 (the shared networked field, clamped).</summary>
+    float Charge { get; }
+
+    /// <summary>The words beside the bar (<c>meter_label</c>), or the empty
+    /// string when the item sets none.</summary>
+    string Label { get; }
+}
+
+/// <summary>
 /// The spy's meters (tf_hud_itemeffectmeter.cpp, tf_hud_disguise_status.cpp):
 /// the cloak watch's charge (the item-effect meter over m_flCloakMeter,
 /// GetProgress :513-519) and the disguise status (CDisguiseStatus::ShouldDraw
@@ -1660,13 +1681,17 @@ public interface ITFRenderGroups
 /// <summary>
 /// One card of the weapon selection: the weapon a slot's box shows, as
 /// stock's item panel is set (<c>SetItem</c>, tf_hud_weaponselection.cpp:560)
-/// and the draw reads it. The icon is the script's own art for the local
-/// player's team (<c>GetSpriteInactive</c>, or <c>GetSpriteActive</c> on
-/// BLU, :806-813) as one file-and-rect — this contract assembly compiles no
-/// TF2.Shared source of its own, so the parsed pair rides flat. The name is
-/// the printname localised, the card's label; <see cref="CanSelect"/> is
-/// <c>CanBeSelected</c>, whose false draws the out-of-ammo note (:745-752).
-/// Every string is empty and every count 0 when the slot shows no weapon.
+/// and the draw reads it. The picture is the item's own inventory image
+/// (<c>image_inventory</c>, the panel's LoadInventoryImage,
+/// item_model_panel.cpp:618-628); <see cref="IconFile"/> is the script's
+/// own art for the local player's team (<c>GetSpriteInactive</c>, or
+/// <c>GetSpriteActive</c> on BLU, :806-813) as one file-and-rect — this
+/// contract assembly compiles no TF2.Shared source of its own, so the
+/// parsed pair rides flat — and stands in when the item names no image or
+/// it binds nothing. The name is the printname localised, the card's label;
+/// <see cref="CanSelect"/> is <c>CanBeSelected</c>, whose false draws the
+/// out-of-ammo note (:745-752). Every string is empty and every count 0
+/// when the slot shows no weapon.
 /// </summary>
 public readonly record struct TFSelectionWeapon(
     string IconFile,
@@ -1675,7 +1700,8 @@ public readonly record struct TFSelectionWeapon(
     int IconWide,
     int IconTall,
     string Name,
-    bool CanSelect);
+    bool CanSelect,
+    string ItemImage = "");
 
 /// <summary>
 /// The weapon selection buckets, stock's <c>CHudWeaponSelection</c>

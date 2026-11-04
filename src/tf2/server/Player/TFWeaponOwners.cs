@@ -84,6 +84,24 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
         => (stats.Round(playerIndex, TFStat.DamageRanged), stats.Round(playerIndex, TFStat.DamageRangedCritRandom));
 
     public float NoAttackExpire(int playerIndex) => carriers.Get(playerIndex)?.NoAttackExpire ?? 0f;
+
+    /// <summary>
+    /// The drawn bow holds the jump (<c>CTFCompoundBow::OwnerCanJump</c>,
+    /// tf_weapon_compound_bow.cpp:657-660, asked by <c>CanJump</c> at
+    /// tf_gamemovement.cpp:1210): the active weapon the bow and its charge
+    /// begun, the same shape the flame manager's arrow-lighting reads
+    /// (<see cref="TFFlameManager"/>). No weapon named, or no weapon entity
+    /// behind the name, is no refusal — the same fall-through stock's
+    /// null-free world never reaches but ours must answer.
+    /// </summary>
+    public bool OwnerCanJump(int playerIndex)
+    {
+        EntityHandle player = players.GetHandle(playerIndex);
+
+        return TFWeaponNames.IdOf(players.GetActiveWeapon(player)) != TFWeaponId.CompoundBow
+            || directory.Get(players.GetActiveWeaponEntity(player)) is not SsWeapon { State: { } state }
+            || !TFBowBehaviour.Drawn(state);
+    }
 }
 
 /// <summary>

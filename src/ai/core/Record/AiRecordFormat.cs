@@ -69,11 +69,13 @@ public static class AiRecordFormat
     public static ReadOnlySpan<byte> Magic => "SSAIREC\0"u8;
 
     /// <summary>
-    /// The format this build writes. It reads this one, 3, 2 and 1 (format 2
+    /// The format this build writes. It reads this one, 4, 3, 2 and 1 (format 2
     /// added the World record, format 3 the Frame and Observed records, format
-    /// 4 the DecisionTree record).
+    /// 4 the DecisionTree record, format 5 a tail on the World and Snapshot
+    /// records: the weapons' second triggers and each view's pool for one and its frags. A
+    /// record with no tail, an older one, has none of either).
     /// </summary>
-    public const ushort Version = 4;
+    public const ushort Version = 5;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -187,6 +189,18 @@ public static class AiRecordFormat
         byte[] curves = Encoding.UTF8.GetBytes(world.CurvesJson);
         w.Write(curves.Length);
         w.Write(curves);
+
+        // Format 5's tail: each weapon's second trigger, in the table's order.
+        foreach (WeaponFacts f in world.Map.Weapons.All)
+        {
+            w.Write((byte)f.Alt.Kind);
+            w.Write(f.Alt.Speed);
+            w.Write(f.Alt.Gravity);
+            w.Write(f.Alt.BlastRadius);
+            w.Write(f.Alt.Damage);
+            w.Write(f.Alt.AmmoCost);
+            w.Write(f.Alt.FromClip);
+        }
     }
 
     public static void Write(BinaryWriter w, AiDecisionTree tree)
@@ -224,8 +238,22 @@ public static class AiRecordFormat
         for (int i = 0; i < weapons.Length; i++)
             weapons[i] = new WeaponFacts(r.ReadInt32(), ReadString(r), r.ReadInt32(), r.ReadSingle(), r.ReadSingle(), r.ReadBoolean(), r.ReadBoolean(), r.ReadSingle());
         string curves = Encoding.UTF8.GetString(r.ReadBytes(Count(r)));
+        if (More(r))
+        {
+            for (int i = 0; i < weapons.Length; i++)
+            {
+                weapons[i] = weapons[i] with
+                {
+                    Alt = new AltFireFacts((AltFireKind)r.ReadByte(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadInt32(), r.ReadBoolean()),
+                };
+            }
+        }
+
         return new AiRecordedWorld(new MapKnowledge(map, [.. items], [.. spawns], new WeaponKnowledge(weapons)), tick, curves, nav);
     }
+
+    /// <summary>Whether the record has a tail: a payload is read from a stream of its own.</summary>
+    private static bool More(BinaryReader r) => r.BaseStream.Position < r.BaseStream.Length;
 
     private static int Count(BinaryReader r)
     {
@@ -347,6 +375,16 @@ public static class AiRecordFormat
             foreach (ref readonly ActorFacts f in view.Sighted)
                 Write(w, actors is null ? f : f with { Id = actors(f.Id) });
         }
+
+        // Format 5's tail: each view's second-trigger pool and frags, in the same order.
+        for (int slot = 0; slot < s.Slots; slot++)
+        {
+            if (s.ViewFor(slot) is { } view)
+            {
+                w.Write(view.Self.AltAmmo);
+                w.Write(view.Self.Grenades);
+            }
+        }
     }
 
     /// <summary>Reads a snapshot payload into <paramref name="ring"/>'s slot for its tick (not yet published).</summary>
@@ -361,6 +399,18 @@ public static class AiRecordFormat
             int sighted = r.ReadUInt16();
             for (int j = 0; j < sighted; j++)
                 view.AddSighted(ReadFacts(r));
+        }
+
+        if (More(r))
+        {
+            for (int slot = 0; slot < s.Slots; slot++)
+            {
+                if (s.ViewFor(slot) is { } view)
+                {
+                    int alt = r.ReadInt32();
+                    view.SetAltAmmo(alt, r.ReadInt32());
+                }
+            }
         }
 
         return s;

@@ -157,7 +157,7 @@ public class MapRuleTests
         engine.Ignores("Entities.IsValid");
         engine.Ignores("Entities.GetBounds", "Players.GetHandle");
 
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory(), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory());
         services.AddInstance(corpses);
         registry.Services = services;
 
@@ -204,7 +204,7 @@ public class MapRuleTests
         engine.Ignores("Entities.IsValid");
         engine.Ignores("Entities.GetBounds", "Players.GetHandle");
 
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory(), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory());
         int before = corpses.Limit;
         services.AddInstance(corpses);
         registry.Services = services;
@@ -235,7 +235,7 @@ public class MapRuleTests
         engine.Ignores("Entities.IsValid");
         engine.Ignores("Entities.GetBounds", "Players.GetHandle");
 
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory(), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory());
         int before = corpses.Limit;
         services.AddInstance(corpses);
         registry.Services = services;

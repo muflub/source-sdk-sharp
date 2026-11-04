@@ -285,7 +285,6 @@ int32_t CPrecipitationQueriesClient::PrecipitationPlayer(float* pOut)
 	pOut[8] = center.y;
 	pOut[9] = center.z;
 	pOut[10] = m_Engines.m_pViewRender->GetPlayerViewSetup()->fov;
-	pOut[11] = m_DefaultFov.IsValid() ? (float)m_DefaultFov.GetInt() : 90.0f;
 	return 1;
 }
 

@@ -33,7 +33,7 @@ public class ViewEffectsHostTests
         var clock = new Clock { Now = 1f };
         var rumble = new List<float>();
         var host = new ViewEffectsHost(new Half(), clock, () => false, new DefaultForwarders.NoEngineClient(), rumble.Add);
-        var plan = new RenderPlanHost(new PostProcessHost(new DefaultForwarders.NoEngineClient()), host);
+        var plan = new RenderPlanHost(RenderPlannerTests.ConVars(), new PostProcessHost(new DefaultForwarders.NoEngineClient(), RenderConVarsKit.Zeroed<PostProcessConVars>()), host);
         return (host, plan, clock, rumble);
     }
 
@@ -41,7 +41,7 @@ public class ViewEffectsHostTests
     public void TheShakeMessageShakesTheViewNativeAsksForAndFeedsTheRumble()
     {
         var (host, plan, _, rumble) = Rig();
-        var effects = new ClientMessageEffects(new SourceSharp.Abi.RecordingEngine(), viewEffects: () => host, clock: new Clock { Now = 1f });
+        var effects = new ClientMessageEffects(new SourceSharp.Abi.RecordingEngine(), DeclaredConVars.Fresh<SourceSharp.Client.Vgui.HudTakesShotsConVar>(), viewEffects: () => host, clock: new Clock { Now = 1f });
         effects.Shake(new Shake { Command = (byte)ShakeCommand.Start, Amplitude = 4, Frequency = 10, Duration = 2 });
         Assert.Equal(1, host.Effects.ShakeCount);
 
@@ -68,7 +68,7 @@ public class ViewEffectsHostTests
         client.ViewEffectsFadeParams(0.5f, fade);
         Assert.Equal([0, 0, 0, 0, 0], fade.ToArray());
 
-        var effects = new ClientMessageEffects(new SourceSharp.Abi.RecordingEngine(), viewEffects: () => host, clock: new Clock { Now = 2f });
+        var effects = new ClientMessageEffects(new SourceSharp.Abi.RecordingEngine(), DeclaredConVars.Fresh<SourceSharp.Client.Vgui.HudTakesShotsConVar>(), viewEffects: () => host, clock: new Clock { Now = 2f });
         effects.Fade(new Fade { Duration = 0, HoldTime = 512, Flags = 0, Color = new Color32(1, 2, 3, 4) });
         client.ViewEffectsFadeParams(0.5f, fade);
         Assert.Equal([1, 2, 3, 4, 0], fade.ToArray());
@@ -80,7 +80,7 @@ public class ViewEffectsHostTests
         var (host, _, _, _) = Rig();
         host.Shake(ShakeCommand.Start, 4, 10, 2);
         host.Shake(ShakeCommand.Start, 4, 10, 2);
-        new ShakeStopCommand(host).Execute("");
+        new ShakeStopCommand(host).Execute();
         Assert.Equal(0, host.Effects.ShakeCount);
     }
 }

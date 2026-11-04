@@ -152,7 +152,9 @@ public sealed class TFDeathDropsTests
                   .Returns("Entities.GetVelocity", default(Vector))
                   .Returns("Entities.GetAngularVelocity", default(Vector))
                   .Returns("EntityPhysics.InitPhysics", false);
-            var pack = new TFAmmoPack(Map, Notices, ConVars, Seeds, engine, Stats);
+            var pack = new TFAmmoPack(Map, Notices, ConVars.Declared<TFWeaponRagdollVelocityMinConVar>(),
+                                      ConVars.Declared<TFWeaponRagdollVelocityMaxConVar>(),
+                                      ConVars.Declared<TFWeaponRagdollMaxSpeedConVar>(), Seeds, engine, Stats);
             pack.BindEngine(engine);
             pack.BindAreas(TestServices.Areas(engine));
             pack.RegisteredKind = ScriptedEntityKind.Prop;
@@ -175,7 +177,7 @@ public sealed class TFDeathDropsTests
                   .Returns("Entities.GetVelocity", default(Vector))
                   .Returns("Entities.GetAngularVelocity", default(Vector))
                   .Returns("EntityPhysics.InitPhysics", false);
-            var dropped = new TFDroppedWeapon(ConVars, Seeds, engine);
+            var dropped = new TFDroppedWeapon(ConVars.Declared<TFDroppedWeaponLifetimeConVar>(), Seeds, engine);
             dropped.BindEngine(engine);
             dropped.BindAreas(TestServices.Areas(engine));
             dropped.RegisteredKind = ScriptedEntityKind.Prop;
@@ -384,7 +386,7 @@ public sealed class TFDeathDropsTests
         var body = new SsRagdoll(engineC) { Handle = new EntityHandle(99u) };
         body.BindEngine(engineC);
         body.State.BindLocal();
-        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body), engineC);
+        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body));
         var playersC = new Players(new RecordingLog(), engineC, engineC, engineC, NoButtons);
         var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs, playersC, rig.World, rig.Engine, rig.Medigun);
         ((IGameLifecycle)hook).OnLevelInit("tc_2fort");
@@ -451,7 +453,7 @@ public sealed class TFDeathDropsTests
         var body = new SsRagdoll(engineC) { Handle = new EntityHandle(99u) };
         body.BindEngine(engineC);
         body.State.BindLocal();
-        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body), engineC);
+        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body));
         var chain = new PlayerDeaths(new RecordingLog(), engineC, corpses, chainPlayers,
                                      engineC, new ListHooks<IPlayerDeathHook>(hook),
                                      new DeathNotice(engineC, engineC, engineC, new DamageInflictors()),
@@ -799,8 +801,8 @@ public sealed class TFDeathDropsTests
         // The band IS the convars (tf_ammo_pack.cpp:112-114, read live at :161):
         // move the band and the throw moves with it — a hardcoded speed would
         // sit at 125 and go red here.
-        rig.ConVars.Get<TFWeaponRagdollVelocityMinConVar>()!.Bind(-1, "tf_weapon_ragdoll_velocity_min", "200");
-        rig.ConVars.Get<TFWeaponRagdollVelocityMaxConVar>()!.Bind(-1, "tf_weapon_ragdoll_velocity_max", "210");
+        rig.ConVars.Declared<TFWeaponRagdollVelocityMinConVar>().Bind(-1, "tf_weapon_ragdoll_velocity_min", "200");
+        rig.ConVars.Declared<TFWeaponRagdollVelocityMaxConVar>().Bind(-1, "tf_weapon_ragdoll_velocity_max", "210");
         var (moved, movedEngine) = rig.BuildPack(10f);
         moved.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
         Assert.Equal(205f, movedEngine.Last("Entities.SetVelocity").ArgAs<Vector>(1).Length, 3);

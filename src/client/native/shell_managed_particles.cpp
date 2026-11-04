@@ -30,7 +30,6 @@
 #include "imanaged_areas_client.h"
 
 #include "shell_particle_mgr.h"
-#include "managed_convar_ref.h"
 #include "shell_new_particles.h"
 #include "particle_follow_mask.h"
 #include "shell_effect_registry.h"
@@ -630,10 +629,6 @@ int CManagedParticleEffect::DrawModel(int flags)
 	in.Channel = m_nChannel;
 	in.Flags = flags;
 	in.ClientModeDraws = m_Engines.m_pClientMode && m_Engines.m_pClientMode->ShouldDrawParticles() ? 1 : 0;
-	in.DrawParticles = m_Owner.m_r_DrawParticles.GetInt() != 0 ? 1 : 0;
-	in.Wireframe = m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1 : 0;
-	in.ShowBBox = m_Owner.m_cl_particle_show_bbox.GetBool() ? 1 : 0;
-	in.ShowBBoxCost = m_Owner.m_cl_particle_show_bbox_cost.GetInt();
 	in.ViewKey = ParticlesViewKey(m_Engines, m_Cameras);
 	in.FrameTime = m_Engines.m_pGlobals->frametime;
 
@@ -817,7 +812,6 @@ void CManagedParticlesClient::Frame(float flFrameTime)
 	pHeader->Dt = flFrameTime;
 	pHeader->CurTime = m_Engines.m_pGlobals->curtime;
 	pHeader->FrameTime = m_Engines.m_pGlobals->frametime;
-	pHeader->AabbBuffer = m_cl_particleeffect_aabb_buffer.GetFloat();
 	VectorCopy(m_Cameras.MainOrigin().Base(), pHeader->ViewOriginXYZ);
 	SourceSharpParticleFrameIn_t* pIn = (SourceSharpParticleFrameIn_t*)(pHeader + 1);
 	for (int i = 0; i < nExecutors; i++)
@@ -1147,12 +1141,61 @@ int32_t CParticleSystemsClient::ParticleSystemFollowEntitySlot(uint32_t hOwner, 
 	return 1;
 }
 
+// One burning frame's flame points in a single crossing: records of ten floats — the control point index, the
+// position, the velocity, the density, the radius and the duration. Stock's CTFFlameManager feeds the muzzle as
+// point 0 and every live point beside it each update; the newest point's index names the point the system reads.
+// An unknown slot refuses; a frame with no points just moves the read index.
+int32_t CParticleSystemsClient::ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex,
+														const float* pValues, int32_t nCount)
+{
+	Systems_t* pSystems = Slot(nSlot);
+
+	if (!pSystems || !pValues || nCount <= 0)
+		return 0;
+
+	int nIndex = ShellEffects_Find(*pSystems, hOwner);
+
+	if (nIndex < 0)
+		return 0;
+
+	System_t& entry = (*pSystems)[nIndex];
+	CShellNewParticleEffect* pEffect = entry.pEffect.GetObject();
+
+	if (!pEffect)
+		return 0;
+
+	CParticleCollection* pCollection = pEffect->Collection();
+
+	if (!pCollection)
+		return 0;
+
+	for (int i = 0; i < nCount; i++)
+	{
+		const float* p = pValues + i * 10;
+		const int nCP = (int)p[0];
+
+		if (nCP < 0 || nCP >= MAX_PARTICLE_CONTROL_POINTS)
+			continue;
+
+		pEffect->SetControlPoint(nCP, Vector(p[1], p[2], p[3]));
+		pCollection->SetControlPointVelocity(nCP, Vector(p[4], p[5], p[6]));
+		pCollection->SetControlPointDensity(nCP, p[7]);
+		pCollection->SetControlPointRadius(nCP, p[8]);
+		pCollection->SetControlPointDuration(nCP, p[9]);
+	}
+
+	pCollection->SetControlPointIndex(nActiveIndex);
+
+	return 1;
+}
+
 void CParticleSystemsClient::ParticleSystemStop(uint32_t hOwner)
 {
 	StopAttached(m_Slots[0], hOwner);
 }
 
-// A second slot beside the first: stock's crit glow runs beside the trail.
+// A second slot beside the first: the medigun's charged glow, on the gun
+// the beam's own systems share.
 int32_t CParticleSystemsClient::ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
 {
 	return StartAttached(m_Slots[1], hOwner, pszName);
@@ -1178,6 +1221,31 @@ void CParticleSystemsClient::ParticleSystemStopSlot(uint32_t hOwner, int32_t nSl
 {
 	if (Systems_t* pSystems = Slot(nSlot))
 		StopAttached(*pSystems, hOwner);
+}
+
+// Which list a held system draws in, as managed asked: the viewmodel's
+// translucent pass, or back to the entity translucent one the leaf system
+// inserted it in (every held system's collection is translucent). Stock's
+// local player's crit glow, tf_player_shared.cpp:7587-7593.
+void CParticleSystemsClient::ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel)
+{
+	Systems_t* pSystems = Slot(nSlot);
+
+	if (!pSystems)
+		return;
+
+	int nIndex = ShellEffects_Find(*pSystems, hOwner);
+
+	if (nIndex < 0)
+		return;
+
+	CShellNewParticleEffect* pEffect = (*pSystems)[nIndex].pEffect.GetObject();
+
+	if (!pEffect || pEffect->RenderHandle() == INVALID_CLIENT_RENDER_HANDLE)
+		return;
+
+	m_Engines.m_pLeafSystem->SetRenderGroup(
+		pEffect->RenderHandle(), bViewmodel ? RENDER_GROUP_VIEW_MODEL_TRANSLUCENT : RENDER_GROUP_TRANSLUCENT_ENTITY);
 }
 
 // A one-shot an impact started: watched, not held.

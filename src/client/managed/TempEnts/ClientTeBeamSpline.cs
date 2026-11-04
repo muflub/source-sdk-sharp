@@ -87,11 +87,13 @@ public sealed class ClientTeBeamSpline : ClientTempEnt<TeBeamSpline>
     public const int MaxSplinePoints = TeBeamSpline.MaxSplinePoints;
 
     private readonly IEngineConsole _console;
+    private readonly DeveloperConVar _developer;
     private readonly Vector[] _points = new Vector[MaxSplinePoints];
 
-    public ClientTeBeamSpline(IEngineConsole console)
+    public ClientTeBeamSpline(IEngineConsole console, DeveloperConVar developer)
     {
         _console = console;
+        _developer = developer;
     }
 
     /// <summary>
@@ -116,9 +118,8 @@ public sealed class ClientTeBeamSpline : ClientTempEnt<TeBeamSpline>
     {
         // THE COUNT AND ALL SIXTEEN POINTS IN ONE READ. m_nPoints is five bits
         // UNSIGNED and the run is a DPT_Array at a stride of twelve; both facts
-        // are the declaration's, and TempEntDeclarationReader is the one place
-        // that reads an [InlineArray] element by element rather than stopping at
-        // element zero, which is what reflection does if nothing makes it walk.
+        // are the declaration's, and its generated read takes the [InlineArray]
+        // element by element.
 
         PointCount = te.Points;
 
@@ -137,16 +138,5 @@ public sealed class ClientTeBeamSpline : ClientTempEnt<TeBeamSpline>
             _console.Msg($"Beam spline with {PointCount} points received\n");
     }
 
-    /// <summary>
-    /// The engine's <c>developer</c> convar as a number, or zero if it cannot be
-    /// read. Zero is the right failure: it means "say nothing", and a class
-    /// whose entire behaviour is a diagnostic must not become louder than stock
-    /// because a lookup failed.
-    /// </summary>
-    private int DeveloperLevel()
-    {
-        string? value = _console.FindConVarValue("developer");
-
-        return int.TryParse(value, out int level) ? level : 0;
-    }
+    private int DeveloperLevel() => _developer.Value;
 }

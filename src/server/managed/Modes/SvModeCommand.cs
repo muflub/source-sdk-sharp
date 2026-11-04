@@ -12,12 +12,10 @@ namespace SourceSharp.Server;
 /// no-op the rules refuse.
 /// </summary>
 [ConCommand("sv_mode", Help = "sv_mode <id>: switch the game mode (D6 warmup switch); bare lists")]
-public sealed class SvModeCommand(ILog log, IServiceLocator services) : IConCommand
+public sealed class SvModeCommand(ILog log, IServiceLocator services)
 {
-    public void Execute(string args)
+    public void Execute([Complete(From = nameof(Modes))] string id = "")
     {
-        string id = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-
         // Resolved at execute, not constructed with: the command is bound at
         // convar registration, before the module has built the proxy.
         if (services.Resolve<GameModes>() is not { } modes)
@@ -39,4 +37,7 @@ public sealed class SvModeCommand(ILog log, IServiceLocator services) : IConComm
         log.Msg($"[SourceSharp/Modes] sv_mode {id}\n");
         modes.SwitchTo(id);
     }
+
+    private IEnumerable<string> Modes()
+        => services.Resolve<GameModes>() is { } modes ? modes.Registered.Select(m => m.Id) : [];
 }

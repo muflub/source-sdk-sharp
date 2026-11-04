@@ -32,7 +32,9 @@ namespace TF2.Server.Combat;
 ///   weapon (not for a suicide), else the inflictor's class; the
 ///   <c>tf_weapon_grenade_</c>, <c>tf_weapon_</c>, <c>NPC_</c> and
 ///   <c>func_</c> prefixes stripped (:12540-12551). A scattergun kill is
-///   <c>scattergun</c>.
+///   <c>scattergun</c>; a taunt kill its taunt's weapon (:12209-12231), a
+///   trigger kill the map's hazard or the <c>world</c> the chain began with
+///   (:12429-12439).
 /// </para>
 /// <para>
 /// — <c>assister</c>: <c>GetAssister</c> (:12690-12736), here the second most
@@ -61,7 +63,8 @@ namespace TF2.Server.Combat;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entities, TFDamageRecords records,
-                                  IGameClock clock, TFPlayerCarriers carriers, TFDominations? dominations = null)
+                                  IGameClock clock, TFPlayerCarriers carriers, ILevelInfo level,
+                                  TFDominations? dominations = null)
     : IDeathNoticeHook, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -148,6 +151,18 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             case TFDamageCustom.BurningFlare:
                 (name, id) = ("tf_weapon_flaregun", TFWeaponId.Flaregun);
                 break;
+            case TFDamageCustom.TauntatkHadouken:              // :12209-12211
+                name = "tf_weapon_taunt_pyro";
+                break;
+            case TFDamageCustom.TauntatkHighNoon:              // :12213-12215
+                name = "tf_weapon_taunt_heavy";
+                break;
+            case TFDamageCustom.TauntatkFencing:               // :12229-12231
+                name = "tf_weapon_taunt_spy";
+                break;
+            case TFDamageCustom.TriggerHurt:                   // :12429-12439
+                name = MapHazard() ?? name;
+                break;
             case TFDamageCustom.Telefrag:
                 name = "telefrag";
                 break;
@@ -174,6 +189,18 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
 
         return (StockName(name), id);
     }
+
+    /// <summary>
+    /// The trigger arm's map hazard (:12431-12437), stock's
+    /// <c>gpGlobals-&gt;mapname</c> read; null where the map names nothing, the
+    /// arm leaving the name the chain began with.
+    /// </summary>
+    private string? MapHazard() => level.Map switch
+    {
+        "koth_cachoeira" => "helicopter",
+        "koth_megaton" => "megaton",
+        _ => null,
+    };
 
     /// <summary>The prefixes stock strips from a killing weapon's name (:12540-12551), and its renames (:12553-12657).</summary>
     public static string StockName(string name)

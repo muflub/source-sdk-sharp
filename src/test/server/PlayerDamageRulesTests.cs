@@ -37,14 +37,14 @@ public class PlayerDamageRulesTests
     {
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        convars.Get<FriendlyFireConVar>()!.Bind(-1, "cs_sv_friendly_fire", friendlyFire);
+        convars.Declared<FriendlyFireConVar>().Bind(-1, "cs_sv_friendly_fire", friendlyFire);
 
         var host = Fake().Returns("Host.ActiveSide", Side.Server);
         var players = Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GiveItem", "Players.GiveAmmo")
                             .Returns("Players.GetTeam", team)
                             .Returns("Players.RespawnDelay", 3f);
 
-        return new GameRules(new RecordingLog(), convars, host, players,
+        return new GameRules(new RecordingLog(), convars.Holder<GameRulesConVars>(), host, players,
                              Fake().Returns("Entities.IsValid", true),
                              new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog()),
                              new PlayerDeathEvent(),
@@ -57,7 +57,7 @@ public class PlayerDamageRulesTests
         var engine = Fake();
         engine.Returns("Entities.GetHealth", 100).Returns("Entities.GetIndex", 3)
               .Returns("Entities.IsValid", true).Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f));
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine, rules: rules)
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine, rules: rules)
             { Handle = Victim };
         player.BindAreas(Areas(engine));
         player.State.BindLocal();

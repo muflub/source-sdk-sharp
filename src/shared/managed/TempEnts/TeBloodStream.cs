@@ -40,7 +40,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBloodStream : TeParticleSystem
+public partial class TeBloodStream : TeParticleSystem
 {
     /// <summary>
     /// Which way the blood goes, at eleven bits over [-10, 10]. See the class

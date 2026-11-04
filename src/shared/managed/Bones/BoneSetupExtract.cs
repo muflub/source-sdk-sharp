@@ -879,16 +879,16 @@ public static class BoneSetupExtract
             MstudioAnim? it = panim;
             for (int i = 0; i < pStudioHdr.NumBones; i++)
             {
-                if (it is not null && it.Bone == i)
+                if (it is { } anim && anim.Bone == i)
                 {
                     if (seqdesc.Weight(i) > 0 && (pStudioHdr.BoneFlags(i) & boneMask) != 0)
                     {
                         MstudioBone pbone = pStudioHdr.Bone(i);
-                        CalcBoneQuaternion(iLocalFrame, s, pbone, pLinearBones, it, out q[i]);
-                        CalcBonePosition(iLocalFrame, s, pbone, pLinearBones, it, out pos[i]);
+                        CalcBoneQuaternion(iLocalFrame, s, pbone, pLinearBones, anim, out q[i]);
+                        CalcBonePosition(iLocalFrame, s, pbone, pLinearBones, anim, out pos[i]);
                     }
 
-                    it = it.Next();
+                    it = anim.Next();
                 }
                 else if (seqdesc.Weight(i) > 0 && (pStudioHdr.BoneFlags(i) & boneMask) != 0)
                 {
@@ -1028,21 +1028,21 @@ public static class BoneSetupExtract
         // oracle 953-975: the walk, mapped through both group tables
         {
             MstudioAnim? it = panim;
-            while (it is not null && it.Bone < 255)
+            while (it is { } anim && anim.Bone < 255)
             {
-                int j = animMasterBone[it.Bone];
+                int j = animMasterBone[anim.Bone];
                 if (j >= 0 && (pStudioHdr.BoneFlags(j) & boneMask) != 0)
                 {
                     int k = seqBoneMap[j];
                     if (k >= 0 && seqdesc.Weight(k) > 0.0f)
                     {
-                        MstudioBone animBone = pAnimStudioHdr.Bone(it.Bone);
-                        CalcBoneQuaternion(iLocalFrame, s, animBone, pAnimLinearBones, it, out q[j]);
-                        CalcBonePosition(iLocalFrame, s, animBone, pAnimLinearBones, it, out pos[j]);
+                        MstudioBone animBone = pAnimStudioHdr.Bone(anim.Bone);
+                        CalcBoneQuaternion(iLocalFrame, s, animBone, pAnimLinearBones, anim, out q[j]);
+                        CalcBonePosition(iLocalFrame, s, animBone, pAnimLinearBones, anim, out pos[j]);
                     }
                 }
 
-                it = it.Next();
+                it = anim.Next();
             }
         }
 

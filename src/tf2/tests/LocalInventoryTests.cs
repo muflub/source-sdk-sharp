@@ -277,7 +277,7 @@ public sealed class LocalInventoryTests : IDisposable
     {
         var inventory = Connected();
 
-        new GiveItemCommand(inventory, _log).Execute($"{Seat} 441");
+        new GiveItemCommand(inventory, _log).RunLine($"{Seat} 441");
 
         Assert.Single(inventory.Of(Seat)!.Items);
         Assert.Contains(_log.Lines, l => l.Text.Contains("granted #1"));
@@ -289,7 +289,7 @@ public sealed class LocalInventoryTests : IDisposable
         var inventory = Connected();
         var command = new LoadoutCommand(new TFLoadoutProvider(inventory, _schema), inventory, _log);
 
-        string text = command.Describe($"{Seat} scout");
+        string text = command.Describe(Seat, "scout");
 
         Assert.Contains("as Scout", text);
         Assert.Contains("Primary: base 13 TF_WEAPON_SCATTERGUN (tf_weapon_scattergun)", text);

@@ -25,11 +25,11 @@ public abstract class BreakableProp : AnimatingEntity, IPhysGunTarget
                             IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast,
                             IServerDecals decals, IEngineEntityRender render, IServerPropData propData,
                             PhysicsSoundBatch sounds, DamageInflictors inflictors, IEngineSound sound,
-                            ITempEnts temps, IEngineEnvironment environment, ConVarRegistry? convars = null)
+                            ITempEnts temps, IEngineEnvironment environment, BreakableMultiplayerConVar multiplayer)
     {
         Temps = temps;
         Environment = environment;
-        ConVars = convars;
+        BreakMultiplayer = multiplayer;
         Sound = sound;
         Inflictors = inflictors;
         Sounds = sounds;
@@ -55,7 +55,7 @@ public abstract class BreakableProp : AnimatingEntity, IPhysGunTarget
     private readonly IEngineEnvironment Environment;
 
     /// <summary>breakable_multiplayer.</summary>
-    private readonly ConVarRegistry? ConVars;
+    private readonly BreakableMultiplayerConVar BreakMultiplayer;
 
     /// <summary>The burst an explode_fire prop makes as it goes, and the punt sound.</summary>
     protected readonly IEngineSound Sound;
@@ -630,7 +630,7 @@ public abstract class BreakableProp : AnimatingEntity, IPhysGunTarget
         }
     }
 
-    private bool Multiplayer => BreakPieceSides.InMultiplayer(Environment, ConVars);
+    private bool Multiplayer => BreakPieceSides.InMultiplayer(Environment, BreakMultiplayer);
 
     /// <summary>
     /// CBreakableProp::Break's te->PhysicsProp: the clients in the PAS of its

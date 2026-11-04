@@ -90,8 +90,8 @@ public class ServerTagsTests
     {
         var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(SvGravityConVar).Assembly);
-        Assert.Equal("gravity", registry.Get<SvGravityConVar>()!.Tag);
-        Assert.Null(registry.Get<SvMaxSpeedConVar>()!.Tag);
+        Assert.Equal("gravity", registry.Declared<SvGravityConVar>().Tag);
+        Assert.Null(registry.Declared<SvMaxSpeedConVar>().Tag);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class ServerTagsTests
         var engine = new RecordingEngine().Returns("Console.FindConVarValue", "a");
         var (registry, _) = Declared("600");
 
-        new ServerTags(engine, registry);
+        new ServerTags(ConVarRegistry.For(engine).Declare<SvTagsConVar>(), registry);
 
         Assert.Equal(1, SvTagsWrites(engine));
         Assert.Equal("gravity,a", LastSvTags(engine));
@@ -141,7 +141,7 @@ public class ServerTagsTests
     {
         var engine = new RecordingEngine().Returns("Console.FindConVarValue", "a");
         var (registry, g) = Declared("800");
-        new ServerTags(engine, registry);
+        new ServerTags(ConVarRegistry.For(engine).Declare<SvTagsConVar>(), registry);
         Assert.Equal(0, SvTagsWrites(engine));
 
         g.NotifyChanged("600", "800");
@@ -155,7 +155,7 @@ public class ServerTagsTests
     {
         var engine = new RecordingEngine().Returns("Console.FindConVarValue", "gravity,a");
         var (registry, g) = Declared("600");
-        new ServerTags(engine, registry);
+        new ServerTags(ConVarRegistry.For(engine).Declare<SvTagsConVar>(), registry);
         Assert.Equal(0, SvTagsWrites(engine));
 
         g.NotifyChanged("800", "600");
@@ -173,7 +173,7 @@ public class ServerTagsTests
         speed.Bind(-1, "sv_maxspeed", "320");
         registry.Adopt(g);
         registry.Adopt(speed);
-        new ServerTags(engine, registry);
+        new ServerTags(ConVarRegistry.For(engine).Declare<SvTagsConVar>(), registry);
         int calls = engine.Calls.Count;
 
         speed.NotifyChanged("400", "320");
@@ -186,7 +186,7 @@ public class ServerTagsTests
     {
         var engine = new RecordingEngine().Returns("Console.FindConVarValue", "a");
         var (registry, g) = Declared("800");
-        new ServerTags(engine, registry).Detach();
+        new ServerTags(ConVarRegistry.For(engine).Declare<SvTagsConVar>(), registry).Detach();
 
         g.NotifyChanged("600", "800");
 
@@ -194,11 +194,10 @@ public class ServerTagsTests
     }
 
     [Fact]
-    public void WithNothingTaggedSvTagsIsNotEvenRead()
+    public void WithNothingTaggedSvTagsIsNotWritten()
     {
-        // Strict: an unanswered read would throw.
-        var engine = new RecordingEngine();
-        new ServerTags(engine, ConVarRegistry.For(TestServices.UnattachedConsole()));
-        Assert.Empty(engine.Calls);
+        var engine = new RecordingEngine().Returns("Console.FindConVarValue", "a");
+        new ServerTags(ConVarRegistry.For(engine).Declare<SvTagsConVar>(), ConVarRegistry.For(TestServices.UnattachedConsole()));
+        Assert.Equal(0, SvTagsWrites(engine));
     }
 }

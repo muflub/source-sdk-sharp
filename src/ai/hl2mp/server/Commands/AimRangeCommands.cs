@@ -8,15 +8,18 @@ namespace SourceSharp.Ai.Hl2mp;
 /// <summary>
 /// <c>ai_bot_kit &lt;name&gt; &lt;weapon&gt;</c> (plan_hl2mp_ai §12.3, the aim range's
 /// harness, <c>tools/ai-aim-range</c>): the bot holds that one weapon and a
-/// full reserve, so a measurement is of the weapon it names.
+/// full reserve, so a measurement is of the weapon it names; its second trigger only with ammo asked for.
 /// </summary>
-[ConCommand("ai_bot_kit", Help = "ai_bot_kit <name> <weapon>: the bot holds only that weapon, with a full reserve", Flags = ConVarFlags.Cheat)]
-public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatalog weapons, ILog log) : IConCommand
+[ConCommand("ai_bot_kit", Help = "ai_bot_kit <name> <weapon> [alt ammo]: the bot holds only that weapon, with a full reserve and that many for its second trigger (none unless said)", Flags = ConVarFlags.Cheat)]
+public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatalog weapons, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    private IEnumerable<string> Weapons() => weapons.All.Select(w => w.Name);
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, [Complete(From = nameof(Weapons))] string weapon, int altAmmo = 0)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 2 || weapons.For(p[1]) is not { } type)
+        if (weapons.For(weapon) is not { } type)
         {
             log.Warning("[SourceSharp/Ai] usage: ai_bot_kit <name> <weapon class>\n");
             return;
@@ -24,19 +27,21 @@ public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatal
 
         foreach (Hl2mpBot bot in bots.Bots)
         {
-            if (!string.Equals(bot.Name, p[0], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(bot.Name, name, StringComparison.OrdinalIgnoreCase))
                 continue;
             EntityHandle player = bots.Applier.PlayerOf(bot.Id);
             arsenal.Strip(player);
-            if (!arsenal.GiveWeapon(player, p[1]))
-                log.Warning($"[SourceSharp/Ai] ai_bot_kit: {bot.Name} refused {p[1]}\n");
-            arsenal.Switch(player, p[1]);
+            if (!arsenal.GiveWeapon(player, weapon))
+                log.Warning($"[SourceSharp/Ai] ai_bot_kit: {bot.Name} refused {weapon}\n");
+            arsenal.Switch(player, weapon);
             if (type.AmmoName.Length > 0)
                 arsenal.GiveAmmo(player, 9999, type.AmmoName);
+            if (altAmmo > 0 && type.SecondaryAmmoName.Length > 0)
+                arsenal.GiveAmmo(player, altAmmo, type.SecondaryAmmoName);
             return;
         }
 
-        log.Warning($"[SourceSharp/Ai] ai_bot_kit: no bot called '{p[0]}'\n");
+        log.Warning($"[SourceSharp/Ai] ai_bot_kit: no bot called '{name}'\n");
     }
 }
 
@@ -45,26 +50,27 @@ public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatal
 /// range to measure a streak by itself; told to its brain as an event, as anything is.
 /// </summary>
 [ConCommand("ai_bot_streak", Help = "ai_bot_streak <name> hot|cold: the bot starts that streak now", Flags = ConVarFlags.Cheat)]
-public sealed class AiBotStreakCommand(Hl2mpBots bots, Senses.Hl2mpAiSession ai, IEngineFrame frame, ILog log) : IConCommand
+public sealed class AiBotStreakCommand(Hl2mpBots bots, Senses.Hl2mpAiSession ai, IEngineFrame frame, ILog log)
 {
-    public void Execute(string args)
-    {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 2 || p[1] is not ("hot" or "cold"))
-        {
-            log.Warning("[SourceSharp/Ai] usage: ai_bot_streak <name> hot|cold\n");
-            return;
-        }
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
 
+    public void Execute([Complete(From = nameof(BotNames))] string name, Streak streak)
+    {
         foreach (Hl2mpBot bot in bots.Bots)
         {
-            if (!string.Equals(bot.Name, p[0], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(bot.Name, name, StringComparison.OrdinalIgnoreCase))
                 continue;
-            ai.Session.Push(AiEvent.StreaksSet(bot.Id, new Tick(frame.TickCount()), p[1] == "hot" ? AiEvent.StreakHot : AiEvent.StreakCold));
+            ai.Session.Push(AiEvent.StreaksSet(bot.Id, new Tick(frame.TickCount()), streak == Streak.Hot ? AiEvent.StreakHot : AiEvent.StreakCold));
             return;
         }
 
-        log.Warning($"[SourceSharp/Ai] ai_bot_streak: no bot called '{p[0]}'\n");
+        log.Warning($"[SourceSharp/Ai] ai_bot_streak: no bot called '{name}'\n");
+    }
+
+    public enum Streak
+    {
+        Hot,
+        Cold,
     }
 }
 
@@ -74,18 +80,10 @@ public sealed class AiBotStreakCommand(Hl2mpBots bots, Senses.Hl2mpAiSession ai,
 /// its hits are still told; 0 stops.
 /// </summary>
 [ConCommand("ai_aim_tough", Help = "ai_aim_tough <slot> <health>: hold a player at that health each tick (0 stops): the aim range's target", Flags = ConVarFlags.Cheat)]
-public sealed class AiAimToughCommand(Senses.AimMeter meter, ILog log) : IConCommand
+public sealed class AiAimToughCommand(Senses.AimMeter meter)
 {
-    public void Execute(string args)
+    public void Execute(int slot, int health)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 2 || !int.TryParse(p[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int slot)
-            || !int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int health))
-        {
-            log.Warning("[SourceSharp/Ai] usage: ai_aim_tough <slot> <health>\n");
-            return;
-        }
-
         meter.Tough(slot, health);
     }
 }
@@ -96,25 +94,19 @@ public sealed class AiAimToughCommand(Senses.AimMeter meter, ILog log) : IConCom
 /// probes; the file on disk is the numbers that ship.
 /// </summary>
 [ConCommand("ai_curve", Help = "ai_curve <parameter> <level> <value>: later bots read that curve value (the aim range's probes)", Flags = ConVarFlags.Cheat)]
-public sealed class AiCurveCommand(Skills.ISkillCurveSource curves, Senses.Hl2mpAiSession ai, ILog log) : IConCommand
+public sealed class AiCurveCommand(Skills.ISkillCurveSource curves, Senses.Hl2mpAiSession ai, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Parameters() => curves.Curves is { } now ? now.All.Select(c => c.Parameter) : [];
+
+    public void Execute([Complete(From = nameof(Parameters))] string parameter, int level, float value)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 3 || !int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int level)
-            || !float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float value))
+        if (curves.Curves is not { } now || !now.All.Any(c => c.Parameter == parameter) || level is < 0 or > StandardSkills.Cap)
         {
-            log.Warning("[SourceSharp/Ai] usage: ai_curve <parameter> <level> <value>\n");
+            log.Warning($"[SourceSharp/Ai] ai_curve: no curve '{parameter}' at level {level}\n");
             return;
         }
 
-        if (curves.Curves is not { } now || !now.All.Any(c => c.Parameter == p[0]) || level is < 0 or > StandardSkills.Cap)
-        {
-            log.Warning($"[SourceSharp/Ai] ai_curve: no curve '{p[0]}' at level {level}\n");
-            return;
-        }
-
-        ai.Session.Curves = curves.Probe(p[0], level, value);
-        log.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp/Ai] ai_curve: {p[0]} at {level} is {value}\n"));
+        ai.Session.Curves = curves.Probe(parameter, level, value);
+        log.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp/Ai] ai_curve: {parameter} at {level} is {value}\n"));
     }
 }

@@ -57,13 +57,12 @@ namespace SourceSharp.Client;
 [ConCommand("cs_cl_bonecost",
     Help = "SourceSharp: the managed client skeletons' cost since the last `reset` -- asks, builds, the engine's SetupBones asks and their microseconds, per frame")]
 public sealed class ClientSkeletonCostCommand(ClientSkeletons skeletons, IClientFrameStats stats, IEngineConsole console)
-    : IConCommand
 {
     private int _framesAtReset;
 
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             skeletons.ResetCost();
             _framesAtReset = stats.FrameCount;
@@ -99,11 +98,13 @@ public sealed class ClientSkeletonCostCommand(ClientSkeletons skeletons, IClient
 [ConCommand("cs_cl_bonebench",
     Help = "SourceSharp: every client skeleton rebuilt `reps` times (default 200) at this frame's clock, microseconds per rebuild per model")]
 public sealed class ClientSkeletonBenchCommand(ClientSkeletons skeletons, IClientStandalones standalones,
-                                               IEngineEnvironment environment, IEngineConsole console) : IConCommand
+                                               IEngineEnvironment environment, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(int reps = 200)
     {
-        int reps = int.TryParse(args.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n > 0 ? n : 200;
+        if (reps <= 0)
+            reps = 200;
+
         float time = environment.Globals.IsAvailable ? environment.Globals.CurTime : 0f;
         int frame = environment.Globals.IsAvailable ? environment.Globals.FrameCount : 0;
         var rows = new SortedDictionary<string, (int Entities, int Bones, long Ticks, int Builds, long Bytes)>(StringComparer.Ordinal);
@@ -142,19 +143,10 @@ public sealed class ClientSkeletonBenchCommand(ClientSkeletons skeletons, IClien
 [ConCommand("cs_cl_bonedump",
     Help = "SourceSharp: every client skeleton, history forgotten, built at one clock and written to a file -- `<file> [time]`")]
 public sealed class ClientSkeletonDumpCommand(ClientSkeletons skeletons, IClientStandalones standalones,
-                                              IEngineConsole console) : IConCommand
+                                              IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(string file, float time = 1000f)
     {
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (words.Length < 1)
-        {
-            console.Msg("usage: cs_cl_bonedump <file> [time]\n");
-            return;
-        }
-
-        float time = words.Length > 1 && float.TryParse(words[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float t) ? t : 1000f;
         const int Frame = 1000;
         var text = new StringBuilder();
         int skeletonsWritten = 0;
@@ -184,9 +176,9 @@ public sealed class ClientSkeletonDumpCommand(ClientSkeletons skeletons, IClient
         // would fade from that clock, not the game's. Forget them again.
         skeletons.ForgetHistory();
 
-        File.WriteAllText(words[0], text.ToString());
+        File.WriteAllText(file, text.ToString());
         console.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[SourceSharp] bonedump: {skeletonsWritten} skeleton(s) at time {time} to {words[0]}\n"));
+            $"[SourceSharp] bonedump: {skeletonsWritten} skeleton(s) at time {time} to {file}\n"));
     }
 
     /// <summary>Every live client standalone and every skeleton held (a prop with no managed class
@@ -211,9 +203,9 @@ public sealed class ClientSkeletonDumpCommand(ClientSkeletons skeletons, IClient
 
 /// <summary><c>cs_cl_ragdoll_roots</c>: where each body's first element is, for the gate's check that a body was thrown.</summary>
 [ConCommand("cs_cl_ragdoll_roots", Help = "SourceSharp: each client ragdoll's first element, as the physics has it")]
-public sealed class ClientRagdollRootsCommand(Ragdolls.IClientRagdolls ragdolls, IClientStandalones standalones, IEngineConsole console) : IConCommand
+public sealed class ClientRagdollRootsCommand(Ragdolls.IClientRagdolls ragdolls, IClientStandalones standalones, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         foreach (Standalone.ClientStandaloneEntity entity in standalones.Live())
         {
@@ -228,11 +220,10 @@ public sealed class ClientRagdollRootsCommand(Ragdolls.IClientRagdolls ragdolls,
 /// <summary><c>cs_cl_transitions [filter]</c>: each skeleton's transition queue, for the live blend check.</summary>
 [ConCommand("cs_cl_transitions",
     Help = "SourceSharp: each client skeleton's sequence transition queue as its last build left it -- `[studio-name filter]`")]
-public sealed class ClientSkeletonTransitionsCommand(ClientSkeletons skeletons, IEngineConsole console) : IConCommand
+public sealed class ClientSkeletonTransitionsCommand(ClientSkeletons skeletons, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(string filter = "")
     {
-        string filter = args.Trim();
         var text = new StringBuilder();
 
         foreach ((EntityHandle handle, SourceSharp.Shared.Bones.BoneEntityState s) in skeletons.States.All())
@@ -264,14 +255,11 @@ public sealed class ClientSkeletonTransitionsCommand(ClientSkeletons skeletons, 
 [ConCommand("cs_cl_bonebatch",
     Help = "SourceSharp: the frame's skeleton batch off (0: every SetupBones ask crosses) or on (1), and its state")]
 public sealed class ClientSkeletonBatchCommand(ClientSkeletons skeletons, ClientBoneBatchCarry carry, IEngineConsole console)
-    : IConCommand
 {
-    public void Execute(string args)
+    public void Execute(bool? batching = null)
     {
-        string word = args.Trim();
-
-        if (word == "0" || word == "1")
-            skeletons.BatchEnabled = word == "1";
+        if (batching is { } wanted)
+            skeletons.BatchEnabled = wanted;
 
         ClientBoneBatch batch = skeletons.Batch;
         console.Msg($"[SourceSharp] bone batch {(skeletons.BatchEnabled ? "on" : "off")}: table 0x{batch.Address:x} " +

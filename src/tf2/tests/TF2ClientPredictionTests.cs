@@ -539,10 +539,10 @@ public sealed class TF2ClientPredictionTests
             var convars = PredictionDeps.SpyConVars();
             Prediction = new ClientPrediction(Log, Carriers, ClientNetCatalog.Of(typeof(ClientPlayerData).Assembly, Log),
                                               new NoStandalones(), PredictionDeps.Engine(),
-                                              convars.Get<client::TF2.Shared.TFSpyCloakConsumeRateConVar>()!,
-                                              convars.Get<client::TF2.Shared.TFSpyCloakRegenRateConVar>()!,
-                                              convars.Get<client::TF2.Shared.TFSpyInvisTimeConVar>()!,
-                                              convars.Get<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>()!);
+                                              convars.Declared<client::TF2.Shared.TFSpyCloakConsumeRateConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFSpyCloakRegenRateConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFSpyInvisTimeConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>());
         }
 
         /// <summary>The server's word arriving: the decoded state changes and counts a decode.</summary>

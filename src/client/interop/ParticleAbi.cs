@@ -83,7 +83,6 @@ public struct ParticleFrameHeader
     public float Dt;
     public float CurTime;
     public float FrameTime;
-    public float AabbBuffer;
     public Vector ViewOrigin;
 }
 
@@ -125,10 +124,6 @@ public struct ParticleDrawIn
     public int Channel;
     public int Flags;
     public int ClientModeDraws;
-    public int DrawParticles;
-    public int Wireframe;
-    public int ShowBBox;
-    public int ShowBBoxCost;
     public int ViewKey;
     public float FrameTime;
 }
@@ -163,12 +158,8 @@ public struct Matrix4x4Raw
 public struct NewParticleFrameHeader
 {
     public float Dt;
-    public float Timescale;
     public float CurTime;
     public int FrameCount;
-    public float AabbBuffer;
-    public float RetireCost;
-    public int SpikeThresholdMs;
     public int ViewX;
     public int ViewY;
     public int ViewWidth;
@@ -236,11 +227,8 @@ public struct NewParticleDrawInRaw
 {
     public uint Id;
     public int Flags;
-    public int DrawParticles;
     public int ClientModeDraws;
     public int RenderSystems;
-    public int ShowBBox;
-    public int ShowBBoxCost;
     public int Active;
     public Vector Camera;
     public Vector Min;
@@ -253,7 +241,6 @@ public struct NewParticleDrawInRaw
     public int HighestControlPoint;
     public int ThirdPerson;
     public int ObserverMode;
-    public int Pad;
     public ulong CameraObject;
     public ulong SkipObject;
     public ulong LocalPlayer;

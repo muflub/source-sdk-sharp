@@ -83,13 +83,13 @@ public class ClientParticleManagerTests
     {
         var sims = new Sims();
         var random = new Random();
-        return (new ClientParticleManager(() => sims, random, new ParticleViews(new NoView())), sims, random);
+        return (new ClientParticleManager(() => sims, random, new ParticleViews(new NoView()), RenderConVarsKit.Particles()), sims, random);
     }
 
     private static ParticleFrameIn At(uint owner, Vector origin) => new() { Owner = owner, Origin = origin };
 
     private static int Frame(ClientParticleManager m, Span<ParticleCommit> commits, float dt, params ParticleFrameIn[] inputs)
-        => m.Frame(new ParticleFrameHeader { Dt = dt }, inputs, 2f, commits);
+        => m.Frame(new ParticleFrameHeader { Dt = dt }, inputs, commits);
 
     // UpdateAllEffects clamps the frame's step to a tenth of a second.
     [Fact]
@@ -179,7 +179,7 @@ public class ClientParticleManagerTests
     {
         (ClientParticleManager m, _, _) = Make();
         m.Add(1, 0, 0f, alwaysSimulate: true);
-        var input = new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, DrawParticles = 1, Flags = 0x40000000 };
+        var input = new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, Flags = 0x40000000 };
         m.DrawBegin(input, out ParticleDrawOut output, new ParticleQuadRaw[4]);
         Assert.Equal(0, output.Result);
         Assert.False(m.Binding(1, 0)!.Has(ParticleBindingFlags.Drawn));
@@ -191,7 +191,7 @@ public class ClientParticleManagerTests
     {
         (ClientParticleManager m, _, Random random) = Make();
         m.Add(1, 0, 0f, alwaysSimulate: true);
-        var input = new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, DrawParticles = 1 };
+        var input = new ParticleDrawIn { Owner = 1, ClientModeDraws = 1 };
         m.DrawBegin(input, out ParticleDrawOut output, new ParticleQuadRaw[4]);
         Assert.Equal(1, output.Result);
         Assert.True(m.Binding(1, 0)!.Has(ParticleBindingFlags.Drawn));
@@ -207,7 +207,7 @@ public class ClientParticleManagerTests
         m.Binding(1, 0)!.AddParticle(0, 1, default);
         m.Binding(1, 0)!.AddParticle(0, 2, default);
         var quads = new ParticleQuadRaw[4];
-        int n = m.DrawBegin(new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, DrawParticles = 1 }, out ParticleDrawOut output, quads);
+        int n = m.DrawBegin(new ParticleDrawIn { Owner = 1, ClientModeDraws = 1 }, out ParticleDrawOut output, quads);
         Assert.Equal((2, 2), (output.Result, n));
         Assert.Equal((2, 3, 2f), (quads[0].Id, quads[0].Kind, quads[0].Size));
         Assert.Equal((1, -1), (quads[1].Id, quads[1].Kind));
@@ -221,7 +221,7 @@ public class ClientParticleManagerTests
         m.Add(1, 0, 0f, alwaysSimulate: true);
         m.Binding(1, 0)!.AddParticle(0, 1, default);
         m.Binding(1, 0)!.AddParticle(0, 2, default);
-        int n = m.DrawBegin(new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, DrawParticles = 1 }, out _, new ParticleQuadRaw[1]);
+        int n = m.DrawBegin(new ParticleDrawIn { Owner = 1, ClientModeDraws = 1 }, out _, new ParticleQuadRaw[1]);
         Assert.Equal(2, n);
         Assert.Empty(random.Asked);
         Assert.False(m.Binding(1, 0)!.Has(ParticleBindingFlags.Drawn));
@@ -236,7 +236,7 @@ public class ClientParticleManagerTests
         foreach (int id in new[] { 1, 2, 3 })
             m.Binding(1, 0)!.AddParticle(0, id, default);
         random.Answer = 0;   // RandomInt( 0, 8 ) == 0: the bucket sort
-        m.DrawBegin(new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, DrawParticles = 1 }, out _, new ParticleQuadRaw[4]);
+        m.DrawBegin(new ParticleDrawIn { Owner = 1, ClientModeDraws = 1 }, out _, new ParticleQuadRaw[4]);
         m.DrawEnd(1, 0, [-10f, -50f, -30f]);
         Assert.Equal([2, 1, 3], m.Binding(1, 0)!.Materials[0].Select(p => p.Id));
     }

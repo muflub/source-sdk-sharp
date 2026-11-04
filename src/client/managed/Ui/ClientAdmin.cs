@@ -246,15 +246,15 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
 }
 
 [ConCommand("adminmenu", Help = "The server's admin menu: at once for its host, else after proving your admin key")]
-public sealed class AdminMenuCommand(ClientAdmin admin) : IConCommand
+public sealed class AdminMenuCommand(ClientAdmin admin)
 {
-    public void Execute(string args) => admin.Open();
+    public void Execute() => admin.Open();
 }
 
 [ConCommand("ss_admin_keygen", Help = "Makes your admin key if you have none, and prints the line for a server's cfg/admins.yaml")]
-public sealed class AdminKeygenCommand(AdminKeys keys, ILog log) : IConCommand
+public sealed class AdminKeygenCommand(AdminKeys keys, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         bool had = keys.HasKey;
         keys.Generate();
@@ -264,8 +264,8 @@ public sealed class AdminKeygenCommand(AdminKeys keys, ILog log) : IConCommand
 }
 
 [ConCommand("ss_admin_pubkey", Help = "Prints your admin key's public half, for a server's cfg/admins.yaml")]
-public sealed class AdminPubkeyCommand(AdminKeys keys, ILog log) : IConCommand
+public sealed class AdminPubkeyCommand(AdminKeys keys, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
         => log.Msg(keys.HasKey ? $"[SourceSharp/Admin] {keys.PublicKey}\n" : "[SourceSharp/Admin] no key yet: ss_admin_keygen makes one\n");
 }

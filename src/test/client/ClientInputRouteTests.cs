@@ -5,6 +5,7 @@ using Debug.Api.Client.Interfaces;
 using Debug.Api;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -25,7 +26,7 @@ public class ClientInputRouteTests
     {
         var rig = new InputRig();
         var service = new ClientInputService(rig.Input, null, () => true);
-        return (rig, service, new ClientDebugInput(service, rig.Cvars, rig.Host, () => cheats));
+        return (rig, service, new ClientDebugInput(service, rig.Cvars, rig.Host, DeclaredConVars.Holding<SvCheatsConVar>(cheats)));
     }
 
     private static InputCommand Move(InputRig rig, ClientInputService service, int sequence)

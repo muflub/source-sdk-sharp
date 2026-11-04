@@ -127,7 +127,7 @@ public sealed class RoundTimerTests
             services.AddInstance<ITeamRoundControl>(Control);
             Convars = new ConVarRegistry(new NagConVarBackend());
             Convars.RegisterTypes([typeof(TFOvertimeNagConVar)]);
-            services.AddInstance(Convars);
+            Convars.PublishTo(services);
             // The overtime nag's coin (TeamRoundFlow's seeded-Random way; the
             // server registers its own seed source, ServerModule.cs:891).
             services.AddInstance<IRandomSeeds>(new RandomSeeds(seed));
@@ -790,7 +790,7 @@ public sealed class RoundTimerTests
     public void Overtime_nags_while_the_coin_lands_heads()
     {
         var rig = new Rig(seed: 2);   // the timer's first two draws are heads
-        rig.Convars.Get<TFOvertimeNagConVar>()!.SetValue(true);
+        rig.Convars.Declared<TFOvertimeNagConVar>().SetValue(true);
         var timer = OvertimeTimer(rig);
 
         rig.Run(timer, 4f);   // 2 s down, 2 s at zero: two ~1 s-spaced draws, both heads
@@ -803,7 +803,7 @@ public sealed class RoundTimerTests
     public void A_tails_coin_says_nothing()
     {
         var rig = new Rig(seed: 5);   // the first draw is tails
-        rig.Convars.Get<TFOvertimeNagConVar>()!.SetValue(true);
+        rig.Convars.Declared<TFOvertimeNagConVar>().SetValue(true);
         var timer = OvertimeTimer(rig);
 
         rig.Run(timer, 2.9f);   // 2 s down, 0.9 s at zero: the one draw inside is the tails one
@@ -828,7 +828,7 @@ public sealed class RoundTimerTests
     public void The_nag_fires_once_a_second_not_once_a_think()
     {
         var rig = new Rig(seed: 2);   // draws heads, heads, tails, heads
-        rig.Convars.Get<TFOvertimeNagConVar>()!.SetValue(true);
+        rig.Convars.Declared<TFOvertimeNagConVar>().SetValue(true);
         var timer = OvertimeTimer(rig);
 
         rig.Run(timer, 6f);   // four ~1 s-spaced draws; three of them heads

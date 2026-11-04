@@ -18,9 +18,9 @@ namespace SourceSharp.Server;
     Help = "cs_sv_physics_cost [reset]: the managed physics frame, solve, player shadow step and apply, "
          + "timed in game: calls, means, min/median/p95/max ns. 'reset' zeroes them after printing.")]
 public sealed class PhysicsCostReport(IEngineConsole console, PhysicsFrame frame, PlayerShadowBodies bodies,
-                                      PlayerShadow shadow) : IConCommand
+                                      PlayerShadow shadow)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
         long hz = Stopwatch.Frequency;
         console.Msg(CostMeter.Line("physics.frame", frame.FrameCost.Summary(hz)));
@@ -30,7 +30,7 @@ public sealed class PhysicsCostReport(IEngineConsole console, PhysicsFrame frame
         console.Msg(CostMeter.Line("shadow.apply", bodies.ApplyCost.Summary(hz)));
         console.Msg(CostMeter.Line("timer.empty", CostMeter.Calibrate(1000).Summary(hz)));
 
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             frame.FrameCost.Reset();
             frame.SimulateCost.Reset();

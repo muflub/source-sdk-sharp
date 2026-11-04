@@ -33,7 +33,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeGlowSprite : TeBaseTempEntity
+public partial class TeGlowSprite : TeBaseTempEntity
 {
     /// <summary>Where the glow is.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

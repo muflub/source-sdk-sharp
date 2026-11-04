@@ -96,6 +96,17 @@ public interface IWeaponBehaviour
     PelletPattern? FixedPellets(in WeaponAttackContext attack) => null;
 
     /// <summary>
+    /// The pellets one shot throws: stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER( pWeapon, nBulletsPerShot, mult_bullets_per_shot )</c>
+    /// (<c>tf_fx_shared.cpp:305</c>), applied to the count before the pellet loop
+    /// at :307. Asked once per attack with the row's floored count, before the
+    /// volley's multiplication, so the arms hear the scaled count times the shots
+    /// owed — stock's scaled loop bound per shot. Return
+    /// <paramref name="pellets"/> unchanged for the row's own.
+    /// </summary>
+    int ModifyPellets(in WeaponAttackContext attack, int pellets) => pellets;
+
+    /// <summary>
     /// Whether this owner's wish tops the clip up while idle, pressed as a
     /// reload (<c>cl_autoreload</c> at the post frame,
     /// <c>tf_weaponbase.cpp:2454</c>): the machine asks beside the held
@@ -162,6 +173,26 @@ public interface IWeaponBehaviour
     /// index alone or the replay mispredicts the clocks.
     /// </summary>
     float ModifyReloadTime(in WeaponType type, float duration, int ownerIndex) => duration;
+
+    /// <summary>
+    /// The seconds a switch leaves on the clocks before the new weapon answers:
+    /// stock's <c>CTFWeaponBase::Deploy</c> times its fixed
+    /// <c>flWeaponSwitchTime</c> through the deploy multiplier
+    /// (<c>shared/tf/tf_weaponbase.cpp:1255-</c>), whose arms read the incoming
+    /// weapon's own <c>mult_single_wep_deploy_time</c> (<c>:1260</c>) and the
+    /// outgoing weapon's <c>mult_switch_from_wep_deploy_time</c> — the latter
+    /// only once THAT weapon has been held longer than the switch time
+    /// (<c>:1262-1272</c>). The side deploying asks this where it writes the
+    /// deploy clocks, and writes the answer; return <paramref name="duration"/>
+    /// for the row's own. <paramref name="ownerIndex"/> is the player whose hands
+    /// the weapon is in, as in <see cref="ModifyFireInterval"/>;
+    /// <paramref name="previousWeapon"/> names the weapon being put away (empty
+    /// for none) and <paramref name="secondsSincePreviousDeploy"/> is how long ago
+    /// THAT weapon came into the hands. The deploy clocks are predicted state, so
+    /// every input is the carrier's word or the row, and both sides answer alike.
+    /// </summary>
+    float ModifyDeployTime(in WeaponType type, float duration, int ownerIndex, string previousWeapon,
+                           float secondsSincePreviousDeploy) => duration;
 
     /// <summary>
     /// Asked when the weapon comes into the hands, after the side has set the

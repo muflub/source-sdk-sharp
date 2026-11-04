@@ -559,7 +559,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
 
 /// <summary>The console door onto the meter, beside cs_cl_weapon_predict_report.</summary>
 [ConCommand("tf2_cl_player_data_report", Help = "What the tf_player_data prediction ring has seen")]
-public sealed class TFPlayerDataReportCommand(ILog log, TFPlayerPrediction prediction) : IConCommand
+public sealed class TFPlayerDataReportCommand(ILog log, TFPlayerPrediction prediction)
 {
-    public void Execute(string args) => log.Msg(prediction.Report() + "\n");
+    public void Execute() => log.Msg(prediction.Report() + "\n");
 }

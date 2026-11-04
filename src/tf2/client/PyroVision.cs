@@ -20,7 +20,7 @@ namespace TF2.Client;
 /// are read by name.
 /// </summary>
 [SideService(Side.Client)]
-public sealed class PyroVision(IUniformRandom random, IEngineConsole console) : IPostProcessContributor
+public sealed class PyroVision(IUniformRandom random, PyroVisionConVars convars) : IPostProcessContributor
 {
     private const int MaxSides = 50;
     private const int Segments = 8;
@@ -51,15 +51,11 @@ public sealed class PyroVision(IUniformRandom random, IEngineConsole console) : 
         ? v switch { 0 => (0f, 0f), 1 => (0f, 1f), 2 => (1f, 1f), 3 => (1f, 1f), 4 => (0f, 0f), _ => (1f, 0f) }
         : v switch { 0 => (0f, 0f), 1 => (1f, 0f), 2 => (1f, 1f), 3 => (1f, 1f), 4 => (0f, 0f), _ => (0f, 1f) };
 
-    private float Cvar(string name, float fallback) =>
-        float.TryParse(console.FindConVarValue(name), System.Globalization.NumberStyles.Float,
-                       System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : fallback;
-
     public void AtVisionPoint(PostVisionContext context, IPostOps ops)
     {
         PostProcessInputs input = context.Inputs;
-        bool vision = ((int)input.Cvar(PostCvar.localplayer_visionflags) & 0x01) != 0;
-        int vignette = (int)Cvar("pyro_vignette", 2);
+        bool vision = (convars.VisionFlags.Value & 0x01) != 0;
+        int vignette = (int)convars.Vignette.Value;
         if (!vision || input.SupportsPixelShaders20 == 0 || vignette <= 0)
             return;
 
@@ -167,14 +163,14 @@ public sealed class PyroVision(IUniformRandom random, IEngineConsole console) : 
 
         ref PyroSide side = ref _sides[found];
         side.Intensity = 0.0f;
-        side.IntensityLimit = random.RandomFloat(Cvar("pyro_min_intensity", 0.1f), Cvar("pyro_max_intensity", 0.35f));
-        side.Rate = random.RandomFloat(Cvar("pyro_min_rate", 0.05f), Cvar("pyro_max_rate", 0.2f));
+        side.IntensityLimit = random.RandomFloat(convars.MinIntensity.Value, convars.MaxIntensity.Value);
+        side.Rate = random.RandomFloat(convars.MinRate.Value, convars.MaxRate.Value);
         side.Increasing = true;
         side.Horizontal = ((sideNumber >> 1) & 1) == 0;
         side.Alive = true;
 
-        float width = random.RandomFloat(Cvar("pyro_min_side_width", 0.65f), Cvar("pyro_max_side_width", 0.95f)) * 2.0f;
-        float length = random.RandomFloat(Cvar("pyro_min_side_length", 0.3f), Cvar("pyro_max_side_length", 0.55f));
+        float width = random.RandomFloat(convars.MinSideWidth.Value, convars.MaxSideWidth.Value) * 2.0f;
+        float length = random.RandomFloat(convars.MinSideLength.Value, convars.MaxSideLength.Value);
 
         (side.X0, side.Y0, side.X1, side.Y1) = sideNumber switch
         {

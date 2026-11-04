@@ -4,6 +4,8 @@ using System.IO.Compression;
 using SourceSharp.Client.Input;
 
 using Xunit;
+using SourceSharp.Shared;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -171,7 +173,6 @@ public class InputStockOracleTests
         public InputAngles View;
         public bool Visible, Locked;
         public InputHudFacts HudFacts = new(0, 0, 1);
-        public readonly Dictionary<string, string> Engine = new(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> Commands = [];
 
         public InputAngles GetViewAngles() => View;
@@ -193,7 +194,6 @@ public class InputStockOracleTests
         public bool IsPaused => false;
         public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) { x = y = 0; }
         public void ClientCmdUnrestricted(string command) => Commands.Add(command);
-        public string? EngineConVar(string name) => Engine.TryGetValue(name, out string? v) ? v : null;
         public void Msg(string text) { }
         public void ConsolePrintAt(int line, string text) { }
         public bool CursorVisible => Visible;
@@ -233,6 +233,7 @@ public class InputStockOracleTests
         private readonly Tape _tape = new();
         private readonly ReplayHost _host = new();
         private readonly InputCvars _cvars = new();
+        private readonly SvCheatsConVar _cheats = DeclaredConVars.Fresh<SvCheatsConVar>();
         private readonly ClientInput _input;
         private readonly Dictionary<string, Action<string?>> _commands;
 
@@ -247,7 +248,7 @@ public class InputStockOracleTests
         public Replay(Action<ClientInput>? mutate = null, NativeMailboxBlock? block = null)
         {
             _block = block;
-            _input = new ClientInput(_host, new TapedDevices(_tape), _cvars, mailbox: block?.Mailbox);
+            _input = new ClientInput(_host, new TapedDevices(_tape), _cvars, _cheats, DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), mailbox: block?.Mailbox);
             _commands = InputCommands.For(_input, _host, _cvars).ToDictionary(c => c.Name, c => c.Run, StringComparer.OrdinalIgnoreCase);
             mutate?.Invoke(_input);
         }
@@ -256,8 +257,8 @@ public class InputStockOracleTests
         {
             if (_cvars.TryGet(name, out InputCvar cvar))
                 cvar.Set(value);
-            else
-                _host.Engine[name] = value;
+            else if (name == _cheats.Name)
+                _cheats.Hold(value);
         }
 
         public void Run(List<string[]> rows)

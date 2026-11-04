@@ -84,7 +84,7 @@ public sealed class ClientRopeSystem : IClientRopes, IClientLevelHook, IReloadPa
     private readonly IEngineEffects _effects;
     private readonly IGameClock _clock;
     private readonly RopeConVars _vars;
-    private readonly IEngineConsole _console;
+    private readonly MatFullbrightConVar _fullbright;
     private readonly IRopeRandom _random;
     private readonly IRopeWorld _world;
     private readonly IRopeEndpoints _endpoints;
@@ -98,14 +98,14 @@ public sealed class ClientRopeSystem : IClientRopes, IClientLevelHook, IReloadPa
 
     public ClientRopeSystem(IClientRopeExecutor executor, IEngineEntityRender render, IEngineEffects effects,
                             IEngineWorldQuery world, IEngineHost host, IGameClock clock, RopeConVars vars,
-                            IEngineConsole console)
+                            MatFullbrightConVar fullbright)
     {
         _executor = executor;
         _render = render;
         _effects = effects;
         _clock = clock;
         _vars = vars;
-        _console = console;
+        _fullbright = fullbright;
         _random = new EngineRopeRandom(host);
         _world = new EngineRopeWorld(executor);
         _endpoints = new EngineRopeEndpoints(effects, world);
@@ -285,7 +285,7 @@ public sealed class ClientRopeSystem : IClientRopes, IClientLevelHook, IReloadPa
 
         var buildView = new RopeBuildView(
             view.Forward, view.Origin, view.ScreenWidth, fakeAA,
-            FullBright: (int.TryParse(_console.FindConVarValue("mat_fullbright"), out int fb) ? fb : 0) == 1,
+            FullBright: _fullbright.Value == 1,
             SubdivConVar: _vars.Subdiv,
             SmoothEnlarge: _vars.SmoothEnlarge,
             SmoothMinAlpha: _vars.SmoothMinAlpha,

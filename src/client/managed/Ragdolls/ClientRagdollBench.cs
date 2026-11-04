@@ -16,16 +16,14 @@ namespace SourceSharp.Client.Ragdolls;
 /// </summary>
 [ConCommand("cs_cl_ragdoll_bench",
     Help = "cs_cl_ragdoll_bench [rounds]: time a client body's scan, bone write and update reads, ns per call.")]
-public sealed class ClientRagdollBench(ILog log, IClientRagdolls ragdolls) : IConCommand
+public sealed class ClientRagdollBench(ILog log, IClientRagdolls ragdolls)
 {
     /// <summary>Calls per round.</summary>
     public const int CallsPerRound = 20_000;
 
-    public void Execute(string args)
+    public void Execute(int rounds = 7)
     {
-        int rounds = int.TryParse(args.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int r) && r > 0
-            ? Math.Min(r, 50)
-            : 7;
+        rounds = rounds > 0 ? Math.Min(rounds, 50) : 7;
 
         if (ragdolls is not ClientRagdolls bodies || bodies.Count == 0)
         {

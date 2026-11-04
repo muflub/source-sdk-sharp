@@ -23,7 +23,7 @@ namespace SourceSharp.Tests;
 /// names on the wire moved and not one byte of any blob did.
 /// </para>
 /// </summary>
-public class TempEntDeclarationWriterTests
+public partial class TempEntDeclarationWriterTests
 {
     private static TempEntRegistry Registry()
     {
@@ -220,10 +220,10 @@ public class TempEntDeclarationWriterTests
         var blob = new byte[type.BlobBytes];
         var writer = new TempEntWriter(type, blob);
 
-        int written = TempEntDeclarationWriter.WriteChain(ref writer, new TeSparks
+        int written = new TeSparks
         {
             Origin = Vector.Zero, Magnitude = 1, TrailLength = 1, Direction = Vector.Zero,
-        });
+        }.WriteMembers(ref writer);
 
         Assert.True(written == 4,
             $"one inherited field and three of its own, all four written ({written}) — a silent "
@@ -368,11 +368,11 @@ public class TempEntDeclarationWriterTests
         var blob = new byte[type.BlobBytes];
         var writer = new TempEntWriter(type, blob);
 
-        int written = TempEntDeclarationWriter.WriteChain(ref writer, new TeBeamRingPoint
+        int written = new TeBeamRingPoint
         {
             ModelIndex = 71, Life = 2f, Speed = 3, Color = new Color32(0, 0, 0, 150),
             Center = Vector.Zero, StartRadius = 1f, EndRadius = 2f,
-        });
+        }.WriteMembers(ref writer);
 
         Assert.True(written == 15,
             $"fifteen inherited and three of its own, all eighteen written ({written})");
@@ -568,7 +568,7 @@ public class TempEntDeclarationWriterTests
         var inner = new byte[payload.BlobBytes];
         var innerWriter = new TempEntWriter(payload, inner);
 
-        int innerWritten = TempEntDeclarationWriter.Write(ref innerWriter, in data);
+        int innerWritten = data.WriteMembers(ref innerWriter);
 
         Assert.True(innerWritten > 0, "DT_EffectData's own declaration writes its own fields");
 
@@ -782,7 +782,7 @@ public class TempEntDeclarationWriterTests
 #pragma warning disable CS0649
     [TempEntity("CTEShatterSurfaceBefore", "DT_TEShatterSurfaceBefore",
                 BaseTable = "DT_BaseTempEntity")]
-    private struct ShatterSurfaceBeforeConversion
+    private partial struct ShatterSurfaceBeforeConversion
     {
         [TeProp(TePropKind.Vector, WireName = "m_vecOrigin", Bits = -1, Flags = TeFlags.Coord)]
         public Vector Origin;
@@ -830,7 +830,7 @@ public class TempEntDeclarationWriterTests
     /// <summary><c>DT_TEEffectDispatch</c>'s, the same way and for the same reason.</summary>
     [TempEntity("CTEEffectDispatchBefore", "DT_TEEffectDispatchBefore",
                 BaseTable = "DT_BaseTempEntity")]
-    private struct EffectDispatchBeforeConversion
+    private partial struct EffectDispatchBeforeConversion
     {
         [TeProp(TePropKind.DataTable, WireName = "m_EffectData", SubTable = "DT_EffectData")]
         public TeEffectData EffectData;
@@ -903,7 +903,7 @@ public class TempEntDeclarationWriterTests
         var blob = new byte[before.BlobBytes];
 
         // A HAND-ROLLED WRITER over the OLD declaration's own offsets. Not
-        // TempEntWriter and not TempEntDeclarationWriter: both of those are on
+        // TempEntWriter and not a generated write: both of those are on
         // the path under test, and the whole point of this is a value laid down
         // somewhere nothing in that path chose.
         void Vec(string wire, Vector v)

@@ -48,7 +48,7 @@ public class PlayerDamagePushTests
               .Ignores("Entities.ApplyVelocityImpulse");
         var moves = new ServerPlayerMoves();
         var inflictors = new DamageInflictors();
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine, moves: moves,
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine, moves: moves,
                                   inflictors: inflictors, pushRules: rules) { Handle = Victim };
         player.BindAreas(Areas(engine));
         player.State.BindLocal();

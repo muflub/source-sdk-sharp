@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Collections.Immutable;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -62,6 +63,9 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
     {
         var names = new SortedSet<string>(StringComparer.Ordinal)
         {
+            // The Huntsman: no class script's weaponN (an unlock's loadout
+            // item), but the bow's behaviour is ported, so it has a row.
+            TFWeaponNames.Name(TFWeaponId.CompoundBow).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.Builder).ToLowerInvariant(),
             Sapper,
         };
@@ -103,6 +107,7 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             AmmoName = script.Base.Ammo1,
             ViewModel = item?.ModelPlayer ?? "",
             WorldModel = item?.ModelWorld ?? item?.ModelPlayer ?? "",
+            AttachedModels = item?.AttachedModels.ToImmutableArray() ?? ImmutableArray<WeaponAttachedModel>.Empty,
             DeployTime = DeployTime,
             FireSound = script.Sound(WeaponScriptSound.Single),
             // The minigun never clicks: CTFMinigun::ItemPostFrame pushes its

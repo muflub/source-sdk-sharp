@@ -4,6 +4,7 @@
   <Project Path="src/client/interface/SourceSharp.Client.Interface.csproj" />
   <Project Path="src/server/interface/SourceSharp.Server.Interface.csproj" />
   <Project Path="src/client/managed/SourceSharp.Client.csproj" />
+  <Project Path="src/client/interop/SourceSharp.Client.Interop.csproj" />
   <Project Path="src/client/ui/toolkit/SourceSharp.Client.Ui.Toolkit.csproj" />
   <Project Path="src/client/ui/screens/SourceSharp.Client.Ui.csproj" />
   <Project Path="src/client/ui/host/SourceSharp.Client.Ui.Host.csproj" />
@@ -23,6 +24,7 @@
   <Project Path="src/mapgen/SourceSharp.MapGen.csproj" />
   <Project Path="src/mods/SourceSharp.Mods.csproj" />
   <Project Path="src/server/managed/SourceSharp.Server.csproj" />
+  <Project Path="src/server/interop/SourceSharp.Server.Interop.csproj" />
   <Project Path="src/test/managed/SourceSharp.Shared.Tests.csproj" />
   <Project Path="src/test/server/SourceSharp.Server.Tests.csproj" />
   <Project Path="src/test/client/SourceSharp.Client.Tests.csproj" />
@@ -45,4 +47,5 @@
   <Project Path="src/ai/hl2mp/interface/SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
   <Project Path="src/ai/hl2mp/ui/SourceSharp.Ai.Hl2mp.Ui.csproj" />
   <Project Path="src/ai/tests/SourceSharp.Ai.Tests.csproj" />
+  <Project Path="src/ai/replay/SourceSharp.Ai.Replay.csproj" />
 </Solution>

@@ -196,9 +196,9 @@ public static class TFMainMenuArtPicker
 /// (plan_gameui_managed.md G3).
 /// </summary>
 [ConCommand("opentf2options", Help = "Open the advanced multiplayer options")]
-public sealed class TFAdvancedOptionsCommand(ITFMenuNavigation nav) : IConCommand
+public sealed class TFAdvancedOptionsCommand(ITFMenuNavigation nav)
 {
-    public void Execute(string args) => nav.Open("multiplayeroptions");
+    public void Execute() => nav.Open("multiplayeroptions");
 }
 
 /// <summary>

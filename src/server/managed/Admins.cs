@@ -69,7 +69,7 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         _log = log;
     }
 
-    public static ServerAdmins For(IEngineHost host, IEngineFiles files, IEngineConsole console, IBoundPort port, IUserMessageSender messages,
+    public static ServerAdmins For(IEngineHost host, IEngineFiles files, AdminAddressConVar adminAddress, IBoundPort port, IUserMessageSender messages,
                                    IAdminMenu menu, IGameClock clock, ILog log)
     {
         IReadOnlyDictionary<string, string> List()
@@ -82,7 +82,7 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         }
 
         var gate = new AdminGate(() => clock.Now, List,
-                                 address => AdminAddress.IsOurs(address, port.Read(), AdminAddress.OwnInterfaces(), console.FindConVarValue("sv_admin_address")),
+                                 address => AdminAddress.IsOurs(address, port.Read(), AdminAddress.OwnInterfaces(), adminAddress.Value),
                                  AdminGate.SecureNonce);
         return new ServerAdmins(gate, host.IsDedicatedServer, messages, menu, log);
     }
@@ -185,7 +185,8 @@ public interface IAdminMenu
 
 /// <summary>The game's: its maps and modes, its players and the mods' additions.</summary>
 public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console, IEnginePlayers players, IEngineHost host, IEngineEnvironment environment,
-                                     IConnectedClients clients, PlayerNames names, IEngineEntities entities, ServiceContainer services) : IAdminMenu
+                                     IConnectedClients clients, PlayerNames names, IEngineEntities entities, ServiceContainer services,
+                                     MapCycleFileConVar mapCycle) : IAdminMenu
 {
     public IReadOnlyList<AdminNode> Build(int slot)
     {
@@ -194,6 +195,8 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
             AdminNode.Folder("#SS_UI_Admin_Map", Maps()),
             AdminNode.Folder("#SS_UI_Admin_Mode", Modes()),
             AdminNode.Folder("#SS_UI_Admin_Kick", Kicks(slot)),
+            AdminNode.Folder("#SS_UI_Vote_Settings", Settings(GameVoteOptions.SettingsOf(services), console.FindConVarValue,
+                                                              command => console.ExecuteServerCommand(command + "\n"))),
             new("#SS_UI_Admin_Restart", "restart", () => console.ExecuteServerCommand("mp_restartgame 1\n")),
         };
         foreach (var provider in services.ResolveAll<IAdminMenuProvider>())
@@ -201,8 +204,20 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
         return items;
     }
 
+    /// <summary>
+    /// The game's settings, as the vote menu has them and with no vote: a folder for each
+    /// the game has, of the values it does not hold now. Not the vote's convars: those say
+    /// what players may call, and an admin needs no call.
+    /// </summary>
+    public static List<AdminNode> Settings(IEnumerable<VoteSetting> settings, Func<string, string?> current, Action<string> run)
+        => GameVoteOptions.Of([], [], null, false, false, false, settings, current)
+                          .GroupBy(o => o.Id[..o.Id.IndexOf('=')])
+                          .Select(g => AdminNode.Folder("#SS_UI_Vote_Setting_" + g.Key,
+                                                        [.. g.Select(o => new AdminNode(o.Label, "setting:" + o.Id, () => run(o.Command)))]))
+                          .ToList();
+
     private List<AdminNode> Maps()
-        => Intermission.ReadCycle(files, console.FindConVarValue("mapcyclefile"))
+        => Intermission.ReadCycle(files, mapCycle.Value)
                        .Distinct(StringComparer.OrdinalIgnoreCase)
                        .Select(map => new AdminNode(map, "map:" + map, () => console.ExecuteServerCommand($"changelevel {map}\n")))
                        .ToList();

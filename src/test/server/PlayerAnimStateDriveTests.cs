@@ -57,7 +57,7 @@ public class PlayerAnimStateDriveTests
         var models = new ModelDescriptors(_ => 1, _ => Model, new RecordingLog());
         models.AttachSource(new PlayerModel());
 
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(),
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(),
                                   models: models, clock: engine, animLayers: layers)
         {
             Handle = new EntityHandle(0x0001_0003u),

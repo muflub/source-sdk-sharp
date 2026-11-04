@@ -54,6 +54,60 @@ public class ConCommandBindingTests
         Assert.Equal(2, typed.Got![1]);
     }
 
+    [Fact]
+    public void A_listing_of_services_names_the_commands_class_rather_than_its_binding()
+    {
+        var services = new ServiceContainer();
+        services.AddNamed("cmd", new Sink().Bind(new Typed()));
+
+        ServiceInfo row = Assert.Single(services.Describe(), r => r.Key == "cmd");
+
+        Assert.Equal("command", row.Kind);
+        Assert.Equal(nameof(Typed), row.Implementation);
+    }
+
+    private sealed class Words
+    {
+        public string[]? Got;
+
+        public void Execute(params string[] words) => Got = words;
+    }
+
+    /// <summary>A dispatch hands managed code CCommand::ArgS, quotes and all, so this is where an argument survives or is lost.</summary>
+    [Theory]
+    [InlineData("prop_physics crate", new[] { "prop_physics", "crate" })]
+    [InlineData("   prop_physics    crate  ", new[] { "prop_physics", "crate" })]
+    [InlineData("door rendercolor \"255 0 0\"", new[] { "door", "rendercolor", "255 0 0" })]
+    [InlineData("\"models/my model.mdl", new[] { "models/my model.mdl" })]
+    [InlineData("door message \"\"", new[] { "door", "message", "" })]
+    [InlineData("ar2\tpistol\n", new[] { "ar2", "pistol" })]
+    public void A_line_splits_as_the_engines_tokeniser_splits_it(string line, string[] words)
+    {
+        var typed = new Words();
+        new Sink().Bind(typed).Execute(line);
+        Assert.Equal(words, typed.Got);
+    }
+
+    /// <summary>A decimal point is one whatever the locale, or 1.5 would read as 15: a silent hundred-unit error in a position.</summary>
+    [Fact]
+    public void A_number_reads_the_same_whatever_the_locale()
+    {
+        var previous = System.Threading.Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+
+            var typed = new Typed();
+            new Sink().Bind(typed).Execute("alyx 7 1.5");
+
+            Assert.Equal(1.5f, typed.Got![2]);
+        }
+        finally
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = previous;
+        }
+    }
+
     [Theory]
     [InlineData("", "'name' is missing")]
     [InlineData("alyx lots", "'count' is a whole number, not 'lots'")]

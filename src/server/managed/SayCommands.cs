@@ -8,14 +8,14 @@ namespace SourceSharp.Server;
 /// always empty only because Host_Say walked CBasePlayers (lane player-msgs).
 /// </summary>
 [ConCommand("say", Help = "Display player message")]
-public sealed class SayCommand(HostSay say, IEnginePlayers players) : IConCommand
+public sealed class SayCommand(HostSay say, IEnginePlayers players)
 {
-    public void Execute(string args) => say.Say(players.GetCommandClient(), args, teamOnly: false);
+    public void Execute([Rest] string text = "") => say.Say(players.GetCommandClient(), text, teamOnly: false);
 }
 
 /// <summary><c>say_team</c>: Host_Say to teammates only.</summary>
 [ConCommand("say_team", Help = "Display player message to team")]
-public sealed class SayTeamCommand(HostSay say, IEnginePlayers players) : IConCommand
+public sealed class SayTeamCommand(HostSay say, IEnginePlayers players)
 {
-    public void Execute(string args) => say.Say(players.GetCommandClient(), args, teamOnly: true);
+    public void Execute([Rest] string text = "") => say.Say(players.GetCommandClient(), text, teamOnly: true);
 }

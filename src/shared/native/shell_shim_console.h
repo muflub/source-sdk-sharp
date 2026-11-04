@@ -17,6 +17,9 @@
 
 class CServerDllServices;
 class CSourceSharpCommand;
+// Watched convars' ids start here, clear of the managed registry's own ids.
+#define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000
+
 class CSourceSharpConVar;
 class ConCommandBase;
 class IConVar;
@@ -49,6 +52,8 @@ public:
 	int32_t ConsoleSnapshot() override;
 	int32_t ConsoleSnapshotEntry(int32_t nIndex, SourceSharpConsoleEntry* pOut) override;
 	int32_t FindConVarFlags(const char* pName) override;
+	int32_t CompleteCommandLine(const char* pLine, char* pOut, int32_t nOutSize) override;
+	int32_t WatchNamedConVar(const char* pName) override;
 
 	// The server's DLL tier services, handed to native command bodies; set by the game DLL
 	// for DLLInit..DLLShutdown. NULL on the client, which defines no bodies.
@@ -71,15 +76,11 @@ public:
 	// engine. Only after ConVar_Unregister, or the engine's ICvar would point at freed memory.
 	void ReleaseObjects();
 
-#ifdef CLIENT_DLL
-	// Forwards an engine or native convar's changes to managed's ConVarChanged under the id
-	// this answers, or -1 for no such convar. The table survives a managed reload and never
-	// shrinks.
-	int32_t WatchConVar(const char* pName);
+	// ORs bits into a convar the engine holds; false when no such convar exists.
+	bool AddConVarFlags(const char* pName, int32_t nFlags);
 
 	// The id a watched name answers, or -1.
 	int32_t WatchedConVarId(const char* pName) const;
-#endif
 
 private:
 	// The engine's console through the registry; NULL while it is not connected.
@@ -101,11 +102,9 @@ private:
 									  &ChangeCallback_t::Trampoline<CShimConsole, &CShimConsole::OnConVarChanged>};
 	bool m_bChangeCallbackInstalled = false;
 
-#ifdef CLIENT_DLL
 	// The watched names; an id is SOURCESHARP_CONVAR_WATCH_ID_BASE + the index.
-	static const int kMaxWatched = 32;
+	static const int kMaxWatched = 512;
 	static const int kWatchedNameBytes = 64;
 	char m_szWatched[kMaxWatched][kWatchedNameBytes] = {};
 	int m_nWatched = 0;
-#endif
 };

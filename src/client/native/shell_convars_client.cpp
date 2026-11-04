@@ -6,7 +6,7 @@
 //=============================================================================//
 // SS_REASON b  an interface resolved by name at load
 //
-// CConVarsClient: IShimConVarsClient's two slots.
+// CConVarsClient: IShimConVarsClient's slots.
 //
 // Watch: tier1 calls every installed global change callback for every convar,
 // so a watched name is forwarded to managed's ConVarChanged under the id the
@@ -29,11 +29,6 @@ const int kNameBytes = 64;
 
 // The decided values: a name and its float, set by managed.
 } // namespace
-
-int32_t CConVarsClient::ConVarsClientWatch(const char* pName)
-{
-	return m_Console.WatchConVar(pName);
-}
 
 int32_t CConVarsClient::ConVarsClientSetValue(const char* pName, float flValue)
 {
@@ -58,6 +53,11 @@ int32_t CConVarsClient::ConVarsClientSetValue(const char* pName, float flValue)
 	return 1;
 }
 
+int32_t CConVarsClient::ConVarsClientAddFlags(const char* pName, int32_t nFlags)
+{
+	return m_Console.AddConVarFlags(pName, nFlags) ? 1 : 0;
+}
+
 bool CConVarsClient::DecidedValue(const char* pName, float* pOut) const
 {
 	for (int i = 0; i < m_nDecided; i++)
@@ -75,6 +75,13 @@ float CConVarsClient::ClientInterpAmount() const
 {
 	float flDecided;
 	return DecidedValue("GetClientInterpAmount", &flDecided) ? flDecided : 0.1f;
+}
+
+// Out of line: the vtable's key function, so the one vtable is this file's, with type info.
+float CManagedBoundedConVar::GetFloat() const
+{
+	float flDecided;
+	return m_Owner.DecidedValue(GetName(), &flDecided) ? flDecided : GetBaseFloatValue();
 }
 
 CSoftwareCursorConVar::CSoftwareCursorConVar(const CClientEngineInterfaces& engines)

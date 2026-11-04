@@ -46,13 +46,13 @@ public sealed class TFTempEnts(TempEntRegistry registry, IEngineEffects engine, 
     /// </summary>
     public void Blood(TeFilter filter, float delay, Vector origin, Vector normal, int entIndex)
     {
-        TempEntType? type = registry.Find(ClassNameOf<TeTFBlood>());
+        TempEntType? type = registry.Find(TeTFBlood.WireClassName);
 
         if (type is not { Registered: true } declared)
         {
-            if (_complained.Add(ClassNameOf<TeTFBlood>()))
+            if (_complained.Add(TeTFBlood.WireClassName))
                 log.Warning(
-                    $"[SourceSharp] temp entity '{ClassNameOf<TeTFBlood>()}' is not registered on " +
+                    $"[SourceSharp] temp entity '{TeTFBlood.WireClassName}' is not registered on " +
                     "this side; every blood send does nothing. The registration line in the " +
                     "console says why it was refused.\n");
 
@@ -68,8 +68,4 @@ public sealed class TFTempEnts(TempEntRegistry registry, IEngineEffects engine, 
 
         engine.TempEntPlayback(declared.Handle, state.ToBlob(declared), filter, delay);
     }
-
-    /// <summary>The class name the declaration carries, not a restated literal.</summary>
-    private static string ClassNameOf<T>() where T : TempEntState, new()
-        => TempEntityAttribute.ClassNameOf(typeof(T));
 }

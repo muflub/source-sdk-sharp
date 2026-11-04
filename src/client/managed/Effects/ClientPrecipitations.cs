@@ -65,6 +65,7 @@ public sealed class PrecipitationConVars(
 public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRandom, IClientPrecipitationRenderer
 {
     private const int ViewMonitor = 2;
+    private readonly DefaultFovConVar _defaultFov;
     private const int DrawFlagsReflectRefract = 0x1 | 0x2;
 
     private readonly IClientPrecipitationEngine _engine;
@@ -83,8 +84,9 @@ public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRa
 
     public ClientPrecipitations(IClientPrecipitationEngine engine, IClientWinds winds, IGameClock clock,
                                 PrecipitationConVars convars, IEngineHud hud, IClientStandalones standalones,
-                                IRandomSeeds seeds)
+                                IRandomSeeds seeds, DefaultFovConVar defaultFov)
     {
+        _defaultFov = defaultFov;
         _engine = engine;
         _winds = winds;
         _clock = clock;
@@ -144,7 +146,7 @@ public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRa
         p.Eye = r.Eye;
         p.Center = r.Center;
         p.Fov = r.Fov;
-        p.DefaultFov = r.DefaultFov;
+        p.DefaultFov = _defaultFov.Value;
         p.Forward = MoveVec.AngleForward(new Vector(0, r.Yaw, 0));
         p.Velocity = _standalones.GetByIndex(_hud.LocalPlayerIndex) is Standalone.ClientSsPlayer local
             ? local.State.Velocity
@@ -295,9 +297,9 @@ public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRa
 /// and changes nothing.
 /// </summary>
 [ConCommand("cs_cl_weather_report", Help = "SourceSharp: the client weather's volumes, particles and render plans")]
-public sealed class WeatherReportCommand(ILog log, ClientPrecipitations weather) : IConCommand
+public sealed class WeatherReportCommand(ILog log, ClientPrecipitations weather)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         PrecipitationSystem s = weather.System;
         log.Msg($"[SourceSharp/Weather] {s.Volumes.Count} volume(s), renders {weather.Renders}, last tracers {weather.LastTracers}, " +
@@ -320,23 +322,22 @@ public sealed class WeatherReportCommand(ILog log, ClientPrecipitations weather)
 /// </summary>
 [ConCommand("cs_cl_weather_test", Help = "SourceSharp: a test weather volume around you: <type 0-3> [alpha] [halfsize] [height], or clear",
             Flags = ConVarFlags.Cheat)]
-public sealed class WeatherTestCommand(ILog log, ClientPrecipitations weather) : IConCommand
+public sealed class WeatherTestCommand(ILog log, ClientPrecipitations weather)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Kinds()
+        => ["clear", .. Enum.GetNames<PrecipitationType>().Select(n => n.ToLowerInvariant())];
+
+    public void Execute([Complete(From = nameof(Kinds))] string kind = "clear", int alpha = 160, float halfSize = 1024f, float height = 600f)
     {
-        string[] a = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (a.Length == 0 || a[0] == "clear")
+        if (kind == "clear")
         {
             weather.ClearTestVolumes();
             log.Msg("[SourceSharp/Weather] test volumes cleared\n");
             return;
         }
 
-        static float Arg(string[] a, int i, float fallback)
-            => a.Length > i && float.TryParse(a[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : fallback;
-
-        var type = (PrecipitationType)(int)Arg(a, 0, 0);
-        PrecipitationVolume? v = weather.AddTestVolume(type, (int)Arg(a, 1, 160), Arg(a, 2, 1024), Arg(a, 3, 600));
+        var type = Enum.TryParse(kind, ignoreCase: true, out PrecipitationType named) ? named : PrecipitationType.Rain;
+        PrecipitationVolume? v = weather.AddTestVolume(type, alpha, halfSize, height);
         log.Msg(v is null
             ? "[SourceSharp/Weather] no local player; no test volume\n"
             : $"[SourceSharp/Weather] test {type} volume {v.Mins.X} {v.Mins.Y} {v.Mins.Z} .. {v.Maxs.X} {v.Maxs.Y} {v.Maxs.Z}\n");

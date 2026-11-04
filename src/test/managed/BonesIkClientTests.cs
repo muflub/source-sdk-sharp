@@ -813,6 +813,157 @@ public class BonesIkClientTests
         Assert.Equal(0.028f, r.Latched, 4);
     }
 
+    private static CIKContext YoungError(CIKContext ctx, float errorTime = 9.9f)
+    {
+        ctx.Init(GroundHdr(), BoneMatrix3x4.Identity, Mask, flTime: 10f, iFramecounter: 0);
+        CikTarget t = ctx.TargetAt(2);
+        t.ErrorBInError = false;
+        t.ErrorFlTime = errorTime;
+        ctx.AutoIKRelease();
+        return ctx;
+    }
+
+    [Fact]
+    public void ARuleUsedAgainAfterInitIsTheSameObjectHoldingZeros()
+    {
+        var ctx = new CIKContext();
+        IkContextIkRule first = YoungError(ctx).IkChainRuleAt(0, 0);
+        first.Height = 99f;
+        first.SzLabel = "stale";
+
+        IkContextIkRule second = YoungError(ctx).IkChainRuleAt(0, 0);
+
+        Assert.Same(first, second);
+        Assert.Equal(0f, second.Height);
+        Assert.Null(second.SzLabel);
+        Assert.Equal(StudioConstants.IK_RELEASE, second.Type);
+        Assert.Equal(0.352f, second.FlWeight, 4);
+    }
+
+    [Fact]
+    public void TwoRulesOfOnePassAreTwoObjects()
+    {
+        var ctx = new CIKContext();
+        YoungError(ctx);
+        ctx.TargetAt(2).ErrorFlTime = 9.9f;
+        ctx.AutoIKRelease();
+
+        Assert.Equal(2, ctx.IkChainRuleCount(0));
+        Assert.NotSame(ctx.IkChainRuleAt(0, 0), ctx.IkChainRuleAt(0, 1));
+    }
+
+    [Fact]
+    public void ResettingARuleClearsEveryField()
+    {
+        var rule = new IkContextIkRule();
+        foreach (System.Reflection.FieldInfo field in typeof(IkContextIkRule).GetFields())
+        {
+            object value = field.FieldType switch
+            {
+                Type t when t == typeof(int) => 7,
+                Type t when t == typeof(float) => 7f,
+                Type t when t == typeof(Vector) => new Vector(7, 7, 7),
+                Type t when t == typeof(Quaternion) => new Quaternion(7, 7, 7, 7),
+                Type t when t == typeof(string) => "stale",
+                _ => throw new InvalidOperationException("no stale value for " + field.Name),
+            };
+            field.SetValue(rule, value);
+        }
+
+        rule.Reset();
+
+        var fresh = new IkContextIkRule();
+        foreach (System.Reflection.FieldInfo field in typeof(IkContextIkRule).GetFields())
+            Assert.Equal(field.GetValue(fresh), field.GetValue(rule));
+    }
+
+    [Fact]
+    public void ALockHeldAcrossInitIsNotHandedToAChainRule()
+    {
+        StudioHdr hdr = GroundHdr();
+        var ctx = new CIKContext();
+        ctx.Init(hdr, BoneMatrix3x4.Identity, Mask, flTime: 10f, iFramecounter: 0);
+        var pos = new Vector[StudioConstants.MAXSTUDIOBONES];
+        var q = new Quaternion[StudioConstants.MAXSTUDIOBONES];
+        Array.Fill(q, Quaternion.Identity);
+        ctx.AddAllLocks(pos, q);
+        Assert.True(ctx.LockCount > 0);
+        IkContextIkRule locked = ctx.LockAt(0);
+        int chain = locked.Chain;
+
+        YoungError(ctx);
+
+        Assert.NotSame(locked, ctx.IkChainRuleAt(0, 0));
+        Assert.Same(locked, ctx.LockAt(0));
+        Assert.Equal(StudioConstants.IK_WORLD, locked.Type);
+        Assert.Equal(chain, locked.Chain);
+    }
+
+    [Fact]
+    public void AResetContextGivesItsLockRulesBack()
+    {
+        StudioHdr hdr = GroundHdr();
+        var ctx = new CIKContext();
+        (Vector[] pos, Quaternion[] q) = LegPose();
+        ctx.Init(hdr, BoneMatrix3x4.Identity, Mask);
+        ctx.AddAllLocks(pos, q);
+        IkContextIkRule first = ctx.LockAt(0);
+        first.Height = 99f;
+
+        ctx.ResetToNew();
+        ctx.Init(hdr, BoneMatrix3x4.Identity, Mask);
+        ctx.AddAllLocks(pos, q);
+
+        Assert.Equal(1, ctx.LockCount);
+        Assert.Same(first, ctx.LockAt(0));
+        Assert.Equal(0f, first.Height);
+    }
+
+    [Fact]
+    public void AWarmReleasePassFilesItsRuleWithoutAllocating()
+    {
+        var ctx = new CIKContext();
+        StudioHdr hdr = GroundHdr();
+
+        void Pass()
+        {
+            ctx.Init(hdr, BoneMatrix3x4.Identity, Mask, flTime: 10f, iFramecounter: 0);
+            CikTarget t = ctx.TargetAt(2);
+            t.ErrorBInError = false;
+            t.ErrorFlTime = 9.9f;
+            ctx.AutoIKRelease();
+        }
+
+        for (int i = 0; i < 8; i++)
+            Pass();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 64; i++)
+            Pass();
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(1, ctx.IkChainRuleCount(0));
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void ASolveAllocatesNothing()
+    {
+        ReadOnlySpan<float> p = [0f, 0f, 15f], d = [1f, 0f, 0f];
+        Span<float> q = stackalloc float[3];
+        bool accepted = false;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 64; i++)
+        {
+            CikSolver solver = new();
+            accepted = solver.Solve(10f, 10f, p, d, q);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(accepted);
+        Assert.Equal(7.5f, q[2], 3);
+        Assert.Equal(0, allocated);
+    }
+
     /// <summary>The boneMask gate (4111-4114): the ramp-up arm runs first
     /// (ramp = 0.5 + 0.3999996 = 0.8999996 > 0, rule built), then the
     /// chain's foot bone 3 is outside the mask -> bInError = false and

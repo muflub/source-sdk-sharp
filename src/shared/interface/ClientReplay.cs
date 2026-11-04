@@ -25,8 +25,9 @@ namespace SourceSharp.Abi;
 /// comes back with a plausible fraction.
 /// </param>
 /// <param name="CurrentGravity">
-/// <c>GetCurrentGravity()</c> — sv_gravity times whatever gamerules scales it
-/// by. A fact about the world and not about the player, which is why it is
+/// <c>GetCurrentGravity()</c>: sv_gravity, unscaled (stock's TF build multiplies
+/// it by the game rules' gravity multiplier; this port has no such multiplier).
+/// A fact about the world and not about the player, which is why it is
 /// filled beside the convars rather than carried in the player's state.
 /// </param>
 public readonly record struct MoveFrameConstants(MoveConstants Constants,

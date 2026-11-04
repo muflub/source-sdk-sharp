@@ -138,10 +138,6 @@ internal sealed unsafe class EngineFrame : IEngineFrame
     }
 
     /// <inheritdoc/>
-    public bool IsSimulatingOnAlternateTicks()
-        => Vtbl->IsSimulatingOnAlternateTicks(_self) != 0;
-
-    /// <inheritdoc/>
     public int TickCount()
     {
         // The engine's own struct first — see the header comment. This is the

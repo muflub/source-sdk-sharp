@@ -39,16 +39,21 @@ public class HitGroupDamageTests
     [InlineData(HitGroup.Gear, 10f)]
     public void A_hit_is_worth_what_stocks_config_says(HitGroup group, float damage)
     {
-        var scale = new HitGroupDamage(ConVars());
+        var scale = Subject(ConVars());
         DamageContext hit = Hit(group);
 
         Assert.Equal(damage, scale.Modify(in hit, 10f));
     }
 
+    private static HitGroupDamage Subject(ConVarRegistry convars, IHooks<IHitGroupDamageOwner>? owners = null)
+        => new(convars.Declared<PlayerHeadDamageConVar>(), convars.Declared<PlayerChestDamageConVar>(),
+               convars.Declared<PlayerStomachDamageConVar>(), convars.Declared<PlayerArmDamageConVar>(),
+               convars.Declared<PlayerLegDamageConVar>(), owners);
+
     [Fact]
     public void The_running_damage_is_what_scales()
     {
-        var scale = new HitGroupDamage(ConVars());
+        var scale = Subject(ConVars());
         DamageContext hit = Hit(HitGroup.Head);
 
         Assert.Equal(21f, scale.Modify(in hit, 7f));
@@ -58,8 +63,8 @@ public class HitGroupDamageTests
     public void A_server_can_change_a_multiplier()
     {
         var convars = ConVars();
-        var scale = new HitGroupDamage(convars);
-        convars.Get<PlayerLegDamageConVar>()!.NotifyChanged("0.5", "1");
+        var scale = Subject(convars);
+        convars.Declared<PlayerLegDamageConVar>().NotifyChanged("0.5", "1");
         DamageContext hit = Hit(HitGroup.LeftLeg);
 
         Assert.Equal(5f, scale.Modify(in hit, 10f));
@@ -69,7 +74,7 @@ public class HitGroupDamageTests
     [Fact]
     public void A_mod_that_owns_hit_locations_turns_it_off()
     {
-        var scale = new HitGroupDamage(ConVars(), new Owners(new Owner()));
+        var scale = Subject(ConVars(), new Owners(new Owner()));
         DamageContext hit = Hit(HitGroup.Head);
 
         Assert.Equal(10f, scale.Modify(in hit, 10f));
@@ -85,10 +90,10 @@ public class HitGroupDamageTests
         var players = Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GiveItem", "Players.GiveAmmo")
                             .Returns("Players.GetTeam", 0)
                             .Returns("Players.RespawnDelay", 3f);
-        var rules = new GameRules(log, convars, host, players, Fake().Returns("Entities.IsValid", true),
+        var rules = new GameRules(log, convars.Holder<GameRulesConVars>(), host, players, Fake().Returns("Entities.IsValid", true),
                                   new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog()),
                                   new PlayerDeathEvent(),
-                                  damageModifiers: new Modifiers(new HitGroupDamage(convars)));
+                                  damageModifiers: new Modifiers(Subject(convars)));
         var attacker = new EntityHandle(0x0002_0001u);
 
         int head = PlayerDamageRulesTests.Player(rules).OnDamagedAt(attacker, 5f, DamageType.Bullet, default, default, HitGroup.Head);

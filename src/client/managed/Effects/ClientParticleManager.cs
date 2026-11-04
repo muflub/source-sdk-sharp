@@ -28,7 +28,7 @@ namespace SourceSharp.Client.Effects;
 /// - DetectChanges.
 /// The sims are managed, so Update and the step are calls, not crossings.
 /// </remarks>
-public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUniformRandom random, ParticleViews views)
+public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUniformRandom random, ParticleViews views, ParticleSettings settings)
     : IClientParticleBindings, IReloadParticipant
 {
     /// <summary>The executor's spawns per update (shell_managed_particles.cpp's kMaxEmitPerFrame).</summary>
@@ -48,6 +48,16 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
 
     private readonly List<Entry> _entries = [];
     private readonly int[] _ids = new int[MaxEmitPerFrame];
+
+    // A frame's and a draw's buffers, grown on demand and used for the length of
+    // the call. Random's method group is one delegate, not one per use.
+    private readonly Func<int, int, int> _randomInt = random.RandomInt;
+    private readonly ParticleSortScratch _sortScratch = new();
+    private Entry[] _frameEntries = [];
+    private int[] _stepIds = [];
+    private byte[] _stepAlive = [];
+    private ParticleQuadRaw[] _drawn = [];
+    private readonly Dictionary<int, int> _drawnById = [];
 
     /// <summary>CParticleMgr::m_FrameCode, which the constructor sets to 1.</summary>
     public ushort FrameCode { get; private set; } = 1;
@@ -132,7 +142,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
     /// binding whose executor is not listed went with it and is dropped first.
     /// Answers the commits, one per binding in update order.
     /// </summary>
-    public int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, float aabbBuffer, Span<ParticleCommit> commits)
+    public int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, Span<ParticleCommit> commits)
     {
         for (int i = _entries.Count - 1; i >= 0; i--)
         {
@@ -146,7 +156,9 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
 
         int written = 0;
         // A copy: a sim's update may start or stop an executor.
-        foreach (Entry e in _entries.ToArray())
+        Span<Entry> entries = Scratch.Sized(ref _frameEntries, _entries.Count);
+        _entries.CopyTo(entries);
+        foreach (Entry e in entries)
         {
             int at = IndexOf(inputs, e.Owner, e.Channel);
             if (at < 0)
@@ -171,7 +183,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
             else
                 Simulate(e, b, dt, origin);
 
-            bool changed = b.DetectChanges(aabbBuffer);
+            bool changed = b.DetectChanges(settings.AabbBuffer.Value);
             if (written < commits.Length)
             {
                 commits[written++] = new ParticleCommit
@@ -181,6 +193,8 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
                 };
             }
         }
+        // What a sim stopped this frame is not held until the next.
+        entries.Clear();
         return written;
     }
 
@@ -223,14 +237,14 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
     // full box when it was drawn. The executor's ShouldSimulate is always true.
     private void Simulate(Entry e, ParticleBinding b, float dt, Vector origin)
     {
-        bool full = b.BeginBBoxUpdate(random.RandomInt);
+        bool full = b.BeginBBoxUpdate(_randomInt);
 
         List<BoundParticle> list = b.Materials[0];
         int n = list.Count;
-        var ids = new int[n];
+        Span<int> ids = Scratch.Sized(ref _stepIds, n);
         for (int i = 0; i < n; i++)
             ids[i] = list[i].Id;
-        var alive = new byte[n];
+        Span<byte> alive = Scratch.Cleared(ref _stepAlive, n);
 
         views.FloatMode.Sample();
         IClientParticleSims s = sims();
@@ -274,7 +288,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
         Entry? e = Find(input.Owner, input.Channel);
         if (e != null && e.Binding.Materials[0].Count > quads.Length)
             return e.Binding.Materials[0].Count;
-        if (e == null || input.DrawParticles == 0 || input.ClientModeDraws == 0 || (input.Flags & DepthPassFlags) != 0)
+        if (e == null || settings.Draw.Value == 0 || input.ClientModeDraws == 0 || (input.Flags & DepthPassFlags) != 0)
             return 0;
 
         ParticleBinding b = e.Binding;
@@ -288,45 +302,50 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
             return 0;
         }
 
-        e.DrawBucket = ParticleBinding.ChooseBucketSort(random.RandomInt);
+        e.DrawBucket = ParticleBinding.ChooseBucketSort(_randomInt);
         output.FrameTime = b.DrawFrameTime(FrameCode, input.FrameTime);
         output.RefractUpdate = (e.MaterialFlags & 1) != 0 ? 1 : 0;
         output.ScreenUpdate = (e.MaterialFlags & 2) != 0 ? 1 : 0;
-        output.Wireframe = input.Wireframe;
-        DebugBox(b, input, ref output);
+        output.Wireframe = settings.Wireframe.On ? 1 : 0;
+        DebugBox(b, ref output);
         output.Result = 2;
 
         List<BoundParticle> list = b.Materials[0];
         // The sim answers its quads newest first; each listed particle takes its own.
-        var drawn = new ParticleQuadRaw[Math.Max(list.Count, 1) + 32];
+        // Taken from the field while the sim writes it: a draw that starts inside
+        // this one grows a buffer of its own rather than writing over this one's.
+        ParticleQuadRaw[] buffer = _drawn;
+        _drawn = [];
+        Span<ParticleQuadRaw> drawn = Scratch.Sized(ref buffer, Math.Max(list.Count, 1) + 32);
         views.Key = input.ViewKey;
         int n = sims().Draw(e.Owner, e.Channel, drawn);
         if (n > drawn.Length)
         {
-            drawn = new ParticleQuadRaw[n + 32];
+            drawn = Scratch.Sized(ref buffer, n + 32);
             n = sims().Draw(e.Owner, e.Channel, drawn);
         }
-        var byId = new Dictionary<int, int>(Math.Max(n, 0));
+        _drawnById.Clear();
         for (int i = 0; i < n && i < drawn.Length; i++)
-            byId.TryAdd(drawn[i].Id, i);
+            _drawnById.TryAdd(drawn[i].Id, i);
         for (int i = 0; i < list.Count; i++)
         {
-            if (byId.TryGetValue(list[i].Id, out int q))
+            if (_drawnById.TryGetValue(list[i].Id, out int q))
                 quads[i] = drawn[q];
             else
                 quads[i] = new ParticleQuadRaw { Id = list[i].Id, Kind = -1 };
         }
+        _drawn = buffer;
         return list.Count;
     }
 
     // DrawModel's !IsRetail() box: by cost (green, green to blue, blue to red,
     // red) when cl_particle_show_bbox_cost is set, else red for a box kept up to
     // date and green for one set by hand; cheap systems only on a negative cost.
-    private static void DebugBox(ParticleBinding b, in ParticleDrawIn input, ref ParticleDrawOut output)
+    private void DebugBox(ParticleBinding b, ref ParticleDrawOut output)
     {
-        if (input.ShowBBox == 0 && input.ShowBBoxCost == 0)
+        if (settings.ShowBBox.Value == 0 && settings.ShowBBoxCost.Value == 0)
             return;
-        int cost = input.ShowBBoxCost;
+        int cost = settings.ShowBBoxCost.Value;
         bool cheap = false;
         if (cost < 0)
         {
@@ -381,7 +400,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
         Entry? e = Find(owner, channel);
         if (e == null || e.Binding.Materials.Count == 0)
             return;
-        e.Binding.SortAfterDraw(0, keys, e.DrawBucket);
+        e.Binding.SortAfterDraw(0, keys, e.DrawBucket, _sortScratch);
     }
 
     /// <summary>IncrementFrameCode: on a wrap every binding's code goes back to 0 and the manager's to 1.</summary>
@@ -545,9 +564,9 @@ public sealed class BoundParticleExecutor(INativeParticleExecutor native, Client
 /// and whether it was drawn last frame.
 /// </summary>
 [ConCommand("cs_cl_particle_bindings", Help = "SourceSharp: the old-style particle manager's bindings (C7 particles phase 2.3)")]
-public sealed class ClientParticleBindingsCommand(ILog log, ClientParticleManager manager) : IConCommand
+public sealed class ClientParticleBindingsCommand(ILog log, ClientParticleManager manager)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         foreach (string line in manager.Describe())
             log.Msg($"[SourceSharp/Particles] binding {line}\n");

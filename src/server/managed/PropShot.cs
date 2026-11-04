@@ -163,7 +163,7 @@ public static class PropShot
 [ConCommand("cs_sv_propshot",
     Help = "Phase 5's gate fixture: place one prop of <class> [model|bony] at the fixed " +
            "comparison spot at an optional yaw, or 'clear'")]
-public sealed class PropShotCommand : IConCommand
+public sealed class PropShotCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -181,7 +181,7 @@ public sealed class PropShotCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    public void Execute([Complete("clear")] string className = "", [Complete("bony")] params string[] modelOrYaw)
     {
         // "<class> [model|bony] [yaw]", in any order after the class.
         //
@@ -190,15 +190,13 @@ public sealed class PropShotCommand : IConCommand
         // that parses as a number is the yaw and a word that does not is the
         // model, which is unambiguous for every value either harness passes
         // and leaves a bare "<class>" meaning exactly what it always did.
-        string[] words = args.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        string className = words.Length > 0 ? words[0] : string.Empty;
 
         float yaw = PropShot.DefaultYaw;
         string model = PropShot.Model;
 
-        for (int i = 1; i < words.Length; i++)
+        foreach (string word in modelOrYaw)
         {
-            if (float.TryParse(words[i],
+            if (float.TryParse(word,
                     System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out float asked))
             {
@@ -209,9 +207,9 @@ public sealed class PropShotCommand : IConCommand
             // A word rather than a path, so a driver names WHICH fixture rather
             // than spelling a model twice: "bony" is the citizen with twelve
             // procedural bones, anything else is taken as a model path.
-            model = string.Equals(words[i], "bony", StringComparison.OrdinalIgnoreCase)
+            model = string.Equals(word, "bony", StringComparison.OrdinalIgnoreCase)
                         ? PropShot.BonyModel
-                        : words[i];
+                        : word;
         }
 
         var angles = new Vector(0f, yaw, 0f);

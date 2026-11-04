@@ -65,7 +65,7 @@ public sealed class PrefireTests
             i = d.Step(self, [], Answer(d, true));
         Assert.Equal(ActionKind.Fire, i.Action.Kind);
         Assert.Equal(LookKind.CornerCheck, i.Look.Kind);
-        Assert.True(i.Look.Point.DistanceTo(There + new AiVector(0f, 0f, Hl2mpDecider.PrefireChest)) < 1f, $"at {i.Look.Point}");
+        Assert.True(i.Look.Point.DistanceTo(There + new AiVector(0f, 0f, Hl2mpDecider.PlaceHeight)) < 1f, $"at {i.Look.Point}");
         Assert.Equal("firing", d.Decider.Doing.Prefire);
         Assert.True(decide <= 3, $"it took {decide} decides");
     }

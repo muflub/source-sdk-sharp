@@ -91,6 +91,7 @@ public sealed class TraceMaskFoldTests : System.IDisposable
     [InlineData(TraceMask.Dispenser, 0x4043)]
     [InlineData(TraceMask.SentrySight, 0x4600400b)]
     [InlineData(TraceMask.SolidDebris, 0x600400b)]
+    [InlineData(TraceMask.SolidHitbox, 0x4200400b)]
     [InlineData((TraceMask)99, 0x400b)]
     public void ALineTraceCarriesTheEnginesOwnMask(TraceMask mask, int engine)
     {

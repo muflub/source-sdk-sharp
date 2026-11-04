@@ -57,7 +57,7 @@ namespace SourceSharp.Shared;
 /// </summary>
 [Precache(PrecacheKind.Model, "sprites/bubble.vmt")]   // CTEFizz::Precache, te_fizz.cpp:82
 [TempEntity]
-public class TeFizz : TeBaseTempEntity
+public partial class TeFizz : TeBaseTempEntity
 {
     /// <summary>
     /// The brush the bubbles come out of, as an edict index. <c>MAX_EDICT_BITS</c>

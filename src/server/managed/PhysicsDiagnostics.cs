@@ -10,39 +10,38 @@ using System.Globalization;
 
 using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
 /// <summary>
 /// Stock's <c>air_density</c> (physics.cpp's CC_AirDensity), managed
 /// (plan_physics_bones_native_zero 2.3): with no argument it prints the
-/// environment's air density, with one it sets it (<c>atof</c>, so a word is 0).
+/// environment's air density, with one it sets it.
 /// Nothing between levels.
 /// </summary>
 [ConCommand("air_density", Help = "Changes the density of air for drag computations.", Flags = ConVarFlags.Cheat)]
 public sealed class AirDensityCommand(IVPhysicsInspect inspect, IEngineEntityPhysics physics, IEngineConsole console)
-    : IConCommand
 {
-    public void Execute(string args) => AirDensity.Run(args, physics.EnvironmentPointer(), inspect, console.Msg);
+    public void Execute(float? value = null) => AirDensity.Run(value, physics.EnvironmentPointer(), inspect, console.Msg);
 }
 
 /// <summary>The body of <see cref="AirDensityCommand"/>, testable without a container.</summary>
 public static class AirDensity
 {
-    public static void Run(string args, nint environment, IVPhysicsInspect inspect, Action<string> msg)
+    public static void Run(float? value, nint environment, IVPhysicsInspect inspect, Action<string> msg)
     {
         if (environment == 0)
             return;
 
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length < 1)
+        if (value is null)
         {
             msg(string.Create(CultureInfo.InvariantCulture,
                 $"air_density <value>\nCurrent air density is {inspect.AirDensity(environment):F2}\n"));
             return;
         }
 
-        inspect.SetAirDensity(environment, VariantParse.Atof(words[0]));
+        inspect.SetAirDensity(environment, value.Value);
     }
 }
 
@@ -166,26 +165,26 @@ public static class PhysWorldNan
 #if DEBUG
 /// <summary><c>ss_physworld_nan</c>: <see cref="PhysWorldNan"/>, to the report's sink (tools/defect-shadow-probe drives it).</summary>
 [ConCommand("ss_physworld_nan", Help = "SourceSharp: what the player shadows' non-finite guard refused")]
-public sealed class PhysWorldNanCommand(PlayerShadowBodies bodies, IEngineConsole console) : IConCommand
+public sealed class PhysWorldNanCommand(PlayerShadowBodies bodies, IEngineConsole console)
 {
-    public void Execute(string args) => new PhysWorldReportSink(console).Emit(PhysWorldNan.Line(bodies.Nan));
+    public void Execute() => new PhysWorldReportSink(console).Emit(PhysWorldNan.Line(bodies.Nan));
 }
 
 /// <summary><c>ss_physworld_report</c>: the SS-PHYSWORLD report, on demand (tools/3f-gatebisect drives it).</summary>
 [ConCommand("ss_physworld_report", Help = "SourceSharp: is there a world for VPhysics to stand on?")]
-public sealed class PhysWorldReportCommand(PhysWorldReport report) : IConCommand
+public sealed class PhysWorldReportCommand(PhysWorldReport report)
 {
-    public void Execute(string args) => report.Run();
+    public void Execute() => report.Run();
 }
 
 /// <summary><c>physics_budget</c>: <see cref="PhysicsBudget"/>, for the server admin.</summary>
 [ConCommand("physics_budget", Help = "Times the cost of each active object")]
 public sealed class PhysicsBudgetCommand(PhysicsSolver solver, IVPhysicsInspect inspect, IEngineEntityPhysics physics,
                                          IEngineEntities entities, IEnginePlayers players, IEngineHost host,
-                                         IEngineEnvironment environment, IEngineConsole console,
-                                         VPhysicsTables vphysics) : IConCommand
+                                         IEngineEnvironment environment, IEngineConsole console, DeveloperConVar developer,
+                                         VPhysicsTables vphysics)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(players, host))
             return;
@@ -218,7 +217,7 @@ public sealed class PhysicsBudgetCommand(PhysicsSolver solver, IVPhysicsInspect 
 
         void Developer2(string text)
         {
-            if (int.TryParse(NativeConsole.ValueOf(console, "developer"), out int level) && level >= 2)
+            if (developer.Value >= 2)
                 console.Msg(text);
         }
 

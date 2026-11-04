@@ -1,4 +1,6 @@
 using SourceSharp.Client.Input;
+using SourceSharp.Shared;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -9,7 +11,6 @@ internal sealed class FakeInputHost : IInputHost
     public bool Visible { get; set; }
     public bool Locked { get; set; } = true;
     public InputHudFacts HudFacts = new(0, 0, 1);
-    public readonly Dictionary<string, string> Engine = new(StringComparer.OrdinalIgnoreCase) { ["sv_cheats"] = "0" };
     public readonly List<string> Commands = [];
     public readonly List<bool> Scoreboard = [];
     public int CameraModeChanges;
@@ -20,7 +21,6 @@ internal sealed class FakeInputHost : IInputHost
     public bool IsPaused { get; set; }
     public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) { x = y = 0; }
     public void ClientCmdUnrestricted(string command) => Commands.Add(command);
-    public string? EngineConVar(string name) => Engine.TryGetValue(name, out string? v) ? v : null;
     public void Msg(string text) { }
     public void ConsolePrintAt(int line, string text) { }
     public bool CursorVisible => Visible;
@@ -75,12 +75,13 @@ internal sealed class InputRig
     public readonly FakeInputDevices Devices = new();
     public readonly FakeMenuGate Menu = new();
     public readonly InputCvars Cvars = new();
+    public readonly SvCheatsConVar Cheats = DeclaredConVars.Holding<SvCheatsConVar>("0");
     public readonly ClientInput Input;
     public readonly Dictionary<string, Action<string?>> Commands;
 
     public InputRig(bool init = true)
     {
-        Input = new ClientInput(Host, Devices, Cvars, Menu);
+        Input = new ClientInput(Host, Devices, Cvars, Cheats, DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), Menu);
         Commands = InputCommands.For(Input, Host, Cvars).ToDictionary(c => c.Name, c => c.Run, StringComparer.OrdinalIgnoreCase);
         if (init)
         {

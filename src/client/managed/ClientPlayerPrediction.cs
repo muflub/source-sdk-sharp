@@ -131,6 +131,11 @@ public sealed class ClientPlayerPrediction
     private readonly PredictionRing _ring = new();
     private byte[] _scratch = Array.Empty<byte>();
 
+    // What a compare judges in, and a player state that reads a saved slot's
+    // fields, neither kept past the compare.
+    private byte[] _judged = [];
+    private readonly PlayerNetState _slotView = new();
+
     /// <summary>
     /// The loop's state, PERSISTENT across commands and across frames, exactly
     /// as the native replay's members were.
@@ -293,6 +298,7 @@ public sealed class ClientPlayerPrediction
         _smoothTime = smoothTime;
 
         _working.BindLocal();
+        _slotView.BindLocal();
     }
 
     /// <summary>Whether the replay runs at all — <c>cs_cl_player_predict</c>.</summary>
@@ -385,7 +391,7 @@ public sealed class ClientPlayerPrediction
             return;
         }
 
-        int bytes = player.State.Snapshot().Length;
+        int bytes = player.State.LiveBytes.Length;
 
         if (bytes <= 0)
         {
@@ -490,8 +496,10 @@ public sealed class ClientPlayerPrediction
     // isolation is Each's: a throw is named and the next participant still runs.
     private void ResetPredictedStates(EntityHandle player, int acknowledged)
     {
-        foreach (var state in _predicted.All)
+        IReadOnlyList<IClientPredictedState> states = _predicted.All;
+        for (int i = 0; i < states.Count; i++)
         {
+            IClientPredictedState state = states[i];
             try
             {
                 state.ResetBasis(player, acknowledged);
@@ -505,8 +513,10 @@ public sealed class ClientPlayerPrediction
 
     private void PredictedStatesRan(EntityHandle player, int commandNumber, bool firstTime)
     {
-        foreach (var state in _predicted.All)
+        IReadOnlyList<IClientPredictedState> states = _predicted.All;
+        for (int i = 0; i < states.Count; i++)
         {
+            IClientPredictedState state = states[i];
             try
             {
                 state.CommandRan(player, commandNumber, firstTime);
@@ -820,7 +830,7 @@ public sealed class ClientPlayerPrediction
 
     private static void CopyState(NetState from, NetState to)
     {
-        byte[] bytes = from.Snapshot();
+        ReadOnlySpan<byte> bytes = from.LiveBytes;
 
         if (bytes.Length > 0)
             to.Decode(bytes);
@@ -850,7 +860,7 @@ public sealed class ClientPlayerPrediction
             return;
         }
 
-        byte[] arrived = player.State.Snapshot();
+        ReadOnlySpan<byte> arrived = player.State.LiveBytes;
 
         if (arrived.Length != ringed.Length)
         {
@@ -914,14 +924,15 @@ public sealed class ClientPlayerPrediction
         // engine's own writes as this side's mistakes — and did, on every
         // compare. The offsets stay ABSOLUTE, which is what lets the judge name
         // a field: a slice would renumber every one of them.
-        byte[] predicted = PredictionJudge.OverlayDeclared(ringed, arrived, _declaredStart);
+        Span<byte> predicted = Scratch.Sized(ref _judged, arrived.Length);
+        PredictionJudge.OverlayDeclared(ringed, arrived, _declaredStart, predicted);
 
         // Stock's FTYPEDESC_NOERRORCHECK fields (HL2MP's m_iAmmo): the arrival
         // is their word, never this side's mistake.
         _unchecked ??= PredictionJudge.UncheckedFields(typeof(PlayerNetState));
         PredictionJudge.OverlayUnchecked(predicted, arrived, _unchecked);
 
-        if (predicted.AsSpan().SequenceEqual(arrived))
+        if (predicted.SequenceEqual(arrived))
         {
             _holds++;
             return;
@@ -978,13 +989,11 @@ public sealed class ClientPlayerPrediction
     /// spawn stamp than the decoded arrival now carries: the signature of a
     /// (re)spawn that ran between the two client commands.
     /// </summary>
-    private static bool SpawnedOutOfBand(ClientSsPlayer player, ReadOnlySpan<byte> slot)
+    private bool SpawnedOutOfBand(ClientSsPlayer player, ReadOnlySpan<byte> slot)
     {
-        var saved = new PlayerNetState();
-        saved.BindLocal();
-        saved.Decode(slot);
+        _slotView.Decode(slot);
 
-        return saved.SpawnEpoch != player.State.SpawnEpoch;
+        return _slotView.SpawnEpoch != player.State.SpawnEpoch;
     }
 
     /// <summary>
@@ -993,10 +1002,9 @@ public sealed class ClientPlayerPrediction
     /// command and its acknowledgement, with no command to carry it (see the
     /// seeding arm of Compare).
     /// </summary>
-    private static bool ClockRebasedWithoutACommand(ReadOnlySpan<byte> slot, PlayerNetState arrived)
+    private bool ClockRebasedWithoutACommand(ReadOnlySpan<byte> slot, PlayerNetState arrived)
     {
-        var saved = new PlayerNetState();
-        saved.BindLocal();
+        PlayerNetState saved = _slotView;
         saved.Decode(slot);
 
         return saved.TickBase != arrived.TickBase;
@@ -1124,16 +1132,7 @@ public sealed class ClientPlayerPrediction
         if (local <= 0)
             return null;
 
-        foreach (var entity in _standalones.OfClass(EntityNames.Player))
-        {
-            if (entity is ClientSsPlayer player &&
-                (int)(player.Handle.Value & HandleEntryMask) == local)
-            {
-                return player;
-            }
-        }
-
-        return null;
+        return _standalones.GetByIndex(local) as ClientSsPlayer;
     }
 
     /// <summary>
@@ -1205,10 +1204,9 @@ public sealed class ClientPlayerPrediction
     /// the window (c_baseplayer.cpp:2648-2656), which is why the new delta joins
     /// the amount the eye still owes rather than replacing it.
     /// </summary>
-    private void NoteSmoothingError(ClientSsPlayer player, byte[] predicted)
+    private void NoteSmoothingError(ClientSsPlayer player, ReadOnlySpan<byte> predicted)
     {
-        var probe = new PlayerNetState();
-        probe.BindLocal();
+        PlayerNetState probe = _slotView;
         probe.Decode(predicted);
 
         Vector delta = probe.Origin - player.State.Origin;
@@ -1272,7 +1270,7 @@ public sealed class ClientPlayerPrediction
 /// </summary>
 [ConCommand("cs_cl_player_predict_report",
             Help = "What the standalone player's prediction ring has seen")]
-public sealed class PlayerPredictReportCommand : IConCommand
+public sealed class PlayerPredictReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1289,7 +1287,7 @@ public sealed class PlayerPredictReportCommand : IConCommand
 
     }
 
-    public void Execute(string args) => _log.Msg(_prediction.Report() + "\n");
+    public void Execute() => _log.Msg(_prediction.Report() + "\n");
 }
 
 /// <summary>
@@ -1299,7 +1297,7 @@ public sealed class PlayerPredictReportCommand : IConCommand
 [ConCommand("cs_cl_player_predict_poke",
             Help = "cs_cl_player_predict_poke [offset] — corrupt the player's replayed slots " +
                    "at one offset until a compare witnesses it")]
-public sealed class PlayerPredictPokeCommand : IConCommand
+public sealed class PlayerPredictPokeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1316,10 +1314,8 @@ public sealed class PlayerPredictPokeCommand : IConCommand
 
     }
 
-    public void Execute(string args)
+    public void Execute(int offset = 0)
     {
-        int offset = int.TryParse(args.Trim(), out int parsed) ? parsed : 0;
-
         _log.Msg(_prediction.Poke(offset)
             ? $"[SourceSharp] player prediction: poking offset {offset} until a compare sees it\n"
             : "[SourceSharp] player prediction: nothing ringed at that offset\n");

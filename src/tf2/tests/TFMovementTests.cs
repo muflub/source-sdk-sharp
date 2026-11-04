@@ -743,11 +743,11 @@ public sealed class TFMovementRulesTests
         convars.RegisterTypes([typeof(TFPlayerMovementRestartFreezeConVar)]);
         var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
                                         rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround),
-                                        restartFreeze: convars.Get<TFPlayerMovementRestartFreezeConVar>());
+                                        restartFreeze: convars.Declared<TFPlayerMovementRestartFreezeConVar>());
 
         Assert.Equal(1f, rules.MaxSpeedScale(Index, 400f, false, 0));
 
-        convars.Get<TFPlayerMovementRestartFreezeConVar>()!.SetValue(false);
+        convars.Declared<TFPlayerMovementRestartFreezeConVar>().SetValue(false);
 
         Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
     }
@@ -797,14 +797,14 @@ public sealed class TFMovementRulesTests
         var convars = new ConVarRegistry(new ClampBackend());
         convars.RegisterTypes([typeof(TFClampBackSpeedConVar), typeof(TFClampBackSpeedMinConVar)]);
         var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        backSpeed: convars.Get<TFClampBackSpeedConVar>(),
-                                        backSpeedMin: convars.Get<TFClampBackSpeedMinConVar>());
+                                        backSpeed: convars.Declared<TFClampBackSpeedConVar>(),
+                                        backSpeedMin: convars.Declared<TFClampBackSpeedMinConVar>());
 
         // The engine's read-back of the declared defaults, not a constant.
         Assert.Equal(new BackpedalLimit(0.9f, 100f), rules.BackpedalLimit(Index, 400f));
 
-        convars.Get<TFClampBackSpeedConVar>()!.SetValue(0.5f);
-        convars.Get<TFClampBackSpeedMinConVar>()!.SetValue(150f);
+        convars.Declared<TFClampBackSpeedConVar>().SetValue(0.5f);
+        convars.Declared<TFClampBackSpeedMinConVar>().SetValue(150f);
 
         Assert.Equal(new BackpedalLimit(0.5f, 150f), rules.BackpedalLimit(Index, 400f));
     }
@@ -1139,11 +1139,38 @@ public sealed class TFMovementRulesTests
         Assert.Equal(2, state.AirDash);
     }
 
+    /// <summary>The drawn bow holds the jump: the seam's refusal reaches both arms.</summary>
+    [Fact]
+    public void A_drawn_bow_holds_the_jump_and_the_dash()
+    {
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Scout);
+        var owners = new OwnersOf(new TFPlayerItems()) { MayJump = false };
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
+                                        hooks: new AttributeHooks());
+        var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
+
+        // CheckJumpButton's head gate (tf_gamemovement.cpp:1210): nothing is
+        // pushed, and the dash behind it (:1240) is not counted either.
+        Assert.Equal(0f, rules.JumpScale(in request));
+        Assert.Equal(0f, rules.AirJump(in request));
+        Assert.Equal(0, players.Predicted(Index)!.AirDash);
+
+        // The trigger up, the jump and the dash again.
+        owners.MayJump = true;
+        Assert.Equal(1f, rules.JumpScale(in request));
+        Assert.Equal(TFJump.DashSpeed, rules.AirJump(in request));
+        Assert.Equal(1, players.Predicted(Index)!.AirDash);
+    }
+
     /// <summary>The owners seam as the side's registry holds it: the manager grant, nothing else answerable here.</summary>
     private sealed class OwnersOf(TFPlayerItems items) : ITFWeaponOwners
     {
         /// <summary>The active weapon's item, set by the fact that needs it.</summary>
         public IAttributeProvider? Active;
+
+        /// <summary>The drawn-bow refusal, set by the fact that needs it.</summary>
+        public bool MayJump { get; set; } = true;
 
         public TFClass ClassOf(int playerIndex) => TFClass.Undefined;
         public TFConditions? ConditionsOf(int playerIndex) => null;
@@ -1155,6 +1182,7 @@ public sealed class TFMovementRulesTests
         public bool OffGround(int playerIndex) => false;
         public bool EyesUnderwater(int playerIndex) => false;
         public bool DuckingOf(int playerIndex) => false;
+        public bool OwnerCanJump(int playerIndex) => MayJump;
     }
 
     [Fact]

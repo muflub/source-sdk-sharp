@@ -49,9 +49,12 @@ public abstract class DescribeCommand : DevCommand
     /// <summary>Whether this spelling is one of the two that print everything.</summary>
     protected abstract bool Full { get; }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
             Log.Msg(Report(subject));
     }
 

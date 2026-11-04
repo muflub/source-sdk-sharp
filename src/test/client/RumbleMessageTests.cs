@@ -26,7 +26,7 @@ public class RumbleMessageTests
         var rig = new InputRig();
         var mixer = new ClientRumble(rig.Devices, rig.Cvars, new NoRandom());
         var service = new ClientInputService(rig.Input, mixer, () => true, curTime: () => 12.5f);
-        var effects = new ClientMessageEffects(new SourceSharp.Abi.RecordingEngine(), null, rumble: m => service.RumbleEffect(m.Waveform, m.Data, m.Flags));
+        var effects = new ClientMessageEffects(new SourceSharp.Abi.RecordingEngine(), DeclaredConVars.Fresh<Client.Vgui.HudTakesShotsConVar>(), null, rumble: m => service.RumbleEffect(m.Waveform, m.Data, m.Flags));
 
         new RumbleMessage(effects).OnReceived(new Rumble { Waveform = ClientRumble.Ar2AltFire, Data = 50, Flags = ClientRumble.FlagInitialScale });
 

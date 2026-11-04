@@ -105,6 +105,16 @@ public interface ITFWeaponOwners
     /// 0 is no window, the carrier's zeroed start (:787).
     /// </summary>
     float NoAttackExpire(int playerIndex) => 0f;
+
+    /// <summary>
+    /// Whether the player's feet may leave the ground this command — the
+    /// weapon word of <c>CTFPlayer::CanJump</c>, asked at the head of
+    /// <c>CheckJumpButton</c> (tf_gamemovement.cpp:1210, before the scout's
+    /// air-dash branch too). Only the drawn compound bow holds it
+    /// (<c>CTFCompoundBow::OwnerCanJump</c>, tf_weapon_compound_bow.cpp:657-660);
+    /// every other answer is yes.
+    /// </summary>
+    bool OwnerCanJump(int playerIndex) => true;
 }
 
 /// <summary>The answer when no carrier is composed: a classless player, as <see cref="ITFWeaponOwners"/> says.</summary>

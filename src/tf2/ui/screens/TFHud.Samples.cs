@@ -12,7 +12,8 @@ public static class TFHudSamples
 {
     public static UiScreen Build(UiSampleServices s, FakeLocalPlayer? player = null, FakeRoundTimer? timer = null,
                                  FakeCapturePoints? points = null, FakeEscort? escort = null,
-                                 FakeFlags? flags = null, FakeMedicCharge? medic = null, FakeSpy? spy = null,
+                                 FakeFlags? flags = null, FakeMedicCharge? medic = null, FakeItemMeter? meter = null,
+                                 FakeSpy? spy = null,
                                  FakeCapProgress? progress = null, FakeTextureLibrary? textures = null,
                                  FakeChat? chat = null, FakeTeamStatus? teams = null,
                                  FakeDemomanPipes? pipes = null, FakeTeamGoal? goal = null)
@@ -24,6 +25,7 @@ public static class TFHudSamples
         s.Add<ITFEscort>(escort ?? new FakeEscort());          // no track by default
         s.Add<ITFFlagStatus>(flags ?? new FakeFlags());        // no flags by default
         s.Add<ITFMedicCharge>(medic ?? new FakeMedicCharge()); // no medic by default
+        s.Add<ITFItemMeter>(meter ?? new FakeItemMeter());     // no timed item by default
         s.Add<ITFSpy>(spy ?? new FakeSpy());                   // no spy by default
         s.Add<IChatSource>(chat ?? new FakeChat());            // no chat by default
         s.Add<ITFTeamStatus>(teams ?? new FakeTeamStatus());   // nobody on a team by default
@@ -369,6 +371,13 @@ public static class TFHudSamples
     private static UiScreen MedicReleasing(UiSampleServices s) => Build(s,
         new FakeLocalPlayer { ClassName = "Medic", Health = 150, MaxHealth = 150, MaxBuffedHealth = 225 },
         medic: new FakeMedicCharge { Present = true, Charge = 0.6f, Releasing = true, HealTarget = "Scout" });
+
+    // A timed item half charged: the gold bar to its middle, the item's own
+    // word beside it (Bonk!'s label, meter_label).
+    [UiSample("bonk half charged")]
+    private static UiScreen BonkHalfCharged(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { ClassName = "Pyro", Health = 175, MaxHealth = 175, MaxBuffedHealth = 230 },
+        meter: new FakeItemMeter { Present = true, Charge = 0.5f, Label = "Bonk!" });
 
     // The spy's meters: the cloak building, the cloak full, and the disguise
     // status in the imitated team's tone (tf_hud_itemeffectmeter.cpp,
@@ -788,6 +797,15 @@ public sealed class FakeMedicCharge : ITFMedicCharge
     public float Charge { get; init; }
     public bool Releasing { get; init; }
     public string HealTarget { get; init; } = "";
+}
+
+/// <summary>The timed item's charge bar as the carrier states it; at rest no
+/// item carries one, so the corner draws nothing.</summary>
+public sealed class FakeItemMeter : ITFItemMeter
+{
+    public bool Present { get; init; }
+    public float Charge { get; init; }
+    public string Label { get; init; } = "";
 }
 
 /// <summary>The demoman's sticky count as the tray publishes it; at rest no

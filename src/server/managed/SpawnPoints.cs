@@ -94,12 +94,10 @@ public sealed class Hl2mpSpawnFragFallbackRadiusConVar : FloatConVar { }
 /// </para>
 /// </summary>
 public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players, IEngineWorldQuery world,
-                                IEngineDamage damage, ConVarRegistry convars, Random random,
+                                IEngineDamage damage, Hl2mpSpawnFragFallbackRadiusConVar fragRadius, Random random,
                                 IHooks<ISpawnPlacement>? placement = null, IHooks<ISpawnFragRule>? fragRules = null,
                                 ILog? log = null)
 {
-    /// <summary>The convar's default, for a composition that did not register it.</summary>
-    private const float DefaultFragRadius = 48f;
 
     /// <summary>CTakeDamageInfo( world, world, 300, DMG_GENERIC ): more than any player has.</summary>
     private const float FragDamage = 300f;
@@ -219,7 +217,7 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
     /// </summary>
     private void KillAround(EntityHandle spot, EntityHandle spawning)
     {
-        float radius = convars.Get<Hl2mpSpawnFragFallbackRadiusConVar>()?.Value ?? DefaultFragRadius;
+        float radius = fragRadius.Value;
 
         Span<EntityHandle> nearby = stackalloc EntityHandle[MaxNearASpot];
         int found = world.EntitiesInSphere(entities.GetOrigin(spot), radius, nearby);

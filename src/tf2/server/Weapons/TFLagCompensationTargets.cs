@@ -24,7 +24,7 @@ namespace TF2.Server.Weapons;
 /// reach and the cone.
 /// </summary>
 [SideService(Side.Server, As = [typeof(ILagCompensationTargets)])]
-public sealed class TFLagCompensationTargets(ConVarRegistry convars, IEnginePlayers players, IEngineEntities entities,
+public sealed class TFLagCompensationTargets(MpFriendlyFireConVar friendlyFire, IEnginePlayers players, IEngineEntities entities,
                                              TFWeaponScripts scripts, ITFPlayerClasses classes,
                                              ITFMedigunWeapons? mediguns = null)
     : ILagCompensationTargets, IOrderedHook
@@ -38,7 +38,7 @@ public sealed class TFLagCompensationTargets(ConVarRegistry convars, IEnginePlay
     {
         bool meleeingTeammate = false;
 
-        if (convars.Get<MpFriendlyFireConVar>() is { Value: false })
+        if (!friendlyFire.Value)
         {
             bool sameTeam = players.GetTeam(target.Target) == players.GetTeam(target.Shooter);
             TFWeaponScript? active = ActiveScript(target.Shooter);

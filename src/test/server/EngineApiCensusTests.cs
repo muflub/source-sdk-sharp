@@ -439,7 +439,16 @@ public partial class EngineApiCensusTests
     // The blast jump's smoke (tf2 2.x): ParticleSystemFollowEntitySlot, a follow
     // of a slot other than the first, the smoke's foot per slot (262 + 1).
     // (253 + 11 = 264; less ClientIsLowViolence: 263.)
-    private const int ClientOnly = 260;
+    // The flame's feed (tf2 pyrofx): ParticleSystemSetPoints, the flame's control
+    // points fed once a burning frame in one crossing (259 + 1 = 260).
+    // The blueprint's shadow hull (tf2): StandaloneSetShadowHull, the placing
+    // sentry's shadow cast from its collision hull (260 + 1 = 261).
+    // ConVarsClientAddFlags, marking the material config's convars (261 + 1 = 262).
+    // UiDrawMesh, the HUD's fills and polygons as one draw (262 + 1 = 263).
+    // The crit glow's render group (tf2 critfp): ParticleSystemViewModelSlot,
+    // which list a held system draws in, the local player's glow the
+    // viewmodel's translucent pass (263 + 1 = 264).
+    private const int ClientOnly = 264;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
@@ -472,7 +481,9 @@ public partial class EngineApiCensusTests
     // is a load from the bound CGlobalVars (36 - 1 = 35).
     // plan_server_native_v2 T6 part 3: IShimCollision.RegisterCollisionRules
     // retired; nothing native read the matrix (35 - 1 = 34).
-    private const int BothSides = 34;
+    // IShimMovement.CurrentGravity retired: its readers take the sv_gravity
+    // convar (36 - 1 = 35).
+    private const int BothSides = 35;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

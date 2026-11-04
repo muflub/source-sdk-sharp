@@ -38,7 +38,7 @@ public sealed class TFTeamDamageRuleTests
         engine.ReturnsEachCall("Entities.IsPlayer", () => engine.Calls[^1].Arg(0) is EntityHandle h && h != Trigger);
         engine.Returns("Entities.IsValid", true);
         var convars = ConVars();
-        return (new TFTeamDamageRule(convars, engine, engine, new NoEntities()), convars);
+        return (new TFTeamDamageRule(convars.Declared<MpFriendlyFireConVar>(), engine, engine, new NoEntities()), convars);
     }
 
     private static DamageContext Hit(EntityHandle victim, EntityHandle attacker) => new(victim, attacker, 50f, 0);
@@ -55,7 +55,7 @@ public sealed class TFTeamDamageRuleTests
     public void A_teammates_hit_lands_with_friendly_fire_on()
     {
         var (rule, convars) = Players();
-        convars.Get<MpFriendlyFireConVar>()!.NotifyChanged("1", "0");
+        convars.Declared<MpFriendlyFireConVar>().NotifyChanged("1", "0");
 
         Assert.Equal(Decision.UseStockRule, rule.Decide(Hit(Victim, Mate)));
     }
@@ -89,7 +89,7 @@ public sealed class TFTeamDamageRuleTests
         sentry.StartPlacement(builder);
         rig.Engine.ReturnsEachCall("Players.GetTeam", () => rig.Engine.Calls[^1].Arg(0) is EntityHandle h && h == enemy
                                                             ? (int)TFTeam.Blue : (int)TFTeam.Red);
-        var rule = new TFTeamDamageRule(ConVars(), rig.Engine, rig.Engine, rig.Registry);
+        var rule = new TFTeamDamageRule(ConVars().Declared<MpFriendlyFireConVar>(), rig.Engine, rig.Engine, rig.Registry);
 
         Assert.Equal(Decision.UseStockRule, rule.Decide(Hit(builder, sentry.Handle)));
         Assert.Equal(Decision.UseStockRule, rule.Decide(Hit(enemy, sentry.Handle)));

@@ -61,6 +61,9 @@ public:
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot);
 	int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
 										   int32_t nSlot, const float* pOffsetXYZ);
+	int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
+									int32_t nCount);
+	void ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel);
 
 	// IShimParticlesClient: the one-shots, watched and not held, and the dev API's read. The
 	// impact's is in shell_impact_effects.cpp.
@@ -115,12 +118,12 @@ private:
 		float flStarted;
 	};
 
-	// The slots by index: 0 the first, 1 the crit glow's extra, 2 the urine's drips, 3 the
-	// milk's, 4 and 5 the blast jump's smoke, a foot per slot. NULL is a slot outside the
-	// table: its start refuses, its stop has nothing to free.
+	// The slots by index: 0 the first, 1 the medigun glow's extra, 2 the urine's drips, 3 the
+	// milk's, 4 and 5 the blast jump's smoke, a foot per slot, 6 the crit boost's weapon
+	// glow. NULL is a slot outside the table: its start refuses, its stop has nothing to free.
 	enum
 	{
-		kSlots = 6
+		kSlots = 7
 	};
 
 	Systems_t* Slot(int nSlot) { return (nSlot >= 0 && nSlot < kSlots) ? &m_Slots[nSlot] : NULL; }

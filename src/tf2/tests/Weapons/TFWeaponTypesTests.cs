@@ -40,7 +40,7 @@ public sealed class TFWeaponTypesTests
     {
         var names = WeaponFixtures.Types().Names();
 
-        // Every fixture is one: the 30 class weapons, the builder, the sapper.
+        // Every fixture is one: the 30 class weapons, the bow, builder, sapper.
         Assert.Equal(WeaponFixtures.Names().ToArray(), names);
         Assert.Contains("tf_weapon_minigun", names);
         Assert.Contains("tf_weapon_builder", names);
@@ -52,7 +52,7 @@ public sealed class TFWeaponTypesTests
     {
         var rows = WeaponFixtures.Types().Rows().ToArray();
 
-        Assert.Equal(32, rows.Length);
+        Assert.Equal(33, rows.Length);
         Assert.Equal(WeaponFixtures.Names().ToArray(), rows.Select(r => r.Name).ToArray());
     }
 
@@ -106,6 +106,7 @@ public sealed class TFWeaponTypesTests
     [InlineData("tf_weapon_revolver", TFWeaponKind.Revolver)]
     [InlineData("tf_weapon_minigun", TFWeaponKind.Minigun)]
     [InlineData("tf_weapon_sniperrifle", TFWeaponKind.SniperRifle)]
+    [InlineData("tf_weapon_compound_bow", TFWeaponKind.Bow)]
     [InlineData("tf_weapon_rocketlauncher", TFWeaponKind.Projectile)]
     [InlineData("tf_weapon_grenadelauncher", TFWeaponKind.Projectile)]
     [InlineData("tf_weapon_pipebomblauncher", TFWeaponKind.Projectile)]
@@ -174,7 +175,7 @@ public sealed class TFWeaponTypesTests
         var serverCatalog = new WeaponCatalog(() => [server], log);
         var clientCatalog = new C.WeaponCatalog(() => [clientTypes], log);
 
-        Assert.Equal(WeaponTypes.All.Length + 32, serverCatalog.Count);
+        Assert.Equal(WeaponTypes.All.Length + 33, serverCatalog.Count);
         Assert.Equal(serverCatalog.Count, clientCatalog.Count);
         for (int i = 0; i < serverCatalog.Count; i++)
         {

@@ -56,6 +56,13 @@ internal static class TraceMasks
     /// </summary>
     public const int SolidDebris = Solid | ContentsDebris;
 
+    /// <summary>
+    /// <c>MASK_SOLID | CONTENTS_HITBOX</c>: the heavy taunt's aim line
+    /// (tf_player.cpp:18621) — solid's contents plus the hitboxes a body stops
+    /// the shot on.
+    /// </summary>
+    public const int SolidHitbox = Solid | ContentsHitbox;
+
     /// <summary><c>MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW</c>.</summary>
     public const int OpaqueAndNpcsWindow = ContentsSolid | ContentsMoveable | ContentsOpaque | ContentsMonster | ContentsWindow;
 
@@ -96,6 +103,7 @@ internal static class TraceMasks
         TraceMask.Dispenser => Dispenser,
         TraceMask.SentrySight => SentrySight,
         TraceMask.SolidDebris => SolidDebris,
+        TraceMask.SolidHitbox => SolidHitbox,
         _ => SolidBrushOnly,
     };
 

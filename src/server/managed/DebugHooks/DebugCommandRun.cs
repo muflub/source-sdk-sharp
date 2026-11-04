@@ -71,7 +71,11 @@ public sealed class DebugCommandRun(ConCommandRegistry registry,
             return null;
         }
 
-        if (made is not IConCommand command)
+        // A typed command runs through its binding here as at the console, its
+        // refusal printed into the sink like any other line.
+        IConCommand? command = made as IConCommand
+                               ?? (made is null ? null : ConCommandBinding.For(name, made, sink.Msg, out _));
+        if (command is null)
             return null;
 
         command.Execute(args);
@@ -138,6 +142,7 @@ public sealed class DebugCommandRun(ConCommandRegistry registry,
         public void ExecuteServerCommand(string command) => realConsole()?.ExecuteServerCommand(command);
 
         public string? FindConVarValue(string name) => realConsole()?.FindConVarValue(name);
+        public IReadOnlyList<string> CompleteCommandLine(string line) => realConsole()?.CompleteCommandLine(line) ?? [];
 
         public string GetConVarValue(int id) => realConsole()?.GetConVarValue(id) ?? "";
 

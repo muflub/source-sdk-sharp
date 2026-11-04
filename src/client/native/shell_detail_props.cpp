@@ -278,7 +278,6 @@ bool CShellDetailProps::IsPerFrame()
 
 bool CShellDetailProps::Init()
 {
-	m_matFullbright.Init("mat_fullbright", true);
 	if (IManagedDetailPropsClient* pArea = Managed())
 		pArea->DetailInit();
 	return true;
@@ -341,9 +340,8 @@ void CShellDetailProps::BuildDetailObjectRenderLists(const Vector& vViewOrigin)
 	if (!pArea)
 		return;
 	const Vector vecCurrent = m_Cameras.CurrentOrigin();
-	const void* pView = pArea->DetailBuildLists(
-		vViewOrigin.Base(), vecCurrent.Base(), m_Engines.m_pClientMode->ShouldDrawDetailObjects() ? 1 : 0,
-		m_Engines.m_pConVars->m_r_DrawDetailProps.GetInt(), m_matFullbright.GetInt());
+	const void* pView = pArea->DetailBuildLists(vViewOrigin.Base(), vecCurrent.Base(),
+												m_Engines.m_pClientMode->ShouldDrawDetailObjects() ? 1 : 0);
 	m_States.RemoveAll();
 	float flRadius = 0.0f;
 	if (!ss_detail::ReadView(pView, *this, &flRadius))
@@ -482,10 +480,7 @@ void CShellDetailProps::Draw(int nKind, const Vector& viewOrigin, const Vector& 
 	const float view[15] = {viewOrigin.x,  viewOrigin.y, viewOrigin.z, viewForward.x, viewForward.y,
 							viewForward.z, viewRight.x,  viewRight.y,  viewRight.z,   viewUp.x,
 							viewUp.y,      viewUp.z,     current.x,    current.y,     current.z};
-	const void* pPrepared =
-		pArea->DetailPrepare(nKind, view, pLeaves, nLeaves, pClosest ? pClosest->Base() : NULL,
-							 m_Engines.m_pConVars->m_r_DrawDetailProps.GetInt(),
-							 m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1 : 0, m_matFullbright.GetInt());
+	const void* pPrepared = pArea->DetailPrepare(nKind, view, pLeaves, nLeaves, pClosest ? pClosest->Base() : NULL);
 	const int nMaterial = ss_detail::ReadPrepare(pPrepared, *this);
 	if (nMaterial == ss_detail::kMaterialNone)
 		return;

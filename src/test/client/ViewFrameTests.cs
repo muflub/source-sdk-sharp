@@ -33,17 +33,17 @@ public class ViewFrameTests
     // The frame's rectangle, its convars and the engine's aspect (the one the
     // recorded view carries: stock's engine answer when it is positive), with
     // the eye as SetUpViews and the client mode's override left it.
-    private static (RenderFrameIn Frame, ViewSetUpOut SetUp) Ask(RenderTrace t, string text, in RenderInputs recorded)
+    private static (RenderFrameIn Frame, ViewSetUpOut SetUp, RenderConVars ConVars) Ask(RenderTrace t, string text, in RenderInputs recorded)
     {
         Match rect = Regex.Match(text, @"^frame\t.* rect=(-?\d+),(-?\d+),(\d+),(\d+)", RegexOptions.Multiline);
         Assert.True(rect.Success, "no frame line");
         int R(int g) => int.Parse(rect.Groups[g].Value, CultureInfo.InvariantCulture);
 
+        RenderConVars convars = RenderConVarsKit.Recorded<RenderConVars>(t.ConVars);
         ViewSetUpOut setUp = ViewFrame.SetUpView(new ViewSetUpIn
         {
-            FarZ = Cv(t, "r_farz"), MapExtents = Cv(t, "r_mapextents"), FogFarZ = 0f,
-            DefaultFov = Cv(t, "default_fov"), ViewModelFov = Cv(t, "viewmodel_fov"),
-        });
+            FogFarZ = 0f,
+        }, convars);
         var eye = new ViewSetup
         {
             ZFar = setUp.ZFar, ZFarViewmodel = setUp.ZFarViewmodel, ZNear = setUp.ZNear, ZNearViewmodel = setUp.ZNearViewmodel,
@@ -58,14 +58,10 @@ public class ViewFrameTests
             Eye = eye,
             ScreenAspect = recorded.View.AspectRatio,
             Windowed = 1, MaxClients = recorded.MaxClients,
-            RestrictAspectFov = (int)Cv(t, "sv_restrict_aspect_ratio_fov"),
-            ViewportScale = Cv(t, "mat_viewportscale"),
-            GlClear = (int)Cv(t, "gl_clear"), GlClearRandomColor = (int)Cv(t, "gl_clear_randomcolor"),
             ClientModeDrawViewModel = 1,
-            LevelOverview = Cv(t, "cl_leveloverview"),
             ViewportX = R(1), ViewportY = R(2), ViewportWidth = R(3), ViewportHeight = R(4),
         };
-        return (frame, setUp);
+        return (frame, setUp, convars);
     }
 
     [Fact]
@@ -75,9 +71,9 @@ public class ViewFrameTests
         foreach ((string name, RenderTrace t, string text) in Frames())
         {
             RenderInputs recorded = t.Inputs() ?? throw new Xunit.Sdk.XunitException($"{name}: no inputs");
-            (RenderFrameIn frame, _) = Ask(t, text, recorded);
+            (RenderFrameIn frame, _, RenderConVars convars) = Ask(t, text, recorded);
             var answer = default(RenderFrameOut);
-            ViewFrame.Render(frame, ref answer, () => throw new InvalidOperationException("no random clear"));
+            ViewFrame.Render(frame, convars, ref answer, () => throw new InvalidOperationException("no random clear"));
 
             ViewSetup want = recorded.View, got = answer.Eye;
             Assert.True(BitConverter.SingleToInt32Bits(want.Fov) == BitConverter.SingleToInt32Bits(got.Fov), $"{name}: fov {want.Fov:R} vs {got.Fov:R}");
@@ -115,7 +111,7 @@ public class ViewFrameTests
     [Fact]
     public void TheViewModelFovFollowsTheOverridesZoom()
     {
-        ViewSetUpOut setUp = ViewFrame.SetUpView(new ViewSetUpIn { DefaultFov = 90, ViewModelFov = 54, FarZ = -1, MapExtents = 16384 });
+        ViewSetUpOut setUp = ViewFrame.SetUpView(new ViewSetUpIn(), Plan(("default_fov", 90f), ("viewmodel_fov", 54f), ("r_farz", -1f), ("r_mapextents", 16384f)));
         Assert.Equal(90f, setUp.Fov);
         Assert.Equal(54f, ViewFrame.ViewModelFov(setUp, 90f));
         Assert.Equal(24f, ViewFrame.ViewModelFov(setUp, 60f));
@@ -128,14 +124,24 @@ public class ViewFrameTests
     private static RenderFrameIn Plain() => new()
     {
         Eye = new ViewSetup { Fov = 90, FovViewmodel = 54, Origin = new Vector(100, 200, 50) },
-        ScreenAspect = 2.3333333f, Windowed = 1, MaxClients = 8, RestrictAspectFov = 1, ViewportScale = 1f,
+        ScreenAspect = 2.3333333f, Windowed = 1, MaxClients = 8,
         ClientModeDrawViewModel = 1, ViewportWidth = 2560, ViewportHeight = 1080,
     };
 
-    private static RenderFrameOut Decide(RenderFrameIn frame, Func<int>? random = null)
+    private static RenderConVars Plan(params (string Name, float Value)[] values)
+    {
+        RenderConVars convars = RenderPlannerTests.ConVars();
+        foreach (var (name, value) in values)
+            convars.Set(name, value);
+        return convars;
+    }
+
+    private static RenderFrameOut Decide(RenderFrameIn frame, Func<int>? random = null, params (string Name, float Value)[] values)
     {
         var answer = default(RenderFrameOut);
-        ViewFrame.Render(frame, ref answer, random ?? (() => 0));
+        var all = new List<(string, float)> { ("sv_restrict_aspect_ratio_fov", 1f), ("mat_viewportscale", 1f) };
+        all.AddRange(values);
+        ViewFrame.Render(frame, Plan([.. all]), ref answer, random ?? (() => 0));
         return answer;
     }
 
@@ -150,9 +156,7 @@ public class ViewFrameTests
         RenderFrameIn single = Plain();
         single.MaxClients = 1;
         Assert.Equal(wide, Decide(single).Eye.Fov);
-        RenderFrameIn always = single;
-        always.RestrictAspectFov = 2;
-        Assert.Equal(capped, Decide(always).Eye.Fov);
+        Assert.Equal(capped, Decide(single, null, ("sv_restrict_aspect_ratio_fov", 2f)).Eye.Fov);
         Assert.Equal(ViewFrame.ScaleFovByWidthRatio(54, 2.3333333f * 0.75f), Decide(Plain()).Eye.FovViewmodel);
     }
 
@@ -161,9 +165,8 @@ public class ViewFrameTests
     public void TheViewportScaleShrinksTheViewAndKeepsTheUnscaledRectangle()
     {
         RenderFrameIn frame = Plain();
-        frame.ViewportScale = 0.5f;
         frame.ViewportX = 3;
-        ViewSetup eye = Decide(frame).Eye;
+        ViewSetup eye = Decide(frame, null, ("mat_viewportscale", 0.5f)).Eye;
         Assert.Equal((1, 0, 1280, 540), (eye.X, eye.Y, eye.Width, eye.Height));
         Assert.Equal((3, 0, 2560, 1080), (eye.UnscaledX, eye.UnscaledY, eye.UnscaledWidth, eye.UnscaledHeight));
     }
@@ -182,17 +185,13 @@ public class ViewFrameTests
     public void TheClearFlagsFollowGlClearAndTheAntialiasingCase()
     {
         Assert.Equal(ClearDepthStencil, Decide(Plain()).ClearFlags);
-        RenderFrameIn gl = Plain();
-        gl.GlClear = 1;
-        Assert.Equal(ClearDepthStencil | RenderConst.ClearColor, Decide(gl).ClearFlags);
+        Assert.Equal(ClearDepthStencil | RenderConst.ClearColor, Decide(Plain(), null, ("gl_clear", 1f)).ClearFlags);
         RenderFrameIn aa = Plain();
         aa.ClearColorForAntialiasing = 1;
         Assert.Equal(ClearDepthStencil | RenderConst.ClearColor, Decide(aa).ClearFlags);
 
-        RenderFrameIn random = gl;
-        random.GlClearRandomColor = 1;
         int next = 10;
-        RenderFrameOut answer = Decide(random, () => next++);
+        RenderFrameOut answer = Decide(Plain(), () => next++, ("gl_clear", 1f), ("gl_clear_randomcolor", 1f));
         Assert.Equal(ClearDepthStencil, answer.ClearFlags);
         Assert.Equal((1, 10, 11, 12), (answer.RandomClear, answer.ClearR, answer.ClearG, answer.ClearB));
     }
@@ -216,8 +215,7 @@ public class ViewFrameTests
         RenderFrameIn frame = Plain();
         frame.ViewportWidth = 1280;
         frame.ViewportHeight = 720;
-        frame.LevelOverview = 2f;
-        RenderFrameOut answer = Decide(frame);
+        RenderFrameOut answer = Decide(frame, null, ("cl_leveloverview", 2f));
         ViewSetup eye = answer.Eye;
         Assert.Equal(1, answer.Overview);
         Assert.Equal(1, eye.Ortho);

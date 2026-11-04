@@ -366,11 +366,19 @@ public class UiFidelityTests
         public List<string> Texts { get; } = [];
         private int _fonts, _textures;
 
-        public void FilledRect(int x0, int y0, int x1, int y1, uint rgba) => Draws++;
+        public void FilledRect(int x0, int y0, int x1, int y1, uint rgba)
+        {
+            Draws++;
+            Calls.Add("rect");
+        }
 
         public void FilledRectFade(int x0, int y0, int x1, int y1, uint rgba, int alpha0, int alpha1, bool horizontal) => Draws++;
 
-        public void OutlinedRect(int x0, int y0, int x1, int y1, uint rgba) => Draws++;
+        public void OutlinedRect(int x0, int y0, int x1, int y1, uint rgba)
+        {
+            Draws++;
+            Calls.Add("outline");
+        }
 
         public void Line(int x0, int y0, int x1, int y1, uint rgba) => Draws++;
 
@@ -379,10 +387,15 @@ public class UiFidelityTests
         public void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba)
         {
             Draws++;
+            Calls.Add("texture");
             TexturedRects++;
         }
 
-        public void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba) => Draws++;
+        public void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba)
+        {
+            Draws++;
+            Calls.Add("polygon");
+        }
 
         public List<(int Texture, float[] Xyuv, uint Rgba, bool Additive)> Quads { get; } = [];
 
@@ -392,8 +405,20 @@ public class UiFidelityTests
             Quads.Add((texture, xyuv.ToArray(), rgba, additive));
         }
 
+        public List<(int Texture, float[] Xyuv, uint[] Rgba, ushort[] Indices)> Meshes { get; } = [];
+
+        public List<string> Calls { get; } = [];
+
+        public void Mesh(int texture, ReadOnlySpan<float> xyuv, ReadOnlySpan<uint> rgba, ReadOnlySpan<ushort> indices)
+        {
+            Draws++;
+            Calls.Add("mesh");
+            Meshes.Add((texture, xyuv.ToArray(), rgba.ToArray(), indices.ToArray()));
+        }
+
         public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
         {
+            Calls.Add("text");
             Draws++;
             Texts.Add(new string(text));
         }
@@ -401,7 +426,11 @@ public class UiFidelityTests
         public void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height)
             => (width, height) = (text.Length * 8, 16);
 
-        public void SetClip(bool enabled, int x0, int y0, int x1, int y1) => Draws++;
+        public void SetClip(bool enabled, int x0, int y0, int x1, int y1)
+        {
+            Draws++;
+            Calls.Add(enabled ? "clip" : "unclip");
+        }
 
         public int TextureCreate() => ++_textures;
 

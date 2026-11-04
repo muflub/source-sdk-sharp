@@ -43,7 +43,7 @@ public class ThirdPersonCameraViewTests
     public void Cam_ideal_dist_pulls_the_behind_camera_out_to_the_written_distance()
     {
         var rig = new InputRig();
-        rig.Host.Engine["sv_cheats"] = "1";
+        rig.Cheats.Hold("1");
         rig.Run("thirdperson");
         rig.Cvars.CamIdealDist.Write(200f);
 

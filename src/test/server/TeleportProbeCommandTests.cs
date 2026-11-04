@@ -39,7 +39,7 @@ public class TeleportProbeCommandTests
     {
         var (command, engine) = Probe();
 
-        command.Execute("move probe_subject 500 0 8");
+        command.RunLine("move probe_subject 500 0 8");
 
         var write = engine.Calls.Last(c => c.Member == "Entities.SetOrigin");
         Assert.Equal(new Vector(500f, 0f, 8f), write.ArgAs<Vector>(1));
@@ -51,7 +51,7 @@ public class TeleportProbeCommandTests
     {
         var (command, engine) = Probe();
 
-        command.Execute("jump probe_subject 500 0 8");
+        command.RunLine("jump probe_subject 500 0 8");
 
         var jump = engine.Calls.Last(c => c.Member == "Entities.Teleport");
         Assert.Equal(new Vector(500f, 0f, 8f), jump.ArgAs<Vector>(1));
@@ -70,8 +70,8 @@ public class TeleportProbeCommandTests
         var (move, moveEngine) = Probe();
         var (jump, jumpEngine) = Probe();
 
-        move.Execute("move probe_subject 500 0 8");
-        jump.Execute("jump probe_subject 500 0 8");
+        move.RunLine("move probe_subject 500 0 8");
+        jump.RunLine("jump probe_subject 500 0 8");
 
         Assert.Equal(
             moveEngine.Calls.Last(c => c.Member == "Entities.SetOrigin").ArgAs<Vector>(1),
@@ -87,7 +87,10 @@ public class TeleportProbeCommandTests
     {
         var (command, engine) = Probe();
 
-        command.Execute("slide probe_subject 500 0 8");
+        var said = new List<string>();
+        command.RunLine("slide probe_subject 500 0 8", said.Add);
+
+        Assert.Contains("'kind' is move|jump, not 'slide'", Assert.Single(said));
 
         Assert.DoesNotContain(engine.Calls, c => c.Member == "Entities.SetOrigin");
         Assert.DoesNotContain(engine.Calls, c => c.Member == "Entities.Teleport");
@@ -98,8 +101,11 @@ public class TeleportProbeCommandTests
     {
         var (command, engine) = Probe();
 
-        command.Execute("jump probe_subject 500 0");
-        command.Execute("jump probe_subject 500 0 over-there");
+        var said = new List<string>();
+        command.RunLine("jump probe_subject 500 0", said.Add);
+        command.RunLine("jump probe_subject 500 0 over-there", said.Add);
+
+        Assert.Equal(2, said.Count);
 
         Assert.DoesNotContain(engine.Calls, c => c.Member == "Entities.Teleport");
     }
@@ -110,7 +116,7 @@ public class TeleportProbeCommandTests
         var engine = new RecordingEngine { Strict = false };
         engine.Returns("Entities.FindAllByName", new List<EntityHandle>());
 
-        new TeleportProbeCommand(new RecordingLog(), engine).Execute("jump nobody 500 0 8");
+        new TeleportProbeCommand(new RecordingLog(), engine).RunLine("jump nobody 500 0 8");
 
         Assert.DoesNotContain(engine.Calls, c => c.Member == "Entities.Teleport");
     }

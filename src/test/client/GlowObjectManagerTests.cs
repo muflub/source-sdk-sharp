@@ -3,6 +3,7 @@ using SourceSharp.Client.Interop;
 using SourceSharp.Client.Render;
 
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -22,9 +23,9 @@ public class GlowObjectManagerTests
 
     private static GlowObjectManager New(
         Func<EntityHandle, bool>? dormant = null,
-        Func<string, string?>? convar = null,
+        string? enable = null,
         Func<string, int>? material = null)
-        => new(dormant ?? (_ => false), convar ?? (_ => null), material ?? (_ => HaloId));
+        => new(dormant ?? (_ => false), DeclaredConVars.Holding<GlowOutlineEffectEnableConVar>(enable), material ?? (_ => HaloId));
 
     private static ViewSceneData Scene(params int[] entIndices)
     {
@@ -160,7 +161,7 @@ public class GlowObjectManagerTests
     [Fact]
     public void AConvarOfZeroDrawsNothingAndANullOneLeavesGlowOn()
     {
-        var off = New(convar: _ => "0");
+        var off = New(enable: "0");
         off.RegisterGlowObject(Player, Color, 1f, true, false);
         Assert.Empty(Render(off, Scene(4)));
 
@@ -172,7 +173,7 @@ public class GlowObjectManagerTests
     [Fact]
     public void AConvarOfOneDrawsTheGlowLikeAnyNonZero()
     {
-        var manager = New(convar: _ => "1");
+        var manager = New(enable: "1");
         manager.RegisterGlowObject(Player, Color, 1f, true, false);
 
         Assert.NotEmpty(Render(manager, Scene(4)));

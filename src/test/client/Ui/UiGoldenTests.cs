@@ -29,6 +29,8 @@ public class UiGoldenTests
         { "hud", "ar2-0-of-3-balls" },
         { "hud", "kill-feed-busy" },
         { "hud", "kill-feed-suicide-and-the-world" },
+        { "hud", "a-bot-s-answer-pointing-at-a-place-on-the-minimap-and-in-the-world" },
+        { "hud", "a-bot-s-vague-answer-a-rough-area-on-the-minimap-and-nothing-in-the-world" },
         { "console", "busy-log" },
         { "console", "autocomplete-open" },
         { "serverbrowser", "2-000-servers-by-ping" },
@@ -61,6 +63,9 @@ public class UiGoldenTests
         // The spy's meters: disguised shows the cloak meter and the status
         // row with the imitated team's tone, both over the world.
         { "tfhud", "spy-disguised-as-a-red-soldier" },
+        // The timed item's charge bar: half gold on the grey track, the
+        // item's own word beside it (tf_hud_itemeffectmeter.cpp).
+        { "tfhud", "bonk-half-charged" },
         // The flag row: one briefcase carried, the other ticking back; and
         // both home under a caps target, the state with the playing-to
         // caption (stock's "Playing to: %rounds%", tf_english.txt

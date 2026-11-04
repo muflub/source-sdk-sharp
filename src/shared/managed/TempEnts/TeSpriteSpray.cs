@@ -34,7 +34,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeSpriteSpray : TeBaseTempEntity
+public partial class TeSpriteSpray : TeBaseTempEntity
 {
     /// <summary>Where the spray starts.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

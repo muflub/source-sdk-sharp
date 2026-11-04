@@ -27,7 +27,6 @@
 #include "shell_managed_areas.h"
 
 #include "ss_world.h"
-float GetCurrentGravity();
 #include "vphysics/vehicles.h"
 using ss::gamevcollisionevent_t;
 
@@ -102,7 +101,6 @@ void CServerPhysics::LevelInitPreEntity()
 	// The four callback tables are managed's, installed at pre-entity init.
 	m_pEnv = m_pImpl->m_ShellEnv.Create(m_pPhysics, NULL, NULL, NULL, NULL, factories.engineFactory,
 										m_pGlobals->interval_per_tick, // 15 ms per tick
-										GetCurrentGravity(), // HL game gravity, not real-world gravity
 										10); // maxCollisionsPerObjectPerTimestep
 
 	// Managed builds the world's physics object; native holds it.

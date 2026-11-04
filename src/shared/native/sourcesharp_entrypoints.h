@@ -29,13 +29,12 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 7 slots.
+// SERVER ONLY -- 6 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.
 //---------------------------------------------------------------------------
 #ifndef CLIENT_DLL
-float SourceSharp_CurrentGravity();
 void* SourceSharp_GetGlobalVarsPtr();
 int32_t SourceSharp_MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue);
 void SourceSharp_MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,

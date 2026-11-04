@@ -193,7 +193,7 @@ public static class ClientAnimationLayers
 [ConCommand("cs_animlayers",
             Help = "What every live client entity is carrying in its animation layer slots, " +
                    "read back out of the shell.")]
-public sealed class AnimLayersCommand : IConCommand
+public sealed class AnimLayersCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -209,9 +209,11 @@ public sealed class AnimLayersCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter = "")
     {
-        foreach (string line in ClientAnimationLayers.Report(_standalones.Live(), _render, args.Trim()))
+        foreach (string line in ClientAnimationLayers.Report(_standalones.Live(), _render, filter))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }
@@ -220,7 +222,7 @@ public sealed class AnimLayersCommand : IConCommand
 [ConCommand("cs_setlayer",
             Help = "cs_setlayer <classname-filter> <slot> <sequence-name|off> [weight] [order]. " +
                    "Blends one sequence on top of whatever a matching entity is playing.")]
-public sealed class SetLayerCommand : IConCommand
+public sealed class SetLayerCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -236,22 +238,12 @@ public sealed class SetLayerCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, int slot, string sequence, float weight = 1f, int order = 0)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 3 || !int.TryParse(parts[1], out int slot))
-        {
-            _log.Msg("[SourceSharp/Client] cs_setlayer <classname-filter> <slot> " +
-                    "<sequence-name|off> [weight] [order]\n");
-            return;
-        }
-
-        float weight = parts.Length > 3 && float.TryParse(parts[3], out float w) ? w : 1f;
-        int order = parts.Length > 4 && int.TryParse(parts[4], out int o) ? o : 0;
-
         foreach (string line in ClientAnimationLayers.Set(_standalones.Live(), _render,
-                                                          parts[0], slot, parts[2], weight, order))
+                                                          filter, slot, sequence, weight, order))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }

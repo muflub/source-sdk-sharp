@@ -18,6 +18,7 @@ public enum VoteKind : byte
     Map,
     Mode,
     Restart,
+    Setting,
 }
 
 /// <summary>Why a call was refused; <see cref="None"/> is a call accepted.</summary>
@@ -153,7 +154,7 @@ public sealed class VoteCooldownMessage : IUserMessage<VoteCooldown>
 /// <summary>The client's words for a vote, and the server's verbs for them.</summary>
 public static class VoteVerbs
 {
-    /// <summary><c>ss_callvote kick &lt;slot&gt;</c>, <c>map &lt;name&gt;</c>, <c>mode &lt;id&gt;</c> or <c>restart</c>.</summary>
+    /// <summary><c>ss_callvote kick &lt;slot&gt;</c>, <c>map &lt;name&gt;</c>, <c>mode &lt;id&gt;</c>, <c>setting &lt;convar=value&gt;</c> or <c>restart</c>.</summary>
     public const string Call = "ss_callvote";
 
     /// <summary><c>ss_vote 1</c> for yes, <c>ss_vote 2</c> for no.</summary>

@@ -110,7 +110,7 @@ public sealed class DisguisePanel(ITFSpy spy) : UiPanel
         if (!Present)
             return;
 
-        using (ui.Row(Space.S, Align.Centre).Key("disguise"))
+        using (ui.Row(Space.S, Align.Centre).At(UiAnchor.Centre).Key("disguise"))
         {
             ui.Text("#TF2_Hud_Disguised", Text.Caption, Tone.Text).HudSize();
             ui.Data(spy.DisguiseClassName, Text.Caption, TFHudTeams.ToneOf(spy.DisguiseTeam)).HudSize();

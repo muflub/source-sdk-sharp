@@ -408,6 +408,19 @@ public abstract class EntityDirectoryCore<TEntity>
     /// worse than no command.
     /// </para>
     /// </summary>
+    /// <summary>The live entities copied into a list the caller keeps: <see cref="Snapshot"/> per frame.</summary>
+    public void CopyLive(List<TEntity> into)
+    {
+        into.Clear();
+
+        foreach (int entry in _dense)
+        {
+            var entity = _entities[entry];
+            if (entity is not null)
+                into.Add(entity);
+        }
+    }
+
     public IReadOnlyList<TEntity> Snapshot()
     {
         var into = new List<TEntity>(_dense.Count);

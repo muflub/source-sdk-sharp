@@ -42,6 +42,41 @@ public class BonesExtractTests
         return hdr;
     }
 
+    [Fact]
+    public void WalkingAnAnimsRecordsAllocatesNothing()
+    {
+        var b = new StudioHdrBuilder();
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "a", Parent = -1 });
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "b", Parent = 0 });
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "c", Parent = 1 });
+        b.Anims.Add(new StudioHdrBuilder.AnimDef
+        {
+            Name = "walk",
+            NumFrames = 2,
+            Bones =
+            {
+                new StudioHdrBuilder.BoneAnimDef { Bone = 0, Flags = 0 },
+                new StudioHdrBuilder.BoneAnimDef { Bone = 1, Flags = 0 },
+                new StudioHdrBuilder.BoneAnimDef { Bone = 2, Flags = 0 },
+            },
+        });
+        MstudioAnim first = FirstAnim(Build(b));
+
+        int Walk()
+        {
+            int bones = 0;
+            for (MstudioAnim? it = first; it is { } anim; it = anim.Next())
+                bones += anim.Bone + 1;
+            return bones;
+        }
+
+        Assert.Equal(6, Walk());
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 64; i++)
+            Walk();
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
     private static MstudioAnim FirstAnim(StudioHdr hdr, int frame = 0)
     {
         int f = frame;
@@ -295,11 +330,11 @@ public class BonesExtractTests
         StudioHdr hdr = Build(b);
 
         int f = 0;
-        BoneSetupExtract.CalcBoneQuaternion(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(0), ref f)!, out Quaternion qd);
+        BoneSetupExtract.CalcBoneQuaternion(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(0), ref f)!.Value, out Quaternion qd);
         Assert.Equal(Quaternion.Identity, qd); // delta, no rot: Init(0,0,0,1)
 
         f = 0;
-        BoneSetupExtract.CalcBoneQuaternion(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(1), ref f)!, out Quaternion qs);
+        BoneSetupExtract.CalcBoneQuaternion(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(1), ref f)!.Value, out Quaternion qs);
         Assert.Equal(rest.X, qs.X, 6);
         Assert.Equal(rest.Z, qs.Z, 6);
         Assert.Equal(rest.W, qs.W, 6);
@@ -487,11 +522,11 @@ public class BonesExtractTests
         StudioHdr hdr = Build(b);
 
         int f = 0;
-        BoneSetupExtract.CalcBonePosition(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(0), ref f)!, out Vector zeroed);
+        BoneSetupExtract.CalcBonePosition(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(0), ref f)!.Value, out Vector zeroed);
         Assert.Equal(Vector.Zero, zeroed);
 
         f = 0;
-        BoneSetupExtract.CalcBonePosition(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(1), ref f)!, out Vector based);
+        BoneSetupExtract.CalcBonePosition(0, 0f, hdr.Bone(0), null, hdr.PAnim(hdr.AnimDesc(1), ref f)!.Value, out Vector based);
         Assert.Equal(rest, based);
     }
 

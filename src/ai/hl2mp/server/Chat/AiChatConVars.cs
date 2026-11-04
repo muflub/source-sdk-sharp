@@ -15,15 +15,15 @@ public sealed class AiChatUrlConVar : StringConVar { }
 public sealed class AiChatModelConVar : StringConVar { }
 
 /// <summary><c>ai_chat_interval</c>: the server's one unprompted line per this many seconds. A reply to a player has its own, shorter limit.</summary>
-[ConVar("ai_chat_interval", "30", Help = "Seconds between the bots' unprompted chat lines, over the whole server", Min = 1, Max = 600)]
+[ConVar("ai_chat_interval", "10", Help = "Seconds between the bots' unprompted chat lines at about 10 bots, over the whole server: 0.76 of it with 2 bots, 1.3 of it from 20", Min = 1, Max = 600)]
 public sealed class AiChatIntervalConVar : IntConVar { }
 
 /// <summary><c>ai_chat_cooldown</c>: one bot's silence after an unprompted line.</summary>
-[ConVar("ai_chat_cooldown", "60", Help = "Seconds a bot stays quiet after an unprompted chat line", Min = 0, Max = 600)]
+[ConVar("ai_chat_cooldown", "30", Help = "The most seconds a bot stays quiet after an unprompted chat line; fewer in a small game", Min = 0, Max = 600)]
 public sealed class AiChatCooldownConVar : IntConVar { }
 
-/// <summary><c>ai_chat_reply_chance</c>: percent chance one bot answers a line in general chat that named nobody.</summary>
-[ConVar("ai_chat_reply_chance", "10", Help = "Percent chance one bot answers a general chat line that names no bot", Min = 0, Max = 100)]
+/// <summary><c>ai_chat_reply_chance</c>: percent chance one bot answers a player's line in general chat that named nobody; a fifth of that for a bot's line.</summary>
+[ConVar("ai_chat_reply_chance", "50", Help = "Percent chance one bot answers a player's general chat line that names no bot; a fifth of that for a bot's line", Min = 0, Max = 100)]
 public sealed class AiChatReplyChanceConVar : IntConVar { }
 
 /// <summary><c>ai_chat_timeout</c>: how long a line may take before it is dropped.</summary>

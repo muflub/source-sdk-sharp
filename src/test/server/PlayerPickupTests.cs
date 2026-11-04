@@ -82,8 +82,8 @@ public class PlayerPickupTests
     {
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(PlayerPickupRules).Assembly);
-        convars.Get<Hl2mpAllowPickupConVar>()!.Bind(-1, "hl2mp_allow_pickup", allow ? "1" : "0");
-        return new PlayerPickupRules(engine, engine, bodies, directory ?? new Directory(), convars, new RecordingLog());
+        convars.Declared<Hl2mpAllowPickupConVar>().Bind(-1, "hl2mp_allow_pickup", allow ? "1" : "0");
+        return new PlayerPickupRules(engine, engine, bodies, directory ?? new Directory(), convars.Declared<Hl2mpAllowPickupConVar>(), new RecordingLog());
     }
 
     //-------------------------------------------------------------------------

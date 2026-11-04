@@ -28,7 +28,7 @@ public class PlayerDamageMessageTests
               .Returns("Entities.GetIndex", Slot)
               .Returns("Entities.IsValid", true)
               .Returns("Entities.GetOrigin", ShooterAt);
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine) { Handle = Self };
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine) { Handle = Self };
         player.BindAreas(Areas(engine));
         player.State.BindLocal();
 
@@ -232,7 +232,7 @@ public class PlayerGeigerTests
         engine.Returns("Entities.GetHealth", 100).Returns("Entities.GetIndex", 3)
               .Returns("Shadows.Init", true)
               .Ignores("Render.SetVisible", "Entities.SetModel", "Entities.SetHealth", "Entities.GetOrigin");
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine) { Handle = new EntityHandle(0x010003) };
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine) { Handle = new EntityHandle(0x010003) };
         player.BindAreas(Areas(engine));
         player.State.BindLocal();
         player.OnSpawn();

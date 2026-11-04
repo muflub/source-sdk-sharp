@@ -250,125 +250,6 @@ enum RenderTarget_t
 	RENDER_TARGET_ShadowDepth = 7,
 };
 
-// The convars the post-processing planner reads, in managed PostCvar order.
-const char* const kPostCvars[] = {
-	"mat_bloomscale",
-	"mat_hdr_level",
-	"mat_bloomamount_rate",
-	"mat_debug_postprocessing_effects",
-	"mat_debug_process_halfscreen",
-	"mat_postprocessing_combine",
-	"mat_dynamic_tonemapping",
-	"mat_show_ab_hdr",
-	"mat_tonemapping_occlusion_use_stencil",
-	"mat_debug_autoexposure",
-	"mat_autoexposure_max",
-	"mat_autoexposure_min",
-	"mat_show_histogram",
-	"mat_hdr_tonemapscale",
-	"mat_hdr_uncapexposure",
-	"mat_force_bloom",
-	"mat_disable_bloom",
-	"mat_debug_bloom",
-	"mat_accelerate_adjust_exposure_down",
-	"mat_hdr_manual_tonemap_rate",
-	"mat_non_hdr_bloom_scalefactor",
-	"mat_bloom_scalefactor_scalar",
-	"mat_exposure_center_region_x",
-	"mat_exposure_center_region_y",
-	"mat_exposure_center_region_x_flashlight",
-	"mat_exposure_center_region_y_flashlight",
-	"mat_tonemap_algorithm",
-	"mat_tonemap_percent_target",
-	"mat_tonemap_percent_bright_pixels",
-	"mat_tonemap_min_avglum",
-	"mat_fullbright",
-	"mat_force_tonemap_scale",
-	"mat_software_aa_strength",
-	"mat_software_aa_quality",
-	"mat_software_aa_edge_threshold",
-	"mat_software_aa_blur_one_pixel_lines",
-	"mat_software_aa_tap_offset",
-	"mat_software_aa_debug",
-	"mat_software_aa_strength_vgui",
-	"mat_colorcorrection",
-	"mat_postprocess_x",
-	"mat_postprocess_y",
-	"mat_dump_rts",
-	"mat_queue_mode",
-	"building_cubemaps",
-	"localplayer_visionflags",
-	"mat_motion_blur_enabled",
-	"mat_motion_blur_forward_enabled",
-	"mat_motion_blur_falling_min",
-	"mat_motion_blur_falling_max",
-	"mat_motion_blur_falling_intensity",
-	"mat_motion_blur_rotation_intensity",
-	"mat_motion_blur_strength",
-};
-const int kPostCvarCount = (int)ARRAYSIZE(kPostCvars);
-
-// The convars RenderView's decisions read, in managed RenderCvar order. The fog
-// colours are strings; their three numbers take three slots each, after.
-const char* const kRenderCvars[] = {
-	"r_skybox",
-	"r_3dsky",
-	"mat_motion_blur_enabled",
-	"building_cubemaps",
-	"r_flashlightdepthtexture",
-	"mat_viewportscale",
-	"mat_viewportupscale",
-	"cl_leveloverview",
-	"fog_override",
-	"fog_start",
-	"fog_end",
-	"fog_enable",
-	"fog_maxdensity",
-	"fog_radial",
-	"fog_startskybox",
-	"fog_endskybox",
-	"fog_maxdensityskybox",
-	"fog_enableskybox",
-	"fog_radialskybox",
-	"mat_drawwater",
-	"r_waterforceexpensive",
-	"r_waterforcereflectentities",
-	"r_WaterDrawReflection",
-	"r_WaterDrawRefraction",
-	"r_ForceWaterLeaf",
-	"mat_clipz",
-	"r_eyewaterepsilon",
-	"r_drawviewmodel",
-	"r_drawentities",
-	// The per-view draws' switches.
-	"r_drawopaquerenderables",
-	"r_drawtranslucentrenderables",
-	"r_drawtranslucentworld",
-	"r_entityclips",
-	"vcollide_wireframe",
-	"r_drawopaqueworld",
-	"r_DrawDetailProps",
-	"cl_maxrenderable_dist",
-	"r_worldlistcache",
-	// The 2D debug overlays' switches (viewdebug.cpp's Draw2DDebuggingInfo).
-	"mat_yuv",
-	"mat_hsv",
-	"mat_showlightmappage",
-	"cl_drawshadowtexture",
-	"cl_shadowtextureoverlaysize",
-	"mat_showwatertextures",
-	"mat_wateroverlaysize",
-	"mat_showcamerarendertarget",
-	"mat_showframebuffertexture",
-	"mat_framebuffercopyoverlaysize",
-	"mat_drawTextureScale",
-	"r_flashlightdrawdepth",
-	"cl_overdraw_test",
-};
-const int kRenderCvarCount = ARRAYSIZE(kRenderCvars);
-const int kRenderCvarFogColor = kRenderCvarCount;
-const int kRenderCvarFogColorSkybox = kRenderCvarCount + 3;
-
 const int kMaxRenderOps = 512;
 
 //-----------------------------------------------------------------------------
@@ -543,8 +424,7 @@ private:
 void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
 						   bool bShadowDepth, float* pReflectionWaterHeight, float flOpacityFactor)
 {
-	ConVarRef r_worldlistcache("r_worldlistcache");
-	const bool bCache = bUseCache && r_worldlistcache.GetBool();
+	const bool bCache = bUseCache;
 	bool bFound = false;
 	if (bCache)
 	{
@@ -774,7 +654,6 @@ public:
 	void ToViewSetup(const SourceSharpViewSetup_t& in, CViewSetup& out);
 	void FromViewSetup(const CViewSetup& in, SourceSharpViewSetup_t& out);
 	void FromFog(const fogparams_t* pFog, SourceSharpFogParams_t& out);
-	void ParseColor(const char* pszValue, float* pOut);
 	void WaterVar(IMaterial* pMaterial, const char* pszVar, int32_t* pDefined, int32_t* pValue);
 	int32_t WaterTextureVar(IMaterial* pMaterial, const char* pszVar);
 	int32_t ViewPlaneIntersectsWater(const CViewSetup& setup, float waterZ, int leafWaterDataID);
@@ -828,6 +707,7 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+
 	CClientSystems& m_Systems;
 	CViewerFacts& m_ViewerFacts;
 	CStandaloneClients& m_Standalone;
@@ -979,13 +859,6 @@ void CViewExecutorImpl::FromFog(const fogparams_t* pFog, SourceSharpFogParams_t&
 	out.Enable = pFog->enable ? 1 : 0;
 	out.Blend = pFog->blend ? 1 : 0;
 	out.Radial = pFog->radial ? 1 : 0;
-}
-
-void CViewExecutorImpl::ParseColor(const char* pszValue, float* pOut)
-{
-	pOut[0] = pOut[1] = pOut[2] = -1.0f;
-	if (pszValue)
-		sscanf(pszValue, "%f%f%f", pOut, pOut + 1, pOut + 2);
 }
 
 // The water material's switch named pszVar: defined (1/0) and its int value.
@@ -1153,15 +1026,6 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 		in.ScreenOverlayPowerOfTwo = pOverlay->NeedsPowerOfTwoFrameBufferTexture() ? 1 : 0;
 	}
 	in.FlashlightOn = m_ViewerFacts.ViewerEffectActive(EF_DIMLIGHT) ? 1 : 0;
-
-	for (int i = 0; i < kRenderCvarCount; ++i)
-	{
-		ConVarRef var(kRenderCvars[i], true);
-		in.Cvars[i] = var.IsValid() ? var.GetFloat() : 0.0f;
-	}
-	ConVarRef fogColor("fog_color", true), fogColorSkybox("fog_colorskybox", true);
-	ParseColor(fogColor.IsValid() ? fogColor.GetString() : NULL, &in.Cvars[kRenderCvarFogColor]);
-	ParseColor(fogColorSkybox.IsValid() ? fogColorSkybox.GetString() : NULL, &in.Cvars[kRenderCvarFogColorSkybox]);
 }
 
 // A struct as recorded lines of hex bytes, so managed code reads back exactly
@@ -2454,12 +2318,6 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 	if (nKind == 0)
 		state.m_nPostReadbackMask = 0;
 
-	for (int i = 0; i < kPostCvarCount && i < (int)ARRAYSIZE(in.Cvars); ++i)
-	{
-		ConVarRef var(kPostCvars[i], true);
-		in.Cvars[i] = var.IsValid() ? var.GetFloat() : 0.0f;
-	}
-
 	const int nOps = pManaged->RenderPostProgram(&in, state.m_PostOps, (int32_t)ARRAYSIZE(state.m_PostOps));
 	if (nOps < 0)
 		return false;
@@ -2929,21 +2787,11 @@ bool CViewExecutorImpl::FrameViewDecision(CViewSetup& eye, int& nClearFlags, int
 	return true;
 }
 
-float CvarFloat(const char* pszName)
-{
-	ConVarRef var(pszName, true);
-	return var.IsValid() ? var.GetFloat() : 0.0f;
-}
-
 // SetUpViews' inputs before the override (view.cpp).
 void CViewExecutorImpl::GatherViewSetUp(SourceSharpViewSetUpIn_t& in)
 {
-	in.FarZ = CvarFloat("r_farz");
-	in.MapExtents = CvarFloat("r_mapextents");
 	const fogparams_t* pFog = m_ViewerFacts.ViewerFogParams();
 	in.FogFarZ = pFog ? pFog->farz : 0.0f;
-	in.DefaultFov = CvarFloat("default_fov");
-	in.ViewModelFov = m_ClientMode.GetViewModelFOV();
 }
 
 // CViewRender::Render's inputs: the engine's, the client mode's and the convars,
@@ -2954,10 +2802,6 @@ void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, 
 	in.ScreenAspect = m_Engines.m_pEngine->GetScreenAspectRatio();
 	in.Windowed = m_Engines.m_pEngine->IsWindowedMode() ? 1 : 0;
 	in.MaxClients = m_Engines.m_pGlobals->maxClients;
-	in.RestrictAspectFov = (int32_t)CvarFloat("sv_restrict_aspect_ratio_fov");
-	in.ViewportScale = CvarFloat("mat_viewportscale");
-	in.GlClear = CvarFloat("gl_clear") != 0.0f ? 1 : 0;
-	in.GlClearRandomColor = CvarFloat("gl_clear_randomcolor") != 0.0f ? 1 : 0;
 	in.ClearColorForAntialiasing = 0;
 	if (IsPosix())
 	{
@@ -2967,7 +2811,6 @@ void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, 
 			in.ClearColorForAntialiasing = 1;
 	}
 	in.ClientModeDrawViewModel = m_ClientMode.ShouldDrawViewModel() ? 1 : 0;
-	in.LevelOverview = CvarFloat("cl_leveloverview");
 	int x = rect.x, y = rect.y, w = rect.width, h = rect.height;
 	m_ClientMode.AdjustEngineViewport(x, y, w, h);
 	in.ViewportX = x;

@@ -68,8 +68,13 @@ public class NewParticleManagerTests
             NextSleepTime = 100f,
         };
 
-    private static NewParticleFrameHeader Header(float dt = 0.05f, float timescale = 1f, float curTime = 10f)
-        => new() { Dt = dt, Timescale = timescale, CurTime = curTime, AabbBuffer = 2f };
+    private readonly SourceSharp.Client.Effects.ParticleSettings _settings = RenderConVarsKit.Particles();
+
+    private NewParticleFrameHeader Header(float dt = 0.05f, float timescale = 1f, float curTime = 10f)
+    {
+        _settings.Timescale.Hold(timescale.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return new() { Dt = dt, CurTime = curTime };
+    }
 
     private static List<NewParticleCommit> Frame(NewParticleManager m, NewParticleFrameHeader header, params NewParticleIn[] effects)
     {
@@ -86,7 +91,7 @@ public class NewParticleManagerTests
     public void TheLibrarysClockIsSetBeforeTheBatch()
     {
         var lib = new FakeLibrary();
-        Frame(new NewParticleManager(lib), Header(curTime: 12.5f), Effect(1));
+        Frame(new NewParticleManager(lib, _settings), Header(curTime: 12.5f), Effect(1));
         Assert.Equal(["time", "batch 1"], lib.Calls);
         Assert.Equal(12.5f, lib.LastTime);
     }
@@ -97,11 +102,11 @@ public class NewParticleManagerTests
     public void TheProfileIsKeptOnlyForAFramePastTheSpikeThreshold()
     {
         var lib = new FakeLibrary();
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         NewParticleFrameHeader header = Header();
-        header.SpikeThresholdMs = 1_000_000;
+        _settings.SpikeThreshold.Hold("1000000");
         Frame(m, header, Effect(1));
-        header.SpikeThresholdMs = -1;
+        _settings.SpikeThreshold.Hold("-1");
         Frame(m, header, Effect(1));
         Assert.Equal([false, true], lib.Profiles);
     }
@@ -112,7 +117,7 @@ public class NewParticleManagerTests
     public void AnEffectStepsZeroOnItsFirstFrameThenTheScaledFrameTime()
     {
         var lib = new FakeLibrary();
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         Frame(m, Header(dt: 0.04f, timescale: 0.5f), Effect(1), Effect(2));
         Frame(m, Header(dt: 0.04f, timescale: 0.5f), Effect(1), Effect(2));
         Assert.Equal(["time", "batch 2", "time", "batch 2"], lib.Calls);
@@ -126,7 +131,7 @@ public class NewParticleManagerTests
     public void ASleepingEffectStepsOnlyItsBoundsAndOnlyWhenItMoved()
     {
         var lib = new FakeLibrary();
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         NewParticleIn still = Effect(1), moved = Effect(2);
         still.NextSleepTime = moved.NextSleepTime = 5f;
         still.Active = moved.Active = 3;
@@ -142,7 +147,7 @@ public class NewParticleManagerTests
     [Fact]
     public void TheBoxIsReportedChangedOnceThenNotWhileItStaysInsideTheBuffer()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         Assert.Equal(NewParticleActions.Changed, ActionsOf(Frame(m, Header(), Effect(1)), 1));
         Assert.Equal(NewParticleActions.None, ActionsOf(Frame(m, Header(), Effect(1)), 1));
     }
@@ -150,7 +155,7 @@ public class NewParticleManagerTests
     [Fact]
     public void AnEffectOutOfTheLeafSystemIsNeverReportedChanged()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         Assert.Equal(NewParticleActions.None, ActionsOf(Frame(m, Header(), Effect(1, NewParticleInFlags.Allocated)), 1));
     }
 
@@ -160,7 +165,7 @@ public class NewParticleManagerTests
     public void AFinishedCollectionIsRemovedAfterItsStep()
     {
         var lib = new FakeLibrary { Answer = _ => new ParticleSimResult { Finished = 1 } };
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         List<NewParticleCommit> commits = Frame(m, Header(), Effect(1));
         Assert.True(ActionsOf(commits, 1).HasFlag(NewParticleActions.Remove));
         Assert.Equal(NewParticleActions.Remove, commits[^1].Actions);
@@ -173,7 +178,7 @@ public class NewParticleManagerTests
     public void AReleasedFinishedEffectIsRemovedWithoutAStep()
     {
         var lib = new FakeLibrary();
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         Frame(m, Header(), Effect(1));
         lib.Stepped.Clear();
         NewParticleIn released = Effect(1, NewParticleInFlags.Allocated | NewParticleInFlags.Released | NewParticleInFlags.RenderHandle);
@@ -186,7 +191,7 @@ public class NewParticleManagerTests
     [Fact]
     public void AReleasedEffectStillBurningIsKept()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         Frame(m, Header(), Effect(1));
         NewParticleIn released = Effect(1, NewParticleInFlags.Allocated | NewParticleInFlags.Released | NewParticleInFlags.RenderHandle);
         Assert.False(ActionsOf(Frame(m, Header(), released), 1).HasFlag(NewParticleActions.Remove));
@@ -197,18 +202,18 @@ public class NewParticleManagerTests
     [Fact]
     public void AViewModelEffectAsksForTheViewModelGroupOnceAtItsFirstFrame()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         NewParticleIn vm = Effect(1, NewParticleInFlags.Allocated | NewParticleInFlags.RenderHandle | NewParticleInFlags.ViewModel);
         Assert.True(ActionsOf(Frame(m, Header(), vm), 1).HasFlag(NewParticleActions.ViewGroup));
         Assert.False(ActionsOf(Frame(m, Header(), vm), 1).HasFlag(NewParticleActions.ViewGroup));
-        Assert.False(ActionsOf(Frame(new NewParticleManager(new FakeLibrary()), Header(), Effect(2)), 2).HasFlag(NewParticleActions.ViewGroup));
+        Assert.False(ActionsOf(Frame(new NewParticleManager(new FakeLibrary(), _settings), Header(), Effect(2)), 2).HasFlag(NewParticleActions.ViewGroup));
     }
 
     // An effect native stopped listing went with its shell.
     [Fact]
     public void AnEffectNativeNoLongerListsIsForgotten()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         Frame(m, Header(), Effect(1), Effect(2));
         Frame(m, Header(), Effect(2));
         Assert.Equal(1, m.Count);
@@ -222,7 +227,7 @@ public class NewParticleManagerTests
     public void ANewEffectIsNeverAskedForAFirstBox()
     {
         var lib = new FakeLibrary();
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         Frame(m, Header(), Effect(1));
         Frame(m, Header(), Effect(1));
         Assert.DoesNotContain("bloat", lib.Calls);
@@ -245,14 +250,14 @@ public class NewParticleManagerTests
         header.ViewOrigin = new Vector(0, 0, 0);
         header.WorldToScreen = new Matrix4x4Raw { M00 = 1, M11 = 1, M22 = 1, M33 = 1 };
 
-        Assert.DoesNotContain(Frame(new NewParticleManager(new FakeLibrary()), header, a, b),
+        Assert.DoesNotContain(Frame(new NewParticleManager(new FakeLibrary(), _settings), header, a, b),
                               c => c.Actions.HasFlag(NewParticleActions.Replace));
 
         // each covers the 640x480 view (the cull point is at the eye): 307,200
         // pixels apiece against a 400,000 budget (the cost is in thousands of
         // pixels), so retiring one fits
-        header.RetireCost = 400f;
-        List<NewParticleCommit> commits = Frame(new NewParticleManager(new FakeLibrary()), header, a, b);
+        _settings.RetireCost.Hold("400");
+        List<NewParticleCommit> commits = Frame(new NewParticleManager(new FakeLibrary(), _settings), header, a, b);
         Assert.Single(commits, c => c.Actions.HasFlag(NewParticleActions.Replace));
     }
 
@@ -260,7 +265,7 @@ public class NewParticleManagerTests
     [Fact]
     public void TheCommitsAreCutToTheBuffer()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         var commits = new NewParticleCommit[1];
         int n = m.Frame(Header(), [Effect(1), Effect(2), Effect(3)], commits);
         Assert.Equal(1, n);
@@ -272,12 +277,13 @@ public class NewParticleManagerTests
     [Fact]
     public void ADistantSystemDrawsNothingStaysAwakeAndShowsAGreyBox()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        _settings.ShowBBox.Hold("1");
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         NewParticleDrawOutRaw output = m.Draw(new NewParticleDrawInRaw
         {
             Id = 1,
             Flags = NewParticleEffect.StudioTransparency,
-            DrawParticles = 1, ClientModeDraws = 1, RenderSystems = 1, ShowBBox = 1,
+            ClientModeDraws = 1, RenderSystems = 1,
             Camera = new Vector(10000, 0, 0),
             MaxDrawDistance = 100f,
             NoDrawTimeToGoToSleep = 8f,
@@ -294,10 +300,10 @@ public class NewParticleManagerTests
     [Fact]
     public void ANearTranslucentSystemRendersNowAndAnOpaqueOneGoesToTheRenderCache()
     {
-        var m = new NewParticleManager(new FakeLibrary());
+        var m = new NewParticleManager(new FakeLibrary(), _settings);
         var draw = new NewParticleDrawInRaw
         {
-            Id = 1, DrawParticles = 1, ClientModeDraws = 1, RenderSystems = 1,
+            Id = 1, ClientModeDraws = 1, RenderSystems = 1,
             MaxDrawDistance = 100f, SkipRenderControlPoint = -1,
         };
         Assert.Equal((int)NewParticleDrawAction.RenderCache, m.Draw(draw).Action);
@@ -313,12 +319,12 @@ public class NewParticleManagerTests
     public void TheEffectsCrossAReload()
     {
         var lib = new FakeLibrary();
-        var m = new NewParticleManager(lib);
+        var m = new NewParticleManager(lib, _settings);
         Frame(m, Header(), Effect(7));
         var writer = new SourceSharp.Client.ReloadWriter();
         m.Save(writer);
 
-        var back = new NewParticleManager(lib);
+        var back = new NewParticleManager(lib, _settings);
         back.Restore(new SourceSharp.Client.ReloadReader(writer.ToArray()));
         Assert.Equal(m.Effect(7)!.Flags, back.Effect(7)!.Flags);
         Assert.Equal((m.Effect(7)!.LastMin, m.Effect(7)!.LastMax), (back.Effect(7)!.LastMin, back.Effect(7)!.LastMax));

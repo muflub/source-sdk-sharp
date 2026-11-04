@@ -231,6 +231,28 @@ public class BonesStudioModelsTests
     }
 
     [Fact]
+    public void AModelAlreadyHeldIsOpenedWithoutAllocating()
+    {
+        (byte[] mdl, byte[] block) = Split();
+        Memory m = new();
+        m.Models[Model] = mdl;
+        m.Blocks[Model] = new Dictionary<int, byte[]> { [1] = block };
+        StudioModels models = new(m);
+        StudioHdr? held = models.OpenStudioHdr(Model);
+        Assert.NotNull(held);
+
+        for (int i = 0; i < 8; i++)
+            models.OpenStudioHdr(Model);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 64; i++)
+            models.OpenStudioHdr(Model);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
+        Assert.Same(held, models.OpenStudioHdr(Model));
+    }
+
+    [Fact]
     public void TheModelsBlocksAreFoldedOnTheWayIn()
     {
         (byte[] mdl, byte[] block) = Split();

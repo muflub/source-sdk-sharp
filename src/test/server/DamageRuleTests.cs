@@ -61,13 +61,13 @@ public class DamageRuleTests
         /// to read this log and not a discarded one.
         /// </summary>
         public GameRules Rules(IHooks<IDamageRule>? chain = null)
-            => new(Log, ConVars, _host, _players,
+            => new(Log, ConVars.Holder<GameRulesConVars>(), _host, _players,
                    Fake().Returns("Entities.IsValid", false),
                    new Scoreboard(_host, new PlayerDisconnectEvent(), new RecordingLog()),
                    new PlayerDeathEvent(), damageRules: chain);
 
-        public void FriendlyFire(string value) => ConVars.Get<FriendlyFireConVar>()!.Bind(-1, "sv_friendlyfire", value);
-        public void SpawnProtect(string value) => ConVars.Get<SpawnProtectConVar>()!.Bind(-1, "cs_sv_spawn_protect", value);
+        public void FriendlyFire(string value) => ConVars.Declared<FriendlyFireConVar>().Bind(-1, "sv_friendlyfire", value);
+        public void SpawnProtect(string value) => ConVars.Declared<SpawnProtectConVar>().Bind(-1, "cs_sv_spawn_protect", value);
         public GameRules Bare() => Rules(null);   // the no-owner arm: no chain at all
     }
 
@@ -132,7 +132,7 @@ public class DamageRuleTests
         rig.FriendlyFire("0");
         var teamRig = Fake().Ignores("Players.FindByUserId", "Players.GetUserId");
         teamRig.Returns("Players.GetTeam", 2);
-        var ff = new GameRules(new RecordingLog(), rig.ConVars,
+        var ff = new GameRules(new RecordingLog(), rig.ConVars.Holder<GameRulesConVars>(),
                                Fake().Returns("Host.ActiveSide", Side.Server), teamRig,
                                Fake().Returns("Entities.IsValid", true),
                                new Scoreboard(Fake().Returns("Host.ActiveSide", Side.Server), new PlayerDisconnectEvent(), new RecordingLog()),

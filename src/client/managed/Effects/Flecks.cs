@@ -212,9 +212,9 @@ public sealed class FleckSheet(FleckSystem system, string material) : IClientPar
     {
         if (_particles.Count > quadsOut.Length)
             return _particles.Count;
-        // Ids descending, as the executor's lookup expects: newest first.
+        // Newest first, as _particles is linked: ids descending.
         int n = 0;
-        foreach (var p in _particles.OrderByDescending(p => p.Id))
+        foreach (var p in _particles)
             quadsOut[n++] = FleckRules.Draw(p).ToRaw(p.Id);
         return n;
     }

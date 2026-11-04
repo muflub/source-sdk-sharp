@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Input;
 
@@ -73,12 +74,17 @@ public sealed partial class ClientInput
 
     // CHud::ProcessInput's one element here: the weapon selection.
     private readonly IHudProcessInput? _hud;
+    private readonly SvCheatsConVar _cheats;
+    private readonly JoyXControllerFoundConVar _xControllerFound;
 
     public ClientInput(IInputHost host, IInputDevices devices, InputCvars cvars,
+                       SvCheatsConVar cheats, JoyXControllerFoundConVar xControllerFound,
                        IMenuInputGate? menu = null, bool isPc = true, IInputMailbox? mailbox = null,
                        IHudProcessInput? hud = null)
     {
         _hud = hud;
+        _cheats = cheats;
+        _xControllerFound = xControllerFound;
         _mailbox = mailbox;
         _host = host;
         _devices = devices;
@@ -87,7 +93,7 @@ public sealed partial class ClientInput
         _isPc = isPc;
         Buttons = new KeyButtons();
         _digitalActions = new DigitalActionState[DigitalGameActions.Length];
-        _thirdPerson = new ThirdPersonManager(this, host, cvars);
+        _thirdPerson = new ThirdPersonManager(this, host, cheats, cvars);
         _joyMovementStickHook = _ => _host.ClientCmdUnrestricted("joyadvancedupdate");
         _cvars.JoyMovementStick.Changed += _joyMovementStickHook;
         _cvars.ThirdPerson.Changed += cvar => _thirdPerson.ToggleThirdPerson(cvar.Bool);

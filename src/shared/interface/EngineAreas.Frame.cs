@@ -38,13 +38,6 @@ namespace SourceSharp.Abi;
 public interface IEngineFrame
 {
     /// <summary>
-    /// Whether this server simulates on every other tick. A QUESTION, not a
-    /// decision: the branch it feeds is in C#, so the alternate-tick arm reads
-    /// as the four lines stock writes rather than as a native early return.
-    /// </summary>
-    bool IsSimulatingOnAlternateTicks();
-
-    /// <summary>
     /// The simulation tick counter — <c>gpGlobals-&gt;tickcount</c>, loaded
     /// through <c>Globals</c> when the engine's struct is bound.
     ///

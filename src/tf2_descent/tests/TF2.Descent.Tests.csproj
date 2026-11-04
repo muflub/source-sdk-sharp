@@ -27,4 +27,8 @@
     <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
+    <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
+  </ItemGroup>
 </Project>

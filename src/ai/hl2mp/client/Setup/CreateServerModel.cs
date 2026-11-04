@@ -4,6 +4,10 @@ using SourceSharp.Shared;
 
 namespace SourceSharp.Ai.Hl2mp.Client.Setup;
 
+/// <summary><c>ai_bot_reroll_on_map</c>: the server declares it; the page reads what is archived.</summary>
+[EngineConVar(CreateServerModel.RerollConVar)]
+public sealed class AiBotRerollOnMapConVar : BoolConVar { }
+
 /// <summary>
 /// The bots page's state and what Start runs for it (plan_hl2mp_ai §3.5):
 /// preset bots at a difficulty stop and the custom bots, within the player
@@ -13,7 +17,7 @@ namespace SourceSharp.Ai.Hl2mp.Client.Setup;
 /// bot again.
 /// </summary>
 [SideService(Side.Client, As = [typeof(ICreateServerSource), typeof(ICreateServerActions)])]
-public sealed class CreateServerModel(IFwdEngineClient engine, IEngineConsole console, CustomBots customs, BotEditorModel editor)
+public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapConVar reroll, CustomBots customs, BotEditorModel editor)
     : ICreateServerSource, ICreateServerActions
 {
     public const int PlayersMin = 2;
@@ -78,7 +82,7 @@ public sealed class CreateServerModel(IFwdEngineClient engine, IEngineConsole co
     /// <summary>The server's archived cvar, until the page's box has said otherwise.</summary>
     public bool NewBotsEachMap
     {
-        get => _newBotsEachMap ??= console.FindConVarValue(RerollConVar) is "1";
+        get => _newBotsEachMap ??= reroll.Value;
         private set => _newBotsEachMap = value;
     }
 

@@ -85,8 +85,8 @@ public class PlayerModelsTests
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(PlayerModels).Assembly);
         if (teamplay)
-            convars.Get<TeamPlayConVar>()!.NotifyChanged("1", "0");
-        rig.Models = new PlayerModels(rig.Clients, engine, engine, engine, engine, engine, rig.Said, rig.Teams, convars,
+            convars.Declared<TeamPlayConVar>().NotifyChanged("1", "0");
+        rig.Models = new PlayerModels(rig.Clients, engine, engine, engine, engine, engine, rig.Said, rig.Teams, convars.Declared<TeamPlayConVar>(),
                                       owners.Length == 0 ? null : new Owners(owners));
         return rig;
     }

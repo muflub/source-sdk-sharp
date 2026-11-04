@@ -56,7 +56,7 @@ public class IntermissionTests
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
         var console = new Console();
-        var it = new Intermission(new RecordingLog(), convars, registry, engine, engine, engine, console, engine,
+        var it = new Intermission(new RecordingLog(), convars.Declare<MpChatTimeConVar>(), convars.Declare<NextLevelConVar>(), convars.Declare<MapCycleFileConVar>(), registry, engine, engine, engine, console, engine,
                                   gates.Length == 0 ? null : new ListHooks<IRoundEndGate>(gates));
         it.LevelInit("dm_lockdown", 0f);
         engine.Clear();
@@ -194,7 +194,7 @@ public class IntermissionTests
               .Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GetTeam");
         var deaths = new PlayerDeathEvent();
         var board = new Scoreboard(engine, new PlayerDisconnectEvent(), new RecordingLog());
-        var rules = new GameRules(new RecordingLog(), convars, engine, engine, engine, board, deaths, it);
+        var rules = new GameRules(new RecordingLog(), convars.Holder<GameRulesConVars>(), engine, engine, engine, board, deaths, it);
         rules.ResetRound();
         Set(convars, "mp_fraglimit", "2");
 
@@ -216,7 +216,7 @@ public class IntermissionTests
     {
         var (it, engine, _, convars) = Rig();
         engine.Returns("Host.ActiveSide", Side.Server).Returns("Host.CurrentTime", 0f);
-        var rules = new GameRules(new RecordingLog(), convars, engine, engine, engine,
+        var rules = new GameRules(new RecordingLog(), convars.Holder<GameRulesConVars>(), engine, engine, engine,
                                   new Scoreboard(engine, new PlayerDisconnectEvent(), new RecordingLog()), new PlayerDeathEvent(), it);
         ((IGameLifecycle)rules).OnLevelInit("dm_lockdown");
         Set(convars, "mp_timelimit", "1");

@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 
 using TF2.Tests.Ctf;
 
@@ -70,6 +71,66 @@ public sealed class TFCloakTests
         rig.Slice.Tick(102f);
 
         Assert.Equal(100f, rig.State.CloakMeter, 4);
+    }
+
+    /// <summary>A plain bonus attribute of one hook class, as the audit rows carry it.</summary>
+    private static IAttributeProvider Attr(string hook, float value)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(5110, "attr 5110", hook, AttributeDescriptionFormat.Percentage,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
+    }
+
+    [Fact]
+    public void ConsumeRateScalesTheDrain()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 100f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Attr("mult_cloak_meter_consume_rate", 0.75f);
+        rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
+
+        rig.Slice.Tick(100f);
+        rig.Slice.Tick(101f);
+
+        // tf_weapon_invis.cpp:326-338: the schema's inverse-scaled 0.75 is
+        // corrected to the factor 1/(2 - 0.75) = 0.8, so the drain answers
+        // 10/sec * 0.8 — stock's own worked example (:329-332).
+        Assert.Equal(92f, rig.State.CloakMeter, 4);
+    }
+
+    [Fact]
+    public void RegenRateScalesTheRefill()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 50f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = Attr("mult_cloak_meter_regen_rate", 2f);
+
+        rig.Slice.Tick(100f);
+        rig.Slice.Tick(101f);
+
+        // tf_weapon_invis.cpp:340-343: the regen hook multiplies the convar
+        // outright: 3.3/sec * 2.
+        Assert.Equal(56.6f, rig.State.CloakMeter, 3);
+    }
+
+    [Fact]
+    public void AStockWatchKeepsStocksRates()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 100f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = new AttributeContainer(null, AttributeProviderType.Generic);
+        rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
+
+        rig.Slice.Tick(100f);
+        rig.Slice.Tick(101f);
+        Assert.Equal(90f, rig.State.CloakMeter, 4);
+
+        rig.Conditions.Remove(SpyRig.Spy, TFCond.Stealthed);
+        rig.Slice.Tick(102f);
+        Assert.Equal(93.3f, rig.State.CloakMeter, 3);
     }
 
     [Fact]

@@ -40,6 +40,23 @@ public sealed class TFWeaponCompositionTests
         public void Reconnect(int entIndex) { }
     }
 
+    /// <summary>The bots as the server container needs them: nobody is a bot, as the
+    /// engine fake's own answer; BotInventory's log names through it.</summary>
+    private sealed class NoBots : SourceSharp.Server.IBotPlayers
+    {
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        {
+            refusal = "the composition fake adds no clients";
+            return EntityHandle.None;
+        }
+
+        public bool IsBot(EntityHandle player) => false;
+
+        public bool Kick(EntityHandle bot, string reason) => false;
+
+        public IReadOnlyList<SourceSharp.Server.BotPlayer> Bots { get; } = [];
+    }
+
     private sealed class ClientFiles(TFClassTableTests.Files files) : CAbi.IEngineFiles
     {
         public int GameFileSize(string path) => files.GameFileSize(path);
@@ -91,14 +108,28 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(new TF2.Shared.MpStalemateMeleeOnlyConVar());
         c.AddInstance(new TF2.Shared.TFStalemateChangeClassTimeConVar());
         // The projectile effects (2.8) find their spawned entities through the
-        // registry; the composition here answers none.
+        // registry; the composition here answers none. Their sticky arms (F25)
+        // stamp and cap from the sticky's convars, which ServerModule
+        // registers over the scan as the game's composition does.
         c.AddInstance<IEntityDirectory>(new TF2.Tests.Combat.NoEntities());
+        c.AddInstance(new TF2.Shared.TFGrenadeLauncherLiveTimeConVar());
+        c.AddInstance(new TF2.Shared.TFStickyRadiusRampTimeConVar());
+        c.AddInstance(new TF2.Shared.TFStickyAirDetRadiusConVar());
+        c.AddInstance(new TFPipebombDeflectResetTimeConVar());
+        c.AddInstance(new TFGrenadeForceFromBulletConVar());
+        c.AddInstance(new TFGrenadeForceFromBuckshotConVar());
+        c.AddInstance(new TFGrenadeForceFromBlastConVar());
+        c.AddInstance(new TFPipebombForceToMoveConVar());
+        c.AddInstance(new TFGrenadeForceSleeptimeConVar());
         // The medigun's owner (2.9): the healing behind the beam answers over the player
         // services, whose leaves (game events, the loadout's mod-info and connected-clients
         // lines, and the healing's three convars) join the container the same way.
         c.AddInstance<IEngineGameEvents>(engine);
         c.AddInstance<IModInfo>(new ModInfo(_ => null));
         c.AddInstance<IConnectedClients>(new Nobody());
+        // BotInventory (F19) names the bots through the seam; ServerModule registers
+        // it over the engine's fake clients at runtime, so it joins here too.
+        c.AddInstance<SourceSharp.Server.IBotPlayers>(new NoBots());
         var convars = ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>());
         convars.RegisterAll(typeof(TFWeaponBehaviour).Assembly);
         c.AddInstance(convars);
@@ -165,7 +196,7 @@ public sealed class TFWeaponCompositionTests
         var c = Server();
 
         var types = Assert.Single(c.ResolveAll<IWeaponTypeSource>().OfType<TFWeaponTypes>());
-        Assert.Equal(32, types.Rows().Count());
+        Assert.Equal(33, types.Rows().Count());
         // The carrier's clip rows are keyed by this catalog's index: a wider
         // catalogue than the row count would silently drop weapons' clips.
         Assert.True(TF2.Shared.Player.TFPlayerNetState.ClipRows >= types.Rows().Count());
@@ -232,10 +263,10 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<CAbi.IEngineWorldQuery>(engine);
         c.AddInstance<CAbi.IEngineEffects>(engine);
         var cloakVars = PredictionDeps.SpyConVars();
-        c.AddInstance(cloakVars.Get<CTF.TFSpyCloakConsumeRateConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyCloakRegenRateConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyInvisTimeConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyInvisUnstealthTimeConVar>()!);
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakConsumeRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakRegenRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisTimeConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisUnstealthTimeConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
         return c;
     }

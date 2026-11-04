@@ -41,6 +41,7 @@ public sealed class SenseWorld
         public AiVector Angles;
         public AiVector Velocity;
         public float EyeHeight = 64f;
+        public bool Ducked;
         public AiVector Punch;
         public bool Alive = true;
         public string Weapon = "weapon_smg1";
@@ -72,6 +73,13 @@ public sealed class SenseWorld
         => Boxes.Add(new Box(min, max, contents, entity == 0 ? EntityHandle.None : new EntityHandle((uint)entity)));
 
     private Player By(EntityHandle h) => Players.Single(p => p.Handle == h);
+
+    private sealed class Stances(SenseWorld world) : IPlayerStances
+    {
+        public bool Ducked(EntityHandle player) => world.By(player).Ducked;
+    }
+
+    public IPlayerStances Stance() => new Stances(this);
 
     private static Vector V(AiVector v) => new(v.X, v.Y, v.Z);
 

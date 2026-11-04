@@ -50,7 +50,6 @@ internal unsafe class DefaultMovementArea : IMovementArea
 {
     public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { }
     public int MoveEffect(int a0, float* a1, float a2, int a3) => default;
-    public float CurrentGravity() => default;
     public void RegisterMovementParams(MovementParams* a0) { }
 }
 
@@ -78,6 +77,8 @@ internal sealed unsafe class DefaultConsoleArea : IConsoleArea
     public int ConsoleSnapshot() => default;
     public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) => default;
     public int FindConVarFlags(byte* a0) => -1;
+    public int CompleteCommandLine(byte* a0, byte* a1, int a2) => default;
+    public int WatchNamedConVar(byte* a0) => default;
 }
 
 /// <summary><see cref="IConsoleServerArea"/> for a test with no engine: every call answers its default.</summary>
@@ -395,6 +396,8 @@ internal sealed unsafe class DefaultEffectsRenderClientArea : IEffectsRenderClie
     public int ParticleSystemStartSlot(uint a0, byte* a1, int a2) => default;
     public void ParticleSystemStopSlot(uint a0, int a1) { }
     public int ParticleSystemFollowEntitySlot(uint a0, int a1, uint a2, int a3, int a4, float* a5) => default;
+    public int ParticleSystemSetPoints(uint a0, int a1, int a2, float* a3, int a4) => default;
+    public void ParticleSystemViewModelSlot(uint a0, int a1, int a2) { }
 }
 
 /// <summary><see cref="IStandaloneClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -425,6 +428,7 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void SurfaceSetPlan(uint a0, int* a1, int a2) { }
     public void ClientInterpAdmitted(uint* a0, int a1) { }
     public void EntitySetModelOverride(uint a0, byte* a1) { }
+    public void StandaloneSetShadowHull(uint a0, int a1) { }
 }
 
 /// <summary><see cref="IViewClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -512,6 +516,7 @@ internal sealed unsafe class DefaultUiClientArea : IUiClientArea
     public void ClientModeLayout() { }
     public void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4) { }
     public int UiMaterialTexture(byte* a0) => default;
+    public void UiDrawMesh(int a0, float* a1, uint* a2, int a3, ushort* a4, int a5) { }
 }
 
 /// <summary><see cref="IParticlesClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -643,8 +648,8 @@ internal sealed unsafe class DefaultPhysicsClientArea : IPhysicsClientArea
 /// <summary><see cref="IConVarsClientArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultConVarsClientArea : IConVarsClientArea
 {
-    public int ConVarsClientWatch(byte* a0) => default;
     public int ConVarsClientSetValue(byte* a0, float a1) => default;
+    public int ConVarsClientAddFlags(byte* a0, int a1) => default;
 }
 
 /// <summary><see cref="IFlashlightClientArea"/> for a test with no engine: every call answers its default.</summary>

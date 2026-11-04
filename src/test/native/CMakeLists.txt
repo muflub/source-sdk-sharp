@@ -2038,6 +2038,12 @@ ss_cpptest(engine_utlvector_append_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/engine_utlvector_append_test.cpp)
 
+# ss::AppendSuggestionLines and friends (console_suggestions.h): a command's suggestions
+# between the engine's vector and the buffer they cross to managed in. Header-only.
+ss_cpptest(console_suggestions_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/console_suggestions_test.cpp)
+
 # SourceSharp_FatalReport: a failed assert or Error() reports to stderr and to
 # $SOURCESHARP_ASSERT_DIR/assert-<pid>.txt and exits 253 (-3). Death tests.
 # The dev API's exit record, native half: the signal recorder notes the
@@ -2547,6 +2553,14 @@ ss_cpptest(standalone_fb_texture_test
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES public public/tier0 public/tier1
     SOURCES sourcesharp/test/standalone_fb_texture_test.cpp)
+
+# The placing shadow's box (standalone_shadow_hull.h, header-only): the
+# collision hull widened by (10, 10, 0), stock's placing arm of
+# GetShadowRenderBounds (c_obj_sentrygun.cpp:588) -- not the model's render
+# bounds, which for the sentry blueprint is the map-sized box its art was
+# authored in, and shadowed the floor half a screen from the entity.
+ss_cpptest(standalone_shadow_hull_test
+    SOURCES sourcesharp/test/standalone_shadow_hull_test.cpp)
 
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.

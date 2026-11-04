@@ -304,6 +304,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         public EntityHandle Weapon;     // ss_weapon, or None until first give
         public EntityHandle ViewModel;  // predicted_viewmodel, beside it
         public EntityHandle Attachment; // ss_viewmodel_attachment, the row's own model riding the hands (None while there are none)
+        // The row's attached models (the flamethrower's pilot light), one
+        // ss_attached_model per entry the pool has ever needed; a switch to a
+        // row with fewer hides the extras rather than removing them.
+        public readonly List<EntityHandle> AttachedModels = new();
         public readonly List<Owned> Weapons = new();
         public readonly Dictionary<string, int> Ammo = new(StringComparer.OrdinalIgnoreCase);
         public int ActiveSlot = -1;
@@ -838,9 +842,21 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         ShowHeld(carry, owned.TypeIndex + 1);
         weapon.State.Clip = ClipSizeOf(in type, carry.Player) > 0 ? owned.Clip : -1;
         weapon.State.InReload = false;
-        weapon.State.NextPrimaryAttack = now + type.DeployTime;
-        weapon.State.NextSecondaryAttack = now + type.DeployTime;
-        weapon.State.TimeWeaponIdle = now + type.DeployTime;
+
+        // Stock's CTFWeaponBase::Deploy times its switch through the deploy
+        // multiplier (tf_weaponbase.cpp:1255-): the incoming item always, the
+        // outgoing item once its hold passes the switch. The outgoing
+        // weapon's name and last-deploy stamp are what this entity still
+        // carries until the writes below replace them — LastTypeIndex names
+        // the outgoing slot only when this deploy came from a real change.
+        string previousWeapon = _weapons.ByIndex(carry.LastTypeIndex) is { } outgoingRow
+            ? outgoingRow.Name
+            : "";
+        float delay = DeployDelayOf(in type, _entities.GetIndex(carry.Player), previousWeapon,
+                                    now - weapon.State.LastDeployTime);
+        weapon.State.NextPrimaryAttack = now + delay;
+        weapon.State.NextSecondaryAttack = now + delay;
+        weapon.State.TimeWeaponIdle = now + delay;
 
         // The deploy's own stamp, beside the clocks it writes together: the
         // spawn kit's Deploy and the round-start respawn's reach the client
@@ -849,6 +865,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // judging the OTHER deploy's clocks against it. Deploy is the stamp's
         // only writer: the machine's field-by-field writes stay judgable.
         weapon.State.DeployEpoch++;
+        weapon.State.LastDeployTime = now;
         weapon.State.LastButtons = 0;
         weapon.State.Special = owned.Special;
         weapon.State.SpecialTime = owned.SpecialTime;
@@ -889,7 +906,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         int? skin = _viewmodelSkin.Skin(_entities.GetIndex(carry.Player), type);
         if (skin is int dressed)
             viewModel.State.Skin = dressed;
-        DressAttachment(carry, chosen, type.ViewModel, skin);
+        bool attachmentShown = DressAttachment(carry, chosen, type.ViewModel, skin);
+        DressAttachedModels(carry, in type, attachmentShown, skin);
 
         _render.SetVisible(carry.Weapon, true);
         _render.SetVisible(carry.ViewModel, true);
@@ -986,14 +1004,28 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             : type.ClipSize;
 
     /// <summary>
+    /// The delay a deploy leaves on the clocks: the row's own seconds through
+    /// the behaviour's <see cref="IWeaponBehaviour.ModifyDeployTime"/> —
+    /// stock's deploy multiplier (<c>tf_weaponbase.cpp:1255-</c>). The client's
+    /// mirror asks with the same numbers (its own index, the carrier's item
+    /// words, its own copy of the stamp), so the predicted clocks match.
+    /// </summary>
+    private float DeployDelayOf(in WeaponType type, int ownerIndex, string previousWeapon,
+                                float secondsSincePreviousDeploy) =>
+        _behaviours.For(type.Behaviour) is { } behaviour
+            ? behaviour.ModifyDeployTime(in type, type.DeployTime, ownerIndex, previousWeapon, secondsSincePreviousDeploy)
+            : type.DeployTime;
+
+    /// <summary>
     /// The attachment half of a deploy: the row's own model rides the hands
     /// when the chain named something else for the viewmodel, and is hidden
     /// again when the viewmodel is the row's own. Created the first deploy
     /// that wants it — stock's <c>UpdateAttachmentModels</c> creates and
     /// destroys on the same condition, and a mod whose chain never answers
-    /// never pays for the entity.
+    /// never pays for the entity. Answers whether it is shown, which is also
+    /// the attached models' viewmodel host (<see cref="DressAttachedModels"/>).
     /// </summary>
-    private void DressAttachment(Carry carry, string? chosen, string rowViewModel, int? skin = null)
+    private bool DressAttachment(Carry carry, string? chosen, string rowViewModel, int? skin = null)
     {
         // An EMPTY row model is stock's display-model-of-"": the attachment
         // entity is created (the item attaches to hands) but names no model, so
@@ -1003,7 +1035,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         {
             if (_entities.IsValid(carry.Attachment))
                 _render.SetVisible(carry.Attachment, false);
-            return;
+            return false;
         }
 
         if (carry.Attachment == EntityHandle.None || !_entities.IsValid(carry.Attachment))
@@ -1028,6 +1060,64 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (skin is int attachmentSkin)
                 _skins?.SetSkin(carry.Attachment, attachmentSkin);
             _render.SetVisible(carry.Attachment, true);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The row's attached models (stock's <c>UpdateAttachmentModels</c> copying
+    /// <c>m_vecAttachedModels</c>), one <see cref="SsAttachedModel"/> per entry:
+    /// the bearer's bones carry them all, the weapon's in the world and — for
+    /// the copy the client puts in the viewmodel pass — the hands' attachment
+    /// when this deploy created one, else the viewmodel wearing the row's own
+    /// model (stock's <c>m_hViewmodelAttachment</c>, whose bones are the
+    /// viewmodel's either way). Created on first need and hidden, not removed,
+    /// when a later row wants fewer; the skin is the viewmodel's, which stock
+    /// copies onto every attached model (econ_entity.cpp:1196).
+    /// </summary>
+    private void DressAttachedModels(Carry carry, in WeaponType type, bool attachmentShown, int? skin)
+    {
+        var wanted = type.AttachedModels;
+
+        for (int i = wanted.Length; i < carry.AttachedModels.Count; i++)
+            _render.SetVisible(carry.AttachedModels[i], false);
+
+        for (int i = 0; i < wanted.Length; i++)
+        {
+            if (i >= carry.AttachedModels.Count || !_entities.IsValid(carry.AttachedModels[i]))
+            {
+                var created = _entities.Create(EntityNames.SsAttachedModel);
+                _entities.SetOrigin(created, _entities.GetOrigin(carry.Player));
+                _entities.Spawn(created);
+
+                // Sent to everyone, like the pair beside it: the model rides
+                // the carrier's bones, and the dormancy trap that took the
+                // transmit-always mark on the viewmodel waits here too.
+                _render.SetTransmitAlways(created, true);
+
+                if (i < carry.AttachedModels.Count)
+                    carry.AttachedModels[i] = created;
+                else
+                    carry.AttachedModels.Add(created);
+            }
+
+            var attached = carry.AttachedModels[i];
+
+            if (_directory.Get(attached) is SsAttachedModel model)
+            {
+                model.State.OwnerIndex = _entities.GetIndex(carry.Player);
+                model.State.WeaponIndex = _entities.GetIndex(carry.Weapon);
+                model.State.HostIndex = _entities.GetIndex(attachmentShown ? carry.Attachment : carry.ViewModel);
+                model.State.Flags = (int)wanted[i].DisplayFlags;
+            }
+
+            _render.SetModel(attached, wanted[i].Model);
+
+            if (skin is int dressed)
+                _skins?.SetSkin(attached, dressed);
+
+            _render.SetVisible(attached, true);
         }
     }
 
@@ -1205,6 +1295,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         if (shot)
             Tell(player, type, PlayerWeaponEvent.Fired, fired);
+        // A shotgun's both barrels and a frag let go underhand take what any shot does; a pool of its own says so itself.
+        if (secondary || (shot && _weapons.ByIndex(type) is { } row
+                          && ((row.Secondary is { FromClip: true } barrels && fired >= barrels.AmmoCost)
+                              || (row.Behaviour == Hl2mpWeaponBehaviours.Frag && w.AttackPaused == Hl2mpWeaponBehaviours.FragPausedSecondary))))
+            Tell(player, type, PlayerWeaponEvent.AltFired, 1);
         if (reload)
         {
             (carry.ToldReloadType, carry.ToldReloadClip) = (type, w.Clip);
@@ -1619,6 +1714,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         _render.SetVisible(carry.ViewModel, false);
         _render.SetVisible(carry.Attachment, false);
 
+        // And the attached models with the hands: the previous weapon's pilot
+        // light must not keep burning on a dead player's frame.
+        foreach (var attached in carry.AttachedModels)
+            _render.SetVisible(attached, false);
     }
 
     /// <summary>Forgets a player and removes their carried entities.</summary>
@@ -1636,6 +1735,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _entities.Remove(carry.ViewModel);
         if (_entities.IsValid(carry.Attachment))
             _entities.Remove(carry.Attachment);
+
+        foreach (var attached in carry.AttachedModels)
+            if (_entities.IsValid(attached))
+                _entities.Remove(attached);
 
         _carries.Remove(player.Value);
     }
@@ -1817,10 +1920,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// <summary>One player's holdings, for the console report and the tests.</summary>
     public IReadOnlyList<(string ClassName, int Clip, bool Active)> Holdings(EntityHandle player)
     {
-        var lines = new List<(string, int, bool)>();
-
         if (!_carries.TryGetValue(player.Value, out var carry))
-            return lines;
+            return [];
+
+        var lines = new List<(string, int, bool)>(carry.Weapons.Count);
 
         for (int slot = 0; slot < carry.Weapons.Count; slot++)
         {
@@ -1839,6 +1942,17 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         return lines;
+    }
+
+    /// <summary>The name <see cref="Holdings"/> answers as active, without the list; empty for none.</summary>
+    public string ActiveWeaponName(EntityHandle player)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry)
+            || carry.ActiveSlot < 0 || carry.ActiveSlot >= carry.Weapons.Count)
+            return "";
+
+        int type = carry.Weapons[carry.ActiveSlot].TypeIndex;
+        return _weapons.ByIndex(type)?.Name ?? $"#{type}";
     }
 
     /// <summary>

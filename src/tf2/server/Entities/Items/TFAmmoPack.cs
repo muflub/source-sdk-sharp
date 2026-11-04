@@ -31,7 +31,9 @@ namespace TF2.Server.Entities.Items;
 /// </para>
 /// </summary>
 [ScriptedEntity(Class, ScriptedEntityKind.Prop)]
-public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices, ConVarRegistry convars,
+public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
+                               TFWeaponRagdollVelocityMinConVar velocityMin, TFWeaponRagdollVelocityMaxConVar velocityMax,
+                               TFWeaponRagdollMaxSpeedConVar ragdollMaxSpeed,
                                IUniformRandom random, IEngineEntityRender render,
                                ITFPlayerStats? stats = null) : ScriptedEntity
 {
@@ -206,12 +208,11 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices, 
         var impulse = up * random.RandomFloat(-0.25f, 0.25f)
                     + right * random.RandomFloat(-0.25f, 0.25f);
         impulse = impulse.Normalized;
-        impulse *= random.RandomFloat(ConVar<TFWeaponRagdollVelocityMinConVar>().Value,
-                                      ConVar<TFWeaponRagdollVelocityMaxConVar>().Value);
+        impulse *= random.RandomFloat(velocityMin.Value, velocityMax.Value);
         impulse += Entities.GetVelocity(Handle);
 
         float speed = impulse.Length;
-        float maxSpeed = ConVar<TFWeaponRagdollMaxSpeedConVar>().Value;
+        float maxSpeed = ragdollMaxSpeed.Value;
         if (speed > maxSpeed)
             impulse *= maxSpeed / speed;
 
@@ -340,12 +341,4 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices, 
             case TFAmmo.Grenades1: _ammoGrenades1 = count; break;
         }
     }
-
-    /// <summary>
-    /// Stock reads these live from the three <c>FCVAR_CHEAT|FCVAR_DEVELOPMENTONLY</c>
-    /// convars it declares (:112-114); a missing declaration is a startup bug.
-    /// </summary>
-    private T ConVar<T>() where T : ConVarBase
-        => convars.Get<T>() ?? throw new InvalidOperationException(
-            $"tf_ammo_pack reads {typeof(T).Name}, which is not registered");
 }

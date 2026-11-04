@@ -10,11 +10,14 @@ namespace SourceSharp.Client;
 /// managed, to its service: Rumble's mixer is ClientRumble (lane c6-input).
 /// Registered by the client module for the handlers in SourceSharp.Shared.
 /// </summary>
-public sealed class ClientMessageEffects(IEngineHud hud, Func<Vgui.IUiRuntime?>? ui = null, Func<Voice.VoiceStatus?>? voice = null,
+public sealed class ClientMessageEffects(IEngineHud hud, Vgui.HudTakesShotsConVar takesShots, Func<Vgui.IUiRuntime?>? ui = null, Func<Voice.VoiceStatus?>? voice = null,
                                           Action<Rumble>? rumble = null, Func<Render.ViewEffectsHost?>? viewEffects = null,
                                           IGameClock? clock = null)
     : IClientMessageEffects
 {
+    /// <inheritdoc/>
+    public bool ScoreboardTakesShots => takesShots.Value;
+
     /// <summary>stock's __MsgFunc_Shake: the managed view effects (C7).</summary>
     public void Shake(Shake message)
         => viewEffects?.Invoke()?.Shake((ShakeCommand)message.Command, message.Amplitude, message.Frequency, message.Duration);

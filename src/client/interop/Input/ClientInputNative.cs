@@ -51,8 +51,6 @@ internal sealed unsafe class ClientInputHost : IInputHost
 
     public void ClientCmdUnrestricted(string command) => _engineClient.ClientCmdUnrestricted(command);
 
-    public string? EngineConVar(string name) => _console.FindConVarValue(name);
-
     public void Msg(string text) => _console.Msg(text);
 
     public void ConsolePrintAt(int line, string text) => _engineClient.ConsolePrintAt(line, text);

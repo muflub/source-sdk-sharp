@@ -20,7 +20,7 @@ namespace SourceSharp.Client.TempEnts;
 /// </summary>
 public sealed class ClientTempEntDecisions(TempEntRender render, TempEntBreakGroups groups, MuzzleFlashes muzzle,
                                            TempEntAttachments attach, ClientTempEntPool pool,
-                                           TempEntSpawns spawns, IFxTempEntModels models, IEngineConsole console)
+                                           TempEntSpawns spawns, IFxTempEntModels models, EjectBrassConVar ejectBrass)
     : IClientTempEntHost, ITempModelSpawner, ILegacyBrass
 {
     /// <summary>CTempEnts::LevelInit's models, in its order: the muzzle sprites, then the three shells.</summary>
@@ -66,10 +66,7 @@ public sealed class ClientTempEntDecisions(TempEntRender render, TempEntBreakGro
 
     public void EjectBrass(in Vector origin, in QAngle angles, in QAngle gunAngles, int type)
     {
-        // Whether or not to eject brass from weapons: ConVar::GetBool, the value's whole part.
-        string? eject = console.FindConVarValue("cl_ejectbrass");
-        if (eject is not null && float.TryParse(eject, System.Globalization.NumberStyles.Float,
-                                                System.Globalization.CultureInfo.InvariantCulture, out float f) && (int)f == 0)
+        if (!ejectBrass.Value)
             return;
 
         if (type < 0 || type >= Shells.Count)

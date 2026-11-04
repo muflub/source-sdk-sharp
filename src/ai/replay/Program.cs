@@ -150,6 +150,19 @@ if (args.Length >= 3 && args[0] == "tactics")
     return 0;
 }
 
+if (args.Length >= 2 && args[0] == "threat")
+{
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        (List<ThreatRow> rows, double minutes, Dictionary<int, string> weapons) = AiThreat.Read(input);
+        Console.WriteLine($"ai-replay: threat {Path.GetFileName(rec)}");
+        Console.Write(AiThreat.Table(rows, minutes, weapons));
+    }
+
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] == "jank")
 {
     int empty = 0;
@@ -170,6 +183,14 @@ if (args.Length >= 2 && args[0] == "jank")
 
     return empty == 0 ? 0 : 1;
 }
+//   chat-places <nav3d> <bsp> <help.json>
+if (args.Length >= 4 && args[0] == "chat-places")
+    return ChatTruth.Places(args[1..]);
+
+//   chat-truth <url> <nav3d> <bsp> <help.json> <chat.json> <out.md> <model>
+if (args.Length >= 1 && args[0] == "chat-truth")
+    return ChatTruth.Run(args[1..]);
+
 //   chat-eval <url> <console.log> <chat.json> <out.md> <lines> <model>...
 if (args.Length >= 1 && args[0] == "chat-eval")
     return ChatEval.Run(args[1..]);

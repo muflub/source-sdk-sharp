@@ -268,10 +268,7 @@ public:
 
 	virtual bool GetShadowCastDirection(Vector*, ShadowType_t) const OVERRIDE { return false; }
 
-	virtual void GetShadowRenderBounds(Vector& mins, Vector& maxs, ShadowType_t) OVERRIDE
-	{
-		GetRenderBounds(mins, maxs);
-	}
+	virtual void GetShadowRenderBounds(Vector& mins, Vector& maxs, ShadowType_t) OVERRIDE;
 
 	virtual bool IsShadowDirty() OVERRIDE { return false; }
 
@@ -396,6 +393,10 @@ protected:
 public:
 	void SetCustomDraw(const Vector& mins, const Vector& maxs);
 
+	// The shadow is the collision hull widened (stock's placing arm,
+	// c_obj_sentrygun.cpp:588) rather than the model's render bounds.
+	void SetShadowHull(bool bShadowHull);
+
 	// Style 0 never fades.
 	void SetFade(int nStyle, float flStartDist, float flEndDist, float flMinAlpha);
 
@@ -498,6 +499,8 @@ private:
 	int m_nNetworkedModelIndex;
 
 	bool m_bIgnoreZ;
+
+	bool m_bShadowHull = false;
 
 	// -1 before any; the decoder writes the index without this side running.
 	int m_nPublishedModelIndex;

@@ -434,7 +434,116 @@
     3.0
    ]
   },
-  "prefireChance": {
+  "fragKnack": {
+      "skill": "cunning",
+      "direction": "up",
+      "note": "how much of fragChance a bot's level of Cunning lets through: knowing a grenade is what this moment wants. The difficulty's say in it, where fragChance is the bot's taste (\u00a75.4, \u00a712.3)",
+      "levels": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.45,
+        0.75,
+        0.9,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "fragChance": {
+      "skill": "aggression",
+      "direction": "up",
+      "reads": "style",
+      "note": "how readily a bot with a reason switches to a frag, drawn at most once per Hl2mpDecider.FragCheckSeconds (\u00a75.4, ruling 2026-11-03): a favourite shows at any difficulty",
+      "levels": [
+        0.02,
+        0.03,
+        0.05,
+        0.07,
+        0.1,
+        0.13,
+        0.16,
+        0.2,
+        0.25,
+        0.3,
+        0.35
+      ]
+    },
+    "fragAimDeg": {
+      "skill": "cunning",
+      "direction": "down",
+      "note": "the standard deviation of where a throw goes, degrees, one draw a throw: nobody's arc is perfect",
+      "levels": [
+        14,
+        12,
+        10,
+        8,
+        6.5,
+        5,
+        4,
+        3,
+        2.5,
+        2,
+        1.5
+      ]
+    },
+    "fragCareless": {
+      "skill": "cunning",
+      "direction": "down",
+      "note": "the chance a bot does not look before it throws, so a rail or a door frame can send one back: a person's mistake, and none from Hard's spend up (SkillCurves.CarefulFromPoints)",
+      "levels": [
+        0.3,
+        0.25,
+        0.2,
+        0.15,
+        0.1,
+        0.05,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "aimRise": {
+      "skill": "accuracy",
+      "direction": "up",
+      "note": "how far over the shoulder point a good hand keeps its crosshair, units: nearer the head, three times the damage. Hard's height, none at Medium's level (\u00a73.4.1, user 2026-11-03: Hard may rise a little, its aimErrorDeg does not change for it)",
+      "levels": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0
+      ]
+    },
+    "altFireChance": {
+      "skill": "cunning",
+      "direction": "up",
+      "note": "the chance a bot with a reason takes its second trigger, drawn at most once per Hl2mpDecider.AltCheckSeconds (\u00a75.4, ruling 2026-11-03): knowing when a grenade or a ball pays. Reads its level, not its height: Hard must not get harder than the ruling allows, and this is where that is set",
+      "levels": [
+        0.0,
+        0.05,
+        0.1,
+        0.15,
+        0.2,
+        0.25,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7
+      ]
+    },
+    "prefireChance": {
    "skill": "cunning",
    "direction": "up",
    "reads": "style",

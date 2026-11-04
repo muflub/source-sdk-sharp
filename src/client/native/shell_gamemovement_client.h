@@ -70,8 +70,6 @@ public:
 	void EndClientCommand(int32_t bRan, int32_t* pOutGroundIndex);
 
 	// IShimMovement.
-	float CurrentGravity() override { return m_MoveVars.sv_gravity.GetFloat(); }
-
 	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
 
 	void FillConstants(struct SourceSharpMoveState* pState);

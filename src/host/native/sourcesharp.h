@@ -837,6 +837,8 @@ typedef enum
 	// plus the debris bit the weapon lying as debris physics carries. Wired on
 	// BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_SOLID_DEBRIS = 14,
+	// The heavy taunt's aim line: solids and the hitboxes (tf_player.cpp:18621).
+	SOURCESHARP_TRACE_SOLID_HITBOX = 15,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a
@@ -1953,11 +1955,6 @@ typedef struct
 	// --- PLACE: in ---
 	// Where the player is looking, and the orbit the cam_ideal* convars ask for.
 	float vecViewAngles[3];
-	float flIdealPitch;
-	float flIdealYaw;
-	float flIdealDist;
-	float flIdealDistRight;
-	float flIdealDistUp;
 
 	// --- PLACE: out ---
 	// The camera's own angles, and the displacement from the eye it wants.
@@ -1978,7 +1975,6 @@ typedef struct
 
 	// --- PLACE: in, appended (lane M1-B) ---
 	// cam_collision's value: 1 on, 0 off, -1 when the convar is not there.
-	int32_t nCollision;
 
 	// --- PLACE: out, appended ---
 	// The sweep the camera wants towards its wish: a cube of this half extent
@@ -2171,7 +2167,6 @@ typedef struct
 	float Dt; // gpGlobals->frametime, unclamped
 	float CurTime; // gpGlobals->curtime
 	float FrameTime; // gpGlobals->frametime (Helper_GetFrameTime)
-	float AabbBuffer; // cl_particleeffect_aabb_buffer (DetectChanges)
 	float ViewOriginXYZ[3]; // MainViewOrigin()
 } SourceSharpParticleFrameHeader_t;
 
@@ -2223,10 +2218,6 @@ typedef struct
 	int32_t Channel;
 	int32_t Flags; // DrawModel's studio flags
 	int32_t ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
-	int32_t DrawParticles; // r_drawparticles
-	int32_t Wireframe; // ShouldDrawInWireFrameMode()
-	int32_t ShowBBox; // cl_particle_show_bbox
-	int32_t ShowBBoxCost; // cl_particle_show_bbox_cost
 	int32_t ViewKey; // ParticlesViewKey: the view being drawn
 	float FrameTime; // gpGlobals->frametime
 } SourceSharpParticleDrawIn_t;
@@ -2290,12 +2281,8 @@ typedef struct
 typedef struct
 {
 	float Dt; // the frame's dt (UpdateAllEffects', after its 0.1 s clamp)
-	float Timescale; // r_particle_timescale
 	float CurTime; // gpGlobals->curtime: the library's last simulation time
 	int32_t FrameCount; // gpGlobals->framecount (the retirement check)
-	float AabbBuffer; // cl_particleeffect_aabb_buffer (DetectChanges)
-	float RetireCost; // cl_particle_retire_cost
-	int32_t SpikeThresholdMs; // r_particle_sim_spike_threshold_ms (EndSimulateParticles' profile commit)
 	int32_t ViewX; // view->GetPlayerViewSetup(): the retirement pass's view
 	int32_t ViewY;
 	int32_t ViewWidth;
@@ -2356,11 +2343,8 @@ typedef struct
 {
 	uint32_t Id;
 	int32_t Flags; // DrawModel's studio flags
-	int32_t DrawParticles; // r_drawparticles
 	int32_t ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
 	int32_t RenderSystems; // ParticleMgr()->ShouldRenderParticleSystems()
-	int32_t ShowBBox; // cl_particle_show_bbox
-	int32_t ShowBBoxCost; // cl_particle_show_bbox_cost
 	int32_t Active; // m_nActiveParticles (the debug box's cost)
 	float CameraXYZ[3]; // the render context's world-space camera
 	float MinXYZ[3]; // the collection's bounds
@@ -2373,7 +2357,6 @@ typedef struct
 	int32_t HighestControlPoint; // m_nHighestCP
 	int32_t ThirdPerson; // input->CAM_IsThirdPerson()
 	int32_t ObserverMode; // the local player's
-	int32_t Pad;
 	uint64_t CameraObject; // the entity at render->GetViewEntity()
 	uint64_t SkipObject; // the skip-render control point's entity
 	uint64_t LocalPlayer;
@@ -2575,13 +2558,8 @@ typedef struct
 	float ScreenAspect;
 	int32_t Windowed;
 	int32_t MaxClients;
-	int32_t RestrictAspectFov;
-	float ViewportScale;
-	int32_t GlClear;
-	int32_t GlClearRandomColor;
 	int32_t ClearColorForAntialiasing;
 	int32_t ClientModeDrawViewModel;
-	float LevelOverview;
 	int32_t ViewportX;
 	int32_t ViewportY;
 	int32_t ViewportWidth;
@@ -2606,20 +2584,15 @@ typedef struct
 	int32_t Overview;
 } SourceSharpRenderFrameOut_t;
 
-// SetUpViews (view.cpp), asked before the client mode's override: r_farz,
-// r_mapextents, the viewer's fog far Z (0 with none), default_fov and the
-// client mode's GetViewModelFOV in; the planes and FOV out. After the override
+// SetUpViews (view.cpp), asked before the client mode's override: the viewer's
+// fog far Z (0 with none) in; the planes and FOV out. After the override
 // native carries out fovViewmodel = fov + ViewModelFovOffset: managed decided
 // the offset (stock's GetViewModelFOV() - ( default_fov - fov ), rearranged),
 // the override's fov is the one operand only native has, and a second crossing
 // after the override would ask managed for one addition.
 typedef struct
 {
-	float FarZ;
-	float MapExtents;
 	float FogFarZ;
-	float DefaultFov;
-	float ViewModelFov;
 } SourceSharpViewSetUpIn_t;
 
 typedef struct
@@ -2655,9 +2628,7 @@ typedef struct
 
 // SourceSharpRenderInputs_t: everything RenderView's decisions read, gathered
 // by the executor at RenderView's entry -- the view and RenderView's two
-// arguments, the hardware answers, the convars (Cvars[], indexed by the
-// RENDER_CVAR_ list in shell_view_executor_client.cpp and RenderCvar in C#),
-// the viewer's fog and 3D sky, the fog volume at the eye with the water
+// arguments, the hardware answers, the viewer's fog and 3D sky, the fog volume at the eye with the water
 // material's switches, and the post-process inputs. Nothing here is decided.
 typedef struct
 {
@@ -2717,7 +2688,6 @@ typedef struct
 	int32_t ScreenOverlayFullFrame;
 	int32_t ScreenOverlayPowerOfTwo;
 	int32_t FlashlightOn;
-	float Cvars[64];
 	// Appended (C7 step 3 phase 1): RenderInputs only grows at its end, so the
 	// frozen recordings still read (their tail reads zero).
 	int32_t ClientModeDrawDetail;
@@ -2786,8 +2756,7 @@ typedef struct
 // plan's post op runs, gathered by the executor for IManagedRenderClient::
 // RenderPostProgram (managed PostProcessInputs, field for field). Kind 0 is
 // DoEnginePostProcessing, 1 DoImageSpaceMotionBlur. Readback holds the
-// histogram queries the last program asked to read (-1 elsewhere); Cvars is
-// indexed by managed's PostCvar (the executor's kPostCvars, in order).
+// histogram queries the last program asked to read (-1 elsewhere).
 typedef struct
 {
 	int32_t Kind;
@@ -2831,7 +2800,6 @@ typedef struct
 	float AspectRatio;
 	int32_t Readback[32];
 	int32_t TextureSize[16];
-	float Cvars[64];
 } SourceSharpPostInputs_t;
 
 // SourceSharpManagedApi, the struct of managed slots native called, is gone

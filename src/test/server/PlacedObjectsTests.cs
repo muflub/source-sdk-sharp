@@ -53,7 +53,7 @@ public class PlacedObjectsTests
         Services(out var engine);
         engine.Strict = false;
         var rest = new Rest();
-        var rig = new Rig { Engine = engine, Rest = rest, Objects = new PlacedObjects(engine, rest, engine, engine, engine, engine) };
+        var rig = new Rig { Engine = engine, Rest = rest, Objects = new PlacedObjects(engine, rest, engine, engine, engine, engine, DeclaredConVars.Fresh<ItemRespawnTimeConVar>(), DeclaredConVars.Fresh<WeaponRespawnTimeConVar>()) };
         engine.ReturnsEachCall("Clock.Now", () => rig.Now);
         return rig;
     }
@@ -195,7 +195,7 @@ public class PlacedObjectsTests
         services.AddInstance(new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
                                          engine, engine, registry, engine, new DamageHitGroups()));
         var rest = new Rest { Answer = false };
-        var objects = new PlacedObjects(engine, rest, engine, engine, engine, engine);
+        var objects = new PlacedObjects(engine, rest, engine, engine, engine, engine, DeclaredConVars.Fresh<ItemRespawnTimeConVar>(), DeclaredConVars.Fresh<WeaponRespawnTimeConVar>());
         services.AddInstance(objects);
         registry.Services = services;
         engine.Strict = false;

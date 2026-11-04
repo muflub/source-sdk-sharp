@@ -12,9 +12,9 @@ namespace TF2.Server.Rules;
 /// <see cref="ITeamRoundControl"/> the objectives use. Bare, it says the state.
 /// </summary>
 [ConCommand("tf2_dev_win", Help = "tf2_dev_win <2|3|0>: end the round as a win for red/blue, or a stalemate; bare prints the round state")]
-public sealed class TFDevWinCommand(ILog log, IServiceLocator services) : IConCommand
+public sealed class TFDevWinCommand(ILog log, IServiceLocator services)
 {
-    public void Execute(string args)
+    public void Execute([Complete("2", "3", "0")] int? team = null)
     {
         // Resolved at execute: commands bind at registration, before the mods' services exist.
         if (services.Resolve<ITeamRoundControl>() is not { } rounds || services.Resolve<ITeamRoundState>() is not { } state)
@@ -23,8 +23,7 @@ public sealed class TFDevWinCommand(ILog log, IServiceLocator services) : IConCo
             return;
         }
 
-        string word = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        if (word.Length == 0 || !int.TryParse(word, out int team))
+        if (team is null)
         {
             log.Msg($"[TF2/Rounds] state {state.State}, winner {state.WinningTeam}, waiting {state.InWaitingForPlayers}\n");
             return;

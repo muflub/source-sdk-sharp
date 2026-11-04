@@ -26,7 +26,7 @@ public class PlayerHudMessageTests
               .Returns("Entities.GetIndex", Slot)
               .Returns("Shadows.Init", true)
               .Ignores("Render.SetVisible", "Entities.SetModel", "Entities.SetHealth", "Entities.GetOrigin");
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine) { Handle = new EntityHandle(0x010004) };
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine) { Handle = new EntityHandle(0x010004) };
         player.BindAreas(Areas(engine));
         player.State.BindLocal();
         player.OnSpawn();

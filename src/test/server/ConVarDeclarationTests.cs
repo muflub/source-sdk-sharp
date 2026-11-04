@@ -35,7 +35,7 @@ public class ConVarDeclarationTests
 
     private static BoundedTestConVar Bounded()
     {
-        var bounded = Registered().Get<BoundedTestConVar>();
+        var bounded = Registered().Declared<BoundedTestConVar>();
 
         Assert.True(bounded is not null, "a declared convar is found by its class");
 
@@ -47,7 +47,7 @@ public class ConVarDeclarationTests
     {
         var registry = Registered();
 
-        Assert.True(registry.Get<BoundedTestConVar>() is not null && registry.Get<UnboundedTestConVar>() is not null, "a declared convar is found by its class");
+        Assert.True(registry.All.OfType<BoundedTestConVar>().Any() && registry.All.OfType<UnboundedTestConVar>().Any(), "a declared convar is found by its class");
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class ConVarDeclarationTests
     [Fact]
     public void AConVarThatStatedNoBoundsHasNone()
     {
-        var plain = Registered().Get<UnboundedTestConVar>();
+        var plain = Registered().Declared<UnboundedTestConVar>();
 
         Assert.True(plain is not null, "the unbounded convar is found by its class");
         Assert.True(plain!.MinValue is null && plain.MaxValue is null, "a convar that stated no bounds has none");

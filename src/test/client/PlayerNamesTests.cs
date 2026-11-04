@@ -164,7 +164,7 @@ public class PlayerNamesTests
     {
         var engine = Fake().Returns("Hud.LocalPlayerIndex", 1).Returns("Environment.Globals", default(Globals))
                           .Returns("Console.FindConVarValue", (string?)null);
-        var scores = new ScoreboardUi(BobConnected(), engine, new DefaultForwarders.NoEngineClient(), Names(), engine, engine);
+        var scores = new ScoreboardUi(BobConnected(), engine, new DefaultForwarders.NoEngineClient(), Names(), DeclaredConVars.Fresh<HostnameConVar>(), engine);
         scores.Refresh();
         Assert.Equal(1, scores.PlayerCount);
         Assert.Equal("<BOB>", scores.Player(0).Name);
@@ -184,7 +184,7 @@ public class PlayerNamesTests
         Standalones standalones = BobConnected();
         var resource = (Client.Standalone.ClientPlayerResource)standalones.All[0];
         resource.State.SetTag(2, "(Hard)");
-        var scores = new ScoreboardUi(standalones, engine, new DefaultForwarders.NoEngineClient(), Names(), engine, engine);
+        var scores = new ScoreboardUi(standalones, engine, new DefaultForwarders.NoEngineClient(), Names(), DeclaredConVars.Fresh<HostnameConVar>(), engine);
 
         scores.Refresh();
         string first = scores.Player(0).Tag;

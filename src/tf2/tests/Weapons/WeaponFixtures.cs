@@ -18,7 +18,7 @@ namespace TF2.Tests.Weapons;
 /// </summary>
 internal static class WeaponFixtures
 {
-    /// <summary>The 32 fixture names: the class scripts' weapons plus the builder and the sapper.</summary>
+    /// <summary>The 33 fixture names: the class scripts' weapons, the compound bow, the builder and the sapper.</summary>
     public static IEnumerable<string> Names() =>
         Directory.GetFiles(RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons"), "tf_weapon_*.txt")
             .Select(p => Path.GetFileNameWithoutExtension(p))

@@ -13,7 +13,7 @@ namespace SourceSharp.Client.Render;
 /// the view back, and the player's own eye draws as before.
 /// </summary>
 public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalones standalones, IEngineHud hud,
-                                   ViewReadout view, IGameClock clock, IEngineConsole console)
+                                   ViewReadout view, IGameClock clock, ClForceCameraConVar forceCamera)
 {
     // WALL_OFFSET (c_baseplayer.h): the camera's hull.
     public const float WallOffset = 6.0f;
@@ -74,7 +74,7 @@ public sealed class ObserverCamera(IObserverCameraSlots slots, IClientStandalone
 
         var input = new ObserverInputs(mode, Target(state.ObserverTarget), eye, viewAngles, viewAngles, state.ViewOffset,
                                        state.PunchAngle, frameTime, now, _deathTime,
-                                       console.FindConVarValue("mp_forcecamera") is null or "0", null);
+                                       forceCamera.Value == 0, null);
         LastInputs = input;
         ObserverViewResult? result = _view.Calc(input, new World(slots, hud.LocalPlayerIndex));
         if (result is not { } v)

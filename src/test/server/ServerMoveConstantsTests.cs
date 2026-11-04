@@ -63,7 +63,12 @@ public sealed unsafe class ServerMoveConstantsTests : IDisposable
 
     public void Dispose() => NativeMemory.Free(_globals);
 
-    private ServerMoveConstants Subject() => new(_convars, () => _params, _environment, () => _clock);
+    private ServerMoveConstants Subject()
+    {
+        var services = new ServiceContainer();
+        _convars.PublishTo(services);
+        return new(services.Create<MoveConVars>(), () => _params, _environment, () => _clock);
+    }
 
     private void Set(Type convar, string value)
     {
@@ -177,15 +182,4 @@ public sealed unsafe class ServerMoveConstantsTests : IDisposable
     [Fact]
     public void TheOptimizationsAreOnAsShellMovementsConstantIs()
         => Assert.True(Subject().Read().Constants.Optimizations);
-
-    [Fact]
-    public void AConVarThisBuildDoesNotDeclareReadsZero()
-    {
-        var empty = new ConVarRegistry(new Backend());
-
-        MoveFrameConstants f = new ServerMoveConstants(empty, () => _params, _environment, () => 0f).Read();
-
-        Assert.True(f.Constants.Friction == 0f && f.CurrentGravity == 0f && !f.Constants.SpecNoClip,
-                    "an unresolved CManagedConVarRef answered 0");
-    }
 }

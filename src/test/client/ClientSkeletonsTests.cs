@@ -1182,6 +1182,28 @@ public unsafe class ClientSkeletonsTests
         Assert.Equal((-9f, -9f), (At(output, 3).X, At(output, 4).X));
     }
 
+    // A shell casing is posed every frame it draws; one of these twice must be the same pose.
+    [Fact]
+    public void ATempEntsPoseTakesItsTablesFromTheScratchAndAnswersTheSameAgain()
+    {
+        using Rig rig = new();
+        float[] first = new float[5 * Floats], again = new float[5 * Floats];
+        float[] place = [200f, 0f, 0f, 0f, 0f, 0f];
+        float[] render = RenderAt(-9f);
+
+        rig.Skeletons.PoseModel(Model, place, render, first, UsedByAnything, 1f, 7);
+        for (int i = 0; i < 8; i++)
+            rig.Skeletons.PoseModel(Model, place, render, again, UsedByAnything, 1f, 7);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        rig.Skeletons.PoseModel(Model, place, render, again, UsedByAnything, 1f, 7);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(first, again);
+        // No table of MAXSTUDIOBONES bones: the smallest, a Vector[128], is 1.5 KB.
+        Assert.InRange(allocated, 0, 1024);
+    }
+
     [Fact]
     public void AModelWithNoStudioDataIsTheRenderTransformInEverySlot()
     {
@@ -1242,7 +1264,7 @@ public unsafe class ClientSkeletonsTests
         var (probe, log, skeletons, rig) = Fixture();
         using Rig _ = rig;
 
-        probe.Execute("mergeauto chain chain");
+        probe.RunLine("mergeauto chain chain");
 
         Assert.True(skeletons.States.TryGet(Other, out BoneEntityState? s) && s is not null);
         Assert.Equal(6, s!.BoneMergeSource);
@@ -1255,8 +1277,8 @@ public unsafe class ClientSkeletonsTests
         var (probe, log, _, rig) = Fixture();
         using Rig _ = rig;
 
-        probe.Execute("mergeauto chain chain");
-        probe.Execute("report");
+        probe.RunLine("mergeauto chain chain");
+        probe.RunLine("report");
 
         Assert.Contains("SS6CGATE\tmerge\tbones\t3\n", log.Text);
         Assert.Contains("SS6CGATE\tmerge\tmatched\t3\n", log.Text);
@@ -1269,7 +1291,7 @@ public unsafe class ClientSkeletonsTests
         var (probe, log, _, rig) = Fixture();
         using Rig _ = rig;
 
-        probe.Execute("report");
+        probe.RunLine("report");
 
         Assert.Contains("SS6CGATE\tmerge\tbones\t0\n", log.Text);
     }

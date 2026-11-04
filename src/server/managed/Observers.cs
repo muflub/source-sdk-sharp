@@ -84,7 +84,8 @@ public enum JoinTeamResult
 /// </summary>
 public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntities entities, IEnginePlayers players,
                               IEnginePlayerMovement movement, IEngineEntityRender render, IEngineDamage damage,
-                              IEngineWorldQuery world, IEngineEntityPhysics physics, ConVarRegistry convars,
+                              IEngineWorldQuery world, IEngineEntityPhysics physics, ForceCameraConVar forceCamera,
+                              AllowSpectatorsConVar allowSpectators,
                               IConnectedClients? clients = null)
 {
     /// <summary>DEATH_ANIMATION_TIME: a dead player may be watched this long.</summary>
@@ -93,15 +94,11 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     /// <summary>TEAM_SPECTATOR.</summary>
     public const int TeamSpectator = 1;
 
-    // Looked up when first asked: the module builds this before its convars are registered.
-    private ForceCameraConVar? _forceCamera;
-
     private int ForceCamera
     {
         get
         {
-            _forceCamera ??= convars.Get<ForceCameraConVar>();
-            int v = _forceCamera?.Value ?? ForceCameraConVar.AllowTeam;
+            int v = forceCamera.Value;
             return v is >= ForceCameraConVar.AllowAll and <= ForceCameraConVar.AllowNone ? v : ForceCameraConVar.AllowTeam;
         }
     }
@@ -122,9 +119,6 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
 
     //-- CHL2MP_Player: spectate / jointeam (HandleCommand_JoinTeam, ChangeTeam,
     //   State_Enter_OBSERVER_MODE) --------------------------------------------
-
-    // Looked up when first asked, like mp_forcecamera.
-    private AllowSpectatorsConVar? _allowSpectators;
 
     /// <summary>
     /// <c>spectate</c>'s observer half, which is HandleCommand_JoinTeam(TEAM_SPECTATOR)
@@ -161,8 +155,7 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     /// </summary>
     public bool AllowsSpectators()
     {
-        _allowSpectators ??= convars.Get<AllowSpectatorsConVar>();
-        if (_allowSpectators is { Value: false })
+        if (!allowSpectators.Value)
         {
             log.Msg("#Cannot_Be_Spectator\n");
             return false;

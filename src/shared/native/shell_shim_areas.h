@@ -41,7 +41,6 @@ public:
 	void MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
 				   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut) override;
 	int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) override;
-	float CurrentGravity() override;
 	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
 };
 
@@ -266,6 +265,9 @@ public:
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) override;
 	int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
 										   int32_t nSlot, const float* pOffsetXYZ) override;
+	int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
+									int32_t nCount) override;
+	void ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CSpritesClient* m_pSpritesClient = nullptr;
@@ -382,6 +384,8 @@ public:
 	void UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
 							int32_t bAdditive) override;
 	int32_t UiMaterialTexture(const char* pName) override;
+	void UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+					const uint16_t* pIndices, int32_t nIndices) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CHudUiClient* m_pHudUiClient = nullptr;

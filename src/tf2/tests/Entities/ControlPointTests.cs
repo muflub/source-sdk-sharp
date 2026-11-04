@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Tests;
 using TF2.Server.Entities;
+using TF2.Server.Objectives;
 using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Rules;
@@ -317,5 +318,138 @@ public sealed class ControlPointTests
     private sealed class NoCleanup : IMapCleanup
     {
         public MapCleanupReport CleanUpMap(IMapCleanupFilter filter) => default;
+    }
+
+    // ---- the feed's control-point rows ------------------------------------------
+
+    /// <summary>The chain, in the order the sources were handed in (as <c>Hooks&lt;T&gt;</c> keeps them).</summary>
+    private sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class
+    {
+        public IReadOnlyList<T> All => hooks;
+
+        public void Each(string what, Action<T> call)
+        {
+            foreach (var each in hooks)
+                call(each);
+        }
+    }
+
+    /// <summary>The CP feed over a rig: one chain member, the real directory.</summary>
+    private static TFObjectives CpFeed(ObjectiveRig rig)
+        => new(new ListHooks<ITFObjectiveSource>(new TF2CpObjectiveSource(rig.Registry, rig.Engine, rig.Objectives, rig.Clock)));
+
+    private static TFObjective CpRecord(TFObjectives feed)
+    {
+        foreach (TFObjective record in feed.All)
+        {
+            if (record.Kind == TFObjectiveKind.ControlPoint)
+                return record;
+        }
+
+        throw new InvalidOperationException("no ControlPoint record in the feed");
+    }
+
+    /// <summary>
+    /// A red capper who finishes takes the point: the refresh after the cap
+    /// reads the owner flipped and the holder as the team to move, and only
+    /// red's last-progress tick moved.
+    /// </summary>
+    [Fact]
+    public void ACaptureFlipsOwnerAndMovesLastProgress()
+    {
+        var rig = new ObjectiveRig();
+        rig.Master();
+        var point = rig.Point("cp_a", 0);
+        var area = rig.Area("cp_a", 4f);
+        rig.StartRound();
+
+        var feed = CpFeed(rig);
+        feed.Refresh();
+
+        TFObjective before = CpRecord(feed);
+        Assert.Equal(TFTeam.Unassigned, before.Owner);
+        Assert.Equal(TFObjectiveState.Open, before.State);
+        Assert.Equal(0, feed.LastProgressTick(TFTeam.Red));
+        Assert.Equal(0, feed.LastProgressTick(TFTeam.Blue));
+
+        var red = rig.Players.Add(1, TFTeam.Red);
+        rig.Registry.Touch(area.Handle, red);
+        for (float t = 0.5f; t <= 7.5f; t += 0.5f)
+            rig.ThinkAt(area, t);
+        rig.ThinkAt(area, 8f);
+
+        feed.Refresh();
+
+        Assert.Equal((int)TFTeam.Red, point.Owner);
+
+        TFObjective after = CpRecord(feed);
+        Assert.Equal(TFTeam.Red, after.Owner);
+        Assert.Equal(TFObjectiveState.Won, after.State);
+        Assert.True(feed.LastProgressTick(TFTeam.Red) > feed.LastProgressTick(TFTeam.Blue));
+        Assert.Equal(0, feed.LastProgressTick(TFTeam.Blue));
+    }
+
+    /// <summary>
+    /// A locked point is locked for both teams alike (MayAct names neither);
+    /// once it unlocks, the holder is the team to move on it.
+    /// </summary>
+    [Fact]
+    public void ALockedPointIsLockedForBoth()
+    {
+        var rig = new ObjectiveRig();
+        rig.Point("cp_a", 0, TFTeam.Red);
+        rig.Objectives.SetNumControlPoints(1);
+        rig.Objectives.SetCPLocked(0, true);
+
+        var feed = CpFeed(rig);
+        feed.Refresh();
+
+        TFObjective locked = CpRecord(feed);
+        Assert.Equal(TFObjectiveState.Locked, locked.State);
+        Assert.Equal(TFTeam.Unassigned, locked.MayAct);
+
+        rig.Objectives.SetCPLocked(0, false);
+        feed.Refresh();
+
+        TFObjective open = CpRecord(feed);
+        Assert.Equal(TFObjectiveState.Won, open.State);
+        Assert.Equal(TFTeam.Red, open.MayAct);
+    }
+
+    /// <summary>
+    /// While red caps: the record reads Capturing with red named, at the
+    /// fraction of the cap time the table already holds — one half-second of
+    /// cap time spent on an eight-second cap shows as 1/16 done, and red's
+    /// tick moves while blue's stands.
+    /// </summary>
+    [Fact]
+    public void CapturingShowsTheCappingTeamsProgress()
+    {
+        var rig = new ObjectiveRig();
+        rig.Master();
+        rig.Point("cp_a", 0);
+        var area = rig.Area("cp_a", 4f);
+        rig.StartRound();
+
+        var red = rig.Players.Add(1, TFTeam.Red);
+        rig.Registry.Touch(area.Handle, red);
+
+        var feed = CpFeed(rig);
+        feed.Refresh();
+
+        TFObjective started = CpRecord(feed);
+        Assert.Equal(TFObjectiveState.Capturing, started.State);
+        Assert.Equal(TFTeam.Red, started.MayAct);
+        Assert.Equal(new Vector(100f, 200f, 300f), started.Position);
+        Assert.Equal(0f, started.Progress);
+
+        rig.ThinkAt(area, 0.5f);
+        feed.Refresh();
+
+        TFObjective ticking = CpRecord(feed);
+        Assert.Equal(0.9375f, rig.Objectives.GetCPCapPercentage(0));
+        Assert.Equal(0.0625f, ticking.Progress);
+        Assert.True(feed.LastProgressTick(TFTeam.Red) > 0);
+        Assert.Equal(0, feed.LastProgressTick(TFTeam.Blue));
     }
 }

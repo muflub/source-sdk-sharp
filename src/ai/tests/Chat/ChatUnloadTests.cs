@@ -73,7 +73,7 @@ public sealed class ChatUnloadTests
         object Job(long id, string url)
         {
             object target = Activator.CreateInstance(T(nameof(ChatTarget)), url, "m")!;
-            return Activator.CreateInstance(T(nameof(ChatJob)), id, 2, prompt, target, 30f, "Pia")!;
+            return Activator.CreateInstance(T(nameof(ChatJob)), id, 2, prompt, target, 30f, "Pia", null, null)!;
         }
 
         MethodInfo post = worker.GetType().GetMethod(nameof(ChatWorker.TryPost))!;

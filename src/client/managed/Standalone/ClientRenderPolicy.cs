@@ -1051,7 +1051,7 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
 [ConCommand("cs_cl_policy",
             Help = "What the client render-policy pass did: passes, blocks seen, " +
                    "policies decided, and the last pass's split.")]
-public sealed class RenderPolicyReportCommand : IConCommand
+public sealed class RenderPolicyReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1065,7 +1065,7 @@ public sealed class RenderPolicyReportCommand : IConCommand
         _policy = policy;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         ClientRenderPolicy policy = _policy;
 

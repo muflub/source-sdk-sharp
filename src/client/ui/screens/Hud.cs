@@ -34,15 +34,17 @@ public sealed class Hud : UiScreen
     private readonly PickupHistoryPanel _history;
     private readonly DamageDealtPanel _dealt;
     private readonly MinimapPanel _minimap;
+    private readonly WorldMarkerPanel _markers;
 
     /// <summary>The HUD reads only whether there is a player; each element reads its own sources.</summary>
     public Hud(IPlayerLife life, VitalsPanel vitals, AmmoPanel ammo, CrosshairPanel crosshair, DamagePanel damage,
                MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice,
                WeaponSelectionPanel selection, WeaponPlusPanel plus, WeaponCarouselPanel carousel, PickupHistoryPanel history,
-               DamageDealtPanel dealt, MinimapPanel minimap)
+               DamageDealtPanel dealt, MinimapPanel minimap, WorldMarkerPanel markers)
     {
         _dealt = dealt;
         _minimap = minimap;
+        _markers = markers;
         _selection = selection;
         _plus = plus;
         _carousel = carousel;
@@ -87,6 +89,8 @@ public sealed class Hud : UiScreen
             ui.Sub("dealt", _dealt);
         if (!ui.Taken("hud.minimap"))
             ui.Sub("minimap", _minimap);
+        if (!ui.Taken("hud.markers"))
+            ui.Sub("markers", _markers);
 
         // The bottom line: vitals left, hints centre, ammo right. On a narrow
         // screen (ui.Narrow) the panels are compact and the hints move above the
@@ -464,15 +468,52 @@ public sealed class DamageDealtPanel(IDamageDealtSource dealt) : UiPanel
 }
 
 /// <summary>
+/// The places a server is pointing this player at, drawn over the world and through its walls: a
+/// small dot on the place and its name and distance on a pill. A place off the screen, or behind
+/// the player, stays at the screen's edge so it can be turned towards. Fades over its last third.
+/// </summary>
+public sealed class WorldMarkerPanel(IWorldMarkerSource markers) : UiPanel
+{
+    private const float DotDu = 10f;
+
+    /// <summary>The name and distance sit this far below the dot, as a share of the screen.</summary>
+    private const float LabelDrop = 0.028f;
+
+    public override void Describe(ref UiFrame ui)
+    {
+        int n = markers.MarkerCount;
+        if (n == 0)
+            return;
+
+        using (ui.Box("world-markers").Size(Size.Fill, Size.Fill).Layered())
+            for (int i = 0; i < n; i++)
+            {
+                WorldMarker m = markers.Marker(i);
+                float fade = Math.Clamp((1f - m.Age) * 3f, 0f, 1f);
+                ui.Shape(UiShape.Dot, ((UiPaint)Tone.Accent).WithOpacity(fade), DotDu).PlaceFraction(m.X, m.Y).Key(1000 + i).Layered();
+                using (ui.Row(Space.S, Align.Centre).PlaceFraction(m.X, m.Y + LabelDrop).Opacity(fade).Key(2000 + i).Layered()
+                         .Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.XS))
+                {
+                    ui.Data(m.Label, Text.Caption, Tone.Text);
+                    ui.Text($"{m.Metres} m", Text.Caption, Tone.Accent);
+                }
+            }
+    }
+}
+
+/// <summary>
 /// The map from above, top left: its outline, the local player with the way they face, and
 /// a dot for each other player on their screen. Nobody out of sight shows.
 /// </summary>
-public sealed class MinimapPanel(IMinimapSource map) : UiPanel
+public sealed class MinimapPanel(IMinimapSource map, IMinimapPingSource pings) : UiPanel
 {
     /// <summary>The square's side.</summary>
     public const float WideDu = 240f, NarrowDu = 160f;
 
     private const float LineDu = 2f, DotDu = 10f, SelfDu = 8f, FacingDu = 36f, FacingSpan = 1.4f;
+
+    /// <summary>A ping: a solid dot, and a ring opening out from it twice in its life, large enough to catch the eye on a small map.</summary>
+    private const float PingDu = 12f, PingRingDu = 44f, PingPulses = 5f;
 
     public override void Describe(ref UiFrame ui)
     {
@@ -486,6 +527,10 @@ public sealed class MinimapPanel(IMinimapSource map) : UiPanel
         using (ui.Box().Size(Size.Du(size), Size.Du(size)))
         {
             ui.Lines(outline, Tone.TextMuted, size, LineDu).At(UiAnchor.TopLeft).Layered();
+
+            int pingCount = pings.PingCount;
+            for (int i = 0; i < pingCount; i++)
+                Ping(ref ui, pings.Ping(i), size, i);
 
             MinimapDot self = map.Self;
             ui.Sector(((UiPaint)Tone.Accent).WithOpacity(0.35f), FacingDu, map.SelfFacing - FacingSpan / 2f, FacingSpan, 0f)
@@ -501,6 +546,26 @@ public sealed class MinimapPanel(IMinimapSource map) : UiPanel
                   .At(UiAnchor.TopLeft).Inset(At(dot.U, size, DotDu), At(dot.V, size, DotDu)).Layered();
             }
         }
+    }
+
+    /// <summary>An exact place is a dot in a ring that keeps opening; a rough area a large soft circle. Each fades over its last third.</summary>
+    private static void Ping(ref UiFrame ui, in MinimapPing ping, float size, int key)
+    {
+        float fade = Math.Clamp((1f - ping.Age) * 3f, 0f, 1f);
+        if (ping.Radius > 0f)
+        {
+            float across = ping.Radius * 2f * size;
+            ui.Sector(((UiPaint)Tone.Accent).WithOpacity(0.28f * fade), across, 0f, 2f * MathF.PI, 0f).Key(1000 + key)
+              .At(UiAnchor.TopLeft).Inset(At(ping.U, size, across), At(ping.V, size, across)).Layered();
+            return;
+        }
+
+        float pulse = ping.Age * PingPulses % 1f;
+        float ring = PingDu + (PingRingDu - PingDu) * pulse;
+        ui.Shape(UiShape.Dot, ((UiPaint)Tone.Accent).WithOpacity(0.45f * (1f - pulse) * fade), ring).Key(1000 + key)
+          .At(UiAnchor.TopLeft).Inset(At(ping.U, size, ring), At(ping.V, size, ring)).Layered();
+        ui.Shape(UiShape.Dot, ((UiPaint)Tone.Accent).WithOpacity(fade), PingDu).Key(2000 + key)
+          .At(UiAnchor.TopLeft).Inset(At(ping.U, size, PingDu), At(ping.V, size, PingDu)).Layered();
     }
 
     /// <summary>Where a mark's edge goes so its middle falls at <paramref name="fraction"/> of the square, kept on it.</summary>

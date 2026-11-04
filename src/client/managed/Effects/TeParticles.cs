@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 using SourceSharp.Shared;
@@ -31,8 +32,10 @@ public enum TeParticleType : byte
 /// lifetime, a <see cref="TeParticleType"/>, the colour ramp's 6.10 fixed-point
 /// word, and RGBA bytes.
 /// </summary>
-public struct TeParticle
+public struct TeParticle : IParticlePlace
 {
+    readonly Vector IParticlePlace.Place => Position;
+
     public int Id;
     public Vector Position;
     public Vector Velocity;
@@ -347,7 +350,7 @@ public sealed class TeParticleSheet(Func<float> gravity, IParticleRandom random,
             idsOut[i] = _pending[i].Id;
         }
         _pending.RemoveRange(0, n);
-        TrailEmitter.SetBounds(ref emit, null, _live.Select(p => p.Position));
+        TrailEmitter.SetBounds<TeParticle>(ref emit, null, CollectionsMarshal.AsSpan(_live));
         return n;
     }
 
@@ -364,8 +367,15 @@ public sealed class TeParticleSheet(Func<float> gravity, IParticleRandom random,
         }
         for (int i = 0; i < ids.Length; i++)
         {
-            int id = ids[i];
-            aliveOut[i] = _live.Exists(p => p.Id == id) ? (byte)1 : (byte)0;
+            aliveOut[i] = 0;
+            foreach (ref readonly TeParticle p in CollectionsMarshal.AsSpan(_live))
+            {
+                if (p.Id == ids[i])
+                {
+                    aliveOut[i] = 1;
+                    break;
+                }
+            }
         }
         return 1;
     }
@@ -375,8 +385,9 @@ public sealed class TeParticleSheet(Func<float> gravity, IParticleRandom random,
         if (_live.Count > quadsOut.Length)
             return _live.Count;
         int n = 0;
-        foreach (var p in _live.OrderByDescending(p => p.Id))
-            quadsOut[n++] = TeParticles.Quad(p);
+        // _live is oldest first: the newest quad first, as every sheet answers.
+        for (int i = _live.Count - 1; i >= 0; i--)
+            quadsOut[n++] = TeParticles.Quad(_live[i]);
         drawn?.Invoke(n);
         return n;
     }
@@ -401,7 +412,7 @@ public interface IClientTeParticles
 /// <see cref="TeParticleSheet"/> per effect at its origin, stepped at the
 /// engine's current gravity.
 /// </summary>
-public sealed class ClientTeParticles(ClientParticleEffects effects, IEngineEffects engine, IRandomSeeds seeds) : IClientTeParticles
+public sealed class ClientTeParticles(ClientParticleEffects effects, ClientSvGravityConVar gravity, IRandomSeeds seeds) : IClientTeParticles
 {
     private readonly IParticleRandom _random = new ParticleStream(seeds.Next());
 
@@ -418,7 +429,7 @@ public sealed class ClientTeParticles(ClientParticleEffects effects, IEngineEffe
 
     private int Start(Vector origin, List<TeParticle> made)
     {
-        var sheet = new TeParticleSheet(engine.CurrentGravity, _random, n => QuadsDrawn += n);
+        var sheet = new TeParticleSheet(() => gravity.Value, _random, n => QuadsDrawn += n);
         foreach (var p in made)
             sheet.Add(p);
         sheet.EffectId = effects.Start(sheet, origin);

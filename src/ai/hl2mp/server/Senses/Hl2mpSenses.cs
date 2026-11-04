@@ -16,7 +16,8 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapons, ModelDescriptors models, IEnginePlayers players,
-                                   ILog log, ConVarRegistry? convars = null, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
+                                   ILog log, AiThreadsConVar threads, AiSyncConVar syncConVar, WeaponRespawnTimeConVar weaponRespawnTime,
+                                   ItemRespawnTimeConVar itemRespawnTime, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
 {
     private readonly AiWorkerPool _pool = new() { CpuClock = ThreadCpuClock.Micros() };
     private readonly InlineTransport _inline = new();
@@ -47,6 +48,11 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     /// <summary>The AI's worker threads (§2.7).</summary>
     public AiWorkerPool Pool => _pool;
 
+    private BotDriveLanes? _drives;
+
+    /// <summary>The bots' drive steps (§2.7): on the same transport as the brains.</summary>
+    public BotDriveLanes Drives => _drives ??= new BotDriveLanes(() => Session.Transport, VisionPass.Slots);
+
     /// <summary>Whether the brains run inline on the main thread (<c>ai_sync 1</c>).</summary>
     public bool Sync => Session.Transport.Inline;
 
@@ -55,7 +61,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     {
         get
         {
-            int n = convars?.Get<AiThreadsConVar>()?.Value ?? 0;
+            int n = threads.Value;
             return n > 0 ? n : AiWorkerPool.DefaultThreads;
         }
     }
@@ -68,6 +74,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     public void SetSync(bool sync)
     {
         Session.Drain(wait: true);
+        Drives.Settle();
         if (!sync && !_pool.Running)
             _pool.Start(ThreadsWanted);
         Session.Transport = sync ? _inline : _pooled ??= new PooledTransport(_pool);
@@ -76,10 +83,10 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     /// <summary>Follows <c>ai_sync</c>: a change takes effect at the next tick's senses.</summary>
     public void FollowSync()
     {
-        if (convars?.Get<AiSyncConVar>() is { } sync && sync.Value != Sync)
+        if (syncConVar.Value != Sync)
         {
-            SetSync(sync.Value);
-            log.Msg(sync.Value ? "[SourceSharp/Ai] the brains run inline (ai_sync 1)\n" : $"[SourceSharp/Ai] the brains run on {_pool.Threads} worker thread(s)\n");
+            SetSync(syncConVar.Value);
+            log.Msg(syncConVar.Value ? "[SourceSharp/Ai] the brains run inline (ai_sync 1)\n" : $"[SourceSharp/Ai] the brains run on {_pool.Threads} worker thread(s)\n");
         }
     }
 
@@ -95,6 +102,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     {
         int discarded = _pool.Stop();
         Session.Abandon();
+        Drives.Abandon();
         _identities.Clear();
         if (discarded > 0)
             log.Msg($"[SourceSharp/Ai] the pool stopped with {discarded} lane(s) unrun\n");
@@ -104,6 +112,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     {
         _pool.Stop();
         Session.Abandon();
+        Drives.Abandon();
     }
 
     /// <summary>After the navigation (+400), before the bots are re-added.</summary>
@@ -127,13 +136,13 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
         WeaponKnowledge facts = Knowledge.WeaponKnowledgeBuilder.Build(weapons, w => Knowledge.WeaponKnowledgeBuilder.ReloadSeconds(models, w));
         MapKnowledge map = nav.Current is { } loaded
             ? Knowledge.MapKnowledgeBuilder.Build(mapName, loaded.Entities, weapons, facts,
-                                                  convars?.Get<WeaponRespawnTimeConVar>()?.Value ?? 20f,
-                                                  convars?.Get<ItemRespawnTimeConVar>()?.Value ?? 30f)
+                                                  weaponRespawnTime.Value,
+                                                  itemRespawnTime.Value)
             : new MapKnowledge(mapName, [], [], facts);
         Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight, nav.Chokes);
         // The level counts its ticks from low again: the last level's snapshots go.
         Session.Snapshots.Reset();
-        bool sync = convars?.Get<AiSyncConVar>()?.Value == true;
+        bool sync = syncConVar.Value;
         if (!sync)
             _pool.Start(ThreadsWanted);
         Session.Transport = sync ? _inline : _pooled ??= new PooledTransport(_pool);
@@ -175,7 +184,8 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vision, SnapshotBuilder builder, ActorDirectory directory,
-                                IEngineFrame frame, ILog log, ReferenceRecorder reference, IBotInventory? inventory = null, WeaponCatalog? weapons = null)
+                                IEngineFrame frame, ILog log, ReferenceRecorder reference, IBotInventory? inventory = null, WeaponCatalog? weapons = null,
+                                AiMainBudget? mainBudget = null)
     : IFrameLifecycle
 {
     private readonly int[] _held = new int[VisionPass.Slots];
@@ -319,7 +329,10 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         ReadOnlySpan<SensedBot> observers = reference.Observers(living, _botIn);
         long start = Stopwatch.GetTimestamp();
         double cpuStart = _cpu?.Invoke() ?? 0d;
-        vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed);
+        MainThreadBudget? budget = mainBudget?.Current;
+        double budgetStart = budget?.Now ?? 0d, chargedBefore = budget?.UsedUs ?? 0d;
+        vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed, budget);
+        Steps.Note(sensed, vision);
         _nearby.Clear();
         foreach (SensedActor a in _actors)
         {
@@ -327,7 +340,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
                 _nearby.Add(new NearbyPlayer(a.Id.Slot, read.Origin));
         }
 
-        bots.Driver.Players = _nearby;
+        bots.Players = [.. _nearby];
         for (int i = 0; i < _activity.Length; i++)
         {
             if (!vision.ActorIn(i).IsValid)
@@ -335,7 +348,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         }
         if (ai.Session.World is { } world)
         {
-            vision.RunItems(tick, sensed, world.Map.Items, _events);
+            vision.RunItems(tick, sensed, world.Map.Items, _events, budget);
             ChokesKnown(tick, sensed, world);
             StreaksKnown(tick, sensed);
         }
@@ -354,11 +367,15 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
                     $"[SourceSharp/Ai] {e.Bot} {(e.Kind == AiEventKind.SightGained ? "sees" : "lost sight of")} {e.Other} at ({e.Position.X:F0} {e.Position.Y:F0} {e.Position.Z:F0}), {e.Tick}\n"));
         }
 
-        Holdings(tick, sensed);
+        // A brain reads a view at its decide tick and no other: a recording or
+        // ai_think_log, which read them all, are why the rest would be read.
+        ReadOnlySpan<SensedBot> viewed = ai.Recording.Recording || bots.LogThink ? sensed : Deciding(tick, sensed);
+        Holdings(tick, viewed);
         reference.Write(tick, living, _observed);
         AiSnapshot snapshot = ai.Session.Snapshots.BeginWrite(tick);
-        builder.Build(snapshot, sensed, vision, ActivityOf);
+        builder.Build(snapshot, viewed, vision, ActivityOf);
         _senseUs = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
+        budget?.Charge(Math.Max(0d, budget.Now - budgetStart - (budget.UsedUs - chargedBefore)));
         double cpuPublish = _cpu?.Invoke() ?? 0d;
         _senseCpuUs = _cpu is null ? _senseUs : cpuPublish - cpuStart;
         long publish = Stopwatch.GetTimestamp();
@@ -370,6 +387,24 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         for (int i = 0; i < _activity.Length; i++)
             _activity[i] &= ~ActorActivity.Firing;
     }
+
+    private readonly SensedBot[] _deciding = new SensedBot[VisionPass.Slots];
+
+    /// <summary>The bots whose decide tick this is.</summary>
+    private ReadOnlySpan<SensedBot> Deciding(Tick tick, ReadOnlySpan<SensedBot> sensed)
+    {
+        int n = 0;
+        foreach (ref readonly SensedBot b in sensed)
+        {
+            if (DecideSchedule.IsDecideTick(tick, b.Id.Slot))
+                _deciding[n++] = b;
+        }
+
+        return _deciding.AsSpan(0, n);
+    }
+
+    /// <summary>Each bot's position, tick by tick: how smoothly it goes (<c>/ai/steps</c>).</summary>
+    public BotStepMeter Steps { get; } = new();
 
     private readonly (ActorId Bot, bool On)[] _toldStreaks = new (ActorId, bool)[VisionPass.Slots];
 
@@ -492,11 +527,11 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
 
 /// <summary><c>ai_sense_log 0|1</c>: write each bot's sight changes to the console.</summary>
 [ConCommand("ai_sense_log", Help = "ai_sense_log 0|1: print each bot's sight gained and lost", Flags = ConVarFlags.Cheat)]
-public sealed class AiSenseLogCommand(Hl2mpSenses senses, ILog log) : IConCommand
+public sealed class AiSenseLogCommand(Hl2mpSenses senses, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(bool on = true)
     {
-        senses.LogSight = args.Trim() != "0";
+        senses.LogSight = on;
         log.Msg($"[SourceSharp/Ai] ai_sense_log {(senses.LogSight ? 1 : 0)}\n");
     }
 }
@@ -506,9 +541,9 @@ public sealed class AiSenseLogCommand(Hl2mpSenses senses, ILog log) : IConComman
 /// 300-tick mean and worst tick, with the traces the last tick spent.
 /// </summary>
 [ConCommand("ai_sense_cost", Help = "ai_sense_cost: the vision pass's main-thread cost (300-tick mean)")]
-public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
         => log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] ai.sense.us mean {senses.SenseMeanUs:F1} max {senses.SenseMaxUs:F1} over {Math.Min(senses.SenseTicks, Hl2mpSenses.Window)} ticks; ai.publish.us mean {senses.PublishMeanUs:F1}; "
             + $"{bots.Bots.Count} bots; ai.sense.traces {vision.TracesLastTick} last tick, {vision.Traces} in all; "
@@ -517,12 +552,12 @@ public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl
 
 /// <summary><c>ai_vision_traces_per_tick N</c>: the vision pass's trace budget (§4.1; default 32).</summary>
 [ConCommand("ai_vision_traces_per_tick", Help = "ai_vision_traces_per_tick N: the vision pass's line traces a tick (default 32)", Flags = ConVarFlags.Cheat)]
-public sealed class AiVisionTracesCommand(VisionPass vision, ILog log) : IConCommand
+public sealed class AiVisionTracesCommand(VisionPass vision, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(int? traces = null)
     {
-        if (int.TryParse(args.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n >= 0)
-            vision.TracesPerTick = n;
+        if (traces is >= 0)
+            vision.TracesPerTick = traces.Value;
         log.Msg($"[SourceSharp/Ai] ai_vision_traces_per_tick {vision.TracesPerTick}\n");
     }
 }

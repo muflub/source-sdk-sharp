@@ -223,6 +223,7 @@ internal sealed class AttachmentModels : IEngineEntityRender
     public bool SequenceEvent(EntityHandle entity, int sequence, int index, out float cycle, out int eventId, out int type, out string name, out string options) => throw Refuse(nameof(SequenceEvent));
     public void SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) => throw Refuse(nameof(SetCustomDraw));
     public void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) => throw Refuse(nameof(SetBlending));
+    public void SetShadowHull(EntityHandle entity, bool shadowHull) => throw Refuse(nameof(SetShadowHull));
     public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked) => throw Refuse(nameof(ShadowCast));
     public void SetFade(EntityHandle entity, FadeStyle style, float startDistance, float endDistance, float minimumAlpha = 0f) => throw Refuse(nameof(SetFade));
     public void SetModel(EntityHandle entity, string model) => throw Refuse(nameof(SetModel));

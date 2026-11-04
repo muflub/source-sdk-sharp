@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -26,14 +27,17 @@ public sealed class BloodDecals
     private readonly IEngineWorldQuery _world;
     private readonly IServerDecals _decals;
     private readonly IEngineEffects _effects;
-    private readonly IEngineConsole _console;
+    private readonly ViolenceHBloodConVar _humanBlood;
+    private readonly ViolenceABloodConVar _alienBlood;
 
-    public BloodDecals(IEngineWorldQuery world, IServerDecals decals, IEngineEffects effects, IEngineConsole console)
+    public BloodDecals(IEngineWorldQuery world, IServerDecals decals, IEngineEffects effects,
+                       ViolenceHBloodConVar humanBlood, ViolenceABloodConVar alienBlood)
     {
+        _humanBlood = humanBlood;
+        _alienBlood = alienBlood;
         _world = world;
         _decals = decals;
         _effects = effects;
-        _console = console;
     }
 
     /// <summary>
@@ -45,7 +49,7 @@ public sealed class BloodDecals
     {
         TraceResult tr = _world.TraceLine(start, end, TraceMask.Brushes, ignore);
 
-        if (!Violence.ShouldShowBlood(color, _console) || tr.Fraction == 1f)
+        if (!Violence.ShouldShowBlood(color, _humanBlood, _alienBlood) || tr.Fraction == 1f)
             return false;
 
         int index = _decals.IndexForName(color == BloodColor.Red ? "Blood" : "YellowBlood");

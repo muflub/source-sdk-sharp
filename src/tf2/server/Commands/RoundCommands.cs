@@ -18,9 +18,9 @@ namespace TF2.Server.Commands;
 /// master plays none.
 /// </summary>
 [ConCommand("tf_listrounds", Help = "List the rounds for the current map", Flags = ConVarFlags.Cheat)]
-public sealed class ListRoundsCommand(ILog log, IServiceLocator services) : IConCommand
+public sealed class ListRoundsCommand(ILog log, IServiceLocator services)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         // Resolved at execute: commands bind at registration, before the mods' services exist.
         if (services.Resolve<IObjectiveEntities>() is not { } entities || entities.Master is not { } master)
@@ -48,17 +48,13 @@ public sealed class ListRoundsCommand(ILog log, IServiceLocator services) : ICon
 /// stock's ConMsg does.
 /// </summary>
 [ConCommand("tf_playround", Help = "Play the selected round\n\tArgument: {round name given by \"tf_listrounds\" command}", Flags = ConVarFlags.Cheat)]
-public sealed class PlayRoundCommand(ILog log, IServiceLocator services) : IConCommand
+public sealed class PlayRoundCommand(ILog log, IServiceLocator services)
 {
-    public void Execute(string args)
-    {
-        string name = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        if (name.Length == 0)
-        {
-            log.Msg("Usage:  tf_playround < round name >\n");
-            return;
-        }
+    private IEnumerable<string> Rounds()
+        => services.Resolve<IObjectiveEntities>()?.Master is { } master ? master.Rounds.Select(r => r.Name) : [];
 
+    public void Execute([Complete(From = nameof(Rounds))] string name)
+    {
         if (services.Resolve<IObjectiveEntities>() is not { } entities
             || entities.Master is not { } master
             || !master.PlayingMiniRounds)

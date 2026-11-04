@@ -6,8 +6,8 @@
 <rect x="1634" y="1004" width="68" height="11" fill="#b2b2b2" data-e="8"/>
 <rect x="1634" y="1004" width="20" height="11" fill="#ebebeb" data-e="9"/>
 <text x="1640" y="1031.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ffffff" xml:space="preserve" data-e="10">CLOAK</text>
-<rect x="22" y="922" width="272" height="66" rx="4" fill="#2e2b2a" fill-opacity="0.78" data-e="11"/>
-<rect x="22.5" y="922.5" width="271" height="65" rx="3.5" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="1" data-e="11"/>
-<text x="30" y="966.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="14">Disguised</text>
-<text x="182" y="966.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="15">Soldier</text>
+<rect x="45" y="990" width="450" height="72" rx="4" fill="#2e2b2a" fill-opacity="0.78" data-e="11"/>
+<rect x="45.5" y="990.5" width="449" height="71" rx="3.5" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="1" data-e="11"/>
+<text x="165" y="1035.65" font-family="TF2 Secondary" font-size="26" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="14">Disguised</text>
+<text x="290" y="1035.65" font-family="TF2 Secondary" font-size="26" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="15">Soldier</text>
 </svg>

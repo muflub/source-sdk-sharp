@@ -62,7 +62,7 @@ namespace SourceSharp.Server;
 /// </para>
 ///
 /// <para>
-/// THE sv_cheats GATE IS IN <see cref="DevCommand.Execute"/>, per the
+/// THE sv_cheats GATE IS IN <see cref="DevCommand.Admitted"/>, per the
 /// <see cref="ImpulseCheats"/> and <see cref="DamageCheats"/> precedent, and
 /// never on a command crossing — a crossing's gate swallowed ordinary commands
 /// like <c>lastinv</c> silently for a while, and putting it back there would
@@ -104,11 +104,11 @@ public sealed class DevContext
     public DevContext(IEngineEntities entities, IEngineWorldQuery world,
                       IEnginePlayers players, IEngineEntityRender render,
                       IWeaponGiver arsenal, IEntityDirectory directory,
-                      EntityFactories factories, IEngineConsole console, ILog log,
+                      EntityFactories factories, SvCheatsConVar cheats, ILog log,
                       WeaponCatalog? weapons = null, AmmoCatalog? ammo = null)
     {
         Log = log ?? throw new ArgumentNullException(nameof(log));
-        CheatsEnabled = () => ImpulseCheats.CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
+        CheatsEnabled = () => cheats.Value;
 
         Entities = entities;
         Factories = factories;
@@ -310,11 +310,12 @@ public sealed class DevContext
 }
 
 /// <summary>
-/// One development console command: the argument split, the issuer, the cheat
-/// gate and the shared selection rule, so that a command class is its own
-/// behaviour and nothing else.
+/// One development console command: the issuer, the cheat gate and the shared
+/// selection rule, so that a command class is its own behaviour and nothing else.
+/// A command declares its line as the parameters of its <c>Execute</c>, whose first
+/// act is <see cref="Admitted"/>.
 /// </summary>
-public abstract class DevCommand : IConCommand
+public abstract class DevCommand
 {
     /// <summary>This command's log: its context's console (statics to zero).</summary>
     protected ILog Log => Context.Log;
@@ -352,9 +353,10 @@ public abstract class DevCommand : IConCommand
     /// </summary>
     protected virtual bool NeedsIssuer => true;
 
-    public void Execute(string args)
+    /// <summary>Whether the command may run, and for which player; a refusal is said here.</summary>
+    protected bool Admitted(out EntityHandle issuer)
     {
-        var issuer = Context.Issuer();
+        issuer = Context.Issuer();
 
         // SAID, not swallowed. Reached with nobody connected, and with several
         // players and a word that came from the server console rather than from
@@ -364,24 +366,27 @@ public abstract class DevCommand : IConCommand
         {
             Log.Msg($"{Verb}: no player issued that and there is no single player to act for, " +
                     $"so nothing was done.\n");
-            return;
+            return false;
         }
 
         if (RequiresCheats && !Context.CheatsEnabled())
         {
             Log.Msg($"Can't use cheat command {Verb}, unless the server has sv_cheats set to 1.\n");
-            return;
+            return false;
         }
 
-        Run(issuer, CommandTokens.Split(args));
+        return true;
     }
 
     /// <summary>
-    /// The command itself. <paramref name="argv"/> is the line AFTER the verb —
-    /// <c>CCommand::ArgS</c> is what the engine hands a dispatch, quotes and all,
-    /// which is why it still goes through <see cref="CommandTokens.Split"/>.
+    /// The class names a target can complete from: what the managed directory
+    /// declares and the native factories answer to.
     /// </summary>
-    protected abstract void Run(EntityHandle issuer, string[] argv);
+    protected IEnumerable<string> EntityClasses()
+        => Context.Directory.DescribeClasses().Select(c => c.ClassName)
+                  .Concat(Context.Factories.NativeNames)
+                  .Distinct(StringComparer.OrdinalIgnoreCase)
+                  .Order(StringComparer.OrdinalIgnoreCase);
 
     //-------------------------------------------------------------------------
     // Finding what a command acts on.
@@ -539,7 +544,7 @@ public abstract class DevCommand : IConCommand
 /// than by care.
 /// </para>
 /// </summary>
-public abstract class RetiredDevCommand : IConCommand
+public abstract class RetiredDevCommand
 {
     /// <summary>Where the retirement is said (statics to zero).</summary>
     protected ILog Log { get; }
@@ -557,7 +562,8 @@ public abstract class RetiredDevCommand : IConCommand
     /// <summary>Why it is gone. Long enough to be an actual reason.</summary>
     public abstract string Reason { get; }
 
-    public void Execute(string args)
+    /// <summary>Says why whatever the line held: stock's arguments would only hide the reason.</summary>
+    public void Execute(params string[] stockArguments)
         => Log.Msg($"{Verb}: retired in this build — {Reason}\n");
 }
 
@@ -607,74 +613,3 @@ public static class DevConsole
         .ToDictionary(c => c.Verb, c => c.Reason, StringComparer.Ordinal);
 }
 
-/// <summary>
-/// A console line, split the way a console splits one.
-///
-/// <para>
-/// A dispatch hands managed code <c>CCommand::ArgS</c> — the untouched argument
-/// text, quotes and all — so the tokenising the engine already did has to be
-/// redone here. Splitting on spaces is what a plain crossing does and it is
-/// wrong for anything with a quoted argument —
-/// <c>ent_keyvalue mydoor speed "40"</c> and every model path with a space in it
-/// — so this is the quote-aware version, and it is a pure function over a string
-/// so it can be tested.
-/// </para>
-///
-/// <para>
-/// Deliberately NOT a full shell: no escapes, no single quotes, no variable
-/// expansion. Source's own <c>CCommand::Tokenize</c> has none of those either,
-/// and matching it exactly is the point — a line that works when typed at the
-/// game console must mean the same thing here.
-/// </para>
-/// </summary>
-public static class CommandTokens
-{
-    /// <summary>
-    /// The words of a console line. Quotes group; unterminated quotes run to the
-    /// end of the line, which is what the engine's tokeniser does rather than
-    /// discarding the argument.
-    /// </summary>
-    public static string[] Split(string? line)
-    {
-        if (string.IsNullOrEmpty(line))
-            return [];
-
-        var tokens = new List<string>();
-        var token = new StringBuilder();
-        bool quoted = false;
-        bool started = false;
-
-        foreach (char c in line)
-        {
-            if (c == '"')
-            {
-                // A quote always begins a token, so give "" its own empty
-                // argument rather than dropping it: a keyvalue set to the empty
-                // string is a thing a person means.
-                quoted = !quoted;
-                started = true;
-                continue;
-            }
-
-            if (!quoted && (c == ' ' || c == '\t' || c == '\n' || c == '\r'))
-            {
-                if (started)
-                {
-                    tokens.Add(token.ToString());
-                    token.Clear();
-                    started = false;
-                }
-
-                continue;
-            }
-
-            token.Append(c);
-            started = true;
-        }
-
-        if (started)
-            tokens.Add(token.ToString());
-
-        return tokens.ToArray();
-    }
-}

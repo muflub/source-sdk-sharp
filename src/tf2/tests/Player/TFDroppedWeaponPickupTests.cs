@@ -151,7 +151,7 @@ public sealed class TFDroppedWeaponPickupTests
                   .Returns("Entities.GetVelocity", default(Vector))
                   .Returns("Entities.GetAngularVelocity", default(Vector))
                   .Returns("EntityPhysics.InitPhysics", false);
-            var dropped = new TFDroppedWeapon(ConVars, Seeds, engine);
+            var dropped = new TFDroppedWeapon(ConVars.Declared<TFDroppedWeaponLifetimeConVar>(), Seeds, engine);
             dropped.BindEngine(engine);
             dropped.BindAreas(TestServices.Areas(engine));
             dropped.RegisteredKind = ScriptedEntityKind.Prop;

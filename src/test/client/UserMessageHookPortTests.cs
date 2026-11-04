@@ -31,6 +31,7 @@ public class UserMessageHookPortTests
             => Shown.Add((panel, show, data.ToList(), actions));
         public void VoiceMasks(VoiceMask m) => Calls.Add($"voice {m.Audible0} {m.Banned0} {m.Audible1} {m.Banned1} {m.ModEnable}");
         public void VoiceRequestState() => Calls.Add("voice-request");
+        public bool ScoreboardTakesShots { get; init; }
     }
 
     private static byte[] Written<T>(T payload) where T : IUserMessagePayload<T>
@@ -106,8 +107,7 @@ public class UserMessageHookPortTests
     private static (Effects Fx, RecordingEngine Console) Menu(ViewportFacts facts, string? takesShots = "0")
     {
         var console = Mock();
-        console.Returns("Console.FindConVarValue", takesShots);
-        return (new Effects { Facts = facts }, console);
+        return (new Effects { Facts = facts, ScoreboardTakesShots = takesShots is "1" }, console);
     }
 
     private const ViewportFacts Both = ViewportFacts.PanelExists | ViewportFacts.InfoPanelAllowed;
@@ -116,7 +116,7 @@ public class UserMessageHookPortTests
     public void APanelTheViewportDoesNotHaveIsIgnored()
     {
         var (fx, console) = Menu(ViewportFacts.InfoPanelAllowed);
-        Dispatch(new VguiMenuMessage(fx, console, _log), new VguiMenu { Name = "team", Show = true });
+        Dispatch(new VguiMenuMessage(fx, _log), new VguiMenu { Name = "team", Show = true });
         Assert.Empty(fx.Shown);
     }
 
@@ -124,7 +124,7 @@ public class UserMessageHookPortTests
     public void APanelWithNoDataIsShownWithoutData()
     {
         var (fx, console) = Menu(Both);
-        Dispatch(new VguiMenuMessage(fx, console, _log), new VguiMenu { Name = "team", Show = false });
+        Dispatch(new VguiMenuMessage(fx, _log), new VguiMenu { Name = "team", Show = false });
 
         var only = Assert.Single(fx.Shown);
         Assert.Equal(("team", false, ViewportActions.Show), (only.Panel, only.Show, only.Actions));
@@ -135,7 +135,7 @@ public class UserMessageHookPortTests
     public void AnMotdUrlThatIsNotHttpIsBlockedAndSaid()
     {
         var (fx, console) = Menu(Both);
-        var warnings = Warnings(() => Dispatch(new VguiMenuMessage(fx, console, _log),
+        var warnings = Warnings(() => Dispatch(new VguiMenuMessage(fx, _log),
             new VguiMenu { Name = "info", Show = true, Keys = ["type", "msg"], Values = ["2", "file:///etc/passwd"] }));
 
         Assert.Empty(fx.Shown);
@@ -146,7 +146,7 @@ public class UserMessageHookPortTests
     public void AnHttpsMotdIsHandedOnAndMarkedDisplayed()
     {
         var (fx, console) = Menu(Both);
-        Dispatch(new VguiMenuMessage(fx, console, _log),
+        Dispatch(new VguiMenuMessage(fx, _log),
             new VguiMenu { Name = "INFO", Show = true, Keys = ["type", "msg"], Values = ["2", "https://example.com/"] });
 
         var only = Assert.Single(fx.Shown);
@@ -171,7 +171,7 @@ public class UserMessageHookPortTests
     public void AnInfoPanelTheClientModeRefusesGetsItsDataButIsNotShown()
     {
         var (fx, console) = Menu(ViewportFacts.PanelExists);
-        Dispatch(new VguiMenuMessage(fx, console, _log),
+        Dispatch(new VguiMenuMessage(fx, _log),
             new VguiMenu { Name = "info", Show = true, Keys = ["title"], Values = ["Welcome"] });
 
         var only = Assert.Single(fx.Shown);
@@ -182,11 +182,11 @@ public class UserMessageHookPortTests
     public void TheScoreboardFiresTheScreenshotEventAndTakesOneWhenAsked()
     {
         var (fx, console) = Menu(Both, takesShots: "1");
-        Dispatch(new VguiMenuMessage(fx, console, _log), new VguiMenu { Name = "scores", Show = true });
+        Dispatch(new VguiMenuMessage(fx, _log), new VguiMenu { Name = "scores", Show = true });
         Assert.Equal(ViewportActions.ScreenShot | ViewportActions.ScreenShotEvent | ViewportActions.Show, Assert.Single(fx.Shown).Actions);
 
         var (fx0, console0) = Menu(Both, takesShots: "0");
-        Dispatch(new VguiMenuMessage(fx0, console0, _log), new VguiMenu { Name = "scores", Show = true });
+        Dispatch(new VguiMenuMessage(fx0, _log), new VguiMenu { Name = "scores", Show = true });
         Assert.Equal(ViewportActions.ScreenShotEvent | ViewportActions.Show, Assert.Single(fx0.Shown).Actions);
     }
 
@@ -207,7 +207,7 @@ public class UserMessageHookPortTests
         var engine = Mock();
         engine.Returns("Hud.ViewportQuery", ViewportFacts.PanelExists);
         var rumbles = new List<Rumble>();
-        var fx = new ClientMessageEffects(engine, null, rumble: rumbles.Add);
+        var fx = new ClientMessageEffects(engine, DeclaredConVars.Fresh<Client.Vgui.HudTakesShotsConVar>(), null, rumble: rumbles.Add);
 
         fx.Shake(new Shake { Command = 1, Amplitude = 2f, Frequency = 3f, Duration = 4f });
         fx.Fade(new Fade { Duration = 5, HoldTime = 6, Flags = 7, Color = new Color32(8, 9, 10, 11) });
@@ -247,7 +247,7 @@ public class UserMessageHookPortTests
         {
             LevelInitialized = true,
         };
-        var fx = new ClientMessageEffects(engine, voice: () => voice);
+        var fx = new ClientMessageEffects(engine, DeclaredConVars.Fresh<Client.Vgui.HudTakesShotsConVar>(), voice: () => voice);
 
         fx.VoiceMasks(new VoiceMask { Audible0 = 1, Banned0 = 2, Audible1 = 3, Banned1 = 4, ModEnable = true });
         Assert.True(voice.IsAudible(1));

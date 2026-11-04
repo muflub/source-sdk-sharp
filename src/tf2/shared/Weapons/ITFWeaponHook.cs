@@ -15,7 +15,9 @@ namespace TF2.Shared;
 /// <c>CTFPlayer::m_AttributeManager</c>, the walk a
 /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> takes). Asked for a clip size or a
 /// fire interval the core names no owner, so <see cref="OwnerIndex"/> is 0
-/// and the rest null there.
+/// and the rest null there. Asked at a deploy the context also carries the
+/// item of the weapon being put away and how long ago that one came into the
+/// hands — the arms of stock's <c>Deploy</c> read it from there.
 /// </summary>
 public readonly record struct TFWeaponHookContext(
     WeaponType Type,
@@ -23,7 +25,9 @@ public readonly record struct TFWeaponHookContext(
     int OwnerIndex = 0,
     TFConditions? Conditions = null,
     IAttributeProvider? Item = null,
-    IAttributeProvider? Manager = null);
+    IAttributeProvider? Manager = null,
+    IAttributeProvider? PreviousItem = null,
+    float SecondsSincePreviousDeploy = 0f);
 
 /// <summary>
 /// A link in every TF weapon's chain (plan D10): <see cref="TFWeaponBehaviour"/>
@@ -50,6 +54,14 @@ public interface ITFWeaponHook : IOrderedHook
     float ModifyInterval(in TFWeaponHookContext weapon, float interval) => interval;
 
     /// <summary>
+    /// The pellets one shot throws (<c>mult_bullets_per_shot</c>,
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> over <c>nBulletsPerShot</c>,
+    /// <c>tf_fx_shared.cpp:305</c>), asked with the row's floored count before
+    /// the volley's multiplication.
+    /// </summary>
+    int ModifyPellets(in TFWeaponHookContext weapon, int pellets) => pellets;
+
+    /// <summary>
     /// The seconds a reload takes — <c>CTFWeaponBase::SetReloadTimer</c>'s
     /// scaled duration (<c>tf_weaponbase.cpp:2266-2331</c>): the script's or
     /// the animation's time as it would stand, which the hooks multiply. The
@@ -57,6 +69,16 @@ public interface ITFWeaponHook : IOrderedHook
     /// alone.
     /// </summary>
     float ModifyReloadTime(in TFWeaponHookContext weapon, float duration) => duration;
+
+    /// <summary>
+    /// The seconds a switch leaves on the clocks (<c>CTFWeaponBase::Deploy</c>'s
+    /// multiplier, <c>tf_weaponbase.cpp:1255-</c>): the row's deploy seconds as
+    /// asked, scaled by the incoming item's <c>mult_single_wep_deploy_time</c>
+    /// and — once <see cref="TFWeaponHookContext.SecondsSincePreviousDeploy"/>
+    /// passes the asked seconds — the outgoing item's
+    /// <c>mult_switch_from_wep_deploy_time</c>.
+    /// </summary>
+    float ModifyDeployTime(in TFWeaponHookContext weapon, float seconds) => seconds;
 
     /// <summary>A shot's damage before a crit (<c>GetProjectileDamage</c>'s <c>mult_dmg</c>).</summary>
     float ModifyDamage(in TFWeaponHookContext weapon, float damage) => damage;
@@ -153,6 +175,32 @@ public interface ITFWeaponHook : IOrderedHook
     /// such a weapon reloads by its own arm and never the idle top-up.
     /// </summary>
     bool FiresFullClip(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the shell-by-shell loader of its own turns its singly-reload
+    /// off for this item (<c>set_scattergun_no_reload_single</c>,
+    /// <c>CTFScatterGun::Reload</c>, tf_weapon_shotgun.cpp:299-309): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> over zero, and the whole clip lands at once
+    /// on the whole-clip clock when the answer is the set's <c>== 1</c>.
+    /// </summary>
+    bool ReloadsWithWholeClip(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the rifle refuses its unzoomed shots (<c>sniper_only_fire_zoomed</c>,
+    /// <c>CTFSniperRifle::MustBeZoomedToFire</c>, tf_weapon_sniperrifle.cpp:708-713):
+    /// set, <c>Fire</c> (:794-800) denies an unzoomed attack with the
+    /// rate-limited dry click of <c>HandleNoScopeFireDeny</c> (:718-731).
+    /// </summary>
+    bool OnlyFireZoomed(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the fired shot draws the rail tracer
+    /// (<c>sniper_fires_tracer</c> / <c>sniper_fires_tracer_HIDDEN</c>,
+    /// <c>CTFPlayer::MaybeDrawRailgunBeam</c>, tf_player_shared.cpp:10103-10115):
+    /// set, or with the sniper's charge rage buff on, the shot asks the tracer
+    /// effect for its beam.
+    /// </summary>
+    bool FiresTracer(in TFWeaponHookContext weapon) => false;
 }
 
 /// <summary>
@@ -198,11 +246,25 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         return interval;
     }
 
+    public int ModifyPellets(in TFWeaponHookContext weapon, int pellets)
+    {
+        foreach (var hook in All)
+            pellets = Guard(hook, nameof(ITFWeaponHook.ModifyPellets), pellets, weapon, static (h, w, v) => h.ModifyPellets(in w, v));
+        return pellets;
+    }
+
     public float ModifyReloadTime(in TFWeaponHookContext weapon, float duration)
     {
         foreach (var hook in All)
             duration = Guard(hook, nameof(ITFWeaponHook.ModifyReloadTime), duration, weapon, static (h, w, v) => h.ModifyReloadTime(in w, v));
         return duration;
+    }
+
+    public float ModifyDeployTime(in TFWeaponHookContext weapon, float seconds)
+    {
+        foreach (var hook in All)
+            seconds = Guard(hook, nameof(ITFWeaponHook.ModifyDeployTime), seconds, weapon, static (h, w, v) => h.ModifyDeployTime(in w, v));
+        return seconds;
     }
 
     public float ModifyDamage(in TFWeaponHookContext weapon, float damage)
@@ -300,6 +362,63 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
             catch (Exception e)
             {
                 Report(hook, nameof(ITFWeaponHook.FiresFullClip), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook whose item turns the singly-reload off answers whole.</summary>
+    public bool ReloadsWithWholeClip(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.ReloadsWithWholeClip(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.ReloadsWithWholeClip), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook whose item asks the zoomed-only arm turns the question yes.</summary>
+    public bool OnlyFireZoomed(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.OnlyFireZoomed(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.OnlyFireZoomed), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook whose item or owner asks the rail tracer turns the question yes.</summary>
+    public bool FiresTracer(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.FiresTracer(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.FiresTracer), e);
             }
         }
 

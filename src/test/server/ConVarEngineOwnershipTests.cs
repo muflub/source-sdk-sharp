@@ -116,7 +116,7 @@ public class ConVarEngineOwnershipTests
         Assert.Empty(backend.Registered);
         Assert.Contains(log.Lines, l => l.Warning && l.Text ==
             "[SourceSharp] C# declared convar 'ss_test_engine_one', which the engine defines: refused. "
-            + "Read the engine's by name instead of declaring it.\n");
+            + "Declare it [EngineConVar] instead.\n");
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class ConVarEngineOwnershipTests
         Assert.Equal(2, registry.RegisterTypes(new[] { typeof(OursA), typeof(OursB) }));
 
         Assert.Equal(new[] { "ss_test_ours_a", "ss_test_ours_b" }, backend.Registered);
-        Assert.Same(backend, registry.Get<OursA>()!.Backend);
+        Assert.Same(backend, registry.Declared<OursA>().Backend);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public class ConVarEngineOwnershipTests
 
         Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes(new[] { typeof(EngineOne) }));
 
-        Assert.Null(registry.Get<EngineOne>());
+        Assert.Empty(registry.All.OfType<EngineOne>());
         Assert.Null(registry.ValueOf("ss_test_engine_one"));
     }
 

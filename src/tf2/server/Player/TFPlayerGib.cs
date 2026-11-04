@@ -76,7 +76,7 @@ public static class TFPlayerGibRule
 /// death notice does, so it stands before <c>TFCombatDeaths</c> clears them.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFPlayerGib(ConVarRegistry convars, TFDamageRecords records, IEngineEntities entities,
+public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords records, IEngineEntities entities,
     IEntityDirectory directory) : IPlayerDeathHook, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.PlayerGib;
@@ -90,13 +90,8 @@ public sealed class TFPlayerGib(ConVarRegistry convars, TFDamageRecords records,
         // stock's fall-through: an unrecorded blow is none of the arms.
         TFHitRecord? hit = records.LastHit(death.EntIndex);
 
-        body.State.Gib = TFPlayerGibRule.ShouldGib(ConVar<TFPlayerGibConVar>().Value,
+        body.State.Gib = TFPlayerGibRule.ShouldGib(playerGib.Value,
             hit?.Bits ?? DamageType.None, hit?.Crit ?? TFCritType.None,
             hit?.Custom ?? TFDamageCustom.None, entities.GetHealth(death.Player));
     }
-
-    /// <summary>A missing declaration is a startup bug, as everywhere.</summary>
-    private T ConVar<T>() where T : ConVarBase
-        => convars.Get<T>() ?? throw new InvalidOperationException(
-            $"the death walk reads {typeof(T).Name}, which is not registered");
 }

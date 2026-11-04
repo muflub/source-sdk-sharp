@@ -629,6 +629,29 @@ public class BotCommandApplierTests
         => _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold,
                                              new LookIntent(LookKind.Actor, point, Foe, AimPoint.Body, 0f, 0), action, default));
 
+    /// <summary>The second trigger is IN_ATTACK2 in the usercmd, a person's press, and only with the view on its point (§5.4).</summary>
+    [Fact]
+    public void AnAltFireIsAttack2OnceTheViewIsThere()
+    {
+        var point = new AiVector(500f, 200f, 64f);
+        var alt = new ActionIntent(ActionKind.AltFire, FireStyle.Tap, 0, 0);
+        bool early = false, pressed = false;
+        for (int i = 0; i < 200 && !pressed; i++)
+        {
+            SubmitAim(point, alt);
+            UserCmd cmd = TickFollowingTheView();
+            AiAngles at = BotCommandApplier.AnglesTo(new AiVector(0f, 0f, 64f), point);
+            float off = MathF.Sqrt(MathF.Pow(at.Pitch - cmd.Pitch, 2f) + MathF.Pow(HumanMotion.AngleDelta(cmd.Yaw, at.Yaw), 2f));
+            bool attack2 = (cmd.Buttons & (int)InputButtons.Attack2) != 0;
+            early |= attack2 && off > BotCommandApplier.AltFireOnAimDeg + 0.5f;
+            pressed = attack2;
+            Assert.Equal(0, cmd.Buttons & (int)InputButtons.Attack);
+        }
+
+        Assert.True(pressed, "the view got there and nothing was pressed");
+        Assert.False(early, "pressed with the view off its point");
+    }
+
     /// <summary>
     /// The aim's point moves at every decide while the target stays the same:
     /// one stimulus (§3.4.1). As a new stimulus each move restarted the
@@ -867,5 +890,117 @@ public class BotCommandApplierTests
 
         Assert.Equal(45f, a.Yaw, 3);
         Assert.True(a.Pitch > 0f, "pitch down is positive");
+    }
+
+    private static int Rises(IEnumerable<UserCmd> cmds, int key)
+    {
+        int rises = 0, was = 0;
+        foreach (UserCmd c in cmds)
+        {
+            int now = c.Buttons & key;
+            rises += now != 0 && was == 0 ? 1 : 0;
+            was = now;
+        }
+
+        return rises;
+    }
+
+    private IntentCommand Go(MoveKind kind, ActionIntent action)
+        => new(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks),
+               new MoveIntent(kind, MoveSpeed.Run, 1, new AiVector(4000f, 0f, 0f), default, default, default, default, false, 0),
+               LookIntent.AlongPath, action, default);
+
+    private UserCmd LateTick()
+    {
+        _applier.Late(Bot);
+        return Tick();
+    }
+
+    /// <summary>
+    /// A late drive step: a new usercmd with its own number and tick, as stock
+    /// has a bot send one a tick, its move still steered at the corner; nothing
+    /// pressed anew, and the one-shot it held not pressed again.
+    /// </summary>
+    [Fact]
+    public void ALateTickSendsANewCommandThatMovesAndPressesNothingAnew()
+    {
+        IntentCommand reload = Go(MoveKind.Follow, new ActionIntent(ActionKind.Reload, FireStyle.Tap, 0, 1));
+        _applier.Submit(in reload);
+        UserCmd first = Tick();
+        Assert.True((first.Buttons & (int)InputButtons.Reload) != 0, "the one-shot pressed");
+        UserCmd late = LateTick();
+        Assert.Equal(first.CommandNumber + 1, late.CommandNumber);
+        Assert.Equal(first.TickCount + 1, late.TickCount);
+        Assert.NotEqual(0f, late.ForwardMove);
+        UserCmd after = Tick();
+        Assert.Equal(1, Rises([first, late, after], (int)InputButtons.Reload));
+        Assert.Equal(1L, _applier.Repeats);
+    }
+
+    /// <summary>A one-shot queued and not yet pressed is not spent by a late tick: it goes on the next that is not.</summary>
+    [Fact]
+    public void ALateTickKeepsAQueuedOneShotForTheNextTick()
+    {
+        IntentCommand reload = Go(MoveKind.Follow, new ActionIntent(ActionKind.Reload, FireStyle.Tap, 0, 1));
+        _applier.Submit(in reload);
+        UserCmd late = LateTick();
+        Assert.Equal(0, late.Buttons & (int)InputButtons.Reload);
+        UserCmd next = Tick();
+        Assert.NotEqual(0, next.Buttons & (int)InputButtons.Reload);
+        Assert.Equal(0, Tick().Buttons & (int)InputButtons.Reload);
+    }
+
+    /// <summary>
+    /// The let-go that lets a held jump press again falls due on a late tick:
+    /// held instead, so the repeat makes no second press. A jump over a run of
+    /// repeats presses once.
+    /// </summary>
+    [Fact]
+    public void ALateTickNeverPressesTheJumpAgain()
+    {
+        IntentCommand jump = Go(MoveKind.Jump, ActionIntent.None);
+        _applier.Submit(in jump);
+        var cmds = new List<UserCmd>();
+        for (int i = 0; i < BotCommandApplier.JumpCycle - 1; i++)
+            cmds.Add(Tick());
+        // The JumpCycle-th would let go and the next press again: late, neither comes.
+        for (int i = 0; i < 4; i++)
+            cmds.Add(LateTick());
+        Assert.Equal(1, Rises(cmds, (int)InputButtons.Jump));
+        Assert.All(cmds, c => Assert.NotEqual(0, c.Buttons & (int)InputButtons.Jump));
+        // The control: not late, the same run lets go and presses again.
+        cmds.Add(Tick());
+        cmds.Add(Tick());
+        Assert.Equal(2, Rises(cmds, (int)InputButtons.Jump));
+    }
+
+    /// <summary>A use held for a mount stays held through a late tick, never released and pressed: that press on the ladder is what gets a bot off it.</summary>
+    [Fact]
+    public void ALateTickHoldsAUseWithoutPressingItAgain()
+    {
+        IntentCommand use = Go(MoveKind.Follow, new ActionIntent(ActionKind.Use, FireStyle.Tap, 0, 0));
+        _applier.Submit(in use);
+        UserCmd[] cmds = [Tick(), LateTick(), LateTick(), Tick()];
+        Assert.All(cmds, c => Assert.NotEqual(0, c.Buttons & (int)InputButtons.Use));
+        Assert.Equal(1, Rises(cmds, (int)InputButtons.Use));
+    }
+
+    /// <summary>A tap holds where it was on a late tick: a press every other tick, and a tick's wait, never one extra shot.</summary>
+    [Fact]
+    public void ALateTickFiresNoExtraTap()
+    {
+        IntentCommand fire = Go(MoveKind.Follow, new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0));
+        _applier.Submit(in fire);
+        var cmds = new List<UserCmd>();
+        for (int i = 0; i < 6; i++)
+            cmds.Add(Tick());
+        int plain = Rises(cmds, (int)InputButtons.Attack);
+        Assert.True(plain >= 2, $"{plain} presses in six ticks, the control");
+        cmds.Clear();
+        _applier.Submit(fire with { Seq = ++_seq });
+        for (int i = 0; i < 6; i++)
+            cmds.Add(i % 2 == 0 ? Tick() : LateTick());
+        int withLate = Rises(cmds, (int)InputButtons.Attack);
+        Assert.True(withLate < plain, $"every other tick late, its presses wait: {withLate} against {plain}");
     }
 }

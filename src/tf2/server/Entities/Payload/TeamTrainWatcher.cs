@@ -80,7 +80,8 @@ public sealed class TeamTrainWatcher(
     IEntityDirectory directory,
     IEnginePlayers players,
     IEngineGameEvents gameEvents,
-    ConVarRegistry convars,
+    TFEscortRecedeTimeConVar escortRecedeTime,
+    TFEscortRecedeTimeOvertimeConVar escortRecedeTimeOvertime,
     TFConceptSpeech? speech = null) : ScriptedEntity, ICaptureAreaWatcher, IPathTrackPassListener
 {
     public const string MapClass = "team_train_watcher";
@@ -213,14 +214,10 @@ public sealed class TeamTrainWatcher(
 
     private int Team => Vars.TeamNum;
 
-    /// <summary>Stock reads these live; a missing declaration is a startup bug.</summary>
-    private T ConVar<T>() where T : ConVarBase
-        => convars.Get<T>() ?? throw new InvalidOperationException(
-            $"team_train_watcher reads {typeof(T).Name}, which is not registered");
+    /// <summary>Stock reads these live.</summary>
+    private float EscortRecedeTime => escortRecedeTime.Value;
 
-    private float EscortRecedeTime => ConVar<TFEscortRecedeTimeConVar>().Value;
-
-    private float EscortRecedeTimeOvertime => ConVar<TFEscortRecedeTimeOvertimeConVar>().Value;
+    private float EscortRecedeTimeOvertime => escortRecedeTimeOvertime.Value;
 
     /// <summary>Whether the alarm's patch exists.</summary>
     private bool HasAlarm => _alarmPatch != 0;

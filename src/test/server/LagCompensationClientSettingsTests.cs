@@ -28,15 +28,21 @@ public class LagCompensationClientSettingsTests
         ["sv_client_min_interp_ratio"] = "1", ["sv_client_max_interp_ratio"] = "5",
     };
 
+    private static LerpBounds Bound(Dictionary<string, string> values)
+    {
+        float? Of(string name) => values.TryGetValue(name, out string? v) ? float.Parse(v, System.Globalization.CultureInfo.InvariantCulture) : null;
+        return new LerpBounds(Of("sv_minupdaterate"), Of("sv_maxupdaterate"), Of("sv_client_min_interp_ratio"), Of("sv_client_max_interp_ratio"));
+    }
+
     private static Dictionary<string, string> With(Dictionary<string, string> from, string name, string value)
         => new(from) { [name] = value };
 
     [Fact]
     public void TheLerpIsTheLargerOfTheInterpAndTheRatioOverTheRate()
     {
-        float stock = LagCompensationClientSettings.LerpTime(Of(Stock), Of(Bounds));
-        float ratio = LagCompensationClientSettings.LerpTime(Of(With(Stock, "cl_interp", "0")), Of(Bounds));
-        float interp = LagCompensationClientSettings.LerpTime(Of(With(Stock, "cl_interp", "0.25")), Of(Bounds));
+        float stock = LagCompensationClientSettings.LerpTime(Of(Stock), Bound(Bounds));
+        float ratio = LagCompensationClientSettings.LerpTime(Of(With(Stock, "cl_interp", "0")), Bound(Bounds));
+        float interp = LagCompensationClientSettings.LerpTime(Of(With(Stock, "cl_interp", "0.25")), Bound(Bounds));
 
         Assert.Equal((0.1f, 0.1f, 0.25f), (stock, ratio, interp));
     }
@@ -47,7 +53,7 @@ public class LagCompensationClientSettingsTests
         // A rate of 200 is 66 here; a ratio of 9 is 5: 5/66.
         var asked = With(With(With(Stock, "cl_updaterate", "200"), "cl_interp_ratio", "9"), "cl_interp", "0");
 
-        Assert.Equal(5f / 66f, LagCompensationClientSettings.LerpTime(Of(asked), Of(Bounds)), 6);
+        Assert.Equal(5f / 66f, LagCompensationClientSettings.LerpTime(Of(asked), Bound(Bounds)), 6);
     }
 
     [Fact]
@@ -56,7 +62,7 @@ public class LagCompensationClientSettingsTests
         var asked = With(With(Stock, "cl_interp_ratio", "9"), "cl_interp", "0");
         var open = With(Bounds, "sv_client_min_interp_ratio", "-1");
 
-        Assert.Equal(9f / 20f, LagCompensationClientSettings.LerpTime(Of(asked), Of(open)), 6);
+        Assert.Equal(9f / 20f, LagCompensationClientSettings.LerpTime(Of(asked), Bound(open)), 6);
     }
 
     [Fact]
@@ -64,13 +70,13 @@ public class LagCompensationClientSettingsTests
     {
         var asked = With(With(Stock, "cl_interp_ratio", "0"), "cl_interp", "0");
 
-        Assert.Equal(1f / 20f, LagCompensationClientSettings.LerpTime(Of(asked), Of(Bounds)), 6);
+        Assert.Equal(1f / 20f, LagCompensationClientSettings.LerpTime(Of(asked), Bound(Bounds)), 6);
     }
 
     [Fact]
     public void NoInterpolationIsNoLerp()
     {
-        Assert.Equal(0f, LagCompensationClientSettings.LerpTime(Of(With(Stock, "cl_interpolate", "0")), Of(Bounds)));
+        Assert.Equal(0f, LagCompensationClientSettings.LerpTime(Of(With(Stock, "cl_interpolate", "0")), Bound(Bounds)));
     }
 
     [Fact]
@@ -78,7 +84,7 @@ public class LagCompensationClientSettingsTests
     {
         var asked = With(Stock, "cl_updaterate", "0");
 
-        Assert.Equal(0.1f, LagCompensationClientSettings.LerpTime(Of(asked), _ => null));
+        Assert.Equal(0.1f, LagCompensationClientSettings.LerpTime(Of(asked), default));
     }
 
     [Fact]

@@ -55,6 +55,7 @@ public class WeaponSwitchTests
         public readonly List<EntityHandle> WeaponHandles = new();
         public readonly List<EntityHandle> ViewModelHandles = new();
         public readonly List<EntityHandle> AttachmentHandles = new();
+        public readonly List<EntityHandle> AttachedModelHandles = new();
 
         /// <summary>A fact's own entity index per handle; null asks the engine.</summary>
         public Func<EntityHandle, int?>? IndexOf;
@@ -90,6 +91,8 @@ public class WeaponSwitchTests
                 ViewModelHandles.Add(handle);
             else if (className == EntityNames.SsViewmodelAttachment)
                 AttachmentHandles.Add(handle);
+            else if (className == EntityNames.SsAttachedModel)
+                AttachedModelHandles.Add(handle);
 
             return handle;
         }
@@ -175,13 +178,13 @@ public class WeaponSwitchTests
         public void SetSpawnFlags(EntityHandle entity, int spawnFlags) => _engine.SetSpawnFlags(entity, spawnFlags);
     }
 
-    private static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World()
+    internal static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World()
         => World(out _, viewmodelModel: null);
 
-    private static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World(out ScriptedEntityRegistry carried)
+    internal static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World(out ScriptedEntityRegistry carried)
         => World(out carried, viewmodelModel: null);
 
-    private static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World(
+    internal static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World(
         out ScriptedEntityRegistry carried, ViewmodelModel? viewmodelModel,
         ViewmodelSkin? viewmodelSkin = null, IServerSkins? skins = null, RecordingLog? log = null,
         WeaponCatalog? weapons = null)
@@ -244,7 +247,7 @@ public class WeaponSwitchTests
             .Select(c => c.ArgAs<string>(1))
             .ToList();
 
-    private static EntityHandle Player => new(PlayerHandle);
+    internal static EntityHandle Player => new(PlayerHandle);
 
     //-------------------------------------------------------------------------
     // Fault 1's server contract, crossed twice and back: the models follow.

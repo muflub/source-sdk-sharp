@@ -81,6 +81,19 @@ public class ClientPhysicsSystemTests
         return system;
     }
 
+    /// <summary>The environment's gravity is sv_gravity as it stands at the level's start.</summary>
+    [Fact]
+    public void TheClocksGravityIsSvGravity()
+    {
+        var gravity = DeclaredConVars.Holding<ClientSvGravityConVar>("600");
+        var clock = new ClientPhysicsClock(new RecordingEngine(), gravity, DeclaredConVars.Fresh<ClientPhysTimescaleConVar>());
+        Assert.Equal(600f, clock.Gravity);
+
+        gravity.Hold("200");
+
+        Assert.Equal(200f, clock.Gravity);
+    }
+
     [Fact]
     public void TheLevelsEnvironmentIsMadeAsStockMadeIt()
     {

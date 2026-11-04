@@ -2,7 +2,7 @@
 <rect x="2294" y="323" width="248" height="173" fill="#2e2b2a" fill-opacity="0.78" data-e="1"/>
 <text x="2314" y="483.68" font-family="TF2 Build" font-size="27" font-weight="500" fill="#ebe2ca" fill-opacity="0.86" xml:space="preserve" data-e="2">Rocket Launcher</text>
 <text x="2513" y="373.85" font-family="TF2" font-size="34" font-weight="500" fill="#fbebca" fill-opacity="0.86" xml:space="preserve" data-e="3">1</text>
-<text x="2310" y="455.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#ff0000" xml:space="preserve" data-e="4">OUT OF AMMO</text>
+<text x="2330" y="453.65" font-family="TF2 Secondary" font-size="26" font-weight="500" fill="#ff0000" xml:space="preserve" data-e="4">OUT OF AMMO</text>
 <rect x="2380" y="505" width="162" height="122" fill="#2e2b2a" fill-opacity="0.78" data-e="5"/>
 <text x="2410" y="613.68" font-family="TF2 Build" font-size="27" font-weight="500" fill="#ebe2ca" fill-opacity="0.86" xml:space="preserve" data-e="6">Shotgun</text>
 <text x="2514" y="555.85" font-family="TF2" font-size="34" font-weight="500" fill="#fbebca" fill-opacity="0.86" xml:space="preserve" data-e="7">2</text>

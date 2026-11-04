@@ -53,3 +53,13 @@ SSVT004 | SourceSharp | Error | A contract method must take and return exactly w
 SSVT005 | SourceSharp | Error | Release is the generator's slot
 SSVT006 | SourceSharp | Error | A contract method name is a slot name, so it may not be overloaded
 SSVT007 | SourceSharp | Error | A managed vtable contract must be a non-generic interface at namespace level
+SSTE001 | SourceSharp | Error | A temp entity declaration must be partial
+SSTE002 | SourceSharp | Error | A temp entity declaration cannot be generic
+SSTE003 | SourceSharp | Error | A temp entity class must derive from TempEntState or another declaration
+SSTE004 | SourceSharp | Error | A temp entity declaration needs a name to pair on
+SSTE005 | SourceSharp | Error | A [TeProp] member must be a public instance field
+SSTE006 | SourceSharp | Error | A [TeProp] member's type has no wire form
+SSTE007 | SourceSharp | Error | A nested table must be a [TempEntity] struct and name its table
+SSTE008 | SourceSharp | Error | An array member must be an [InlineArray] of Vector
+SSTE009 | SourceSharp | Error | Temp entity tables nest too deep
+SSTE010 | SourceSharp | Error | A [TeProp] member belongs on a [TempEntity] type

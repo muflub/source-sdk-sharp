@@ -57,10 +57,10 @@ TEST( FwdShimAreas, ShimPrecacheIs1Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimMovementServerIs15Slots )
+TEST( FwdShimAreas, ShimMovementServerIs14Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimMovementServer::PlayerSyncEngineSide ).slot + 1;
-	EXPECT_EQ( 15, compiler );
+	EXPECT_EQ( 14, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimMovementServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -228,10 +228,10 @@ TEST( FwdShimAreas, ShimModelsIs3SlotsOnTheClient )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimMovementIs4SlotsOnTheClient )
+TEST( FwdShimAreas, ShimMovementIs3SlotsOnTheClient )
 {
 	const int compiler = VTableHook::MemberOf( &IShimMovement::RegisterMovementParams ).slot + 1;
-	EXPECT_EQ( 4, compiler );
+	EXPECT_EQ( 3, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimMovement" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -282,19 +282,19 @@ TEST( FwdShimAreas, ShimTempEntBackendsClientIs21Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimEffectsRenderClientIs35Slots )
+TEST( FwdShimAreas, ShimEffectsRenderClientIs37Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEffectsRenderClient::ParticleSystemFollowEntitySlot ).slot + 1;
-	EXPECT_EQ( 35, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEffectsRenderClient::ParticleSystemViewModelSlot ).slot + 1;
+	EXPECT_EQ( 37, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEffectsRenderClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimStandaloneClientIs25Slots )
+TEST( FwdShimAreas, ShimStandaloneClientIs26Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimStandaloneClient::EntitySetModelOverride ).slot + 1;
-	EXPECT_EQ( 25, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimStandaloneClient::StandaloneSetShadowHull ).slot + 1;
+	EXPECT_EQ( 26, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimStandaloneClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -336,10 +336,10 @@ TEST( FwdShimAreas, ShimDiagnosticsClientIs2Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimUiClientIs23Slots )
+TEST( FwdShimAreas, ShimUiClientIs24Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimUiClient::UiMaterialTexture ).slot + 1;
-	EXPECT_EQ( 23, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimUiClient::UiDrawMesh ).slot + 1;
+	EXPECT_EQ( 24, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimUiClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -410,7 +410,7 @@ TEST( FwdShimAreas, ShimPhysicsClientIs5Slots )
 
 TEST( FwdShimAreas, ShimConVarsClientIs2Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimConVarsClient::ConVarsClientSetValue ).slot + 1;
+	const int compiler = VTableHook::MemberOf( &IShimConVarsClient::ConVarsClientAddFlags ).slot + 1;
 	EXPECT_EQ( 2, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimConVarsClient" );
 	ASSERT_NE( nullptr, pTable );

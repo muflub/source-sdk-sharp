@@ -41,7 +41,7 @@ namespace SourceSharp.Shared;
 /// </summary>
 [Precache(PrecacheKind.Model, "sprites/gunsmoke.vmt")]   // CTESprite::Precache, te_sprite.cpp:70
 [TempEntity]
-public class TeSprite : TeBaseTempEntity
+public partial class TeSprite : TeBaseTempEntity
 {
     /// <summary>Where it appears. One COORD vector prop, not three elements.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

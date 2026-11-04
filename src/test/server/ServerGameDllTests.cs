@@ -4,6 +4,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using Xunit;
+using SourceSharp.Shared;
 
 using static SourceSharp.Tests.TestServices;
 
@@ -25,6 +26,8 @@ public class ServerGameDllTests
 
     // The log the dll under test writes to, one per fact.
     private readonly RecordingLog _log = new();
+    private readonly DeveloperConVar _developer = DeclaredConVars.Fresh<DeveloperConVar>();
+    private GLanguageConVar _language = DeclaredConVars.Fresh<GLanguageConVar>();
 
     /// <summary>
     /// The managed row of kServerSystems[] (plan_server_native_v2 T4e), as
@@ -78,6 +81,8 @@ public class ServerGameDllTests
     /// itself checked below.
     /// </para>
     /// </summary>
+    private readonly StubAlternateTicks _alternateTicks = new();
+
     private (ServerGameDll Dll, RecordingEngine Engine) Build(string? tickRate = null)
         => Build(tickRate, out _);
 
@@ -122,7 +127,8 @@ public class ServerGameDllTests
         // precedes the parse rather than merely that both happened.
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        var dll = new ServerGameDll(_log, engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, commandLine, engine, engine, engine, engine,
+        var dll = new ServerGameDll(_log, engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, commandLine, engine, engine, engine,
+                                    _developer, _language, DeclaredConVars.Fresh<SvTagsConVar>(), engine, _alternateTicks,
                                     stringTables, modTable,
                                     // Phase A3: the lifecycle driver MapLoadPreEntity
                                     // dispatches into. An empty container here, so the
@@ -453,7 +459,7 @@ public class ServerGameDllTests
             (int)System.Runtime.InteropServices.Marshal.OffsetOf<CGlobalVarsRaw>(nameof(CGlobalVarsRaw.maxClients)), maxClients);
 
         engine.Returns("Environment.Globals", new Globals(globals));
-        engine.Returns("Console.FindConVarValue", language);
+        _language.Hold(language);
         engine.Returns("Precache.PrecacheModel", 1);
         dll.ParticlePrecache = engine;
         dll.PrecacheScriptSound = name => engine.Note("Sound.PrecacheScriptSound", name);
@@ -488,8 +494,32 @@ public class ServerGameDllTests
             {
                 "sv_stepsize=18", "room_type=0", "allowed=True",
                 "Level.PhysicsLevelInitPreEntity", "Row.LevelInitPreEntity",
-                "g_Language=0",
             }, steps);
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
+    }
+
+    private sealed class LanguageConVars : IConVarBackend
+    {
+        public readonly List<string> Sets = [];
+        public string Value = "1";
+        public int Register(string name, string defaultValue, string help, int flags, float? min, float? max) => 1;
+        public void Set(int id, string value) { Sets.Add(value); Value = value; }
+        public string Get(int id) => Value;
+        public string? ValueOf(string name) => Value;
+    }
+
+    [Fact]
+    public void TheWorldsPrecacheSetsTheLanguageToEnglish()
+    {
+        var convars = new LanguageConVars();
+        _language = new ConVarRegistry(convars).Declare<GLanguageConVar>();
+        var (dll, _, globals) = BuildForTheWorld(language: "1");
+        try
+        {
+            dll.MapLoadPreEntity("dm_lockdown");
+
+            Assert.Equal(["0"], convars.Sets);
         }
         finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(globals); }
     }
@@ -1103,7 +1133,6 @@ public class ServerGameDllTests
     public void AFrameIsCounted()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1123,7 +1152,6 @@ public class ServerGameDllTests
     public void TheSimulatingFlagFollowsTheFrameRatherThanStayingWhereItStarted()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1392,14 +1420,12 @@ public class ServerGameDllTests
     public void AFrameRunsStocksStepsInStocksOrder()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
 
         Assert.Equal(new[]
         {
-            "Frame.IsSimulatingOnAlternateTicks",
             // "Frame.SetServerCurTime" stood here until the slot retired
             // (plan_server_native_v2 T6).
             "Frame.GetFrameTime",
@@ -1455,7 +1481,6 @@ public class ServerGameDllTests
     public void TheLastManagedPointRunsAfterTheRulesAndBeforeTheLateDrain()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1498,7 +1523,6 @@ public class ServerGameDllTests
     public void NothingRunsBetweenTheTwoSystemPasses()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1536,7 +1560,6 @@ public class ServerGameDllTests
     public void TheManagedIoPassRunsAfterThePostThinkSystems()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         string[] beforeThePass = Array.Empty<string>();
@@ -1588,7 +1611,6 @@ public class ServerGameDllTests
     public void TheManagedPassIsServicedImmediatelyAfterTheNativeQueue()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         int stepsAtThePass = -1;
@@ -1633,7 +1655,6 @@ public class ServerGameDllTests
     public void TheIoQueueIsServicedExactlyOncePerFrame()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         int passes = 0;
@@ -1665,7 +1686,6 @@ public class ServerGameDllTests
     public void TheRulesEndOfFrameComesAfterTheEventQueueAndTheClientData()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1699,7 +1719,6 @@ public class ServerGameDllTests
     public void TheDeleteListIsReapedTwiceAFrameAndTheThinksAreBetweenThem()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1730,7 +1749,7 @@ public class ServerGameDllTests
     public void OnASkippedAlternateTickOnlyTheClientDataRuns()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", true);
+        _alternateTicks.Simulating = true;
         engine.Returns("Frame.TickCount", 7);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
@@ -1738,7 +1757,6 @@ public class ServerGameDllTests
 
         Assert.Equal(new[]
         {
-            "Frame.IsSimulatingOnAlternateTicks",
             "Frame.TickCount",
             "Frame.UpdateAllClientData",
         }, FrameStepsOf(engine));
@@ -1754,7 +1772,7 @@ public class ServerGameDllTests
     public void OnASimulatedAlternateTickTheFrameTimeIsDoubledFirst()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", true);
+        _alternateTicks.Simulating = true;
         engine.Returns("Frame.TickCount", 8);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
@@ -1775,7 +1793,7 @@ public class ServerGameDllTests
     public void TheFrameTimeIsRestoredAtTheEndOfAnAlternateTick()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", true);
+        _alternateTicks.Simulating = true;
         engine.Returns("Frame.TickCount", 8);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
@@ -1800,7 +1818,6 @@ public class ServerGameDllTests
     public void TheFrameHasNoRestoreGateAndAsksTheEngineForNoSuchThing()
     {
         var (dll, engine) = Build();
-        engine.Returns("Frame.IsSimulatingOnAlternateTicks", false);
         engine.Returns("Frame.GetFrameTime", 0.015f);
 
         dll.GameFrame(true);
@@ -1827,7 +1844,6 @@ public class ServerGameDllTests
     public void ServerActivateRunsStocksStepsInStocksOrder()
     {
         var (dll, engine) = Build();
-        engine.Returns("Console.FindConVarValue", "0");
 
         dll.ServerActivate();
 
@@ -1866,7 +1882,6 @@ public class ServerGameDllTests
     {
         var (dll, engine) = Build();
         engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", "0");
 
         dll.ServerActivate();
 
@@ -1913,7 +1928,6 @@ public class ServerGameDllTests
     {
         var (dll, engine) = Build();
         engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", "0");
 
         dll.ServerActivate();
 
@@ -1929,7 +1943,7 @@ public class ServerGameDllTests
     {
         var (dll, engine) = Build();
         engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", "2");
+        _developer.Hold("2");
 
         dll.ServerActivate();
 
@@ -1954,7 +1968,6 @@ public class ServerGameDllTests
     {
         var (dll, engine) = Build();
         engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", "0");
 
         dll.ServerActivate();
 
@@ -1973,7 +1986,7 @@ public class ServerGameDllTests
     {
         var (dll, engine) = Build();
         engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", "2");
+        _developer.Hold("2");
 
         dll.ServerActivate();
 
@@ -1994,7 +2007,6 @@ public class ServerGameDllTests
     {
         var (dll, engine) = Build();
         engine.Returns("Level.ResetDeleteList", 0);
-        engine.Returns("Console.FindConVarValue", null);
 
         dll.ServerActivate();
 

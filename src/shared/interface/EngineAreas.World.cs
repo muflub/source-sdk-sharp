@@ -376,12 +376,6 @@ public interface IEngineEffects
     Vector ClientWindSpeed(float time);
 
     /// <summary>
-    /// <c>GetCurrentGravity()</c> — a slot rather than a constant because
-    /// <c>sv_gravity</c> is a convar.
-    /// </summary>
-    float CurrentGravity();
-
-    /// <summary>
     /// A CLIENT entity's origin by INDEX, which is what
     /// <c>FTENT_PLYRATTACHMENT</c> stores. False when the index names no
     /// entity.
@@ -456,8 +450,31 @@ public interface IEngineEffects
     /// <inheritdoc cref="ParticleSystemStartSlot"/>
     void ParticleSystemStopSlot(EntityHandle owner, int slot);
 
+    /// <summary>
+    /// Which list the owner's slot system draws in: the viewmodel's translucent
+    /// pass when <paramref name="viewmodel"/>, else the entity translucent one it
+    /// was inserted in. Stock pins the local player's crit glow to the viewmodel
+    /// pass in code, whatever the particle's definition says
+    /// (<c>tf_player_shared.cpp:7587-7593</c>). Nothing happens when the slot
+    /// holds no system of that owner's.
+    /// </summary>
+    void ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel);
+
     /// <inheritdoc cref="ParticleSystemFollowEntity"/>
     bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null);
+
+    /// <summary>
+    /// The flame's control points for one burning frame, in a single crossing:
+    /// <paramref name="values"/> is records of ten floats each — the control
+    /// point index, the position, the velocity, the density, the radius and the
+    /// duration — and <paramref name="activeIndex"/> names the newest point's
+    /// index, the point the system reads next. Stock's
+    /// <c>CTFFlameManager::OnClientPointAdded</c> feeds the muzzle as point 0 and
+    /// every live flame point after it on each update; a caller with one system
+    /// passes this once per burning frame.
+    /// </summary>
+    /// <returns>true if the owner's slot held a system to feed.</returns>
+    bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values);
 
     /// <inheritdoc cref="EngineSide.SpriteTrailUpdate"/>
     void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible);

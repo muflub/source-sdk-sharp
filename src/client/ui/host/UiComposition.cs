@@ -190,7 +190,7 @@ public static class ClientUi
         // assemblies cannot name ScoreboardUi (they hold no core screen), so it
         // reaches them as the IScoreboardSource the container now answers for.
         var scores = new ScoreboardUi(standalones, screen, engine, services.Require<IPlayerNames>(),
-                                      services.Require<IEngineConsole>(),
+                                      services.Require<HostnameConVar>(),
                                       services.Require<IEngineEnvironment>(), services.Resolve<TeamNames>());
         services.AddInstance<IScoreboardSource>(scores);
 
@@ -252,7 +252,8 @@ public static class ClientUi
                                                ? new PickupHistoryUi(history, feed)
                                                : new NoPickupHistory()),
                                            new DamageDealtPanel(services.Require<IDamageDealtSource>()),
-                                           new MinimapPanel(services.Require<IMinimapSource>()));
+                                           new MinimapPanel(services.Require<IMinimapSource>(), services.Require<IMinimapPingSource>()),
+                                           new WorldMarkerPanel(services.Require<IWorldMarkerSource>()));
         var centre = new Ui.Screens.CentrePrint(services.Require<ICentrePrintSource>());
         var chat = new Chat(services.Require<IChatSource>());
         var overlayText = new Ui.Screens.DebugOverlayText(services.Require<IDebugOverlaySource>());

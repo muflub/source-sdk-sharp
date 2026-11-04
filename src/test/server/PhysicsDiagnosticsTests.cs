@@ -336,8 +336,8 @@ public class AirDensityTests
     [Fact]
     public void Between_levels_it_does_nothing()
     {
-        AirDensity.Run("", 0, _inspect, _msg.Add);
-        AirDensity.Run("3", 0, _inspect, _msg.Add);
+        AirDensity.Run(null, 0, _inspect, _msg.Add);
+        AirDensity.Run(3f, 0, _inspect, _msg.Add);
         Assert.Empty(_msg);
         Assert.Empty(_inspect.Calls);
     }
@@ -345,18 +345,15 @@ public class AirDensityTests
     [Fact]
     public void With_no_argument_it_prints_the_current_density()
     {
-        AirDensity.Run("", 0x10, _inspect, _msg.Add);
+        AirDensity.Run(null, 0x10, _inspect, _msg.Add);
         Assert.Equal(["air_density <value>\nCurrent air density is 2.00\n"], _msg);
     }
 
-    [Theory]
-    [InlineData("1.5", "SetAirDensity 1.5")]
-    [InlineData("abc", "SetAirDensity 0")]
-    [InlineData("4x 9", "SetAirDensity 4")]
-    public void An_argument_is_read_as_atof_reads_it(string args, string call)
+    [Fact]
+    public void An_argument_sets_it()
     {
-        AirDensity.Run(args, 0x10, _inspect, _msg.Add);
-        Assert.Equal([call], _inspect.Calls);
+        AirDensity.Run(1.5f, 0x10, _inspect, _msg.Add);
+        Assert.Equal(["SetAirDensity 1.5"], _inspect.Calls);
         Assert.Empty(_msg);
     }
 }

@@ -41,16 +41,45 @@ public interface IBotChatWriter
 }
 
 /// <summary>A line wanted, as the main thread hands it to the worker.</summary>
-public sealed record ChatJob(long Id, int Slot, ChatPrompt Prompt, ChatTarget Target, float TimeoutSeconds, string SelfName);
+/// <param name="Check">For an answer: what the model's line is held to.</param>
+/// <param name="Fallback">For an answer: the true line that goes out if the model's fails, or fails to come.</param>
+public sealed record ChatJob(long Id, int Slot, ChatPrompt Prompt, ChatTarget Target, float TimeoutSeconds, string SelfName, ChatAnswerCheck? Check = null, string? Fallback = null);
 
 /// <summary>What became of a job, or of the warm-up (<see cref="Id"/> 0).</summary>
 public readonly record struct ChatResult(long Id, int Slot, string? Line, ChatRefusal Refusal, ChatFailure Failure, string Detail, bool TimedOut, float Seconds);
+
+/// <summary>What stopped a wish from being asked for: the first limit that stood in its way when it was given up.</summary>
+public enum ChatLimit
+{
+    /// <summary>The server's one line per interval.</summary>
+    Interval,
+
+    /// <summary>The bot's own cooldown.</summary>
+    Cooldown,
+
+    /// <summary>A long line wanted in a fight.</summary>
+    Fight,
+
+    /// <summary>The server's one reply per few seconds.</summary>
+    Reply,
+
+    /// <summary>The pause while the server is down.</summary>
+    Paused,
+
+    /// <summary>The worker's queue was full.</summary>
+    Queue,
+
+    /// <summary>The bot had gone.</summary>
+    Gone,
+}
 
 /// <summary>The chat worker's counts (§3.6, <c>/ai/counters</c>): written by both threads, read by the route.</summary>
 public sealed class ChatCounters
 {
     private long _requests, _answered, _latencyTotalUs, _latencyMaxUs, _timedOut, _serverDown, _refused, _rateLimited, _stale, _said, _replies, _mainTotalNs, _mainTicks, _mainMaxNs, _leaked, _finished;
     private readonly long[] _refusedBy = new long[Enum.GetValues<ChatRefusal>().Length];
+    private readonly long[] _limitedBy = new long[Enum.GetValues<ChatLimit>().Length];
+    private long _triggers, _chanceMissed, _questions, _answersModel, _answersTemplate, _answersUnverified, _shrugs, _marks, _answersDropped;
 
     public long Requests => Interlocked.Read(ref _requests);
 
@@ -91,6 +120,51 @@ public sealed class ChatCounters
 
     public long RefusedBy(ChatRefusal why) => Interlocked.Read(ref _refusedBy[(int)why]);
 
+    /// <summary>The moments that came up for a bot, whether or not it wanted to speak.</summary>
+    public long Triggers => Interlocked.Read(ref _triggers);
+
+    /// <summary>The moments a bot's chance passed over.</summary>
+    public long ChanceMissed => Interlocked.Read(ref _chanceMissed);
+
+    /// <summary>The wishes given up for <paramref name="why"/>.</summary>
+    public long LimitedBy(ChatLimit why) => Interlocked.Read(ref _limitedBy[(int)why]);
+
+    /// <summary>The questions heard, the ones answered in a model's words and from the plain template, the model's lines refused, the shrugs, the markers sent and the questions nobody got to.</summary>
+    public long Questions => Interlocked.Read(ref _questions);
+
+    public long AnswersModel => Interlocked.Read(ref _answersModel);
+
+    public long AnswersTemplate => Interlocked.Read(ref _answersTemplate);
+
+    public long AnswersUnverified => Interlocked.Read(ref _answersUnverified);
+
+    public long Shrugs => Interlocked.Read(ref _shrugs);
+
+    public long Marks => Interlocked.Read(ref _marks);
+
+    public long AnswersDropped => Interlocked.Read(ref _answersDropped);
+
+    public void Question() => Interlocked.Increment(ref _questions);
+
+    public void AnswerModel() => Interlocked.Increment(ref _answersModel);
+
+    public void AnswerTemplate() => Interlocked.Increment(ref _answersTemplate);
+
+    public void AnswerUnverified() => Interlocked.Increment(ref _answersUnverified);
+
+    public void Shrug() => Interlocked.Increment(ref _shrugs);
+
+    public void Mark() => Interlocked.Increment(ref _marks);
+
+    public void AnswerDropped() => Interlocked.Increment(ref _answersDropped);
+
+    public void Trigger(bool wanted)
+    {
+        Interlocked.Increment(ref _triggers);
+        if (!wanted)
+            Interlocked.Increment(ref _chanceMissed);
+    }
+
     public void Request() => Interlocked.Increment(ref _requests);
 
     public void Answer(float seconds)
@@ -114,7 +188,11 @@ public sealed class ChatCounters
         Interlocked.Increment(ref _refusedBy[(int)why]);
     }
 
-    public void Limited() => Interlocked.Increment(ref _rateLimited);
+    public void Limited(ChatLimit why)
+    {
+        Interlocked.Increment(ref _rateLimited);
+        Interlocked.Increment(ref _limitedBy[(int)why]);
+    }
 
     public void Drop() => Interlocked.Increment(ref _stale);
 
@@ -299,13 +377,36 @@ public sealed class ChatWorker(IBotChatWriter writer, ChatOutputFilter filter, C
                 counters.Timeout();
             else if (reply.Failure is ChatFailure.ServerDown or ChatFailure.ModelMissing)
                 counters.Down();
-            return new ChatResult(job.Id, job.Slot, null, ChatRefusal.None, reply.Failure, reply.Detail, timedOut, seconds);
+            return new ChatResult(job.Id, job.Slot, Plain(job), ChatRefusal.None, reply.Failure, reply.Detail, timedOut, seconds);
         }
 
         counters.Answer(seconds);
-        ChatVerdict verdict = filter.Check(reply.Text, job.Prompt.Whole, job.SelfName);
+        // An answer is meant to say its fact back, so only the instructions count as a prompt to echo.
+        ChatVerdict verdict = filter.Check(reply.Text, job.Fallback is null ? job.Prompt.Whole : job.Prompt.System, job.SelfName);
         if (verdict.Refusal != ChatRefusal.None)
             counters.Refuse(verdict.Refusal);
-        return new ChatResult(job.Id, job.Slot, verdict.Line, verdict.Refusal, ChatFailure.None, reply.Text, false, seconds);
+        if (job.Fallback is null)
+            return new ChatResult(job.Id, job.Slot, verdict.Line, verdict.Refusal, ChatFailure.None, reply.Text, false, seconds);
+
+        // An answer: the model's words only if they hold to the fact, else the fact.
+        if (verdict.Line is { } line && job.Check?.Holds(line) == true)
+        {
+            counters.AnswerModel();
+            return new ChatResult(job.Id, job.Slot, line, ChatRefusal.None, ChatFailure.None, reply.Text, false, seconds);
+        }
+
+        if (verdict.Refusal == ChatRefusal.None)
+            counters.Refuse(ChatRefusal.Unverified);
+        counters.AnswerUnverified();
+        return new ChatResult(job.Id, job.Slot, Plain(job), verdict.Refusal == ChatRefusal.None ? ChatRefusal.Unverified : verdict.Refusal, ChatFailure.None, reply.Text, false, seconds);
+    }
+
+    /// <summary>An answer's plain line, through the filter like any other; null for a job with none.</summary>
+    private string? Plain(ChatJob job)
+    {
+        if (job.Fallback is not { } plain)
+            return null;
+        counters.AnswerTemplate();
+        return filter.Check(plain, "", job.SelfName).Line;
     }
 }

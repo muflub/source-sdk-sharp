@@ -106,6 +106,7 @@ public unsafe interface IManagedCommands
     void ConCommandDispatch(int a0, byte* a1);
     void ConVarChanged(int a0, byte* a1, byte* a2);
     int OnClientCommand(uint a0, byte* a1);
+    int ConCommandSuggest(int a0, byte* a1, byte* a2, int a3);
 }
 
 [ManagedVtable(typeof(ManagedNetStateTable))]

@@ -52,6 +52,7 @@
 #include "managed_init_failure.h"
 #include "managed_side.h"
 #include "diagnostics_hooks.h"
+#include "console_suggestions.h"
 #include "convar_registry.h"
 #ifdef CLIENT_DLL
 #include "shell_managed_areas_client.h"
@@ -204,7 +205,7 @@ static const CNativeCommandBody* NativeBodyFor(const char* pName)
 #endif
 }
 
-class CSourceSharpCommand final : public ICommandCallback
+class CSourceSharpCommand final : public ICommandCallback, public ICommandCompletionCallback
 {
 public:
 	CSourceSharpCommand(CShimConsole& console, int nId, const char* pName, const char* pHelp, int nFlags,
@@ -213,7 +214,7 @@ public:
 		, m_nId(nId)
 		, m_Name(pName ? pName : "")
 		, m_Help(pHelp ? pHelp : "")
-		, m_Command(m_Name.c_str(), this, m_Help.c_str(), nFlags)
+		, m_Command(m_Name.c_str(), this, m_Help.c_str(), nFlags, this)
 		, m_pNativeBody(NativeBodyFor(m_Name.c_str()))
 		, m_pServices(pServices)
 	{
@@ -242,6 +243,21 @@ public:
 			Msg("[SourceSharp] dispatch cmd id=%d '%s'\n", m_nId, command.ArgS());
 
 		pCommands->ConCommandDispatch(m_nId, command.ArgS());
+	}
+
+	virtual int CommandCompletionCallback(const char* pPartial, CUtlVector<CUtlString>& commands) OVERRIDE
+	{
+		ManagedCommandsArea_t* pCommands = m_Console.Commands();
+		if (m_pNativeBody || !pCommands)
+			return 0;
+
+		char lines[ss::kConsoleSuggestionBytes];
+		lines[0] = '\0';
+		if (pCommands->ConCommandSuggest(m_nId, pPartial, lines, sizeof(lines)) <= 0)
+			return 0;
+
+		return ss::AppendSuggestionLines(ss::FindEngineHeap(),
+										 ss::EngineUtlVectorLayoutOf<ss::EngineUtlString>(commands), lines);
 	}
 
 	int GetId() const { return m_nId; }
@@ -332,7 +348,6 @@ void CShimConsole::OnConVarChanged(IConVar* pVar, const char* pOldValue, float f
 		nId = pConVar->GetId();
 		pNewValue = pConVar->GetVar()->GetString();
 	}
-#ifdef CLIENT_DLL
 	else
 	{
 		// A watched engine or native convar, forwarded under the watch's id.
@@ -340,7 +355,6 @@ void CShimConsole::OnConVarChanged(IConVar* pVar, const char* pOldValue, float f
 		ConVar* pWatched = (nId >= 0 && Cvar()) ? Cvar()->FindVar(pName) : NULL;
 		pNewValue = pWatched ? pWatched->GetString() : "";
 	}
-#endif
 
 	if (nId < 0)
 		return;
@@ -363,20 +377,32 @@ void CShimConsole::EnsureChangeCallback()
 		Msg("[SourceSharp] convar change callback installed (global, matched by name)\n");
 }
 
-#ifdef CLIENT_DLL
-int32_t CShimConsole::WatchConVar(const char* pName)
+bool CShimConsole::AddConVarFlags(const char* pName, int32_t nFlags)
 {
-	if (!pName || !pName[0] || !Cvar() || !Cvar()->FindVar(pName))
+	if (!pName || !pName[0] || !Cvar())
+		return false;
+
+	ConVar* pExisting = Cvar()->FindVar(pName);
+	if (!pExisting)
+		return false;
+
+	pExisting->AddFlags(nFlags);
+	return true;
+}
+
+int32_t CShimConsole::WatchNamedConVar(const char* pName)
+{
+	if (!pName || !pName[0])
 		return -1;
 
 	const int32_t nId = WatchedConVarId(pName);
 	if (nId >= 0)
 		return nId;
 
-	if (m_nWatched >= kMaxWatched || V_strlen(pName) >= kWatchedNameBytes)
+	if (m_nWatched >= kMaxWatched || (int)strlen(pName) >= kWatchedNameBytes)
 		return -1;
 
-	V_strncpy(m_szWatched[m_nWatched], pName, kWatchedNameBytes);
+	ss::StrCopy(m_szWatched[m_nWatched], pName, kWatchedNameBytes);
 	EnsureChangeCallback();
 	return SOURCESHARP_CONVAR_WATCH_ID_BASE + m_nWatched++;
 }
@@ -387,12 +413,11 @@ int32_t CShimConsole::WatchedConVarId(const char* pName) const
 		return -1;
 	for (int i = 0; i < m_nWatched; i++)
 	{
-		if (!V_stricmp(m_szWatched[i], pName))
+		if (!ss::StrICmp(m_szWatched[i], pName))
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 	return -1;
 }
-#endif
 
 // A re-registered name rebinds to the surviving object: tier1 refuses a duplicate,
 // and a new object would reset the operator's value to its default.
@@ -602,6 +627,30 @@ int32_t CShimConsole::FindConVarValue(const char* pName, char* pOut, int32_t nOu
 
 	ss::StrCopy(pOut, pVar->GetString(), nOutSize);
 	return 1;
+}
+
+int32_t CShimConsole::CompleteCommandLine(const char* pLine, char* pOut, int32_t nOutSize)
+{
+	if (!pOut || nOutSize <= 0)
+		return 0;
+
+	pOut[0] = '\0';
+
+	char name[128];
+	if (!ss::ConsoleLineCommand(pLine, name, sizeof(name)) || !Cvar())
+		return 0;
+
+	ConCommand* pCommand = Cvar()->FindCommand(name);
+	if (!pCommand || !pCommand->CanAutoComplete())
+		return 0;
+
+	ss::EngineFilledUtlVector<ss::EngineUtlString> suggestions;
+	pCommand->AutoCompleteSuggest(pLine, *suggestions.ForEngine<CUtlVector<CUtlString>>());
+
+	const int nWritten = ss::WriteSuggestionLines(suggestions.View(), pOut, nOutSize);
+	for (const ss::EngineUtlString& suggestion : suggestions.View())
+		ss::EngineHeapFree(suggestion.m_pString);
+	return nWritten;
 }
 
 // Sets an engine-owned convar by name, through the ConVar so FCVAR_CHEAT does not

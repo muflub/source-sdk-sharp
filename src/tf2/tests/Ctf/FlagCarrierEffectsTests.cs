@@ -49,10 +49,10 @@ public sealed class FlagCarrierEffectsTests
         _conVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         _conVars.RegisterAll(typeof(TFCTFBonusTimeConVar).Assembly);
         _effects = new FlagCarrierEffects(_roster, _conditions, _players, _spies,
-                                          _conVars.Get<TFCTFBonusTimeConVar>()!);
+                                          _conVars.Declared<TFCTFBonusTimeConVar>());
     }
 
-    private void BonusTime(string value) => _conVars.Get<TFCTFBonusTimeConVar>()!.Bind(-1, "tf_ctf_bonus_time", value);
+    private void BonusTime(string value) => _conVars.Declared<TFCTFBonusTimeConVar>().Bind(-1, "tf_ctf_bonus_time", value);
 
     [Fact]
     public void The_capture_crits_the_living_of_the_capping_team()
@@ -89,7 +89,7 @@ public sealed class FlagCarrierEffectsTests
     {
         // The call ends before the walk (:20525-20528).
         BonusTime("0");
-        Assert.Equal(0f, _conVars.Get<TFCTFBonusTimeConVar>()!.Value);
+        Assert.Equal(0f, _conVars.Declared<TFCTFBonusTimeConVar>().Value);
 
         _effects.CaptureBonus(TFTeam.Red);
 

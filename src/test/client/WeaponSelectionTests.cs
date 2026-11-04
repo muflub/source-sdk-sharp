@@ -8,6 +8,7 @@ using SourceSharp.Client.Input;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Vgui;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -68,7 +69,7 @@ public class WeaponSelectionTests
     {
         var hud = new World().Hud();
 
-        new Slot2Command(hud).Execute("");
+        new Slot2Command(hud).Execute();
 
         Assert.True(hud.Open);
         Assert.Equal(1, hud.Selected);
@@ -81,8 +82,8 @@ public class WeaponSelectionTests
         var next = world.Hud();
         var prev = world.Hud();
 
-        new InvNextCommand(next).Execute("");
-        new InvPrevCommand(prev).Execute("");
+        new InvNextCommand(next).Execute();
+        new InvPrevCommand(prev).Execute();
 
         Assert.True(next.Open && next.Selected == 2);
         Assert.True(prev.Open && prev.Selected == 0);
@@ -93,7 +94,7 @@ public class WeaponSelectionTests
     {
         var world = new World();
 
-        new LastInvCommand(world.Hud()).Execute("");
+        new LastInvCommand(world.Hud()).Execute();
 
         Assert.Equal(1, world.LastWeapons);
     }
@@ -103,9 +104,9 @@ public class WeaponSelectionTests
     {
         var world = new World();
         var hud = world.Hud();
-        new Slot1Command(hud).Execute("");
+        new Slot1Command(hud).Execute();
 
-        new CancelSelectCommand(hud, world).Execute("");
+        new CancelSelectCommand(hud, world).Execute();
 
         Assert.False(hud.Open);
         Assert.Equal(0, world.Escapes);
@@ -116,7 +117,7 @@ public class WeaponSelectionTests
     {
         var world = new World();
 
-        new CancelSelectCommand(world.Hud(), world).Execute("");
+        new CancelSelectCommand(world.Hud(), world).Execute();
 
         Assert.Equal(1, world.Escapes);
     }
@@ -128,7 +129,7 @@ public class WeaponSelectionTests
         var keys = new ClientKeyInput(new NoChat(), new NoObserver(), new ChatFeedTests.RecordingEngineClient([]), hud);
         Assert.Equal(ClientKeyInput.NoDecision, keys.KeyInput(true, ClientKeyBinding.CancelSelect, false, 8));
 
-        new Slot1Command(hud).Execute("");
+        new Slot1Command(hud).Execute();
 
         Assert.Equal(ClientKeyInput.Used, keys.KeyInput(true, ClientKeyBinding.CancelSelect, false, 8));
         Assert.False(hud.Open);
@@ -171,7 +172,7 @@ public class WeaponSelectionTests
     public void Attack_the_selection_takes_is_swallowed_until_pressed_again()
     {
         var hud = new TakesAttack(takes: true);
-        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), hud: hud);
+        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("0"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), hud: hud);
         input.Buttons.Attack.KeyDown("1");
 
         Assert.Equal(0, Command(input) & (int)InputButtons.Attack);
@@ -183,7 +184,7 @@ public class WeaponSelectionTests
     public void Attack_the_selection_leaves_is_sent()
     {
         var hud = new TakesAttack(takes: false);
-        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), hud: hud);
+        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("0"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), hud: hud);
         input.Buttons.Attack.KeyDown("1");
 
         Assert.NotEqual(0, Command(input) & (int)InputButtons.Attack);
@@ -193,7 +194,7 @@ public class WeaponSelectionTests
     public void No_attack_asks_nothing()
     {
         var hud = new TakesAttack(takes: true);
-        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), hud: hud);
+        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("0"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), hud: hud);
 
         Command(input);
 
@@ -220,7 +221,7 @@ public class WeaponSelectionTests
         var hud = world.Hud(mode: WeaponSelectionHud.HudTypeBuckets);
         var latch = new RecordingLatch();
 
-        new Slot2Command(hud, new Forecast(4, 7), latch).Execute("");
+        new Slot2Command(hud, new Forecast(4, 7), latch).Execute();
 
         Assert.True(hud.Open);
         Assert.Equal(1, hud.Selected);
@@ -234,7 +235,7 @@ public class WeaponSelectionTests
         var hud = world.Hud(mode: WeaponSelectionHud.HudTypeFastSwitch);
         var latch = new RecordingLatch();
 
-        new Slot2Command(hud, new Forecast(4, 7), latch).Execute("");
+        new Slot2Command(hud, new Forecast(4, 7), latch).Execute();
 
         Assert.Equal([7], latch.Latched);
         Assert.False(hud.Open);
@@ -247,7 +248,7 @@ public class WeaponSelectionTests
         var hud = world.Hud(mode: WeaponSelectionHud.HudTypeFastSwitch);
         var latch = new RecordingLatch();
 
-        new Slot3Command(hud, new Forecast(4, 7), latch).Execute("");
+        new Slot3Command(hud, new Forecast(4, 7), latch).Execute();
 
         Assert.Empty(latch.Latched);
         Assert.False(hud.Open);

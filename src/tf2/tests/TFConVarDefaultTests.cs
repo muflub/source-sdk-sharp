@@ -39,7 +39,7 @@ public class TFConVarDefaultTests
         var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(ServerModule).Assembly);
 
-        var convar = registry.Get<MpWaitingForPlayersTimeConVar>();
+        var convar = registry.Declared<MpWaitingForPlayersTimeConVar>();
 
         Assert.True(convar is not null, "the server walk declares the waiting clock");
         Assert.True(convar!.Value == 30f,
@@ -57,7 +57,7 @@ public class TFConVarDefaultTests
         var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(ServerModule).Assembly);
 
-        var convar = registry.Get<DefaultFovConVar>();
+        var convar = registry.Declared<DefaultFovConVar>();
 
         Assert.True(convar is not null, "the server walk declares default_fov");
         Assert.True(convar!.Value == 75,
@@ -151,7 +151,7 @@ public class TFConVarDefaultTests
         // The override lives with the game: a registry that never walks
         // TF2.Server still binds the core's own number.
         var convar = Registered(typeof(MpWaitingForPlayersTimeConVar))
-            .Get<MpWaitingForPlayersTimeConVar>();
+            .Declared<MpWaitingForPlayersTimeConVar>();
 
         Assert.True(convar is not null, "the core declares the waiting clock");
         Assert.True(convar!.Value == 0f,

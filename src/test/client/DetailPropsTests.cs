@@ -783,12 +783,17 @@ public class DetailPropsTests
 
     private static int Bits(float f) => BitConverter.SingleToInt32Bits(f);
 
-    private static DetailPropsHost Host(Lump lump, Action<Engine>? setup = null)
+    private readonly RDrawDetailPropsConVar DrawDetailProps = DeclaredConVars.Holding<RDrawDetailPropsConVar>("1");
+    private readonly SourceSharp.Shared.SvCheatsConVar Cheats = DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>("1");
+    private readonly MatWireframeConVar Wireframe = DeclaredConVars.Holding<MatWireframeConVar>("0");
+
+    private DetailPropsHost Host(Lump lump, Action<Engine>? setup = null)
     {
         var engine = new Engine();
         setup?.Invoke(engine);
         engine.Lumps[DetailGameLumps.DetailProps] = (4, lump.Bytes());
-        return new DetailPropsHost(new DetailPropSystem(engine, engine));
+        return new DetailPropsHost(new DetailPropSystem(engine, engine), DrawDetailProps, DeclaredConVars.Holding<MatFullbrightConVar>("0"),
+                                   new WireframeMode(Cheats, Wireframe));
     }
 
     [Fact]
@@ -819,7 +824,7 @@ public class DetailPropsTests
     {
         var host = Host(Models(Lump.Model(new Vector(100, 0, 0), 0, model: 1, orientation: 1)));
         host.LevelInitPreEntity(256, 256, false);
-        host.BuildLists(default, default, true, 1, 0);
+        host.BuildLists(default, default, true);
         int[] w = host.Words.ToArray();
         Assert.Equal(w.Length, w[0]);
         Assert.Equal([1, Bits(1200)], w[1..3]);
@@ -828,7 +833,8 @@ public class DetailPropsTests
         Assert.Equal(255 | DetailPropsWire.ModelSetAngles, w[9]);
         Assert.Equal(16, w.Length);								// angles and colour, three words each
 
-        host.BuildLists(default, default, true, 0, 0);
+        DrawDetailProps.Hold("0");
+        host.BuildLists(default, default, true);
         Assert.Equal([5, 0, 0, 0, 0], host.Words.ToArray());
     }
 
@@ -841,7 +847,8 @@ public class DetailPropsTests
         var host = Host(lump);
         host.LevelInitPreEntity(256, 256, false);
         host.BeginTranslucent();
-        host.Prepare((int)DetailDrawKind.OldInLeaf, ViewDownX, [0], null, new DetailSwitches(1, true, 0));
+        Wireframe.Hold("1");
+        host.Prepare((int)DetailDrawKind.OldInLeaf, ViewDownX, [0], null);
         int[] w = host.Words.ToArray();
         Assert.Equal(w.Length, w[0]);
         Assert.Equal((int)DetailDrawMaterial.Wireframe, w[1]);
@@ -859,7 +866,7 @@ public class DetailPropsTests
         var host = Host(lump);
         host.LevelInitPreEntity(256, 256, false);
         host.BeginTranslucent();
-        host.Prepare((int)DetailDrawKind.OldList, ViewDownX, [0], null, new DetailSwitches(1, false, 0));
+        host.Prepare((int)DetailDrawKind.OldList, ViewDownX, [0], null);
         host.Emit(1);
         int[] w = host.Words.ToArray();
         Assert.Equal(w.Length, w[0]);
@@ -885,12 +892,12 @@ public class DetailPropsTests
         lump.Objects.Add(Lump.Sprite(new Vector(100, 0, 0), 0, orientation: 0));
         var engine = new Engine { DetailDist = 900, DetailFade = 300, Multiplier = 3 };
         engine.Lumps[DetailGameLumps.DetailProps] = (4, lump.Bytes());
-        DetailPropsHost Fresh() => new(new DetailPropSystem(engine, engine));
+        DetailPropsHost Fresh() => new(new DetailPropSystem(engine, engine), DrawDetailProps, DeclaredConVars.Holding<MatFullbrightConVar>("0"), new WireframeMode(Cheats, Wireframe));
         int[] Draw(DetailPropsHost h)
         {
-            h.BuildLists(default, default, true, 1, 0);
+            h.BuildLists(default, default, true);
             h.BeginTranslucent();
-            h.Prepare((int)DetailDrawKind.OldList, ViewDownX, [0], null, new DetailSwitches(1, false, 0));
+            h.Prepare((int)DetailDrawKind.OldList, ViewDownX, [0], null);
             h.Emit(64);
             return h.Words.ToArray();
         }

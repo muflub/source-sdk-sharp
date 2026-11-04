@@ -9,6 +9,25 @@ using SourceSharp.Abi;
 
 namespace TF2.Server;
 
+/// <summary>The convars a stickybomb reads.</summary>
+[SideService(Side.Server)]
+public sealed class TFStickybombConVars(TF2.Shared.TFGrenadeLauncherLiveTimeConVar liveTime, TF2.Shared.TFStickyRadiusRampTimeConVar radiusRampTime,
+                                        TF2.Shared.TFStickyAirDetRadiusConVar airDetRadius, TFPipebombDeflectResetTimeConVar deflectResetTime,
+                                        TFGrenadeForceFromBulletConVar forceFromBullet, TFGrenadeForceFromBuckshotConVar forceFromBuckshot,
+                                        TFGrenadeForceFromBlastConVar forceFromBlast, TFPipebombForceToMoveConVar forceToMove,
+                                        TFGrenadeForceSleeptimeConVar forceSleepTime)
+{
+    public readonly TF2.Shared.TFGrenadeLauncherLiveTimeConVar LiveTime = liveTime;
+    public readonly TF2.Shared.TFStickyRadiusRampTimeConVar RadiusRampTime = radiusRampTime;
+    public readonly TF2.Shared.TFStickyAirDetRadiusConVar AirDetRadius = airDetRadius;
+    public readonly TFPipebombDeflectResetTimeConVar DeflectResetTime = deflectResetTime;
+    public readonly TFGrenadeForceFromBulletConVar ForceFromBullet = forceFromBullet;
+    public readonly TFGrenadeForceFromBuckshotConVar ForceFromBuckshot = forceFromBuckshot;
+    public readonly TFGrenadeForceFromBlastConVar ForceFromBlast = forceFromBlast;
+    public readonly TFPipebombForceToMoveConVar ForceToMove = forceToMove;
+    public readonly TFGrenadeForceSleeptimeConVar ForceSleepTime = forceSleepTime;
+}
+
 // TF2's convars that stock declares in the game DLL only (a GAME_DLL arm of
 // shared code, or a server/ file), so only the server declares them, even
 // where stock flags one FCVAR_REPLICATED (mp_enableroundwaittime: the client

@@ -250,7 +250,7 @@ public sealed class PersonalityTests
 
         Assert.True(aimed, "it never pre-aimed");
         Assert.Equal(LookKind.Point, i.Look.Kind);
-        Assert.Equal(spot + new AiVector(0f, 0f, 48f), i.Look.Point);
+        Assert.Equal(spot + new AiVector(0f, 0f, Hl2mpDecider.PlaceHeight), i.Look.Point);
     }
 
     /// <summary>Finding them there is a moment; out in the open it is not.</summary>

@@ -57,14 +57,14 @@ public sealed class GlowObjectManager
     private int _firstFreeSlot = EndOfFreeList;
     private int _haloId = -1;
     private readonly Func<EntityHandle, bool> _isDormant;
-    private readonly Func<string, string?> _findConVarValue;
+    private readonly GlowOutlineEffectEnableConVar _enable;
     private readonly Func<string, int> _findMaterial;
 
     /// <summary>Stock's three engine reads: the entity's dormancy, the glow convar, the halo material.</summary>
-    public GlowObjectManager(Func<EntityHandle, bool> isDormant, Func<string, string?> findConVarValue, Func<string, int> findMaterial)
+    public GlowObjectManager(Func<EntityHandle, bool> isDormant, GlowOutlineEffectEnableConVar enable, Func<string, int> findMaterial)
     {
         _isDormant = isDormant;
-        _findConVarValue = findConVarValue;
+        _enable = enable;
         _findMaterial = findMaterial;
     }
 
@@ -190,7 +190,7 @@ public sealed class GlowObjectManager
     {
         if (dxLevel < 80)
             return;
-        if (_findConVarValue("glow_outline_effect_enable") == "0")
+        if (!_enable.Value)
             return;
 
         _drawables.Clear();

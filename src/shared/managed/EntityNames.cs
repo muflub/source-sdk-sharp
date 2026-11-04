@@ -303,6 +303,12 @@ public static class EntityNames
     /// the port networks it, so it has a classname of its own).
     /// </summary>
     public const string SsViewmodelAttachment = "ss_viewmodel_attachment";
+    /// <summary>
+    /// One of a carried weapon's attached models (stock's
+    /// <c>attachedmodel_t</c>: the flamethrower's pilot light), riding the
+    /// weapon's bones; the port networks it, so it has a classname of its own.
+    /// </summary>
+    public const string SsAttachedModel = "ss_attached_model";
     public const string SsWeapon  = "ss_weapon";
 
     /// <summary>HL2MP's CPredictedViewModel (CHL2MP_Player::CreateViewModel).</summary>

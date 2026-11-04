@@ -59,6 +59,19 @@ public interface IWeaponDrawStates
 }
 
 /// <summary>
+/// The entity the local player's carried gun hangs its effects off: the
+/// viewmodel attachment — the weapon's own model riding the hands, whose mesh
+/// names the attachments — while it is in view, else the viewmodel itself
+/// (stock's <c>GetViewModel</c>'s not-attach arm,
+/// <c>tf_weaponbase.cpp:651-676</c>). Null names nothing; the caller falls
+/// back to the carried weapon, whose own model the world pass draws.
+/// </summary>
+public interface IWeaponViewModelBearer
+{
+    EntityHandle? ViewModelBearer();
+}
+
+/// <summary>
 /// The client half of one stock weapon's draw effects: what its
 /// <c>ViewModelDrawn</c>, its <c>DrawModel</c> arm for the translucent pass
 /// and its <c>ClientThink</c> do.

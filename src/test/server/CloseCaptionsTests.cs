@@ -30,10 +30,9 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
         _globals->nTimestampNetworkingBase = 100;
         _globals->nTimestampRandomizeWindow = 32;
         var engine = Mock();
-        engine.Returns("Console.FindConVarValue", closecaption);
         var side = TestSides.Create(Side.Server);
         side.BindGlobalVars(Side.Server, (nint)_globals);
-        return (new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(side), engine), engine);
+        return (new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(side), DeclaredConVars.Holding<CloseCaptionConVar>(closecaption)), engine);
     }
 
     private static List<(string Key, int Player, bool Reliable, byte[] Payload)> Sent(RecordingEngine engine) =>
@@ -67,8 +66,7 @@ public sealed unsafe class CloseCaptionsTests : IDisposable
     public void NoGlobalsYetMeansNoCaption()
     {
         var engine = Mock();
-        engine.Returns("Console.FindConVarValue", "1");
-        var captions = new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(TestSides.Create(Side.Server)), engine);
+        var captions = new CloseCaptions(engine, SideBindings.Of<IEngineEnvironment>(TestSides.Create(Side.Server)), DeclaredConVars.Fresh<CloseCaptionConVar>());
 
         Assert.False(captions.Wanted);
     }

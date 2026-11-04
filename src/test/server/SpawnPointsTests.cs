@@ -98,7 +98,7 @@ public class SpawnPointsTests
               .Ignores("Players.PlaceAtSpawn");
 
         var log = new RecordingLog();
-        return (new SpawnPoints(engine, engine, engine, engine, Convars(), new Random(1), placement, log: log), engine, log);
+        return (new SpawnPoints(engine, engine, engine, engine, Convars().Declared<Hl2mpSpawnFragFallbackRadiusConVar>(), new Random(1), placement, log: log), engine, log);
     }
 
     /// <summary>A convar backend that keeps what it is told.</summary>
@@ -124,7 +124,7 @@ public class SpawnPointsTests
         var convars = new ConVarRegistry(new Backend());
         convars.RegisterTypes([typeof(Hl2mpSpawnFragFallbackRadiusConVar)]);
         if (radius is { } r)
-            convars.Get<Hl2mpSpawnFragFallbackRadiusConVar>()!.SetValue(r);
+            convars.Declared<Hl2mpSpawnFragFallbackRadiusConVar>().SetValue(r);
         return convars;
     }
 
@@ -165,7 +165,7 @@ public class SpawnPointsTests
               .ReturnsEachCall("Entities.IsPlayer", () => (EntityHandle)engine.Last("Entities.IsPlayer")!.Value.Args[0]! != NotAPlayer)
               .Ignores("Players.PlaceAtSpawn")
               .Ignores("Damage.TakeDamage");
-        return (new SpawnPoints(engine, engine, engine, engine, Convars(radius), new Random(1), fragRules: rules), engine);
+        return (new SpawnPoints(engine, engine, engine, engine, Convars(radius).Declared<Hl2mpSpawnFragFallbackRadiusConVar>(), new Random(1), fragRules: rules), engine);
     }
 
     /// <summary>
@@ -380,7 +380,7 @@ public class SpawnPointsTests
                   .ReturnsEachCall("Entities.FindAllByClassname", () => (string)engine.Last("Entities.FindAllByClassname")!.Value.Args[0]! == EntityNames.InfoPlayerDeathmatch ? new[] { WalkSpot, TeamSpot } : Array.Empty<EntityHandle>())
                   .ReturnsEachCall("WorldQuery.EntitiesInSphere.into", () => ((Vector)engine.Last("WorldQuery.EntitiesInSphere")!.Value.Args[0]!).X == WalkSpotAt.X ? atWalkSpot : Array.Empty<EntityHandle>())
                   .ReturnsEachCall("Entities.IsPlayer", () => (EntityHandle)engine.Last("Entities.IsPlayer")!.Value.Args[0]! == standing);
-            return new SpawnPoints(engine, engine, engine, engine, Convars(), new Random(seed)).Choose(Player, null);
+            return new SpawnPoints(engine, engine, engine, engine, Convars().Declared<Hl2mpSpawnFragFallbackRadiusConVar>(), new Random(seed)).Choose(Player, null);
         }
 
         foreach (int seed in Enumerable.Range(1, 8))

@@ -273,6 +273,28 @@ public interface IMinimapSource
     MinimapDot Dot(int i);
 }
 
+/// <summary>A marker on the minimap: where (0..1 across the square), its radius as a share of the square (0 for a ping), and how far through its life it is, 0..1.</summary>
+public readonly record struct MinimapPing(float U, float V, float Radius, float Age);
+
+/// <summary>What a server has asked this player's minimap to show them (a generic marker, see <c>IPlayerMarkers</c>).</summary>
+public interface IMinimapPingSource
+{
+    int PingCount { get; }
+
+    MinimapPing Ping(int i);
+}
+
+/// <summary>A marker in the world, drawn through walls: its place on the screen as fractions, what it is, how far, and how far through its life, 0..1.</summary>
+public readonly record struct WorldMarker(float X, float Y, string Label, int Metres, float Age);
+
+/// <summary>The places a server has asked this player's screen to point at.</summary>
+public interface IWorldMarkerSource
+{
+    int MarkerCount { get; }
+
+    WorldMarker Marker(int i);
+}
+
 /// <summary>The last damage the local player took.</summary>
 public interface IPlayerDamage
 {
@@ -852,6 +874,9 @@ public interface IVoteSource
 
     /// <summary>What it would do, a token.</summary>
     string Title { get; }
+
+    /// <summary>A token saying what its result is about when <see cref="Target"/> alone would not: which setting a value is for. Null when it would.</summary>
+    string? ResultSubject { get; }
 
     /// <summary>Whom it would kick or what it would change to, empty when it says nothing more; and who called it, by name.</summary>
     string Target { get; }

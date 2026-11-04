@@ -66,7 +66,13 @@ public class ApplierAllowListTests
         "IEngineEntities::GetVelocity", "IEnginePlayers::BoxInPvs",
         // SnapshotBuilder: the weapon model a client sees in another's hands (§4.3); EngineBotHud: the bot's own HUD.
         "IEnginePlayers::GetActiveWeapon", "IEngineEntities::GetHealth", "IEngineEntities::GetArmor",
-        "Arsenal::PoolOf", "WeaponCatalog::For", "WeaponType::get_AmmoName",
+        "Arsenal::PoolOf", "WeaponCatalog::get_All", "WeaponCatalog::For", "WeaponType::get_AmmoName", "IPlayerStances::Ducked", "WeaponType::get_SecondaryAmmoName",
+        // WeaponKnowledgeBuilder.AltOf (§5.4): what a second trigger is, from its row and the classes it launches.
+        "SecondaryFire::get_AmmoCost", "SecondaryFire::get_FromClip", "SecondaryFire::get_LaunchSpeed", "SecondaryFire::get_Pellets", "SecondaryFire::get_Projectile",
+        "GrenadeAr2Vars::.ctor", "GrenadeAr2Vars::get_Magnitude", "GrenadeAr2Vars::get_Radius", "EnergyBallVars::.ctor", "EnergyBallVars::get_Damage",
+        "GrenadeVars::.ctor", "GrenadeVars::get_Magnitude", "GrenadeVars::get_Radius",
+        // AimMeter: a hit's kind, which says whether it is an aimed shot's.
+        "PlayerHurt::get_Kind",
         // SoundTap (§4.2): the emitted sound as its recipients are sent it; SoundClassifier: the weapon table's sound names.
         "EmittedSound::get_Origin", "EmittedSound::get_Owner", "EmittedSound::get_Recipients", "EmittedSound::get_SoundLevel",
         "EmittedSound::get_SoundName", "SoundRecipients::SoundLevelToAttenuation",
@@ -76,7 +82,7 @@ public class ApplierAllowListTests
         "PlayerHurt::get_Attacker", "PlayerHurt::get_HealthLeft", "PlayerHurt::get_Player", "PlayerHurt::get_Taken",
         "PlayerDeath::get_Attacker", "PlayerDeath::get_Player", "IPlayerDirectory::get_All", "PlayerRecord::get_Deaths", "PlayerRecord::get_Kills",
         // Hl2mpAiSession (§5.0): the respawn convars, the reload animation on the view model, the weapon table's projectile and behaviour; an opponent's user id.
-        "ConVarRegistry::Get", "ConVar`1::get_Value", "ModelDescriptors::ForModel", "ModelDescriptor::LookupSequenceByActivity",
+        "ConVar`1::get_Value", "ModelDescriptors::ForModel", "ModelDescriptor::LookupSequenceByActivity",
         "ModelDescriptor::SequenceDuration", "WeaponType::get_ViewModel", "WeaponType::get_Behaviour", "WeaponType::get_Projectile",
         "WeaponType::get_LaunchSpeed", "WeaponType::get_ClipSize", "WeaponType::get_Interval", "WeaponType::get_Name",
         "IEnginePlayers::GetUserId",
@@ -86,8 +92,12 @@ public class ApplierAllowListTests
         "DeathNoticeFacts::get_Scorer", "DeathNoticeFacts::get_Victim", "DeathNoticeFacts::get_Weapon",
         "PlayerChat::get_Speaker", "PlayerChat::get_TeamOnly", "PlayerChat::get_Text",
         "HostSay::CanHear", "HostSay::Say", "IClientInfo::ClientConVar",
+        // A marker on the asker's own screen (§3.6): a generic seam, from the map's own list.
+        "IPlayerMarkers::Show",
+        // AiMainBudget: the host frame a tick is in, and fps_max's value, as what the bots' main-thread time is measured against.
+        "Globals::get_FrameCount", "Globals::get_IntervalPerTick",
         // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
-        "IntConVar::.ctor", "BoolConVar::.ctor",
+        "IntConVar::.ctor", "BoolConVar::.ctor", "FloatConVar::.ctor",
         // EngineServerSlots: the people on the server, for the roster's free slots (§3.5).
         "IClientInfo::Address", "IEngineHost::get_IsDedicatedServer",
         // AiBotRosterService (Phase 5c): the roster convar, declared, read and cleared at the level's start.

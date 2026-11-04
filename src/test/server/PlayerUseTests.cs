@@ -134,7 +134,7 @@ public class PlayerUseTests
         var engine = Fake();
         engine.Strict = false;
         engine.Returns("Entities.IsValid", true);
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine, moves: new ServerPlayerMoves(),
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine, moves: new ServerPlayerMoves(),
                                   sound: engine, damage: engine)
         {
             Handle = Player,
@@ -270,7 +270,7 @@ public class PlayerUseTests
               .Returns("Entities.GetParent", EntityHandle.None);
         var directory = new Directory();
         directory.Entities[Target] = new Usable { Handle = Target, Caps = UseCaps.ImpulseUse };
-        return (new PlayerUseFinder(engine, engine, directory, ConVarRegistry.For(UnattachedConsole()), new RecordingLog()),
+        return (new PlayerUseFinder(engine, engine, directory, DeclaredConVars.Fresh<SvDebugPlayerUseConVar>(), new RecordingLog()),
                 engine, directory);
     }
 

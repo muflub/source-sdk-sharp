@@ -29,7 +29,7 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_soundscape_report",
             Help = "plan_entity.md 8e-sound: which soundscape the SERVER has chosen for each " +
                    "player, by id, by index and by name. Compare with cs_cl_soundscape_report.")]
-public sealed class SoundscapeReportCommand : IConCommand
+public sealed class SoundscapeReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -46,7 +46,7 @@ public sealed class SoundscapeReportCommand : IConCommand
     private readonly IEnginePlayers _players;
     private readonly IEngineEntities _entities;
 
-    public void Execute(string args)
+    public void Execute()
     {
         for (int slot = 1; slot <= EngineLimits.MaxPlayerSlots; slot++)
         {

@@ -528,6 +528,8 @@ struct SSManagedCommandsTable
 	void (*ConCommandDispatch)(IManagedCommands* self, int32_t nCommandId, const char* pArgs);
 	void (*ConVarChanged)(IManagedCommands* self, int32_t nConVarId, const char* pNewValue, const char* pOldValue);
 	int32_t (*OnClientCommand)(IManagedCommands* self, uint32_t hPlayer, const char* pCommand);
+	int32_t (*ConCommandSuggest)(IManagedCommands* self, int32_t nCommandId, const char* pLine, char* pOut,
+								 int32_t nOutSize);
 };
 
 class IManagedCommands : public IManagedObject
@@ -553,15 +555,20 @@ public:
 		return Table()->OnClientCommand(this, hPlayer, pCommand);
 	}
 
+	int32_t ConCommandSuggest(int32_t nCommandId, const char* pLine, char* pOut, int32_t nOutSize)
+	{
+		return Table()->ConCommandSuggest(this, nCommandId, pLine, pOut, nOutSize);
+	}
+
 private:
 	const SSManagedCommandsTable* Table() const { return static_cast<const SSManagedCommandsTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedCommandsSlotHashes[] = {
-	0x07e0f4c4, 0x0d54c15e, 0xeed27821, 0x3d217e2d, 0xff2dadb5,
+	0x07e0f4c4, 0x0d54c15e, 0xeed27821, 0x3d217e2d, 0xff2dadb5, 0x1ac011e9,
 };
-static const int32_t kIManagedCommandsSlotCount = 5;
-static_assert(sizeof(SSManagedCommandsTable) == 5 * sizeof(void*), "SSManagedCommandsTable is one pointer per slot");
+static const int32_t kIManagedCommandsSlotCount = 6;
+static_assert(sizeof(SSManagedCommandsTable) == 6 * sizeof(void*), "SSManagedCommandsTable is one pointer per slot");
 
 class IManagedNetState;
 

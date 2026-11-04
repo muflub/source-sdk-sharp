@@ -52,7 +52,7 @@ public class DamageModifierTests
         var players = Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GiveItem", "Players.GiveAmmo")
                             .Returns("Players.GetTeam", 0)
                             .Returns("Players.RespawnDelay", 3f);
-        return new GameRules(log, convars, host, players,
+        return new GameRules(log, convars.Holder<GameRulesConVars>(), host, players,
                              Fake().Returns("Entities.IsValid", true),
                              new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog()),
                              new PlayerDeathEvent(),

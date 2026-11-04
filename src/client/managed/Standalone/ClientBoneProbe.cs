@@ -31,20 +31,17 @@ namespace SourceSharp.Client.Standalone;
 [ConCommand("cs_cl_boneprobe",
     Help = "SourceSharp: the client skeleton fixture -- `mergeauto <ownModel> <srcModel>`, `report`")]
 public sealed class ClientBoneProbeCommand(ClientSkeletons skeletons, IClientStandalones standalones, ILog log)
-    : IConCommand
 {
-    public void Execute(string args)
+    public void Execute([Complete("mergeauto", "report")] string action, string? ownModel = null, string? sourceModel = null)
     {
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (words.Length >= 3 && words[0].Equals("mergeauto", StringComparison.OrdinalIgnoreCase))
+        if (ownModel is not null && sourceModel is not null && action.Equals("mergeauto", StringComparison.OrdinalIgnoreCase))
         {
-            if (!MergeAuto(words[1], words[2]))
-                log.Msg($"[SourceSharp] cs_cl_boneprobe mergeauto: no '{words[1]}' and '{words[2]}' pair on this side\n");
+            if (!MergeAuto(ownModel, sourceModel))
+                log.Msg($"[SourceSharp] cs_cl_boneprobe mergeauto: no '{ownModel}' and '{sourceModel}' pair on this side\n");
             return;
         }
 
-        if (words.Length >= 1 && words[0].Equals("report", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("report", StringComparison.OrdinalIgnoreCase))
         {
             ReportMerge();
             return;

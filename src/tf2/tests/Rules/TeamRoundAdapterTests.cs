@@ -173,7 +173,7 @@ public sealed class TeamRoundAdapterTests
         var convars = ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>());
         convars.RegisterAll(typeof(GameRules).Assembly);
         convars.RegisterAll(typeof(TeamRoundFlow).Assembly);
-        var settings = new ConVarTeamRoundSettings(convars);
+        var settings = convars.Holder<ConVarTeamRoundSettings>();
 
         Assert.Equal(10f, settings.RespawnWaveTime);         // mp_respawnwavetime
         Assert.Equal(15, settings.BonusRoundTime);           // mp_bonusroundtime
@@ -183,14 +183,5 @@ public sealed class TeamRoundAdapterTests
         Assert.Equal(1, settings.AutoTeamBalance);           // mp_autoteambalance
         Assert.False(settings.StalemateEnable);              // mp_stalemate_enable
         Assert.Equal(string.Empty, settings.NextLevel);      // nextlevel
-    }
-
-    [Fact]
-    public void A_round_convar_nobody_registered_is_a_named_failure()
-    {
-        var settings = new ConVarTeamRoundSettings(ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>()));
-
-        var e = Assert.Throws<InvalidOperationException>(() => settings.RespawnWaveTime);
-        Assert.Contains(nameof(MpRespawnWaveTimeConVar), e.Message);
     }
 }

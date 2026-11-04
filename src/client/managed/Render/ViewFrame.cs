@@ -37,17 +37,17 @@ public static class ViewFrame
     }
 
     /// <summary>CViewRender::SetUpViews' values, set before the client mode's override.</summary>
-    public static ViewSetUpOut SetUpView(in ViewSetUpIn input)
+    public static ViewSetUpOut SetUpView(in ViewSetUpIn input, RenderConVars convars)
     {
-        float far = ZFar(input.FarZ, input.MapExtents, input.FogFarZ);
+        float far = ZFar(convars.RFarz.Value, convars.RMapextents.Value, input.FogFarZ);
         return new ViewSetUpOut
         {
             ZFar = far,
             ZFarViewmodel = far,
             ZNear = ViewNearZ,
             ZNearViewmodel = 1f,
-            Fov = input.DefaultFov,
-            ViewModelFovOffset = input.ViewModelFov - input.DefaultFov,
+            Fov = convars.DefaultFov.Value,
+            ViewModelFovOffset = convars.ViewmodelFov.Value - convars.DefaultFov.Value,
         };
     }
 
@@ -81,19 +81,20 @@ public static class ViewFrame
     /// <paramref name="answer"/>. <paramref name="randomByte"/> stands in for
     /// stock's <c>rand()%256</c> under gl_clear_randomcolor.
     /// </summary>
-    public static void Render(in RenderFrameIn frame, ref RenderFrameOut answer, Func<int> randomByte)
+    public static void Render(in RenderFrameIn frame, RenderConVars convars, ref RenderFrameOut answer, Func<int> randomByte)
     {
         ViewSetup eye = frame.Eye;
 
         float aspectRatio = frame.ScreenAspect * 0.75f; // / (4/3)
         float limitedAspectRatio = aspectRatio;
-        if ((frame.RestrictAspectFov > 0 && frame.Windowed != 0 && frame.MaxClients > 1) || frame.RestrictAspectFov == 2)
+        int restrictAspectFov = convars.SvRestrictAspectRatioFov.Value;
+        if ((restrictAspectFov > 0 && frame.Windowed != 0 && frame.MaxClients > 1) || restrictAspectFov == 2)
             limitedAspectRatio = Math.Min(aspectRatio, 1.85f * 0.75f);
 
         eye.Fov = ScaleFovByWidthRatio(eye.Fov, limitedAspectRatio);
         eye.FovViewmodel = ScaleFovByWidthRatio(eye.FovViewmodel, aspectRatio);
 
-        float scale = frame.ViewportScale;
+        float scale = convars.MatViewportscale.Value;
         eye.UnscaledX = frame.ViewportX;
         eye.UnscaledY = frame.ViewportY;
         eye.UnscaledWidth = frame.ViewportWidth;
@@ -108,23 +109,24 @@ public static class ViewFrame
 
         int clear = ClearDepth | ClearStencil;
         answer.RandomClear = 0;
-        if (frame.GlClearRandomColor != 0)
+        if (convars.GlClearRandomcolor.Value != 0f)
         {
             answer.RandomClear = 1;
             answer.ClearR = randomByte();
             answer.ClearG = randomByte();
             answer.ClearB = randomByte();
         }
-        else if (frame.GlClear != 0 || frame.ClearColorForAntialiasing != 0)
+        else if (convars.GlClear.Value != 0f || frame.ClearColorForAntialiasing != 0)
         {
             clear |= ClearColor;
         }
 
         bool drawViewModel = frame.ClientModeDrawViewModel != 0;
         answer.Overview = 0;
-        if (frame.LevelOverview > 0f)
+        float levelOverview = convars.ClLeveloverview.Value;
+        if (levelOverview > 0f)
         {
-            SetUpOverView(ref eye, frame.LevelOverview);
+            SetUpOverView(ref eye, levelOverview);
             clear |= ClearColor;
             drawViewModel = false;
             answer.Overview = 1;

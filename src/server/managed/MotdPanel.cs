@@ -22,7 +22,7 @@ public sealed class MotdUnloadOnDismissalConVar : BoolConVar { }
 /// string-table entry named by msg, <c>motd</c> (MessageOfTheDay loads it into
 /// InfoPanel); unload sv_motd_unload_on_dismissal. Reliable, to them alone.
 /// </summary>
-public sealed class MotdPanel(IUserMessageSender messages, IEngineConsole console, ConVarRegistry convars)
+public sealed class MotdPanel(IUserMessageSender messages, HostnameConVar hostname, MotdUnloadOnDismissalConVar unload)
 {
     /// <summary>PANEL_INFO.</summary>
     public const string InfoPanel = "info";
@@ -30,21 +30,19 @@ public sealed class MotdPanel(IUserMessageSender messages, IEngineConsole consol
     /// <summary>The title when the server has no hostname.</summary>
     public const string DefaultTitle = "MESSAGE OF THE DAY";
 
-    private readonly MotdUnloadOnDismissalConVar? _unload = convars.Get<MotdUnloadOnDismissalConVar>();
-
     /// <summary>Panels sent, since the module started.</summary>
     public int Sent { get; private set; }
 
     public void OnClientActive(int entIndex)
     {
-        string title = console.FindConVarValue("hostname") ?? DefaultTitle;
+        string title = hostname.HasValue ? hostname.Value : DefaultTitle;
 
         bool sent = messages.Send(new VguiMenu
         {
             Name = InfoPanel,
             Show = true,
             Keys = ["title", "type", "msg", "unload"],
-            Values = [title, "1", "motd", (_unload?.Value ?? false) ? "1" : "0"],
+            Values = [title, "1", "motd", unload.Value ? "1" : "0"],
         }, entIndex, reliable: true);
 
         if (sent)

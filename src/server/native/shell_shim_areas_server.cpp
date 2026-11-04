@@ -41,11 +41,6 @@ int32_t CShimMovementServerBase::MoveEffect(int32_t nKind, const float* pXYZ, fl
 	return ::SourceSharp_MoveEffect(nKind, pXYZ, flValue, nValue);
 }
 
-float CShimMovementServerBase::CurrentGravity()
-{
-	return ::SourceSharp_CurrentGravity();
-}
-
 void CShimMovementServerBase::RegisterMovementParams(const SourceSharpMovementParams* pParams)
 {
 	return ::SourceSharp_RegisterMovementParams(pParams);

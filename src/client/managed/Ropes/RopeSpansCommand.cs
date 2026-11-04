@@ -11,9 +11,9 @@ namespace SourceSharp.Client.Ropes;
 /// </summary>
 [ConCommand("cs_cl_rope_spans",
             Help = "the managed rope spans, the ropes behind them, and the owners in front of them")]
-public sealed class RopeSpansCommand(ILog log, IClientRopes ropes) : IConCommand
+public sealed class RopeSpansCommand(ILog log, IClientRopes ropes)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         IReadOnlyList<RopeSpanReport> rows = ropes.Report();
 

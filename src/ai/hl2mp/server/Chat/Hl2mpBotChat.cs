@@ -3,6 +3,7 @@ using System.Globalization;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Ai.Hl2mp.Senses;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Ai.Hl2mp.Chat;
 
@@ -55,6 +56,89 @@ public sealed class GameFileChatWords(IEngineFiles files) : IChatWordsSource
     }
 }
 
+/// <summary>The help file questions are answered from, read once through the file seam.</summary>
+public interface IChatHelpSource
+{
+    ChatHelp? Help { get; }
+
+    string Refusal { get; }
+}
+
+/// <summary><see cref="IChatHelpSource"/> over the game's files: <see cref="Path"/>.</summary>
+[SideService(Side.Server, As = [typeof(IChatHelpSource)])]
+public sealed class GameFileChatHelp(IEngineFiles files) : IChatHelpSource
+{
+    public const string Path = "scripts/ai/hl2mp_help.json";
+
+    private ChatHelp? _help;
+    private string? _refusal;
+
+    public ChatHelp? Help
+    {
+        get
+        {
+            if (_help is null && _refusal is null)
+                Load();
+            return _help;
+        }
+    }
+
+    public string Refusal => _refusal ?? "";
+
+    private void Load()
+    {
+        string? json = files.ReadGameFile(Path);
+        if (json is null)
+        {
+            _refusal = $"no help for questions: expected {Path}";
+            return;
+        }
+
+        try
+        {
+            _help = ChatHelp.Parse(json);
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidDataException or KeyNotFoundException or InvalidOperationException)
+        {
+            _refusal = $"{Path} cannot be read: {e.Message}";
+        }
+    }
+}
+
+/// <summary>What chat may know of a map: the static knowledge every bot has before it plays (§5.0), the layout, and which weapons are the good ones.</summary>
+public interface IChatMapFacts
+{
+    MapKnowledge? Map { get; }
+
+    NavGraph? Graph { get; }
+
+    /// <summary>The classes a bot keeps vague about (ruling 2026-11-03).</summary>
+    IReadOnlySet<string> GoodWeapons { get; }
+}
+
+/// <summary>
+/// What a bot may know of the one who asked it something (§3.6). The one place chat reads an
+/// actor: whether this bot can see the asker, as its own vision has it, and where the asker
+/// stands, which goes only to pick the item marked on the asker's own screen. Never another player.
+/// <c>PerceptionCensusTests</c> names it and <c>ChatCensusTests</c> holds it to these calls.
+/// </summary>
+[SideService(Side.Server, As = [typeof(IChatAskerEyes)])]
+public sealed class ChatAskerEyes(VisionPass vision) : IChatAskerEyes
+{
+    public AiVector? SeenBy(int slot, int asker)
+        => vision.SightOf(slot) is { } sight && sight.Sees(asker) && vision.ReadOf(asker) is { } read ? read.Origin : null;
+
+    public AiVector? At(int asker) => vision.ReadOf(asker)?.Origin;
+}
+
+/// <summary>Seam over <see cref="ChatAskerEyes"/>, so a fact can stand in for a bot's sight.</summary>
+public interface IChatAskerEyes
+{
+    AiVector? SeenBy(int slot, int asker);
+
+    AiVector? At(int asker);
+}
+
 /// <summary>The console settings bot chat follows (§3.6), behind a seam so a fact can set them.</summary>
 public interface IChatConfig
 {
@@ -69,25 +153,27 @@ public interface IChatConfig
 
 /// <summary><see cref="IChatConfig"/> over the convars.</summary>
 [SideService(Side.Server, As = [typeof(IChatConfig)])]
-public sealed class ConVarChatConfig(ConVarRegistry convars) : IChatConfig
+public sealed class ConVarChatConfig(AiChatConVar enabled, AiChatUrlConVar url, AiChatModelConVar model,
+                                     AiChatTimeoutConVar timeout, AiChatIntervalConVar interval,
+                                     AiChatCooldownConVar cooldown, AiChatReplyChanceConVar replyChance) : IChatConfig
 {
     private ChatSettings _settings = new();
 
-    public bool Enabled => convars.Get<AiChatConVar>()?.Value == true;
+    public bool Enabled => enabled.Value;
 
-    public ChatTarget Target => new(convars.Get<AiChatUrlConVar>()?.Value ?? "", convars.Get<AiChatModelConVar>()?.Value ?? OllamaChatWriter.DefaultModel);
+    public ChatTarget Target => new(url.Value, model.Value);
 
-    public float TimeoutSeconds => convars.Get<AiChatTimeoutConVar>()?.Value ?? 5;
+    public float TimeoutSeconds => timeout.Value;
 
     public ChatSettings Settings
     {
         get
         {
-            float interval = convars.Get<AiChatIntervalConVar>()?.Value ?? 30;
-            float cooldown = convars.Get<AiChatCooldownConVar>()?.Value ?? 60;
-            float chance = (convars.Get<AiChatReplyChanceConVar>()?.Value ?? 10) / 100f;
-            if (interval != _settings.IntervalSeconds || cooldown != _settings.BotCooldownSeconds || chance != _settings.ReplyChance)
-                _settings = _settings with { IntervalSeconds = interval, BotCooldownSeconds = cooldown, ReplyChance = chance };
+            float every = interval.Value;
+            float wait = cooldown.Value;
+            float chance = replyChance.Value / 100f;
+            if (every != _settings.IntervalSeconds || wait != _settings.BotCooldownSeconds || chance != _settings.ReplyChance)
+                _settings = _settings with { IntervalSeconds = every, BotCooldownSeconds = wait, ReplyChance = chance };
             return _settings;
         }
     }
@@ -121,7 +207,7 @@ public sealed class OllamaChatWriterFactory : IBotChatWriterFactory
 [SideService(Side.Server, As = [typeof(IPlayerChatHook), typeof(IDeathNoticeHook)])]
 public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory directory, IConnectedClients clients, IEngineEntities entities,
                                  IEngineFrame frame, IBotInventory inventory, IBotFightClock fights, IChatWordsSource wordsSource, IBotChatWriterFactory writers, ILog log,
-                                 IChatConfig config, IEnginePlayers players)
+                                 IChatConfig config, IEnginePlayers players, IChatHelpSource helpSource, IChatMapFacts mapFacts, IChatAskerEyes eyes, IPlayerMarkers markers)
     : IPlayerChatHook, IDeathNoticeHook, IGameLifecycle, IFrameLifecycle, IChatWorld
 {
     /// <summary>How long the bots stay quiet before asking a server that did not answer again.</summary>
@@ -205,6 +291,8 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
                     director.CaughtAtSpot(moment.Slot, NameOf(moment.Other.Slot), now);
                 else if (moment.Kind == "hot")
                     director.RunningHot(moment.Slot, now);
+                else if (moment.Kind == "cold")
+                    director.RunningCold(moment.Slot, now);
             }
 
             director.Tick(now);
@@ -233,8 +321,23 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
         _worker = new ChatWorker(_writer, new ChatOutputFilter(words), Counters);
         _director = new ChatDirector(words, new ChatPromptBuilder(words), _worker, Counters, this, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ ChatSalt, 1));
         ApplySettings(_director);
+        _director.Answers = BookFor(_director);
         _worker.Start(_director.Target);
         return _director;
+    }
+
+    /// <summary>The level's answers: the map as every bot knows it and the help file. With no help file a question is talk, as it was, and that is said once.</summary>
+    private ChatAnswerBook? BookFor(ChatDirector d)
+    {
+        if (helpSource.Help is not { } help)
+        {
+            log.Msg($"[SourceSharp/Ai] ai_chat: {helpSource.Refusal}\n");
+            return null;
+        }
+
+        if (mapFacts.Map is not { } map)
+            return null;
+        return new ChatAnswerBook(help, map, new ChatPlaces(map, mapFacts.Graph), mapFacts.GoodWeapons, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ ChatSalt, 2));
     }
 
     private void ApplySettings(ChatDirector d)
@@ -266,11 +369,15 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
         }
     }
 
-    /// <summary>A bot's persona: its name, the first word of it, and the tone of the trait its name comes from (the same seed).</summary>
+    /// <summary>
+    /// A bot's persona: its name, the first word of it, and the tone of the trait its name comes from.
+    /// The same seed as its name's (the roster's): most presets tie several skills, and the seed
+    /// settles which, so a seed of its own gave "Bobby Never Quits" another trait's voice.
+    /// </summary>
     public static ChatPersona PersonaOf(in Hl2mpBot bot, ChatWords words)
     {
         ArgumentNullException.ThrowIfNull(words);
-        BotTrait trait = BotNamer.Trait(bot.Skills, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpBots.NameSalt, bot.Id.Serial));
+        BotTrait trait = BotNamer.Trait(bot.Skills, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpBots.NameSalt, bot.SeedIndex));
         int space = bot.Name.IndexOf(' ', StringComparison.Ordinal);
         return new ChatPersona(bot.Name, space > 0 ? bot.Name[..space] : bot.Name, words.ToneOf(bot.Skills, trait));
     }
@@ -407,6 +514,17 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
             return;
         }
     }
+
+    /// <inheritdoc />
+    public AiVector? AskerSeenBy(int slot, int asker) => eyes.SeenBy(slot, asker);
+
+    /// <inheritdoc />
+    public AiVector? AskerAt(int asker) => eyes.At(asker);
+
+    /// <inheritdoc />
+    public void Mark(int asker, in ChatMark mark)
+        => markers.Show(asker, new Vector(mark.At.X, mark.At.Y, mark.At.Z), mark.Label,
+                        mark.Kind == ChatMarkKind.Area ? PlayerMarkerKind.Area : PlayerMarkerKind.Exact, mark.Radius, mark.Seconds);
 
     /// <summary><c>/ai/chat</c>: the counters and each bot's last lines.</summary>
     public string Json()

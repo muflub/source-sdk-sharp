@@ -10,7 +10,7 @@ public static class HudSamples
     public static UiScreen Build(UiSampleServices s, FakeLocalPlayer player, FakeHudText? text = null, FakeBuildStamp? stamp = null,
                                  FakeKillFeed? kills = null, FakeVoice? voice = null, FakeWeaponSelection? selection = null,
                                  FakePickupHistory? history = null, FakeWeaponPlus? plus = null, FakeWeaponCarousel? carousel = null,
-                                 FakeDamageDealt? dealt = null, FakeMinimap? minimap = null)
+                                 FakeDamageDealt? dealt = null, FakeMinimap? minimap = null, FakeMinimapPings? pings = null, FakeWorldMarkers? markers = null)
     {
         s.Add<IWeaponSelectionSource>(selection ?? new FakeWeaponSelection { Showing = false });
         s.Add<IWeaponPlusSource>(plus ?? new FakeWeaponPlus { Showing = false });
@@ -22,6 +22,8 @@ public static class HudSamples
         s.Add<IKillFeedSource>(kills ?? new FakeKillFeed());
         s.Add<IDamageDealtSource>(dealt ?? new FakeDamageDealt());
         s.Add<IMinimapSource>(minimap ?? new FakeMinimap { Outline = [] });
+        s.Add<IMinimapPingSource>(pings ?? new FakeMinimapPings());
+        s.Add<IWorldMarkerSource>(markers ?? new FakeWorldMarkers());
         s.Add<IVoiceSource>(voice ?? new FakeVoice());
         return s.Create<Hud>();
     }
@@ -138,6 +140,17 @@ public static class HudSamples
     [UiSample("minimap, two players in sight")]
     private static UiScreen Minimap(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
         minimap: new FakeMinimap { Dots = [new MinimapDot(0.33f, 0.3f), new MinimapDot(0.75f, 0.6f)] });
+
+    [UiSample("a bot's answer pointing at a place, on the minimap and in the world")]
+    private static UiScreen Marked(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        minimap: new FakeMinimap { Dots = [new MinimapDot(0.33f, 0.3f)] },
+        pings: new FakeMinimapPings { Pings = [new MinimapPing(0.7f, 0.2f, 0f, 0.05f)] },
+        markers: new FakeWorldMarkers { Markers = [new WorldMarker(0.62f, 0.42f, "Health kit", 18, 0.05f), new WorldMarker(0.965f, 0.5f, "Battery", 64, 0.8f)] });
+
+    [UiSample("a bot's vague answer, a rough area on the minimap and nothing in the world")]
+    private static UiScreen MarkedArea(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        minimap: new FakeMinimap(),
+        pings: new FakeMinimapPings { Pings = [new MinimapPing(0.72f, 0.62f, 0.14f, 0.1f)] });
 
     [UiSample("aux power draining")]
     private static UiScreen AuxPower(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 62f, SuitDevices = 1 });

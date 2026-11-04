@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Effects;
 
@@ -20,6 +21,7 @@ namespace SourceSharp.Client.Effects;
 public sealed class ClientEffectDispatch : IClientEffectDispatch
 {
     private readonly IEngineConsole _console;
+    private readonly DeveloperConVar _developer;
     private readonly Dictionary<string, int> _runsByName = new(StringComparer.Ordinal);
 
     private readonly IClientEffectHandlers? _handlers;
@@ -27,9 +29,10 @@ public sealed class ClientEffectDispatch : IClientEffectDispatch
     /// <param name="handlers">The managed client effects (a DECLARE_CLIENT_EFFECT
     /// that moved with its subsystem, such as the ropes' ShakeRopes); none in a
     /// container that registers none.</param>
-    public ClientEffectDispatch(IEngineConsole console, IClientEffectHandlers? handlers = null)
+    public ClientEffectDispatch(IEngineConsole console, DeveloperConVar developer, IClientEffectHandlers? handlers = null)
     {
         _console = console;
+        _developer = developer;
         _handlers = handlers;
     }
 
@@ -59,7 +62,7 @@ public sealed class ClientEffectDispatch : IClientEffectDispatch
         Unclaimed++;
 
         // Stock's DevMsg: printed at developer 1 and above, silent below.
-        if (int.TryParse(_console.FindConVarValue("developer"), out int level) && level >= 1)
+        if (_developer.Value >= 1)
             _console.Msg($"DispatchEffect: effect '{name}' not found on client\n");
     }
 }

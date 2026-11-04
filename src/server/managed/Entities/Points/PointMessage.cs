@@ -34,15 +34,15 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PointMessage)]
 public sealed class PointMessage : ScriptedEntity
 {
-    public PointMessage(IEngineConsole console, IEngineHud hud, IEnginePlayers players)
+    public PointMessage(DeveloperConVar developer, IEngineHud hud, IEnginePlayers players)
     {
-        Console = console;
+        _developer = developer;
         Hud = hud;
         Players = players;
     }
 
     /// <summary>the console: convars, and commands run on the server or a client.</summary>
-    private readonly IEngineConsole Console;
+    private readonly DeveloperConVar _developer;
 
     /// <summary>drawing, and the local player it is drawn for.</summary>
     private readonly IEngineHud Hud;
@@ -93,7 +93,7 @@ public sealed class PointMessage : ScriptedEntity
         // The developer gate is stock's and is read live rather than latched:
         // a mapper turns developer on to see their annotations and expects them
         // to appear without a map reload.
-        if (Vars.DeveloperOnly && ParseInt(Console.FindConVarValue("developer") ?? "0") == 0)
+        if (Vars.DeveloperOnly && _developer.Value == 0)
             return;
 
         if (!AnyPlayerWithinRadius())

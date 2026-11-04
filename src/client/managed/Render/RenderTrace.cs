@@ -98,7 +98,7 @@ public sealed class RenderTrace
                 }
                 leaves[i].SetTranslucent(0, answer);
             }
-            scenes.Add(new ViewSceneData(header, leaves, scene.Entries));
+            scenes.Add(new ViewSceneData(header, leaves, scene.Entries.ToArray()));
         }
         return scenes;
     }
@@ -194,13 +194,30 @@ public sealed class RenderTrace
     public RenderInputs? Inputs()
     {
         int size = Marshal.SizeOf<RenderInputs>();
-        if (InputBytes == null || InputBytes.Length == 0 || InputBytes.Length > size)
+        if (InputBytes == null || InputBytes.Length == 0)
             return null;
-        if (InputBytes.Length == size)
-            return MemoryMarshal.Read<RenderInputs>(InputBytes);
+        byte[] bytes = InputBytes.Length > size ? WithoutRecordedConVars(InputBytes) : InputBytes;
+        if (bytes.Length == 0 || bytes.Length > size)
+            return null;
+        if (bytes.Length == size)
+            return MemoryMarshal.Read<RenderInputs>(bytes);
         var padded = new byte[size];
-        InputBytes.CopyTo(padded, 0);
+        bytes.CopyTo(padded, 0);
         return MemoryMarshal.Read<RenderInputs>(padded);
+    }
+
+    // A frozen frame carries the 64 floats the struct held before the convars left
+    // it, right after FlashlightOn. Its `cvar` lines answer for them now.
+    private static byte[] WithoutRecordedConVars(byte[] frozen)
+    {
+        const int RecordedConVarBytes = 64 * sizeof(float);
+        int at = (int)Marshal.OffsetOf<RenderInputs>(nameof(RenderInputs.ClientModeDrawDetail));
+        if (frozen.Length < at + RecordedConVarBytes)
+            return [];
+        var bytes = new byte[frozen.Length - RecordedConVarBytes];
+        frozen.AsSpan(0, at).CopyTo(bytes);
+        frozen.AsSpan(at + RecordedConVarBytes).CopyTo(bytes.AsSpan(at));
+        return bytes;
     }
 
     /// <summary>

@@ -54,7 +54,7 @@ public class ParticleCommandTests
     public void DumpParticleStatsAsksTheLibraryToWriteItsProfile()
     {
         var library = new CountingLibrary();
-        new DumpParticleStatsCommand(library).Execute(string.Empty);
+        new DumpParticleStatsCommand(library).Execute();
         Assert.Equal(1, library.Dumps);
     }
 
@@ -80,7 +80,7 @@ public class ParticleCommandTests
     {
         List<string> lines = [.. ParticleReportCommand.Lines(
             [Row("env_fire_small_smoke", 5, new Vector(800, 1311.97f, 8)), Row("burning_character", 0, new Vector(-1.26f, 0, 0))],
-            string.Empty, Nowhere)];
+            null, Nowhere)];
         Assert.Equal(
         [
             "[SourceSharp] particle system: name 'env_fire_small_smoke' particles 5 cp0 (800.0 1312.0 8.0) cp1 (0.0 0.0 0.0) sort (800.0 1312.0 8.0)\n",
@@ -100,8 +100,8 @@ public class ParticleCommandTests
             return index == 7;
         }
 
-        Assert.Equal("[SourceSharp] client entity 7: origin (7.0 2.0 3.0)\n", ParticleReportCommand.Lines([], "7", At).Last());
-        Assert.Equal("[SourceSharp] client entity 9: ABSENT on this side\n", ParticleReportCommand.Lines([], " 9 extra", At).Last());
-        Assert.Single(ParticleReportCommand.Lines([], "", At));
+        Assert.Equal("[SourceSharp] client entity 7: origin (7.0 2.0 3.0)\n", ParticleReportCommand.Lines([], 7, At).Last());
+        Assert.Equal("[SourceSharp] client entity 9: ABSENT on this side\n", ParticleReportCommand.Lines([], 9, At).Last());
+        Assert.Single(ParticleReportCommand.Lines([], null, At));
     }
 }

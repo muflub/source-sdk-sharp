@@ -233,7 +233,7 @@ public sealed class ClientTempEnts
     /// </summary>
     public bool PlayLocally(TempEntState state)
     {
-        string className = TempEntityAttribute.ClassNameOf(state.GetType());
+        string className = state.ClassName;
 
         if (!_players.TryGetValue(className, out IClientTempEnt? player))
         {

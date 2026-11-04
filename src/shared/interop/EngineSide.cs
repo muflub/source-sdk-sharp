@@ -105,6 +105,9 @@ internal sealed unsafe partial class EngineSide
     /// <summary>Where this side's shell-less entities are answered from.</summary>
     internal ShellLessRoutes ShellLess { get; } = new();
 
+    /// <summary>The names a read answers, each one string.</summary>
+    internal EngineNameTable Names { get; } = new();
+
     /// <summary>Where this side's entity inputs and I/O service pass go.</summary>
     internal EntityIoRoutes EntityIo { get; } = new();
 
@@ -535,7 +538,7 @@ internal sealed unsafe partial class EngineSide
         byte* buffer = stackalloc byte[256];
         _modelsArea.EntityGetModelName(entity.Value, buffer, 256);
 
-        return FromUtf8(buffer);
+        return Names.Of(MemoryMarshal.CreateReadOnlySpanFromNullTerminated(buffer));
     }
 
     /// <summary>

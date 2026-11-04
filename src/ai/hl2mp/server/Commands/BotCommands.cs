@@ -40,21 +40,17 @@ public static class BotSkillSpec
 /// preset bot draws its levels from its seed.
 /// </summary>
 [ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]: add a bot (no name: one is drawn)")]
-public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log) : IConCommand
+public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log)
 {
-    public void Execute(string args)
-    {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length > 2)
-        {
-            log.Warning("[SourceSharp/Ai] usage: ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]\n");
-            return;
-        }
+    private IEnumerable<string> Presets() => SkillPresets.Names;
 
+    public void Execute([Complete(From = nameof(Presets))] string? nameOrSkills = null, [Complete(From = nameof(Presets))] string? skills = null)
+    {
         // One word is a skill spec when it reads as one, else a name.
-        bool specOnly = parts.Length == 1 && (parts[0].StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.TryGet(parts[0], out _));
-        string? name = parts.Length == 0 || specOnly ? null : parts[0];
-        string? spec = specOnly ? parts[0] : parts.Length > 1 ? parts[1] : null;
+        bool specOnly = skills is null && nameOrSkills is not null
+                        && (nameOrSkills.StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.TryGet(nameOrSkills, out _));
+        string? name = specOnly ? null : nameOrSkills;
+        string? spec = specOnly ? nameOrSkills : skills;
         string who = name ?? "(unnamed)";
         if (roster.Add(name, spec) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_add {who} refused: {refusal}\n");
@@ -63,17 +59,14 @@ public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log) : IConCommand
 
 /// <summary><c>ai_bot_kick &lt;name|all&gt;</c>: out of the game and off the roster.</summary>
 [ConCommand("ai_bot_kick", Help = "ai_bot_kick <name|all>: remove a bot, or every bot, from the game and the roster")]
-public sealed class AiBotKickCommand(Hl2mpRoster roster, ILog log) : IConCommand
+public sealed class AiBotKickCommand(Hl2mpRoster roster, ILog log)
 {
-    public void Execute(string args)
-    {
-        string name = args.Trim();
-        if (name.Length == 0)
-        {
-            log.Warning("[SourceSharp/Ai] usage: ai_bot_kick <name|all>\n");
-            return;
-        }
+    private IEnumerable<string> BotNames() => ["all", .. roster.Names];
 
+    public void Execute([Complete(From = nameof(BotNames)), Rest] string name)
+    {
+        // The whole of the line: a second "Alyx" is "Alyx 2", quoted or not.
+        name = name.Trim('"');
         int kicked = roster.Remove(name);
         log.Msg($"[SourceSharp/Ai] ai_bot_kick {name}: {kicked} kicked\n");
     }
@@ -81,9 +74,9 @@ public sealed class AiBotKickCommand(Hl2mpRoster roster, ILog log) : IConCommand
 
 /// <summary><c>ai_bot_count</c>: the roster: each bot's name, skills and drawn levels, active or benched and why.</summary>
 [ConCommand("ai_bot_count", Help = "ai_bot_count: the bots wanted, in the game or benched and why")]
-public sealed class AiBotCountCommand(Hl2mpRoster roster, ILog log) : IConCommand
+public sealed class AiBotCountCommand(Hl2mpRoster roster, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         foreach (string line in roster.Status())
             log.Msg(line);
@@ -95,21 +88,19 @@ public sealed class AiBotCountCommand(Hl2mpRoster roster, ILog log) : IConComman
 /// nav (the Phase 3 live check): the bot faces the yaw and runs along it.
 /// </summary>
 [ConCommand("ai_bot_drive", Help = "ai_bot_drive <name> <yaw> <seconds>: face a yaw and run along it", Flags = ConVarFlags.Cheat)]
-public sealed class AiBotDriveCommand(Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiBotDriveCommand(Hl2mpBots bots, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, float yaw, float seconds)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length != 3
-            || !float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float yaw)
-            || !float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds)
-            || seconds <= 0f)
+        if (seconds <= 0f)
         {
             log.Warning("[SourceSharp/Ai] usage: ai_bot_drive <name> <yaw> <seconds>\n");
             return;
         }
 
-        if (bots.DriveFor(parts[0], yaw, seconds) is { } refusal)
+        if (bots.DriveFor(name, yaw, seconds) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_drive refused: {refusal}\n");
     }
 }
@@ -121,35 +112,37 @@ public sealed class AiBotDriveCommand(Hl2mpBots bots, ILog log) : IConCommand
 /// picks up.
 /// </summary>
 [ConCommand("ai_bot_goto", Help = "ai_bot_goto <name> <classname | x y z>: walk a bot along the nav to a map entity or a point", Flags = ConVarFlags.Cheat)]
-public sealed class AiBotGotoCommand(Hl2mpBots bots, Nav.IHl2mpNavigation nav, IEngineEntities entities, ILog log) : IConCommand
+public sealed class AiBotGotoCommand(Hl2mpBots bots, Nav.IHl2mpNavigation nav, IEngineEntities entities, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    /// <summary>What the map places, which is what a class name can mean here.</summary>
+    private IEnumerable<string> MapClasses()
+        => nav.Current is { } n ? n.Entities.All.Select(e => e.ClassName).Distinct() : [];
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, [Complete(From = nameof(MapClasses))] string classNameOrX, float? y = null, float? z = null)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         AiVector target;
         string? pickup = null;
-        if (p.Length == 4
-            && float.TryParse(p[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
-            && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
-            && float.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
+        if (y is { } atY && z is { } atZ && float.TryParse(classNameOrX, NumberStyles.Float, CultureInfo.InvariantCulture, out float x))
         {
-            target = new AiVector(x, y, z);
+            target = new AiVector(x, atY, atZ);
         }
-        else if (p.Length == 2 && nav.Current is { } n)
+        else if (y is null && z is null && nav.Current is { } n)
         {
-            Hl2mpBot[] named = [.. bots.Bots.Where(b => string.Equals(b.Name, p[0], StringComparison.OrdinalIgnoreCase))];
+            Hl2mpBot[] named = [.. bots.Bots.Where(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase))];
             Hl2mpBot? bot = named.Length > 0 ? named[0] : null;
-            Nav.MapEntity[] placed = [.. n.Entities.All.Where(e => e.ClassName == p[1])];
+            Nav.MapEntity[] placed = [.. n.Entities.All.Where(e => e.ClassName == classNameOrX)];
             if (bot is null || placed.Length == 0)
             {
-                log.Warning($"[SourceSharp/Ai] ai_bot_goto refused: {(bot is null ? $"no bot called '{p[0]}'" : $"the map places no {p[1]}")}\n");
+                log.Warning($"[SourceSharp/Ai] ai_bot_goto refused: {(bot is null ? $"no bot called '{name}'" : $"the map places no {classNameOrX}")}\n");
                 return;
             }
 
             Vector at = entities.GetOrigin(bots.Applier.PlayerOf(bot.Value.Id));
             var from = new AiVector(at.X, at.Y, at.Z);
             target = placed.OrderBy(e => e.Origin.DistanceTo(from)).First().Origin;
-            pickup = p[1];
+            pickup = classNameOrX;
         }
         else
         {
@@ -157,7 +150,7 @@ public sealed class AiBotGotoCommand(Hl2mpBots bots, Nav.IHl2mpNavigation nav, I
             return;
         }
 
-        if (bots.GoTo(p[0], target, pickup) is { } refusal)
+        if (bots.GoTo(name, target, pickup) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_goto refused: {refusal}\n");
     }
 }
@@ -168,15 +161,14 @@ public sealed class AiBotGotoCommand(Hl2mpBots bots, Nav.IHl2mpNavigation nav, I
 /// what it has not been sent.
 /// </summary>
 [ConCommand("ai_bot_knows", Help = "ai_bot_knows <name> x y z: the cell at a point as the bot knows it, and truly", Flags = ConVarFlags.Cheat)]
-public sealed class AiBotKnowsCommand(Hl2mpBots bots, Nav.Hl2mpNav nav, ILog log) : IConCommand
+public sealed class AiBotKnowsCommand(Hl2mpBots bots, Nav.Hl2mpNav nav, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, Vector at)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length != 4 || nav.Current is not { } n || nav.Field is not { } field
-            || !float.TryParse(p[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
-            || !float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
-            || !float.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
+        (float x, float y, float z) = (at.X, at.Y, at.Z);
+        if (nav.Current is not { } n || nav.Field is not { } field)
         {
             log.Warning("[SourceSharp/Ai] usage: ai_bot_knows <name> x y z (with navigation loaded)\n");
             return;
@@ -185,7 +177,7 @@ public sealed class AiBotKnowsCommand(Hl2mpBots bots, Nav.Hl2mpNav nav, ILog log
         CellId cell = n.Nav.Graph.FindCell(new AiVector(x, y, z));
         foreach (Hl2mpBot bot in bots.Bots)
         {
-            if (!string.Equals(bot.Name, p[0], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(bot.Name, name, StringComparison.OrdinalIgnoreCase))
                 continue;
             byte known = cell.IsValid ? field.StateFor(bots.Applier.PlayerOf(bot.Id)).Cells?.State(cell.Index) ?? NavCellBlocks.Free : NavCellBlocks.Free;
             log.Msg(string.Create(CultureInfo.InvariantCulture,
@@ -193,30 +185,29 @@ public sealed class AiBotKnowsCommand(Hl2mpBots bots, Nav.Hl2mpNav nav, ILog log
             return;
         }
 
-        log.Warning($"[SourceSharp/Ai] ai_bot_knows: no bot called '{p[0]}'\n");
+        log.Warning($"[SourceSharp/Ai] ai_bot_knows: no bot called '{name}'\n");
     }
 }
 
 /// <summary><c>ai_think 0|1</c>: whether the bots' brains drive them (on by default; off, they stand still unless scripted).</summary>
 [ConCommand("ai_think", Help = "ai_think 0|1: whether the bots' brains drive them", Flags = ConVarFlags.Cheat)]
-public sealed class AiThinkCommand(Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiThinkCommand(Hl2mpBots bots, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(bool? on = null)
     {
-        string a = args.Trim();
-        if (a.Length > 0)
-            bots.Thinking = a != "0";
+        if (on is { } wanted)
+            bots.Thinking = wanted;
         log.Msg($"[SourceSharp/Ai] ai_think {(bots.Thinking ? 1 : 0)}\n");
     }
 }
 
 /// <summary><c>ai_think_log 0|1</c>: write each change of a bot's branch, leaf or verdict to the console.</summary>
 [ConCommand("ai_think_log", Help = "ai_think_log 0|1: print each bot's decision changes", Flags = ConVarFlags.Cheat)]
-public sealed class AiThinkLogCommand(Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiThinkLogCommand(Hl2mpBots bots, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(bool on = true)
     {
-        bots.LogThink = args.Trim() != "0";
+        bots.LogThink = on;
         log.Msg($"[SourceSharp/Ai] ai_think_log {(bots.LogThink ? 1 : 0)}\n");
     }
 }

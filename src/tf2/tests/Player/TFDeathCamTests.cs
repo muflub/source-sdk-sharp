@@ -48,7 +48,7 @@ public sealed class TFDeathCamTests
             Player.State.Alive = true;
 
             Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine,
-                                      Engine, Engine, ConVarRegistry.For(UnattachedConsole()));
+                                      Engine, Engine, DeclaredConVars.Fresh<ForceCameraConVar>(), DeclaredConVars.Fresh<AllowSpectatorsConVar>());
             DeathCam = new TFDeathCam(registry, Observers, new RecordingLog());
         }
 

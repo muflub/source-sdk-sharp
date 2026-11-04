@@ -110,7 +110,7 @@ public sealed class BlastSweep : IBlastSweep
 
     /// <summary>The triggers that answer a shot, walked along each victim's line (TraceAttackToTriggers).</summary>
     private readonly IEntityRoster<ITraceAttacked>? _traceAttacked;
-    private readonly IEngineConsole _console;
+    private readonly OldRadiusDamageConVar _oldRadiusDamage;
     private readonly IServerSoundEnt _sounds;
 
     /// <summary>
@@ -125,7 +125,7 @@ public sealed class BlastSweep : IBlastSweep
     /// </summary>
     public BlastSweep(ILog log, IEngineWorldQuery world, IEngineDamage damage,
                       IEngineEntities entities, IEngineEntityPhysics physics,
-                      IEngineConsole console, IServerSoundEnt sounds,
+                      OldRadiusDamageConVar oldRadiusDamage, IServerSoundEnt sounds,
                       DamageInflictors? inflictors = null, IEntityDirectory? directory = null,
                       IEntityRoster<ITraceAttacked>? traceAttacked = null)
     {
@@ -138,7 +138,7 @@ public sealed class BlastSweep : IBlastSweep
         _damage = damage;
         _entities = entities;
         _physics = physics;
-        _console = console;
+        _oldRadiusDamage = oldRadiusDamage;
     }
 
     /// <summary>
@@ -435,16 +435,7 @@ public sealed class BlastSweep : IBlastSweep
     /// a lane. One lookup per explosion, not per victim and not per frame.
     /// </para>
     /// </summary>
-    private bool LegacyBlocking()
-    {
-        string? value = _console.FindConVarValue("old_radiusdamage");
-
-        // GetBool() is "the float is non-zero", and the default is the string
-        // "0.0" -- so a plain int parse would refuse the default itself.
-        return float.TryParse(value, System.Globalization.NumberStyles.Float,
-                              System.Globalization.CultureInfo.InvariantCulture,
-                              out float f) && f != 0f;
-    }
+    private bool LegacyBlocking() => _oldRadiusDamage.Value != 0f;
 
     /// <summary>
     /// The three fields of an entity's engine block this rule reads, and

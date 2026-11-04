@@ -36,3 +36,17 @@ public sealed class BreakableMultiplayerConVar : BoolConVar { }
 /// <summary>breakable_disable_gib_limit (props.cpp): PerformanceMode does not trim gibs.</summary>
 [ConVar("breakable_disable_gib_limit", "0")]
 public sealed class BreakableDisableGibLimitConVar : BoolConVar { }
+
+/// <summary>The convars a breakable brush reads, built by the container.</summary>
+public sealed class BreakableBrushConVars(FuncBreakDmgBulletConVar dmgBullet, FuncBreakDmgClubConVar dmgClub,
+                                          FuncBreakDmgExplosiveConVar dmgExplosive, FuncBreakMaxPiecesConVar maxPieces,
+                                          BreakableDisableGibLimitConVar disableGibLimit,
+                                          FuncBreakReductionFactorConVar reductionFactor)
+{
+    public readonly FuncBreakDmgBulletConVar DmgBullet = dmgBullet;
+    public readonly FuncBreakDmgClubConVar DmgClub = dmgClub;
+    public readonly FuncBreakDmgExplosiveConVar DmgExplosive = dmgExplosive;
+    public readonly FuncBreakMaxPiecesConVar MaxPieces = maxPieces;
+    public readonly BreakableDisableGibLimitConVar DisableGibLimit = disableGibLimit;
+    public readonly FuncBreakReductionFactorConVar ReductionFactor = reductionFactor;
+}

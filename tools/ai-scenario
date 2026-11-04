@@ -4,7 +4,7 @@
   tools/ai-scenario sight   [--config debug] [--keep]
   tools/ai-scenario hearing [--config debug] [--keep]
   tools/ai-scenario duel|routes|nav [--config debug] [--keep]
-  tools/ai-scenario jank [--minutes 5] [--streaks 0|1] [--config debug] [--keep]   (`make ai-jank`)
+  tools/ai-scenario jank [--minutes 5] [--streaks 0|1] [--preset hard] [--config debug] [--keep]   (`make ai-jank`)
   tools/ai-scenario live [--config debug] [--keep]
   tools/ai-scenario traits [--minutes 5] [--points 50|35|20] [--config debug] [--keep]
   tools/ai-scenario habit [--minutes 5] [--config debug] [--keep]
@@ -394,19 +394,21 @@ class ScriptedClient:
             self.game.cmd("-" + key)
 
 
-def jank(config, keep, minutes, streaks=1):
+def jank(config, keep, minutes, streaks=1, preset=None):
     """The standard run: its exit is the score tool's, and a run with too few bots or too little play is a failure."""
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
     out_dir = os.path.join(ROOT, "bin", config, "ai-jank")
     os.makedirs(out_dir, exist_ok=True)
     rec = os.path.join(out_dir, "%s-%s.airec" % (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), sha))
+    # One preset four times: what that difficulty does to the scripted client, with four times the sample (§12.3).
+    bots_asked = [(name, preset or p) for name, p in JANK_BOTS]
     game = Game("dm_lockdown", config)
     try:
         game.start()
         game.cmd("ai_record start %s dm_lockdown" % rec)
         game.cmd("ai_bot_streaks %d" % streaks)
-        for name, preset in JANK_BOTS:
-            game.cmd("ai_bot_add %s %s" % (name, preset))
+        for name, asked in bots_asked:
+            game.cmd("ai_bot_add %s %s" % (name, asked))
         time.sleep(2)
         bots = bots_by_name(game)
         if len(bots) != len(JANK_BOTS):
@@ -425,11 +427,14 @@ def jank(config, keep, minutes, streaks=1):
         print("ai-scenario: breakables on the map %s -> %s; shots at them begun %s, given up %s" % (crates, counters.get("ai.breakables"), counters.get("ai.breaks"), counters.get("ai.breaks.given_up")))
         game.cmd("ai_record stop")
         time.sleep(1)
+        # Who killed whom with what, the console's own lines: `ai-replay threat` has the hits, not the weapon of a kill.
+        with open(rec + ".kills.txt", "w") as f:
+            f.write("".join(l + "\n" for l in game.lines() if re.search(r" killed .+ with [a-z0-9_]+\.$", l)))
     finally:
         game.stop(keep)
     p = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "jank", rec, "--config", config], capture_output=True, text=True)
     header = "ai-scenario: jank at %s: %s, dm_lockdown, %g minutes, bots %s, %s\n" % (
-        sha, config, minutes, " ".join("%s=%s" % b for b in JANK_BOTS), rec)
+        sha, config, minutes, " ".join("%s=%s" % b for b in bots_asked), rec)
     report = header + p.stdout + p.stderr
     with open(rec + ".txt", "w") as f:
         f.write(report)
@@ -778,7 +783,8 @@ def main(argv):
     keep = "--keep" in argv
     if which == "jank":
         return jank(config, keep, float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0,
-                    int(argv[argv.index("--streaks") + 1]) if "--streaks" in argv else 1)
+                    int(argv[argv.index("--streaks") + 1]) if "--streaks" in argv else 1,
+                    argv[argv.index("--preset") + 1] if "--preset" in argv else None)
     if which == "live":
         return live(config, keep)
     minutes = float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0

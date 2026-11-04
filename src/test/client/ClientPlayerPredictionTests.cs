@@ -46,7 +46,15 @@ public class ClientPlayerPredictionTests
     {
         public readonly List<ClientStandaloneEntity> Entities = new();
         public IReadOnlyList<ClientStandaloneEntity> Live() => Entities;
-        public ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+        public ClientStandaloneEntity? GetByIndex(int entityIndex)
+        {
+            foreach (ClientStandaloneEntity entity in Entities)
+            {
+                if ((int)(entity.Handle.Value & ClientPlayerPrediction.HandleEntryMask) == entityIndex)
+                    return entity;
+            }
+            return null;
+        }
     }
 
     /// <summary>
@@ -55,6 +63,9 @@ public class ClientPlayerPredictionTests
     /// </summary>
     private sealed class Replay : IClientReplayEngine
     {
+        /// <summary>Records no publish, for a fact that measures the frame's own allocation.</summary>
+        public bool Quiet;
+
         /// <summary>Command numbers the input ring holds. Anything else is "not there".</summary>
         public readonly HashSet<int> Ring = new();
 
@@ -135,7 +146,8 @@ public class ClientPlayerPredictionTests
         public void PublishView(EntityHandle player, in Vector origin, in Vector viewOffset,
                                 in QAngle punch, in QAngle punchVel, bool driving, int health)
         {
-            Calls.Add($"publish:{(driving ? 1 : 0)}");
+            if (!Quiet)
+                Calls.Add($"publish:{(driving ? 1 : 0)}");
             Published++;
             LastDriving = driving;
             LastOrigin = origin;
@@ -236,6 +248,37 @@ public class ClientPlayerPredictionTests
         public float SprintSpeed => 320f;
         public bool InfiniteAuxPower => false;
         public bool CanSprint(bool ducked, bool ducking, int waterLevel, bool sprintDisabled) => true;
+    }
+
+    /// <summary>
+    /// A compare that holds and a saved slot's stamp read from a held state: a
+    /// frame that acknowledges its command allocates nothing, once warm, for the
+    /// ring, the basis copy or the judge.
+    /// </summary>
+    [Fact]
+    public void AnAcknowledgedFrameThatHoldsAllocatesNothing()
+    {
+        var bench = Build(11);
+        long allocated = 0;
+
+        void Round()
+        {
+            bench.Prediction.Update(0, true, 10, 11, false);
+            bench.Player.State.Decode(bench.Prediction.LastSavedBytes);
+            bench.Packet();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        bench.Replay.Quiet = true;
+        for (int i = 0; i < 32; i++)
+            Round();
+        int holds = bench.Prediction.Holds;
+        Round();
+
+        Assert.True(bench.Prediction.Holds > holds, "the compare ran and held");
+        Assert.Equal(0, allocated);
     }
 
     /// <summary>
@@ -455,6 +498,41 @@ public class ClientPlayerPredictionTests
     /// meter counts the adoption apart (stock re-seeds the whole predicted
     /// state at spawn — InitPredictable, c_baseentity.cpp:4578-4583).
     /// </summary>
+    /// <summary>
+    /// The stamp is read from one held state over each saved slot: a slot whose
+    /// stamp matches the arrival holds, whatever the last slot's said.
+    /// </summary>
+    [Fact]
+    public void EachCompareReadsTheStampOfItsOwnSlot()
+    {
+        var bench = Build(11);
+        bench.Player.State.SpawnEpoch = 5;
+
+        void Round()
+        {
+            bench.Prediction.Update(0, true, 10, 11, false);
+            bench.Player.State.Decode(bench.Prediction.LastSavedBytes);
+            bench.Packet();
+            bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        }
+
+        Round();
+        Assert.Equal(0, bench.Prediction.Rebuilt);
+        Assert.Equal(1, bench.Prediction.Holds);
+
+        bench.Player.State.SpawnEpoch = 6;
+        Round();
+        Assert.Equal(0, bench.Prediction.Rebuilt);
+        Assert.Equal(2, bench.Prediction.Holds);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes);
+        bench.Player.State.SpawnEpoch = 7;
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(1, bench.Prediction.Rebuilt);
+    }
+
     [Fact]
     public void ACompareStraddlingASpawnAdoptsTheArrivalInsteadOfJudgingIt()
     {

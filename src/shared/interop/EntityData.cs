@@ -398,6 +398,11 @@ public sealed class EntityLayout
         if (t == typeof(double)) return 8;
         if (t == typeof(Vector)) return 12;
 
+        // The packed networked handle TempEntWriter.EHandle writes: an int on the wire, where a
+        // member typed EntityHandle infers TePropKind.Int. Only a field-by-field consumer can
+        // take one, since an EntityHandle stores the raw handle inverted.
+        if (t == typeof(EntityHandle)) return 4;
+
         // THREE FLOATS LIKE A VECTOR, and deliberately NOT a Vector. QAngle is
         // the type a facing has, and the engine encodes one as SendPropQAngles
         // rather than three SendPropFloats -- so letting a declaration say
@@ -410,8 +415,8 @@ public sealed class EntityLayout
         // those to please the wire would be the tail wagging the dog.
         //
         // THE DIVERGENCE IS SAFE HERE AND WOULD NOT BE EVERYWHERE. A temp
-        // entity blob is written and read FIELD BY FIELD through reflection
-        // (TempEntDeclarationWriter/Reader), so what a layout says about a
+        // entity blob is written and read FIELD BY FIELD by its generated
+        // members, so what a layout says about a
         // member's width is what the blob does, full stop. TryRead<T> below is
         // the other kind of consumer: it memcpys a blob straight onto a struct,
         // and for that the generated layout has to agree with what .NET lays

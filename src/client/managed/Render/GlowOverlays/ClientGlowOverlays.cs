@@ -70,7 +70,7 @@ public sealed class GlowSettings(Func<bool> buildingCubemaps, Func<float> sunDec
 /// What native's glow overlay ops reach (IManagedGlowClient): the view parsed,
 /// the system's draw written as shell_glow_client.h's command words.
 /// </summary>
-public sealed class GlowHost(GlowOverlaySystem system, GlowSettings settings) : IClientGlowHost
+public sealed class GlowHost(GlowOverlaySystem system, GlowSettings settings, RDrawSpritesConVar drawSprites, WireframeMode wireframe) : IClientGlowHost
 {
     /// <summary>A quad's words: kind, material and four (position, colour, s, t) (SS_GLOW_QUAD_WORDS).</summary>
     public const int QuadWords = 2 + 4 * 8;
@@ -79,7 +79,7 @@ public sealed class GlowHost(GlowOverlaySystem system, GlowSettings settings) : 
     public const int WireQuadWords = 2 + 4 * 3;
 
     /// <summary>The view native hands over (SS_GLOW_VIEW_FLOATS).</summary>
-    public const int ViewFloats = 29;
+    public const int ViewFloats = 27;
 
     private readonly Writer _writer = new();
 
@@ -95,7 +95,7 @@ public sealed class GlowHost(GlowOverlaySystem system, GlowSettings settings) : 
         for (int i = 0; i < 5; i++)
             planes[i] = new GlowPlane(new Vector(view[7 + i * 4], view[8 + i * 4], view[9 + i * 4]), view[10 + i * 4]);
         var v = new GlowView(new Vector(view[0], view[1], view[2]), new Vector(view[3], view[4], view[5]), view[6], planes);
-        settings.SetDraw((int)view[28], view[27] != 0);
+        settings.SetDraw(drawSprites.Value, wireframe.On);
         system.DrawOverlays(v, cacheFullSceneState, _writer);
         Draws++;
         return Commands(commands);

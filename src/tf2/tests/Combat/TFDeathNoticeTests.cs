@@ -30,7 +30,7 @@ public sealed class TFDeathNoticeTests
     private static Dictionary<string, object> Fill(CombatRig rig, EntityHandle attacker, EntityHandle? inflictor = null,
                                                    string coreWeapon = "tf_weapon_scattergun")
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers);
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level);
         var fields = new Fields();
         EntityHandle scorer = attacker == CombatRig.Attacker || attacker == CombatRig.Third || attacker == CombatRig.Victim
             ? attacker : EntityHandle.None;
@@ -193,6 +193,71 @@ public sealed class TFDeathNoticeTests
         rig.Hit(6f, DamageType.Bullet);
 
         Assert.False((bool)Fill(rig, CombatRig.Attacker)["rocket_jump"]);
+    }
+
+    [Fact]
+    public void A_hadouken_kill_is_the_pyro_taunt_whatever_is_held()
+    {
+        // The taunt attack's scope carries the held weapon; the kill name is
+        // the taunt's own (tf_gamerules.cpp:12209-12211).
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_shotgun_pyro" };
+        using (rig.Scopes.Push(TFDamageCustom.TauntatkHadouken, TFWeaponId.ShotgunPyro, "tf_weapon_shotgun_pyro"))
+            rig.Hit(50f, DamageType.Burn);
+
+        var f = Fill(rig, CombatRig.Attacker);
+
+        Assert.Equal(("taunt_pyro", (int)TFWeaponId.None, (int)TFDamageCustom.TauntatkHadouken),
+                     ((string)f["weapon"], (int)f["weaponid"], (int)f["customkill"]));
+    }
+
+    [Fact]
+    public void A_high_noon_kill_is_the_heavy_taunt_whatever_is_held()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_shotgun_heavy" };
+        using (rig.Scopes.Push(TFDamageCustom.TauntatkHighNoon, TFWeaponId.ShotgunHwg, "tf_weapon_shotgun_hwg"))
+            rig.Hit(50f, DamageType.Bullet);
+
+        var f = Fill(rig, CombatRig.Attacker);
+
+        Assert.Equal("taunt_heavy", f["weapon"]);
+    }
+
+    [Fact]
+    public void A_fencing_kill_is_the_spy_taunt_whatever_is_held()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_knife" };
+        using (rig.Scopes.Push(TFDamageCustom.TauntatkFencing, TFWeaponId.Knife, "tf_weapon_knife"))
+            rig.Hit(25f, DamageType.Slash);
+
+        var f = Fill(rig, CombatRig.Attacker);
+
+        Assert.Equal("taunt_spy", f["weapon"]);
+    }
+
+    [Theory]
+    [InlineData("koth_cachoeira", "helicopter")]
+    [InlineData("koth_megaton", "megaton")]
+    [InlineData("dm_lockdown", "world")]
+    public void A_trigger_kill_is_the_maps_hazard_or_the_world_left(string map, string expected)
+    {
+        // The trigger arm is the map's hazard (tf_gamerules.cpp:12429-12439);
+        // elsewhere it leaves the name the chain began with.
+        var rig = new CombatRig();
+        rig.Level.Map = map;
+        using (rig.Scopes.Push(TFDamageCustom.TriggerHurt, TFWeaponId.None, ""))
+            rig.Hit(50f, DamageType.Crush);
+
+        var f = Fill(rig, CombatRig.Attacker);
+        Assert.Equal((expected, (int)TFWeaponId.None), ((string)f["weapon"], (int)f["weaponid"]));
+    }
+
+    [Fact]
+    public void A_plain_kill_still_names_the_weapon_that_fired_it()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_pistol" };
+        rig.Hit(6f, DamageType.Bullet);
+
+        Assert.Equal("pistol", Fill(rig, CombatRig.Attacker)["weapon"]);
     }
 
     [Fact]

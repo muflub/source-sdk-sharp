@@ -180,6 +180,9 @@ internal sealed class CombatRig
     public RecordingEngine Engine { get; } = TestServices.Fake();
     public TFMovementFixtures.Players Players { get; } = new();
     public CombatClock Clock { get; } = new();
+
+    /// <summary>The level word; a fact sets <see cref="LevelInfo.Map"/> for the map-named arms.</summary>
+    public LevelInfo Level { get; } = new();
     public BandRandom Random { get; }
     public TFDamageRecords Records { get; } = new();
     public TFDamageScopes Scopes { get; } = new();
@@ -267,11 +270,11 @@ internal sealed class CombatRig
         Layer = new TFDamageLayer(Players, Engine, Engine, Entities, new TFWeaponScripts(Log, files), new TFClassTable(Log, files),
                                   Owners, Resupply, new TF2.Shared.Econ.AttributeHooks(),
                                   Random, Clock, Records, Scopes, Afterburns, Bleeds,
-                                  ConVars.Get<TFDamageRangeConVar>()!, ConVars.Get<TFDamageDisableSpreadConVar>()!,
-                                  ConVars.Get<TFWeaponCriticalsDistanceFalloffConVar>()!,
-                                  ConVars.Get<TFWeaponMinicritsDistanceFalloffConVar>()!,
-                                  ConVars.Get<TFFallDamageDisableSpreadConVar>()!, ConVars.Get<TFDebugDamageConVar>()!, ZoomTimes, Log,
-                                  Stats, Inflictors, SentryDamages, ConVars.Get<TFStealthDamageReductionConVar>()!);
+                                  ConVars.Declared<TFDamageRangeConVar>(), ConVars.Declared<TFDamageDisableSpreadConVar>(),
+                                  ConVars.Declared<TFWeaponCriticalsDistanceFalloffConVar>(),
+                                  ConVars.Declared<TFWeaponMinicritsDistanceFalloffConVar>(),
+                                  ConVars.Declared<TFFallDamageDisableSpreadConVar>(), ConVars.Declared<TFDebugDamageConVar>(), ZoomTimes, Log,
+                                  Stats, Inflictors, SentryDamages, ConVars.Declared<TFStealthDamageReductionConVar>());
         Rules = new TFDamageRules(Players, Engine, Scopes);
     }
 
@@ -282,5 +285,5 @@ internal sealed class CombatRig
                      EntityHandle? attacker = null, EntityHandle? victim = null)
         => Layer.Modify(new DamageContext(victim ?? Victim, attacker ?? Attacker, damage, (int)bits, group, critical), damage);
 
-    public void Set<T>(string value) where T : ConVarBase => ConVars.Get<T>()!.Bind(-1, ConVars.Get<T>()!.Name, value);
+    public void Set<T>(string value) where T : ConVarBase => ConVars.Declared<T>().Bind(-1, ConVars.Declared<T>().Name, value);
 }

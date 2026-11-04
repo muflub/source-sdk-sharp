@@ -49,7 +49,6 @@ public class ObserverCameraTests
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", Local);
         engine.Returns("Clock.Now", 10f);
-        engine.Returns("Console.FindConVarValue", "1");
 
         var me = new ClientSsPlayer(engine) { Handle = new EntityHandle(0x0001_0000u | Local) };
         me.State.BindLocal();
@@ -67,7 +66,7 @@ public class ObserverCameraTests
         var slots = new Slots();
         slots.Poses[Watched] = new EntityRenderPose(new Vector(100, 200, 0), new QAngle(0, 45, 0), true);
 
-        var camera = new ObserverCamera(slots, directory, engine, new ViewReadout(), engine, engine);
+        var camera = new ObserverCamera(slots, directory, engine, new ViewReadout(), engine, DeclaredConVars.Holding<ClForceCameraConVar>("1"));
         return (camera, slots, me);
     }
 

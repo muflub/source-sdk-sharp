@@ -11,6 +11,20 @@ using System.Reflection;
 namespace SourceSharp.Abi;
 
 /// <summary>
+/// A variable the engine or native code holds, as a class like any other convar: taken by
+/// constructor, its <c>Value</c> cached and kept by the engine's change callback, so a read
+/// crosses nothing. Nothing is registered: the name is the engine's. <see cref="Fallback"/>
+/// is the value until the engine holds it (another DLL's, loaded later; the registry reads
+/// it again at each level).
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+public sealed class EngineConVarAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
+    public string Fallback { get; init; } = string.Empty;
+}
+
+/// <summary>
 /// Marks a class as a console variable. Discovered at module init, exactly like
 /// <see cref="ConCommandAttribute"/>, and bound to a fresh instance.
 /// </summary>
@@ -130,6 +144,12 @@ internal interface IConVarBackend
 
     /// <summary>The engine's current value of a name, or null when it has none.</summary>
     string? ValueOf(string name);
+
+    /// <summary>The id a variable the engine holds will report its changes under; -1 for none.</summary>
+    int Watch(string name) => -1;
+
+    /// <summary>Sets a variable the engine holds, by its name.</summary>
+    void SetNamed(string name, string value) { }
 }
 
 /// <summary>
@@ -150,6 +170,8 @@ internal sealed class EngineConVarBackend : IConVarBackend
     public void Set(int id, string value) => _console.SetConVarValue(id, value);
     public string Get(int id) => _console.GetConVarValue(id);
     public string? ValueOf(string name) => NativeConsole.ValueOf(_console, name);
+    public int Watch(string name) => _console is IConVarWatcher watcher ? watcher.WatchConVar(name) : -1;
+    public void SetNamed(string name, string value) => _console.SetConVarValueByName(name, value);
 }
 
 /// <summary>
@@ -224,6 +246,12 @@ public abstract class ConVarBase
     /// </summary>
     public string RawValue { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// False while the value is empty: an <see cref="EngineConVarAttribute"/> class with no
+    /// <see cref="EngineConVarAttribute.Fallback"/>, the engine holding nothing under the name yet.
+    /// </summary>
+    public bool HasValue => RawValue.Length != 0;
+
     /// <summary>The declared server-browser tag (<see cref="ConVarAttribute.Tag"/>), or null.</summary>
     public string? Tag { get; private set; }
 
@@ -240,6 +268,9 @@ public abstract class ConVarBase
     /// only way it gets an id to push with.
     /// </summary>
     internal IConVarBackend? Backend;
+
+    /// <summary>Declared with <see cref="EngineConVarAttribute"/>: the engine holds the variable.</summary>
+    internal bool HeldByEngine;
 
     /// <summary>
     /// Pushes a raw value to the engine, and makes sure the cache has heard it.
@@ -263,12 +294,24 @@ public abstract class ConVarBase
     /// </summary>
     private protected void SetRaw(string value)
     {
-        if (_id < 0 || Backend is null)
+        if (Backend is null)
             return;
 
-        Backend.Set(_id, value);
+        string now;
+        if (HeldByEngine)
+        {
+            Backend.SetNamed(Name, value);
+            now = Backend.ValueOf(Name) ?? value;
+        }
+        else
+        {
+            if (_id < 0)
+                return;
 
-        string now = Backend.Get(_id);
+            Backend.Set(_id, value);
+            now = Backend.Get(_id);
+        }
+
         if (!string.Equals(now, RawValue, StringComparison.Ordinal))
             NotifyChanged(now, RawValue);
     }
@@ -561,6 +604,9 @@ public sealed class ConVarRegistry
     // engine accepted, since it exists to route change notifications by id.
     private readonly List<ConVarBase> _all = new();
 
+    // The ones the engine holds, read again at each level.
+    private readonly List<ConVarBase> _heldByEngine = new();
+
     //-------------------------------------------------------------------------
     // Part 0a #3's managed half: what the shell's RegisterConCommandBase needs
     // to know about a declaration and cannot work out for itself.
@@ -721,7 +767,7 @@ public sealed class ConVarRegistry
             if (ConVarOwnership.OwnedByEngine(_backend.ExistingFlags(attr.Name)))
             {
                 _log.Warning($"[SourceSharp] C# declared convar '{attr.Name}', which the engine defines: refused. "
-                           + "Read the engine's by name instead of declaring it.\n");
+                           + "Declare it [EngineConVar] instead.\n");
                 engineOwned.Add($"'{attr.Name}' ({type.FullName})");
                 continue;
             }
@@ -730,11 +776,8 @@ public sealed class ConVarRegistry
                                        unchecked((int)attr.Flags), min, max);
 
             // A refused ConVar is still bound, to its declared default and an id
-            // of -1. Dropping it would make Get<T>() return null and the policy
-            // reading it silently fall back to whatever its own null-coalesce
-            // says — which is a different value from the declared default, and
-            // impossible to spot from the outside. Bound-but-unregistered at
-            // least behaves as declared.
+            // of -1. Dropping it would leave nothing to publish for the class
+            // that takes it. Bound-but-unregistered at least behaves as declared.
             //
             // This is also what makes the rules testable without an engine.
             if (id < 0)
@@ -759,6 +802,12 @@ public sealed class ConVarRegistry
             count++;
         }
 
+        foreach (var type in types)
+        {
+            if (type.GetCustomAttribute<EngineConVarAttribute>() is { } held && BindHeldByEngine(type, held, duplicates))
+                count++;
+        }
+
         // A row for a name the walk never declared would redefault nothing and
         // say so nowhere: the game would run on the core's number believing it
         // had overridden it. Refused beside the duplicates, for the same reason
@@ -777,20 +826,16 @@ public sealed class ConVarRegistry
         if (duplicates.Count > 0)
             throw new InvalidOperationException(
                 "convars declared twice, by the core and a mod or by two mods: " + string.Join(", ", duplicates) +
-                ". A name has one declaration; rename one or read the other by name.");
+                ". A name has one declaration; rename one or take the other's class by constructor.");
 
         if (engineOwned.Count > 0)
             throw new InvalidOperationException(
                 "managed code declares convars the engine defines, which would alias the engine's own: " +
-                string.Join(", ", engineOwned) + ". Delete the declaration and read the engine's by name.");
+                string.Join(", ", engineOwned) + ". Make the declaration [EngineConVar].");
 
         return count;
     }
 
-    /// <summary>
-    /// Returns the registered instance of a ConVar class, so a module can hold a
-    /// typed reference instead of looking up by name on every read.
-    /// </summary>
     /// <summary>
     /// Every convar this registry declared, by name. The development API reads
     /// values back through this — a convar can clamp or reject what it was
@@ -817,9 +862,6 @@ public sealed class ConVarRegistry
 
         return null;
     }
-
-    public T? Get<T>() where T : ConVarBase
-        => _all.OfType<T>().FirstOrDefault();
 
     /// <summary>
     /// Puts every declared convar into the container, under BOTH keys: its own
@@ -893,6 +935,55 @@ public sealed class ConVarRegistry
     /// the change itself, after the convar holds its new value.
     /// </summary>
     public event Action<ConVarBase>? TaggedChanged;
+
+    /// <summary>An <see cref="EngineConVarAttribute"/> class: watched, bound to what the engine holds.</summary>
+    private bool BindHeldByEngine(Type type, EngineConVarAttribute attr, List<string> duplicates)
+    {
+        if (_owners.TryGetValue(attr.Name, out Type? first))
+        {
+            if (first == type)
+                return false;
+            string firstOwner = first.Assembly.GetName().Name ?? "?";
+            string owner = type.Assembly.GetName().Name ?? "?";
+            if (!OtherSides(firstOwner, owner))
+            {
+                duplicates.Add($"'{attr.Name}' ({firstOwner} and {owner}: {type.FullName})");
+                return false;
+            }
+        }
+        _owners.TryAdd(attr.Name, type);
+
+        if (type.IsAbstract || Activator.CreateInstance(type) is not ConVarBase instance)
+        {
+            _log.Warning($"[SourceSharp] [EngineConVar({attr.Name})] on {type.Name}, which is not a convar class; skipped\n");
+            return false;
+        }
+
+        int id = _backend.Watch(attr.Name);
+        if (id >= 0)
+            _byId[id] = instance;
+
+        instance.Log = _log;
+        instance.Backend = _backend;
+        instance.HeldByEngine = true;
+        instance.Bind(id, attr.Name, attr.Fallback, engineValue: _backend.ValueOf(attr.Name));
+        _heldByEngine.Add(instance);
+        Adopt(instance);
+        return true;
+    }
+
+    /// <summary>
+    /// Reads every <see cref="EngineConVarAttribute"/> class again: a change made before the
+    /// callback could deliver it, and a variable that has appeared since (another DLL's).
+    /// </summary>
+    public void RefreshHeldByEngine()
+    {
+        foreach (ConVarBase convar in _heldByEngine)
+        {
+            if (_backend.ValueOf(convar.Name) is { } value && !string.Equals(value, convar.RawValue, StringComparison.Ordinal))
+                convar.NotifyChanged(value, convar.RawValue);
+        }
+    }
 
     /// <summary>
     /// Takes a bound convar into the registry: listed in <see cref="All"/>, and

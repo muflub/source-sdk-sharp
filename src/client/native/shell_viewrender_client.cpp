@@ -120,8 +120,7 @@ VPlane* CShellViewRender::GetFrustum()
 
 bool CShellViewRender::ShouldDrawBrushModels()
 {
-	ConVarRef drawBrushModels("r_drawbrushmodels", true);
-	return !drawBrushModels.IsValid() || drawBrushModels.GetInt() != 0;
+	return !m_DrawBrushModels.IsValid() || m_DrawBrushModels.GetInt() != 0;
 }
 
 const CViewSetup* CShellViewRender::GetPlayerViewSetup() const
@@ -249,13 +248,11 @@ void CShellViewRender::GetScreenFadeDistances(float* pMin, float* pMax)
 {
 	if (pMin)
 	{
-		ConVarRef minSize("r_screenfademinsize", true);
-		*pMin = minSize.IsValid() ? minSize.GetFloat() : 0.0f;
+		*pMin = m_ScreenFadeMinSize.GetFloat();
 	}
 	if (pMax)
 	{
-		ConVarRef maxSize("r_screenfademaxsize", true);
-		*pMax = maxSize.IsValid() ? maxSize.GetFloat() : 0.0f;
+		*pMax = m_ScreenFadeMaxSize.GetFloat();
 	}
 }
 

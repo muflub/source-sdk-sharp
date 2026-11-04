@@ -25,7 +25,7 @@ public sealed class ClientTFFlagTests
         var engine = new CAbi.RecordingEngine();
         engine.Returns("Effects.ParticleSystemStart", true);
         engine.Returns("Effects.ParticleSystemFollowPoints", true);
-        var flag = new ClientFlag(engine, engine, new GlowRegistry(_ => false, _ => null, _ => 7));
+        var flag = new ClientFlag(engine, engine, new GlowRegistry(_ => false, DeclaredClientConVars.Fresh<client::SourceSharp.Client.GlowOutlineEffectEnableConVar>(), _ => 7));
         flag.State.BindLocal();
         flag.State.FlagStatus = status;
         flag.State.UseTrailEffect = effects;
@@ -102,7 +102,7 @@ public sealed class ClientTFFlagTests
     {
         var engine = new CAbi.RecordingEngine();
         engine.Returns("Effects.ParticleSystemStart", true);
-        var glow = new GlowRegistry(_ => false, _ => null, _ => 7);
+        var glow = new GlowRegistry(_ => false, DeclaredClientConVars.Fresh<client::SourceSharp.Client.GlowOutlineEffectEnableConVar>(), _ => 7);
         var flag = new ClientFlag(engine, engine, glow);
         flag.State.BindLocal();
         flag.State.GlowEnabled = 1;

@@ -83,6 +83,43 @@ public class ShadowManagerFactsTests
     }
 
     [Fact]
+    public void ADepthViewWithNoFlashlightsAllocatesNothing()
+    {
+        ShadowManagerOracleTests.Replay replay = Run();
+        var view = new ShadowViewSetup();
+        for (int i = 0; i < 16; i++)
+            replay.Manager.ComputeShadowDepthTextures(view);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 64; i++)
+            replay.Manager.ComputeShadowDepthTextures(view);
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
+    // The projection's leaves are the manager's scratch, handed on rather than
+    // copied: a second shadow's walk must name its own leaves, not the first's.
+    [Fact]
+    public void TwoShadowsProjectEachIntoItsOwnLeaves()
+    {
+        ShadowManagerOracleTests.Replay replay = Run(T(1, 3, 150, 0, 40, 10), T(2, 3, 2150, 0, 40, 10));
+        for (int id = 1; id <= 2; id++)
+        {
+            replay.Run($"C\tCreateShadow\t{id}\t2");
+            replay.ThingById(id).ShadowHandle = LastAnswer(replay);
+        }
+        replay.Run("C\tPreRender");
+        List<string> projected = After(replay, "C\tPreRender").Where(l => l.StartsWith("E\tsm.ProjectShadow", StringComparison.Ordinal)).ToList();
+
+        Assert.Equal(2, projected.Count);
+        string[] first = Leaves(projected[0]), second = Leaves(projected[1]);
+        Assert.NotEmpty(first);
+        Assert.NotEmpty(second);
+        Assert.Empty(first.Intersect(second));
+
+        // Kind, name, shadow, origin, direction, matrix, size, then its leaves.
+        static string[] Leaves(string row) => row.Split('\t')[7].Split(':')[1].Split(',', StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    [Fact]
     public void AShadowRetiredUnderTheWalkEndsItAndTheOnesAfterItStayUnprojected()
     {
         ShadowManagerOracleTests.Replay replay = Run(T(1, 3, 150, 0, 40, 10), T(2, 3, 250, 0, 40, 10), T(3, 3, 350, 0, 40, 10));

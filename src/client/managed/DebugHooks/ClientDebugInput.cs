@@ -2,6 +2,7 @@ using System.Globalization;
 using SourceSharp.Abi;
 using SourceSharp.Client.Input;
 using Debug.Api.Client.Interfaces;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client;
 
@@ -11,7 +12,7 @@ namespace SourceSharp.Client;
 /// The inject is a write: it answers only with sv_cheats on, and says so
 /// otherwise.
 /// </summary>
-public sealed class ClientDebugInput(ClientInputService service, InputCvars cvars, IInputHost host, Func<string?> cheats)
+public sealed class ClientDebugInput(ClientInputService service, InputCvars cvars, IInputHost host, SvCheatsConVar cheats)
     : IDebugClientInput
 {
     public DebugClientInput Read()
@@ -39,7 +40,7 @@ public sealed class ClientDebugInput(ClientInputService service, InputCvars cvar
 
     public DebugClientInputInject Inject(string argument)
     {
-        if (cheats() is not "1")
+        if (!cheats.Value)
             return new DebugClientInputInject(false, "a write: needs sv_cheats 1", 0, 0, null);
 
         string text = (argument ?? string.Empty).Trim();

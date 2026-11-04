@@ -754,6 +754,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
             inputs.FrameCount = frameCount;
             inputs.PoseParameter = _zeroPose;
             inputs.AnimThreeWayBlend = ConVars.AnimThreeWayBlend;
+            inputs.Scratch = _driver.Scratch;
             BoneLibrary.ModelFacts(hdr, out inputs.HasAutoplay, null);
 
             posed = Math.Min(BoneLibrary.BuildBones(hdr, inputs, output), output.Length);

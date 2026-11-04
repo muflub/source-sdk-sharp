@@ -39,6 +39,8 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
 
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) { }
 
+    public void Tracer(in WeaponAttackContext attack, TFWeaponScript script) { }
+
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
 
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }

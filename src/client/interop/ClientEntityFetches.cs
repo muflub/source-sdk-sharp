@@ -189,6 +189,8 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         services.AddInstance<IClientPhysicsObjectReads>(physics);
         services.AddInstance<IClientSplashCarryOut>(physics);
         // The convar watch and the decided values (C8, IShimConVarsClient).
-        services.AddInstance<IClientConVarSlots>(new ClientConVarSlots(areas.Require<IConVarsClientArea>()));
+        var conVarSlots = new ClientConVarSlots(areas.Require<IConVarsClientArea>());
+        services.AddInstance<IClientConVarSlots>(conVarSlots);
+        services.AddInstance<IClientConVarFlags>(conVarSlots);
     }
 }

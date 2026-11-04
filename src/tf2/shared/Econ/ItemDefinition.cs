@@ -5,6 +5,8 @@
 //
 //=============================================================================//
 
+using SourceSharp.Shared;
+
 namespace TF2.Shared.Econ;
 
 /// <summary><c>EEquipType_t</c>'s two schema words (tf_item_schema.cpp:929-938).</summary>
@@ -42,6 +44,7 @@ public sealed class ItemDefinition
     private readonly int[] _styleSkins = [0, 0];
     private readonly int[] _styleViewmodelSkins = [-1, -1];
     private ActivityReplacement[] _activityReplacements = [];
+    private WeaponAttachedModel[] _attachedModels = [];
 
     internal ItemDefinition(int defindex, MergedKeys keys, EquipType equipType, int defaultSlot,
                             int[] loadoutSlots, bool[] usedBy, string?[] playerModels,
@@ -67,6 +70,7 @@ public sealed class ItemDefinition
         Name = keys.GetString("name", null) ?? string.Empty;
         ItemClass = keys.GetString("item_class", null);
         ItemName = keys.GetString("item_name", "") ?? string.Empty;
+        InventoryImage = keys.GetString("image_inventory", null) ?? string.Empty;
         Enabled = keys.GetBool("enabled");
         BaseItem = keys.GetInt("baseitem", 0) != 0;
         Hidden = keys.GetInt("hidden", 0) != 0;
@@ -123,6 +127,27 @@ public sealed class ItemDefinition
             if (rows.Count > 0)
                 _activityReplacements = rows.ToArray();
         }
+
+        // The base visuals' attached_models (econ_item_schema.cpp:2490-2510,
+        // BInitVisualBlockFromKV's attachedmodel_t rows): the models the
+        // weapon's bones carry — the flamethrower's pilot light. A block's
+        // display flags default to MaskAll ("model_display_flags",
+        // econ_item_schema.cpp:2503); like the activity rows, only the base
+        // block is parsed, and a team with visuals of its own falls back to
+        // it (GetBestVisualTeamData, econ_item_schema.h:2240-2253).
+        if (keys.Find("visuals")?.Find("attached_models") is { } attached && attached.Children.Count > 0)
+        {
+            var models = new List<WeaponAttachedModel>(attached.Children.Count);
+            foreach (var child in attached.Children)
+            {
+                if (child.IsBlock && child.GetString("model", null) is { Length: > 0 } model)
+                    models.Add(new WeaponAttachedModel(model,
+                        (AttachedModelDisplayFlags)child.GetInt("model_display_flags", (int)AttachedModelDisplayFlags.MaskAll)));
+            }
+
+            if (models.Count > 0)
+                _attachedModels = models.ToArray();
+        }
     }
 
     public int Defindex { get; }
@@ -135,6 +160,11 @@ public sealed class ItemDefinition
 
     /// <summary><c>item_name</c>: the localisation token.</summary>
     public string ItemName { get; }
+
+    /// <summary><c>image_inventory</c>: the backpack art the item panels
+    /// draw (<c>CEconItemView::GetInventoryImage</c>'s static), empty when
+    /// the item names none.</summary>
+    public string InventoryImage { get; }
 
     public bool Enabled { get; }
 
@@ -149,6 +179,14 @@ public sealed class ItemDefinition
     public string? ModelPlayer { get; }
 
     public string? ModelWorld { get; }
+
+    /// <summary>
+    /// The base visuals' attached models (<c>visuals.attached_models</c>,
+    /// <c>m_vecAttachmentModels</c>' parse): the models
+    /// <c>CEconEntity::UpdateAttachmentModels</c> bonemerges onto this weapon's
+    /// bones — the flamethrower's pilot light.
+    /// </summary>
+    public IReadOnlyList<WeaponAttachedModel> AttachedModels => _attachedModels;
 
     public EquipType EquipType { get; }
 

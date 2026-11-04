@@ -15,9 +15,17 @@
   "spot": "You just found {other} exactly where {other} always hides. You knew it: tease {other} about the spot.",
   "streak": "You have killed {count} players in a row without dying. Brag.",
   "hot": "You are suddenly playing far above yourself and every shot is going where you look. Say so, surprised, in a few words.",
+  "answerSystem": "You are {first}, typing in a game's text chat. Your attitude: {tone}. Another player asked something and you are given the true answer as FACT. Say the FACT as one short casual chat line in your own voice, lowercase. Use the words of the FACT and keep every number and place in it. Add nothing: no new item, place, number or person. No emoji, no quotes, no name in front.",
+  "answer": "{other} asked: <chat>{text}</chat>\nFACT: {fact}",
+  "toneNovice": "and new to this game, a bit unsure",
+  "toneVeteran": "and a long-time regular who knows it",
+  "cold": "You have suddenly gone cold and cannot hit anything. Say so, annoyed, in a few words.",
+  "idle": "Nothing much is happening for you right now. Say a few words about how your game is going, going by the scoreboard. Name nobody.",
   "leader": "You just took the lead on the scoreboard. Brag a little.",
   "pickup": "You just picked up the {weapon}. Say something about it.",
   "reply": "{other} is talking to you. {other} just said: <chat>{text}</chat> Answer {other} directly, as yourself.",
+  "replyFriendly": "{other} is talking to you and being friendly. {other} just said: <chat>{text}</chat> Answer {other} directly and kindly, as yourself: no insult, no gloat.",
+  "avoid": "Do not start your line with: {words}.",
   "recentKill": "you killed {other} with the {weapon}",
   "recentDeath": "{other} killed you with the {weapon}",
   "recentSuicide": "you died by your own mistake"
@@ -49,7 +57,7 @@
  },
  "braggable": ["weapon_rpg", "weapon_crossbow", "weapon_ar2", "weapon_357"],
  "banned": [
-  "fuck", "fucker", "fucking", "fuckin", "fucked", "motherfucker", "shit", "shitty", "bullshit", "cunt", "cock", "dick", "pussy", "bitch", "whore", "slut", "bastard", "asshole",
+  "fuck", "fucker", "fucking", "fuckin", "fucked", "fuk", "fck", "fuq", "fcuk", "fucc", "motherfucker", "shit", "sht", "shyt", "biatch", "azzhole", "shitty", "bullshit", "cunt", "cock", "dick", "pussy", "bitch", "whore", "slut", "bastard", "asshole",
   "nigger", "nigga", "chink", "gook", "spic", "kike", "wetback", "coon", "paki", "raghead", "towelhead",
   "fag", "faggot", "dyke", "tranny", "retard", "retarded", "nazi", "hitler",
   "rape", "raped", "rapist", "kys"
@@ -57,11 +65,16 @@
  "bannedAnywhere": ["nigger", "nigga", "faggot", "motherfuck"],
  "chatter": [
   "as an ai", "i am an ai", "i'm an ai", "an ai ", " ai model", "language model", "assistant", "i cannot", "i can't assist", "i can't help", "i can not", "i'm sorry", "i am sorry", "sorry, but",
-  "sure, here", "sure!", "here's a", "here is a", "certainly", "of course!", "system prompt", "my instructions", "instructions", "chat line", "as a player", "<chat", "</chat", "note:", "disclaimer", "openai", "chatgpt", "qwen", "llama", "gemma",
+  "sure, here", "sure!", " here's a", " here is a", "certainly", "of course!", "system prompt", "my instructions", "instructions", "chat line", "as a player", "<chat", "</chat", "note:", "disclaimer", "openai", "chatgpt", "qwen", "llama", "gemma",
   "the user", "half-life", "deathmatch", "my attitude", "regular player", "regular person", "scoreboard shows", "we are in", "we are playing", "we are given", "we need to", "the situation", "the context", "n word", "n-word", "f word", "f-word", "racial slur"
  ],
  "commands": ["bind", "unbind", "exec", "say", "say_team", "disconnect", "connect", "retry", "alias", "kick", "ban"],
  "consoleWords": ["rcon", "sv_cheats", "noclip", "changelevel", "cvarlist", "ent_fire", "kickid", "banid", "impulse", "ent_create", "give_ammo"],
  "loneCommands": ["quit", "exit", "kill", "explode", "god", "give", "map", "restart", "status"],
+ "shortWords": ["a", "i", "u", "am", "an", "as", "at", "be", "by", "do", "go", "gg", "gl", "hf", "ez", "he", "hi", "if", "in", "is", "it", "me", "my", "no", "of", "oh", "ok", "on", "or", "so", "to", "up", "us", "we", "ya", "yo", "ah", "ha", "lo", "mm", "hm", "ow", "wp"],
+ "wonSaysNot": ["nice one", "nice shot", "good one", "good shot", "well played", "got me", "you got me", "killed me", "owned me", "i got owned", "i got pwned", "i got wrecked", "i got destroyed", "i got served", "got owned by", "not my day", "bad day", "i died", "you win"],
+ "lostSaysNot": ["nice try", "got you", "got u", "you got owned", "you got pwned", "you got wrecked", "u got owned", "u got pwned", "owned you", "owned u", "too easy", "ez", "revenge", "i win", "i won", "gotcha", "still got u", "still got you"],
+ "friendly": ["thanks", "thank you", "thx", "ty", "cheers", "gg", "good game", "gl", "gl hf", "hf", "nice", "nice one", "nice shot", "good one", "good shot", "well played", "wp", "gj", "hi", "hello", "hey", "yo", "welcome", "sorry", "my bad", "np", "respect", "love"],
+ "insults": ["suck", "sucks", "noob", "n00b", "newb", "trash", "garbage", "loser", "idiot", "stupid", "dumb", "moron", "owned", "pwned", "wrecked", "destroyed", "pathetic", "shut up", "uninstall", "bad", "worst", "joke", "coward", "camper", "ez", "get good", "git gud", "try harder", "cry"],
  "notNames": ["always", "and", "any", "away", "back", "bait", "book", "by", "center", "cold", "cool", "corner", "cover", "door", "early", "eye", "first", "forever", "gives", "hands", "happy", "head", "heavy", "in", "last", "line", "looks", "loose", "never", "no", "often", "on", "open", "out", "pick", "picks", "plan", "practice", "random", "shot", "simple", "stage", "stand", "stands", "straight", "takes", "target", "the", "top", "up", "well", "wide", "wild", "weak"]
 }

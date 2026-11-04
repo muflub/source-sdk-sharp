@@ -38,16 +38,13 @@ public interface IRoundEndGate
 /// the empty <c>EndMultiplayerGame</c> it used to be handed is not called.
 /// </para>
 /// </summary>
-public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirectory directory, IEngineEntities entities,
+public sealed class Intermission(ILog log, MpChatTimeConVar chatTime, NextLevelConVar nextLevel,
+                                 MapCycleFileConVar mapCycle, IEntityDirectory directory, IEngineEntities entities,
                                  IEnginePlayerMovement players, IUserMessageSender messages, IServerConsole console,
                                  IEngineFiles files, IHooks<IRoundEndGate>? gates = null)
 {
     /// <summary>The scoreboard's viewport panel name (PANEL_SCOREBOARD).</summary>
     public const string ScoresPanel = "scores";
-
-    private readonly MpChatTimeConVar? _chatTime = convars.Get<MpChatTimeConVar>();
-    private readonly NextLevelConVar? _nextLevel = convars.Get<NextLevelConVar>();
-    private readonly MapCycleFileConVar? _mapCycle = convars.Get<MapCycleFileConVar>();
 
     private readonly IHooks<IRoundEndGate>? _gates = gates;
 
@@ -90,7 +87,7 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
         }
 
         GameOver = true;
-        _endsAt = now + (int)(_chatTime?.Value ?? 10f);   // mp_chattime.GetInt()
+        _endsAt = now + (int)chatTime.Value;   // mp_chattime.GetInt()
 
         foreach (var entity in directory.OfClass(EntityNames.Player))
         {
@@ -143,7 +140,7 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
     /// <summary>ChangeLevel's choice: nextlevel, else the cycle's next (advancing it), else this map.</summary>
     public string NextMap()
     {
-        string set = _nextLevel?.Value ?? string.Empty;
+        string set = nextLevel.Value;
         if (set.Length > 0)
             return set;
 
@@ -161,7 +158,7 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
         return map;
     }
 
-    private List<string> Cycle() => ReadCycle(files, _mapCycle?.Value);
+    private List<string> Cycle() => ReadCycle(files, mapCycle.Value);
 
     /// <summary>The maps <paramref name="name"/> lists, the map cycle file's own fallback included.</summary>
     public static List<string> ReadCycle(IEngineFiles files, string? name)

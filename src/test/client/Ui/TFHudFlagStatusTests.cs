@@ -104,6 +104,41 @@ public class TFHudFlagStatusTests
         Assert.False(HasElement("carrying-the-red-flag", "red captures"));
     }
 
+    [Fact]
+    public void The_playing_to_line_is_as_wide_as_stocks()
+    {
+        // Stock's "Playing to: 3" at 1920x1080 (HudFontSmall, 14 tall)
+        // measures 146 px: the surface draws TF2 Secondary at 0.83 of the em
+        // stock's tall asks for, and stock does not correct it.
+        var sample = Assert.Single(PreviewRun.AllSamples(),
+                                   s => !s.Gallery && s.Group == "tfhud" && s.Slug == "both-flags-home");
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        UiSamples.Render(ctx, sample.Create(TFHudTests.AllArt.Library), UiSamples.Screen(1920, 1080), sample.Now);
+
+        float wide = UiTestKit.Named(ctx, "playing to").Rect.W;
+
+        Assert.InRange(wide, 140f, 152f);
+    }
+
+    [Fact]
+    public void The_target_plate_draws_the_top_of_its_art_at_stocks_scale()
+    {
+        // PlayingToBG hangs 7 of its 38 tall below the screen (r31): the screen
+        // clips the image, so the plate shows its top 31/38 and is not squeezed.
+        var sample = Assert.Single(PreviewRun.AllSamples(),
+                                   s => !s.Gallery && s.Group == "tfhud" && s.Slug == "both-flags-home");
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        UiSamples.Render(ctx, sample.Create(TFHudTests.AllArt.Library), UiSamples.Screen(1920, 1080), sample.Now);
+        var list = ctx.List.AsDrawList();
+        var quads = list.TexturedQuads.ToArray();
+        int plate = UiTestKit.Elements(ctx).Select((e, i) => (e, i)).Single(p => UiTestKit.NameOf(ctx, p.e) == "target bg").i;
+
+        var quad = quads[list.Ops.ToArray().Single(o => o.Element == plate && o.Kind == UiPrimitiveKind.TexturedQuad).Index];
+
+        Assert.Equal(31f / 38f, quad.Uv.H, 3);
+        Assert.Equal(31f * StockRes.Scale, quad.Rect.H, 0);
+    }
+
     /// <summary>Whether the named part drew on the sample's screen. The
     /// library answers every name, so the art layers draw (the state's
     /// image is one of them now).</summary>

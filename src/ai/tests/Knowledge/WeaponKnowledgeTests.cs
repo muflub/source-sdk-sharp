@@ -27,6 +27,45 @@ public sealed class WeaponKnowledgeTests
         public void Warning(string message) { }
     }
 
+    private static AltFireFacts Alt(string weapon) => Facts.All.Single(f => f.Name == weapon).Alt;
+
+    /// <summary>What each second trigger is, from the row and the classes it launches (§5.4): nothing assumed of a weapon that has none.</summary>
+    [Theory]
+    [InlineData("weapon_smg1", AltFireKind.Lob)]
+    [InlineData("weapon_ar2", AltFireKind.Ball)]
+    [InlineData("weapon_shotgun", AltFireKind.Double)]
+    [InlineData("weapon_frag", AltFireKind.Underhand)]
+    [InlineData("weapon_crossbow", AltFireKind.None)]
+    [InlineData("weapon_357", AltFireKind.None)]
+    [InlineData("weapon_pistol", AltFireKind.None)]
+    [InlineData("weapon_rpg", AltFireKind.None)]
+    [InlineData("weapon_crowbar", AltFireKind.None)]
+    [InlineData("weapon_stunstick", AltFireKind.None)]
+    [InlineData("weapon_physcannon", AltFireKind.None)]
+    public void EachSecondTriggerIsWhatItsWeaponSays(string weapon, AltFireKind kind) => Assert.Equal(kind, Alt(weapon).Kind);
+
+    [Fact]
+    public void TheGrenadesNumbersAreItsClasss()
+    {
+        AltFireFacts g = Alt("weapon_smg1");
+        Assert.Equal((1000f, GrenadeAr2.GravityUnits, new GrenadeAr2Vars().Radius, new GrenadeAr2Vars().Magnitude, 1, false), (g.Speed, g.Gravity, g.BlastRadius, g.Damage, g.AmmoCost, g.FromClip));
+    }
+
+    /// <summary>The ball: flat, no blast, and what it takes is the class's (no blast, a kill on what it touches).</summary>
+    [Fact]
+    public void TheBallIsFlatWithNoBlast()
+    {
+        AltFireFacts b = Alt("weapon_ar2");
+        Assert.Equal((1000f, 0f, 0f, new EnergyBallVars().Damage), (b.Speed, b.Gravity, b.BlastRadius, b.Damage));
+    }
+
+    [Fact]
+    public void BothBarrelsPayTwoFromTheClip()
+    {
+        AltFireFacts d = Alt("weapon_shotgun");
+        Assert.Equal((2, true), (d.AmmoCost, d.FromClip));
+    }
+
     [Fact]
     public void EveryClipAndRefireIsTheWeaponTablesAndTheScriptsAgree()
     {

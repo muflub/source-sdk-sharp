@@ -252,10 +252,10 @@ internal sealed partial class BuildingsRig
         // every write a fact makes. The healing stack's registration shares it.
         Convars = new ConVarRegistry(new StoredConVarBackend());
         Convars.RegisterAll(typeof(TFPlayerHealing).Assembly);
-        Services.AddInstance(Convars.Get<TFTeleporterFovStartConVar>()!);
-        Services.AddInstance(Convars.Get<TFTeleporterFovTimeConVar>()!);
-        Services.AddInstance(Convars.Get<TFSentryGunDamageConVar>()!);
-        Services.AddInstance(Convars.Get<ObjSapperAmountConVar>()!);
+        Services.AddInstance(Convars.Declared<TFTeleporterFovStartConVar>());
+        Services.AddInstance(Convars.Declared<TFTeleporterFovTimeConVar>());
+        Services.AddInstance(Convars.Declared<TFSentryGunDamageConVar>());
+        Services.AddInstance(Convars.Declared<ObjSapperAmountConVar>());
 
         RegisterHealing();
         // The buildings' voice: the concept asks a fact reads back, and the
@@ -292,8 +292,8 @@ internal sealed partial class BuildingsRig
         HealingResupply = new TFHealingResupply();
         HealingConditions = new TFHealingConditions();
         Healing = new TFPlayerHealing(Engine, Engine, HealingConditions, HealingResupply,
-                                      Convars.Get<TFMaxHealthBoostConVar>()!, Convars.Get<TFBoostDrainTimeConVar>()!,
-                                      Convars.Get<TFInvulnTimeConVar>()!, Clock);
+                                      Convars.Declared<TFMaxHealthBoostConVar>(), Convars.Declared<TFBoostDrainTimeConVar>(),
+                                      Convars.Declared<TFInvulnTimeConVar>(), Clock);
         Services.AddInstance(HealingConditions);
         // The condition arm of the send (the teleporter's speed boost) joins
         // the same accumulator the dispenser's heal arm feeds.

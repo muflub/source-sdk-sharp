@@ -16,6 +16,11 @@ public enum ChatTriggerKind
     Reply,
     Spot,
     Hot,
+    Idle,
+    Cold,
+
+    /// <summary>A player's question, answered from facts (<see cref="ChatAnswerBook"/>).</summary>
+    Answer,
 }
 
 /// <summary>A bot's self as chat speaks it: its name, the first name it answers to, and the tone of its most distinctive trait.</summary>
@@ -31,7 +36,7 @@ public readonly record struct ChatTrigger(ChatTriggerKind Kind, string? Other = 
 public readonly record struct ChatTurn(bool FromBot, string Text);
 
 /// <summary>What a player just said to a bot, and what the two said before.</summary>
-public sealed record ChatHeard(string Text, IReadOnlyList<ChatTurn> Earlier);
+public sealed record ChatHeard(string Text, IReadOnlyList<ChatTurn> Earlier, bool Friendly = false);
 
 /// <summary>
 /// Everything a bot's line may be written from (plan_hl2mp_ai §3.6): its
@@ -70,12 +75,17 @@ public sealed class ChatPromptBuilder(ChatWords words)
     /// <summary>Tokens the model may spend: a little more than <see cref="Words"/> needs, so it stops by itself.</summary>
     public const int Tokens = 32;
 
-    public ChatPrompt Build(ChatFacts facts, in ChatTrigger trigger, ChatHeard? heard = null)
+    /// <summary>Tokens a rephrased answer may spend: the longest fact is near the line's limit.</summary>
+    public const int AnswerTokens = 48;
+
+    public ChatPrompt Build(ChatFacts facts, in ChatTrigger trigger, ChatHeard? heard = null, string avoid = "")
     {
         ArgumentNullException.ThrowIfNull(facts);
         string other = Untrusted(trigger.Other, MaxName);
         string system = Fill("system", ("first", Untrusted(facts.Persona.FirstName, MaxName)), ("tone", facts.Persona.Tone),
                              ("words", Num(trigger.Short ? ShortWords : Words)));
+        if (avoid.Length > 0)
+            system += " " + Fill("avoid", ("words", avoid));
         var user = new StringBuilder();
         user.Append(Fill("score", ("frags", Num(facts.Frags)), ("deaths", Num(facts.Deaths)), ("rank", Num(facts.Rank)), ("players", Num(facts.Players)),
                          ("leader", Untrusted(facts.Leader, MaxName)), ("leaderFrags", Num(facts.LeaderFrags)))).Append('\n');
@@ -102,9 +112,23 @@ public sealed class ChatPromptBuilder(ChatWords words)
             ChatTriggerKind.Pickup => Fill("pickup", ("weapon", words.WeaponName(trigger.Weapon))),
             ChatTriggerKind.Spot => Fill("spot", ("other", other)),
             ChatTriggerKind.Hot => Fill("hot"),
-            _ => Fill("reply", ("other", other), ("text", Untrusted(heard?.Text, MaxHeard))),
+            ChatTriggerKind.Idle => Fill("idle"),
+            ChatTriggerKind.Cold => Fill("cold"),
+            _ => Fill(heard is { Friendly: true } ? "replyFriendly" : "reply", ("other", other), ("text", Untrusted(heard?.Text, MaxHeard))),
         }).Append('\n').Append(words.Prompts["tail"]);
         return new ChatPrompt(system, user.ToString(), Tokens);
+    }
+
+    /// <summary>
+    /// The prompt that asks a model to say a fact in a bot's voice (§3.6): the fact, what was asked
+    /// between tags as ever, and an order to add nothing. <see cref="ChatAnswerCheck"/> is what holds it.
+    /// </summary>
+    public ChatPrompt BuildAnswer(ChatPersona persona, string other, string asked, string fact)
+    {
+        ArgumentNullException.ThrowIfNull(persona);
+        string system = Fill("answerSystem", ("first", Untrusted(persona.FirstName, MaxName)), ("tone", persona.Tone));
+        string user = Fill("answer", ("other", Untrusted(other, MaxName)), ("text", Untrusted(asked, MaxHeard)), ("fact", fact));
+        return new ChatPrompt(system, user + "\n" + words.Prompts["tail"], AnswerTokens);
     }
 
     /// <summary>A bot's own remembered event, worded for its later prompts.</summary>

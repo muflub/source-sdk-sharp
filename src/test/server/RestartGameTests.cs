@@ -132,7 +132,7 @@ public class RestartGameTests
             Host.Returns("GameEvents.EventCreate", Event);
             Host.Returns("GameEvents.EventFire", true);
 
-            var restart = ConVars.Get<MpRestartGameConVar>()!;
+            var restart = ConVars.Declared<MpRestartGameConVar>();
             restart.Backend = _restartBackend;
             restart.Bind(0, "mp_restartgame", "0");
 
@@ -140,8 +140,8 @@ public class RestartGameTests
             Services.AddInstance<IMapCleanup>(Cleanup);
 
             // The module's order: the proxy before the rules, then Attach.
-            Modes = new GameModes(Log, Host, Services, ConVars);
-            Rules = new GameRules(Log, ConVars, Host, Host,
+            Modes = new GameModes(Log, Host, Services, ConVars.Declare<SvModeSwitchWarmupConVar>(), ConVars.Declare<MpWaitingForPlayersTimeConVar>());
+            Rules = new GameRules(Log, ConVars.Holder<GameRulesConVars>(), Host, Host,
                                   TestServices.Fake().Returns("Entities.IsValid", false), Board, Deaths,
                                   modes: Modes, roster: Roster, messages: Host, events: Host);
             Modes.Attach(Rules);
@@ -159,14 +159,14 @@ public class RestartGameTests
         /// <summary>Sets mp_restartgame the way the console would.</summary>
         public void SetRestart(int seconds)
         {
-            var restart = ConVars.Get<MpRestartGameConVar>()!;
+            var restart = ConVars.Declared<MpRestartGameConVar>();
             string value = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
             _restartBackend.Held = value;
             restart.NotifyChanged(value, restart.RawValue);
         }
 
         /// <summary>What a read of mp_restartgame answers now.</summary>
-        public int RestartValue => ConVars.Get<MpRestartGameConVar>()!.Value;
+        public int RestartValue => ConVars.Declared<MpRestartGameConVar>().Value;
 
         public void ThinkAt(float now)
         {

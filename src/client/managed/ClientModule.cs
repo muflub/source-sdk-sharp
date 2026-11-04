@@ -234,7 +234,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Hud _hud = null!;
 
     // cs_cl_draw_batch: whether a view's custom draws are prepared in one crossing (C7 item 7).
-    private Render.DrawBatchConVar? _drawBatch;
 
     /// <summary>The UI host (plan_client_ui U2); null until built, which the binding tolerates.</summary>
     private IUiClientEvents? _ui;
@@ -308,7 +307,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private SteamCallbacks? _steamCallbacks;
 
     // The server-bounded convars' decision (C8): watched inputs, pushed values.
-    private BoundedConVars? _boundedConVars;
 
     // The client's input (plan_client_novalve §2 cluster 13, lane c6-input):
     // native's IInput thunk set asks it through IManagedInputClient.
@@ -385,14 +383,27 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _inputSystem = _services.Require<IFwdInputSystem>();
         _convars = ConVarRegistry.For(_services.Require<IEngineConsole>());
 
+        // Declared and published here, before anything else is composed: every
+        // class below takes the convars it reads by constructor, from the
+        // container.
+        _convars.RegisterAll(typeof(ClientModule).Assembly);
+        _convars.PublishTo(_services);
+
+        // This module's own reads, all live.
+        _predictConVar = _services.Require<PlayerPredictConVar>();
+        _drawBatch = _services.Require<Render.DrawBatchConVar>();
+
         // The server-bounded convars (C8): native objects the engine reads
         // through their vtable, answering values decided here. Started now so
         // the first frame already reads decided values; a reload starts it
         // again (the native watch ids and stored values survive).
-        IEngineConsole boundedConsole = _services.Require<IEngineConsole>();
-        _boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), boundedConsole.FindConVarValue);
-        _services.AddInstance(_boundedConVars);
-        _boundedConVars.Start();
+        _services.Add<WireframeMode>();
+        _services.Add<Effects.ParticleSettings>();
+        _services.Add<BoundedConVarInputs>();
+        var boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), _services.Require<BoundedConVarInputs>());
+        _services.AddInstance(boundedConVars);
+        boundedConVars.Start();
+        new Render.MaterialConfigConVars(_services.Require<IClientConVarFlags>(), Log).Mark();
         _userMessages = new UserMessageRegistry(Log);
         // In the container for the dev API's received counts (ClientDebugBuild).
         _services.AddInstance(_userMessages);
@@ -418,8 +429,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The footsteps the client makes itself (the local player's predicted
         // ones and the other players' from their networked movement), as
         // stock's CLIENT_DLL arms of the step sound make them.
+        var stepsOn = _services.Require<SvFootstepsConVar>();
         var steps = new Sounds.ClientStepSounds(_clientSounds,
-            () => _convars.Get<SvFootstepsConVar>()?.Value != false,
+            () => stepsOn.Value,
             () => _services.Require<IEngineEnvironment>() is { Globals.IsAvailable: true } env ? env.Globals.MaxClients : 1,
             index => _services.Require<IClientStandalones>().GetByIndex(index) is { } player
                 ? _services.Require<IEngineEntityRender>().GetModelName(player.Handle)
@@ -606,10 +618,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// </summary>
     private TempEnts.BulletImpactEffect BulletImpact()
     {
-        var debris = _convars.Get<FxDrawimpactdebrisConVar>() ?? throw new InvalidOperationException("fx_drawimpactdebris is not registered");
-        var dust = _convars.Get<FxDrawimpactdustConVar>() ?? throw new InvalidOperationException("fx_drawimpactdust is not registered");
-        var flecks = _convars.Get<RDrawflecksConVar>() ?? throw new InvalidOperationException("r_drawflecks is not registered");
-        var newEffects = _convars.Get<ClNewImpactEffectsConVar>() ?? throw new InvalidOperationException("cl_new_impact_effects is not registered");
+        var debris = _services.Require<FxDrawimpactdebrisConVar>();
+        var dust = _services.Require<FxDrawimpactdustConVar>();
+        var flecks = _services.Require<RDrawflecksConVar>();
+        var newEffects = _services.Require<ClNewImpactEffectsConVar>();
         var settings = new TempEnts.BulletImpactSettings(() => debris.Value, () => dust.Value, () => flecks.Value,
                                                          () => newEffects.Value != 0);
         return new TempEnts.BulletImpactEffect(_services.Require<IClientImpactEngine>(), _services.Require<IEngineWorldQuery>(),
@@ -836,6 +848,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<IClientLevelHook>>(locator => new Hooks<IClientLevelHook>(locator, log));
         // Before the first handler pass, which builds VoteStateMessage over this chain.
         _services.AddFactory<IHooks<IVoteStateHook>>(locator => new Hooks<IVoteStateHook>(locator, log));
+        _services.AddFactory<IHooks<IPlayerMarkerHook>>(locator => new Hooks<IPlayerMarkerHook>(locator, log));
         _services.AddFactory<IHooks<IAdminHook>>(locator => new Hooks<IAdminHook>(locator, log));
         // The mods' per-player carry limits, the server's twin (IAmmoCarryRule).
         _services.AddFactory<IHooks<IAmmoCarryRule>>(locator => new Hooks<IAmmoCarryRule>(locator, log));
@@ -870,10 +883,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             IEngineEnvironment environment = locator.Require<IEngineEnvironment>();
             return new LevelPrediction(() => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
-                                       locator.Require<IEngineConsole>().FindConVarValue,
+                                       locator.Require<ClPredictConVar>(), locator.Require<SvClientPredictConVar>(),
                                        locator.Require<IClientPredictCommand>());
         });
-        _services.AddFactory(locator => new LightmapBicubicDefault(locator.Require<IEngineConsole>(), OperatingSystem.IsLinux()));
+        _services.AddFactory(locator => new LightmapBicubicDefault(locator.Require<IEngineConsole>(), locator.Require<LightmapBicubicSetConVar>(), OperatingSystem.IsLinux()));
         _services.AddInstance(new ClientMapMaterials(log));
         _services.AddInstance(new MapMaterialReloadWindow(_services.Require<ClientMapMaterials>().ReloadSet));
         // worldspawn's arrival (stock's C_World::OnDataChanged): the start-dark
@@ -890,7 +903,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // loads after both).
         _services.AddFactory<IClientMaterialProxies>(locator => new MaterialProxies.MaterialProxyHost(
             locator.Require<IClientMaterialProxyExecutor>(), locator.Require<IEngineHost>(),
-            locator.Require<IEngineConsole>(), Log, locator.Require<MaterialProxies.MatStubConVar>(),
+            locator.Require<DeveloperConVar>(), Log, locator.Require<MaterialProxies.MatStubConVar>(),
             locator.Require<MaterialProxies.IPostProxyValues>(),
             locator.Require<Render.Shadows.IShadowProxySource>(),
             () => _services.ResolveAll<MaterialProxies.IMaterialProxyProvider>(),
@@ -904,19 +917,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // bindings cross cs_cl_reload while the native executors stay.
         _services.AddFactory<Effects.ClientParticleManager>(locator => new Effects.ClientParticleManager(
             () => _particleSims ??= new Effects.ClientParticleSims(_standalones, _particleEffects!),
-            locator.Require<IUniformRandom>(), locator.Require<ParticleViews>()));
+            locator.Require<IUniformRandom>(), locator.Require<ParticleViews>(), locator.Require<Effects.ParticleSettings>()));
         // The new-style effects' manager (C7 particles phase 3): every native
         // shell's decisions, made here, the library stepping the collections;
         // an IReloadParticipant, so the decisions' state crosses cs_cl_reload.
-        _services.AddFactory<Effects.NewParticleManager>(locator => new Effects.NewParticleManager(locator.Require<IParticleCollections>()));
+        _services.AddFactory<Effects.NewParticleManager>(locator => new Effects.NewParticleManager(locator.Require<IParticleCollections>(), locator.Require<Effects.ParticleSettings>()));
         _services.AddFactory<IClientParticleExecutor>(locator => new Effects.BoundParticleExecutor(
             locator.Require<INativeParticleExecutor>(), locator.Require<Effects.ClientParticleManager>()));
         // C7 post-processing: viewpostprocess.cpp's passes as a managed program,
         // and the hook a mod draws its own pass through.
         _services.AddFactory<IHooks<Render.IPostProcessContributor>>(locator => new Hooks<Render.IPostProcessContributor>(locator, log));
+        _services.Add<Render.RenderConVars>();
+        _services.Add<Render.PostProcessConVars>();
         _services.AddFactory<Render.PostProcessHost>(locator => new Render.PostProcessHost(
             locator.Require<IHooks<Render.IPostProcessContributor>>(),
-            locator.Require<IFxRender>(), locator.Require<IEngineConsole>(), log, _engineClient));
+            locator.Require<IFxRender>(), locator.Require<IEngineConsole>(), log, _engineClient, locator.Require<Render.PostProcessConVars>()));
         _services.AddFactory<MaterialProxies.IPostProxyValues>(locator => locator.Require<Render.PostProcessHost>());
         _services.AddFactory<Render.DemoViewCamera>(locator => new Render.DemoViewCamera(
             button => _inputService?.KeyState(button) ?? 0f, () => locator.Require<Render.ClDemoviewoverrideConVar>().Value));
@@ -939,9 +954,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.GlowObjectManager>(locator =>
         {
             IEngineEntityRender render = locator.Require<IEngineEntityRender>();
-            IEngineConsole console = locator.Require<IEngineConsole>();
             IFxRender fx = locator.Require<IFxRender>();
-            return new Render.GlowObjectManager(render.IsDormant, console.FindConVarValue, fx.MaterialFind);
+            return new Render.GlowObjectManager(render.IsDormant, locator.Require<GlowOutlineEffectEnableConVar>(), fx.MaterialFind);
         });
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
         // The kClientSystems[] rows whose system is managed's (C7): the
@@ -967,38 +981,23 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // the bullet impact read them).
         // UTIL_IsLowViolence: the four violence_* convars and the engine's word.
         _services.AddFactory<Effects.IClientLowViolence>(locator =>
-            new Effects.ClientLowViolence(locator.Require<IEngineConsole>(), locator.Require<IViolenceSettings>()));
-        _services.AddFactory<TempEnts.IDecalSettings>(locator =>
-        {
-            var watch = new TempEnts.DecalConVarsWatch(
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            watch.Start();
-            _decalConVars = watch;
-            return watch;
-        });
+            new Effects.ClientLowViolence(locator.Require<ViolenceHBloodConVar>(), locator.Require<ViolenceABloodConVar>(),
+                                          locator.Require<ViolenceHGibsConVar>(), locator.Require<ViolenceAGibsConVar>(),
+                                          locator.Require<IViolenceSettings>()));
+        _services.Add<TempEnts.IDecalSettings, TempEnts.DecalConVars>();
         // A player's spray (lane M1-C): c_te_playerdecal.cpp's decisions over
         // the engine client, the file system and the carry-out slot.
         _services.AddFactory<TempEnts.IPlayerSprays>(locator =>
         {
-            var sprayDisable = _convars.Get<ClSpraydisableConVar>()
-                               ?? throw new InvalidOperationException("cl_spraydisable is not registered");
+            var sprayDisable = _services.Require<ClSpraydisableConVar>();
             return new TempEnts.PlayerSprays(locator.Require<TempEnts.IDecalSettings>(), () => sprayDisable.Value,
                                              locator.Require<IFwdEngineClient>(), locator.Require<IFwdBaseFileSystem>(),
                                              locator.Require<IEngineEffects>(), locator.Require<IClientSprayEngine>());
         });
-        _services.AddFactory<Render.PixelVisibility.BuildingCubemapsWatch>(locator =>
-        {
-            var watch = new Render.PixelVisibility.BuildingCubemapsWatch(
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            watch.Start();
-            _buildingCubemaps = watch;
-            return watch;
-        });
         _services.AddFactory<Render.GlowOverlays.GlowSettings>(locator =>
         {
-            var buildingCubemaps = locator.Require<Render.PixelVisibility.BuildingCubemapsWatch>();
-            var sunDecayRate = _convars.Get<Render.GlowOverlays.SunDecayRateConVar>()
-                               ?? throw new InvalidOperationException("cl_sun_decay_rate is not registered");
+            var buildingCubemaps = locator.Require<BuildingCubemapsConVar>();
+            var sunDecayRate = _services.Require<Render.GlowOverlays.SunDecayRateConVar>();
             return new Render.GlowOverlays.GlowSettings(() => buildingCubemaps.Value, () => sunDecayRate.Value);
         });
         _services.AddFactory<Render.GlowOverlays.GlowOverlaySystem>(locator => new Render.GlowOverlays.GlowOverlaySystem(
@@ -1011,7 +1010,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IExplosionFireball>(locator => locator.Require<Render.GlowOverlays.GlowOverlayCreators>());
         _services.AddFactory<IFxImpactOverlay>(locator => locator.Require<Render.GlowOverlays.GlowOverlayCreators>());
         _services.AddFactory<Render.GlowOverlays.GlowHost>(locator => new Render.GlowOverlays.GlowHost(
-            locator.Require<Render.GlowOverlays.GlowOverlaySystem>(), locator.Require<Render.GlowOverlays.GlowSettings>()));
+            locator.Require<Render.GlowOverlays.GlowOverlaySystem>(), locator.Require<Render.GlowOverlays.GlowSettings>(),
+            locator.Require<RDrawSpritesConVar>(), locator.Require<WireframeMode>()));
         // The client's pixel visibility (C7, c_pixel_visibility.cpp): the
         // system every glow asks (sprites, particle glows, beam halos), its
         // engine over IShimViewClient's slots, and c_pixel_visibility.cpp's
@@ -1020,19 +1020,16 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // level's materials.
         _services.AddFactory<Render.PixelVisibility.PixelVisSettings>(locator =>
         {
-            var partial = _convars.Get<Render.PixelVisibility.PixelVisPartialConVar>()
-                          ?? throw new InvalidOperationException("r_pixelvisibility_partial is not registered");
-            var enabled = _convars.Get<Render.PixelVisibility.PixelVisEnabledConVar>()
-                          ?? throw new InvalidOperationException("r_dopixelvisibility is not registered");
-            var spew = _convars.Get<Render.PixelVisibility.PixelVisSpewConVar>()
-                       ?? throw new InvalidOperationException("r_pixelvisibility_spew is not registered");
-            var buildingCubemaps = locator.Require<Render.PixelVisibility.BuildingCubemapsWatch>();
+            var partial = _services.Require<Render.PixelVisibility.PixelVisPartialConVar>();
+            var enabled = _services.Require<Render.PixelVisibility.PixelVisEnabledConVar>();
+            var spew = _services.Require<Render.PixelVisibility.PixelVisSpewConVar>();
+            var buildingCubemaps = locator.Require<BuildingCubemapsConVar>();
             return new Render.PixelVisibility.PixelVisSettings(() => partial.Value, () => enabled.Value, () => spew.Value,
                                                                () => buildingCubemaps.Value);
         });
         _services.AddFactory<Render.PixelVisibility.ClientPixelVisEngine>(locator => new Render.PixelVisibility.ClientPixelVisEngine(
             locator.Require<IPixelVisSlots>(), locator.Require<IFxRender>(), locator.Require<IEngineWorldQuery>(),
-            locator.Require<IFlashlightSlots>().DXSupportLevel, Log, locator.Require<IEngineConsole>().FindConVarValue));
+            locator.Require<IFlashlightSlots>().DXSupportLevel, Log, locator.Require<DeveloperConVar>()));
         // The frame's view, for a mod's HUD that reads it (TF2's damage
         // indicator): the same engine object the passes read.
         _services.AddFactory<ICurrentView>(locator => locator.Require<Render.PixelVisibility.ClientPixelVisEngine>());
@@ -1044,8 +1041,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 new Render.PixelVisibility.PixelVisFrame(locator.Require<IEngineEnvironment>()), settings);
             // r_drawpixelvisibility's change callback; a system built after a
             // change (a managed reload) starts where stock's would stand.
-            var draw = _convars.Get<Render.PixelVisibility.DrawPixelVisibilityConVar>()
-                       ?? throw new InvalidOperationException("r_drawpixelvisibility is not registered");
+            var draw = _services.Require<Render.PixelVisibility.DrawPixelVisibilityConVar>();
             system.ShowQueries(draw.Value);
             draw.Changed += system.ShowQueries;
             return system;
@@ -1062,14 +1058,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<ILeafNative>(_ => (ILeafNative?)NativeLeafCalls.Acquire(_engine, out string why)
                                                ?? throw new InvalidOperationException("the client leaf system's native table: " + why));
         _services.AddFactory<Render.LeafSystem.LeafRegistry>(locator => new Render.LeafSystem.LeafRegistry(locator.Require<ILeafNative>()));
-        _services.AddFactory<Render.LeafSystem.LeafListConVars>(locator =>
-        {
-            var leafConVars = new Render.LeafSystem.LeafListConVars(_convars,
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            leafConVars.Start();
-            _leafConVars = leafConVars;
-            return leafConVars;
-        });
+        _services.Add<Render.LeafSystem.LeafListConVars>();
         // The standalone entities' per-view fade (lane M1-A: C_StandaloneEntity::
         // ComputeFxBlend's rule), run before each of the builder's blend batches.
         _services.AddFactory<Standalone.StandaloneFadePass>(locator => new Standalone.StandaloneFadePass(
@@ -1098,15 +1087,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                 ?? throw new InvalidOperationException("the client shadow manager's native table: " + why));
         _services.AddFactory<Render.Shadows.EntityShadows>(locator => new Render.Shadows.EntityShadows(locator.Require<ShadowNative>()));
         _services.AddFactory<Render.Shadows.IEntityShadowState>(locator => locator.Require<Render.Shadows.EntityShadows>());
-        _services.AddFactory<Render.Shadows.ShadowConVars>(locator =>
-        {
-            var shadowConVars = new Render.Shadows.ShadowConVars(_convars,
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue),
-                locator.Require<IEngineConsole>());
-            shadowConVars.Start();
-            _shadowConVars = shadowConVars;
-            return shadowConVars;
-        });
+        _services.Add<Render.Shadows.ShadowConVars>();
         _services.AddFactory<Render.Shadows.ShadowManager>(locator =>
         {
             ShadowNative native = locator.Require<ShadowNative>();
@@ -1158,6 +1139,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // Beside the engine rather than down with the game services: the clock
         // forwards to the engine's own and is one of the same leaves.
         _services.AddInstance<IGameClock>(_clock);
+        _services.AddInstance<IAlternateTicks>(_services.Create<AlternateTicks>());
 
         // This side's seed source for entity-owned random streams, seeded once
         // from the engine's uniform stream. One per side's container.
@@ -1211,7 +1193,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.ViewEffectsHost>(locator => new Render.ViewEffectsHost(
             locator.Require<IUniformRandom>(), locator.Require<IGameClock>(), locator.Require<Render.ShakeShowConVar>(),
             _engineClient, shake => _inputService?.RumbleScreenShake(shake, 0f)));
-        _services.AddInstance<IClientMessageEffects>(new ClientMessageEffects(_services.Require<IEngineHud>(), () => _uiLoader?.Current, () => _voiceStatus,
+        _services.AddInstance<IClientMessageEffects>(new ClientMessageEffects(_services.Require<IEngineHud>(), _services.Require<Vgui.HudTakesShotsConVar>(), () => _uiLoader?.Current, () => _voiceStatus,
                                                                              m => _inputService?.RumbleEffect(m.Waveform, m.Data, m.Flags),
                                                                              () => _services.Require<Render.ViewEffectsHost>(),
                                                                              _services.Require<IGameClock>()));
@@ -1227,21 +1209,19 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // InterpolatedSet's (lane M1-A): the shell's list is every block, and
         // the admitted set goes back for its PreRender walk.
         IEngineEnvironment interpEnvironment = _services.Require<IEngineEnvironment>();
-        IEngineConsole interpConsole = _services.Require<IEngineConsole>();
+        var interpAlternateTicks = _services.Require<IAlternateTicks>();
         _interpolationBlocks = new InterpolatedSet(
             _services.Require<IEngineEntities>().InterpolationBlocks,
             () => (_prediction?.DrivenHandle ?? EntityHandle.None).Value,
             () => interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.IntervalPerTick : 0f,
-            () => InterpolationDelay.AlternateTicks(
-                interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.MaxClients : 0,
-                () => interpConsole.FindConVarValue("sv_alternateticks")),
+            () => interpAlternateTicks.Simulating,
             _services.Require<IInterpolationAdmission>());
 
         // AND THE GATE THE RENDER PASS OPENS ON (stock's InterpolateServerEntities
         // policy, which was native and read by nothing): its engine reads are
         // asked once a frame, at RenderStart.
         _interpolationGate = new InterpolationGate(_services.Require<IPlaybackState>(), _services.Require<IClientNetChannel>(),
-                                                   _services.Require<IEngineConsole>().FindConVarValue);
+                                                   _services.Require<ClInterpolateConVar>());
 
         // AND THE RENDER-POLICY LIST (step 6b), for the same reason and out of
         // the same area.
@@ -1335,8 +1315,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _scoreboard = _services.Create<Scoreboard>();
         _services.AddInstance<IScoreboard>(_scoreboard);
 
-        int v = _convars.RegisterAll(typeof(ClientModule).Assembly);
-        _convars.PublishTo(_services);
+        int v = _convars.All.Count;
 
         // THE DETAIL PROPS (C7 cluster 10): the lump's parse, the fades, the
         // sorts and the quads are managed; native's client system
@@ -1344,7 +1323,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // (IManagedDetailPropsClient) and carries the answers out. After the
         // convars, which the system reads and the level restores.
         _services.AddInstance<Detail.IClientDetailProps>(new Detail.DetailPropsHost(
-            new Detail.DetailPropSystem(Detail.DetailPropsEngines.For(_engine, Log), _services.Create<Detail.DetailConVars>())));
+            new Detail.DetailPropSystem(Detail.DetailPropsEngines.For(_engine, Log), _services.Create<Detail.DetailConVars>()),
+            _services.Require<RDrawDetailPropsConVar>(), _services.Require<MatFullbrightConVar>(), _services.Require<WireframeMode>()));
 
         // THE SOUNDSCAPES (sound cluster 17, lane c2-sims): the system is
         // managed; native's client-system shell drives it at stock's times
@@ -1392,16 +1372,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // delegate it replaces answers "draw it", so a wiring nobody did leaves
         // the stamp ON — the safe direction for something whose whole purpose is
         // to be on screen at the moment nobody thought to ask for it.
-        var buildStamp = _convars.Get<BuildStampConVar>();
-        if (buildStamp is not null)
-            _hud.Build.Visible = () => buildStamp.Value;
+        var buildStamp = _services.Require<BuildStampConVar>();
+        _hud.Build.Visible = () => buildStamp.Value;
 
         // cs_cl_player_predict, read once a frame by the replay. Held as a
         // reference rather than resolved per frame, and the prediction defaults
         // to ON when the convar is missing — the same "the safe direction is
         // the one a wiring nobody did leaves you in" the stamp above uses, and
         // here the safe direction is the game feeling like a game.
-        _predictConVar = _convars.Get<PlayerPredictConVar>();
 
         // vcollide_wireframe, whose whole effect is its change callback: the
         // toggle draws nothing by itself, it makes every client shell
@@ -1411,12 +1389,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // convars before the services exist -- and reaching the engine area
         // through the container rather than through a static is what makes the
         // convar testable at all.
-        var wireframe = _convars.Get<VCollideWireframeConVar>();
-        if (wireframe is not null)
-        {
-            var entities = _services.Require<IEngineEntities>();
-            wireframe.Sweep = entities.UpdateVisibilityAll;
-        }
+        _services.Require<VCollideWireframeConVar>().Sweep = _services.Require<IEngineEntities>().UpdateVisibilityAll;
 
         // The mod's services: every [SideService(Side.Client)] class and client
         // registrar in the loaded assemblies (mods.yaml lists them), after the
@@ -1602,7 +1575,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                          index => _standalones.GetByIndex(index)?.Handle,
                                          _services.Require<IEngineEnvironment>(), Log,
                                          _services.Require<IFwdPhysicsSurfaceProps>(),
-                                         _convars.Get<ClAnimThreeWayBlendConVar>(), () => _ragdolls,
+                                         _services.Require<ClAnimThreeWayBlendConVar>(), () => _ragdolls,
                                          entity => _weaponEffects is { } host ? host.BoneSpin(entity) : null);
         _services.AddInstance(_skeletons);
 
@@ -1631,9 +1604,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             var ragdollWorld = new Ragdolls.ClientRagdollWorld(_services.Require<IEngineWorldQuery>(),
                                                                _services.Require<IEngineEntities>(),
-                                                               _services.Require<IEngineConsole>(),
-                                                               _convars.Get<Ragdolls.RagdollSleepAfterTimeConVar>()
-                                                               ?? throw new InvalidOperationException("ragdoll_sleepaftertime is not registered"));
+                                                               _services.Require<DeveloperConVar>(),
+                                                               _services.Require<Ragdolls.RagdollSleepAfterTimeConVar>());
             var ragdollBlocks = ClientStandaloneBlocks.For(_engine);
             _ragdolls = new Ragdolls.ClientRagdolls(
                 _ragdollPhysics, new Ragdolls.RagdollSolver(_ragdollPhysics, Log, () => ragdollWorld.Developer),
@@ -1665,22 +1637,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // effects cross a managed reload mid-life.
         var fxRender = _services.Require<IFxRender>();
         var fxConsole = _services.Require<IEngineConsole>();
-        var tracerExtra = _convars.Get<TracerExtraConVar>();
-        var drawTracers = _convars.Get<DrawTracersConVar>();
-        var effectList = new Effects.ClientEffectList(fxRender, fxConsole) { TracerExtra = () => tracerExtra?.Value ?? true };
+        var tracerExtra = _services.Require<TracerExtraConVar>();
+        var drawTracers = _services.Require<DrawTracersConVar>();
+        var effectList = new Effects.ClientEffectList(fxRender, fxConsole, _services.Require<DeveloperConVar>()) { TracerExtra = () => tracerExtra.Value };
         _services.AddInstance(effectList);
         var effectFactory = new Effects.ClientSideEffectFactory(fxRender, _services.Require<IFxTracerSound>(), effectList,
                                                                 _services.Require<IEngineHost>(),
-                                                                () => tracerExtra?.Value ?? true);
+                                                                () => tracerExtra.Value);
         _services.AddInstance(effectFactory);
-        var tracers = new Effects.TracerSupport(fxRender, fxConsole, () => drawTracers?.Value ?? true);
+        var tracers = new Effects.TracerSupport(fxRender, fxConsole, _services.Require<DeveloperConVar>(), () => drawTracers.Value);
         _services.AddInstance(tracers);
         _effectListHost = new Effects.ClientEffectListHost(effectList, effectFactory);
         // fx_sparks.cpp's routines (lane c5-particles): IEffects' sparks, metal
         // sparks and energy splashes end here, on the ownerless effects.
         _services.AddInstance<Effects.IFxQuadSink>(effectFactory);
-        _services.AddInstance<Effects.IDrawMetalSpark>(_convars.Get<DrawMetalSparkConVar>()
-                                                       ?? throw new InvalidOperationException("fx_drawmetalspark is not registered"));
+        _services.AddInstance<Effects.IDrawMetalSpark>(_services.Require<DrawMetalSparkConVar>());
         _services.AddInstance<Effects.ISparkEnvironment>(_services.Create<Effects.SparkEnvironment>());
         _sparks = _services.Create<Effects.SparkEffects>();
         _services.AddInstance(_sparks);
@@ -1689,10 +1660,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // CEntityDissolve on the client's bodies: what the AR2's ball kills with.
         if (_ragdollBlocks is { } dissolveBlocks && _ragdolls is { } dissolving && _skeletons is { } dissolveSkeletons)
         {
+            var gravity = _services.Require<ClientSvGravityConVar>();
             var dissolves = new Ragdolls.RagdollDissolves(dissolving, dissolveBlocks, dissolveSkeletons,
                 _services.Require<IEngineEntityRender>(), _services.Require<IPixelVisSlots>(), _services.Require<IUniformRandom>(), _sparks,
                 _services.Require<IGameClock>(),
-                () => float.TryParse(_services.Require<IEngineConsole>().FindConVarValue("sv_gravity"), System.Globalization.CultureInfo.InvariantCulture, out float g) ? g : 600f);
+                () => gravity.Value);
             _services.AddInstance<Ragdolls.IRagdollDissolves>(dissolves);
             _services.AddInstance<IClientFrameThink>(dissolves);
         }
@@ -1750,15 +1722,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var fxRoutines = _services.Create<Effects.FxEffects>();
         _services.AddInstance(fxRoutines);
         _services.AddInstance<Effects.IFxRoutines>(fxRoutines);
-        _services.AddInstance<TempEnts.IMuzzleFlashLight>(_convars.Get<MuzzleFlashLightConVar>()
-                                                           ?? throw new InvalidOperationException("muzzleflash_light is not registered"));
+        _services.AddInstance<TempEnts.IMuzzleFlashLight>(_services.Require<MuzzleFlashLightConVar>());
         var muzzleFlashes = _services.Create<TempEnts.MuzzleFlashes>();
         _services.AddInstance(muzzleFlashes);
         _services.AddInstance<TempEnts.ILegacyMuzzleFlashes>(muzzleFlashes);
         var spriteRenderer = _services.Create<Effects.SpriteRenderer>();
         _services.AddInstance(spriteRenderer);
         _spriteHost = new Effects.ClientSpriteHost(spriteRenderer, _services.Require<IFxSpriteGlow>(),
-                                                   _services.Require<IFxSpriteDraw>());
+                                                   _services.Require<IFxSpriteDraw>(),
+                                                   _services.Require<RDrawSpritesConVar>(), _services.Require<WireframeMode>());
         _services.AddInstance(_spriteHost);
         _services.AddInstance<Effects.IClientSpriteDraw>(_spriteHost);
         _spriteTrails = _services.Create<Effects.ClientSpriteTrails>();
@@ -1951,7 +1923,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>(),
                                                        _services.Require<IClientImpactSoundEmitter>());
         _collisionSolver = new Physics.ClientCollisionSolver(
-            new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>(),
+            new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<Physics.ClientRagdollCollideConVar>(),
                                              propOwners));
         _services.AddInstance(_impactSounds);
         _services.AddInstance(_collisionSolver);
@@ -1982,12 +1954,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // their HitSurface splats blood where the model asks for it.
         if (scrapingProps is not null)
         {
-            var bloodConsole = _services.Require<IEngineConsole>();
+            var humanBlood = _services.Require<ViolenceHBloodConVar>();
             scrapingProps.HitSurfaces = new TempEnts.ClientPropHitSurfaces(
                 _services.Require<IEngineEntityRender>().GetModelKeyValueText, _services.Require<IClientDecals>(),
                 _services.Require<IEngineWorldQuery>(), _services.Require<IEngineEffects>(),
                 _services.Require<TempEnts.IDecalSettings>(),
-                () => !int.TryParse(bloodConsole.FindConVarValue("violence_hblood"), out int hblood) || hblood != 0);
+                () => humanBlood.Value);
             _contactTouches = new Physics.ClientContactTouches(
                 new Physics.VPhysicsTouchWorld(new VPhysicsObjects(_engine.VPhysics)), scrapingProps);
             _services.AddInstance(_contactTouches);
@@ -2003,9 +1975,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             _physicsSystem = new Physics.ClientPhysicsSystem(
                 level,
-                new Physics.ClientPhysicsClock(_services.Require<IEngineEnvironment>(), _services.Require<IEngineEffects>(),
-                                               _convars.Get<Physics.ClientPhysTimescaleConVar>()
-                                               ?? throw new InvalidOperationException("cl_phys_timescale is not registered")),
+                new Physics.ClientPhysicsClock(_services.Require<IEngineEnvironment>(), _services.Require<ClientSvGravityConVar>(),
+                                               _services.Require<Physics.ClientPhysTimescaleConVar>()),
                 _services.Require<ClientPhysicsEnvironment>(), () => _physicsWorld, () => _ragdolls,
                 new Physics.ClientPhysicsStepTail(_impactSounds, _fluidEvents!, _frictionSounds, _clock, _contactTouches), Log);
             _services.AddInstance(_physicsSystem);
@@ -2048,6 +2019,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);
         _services.AddInstance<WeaponEffects.IWeaponDrawStates>(_clientArsenal);
+        _services.AddInstance<WeaponEffects.IWeaponViewModelBearer>(_clientArsenal);
 
         // THE MOVEMENT CONSTANTS, resolved once now everything the graph names
         // is registered (phase 0.3): the walk is transitive, and the mods'
@@ -2083,7 +2055,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _services.Require<IModInfo>().EncryptionKey);
         _services.AddInstance(weaponScripts);
         var localSelection = _services.Create<LocalWeaponSelection>();
-        var fastSwitch = _convars.Get<HudFastSwitchConVar>();
+        var fastSwitch = _services.Require<HudFastSwitchConVar>();
         // The hud's bucket table: a mod's own IWeaponSlots (TF2's, with the
         // builder's objects.txt override) when registered, else the scripts'
         // plain buckets.
@@ -2091,14 +2063,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             ? _services.Require<IWeaponSlots>()
             : new ScriptWeaponSlots(_services.Require<WeaponCatalog>(), weaponScripts);
         _weaponSelection = new WeaponSelectionHud(localSelection, localSelection, slots, _clock,
-            () => fastSwitch?.Value ?? WeaponSelectionHud.HudTypeBuckets);
+            () => fastSwitch.Value);
         _services.AddInstance(_weaponSelection);
 
         // THE PICKUP HISTORY (stock CHudHistoryResource): what was just picked
         // up, fed by the local player's weapons and pools and the server's
         // ItemPickup and AmmoDenied.
-        var drawHistoryTime = _convars.Get<HudDrawHistoryTimeConVar>();
-        var history = new PickupHistory(_clock, () => drawHistoryTime?.Value ?? 5f);
+        var drawHistoryTime = _services.Require<HudDrawHistoryTimeConVar>();
+        var history = new PickupHistory(_clock, () => drawHistoryTime.Value);
         _services.AddInstance(history);
         _pickupHistory = _services.Create<LocalPickupHistory>();
         _pickupHistory.Subscribe(_services.Require<ItemPickupMessage>(), _services.Require<AmmoDeniedMessage>());
@@ -2109,17 +2081,17 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // After the arsenal and the HUD's message, hint and stamp state, which
         // its sources read.
         // THE CENTRE PRINT (stock CCenterStringLabel): the core's, for the same reason.
-        _centre = new Vgui.CentrePrint(_clock, _convars.Get<Vgui.ScrCenterTimeConVar>());
+        _centre = new Vgui.CentrePrint(_clock, _services.Require<Vgui.ScrCenterTimeConVar>());
         _services.AddInstance(_centre);
         _services.AddInstance<SourceSharp.Client.Ui.ICentrePrintSource>(_centre);
-        _disc = new Vgui.LoadingDisc(_services.Require<IEngineHud>(), _convars.Get<Vgui.ClShowPausedImageConVar>(), token => _uiLoader?.FindText(token));
+        _disc = new Vgui.LoadingDisc(_services.Require<IEngineHud>(), _services.Require<Vgui.ClShowPausedImageConVar>(), token => _uiLoader?.FindText(token));
         _services.AddInstance<SourceSharp.Client.Ui.ILoadingDiscSource>(_disc);
         _voice = new Vgui.VoiceSpeakers(new Vgui.VoicePlayers(_services.Require<IClientStandalones>(), _services.Require<Vgui.IPlayerNames>()));
         _services.AddInstance<SourceSharp.Client.Ui.IVoiceSource>(_voice);
-        var modEnable = _convars.Get<Voice.VoiceModEnableConVar>();
+        var modEnable = _services.Require<Voice.VoiceModEnableConVar>();
         _voiceStatus = new Voice.VoiceStatus(new Voice.VoiceEngine(_engineClient, modEnable), _clock, Log,
                                              new Voice.VoiceBanFile(_services.Require<IModInfo>().GameDir, Log), modEnable,
-                                             _convars.Get<Voice.VoiceClientDebugConVar>());
+                                             _services.Require<Voice.VoiceClientDebugConVar>());
         _voiceEvents = new Voice.VoiceStatusFanOut(_voice, _voiceStatus);
         // The mutes, as the player list (plan_gameui_managed.md G3) asks and flips them.
         _services.AddInstance<IVoiceBlockEvents>(_voiceStatus);
@@ -2139,7 +2111,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE CHAT (stock CBaseHudChat): its feed and its input line, the core's.
         var chatFeed = new Vgui.ChatFeed(_clock, Log, _services.Require<IEngineHud>(),
                                          new Vgui.ChatPlayers(_services.Require<IClientStandalones>(), _services.Require<Vgui.IPlayerNames>()),
-                                         _convars.Get<Vgui.HudSayTextTimeConVar>(), _services);
+                                         _services.Require<Vgui.HudSayTextTimeConVar>(), _services);
         chatFeed.Subscribe(_services.Require<SayTextMessage>(), _services.Require<SayText2Message>());
         _services.AddInstance<SourceSharp.Client.Ui.IChatSource>(chatFeed);
         var chatInput = new Vgui.ChatInputUi(_engineClient);
@@ -2147,7 +2119,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<SourceSharp.Client.Ui.IChatInputSource>(chatInput);
 
         // TextMsg, as stock's chat handler printed it (hud_basechat.cpp): the centre, the console, the chat.
-        var texts = new Vgui.TextMessages(_services.Require<IEngineHud>(), Log, _centre, _convars.Get<Vgui.ClShowTextMsgConVar>(), chatFeed, _services);
+        var texts = new Vgui.TextMessages(_services.Require<IEngineHud>(), Log, _centre, _services.Require<Vgui.ClShowTextMsgConVar>(), chatFeed, _services);
         texts.Subscribe(_services.Require<TextMsgMessage>());
 
         // The game's notices (stock ClientModeShared::FireGameEvent): joins, leaves, teams, names, notify convars.
@@ -2166,7 +2138,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // A mod's death-notice decode (stage 3.1's TF kill feed): the hooks
         // resolve lazily, so the empty chain when no mod listens costs nothing.
         _services.AddFactory<IHooks<Vgui.IKillFeedListener>>(locator => new Hooks<Vgui.IKillFeedListener>(locator, Log));
-        var kills = new Vgui.KillFeed(_clock, Log, killPlayers, _convars.Get<Vgui.HudDeathNoticeTimeConVar>(),
+        var kills = new Vgui.KillFeed(_clock, Log, killPlayers, _services.Require<Vgui.HudDeathNoticeTimeConVar>(),
                                       _services.Require<IHooks<Vgui.IKillFeedListener>>());
         kills.Subscribe(_services.Require<PlayerDeathEvent>());
         _services.AddInstance(kills);
@@ -2181,6 +2153,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var minimap = new Vgui.Minimap(_services.Require<IEngineFiles>(), _clock, new Vgui.LazyMinimapWorld(_services));
         _services.AddInstance(minimap);
         _services.AddInstance<SourceSharp.Client.Ui.IMinimapSource>(minimap);
+
+        // What a server asks this player's screen to point at. A factory for the same reason.
+        _services.AddFactory<Vgui.IMarkerView>(_ => new Vgui.EngineMarkerView(_services.Require<IEngineHud>(), _services.Require<IClientBeamExecutor>(),
+                                                                              _services.Require<IFxRender>(), _services.Require<ViewReadout>(), (Input.IClientInputEngine)_engineClient));
+        var markers = new Vgui.PlayerMarkerBoard(_clock, minimap, new Vgui.LazyMarkerView(_services));
+        _services.AddInstance(markers);
+        _services.AddInstance<SourceSharp.Client.Ui.IMinimapPingSource>(markers);
+        _services.AddInstance<SourceSharp.Client.Ui.IWorldMarkerSource>(markers);
+        _services.AddInstance<IPlayerMarkerHook>(markers);
 
         // Before the UI composes, which takes them; the input layer below shares the host.
         var inputHost = _engine.Create<Input.ClientInputHost>(_services);
@@ -2197,7 +2178,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // swaps without this module; this module names none of their types.
         var hud = _hud;
         var arsenal = _clientArsenal;
-        var uiServices = new Vgui.UiRuntimeServices(_services, Log, hud, arsenal, _convars.Get<Vgui.UiScaleConVar>(),
+        var uiServices = new Vgui.UiRuntimeServices(_services, Log, hud, arsenal, _services.Require<Vgui.UiScaleConVar>(),
                                                     _engineClient,
                                                     _inputSystem,
                                                     () => ClientStringTables.Acquire(_engine, out _));
@@ -2206,9 +2187,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // hot-reloads without the core ever naming a screen type.
         var mod = _services.Require<IModInfo>();
         _uiLoader = new Vgui.UiLoader(Log, _clock, mod.ManagedDir, () => uiServices,
-                                      _convars.Get<Vgui.UiAutoReloadConVar>(), modAssemblies: mod.UiAssemblies)
+                                      _services.Require<Vgui.UiAutoReloadConVar>(), modAssemblies: mod.UiAssemblies)
         {
-            DrawHud = _convars.Get<Vgui.ClDrawHudConVar>(),
+            DrawHud = _services.Require<Vgui.ClDrawHudConVar>(),
         };
         _uiLoader.Load();
         // The loader is in the container already: Load registers itself before
@@ -2234,9 +2215,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // which it drives: the weapon machine's two phases are direct calls
         // from inside the prediction frame now that both halves are managed.
         // The useable ladders the replay climbs, over the client's entities.
-        _services.AddInstance<ILadderWorld>(new ClientUseableLadders(_standalones, _convars));
+        _services.AddInstance<ILadderWorld>(new ClientUseableLadders(_standalones, _services.Require<SvAutoLadderDismountConVar>(),
+                                                                  _services.Require<SvLadderAutoMountDotConVar>(),
+                                                                  _services.Require<SvLadderUseOnlyConVar>()));
         // And HL2MP's player speeds and suit power, which it runs as the server does.
-        _services.AddInstance<IHl2PlayerMove>(new ClientHl2PlayerMove(_convars));
+        _services.AddInstance<IHl2PlayerMove>(new ClientHl2PlayerMove(_services.Require<Hl2WalkSpeedConVar>(), _services.Require<Hl2NormSpeedConVar>(),
+                                                                 _services.Require<Hl2SprintSpeedConVar>(),
+                                                                 _services.Require<SvInfiniteAuxPowerConVar>()));
         // The mods' own predicted states ride the same frame (IClientPredictedState).
         _services.AddFactory<IHooks<IClientPredictedState>>(locator => new Hooks<IClientPredictedState>(locator, log));
 
@@ -2244,10 +2229,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // above: the replay reads them every time it publishes the eye. The
         // clock is the side's own IGameClock — stock's curtime for the decay
         // (c_baseplayer.cpp:2724) — registered beside the other engine seams
-        // above. The two ConVars are the bound ones from the walk, so a console
-        // change is heard by the next publish.
-        _services.AddInstance(_convars.Get<ClSmoothConVar>() ?? throw new InvalidOperationException("cl_smooth is not registered"));
-        _services.AddInstance(_convars.Get<ClSmoothTimeConVar>() ?? throw new InvalidOperationException("cl_smoothtime is not registered"));
+        // above. The two ConVars are the bound ones the container was given at
+        // the publish, so a console change is heard by the next publish.
         _prediction = _services.Create<ClientPlayerPrediction>();
 
         // The one working copy: the weapon's fov writes and the movement's
@@ -2278,12 +2261,25 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // (the module routes the watch's changes to them).
         IFlashlightSlots flashlightSlots = _services.Require<IFlashlightSlots>();
         var flashlightSettings = new Flashlight.FlashlightConVars(
-            _convars,
-            new Flashlight.WatchedConVarValues(_services.Require<IClientConVarSlots>(),
-                                               _services.Require<IEngineConsole>().FindConVarValue),
+            _services.Require<Flashlight.NewFlashlightConVar>(),
+            _services.Require<Flashlight.SwingFlashlightConVar>(),
+            _services.Require<Flashlight.FlashlightLockPositionConVar>(),
+            _services.Require<Flashlight.FlashlightFovConVar>(),
+            _services.Require<Flashlight.FlashlightOffsetYConVar>(),
+            _services.Require<Flashlight.FlashlightNearConVar>(),
+            _services.Require<Flashlight.FlashlightFarConVar>(),
+            _services.Require<Flashlight.FlashlightConstantConVar>(),
+            _services.Require<Flashlight.FlashlightLinearConVar>(),
+            _services.Require<Flashlight.FlashlightQuadraticConVar>(),
+            _services.Require<Flashlight.FlashlightVisualizeTraceConVar>(),
+            _services.Require<Flashlight.FlashlightAmbientConVar>(),
+            _services.Require<Flashlight.FlashlightShadowAttenConVar>(),
+            _services.Require<Flashlight.FlashlightLadderDistConVar>(),
+            _services.Require<MatSlopeScaleDepthBiasShadowMapConVar>(),
+            _services.Require<MatDepthBiasShadowMapConVar>(),
+            _services.Require<RFlashlightDepthTextureConVar>(),
+            _services.Require<Render.Shadows.FlashlightDepthResConVar>(),
             flashlightSlots.DXSupportLevel);
-        flashlightSettings.Start();
-        _flashlightSettings = flashlightSettings;
         _flashlight = new Flashlight.LocalPlayerFlashlight(
             new Flashlight.StandaloneFlashlightViewers(_services.Require<IClientStandalones>(),
                                                        _services.Require<IEngineHud>(),
@@ -2321,7 +2317,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         Input.IInputMailbox? inputMailbox = Input.InputMailbox.Open(_engine, out string whyNoMailbox);
         if (inputMailbox is null)
             Log.Warning($"[SourceSharp/Client] input: no input mailbox ({whyNoMailbox}); every input call crosses\n");
-        var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, new Input.UiMenuInputGate(() => _uiLoader?.Current),
+        var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, _services.Require<SvCheatsConVar>(), _services.Require<JoyXControllerFoundConVar>(), new Input.UiMenuInputGate(() => _uiLoader?.Current),
                                           mailbox: inputMailbox, hud: _weaponSelection);
 
         // The rumble mixer (c_rumble.cpp's CRumbleEffects), stepped once a frame
@@ -2365,9 +2361,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _otherSteps = _services.Create<Sounds.OtherPlayerSteps>();
         _frameThinks = _services.Require<IHooks<IClientFrameThink>>();
 
-        IEngineConsole inputConsole = _services.Require<IEngineConsole>();
         _services.AddInstance<IDebugClientInput>(new ClientDebugInput(_inputService, inputCvars, inputHost,
-                                                                      () => inputConsole.FindConVarValue("sv_cheats")));
+                                                                      _services.Require<SvCheatsConVar>()));
         int inputCommands = 0;
         foreach (Input.InputCommandSpec spec in Input.InputCommands.For(input, inputHost, inputCvars))
         {
@@ -2706,11 +2701,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private ViewCamera.ViewCameraService? _viewCamera;
     private Render.ObserverCamera? _observerCamera;
     private Flashlight.LocalPlayerFlashlight? _flashlight;
-    private Flashlight.FlashlightConVars? _flashlightSettings;
-    private Render.LeafSystem.LeafListConVars? _leafConVars;
-    private Render.Shadows.ShadowConVars? _shadowConVars;
-    private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
-    private TempEnts.DecalConVarsWatch? _decalConVars;
     private IClientSchemaGate? _schemaGate;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
@@ -2725,13 +2715,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// </summary>
     private IRenderPolicyBlocks _renderPolicyBlocks = NoRenderPolicyBlocks.Instance;
     /// <summary>cs_cl_player_predict, or null before the convars register.</summary>
-    private PlayerPredictConVar? _predictConVar;
+    private PlayerPredictConVar _predictConVar = null!;
+    private Render.DrawBatchConVar _drawBatch = null!;
 
     /// <summary>The engine's clock, for the two interpolation stages.</summary>
     private readonly IGameClock _clock;
 
     public void LevelInit(string mapName)
     {
+        _convars.RefreshHeldByEngine();
         Log.Msg($"[SourceSharp/Client] level init: {mapName}\n");
         // ResetToneMapping's managed half (shell_clientdll's LevelInitPreEntity
         // resets the engine's scale): the tonemap average starts over.
@@ -2911,6 +2903,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         WireDebugChannel();
     }
 
+    public IReadOnlyList<string> ConCommandSuggest(int commandId, string line) => _commands.Suggest(commandId, line);
+
     public void ConCommandDispatch(int commandId, string args)
     {
         if (!_commands.Dispatch(commandId, args))
@@ -2947,32 +2941,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public void OnConVarChanged(int id, string newValue, string oldValue)
     {
-        // A watched engine convar (IShimConVarsClient): the bounded convars' inputs.
-        if (_boundedConVars is { } bounded && bounded.OnChanged(id))
-            return;
-
-        // The flashlight's ConVars, read through the same watch.
-        if (_flashlightSettings is { } flashlight && flashlight.OnChanged(id, newValue))
-            return;
-
-        // The leaf system's (C7 cluster 12 L2): r_portalsopenall, the engine's.
-        if (_leafConVars is { } leafConVars && leafConVars.OnChanged(id, newValue))
-            return;
-
-        // The shadow manager's (C7 cluster 12 S2): r_shadowrendertotexture, r_flashlightdepthtexture,
-        // r_shadows, r_shadows_gamecontrol and r_flashlight_version2, the engine's, and viewrender's
-        // cl_drawshadowtexture.
-        if (_shadowConVars is { } shadowConVars && shadowConVars.OnChanged(id, newValue))
-            return;
-
-        // building_cubemaps, the engine's, which the pixel visibility and the glow overlays read (C7).
-        if (_buildingCubemaps is { } buildingCubemaps && buildingCubemaps.OnChanged(id, newValue))
-            return;
-
-        // r_decals and r_drawmodeldecals, the engine's, which the client's decals read (lane M1-C).
-        if (_decalConVars is { } decalConVars && decalConVars.OnChanged(id, newValue))
-            return;
-
         if (!_convars.NotifyChanged(id, newValue, oldValue))
             Log.Warning($"[SourceSharp/Client] no convar bound to id {id}\n");
     }
@@ -3076,7 +3044,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         if (_prediction is null)
             return;
 
-        _prediction.Enabled = _predictConVar?.Value ?? true;
+        _prediction.Enabled = _predictConVar.Value;
         _prediction.Update(startFrame, validFrame, incomingAcknowledged, outgoingCommand,
                            worldUpdateArrived);
     }
@@ -3201,12 +3169,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         string? SpeakerModel(int index)
             => standalones.GetByIndex(index) is { } speaker ? render.GetModelName(speaker.Handle) ?? string.Empty : null;
 
+        var emitterTrace = _services.Require<SvSoundEmitterTraceConVar>();
+        var closeCaption = _services.Require<CloseCaptionConVar>();
         var context = new Sounds.ClientSoundContext(
             () => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
-            () => float.TryParse(console.FindConVarValue("closecaption"), System.Globalization.NumberStyles.Float,
-                                 System.Globalization.CultureInfo.InvariantCulture, out float on) && (int)on != 0,
+            () => closeCaption.Value,
             engineClient.LocalPlayerSlot,
-            () => _convars.Get<SvSoundEmitterTraceConVar>()?.Value == true,
+            () => emitterTrace.Value,
             SpeakerModel);
 
         var emitter = new Sounds.ClientSoundEmitter(engine, _services.Require<IGameClock>(), context,
@@ -3219,8 +3188,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// <summary><c>DevMsg</c>: the console line when <c>developer</c> is 1 or more.</summary>
     private void DeveloperMessage(string text)
     {
-        if (int.TryParse(NativeConsole.ValueOf(_services.Require<IEngineConsole>(), "developer"), out int level)
-            && level >= 1)
+        if (_services.Require<DeveloperConVar>().Value >= 1)
             Log.Msg(text);
     }
 
@@ -3244,10 +3212,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             return;
         }
 
-        IEngineConsole console = _services.Require<IEngineConsole>();
+        var developer = _services.Require<DeveloperConVar>();
         new Steam.ClientSteamCallbacks(_steamCallbacks, _steamContext,
             new Steam.SecureLaunch(steam, commands, Log,
-                () => int.TryParse(console.FindConVarValue("developer"), out int level) ? level : 0)).RegisterAll();
+                () => developer.Value)).RegisterAll();
     }
 
     /// <summary>
@@ -3336,6 +3304,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public float GetAirJump(in JumpRequest request) => _movementRules.Rules.AirJump(request);
 
     public void OnPlayerGrounded(int playerIndex) => _movementRules.Rules.Grounded(playerIndex);
+
+    public ThirdPersonIdeal ThirdPersonIdeal => (_thirdPersonConVars ??= _services.Create<Input.ThirdPersonIdealConVars>()).Value;
+
+    private Input.ThirdPersonIdealConVars? _thirdPersonConVars;
 
     public float GetEyeHeight(int playerIndex, float standing) => _movementRules.Rules.EyeHeight(playerIndex, standing);
 
@@ -3551,8 +3523,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results)
     {
-        _drawBatch ??= _convars.Get<Render.DrawBatchConVar>();
-        if (!(_drawBatch?.Value ?? true))
+        if (!_drawBatch.Value)
             return;
         for (int i = 0; i < handles.Length; i++)
             results[i] = _standalones.Get(new EntityHandle(handles[i]))?.OnDrawBatched() ?? -1;

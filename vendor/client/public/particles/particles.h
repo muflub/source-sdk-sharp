@@ -632,6 +632,11 @@ public:
 
 	void SetControlPointOrientation(int nWhichPoint, const Vector& forward, const Vector& right, const Vector& up);
 	void SetControlPointParent(int nWhichPoint, int n);
+	void SetControlPointDensity(int nWhichPoint, float flDensity);
+	void SetControlPointRadius(int nWhichPoint, float flRadius);
+	void SetControlPointDuration(int nWhichPoint, float flDuration);
+	void SetControlPointVelocity(int nWhichPoint, const Vector& vecVelocity);
+	void SetControlPointIndex(int nWhichCP);
 
 	fltx4* GetM128AttributePtrForWrite(int nAttribute, size_t* pStrideOut);
 
@@ -877,6 +882,70 @@ inline void CParticleCollection::SetControlPointParent(int nWhichPoint, int n)
 	for (CParticleCollection* i = m_Children.m_pHead; i; i = i->m_pNext)
 	{
 		i->SetControlPointParent(nWhichPoint, n);
+	}
+}
+
+inline void CParticleCollection::SetControlPointDensity(int nWhichPoint, float flDensity)
+{
+	// Stock bounds-checks through GetControlPoint and skips out of range points.
+	if (nWhichPoint < 0 || nWhichPoint >= MAX_PARTICLE_CONTROL_POINTS)
+		return;
+
+	m_nHighestCP = MAX(m_nHighestCP, nWhichPoint);
+	m_ControlPoints[nWhichPoint].m_flDensity = flDensity;
+	for (CParticleCollection* i = m_Children.m_pHead; i; i = i->m_pNext)
+	{
+		i->SetControlPointDensity(nWhichPoint, flDensity);
+	}
+}
+
+inline void CParticleCollection::SetControlPointRadius(int nWhichPoint, float flRadius)
+{
+	if (nWhichPoint < 0 || nWhichPoint >= MAX_PARTICLE_CONTROL_POINTS)
+		return;
+
+	m_nHighestCP = MAX(m_nHighestCP, nWhichPoint);
+	m_ControlPoints[nWhichPoint].m_flRadius = flRadius;
+	for (CParticleCollection* i = m_Children.m_pHead; i; i = i->m_pNext)
+	{
+		i->SetControlPointRadius(nWhichPoint, flRadius);
+	}
+}
+
+inline void CParticleCollection::SetControlPointDuration(int nWhichPoint, float flDuration)
+{
+	if (nWhichPoint < 0 || nWhichPoint >= MAX_PARTICLE_CONTROL_POINTS)
+		return;
+
+	m_nHighestCP = MAX(m_nHighestCP, nWhichPoint);
+	m_ControlPoints[nWhichPoint].m_flDuration = flDuration;
+	for (CParticleCollection* i = m_Children.m_pHead; i; i = i->m_pNext)
+	{
+		i->SetControlPointDuration(nWhichPoint, flDuration);
+	}
+}
+
+inline void CParticleCollection::SetControlPointVelocity(int nWhichPoint, const Vector& vecVelocity)
+{
+	if (nWhichPoint < 0 || nWhichPoint >= MAX_PARTICLE_CONTROL_POINTS)
+		return;
+
+	m_nHighestCP = MAX(m_nHighestCP, nWhichPoint);
+	m_ControlPoints[nWhichPoint].m_vVelocity = vecVelocity;
+	for (CParticleCollection* i = m_Children.m_pHead; i; i = i->m_pNext)
+	{
+		i->SetControlPointVelocity(nWhichPoint, vecVelocity);
+	}
+}
+
+inline void CParticleCollection::SetControlPointIndex(int nWhichCP)
+{
+	Assert((nWhichCP >= 0) && (nWhichCP < MAX_PARTICLE_CONTROL_POINTS));
+	m_nHighestCP = MAX(m_nHighestCP, nWhichCP);
+	m_nTargetCP = nWhichCP;
+	for (CParticleCollection* i = m_Children.m_pHead; i; i = i->m_pNext)
+	{
+		i->SetControlPointIndex(nWhichCP);
 	}
 }
 

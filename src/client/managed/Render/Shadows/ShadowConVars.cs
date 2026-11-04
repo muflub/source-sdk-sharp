@@ -41,65 +41,41 @@ public sealed class ThreadedClientShadowManagerConVar : BoolConVar { }
 [ConVar("r_shadowmaxrendered", "32")]
 public sealed class ShadowMaxRenderedConVar : IntConVar { }
 
-/// <summary>
-/// The shadow manager's ConVars (<see cref="IShadowSettings"/>): its own
-/// declarations, and the engine's five and viewrender's one through the
-/// convar watch (the module routes the watch's changes to <see cref="OnChanged"/>).
-/// </summary>
-public sealed class ShadowConVars : IShadowSettings
+/// <summary>The shadow manager's ConVars (<see cref="IShadowSettings"/>).</summary>
+public sealed class ShadowConVars(FlashlightDrawFrustumConVar drawFrustum, FlashlightModelsConVar models,
+                                  FlashlightDepthResConVar depthRes, ShadowMaxRenderedConVar maxRendered,
+                                  RShadowRenderToTextureConVar renderToTexture, RFlashlightDepthTextureConVar depthTexture,
+                                  RShadowsConVar shadows, RShadowsGameControlConVar gameControl,
+                                  RFlashlightVersion2ConVar version2, ClDrawShadowTextureConVar drawShadowTexture,
+                                  IEngineConsole console) : IShadowSettings
 {
-    /// <summary>The ConVars the manager reads but does not declare: the engine's five and viewrender's one.</summary>
-    public static string[] EngineNames() =>
-        ["r_shadowrendertotexture", "r_flashlightdepthtexture", "r_shadows", "r_shadows_gamecontrol", "r_flashlight_version2", "cl_drawshadowtexture"];
+    public bool RenderToTexture => renderToTexture.Value;
 
-    private readonly FlashlightDrawFrustumConVar _drawFrustum;
-    private readonly FlashlightModelsConVar _models;
-    private readonly FlashlightDepthResConVar _depthRes;
-    private readonly ShadowMaxRenderedConVar _maxRendered;
-    private readonly WatchedConVarValues _engine;
-    private readonly IEngineConsole _console;
-
-    public ShadowConVars(ConVarRegistry convars, WatchedConVarValues engine, IEngineConsole console)
-    {
-        _drawFrustum = convars.Get<FlashlightDrawFrustumConVar>() ?? throw new InvalidOperationException("r_flashlightdrawfrustum is not registered");
-        _models = convars.Get<FlashlightModelsConVar>() ?? throw new InvalidOperationException("r_flashlightmodels is not registered");
-        _depthRes = convars.Get<FlashlightDepthResConVar>() ?? throw new InvalidOperationException("r_flashlightdepthres is not registered");
-        _maxRendered = convars.Get<ShadowMaxRenderedConVar>() ?? throw new InvalidOperationException("r_shadowmaxrendered is not registered");
-        _engine = engine;
-        _console = console;
-    }
-
-    /// <summary>Watches the six it reads by name.</summary>
-    public void Start() => _engine.Watch(EngineNames());
-
-    public bool OnChanged(int id, string newValue) => _engine.OnChanged(id, newValue);
-
-    public bool RenderToTexture => _engine.Bool("r_shadowrendertotexture");
-
-    public bool FlashlightDepthTexture => _engine.Bool("r_flashlightdepthtexture");
+    public bool FlashlightDepthTexture => depthTexture.Value;
 
     public void SetFlashlightDepthTexture(int value) =>
-        _console.SetConVarValueByName("r_flashlightdepthtexture", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        console.SetConVarValueByName(depthTexture.Name, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-    public int FlashlightDepthResolution => _depthRes.Value;
+    public int FlashlightDepthResolution => depthRes.Value;
 
-    public void SetFlashlightDepthResolution(int value) => _depthRes.SetValue(value);
+    public void SetFlashlightDepthResolution(int value) => depthRes.SetValue(value);
 
-    public int Shadows => _engine.Int("r_shadows");
+    public int Shadows => shadows.Value;
 
-    public int ShadowMaxRendered => _maxRendered.Value;
+    public int ShadowMaxRendered => maxRendered.Value;
 
-    public int ShadowsGameControl => _engine.Int("r_shadows_gamecontrol");
+    public int ShadowsGameControl => gameControl.Value;
 
-    public void SetShadowsGameControl(int value) => _console.SetConVarValueByName("r_shadows_gamecontrol", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    public void SetShadowsGameControl(int value) =>
+        console.SetConVarValueByName(gameControl.Name, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-    public bool FlashlightModels => _models.Value;
+    public bool FlashlightModels => models.Value;
 
-    public int FlashlightVersion2 => _engine.Int("r_flashlight_version2");
+    public int FlashlightVersion2 => version2.Value;
 
-    public bool FlashlightDrawFrustum => _drawFrustum.Value;
+    public bool FlashlightDrawFrustum => drawFrustum.Value;
 
-    public int DrawShadowTexture => _engine.Int("cl_drawshadowtexture");
+    public int DrawShadowTexture => drawShadowTexture.Value;
 }
 
 /// <summary>Stock's Msg and Warning, each a line.</summary>
@@ -113,79 +89,73 @@ public sealed class ShadowConsole(IEngineConsole console) : IShadowConsole
 /// <summary>A stock CCommand's argv: the command's name, then its arguments.</summary>
 internal static class ShadowCommandArgs
 {
-    public static IReadOnlyList<string> Of(string name, string args)
-    {
-        var argv = new List<string> { name };
-        argv.AddRange(Soundscapes.SoundscapeArgs.Split(args));
-        return argv;
-    }
+    public static IReadOnlyList<string> Of(string name, string[] words) => [name, .. words];
 }
 
 /// <summary><c>r_shadowdir [x y z]</c>.</summary>
 [ConCommand("r_shadowdir", Help = "Set shadow direction", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowDirCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowDirCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowDir(ShadowCommandArgs.Of("r_shadowdir", args)));
+    public void Execute(params string[] direction) => shadows.Command(m => m.CommandShadowDir(ShadowCommandArgs.Of("r_shadowdir", direction)));
 }
 
 /// <summary><c>r_shadowangles [pitch yaw roll]</c>.</summary>
 [ConCommand("r_shadowangles", Help = "Set shadow angles", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowAnglesCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowAnglesCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowAngles(ShadowCommandArgs.Of("r_shadowangles", args)));
+    public void Execute(params string[] angles) => shadows.Command(m => m.CommandShadowAngles(ShadowCommandArgs.Of("r_shadowangles", angles)));
 }
 
 /// <summary><c>r_shadowcolor [r g b]</c>.</summary>
 [ConCommand("r_shadowcolor", Help = "Set shadow color", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowColorCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowColorCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowColor(ShadowCommandArgs.Of("r_shadowcolor", args)));
+    public void Execute(params string[] color) => shadows.Command(m => m.CommandShadowColor(ShadowCommandArgs.Of("r_shadowcolor", color)));
 }
 
 /// <summary><c>r_shadowdist [d]</c>.</summary>
 [ConCommand("r_shadowdist", Help = "Set shadow distance", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowDistCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowDistCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowDist(ShadowCommandArgs.Of("r_shadowdist", args)));
+    public void Execute(params string[] distance) => shadows.Command(m => m.CommandShadowDist(ShadowCommandArgs.Of("r_shadowdist", distance)));
 }
 
 /// <summary><c>r_shadowblobbycutoff [area]</c>.</summary>
 [ConCommand("r_shadowblobbycutoff", Help = "some shadow stuff", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowBlobbyCutoffCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowBlobbyCutoffCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowBlobbyCutoff(ShadowCommandArgs.Of("r_shadowblobbycutoff", args)));
+    public void Execute(params string[] area) => shadows.Command(m => m.CommandShadowBlobbyCutoff(ShadowCommandArgs.Of("r_shadowblobbycutoff", area)));
 }
 
 #if DEBUG
 /// <summary><c>r_shadowbreak</c>, stock's _DEBUG build's.</summary>
 [ConCommand("r_shadowbreak")]
-public sealed class ShadowBreakCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowBreakCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowBreak());
+    public void Execute() => shadows.Command(m => m.CommandShadowBreak());
 }
 #endif
 
 /// <summary>The fork's <c>cs_cl_shadow_report [reset]</c>.</summary>
 [ConCommand("cs_cl_shadow_report",
     Help = "cs_cl_shadow_report [reset] — every client shadow: who it is for, where it was last projected from, and whether its renderable still resolves")]
-public sealed class ShadowReportCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowReportCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        bool reset = ShadowCommandArgs.Of("cs_cl_shadow_report", args) is { Count: > 1 } argv
-                     && string.Equals(argv[1], "reset", StringComparison.OrdinalIgnoreCase);
+        bool reset = string.Equals(action, "reset", StringComparison.OrdinalIgnoreCase);
         shadows.Command(m => m.PrintShadowReport(reset));
     }
 }
 
 /// <summary><c>cs_cl_shadow_stats [reset]</c>: the shadow manager's calls, managed time, queue and native runs per frame (S3).</summary>
 [ConCommand("cs_cl_shadow_stats", Help = "cs_cl_shadow_stats [reset]: the client shadow manager's calls, managed time, queued entries and native runs per frame since the last reset.")]
-public sealed class ShadowStatsCommand(ILog log, ShadowSystemStats stats) : IConCommand
+public sealed class ShadowStatsCommand(ILog log, ShadowSystemStats stats)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
         log.Msg(stats.Report());
-        if (args.Trim() == "reset")
+        if (action == "reset")
         {
             stats.Reset();
             log.Msg("[SourceSharp/Client] shadow manager: counters reset\n");

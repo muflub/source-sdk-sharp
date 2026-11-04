@@ -89,6 +89,26 @@ public sealed class PlayerWeaponEventHookTests
         Assert.Equal([(PlayerWeaponEvent.Fired, 1)], seen.All);
     }
 
+    /// <summary>A second trigger's shot is told as itself: nothing has it from the clip, so nothing else could say it went.</summary>
+    [Fact]
+    public void AnSmgGrenadeIsToldAsAnAltFireAndNoShot()
+    {
+        var (arsenal, engine, _, seen) = Armed();
+        Assert.True(arsenal.GiveAmmo(Player, 2, "SMG1_Grenade") > 0, "the control: it holds grenades");
+        seen.All.Clear();
+        Command(arsenal, engine, 30f, InputButtons.Attack2, 1);
+        Assert.Equal([(PlayerWeaponEvent.AltFired, 1)], seen.All);
+    }
+
+    [Fact]
+    public void ADrySecondTriggerIsToldNothing()
+    {
+        var (arsenal, engine, _, seen) = Armed();
+        seen.All.Clear();
+        Command(arsenal, engine, 30f, InputButtons.Attack2, 1);
+        Assert.Empty(seen.All);
+    }
+
     [Fact]
     public void AReloadIsToldWhenItStartsAndWhenItEnds()
     {

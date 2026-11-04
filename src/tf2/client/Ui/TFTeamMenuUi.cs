@@ -29,7 +29,7 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITFTeamMenuSource), typeof(ITFTeamMenuActions)])]
-public sealed class TFTeamMenuUi(IClientStandalones standalones, IEngineHud screen, IEngineConsole console,
+public sealed class TFTeamMenuUi(IClientStandalones standalones, IEngineHud screen, SourceSharp.Client.ClAllowSpectatorsConVar allowSpectators,
                                  IFwdEngineClient engine, ITFMenuNavigation nav) : ITFTeamMenuSource, ITFTeamMenuActions
 {
     private const int Slots = PlayerResourceNetState.Slots;
@@ -51,7 +51,7 @@ public sealed class TFTeamMenuUi(IClientStandalones standalones, IEngineHud scre
 
     /// <summary><c>mp_allowspectators</c> (stock's gate on the Spectate
     /// button, tf_teammenu.cpp:729, :836).</summary>
-    public bool AllowsSpectators => int.TryParse(console.FindConVarValue("mp_allowspectators"), out int n) && n != 0;
+    public bool AllowsSpectators => allowSpectators.Value;
 
     public void Choose(TFTeamChoice choice)
     {

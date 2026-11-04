@@ -21,9 +21,6 @@
 abstract_class IShimFrame
 {
 public:
-	// A question only; C# does the branching.
-	virtual int32_t IsSimulatingOnAlternateTicks() = 0;
-
 	// gpGlobals->tickcount. Cold path: managed reads the bound CGlobalVars when it can.
 	virtual int32_t TickCount() = 0;
 

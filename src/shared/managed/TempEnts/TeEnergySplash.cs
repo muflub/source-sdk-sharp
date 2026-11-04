@@ -34,7 +34,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeEnergySplash : TempEntState
+public partial class TeEnergySplash : TempEntState
 {
     /// <summary>Where it hit. Stock's <c>m_vecPos</c>.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

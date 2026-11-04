@@ -185,6 +185,62 @@ public sealed class TFSniperRifleBehaviourTests
         Assert.True(world.Owners.Of(TFWeaponWorld.Owner).Has(TFCond.Aiming));
     }
 
+    // ---- the item's zoom-only arm (Fire :794-800) --------------------------
+
+    /// <summary>An int-flag item: the hook's Additive 1, which the chain's Int ask reads as set.</summary>
+    private static AttributeContainer FlagItem(int defIndex, string hook)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(defIndex, "attr " + defIndex, hook, AttributeDescriptionFormat.Additive,
+                                                                AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("x")), 1f));
+        return item;
+    }
+
+    [Fact]
+    public void OnlyFireZoomedRefusesAnUnzoomedShot()
+    {
+        // MustBeZoomedToFire (:708-713) and Fire's deny arm (:794-800): with the
+        // attribute the unzoomed press spends no round; HandleNoScopeFireDeny
+        // (:718-731) answers it with a dry click, half a second at the least
+        // apart on a held trigger.
+        var (world, w, vm) = ItemSniper(FlagItem(9130, "sniper_only_fire_zoomed"));
+
+        world.Run(w, vm, Attack, 10f);
+
+        Assert.Empty(world.Arms.Bullets);
+        Assert.Equal(new[] { "Weapon_SniperRifle.ClipEmpty" }, world.Arms.Sounds);
+    }
+
+    [Fact]
+    public void AStockRifleFiresUnzoomed()
+    {
+        // Without the attribute the plain rifle keeps its unzoomed shot
+        // (:794: the deny arm is the attribute's own).
+        var (world, w, vm) = ItemSniper(null);
+
+        world.Run(w, vm, Attack, 10f, TFWeaponWorld.GunSeed(200, 10000));
+
+        Assert.Single(world.Arms.Bullets);
+    }
+
+    [Fact]
+    public void FiresTracerMarksTheShot()
+    {
+        // MaybeDrawRailgunBeam (tf_player_shared.cpp:10103-10130): the fired
+        // shot of a tracer item asks the tracer effect once; the plain rifle's
+        // shot does not.
+        var (traced, tw, tvm) = ItemSniper(FlagItem(9131, "sniper_fires_tracer"));
+        ChargedShot(traced, tw, tvm, 11f);
+
+        Assert.Equal(1, traced.Effects.TracerCount);
+
+        var (plain, pw, pvm) = ItemSniper(null);
+        ChargedShot(plain, pw, pvm, 11f);
+
+        Assert.Equal(0, plain.Effects.TracerCount);
+    }
+
     // ---- the decay and the jump (ItemPostFrame :360-402) --------------------
 
     [Fact]

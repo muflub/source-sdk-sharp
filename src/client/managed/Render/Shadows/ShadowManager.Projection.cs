@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 
@@ -253,7 +254,7 @@ public sealed partial class ShadowManager
         float maxHeight = shadowCastDistance + falloffStart;
 
         BuildShadowLeafList(worldOrigin, shadowDir, sizeX, sizeY, maxHeight);
-        int[] leaves = _leafScratch.ToArray();
+        ReadOnlySpan<int> leaves = CollectionsMarshal.AsSpan(_leafScratch);
 
         _engine.ProjectShadow(_shadows[handle].ShadowHandle, worldOrigin, shadowDir, worldToTexture, sizeX, sizeY, leaves, maxHeight,
                               falloffStart, MaxFalloffAmount, _renderables.RenderOrigin(renderable));
@@ -319,7 +320,7 @@ public sealed partial class ShadowManager
         float maxHeight = shadowCastDistance + falloffStart;
 
         BuildShadowLeafList(worldOrigin, shadowDir, sizeX, sizeY, maxHeight);
-        int[] leaves = _leafScratch.ToArray();
+        ReadOnlySpan<int> leaves = CollectionsMarshal.AsSpan(_leafScratch);
 
         _engine.ProjectShadow(_shadows[handle].ShadowHandle, worldOrigin, shadowDir, worldToTexture, sizeX, sizeY, leaves, maxHeight,
                               falloffStart, MaxFalloffAmount, _renderables.RenderOrigin(renderable));
@@ -388,12 +389,12 @@ public sealed partial class ShadowManager
         nint target = shadow.TargetEntity == InvalidEntity ? 0 : _renderables.RenderableOf(shadow.TargetEntity);
         bool lightSpecificEntity = target != 0;
         bool lightWorld = (shadow.Flags & ShadowFlags.LightWorld) != 0;
-        int[] leaves = [];
+        ReadOnlySpan<int> leaves = [];
 
         if (lightWorld || (lightModels && !lightSpecificEntity))
         {
             BuildFlashlightLeafList(shadow.WorldToShadow);
-            leaves = _leafScratch.ToArray();
+            leaves = CollectionsMarshal.AsSpan(_leafScratch);
         }
 
         if (lightWorld)

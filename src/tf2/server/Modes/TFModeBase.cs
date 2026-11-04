@@ -41,13 +41,14 @@ public interface ITFGameTypeFlags
 
 /// <summary>The flags as the two landed convars.</summary>
 [SideService(Side.Server, As = [typeof(ITFGameTypeFlags)])]
-public sealed class ConVarGameTypeFlags(ConVarRegistry convars) : ITFGameTypeFlags
+public sealed class ConVarGameTypeFlags(TFGameModeCpConVar cp, TFGameModeCtfConVar ctf, TFGameModePayloadConVar payload)
+    : ITFGameTypeFlags
 {
     public void SetGameType(TFGameType type)
     {
-        convars.Get<TFGameModeCpConVar>()?.SetValue(type == TFGameType.Cp);
-        convars.Get<TFGameModeCtfConVar>()?.SetValue(type == TFGameType.Ctf);
-        convars.Get<TFGameModePayloadConVar>()?.SetValue(type == TFGameType.Escort);
+        cp.SetValue(type == TFGameType.Cp);
+        ctf.SetValue(type == TFGameType.Ctf);
+        payload.SetValue(type == TFGameType.Escort);
     }
 }
 

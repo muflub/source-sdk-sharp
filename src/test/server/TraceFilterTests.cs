@@ -170,6 +170,7 @@ public class TraceFilterTests
             ("DISPENSER", TraceMask.Dispenser),
             ("SENTRY_SIGHT", TraceMask.SentrySight),
             ("SOLID_DEBRIS", TraceMask.SolidDebris),
+            ("SOLID_HITBOX", TraceMask.SolidHitbox),
         ];
         Assert.Equal(pairs.Length, native.Count);
         Assert.Equal(pairs.Length, Enum.GetValues<TraceMask>().Length);

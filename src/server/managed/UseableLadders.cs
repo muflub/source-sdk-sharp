@@ -18,19 +18,23 @@ namespace SourceSharp.Server;
 /// </summary>
 public sealed class UseableLadders : ILadderWorld, IGameLifecycle
 {
-    private readonly ConVarRegistry _convars;
+    private readonly SvAutoLadderDismountConVar _autoDismount;
+    private readonly SvLadderAutoMountDotConVar _autoMountDot;
+    private readonly SvLadderUseOnlyConVar _useOnly;
     private readonly IEnginePlayers _players;
     private readonly Func<MoveConstants> _constants;
 
     private readonly List<FuncUseableLadder> _ladders = new();
     private readonly List<InfoLadderDismount> _dismounts = new();
 
-    /// <param name="convars">This side's ConVars, for the three ladder ones.</param>
     /// <param name="players">The players, to name the one a ladder hears about.</param>
     /// <param name="constants">The movement constants, for the player's hull a ladder settles its points with.</param>
-    public UseableLadders(ConVarRegistry convars, IEnginePlayers players, Func<MoveConstants> constants)
+    public UseableLadders(SvAutoLadderDismountConVar autoDismount, SvLadderAutoMountDotConVar autoMountDot,
+                          SvLadderUseOnlyConVar useOnly, IEnginePlayers players, Func<MoveConstants> constants)
     {
-        _convars = convars ?? throw new ArgumentNullException(nameof(convars));
+        _autoDismount = autoDismount;
+        _autoMountDot = autoMountDot;
+        _useOnly = useOnly;
         _players = players ?? throw new ArgumentNullException(nameof(players));
         _constants = constants ?? throw new ArgumentNullException(nameof(constants));
     }
@@ -88,9 +92,9 @@ public sealed class UseableLadders : ILadderWorld, IGameLifecycle
         => Find(ladderIndex) is { } ladder ? ladder.DismountOrigins : Array.Empty<Vector>();
 
     public LadderConVars ConVars => new(
-        AutoDismount: _convars.Get<SvAutoLadderDismountConVar>()?.Value ?? true,
-        AutoMountDot: _convars.Get<SvLadderAutoMountDotConVar>()?.Value ?? 0.4f,
-        UseOnly: _convars.Get<SvLadderUseOnlyConVar>()?.Value ?? false);
+        AutoDismount: _autoDismount.Value,
+        AutoMountDot: _autoMountDot.Value,
+        UseOnly: _useOnly.Value);
 
     public void PlayerGotOn(int ladderIndex, int playerIndex)
         => Find(ladderIndex)?.PlayerGotOn(_players.GetHandle(playerIndex));

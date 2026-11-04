@@ -12,6 +12,7 @@ using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
+using TF2.Shared.Buildings;
 
 namespace TF2.Server.Buildings;
 
@@ -142,6 +143,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private int _kills;
     [SaveField] private int _assists;
 
+    /// <summary>The build state the client's shadow arm reads; <see cref="SetPlacing"/> keeps it with <see cref="_placing"/>.</summary>
+    [NetState] public TFObjectNetState State = new();
+
     /// <summary>What this object is, for the object table and the refusals.</summary>
     public abstract TFObjectType Type { get; }
 
@@ -155,6 +159,13 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary><c>m_bPlacing</c>: not paid for yet, and cannot be hurt.</summary>
     public bool IsPlacing => _placing;
+
+    /// <summary>Writes the placing flag and the wire's copy of it together: the client's shadow arm (<c>GetShadowRenderBounds</c>, c_obj_sentrygun.cpp:588) keys on the networked one.</summary>
+    private void SetPlacing(bool placing)
+    {
+        _placing = placing;
+        State.Placing = placing;
+    }
 
     /// <summary><c>m_bBuilding</c>: construction is running.</summary>
     public bool IsBuilding => _building;
@@ -372,7 +383,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     public override void OnSpawn()
     {
         base.OnSpawn();
-        _placing = true;
+        SetPlacing(true);
         _desiredBuildRotations = 0;           // m_iDesiredBuildRotations' Spawn reset (tf_obj.cpp:402)
         Entities.SetHealth(Handle, 0);
         SetSolidity(BrushSolidity.None);
@@ -421,7 +432,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     {
         _builder = builder;
         _team = Players.Team(builder);
-        _placing = true;
+        SetPlacing(true);
     }
 
     /// <summary>
@@ -457,7 +468,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// </summary>
     public void StartBuilding(float buildRate = 1f)
     {
-        _placing = false;
+        SetPlacing(false);
         _building = true;
         _built = false;
         _constructedHealth = 0;

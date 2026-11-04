@@ -494,6 +494,17 @@ int32_t CShimEffectsRenderClient::ParticleSystemFollowEntitySlot(uint32_t hOwner
 																	pOffsetXYZ);
 }
 
+int32_t CShimEffectsRenderClient::ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex,
+														  const float* pValues, int32_t nCount)
+{
+	return m_pParticleSystemsClient->ParticleSystemSetPoints(hOwner, nSlot, nActiveIndex, pValues, nCount);
+}
+
+void CShimEffectsRenderClient::ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel)
+{
+	return m_pParticleSystemsClient->ParticleSystemViewModelSlot(hOwner, nSlot, bViewmodel);
+}
+
 void CShimViewClient::ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText)
 {
 	return ::SourceSharp_ConNPrintf(pEngineClient, nPos, pszText);
@@ -804,6 +815,12 @@ void CShimUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int
 int32_t CShimUiClient::UiMaterialTexture(const char* pName)
 {
 	return m_pHudUiClient->UiMaterialTexture(pName);
+}
+
+void CShimUiClient::UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+							   const uint16_t* pIndices, int32_t nIndices)
+{
+	return m_pHudUiClient->UiDrawMesh(nTexture, pXyuv, pRgba, nVertices, pIndices, nIndices);
 }
 
 int32_t CShimParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial,

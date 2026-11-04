@@ -5,14 +5,17 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 
 namespace SourceSharp.Client.Effects;
 
 /// <summary><c>Particle3D</c> (particle_simple3d.h) plus the executor's id.</summary>
-public struct Particle3D
+public struct Particle3D : IParticlePlace
 {
+    readonly Vector IParticlePlace.Place => Position;
+
     public int Id;
     public Vector Position;
     public Vector Velocity;
@@ -197,7 +200,7 @@ public sealed class Simple3DSheet(Simple3DSystem system, string material) : ICli
             idsOut[i] = _pending[i].Id;
         }
         _pending.RemoveRange(0, n);
-        TrailEmitter.SetBounds(ref emit, null, _particles.Select(p => p.Position));
+        TrailEmitter.SetBounds<Particle3D>(ref emit, null, CollectionsMarshal.AsSpan(_particles));
         return n;
     }
 
@@ -236,7 +239,7 @@ public sealed class Simple3DSheet(Simple3DSystem system, string material) : ICli
         if (!view.IsSet())
             return 0;
         int n = 0;
-        foreach (var p in _particles.OrderByDescending(p => p.Id))
+        foreach (var p in _particles)
             quadsOut[n++] = Simple3DRules.Draw(p, view).ToRaw(p.Id);
         return n;
     }

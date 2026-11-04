@@ -235,11 +235,9 @@ internal sealed unsafe partial class EngineEffects
     private readonly IEffectsServerArea _effectsServerArea;
 
     public EngineEffects(EngineSide side,
-                         IEffectsServerArea effectsServerArea,
-                         IMovementArea movementArea)
+                         IEffectsServerArea effectsServerArea)
     {
         _effectsServerArea = effectsServerArea ?? throw new ArgumentNullException(nameof(effectsServerArea));
-        _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
     }
 
     //-------------------------------------------------------------------------
@@ -360,7 +358,9 @@ internal sealed unsafe partial class EngineEffects
     public bool ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset = null) => false;
     public bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => false;
     public void ParticleSystemStopSlot(EntityHandle owner, int slot) { }
+    public void ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel) { }
     public bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null) => false;
+    public bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values) => false;
     public void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) { }
     public void SpriteTrailDestroy(EntityHandle owner) { }
 }
@@ -1501,6 +1501,7 @@ internal sealed unsafe partial class EngineEntityRender
     // attach guard answered here, where the client's areas are never attached.
     public void SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) { }
     public void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) { }
+    public void SetShadowHull(EntityHandle entity, bool shadowHull) { }
     public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = ShadowCastChoice.Auto;

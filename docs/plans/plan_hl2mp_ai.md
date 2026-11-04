@@ -324,9 +324,10 @@ minimum 1; one pool per server process. Jobs:
 |---|---|---|---|
 | `BrainStep(bot, tick)` | a worker | the tick's snapshot (immutable), the bot's event range, the bot's own blackboard, the immutable `NavGraph`/`MapKnowledge`, the bot's own flow-field cache | the bot's blackboard, the bot's intent slot, the bot's trace ring |
 | `FlowFieldBuild(bot, objective, class)` | a worker, before the step that needs it, or inside it | `NavGraph` | the bot's own cache (ring of 16) |
+| `DriveStep(bot, tick)` (ruling 2026-11-03: "Bot logic should be on the ai thread pool not main thread") | a worker, in the bot's own lane (`BotDriveLanes`), one at a time | the bot's facts as main read them, the brain's newest intent, its lane's copy of the obstacles, the immutable graph | the lane's `BrainDriver` and followers (their fields included), and a result taken back as a value |
 | `NavLoad` + `GraphDerive` | the `.nav3d` read on the main thread at `OnLevelInitPostEntity` (a file read, no engine); the graph derivation (§6.2) as a pool job, after which the pool's brains start | the file bytes, `MapKnowledge` | the immutable `NavGraph` |
 | `NavValidate` (debug/test only, §6.3) | **the main thread**: it spot-checks the loaded nav against the live world with engine hull traces, which are allowed only there | engine | a report |
-| `Vision`, `SnapshotBuild`, `Apply` | the main thread (engine reads and the command queue) | engine | events, snapshots, `UserCmd`s |
+| `Vision`, `SnapshotBuild`, `Apply` | the main thread (engine reads and the command queue), under the budget below | engine | events, snapshots, `UserCmd`s |
 
 Rules that make the count irrelevant to the result: a bot's steps are
 serialised (step N+1 cannot start before N completes); no mutable state is
@@ -337,6 +338,82 @@ intents are merged into the slot array in **bot-slot order** by the
 applier's read, never by completion order; the trace ring is per bot. HL2MP
 has no team board; TF2's will be a per-step delta merged in slot order
 between steps, not a shared structure.
+
+#### 2.7.1 The drive step (ruling 2026-11-03)
+
+A tick on the main thread: take each bot's newest finished drive step and submit
+its command; run every bot's command as a player; read each bot's own facts, now
+that its command has moved it, and hand its next step to its lane. So a step has
+the rest of the frame, and the added latency of a movement decision is at most a
+tick. `ai_sync 1` runs the same steps in the same order on the caller.
+
+A lane is single-flight. A step not finished when a command is due leaves the bot
+its last intent: a new usercmd, with its own number and tick (stock has a bot send
+one a tick), steered afresh from where it stands, its press keys held as they were
+(`BotCommandApplier.PressKeys`), so no jump, use, shot or reload comes of a repeat
+and no one-shot goes. `Seq` numbers intents and is stamped when one is submitted; a
+repeat submits nothing, so an intent still expires at its own tick (§2.4).
+
+A breakable's line stays a main-thread trace: a step names the cell it wants a line
+to, main traces it before the next step. Nothing reads a driver from the main thread:
+results come back in the step's value, and a debug route reads a brain's route off
+its follower only with no step on its way, otherwise a copy its step published.
+
+#### 2.7.2 The main-thread budget (ruling 2026-11-03: "cap bot logic runtime on main thread, only burst into unused frame time")
+
+What stays on the main thread (a bot's command run as a player, the senses' reads,
+the hand-over) shares `MainThreadBudget`: a floor each frame (`ai_budget_floor_us`,
+1000), plus the frame's unused time, charged in the thread's CPU time, since a thread
+descheduled in a bot's turn has not spent the bots' budget. `ai_budget 0` and
+`ai_sync 1` have no cap, and still measure.
+
+**Off by default (`ai_budget 0`), 2026-11-03.** Trials did not show it improving frames.
+16 bots, fps_max 250, floor 1000, frame p99 off and on: 15.1/12.8, 4.1/26.5, 8.3/26.3 ms,
+at unequal load on a shared box. 5 bots, fps_max 250, floor 60, equal load: 4.3/15.6 ms,
+unexplained, and bots moved in 4-tick bursts. No command is dropped, so a sustained load
+cannot go below the cap: waiting only moves commands. Settle it on a quiet box before
+turning it on.
+
+**Unused time** is the frame target less a recent estimate of the frame's other work,
+measured as the thread's CPU time from one frame's first tick to the next, less what
+the bots charged, less the engine's idle spin. On a listen server the client's frame
+runs on the same thread out of the server's sight, and this needs no hook into it: the
+engine's sleep is off the CPU, and the 1.5 ms it spins on `pause` for the last of its
+wait is taken off when the thread slept. A frame that did not sleep may have spun up to
+2.5 ms that cannot be told from work; it is left in, against the bots. A frame that ran
+past the target had nothing unused whatever its CPU time said, and the bots get the floor
+alone for 30 frames after one, because a present blocked on the GPU reads as idle until
+then. `fps_max 0` has no idle time: the floor. **A dedicated server** has no render to
+protect: its target is the tick interval, and a bot waits only if the tick would not fit.
+
+**A bot that does not fit waits, as a client whose packet came late.** Its command is
+built on its tick and queued; the next run takes the batch, oldest first, each command
+with its own number, tick and keys. `RunQueued` places the tick base for the count
+(`AdjustPlayerTimeBase`, whose window is ±60 ms), so each command runs on the clock it
+would have had, and `m_nSimulationTick`'s gate is taken only by the tick that runs. Lag
+compensation does not rewind for a bot's shots (`IsBot`), and a bot as a target is
+recorded by its simulation time, as a human whose packet came late is. A waiting bot is
+not read: it has not moved. The bots go as a wheel, each tick starting from the first one
+put off; a turn that has waited `ai_budget_wait_ticks` (3) runs regardless, over the cap,
+counted (`ai.budget.forced`). No command is dropped, so a sustained load over the allowance
+cannot be held under it: waiting moves a command to a frame with room, and saves a waiting
+bot's reads and looks, but the commands of every tick still run.
+
+**The senses share it, and what a bot perceives keeps §4.1's rule.** Actor reads run
+every tick. A bot's look (its view, the cone, the PVS, its pairs' lines) rotates, within
+the bound, and until then its pairs keep their last answer, which is exactly §4.1's rule
+for a pair the trace budget did not serve. A look not made gives no sight: a pair never
+traced is never clear, and recognition starts only from a real line (`VisionPassTests`).
+Staleness: at most `ai_budget_wait_ticks` ticks between looks (45 ms at 3), and lines no
+fewer than serve every pair within that many of its looks: the worst case, every pair
+waiting and the frame full, is (B+1)² ticks, 240 ms at 3, where unbudgeted 16 bots already
+wait 37 ticks on `ai_vision_traces_per_tick`. A held answer can only delay a sight or hold
+one that long past a wall, both under `LostSightSeconds` (500 ms), which already shows a
+bot a hidden target's true place while it is losing sight. No new information reaches a
+brain, and `PerceivedView`'s census is unchanged.
+
+A brain reads a view at its decide tick and no other, so a bot's HUD and holdings are read
+then, unless a recording or `ai_think_log` wants every tick: a saving at any budget.
 
 ## 3. The action boundary: a bot is a client
 
@@ -503,6 +580,28 @@ the real movement code (it is a usercmd): no extra rules there.
   is head height toward where an enemy is expected — the next corner on the
   path, a door, the arg-max cell of a prediction (§5.3) — so a good bot
   needs small corrections, not snaps; `placementSkill` scales how well.
+- *A height it settles on* (ruling 2026-11-03: "Bots default aim should be around shoulders thus
+  crouching requires re aiming"). A gun aims at `AimPoint.Shoulder`, a world height the crosshair is
+  kept at (`AimHeightHold`, core, pure), not the model's centre tracked exactly. Stairs and slopes it
+  follows (within 14 u, 0.1 s). A body that leaves that height, by a crouch, a stand or a jump, is a
+  stimulus: the height stays put for seeing it and reacting to it (`recognizeSeconds + reactionMs`,
+  a streak's own, at least 0.25 s; a body back within 7 u by then asks for nothing), then a Fitts-long
+  minimum-jerk move, past or short by `flickOvershootPct`, and it settles. Only the height: across
+  the body the pursuit goes on, and the hands go on firing, so the shots between go over a crouched
+  head. A new engagement starts at a standing person's shoulders whatever it sees, so someone found
+  crouched costs a re-aim too. The body's rise is no lead. The heights are data per stance
+  (`Hl2mpAimHeights`, from `cs_sv_model_heights`, idle, on Combine Super Soldier, Police, male_07 and
+  female_06 in both stances and five bots' models standing): shoulder 50 standing and 32 crouched (the upper arms' joints run 50 to 57 and 36.1 to 36.8: the low end, since at
+  the joints' 54 half a crosshair's wander passed over a shoulder and beside the head, §12.3), chest 48 and 24, head 61 and 41. `aimRise` (Accuracy, level) lifts a gun's point a little for a good hand: 0 at Medium's level, 2 u at Hard's; Hard's `aimErrorDeg` stays. A bot sees the crouch by what other
+  clients are sent, FL_DUCKING (`IPlayerStances`), on which their animation turns; the eye it read before
+  leads that by up to 0.2 s on the way down. **What a higher point does:** a head's hitbox runs about 54 to 68 u
+  standing and 33 to 48 u crouched, so the point is just under it, and a head is 3 times the
+  damage (`sk_player_head`): §12.3 reads damage as well as hit rate. A rocket, a frag and a SLAM stay at
+  the chest, where a miss still lands by the body, and a swing at the chest as ever. Lead is across
+  the body, and its time of flight moves by nothing a height changes. The Sniper's head shot
+  (TF2) is `AimPoint.Head` and a binding's own heights: nothing here stands in its way. Prefire,
+  pre-aim and a chase's look are at a standing shoulder's height (`PlaceHeight`): they remember no
+  stance, so someone crouched there can be missed.
 - *Only perceived targets*: aim resolves only against sighted actors or the
   memory's predicted point; the type makes anything else unreachable (§4.3).
 - *Turns*: no 180° snap unless reacting to damage from behind (`Damaged`
@@ -837,22 +936,93 @@ once each time), a pickup worth having (`braggable`). Each has a chance; a
 wish that the limits do not let through within 3 s is forgotten: the moment has
 passed.
 
-**Limits.** One unprompted line per `ai_chat_interval` (30 s) over the server;
-`ai_chat_cooldown` (60 s) per bot; in a fight (a hit within 4 s) only a short
-reaction goes, and a kill or a death is one, asked for in 5 words. A line waits
-for its typing, reaction plus characters at 8 a second, counted from the moment
-it is about; past 15 s it makes no sense and is dropped. A reply to a player has
-its own limit, one per 3 s over the server, and holds the other chatter back for
-half an interval; a reply to a bot also needs the bot's cooldown to have run.
+A bot that goes cold says so, as one that goes hot does. **Idle:** 25 s with no line
+from any bot and one out of a fight says a few words, so a small game is not silent.
+
+**Limits (ruling 2026-11-03, "the rate of chat is too low").** One unprompted line
+per interval over the server, `ai_chat_interval` (10) times 0.7 + 0.03 a bot, at most
+1.3: 7.6 s with 2 bots, 10.6 s with 12, 13 s from 20. A bot's own silence is long
+enough for most of the others to have a turn, at most `ai_chat_cooldown` (30), never
+under the interval: 9 s with 2 bots, 30 s from 7.
+A kill or a death moves a bot at 40 %, doubling to 80 % as the bots fall from 6 to 3.
+In a fight (a hit within 4 s) only a short reaction goes, and a kill or a death is
+one, asked for in 5 words. A line that is refused spends none of this: the next
+moment may have it a second later. A line waits for its typing, reaction plus
+characters at 8 a second, counted from the moment it is about; past 15 s it makes no
+sense and is dropped. A reply to a player has its own limit, one per 3 s over the
+server, and holds the other chatter back for half an interval; a reply to a bot also
+needs the bot's cooldown to have run. **The floor:** a player's own line holds the
+chatter back 4 s, and stays on the screen 12 s (`hud_saytext_time`), so about one bot
+line stands beside it and it is not buried.
 
 **Replying.** A bot hears only what a player in its place would be sent:
 `HostSay.CanHear`, the relay's own rule, now its one copy. A line names a bot by
 its first name or any word of its trait name, whole words, any case, less the
 file's `notNames` ("Never", "Open"...). A line naming bots is answered by those
-bots, two at most. A line naming nobody is answered with `ai_chat_reply_chance`
-(10 %) by one bot. A bot's reply to a bot ends the exchange: nobody answers it.
-What a bot and a player said is kept per pair, 6 lines, in memory, gone with the
-bot and at a map change.
+bots, two at most. A player's line naming nobody is answered with
+`ai_chat_reply_chance` (50 %) by one bot, a bot's line with a fifth of that. A bot's
+reply to a bot ends the exchange: nobody answers it. What a bot and a player said is
+kept per pair, 6 lines, in memory, gone with the bot and at a map change.
+
+**Answering questions (ruling 2026-11-03, "answer questions from the player about
+things on the map or how to play").** A tiny model invents (first measure: the RPG "in
+the central plaza, about 5 meters south of the clock tower"), so the answer cannot come
+from it. `ChatAnswerBook` reads a line: it is a question if it ends in `?`, opens
+with a question word, says "where", or names a bot, and its words name a topic.
+Small talk ("how are you?") stays talk. With a `?` and no topic it is the shrug.
+It goes to one bot, whichever is free longest and out of a fight; one it names answers
+even in a fight, in a few words from the plain line; with all of them in a fight, after
+2.5 s the one that has fought least lately does the same. An answer bypasses the server's
+interval and the bot's cooldown, and nothing else does; one per 2 s to one asker, so a
+flood is no way round the rate. It takes at most 3 s of typing, and draws no reply.
+
+What it may say comes from code. **The map:** what is on it, how many, what the map is,
+how long a thing takes to come back, from `MapKnowledge` (§5.0). **Where:** there are
+no place names, so `ChatPlaces` builds what it honestly can: the end of the map's
+long axis (north is up on the minimap), the side across it, the floor (bands of nav floor
+area by height, reachable from a spawn, ramps too small to count), what stands within
+220 u (never a good weapon, so a landmark does not give one away), a ladder, a spawn.
+On dm_lockdown that reads "22 health kits around, one is at the south end on the east
+side, on the middle floor", which a person with a north-up minimap can use; it has 3
+floors as the nav has them, the highest a roof, and `tools/ai-replay chat-places` prints
+every item's words. **A bot that can see the asker** also says how far and which way;
+one that cannot says nothing of them. **How to play:** `hl2mp_help.json`, hand-written and
+short, every key, number and menu held to the tree by `ChatHelpTests`. **The board,
+and the bot's own last killer.** **Never where a person is:** "where is ravi", "where are
+you", "where's everyone" are a shrug with no model, and `ChatAsked` has no field for
+another player. `ChatAskerEyes` is chat's one reader of a sense, named by the
+perception census: whether this bot sees the asker, and where the asker stands, which
+picks the nearest item for the asker's own marker and goes in no line unless this
+bot can see them. A line in general chat is public, so a bot that can see you does say
+how far you are from something to anyone reading.
+
+**The model's part:** it is given the fact and told to say it in the bot's voice.
+`ChatAnswerCheck` holds what comes back: every word must be a word of the fact, in the
+fact's order, or plain filler (no item, number, place or negation in the filler list:
+a fact holds that); what the answer turns on must be there; a "no" stays a "no" with no
+"yeah" beside it; and it keeps a third of the fact's words. Anything else is refused and
+the plain line goes out, through the same output filter. A model that is down or slow
+(1.5 s) is the plain line too: **with no model, every answer but the bots' chatter
+still works.** A shrug is never asked of a model.
+
+**A good weapon stays vague (ruling 2026-11-03, "bots should be more vague with finding
+better weapons").** Rank 6 and up on `Hl2mpWeaponRanges`, what bots themselves rate a
+weapon by: the RPG, the crossbow, the AR2, the .357 and the shotgun. (`WeaponKnowledge`
+has no value of its own; the ranks are the numbers.) The answer names a floor and a
+side or an end, no landmark, no number and nothing "of you", and it is true: the same
+geometry as a place. Whether the map has one and how many stay plain facts.
+
+**The marker (ruling 2026-11-03, "add a map indicator or visual cue").** A "where"
+answer marks the place for the one who asked, when the line appears:
+`IPlayerMarkers.Show(player, position, label, kind, radius, seconds)`, generic, a
+reliable user message to that one slot; slot 0 is refused, never a broadcast, and no
+spectator or other player has it. It only ever points at what `MapKnowledge` or the nav
+holds, and no model is involved, so it is right even when the sentence is odd. On the
+client: a dot in a pulsing ring on the minimap, and a dot with the name and distance
+over the world, through walls, holding to the screen's edge when off it (HUD element
+`hud.markers`); gone after 10 s, fading over the last third, one per place, 4 at most.
+A good weapon's marker is a soft circle of 500 u radius on the minimap alone, its centre
+175 to 375 u off the weapon by a seeded draw, the same for the same seed.
 
 **Untrusted input, and the real protection.** Player text and player names go
 through `ChatPromptBuilder.Untrusted`: control and format characters out, `<`,
@@ -1218,6 +1388,44 @@ The inspector shows it: `prefire` ("", "aiming" or "firing") and `prefireAt` in
 `/ai/bot/<id>/trace` and in `/ai/world`'s going, a star and a line in the 3D map's Remembers
 layer, the Beliefs group.
 
+**The second trigger** (ruling 2026-11-03, §12.1: "Bots should use alt fire"). `Hl2mpDecider.AltFire`,
+after the prefire, through `IN_ATTACK2` in the usercmd. What each is comes from its weapon's row and
+classes (`WeaponFacts.Alt`, `WeaponKnowledgeBuilder.AltOf`), when it is worth it from `Hl2mpAltFire`, pure.
+
+| weapon | what its second trigger does here | a bot presses it |
+|---|---|---|
+| SMG1 | `grenade_ar2`: 1000 u/s on an arc under gravity 400, goes off on what it first touches, blast 100 over 250 u, the shooter too | at a group (another inside 150 u of the target), a camper (under 30 u/s for 1.5 s), someone showing 40 % or less, or a corner a prefire has a clear line to; up to 1,000 u; never landing inside 1.15 of its blast of the bot, allowing for someone running in over the flight; never with a friend near (a rule free-for-all never meets: `FriendNear`, for a team game) |
+| AR2 | the ball: a 0.5 s charge, then 1000 u/s, flat, 1000 to what it touches, flies on, ends on its 4 s clock or the sky, no blast, and its shooter is safe from it (`EnergyBall.OnTouch`) | as a direct hit: someone crossing under 90 u/s, 400 to 1,500 u, so coming or going down a line; a corridor makes that so. Half the chance of anything else (`BallChanceShare`). It does not look for a bounce |
+| shotgun | both barrels: 12 pellets for 2 from the clip, on the primary's clock | within 192 u with 2 in the clip |
+| frag | second trigger: underhand when let go, a lob standing, a roll ducked | below: frags have a plan of their own |
+| crossbow | zooms: nothing else reads it | no |
+| RPG | nothing: the laser comes on by itself, and "the alt-fire is the base's, which does nothing" (`RpgBehaviour`) | no |
+| .357, pistol, crowbar, stunstick | nothing (the pistol's only holds its primary back) | no |
+| gravity gun | pulls; its punt is the primary, 1 point and a shove to a person. Throwing a prop would need props in a bot's view, and the decider puts this gun away in a fight | no |
+
+*The chance:* with a reason, at most every 2 s, `altFireChance` (Cunning, §10) from its own stream. *The
+hands:* the gun stops, the view goes to the arc or the lead through its own lag and limits, and after
+0.25 s the second trigger is held; the applier presses only with the view within 3° of its point
+(both barrels: within a body's width). A grenade first asks the game of the line (`LineAsk`, as a
+prefire does): refused, it does not go. Given up after 1.2 s (a frag's pin 3 s); 8 s between those that
+went. *Never:* reloading, or with nothing to pay with (the HUD's `SelfState.AltAmmo`, or the clip).
+A watcher learns nothing of a clip from one. The hit rate stays the aim's: a blast's or a ball's
+damage is `alt_damage`, in `dps` and `ai-replay threat` but in no hit rate, and a bot's own blast is
+`self_blast`.
+
+**Frags** (ruling 2026-11-03, §12.1: "also bots dont use grenades at all"). `Hl2mpDecider.FragPlan`, on the normal
+weapon switch, a person's hands: the kit is stock's and a person's (`GameRules.Loadout`, `StartingAmmo`; `GiveDefaultItems`): one frag, and no
+SMG grenade. *The fuse:* stock's `GRENADE_TIMER`, 2.5 s from the throw whatever the hold: there is no cooking to do (`FragBehaviour`,
+`weapon_frag.cpp:27`). *Why* (`Hl2mpAltFire.FragReasonFor`): someone just behind a corner (the prefire's belief, at the opening it can see), a
+habit's spot out of sight, a group, someone standing who shows 60 % or less, someone 96 u above or below showing as little, or leaving a fight. *Why not:* within
+1.15 of its blast of the bot (leaving, from 150 u: it will be 475 u off when it goes), past 900 u, a friend near (`FriendNear`, a team game's), and above all a
+gunfight: at someone in plain sight with a clear shot a bot keeps its gun. *How much:* `fragChance` (Aggression, reading its height: a favourite shows at any
+difficulty) times `fragKnack` (Cunning's level: the difficulty's say in it), at most every 2 s, 10 s between throws. *How:* the view on the place and the line asked of (a refused line ends it: a rail would send it back); the
+weapon selected; nothing pressed until the HUD shows it in hand; the arc and the pin, tapped so it goes when released: overhand past 450 u, nearer a roll on its own floor
+with the duck held, or underhand to another. `fragAimDeg` (Cunning, one draw a throw) is how far it goes wrong. Then the gun it had. A low spend may not look first
+(`fragCareless`, by Cunning, none from Hard's 50 points up), so one can come back: a person's mistake. *Ammo:* a frag with none in the list, or for the gun in its
+hands the grenade or ball it is out of, within 512 u, is an `Arm` goal worth 0.35: less than a hunt or a dry gun's ammo.
+
 **Crouching in a fight** (ruling 2026-11-02, §12.1). In the fight's holding leaf, with someone
 in sight past close range (400 u) and its feet on the ground, a bot holds IN_DUCK some of the
 time while it fires: `crouchShare` of the fight (Cover, a style curve, about 2.5 % at Medium's
@@ -1226,7 +1434,7 @@ height, 30 % at the top). A third of them are a quick dip of 0.35 to 0.6 s, the 
 A sidestep goes on ducked; a walk closing a long range stops for the crouch and goes on after it.
 Chasing, retreating, close, on a ladder or in the air it stays up. Holds and gaps run by the
 clock from their own stream. Its aim comes from its eye, which a crouch lowers. Seeing someone
-ducked (an eye under 46 u over the feet) is seeing a lower chest: the aim drops by 24 u.
+ducked (FL_DUCKING, what other clients are sent) moves their shoulders 18 u below the aim, a re-aim (§3.4.1).
 
 ### 5.5 Feel: commitment and personality (ruling 2026-11-02)
 
@@ -2085,6 +2293,9 @@ text keeps the reading it was made with.
 | **style** | `preferredRangeScale`, `chaseSeconds` (Aggression); `coverWeight`, `reloadBelowPct` (Cover); `searchSeconds`, `grudgeWeight`, `giveUpHealth` (Tenacity); `ambushWeight`, `routeAltWeight`, `prefireChance` (Cunning); `prefireThrift`, `prefireBurstSeconds` (Discipline); `retreatHealthPct` (Nerve); `rankBonus`, `pathCapMultiplier`, `easyTargetDiscount` (Headhunter) |
 | **level** | `aimErrorDeg`, `leadQuality`, `trackingLagMs`, `flickOvershootPct` (Accuracy); `glanceRate`, `reactionMs`, and recognition, sight and memory, which were never curves here (Alertness); `fireRangeGate`, `pushTrust`, `pushMarginSeconds` (Discipline: fire control and how far the estimate is trusted); `strafeWeight`, `strafeMeanSeconds` (Agility: a body's skill, and a bot's own strafing moves its hit rate, which the Medium calibration must not), turn speed |
 
+New curve, 2026-11-03: `altFireChance` (Cunning, reading its level, §5.4): knowing when a grenade or a ball
+pays is a tactic, and Discipline stays fire control. It is where the ruling's limit on Hard is set (§12.3). `fragChance` (Aggression, style), `fragKnack`, `fragAimDeg` and `fragCareless` (Cunning, level), §5.4; `aimRise` (Accuracy, level), §3.4.1.
+
 New curves, 2026-11-02: `prefireChance` (Cunning, 0 to 1), `prefireThrift` (Discipline, 1 to
 0.2) and `prefireBurstSeconds` (Discipline, 0.9 to 0.3 s), §5.4; `giveUpHealth` (Tenacity, 0.6, 0.3 and then 0): below it, with someone on it, a bot leaves the fight whatever its nerve,
 which is what "Runs Away", "Quitter" and "Bails Out" say.
@@ -2389,6 +2600,30 @@ rows of §3.1 (ruled). Hand-written native code: none.
 - **"some times bad bots become great for a very short stint"** (2026-11-02, the user, through
   the coordinator). Streaks, mostly earned; only aim, lead, reaction and recognition; a weak
   bot the most, never to Expert. §5.5.
+- **"Bots default aim should be around shoulders thus crouching requires re aiming"** (2026-11-03,
+  the user, through the coordinator). A world height the bot settles on, as a person's crosshair;
+  a change of stance is a stimulus with the normal reaction and settling. §3.4.1.
+- **"Bots should use alt fire"** (2026-11-03, the user, through the coordinator). As a player does,
+  through `IN_ATTACK2` in the usercmd, by what each weapon's secondary really does. §5.4.
+- **"Hard bots are already hard for me thus dont want to make them even harder"** (2026-11-03, the
+  user, through the coordinator). A binding limit on the two above: Hard's measured threat, hit rate
+  and damage or kills a minute, is no higher than before them; alt fire's rate comes down first,
+  never Hard's aim. §12.3.
+- **"also bots dont use grenades at all"** (2026-11-03, the user, through the coordinator): frags as a player
+  uses them, through usercmds and the normal weapon switch, inside the same limit. §5.4.
+- **"med and hard felt good though hard seemed a little easy now"** (2026-11-03, the user, after playing
+  `22ff50a04`, through the coordinator; it loosens the limit above). Medium stays where it is: its
+  threat moves by no more than noise. Hard may rise a little: about 10 to 15 % more damage a minute on
+  the scripted client than its baseline, from shoulder aim and alt fire, and no further; Hard's
+  `aimErrorDeg` does not change for it. §12.3.
+
+- **More chat, and bots answer questions** (2026-11-03, through the coordinator): "for
+  19 mins the rate of chat is too low, i would love if the bots could answer questions
+  from the player about things on the map or how to play the game". §3.6.
+- **A marker for where** (2026-11-03, through the coordinator): "you could add a map
+  indicator or visual cue when a bot answers where something is to the player". §3.6.
+- **Vague about good weapons** (2026-11-03, through the coordinator): "bots should be more
+  vague with finding better weapons"; asked which meaning, "1 chat answers". §3.6.
 
 ### 12.2 Open questions
 
@@ -2493,6 +2728,53 @@ that code when M1 starts, and changes nothing here.
 | recoil and aim, SMG1 and AR2 at 200 / 500 / 1,000 u, strafing target, 8 reps; .357 at 500. A: this tip's code with the kick and hands patched off (2 runs). B: the kick, hands off (1 run). C: the kick and hands (2 runs) | hit %, then dps. **Hard SMG1: A 71.9, 46.0, 40.7 (36.2, 27.7, 23.1); B 72.2, 35.7, 29.1 (36.2, 22.3, 17.9); C 65.6, 46.8, 38.8 (34.8, 27.2, 23.7). Hard AR2: A 73.2, 56.0, 52.6 (56.6, 44.4, 41.3); B 48.0, 29.1, 14.4 (45.3, 33.7, 17.5); C 69.2, 59.2, 38.7 (55.4, 47.7, 33.7).** Medium SMG1: A 62.4, 36.4, 26.7 (31.8, 24.0, 18.8); B 62.2, 40.8, 34.9; C 66.3, 47.4, 38.8 (33.6, 31.1, 23.6). Medium AR2: A 62.1, 36.2, 26.0 (56.9, 29.0, 22.2); B 33.2, 13.6, 10.6 (27.8, 14.9, 12.0); C 62.9, 36.4, 34.4 (53.6, 35.2, 30.4). So uncompensated the AR2 is lost and the SMG1 at range hurts; with hands Hard is back within a run's noise but for the AR2 at 1,000 u. Medium's SMG1 C reads this plan's earlier 69.3, 49.3, 36.2 and A sits under it, unexplained: Hard to Medium at 500 u reads 1.0 in C against the 1.2 of §10. .357, one long run, no pull: Hard 58.3 % (120 shots), Medium 46.8 % (111), against A's 70 % (174) and 57 % (152): about 10 lower, and a pull against the kick read 79 % (158) and 41 % (145), so a run of this is noisy |
 | streaks by hand, aim range, SMG1, 500 u, strafing, 8 reps | **Easy on its own: error 8.1° ± 4.9, hit 5.0 % of 40 shots, first shot 1,522 ms, dps 6.6. Easy hot: 2.5° ± 2.7, hit 50.0 % of 254, 788 ms, dps 23.4** (Medium, C above: 47 %). Hard cold: hit 38.2 %, dps 21.8, against 46.8, 27.2 |
 | streaks in free play, jank runs at `e2e0b243e`, on and off, 3 runs each | begun, in 20 bot-minutes: hot 6, 2, 2, cold 4, 7, 8 (cold then gated off Easy). **Hit rate pooled, on then off: Medium 30.7 % (1,183 shots), 29.0 % (1,005); Hard 31.8 % (1,516), 31.7 % (1,035): neither moved.** Easy 18.3 % (333), 21.0 % (271). Expert 51.3 % (1,725), 65.9 % (900), the difference not explained: off, it also fired half as much, and no hot streak touches it; cold could cost some of it. Log, a run: `streak 2554 Barney: hot, aim error 1.17 deg, reaction 100 ms, recognition 0.09 s`, `streak 3574 Barney: over`, `streak 7918 Barney: cold, aim error 2.15 deg` |
+| bot chat's rate, old defaults (30 s, 60 s), 12 bots, dm_lockdown, 300 s, `/ai/counters`, `7195c0f78` | **2.6 lines a minute** (13, 10 of them the interval's 10 slots, 3 replies) of 316 moments: 166 passed over by chance, 139 forgotten waiting for the interval, 0 for a cooldown, 0 refused, 0 timeouts, latency 136 ms. The interval was the whole limit; the game of 2026-11-03 was the same, 44 lines in 19 min with 38 slots. |
+| bot chat's rate, new defaults (10 s, 30 s, scaled), 12 bots, 300 s, `a21b0549e` | **6.0 lines a minute, one per 10 s** (30), 353 moments: 182 chance, 134 interval, 4 cooldown, 5 refused, 0 timeouts, 15 us a tick mean on the main thread on a busy box. 1.2 of the setting was first tried: 4.6 a minute, one per 13 s, so it came down. |
+| the same, 3 bots, 240 s, at 0.75 of the setting (7.5 s), before the retune to 7.9 s | **5.0 lines a minute, one per 12 s** (20), 49 moments: 8 chance, 21 interval, 1 cooldown, 2 refused. The moments, not the limits, are what is short in a small game; the idle line has room to speak. |
+| "nice" as a line's first word, real logs: the game of 2026-11-03, then new runs | 15 of 44 lines; **3 of 30** (12 bots), **2 of 20** (3 bots). Eval, the same 100 cases, `chat-eval`: 24 of 99 on the bare prompt, 10 of 88 with the ring in the prompt and the rules on (refused: 4 repeats, 3 wrong side, 3 wrong person, 2 unfriendly). |
+| lines confused about who, real logs by reading: kill or death reaction naming a third party, the fight the wrong way round, self-address | the game of 2026-11-03, 44 lines: 3 + 3 + 1. New: 3 bots, 20 lines: 0 + 0 + 0; 12 bots, 30 lines: 0 + 0 + 0 (two named someone they were replying to). |
+| questions, `tools/ai-replay chat-truth`, 100 (50 map, 50 how to play), `llama3.2:3b`, dm_lockdown, graded by regex against the lump, then read by eye | **0 wrong went out, of 100**, 0 refused by the filter, every topic read. Of the model's own lines 35 were wrong by the grader (map 20, how to play 15), among them on the first run a church, a lake, Best Buy, "a central plaza, about 5 meters south of the clock tower"; 80 were refused by the check, for which the plain line went out; 20 went out in the model's words (map 10, how to play 10). Not committed: the report holds what the model wrote. An earlier run let "yeah there is no pistol at spawn" through, so the check now keeps the fact's order and refuses a yes on a no. | |
+| questions, live on dm_lockdown, 6 bots, 32 typed by the client, `a21b0549e` | 32 answered, all true by reading (the replies quoted in the lane's report); 8 in the model's words, 19 plain after the check refused the model's, 4 shrugs, 8 markers; each within the 8 s the driver waited (by design 0.6 to 1.6 s of reaction and at most 3 s of typing, not timed live). Earlier the same run gave 0 in the model's words of 27: the worker's echo check read the fact in the prompt. Fixed, and the eval now checks as the game does. |
+| with no model (`ai_chat_url 127.0.0.1:1`), live | every answer tried went out, plain, and the bots' chatter stopped: "man 5 batteries around, one is in the middle, on the middle floor, by the box of smg ammo". |
+| the marker, live on dm_lockdown, a client asking "where is the health?" from 6 m, screenshot opened | a dot on the crate-room floor beside the kit, "Health kit 6 m" under it, a ping on the minimap; 0.9 s of +forward later "2 m" with the kit in plain sight. Behind the player it holds to the edge. "where is the rpg?": a soft circle on the minimap, no world marker, gone 10 s later (screenshot). |
+
+**Shoulder aim, alt fire and frags (2026-11-03, debug, a loaded box).** Baselines at `a207acb6e`, which differs from the `22ff50a04` the user played only in the AR2's look and the .357's jolt; after with the point at 50 and 32, on the rebuilt main. SMG1, scripted client as target, 6 reps of 4 s, 3 runs; hit % / dps, mean; before -> after (the after hit's lowest and highest). The final Hard has `aimRise` 2 u on top: this table was read before it, and one run at 51 u read Hard's dps 10 to 25 % up at 200 u, standing.
+
+| preset, range | stand | strafe | crouch |
+|---|---|---|---|
+| Easy 200 | 40/23 -> 25 (21-27)/11 | 29/9 -> 31 (27-33)/10 | 49/18 -> 49 (38-61)/17 |
+| Easy 500 | 19/5 -> 23 (17-31)/6 | 23/5 -> 18 (13-21)/3 | 19/6 -> 16 (4-24)/3 |
+| Easy 1000 | 28/6 -> 19 (14-23)/5 | 18/4 -> 29 (16-38)/6 | 13/4 -> 17 (14-19)/4 |
+| Medium 200 | 68/41 -> 70 (66-75)/46 | 53/30 -> 51 (47-56)/33 | 73/42 -> 60 (57-62)/42 |
+| Medium 500 | 49/30 -> 53 (48-58)/35 | 42/29 -> 38 (37-38)/25 | 54/32 -> 47 (43-51)/34 |
+| Medium 1000 | 35/22 -> 33 (30-34)/21 | 31/20 -> 31 (27-36)/20 | 43/26 -> 38 (35-41)/25 |
+| Hard 200 | 81/49 -> 79 (75-84)/56 | 71/46 -> 69 (67-73)/47 | 83/46 -> 68 (66-70)/46 |
+| Hard 500 | 57/37 -> 53 (48-59)/38 | 53/34 -> 51 (49-51)/34 | 61/35 -> 48 (38-55)/36 |
+| Hard 1000 | 44/29 -> 45 (43-47)/31 | 42/28 -> 43 (40-44)/30 | 50/28 -> 46 (42-52)/32 |
+| Expert 200 | 82/50 -> 81 (79-85)/52 | 87/55 -> 80 (79-81)/56 | 83/45 -> 68 (67-69)/42 |
+| Expert 500 | 60/40 -> 61 (60-62)/44 | 64/40 -> 60 (57-65)/42 | 70/37 -> 57 (56-58)/38 |
+| Expert 1000 | 53/34 -> 50 (48-51)/38 | 52/32 -> 45 (43-47)/30 | 59/34 -> 48 (45-51)/32 |
+
+Crouched was above standing before at every Medium, Hard and Expert cell; now below at 200 and 500 u, except Hard at 1,000 u and Medium at 1,000 u, where the crouch reads as high or higher (the wander is wider than the height). **At Easy it is not shown:** crouched 49, 16, 17 against standing 25, 23, 19, in a spread as wide as the difference. `dip` at 500 u (6 s reps): Easy 17 -> 23, Medium 47 -> 41, Hard 52 -> 44, Expert 62 -> 55, dps within a run. At the joints' own 54 and 36, one run, hit rates fell 10 to 15 points and damage a hit rose from about 6 to about 7.5: why the point is 50 and 32.
+
+**Threat, four bots of one preset and the scripted client, 5 minutes a run** (`tools/ai-scenario jank --preset`, `tools/ai-replay threat`), per run, all four bots together. Baseline 6 runs; final curves 3 runs (the second set was stopped: the user asked for the wrap-up); the row before them, 6 runs, differs for Medium only in a lower `altFireChance`, for Hard also in no `aimRise` and less `fragKnack`.
+
+| | damage a minute at the client | damage a minute, all | client kills a minute | kills a minute, all | frags a minute | second triggers a minute |
+|---|---|---|---|---|---|---|
+| Medium before, 6 runs | 103 (60..224) | 743 (485..1052) | 0.93 (0.6..1.8) | 6.05 (4.2..8.3) | 0 | 0 |
+| Medium, a lower alt chance, 6 runs | 91 (62..186) | 826 (377..1125) | 0.83 (0.6..1.6) | 6.77 (3.0..8.9) | 1.09 (0.6..1.6) | 0.73 (0.2..1.2) |
+| Medium final, 3 runs | 143 (65..192) | 937 (834..1081) | 1.26 (0.6..1.6) | 7.67 (6.9..8.7) | 1.06 (0.8..1.4) | 1.13 (0.8..1.6) |
+| Hard before, 6 runs | 118 (79..154) | 808 (449..1131) | 1.06 (0.8..1.4) | 6.72 (3.6..9.1) | 0 | 0 |
+| Hard, no rise, 6 runs | 99 (83..133) | 851 (625..1043) | 0.83 (0.6..1.2) | 6.99 (4.8..8.7) | 0.92 (0.4..2.0) | 0.79 (0.2..1.4) |
+| Hard final, 3 runs | 135 (94..166) | 1006 (774..1197) | 1.13 (0.8..1.4) | 7.98 (5.9..9.3) | 1.78 (1.4..2.0) | 1.52 (1.2..1.8) |
+
+**Where they landed, honestly:** Hard's mean at the client is +15 % on its baseline, the top of the 10 to 15 % asked for, in spreads far wider than that; everyone's damage +25 %. Medium's two sets at the client read -12 % and +39 %, with only an alt chance between them that fires too rarely to explain it, 108 pooled against 103 (+5 %), and its damage to everyone +11 % and +26 %: **not shown to have moved at the client, and likely up some on the bots**; it reads as the shots a minute, which swing by what each run's bots pick up. Five-minute runs cannot resolve 10 %. Live hit rate, which they can, did not move: Medium 26.6 -> 26.8 %, Hard 38 -> 37 % (`ai-replay metrics`, the round before the rise). Curves left as they are, by the user's "dont thrash".
+
+**A bot's walk for a grenade armed it:** worth 0.3 to 0.45 and going on to any gun, .357 kills at Medium went from 29 to 67 over 6 runs each and everything rose: 512 u, 0.35 and the grenade alone took Medium's client damage from 127 to 91.
+
+**Alt fire and frags live**, final curves, 3 runs of four bots, 5 minutes each. Medium: frags 1.06 a minute (0.27 a bot), second triggers 13 frag rolls or lobs and 4 both barrels; 5 of 296 kills by frag. Hard: frags 1.78 a minute (0.45 a bot), 19 and 4; 17 of 305 by frag. Easy and Expert in the mixed standard run, before `fragKnack` rose: 0 and 0.79 frags a bot a minute. **SMG grenades and balls are rare**: pickups only, 1 SMG grenade in the 18 Medium minutes before these and none in these. `tools/ai-aim-range --alt-ammo 20`, Medium: one grenade and one ball went in 24 and 11 s in sight; the ball killed the client through `ai_aim_tough`, which ended that run. No bot's own blast there (`self_blast` 0); free play does not record one apart.
+
+**Jank.** The standard run: before 24.0, 27.9, 30.4 (27.4); after 32.4, 33.4, 35.1 (33.6), on the point at 50, before `aimRise`. Stuck 1.84 -> 2.87 s/min, turn backs 1.2 -> 1.5, the rest within a run. Not attributed, by the user's request. A box under load 25 to 70, later rather than earlier, could be some of it. One preset run of six read 78.4, one bot stuck 160 s in an ambush walk, as `docs/todo.md`'s others.
 
 ### 12.4 Choices made in this plan (small, stated)
 
@@ -3876,6 +4158,50 @@ that code when M1 starts, and changes nothing here.
 - **Streaks: the choices** (2026-11-02). Chances by feel, with rates measured: a kill 25 %, two within 8 s 60 %, from nothing 0.1 a minute, hot 8 to 20 s, cold 6 to 12 s, 45 s of rest. A death ends a hot one. The cap is 6.5, not 7: Expert's Alertness is 7. A bot with no aim to lift (at the cap) has no hot streak to show, and one a cold spell would cost under a tenth has no cold one. `ai_bot_streak <name> hot|cold` exists for the aim range; `tools/ai-aim-range` turns streaks off unless one is asked for, so a measurement is of what it names.
 - **Recoil: the brief against the tree** (2026-11-02). (1) `FireStyle.Burst` was a held key: `HeldAction` treated it as Spray, so every burst weapon was a hose. It fires bursts now. (2) A bot reads its punch through `IEnginePlayers.GetPunch`, a new read beside `SetPunch`: its own crosshair, in the HUD class of §2.4. (3) The kick, as main wrote it, moves only the punch, not the eye angles, so the view needs no resync (`Diverged` stays quiet). (4) A .357's kick is back inside its 0.75 s cadence, so the pause barely slows it (about 0.8 s a shot); it is there as asked. The pull is for a burst's climb only. (5) **The AR2's ball: no code needed.** `grep` over `src/ai` finds no reader of the ball or its blast: no tree ever chooses `ActionKind.AltFire` and `WeaponKnowledge` has no splash; the one mention is chat's word for it. Bots do not throw it, which main's change makes a stronger weapon to leave unused: a choice for later.
 - **Measuring beside other games**: more than about 4 games at once on the box's 8 GB NVIDIA card fail device creation (`DxvkAdapter: Failed to create device`, exit 133, 8 of about 65 starts in this lane; others' games count). The lane's batches ran 3 at a time.
+- **Bot chat's rate, by the numbers** (2026-11-03, §3.6, §12.3). The brief's counters
+  were one `rate_limited`, so `ChatLimit` splits it and `ai.chat.triggers` and
+  `chance_missed` came first; the interval was all of it. A refused line gives back
+  what it spent, or a tic would have cut the rate as well as the line. A bot's reply
+  to a line naming nobody went to a fifth of a player's, or more lines would have meant
+  many more replies among bots. `ai_chat_reply_chance` now means the player's: 50.
+- **Bot chat: the premises** (2026-11-03). `WeaponKnowledge` has no value; `Hl2mpWeaponRanges.Rank`
+  is what bots rate a weapon by, and rank 6 and up is exactly the ruling's five.
+  `ai_chat_reply_chance` at 10 % was a chance over all hearers: it was never the limit. The
+  brief's "13 of 44 start with nice" is 15 by the log's words. The brief's "up the ladder"
+  is `ChatPlaces.NeedsLadder`, and no item on dm_lockdown is up one; "by a ladder" is what shows.
+  "By the choke" was left out: `ChokeMap` knows where routes meet, and "by the choke" means
+  nothing to a person; a chest-high crate would be a better word and the lump does not have one.
+  Static props are not in the entity lump, so no "by the crates". **The tone:** it never
+  followed the name: `PersonaOf` drew its tie-break from the actor's serial and the name from
+  the roster's seed, and Easy and Medium tie most of their skills, so "Bobby Never Quits" often
+  spoke as another trait. Same seed now. Difficulty reached no line: a low or a high spend now
+  adds to the tone. A cold streak was thrown away while a hot one spoke: both speak.
+- **Bot chat: friendly lines** (2026-11-03). The rule is a data list both ways and only
+  bites on a reply: "thanks" gets `replyFriendly` and a line holding an insult is refused
+  (2 of 88 in the eval). Trash talk stays for everything else, a rude line included.
+- **Bot chat: the openings** (2026-11-03). The ring refuses only unprompted lines: a reply
+  to a person is wanted more than variety, and an answer is a fact.
+- **Bot chat: what a line in public says** (2026-11-03). A bot that can see the asker says how
+  far the thing is "of you", and that is public chat, so someone else reading learns the asker
+  is 6 m south of it. The brief asked for it; it tells nobody anything they could not see
+  from where the bot stands, and the distance on the marker is private. Say if it should go.
+- **Bot chat: the arms** (2026-11-03). All 140 chat, answer, help, marker and place arms were
+  red and green again after restore, over three runs at this lane's tip before its last
+  rebase. Five facts turned out unable to fail and were fixed on the way: an exchange ended by
+  the new self-address rule, a chance left at a fifth, a small game's interval, a line nobody
+  in a fight would say anyway, a filter on a plain line. `chat-stop-token` went green once
+  and red on the rerun: its fact is a race, 200 starts and stops, as it was.
+- **Bot chat: the model's share** (2026-11-03). A strict check over a tiny model means most answers
+  are the plain line, and those are what make it true. A larger model might get more voice
+  through it; `chat-truth` is the measure, and no model was tried beyond the default.
+- **A crash seen, not chat's** (2026-11-03). One 12-bot run of four (each 5 min) died with a segfault
+  on the main thread inside `vphysics.so` under the server's frame, a null read at +0x28
+  (minidump `crash_20261103063512_2.dmp`, read by a stack scan), during a burst of kills with
+  ragdolls and an `entityflame`. Nothing of chat is on that stack. One in about 20 minutes of 12 bots is too few to
+  rate it, and no run at the old base saw it. In `docs/todo.md`.
+- **Mutation arms, others' needles** (2026-11-03). `tools/ai-mutations` has 11 stale arms outside
+  chat (`aim-*`, `crouch-flat`, `reroll-*`, `field-big-blocks`, `break-trigger`): their subjects moved,
+  and they are the owners' to fix.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 
@@ -3885,3 +4211,4 @@ that code when M1 starts, and changes nothing here.
 - `src/game/server/NextBot/NextBotVisionInterface.h` — FOV 90 (:142), range 2,000 (:215), recognition (:183); `.cpp` for the LOS mask.
 - `src/game/server/hl2mp/bot/` — `hl2mp_bot.h:201` difficulties; `hl2mp_bot_vision.cpp:122–151` recognition times and 6,000 u range; `behavior/` 27 files for tree vocabulary; `hl2mp_bot_manager.cpp:196` (nav-mesh dependency we replace).
 - `src/game/shared/basecombatweapon_shared.cpp` — `WeaponSound` recipient rules (:1915–1942: PAS by soundlevel, prediction rules exclude the owner, `play_to_owner_only`); `DefaultReload`'s `WeaponSound(RELOAD)` under `#ifdef CLIENT_DLL` (:2042–2045), which is why most reloads are inaudible to others.
+- **Aim and alt fire: the brief against the tree** (2026-11-03). (1) `crouch` held from a target's first tick is one re-aim a rep, so the aim range gained `dip` (stands 1.5 s, then down and up about every 1.2 s), and the baseline ran it too. The baseline moved from `22ff50a04` to `a207acb6e` on the way, a hold of the user's playing having stopped the first. (2) **`IPlayerStances` is a core service**: the binding may not call the entity directory (`PerceptionCensusTests`). (3) `cs_sv_model_heights` lives with the skeleton instruments, debug only, for the same reason. (4) **The SMG grenade is not in the spawn kit**: stock's `GiveAmmo( 1, "grenade" )` is the frag's, so a bot has grenades only from `item_ammo_smg1_grenade`, and balls only from `item_ammo_ar2_altfire`. Bots walk to them only near by (§5.4's `Arm` goal). (5) **A friend near has no meaning yet**: HL2MP's bots are free-for-all and `ActorFacts` carries no team, so `FriendNear` is false here and the rule waits for a team game. (6) **The ball's charge** landed on main from another session (`181e8180e`, stock's 0.5 s; live the ball exists 0.59 s after a press; primary 0.5 s after, next alt 1 s; 1000 to what it touches; it bends toward players at bounces, never the shooter's: `EnergyBall.OnTouch` and its aim both skip the shooter, read). A bot does not assume when it goes: pressed, the view stays on its lead until the pool shows it went, or 1.2 s, even if sight goes. It goes at nothing nearer than 400 u, where a charging bot with no gun for 0.6 s would lose, and at half the chance of anything else. (7) A format 5 record's new data is a tail on World and Snapshot, read if present, so human sessions and older recordings still read.

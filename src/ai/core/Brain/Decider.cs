@@ -36,7 +36,8 @@ public readonly record struct DoingRecord(
     string Streak = "",
     float StreakAimErrorDeg = 0f,
     float StreakReactionMs = 0f,
-    float StreakRecognizeSeconds = 0f);
+    float StreakRecognizeSeconds = 0f,
+    string AltFire = "");
 
 /// <summary>
 /// A game's decision layer for one bot (plan_hl2mp_ai §9 Phase 5 step 3):

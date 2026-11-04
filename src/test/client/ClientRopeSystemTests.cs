@@ -101,10 +101,10 @@ public class ClientRopeSystemTests
                 Get<RopeRenderSolidConVar>(), Get<RopeSolidMinWidthConVar>(), Get<RopeSolidMaxWidthConVar>(),
                 Get<RopeSolidMinAlphaConVar>(), Get<RopeSolidMaxAlphaConVar>());
 
-            Ropes = new ClientRopeSystem(Exec, Engine, Engine, Engine, Engine, Clock, vars, Engine);
+            Ropes = new ClientRopeSystem(Exec, Engine, Engine, Engine, Engine, Clock, vars, DeclaredConVars.Fresh<MatFullbrightConVar>());
         }
 
-        private T Get<T>() where T : ConVarBase => ConVars.Get<T>()!;
+        private T Get<T>() where T : ConVarBase => ConVars.Declared<T>();
 
         public void Set(string name, string value) => ConVars.NotifyChanged(Backend.Ids[name], value, "");
 
@@ -125,10 +125,10 @@ public class ClientRopeSystemTests
     {
         var rig = new Rig();
 
-        Assert.Equal(1, rig.ConVars.Get<DrawRopesConVar>()!.Value);
-        Assert.Equal(2, rig.ConVars.Get<RopeSubdivConVar>()!.Value);
-        Assert.Equal(1000f, rig.ConVars.Get<RopeWindDistConVar>()!.Value);
-        Assert.Equal(1.4f, rig.ConVars.Get<RopeSmoothEnlargeConVar>()!.Value);
+        Assert.Equal(1, rig.ConVars.Declared<DrawRopesConVar>().Value);
+        Assert.Equal(2, rig.ConVars.Declared<RopeSubdivConVar>().Value);
+        Assert.Equal(1000f, rig.ConVars.Declared<RopeWindDistConVar>().Value);
+        Assert.Equal(1.4f, rig.ConVars.Declared<RopeSmoothEnlargeConVar>().Value);
     }
 
     [Fact]

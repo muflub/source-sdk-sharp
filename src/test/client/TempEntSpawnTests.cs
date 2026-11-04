@@ -13,6 +13,7 @@ using SourceSharp.Abi;
 using client::SourceSharp.Client.TempEnts;
 
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -103,11 +104,10 @@ public class TempEntSpawnTests
 
         engine.Returns("Precache.ModelFrameCount", frames);
         engine.Returns("Precache.ModelTypeOf", kind);
-        engine.Returns("Console.FindConVarValue", maxPieces);
 
         var pool = new ClientTempEntPool(new RecordingLog(), native, clock, new TempEntPoolTests.NoSimulation());
 
-        return new Rigging(new TempEntSpawns(new RecordingLog(), pool, engine, engine, clock, new RandomSeeds(1)),
+        return new Rigging(new TempEntSpawns(new RecordingLog(), pool, engine, DeclaredConVars.Holding<FuncBreakMaxPiecesConVar>(maxPieces), clock, new RandomSeeds(1)),
                            native, pool, engine, clock);
     }
 
@@ -739,9 +739,6 @@ public class TempEntSpawnTests
 
         Assert.True(rig.Native.Created.Count == 3,
             $"forty asked for and three made, because the convar said three ({rig.Native.Created.Count})");
-
-        Assert.True(rig.Engine.CountOf("Console.FindConVarValue") >= 1,
-            "and the number came from the engine rather than from a constant here");
     }
 
     /// <summary>

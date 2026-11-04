@@ -22,14 +22,7 @@ void StandaloneEntities_Finish(const CServerEntityContext& context);
 
 void UpdateAllClientData(const CServerEntityContext& context, const CServerWorldQueries& world);
 
-bool EntitySim_IsSimulatingOnAlternateTicks(const CGlobalVars* pGlobals);
-
 int SourceSharp_DrainEntitySlots(const CServerEntityContext& context);
-
-int32_t CServerFrame::IsSimulatingOnAlternateTicks()
-{
-	return EntitySim_IsSimulatingOnAlternateTicks(m_pGlobals) ? 1 : 0;
-}
 
 int32_t CServerFrame::TickCount()
 {

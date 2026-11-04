@@ -31,7 +31,7 @@ namespace TF2.Server.Combat;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFDamageDevCommands(IEngineDamage damage, DamageHitGroups hits, TFAfterburns afterburns,
-                                        IGameClock clock, IEngineConsole console, ILog log)
+                                        IGameClock clock, SourceSharp.Shared.SvCheatsConVar cheats, ILog log)
     : IClientCommandHook, IOrderedHook
 {
     public const string Burn = "tf2_dev_burn";
@@ -49,8 +49,7 @@ public sealed class TFDamageDevCommands(IEngineDamage damage, DamageHitGroups hi
         if (!burn && !hurt)
             return false;
 
-        // sv_cheats read live, fail-closed: missing or not a number is off.
-        if (!(float.TryParse(console.FindConVarValue("sv_cheats"), NumberStyles.Float, CultureInfo.InvariantCulture, out float on) && on != 0f))
+        if (!cheats.Value)
         {
             log.Warning($"[TF2/Damage] {command} needs sv_cheats 1\n");
             return true;

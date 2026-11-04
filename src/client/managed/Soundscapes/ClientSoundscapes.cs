@@ -96,6 +96,7 @@ public sealed class ClientSoundscapes
     private readonly IGameClock _clock;
     private readonly IEngineHost _host;
     private readonly IEngineConsole _console;
+    private readonly DeveloperConVar _developer;
 
     private SoundscapeLibrary _library = new();
 
@@ -124,8 +125,9 @@ public sealed class ClientSoundscapes
 
     /// <summary>Built by the client's container.</summary>
     public ClientSoundscapes(ISoundscapeAudio audio, ISoundscapeSounds sounds, IGameClock clock, IEngineHost host,
-                             IEngineConsole console)
+                             IEngineConsole console, DeveloperConVar developer)
     {
+        _developer = developer;
         _audio = audio;
         _sounds = sounds;
         _clock = clock;
@@ -959,6 +961,5 @@ public sealed class ClientSoundscapes
             _console.Warning(message);
     }
 
-    private int Developer()
-        => int.TryParse(_console.FindConVarValue("developer"), out int level) ? level : 0;
+    private int Developer() => _developer.Value;
 }

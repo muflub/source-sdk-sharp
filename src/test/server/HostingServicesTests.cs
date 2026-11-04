@@ -256,6 +256,7 @@ public sealed class HostingServicesTests
             Inner.ExecuteServerCommand(command);
             side.Msg($"ran {command}\n");   // the real funnel every console line takes: this side's
         }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => Inner.FindConVarValue(name);
         public string GetConVarValue(int id) => Inner.GetConVarValue(id);
         public void Msg(string message) => Inner.Msg(message);

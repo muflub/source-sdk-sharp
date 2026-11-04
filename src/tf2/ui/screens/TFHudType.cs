@@ -7,7 +7,10 @@ namespace TF2.Client.Ui;
 /// times 2.25 into du — HudFontGiantBold 44, HudFontBig 36,
 /// HudFontMediumBigBold/HudFontMedium 30/24, the hud's small numeral
 /// HudFontMediumSmall 18 (health's HudClassHealth 16 is the nearest below it)
-/// and HudFontSmall 14. Stock's exact numbers win over the 4 du grid. The hud
+/// and HudFontSmall 14. Stock's exact numbers win over the 4 du grid. The
+/// surface draws TF2 Secondary at about 0.83 of the em a tall asks for (live,
+/// 12 to 27 px: 0.83 to 0.85) and stock lets it; the backend corrects it to the
+/// em, so a TF2 Secondary face here asks for 0.83 of tall x 2.25. The hud
 /// screens carry them per element (<see cref="HudSize"/>), so the theme's
 /// roles keep the toolkit's defaults for every screen stock's HUD files do
 /// not cover — the menus, the scoreboard, the dev overlay and the build stamp.
@@ -39,7 +42,7 @@ public static class TFHudType
     private const float MediumBigBold = 67.5f;  // 30
     private const float Medium = 54f;       // 24
     private const float MediumSmall = 40.5f;    // 18
-    private const float Small = 31.5f;      // 14
+    private const float Small = 26.25f;     // 14, TF2 Secondary
 
     /// <summary>Off-ladder hud faces, the scheme's smaller stocks by name:
     /// the escort's CapNumPlayers count (objectivestatusescort.res:427,
@@ -49,7 +52,7 @@ public static class TFHudType
     /// (controlpointicon.res CPTimerLabel, ControlPointTimer 10) and the
     /// cap teardrop's reason (controlpointprogressbar.res ProgressText,
     /// DefaultSmall 12).</summary>
-    public const float Smallest = 24.75f;         // 11 tall
+    public const float Smallest = 20.5f;          // 11 tall, TF2 Secondary
     public const float ClockSubTextTiny = 18f;    // 8 tall
     public const float ClockSubText = 20.25f;     // 9 tall
     public const float ControlPointTimer = 24.75f;    // ControlPointTimer is 10 (22.5); HudFontSmallest
@@ -91,5 +94,5 @@ public static class TFHudType
     /// and the name plate ScoreboardMedium 20.</summary>
     public const float ScoreboardVerySmall = 18f;         // 8 tall
     public const float ScoreboardMediumSmall = 31.5f;     // 14 tall
-    public const float ScoreboardMedium = 45f;            // 20 tall
+    public const float ScoreboardMedium = 37.5f;          // 20 tall, TF2 Secondary
 }

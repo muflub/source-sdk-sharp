@@ -285,7 +285,7 @@ public sealed class LocalViewEntity(Interop.IFxRender render, IClientStandalones
 [ConCommand("cs_animevents",
             Help = "cs_animevents [classname-filter]. How many animation events have fired on " +
                    "this client and what the last one did; with a filter, the count PER ENTITY.")]
-public sealed class AnimEventsCommand : IConCommand
+public sealed class AnimEventsCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -306,10 +306,10 @@ public sealed class AnimEventsCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
-    {
-        string filter = args.Trim();
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
 
+    public void Execute([Complete(From = nameof(Classes))] string filter = "")
+    {
         if (filter.Length > 0)
         {
             PerEntity(filter);

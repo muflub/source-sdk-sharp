@@ -11,7 +11,7 @@ namespace SourceSharp.Server;
 /// </summary>
 [ConCommand("cs_sv_steam_status",
             Help = "Reports whether this server load reaches its Steam game server (loggedon=yes|no).")]
-public sealed class SteamStatusCommand : IConCommand
+public sealed class SteamStatusCommand
 {
     private readonly IEngineHost _host;
     private readonly IEngineConsole _console;
@@ -25,7 +25,7 @@ public sealed class SteamStatusCommand : IConCommand
         _steam = steam;
     }
 
-    public void Execute(string args)
+    public void Execute()
         => _console.Msg($"[SourceSharp/Server] steam status: loggedon={(_host.SteamGameServerLoggedOn() ? "yes" : "no")}"
                         + $", gameserver={(_steam.HasGameServer ? "yes" : "no")}"
                         + (_steam.WhyUnbound.Length == 0 ? string.Empty : $", unbound: {_steam.WhyUnbound}")

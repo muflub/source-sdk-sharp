@@ -3,6 +3,8 @@ using SourceSharp.Client.Interop;
 
 using static SourceSharp.Client.Render.RenderConst;
 
+using static SourceSharp.Client.Render.ConVarAs;
+
 namespace SourceSharp.Client.Render;
 
 /// <summary>
@@ -32,17 +34,17 @@ namespace SourceSharp.Client.Render;
 public static class RenderPlanner
 {
     /// <summary>The ops for one RenderView, or null when stock should draw the frame.</summary>
-    public static RenderOp[]? Plan(in RenderInputs input)
+    public static RenderOp[]? Plan(in RenderInputs input, RenderConVars convars)
     {
         var b = new RenderPlanBuilder();
-        return Plan(input, b) ? b.ToArray() : null;
+        return Plan(input, convars, b) ? b.ToArray() : null;
     }
 
     /// <summary>The same, with this frame's second-camera views (C7 item 6).</summary>
-    public static RenderOp[]? Plan(in RenderInputs input, ReadOnlySpan<MonitorView> monitors)
+    public static RenderOp[]? Plan(in RenderInputs input, RenderConVars convars, ReadOnlySpan<MonitorView> monitors)
     {
         var b = new RenderPlanBuilder();
-        return Plan(input, b, monitors) ? b.ToArray() : null;
+        return Plan(input, convars, b, monitors) ? b.ToArray() : null;
     }
 
     /// <summary>
@@ -50,25 +52,25 @@ public static class RenderPlanner
     /// (and nothing planned) when stock should draw the frame. A caller that
     /// keeps its builder plans a frame without allocating.
     /// </summary>
-    public static bool Plan(in RenderInputs input, RenderPlanBuilder b) => Plan(input, b, default);
+    public static bool Plan(in RenderInputs input, RenderConVars convars, RenderPlanBuilder b) => Plan(input, convars, b, default);
 
-    public static bool Plan(in RenderInputs input, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors)
-        => Plan(input, b, monitors, DebugOverlayMaterials.None);
+    public static bool Plan(in RenderInputs input, RenderConVars convars, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors)
+        => Plan(input, convars, b, monitors, DebugOverlayMaterials.None);
 
     /// <summary>The plan with the debug overlays' materials (C7 step 2), which only the host can look up.</summary>
-    public static bool Plan(in RenderInputs input, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors,
+    public static bool Plan(in RenderInputs input, RenderConVars convars, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors,
                             DebugOverlayMaterials debug)
-        => Plan(input, b, monitors, debug, null);
+        => Plan(input, convars, b, monitors, debug, null);
 
     /// <summary>
     /// The same, with the screen-space effects (ScreenSpaceEffects.cpp's
     /// manager), which draw into the plan where stock's RenderEffects drew.
     /// </summary>
-    public static bool Plan(in RenderInputs input, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors,
+    public static bool Plan(in RenderInputs input, RenderConVars convars, RenderPlanBuilder b, ReadOnlySpan<MonitorView> monitors,
                             DebugOverlayMaterials debug, ScreenSpaceEffectManager? screenEffects)
     {
         b.Clear();
-        var frame = new Frame(input, b, debug, screenEffects);
+        var frame = new Frame(input, convars, b, debug, screenEffects);
         frame.RenderView(monitors);
         return true;
     }
@@ -79,17 +81,11 @@ public static class RenderPlanner
     /// frame's ShadowComputeDepthTextures op; <paramref name="frame"/> is that
     /// frame's inputs, <paramref name="shadow"/> the flashlight's view.
     /// </summary>
-    public static void PlanShadowDepthView(in RenderInputs frame, in ViewSetup shadow, RenderPlanBuilder b)
+    public static void PlanShadowDepthView(in RenderInputs frame, RenderConVars convars, in ViewSetup shadow, RenderPlanBuilder b)
     {
         b.Clear();
-        new Frame(frame, b).ShadowDepthView(shadow);
+        new Frame(frame, convars, b).ShadowDepthView(shadow);
     }
-
-    private static float Cv(in RenderInputs input, RenderCvar c) => input.Cvar(c);
-
-    private static bool CvBool(in RenderInputs input, RenderCvar c) => input.Cvar(c) != 0f;
-
-    private static int CvInt(in RenderInputs input, RenderCvar c) => (int)input.Cvar(c);
 
     // mathlib.h's three-arg VectorAngles( forward, pseudoUp, angles ), which
     // the glass reflection's mirrored basis ends in: the roll read off the
@@ -115,10 +111,11 @@ public static class RenderPlanner
     }
 
     /// <summary>One RenderView's planning state: the inputs and the ops so far.</summary>
-    private readonly struct Frame(RenderInputs input, RenderPlanBuilder b, DebugOverlayMaterials debug = default,
+    private readonly struct Frame(RenderInputs input, RenderConVars convars, RenderPlanBuilder b, DebugOverlayMaterials debug = default,
                                   ScreenSpaceEffectManager? screenEffects = null)
     {
         private readonly RenderInputs _in = input;
+        private readonly RenderConVars _cv = convars;
         private readonly DebugOverlayMaterials _debug = debug;
         private readonly ScreenSpaceEffectManager? _screenEffects = screenEffects;
 
@@ -158,7 +155,7 @@ public static class RenderPlanner
                 Scene(view, clear, what, monitors);
             }
 
-            if (CvBool(_in, RenderCvar.mat_viewportupscale) && Cv(_in, RenderCvar.mat_viewportscale) < 1f)
+            if (CvBool(_cv.MatViewportupscale) && Cv(_cv.MatViewportscale) < 1f)
                 b.WithView(RenderOpKind.Upscale, view);
 
             b.Push2DView(view, 0, RenderTarget.Saved);
@@ -203,8 +200,8 @@ public static class RenderPlanner
             b.Op(RenderOpKind.RenderPlayerSprites);
 
             bool bloom = view.DoBloomAndToneMapping != 0;
-            bool buildingCubemaps = CvBool(_in, RenderCvar.building_cubemaps);
-            if (!buildingCubemaps && bloom && CvInt(_in, RenderCvar.mat_motion_blur_enabled) != 0 && _in.DxLevel >= 90)
+            bool buildingCubemaps = CvBool(_cv.BuildingCubemaps);
+            if (!buildingCubemaps && bloom && CvInt(_cv.MatMotionBlurEnabled) != 0 && _in.DxLevel >= 90)
                 b.WithView(RenderOpKind.MotionBlur, view);
 
             b.WithView(RenderOpKind.PostScreenSpaceEffects, view);
@@ -250,11 +247,11 @@ public static class RenderPlanner
             b.ClearColor3ub(0xFF, 0xFF, 0xFF);
             b.Push3DView(shadow, ClearDepth, RenderTarget.ShadowColor, RenderTarget.ShadowDepth);
             b.SetupCurrentView(shadow.Origin, shadow.Angles, ViewShadowDepthTexture);
-            b.BuildWorldLists(true, -1, true, true, null, OpacityFactor());
+            b.BuildWorldLists(true, -1, CvBool(_cv.RWorldlistcache), true, null, OpacityFactor());
             BuildRenderables(ViewShadowDepthTexture, shadow);
             b.Op(RenderOpKind.SoundExtraUpdate);
             b.ViewScene(draw);
-            b.DrawWorld(0f, draw, CvBool(_in, RenderCvar.r_drawopaqueworld));
+            b.DrawWorld(0f, draw, CvBool(_cv.RDrawopaqueworld));
             b.ForcedMaterialOverride(OverrideDepthWrite);
             b.DrawOpaque(ViewDrawProgram.DepthModeShadow);
             b.ForcedMaterialOverride(OverrideNormal);
@@ -286,38 +283,38 @@ public static class RenderPlanner
         {
             const float half = 0.5f / 256.0f;
 
-            if (CvBool(_in, RenderCvar.mat_yuv) && _in.DxLevel >= 80 && _debug.Yuv != 0)
+            if (CvBool(_cv.MatYuv) && _in.DxLevel >= 80 && _debug.Yuv != 0)
                 b.WithView(RenderOpKind.DebugScreenMaterial, view, _debug.Yuv);
-            if (CvBool(_in, RenderCvar.mat_hsv) && _in.DxLevel >= 90 && _debug.Hsv != 0)
+            if (CvBool(_cv.MatHsv) && _in.DxLevel >= 90 && _debug.Hsv != 0)
                 b.WithView(RenderOpKind.DebugScreenMaterial, view, _debug.Hsv);
 
-            int page = CvInt(_in, RenderCvar.mat_showlightmappage);
+            int page = CvInt(_cv.MatShowlightmappage);
             if (page != -1)
                 b.Add(RenderOpKind.DebugLightmapPage, [page], [OpacityFactor()], view);
 
-            if (CvInt(_in, RenderCvar.cl_drawshadowtexture) != 0)
-                b.AddInt(RenderOpKind.DebugShadowTexture, CvInt(_in, RenderCvar.cl_shadowtextureoverlaysize));
+            if (CvInt(_cv.ClDrawShadowTexture) != 0)
+                b.AddInt(RenderOpKind.DebugShadowTexture, CvInt(_cv.ClShadowtextureoverlaysize));
 
             if (_debug.DrawMaterial != 0)
                 b.Add(RenderOpKind.DebugQuad, [_debug.DrawMaterial, 1], [100f, 100f, 0f, 0f, 0f, 0f, 1f, 1f]);
 
-            if (CvBool(_in, RenderCvar.mat_showwatertextures))
+            if (CvBool(_cv.MatShowwatertextures))
             {
-                float size = Cv(_in, RenderCvar.mat_wateroverlaysize);
+                float size = Cv(_cv.MatWateroverlaysize);
                 // The reflection unflipped at row 0, the refraction flipped at row 1.
                 b.Add(RenderOpKind.DebugQuad, [_debug.Reflect, 0], [0f, 0f, size, size, half, 1f + half, 1f + half, half]);
                 b.Add(RenderOpKind.DebugQuad, [_debug.Refract, 0], [0f, size, size, size, half, half, 1f + half, 1f + half]);
             }
 
-            if (CvBool(_in, RenderCvar.mat_showcamerarendertarget))
+            if (CvBool(_cv.MatShowcamerarendertarget))
             {
-                float size = Cv(_in, RenderCvar.mat_wateroverlaysize);
+                float size = Cv(_cv.MatWateroverlaysize);
                 b.Add(RenderOpKind.DebugQuad, [_debug.CameraTarget, 0], [0f, 0f, size, size, half, half, 1f + half, 1f + half]);
             }
 
-            if (CvBool(_in, RenderCvar.mat_showframebuffertexture))
+            if (CvBool(_cv.MatShowframebuffertexture))
             {
-                float size = Cv(_in, RenderCvar.mat_framebuffercopyoverlaysize);
+                float size = Cv(_cv.MatFramebuffercopyoverlaysize);
                 b.Op(RenderOpKind.PushDefaultTarget);
                 b.Add(RenderOpKind.DebugQuad, [_debug.FrameBuffer0, 0], [0f, 0f, size, size, half, half, 1f + half, 1f + half]);
                 b.Add(RenderOpKind.DebugQuad, [_debug.FrameBuffer1, 0], [size, 0f, size, size, half, half, 1f + half, 1f + half]);
@@ -325,9 +322,9 @@ public static class RenderPlanner
             }
 
             if (_debug.DrawTexture)
-                b.Add(RenderOpKind.DebugShowTexture, default, [Cv(_in, RenderCvar.mat_drawTextureScale)]);
+                b.Add(RenderOpKind.DebugShowTexture, default, [Cv(_cv.MatDrawTextureScale)]);
 
-            if (CvBool(_in, RenderCvar.r_flashlightdrawdepth))
+            if (CvBool(_cv.RFlashlightdrawdepth))
                 b.Op(RenderOpKind.DebugFlashlightDepth);
         }
 
@@ -335,7 +332,7 @@ public static class RenderPlanner
         // overlays at alpha 20/255, then the alpha back to 0.
         private void GenerateOverdrawForTesting()
         {
-            if (CvInt(_in, RenderCvar.cl_overdraw_test) == 0)
+            if (CvInt(_cv.ClOverdrawTest) == 0)
                 return;
             for (int i = 0; i < 40; i++)
             {
@@ -379,9 +376,9 @@ public static class RenderPlanner
         private bool SkyboxSetup(in ViewSetup view, ref int clear, out int skyboxVisible)
         {
             skyboxVisible = _in.SkyboxVisible;
-            if (skyboxVisible != Skybox3DVisible && CvInt(_in, RenderCvar.r_3dsky) != 2)
+            if (skyboxVisible != Skybox3DVisible && CvInt(_cv.R3dsky) != 2)
                 return false;
-            if (CvInt(_in, RenderCvar.r_3dsky) == 0)
+            if (CvInt(_cv.R3dsky) == 0)
                 return false;
             if (_in.SkyPresent == 0 || _in.SkyArea == 255)
                 return false;
@@ -391,7 +388,7 @@ public static class RenderPlanner
             clear |= ClearDepth;
 
             int draw = DfRenderUnderwater | DfRenderAbovewater | DfRenderWater;
-            if (CvBool(_in, RenderCvar.r_skybox))
+            if (CvBool(_cv.RSkybox))
                 draw |= DfDrawSkybox;
 
             SkyboxDrawInternal(view, skyClear, draw);
@@ -426,13 +423,13 @@ public static class RenderPlanner
             b.Op(RenderOpKind.BeginUpdateLightmaps);
             // Stock passes `true` as iForceViewLeaf here (viewrender.cpp: BuildWorldRenderLists( true, true, -1 )):
             // the forced leaf is 1 and bUseCacheIfEnabled is -1 (true). Carried as stock has it.
-            b.BuildWorldLists(true, 1, true, false, null, OpacityFactor());
+            b.BuildWorldLists(true, 1, CvBool(_cv.RWorldlistcache), false, null, OpacityFactor());
             BuildRenderables(View3DSky, sky);
             b.Op(RenderOpKind.EndUpdateLightmaps);
 
             b.Op(RenderOpKind.WorldViewShadowTextures);
             b.ViewScene(draw);
-            b.DrawWorld(0f, draw, CvBool(_in, RenderCvar.r_drawopaqueworld));
+            b.DrawWorld(0f, draw, CvBool(_cv.RDrawopaqueworld));
             b.DrawOpaque(DepthModeNormal);
             b.DrawTranslucent(true, false);
             b.Op(RenderOpKind.DrawNoZTranslucent);
@@ -453,7 +450,7 @@ public static class RenderPlanner
         public void ViewDrawScene(bool drew3dSkybox, int skyboxVisible, in ViewSetup view, int clear, int viewId, bool drawViewModel)
         {
             b.Op(RenderOpKind.ShadowPreRender);
-            if (CvBool(_in, RenderCvar.r_flashlightdepthtexture) && viewId == ViewMain)
+            if (CvBool(_cv.RFlashlightDepthTexture) && viewId == ViewMain)
                 b.WithView(RenderOpKind.ShadowComputeDepthTextures, view);
 
             b.SetupCurrentView(view.Origin, view.Angles, viewId);
@@ -467,7 +464,7 @@ public static class RenderPlanner
                 radialClear = true;
             }
 
-            bool drawSkybox = CvBool(_in, RenderCvar.r_skybox);
+            bool drawSkybox = CvBool(_cv.RSkybox);
             if (drew3dSkybox || skyboxVisible == SkyboxNotVisible)
                 drawSkybox = false;
 
@@ -486,7 +483,7 @@ public static class RenderPlanner
             b.Op(RenderOpKind.ClientEffectsDraw);
             b.AddInt(RenderOpKind.SetFXCreationAllowed, 0);
             b.Op(RenderOpKind.FinishCurrentView);
-            if (CvBool(_in, RenderCvar.r_flashlightdepthtexture))
+            if (CvBool(_cv.RFlashlightDepthTexture))
                 b.Op(RenderOpKind.ShadowUnlockDepthTextures);
         }
 
@@ -504,7 +501,7 @@ public static class RenderPlanner
             dry.FogVolumeLeaf = -1;
             dry.EyeInFogVolume = 0;
             dry.WaterMaterial = 0;
-            var frame = new Frame(dry, b);
+            var frame = new Frame(dry, _cv, b);
 
             if (monitor.DrawViewer)
                 b.Op(RenderOpKind.ViewerSeenBegin);
@@ -525,15 +522,15 @@ public static class RenderPlanner
             if (_in.FogVolume == -1 || _in.WaterMaterial == 0)
                 return info;
 
-            info.DrawWaterSurface = CvBool(_in, RenderCvar.mat_drawwater);
+            info.DrawWaterSurface = CvBool(_cv.MatDrawwater);
             if (!info.DrawWaterSurface)
             {
                 info.OpaqueWater = false;
                 return info;
             }
 
-            bool forceExpensive = CvBool(_in, RenderCvar.r_waterforceexpensive);
-            bool forceReflectEntities = CvBool(_in, RenderCvar.r_waterforcereflectentities);
+            bool forceExpensive = CvBool(_cv.RWaterforceexpensive);
+            bool forceReflectEntities = CvBool(_cv.RWaterforcereflectentities);
 
             info.OpaqueWater = _in.WaterTranslucent == 0;
             if (_in.DxLevel < 80)
@@ -549,12 +546,12 @@ public static class RenderPlanner
             if (!forceCheap && _in.WaterForceExpensiveDefined != 0)
                 forceExpensive = forceExpensive || _in.WaterForceExpensive != 0;
 
-            bool localReflection = forceExpensive && CvBool(_in, RenderCvar.r_WaterDrawReflection) && _in.WaterReflectTexture != 0;
+            bool localReflection = forceExpensive && CvBool(_cv.RWaterDrawReflection) && _in.WaterReflectTexture != 0;
 
             if ((_in.DistanceToWater >= _in.CheapWaterEnd && !localReflection) || forceCheap)
                 return info;
 
-            if (!CvBool(_in, RenderCvar.r_WaterDrawRefraction))
+            if (!CvBool(_cv.RWaterDrawRefraction))
             {
                 info.Refract = false;
             }
@@ -592,7 +589,7 @@ public static class RenderPlanner
                 return;
             }
 
-            int fogLeaf = CvBool(_in, RenderCvar.r_ForceWaterLeaf) ? _in.FogVolumeLeaf : -1;
+            int fogLeaf = CvBool(_cv.RForceWaterLeaf) ? _in.FogVolumeLeaf : -1;
             if (_in.EyeInFogVolume == 0)
                 AboveWaterView(view, drawSkybox, info, fogLeaf);
             else
@@ -718,7 +715,7 @@ public static class RenderPlanner
 
             // DrawExecute's DF_DRAW_ENTITITES arm, which the draw flags carry.
             b.ViewScene(draw);
-            bool opaqueWorld = CvBool(_in, RenderCvar.r_drawopaqueworld);
+            bool opaqueWorld = CvBool(_cv.RDrawopaqueworld);
             b.DrawWorld(0f, draw, opaqueWorld);
             b.DrawOpaque(DepthModeNormal);
             b.DrawTranslucent(false, false);
@@ -739,14 +736,14 @@ public static class RenderPlanner
         }
 
         // CRendering3dView::UpdateRenderablesOpacity's factor: no prop fade in the level overview.
-        private float OpacityFactor() => Cv(_in, RenderCvar.cl_leveloverview) > 0f ? -1f : 1f;
+        private float OpacityFactor() => Cv(_cv.ClLeveloverview) > 0f ? -1f : 1f;
 
         // CRendering3dView::BuildRenderableRenderLists with SetupRenderablesList's decisions.
         private void BuildRenderables(int viewId, in ViewSetup view)
         {
-            bool entities = CvInt(_in, RenderCvar.r_drawentities) != 0;
-            bool detail = _in.ClientModeDrawDetail != 0 && CvInt(_in, RenderCvar.r_DrawDetailProps) != 0;
-            float maxDist = Cv(_in, RenderCvar.cl_maxrenderable_dist);
+            bool entities = CvInt(_cv.RDrawentities) != 0;
+            bool detail = _in.ClientModeDrawDetail != 0 && CvInt(_cv.RDrawDetailProps) != 0;
+            float maxDist = Cv(_cv.ClMaxrenderableDist);
             float dist = viewId == ViewShadowDepthTexture ? (view.ZFar < maxDist ? view.ZFar : maxDist) : maxDist;
             b.BuildRenderables(viewId, entities, detail, viewId != ViewShadowDepthTexture, dist * dist);
         }
@@ -763,7 +760,7 @@ public static class RenderPlanner
             b.Op(RenderOpKind.BeginUpdateLightmaps);
             bool entities = (setupFlags & DfDrawEntities) != 0;
             bool reflection = (setupFlags & DfRenderReflection) != 0;
-            b.BuildWorldLists(entities, forceLeaf, true, false, reflection ? waterHeight : null, OpacityFactor());
+            b.BuildWorldLists(entities, forceLeaf, CvBool(_cv.RWorldlistcache), false, reflection ? waterHeight : null, OpacityFactor());
             b.Op(RenderOpKind.PruneWorldList);
             if (entities)
                 BuildRenderables(savedViewId, view);
@@ -788,7 +785,7 @@ public static class RenderPlanner
             b.FrameBufferCopyPush(_in.DxLevel >= 80);
 
             b.ViewScene(draw);
-            bool opaqueWorld = CvBool(_in, RenderCvar.r_drawopaqueworld);
+            bool opaqueWorld = CvBool(_cv.RDrawopaqueworld);
             if ((draw & DfDrawEntities) != 0)
             {
                 b.DrawWorld(waterZAdjust, draw, opaqueWorld);
@@ -825,7 +822,7 @@ public static class RenderPlanner
                 waterHeight -= spread;
 
             int clipMode = HeightClipDisable;
-            if ((draw & DfClipZ) != 0 && CvBool(_in, RenderCvar.mat_clipz))
+            if ((draw & DfClipZ) != 0 && CvBool(_cv.MatClipz))
                 clipMode = (draw & DfClipBelow) != 0 ? HeightClipRenderAboveHeight : HeightClipRenderBelowHeight;
 
             if ((draw & DfRenderRefraction) != 0)
@@ -840,7 +837,7 @@ public static class RenderPlanner
             if ((draw & DfRenderReflection) != 0)
             {
                 b.SetFogZ(waterHeight);
-                float eps = Cv(_in, RenderCvar.r_eyewaterepsilon);
+                float eps = Cv(_cv.REyewaterepsilon);
                 if (_in.UseFastClipping != 0 && self.Origin.Z > waterHeight - eps)
                     waterHeight = self.Origin.Z + eps;
                 b.SetHeightClipZ(waterHeight);
@@ -867,7 +864,7 @@ public static class RenderPlanner
             if (!softwareClip)
                 return;
             float delta = view.Origin.Z - _in.WaterHeight;
-            float eps = Cv(_in, RenderCvar.r_eyewaterepsilon);
+            float eps = Cv(_cv.REyewaterepsilon);
             if (MathF.Abs(delta) < eps)
             {
                 newWaterHeight = delta > 0 ? view.Origin.Z - eps : view.Origin.Z + eps;
@@ -1083,11 +1080,11 @@ public static class RenderPlanner
         {
             if (!drawViewModel)
                 return false;
-            if (!CvBool(_in, RenderCvar.r_drawviewmodel))
+            if (!CvBool(_cv.RDrawviewmodel))
                 return false;
             if (_in.ThirdPersonSeesOwner != 0)
                 return false;
-            if (!CvBool(_in, RenderCvar.r_drawentities))
+            if (!CvBool(_cv.RDrawentities))
                 return false;
             if (_in.ViewEntity > _in.MaxClients)
                 return false;
@@ -1099,10 +1096,10 @@ public static class RenderPlanner
         // ---------------------------------------------------------------------
         private void EnableWorldFog(Vector currentViewAngles)
         {
-            if (FogMath.FogEnable(_in))
+            if (FogMath.FogEnable(_in, _cv))
             {
-                Vector color = FogMath.FogColor(_in, FogMath.Forward(currentViewAngles));
-                b.FogLinear(color, FogMath.FogStart(_in), FogMath.FogEnd(_in), FogMath.FogMaxDensity(_in), FogMath.FogRadial(_in));
+                Vector color = FogMath.FogColor(_in, _cv, FogMath.Forward(currentViewAngles));
+                b.FogLinear(color, FogMath.FogStart(_in, _cv), FogMath.FogEnd(_in, _cv), FogMath.FogMaxDensity(_in, _cv), FogMath.FogRadial(_in, _cv));
             }
             else
             {
@@ -1115,14 +1112,14 @@ public static class RenderPlanner
         {
             if (_in.SkyPresent == 0)
                 return;
-            if (FogMath.SkyFogEnable(_in))
+            if (FogMath.SkyFogEnable(_in, _cv))
             {
-                Vector color = FogMath.SkyFogColor(_in, FogMath.Forward(skyAngles));
+                Vector color = FogMath.SkyFogColor(_in, _cv, FogMath.Forward(skyAngles));
                 float scale = 1.0f;
                 if (_in.SkyScale > 0)
                     scale = 1.0f / _in.SkyScale;
-                b.FogLinear(color, FogMath.SkyFogStart(_in) * scale, FogMath.SkyFogEnd(_in) * scale,
-                            FogMath.SkyFogMaxDensity(_in), FogMath.SkyFogRadial(_in));
+                b.FogLinear(color, FogMath.SkyFogStart(_in, _cv) * scale, FogMath.SkyFogEnd(_in, _cv) * scale,
+                            FogMath.SkyFogMaxDensity(_in, _cv), FogMath.SkyFogRadial(_in, _cv));
             }
             else
             {

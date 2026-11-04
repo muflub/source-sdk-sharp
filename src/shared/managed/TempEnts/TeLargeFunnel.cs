@@ -44,7 +44,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeLargeFunnel : TeParticleSystem
+public partial class TeLargeFunnel : TeParticleSystem
 {
     /// <summary>The sprite the funnel is made of. <c>SP_MODEL_INDEX_BITS</c>, flags zero.</summary>
     [TeProp(BitsFrom = TeBits.ModelIndex)]

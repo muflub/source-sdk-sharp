@@ -35,10 +35,10 @@ public class PropShotTests
         // exist and are the ones a driver can rely on.
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics");
+        command.RunLine("prop_physics");
         var firstOrigin = engine.Calls.Last(c => c.Member == "Entities.Teleport").ArgAs<Vector>(1);
 
-        command.Execute("prop_physics_multiplayer");
+        command.RunLine("prop_physics_multiplayer");
         var secondOrigin = engine.Calls.Last(c => c.Member == "Entities.Teleport").ArgAs<Vector>(1);
 
         Assert.Equal(PropShot.Origin, firstOrigin);
@@ -54,7 +54,7 @@ public class PropShotTests
         // different reason.
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics");
+        command.RunLine("prop_physics");
 
         int model = engine.Calls.ToList().FindIndex(
             c => c.Member == "Entities.SetKeyValue" && c.ArgAs<string>(1) == "model");
@@ -74,7 +74,7 @@ public class PropShotTests
         // renderings.
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics");
+        command.RunLine("prop_physics");
 
         var calls = engine.Calls.ToList();
         int spawn = calls.FindIndex(c => c.Member == "Entities.Spawn");
@@ -90,7 +90,7 @@ public class PropShotTests
         // different height in every frame.
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics_multiplayer");
+        command.RunLine("prop_physics_multiplayer");
 
         var calls = engine.Calls.ToList();
         int motion = calls.FindIndex(
@@ -110,7 +110,7 @@ public class PropShotTests
         var (command, engine) = Probe();
         engine.Returns("Entities.Named", new List<EntityHandle> { new(0x3001) });
 
-        command.Execute("prop_physics");
+        command.RunLine("prop_physics");
 
         var calls = engine.Calls.ToList();
         int removed = calls.FindIndex(c => c.Member == "Entities.Remove");
@@ -126,7 +126,7 @@ public class PropShotTests
         var (command, engine) = Probe();
         engine.Returns("Entities.Named", new List<EntityHandle> { new(0x3001) });
 
-        command.Execute("clear");
+        command.RunLine("clear");
 
         Assert.True(engine.Called("Entities.Remove"), "clear removes the placed prop");
         Assert.False(engine.Called("Entities.Create"), "clear places nothing");
@@ -138,7 +138,7 @@ public class PropShotTests
         var (_, engine) = Probe();
         var command = new PropShotCommand(new RecordingLog(), engine, engine, engine);
 
-        command.Execute("   ");
+        command.RunLine("   ");
 
         Assert.False(engine.Called("Entities.Create"), "a blank argument creates nothing");
     }
@@ -160,7 +160,7 @@ public class PropShotTests
     {
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics");
+        command.RunLine("prop_physics");
 
         var angles = engine.Calls.Last(c => c.Member == "Entities.Teleport").ArgAs<Vector>(2);
 
@@ -176,7 +176,7 @@ public class PropShotTests
         // spawned at one angle and photographed at another.
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics 45");
+        command.RunLine("prop_physics 45");
 
         var set = engine.Calls.Last(c => c.Member == "Entities.SetAngles").ArgAs<Vector>(1);
         var teleported = engine.Calls.Last(c => c.Member == "Entities.Teleport").ArgAs<Vector>(2);
@@ -195,7 +195,7 @@ public class PropShotTests
         // refuse to place one either.
         var (command, engine) = Probe();
 
-        command.Execute("prop_physics sideways");
+        command.RunLine("prop_physics sideways");
 
         var angles = engine.Calls.Last(c => c.Member == "Entities.Teleport").ArgAs<Vector>(2);
 
@@ -208,7 +208,7 @@ public class PropShotTests
     {
         var (command, engine) = Probe();
 
-        command.Execute("  prop_physics_multiplayer   45  ");
+        command.RunLine("  prop_physics_multiplayer   45  ");
 
         Assert.Equal("prop_physics_multiplayer",
             engine.Calls.Last(c => c.Member == "Entities.Create").ArgAs<string>(0));
@@ -220,7 +220,7 @@ public class PropShotTests
         var (command, engine) = Probe();
         engine.Returns("Entities.Named", new List<EntityHandle> { new(0x3001) });
 
-        command.Execute("clear 45");
+        command.RunLine("clear 45");
 
         Assert.True(engine.Called("Entities.Remove"), "clear removes the placed prop");
         Assert.False(engine.Called("Entities.Create"), "clear places nothing");
@@ -301,7 +301,7 @@ public class PropShotTests
         // gap between the two is the confound.
         var (command, engine) = Probe();
 
-        command.Execute("prop_dynamic 35");
+        command.RunLine("prop_dynamic 35");
 
         var angles = engine.Calls.Last(c => c.Member == "Entities.Teleport").ArgAs<Vector>(2);
 

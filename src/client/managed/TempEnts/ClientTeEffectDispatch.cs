@@ -160,7 +160,7 @@ public sealed class ClientTeEffectDispatch : IClientTempEnt
             return;
         }
 
-        Play(TempEntDeclarationReader.Read<TeEffectDispatch>(in te).EffectData, name);
+        Play(TeEffectDispatch.ReadFrom(in te).EffectData, name);
     }
 
     /// <summary>

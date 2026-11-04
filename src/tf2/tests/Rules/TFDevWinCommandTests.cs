@@ -26,7 +26,7 @@ public sealed class TFDevWinCommandTests
         var (command, rig) = Command();
         rig.Running();
 
-        command.Execute("3");
+        command.RunLine("3");
 
         Assert.Equal(RoundState.TeamWin, rig.Flow.State);
         Assert.Equal(TFTeam.Blue, rig.Flow.WinningTeam);
@@ -38,7 +38,7 @@ public sealed class TFDevWinCommandTests
         var (command, rig) = Command();
         rig.Running();
 
-        command.Execute("0");
+        command.RunLine("0");
 
         Assert.Equal(RoundState.TeamWin, rig.Flow.State);
         Assert.Equal(TFTeam.Unassigned, rig.Flow.WinningTeam);
@@ -50,7 +50,7 @@ public sealed class TFDevWinCommandTests
         var (command, rig) = Command();
         rig.Running();
 
-        command.Execute("");
+        command.RunLine("");
 
         Assert.Equal(RoundState.RoundRunning, rig.Flow.State);
         Assert.Contains(rig.Log.Lines, l => l.Text.Contains("state RoundRunning", StringComparison.Ordinal));
@@ -61,7 +61,7 @@ public sealed class TFDevWinCommandTests
     {
         var log = new SourceSharp.Abi.RecordingLog();
 
-        new TFDevWinCommand(log, new ServiceContainer()).Execute("2");
+        new TFDevWinCommand(log, new ServiceContainer()).RunLine("2");
 
         Assert.Contains(log.Lines, l => l.Warning && l.Text.Contains("not up yet", StringComparison.Ordinal));
     }

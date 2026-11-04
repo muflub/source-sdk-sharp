@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Effects;
@@ -15,8 +16,10 @@ namespace SourceSharp.Client.Effects;
 /// executor's id and the index of the material (the executor channel) it was
 /// spawned with.
 /// </summary>
-public struct SimpleParticle
+public struct SimpleParticle : IParticlePlace
 {
+    readonly Vector IParticlePlace.Place => Position;
+
     public int Id;
     public int Material;
     public Vector Position;
@@ -146,6 +149,9 @@ public sealed class SimpleEmitter(SimpleEmitterRules rules)
     public SimpleEmitterRules Rules { get; } = rules;
 
     public IReadOnlyList<SimpleParticle> Particles => _particles;
+
+    /// <summary><see cref="Particles"/> to walk without an enumerator; good until the next add or remove.</summary>
+    internal ReadOnlySpan<SimpleParticle> ParticleSpan => CollectionsMarshal.AsSpan(_particles);
 
     /// <summary><c>AddParticle</c>: linked at the head.</summary>
     public void Add(in SimpleParticle p) => _particles.Insert(0, p);

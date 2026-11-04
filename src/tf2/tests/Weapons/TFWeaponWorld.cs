@@ -70,6 +70,7 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public readonly List<(int Projectiles, bool Critical)> Sweeps = new();
     public readonly List<int> Rings = new();
     public int RearmedCount;
+    public int TracerCount;
     public readonly List<string> Speeches = new();
     public int SceneClears;
     public readonly List<string> Firings = new();
@@ -91,6 +92,7 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) => Sweeps.Add((projectiles, critical));
     public void RingOfFire(in WeaponAttackContext attack, int damage) => Rings.Add(damage);
     public void Rearmed(in WeaponAttackContext attack) => RearmedCount++;
+    public void Tracer(in WeaponAttackContext attack, TFWeaponScript script) => TracerCount++;
     public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) => Speeches.Add(concept);
     public void ClearWeaponFireScene(in WeaponAttackContext attack) => SceneClears++;
     public void FiringSpeech(in WeaponAttackContext attack) => Firings.Add("TLK_MINIGUN_FIREWEAPON");

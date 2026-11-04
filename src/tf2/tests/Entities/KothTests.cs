@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Entities;
+using TF2.Server.Objectives;
 using TF2.Server.Rules;
 using TF2.Shared;
 
@@ -253,5 +254,96 @@ public sealed class KothTests
         rig.Registry.Input(logic.Handle, "AddBlueTimer", string.Empty, 30f, EntityHandle.None);
 
         Assert.Equal(130f, rig.Koth.KothTeamTimer(TFTeam.Blue)!.TimeRemaining);
+    }
+
+    // ---- the feed's koth rows ------------------------------------------------------
+
+    /// <summary>The chain, in the order the sources were handed in (as <c>Hooks&lt;T&gt;</c> keeps them).</summary>
+    private sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class
+    {
+        public IReadOnlyList<T> All => hooks;
+
+        public void Each(string what, Action<T> call)
+        {
+            foreach (var each in hooks)
+                call(each);
+        }
+    }
+
+    /// <summary>The koth feed over a rig: one chain member, the real directory and rules.</summary>
+    private static TFObjectives KothFeed(ObjectiveRig rig)
+        => new(new ListHooks<ITFObjectiveSource>(new TF2KothObjectiveSource(rig.Registry, rig.Engine, rig.Koth, rig.Objectives, rig.Clock)));
+
+    private static TFObjective KothRecord(TFObjectives feed)
+    {
+        foreach (TFObjective record in feed.All)
+        {
+            if (record.Kind == TFObjectiveKind.KothPoint)
+                return record;
+        }
+
+        throw new InvalidOperationException("no KothPoint record in the feed");
+    }
+
+    /// <summary>
+    /// The koth point is Locked until its unlock time runs out — Locked and
+    /// both teams alike, with the seconds left on the unlock showing as
+    /// UnlockIn — and once the holder's unlock think has passed, the point
+    /// stands open.
+    /// </summary>
+    [Fact]
+    public void TheKothPointIsLockedUntilItsUnlockTime()
+    {
+        var (rig, _, point, _) = KothMap(("unlock_point", "30"));
+
+        var feed = KothFeed(rig);
+        feed.Refresh();
+
+        TFObjective locked = KothRecord(feed);
+        Assert.Equal(TFObjectiveState.Locked, locked.State);
+        Assert.Equal(TFTeam.Unassigned, locked.MayAct);
+        Assert.Equal(30f, locked.UnlockIn);
+
+        rig.Clock.Now = 31f;
+        point.UnlockThink();
+        feed.Refresh();
+
+        TFObjective open = KothRecord(feed);
+        Assert.Equal(TFObjectiveState.Open, open.State);
+        Assert.Equal(0f, open.UnlockIn);
+    }
+
+    /// <summary>
+    /// While red holds the one point its own team timer answers the row's
+    /// TimerLeft: the timer falling moves red's last-progress tick and no
+    /// other team's.
+    /// </summary>
+    [Fact]
+    public void TheOwnersTimerLeftFallsWhileItHolds()
+    {
+        var (rig, _, point, _) = KothMap();
+
+        var feed = KothFeed(rig);
+        feed.Refresh();
+        Assert.Equal(0, feed.LastProgressTick(TFTeam.Red));
+
+        point.ForceOwner((int)TFTeam.Red);
+        rig.Clock.Now = 31f;
+        point.UnlockThink();
+        feed.Refresh();
+
+        TFObjective holding = KothRecord(feed);
+        Assert.Equal(TFTeam.Red, holding.Owner);
+        Assert.Equal(180f, holding.TimerLeft);
+        int redTick = feed.LastProgressTick(TFTeam.Red);
+        Assert.True(redTick > feed.LastProgressTick(TFTeam.Blue));
+
+        rig.Koth.KothTeamTimer(TFTeam.Red)!.SetTimeRemaining(60);
+        feed.Refresh();
+
+        TFObjective held = KothRecord(feed);
+        Assert.Equal(60f, held.TimerLeft);
+        Assert.True(feed.LastProgressTick(TFTeam.Red) > redTick);
+        Assert.Equal(0, feed.LastProgressTick(TFTeam.Blue));
     }
 }

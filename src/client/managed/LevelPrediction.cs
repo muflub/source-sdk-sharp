@@ -30,7 +30,7 @@ namespace SourceSharp.Client;
 /// the same way.
 /// </para>
 /// </summary>
-public sealed class LevelPrediction(Func<int> maxClients, Func<string, string?> readConVar, IClientPredictCommand command)
+public sealed class LevelPrediction(Func<int> maxClients, ClPredictConVar predict, SvClientPredictConVar serverPredict, IClientPredictCommand command)
 {
     /// <summary>
     /// The switch a level needs: true to turn prediction on, false to turn it
@@ -54,14 +54,12 @@ public sealed class LevelPrediction(Func<int> maxClients, Func<string, string?> 
     /// <returns>The switch queued, or null for none.</returns>
     public bool? LevelInitPreEntity()
     {
-        if (Read("cl_predict") is not float client)
+        if (!predict.HasValue)
             return null;
-        float predict = BoundedConVarRules.Predict(client, Read("sv_client_predict") is float server ? (int)server : null);
-        bool? wanted = Switch(maxClients(), predict);
+        float bounded = BoundedConVarRules.Predict(predict.Value, serverPredict.HasValue ? (int)serverPredict.Value : null);
+        bool? wanted = Switch(maxClients(), bounded);
         if (wanted is bool on)
             command.SetPredict(on);
         return wanted;
     }
-
-    private float? Read(string name) => readConVar(name) is string v ? VariantParse.Atof(v) : null;
 }

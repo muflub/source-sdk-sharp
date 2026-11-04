@@ -185,7 +185,7 @@ public sealed class ClientSkybox
 [ConCommand("cs_cl_skybox",
             Help = "Whether the viewer's 3D skybox is reaching this client: passes, "
                  + "pushes, clears, and whether a viewer was found.")]
-public sealed class ClientSkyboxReportCommand : IConCommand
+public sealed class ClientSkyboxReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -202,7 +202,7 @@ public sealed class ClientSkyboxReportCommand : IConCommand
         _sky = sky;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         ClientSkybox? sky = _sky;
 

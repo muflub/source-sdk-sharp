@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ropes;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Beams;
 
@@ -109,7 +110,9 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private readonly Standalone.IViewModelAttachmentFormat _viewModels;
     private readonly IPixelVisibility _pixelVis;
     private readonly IGameClock _clock;
-    private readonly IEngineConsole _console;
+    private readonly RDrawBeamsConVar _drawBeamsConVar;
+    private readonly SvCheatsConVar _cheats;
+    private readonly MatWireframeConVar _wireframeConVar;
     private readonly ILog _log;
     private readonly World _world;
     private readonly Sink _sink;
@@ -125,14 +128,17 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     private BeamSystem _system;
     private long _created, _refused, _updates, _draws;
 
-    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, IEngineConsole console, ILog log, IPixelVisibility pixelVis,
+    public ClientBeamSystem(IClientBeamExecutor executor, IGameClock clock, RDrawBeamsConVar drawBeams, SvCheatsConVar cheats,
+                            MatWireframeConVar wireframe, ILog log, IPixelVisibility pixelVis,
                             Standalone.IViewModelAttachmentFormat viewModels)
     {
         _viewModels = viewModels;
         _executor = executor;
         _pixelVis = pixelVis;
         _clock = clock;
-        _console = console;
+        _drawBeamsConVar = drawBeams;
+        _cheats = cheats;
+        _wireframeConVar = wireframe;
         _log = log;
         _world = new World(this);
         _sink = new Sink(executor);
@@ -252,7 +258,7 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     // when it does not answer.
     private int _drawBeams = 1;
 
-    private int DrawBeams() => _console.FindConVarValue("r_DrawBeams") is { } v ? Int(v) : 1;
+    private int DrawBeams() => _drawBeamsConVar.Value;
 
     // Draw_SetSpriteTexture's wireframe arm: ShouldDrawInWireFrameMode() (sv_cheats
     // and mat_wireframe) or r_DrawBeams 2. Read once a frame, not per sprite.
@@ -262,7 +268,7 @@ public sealed class ClientBeamSystem : IClientBeams, IClientBeamCallbacks, IRelo
     {
         if (_drawBeams == 2)
             return true;
-        return Int(_console.FindConVarValue("sv_cheats")) != 0 && Int(_console.FindConVarValue("mat_wireframe")) != 0;
+        return _cheats.Value && _wireframeConVar.Value != 0;
     }
 
     private static int Int(string? value)

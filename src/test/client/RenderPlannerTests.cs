@@ -40,28 +40,34 @@ public class RenderPlannerTests
             ReflectionWidth = 512, ReflectionHeight = 512, RefractionWidth = 512, RefractionHeight = 512,
             ViewEntity = 1,
         };
-        foreach (RenderCvar c in Enum.GetValues<RenderCvar>())
-            if (c != RenderCvar.Count)
-                input.SetCvar(c, 0f);
-        foreach (RenderCvar c in new[] { RenderCvar.r_skybox, RenderCvar.r_3dsky, RenderCvar.mat_drawwater, RenderCvar.r_WaterDrawReflection,
-                                         RenderCvar.r_WaterDrawRefraction, RenderCvar.r_ForceWaterLeaf, RenderCvar.mat_clipz,
-                                         RenderCvar.r_drawviewmodel, RenderCvar.r_drawentities, RenderCvar.mat_viewportscale,
-                                         RenderCvar.r_drawopaqueworld, RenderCvar.r_drawopaquerenderables, RenderCvar.r_drawtranslucentrenderables,
-                                         RenderCvar.r_drawtranslucentworld, RenderCvar.r_entityclips, RenderCvar.r_DrawDetailProps,
-                                         RenderCvar.r_worldlistcache })
-            input.SetCvar(c, 1f);
-        input.SetCvar(RenderCvar.r_eyewaterepsilon, 10f);
-        foreach (RenderCvar c in new[] { RenderCvar.fog_color_r, RenderCvar.fog_color_g, RenderCvar.fog_color_b,
-                                         RenderCvar.fog_colorskybox_r, RenderCvar.fog_colorskybox_g, RenderCvar.fog_colorskybox_b,
-                                         RenderCvar.fog_start, RenderCvar.fog_end, RenderCvar.fog_enable })
-            input.SetCvar(c, -1f);
         return input;
     }
 
-    // RenderInputs is a struct: the edit works on a box and is copied back.
-    private static RenderInputs With(Func<RenderInputs, RenderInputs> edit) => edit(Inputs());
+    /// <summary>What <see cref="Inputs"/>' frame reads of the console.</summary>
+    internal static RenderConVars ConVars()
+    {
+        var cv = RenderConVarsKit.Zeroed<RenderConVars>();
+        foreach (string name in new[] { "r_skybox", "r_3dsky", "mat_drawwater", "r_WaterDrawReflection",
+                                        "r_WaterDrawRefraction", "r_ForceWaterLeaf", "mat_clipz",
+                                        "r_drawviewmodel", "r_drawentities", "mat_viewportscale",
+                                        "r_drawopaqueworld", "r_drawopaquerenderables", "r_drawtranslucentrenderables",
+                                        "r_drawtranslucentworld", "r_entityclips", "r_DrawDetailProps",
+                                        "r_worldlistcache" })
+            cv.Set(name, 1f);
+        cv.Set("r_eyewaterepsilon", 10f);
+        cv.SetText("fog_color", "-1 -1 -1");
+        cv.SetText("fog_colorskybox", "-1 -1 -1");
+        foreach (string name in new[] { "fog_start", "fog_end", "fog_enable" })
+            cv.Set(name, -1f);
+        return cv;
+    }
 
-    private static RenderInputs Water(RenderInputs input, bool eyeIn = false)
+    private readonly RenderConVars _cv = ConVars();
+
+    // RenderInputs is a struct: the edit works on a box and is copied back.
+    private RenderInputs With(Func<RenderInputs, RenderInputs> edit) => edit(Inputs());
+
+    private RenderInputs Water(RenderInputs input, bool eyeIn = false)
     {
         input.FogVolume = 3;
         input.FogVolumeLeaf = 12;
@@ -77,14 +83,14 @@ public class RenderPlannerTests
         return input;
     }
 
-    private static List<RenderOp> Plan(in RenderInputs input)
+    private List<RenderOp> Plan(in RenderInputs input)
     {
-        RenderOp[]? plan = RenderPlanner.Plan(input);
+        RenderOp[]? plan = RenderPlanner.Plan(input, _cv);
         Assert.NotNull(plan);
         return [.. plan!];
     }
 
-    private static List<RenderOp> Pushes(List<RenderOp> ops, RenderTarget target)
+    private List<RenderOp> Pushes(List<RenderOp> ops, RenderTarget target)
         => ops.Where(o => o.Kind == (int)RenderOpKind.Push3DView && o.GetI(1) == (int)target).ToList();
 
     [Fact]
@@ -179,7 +185,7 @@ public class RenderPlannerTests
     public void TheViewmodelSwitchFollowsRDrawviewmodelAndTheThirdPersonCamera()
     {
         Assert.Equal(1, Plan(Inputs()).Single(o => o.Kind == (int)RenderOpKind.ViewModels).GetI(0));
-        Assert.Equal(0, Plan(With(i => { i.SetCvar(RenderCvar.r_drawviewmodel, 0); return i; }))
+        Assert.Equal(0, Plan(With(i => { _cv.Set("r_drawviewmodel", 0); return i; }))
                             .Single(o => o.Kind == (int)RenderOpKind.ViewModels).GetI(0));
         Assert.Equal(0, Plan(With(i => { i.ThirdPersonSeesOwner = 1; return i; }))
                             .Single(o => o.Kind == (int)RenderOpKind.ViewModels).GetI(0));
@@ -265,10 +271,10 @@ public class RenderPlannerTests
         Origin = new Vector(100, 200, 64), Angles = new Vector(30, 45, 0),
     };
 
-    private static List<RenderOp> ShadowPlan(in RenderInputs input)
+    private List<RenderOp> ShadowPlan(in RenderInputs input)
     {
         var b = new RenderPlanBuilder();
-        RenderPlanner.PlanShadowDepthView(input, ShadowView(), b);
+        RenderPlanner.PlanShadowDepthView(input, _cv, ShadowView(), b);
         return [.. b.Span.ToArray()];
     }
 
@@ -303,7 +309,7 @@ public class RenderPlannerTests
     [Fact]
     public void AShadowDepthViewBuildsShadowDepthLists()
     {
-        var ops = ShadowPlan(With(i => { i.SetCvar(RenderCvar.cl_maxrenderable_dist, 3000f); return i; }));
+        var ops = ShadowPlan(With(i => { _cv.Set("cl_maxrenderable_dist", 3000f); return i; }));
         var world = ops.Single(o => o.Kind == (int)RenderOpKind.BuildWorldLists);
         Assert.Equal([1, -1, 1, 1, 0], Enumerable.Range(0, 5).Select(k => world.GetI(k)));
         var renderables = ops.Single(o => o.Kind == (int)RenderOpKind.BuildRenderables);
@@ -326,7 +332,7 @@ public class RenderPlannerTests
         Assert.Equal(draw, ops.Single(o => o.Kind == (int)RenderOpKind.WorldViewBegin).GetI(0));
         Assert.DoesNotContain(ops, o => o.Kind is (int)RenderOpKind.DrawTranslucent or (int)RenderOpKind.DrawNoZTranslucent);
         Assert.Contains(ops, o => o.Kind == (int)RenderOpKind.DrawWorld);
-        Assert.DoesNotContain(ShadowPlan(With(i => { i.SetCvar(RenderCvar.r_drawopaqueworld, 0); return i; })),
+        Assert.DoesNotContain(ShadowPlan(With(i => { _cv.Set("r_drawopaqueworld", 0); return i; })),
                               o => o.Kind == (int)RenderOpKind.DrawWorld);
     }
 
@@ -336,7 +342,7 @@ public class RenderPlannerTests
     {
         var ops = ShadowPlan(Inputs()).ToArray();
         int scene = Array.FindIndex(ops, o => o.Kind == (int)RenderOpKind.ViewScene);
-        var context = ViewDrawProgram.ContextOf(ops, scene, Inputs());
+        var context = ViewDrawProgram.ContextOf(ops, scene, Inputs(), _cv);
         Assert.NotNull(context);
         var only = Assert.Single(context!.Draws);
         Assert.Equal(RenderOpKind.DrawOpaque, only.Kind);
@@ -383,7 +389,7 @@ public class RenderPlannerTests
         // CViewRender::RenderView: DrawMonitors before SceneBegin;
         // DrawOneMonitor: Push3DView( clear depth|colour, the target ),
         // ViewDrawScene( 2D sky, VIEW_MONITOR ), PopView.
-        var ops = RenderPlanner.Plan(Inputs(), [Monitor()])!.ToList();
+        var ops = RenderPlanner.Plan(Inputs(), _cv, [Monitor()])!.ToList();
         int push = ops.FindIndex(o => o.Kind == (int)RenderOpKind.Push3DView && o.GetI(1) == (int)RenderTarget.ViewTarget0);
         int scene = ops.FindIndex(o => o.Kind == (int)RenderOpKind.SceneBegin);
         Assert.True(push >= 0 && push < scene, $"the monitor {push}, the scene {scene}");
@@ -400,18 +406,18 @@ public class RenderPlannerTests
     [Fact]
     public void AMonitorThatSeesTheViewerBracketsItsPass()
     {
-        var ops = RenderPlanner.Plan(Inputs(), [Monitor(viewer: true)])!.ToList();
+        var ops = RenderPlanner.Plan(Inputs(), _cv, [Monitor(viewer: true)])!.ToList();
         int begin = ops.FindIndex(o => o.Kind == (int)RenderOpKind.ViewerSeenBegin);
         int push = ops.FindIndex(o => o.Kind == (int)RenderOpKind.Push3DView && o.GetI(1) == (int)RenderTarget.ViewTarget0);
         int end = ops.FindIndex(o => o.Kind == (int)RenderOpKind.ViewerSeenEnd);
         Assert.True(begin >= 0 && begin < push && push < end, $"{begin} {push} {end}");
-        Assert.DoesNotContain(RenderPlanner.Plan(Inputs(), [Monitor()])!, o => o.Kind == (int)RenderOpKind.ViewerSeenBegin);
+        Assert.DoesNotContain(RenderPlanner.Plan(Inputs(), _cv, [Monitor()])!, o => o.Kind == (int)RenderOpKind.ViewerSeenBegin);
     }
 
     [Fact]
     public void BelowDX7NoMonitorIsDrawn()
     {
-        var ops = RenderPlanner.Plan(With(i => { i.DxLevel = 60; return i; }), [Monitor()])!;
+        var ops = RenderPlanner.Plan(With(i => { i.DxLevel = 60; return i; }), _cv, [Monitor()])!;
         Assert.DoesNotContain(ops, o => o.Kind == (int)RenderOpKind.ViewTargetDrawn);
     }
 
@@ -420,7 +426,7 @@ public class RenderPlannerTests
     {
         // The frame's water inputs are the main eye's; the monitor's own fog
         // volume is not asked, so it draws dry rather than with the eye's.
-        var ops = RenderPlanner.Plan(With(i => Water(i, eyeIn: true)), [Monitor()])!.ToList();
+        var ops = RenderPlanner.Plan(With(i => Water(i, eyeIn: true)), _cv, [Monitor()])!.ToList();
         int scene = ops.FindIndex(o => o.Kind == (int)RenderOpKind.SceneBegin);
         Assert.DoesNotContain(ops.Take(scene), o => o.Kind == (int)RenderOpKind.FogVolumeState);
         Assert.Contains(ops.Skip(scene), o => o.Kind == (int)RenderOpKind.FogVolumeState);
@@ -429,7 +435,7 @@ public class RenderPlannerTests
     [Fact]
     public void TheHostQueuesAMonitorForTheOneTargetAndForOneFrame()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(_cv);
         var setup = new ViewTargetSetup { Width = 64, Height = 64, Fov = 90, ZNear = 4, ZFar = 100 };
         Assert.True(host.QueueMonitor(0, setup));
         Assert.False(host.QueueMonitor(1, setup));
@@ -443,16 +449,16 @@ public class RenderPlannerTests
 
     private static readonly DebugOverlayMaterials Materials = new(11, 12, 13, 14, 15, 16, 17, 18, true);
 
-    private static List<RenderOp> PlanWithDebug(Func<RenderInputs, RenderInputs> edit, DebugOverlayMaterials? materials = null)
+    private List<RenderOp> PlanWithDebug(Func<RenderInputs, RenderInputs> edit, DebugOverlayMaterials? materials = null)
     {
         var b = new RenderPlanBuilder();
-        Assert.True(RenderPlanner.Plan(With(edit), b, default, materials ?? Materials));
+        Assert.True(RenderPlanner.Plan(With(edit), _cv, b, default, materials ?? Materials));
         return [.. b.Ops];
     }
 
-    private static RenderInputs Debug(RenderInputs i)
+    private RenderInputs Debug(RenderInputs i)
     {
-        i.SetCvar(RenderCvar.mat_showlightmappage, -1);
+        _cv.Set("mat_showlightmappage", -1);
         return i;
     }
 
@@ -468,7 +474,7 @@ public class RenderPlannerTests
     [Fact]
     public void TheWaterTexturesAreTheReflectionThenTheFlippedRefractionAtTheOverlaySize()
     {
-        var ops = PlanWithDebug(i => { i = Debug(i); i.SetCvar(RenderCvar.mat_showwatertextures, 1); i.SetCvar(RenderCvar.mat_wateroverlaysize, 256); return i; },
+        var ops = PlanWithDebug(i => { i = Debug(i); _cv.Set("mat_showwatertextures", 1); _cv.Set("mat_wateroverlaysize", 256); return i; },
                                 Materials with { DrawMaterial = 0 });
         var quads = ops.Where(o => o.Kind == (int)RenderOpKind.DebugQuad).ToList();
         Assert.Equal(2, quads.Count);
@@ -483,17 +489,17 @@ public class RenderPlannerTests
     [Fact]
     public void YuvAndHsvNeedTheirDxLevels()
     {
-        var at80 = PlanWithDebug(i => { i = Debug(i); i.DxLevel = 80; i.SetCvar(RenderCvar.mat_yuv, 1); i.SetCvar(RenderCvar.mat_hsv, 1); return i; });
+        var at80 = PlanWithDebug(i => { i = Debug(i); i.DxLevel = 80; _cv.Set("mat_yuv", 1); _cv.Set("mat_hsv", 1); return i; });
         Assert.Single(at80, o => o.Kind == (int)RenderOpKind.DebugScreenMaterial);
         Assert.Equal(11, at80.Single(o => o.Kind == (int)RenderOpKind.DebugScreenMaterial).GetI(0));
-        var at90 = PlanWithDebug(i => { i = Debug(i); i.DxLevel = 90; i.SetCvar(RenderCvar.mat_yuv, 1); i.SetCvar(RenderCvar.mat_hsv, 1); return i; });
+        var at90 = PlanWithDebug(i => { i = Debug(i); i.DxLevel = 90; _cv.Set("mat_yuv", 1); _cv.Set("mat_hsv", 1); return i; });
         Assert.Equal(2, at90.Count(o => o.Kind == (int)RenderOpKind.DebugScreenMaterial));
     }
 
     [Fact]
     public void TheFrameBufferTexturesDrawSideBySideIntoTheDefaultTarget()
     {
-        var ops = PlanWithDebug(i => { i = Debug(i); i.SetCvar(RenderCvar.mat_showframebuffertexture, 1); i.SetCvar(RenderCvar.mat_framebuffercopyoverlaysize, 128); return i; });
+        var ops = PlanWithDebug(i => { i = Debug(i); _cv.Set("mat_showframebuffertexture", 1); _cv.Set("mat_framebuffercopyoverlaysize", 128); return i; });
         int push = ops.FindIndex(o => o.Kind == (int)RenderOpKind.PushDefaultTarget);
         int pop = ops.FindIndex(o => o.Kind == (int)RenderOpKind.PopRenderTargetAndViewport);
         var quads = ops.Skip(push).Take(pop - push).Where(o => o.Kind == (int)RenderOpKind.DebugQuad).ToList();
@@ -507,13 +513,13 @@ public class RenderPlannerTests
         var ops = PlanWithDebug(i =>
         {
             i = Debug(i);
-            i.SetCvar(RenderCvar.mat_showlightmappage, 2);
-            i.SetCvar(RenderCvar.cl_drawshadowtexture, 1);
-            i.SetCvar(RenderCvar.cl_shadowtextureoverlaysize, 300);
-            i.SetCvar(RenderCvar.mat_showcamerarendertarget, 1);
-            i.SetCvar(RenderCvar.mat_wateroverlaysize, 64);
-            i.SetCvar(RenderCvar.mat_drawTextureScale, 2);
-            i.SetCvar(RenderCvar.r_flashlightdrawdepth, 1);
+            _cv.Set("mat_showlightmappage", 2);
+            _cv.Set("cl_drawshadowtexture", 1);
+            _cv.Set("cl_shadowtextureoverlaysize", 300);
+            _cv.Set("mat_showcamerarendertarget", 1);
+            _cv.Set("mat_wateroverlaysize", 64);
+            _cv.Set("mat_drawTextureScale", 2);
+            _cv.Set("r_flashlightdrawdepth", 1);
             return i;
         });
         Assert.Equal(2, ops.Single(o => o.Kind == (int)RenderOpKind.DebugLightmapPage).GetI(0));
@@ -527,8 +533,8 @@ public class RenderPlannerTests
     [Fact]
     public void TheOverdrawTestIsFortySmokeOverlaysThenAlphaZero()
     {
-        var ops = PlanWithDebug(i => { i = Debug(i); i.SetCvar(RenderCvar.cl_overdraw_test, 1); return i; });
-        var off = PlanWithDebug(i => Debug(i));
+        var ops = PlanWithDebug(i => { i = Debug(i); _cv.Set("cl_overdraw_test", 1); return i; });
+        var off = PlanWithDebug(i => { i = Debug(i); _cv.Set("cl_overdraw_test", 0); return i; });
         // The frame's own smoke-fog overlay is in both.
         Assert.Equal(40, ops.Count(o => o.Kind == (int)RenderOpKind.SmokeFogOverlay) - off.Count(o => o.Kind == (int)RenderOpKind.SmokeFogOverlay));
         var alphas = ops.Where(o => o.Kind == (int)RenderOpKind.SmokeFogOverlayAlpha).Select(o => o.GetF(0)).ToList();
@@ -551,8 +557,8 @@ public class RenderPlannerTests
     }
 
     // C7 step 3 phase 1: the list builds' decisions are the plan's.
-    private static RenderOp MainRenderables(RenderInputs input)
-        => RenderPlanner.Plan(input)!.First(o => o.Kind == (int)RenderOpKind.BuildRenderables && o.GetI(0) == RenderConst.ViewMain);
+    private RenderOp MainRenderables(RenderInputs input)
+        => RenderPlanner.Plan(input, _cv)!.First(o => o.Kind == (int)RenderOpKind.BuildRenderables && o.GetI(0) == RenderConst.ViewMain);
 
     [Fact]
     public void TheRenderablesBuildCarriesSetupRenderablesListsDecisions()
@@ -560,9 +566,9 @@ public class RenderPlannerTests
         RenderOp op = MainRenderables(With(i =>
         {
             i.ClientModeDrawDetail = 1;
-            i.SetCvar(RenderCvar.r_drawentities, 1);
-            i.SetCvar(RenderCvar.r_DrawDetailProps, 1);
-            i.SetCvar(RenderCvar.cl_maxrenderable_dist, 3000);
+            _cv.Set("r_drawentities", 1);
+            _cv.Set("r_DrawDetailProps", 1);
+            _cv.Set("cl_maxrenderable_dist", 3000);
             return i;
         }));
         Assert.Equal([1, 1, 1], new[] { op.GetI(1), op.GetI(2), op.GetI(3) });
@@ -571,8 +577,8 @@ public class RenderPlannerTests
         RenderOp noDetail = MainRenderables(With(i =>
         {
             i.ClientModeDrawDetail = 0;
-            i.SetCvar(RenderCvar.r_drawentities, 1);
-            i.SetCvar(RenderCvar.r_DrawDetailProps, 1);
+            _cv.Set("r_drawentities", 1);
+            _cv.Set("r_DrawDetailProps", 1);
             return i;
         }));
         Assert.Equal(0, noDetail.GetI(2));
@@ -581,16 +587,16 @@ public class RenderPlannerTests
     [Fact]
     public void TheLevelOverviewStopsPropFadeInTheWorldListBuild()
     {
-        RenderOp normal = RenderPlanner.Plan(Inputs())!.First(o => o.Kind == (int)RenderOpKind.BuildWorldLists);
+        RenderOp normal = RenderPlanner.Plan(Inputs(), _cv)!.First(o => o.Kind == (int)RenderOpKind.BuildWorldLists);
         Assert.Equal(1f, normal.GetF(1));
-        RenderOp overview = RenderPlanner.Plan(With(i => { i.SetCvar(RenderCvar.cl_leveloverview, 2); return i; }))!
+        RenderOp overview = RenderPlanner.Plan(With(i => { _cv.Set("cl_leveloverview", 2); return i; }), _cv)!
             .First(o => o.Kind == (int)RenderOpKind.BuildWorldLists);
         Assert.Equal(-1f, overview.GetF(1));
     }
 
     // The glass over 2fort's spawn yard: a floor-parallel brush whose plane
     // faces up, 32 units under the eye at z 64.
-    private static RenderInputs Glass(RenderInputs input)
+    private RenderInputs Glass(RenderInputs input)
     {
         input.GlassInView = 1;
         input.SetGlassPlane(new Vector(0, 0, 1), 32f);
@@ -657,6 +663,44 @@ public class RenderPlannerTests
         Assert.Equal(32.1f, clips[0].GetF(3), 3f);
         Assert.Equal(-1f, clips[1].GetF(2), 3f);
         Assert.Equal(-31.9f, clips[1].GetF(3), 3f);
+    }
+
+    private static bool Pushes(int kind) => kind is (int)RenderOpKind.Push3DView or (int)RenderOpKind.Push2DView
+        or (int)RenderOpKind.PushDefaultTarget or (int)RenderOpKind.PostPushRenderTargetAndViewport
+        or (int)RenderOpKind.PostPushRenderTarget;
+
+    private static bool Pops(int kind) => kind is (int)RenderOpKind.PopView or (int)RenderOpKind.PopRenderTargetAndViewport;
+
+    private static void AssertRenderTargetStackBalances(string path, List<RenderOp> ops)
+    {
+        int depth = 0;
+        foreach (RenderOp op in ops)
+        {
+            depth += Pushes(op.Kind) ? 1 : Pops(op.Kind) ? -1 : 0;
+            Assert.True(depth >= 0, $"{path}: a pop below where the plan started");
+        }
+        Assert.Equal(0, depth);
+        Assert.Contains(ops, o => Pushes(o.Kind));
+    }
+
+    // Each arm of CViewRender::RenderView, including the two the freeze frame takes.
+    [Fact]
+    public void EveryPathThroughAFramePopsWhatItPushes()
+    {
+        AssertRenderTargetStackBalances("a plain frame", Plan(Inputs()));
+        AssertRenderTargetStackBalances("no hud, no viewmodel", Plan(With(i => { i.WhatToDraw = 0; return i; })));
+        AssertRenderTargetStackBalances("a shown freeze frame", Plan(With(i => { i.FreezeActive = 1; return i; })));
+        AssertRenderTargetStackBalances("a freeze capture", Plan(With(i => { i.FreezeActive = 1; i.FreezeTake = 1; return i; })));
+        AssertRenderTargetStackBalances("water, above", Plan(With(i => Water(i))));
+        AssertRenderTargetStackBalances("water, in it", Plan(With(i => Water(i, eyeIn: true))));
+        AssertRenderTargetStackBalances("glass", Plan(With(Glass)));
+        AssertRenderTargetStackBalances("a monitor", RenderPlanner.Plan(Inputs(), _cv, [Monitor()])!.ToList());
+        AssertRenderTargetStackBalances("the frame buffer overlay", PlanWithDebug(i =>
+        {
+            i = Debug(i);
+            _cv.Set("mat_showframebuffertexture", 1);
+            return i;
+        }));
     }
 
     [Fact]

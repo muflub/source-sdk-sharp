@@ -235,21 +235,21 @@ public static class BoneSetupAdj
         MstudioBone pbone = pOwnerHdr.Bone(iBone);
 
         // search for bone
-        while (panim is not null && panim.Bone != iBone)
+        while (panim is { } record && record.Bone != iBone)
         {
-            panim = panim.Next();
+            panim = record.Next();
         }
 
         Quaternion boneQuat;
         Vector bonePos;
 
         // look up animation if found, if not, initialize
-        if (panim is not null && seqdesc.Weight(iBone) > 0)
+        if (panim is { } found && seqdesc.Weight(iBone) > 0)
         {
             BoneSetupExtract.CalcBoneQuaternion(
-                iLocalFrame, s, pbone, null, panim, out boneQuat);
+                iLocalFrame, s, pbone, null, found, out boneQuat);
             BoneSetupExtract.CalcBonePosition(
-                iLocalFrame, s, pbone, null, panim, out bonePos);
+                iLocalFrame, s, pbone, null, found, out bonePos);
         }
         else if ((animdesc.Flags & StudioConstants.STUDIO_DELTA) != 0)
         {

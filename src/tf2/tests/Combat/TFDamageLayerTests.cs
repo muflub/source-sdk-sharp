@@ -33,9 +33,9 @@ public sealed class TFDamageLayerTests
     public void The_convars_start_at_stocks_defaults()
     {
         var rig = new CombatRig();
-        Assert.Equal(0.5f, rig.ConVars.Get<TFDamageRangeConVar>()!.Value);
-        Assert.True(rig.ConVars.Get<TFDamageDisableSpreadConVar>()!.Value);
-        Assert.False(rig.ConVars.Get<TFFallDamageDisableSpreadConVar>()!.Value);
+        Assert.Equal(0.5f, rig.ConVars.Declared<TFDamageRangeConVar>().Value);
+        Assert.True(rig.ConVars.Declared<TFDamageDisableSpreadConVar>().Value);
+        Assert.False(rig.ConVars.Declared<TFFallDamageDisableSpreadConVar>().Value);
     }
 
     // ---- the crit, once -----------------------------------------------------
@@ -119,7 +119,7 @@ public sealed class TFDamageLayerTests
 
     private static SsPlayer RigPlayer(CombatRig rig, EntityHandle handle)
     {
-        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid())
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage())
             { Handle = handle };
         player.State.BindLocal();
         return player;

@@ -429,6 +429,7 @@ public static class WeaponAnimNames
         WeaponAnim.SwingHard    => [],
         WeaponAnim.HitLeft      => [],
         WeaponAnim.HitRight     => [],
+        WeaponAnim.Charge       => [],
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -469,6 +470,9 @@ public static class WeaponAnimNames
         WeaponAnim.SwingHard    => new[] { "ACT_VM_SWINGHARD" },
         WeaponAnim.HitLeft      => new[] { "ACT_VM_HITLEFT" },
         WeaponAnim.HitRight     => new[] { "ACT_VM_HITRIGHT" },
+        // The bow's draw: already the role's own act, the table has no row to
+        // add (tf_weapon_compound_bow.cpp:396-399 retags before the table).
+        WeaponAnim.Charge       => new[] { "ACT_ITEM2_VM_CHARGE" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 
@@ -898,7 +902,14 @@ public sealed class WeaponLogic
         }
         else if (effectsLive)
         {
-            _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets),
+            // The row's floored count, scaled once per attack as stock scales
+            // nBulletsPerShot before the loop (tf_fx_shared.cpp:305, :307); the
+            // volley is then the scaled count per shot owed, as stock's loop
+            // bound is. The ask rides beside BulletSpread's and FixedPellets'
+            // on the same call — all three are the shot's own shape.
+            int pellets = behaviour?.ModifyPellets(Context(in type, w, vm, now, effectsLive, command),
+                                                   Math.Max(1, type.Pellets)) ?? Math.Max(1, type.Pellets);
+            _arms.FireBullets(in type, shots * pellets,
                               behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive, command)) ?? type.Spread,
                               shot,
                               behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));

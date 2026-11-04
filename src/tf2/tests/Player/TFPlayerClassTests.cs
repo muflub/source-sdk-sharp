@@ -120,7 +120,10 @@ public sealed class TFPlayerClassTests
         var source = new TFPlayerComponents(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
                                             new TFPlayerConditions(rig.Carriers, rig.Engine),
                                             new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), rig.Engine,
-                                            rig.Schema, new PoollessGiver(), rig.Engine, rig.Engine);
+                                            rig.Schema, new PoollessGiver(), rig.Engine, rig.Engine,
+                                            rig.Engine, rig.Engine,
+                                            new TF2.Shared.TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            new TF2.Server.Combat.TFDamageScopes());
 
         var block = source.Create(PlayerRig.Player).ToList();
 
@@ -130,6 +133,7 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFPlayerConditionTicker>(c),
             c => Assert.IsType<TFBlastJumpState>(c),
             c => Assert.IsType<TFTauntThink>(c),
+            c => Assert.IsType<TFTauntAttack>(c),
             c => Assert.IsType<TFStunStack>(c),
             c => Assert.IsType<TFRespawnOverride>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),

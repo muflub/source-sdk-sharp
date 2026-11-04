@@ -492,3 +492,12 @@ public sealed class ClRumblescaleConVar : InputConVarDeclaration { }
         Flags = ConVarFlags.Archive,
         Help = "Turn on rumble debugging spew")]
 public sealed class ClDebugrumbleConVar : InputConVarDeclaration { }
+
+/// <summary>The third-person camera's convars, as its first phase reads them.</summary>
+public sealed class ThirdPersonIdealConVars(CamIdealpitchConVar pitch, CamIdealyawConVar yaw, CamIdealdistConVar dist,
+                                            CamIdealdistrightConVar distRight, CamIdealdistupConVar distUp, CamCollisionConVar collision)
+{
+    public ThirdPersonIdeal Value => new(VariantParse.Atof(pitch.Value), VariantParse.Atof(yaw.Value), VariantParse.Atof(dist.Value),
+                                         VariantParse.Atof(distRight.Value), VariantParse.Atof(distUp.Value),
+                                         (int)VariantParse.Atof(collision.Value) != 0);
+}

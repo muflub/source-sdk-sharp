@@ -8,6 +8,7 @@
 using System.Globalization;
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 using SourceSharp.Server.Interop;
 
 namespace SourceSharp.Server;
@@ -49,13 +50,13 @@ public interface IPhysicsFrameClock
 }
 
 /// <summary>The engine's clock over its frame area and globals; the wall clock is the process's.</summary>
-public sealed class EnginePhysicsFrameClock(IEngineFrame frame, IEngineEnvironment environment) : IPhysicsFrameClock
+public sealed class EnginePhysicsFrameClock(IEngineFrame frame, IEngineEnvironment environment, IAlternateTicks alternateTicks) : IPhysicsFrameClock
 {
     public float FrameTime => frame.GetFrameTime();
 
     public float TickInterval => environment.Globals.IntervalPerTick;
 
-    public bool AlternateTicks => frame.IsSimulatingOnAlternateTicks();
+    public bool AlternateTicks => alternateTicks.Simulating;
 
     public double Seconds => System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;
 }

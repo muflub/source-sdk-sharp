@@ -32,7 +32,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeShowLine : TeParticleSystem
+public partial class TeShowLine : TeParticleSystem
 {
     /// <summary>The far end. The near end is the base's <c>m_vecOrigin</c>.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

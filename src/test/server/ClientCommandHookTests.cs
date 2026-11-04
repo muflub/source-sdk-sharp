@@ -96,12 +96,12 @@ public class ClientCommandHookTests
 
             var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
             convars.RegisterAll(typeof(GameRules).Assembly);
-            convars.Get<AllowSpectatorsConVar>()!.NotifyChanged("1", "0");   // stock's default
+            convars.Declared<AllowSpectatorsConVar>().NotifyChanged("1", "0");   // stock's default
 
             // The observers of the stock arm, built over the test's double so
             // the spectate fact can see the engine calls it must make.
             var observers = new Observers(new RecordingLog(), registry, Double, Double, Double, Double,
-                                          Double, Double, Double, convars, Clients);
+                                          Double, Double, Double, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>(), Clients);
             services.AddInstance(observers);
             // The team service the jointeam and spectate verbs route to, over
             // the same double (no event handle: player_team is not this

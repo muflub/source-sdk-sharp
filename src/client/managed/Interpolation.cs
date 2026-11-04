@@ -1591,7 +1591,7 @@ public sealed class Interpolation
 [ConCommand("cs_cl_interp",
             Help = "What the client interpolation pass did: passes, samples filed, " +
                    "poses written, rings live, and which arms ran.")]
-public sealed class InterpolationReportCommand : IConCommand
+public sealed class InterpolationReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1605,7 +1605,7 @@ public sealed class InterpolationReportCommand : IConCommand
         _interpolation = interpolation;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         Interpolation interp = _interpolation;
 
@@ -1642,7 +1642,7 @@ public sealed class InterpolationReportCommand : IConCommand
 [ConCommand("cs_cl_teleport_watch",
             Help = "Follow one entity index's drawn pose against the pose the packet " +
                    "delivered, from zero. -1 stops.")]
-public sealed class TeleportWatchCommand : IConCommand
+public sealed class TeleportWatchCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1656,16 +1656,8 @@ public sealed class TeleportWatchCommand : IConCommand
         _interpolation = interpolation;
     }
 
-    public void Execute(string args)
+    public void Execute(int index)
     {
-        string word = args.Trim();
-
-        if (!int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out int index))
-        {
-            _log.Msg("[SourceSharp/Client] teleport-probe: an entity index is required\n");
-            return;
-        }
-
         _interpolation.Watch(index);
         _log.Msg($"[SourceSharp/Client] teleport-probe: watching index {index}, counters zeroed\n");
     }
@@ -1685,7 +1677,7 @@ public sealed class TeleportWatchCommand : IConCommand
 [ConCommand("cs_cl_teleport_report",
             Help = "The watched entity's drawn pose against the delivered one: " +
                    "frames, lagging frames, max lag, distance delivered.")]
-public sealed class TeleportReportCommand : IConCommand
+public sealed class TeleportReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1699,7 +1691,7 @@ public sealed class TeleportReportCommand : IConCommand
         _interpolation = interpolation;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         Interpolation interp = _interpolation;
 

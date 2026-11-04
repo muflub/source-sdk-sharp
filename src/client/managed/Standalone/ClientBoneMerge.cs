@@ -66,7 +66,7 @@ public static class ClientBoneMerge
 [ConCommand("cs_bonemerge",
             Help = "Merge a standalone entity's bones onto a client entity. " +
                    "cs_bonemerge <classname filter> <source entindex, -1 to stop>")]
-public sealed class BoneMergeCommand : IConCommand
+public sealed class BoneMergeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -82,21 +82,15 @@ public sealed class BoneMergeCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, int sourceIndex)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 2 || !int.TryParse(parts[1], out int sourceIndex))
-        {
-            _log.Msg("[SourceSharp/Client] usage: cs_bonemerge <classname filter> <source entindex, -1 to stop>\n");
-            return;
-        }
-
-        var entity = ClientBoneMerge.Pick(_standalones.Live(), parts[0]);
+        var entity = ClientBoneMerge.Pick(_standalones.Live(), filter);
 
         if (entity is null)
         {
-            _log.Warning($"[SourceSharp/Client] cs_bonemerge: no live standalone entity matches '{parts[0]}'\n");
+            _log.Warning($"[SourceSharp/Client] cs_bonemerge: no live standalone entity matches '{filter}'\n");
             return;
         }
 

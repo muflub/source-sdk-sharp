@@ -154,6 +154,17 @@ public sealed class TFWeaponSelectUiTests
     }
 
     [Fact]
+    public void The_spys_sapper_card_carries_the_items_inventory_image()
+    {
+        var (ui, _, _, _) = Make(LocalPlayer, TFClass.Spy);
+
+        // The panel is set to the item (SetItem), and the card's picture is
+        // that item's schema art — the sapper's backpack image, where the
+        // builder shell's script names no sprite at all.
+        Assert.Equal("backpack/weapons/w_models/w_sapper", ui.WeaponInSlot(1).ItemImage);
+    }
+
+    [Fact]
     public void The_spys_sapper_card_stands_in_the_second_slot()
     {
         // The sapper's shipped row says VisibleInWeaponSelection 1: the

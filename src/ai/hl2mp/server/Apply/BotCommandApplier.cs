@@ -115,6 +115,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         {
             b.Player = player;
             b.Spawned = false;
+            // What it had queued went with the old player and the old level.
+            b.Waiting = 0;
         }
     }
 
@@ -152,30 +154,98 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     }
 
     /// <summary>
+    /// The bot's drive step was not done in time for this tick's command
+    /// (<see cref="BotDriveLanes"/>): it goes on with the intent it holds, one
+    /// new usercmd with its own command number and tick, as stock has a bot send
+    /// one a tick, its move steered afresh from where it now stands. Its fingers
+    /// stay where they were (<see cref="PressKeys"/>): a repeat presses nothing
+    /// anew, so no jump, use, shot or reload comes of it, and no one-shot goes.
+    /// </summary>
+    public void Late(ActorId bot)
+    {
+        if (Find(bot.Slot) is { } b && b.Id == bot)
+            b.Late = true;
+    }
+
+    /// <summary>The keys that act on being pressed: a late tick holds them as they were.</summary>
+    public const int PressKeys = (int)(InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload | InputButtons.Use | InputButtons.Jump);
+
+    /// <summary>Commands sent while a drive step was late: <c>ai.drive.repeats</c>.</summary>
+    public long Repeats { get; private set; }
+
+    /// <summary>
     /// One tick: every bot, in slot order, builds its command from its intent
     /// and runs it through the human path.
+    ///
+    /// <para>
+    /// Under a capped <paramref name="budget"/> (user ruling 2026-11-03) the bots
+    /// take their turns as a wheel, each tick starting from the first bot the last
+    /// one put off, and a bot whose turn does not fit keeps its
+    /// command queued and runs it later with the next one, as a client whose
+    /// packet came late: each command keeps its own number and tick and its keys,
+    /// the batch's tick base puts each on the clock it would have had
+    /// (<c>AdjustPlayerTimeBase</c>), and a bot's command is never dropped or
+    /// sent twice. A bot may wait only so long; then it runs regardless.
+    /// </para>
     /// </summary>
-    public void ApplyTick(Tick tick, float dt)
+    public void ApplyTick(Tick tick, float dt, MainThreadBudget? budget = null)
     {
         long run = 0;
         double runCpu = 0d;
-        for (int i = 0; i < _bots.Count; i++)
+        int count = _bots.Count;
+        bool wheel = count > 0 && budget is { Capped: true };
+        int first = wheel ? _firstBot % count : 0, putOff = -1;
+        for (int i = 0; i < count; i++)
         {
-            BotState bot = _bots[i];
-            BotSelfFacts facts = self.Read(bot.Player);
+            BotState bot = _bots[(first + i) % count];
+            double turnStart = budget?.Now ?? 0d;
+            // While its commands wait nothing it knows of itself has changed: no reads.
+            if (bot.Waiting == 0)
+                bot.Facts = self.Read(bot.Player);
+            BotSelfFacts facts = bot.Facts;
             UserCmd cmd = Build(bot, tick, in facts, dt);
             runner.Queue(bot.Player, in cmd);
+            Applied++;
+            if (budget?.Turn(bot.Waiting, _runEstimateUs * (bot.Waiting + 1)) == BudgetTurn.Defer)
+            {
+                bot.Waiting++;
+                if (putOff < 0)
+                    putOff = (first + i) % count;
+                budget.Charge(budget.Now - turnStart);
+                continue;
+            }
+
             long start = System.Diagnostics.Stopwatch.GetTimestamp();
             double cpuStart = cpu?.Invoke() ?? 0d;
             runner.RunQueued(bot.Player);
-            run += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            long spent = System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            run += spent;
             runCpu += cpu is null ? 0d : cpu() - cpuStart;
-            Applied++;
+            _runEstimateUs += (spent * 1e6 / System.Diagnostics.Stopwatch.Frequency / (bot.Waiting + 1) - _runEstimateUs) * RunEstimateRate;
+            bot.Waiting = 0;
+            budget?.Charge(budget.Now - turnStart);
         }
 
+        if (wheel)
+            _firstBot = putOff >= 0 ? putOff : (first + 1) % count;
         RunMicrosLastTick = run * 1e6 / System.Diagnostics.Stopwatch.Frequency;
         RunCpuMicrosLastTick = cpu is null ? RunMicrosLastTick : runCpu;
     }
+
+    private int _firstBot;
+    private double _runEstimateUs = RunEstimateStartUs;
+
+    /// <summary>What one command is taken to cost until measured, and how fast a new measure moves that (live: 60 us at 5 bots, release).</summary>
+    public const double RunEstimateStartUs = 100d, RunEstimateRate = 0.1d;
+
+    /// <summary>What one bot's command costs to run, as lately measured, in microseconds.</summary>
+    public double RunEstimateUs => _runEstimateUs;
+
+    /// <summary>The bot's commands waiting for the budget, 0 for none: while there are any it has not moved.</summary>
+    public int WaitingOf(ActorId bot) => Find(bot.Slot) is { } b && b.Id == bot ? b.Waiting : 0;
+
+    /// <summary>What the bot was last read to be, as it has been since: for a bot whose commands wait.</summary>
+    public BotSelfFacts LastFactsOf(ActorId bot) => Find(bot.Slot) is { } b && b.Id == bot ? b.Facts : default;
 
     /// <summary>
     /// The last tick's commands run as players (the movement and the weapons,
@@ -191,6 +261,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     internal UserCmd Build(BotState bot, Tick tick, in BotSelfFacts facts, float dt)
     {
         var cmd = new UserCmd { CommandNumber = ++bot.CommandNumber, TickCount = tick.Value };
+        bool late = bot.Late;
+        bot.Late = false;
 
         if (!facts.Alive || facts.Observer)
         {
@@ -210,10 +282,12 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             // spot, and stood in each other at it (live, dm_lockdown: 127 s).
             if ((tick.Value + bot.Id.Slot) % RespawnPressTicks == 0)
                 cmd.Buttons = (int)InputButtons.Attack;
+            bot.HeldKeys = cmd.Buttons & PressKeys;
             return cmd;
         }
 
-        if (!bot.Spawned || Diverged(bot.Motion.View, facts.View))
+        // While commands wait the server's view is behind the motion's by them, not turned.
+        if (!bot.Spawned || (bot.Waiting == 0 && Diverged(bot.Motion.View, facts.View)))
         {
             // A spawn, or the server turned the view (a teleport, a snap):
             // the view is what the server says it is.
@@ -238,21 +312,31 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         SetView(ref cmd, view);
 
         int buttons = MoveInto(ref cmd, intent.Move, in facts, view, corner);
-        buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
         bot.LastCorner = corner;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
-        buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
-
-        if (bot.OneShots.TryDequeue(out ActionIntent once))
+        if (late)
         {
-            if (once.Kind == ActionKind.SelectWeapon)
-                cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, once.WeaponSlot);
-            else
-                buttons |= Press(once.Kind);
+            Repeats++;
+            FollowTheKick(bot, in facts, dt);
+            buttons = (buttons & ~PressKeys) | bot.HeldKeys;
+        }
+        else
+        {
+            buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
+            buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
+
+            if (bot.OneShots.TryDequeue(out ActionIntent once))
+            {
+                if (once.Kind == ActionKind.SelectWeapon)
+                    cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, once.WeaponSlot);
+                else
+                    buttons |= Press(once.Kind);
+            }
         }
 
         cmd.Buttons = buttons;
         bot.LastButtons = buttons;
+        bot.HeldKeys = buttons & PressKeys;
         return cmd;
     }
 
@@ -267,6 +351,16 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// </summary>
     private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
     {
+        // A grenade or a ball goes once and costs what it costs: only with the view there (§5.4).
+        if (intent.Action.Kind == ActionKind.AltFire && intent.Look.Kind is (LookKind.Actor or LookKind.CornerCheck))
+        {
+            AiAngles at = AnglesTo(facts.Eye, intent.Look.Point);
+            float up = at.Pitch - view.Pitch, across = HumanMotion.AngleDelta(view.Yaw, at.Yaw);
+            // Spray is both barrels: wide and near, so a body's width will do.
+            float allowed = intent.Action.Style == FireStyle.Spray ? MathF.Atan2(CloseBody, (intent.Look.Point - facts.Eye).Length) * (180f / MathF.PI) : AltFireOnAimDeg;
+            return bot.Motion.Phase != AimPhase.Reacting && MathF.Sqrt(up * up + across * across) <= allowed ? intent.Action : ActionIntent.None;
+        }
+
         if (intent.Action.Kind != ActionKind.Fire || intent.Look.Kind is not (LookKind.Actor or LookKind.CornerCheck) || !bot.Motion.NotYetOnAim)
             return intent.Action;
         float distance = (intent.Look.Point - facts.Eye).Length;
@@ -276,6 +370,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         float dp = to.Pitch - view.Pitch, dy = HumanMotion.AngleDelta(view.Yaw, to.Yaw);
         return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : ActionIntent.None;
     }
+
+    /// <summary>How near its point the view must be for the second trigger to go.</summary>
+    public const float AltFireOnAimDeg = 3f;
 
     /// <summary>How far off a close target's point the hands will fire: about a body and a half, so 18° at 150 u and 7° at 400 u.</summary>
     public const float CloseBody = 48f;
@@ -486,6 +583,10 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             case ActionKind.Fire when burst:
                 bot.TapDown = false;
                 return Burst(bot, in intent, in facts, dt);
+            case ActionKind.AltFire when action.Style == FireStyle.Tap:
+                // Released between presses, as a frag needs: it goes when let go, once its pin has played.
+                bot.TapDown = !bot.TapDown;
+                return bot.TapDown ? (int)InputButtons.Attack2 : 0;
             case ActionKind.Fire:
             case ActionKind.AltFire:
             case ActionKind.Reload:
@@ -630,6 +731,18 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         /// <summary>The buttons of the bot's last playing command (the aim meter's "firing").</summary>
         public int LastButtons { get; set; }
+
+        /// <summary>The <see cref="PressKeys"/> its last command held, playing or not.</summary>
+        public int HeldKeys { get; set; }
+
+        /// <summary>How many of its commands wait for the budget.</summary>
+        public int Waiting { get; set; }
+
+        /// <summary>What it last read of itself.</summary>
+        public BotSelfFacts Facts { get; set; }
+
+        /// <summary>This tick's drive step is late: <see cref="BotCommandApplier.Late"/>.</summary>
+        public bool Late { get; set; }
 
         /// <summary>Times the server's view differed from the motion's while playing (a teleport, a snap).</summary>
         public long ViewResets { get; set; }

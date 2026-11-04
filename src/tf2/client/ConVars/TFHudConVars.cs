@@ -9,6 +9,30 @@ using SourceSharp.Abi;
 
 namespace TF2.Client;
 
+/// <summary><c>tf_birthday</c>: the birthday forced on.</summary>
+[EngineConVar("tf_birthday")]
+public sealed class TFBirthdayConVar : BoolConVar { }
+
+/// <summary><c>tf_force_holidays_off</c>: every holiday off.</summary>
+[EngineConVar("tf_force_holidays_off")]
+public sealed class TFForceHolidaysOffConVar : BoolConVar { }
+
+/// <summary><c>tf_forced_holiday</c>: the holiday forced on, or 0.</summary>
+[EngineConVar("tf_forced_holiday")]
+public sealed class TFForcedHolidayConVar : IntConVar { }
+
+/// <summary><c>tf_item_based_forced_holiday</c>: the holiday an item forces, or 0.</summary>
+[EngineConVar("tf_item_based_forced_holiday")]
+public sealed class TFItemBasedForcedHolidayConVar : IntConVar { }
+
+/// <summary>The four holiday cvars, for <see cref="TF2.Shared.Rules.TFHolidays"/>.</summary>
+[SideService(Side.Client)]
+public sealed class TFHolidayConVars(TFBirthdayConVar birthday, TFForceHolidaysOffConVar forceOff, TFForcedHolidayConVar forced,
+                                     TFItemBasedForcedHolidayConVar itemForced)
+{
+    public TF2.Shared.Rules.TFHolidaySwitches Switches => new(birthday.Value, forceOff.Value, forced.Value, itemForced.Value);
+}
+
 // The hud_ convars stock's TF client declares (tf_hud_account.cpp), declared
 // by the TF2 client library since the combat text: names, defaults and flags
 // as stock wrote them (TFConVarsTests holds the row). The batching family is

@@ -263,7 +263,10 @@ public class SideAuditTests
         // the same thing said about control points -- which point of a running
         // system is fed is a fact about the renderer's copy of it, and the
         // server has no copy.
-        "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints", "ParticleSystemStartExtra", "ParticleSystemStopExtra", "ParticleSystemFollowEntity", "ParticleSystemStartSlot", "ParticleSystemStopSlot", "ParticleSystemFollowEntitySlot",
+        "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints", "ParticleSystemStartExtra", "ParticleSystemStopExtra", "ParticleSystemFollowEntity", "ParticleSystemStartSlot", "ParticleSystemStopSlot", "ParticleSystemFollowEntitySlot", "ParticleSystemSetPoints",
+        // The crit glow's render group: which list a held system draws in is a
+        // fact about the client's leaf insertion, so only the client asks.
+        "ParticleSystemViewModelSlot",
         "ScreenOverlaySet", "ScreenOverlayGet",
         "DynamicLightRelease", "DynamicLightUpdate",
         // The five local-weapon slots -- GetLocalWeaponCount, GetLocalWeaponName,
@@ -304,7 +307,7 @@ public class SideAuditTests
         "PhysicsClientSplashLighting", "PhysicsClientSplashEffect",
         // The convar watch and the decided values (C8, lane c6-input): the
         // client's bounded convars and its interpolation amount.
-        "ConVarsClientWatch", "ConVarsClientSetValue",
+        "ConVarsClientSetValue", "ConVarsClientAddFlags",
         // The flashlight's executor (C7 cluster 12): the client shadow manager
         // and its texture, which exist only in client.so.
         "FlashlightTexture", "FlashlightSupportsBorderColor",
@@ -320,6 +323,9 @@ public class SideAuditTests
         // A texture handle bound to an engine material (the scope's Refract
         // quadrants): client.so's vgui surface resolves the .vmt.
         "UiMaterialTexture",
+        // One draw of many shapes (the render list's fills and polygons):
+        // client.so's render context.
+        "UiDrawMesh",
         // The pixel visibility's slots (C7, c_pixel_visibility.cpp): the
         // render context's occlusion queries and the current view are
         // client.so's.
@@ -354,6 +360,9 @@ public class SideAuditTests
         // server has a shadow to report, which it does not.
         "StandaloneShadowCast",
         "StandaloneSetCustomDraw", "StandaloneSetFade",
+        // The sentry blueprint's shadow hull (c_obj_sentrygun.cpp:588, the
+        // placing arm): a shadow bounds choice made by the thing that draws it.
+        "StandaloneSetShadowHull",
         "StandaloneSetOverlayModel", "StandaloneSetViewModel",
         // (Phase 5's pose parameters, the animation clock's two reads, the
         // ground speed, the procedural counts and the layer table left with
@@ -480,13 +489,6 @@ public class SideAuditTests
 
     private static readonly HashSet<string> BothSides = new(StringComparer.Ordinal)
     {
-        // GetCurrentGravity is movevars_shared and answers on both sides. Only
-        // the client's tempent physics asks for it today, and it is wired on
-        // both anyway: a slot wired on one side answers the managed fallback on
-        // the other, which is a plausible number rather than a refusal — the
-        // hazard SOURCESHARP_TRACE_ALL's note describes for the trace masks.
-        "CurrentGravity",
-
         // The vtable binding's one entry point. BOTH SIDES because each side
         // serves the interfaces its own DLL was handed: IVEngineClient exists
         // only on the client and IVEngineServer only on the server, and the
@@ -543,6 +545,8 @@ public class SideAuditTests
         // plan_server_native_v2 T4e: both sides' convar registries refuse an
         // engine-owned name, so both read the flags.
         "FindConVarFlags",
+        "CompleteCommandLine",
+        "WatchNamedConVar",
     };
 
     private static readonly HashSet<string> DualWired = new(StringComparer.Ordinal)

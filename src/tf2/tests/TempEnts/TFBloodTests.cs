@@ -42,6 +42,16 @@ public sealed class TFBloodTests
     // =====================================================================
 
     [Fact]
+    public void Nothing_on_the_blood_s_send_path_reads_the_metadata()
+    {
+        var (walked, reflective) = TempEntPathCensus.From(TempEntPathCensus.Methods(typeof(TFTempEnts), "Blood"));
+
+        Assert.Empty(reflective);
+        Assert.Contains("TF2.Shared.TeTFBlood..ctor", walked);
+        Assert.Contains("SourceSharp.Abi.TempEntState.ToBlob", walked);
+    }
+
+    [Fact]
     public void The_blood_tempent_decodes_what_the_server_sends()
     {
         var (temps, engine, registry) = ServerWriter();
@@ -52,7 +62,7 @@ public sealed class TFBloodTests
 
         var blob = engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<byte[]>(4);
 
-        var players = ClientPlayers(out OneShotSpy oneShots, out _, out _, out _, out _, out _);
+        var players = ClientPlayers(out OneShotSpy oneShots, out _, out _, out _, out _);
         players.Dispatch(type!.Handle, blob);
 
         // The impact, decoded: at the origin, facing back into the hit
@@ -233,7 +243,7 @@ public sealed class TFBloodTests
     /// this fact is about the playing.
     /// </summary>
     private static CClientTempEnts ClientPlayers(
-        out OneShotSpy oneShots, out Standalones standalones, out ConsoleFake console,
+        out OneShotSpy oneShots, out Standalones standalones,
         out ScriptedRandom random, out CAbi.RecordingEngine engine, out FxSpy fx)
     {
         engine = new CAbi.RecordingEngine();
@@ -244,15 +254,21 @@ public sealed class TFBloodTests
 
         oneShots = new OneShotSpy();
         standalones = new Standalones();
-        console = new ConsoleFake([]);
         random = new ScriptedRandom();
         fx = new FxSpy();
 
         var players = new CClientTempEnts(new CAbi.RecordingLog(), registry);
         Assert.True(players.Add("CTETFBlood",
-            new client::TF2.Client.ClientTeTFBlood(oneShots, standalones, new LowViolence(false), console, random, fx, new MidJune())));
+            new client::TF2.Client.ClientTeTFBlood(oneShots, standalones, new LowViolence(false), DeclaredClientConVars.Holding<client::SourceSharp.Client.LocalPlayerVisionFlagsConVar>(null),
+                                                   Holidays(new()), random, fx, new MidJune())));
         return players;
     }
+
+    private static client::TF2.Client.TFHolidayConVars Holidays(Dictionary<string, string> cvars)
+        => new(DeclaredClientConVars.Holding<client::TF2.Client.TFBirthdayConVar>(cvars.GetValueOrDefault("tf_birthday")),
+               DeclaredClientConVars.Holding<client::TF2.Client.TFForceHolidaysOffConVar>(cvars.GetValueOrDefault("tf_force_holidays_off")),
+               DeclaredClientConVars.Holding<client::TF2.Client.TFForcedHolidayConVar>(cvars.GetValueOrDefault("tf_forced_holiday")),
+               DeclaredClientConVars.Holding<client::TF2.Client.TFItemBasedForcedHolidayConVar>(cvars.GetValueOrDefault("tf_item_based_forced_holiday")));
 
     /// <summary>UTIL_IsLowViolence's answer, fixed.</summary>
     private sealed class LowViolence(bool low) : client::SourceSharp.Client.Effects.IClientLowViolence
@@ -273,7 +289,6 @@ public sealed class TFBloodTests
         public readonly OneShotSpy OneShots = new();
         public readonly ScriptedRandom Random;
         public readonly Standalones Standalones;
-        public readonly ConsoleFake Console;
         public readonly FxSpy Fx = new();
         public readonly client::TF2.Client.ClientTeTFBlood Player;
 
@@ -282,10 +297,12 @@ public sealed class TFBloodTests
         {
             Random = new ScriptedRandom(rolls ?? []);
             Standalones = new Standalones(waterLevel);
-            Console = new ConsoleFake(cvars ?? []);
+            cvars ??= [];
 
             Player = new client::TF2.Client.ClientTeTFBlood(
-                OneShots, Standalones, new LowViolence(lowViolence), Console, Random, Fx, new MidJune());
+                OneShots, Standalones, new LowViolence(lowViolence),
+                DeclaredClientConVars.Holding<client::SourceSharp.Client.LocalPlayerVisionFlagsConVar>(cvars.GetValueOrDefault("localplayer_visionflags")),
+                Holidays(cvars), Random, Fx, new MidJune());
         }
 
         public void Arrive(Vector? origin = null, Vector? normal = null, int entIndex = 2)
@@ -330,22 +347,7 @@ public sealed class TFBloodTests
         }
     }
 
-    /// <summary>The engine's console, as a name table.</summary>
-    private sealed class ConsoleFake(Dictionary<string, string> values) : CAbi.IEngineConsole
-    {
-        public void ExecuteServerCommand(string command) => throw new NotSupportedException();
-        public string? FindConVarValue(string name) => values.GetValueOrDefault(name);
-        public string GetConVarValue(int id) => throw new NotSupportedException();
-        public void Msg(string message) { }
-        public int RegisterConCommand(string name, string help, CAbi.ConVarFlags flags) => throw new NotSupportedException();
-        public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null) => throw new NotSupportedException();
-        public void SendClientCommand(EntityHandle player, string command) => throw new NotSupportedException();
-        public void SetConVarValue(int id, string value) => throw new NotSupportedException();
-        public void SetConVarValueByName(string name, string value) => throw new NotSupportedException();
-        public int Snapshot() => 0;
-        public bool SnapshotEntry(int index, out CAbi.NativeConsoleEntry entry) { entry = default; return false; }
-        public void Warning(string message) { }
-    }
+
 
     /// <summary>A scripted stream: the rolls in order, and what was drawn.</summary>
     private sealed class ScriptedRandom(params float[] values) : CAbi.IUniformRandom

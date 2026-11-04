@@ -58,3 +58,19 @@ public sealed class ParticleSimSpikeThresholdConVar : IntConVar { }
 /// <summary>cl_particle_stats_trigger_count: stock's stats spew (empty in this tree) past this count.</summary>
 [ConVar("cl_particle_stats_trigger_count", "0", Help = "Dump stats if the particle count exceeds this number.")]
 public sealed class ParticleStatsTriggerCountConVar : IntConVar { }
+
+/// <summary>What the two particle managers read of the console.</summary>
+public sealed class ParticleSettings(DrawParticlesConVar draw, ParticleShowBBoxConVar showBBox, ParticleShowBBoxCostConVar showBBoxCost,
+                                     ParticleEffectAabbBufferConVar aabbBuffer, ParticleTimescaleConVar timescale,
+                                     ParticleRetireCostConVar retireCost, ParticleSimSpikeThresholdConVar spikeThreshold,
+                                     WireframeMode wireframe)
+{
+    public readonly DrawParticlesConVar Draw = draw;
+    public readonly ParticleShowBBoxConVar ShowBBox = showBBox;
+    public readonly ParticleShowBBoxCostConVar ShowBBoxCost = showBBoxCost;
+    public readonly ParticleEffectAabbBufferConVar AabbBuffer = aabbBuffer;
+    public readonly ParticleTimescaleConVar Timescale = timescale;
+    public readonly ParticleRetireCostConVar RetireCost = retireCost;
+    public readonly ParticleSimSpikeThresholdConVar SpikeThreshold = spikeThreshold;
+    public readonly WireframeMode Wireframe = wireframe;
+}

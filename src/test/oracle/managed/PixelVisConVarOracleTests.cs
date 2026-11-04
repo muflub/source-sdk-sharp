@@ -51,7 +51,7 @@ public class PixelVisConVarOracleTests
     {
         var registry = ConVarRegistry.For(SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(SourceSharp.Tests.ClientDoubles.UnattachedEngine()));
         registry.RegisterAll(ClientAssembly);
-        return registry.All.Where(c => c.GetType().Assembly == ClientAssembly).ToDictionary(c => c.Name);
+        return registry.All.Where(c => c.GetType().Assembly == ClientAssembly && !c.HeldByEngine).ToDictionary(c => c.Name);
     }
 
     [Fact]

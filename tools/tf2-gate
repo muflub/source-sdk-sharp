@@ -120,9 +120,14 @@ TEAM_RED, TEAM_BLU = 2, 3
 NOT_WRITTEN = ()
 
 STEP_ORDER = ("join", "teams", "classes", "weapon", "combat", "heal", "respawn",
-              "ctf", "changelevel", "payload", "mode", "teardown")
+              "ctf", "changelevel", "payload", "mode", "koth", "cp5", "teardown")
 # Every step the gate now holds (the Makefile's word on `make tf2-gate`):
-# the lane wrote the last four (ctf, changelevel, payload, mode) at 4.2.
+# the lanes wrote the last six (ctf, changelevel, payload, mode at 4.2,
+# then koth, then cp5 -- a step after `mode` fits the default run every time: the
+# gate holds its time only through each step's own wait windows and the
+# statuses gate_rc reads, and no measured ceiling covers this file's rows
+# (tools/live-gate-budget.tsv is live-gate's crossing ratchet, not a wall-
+# clock limit; `make tf2-gate` carries one extra map load per added step).
 DEFAULT_STEPS = STEP_ORDER
 
 
@@ -3716,6 +3721,1221 @@ def step_mode(run, state):
     return "PASS", numbers
 
 
+# ---------------------------------------------------------------------------
+# KOTH (stage F15): the KOTH mode on koth_viaduct, measured live -- the unit
+# facts (src/tf2/tests/Entities/KothTests.cs, TFModeTests.cs) hold the rules;
+# this step proves they RUN in a real two-player game. What it asserts, in
+# order: the SECOND MAP LOAD of the gate (CLAUDE.md: keep the second load in
+# any gate), the join re-taken on opposite teams after the reload, the mode
+# id `koth` from the bare sv_mode echo (the selector reads the map's
+# tf_logic_koth -- TFGameModeSelector.PickMode), the point LOCKED right after
+# round start and open again once the map's own unlock_point has run
+# (KothLogic.cs: timer_length 180, unlock_point 30 -- the stock
+# tf_gamerules.h defaults the managed KothLogicVars carries), a RED capture
+# on the unlocked point (owner 2, the OnCapTeam1/OnOwnerChangedToTeam1
+# outputs TeamControlPoint.InternalSetOwner fires for TEAM_RED), the owning
+# team's round timer falling over the brief's 5 s window (two reads of
+# zz_red_koth_timer's TimeRemaining), then BLUE taking the point and RED's
+# timer stopping (two reads of the same field, stable). The Locked read goes
+# through the tf_objective_resource payload fields (ObjectiveResourceNetState
+# .Locked[] -- the point itself carries no net state); which answer said so
+# rides in the row as locked_source.
+# ---------------------------------------------------------------------------
+KOTH_MAP = "koth_viaduct"
+KOTH_RED_TIMER = "zz_red_koth_timer"      # KothLogic.OnRoundSpawn's names
+KOTH_BLUE_TIMER = "zz_blue_koth_timer"
+KOTH_UNLOCK_DEFAULT = 30                   # KothLogicVars.TimeToUnlockPoint
+KOTH_TIMER_WINDOW = 5.0                    # the brief: two reads 5 s apart
+KOTH_STABLE_MAX = 0.5                      # held cells agree to within this
+KOTH_UNLOCK_SLACK = 25.0                   # patience past unlock_point
+KOTH_EARLY_TOL = 3.0                       # how early an unlock may land anyway
+PARK_OFF_X = 600.0    # how far along the bridge RED waits while BLUE caps:
+                      # far enough to leave the cap volume entirely -- while
+                      # any RED stays inside it the area reads two teams in
+                      # the zone, and a two-team zone never lets a cap run
+                      # (CaptureThink's blocked arm). A short 160-unit park
+                      # stayed inside it; the cap died contested every pump.
+RED_OWNER_NEEDLES = ("OwnerChangedToTeam1", "OnCapTeam1")
+
+
+def as_number(value):
+    """float() over a decoded field cell, None when it is not a number. PURE."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def bool_from_field(value):
+    """The truth value of a decoded field cell: booleans as they are, the
+    JSON/string spellings matched exactly (a lowercase compare could not
+    tell "False" from a value nobody meant), ints by zero/non-zero, a list
+    through its first cell. Anything else answers None so the CALLER prints
+    the raw value instead of guessing. PURE."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        if value in ("true", "True", "1"):
+            return True
+        if value in ("false", "False", "0"):
+            return False
+        return None
+    if isinstance(value, list) and value:
+        return bool_from_field(value[0])
+    return None
+
+
+def locked_cell(fields):
+    """The Locked cell of a decoded net-state dict (ObjectiveResourceNetState
+    .Locked -- array cells come out as Locked.0, Locked.1 ...): keys whose
+    name STARTS with "locked" (case-insensitive -- "Blocked" contains it and
+    is a different state), first cell first. Read through bool_from_field.
+    Answers (bool_or_None, key_or_None). PURE."""
+    for key in sorted(fields or {}):
+        if key.lower().startswith("locked"):
+            got = bool_from_field(fields[key])
+            if got is not None:
+                return got, key
+    return None, None
+
+
+def owner_cell(fields):
+    """The Owner cell of a decoded net-state dict (ObjectiveResourceNetState
+    .Owner -- the team holding each point, one byte slot per point): the
+    exact key first, then keys starting with "owner" (case-insensitive).
+    Answers (float_or_None, key_or_None). PURE."""
+    if not fields:
+        return None, None
+    got = as_number(fields.get("Owner"))
+    if got is not None:
+        return got, "Owner"
+    for key in sorted(fields):
+        if key.lower().startswith("owner"):
+            got = as_number(fields[key])
+            if got is not None:
+                return got, key
+    return None, None
+
+
+def koth_window_holds(first, second, falling):
+    """Two reads of one team_round_timer (each the (paused, end_time, stored)
+    triple of its payload cells) against the arm asked for, mirroring
+    TeamRoundTimer.TimeRemaining (TeamRoundTimer.cs:95): RUNNING means the
+    remaining IS TimerEndTime minus now -- so the pair says the timer raced
+    the clock iff both reads answer RUNNING and the end time stayed where
+    it was (the clock walked toward it between the reads; an Add/Set landing
+    between them moves the end time and fails the pair, as it should).
+    PAUSED freezes the stored remaining, so the stable arm compares the
+    stored cells -- a paused timer's end time stops tracking the clock and
+    must not decide the stable arm. Mixed states fail both arms. PURE."""
+    paused1, end1, stored1 = first
+    paused2, end2, stored2 = second
+    if paused1 is None or paused2 is None:
+        return False
+    if falling:
+        if paused1 is not False or paused2 is not False:
+            return False
+        if end1 is None or end2 is None:
+            return False
+        diff = end1 - end2
+        return abs(diff) <= KOTH_STABLE_MAX
+    if paused1 is not True or paused2 is not True:
+        return False
+    if stored1 is None or stored2 is None:
+        return False
+    return abs(stored1 - stored2) <= KOTH_STABLE_MAX
+
+
+def timer_pair_from_ents(timers):
+    """The (blue, red) pair out of a team_round_timer census. OnRoundSpawn
+    spawns BLUE first, then RED (KothLogic.cs), so in creation order -- by
+    engine handle, the lower handle being the earlier create -- BLUE is the
+    lower half of the newest pair of entities; a round restart leaves the
+    old pair in the world, so only the LAST two count. An exact entity
+    name beats the order when it reads back (a spawned entity's engine
+    name can answer ""). Answers (blue_or_None, red_or_None, how). PURE."""
+    named_blue = next((t for t in timers
+                       if str(t.get("name") or "") == KOTH_BLUE_TIMER), None)
+    named_red = next((t for t in timers
+                      if str(t.get("name") or "") == KOTH_RED_TIMER), None)
+    if named_blue is not None and named_red is not None:
+        return named_blue, named_red, "names"
+    ordered = sorted(timers, key=lambda t: t.get("handle") or t.get("index") or 0)
+    pair = ordered[-2:]
+    if len(pair) == 2:
+        return pair[0], pair[1], "order(latest pair)"
+    if len(pair) == 1:
+        return None, pair[0], "single"
+    return None, None, "empty"
+
+
+def koth_locked_read(run):
+    """The first point's Locked state, from the SERVER's answers: the
+    tf_objective_resource entity's payload fields first (ObjectiveResource
+    .NetState's Locked[] -- the read ObjectiveResource.SetCPLocked writes),
+    then the live-instance vars, in case the table ever answers there.
+    Answers (bool_or_None, source_or_why, raw_dump_or_None)."""
+    try:
+        objs = run.srv.ents("tf_objective_resource")
+    except lg.ApiError as why:
+        objs = []
+        objs_why = str(why)
+    else:
+        objs_why = None
+    if objs:
+        try:
+            fields = run.srv.fields(objs[0]["index"])
+        except lg.ApiError as why:
+            return None, "tf_objective_resource fields failed(%s)" % why, None
+        got, key = locked_cell(fields)
+        if got is not None:
+            return got, "payload_fields(tf_objective_resource).%s" % key, None
+        return None, "no Locked cell in %r" % (sorted(fields)[:8],), fields or {}
+    why = objs_why or "the entity list answers no tf_objective_resource"
+    try:
+        data = run.srv.get("instances", timeout=30)
+    except lg.ApiError as exc:
+        return None, "%s; instances unavailable(%s)" % (why, exc), None
+    insts = data.get("instances") if isinstance(data, dict) else None
+    for inst in insts or []:
+        name = str(inst.get("className") or inst.get("classname") or "").lower()
+        if name != "team_control_point":
+            continue
+        for var in inst.get("vars") or []:
+            got = bool_from_field(var.get("value"))
+            if got is not None and "lock" in str(var.get("name", "")).lower():
+                return got, "instances(%s).%s" % (name, var.get("name")), None
+    return None, why, None
+
+
+def koth_unlock_seconds(run):
+    """The live tf_logic_koth's unlock_point (its map key, seconds), from the
+    /instances answer's vars; the managed KothLogicVars default beside it as
+    the named fallback. Answers (seconds_or_None, source)."""
+    try:
+        data = run.srv.get("instances", timeout=30)
+    except lg.ApiError as why:
+        return KOTH_UNLOCK_DEFAULT, "fallback(%s): instances unavailable(%s)" % (KOTH_UNLOCK_DEFAULT, why)
+    insts = data.get("instances") if isinstance(data, dict) else None
+    for inst in insts or []:
+        name = str(inst.get("className") or inst.get("classname") or "").lower()
+        if name != "tf_logic_koth":
+            continue
+        for var in inst.get("vars") or []:
+            if str(var.get("name", "")).lower() == "unlock_point":
+                got = as_number(var.get("value"))
+                if got is not None:
+                    return got, "instances(tf_logic_koth).unlock_point=%s" % var.get("value")
+    return KOTH_UNLOCK_DEFAULT, "fallback(%s): no tf_logic_koth unlock_point in the instances answer" % KOTH_UNLOCK_DEFAULT
+
+
+def koth_owner_read(run):
+    """Which team holds the first point: the tf_objective_resource entity's
+    Owner cell (ObjectiveResourceNetState.Owner -- the byte the owning-team
+    write lands, read by ObjectiveResource's owner answers). Answers
+    (int_or_None, key_or_None, why_or_None, field_names_or_None)."""
+    try:
+        objs = run.srv.ents("tf_objective_resource")
+    except lg.ApiError as why:
+        return None, None, str(why), None
+    if not objs:
+        return None, None, "the entity list answers no tf_objective_resource", None
+    try:
+        fields = run.srv.fields(objs[0]["index"])
+    except lg.ApiError as why:
+        return None, None, str(why), None
+    val, key = owner_cell(fields)
+    names = ",".join(sorted(fields or {}))[:300]
+    if val is None:
+        return None, None, "no Owner cell (%s)" % names, names
+    return int(val), key, None, names
+
+
+CP_MAP = "cp_badlands"
+CP_POINT_COUNT = 5        # the brief's five-point line; the live count must match
+CP_BLOCK_WINDOW = 3.0     # how long both teams stand still in the block arm
+CP_ARM_SLACK = 8.0        # seconds over the expected cap time a timed arm waits
+                          # for the Owner cell: settle and the cap-restart after
+                          # a block cost a breath, and live runs measured the
+                          # middle at ~21 s against its expected 20 (CapTime 10
+                          # doubled by stock's mp_capstyle scaling), so the
+                          # windows are expected + this, not a raised ceiling.
+CP_END_WAIT = 25.0        # patience for TeamWin after the last Owner flip: the
+                          # round master thinks within a tick of owning the line.
+
+# cp_badlands decoded from the bsp's entity lump: the objective cell index,
+# the entity targetname, the map's default owner for that point, and the
+# area's own cap time. Cells come out in this order (the map's point_index
+# keys are 1 to 5 while the ObjectiveResource cells are indexed from 0, so a
+# lookup keyed on the map's key missed and printed piNone; the entity's place
+# in the entity list is not a stable key either). Pairing goes through the
+# targetname: find_cell() below fails naming the missing point.
+CP_CELL_TABLE = (
+    ("cap_blue_1", 0, TEAM_BLU, 2.0),
+    ("cap_blue_2", 1, TEAM_BLU, 8.0),
+    ("cap_center", 2, None, 10.0),
+    ("cap_red_2", 3, TEAM_RED, 8.0),
+    ("cap_red_1", 4, TEAM_RED, 2.0),
+)
+
+
+def cp_cell(fields, prefix, index):
+    """One indexed cell of the objective resource's answer (ObjectiveResource
+    -netstate arrays come out as `<Prefix>.<point>` cells): the exact
+    "Locked.2" style key first, then keys that open with the prefix and end
+    with ".<index>" -- so "Blocked.2" cannot answer for Locked, and a cell
+    whose suffix names another point answers nothing for this one. The bare
+    unindexed cell answers nothing here either: it names only point 0, and
+    the cp5 step asks about points by index. Answers the raw cell or None.
+    PURE."""
+    table = fields or {}
+    exact = "%s.%d" % (prefix, index)
+    if exact in table:
+        return table[exact]
+    suffix = ".%d" % index
+    for key in sorted(table):
+        if key.lower().startswith(prefix.lower()) and key.endswith(suffix):
+            return table[key]
+    return None
+
+
+def cp_num_points(fields, census_count):
+    """How many control points the round holds: the NumControlPoints cell of
+    the objective resource (ObjectiveResource.SetNumControlPoints), falling
+    back to the entity census count. The two answers are recorded beside each
+    other by the step, so a disagreement is visible, never averaged. PURE."""
+    val = as_number((fields or {}).get("NumControlPoints"))
+    return int(val) if val is not None else int(census_count)
+
+
+def step_koth(run, state):
+    """Stage F15: the KOTH round on koth_viaduct, live. See the block comment
+    above the constants for what the row carries."""
+    numbers = {}
+    run.mark()
+
+    # -- the second map load, the step's own (step_changelevel's shape) ------
+    hm = current_server_map(run.read_console_since_launch())
+    numbers["map_before"] = hm
+    paints_before = run.read_console_since_launch().count(PAINT_NEEDLE)
+    run.srv.cmd("changelevel %s" % KOTH_MAP)
+    repainted = wait_pump(
+        run, "koth: the server game's first paint on %s" % KOTH_MAP,
+        lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints_before,
+        180.0, 1.0)
+    numbers["server_repaint"] = bool(repainted)
+    if not repainted:
+        numbers["paint_lines_before"] = paints_before
+        numbers["paint_lines_now"] = run.read_console_since_launch().count(PAINT_NEEDLE)
+        numbers["detail"] = ("the server game never painted again after changelevel %s"
+                            % KOTH_MAP)
+        return "FAIL", numbers
+    both = wait_pump(
+        run, "koth: both players back and alive on %s" % KOTH_MAP,
+        lambda: (lambda ix: len(ix) == 2 and all(run.is_alive(i) for i in ix) or None)(
+            run.player_indices()), 180.0, 1.0)
+    numbers["players_after"] = run.player_indices()
+    if not both:
+        numbers["detail"] = ("both players never came back alive through the changelevel"
+                             " (entity list %r)" % (run.player_indices(),))
+        return "FAIL", numbers
+
+    # NEW entities across the reload: the host's own player exists first, so
+    # the lowest index is player 1 again (step_changelevel's reasoning).
+    players = sorted(run.player_indices())
+    run.p1, run.p2 = players[0], players[1]
+    numbers["p1_index_after"], numbers["p2_index_after"] = run.p1, run.p2
+
+    # The join re-taken on OPPOSITE teams, step_mode's exact arms after a
+    # fresh level load: spectate first so the join lines print even if an
+    # earlier step's teams survived, p1 BLU on the listen server, p2 RED on
+    # the joiner, scouts so both really spawn. The join is asserted BEFORE
+    # any other reading (the plan's rule).
+    run.srv.cmd("cmd jointeam spectate")
+    run.client.api.cmd("cmd jointeam spectate")
+    run.srv.cmd("cmd jointeam blue")
+    run.client.api.cmd("cmd jointeam red")
+    run.srv.cmd("cmd joinclass scout")
+    run.client.api.cmd("cmd joinclass scout")
+    joined = wait_pump(
+        run, "koth: p1 blue / p2 red join lines",
+        lambda: (lambda j: (j.get(run.p1, (None,))[0] == TEAM_BLU
+                            and j.get(run.p2, (None,))[0] == TEAM_RED) or None)(
+            team_joins(round_lines_since(run, "joined team"))), 60.0)
+    if not joined:
+        numbers["detail"] = ("p1 never became BLU / p2 RED on %s (console: %s)"
+                             % (KOTH_MAP, run.team_console_tail()))
+        return "FAIL", numbers
+    # The joins re-arm the waiting-for-players window (ThinkStartGame arms
+    # it whenever the round starts fresh), so the sends before them were
+    # spent: cancel beside the arming line, the way payload does.
+    run.srv.cmd("mp_waitingforplayers_cancel 1")
+    end_the_wait_when_armed(run)
+    settled = wait_pump(run, "koth: the waiting round runs on %s" % KOTH_MAP,
+                        lambda: (round_state(run) or "") == "RoundRunning", 120.0)
+    numbers["waiting_round_ran"] = bool(settled)
+    # A cancel only clears the waiting flag (CheckWaitingForPlayers): the round
+    # already activated while waiting, and SetLocked refuses while waiting, so
+    # that round's point is never locked, in stock as here. The lock is read on
+    # a round that starts after the wait: restart, and see it leave and return.
+    run.srv.cmd("mp_restartgame_immediate 1")
+    left = wait_pump(run, "koth: the restart leaves the waiting round",
+                     lambda: (round_state(run) or "RoundRunning") != "RoundRunning", 30.0, beat=5)
+    numbers["restart_left_running"] = bool(left)
+    # RoundActivate fires as the new round starts (SetupOnRoundStart), in its
+    # preround: the unlock clock runs from here, not from RoundRunning.
+    activated_at = time.time()
+    if not left:
+        numbers["detail"] = "mp_restartgame_immediate never took the round out of RoundRunning"
+        return "FAIL", numbers
+    running = wait_pump(run, "koth: the round runs on %s" % KOTH_MAP,
+                        lambda: (round_state(run) or "") == "RoundRunning", 120.0)
+    # Elapsed for the locked window rides on this stamp: RoundActivate fires
+    # when the round starts running, and the poll above answers within its
+    # one-second step of that moment.
+    round_at = time.time()
+    numbers["round_state"] = "RoundRunning" if running else (round_state(run) or "unreadable")
+    if not running:
+        numbers["detail"] = ("the round never ran on %s (state %r): KOTH is played from "
+                             "ROUND_RUNNING, the locked window and the timers all start "
+                             "there" % (KOTH_MAP, numbers["round_state"]))
+        return "FAIL", numbers
+
+    # -- the mode id, the step_mode read: the bare sv_mode echo names it -----
+    def needle_line(needle):
+        return next((l for l in round_lines_since(run, needle) if needle in l), None)
+
+    # The echo is ASKED FOR INSIDE the pump (the way round_state re-sends
+    # tf2_dev_win every poll): one send right after a level load can be lost
+    # while the games settle, and a wait on a lost send is a timeout that
+    # says nothing about the game.
+    def echo():
+        run.srv.cmd("sv_mode")
+        return needle_line("active: 'koth'")
+
+    mode_line = wait_pump(run, "koth: the sv_mode echo names koth active", echo, 60.0, beat=10)
+    numbers["mode_line"] = (mode_line or "(absent)")[:140]
+    if not mode_line:
+        other = needle_line("active:")
+        numbers["detail"] = ("the bare sv_mode report does not name 'koth' active "
+                             "(answered %r): koth_viaduct holds a tf_logic_koth and the "
+                             "selector answers koth for that pairing" % (other,))
+        return "FAIL", numbers
+
+    # -- the locked window: locked beside round start, open past unlock_point -
+    unlock_at, unlock_src = koth_unlock_seconds(run)
+    numbers["unlock_point"] = "%s (%s)" % (unlock_at, unlock_src)
+    locked, locked_src, locked_dump = koth_locked_read(run)
+    numbers["locked_source"] = locked_src
+    numbers["locked_after_round_start"] = locked
+    elapsed = time.time() - round_at
+    numbers["locked_read_elapsed"] = "%.1f" % elapsed
+    numbers["unlock_remaining_at_read"] = "%.1f" % (unlock_at - elapsed)
+    if locked is None:
+        numbers["locked_fields_dump"] = locked_dump or "{}"
+        numbers["detail"] = ("neither the tf_objective_resource payload fields nor the "
+                             "live-instance vars answered a Locked cell (dump: %s)"
+                             % numbers["locked_fields_dump"])
+        return "FAIL", numbers
+    if locked is False:
+        numbers["detail"] = ("the point reads unlocked %.1f s into a round started after the "
+                             "wait, with %.1f s of its %.0f s unlock_point left (%s): stock's "
+                             "InputRoundActivate locks it" % (elapsed, unlock_at - elapsed, unlock_at, locked_src))
+        return "FAIL", numbers
+
+    def open_now():
+        now, _, _ = koth_locked_read(run)
+        return True if now is False else None
+
+    opened = wait_pump(run, "koth: the point unlocks", open_now,
+                       unlock_at + KOTH_UNLOCK_SLACK, 1.0, beat=10)
+    waited = time.time() - activated_at
+    numbers["unlock_wait_seconds"] = "%.1f" % waited
+    numbers["point_unlocked"] = bool(opened)
+    if not opened:
+        numbers["detail"] = ("the point stayed locked %.1f s past its own unlock_point "
+                             "(%s s from %s; still locked per %s)"
+                             % (waited, unlock_at, unlock_src, locked_src))
+        return "FAIL", numbers
+    if waited < unlock_at - KOTH_EARLY_TOL:
+        numbers["detail"] = ("the point unlocked after %.1f s, early for its %.0f s "
+                             "unlock_point (%s)" % (waited, unlock_at, unlock_src))
+        return "FAIL", numbers
+
+    # -- the point itself, and red on it --------------------------------------
+    try:
+        points = run.srv.ents("team_control_point")
+    except lg.ApiError as why:
+        numbers["detail"] = "/entities?class=team_control_point failed: %s" % why
+        return "FAIL", numbers
+    numbers["points_found"] = len(points)
+    point = next((p for p in points if p.get("origin") and any(p["origin"])), None)
+    numbers["points"] = ",".join("#%s(%s)@%s" % (p.get("index"), p.get("name"),
+                                                 fmt_pos(p.get("origin") or []))
+                                 for p in points[:4]) or "(none)"
+    if point is None:
+        numbers["detail"] = ("no team_control_point with a readable origin on %s (%s)"
+                             % (KOTH_MAP, numbers["points"]))
+        return "FAIL", numbers
+    point_index = point["index"]
+    point_pos = list(point["origin"])
+    numbers["point"] = "#%s(%s)@%s" % (point_index, point.get("name"), fmt_pos(point_pos))
+
+    ev_head, _, ev_probe = events_snapshot(run, RED_OWNER_NEEDLES)
+    numbers["events_head"] = ev_head
+    probe_box = [ev_probe]
+
+    def held_red():
+        """Place RED on the point and keep him there: the placement rides on
+        every pump (prove=False -- the pump's own fresh answers carry the
+        hold), and the +forward pulses are what make a TOUCH run a move
+        (stock Touch reaches a player once per command, ProcessImpacts; a
+        placement alone never runs one -- step_ctf's rule, and this is the
+        red-first evidence of it: without the pulses the owner stayed
+        untouched)."""
+        _, hits, probe = events_snapshot(run, RED_OWNER_NEEDLES)
+        probe_box[0] = probe
+        fresh = [e for e in hits if (e.get("seq") or e.get("id") or 0) > ev_head]
+        # Pulse beside the teleport, not behind its proof: on the second
+        # arm the occupant already on the point leaves the newcomer a
+        # breath off the ground, and a settle that never reads still must
+        # not swallow the move that makes a TOUCH run.
+        settle_on(run, run.p2, point_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+        run.buttons_p2("+forward")
+        time.sleep(0.3)
+        run.buttons_p2("-forward")
+        if fresh:
+            numbers["owner_event"] = str(fresh[-1])[:300].replace("\t", " ")
+            return True
+        return None
+
+    capped_red = wait_pump(run, "koth: RED takes the point", held_red, 60.0, 1.5)
+    if not capped_red:
+        numbers["point_probe"] = _entity_probe(run, point_index)
+        numbers["detail"] = ("no red-owner output since the step's head %s (ring tail %s; "
+                             "the point probe prints beside it): the owner stayed 0"
+                             % (ev_head, probe_box[0]))
+        return "FAIL", numbers
+
+    # -- the owner cell says RED holds it --------------------------------------
+    ov, okey, owhy, onames = koth_owner_read(run)
+    numbers["owner_after_red"] = "%s(%s)" % (ov, okey or owhy)
+    if ov != TEAM_RED:
+        numbers["owner_fields"] = onames or "(unreadable)"
+        numbers["detail"] = ("after RED's capture event the Owner cell reads %r, not %d "
+                             "(key %s; why %s; names %s)"
+                             % (ov, TEAM_RED, okey, owhy, numbers["owner_fields"]))
+        return "FAIL", numbers
+
+    # -- RED's round timer runs while RED owns --------------------------------
+    # Each read is a (paused, end_time, stored, why, dump) quintuple; the
+    # window judgement mirrors TeamRoundTimer.TimeRemaining itself.
+    def red_timer_read():
+        try:
+            timers = run.srv.ents("team_round_timer")
+        except lg.ApiError as why:
+            return None, None, None, "team_round_timer census unavailable(%s)" % why, None
+        _, red_ent, how = timer_pair_from_ents(timers)
+        if red_ent is None:
+            return None, None, None, ("no team_round_timer pair among the %d (%s: %s)"
+                                      % (len(timers), how,
+                                         ",".join(str(t.get("name")) for t in timers[:6]))), None
+        blue_ent = timer_pair_from_ents(timers)[0]
+        numbers["timer_entities"] = ("match=%s red=#%s(h=%s)%s blue=%s"
+                                     % (how, red_ent.get("index"), red_ent.get("handle"),
+                                        str(red_ent.get("name") or ""),
+                                        "-" if blue_ent is None else "#%s" % blue_ent.get("index")))
+        try:
+            fields = run.srv.fields(red_ent["index"])
+        except lg.ApiError as why:
+            return None, None, None, "fields failed(%s)" % why, None
+        fields = fields or {}
+        paused = bool_from_field(fields.get("TimerPaused"))
+        end_time = as_number(fields.get("TimerEndTime"))
+        stored = as_number(fields.get("TimeRemaining"))
+        return paused, end_time, stored, None, fields
+
+    def fmt_read(read):
+        return "paused=%s,end=%s,stored=%s" % read[:3]
+
+    r1 = red_timer_read()
+    time.sleep(KOTH_TIMER_WINDOW)
+    r2 = red_timer_read()
+    numbers["red_timer_reads"] = "%s -> %s over %.0f s" % (fmt_read(r1), fmt_read(r2),
+                                                           KOTH_TIMER_WINDOW)
+    if not koth_window_holds(r1[:3], r2[:3], falling=True):
+        numbers["red_timer_dump"] = str(r1[4] or r2[4] or {})[:300]
+        numbers["detail"] = ("RED's round timer did not read RUNNING with a held "
+                             "TimerEndTime over the window (%s -> %s; why %r/%r; "
+                             "cells: %s) -- the owning team must be racing the clock"
+                             % (fmt_read(r1), fmt_read(r2), r1[3], r2[3], numbers["red_timer_dump"]))
+        return "FAIL", numbers
+
+    # -- BLUE takes the point, RED's timer stops ------------------------------
+    ev_head_blue, _, ev_probe_blue = events_snapshot(run, CP_OWNER_NEEDLES)
+    probe_box[0] = ev_probe_blue
+
+    def held_blue():
+        """Park the RED holder aside first, then put BLUE on the pad: a
+        point caps for BLUE only while no RED stands on it, so the
+        arm that made RED the owner must also be the arm that moves him
+        off before BLUE's cap progress can run."""
+        _, hits, probe = events_snapshot(run, CP_OWNER_NEEDLES)
+        probe_box[0] = probe
+        fresh = [e for e in hits if (e.get("seq") or e.get("id") or 0) > ev_head_blue]
+        park_pos = [point_pos[0] + PARK_OFF_X, point_pos[1], point_pos[2]]
+        settle_on(run, run.p2, park_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+        settle_on(run, run.p1, point_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+        run.buttons_p1("+forward")
+        time.sleep(0.3)
+        run.buttons_p1("-forward")
+        if fresh:
+            numbers["owner_event_blue"] = str(fresh[-1])[:300].replace("\t", " ")
+            return True
+        return None
+
+    capped_blue = wait_pump(run, "koth: BLUE takes the point", held_blue, 60.0, 1.5)
+    if not capped_blue:
+        numbers["point_probe_blue"] = _entity_probe(run, point_index)
+        ovb_t, okey_t, owhy_t, onames_t = koth_owner_read(run)
+        numbers["owner_after_blue_timeout"] = "%s(%s)" % (ovb_t, okey_t or owhy_t)
+        numbers["owner_fields_blue_timeout"] = onames_t or "(unreadable)"
+        numbers["detail"] = ("no blue-owner output since the blue head %s (ring tail %s; "
+                             "Owner cell %r; field cells beside it)"
+                             % (ev_head_blue, probe_box[0], numbers["owner_after_blue_timeout"]))
+        return "FAIL", numbers
+
+    ovb, okeyb, owhyb, onamesb = koth_owner_read(run)
+    numbers["owner_after_blue"] = "%s(%s)" % (ovb, okeyb or owhyb)
+    if ovb != TEAM_BLU:
+        numbers["owner_fields_blue"] = onamesb or "(unreadable)"
+        numbers["detail"] = ("after BLUE's capture event the Owner cell reads %r, not %d "
+                             "(key %s; why %s; names %s)"
+                             % (ovb, TEAM_BLU, okeyb, owhyb, numbers["owner_fields_blue"]))
+        return "FAIL", numbers
+
+    s1 = red_timer_read()
+    time.sleep(KOTH_TIMER_WINDOW)
+    s2 = red_timer_read()
+    numbers["stopped_reads"] = "%s -> %s over %.0f s" % (fmt_read(s1), fmt_read(s2),
+                                                         KOTH_TIMER_WINDOW)
+    if not koth_window_holds(s1[:3], s2[:3], falling=False):
+        numbers["stopped_dump"] = str(s1[4] or s2[4] or {})[:300]
+        numbers["detail"] = ("RED's timer did not read PAUSED with a held stored remaining "
+                             "after BLUE took the point (%s -> %s; why %r/%r; cells: %s)"
+                             % (fmt_read(s1), fmt_read(s2), s1[3], s2[3], numbers["stopped_dump"]))
+        return "FAIL", numbers
+    return "PASS", numbers
+
+
+def step_cp5(run, state):
+    """Stage F16: the CP round on cp_badlands, live. The step asks five
+    things through the dev API: the mode id is cp (the bare sv_mode echo);
+    at round start ONLY the middle point (index 2 of five) answers unlocked
+    while the others answer locked (the tf_objective_resource Locked cells,
+    the source named beside them); RED takes the middle and the Owner cell
+    for point 2 reads TEAM_RED; BLUE standing beside RED on a point RED is
+    capturing answers the Blocked cell and the owner stays where it was
+    while both stand, and RED completes once BLUE leaves; RED then walks
+    the line from the middle outward, point by point, until the round ends
+    TeamWin. Every observed capture second rides on the row."""
+    numbers = {}
+    run.mark()
+
+    def objective_answer():
+        """The tf_objective_resource payload fields, or None beside the why.
+        The Locked./Owner./Blocked. cells live here (ObjectiveResourceNet-
+        State's arrays), which is what every cp5 reading is keyed against."""
+        try:
+            objs = run.srv.ents("tf_objective_resource")
+        except lg.ApiError as why:
+            return None, "tf_objective_resource census failed(%s)" % why
+        if not objs:
+            return None, "the entity list answers no tf_objective_resource"
+        try:
+            return run.srv.fields(objs[0]["index"]) or {}, \
+                "payload_fields(tf_objective_resource)#%s" % objs[0]["index"]
+        except lg.ApiError as why:
+            return None, "tf_objective_resource fields failed(%s)" % why
+
+    def owner_is(value, team):
+        """Whether an Owner cell answers `team`: the numeric byte first (the
+        TFTeam value stock sends), then the team word in case the cell ever
+        comes back spelled."""
+        got = as_number(value)
+        if got is not None:
+            return int(got) == team
+        s = str(value if value is not None else "").strip().lower()
+        names = {TEAM_RED: ("red", "tf_team_red"), TEAM_BLU: ("blu", "blue", "tf_team_blu")}
+        return s in names.get(team, ())
+
+    # -- the second map load, the step's own (step_koth's shape) --------------
+    hm = current_server_map(run.read_console_since_launch())
+    numbers["map_before"] = hm
+    paints_before = run.read_console_since_launch().count(PAINT_NEEDLE)
+    run.srv.cmd("changelevel %s" % CP_MAP)
+    repainted = wait_pump(
+        run, "cp5: the server game's first paint on %s" % CP_MAP,
+        lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints_before,
+        180.0, 1.0)
+    numbers["server_repaint"] = bool(repainted)
+    if not repainted:
+        numbers["paint_lines_before"] = paints_before
+        numbers["paint_lines_now"] = run.read_console_since_launch().count(PAINT_NEEDLE)
+        numbers["detail"] = ("the server game never painted again after changelevel %s"
+                             % CP_MAP)
+        return "FAIL", numbers
+    both = wait_pump(
+        run, "cp5: both players back and alive on %s" % CP_MAP,
+        lambda: (lambda ix: len(ix) == 2 and all(run.is_alive(i) for i in ix) or None)(
+            run.player_indices()), 180.0, 1.0)
+    numbers["players_after"] = run.player_indices()
+    if not both:
+        numbers["detail"] = ("both players never came back alive through the changelevel"
+                             " (entity list %r)" % (run.player_indices(),))
+        return "FAIL", numbers
+
+    players = sorted(run.player_indices())
+    run.p1, run.p2 = players[0], players[1]
+    numbers["p1_index_after"], numbers["p2_index_after"] = run.p1, run.p2
+
+    # Opposite teams again, SOLDIERS: the brief's word is that a Scout
+    # counts double in the capture arithmetic, and the step times caps --
+    # one soldier per side keeps NumRequiredToCap plain.
+    run.srv.cmd("cmd jointeam spectate")
+    run.client.api.cmd("cmd jointeam spectate")
+    run.srv.cmd("cmd jointeam blue")
+    run.client.api.cmd("cmd jointeam red")
+    run.srv.cmd("cmd joinclass soldier")
+    run.client.api.cmd("cmd joinclass soldier")
+    joined = wait_pump(
+        run, "cp5: p1 blue / p2 red join lines",
+        lambda: (lambda j: (j.get(run.p1, (None,))[0] == TEAM_BLU
+                            and j.get(run.p2, (None,))[0] == TEAM_RED) or None)(
+            team_joins(round_lines_since(run, "joined team"))), 60.0)
+    if not joined:
+        numbers["detail"] = ("p1 never became BLU / p2 RED on %s (console: %s)"
+                             % (CP_MAP, run.team_console_tail()))
+        return "FAIL", numbers
+    run.srv.cmd("mp_waitingforplayers_cancel 1")
+    end_the_wait_when_armed(run)
+    settled = wait_pump(run, "cp5: the waiting round runs on %s" % CP_MAP,
+                        lambda: (round_state(run) or "") == "RoundRunning", 120.0)
+    numbers["waiting_round_ran"] = bool(settled)
+    # The lock cells are read on a round started AFTER the wait: a cancel
+    # only clears the waiting flag and SetLocked refuses while waiting
+    # (koth's lesson, same chain here). Restart, and see the round leave
+    # and return.
+    run.srv.cmd("mp_restartgame_immediate 1")
+    left = wait_pump(run, "cp5: the restart leaves the waiting round",
+                     lambda: (round_state(run) or "RoundRunning") != "RoundRunning", 30.0, beat=5)
+    numbers["restart_left_running"] = bool(left)
+    if not left:
+        numbers["detail"] = "mp_restartgame_immediate never took the round out of RoundRunning"
+        return "FAIL", numbers
+    running = wait_pump(run, "cp5: the round runs on %s" % CP_MAP,
+                        lambda: (round_state(run) or "") == "RoundRunning", 120.0)
+    numbers["round_state"] = "RoundRunning" if running else (round_state(run) or "unreadable")
+    if not running:
+        numbers["detail"] = ("the round never ran on %s (state %r): the CP round is played "
+                             "from ROUND_RUNNING" % (CP_MAP, numbers["round_state"]))
+        return "FAIL", numbers
+
+    # -- the mode id: the bare sv_mode echo names cp --------------------------
+    def needle_line(needle):
+        return next((l for l in round_lines_since(run, needle) if needle in l), None)
+
+    def echo():
+        run.srv.cmd("sv_mode")
+        return needle_line("active: 'cp'")
+
+    mode_line = wait_pump(run, "cp5: the sv_mode echo names cp active", echo, 60.0, beat=10)
+    numbers["mode_line"] = (mode_line or "(absent)")[:140]
+    if not mode_line:
+        other = needle_line("active:")
+        numbers["detail"] = ("the bare sv_mode report does not name 'cp' active "
+                             "(answered %r): cp_badlands holds a team_control_point_master "
+                             "and no tf_logic_koth, so the selector answers cp"
+                             % (other,))
+        return "FAIL", numbers
+
+    # -- the point census and the point count cell ----------------------------
+    try:
+        points = run.srv.ents("team_control_point")
+    except lg.ApiError as why:
+        numbers["detail"] = "/entities?class=team_control_point failed: %s" % why
+        return "FAIL", numbers
+    census = len(points)
+    fields, cells_src = objective_answer()
+    count = cp_num_points(fields or {}, census)
+    numbers["points_census"] = census
+    numbers["num_control_points"] = "%s(%s)" % (count, cells_src)
+    numbers["points"] = ",".join("#%s(%s)@%s" % (p.get("index"), p.get("name"),
+                                                 fmt_pos(p.get("origin") or []))
+                                 for p in points[:6]) or "(none)"
+    if count != census:
+        numbers["detail"] = ("the NumControlPoints cell counts %d while the census answers "
+                             "%d team_control_point entities (%s)" % (count, census, cells_src))
+        return "FAIL", numbers
+    if count != CP_POINT_COUNT:
+        numbers["detail"] = ("the round holds %d points, not the %d the middle index %d was "
+                             "read against (cells %s)" % (count, CP_POINT_COUNT, CP_POINT_COUNT // 2,
+                                                          cells_src))
+        return "FAIL", numbers
+
+    # -- the cell↔entity pairing: by targetname, never by list order ---------
+    # The ObjectiveResource cells and the expected owners/cap times come from
+    # CP_CELL_TABLE above, decoded from cp_badlands.bsp. The map's own
+    # point_index keys run 1 to 5 while the cells run from 0, so the pairing
+    # is keyed on the entity's targetname; the map's point_index rides on the
+    # row beside each pair as a cross-check only (the old lookup keyed on it
+    # answered piNone -- the cell index is not the map key). The step fails
+    # naming the missing targetname when an expected point is absent, so a
+    # wrong map answers as itself rather than as a missing-owner FAIL later.
+    by_name = {}
+    for p in sorted(points, key=lambda e: e.get("index") or 0):
+        name = str(p.get("name") or "").strip().lower()
+        if name:
+            by_name.setdefault(name, p)
+    missing = [name for name, _, _, _ in CP_CELL_TABLE if name not in by_name]
+    if missing:
+        numbers["detail"] = ("expected team_control_point targetnames %s missing on %s "
+                             "(the entity list answered %s)"
+                             % (",".join(missing), CP_MAP, numbers["points"]))
+        return "FAIL", numbers
+    ent_of = {idx: by_name[name] for name, idx, _, _ in CP_CELL_TABLE}
+    table_owner = {idx: owner for _, idx, owner, _ in CP_CELL_TABLE}
+    table_captime = {idx: ct for _, idx, _, ct in CP_CELL_TABLE}
+
+    pair = []
+    for name, idx, _, _ in CP_CELL_TABLE:
+        ent = ent_of[idx]
+        try:
+            pf = run.srv.fields(ent["index"]) or {}
+        except lg.ApiError:
+            pf = {}
+        pi = None
+        for key in ("point_index", "PointIndex", "pointindex"):
+            pi = pi if pi is not None else as_number(pf.get(key))
+        pair.append("#%s(%s)=pi%s@%s" % (ent.get("index"), name, pi,
+                                         fmt_pos(ent.get("origin") or [])))
+    numbers["point_index_map"] = ";".join(pair)[:400]
+
+    # -- the trigger areas: cap-time fields, paired by area_cap_point ---------
+    # The trigger_capture_area entities carry each point's cap fields
+    # (area_time_to_cap, team_numcap_<team>), paired to their point through the
+    # map's own area_cap_point key (TriggerAreaCaptureVars.CapPointName names
+    # the point entity), falling back to nearest distance when no area carries
+    # it. The standing spot itself is NOT taken from the area: this commit's
+    # live run held RED at the paired area's origin (0,0,0) and the middle's
+    # Owner stayed '0' for the whole window, while the point entity's own
+    # origin (0,0,292) sits on the cap platform and flipped middle (~21 s in
+    # earlier runs) -- point_spot explains both readings.
+    try:
+        areas = [a for a in run.srv.ents("trigger_capture_area") if a.get("origin")]
+    except lg.ApiError:
+        areas = []
+    numbers["areas_count"] = len(areas)
+    af_of = {}
+
+    def paired_area(idx):
+        """(area entity or None, how it paired): the map's area_cap_point
+        cell first, nearest distance second."""
+        ent = ent_of[idx]
+        name = str(ent.get("name") or "").strip().lower()
+        for a in areas:
+            if a["index"] not in af_of:
+                try:
+                    af_of[a["index"]] = run.srv.fields(a["index"]) or {}
+                except lg.ApiError:
+                    af_of[a["index"]] = {}
+            cap_name = str(af_of[a["index"]].get("area_cap_point") or "").strip().lower()
+            if name and cap_name and cap_name == name:
+                return a, "area_cap_point=%s" % a.get("index")
+        best, best_d = None, None
+        pos = list(ent.get("origin") or [])
+        if pos:
+            for a in areas:
+                ao = list(a["origin"])
+                d = sum((float(ao[k]) - float(pos[k])) ** 2 for k in range(3))
+                if best is None or d < best_d:
+                    best, best_d = a, d
+        return best, ("nearest(%s)" % best.get("index") if best else "none")
+
+    def point_spot(idx):
+        """Where RED stands for one point: the point entity's own origin first.
+        The live run at this commit measured the difference: held at the
+        paired area's origin (0,0,0) the middle's Owner stayed '0' for the
+        whole 28 s window, while the entity origin (0,0,292) -- on the cap
+        platform, inside the volume -- is the spot earlier live runs flipped
+        middle on (~21 s). The paired area's origin answers next when the
+        entity answers no origin at all. The pairing itself still rides on
+        the row beside the spot (how it answered), since the area's own
+        fields carry the cap times."""
+        pos = list(ent_of[idx].get("origin") or [])
+        how = "entity(%s)" % ent_of[idx].get("index")
+        if not pos:
+            area, a_how = paired_area(idx)
+            pos = list(area["origin"]) if area and area.get("origin") else []
+            how = "area via %s" % a_how
+        numbers["area_spot_%d" % idx] = "%s via %s" % (fmt_pos(pos), how)
+        return pos or None
+
+    def cap_expect(idx):
+        """Expected solo cap seconds for one point: the area's own cap time
+        (area_time_to_cap -- TriggerAreaCaptureVars.CapTime), times two: with
+        mp_capstyle's default scaling (TFSharedConVars.cs's mp_capstyle = 1;
+        stock StartCapture's ScalingWithPlayers arm, mirrored in
+        TriggerAreaCapture.cs) the timer starts at CapTime * 2 * NumRequiredToCap
+        and one toucher drains a second per second. NumRequiredToCap comes
+        from the area's team_numcap_<team> key, the default being the OnSpawn
+        clamp to 1. When the cells answer nothing, the table's decoded time
+        stands beside the same scaling."""
+        area, _ = paired_area(idx)
+        af = af_of.get(area["index"], {}) if area else {}
+        captime = as_number(af.get("area_time_to_cap"))
+        if captime is None:
+            captime = float(table_captime[idx])
+        want = "team_numcap_%d" % TEAM_RED
+        numreq = as_number(af.get(want)) if want in af else None
+        if numreq is None:
+            nk = sorted(k for k in af if "numcap" in k.lower())
+            numreq = as_number(af.get(nk[0])) if nk else None
+        return float(captime) * 2.0 * max(1.0, numreq if numreq is not None else 1.0)
+
+    def timed_cap(idx, spot):
+        """RED stands alone on one point until its Owner cell reads RED (or
+        the entity's own OnCapTeam1 output says it flipped -- the cell can
+        lag a tick behind the output on the deep points, runs G-J). The
+        pulses are what make a TOUCH run a move (step_ctf's rule: without
+        them the owner stayed untouched). Returns (flipped, seconds), both
+        riding on the row."""
+        ev_head_w, _, _ = events_snapshot(run, RED_OWNER_NEEDLES)
+        t0 = time.time()
+
+        def held():
+            _, hits, _probe = events_snapshot(run, RED_OWNER_NEEDLES)
+            fresh = [e for e in hits if (e.get("seq") or e.get("id") or 0) > ev_head_w]
+            settle_on(run, run.p2, spot, (0.0, 0.0, 0.0), tries=2, prove=False)
+            run.buttons_p2("+forward")
+            time.sleep(0.3)
+            run.buttons_p2("-forward")
+            wf, _ = objective_answer()
+            if owner_is(cp_cell(wf or {}, "Owner", idx), TEAM_RED):
+                return True
+            if fresh:
+                numbers["owner_event_%d" % idx] = str(fresh[-1])[:200].replace("\t", " ")
+                return True
+            return None
+
+        got = bool(wait_pump(run, "cp5: RED takes point %d" % idx, held,
+                             cap_expect(idx) + CP_ARM_SLACK, 1.0))
+        secs = time.time() - t0
+        wf, _ = objective_answer()
+        numbers["owner_after_%d" % idx] = repr(cp_cell(wf or {}, "Owner", idx))
+        return got, secs
+
+    # -- round start: the unlock state and who owns what ---------------------
+    # Live answer on cp_badlands (run 20261103-111914): every Locked cell
+    # reads False at round start and the Owner cells split the line by side
+    # (BLU owns the indices below the middle, RED the ones above, the middle
+    # itself answers none) -- exactly CP_CELL_TABLE's decoded default owners.
+    # Stock gates the order through the previous-points walk, not a locked
+    # flag (tf_gamerules.cpp:16769 TeamMayCapturePoint: every point listed by
+    # GetPreviousPointForPoint must be owned by the capturing team; stock
+    # trigger_area_capture.cpp:356 counts a player toward a cap only while
+    # TeamMayCapturePoint answers for his team, so a point whose previous
+    # points are not owned simply never completes -- our port is the same
+    # shape in ControlPointRules.TeamMayCapturePoint). The Locked cell is the
+    # unlock timer's mirror (stock team_control_point.cpp's m_bLocked keyfield
+    # and UnlockThink), not the gate: with the home pairs pre-owned the whole
+    # line answers unlocked from round start, which is what this arm holds.
+    locked_at = {}
+    for idx in range(count):
+        locked_at[idx] = bool_from_field(cp_cell(fields, "Locked", idx))
+    numbers["locked_cells"] = ",".join("%d=%s" % (i, locked_at[i]) for i in sorted(locked_at))
+    numbers["locked_source"] = cells_src
+    owners = {}
+    for idx in range(count):
+        owners[idx] = cp_cell(fields, "Owner", idx)
+    numbers["owner_cells_at_start"] = ",".join("%d=%r" % (i, owners[i]) for i in sorted(owners))
+    if fields is None:
+        numbers["detail"] = ("the objective resource answered no cells at all (%s): the "
+                             "Locked cells are the only window onto the unlock state" % cells_src)
+        return "FAIL", numbers
+    for idx in sorted(locked_at):
+        if locked_at[idx] is not False:
+            numbers["detail"] = ("point %d answers %r for Locked at round start where stock's "
+                                 "chain opens the whole line once the home pairs are owned "
+                                 "(cells %s; source %s)"
+                                 % (idx, locked_at[idx], numbers["locked_cells"], cells_src))
+            return "FAIL", numbers
+    mid_cell = owners.get(CP_POINT_COUNT // 2)
+    if owner_is(mid_cell, TEAM_RED) or owner_is(mid_cell, TEAM_BLU):
+        numbers["detail"] = ("the middle point is already owned by %r at round start where "
+                             "stock leaves it open to both sides (%s)"
+                             % (owners.get(CP_POINT_COUNT // 2), cells_src))
+        return "FAIL", numbers
+    for idx in sorted(owners):
+        want = table_owner.get(idx)
+        if idx == CP_POINT_COUNT // 2:
+            continue
+        if want is None or not owner_is(owners[idx], want):
+            numbers["detail"] = ("point %d's Owner cell answers %r where CP_CELL_TABLE's "
+                                 "decoded default owner says %d (%s)"
+                                 % (idx, owners[idx], want, cells_src))
+            return "FAIL", numbers
+
+    # BLUE parks clear of the line before any cap starts: with blockstyle 0
+    # a second team in the volume holds the capture off, so the defender
+    # waits at the far end of RED's own home pair, clear of every point RED
+    # is about to take (the block arm brings him in where the block is the
+    # thing being proven).
+    far_ent = ent_of[CP_POINT_COUNT - 1]
+    far_pos = list(far_ent.get("origin") or [])
+    far_how = "entity(%s)" % far_ent.get("index")
+    if not far_pos:
+        far_a, far_how = paired_area(CP_POINT_COUNT - 1)
+        far_pos = list((far_a or {}).get("origin") or [])
+    park_pos = [far_pos[0] + (PARK_OFF_X if far_pos[0] >= 0 else -PARK_OFF_X), far_pos[1], far_pos[2]]
+    settle_on(run, run.p1, park_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+    run.buttons_p1("+forward")
+    time.sleep(0.2)
+    run.buttons_p1("-forward")
+    park_seen = entity_origin(run.srv, run.p1)
+    numbers["p1_park_read"] = "%s via %s" % (fmt_pos(list(park_seen)) if park_seen else "(no origin read)",
+                                             far_how)
+
+    # -- RED's order on this map: middle first, then toward BLUE's end --------
+    # CP_CELL_TABLE pairs cap_center to cell 2 and the blue-side pair below
+    # it, so RED's walk is middle, cap_blue_2, cap_blue_1 -- the cells above
+    # the middle are RED's own home pair and need no capture (their Owner
+    # cells already read RED at round start, held above).
+    mid_idx = CP_POINT_COUNT // 2
+    order = sorted(range(count), key=lambda i: (abs(i - mid_idx), i))
+    walk_order = [mid_idx] + [i for i in order if i != mid_idx]
+
+    # -- out of order before the middle: the previous-points gate refuses -----
+    # Before RED owns the middle, the point after it is gated off for RED
+    # (its previous-point, the middle, is not RED's yet -- stock's walk). A
+    # lone holder must NOT finish it in its own scaled time while the middle
+    # still answers none. The same spot does finish once the middle is RED's,
+    # below, which is what makes this refusal evidence rather than a short
+    # window: before != after, same player same spot.
+    ref_idx = next(i for i in walk_order if i != mid_idx)
+    ref_spot = point_spot(ref_idx)
+    if ref_spot is None:
+        numbers["detail"] = "point %d (%s) answered no origin to stand RED on" % (ref_idx, ref_idx)
+        return "FAIL", numbers
+    refusal_start = time.time()
+
+    def held_refusal():
+        settle_on(run, run.p2, ref_spot, (0.0, 0.0, 0.0), tries=2, prove=False)
+        run.buttons_p2("+forward")
+        time.sleep(0.3)
+        run.buttons_p2("-forward")
+        wf, _ = objective_answer()
+        return owner_is(cp_cell(wf or {}, "Owner", ref_idx), TEAM_RED)
+
+    flipped_early = wait_pump(run, "cp5: the out-of-order hold on point %d" % ref_idx,
+                              held_refusal, cap_expect(ref_idx) + CP_ARM_SLACK, 1.0)
+    numbers["refusal_seconds"] = "%.1f" % (time.time() - refusal_start)
+    rf, _ = objective_answer()
+    numbers["refusal_owner"] = repr(cp_cell(rf or {}, "Owner", ref_idx))
+    if flipped_early:
+        numbers["detail"] = ("RED took point %d out of order (%s s of standing with the "
+                             "middle unowned; Owner %r): the previous-points gate did not "
+                             "refuse the capture"
+                             % (ref_idx, numbers["refusal_seconds"], numbers["refusal_owner"]))
+        return "FAIL", numbers
+
+    # -- RED takes the middle --------------------------------------------------
+    middle_pos = point_spot(mid_idx)
+    if middle_pos is None:
+        numbers["detail"] = ("no team_control_point on %s answered a readable origin (%s)"
+                             % (CP_MAP, numbers["points"]))
+        return "FAIL", numbers
+    numbers["middle_pos"] = fmt_pos(middle_pos)
+    capped, middle_seconds = timed_cap(mid_idx, middle_pos)
+    numbers["middle_cap_seconds"] = "%.1f" % middle_seconds
+    numbers["owner_after_red"] = numbers.get("owner_after_%d" % mid_idx)
+    if not capped:
+        numbers["point_probe"] = _entity_probe(run, ent_of[mid_idx]["index"])
+        numbers["detail"] = ("RED held the middle (%s) but its Owner cell stayed %s for "
+                             "%.1f s (expected %.1f from the area's own cap time): the "
+                             "owner stayed unowned"
+                             % (numbers["middle_pos"], numbers["owner_after_red"], middle_seconds,
+                                cap_expect(mid_idx)))
+        return "FAIL", numbers
+    # The Owner cell for the middle must really read RED, not merely be
+    # truthy on some lagging output.
+    ov, _ = objective_answer()
+    ov_cell = cp_cell(ov or {}, "Owner", mid_idx)
+    numbers["owner_after_red"] = repr(ov_cell)
+    if not owner_is(ov_cell, TEAM_RED):
+        numbers["detail"] = ("after RED's capture event the Owner cell for the middle reads "
+                             "%r, not RED (%s)" % (ov_cell, cells_src))
+        return "FAIL", numbers
+
+    # -- RED's next point unlocks beside the middle cap -----------------------
+    unlock_start = time.time()
+
+    def next_unlocked():
+        nf, _ = objective_answer()
+        for idx in walk_order:
+            if idx == mid_idx:
+                continue
+            if bool_from_field(cp_cell(nf, "Locked", idx)) is False:
+                return idx
+        return None
+
+    opened_idx = wait_pump(run, "cp5: RED's next point unlocks", lambda: next_unlocked() or None,
+                           CP_ARM_SLACK + CP_BLOCK_WINDOW, 1.0, beat=10)
+    numbers["next_unlocked_index"] = opened_idx
+    numbers["next_unlock_seconds"] = "%.1f" % (time.time() - unlock_start)
+    if opened_idx is None:
+        lf, _ = objective_answer()
+        numbers["locked_after_cap"] = ",".join(
+            "%d=%s" % (i, bool_from_field(cp_cell(lf, "Locked", i))) for i in range(count))
+        numbers["detail"] = ("no point beyond the middle unlocked after RED's capture of the "
+                             "middle (%s)" % numbers["locked_after_cap"])
+        return "FAIL", numbers
+
+    seconds = ["%d:%.1f" % (mid_idx, middle_seconds)]
+    walked = [mid_idx]
+
+    # -- BLUE beside RED blocks the cap; BLUE off lets RED finish -------------
+    next_idx = opened_idx if next_unlocked() else ref_idx
+    next_pos = point_spot(next_idx)
+    if next_pos is None:
+        numbers["detail"] = "point %d answered no origin to stand RED on" % next_idx
+        return "FAIL", numbers
+    numbers["next_pos"] = fmt_pos(next_pos)
+    ev_head2, _, _ev_probe2 = events_snapshot(run, RED_OWNER_NEEDLES)
+
+    # BLUE stands on the point RED is capturing: the capture must NOT
+    # complete while the defending side is in the zone. Both placements
+    # pulse beside the settle: a TOUCH only runs on a move (step_ctf's
+    # rule). Then BLUE parks clear again and RED's solo completion is
+    # timed against the area's expected seconds.
+    settle_on(run, run.p2, next_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+    run.buttons_p2("+forward")
+    time.sleep(0.2)
+    run.buttons_p2("-forward")
+    settle_on(run, run.p1, next_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+    run.buttons_p1("+forward")
+    time.sleep(0.2)
+    run.buttons_p1("-forward")
+    time.sleep(CP_BLOCK_WINDOW)
+    bf, blocked_src = objective_answer()
+    blocked_cell = bool_from_field(cp_cell(bf, "Blocked", next_idx))
+    hold_owner = cp_cell(bf, "Owner", next_idx)
+    numbers["blocked_cell"] = "%r while both stand (%s)" % (blocked_cell, blocked_src)
+    numbers["owner_while_contested"] = repr(hold_owner)
+    _, hits2, _probe2 = events_snapshot(run, RED_OWNER_NEEDLES)
+    fresh2 = [e for e in hits2 if (e.get("seq") or e.get("id") or 0) > ev_head2]
+    if fresh2:
+        numbers["owner_event_next"] = str(fresh2[-1])[:300].replace("\t", " ")
+    if owner_is(hold_owner, TEAM_RED):
+        numbers["detail"] = ("RED completed the cap of point %d WITH BLUE standing in the "
+                             "zone beside him (owner %r; Blocked cell %r from %s): the "
+                             "defender must hold the capture off while he stands there"
+                             % (next_idx, hold_owner, blocked_cell, blocked_src))
+        return "FAIL", numbers
+
+    # BLUE parks clear of the volume again; RED finishes alone, timed.
+    settle_on(run, run.p1, park_pos, (0.0, 0.0, 0.0), tries=2, prove=False)
+    run.buttons_p1("+forward")
+    time.sleep(0.2)
+    run.buttons_p1("-forward")
+    park_seen = entity_origin(run.srv, run.p1)
+    numbers["p1_park_read"] = "%s via %s" % (fmt_pos(list(park_seen)) if park_seen else "(no origin read)",
+                                             far_how)
+    finished, next_seconds = timed_cap(next_idx, next_pos)
+    numbers["next_cap_seconds"] = "%.1f" % next_seconds
+    numbers["owner_after_next"] = numbers.get("owner_after_%d" % next_idx)
+    if not finished:
+        numbers["point_probe"] = _entity_probe(run, ent_of[next_idx]["index"])
+        numbers["detail"] = ("RED held point %d alone after BLUE left but the Owner cell "
+                             "stayed %s for %.1f s (expected %.1f from the area's own cap "
+                             "time): the finish never ran"
+                             % (next_idx, numbers["owner_after_next"], next_seconds,
+                                cap_expect(next_idx)))
+        return "FAIL", numbers
+    seconds.append("%d:%.1f" % (next_idx, next_seconds))
+    walked.append(next_idx)
+
+    # -- the rest of the walk, solo, each within the area's expected seconds --
+    last_spot = next_pos
+    for idx in walk_order:
+        if idx in walked:
+            continue
+        pos = point_spot(idx)
+        if pos is None:
+            continue
+        last_spot = pos
+        got, secs = timed_cap(idx, pos)
+        if got:
+            seconds.append("%d:%.1f" % (idx, secs))
+            walked.append(idx)
+    numbers["walk_order"] = ",".join(str(i) for i in walked)
+    numbers["capture_seconds"] = " ".join(seconds)
+
+    # One dump of each cap area's own fields beside the pairing reads: the
+    # required-capper count and cap time come from the map (area_time_to_cap
+    # and team_numcap_<team>), and the row carries them so a measured second
+    # can be checked against its own area rather than against a guess.
+    area_dump = []
+    for idx in sorted(ent_of):
+        area, how = paired_area(idx)
+        af = af_of.get(area["index"], {}) if area else {}
+        keys = sorted(k for k in af
+                      if any(w in k.lower() for w in ("area_cap_point", "area_time_to_cap",
+                                                      "numcap")))
+        area_dump.append("#%s@%s[%s] via %s" % (
+            (area or {}).get("index"), fmt_pos(list((area or {}).get("origin") or [])),
+            ",".join("%s=%s" % (k, af[k]) for k in keys), how))
+    numbers["area_fields"] = " | ".join(area_dump)[:420]
+
+    # The whole Owner row after the walk: which points really flipped to
+    # RED, so a round that stays running reads against ownership.
+    ef, _ = objective_answer()
+    numbers["owner_cells_after_walk"] = ",".join(
+        "%d=%r" % (i, cp_cell(ef or {}, "Owner", i)) for i in range(count))
+    for idx in sorted(ent_of):
+        if not owner_is(cp_cell(ef or {}, "Owner", idx), TEAM_RED):
+            numbers["detail"] = ("after RED walked %s the Owner cell for point %d reads %r, "
+                                 "not RED (%s; capture seconds %s)"
+                                 % (numbers["walk_order"], idx,
+                                    cp_cell(ef or {}, "Owner", idx), cells_src,
+                                    numbers["capture_seconds"]))
+            return "FAIL", numbers
+
+    # -- the round ends in RED's win -------------------------------------------
+    # A plain poll: the holder is already standing on the last point and the
+    # round master thinks within a tick of owning the line (TeamOwnsAllPoints
+    # in team_control_point_master's CheckWinConditions). Pulsing through the
+    # wait only hid which side answered; the old arm's pulses are gone.
+    end_at = time.time()
+
+    def end_beat():
+        return (round_state(run) or "") == "TeamWin"
+
+    won = wait_pump(run, "cp5: the round ends TeamWin for RED",
+                    end_beat, CP_END_WAIT, beat=10)
+    numbers["round_end_seconds"] = "%.1f" % (time.time() - end_at)
+    numbers["final_round_state"] = round_state(run) or "unreadable"
+    if not won:
+        numbers["detail"] = ("after RED walked the line (%s) the round state stayed %r -- "
+                             "the last enemy point owed a TeamWin (capture seconds %s)"
+                             % (numbers["walk_order"], numbers["final_round_state"],
+                                numbers["capture_seconds"]))
+        return "FAIL", numbers
+    return "PASS", numbers
+
+
 def step_teardown(run, state):
     numbers = {}
     numbers["server_threads_after_join"] = state.get("threads_after_join")
@@ -3750,7 +4970,8 @@ LIVE_STEPS = {"join": step_join, "teams": step_teams, "classes": step_classes,
               "weapon": step_weapon,
               "combat": step_combat, "heal": step_heal, "respawn": step_respawn, "ctf": step_ctf,
               "changelevel": step_changelevel, "payload": step_payload,
-              "mode": step_mode, "teardown": step_teardown}
+              "mode": step_mode, "koth": step_koth, "cp5": step_cp5,
+              "teardown": step_teardown}
 
 
 def joiner_died_during_heal(step, alive_before, alive_after):
@@ -4145,6 +5366,70 @@ def self_test():
     check(rendered_draws(frame) == [(7, "weapons/scout_hand.mdl"), (11, "props/door.mdl")],
           "draws pair the ent with its model under either model head")
     check(rendered_draws("") == [], "an empty frame draws nothing")
+    check(as_number("30") == 30.0 and as_number(None) is None,
+          "the timer cell reads its number, and an absent one reads None not zero")
+    check(bool_from_field(True) is True and bool_from_field("false") is False,
+          "the Locked cell reads True and False spellings exactly")
+    check(bool_from_field("maybe") is None and bool_from_field([]) is None,
+          "an unspellable Locked cell reads None so the caller prints it raw")
+    check(locked_cell({"Locked": True}) == (True, "Locked"),
+          "the Locked cell comes with the key that answered")
+    check(locked_cell({"NumControlPoints": 1})[0] is None,
+          "a field dict without a Locked cell answers None, never a guess")
+    check(locked_cell({"Blocked": False, "Locked": True}) == (True, "Locked"),
+          "Blocked sorts before Locked but never answers for it")
+    check(locked_cell({"Blocked": False})[0] is None,
+          "Blocked alone is not a Locked answer")
+    check(owner_cell({"Owner": 3}) == (3.0, "Owner"),
+          "the Owner cell reads the exact net-state name")
+    check(owner_cell({"Owner.0": "2"}) == (2.0, "Owner.0"),
+          "the per-point Owner cell reads and comes with its key")
+    check(owner_cell({"Blocked": False}) == (None, None),
+          "Blocked answers neither the Locked nor the Owner cell")
+    check(owner_cell({}) == (None, None), "an empty Owner dict answers None")
+
+    check(cp_cell({"Locked.2": False}, "Locked", 2) is False,
+          "the indexed Locked cell answers its own point")
+    check(cp_cell({"Locked": False}, "Locked", 2) is None,
+          "the bare cell answers only point 0, never point 2")
+    check(cp_cell({"Blocked.2": True}, "Locked", 2) is None,
+          "Blocked is not Locked (cp_cell)")
+    check(cp_cell({"Locked.3": True}, "Locked", 2) is None,
+          "point 3's cell is not point 2's answer")
+    check(cp_cell({"Owner.4": "2"}, "Owner", 4) == "2",
+          "the Owner cell passes through raw for the caller to decode")
+    check(cp_num_points({"NumControlPoints": "5"}, 9) == 5,
+          "the NumControlPoints cell counts the points")
+    check(cp_num_points({}, 9) == 9, "no cell falls back to the census count")
+    check(cp_num_points(None, 0) == 0, "nothing answered, zero counts (cannot-measure stays a failure)")
+    check(koth_window_holds((False, 235.9, 180.0), (False, 235.9, 180.0), falling=True),
+          "running reads with a held end time say the clock walked toward the timer")
+    check(not koth_window_holds((False, 235.9, 180.0), (False, 236.9, 180.0), falling=True),
+          "a second added between the reads is not the clock walking")
+    check(not koth_window_holds((True, 235.9, 180.0), (True, 235.9, 180.0), falling=True),
+          "a paused pair never answers the falling arm")
+    check(koth_window_holds((True, 235.9, 180.0), (True, 235.9, 180.0), falling=False),
+          "paused reads with held stored remaining say the timer stopped")
+    check(not koth_window_holds((False, 235.9, 180.0), (True, 235.9, 180.0), falling=False),
+          "mixed pause states answer neither arm")
+    check(not koth_window_holds((None, None, None), (None, None, None), falling=True),
+          "unreadable cells never pass an arm")
+    b, r, how = timer_pair_from_ents(
+        [{"handle": 9, "name": KOTH_BLUE_TIMER}, {"handle": 4, "name": ""},
+         {"handle": 6, "name": ""}, {"handle": 7, "name": KOTH_RED_TIMER}])
+    check(how == "names" and b.get("handle") == 9 and r.get("handle") == 7,
+          "named timers are matched by name even with a stale pair in the world")
+    b, r, how = timer_pair_from_ents(
+        [{"handle": 3, "name": ""}, {"handle": 4, "name": ""},
+         {"handle": 8, "name": ""}, {"handle": 9, "name": ""}])
+    check(how.startswith("order") and b.get("handle") == 8 and r.get("handle") == 9,
+          "with empty names the newest pair wins and blue (created first) is lower")
+    b, r, how = timer_pair_from_ents(
+        [{"handle": 4, "name": ""}, {"handle": 5, "name": ""}])
+    check(how.startswith("order") and b.get("handle") == 4 and r.get("handle") == 5,
+          "the plain two-entity census answers by creation order")
+    check(timer_pair_from_ents([]) == (None, None, "empty"),
+          "an empty census says so rather than guessing")
 
     check(gate_rc([]) == 1, "no rows is not a pass")
     check(gate_rc([{"status": "PASS"}]) == 0, "all PASS gives rc 0")

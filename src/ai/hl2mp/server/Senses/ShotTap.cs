@@ -23,12 +23,15 @@ public sealed class ShotTap(Hl2mpAiSession ai, Hl2mpBots bots, VisionPass vision
 {
     public void OnWeaponEvent(EntityHandle player, int weaponType, PlayerWeaponEvent e, int count)
     {
-        if (e != PlayerWeaponEvent.Fired || !ai.Recording.Recording)
+        if (e is not (PlayerWeaponEvent.Fired or PlayerWeaponEvent.AltFired) || !ai.Recording.Recording)
             return;
         int slot = entities.GetIndex(player);
         if (slot is < 1 or >= VisionPass.Slots)
             return;
-        ai.Recording.Observed(AiEvent.ShotFired(CommandTap.ActorOf(bots, slot, player), new Tick(frame.TickCount()), weaponType, count));
+        ActorId actor = CommandTap.ActorOf(bots, slot, player);
+        ai.Recording.Observed(e == PlayerWeaponEvent.Fired
+            ? AiEvent.ShotFired(actor, new Tick(frame.TickCount()), weaponType, count)
+            : AiEvent.AltFired(actor, new Tick(frame.TickCount()), weaponType));
     }
 
     public void OnPlayerHurt(in PlayerHurt hurt)

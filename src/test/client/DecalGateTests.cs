@@ -5,6 +5,7 @@ using SourceSharp.Client.TempEnts;
 using SourceSharp.Shared;
 
 using Xunit;
+using SourceSharp.Client;
 
 using static SourceSharp.Tests.TestServices;
 
@@ -14,7 +15,7 @@ namespace SourceSharp.Tests;
 /// The client's decal gates, which are the callers' as they are stock's (lane
 /// M1-C moved them out of SourceSharp_ClientDecalShoot): c_te_bspdecal.cpp,
 /// c_te_worlddecal.cpp and c_te_footprint.cpp each test <c>r_decals</c> before
-/// their DecalShoot, and <see cref="DecalConVarsWatch"/> reads the engine's
+/// their DecalShoot, and <see cref="DecalConVars"/> reads the engine's
 /// two ConVars by name.
 /// </summary>
 public class DecalGateTests
@@ -67,42 +68,25 @@ public class DecalGateTests
         Assert.Equal(1, engine.CountOf("Effects.ClientDecalShoot"));
     }
 
-    private sealed class Slots : IClientConVarSlots
+    [Fact]
+    public void TheSettingsReadTheEnginesTwoConVars()
     {
-        public readonly List<string> Watched = [];
+        var settings = new DecalConVars(DeclaredConVars.Holding<RDecalsConVar>("1"), DeclaredConVars.Holding<RDrawModelDecalsConVar>("0"));
 
-        public int Watch(string name)
-        {
-            Watched.Add(name);
-            return 1000 + Watched.Count;
-        }
-
-        public bool SetValue(string name, float value) => false;
+        Assert.True(settings.Decals);
+        Assert.False(settings.ModelDecals);
     }
 
     [Fact]
-    public void TheWatchReadsTheEnginesTwoConVarsByName()
+    public void AChangeIsWhatTheNextDecalReads()
     {
-        var slots = new Slots();
-        var watch = new DecalConVarsWatch(new WatchedConVarValues(slots, name => name == "r_decals" ? "1" : "0"));
-        watch.Start();
+        var decals = DeclaredConVars.Holding<RDecalsConVar>("1");
+        var settings = new DecalConVars(decals, DeclaredConVars.Holding<RDrawModelDecalsConVar>("1"));
 
-        Assert.Equal(["r_decals", "r_drawmodeldecals"], slots.Watched);
-        Assert.True(watch.Decals);
-        Assert.False(watch.ModelDecals);
-    }
+        decals.Hold("0");
 
-    [Fact]
-    public void AChangeToAWatchedConVarIsWhatTheNextDecalReads()
-    {
-        var slots = new Slots();
-        var watch = new DecalConVarsWatch(new WatchedConVarValues(slots, _ => "1"));
-        watch.Start();
-
-        Assert.True(watch.OnChanged(1001, "0"), "r_decals' id is the watch's");
-        Assert.False(watch.Decals);
-        Assert.True(watch.ModelDecals);
-        Assert.False(watch.OnChanged(77, "0"), "an id the watch does not hold is someone else's");
+        Assert.False(settings.Decals);
+        Assert.True(settings.ModelDecals);
     }
 
     private sealed class NeverLow : SourceSharp.Client.Effects.IClientLowViolence

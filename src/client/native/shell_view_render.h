@@ -16,6 +16,7 @@
 
 #include "viewrender.h"
 
+#include "managed_convar_ref.h"
 #include "shell_managed_areas_client.h"
 #include "shell_member_command.h"
 #include "shell_view_executor_client.h"
@@ -94,6 +95,10 @@ public:
 	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes);
 
 private:
+	CManagedConVarRef m_DrawBrushModels{"r_drawbrushmodels"};
+	CManagedConVarRef m_ScreenFadeMinSize{"r_screenfademinsize"};
+	CManagedConVarRef m_ScreenFadeMaxSize{"r_screenfademaxsize"};
+
 	// The demo free camera: managed's DemoViewCamera, around the engine's view
 	// angles and the input's extra mouse sample it needs between its two steps.
 	void DemoCamera(Vector& origin, QAngle& angles);

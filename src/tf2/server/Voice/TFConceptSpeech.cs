@@ -87,7 +87,7 @@ public sealed class TFConceptSpeech(
     public const string MinigunFireWeapon = "TLK_MINIGUN_FIREWEAPON";
 
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
-    public bool Speak(EntityHandle speaker, string concept) => SpeakWith(speaker, concept, null);
+    public bool Speak(EntityHandle speaker, string concept) => Ask(speaker, concept, null).Spoke;
 
     /// <summary>
     /// The player speaks the concept with one extra criterion word — stock's
@@ -96,11 +96,24 @@ public sealed class TFConceptSpeech(
     /// <c>SpeakIfAllowed</c>'s criteria).
     /// </summary>
     public bool Speak(EntityHandle speaker, string concept, string key, string value)
-        => SpeakWith(speaker, concept, criteria => criteria.Append(key, value));
+        => Ask(speaker, concept, criteria => criteria.Append(key, value)).Spoke;
 
     /// <summary>The player speaks with its held weapon's classname as the word — the shared criteria's <c>playerweapon</c> (<c>ModifyOrAppendCriteria</c>, tf_player.cpp:19212+), which the per-class rules' <c>WeaponIs*</c> criteria read.</summary>
     public bool Speak(EntityHandle speaker, string concept, string weaponName)
-        => SpeakWith(speaker, concept, criteria => criteria.Append("playerweapon", weaponName));
+        => Ask(speaker, concept, criteria => criteria.Append("playerweapon", weaponName)).Spoke;
+
+    /// <summary>
+    /// The same ask, answering the matched response's name — stock's
+    /// <c>SpeakConceptIfAllowed</c> filling the caller's buffer
+    /// (basemultiplayerplayer.cpp:103's <c>pszResponse</c>): the taunt's
+    /// scene, which <c>CTFPlayer::Taunt</c> keys its timed attack on
+    /// (tf_player.cpp:17862, :17979). Empty when nothing was matched.
+    /// </summary>
+    public bool Speak(EntityHandle speaker, string concept, string weaponName, out string responseName)
+    {
+        (bool spoke, responseName) = Ask(speaker, concept, criteria => criteria.Append("playerweapon", weaponName));
+        return spoke;
+    }
 
     /// <summary>
     /// The player speaks with its held weapon's words beside the player's own
@@ -109,18 +122,18 @@ public sealed class TFConceptSpeech(
     /// roll the percent-chance criteria read.
     /// </summary>
     public bool Speak(EntityHandle speaker, string concept, string weaponName, float firingDuration)
-        => SpeakWith(speaker, concept, criteria =>
+        => Ask(speaker, concept, criteria =>
         {
             criteria.Append("playerweapon", weaponName);
             criteria.Append("minigunfiretime", firingDuration.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
-        });
+        }).Spoke;
 
-    /// <summary>The ask itself: the alive gate, the player's words, the roll, the caller's extra, the match.</summary>
-    private bool SpeakWith(EntityHandle speaker, string concept, Action<ResponseCriteriaSet>? appendExtra)
+    /// <summary>The ask itself: the alive gate, the player's words, the roll, the caller's extra, the match — and the matched response's name beside whether anything played.</summary>
+    private (bool Spoke, string Name) Ask(EntityHandle speaker, string concept, Action<ResponseCriteriaSet>? appendExtra)
     {
         // SpeakIfAllowed's gate (basemultiplayerplayer.cpp:71-78).
         if (!players.IsAlive(speaker))
-            return false;
+            return (false, "");
 
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", concept);
@@ -133,7 +146,7 @@ public sealed class TFConceptSpeech(
         appendExtra?.Invoke(criteria);
 
         if (!responseRules.FindBestResponse(criteria, out var response))
-            return false;
+            return (false, "");
 
         bool spoke;
         switch (response.Kind)
@@ -163,7 +176,7 @@ public sealed class TFConceptSpeech(
         if (spoke)
             log?.Msg($"[TF2/Voice] player {speaker.EntryIndex} spoke concept {concept} ({response.Kind} {response.Name})\n");
 
-        return spoke;
+        return (spoke, response.Name);
     }
 
     /// <summary>

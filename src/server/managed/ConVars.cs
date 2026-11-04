@@ -156,8 +156,7 @@ public sealed class StrictNotargetConVar : BoolConVar { }
         Help = "Maximum move magnitude that can be requested by client.")]
 public sealed class MaxUsercmdMoveMagnitudeConVar : FloatConVar { }
 
-// sv_alternateticks is the engine's (convar_ownership.h); the native
-// EntitySim_IsSimulatingOnAlternateTicks reads it by name.
+// sv_alternateticks is the engine's (convar_ownership.h); SvAlternateTicksConVar holds it.
 
 /// <summary>
 /// Whether the AI logs shot statistics. From

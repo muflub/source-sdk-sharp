@@ -28,7 +28,7 @@ public sealed class UseableLadderEntityTests
         public static Rig Create()
         {
             var rig = new Rig();
-            var ladders = new UseableLadders(ConVarRegistry.For(UnattachedConsole()), RecordingEngine.Default(),
+            var ladders = new UseableLadders(DeclaredConVars.Fresh<SvAutoLadderDismountConVar>(), DeclaredConVars.Fresh<SvLadderAutoMountDotConVar>(), DeclaredConVars.Fresh<SvLadderUseOnlyConVar>(), RecordingEngine.Default(),
                                              () => MoveConstantDefaults.Stock);
             var services = Services(out var engine, ladders);
             engine.Returns("Entities.IsValid", true);

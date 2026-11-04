@@ -6,6 +6,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -163,7 +164,7 @@ public class LevelInitPreEntityTests
         var (stringTables, modTable) = TestStringTables.For(engine);
 
         var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
-                                    engine, engine, stringTables, modTable,
+                                    engine, DeclaredConVars.Fresh<DeveloperConVar>(), DeclaredConVars.Fresh<GLanguageConVar>(), DeclaredConVars.Fresh<SvTagsConVar>(), engine, new StubAlternateTicks(), stringTables, modTable,
                                     DriverOver(watcher), new TemplateStore(new RecordingLog()),
                                     // plan_entity.md step 2d: ServerGameDll owns
                                     // the map parse now. Over an empty registry,
@@ -195,7 +196,7 @@ public class LevelInitPreEntityTests
         var (stringTables, modTable) = TestStringTables.For(engine);
 
         var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
-                                    engine, engine, stringTables, modTable,
+                                    engine, DeclaredConVars.Fresh<DeveloperConVar>(), DeclaredConVars.Fresh<GLanguageConVar>(), DeclaredConVars.Fresh<SvTagsConVar>(), engine, new StubAlternateTicks(), stringTables, modTable,
                                     DriverOver(watcher), new TemplateStore(new RecordingLog()),
                                     TestMapSpawner.Over(engine, engine), new EntityIoRoutes());
 

@@ -325,8 +325,7 @@ public sealed partial class ClientInput
         }
 
         // An Xbox controller found: its cfg once; none: undo it.
-        string? found = _host.EngineConVar("joy_xcontroller_found");
-        if (found is not null && (int)(float)CRuntime.Atof(found) != 0 && _cvars.Joystick.Bool)
+        if (_xControllerFound.Value && _cvars.Joystick.Bool)
         {
             if (_cvars.JoyXControllerCfgLoaded.Int < 2)
             {

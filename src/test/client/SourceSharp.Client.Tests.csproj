@@ -74,6 +74,7 @@
     <Compile Include="..\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\common\LinuxOnlyFactAttribute.cs" Link="common\LinuxOnlyFactAttribute.cs" />
     <Compile Include="..\common\ThreadPoolFloor.cs" Link="common\ThreadPoolFloor.cs" />
+    <Compile Include="..\common\TempEntFill.cs" Link="common\TempEntFill.cs" />
     <Compile Include="..\common\RecordingRagdolls.cs" Link="common\RecordingRagdolls.cs" />
     <Compile Include="..\common\ProcessWide.cs" Link="common\ProcessWide.cs" />
     <Compile Include="..\common\FakeShimRoot.cs" Link="common\FakeShimRoot.cs" />
@@ -84,6 +85,8 @@
     <Compile Include="..\common\NullableEngineInterfaceCensus.cs" Link="common\NullableEngineInterfaceCensus.cs" />
     <Compile Include="..\common\EngineBoundCallerCensus.cs" Link="common\EngineBoundCallerCensus.cs" />
     <Compile Include="..\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\common\TempEntPathCensus.cs" Link="common\TempEntPathCensus.cs" />
+    <Compile Include="..\common\ByNameConVarReads.cs" Link="common\ByNameConVarReads.cs" />
     <Compile Include="..\common\EngineSideReachCensus.cs" Link="common\EngineSideReachCensus.cs" />
     <Compile Include="..\common\ShimAreaTypes.cs" Link="common\ShimAreaTypes.cs" />
     <Compile Include="..\common\FakePhysicsCallbacks.cs" Link="common\FakePhysicsCallbacks.cs" />
@@ -102,6 +105,7 @@
     <Compile Include="..\common\TestDebugHooks.Client.cs" Link="common\TestDebugHooks.Client.cs" />
     <Compile Include="..\common\DebugApiJson.cs" Link="common\DebugApiJson.cs" />
     <Compile Include="..\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\common\ClientShellFactAttribute.cs" Link="common\ClientShellFactAttribute.cs" />
     <Compile Include="..\common\TestServices.cs" Link="common\TestServices.cs" />
     <Compile Include="..\common\ClientDoubles.cs" Link="common\ClientDoubles.cs" />

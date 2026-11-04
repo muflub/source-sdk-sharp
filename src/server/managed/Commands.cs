@@ -8,14 +8,14 @@ namespace SourceSharp.Server;
 /// bound to a fresh instance — no id bookkeeping in the module.
 /// </summary>
 [ConCommand("cs_hello", Help = "Say hello from C# (server)")]
-public sealed class HelloCommand(ILog log) : IConCommand
+public sealed class HelloCommand(ILog log)
 {
-    public void Execute(string args)
-        => log.Msg($"[SourceSharp/Server] hello from C#! args='{args}'\n");
+    public void Execute([Rest] string text = "")
+        => log.Msg($"[SourceSharp/Server] hello from C#! args='{text}'\n");
 }
 
 [ConCommand("cs_status", Help = "Print SourceSharp server status")]
-public sealed class StatusCommand : IConCommand
+public sealed class StatusCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -29,7 +29,7 @@ public sealed class StatusCommand : IConCommand
         _ticks = ticks;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         _log.Msg($"[SourceSharp/Server] {SharedInfo.Version}\n");
         _log.Msg($"[SourceSharp/Server] ticks since level init: {_ticks.Count}\n");
@@ -42,7 +42,7 @@ public sealed class StatusCommand : IConCommand
 /// being swallowed somewhere downstream.
 /// </summary>
 [ConCommand("cs_firstchance", Help = "Toggle first-chance exception logging (1/0)")]
-public sealed class FirstChanceCommand(ILog log) : IConCommand
+public sealed class FirstChanceCommand(ILog log)
 {
     private bool _enabled;
 
@@ -50,9 +50,9 @@ public sealed class FirstChanceCommand(ILog log) : IConCommand
     // (statics to zero: it was a static handler on ManagedDiagnostics).
     private IDisposable? _logging;
 
-    public void Execute(string args)
+    public void Execute(bool? on = null)
     {
-        _enabled = args.Trim() is "1" or "on" or "true" || (args.Trim().Length == 0 && !_enabled);
+        _enabled = on ?? !_enabled;
         _logging?.Dispose();
         _logging = ManagedDiagnostics.SetFirstChanceLogging(log, _enabled);
     }
@@ -65,7 +65,7 @@ public sealed class FirstChanceCommand(ILog log) : IConCommand
 /// handles it prints are the ones every weapon ABI call takes.
 /// </summary>
 [ConCommand("cs_weapons", Help = "List a player's weapon slots as entity handles. cs_weapons [player]")]
-public sealed class WeaponsCommand : IConCommand
+public sealed class WeaponsCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -81,10 +81,8 @@ public sealed class WeaponsCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute(int index = 1)
     {
-        int index = int.TryParse(args.Trim(), out int parsed) ? parsed : 1;
-
         var player = _players.GetHandle(index);
         if (!_entities.IsValid(player))
         {
@@ -110,7 +108,7 @@ public sealed class WeaponsCommand : IConCommand
 /// empty for a hierarchy player.
 /// </summary>
 [ConCommand("cs_arsenal", Help = "List a player's managed inventory. cs_arsenal [player]")]
-public sealed class ArsenalCommand : IConCommand
+public sealed class ArsenalCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -129,10 +127,8 @@ public sealed class ArsenalCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute(int index = 1)
     {
-        int index = int.TryParse(args.Trim(), out int parsed) ? parsed : 1;
-
         var player = _players.GetHandle(index);
         if (!_entities.IsValid(player))
         {
@@ -157,7 +153,7 @@ public sealed class ArsenalCommand : IConCommand
 /// and the loadout is three weapons of nine.
 /// </summary>
 [ConCommand("cs_give", Help = "Give a weapon and full ammo for it. cs_give [player] <weapon classname>")]
-public sealed class GiveWeaponCommand : IConCommand
+public sealed class GiveWeaponCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -184,14 +180,13 @@ public sealed class GiveWeaponCommand : IConCommand
         _ammo = ammo ?? AmmoCatalog.Stock();
     }
 
-    public void Execute(string args)
+    public void Execute([Complete(From = nameof(Names))] string playerOrWeapon, [Complete(From = nameof(Names))] string? weaponAfterPlayer = null)
     {
-        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // The player comes first when there is one, so a lone word is the weapon.
+        int index = weaponAfterPlayer is not null && int.TryParse(playerOrWeapon, out int parsed) ? parsed : 1;
+        string weapon = weaponAfterPlayer ?? playerOrWeapon;
 
-        int index = parts.Length >= 2 && int.TryParse(parts[0], out int parsed) ? parsed : 1;
-        string weapon = parts.Length >= 2 ? parts[1] : (parts.Length == 1 ? parts[0] : "");
-
-        if (weapon.Length == 0 || _weapons.For(weapon) is not WeaponType type)
+        if (_weapons.For(weapon) is not WeaponType type)
         {
             _log.Warning("[SourceSharp/Arsenal] cs_give [player] <weapon classname>\n");
             return;
@@ -218,12 +213,14 @@ public sealed class GiveWeaponCommand : IConCommand
 
         _log.Msg($"[SourceSharp/Arsenal] gave {type.Name} to player {index}\n");
     }
+
+    private IEnumerable<string> Names() => _weapons.All.Select(w => w.Name);
 }
 
 [ConCommand("cs_throw", Help = "Throw a test exception (verifies crash reporting)")]
-public sealed class ThrowCommand : IConCommand
+public sealed class ThrowCommand
 {
-    public void Execute(string args)
+    public void Execute()
         => throw new InvalidOperationException("cs_throw: deliberate test exception");
 }
 
@@ -233,7 +230,7 @@ public sealed class ThrowCommand : IConCommand
 /// work, rather than assuming.
 /// </summary>
 [ConCommand("cs_convar_test", Help = "Round-trip a C# ConVar through the engine")]
-public sealed class ConVarTestCommand : IConCommand
+public sealed class ConVarTestCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -250,7 +247,7 @@ public sealed class ConVarTestCommand : IConCommand
         _greeting = greeting;
     }
 
-    public void Execute(string args)
+    public void Execute([Rest] string value = "roundtrip")
     {
         var greeting = _greeting;
         if (greeting is null)
@@ -260,7 +257,7 @@ public sealed class ConVarTestCommand : IConCommand
         }
 
         string before = greeting.Value;
-        string target = args.Trim().Length > 0 ? args.Trim() : "roundtrip";
+        string target = value;
 
         greeting.SetValue(target);
 
@@ -284,7 +281,7 @@ public sealed class ConVarTestCommand : IConCommand
 /// not resolve, and EntityHandle.None never resolves.
 /// </summary>
 [ConCommand("cs_handle_test", Help = "Verify entity handle validation")]
-public sealed class HandleTestCommand : IConCommand
+public sealed class HandleTestCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -301,7 +298,7 @@ public sealed class HandleTestCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         var player = _players.GetHandle(1);
 
@@ -352,9 +349,9 @@ public sealed class HandleTestCommand : IConCommand
 /// </summary>
 [ConCommand("cs_vtable", Help = "Acquire the engine interfaces this side serves through "
                               + "their vtables and report what each answered")]
-public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog log) : IConCommand
+public sealed class VtableAcquireCommand(IServerEngineInterfaces engine, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         // Each line is the seam's: the acquire, and what the bound interface
         // answered or the engine's reason for refusing it, composed in the

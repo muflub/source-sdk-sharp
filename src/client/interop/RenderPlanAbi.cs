@@ -27,18 +27,10 @@ public struct RenderFrameIn
     public float ScreenAspect;
     public int Windowed;
     public int MaxClients;
-    /// <summary>sv_restrict_aspect_ratio_fov.</summary>
-    public int RestrictAspectFov;
-    /// <summary>mat_viewportscale.</summary>
-    public float ViewportScale;
-    public int GlClear;
-    public int GlClearRandomColor;
     /// <summary>Posix on an ATI adapter (vendor 0x1002) with more than one AA sample: stock clears colour.</summary>
     public int ClearColorForAntialiasing;
     /// <summary>The client mode's ShouldDrawViewModel.</summary>
     public int ClientModeDrawViewModel;
-    /// <summary>cl_leveloverview.</summary>
-    public float LevelOverview;
     /// <summary>The view rectangle after the client mode's and the tools' AdjustEngineViewport.</summary>
     public int ViewportX;
     public int ViewportY;
@@ -78,13 +70,8 @@ public struct RenderFrameOut
 /// <summary>SetUpViews' inputs before the client mode's override (view.cpp).</summary>
 public struct ViewSetUpIn
 {
-    public float FarZ;
-    public float MapExtents;
     /// <summary>The viewer's fog controller's far Z, or 0 with none.</summary>
     public float FogFarZ;
-    public float DefaultFov;
-    /// <summary>The client mode's GetViewModelFOV.</summary>
-    public float ViewModelFov;
 }
 
 /// <summary>
@@ -271,8 +258,8 @@ public static unsafe class RenderFogParamsExtensions
 
 /// <summary>
 /// Everything RenderView's decisions read (<c>SourceSharpRenderInputs_t</c>),
-/// gathered by the executor at RenderView's entry. <see cref="Cvars"/> is
-/// indexed by <see cref="RenderCvar"/>.
+/// gathered by the executor at RenderView's entry, but the convars
+/// (<see cref="SourceSharp.Client.Render"/>'s RenderConVars).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct RenderInputs
@@ -338,7 +325,6 @@ public unsafe struct RenderInputs
     public int ScreenOverlayFullFrame;
     public int ScreenOverlayPowerOfTwo;
     public int FlashlightOn;
-    public fixed float Cvars[64];
     /// <summary>The client mode's ShouldDrawDetailObjects (appended: the struct only grows at its end).</summary>
     public int ClientModeDrawDetail;
     /// <summary>
@@ -351,9 +337,6 @@ public unsafe struct RenderInputs
     public float FreezeFlash;
     /// <summary>engine->IsTakingScreenshot(): the freeze flash is left off a screenshot.</summary>
     public int TakingScreenshot;
-
-    public readonly float Cvar(RenderCvar c) { fixed (float* p = Cvars) return p[(int)c]; }
-    public void SetCvar(RenderCvar c, float v) => Cvars[(int)c] = v;
 
     /// <summary>Tests and tools: the glass plane's normal and dist, the executor's write.</summary>
     public void SetGlassPlane(Vector normal, float dist)
@@ -375,73 +358,6 @@ public unsafe struct RenderInputs
 
     /// <summary>The glass plane's dist, in the same slots.</summary>
     public readonly float GlassDist { get { fixed (float* p = GlassPlane) return p[3]; } }
-}
-
-/// <summary>
-/// The convars the plan reads, by their slot in <see cref="RenderInputs.Cvars"/>;
-/// shell_view_executor_client.cpp's RENDER_CVAR_ table fills them in this order
-/// (RenderPlanAbiParityTests holds the two lists equal).
-/// </summary>
-public enum RenderCvar
-{
-    r_skybox = 0,
-    r_3dsky,
-    mat_motion_blur_enabled,
-    building_cubemaps,
-    r_flashlightdepthtexture,
-    mat_viewportscale,
-    mat_viewportupscale,
-    cl_leveloverview,
-    fog_override,
-    fog_start,
-    fog_end,
-    fog_enable,
-    fog_maxdensity,
-    fog_radial,
-    fog_startskybox,
-    fog_endskybox,
-    fog_maxdensityskybox,
-    fog_enableskybox,
-    fog_radialskybox,
-    mat_drawwater,
-    r_waterforceexpensive,
-    r_waterforcereflectentities,
-    r_WaterDrawReflection,
-    r_WaterDrawRefraction,
-    r_ForceWaterLeaf,
-    mat_clipz,
-    r_eyewaterepsilon,
-    r_drawviewmodel,
-    r_drawentities,
-    r_drawopaquerenderables,
-    r_drawtranslucentrenderables,
-    r_drawtranslucentworld,
-    r_entityclips,
-    vcollide_wireframe,
-    r_drawopaqueworld,
-    r_DrawDetailProps,
-    cl_maxrenderable_dist,
-    r_worldlistcache,
-    mat_yuv,
-    mat_hsv,
-    mat_showlightmappage,
-    cl_drawshadowtexture,
-    cl_shadowtextureoverlaysize,
-    mat_showwatertextures,
-    mat_wateroverlaysize,
-    mat_showcamerarendertarget,
-    mat_showframebuffertexture,
-    mat_framebuffercopyoverlaysize,
-    mat_drawTextureScale,
-    r_flashlightdrawdepth,
-    cl_overdraw_test,
-    fog_color_r,
-    fog_color_g,
-    fog_color_b,
-    fog_colorskybox_r,
-    fog_colorskybox_g,
-    fog_colorskybox_b,
-    Count,
 }
 
 /// <summary>One step of the plan (<c>SourceSharpRenderOp_t</c>).</summary>

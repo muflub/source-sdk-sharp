@@ -22,7 +22,7 @@ public sealed class SkillCurves
         "searchSeconds", "ambushWeight", "routeAltWeight", "fireRangeGate", "pushTrust", "pushMarginSeconds", "strafeWeight",
         "strafeMeanSeconds", "retreatHealthPct", "rankBonus", "pathCapMultiplier", "easyTargetDiscount",
         "reactionMs", "trackingLagMs", "flickOvershootPct", "grudgeWeight",
-        "prefireChance", "prefireThrift", "prefireBurstSeconds", "giveUpHealth", "crouchShare", "recoilControl", "burstSeconds", "recoilSettleDeg",
+        "prefireChance", "prefireThrift", "prefireBurstSeconds", "giveUpHealth", "crouchShare", "recoilControl", "burstSeconds", "recoilSettleDeg", "altFireChance", "aimRise", "fragChance", "fragKnack", "fragAimDeg", "fragCareless",
     ];
 
     /// <summary>
@@ -230,6 +230,9 @@ public sealed class SkillCurves
         return new StreakParams(errors.At(error), leads.At(lead), reactions.At(reaction), VisionCurves.RecognizeAt(reaction));
     }
 
+    /// <summary>From this spend (Hard's) a grenade is never thrown at what is right in front of it, whatever one skill says (§5.4).</summary>
+    public const int CarefulFromPoints = 50;
+
     /// <summary>The parameters at a profile's levels.</summary>
     public DecisionParams For(SkillProfile profile)
     {
@@ -249,7 +252,8 @@ public sealed class SkillCurves
                                   V("retreatHealthPct"), V("rankBonus"), V("pathCapMultiplier"), V("easyTargetDiscount"),
                                   V("reactionMs"), V("trackingLagMs"), V("flickOvershootPct"), V("grudgeWeight"),
                                   V("prefireChance"), V("prefireThrift"), V("prefireBurstSeconds"), V("giveUpHealth"), V("crouchShare"), V("recoilControl"), V("burstSeconds"), V("recoilSettleDeg"),
-                                  Streak(profile, HotLevel), Streak(profile, ColdLevel));
+                                  Streak(profile, HotLevel), Streak(profile, ColdLevel), VisionCurves.For(profile).RecognizeSeconds, V("altFireChance"), V("aimRise"),
+                                  V("fragChance"), V("fragKnack"), V("fragAimDeg"), profile.Spent >= CarefulFromPoints ? 0f : V("fragCareless"));
     }
 }
 
@@ -287,7 +291,14 @@ public readonly record struct DecisionParams(
     float BurstSeconds = 0f,
     float RecoilSettleDeg = 0f,
     StreakParams Hot = default,
-    StreakParams Cold = default);
+    StreakParams Cold = default,
+    float RecognizeSeconds = 0f,
+    float AltFireChance = 0f,
+    float AimRise = 0f,
+    float FragChance = 0f,
+    float FragKnack = 0f,
+    float FragAimDeg = 0f,
+    float FragCareless = 0f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

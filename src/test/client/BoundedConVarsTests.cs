@@ -3,6 +3,7 @@ using SourceSharp.Client;
 using Debug.Api.Client.Interfaces;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -68,31 +69,28 @@ public class BoundedConVarsTests
 
     private sealed class Slots : IClientConVarSlots
     {
-        public readonly Dictionary<string, int> Watched = new(StringComparer.OrdinalIgnoreCase);
         public readonly Dictionary<string, float> Values = new(StringComparer.OrdinalIgnoreCase);
-        public int Watch(string name) => Watched.TryGetValue(name, out int id) ? id : Watched[name] = 0x10000 + Watched.Count;
         public bool SetValue(string name, float value) { Values[name] = value; return true; }
     }
 
-    private static (BoundedConVars Bounded, Slots Slots, Dictionary<string, string> Vars) Rig()
+    private static (BoundedConVars Bounded, Slots Slots, BoundedConVarInputs Inputs) Rig()
     {
-        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["cl_predict"] = "1", ["cl_interp"] = "0.1", ["cl_interp_ratio"] = "2", ["cl_updaterate"] = "20",
-            ["sv_client_predict"] = "-1", ["sv_client_min_interp_ratio"] = "1", ["sv_client_max_interp_ratio"] = "5",
-            ["sv_minupdaterate"] = "10", ["sv_maxupdaterate"] = "60",
-        };
+        var inputs = new BoundedConVarInputs(
+            DeclaredConVars.Holding<ClPredictConVar>("1"), DeclaredConVars.Holding<SvClientPredictConVar>("-1"),
+            DeclaredConVars.Holding<ClInterpConVar>("0.1"), DeclaredConVars.Holding<ClInterpRatioConVar>("2"),
+            DeclaredConVars.Holding<ClUpdateRateConVar>("20"), DeclaredConVars.Holding<SvClientMinInterpRatioConVar>("1"),
+            DeclaredConVars.Holding<SvClientMaxInterpRatioConVar>("5"), DeclaredConVars.Holding<SvMinUpdateRateConVar>("10"),
+            DeclaredConVars.Holding<SvMaxUpdateRateConVar>("60"));
         var slots = new Slots();
-        return (new BoundedConVars(slots, name => vars.TryGetValue(name, out string? v) ? v : null), slots, vars);
+        return (new BoundedConVars(slots, inputs), slots, inputs);
     }
 
     [Fact]
-    public void StartWatchesEveryInputAndPushesAllFour()
+    public void StartPushesAllFour()
     {
         var (bounded, slots, _) = Rig();
         bounded.Start();
 
-        Assert.Equal(9, slots.Watched.Count);
         Assert.Equal(1f, slots.Values["cl_predict"]);
         Assert.Equal(2f, slots.Values["cl_interp_ratio"]);
         Assert.Equal(0.1f, slots.Values["cl_interp"]);
@@ -100,29 +98,29 @@ public class BoundedConVarsTests
     }
 
     [Fact]
-    public void AWatchedChangeRecomputesAndPushes()
+    public void AChangeOfAnInputRecomputesAndPushes()
     {
-        var (bounded, slots, vars) = Rig();
+        var (bounded, slots, inputs) = Rig();
         bounded.Start();
 
-        vars["sv_client_predict"] = "0";
-        Assert.True(bounded.OnChanged(slots.Watched["sv_client_predict"]));
+        inputs.ServerPredict.Hold("0");
         Assert.Equal(0f, slots.Values["cl_predict"]);
 
-        vars["sv_client_min_interp_ratio"] = "4";
-        Assert.True(bounded.OnChanged(slots.Watched["sv_client_min_interp_ratio"]));
+        inputs.MinRatio.Hold("4");
         Assert.Equal(4f, slots.Values["cl_interp_ratio"]);
         Assert.Equal(0.2f, slots.Values["cl_interp"], 6);     // 4 / 20
     }
 
     [Fact]
-    public void AnIdItDidNotWatchIsNotItsOwn()
+    public void EveryInputPushes()
     {
-        var (bounded, slots, _) = Rig();
+        var (bounded, _, inputs) = Rig();
         bounded.Start();
-        slots.Values.Clear();
+        int before = bounded.Pushes;
 
-        Assert.False(bounded.OnChanged(42));
-        Assert.Empty(slots.Values);
+        foreach (FloatConVar input in inputs.All)
+            input.Hold("7");
+
+        Assert.Equal(before + inputs.All.Length, bounded.Pushes);
     }
 }

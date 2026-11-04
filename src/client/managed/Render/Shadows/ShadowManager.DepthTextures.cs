@@ -78,7 +78,8 @@ public sealed partial class ShadowManager
     /// </summary>
     public void ComputeShadowDepthTextures(in ShadowViewSetup viewSetup)
     {
-        int[] activeDepthShadows = new int[MaxActiveDepthShadows];
+        // On the stack, as stock's is: this renders a view per flashlight below.
+        Span<int> activeDepthShadows = stackalloc int[MaxActiveDepthShadows];
         int activeCount = BuildActiveShadowDepthList(viewSetup, MaxActiveDepthShadows, activeDepthShadows);
 
         bool debugFrustum = _settings.FlashlightDrawFrustum;

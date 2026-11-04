@@ -65,17 +65,19 @@ public sealed class EntityMotion
     private readonly ILog _log;
 
     public EntityMotion(ILog log, IEngineEntities entities, IEngineWorldQuery world,
-                        IEngineEffects effects,
-                        IEngineConsole console, IEngineEntityPhysics physics, EntityDirectory directory,
+                        SvGravityConVar gravity,
+                        MoversBlockedConVar blockedReporting, MoversPushedConVar pushedTrace,
+                        IEngineEntityPhysics physics, EntityDirectory directory,
                         PhysicsPushedEntities pushed)
     {
+        _blockedReporting = blockedReporting;
+        _pushedTrace = pushedTrace;
         _log = log;
         _physics = physics;
         _pushed = pushed;
         _entities = entities;
         _world = world;
-        _effects = effects;
-        _console = console;
+        _gravity = gravity;
         _directory = directory;
     }
 
@@ -99,24 +101,14 @@ public sealed class EntityMotion
     /// </summary>
     public Hierarchy? Parenting { get; set; }
 
-    /// <summary>For the one convar the blocked diagnostic reads. See <see cref="BlockedReportingOn"/>.</summary>
-    private readonly IEngineConsole _console;
+    private readonly MoversBlockedConVar _blockedReporting;
+    private readonly MoversPushedConVar _pushedTrace;
 
     private readonly IEngineEntities _entities;
     private readonly IEngineWorldQuery _world;
 
-    /// <summary>
-    /// For <see cref="IEngineEffects.CurrentGravity"/> and nothing else.
-    ///
-    /// <para>
-    /// An integrator depending on the EFFECTS area reads wrong, and it is where
-    /// the ABI actually puts <c>GetCurrentGravity()</c> (see
-    /// <c>EngineAreas.World.cs</c>). Taken as it is rather than moved, because
-    /// the areas are a shared file this step does not own; naming it here is
-    /// the honest version of the compromise.
-    /// </para>
-    /// </summary>
-    private readonly IEngineEffects _effects;
+    /// <summary>stock's GetCurrentGravity: sv_gravity.</summary>
+    private readonly SvGravityConVar _gravity;
 
     private readonly EntityDirectory _directory;
 
@@ -366,11 +358,7 @@ public sealed class EntityMotion
         if (_movers.Count == 0)
             return PushedLastFrame;
 
-        // The world's gravity ONCE per frame rather than once per entity: it is
-        // a convar, every falling thing reads the same number, and reading it
-        // per entity would be a native call per entity for a value that cannot
-        // change between them.
-        float gravity = _effects.CurrentGravity();
+        float gravity = _gravity.Value;
 
         _pass.Clear();
         _pass.AddRange(_order);
@@ -1057,7 +1045,7 @@ public sealed class EntityMotion
             return 0;
 
         // One convar read per frame there are movers, for the push trace.
-        _pushed.Trace = ConVarOn(MoversPushedConVar.ConVarName);
+        _pushed.Trace = _pushedTrace.Value;
 
         _pushPass.Clear();
         _pushPass.AddRange(_pushOrder);
@@ -1358,7 +1346,7 @@ public sealed class EntityMotion
     /// </summary>
     private void ReportBlocked(EntityHandle mover, EntityHandle blocker, in Vector destination)
     {
-        if (!BlockedReportingOn())
+        if (!_blockedReporting.Value)
             return;
 
         var (mins, maxs) = _entities.GetBounds(blocker);
@@ -1369,27 +1357,6 @@ public sealed class EntityMotion
                 $"its top is {_entities.GetOrigin(mover).Z + moverMaxs.Z:F1}. " +
                 $"Blocked by '{Name(blocker)}' box {origin + mins} .. {origin + maxs}, " +
                 $"feet {origin.Z + mins.Z:F1}\n");
-    }
-
-    /// <summary>
-    /// <c>cs_sv_movers_blocked</c>, read through the console BY NAME rather than
-    /// through an injected <c>ConVarRegistry</c>.
-    ///
-    /// <para>
-    /// Not a preference: <see cref="EntityMotion"/> is constructed before
-    /// <c>ServerModule</c> registers its ConVars and publishes them to the
-    /// container, so an injected instance would be null for the life of the
-    /// object. The lookup costs one native call and one small string, and it is
-    /// only made on a frame that is actually blocked.
-    /// </para>
-    /// </summary>
-    private bool BlockedReportingOn() => ConVarOn(MoversBlockedConVar.ConVarName);
-
-    private bool ConVarOn(string name)
-    {
-        string? value = _console.FindConVarValue(name);
-
-        return value is not null && value.Length != 0 && value != "0";
     }
 
     private void MoveDone(EntityHandle entity) => _directory.Resolve(entity)?.OnMoveDone();

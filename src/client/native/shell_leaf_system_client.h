@@ -37,9 +37,7 @@ public:
 	CClientSystem& SystemRow() { return m_SystemRow; }
 
 private:
-	// The client systems' per-frame walks use dynamic_cast, and libss_fwd_client is built
-	// without RTTI, so this RTTI adapter is the row. It forwards the three stages stock had
-	// bodies for.
+	// The row, which forwards the three stages stock had bodies for.
 	class CSystemRow final : public CClientSystemPerFrame
 	{
 	public:

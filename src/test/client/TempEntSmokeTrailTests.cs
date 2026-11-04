@@ -10,6 +10,7 @@ using RandomSeeds = client::SourceSharp.Abi.RandomSeeds;
 using SourceSharp.Abi;
 using client::SourceSharp.Client.TempEnts;
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -65,7 +66,7 @@ public class TempEntSmokeTrailTests
         var clock = new Clock { Now = 100f };
         var pool = new ClientTempEntPool(new RecordingLog(), native, clock, new TempEntPoolTests.NoSimulation());
 
-        return (new TempEntSpawns(new RecordingLog(), pool, engine, engine, clock, new RandomSeeds(1)), native);
+        return (new TempEntSpawns(new RecordingLog(), pool, engine, DeclaredConVars.Fresh<FuncBreakMaxPiecesConVar>(), clock, new RandomSeeds(1)), native);
     }
 
     [Fact]

@@ -15,7 +15,7 @@ namespace SourceSharp.Server;
            "effect claims so the client prints back the string it resolved from each index (needs developer 2), " +
            "'all' does both, interleaved.",
     Flags = ConVarFlags.Cheat)]
-public sealed class TeDispatchCommand : IConCommand
+public sealed class TeDispatchCommand
 {
     private readonly string[] _live = ["Impact", "watersplash", "bloodspray", "GlassImpact"];
     private readonly string[] _probe = ["cs_s4_probe_0", "cs_s4_probe_1", "cs_s4_probe_2", "cs_s4_probe_3"];
@@ -31,29 +31,21 @@ public sealed class TeDispatchCommand : IConCommand
         _effects = effects;
     }
 
-    public void Execute(string args)
+    /// <summary>The words it takes for a set, and the live names, which are the ones worth firing by hand.</summary>
+    private IEnumerable<string> Names() => ["live", "probe", "all", .. _live];
+
+    public void Execute([Complete(From = nameof(Names))] string name, Vector? position = null)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Vector at = position ?? Vector.Zero;
 
-        if (parts.Length < 1)
-        {
-            _log.Msg("usage: cs_sv_te_dispatch <name|live|probe|all> [x y z]\n");
-            return;
-        }
-
-        var at = Vector.Zero;
-
-        if (parts.Length >= 4)
-            at = new Vector(VariantParse.Atof(parts[1]), VariantParse.Atof(parts[2]), VariantParse.Atof(parts[3]));
-
-        bool live = parts[0].Equals("live", StringComparison.OrdinalIgnoreCase)
-                    || parts[0].Equals("all", StringComparison.OrdinalIgnoreCase);
-        bool probe = parts[0].Equals("probe", StringComparison.OrdinalIgnoreCase)
-                     || parts[0].Equals("all", StringComparison.OrdinalIgnoreCase);
+        bool live = name.Equals("live", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("all", StringComparison.OrdinalIgnoreCase);
+        bool probe = name.Equals("probe", StringComparison.OrdinalIgnoreCase)
+                     || name.Equals("all", StringComparison.OrdinalIgnoreCase);
 
         if (!live && !probe)
         {
-            Fire(parts[0], at);
+            Fire(name, at);
             return;
         }
 

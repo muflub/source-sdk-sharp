@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -41,12 +42,12 @@ public sealed class DamageCheats
 
     private readonly IEntityDirectory _entities;
 
-    public DamageCheats(ILog log, IEntityDirectory entities, IEngineConsole console)
+    public DamageCheats(ILog log, IEntityDirectory entities, SvCheatsConVar cheats)
     {
 
         _log = log;
         _entities = entities;
-        CheatsEnabled = () => ImpulseCheats.CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
+        CheatsEnabled = () => cheats.Value;
     }
 
     /// <summary>

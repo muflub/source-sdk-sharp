@@ -93,24 +93,28 @@ public class FrozenRenderRecordingTests
             Assert.Contains("`" + Path.GetFileName(path)[..^".txt.gz".Length] + "`", readme, StringComparison.Ordinal);
     }
 
-    // RenderInputs may grow at its end; a frozen frame's shorter bytes still read.
+    // A frozen frame carries the 64 floats the struct held before the convars left it;
+    // what follows them lands where the struct has it now, and its tail reads zero.
     [Fact]
-    public void AnOlderShorterInputsLayoutReadsWithItsMissingTailAsZero()
+    public void AFrozenFramesInputsReadPastTheConVarsItRecorded()
     {
         string text = File.ReadAllText(Path.Combine(Dir("render-stock"), "dm_lockdown-pose1.txt"));
-        RenderTrace whole = RenderTrace.Parse(text);
-        Assert.NotNull(whole.Inputs());
-        string hex = text.Split('\n').Single(l => l.StartsWith("inbytes\t", StringComparison.Ordinal))["inbytes\t".Length..].TrimEnd('\r');
-        string cut = hex[..^(64 * 4 * 2)];
-        RenderInputs? shorter = RenderTrace.Parse("inbytes\t" + cut + "\n").Inputs();
-        Assert.NotNull(shorter);
-        RenderInputs w = whole.Inputs()!.Value, s = shorter!.Value;
-        Assert.Equal(w.FrameCount, s.FrameCount);
-        Assert.Equal(w.FlashlightOn, s.FlashlightOn);
-        Assert.NotEqual(0f, w.Cvar(RenderCvar.r_skybox));
-        Assert.Equal(0f, s.Cvar(RenderCvar.r_skybox));
-        string overlong = new string('0', 2 * (System.Runtime.InteropServices.Marshal.SizeOf<RenderInputs>() + 1));
-        Assert.Null(RenderTrace.Parse("inbytes\t" + overlong + "\n").Inputs());
+        RenderInputs frozen = RenderTrace.Parse(text).Inputs()!.Value;
+        Assert.True(frozen.FrameCount > 0, "a frozen frame's prefix reads");
+        Assert.Equal(0, frozen.TakingScreenshot);
+
+        // The next frame's bytes are the struct as it stands: the same read, with nothing cut.
+        int size = System.Runtime.InteropServices.Marshal.SizeOf<RenderInputs>();
+        string hex = Convert.ToHexString(System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<RenderInputs>(in frozen)));
+        Assert.Equal(frozen.FrameCount, RenderTrace.Parse("inbytes\t" + hex + "\n").Inputs()!.Value.FrameCount);
+        Assert.Equal(2 * size, hex.Length);
+    }
+
+    [Fact]
+    public void BytesThatFitNoLayoutReadAsNoInputs()
+    {
+        int recorded = (int)System.Runtime.InteropServices.Marshal.OffsetOf<RenderInputs>(nameof(RenderInputs.ClientModeDrawDetail)) + 64 * sizeof(float) + 1024;
+        Assert.Null(RenderTrace.Parse("inbytes\t" + new string('0', 2 * recorded) + "\n").Inputs());
     }
 
     // C7 step 3: a live plan frame is held to a frozen frame from another

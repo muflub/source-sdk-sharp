@@ -455,6 +455,10 @@ public unsafe struct ManagedCommandsTable
     // 4: int32_t OnClientCommand( uint32_t hPlayer, const char *pCommand )
     [SlotHash(0xff2dadb5)]
     public delegate* unmanaged<void*, uint, byte*, int> OnClientCommand;
+
+    // 5: int32_t ConCommandSuggest( int32_t nCommandId, const char *pLine, char *pOut, int32_t nOutSize )
+    [SlotHash(0x1ac011e9)]
+    public delegate* unmanaged<void*, int, byte*, byte*, int, int> ConCommandSuggest;
 }
 
 /// <summary>The table managed writes for <c>IManagedNetState</c> (<c>SSManagedNetStateTable</c> native-side).</summary>

@@ -54,7 +54,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                                         IEnginePlayers players, TFStickyTray tray, ILog log,
                                         ITFWeaponOwners owners, IUniformRandom random,
                                         AttributeHooks attributes, ITempEnts temps,
-                                        IEnginePrecache precache, IEngineEntityRender render)
+                                        IEnginePrecache precache, IEngineEntityRender render,
+                                        TFStickybombConVars stickyConVars)
     : ITFProjectileEffects, IOrderedHook
 {
     /// <summary>Stage 2.8's band (+800..+899 of TF2's thousand).</summary>
@@ -147,10 +148,22 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                              TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
                              TFProjectileDefs.PipeMuzzleUp) is not TFStickybomb sticky)
                         return;
+
+                    // GetLiveTime (tf_weapon_grenade_pipebomb.cpp:1186-1190): the arm
+                    // time is tf_grenadelauncher_livetime through the launcher's
+                    // sticky_arm_time hook; the arm think books at the total (:1144).
+                    sticky.SetArmTime(attributes.Float(stickyConVars.LiveTime.Value,
+                                                       "sticky_arm_time", item));
+
                     sticky.ThrownBy(owner, Lob(forward, speed, right, up),
                                     mode.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
                     Spin(sticky, item);
-                    tray.Register(attack.Command.OwnerIndex, sticky);
+
+                    // FireProjectile's cap (tf_weapon_pipebomblauncher.cpp:381-392):
+                    // TF_WEAPON_PIPEBOMB_COUNT (tf_shareddefs.h:391) through the
+                    // launcher's add_max_pipebombs hook; past the cap the oldest goes.
+                    tray.Register(attack.Command.OwnerIndex, sticky,
+                                  attributes.Int(TFProjectileDefs.MaxStickies, "add_max_pipebombs", item));
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Stickybomb} created by {owner}"
                           + $" ({tray.Count(attack.Command.OwnerIndex)} out)\n");
                     break;
@@ -208,6 +221,20 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
             case TFProjectile.Arrow:
                 {
+                    // The tired draw's wild shot (GetProjectileFireSetup's tail,
+                    // tf_weapon_compound_bow.cpp:490-503): TF_ARROW_MAX_CHARGE_TIME
+                    // 5 s after the draw began, the launch marked it
+                    // (TFBowBehaviour.ModeTired) and the aim is re-drawn ±6° in
+                    // pitch and yaw — stock's rand() pair, seeded as the pipes'
+                    // cone is.
+                    if (TFBowBehaviour.Tired(attack.Weapon))
+                    {
+                        eyes.X += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
+                        eyes.Y += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
+                        forward = Angles.Forward(eyes);
+                        (right, up) = Angles.RightUp(forward);
+                    }
+
                     if (Born(TFProjectileEntityNames.Arrow, owner, forward, right, up,
                              TFProjectileDefs.SyringeMuzzleForward, TFProjectileDefs.SyringeMuzzleRight,
                              TFProjectileDefs.SyringeMuzzleUp) is not TFArrow arrow)
@@ -324,6 +351,12 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
     /// <summary>The script's speed, or stock's when the script names none.</summary>
     private static float Speed(float scriptSpeed, float stock) => TFProjectileDefs.Speed(scriptSpeed, stock);
 
+    /// <summary><c>TF_DETONATE_MODE_DOT</c> (<c>tf_weapon_pipebomblauncher.h:24</c>).</summary>
+    private const int DetonateModeDot = 1;
+
+    /// <summary>The crosshair cone (<c>tf_weapon_pipebomblauncher.cpp:605</c>).</summary>
+    private const float AimedDot = 0.975f;
+
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script)
     {
         // CanDestroyStickies (tf_weapon_pipebomblauncher.h:80): the launcher's
@@ -331,6 +364,40 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
         // its own Detonate (tf_weapon_pipebomblauncher.cpp:561-567).
         IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
         bool destroyStickies = attributes.Int(0, "stickies_detonate_stickies", item) == 1;
+
+        // GetDetonateMode (tf_weapon_grenadelauncher.cpp:481-486): the set_detonate_mode
+        // attribute picks the arm of DetonateRemotePipebombs (:523-572). At mode 1
+        // (TF_DETONATE_MODE_DOT) only the stickies in view go — ModifyPipebombsInView
+        // (:577-638); any other mode (TF_DETONATE_MODE_STANDARD 0, stock's unset
+        // default) fires the whole tray (:530-571).
+        int mode = attributes.Int(0, "set_detonate_mode", item);
+        if (mode == DetonateModeDot)
+        {
+            EntityHandle owner = players.GetHandle(attack.Command.OwnerIndex);
+            Vector eyePosition = entities.GetEyePosition(owner);
+            Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
+            Vector playerOrigin = entities.GetOrigin(owner);
+            tray.DetonateAll(attack.Command.OwnerIndex, destroyStickies,
+                             sticky => InView(entities, eyePosition, forward, playerOrigin, sticky));
+            return;
+        }
+
         tray.DetonateAll(attack.Command.OwnerIndex, destroyStickies);
+    }
+
+    /// <summary>
+    /// ModifyPipebombsInView's in-view test (<c>tf_weapon_pipebomblauncher.cpp:592-605</c>):
+    /// the direction from the eyes to the bomb's centre dotting over <see cref="AimedDot"/>
+    /// with the eyes' forward, or the bomb standing within its damage radius of the
+    /// player — stock's sticky-jumping arm. The distance is the player's origin to the
+    /// bomb's origin; only armed bombs pass the tray's own gate beside this test.
+    /// </summary>
+    private static bool InView(IEngineEntities entities, Vector eyePosition, Vector forward,
+                               Vector playerOrigin, TFStickybomb sticky)
+    {
+        Vector towards = entities.GetWorldSpaceCenter(sticky.Handle) - eyePosition;
+        float dot = towards.Normalized.Dot(forward);
+        float distance = (entities.GetOrigin(sticky.Handle) - playerOrigin).Length;
+        return dot > AimedDot || distance < sticky.GetDamageRadius();
     }
 }

@@ -958,6 +958,10 @@ public enum CrossingOp
     ClientViewEffectsViewModelBob = 384,
     /// <summary>IManagedGameUiClient: any of the engine's GameUI011 and GameConsole004 calls, answered by the managed GameUI host (plan_gameui_managed.md G4). CLIENT ONLY.</summary>
     ClientGameUi = 385,
+    /// <summary>IManagedCommands: how a console line can go on.</summary>
+    ServerConCommandSuggest = 386,
+    /// <summary>IManagedCommandsClient: how a console line can go on.</summary>
+    ClientConCommandSuggest = 387,
 }
 
 /// <summary>

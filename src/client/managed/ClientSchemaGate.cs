@@ -90,9 +90,9 @@ public sealed class ClientSchemaGate(ILog log) : IClientSchemaGate
 /// </summary>
 [ConCommand("cs_cl_schema_status",
             Help = "Which types this client has refused updates for, and what the two builds disagree about")]
-public sealed class ClientSchemaStatusCommand(ILog log, IClientSchemaGate gate, ClientNetSchemaTypes types) : IConCommand
+public sealed class ClientSchemaStatusCommand(ILog log, IClientSchemaGate gate, ClientNetSchemaTypes types)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         var (updates, refused) = gate.Refusals();
         log.Msg($"[SourceSharp] schema: {types.All.Count} type(s) declared here, {updates} refusal(s) over {refused.Count} type(s)\n");

@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Standalone;
 
+using TF2.Shared.Buildings;
 using TF2.Shared.Player;
 
 namespace TF2.Client.Buildings;
@@ -27,13 +28,36 @@ namespace TF2.Client.Buildings;
 /// the fade answers is constant zero (docs/plans/tf2/deferred.tsv).
 /// </para>
 /// </summary>
-public abstract class TFClientBuilding(IEngineEntityRender render) : ClientStandaloneEntity(render);
+public abstract class TFClientBuilding(IEngineEntityRender render) : ClientStandaloneEntity(render)
+{
+    /// <summary>The build state the server publishes; the sentry's shadow arm reads <see cref="TFObjectNetState.Placing"/>.</summary>
+    [NetState] public TFObjectNetState State = new();
+}
 
-/// <summary>Stock's <c>C_BaseObject</c> mirror for <c>obj_sentrygun</c>.</summary>
+/// <summary>
+/// Stock's <c>C_ObjectSentrygun</c> client half. Its shadow is the one place
+/// the build state shows: while the blueprint is worn the shadow is the
+/// collision hull widened by <c>(10, 10, 0)</c>
+/// (<c>C_ObjectSentrygun::GetShadowRenderBounds</c>, c_obj_sentrygun.cpp:588),
+/// not the model's own render bounds — the blueprint's are the map-sized box
+/// its art was authored in, and a shadow cast from them darkens the floor
+/// half a map away.
+/// </summary>
 [ClientStandaloneEntity(TFEntityNames.SentryGun)]
 public sealed class ClientTFSentryGun(IEngineEntityRender render) : TFClientBuilding(render)
 {
     public override string ClassName => TFEntityNames.SentryGun;
+
+    private bool? _shadowHullShown;
+
+    public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
+    {
+        if (_shadowHullShown != State.Placing)
+        {
+            _shadowHullShown = State.Placing;
+            Render.SetShadowHull(Handle, State.Placing);
+        }
+    }
 }
 
 /// <summary>Stock's <c>C_BaseObject</c> mirror for <c>obj_dispenser</c>.</summary>

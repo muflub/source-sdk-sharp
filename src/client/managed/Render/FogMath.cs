@@ -1,6 +1,8 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 
+using static SourceSharp.Client.Render.ConVarAs;
+
 namespace SourceSharp.Client.Render;
 
 /// <summary>
@@ -11,11 +13,9 @@ namespace SourceSharp.Client.Render;
 /// </summary>
 public static class FogMath
 {
-    private static bool Override(in RenderInputs i) => (int)i.Cvar(RenderCvar.fog_override) != 0;
+    private static bool Override(RenderConVars cv) => CvInt(cv.FogOverride) != 0;
 
-    private static int CvInt(in RenderInputs i, RenderCvar c) => (int)i.Cvar(c);
-
-    private static bool LevelOverview(in RenderInputs i) => i.Cvar(RenderCvar.cl_leveloverview) > 0f;
+    private static bool LevelOverview(RenderConVars cv) => cv.ClLeveloverview.Value > 0f;
 
     /// <summary>AngleVectors' forward (mathlib), in floats with sinf/cosf as mathlib's SinCos.</summary>
     public static Vector Forward(Vector angles)
@@ -56,12 +56,11 @@ public static class FogMath
     }
 
     // fog_color / fog_colorskybox, as sscanf( "%f%f%f" ) read them; null when any is negative.
-    private static Vector? OverrideColor(in RenderInputs i, RenderCvar r, RenderCvar g, RenderCvar b)
+    private static Vector? OverrideColor(Vector color)
     {
-        float cr = i.Cvar(r), cg = i.Cvar(g), cb = i.Cvar(b);
-        if (cr < 0 || cg < 0 || cb < 0)
+        if (color.X < 0 || color.Y < 0 || color.Z < 0)
             return null;
-        return new Vector(cr, cg, cb);
+        return color;
     }
 
     private static Vector Scale255(Vector c)
@@ -80,20 +79,20 @@ public static class FogMath
                           primary.Z * factor + secondary.Z * (1 - factor));
     }
 
-    public static bool FogEnable(in RenderInputs i)
+    public static bool FogEnable(in RenderInputs i, RenderConVars cv)
     {
-        if (LevelOverview(i))
+        if (LevelOverview(cv))
             return false;
         if (i.ClientModeDrawFog == 0)
             return false;
-        if (Override(i) && CvInt(i, RenderCvar.fog_enable) != -1)
-            return i.Cvar(RenderCvar.fog_enable) != 0f;
+        if (Override(cv) && CvInt(cv.FogEnable) != -1)
+            return Cv(cv.FogEnable) != 0f;
         return i.Fog.Present != 0 && i.Fog.Enable != 0;
     }
 
-    public static Vector FogColor(in RenderInputs i, Vector forward)
+    public static Vector FogColor(in RenderInputs i, RenderConVars cv, Vector forward)
     {
-        if (Override(i) && OverrideColor(i, RenderCvar.fog_color_r, RenderCvar.fog_color_g, RenderCvar.fog_color_b) is { } o)
+        if (Override(cv) && OverrideColor(cv.FogColorValue) is { } o)
             return Scale255(o);
         if (i.Fog.Present == 0)
             return default;
@@ -116,10 +115,10 @@ public static class FogMath
         return Scale255(c);
     }
 
-    public static float FogStart(in RenderInputs i)
+    public static float FogStart(in RenderInputs i, RenderConVars cv)
     {
-        if (Override(i) && CvInt(i, RenderCvar.fog_start) != -1)
-            return i.Cvar(RenderCvar.fog_start);
+        if (Override(cv) && CvInt(cv.FogStart) != -1)
+            return Cv(cv.FogStart);
         if (i.Fog.Present == 0)
             return 0f;
         RenderFogParams f = i.Fog;
@@ -128,10 +127,10 @@ public static class FogMath
         return f.Start;
     }
 
-    public static float FogEnd(in RenderInputs i)
+    public static float FogEnd(in RenderInputs i, RenderConVars cv)
     {
-        if (Override(i) && CvInt(i, RenderCvar.fog_end) != -1)
-            return i.Cvar(RenderCvar.fog_end);
+        if (Override(cv) && CvInt(cv.FogEnd) != -1)
+            return Cv(cv.FogEnd);
         if (i.Fog.Present == 0)
             return 0f;
         RenderFogParams f = i.Fog;
@@ -140,38 +139,38 @@ public static class FogMath
         return f.End;
     }
 
-    public static float FogMaxDensity(in RenderInputs i)
+    public static float FogMaxDensity(in RenderInputs i, RenderConVars cv)
     {
-        if (LevelOverview(i) || i.ClientModeDrawFog == 0)
+        if (LevelOverview(cv) || i.ClientModeDrawFog == 0)
             return 1.0f;
-        if (Override(i) && CvInt(i, RenderCvar.fog_maxdensity) != -1)
-            return i.Cvar(RenderCvar.fog_maxdensity);
+        if (Override(cv) && CvInt(cv.FogMaxdensity) != -1)
+            return Cv(cv.FogMaxdensity);
         return i.Fog.Present == 0 ? 1.0f : i.Fog.MaxDensity;
     }
 
-    public static bool FogRadial(in RenderInputs i)
+    public static bool FogRadial(in RenderInputs i, RenderConVars cv)
     {
-        if (LevelOverview(i) || i.ClientModeDrawFog == 0)
+        if (LevelOverview(cv) || i.ClientModeDrawFog == 0)
             return false;
-        if (Override(i) && CvInt(i, RenderCvar.fog_radial) != -1)
-            return i.Cvar(RenderCvar.fog_radial) != 0f;
+        if (Override(cv) && CvInt(cv.FogRadial) != -1)
+            return Cv(cv.FogRadial) != 0f;
         return i.Fog.Present != 0 && i.Fog.Radial != 0;
     }
 
-    public static bool SkyFogEnable(in RenderInputs i)
+    public static bool SkyFogEnable(in RenderInputs i, RenderConVars cv)
     {
         if (i.SkyPresent == 0)
             return false;
-        if (Override(i) && CvInt(i, RenderCvar.fog_enableskybox) != -1)
-            return i.Cvar(RenderCvar.fog_enableskybox) != 0f;
+        if (Override(cv) && CvInt(cv.FogEnableskybox) != -1)
+            return Cv(cv.FogEnableskybox) != 0f;
         return i.SkyFog.Enable != 0;
     }
 
-    public static Vector SkyFogColor(in RenderInputs i, Vector forward)
+    public static Vector SkyFogColor(in RenderInputs i, RenderConVars cv, Vector forward)
     {
         if (i.SkyPresent == 0)
             return default;
-        if (Override(i) && OverrideColor(i, RenderCvar.fog_colorskybox_r, RenderCvar.fog_colorskybox_g, RenderCvar.fog_colorskybox_b) is { } o)
+        if (Override(cv) && OverrideColor(cv.FogColorskyboxValue) is { } o)
             return Scale255(o);
         RenderFogParams f = i.SkyFog;
         Vector p = f.Primary();
@@ -180,39 +179,39 @@ public static class FogMath
         return Scale255(c);
     }
 
-    public static float SkyFogStart(in RenderInputs i)
+    public static float SkyFogStart(in RenderInputs i, RenderConVars cv)
     {
         if (i.SkyPresent == 0)
             return 0f;
-        if (Override(i) && CvInt(i, RenderCvar.fog_startskybox) != -1)
-            return i.Cvar(RenderCvar.fog_startskybox);
+        if (Override(cv) && CvInt(cv.FogStartskybox) != -1)
+            return Cv(cv.FogStartskybox);
         return i.SkyFog.Start;
     }
 
-    public static float SkyFogEnd(in RenderInputs i)
+    public static float SkyFogEnd(in RenderInputs i, RenderConVars cv)
     {
         if (i.SkyPresent == 0)
             return 0f;
-        if (Override(i) && CvInt(i, RenderCvar.fog_endskybox) != -1)
-            return i.Cvar(RenderCvar.fog_endskybox);
+        if (Override(cv) && CvInt(cv.FogEndskybox) != -1)
+            return Cv(cv.FogEndskybox);
         return i.SkyFog.End;
     }
 
-    public static float SkyFogMaxDensity(in RenderInputs i)
+    public static float SkyFogMaxDensity(in RenderInputs i, RenderConVars cv)
     {
-        if (i.SkyPresent == 0 || LevelOverview(i) || i.ClientModeDrawFog == 0)
+        if (i.SkyPresent == 0 || LevelOverview(cv) || i.ClientModeDrawFog == 0)
             return 1.0f;
-        if (Override(i) && CvInt(i, RenderCvar.fog_maxdensityskybox) != -1)
-            return i.Cvar(RenderCvar.fog_maxdensityskybox);
+        if (Override(cv) && CvInt(cv.FogMaxdensityskybox) != -1)
+            return Cv(cv.FogMaxdensityskybox);
         return i.SkyFog.MaxDensity;
     }
 
-    public static bool SkyFogRadial(in RenderInputs i)
+    public static bool SkyFogRadial(in RenderInputs i, RenderConVars cv)
     {
-        if (i.SkyPresent == 0 || LevelOverview(i) || i.ClientModeDrawFog == 0)
+        if (i.SkyPresent == 0 || LevelOverview(cv) || i.ClientModeDrawFog == 0)
             return false;
-        if (Override(i) && CvInt(i, RenderCvar.fog_radialskybox) != -1)
-            return i.Cvar(RenderCvar.fog_radialskybox) != 0f;
+        if (Override(cv) && CvInt(cv.FogRadialskybox) != -1)
+            return Cv(cv.FogRadialskybox) != 0f;
         return i.SkyFog.Radial != 0;
     }
 }

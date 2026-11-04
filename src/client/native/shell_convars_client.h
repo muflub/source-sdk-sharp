@@ -7,11 +7,7 @@
 // The managed client's convar watch and decided values.
 #pragma once
 
-// Watched convars' ids start here, clear of the managed registry's own ids.
-#define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000
-
 #include "ishim_areas_client.h"
-#include "managed_convar_ref.h"
 #include "tier1/convar.h"
 #include "tier1/convar_serverbounded.h"
 
@@ -57,7 +53,7 @@ private:
 	const CClientEngineInterfaces& m_Engines;
 };
 
-// IShimConVarsClient: the watch is the console's, which owns the change callback.
+// IShimConVarsClient: the values managed decides for native objects the engine reads.
 class CConVarsClient final : public IShimConVarsClient
 {
 public:
@@ -72,9 +68,6 @@ public:
 
 	// Stock's fallback, 0.1, until managed has pushed a value.
 	float ClientInterpAmount() const;
-
-	// view.h's ShouldDrawInWireFrameMode.
-	bool ShouldDrawInWireFrameMode() const { return m_SvCheats.GetBool() && m_mat_wireframe.GetInt() != 0; }
 
 	// Members of a member of a file-scope object: they register in Init's ConVar_Register,
 	// the server and engine match them by name.
@@ -114,8 +107,8 @@ public:
 	// The frame the refract texture was last updated in (view_scene.h).
 	int m_nRefractUpdateFrame = 0;
 
-	int32_t ConVarsClientWatch(const char* pName) override;
 	int32_t ConVarsClientSetValue(const char* pName, float flValue) override;
+	int32_t ConVarsClientAddFlags(const char* pName, int32_t nFlags) override;
 
 private:
 	struct DecidedValue_t
@@ -126,12 +119,5 @@ private:
 
 	DecidedValue_t m_Decided[8] = {};
 	int m_nDecided = 0;
-	CManagedConVarRef m_SvCheats{"sv_cheats"};
 	CShimConsole& m_Console;
 };
-
-inline float CManagedBoundedConVar::GetFloat() const
-{
-	float flDecided;
-	return m_Owner.DecidedValue(GetName(), &flDecided) ? flDecided : GetBaseFloatValue();
-}

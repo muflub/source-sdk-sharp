@@ -25,7 +25,8 @@ public class LevelPredictionTests
     private static (LevelPrediction Rule, Command Sent) Rule(int maxClients, Dictionary<string, string> convars)
     {
         var command = new Command();
-        return (new LevelPrediction(() => maxClients, name => convars.GetValueOrDefault(name), command), command);
+        return (new LevelPrediction(() => maxClients, DeclaredConVars.Holding<ClPredictConVar>(convars.GetValueOrDefault("cl_predict")),
+                                    DeclaredConVars.Holding<SvClientPredictConVar>(convars.GetValueOrDefault("sv_client_predict")), command), command);
     }
 
     [Fact]

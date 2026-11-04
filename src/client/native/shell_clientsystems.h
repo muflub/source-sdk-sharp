@@ -101,4 +101,7 @@ private:
 	static const int kRowCount = 21;
 	Row_t m_Rows[kRowCount] = {};
 	int m_nRows = 0;
+
+	CClientSystemPerFrame* m_PerFrame[kRowCount] = {};
+	int m_nPerFrame = 0;
 };

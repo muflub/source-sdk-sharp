@@ -183,12 +183,9 @@ public sealed class SpectatorCommands
 public sealed class SpectatorCommandRunner(SpectatorCommands decide, IObserverSource observer, ILog log,
                                            IFwdEngineClient engine)
 {
-    public void Run(string name, string args)
+    public void Run(string name, string? argument)
     {
-        var parts = ShowInfo.Split(args);
-        var all = new string[parts.Count + 1];
-        all[0] = name;
-        parts.CopyTo(all, 1);
+        string[] all = argument is null ? [name] : [name, argument];
         string? line = decide.Line(all, observer.Mode, playingDemo: false, out bool usage);
         if (usage)
             log.Msg(SpectatorCommands.PlayerUsage);
@@ -198,27 +195,36 @@ public sealed class SpectatorCommandRunner(SpectatorCommands decide, IObserverSo
 }
 
 [ConCommand("spec_next", Help = "Spectate next player", Flags = ConVarFlags.ClientCmdCanExecute)]
-public sealed class SpecNextCommand(SpectatorCommandRunner spec) : IConCommand
+public sealed class SpecNextCommand(SpectatorCommandRunner spec)
 {
-    public void Execute(string args) => spec.Run("spec_next", args);
+    public void Execute(string? argument = null) => spec.Run("spec_next", argument);
 }
 
 [ConCommand("spec_prev", Help = "Spectate previous player", Flags = ConVarFlags.ClientCmdCanExecute)]
-public sealed class SpecPrevCommand(SpectatorCommandRunner spec) : IConCommand
+public sealed class SpecPrevCommand(SpectatorCommandRunner spec)
 {
-    public void Execute(string args) => spec.Run("spec_prev", args);
+    public void Execute(string? argument = null) => spec.Run("spec_prev", argument);
 }
 
 [ConCommand("spec_mode", Help = "Set spectator mode", Flags = ConVarFlags.ClientCmdCanExecute)]
-public sealed class SpecModeCommand(SpectatorCommandRunner spec) : IConCommand
+public sealed class SpecModeCommand(SpectatorCommandRunner spec)
 {
-    public void Execute(string args) => spec.Run("spec_mode", args);
+    public void Execute(string? argument = null) => spec.Run("spec_mode", argument);
 }
 
 [ConCommand("spec_player", Help = "Spectate player by partial name, steamid, or userid", Flags = ConVarFlags.ClientCmdCanExecute)]
-public sealed class SpecPlayerCommand(SpectatorCommandRunner spec) : IConCommand
+public sealed class SpecPlayerCommand(SpectatorCommandRunner spec, IPlayerNames names)
 {
-    public void Execute(string args) => spec.Run("spec_player", args);
+    private IEnumerable<string> Players()
+    {
+        for (int slot = 1; slot <= EngineLimits.MaxPlayerSlots; slot++)
+        {
+            if (names.TryGet(slot, out ClientPlayerInfo info))
+                yield return info.Name;
+        }
+    }
+
+    public void Execute([Complete(From = nameof(Players))] string? argument = null) => spec.Run("spec_player", argument);
 }
 
 /// <summary>Stock's cl_spec_mode (SpectatorGUI.cpp): the observer mode the player asks the server for, sent as user info.</summary>

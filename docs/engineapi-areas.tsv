@@ -13,6 +13,8 @@ RevertNamedConVar	EngineApi	IShimConsole	shared		both	-	CShimConsole::RevertName
 ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	CShimConsole::ConsoleSnapshot	int	
 ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	CShimConsole::ConsoleSnapshotEntry	int, ConsoleEntry*, int	
 FindConVarFlags	EngineApi	IShimConsole	shared		both	-	CShimConsole::FindConVarFlags	byte*, int	
+CompleteCommandLine	EngineApi	IShimConsole	shared		both	-	CShimConsole::CompleteCommandLine	byte*, byte*, int, int	
+WatchNamedConVar	EngineApi	IShimConsole	shared		both	-	CShimConsole::WatchNamedConVar	byte*, int	
 SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::SendClientCommand	uint, byte*, void	
 GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::GetCommandClientHandle	uint	
 ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	CGameEvents::ListenForGameEvent	byte*, void	
@@ -40,7 +42,6 @@ EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	CServerModel
 PrecacheModel	EngineApi	IShimPrecache	server		server	-	CServerModelPrecache::PrecacheModel	byte*, int	
 MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	CShellGameMovement::MoveTrace
 MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	CShellGameMovement::MoveEffect
-CurrentGravity	EngineApi	IShimMovement	shared		both	-	SourceSharp_CurrentGravity	float	CShellGameMovement::CurrentGravity
 RegisterMovementParams	EngineApi	IShimMovement	shared		both	-	SourceSharp_RegisterMovementParams	MovementParams*, void	CShellGameMovement::RegisterMovementParams
 PlayerShadowFacts	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowFacts	uint, PlayerShadowFacts*, int	
 PlayerShadowAdopt	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowAdopt	uint, nint, nint, nint, int	
@@ -219,7 +220,9 @@ ParticleSystemStopExtra	EngineApi	IShimEffectsRenderClient	client		client	-	CPar
 ParticleSystemFollowEntity	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemFollowEntity	uint, int, uint, int, float*, int	
 ParticleSystemStartSlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemStartSlot	uint, byte*, int, int	
 ParticleSystemStopSlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemStopSlot	uint, int, void	
-ParticleSystemFollowEntitySlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemFollowEntitySlot	uint, int, uint, int, int, float*, int	
+ParticleSystemFollowEntitySlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemFollowEntitySlot	uint, int, uint, int, int, float*, int
+ParticleSystemSetPoints	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemSetPoints	uint, int, int, float*, int, int
+ParticleSystemViewModelSlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemViewModelSlot	uint, int, int, void
 ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ActivateOccluder	int, int, void	
 ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientInterpBlocks	int*, float*, void**	
 ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientPolicyBlocks	int*, void**	
@@ -245,6 +248,7 @@ SurfaceSetMaterials	EngineApi	IShimStandaloneClient	client		client	-	CStandalone
 SurfaceSetPlan	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::SurfaceSetPlan	uint, int*, int, void	
 ClientInterpAdmitted	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientInterpAdmitted	uint*, int, void	
 EntitySetModelOverride	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::EntitySetModelOverride	uint, byte*, void	
+StandaloneSetShadowHull	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetShadowHull	uint, int, void	
 ConNPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNPrintf	void*, int, byte*, void	
 ConNXPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNXPrintf	void*, int, float, float*, int, byte*, void	
 GetLightForPoint	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPoint	void*, float*, int, float*, void	
@@ -362,6 +366,7 @@ UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	CDebugOverlayCl
 ClientModeLayout	EngineApi	IShimUiClient	client		client	-	CSourceSharpClientMode::Layout	void	
 UiDrawTexturedQuad	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawTexturedQuad	int, float*, int, uint, int, void	
 UiMaterialTexture	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiMaterialTexture	byte*, int	
+UiDrawMesh	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawMesh	int, float*, uint*, int, ushort*, int, void	
 SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	CSoundscapeAudioClient::SoundscapeSetRoomType	int, void	
 SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	CSoundscapeAudioClient::SoundscapeSetPlayerDsp	int, void	
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	CSoundscapeAudioClient::SoundscapeMainView	float*, void	
@@ -403,7 +408,7 @@ PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	CPhysic
 PhysicsClientPointContents	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientPointContents	float*, int	
 PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashLighting	float*, float*, void	
 PhysicsClientSplashEffect	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashEffect	int, float*, float*, float, float*, float, float, void	
-ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientWatch	byte*, int	
 ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientSetValue	byte*, float, int	
+ConVarsClientAddFlags	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientAddFlags	byte*, int, int	
 FlashlightTexture	EngineApi	IShimFlashlightClient	client		client	-	CShadowsClient::FlashlightTexture	byte*, int	
 FlashlightSupportsBorderColor	EngineApi	IShimFlashlightClient	client		client	-	CShadowsClient::FlashlightSupportsBorderColor	int	

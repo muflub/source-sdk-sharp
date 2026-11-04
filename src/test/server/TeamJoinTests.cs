@@ -107,10 +107,10 @@ public class TeamJoinTests
             }
 
             ConVars.RegisterAll(typeof(GameRules).Assembly);
-            ConVars.Get<AllowSpectatorsConVar>()!.NotifyChanged("1", "0");   // stock's default
+            ConVars.Declared<AllowSpectatorsConVar>().NotifyChanged("1", "0");   // stock's default
 
             Observers = new Observers(Log, Registry, Engine, Engine, Engine, Engine,
-                                      Engine, Engine, Engine, ConVars, Clients);
+                                      Engine, Engine, Engine, ConVars.Declare<ForceCameraConVar>(), ConVars.Declare<AllowSpectatorsConVar>(), Clients);
         }
 
         /// <summary>
@@ -476,7 +476,7 @@ public class TeamJoinTests
     public void ARefusedSpectatorJoinStoresNothing()
     {
         var rig = new Rig();
-        rig.ConVars.Get<AllowSpectatorsConVar>()!.NotifyChanged("0", "1");   // mp_allowspectators 0
+        rig.ConVars.Declared<AllowSpectatorsConVar>().NotifyChanged("0", "1");   // mp_allowspectators 0
         var teams = rig.BuildTeams();
 
         Assert.Equal(JoinTeamResult.SpectatorsNotAllowed, teams.Join(Handles[0], Observers.TeamSpectator));
@@ -634,7 +634,7 @@ public class TeamJoinTests
         var chain = new Selector(ChainSpot);
         var (services, teams) = Composed(rig, c =>
         {
-            var modes = new GameModes(rig.Log, rig.Engine, c, rig.ConVars);
+            var modes = new GameModes(rig.Log, rig.Engine, c, rig.ConVars.Declare<SvModeSwitchWarmupConVar>(), rig.ConVars.Declare<MpWaitingForPlayersTimeConVar>());
             c.AddInstance(modes);
             c.AddInstance(mode.GetType(), mode);
         });

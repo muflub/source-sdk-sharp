@@ -24,7 +24,7 @@ public class RoundEndWithoutIntermissionTests
         convars.RegisterAll(typeof(GameRules).Assembly);
         var deaths = new PlayerDeathEvent();
         var board = new Scoreboard(engine, new PlayerDisconnectEvent(), new RecordingLog());
-        var rules = new GameRules(new RecordingLog(), convars, engine, engine, engine, board, deaths, null);
+        var rules = new GameRules(new RecordingLog(), convars.Holder<GameRulesConVars>(), engine, engine, engine, board, deaths, null);
         engine.Clear();
 
         rules.EndRound();
@@ -40,7 +40,7 @@ public class RoundEndWithoutIntermissionTests
         var log = new RecordingLog();
         engine.Clear();
 
-        new EndRoundCommand(log, engine).Execute("");
+        new EndRoundCommand(log, engine).Execute();
 
         Assert.Empty(engine.Calls);
         Assert.Contains("ending round on request", log.Text);

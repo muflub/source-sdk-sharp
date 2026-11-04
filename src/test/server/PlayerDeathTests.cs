@@ -84,7 +84,7 @@ public class PlayerDeathTests
     private static (PlayerDeaths Deaths, Players Players, Heard Hook) Deaths(RecordingEngine engine, bool withHook = true,
                                                                            IPlayerFlashlight? flashlight = null)
     {
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)));
         var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons) { DropWeaponOnDeath = false };
         var hook = new Heard { ReadDeaths = () => players[Player].Deaths };
         var hooks = withHook ? new ListHooks<IPlayerDeathHook>(hook) : new ListHooks<IPlayerDeathHook>();
@@ -194,7 +194,7 @@ public class PlayerDeathTests
     public void The_wipe_of_the_inventory_runs_after_the_hooks_have_read_it()
     {
         var engine = Dying();
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)));
         var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons) { DropWeaponOnDeath = false };
         var hook = new StripReader(() => engine.CountOf("Players.RemoveAllItems"));
         var deaths = new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine,
@@ -303,7 +303,7 @@ public class PlayerDeathTests
     {
         var engine = Dying();
         var body = Ragdoll(engine, Body);
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(body), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(body));
 
         Assert.Equal(Body, corpses.Make(Player));
         Assert.True(corpses.Keep(Body));
@@ -318,7 +318,7 @@ public class PlayerDeathTests
     {
         var engine = Dying();
         var body = Ragdoll(engine, Body);
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(body), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(body));
 
         Assert.Equal(Body, corpses.Make(Player));
 
@@ -333,7 +333,7 @@ public class PlayerDeathTests
     public void A_kept_body_is_out_of_the_sweep(bool keep, bool firstRemoved)
     {
         var engine = Dying();
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body), Ragdoll(engine, SecondBody)), engine)
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body), Ragdoll(engine, SecondBody)))
         {
             Limit = 1,
         };
@@ -353,7 +353,7 @@ public class PlayerDeathTests
     public void Keeping_a_body_this_service_does_not_hold_is_refused()
     {
         var engine = Dying();
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(), engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies());
 
         Assert.False(corpses.Keep(Body));
     }

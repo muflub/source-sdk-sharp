@@ -311,6 +311,14 @@ public sealed class TFPhysicsPushEntityFacts
         return engine;
     }
 
+    /// <summary>The escort game type's flag, on: what a payload map's rule reads.</summary>
+    private static TFGameModePayloadConVar Escort()
+    {
+        var payload = DeclaredConVars.Fresh<TFGameModePayloadConVar>();
+        payload.NotifyChanged("1", "0");
+        return payload;
+    }
+
     [Fact]
     public void TheHookSlidesThePlayerAlongTheWallItHits_AndThePushIsNeverBlockedByThem()
     {
@@ -320,7 +328,7 @@ public sealed class TFPhysicsPushEntityFacts
         BuildTrack(world);
 
         var hook = new TFPhysicsPushEntities(world, TrainEngine(), new CrossRooms { Answers = false },
-                                             new FakeMapPlayers(), TrainEngine());
+                                             new FakeMapPlayers(), TrainEngine(), Escort());
         var pushed = new PhysicsPushedEntities(world, new RecordingLog()) { Hook = hook };
 
         Assert.Equal(1, pushed.BeginLinear(mover, null, new Vector(-6f, 0f, 0f), new Vector(24f, 10f, 0f),
@@ -372,7 +380,7 @@ public sealed class TFPhysicsPushEntityFacts
         convars.RegisterAll(typeof(TFPhysicsPushEntities).Assembly);
 
         var hook = new TFPhysicsPushEntities(world, TrainEngine(), new CrossRooms(), new FakeMapPlayers(),
-                                             TrainEngine(), convars);
+                                             TrainEngine(), convars.Declared<TFGameModePayloadConVar>());
         var pushed = new PhysicsPushedEntities(world, new RecordingLog()) { Hook = hook };
 
         Assert.Equal(1, pushed.BeginLinear(mover, null, new Vector(-6f, 0f, 0f), new Vector(24f, 10f, 0f),
@@ -401,7 +409,7 @@ public sealed class TFPhysicsPushEntityFacts
 
         // The hook's team ask reaches the map-player table, which answers 0 for
         // a stranger — the ignore nobody skips (tf_pushentity.cpp:432).
-        var hook = new TFPhysicsPushEntities(world, engine, rooms, players, engine);
+        var hook = new TFPhysicsPushEntities(world, engine, rooms, players, engine, Escort());
 
         Assert.True(hook.SpeculativelyCheckLinearPush(mover, player, new Vector(30f, 10f, 0f)));
 
@@ -441,7 +449,7 @@ public sealed class TFPhysicsPushEntityFacts
         world.AddPlayer(player, new Vector(0f, 0f, 64f), ground: 1, index: 2);
 
         var hook = new TFPhysicsPushEntities(world, TrainEngine(), new CrossRooms { Answers = false },
-                                             new FakeMapPlayers(), TrainEngine());
+                                             new FakeMapPlayers(), TrainEngine(), Escort());
 
         // amove.x = 45° of pitch: the rim of the turn lifts the rider by
         // tan(45°) * radius, plus stock's ten percent (:204-213). The rider's

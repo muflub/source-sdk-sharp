@@ -33,7 +33,7 @@ public class TFArrowAlightTests
     private static TFFlameManager Wired(ManagerRig rig)
     {
         var manager = new TFFlameManager(rig.Engine, rig.Damage, rig.Engine, rig.Engine,
-                                         rig.Conditions, rig.Scopes, rig.HitGroups, rig.Engine,
+                                         rig.Conditions, rig.Scopes, rig.HitGroups, DeclaredConVars.Holding<TF2.Shared.TFFlameThrowerBoxSizeConVar>("12"),
                                          rig.Owners, rig.Directory);
         manager.BindAreas(TestServices.Areas(rig.Engine));
         return manager;

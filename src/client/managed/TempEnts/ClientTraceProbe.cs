@@ -51,7 +51,7 @@ namespace SourceSharp.Client.TempEnts;
 [ConCommand("cs_cl_te_trace",
     Help = "Trace from the view and print every out of ClientTraceLine, including "
          + "surfaceProps and surfaceFlags. cs_cl_te_trace [distance]")]
-public sealed class ClientTraceProbeCommand : IConCommand
+public sealed class ClientTraceProbeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -70,17 +70,10 @@ public sealed class ClientTraceProbeCommand : IConCommand
     /// <summary><c>SURF_SKY</c> (bspflags.h). The one flag the pool tests.</summary>
     private const int SurfSky = 0x0004;
 
-    public void Execute(string args)
+    public void Execute(float distance = 4096f)
     {
-        float distance = 4096f;
-
-        if (!string.IsNullOrWhiteSpace(args)
-            && float.TryParse(args.Trim(), System.Globalization.CultureInfo.InvariantCulture,
-                              out float asked)
-            && asked > 0f)
-        {
-            distance = asked;
-        }
+        if (distance <= 0f)
+            distance = 4096f;
 
         Vector? where = _hud.LocalPlayerOrigin;
 

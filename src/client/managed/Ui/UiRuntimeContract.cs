@@ -63,6 +63,12 @@ public interface IUiRuntime : IUiClientEvents, IDisposable
 
     bool Has(string screen);
 
+    /// <summary>What <see cref="Has"/> answers yes to, for a console that completes it.</summary>
+    IEnumerable<string> ScreenNames { get; }
+
+    /// <summary>What <see cref="Answers"/> answers yes to, likewise.</summary>
+    IEnumerable<string> PanelNames { get; }
+
     /// <summary>Whether the screen shows now, on either layer (a hud screen
     /// included): what TF's hud render groups read (the scoreboard's cover).</summary>
     bool IsOpen(string screen);
@@ -125,12 +131,13 @@ public interface IUiRuntimeFactory
 
 /// <summary>Opens or closes a UI screen by name: cs_ui_open console, cs_ui_open serverbrowser.</summary>
 [ConCommand("cs_ui_open", Help = "Open a UI screen: scoreboard, teammenu, motd, console, serverbrowser, options, or an options page (videooptions, ...)")]
-public sealed class UiOpenCommand(UiLoader ui, ILog log) : IConCommand
+public sealed class UiOpenCommand(UiLoader ui, ILog log)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Screens() => ui.Current?.ScreenNames ?? [];
+
+    public void Execute([Complete(From = nameof(Screens))] string name)
     {
-        string name = args.Trim();
-        if (name.Length == 0 || ui.Current is not { } runtime || !runtime.Has(name))
+        if (ui.Current is not { } runtime || !runtime.Has(name))
         {
             log.Msg("usage: cs_ui_open <scoreboard|teammenu|motd|console|serverbrowser|options|videooptions|...>\n");
             return;
@@ -141,7 +148,9 @@ public sealed class UiOpenCommand(UiLoader ui, ILog log) : IConCommand
 
 /// <summary>Closes a UI screen by name.</summary>
 [ConCommand("cs_ui_close", Help = "Close a UI screen by name")]
-public sealed class UiCloseCommand(UiLoader ui) : IConCommand
+public sealed class UiCloseCommand(UiLoader ui)
 {
-    public void Execute(string args) => ui.Current?.Close(args.Trim());
+    private IEnumerable<string> Screens() => ui.Current?.ScreenNames ?? [];
+
+    public void Execute([Complete(From = nameof(Screens))] string name = "") => ui.Current?.Close(name);
 }

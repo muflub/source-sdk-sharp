@@ -116,9 +116,6 @@ public sealed class Hl2mpDecider : IDecider
     private AiVector _targetPos;
     private AiVector _targetVel;
     private bool _targetCrouched;
-
-    /// <summary>A crouched body's chest, over its feet.</summary>
-    public const float ChestCrouched = 24f;
     private float _targetDist;
     private float _scoreboardTerm;
     private WeaponUse _use;
@@ -289,8 +286,11 @@ public sealed class Hl2mpDecider : IDecider
     /// <summary>How far along the graph from what it believes it looks for an opening it can see.</summary>
     public const int PrefireOpeningCells = 512;
 
-    /// <summary>The height a place is fired at: a chest's.</summary>
-    public const float PrefireChest = 48f;
+    /// <summary>
+    /// The height a place is looked at and fired at: where a standing person's shoulders would be
+    /// (§3.4.1, ruling 2026-11-03). It remembers no stance, so someone crouched there can be missed.
+    /// </summary>
+    public const float PlaceHeight = Hl2mpAimHeights.ShoulderStanding;
 
     /// <summary>Kills by someone that make the grudge's whole weight (§5.5).</summary>
     public const float GrudgeFull = 2f;
@@ -349,6 +349,9 @@ public sealed class Hl2mpDecider : IDecider
         _rng = new AiRandom(setup.Seed ^ 0x5452_4545UL);
         _routeRng = new AiRandom(setup.Seed ^ 0x524F_5554UL);
         _prefireRng = new AiRandom(setup.Seed ^ 0x5052_4546UL);
+        _aimHeight = new AimHeightHold(new AiRandom(setup.Seed ^ 0x4149_4D48UL));
+        _altRng = new AiRandom(setup.Seed ^ 0x414C_5446UL);
+        _fragRng = new AiRandom(setup.Seed ^ 0x4652_4147UL);
         _crouchRng = new AiRandom(setup.Seed ^ 0x4455_434BUL);
         _streakRng = new AiRandom(setup.Seed ^ 0x484F_5421UL);
         _campSeed = setup.Seed ^ 0x4341_4D50UL;
@@ -419,7 +422,13 @@ public sealed class Hl2mpDecider : IDecider
         _tree.Decide(this, _run, tick);
         HoldGoal();
         PreAim();
-        Prefire();
+        if (_fragState == FragState.Idle)
+        {
+            Prefire();
+            AltFire();
+        }
+
+        FragPlan();
         Crouch();
         if (!_targetSighted && _hasGoal && _look.Kind == LookKind.Path)
             Glance();
@@ -433,7 +442,7 @@ public sealed class Hl2mpDecider : IDecider
                                 _window.SecondsLeft, _window.ArriveSeconds, _scoreboardTerm, _ammoTerm, expires,
                                 _grudgeTerm, _preAiming, _habitKnown ? _habitSpot : default, _momentSeq, _momentKind, _momentOther,
                                 _lineAsk, _lineAt, _prefireState, _prefireAiming ? _prefireSpot : default, StreakName,
-                                _streak == 0 ? 0f : StreakNow.AimErrorDeg, _streak == 0 ? 0f : StreakNow.ReactionMs, _streak == 0 ? 0f : StreakNow.RecognizeSeconds);
+                                _streak == 0 ? 0f : StreakNow.AimErrorDeg, _streak == 0 ? 0f : StreakNow.ReactionMs, _streak == 0 ? 0f : StreakNow.RecognizeSeconds, _altState);
         return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason);
     }
 
@@ -583,7 +592,7 @@ public sealed class Hl2mpDecider : IDecider
         if (_self.Origin.DistanceTo(_habitSpot) > PreAimReach)
             return;
         _preAiming = true;
-        _look = new LookIntent(LookKind.Point, _habitSpot + new AiVector(0f, 0f, 48f), _target?.Id ?? ActorId.None, AimPoint.Body, 0f, 0);
+        _look = new LookIntent(LookKind.Point, _habitSpot + new AiVector(0f, 0f, PlaceHeight), _target?.Id ?? ActorId.None, AimPoint.Body, 0f, 0);
     }
 
     /// <summary>
@@ -616,7 +625,7 @@ public sealed class Hl2mpDecider : IDecider
         {
             if (_now < _prefireNext || !PrefireBelief(out AiVector believed, out AiVector fallback))
                 return;
-            AiVector spot = Opening(believed) + new AiVector(0f, 0f, PrefireChest);
+            AiVector spot = Opening(believed) + new AiVector(0f, 0f, PlaceHeight);
             if (!PrefireInReach(spot))
                 return;
             // One chance, then it waits to check again.
@@ -624,7 +633,7 @@ public sealed class Hl2mpDecider : IDecider
             if (_prefireRng.NextFloat() >= _p.PrefireChance * _p.PrefireThrift)
                 return;
             _prefireSpot = spot;
-            _prefireFallback = fallback + new AiVector(0f, 0f, PrefireChest);
+            _prefireFallback = fallback + new AiVector(0f, 0f, PlaceHeight);
             _triedFallback = false;
             _lineClear = false;
             _prefireAiming = true;
@@ -685,6 +694,510 @@ public sealed class Hl2mpDecider : IDecider
     }
 
     private AiVector _prefireFallback;
+
+    // ---------------------------------------------------------------- alt fire (§5.4)
+
+    /// <summary>How often a reason to press is worth a chance; how long after one that went before another; how long the hands try.</summary>
+    public const float AltCheckSeconds = 2f, AltAfterSeconds = 8f, AltGiveUpSeconds = 1.2f;
+
+    /// <summary>How long a frag's pin and throw may take before the hands give it up.</summary>
+    public const float AltFragGiveUpSeconds = 3f;
+
+    /// <summary>The view goes first: a grenade waits for the arc, a ball for the lead.</summary>
+    public const float AltAimSeconds = 0.25f;
+
+    /// <summary>A line's answer stands while the point it asked of is this near.</summary>
+    public const float AltLineNear = 64f;
+
+    private readonly AiRandom _altRng;
+    private AltFireReason _altWhy;
+    private AltFireKind _altKind;
+    private bool _altGoing, _altLineClear, _altPressed;
+    private Tick _altNext, _altBegan, _stillSince;
+    private ActorId _stillOf;
+    private int _altWas;
+    private AiVector _altCorner;
+    private string _altState = "";
+
+    /// <summary>The second triggers that went, since this bot came in: the inspector's and the facts'.</summary>
+    public int AltFires { get; private set; }
+
+    /// <summary>What the bot's clip or pool shows of what a press pays from.</summary>
+    private int AltPaidFrom(in AltFireFacts alt) => alt.Kind == AltFireKind.Underhand ? _self.Reserve : alt.FromClip ? _self.Clip : _self.AltAmmo;
+
+    private bool AltLoaded(in AltFireFacts alt) => AltPaidFrom(in alt) >= alt.AmmoCost;
+
+    /// <summary>
+    /// The second trigger (§5.4, ruling 2026-11-03: "Bots should use alt fire"), through IN_ATTACK2 in the
+    /// usercmd as a person's. A reason from <see cref="Hl2mpAltFire"/>, a chance by Cunning at most every
+    /// <see cref="AltCheckSeconds"/>, then the hands stop firing while the view goes to the arc or the
+    /// lead, and it goes when the applier finds the view there. Never reloading, never with
+    /// nothing to pay with, and a grenade only down a line the game says is clear.
+    /// </summary>
+    private void AltFire()
+    {
+        _altState = "";
+        NoteStill();
+        AltFireFacts alt = _ownHasFacts ? _ownFacts.Alt : default;
+        if (alt.Kind == AltFireKind.None || _target is null || (_altGoing && alt.Kind != _altKind))
+        {
+            _altGoing = false;
+            return;
+        }
+
+        // Before asking what is left: the last one going is how the pool comes to read none.
+        if (_altGoing)
+        {
+            AltGoOn(in alt);
+            return;
+        }
+
+        if (SelfReloading || !AltLoaded(in alt) || _now < _altNext)
+            return;
+        AltFireSituation here = AltSituation(in alt);
+        AltFireReason why = Hl2mpAltFire.ReasonFor(in alt, in here);
+        if (why == AltFireReason.None)
+            return;
+        _altNext = _now + (int)(AltCheckSeconds / _tick);
+        // A frag in hand this near goes underhand whoever holds it: which throw is no question of Cunning.
+        float chance = alt.Kind == AltFireKind.Ball ? _p.AltFireChance * Hl2mpAltFire.BallChanceShare : _p.AltFireChance;
+        if (alt.Kind != AltFireKind.Underhand && _altRng.NextFloat() >= chance)
+            return;
+        _altWhy = why;
+        _altGoing = true;
+        _altBegan = _now;
+        _altKind = alt.Kind;
+        _altPressed = false;
+        _altWas = AltPaidFrom(in alt);
+        _altLineClear = alt.Kind != AltFireKind.Lob;
+        if (why == AltFireReason.Corner)
+        {
+            _altCorner = _prefireSpot;
+            EndPrefire();
+            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
+        }
+
+        AltGoOn(in alt);
+    }
+
+    /// <summary>How long the target has stood, as anyone watching it could tell.</summary>
+    private void NoteStill()
+    {
+        if (!_targetSighted || _target is null || _target.Id != _stillOf || _targetVel.Length2D >= Hl2mpAltFire.StillSpeed)
+            _stillSince = _now;
+        _stillOf = _targetSighted && _target is not null ? _target.Id : ActorId.None;
+    }
+
+    private AltFireSituation AltSituation(in AltFireFacts alt)
+    {
+        var line = new AiVector(_targetPos.X - _self.Origin.X, _targetPos.Y - _self.Origin.Y, 0f);
+        AiVector along = line.Normalised();
+        float closing = -(_targetVel.X * along.X + _targetVel.Y * along.Y);
+        float across = MathF.Abs(_targetVel.X * along.Y - _targetVel.Y * along.X);
+        int others = 0;
+        float visible = 1f;
+        float reach = alt.BlastRadius * Hl2mpAltFire.GroupShare;
+        foreach (ref readonly ActorFacts f in _view.Sighted)
+        {
+            if (f.Id == _target!.Id)
+                visible = f.VisibleFraction;
+            else if (f.Origin.DistanceTo(_targetPos) <= reach)
+                others++;
+        }
+
+        bool corner = !_targetSighted && _prefiring && _lineClear;
+        float distance = corner ? _self.Origin.DistanceTo(_prefireSpot) : _targetDist;
+        return new AltFireSituation(_targetSighted, distance, _targetPos.Z - _self.Origin.Z, closing, across, (_now - _stillSince) * _tick, others, visible, corner, false);
+    }
+
+    /// <summary>The aim while the second trigger is under way, and the press: fire held, the view on the arc or the lead.</summary>
+    private void AltGoOn(in AltFireFacts alt)
+    {
+        float going = (_now - _altBegan) * _tick;
+        bool frag = alt.Kind == AltFireKind.Underhand;
+        // A ball charges from the press and goes where the eyes are then: pressed, it stays on them till the pool says it went.
+        bool lost = _altWhy != AltFireReason.Corner && !_targetSighted && !(_altPressed && alt.Kind == AltFireKind.Ball);
+        if (AltPaidFrom(in alt) < _altWas || going > (frag ? AltFragGiveUpSeconds : AltGiveUpSeconds) || lost)
+        {
+            if (AltPaidFrom(in alt) < _altWas)
+            {
+                AltFires++;
+                if (!frag)
+                    _altNext = _now + (int)(AltAfterSeconds / _tick);
+            }
+
+            _altGoing = false;
+            return;
+        }
+
+        _altState = AltFireReasons.Name(_altWhy);
+        if (AltAimPoint(in alt) is not { } point)
+        {
+            _altGoing = false;
+            return;
+        }
+
+        LookKind kind = _altWhy == AltFireReason.Corner ? LookKind.CornerCheck : LookKind.Actor;
+        _look = new LookIntent(kind, point, _target!.Id, AimPoint.Body, 0f, 0);
+        _action = ActionIntent.None;
+        if (_altWhy == AltFireReason.Roll)
+            _move = _move.Kind == MoveKind.Strafe ? _move with { CrouchOn = true } : MoveIntent.Hold with { Kind = MoveKind.Crouch, CrouchOn = true };
+        if (alt.Kind == AltFireKind.Lob)
+        {
+            bool clear = AltLineClear(point, out bool refused);
+            if (refused)
+                _altGoing = false;
+            if (!clear)
+                return;
+        }
+
+        // Both barrels are wide and near: the hands do not wait for the view as a grenade's do.
+        if (alt.Kind == AltFireKind.Double)
+        {
+            _action = new ActionIntent(ActionKind.AltFire, FireStyle.Spray, 0, 0);
+            return;
+        }
+
+        if (going >= AltAimSeconds)
+        {
+            _altPressed = true;
+            _action = new ActionIntent(ActionKind.AltFire, FireStyle.Tap, 0, 0);
+        }
+    }
+
+    /// <summary>Where the view goes for this press: the arc over where it lands, a lead for a flat ball, the aim as it was for shot.</summary>
+    private AiVector? AltAimPoint(in AltFireFacts alt)
+    {
+        var eye = _self.Origin + new AiVector(0f, 0f, 64f);
+        if (alt.Kind == AltFireKind.Double)
+            return _look.Point;
+        AiVector at = _altWhy == AltFireReason.Corner ? _altCorner : _targetPos + new AiVector(0f, 0f, Hl2mpAimHeights.Body.At(_targetCrouched));
+        if (_altWhy != AltFireReason.Corner && alt.Speed > 0f)
+            at = AimLead.Point(eye, at, _targetVel, alt.Speed, LeadNow);
+        if (_altWhy != AltFireReason.Corner)
+        {
+            // The aim's own wander, as any shot has it (LookAtTarget drew it this decide).
+            float size = MathF.Tan(AimErrorNow * (MathF.PI / 180f)) * _targetDist;
+            AiVector to = new AiVector(at.X - _self.Origin.X, at.Y - _self.Origin.Y, 0f).Normalised();
+            at += new AiVector(-to.Y * size * _aimSmoothX, to.X * size * _aimSmoothX, size * _aimSmoothZ * AimErrorUpShare);
+        }
+
+        if (alt.Gravity <= 0f)
+            return at;
+        // A frag's underhand cannot reach far: past it, the most it has, at 45 degrees, and it bounces on.
+        return AimLead.Lob(eye, at, alt.Speed, alt.Gravity)
+            ?? (alt.Kind == AltFireKind.Underhand ? new AiVector(at.X, at.Y, eye.Z + (at - eye).Length2D) : null);
+    }
+
+    /// <summary>A grenade goes off, or a frag comes back, off what it first touches: it asks the game of the line along the arc's start.</summary>
+    private bool AltLineClear(AiVector point, out bool refused)
+    {
+        refused = false;
+        (int ask, AiVector asked, bool clear) = _memory.LastLine;
+        if (ask == _lineAsk && ask != _askAnswered && _lineAsk > 0)
+        {
+            _askAnswered = ask;
+            _altLineClear = clear && asked.DistanceTo(point) < AltLineNear && _self.Origin.DistanceTo(_lineFrom) < PrefireLineMoved;
+            if (!_altLineClear)
+            {
+                refused = true;
+                return false;
+            }
+        }
+
+        // Each decide it looks again, as a prefire does; a place it has moved far from starts over.
+        bool moved = _lineAt.DistanceTo(point) >= AltLineNear;
+        if (moved)
+            _altLineClear = false;
+        if (_lineAsk == _askAnswered || moved)
+        {
+            _lineAsk++;
+            _lineAt = point;
+            _lineFrom = _self.Origin;
+        }
+
+        return _altLineClear;
+    }
+
+    // ---------------------------------------------------------------- frags (§5.4, ruling 2026-11-03: "also bots dont use grenades at all")
+
+    private enum FragState : byte
+    {
+        Idle = 0,
+
+        /// <summary>The view on the place and the line asked of, gun still in hand.</summary>
+        Looking,
+
+        /// <summary>The weapon asked for; nothing fires until the hands show it.</summary>
+        Switching,
+
+        /// <summary>Frag in hand: the arc, then the pin.</summary>
+        Throwing,
+
+        /// <summary>Thrown: the gun it had.</summary>
+        Back,
+    }
+
+    /// <summary>How often a reason is worth a chance, and how long after a throw before the next.</summary>
+    public const float FragCheckSeconds = 2f, FragAfterSeconds = 10f;
+
+    /// <summary>How long each step may take before the hands give it up.</summary>
+    public const float FragLookSeconds = 0.6f, FragSwitchSeconds = 1.5f, FragThrowSeconds = 4f;
+
+    /// <summary>What an overhand throw leaves at, and its lift along the view (Arsenal.ThrowGrenade, CWeaponFrag::ThrowGrenade).</summary>
+    public const float FragThrowSpeed = 1200f, FragThrowLift = 0.1f;
+
+    /// <summary>The height a frag is aimed at over a floor, where it lands and stays.</summary>
+    public const float FragFloor = 16f;
+
+    private readonly AiRandom _fragRng;
+    private FragState _fragState;
+    private FragHow _fragHow;
+    private AltFireReason _fragWhy;
+    private AltFireFacts _fragFacts;
+    private int _fragKind, _fragFrom, _fragWas;
+    private bool _fragCareless;
+    private float _fragErrAcross, _fragErrUp;
+    private AiVector _fragPlace;
+    private Tick _fragNext, _fragAt;
+
+    /// <summary>The frags this bot has thrown by the plan: the inspector's and the facts'.</summary>
+    public int FragsThrown { get; private set; }
+
+    /// <summary>
+    /// A frag, as a person throws one: a reason (<see cref="Hl2mpAltFire.FragReasonFor"/>) and a chance by Aggression,
+    /// the view on the place and the line looked along, the weapon switched to, which takes what it takes,
+    /// and only with it in hand the arc and the pin; then the gun it had. A throw has its own error,
+    /// by Cunning, and a low spend may not look first, so a rail can send one back.
+    /// </summary>
+    private void FragPlan()
+    {
+        if (_fragState == FragState.Idle && !FragBegins())
+            return;
+        _altState = AltFireReasons.Name(_fragWhy);
+        float going = (_now - _fragAt) * _tick;
+        switch (_fragState)
+        {
+            case FragState.Looking:
+                FragLook();
+                _action = ActionIntent.None;
+                bool clear = AltLineClear(_look.Point, out bool refused);
+                if (refused || going > FragLookSeconds)
+                {
+                    if (!_fragCareless)
+                    {
+                        FragEnd();
+                        return;
+                    }
+                }
+
+                if (clear || _fragCareless)
+                {
+                    _lastSelect = _now;
+                    _action = new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, SelectByKind + _fragKind, ++_oneShot);
+                    _fragState = FragState.Switching;
+                    _fragAt = _now;
+                }
+
+                break;
+
+            case FragState.Switching:
+                FragLook();
+                _action = ActionIntent.None;
+                if (_self.ActiveWeapon == _fragKind)
+                {
+                    _fragState = FragState.Throwing;
+                    _fragAt = _now;
+                    _fragWas = _self.Grenades;
+                }
+                else if (going > FragSwitchSeconds)
+                {
+                    FragEnd();
+                }
+
+                break;
+
+            case FragState.Throwing:
+                FragLook();
+                _action = ActionIntent.None;
+                if (_self.Grenades < _fragWas)
+                {
+                    FragsThrown++;
+                    FragBack();
+                }
+                else if (going > FragThrowSeconds || _self.ActiveWeapon != _fragKind)
+                {
+                    FragBack();
+                }
+                else if (going >= AltAimSeconds)
+                {
+                    _action = new ActionIntent(_fragHow == FragHow.Throw ? ActionKind.Fire : ActionKind.AltFire, FireStyle.Tap, 0, 0);
+                    if (_fragHow == FragHow.Roll)
+                        _move = _move.Kind == MoveKind.Strafe ? _move with { CrouchOn = true } : MoveIntent.Hold with { Kind = MoveKind.Crouch, CrouchOn = true };
+                }
+
+                break;
+
+            default:
+                _action = ActionIntent.None;
+                if (_self.ActiveWeapon == _fragFrom || going > FragSwitchSeconds)
+                    FragEnd();
+                break;
+        }
+    }
+
+    private void FragBack()
+    {
+        _fragNext = _now + (int)(FragAfterSeconds / _tick);
+        _fragState = FragState.Back;
+        _fragAt = _now;
+        _lastSelect = _now;
+        _action = _self.ActiveWeapon == _fragFrom ? ActionIntent.None : new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, SelectByKind + _fragFrom, ++_oneShot);
+    }
+
+    private void FragEnd()
+    {
+        _fragState = FragState.Idle;
+        _action = ActionIntent.None;
+        // Given up with the frag still in hand, the gun comes back.
+        if (_self.ActiveWeapon == _fragKind && _fragFrom != _fragKind)
+            _action = new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, SelectByKind + _fragFrom, ++_oneShot);
+    }
+
+    /// <summary>The frag the bot carries in its weapon list, or -1.</summary>
+    private int FragKindHeld(out AltFireFacts facts)
+    {
+        facts = default;
+        foreach (WeaponFacts w in _map.Weapons.All)
+        {
+            if (w.Alt.Kind == AltFireKind.Underhand && w.Kind is >= 0 and < 31 && (_memory.HeldKinds & (1 << w.Kind)) != 0)
+            {
+                facts = w.Alt;
+                return w.Kind;
+            }
+        }
+
+        return -1;
+    }
+
+    private bool FragBegins()
+    {
+        if (_target is null || _altGoing || _now < _fragNext || _self.Grenades <= 0 || _use.Melee || _prefiring)
+            return false;
+        int kind = FragKindHeld(out AltFireFacts frag);
+        if (kind < 0 || kind == _self.ActiveWeapon)
+            return false;
+        FragSituation here = FragHere(in frag, out AiVector place);
+        AltFireReason why = Hl2mpAltFire.FragReasonFor(in frag, in here);
+        if (why == AltFireReason.None)
+            return false;
+        _fragNext = _now + (int)(FragCheckSeconds / _tick);
+        if (_fragRng.NextFloat() >= _p.FragChance * _p.FragKnack)
+            return false;
+        // Both draws every throw, so the stream does not depend on the value.
+        float u = Math.Max(_fragRng.NextFloat(), 1e-6f), v = _fragRng.NextFloat();
+        float g = MathF.Sqrt(-2f * MathF.Log(u));
+        _fragErrAcross = g * MathF.Cos(2f * MathF.PI * v);
+        _fragErrUp = g * MathF.Sin(2f * MathF.PI * v);
+        _fragCareless = _fragRng.NextFloat() < _p.FragCareless;
+        _fragWhy = why;
+        _fragKind = kind;
+        _fragFacts = frag;
+        _fragFrom = _self.ActiveWeapon;
+        _fragPlace = place;
+        _fragHow = Hl2mpAltFire.HowFor(here.Distance, here.HeightOff);
+        _fragState = FragState.Looking;
+        _fragAt = _now;
+        _altLineClear = false;
+        EndPrefire();
+        return true;
+    }
+
+    private FragSituation FragHere(in AltFireFacts frag, out AiVector place)
+    {
+        int others = 0;
+        float visible = 1f;
+        float reach = frag.BlastRadius * Hl2mpAltFire.GroupShare;
+        foreach (ref readonly ActorFacts f in _view.Sighted)
+        {
+            if (f.Id == _target!.Id)
+                visible = f.VisibleFraction;
+            else if (f.Origin.DistanceTo(_targetPos) <= reach)
+                others++;
+        }
+
+        bool corner = false, camper = false;
+        place = _targetPos;
+        if (!_targetSighted)
+        {
+            if (PrefireBelief(out AiVector believed, out _))
+            {
+                corner = true;
+                place = Opening(believed);
+            }
+            else if (_habitKnown)
+            {
+                camper = true;
+                place = _habitSpot;
+            }
+        }
+
+        bool loaded = _ownHasFacts && (_ownFacts.HasClip ? _self.Clip > 0 : _self.Reserve > 0);
+        return new FragSituation(_targetSighted, _self.Origin.DistanceTo(place), place.Z - _self.Origin.Z, others, (_now - _stillSince) * _tick, visible, corner, camper,
+                                 _verdict == "retreat", loaded, false);
+    }
+
+    /// <summary>The view on the arc over the place: a person's, off by this throw's own error.</summary>
+    private void FragLook()
+    {
+        var eye = _self.Origin + new AiVector(0f, 0f, 64f);
+        AiVector at = (_fragWhy is AltFireReason.Corner or AltFireReason.Camper ? _fragPlace : _targetPos) + new AiVector(0f, 0f, FragFloor);
+        float d = new AiVector(at.X - eye.X, at.Y - eye.Y, 0f).Length;
+        AiVector point = _fragHow switch
+        {
+            // Along the floor: only which way counts.
+            FragHow.Roll => new AiVector(at.X, at.Y, eye.Z),
+            FragHow.Lob => AimLead.Lob(eye, at, _fragFacts.Speed, _fragFacts.Gravity) ?? new AiVector(at.X, at.Y, eye.Z + d),
+            _ => (AimLead.Lob(eye, at, FragThrowSpeed, _fragFacts.Gravity) ?? at) - new AiVector(0f, 0f, FragThrowLift * d),
+        };
+        float size = MathF.Tan(_p.FragAimDeg * (MathF.PI / 180f)) * d;
+        AiVector to = new AiVector(at.X - eye.X, at.Y - eye.Y, 0f).Normalised();
+        point += new AiVector(-to.Y * size * _fragErrAcross, to.X * size * _fragErrAcross, _fragHow == FragHow.Roll ? 0f : size * _fragErrUp);
+        _look = new LookIntent(_targetSighted ? LookKind.Actor : LookKind.CornerCheck, point, _target?.Id ?? ActorId.None, AimPoint.Body, 0f, 0);
+    }
+
+    /// <summary>The grenades worth walking to: a frag with none in the list; for the gun in its hands, what its second trigger is out of (§5.4).</summary>
+    private bool NearestGrenadeToTake(out AiVector at)
+    {
+        at = default;
+        float best = GrenadeReach;
+        ReadOnlySpan<ItemBelief> beliefs = _memory.Board.Items;
+        AltFireKind alt = _ownHasFacts && _self.AltAmmo <= 0 ? _ownFacts.Alt.Kind : AltFireKind.None;
+        for (int i = 0; i < _map.Items.Length; i++)
+        {
+            ItemSpawn item = _map.Items[i];
+            bool wanted = item.ClassName switch
+            {
+                "weapon_frag" => _self.Grenades <= 0,
+                "item_ammo_smg1_grenade" => alt == AltFireKind.Lob,
+                "item_ammo_ar2_altfire" => alt == AltFireKind.Ball,
+                _ => false,
+            };
+            if (!wanted || (i < beliefs.Length && beliefs[i].Present == false))
+                continue;
+            float d = _self.Origin.DistanceTo(item.Position);
+            if (d < best && !SomeoneTakesFirst(item.Position, d))
+            {
+                best = d;
+                at = item.Position;
+            }
+        }
+
+        return best < GrenadeReach;
+    }
+
+    /// <summary>A grenade is worth a walk this far and no further, and less than a hunt: a bot that went for them all came back better armed for it (§12.3).</summary>
+    public const float GrenadeReach = 512f, GrenadeWorth = 0.35f;
 
     // ---------------------------------------------------------------- streaks (§5.5)
 
@@ -1221,7 +1734,9 @@ public sealed class Hl2mpDecider : IDecider
         if (!armed && NearestWeaponToTake(out _))
             return 0.65f;
         bool dry = _ownHasFacts && _ownFacts.HasClip && _self.Clip + _self.Reserve < _ownFacts.ClipSize;
-        return dry && NearestItem(ItemKind.Ammo, out _, out _) ? 0.4f : 0f;
+        if (dry && NearestItem(ItemKind.Ammo, out _, out _))
+            return 0.4f;
+        return NearestGrenadeToTake(out _) ? GrenadeWorth : 0f;
     }
 
     // ------------------------------------------------------------------ leaves
@@ -1343,9 +1858,9 @@ public sealed class Hl2mpDecider : IDecider
     public const float ChaseLookNear = 128f;
 
     /// <summary>
-    /// Where a chasing bot looks: at chest height of the place it last saw the
+    /// Where a chasing bot looks: at shoulder height of the place it last saw the
     /// target, until it is close; then level, past the place. Looking at that
-    /// chest height from a pace away is a look at the floor (arriving, pitch
+    /// height from a pace away is a look at the floor (arriving, pitch
     /// 49° and more on flat ground, §12.3).
     /// </summary>
     private AiVector ChaseLook(AiVector place)
@@ -1353,7 +1868,7 @@ public sealed class Hl2mpDecider : IDecider
         var to = new AiVector(place.X - _self.Origin.X, place.Y - _self.Origin.Y, 0f);
         float flat = to.Length;
         if (flat >= ChaseLookNear)
-            return place + new AiVector(0f, 0f, 48f);
+            return place + new AiVector(0f, 0f, PlaceHeight);
         AiVector ahead = flat > 8f ? to * (1f / flat) : VisionMath.Forward(_self.Eye);
         var level = new AiVector(ahead.X, ahead.Y, 0f).Normalised();
         return _self.Origin + new AiVector(0f, 0f, 64f) + level * ChaseLookNear;
@@ -1833,7 +2348,18 @@ public sealed class Hl2mpDecider : IDecider
 
     private bool Arm()
     {
-        if (NearestWeaponToTake(out AiVector at) || NearestItem(ItemKind.Ammo, out at, out _))
+        bool wantsGun = BestHeld(out _) < 3 || (_ownHasFacts && _ownFacts.HasClip && _self.Clip + _self.Reserve < _ownFacts.ClipSize);
+        AiVector at = default;
+        // Here for a grenade, a bot is here for that alone: walking on to every gun it passes made it the better armed.
+        if (!wantsGun)
+        {
+            if (!NearestGrenadeToTake(out at))
+                return false;
+            GoTo(at, MoveSpeed.Run, MoveKind.Follow);
+            return true;
+        }
+
+        if (NearestWeaponToTake(out at) || NearestItem(ItemKind.Ammo, out at, out _))
         {
             GoTo(at, MoveSpeed.Run, MoveKind.Follow);
             return true;
@@ -1974,7 +2500,7 @@ public sealed class Hl2mpDecider : IDecider
     /// target comes into sight, wandering slowly from there, not a new draw at
     /// each decide; a person's crosshair drifts, it does not jump.
     /// </summary>
-    private void WanderAim()
+    private bool WanderAim()
     {
         bool fresh = _target!.Id != _aimOf || !_aimSighted;
         _aimSighted = _targetSighted;
@@ -2002,14 +2528,50 @@ public sealed class Hl2mpDecider : IDecider
         float keep = fresh ? 0f : MathF.Exp(-DecideSchedule.Period * _tick / AimSmoothSeconds);
         _aimSmoothX = keep * _aimSmoothX + (1f - keep) * _aimX;
         _aimSmoothZ = keep * _aimSmoothZ + (1f - keep) * _aimZ;
+        return fresh;
     }
+
+    /// <summary>
+    /// The height the crosshair is held at now (§3.4.1, ruling 2026-11-03), world z. It starts a new
+    /// engagement where a standing person's shoulders would be, its default, and a body that is
+    /// not there, or leaves it, asks for a re-aim: <see cref="AimHeightHold"/>.
+    /// </summary>
+    private float HeldAimHeight(bool fresh, StanceHeight heights)
+    {
+        // A good hand keeps it a little higher, on a gun (Accuracy's aimRise).
+        float rise = _use.Aim == AimPoint.Shoulder ? _p.AimRise : 0f;
+        float standing = _targetPos.Z + heights.Standing + rise;
+        if (!_targetSighted)
+            return standing;
+        if (fresh)
+            _aimHeight.Start(standing);
+        return _aimHeight.Step(_targetPos.Z + heights.At(_targetCrouched) + rise, ReAimSeconds, _p.FlickOvershootPct, _targetDist, DecideSchedule.Period * _tick);
+    }
+
+    /// <summary>
+    /// How long a change of stance goes unanswered: seeing it, then reacting (a streak's own, §5.5), with
+    /// a person's least. A curve's 100 ms is for a reaction already braced for a shot, and a re-aim has
+    /// to be noticed first.
+    /// </summary>
+    private float ReAimSeconds
+        => MathF.Max(ReAimLeastSeconds, _streak == 0 ? _p.RecognizeSeconds + _p.ReactionMs / 1000f : StreakNow.RecognizeSeconds + StreakNow.ReactionMs / 1000f);
+
+    /// <summary>The soonest anyone's crosshair answers a change of stance.</summary>
+    public const float ReAimLeastSeconds = 0.25f;
+
+    private readonly AimHeightHold _aimHeight;
+
+    /// <summary>What the aim's height is doing: the inspector's and the facts'.</summary>
+    public AimHeightPhase AimHeightNow => _aimHeight.Phase;
 
     private void LookAtTarget(bool fire)
     {
         if (_target is null)
             return;
-        // Crouched, a body is half the height: what a client draws (§4.3).
-        AiVector chest = _targetPos + new AiVector(0f, 0f, _targetCrouched ? ChestCrouched : 48f);
+        // The aim's error by Accuracy: drawn now, used last.
+        bool fresh = WanderAim();
+        // Across the body it follows them; its height it holds, and the body's jump or duck is no lead (§3.4.1).
+        var chest = new AiVector(_targetPos.X, _targetPos.Y, HeldAimHeight(fresh, Hl2mpAimHeights.Of(_use.Aim)));
         float lead = 0f;
         if (_targetSighted)
         {
@@ -2020,7 +2582,7 @@ public sealed class Hl2mpDecider : IDecider
             // target's by Accuracy; what they do not allow for is the error a
             // fast strafer costs.
             float allow = _p.TrackingLagMs / 1000f + (DecideSchedule.Period * 0.5f + 1f) * _tick;
-            chest += (_targetVel * LeadNow - _self.Velocity) * allow;
+            chest += (new AiVector(_targetVel.X, _targetVel.Y, 0f) * LeadNow - _self.Velocity) * allow;
         }
 
         if (_ownHasFacts && _ownFacts.ProjectileSpeed > 0f)
@@ -2031,23 +2593,26 @@ public sealed class Hl2mpDecider : IDecider
             chest = point;
         }
 
-        // The aim's error by Accuracy: a point off the target by its wander, wider at first sight.
-        WanderAim();
+        // A point off the target by its wander, wider at first sight.
         float seconds = (_now - _aimSince) * _tick;
         float size = MathF.Tan(AimErrorNow * (MathF.PI / 180f)) * _targetDist * (1f + AimSettleExtra * MathF.Exp(-seconds / AimSettleSeconds));
         float err = size * _aimSmoothX, errUp = size * _aimSmoothZ * AimErrorUpShare;
         AiVector to = new AiVector(chest.X - _self.Origin.X, chest.Y - _self.Origin.Y, 0f).Normalised();
         chest += new AiVector(-to.Y * err, to.X * err, errUp);
-        _look = new LookIntent(LookKind.Actor, chest, _target.Id, AimPoint.Body, lead, 0);
+        _look = new LookIntent(LookKind.Actor, chest, _target.Id, _use.Aim, lead, 0);
         if (fire && _targetSighted && CanFire())
             _action = new ActionIntent(ActionKind.Fire, _use.Style, 0, 0);
     }
 
     private void LookAtTargetAndFire() => LookAtTarget(fire: true);
 
+    /// <summary>A frag in hand with someone inside its blast: nobody throws one at their own feet.</summary>
+    private bool FragTooClose => _ownHasFacts && _ownFacts.Alt.Kind == AltFireKind.Underhand && _targetDist < _ownFacts.Alt.BlastRadius * Hl2mpAltFire.SafeShare;
+
     private bool CanFire()
     {
-        if (_targetDist > _use.EffectiveRange * _p.FireRangeGate)
+        // Nearer than a throw wants, a frag goes underhand (AltFire).
+        if (_targetDist > _use.EffectiveRange * _p.FireRangeGate || (_ownHasFacts && _ownFacts.Alt.Kind == AltFireKind.Underhand && _targetDist < Hl2mpAltFire.FragThrowFrom))
             return false;
         if (_use.Melee)
             return true;
@@ -2065,8 +2630,8 @@ public sealed class Hl2mpDecider : IDecider
     {
         // A melee weapon or the gravity gun cannot reach what a gun can: in sight,
         // holding one beats swinging it.
-        bool cannotReach = _targetSighted && (_use.Melee || _use.Family == "physgun");
-        if (_action.Kind != ActionKind.None && !cannotReach)
+        bool cannotReach = _targetSighted && (_use.Melee || _use.Family == "physgun" || FragTooClose);
+        if (_altGoing || _fragState != FragState.Idle || (_action.Kind != ActionKind.None && !cannotReach))
             return;
         if (!_targetSighted && _ownHasFacts && _ownFacts.HasClip && _self.Reserve > 0 && !SelfReloading
             && _self.Clip < _p.ReloadBelowPct * _ownFacts.ClipSize)
@@ -2115,7 +2680,7 @@ public sealed class Hl2mpDecider : IDecider
     {
         int held = _memory.HeldKinds;
         kind = _self.ActiveWeapon;
-        int best = InHandDry ? -1 : _use.Rank;
+        int best = InHandDry || (_targetSighted && FragTooClose) ? -1 : _use.Rank;
         if (held == 0)
             return best;
         foreach (WeaponFacts w in _map.Weapons.All)

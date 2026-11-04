@@ -32,8 +32,9 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.EnvTonemapController, ScriptedEntityKind.Effect)]
 public sealed class EnvTonemapController : ScriptedEntity
 {
-    public EnvTonemapController(IGameClock clock, IEngineConsole console, IEngineEntityRender render)
+    public EnvTonemapController(IGameClock clock, IEngineConsole console, IEngineEntityRender render, MatHdrTonemapScaleConVar scale)
     {
+        _scale = scale;
         Clock = clock;
         Console = console;
         Render = render;
@@ -54,7 +55,7 @@ public sealed class EnvTonemapController : ScriptedEntity
     /// both modules, which in Source means one value with a reference on each
     /// side — so writing it here reaches the renderer on a listen server.
     /// </summary>
-    private const string TonemapScaleConVar = "mat_hdr_tonemapscale";
+    private readonly MatHdrTonemapScaleConVar _scale;
 
     /// <summary>How fast the eye adjusts, when it is adjusting manually.</summary>
     private const string TonemapRateConVar = "mat_hdr_manual_tonemap_rate";
@@ -221,10 +222,7 @@ public sealed class EnvTonemapController : ScriptedEntity
         SetNextThink(BlendInterval);
     }
 
-    private void SetTonemapScale(float value)
-        => Console.SetConVarValueByName(TonemapScaleConVar,
-                                      value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    private void SetTonemapScale(float value) => _scale.SetValue(value);
 
-    private float CurrentTonemapScale()
-        => ParseFloat(Console.FindConVarValue(TonemapScaleConVar) ?? "1", 1f);
+    private float CurrentTonemapScale() => _scale.Value;
 }

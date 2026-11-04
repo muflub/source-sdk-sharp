@@ -57,7 +57,7 @@ public class ImpulseCheatsTests
         engine.Returns("Players.IsAlive", alive);
 
         var giver = new RecordingGiver();
-        var impulses = new ImpulseCheats(new RecordingLog(), giver, engine, engine, engine, engine)
+        var impulses = new ImpulseCheats(new RecordingLog(), giver, engine, engine, engine, DeclaredConVars.Fresh<SvCheatsConVar>())
         {
             CheatsEnabled = () => cheats,
         };

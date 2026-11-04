@@ -55,7 +55,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeClientProjectile : TeBaseTempEntity
+public partial class TeClientProjectile : TeBaseTempEntity
 {
     /// <summary>Where it starts.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

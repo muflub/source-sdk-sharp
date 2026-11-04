@@ -41,15 +41,16 @@ public class PointCommandTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PointServerCommand).Assembly);
-        registry.Services = Ignoring("Console.FindConVarValue", "Entities.IsPlayer");
+        var services = Ignoring("Console.FindConVarValue", "Entities.IsPlayer");
+        registry.Services = services;
+        services.Require<AllowPointServerCommandConVar>().Hold("disallow");
         registry.Spawn(Ent, EntityNames.PointServercommand);
 
         var entity = (PointServerCommand)registry.Get(Ent)!;
 
-        // The gate first, from the input side. With no game the convar cannot be
-        // read, which is a refusal — and a refusal must leave nothing behind to
-        // run later, or the wait would have turned the fail-closed direction into
-        // a delayed fail-open.
+        // The gate first, from the input side. A refusal must leave nothing behind
+        // to run later, or the wait would have turned the fail-closed direction
+        // into a delayed fail-open.
         registry.Input(Ent, "Command", "changelevel dm_lockdown", 0f, EntityHandle.None);
         Assert.True(entity.PendingCount == 0, "a refused command queues nothing");
 

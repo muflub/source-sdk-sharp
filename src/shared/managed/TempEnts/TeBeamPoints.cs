@@ -26,7 +26,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamPoints : TeBaseBeam
+public partial class TeBeamPoints : TeBaseBeam
 {
     /// <summary>Where the beam starts, as a world coordinate.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

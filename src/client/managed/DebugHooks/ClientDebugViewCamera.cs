@@ -3,6 +3,7 @@ using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.ViewCamera;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client;
 
@@ -13,7 +14,7 @@ namespace SourceSharp.Client;
 /// as the cheat convar does, and says so otherwise.
 /// </summary>
 public sealed class ClientDebugViewCamera(
-    ViewCameraService camera, IViewTargets targets, IEngineConsole console,
+    ViewCameraService camera, IViewTargets targets, IEngineConsole console, SvCheatsConVar cheats,
     ViewCameraModeConVar mode, ViewCameraEveryConVar every, Render.RenderPlanHost? plan = null) : IDebugClientViewCamera
 {
     public DebugClientViewCamera Read() => Snapshot(null);
@@ -29,7 +30,7 @@ public sealed class ClientDebugViewCamera(
         return Snapshot("set");
     }
 
-    private bool Cheats() => console.FindConVarValue("sv_cheats") is "1";
+    private bool Cheats() => cheats.Value;
 
     private DebugClientViewCamera Snapshot(string? write)
     {

@@ -202,7 +202,7 @@ public sealed class CrouchTests
         Assert.Equal(one, two);
     }
 
-    /// <summary>What a client draws: someone crouched has a lower chest, so the aim drops to it.</summary>
+    /// <summary>What a client draws: someone crouched has lower shoulders, so the aim drops to them, once settled.</summary>
     [Fact]
     public void AimAtACrouchedTargetGoesLower()
     {
@@ -216,6 +216,7 @@ public sealed class CrouchTests
             return i.Look.Point.Z;
         }
 
-        Assert.Equal(48f - Hl2mpDecider.ChestCrouched, Aim(ActorActivity.None) - Aim(ActorActivity.Crouched), 2);
+        StanceHeight shoulder = Hl2mpAimHeights.Shoulder;
+        Assert.Equal(shoulder.Standing - shoulder.Crouched, Aim(ActorActivity.None) - Aim(ActorActivity.Crouched), 2);
     }
 }

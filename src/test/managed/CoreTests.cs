@@ -144,7 +144,7 @@ public class CoreTests
         // declarations it was pointed at came back.
         int n = registry.RegisterAll(typeof(CoreTests).Assembly);
         Assert.True(n >= 2, "convar registry survives a no-engine scan");
-        Assert.True(registry.Get<BoundedTestConVar>() is not null, "convar registry finds a declaration in the scanned assemblies");
+        Assert.True(registry.All.OfType<BoundedTestConVar>().Any(), "convar registry finds a declaration in the scanned assemblies");
         Assert.True(!registry.NotifyChanged(999, "a", "b"), "convar registry reports unknown ids");
     }
 
@@ -914,7 +914,7 @@ public class CoreTests
 
         var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        var rules = new GameRules(new RecordingLog(), convars, host,
+        var rules = new GameRules(new RecordingLog(), convars.Holder<GameRulesConVars>(), host,
             Fake().Ignores("Players.GiveItem", "Players.GiveAmmo", "Players.FindByUserId",
                            "Players.GetTeam", "Players.GetUserId"),
             Fake().Returns("Entities.IsValid", false), board, deaths);
@@ -934,14 +934,14 @@ public class CoreTests
         // Respawn delay is the ConVar, and its default defers.
         Assert.True(rules.GetRespawnDelay(victim) < 0f, "respawn delay defers by default");
 
-        Bind(convars.Get<RespawnDelayConVar>()!, "cs_sv_respawn_delay", "7.5");
+        Bind(convars.Declared<RespawnDelayConVar>(), "cs_sv_respawn_delay", "7.5");
         Assert.True(Math.Abs(rules.GetRespawnDelay(victim) - 7.5f) < 0.001f, "respawn delay follows the convar");
 
         // Spawn protection. Off by default, so a fresh spawn is not protected.
         rules.OnPlayerSpawned(victim, 100f);
         Assert.True(!rules.IsProtected(victim, 100f), "no protection when disabled");
 
-        Bind(convars.Get<SpawnProtectConVar>()!, "cs_sv_spawn_protect", "5");
+        Bind(convars.Declared<SpawnProtectConVar>(), "cs_sv_spawn_protect", "5");
         rules.OnPlayerSpawned(victim, 100f);
 
         Assert.True(rules.IsProtected(victim, 100f), "protected immediately after spawning");
@@ -974,7 +974,7 @@ public class CoreTests
         rules.Think();
         Assert.True(!rules.RoundOver, "think with no limit does not end the round");
 
-        Bind(convars.Get<FragLimitConVar>()!, "cs_sv_fraglimit", "3");
+        Bind(convars.Declared<FragLimitConVar>(), "cs_sv_fraglimit", "3");
         rules.Think();
         Assert.True(!rules.RoundOver, "an empty scoreboard does not end the round");
 

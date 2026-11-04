@@ -13,9 +13,8 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_playershadow",
     Help = "SourceSharp: the player's VPhysics shadow -- how many were built, how many updates, how many of those were in contact, how many snapped (plan_entity.md step 3f)")]
 public sealed class PlayerShadowCommand(PlayerShadowBodies bodies, IEngineDiagnostics diagnostics, IEngineConsole console)
-    : IConCommand
 {
-    public void Execute(string args)
+    public void Execute()
     {
         Span<int> native = stackalloc int[2];
         int read = diagnostics.PlayerShadowCounts(native);

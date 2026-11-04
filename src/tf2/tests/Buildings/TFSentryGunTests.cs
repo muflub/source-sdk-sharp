@@ -193,7 +193,7 @@ public class TFSentryGunTests
         EngineCall shot = Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));
         Assert.Equal(enemy, shot.ArgAs<EntityHandle>(0));
         Assert.Equal(builder, shot.ArgAs<EntityHandle>(1));
-        Assert.Equal(rig.Convars.Get<TFSentryGunDamageConVar>()!.Value, shot.ArgAs<float>(2));
+        Assert.Equal(rig.Convars.Declared<TFSentryGunDamageConVar>().Value, shot.ArgAs<float>(2));
         Assert.Equal(DamageType.Bullet, shot.ArgAs<DamageType>(3));
         Assert.Equal(TFSentryGun.MaxShellsLevel1 - 1, sentry.Shells);
     }
@@ -204,7 +204,7 @@ public class TFSentryGunTests
         // Stock reads tf_sentrygun_damage into the shot's damage
         // (tf_obj_sentrygun.cpp:1549).
         var (rig, sentry, _) = AWorkingSentry();
-        rig.Convars.Get<TFSentryGunDamageConVar>()!.Bind(-1, "tf_sentrygun_damage", "32");
+        rig.Convars.Declared<TFSentryGunDamageConVar>().Bind(-1, "tf_sentrygun_damage", "32");
         EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
         rig.Centers[enemy] = Ahead(enemy, 300f);
         rig.FillsSphere(enemy);

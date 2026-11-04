@@ -84,11 +84,10 @@ public sealed class ClientDecals : IClientDecals, IReloadParticipant
 /// answers (it draws from the client's random stream, as a real impact does).
 /// </summary>
 [ConCommand("cs_cl_decals", Help = "SourceSharp: the client's decal tables (counts; with a group name, one pick)")]
-public sealed class ClientDecalsReportCommand(ILog log, IClientDecals decals) : IConCommand
+public sealed class ClientDecalsReportCommand(ILog log, IClientDecals decals)
 {
-    public void Execute(string args)
+    public void Execute(string group = "Impact.Concrete")
     {
-        string group = string.IsNullOrWhiteSpace(args) ? "Impact.Concrete" : args.Trim();
         int index = decals.IndexForName(group);
         string name = decals.NameForIndex(index) ?? "";
         var counts = decals is ClientDecals held ? held.Counts : default;

@@ -96,7 +96,7 @@ public class TFSapperTests
         // Stock pays the seconds since the last think times obj_sapper_amount
         // (tf_obj_sapper.cpp:493-494).
         var (rig, _, sapper) = ASappedBuilding();
-        rig.Convars.Get<ObjSapperAmountConVar>()!.Bind(-1, "obj_sapper_amount", "50");
+        rig.Convars.Declared<ObjSapperAmountConVar>().Bind(-1, "obj_sapper_amount", "50");
 
         rig.Clock.Now += 1f;
         sapper.OnThink(TFSapper.SapperThinkContext);

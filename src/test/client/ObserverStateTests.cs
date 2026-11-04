@@ -216,8 +216,8 @@ public class ObserverStateTests
     public void The_spec_commands_send_the_server_their_line_with_a_quoted_argument()
     {
         var (run, sent, _) = Runner(SpectatorMode.Chase);
-        run.Run("spec_next", "");
-        run.Run("spec_player", "\"Dr. Kleiner\"");
+        run.Run("spec_next", null);
+        run.Run("spec_player", "Dr. Kleiner");
         Assert.Equal(["server: spec_next", "server: spec_player \"Dr. Kleiner\""], sent);
     }
 
@@ -225,10 +225,10 @@ public class ObserverStateTests
     public void The_spec_commands_send_nothing_for_a_player_and_spec_player_wants_one_argument()
     {
         var (run, sent, log) = Runner(SpectatorMode.None);
-        run.Run("spec_next", "");
+        run.Run("spec_next", null);
         Assert.Empty(sent);
         (run, sent, log) = Runner(SpectatorMode.Roaming);
-        run.Run("spec_player", "");
+        run.Run("spec_player", null);
         Assert.Empty(sent);
         Assert.Equal([SpectatorCommands.PlayerUsage], log.Lines.Select(l => l.Text));
     }

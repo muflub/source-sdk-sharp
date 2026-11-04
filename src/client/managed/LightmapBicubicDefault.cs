@@ -24,7 +24,7 @@ namespace SourceSharp.Client;
 /// <c>&amp;&amp; materials</c> skipped the block.
 /// </para>
 /// </summary>
-public sealed class LightmapBicubicDefault(IEngineConsole console, bool linux)
+public sealed class LightmapBicubicDefault(IEngineConsole console, LightmapBicubicSetConVar marker, bool linux)
 {
     /// <summary>The marker, LightmapBicubicSetConVar's name.</summary>
     public const string MarkerName = "r_lightmap_bicubic_set";
@@ -43,9 +43,7 @@ public sealed class LightmapBicubicDefault(IEngineConsole console, bool linux)
     {
         if (adapterMaxDxLevel < 0)
             return null;
-        // The marker is managed's declaration; absent before the convars
-        // register, when there is nothing to say it was already done.
-        if (console.FindConVarValue(MarkerName) is not string marker || (int)VariantParse.Atof(marker) != 0)
+        if (marker.Value)
             return null;
 
         bool on = Wanted(adapterMaxDxLevel, linux);

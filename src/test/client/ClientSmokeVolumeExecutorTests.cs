@@ -5,6 +5,7 @@ using SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
 
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -45,7 +46,7 @@ public class ClientSmokeVolumeExecutorTests
         engine.Returns("Entities.GetIndex", 79);
         engine.Returns("WorldQuery.ClientEntityModelBounds.Angles", new Vector(0, 0, 0));
         var air = new OpenAir();
-        var volume = new ClientSmokeVolume(engine, executor, engine, engine, air, air, engine, new RandomSeeds(5));
+        var volume = new ClientSmokeVolume(engine, executor, engine, engine, air, air, DeclaredConVars.Fresh<MatReduceParticlesConVar>(), new RandomSeeds(5));
         volume.BindEngine(engine, engine);
         volume.State.BindLocal();
         volume.Handle = Owner;

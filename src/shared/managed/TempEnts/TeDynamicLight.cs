@@ -61,7 +61,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeDynamicLight : TeBaseTempEntity
+public partial class TeDynamicLight : TeBaseTempEntity
 {
     /// <summary>Where the light is.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

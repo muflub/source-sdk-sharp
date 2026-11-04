@@ -32,7 +32,6 @@ namespace
 // The table's slots, in ishim_frame.h's (and ShimFrameFwd's) order.
 enum
 {
-	kIsSimulatingOnAlternateTicks,
 	kTickCount,
 	kGetFrameTime,
 	kSetFrameTime,
@@ -52,8 +51,6 @@ enum
 class RecordingFrame final : public IShimFrame
 {
 public:
-	int32_t IsSimulatingOnAlternateTicks() override { return Ran(kIsSimulatingOnAlternateTicks), 1; }
-
 	int32_t TickCount() override { return Ran(kTickCount), 4242; }
 
 	float GetFrameTime() override { return Ran(kGetFrameTime), 0.015f; }
@@ -355,14 +352,15 @@ TEST(FwdShimCounts, TheRootIsThreeSlots)
 	ExpectServedCount("SSFwd_ShimRoot", VTableHook::MemberOf(&IShimRoot::Release).slot + 1, 3);
 }
 
-TEST(FwdShimCounts, TheConsoleIsTwelveSlots)
+TEST(FwdShimCounts, TheConsoleIsFourteenSlots)
 {
 	// The ten console slots of the old engine struct, in its order, then
-	// RevertNamedConVar, then FindConVarFlags (plan_server_native_v2 T4e).
-	ExpectServedCount("SSFwd_ShimConsole", VTableHook::MemberOf(&IShimConsole::FindConVarFlags).slot + 1, 12);
+	// RevertNamedConVar, then FindConVarFlags (plan_server_native_v2 T4e), then
+	// CompleteCommandLine and WatchNamedConVar.
+	ExpectServedCount("SSFwd_ShimConsole", VTableHook::MemberOf(&IShimConsole::WatchNamedConVar).slot + 1, 14);
 }
 
-TEST(FwdShimCounts, TheFrameIsThirteenSlots)
+TEST(FwdShimCounts, TheFrameIsTwelveSlots)
 {
 	// Seventeen until StandaloneRunFrame split into StandaloneUpdate and
 	// StandaloneFinish; eighteen until DeliverToSdkEntities was appended.
@@ -370,8 +368,9 @@ TEST(FwdShimCounts, TheFrameIsThirteenSlots)
 	// (ServerSystemsPreThink, ServerSystemsPostThink,
 	// ServerSystemsPreClientUpdate) retired, DrainEntitySlots,
 	// BeginModelCacheLock and EndModelCacheLock appended. Thirteen after the
-	// serialised ABI pass (2026-10-20) took the six retired steps out.
-	ExpectServedCount("SSFwd_ShimFrame", VTableHook::MemberOf(&IShimFrame::EndModelCacheLock).slot + 1, 13);
+	// serialised ABI pass (2026-10-20) took the six retired steps out; twelve
+	// when IsSimulatingOnAlternateTicks moved to managed.
+	ExpectServedCount("SSFwd_ShimFrame", VTableHook::MemberOf(&IShimFrame::EndModelCacheLock).slot + 1, 12);
 }
 
 TEST(FwdShimCounts, TheLevelIsTwentySlots)

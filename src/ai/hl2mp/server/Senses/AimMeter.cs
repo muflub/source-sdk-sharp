@@ -105,9 +105,16 @@ public sealed class AimMeter(Hl2mpBots bots, VisionPass vision, Hl2mpAiSession a
     /// <summary>A player's weapon event, from the fire tap: a bot's shot counts.</summary>
     public void Weapon(EntityHandle player, int weaponType, PlayerWeaponEvent e)
     {
-        if (e != PlayerWeaponEvent.Fired || !BotOf(player, out ActorId bot))
+        if (!BotOf(player, out ActorId bot))
             return;
-        Of(bot).Shot(weaponType, frame.TickCount());
+        // A frag is told as a shot however it left: thrown, it is no aimed shot of a hit rate.
+        bool frag = weapons.ByIndex(weaponType) is { Behaviour: Hl2mpWeaponBehaviours.Frag };
+        if (e == PlayerWeaponEvent.Fired && frag)
+            Of(bot).AltShot(weaponType);
+        else if (e == PlayerWeaponEvent.Fired)
+            Of(bot).Shot(weaponType, frame.TickCount());
+        else if (e == PlayerWeaponEvent.AltFired && !frag)
+            Of(bot).AltShot(weaponType);
     }
 
     /// <summary>A hit on a player, from the damage tap: a bot's counts.</summary>
@@ -115,8 +122,20 @@ public sealed class AimMeter(Hl2mpBots bots, VisionPass vision, Hl2mpAiSession a
     {
         if (hurt.Attacker == EntityHandle.None || !BotOf(hurt.Attacker, out ActorId bot))
             return;
+        bool alt = (hurt.Kind & (DamageType.Blast | DamageType.Dissolve)) != 0;
+        if (hurt.Attacker == hurt.Player)
+        {
+            if (alt)
+                Of(bot).SelfBlast(hurt.Taken);
+            return;
+        }
+
         int victim = entities.GetIndex(hurt.Player);
-        if (victim is >= 1 and < VisionPass.Slots)
+        if (victim is < 1 or >= VisionPass.Slots)
+            return;
+        if (alt)
+            Of(bot).AltHit(victim, hurt.Taken);
+        else
             Of(bot).Hit(victim, hurt.Taken, frame.TickCount());
     }
 
@@ -162,6 +181,7 @@ public sealed class AimMeter(Hl2mpBots bots, VisionPass vision, Hl2mpAiSession a
                     shots = r.Shots,
                     hits = r.Hits,
                     damage = r.Damage,
+                    alt_damage = r.AltDamage,
                     first_shot_ticks = r.FirstShotTicks,
                     acquire_ticks = r.AcquireTicks,
                     leaves = r.Leaves,
@@ -178,6 +198,7 @@ public sealed class AimMeter(Hl2mpBots bots, VisionPass vision, Hl2mpAiSession a
             }
 
             return (object)new { slot = b.Id.Slot, name = b.Name, profile = b.Skills.Name, view_resets = bots.Applier.StateOf(b.Id.Slot)?.ViewResets ?? 0,
+                                    alt_fired = s.AltFired.Select(kv => new { weapon = weapons.ByIndex(kv.Key)?.Name ?? "", count = kv.Value }), self_blast = s.SelfBlastDamage,
                                     commands = s.Commands, yaw_reversals = s.YawReversals, side_interval_ticks = s.SideIntervalTicks, side_flips_by_leaf = s.SideFlipsByLeaf,
                                     close_by_leaf = s.CloseByLeaf.Select(kv => new { leaf = kv.Key, ticks = kv.Value.Ticks, firing = kv.Value.Firing }), targets = rows };
         });

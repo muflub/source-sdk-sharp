@@ -16,7 +16,7 @@ public class Hl2PlayerMoveRulesTests
 {
     private readonly GlobalStateTable _globals = new(new RecordingLog());
 
-    private Hl2PlayerMoveRules Rules() => new(ConVarRegistry.For(UnattachedConsole()), _globals);
+    private Hl2PlayerMoveRules Rules() => new(DeclaredConVars.Fresh<Hl2WalkSpeedConVar>(), DeclaredConVars.Fresh<Hl2NormSpeedConVar>(), DeclaredConVars.Fresh<Hl2SprintSpeedConVar>(), DeclaredConVars.Fresh<SvInfiniteAuxPowerConVar>(), _globals);
 
     [Fact]
     public void TheSpeedsAreStocks()

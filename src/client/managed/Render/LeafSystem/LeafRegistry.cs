@@ -5,7 +5,10 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
+
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Render.LeafSystem;
 
@@ -140,6 +143,26 @@ public sealed class LeafRegistry : IReloadParticipant
     private readonly List<float> _batchBoxes = [];
     private int[] _scratch = new int[256];
     private readonly List<(int Handle, int Shadow)> _pendingReceivers = [];
+
+    // Each batch's own buffers, grown on demand and used only for the length of
+    // the batch: native holds a span of one for its call and keeps nothing.
+    private nint[] _receiverPointers = [];
+    private int[] _receiverFlags = [];
+    private int[] _receiverAnswers = [];
+    private nint[] _maskPointers = [];
+    private int[] _maskFlags = [];
+    private int[] _maskAnswers = [];
+    private int[] _areaAsked = [];
+    private int[] _areaAnswers = [];
+    private int[] _preOrder = [];
+    private nint[] _prePointers = [];
+    private int[] _preWhat = [];
+    private int[] _preFacts = [];
+    private float[] _preBoxes = [];
+    private int[] _preLeafAt = [];
+    private int[] _preLeafCount = [];
+    private int[] _preReceives = [];
+    private int[] _preAreas = [];
 
     public LeafRegistry(ILeafNative native)
     {
@@ -693,9 +716,9 @@ public sealed class LeafRegistry : IReloadParticipant
         int n = _pendingReceivers.Count;
         if (n == 0)
             return;
-        var renderables = new nint[n];
-        var flags = new int[n];
-        var answers = new int[n];
+        Span<nint> renderables = Scratch.Sized(ref _receiverPointers, n);
+        Span<int> flags = Scratch.Sized(ref _receiverFlags, n);
+        Span<int> answers = Scratch.Cleared(ref _receiverAnswers, n);
         for (int i = 0; i < n; i++)
         {
             renderables[i] = (nint)_renderables[_pendingReceivers[i].Handle].Renderable;
@@ -738,8 +761,9 @@ public sealed class LeafRegistry : IReloadParticipant
     // The renderables whose ShouldReceiveProjectedTextures( mask ) the next
     // inserts depend on, and whose answer matters: a kind that can take one,
     // going into a leaf that holds a shadow. Answered in one batch into
-    // `receives` (1, 0, or -1 not asked).
-    private void AskMasks(ReadOnlySpan<int> handles, Func<int, ReadOnlySpan<int>> leavesOf, int[] receives)
+    // `receives` (1, 0, or -1 not asked). Handle i's leaves are
+    // leaves[leafAt[i]..][..leafCount[i]].
+    private void AskMasks(ReadOnlySpan<int> handles, ReadOnlySpan<int> leaves, ReadOnlySpan<int> leafAt, ReadOnlySpan<int> leafCount, Span<int> receives)
     {
         _batchRenderables.Clear();
         _batchInts.Clear();
@@ -749,7 +773,7 @@ public sealed class LeafRegistry : IReloadParticipant
             if (!CanReceiveShadows(_renderables[handles[i]].Flags))
                 continue;
             bool anyShadow = false;
-            foreach (int leaf in leavesOf(i))
+            foreach (int leaf in leaves.Slice(leafAt[i], leafCount[i]))
             {
                 if (IsValidLeaf(leaf) && _shadowsInLeaf.FirstInBucket(leaf) >= 0)
                 {
@@ -765,9 +789,9 @@ public sealed class LeafRegistry : IReloadParticipant
         int n = _batchRenderables.Count;
         if (n == 0)
             return;
-        var renderables = new nint[n];
-        var flags = new int[n];
-        var answers = new int[n];
+        Span<nint> renderables = Scratch.Sized(ref _maskPointers, n);
+        Span<int> flags = Scratch.Sized(ref _maskFlags, n);
+        Span<int> answers = Scratch.Cleared(ref _maskAnswers, n);
         for (int k = 0; k < n; k++)
         {
             renderables[k] = (nint)_batchRenderables[k];
@@ -806,11 +830,10 @@ public sealed class LeafRegistry : IReloadParticipant
     {
         if (!_renderableHandles.IsValid(handle))
             return;
-        int[] leafArray = leaves.ToArray();
-        var receives = new int[1];
-        AskMasks([handle], _ => leafArray, receives);
+        Span<int> receives = stackalloc int[1];
+        AskMasks([handle], leaves, [0], [leaves.Length], receives);
         _pendingReceivers.Clear();
-        foreach (int leaf in leafArray)
+        foreach (int leaf in leaves)
         {
             if (IsValidLeaf(leaf))
                 AddRenderableToLeaf(leaf, handle, receives[0]);
@@ -828,7 +851,7 @@ public sealed class LeafRegistry : IReloadParticipant
         _batchInts.Clear();
         int runs = 0;
         Span<int> leaves = stackalloc int[MaxLeavesPerRenderable];
-        var asked = new int[handles.Length];
+        Span<int> asked = Scratch.Sized(ref _areaAsked, handles.Length);
         for (int i = 0; i < handles.Length; i++)
         {
             int n = GetRenderableLeaves(handles[i], leaves);
@@ -845,9 +868,8 @@ public sealed class LeafRegistry : IReloadParticipant
         }
         if (runs == 0)
             return;
-        var runWords = _batchInts.ToArray();
-        var answers = new int[runs];
-        _native.LeavesAreas(runWords, runs, answers);
+        Span<int> answers = Scratch.Cleared(ref _areaAnswers, runs);
+        _native.LeavesAreas(CollectionsMarshal.AsSpan(_batchInts), runs, answers);
         for (int i = 0; i < handles.Length; i++)
         {
             if (asked[i] >= 0)
@@ -868,7 +890,9 @@ public sealed class LeafRegistry : IReloadParticipant
         if (n == 0)
             return;
         // Stock's order: i from the last down to the first.
-        var order = new int[n];
+        // A renderable dirtied while this runs joins the list behind these n and
+        // waits for the next frame.
+        Span<int> order = Scratch.Sized(ref _preOrder, n);
         for (int i = 0; i < n; i++)
             order[i] = _dirty[n - 1 - i];
 
@@ -877,24 +901,24 @@ public sealed class LeafRegistry : IReloadParticipant
 
         // The boxes (CalcRenderableWorldSpaceAABB_Fast, the renderable's own
         // world bounds), then the leaves each touches.
-        var renderables = new nint[n];
-        var what = new int[n];
-        var facts = new int[n * LeafFacts.Words];
+        Span<nint> renderables = Scratch.Sized(ref _prePointers, n);
+        Span<int> what = Scratch.Sized(ref _preWhat, n);
+        Span<int> facts = Scratch.Cleared(ref _preFacts, n * LeafFacts.Words);
         for (int i = 0; i < n; i++)
         {
             renderables[i] = (nint)_renderables[order[i]].Renderable;
             what[i] = LeafFacts.WorldBounds;
         }
         _native.Facts(renderables, what, facts);
-        var boxes = new float[n * 6];
+        Span<float> boxes = Scratch.Sized(ref _preBoxes, n * 6);
         for (int i = 0; i < n; i++)
         {
             for (int k = 0; k < 6; k++)
                 boxes[6 * i + k] = BitConverter.Int32BitsToSingle(facts[i * LeafFacts.Words + 2 + k]);
         }
-        int[] enumerated = EnumerateLeaves(boxes);
-        var leafAt = new int[n];
-        var leafCount = new int[n];
+        ReadOnlySpan<int> enumerated = EnumerateLeaves(boxes);
+        Span<int> leafAt = Scratch.Sized(ref _preLeafAt, n);
+        Span<int> leafCount = Scratch.Sized(ref _preLeafCount, n);
         for (int i = 0, at = 0; i < n; i++)
         {
             leafCount[i] = enumerated[at];
@@ -902,8 +926,8 @@ public sealed class LeafRegistry : IReloadParticipant
             at += 1 + leafCount[i];
         }
 
-        var receives = new int[n];
-        AskMasks(order, i => enumerated.AsSpan(leafAt[i], leafCount[i]), receives);
+        Span<int> receives = Scratch.Sized(ref _preReceives, n);
+        AskMasks(order, enumerated, leafAt, leafCount, receives);
 
         _pendingReceivers.Clear();
         for (int i = 0; i < n; i++)
@@ -919,7 +943,7 @@ public sealed class LeafRegistry : IReloadParticipant
         }
         FinishReceivers();
 
-        var areas = new int[n];
+        Span<int> areas = Scratch.Sized(ref _preAreas, n);
         AreasOf(order, areas);
         for (int i = 0; i < n; i++)
         {
@@ -932,7 +956,7 @@ public sealed class LeafRegistry : IReloadParticipant
 
     // The engine's EnumerateLeavesInBox over the boxes, retried once with the
     // room it asked for.
-    private int[] EnumerateLeaves(float[] boxes)
+    private ReadOnlySpan<int> EnumerateLeaves(ReadOnlySpan<float> boxes)
     {
         int need = boxes.Length / 6 * 9;
         if (_scratch.Length < need)
@@ -945,7 +969,7 @@ public sealed class LeafRegistry : IReloadParticipant
         }
         if (words < 0)
             throw new InvalidOperationException($"the leaf enumeration asked for {-words} words twice");
-        return _scratch.AsSpan(0, words).ToArray();
+        return _scratch.AsSpan(0, words);
     }
 
     //-------------------------------------------------------------------------

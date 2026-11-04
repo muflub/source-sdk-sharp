@@ -209,7 +209,7 @@ public sealed class WorldSkybox : IFrameLifecycle, IGameLifecycle
 [ConCommand("cs_sv_skybox",
             Help = "What the server's 3D skybox service is doing: polls, blob writes, "
                  + "players seen, and what the map's sky_camera says.")]
-public sealed class WorldSkyboxReportCommand : IConCommand
+public sealed class WorldSkyboxReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -222,7 +222,7 @@ public sealed class WorldSkyboxReportCommand : IConCommand
 
     private readonly WorldSkybox _skybox;
 
-    public void Execute(string args)
+    public void Execute()
     {
         SkyState now = _skybox.Read();
 

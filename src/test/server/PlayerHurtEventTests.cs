@@ -60,7 +60,7 @@ public class PlayerHurtEventTests
                   : 0)
               .ReturnsEachCall("Entities.IsPlayer", () => engine.Calls[^1].Args[0] is EntityHandle h && h == Attacker);
         var events = new LoopbackEvents();
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine,
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine,
                                   rules: PlayerDamageRulesTests.Rules(team: 0, hits: hits),
                                   events: events, entities: engine, hitGroups: hits)
             { Handle = Victim };
@@ -139,7 +139,7 @@ public class PlayerHurtEventTests
               .Returns("Entities.IsValid", true).Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f))
               .Returns("Entities.IsPlayer", false);
         var told = new Told();
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine,
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine,
                                   rules: PlayerDamageRulesTests.Rules(team: 0), entities: engine, hurtHooks: told)
             { Handle = Victim };
         player.BindAreas(Areas(engine));
@@ -147,7 +147,7 @@ public class PlayerHurtEventTests
 
         int taken = player.OnDamagedAt(Attacker, 25f, DamageType.Bullet, default, default);
 
-        Assert.Equal([new PlayerHurt(Victim, Attacker, taken, 100 - taken)], told.All);
+        Assert.Equal([new PlayerHurt(Victim, Attacker, taken, 100 - taken, DamageType.Bullet)], told.All);
         Assert.True(taken > 0, "the hit took health");
     }
 }

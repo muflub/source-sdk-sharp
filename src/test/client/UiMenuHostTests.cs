@@ -8,6 +8,7 @@ using SourceSharp.Tests.Ui;
 using SourceSharp.UiPreview;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -114,17 +115,26 @@ public class UiMenuHostTests
         var (host, _, menus) = Host();
         var log = new RecordingLog();
         var info = new Client.Vgui.ShowInfo(() => host, log);
-        info.Run("0 \"Server rules\" \"Be nice.\"");
+        info.Run(0, "Server rules", "Be nice.");
         Assert.True(host.Menu.IsOpen("motd"));
         // Stock's showinfo keyed the text "message" and the panel reads "msg".
         Assert.Equal(("Server rules", ""), (menus.Motd.Title, menus.Motd.Text));
     }
 
     [Fact]
+    public void The_console_completes_what_the_host_has_and_what_it_answers()
+    {
+        var (host, _, _) = Host();
+
+        Assert.Contains("motd", host.ScreenNames);
+        Assert.Contains("scores", host.PanelNames);
+    }
+
+    [Fact]
     public void Showinfo_with_fewer_than_three_arguments_opens_nothing()
     {
         var (host, _, _) = Host();
-        new Client.Vgui.ShowInfo(() => host, new RecordingLog()).Run("0 title");
+        new Client.Vgui.ShowInfoCommand(new Client.Vgui.ShowInfo(() => host, new RecordingLog())).RunLine("0 title", _ => { });
         Assert.False(host.Menu.IsOpen("motd"));
     }
 
@@ -132,7 +142,7 @@ public class UiMenuHostTests
     public void Showinfo_with_no_ui_says_it_found_no_info_panel()
     {
         var log = new RecordingLog();
-        new Client.Vgui.ShowInfo(() => null, log).Run("0 a b");
+        new Client.Vgui.ShowInfo(() => null, log).Run(0, "a", "b");
         Assert.Equal(["Couldn't find info panel.\n"], log.Lines.Select(l => l.Text));
     }
 
@@ -182,8 +192,8 @@ public class UiMenuHostTests
     {
         var (host, _, _) = Host();
         var engine = TestServices.Fake().Returns("Hud.ViewportQuery", (ViewportFacts)0);
-        var effects = new Client.ClientMessageEffects(engine, () => host);
-        var message = new Shared.VguiMenuMessage(effects, null, null);
+        var effects = new Client.ClientMessageEffects(engine, DeclaredConVars.Fresh<Client.Vgui.HudTakesShotsConVar>(), () => host);
+        var message = new Shared.VguiMenuMessage(effects, null);
 
         message.OnReceived(new Shared.VguiMenu { Name = "team", Show = true, Keys = [], Values = [] });
 
@@ -602,10 +612,11 @@ public class UiMenuHostTests
         float now = 5f;
         var engine = new RecordingEngine()
             .Returns("Hud.LocalPlayerHealth", 80).Returns("Hud.LocalPlayerIndex", 1)
-            .Returns("Console.FindConVarValue", "host a").Returns("Environment.Globals", default(Globals))
+            .Returns("Environment.Globals", default(Globals))
             .ReturnsEachCall("Clock.Now", () => now);
         var surface = new UiFidelityTests.RecordingSurface();
-        var seed = UiHostKit.Build(surface, [], null, null, engine);
+        var hostname = DeclaredConVars.Holding<HostnameConVar>("host a");
+        var seed = UiHostKit.Build(surface, [], null, null, engine, hostname: hostname);
         var scores = seed.Menus.Scores;
         var host = UiHostKit.Build(surface, [],
             new UiScreen[] { new Client.Ui.Screens.Scoreboard(scores, new TeamTable(scores)) }, seed.Menus, engine);
@@ -614,7 +625,7 @@ public class UiMenuHostTests
         host.Paint((int)UiLayerKind.Menu, 1280, 720);
         Assert.Equal("host a", host.Menus.Scores.ServerName);
 
-        engine.Returns("Console.FindConVarValue", "host b");
+        hostname.Hold("host b");
         now += 0.3f;                                    // past MenuRefreshSeconds
         host.Paint((int)UiLayerKind.Menu, 1280, 720);
         Assert.Equal("host b", host.Menus.Scores.ServerName);

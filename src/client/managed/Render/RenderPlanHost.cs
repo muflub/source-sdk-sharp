@@ -24,16 +24,21 @@ public sealed class RenderPlanHost : IClientRenderPlan
     private int _nextTag = 1;
 
     /// <summary>The game's: the debug overlays' materials are found through <paramref name="fx"/> by the names <paramref name="console"/> holds.</summary>
-    public RenderPlanHost(IFxRender fx, IEngineConsole console, PostProcessHost post, ViewEffectsHost viewEffects,
+    public RenderPlanHost(IFxRender fx, IEngineConsole console, ClDrawmaterialConVar drawMaterial, MatDrawTextureConVar drawTexture,
+                          RenderConVars convars,
+                          PostProcessHost post, ViewEffectsHost viewEffects,
                           IUniformRandom random, DemoViewCamera demoCamera, ScreenSpaceEffectManager screenEffects,
                           PlayerViewRecord playerView, LocalPlayerFov? fov = null, IViewModelBob? bob = null,
                           IViewModelOffset? offsets = null, GlowObjectManager? glow = null)
     {
+        _convars = convars;
         _playerView = playerView;
         _screenEffects = screenEffects;
         _demoCamera = demoCamera;
         _fx = fx;
         _console = console;
+        _drawMaterial = drawMaterial;
+        _drawTexture = drawTexture;
         _post = post;
         _viewEffects = viewEffects;
         _fov = fov;
@@ -61,7 +66,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
     /// </summary>
     public void ViewSetUp(in ViewSetUpIn input, out ViewSetUpOut output)
     {
-        output = ViewFrame.SetUpView(input);
+        output = ViewFrame.SetUpView(input, _convars);
         int fov = _fov?.Current() ?? 0;
         if (fov != 0)
             output.Fov = fov;
@@ -74,7 +79,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
     // movement message.
     private void DecideView(in RenderFrameIn frame, ref RenderFrameOut answer)
     {
-        ViewFrame.Render(frame, ref answer, _randomByte);
+        ViewFrame.Render(frame, _convars, ref answer, _randomByte);
 
         // The frame's player view (GetPlayerViewSetup after Render scaled it),
         // for the draws that convert a viewmodel attachment's field of view.
@@ -89,7 +94,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
         _overviewCrc = crc;
         Vector o = answer.Eye.Origin;
         _console?.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                                    $"Overview: scale {frame.LevelOverview:F2}, pos_x {o.X:F0}, pos_y {o.Y:F0}\n"));
+                                    $"Overview: scale {_convars.ClLeveloverview.Value:F2}, pos_x {o.X:F0}, pos_y {o.Y:F0}\n"));
     }
 
     private readonly ViewEffectsHost? _viewEffects;
@@ -206,9 +211,12 @@ public sealed class RenderPlanHost : IClientRenderPlan
     }
 
     private readonly PostProcessHost? _post;
+    private readonly RenderConVars _convars;
 
     private readonly IFxRender? _fx;
     private readonly IEngineConsole? _console;
+    private readonly ClDrawmaterialConVar? _drawMaterial;
+    private readonly MatDrawTextureConVar? _drawTexture;
     private readonly Dictionary<string, int> _materials = new(StringComparer.Ordinal);
 
     private int Material(string name)
@@ -230,48 +238,53 @@ public sealed class RenderPlanHost : IClientRenderPlan
     /// </summary>
     internal DebugOverlayMaterials DebugMaterials()
     {
-        if (_fx is null || _console is null)
+        if (_fx is null || _drawMaterial is null || _drawTexture is null)
             return DebugOverlayMaterials.None;
-        string drawMaterial = _console.FindConVarValue("cl_drawmaterial") ?? "";
-        string drawTexture = _console.FindConVarValue("mat_drawTexture") ?? "";
+        string drawMaterial = _drawMaterial.Value;
+        string drawTexture = _drawTexture.Value;
         return new DebugOverlayMaterials(
             Material("debug/yuv"), Material("debug/hsv"), Material("debug/debugreflect"), Material("debug/debugrefract"),
             Material("debug/debugcamerarendertarget"), Material("debug/debugfbtexture0"), Material("debug/debugfbtexture1"),
             Material(drawMaterial), drawTexture.Length > 0);
     }
 
-    internal RenderPlanHost()
+    internal RenderPlanHost(RenderConVars convars)
     {
+        _convars = convars;
     }
 
     /// <summary>A test's: no engine, only the local player's FOV.</summary>
-    internal RenderPlanHost(LocalPlayerFov fov)
+    internal RenderPlanHost(RenderConVars convars, LocalPlayerFov fov)
+        : this(convars)
     {
         _fov = fov;
     }
 
     /// <summary>A test's: no engine, the frame's player view kept in <paramref name="playerView"/>.</summary>
-    internal RenderPlanHost(PlayerViewRecord playerView)
+    internal RenderPlanHost(RenderConVars convars, PlayerViewRecord playerView)
+        : this(convars)
     {
         _playerView = playerView;
     }
 
     /// <summary>A test's: no engine, the screen-space effects <paramref name="screenEffects"/>.</summary>
-    internal RenderPlanHost(ScreenSpaceEffectManager screenEffects)
+    internal RenderPlanHost(RenderConVars convars, ScreenSpaceEffectManager screenEffects)
+        : this(convars)
     {
         _screenEffects = screenEffects;
     }
 
     /// <param name="post">The post program the plan's post ops ask for.</param>
-    internal RenderPlanHost(PostProcessHost post)
+    internal RenderPlanHost(RenderConVars convars, PostProcessHost post)
+        : this(convars)
     {
         _post = post;
     }
 
     /// <param name="post">The post program the plan's post ops ask for.</param>
     /// <param name="viewEffects">The view effects native's vieweffects forwards to.</param>
-    internal RenderPlanHost(PostProcessHost post, ViewEffectsHost viewEffects)
-        : this(post)
+    internal RenderPlanHost(RenderConVars convars, PostProcessHost post, ViewEffectsHost viewEffects)
+        : this(convars, post)
     {
         _viewEffects = viewEffects;
     }
@@ -366,7 +379,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
             input.FreezeFlash = _freeze.Flash;
         }
         ReadOnlySpan<MonitorView> monitors = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_monitors);
-        bool planned = RenderPlanner.Plan(input, _builder, monitors, DebugMaterials(), _screenEffects);
+        bool planned = RenderPlanner.Plan(input, _convars, _builder, monitors, DebugMaterials(), _screenEffects);
         if (planned && input.FreezeTake != 0)
         {
             lock (_lock)
@@ -407,6 +420,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     private RenderInputs _lastInputs;
     private readonly RenderPlanBuilder _viewProgram = new();
+    private readonly ViewSceneData _viewScene = new();
     private readonly RenderPlanBuilder _shadowDepth = new();
 
     /// <summary>Shadow-depth views planned (CViewRender::UpdateShadowDepthTexture).</summary>
@@ -426,7 +440,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
         {
             if (_lastPlanLength == 0)
                 return -1;
-            RenderPlanner.PlanShadowDepthView(_lastInputs, shadow, _shadowDepth);
+            RenderPlanner.PlanShadowDepthView(_lastInputs, _convars, shadow, _shadowDepth);
             ReadOnlySpan<RenderOp> plan = _shadowDepth.Span;
             if (plan.Length > ops.Length)
                 return -1;
@@ -451,14 +465,15 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     public int BuildViewProgram(ReadOnlySpan<byte> sceneBytes, Span<RenderOp> ops)
     {
-        ViewSceneData? scene = ViewSceneData.FromBytes(sceneBytes);
+        ViewSceneData scene = _viewScene;
+        bool filled = scene.TryFill(sceneBytes);
         ViewDrawProgram.Context? context = null;
-        if (scene != null)
+        if (filled)
         {
             lock (_lock)
-                context = ViewDrawProgram.ContextOf(_lastPlan.AsSpan(0, _lastPlanLength), scene.Header.OpIndex, _lastInputs);
+                context = ViewDrawProgram.ContextOf(_lastPlan.AsSpan(0, _lastPlanLength), scene.Header.OpIndex, _lastInputs, _convars);
         }
-        if (scene == null || context == null)
+        if (!filled || context == null)
         {
             lock (_lock)
                 ViewProgramsDeclined++;
@@ -668,16 +683,11 @@ public sealed class DrawBatchConVar : BoolConVar
 /// is recorded with it (plan_client_novalve C7 step 1).
 /// </summary>
 [ConCommand("cs_cl_render_trace", Help = "Record the next frame's render calls: cs_cl_render_trace <file>")]
-public sealed class RenderTraceCommand(ILog log, RenderPlanHost plan) : IConCommand
+public sealed class RenderTraceCommand(ILog log, RenderPlanHost plan)
 {
-    public void Execute(string args)
+    public void Execute(string file)
     {
-        string path = args.Trim().Trim('"');
-        if (path.Length == 0)
-        {
-            log.Msg("usage: cs_cl_render_trace <file>\n");
-            return;
-        }
+        string path = file;
         plan.RequestTrace(text =>
         {
             File.WriteAllText(path, text);

@@ -331,6 +331,22 @@ public sealed class FakeMinimap : IMinimapSource
     public MinimapDot Dot(int i) => Dots[i];
 }
 
+/// <summary>Minimap markers as a sample.</summary>
+public sealed class FakeMinimapPings : IMinimapPingSource
+{
+    public MinimapPing[] Pings { get; init; } = [];
+    public int PingCount => Pings.Length;
+    public MinimapPing Ping(int i) => Pings[i];
+}
+
+/// <summary>World markers as a sample.</summary>
+public sealed class FakeWorldMarkers : IWorldMarkerSource
+{
+    public WorldMarker[] Markers { get; init; } = [];
+    public int MarkerCount => Markers.Length;
+    public WorldMarker Marker(int i) => Markers[i];
+}
+
 /// <summary>The damage dealt as a sample.</summary>
 public sealed class FakeDamageDealt : IDamageDealtSource
 {

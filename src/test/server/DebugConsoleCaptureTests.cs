@@ -24,6 +24,7 @@ public sealed class DebugConsoleCaptureTests
     private const string TokenName = "ss_capture_token";
     private const string ChattyName = "ss_capture_chatty";
     private const string ArgsName = "ss_capture_args";
+    private const string TypedName = "ss_capture_typed";
     private const string RefusedName = "ss_capture_refused";
     private const string NativeBodiedName = "ss_capture_native_bodied";
 
@@ -75,6 +76,15 @@ public sealed class DebugConsoleCaptureTests
         public void Execute(string args) => _log.Msg($"args[{args}]\n");
     }
 
+    /// <summary>A command with real parameters: the capture runs it through its binding.</summary>
+    [ConCommand(TypedName)]
+    public sealed class TypedCommand
+    {
+        private readonly ILog _log;
+        public TypedCommand(ILog log) => _log = log;
+        public void Execute(int count) => _log.Msg($"count[{count}]\n");
+    }
+
     /// <summary>Declared but unbuildable: its dependency is in nobody's container,
     /// so RegisterAll refuses it and the registry owns no runnable instance.</summary>
     [ConCommand(RefusedName)]
@@ -95,6 +105,7 @@ public sealed class DebugConsoleCaptureTests
                                   float? min = null, float? max = null) => -1;
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => "";
         public void Msg(string message) => warnings.Add("msg:" + message);
@@ -262,6 +273,25 @@ public sealed class DebugConsoleCaptureTests
         Assert.DoesNotContain("via the log", Lines(captured, "log"));
         Assert.DoesNotContain("via the engine console", Lines(captured, "log"));
         Assert.Contains(Lines(captured, "log"), l => l.Contains(ChattyName, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_typed_command_is_captured_through_its_binding()
+    {
+        var run = new DebugCommandRun(Make().Registry, () => new ServiceContainer(), new RecordingLog());
+
+        Assert.Equal(["count[7]\n"], run.TryRunManaged(TypedName, "7"));
+    }
+
+    [Fact]
+    public void A_typed_commands_refusal_is_what_the_capture_answers()
+    {
+        var run = new DebugCommandRun(Make().Registry, () => new ServiceContainer(), new RecordingLog());
+
+        string printed = Assert.Single(run.TryRunManaged(TypedName, "lots")!);
+
+        Assert.Contains("'count' is a whole number, not 'lots'", printed);
+        Assert.Contains($"usage: {TypedName} <count>", printed);
     }
 
     // ---- The fallback: names the managed registry does not run --------------

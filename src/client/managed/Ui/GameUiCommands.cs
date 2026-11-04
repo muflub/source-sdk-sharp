@@ -11,16 +11,12 @@ namespace SourceSharp.Client.Vgui;
 
 /// <summary><c>gamemenucommand &lt;name&gt;</c>: stock's game menu commands, through <see cref="GameMenuCommands"/>.</summary>
 [ConCommand("gamemenucommand", Help = "Run a game menu command: OpenServerBrowser, OpenCreateMultiplayerGameDialog, OpenOptionsDialog, OpenPlayerListDialog, ResumeGame, Disconnect, Quit, QuitNoConfirm")]
-public sealed class GameMenuCommandCommand(IServiceLocator services, ILog log) : IConCommand
+public sealed class GameMenuCommandCommand(IServiceLocator services)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Names() => GameMenuCommands.Names;
+
+    public void Execute([Complete(From = nameof(Names))] string name)
     {
-        string name = args.Trim();
-        if (name.Length == 0)
-        {
-            log.Msg("Usage: gamemenucommand <commandname>\n");
-            return;
-        }
         services.Resolve<GameMenuCommands>()?.Run(name);
     }
 }
@@ -31,11 +27,12 @@ public sealed class GameMenuCommandCommand(IServiceLocator services, ILog log) :
 /// the GameUI host's ShowMessageDialog).
 /// </summary>
 [ConCommand("gameui_show_dialog", Help = "Show a dialog: a UI screen by name")]
-public sealed class GameUiShowDialogCommand(UiLoader ui, IServiceLocator services) : IConCommand
+public sealed class GameUiShowDialogCommand(UiLoader ui, IServiceLocator services)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Screens() => ui.Current?.ScreenNames ?? [];
+
+    public void Execute([Complete(From = nameof(Screens))] string name = "")
     {
-        string name = args.Trim();
         if (name.Length == 0)
             return;
         if (uint.TryParse(name, out uint type))
@@ -47,11 +44,12 @@ public sealed class GameUiShowDialogCommand(UiLoader ui, IServiceLocator service
 
 /// <summary><c>gameui_hide_dialog &lt;dialog&gt;</c>: a screen by name closes.</summary>
 [ConCommand("gameui_hide_dialog", Help = "Hide a dialog: a UI screen by name")]
-public sealed class GameUiHideDialogCommand(UiLoader ui) : IConCommand
+public sealed class GameUiHideDialogCommand(UiLoader ui)
 {
-    public void Execute(string args)
+    private IEnumerable<string> Screens() => ui.Current?.ScreenNames ?? [];
+
+    public void Execute([Complete(From = nameof(Screens))] string name = "")
     {
-        string name = args.Trim();
         if (name.Length > 0 && ui.Current is { } runtime && runtime.Has(name))
             runtime.Close(name);
     }
@@ -91,9 +89,9 @@ public sealed class ConsoleDump(IFwdBaseFileSystem files)
 
 /// <summary><c>condump</c>: the console window's text to a file (<see cref="ConsoleDump"/>).</summary>
 [ConCommand("condump", Help = "dump the text currently in the console to condumpXX.txt")]
-public sealed class CondumpCommand(IServiceLocator services, IFwdBaseFileSystem files, ILog log) : IConCommand
+public sealed class CondumpCommand(IServiceLocator services, IFwdBaseFileSystem files, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (services.Resolve<IConsoleLogSource>() is not { } console)
             return;

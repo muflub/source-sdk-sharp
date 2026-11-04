@@ -64,7 +64,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeDust : TeParticleSystem
+public partial class TeDust : TeParticleSystem
 {
     /// <summary>How big the puff is. A COORD float — the flag picks the width.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

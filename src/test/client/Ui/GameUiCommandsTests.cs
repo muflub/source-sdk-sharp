@@ -34,18 +34,17 @@ public class GameUiCommandsTests
         var screens = new Screens();
         var engine = new ChatFeedTests.RecordingEngineClient([]);
         var services = new ServiceContainer().AddInstance(new GameMenuCommands(screens, new ConfirmQuitUi(engine), engine));
-        new GameMenuCommandCommand(services, new RecordingLog()).Execute(" OpenServerBrowser ");
+        new GameMenuCommandCommand(services).RunLine(" OpenServerBrowser ");
         Assert.Equal(["open serverbrowser"], screens.Calls);
     }
 
     [Fact]
-    public void Gamemenucommand_with_no_name_says_how_to_use_it_and_with_no_ui_does_nothing()
-    {
-        var log = new RecordingLog();
-        new GameMenuCommandCommand(new ServiceContainer(), log).Execute("");
-        Assert.Contains("Usage: gamemenucommand <commandname>", log.Text);
-        new GameMenuCommandCommand(new ServiceContainer(), log).Execute("OpenServerBrowser");
-    }
+    public void Gamemenucommand_with_no_ui_does_nothing()
+        => new GameMenuCommandCommand(new ServiceContainer()).Execute("OpenServerBrowser");
+
+    [Fact]
+    public void Gamemenucommand_completes_stocks_names()
+        => Assert.Equal(["gamemenucommand OpenServerBrowser"], new GameMenuCommandCommand(new ServiceContainer()).SuggestFor("openserver"));
 
     private sealed class Files : IFwdBaseFileSystem
     {
@@ -95,7 +94,7 @@ public class GameUiCommandsTests
             files.Existing.Add($"condump{i:000}.txt");
         var log = new RecordingLog();
         var services = new ServiceContainer().AddInstance<IConsoleLogSource>(new Console("x"));
-        new CondumpCommand(services, files, log).Execute("");
+        new CondumpCommand(services, files, log).Execute();
         Assert.Empty(files.Written);
         Assert.Contains("Can't condump!", log.Text);
     }

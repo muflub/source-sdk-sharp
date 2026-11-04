@@ -259,6 +259,7 @@ public class SideModelCachesTests
         public void Frame(float frameTime) { }
         public void LevelInit(string mapName) { }
         public void LevelShutdown() { }
+        public IReadOnlyList<string> ConCommandSuggest(int commandId, string line) => [];
         public void ConCommandDispatch(int commandId, string args) { }
         public void Shutdown() { }
         public void DispatchGameEvent(string eventName, IntPtr handle) { }

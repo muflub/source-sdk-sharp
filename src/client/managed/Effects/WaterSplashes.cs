@@ -155,7 +155,7 @@ public sealed class SplashSheet(string material, IParticleRandom random) : IClie
             idsOut[i] = _pending[i].Id;
         }
         _pending.RemoveRange(0, n);
-        TrailEmitter.SetBounds(ref emit, Box, Emitter.Particles.Select(p => p.Position));
+        TrailEmitter.SetBounds(ref emit, Box, Emitter.ParticleSpan);
         return n;
     }
 
@@ -178,11 +178,11 @@ public sealed class SplashSheet(string material, IParticleRandom random) : IClie
 
     public int Draw(Span<ParticleQuadRaw> quadsOut)
     {
-        var particles = Emitter.Particles;
-        if (particles.Count > quadsOut.Length)
-            return particles.Count;
+        ReadOnlySpan<SimpleParticle> particles = Emitter.ParticleSpan;
+        if (particles.Length > quadsOut.Length)
+            return particles.Length;
         int n = 0;
-        foreach (var p in particles.OrderByDescending(p => p.Id))
+        foreach (ref readonly SimpleParticle p in particles)
             quadsOut[n++] = Emitter.Draw(p).ToRaw(p.Id);
         return n;
     }
@@ -208,11 +208,10 @@ public interface ISplashEnvironment
 }
 
 /// <summary>The real one.</summary>
-public sealed class SplashEnvironment(IEngineConsole console, IClientWorldLight light, IParticleMaskTrace trace,
+public sealed class SplashEnvironment(ClShowSplashesConVar showSplashes, IClientWorldLight light, IParticleMaskTrace trace,
                                       IFxGameSounds sounds) : ISplashEnvironment
 {
-    // cl_show_splashes is still fx_water.cpp's ConVar until that TU leaves the build.
-    public bool ShowSplashes => NativeConsole.ValueOf(console, "cl_show_splashes") is not { } v || v.Trim() != "0";
+    public bool ShowSplashes => showSplashes.Value;
 
     public Vector LightForPoint(Vector position) => light.LightForPoint(position, true);
 

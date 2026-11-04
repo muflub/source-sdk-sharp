@@ -376,6 +376,7 @@ public sealed class RecordingEngine :
 
     // Console
     void IEngineConsole.ExecuteServerCommand(string command) => RecordVoid("Console.ExecuteServerCommand", command);
+    IReadOnlyList<string> IEngineConsole.CompleteCommandLine(string line) => [];
     string? IEngineConsole.FindConVarValue(string name) => Record<string?>("Console.FindConVarValue", name);
     int IConVarFlagReader.FindConVarFlags(string name) => Record<int>("Console.FindConVarFlags", name);
     string IEngineConsole.GetConVarValue(int id) => Record<string>("Console.GetConVarValue", id);
@@ -463,7 +464,6 @@ public sealed class RecordingEngine :
     // Frame -- plan_gamedll.md Part 4's fifteen steps. The recording is the
     // CALL LIST, which is what lets one fact assert the frame's order as a
     // sequence rather than as a set.
-    bool IEngineFrame.IsSimulatingOnAlternateTicks() => Record<bool>("Frame.IsSimulatingOnAlternateTicks");
     int IEngineFrame.TickCount() => Record<int>("Frame.TickCount");
     float IEngineFrame.GetFrameTime() => Record<float>("Frame.GetFrameTime");
     void IEngineFrame.SetFrameTime(float frameTime) => RecordVoid("Frame.SetFrameTime", frameTime);
@@ -810,6 +810,7 @@ public sealed class RecordingEngine :
     float IEngineEntityRender.SequenceGroundSpeed(EntityHandle entity, int sequence) => Record<float>("EntityRender.SequenceGroundSpeed", entity, sequence);
     void IEngineEntityRender.SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) => RecordVoid("EntityRender.SetCustomDraw", entity, mins, maxs);
     void IEngineEntityRender.SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) => RecordVoid("EntityRender.SetBlending", entity, translucent, ignoreZ, alpha);
+    void IEngineEntityRender.SetShadowHull(EntityHandle entity, bool shadowHull) => RecordVoid("EntityRender.SetShadowHull", entity, shadowHull);
     ShadowCast IEngineEntityRender.ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = Value<ShadowCastChoice>("EntityRender.ShadowCast.asked");
@@ -1196,7 +1197,6 @@ public sealed class RecordingEngine :
     bool IEngineEffects.TempEntPoolWriteTransform(int slot, in TempEntTransform transform)
         => Record<bool>("Effects.TempEntPoolWriteTransform", slot, transform);
 
-    float IEngineEffects.CurrentGravity() => Record<float>("Effects.CurrentGravity");
     bool IEngineEffects.ClientEntityOrigin(int entityIndex, out Vector origin)
     {
         RecordVoid("Effects.ClientEntityOrigin", entityIndex);
@@ -1262,7 +1262,12 @@ public sealed class RecordingEngine :
     bool IEngineEffects.ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntity", owner, point, entity, attachment, offset);
     bool IEngineEffects.ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Record<bool>("Effects.ParticleSystemStartSlot", owner, name, slot);
     void IEngineEffects.ParticleSystemStopSlot(EntityHandle owner, int slot) => RecordVoid("Effects.ParticleSystemStopSlot", owner, slot);
+    void IEngineEffects.ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel) => RecordVoid("Effects.ParticleSystemViewModelSlot", owner, slot, viewmodel);
     bool IEngineEffects.ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntitySlot", owner, point, entity, attachment, slot, offset);
+
+    // The flame points ride one span a frame: the length is the argument, the floats are appended as a copy so a
+    // fact can read a record's density without owning the buffer.
+    bool IEngineEffects.ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values) => Record<bool>("Effects.ParticleSystemSetPoints", owner, slot, activeIndex, values.Length, values.ToArray());
     void IEngineEffects.SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => RecordVoid("Effects.SpriteTrailUpdate", owner, renderMode, visible);
     void IEngineEffects.SpriteTrailDestroy(EntityHandle owner) => RecordVoid("Effects.SpriteTrailDestroy", owner);
     void IEngineEffects.DustEffect(Vector origin, Vector direction, float size, float speed) => RecordVoid("Effects.DustEffect", origin, direction, size, speed);

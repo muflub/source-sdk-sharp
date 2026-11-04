@@ -78,7 +78,7 @@ public sealed class TFClientPlayerResources
 
 /// <summary>The console door onto the client's TF scoreboard columns.</summary>
 [ConCommand("tf2_cl_player_resource", Help = "The tf_player_manager rows this client has decoded")]
-public sealed class TFPlayerResourceReportCommand(ILog log, TFClientPlayerResources resources) : IConCommand
+public sealed class TFPlayerResourceReportCommand(ILog log, TFClientPlayerResources resources)
 {
-    public void Execute(string args) => log.Msg(resources.Report() + "\n");
+    public void Execute() => log.Msg(resources.Report() + "\n");
 }

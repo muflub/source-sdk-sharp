@@ -38,9 +38,10 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.EnvGunfire)]
 public sealed class EnvGunfire : ScriptedEntity
 {
-    public EnvGunfire(IEngineConsole console, IEngineHost host, IEnginePrecache precache, IEngineSound sound, IEngineWorldQuery world)
+    public EnvGunfire(AiShotBiasMinConVar shotBiasMin, AiShotBiasMaxConVar shotBiasMax, IEngineHost host, IEnginePrecache precache, IEngineSound sound, IEngineWorldQuery world)
     {
-        Console = console;
+        _shotBiasMin = shotBiasMin;
+        _shotBiasMax = shotBiasMax;
         Host = host;
         Precache = precache;
         Sound = sound;
@@ -48,7 +49,8 @@ public sealed class EnvGunfire : ScriptedEntity
     }
 
     /// <summary>the console: convars, and commands run on the server or a client.</summary>
-    private readonly IEngineConsole Console;
+    private readonly AiShotBiasMinConVar _shotBiasMin;
+    private readonly AiShotBiasMaxConVar _shotBiasMax;
 
     /// <summary>the process and the match.</summary>
     private readonly IEngineHost Host;
@@ -131,8 +133,8 @@ public sealed class EnvGunfire : ScriptedEntity
         // The engine's own bounds on how far the bias may reshape a group. Read
         // once: nothing in this mod moves them, and a lookup per round would be
         // a string compare per bullet.
-        _biasMin = ParseFloat(Console.FindConVarValue("ai_shot_bias_min") ?? string.Empty, -1f);
-        _biasMax = ParseFloat(Console.FindConVarValue("ai_shot_bias_max") ?? string.Empty, 1f);
+        _biasMin = _shotBiasMin.Value;
+        _biasMax = _shotBiasMax.Value;
 
         int sprite = Precache.PrecacheModel(TracerSprite);
 

@@ -19,7 +19,7 @@ namespace SourceSharp.OracleTests;
 /// to its name, default, help and flags (SourceSharp.Client.Render.GlowOverlays).
 /// building_cubemaps is the engine's (stock's was a child of it): the managed
 /// registration refuses an alias, so the client declares none and reads it by
-/// name (BuildingCubemapsWatch).
+/// a held wrapper (BuildingCubemapsConVar).
 /// </summary>
 public class GlowOverlayConVarOracleTests
 {
@@ -43,7 +43,7 @@ public class GlowOverlayConVarOracleTests
         var assembly = typeof(client::SourceSharp.Client.Render.GlowOverlays.GlowSettings).Assembly;
         var registry = ConVarRegistry.For(SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(SourceSharp.Tests.ClientDoubles.UnattachedEngine()));
         registry.RegisterAll(assembly);
-        return registry.All.Where(c => c.GetType().Assembly == assembly).ToDictionary(c => c.Name);
+        return registry.All.Where(c => c.GetType().Assembly == assembly && !c.HeldByEngine).ToDictionary(c => c.Name);
     }
 
     [Fact]
@@ -81,9 +81,8 @@ public class GlowOverlayConVarOracleTests
     }
 
     [Fact]
-    public void BuildingCubemapsIsTheEnginesAndIsReadByName()
+    public void BuildingCubemapsIsTheEngines()
     {
         Assert.False(Client().ContainsKey(EngineOwned), EngineOwned + " is declared in C#; the engine defines it and refuses the alias");
-        Assert.Equal(EngineOwned, client::SourceSharp.Client.Render.PixelVisibility.BuildingCubemapsWatch.Name);
     }
 }

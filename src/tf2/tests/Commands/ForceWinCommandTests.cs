@@ -90,7 +90,7 @@ public sealed class ForceWinCommandTests
         return (services, control, log);
     }
 
-    private static void Execute(object command, string args = "") => ((IConCommand)command).Execute(args);
+    private static void Execute(object command, string args = "") => command.RunLine(args);
 
     [Fact]
     public void A_named_team_wins_the_round()
@@ -103,6 +103,24 @@ public sealed class ForceWinCommandTests
         Assert.Equal(TFTeam.Red, control.Team);
         Assert.Equal(WinReason.AllPointsCaptured, control.Reason);
         Assert.Equal("", log.Text);
+    }
+
+    [Fact]
+    public void A_team_may_be_named()
+    {
+        var (services, control, log) = Rig();
+
+        Execute(new ForceWinCommand(log, services), "blue");
+
+        Assert.Equal(1, control.Calls);
+    }
+
+    [Fact]
+    public void A_team_completes_from_its_names()
+    {
+        var (services, _, log) = Rig();
+
+        Assert.Equal(["mp_forcewin red"], new ForceWinCommand(log, services).SuggestFor("r"));
     }
 
     [Fact]
@@ -145,9 +163,9 @@ public sealed class ForceWinCommandTests
     {
         var (services, control, log) = Rig();
 
-        Execute(new ForceWinCommand(log, services), "2 3");
+        new ForceWinCommand(log, services).RunLine("2 3", log.Msg);
 
         Assert.Equal(0, control.Calls);
-        Assert.Equal("Usage: mp_forcewin <opt: team#>\n", log.Text);
+        Assert.Contains("usage: mp_forcewin [red|blue|spectator|unassigned]", log.Text);
     }
 }

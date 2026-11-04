@@ -129,6 +129,17 @@ public sealed class TFWeaponBehaviourTests
         return item;
     }
 
+    /// <summary>An attribute the stock formats as a switch: an additive value
+    /// over the hook's zero base, the way <c>CALL_ATTRIB_HOOK_INT</c> reads it.</summary>
+    private static AttributeContainer AdditiveItem(int defIndex, string hook, float value)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(defIndex, "attr " + defIndex, hook, AttributeDescriptionFormat.Additive,
+                                                                AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("x")), value));
+        return item;
+    }
+
     /// <summary>
     /// <c>CTFWeaponBase::GetMaxClip1</c> (<c>tf_weaponbase.cpp:571-575</c>) scales
     /// the row's clip by the carried item's <c>mult_clipsize</c>: asked with the
@@ -866,6 +877,89 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(("tf_weapon_scattergun", "muzzle_scattergun"),
                      Assert.Single(world.Arms.Flashes));
         Assert.Single(world.Arms.Bullets);
+    }
+
+    //-------------------------------------------------------------------------
+    // The Force-a-Nature's two reads (tf_weapon_shotgun.cpp:299-309, tf_fx_shared.cpp:305)
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER( pWeapon, nBulletsPerShot, mult_bullets_per_shot )</c>
+    /// (<c>tf_fx_shared.cpp:305</c>, the line above the pellet loop at :307): the
+    /// item's multiplier rides on the pellets one shot throws, so the volley the
+    /// arms hear is the script's count scaled, not the script's count.
+    /// </summary>
+    [Fact]
+    public void BulletsPerShotScalesThePellets()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9120, "mult_bullets_per_shot", 2f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        Assert.Equal(20, Assert.Single(world.Arms.Bullets).Pellets);
+    }
+
+    /// <summary>
+    /// The same loop without the item's attribute: the script's own ten pellets,
+    /// the multiplier asked of nothing.
+    /// </summary>
+    [Fact]
+    public void Without_the_multiplier_the_shot_keeps_the_scripts_pellets()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        Assert.Equal(10, Assert.Single(world.Arms.Bullets).Pellets);
+    }
+
+    /// <summary>
+    /// <c>CTFScatterGun::Reload</c> (<c>tf_weapon_shotgun.cpp:299-309</c>): the
+    /// item's <c>set_scattergun_no_reload_single</c> over zero turns the gun's own
+    /// <c>m_bReloadsSingly</c> off, so the reload lands the whole clip at once on
+    /// the whole-clip clock — the script's <c>TimeReload</c>, the anim's lead
+    /// aside — instead of one shell at a time.
+    /// </summary>
+    [Fact]
+    public void NoReloadSingleReloadsTheWholeClipAtOnce()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9121, "set_scattergun_no_reload_single", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        Assert.True(w.InReload);
+        Assert.Equal(0, w.BehaviourMode & TFWeaponBehaviour.ModeReloadingSingly);
+
+        world.Run(w, vm, 0, now: 10.45f);
+        Assert.Equal(0, w.Clip);
+        world.Run(w, vm, 0, now: 10.5f);
+        Assert.Equal(6, w.Clip);        // all six together, not one every half second
+        Assert.Equal(26, w.Reserve);
+        Assert.False(w.InReload);
+    }
+
+    /// <summary>
+    /// The stock scattergun without the item's attribute keeps the constructor's
+    /// <c>m_bReloadsSingly</c> (<c>tf_weapon_shotgun.cpp:68</c>): the reload
+    /// starts on the start animation's clock and loads one shell per round time.
+    /// </summary>
+    [Fact]
+    public void AStockScattergunReloadsShellByShell()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        Assert.True(w.InReload);
+        Assert.Equal(TFWeaponBehaviour.ModeReloadingSingly, w.BehaviourMode & TFWeaponBehaviour.ModeReloadingSingly);
+
+        world.Run(w, vm, 0, now: 10.6f);
+        Assert.Equal(1, w.Clip);        // one shell only — the whole clip is not loaded yet
+        Assert.True(w.InReload);
     }
 }
 

@@ -557,7 +557,7 @@ src/client/managed/LevelPrediction.cs	ports CHLClient::LevelInitPreEntity's cl_p
 src/client/managed/LightmapBicubicDefault.cs	ports CHLClient::PostInit's r_lightmap_bicubic default (cdll_client_int.cpp)
 src/client/managed/Standalone/StandaloneFade.cs	ports ComputeDistanceFade (cdll_util.cpp) and C_FuncAreaPortalWindow::GetDistanceBlend (c_func_areaportalwindow.cpp), with mathlib's RemapValClamped and CalcDistanceToAABB, as C_StandaloneEntity::ComputeFxBlend applied them
 src/client/managed/Standalone/BreakableSurfaceDraw.cs	ports C_BreakableSurface::FindCrackedMaterial and OnDataChanged's edge material lists, RenderBrushModelSurface's draw order and DrawSolidBlocks' runs of standing panes (c_func_breakablesurf.cpp)
-src/client/managed/InterpolatedSet.cs	ports C_BaseEntity::GetInterpolationAmount's networked arm and CBaseEntity::IsSimulatingOnAlternateTicks (c_baseentity.cpp, baseentity_shared.cpp), as StandaloneInterpolationAmount applied them, and C_StandaloneEntity::WantsInterpolation's filter
+src/client/managed/InterpolatedSet.cs	ports C_BaseEntity::GetInterpolationAmount's networked arm (c_baseentity.cpp), as StandaloneInterpolationAmount applied it, and C_StandaloneEntity::WantsInterpolation's filter
 src/client/managed/TempEnts/LocalTempEntSuppression.cs	ports C_TempEntsSystem::SuppressTE (c_te.cpp)
 src/client/managed/TempEnts/BulletImpactEffect.cs	ports ImpactCallback (hl2/fx_hl2_impacts.cpp), ParseImpactData, PerformCustomEffects and PlayImpactSound (fx_impact.cpp), GetColorForSurface, FX_DebrisFlecks and FX_DustImpact (c_impact_effects.cpp)
 src/client/managed/TempEnts/DecalSettings.cs	ports the r_decals gates of C_TEBSPDecal, C_TEWorldDecal and C_TEFootprintDecal (c_te_bspdecal.cpp, c_te_worlddecal.cpp, c_te_footprint.cpp) and AddStudioDecal's r_drawmodeldecals gate (c_baseentity.cpp)
@@ -1143,3 +1143,16 @@ src/tf2/server/Player/TFDisguiseWeapon.cs	ports CTFPlayerShared::DetermineDisgui
 src/shared/managed/RagdollDissolve.cs	ports DISSOLVE_FADE_* and C_EntityDissolve fades (EntityDissolve.cpp, c_entitydissolve.cpp)
 src/client/managed/Ragdolls/RagdollDissolves.cs	ports C_EntityDissolve::ClientThink and DrawModel (c_entitydissolve.cpp)
 src/tf2/server/Voice/TFResponsePrecache.cs	ports CResponseSystem::Precache and its PrecacheInstancedScene arm (AI_ResponseSystem.cpp:1831-1894, sceneentity.cpp:4780-4816): the response rules' scenes and speak entries precached at level init
+src/tf2/client/Weapons/TFFlameThrowerFx.cs	ports CTFFlameThrower's client half: the burn gate, the flame and pilot sounds, the particles (tf_weapon_flamethrower.cpp)
+src/tf2/shared/Weapons/TFFlameDefs.cs	ports the flame_* item attributes CTFFlameManager reads (tf_flame.cpp:465-477) from items_game.txt
+src/client/native/standalone_shadow_hull.h	ports the placing arm of C_ObjectSentrygun::GetShadowRenderBounds: the collision hull widened by bbBloat (10, 10, 0) (c_obj_sentrygun.cpp:588-597)
+src/tf2/shared/Buildings/TFObjectNetState.cs	networks m_bPlacing, CBaseObject::m_bPlacing (baseobject.h), the flag the placing arm reads
+src/tf2/server/Player/TFTauntAttack.cs	ports CTFPlayer::DoTauntAttack's box and high noon arms and Taunt's scene keys (tf_player.cpp:17979-18068, 18377-18451, 18613-18635)
+src/shared/managed/AlternateTicks.cs	ports CBaseEntity::IsSimulatingOnAlternateTicks (baseentity_shared.cpp)
+src/client/managed/Standalone/ClientSsAttachedModel.cs	ports the pass and bone-merge choices of CEconEntity::UpdateAttachmentModels' display flags and C_ViewmodelAttachmentModel's host (econ_entity.cpp:1079-1196): which copy a row's attached model joins, whose bones it takes
+src/shared/managed/AttachedModelNetState.cs	networks the attachment row a C_ViewmodelAttachmentModel renders: owner, weapon and host handles with the model_display_flags (econ_entity.cpp, attachedmodel_t)
+src/tf2/shared/Weapons/TFItemMeter.cs	ports the timed-meter arm of CTFPlayerShared::UpdateItemChargeMeters and its charge-rate hook pair (tf_player_shared.cpp:7832-7904)
+src/tf2/client/Ui/TFHudItemMeter.cs	ports the held-item reads of CHudItemEffectMeter: the charge-rate gate and the meter_label string hook (tf_hud_itemeffectmeter.cpp:607-628)
+src/tf2/ui/screens/TFHudItemMeter.cs	ports CHudItemEffectMeter drawing (huditemeffectmeter.res): the plate, the cropped-fill bar, the label over it
+src/tf2/shared/Weapons/TFBowBehaviour.cs	ports CTFCompoundBow: the draw, the loose, the lower and the tired shot (tf_weapon_compound_bow.cpp PrimaryAttack/LaunchGrenade/LowerBow/ItemPostFrame/GetProjectileFireSetup/CalcIsAttackCriticalHelper)
+src/tf2/server/Weapons/TFTracerEffects.cs	ports CTFPlayer::MaybeDrawRailgunBeam tracer pick and dispatch (tf_player_shared.cpp:10094-10135)

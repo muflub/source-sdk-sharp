@@ -22,18 +22,18 @@ public sealed class PostProcessHost : MaterialProxies.IPostProxyValues
     private readonly PostOpsWriter _writer;
 
     public PostProcessHost(IHooks<IPostProcessContributor> contributors, IFxRender fx,
-                           IEngineConsole console, ILog log, IFwdEngineClient engine)
-        : this(engine, contributors)
+                           IEngineConsole console, ILog log, IFwdEngineClient engine, PostProcessConVars convars)
+        : this(engine, convars, contributors)
     {
         _fx = fx;
         _console = console;
         _log = log;
     }
 
-    internal PostProcessHost(IFwdEngineClient engine, IHooks<IPostProcessContributor>? contributors = null)
+    internal PostProcessHost(IFwdEngineClient engine, PostProcessConVars convars, IHooks<IPostProcessContributor>? contributors = null)
     {
         _engine = engine;
-        Planner = new PostProcessPlanner(() => _engine.GameDirectory() ?? string.Empty, contributors);
+        Planner = new PostProcessPlanner(() => _engine.GameDirectory() ?? string.Empty, convars, contributors);
         _writer = new PostOpsWriter(_builder, Material);
     }
 

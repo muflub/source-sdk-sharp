@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Client.ClientSystems;
 using SourceSharp.Client.Flashlight;
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Render.PixelVisibility;
 
@@ -14,7 +15,7 @@ namespace SourceSharp.Client.Render.PixelVisibility;
 /// filter, and the messages through the console.
 /// </summary>
 public sealed class ClientPixelVisEngine(IPixelVisSlots slots, IFxRender fx, IEngineWorldQuery world, Func<int?> dxLevel,
-                                         ILog log, Func<string, string?> findConVar) : IPixelVisEngine, ICurrentView
+                                         ILog log, DeveloperConVar developer) : IPixelVisEngine, ICurrentView
 {
     /// <summary>engine->GetDXSupportLevel(); 0 with no engine client, which asks no query.</summary>
     public int DxSupportLevel() => dxLevel() ?? 0;
@@ -40,7 +41,7 @@ public sealed class ClientPixelVisEngine(IPixelVisSlots slots, IFxRender fx, IEn
     /// <summary>tier0's DevMsg: printed when <c>developer</c> is at least the level.</summary>
     public void DevMsg(int level, string text)
     {
-        if (VariantParse.Atof(findConVar("developer")) >= level)
+        if (developer.Value >= level)
             log.Msg(text);
     }
 
@@ -88,32 +89,14 @@ public sealed class PixelVisSpewConVar : BoolConVar { }
 
 /// <summary>pixelvis_debug: the sets' and queries' counts.</summary>
 [ConCommand("pixelvis_debug", Help = "Dump debug info")]
-public sealed class PixelVisDebugCommand(PixelVisibilitySystem system) : IConCommand
+public sealed class PixelVisDebugCommand(PixelVisibilitySystem system)
 {
-    public void Execute(string args) => system.DebugInfo();
-}
-
-/// <summary>
-/// building_cubemaps, read by name through the convar watch: the engine
-/// defines it (its buildcubemaps sets it), so a C# declaration is refused as
-/// engine-owned. glow_overlay.cpp's declaration was the engine's under another
-/// DLL's name; the overlays and the pixel visibility both read this one.
-/// </summary>
-public sealed class BuildingCubemapsWatch(WatchedConVarValues watch)
-{
-    public const string Name = "building_cubemaps";
-
-    public void Start() => watch.Watch([Name]);
-
-    /// <summary>A watched convar changed; false for an id this watch does not hold.</summary>
-    public bool OnChanged(int id, string newValue) => watch.OnChanged(id, newValue);
-
-    public bool Value => watch.Bool(Name);
+    public void Execute() => system.DebugInfo();
 }
 
 /// <summary>
 /// The ConVars the pixel visibility reads: c_pixel_visibility.cpp's three
-/// (the declarations above) and building_cubemaps (the engine's, watched).
+/// (the declarations above) and building_cubemaps (the engine's).
 /// </summary>
 public sealed class PixelVisSettings(Func<bool> partial, Func<bool> enabled, Func<bool> spew, Func<bool> buildingCubemaps)
     : IPixelVisSettings

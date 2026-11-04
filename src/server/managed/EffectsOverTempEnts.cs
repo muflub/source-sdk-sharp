@@ -83,7 +83,8 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     private readonly IEngineSound _sound;
     private readonly IEngineEntities _entities;
     private readonly IEffectsWorld _world;
-    private readonly IEngineConsole _console;
+    private readonly ViolenceHBloodConVar _humanBlood;
+    private readonly ViolenceABloodConVar _alienBlood;
     private readonly IUniformRandom _random;
     private readonly Action<string> _warning;
 
@@ -95,19 +96,21 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
     /// <param name="world">The traces, the static decal and the sprite precache
     /// <see cref="PaintDecal"/> and <see cref="BubbleEffect"/> ask for.</param>
     /// <param name="warning">Where a refused decal says so.</param>
-    /// <param name="console">The violence and language convars the blood reads.</param>
+    /// <param name="humanBlood">violence_hblood, which the blood reads.</param>
+    /// <param name="alienBlood">violence_ablood, which the blood reads.</param>
     /// <param name="random">The engine's uniform stream, as stock's <c>random</c>.</param>
     public EffectsOverTempEnts(IEngineEffects engine, ITempEnts temps,
                                IEngineSound sound, IEngineEntities entities,
-                               IEffectsWorld world, IEngineConsole console, IUniformRandom random,
-                               Action<string> warning)
+                               IEffectsWorld world, ViolenceHBloodConVar humanBlood, ViolenceABloodConVar alienBlood,
+                               IUniformRandom random, Action<string> warning)
         : base(engine)
     {
         _temps = temps;
         _sound = sound;
         _entities = entities;
         _world = world ?? throw new ArgumentNullException(nameof(world));
-        _console = console ?? throw new ArgumentNullException(nameof(console));
+        _humanBlood = humanBlood ?? throw new ArgumentNullException(nameof(humanBlood));
+        _alienBlood = alienBlood ?? throw new ArgumentNullException(nameof(alienBlood));
         _random = random ?? throw new ArgumentNullException(nameof(random));
         _warning = warning ?? throw new ArgumentNullException(nameof(warning));
     }
@@ -496,14 +499,7 @@ public sealed class EffectsOverTempEnts : EngineEffectsForwarder
 
     // UTIL_ShouldShowBlood: violence_hblood for red, violence_ablood for any other colour.
     private bool ShouldShowBlood(int color)
-        => color != DontBleed && ConVarOn(color == BloodColorRed ? "violence_hblood" : "violence_ablood");
-
-    // ConVar::GetBool: the integer value non-zero; a convar nothing answers reads as off.
-    private bool ConVarOn(string name)
-    {
-        string? value = _console.FindConVarValue(name);
-        return value is not null && (int)VariantParse.Atof(value) != 0;
-    }
+        => color != DontBleed && (color == BloodColorRed ? _humanBlood.Value : _alienBlood.Value);
 
     private static TeEffectData NewEffectData() => new() { Scale = 1f };
 

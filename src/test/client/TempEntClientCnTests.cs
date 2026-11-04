@@ -322,7 +322,7 @@ public class TempEntClientCnTests
         for (int i = 0; i < ClientTeBeamSpline.MaxSplinePoints; i++)
             writer.VectorAt("Spline", i, new Vector(i, i * 10f, i * 100f));
 
-        var player = new ClientTeBeamSpline(engine);
+        var player = new ClientTeBeamSpline(engine, DeclaredConVars.Fresh<DeveloperConVar>());
         var players = new ClientTempEnts(new RecordingLog(), registry);
         players.Add("CTEBeamSpline", player);
 
@@ -369,7 +369,7 @@ public class TempEntClientCnTests
         var registry = Registered(engine);
         TempEntType spline = registry.Find("CTEBeamSpline")!;
 
-        var player = new ClientTeBeamSpline(engine);
+        var player = new ClientTeBeamSpline(engine, DeclaredConVars.Fresh<DeveloperConVar>());
         var players = new ClientTempEnts(new RecordingLog(), registry);
         players.Add("CTEBeamSpline", player);
 
@@ -407,15 +407,15 @@ public class TempEntClientCnTests
         byte[] blob = Blob(spline, w => w.Int("Points", 6));
 
         var players = new ClientTempEnts(new RecordingLog(), registry);
-        players.Add("CTEBeamSpline", new ClientTeBeamSpline(engine));
+        var developer = DeclaredConVars.Holding<DeveloperConVar>("0");
+        players.Add("CTEBeamSpline", new ClientTeBeamSpline(engine, developer));
 
-        engine.Returns("Console.FindConVarValue", "0");
         players.Dispatch(spline.Handle, blob);
 
         Assert.True(engine.CountOf("Console.Msg") == 0,
             "at developer 0 a beam spline says nothing, as DevMsg( 1, ... ) says nothing");
 
-        engine.Returns("Console.FindConVarValue", "1");
+        developer.Hold("1");
         players.Dispatch(spline.Handle, blob);
 
         Assert.True(engine.CountOf("Console.Msg") == 1, "at developer 1 it says its one line");
@@ -439,7 +439,7 @@ public class TempEntClientCnTests
         var engine = Fake();
         var players = new ClientTempEnts(new RecordingLog(), Registered(engine));
 
-        players.RegisterAll(typeof(ClientTeBeamSpline).Assembly, Services());
+        players.RegisterAll(typeof(ClientTeBeamSpline).Assembly, Services(DeclaredConVars.Fresh<DeveloperConVar>()));
 
         foreach (string name in new[] { "CTEMetalSparks", "CTEArmorRicochet", "CTEBeamSpline" })
         {

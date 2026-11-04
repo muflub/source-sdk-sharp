@@ -22,6 +22,7 @@ public sealed class TFWeaponBehaviours(TFWeaponParts parts) : IWeaponBehaviourSo
         TFWeaponKind.SniperRifle => new TFSniperRifleBehaviour(parts),
         TFWeaponKind.Revolver => new TFRevolverBehaviour(parts),
         TFWeaponKind.Projectile => new TFProjectileBehaviour(parts),
+        TFWeaponKind.Bow => new TFBowBehaviour(parts),
         TFWeaponKind.Flamethrower => new TFFlamethrowerBehaviour(parts),
         TFWeaponKind.Medigun => new TFMedigunBehaviour(parts),
         TFWeaponKind.Pda => new TFPDABehaviour(parts),

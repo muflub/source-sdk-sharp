@@ -67,7 +67,8 @@ namespace TF2.Client;
 /// </summary>
 [ClientTempEnt("CTETFBlood")]
 public sealed class ClientTeTFBlood(IClientParticleOneShots oneShots, IClientStandalones standalones,
-                                    SourceSharp.Client.Effects.IClientLowViolence lowViolence, IEngineConsole console,
+                                    SourceSharp.Client.Effects.IClientLowViolence lowViolence,
+                                    SourceSharp.Client.LocalPlayerVisionFlagsConVar visionFlags, TFHolidayConVars holidays,
                                     IUniformRandom random, IFxRender fx, TimeProvider time) : ClientTempEnt<TeTFBlood>
 {
     /// <summary>TF_VISION_FILTER_PYRO (<c>shareddefs.h:984</c>).</summary>
@@ -93,7 +94,7 @@ public sealed class ClientTeTFBlood(IClientParticleOneShots oneShots, IClientSta
         // body in the SDK tree; the read is the cvar bit PyroVision uses.
         bool pyroVision = VisionFilter();
 
-        if (!underwater && TFHolidays.IsBirthday(console, time.GetLocalNow().DateTime) && random.RandomFloat(0f, 1f) < 0.2f)
+        if (!underwater && TFHolidays.IsBirthday(holidays.Switches, time.GetLocalNow().DateTime) && random.RandomFloat(0f, 1f) < 0.2f)
         {
             Dispatch("bday_blood", origin, angles);
         }
@@ -188,10 +189,5 @@ public sealed class ClientTeTFBlood(IClientParticleOneShots oneShots, IClientSta
     }
 
     /// <summary><c>localplayer_visionflags</c> &amp; TF_VISION_FILTER_PYRO.</summary>
-    private bool VisionFilter()
-    {
-        string? raw = console.FindConVarValue("localplayer_visionflags");
-
-        return int.TryParse(raw, out int flags) && (flags & VisionFilterPyro) != 0;
-    }
+    private bool VisionFilter() => (visionFlags.Value & VisionFilterPyro) != 0;
 }

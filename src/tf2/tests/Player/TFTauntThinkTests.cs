@@ -30,7 +30,7 @@ public sealed class TFTauntThinkTests
     /// <summary>The player entity under the water level, as the think's <c>GetWaterLevel</c> reads it.</summary>
     private static SsPlayer InWaterOf(PlayerRig rig, int level)
     {
-        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid())
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage())
         {
             Handle = PlayerRig.Player,
         };

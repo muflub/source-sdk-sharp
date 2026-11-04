@@ -47,7 +47,13 @@ public class PostProcessPlannerTests
         float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : 0f;
 
     /// <summary>A frame's post inputs, by name. Render targets are the screen's size (1280x720), the quarter targets a quarter.</summary>
-    internal static PostProcessInputs InputsOf(RenderTrace t, string text, PostProgramKind kind)
+    /// <summary>What the frame <see cref="InputsOf"/> last read has of the console.</summary>
+    private PostProcessConVars _cv = RenderConVarsKit.Zeroed<PostProcessConVars>();
+
+    private float Recorded(string name)
+        => float.Parse(_cv.GetType().GetFields().Select(f => f.GetValue(_cv)).OfType<ConVarBase>().First(c => c.Name == name).RawValue, System.Globalization.CultureInfo.InvariantCulture);
+
+    internal PostProcessInputs InputsOf(RenderTrace t, string text, PostProgramKind kind)
     {
         string frame = text.Split('\n').First(l => l.StartsWith("frame\t", StringComparison.Ordinal));
         int[] rect = Ints(frame[(frame.IndexOf("rect=", StringComparison.Ordinal) + 5)..].Trim());
@@ -78,11 +84,7 @@ public class PostProcessPlannerTests
         };
         for (int b = 0; b < 32; b++)
             i.SetReadback(b, -1);
-        for (var c = (PostCvar)0; c < PostCvar.Count; c++)
-        {
-            Assert.True(t.ConVars.TryGetValue(c.ToString(), out string? value), $"the frame has no convar {c}");
-            i.SetCvar(c, Num(value!));
-        }
+        _cv = RenderConVarsKit.Recorded<PostProcessConVars>(t.ConVars);
         return i;
     }
 
@@ -103,11 +105,11 @@ public class PostProcessPlannerTests
         public string Name(int id) => id > 0 && id < _names.Count ? _names[id] : "<none>";
     }
 
-    private static (RenderOp[] Ops, Materials Names, PostProgramEffects Effects) Program(in PostProcessInputs input, int warmFrames,
+    private (RenderOp[] Ops, Materials Names, PostProgramEffects Effects) Program(in PostProcessInputs input, int warmFrames,
                                                                                     PostProcessPlanner? planner = null)
     {
         var names = new Materials();
-        planner ??= new PostProcessPlanner(() => "mods/test");
+        planner ??= new PostProcessPlanner(() => "mods/test", _cv);
         var builder = new RenderPlanBuilder();
         var effects = new PostProgramEffects();
         var writer = new PostOpsWriter(builder, names.Of);
@@ -132,10 +134,10 @@ public class PostProcessPlannerTests
 
     // The ops one frame cannot reproduce: the goal is ten frames' history, the
     // histogram's bars its read-backs, the debug box moves a pixel a frame.
-    private static Func<RenderOp, bool> Unknowable(in PostProcessInputs input)
+    private Func<RenderOp, bool> Unknowable(in PostProcessInputs input)
     {
-        bool histogram = input.Cvar(PostCvar.mat_show_histogram) != 0f;
-        bool debugBloom = (int)input.Cvar(PostCvar.mat_debug_bloom) == 1;
+        bool histogram = Recorded("mat_show_histogram") != 0f;
+        bool debugBloom = (int)Recorded("mat_debug_bloom") == 1;
         return op => (RenderOpKind)op.Kind switch
         {
             RenderOpKind.PostGoalToneScale => true,
@@ -154,7 +156,7 @@ public class PostProcessPlannerTests
         var expected = PostPlanText.Expected(ops, names.Name, input.SmallFB1Width, input.SmallFB1Height, Unknowable(input));
         // Stock's pyro vision draws after the core's passes; it is the TF2 client
         // module's (user ruling 2026-10-12), held by that module's facts.
-        if (input.Cvar(PostCvar.localplayer_visionflags) != 0f)
+        if (Recorded("localplayer_visionflags") != 0f)
             expected.Add(RenderPlanText.Expect.AnyLines);
         List<string> calls = PostSegment(t);
         bool ok = RenderPlanText.Matches(expected, calls, out int furthest);
@@ -219,10 +221,10 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-sandbox-motionblur");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.MotionBlur);
-        input.SetCvar(PostCvar.mat_motion_blur_enabled, 0f);
+        _cv.Set("mat_motion_blur_enabled", 0f);
         (RenderOp[] ops, _, _) = Program(input, warmFrames: 0);
         Assert.Empty(ops);
-        input.SetCvar(PostCvar.mat_motion_blur_enabled, 1f);
+        _cv.Set("mat_motion_blur_enabled", 1f);
         input.HardwareDxLevel = 80;
         (ops, _, _) = Program(input, warmFrames: 0);
         Assert.Empty(ops);
@@ -236,8 +238,8 @@ public class PostProcessPlannerTests
         (RenderTrace t, string text) = Load("post-sandbox-default");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
         input.ColorCorrectionActive = 1;
-        input.SetCvar(PostCvar.mat_colorcorrection, 1f); // 0 in the recorded config
-        var planner = new PostProcessPlanner(() => "mods/test");
+        _cv.Set("mat_colorcorrection", 1f); // 0 in the recorded config
+        var planner = new PostProcessPlanner(() => "mods/test", _cv);
         (RenderOp[] first, Materials names, _) = Program(input, warmFrames: 0, planner);
         Assert.DoesNotContain(first, o => o.Kind == (int)RenderOpKind.PostDrawRect && names.Name(o.GetI(0)) == "dev/engine_post");
         (RenderOp[] second, names, _) = Program(input, warmFrames: 0, planner);
@@ -251,13 +253,56 @@ public class PostProcessPlannerTests
         Assert.Contains(second, o => o.Kind == (int)RenderOpKind.PostEnableColorCorrection && o.GetI(0) == 1);
     }
 
+    private static int RenderTargetPushes(RenderOp[] ops, string path)
+    {
+        int depth = 0, pushes = 0;
+        foreach (RenderOp op in ops)
+        {
+            if (op.Kind is (int)RenderOpKind.PostPushRenderTargetAndViewport or (int)RenderOpKind.PostPushRenderTarget)
+            {
+                depth++;
+                pushes++;
+            }
+            else if (op.Kind == (int)RenderOpKind.PopRenderTargetAndViewport)
+            {
+                depth--;
+                Assert.True(depth >= 0, $"{path}: a pop below where the program started");
+            }
+        }
+        Assert.Equal(0, depth);
+        return pushes;
+    }
+
+    [Fact]
+    public void TheBloomProgramPopsWhatItPushesWithColourCorrectionOffAndOn()
+    {
+        (RenderTrace t, string text) = Load("post-lockdown-forcebloom");
+        PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
+        var planner = new PostProcessPlanner(() => "mods/test", _cv);
+        (RenderOp[] off, _, _) = Program(input, warmFrames: 1, planner);
+        Assert.True(RenderTargetPushes(off, "colour correction off") > 0, "colour correction off pushed nothing");
+        input.ColorCorrectionActive = 1;
+        _cv.Set("mat_colorcorrection", 1f);
+        (RenderOp[] on, _, _) = Program(input, warmFrames: 1, planner);
+        Assert.True(RenderTargetPushes(on, "colour correction on") > 0, "colour correction on pushed nothing");
+        Assert.Contains(on, o => o.Kind == (int)RenderOpKind.PostEnableColorCorrection && o.GetI(0) == 1);
+    }
+
+    [Fact]
+    public void TheHistogramProgramPopsWhatItPushes()
+    {
+        (RenderTrace t, string text) = Load("post-sandbox-histogram");
+        (RenderOp[] ops, _, _) = Program(InputsOf(t, text, PostProgramKind.EnginePost), warmFrames: 1);
+        Assert.True(RenderTargetPushes(ops, "the histogram") > 0, "the histogram pushed nothing");
+    }
+
     [Fact]
     public void TheCentreQuarterModeShrinksTheDestinationAndItsUvs()
     {
         (RenderTrace t, string text) = Load("post-sandbox-default");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        input.SetCvar(PostCvar.mat_debug_postprocessing_effects, 2f);
-        input.SetCvar(PostCvar.mat_postprocessing_combine, 0f);
+        _cv.Set("mat_debug_postprocessing_effects", 2f);
+        _cv.Set("mat_postprocessing_combine", 0f);
         (RenderOp[] ops, Materials names, _) = Program(input, warmFrames: 0);
         RenderOp add = Assert.Single(ops, o => o.Kind == (int)RenderOpKind.PostDrawRect && names.Name(o.GetI(0)) == "dev/bloomadd");
         Assert.Equal([320, 180, 640, 360], new[] { add.GetI(1), add.GetI(2), add.GetI(3), add.GetI(4) });
@@ -269,15 +314,15 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-lockdown-forcebloom");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        input.SetCvar(PostCvar.mat_dump_rts, 1f);
-        Assert.Equal(-1f, input.Cvar(PostCvar.mat_queue_mode)); // the recorded config: stock refuses to dump
-        input.SetCvar(PostCvar.mat_queue_mode, 0f);
+        _cv.Set("mat_dump_rts", 1f);
+        Assert.Equal(-1f, Recorded("mat_queue_mode")); // the recorded config: stock refuses to dump
+        _cv.Set("mat_queue_mode", 0f);
         (RenderOp[] ops, _, PostProgramEffects effects) = Program(input, warmFrames: 0);
         int[] names = ops.Where(o => o.Kind == (int)RenderOpKind.PostDumpTga).Select(o => o.GetI(2)).ToArray();
         Assert.Equal([(int)PostDump.BackBuffer, (int)PostDump.QuarterSizeFB, (int)PostDump.BlurX, (int)PostDump.BlurYAndBloom, (int)PostDump.EnginePost], names);
         Assert.Equal([0, 1, 2, 3, 4], ops.Where(o => o.Kind == (int)RenderOpKind.PostDumpTga).Select(o => o.GetI(3)));
         Assert.Contains(("mat_dump_rts", "0"), effects.CvarWrites);
-        input.SetCvar(PostCvar.mat_queue_mode, 2f);
+        _cv.Set("mat_queue_mode", 2f);
         (ops, _, effects) = Program(input, warmFrames: 0);
         Assert.DoesNotContain(ops, o => o.Kind == (int)RenderOpKind.PostDumpTga);
         Assert.NotEmpty(effects.DevMessages);
@@ -288,8 +333,8 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-lockdown-default");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        input.SetCvar(PostCvar.mat_software_aa_strength, -1f);
-        input.SetCvar(PostCvar.mat_software_aa_strength_vgui, -1f);
+        _cv.Set("mat_software_aa_strength", -1f);
+        _cv.Set("mat_software_aa_strength_vgui", -1f);
         (_, _, PostProgramEffects effects) = Program(input, warmFrames: 0);
         Assert.Contains(("mat_software_aa_strength", "0.000000"), effects.CvarWrites);
         Assert.Contains(("mat_software_aa_strength_vgui", "1.000000"), effects.CvarWrites);
@@ -300,7 +345,7 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-sandbox-default");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        input.SetCvar(PostCvar.mat_tonemapping_occlusion_use_stencil, 1f);
+        _cv.Set("mat_tonemapping_occlusion_use_stencil", 1f);
         (RenderOp[] ops, Materials names, _) = Program(input, warmFrames: 0);
         var kinds = ops.Select(o => (RenderOpKind)o.Kind).ToList();
         int begin = kinds.IndexOf(RenderOpKind.PostQueryBegin);
@@ -315,7 +360,7 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-sandbox-default");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        var planner = new PostProcessPlanner(() => "mods/test");
+        var planner = new PostProcessPlanner(() => "mods/test", _cv);
         int Mask() => Program(input, warmFrames: 0, planner).Ops.Single(o => o.Kind == (int)RenderOpKind.PostReadbackNext).GetI(0);
         Assert.Equal(0, Mask());      // frame 1 issued bucket 0
         Assert.Equal(0, Mask());      // frame 2 issued bucket 1
@@ -335,7 +380,7 @@ public class PostProcessPlannerTests
         Assert.Equal(5, plain.Count(o => o.Kind == (int)RenderOpKind.PostDrawRect));
 
         var contributor = new TestContributor();
-        var planner = new PostProcessPlanner(() => "mods/test", new FixedHooks<IPostProcessContributor>(contributor));
+        var planner = new PostProcessPlanner(() => "mods/test", _cv, new FixedHooks<IPostProcessContributor>(contributor));
         (RenderOp[] with, Materials names, _) = Program(input, warmFrames: 0, planner);
         Assert.Equal(1, contributor.Calls);
         Assert.True(contributor.SawFrameBufferUpdated);
@@ -352,7 +397,7 @@ public class PostProcessPlannerTests
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
         for (int b = 0; b < 32; b++)
             input.SetReadback(b, 1000);
-        var planner = new PostProcessPlanner(() => "mods/test");
+        var planner = new PostProcessPlanner(() => "mods/test", _cv);
         RenderOp[] ops = [];
         for (int f = 0; f < 40; f++)
             ops = Program(input, warmFrames: 0, planner).Ops;

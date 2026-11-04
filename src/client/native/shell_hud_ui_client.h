@@ -85,6 +85,8 @@ public:
 	void UiSetCursor(int32_t nShape);
 	void UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba, int32_t bAdditive);
 	int32_t UiMaterialTexture(const char* pName);
+	void UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+					const uint16_t* pIndices, int32_t nIndices);
 
 private:
 	void SetColor(uint32_t nRgba);

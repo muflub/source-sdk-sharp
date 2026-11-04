@@ -27,7 +27,7 @@ namespace SourceSharp.Client;
 /// stays the server's word by construction.
 /// </para>
 /// </summary>
-public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStates
+public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStates, WeaponEffects.IWeaponViewModelBearer
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -48,6 +48,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // replayed command per frame.
     private byte[] _weaponScratch = Array.Empty<byte>();
     private byte[] _viewModelScratch = Array.Empty<byte>();
+
+    // What a compare judges in, and a weapon state that reads a saved slot's
+    // stamp, neither kept past the compare.
+    private byte[] _judged = [];
+    private readonly WeaponNetState _slotView = new();
 
     private ClientSsWeapon? _localWeapon;
     private ClientSsViewModel? _localViewModel;
@@ -163,6 +168,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         _weapon.BindLocal();
         _viewModel.BindLocal();
+        _slotView.BindLocal();
     }
 
     /// <summary>
@@ -269,7 +275,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     /// cref="ClientSsViewmodelAttachment.IsLocal"/>), so a hidden or foreign
     /// one names nothing and the flash with it.
     /// </summary>
-    private EntityHandle? MuzzleBearer()
+    public EntityHandle? ViewModelBearer()
     {
         int local = _screen.LocalPlayerIndex;
 
@@ -370,21 +376,33 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (_weapon.WeaponTypeId >= 0)
             _specialByType[_weapon.WeaponTypeId] = (_weapon.Special, _weapon.SpecialTime);
 
+        // The outgoing weapon's name and its own last-deploy stamp, read
+        // before the switch overwrites them: one weapon entity per player,
+        // so the stamp here is the outgoing weapon's, as stock's
+        // m_flLastDeployTime on its entity (tf_weaponbase.cpp:1319). The
+        // deploy-delay question the server's Deploy asks with the same
+        // numbers (Arsenal.DeployDelayOf).
+        string previousWeapon = _weapons.ByIndex(_weapon.WeaponTypeId) is { } outgoingRow
+            ? outgoingRow.Name
+            : "";
+        float delay = DeployDelayOf(in type, _localIndex, previousWeapon, now - _weapon.LastDeployTime);
+
         _weapon.OwnerIndex = _localIndex;
         _weapon.WeaponTypeId = typeIndex;
         _weapon.Clip = type.ClipSize > 0
             ? ClipOf(typeIndex, FreshClip(type))
             : -1;
         _weapon.InReload = false;
-        _weapon.NextPrimaryAttack = now + type.DeployTime;
-        _weapon.NextSecondaryAttack = now + type.DeployTime;
-        _weapon.TimeWeaponIdle = now + type.DeployTime;
+        _weapon.NextPrimaryAttack = now + delay;
+        _weapon.NextSecondaryAttack = now + delay;
+        _weapon.TimeWeaponIdle = now + delay;
         // The stamp the server's Deploy bumped for this same command: the
         // acked slot's and the arrival's then agree and the switch stands
         // fully judged, not adopted (see DeployedOutOfBand). Past the
         // AlreadyHeld, unknown-type and dead refusals above, which are the
         // server's Take refusing the Deploy — and refusing its stamp — too.
         _weapon.DeployEpoch++;
+        _weapon.LastDeployTime = now;
         _weapon.LastButtons = 0;
         (_weapon.Special, _weapon.SpecialTime) = _specialByType.GetValueOrDefault(typeIndex);
         _weapon.Redraw = false;
@@ -471,6 +489,17 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
             : type.ClipSize;
 
     /// <summary>
+    /// The server's DeployDelayOf, replayed with the local index: the row's
+    /// deploy seconds through the behaviour chain, so the mirror's clocks land
+    /// where the server wrote them.
+    /// </summary>
+    private float DeployDelayOf(in WeaponType type, int ownerIndex, string previousWeapon,
+                                float secondsSincePreviousDeploy) =>
+        _behaviours.For(type.Behaviour) is { } behaviour
+            ? behaviour.ModifyDeployTime(in type, type.DeployTime, ownerIndex, previousWeapon, secondsSincePreviousDeploy)
+            : type.DeployTime;
+
+    /// <summary>
     /// Carries the working copies' words back into the memories: after each
     /// replayed command, and once per frame from the server's word (which
     /// names the active weapon's stored special; the clip is the carrier's
@@ -526,11 +555,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (slot.IsEmpty || slot.Length != _weaponScratch.Length)
             return false;
 
-        var saved = new WeaponNetState();
-        saved.BindLocal();
-        saved.Decode(slot);
+        _slotView.Decode(slot);
 
-        return saved.DeployEpoch != _localWeapon!.State.DeployEpoch;
+        return _slotView.DeployEpoch != _localWeapon!.State.DeployEpoch;
     }
 
     private void CompareOne(PredictionRing ring, NetState arrivedState, string className, int acknowledged)
@@ -543,7 +570,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
             return;
         }
 
-        byte[] arrived = arrivedState.Snapshot();
+        ReadOnlySpan<byte> arrived = arrivedState.LiveBytes;
 
         if (arrived.Length != predicted.Length)
         {
@@ -556,10 +583,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // their owner every frame and nothing here predicts that, so the
         // origin's bytes read as "(padding@24..)" mispredictions on every
         // landing.
-        byte[] judged = PredictionJudge.OverlayDeclared(predicted, arrived,
-            PredictionJudge.DeclaredStart(arrivedState.GetType(), arrived.Length));
+        Span<byte> judged = Scratch.Sized(ref _judged, arrived.Length);
+        PredictionJudge.OverlayDeclared(predicted, arrived,
+            PredictionJudge.DeclaredStart(arrivedState.GetType(), arrived.Length), judged);
 
-        if (judged.AsSpan().SequenceEqual(arrived))
+        if (judged.SequenceEqual(arrived))
         {
             _holds++;
             ClearWitnessedPoke(ring, acknowledged, className);
@@ -680,8 +708,8 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
     private void ResizeRings()
     {
-        int weaponBytes = _localWeapon!.State.Snapshot().Length;
-        int viewModelBytes = _localViewModel!.State.Snapshot().Length;
+        int weaponBytes = _localWeapon!.State.LiveBytes.Length;
+        int viewModelBytes = _localViewModel!.State.LiveBytes.Length;
 
         if (_weaponRing.BlobBytes != weaponBytes)
         {
@@ -698,10 +726,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
     private static void CopyState(NetState from, NetState to)
     {
-        // Snapshot allocates; this runs once per frame per state, and the
-        // decoded side has no span accessor. Worth a CopyTo pair if profiling
-        // ever asks.
-        byte[] bytes = from.Snapshot();
+        ReadOnlySpan<byte> bytes = from.LiveBytes;
 
         if (bytes.Length > 0)
             to.Decode(bytes);
@@ -766,6 +791,22 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // the networked reserve says (0): -1, as a weapon with no clip has no clip.
         reserve = type is { AmmoName.Length: 0 } ? -1 : state.Reserve;
         return true;
+    }
+
+    /// <summary>The state behind <see cref="TryGetActive"/>'s yes, by the same pick.</summary>
+    public SourceSharp.Shared.WeaponNetState? ActiveWeaponState
+    {
+        get
+        {
+            if (_localWeapon is null)
+                return null;
+
+            var state = _localIndex > 0 && _weapon.WeaponTypeId >= 0
+                ? _weapon
+                : _localWeapon.State;
+
+            return state.WeaponTypeId < 0 ? null : state;
+        }
     }
 
     //-------------------------------------------------------------------------
@@ -1021,7 +1062,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // and the bullets go through.
         public void MuzzleFlash(in WeaponType type, string particleEffect)
         {
-            if (_owner.MuzzleBearer() is { } bearer)
+            if (_owner.ViewModelBearer() is { } bearer)
                 _owner._fx?.MuzzleFlash(bearer, particleEffect);
         }
 
@@ -1074,7 +1115,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 /// </summary>
 [ConCommand("cs_cl_weapon_predict_report",
             Help = "What the weapon and viewmodel prediction rings have seen")]
-public sealed class WeaponPredictReportCommand : IConCommand
+public sealed class WeaponPredictReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1091,7 +1132,7 @@ public sealed class WeaponPredictReportCommand : IConCommand
 
     }
 
-    public void Execute(string args) => _log.Msg(_arsenal.Report() + "\n");
+    public void Execute() => _log.Msg(_arsenal.Report() + "\n");
 }
 
 /// <summary>
@@ -1100,7 +1141,7 @@ public sealed class WeaponPredictReportCommand : IConCommand
 /// </summary>
 [ConCommand("cs_cl_weapon_predict_poke",
             Help = "cs_cl_weapon_predict_poke [offset] — corrupt the weapon's replayed slots until a compare sees it")]
-public sealed class WeaponPredictPokeCommand : IConCommand
+public sealed class WeaponPredictPokeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1117,10 +1158,8 @@ public sealed class WeaponPredictPokeCommand : IConCommand
 
     }
 
-    public void Execute(string args)
+    public void Execute(int offset = 0)
     {
-        int offset = int.TryParse(args.Trim(), out int parsed) ? parsed : 0;
-
         _log.Msg(_arsenal.Poke(offset)
             ? $"[SourceSharp] weapon prediction: poking offset {offset} until a compare sees it\n"
             : "[SourceSharp] weapon prediction: nothing ringed at that offset\n");

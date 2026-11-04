@@ -32,7 +32,7 @@ namespace TF2.Server.Entities.Items;
 /// </para>
 /// </summary>
 [ScriptedEntity(Class, ScriptedEntityKind.Prop)]
-public sealed class TFDroppedWeapon(ConVarRegistry convars, IUniformRandom random, IEngineEntityRender render)
+public sealed class TFDroppedWeapon(TFDroppedWeaponLifetimeConVar lifetime, IUniformRandom random, IEngineEntityRender render)
     : ScriptedEntity
 {
     public const string Class = "tf_dropped_weapon";
@@ -212,19 +212,11 @@ public sealed class TFDroppedWeapon(ConVarRegistry convars, IUniformRandom rando
     }
 
     /// <summary>The lifetime, <c>tf_dropped_weapon_lifetime</c> (:27).</summary>
-    public float Lifetime => ConVar<TFDroppedWeaponLifetimeConVar>().Value;
+    public float Lifetime => lifetime.Value;
 
     /// <summary>The degrade clock's step and period (:676, :685).</summary>
     public const float DegradeStep = 0.01f;
 
     /// <summary>The tenth of a second the degrade rebooks at (:685).</summary>
     public const float DegradeInterval = 0.1f;
-
-    /// <summary>
-    /// Stock reads its lifetime live from the FCVAR_CHEAT convar it declares
-    /// (:27); a missing declaration is a startup bug.
-    /// </summary>
-    private T ConVar<T>() where T : ConVarBase
-        => convars.Get<T>() ?? throw new InvalidOperationException(
-            $"tf_dropped_weapon reads {typeof(T).Name}, which is not registered");
 }

@@ -67,6 +67,11 @@ public readonly ref struct TempEntWriter
         if (!Slot(name, out TeField field, out Span<byte> at))
             return false;
 
+        return PutInt(field, at, value);
+    }
+
+    private bool PutInt(TeField field, Span<byte> at, int value)
+    {
         switch (field.SizeBytes)
         {
             case 1: at[0] = (byte)value; return true;
@@ -74,9 +79,52 @@ public readonly ref struct TempEntWriter
             case 4: MemoryMarshal.Write(at, value); return true;
         }
 
-        _type.Log.Warning($"[SourceSharp] temp entity field '{name}' has a {field.SizeBytes} byte " +
+        _type.Log.Warning($"[SourceSharp] temp entity field '{field.Name}' has a {field.SizeBytes} byte " +
                     "storage width, which no SendPropInt proxy reads\n");
         return false;
+    }
+
+    /// <summary>The field at <paramref name="slot"/> of <see cref="TempEntType.Slots"/>, as <see cref="Int"/> writes it.</summary>
+    public bool SlotInt(int slot, int value)
+    {
+        TeField field = _type.Slots[slot];
+
+        return Bytes(field, out Span<byte> at) && PutInt(field, at, value);
+    }
+
+    /// <summary>As <see cref="Float"/>.</summary>
+    public bool SlotFloat(int slot, float value)
+    {
+        if (!Bytes(_type.Slots[slot], out Span<byte> at) || at.Length < sizeof(float))
+            return false;
+
+        MemoryMarshal.Write(at, value);
+        return true;
+    }
+
+    /// <summary>As <see cref="Vector"/>.</summary>
+    public bool SlotVector(int slot, Vector value)
+        => Bytes(_type.Slots[slot], out Span<byte> at) && PutThree(at, value.X, value.Y, value.Z);
+
+    /// <summary>As <see cref="QAngle"/>.</summary>
+    public bool SlotQAngle(int slot, QAngle value)
+        => Bytes(_type.Slots[slot], out Span<byte> at) && PutThree(at, value.Pitch, value.Yaw, value.Roll);
+
+    /// <summary>As <see cref="VectorAt"/>.</summary>
+    public bool SlotVectorAt(int slot, int index, Vector value) => PutElement(_type.Slots[slot], index, value);
+
+    /// <summary>As <see cref="EHandle(string, EntityHandle)"/>.</summary>
+    public bool SlotHandle(int slot, EntityHandle entity) => SlotInt(slot, PackEHandle(entity));
+
+    private static bool PutThree(Span<byte> at, float a, float b, float c)
+    {
+        if (at.Length < 3 * sizeof(float))
+            return false;
+
+        MemoryMarshal.Write(at, a);
+        MemoryMarshal.Write(at[4..], b);
+        MemoryMarshal.Write(at[8..], c);
+        return true;
     }
 
     /// <summary>
@@ -103,13 +151,7 @@ public readonly ref struct TempEntWriter
     /// </summary>
     public bool Vector(string name, Vector value)
     {
-        if (!Slot(name, out _, out Span<byte> at) || at.Length < 3 * sizeof(float))
-            return false;
-
-        MemoryMarshal.Write(at, value.X);
-        MemoryMarshal.Write(at[4..], value.Y);
-        MemoryMarshal.Write(at[8..], value.Z);
-        return true;
+        return Slot(name, out _, out Span<byte> at) && PutThree(at, value.X, value.Y, value.Z);
     }
 
     /// <summary>
@@ -121,13 +163,7 @@ public readonly ref struct TempEntWriter
     /// </summary>
     public bool QAngle(string name, QAngle value)
     {
-        if (!Slot(name, out _, out Span<byte> at) || at.Length < 3 * sizeof(float))
-            return false;
-
-        MemoryMarshal.Write(at, value.Pitch);
-        MemoryMarshal.Write(at[4..], value.Yaw);
-        MemoryMarshal.Write(at[8..], value.Roll);
-        return true;
+        return Slot(name, out _, out Span<byte> at) && PutThree(at, value.Pitch, value.Yaw, value.Roll);
     }
 
     /// <summary>
@@ -162,6 +198,11 @@ public readonly ref struct TempEntWriter
             return false;
         }
 
+        return PutElement(field, index, value);
+    }
+
+    private bool PutElement(TeField field, int index, Vector value)
+    {
         if (index < 0 || index >= Math.Max(field.Elems, 1))
             return false;
 
@@ -237,11 +278,18 @@ public readonly ref struct TempEntWriter
             return false;
         }
 
+        return Bytes(field, out at);
+    }
+
+    private bool Bytes(TeField field, out Span<byte> at)
+    {
+        at = default;
+
         int width = Width(field);
 
         if (field.Offset < 0 || field.Offset + width > _blob.Length)
         {
-            _type.Log.Warning($"[SourceSharp] temp entity '{_type.Class.ClassName}' field '{name}' " +
+            _type.Log.Warning($"[SourceSharp] temp entity '{_type.Class.ClassName}' field '{field.Name}' " +
                         $"wants bytes {field.Offset}..{field.Offset + width} of a " +
                         $"{_blob.Length} byte buffer; nothing written\n");
             return false;

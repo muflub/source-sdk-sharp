@@ -46,7 +46,9 @@ public readonly record struct LoadoutItem(TFLoadoutSlot Slot, ItemInstance Item)
 public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schema, ITFPlayerClasses? classes = null,
                                       Player.TFPlayerItems? items = null, TFClassTable? table = null,
                                       ITeamRoundState? round = null, ITFStalemateSettings? stalemate = null,
-                                      WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null)
+                                      WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null,
+                                      BotInventory? botInventory = null, IBotPlayers? bots = null,
+                                      AttributeHooks? hooks = null, IEnginePlayers? players = null)
     : ILoadoutProvider, IOrderedHook
 {
     private readonly ITeamRoundState? _round = round;
@@ -83,7 +85,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         var cls = classes?.ClassOf(player) ?? TFClass.Undefined;
         var weapons = new List<string>();
         var byWeapon = new Dictionary<string, IAttributeProvider>(StringComparer.Ordinal);
-        var granted = new List<AttributeContainer>();
+        var granted = new List<(string Weapon, AttributeContainer Container)>();
         foreach (var entry in Loadout(player.EntryIndex, cls))
         {
             if (TFItemStrings.IsWearableSlot((int)entry.Slot) || entry.Item.Definition.ItemClass is not { Length: > 0 } itemClass)
@@ -93,15 +95,32 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
             weapons.Add(weapon);
             var container = Attributes(entry.Item);
             byWeapon[weapon] = container;
-            granted.Add(container);
+            granted.Add((weapon, container));
         }
 
         if (items is { } kit)
         {
             var manager = new AttributeContainer();
-            foreach (var container in granted)
+
+            // Stock's ReapplyProvision gate (tf_weaponbase.cpp:5709-5740):
+            // an item whose provide_on_active mode is 1 provides only while
+            // its weapon is the player's active weapon; any other mode always
+            // does. The mode reads on the item itself, before the owner link,
+            // so the walk sees its own list and its definition's statics
+            // (wearables need no mode: they always provide, and their slots
+            // are skipped above). Each grant builds a fresh manager, so
+            // skipping the provide is stock's StopProvidingTo in one pass.
+            string active = players is null
+                ? string.Empty
+                : players.GetActiveWeapon(players.GetHandle(player.EntryIndex));
+            foreach (var (weapon, container) in granted)
             {
-                container.ProvideTo(manager);
+                bool provide = hooks is null || players is null
+                               || hooks.Int(0, "provide_on_active", container) != 1
+                               || weapon == active;
+                if (provide)
+                    container.ProvideTo(manager);
+
                 // The same equip answers this item's GetAttributeOwner with the
                 // player (econ_entity.cpp), so a hook walked ON the item —
                 // CALL_ATTRIB_HOOK_*_ON_OTHER of the weapon — reaches the
@@ -184,7 +203,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         if (cls < TFClass.Scout || cls >= TFClass.Civilian)
             return [];
 
-        var owned = inventory.Of(entIndex) ?? new PlayerInventory(0);
+        var owned = OwnedFor(entIndex);
         var items = new List<LoadoutItem>();
         for (var slot = TFLoadoutSlot.Primary; slot < TFLoadoutSlot.Count; slot++)
         {
@@ -192,6 +211,18 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
                 items.Add(new LoadoutItem(slot, item));
         }
         return items;
+    }
+
+    /// <summary>Whose inventory the loadout reads: the bot's seeded items for a bot, the local inventory for everyone else.</summary>
+    private PlayerInventory OwnedFor(int entIndex)
+    {
+        // The bot's seed is the roster's SeedIndex later (stage F2x); until the AI binding supplies
+        // one, the provider passes 0 for every bot. The draw is pure, so 0 already replays the same
+        // items for the same class and slot.
+        if (bots is not null && botInventory is not null && bots.IsBot(new EntityHandle((uint)entIndex))
+            && botInventory.ForBot(entIndex, 0) is { } botOwned)
+            return botOwned;
+        return inventory.Of(entIndex) ?? new PlayerInventory(0);
     }
 
     /// <summary>

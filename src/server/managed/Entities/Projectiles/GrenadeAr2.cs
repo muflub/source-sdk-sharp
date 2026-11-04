@@ -61,8 +61,11 @@ public sealed class GrenadeAr2 : FlyingProjectile
     /// <summary>What a map may set on this entity. See <see cref="GrenadeAr2Vars"/>.</summary>
     [ScriptVars] public GrenadeAr2Vars Vars = new();
 
-    /// <summary>UTIL_ScaleForGravity( 400 ) under HL2MP's sv_gravity of 600.</summary>
-    protected override float GravityScale => 400f / 600f;
+    /// <summary>UTIL_ScaleForGravity( 400 ): what pulls it down, units/s².</summary>
+    public const float GravityUnits = 400f;
+
+    /// <summary>That under HL2MP's sv_gravity of 600.</summary>
+    protected override float GravityScale => GravityUnits / 600f;
 
     protected override string ProjectileModel => "models/Weapons/ar2_grenade.mdl";
 

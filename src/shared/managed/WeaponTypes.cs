@@ -109,6 +109,13 @@ public readonly record struct WeaponType(
     /// <summary>The w_ model everyone else sees, and the pickup on the ground.</summary>
     public string WorldModel { get; init; } = "";
 
+    /// <summary>
+    /// The extra models stock bonemerges onto this weapon's bones — the
+    /// flamethrower's pilot light — in <see cref="WeaponAttachedModel"/> order.
+    /// </summary>
+    public ImmutableArray<WeaponAttachedModel> AttachedModels { get; init; }
+        = ImmutableArray<WeaponAttachedModel>.Empty;
+
     /// <summary>Seconds after a deploy before the first shot may fire.</summary>
     public float DeployTime { get; init; } = 0.5f;
 
@@ -223,6 +230,35 @@ public readonly record struct WeaponType(
     /// </summary>
     public string Behaviour { get; init; } = "";
 }
+
+/// <summary>
+/// Where an attached model draws: stock's
+/// <c>kAttachedModelDisplayFlag_*</c> (econ_item_schema.h:879-885). The world
+/// pass rides the weapon every bearer sees; the viewmodel pass only the
+/// carrier's.
+/// </summary>
+[Flags]
+public enum AttachedModelDisplayFlags
+{
+    None = 0,
+
+    /// <summary><c>kAttachedModelDisplayFlag_WorldModel</c>.</summary>
+    WorldModel = 0x1,
+
+    /// <summary><c>kAttachedModelDisplayFlag_ViewModel</c>.</summary>
+    ViewModel = 0x2,
+
+    /// <summary><c>kAttachedModelDisplayFlag_MaskAll</c>, the parse default.</summary>
+    MaskAll = WorldModel | ViewModel,
+}
+
+/// <summary>
+/// One <c>attachedmodel_t</c> (econ_item_schema.h:887-895): a model the item's
+/// visuals bonemerge onto the weapon's bones, and the passes it draws in.
+/// </summary>
+/// <param name="Model">The <c>model</c> word.</param>
+/// <param name="DisplayFlags"><c>model_display_flags</c>; stock's default is <see cref="AttachedModelDisplayFlags.MaskAll"/>.</param>
+public readonly record struct WeaponAttachedModel(string Model, AttachedModelDisplayFlags DisplayFlags);
 
 /// <summary>Which machine runs a weapon row's commands.</summary>
 public enum WeaponKind

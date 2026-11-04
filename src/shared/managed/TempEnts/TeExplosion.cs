@@ -57,7 +57,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeExplosion : TeParticleSystem
+public partial class TeExplosion : TeParticleSystem
 {
     /// <summary>The fireball sprite, in <c>SP_MODEL_INDEX_BITS</c>, flags zero.</summary>
     [TeProp(BitsFrom = TeBits.ModelIndex)]

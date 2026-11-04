@@ -174,6 +174,16 @@ public:
 	// slot. Same rules as the slot-0 follow; an unknown slot refuses.
 	virtual int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
 												   int32_t nAttachment, int32_t nSlot, const float* pOffsetXYZ) = 0;
+	// One burning frame's flame points, in a single crossing: records of ten floats — the control point index, the
+	// position, the velocity, the density, the radius, the duration — the muzzle record first, and the newest point's
+	// index names the point the system reads next. Stock's CTFFlameManager feeds the muzzle and every live point each
+	// update; the flame client drives it once per burning frame.
+	virtual int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
+											int32_t nCount) = 0;
+	// Which list a held system draws in: the viewmodel's translucent pass, or back to the
+	// entity translucent one it was inserted in. Managed decides (the local player's crit
+	// glow, tf_player_shared.cpp:7587-7593); this carries the group out.
+	virtual void ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel) = 0;
 };
 
 abstract_class IShimStandaloneClient
@@ -216,6 +226,9 @@ public:
 	virtual void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) = 0;
 	// A viewer-local model for the entity (stock's ValidateModelIndex); empty clears.
 	virtual void EntitySetModelOverride(uint32_t hEntity, const char* pModel) = 0;
+	// The entity's shadow is its collision hull widened, stock's placing arm of
+	// C_ObjectSentrygun::GetShadowRenderBounds (c_obj_sentrygun.cpp:588).
+	virtual void StandaloneSetShadowHull(uint32_t hEntity, int32_t bShadowHull) = 0;
 };
 
 abstract_class IShimViewClient
@@ -345,6 +358,11 @@ public:
 	// resolves the .vmt (any shader, Refract included) and the draw slots run
 	// the material's own shader, as stock's DrawSetTextureFile. 0 when the name loads nothing.
 	virtual int32_t UiMaterialTexture(const char* pName) = 0;
+	// One draw of indexed triangles with a colour per vertex: (x, y, u, v) per
+	// vertex, 0xRRGGBBAA per vertex. Not clipped: managed sends only what lies
+	// inside its clip.
+	virtual void UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+							const uint16_t* pIndices, int32_t nIndices) = 0;
 };
 
 // The executor for managed particle sims, one per (owner, channel), registered with
@@ -519,13 +537,13 @@ public:
 										   const float* pColor, float flLifetime, float flAlpha) = 0;
 };
 
-// ConVarsClientWatch forwards a convar's changes through ConVarChanged (-1: no such convar).
 // ConVarsClientSetValue stores a value native reads; 0 for a name nothing reads.
+// ConVarsClientAddFlags ORs FCVAR bits into a convar the engine holds; 0 for no such convar.
 abstract_class IShimConVarsClient
 {
 public:
-	virtual int32_t ConVarsClientWatch(const char* pName) = 0;
 	virtual int32_t ConVarsClientSetValue(const char* pName, float flValue) = 0;
+	virtual int32_t ConVarsClientAddFlags(const char* pName, int32_t nFlags) = 0;
 };
 
 // FlashlightTexture holds a texture by name and answers its id (-1: none).
