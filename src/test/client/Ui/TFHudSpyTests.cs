@@ -46,16 +46,20 @@ public class TFHudSpyTests
     [Fact]
     public void The_disguise_status_sits_at_its_res_spot()
     {
-        // DisguiseStatus: xpos 10 ypos r70, 500x200 (hudlayout.res:241-253)
-        // — the status row rides the panel's top edge, 10 units in and 70
-        // units above the screen's bottom (x2.25).
+        // The status's visible plate is the res's DisguiseStatusBG
+        // (disguisestatuspanel.res:31-61): 10,30 inside the DisguiseStatus
+        // element (hudlayout.res:241-253, xpos 10 ypos r70 500x200) — 20
+        // units in, 200x32, its top 40 units above the screen's bottom
+        // (x2.25): under the health number's row, not over it.
         var sample = Assert.Single(PreviewRun.AllSamples(),
                                    s => !s.Gallery && s.Group == "tfhud" && s.Slug == "spy-disguised-as-a-red-soldier");
         var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
         UiSamples.Render(ctx, sample.Create(), UiSamples.Screen(1920, 1080), sample.Now);
-        var corner = UiTestKit.Named(ctx, "disguise corner").Rect;
-        Assert.Equal(22.5f, corner.X, 0.5f);    // 10 x 2.25
-        Assert.Equal(922.5f, corner.Y, 0.5f);   // (480-70) x 2.25
+        var plate = UiTestKit.Named(ctx, "disguise corner").Rect;
+        Assert.Equal(45f, plate.X, 0.5f);       // (10+10) x 2.25
+        Assert.Equal(990f, plate.Y, 0.5f);      // (480-40) x 2.25
+        Assert.Equal(450f, plate.W, 0.5f);      // 200 x 2.25
+        Assert.Equal(72f, plate.H, 0.5f);       // 32 x 2.25
     }
 
     [Fact]

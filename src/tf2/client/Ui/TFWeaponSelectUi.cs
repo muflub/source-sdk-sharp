@@ -11,6 +11,7 @@ using SourceSharp.Client.Ui;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Client.Ui;
 
@@ -22,9 +23,10 @@ namespace TF2.Client.Ui;
 /// selected slot is the selection's weapon's (<c>iActiveSlot</c>, :707); each
 /// card is the slot's last held weapon, as the item panel is set
 /// (<c>SetItem</c> per position, :551-576, the last visible winning), with
-/// the script's art for the player's team (<c>GetSpriteInactive</c>, or
-/// <c>GetSpriteActive</c> on BLU, :806-813 — one texture either way) and the
-/// printname localised; and the note is <c>CanBeSelected</c>'s false
+/// the item's inventory image the picture and the script's art for the
+/// player's team (<c>GetSpriteInactive</c>, or <c>GetSpriteActive</c> on
+/// BLU, :806-813 — one texture either way) its stand-in, and the printname
+/// localised; and the note is <c>CanBeSelected</c>'s false
 /// (:745-752). A slot whose later positions carry weapons the hud does not
 /// name shows the last named one: stock's panel is set per position and the
 /// unnamed weapon's item has no card of its own.
@@ -84,6 +86,12 @@ public sealed class TFWeaponSelectUi : ITFWeaponSelect
             return default;
 
         var script = _scripts.Get(weapon.Name);
+
+        // The panel is set to the weapon's item (SetItem,
+        // GetAttributeContainer->GetItem, tf_hud_weaponselection.cpp:560):
+        // its name is the card's label and its inventory image the picture,
+        // the schema's backpack art.
+        var item = _types.BaseItemFor(weapon.Name);
         var icon = Team == 3 ? script?.IconActive ?? script?.IconInactive : script?.IconInactive;
         return new TFSelectionWeapon(
             icon?.File ?? "",
@@ -91,8 +99,9 @@ public sealed class TFWeaponSelectUi : ITFWeaponSelect
             icon?.Y ?? 0,
             icon?.Wide ?? 0,
             icon?.Tall ?? 0,
-            NameOf(weapon.Name, script),
-            _selection.CanBeSelected(type));
+            NameOf(weapon.Name, script, item),
+            _selection.CanBeSelected(type),
+            item?.InventoryImage ?? "");
     }
 
     // The card's label as the panel's item carries it: the item's name —
@@ -101,9 +110,9 @@ public sealed class TFWeaponSelectUi : ITFWeaponSelect
     // definition's — else the script's printname verbatim, a #token the
     // screen's own localiser resolves, stock's Find with the raw string as
     // fallback — else the class name bare (the core WeaponNames' fallback).
-    private string NameOf(string className, TFWeaponScript? script)
+    private static string NameOf(string className, TFWeaponScript? script, ItemDefinition? item)
     {
-        string? itemName = _types.BaseItemFor(className)?.ItemName;
+        string? itemName = item?.ItemName;
         if (!string.IsNullOrEmpty(itemName))
             return itemName;
         string token = script?.Base.PrintName ?? "";

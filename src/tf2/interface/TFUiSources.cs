@@ -1660,13 +1660,17 @@ public interface ITFRenderGroups
 /// <summary>
 /// One card of the weapon selection: the weapon a slot's box shows, as
 /// stock's item panel is set (<c>SetItem</c>, tf_hud_weaponselection.cpp:560)
-/// and the draw reads it. The icon is the script's own art for the local
-/// player's team (<c>GetSpriteInactive</c>, or <c>GetSpriteActive</c> on
-/// BLU, :806-813) as one file-and-rect — this contract assembly compiles no
-/// TF2.Shared source of its own, so the parsed pair rides flat. The name is
-/// the printname localised, the card's label; <see cref="CanSelect"/> is
-/// <c>CanBeSelected</c>, whose false draws the out-of-ammo note (:745-752).
-/// Every string is empty and every count 0 when the slot shows no weapon.
+/// and the draw reads it. The picture is the item's own inventory image
+/// (<c>image_inventory</c>, the panel's LoadInventoryImage,
+/// item_model_panel.cpp:618-628); <see cref="IconFile"/> is the script's
+/// own art for the local player's team (<c>GetSpriteInactive</c>, or
+/// <c>GetSpriteActive</c> on BLU, :806-813) as one file-and-rect — this
+/// contract assembly compiles no TF2.Shared source of its own, so the
+/// parsed pair rides flat — and stands in when the item names no image or
+/// it binds nothing. The name is the printname localised, the card's label;
+/// <see cref="CanSelect"/> is <c>CanBeSelected</c>, whose false draws the
+/// out-of-ammo note (:745-752). Every string is empty and every count 0
+/// when the slot shows no weapon.
 /// </summary>
 public readonly record struct TFSelectionWeapon(
     string IconFile,
@@ -1675,7 +1679,8 @@ public readonly record struct TFSelectionWeapon(
     int IconWide,
     int IconTall,
     string Name,
-    bool CanSelect);
+    bool CanSelect,
+    string ItemImage = "");
 
 /// <summary>
 /// The weapon selection buckets, stock's <c>CHudWeaponSelection</c>

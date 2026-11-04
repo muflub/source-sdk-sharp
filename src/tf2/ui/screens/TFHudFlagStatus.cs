@@ -105,7 +105,8 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
             return;
 
         // The screen clips what stock hangs below it (the backdrop's r75 and
-        // the target plate's r31/r28), so those boxes draw their visible band.
+        // the target plate's r31/r28), so those boxes draw their visible band,
+        // and their art the same band of the image, at stock's scale.
         static StockSpot OnScreen(StockBox box) =>
             StockRes.Spot(StockRes.ClippedToScreen(box.Rect(Stock.Canvas)), Stock.Canvas);
 
@@ -131,9 +132,10 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
         if (!bgUp)
             ui.Rect(Tone.Surface, Size.Du(bg.Wide), Size.Du(bg.Tall))
                 .AtRes(UiAnchor.Bottom, bg.CentreX, bg.Bottom).Layered().Key("flag bg");
-        Art(ref ui, "bg left", "hud/objectives_flagpanel_bg_left", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom);
-        Art(ref ui, "bg right", "hud/objectives_flagpanel_bg_right", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom);
-        Art(ref ui, "bg outline", "hud/objectives_flagpanel_bg_outline", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom);
+        var bgBand = new UiRect(0f, 0f, 1f, bg.Tall / Stock.Bg.In(Stock.Canvas).Tall);
+        Art(ref ui, "bg left", "hud/objectives_flagpanel_bg_left", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom, bgBand);
+        Art(ref ui, "bg right", "hud/objectives_flagpanel_bg_right", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom, bgBand);
+        Art(ref ui, "bg outline", "hud/objectives_flagpanel_bg_outline", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom, bgBand);
 
         int carriedBy = CarriedByLocal();
         if (carriedBy > 0)
@@ -207,7 +209,7 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
                 ui.Rect(Tone.Surface, Size.Du(targetBg.Wide), Size.Du(targetBg.Tall))
                     .AtRes(UiAnchor.Bottom, targetBg.CentreX, targetBg.Bottom).Layered().Key("target plate");
             Art(ref ui, "target bg", "hud/objectives_flagpanel_bg_playingto", targetBg.CentreX, targetBg.Bottom,
-                targetBg.Wide, targetBg.Tall, UiAnchor.Bottom);
+                targetBg.Wide, targetBg.Tall, UiAnchor.Bottom, new UiRect(0f, 0f, 1f, targetBg.Tall / Stock.TargetBg.In(Stock.Canvas).Tall));
             // The row hugs its text; the Bottom anchor takes the box's
             // bottom-centre, so the pair centres as stock's label does.
             using (ui.Row(Space.S, Align.Centre).AtRes(UiAnchor.Bottom, target.CentreX, target.Bottom)
@@ -235,8 +237,8 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
     /// <see cref="StockArt"/>); a miss (handle 0) draws nothing — the plate
     /// at the same coordinates is the fallback.</summary>
     private void Art(ref UiFrame ui, string key, string name, float centre, float bottom, float wide, float tall,
-                     UiAnchor corner)
-        => StockArt.Draw(ref ui, textures, key, name, centre, bottom, wide, tall, corner: corner);
+                     UiAnchor corner, UiRect uv = default)
+        => StockArt.Draw(ref ui, textures, key, name, centre, bottom, wide, tall, uv: uv, corner: corner);
 
     /// <summary>The carried flag's image (hudobjectiveflagpanel.res
     /// CarriedImage, per team).</summary>

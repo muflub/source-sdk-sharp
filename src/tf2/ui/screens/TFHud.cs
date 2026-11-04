@@ -187,16 +187,18 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
                            .Layered().Key("cp corner"))
                 ui.Sub("cp icons", icons);
 
-        // Bottom-left, stock's DisguiseStatus: xpos 10 ypos r70, 500x200
-        // (hudlayout.res:241-253) — the status's top rides 70 units above
-        // the screen's bottom, so the plate hangs from that line whatever
-        // the canvas's height (an "r" ypos is bottom-referenced).
+        // Bottom-left, stock's DisguiseStatus (hudlayout.res:241-253: xpos 10
+        // ypos r70, 500x200) — whose visible part is the element's
+        // DisguiseStatusBG (disguisestatuspanel.res:31-61): 10,30 inside,
+        // 200x32, so the plate stands 20 units in with its top 40 units above
+        // the screen's bottom, below the health number's row; the element's
+        // own top (r70) is only its children's coordinate line.
         if (disguise.Present)
         {
-            var line = new StockBox("10", "r70", 500, 200).Rect(StockRect.Screen);
-            using (ui.Box().AtRes(UiAnchor.TopLeft, line.Left * StockRes.Scale,
-                                   ui.DesignHeight - (line.Bottom + line.Tall) * StockRes.Scale)
-                           .Fill(Tone.Surface).Border(Tone.Line, 1).Round(Radius.M).Pad(Space.S, Space.M)
+            var line = new StockBox("10", "30", 200, 32).Rect(new StockBox("10", "r70", 500, 200).Rect(StockRect.Screen));
+            using (ui.Box().AtRes(UiAnchor.BottomLeft, line.Left * StockRes.Scale, line.Bottom * StockRes.Scale)
+                           .Size(Size.Du(line.Wide * StockRes.Scale), Size.Du(line.Tall * StockRes.Scale))
+                           .Fill(Tone.Surface).Border(Tone.Line, 1).Round(Radius.M)
                            .Layered().Key("disguise corner"))
                 ui.Sub("disguise", disguise);
         }

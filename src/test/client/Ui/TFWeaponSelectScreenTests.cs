@@ -140,6 +140,24 @@ public sealed class TFWeaponSelectScreenTests
     }
 
     [Fact]
+    public void The_card_draws_the_items_image_and_the_sprite_only_without_it()
+    {
+        // Stock's panel is set to the item, whose picture is the schema's
+        // own art; the card that carries it asks for it and not for the
+        // script's sprite — the sprite only where no item image binds.
+        var art = new ArtLibrary();
+        var select = Open();
+        select.Slots[1] = select.Slots[1] with { ItemImage = "backpack/weapons/w_models/w_sapper" };
+        _ = Painted(select, art);
+        Assert.Contains("backpack/weapons/w_models/w_sapper", art.Asked);
+        Assert.DoesNotContain("sprites/bucket_shotgun", art.Asked);
+
+        var plain = new ArtLibrary();
+        _ = Painted(Open(), plain);
+        Assert.Contains("sprites/bucket_shotgun", plain.Asked);
+    }
+
+    [Fact]
     public void The_screen_takes_the_core_huds_selection()
     {
         var screen = PreviewRun.AllSamples().First(s => s.Group == "tfweaponselect").Create();
@@ -239,4 +257,27 @@ public sealed class TFWeaponSelectScreenTests
     }
 
     private static FakeWeaponSelect Open() => new() { SelectedSlot = 1 };
+
+    /// <summary>Binds every name to one handle of the stated size, and
+    /// records each ask — the item art's own instrument.</summary>
+    private sealed class ArtLibrary : IUiTextureLibrary
+    {
+        public readonly List<string> Asked = [];
+
+        public int Find(string name)
+        {
+            Asked.Add(name);
+            return 0x51;
+        }
+
+        public int Material(string name) => 0;
+
+        public UiTextureInfo? About(string name)
+        {
+            Asked.Add(name);
+            return new UiTextureInfo(0x51, 256, 128, "");
+        }
+
+        public UiTextureIcon? Icon(string name) => null;
+    }
 }

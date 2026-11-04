@@ -67,6 +67,7 @@ public sealed class ItemDefinition
         Name = keys.GetString("name", null) ?? string.Empty;
         ItemClass = keys.GetString("item_class", null);
         ItemName = keys.GetString("item_name", "") ?? string.Empty;
+        InventoryImage = keys.GetString("image_inventory", null) ?? string.Empty;
         Enabled = keys.GetBool("enabled");
         BaseItem = keys.GetInt("baseitem", 0) != 0;
         Hidden = keys.GetInt("hidden", 0) != 0;
@@ -135,6 +136,11 @@ public sealed class ItemDefinition
 
     /// <summary><c>item_name</c>: the localisation token.</summary>
     public string ItemName { get; }
+
+    /// <summary><c>image_inventory</c>: the backpack art the item panels
+    /// draw (<c>CEconItemView::GetInventoryImage</c>'s static), empty when
+    /// the item names none.</summary>
+    public string InventoryImage { get; }
 
     public bool Enabled { get; }
 

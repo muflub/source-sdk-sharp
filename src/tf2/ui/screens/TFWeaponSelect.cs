@@ -26,8 +26,9 @@ namespace TF2.Client.Ui;
 /// the XRES margins, :758-793) in SelectionNumberFg, both at the hud's
 /// Alpha 220; and the selected card's weapon that cannot fire names it in
 /// red at <c>ErrorYPos</c> (:745-752, <c>#TF_OUT_OF_AMMO</c>). The card's
-/// picture is the weapon script's own art (<c>GetSpriteInactive</c>, or
-/// <c>GetSpriteActive</c> on BLU) fitted whole into the box.
+/// picture is the weapon item's own inventory image
+/// (<c>image_inventory</c>); the script's art (<c>GetSpriteInactive</c>, or
+/// <c>GetSpriteActive</c> on BLU) stands in where the item names none.
 ///
 /// <para>
 /// The hud element stands down for the scoreboard's locked group, as every
@@ -143,29 +144,16 @@ public sealed class TFWeaponSelect(ITFWeaponSelect select, IUiTextureLibrary tex
         _ = StockArt.Scalable(ref ui, textures, "select border", border, left, bottom,
             wide * u, tall * u, BorderCorner * u, BorderDraw * u, slot * 100 + 10);
 
-        // The card's weapon: the script's art fitted whole, the label at the
-        // bottom, the number top right, the note on a weapon that cannot fire.
+        // The card's picture, the item panel's: the weapon item's own
+        // inventory image (SetItem; the panel's LoadInventoryImage,
+        // item_model_panel.cpp:618-628) fitted whole — the ratio kept,
+        // centred, as the panel's fit-to-height is (:792-799). The script's
+        // sprite, its sub-rect the ratio keeps, stands in when the item
+        // names no image or it binds nothing.
         var weapon = select.WeaponInSlot(slot);
-        if (weapon.IconFile.Length > 0)
-        {
-            // The sub-rect, normalised against the file's own size; the size
-            // the ratio keeps, centred in the card (the whole picture, no
-            // edge cropped).
-            float drawWide = (wide - 4f) * u, drawTall = (tall - 4f) * u;
-            float leftEdge = left + 2f * u, bottomEdge = bottom + 2f * u;
-            if (textures.About(weapon.IconFile) is { } info && info.Wide > 0 && info.Tall > 0)
-            {
-                float u0 = weapon.IconX / info.Wide, v0 = weapon.IconY / info.Tall;
-                float uw = (float)weapon.IconWide / info.Wide, vh = (float)weapon.IconTall / info.Tall;
-                float fit = MathF.Min(drawWide / (weapon.IconWide * u), drawTall / (weapon.IconTall * u));
-                float iconWide = weapon.IconWide * fit * u, iconTall = weapon.IconTall * fit * u;
-                _ = StockArt.Draw(ref ui, textures, "", weapon.IconFile,
-                    leftEdge + (drawWide - iconWide) / 2f,
-                    bottomEdge + (drawTall - iconTall) / 2f,
-                    iconWide, iconTall,
-                    uv: new UiRect(u0, v0, uw, vh), keyNumber: slot * 100 + 9);
-            }
-        }
+        if (!CardArt(ref ui, textures, weapon.ItemImage, 0, 0, 0, 0, wide, tall, left, bottom, u, slot * 100 + 9))
+            _ = CardArt(ref ui, textures, weapon.IconFile, weapon.IconX, weapon.IconY,
+                weapon.IconWide, weapon.IconTall, wide, tall, left, bottom, u, slot * 100 + 9);
 
         if (weapon.Name.Length > 0)
         {
@@ -216,6 +204,33 @@ public sealed class TFWeaponSelect(ITFWeaponSelect select, IUiTextureLibrary tex
                 .AtRes(UiAnchor.BottomLeft, left, (Tall - y - 48f - 12f) * u)
                 .Key(slot * 100 + 3);
         }
+    }
+
+    // One card picture: the named texture's <paramref name="src"/> rect —
+    // the whole texture where the rect is zero — fitted into the card's
+    // inner box, the ratio kept and centred; false when the name is empty,
+    // the rect empty or the texture binds nothing (the caller's next art
+    // stands).
+    private static bool CardArt(ref UiFrame ui, IUiTextureLibrary textures, string file,
+                                int srcX, int srcY, int srcWide, int srcTall,
+                                float wide, float tall, float left, float bottom, float u, int key)
+    {
+        if (file.Length == 0 || textures.About(file) is not { } info || info.Wide <= 0 || info.Tall <= 0)
+            return false;
+        int sx = srcWide > 0 ? srcX : 0, sy = srcTall > 0 ? srcY : 0;
+        int sw = srcWide > 0 ? srcWide : info.Wide, sh = srcTall > 0 ? srcTall : info.Tall;
+
+        float drawWide = (wide - 4f) * u, drawTall = (tall - 4f) * u;
+        float leftEdge = left + 2f * u, bottomEdge = bottom + 2f * u;
+        float u0 = sx / info.Wide, v0 = sy / info.Tall;
+        float uw = (float)sw / info.Wide, vh = (float)sh / info.Tall;
+        float fit = MathF.Min(drawWide / (sw * u), drawTall / (sh * u));
+        float artWide = sw * fit * u, artTall = sh * fit * u;
+        return StockArt.Draw(ref ui, textures, "", file,
+            leftEdge + (drawWide - artWide) / 2f,
+            bottomEdge + (drawTall - artTall) / 2f,
+            artWide, artTall,
+            uv: new UiRect(u0, v0, uw, vh), keyNumber: key);
     }
 
     // The label's tier, the panel's fit chain against the card's width in
