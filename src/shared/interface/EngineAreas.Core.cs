@@ -27,6 +27,13 @@ public interface IConVarFlagReader
     int FindConVarFlags(string name);
 }
 
+/// <summary>The console's watch on a variable the engine holds, for <c>[EngineConVar]</c>.</summary>
+public interface IConVarWatcher
+{
+    /// <summary>The id its changes will arrive under, or -1 when none can.</summary>
+    int WatchConVar(string name);
+}
+
 /// <summary>
 /// The console: what is printed to it, and the variables and commands it holds.
 ///

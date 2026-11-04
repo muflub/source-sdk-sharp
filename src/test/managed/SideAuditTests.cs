@@ -544,6 +544,7 @@ public class SideAuditTests
         // engine-owned name, so both read the flags.
         "FindConVarFlags",
         "CompleteCommandLine",
+        "WatchNamedConVar",
     };
 
     private static readonly HashSet<string> DualWired = new(StringComparer.Ordinal)

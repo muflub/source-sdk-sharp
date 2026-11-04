@@ -375,8 +375,7 @@ void CSourceSharpClientMode::PostRender()
 
 float CSourceSharpClientMode::GetViewModelFOV()
 {
-	ConVarRef viewmodelFov("viewmodel_fov", true);
-	return viewmodelFov.IsValid() ? viewmodelFov.GetFloat() : 54.0f;
+	return m_ViewModelFov.IsValid() ? m_ViewModelFov.GetFloat() : 54.0f;
 }
 
 bool CSourceSharpClientMode::CanRecordDemo(char* errorMsg, int length) const

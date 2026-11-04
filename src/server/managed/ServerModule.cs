@@ -2535,6 +2535,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public void LevelInit(string mapName)
     {
+        _convars.RefreshHeldByEngine();
         _currentMap = BareMapName(mapName);
         _levelInfo.Map = _currentMap;
         _levelInfo.IsReady = false;

@@ -173,6 +173,8 @@ public:
 	void ViewOverrideSet(int32_t nActive, const float* pOriginXYZ, const float* pAngles, int32_t nSetViewAngles);
 
 private:
+	CManagedConVarRef m_ViewModelFov{"viewmodel_fov"};
+
 	void ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CViewSetup* pSetup);
 	void ApplyManagedShake(Vector& origin, QAngle& angles);
 	void ApplyManagedViewModelBob(Vector& origin, QAngle& angles);

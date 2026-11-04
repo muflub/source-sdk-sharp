@@ -348,7 +348,6 @@ void CShimConsole::OnConVarChanged(IConVar* pVar, const char* pOldValue, float f
 		nId = pConVar->GetId();
 		pNewValue = pConVar->GetVar()->GetString();
 	}
-#ifdef CLIENT_DLL
 	else
 	{
 		// A watched engine or native convar, forwarded under the watch's id.
@@ -356,7 +355,6 @@ void CShimConsole::OnConVarChanged(IConVar* pVar, const char* pOldValue, float f
 		ConVar* pWatched = (nId >= 0 && Cvar()) ? Cvar()->FindVar(pName) : NULL;
 		pNewValue = pWatched ? pWatched->GetString() : "";
 	}
-#endif
 
 	if (nId < 0)
 		return;
@@ -379,20 +377,27 @@ void CShimConsole::EnsureChangeCallback()
 		Msg("[SourceSharp] convar change callback installed (global, matched by name)\n");
 }
 
-#ifdef CLIENT_DLL
 int32_t CShimConsole::WatchConVar(const char* pName)
 {
 	if (!pName || !pName[0] || !Cvar() || !Cvar()->FindVar(pName))
+		return -1;
+
+	return WatchNamedConVar(pName);
+}
+
+int32_t CShimConsole::WatchNamedConVar(const char* pName)
+{
+	if (!pName || !pName[0])
 		return -1;
 
 	const int32_t nId = WatchedConVarId(pName);
 	if (nId >= 0)
 		return nId;
 
-	if (m_nWatched >= kMaxWatched || V_strlen(pName) >= kWatchedNameBytes)
+	if (m_nWatched >= kMaxWatched || (int)strlen(pName) >= kWatchedNameBytes)
 		return -1;
 
-	V_strncpy(m_szWatched[m_nWatched], pName, kWatchedNameBytes);
+	ss::StrCopy(m_szWatched[m_nWatched], pName, kWatchedNameBytes);
 	EnsureChangeCallback();
 	return SOURCESHARP_CONVAR_WATCH_ID_BASE + m_nWatched++;
 }
@@ -403,12 +408,11 @@ int32_t CShimConsole::WatchedConVarId(const char* pName) const
 		return -1;
 	for (int i = 0; i < m_nWatched; i++)
 	{
-		if (!V_stricmp(m_szWatched[i], pName))
+		if (!ss::StrICmp(m_szWatched[i], pName))
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 	return -1;
 }
-#endif
 
 // A re-registered name rebinds to the surviving object: tier1 refuses a duplicate,
 // and a new object would reset the operator's value to its default.

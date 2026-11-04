@@ -39,4 +39,8 @@ public:
 	// How the console line pLine can go on, as whole lines: the count, with newline-separated
 	// lines in pOut. Stock's completion callback of the command the line starts with.
 	virtual int32_t CompleteCommandLine(const char* pLine, char* pOut, int32_t nOutSize) = 0;
+
+	// As WatchConVar, for a name the engine may not hold yet (another DLL's, loaded later):
+	// the id it will be forwarded under, or -1 when the table is full.
+	virtual int32_t WatchNamedConVar(const char* pName) = 0;
 };

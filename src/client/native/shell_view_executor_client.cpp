@@ -543,8 +543,7 @@ private:
 void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
 						   bool bShadowDepth, float* pReflectionWaterHeight, float flOpacityFactor)
 {
-	ConVarRef r_worldlistcache("r_worldlistcache");
-	const bool bCache = bUseCache && r_worldlistcache.GetBool();
+	const bool bCache = bUseCache && m_ViewRender.WorldListCacheOn();
 	bool bFound = false;
 	if (bCache)
 	{
@@ -732,6 +731,23 @@ struct ViewSceneBuffer_t;
 // The executor: every function below that reads the frame's state is its method. One
 // object, made by the client DLL object's CViewExecutor on the first frame, and handed what
 // it calls.
+// A table of convar names, each found once and held: ICvar walks its whole list to find a
+// name, which read per view was 8% of the main thread.
+class CHeldConVars
+{
+public:
+	CHeldConVars(const char* const* ppszNames, int nNames)
+	{
+		for (int i = 0; i < nNames; ++i)
+			m_Refs.AddToTail(CManagedConVarRef(ppszNames[i]));
+	}
+
+	float GetFloat(int i) const { return m_Refs[i].GetFloat(); }
+
+private:
+	CUtlVector<CManagedConVarRef> m_Refs;
+};
+
 class CViewExecutorImpl
 {
 public:
@@ -828,6 +844,19 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	CHeldConVars m_RenderCvars{kRenderCvars, kRenderCvarCount};
+	CHeldConVars m_PostCvars{kPostCvars, kPostCvarCount};
+	CManagedConVarRef m_FogColor{"fog_color"};
+	CManagedConVarRef m_FogColorSkybox{"fog_colorskybox"};
+	CManagedConVarRef m_FarZ{"r_farz"};
+	CManagedConVarRef m_MapExtents{"r_mapextents"};
+	CManagedConVarRef m_DefaultFov{"default_fov"};
+	CManagedConVarRef m_RestrictAspectFov{"sv_restrict_aspect_ratio_fov"};
+	CManagedConVarRef m_ViewportScale{"mat_viewportscale"};
+	CManagedConVarRef m_GlClear{"gl_clear"};
+	CManagedConVarRef m_GlClearRandomColor{"gl_clear_randomcolor"};
+	CManagedConVarRef m_LevelOverview{"cl_leveloverview"};
+
 	CClientSystems& m_Systems;
 	CViewerFacts& m_ViewerFacts;
 	CStandaloneClients& m_Standalone;
@@ -1155,13 +1184,9 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	in.FlashlightOn = m_ViewerFacts.ViewerEffectActive(EF_DIMLIGHT) ? 1 : 0;
 
 	for (int i = 0; i < kRenderCvarCount; ++i)
-	{
-		ConVarRef var(kRenderCvars[i], true);
-		in.Cvars[i] = var.IsValid() ? var.GetFloat() : 0.0f;
-	}
-	ConVarRef fogColor("fog_color", true), fogColorSkybox("fog_colorskybox", true);
-	ParseColor(fogColor.IsValid() ? fogColor.GetString() : NULL, &in.Cvars[kRenderCvarFogColor]);
-	ParseColor(fogColorSkybox.IsValid() ? fogColorSkybox.GetString() : NULL, &in.Cvars[kRenderCvarFogColorSkybox]);
+		in.Cvars[i] = m_RenderCvars.GetFloat(i);
+	ParseColor(m_FogColor.IsValid() ? m_FogColor.GetString() : NULL, &in.Cvars[kRenderCvarFogColor]);
+	ParseColor(m_FogColorSkybox.IsValid() ? m_FogColorSkybox.GetString() : NULL, &in.Cvars[kRenderCvarFogColorSkybox]);
 }
 
 // A struct as recorded lines of hex bytes, so managed code reads back exactly
@@ -2455,10 +2480,7 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 		state.m_nPostReadbackMask = 0;
 
 	for (int i = 0; i < kPostCvarCount && i < (int)ARRAYSIZE(in.Cvars); ++i)
-	{
-		ConVarRef var(kPostCvars[i], true);
-		in.Cvars[i] = var.IsValid() ? var.GetFloat() : 0.0f;
-	}
+		in.Cvars[i] = m_PostCvars.GetFloat(i);
 
 	const int nOps = pManaged->RenderPostProgram(&in, state.m_PostOps, (int32_t)ARRAYSIZE(state.m_PostOps));
 	if (nOps < 0)
@@ -2929,20 +2951,14 @@ bool CViewExecutorImpl::FrameViewDecision(CViewSetup& eye, int& nClearFlags, int
 	return true;
 }
 
-float CvarFloat(const char* pszName)
-{
-	ConVarRef var(pszName, true);
-	return var.IsValid() ? var.GetFloat() : 0.0f;
-}
-
 // SetUpViews' inputs before the override (view.cpp).
 void CViewExecutorImpl::GatherViewSetUp(SourceSharpViewSetUpIn_t& in)
 {
-	in.FarZ = CvarFloat("r_farz");
-	in.MapExtents = CvarFloat("r_mapextents");
+	in.FarZ = m_FarZ.GetFloat();
+	in.MapExtents = m_MapExtents.GetFloat();
 	const fogparams_t* pFog = m_ViewerFacts.ViewerFogParams();
 	in.FogFarZ = pFog ? pFog->farz : 0.0f;
-	in.DefaultFov = CvarFloat("default_fov");
+	in.DefaultFov = m_DefaultFov.GetFloat();
 	in.ViewModelFov = m_ClientMode.GetViewModelFOV();
 }
 
@@ -2954,10 +2970,10 @@ void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, 
 	in.ScreenAspect = m_Engines.m_pEngine->GetScreenAspectRatio();
 	in.Windowed = m_Engines.m_pEngine->IsWindowedMode() ? 1 : 0;
 	in.MaxClients = m_Engines.m_pGlobals->maxClients;
-	in.RestrictAspectFov = (int32_t)CvarFloat("sv_restrict_aspect_ratio_fov");
-	in.ViewportScale = CvarFloat("mat_viewportscale");
-	in.GlClear = CvarFloat("gl_clear") != 0.0f ? 1 : 0;
-	in.GlClearRandomColor = CvarFloat("gl_clear_randomcolor") != 0.0f ? 1 : 0;
+	in.RestrictAspectFov = (int32_t)m_RestrictAspectFov.GetFloat();
+	in.ViewportScale = m_ViewportScale.GetFloat();
+	in.GlClear = m_GlClear.GetFloat() != 0.0f ? 1 : 0;
+	in.GlClearRandomColor = m_GlClearRandomColor.GetFloat() != 0.0f ? 1 : 0;
 	in.ClearColorForAntialiasing = 0;
 	if (IsPosix())
 	{
@@ -2967,7 +2983,7 @@ void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, 
 			in.ClearColorForAntialiasing = 1;
 	}
 	in.ClientModeDrawViewModel = m_ClientMode.ShouldDrawViewModel() ? 1 : 0;
-	in.LevelOverview = CvarFloat("cl_leveloverview");
+	in.LevelOverview = m_LevelOverview.GetFloat();
 	int x = rect.x, y = rect.y, w = rect.width, h = rect.height;
 	m_ClientMode.AdjustEngineViewport(x, y, w, h);
 	in.ViewportX = x;

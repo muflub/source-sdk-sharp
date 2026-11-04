@@ -14,6 +14,7 @@ ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	CShimConsole::ConsoleSnaps
 ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	CShimConsole::ConsoleSnapshotEntry	int, ConsoleEntry*, int	
 FindConVarFlags	EngineApi	IShimConsole	shared		both	-	CShimConsole::FindConVarFlags	byte*, int	
 CompleteCommandLine	EngineApi	IShimConsole	shared		both	-	CShimConsole::CompleteCommandLine	byte*, byte*, int, int	
+WatchNamedConVar	EngineApi	IShimConsole	shared		both	-	CShimConsole::WatchNamedConVar	byte*, int	
 SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::SendClientCommand	uint, byte*, void	
 GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::GetCommandClientHandle	uint	
 ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	CGameEvents::ListenForGameEvent	byte*, void	

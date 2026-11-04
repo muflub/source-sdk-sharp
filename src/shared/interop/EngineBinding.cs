@@ -29,7 +29,7 @@ using System.Reflection;
 namespace SourceSharp.Abi;
 
 /// <summary>The real engine, for <see cref="IEngineConsole"/>. Every member is one call.</summary>
-internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlagReader
+internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlagReader, IConVarWatcher
 {
     // plan_engineapi_vtables B2, plan_abi_hotreload D8: the side this binding
     // answers for, always. Every container that builds one passes it: a side's
@@ -75,6 +75,13 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
     }
 
     private const int ConsoleSuggestionBytes = 8192;
+
+    public int WatchConVar(string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* pName = nameBytes)
+            return _consoleArea.WatchNamedConVar(pName);
+    }
 
     /// <summary>
     /// The flags of the variable the engine holds under <paramref name="name"/>,

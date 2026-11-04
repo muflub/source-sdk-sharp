@@ -7,9 +7,6 @@
 // The managed client's convar watch and decided values.
 #pragma once
 
-// Watched convars' ids start here, clear of the managed registry's own ids.
-#define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000
-
 #include "ishim_areas_client.h"
 #include "managed_convar_ref.h"
 #include "tier1/convar.h"

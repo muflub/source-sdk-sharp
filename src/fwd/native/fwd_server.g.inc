@@ -1275,7 +1275,7 @@ static void *const s_GameEventManagerSlots[] = {
 static const SSForwarderTable s_GameEventManagerTable = { s_GameEventManagerSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimConsole: 13 forwarder(s) over IShimConsole.
+// ShimConsole: 14 forwarder(s) over IShimConsole.
 //-----------------------------------------------------------------------------
 // void IShimConsole::Msg( const char * )
 static void SSFwd_ShimConsole_Msg( IShimConsole *self, const char * a0 ) { self->Msg( a0 ); }
@@ -1303,6 +1303,8 @@ static int32_t SSFwd_ShimConsole_ConsoleSnapshotEntry( IShimConsole *self, int32
 static int32_t SSFwd_ShimConsole_FindConVarFlags( IShimConsole *self, const char * a0 ) { return self->FindConVarFlags( a0 ); }
 // int32_t IShimConsole::CompleteCommandLine( const char *, char *, int32_t )
 static int32_t SSFwd_ShimConsole_CompleteCommandLine( IShimConsole *self, const char * a0, char * a1, int32_t a2 ) { return self->CompleteCommandLine( a0, a1, a2 ); }
+// int32_t IShimConsole::WatchNamedConVar( const char * )
+static int32_t SSFwd_ShimConsole_WatchNamedConVar( IShimConsole *self, const char * a0 ) { return self->WatchNamedConVar( a0 ); }
 
 static void *const s_ShimConsoleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_Msg ),
@@ -1318,9 +1320,10 @@ static void *const s_ShimConsoleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_ConsoleSnapshotEntry ),
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_FindConVarFlags ),
 	reinterpret_cast< void * >( &SSFwd_ShimConsole_CompleteCommandLine ),
+	reinterpret_cast< void * >( &SSFwd_ShimConsole_WatchNamedConVar ),
 };
 
-static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 13 };
+static const SSForwarderTable s_ShimConsoleTable = { s_ShimConsoleSlots, 14 };
 
 //-----------------------------------------------------------------------------
 // ShimEngine: 1 forwarder(s) over IShimEngine.

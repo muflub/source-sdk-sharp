@@ -2753,6 +2753,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public void LevelInit(string mapName)
     {
+        _convars.RefreshHeldByEngine();
         Log.Msg($"[SourceSharp/Client] level init: {mapName}\n");
         // ResetToneMapping's managed half (shell_clientdll's LevelInitPreEntity
         // resets the engine's scale): the tonemap average starts over.

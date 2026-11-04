@@ -79,6 +79,7 @@ internal sealed unsafe class DefaultConsoleArea : IConsoleArea
     public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) => default;
     public int FindConVarFlags(byte* a0) => -1;
     public int CompleteCommandLine(byte* a0, byte* a1, int a2) => default;
+    public int WatchNamedConVar(byte* a0) => default;
 }
 
 /// <summary><see cref="IConsoleServerArea"/> for a test with no engine: every call answers its default.</summary>
