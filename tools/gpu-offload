@@ -10,6 +10,10 @@
 # WHY, AND THE SYMPTOM THAT MATTERS
 #-----------------------------------------------------------------------------
 #
+# (Under the Wayland session the AMD card also works, for a run that needs a GPU no peer is
+# loading: __NV_PRIME_RENDER_OFFLOAD=0 __GLX_VENDOR_LIBRARY_NAME=mesa
+# VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/radeon_icd.json DXVK_FILTER_DEVICE_NAME=AMD.)
+#
 # This machine has two GPUs and the desktop runs off the NVIDIA one. Without
 # PRIME render offload, DXVK enumerates and picks the OTHER card, then cannot
 # build a swapchain that the NVIDIA-driven display can present, and the process

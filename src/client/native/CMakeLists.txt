@@ -183,6 +183,11 @@ if(SS_PLATFORM STREQUAL windows)
   target_compile_options(client_sourcesharp PRIVATE
     "/FI${PROJECT_SOURCE_DIR}/cmake/compat/windows/ss_memalloc_windows.h")
 endif()
+target_compile_options(client_sourcesharp PRIVATE $<IF:$<BOOL:${SS_IS_MSVC}>,/GR-,-fno-rtti>)
+# Every engine module's ConVar_PrintDescription does dynamic_cast<ConVar_ServerBounded*> on the
+# convar it describes (help, find), so the convars' vtables carry type info.
+set_source_files_properties(${SHARED}/convar_port.cpp ${LOCAL}/shell_convars_client.cpp ${LOCAL}/shell_convars_client.h
+                            PROPERTIES COMPILE_OPTIONS $<IF:$<BOOL:${SS_IS_MSVC}>,/GR,-frtti>)
 
 ss_vendor_includes(client_vendor_includes client common game/client game/client/game_controls game/shared public
     public/tier0 public/tier1 thirdparty/sixensesdk/include vgui2/controls vgui2/include)

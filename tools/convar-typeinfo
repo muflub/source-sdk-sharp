@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""Every convar class server.so and client.so define keeps its type info.
+
+    tools/convar-typeinfo [--config debug|release]
+    tools/convar-typeinfo --self-test
+
+Both DLLs build without RTTI, but every engine module's ConVar_PrintDescription
+does dynamic_cast<ConVar_ServerBounded*> on the convar it describes. Its vtable
+with no type info segfaults `help <name>` and `find`, so this reads the slot
+before each convar vtable's address point from the built binary.
+"""
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+REQUIRED = {
+    "server": ["ConVar"],
+    "client": ["ConVar", "CManagedBoundedConVar", "CSoftwareCursorConVar"],
+}
+# Abstract: never the type of a finished object. An unoptimised build keeps their vtables.
+ABSTRACT = {"IConVar", "ConVar_ServerBounded"}
+CONVAR_VTABLE = re.compile(r"^([0-9a-f]+) \S (vtable for .*(?:ConVar|Cvar).*)$")
+
+
+def convar_vtables(nm_text):
+    """{class name: vtable address} of the convar classes in `nm -C` output."""
+    found = {}
+    for line in nm_text.splitlines():
+        match = CONVAR_VTABLE.match(line)
+        if match and "Shim" not in match.group(2) and "CConVarsClient" not in match.group(2):
+            found[match.group(2)[len("vtable for "):]] = int(match.group(1), 16)
+    return found
+
+
+def relocated_slots(readelf_text):
+    """The addresses `readelf -r` says the loader fills in."""
+    slots = set()
+    for line in readelf_text.splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and fields[2].startswith("R_X86_64_"):
+            try:
+                slots.add(int(fields[0], 16))
+            except ValueError:
+                pass
+    return slots
+
+
+def findings(module, vtables, slots):
+    """A vtable's second word is its type info: no relocation there means null."""
+    problems = [f"{module}: no vtable for {name} (not a convar class any more? update REQUIRED)"
+                for name in REQUIRED[module] if name not in vtables]
+    problems += [f"{module}: {name} has no type info"
+                 for name, address in sorted(vtables.items())
+                 if name not in ABSTRACT and address + 8 not in slots]
+    return problems
+
+
+def run(*command):
+    return subprocess.run(command, check=True, capture_output=True, text=True).stdout
+
+
+def check(config):
+    problems = []
+    for module in REQUIRED:
+        binary = ROOT / "bin" / config / "bin" / "linux64" / f"{module}.so"
+        symbols = binary.with_name(binary.name + ".dbg")
+        if not symbols.exists():
+            symbols = binary
+        if not binary.exists():
+            problems.append(f"{binary} is missing")
+            continue
+        vtables = convar_vtables(run("nm", "-C", str(symbols)))
+        slots = relocated_slots(run("readelf", "-rW", str(binary)))
+        problems += findings(module, vtables, slots)
+        print(f"{module}: {len(vtables)} convar vtable(s) read")
+    return problems
+
+
+def self_test():
+    nm_text = ("0000000000001000 b vtable for ConVar\n"
+               "0000000000002000 b vtable for CManagedBoundedConVar\n"
+               "0000000000003000 b vtable for CSoftwareCursorConVar\n"
+               "0000000000004000 b vtable for CConVarsClient\n")
+    vtables = convar_vtables(nm_text)
+    assert sorted(vtables) == ["CManagedBoundedConVar", "CSoftwareCursorConVar", "ConVar"]
+    readelf = ("0000000000001008  0000000000000008 R_X86_64_RELATIVE  9000\n"
+               "0000000000002008  0000000000000008 R_X86_64_RELATIVE  9000\n"
+               "0000000000003008  0000000000000008 R_X86_64_RELATIVE  9000\n"
+               "Relocation section '.rela.plt'\n")
+    slots = relocated_slots(readelf)
+    assert findings("client", vtables, slots) == []
+    assert findings("client", vtables, slots - {0x3008}) == ["client: CSoftwareCursorConVar has no type info"]
+    assert findings("client", {**vtables, "IConVar": 0x5000}, slots) == []
+    assert findings("server", {}, slots) == ["server: no vtable for ConVar (not a convar class any more? update REQUIRED)"]
+    print("self-test ok")
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="debug")
+    parser.add_argument("--self-test", action="store_true")
+    args = parser.parse_args()
+    if args.self_test:
+        return self_test()
+    problems = check(args.config)
+    for problem in problems:
+        print(problem)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

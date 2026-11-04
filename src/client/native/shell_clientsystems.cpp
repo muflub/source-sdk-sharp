@@ -129,6 +129,12 @@ bool CClientSystems::Init()
 
 	for (int i = 0; i < m_nRows; i++)
 	{
+		if (m_Rows[i].m_pSystem->IsPerFrame())
+			m_PerFrame[m_nPerFrame++] = static_cast<CClientSystemPerFrame*>(m_Rows[i].m_pSystem);
+	}
+
+	for (int i = 0; i < m_nRows; i++)
+	{
 		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 
 		if (!m_Rows[i].m_pSystem->Init())
@@ -165,18 +171,14 @@ void CClientSystems::WalkBackward(Stage_t fn)
 	}
 }
 
-// The per-frame walk: the same rows, filtered by dynamic_cast to the ones with
-// a per-frame half, as stock's second list was.
+// The per-frame walk: the rows with a per-frame half, stock's second list.
 void CClientSystems::WalkForwardPerFrame(FrameStage_t fn)
 {
-	for (int i = 0; i < m_nRows; i++)
+	for (int i = 0; i < m_nPerFrame; i++)
 	{
-		CClientSystemPerFrame* pSys = dynamic_cast<CClientSystemPerFrame*>(m_Rows[i].m_pSystem);
-
-		if (pSys == NULL)
-			continue;
-
 		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
+
+		CClientSystemPerFrame* pSys = m_PerFrame[i];
 		(pSys->*fn)();
 	}
 }
@@ -219,14 +221,10 @@ void CClientSystems::PreRender()
 // Update takes an argument, so it does not go through WalkForwardPerFrame.
 void CClientSystems::Update(float frametime)
 {
-	for (int i = 0; i < m_nRows; i++)
+	for (int i = 0; i < m_nPerFrame; i++)
 	{
-		CClientSystemPerFrame* pSys = dynamic_cast<CClientSystemPerFrame*>(m_Rows[i].m_pSystem);
-
-		if (pSys == NULL)
-			continue;
-
 		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
-		pSys->Update(frametime);
+
+		m_PerFrame[i]->Update(frametime);
 	}
 }

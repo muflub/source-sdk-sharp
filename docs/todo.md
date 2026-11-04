@@ -1325,3 +1325,12 @@ and where its record lives now.
 - The weapon cards draw the script's sprite; stock draws the item's image (deferred row 123). The sapper's card is empty for it.
 - F38's quality prefix reaches the loadout screens, not yet the scoreboard or target ID.
 - The minigun's flash and brass (held on archive/tf2-minigunfx, ed9a3a6b3): `muzzle_minigun_constant` reports 62 live particles and draws nothing, the pyro flame's symptom. Retest on top of the flame's control points.
+
+## Performance: what the 2026-11-03 pass left (release, AMD, five bots fighting)
+
+- `FlowField::Build` runs on the main thread: 2 ms in a frame that rebuilds, 0.5 ms on average over frames past 20 ms. `ai-worker` threads exist; a rebuild could go to one.
+- `NavFollower::ReportStuck` costs 0.3 ms on average over those frames.
+- JIT on first use: 4.5 ms in the worst frame seen. `GameLoadContext` is collectible, so game code gets no tiering or profile-guided optimisation; it is fully optimised at first JIT. Non-collectible contexts or ReadyToRun would change this, and were not tried.
+- `UserCmdCodec.Md5PseudoRandom` goes through OpenSSL for 16 bytes: 0.04 ms per frame.
+- `PulseHotplug` and `PulseMainloop` showed 12% and 9% of a core in one run with no other games running, against under 2% in another. Not looked into.
+- Input latency was not measured. Worth trying under a loaded GPU: `mat_queue_mode 0`, and `d3d9.maxFrameLatency=1` in a DXVK config.

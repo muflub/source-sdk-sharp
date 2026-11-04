@@ -277,10 +277,9 @@ private:
 // A client command that is not a registered ConCommand, handed to managed code.
 void StandalonePlayer_ClientCommand(CStandalonePlayer* pPlayer, const CCommand& args);
 
-// The shell to the player, checked in debug. Callers ask IsPlayer() first.
+// The shell to the player. Callers ask IsPlayer() first.
 inline CStandalonePlayer* SourceSharp_PlayerOf(CStandaloneEntity* pEnt)
 {
-	Assert(!pEnt || dynamic_cast<CStandalonePlayer*>(pEnt) != NULL);
 	return static_cast<CStandalonePlayer*>(pEnt);
 }
 

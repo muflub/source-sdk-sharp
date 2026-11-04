@@ -475,10 +475,9 @@ void StandaloneHierarchy_SetLocal(CStandaloneEntity* pChild, const Vector& vecOr
 // Tells the managed side that a shell native decided to free is going, before it goes.
 void SourceSharp_AnnounceStandaloneRemoved(CStandaloneEntity* pEntity);
 
-// CStandaloneEntity is final and the only IGameEntity in server.so; debug verifies it.
+// CStandaloneEntity is final and the only IGameEntity in server.so.
 inline CStandaloneEntity* SourceSharp_ShellOf(IGameEntity* pEnt)
 {
-	Assert(!pEnt || dynamic_cast<CStandaloneEntity*>(pEnt) != NULL);
 	return static_cast<CStandaloneEntity*>(pEnt);
 }
 
@@ -489,7 +488,6 @@ inline const CStandaloneEntity* SourceSharp_ShellOf(const IGameEntity* pEnt)
 
 inline CStandaloneEntity* SourceSharp_ShellOf(IServerNetworkable* pNet)
 {
-	Assert(!pNet || dynamic_cast<CStandaloneEntity*>(pNet) != NULL);
 	return static_cast<CStandaloneEntity*>(pNet);
 }
 

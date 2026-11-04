@@ -158,9 +158,10 @@ endif()
 if(SS_CONFIG STREQUAL "release" AND SS_PLATFORM STREQUAL linux AND SS_IS_CLANG AND SS_LINKER STREQUAL "lld")
   target_link_options(server_sourcesharp PRIVATE -Wl,--icf=safe)
 endif()
-if(SS_CONFIG STREQUAL "release")
-  target_compile_options(server_sourcesharp PRIVATE $<IF:$<BOOL:${SS_IS_MSVC}>,/GR-,-fno-rtti>)
-endif()
+target_compile_options(server_sourcesharp PRIVATE $<IF:$<BOOL:${SS_IS_MSVC}>,/GR-,-fno-rtti>)
+# Every engine module's ConVar_PrintDescription does dynamic_cast<ConVar_ServerBounded*> on the
+# convar it describes (help, find), so the convars' vtables carry type info.
+set_source_files_properties(${SHARED}/convar_port.cpp PROPERTIES COMPILE_OPTIONS $<IF:$<BOOL:${SS_IS_MSVC}>,/GR,-frtti>)
 if(NOT SS_IS_MSVC)
   target_compile_options(server_sourcesharp PRIVATE -Wunused-function -Wunused-variable)
 endif()

@@ -126,9 +126,3 @@ private:
 	CManagedConVarRef m_SvCheats{"sv_cheats"};
 	CShimConsole& m_Console;
 };
-
-inline float CManagedBoundedConVar::GetFloat() const
-{
-	float flDecided;
-	return m_Owner.DecidedValue(GetName(), &flDecided) ? flDecided : GetBaseFloatValue();
-}

@@ -77,6 +77,13 @@ float CConVarsClient::ClientInterpAmount() const
 	return DecidedValue("GetClientInterpAmount", &flDecided) ? flDecided : 0.1f;
 }
 
+// Out of line: the vtable's key function, so the one vtable is this file's, with type info.
+float CManagedBoundedConVar::GetFloat() const
+{
+	float flDecided;
+	return m_Owner.DecidedValue(GetName(), &flDecided) ? flDecided : GetBaseFloatValue();
+}
+
 CSoftwareCursorConVar::CSoftwareCursorConVar(const CClientEngineInterfaces& engines)
 	: ConVar("cl_software_cursor", "0", FCVAR_ARCHIVE,
 			 "Switches the game to use a larger software cursor instead of the normal OS cursor", Changed)
