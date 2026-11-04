@@ -111,7 +111,16 @@ internal sealed class ProjectileRig
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
                     Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers, preroundPush);
-        Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks, Temps, Engine, Engine);
+        // The registered defaults for the convars the sticky's arm and
+        // air-burst radius read, as the game would answer; a fact turns them.
+        // The blow's force scales are held off.
+        StickyVars = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>())).Holder<TFStickybombConVars>();
+        StickyVars.ForceFromBullet.Hold("0");
+        StickyVars.ForceFromBuckshot.Hold("0");
+        StickyVars.ForceFromBlast.Hold("0");
+        StickyVars.ForceToMove.Hold("0");
+        StickyVars.ForceSleepTime.Hold("0");
+        Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
         Engine.Returns("Players.GetHandle", Player);
@@ -151,15 +160,6 @@ internal sealed class ProjectileRig
         // The sphere query always answers its count; a fact's FillsSphere
         // decides what is IN it.
         Engine.Returns("WorldQuery.EntitiesInSphere", 0);
-        // The registered defaults (tf_gamerules.cpp:859-860) for the convars
-        // the sticky's air-burst radius reads, as the game would answer; a
-        // fact turns them. The blow's force scales are held off.
-        StickyVars = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>())).Holder<TFStickybombConVars>();
-        StickyVars.ForceFromBullet.Hold("0");
-        StickyVars.ForceFromBuckshot.Hold("0");
-        StickyVars.ForceFromBlast.Hold("0");
-        StickyVars.ForceToMove.Hold("0");
-        StickyVars.ForceSleepTime.Hold("0");
         // The blast's answered damage ask lands by default — the damage the
         // applier passed (>0) is the amount taken, so the push that gates on
         // it runs as it did before the gate existed. A fact that wants a
@@ -173,11 +173,12 @@ internal sealed class ProjectileRig
     /// double. The clock stands at 10 (the sleep-time gate reads it) and the
     /// toucher has no parent unless a fact names one.
     /// </summary>
-    public TFStickybomb Sticky()
+    public TFStickybomb Sticky(PostSimulationQueue? postSimulation = null)
     {
         Engine.Returns("Clock.Now", 10f)
               .Returns("Entities.GetParent", EntityHandle.None);
-        var sticky = new TFStickybomb(Engine, Blast, Engine, StickyVars, Engine, Engine, Directory, Engine);
+        var sticky = new TFStickybomb(Engine, Blast, Engine, StickyVars, Engine, Engine, Directory, Engine,
+                                      postSimulation);
         sticky.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says
         sticky.BindAreas(TestServices.Areas(Engine));
         return BindStates(sticky);
@@ -1048,6 +1049,131 @@ public class TFGrenadePhysicsFacts
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
         Assert.False(motion!.ArgAs<bool>(1));
+    }
+
+    /// <summary>
+    /// A solver collision record with a sideless, static other side — the
+    /// shape the router delivers a world contact in
+    /// (<see cref="PhysicsCollisionImpacts"/> names the world's side no entity):
+    /// a PostCollision whose flags say collision, the sticky's handle on
+    /// <paramref name="mySide"/>.
+    /// </summary>
+    private static PhysicsEvent WorldCollision(uint stickyHandle, int mySide)
+        => new()
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = mySide == 0 ? stickyHandle : PhysicsEvent.NoEntity,
+            Entity1 = mySide == 0 ? PhysicsEvent.NoEntity : stickyHandle,
+            Static0 = mySide == 0 ? 0 : 1,
+            Static1 = mySide == 0 ? 1 : 0,
+        };
+
+    [Fact]
+    public void AWorldCollisionEventSticksTheSticky()
+    {
+        // VPhysicsCollision (tf_weapon_grenade_pipebomb.cpp:928) is where the
+        // stick is decided, and the router delivers it to OnVPhysicsCollision —
+        // not to OnTouch, which the engine's touch dispatch raises for a
+        // trigger's pair and never for a vphysics contact. The floor of the
+        // live bug: every world arrival went unheard and the bomb rolled.
+        var rig = new ProjectileRig();
+        var sticky = rig.Sticky();
+        sticky.OnSpawn();
+        sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
+                        TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
+
+        var ev = WorldCollision(sticky.Handle.Value, mySide: 1);
+        sticky.OnVPhysicsCollision(in ev, 1);
+
+        var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
+        Assert.NotNull(motion);
+        Assert.False(motion!.ArgAs<bool>(1));
+    }
+
+    [Fact]
+    public void TheCollisionStickWaitsForTheStepToEnd()
+    {
+        // g_PostSimulationQueue.QueueCall( EnableMotion, false ) (:932): the
+        // record arrives inside the solver's callback, where stock never lets
+        // an entity act, so the pinning is queued for the step's end and the
+        // engine hears nothing until the queue runs.
+        var rig = new ProjectileRig();
+        var afterStep = new PostSimulationQueue();
+        var sticky = rig.Sticky(afterStep);
+        sticky.OnSpawn();
+
+        var ev = WorldCollision(sticky.Handle.Value, mySide: 0);
+        sticky.OnVPhysicsCollision(in ev, 0);
+        Assert.Equal(0, rig.Engine.CountOf("EntityPhysics.EnableMotion")); // still inside the step
+
+        afterStep.Run();
+
+        var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
+        Assert.NotNull(motion);
+        Assert.False(motion!.ArgAs<bool>(1));
+    }
+
+    [Fact]
+    public void AStaticSideWithNoNameIsTheWorldAndSticks()
+    {
+        // The world contact as the live floor delivers it: no entity on the
+        // other side and the static bit set — the world's own object's record,
+        // which stock's PhysCreateWorld made the world's.
+        var rig = new ProjectileRig();
+        var sticky = rig.Sticky();
+        sticky.OnSpawn();
+
+        var ev = WorldCollision(sticky.Handle.Value, mySide: 0);
+        sticky.OnVPhysicsCollision(in ev, 0);
+
+        var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
+        Assert.NotNull(motion);
+    }
+
+    [Fact]
+    public void ACollisionWithABrushThatIsNeitherWorldNorPropDoesNotStick()
+    {
+        // The window's bounce, live: a func_brush is a named entity that is
+        // neither the world nor a dynamic prop, so the contact only bounces
+        // (:928's gate) and the bomb flies on.
+        var rig = new ProjectileRig();
+        var sticky = rig.Sticky();
+        sticky.OnSpawn();
+        rig.Engine.Returns("Entities.GetIndex", 7);
+        rig.Engine.Returns("Entities.GetClassName", "func_brush");
+
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = sticky.Handle.Value,
+            Entity1 = 0x0002_0000u | 7,
+        };
+        sticky.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(0, rig.Engine.CountOf("EntityPhysics.EnableMotion"));
+    }
+
+    [Fact]
+    public void ASidelessMovingOtherIsNoContactToStick()
+    {
+        // Stock's !pHitEntity (:854-857): a sideless, moving object has no
+        // owner to name (PhysicsCollisionImpacts), and the record is no world.
+        var rig = new ProjectileRig();
+        var sticky = rig.Sticky();
+        sticky.OnSpawn();
+
+        var ev = new PhysicsEvent
+        {
+            KindRaw = (uint)PhysicsEventKind.PostCollision,
+            Flags = PhysicsEvent.FlagCollision,
+            Entity0 = sticky.Handle.Value,
+            Entity1 = PhysicsEvent.NoEntity,
+        };
+        sticky.OnVPhysicsCollision(in ev, 0);
+
+        Assert.Equal(0, rig.Engine.CountOf("EntityPhysics.EnableMotion"));
     }
 }
 
@@ -2081,5 +2207,117 @@ public class TFProjectileEffectsFacts
         Assert.Equal(0, rig.Tray.Count(3));
         // The commanding owner's sticky left the world.
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    [Fact]
+    public void AddMaxPipebombsRaisesTheLiveCap()
+    {
+        // FireProjectile keeps TF_WEAPON_PIPEBOMB_COUNT — the stock 8
+        // (tf_shareddefs.h:391) — through add_max_pipebombs
+        // (tf_weapon_pipebomblauncher.cpp:381-392): one added, the ninth
+        // sticky stays out instead of popping the oldest. Without the hook
+        // the cap clamps at 8 and this reads Failed: 1.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("add_max_pipebombs", AttributeDescriptionFormat.Additive, 1f);
+        rig.Directory.Instance = rig.Sticky();
+
+        for (var i = 0; i < 9; i++)
+            rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        Assert.Equal(9, rig.Tray.Count(3));
+    }
+
+    [Fact]
+    public void StickyArmTimeDelaysDetonation()
+    {
+        // GetLiveTime (tf_weapon_grenade_pipebomb.cpp:1186-1190): the hook's
+        // bonus lifts the arm past the bare convar, and the arm think books
+        // at the total (:1144) — the armed gate waits the full window. The
+        // launch stamps it; without the stamp the booking is the bare 1.0.
+        var rig = new ProjectileRig();
+        rig.StickyVars.LiveTime.Hold("1.0");
+        rig.Owners.Item = rig.AttributeItem("sticky_arm_time", AttributeDescriptionFormat.Additive, 0.4f);
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+        var thinks = new ThinkScheduler();
+        sticky.BindThinks(thinks);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+        sticky.OnSpawn(); // the arm booking, at the stamped total (:1144)
+
+        Assert.Equal(1.4f, Assert.Single(thinks.Bookings()).Time, 4); // 1.0 + 0.4
+    }
+
+    /// <summary>The aimed sticky: straight ahead of the eyes at yaw 0.</summary>
+    private static readonly EntityHandle AimedBomb = new(0x0001_0000u | 11);
+
+    /// <summary>The other sticky, off to the right of the cone.</summary>
+    private static readonly EntityHandle SideBomb = new(0x0001_0000u | 12);
+
+    /// <summary>Two armed stickies, ahead and to the right, as the world holds them.</summary>
+    private static void ArmedPair(ProjectileRig rig)
+    {
+        rig.Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter", () =>
+        {
+            if (rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == SideBomb)
+                return new Vector(200f, 200f, 64f);
+            return new Vector(200f, 0f, 64f);
+        });
+        rig.Engine.ReturnsEachCall("Entities.GetOrigin", () =>
+        {
+            object? ask = rig.Engine.Calls[^1].Args[0];
+            if (ask is EntityHandle h && h == AimedBomb)
+                return new Vector(200f, 0f, 64f);
+            if (ask is EntityHandle s && s == SideBomb)
+                return new Vector(200f, 200f, 64f);
+            return default;
+        });
+
+        foreach (var (handle, armed) in new[] { (AimedBomb, true), (SideBomb, true) })
+        {
+            var sticky = rig.Sticky();
+            sticky.Handle = handle;
+            sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
+                            TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
+            if (armed)
+                sticky.OnThink(); // the arm think, as the Detonate gate reads
+            rig.Tray.Register(3, sticky);
+        }
+    }
+
+    [Fact]
+    public void DetonateModeOneFiresOnlyTheAimedStickies()
+    {
+        // TF_DETONATE_MODE_DOT (tf_weapon_pipebomblauncher.h:24):
+        // ModifyPipebombsInView (tf_weapon_pipebomblauncher.cpp:592-605)
+        // keeps only bombs in view — the centre dotting over 0.975 with the
+        // eyes' forward, or within the bomb's damage radius of the player.
+        // At yaw 0 the ahead bomb dots at 1; the right one misses both arms.
+        // With the mode unimplemented the whole tray goes and this is Failed: 1.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 1f);
+        ArmedPair(rig);
+
+        rig.Effects.Detonate(Attack(3), Script("tf_weapon_pipebomblauncher"));
+
+        Assert.Equal(1, rig.Tray.Count(3)); // the aimed one went, the side one stayed
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+    }
+
+    [Fact]
+    public void DetonateModeZeroFiresThemAll()
+    {
+        // TF_DETONATE_MODE_STANDARD 0, stock's unset default
+        // (tf_weapon_pipebomblauncher.h:23): the whole-tray walk of
+        // DetonateRemotePipebombs (:530-571) — every armed sticky, aimed or
+        // not. The aim cone must not gate it.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 0f);
+        ArmedPair(rig);
+
+        rig.Effects.Detonate(Attack(3), Script("tf_weapon_pipebomblauncher"));
+
+        Assert.Equal(0, rig.Tray.Count(3));
+        Assert.Equal(2, rig.Engine.CountOf("Entities.Remove"));
     }
 }

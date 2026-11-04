@@ -1149,3 +1149,5 @@ src/client/native/standalone_shadow_hull.h	ports the placing arm of C_ObjectSent
 src/tf2/shared/Buildings/TFObjectNetState.cs	networks m_bPlacing, CBaseObject::m_bPlacing (baseobject.h), the flag the placing arm reads
 src/tf2/server/Player/TFTauntAttack.cs	ports CTFPlayer::DoTauntAttack's box and high noon arms and Taunt's scene keys (tf_player.cpp:17979-18068, 18377-18451, 18613-18635)
 src/shared/managed/AlternateTicks.cs	ports CBaseEntity::IsSimulatingOnAlternateTicks (baseentity_shared.cpp)
+src/client/managed/Standalone/ClientSsAttachedModel.cs	ports the pass and bone-merge choices of CEconEntity::UpdateAttachmentModels' display flags and C_ViewmodelAttachmentModel's host (econ_entity.cpp:1079-1196): which copy a row's attached model joins, whose bones it takes
+src/shared/managed/AttachedModelNetState.cs	networks the attachment row a C_ViewmodelAttachmentModel renders: owner, weapon and host handles with the model_display_flags (econ_entity.cpp, attachedmodel_t)

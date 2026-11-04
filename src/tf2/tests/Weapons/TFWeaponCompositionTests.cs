@@ -108,8 +108,19 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(new TF2.Shared.MpStalemateMeleeOnlyConVar());
         c.AddInstance(new TF2.Shared.TFStalemateChangeClassTimeConVar());
         // The projectile effects (2.8) find their spawned entities through the
-        // registry; the composition here answers none.
+        // registry; the composition here answers none. Their sticky arms (F25)
+        // stamp and cap from the sticky's convars, which ServerModule
+        // registers over the scan as the game's composition does.
         c.AddInstance<IEntityDirectory>(new TF2.Tests.Combat.NoEntities());
+        c.AddInstance(new TF2.Shared.TFGrenadeLauncherLiveTimeConVar());
+        c.AddInstance(new TF2.Shared.TFStickyRadiusRampTimeConVar());
+        c.AddInstance(new TF2.Shared.TFStickyAirDetRadiusConVar());
+        c.AddInstance(new TFPipebombDeflectResetTimeConVar());
+        c.AddInstance(new TFGrenadeForceFromBulletConVar());
+        c.AddInstance(new TFGrenadeForceFromBuckshotConVar());
+        c.AddInstance(new TFGrenadeForceFromBlastConVar());
+        c.AddInstance(new TFPipebombForceToMoveConVar());
+        c.AddInstance(new TFGrenadeForceSleeptimeConVar());
         // The medigun's owner (2.9): the healing behind the beam answers over the player
         // services, whose leaves (game events, the loadout's mod-info and connected-clients
         // lines, and the healing's three convars) join the container the same way.

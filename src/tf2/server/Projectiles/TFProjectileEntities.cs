@@ -605,7 +605,8 @@ public sealed class TFStickybomb : ScriptedEntity
 
     public TFStickybomb(IEngineEntityPhysics physics, TFBlastApplier blast, IEnginePlayers players,
                         TFStickybombConVars convars, IGameClock clock, IEngineWorldQuery world,
-                        IEntityDirectory directory, IEngineFrame frame)
+                        IEntityDirectory directory, IEngineFrame frame,
+                        PostSimulationQueue? postSimulation = null)
     {
         Physics = physics;
         Blast = blast;
@@ -615,7 +616,11 @@ public sealed class TFStickybomb : ScriptedEntity
         World = world;
         Directory = directory;
         Frame = frame;
+        _postSimulation = postSimulation;
     }
+
+    /// <summary>Stock's <c>g_PostSimulationQueue</c>, holding the pin until the step's end.</summary>
+    private readonly PostSimulationQueue? _postSimulation;
 
     public const string Model = TFProjectileDefs.StickyModel;
 
@@ -633,6 +638,7 @@ public sealed class TFStickybomb : ScriptedEntity
     private float _minSleepTime;
     private float _deflectedResetAt;
     private bool _armed;
+    private float _armTime;
     private bool _stuck;
     private bool _spent;
     private bool _detonateOnPulse;
@@ -654,29 +660,97 @@ public sealed class TFStickybomb : ScriptedEntity
         Physics.SetGravity(Handle, TFProjectileDefs.PipebombGravity);
         Physics.SetFriction(Handle, TFProjectileDefs.PipebombFriction);
         // PreArmThink books the arm at the live time
-        // (tf_weapon_grenade_pipebomb.cpp:1144, GetLiveTime :1186-1210), the
-        // constant its declared value.
-        SetNextThink(ConVars.LiveTime.Value);
+        // (tf_weapon_grenade_pipebomb.cpp:1144, GetLiveTime :1186-1210): the
+        // launch's stamped total, or the bare convar for an unstamped bomb.
+        SetNextThink(_armTime > 0f ? _armTime : ConVars.LiveTime.Value);
+    }
+
+    /// <summary>
+    /// <c>GetLiveTime</c>'s total (<c>tf_weapon_grenade_pipebomb.cpp:1186-1190</c>):
+    /// <c>tf_grenadelauncher_livetime</c> through the launching launcher's
+    /// <c>sticky_arm_time</c> hook, stamped once by the launch that threw this
+    /// bomb. The arm think re-books at it, as stock books it at the same
+    /// number (:1144). <c>GetDamageRadius</c>' ramp start stays the bare
+    /// convar, stock's own split (:1428 reads the convar, not this hook).
+    /// </summary>
+    public void SetArmTime(float seconds)
+    {
+        _armTime = seconds;
+
+        // The stamp may arrive after the spawn booked the arm at the bare
+        // convar (Born spawns before the launch arms the bomb): re-book at
+        // the stamped total so the armed gate waits the full window.
+        SetNextThink(seconds > 0f ? seconds : ConVars.LiveTime.Value);
     }
 
     public override bool TouchedByAnything => true;
 
     /// <summary>
-    /// Pipebombs stick to the world when they touch it
-    /// (<c>VPhysicsCollision</c>, <c>tf_weapon_grenade_pipebomb.cpp:916-928</c>):
-    /// a world contact or a dynamic prop's sticks it armed or not — unless the
-    /// blow that last moved it left a sleep time still running
-    /// (<c>gpGlobals-&gt;curtime &gt; m_flMinSleepTime</c>, :928) — and the rest
-    /// check below stays as the fallback for a prop the seam cannot name a
-    /// collision for. Stock's prop arm is its <c>dynamic_cast&lt;CDynamicProp*&gt;</c>,
-    /// approximated by classname, with the cast's exemptions:
-    /// <see cref="SticksTo"/>.
+    /// The engine-touch door to the same stick the collision below decides: a
+    /// contact the engine's own touch dispatch names reaches here, and the
+    /// rule is the one stock states once for both doors
+    /// (<c>VPhysicsCollision</c>, <c>tf_weapon_grenade_pipebomb.cpp:916-928</c>).
     /// </summary>
     public override void OnTouch(EntityHandle toucher)
     {
         if (_stuck || _spent || toucher == EntityHandle.None)
             return;
 
+        StickOnContact(toucher);
+    }
+
+    /// <summary>
+    /// Stock's <c>CTFGrenadePipebombProjectile::VPhysicsCollision</c>
+    /// (<c>tf_weapon_grenade_pipebomb.cpp:849-947</c>), the sticky's own arm:
+    /// the other side of the solved impact, when it is the world or a dynamic
+    /// prop and the sleep time has passed (:928), sticks the bomb. The router
+    /// has already applied stock's <c>isCollision</c> gate and the shadow pair's
+    /// when it delivered this; the base's sound-and-damage body is the frame
+    ///-wide <see cref="PhysicsCollisionResponse"/>, not this hook. Stock's
+    /// m_bWallShatter and regular-mode arms wait on launcher attributes and the
+    /// modes this port's launchers do not carry.
+    /// </summary>
+    public override void OnVPhysicsCollision(in PhysicsEvent ev, int index)
+    {
+        if (_stuck || _spent || index is not (0 or 1))
+            return;
+
+        bool mine = index == 0;
+        uint other = mine ? ev.Entity1 : ev.Entity0;
+
+        if (other == PhysicsEvent.NoEntity)
+        {
+            // The world's side names no entity (PhysicsCollisionImpacts): a
+            // static with no game data is the world's own object or a static
+            // prop's, and stock's PhysCreateWorld made both the world's. A
+            // sideless mover is no one's — stock's !pHitEntity (:854-857).
+            if ((mine ? ev.Static1 : ev.Static0) != 0)
+                StickOnWorld();
+            return;
+        }
+
+        StickOnContact(new EntityHandle(other));
+    }
+
+    /// <summary>The world arm of the stick: the sleep gate, then the pin (:928).</summary>
+    private void StickOnWorld()
+    {
+        if (Clock.Now <= _minSleepTime)
+            return;
+
+        Stick();
+    }
+
+    /// <summary>
+    /// The stick's gate for a named toucher, shared by both doors: a world
+    /// contact or a dynamic prop's sticks it armed or not — under the same
+    /// sleep-time wait (<c>gpGlobals-&gt;curtime &gt; m_flMinSleepTime</c>,
+    /// :928). The prop arm is stock's <c>dynamic_cast&lt;CDynamicProp*&gt;</c>,
+    /// approximated by classname, with the cast's exemptions:
+    /// <see cref="SticksTo"/>.
+    /// </summary>
+    private void StickOnContact(EntityHandle toucher)
+    {
         if (Clock.Now <= _minSleepTime)
             return;
 
@@ -716,9 +790,20 @@ public sealed class TFStickybomb : ScriptedEntity
     private void Stick()
     {
         _stuck = true;
-        Physics.EnableMotion(Handle, false);
+
+        // g_PostSimulationQueue.QueueCall( EnableMotion, false ) (:932): the
+        // contact is a solver callback, and the pinning waits for the step's
+        // end. A stick reached outside the step (the rest check's think) rides
+        // the same queue, which runs before the next one.
+        if (_postSimulation is { } afterStep)
+            afterStep.Add(DisableMotion);
+        else
+            Physics.EnableMotion(Handle, false);
+
         Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Stickybomb} stuck at {Origin}\n");
     }
+
+    private void DisableMotion() => Physics.EnableMotion(Handle, false);
 
     /// <summary>
     /// CTFWeaponBaseGrenadeProj::VPhysicsUpdate's server branch
@@ -861,7 +946,7 @@ public sealed class TFStickybomb : ScriptedEntity
     /// launcher loop's sticky-destroying <see cref="DetonateStickies"/>
     /// sphere.
     /// </summary>
-    private float GetDamageRadius()
+    public float GetDamageRadius()
     {
         if (_stuck)
             return Radius;
@@ -1246,8 +1331,15 @@ public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDea
 
     private readonly TFPlayerCarriers? _carriers = carriers;
 
-    /// <summary>Records a sticky and removes the oldest past <see cref="TFProjectileDefs.MaxStickies"/>.</summary>
-    public void Register(int ownerIndex, TFStickybomb sticky)
+    /// <summary>
+    /// Records a sticky and removes the oldest past the cap — the stock
+    /// <see cref="TFProjectileDefs.MaxStickies"/>, or the launch's
+    /// <c>add_max_pipebombs</c> total the caller computed through the hook
+    /// (<c>tf_weapon_pipebomblauncher.cpp:381-392</c>, the cap through
+    /// <c>ATTRIB_HOOK_FLOAT</c> over the launcher's item).
+    /// </summary>
+    public void Register(int ownerIndex, TFStickybomb sticky,
+                         int maxStickies = TFProjectileDefs.MaxStickies)
     {
         if (!_trays.TryGetValue(ownerIndex, out var tray))
             _trays[ownerIndex] = tray = new List<TFStickybomb>();
@@ -1257,7 +1349,7 @@ public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDea
         // comes back through this pair.
         sticky.EnrolledIn(this, ownerIndex);
         tray.Add(sticky);
-        if (tray.Count > TFProjectileDefs.MaxStickies)
+        if (tray.Count > maxStickies)
         {
             TFStickybomb oldest = tray[0];
             tray.RemoveAt(0);
@@ -1298,16 +1390,20 @@ public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDea
     /// armed ones leave the tray and go, each sweeping its
     /// <see cref="TFStickybomb.DetonateStickies"/> sphere first when
     /// <paramref name="destroyStickies"/> arms the launcher's
-    /// <c>stickies_detonate_stickies</c> (:561-567).
+    /// <c>stickies_detonate_stickies</c> (:561-567). With
+    /// <paramref name="inView"/> the Scottish Resistance's aim mode
+    /// (<c>ModifyPipebombsInView</c>, :525-528) stands in for the whole-tray
+    /// walk: only an armed bomb the predicate accepts goes, the rest stay.
     /// </summary>
-    public void DetonateAll(int ownerIndex, bool destroyStickies = false)
+    public void DetonateAll(int ownerIndex, bool destroyStickies = false,
+                            Func<TFStickybomb, bool>? inView = null)
     {
         if (!_trays.TryGetValue(ownerIndex, out var tray))
             return;
 
         for (int i = tray.Count - 1; i >= 0; i--)
         {
-            if (tray[i].Armed)
+            if (tray[i].Armed && (inView is null || inView(tray[i])))
             {
                 TFStickybomb sticky = tray[i];
                 tray.RemoveAt(i);

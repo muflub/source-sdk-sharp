@@ -304,6 +304,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         public EntityHandle Weapon;     // ss_weapon, or None until first give
         public EntityHandle ViewModel;  // predicted_viewmodel, beside it
         public EntityHandle Attachment; // ss_viewmodel_attachment, the row's own model riding the hands (None while there are none)
+        // The row's attached models (the flamethrower's pilot light), one
+        // ss_attached_model per entry the pool has ever needed; a switch to a
+        // row with fewer hides the extras rather than removing them.
+        public readonly List<EntityHandle> AttachedModels = new();
         public readonly List<Owned> Weapons = new();
         public readonly Dictionary<string, int> Ammo = new(StringComparer.OrdinalIgnoreCase);
         public int ActiveSlot = -1;
@@ -902,7 +906,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         int? skin = _viewmodelSkin.Skin(_entities.GetIndex(carry.Player), type);
         if (skin is int dressed)
             viewModel.State.Skin = dressed;
-        DressAttachment(carry, chosen, type.ViewModel, skin);
+        bool attachmentShown = DressAttachment(carry, chosen, type.ViewModel, skin);
+        DressAttachedModels(carry, in type, attachmentShown, skin);
 
         _render.SetVisible(carry.Weapon, true);
         _render.SetVisible(carry.ViewModel, true);
@@ -1017,9 +1022,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// again when the viewmodel is the row's own. Created the first deploy
     /// that wants it — stock's <c>UpdateAttachmentModels</c> creates and
     /// destroys on the same condition, and a mod whose chain never answers
-    /// never pays for the entity.
+    /// never pays for the entity. Answers whether it is shown, which is also
+    /// the attached models' viewmodel host (<see cref="DressAttachedModels"/>).
     /// </summary>
-    private void DressAttachment(Carry carry, string? chosen, string rowViewModel, int? skin = null)
+    private bool DressAttachment(Carry carry, string? chosen, string rowViewModel, int? skin = null)
     {
         // An EMPTY row model is stock's display-model-of-"": the attachment
         // entity is created (the item attaches to hands) but names no model, so
@@ -1029,7 +1035,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         {
             if (_entities.IsValid(carry.Attachment))
                 _render.SetVisible(carry.Attachment, false);
-            return;
+            return false;
         }
 
         if (carry.Attachment == EntityHandle.None || !_entities.IsValid(carry.Attachment))
@@ -1054,6 +1060,64 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (skin is int attachmentSkin)
                 _skins?.SetSkin(carry.Attachment, attachmentSkin);
             _render.SetVisible(carry.Attachment, true);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The row's attached models (stock's <c>UpdateAttachmentModels</c> copying
+    /// <c>m_vecAttachedModels</c>), one <see cref="SsAttachedModel"/> per entry:
+    /// the bearer's bones carry them all, the weapon's in the world and — for
+    /// the copy the client puts in the viewmodel pass — the hands' attachment
+    /// when this deploy created one, else the viewmodel wearing the row's own
+    /// model (stock's <c>m_hViewmodelAttachment</c>, whose bones are the
+    /// viewmodel's either way). Created on first need and hidden, not removed,
+    /// when a later row wants fewer; the skin is the viewmodel's, which stock
+    /// copies onto every attached model (econ_entity.cpp:1196).
+    /// </summary>
+    private void DressAttachedModels(Carry carry, in WeaponType type, bool attachmentShown, int? skin)
+    {
+        var wanted = type.AttachedModels;
+
+        for (int i = wanted.Length; i < carry.AttachedModels.Count; i++)
+            _render.SetVisible(carry.AttachedModels[i], false);
+
+        for (int i = 0; i < wanted.Length; i++)
+        {
+            if (i >= carry.AttachedModels.Count || !_entities.IsValid(carry.AttachedModels[i]))
+            {
+                var created = _entities.Create(EntityNames.SsAttachedModel);
+                _entities.SetOrigin(created, _entities.GetOrigin(carry.Player));
+                _entities.Spawn(created);
+
+                // Sent to everyone, like the pair beside it: the model rides
+                // the carrier's bones, and the dormancy trap that took the
+                // transmit-always mark on the viewmodel waits here too.
+                _render.SetTransmitAlways(created, true);
+
+                if (i < carry.AttachedModels.Count)
+                    carry.AttachedModels[i] = created;
+                else
+                    carry.AttachedModels.Add(created);
+            }
+
+            var attached = carry.AttachedModels[i];
+
+            if (_directory.Get(attached) is SsAttachedModel model)
+            {
+                model.State.OwnerIndex = _entities.GetIndex(carry.Player);
+                model.State.WeaponIndex = _entities.GetIndex(carry.Weapon);
+                model.State.HostIndex = _entities.GetIndex(attachmentShown ? carry.Attachment : carry.ViewModel);
+                model.State.Flags = (int)wanted[i].DisplayFlags;
+            }
+
+            _render.SetModel(attached, wanted[i].Model);
+
+            if (skin is int dressed)
+                _skins?.SetSkin(attached, dressed);
+
+            _render.SetVisible(attached, true);
         }
     }
 
@@ -1650,6 +1714,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         _render.SetVisible(carry.ViewModel, false);
         _render.SetVisible(carry.Attachment, false);
 
+        // And the attached models with the hands: the previous weapon's pilot
+        // light must not keep burning on a dead player's frame.
+        foreach (var attached in carry.AttachedModels)
+            _render.SetVisible(attached, false);
     }
 
     /// <summary>Forgets a player and removes their carried entities.</summary>
@@ -1667,6 +1735,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _entities.Remove(carry.ViewModel);
         if (_entities.IsValid(carry.Attachment))
             _entities.Remove(carry.Attachment);
+
+        foreach (var attached in carry.AttachedModels)
+            if (_entities.IsValid(attached))
+                _entities.Remove(attached);
 
         _carries.Remove(player.Value);
     }

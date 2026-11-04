@@ -381,6 +381,10 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
         foreach (var entity in _entities.OfClass(EntityNames.SsViewmodelAttachment))
             if (entity is ClientSsViewmodelAttachment attachment && attachment.State.OwnerIndex == Index)
                 attachment.Reconsider();
+
+        foreach (var entity in _entities.OfClass(EntityNames.SsAttachedModel))
+            if (entity is ClientSsAttachedModel attached && attached.State.OwnerIndex == Index)
+                attached.Reconsider();
     }
 
     /// <summary>

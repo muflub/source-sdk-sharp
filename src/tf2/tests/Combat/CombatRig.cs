@@ -180,6 +180,9 @@ internal sealed class CombatRig
     public RecordingEngine Engine { get; } = TestServices.Fake();
     public TFMovementFixtures.Players Players { get; } = new();
     public CombatClock Clock { get; } = new();
+
+    /// <summary>The level word; a fact sets <see cref="LevelInfo.Map"/> for the map-named arms.</summary>
+    public LevelInfo Level { get; } = new();
     public BandRandom Random { get; }
     public TFDamageRecords Records { get; } = new();
     public TFDamageScopes Scopes { get; } = new();

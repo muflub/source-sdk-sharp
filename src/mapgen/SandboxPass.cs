@@ -202,6 +202,10 @@ public static class SandboxPass
                 "the viewmodel attachment, created beside the viewmodel when a deploy names "
                 + "hands for it; a map-placed one is a c_model merged onto nothing",
 
+            [EntityNames.SsAttachedModel] =
+                "a row's attached model (the flamethrower's pilot light), created beside the "
+                + "carried pair when the weapon's row names one; a map-placed one hangs off no gun",
+
             [EntityNames.CrossbowBolt] =
                 "fired by weapon_crossbow; it spawns stationary and is told where to go by the "
                 + "shot that made it, so a map-placed one hangs in the air",

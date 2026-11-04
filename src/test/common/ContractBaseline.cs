@@ -109,6 +109,9 @@ public static class ContractBaseline
         // C_ViewmodelAttachmentModel is created by the client alone
         // (C_EconEntity::UpdateAttachmentModels) and has no server classname.
         "ss_viewmodel_attachment",
+        // A row's attached model (the flamethrower's pilot light): stock's
+        // attachedmodel_t rides the CEconEntity's own draw and has no classname.
+        "ss_attached_model",
         "ss_weapon",
         "test_bad_input",
         "test_binding",
