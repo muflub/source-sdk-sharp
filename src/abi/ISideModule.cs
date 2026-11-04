@@ -38,6 +38,9 @@ public interface ISideModule
     void LevelInit(string mapName);
     void LevelShutdown();
     void ConCommandDispatch(int commandId, string args);
+
+    /// <summary>How a console line for this command can go on, as whole lines.</summary>
+    IReadOnlyList<string> ConCommandSuggest(int commandId, string line);
     void Shutdown();
 
     /// <summary>

@@ -1115,7 +1115,7 @@ internal unsafe struct EngineTraceFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimConsole</c> through its forwarders (SSFwd_ShimConsole): 12 slot(s).
+/// <c>IShimConsole</c> through its forwarders (SSFwd_ShimConsole): 13 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimConsoleFwd : IForwarderTable
@@ -1158,6 +1158,9 @@ internal unsafe struct ShimConsoleFwd : IForwarderTable
 
     // int32_t IShimConsole::FindConVarFlags( const char * )
     public delegate* unmanaged<void*, byte*, int> FindConVarFlags;
+
+    // int32_t IShimConsole::CompleteCommandLine( const char *, char *, int32_t )
+    public delegate* unmanaged<void*, byte*, byte*, int, int> CompleteCommandLine;
 }
 
 /// <summary>

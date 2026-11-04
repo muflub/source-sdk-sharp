@@ -59,6 +59,23 @@ internal sealed unsafe partial class EngineConsole : IEngineConsole, IConVarFlag
         return EngineSide.FromUtf8(buf);
     }
 
+    public IReadOnlyList<string> CompleteCommandLine(string line)
+    {
+        byte* lines = stackalloc byte[ConsoleSuggestionBytes];
+        lines[0] = 0;
+
+        var lineBytes = Encoding.UTF8.GetBytes(line + "\0");
+        fixed (byte* pLine = lineBytes)
+        {
+            if (_consoleArea.CompleteCommandLine(pLine, lines, ConsoleSuggestionBytes) <= 0)
+                return [];
+        }
+
+        return ConsoleSuggestionLines.Read(lines);
+    }
+
+    private const int ConsoleSuggestionBytes = 8192;
+
     /// <summary>
     /// The flags of the variable the engine holds under <paramref name="name"/>,
     /// or -1 for none (IShimConsole::FindConVarFlags, plan_server_native_v2 T4e).

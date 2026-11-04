@@ -20,6 +20,7 @@ public class TraceCostReportTests
         public void Msg(string message) => Lines.Add(message);
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => string.Empty;
         public int RegisterConCommand(string name, string help, ConVarFlags flags) => 0;

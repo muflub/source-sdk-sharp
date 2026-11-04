@@ -376,6 +376,7 @@ public sealed class RecordingEngine :
 
     // Console
     void IEngineConsole.ExecuteServerCommand(string command) => RecordVoid("Console.ExecuteServerCommand", command);
+    IReadOnlyList<string> IEngineConsole.CompleteCommandLine(string line) => [];
     string? IEngineConsole.FindConVarValue(string name) => Record<string?>("Console.FindConVarValue", name);
     int IConVarFlagReader.FindConVarFlags(string name) => Record<int>("Console.FindConVarFlags", name);
     string IEngineConsole.GetConVarValue(int id) => Record<string>("Console.GetConVarValue", id);

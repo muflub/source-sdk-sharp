@@ -258,6 +258,7 @@ internal unsafe interface IConsoleArea
     int ConsoleSnapshot();
     int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1);
     int FindConVarFlags(byte* a0);
+    int CompleteCommandLine(byte* a0, byte* a1, int a2);
 }
 
 /// <summary>
@@ -281,6 +282,7 @@ internal sealed unsafe class ConsoleArea : IConsoleArea
     public int ConsoleSnapshot() { return _shim.Table->ConsoleSnapshot(_shim.Self); }
     public int ConsoleSnapshotEntry(int a0, ConsoleEntry* a1) { return _shim.Table->ConsoleSnapshotEntry(_shim.Self, a0, a1); }
     public int FindConVarFlags(byte* a0) { return _shim.Table->FindConVarFlags(_shim.Self, a0); }
+    public int CompleteCommandLine(byte* a0, byte* a1, int a2) { return _shim.Table->CompleteCommandLine(_shim.Self, a0, a1, a2); }
 }
 
 /// <summary>

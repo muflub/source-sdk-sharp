@@ -76,6 +76,7 @@ public class NativeCommandTableTests
         }
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => string.Empty;
         public void Msg(string message) { }

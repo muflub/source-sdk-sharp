@@ -95,6 +95,7 @@ public sealed class DebugConsoleCaptureTests
                                   float? min = null, float? max = null) => -1;
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => "";
         public void Msg(string message) => warnings.Add("msg:" + message);

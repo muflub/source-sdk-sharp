@@ -2038,6 +2038,12 @@ ss_cpptest(engine_utlvector_append_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/engine_utlvector_append_test.cpp)
 
+# ss::AppendSuggestionLines and friends (console_suggestions.h): a command's suggestions
+# between the engine's vector and the buffer they cross to managed in. Header-only.
+ss_cpptest(console_suggestions_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/console_suggestions_test.cpp)
+
 # SourceSharp_FatalReport: a failed assert or Error() reports to stderr and to
 # $SOURCESHARP_ASSERT_DIR/assert-<pid>.txt and exits 253 (-3). Death tests.
 # The dev API's exit record, native half: the signal recorder notes the

@@ -2734,6 +2734,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _soundSystem?.LevelShutdownPostEntity();
     }
 
+    public IReadOnlyList<string> ConCommandSuggest(int commandId, string line) => _commands.Suggest(commandId, line);
+
     public void ConCommandDispatch(int commandId, string args)
     {
         if (!_commands.Dispatch(commandId, args))

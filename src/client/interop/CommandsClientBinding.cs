@@ -22,6 +22,12 @@ public sealed unsafe class CommandsClientBinding(Crossings crossings, ISideModul
         module.ConCommandDispatch(a0, Utf8(a1));
     }
 
+    public int ConCommandSuggest(int a0, byte* a1, byte* a2, int a3)
+    {
+        crossings.Count(CrossingOp.ClientConCommandSuggest);
+        return ConsoleSuggestionLines.Write(module.ConCommandSuggest(a0, Utf8(a1)), a2, a3);
+    }
+
     public void ConVarChanged(int a0, byte* a1, byte* a2)
     {
         crossings.Count(CrossingOp.ClientConVarChanged);

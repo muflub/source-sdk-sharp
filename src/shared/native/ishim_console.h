@@ -35,4 +35,8 @@ public:
 
 	// The flags of the engine's console variable pName, or -1 when there is none.
 	virtual int32_t FindConVarFlags(const char* pName) = 0;
+
+	// How the console line pLine can go on, as whole lines: the count, with newline-separated
+	// lines in pOut. Stock's completion callback of the command the line starts with.
+	virtual int32_t CompleteCommandLine(const char* pLine, char* pOut, int32_t nOutSize) = 0;
 };

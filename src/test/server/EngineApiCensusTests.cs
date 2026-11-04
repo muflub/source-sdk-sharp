@@ -472,7 +472,7 @@ public partial class EngineApiCensusTests
     // is a load from the bound CGlobalVars (36 - 1 = 35).
     // plan_server_native_v2 T6 part 3: IShimCollision.RegisterCollisionRules
     // retired; nothing native read the matrix (35 - 1 = 34).
-    private const int BothSides = 34;
+    private const int BothSides = 35;
 
     // TheStructIsExactlyTheSlotsTheClientFills and AServerOnlySlotHasNoStructField
     // went with the struct (plan_client_vtables CC-last 2c): there are no fields

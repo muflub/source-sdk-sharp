@@ -353,13 +353,25 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     {
         _completing = false;
         _completions.Clear();
-        if (_commands is null || _input.Length == 0 || _input.Contains(' ', StringComparison.Ordinal))
+        if (_commands is null || _input.Length == 0)
             return;
+        // Past the command's name, as stock's RebuildCompletionList: the command's own
+        // suggestions, each the whole line, in the order it gave them.
+        if (_input.Contains(' ', StringComparison.Ordinal))
+        {
+            foreach (string line in _commands.CompleteLine(_input))
+                _completions.Add(new ConsoleCompletion(line, "", "", true));
+            return;
+        }
         foreach (var c in _commands.All())
             if (c.Name.StartsWith(_input, StringComparison.OrdinalIgnoreCase))
                 _completions.Add(c);
         _completions.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>A command's name takes a space for its parameters; a whole line stays as it is.</summary>
+    private static string CompletedLine(ConsoleCompletion completion)
+        => completion.Name.Contains(' ', StringComparison.Ordinal) ? completion.Name : completion.Name + " ";
 
     /// <summary>Stock's OnAutoComplete: the next suggestion into the line, a space after it, looping.</summary>
     private void Complete(bool reverse)
@@ -379,7 +391,7 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
             _nextCompletion = 0;
         if (_completions.Count == 0)
             return;
-        _input = _completions[_nextCompletion].Name + " ";
+        _input = CompletedLine(_completions[_nextCompletion]);
         Caret = _input.Length;
         HistoryIndex = -1;
         _nextCompletion++;
@@ -392,7 +404,7 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     /// </summary>
     public void TakeCompletion(int i)
     {
-        _input = _completions[i].Name + " ";
+        _input = CompletedLine(_completions[i]);
         Caret = _input.Length;
         HistoryIndex = -1;
         RebuildCompletions();
@@ -523,11 +535,16 @@ public sealed class EngineConVarStore(IEngineConsole console) : IUiConVarStore
 public interface IConsoleCommands
 {
     IReadOnlyList<ConsoleCompletion> All();
+
+    /// <summary>How a line with parameters can go on, as whole lines.</summary>
+    IReadOnlyList<string> CompleteLine(string line);
 }
 
 /// <summary>The engine's registry as completions, without what stock's console hides.</summary>
 public sealed class EngineConsoleCommands(IEngineConsole console) : IConsoleCommands
 {
+    public IReadOnlyList<string> CompleteLine(string line) => console.CompleteCommandLine(line);
+
     public IReadOnlyList<ConsoleCompletion> All()
         => [.. NativeConsole.Snapshot(console).Where(Shown)
                 .Select(e => new ConsoleCompletion(e.Name, e.IsCommand ? "" : e.Value, e.Help, e.IsCommand))];

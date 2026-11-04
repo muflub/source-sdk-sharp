@@ -165,6 +165,7 @@ public sealed class TFBurningEffectTests
     private sealed class ConsoleFake(Dictionary<string, string> values) : client::SourceSharp.Abi.IEngineConsole
     {
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => values.GetValueOrDefault(name);
         public string GetConVarValue(int id) => throw new NotSupportedException();
         public void Msg(string message) { }

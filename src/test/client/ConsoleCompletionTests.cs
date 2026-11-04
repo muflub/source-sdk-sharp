@@ -11,6 +11,16 @@ public class ConsoleCompletionTests
 {
     private sealed class Commands : IConsoleCommands
     {
+        public List<string> Asked { get; } = [];
+
+        public IReadOnlyList<string> CompleteLine(string line)
+        {
+            Asked.Add(line);
+            return line.StartsWith("map dm", StringComparison.Ordinal)
+                ? ["map dm_lockdown", "map dm_overwatch"]
+                : [];
+        }
+
         public IReadOnlyList<ConsoleCompletion> All() =>
         [
             new("sv_gravity", "600", "World gravity.", false),
@@ -133,6 +143,53 @@ public class ConsoleCompletionTests
         ui.Char('s');
         ui.Key(UiKey.Tab);
         Assert.Equal("s", ui.Input);
+    }
+
+    private static (ConsoleUi Ui, Commands Commands) TypedOn(string text)
+    {
+        var commands = new Commands();
+        var ui = new ConsoleUi(new DefaultForwarders.NoEngineClient(), null, commands);
+        foreach (char c in text)
+            ui.Char(c);
+        return (ui, commands);
+    }
+
+    [Fact]
+    public void Past_the_name_the_list_is_the_command_s_own_whole_lines_in_its_order()
+        => Assert.Equal(["map dm_lockdown", "map dm_overwatch"], Names(TypedOn("map dm").Ui));
+
+    [Fact]
+    public void The_command_is_asked_about_the_line_as_typed()
+        => Assert.Equal("map dm", TypedOn("map dm").Commands.Asked[^1]);
+
+    [Fact]
+    public void A_name_alone_does_not_ask_the_command()
+        => Assert.Empty(TypedOn("sv").Commands.Asked);
+
+    [Fact]
+    public void A_command_with_nothing_to_suggest_lists_nothing()
+        => Assert.Empty(Names(TypedOn("sv_gravity 1").Ui));
+
+    [Fact]
+    public void Tab_takes_a_whole_line_with_no_space_after_it_and_moves_on()
+    {
+        var (ui, _) = TypedOn("map dm");
+
+        ui.Key(UiKey.Tab);
+        Assert.Equal("map dm_lockdown", ui.Input);
+
+        ui.Key(UiKey.Tab);
+        Assert.Equal("map dm_overwatch", ui.Input);
+    }
+
+    [Fact]
+    public void Clicking_a_whole_line_takes_it_with_no_space_after_it()
+    {
+        var (ui, _) = TypedOn("map dm");
+
+        ui.TakeCompletion(1);
+
+        Assert.Equal("map dm_overwatch", ui.Input);
     }
 
     [Theory]

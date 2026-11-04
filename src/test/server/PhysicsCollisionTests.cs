@@ -742,6 +742,7 @@ public class PhysicsEventsCommandTests
         public string All => string.Concat(Lines);
 
         public void ExecuteServerCommand(string command) { }
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => null;
         public string GetConVarValue(int id) => string.Empty;
         public int RegisterConCommand(string name, string help, ConVarFlags flags) => 0;

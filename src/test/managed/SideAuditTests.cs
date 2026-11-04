@@ -543,6 +543,7 @@ public class SideAuditTests
         // plan_server_native_v2 T4e: both sides' convar registries refuse an
         // engine-owned name, so both read the flags.
         "FindConVarFlags",
+        "CompleteCommandLine",
     };
 
     private static readonly HashSet<string> DualWired = new(StringComparer.Ordinal)

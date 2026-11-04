@@ -28,6 +28,8 @@ struct SSManagedCommandsClientTable
 	void (*ConCommandDispatch)(IManagedCommandsClient* self, int32_t nCommandId, const char* pArgs);
 	void (*ConVarChanged)(IManagedCommandsClient* self, int32_t nConVarId, const char* pNewValue,
 						  const char* pOldValue);
+	int32_t (*ConCommandSuggest)(IManagedCommandsClient* self, int32_t nCommandId, const char* pLine, char* pOut,
+								 int32_t nOutSize);
 };
 
 class IManagedCommandsClient : public IManagedObject
@@ -48,6 +50,11 @@ public:
 		Table()->ConVarChanged(this, nConVarId, pNewValue, pOldValue);
 	}
 
+	int32_t ConCommandSuggest(int32_t nCommandId, const char* pLine, char* pOut, int32_t nOutSize)
+	{
+		return Table()->ConCommandSuggest(this, nCommandId, pLine, pOut, nOutSize);
+	}
+
 private:
 	const SSManagedCommandsClientTable* Table() const
 	{
@@ -56,13 +63,10 @@ private:
 };
 
 static const uint32_t kIManagedCommandsClientSlotHashes[] = {
-	0x07e0f4c4,
-	0x0d54c15e,
-	0xeed27821,
-	0x3d217e2d,
+	0x07e0f4c4, 0x0d54c15e, 0xeed27821, 0x3d217e2d, 0x1ac011e9,
 };
-static const int32_t kIManagedCommandsClientSlotCount = 4;
-static_assert(sizeof(SSManagedCommandsClientTable) == 4 * sizeof(void*),
+static const int32_t kIManagedCommandsClientSlotCount = 5;
+static_assert(sizeof(SSManagedCommandsClientTable) == 5 * sizeof(void*),
 			  "SSManagedCommandsClientTable is one pointer per slot");
 
 class IManagedEventsClient;

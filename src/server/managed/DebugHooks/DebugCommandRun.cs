@@ -138,6 +138,7 @@ public sealed class DebugCommandRun(ConCommandRegistry registry,
         public void ExecuteServerCommand(string command) => realConsole()?.ExecuteServerCommand(command);
 
         public string? FindConVarValue(string name) => realConsole()?.FindConVarValue(name);
+        public IReadOnlyList<string> CompleteCommandLine(string line) => realConsole()?.CompleteCommandLine(line) ?? [];
 
         public string GetConVarValue(int id) => realConsole()?.GetConVarValue(id) ?? "";
 

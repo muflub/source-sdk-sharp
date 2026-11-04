@@ -355,11 +355,12 @@ TEST(FwdShimCounts, TheRootIsThreeSlots)
 	ExpectServedCount("SSFwd_ShimRoot", VTableHook::MemberOf(&IShimRoot::Release).slot + 1, 3);
 }
 
-TEST(FwdShimCounts, TheConsoleIsTwelveSlots)
+TEST(FwdShimCounts, TheConsoleIsThirteenSlots)
 {
 	// The ten console slots of the old engine struct, in its order, then
-	// RevertNamedConVar, then FindConVarFlags (plan_server_native_v2 T4e).
-	ExpectServedCount("SSFwd_ShimConsole", VTableHook::MemberOf(&IShimConsole::FindConVarFlags).slot + 1, 12);
+	// RevertNamedConVar, then FindConVarFlags (plan_server_native_v2 T4e), then
+	// CompleteCommandLine.
+	ExpectServedCount("SSFwd_ShimConsole", VTableHook::MemberOf(&IShimConsole::CompleteCommandLine).slot + 1, 13);
 }
 
 TEST(FwdShimCounts, TheFrameIsThirteenSlots)

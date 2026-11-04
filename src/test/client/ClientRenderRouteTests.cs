@@ -21,6 +21,7 @@ public class ClientRenderRouteTests
     private sealed class Console(string? cheats) : IEngineConsole
     {
         public void ExecuteServerCommand(string command) => throw new NotSupportedException();
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => name == "sv_cheats" ? cheats : null;
         public string GetConVarValue(int id) => throw new NotSupportedException();
         public void Msg(string message) { }

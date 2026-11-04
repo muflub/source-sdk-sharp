@@ -114,6 +114,7 @@ public sealed class PyroVisionTests
     {
         public Dictionary<string, string> Overrides { get; } = new(StringComparer.Ordinal);
 
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) =>
             Overrides.TryGetValue(name, out string? o) ? o : values.TryGetValue(name, out string? v) ? v : null;
 

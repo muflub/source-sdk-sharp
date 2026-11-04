@@ -225,6 +225,7 @@ public class ManagedSystemRowTests
         public void FramePreThink(float frameTime) => Run("FramePreThink");
         public void LevelInit(string mapName) => Run("LevelInit " + mapName);
         public void LevelShutdown() => Run("LevelShutdown");
+        public IReadOnlyList<string> ConCommandSuggest(int commandId, string line) => [];
         public void ConCommandDispatch(int commandId, string args) { }
         public void Shutdown() { }
         public void DispatchGameEvent(string eventName, IntPtr handle) { }

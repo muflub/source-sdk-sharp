@@ -2921,6 +2921,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         WireDebugChannel();
     }
 
+    public IReadOnlyList<string> ConCommandSuggest(int commandId, string line) => _commands.Suggest(commandId, line);
+
     public void ConCommandDispatch(int commandId, string args)
     {
         if (!_commands.Dispatch(commandId, args))

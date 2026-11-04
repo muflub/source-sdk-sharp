@@ -74,6 +74,7 @@ IManagedDiagnostics	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32
 IManagedCommands	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
 IManagedCommands	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
 IManagedCommands	OnClientCommand	int32_t	uint32_t hPlayer, const char *pCommand
+IManagedCommands	ConCommandSuggest	int32_t	int32_t nCommandId, const char *pLine, char *pOut, int32_t nOutSize
 IManagedNetState	NetStateFieldOffset	int32_t	const char *pClassName, const char *pFieldName
 IManagedNetState	NetStateFieldBits	int32_t	const char *pClassName, const char *pFieldName
 IManagedPlayerCommands	PlayerRunCommands	int32_t	uint32_t hPlayer, int32_t nCount
@@ -93,6 +94,7 @@ IManagedRuntimeClient	LevelInitPreEntity	void	void
 IManagedRuntimeClient	PostInit	void	int32_t nAdapterMaxDxLevel
 IManagedCommandsClient	ConCommandDispatch	void	int32_t nCommandId, const char *pArgs
 IManagedCommandsClient	ConVarChanged	void	int32_t nConVarId, const char *pNewValue, const char *pOldValue
+IManagedCommandsClient	ConCommandSuggest	int32_t	int32_t nCommandId, const char *pLine, char *pOut, int32_t nOutSize
 IManagedEventsClient	OnGameEvent	void	const char *pEventName, void *hEvent
 IManagedUserMessagesClient	DispatchUserMessage	bool	int32_t nIndex, const uint8_t *pBlock, int32_t nBlockBytes
 IManagedStandaloneClient	OnStandaloneCreate	int32_t	uint32_t hEntity, const char *pClassName

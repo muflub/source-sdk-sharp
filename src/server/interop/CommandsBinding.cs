@@ -26,6 +26,12 @@ public sealed unsafe class CommandsBinding(Crossings crossings, ISideModule modu
         module.ConCommandDispatch(a0, Utf8(a1));
     }
 
+    public int ConCommandSuggest(int a0, byte* a1, byte* a2, int a3)
+    {
+        Enter(CrossingOp.ServerConCommandSuggest);
+        return ConsoleSuggestionLines.Write(module.ConCommandSuggest(a0, Utf8(a1)), a2, a3);
+    }
+
     public void ConVarChanged(int a0, byte* a1, byte* a2)
     {
         Enter(CrossingOp.ServerConVarChanged);

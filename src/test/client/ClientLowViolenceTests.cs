@@ -16,6 +16,7 @@ public class ClientLowViolenceTests
     private sealed class Console(Dictionary<string, string> values) : IEngineConsole
     {
         public void ExecuteServerCommand(string command) => throw new NotSupportedException();
+        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
         public string? FindConVarValue(string name) => values.GetValueOrDefault(name);
         public string GetConVarValue(int id) => throw new NotSupportedException();
         public void Msg(string message) { }

@@ -99,6 +99,10 @@ public unsafe struct ManagedCommandsClientTable
     // 3: void ConVarChanged( int32_t nConVarId, const char *pNewValue, const char *pOldValue )
     [SlotHash(0x3d217e2d)]
     public delegate* unmanaged<void*, int, byte*, byte*, void> ConVarChanged;
+
+    // 4: int32_t ConCommandSuggest( int32_t nCommandId, const char *pLine, char *pOut, int32_t nOutSize )
+    [SlotHash(0x1ac011e9)]
+    public delegate* unmanaged<void*, int, byte*, byte*, int, int> ConCommandSuggest;
 }
 
 /// <summary>The table managed writes for <c>IManagedEventsClient</c> (<c>SSManagedEventsClientTable</c> native-side).</summary>

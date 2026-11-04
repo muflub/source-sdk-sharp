@@ -49,6 +49,7 @@ public:
 	int32_t ConsoleSnapshot() override;
 	int32_t ConsoleSnapshotEntry(int32_t nIndex, SourceSharpConsoleEntry* pOut) override;
 	int32_t FindConVarFlags(const char* pName) override;
+	int32_t CompleteCommandLine(const char* pLine, char* pOut, int32_t nOutSize) override;
 
 	// The server's DLL tier services, handed to native command bodies; set by the game DLL
 	// for DLLInit..DLLShutdown. NULL on the client, which defines no bodies.
