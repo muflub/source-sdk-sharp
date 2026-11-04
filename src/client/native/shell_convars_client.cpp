@@ -6,7 +6,7 @@
 //=============================================================================//
 // SS_REASON b  an interface resolved by name at load
 //
-// CConVarsClient: IShimConVarsClient's two slots.
+// CConVarsClient: IShimConVarsClient's slots.
 //
 // Watch: tier1 calls every installed global change callback for every convar,
 // so a watched name is forwarded to managed's ConVarChanged under the id the
@@ -51,6 +51,11 @@ int32_t CConVarsClient::ConVarsClientSetValue(const char* pName, float flValue)
 	m_Decided[m_nDecided].flValue = flValue;
 	m_nDecided++;
 	return 1;
+}
+
+int32_t CConVarsClient::ConVarsClientAddFlags(const char* pName, int32_t nFlags)
+{
+	return m_Console.AddConVarFlags(pName, nFlags) ? 1 : 0;
 }
 
 bool CConVarsClient::DecidedValue(const char* pName, float* pOut) const

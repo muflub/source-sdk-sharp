@@ -408,10 +408,10 @@ TEST( FwdShimAreas, ShimPhysicsClientIs5Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimConVarsClientIs1Slots )
+TEST( FwdShimAreas, ShimConVarsClientIs2Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimConVarsClient::ConVarsClientSetValue ).slot + 1;
-	EXPECT_EQ( 1, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimConVarsClient::ConVarsClientAddFlags ).slot + 1;
+	EXPECT_EQ( 2, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimConVarsClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

@@ -76,6 +76,9 @@ public:
 	// engine. Only after ConVar_Unregister, or the engine's ICvar would point at freed memory.
 	void ReleaseObjects();
 
+	// ORs bits into a convar the engine holds; false when no such convar exists.
+	bool AddConVarFlags(const char* pName, int32_t nFlags);
+
 	// The id a watched name answers, or -1.
 	int32_t WatchedConVarId(const char* pName) const;
 

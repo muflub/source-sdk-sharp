@@ -403,6 +403,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), _services.Require<BoundedConVarInputs>());
         _services.AddInstance(boundedConVars);
         boundedConVars.Start();
+        new Render.MaterialConfigConVars(_services.Require<IClientConVarFlags>(), Log).Mark();
         _userMessages = new UserMessageRegistry(Log);
         // In the container for the dev API's received counts (ClientDebugBuild).
         _services.AddInstance(_userMessages);

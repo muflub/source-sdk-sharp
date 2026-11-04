@@ -377,6 +377,19 @@ void CShimConsole::EnsureChangeCallback()
 		Msg("[SourceSharp] convar change callback installed (global, matched by name)\n");
 }
 
+bool CShimConsole::AddConVarFlags(const char* pName, int32_t nFlags)
+{
+	if (!pName || !pName[0] || !Cvar())
+		return false;
+
+	ConVar* pExisting = Cvar()->FindVar(pName);
+	if (!pExisting)
+		return false;
+
+	pExisting->AddFlags(nFlags);
+	return true;
+}
+
 int32_t CShimConsole::WatchNamedConVar(const char* pName)
 {
 	if (!pName || !pName[0])

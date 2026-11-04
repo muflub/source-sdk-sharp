@@ -529,10 +529,12 @@ public:
 };
 
 // ConVarsClientSetValue stores a value native reads; 0 for a name nothing reads.
+// ConVarsClientAddFlags ORs FCVAR bits into a convar the engine holds; 0 for no such convar.
 abstract_class IShimConVarsClient
 {
 public:
 	virtual int32_t ConVarsClientSetValue(const char* pName, float flValue) = 0;
+	virtual int32_t ConVarsClientAddFlags(const char* pName, int32_t nFlags) = 0;
 };
 
 // FlashlightTexture holds a texture by name and answers its id (-1: none).

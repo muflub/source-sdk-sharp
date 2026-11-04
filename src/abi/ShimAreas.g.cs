@@ -1780,6 +1780,7 @@ internal sealed unsafe class PhysicsClientArea : IPhysicsClientArea
 internal unsafe interface IConVarsClientArea
 {
     int ConVarsClientSetValue(byte* a0, float a1);
+    int ConVarsClientAddFlags(byte* a0, int a1);
 }
 
 /// <summary>
@@ -1792,6 +1793,7 @@ internal sealed unsafe class ConVarsClientArea : IConVarsClientArea
     internal ConVarsClientArea(ShimRef<ShimConVarsClientFwd> shim) { _shim = shim; }
 
     public int ConVarsClientSetValue(byte* a0, float a1) { return _shim.Table->ConVarsClientSetValue(_shim.Self, a0, a1); }
+    public int ConVarsClientAddFlags(byte* a0, int a1) { return _shim.Table->ConVarsClientAddFlags(_shim.Self, a0, a1); }
 }
 
 /// <summary>

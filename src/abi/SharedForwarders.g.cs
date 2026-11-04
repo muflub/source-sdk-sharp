@@ -2846,7 +2846,7 @@ internal unsafe struct ShimPhysicsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimConVarsClient</c> through its forwarders (SSFwd_ShimConVarsClient): 1 slot(s).
+/// <c>IShimConVarsClient</c> through its forwarders (SSFwd_ShimConVarsClient): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimConVarsClientFwd : IForwarderTable
@@ -2856,6 +2856,9 @@ internal unsafe struct ShimConVarsClientFwd : IForwarderTable
 
     // int32_t IShimConVarsClient::ConVarsClientSetValue( const char *, float )
     public delegate* unmanaged<void*, byte*, float, int> ConVarsClientSetValue;
+
+    // int32_t IShimConVarsClient::ConVarsClientAddFlags( const char *, int32_t )
+    public delegate* unmanaged<void*, byte*, int, int> ConVarsClientAddFlags;
 }
 
 /// <summary>

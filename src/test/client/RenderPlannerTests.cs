@@ -694,11 +694,11 @@ public class RenderPlannerTests
         AssertRenderTargetStackBalances("water, above", Plan(With(i => Water(i))));
         AssertRenderTargetStackBalances("water, in it", Plan(With(i => Water(i, eyeIn: true))));
         AssertRenderTargetStackBalances("glass", Plan(With(Glass)));
-        AssertRenderTargetStackBalances("a monitor", RenderPlanner.Plan(Inputs(), [Monitor()])!.ToList());
+        AssertRenderTargetStackBalances("a monitor", RenderPlanner.Plan(Inputs(), _cv, [Monitor()])!.ToList());
         AssertRenderTargetStackBalances("the frame buffer overlay", PlanWithDebug(i =>
         {
             i = Debug(i);
-            i.SetCvar(RenderCvar.mat_showframebuffertexture, 1);
+            _cv.Set("mat_showframebuffertexture", 1);
             return i;
         }));
     }

@@ -2961,16 +2961,19 @@ static void *const s_ShimPhysicsClientSlots[] = {
 static const SSForwarderTable s_ShimPhysicsClientTable = { s_ShimPhysicsClientSlots, 5 };
 
 //-----------------------------------------------------------------------------
-// ShimConVarsClient: 1 forwarder(s) over IShimConVarsClient.
+// ShimConVarsClient: 2 forwarder(s) over IShimConVarsClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimConVarsClient::ConVarsClientSetValue( const char *, float )
 static int32_t SSFwd_ShimConVarsClient_ConVarsClientSetValue( IShimConVarsClient *self, const char * a0, float a1 ) { return self->ConVarsClientSetValue( a0, a1 ); }
+// int32_t IShimConVarsClient::ConVarsClientAddFlags( const char *, int32_t )
+static int32_t SSFwd_ShimConVarsClient_ConVarsClientAddFlags( IShimConVarsClient *self, const char * a0, int32_t a1 ) { return self->ConVarsClientAddFlags( a0, a1 ); }
 
 static void *const s_ShimConVarsClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimConVarsClient_ConVarsClientSetValue ),
+	reinterpret_cast< void * >( &SSFwd_ShimConVarsClient_ConVarsClientAddFlags ),
 };
 
-static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 1 };
+static const SSForwarderTable s_ShimConVarsClientTable = { s_ShimConVarsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
 // ShimFlashlightClient: 2 forwarder(s) over IShimFlashlightClient.

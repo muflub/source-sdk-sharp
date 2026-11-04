@@ -57,8 +57,9 @@ private:
 class CConVarsClient final : public IShimConVarsClient
 {
 public:
-	explicit CConVarsClient(const CClientEngineInterfaces& engines)
+	CConVarsClient(CShimConsole& console, const CClientEngineInterfaces& engines)
 		: m_cl_software_cursor(engines)
+		, m_Console(console)
 	{
 	}
 
@@ -107,6 +108,7 @@ public:
 	int m_nRefractUpdateFrame = 0;
 
 	int32_t ConVarsClientSetValue(const char* pName, float flValue) override;
+	int32_t ConVarsClientAddFlags(const char* pName, int32_t nFlags) override;
 
 private:
 	struct DecidedValue_t
@@ -117,4 +119,5 @@ private:
 
 	DecidedValue_t m_Decided[8] = {};
 	int m_nDecided = 0;
+	CShimConsole& m_Console;
 };

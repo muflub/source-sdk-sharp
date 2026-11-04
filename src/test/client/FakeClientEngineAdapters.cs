@@ -47,12 +47,30 @@ internal sealed class FakeClientEngineAdapters : IClientEngineAdapters
     /// <summary>The engine the last composition asked over.</summary>
     public ModuleEngine? Engine { get; private set; }
 
+    /// <summary>What the composition marked on the engine's convars.</summary>
+    public RecordingConVarFlags ConVarFlags { get; } = new();
+
     public void AddTo(ServiceContainer services, ModuleEngine engine)
     {
         Calls++;
         Engine = engine;
+        services.AddInstance<IClientConVarFlags>(ConVarFlags);
         foreach (Type seam in Seams)
             services.AddInstance(seam, DispatchProxy.Create(seam, typeof(DefaultAnswers)));
+    }
+
+    /// <summary>Records each mark and finds every convar but those it was told are missing.</summary>
+    public sealed class RecordingConVarFlags : IClientConVarFlags
+    {
+        public List<(string Name, ConVarFlags Flags)> Marked { get; } = [];
+
+        public HashSet<string> Missing { get; } = [];
+
+        public bool AddFlags(string name, ConVarFlags flags)
+        {
+            Marked.Add((name, flags));
+            return !Missing.Contains(name);
+        }
     }
 
     /// <summary>A mock whose every member answers its return type's default.</summary>

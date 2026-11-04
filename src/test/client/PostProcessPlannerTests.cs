@@ -278,11 +278,11 @@ public class PostProcessPlannerTests
     {
         (RenderTrace t, string text) = Load("post-lockdown-forcebloom");
         PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
-        var planner = new PostProcessPlanner(() => "mods/test");
+        var planner = new PostProcessPlanner(() => "mods/test", _cv);
         (RenderOp[] off, _, _) = Program(input, warmFrames: 1, planner);
         Assert.True(RenderTargetPushes(off, "colour correction off") > 0, "colour correction off pushed nothing");
         input.ColorCorrectionActive = 1;
-        input.SetCvar(PostCvar.mat_colorcorrection, 1f);
+        _cv.Set("mat_colorcorrection", 1f);
         (RenderOp[] on, _, _) = Program(input, warmFrames: 1, planner);
         Assert.True(RenderTargetPushes(on, "colour correction on") > 0, "colour correction on pushed nothing");
         Assert.Contains(on, o => o.Kind == (int)RenderOpKind.PostEnableColorCorrection && o.GetI(0) == 1);
