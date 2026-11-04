@@ -46,7 +46,8 @@ public readonly record struct LoadoutItem(TFLoadoutSlot Slot, ItemInstance Item)
 public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schema, ITFPlayerClasses? classes = null,
                                       Player.TFPlayerItems? items = null, TFClassTable? table = null,
                                       ITeamRoundState? round = null, ITFStalemateSettings? stalemate = null,
-                                      WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null)
+                                      WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null,
+                                      BotInventory? botInventory = null, IBotPlayers? bots = null)
     : ILoadoutProvider, IOrderedHook
 {
     private readonly ITeamRoundState? _round = round;
@@ -184,7 +185,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         if (cls < TFClass.Scout || cls >= TFClass.Civilian)
             return [];
 
-        var owned = inventory.Of(entIndex) ?? new PlayerInventory(0);
+        var owned = OwnedFor(entIndex);
         var items = new List<LoadoutItem>();
         for (var slot = TFLoadoutSlot.Primary; slot < TFLoadoutSlot.Count; slot++)
         {
@@ -192,6 +193,18 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
                 items.Add(new LoadoutItem(slot, item));
         }
         return items;
+    }
+
+    /// <summary>Whose inventory the loadout reads: the bot's seeded items for a bot, the local inventory for everyone else.</summary>
+    private PlayerInventory OwnedFor(int entIndex)
+    {
+        // The bot's seed is the roster's SeedIndex later (stage F2x); until the AI binding supplies
+        // one, the provider passes 0 for every bot. The draw is pure, so 0 already replays the same
+        // items for the same class and slot.
+        if (bots is not null && botInventory is not null && bots.IsBot(new EntityHandle((uint)entIndex))
+            && botInventory.ForBot(entIndex, 0) is { } botOwned)
+            return botOwned;
+        return inventory.Of(entIndex) ?? new PlayerInventory(0);
     }
 
     /// <summary>

@@ -428,6 +428,7 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void SurfaceSetPlan(uint a0, int* a1, int a2) { }
     public void ClientInterpAdmitted(uint* a0, int a1) { }
     public void EntitySetModelOverride(uint a0, byte* a1) { }
+    public void StandaloneSetShadowHull(uint a0, int a1) { }
 }
 
 /// <summary><see cref="IViewClientArea"/> for a test with no engine: every call answers its default.</summary>

@@ -354,6 +354,9 @@ public class SideAuditTests
         // server has a shadow to report, which it does not.
         "StandaloneShadowCast",
         "StandaloneSetCustomDraw", "StandaloneSetFade",
+        // The sentry blueprint's shadow hull (c_obj_sentrygun.cpp:588, the
+        // placing arm): a shadow bounds choice made by the thing that draws it.
+        "StandaloneSetShadowHull",
         "StandaloneSetOverlayModel", "StandaloneSetViewModel",
         // (Phase 5's pose parameters, the animation clock's two reads, the
         // ground speed, the procedural counts and the layer table left with

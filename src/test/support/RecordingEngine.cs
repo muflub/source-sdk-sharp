@@ -811,6 +811,7 @@ public sealed class RecordingEngine :
     float IEngineEntityRender.SequenceGroundSpeed(EntityHandle entity, int sequence) => Record<float>("EntityRender.SequenceGroundSpeed", entity, sequence);
     void IEngineEntityRender.SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) => RecordVoid("EntityRender.SetCustomDraw", entity, mins, maxs);
     void IEngineEntityRender.SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) => RecordVoid("EntityRender.SetBlending", entity, translucent, ignoreZ, alpha);
+    void IEngineEntityRender.SetShadowHull(EntityHandle entity, bool shadowHull) => RecordVoid("EntityRender.SetShadowHull", entity, shadowHull);
     ShadowCast IEngineEntityRender.ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = Value<ShadowCastChoice>("EntityRender.ShadowCast.asked");

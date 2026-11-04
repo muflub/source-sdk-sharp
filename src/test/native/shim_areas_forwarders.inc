@@ -291,10 +291,10 @@ TEST( FwdShimAreas, ShimEffectsRenderClientIs36Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimStandaloneClientIs25Slots )
+TEST( FwdShimAreas, ShimStandaloneClientIs26Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimStandaloneClient::EntitySetModelOverride ).slot + 1;
-	EXPECT_EQ( 25, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimStandaloneClient::StandaloneSetShadowHull ).slot + 1;
+	EXPECT_EQ( 26, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimStandaloneClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

@@ -58,6 +58,26 @@ public class TFBaseObjectTests
         Assert.True(building.IsPlacing);
     }
 
+    /// <summary>
+    /// The wire's copy of the build state is what the client's shadow arm
+    /// reads (<c>GetShadowRenderBounds</c>, c_obj_sentrygun.cpp:588), so it
+    /// must move with <see cref="TFBaseObject.IsPlacing"/> and not only with
+    /// the server's own field.
+    /// </summary>
+    [Fact]
+    public void ThePlacingFlagRidesTheWireWithThePrivateOne()
+    {
+        var (_, building, _) = APlacedBuilding();
+
+        Assert.True(building.State.Placing,
+            "a blueprint is placing, and the wire says so for the client's shadow");
+
+        building.StartBuilding();
+
+        Assert.False(building.State.Placing,
+            "a built sentry is no longer placing on the wire, so its shadow leaves the hull arm");
+    }
+
     [Fact]
     public void ConstructionStartsAtStocksStartingHealth()
     {

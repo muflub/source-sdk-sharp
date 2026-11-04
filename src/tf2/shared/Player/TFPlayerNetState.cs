@@ -34,6 +34,9 @@ public static class TFEntityNames
 
     /// <summary>Stock's <c>CObjectTeleporter</c> (<c>CREATE_CLASSNAME( obj_teleporter )</c>, tf_obj_teleporter.cpp).</summary>
     public const string Teleporter = "obj_teleporter";
+
+    /// <summary>Stock's <c>CObjectSapper</c> (<c>LINK_ENTITY_TO_CLASS( obj_attachment_sapper, CObjectSapper )</c>, tf_obj_sapper.cpp).</summary>
+    public const string Sapper = "obj_attachment_sapper";
 }
 
 /// <summary>

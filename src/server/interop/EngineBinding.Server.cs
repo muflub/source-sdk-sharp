@@ -1502,6 +1502,7 @@ internal sealed unsafe partial class EngineEntityRender
     // attach guard answered here, where the client's areas are never attached.
     public void SetCustomDraw(EntityHandle entity, Vector mins, Vector maxs) { }
     public void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha) { }
+    public void SetShadowHull(EntityHandle entity, bool shadowHull) { }
     public ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked)
     {
         asked = ShadowCastChoice.Auto;

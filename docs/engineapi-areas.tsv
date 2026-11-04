@@ -248,6 +248,7 @@ SurfaceSetMaterials	EngineApi	IShimStandaloneClient	client		client	-	CStandalone
 SurfaceSetPlan	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::SurfaceSetPlan	uint, int*, int, void	
 ClientInterpAdmitted	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientInterpAdmitted	uint*, int, void	
 EntitySetModelOverride	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::EntitySetModelOverride	uint, byte*, void	
+StandaloneSetShadowHull	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetShadowHull	uint, int, void	
 ConNPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNPrintf	void*, int, byte*, void	
 ConNXPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNXPrintf	void*, int, float, float*, int, byte*, void	
 GetLightForPoint	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPoint	void*, float*, int, float*, void	

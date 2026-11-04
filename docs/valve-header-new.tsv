@@ -1145,3 +1145,5 @@ src/client/managed/Ragdolls/RagdollDissolves.cs	ports C_EntityDissolve::ClientTh
 src/tf2/server/Voice/TFResponsePrecache.cs	ports CResponseSystem::Precache and its PrecacheInstancedScene arm (AI_ResponseSystem.cpp:1831-1894, sceneentity.cpp:4780-4816): the response rules' scenes and speak entries precached at level init
 src/tf2/client/Weapons/TFFlameThrowerFx.cs	ports CTFFlameThrower's client half: the burn gate, the flame and pilot sounds, the particles (tf_weapon_flamethrower.cpp)
 src/tf2/shared/Weapons/TFFlameDefs.cs	ports the flame_* item attributes CTFFlameManager reads (tf_flame.cpp:465-477) from items_game.txt
+src/client/native/standalone_shadow_hull.h	ports the placing arm of C_ObjectSentrygun::GetShadowRenderBounds: the collision hull widened by bbBloat (10, 10, 0) (c_obj_sentrygun.cpp:588-597)
+src/tf2/shared/Buildings/TFObjectNetState.cs	networks m_bPlacing, CBaseObject::m_bPlacing (baseobject.h), the flag the placing arm reads

@@ -609,6 +609,14 @@ public interface IEngineEntityRender
     /// <inheritdoc cref="EngineSide.StandaloneSetBlending"/>
     void SetBlending(EntityHandle entity, bool translucent, bool ignoreZ, int alpha);
 
+    /// <summary>
+    /// Whether this entity's shadow is cast from its collision hull widened by
+    /// (10, 10, 0) — stock's placing arm of
+    /// <c>C_ObjectSentrygun::GetShadowRenderBounds</c> (c_obj_sentrygun.cpp:588)
+    /// — instead of the model's render bounds. Client-side.
+    /// </summary>
+    void SetShadowHull(EntityHandle entity, bool shadowHull);
+
     /// <inheritdoc cref="EngineSide.StandaloneShadowCast"/>
     ShadowCast ShadowCast(EntityHandle entity, out ShadowCastChoice asked);
 

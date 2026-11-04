@@ -1176,6 +1176,12 @@ internal sealed unsafe partial class EngineEntityRender
         _standaloneClientArea.StandaloneSetCustomDraw(entity.Value, lo, hi);
     }
 
+    /// <inheritdoc cref="IEngineEntityRender.SetShadowHull"/>
+    public void SetShadowHull(EntityHandle entity, bool shadowHull)
+    {
+        _standaloneClientArea.StandaloneSetShadowHull(entity.Value, shadowHull ? 1 : 0);
+    }
+
     /// <summary>
     /// How an entity that draws ITSELF is sorted, blended and depth-tested.
     ///

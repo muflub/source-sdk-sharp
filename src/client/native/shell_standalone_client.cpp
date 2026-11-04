@@ -21,6 +21,7 @@
 
 #include "shell_standalone_client.h"
 #include "standalone_renderable_handle.h"
+#include "standalone_shadow_hull.h"
 
 #include "slot_table.h"
 #include "shell_cliententitylist.h"
@@ -509,6 +510,35 @@ void C_StandaloneEntity::GetRenderBounds(Vector& mins, Vector& maxs)
 
 	mins = Block().Head.Mins;
 	maxs = Block().Head.Maxs;
+}
+
+// Stock's placing arm of C_ObjectSentrygun::GetShadowRenderBounds
+// (c_obj_sentrygun.cpp:588): while the blueprint is worn the shadow is the
+// collision hull widened by (10, 10, 0), not the model's render bounds -- the
+// sentry blueprint's are the map-sized box its art was authored in, and a
+// shadow cast from them darkens the floor half a map away. Everything else is
+// the base's answer.
+void C_StandaloneEntity::GetShadowRenderBounds(Vector& mins, Vector& maxs, ShadowType_t shadowType)
+{
+	if (m_bShadowHull)
+	{
+		StandaloneShadowHull_Bounds(Block().Head.Mins.Base(), Block().Head.Maxs.Base(), mins.Base(), maxs.Base());
+		return;
+	}
+
+	GetRenderBounds(mins, maxs);
+}
+
+void C_StandaloneEntity::SetShadowHull(bool bShadowHull)
+{
+	if (m_bShadowHull == bShadowHull)
+		return;
+
+	m_bShadowHull = bShadowHull;
+
+	// The hull changed under a shadow already projected: the next pass
+	// re-projects it from the new bounds.
+	m_Clients.Shadows().MarkDirty(BlockHandle(), true);
 }
 
 void C_StandaloneEntity::CreateModelInstance()
@@ -1454,6 +1484,12 @@ void CStandaloneClients::StandaloneSetCustomDraw(uint32_t hEntity, const float* 
 
 	pEntity->SetCustomDraw(Vector(pMinsXYZ[0], pMinsXYZ[1], pMinsXYZ[2]),
 						   Vector(pMaxsXYZ[0], pMaxsXYZ[1], pMaxsXYZ[2]));
+}
+
+void CStandaloneClients::StandaloneSetShadowHull(uint32_t hEntity, int32_t bShadowHull)
+{
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
+		pEntity->SetShadowHull(bShadowHull != 0);
 }
 
 // CL_AllocDlight reuses the slot for a known key, so the same key moves a light

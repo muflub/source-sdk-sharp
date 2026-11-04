@@ -40,6 +40,23 @@ public sealed class TFWeaponCompositionTests
         public void Reconnect(int entIndex) { }
     }
 
+    /// <summary>The bots as the server container needs them: nobody is a bot, as the
+    /// engine fake's own answer; BotInventory's log names through it.</summary>
+    private sealed class NoBots : SourceSharp.Server.IBotPlayers
+    {
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        {
+            refusal = "the composition fake adds no clients";
+            return EntityHandle.None;
+        }
+
+        public bool IsBot(EntityHandle player) => false;
+
+        public bool Kick(EntityHandle bot, string reason) => false;
+
+        public IReadOnlyList<SourceSharp.Server.BotPlayer> Bots { get; } = [];
+    }
+
     private sealed class ClientFiles(TFClassTableTests.Files files) : CAbi.IEngineFiles
     {
         public int GameFileSize(string path) => files.GameFileSize(path);
@@ -99,6 +116,9 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<IEngineGameEvents>(engine);
         c.AddInstance<IModInfo>(new ModInfo(_ => null));
         c.AddInstance<IConnectedClients>(new Nobody());
+        // BotInventory (F19) names the bots through the seam; ServerModule registers
+        // it over the engine's fake clients at runtime, so it joins here too.
+        c.AddInstance<SourceSharp.Server.IBotPlayers>(new NoBots());
         var convars = ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>());
         convars.RegisterAll(typeof(TFWeaponBehaviour).Assembly);
         c.AddInstance(convars);

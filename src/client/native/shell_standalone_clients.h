@@ -182,6 +182,7 @@ public:
 	int32_t StandaloneIsDormant(uint32_t hEntity) override;
 	void StandaloneSetBlending(uint32_t hEntity, int32_t bTranslucent, int32_t bIgnoreZ, int32_t nAlpha) override;
 	void StandaloneSetCustomDraw(uint32_t hEntity, const float* pMinsXYZ, const float* pMaxsXYZ) override;
+	void StandaloneSetShadowHull(uint32_t hEntity, int32_t bShadowHull) override;
 	void StandaloneSetFade(uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist,
 						   float flMinAlpha) override;
 	void StandaloneSetOverlayModel(uint32_t hEntity, int32_t nModelIndex) override;

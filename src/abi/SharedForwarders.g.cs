@@ -2179,7 +2179,7 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 25 slot(s).
+/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 26 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
@@ -2261,6 +2261,9 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 
     // void IShimStandaloneClient::EntitySetModelOverride( uint32_t, const char * )
     public delegate* unmanaged<void*, uint, byte*, void> EntitySetModelOverride;
+
+    // void IShimStandaloneClient::StandaloneSetShadowHull( uint32_t, int32_t )
+    public delegate* unmanaged<void*, uint, int, void> StandaloneSetShadowHull;
 }
 
 /// <summary>

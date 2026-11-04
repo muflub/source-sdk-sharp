@@ -227,8 +227,9 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
 
     public override TFObjectType Type => TFObjectType.Teleporter;
 
-    /// <summary><c>m_eTeleporterState</c>.</summary>
-    public TFTeleporterState State => _state;
+    /// <summary><c>m_eTeleporterState</c>. (<see cref="TFBaseObject.State"/>'s
+    /// wire record hides behind it on the teleporter alone.)</summary>
+    public new TFTeleporterState State => _state;
 
     /// <summary>When the current state ends (<c>m_flCurrentRechargeDuration</c>'s
     /// horizon while recharging): the status panel's recharge fraction reads it

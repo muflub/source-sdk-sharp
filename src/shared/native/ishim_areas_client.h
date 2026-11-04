@@ -222,6 +222,9 @@ public:
 	virtual void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) = 0;
 	// A viewer-local model for the entity (stock's ValidateModelIndex); empty clears.
 	virtual void EntitySetModelOverride(uint32_t hEntity, const char* pModel) = 0;
+	// The entity's shadow is its collision hull widened, stock's placing arm of
+	// C_ObjectSentrygun::GetShadowRenderBounds (c_obj_sentrygun.cpp:588).
+	virtual void StandaloneSetShadowHull(uint32_t hEntity, int32_t bShadowHull) = 0;
 };
 
 abstract_class IShimViewClient

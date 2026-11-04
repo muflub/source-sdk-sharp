@@ -2554,6 +2554,14 @@ ss_cpptest(standalone_fb_texture_test
     INCLUDES public public/tier0 public/tier1
     SOURCES sourcesharp/test/standalone_fb_texture_test.cpp)
 
+# The placing shadow's box (standalone_shadow_hull.h, header-only): the
+# collision hull widened by (10, 10, 0), stock's placing arm of
+# GetShadowRenderBounds (c_obj_sentrygun.cpp:588) -- not the model's render
+# bounds, which for the sentry blueprint is the map-sized box its art was
+# authored in, and shadowed the floor half a screen from the entity.
+ss_cpptest(standalone_shadow_hull_test
+    SOURCES sourcesharp/test/standalone_shadow_hull_test.cpp)
+
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.
 ss_cpptest_report_linux_only()

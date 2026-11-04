@@ -441,7 +441,9 @@ public partial class EngineApiCensusTests
     // (253 + 11 = 264; less ClientIsLowViolence: 263.)
     // The flame's feed (tf2 pyrofx): ParticleSystemSetPoints, the flame's control
     // points fed once a burning frame in one crossing (259 + 1 = 260).
-    private const int ClientOnly = 260;
+    // The blueprint's shadow hull (tf2): StandaloneSetShadowHull, the placing
+    // sentry's shadow cast from its collision hull (260 + 1 = 261).
+    private const int ClientOnly = 261;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).
