@@ -286,6 +286,22 @@ public sealed class MainThreadBudgetTests
         Assert.True(_b.NonBotEstimateUs > high - (high - 2000d) * 0.2d, $"fell to {_b.NonBotEstimateUs}");
     }
 
+    /// <summary>A thread descheduled in a bot's turn has not spent the budget: turns are charged by its CPU time, so a busy box puts off no bot.</summary>
+    [Fact]
+    public void ATurnIsChargedByTheThreadsCpuTimeNotTheWall()
+    {
+        _b.Begin(0, Settings());
+        double from = _b.Now;
+        _c.Cpu += 40d;
+        _c.Wall += 4000d;
+        Assert.Equal(40d, _b.Now - from);
+
+        var wallOnly = new MainThreadBudget(() => _c.Wall, null);
+        double wallFrom = wallOnly.Now;
+        _c.Wall += 70d;
+        Assert.Equal(70d, wallOnly.Now - wallFrom);   // with no CPU clock, the wall
+    }
+
     [Fact]
     public void FramesOverTheAllowanceAreCounted()
     {

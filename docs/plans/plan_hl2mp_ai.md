@@ -324,9 +324,10 @@ minimum 1; one pool per server process. Jobs:
 |---|---|---|---|
 | `BrainStep(bot, tick)` | a worker | the tick's snapshot (immutable), the bot's event range, the bot's own blackboard, the immutable `NavGraph`/`MapKnowledge`, the bot's own flow-field cache | the bot's blackboard, the bot's intent slot, the bot's trace ring |
 | `FlowFieldBuild(bot, objective, class)` | a worker, before the step that needs it, or inside it | `NavGraph` | the bot's own cache (ring of 16) |
+| `DriveStep(bot, tick)` (ruling 2026-11-03: "Bot logic should be on the ai thread pool not main thread") | a worker, in the bot's own lane (`BotDriveLanes`), one at a time | the bot's facts as main read them, the brain's newest intent, its lane's copy of the obstacles, the immutable graph | the lane's `BrainDriver` and followers (their fields included), and a result taken back as a value |
 | `NavLoad` + `GraphDerive` | the `.nav3d` read on the main thread at `OnLevelInitPostEntity` (a file read, no engine); the graph derivation (§6.2) as a pool job, after which the pool's brains start | the file bytes, `MapKnowledge` | the immutable `NavGraph` |
 | `NavValidate` (debug/test only, §6.3) | **the main thread**: it spot-checks the loaded nav against the live world with engine hull traces, which are allowed only there | engine | a report |
-| `Vision`, `SnapshotBuild`, `Apply` | the main thread (engine reads and the command queue) | engine | events, snapshots, `UserCmd`s |
+| `Vision`, `SnapshotBuild`, `Apply` | the main thread (engine reads and the command queue), under the budget below | engine | events, snapshots, `UserCmd`s |
 
 Rules that make the count irrelevant to the result: a bot's steps are
 serialised (step N+1 cannot start before N completes); no mutable state is
@@ -337,6 +338,82 @@ intents are merged into the slot array in **bot-slot order** by the
 applier's read, never by completion order; the trace ring is per bot. HL2MP
 has no team board; TF2's will be a per-step delta merged in slot order
 between steps, not a shared structure.
+
+#### 2.7.1 The drive step (ruling 2026-11-03)
+
+A tick on the main thread: take each bot's newest finished drive step and submit
+its command; run every bot's command as a player; read each bot's own facts, now
+that its command has moved it, and hand its next step to its lane. So a step has
+the rest of the frame, and the added latency of a movement decision is at most a
+tick. `ai_sync 1` runs the same steps in the same order on the caller.
+
+A lane is single-flight. A step not finished when a command is due leaves the bot
+its last intent: a new usercmd, with its own number and tick (stock has a bot send
+one a tick), steered afresh from where it stands, its press keys held as they were
+(`BotCommandApplier.PressKeys`), so no jump, use, shot or reload comes of a repeat
+and no one-shot goes. `Seq` numbers intents and is stamped when one is submitted; a
+repeat submits nothing, so an intent still expires at its own tick (§2.4).
+
+A breakable's line stays a main-thread trace: a step names the cell it wants a line
+to, main traces it before the next step. Nothing reads a driver from the main thread:
+results come back in the step's value, and a debug route reads a brain's route off
+its follower only with no step on its way, otherwise a copy its step published.
+
+#### 2.7.2 The main-thread budget (ruling 2026-11-03: "cap bot logic runtime on main thread, only burst into unused frame time")
+
+What stays on the main thread (a bot's command run as a player, the senses' reads,
+the hand-over) shares `MainThreadBudget`: a floor each frame (`ai_budget_floor_us`,
+1000), plus the frame's unused time, charged in the thread's CPU time, since a thread
+descheduled in a bot's turn has not spent the bots' budget. `ai_budget 0` and
+`ai_sync 1` have no cap, and still measure.
+
+**Off by default (`ai_budget 0`), 2026-11-03.** Trials did not show it improving frames.
+16 bots, fps_max 250, floor 1000, frame p99 off and on: 15.1/12.8, 4.1/26.5, 8.3/26.3 ms,
+at unequal load on a shared box. 5 bots, fps_max 250, floor 60, equal load: 4.3/15.6 ms,
+unexplained, and bots moved in 4-tick bursts. No command is dropped, so a sustained load
+cannot go below the cap: waiting only moves commands. Settle it on a quiet box before
+turning it on.
+
+**Unused time** is the frame target less a recent estimate of the frame's other work,
+measured as the thread's CPU time from one frame's first tick to the next, less what
+the bots charged, less the engine's idle spin. On a listen server the client's frame
+runs on the same thread out of the server's sight, and this needs no hook into it: the
+engine's sleep is off the CPU, and the 1.5 ms it spins on `pause` for the last of its
+wait is taken off when the thread slept. A frame that did not sleep may have spun up to
+2.5 ms that cannot be told from work; it is left in, against the bots. A frame that ran
+past the target had nothing unused whatever its CPU time said, and the bots get the floor
+alone for 30 frames after one, because a present blocked on the GPU reads as idle until
+then. `fps_max 0` has no idle time: the floor. **A dedicated server** has no render to
+protect: its target is the tick interval, and a bot waits only if the tick would not fit.
+
+**A bot that does not fit waits, as a client whose packet came late.** Its command is
+built on its tick and queued; the next run takes the batch, oldest first, each command
+with its own number, tick and keys. `RunQueued` places the tick base for the count
+(`AdjustPlayerTimeBase`, whose window is ±60 ms), so each command runs on the clock it
+would have had, and `m_nSimulationTick`'s gate is taken only by the tick that runs. Lag
+compensation does not rewind for a bot's shots (`IsBot`), and a bot as a target is
+recorded by its simulation time, as a human whose packet came late is. A waiting bot is
+not read: it has not moved. The bots go as a wheel, each tick starting from the first one
+put off; a turn that has waited `ai_budget_wait_ticks` (3) runs regardless, over the cap,
+counted (`ai.budget.forced`). No command is dropped, so a sustained load over the allowance
+cannot be held under it: waiting moves a command to a frame with room, and saves a waiting
+bot's reads and looks, but the commands of every tick still run.
+
+**The senses share it, and what a bot perceives keeps §4.1's rule.** Actor reads run
+every tick. A bot's look (its view, the cone, the PVS, its pairs' lines) rotates, within
+the bound, and until then its pairs keep their last answer, which is exactly §4.1's rule
+for a pair the trace budget did not serve. A look not made gives no sight: a pair never
+traced is never clear, and recognition starts only from a real line (`VisionPassTests`).
+Staleness: at most `ai_budget_wait_ticks` ticks between looks (45 ms at 3), and lines no
+fewer than serve every pair within that many of its looks: the worst case, every pair
+waiting and the frame full, is (B+1)² ticks, 240 ms at 3, where unbudgeted 16 bots already
+wait 37 ticks on `ai_vision_traces_per_tick`. A held answer can only delay a sight or hold
+one that long past a wall, both under `LostSightSeconds` (500 ms), which already shows a
+bot a hidden target's true place while it is losing sight. No new information reaches a
+brain, and `PerceivedView`'s census is unchanged.
+
+A brain reads a view at its decide tick and no other, so a bot's HUD and holdings are read
+then, unless a recording or `ai_think_log` wants every tick: a saving at any budget.
 
 ## 3. The action boundary: a bot is a client
 

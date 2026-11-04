@@ -124,6 +124,28 @@ public sealed class BotDriveLaneTests
         Assert.Equal(1, probe.Reads);
     }
 
+    /// <summary>A tick's steps wake a worker once for each few lanes, not once for each lane: a wake is the main thread's cost.</summary>
+    [Fact]
+    public void ATicksStepsWakeAWorkerForEachFewLanes()
+    {
+        using var pool = new AiWorkerPool();
+        BotDriveLanes lanes = Pooled(pool, 2);
+        lanes.Hold();
+        var bots = new List<ActorId>();
+        for (int b = 1; b <= 6; b++)
+        {
+            bots.Add(new ActorId(b, b));
+            Assert.True(lanes.Hand(Input(1, new PlayersProbe(), bot: bots[^1]), Self));
+        }
+
+        Assert.Equal(0L, pool.Ran);
+        Assert.All(bots, b => Assert.True(lanes.Busy(b.Slot)));
+        lanes.Flush();
+        lanes.Settle();
+        Assert.True(SpinWait.SpinUntil(() => pool.Ran == 2, TimeSpan.FromSeconds(10)), $"{pool.Ran} wakes for six lanes");
+        Assert.All(bots, b => Assert.Equal(DriveTaken.Fresh, lanes.Take(b, out _, out _)));
+    }
+
     /// <summary>Another bot's lane goes on while one is held: one bot's late step is that bot's.</summary>
     [Fact]
     public void OneLateLaneHoldsUpNoOther()
@@ -425,7 +447,7 @@ public sealed class BotDriveLaneTests
         private readonly bool _pooled;
         private int _tick;
 
-        public Match(int threads)
+        public Match(int threads, AiMainBudget? budget = null)
         {
             _pooled = threads > 0;
             Ai = new Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, Log,
@@ -433,7 +455,7 @@ public sealed class BotDriveLaneTests
                                     DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
             IEngineFrame frame = FakeEngine.Of<IEngineFrame>((m, _) => m.Name == "TickCount" ? _tick : throw FakeEngine.Unasked(m));
             Bots = new Hl2mpBots(World, World, World.Players(), World.Entities(), WeaponCatalog.Stock(), frame, _nav, DispatchProxy.Create<IBotInventory, Defaults>(),
-                                 new Names(), new ScoreboardTags(), Log, Ai);
+                                 new Names(), new ScoreboardTags(), Log, Ai, null, budget);
             var map = new MapKnowledge("grid", [new ItemSpawn(0, "item_healthkit", ItemKind.Health, new AiVector(880f, 880f, 0f), 30f)], [], Duel.Weapons);
             Ai.Session.World = new MemoryWorld(map, Grid.Graph, Hl2mpAiSession.TickSeconds, id => id.ToString());
             Ai.Session.Curves = SourceSharp.Ai.Tests.Skills.Curves.Game();
@@ -594,6 +616,64 @@ public sealed class BotDriveLaneTests
         Assert.Equal(5, commands.Length);
         Assert.Equal(Enumerable.Range(commands[0].Number, 5), commands.Select(c => c.Number));
         Assert.Equal(Enumerable.Range(commands[0].Tick, 5), commands.Select(c => c.Tick));
+    }
+
+    /// <summary>
+    /// The whole binding under a starved budget, on a real pool: the floor gone,
+    /// the bound holding, each bot still sends one command for every tick, in
+    /// order, within the bound, and no step goes without its bot's facts.
+    /// </summary>
+    [Fact]
+    public void UnderAStarvedBudgetEveryBotsCommandsRunInOrderWithinTheBound()
+    {
+        using var globals = new TestGlobals();
+        AiBudgetFloorConVar floor = DeclaredConVars.FreshAt<AiBudgetFloorConVar>("0");
+        var budget = new AiMainBudget(globals, FakeEngine.Of<IEngineConsole>((m, _) => m.Name == "FindConVarValue" ? "0" : throw FakeEngine.Unasked(m)),
+                                      FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m)),
+                                      DeclaredConVars.FreshAt<AiBudgetConVar>("1"), floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
+        using var match = new Match(2, budget);
+        for (int t = 0; t < 300; t++)
+        {
+            globals.Frame++;
+            match.Tick();
+        }
+
+        Assert.True(budget.Measure.Deferrals > 100, $"the stimulus: {budget.Measure.Deferrals} deferrals");
+        Assert.True(budget.Measure.Forced > 0, "the bound forced runs");
+        foreach (Hl2mpBot bot in match.Bots.Bots)
+        {
+            (int Number, int Tick)[] its = [.. match.World.Commands.Where(c => c.Slot == bot.Id.Slot).Select(c => (c.Cmd.CommandNumber, c.Cmd.TickCount))];
+            Assert.InRange(its.Length, 300 - 3, 300);
+            Assert.Equal(Enumerable.Range(its[0].Number, its.Length), its.Select(c => c.Number));
+            Assert.Equal(Enumerable.Range(its[0].Tick, its.Length), its.Select(c => c.Tick));
+        }
+    }
+
+    /// <summary>
+    /// <c>ai_sync 1</c> ignores the budget: the same starved budget changes no
+    /// command of an inline run, whatever it would have put off.
+    /// </summary>
+    [Fact]
+    public void AtAiSyncABudgetChangesNoCommand()
+    {
+        const int Ticks = 300;
+        List<(int Slot, UserCmd Cmd)> plain = Played(0, Ticks).Commands;
+        using var globals = new TestGlobals();
+        AiBudgetFloorConVar floor = DeclaredConVars.FreshAt<AiBudgetFloorConVar>("0");
+        var budget = new AiMainBudget(globals, FakeEngine.Of<IEngineConsole>((m, _) => m.Name == "FindConVarValue" ? "0" : throw FakeEngine.Unasked(m)),
+                                      FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m)),
+                                      DeclaredConVars.FreshAt<AiBudgetConVar>("1"), floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
+        using var match = new Match(0, budget);
+        for (int t = 0; t < Ticks; t++)
+        {
+            globals.Frame++;
+            match.Tick();
+        }
+
+        Assert.Equal((0L, 0L), (budget.Measure.Deferrals, budget.Measure.Forced));
+        Assert.Equal(plain.Count, match.World.Commands.Count);
+        for (int i = 0; i < plain.Count; i++)
+            Assert.True(plain[i].Slot == match.World.Commands[i].Slot && Same(plain[i].Cmd, match.World.Commands[i].Cmd), $"command {i}");
     }
 
     /// <summary>A bot gone while its step runs: the lane is dropped, the step finishes on its own, and nothing it says reaches anyone.</summary>

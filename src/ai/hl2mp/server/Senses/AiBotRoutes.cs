@@ -18,7 +18,8 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities,
-                                Hl2mpAiSession ai, Nav.IHl2mpNavigation nav, AimMeter aim, Chat.Hl2mpBotChat? chat = null, Nav.Hl2mpNav? navField = null, IEngineEntityRender? modelNames = null)
+                                Hl2mpAiSession ai, Nav.IHl2mpNavigation nav, AimMeter aim, Chat.Hl2mpBotChat? chat = null, Nav.Hl2mpNav? navField = null, IEngineEntityRender? modelNames = null,
+                                AiMainBudget? budget = null)
 {
     private AiWorkerPool Pool => ai.Pool;
 
@@ -85,11 +86,12 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
         new("GET", "/ai/chat", "bot chat (ai_chat): the endpoint and model, each bot's last lines, the filter's refusals by reason"),
         new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception|trace]"),
         new("GET", "/ai/aim", "the aim meter: each bot's account of each player it saw, shot at or hit (in-sight ticks, firing, crosshair error, first shot, shots, hits by weapon and band, leaves); ?reset=1 starts afresh"),
+        new("GET", "/ai/steps", "how far each bot went each tick, all bots together: a histogram of steps, the runs of ticks it stood between steps, and ?reset=1 to start afresh"),
         new("GET", "/ai/counters", "the AI's counters: ai.sense.us, ai.publish.us, ai.apply.us, ai.main.us (300-tick means), ai.brain.us per decide, ai.pool.* (threads, busy µs a second), ai.steps.* (skipped, faulted, in flight), process.threads"),
     ];
 
     /// <summary>Whether <paramref name="path"/> is one of these routes'.</summary>
-    public static bool Serves(string path) => path is "/ai/bots" or "/ai/counters" or "/ai/aim" or "/ai/chat" || path.StartsWith("/ai/bot/", StringComparison.Ordinal);
+    public static bool Serves(string path) => path is "/ai/bots" or "/ai/counters" or "/ai/aim" or "/ai/chat" or "/ai/steps" || path.StartsWith("/ai/bot/", StringComparison.Ordinal);
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
@@ -100,6 +102,14 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
             string json = aim.Json();
             if (query.ContainsKey("reset"))
                 aim.Reset();
+            return new DebugRouteReply(200, json);
+        }
+
+        if (path == "/ai/steps")
+        {
+            string json = senses.Steps.Json();
+            if (query.ContainsKey("reset"))
+                senses.Steps.Reset();
             return new DebugRouteReply(200, json);
         }
 
@@ -119,7 +129,7 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
                 + $"\"ai.sync\":{(senses.Session.Transport.Inline ? 1 : 0)},\"ai.pool.threads\":{Pool.Threads},\"ai.pool.alive\":{Pool.Alive},\"ai.pool.os_threads\":{WorkerThreads()},\"ai.pool.us\":{senses.PoolUsPerSecond:F1},"
                 + $"\"ai.pool.ran\":{Pool.Ran},\"ai.pool.faults\":{Pool.Faults},\"ai.steps.skipped\":{senses.Session.Counters.StepsSkipped},\"ai.steps.faulted\":{senses.Session.Counters.StepsFaulted},\"ai.steps.held\":{senses.Session.Counters.StepsHeld},"
                 + $"\"ai.steps.inflight\":{senses.Session.Counters.InFlight},\"ai.steps.inflight.max\":{senses.Session.Counters.InFlightMax},\"process.threads\":{ProcessThreads()},"
-                + $"{ChatCounters()}"
+                + $"{BudgetCounters()}{ChatCounters()}"
                 + $"\"nav.map\":{AiJson.Quote(nav.Current?.Map ?? "")},\"nav.cells\":{nav.Current?.Nav.Graph.CellCount ?? 0},\"nav.refusal\":{AiJson.Quote(nav.Refusal)}}}"));
 
         string[] parts = path["/ai/bot/".Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -143,6 +153,19 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
             "all" => new DebugRouteReply(200, $"{{\"record\":{AiJson.Write(record)},\"perception\":{Perception(bot)}}}"),
             _ => new DebugRouteReply(404, "{\"error\":\"parts: memory, skills, perception, trace\"}"),
         };
+    }
+
+    /// <summary>The main-thread budget's part of <c>/ai/counters</c>, with its comma: what the bots used of what they were allowed, over the last frames.</summary>
+    private string BudgetCounters()
+    {
+        if (budget is null)
+            return "";
+        MainThreadBudget b = budget.Measure;
+        BudgetStats s = b.FrameStats();
+        return string.Create(CultureInfo.InvariantCulture,
+            $"\"ai.budget.on\":{(b.Capped ? 1 : 0)},\"ai.budget.target.us\":{b.TargetUs:F0},\"ai.budget.nonbot.us\":{b.NonBotEstimateUs:F0},\"ai.budget.allowance.us\":{s.AllowedMean:F0},\"ai.budget.used.us\":{s.UsedMean:F1},\"ai.budget.used.us.p99\":{s.UsedP99:F0},\"ai.budget.used.us.max\":{s.UsedMax:F0},"
+            + $"\"ai.budget.deferrals\":{b.Deferrals},\"ai.budget.sense.deferrals\":{vision.LooksDeferred},\"ai.budget.forced\":{b.Forced},\"ai.budget.frames\":{b.Frames},\"ai.budget.frames.over\":{b.FramesOver},\"ai.budget.frames.late\":{b.FramesLate},"
+            + $"\"ai.frame.us.p50\":{s.PeriodP50:F0},\"ai.frame.us.p99\":{s.PeriodP99:F0},\"ai.frame.us.max\":{s.PeriodMax:F0},");
     }
 
     /// <summary>Bot chat's part of <c>/ai/counters</c> (§3.6), with its comma; nothing without chat in the composition.</summary>

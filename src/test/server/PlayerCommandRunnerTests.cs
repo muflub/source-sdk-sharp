@@ -107,6 +107,87 @@ public sealed unsafe class PlayerCommandRunnerTests : IDisposable
         Assert.Equal([(Player, 2)], placed);
     }
 
+    /// <summary>
+    /// A bot held back by the AI's main-thread budget runs its waiting commands as
+    /// one batch, as a client whose packet came late: all of them, oldest first, each
+    /// with its own tick, the tick base told how many, the tick's gate untouched by
+    /// the ticks it did not run on.
+    /// </summary>
+    [Fact]
+    public void ALateBatchRunsEveryCommandOldestFirstWithItsOwnTick()
+    {
+        var queue = new PlayerCommandQueue(new RecordingLog());
+        var seen = new List<int>();
+        int placed = -1;
+        PlayerCommandRunner runner = Runner(queue, (EntityHandle _, int _, int stage, in UserCmd cmd) =>
+        {
+            if (stage == 0)
+                seen.Add(cmd.TickCount);
+            return 1;
+        }, (_, commands) => placed = commands);
+
+        Assert.Equal(1, Queue(runner, 1));
+        Assert.Equal(1, Queue(runner, 2));
+        Assert.Equal(1, Queue(runner, 3));
+        _env.Raw->tickcount += 2;
+        Assert.Equal(3, runner.RunQueued(Player));
+        Assert.Equal([601, 602, 603], seen);
+        Assert.Equal(3, placed);
+        Assert.Equal(0, queue.Depth(Player));
+
+        // The next tick's own command runs in its own tick: the batch took only its gate.
+        _env.Raw->tickcount++;
+        Queue(runner, 4);
+        Assert.Equal(1, runner.RunQueued(Player));
+        Assert.Equal([601, 602, 603, 604], seen);
+    }
+
+    private int Queue(PlayerCommandRunner runner, int number)
+    {
+        UserCmd cmd = Cmd(number);
+        runner.Queue(Player, in cmd);
+        return 1;
+    }
+
+    /// <summary>
+    /// Why deferring a bot is safe (AdjustPlayerTimeBase, player.cpp:3116): a batch
+    /// of late commands starts its count from the same tick base, so each runs on
+    /// the clock it would have had, and the batch stays inside the correction window.
+    /// Compared with on-time commands, tick by tick, with the real rule.
+    /// </summary>
+    [Theory]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void ALateBatchsCommandsRunOnTheClockTheyWouldHaveHad(int batch)
+    {
+        const int Correction = 4, Start = 1000, Ticks = 200;
+        int onTimeBase = 0, lateBase = 0;
+        var onTime = new List<int>();
+        var late = new List<int>();
+        int firstCorrected = ServerCommandRules.AdjustTickBase(0, Start, 1, 1, Correction, singlePlayer: false);
+        onTimeBase = firstCorrected;
+        lateBase = firstCorrected;
+        int corrections = 0;
+        for (int t = Start; t < Start + Ticks; t++)
+        {
+            int placed = ServerCommandRules.AdjustTickBase(onTimeBase, t, 1, 1, Correction, singlePlayer: false);
+            onTimeBase = placed;
+            onTime.Add(onTimeBase++);
+            if ((t - Start + 1) % batch != 0)
+                continue;
+            int was = lateBase;
+            lateBase = ServerCommandRules.AdjustTickBase(lateBase, t, batch, 1, Correction, singlePlayer: false);
+            corrections += lateBase != was ? 1 : 0;
+            for (int c = 0; c < batch; c++)
+                late.Add(lateBase++);
+        }
+
+        Assert.Equal(0, corrections);
+        Assert.True(late.Count >= Ticks - batch);
+        Assert.Equal(onTime.Take(late.Count), late);
+    }
+
     [Fact]
     public void AnEmptyQueueRunsNothingAndPlacesNoTickBase()
     {

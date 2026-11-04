@@ -39,6 +39,14 @@ internal static class DeclaredConVars
     /// <summary>What a change from the engine does to a convar: the fact's way to move one.</summary>
     public static void Hold(this ConVarBase convar, string value) => convar.NotifyChanged(value, convar.RawValue);
 
+    /// <summary>The same, held at <paramref name="raw"/>, as if the engine had been told so.</summary>
+    public static T FreshAt<T>(string raw) where T : ConVarBase
+    {
+        T convar = Fresh<T>();
+        convar.NotifyChanged(raw, convar.DefaultValue);
+        return convar;
+    }
+
     /// <summary>
     /// A class built by a container holding this registry's convars, with each
     /// convar its constructor names declared first: how a fact builds a data

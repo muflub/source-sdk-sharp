@@ -154,12 +154,51 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
             return false;
         lane.Set(in input, in self, Environment.CurrentManagedThreadId);
         Steps++;
-        if (transport().Dispatch(lane))
-            return true;
-        // No worker to take it: a stopped pool, between levels. Run here, not left waiting.
-        Refused++;
-        lane.Run();
+        _held.Add(lane);
+        if (!_holding)
+            Flush();
         return true;
+    }
+
+    /// <summary>The most lanes one wake of a worker runs: a wake costs the main thread more than a whole sense's own work (live: 0.57% of it, five a tick).</summary>
+    public const int LanesAWake = 4;
+
+    private readonly List<Lane> _held = [];
+    private bool _holding;
+
+    /// <summary>Holds the steps handed from now on until <see cref="Flush"/>: a tick's together.</summary>
+    public void Hold() => _holding = true;
+
+    /// <summary>
+    /// Hands the held steps over, in handed order, <see cref="LanesAWake"/> to a
+    /// worker: a batch's lanes run one after another, and only a late one in it
+    /// makes the rest late too. Inline they run here, in that order.
+    /// </summary>
+    public void Flush()
+    {
+        _holding = false;
+        for (int at = 0; at < _held.Count; at += LanesAWake)
+        {
+            var batch = new Batch(_held.GetRange(at, Math.Min(LanesAWake, _held.Count - at)));
+            if (transport().Dispatch(batch))
+                continue;
+            // No worker to take it: a stopped pool, between levels. Run here, not left waiting.
+            Refused += batch.Count;
+            batch.Run();
+        }
+
+        _held.Clear();
+    }
+
+    private sealed class Batch(List<Lane> lanes) : IAiWork
+    {
+        public int Count => lanes.Count;
+
+        public void Run()
+        {
+            foreach (Lane lane in lanes)
+                lane.Run();
+        }
     }
 
     /// <summary>Takes <paramref name="bot"/>'s newest finished step back, with the facts it was handed.</summary>
@@ -219,6 +258,8 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
     /// </summary>
     public int Abandon()
     {
+        _held.Clear();
+        _holding = false;
         int dropped = 0;
         foreach (Lane? lane in _lanes)
         {
@@ -241,7 +282,7 @@ public sealed class BotDriveLanes(Func<IAiTransport> transport, int slots)
         _lanes[slot] = null;
     }
 
-    private sealed class Lane(ActorId bot) : IAiWork
+    private sealed class Lane(ActorId bot)
     {
         private const int StateIdle = 0, StateHanded = 1, StateDone = 2;
 

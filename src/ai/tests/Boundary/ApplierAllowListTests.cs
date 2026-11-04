@@ -88,6 +88,8 @@ public class ApplierAllowListTests
         "HostSay::CanHear", "HostSay::Say", "IClientInfo::ClientConVar",
         // A marker on the asker's own screen (§3.6): a generic seam, from the map's own list.
         "IPlayerMarkers::Show",
+        // AiMainBudget: the host frame a tick is in, and fps_max's value, as what the bots' main-thread time is measured against.
+        "Globals::get_FrameCount", "Globals::get_IntervalPerTick", "IEngineConsole::FindConVarValue",
         // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
         "IntConVar::.ctor", "BoolConVar::.ctor",
         // EngineServerSlots: the people on the server, for the roster's free slots (§3.5).

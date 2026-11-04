@@ -55,9 +55,10 @@ public sealed class Hl2mpBots : IFrameLifecycle
     public Hl2mpBots(IBotPlayers players, IPlayerCommandRunner runner, IEnginePlayers enginePlayers, IEngineEntities entities,
                      WeaponCatalog weapons, IEngineFrame frame, IHl2mpNavigation nav, IBotInventory inventory,
                      IBotNameSource names, IScoreboardTags tags, ILog log, Senses.Hl2mpAiSession? ai = null,
-                     IEngineNetworking? networking = null)
+                     IEngineNetworking? networking = null, AiMainBudget? budget = null)
     {
         _ai = ai;
+        _budget = budget;
         _nav = nav;
         _names = names;
         _tags = tags;
@@ -341,14 +342,18 @@ public sealed class Hl2mpBots : IFrameLifecycle
     {
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
         double cpuStart = _cpu?.Invoke() ?? 0d;
+        _budget?.Begin(_ai?.Sync ?? false);
+        MainThreadBudget? budget = _budget?.Current;
         Follow();
         var tick = new Tick(_frame.TickCount());
         Steer(tick);
         Walk(tick);
         Acting(tick);
         TakeDrives(tick);
-        _applier.ApplyTick(tick, frameTime > 0f ? frameTime : 0.015f);
+        _applier.ApplyTick(tick, frameTime > 0f ? frameTime : 0.015f, budget);
+        double handStart = budget?.Now ?? 0d;
         HandDrives(tick);
+        budget?.Charge(budget.Now - handStart);
         double all = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMicroseconds;
         _runUs[_applySamples % ApplyWindow] = _applier.RunMicrosLastTick;
         _applyCpuUs[_applySamples % ApplyWindow] = (_cpu is null ? all : _cpu() - cpuStart) - _applier.RunCpuMicrosLastTick;
@@ -387,6 +392,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
     public double ApplyCpuMeanUs => Mean(_applyCpuUs);
 
     private readonly Senses.Hl2mpAiSession? _ai;
+    private readonly AiMainBudget? _budget;
 
     // A scripted walk's ladders (ai_bot_goto): a dev command's, on the main thread. The brains' drivers are the lanes'.
     private readonly BrainDriver _scripted = new();
@@ -466,6 +472,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
         NavGraph? graph = _nav.Current?.Nav.Graph;
         IReadOnlyList<AiVector> ladders = _nav.Current?.Entities.Ladders ?? [];
         IBreakableAim? breakables = _nav.Breakables;
+        _ai.Drives.Hold();
         foreach (Hl2mpBot bot in _bots)
         {
             if (Scripted(bot.Id) || !_ai.Session.TryLatestIntent(bot.Id.Slot, out IntentCommand brain) || brain.Bot != bot.Id || _ai.Drives.Busy(bot.Id.Slot))
@@ -473,13 +480,16 @@ public sealed class Hl2mpBots : IFrameLifecycle
             EntityHandle player = _applier.PlayerOf(bot.Id);
             if (player == EntityHandle.None)
                 continue;
-            BotSelfFacts self = _self.Read(player);
+            // A bot whose commands wait for the budget has not moved since it was read.
+            BotSelfFacts self = _applier.WaitingOf(bot.Id) > 0 ? _applier.LastFactsOf(bot.Id) : _self.Read(player);
             BreakableSight sight = BreakableSight.None;
             if (breakables is not null && _wantedBreakable.TryGetValue(bot.Id.Slot, out int wanted) && wanted >= 0)
                 sight = new BreakableSight(wanted, breakables.TryAim(wanted, self.Origin + new AiVector(0f, 0f, BrainDriver.EyeHeight), player, out AiVector point), point);
             var input = new DriveInput(brain, self.Origin, tick, graph, _nav.ObstaclesFor(player), self.OnLadder, self.View, player, ladders, Players, breakables is not null, sight);
             _ai.Drives.Hand(in input, in self);
         }
+
+        _ai.Drives.Flush();
     }
 
     private readonly Dictionary<int, int> _wantedBreakable = new();

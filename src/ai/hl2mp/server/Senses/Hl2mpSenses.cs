@@ -184,7 +184,8 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vision, SnapshotBuilder builder, ActorDirectory directory,
-                                IEngineFrame frame, ILog log, ReferenceRecorder reference, IBotInventory? inventory = null, WeaponCatalog? weapons = null)
+                                IEngineFrame frame, ILog log, ReferenceRecorder reference, IBotInventory? inventory = null, WeaponCatalog? weapons = null,
+                                AiMainBudget? mainBudget = null)
     : IFrameLifecycle
 {
     private readonly int[] _held = new int[VisionPass.Slots];
@@ -328,7 +329,10 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         ReadOnlySpan<SensedBot> observers = reference.Observers(living, _botIn);
         long start = Stopwatch.GetTimestamp();
         double cpuStart = _cpu?.Invoke() ?? 0d;
-        vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed);
+        MainThreadBudget? budget = mainBudget?.Current;
+        double budgetStart = budget?.Now ?? 0d, chargedBefore = budget?.UsedUs ?? 0d;
+        vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed, budget);
+        Steps.Note(sensed, vision);
         _nearby.Clear();
         foreach (SensedActor a in _actors)
         {
@@ -344,7 +348,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         }
         if (ai.Session.World is { } world)
         {
-            vision.RunItems(tick, sensed, world.Map.Items, _events);
+            vision.RunItems(tick, sensed, world.Map.Items, _events, budget);
             ChokesKnown(tick, sensed, world);
             StreaksKnown(tick, sensed);
         }
@@ -363,11 +367,15 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
                     $"[SourceSharp/Ai] {e.Bot} {(e.Kind == AiEventKind.SightGained ? "sees" : "lost sight of")} {e.Other} at ({e.Position.X:F0} {e.Position.Y:F0} {e.Position.Z:F0}), {e.Tick}\n"));
         }
 
-        Holdings(tick, sensed);
+        // A brain reads a view at its decide tick and no other: a recording or
+        // ai_think_log, which read them all, are why the rest would be read.
+        ReadOnlySpan<SensedBot> viewed = ai.Recording.Recording || bots.LogThink ? sensed : Deciding(tick, sensed);
+        Holdings(tick, viewed);
         reference.Write(tick, living, _observed);
         AiSnapshot snapshot = ai.Session.Snapshots.BeginWrite(tick);
-        builder.Build(snapshot, sensed, vision, ActivityOf);
+        builder.Build(snapshot, viewed, vision, ActivityOf);
         _senseUs = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
+        budget?.Charge(Math.Max(0d, budget.Now - budgetStart - (budget.UsedUs - chargedBefore)));
         double cpuPublish = _cpu?.Invoke() ?? 0d;
         _senseCpuUs = _cpu is null ? _senseUs : cpuPublish - cpuStart;
         long publish = Stopwatch.GetTimestamp();
@@ -379,6 +387,24 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         for (int i = 0; i < _activity.Length; i++)
             _activity[i] &= ~ActorActivity.Firing;
     }
+
+    private readonly SensedBot[] _deciding = new SensedBot[VisionPass.Slots];
+
+    /// <summary>The bots whose decide tick this is.</summary>
+    private ReadOnlySpan<SensedBot> Deciding(Tick tick, ReadOnlySpan<SensedBot> sensed)
+    {
+        int n = 0;
+        foreach (ref readonly SensedBot b in sensed)
+        {
+            if (DecideSchedule.IsDecideTick(tick, b.Id.Slot))
+                _deciding[n++] = b;
+        }
+
+        return _deciding.AsSpan(0, n);
+    }
+
+    /// <summary>Each bot's position, tick by tick: how smoothly it goes (<c>/ai/steps</c>).</summary>
+    public BotStepMeter Steps { get; } = new();
 
     private readonly (ActorId Bot, bool On)[] _toldStreaks = new (ActorId, bool)[VisionPass.Slots];
 

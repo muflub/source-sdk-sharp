@@ -87,7 +87,7 @@ public sealed class MainThreadBudget(Func<double> wallUs, Func<double>? cpuUs)
     private int _hold;
     private BudgetFrame _settings;
 
-    /// <summary>What the bots may use this frame, in microseconds.</summary>
+    /// <summary>What the bots may use this frame, in microseconds of the thread's CPU time.</summary>
     public double AllowanceUs { get; private set; }
 
     /// <summary>What they have used of it.</summary>
@@ -120,8 +120,12 @@ public sealed class MainThreadBudget(Func<double> wallUs, Func<double>? cpuUs)
     /// <summary>Frames seen.</summary>
     public long Frames => _frames;
 
-    /// <summary>The wall clock.</summary>
-    public double Now => wallUs();
+    /// <summary>
+    /// The clock turns are charged by: the thread's CPU time, the wall with no such
+    /// clock. A thread descheduled in a bot's turn has not spent the bots' budget, and
+    /// putting another bot off for it would save nothing.
+    /// </summary>
+    public double Now => cpuUs is { } cpu ? cpu() : wallUs();
 
     /// <summary>
     /// The start of a tick in host frame <paramref name="hostFrame"/>: a frame

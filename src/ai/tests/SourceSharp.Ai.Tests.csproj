@@ -2,6 +2,7 @@
   <!-- The AI's facts (docs/plans/plan_hl2mp_ai.md §8.1): their own project and
        their own leg, `ai`, as the TF2 mod's are. -->
   <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/ai-tests/</OutputPath>

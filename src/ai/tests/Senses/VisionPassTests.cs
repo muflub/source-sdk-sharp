@@ -269,6 +269,156 @@ public sealed class VisionPassTests
         Assert.All(bots, b => Assert.True(Enumerable.Range(5, 3).All(pass.SightOf(b.Id.Slot)!.Sees), $"bot {b.Id.Slot} sees the three"));
         Assert.True(pass.TracesLastTick <= 32);
     }
+
+    // ---- Under the main-thread budget (user ruling 2026-11-03) ---------------------------------
+
+    private static (MainThreadBudget Budget, Action<int> NextFrame) Starved(int bound)
+    {
+        double wall = 0d;
+        var budget = new MainThreadBudget(() => wall, null);
+        void Next(int frame)
+        {
+            budget.Begin(frame, new BudgetFrame(0d, 0d, 0d, bound, true));
+            wall += 1d;
+        }
+
+        return (budget, Next);
+    }
+
+    /// <summary>Spends all there is in the frame before the senses, so every look that is not forced waits.</summary>
+    private static void RunStarved(Rig r, MainThreadBudget budget, Action<int> next, int frame, int tick)
+    {
+        next(frame);
+        budget.Charge(1_000_000d);
+        r.Pass.Run(new Tick(tick), Tick, [r.Sensed], r.World.Living(r.Sensed), r.Events, budget);
+    }
+
+    /// <summary>
+    /// §4.1's negative fact under the budget: a look never made produces no sight,
+    /// however long; recognition starts only from a line really traced.
+    /// </summary>
+    [Fact]
+    public void ALookTheBudgetPutOffNeverProducesASight()
+    {
+        var r = new Rig(new AiVector(500, 0, 0));
+        (MainThreadBudget budget, Action<int> next) = Starved(bound: 32);
+        for (int t = 1; t <= 30; t++)
+            RunStarved(r, budget, next, t, t);
+        Assert.False(r.Sees);
+        Assert.Empty(r.Events);
+        Assert.Equal(0, r.World.Lines);
+        Assert.Equal(30L, r.Pass.LooksDeferred);
+    }
+
+    /// <summary>The bound is what a bot's staleness comes to: at most that many ticks between looks, whatever the budget, so it does see, later.</summary>
+    [Fact]
+    public void TheBoundServesABotsLookAndItSeesInTheEnd()
+    {
+        var r = new Rig(new AiVector(500, 0, 0));
+        const int Bound = 3;
+        (MainThreadBudget budget, Action<int> next) = Starved(Bound);
+        int linesAt = 0, longest = 0, since = 0, looks = 0;
+        for (int t = 1; t <= 200; t++)
+        {
+            RunStarved(r, budget, next, t, t);
+            if (r.World.Lines != linesAt)
+            {
+                linesAt = r.World.Lines;
+                longest = Math.Max(longest, since);
+                since = 0;
+                looks++;
+            }
+            else
+                since++;
+        }
+
+        Assert.Equal(Bound, longest);
+        // And no oftener: after each forced look it waits again.
+        Assert.Equal(200 / (Bound + 1), looks);
+        Assert.True(budget.Forced > 0, "the cap gave way");
+        Assert.True(r.Gained && r.Sees, "served within the bound, it is recognised");
+    }
+
+    /// <summary>A pair not looked at keeps its last answer, §4.1's rule; a held clear line goes when the next look finds the wall.</summary>
+    [Fact]
+    public void AHeldAnswerLastsOnlyUntilTheBoundsLookAndThenTheWallCounts()
+    {
+        var r = new Rig(new AiVector(500, 0, 0));
+        r.Run(40);
+        Assert.True(r.Sees, "the control: seen with no budget");
+        Assert.Equal(SightStage.Clear, r.Pass.StageOf(1, 2));
+        r.World.Occluder(new AiVector(250, -100, -100), new AiVector(260, 100, 200), SenseWorld.Solid);
+        const int Bound = 3;
+        (MainThreadBudget budget, Action<int> next) = Starved(Bound);
+        for (int t = 41; t < 41 + Bound; t++)
+        {
+            RunStarved(r, budget, next, t, t);
+            Assert.Equal(SightStage.Clear, r.Pass.StageOf(1, 2));
+        }
+
+        RunStarved(r, budget, next, 41 + Bound, 41 + Bound);
+        Assert.Equal(SightStage.Trace, r.Pass.StageOf(1, 2));
+    }
+
+    /// <summary>A deferred look costs the engine nothing: not the view, the PVS or a line.</summary>
+    [Fact]
+    public void ADeferredLookAsksTheEngineNothing()
+    {
+        var r = new Rig(new AiVector(500, 0, 0));
+        int pvs = 0;
+        r.World.Pvs = (_, _, _) =>
+        {
+            pvs++;
+            return true;
+        };
+        (MainThreadBudget budget, Action<int> next) = Starved(bound: 32);
+        RunStarved(r, budget, next, 1, 1);
+        Assert.Equal((0, 0), (pvs, r.World.Lines));
+        r.Pass.Run(new Tick(2), Tick, [r.Sensed], r.World.Living(r.Sensed), r.Events);
+        Assert.Equal(1, pvs);   // the control: with no budget it looks
+        Assert.Equal(VisionPass.PlayerSamples, r.World.Lines);
+    }
+
+    /// <summary>With little left of a frame the lines fall below the budget, never below what serves each pair within the bound.</summary>
+    [Fact]
+    public void LinesFallWithTheFrameButEveryPairIsServedWithinTheBound()
+    {
+        var world = new SenseWorld();
+        var pass = new VisionPass(world.Engine(), world.Entities(), world.Traces());
+        var bots = new List<SensedBot>();
+        for (int i = 1; i <= 6; i++)
+        {
+            SenseWorld.Player p = world.Add(i, new AiVector(i * 40f, 0f, 0f));
+            var id = new ActorId(i, i);
+            pass.Add(id);
+            bots.Add(new SensedBot(id, p.Handle, new VisionParams(6000f, 360f, 0.3f, 0.5f)));
+        }
+
+        SensedBot[] sensed = [.. bots];
+        double wall = 0d;
+        var budget = new MainThreadBudget(() => wall, null);
+        const int Bound = 3;
+        var perTick = new List<int>();
+        for (int t = 1; t <= 40; t++)
+        {
+            budget.Begin(t, new BudgetFrame(0d, 0d, 100_000d, Bound, true));
+            budget.Charge(100_000d);   // nothing left, but not past the bound's last turn
+            int before = world.Lines;
+            pass.Run(new Tick(t), Tick, sensed, world.Living(sensed), [], budget);
+            perTick.Add(world.Lines - before);
+        }
+
+        Assert.True(perTick.Max() <= pass.TracesPerTick, $"at most the budget: {perTick.Max()}");
+        Assert.True(perTick.Sum() > 0, "some lines were traced");
+        foreach (SensedBot b in sensed)
+        {
+            for (int t = 1; t <= 6; t++)
+            {
+                if (t != b.Id.Slot)
+                    Assert.NotEqual(SightStage.None, pass.StageOf(b.Id.Slot, t));
+            }
+        }
+    }
 }
 
 /// <summary>Item spawns looked at (plan_hl2mp_ai §5.1, items observed): seen there, seen gone, or not seen through a wall.</summary>
