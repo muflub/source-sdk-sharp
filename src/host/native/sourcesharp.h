@@ -837,6 +837,8 @@ typedef enum
 	// plus the debris bit the weapon lying as debris physics carries. Wired on
 	// BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_SOLID_DEBRIS = 14,
+	// The heavy taunt's aim line: solids and the hitboxes (tf_player.cpp:18621).
+	SOURCESHARP_TRACE_SOLID_HITBOX = 15,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a

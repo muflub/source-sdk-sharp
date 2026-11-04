@@ -28,7 +28,7 @@ public sealed class TFTauntCommandTests
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
-        return (rig, new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine), conditions, players);
+        return (rig, new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers), conditions, players);
     }
 
     /// <summary>The voice over the rig's engine: the staged rules answer, nothing else named.</summary>
@@ -50,13 +50,35 @@ public sealed class TFTauntCommandTests
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
-        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, Voice(rig, rules));
+        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules));
 
         Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));
 
         Assert.Equal(TF2.Server.Voice.TFConceptSpeech.PlayerTaunt, rules.Asked.Single().Concept);
         Assert.Contains(("playerweapon", "tf_shotgun_soldier"), rules.Words);
         Assert.True(rig.State.InCond(TFCond.Taunting));
+    }
+
+    [Fact]
+    public void TheTauntAskHandsBackTheMatchedResponseName()
+    {
+        // SpeakConceptIfAllowed's buffer (tf_player.cpp:17862): the matched
+        // response's name comes back with the yes — the scene the timed
+        // attack is keyed on (:17979).
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_shotgun_soldier");
+        var rules = new TF2.Tests.Entities.FakeConceptRules { Name = "scenes/player/soldier/low/taunt05.vcd" };
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var voice = new TF2.Server.Voice.TFConceptSpeech(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
+            TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom());
+
+        Assert.True(voice.Speak(PlayerRig.Player, TF2.Server.Voice.TFConceptSpeech.PlayerTaunt, "tf_shotgun_soldier", out string scene));
+
+        Assert.Equal("scenes/player/soldier/low/taunt05.vcd", scene);
     }
 
     [Fact]
@@ -72,7 +94,7 @@ public sealed class TFTauntCommandTests
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
-        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, Voice(rig, rules));
+        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules));
 
         Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));
         Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));

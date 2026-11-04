@@ -149,6 +149,9 @@ static unsigned int ClientTraceMaskOf(int32_t nMask)
 	// The dropped-weapon pickup's sight line: solids and the debris bit.
 	else if (nMask == SOURCESHARP_TRACE_SOLID_DEBRIS)
 		nTraceMask = MASK_SOLID | CONTENTS_DEBRIS;
+	// The heavy taunt's aim line: solids and the hitboxes.
+	else if (nMask == SOURCESHARP_TRACE_SOLID_HITBOX)
+		nTraceMask = MASK_SOLID | CONTENTS_HITBOX;
 
 	return nTraceMask;
 }

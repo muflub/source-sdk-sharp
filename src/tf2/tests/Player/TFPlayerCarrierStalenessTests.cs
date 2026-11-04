@@ -194,7 +194,10 @@ public sealed class TFPlayerCarrierStalenessTests
             var source = new TFPlayerComponents(Engine, Registry, Carriers, Log,
                                                 new TFPlayerItems(), new TFPlayerConditions(Carriers, recording),
                                                 new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), recording,
-                                                EconTestFiles.TrimmedSchema(), new PoollessGiver(), recording, recording);
+                                                EconTestFiles.TrimmedSchema(), new PoollessGiver(), recording, recording,
+                                                recording, recording,
+                                                new TF2.Shared.TFWeaponScripts(new RecordingLog(), TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                                new TF2.Server.Combat.TFDamageScopes());
             Composites = new PlayerComposites(Log, new Hooks<IPlayerComponentSource>(source), recording, recording);
         }
 

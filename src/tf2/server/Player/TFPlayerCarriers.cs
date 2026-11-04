@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
+using TF2.Server.Combat;
 using TF2.Server.Econ;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
@@ -123,8 +124,8 @@ public sealed class TFPlayerCarrier : IPlayerComponent
 /// <summary>
 /// TF2's per-player components (Stage 2.3's <c>TFPlayerComponents</c>), in
 /// their order: the carrier (0), the class (10), the condition countdown (20),
-/// the blast jump (25), the taunt think (26), the stun stack (30) and the
-/// respawn override (40).
+/// the blast jump (25), the taunt think (26), the taunt attack (27), the stun
+/// stack (30) and the respawn override (40).
 /// Each is its own class; nothing here decides anything. The countdown takes
 /// the medigun lane's healing (2.9) to report the frame's healer count; a
 /// container without the lane passes none and the count is 2.3's none.
@@ -137,6 +138,8 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        IEngineNetworking networking, TF2.Shared.Econ.ItemSchema schema,
                                        IWeaponGiver arsenal,
                                        IEnginePlayers enginePlayers, IEngineGameEvents events,
+                                       IEngineWorldQuery world, IEngineDamage damage,
+                                       TFWeaponScripts weaponScripts, TFDamageScopes damageScopes,
                                        ITFPlayerHealing? healing = null)
     : IPlayerComponentSource, IOrderedHook
 {
@@ -149,6 +152,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFPlayerConditionTicker(carriers, conditions, networking, healing);
         yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFTauntThink(conditions, directory);
+        yield return new TFTauntAttack(carriers, players, entities, world, damage, enginePlayers, networking, weaponScripts, damageScopes, directory);
         yield return new TFStunStack(carriers, players, clock);
         yield return new TFRespawnOverride(carriers, clock);
         yield return new TFPlayerAttributes(carriers, items, schema, clock);

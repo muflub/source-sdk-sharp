@@ -222,6 +222,16 @@ public enum TraceMask
     /// reason.
     /// </summary>
     SolidDebris = 14,
+
+    /// <summary>
+    /// <c>MASK_SOLID | CONTENTS_HITBOX</c>: the heavy taunt's aim line
+    /// (<c>CTFPlayer::DoTauntAttack</c>'s high noon, tf_player.cpp:18621) —
+    /// <see cref="Solid"/>'s contents plus the hitboxes a body trace stops on,
+    /// because the shot lands on what the aim rests against even when the
+    /// brushes there are open. Mapped on both arms, for <see cref="All"/>'s
+    /// reason.
+    /// </summary>
+    SolidHitbox = 15,
 }
 
 /// <summary>

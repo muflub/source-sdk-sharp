@@ -49,7 +49,7 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking networking, IGameClock clock,
-                                   IEnginePlayers engine, TFConceptSpeech? speech = null,
+                                   IEnginePlayers engine, TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
                                    ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
     : IClientCommandHook, IOrderedHook
 {
@@ -71,6 +71,9 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
     private readonly Dictionary<int, float> _nextStart = [];
 
     public int HookOrder => TFPlayerOrders.TauntCommand;
+
+    /// <summary>The keying's home on this player, if its composite carries one.</summary>
+    private TFTauntAttack? Attack(EntityHandle player) => carriers?.Part<TFTauntAttack>(player.EntryIndex);
 
     public bool Handle(EntityHandle player, string command, ReadOnlySpan<string> args)
     {
@@ -97,9 +100,21 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
 
         // The speak the taunt is (tf_player.cpp:17858-17870): MP_CONCEPT_PLAYER_TAUNT
         // with the held weapon's word; no answer, no taunt — and no window,
-        // stock's stamp living inside OnTauntSucceeded (:17744).
-        if (speech is { } voice && !voice.Speak(player, TFConceptSpeech.PlayerTaunt, engine.GetActiveWeapon(player)))
-            return true;
+        // stock's stamp living inside OnTauntSucceeded (:17744). The matched
+        // scene comes back with the yes (:17862's buffer), and the timed
+        // attack keys on it (:17979); a failed speak zeroes any pending one
+        // (:17874-17875).
+        string scene = "";
+        if (speech is { } voice)
+        {
+            if (!voice.Speak(player, TFConceptSpeech.PlayerTaunt, engine.GetActiveWeapon(player), out scene))
+            {
+                Attack(player)?.Clear();
+                return true;
+            }
+
+            Attack(player)?.Arm(scene, now);
+        }
 
         // OnTauntSucceeded (:17732-17768): the duration with its tail, the
         // condition, and the next-start stamp at start + duration (:17744).
