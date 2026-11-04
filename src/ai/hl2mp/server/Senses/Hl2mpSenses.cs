@@ -48,6 +48,11 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     /// <summary>The AI's worker threads (§2.7).</summary>
     public AiWorkerPool Pool => _pool;
 
+    private BotDriveLanes? _drives;
+
+    /// <summary>The bots' drive steps (§2.7): on the same transport as the brains.</summary>
+    public BotDriveLanes Drives => _drives ??= new BotDriveLanes(() => Session.Transport, VisionPass.Slots);
+
     /// <summary>Whether the brains run inline on the main thread (<c>ai_sync 1</c>).</summary>
     public bool Sync => Session.Transport.Inline;
 
@@ -69,6 +74,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     public void SetSync(bool sync)
     {
         Session.Drain(wait: true);
+        Drives.Settle();
         if (!sync && !_pool.Running)
             _pool.Start(ThreadsWanted);
         Session.Transport = sync ? _inline : _pooled ??= new PooledTransport(_pool);
@@ -96,6 +102,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     {
         int discarded = _pool.Stop();
         Session.Abandon();
+        Drives.Abandon();
         _identities.Clear();
         if (discarded > 0)
             log.Msg($"[SourceSharp/Ai] the pool stopped with {discarded} lane(s) unrun\n");
@@ -105,6 +112,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     {
         _pool.Stop();
         Session.Abandon();
+        Drives.Abandon();
     }
 
     /// <summary>After the navigation (+400), before the bots are re-added.</summary>
@@ -328,7 +336,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
                 _nearby.Add(new NearbyPlayer(a.Id.Slot, read.Origin));
         }
 
-        bots.Driver.Players = _nearby;
+        bots.Players = [.. _nearby];
         for (int i = 0; i < _activity.Length; i++)
         {
             if (!vision.ActorIn(i).IsValid)

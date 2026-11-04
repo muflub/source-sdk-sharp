@@ -48,34 +48,6 @@ public sealed class BrainDriverTests
         Assert.True(c.Move.Corner0.X > g.Cell(ground[0]).Centre.X, $"the first corner {c.Move.Corner0} leads east");
     }
 
-    /// <summary>
-    /// §2.7's flow-field job: a new goal's field is handed to the workers, not
-    /// built on the main thread; until it is done the bot goes straight at the
-    /// goal (it has no old way), then follows the field's corners.
-    /// </summary>
-    [Fact]
-    public void ANewGoalsFieldIsBuiltByAWorkerAndFollowedWhenDone()
-    {
-        var (g, ground, _) = Course();
-        var posted = new List<IAiWork>();
-        var d = new BrainDriver { Post = w => { posted.Add(w); return true; } };
-        AiVector goal = g.Cell(ground[4]).Centre, from = g.Cell(ground[0]).Centre;
-
-        IntentCommand waiting = d.Drive(Brain(goal), from, new Tick(2), 2, g, new NavObstacleState(0));
-        Assert.Single(posted);
-        Assert.Equal((0, 0), (d.Builds, d.PooledBuilds));
-        Assert.Equal(goal, waiting.Move.Corner0);
-
-        d.Drive(Brain(goal), from, new Tick(3), 3, g, new NavObstacleState(0));
-        Assert.Single(posted);   // one field on its way at a time
-
-        posted[0].Run();         // the worker
-        IntentCommand following = d.Drive(Brain(goal), from, new Tick(4), 4, g, new NavObstacleState(0));
-        Assert.Equal((0, 1), (d.Builds, d.PooledBuilds));
-        Assert.Equal(MoveKind.Follow, following.Move.Kind);
-        Assert.True(following.Move.Corner0.X > from.X && following.Move.Corner0 != goal || following.Move.CornerCount >= 1, "the field's corners lead the way");
-    }
-
     /// <summary>The view a bot has once it looks where the command says, as the applier's motion gets it there.</summary>
     private static AiAngles Looked(in IntentCommand c, AiVector origin)
         => BotCommandApplier.AnglesTo(origin + new AiVector(0f, 0f, 64f), c.Look.Point);

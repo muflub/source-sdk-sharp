@@ -38,7 +38,16 @@ public interface IVoteOptions
     IReadOnlyList<VoteOption> Build();
 }
 
-/// <summary>The maps of the map cycle, the modes registered but the one on, a restart; each by its convar.</summary>
+/// <summary>A game setting players may vote on: its convar and the values on offer, each with what the menu calls it.</summary>
+public sealed record VoteSetting(string ConVar, params (string Value, string Label)[] Values);
+
+/// <summary>A mod's settings to vote on, in place of the core's: a mod knows which of them mean anything in its game.</summary>
+public interface IVoteSettingSource
+{
+    IReadOnlyList<VoteSetting> VoteSettings { get; }
+}
+
+/// <summary>The maps of the map cycle, the modes registered but the one on, a restart, the game's settings; each by its convar.</summary>
 public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, ServiceContainer services) : IVoteOptions
 {
     public IReadOnlyList<VoteOption> Build()
@@ -46,12 +55,34 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
         var modes = services.Resolve<GameModes>();
         return Of(Intermission.ReadCycle(files, console.FindConVarValue("mapcyclefile")),
                   modes is null ? [] : [.. modes.Registered.Select(m => m.Id)], modes?.ActiveId,
-                  Allowed("sv_vote_issue_changelevel_allowed"), Allowed("sv_vote_issue_mode_allowed"), Allowed("sv_vote_issue_restart_game_allowed"));
+                  Allowed("sv_vote_issue_changelevel_allowed"), Allowed("sv_vote_issue_mode_allowed"), Allowed("sv_vote_issue_restart_game_allowed"),
+                  Allowed("sv_vote_issue_settings_allowed") ? SettingsOf(services) : [], console.FindConVarValue);
     }
+
+    /// <summary>This game's settings: its mods' if any list them, else the core's.</summary>
+    public static IEnumerable<VoteSetting> SettingsOf(ServiceContainer services)
+    {
+        var mods = services.ResolveAll<IVoteSettingSource>();
+        return mods.Count > 0 ? mods.SelectMany(m => m.VoteSettings) : CoreSettings();
+    }
+
+    /// <summary>What every deathmatch has.</summary>
+    public static VoteSetting[] CoreSettings() =>
+    [
+        FriendlyFire(),
+        TimeLimit(),
+        new("mp_fraglimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "10"), ("20", "20"), ("30", "30"), ("50", "50")),
+    ];
+
+    public static VoteSetting FriendlyFire() => new("mp_friendlyfire", ("0", "#SS_UI_Vote_Off"), ("1", "#SS_UI_Vote_On"));
+
+    public static VoteSetting TimeLimit()
+        => new("mp_timelimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "#SS_UI_Vote_Min10"), ("20", "#SS_UI_Vote_Min20"), ("30", "#SS_UI_Vote_Min30"), ("60", "#SS_UI_Vote_Min60"));
 
     private bool Allowed(string convar) => console.FindConVarValue(convar) != "0";
 
-    public static List<VoteOption> Of(IEnumerable<string> maps, IEnumerable<string> modes, string? activeMode, bool allowMaps, bool allowModes, bool allowRestart)
+    public static List<VoteOption> Of(IEnumerable<string> maps, IEnumerable<string> modes, string? activeMode, bool allowMaps, bool allowModes, bool allowRestart,
+                                      IEnumerable<VoteSetting>? settings = null, Func<string, string?>? current = null)
     {
         var options = new List<VoteOption>();
         if (allowMaps)
@@ -60,14 +91,28 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
             options.AddRange(modes.Where(m => !string.Equals(m, activeMode, StringComparison.OrdinalIgnoreCase)).Select(m => new VoteOption(VoteKind.Mode, m, m, $"sv_mode {m}")));
         if (allowRestart)
             options.Add(new VoteOption(VoteKind.Restart, VoteOptionWords.Restart, "", "mp_restartgame 1"));
+        foreach (var setting in settings ?? [])
+        {
+            // A convar this game does not have is no choice, nor the value it holds now.
+            if (current?.Invoke(setting.ConVar) is not { } now)
+                continue;
+            foreach (var (value, label) in setting.Values)
+                if (!SameValue(now, value))
+                    options.Add(new VoteOption(VoteKind.Setting, $"{setting.ConVar}={value}", label, $"{setting.ConVar} {value}"));
+        }
         return options;
     }
+
+    // Convars read back as they were written: "20" and "20.0" are one time limit.
+    private static bool SameValue(string a, string b)
+        => float.TryParse(a, System.Globalization.CultureInfo.InvariantCulture, out float x)
+           && float.TryParse(b, System.Globalization.CultureInfo.InvariantCulture, out float y) ? x == y : a == b;
 }
 
 /// <summary>A call's words to the option it names: only what the server's own list holds, so a command is never the client's.</summary>
 public static class VoteOptionWords
 {
-    public const string Map = "map", Mode = "mode", Restart = "restart";
+    public const string Map = "map", Mode = "mode", Restart = "restart", Setting = "setting";
 
     public static VoteOption? Find(IReadOnlyList<VoteOption> options, ReadOnlySpan<string> args)
     {
@@ -75,7 +120,7 @@ public static class VoteOptionWords
             return options.FirstOrDefault(o => o.Kind == VoteKind.Restart);
         if (args.Length != 2)
             return null;
-        VoteKind? kind = args[0] switch { Map => VoteKind.Map, Mode => VoteKind.Mode, _ => null };
+        VoteKind? kind = args[0] switch { Map => VoteKind.Map, Mode => VoteKind.Mode, Setting => VoteKind.Setting, _ => null };
         string id = args[1];
         return kind is null ? null : options.FirstOrDefault(o => o.Kind == kind && o.Id == id);
     }
@@ -192,7 +237,7 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifec
         _office.Caller = slot;
         _office.Target = kick ? target : 0;
         _office.Kind = kick ? VoteKind.Kick : option!.Kind;
-        _office.Detail = kick || option!.Kind == VoteKind.Restart ? "" : option.Label;
+        _office.Detail = kick || option!.Kind == VoteKind.Restart ? "" : option.Id;
         var issue = kick
             ? new VoteIssue("kick", target.ToString(System.Globalization.CultureInfo.InvariantCulture), $"kickid {_players.GetUserId(targetPlayer)} Voted off")
             : new VoteIssue(option!.Kind.ToString(), option.Id, option.Command);
@@ -262,6 +307,9 @@ public sealed class VoteIssueChangeLevelAllowedConVar : BoolConVar;
 
 [ConVar("sv_vote_issue_mode_allowed", "1", Help = "Can players call votes to change the game mode?")]
 public sealed class VoteIssueModeAllowedConVar : BoolConVar;
+
+[ConVar("sv_vote_issue_settings_allowed", "1", Help = "Can players call votes to change game settings (friendly fire, time limit and so on)?")]
+public sealed class VoteIssueSettingsAllowedConVar : BoolConVar;
 
 [ConVar("sv_vote_issue_restart_game_allowed", "1", Help = "Can players call votes to restart the game?")]
 public sealed class VoteIssueRestartGameAllowedConVar : BoolConVar;

@@ -96,7 +96,7 @@ public class ClientVotesOpenTests
         var votes = Calling();
         Options(votes, Map("dm_a"), Map("dm_b"), Mode("arena"), Restart);
         votes.Open();
-        Assert.Equal(["#SS_UI_Vote_KickPlayer", "#SS_UI_Vote_ChangeMap", "#SS_UI_Vote_Mode", "#SS_UI_Vote_Restart"],
+        Assert.Equal(["#SS_UI_Vote_KickPlayer", "#SS_UI_Vote_ChangeMap", "#SS_UI_Vote_Mode", "#SS_UI_Vote_Settings", "#SS_UI_Vote_Restart"],
                      Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
     }
 
@@ -129,7 +129,7 @@ public class ClientVotesOpenTests
         var votes = Calling();
         Options(votes, Restart);
         votes.Open();
-        _radial.Choose(3);
+        _radial.Choose(4);
         Assert.Equal(["ss_callvote restart"], _sent);
     }
 
@@ -138,9 +138,10 @@ public class ClientVotesOpenTests
     {
         var votes = Calling();
         votes.Open();
-        Assert.Equal(3, _radial.ItemCount);
+        Assert.Equal(4, _radial.ItemCount);
         Assert.False(_radial.Item(1).Enabled);
         Assert.False(_radial.Item(2).Enabled);
+        Assert.False(_radial.Item(3).Enabled);
     }
 
     [Fact]
@@ -183,5 +184,52 @@ public class ClientVotesOpenTests
         votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Restart, Detail = "" });
         votes.Open();
         Assert.Equal("#SS_UI_Vote_RestartTitle", _radial.Item(0).Detail);
+    }
+
+    private static AdminMenuLine Setting(string id, string label) => new((int)VoteKind.Setting, id, label);
+
+    [Fact]
+    public void A_setting_is_called_through_a_ring_of_settings_and_one_of_its_values()
+    {
+        var votes = Calling();
+        Options(votes, Setting("mp_friendlyfire=1", "#SS_UI_Vote_On"), Setting("mp_timelimit=10", "#SS_UI_Vote_Min10"), Setting("mp_timelimit=20", "#SS_UI_Vote_Min20"));
+        votes.Open();
+        _radial.Choose(3);
+        Assert.Equal("#SS_UI_Vote_SettingsWhich", _radial.Title);
+        Assert.Equal(["#SS_UI_Vote_Setting_mp_friendlyfire", "#SS_UI_Vote_Setting_mp_timelimit"], Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+
+        _radial.Choose(1);
+        Assert.Equal("#SS_UI_Vote_Setting_mp_timelimit", _radial.Title);
+        Assert.Equal("#SS_UI_Vote_Min20", _radial.Item(1).Label);
+
+        _radial.Choose(1);
+        Assert.Equal(["ss_callvote setting mp_timelimit=20"], _sent);
+    }
+
+    [Fact]
+    public void The_panel_names_the_setting_and_its_value()
+    {
+        var votes = Calling();
+        Options(votes, Setting("mp_timelimit=20", "#SS_UI_Vote_Min20"));
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Setting, Detail = "mp_timelimit=20" });
+        Assert.Equal("#SS_UI_Vote_Setting_mp_timelimit", votes.Title);
+        Assert.Equal("#SS_UI_Vote_Min20", votes.Target);
+        Assert.Equal("#SS_UI_Vote_Setting_mp_timelimit", votes.ResultSubject);
+    }
+
+    [Fact]
+    public void A_setting_s_value_the_list_no_longer_has_reads_as_itself()
+    {
+        var votes = Calling();
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Setting, Detail = "mp_fraglimit=20" });
+        Assert.Equal("20", votes.Target);
+    }
+
+    [Fact]
+    public void Only_a_setting_s_result_needs_saying_what_it_is_about()
+    {
+        var votes = Calling();
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Map, Detail = "dm_a" });
+        Assert.Null(votes.ResultSubject);
     }
 }

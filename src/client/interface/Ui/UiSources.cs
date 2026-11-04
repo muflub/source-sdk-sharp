@@ -875,6 +875,9 @@ public interface IVoteSource
     /// <summary>What it would do, a token.</summary>
     string Title { get; }
 
+    /// <summary>A token saying what its result is about when <see cref="Target"/> alone would not: which setting a value is for. Null when it would.</summary>
+    string? ResultSubject { get; }
+
     /// <summary>Whom it would kick or what it would change to, empty when it says nothing more; and who called it, by name.</summary>
     string Target { get; }
 

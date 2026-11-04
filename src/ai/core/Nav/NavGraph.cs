@@ -453,6 +453,19 @@ public sealed class NavObstacleState
         return copy;
     }
 
+    /// <summary>
+    /// Makes this private copy as <paramref name="other"/> stands now, allocating nothing:
+    /// a bot's lane refreshes its own while none of its steps runs (§2.7). The sizes match.
+    /// </summary>
+    public void CopyFrom(NavObstacleState other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        other._blocking.CopyTo(_blocking, 0);
+        _shovable = other._shovable;
+        OpenDoors = other.OpenDoors;
+        _cells = other.Cells;
+    }
+
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {

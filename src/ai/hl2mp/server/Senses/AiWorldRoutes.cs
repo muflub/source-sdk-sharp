@@ -177,11 +177,14 @@ public sealed class AiWorldRoutes(Hl2mpBots bots, VisionPass vision, Hl2mpAiSess
     /// <summary>The bot's actual follower: a scripted walk's, else the one carrying out its brain's goal; null when nothing is walking it.</summary>
     private WorldRoute? Route(int slot)
     {
-        NavFollower? scripted = bots.ScriptedFollowerOf(slot);
-        if ((scripted ?? bots.Driver.FollowerOf(slot)) is not { } follower)
-            return null;
-        follower.Route(_route);
-        return _route.Count == 0 ? null : new WorldRoute(scripted is null ? "brain" : "goto", follower.Target, [.. _route]);
+        if (bots.ScriptedFollowerOf(slot) is { } scripted)
+        {
+            scripted.Route(_route);
+            return _route.Count == 0 ? null : new WorldRoute("goto", scripted.Target, [.. _route]);
+        }
+
+        // The brains' followers are their lanes': never read here while a step of them runs.
+        return ai.Drives.RouteOf(slot) is { } way ? new WorldRoute("brain", way.Target, way.Way) : null;
     }
 
     private WorldHeard[] Heard(Hl2mpBot bot, Tick tick)

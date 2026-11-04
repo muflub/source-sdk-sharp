@@ -194,12 +194,26 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
             AdminNode.Folder("#SS_UI_Admin_Map", Maps()),
             AdminNode.Folder("#SS_UI_Admin_Mode", Modes()),
             AdminNode.Folder("#SS_UI_Admin_Kick", Kicks(slot)),
+            AdminNode.Folder("#SS_UI_Vote_Settings", Settings(GameVoteOptions.SettingsOf(services), console.FindConVarValue,
+                                                              command => console.ExecuteServerCommand(command + "\n"))),
             new("#SS_UI_Admin_Restart", "restart", () => console.ExecuteServerCommand("mp_restartgame 1\n")),
         };
         foreach (var provider in services.ResolveAll<IAdminMenuProvider>())
             items.AddRange(provider.AdminItems(slot));
         return items;
     }
+
+    /// <summary>
+    /// The game's settings, as the vote menu has them and with no vote: a folder for each
+    /// the game has, of the values it does not hold now. Not the vote's convars: those say
+    /// what players may call, and an admin needs no call.
+    /// </summary>
+    public static List<AdminNode> Settings(IEnumerable<VoteSetting> settings, Func<string, string?> current, Action<string> run)
+        => GameVoteOptions.Of([], [], null, false, false, false, settings, current)
+                          .GroupBy(o => o.Id[..o.Id.IndexOf('=')])
+                          .Select(g => AdminNode.Folder("#SS_UI_Vote_Setting_" + g.Key,
+                                                        [.. g.Select(o => new AdminNode(o.Label, "setting:" + o.Id, () => run(o.Command)))]))
+                          .ToList();
 
     private List<AdminNode> Maps()
         => Intermission.ReadCycle(files, console.FindConVarValue("mapcyclefile"))

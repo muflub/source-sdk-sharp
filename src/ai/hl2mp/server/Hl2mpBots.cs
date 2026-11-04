@@ -68,8 +68,6 @@ public sealed class Hl2mpBots : IFrameLifecycle
         _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking);
         _inventory = inventory;
         _applier = new BotCommandApplier(runner, _self, _cpu);
-        // A new goal's field is built on the AI's workers unless the brains run inline (ai_sync 1).
-        _driver.Post = ai is null ? null : work => !ai.Sync && ai.Pool.Post(work);
     }
 
     /// <summary>Before the entities think, so a bot's command runs in the same frame stage order every tick.</summary>
@@ -343,15 +341,14 @@ public sealed class Hl2mpBots : IFrameLifecycle
     {
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
         double cpuStart = _cpu?.Invoke() ?? 0d;
-        _driver.Ladders = _nav.Current?.Entities.Ladders ?? [];
-        _driver.Breakables = _nav.Breakables;
         Follow();
         var tick = new Tick(_frame.TickCount());
         Steer(tick);
         Walk(tick);
         Acting(tick);
-        Think(tick);
+        TakeDrives(tick);
         _applier.ApplyTick(tick, frameTime > 0f ? frameTime : 0.015f);
+        HandDrives(tick);
         double all = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMicroseconds;
         _runUs[_applySamples % ApplyWindow] = _applier.RunMicrosLastTick;
         _applyCpuUs[_applySamples % ApplyWindow] = (_cpu is null ? all : _cpu() - cpuStart) - _applier.RunCpuMicrosLastTick;
@@ -390,12 +387,15 @@ public sealed class Hl2mpBots : IFrameLifecycle
     public double ApplyCpuMeanUs => Mean(_applyCpuUs);
 
     private readonly Senses.Hl2mpAiSession? _ai;
-    private readonly BrainDriver _driver = new();
+
+    // A scripted walk's ladders (ai_bot_goto): a dev command's, on the main thread. The brains' drivers are the lanes'.
+    private readonly BrainDriver _scripted = new();
+
+    /// <summary>The living players and where they are, as of the senses' last tick: who a bot walks into. Never changed once set, so a step may hold it.</summary>
+    public IReadOnlyList<NearbyPlayer> Players { get; set; } = [];
 
     /// <summary>Whether the brains drive the bots (<c>ai_think</c>); a scripted act, drive or walk overrides a bot's brain while it lasts.</summary>
     public bool Thinking { get; set; } = true;
-
-    public BrainDriver Driver => _driver;
 
     /// <summary>The bot's scripted walk (<c>ai_bot_goto</c>) if it has one, which overrides its brain; for the debug views.</summary>
     public NavFollower? ScriptedFollowerOf(int slot)
@@ -409,28 +409,36 @@ public sealed class Hl2mpBots : IFrameLifecycle
         return null;
     }
 
-    /// <summary>Each bot's brain's latest intent, carried out for this tick (§2.3).</summary>
-    private void Think(Tick tick)
+    /// <summary>
+    /// Each bot's newest finished drive step, carried out for this tick (§2.3):
+    /// its command submitted and what it found said. One still on a worker
+    /// leaves the bot its last command, its keys held (<see cref="BotCommandApplier.Late"/>).
+    /// </summary>
+    private void TakeDrives(Tick tick)
     {
-        if (_ai is null || !Thinking)
+        if (_ai is null)
             return;
-        // The steps the pool has finished, in hand-over order: the newest intents.
-        _ai.Session.Drain();
         foreach (Hl2mpBot bot in _bots)
         {
-            if (Scripted(bot.Id) || !_ai.Session.TryLatestIntent(bot.Id.Slot, out IntentCommand brain) || brain.Bot != bot.Id)
+            DriveTaken taken = _ai.Drives.Take(bot.Id, out DriveOutput step, out BotSelfFacts self);
+            if (taken == DriveTaken.None || !Thinking || Scripted(bot.Id))
                 continue;
-            EntityHandle player = _applier.PlayerOf(bot.Id);
-            if (player == EntityHandle.None)
+            if (taken != DriveTaken.Fresh)
+            {
+                if (taken == DriveTaken.Faulted)
+                    _log.Warning($"[SourceSharp/Ai] a drive step threw: {_ai.Drives.LastFault}\n");
+                _applier.Late(bot.Id);
                 continue;
-            BotSelfFacts self = _self.Read(player);
-            IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.ObstaclesFor(player), self.OnLadder, self.View, shooter: player);
+            }
+
+            IntentCommand now = step.Command with { Seq = ++_seq };
+            _wantedBreakable[bot.Id.Slot] = step.BreakableCell;
             _applier.Submit(in now);
             SayLadder(bot.Id, bot.Name, self, tick);
             SayJump(bot.Id, bot.Name, now.Move.Kind, tick, self);
-            if (_driver.TakeUnreachable(bot.Id.Slot) is { } goal && _ai.Session.World is { } world)
+            if (step.Unreachable is { } goal && _ai.Session.World is { } world)
                 ForgetPickupsAt(bot.Id, goal, tick, world);
-            if (_driver.TakeStuckLine(bot.Id.Slot) is { } stuck)
+            if (step.StuckLine is { } stuck)
                 _log.Msg($"[SourceSharp/Ai] bot {bot.Id.Serial} ({bot.Name}) {stuck}, tick {tick.Value}\n");
             if (_ai.Session.LastDoing(bot.Id.Slot) is { } doing)
             {
@@ -442,6 +450,39 @@ public sealed class Hl2mpBots : IFrameLifecycle
             }
         }
     }
+
+    /// <summary>
+    /// Each bot's next drive step, on its lane (§2.7): what only the main
+    /// thread can read is read here, after its command has run, so the step
+    /// starts from where the bot now stands and has the rest of the frame.
+    /// A bot whose last step is still running gets none this tick.
+    /// </summary>
+    private void HandDrives(Tick tick)
+    {
+        if (_ai is null || !Thinking)
+            return;
+        // The steps the pool has finished, in hand-over order: the newest intents.
+        _ai.Session.Drain();
+        NavGraph? graph = _nav.Current?.Nav.Graph;
+        IReadOnlyList<AiVector> ladders = _nav.Current?.Entities.Ladders ?? [];
+        IBreakableAim? breakables = _nav.Breakables;
+        foreach (Hl2mpBot bot in _bots)
+        {
+            if (Scripted(bot.Id) || !_ai.Session.TryLatestIntent(bot.Id.Slot, out IntentCommand brain) || brain.Bot != bot.Id || _ai.Drives.Busy(bot.Id.Slot))
+                continue;
+            EntityHandle player = _applier.PlayerOf(bot.Id);
+            if (player == EntityHandle.None)
+                continue;
+            BotSelfFacts self = _self.Read(player);
+            BreakableSight sight = BreakableSight.None;
+            if (breakables is not null && _wantedBreakable.TryGetValue(bot.Id.Slot, out int wanted) && wanted >= 0)
+                sight = new BreakableSight(wanted, breakables.TryAim(wanted, self.Origin + new AiVector(0f, 0f, BrainDriver.EyeHeight), player, out AiVector point), point);
+            var input = new DriveInput(brain, self.Origin, tick, graph, _nav.ObstaclesFor(player), self.OnLadder, self.View, player, ladders, Players, breakables is not null, sight);
+            _ai.Drives.Hand(in input, in self);
+        }
+    }
+
+    private readonly Dictionary<int, int> _wantedBreakable = new();
 
     /// <summary>How near a goal out of reach a pickup is that goal, across and up.</summary>
     public const float PickupAtGoal = 32f;
@@ -564,7 +605,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
                 _drives.RemoveAll(d => d.Bot == bot.Id);
                 _gotos.RemoveAll(g => g.Bot == bot.Id);
                 _acts.RemoveAll(a => a.Bot == bot.Id);
-                _driver.Forget(bot.Id.Slot);
+                _ai?.Drives.Forget(bot.Id.Slot);
+                _scripted.Forget(bot.Id.Slot);
+                _wantedBreakable.Remove(bot.Id.Slot);
                 _bots.RemoveAt(i);
                 Version++;
                 _log.Msg($"[SourceSharp/Ai] bot {bot.Name} left\n");
@@ -659,7 +702,12 @@ public sealed class Hl2mpBots : IFrameLifecycle
             var look = new LookIntent(LookKind.Path, default, ActorId.None, AimPoint.Body, 0f, 0);
             ActionIntent action = ActionIntent.None;
             if (_nav.Current?.Nav.Graph is { } graph)
-                _driver.LadderFor(g.Bot.Slot, g.Follower, self.Origin, self.View, tick, self.OnLadder, graph, ref move, ref look, ref action);
+            {
+                _scripted.Ladders = _nav.Current?.Entities.Ladders ?? [];
+                _scripted.Players = Players;
+                _scripted.LadderFor(g.Bot.Slot, g.Follower, self.Origin, self.View, tick, self.OnLadder, graph, ref move, ref look, ref action);
+            }
+
             SayLadder(g.Bot, g.Name, self, tick);
             SayJump(g.Bot, g.Name, move.Kind, tick, self);
             var intent = new IntentCommand(g.Bot, tick, ++_seq, tick + IntentCommand.LifetimeTicks, move, look, action, default);

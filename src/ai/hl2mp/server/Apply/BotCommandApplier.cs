@@ -152,6 +152,26 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     }
 
     /// <summary>
+    /// The bot's drive step was not done in time for this tick's command
+    /// (<see cref="BotDriveLanes"/>): it goes on with the intent it holds, one
+    /// new usercmd with its own command number and tick, as stock has a bot send
+    /// one a tick, its move steered afresh from where it now stands. Its fingers
+    /// stay where they were (<see cref="PressKeys"/>): a repeat presses nothing
+    /// anew, so no jump, use, shot or reload comes of it, and no one-shot goes.
+    /// </summary>
+    public void Late(ActorId bot)
+    {
+        if (Find(bot.Slot) is { } b && b.Id == bot)
+            b.Late = true;
+    }
+
+    /// <summary>The keys that act on being pressed: a late tick holds them as they were.</summary>
+    public const int PressKeys = (int)(InputButtons.Attack | InputButtons.Attack2 | InputButtons.Reload | InputButtons.Use | InputButtons.Jump);
+
+    /// <summary>Commands sent while a drive step was late: <c>ai.drive.repeats</c>.</summary>
+    public long Repeats { get; private set; }
+
+    /// <summary>
     /// One tick: every bot, in slot order, builds its command from its intent
     /// and runs it through the human path.
     /// </summary>
@@ -191,6 +211,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     internal UserCmd Build(BotState bot, Tick tick, in BotSelfFacts facts, float dt)
     {
         var cmd = new UserCmd { CommandNumber = ++bot.CommandNumber, TickCount = tick.Value };
+        bool late = bot.Late;
+        bot.Late = false;
 
         if (!facts.Alive || facts.Observer)
         {
@@ -210,6 +232,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             // spot, and stood in each other at it (live, dm_lockdown: 127 s).
             if ((tick.Value + bot.Id.Slot) % RespawnPressTicks == 0)
                 cmd.Buttons = (int)InputButtons.Attack;
+            bot.HeldKeys = cmd.Buttons & PressKeys;
             return cmd;
         }
 
@@ -238,21 +261,31 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         SetView(ref cmd, view);
 
         int buttons = MoveInto(ref cmd, intent.Move, in facts, view, corner);
-        buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
         bot.LastCorner = corner;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
-        buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
-
-        if (bot.OneShots.TryDequeue(out ActionIntent once))
+        if (late)
         {
-            if (once.Kind == ActionKind.SelectWeapon)
-                cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, once.WeaponSlot);
-            else
-                buttons |= Press(once.Kind);
+            Repeats++;
+            FollowTheKick(bot, in facts, dt);
+            buttons = (buttons & ~PressKeys) | bot.HeldKeys;
+        }
+        else
+        {
+            buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
+            buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
+
+            if (bot.OneShots.TryDequeue(out ActionIntent once))
+            {
+                if (once.Kind == ActionKind.SelectWeapon)
+                    cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, once.WeaponSlot);
+                else
+                    buttons |= Press(once.Kind);
+            }
         }
 
         cmd.Buttons = buttons;
         bot.LastButtons = buttons;
+        bot.HeldKeys = buttons & PressKeys;
         return cmd;
     }
 
@@ -630,6 +663,12 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         /// <summary>The buttons of the bot's last playing command (the aim meter's "firing").</summary>
         public int LastButtons { get; set; }
+
+        /// <summary>The <see cref="PressKeys"/> its last command held, playing or not.</summary>
+        public int HeldKeys { get; set; }
+
+        /// <summary>This tick's drive step is late: <see cref="BotCommandApplier.Late"/>.</summary>
+        public bool Late { get; set; }
 
         /// <summary>Times the server's view differed from the motion's while playing (a teleport, a snap).</summary>
         public long ViewResets { get; set; }

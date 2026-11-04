@@ -9,7 +9,7 @@ namespace SourceSharp.Client.Vgui;
 /// how long this player must wait to call another; and the radial menus. One key
 /// (<c>callvote</c>) does what fits: with a ballot open and this player yet to
 /// vote it asks yes or no, else it offers a vote to call (a kick, a map, a game mode, a
-/// restart, what the server lists), with the wait when there is one.
+/// game setting, a restart, what the server lists), with the wait when there is one.
 /// </summary>
 public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineHud hud, IFwdEngineClient engine, IGameClock clock, IEngineEnvironment environment, ILog log)
     : IVoteSource, IVoteStateHook
@@ -27,6 +27,7 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     private float _refusalUntil;
     private readonly List<byte> _optionBytes = [];
     private List<AdminMenuLine> _options = [];
+    private string _settingTitle = "", _settingValue = "";
 
     private VotePhase Phase => (VotePhase)_state.Phase;
 
@@ -43,10 +44,18 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         VoteKind.Map => "#SS_UI_Vote_MapTitle",
         VoteKind.Mode => "#SS_UI_Vote_ModeTitle",
         VoteKind.Restart => "#SS_UI_Vote_RestartTitle",
+        VoteKind.Setting => _settingTitle,
         _ => "#SS_UI_Vote_KickTitle",
     };
 
-    public string Target => Kind == VoteKind.Kick ? NameOf(_state.Target) : _state.Detail ?? "";
+    public string? ResultSubject => Kind == VoteKind.Setting ? _settingTitle : null;
+
+    public string Target => Kind switch
+    {
+        VoteKind.Kick => NameOf(_state.Target),
+        VoteKind.Setting => _settingValue,
+        _ => _state.Detail ?? "",
+    };
 
     public string Caller => NameOf(_state.Caller);
 
@@ -83,6 +92,8 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
             _voted = false;
         _state = state;
         _stateAt = clock.Now;
+        if ((VoteKind)state.Kind == VoteKind.Setting)
+            (_settingTitle, _settingValue) = Describe(state.Detail ?? "");
     }
 
     public void OnVoteCooldown(VoteCooldown cooldown)
@@ -117,6 +128,21 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         radial.Toggle(this, Phase == VotePhase.Voting && !_voted ? Ballot : Call, engine.IsInGame, "callvote");
     }
 
+    // A setting's id is convar=value: its title is the convar's token, its value as the
+    // server's list calls it, or the bare value if the list has moved on since.
+    private (string Title, string Value) Describe(string id)
+    {
+        int equals = id.IndexOf('=');
+        string convar = equals < 0 ? id : id[..equals];
+        string value = equals < 0 ? "" : id[(equals + 1)..];
+        foreach (var option in _options)
+            if (option.Depth == (int)VoteKind.Setting && option.Id == id)
+                value = option.Label;
+        return (SettingToken(convar), value);
+    }
+
+    private static string SettingToken(string convar) => "#SS_UI_Vote_Setting_" + convar;
+
     private RadialPage Ballot()
     {
         string what = Target.Length > 0 ? Target : Title;
@@ -135,10 +161,25 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         var entries = new List<RadialEntry> { new("#SS_UI_Vote_KickPlayer", Open: KickWho, Enabled: can, Detail: why) };
         entries.Add(Folder("#SS_UI_Vote_ChangeMap", "#SS_UI_Vote_MapWhich", VoteKind.Map, "map", can, why));
         entries.Add(Folder("#SS_UI_Vote_Mode", "#SS_UI_Vote_ModeWhich", VoteKind.Mode, "mode", can, why));
+        entries.Add(Settings(can, why));
         if (_options.Any(o => o.Depth == (int)VoteKind.Restart))
             entries.Add(new RadialEntry("#SS_UI_Vote_Restart", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} restart"), Enabled: can, Detail: why));
         return new RadialPage("#SS_UI_Vote_Call", entries);
     }
+
+    // The settings: a ring of them, then a ring of each one's values.
+    private RadialEntry Settings(bool can, string? why)
+    {
+        var values = _options.Where(o => o.Depth == (int)VoteKind.Setting).ToList();
+        if (values.Count == 0)
+            return new RadialEntry("#SS_UI_Vote_Settings", Enabled: false, Detail: "#SS_UI_Admin_Nothing");
+        var groups = values.GroupBy(v => v.Id[..Math.Max(0, v.Id.IndexOf('='))]).ToList();
+        return new RadialEntry("#SS_UI_Vote_Settings", Enabled: can, Detail: why, Open: () => new RadialPage("#SS_UI_Vote_SettingsWhich",
+            [.. groups.Select(g => new RadialEntry(SettingToken(g.Key), Open: () => new RadialPage(SettingToken(g.Key),
+                [.. g.Select(v => new RadialEntry(v.Label, () => engine.SubmitConsoleLine($"{VoteVerbs.Call} {VoteWordSetting} {v.Id}")))])))]));
+    }
+
+    private const string VoteWordSetting = "setting";
 
     // A place on the ring for the choices of one kind; with none to choose, it says so.
     private RadialEntry Folder(string label, string title, VoteKind kind, string word, bool can, string? why)

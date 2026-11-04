@@ -36,8 +36,11 @@ public sealed class VotePanel(IVoteSource vote) : UiScreen
         {
             ui.Text(vote.Decided ? vote.Passed ? "#SS_UI_Vote_Passed" : "#SS_UI_Vote_Failed" : vote.Title,
                     Text.Label, vote.Decided ? vote.Passed ? Tone.Accent : Tone.Text : Tone.TextMuted);
+            if (vote.Decided && vote.ResultSubject is { } subject)
+                ui.Text(subject, Text.Caption, Tone.TextMuted);
             if (vote.Target.Length > 0)
-                ui.Data(vote.Target, Text.Heading, Tone.Text).Width(Size.Fill).Elide();
+                (vote.Target.StartsWith('#') ? ui.Text(vote.Target, Text.Heading, Tone.Text) : ui.Data(vote.Target, Text.Heading, Tone.Text))
+                    .Width(Size.Fill).Elide();
             using (ui.Row(Space.XS).Width(Size.Fill))
             {
                 ui.Text("#SS_UI_Vote_CalledBy", Text.Caption, Tone.TextMuted);
