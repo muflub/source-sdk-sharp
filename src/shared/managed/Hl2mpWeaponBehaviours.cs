@@ -27,6 +27,9 @@ public static class Hl2mpWeaponBehaviours
     public const string Crossbow = "hl2mp_crossbow";
     public const string Rpg = "hl2mp_rpg";
 
+    /// <summary>The frag's <c>AttackPaused</c> when its pin was pulled by the second trigger: it goes underhand.</summary>
+    public const int FragPausedSecondary = 2;
+
     /// <summary>Every core behaviour, new each call: they hold no state.</summary>
     public static IEnumerable<KeyValuePair<string, IWeaponBehaviour>> All()
     {
@@ -277,7 +280,7 @@ public static class Hl2mpWeaponBehaviours
         public const int SequenceFinishedEvent = 3900, ThrowEvent = 3005, RollEvent = 3013, LobEvent = 3016;
         private const float PullbackEventCycle = 0.8f, ThrowEventCycle = 0.091f, UnderhandEventCycle = 0.143f;
 
-        private const int PausedPrimary = 1, PausedSecondary = 2;
+        private const int PausedPrimary = 1, PausedSecondary = FragPausedSecondary;
 
         /// <summary>GRENADE_TIMER.</summary>
         private const float GrenadeTimer = 2.5f;

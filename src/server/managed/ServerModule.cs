@@ -984,6 +984,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The directory first: the Arsenal navigates from a handle to the
         // managed instance behind it, and is built two lines down.
         _services.AddInstance<IEntityDirectory>(_entities);
+        _services.AddInstance<IPlayerStances>(new PlayerStances(_entities));
 
         // The registry's STORAGE, separately, because a different thing asks
         // for it: StandaloneHierarchy runs its think heap once a frame

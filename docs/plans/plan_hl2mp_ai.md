@@ -580,6 +580,28 @@ the real movement code (it is a usercmd): no extra rules there.
   is head height toward where an enemy is expected — the next corner on the
   path, a door, the arg-max cell of a prediction (§5.3) — so a good bot
   needs small corrections, not snaps; `placementSkill` scales how well.
+- *A height it settles on* (ruling 2026-11-03: "Bots default aim should be around shoulders thus
+  crouching requires re aiming"). A gun aims at `AimPoint.Shoulder`, a world height the crosshair is
+  kept at (`AimHeightHold`, core, pure), not the model's centre tracked exactly. Stairs and slopes it
+  follows (within 14 u, 0.1 s). A body that leaves that height, by a crouch, a stand or a jump, is a
+  stimulus: the height stays put for seeing it and reacting to it (`recognizeSeconds + reactionMs`,
+  a streak's own, at least 0.25 s; a body back within 7 u by then asks for nothing), then a Fitts-long
+  minimum-jerk move, past or short by `flickOvershootPct`, and it settles. Only the height: across
+  the body the pursuit goes on, and the hands go on firing, so the shots between go over a crouched
+  head. A new engagement starts at a standing person's shoulders whatever it sees, so someone found
+  crouched costs a re-aim too. The body's rise is no lead. The heights are data per stance
+  (`Hl2mpAimHeights`, from `cs_sv_model_heights`, idle, on Combine Super Soldier, Police, male_07 and
+  female_06 in both stances and five bots' models standing): shoulder 50 standing and 32 crouched (the upper arms' joints run 50 to 57 and 36.1 to 36.8: the low end, since at
+  the joints' 54 half a crosshair's wander passed over a shoulder and beside the head, §12.3), chest 48 and 24, head 61 and 41. `aimRise` (Accuracy, level) lifts a gun's point a little for a good hand: 0 at Medium's level, 2 u at Hard's; Hard's `aimErrorDeg` stays. A bot sees the crouch by what other
+  clients are sent, FL_DUCKING (`IPlayerStances`), on which their animation turns; the eye it read before
+  leads that by up to 0.2 s on the way down. **What a higher point does:** a head's hitbox runs about 54 to 68 u
+  standing and 33 to 48 u crouched, so the point is just under it, and a head is 3 times the
+  damage (`sk_player_head`): §12.3 reads damage as well as hit rate. A rocket, a frag and a SLAM stay at
+  the chest, where a miss still lands by the body, and a swing at the chest as ever. Lead is across
+  the body, and its time of flight moves by nothing a height changes. The Sniper's head shot
+  (TF2) is `AimPoint.Head` and a binding's own heights: nothing here stands in its way. Prefire,
+  pre-aim and a chase's look are at a standing shoulder's height (`PlaceHeight`): they remember no
+  stance, so someone crouched there can be missed.
 - *Only perceived targets*: aim resolves only against sighted actors or the
   memory's predicted point; the type makes anything else unreachable (§4.3).
 - *Turns*: no 180° snap unless reacting to damage from behind (`Damaged`
@@ -1366,6 +1388,44 @@ The inspector shows it: `prefire` ("", "aiming" or "firing") and `prefireAt` in
 `/ai/bot/<id>/trace` and in `/ai/world`'s going, a star and a line in the 3D map's Remembers
 layer, the Beliefs group.
 
+**The second trigger** (ruling 2026-11-03, §12.1: "Bots should use alt fire"). `Hl2mpDecider.AltFire`,
+after the prefire, through `IN_ATTACK2` in the usercmd. What each is comes from its weapon's row and
+classes (`WeaponFacts.Alt`, `WeaponKnowledgeBuilder.AltOf`), when it is worth it from `Hl2mpAltFire`, pure.
+
+| weapon | what its second trigger does here | a bot presses it |
+|---|---|---|
+| SMG1 | `grenade_ar2`: 1000 u/s on an arc under gravity 400, goes off on what it first touches, blast 100 over 250 u, the shooter too | at a group (another inside 150 u of the target), a camper (under 30 u/s for 1.5 s), someone showing 40 % or less, or a corner a prefire has a clear line to; up to 1,000 u; never landing inside 1.15 of its blast of the bot, allowing for someone running in over the flight; never with a friend near (a rule free-for-all never meets: `FriendNear`, for a team game) |
+| AR2 | the ball: a 0.5 s charge, then 1000 u/s, flat, 1000 to what it touches, flies on, ends on its 4 s clock or the sky, no blast, and its shooter is safe from it (`EnergyBall.OnTouch`) | as a direct hit: someone crossing under 90 u/s, 400 to 1,500 u, so coming or going down a line; a corridor makes that so. Half the chance of anything else (`BallChanceShare`). It does not look for a bounce |
+| shotgun | both barrels: 12 pellets for 2 from the clip, on the primary's clock | within 192 u with 2 in the clip |
+| frag | second trigger: underhand when let go, a lob standing, a roll ducked | below: frags have a plan of their own |
+| crossbow | zooms: nothing else reads it | no |
+| RPG | nothing: the laser comes on by itself, and "the alt-fire is the base's, which does nothing" (`RpgBehaviour`) | no |
+| .357, pistol, crowbar, stunstick | nothing (the pistol's only holds its primary back) | no |
+| gravity gun | pulls; its punt is the primary, 1 point and a shove to a person. Throwing a prop would need props in a bot's view, and the decider puts this gun away in a fight | no |
+
+*The chance:* with a reason, at most every 2 s, `altFireChance` (Cunning, §10) from its own stream. *The
+hands:* the gun stops, the view goes to the arc or the lead through its own lag and limits, and after
+0.25 s the second trigger is held; the applier presses only with the view within 3° of its point
+(both barrels: within a body's width). A grenade first asks the game of the line (`LineAsk`, as a
+prefire does): refused, it does not go. Given up after 1.2 s (a frag's pin 3 s); 8 s between those that
+went. *Never:* reloading, or with nothing to pay with (the HUD's `SelfState.AltAmmo`, or the clip).
+A watcher learns nothing of a clip from one. The hit rate stays the aim's: a blast's or a ball's
+damage is `alt_damage`, in `dps` and `ai-replay threat` but in no hit rate, and a bot's own blast is
+`self_blast`.
+
+**Frags** (ruling 2026-11-03, §12.1: "also bots dont use grenades at all"). `Hl2mpDecider.FragPlan`, on the normal
+weapon switch, a person's hands: the kit is stock's and a person's (`GameRules.Loadout`, `StartingAmmo`; `GiveDefaultItems`): one frag, and no
+SMG grenade. *The fuse:* stock's `GRENADE_TIMER`, 2.5 s from the throw whatever the hold: there is no cooking to do (`FragBehaviour`,
+`weapon_frag.cpp:27`). *Why* (`Hl2mpAltFire.FragReasonFor`): someone just behind a corner (the prefire's belief, at the opening it can see), a
+habit's spot out of sight, a group, someone standing who shows 60 % or less, someone 96 u above or below showing as little, or leaving a fight. *Why not:* within
+1.15 of its blast of the bot (leaving, from 150 u: it will be 475 u off when it goes), past 900 u, a friend near (`FriendNear`, a team game's), and above all a
+gunfight: at someone in plain sight with a clear shot a bot keeps its gun. *How much:* `fragChance` (Aggression, reading its height: a favourite shows at any
+difficulty) times `fragKnack` (Cunning's level: the difficulty's say in it), at most every 2 s, 10 s between throws. *How:* the view on the place and the line asked of (a refused line ends it: a rail would send it back); the
+weapon selected; nothing pressed until the HUD shows it in hand; the arc and the pin, tapped so it goes when released: overhand past 450 u, nearer a roll on its own floor
+with the duck held, or underhand to another. `fragAimDeg` (Cunning, one draw a throw) is how far it goes wrong. Then the gun it had. A low spend may not look first
+(`fragCareless`, by Cunning, none from Hard's 50 points up), so one can come back: a person's mistake. *Ammo:* a frag with none in the list, or for the gun in its
+hands the grenade or ball it is out of, within 512 u, is an `Arm` goal worth 0.35: less than a hunt or a dry gun's ammo.
+
 **Crouching in a fight** (ruling 2026-11-02, §12.1). In the fight's holding leaf, with someone
 in sight past close range (400 u) and its feet on the ground, a bot holds IN_DUCK some of the
 time while it fires: `crouchShare` of the fight (Cover, a style curve, about 2.5 % at Medium's
@@ -1374,7 +1434,7 @@ height, 30 % at the top). A third of them are a quick dip of 0.35 to 0.6 s, the 
 A sidestep goes on ducked; a walk closing a long range stops for the crouch and goes on after it.
 Chasing, retreating, close, on a ladder or in the air it stays up. Holds and gaps run by the
 clock from their own stream. Its aim comes from its eye, which a crouch lowers. Seeing someone
-ducked (an eye under 46 u over the feet) is seeing a lower chest: the aim drops by 24 u.
+ducked (FL_DUCKING, what other clients are sent) moves their shoulders 18 u below the aim, a re-aim (§3.4.1).
 
 ### 5.5 Feel: commitment and personality (ruling 2026-11-02)
 
@@ -2233,6 +2293,9 @@ text keeps the reading it was made with.
 | **style** | `preferredRangeScale`, `chaseSeconds` (Aggression); `coverWeight`, `reloadBelowPct` (Cover); `searchSeconds`, `grudgeWeight`, `giveUpHealth` (Tenacity); `ambushWeight`, `routeAltWeight`, `prefireChance` (Cunning); `prefireThrift`, `prefireBurstSeconds` (Discipline); `retreatHealthPct` (Nerve); `rankBonus`, `pathCapMultiplier`, `easyTargetDiscount` (Headhunter) |
 | **level** | `aimErrorDeg`, `leadQuality`, `trackingLagMs`, `flickOvershootPct` (Accuracy); `glanceRate`, `reactionMs`, and recognition, sight and memory, which were never curves here (Alertness); `fireRangeGate`, `pushTrust`, `pushMarginSeconds` (Discipline: fire control and how far the estimate is trusted); `strafeWeight`, `strafeMeanSeconds` (Agility: a body's skill, and a bot's own strafing moves its hit rate, which the Medium calibration must not), turn speed |
 
+New curve, 2026-11-03: `altFireChance` (Cunning, reading its level, §5.4): knowing when a grenade or a ball
+pays is a tactic, and Discipline stays fire control. It is where the ruling's limit on Hard is set (§12.3). `fragChance` (Aggression, style), `fragKnack`, `fragAimDeg` and `fragCareless` (Cunning, level), §5.4; `aimRise` (Accuracy, level), §3.4.1.
+
 New curves, 2026-11-02: `prefireChance` (Cunning, 0 to 1), `prefireThrift` (Discipline, 1 to
 0.2) and `prefireBurstSeconds` (Discipline, 0.9 to 0.3 s), §5.4; `giveUpHealth` (Tenacity, 0.6, 0.3 and then 0): below it, with someone on it, a bot leaves the fight whatever its nerve,
 which is what "Runs Away", "Quitter" and "Bails Out" say.
@@ -2537,6 +2600,22 @@ rows of §3.1 (ruled). Hand-written native code: none.
 - **"some times bad bots become great for a very short stint"** (2026-11-02, the user, through
   the coordinator). Streaks, mostly earned; only aim, lead, reaction and recognition; a weak
   bot the most, never to Expert. §5.5.
+- **"Bots default aim should be around shoulders thus crouching requires re aiming"** (2026-11-03,
+  the user, through the coordinator). A world height the bot settles on, as a person's crosshair;
+  a change of stance is a stimulus with the normal reaction and settling. §3.4.1.
+- **"Bots should use alt fire"** (2026-11-03, the user, through the coordinator). As a player does,
+  through `IN_ATTACK2` in the usercmd, by what each weapon's secondary really does. §5.4.
+- **"Hard bots are already hard for me thus dont want to make them even harder"** (2026-11-03, the
+  user, through the coordinator). A binding limit on the two above: Hard's measured threat, hit rate
+  and damage or kills a minute, is no higher than before them; alt fire's rate comes down first,
+  never Hard's aim. §12.3.
+- **"also bots dont use grenades at all"** (2026-11-03, the user, through the coordinator): frags as a player
+  uses them, through usercmds and the normal weapon switch, inside the same limit. §5.4.
+- **"med and hard felt good though hard seemed a little easy now"** (2026-11-03, the user, after playing
+  `22ff50a04`, through the coordinator; it loosens the limit above). Medium stays where it is: its
+  threat moves by no more than noise. Hard may rise a little: about 10 to 15 % more damage a minute on
+  the scripted client than its baseline, from shoulder aim and alt fire, and no further; Hard's
+  `aimErrorDeg` does not change for it. §12.3.
 
 - **More chat, and bots answer questions** (2026-11-03, through the coordinator): "for
   19 mins the rate of chat is too low, i would love if the bots could answer questions
@@ -2658,6 +2737,44 @@ that code when M1 starts, and changes nothing here.
 | questions, live on dm_lockdown, 6 bots, 32 typed by the client, `a21b0549e` | 32 answered, all true by reading (the replies quoted in the lane's report); 8 in the model's words, 19 plain after the check refused the model's, 4 shrugs, 8 markers; each within the 8 s the driver waited (by design 0.6 to 1.6 s of reaction and at most 3 s of typing, not timed live). Earlier the same run gave 0 in the model's words of 27: the worker's echo check read the fact in the prompt. Fixed, and the eval now checks as the game does. |
 | with no model (`ai_chat_url 127.0.0.1:1`), live | every answer tried went out, plain, and the bots' chatter stopped: "man 5 batteries around, one is in the middle, on the middle floor, by the box of smg ammo". |
 | the marker, live on dm_lockdown, a client asking "where is the health?" from 6 m, screenshot opened | a dot on the crate-room floor beside the kit, "Health kit 6 m" under it, a ping on the minimap; 0.9 s of +forward later "2 m" with the kit in plain sight. Behind the player it holds to the edge. "where is the rpg?": a soft circle on the minimap, no world marker, gone 10 s later (screenshot). |
+
+**Shoulder aim, alt fire and frags (2026-11-03, debug, a loaded box).** Baselines at `a207acb6e`, which differs from the `22ff50a04` the user played only in the AR2's look and the .357's jolt; after with the point at 50 and 32, on the rebuilt main. SMG1, scripted client as target, 6 reps of 4 s, 3 runs; hit % / dps, mean; before -> after (the after hit's lowest and highest). The final Hard has `aimRise` 2 u on top: this table was read before it, and one run at 51 u read Hard's dps 10 to 25 % up at 200 u, standing.
+
+| preset, range | stand | strafe | crouch |
+|---|---|---|---|
+| Easy 200 | 40/23 -> 25 (21-27)/11 | 29/9 -> 31 (27-33)/10 | 49/18 -> 49 (38-61)/17 |
+| Easy 500 | 19/5 -> 23 (17-31)/6 | 23/5 -> 18 (13-21)/3 | 19/6 -> 16 (4-24)/3 |
+| Easy 1000 | 28/6 -> 19 (14-23)/5 | 18/4 -> 29 (16-38)/6 | 13/4 -> 17 (14-19)/4 |
+| Medium 200 | 68/41 -> 70 (66-75)/46 | 53/30 -> 51 (47-56)/33 | 73/42 -> 60 (57-62)/42 |
+| Medium 500 | 49/30 -> 53 (48-58)/35 | 42/29 -> 38 (37-38)/25 | 54/32 -> 47 (43-51)/34 |
+| Medium 1000 | 35/22 -> 33 (30-34)/21 | 31/20 -> 31 (27-36)/20 | 43/26 -> 38 (35-41)/25 |
+| Hard 200 | 81/49 -> 79 (75-84)/56 | 71/46 -> 69 (67-73)/47 | 83/46 -> 68 (66-70)/46 |
+| Hard 500 | 57/37 -> 53 (48-59)/38 | 53/34 -> 51 (49-51)/34 | 61/35 -> 48 (38-55)/36 |
+| Hard 1000 | 44/29 -> 45 (43-47)/31 | 42/28 -> 43 (40-44)/30 | 50/28 -> 46 (42-52)/32 |
+| Expert 200 | 82/50 -> 81 (79-85)/52 | 87/55 -> 80 (79-81)/56 | 83/45 -> 68 (67-69)/42 |
+| Expert 500 | 60/40 -> 61 (60-62)/44 | 64/40 -> 60 (57-65)/42 | 70/37 -> 57 (56-58)/38 |
+| Expert 1000 | 53/34 -> 50 (48-51)/38 | 52/32 -> 45 (43-47)/30 | 59/34 -> 48 (45-51)/32 |
+
+Crouched was above standing before at every Medium, Hard and Expert cell; now below at 200 and 500 u, except Hard at 1,000 u and Medium at 1,000 u, where the crouch reads as high or higher (the wander is wider than the height). **At Easy it is not shown:** crouched 49, 16, 17 against standing 25, 23, 19, in a spread as wide as the difference. `dip` at 500 u (6 s reps): Easy 17 -> 23, Medium 47 -> 41, Hard 52 -> 44, Expert 62 -> 55, dps within a run. At the joints' own 54 and 36, one run, hit rates fell 10 to 15 points and damage a hit rose from about 6 to about 7.5: why the point is 50 and 32.
+
+**Threat, four bots of one preset and the scripted client, 5 minutes a run** (`tools/ai-scenario jank --preset`, `tools/ai-replay threat`), per run, all four bots together. Baseline 6 runs; final curves 3 runs (the second set was stopped: the user asked for the wrap-up); the row before them, 6 runs, differs for Medium only in a lower `altFireChance`, for Hard also in no `aimRise` and less `fragKnack`.
+
+| | damage a minute at the client | damage a minute, all | client kills a minute | kills a minute, all | frags a minute | second triggers a minute |
+|---|---|---|---|---|---|---|
+| Medium before, 6 runs | 103 (60..224) | 743 (485..1052) | 0.93 (0.6..1.8) | 6.05 (4.2..8.3) | 0 | 0 |
+| Medium, a lower alt chance, 6 runs | 91 (62..186) | 826 (377..1125) | 0.83 (0.6..1.6) | 6.77 (3.0..8.9) | 1.09 (0.6..1.6) | 0.73 (0.2..1.2) |
+| Medium final, 3 runs | 143 (65..192) | 937 (834..1081) | 1.26 (0.6..1.6) | 7.67 (6.9..8.7) | 1.06 (0.8..1.4) | 1.13 (0.8..1.6) |
+| Hard before, 6 runs | 118 (79..154) | 808 (449..1131) | 1.06 (0.8..1.4) | 6.72 (3.6..9.1) | 0 | 0 |
+| Hard, no rise, 6 runs | 99 (83..133) | 851 (625..1043) | 0.83 (0.6..1.2) | 6.99 (4.8..8.7) | 0.92 (0.4..2.0) | 0.79 (0.2..1.4) |
+| Hard final, 3 runs | 135 (94..166) | 1006 (774..1197) | 1.13 (0.8..1.4) | 7.98 (5.9..9.3) | 1.78 (1.4..2.0) | 1.52 (1.2..1.8) |
+
+**Where they landed, honestly:** Hard's mean at the client is +15 % on its baseline, the top of the 10 to 15 % asked for, in spreads far wider than that; everyone's damage +25 %. Medium's two sets at the client read -12 % and +39 %, with only an alt chance between them that fires too rarely to explain it, 108 pooled against 103 (+5 %), and its damage to everyone +11 % and +26 %: **not shown to have moved at the client, and likely up some on the bots**; it reads as the shots a minute, which swing by what each run's bots pick up. Five-minute runs cannot resolve 10 %. Live hit rate, which they can, did not move: Medium 26.6 -> 26.8 %, Hard 38 -> 37 % (`ai-replay metrics`, the round before the rise). Curves left as they are, by the user's "dont thrash".
+
+**A bot's walk for a grenade armed it:** worth 0.3 to 0.45 and going on to any gun, .357 kills at Medium went from 29 to 67 over 6 runs each and everything rose: 512 u, 0.35 and the grenade alone took Medium's client damage from 127 to 91.
+
+**Alt fire and frags live**, final curves, 3 runs of four bots, 5 minutes each. Medium: frags 1.06 a minute (0.27 a bot), second triggers 13 frag rolls or lobs and 4 both barrels; 5 of 296 kills by frag. Hard: frags 1.78 a minute (0.45 a bot), 19 and 4; 17 of 305 by frag. Easy and Expert in the mixed standard run, before `fragKnack` rose: 0 and 0.79 frags a bot a minute. **SMG grenades and balls are rare**: pickups only, 1 SMG grenade in the 18 Medium minutes before these and none in these. `tools/ai-aim-range --alt-ammo 20`, Medium: one grenade and one ball went in 24 and 11 s in sight; the ball killed the client through `ai_aim_tough`, which ended that run. No bot's own blast there (`self_blast` 0); free play does not record one apart.
+
+**Jank.** The standard run: before 24.0, 27.9, 30.4 (27.4); after 32.4, 33.4, 35.1 (33.6), on the point at 50, before `aimRise`. Stuck 1.84 -> 2.87 s/min, turn backs 1.2 -> 1.5, the rest within a run. Not attributed, by the user's request. A box under load 25 to 70, later rather than earlier, could be some of it. One preset run of six read 78.4, one bot stuck 160 s in an ambush walk, as `docs/todo.md`'s others.
 
 ### 12.4 Choices made in this plan (small, stated)
 
@@ -4094,3 +4211,4 @@ that code when M1 starts, and changes nothing here.
 - `src/game/server/NextBot/NextBotVisionInterface.h` — FOV 90 (:142), range 2,000 (:215), recognition (:183); `.cpp` for the LOS mask.
 - `src/game/server/hl2mp/bot/` — `hl2mp_bot.h:201` difficulties; `hl2mp_bot_vision.cpp:122–151` recognition times and 6,000 u range; `behavior/` 27 files for tree vocabulary; `hl2mp_bot_manager.cpp:196` (nav-mesh dependency we replace).
 - `src/game/shared/basecombatweapon_shared.cpp` — `WeaponSound` recipient rules (:1915–1942: PAS by soundlevel, prediction rules exclude the owner, `play_to_owner_only`); `DefaultReload`'s `WeaponSound(RELOAD)` under `#ifdef CLIENT_DLL` (:2042–2045), which is why most reloads are inaudible to others.
+- **Aim and alt fire: the brief against the tree** (2026-11-03). (1) `crouch` held from a target's first tick is one re-aim a rep, so the aim range gained `dip` (stands 1.5 s, then down and up about every 1.2 s), and the baseline ran it too. The baseline moved from `22ff50a04` to `a207acb6e` on the way, a hold of the user's playing having stopped the first. (2) **`IPlayerStances` is a core service**: the binding may not call the entity directory (`PerceptionCensusTests`). (3) `cs_sv_model_heights` lives with the skeleton instruments, debug only, for the same reason. (4) **The SMG grenade is not in the spawn kit**: stock's `GiveAmmo( 1, "grenade" )` is the frag's, so a bot has grenades only from `item_ammo_smg1_grenade`, and balls only from `item_ammo_ar2_altfire`. Bots walk to them only near by (§5.4's `Arm` goal). (5) **A friend near has no meaning yet**: HL2MP's bots are free-for-all and `ActorFacts` carries no team, so `FriendNear` is false here and the rule waits for a team game. (6) **The ball's charge** landed on main from another session (`181e8180e`, stock's 0.5 s; live the ball exists 0.59 s after a press; primary 0.5 s after, next alt 1 s; 1000 to what it touches; it bends toward players at bounces, never the shooter's: `EnergyBall.OnTouch` and its aim both skip the shooter, read). A bot does not assume when it goes: pressed, the view stays on its lead until the pool shows it went, or 1.2 s, even if sight goes. It goes at nothing nearer than 400 u, where a charging bot with no gun for 0.6 s would lose, and at half the chance of anything else. (7) A format 5 record's new data is a tail on World and Snapshot, read if present, so human sessions and older recordings still read.

@@ -528,7 +528,7 @@ public sealed class SsPlayer : AnimatingEntity
 
         // Into the frame's report, sent by UpdateClientData: not a message per hit.
         DamageReport.Took(taken, damageType, DamageOrigin(attacker), GameTime);
-        Hurt(attacker, taken, Health - taken);
+        Hurt(attacker, taken, Health - taken, damageType);
         return taken;
     }
 
@@ -592,11 +592,11 @@ public sealed class SsPlayer : AnimatingEntity
     /// cannot name them, and the mode that can fills them where it knows
     /// them.
     /// </summary>
-    private void Hurt(EntityHandle attacker, int taken, int healthLeft)
+    private void Hurt(EntityHandle attacker, int taken, int healthLeft, DamageType kind)
     {
         if (_hurtHooks is { All.Count: > 0 } hooks)
         {
-            var hurt = new PlayerHurt(Handle, attacker, taken, Math.Max(0, healthLeft));
+            var hurt = new PlayerHurt(Handle, attacker, taken, Math.Max(0, healthLeft), kind);
             hooks.Each(nameof(IPlayerHurtHook.OnPlayerHurt), h => h.OnPlayerHurt(in hurt));
         }
 

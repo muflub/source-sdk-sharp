@@ -19,13 +19,14 @@ public sealed class SnapshotBuilderTests
 
     private static readonly VisionParams Eyes = new(6000f, 90f, 0.3f, 0.5f);
 
-    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f)
+    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f, bool ducked = false)
     {
         var w = new SenseWorld();
         SenseWorld.Player bot = w.Add(1, new AiVector(0, 0, 0));
         SenseWorld.Player seen = w.Add(2, new AiVector(500, 0, 0));
         seen.Weapon = "weapon_shotgun";
         seen.EyeHeight = eye;
+        seen.Ducked = ducked;
         SenseWorld.Player hidden = w.Add(3, new AiVector(500, 600, 0));
         w.Occluder(new AiVector(250, 100, -10), new AiVector(266, 2000, 300), SenseWorld.Solid);
         var pass = new VisionPass(w.Engine(), w.Entities(), w.Traces());
@@ -36,7 +37,7 @@ public sealed class SnapshotBuilderTests
         for (int t = 1; t <= 60; t++)
             pass.Run(new Tick(t), 0.015f, [sensed], w.Living(sensed), events);
 
-        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77));
+        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77), w.Stance());
         var ring = new SnapshotRing(2, VisionPass.Slots, 8);
         AiSnapshot snap = ring.BeginWrite(new Tick(60));
         builder.Build(snap, [sensed], pass, slot => slot == 2 || (selfReloading && slot == 1) ? ActorActivity.Reloading : ActorActivity.None);
@@ -54,7 +55,7 @@ public sealed class SnapshotBuilderTests
         Assert.Equal(1f, f.VisibleFraction);
     }
 
-    /// <summary>A crouched body is one a client can see: its eye over its feet says so (§4.3).</summary>
+    /// <summary>A crouched body is one a client can see: the flag its animation turns on says so (§4.3).</summary>
     [Fact]
     public void AnOpponentCrouchedIsSeenCrouched()
     {
@@ -62,9 +63,21 @@ public sealed class SnapshotBuilderTests
         Assert.True(standing.TryActor(seen, out ActorFacts up));
         Assert.Equal(ActorActivity.None, up.Activity & ActorActivity.Crouched);
 
-        (PerceivedView ducked, ActorId same, _) = Build(eye: 28f);
+        (PerceivedView ducked, ActorId same, _) = Build(eye: 28f, ducked: true);
         Assert.True(ducked.TryActor(same, out ActorFacts down));
         Assert.Equal(ActorActivity.Crouched, down.Activity & ActorActivity.Crouched);
+    }
+
+    /// <summary>
+    /// The eye starts down at a duck's first tick; other clients see nothing until the duck
+    /// has finished. A bot must not know before they could (ruling 2026-11-03).
+    /// </summary>
+    [Fact]
+    public void AnEyeOnItsWayDownIsNotYetSeenCrouched()
+    {
+        (PerceivedView going, ActorId seen, _) = Build(eye: 40f, ducked: false);
+        Assert.True(going.TryActor(seen, out ActorFacts f));
+        Assert.Equal(ActorActivity.None, f.Activity & ActorActivity.Crouched);
     }
 
     [Fact]

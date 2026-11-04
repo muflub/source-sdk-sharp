@@ -17,7 +17,9 @@ public enum SelfFlags : byte
 /// <summary>
 /// The bot itself, as a client knows itself: position, view, health, armour,
 /// and the ammo of the weapon in its hands. <see cref="ActiveWeapon"/> is the
-/// binding's weapon-kind index.
+/// binding's weapon-kind index. <see cref="AltAmmo"/> is what the HUD shows of the second trigger's
+/// pool for that weapon (the SMG's grenades, the AR2's balls), <see cref="Grenades"/> what its weapon list
+/// shows of the frags it carries.
 /// </summary>
 public readonly record struct SelfState(
     AiVector Origin,
@@ -28,7 +30,9 @@ public readonly record struct SelfState(
     int ActiveWeapon,
     int Clip,
     int Reserve,
-    SelfFlags Flags)
+    SelfFlags Flags,
+    int AltAmmo = 0,
+    int Grenades = 0)
 {
     public bool Alive => (Flags & SelfFlags.Alive) != 0;
 }
@@ -96,6 +100,9 @@ public sealed class PerceivedView
         Self = self;
         SightedCount = 0;
     }
+
+    /// <summary>The self's second-trigger pool and frags, read after the view (format 5's tail, <see cref="AiRecordFormat"/>).</summary>
+    internal void SetAltAmmo(int altAmmo, int grenades) => Self = Self with { AltAmmo = altAmmo, Grenades = grenades };
 
     /// <summary>Makes this view a copy of <paramref name="other"/> (a step's own copy, so the ring can move on, §2.7).</summary>
     public void CopyFrom(PerceivedView other)

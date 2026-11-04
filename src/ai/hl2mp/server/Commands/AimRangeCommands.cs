@@ -8,16 +8,16 @@ namespace SourceSharp.Ai.Hl2mp;
 /// <summary>
 /// <c>ai_bot_kit &lt;name&gt; &lt;weapon&gt;</c> (plan_hl2mp_ai §12.3, the aim range's
 /// harness, <c>tools/ai-aim-range</c>): the bot holds that one weapon and a
-/// full reserve, so a measurement is of the weapon it names.
+/// full reserve, so a measurement is of the weapon it names; its second trigger only with ammo asked for.
 /// </summary>
-[ConCommand("ai_bot_kit", Help = "ai_bot_kit <name> <weapon>: the bot holds only that weapon, with a full reserve", Flags = ConVarFlags.Cheat)]
+[ConCommand("ai_bot_kit", Help = "ai_bot_kit <name> <weapon> [alt ammo]: the bot holds only that weapon, with a full reserve and that many for its second trigger (none unless said)", Flags = ConVarFlags.Cheat)]
 public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatalog weapons, ILog log)
 {
     private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
 
     private IEnumerable<string> Weapons() => weapons.All.Select(w => w.Name);
 
-    public void Execute([Complete(From = nameof(BotNames))] string name, [Complete(From = nameof(Weapons))] string weapon)
+    public void Execute([Complete(From = nameof(BotNames))] string name, [Complete(From = nameof(Weapons))] string weapon, int altAmmo = 0)
     {
         if (weapons.For(weapon) is not { } type)
         {
@@ -36,6 +36,8 @@ public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatal
             arsenal.Switch(player, weapon);
             if (type.AmmoName.Length > 0)
                 arsenal.GiveAmmo(player, 9999, type.AmmoName);
+            if (altAmmo > 0 && type.SecondaryAmmoName.Length > 0)
+                arsenal.GiveAmmo(player, altAmmo, type.SecondaryAmmoName);
             return;
         }
 

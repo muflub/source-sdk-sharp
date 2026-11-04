@@ -62,6 +62,9 @@ public enum AiEventKind : byte
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
     ShotFired = 50,
 
+    /// <summary>The actor pressed its second trigger and it went: Code the weapon's kind.</summary>
+    AltFired = 52,
+
     /// <summary>The actor's fire hurt Other: Amount the damage, Code the weapon in the actor's hands (-1 none), Code2 the range in units (-1 unknown).</summary>
     HitDealt = 51,
 }
@@ -188,6 +191,10 @@ public readonly record struct AiEvent(
     /// <summary><see cref="AiEventKind.ShotFired"/>: for the recording, never a brain.</summary>
     public static AiEvent ShotFired(ActorId actor, Tick tick, int weaponKind, int rounds)
         => new(AiEventKind.ShotFired, actor, tick, ActorId.None, default, default, rounds, weaponKind, 0);
+
+    /// <summary><see cref="AiEventKind.AltFired"/>: for the recording, never a brain.</summary>
+    public static AiEvent AltFired(ActorId actor, Tick tick, int weaponKind)
+        => new(AiEventKind.AltFired, actor, tick, ActorId.None, default, default, 1f, weaponKind, 0);
 
     /// <summary><see cref="AiEventKind.HitDealt"/>: for the recording, never a brain.</summary>
     public static AiEvent HitDealt(ActorId actor, Tick tick, ActorId victim, float damage, int weaponKind, int range)

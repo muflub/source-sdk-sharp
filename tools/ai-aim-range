@@ -3,8 +3,8 @@
 
   tools/ai-aim-range run [--map ss_ai_range] [--presets easy,normal,hard,expert]
                          [--weapons weapon_smg1] [--ranges 200,500,1000]
-                         [--patterns stand,strafe,cross,crouch] [--streak hot|cold] [--target bot|human]
-                         [--reps 6] [--seconds 4] [--curve param:level:value ...]
+                         [--patterns stand,strafe,cross,crouch,dip] [--streak hot|cold] [--target bot|human]
+                         [--reps 6] [--seconds 4] [--alt-ammo N] [--curve param:level:value ...]
                          [--seed 1] [--out FILE.json] [--config debug] [--keep]
 
 Starts a headless game on the map (its own instance, temp dir, dev-API directory
@@ -19,7 +19,7 @@ numbers are the game's own aim meter (`/ai/aim`):
   first   ms from coming into view to the first shot (median; n engagements that fired)
   fire    share of in-sight ticks holding fire
   hit     shots that damaged / shots fired, shots
-  dps     damage per in-sight second
+  dps     damage per in-sight second, blasts and balls too
   err     the crosshair's angle to the chest, mean and spread, degrees
   body    share of in-sight ticks with the crosshair's ray on the body
   leaves  in-sight ticks by the brain's leaf
@@ -51,6 +51,10 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TICK_MS = 15.0
 RUN_SPEED = 190.0
+
+# The dip pattern: how long the target stands first, and about how long each crouch and each stand lasts.
+DIP_FIRST_SECONDS = 1.5
+DIP_HOLD_SECONDS = 1.2
 
 _loader = importlib.machinery.SourceFileLoader("ai_scenario", os.path.join(ROOT, "tools", "ai-scenario"))
 _spec = importlib.util.spec_from_loader("ai_scenario", _loader)
@@ -91,7 +95,8 @@ def stats_of(row, seconds_per_tick=TICK_MS / 1000.0):
         "shots": shots,
         "hits": get("hits"),
         "hit_rate": get("hits") / shots if shots else None,
-        "dps": get("damage") / (sight * seconds_per_tick),
+        "dps": (get("damage") + row.get("alt_damage", 0)) / (sight * seconds_per_tick),
+        "alt_damage": row.get("alt_damage", 0),
         "error_mean": get("error_mean"),
         "error_spread": get("error_spread"),
         "on_body": get("on_body_ticks") / sight,
@@ -124,6 +129,8 @@ class Range:
         self.rng = random.Random(seed)
         self.target_slot = 1
         self.shooter_health = 0
+        # The second trigger's pool at each rep: none unless asked, so a hit rate is of the aim alone.
+        self.alt_ammo = 0
         if target_kind == "bot":
             game.cmd("ai_bot_add Target easy")
             self.wait_bot("Target")
@@ -169,7 +176,7 @@ class Range:
     def rep(self, shooter, kit, rng_range, pattern):
         far = self.place["far"]
         closet = self.place["closet"]
-        if pattern == "crouch" and self.kind != "human":
+        if pattern in ("crouch", "dip") and self.kind != "human":
             raise SystemExit("ai-aim-range: a crouching target needs --target human: only a client holds the key")
         if self.kind == "human":
             self.g.cmd("-duck")
@@ -178,7 +185,7 @@ class Range:
         # Out of sight: long enough to be lost, and for the kit's draw.
         if closet:
             self.target_to(*closet)
-        self.g.cmd("ai_bot_kit Shooter %s" % kit)
+        self.g.cmd("ai_bot_kit Shooter %s%s" % (kit, " %d" % self.alt_ammo if self.alt_ammo else ""))
         if pattern == "bot":
             self.g.cmd("ai_bot_kit Target weapon_smg1")
             self.g.cmd("ai_aim_tough %d 100" % shooter)
@@ -206,6 +213,18 @@ class Range:
             self.target_keys(0)
             self.g.cmd("+duck")
             time.sleep(self.seconds)
+            self.g.cmd("-duck")
+        elif pattern == "dip":
+            # Standing long enough to be settled on, then down and up again: each change
+            # is a re-aim for whoever aims at a height (§3.4.1, ruling 2026-11-03).
+            self.target_keys(0)
+            end = time.time() + self.seconds
+            ducked = False
+            time.sleep(DIP_FIRST_SECONDS)
+            while time.time() < end:
+                ducked = not ducked
+                self.g.cmd("+duck" if ducked else "-duck")
+                time.sleep(self.rng.uniform(DIP_HOLD_SECONDS * 0.8, DIP_HOLD_SECONDS * 1.2))
             self.g.cmd("-duck")
         elif pattern == "cross":
             self.target_keys(direction)
@@ -239,6 +258,7 @@ class Range:
                 if row["slot"] == self.target_slot:
                     return {"preset": preset, "weapon": weapon, "range": rng_range, "pattern": pattern, "target": self.kind,
                             "human": row["human"], "stats": stats_of(row), "close": bot.get("close_by_leaf", []),
+                            "alt_fired": bot.get("alt_fired", []), "self_blast": bot.get("self_blast", 0),
                             "nobody_shots": sum(r["shots"] for r in bot["targets"] if r["slot"] == 0)}
         return {"preset": preset, "weapon": weapon, "range": rng_range, "pattern": pattern, "target": self.kind,
                 "stats": stats_of({"engagements": 0, "clear_ticks": 0, "in_sight_ticks": 0, "firing_ticks": 0, "on_body_ticks": 0,
@@ -261,6 +281,7 @@ def run(a):
             game.cmd("ai_curve %s" % c.replace(":", " "))
         r = Range(game, a.map, a.target, a.seconds, a.reps, a.seed)
         r.shooter_health = a.shooter_health
+        r.alt_ammo = a.alt_ammo
         # A measurement is of what it names: streaks off unless one is asked for (§5.5).
         r.streak = a.streak
         game.cmd("ai_bot_streaks %d" % (1 if a.streak else 0))
@@ -475,6 +496,7 @@ def main(argv):
     r.add_argument("--seconds", type=float, default=4.0)
     r.add_argument("--curve", action="append")
     r.add_argument("--shooter-health", type=int, default=0)
+    r.add_argument("--alt-ammo", type=int, default=0)
     r.add_argument("--seed", type=int, default=1)
     r.add_argument("--out")
     r.add_argument("--config", default="debug")

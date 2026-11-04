@@ -2,8 +2,8 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Server;
 
-/// <summary>One hit on a player, as its <c>player_hurt</c> says it: who, by whom, how much after the armour, and the health left.</summary>
-public readonly record struct PlayerHurt(EntityHandle Player, EntityHandle Attacker, int Taken, int HealthLeft);
+/// <summary>One hit on a player, as its <c>player_hurt</c> says it: who, by whom, how much after the armour, the health left, and what kind of damage it was.</summary>
+public readonly record struct PlayerHurt(EntityHandle Player, EntityHandle Attacker, int Taken, int HealthLeft, DamageType Kind = default);
 
 /// <summary>
 /// Told of each hit on a player, where the <c>player_hurt</c> event is made

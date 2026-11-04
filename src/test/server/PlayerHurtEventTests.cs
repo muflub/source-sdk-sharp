@@ -147,7 +147,7 @@ public class PlayerHurtEventTests
 
         int taken = player.OnDamagedAt(Attacker, 25f, DamageType.Bullet, default, default);
 
-        Assert.Equal([new PlayerHurt(Victim, Attacker, taken, 100 - taken)], told.All);
+        Assert.Equal([new PlayerHurt(Victim, Attacker, taken, 100 - taken, DamageType.Bullet)], told.All);
         Assert.True(taken > 0, "the hit took health");
     }
 }

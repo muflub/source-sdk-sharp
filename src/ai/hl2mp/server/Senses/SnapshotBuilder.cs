@@ -23,20 +23,25 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
         Vector o = entities.GetOrigin(bot), v = entities.GetVelocity(bot), a = entities.GetEyeAngles(bot);
         bool alive = players.IsAlive(bot);
         bool observer = players.GetObserverMode(bot) != ObserverMode.None;
-        int kind = -1, clip = 0, reserve = 0;
+        int kind = -1, clip = 0, reserve = 0, alt = 0;
         foreach ((string className, int c, bool active) in arsenal.Holdings(bot))
         {
             if (!active)
                 continue;
             kind = weapons.IndexOf(className);
             clip = c;
-            if (weapons.For(className) is { AmmoName.Length: > 0 } type && arsenal.PoolOf(bot, type.AmmoName, out int pool))
+            if (weapons.For(className) is not { } type)
+                continue;
+            if (type.AmmoName.Length > 0 && arsenal.PoolOf(bot, type.AmmoName, out int pool))
                 reserve = pool;
+            if (type.SecondaryAmmoName.Length > 0 && arsenal.PoolOf(bot, type.SecondaryAmmoName, out int altPool))
+                alt = altPool;
         }
 
+        int grenades = weapons.For(EntityNames.WeaponFrag) is { } frag && arsenal.PoolOf(bot, frag.AmmoName, out int carried) ? carried : 0;
         SelfFlags flags = (alive ? SelfFlags.Alive : SelfFlags.None) | (observer ? SelfFlags.Observer : SelfFlags.None);
         return new SelfState(new AiVector(o.X, o.Y, o.Z), new AiVector(v.X, v.Y, v.Z), new AiAngles(a.X, a.Y, a.Z),
-                             entities.GetHealth(bot), entities.GetArmor(bot), kind, clip, reserve, flags);
+                             entities.GetHealth(bot), entities.GetArmor(bot), kind, clip, reserve, flags, alt, grenades);
     }
 }
 
@@ -49,11 +54,8 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
 /// types that read another actor (§4.4).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud)
+public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances)
 {
-    /// <summary>An eye under this over its feet is a crouched body's (standing 64, crouched 28): what a client draws.</summary>
-    public const float CrouchedEye = 46f;
-
     /// <summary>
     /// Adds a view for every bot in <paramref name="bots"/> to
     /// <paramref name="snapshot"/>; <paramref name="activityOf"/> answers what
@@ -76,7 +78,7 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                 if (t == b.Id.Slot || !sight.Sees(t) || vision.ReadOf(t) is not { } them)
                     continue;
                 int weapon = weapons.IndexOf(players.GetActiveWeapon(them.Player));
-                ActorActivity activity = activityOf(t) | (them.Eye.Z - them.Origin.Z < CrouchedEye ? ActorActivity.Crouched : ActorActivity.None);
+                ActorActivity activity = activityOf(t) | (stances.Ducked(them.Player) ? ActorActivity.Crouched : ActorActivity.None);
                 view.AddSighted(new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t)));
             }
         }

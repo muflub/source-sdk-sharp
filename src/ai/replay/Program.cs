@@ -150,6 +150,19 @@ if (args.Length >= 3 && args[0] == "tactics")
     return 0;
 }
 
+if (args.Length >= 2 && args[0] == "threat")
+{
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        (List<ThreatRow> rows, double minutes, Dictionary<int, string> weapons) = AiThreat.Read(input);
+        Console.WriteLine($"ai-replay: threat {Path.GetFileName(rec)}");
+        Console.Write(AiThreat.Table(rows, minutes, weapons));
+    }
+
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] == "jank")
 {
     int empty = 0;

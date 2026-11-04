@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp.Nav;
+using SourceSharp.Server;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Ai.Hl2mp.Knowledge;
@@ -37,11 +38,43 @@ public static class WeaponKnowledgeBuilder
             all.Add(new WeaponFacts(i, w.Name, w.ClipSize, w.Interval, reloadSeconds(w),
                                     AudibleReload(w.Behaviour) && w.ReloadSound.Length > 0,
                                     w.Behaviour == Hl2mpWeaponBehaviours.Shotgun,
-                                    w.Projectile.Length > 0 ? w.LaunchSpeed : 0f));
+                                    w.Projectile.Length > 0 ? w.LaunchSpeed : 0f, AltOf(in w)));
         }
 
         return new WeaponKnowledge(all);
     }
+
+    /// <summary>
+    /// What a weapon's second trigger is (§5.4, ruling 2026-11-03), from its row and the classes it
+    /// launches. Those with none that hurts: the crossbow's zooms (CheckZoomToggle), the RPG's and the
+    /// pistol's do nothing (the laser comes on by itself), a .357, crowbar and stunstick have none, and
+    /// the gravity gun's pulls: its primary is the punt.
+    /// </summary>
+    public static AltFireFacts AltOf(in WeaponType w)
+    {
+        if (w.Behaviour == Hl2mpWeaponBehaviours.Frag)
+        {
+            var frag = new GrenadeVars();
+            return new AltFireFacts(AltFireKind.Underhand, FragLobSpeed, FragGravity, frag.Radius, frag.Magnitude);
+        }
+
+        if (w.Secondary is not { } alt)
+            return default;
+        if (alt.Projectile == EntityNames.GrenadeAr2)
+        {
+            var vars = new GrenadeAr2Vars();
+            return new AltFireFacts(AltFireKind.Lob, alt.LaunchSpeed, GrenadeAr2.GravityUnits, vars.Radius, vars.Magnitude, alt.AmmoCost);
+        }
+
+        if (alt.Projectile == EntityNames.PropCombineBall)
+            return new AltFireFacts(AltFireKind.Ball, alt.LaunchSpeed, 0f, 0f, new EnergyBallVars().Damage, alt.AmmoCost);
+        if (alt.FromClip && alt.Pellets > 0)
+            return new AltFireFacts(AltFireKind.Double, 0f, 0f, 0f, 0f, alt.AmmoCost, true);
+        return default;
+    }
+
+    /// <summary>The underhand's forward speed (Arsenal.ThrowGrenade's Lob), and HL2MP's sv_gravity.</summary>
+    public const float FragLobSpeed = 350f, FragGravity = 600f;
 
     /// <summary>The reload animation's length on the weapon's view model, or 0 when it has none.</summary>
     public static float ReloadSeconds(ModelDescriptors models, in WeaponType w)

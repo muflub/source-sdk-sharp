@@ -568,7 +568,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
     {
         SelfFlags flags = _ai is not null && _ai.Session.Snapshots.TryGet(new Tick(tick.Value - 1), out AiSnapshot snap) && snap.ViewFor(bot.Id.Slot) is { } v
             ? v.Self.Flags : SelfFlags.None;
-        (string, string, string) key = (d.Branch, d.Leaf, d.Verdict + ((flags & SelfFlags.Reloading) != 0 ? "+r" : "") + d.Prefire);
+        (string, string, string) key = (d.Branch, d.Leaf, d.Verdict + ((flags & SelfFlags.Reloading) != 0 ? "+r" : "") + d.Prefire + d.AltFire);
         if (_said.TryGetValue(bot.Id.Slot, out (string, string, string) last) && last == key)
             return;
         _said[bot.Id.Slot] = key;
@@ -576,7 +576,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
             $"[SourceSharp/Ai] think {tick.Value} {bot.Name}: {d.Branch}/{d.Leaf} verdict '{d.Verdict}' target {(d.Target.IsValid ? d.Target.Slot : -1)} "
             + $"at ({at.X:F0} {at.Y:F0} {at.Z:F0}) goal {(d.HasGoal ? $"({d.Goal.X:F0} {d.Goal.Y:F0} {d.Goal.Z:F0})" : "-")} "
             + $"P(empty) {d.PEmpty:F2} P(reloading) {d.PReloading:F2} window {d.WindowSeconds:F2}s arrive {d.ArriveSeconds:F2}s "
-            + $"scoreboard {d.ScoreboardTerm:F2} ammo {d.AmmoTerm:F2} self {flags} prefire '{d.Prefire}'\n"));
+            + $"scoreboard {d.ScoreboardTerm:F2} ammo {d.AmmoTerm:F2} self {flags} prefire '{d.Prefire}' alt '{d.AltFire}'\n"));
     }
 
     private bool Scripted(ActorId bot)

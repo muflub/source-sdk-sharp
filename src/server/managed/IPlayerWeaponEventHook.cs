@@ -22,6 +22,9 @@ public enum PlayerWeaponEvent : byte
 
     /// <summary>The reload ended.</summary>
     ReloadFinished,
+
+    /// <summary>The second trigger's shot left: an SMG's grenade, an AR2's ball, a shotgun's both barrels, a frag rolled or lobbed. A weapon whose shot also took rounds is told <see cref="Fired"/> too.</summary>
+    AltFired,
 }
 
 /// <summary>

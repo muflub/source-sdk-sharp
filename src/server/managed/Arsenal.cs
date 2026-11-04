@@ -1205,6 +1205,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         if (shot)
             Tell(player, type, PlayerWeaponEvent.Fired, fired);
+        // A shotgun's both barrels and a frag let go underhand take what any shot does; a pool of its own says so itself.
+        if (secondary || (shot && _weapons.ByIndex(type) is { } row
+                          && ((row.Secondary is { FromClip: true } barrels && fired >= barrels.AmmoCost)
+                              || (row.Behaviour == Hl2mpWeaponBehaviours.Frag && w.AttackPaused == Hl2mpWeaponBehaviours.FragPausedSecondary))))
+            Tell(player, type, PlayerWeaponEvent.AltFired, 1);
         if (reload)
         {
             (carry.ToldReloadType, carry.ToldReloadClip) = (type, w.Clip);

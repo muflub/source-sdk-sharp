@@ -37,8 +37,12 @@ public enum LookKind : byte
 /// <summary>Which part of an actor to aim at.</summary>
 public enum AimPoint : byte
 {
+    /// <summary>The chest: what a blast or a swing is aimed at, and a look at a place.</summary>
     Body = 0,
     Head,
+
+    /// <summary>The shoulders, a gun's default (§3.4.1, ruling 2026-11-03): the height a crosshair is kept at.</summary>
+    Shoulder,
 }
 
 /// <summary>What the hands do.</summary>

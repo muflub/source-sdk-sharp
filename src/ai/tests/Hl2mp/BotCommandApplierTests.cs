@@ -629,6 +629,29 @@ public class BotCommandApplierTests
         => _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold,
                                              new LookIntent(LookKind.Actor, point, Foe, AimPoint.Body, 0f, 0), action, default));
 
+    /// <summary>The second trigger is IN_ATTACK2 in the usercmd, a person's press, and only with the view on its point (§5.4).</summary>
+    [Fact]
+    public void AnAltFireIsAttack2OnceTheViewIsThere()
+    {
+        var point = new AiVector(500f, 200f, 64f);
+        var alt = new ActionIntent(ActionKind.AltFire, FireStyle.Tap, 0, 0);
+        bool early = false, pressed = false;
+        for (int i = 0; i < 200 && !pressed; i++)
+        {
+            SubmitAim(point, alt);
+            UserCmd cmd = TickFollowingTheView();
+            AiAngles at = BotCommandApplier.AnglesTo(new AiVector(0f, 0f, 64f), point);
+            float off = MathF.Sqrt(MathF.Pow(at.Pitch - cmd.Pitch, 2f) + MathF.Pow(HumanMotion.AngleDelta(cmd.Yaw, at.Yaw), 2f));
+            bool attack2 = (cmd.Buttons & (int)InputButtons.Attack2) != 0;
+            early |= attack2 && off > BotCommandApplier.AltFireOnAimDeg + 0.5f;
+            pressed = attack2;
+            Assert.Equal(0, cmd.Buttons & (int)InputButtons.Attack);
+        }
+
+        Assert.True(pressed, "the view got there and nothing was pressed");
+        Assert.False(early, "pressed with the view off its point");
+    }
+
     /// <summary>
     /// The aim's point moves at every decide while the target stays the same:
     /// one stimulus (§3.4.1). As a new stimulus each move restarted the

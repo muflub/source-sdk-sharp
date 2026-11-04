@@ -27,6 +27,9 @@
 #       the same definitions (§3.4.5): stuck, wall bump, decision flips,
 #       in-sight not firing by leaf, strafe interval, yaw reversals, idle; the
 #       worst places of each; a headline score with its weights
+#   tools/ai-replay threat <recording.airec>... [--config ..]
+#       per bot, damage and kills a minute against people and everyone, shots and
+#       second triggers a minute by weapon (§12.3, ruling 2026-11-03)
 #   tools/ai-replay style [--skills FILE]
 #       over 500 drawn bots by difficulty: who holds a place, named campers apart,
 #       and what each name's skill does, from the skills file (§10)
@@ -81,7 +84,7 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics)$ && -n "${3:-}" ) ]] || { sed -n '2,40p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics)$ && -n "${3:-}" ) ]] || { sed -n '2,40p' "$0"; exit 2; }
 if [[ "$verb" == tactics ]]; then
   map="$2"; shift 2
   config=debug; recs=()
@@ -96,7 +99,7 @@ if [[ "$verb" == tactics ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" tactics "$maps/$map.nav3d" "$maps/$map.bsp" "${recs[@]}"
 fi
-if [[ "$verb" =~ ^(metrics|jank)$ ]]; then
+if [[ "$verb" =~ ^(metrics|jank|threat)$ ]]; then
   shift
   config=debug; recs=()
   while [[ $# -gt 0 ]]; do

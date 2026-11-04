@@ -27,6 +27,7 @@ public sealed class PerceptionCensusTests
         "IEngineEntities::GetOrigin", "IEngineEntities::GetEyePosition", "IEngineEntities::GetVelocity", "IEngineEntities::GetEyeAngles",
         "IEngineEntities::GetWorldSpaceCenter", "IEngineEntities::GetHealth", "IEngineEntities::GetArmor", "IEngineEntities::GetAngles",
         "IEnginePlayers::GetActiveWeapon", "IEnginePlayers::GetActiveWeaponEntity", "IEnginePlayers::GetWeaponEntity", "IEnginePlayers::GetShootOrigin",
+        "IPlayerStances::Ducked",
         "Arsenal::Holdings", "Arsenal::CarriedClipOf", "Arsenal::PoolOf", "Arsenal::Pools", "Arsenal::MaxCarryOf",
     ];
 

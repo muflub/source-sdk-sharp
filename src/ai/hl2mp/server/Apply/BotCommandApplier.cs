@@ -351,6 +351,16 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// </summary>
     private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
     {
+        // A grenade or a ball goes once and costs what it costs: only with the view there (§5.4).
+        if (intent.Action.Kind == ActionKind.AltFire && intent.Look.Kind is (LookKind.Actor or LookKind.CornerCheck))
+        {
+            AiAngles at = AnglesTo(facts.Eye, intent.Look.Point);
+            float up = at.Pitch - view.Pitch, across = HumanMotion.AngleDelta(view.Yaw, at.Yaw);
+            // Spray is both barrels: wide and near, so a body's width will do.
+            float allowed = intent.Action.Style == FireStyle.Spray ? MathF.Atan2(CloseBody, (intent.Look.Point - facts.Eye).Length) * (180f / MathF.PI) : AltFireOnAimDeg;
+            return bot.Motion.Phase != AimPhase.Reacting && MathF.Sqrt(up * up + across * across) <= allowed ? intent.Action : ActionIntent.None;
+        }
+
         if (intent.Action.Kind != ActionKind.Fire || intent.Look.Kind is not (LookKind.Actor or LookKind.CornerCheck) || !bot.Motion.NotYetOnAim)
             return intent.Action;
         float distance = (intent.Look.Point - facts.Eye).Length;
@@ -360,6 +370,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         float dp = to.Pitch - view.Pitch, dy = HumanMotion.AngleDelta(view.Yaw, to.Yaw);
         return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : ActionIntent.None;
     }
+
+    /// <summary>How near its point the view must be for the second trigger to go.</summary>
+    public const float AltFireOnAimDeg = 3f;
 
     /// <summary>How far off a close target's point the hands will fire: about a body and a half, so 18° at 150 u and 7° at 400 u.</summary>
     public const float CloseBody = 48f;
@@ -570,6 +583,10 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             case ActionKind.Fire when burst:
                 bot.TapDown = false;
                 return Burst(bot, in intent, in facts, dt);
+            case ActionKind.AltFire when action.Style == FireStyle.Tap:
+                // Released between presses, as a frag needs: it goes when let go, once its pin has played.
+                bot.TapDown = !bot.TapDown;
+                return bot.TapDown ? (int)InputButtons.Attack2 : 0;
             case ActionKind.Fire:
             case ActionKind.AltFire:
             case ActionKind.Reload:

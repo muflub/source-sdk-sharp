@@ -12,16 +12,18 @@ public sealed class Duel
     public static readonly ActorId Bot = new(2, 1);
     public static readonly ActorId Opponent = new(3, 0x4000_0001);
     public static readonly ActorId Other = new(4, 0x4000_0002);
-    public const int Smg1 = 3, Pistol = 1, Crowbar = 0, Crossbow = 4, Shotgun = 5, BigBow = 6;
+    public const int Smg1 = 3, Pistol = 1, Crowbar = 0, Crossbow = 4, Shotgun = 5, BigBow = 6, Ar2 = 7, Frag = 8;
     public static readonly AiVector Kit = new(-600f, 0f, 0f);
 
     public static readonly WeaponKnowledge Weapons = new([
         new WeaponFacts(Crowbar, "weapon_crowbar", 0, 0.4f, 0f, false, false, 0f),
         new WeaponFacts(Pistol, "weapon_pistol", 18, 0.1f, 1.43f, true, false, 0f),
-        new WeaponFacts(Smg1, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f),
+        new WeaponFacts(Smg1, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f, new AltFireFacts(AltFireKind.Lob, 1000f, 400f, 250f, 100f)),
         new WeaponFacts(Crossbow, "weapon_crossbow", 1, 1.5f, 2f, false, false, 3500f),
-        new WeaponFacts(Shotgun, "weapon_shotgun", 6, 0.7f, 0.5f, true, true, 0f),
+        new WeaponFacts(Shotgun, "weapon_shotgun", 6, 0.7f, 0.5f, true, true, 0f, new AltFireFacts(AltFireKind.Double, AmmoCost: 2, FromClip: true)),
         new WeaponFacts(BigBow, "weapon_crossbow", 10, 1.5f, 2f, false, false, 3500f),
+        new WeaponFacts(Ar2, "weapon_ar2", 30, 0.1f, 1.5f, false, false, 0f, new AltFireFacts(AltFireKind.Ball, 1000f, 0f, 0f, 1000f)),
+        new WeaponFacts(Frag, "weapon_frag", -1, 1f, 0f, false, false, 900f, new AltFireFacts(AltFireKind.Underhand, 350f, 600f, 250f, 125f)),
     ]);
 
     private readonly PerceivedView _view = new(8);

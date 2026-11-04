@@ -75,6 +75,24 @@ public static class AimLead
         return t > 0f ? t : null;
     }
 
+    /// <summary>
+    /// The point on the line to aim along so that a shot at <paramref name="speed"/> under
+    /// <paramref name="gravity"/> lands on <paramref name="target"/>: the low arc, directly above the
+    /// target. Null when the speed cannot reach it.
+    /// </summary>
+    public static AiVector? Lob(AiVector from, AiVector target, float speed, float gravity)
+    {
+        float d = new AiVector(target.X - from.X, target.Y - from.Y, 0f).Length;
+        if (d < 1f || gravity <= 0f)
+            return target;
+        float h = target.Z - from.Z, v2 = speed * speed;
+        float disc = v2 * v2 - gravity * (gravity * d * d + 2f * h * v2);
+        if (disc < 0f)
+            return null;
+        float tan = (v2 - MathF.Sqrt(disc)) / (gravity * d);
+        return new AiVector(target.X, target.Y, from.Z + tan * d);
+    }
+
     /// <summary>The point to aim at.</summary>
     public static AiVector Point(AiVector from, AiVector target, AiVector velocity, float projectileSpeed, float leadQuality)
     {

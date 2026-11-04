@@ -44,6 +44,10 @@ public sealed class WeaponEventTapTests
         Assert.Equal((AiEventKind.SeenFire, Watching, Shooter, 3, Smg1), (e.Kind, e.Bot, e.Other, e.Code, e.Code2));
     }
 
+    /// <summary>A grenade or a ball says nothing of the clip, and above all is no reload's end.</summary>
+    [Fact]
+    public void ASecondTriggerTellsAWatcherNothingOfTheClip() => Assert.Empty(Perceive(PlayerWeaponEvent.AltFired));
+
     [Fact]
     public void AnUnsightedShootersShotIsNoEventForTheBotThatCannotSeeIt()
         => Assert.DoesNotContain(Perceive(PlayerWeaponEvent.Fired), e => e.Bot == Blind);
