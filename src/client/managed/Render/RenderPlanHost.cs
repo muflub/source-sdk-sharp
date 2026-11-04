@@ -668,16 +668,11 @@ public sealed class DrawBatchConVar : BoolConVar
 /// is recorded with it (plan_client_novalve C7 step 1).
 /// </summary>
 [ConCommand("cs_cl_render_trace", Help = "Record the next frame's render calls: cs_cl_render_trace <file>")]
-public sealed class RenderTraceCommand(ILog log, RenderPlanHost plan) : IConCommand
+public sealed class RenderTraceCommand(ILog log, RenderPlanHost plan)
 {
-    public void Execute(string args)
+    public void Execute(string file)
     {
-        string path = args.Trim().Trim('"');
-        if (path.Length == 0)
-        {
-            log.Msg("usage: cs_cl_render_trace <file>\n");
-            return;
-        }
+        string path = file;
         plan.RequestTrace(text =>
         {
             File.WriteAllText(path, text);

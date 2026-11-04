@@ -492,11 +492,11 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
 
 /// <summary><c>ai_sense_log 0|1</c>: write each bot's sight changes to the console.</summary>
 [ConCommand("ai_sense_log", Help = "ai_sense_log 0|1: print each bot's sight gained and lost", Flags = ConVarFlags.Cheat)]
-public sealed class AiSenseLogCommand(Hl2mpSenses senses, ILog log) : IConCommand
+public sealed class AiSenseLogCommand(Hl2mpSenses senses, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(bool on = true)
     {
-        senses.LogSight = args.Trim() != "0";
+        senses.LogSight = on;
         log.Msg($"[SourceSharp/Ai] ai_sense_log {(senses.LogSight ? 1 : 0)}\n");
     }
 }
@@ -506,9 +506,9 @@ public sealed class AiSenseLogCommand(Hl2mpSenses senses, ILog log) : IConComman
 /// 300-tick mean and worst tick, with the traces the last tick spent.
 /// </summary>
 [ConCommand("ai_sense_cost", Help = "ai_sense_cost: the vision pass's main-thread cost (300-tick mean)")]
-public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
         => log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] ai.sense.us mean {senses.SenseMeanUs:F1} max {senses.SenseMaxUs:F1} over {Math.Min(senses.SenseTicks, Hl2mpSenses.Window)} ticks; ai.publish.us mean {senses.PublishMeanUs:F1}; "
             + $"{bots.Bots.Count} bots; ai.sense.traces {vision.TracesLastTick} last tick, {vision.Traces} in all; "
@@ -517,12 +517,12 @@ public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl
 
 /// <summary><c>ai_vision_traces_per_tick N</c>: the vision pass's trace budget (§4.1; default 32).</summary>
 [ConCommand("ai_vision_traces_per_tick", Help = "ai_vision_traces_per_tick N: the vision pass's line traces a tick (default 32)", Flags = ConVarFlags.Cheat)]
-public sealed class AiVisionTracesCommand(VisionPass vision, ILog log) : IConCommand
+public sealed class AiVisionTracesCommand(VisionPass vision, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(int? traces = null)
     {
-        if (int.TryParse(args.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n >= 0)
-            vision.TracesPerTick = n;
+        if (traces is >= 0)
+            vision.TracesPerTick = traces.Value;
         log.Msg($"[SourceSharp/Ai] ai_vision_traces_per_tick {vision.TracesPerTick}\n");
     }
 }

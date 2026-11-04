@@ -12,11 +12,11 @@ namespace SourceSharp.Client.Physics;
 [ConCommand("cs_cl_physics", Help = "Print the client physics counters (environment, tables, steps and their cost, impact sounds); 'reset' zeroes the step meter")]
 public sealed class PhysicsClientCommand(ILog log, ClientPhysicsSystem system, ClientImpactSounds impacts,
                                           ClientCollisionSolver solver, ClientFluidEvents fluids,
-                                          FrictionSounds scrapes) : IConCommand
+                                          FrictionSounds scrapes)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        if (args.Trim() == "reset")
+        if (action == "reset")
         {
             system.ResetMeter();
             log.Msg("[SourceSharp/Client] physics: the step meter is reset\n");

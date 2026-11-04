@@ -17,16 +17,11 @@ namespace SourceSharp.Client.Vgui;
 /// </summary>
 [ConCommand("cs_ui_texture",
             Help = "SourceSharp: load a HUD material through the UI texture library and report it (cs_ui_texture <material>).")]
-public sealed class UiTextureCommand(IUiTextureSource source, ILog log) : IConCommand
+public sealed class UiTextureCommand(IUiTextureSource source, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(string material)
     {
-        string name = args.Trim();
-        if (name.Length == 0)
-        {
-            log.Msg("[SourceSharp/Ui] usage: cs_ui_texture <material>, e.g. hud/objectives_flagpanel_ico_flag_home\n");
-            return;
-        }
+        string name = material;
         if (source.Textures is not { } textures)
         {
             log.Msg($"[SourceSharp/Ui] {name}: no UI is loaded, so there is no texture library\n");

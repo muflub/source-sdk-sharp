@@ -230,7 +230,7 @@ public sealed class TFClientRoundTimers(ITFObjectiveSource objectives) : ITFRoun
 
 /// <summary>The console door onto the client's round-timer election.</summary>
 [ConCommand("tf2_cl_round_timers", Help = "The round timers this client has decoded and the HUD's election")]
-public sealed class TFRoundTimerReportCommand(ILog log, TFClientRoundTimers timers) : IConCommand
+public sealed class TFRoundTimerReportCommand(ILog log, TFClientRoundTimers timers)
 {
-    public void Execute(string args) => log.Msg(timers.Report() + "\n");
+    public void Execute() => log.Msg(timers.Report() + "\n");
 }

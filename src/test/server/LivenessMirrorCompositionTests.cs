@@ -167,7 +167,7 @@ public class LivenessMirrorCompositionTests
                 ? services.Create<LivenessRerouteCommand>()
                 : throw new InvalidOperationException("the module's container is a ServiceContainer");
 
-            OnServer(() => { command.Execute("0"); return 0; });
+            OnServer(() => { command.RunLine("0"); return 0; });
 
             Assert.False(module.Services.Require<LivenessMirror>().Rerouted,
                          "cs_sv_liveness_reroute 0 reached the mirror EntityIsValid reads");

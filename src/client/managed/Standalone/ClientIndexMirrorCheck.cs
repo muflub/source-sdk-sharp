@@ -73,7 +73,7 @@ public static class IndexMirrorCheck
             Help = "Check this side's push mirrors against the engine: every live client " +
                    "entity's cached index against EntityGetIndex, and the dynamic-light key " +
                    "ledger's tallies. Says VERDICT ok or names what diverged.")]
-public sealed class IndexMirrorCheckCommand : IConCommand
+public sealed class IndexMirrorCheckCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -92,7 +92,7 @@ public sealed class IndexMirrorCheckCommand : IConCommand
         _lights = lights;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         foreach (string line in IndexMirrorCheck.Report(_standalones.Live(), _entities, _lights))
             _log.Msg($"[SourceSharp/Client] cs_cl_index_mirror: {line}\n");

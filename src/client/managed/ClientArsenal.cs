@@ -1074,7 +1074,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 /// </summary>
 [ConCommand("cs_cl_weapon_predict_report",
             Help = "What the weapon and viewmodel prediction rings have seen")]
-public sealed class WeaponPredictReportCommand : IConCommand
+public sealed class WeaponPredictReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1091,7 +1091,7 @@ public sealed class WeaponPredictReportCommand : IConCommand
 
     }
 
-    public void Execute(string args) => _log.Msg(_arsenal.Report() + "\n");
+    public void Execute() => _log.Msg(_arsenal.Report() + "\n");
 }
 
 /// <summary>
@@ -1100,7 +1100,7 @@ public sealed class WeaponPredictReportCommand : IConCommand
 /// </summary>
 [ConCommand("cs_cl_weapon_predict_poke",
             Help = "cs_cl_weapon_predict_poke [offset] — corrupt the weapon's replayed slots until a compare sees it")]
-public sealed class WeaponPredictPokeCommand : IConCommand
+public sealed class WeaponPredictPokeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1117,10 +1117,8 @@ public sealed class WeaponPredictPokeCommand : IConCommand
 
     }
 
-    public void Execute(string args)
+    public void Execute(int offset = 0)
     {
-        int offset = int.TryParse(args.Trim(), out int parsed) ? parsed : 0;
-
         _log.Msg(_arsenal.Poke(offset)
             ? $"[SourceSharp] weapon prediction: poking offset {offset} until a compare sees it\n"
             : "[SourceSharp] weapon prediction: nothing ringed at that offset\n");

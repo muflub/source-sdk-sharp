@@ -88,9 +88,9 @@ public sealed class PixelVisSpewConVar : BoolConVar { }
 
 /// <summary>pixelvis_debug: the sets' and queries' counts.</summary>
 [ConCommand("pixelvis_debug", Help = "Dump debug info")]
-public sealed class PixelVisDebugCommand(PixelVisibilitySystem system) : IConCommand
+public sealed class PixelVisDebugCommand(PixelVisibilitySystem system)
 {
-    public void Execute(string args) => system.DebugInfo();
+    public void Execute() => system.DebugInfo();
 }
 
 /// <summary>

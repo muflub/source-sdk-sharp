@@ -120,9 +120,9 @@ public sealed class BoundedConVars(IClientConVarSlots slots, Func<string, string
 
 /// <summary>The bounded convars' pushed values and their inputs (the live check of C8's push).</summary>
 [ConCommand("cs_cl_bounded", Help = "Print the server-bounded convars' values C# decided and pushed, and how many pushes")]
-public sealed class BoundedConVarsCommand(ILog log, BoundedConVars bounded) : IConCommand
+public sealed class BoundedConVarsCommand(ILog log, BoundedConVars bounded)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         var p = bounded.Pushed;
         log.Msg(FormattableString.Invariant(

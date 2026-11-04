@@ -28,11 +28,8 @@ public sealed class ClDisableHtmlMotdConVar : BoolConVar
 /// </summary>
 public sealed class ShowInfo(Func<IUiRuntime?> ui, ILog log)
 {
-    public void Run(string args)
+    public void Run(int type, string title, string message, string? command = null)
     {
-        var a = Split(args);
-        if (a.Count < 3)
-            return;
         if (ui() is not { } runtime || !runtime.Answers("info"))
         {
             log.Msg("Couldn't find info panel.\n");
@@ -40,47 +37,19 @@ public sealed class ShowInfo(Func<IUiRuntime?> ui, ILog log)
         }
         var data = new List<KeyValuePair<string, string>>
         {
-            new("type", int.TryParse(a[0], out int type) ? type.ToString(System.Globalization.CultureInfo.InvariantCulture) : "0"),
-            new("title", a[1]),
-            new("message", a[2]),
+            new("type", type.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new("title", title),
+            new("message", message),
         };
-        if (a.Count == 4)
-            data.Add(new("command", a[3]));
+        if (command is not null)
+            data.Add(new("command", command));
         runtime.TakePanel("info", true, data);
     }
 
-    /// <summary>A command's arguments as the engine's tokeniser splits them: by spaces, a quoted run one argument.</summary>
-    public static List<string> Split(string args)
-    {
-        var parts = new List<string>();
-        int i = 0;
-        while (i < args.Length)
-        {
-            while (i < args.Length && char.IsWhiteSpace(args[i]))
-                i++;
-            if (i >= args.Length)
-                break;
-            int start;
-            if (args[i] == '"')
-            {
-                start = ++i;
-                while (i < args.Length && args[i] != '"')
-                    i++;
-                parts.Add(args[start..i]);
-                i++;
-                continue;
-            }
-            start = i;
-            while (i < args.Length && !char.IsWhiteSpace(args[i]))
-                i++;
-            parts.Add(args[start..i]);
-        }
-        return parts;
-    }
 }
 
 [ConCommand("showinfo", Help = "Shows a info panel: <type> <title> <message> [<command number>]")]
-public sealed class ShowInfoCommand(ShowInfo info) : IConCommand
+public sealed class ShowInfoCommand(ShowInfo info)
 {
-    public void Execute(string args) => info.Run(args);
+    public void Execute(int type, string title, string message, string? command = null) => info.Run(type, title, message, command);
 }

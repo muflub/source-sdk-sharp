@@ -204,9 +204,9 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
 
 /// <summary><c>ai_nav_status</c>: the level's navigation, or why there is none.</summary>
 [ConCommand("ai_nav_status", Help = "ai_nav_status: the level's AI navigation, or why there is none")]
-public sealed class AiNavStatusCommand(Hl2mpNav nav, ILog log) : IConCommand
+public sealed class AiNavStatusCommand(Hl2mpNav nav, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (nav.Current is not { } n)
         {
@@ -226,9 +226,9 @@ public sealed class AiNavStatusCommand(Hl2mpNav nav, ILog log) : IConCommand
 /// solid 3 %), and the first mismatches.
 /// </summary>
 [ConCommand("ai_nav_validate", Help = "ai_nav_validate [n=200] [seed]: check the nav against the world's hull traces", Flags = ConVarFlags.Cheat)]
-public sealed class AiNavValidateCommand(Hl2mpNav nav, ITraceQueries traces, IEngineEntities entities, ILog log) : IConCommand
+public sealed class AiNavValidateCommand(Hl2mpNav nav, ITraceQueries traces, IEngineEntities entities, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(int count = 200, string seed = "1", float width = NavValidator.Width)
     {
         if (nav.Current is not { } n)
         {
@@ -236,15 +236,14 @@ public sealed class AiNavValidateCommand(Hl2mpNav nav, ITraceQueries traces, IEn
             return;
         }
 
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        int count = parts.Length > 0 && int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int c) && c > 0 ? c : 200;
-        ulong seed = parts.Length > 1 && ulong.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong s) ? s : 1UL;
-        float width = parts.Length > 2 && float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float w) ? w : NavValidator.Width;
+        if (count <= 0)
+            count = 200;
+        ulong seedValue = ulong.TryParse(seed, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong s) ? s : 1UL;
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
-        NavValidation v = NavValidator.Run(n.Nav, new Nav3dNavSource(n.Reader), new Nav3dVoxelSpace(n.Reader), new EngineWorldProbe(traces, entities), count, seed, width);
+        NavValidation v = NavValidator.Run(n.Nav, new Nav3dNavSource(n.Reader), new Nav3dVoxelSpace(n.Reader), new EngineWorldProbe(traces, entities), count, seedValue, width);
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
-            $"[SourceSharp/Ai] ai_nav_validate {n.Map} n={count} seed={seed} width={width:F0}: {Arm(v.Standing)}; {Arm(v.Floor)}; {Arm(v.Solid)}; "
+            $"[SourceSharp/Ai] ai_nav_validate {n.Map} n={count} seed={seedValue} width={width:F0}: {Arm(v.Standing)}; {Arm(v.Floor)}; {Arm(v.Solid)}; "
             + $"{v.EntityInTheWay} standing cells had an entity on them; {(v.Passed ? "PASS" : "FAIL")} in {ms:F0} ms\n"));
         foreach (string line in v.Examples)
             log.Msg($"[SourceSharp/Ai]   {line}\n");
@@ -262,15 +261,12 @@ public sealed class AiNavValidateCommand(Hl2mpNav nav, ITraceQueries traces, IEn
 /// its feet on the cell's floor.
 /// </summary>
 [ConCommand("ai_nav_probe", Help = "ai_nav_probe x y z: the nav's cell and the world's room at a point", Flags = ConVarFlags.Cheat)]
-public sealed class AiNavProbeCommand(Hl2mpNav nav, ITraceQueries traces, IEngineEntities entities, ILog log) : IConCommand
+public sealed class AiNavProbeCommand(Hl2mpNav nav, ITraceQueries traces, IEngineEntities entities, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(Vector at)
     {
-        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (nav.Current is not { } n || p.Length != 3
-            || !float.TryParse(p[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
-            || !float.TryParse(p[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
-            || !float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
+        (float x, float y, float z) = (at.X, at.Y, at.Z);
+        if (nav.Current is not { } n)
         {
             log.Warning("[SourceSharp/Ai] usage: ai_nav_probe x y z (with navigation loaded)\n");
             return;

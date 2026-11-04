@@ -184,7 +184,7 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
 }
 
 [ConCommand("callvote", Help = "The ballot when a vote waits on you, else a vote to call")]
-public sealed class CallVoteCommand(ClientVotes votes) : IConCommand
+public sealed class CallVoteCommand(ClientVotes votes)
 {
-    public void Execute(string args) => votes.Open();
+    public void Execute() => votes.Open();
 }

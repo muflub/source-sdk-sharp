@@ -75,7 +75,7 @@ public readonly struct MirrorComparison
             Help = "cs_cl_mirror_check [any argument for the per-entity clock]. Compares every live " +
                    "client entity's managed mirror (dormancy, animation clock) against the ABI " +
                    "slots it replaced. The gate for plan_crossings X2/X3.")]
-public sealed class MirrorCheckCommand : IConCommand
+public sealed class MirrorCheckCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -156,13 +156,13 @@ public sealed class MirrorCheckCommand : IConCommand
     private static string Say(int value) => value.ToString(CultureInfo.InvariantCulture);
     private static string Say(float value) => value.ToString("0.#####", CultureInfo.InvariantCulture);
 
-    public void Execute(string args)
+    public void Execute([Complete("verbose")] string verbose = "")
     {
         int walked = 0;
         int diverged = 0;
         int dormant = 0;
         float now = _clock.Now;
-        bool verbose = args.Trim().Length > 0;
+        bool talking = verbose.Length > 0;
 
         foreach (var entity in _standalones.Live())
         {
@@ -186,7 +186,7 @@ public sealed class MirrorCheckCommand : IConCommand
             // frozen at the values it was handed once agrees with a shell that
             // is also frozen; two reads of this a second apart are what say the
             // animation is running.
-            if (verbose && (duration > 0f || _mirror.Sequence(entity.Handle).Duration > 0f))
+            if (talking && (duration > 0f || _mirror.Sequence(entity.Handle).Duration > 0f))
             {
                 SequenceRecord r = _mirror.Sequence(entity.Handle);
 
@@ -246,7 +246,7 @@ public sealed class MirrorCheckCommand : IConCommand
 [ConCommand("cs_cl_mirror_reroute",
             Help = "cs_cl_mirror_reroute [0|1]. Whether IsDormant/SequenceState answer from " +
                    "the managed mirror (1, shipped) or fall through to the ABI slots (0).")]
-public sealed class MirrorRerouteCommand : IConCommand
+public sealed class MirrorRerouteCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -263,12 +263,10 @@ public sealed class MirrorRerouteCommand : IConCommand
 
     }
 
-    public void Execute(string args)
+    public void Execute(bool? rerouted = null)
     {
-        string wanted = args.Trim();
-
-        if (wanted.Length > 0)
-            _mirror.Rerouted = wanted != "0";
+        if (rerouted is { } wanted)
+            _mirror.Rerouted = wanted;
 
         _log.Msg($"[mirror] rerouted={_mirror.Rerouted} — "
                 + (_mirror.Rerouted

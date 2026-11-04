@@ -30,7 +30,7 @@ namespace SourceSharp.Client.TempEnts;
 [ConCommand("cs_cl_te_report",
     Help = "Temp entities received on this client: how many played, how many were dropped, "
          + "and which classes have a managed player")]
-public sealed class TempEntReportCommand : IConCommand
+public sealed class TempEntReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -46,7 +46,7 @@ public sealed class TempEntReportCommand : IConCommand
         _registry = registry;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         _log.Msg($"[SourceSharp/Client] temp entities: {_players.Played} played, " +
                 $"{_players.Dropped} dropped\n");

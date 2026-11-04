@@ -114,17 +114,26 @@ public class UiMenuHostTests
         var (host, _, menus) = Host();
         var log = new RecordingLog();
         var info = new Client.Vgui.ShowInfo(() => host, log);
-        info.Run("0 \"Server rules\" \"Be nice.\"");
+        info.Run(0, "Server rules", "Be nice.");
         Assert.True(host.Menu.IsOpen("motd"));
         // Stock's showinfo keyed the text "message" and the panel reads "msg".
         Assert.Equal(("Server rules", ""), (menus.Motd.Title, menus.Motd.Text));
     }
 
     [Fact]
+    public void The_console_completes_what_the_host_has_and_what_it_answers()
+    {
+        var (host, _, _) = Host();
+
+        Assert.Contains("motd", host.ScreenNames);
+        Assert.Contains("scores", host.PanelNames);
+    }
+
+    [Fact]
     public void Showinfo_with_fewer_than_three_arguments_opens_nothing()
     {
         var (host, _, _) = Host();
-        new Client.Vgui.ShowInfo(() => host, new RecordingLog()).Run("0 title");
+        new Client.Vgui.ShowInfoCommand(new Client.Vgui.ShowInfo(() => host, new RecordingLog())).RunLine("0 title", _ => { });
         Assert.False(host.Menu.IsOpen("motd"));
     }
 
@@ -132,7 +141,7 @@ public class UiMenuHostTests
     public void Showinfo_with_no_ui_says_it_found_no_info_panel()
     {
         var log = new RecordingLog();
-        new Client.Vgui.ShowInfo(() => null, log).Run("0 a b");
+        new Client.Vgui.ShowInfo(() => null, log).Run(0, "a", "b");
         Assert.Equal(["Couldn't find info panel.\n"], log.Lines.Select(l => l.Text));
     }
 

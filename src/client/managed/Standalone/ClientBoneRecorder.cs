@@ -236,7 +236,7 @@ public static class ClientBoneRecorder
 [ConCommand("cs_cl_bonerecord",
             Help = "SourceSharp: record the skinned skeleton's six facts — model, bones, " +
                    "written, posed, attachments, movedattachments — as SS6CGATE rows.")]
-public sealed class BoneRecordCommand : IConCommand
+public sealed class BoneRecordCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -252,7 +252,7 @@ public sealed class BoneRecordCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         // BARE, with no "[SourceSharp/Client]" prefix, unlike every other
         // command in this directory. The gate slices from the tag so a prefix

@@ -13,9 +13,9 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_physics_solver",
     Help = "What vphysics asked managed's collision solver: ShouldCollide asks and refusals by clause, "
          + "penetration asks, freezes, crushes and the collision-check budget.")]
-public sealed class PhysicsSolverCommand(PhysicsSolver solver, IEngineConsole console) : IConCommand
+public sealed class PhysicsSolverCommand(PhysicsSolver solver, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         console.Msg("[SourceSharp] physics solver (managed IPhysicsCollisionSolver)\n");
         foreach (var counter in DebugCounterGroups.Solver(solver))

@@ -543,6 +543,14 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     /// <summary>Whether a screen, or a panel a screen claims, answers the name.</summary>
     public bool Has(string screen) => _menu.Has(screen) || _hud.Has(screen) || _aliases.ContainsKey(screen) || _claims.ContainsKey(screen);
 
+    public IEnumerable<string> ScreenNames
+        => _menu.Screens.Concat(_hud.Screens).Select(s => s.Name).Concat(_aliases.Keys).Concat(_claims.Keys)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase);
+
+    public IEnumerable<string> PanelNames
+        => Panels.Keys.Concat(_claims.Keys).Concat(Absorbed)
+                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase);
+
     public bool IsOpen(string screen) => _menu.IsOpen(screen) || _hud.IsOpen(screen);
 
     /// <summary>The GameUI's IsMainMenuVisible: the main menu, the claimed one or the core's.</summary>

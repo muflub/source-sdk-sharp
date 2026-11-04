@@ -13,7 +13,7 @@ namespace SourceSharp.Server;
                    "its model answers for a handful of sequence names, and what the " +
                    "per-model descriptor crossing has cost this level. Run cs_cl_modeldesc " +
                    "too and diff: before Phase 2d the two sides disagreed on an ACT_ name.")]
-public sealed class ServerModelDescriptorCommand : IConCommand
+public sealed class ServerModelDescriptorCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -31,19 +31,11 @@ public sealed class ServerModelDescriptorCommand : IConCommand
         _models = models;
     }
 
-    public void Execute(string args)
+    public void Execute([Complete(From = nameof(Classes))] string className)
     {
-        string className = args.Trim();
-
         // An EXACT classname, for cs_sv_attachments' reason: IEntityDirectory
         // answers OfClass and has no "everything" — the server's live table is
         // the registry's own and is not enumerable from out here.
-        if (className.Length == 0)
-        {
-            _log.Msg("[SourceSharp/Server] cs_sv_modeldesc <classname>\n");
-            return;
-        }
-
         int matched = 0;
 
         foreach (var entity in _entities.OfClass(className))
@@ -60,4 +52,6 @@ public sealed class ServerModelDescriptorCommand : IConCommand
 
         _log.Msg($"[SourceSharp/Server] cs_sv_modeldesc: {matched} entit(ies)\n");
     }
+
+    private IEnumerable<string> Classes() => _entities.DescribeClasses().Select(c => c.ClassName);
 }

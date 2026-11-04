@@ -76,7 +76,7 @@ public class DebugDrawCommandTests
     {
         var log = (RecordingLog)command.Context.Log;
         int before = log.Lines.Count;
-        command.Execute(args);
+        command.RunLine(args, log.Msg);
         return string.Concat(log.Lines.Skip(before).Select(l => l.Text));
     }
 

@@ -60,7 +60,7 @@ public static class ClientAnimEventCheck
 [ConCommand("cs_animcheck",
             Help = "Check the view model in hand against what managed code declared it fires. " +
                    "Says MISSING SEQUENCE or MISSING EVENT out loud.")]
-public sealed class AnimEventCheckCommand : IConCommand
+public sealed class AnimEventCheckCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -82,7 +82,9 @@ public sealed class AnimEventCheckCommand : IConCommand
         _weapons = weapons ?? WeaponCatalog.Stock();
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Weapons() => _weapons.All.Select(w => w.Name);
+
+    public void Execute([Complete(From = nameof(Weapons))] string filter = "")
     {
         // The ss_weapon entities the client holds, each of which knows its own
         // class. Checked against the VIEW MODEL entity, because that is the
@@ -109,7 +111,6 @@ public sealed class AnimEventCheckCommand : IConCommand
         }
 
         string model = _render.GetModelName(viewModel.Handle);
-        string filter = args.Trim();
 
         _log.Msg($"[SourceSharp/Client] cs_animcheck: viewmodel wears {(model.Length > 0 ? model : "(no model)")}\n");
 

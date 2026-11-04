@@ -117,7 +117,7 @@ public static class ServerAdmin
 /// </para>
 /// </summary>
 [ConCommand("dump_globals", Help = "Dump all global entities/states")]
-public sealed class DumpGlobalsCommand : IConCommand
+public sealed class DumpGlobalsCommand
 {
     private readonly GlobalStateTable _globals;
     private readonly IEnginePlayers _players;
@@ -130,7 +130,7 @@ public sealed class DumpGlobalsCommand : IConCommand
         _host = host;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(_players, _host))
             return;
@@ -152,7 +152,7 @@ public sealed class DumpGlobalsCommand : IConCommand
 /// </para>
 /// </summary>
 [ConCommand("server_game_time", Help = "Gives the game time in seconds (server's curtime)")]
-public sealed class ServerGameTimeCommand : IConCommand
+public sealed class ServerGameTimeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -170,7 +170,7 @@ public sealed class ServerGameTimeCommand : IConCommand
         _host = host;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(_players, _host))
             return;

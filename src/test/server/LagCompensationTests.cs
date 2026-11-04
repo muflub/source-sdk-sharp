@@ -649,7 +649,7 @@ public class LagCompensationCommandTests
         var (command, engine, rig) = Command();
         rig.ShooterPlayer.Latency = 0.05f;
 
-        command.Execute("");
+        command.RunLine("");
 
         string text = Printed(engine);
         Assert.Contains("slot 2: records 11 (1.500..1.650)", text);
@@ -663,7 +663,7 @@ public class LagCompensationCommandTests
         var (command, engine, rig) = Command();
         rig.ShooterPlayer.Latency = 5 * LagWorld.Tick;
 
-        command.Execute("1 5");
+        command.RunLine("1 5");
 
         string text = Printed(engine);
         Assert.Contains("compensating True", text);
@@ -680,7 +680,7 @@ public class LagCompensationCommandTests
         rig.ShooterPlayer.Origin = new Vector(1000f, 0f, 0f);
         rig.ShooterPlayer.Latency = 5 * LagWorld.Tick;
 
-        command.Execute("1 5");
+        command.RunLine("1 5");
 
         Assert.Contains($"during {rig.TargetAt(105)}", Printed(engine));
     }
@@ -690,7 +690,7 @@ public class LagCompensationCommandTests
     {
         var (command, engine, _) = Command();
 
-        command.Execute("3 5");
+        command.RunLine("3 5");
 
         Assert.Contains("no player in slot 3", Printed(engine));
     }

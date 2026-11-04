@@ -275,16 +275,16 @@ public sealed class ChatOpener(UiLoader ui, ChatInputUi chat) : IChatOpener
 
 /// <summary>Stock's messagemode: the chat's input line, to everyone.</summary>
 [ConCommand("messagemode", Help = "Type a chat line to everyone")]
-public sealed class MessageModeCommand(ChatOpener chat) : IConCommand
+public sealed class MessageModeCommand(ChatOpener chat)
 {
-    public void Execute(string args) => chat.Open(teamOnly: false);
+    public void Execute() => chat.Open(teamOnly: false);
 }
 
 /// <summary>Stock's messagemode2: the chat's input line, to the team.</summary>
 [ConCommand("messagemode2", Help = "Type a chat line to your team")]
-public sealed class MessageMode2Command(ChatOpener chat) : IConCommand
+public sealed class MessageMode2Command(ChatOpener chat)
 {
-    public void Execute(string args) => chat.Open(teamOnly: true);
+    public void Execute() => chat.Open(teamOnly: true);
 }
 
 /// <summary>
@@ -293,16 +293,10 @@ public sealed class MessageMode2Command(ChatOpener chat) : IConCommand
 /// </summary>
 [ConCommand("cs_cl_saytext2", Flags = ConVarFlags.Cheat,
             Help = "cs_cl_saytext2 <client index> <chat 1|0> <format> [param...]: raise SayText2 on this client")]
-public sealed class ClientSayText2Command(SayText2Message messages, ILog log) : IConCommand
+public sealed class ClientSayText2Command(SayText2Message messages)
 {
-    public void Execute(string args)
+    public void Execute([ArgRange(0, 255)] int client, bool chat, string format, params string[] parameters)
     {
-        var p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 3 || !byte.TryParse(p[0], out byte client))
-        {
-            log.Msg("usage: cs_cl_saytext2 <client index> <chat 1|0> <format> [param...]\n");
-            return;
-        }
-        ((IUserMessage<SayText2>)messages).OnReceived(new SayText2 { Client = client, Chat = p[1] == "1", Name = p[2], Params = p.Skip(3).Take(4).ToArray() });
+        ((IUserMessage<SayText2>)messages).OnReceived(new SayText2 { Client = (byte)client, Chat = chat, Name = format, Params = parameters.Take(4).ToArray() });
     }
 }

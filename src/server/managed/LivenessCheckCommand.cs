@@ -83,7 +83,7 @@ public readonly struct LivenessComparison
             Help = "Compares every entity's managed liveness mirror against the EntityIsValid ABI "
                  + "slot it replaced, in both directions, and reports how many live entities the "
                  + "mirror does not claim. The gate for plan_crossings X5.")]
-public sealed class LivenessCheckCommand : IConCommand
+public sealed class LivenessCheckCommand
 {
     private readonly IEngineEntities _entities;
     private readonly IEngineConsole _console;
@@ -124,7 +124,7 @@ public sealed class LivenessCheckCommand : IConCommand
         return false;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         var divergences = new List<LivenessComparison>();
         int walked = 0;
@@ -209,7 +209,7 @@ public sealed class LivenessCheckCommand : IConCommand
 [ConCommand("cs_sv_liveness_reroute",
             Help = "cs_sv_liveness_reroute [0|1]. Whether EntityIsValid answers from the managed "
                  + "liveness mirror (1) or from the ABI slot (0). The census control for X5.")]
-public sealed class LivenessRerouteCommand : IConCommand
+public sealed class LivenessRerouteCommand
 {
     private readonly IEngineConsole _console;
     private readonly LivenessMirror _mirror;
@@ -221,12 +221,10 @@ public sealed class LivenessRerouteCommand : IConCommand
         _mirror = mirror;
     }
 
-    public void Execute(string args)
+    public void Execute(bool? rerouted = null)
     {
-        string trimmed = args.Trim();
-
-        if (trimmed.Length > 0)
-            _mirror.Rerouted = trimmed != "0";
+        if (rerouted is { } wanted)
+            _mirror.Rerouted = wanted;
 
         _console.Msg($"[liveness] rerouted={_mirror.Rerouted} records={_mirror.RecordCount} "
                      + $"live={_mirror.LiveCount}\n");

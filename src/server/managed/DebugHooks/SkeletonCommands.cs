@@ -29,13 +29,13 @@ namespace SourceSharp.Server;
 /// <summary><c>cs_sv_bonecost</c>: the managed skeletons' running cost.</summary>
 [ConCommand("cs_sv_bonecost",
     Help = "SourceSharp: the managed server skeletons' cost since the last `reset` -- asks, builds, microseconds, hitbox traces, per tick")]
-public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks ticks, IEngineConsole console) : IConCommand
+public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks ticks, IEngineConsole console)
 {
     private int _ticksAtReset;
 
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             skeletons.ResetCost();
             _ticksAtReset = ticks.Count;
@@ -66,18 +66,10 @@ public sealed class SkeletonCostCommand(ServerSkeletons skeletons, IServerTicks 
 [ConCommand("cs_sv_boneprobe",
     Help = "SourceSharp: the server skeleton fixture -- `seq <n>`, `scale <f>`")]
 public sealed class SkeletonProbeCommand(ServerSkeletons skeletons, IEngineEntityRender render,
-                                         IEntityDirectory directory, IEngineConsole console) : IConCommand
+                                         IEntityDirectory directory, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(ProbeKind kind, float value)
     {
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (words.Length < 2)
-        {
-            console.Msg("usage: cs_sv_boneprobe seq <n> | scale <f>\n");
-            return;
-        }
-
         int touched = 0;
 
         foreach (EntityHandle entity in SkeletonCompareCommand.StandaloneHandles(directory))
@@ -85,26 +77,15 @@ public sealed class SkeletonProbeCommand(ServerSkeletons skeletons, IEngineEntit
             if (skeletons.StudioName(entity).Length == 0)
                 continue;
 
-            if (words[0].Equals("seq", StringComparison.OrdinalIgnoreCase)
-                && int.TryParse(words[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int sequence))
-            {
-                skeletons.SetSequence(entity, sequence, 1.0f, restart: true);
-                touched++;
-            }
-            else if (words[0].Equals("scale", StringComparison.OrdinalIgnoreCase)
-                     && float.TryParse(words[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float scale))
-            {
-                render.SetModelScale(entity, scale);
-                touched++;
-            }
+            if (kind == ProbeKind.Seq)
+                skeletons.SetSequence(entity, (int)value, 1.0f, restart: true);
             else
-            {
-                console.Msg("usage: cs_sv_boneprobe seq <n> | scale <f>\n");
-                return;
-            }
+                render.SetModelScale(entity, value);
+
+            touched++;
         }
 
-        console.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp] boneprobe {words[0]} {words[1]}: {touched} skeleton(s)\n"));
+        console.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp] boneprobe {kind.ToString().ToLowerInvariant()} {value}: {touched} skeleton(s)\n"));
     }
 }
 
@@ -113,11 +94,13 @@ public sealed class SkeletonProbeCommand(ServerSkeletons skeletons, IEngineEntit
     Help = "SourceSharp: every standalone skeleton built natively and in managed code, compared, then rebuilt n times each way and timed")]
 public sealed class SkeletonCompareCommand(ServerSkeletons skeletons, StandaloneSkeletonRoute route,
                                            IEngineEntityRender render, IEntityDirectory directory,
-                                           IEngineConsole console) : IConCommand
+                                           IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(int reps = 20)
     {
-        int reps = int.TryParse(args.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n > 0 ? n : 20;
+        if (reps <= 0)
+            reps = 20;
+
         bool nativeAnswers = route.Skeletons is null;
 
         int entities = 0, compared = 0, exact = 0, differ = 0, nativeOnly = 0, managedOnly = 0;
@@ -287,5 +270,11 @@ public sealed class SkeletonCompareCommand(ServerSkeletons skeletons, Standalone
     private static bool Same(uint[] a, uint[] b) => a.AsSpan().SequenceEqual(b);
 
     private static bool Far(Vector a, Vector b) => (a - b).Length > 1e-3f;
+}
+
+public enum ProbeKind
+{
+    Seq,
+    Scale,
 }
 #endif

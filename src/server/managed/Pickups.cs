@@ -331,7 +331,7 @@ public sealed class Pickups : IPickupDirectory, IGameLifecycle, IFrameLifecycle,
 /// </para>
 /// </summary>
 [ConCommand("cs_sv_spawn_pickup", Help = "Spawn a health pickup at the first player's feet")]
-public sealed class SpawnPickupCommand : IConCommand
+public sealed class SpawnPickupCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -350,7 +350,7 @@ public sealed class SpawnPickupCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         var player = _players.GetHandle(1);
         if (!_entities.IsValid(player))

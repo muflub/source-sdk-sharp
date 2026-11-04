@@ -191,7 +191,7 @@ public sealed class TFClassMenuUiTests
         var onTeam = new Rig(localOnTeam: true);              // RED, with a class
         var command = new ChangeClass(onTeam.Menu, onTeam.Nav);
         Assert.Empty(onTeam.Nav.OpenedPanels);                // before: unopened
-        command.Execute("");
+        command.Execute();
         Assert.Equal(["class_red"], onTeam.Nav.OpenedPanels); // after: the team's own name
         Assert.Empty(onTeam.Nav.Opened);                      // raised by name, not by screen
 
@@ -199,7 +199,7 @@ public sealed class TFClassMenuUiTests
         spectator.SetTeam(2, 1);                              // ...but a spectator now
         spectator.SetClass(2, 0);
         var scmd = new ChangeClass(spectator.Menu, spectator.Nav);
-        scmd.Execute("");
+        scmd.Execute();
         Assert.Empty(spectator.Nav.OpenedPanels);             // and nobody else's
     }
 
@@ -323,7 +323,7 @@ public sealed class TFClassMenuUiTests
     public void Opentf2options_opens_the_multiplayer_options_page()
     {
         var nav = new Recorder();
-        new client::TF2.Client.Ui.TFAdvancedOptionsCommand(nav).Execute("");
+        new client::TF2.Client.Ui.TFAdvancedOptionsCommand(nav).Execute();
         Assert.Equal(["multiplayeroptions"], nav.Opened);
     }
 

@@ -13,19 +13,11 @@ namespace SourceSharp.Client.Beams;
 [ConCommand("cs_cl_beam_endpoint", Flags = ConVarFlags.Cheat,
             Help = "Behaviour ledger row C8: what a beam would attach to at an entity index, and which hierarchy " +
                    "answered.")]
-public sealed class BeamEndpointCommand(ILog log, IClientBeamExecutor executor, ClientBeamSystem beams) : IConCommand
+public sealed class BeamEndpointCommand(ILog log, IClientBeamExecutor executor, ClientBeamSystem beams)
 {
-    public void Execute(string args)
+    public void Execute(int index, int attachment = 0, int hitboxFlag = 0)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 1 || !int.TryParse(parts[0], out int index))
-        {
-            log.Msg("usage: cs_cl_beam_endpoint <entity> [attachment] [hitbox 0|1]\n");
-            return;
-        }
-
-        int attachment = parts.Length > 1 && int.TryParse(parts[1], out int a) ? a : 0;
-        bool hitbox = parts.Length > 2 && int.TryParse(parts[2], out int h) && h != 0;
+        bool hitbox = hitboxFlag != 0;
 
         EntityHandle entity = executor.EntityAt(index);
         Span<float> facts9 = stackalloc float[9];

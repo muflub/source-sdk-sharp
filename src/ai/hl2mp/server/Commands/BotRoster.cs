@@ -460,6 +460,9 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
     }
 
     /// <summary>What <c>ai_bot_count</c> prints: the counts, then every wanted bot, active or benched and why.</summary>
+    /// <summary>The roster's bots by name, for a line that names one.</summary>
+    public IEnumerable<string> Names => _bots.Select(b => b.Name);
+
     public IEnumerable<string> Status()
     {
         yield return string.Create(System.Globalization.CultureInfo.InvariantCulture,

@@ -14,6 +14,9 @@
     <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\test\support\ConCommandLines.cs" Link="support\ConCommandLines.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
     <!-- The nav PNG and its golden (§7.3). -->

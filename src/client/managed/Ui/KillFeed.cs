@@ -219,7 +219,6 @@ public static class KillIcons
 [ConCommand("cs_cl_death", Flags = ConVarFlags.Cheat,
             Help = "cs_cl_death <victim userid|me> <attacker userid|me> [weapon] [headshot 1|0] [death_flags]: raise player_death on this client")]
 public sealed class ClientDeathCommand(PlayerDeathEvent deaths, ILog log, IClientStandalones standalones, IEngineHud screen)
-    : IConCommand
 {
     // "me": the local player's user id, from the player resource.
     private bool TryUser(string word, out int user)
@@ -235,16 +234,14 @@ public sealed class ClientDeathCommand(PlayerDeathEvent deaths, ILog log, IClien
         return user > 0;
     }
 
-    public void Execute(string args)
+    public void Execute(string victim, string attacker, string weapon = "", bool headshot = false, int deathFlags = 0)
     {
-        var p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 2 || !TryUser(p[0], out int victim) || !TryUser(p[1], out int attacker)
-            || p.Length > 4 && !int.TryParse(p[4], out _))
+        // A userid, or "me": the local player's. Refused like any other word that is neither.
+        if (!TryUser(victim, out int victimUser) || !TryUser(attacker, out int attackerUser))
         {
-            log.Msg("usage: cs_cl_death <victim userid> <attacker userid> [weapon] [headshot 1|0] [death_flags]\n");
+            log.Msg("usage: cs_cl_death <victim userid|me> <attacker userid|me> [weapon] [headshot 1|0] [death_flags]\n");
             return;
         }
-        deaths.Raise(new PlayerDeathArgs(victim, attacker, p.Length > 2 ? p[2] : "", p.Length > 3 && p[3] == "1",
-                                         p.Length > 4 ? int.Parse(p[4]) : 0));
+        deaths.Raise(new PlayerDeathArgs(victimUser, attackerUser, weapon, headshot, deathFlags));
     }
 }

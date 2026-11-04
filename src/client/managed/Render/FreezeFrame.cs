@@ -59,7 +59,7 @@ public sealed class FreezeFrameState
 
 /// <summary>viewrender.cpp's <c>test_freezeframe</c>: three seconds of freeze frame.</summary>
 [ConCommand("test_freezeframe", Help = "Test the freeze frame code.", Flags = ConVarFlags.Cheat)]
-public sealed class TestFreezeFrameCommand(RenderPlanHost host, IGameClock clock) : IConCommand
+public sealed class TestFreezeFrameCommand(RenderPlanHost host, IGameClock clock)
 {
-    public void Execute(string args) => host.ViewFreezeFrame(3.0f, clock.Now);
+    public void Execute() => host.ViewFreezeFrame(3.0f, clock.Now);
 }

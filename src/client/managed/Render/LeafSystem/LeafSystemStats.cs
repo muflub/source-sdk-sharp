@@ -78,12 +78,12 @@ public sealed class LeafSystemStats
 
 /// <summary><c>cs_cl_leaf_stats [reset]</c>: the leaf system's calls, time and native batches per frame since the last reset.</summary>
 [ConCommand("cs_cl_leaf_stats", Help = "cs_cl_leaf_stats [reset]: the client leaf system's calls, managed time and native batches per frame since the last reset.")]
-public sealed class LeafSystemStatsCommand(ILog log, LeafSystemStats stats) : IConCommand
+public sealed class LeafSystemStatsCommand(ILog log, LeafSystemStats stats)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
         log.Msg(stats.Report());
-        if (args.Trim() == "reset")
+        if (action == "reset")
         {
             stats.Reset();
             log.Msg("[SourceSharp/Client] leaf system: counters reset\n");

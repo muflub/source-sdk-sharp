@@ -21,13 +21,16 @@ namespace TF2.Server.Commands;
 /// the lowest-index player the roster holds), else stock's message.
 /// </summary>
 [ConCommand("mp_forcewin", Help = "Forces team to win", Flags = ConVarFlags.Cheat)]
-public sealed class ForceWinCommand(ILog log, IServiceLocator services) : IConCommand
+public sealed class ForceWinCommand(ILog log, IServiceLocator services)
 {
-    public void Execute(string args)
+    public void Execute([Complete("red", "blue", "spectator", "unassigned")] TFTeam? team = null)
     {
-        string[] argv = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        TFTeam team;
-        if (argv.Length == 0)
+        TFTeam winner;
+        if (team is { } named)
+        {
+            winner = named;
+        }
+        else
         {
             if (services.Resolve<ITeamRoundRoster>() is not { } roster)
                 return;
@@ -42,22 +45,13 @@ public sealed class ForceWinCommand(ILog log, IServiceLocator services) : IConCo
                 log.Msg("Unable to determine default team. Usage: mp_forcewin <opt: team#>\n");
                 return;
             }
-            team = roster.TeamOf(player);
-        }
-        else
-        {
-            if (argv.Length > 1)
-            {
-                log.Msg("Usage: mp_forcewin <opt: team#>\n");
-                return;
-            }
-            team = (TFTeam)int.Parse(argv[0]);
+            winner = roster.TeamOf(player);
         }
 
         if (services.Resolve<ITeamRoundControl>() is not { } rounds)
             return;
 
-        WinReason reason = team == TFTeam.Unassigned ? WinReason.Stalemate : WinReason.AllPointsCaptured;
-        rounds.SetWinningTeam(team, reason);
+        WinReason reason = winner == TFTeam.Unassigned ? WinReason.Stalemate : WinReason.AllPointsCaptured;
+        rounds.SetWinningTeam(winner, reason);
     }
 }

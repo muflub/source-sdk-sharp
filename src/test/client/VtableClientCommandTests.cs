@@ -48,7 +48,7 @@ public unsafe class VtableClientCommandTests
 
         var client = new Client();
 
-        new VtableClientCommand(new Probe(false, "not served"), client, log).Execute("");
+        new VtableClientCommand(new Probe(false, "not served"), client, log).Execute();
 
         Assert.Equal(["[SourceSharp/Vtable] IVEngineClient: REFUSED — not served\n"], log.Lines.Select(l => l.Text));
         Assert.Empty(client.Printed);
@@ -60,7 +60,7 @@ public unsafe class VtableClientCommandTests
         var log = new RecordingLog();
         var client = new Client();
 
-        new VtableClientCommand(new Probe(true, ""), client, log).Execute("");
+        new VtableClientCommand(new Probe(true, ""), client, log).Execute();
 
         Assert.Contains("[SourceSharp/Vtable] IVEngineClient: bound, LevelName() = maps/ss_sandbox.bsp, "
                         + "GameDirectory() = mod_test, ProtocolVersion() = 24\n", log.Lines.Select(l => l.Text));

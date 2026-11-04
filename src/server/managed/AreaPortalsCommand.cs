@@ -19,9 +19,9 @@ namespace SourceSharp.Server;
 /// </summary>
 [ConCommand("cs_sv_areaportals",
     Help = "SourceSharp: print the area-portal list the per-client visibility pass walks")]
-public sealed class AreaPortalsCommand(AreaPortals portals, IEngineConsole console) : IConCommand
+public sealed class AreaPortalsCommand(AreaPortals portals, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         console.Msg($"[SourceSharp] area portals: {portals.Count} in the list\n");
 

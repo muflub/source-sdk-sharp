@@ -80,7 +80,7 @@ public class ViewEffectsHostTests
         var (host, _, _, _) = Rig();
         host.Shake(ShakeCommand.Start, 4, 10, 2);
         host.Shake(ShakeCommand.Start, 4, 10, 2);
-        new ShakeStopCommand(host).Execute("");
+        new ShakeStopCommand(host).Execute();
         Assert.Equal(0, host.Effects.ShakeCount);
     }
 }

@@ -158,12 +158,20 @@ public sealed class TFVoiceMenusTests
         Assert.Empty(_lines);
     }
 
+    /// <summary>The engine adds a key code and a time to the line of any + or - bind.</summary>
+    [Fact]
+    public void A_held_keys_line_carries_its_code_and_time_and_still_opens_the_menu()
+    {
+        new client::TF2.Client.Ui.TFVoiceMenu2HoldCommand(Menus()).RunLine("89 1234");
+        Assert.True(_radial.Showing);
+    }
+
     /// <summary>A config from before the key was held, or from stock: its key keeps working, and moves.</summary>
     [Fact]
     public void Stock_s_command_opens_the_menu_and_moves_its_key_to_the_held_command()
     {
         var command = new client::TF2.Client.Ui.TFVoiceMenu2Command(Menus(), Of<client::SourceSharp.Abi.IEngineHud>(("LookupBinding", a => (string)a![0]! == "voice_menu_2" ? "x" : "")), Engine());
-        command.Execute("");
+        command.Execute();
         Assert.True(_radial.Showing);
         Assert.Equal(["bind \"x\" \"+voice_menu_2\""], _lines);
     }
@@ -172,7 +180,7 @@ public sealed class TFVoiceMenusTests
     public void Stock_s_command_with_no_key_binds_nothing()
     {
         var command = new client::TF2.Client.Ui.TFVoiceMenu2Command(Menus(), Of<client::SourceSharp.Abi.IEngineHud>(("LookupBinding", _ => "")), Engine());
-        command.Execute("");
+        command.Execute();
         Assert.Empty(_lines);
     }
 

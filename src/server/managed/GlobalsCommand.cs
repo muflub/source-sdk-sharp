@@ -37,7 +37,7 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_globals",
     Help = "What the managed side reads out of the engine's CGlobalVars: availability, side, "
          + "curtime, tickcount, frametime")]
-public sealed class GlobalsCommand : IConCommand
+public sealed class GlobalsCommand
 {
     private readonly IEngineEnvironment _environment;
     private readonly IEngineConsole _console;
@@ -50,7 +50,7 @@ public sealed class GlobalsCommand : IConCommand
         _host = host;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         Globals globals = _environment.Globals;
 

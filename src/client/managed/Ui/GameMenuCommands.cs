@@ -13,6 +13,13 @@ namespace SourceSharp.Client.Vgui;
 /// </summary>
 public sealed class GameMenuCommands(IGameUiNavigation screens, ConfirmQuitUi quit, IFwdEngineClient engine)
 {
+    /// <summary>The names that do something, as stock spells them.</summary>
+    public static IEnumerable<string> Names =>
+    [
+        "OpenOptionsDialog", "OpenServerBrowser", "OpenCreateMultiplayerGameDialog", "OpenPlayerListDialog",
+        "OpenMutePlayerDialog", "OpenGameMenu", "Quit", "QuitNoConfirm", "ResumeGame", "Disconnect", "DisconnectNoConfirm",
+    ];
+
     /// <summary>The screen a name opens, or null.</summary>
     public static string? ScreenFor(string name) => name.ToLowerInvariant() switch
     {

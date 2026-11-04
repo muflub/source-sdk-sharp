@@ -128,8 +128,11 @@ public sealed class KillCommand : PlayerSelfCommand
 
     protected override bool RequiresCheats => false;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         Suicide(issuer, DamageType.Generic);
 
         // SAID. The native kill branch was silent, which is survivable only
@@ -152,8 +155,11 @@ public sealed class ExplodeCommand : PlayerSelfCommand
 
     protected override bool RequiresCheats => false;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         Suicide(issuer, DamageType.Blast | DamageType.AlwaysGib);
         Log.Msg("explode: the player was killed by blast damage.\n");
     }
@@ -178,8 +184,11 @@ public sealed class SsKillCommand : PlayerSelfCommand
 
     protected override bool RequiresCheats => false;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         Suicide(issuer, DamageType.Generic);
         Log.Msg("ss_kill: the player was killed.\n");
     }
@@ -207,20 +216,10 @@ public class HurtMeCommand : PlayerSelfCommand
     /// <summary>Stock's default when the command is typed bare.</summary>
     public const float DefaultDamage = 10f;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute(float amount = DefaultDamage)
     {
-        float amount = DefaultDamage;
-
-        // A BAD NUMBER IS REFUSED, not read as zero. atof answered 0 for
-        // anything unparseable, so `hurtme x` did nothing and said nothing —
-        // indistinguishable from the command being dead, which for a long time
-        // it was.
-        if (argv.Length >= 1 &&
-            !float.TryParse(argv[0], NumberStyles.Float, CultureInfo.InvariantCulture, out amount))
-        {
-            Log.Msg($"{Verb}: '{argv[0]}' is not a number\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
 
         Damage.Apply(issuer, EntityHandle.None, amount, DamageType.PreventPhysicsForce);
         Log.Msg($"{Verb}: {amount:F0} damage\n");
@@ -261,19 +260,10 @@ public class SetPosCommand : PlayerSelfCommand
     public SetPosCommand(DevContext context, IEngineDamage damage, IEnginePlayerMovement movement)
         : base(context, damage, movement) { }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute(Vector to)
     {
-        if (argv.Length < 3)
-        {
-            Log.Msg($"usage: {Verb} x y z\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
-
-        if (!TryVector(argv, 0, requireAll: true, out Vector to, out string offender))
-        {
-            Log.Msg($"{Verb}: '{offender}' is not a number\n");
-            return;
-        }
 
         Place(issuer, to);
 
@@ -307,41 +297,6 @@ public class SetPosCommand : PlayerSelfCommand
     /// word is still a refusal, which is the distinction the flag draws.
     /// </para>
     /// </summary>
-    internal static bool TryVector(string[] argv, int from, bool requireAll,
-                                   out Vector vector, out string offender)
-    {
-        vector = default;
-        offender = string.Empty;
-
-        Span<float> parsed = stackalloc float[3];
-
-        for (int i = 0; i < 3; i++)
-        {
-            int at = from + i;
-
-            if (at >= argv.Length || argv[at].Length == 0)
-            {
-                if (requireAll)
-                {
-                    offender = at < argv.Length ? argv[at] : string.Empty;
-                    return false;
-                }
-
-                parsed[i] = 0f;
-                continue;
-            }
-
-            if (!float.TryParse(argv[at], NumberStyles.Float,
-                                CultureInfo.InvariantCulture, out parsed[i]))
-            {
-                offender = argv[at];
-                return false;
-            }
-        }
-
-        vector = new Vector(parsed[0], parsed[1], parsed[2]);
-        return true;
-    }
 }
 
 /// <summary>
@@ -397,20 +352,12 @@ public class SetAngCommand : PlayerSelfCommand
     public SetAngCommand(DevContext context, IEngineDamage damage, IEnginePlayerMovement movement)
         : base(context, damage, movement) { }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute(float pitch, float yaw, float roll = 0f)
     {
-        if (argv.Length < 2)
-        {
-            Log.Msg($"usage: {Verb} pitch yaw <roll optional>\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
 
-        if (!SetPosCommand.TryVector(argv, 0, requireAll: false,
-                                     out Vector angles, out string offender))
-        {
-            Log.Msg($"{Verb}: '{offender}' is not a number\n");
-            return;
-        }
+        var angles = new Vector(pitch, yaw, roll);
 
         Movement.SnapEyeAngles(issuer, angles);
 
@@ -457,8 +404,11 @@ public class NoClipCommand : PlayerSelfCommand
     public NoClipCommand(DevContext context, IEngineDamage damage, IEnginePlayerMovement movement)
         : base(context, damage, movement) { }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         MoveType was = Movement.SetMoveType(issuer, MoveType.NoClip);
 
         // ALREADY FLYING: the answer that came back says so, and the write just
@@ -518,8 +468,11 @@ public sealed class NoTargetCommand : PlayerSelfCommand
     public NoTargetCommand(DevContext context, IEngineDamage damage, IEnginePlayerMovement movement)
         : base(context, damage, movement) { }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
-        => Log.Msg("notarget: nothing on this server runs AI, so there is nobody to hide from.\n");
+    public void Execute()
+    {
+        if (Admitted(out _))
+            Log.Msg("notarget: nothing on this server runs AI, so there is nobody to hide from.\n");
+    }
 }
 
 //=============================================================================
@@ -547,7 +500,7 @@ public sealed class NoTargetCommand : PlayerSelfCommand
 /// </para>
 /// </summary>
 [ConCommand("god", Help = "Toggle. Player becomes invulnerable. (must have sv_cheats)")]
-public sealed class GodCommand : IConCommand
+public sealed class GodCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -563,7 +516,7 @@ public sealed class GodCommand : IConCommand
         _players = players;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         EntityHandle issuer = _players.GetCommandClient();
 
@@ -585,7 +538,7 @@ public sealed class GodCommand : IConCommand
 /// reasoning applies unchanged.
 /// </summary>
 [ConCommand("buddha", Help = "Toggle. Player takes damage but won't die. (must have sv_cheats)")]
-public sealed class BuddhaCommand : IConCommand
+public sealed class BuddhaCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -601,7 +554,7 @@ public sealed class BuddhaCommand : IConCommand
         _players = players;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         EntityHandle issuer = _players.GetCommandClient();
 

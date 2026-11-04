@@ -1242,7 +1242,7 @@ public unsafe class ClientSkeletonsTests
         var (probe, log, skeletons, rig) = Fixture();
         using Rig _ = rig;
 
-        probe.Execute("mergeauto chain chain");
+        probe.RunLine("mergeauto chain chain");
 
         Assert.True(skeletons.States.TryGet(Other, out BoneEntityState? s) && s is not null);
         Assert.Equal(6, s!.BoneMergeSource);
@@ -1255,8 +1255,8 @@ public unsafe class ClientSkeletonsTests
         var (probe, log, _, rig) = Fixture();
         using Rig _ = rig;
 
-        probe.Execute("mergeauto chain chain");
-        probe.Execute("report");
+        probe.RunLine("mergeauto chain chain");
+        probe.RunLine("report");
 
         Assert.Contains("SS6CGATE\tmerge\tbones\t3\n", log.Text);
         Assert.Contains("SS6CGATE\tmerge\tmatched\t3\n", log.Text);
@@ -1269,7 +1269,7 @@ public unsafe class ClientSkeletonsTests
         var (probe, log, _, rig) = Fixture();
         using Rig _ = rig;
 
-        probe.Execute("report");
+        probe.RunLine("report");
 
         Assert.Contains("SS6CGATE\tmerge\tbones\t0\n", log.Text);
     }

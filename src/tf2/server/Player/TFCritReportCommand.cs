@@ -14,11 +14,10 @@ namespace TF2.Server.Player;
 /// </summary>
 [ConCommand("tf2_crits", Help = "A player's TF crit buckets and rolls. tf2_crits [player]")]
 public sealed class TFCritReportCommand(ILog log, TFCritBuckets buckets, ITFWeaponOwners owners, WeaponCatalog weapons,
-                                        IEnginePlayers players, IEngineEntities entities, ITFCarriedWeapons carried) : IConCommand
+                                        IEnginePlayers players, IEngineEntities entities, ITFCarriedWeapons carried)
 {
-    public void Execute(string args)
+    public void Execute(int index = 1)
     {
-        int index = int.TryParse(args.Trim(), out int parsed) ? parsed : 1;
         var player = players.GetHandle(index);
         if (!entities.IsValid(player))
         {

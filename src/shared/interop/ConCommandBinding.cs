@@ -111,6 +111,9 @@ public sealed class ConCommandBinding : IConCommand, IConCommandSuggestions
         return new ConCommandBinding(name, target, method, parameters, print);
     }
 
+    /// <summary>The class whose <c>Execute</c> this runs, which a listing means by the command.</summary>
+    public Type CommandType => _target.GetType();
+
     /// <summary>What the line should look like: <c>name &lt;needed&gt; [optional]</c>.</summary>
     public string Usage
     {

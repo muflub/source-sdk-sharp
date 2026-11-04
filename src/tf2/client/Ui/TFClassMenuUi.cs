@@ -229,9 +229,9 @@ public sealed class TFClassMenuUi(IClientStandalones standalones, IEngineHud scr
 /// MvM are this port's deferred modes), so the named show is what this
 /// asks for: the menu then wears that team, as stock's did.</summary>
 [ConCommand("changeclass", Help = "Choose a new class")]
-public sealed class TFChangeClassCommand(ITFClassMenuSource source, ITFMenuNavigation nav) : IConCommand
+public sealed class TFChangeClassCommand(ITFClassMenuSource source, ITFMenuNavigation nav)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         // Stock's iTeam == TF_TEAM_RED ? PANEL_CLASS_RED : PANEL_CLASS_BLUE.
         if (source.Team is 2 or 3)

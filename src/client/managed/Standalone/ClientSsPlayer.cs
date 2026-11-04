@@ -417,7 +417,7 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
             Help = "cs_cl_player_anim [0|1] — whether the player's body is animated by " +
                    "the movement policy. Off leaves a hand-set pose alone (cs_playseq, " +
                    "cs_setpose), which on is silently overwritten every update.")]
-public sealed class PlayerAnimCommand : IConCommand
+public sealed class PlayerAnimCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -431,9 +431,9 @@ public sealed class PlayerAnimCommand : IConCommand
         _standalones = standalones;
     }
 
-    public void Execute(string args)
+    public void Execute([Complete("1", "0")] string word = "")
     {
-        foreach (string line in Apply(_standalones.Live(), args.Trim()))
+        foreach (string line in Apply(_standalones.Live(), word))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 

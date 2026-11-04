@@ -34,7 +34,7 @@ namespace SourceSharp.Client.TempEnts;
 [ConCommand("cs_cl_te_pool",
     Help = "The legacy temp entity pool: how many gibs, shells and sprites are live, how many "
          + "have been allocated, how many refused, and how many low-priority ones were evicted")]
-public sealed class TempEntPoolReportCommand : IConCommand
+public sealed class TempEntPoolReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -48,7 +48,7 @@ public sealed class TempEntPoolReportCommand : IConCommand
         _pool = pool;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         _log.Msg($"[SourceSharp/Client] tempent pool: {_pool.Count} live of "
               + $"{_pool.Capacity} (native's MAX_TEMP_ENTITIES), "

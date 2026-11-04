@@ -20,9 +20,9 @@ public sealed class ClientFxReportCommand(ILog log, ClientEffectDispatch dispatc
                                           ParticleViews views, WaterSplashes water, BloodEffects blood,
                                           ExplosionEffects explosions, FxEffects fx,
                                           PoolEmitters pool, ShardEffects shards, ImpactSprays sprays,
-                                          ClientDustPuffs puffs, ClientTeParticles teParticles) : IConCommand
+                                          ClientDustPuffs puffs, ClientTeParticles teParticles)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         log.Msg($"[SourceSharp/Client] fx: dispatch {dispatch.Ran} ran, {dispatch.Unclaimed} unclaimed, " +
                 $"{handlers.Counts.Values.Sum()} played in C#\n");

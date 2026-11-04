@@ -15,9 +15,11 @@ namespace TF2.Server.Commands;
 /// </summary>
 [ConCommand("tf2_schema_dump",
             Help = "tf2_schema_dump [defindex|name]: the parsed item schema entry, or the load's counts.")]
-public sealed class SchemaDumpCommand(ItemSchema schema, ILog log) : IConCommand
+public sealed class SchemaDumpCommand(ItemSchema schema, ILog log)
 {
-    public void Execute(string args) => log.Msg(Describe(schema, args.Trim()));
+    private IEnumerable<string> Names() => schema.Items.Select(i => i.Name);
+
+    public void Execute([Complete(From = nameof(Names)), Rest] string item = "") => log.Msg(Describe(schema, item.Trim('"')));
 
     /// <summary>The text the command prints for <paramref name="arg"/>.</summary>
     public static string Describe(ItemSchema schema, string arg)

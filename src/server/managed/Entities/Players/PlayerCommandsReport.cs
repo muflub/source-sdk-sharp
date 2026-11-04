@@ -30,7 +30,7 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_playercmds",
     Help = "Player command batching: PlayerCommands crossings, commands queued, commands actually "
          + "run, and commands per crossing. 'reset' zeroes them.")]
-public sealed class PlayerCommandsReport : IConCommand
+public sealed class PlayerCommandsReport
 {
     private readonly IEngineConsole _console;
     private readonly PlayerCommandQueue _queue;
@@ -43,9 +43,9 @@ public sealed class PlayerCommandsReport : IConCommand
         _queue = queue;
     }
 
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             _queue.ResetCounters();
             _console.Msg("[playercmds] counters reset\n");

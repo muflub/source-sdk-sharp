@@ -47,9 +47,10 @@ public sealed class ConCommandAttribute : Attribute
 }
 
 /// <summary>
-/// A class carrying <see cref="ConCommandAttribute"/> whose line is free text, which it
-/// reads itself. A command with arguments the console can name declares them instead:
-/// its <c>Execute</c> takes real parameters and <see cref="ConCommandBinding"/> converts them.
+/// What the registry dispatches a console line to: a typed command's
+/// <see cref="ConCommandBinding"/>, a table's own command (<see cref="ConCommandRegistry.Register"/>)
+/// or a native carrier. A <see cref="ConCommandAttribute"/> class does not implement this: its
+/// <c>Execute</c> takes real parameters and the binding converts them (ConCommandCensusTests).
 /// </summary>
 public interface IConCommand
 {

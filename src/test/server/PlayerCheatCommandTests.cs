@@ -83,7 +83,7 @@ public class PlayerCheatCommandTests
             typeof(T), context, (IEngineDamage)engine, (IEnginePlayerMovement)engine)!;
 
         var log = (RecordingLog)context.Log;
-        command.Execute(args);
+        command.RunLine(args, log.Msg);
 
         return (engine, log.Text);
     }
@@ -209,7 +209,7 @@ public class PlayerCheatCommandTests
         var command = (DevCommand)Activator.CreateInstance(
             type, context, (IEngineDamage)engine, (IEnginePlayerMovement)engine)!;
 
-        command.Execute("");
+        command.RunLine("");
 
         Assert.Single(Of(engine, "Damage.Apply"));
     }
@@ -274,7 +274,7 @@ public class PlayerCheatCommandTests
         var (engine, console) = Run<HurtMeCommand>("lots");
 
         Assert.Empty(Of(engine, "Damage.Apply"));
-        Assert.Contains("'lots' is not a number", console);
+        Assert.Contains("'amount' is a number, not 'lots'", console);
     }
 
     //-------------------------------------------------------------------------
@@ -319,7 +319,7 @@ public class PlayerCheatCommandTests
         var (engine, console) = Run<SetPosCommand>("100 x 300");
 
         Assert.Empty(Of(engine, "Entities.SetOrigin"));
-        Assert.Contains("'x' is not a number", console);
+        Assert.Contains("'to' needs three numbers", console);
     }
 
     /// <summary>
@@ -419,7 +419,7 @@ public class PlayerCheatCommandTests
         var (engine, console) = Run<SetAngCommand>("10 20 sideways");
 
         Assert.Empty(Of(engine, "PlayerMovement.SnapEyeAngles"));
-        Assert.Contains("'sideways' is not a number", console);
+        Assert.Contains("'roll' is a number, not 'sideways'", console);
     }
 
     [Fact]
@@ -545,7 +545,7 @@ public class PlayerCheatCommandTests
 
         try
         {
-            command.Execute("0 0 0");
+            command.RunLine(type == typeof(SetPosCommand) || type == typeof(SetAngCommand) ? "0 0 0" : "");
         }
         finally
         {
@@ -599,7 +599,7 @@ public class PlayerCheatCommandTests
 
         try
         {
-            new GodCommand(testLog, new DamageCheats(testLog, new EmptyDirectory(), Fake().Ignores("Console.FindConVarValue")), engine).Execute("");
+            new GodCommand(testLog, new DamageCheats(testLog, new EmptyDirectory(), Fake().Ignores("Console.FindConVarValue")), engine).Execute();
         }
         finally
         {

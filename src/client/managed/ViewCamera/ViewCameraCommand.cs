@@ -10,9 +10,9 @@ namespace SourceSharp.Client.ViewCamera;
 /// with cs_cl_overview on and stays flat with it off.
 /// </summary>
 [ConCommand("cs_cl_viewcam", Help = "the second camera: passes, requests, refusals and views drawn into its target")]
-public sealed class ViewCameraCommand(ILog log, IViewCameraService camera, IViewTargets targets) : IConCommand
+public sealed class ViewCameraCommand(ILog log, IViewCameraService camera, IViewTargets targets)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         var c = camera.Counters;
         targets.Info(ViewCameraService.TargetNumber, out var t);

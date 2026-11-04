@@ -113,79 +113,73 @@ public sealed class ShadowConsole(IEngineConsole console) : IShadowConsole
 /// <summary>A stock CCommand's argv: the command's name, then its arguments.</summary>
 internal static class ShadowCommandArgs
 {
-    public static IReadOnlyList<string> Of(string name, string args)
-    {
-        var argv = new List<string> { name };
-        argv.AddRange(Soundscapes.SoundscapeArgs.Split(args));
-        return argv;
-    }
+    public static IReadOnlyList<string> Of(string name, string[] words) => [name, .. words];
 }
 
 /// <summary><c>r_shadowdir [x y z]</c>.</summary>
 [ConCommand("r_shadowdir", Help = "Set shadow direction", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowDirCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowDirCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowDir(ShadowCommandArgs.Of("r_shadowdir", args)));
+    public void Execute(params string[] direction) => shadows.Command(m => m.CommandShadowDir(ShadowCommandArgs.Of("r_shadowdir", direction)));
 }
 
 /// <summary><c>r_shadowangles [pitch yaw roll]</c>.</summary>
 [ConCommand("r_shadowangles", Help = "Set shadow angles", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowAnglesCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowAnglesCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowAngles(ShadowCommandArgs.Of("r_shadowangles", args)));
+    public void Execute(params string[] angles) => shadows.Command(m => m.CommandShadowAngles(ShadowCommandArgs.Of("r_shadowangles", angles)));
 }
 
 /// <summary><c>r_shadowcolor [r g b]</c>.</summary>
 [ConCommand("r_shadowcolor", Help = "Set shadow color", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowColorCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowColorCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowColor(ShadowCommandArgs.Of("r_shadowcolor", args)));
+    public void Execute(params string[] color) => shadows.Command(m => m.CommandShadowColor(ShadowCommandArgs.Of("r_shadowcolor", color)));
 }
 
 /// <summary><c>r_shadowdist [d]</c>.</summary>
 [ConCommand("r_shadowdist", Help = "Set shadow distance", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowDistCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowDistCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowDist(ShadowCommandArgs.Of("r_shadowdist", args)));
+    public void Execute(params string[] distance) => shadows.Command(m => m.CommandShadowDist(ShadowCommandArgs.Of("r_shadowdist", distance)));
 }
 
 /// <summary><c>r_shadowblobbycutoff [area]</c>.</summary>
 [ConCommand("r_shadowblobbycutoff", Help = "some shadow stuff", Flags = ConVarFlags.Cheat)]
-public sealed class ShadowBlobbyCutoffCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowBlobbyCutoffCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowBlobbyCutoff(ShadowCommandArgs.Of("r_shadowblobbycutoff", args)));
+    public void Execute(params string[] area) => shadows.Command(m => m.CommandShadowBlobbyCutoff(ShadowCommandArgs.Of("r_shadowblobbycutoff", area)));
 }
 
 #if DEBUG
 /// <summary><c>r_shadowbreak</c>, stock's _DEBUG build's.</summary>
 [ConCommand("r_shadowbreak")]
-public sealed class ShadowBreakCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowBreakCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args) => shadows.Command(m => m.CommandShadowBreak());
+    public void Execute() => shadows.Command(m => m.CommandShadowBreak());
 }
 #endif
 
 /// <summary>The fork's <c>cs_cl_shadow_report [reset]</c>.</summary>
 [ConCommand("cs_cl_shadow_report",
     Help = "cs_cl_shadow_report [reset] — every client shadow: who it is for, where it was last projected from, and whether its renderable still resolves")]
-public sealed class ShadowReportCommand(ClientShadowSystem shadows) : IConCommand
+public sealed class ShadowReportCommand(ClientShadowSystem shadows)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        bool reset = ShadowCommandArgs.Of("cs_cl_shadow_report", args) is { Count: > 1 } argv
-                     && string.Equals(argv[1], "reset", StringComparison.OrdinalIgnoreCase);
+        bool reset = string.Equals(action, "reset", StringComparison.OrdinalIgnoreCase);
         shadows.Command(m => m.PrintShadowReport(reset));
     }
 }
 
 /// <summary><c>cs_cl_shadow_stats [reset]</c>: the shadow manager's calls, managed time, queue and native runs per frame (S3).</summary>
 [ConCommand("cs_cl_shadow_stats", Help = "cs_cl_shadow_stats [reset]: the client shadow manager's calls, managed time, queued entries and native runs per frame since the last reset.")]
-public sealed class ShadowStatsCommand(ILog log, ShadowSystemStats stats) : IConCommand
+public sealed class ShadowStatsCommand(ILog log, ShadowSystemStats stats)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
         log.Msg(stats.Report());
-        if (args.Trim() == "reset")
+        if (action == "reset")
         {
             stats.Reset();
             log.Msg("[SourceSharp/Client] shadow manager: counters reset\n");

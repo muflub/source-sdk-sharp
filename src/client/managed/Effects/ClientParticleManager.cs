@@ -545,9 +545,9 @@ public sealed class BoundParticleExecutor(INativeParticleExecutor native, Client
 /// and whether it was drawn last frame.
 /// </summary>
 [ConCommand("cs_cl_particle_bindings", Help = "SourceSharp: the old-style particle manager's bindings (C7 particles phase 2.3)")]
-public sealed class ClientParticleBindingsCommand(ILog log, ClientParticleManager manager) : IConCommand
+public sealed class ClientParticleBindingsCommand(ILog log, ClientParticleManager manager)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         foreach (string line in manager.Describe())
             log.Msg($"[SourceSharp/Particles] binding {line}\n");

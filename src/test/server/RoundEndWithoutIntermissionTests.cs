@@ -40,7 +40,7 @@ public class RoundEndWithoutIntermissionTests
         var log = new RecordingLog();
         engine.Clear();
 
-        new EndRoundCommand(log, engine).Execute("");
+        new EndRoundCommand(log, engine).Execute();
 
         Assert.Empty(engine.Calls);
         Assert.Contains("ending round on request", log.Text);

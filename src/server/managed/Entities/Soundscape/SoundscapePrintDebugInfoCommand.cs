@@ -19,7 +19,7 @@ namespace SourceSharp.Server.Entities.Soundscape;
 /// </summary>
 [ConCommand("sv_soundscape_printdebuginfo", Help = "print soundscapes",
             Flags = ConVarFlags.DevelopmentOnly)]
-public sealed class SoundscapePrintDebugInfoCommand : IConCommand
+public sealed class SoundscapePrintDebugInfoCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -37,7 +37,7 @@ public sealed class SoundscapePrintDebugInfoCommand : IConCommand
         _host = host;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         if (!ServerAdmin.MayRun(_players, _host))
             return;

@@ -90,7 +90,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("sparks -3667 3439 60");
+        command.RunLine("sparks -3667 3439 60");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 1, "one temp entity was sent");
 
@@ -119,8 +119,8 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("CTESparks 0 0 0");
-        command.Execute("sparks 0 0 0");
+        command.RunLine("CTESparks 0 0 0");
+        command.RunLine("sparks 0 0 0");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 2,
             "CTESparks and sparks name the same effect");
@@ -138,13 +138,13 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("sparks 0 0 0");
+        command.RunLine("sparks 0 0 0");
 
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<TeFilter>(2).Kind
                     == TeFilterKind.Broadcast,
             "broadcast is the one filter that cannot have zero recipients for a connected client");
 
-        command.Execute("sparks 10 20 30 pvs");
+        command.RunLine("sparks 10 20 30 pvs");
 
         Assert.True(engine.Last("Effects.TempEntPlayback")!.Value.ArgAs<TeFilter>(2).Kind
                     == TeFilterKind.Pvs,
@@ -160,7 +160,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("all 0 0 0");
+        command.RunLine("all 0 0 0");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == TeDemos.All.Count,
             $"all {TeDemos.All.Count} went out, which is what gate 3 needs in one line");
@@ -176,7 +176,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("all 1000 2000 0");
+        command.RunLine("all 1000 2000 0");
 
         var origins = engine.Calls
             .Where(c => c.Member == "Effects.TempEntPlayback")
@@ -206,11 +206,19 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command(cheats: false);
 
-        command.Execute("all 0 0 0");
-        command.Execute("sparks 0 0 0");
+        command.RunLine("all 0 0 0");
+        command.RunLine("sparks 0 0 0");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 0,
             "sv_cheats 0 fires nothing, which is what debug-api inputs see by default");
+    }
+
+    [Fact]
+    public void ItsNameCompletesFromTheDemos()
+    {
+        var (command, _) = Command();
+
+        Assert.Equal(["cs_te_fire sparks"], command.SuggestFor("spark"));
     }
 
     [Fact]
@@ -218,9 +226,9 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("");
-        command.Execute("splodge 0 0 0");
-        command.Execute("splodge");
+        command.RunLine("", _ => { });
+        command.RunLine("splodge 0 0 0");
+        command.RunLine("splodge");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 0,
             "a name no temp entity claims fires nothing and says so");
@@ -243,7 +251,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("sparks");
+        command.RunLine("sparks");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 1, "it still fired");
 
@@ -261,7 +269,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command(cheats: false);
 
-        command.Execute("list");
+        command.RunLine("list");
 
         Assert.True(engine.CountOf("Effects.TempEntPlayback") == 0, "listing fires nothing");
     }
@@ -278,7 +286,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("all 0 0 0");
+        command.RunLine("all 0 0 0");
 
         var asked = engine.Calls
             .Where(c => c.Member == "Precache.PrecacheModel")
@@ -304,7 +312,7 @@ public class TeFireCommandTests
     {
         var (command, engine) = Command();
 
-        command.Execute("effectdispatch 0 0 0");
+        command.RunLine("effectdispatch 0 0 0");
 
         Assert.True(engine.Calls.Any(c => c.Member == "Effects.EffectDispatchIndex"
                                        && c.ArgAs<string>(0) == TeDemos.DispatchName),

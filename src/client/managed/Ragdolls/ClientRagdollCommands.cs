@@ -13,9 +13,9 @@ namespace SourceSharp.Client.Ragdolls;
 /// width, the settle clock, the state bits.
 /// </summary>
 [ConCommand("cs_cl_ragdolls", Help = "cs_cl_ragdolls: the client's jointed bodies -- owner, elements, origin, asleep, cull box.")]
-public sealed class ClientRagdollsCommand(ILog log, IClientRagdolls ragdolls) : IConCommand
+public sealed class ClientRagdollsCommand(ILog log, IClientRagdolls ragdolls)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
         if (ragdolls is not ClientRagdolls bodies)
         {
@@ -37,7 +37,7 @@ public sealed class ClientRagdollsCommand(ILog log, IClientRagdolls ragdolls) : 
         // and the write per call, min/median/p95/max over the latest calls.
         log.Msg(CostMeter.Line("clragdoll.step", bodies.StepCost.Summary(Stopwatch.Frequency)));
         log.Msg(CostMeter.Line("clragdoll.write", bodies.WriteCost.Summary(Stopwatch.Frequency)));
-        if (args.Trim() == "reset")
+        if (action == "reset")
             bodies.ResetCost();
 
         foreach (RagdollBody body in bodies.Bodies)
@@ -60,9 +60,9 @@ public sealed class ClientRagdollsCommand(ILog log, IClientRagdolls ragdolls) : 
 /// holds it there), or "gone" once the body went.
 /// </summary>
 [ConCommand("cs_cl_boltpins", Help = "cs_cl_boltpins: the ragdoll elements crossbow bolts pinned to the world, and how far each is from its bolt now.")]
-public sealed class ClientBoltPinsCommand(ILog log, IRagdollBoltPin pins) : IConCommand
+public sealed class ClientBoltPinsCommand(ILog log, IRagdollBoltPin pins)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (pins is not RagdollBoltPin made)
         {

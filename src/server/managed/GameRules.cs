@@ -39,7 +39,7 @@ public sealed class SpawnProtectConVar : FloatConVar { }
 /// and EndRound is the one new call here that reaches deep into the base rules.
 /// </summary>
 [ConCommand("cs_sv_end_round", Help = "End the current round and go to intermission")]
-public sealed class EndRoundCommand : IConCommand
+public sealed class EndRoundCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -56,7 +56,7 @@ public sealed class EndRoundCommand : IConCommand
 
     private readonly Intermission? _intermission;
 
-    public void Execute(string args)
+    public void Execute()
     {
         _log.Msg("[SourceSharp/Rules] ending round on request\n");
         _intermission?.Begin(_host.CurrentTime);

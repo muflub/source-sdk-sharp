@@ -92,7 +92,7 @@ public sealed partial class ServiceFlowTests
         var (w, players, it, console, engine) = RoundEnd(DescentGate());
 
         // cs_sv_end_round, then game_end's EndGame input, as the map would fire it.
-        new EndRoundCommand(w.Log, engine, it).Execute("");
+        new EndRoundCommand(w.Log, engine, it).Execute();
         var gameEnd = new GameEnd(engine, it);
         var endGame = typeof(GameEnd).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
             .Single(m => m.GetCustomAttribute<ScriptedEventAttribute>() is { Name: "EndGame" });

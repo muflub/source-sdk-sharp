@@ -10,9 +10,9 @@ namespace SourceSharp.Client.TempEnts;
 /// </summary>
 [ConCommand("cs_cl_physprops", Help = "cs_cl_physprops: the clientside physics props -- slot, origin, asleep.")]
 public sealed class ClientPhysicsPropsCommand(ILog log, ClientPhysicsProps? props = null,
-                                               Physics.ClientContactTouches? touches = null) : IConCommand
+                                               Physics.ClientContactTouches? touches = null)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         if (props is null)
         {

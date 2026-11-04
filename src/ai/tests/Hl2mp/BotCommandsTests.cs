@@ -97,7 +97,7 @@ public class BotCommandsTests
                                  DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
                                  DispatchProxy.Create<IEngineFrame, Defaults>(), _nav, DispatchProxy.Create<IBotInventory, Defaults>(),
                                  new DataFileNames(), _tags, _log);
-        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log), _log).Execute("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log), _log).RunLine("Alyx hard");
         Assert.Null(bots.Act("Alyx", ActionKind.Fire, 5f, 0));
         bots.OnPreThink(0.015f);
         Assert.Equal(0L, bots.Applier.Refused(IntentRefusal.UnknownBot) + bots.Applier.Refused(IntentRefusal.StaleSerial));
@@ -162,7 +162,7 @@ public class BotCommandsTests
         _roster = new Hl2mpRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log);
     }
 
-    private void Add(string args) => new AiBotAddCommand(_roster, _log).Execute(args);
+    private void Add(string args) => new AiBotAddCommand(_roster, _log).RunLine(args, _log.Msg);
 
     [Fact]
     public void APresetAddsABotWithThatPresetsSkills()
@@ -215,6 +215,42 @@ public class BotCommandsTests
     }
 
     [Fact]
+    public void AddCompletesThePresets()
+        => Assert.Equal(["ai_bot_add hard"], new AiBotAddCommand(_roster, _log).SuggestFor("ha"));
+
+    [Fact]
+    public void KickCompletesTheRosterAndAll()
+    {
+        Add("Alyx hard");
+
+        Assert.Equal(["ai_bot_kick all", "ai_bot_kick Alyx"], new AiBotKickCommand(_roster, _log).SuggestFor(""));
+    }
+
+    [Theory]
+    [InlineData("Alyx 2")]
+    [InlineData("\"Alyx 2\"")]
+    public void KickTakesASecondBotsNameWithItsSpaceQuotedOrNot(string line)
+    {
+        Add("Alyx hard");
+        Add("Alyx hard");
+
+        new AiBotKickCommand(_roster, _log).RunLine(line);
+
+        Assert.Contains(_log.All, l => l.Contains("ai_bot_kick Alyx 2: 1 kicked", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AddTakesAtMostANameAndASpec()
+    {
+        var said = new List<string>();
+
+        new AiBotAddCommand(_roster, _log).RunLine("Alyx hard extra", said.Add);
+
+        Assert.Contains("'extra' is one argument too many", Assert.Single(said));
+        Assert.Empty(_players.Asked);
+    }
+
+    [Fact]
     public void AnUnknownPresetIsRefused()
     {
         Add("Alyx godlike");
@@ -241,10 +277,10 @@ public class BotCommandsTests
         Add("Barney");
         Add("Gordon");
 
-        new AiBotKickCommand(_roster, _log).Execute("barney");
+        new AiBotKickCommand(_roster, _log).RunLine("barney");
         Assert.Equal([new EntityHandle(0x0003_0003u)], _players.Kicked);
 
-        new AiBotKickCommand(_roster, _log).Execute("all");
+        new AiBotKickCommand(_roster, _log).RunLine("all");
         Assert.Empty(_players.Made);
         Assert.Contains("[SourceSharp/Ai] ai_bot_kick all: 2 kicked\n", _log.All);
     }
@@ -256,7 +292,7 @@ public class BotCommandsTests
         Add("Barney expert");
         _log.All.Clear();
 
-        new AiBotCountCommand(_roster, _log).Execute("");
+        new AiBotCountCommand(_roster, _log).Execute();
 
         Assert.Equal("[SourceSharp/Ai] bots: 2 active, 0 benched of 2 wanted (1 human(s), 8 slots, 1 kept free)\n", _log.All[0]);
         Assert.StartsWith("[SourceSharp/Ai]   Alyx: client 2, (Easy) easy (20 points, ", _log.All[1], StringComparison.Ordinal);

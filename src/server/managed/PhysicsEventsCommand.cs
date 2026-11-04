@@ -34,7 +34,7 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_physics_events",
     Help = "What the physics event ring delivered to managed code: events by kind, "
          + "and what the impact response did with them.\n\tArguments: reset")]
-public sealed class PhysicsEventsCommand : IConCommand
+public sealed class PhysicsEventsCommand
 {
     private static readonly ImmutableArray<PhysicsEventKind> Kinds =
     [
@@ -77,9 +77,9 @@ public sealed class PhysicsEventsCommand : IConCommand
         _console = console;
     }
 
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             _response.Reset();
             _console.Msg("[SourceSharp] physics events: counters zeroed\n");

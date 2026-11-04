@@ -230,15 +230,10 @@ public sealed class EntCreateCommand : SpawningCommand
 
     protected override bool CreatesWithoutAHit => true;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] string className, params string[] keyValues)
     {
-        if (argv.Length < 1)
-        {
-            Log.Msg("usage: ent_create <classname> [key value]...\n");
-            return;
-        }
-
-        Spawn(issuer, argv[0], KeyValuePairs(argv, 1));
+        if (Admitted(out EntityHandle issuer))
+            Spawn(issuer, className, KeyValuePairs(keyValues, 0));
     }
 }
 
@@ -255,15 +250,11 @@ public abstract class PropCreateCommand : SpawningCommand
     /// <summary>The entity class this spelling makes.</summary>
     protected abstract string PropClass { get; }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    /// <param name="model">A model path, with or without models/ and .mdl.</param>
+    public void Execute(string model)
     {
-        if (argv.Length < 1)
-        {
-            Log.Msg($"usage: {Verb} <model path, with or without models/ and .mdl>\n");
-            return;
-        }
-
-        Spawn(issuer, PropClass, new List<(string, string)> { ("model", ModelPath(argv[0])) });
+        if (Admitted(out EntityHandle issuer))
+            Spawn(issuer, PropClass, new List<(string, string)> { ("model", ModelPath(model)) });
     }
 }
 
@@ -342,9 +333,12 @@ public sealed class EntRemoveCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             // The issuer is refused: stock would UTIL_Remove the player who
             // typed it, which is a crash nobody meant to keep. Same rule as
@@ -372,18 +366,15 @@ public sealed class EntSetNameCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute(string newName, [Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        if (argv.Length < 1)
-        {
-            Log.Msg("usage: ent_setname <new name> [entity name / class name; omit for what you are looking at]\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
 
-        foreach (var subject in Select(issuer, Rest(argv, 1)))
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
-            if (Context.Entities.SetKeyValue(subject, "targetname", argv[0]))
-                Log.Msg($"ent_setname: {Describe(subject)} is now named '{argv[0]}'\n");
+            if (Context.Entities.SetKeyValue(subject, "targetname", newName))
+                Log.Msg($"ent_setname: {Describe(subject)} is now named '{newName}'\n");
             else
                 Log.Msg($"ent_setname: {Describe(subject)} refused a targetname.\n");
         }
@@ -410,25 +401,26 @@ public sealed class EntKeyValueCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] string target, string key, string value, params string[] morePairs)
     {
-        // A target and at least one whole pair, so an odd count. The verb is no
-        // longer one of these words — the engine keeps it — which is why the
-        // parity is the opposite way round from a line that includes it.
-        if (argv.Length < 3 || argv.Length % 2 != 1)
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        // Whole pairs only: a key whose value was left off is a mistake to say, not to drop.
+        if (morePairs.Length % 2 != 0)
         {
             Log.Msg("usage: ent_keyvalue <entity name / class name> <key> <value> [<key> <value>]...\n");
             return;
         }
 
-        var pairs = KeyValuePairs(argv, 1);
+        var pairs = KeyValuePairs([key, value, .. morePairs], 0);
 
-        foreach (var subject in Select(issuer, argv[0]))
+        foreach (var subject in Select(issuer, target))
         {
-            foreach (var (key, value) in pairs)
+            foreach (var (name, written) in pairs)
             {
-                bool took = new EntityKeyValues(Context.Entities).Apply(subject, key, value);
-                Log.Msg($"ent_keyvalue: {Describe(subject)} {(took ? "took" : "REFUSED")} {key}='{value}'\n");
+                bool took = new EntityKeyValues(Context.Entities).Apply(subject, name, written);
+                Log.Msg($"ent_keyvalue: {Describe(subject)} {(took ? "took" : "REFUSED")} {name}='{written}'\n");
             }
         }
     }
@@ -453,8 +445,13 @@ public sealed class EntRotateCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    /// <param name="degreesThenTarget">A number first is the degrees; anything else starts the target.</param>
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] degreesThenTarget)
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        string[] argv = degreesThenTarget;
         float degrees = DevContext.DefaultRotate;
         int targetFrom = 0;
 
@@ -668,9 +665,12 @@ public sealed class EntFireCommand : DevCommand
     /// </summary>
     protected override bool NeedsIssuer => false;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] string target, string action = DefaultAction, string value = "", float delay = 0f)
     {
-        if (argv.Length < 1 || string.IsNullOrWhiteSpace(argv[0]))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        if (string.IsNullOrWhiteSpace(target))
         {
             Log.Msg("usage: ent_fire <target> [action] [value] [delay]\n");
             return;
@@ -708,10 +708,11 @@ public sealed class EntFireCommand : DevCommand
             return;
         }
 
-        string target = argv[0];
-        string action = argv.Length >= 2 && argv[1].Length > 0 ? argv[1] : DefaultAction;
-        string value = argv.Length >= 3 ? argv[2] : string.Empty;
-        float delay = argv.Length >= 4 ? ParseDelay(argv[3]) : 0f;
+        // An empty action, as `ent_fire x ""`, is stock's default. A negative delay
+        // is due now: an event due in the past.
+        if (action.Length == 0)
+            action = DefaultAction;
+        delay = Math.Max(delay, 0f);
 
         Context.PostInput(target, action, value, delay, issuer);
 
@@ -719,22 +720,6 @@ public sealed class EntFireCommand : DevCommand
                 $"-> {target}{(delay > 0f ? $" in {delay}s" : string.Empty)}\n");
     }
 
-    /// <summary>
-    /// The delay, in seconds. Stock read it with <c>atoi</c>, which is whole
-    /// seconds and answers 0 for anything it cannot read; this reads a float,
-    /// because the queue keeps float times and a map's own connections have
-    /// carried fractional delays all along — <c>0.5</c> meaning "immediately"
-    /// would be a silent wrong answer, which is the class of bug this whole
-    /// command is a fix for.
-    ///
-    /// <para>Negative is 0: an event due in the past is due now.</para>
-    /// </summary>
-    public static float ParseDelay(string? text)
-    {
-        float parsed = VariantParse.Atof(text);
-
-        return parsed > 0f ? parsed : 0f;
-    }
 }
 
 /// <summary>
@@ -750,9 +735,12 @@ public sealed class FireTargetCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             bool took = Context.Entities.FireInput(subject, "Use", null, issuer);
             Log.Msg($"firetarget: {Describe(subject)} {(took ? "accepted" : "REFUSED")} Use\n");
@@ -777,9 +765,12 @@ public abstract class BoundsCommand : DevCommand
     /// <summary>Whether the box is reported in world space.</summary>
     protected abstract bool Absolute { get; }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             var (mins, maxs) = Context.Entities.GetBounds(subject);
 
@@ -838,9 +829,12 @@ public sealed class EntPivotCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             var origin = Context.Entities.GetOrigin(subject);
             var basis = Angles.Vectors(Context.Entities.GetAngles(subject));
@@ -859,9 +853,12 @@ public sealed class EntViewOffsetCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             var origin = Context.Entities.GetOrigin(subject);
             var eye = Context.Entities.GetEyePosition(subject);
@@ -905,17 +902,12 @@ public sealed class GiveCommand : DevCommand
 
     protected override bool RequiresCheats => false;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    /// <param name="wanted">A weapon or an ammunition; the tables are the arsenal's, so the mods' rows are among them.</param>
+    /// <param name="count">How much ammunition; a full pool without it.</param>
+    public void Execute([Complete(From = nameof(Names))] string wanted, int? count = null)
     {
-        if (argv.Length < 1)
-        {
-            // The tables are the arsenal's — what the game HAS includes the
-            // mods' rows, and this usage line must name them or a person
-            // typing a mod's classname is told it does not exist.
-            Log.Msg($"usage: give <{string.Join(" | ", Context.Weapons.All.Select(w => w.Name))}>\n" +
-                    $"       give <{string.Join(" | ", Context.Ammo.All.Select(a => a.Name))}> [count]\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
 
         if (!Context.SinglePlayer() && !Context.CheatsEnabled())
         {
@@ -931,8 +923,6 @@ public sealed class GiveCommand : DevCommand
             return;
         }
 
-        string wanted = argv[0];
-
         if (Context.Weapons.For(wanted) is { } weapon)
         {
             if (Context.Arsenal.GiveWeapon(issuer, weapon.Name))
@@ -945,8 +935,7 @@ public sealed class GiveCommand : DevCommand
 
         if (Context.Ammo.For(wanted) is { } ammo)
         {
-            int count = argv.Length >= 2 && int.TryParse(argv[1], out int written) ? written : Context.Arsenal.MaxCarryOf(issuer, in ammo);
-            int given = Context.Arsenal.GiveAmmo(issuer, count, ammo.Name);
+            int given = Context.Arsenal.GiveAmmo(issuer, count ?? Context.Arsenal.MaxCarryOf(issuer, in ammo), ammo.Name);
 
             Log.Msg(given > 0
                 ? $"give: {given} {ammo.Name}\n"
@@ -960,6 +949,10 @@ public sealed class GiveCommand : DevCommand
                 $"    ammo:    {string.Join(", ", Context.Ammo.All.Select(a => a.Name))}\n" +
                 $"    anything else is an entity: ent_create {wanted}\n");
     }
+
+    /// <summary>What this game can give: the weapons and the ammunition.</summary>
+    private IEnumerable<string> Names()
+        => Context.Weapons.All.Select(w => w.Name).Concat(Context.Ammo.All.Select(a => a.Name));
 }
 
 /// <summary>
@@ -979,19 +972,11 @@ public sealed class FovCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    /// <param name="degrees">The field of view; 0 releases the console's own zoom.</param>
+    public void Execute(int degrees)
     {
-        if (argv.Length < 1)
-        {
-            Log.Msg("usage: fov <degrees>, or fov 0 to release the console's own zoom\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
-
-        if (!int.TryParse(argv[0], out int degrees))
-        {
-            Log.Msg($"fov: '{argv[0]}' is not a number of degrees.\n");
-            return;
-        }
 
         Context.Players.SetFov(issuer, issuer, degrees);
         Log.Msg(degrees == 0
@@ -1008,15 +993,13 @@ public sealed class SetModelCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    /// <param name="model">A model path, with or without models/ and .mdl.</param>
+    public void Execute(string model)
     {
-        if (argv.Length < 1)
-        {
-            Log.Msg("usage: setmodel <model path, with or without models/ and .mdl>\n");
+        if (!Admitted(out EntityHandle issuer))
             return;
-        }
 
-        string path = ModelPath(argv[0]);
+        string path = ModelPath(model);
         Context.Render.SetModel(issuer, path);
         Log.Msg($"setmodel: {path}\n");
     }
@@ -1044,8 +1027,11 @@ public sealed class CastRayCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         var start = Context.Entities.GetEyePosition(issuer);
         var forward = Angles.Vectors(Context.Entities.GetEyeAngles(issuer)).Forward;
         var end = start + forward * DevContext.PickRange;
@@ -1072,8 +1058,11 @@ public sealed class CastHullCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         var start = Context.Entities.GetEyePosition(issuer);
         var forward = Angles.Vectors(Context.Entities.GetEyeAngles(issuer)).Forward;
         var end = start + forward * DevContext.PickRange;
@@ -1098,8 +1087,11 @@ public sealed class SurfacePropCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         var hit = Context.World.TracePlayerAim(issuer, DevContext.PickRange, out var where);
 
         if (hit == EntityHandle.None)
@@ -1141,8 +1133,11 @@ public sealed class SoundscapeFlushCommand : DevCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute()
     {
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
         if (Context.FlushSoundscape is null)
         {
             Log.Msg("soundscape_flush: nothing owns soundscapes on this server.\n");
@@ -1224,9 +1219,12 @@ public sealed class BloodSprayCommand : DevCommand
     internal static Vector SprayOrigin(Vector eye, Vector center, Vector forward)
         => forward * 4f + (eye + center) * 0.5f;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute([Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        foreach (var subject in Select(issuer, Rest(argv, 0)))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             var forward = Angles.Vectors(Context.Entities.GetAngles(subject)).Forward;
             var where = SprayOrigin(Context.Entities.GetEyePosition(subject),
@@ -1286,18 +1284,21 @@ public sealed class PlayEntitySoundCommand : DevCommand
 
     private readonly IEngineSound _sound;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    /// <param name="script">The soundscript entry.</param>
+    /// <param name="target">Who emits it; without one, what you are looking at.</param>
+    public void Execute(string script, [Complete(From = nameof(EntityClasses))] params string[] target)
     {
-        if (argv.Length < 1 || string.IsNullOrWhiteSpace(argv[0]))
+        if (!Admitted(out EntityHandle issuer))
+            return;
+
+        if (string.IsNullOrWhiteSpace(script))
         {
             Log.Msg("playentitysound: usage is `playentitysound <soundscript> [entity]`; " +
                     "with no entity it uses what you are looking at.\n");
             return;
         }
 
-        var script = argv[0];
-
-        foreach (var subject in Select(issuer, Rest(argv, 1)))
+        foreach (var subject in Select(issuer, Rest(target, 0)))
         {
             _sound.EntityEmitSound(subject, script);
 
@@ -1369,23 +1370,14 @@ public abstract class DebugDrawCommand : DevCommand
     /// stock read these with: anything unreadable is 0 rather than a refusal,
     /// because <c>drawline 0 0 0 0 0 x</c> drew a line in HL2 too.
     /// </summary>
-    protected static float Coord(string? text)
-    {
-        float parsed = VariantParse.Atof(text);
-
-        return parsed < -MaxCoord ? -MaxCoord
-             : parsed >  MaxCoord ?  MaxCoord
-             : parsed;
-    }
+    protected static float Coord(float written)
+        => Math.Clamp(written, -MaxCoord, MaxCoord);
 
     /// <summary>
     /// Three arguments from <paramref name="argv"/> as a point.
     /// </summary>
-    protected static Vector Point(string[] argv, int at)
-        => new(Coord(At(argv, at)), Coord(At(argv, at + 1)), Coord(At(argv, at + 2)));
-
-    private static string? At(string[] argv, int index)
-        => index >= 0 && index < argv.Length ? argv[index] : null;
+    protected static Vector Clamped(Vector written)
+        => new(Coord(written.X), Coord(written.Y), Coord(written.Z));
 
     /// <summary>
     /// One line, coloured by whether anything is in the way — white if the
@@ -1419,16 +1411,13 @@ public sealed class DrawLineCommand : DebugDrawCommand
     {
     }
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute(Vector from, Vector to)
     {
-        if (argv.Length < 6)
-        {
-            Log.Msg("drawline: usage is `drawline x1 y1 z1 x2 y2 z2`.\n");
+        if (!Admitted(out _))
             return;
-        }
 
-        var start = Point(argv, 0);
-        var end = Point(argv, 3);
+        var start = Clamped(from);
+        var end = Clamped(to);
 
         bool blocked = Line(start, end);
 
@@ -1455,15 +1444,12 @@ public sealed class DrawCrossCommand : DebugDrawCommand
     /// </summary>
     public const float Extent = 5f;
 
-    protected override void Run(EntityHandle issuer, string[] argv)
+    public void Execute(Vector position)
     {
-        if (argv.Length < 3)
-        {
-            Log.Msg("drawcross: usage is `drawcross x y z`.\n");
+        if (!Admitted(out _))
             return;
-        }
 
-        var at = Point(argv, 0);
+        var at = Clamped(position);
 
         // Stock walked one start/end pair around the cube by adding and
         // subtracting the full extent, which comes out as the four body

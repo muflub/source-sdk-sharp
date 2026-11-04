@@ -20,16 +20,16 @@ namespace SourceSharp.Client.Effects;
 /// tree; the command is kept so a config that runs it is not an unknown command.
 /// </summary>
 [ConCommand("cl_particle_stats_start", Help = "Start or restart particle stats - also dumps to particle_stats.csv")]
-public sealed class ParticleStatsStartCommand : IConCommand
+public sealed class ParticleStatsStartCommand
 {
-    public void Execute(string args) { }
+    public void Execute() { }
 }
 
 /// <summary>cl_particle_stats_stop: stock's StatsParticlesStop, empty in this tree.</summary>
 [ConCommand("cl_particle_stats_stop", Help = "Stop particle stats, or snapshot this frame - also dumps to particle_stats.csv")]
-public sealed class ParticleStatsStopCommand : IConCommand
+public sealed class ParticleStatsStopCommand
 {
-    public void Execute(string args) { }
+    public void Execute() { }
 }
 
 /// <summary>
@@ -38,9 +38,9 @@ public sealed class ParticleStatsStopCommand : IConCommand
 /// profile commit) to particle_profile.csv.
 /// </summary>
 [ConCommand("cl_dump_particle_stats", Help = "dump particle profiling info to particle_profile.csv")]
-public sealed class DumpParticleStatsCommand(IParticleLibrary library) : IConCommand
+public sealed class DumpParticleStatsCommand(IParticleLibrary library)
 {
-    public void Execute(string args) => library.DumpProfileInformation();
+    public void Execute() => library.DumpProfileInformation();
 }
 
 /// <summary>
@@ -55,11 +55,11 @@ public sealed class DumpParticleStatsCommand(IParticleLibrary library) : IConCom
 /// </summary>
 [ConCommand("cs_cl_particle_report",
             Help = "plan_entity.md 7e: every live particle system, its active particle count (with children), its control points 0 and 1, and its sort origin")]
-public sealed class ParticleReportCommand(ILog log, IClientParticleSystems systems, IEngineEffects effects) : IConCommand
+public sealed class ParticleReportCommand(ILog log, IClientParticleSystems systems, IEngineEffects effects)
 {
-    public void Execute(string args)
+    public void Execute(int? entity = null)
     {
-        foreach (string line in Lines(systems.Read(), args, effects.ClientEntityOrigin))
+        foreach (string line in Lines(systems.Read(), entity, effects.ClientEntityOrigin))
             log.Msg(line);
     }
 
@@ -67,7 +67,7 @@ public sealed class ParticleReportCommand(ILog log, IClientParticleSystems syste
     public delegate bool OriginOf(int entityIndex, out Vector origin);
 
     /// <summary>The report's lines, in stock's order: the systems, the summary, then the entity.</summary>
-    public static IEnumerable<string> Lines(IReadOnlyList<ClientParticleSystemRow> rows, string args, OriginOf originOf)
+    public static IEnumerable<string> Lines(IReadOnlyList<ClientParticleSystemRow> rows, int? entity, OriginOf originOf)
     {
         int drawing = 0;
         foreach (ClientParticleSystemRow row in rows)
@@ -80,11 +80,8 @@ public sealed class ParticleReportCommand(ILog log, IClientParticleSystems syste
         }
         yield return $"[SourceSharp] particle report: {rows.Count} system(s), {drawing} with particles\n";
 
-        string first = args.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
-        if (first.Length == 0)
+        if (entity is not { } index)
             yield break;
-        // atoi's reading: a leading number, else 0.
-        int index = Atoi(first);
         yield return originOf(index, out Vector o)
             ? $"[SourceSharp] client entity {index}: origin ({V(o)})\n"
             : $"[SourceSharp] client entity {index}: ABSENT on this side\n";
@@ -92,14 +89,4 @@ public sealed class ParticleReportCommand(ILog log, IClientParticleSystems syste
 
     private static string V(Vector v)
         => string.Create(CultureInfo.InvariantCulture, $"{v.X:0.0} {v.Y:0.0} {v.Z:0.0}");
-
-    private static int Atoi(string s)
-    {
-        int n = 0, sign = 1, i = 0;
-        if (i < s.Length && (s[i] == '-' || s[i] == '+'))
-            sign = s[i++] == '-' ? -1 : 1;
-        while (i < s.Length && char.IsAsciiDigit(s[i]) && n < 100_000_000)
-            n = n * 10 + (s[i++] - '0');
-        return sign * n;
-    }
 }

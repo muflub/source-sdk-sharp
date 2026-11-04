@@ -87,7 +87,7 @@ public sealed class TFClientBuildingResources
 
 /// <summary>The console door onto the local player's building rows.</summary>
 [ConCommand("tf2_cl_building_resource", Help = "The tf_building_resource rows of the local player this client has decoded")]
-public sealed class TFBuildingResourceReportCommand(ILog log, IEngineHud screen, TFClientBuildingResources resources) : IConCommand
+public sealed class TFBuildingResourceReportCommand(ILog log, IEngineHud screen, TFClientBuildingResources resources)
 {
-    public void Execute(string args) => log.Msg(resources.Report(screen.LocalPlayerIndex) + "\n");
+    public void Execute() => log.Msg(resources.Report(screen.LocalPlayerIndex) + "\n");
 }

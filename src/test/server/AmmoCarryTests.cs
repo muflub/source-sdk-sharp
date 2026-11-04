@@ -160,7 +160,7 @@ public class AmmoCarryTests
                                   new DamageHitGroups(), messages: engine,
                                   carryLimits: Over(new RecordingLog(), new RaisesPistol(player: 1, to: 200)));
 
-        new GiveWeaponCommand(new RecordingLog(), arsenal, engine, engine).Execute(EntityNames.WeaponPistol);
+        new GiveWeaponCommand(new RecordingLog(), arsenal, engine, engine).RunLine(EntityNames.WeaponPistol);
 
         Assert.Equal([(EntityNames.WeaponPistol, 18, true)], arsenal.Holdings(One));
         Assert.Equal(200, arsenal.Pools(One)["Pistol"]);

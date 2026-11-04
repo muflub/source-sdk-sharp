@@ -15,16 +15,16 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_trace_cost",
     Help = "cs_sv_trace_cost [reset]: the server's traces (line, hull, entity hull, water), timed in game: "
          + "calls, means, min/median/p95/max ns. 'reset' zeroes them after printing.")]
-public sealed class TraceCostReport(IEngineConsole console, ServerTraceCost cost) : IConCommand
+public sealed class TraceCostReport(IEngineConsole console, ServerTraceCost cost)
 {
-    public void Execute(string args)
+    public void Execute([Complete("reset")] string action = "")
     {
         long hz = Stopwatch.Frequency;
         foreach ((string name, CostMeter meter) in cost.Meters())
             console.Msg(CostMeter.Line(name, meter.Summary(hz)));
         console.Msg(CostMeter.Line("timer.empty", CostMeter.Calibrate(1000).Summary(hz)));
 
-        if (args.Trim().Equals("reset", StringComparison.OrdinalIgnoreCase))
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
         {
             foreach ((_, CostMeter meter) in cost.Meters())
                 meter.Reset();

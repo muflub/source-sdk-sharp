@@ -26,7 +26,7 @@ public sealed class RoundCommandsTests
         return (rig, log, settings, master);
     }
 
-    private static void Execute(object command, string args = "") => ((IConCommand)command).Execute(args);
+    private static void Execute(object command, string args = "") => command.RunLine(args);
 
     [Fact]
     public void List_rounds_names_every_round_of_the_map()
@@ -65,7 +65,7 @@ public sealed class RoundCommandsTests
         var round = rig.Spawn<TeamControlPointRound>(TeamControlPointRound.MapClass, ("targetname", "round_2"));
         rig.StartRound();
 
-        Execute(new PlayRoundCommand(log, rig.Services), "round_2 extra");
+        Execute(new PlayRoundCommand(log, rig.Services), "round_2");
 
         Assert.Equal("round_2", rig.RoundRules.RoundToPlayNext);
         Assert.Equal(5, settings.RestartGame);
@@ -91,9 +91,9 @@ public sealed class RoundCommandsTests
     {
         var (rig, log, settings, _) = Rig();
 
-        Execute(new PlayRoundCommand(log, rig.Services), "   ");
+        new PlayRoundCommand(log, rig.Services).RunLine("   ", log.Msg);
 
-        Assert.Equal("Usage:  tf_playround < round name >\n", log.Text);
+        Assert.Contains("usage: tf_playround <name>", log.Text);
         Assert.Equal(0, settings.RestartGame);
     }
 }

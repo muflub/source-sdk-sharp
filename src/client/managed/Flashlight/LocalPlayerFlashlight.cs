@@ -156,7 +156,7 @@ public sealed class StandaloneFlashlightViewers(IClientStandalones standalones, 
 
 /// <summary><c>cs_cl_flashlight</c>: the local player's flashlight, as the driver last left it.</summary>
 [ConCommand("cs_cl_flashlight", Help = "Print the local player's flashlight: on or off, its shadow handle and the last state handed to the shadow manager")]
-public sealed class FlashlightReportCommand(ILog log, LocalPlayerFlashlight flashlight) : IConCommand
+public sealed class FlashlightReportCommand(ILog log, LocalPlayerFlashlight flashlight)
 {
-    public void Execute(string args) => log.Msg(flashlight.Report() + "\n");
+    public void Execute() => log.Msg(flashlight.Report() + "\n");
 }

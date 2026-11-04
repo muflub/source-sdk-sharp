@@ -29,7 +29,7 @@ namespace SourceSharp.Server;
 /// </summary>
 [ConCommand("cs_sv_hierarchy",
     Help = "Every parent link: both ends, the frame, and both transforms")]
-public sealed class HierarchyReportCommand : IConCommand
+public sealed class HierarchyReportCommand
 {
     private readonly StandaloneHierarchy _standalone;
     private readonly IEngineConsole _console;
@@ -43,7 +43,7 @@ public sealed class HierarchyReportCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         HierarchyDriver driver = _standalone.Parenting;
         Hierarchy model = driver.Model;
@@ -171,7 +171,7 @@ public sealed class HierarchyReportCommand : IConCommand
 [ConCommand("cs_sv_parent",
     Help = "cs_sv_parent <child> [parent] [attachment] — parent by name across both "
          + "hierarchies; no parent unparents")]
-public sealed class HierarchyParentCommand : IConCommand
+public sealed class HierarchyParentCommand
 {
     private readonly StandaloneHierarchy _standalone;
     private readonly IEngineConsole _console;
@@ -185,48 +185,39 @@ public sealed class HierarchyParentCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute(string childName, string? parentName = null, string? attachmentName = null)
     {
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (words.Length < 1)
-        {
-            _console.Msg("usage: cs_sv_parent <child> [parent] [attachment]   "
-                         + "(no parent unparents)\n");
-            return;
-        }
-
-        EntityHandle child = _entities.FindByName(words[0]);
+        EntityHandle child = _entities.FindByName(childName);
 
         if (child == EntityHandle.None)
         {
-            _console.Msg($"[SourceSharp] no entity of this hierarchy is called '{words[0]}'\n");
+            _console.Msg($"[SourceSharp] no entity of this hierarchy is called '{childName}'\n");
             return;
         }
 
         HierarchyDriver driver = _standalone.Parenting;
 
-        if (words.Length < 2)
+        if (parentName is null)
         {
             driver.SetParent(child, EntityHandle.None, 0);
-            _console.Msg($"[SourceSharp] '{words[0]}' has no parent now\n");
+            _console.Msg($"[SourceSharp] '{childName}' has no parent now\n");
             return;
         }
 
         // THIS HIERARCHY FIRST, then the SDK's — the order the map's parentname
         // is resolved in.
-        EntityHandle parent = _entities.FindByName(words[1]);
+        EntityHandle parent = _entities.FindByName(parentName);
         bool onBase = false;
 
         if (parent == EntityHandle.None)
         {
-            parent = _entities.FindBaseByName(words[1]);
+            parent = _entities.FindBaseByName(parentName);
             onBase = parent != EntityHandle.None;
         }
 
         if (parent == EntityHandle.None)
         {
-            _console.Msg($"[SourceSharp] no entity at all is called '{words[1]}'\n");
+            _console.Msg($"[SourceSharp] no entity at all is called '{parentName}'\n");
             return;
         }
 
@@ -235,13 +226,13 @@ public sealed class HierarchyParentCommand : IConCommand
         // A NAME OR AN INDEX, because both are things a person has in hand: a
         // mapper writes a name and the resolve pass turns it into an index, and
         // trying the awkward cases by hand is what this command is for.
-        if (words.Length >= 3 && !int.TryParse(words[2], out attachment))
-            attachment = _entities.LookupAttachmentAny(parent, words[2]);
+        if (attachmentName is not null && !int.TryParse(attachmentName, out attachment))
+            attachment = _entities.LookupAttachmentAny(parent, attachmentName);
 
         if (driver.SetParent(child, parent, attachment))
         {
-            _console.Msg($"[SourceSharp] '{words[0]}' now follows "
-                         + $"{(onBase ? "CBaseEntity" : "standalone")} '{words[1]}'"
+            _console.Msg($"[SourceSharp] '{childName}' now follows "
+                         + $"{(onBase ? "CBaseEntity" : "standalone")} '{parentName}'"
                          + $"{(attachment > 0 ? $" attachment {attachment}" : string.Empty)}\n");
         }
     }
@@ -282,7 +273,7 @@ public sealed class HierarchyParentCommand : IConCommand
 [ConCommand("cs_sv_setlocal",
     Help = "cs_sv_setlocal <child> <x> <y> <z> — move a parented entity in its "
          + "PARENT's frame, not the world's")]
-public sealed class HierarchySetLocalCommand : IConCommand
+public sealed class HierarchySetLocalCommand
 {
     private readonly IEngineConsole _console;
     private readonly IEngineEntities _entities;
@@ -293,32 +284,13 @@ public sealed class HierarchySetLocalCommand : IConCommand
         _entities = entities;
     }
 
-    public void Execute(string args)
+    public void Execute(string childName, Vector local)
     {
-        string[] words = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (words.Length < 4)
-        {
-            _console.Msg("usage: cs_sv_setlocal <child> <x> <y> <z>\n");
-            return;
-        }
-
-        EntityHandle child = _entities.FindByName(words[0]);
+        EntityHandle child = _entities.FindByName(childName);
 
         if (child == EntityHandle.None)
         {
-            _console.Msg($"[SourceSharp] no standalone entity called '{words[0]}'\n");
-            return;
-        }
-
-        // REFUSED RATHER THAN READ AS ZERO. The native spelling used atof, so
-        // `cs_sv_setlocal crate x 0 0` moved the crate to its parent's origin
-        // on one axis and reported having done what was asked. A typo in a
-        // coordinate is the likeliest thing to go wrong at this console, and it
-        // was the one thing that produced no complaint.
-        if (!TryVector(words, out Vector local, out string offender))
-        {
-            _console.Msg($"[SourceSharp] '{offender}' is not a number\n");
+            _console.Msg($"[SourceSharp] no standalone entity called '{childName}'\n");
             return;
         }
 
@@ -326,39 +298,8 @@ public sealed class HierarchySetLocalCommand : IConCommand
 
         Vector world = _entities.GetOrigin(child);
 
-        _console.Msg($"[SourceSharp] '{words[0]}' local {local.X:F2} {local.Y:F2} {local.Z:F2} "
+        _console.Msg($"[SourceSharp] '{childName}' local {local.X:F2} {local.Y:F2} {local.Z:F2} "
                      + $"is world {world.X:F2} {world.Y:F2} {world.Z:F2}\n");
     }
 
-    /// <summary>
-    /// The three coordinates from <paramref name="words"/>[1..3], or the first
-    /// word that is not one.
-    ///
-    /// <para>
-    /// <see cref="CultureInfo.InvariantCulture"/>, because a console is typed at
-    /// in ASCII whatever the machine's locale is: a comma-decimal locale would
-    /// otherwise read <c>1.5</c> as <c>15</c>, which is a silent hundred-unit
-    /// error in a command whose whole job is to place something precisely.
-    /// </para>
-    /// </summary>
-    internal static bool TryVector(string[] words, out Vector vector, out string offender)
-    {
-        vector = default;
-        offender = string.Empty;
-
-        Span<float> parsed = stackalloc float[3];
-
-        for (int i = 0; i < 3; i++)
-        {
-            if (!float.TryParse(words[i + 1], NumberStyles.Float,
-                                CultureInfo.InvariantCulture, out parsed[i]))
-            {
-                offender = words[i + 1];
-                return false;
-            }
-        }
-
-        vector = new Vector(parsed[0], parsed[1], parsed[2]);
-        return true;
-    }
 }

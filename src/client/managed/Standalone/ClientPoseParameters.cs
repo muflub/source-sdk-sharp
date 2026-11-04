@@ -198,7 +198,7 @@ public static class ClientPoseParameters
 [ConCommand("cs_poseparams",
             Help = "List every client entity's pose parameters, with their values and " +
                    "declared ranges. Optional filter matches part of a classname.")]
-public sealed class PoseParametersCommand : IConCommand
+public sealed class PoseParametersCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -214,9 +214,11 @@ public sealed class PoseParametersCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter = "")
     {
-        foreach (string line in ClientPoseParameters.Report(_standalones.Live(), _render, args.Trim()))
+        foreach (string line in ClientPoseParameters.Report(_standalones.Live(), _render, filter))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }
@@ -228,7 +230,7 @@ public sealed class PoseParametersCommand : IConCommand
 [ConCommand("cs_setpose",
             Help = "cs_setpose <classname-filter> <parameter> <value>. Turns one named pose " +
                    "parameter on every matching client entity, in the model's own units.")]
-public sealed class SetPoseCommand : IConCommand
+public sealed class SetPoseCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -244,18 +246,12 @@ public sealed class SetPoseCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, string parameter, float value)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 3 || !float.TryParse(parts[2], out float value))
-        {
-            _log.Msg("[SourceSharp/Client] cs_setpose <classname-filter> <parameter> <value>\n");
-            return;
-        }
-
         foreach (string line in ClientPoseParameters.Apply(_standalones.Live(), _render,
-                                                           parts[0], parts[1], value))
+                                                           filter, parameter, value))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }

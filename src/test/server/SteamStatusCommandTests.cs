@@ -16,7 +16,7 @@ public class SteamStatusCommandTests
         var engine = new RecordingEngine();
         engine.Returns("Host.SteamGameServerLoggedOn", loggedOn);
 
-        new SteamStatusCommand(engine, engine, new NoSteamGameServer()).Execute(string.Empty);
+        new SteamStatusCommand(engine, engine, new NoSteamGameServer()).Execute();
 
         var said = engine.Calls.Where(c => c.Member == "Console.Msg").Select(c => (string)c.Arg(0)!).ToList();
         Assert.True(said.Count == 1 && said[0].Contains("steam status: " + expected, StringComparison.Ordinal),

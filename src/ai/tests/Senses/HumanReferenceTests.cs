@@ -126,7 +126,7 @@ public sealed class HumanReferenceTests : IDisposable
     [Fact]
     public void EveryPlayersCommandIsRecordedWithTheServersTick()
     {
-        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log), _log).Execute("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log), _log).RunLine("Alyx hard");
         Hl2mpBot bot = Assert.Single(_bots.Bots);
         var human = new EntityHandle((uint)(0x0005_0000 * 8 + 2));   // slot 2
         var tap = new CommandTap(_ai, _bots, Indexes(), AtTick(4321));
@@ -296,14 +296,14 @@ public sealed class HumanReferenceTests : IDisposable
         {
             var s = new Sight(_ai);
             var tap = new CommandTap(_ai, _bots, Indexes(), AtTick(10));
-            new AiRecordCommand(_ai, s.Pass, AtTick(10), new Mod(dir), _log).Execute("human");
+            new AiRecordCommand(_ai, s.Pass, AtTick(10), new Mod(dir), _log).RunLine("human");
             for (int i = 0; i < 20; i++)
             {
                 s.Run(1);
                 tap.OnCommand(s.Person.Handle, new UserCmd { CommandNumber = i, TickCount = i, Yaw = 180, Buttons = 1 });
             }
 
-            new AiRecordCommand(_ai, s.Pass, AtTick(10), new Mod(dir), _log).Execute("stop");
+            new AiRecordCommand(_ai, s.Pass, AtTick(10), new Mod(dir), _log).RunLine("stop");
             string file = Assert.Single(Directory.GetFiles(Path.Combine(dir, "ai-recordings", "human"), "*.airec"));
             Assert.Matches(@"^\d{8}T\d{6}Z\.airec$", Path.GetFileName(file));
             byte[] bytes = File.ReadAllBytes(file);
@@ -472,7 +472,7 @@ public sealed class HumanReferenceTests : IDisposable
         try
         {
             string file = Path.Combine(dir, "x.airec");
-            new AiRecordCommand(_ai, s.Pass, AtTick(41), new Mod(dir), _log).Execute($"start {file} ss_test");
+            new AiRecordCommand(_ai, s.Pass, AtTick(41), new Mod(dir), _log).RunLine($"start {file} ss_test");
             _ai.Recording.Stop();
             AiEvent held = Assert.Single(Observed(Record.Recordings.Records(File.ReadAllBytes(file)), AiEventKind.SightGained));
             Assert.Equal((s.BotId, AiEvent.HeldSight, 41), (held.Bot, held.Code, held.Tick.Value));

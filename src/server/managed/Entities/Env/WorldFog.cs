@@ -246,7 +246,7 @@ public sealed class WorldFog : IFrameLifecycle, IGameLifecycle
 [ConCommand("cs_sv_fog",
             Help = "What the server's world fog service is doing: polls, blob writes, "
                  + "players seen, and what the master env_fog_controller says.")]
-public sealed class WorldFogReportCommand : IConCommand
+public sealed class WorldFogReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -259,7 +259,7 @@ public sealed class WorldFogReportCommand : IConCommand
 
     private readonly WorldFog _fog;
 
-    public void Execute(string args)
+    public void Execute()
     {
         FogState now = _fog.Read();
 

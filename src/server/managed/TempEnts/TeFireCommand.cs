@@ -51,7 +51,7 @@ namespace SourceSharp.Server;
            "\tcs_te_fire <class|name|all> [x y z] [broadcast|pvs|pas]\n" +
            "\tcs_te_fire list  -- every name it knows\n" +
            "\t(must have sv_cheats)")]
-public sealed class TeFireCommand : IConCommand
+public sealed class TeFireCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -74,17 +74,12 @@ public sealed class TeFireCommand : IConCommand
     /// </summary>
     public Func<bool> CheatsEnabled { get; set; }
 
-    public void Execute(string args)
+    /// <summary>The words it takes, and the demos' names.</summary>
+    private IEnumerable<string> Names() => ["all", "list", .. TeDemos.All.Select(d => d.Slug)];
+
+    public void Execute([Complete(From = nameof(Names))] string name, [Complete("broadcast", "pvs", "pas")] params string[] whereAndFilter)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length == 0)
-        {
-            _log.Msg("usage: cs_te_fire <class|name|all|list> [x y z] [broadcast|pvs|pas]\n");
-            return;
-        }
-
-        if (string.Equals(parts[0], "list", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(name, "list", StringComparison.OrdinalIgnoreCase))
         {
             List();
             return;
@@ -98,27 +93,30 @@ public sealed class TeFireCommand : IConCommand
 
         var at = Vector.Zero;
 
-        if (parts.Length >= 4
-            && float.TryParse(parts[1], out float x)
-            && float.TryParse(parts[2], out float y)
-            && float.TryParse(parts[3], out float z))
+        // [x y z] [filter], or a filter alone: a position that does not read is the origin.
+        string[] rest = whereAndFilter;
+
+        if (rest.Length >= 3
+            && float.TryParse(rest[0], out float x)
+            && float.TryParse(rest[1], out float y)
+            && float.TryParse(rest[2], out float z))
         {
             at = new Vector(x, y, z);
         }
 
-        string? filter = parts.Length >= 5 ? parts[4] : (parts.Length == 2 ? parts[1] : null);
+        string? filter = rest.Length >= 4 ? rest[3] : (rest.Length == 1 ? rest[0] : null);
 
-        if (string.Equals(parts[0], "all", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(name, "all", StringComparison.OrdinalIgnoreCase))
         {
             FireAll(at, filter);
             return;
         }
 
-        TeDemo? demo = TeDemos.ByClass(parts[0]) ?? TeDemos.BySlug(parts[0]);
+        TeDemo? demo = TeDemos.ByClass(name) ?? TeDemos.BySlug(name);
 
         if (demo is null)
         {
-            _log.Msg($"cs_te_fire: no temp entity called '{parts[0]}'. " +
+            _log.Msg($"cs_te_fire: no temp entity called '{name}'. " +
                     "'cs_te_fire list' names every one.\n");
             return;
         }

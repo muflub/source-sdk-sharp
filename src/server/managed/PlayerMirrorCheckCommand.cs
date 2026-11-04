@@ -79,7 +79,7 @@ public readonly struct PlayerMirrorComparison
             Help = "Compares the managed registry's answer to 'is this a hierarchy player' "
                  + "against the EntityGetClassName ABI slot it replaced, in both directions. "
                  + "The divergence gate for D19's EntityGetClassName inversion.")]
-public sealed class PlayerMirrorCheckCommand : IConCommand
+public sealed class PlayerMirrorCheckCommand
 {
     private readonly IEngineEntities _entities;
     private readonly IEngineConsole _console;
@@ -115,7 +115,7 @@ public sealed class PlayerMirrorCheckCommand : IConCommand
         return false;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         var divergences = new List<PlayerMirrorComparison>();
         int walked = 0;

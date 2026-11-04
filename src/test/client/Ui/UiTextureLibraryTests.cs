@@ -383,7 +383,7 @@ public sealed class UiTextureCommandTests
 
         // A UI-only reload: the source now answers the new UI's library.
         source.Library = new UiTextureLibrary(files, new UiTextureLibraryTests.CapturingSurface(), log);
-        command.Execute("hud/test_thing");
+        command.RunLine("hud/test_thing");
 
         Assert.Contains("handle 1", log.Text);
     }
@@ -394,7 +394,7 @@ public sealed class UiTextureCommandTests
         var log = new RecordingLog();
         var command = new UiTextureCommand(new CurrentTextures(null), log);
 
-        command.Execute("hud/test_thing");
+        command.RunLine("hud/test_thing");
 
         Assert.Contains("no UI is loaded", log.Text);
     }
@@ -409,7 +409,7 @@ public sealed class UiTextureCommandTests
         var log = new RecordingLog();
         var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(files, surface, log)), log);
 
-        command.Execute("hud/test_thing");
+        command.RunLine("hud/test_thing");
 
         string text = log.Text;
         Assert.Contains("handle 119", text);
@@ -423,7 +423,7 @@ public sealed class UiTextureCommandTests
         var log = new RecordingLog();
         var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log)), log);
 
-        command.Execute("hud/missing");
+        command.RunLine("hud/missing");
 
         Assert.Contains("no texture (0)", log.Text);
         Assert.Single(UiTextureLibraryTests.Warned(log));   // the library's one warning, above the report
@@ -435,7 +435,7 @@ public sealed class UiTextureCommandTests
         var log = new RecordingLog();
         var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log)), log);
 
-        command.Execute("");
+        command.RunLine("", log.Msg);
 
         Assert.Contains("usage", log.Text);
         Assert.Empty(UiTextureLibraryTests.Warned(log));

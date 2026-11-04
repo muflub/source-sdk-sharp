@@ -225,9 +225,9 @@ public sealed class ClientDustCloud : ClientDustBase
 /// </summary>
 [ConCommand("cs_cl_dust_report",
             Help = "SourceSharp: the managed dust volumes this client holds, and their live particles.")]
-public sealed class ClientDustReportCommand(ILog log, IClientStandalones standalones) : IConCommand
+public sealed class ClientDustReportCommand(ILog log, IClientStandalones standalones)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         var volumes = standalones.Live().OfType<ClientDustBase>().ToList();
         log.Msg($"[SourceSharp/Client] managed dust volumes: {volumes.Count}  " +

@@ -17,23 +17,24 @@ namespace SourceSharp.Client.Vgui;
 /// </summary>
 public sealed class ViewportPanelCommand(UiLoader ui)
 {
-    /// <summary>The panel named by <paramref name="args"/>, or nothing for any other count of arguments.</summary>
-    public void Run(string args, bool show)
-    {
-        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 1)
-            ui.ViewportPanel(parts[0], show);
-    }
+    public void Run(string name, bool show) => ui.ViewportPanel(name, show);
+
+    /// <summary>The panels the UI answers, for completion.</summary>
+    public IEnumerable<string> Names() => ui.Current?.PanelNames ?? [];
 }
 
 [ConCommand("showpanel", Help = "Shows a viewport panel <name>")]
-public sealed class ShowPanelCommand(ViewportPanelCommand panels) : IConCommand
+public sealed class ShowPanelCommand(ViewportPanelCommand panels)
 {
-    public void Execute(string args) => panels.Run(args, show: true);
+    private IEnumerable<string> Names() => panels.Names();
+
+    public void Execute([Complete(From = nameof(Names))] string name) => panels.Run(name, show: true);
 }
 
 [ConCommand("hidepanel", Help = "Hides a viewport panel <name>")]
-public sealed class HidePanelCommand(ViewportPanelCommand panels) : IConCommand
+public sealed class HidePanelCommand(ViewportPanelCommand panels)
 {
-    public void Execute(string args) => panels.Run(args, show: false);
+    private IEnumerable<string> Names() => panels.Names();
+
+    public void Execute([Complete(From = nameof(Names))] string name) => panels.Run(name, show: false);
 }

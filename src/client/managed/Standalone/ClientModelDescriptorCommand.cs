@@ -13,7 +13,7 @@ namespace SourceSharp.Client.Standalone;
                    "its model answers for a handful of sequence names, and what the " +
                    "per-model descriptor crossing has cost this level. Run cs_sv_modeldesc " +
                    "too and diff: before Phase 2d the two sides disagreed on an ACT_ name.")]
-public sealed class ClientModelDescriptorCommand : IConCommand
+public sealed class ClientModelDescriptorCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -31,9 +31,10 @@ public sealed class ClientModelDescriptorCommand : IConCommand
         _models = models;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter = "")
     {
-        string filter = args.Trim();
         int matched = 0;
 
         foreach (var entity in _standalones.Live())

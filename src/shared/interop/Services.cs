@@ -694,7 +694,8 @@ public sealed class ServiceContainer : IServiceLocator
             // Always built: the name table only ever holds things that already
             // exist, because a convar and a command are both registered with
             // the engine before either reaches this.
-            rows.Add(new ServiceInfo(name, "name", kind, instance.GetType().Name, true));
+            Type implementation = instance is ConCommandBinding bound ? bound.CommandType : instance.GetType();
+            rows.Add(new ServiceInfo(name, "name", kind, implementation.Name, true));
         }
 
         rows.Sort(static (a, b) =>

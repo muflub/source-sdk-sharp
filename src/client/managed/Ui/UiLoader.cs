@@ -18,9 +18,9 @@ public sealed class UiAutoReloadConVar : BoolConVar
 
 /// <summary>Swaps the UI's assemblies now, carrying its state: cs_ui_reload.</summary>
 [ConCommand("cs_ui_reload", Help = "Reload the UI's assemblies (toolkit, screens, host) from disk, keeping open screens")]
-public sealed class UiReloadCommand(UiLoader ui, ILog log) : IConCommand
+public sealed class UiReloadCommand(UiLoader ui, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         var r = ui.Reload("command");
         log.Msg(r is null

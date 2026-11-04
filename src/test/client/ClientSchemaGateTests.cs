@@ -88,7 +88,7 @@ public unsafe class ClientSchemaGateTests
         _gate.Accept(0x10, published: true, expected: 0xAA, seen: 0xBB, entIndex: 3, "ss_crate");
         var printed = new RecordingLog();
 
-        new ClientSchemaStatusCommand(printed, _gate, Types()).Execute("");
+        new ClientSchemaStatusCommand(printed, _gate, Types()).Execute();
 
         Assert.Contains("2 refusal(s) over 1 type(s)", printed.Text);
         Assert.Contains("'ss_crate' (0x00000010): expected 0x000000aa, saw 0x000000bb, 2 update(s) refused", printed.Text);
@@ -100,7 +100,7 @@ public unsafe class ClientSchemaGateTests
     {
         var printed = new RecordingLog();
 
-        new ClientSchemaStatusCommand(printed, _gate, Types()).Execute("");
+        new ClientSchemaStatusCommand(printed, _gate, Types()).Execute();
 
         Assert.Contains("0 refusal(s) over 0 type(s)", printed.Text);
         Assert.Contains("nothing has been refused", printed.Text);

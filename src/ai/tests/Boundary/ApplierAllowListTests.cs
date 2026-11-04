@@ -66,7 +66,7 @@ public class ApplierAllowListTests
         "IEngineEntities::GetVelocity", "IEnginePlayers::BoxInPvs",
         // SnapshotBuilder: the weapon model a client sees in another's hands (§4.3); EngineBotHud: the bot's own HUD.
         "IEnginePlayers::GetActiveWeapon", "IEngineEntities::GetHealth", "IEngineEntities::GetArmor",
-        "Arsenal::PoolOf", "WeaponCatalog::For", "WeaponType::get_AmmoName",
+        "Arsenal::PoolOf", "WeaponCatalog::get_All", "WeaponCatalog::For", "WeaponType::get_AmmoName",
         // SoundTap (§4.2): the emitted sound as its recipients are sent it; SoundClassifier: the weapon table's sound names.
         "EmittedSound::get_Origin", "EmittedSound::get_Owner", "EmittedSound::get_Recipients", "EmittedSound::get_SoundLevel",
         "EmittedSound::get_SoundName", "SoundRecipients::SoundLevelToAttenuation",

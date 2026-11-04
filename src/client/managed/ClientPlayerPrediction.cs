@@ -1272,7 +1272,7 @@ public sealed class ClientPlayerPrediction
 /// </summary>
 [ConCommand("cs_cl_player_predict_report",
             Help = "What the standalone player's prediction ring has seen")]
-public sealed class PlayerPredictReportCommand : IConCommand
+public sealed class PlayerPredictReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1289,7 +1289,7 @@ public sealed class PlayerPredictReportCommand : IConCommand
 
     }
 
-    public void Execute(string args) => _log.Msg(_prediction.Report() + "\n");
+    public void Execute() => _log.Msg(_prediction.Report() + "\n");
 }
 
 /// <summary>
@@ -1299,7 +1299,7 @@ public sealed class PlayerPredictReportCommand : IConCommand
 [ConCommand("cs_cl_player_predict_poke",
             Help = "cs_cl_player_predict_poke [offset] — corrupt the player's replayed slots " +
                    "at one offset until a compare witnesses it")]
-public sealed class PlayerPredictPokeCommand : IConCommand
+public sealed class PlayerPredictPokeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -1316,10 +1316,8 @@ public sealed class PlayerPredictPokeCommand : IConCommand
 
     }
 
-    public void Execute(string args)
+    public void Execute(int offset = 0)
     {
-        int offset = int.TryParse(args.Trim(), out int parsed) ? parsed : 0;
-
         _log.Msg(_prediction.Poke(offset)
             ? $"[SourceSharp] player prediction: poking offset {offset} until a compare sees it\n"
             : "[SourceSharp] player prediction: nothing ringed at that offset\n");

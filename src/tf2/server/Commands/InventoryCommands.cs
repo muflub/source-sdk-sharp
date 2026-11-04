@@ -16,19 +16,10 @@ namespace TF2.Server.Commands;
 /// </summary>
 [ConCommand("tf2_give", Help = "tf2_give <player entindex> <defindex>: grant an item into the local inventory.",
             Flags = ConVarFlags.Cheat)]
-public sealed class GiveItemCommand(LocalInventory inventory, ILog log) : IConCommand
+public sealed class GiveItemCommand(LocalInventory inventory, ILog log)
 {
-    public void Execute(string args)
+    public void Execute(int player, int defindex)
     {
-        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 2
-            || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int player)
-            || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int defindex))
-        {
-            log.Warning("[TF2/Inventory] usage: tf2_give <player entindex> <defindex>\n");
-            return;
-        }
-
         if (inventory.Grant(player, defindex) is { } item)
             log.Msg($"[TF2/Inventory] granted {item} to client {player}\n");
     }
@@ -41,23 +32,19 @@ public sealed class GiveItemCommand(LocalInventory inventory, ILog log) : IConCo
 /// </summary>
 [ConCommand("tf2_loadout", Help = "tf2_loadout <player entindex> [class]: the class loadout, slot by slot.")]
 public sealed class LoadoutCommand(TFLoadoutProvider loadout, LocalInventory inventory, ILog log,
-                                   ITFPlayerClasses? classes = null) : IConCommand
+                                   ITFPlayerClasses? classes = null)
 {
-    public void Execute(string args) => log.Msg(Describe(args));
+    public void Execute(int player, [Complete("scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer")] string? className = null) => log.Msg(Describe(player, className));
 
-    /// <summary>The text the command prints for <paramref name="args"/>.</summary>
-    public string Describe(string args)
+    /// <summary>The text the command prints.</summary>
+    public string Describe(int player, string? className = null)
     {
-        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length is < 1 or > 2 || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int player))
-            return "[TF2/Inventory] usage: tf2_loadout <player entindex> [class]\n";
-
         TFClass cls;
-        if (parts.Length == 2)
+        if (className is not null)
         {
-            int index = TFItemStrings.ClassIndex(parts[1]);
+            int index = TFItemStrings.ClassIndex(className);
             if (index is < 1 or > 9)
-                return $"[TF2/Inventory] no class {parts[1]} (scout .. engineer)\n";
+                return $"[TF2/Inventory] no class {className} (scout .. engineer)\n";
             cls = (TFClass)index;
         }
         else

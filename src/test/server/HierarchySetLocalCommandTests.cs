@@ -70,7 +70,7 @@ public class HierarchySetLocalCommandTests
 
         var command = new HierarchySetLocalCommand(engine, engine);
 
-        command.Execute(args);
+        command.RunLine(args, ((IEngineConsole)engine).Msg);
 
         // THE CONSOLE IS READ OUT OF THE RECORDER, not out of Log.Sink. The
         // command writes through the IEngineConsole it was given — which is
@@ -210,7 +210,7 @@ public class HierarchySetLocalCommandTests
     {
         var (calls, console) = Run("crate x 2 3");
 
-        Assert.Contains("'x' is not a number", console);
+        Assert.Contains("'local' needs three numbers", console);
         Assert.Empty(Writes(calls));
     }
 
@@ -219,7 +219,7 @@ public class HierarchySetLocalCommandTests
     {
         var (calls, console) = Run("crate 1 2 zzz");
 
-        Assert.Contains("'zzz' is not a number", console);
+        Assert.Contains("'local' needs three numbers", console);
         Assert.Empty(Writes(calls));
     }
 
@@ -261,10 +261,9 @@ public class HierarchySetLocalCommandTests
             System.Threading.Thread.CurrentThread.CurrentCulture =
                 new System.Globalization.CultureInfo("de-DE");
 
-            Assert.True(HierarchySetLocalCommand.TryVector(
-                ["crate", "1.5", "0", "0"], out Vector parsed, out _));
+            var (calls, _) = Run("crate 1.5 0 0");
 
-            Assert.Equal(1.5f, parsed.X);
+            Assert.Equal(1.5f, calls.Single(c => c.Member == "Entities.SetLocalTransform").ArgAs<Vector>(1).X);
         }
         finally
         {

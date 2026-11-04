@@ -50,7 +50,7 @@ namespace SourceSharp.Server;
 [ConCommand("cs_sv_teleport_probe",
     Help = "<move|jump> <targetname> <x> <y> <z>: put the named entity there, either "
          + "by writing its origin or by teleporting it. The gate's two arms.")]
-public sealed class TeleportProbeCommand : IConCommand
+public sealed class TeleportProbeCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -67,42 +67,19 @@ public sealed class TeleportProbeCommand : IConCommand
 
     }
 
-    public void Execute(string args)
+    public void Execute(TeleportProbeKind kind, string targetName, Vector destination)
     {
-        string[] words = args.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        bool jump = kind == TeleportProbeKind.Jump;
 
-        if (words.Length < 5)
-        {
-            _log.Msg("[SourceSharp/TeleportProbe] usage: cs_sv_teleport_probe "
-                  + "<move|jump> <targetname> <x> <y> <z>\n");
-            return;
-        }
-
-        bool jump = string.Equals(words[0], "jump", StringComparison.OrdinalIgnoreCase);
-
-        if (!jump && !string.Equals(words[0], "move", StringComparison.OrdinalIgnoreCase))
-        {
-            _log.Msg($"[SourceSharp/TeleportProbe] '{words[0]}' is neither 'move' nor 'jump'\n");
-            return;
-        }
-
-        if (!Number(words[2], out float x) || !Number(words[3], out float y)
-            || !Number(words[4], out float z))
-        {
-            _log.Msg("[SourceSharp/TeleportProbe] x, y and z must be numbers\n");
-            return;
-        }
-
-        var found = _entities.FindAllByName(words[1]);
+        var found = _entities.FindAllByName(targetName);
 
         if (found.Count == 0)
         {
-            _log.Msg($"[SourceSharp/TeleportProbe] nothing is called '{words[1]}'\n");
+            _log.Msg($"[SourceSharp/TeleportProbe] nothing is called '{targetName}'\n");
             return;
         }
 
         var handle = found[0];
-        var destination = new Vector(x, y, z);
         var from = _entities.GetOrigin(handle);
 
         if (jump)
@@ -117,17 +94,20 @@ public sealed class TeleportProbeCommand : IConCommand
         _log.Msg(string.Format(CultureInfo.InvariantCulture,
             "[SourceSharp/TeleportProbe] {0} '{1}' index={2} from {3:F1} {4:F1} {5:F1} "
           + "to {6:F1} {7:F1} {8:F1} distance {9:F1}\n",
-            jump ? "jump" : "move", words[1], _entities.GetIndex(handle),
+            jump ? "jump" : "move", targetName, _entities.GetIndex(handle),
             from.X, from.Y, from.Z, destination.X, destination.Y, destination.Z,
             Distance(from, destination)));
     }
-
-    private static bool Number(string word, out float value)
-        => float.TryParse(word, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
     private static float Distance(Vector a, Vector b)
     {
         float dx = a.X - b.X, dy = a.Y - b.Y, dz = a.Z - b.Z;
         return MathF.Sqrt(dx * dx + dy * dy + dz * dz);
     }
+}
+
+public enum TeleportProbeKind
+{
+    Move,
+    Jump,
 }

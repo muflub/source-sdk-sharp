@@ -92,7 +92,7 @@ public sealed class TeamCommandsTests
         var (services, control, settings) = Rig();
         var engine = ConsoleEngine();
 
-        new SwitchTeamsCommand(services, engine, engine).Execute("");
+        new SwitchTeamsCommand(services, engine, engine).Execute();
 
         Assert.Contains("switch True", control.Calls);
         Assert.Equal(5, settings.RestartGame);
@@ -108,7 +108,7 @@ public sealed class TeamCommandsTests
         var (services, control, settings) = Rig();
         var engine = Engine(dedicated: false, commandClient: new EntityHandle(7u), slotHoldingIt: 2);
 
-        new SwitchTeamsCommand(services, engine, engine).Execute("");
+        new SwitchTeamsCommand(services, engine, engine).Execute();
 
         Assert.Empty(control.Calls);
         Assert.Null(control.ResetScores);
@@ -127,7 +127,7 @@ public sealed class TeamCommandsTests
         var (services, control, settings) = Rig();
         var engine = ConsoleEngine();
 
-        new ScrambleTeamsCommand(services, engine, engine).Execute("");
+        new ScrambleTeamsCommand(services, engine, engine).RunLine("");
 
         Assert.Contains("scramble True", control.Calls);
         Assert.Equal(5, settings.RestartGame);
@@ -143,7 +143,7 @@ public sealed class TeamCommandsTests
         var (services, control, settings) = Rig();
         var engine = ConsoleEngine();
 
-        new ScrambleTeamsCommand(services, engine, engine).Execute("2");
+        new ScrambleTeamsCommand(services, engine, engine).RunLine("2");
 
         Assert.Contains("scramble True", control.Calls);
         Assert.Equal((true, false), control.ResetScores);
@@ -159,10 +159,7 @@ public sealed class TeamCommandsTests
         var (services, control, _) = Rig();
         var engine = ConsoleEngine();
 
-        new ScrambleTeamsCommand(services, engine, engine).Execute("3");
-        Assert.Null(control.ResetRounds);
-
-        new ScrambleTeamsCommand(services, engine, engine).Execute("2 2");
+        new ScrambleTeamsCommand(services, engine, engine).RunLine("3");
         Assert.Null(control.ResetRounds);
     }
 }

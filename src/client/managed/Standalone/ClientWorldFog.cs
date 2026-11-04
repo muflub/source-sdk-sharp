@@ -182,7 +182,7 @@ public sealed class ClientWorldFog
 [ConCommand("cs_cl_fog",
             Help = "Whether the viewer's world fog is reaching this client: passes, "
                  + "pushes, clears, and whether a viewer was found.")]
-public sealed class ClientWorldFogReportCommand : IConCommand
+public sealed class ClientWorldFogReportCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -199,7 +199,7 @@ public sealed class ClientWorldFogReportCommand : IConCommand
         _fog = fog;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         ClientWorldFog? fog = _fog;
 

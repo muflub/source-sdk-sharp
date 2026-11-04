@@ -767,16 +767,30 @@ public sealed partial class ServiceFlowTests
     //-------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("3 down", true, 3, TravelDirection.Down)]
-    [InlineData("3 UP", true, 3, TravelDirection.Up)]
-    [InlineData("0 down", false, 0, TravelDirection.Down)]
-    [InlineData("3", false, 0, TravelDirection.Down)]
-    [InlineData("3 sideways", false, 0, TravelDirection.Down)]
-    [InlineData("x down", false, 0, TravelDirection.Down)]
-    public void The_travel_command_takes_a_slot_and_a_direction(string args, bool ok, int slot, TravelDirection direction)
+    [InlineData("3 UP", true)]
+    [InlineData("0 down", false)]
+    [InlineData("3", false)]
+    [InlineData("3 sideways", false)]
+    [InlineData("3 corpse", false)]
+    [InlineData("x down", false)]
+    public void The_travel_command_takes_a_slot_and_a_direction(string line, bool runs)
     {
-        Assert.Equal(ok, TravelCommand.TryParse(args, out int s, out var d));
-        Assert.Equal((slot, direction), (s, d));
+        var (w, travel, _) = Travel();
+        w.Link.Calls.Clear();
+        var refused = new List<string>();
+
+        new TravelCommand(travel).RunLine(line, refused.Add);
+
+        Assert.Equal(!runs, refused.Count == 1);
+        Assert.Equal(runs, w.Link.Calls.Contains("travel 76561197960287930 Up hub"));
+    }
+
+    [Fact]
+    public void The_travel_command_binds()
+    {
+        var (typed, unbound) = ConCommandLines.Census(typeof(TravelCommand).Assembly);
+        Assert.True(typed > 0, $"{typed}");
+        Assert.Empty(unbound);
     }
 
     [Fact]
@@ -785,7 +799,7 @@ public sealed partial class ServiceFlowTests
         var (w, travel, _) = Travel();
         w.Link.Calls.Clear();
 
-        new TravelCommand(travel, w.Log).Execute("3 down");
+        new TravelCommand(travel).RunLine("3 down");
 
         Assert.Contains("travel 76561197960287930 Down hub", w.Link.Calls);
     }

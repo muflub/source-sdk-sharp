@@ -17,15 +17,14 @@ namespace SourceSharp.Server;
     Help = "Lag compensation: each slot's history and client words; with <shooter slot> <ticks back>, "
          + "a rewind probe that reads every other player's place and a shot trace during and after.")]
 public sealed class LagCompensationCommand(LagCompensation lag, ILagCompensationWorld world,
-                                           IEngineWorldQuery trace, IEngineConsole console) : IConCommand
+                                           IEngineWorldQuery trace, IEngineConsole console)
 {
-    public void Execute(string args)
+    public void Execute(int? slot = null, int? back = null)
     {
-        string[] argv = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var text = new StringBuilder();
 
-        if (argv.Length >= 2 && int.TryParse(argv[0], out int slot) && int.TryParse(argv[1], out int back))
-            Probe(text, slot, back);
+        if (slot is { } who && back is { } ticks)
+            Probe(text, who, ticks);
         else
             Report(text);
 

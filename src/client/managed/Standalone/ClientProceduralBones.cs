@@ -171,7 +171,7 @@ public static class ClientProceduralBones
 [ConCommand("cs_procbones",
             Help = "Which live models have procedural or jiggle bones — the ones where " +
                    "a screenshot can tell the feature working from broken.")]
-public sealed class ProceduralBonesCommand : IConCommand
+public sealed class ProceduralBonesCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -187,9 +187,11 @@ public sealed class ProceduralBonesCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter = "")
     {
-        foreach (string line in ClientProceduralBones.Report(_standalones.Live(), _render, args.Trim()))
+        foreach (string line in ClientProceduralBones.Report(_standalones.Live(), _render, filter))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }
@@ -216,7 +218,7 @@ public sealed class ProceduralBonesCommand : IConCommand
 [ConCommand("cs_playseq",
             Help = "cs_playseq <classname-filter> <sequence-name> [rate]. Plays one named " +
                    "sequence on every matching client entity, for this viewer only.")]
-public sealed class PlaySequenceCommand : IConCommand
+public sealed class PlaySequenceCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -232,20 +234,12 @@ public sealed class PlaySequenceCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, string sequence, float rate = 1f)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 2)
-        {
-            _log.Msg("[SourceSharp/Client] cs_playseq <classname-filter> <sequence-name> [rate]\n");
-            return;
-        }
-
-        float rate = parts.Length > 2 && float.TryParse(parts[2], out float r) ? r : 1f;
-
         foreach (string line in ClientProceduralBones.Play(_standalones.Live(), _render,
-                                                           parts[0], parts[1], rate))
+                                                           filter, sequence, rate))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }

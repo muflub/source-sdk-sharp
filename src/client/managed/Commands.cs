@@ -6,14 +6,14 @@ namespace SourceSharp.Client;
 
 /// <summary>Client console commands. See the server-side equivalent.</summary>
 [ConCommand("cs_hello_client", Help = "Say hello from C# (client)")]
-public sealed class HelloClientCommand(ILog log) : IConCommand
+public sealed class HelloClientCommand(ILog log)
 {
-    public void Execute(string args)
-        => log.Msg($"[SourceSharp/Client] hello from C#! args='{args}'\n");
+    public void Execute([Rest] string text = "")
+        => log.Msg($"[SourceSharp/Client] hello from C#! args='{text}'\n");
 }
 
 [ConCommand("cs_status_client", Help = "Print SourceSharp client status")]
-public sealed class StatusClientCommand : IConCommand
+public sealed class StatusClientCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -27,7 +27,7 @@ public sealed class StatusClientCommand : IConCommand
         _stats = stats;
     }
 
-    public void Execute(string args)
+    public void Execute()
     {
         _log.Msg($"[SourceSharp/Client] {SharedInfo.Version}\n");
         _log.Msg($"[SourceSharp/Client] frames since level init: {_stats.FrameCount}\n");
@@ -65,7 +65,7 @@ public sealed class StatusClientCommand : IConCommand
 [ConCommand("cs_setskin",
             Help = "cs_setskin <classname-filter> <n>. Draws every matching client " +
                    "entity with skin n, for this viewer only.")]
-public sealed class SetSkinCommand : IConCommand
+public sealed class SetSkinCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -81,21 +81,15 @@ public sealed class SetSkinCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, int skin)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 2 || !int.TryParse(parts[1], out int skin))
-        {
-            _log.Msg("[SourceSharp/Client] cs_setskin <classname-filter> <n>\n");
-            return;
-        }
-
         int touched = 0;
 
         foreach (var entity in _standalones.Live())
         {
-            if (!entity.ClassName.Contains(parts[0], StringComparison.OrdinalIgnoreCase))
+            if (!entity.ClassName.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             _render.SetSkin(entity.Handle, skin);
@@ -112,7 +106,7 @@ public sealed class SetSkinCommand : IConCommand
 [ConCommand("cs_setscale",
             Help = "cs_setscale <classname-filter> <scale>. Resizes every matching " +
                    "client entity, for this viewer only. Zero and below are refused.")]
-public sealed class SetModelScaleCommand : IConCommand
+public sealed class SetModelScaleCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -128,23 +122,15 @@ public sealed class SetModelScaleCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, float scale)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 2 ||
-            !float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture,
-                            out float scale))
-        {
-            _log.Msg("[SourceSharp/Client] cs_setscale <classname-filter> <scale>\n");
-            return;
-        }
-
         int touched = 0;
 
         foreach (var entity in _standalones.Live())
         {
-            if (!entity.ClassName.Contains(parts[0], StringComparison.OrdinalIgnoreCase))
+            if (!entity.ClassName.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             _render.SetModelScale(entity.Handle, scale);
@@ -165,7 +151,7 @@ public sealed class SetModelScaleCommand : IConCommand
 [ConCommand("cs_ragdoll",
             Help = "cs_ragdoll <classname-filter> [fx fy fz]. Turns every matching " +
                    "client entity into a ragdoll, for this viewer only.")]
-public sealed class BecomeRagdollCommand : IConCommand
+public sealed class BecomeRagdollCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -180,37 +166,21 @@ public sealed class BecomeRagdollCommand : IConCommand
         _ragdolls = ragdolls;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter, Vector? force = null)
     {
-        string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 1)
-        {
-            _log.Msg("[SourceSharp/Client] cs_ragdoll <classname-filter> [fx fy fz]\n");
-            return;
-        }
-
-        Vector force = default;
-
-        if (parts.Length >= 4 &&
-            float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float fx) &&
-            float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float fy) &&
-            float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float fz))
-        {
-            force = new Vector(fx, fy, fz);
-        }
-
         int asked = 0;
         int became = 0;
 
         foreach (var entity in _standalones.Live())
         {
-            if (!entity.ClassName.Contains(parts[0], StringComparison.OrdinalIgnoreCase))
+            if (!entity.ClassName.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             asked++;
 
-            if (_ragdolls.Become(entity.Handle, force, -1, out _))
+            if (_ragdolls.Become(entity.Handle, force ?? default, -1, out _))
                 became++;
         }
 
@@ -240,9 +210,9 @@ public sealed class BecomeRagdollCommand : IConCommand
 /// </summary>
 [ConCommand("cs_vtable_client", Help = "Acquire IVEngineClient through its vtable and "
                                      + "exercise the four C++ proxies")]
-public sealed class VtableClientCommand(IFwdEngineClientProbe probe, IFwdEngineClient client, ILog log) : IConCommand
+public sealed class VtableClientCommand(IFwdEngineClientProbe probe, IFwdEngineClient client, ILog log)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         // Through this composition's own engine (plan_abi_hotreload D8).
         if (!probe.Served(out string why))

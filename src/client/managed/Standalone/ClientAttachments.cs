@@ -112,7 +112,7 @@ public static class ClientAttachments
 [ConCommand("cs_attachments",
             Help = "List every client entity's attachment points, in world space. " +
                    "Optional filter matches part of a classname.")]
-public sealed class AttachmentsCommand : IConCommand
+public sealed class AttachmentsCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -128,9 +128,11 @@ public sealed class AttachmentsCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    private IEnumerable<string> Classes() => _standalones.Live().Select(e => e.ClassName).Distinct();
+
+    public void Execute([Complete(From = nameof(Classes))] string filter = "")
     {
-        foreach (string line in ClientAttachments.Report(_standalones.Live(), _render, args.Trim()))
+        foreach (string line in ClientAttachments.Report(_standalones.Live(), _render, filter))
             _log.Msg($"[SourceSharp/Client] {line}\n");
     }
 }

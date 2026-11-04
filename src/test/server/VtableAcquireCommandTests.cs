@@ -35,7 +35,7 @@ public unsafe class VtableAcquireCommandTests
     {
         var log = new ListLog();
 
-        new VtableAcquireCommand(new Interfaces(), log).Execute("");
+        new VtableAcquireCommand(new Interfaces(), log).Execute();
 
         Assert.Equal(["[SourceSharp/Vtable] random probe\n", "[SourceSharp/Vtable] model info probe\n",
                       "[SourceSharp/Vtable] filesystem probe\n", "[SourceSharp/Vtable] engine server probe\n",

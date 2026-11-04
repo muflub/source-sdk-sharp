@@ -9,9 +9,9 @@ namespace SourceSharp.Client.Beams;
 /// executor never reached.
 /// </summary>
 [ConCommand("cs_cl_beams", Help = "the managed beams: created, refused, drawn, and each live one")]
-public sealed class BeamsCommand(ILog log, IClientBeams beams, ClientBeamSystem system) : IConCommand
+public sealed class BeamsCommand(ILog log, IClientBeams beams, ClientBeamSystem system)
 {
-    public void Execute(string args)
+    public void Execute()
     {
         BeamCounters c = beams.Counters;
 

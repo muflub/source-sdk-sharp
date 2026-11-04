@@ -111,7 +111,7 @@ public static class ServerAttachments
             Help = "cs_sv_attachments <classname>. Every server entity of that class, its " +
                    "skeleton and its attachment points in world space, in the shape " +
                    "cs_attachments prints on the client. Run both and compare.")]
-public sealed class ServerAttachmentsCommand : IConCommand
+public sealed class ServerAttachmentsCommand
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -127,23 +127,17 @@ public sealed class ServerAttachmentsCommand : IConCommand
         _render = render;
     }
 
-    public void Execute(string args)
+    public void Execute([Complete(From = nameof(Classes))] string className)
     {
-        string className = args.Trim();
-
         // An EXACT classname, where the client's report takes a substring, and
         // the asymmetry is the directory's rather than a preference:
         // IEntityDirectory answers OfClass and has no "everything" -- the
         // server's live table is the registry's own and is not enumerable from
         // out here. Asked for rather than guessed at, because the comparison
         // this exists for is always about a named entity anyway.
-        if (className.Length == 0)
-        {
-            _log.Msg("[SourceSharp/Server] cs_sv_attachments <classname>\n");
-            return;
-        }
-
         foreach (string line in ServerAttachments.Report(_entities.OfClass(className), _render))
             _log.Msg($"[SourceSharp/Server] {line}\n");
     }
+
+    private IEnumerable<string> Classes() => _entities.DescribeClasses().Select(c => c.ClassName);
 }

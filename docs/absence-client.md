@@ -234,21 +234,11 @@ Owner: **C8**. Waits for: a client-side absolute velocity for standalone
 entities (from interpolation, or the server's), handed to `IManagedParticleSource`'s
 emit — `ParticleEmit` would grow a velocity field.
 
-## 12. `playsoundscape` completes no names — managed commands have no completion
+## 12. `playsoundscape` completes names again (closed)
 
-Stock's `playsoundscape` registered `SoundscapeCompletion`, which listed the
-parsed soundscapes beginning with what had been typed. The client soundscape
-system is C# now (`ClientSoundscapes`, sound cluster 17, lane c2-sims) and
-its commands are `[ConCommand]` classes, which register through
-`IEngineConsole.RegisterConCommand` with no completion callback. The command
-itself, `stopsoundscape`, `cl_soundscape_flush`,
-`cl_soundscape_printdebuginfo` and `cs_cl_soundscape_report` behave as
-before.
-
-**What is absent:** tab completion of soundscape names after `playsoundscape `.
-
-Owner: **C8**. Waits for: a completion hook on managed commands (a generic
-`IManagedConsole` completion slot), which every managed command could use.
+Stock's `SoundscapeCompletion` listed the parsed soundscapes beginning with what
+had been typed. `[Complete]` on the command's name parameter does the same from
+`ClientSoundscapes.Library`.
 
 ## 13. Ash falls where stock's Linux build drops it — a ruled divergence, not an absence
 
