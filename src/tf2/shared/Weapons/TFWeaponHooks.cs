@@ -85,6 +85,27 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     public bool ReloadsWithWholeClip(in TFWeaponHookContext weapon) =>
         weapon.Item is { } item && attributes.Int(0, "set_scattergun_no_reload_single", item) == 1;
 
+    /// <summary><c>MustBeZoomedToFire</c>' attribute (tf_weapon_sniperrifle.cpp:708-713).</summary>
+    public bool OnlyFireZoomed(in TFWeaponHookContext weapon) =>
+        weapon.Item is { } item && attributes.Int(0, "sniper_only_fire_zoomed", item) != 0;
+
+    /// <summary>
+    /// <c>MaybeDrawRailgunBeam</c>'s arms (tf_player_shared.cpp:10103-10115):
+    /// the hook, its hidden variant asked only when the first is unset, and
+    /// last the charge rage buff on the shooter — the rifle this behaviour
+    /// answers for is a sniper rifle, so the buff arm holds without the
+    /// <c>WeaponID_IsSniperRifle</c> test.
+    /// </summary>
+    public bool FiresTracer(in TFWeaponHookContext weapon)
+    {
+        if (weapon.Item is { } item
+            && (attributes.Int(0, "sniper_fires_tracer", item) != 0
+                || attributes.Int(0, "sniper_fires_tracer_HIDDEN", item) != 0))
+            return true;
+
+        return weapon.Conditions?.Has(TFCond.SniperchargeRageBuff) == true;
+    }
+
     /// <summary><c>ApplyChargeSpeedModifications</c>' attribute (tf_weapon_sniperrifle.cpp:645).</summary>
     public float ModifyChargeRate(in TFWeaponHookContext weapon, float rate) =>
         attributes.Float(rate, "mult_sniper_charge_per_sec", weapon.Item);

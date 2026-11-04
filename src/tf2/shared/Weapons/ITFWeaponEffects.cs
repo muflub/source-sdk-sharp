@@ -37,6 +37,15 @@ public interface ITFWeaponEffects
     void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed);
 
     /// <summary>
+    /// <c>CTFPlayer::MaybeDrawRailgunBeam</c>
+    /// (<c>tf_player_shared.cpp:10094-10135</c>): the fired shot of a
+    /// <c>sniper_fires_tracer</c> item draws the rail particle between the
+    /// muzzle and the shot's end, team-coloured, the classic rifle's mode
+    /// taking the distortion trail.
+    /// </summary>
+    void Tracer(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <summary>
     /// <c>CTFPlayer::DoClassSpecialSkill</c>
     /// (<c>tf_player_shared.cpp:12330-12403</c>): the class's special a
     /// weapon's secondary reaches — the spy's cloak toggle and the demoman's
@@ -129,6 +138,7 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) { }
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) { }
+    public void Tracer(in WeaponAttackContext attack, TFWeaponScript script) { }
     public bool ClassSpecialSkill(in WeaponAttackContext attack) => false;
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }

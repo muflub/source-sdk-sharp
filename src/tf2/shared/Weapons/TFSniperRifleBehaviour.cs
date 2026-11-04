@@ -136,6 +136,33 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     private bool IsAiming(in WeaponAttackContext attack) =>
         attack.Command.OwnerIndex > 0 && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } c && c.Has(TFCond.Aiming);
 
+    /// <summary>The half-second floor between deny clicks (HandleNoScopeFireDeny's <c>m_flNextEmptySoundTime</c>, tf_weapon_sniperrifle.cpp:729).</summary>
+    public const float DenyClickInterval = 0.5f;
+
+    /// <summary>
+    /// <c>CTFSniperRifle::Fire</c>'s zoomed-only arm (tf_weapon_sniperrifle.cpp:794-800):
+    /// with <c>sniper_only_fire_zoomed</c> set (<c>MustBeZoomedToFire</c>
+    /// :708-713) an unzoomed attack never fires; <c>HandleNoScopeFireDeny</c>
+    /// (:718-731) clicks instead, at most twice a second on a held trigger. The
+    /// click rides the machine's deny-click clock as its empty-gun arm does, so
+    /// the half second holds on both sides' runs of one held press.
+    /// </summary>
+    public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
+    {
+        if (!base.BeforePrimaryAttack(in attack))
+            return false;
+
+        if (ScriptOf(attack.Type) is not { } script
+            || !Parts.Hooks.OnlyFireZoomed(Context(in attack, script))
+            || IsZoomed(in attack))
+            return true;
+
+        if (attack.EffectsLive)
+            attack.Arms.Sound(attack.Type.EmptySound);
+        attack.Weapon.NextPrimaryAttack = attack.Now + DenyClickInterval;
+        return false;
+    }
+
     public override void PrimaryAttack(in WeaponAttackContext attack)
     {
         base.PrimaryAttack(in attack);
@@ -157,6 +184,13 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
         }
 
         weapon.BehaviourMeter = 0f;
+
+        // MaybeDrawRailgunBeam (tf_player_shared.cpp:10103-10130): the fired
+        // shot of a tracer item draws the rail beam; the dispatch is the
+        // observable, decided once per shot on the live run.
+        if (attack.EffectsLive && ScriptOf(attack.Type) is { } script
+            && Parts.Hooks.FiresTracer(Context(in attack, script)))
+            Parts.Effects.Tracer(in attack, script);
     }
 
     public override void ItemPostFrame(in WeaponAttackContext attack)

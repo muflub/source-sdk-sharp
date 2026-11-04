@@ -184,6 +184,23 @@ public interface ITFWeaponHook : IOrderedHook
     /// on the whole-clip clock when the answer is the set's <c>== 1</c>.
     /// </summary>
     bool ReloadsWithWholeClip(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the rifle refuses its unzoomed shots (<c>sniper_only_fire_zoomed</c>,
+    /// <c>CTFSniperRifle::MustBeZoomedToFire</c>, tf_weapon_sniperrifle.cpp:708-713):
+    /// set, <c>Fire</c> (:794-800) denies an unzoomed attack with the
+    /// rate-limited dry click of <c>HandleNoScopeFireDeny</c> (:718-731).
+    /// </summary>
+    bool OnlyFireZoomed(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the fired shot draws the rail tracer
+    /// (<c>sniper_fires_tracer</c> / <c>sniper_fires_tracer_HIDDEN</c>,
+    /// <c>CTFPlayer::MaybeDrawRailgunBeam</c>, tf_player_shared.cpp:10103-10115):
+    /// set, or with the sniper's charge rage buff on, the shot asks the tracer
+    /// effect for its beam.
+    /// </summary>
+    bool FiresTracer(in TFWeaponHookContext weapon) => false;
 }
 
 /// <summary>
@@ -364,6 +381,44 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
             catch (Exception e)
             {
                 Report(hook, nameof(ITFWeaponHook.ReloadsWithWholeClip), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook whose item asks the zoomed-only arm turns the question yes.</summary>
+    public bool OnlyFireZoomed(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.OnlyFireZoomed(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.OnlyFireZoomed), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook whose item or owner asks the rail tracer turns the question yes.</summary>
+    public bool FiresTracer(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.FiresTracer(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.FiresTracer), e);
             }
         }
 

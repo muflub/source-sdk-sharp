@@ -141,16 +141,27 @@ public sealed class TFSpyComponent(
     {
         if (state.Conditions().Has(TFCond.Stealthed))
         {
+            // SetCloakRates' consume arm (tf_weapon_invis.cpp:325-338): the
+            // owner's mult_cloak_meter_consume_rate scales the drain, and the
+            // schema writes the value inverse-scaled, so below one it is
+            // corrected as stock's comment works out (:329-336).
+            float consumeFactor = hooks.Float(1f, "mult_cloak_meter_consume_rate", owners.ManagerOf(_index));
+            if (consumeFactor < 1f)
+                consumeFactor = 1f / (2f - consumeFactor);
+
             // The classic drain does not clamp (tf_player_shared.cpp:14204-14206):
             // the meter runs past zero and regenerates from the overshoot;
             // only the motion cloak's arm clamps (:14196-14199).
-            state.CloakMeter -= frametime * source.ConsumeRate.Value;
+            state.CloakMeter -= frametime * source.ConsumeRate.Value * consumeFactor;
             if (state.CloakMeter <= 0f)
                 FadeInvis(1f, now);
         }
         else
         {
-            state.CloakMeter += frametime * source.RegenRate.Value;
+            // SetCloakRates' regen arm (tf_weapon_invis.cpp:340-343): the
+            // owner's mult_cloak_meter_regen_rate multiplies the refill.
+            float regenFactor = hooks.Float(1f, "mult_cloak_meter_regen_rate", owners.ManagerOf(_index));
+            state.CloakMeter += frametime * source.RegenRate.Value * regenFactor;
             if (state.CloakMeter >= 100f)
                 state.CloakMeter = 100f;
         }

@@ -47,6 +47,13 @@ public interface ITFZoomEffects
     void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed);
 }
 
+/// <summary>The sniper's rail tracer on a tracer item's shot. One owner, <c>As = [typeof(ITFTracerEffects)]</c>.</summary>
+public interface ITFTracerEffects
+{
+    /// <inheritdoc cref="ITFWeaponEffects.Tracer"/>
+    void Tracer(in WeaponAttackContext attack, TFWeaponScript script);
+}
+
 /// <summary>Stage 2.7's arm: the melee smack's trace and hit. One owner, <c>As = [typeof(ITFMeleeEffects)]</c>.</summary>
 public interface ITFMeleeEffects
 {
@@ -91,6 +98,7 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
                                     ITFHealEffects? heal = null, ITFZoomEffects? zoom = null,
                                     ITFClassSkillEffects? skills = null, ITFItemSwitchEffects? itemSwitch = null,
                                     ITFMeleeEffects? melee = null, ITFMinigunEffects? minigun = null,
+                                    ITFTracerEffects? tracer = null,
                                     TFConceptSpeech? speech = null) : ITFWeaponEffects
 {
     private readonly TFConceptSpeech? _speech = speech;
@@ -112,6 +120,9 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
 
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed)
         => zoom?.Zoom(in attack, script, zoomed);
+
+    public void Tracer(in WeaponAttackContext attack, TFWeaponScript script)
+        => tracer?.Tracer(in attack, script);
 
     public bool ClassSpecialSkill(in WeaponAttackContext attack)
         => skills?.DoSpecialSkill(attack.Command.OwnerIndex) ?? false;
