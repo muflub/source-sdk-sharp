@@ -177,6 +177,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // below stamps outputs, thinks and saves with it, and there is no
         // process-wide default behind this container any more.
         _services.AddInstance<IGameClock>(_engine.Clock());
+        _services.AddInstance<IAlternateTicks>(_services.Create<AlternateTicks>());
 
         // The constraint, spring and motion-controller tables
         // (plan_physics_bones_native_zero 2.4): managed's own, calling vphysics
@@ -2064,7 +2065,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             var directory = _players;
             var callbacks = _physicsCallbacks;
             _physicsFrame = new PhysicsFrame(frameCalls, EnginePhysicsFrameNative.ForEngine(_engine),
-                new EnginePhysicsFrameClock(_services.Require<IEngineFrame>(), _services.Require<IEngineEnvironment>()),
+                new EnginePhysicsFrameClock(_services.Require<IEngineFrame>(), _services.Require<IEngineEnvironment>(), _services.Require<IAlternateTicks>()),
                 _services.Require<PlayerShadowBodies>(),
                 new PlayerShadowStress(frameCalls, _services.Require<IPhysicsSolverWorld>()),
                 () => directory.All.Select(p => p.Player), ev => _physicsRouter?.Post(ev),
@@ -2187,6 +2188,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                      _services.Require<IEngineConsole>(),
                                      _services.Require<DeveloperConVar>(), _services.Require<GLanguageConVar>(), _services.Require<SvTagsConVar>(),
                                      _services.Require<IEngineFrame>(),
+                                     _services.Require<IAlternateTicks>(),
                                      _stringTables,
                                      _services.Require<ManagedStringTable>(),
                                      _lifecycle,

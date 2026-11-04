@@ -1168,10 +1168,8 @@ static void *const s_VPhysicsKeyParserSlots[] = {
 static const SSForwarderTable s_VPhysicsKeyParserTable = { s_VPhysicsKeyParserSlots, 8 };
 
 //-----------------------------------------------------------------------------
-// ShimFrame: 13 forwarder(s) over IShimFrame.
+// ShimFrame: 12 forwarder(s) over IShimFrame.
 //-----------------------------------------------------------------------------
-// int32_t IShimFrame::IsSimulatingOnAlternateTicks( void )
-static int32_t SSFwd_ShimFrame_IsSimulatingOnAlternateTicks( IShimFrame *self ) { return self->IsSimulatingOnAlternateTicks(); }
 // int32_t IShimFrame::TickCount( void )
 static int32_t SSFwd_ShimFrame_TickCount( IShimFrame *self ) { return self->TickCount(); }
 // float IShimFrame::GetFrameTime( void )
@@ -1198,7 +1196,6 @@ static void SSFwd_ShimFrame_BeginModelCacheLock( IShimFrame *self ) { self->Begi
 static void SSFwd_ShimFrame_EndModelCacheLock( IShimFrame *self ) { self->EndModelCacheLock(); }
 
 static void *const s_ShimFrameSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimFrame_IsSimulatingOnAlternateTicks ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_TickCount ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_GetFrameTime ),
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_SetFrameTime ),
@@ -1213,7 +1210,7 @@ static void *const s_ShimFrameSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFrame_EndModelCacheLock ),
 };
 
-static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 13 };
+static const SSForwarderTable s_ShimFrameTable = { s_ShimFrameSlots, 12 };
 
 //-----------------------------------------------------------------------------
 // ShimLevel: 20 forwarder(s) over IShimLevel.

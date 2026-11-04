@@ -63,7 +63,6 @@ set(server_sourcesharp_sources
     ${SHARED}/convar_port.cpp
     ${SHARED}/dt_send.cpp
     ${SHARED}/engine_heap.cpp
-    ${SHARED}/entity_shared_statics.cpp
     ${SHARED}/fatal_report.cpp
     ${SHARED}/generic_payload.cpp
     ${SHARED}/loaded_symbol.cpp

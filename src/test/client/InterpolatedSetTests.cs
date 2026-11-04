@@ -40,17 +40,6 @@ public class InterpolatedSetTests
     public void WithNoTickIntervalThereIsNoDelay()
         => Assert.Equal(0f, InterpolationDelay.Amount(0.1f, 0f, alternateTicks: false));
 
-    [Fact]
-    public void OnlyASinglePlayerGameSimulatesOnAlternateTicks()
-    {
-        Assert.True(InterpolationDelay.AlternateTicks(1, true));
-        Assert.False(InterpolationDelay.AlternateTicks(8, true));
-    }
-
-    [Fact]
-    public void AlternateTicksNeedTheConVarOn()
-        => Assert.False(InterpolationDelay.AlternateTicks(1, false));
-
     //=========================================================================
     // The set.
     //=========================================================================

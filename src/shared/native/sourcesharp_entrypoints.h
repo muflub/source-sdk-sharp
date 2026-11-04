@@ -29,7 +29,7 @@
 #include "sourcesharp.h"
 
 //---------------------------------------------------------------------------
-// SERVER ONLY -- 7 slots.
+// SERVER ONLY -- 6 slots.
 //
 // Served by the server's shim areas (docs/engineapi-areas.tsv), so the
 // client has no body to declare.

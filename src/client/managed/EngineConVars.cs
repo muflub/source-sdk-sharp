@@ -164,10 +164,6 @@ public sealed class GlowOutlineEffectEnableConVar : BoolConVar { }
 [EngineConVar("cl_interpolate", Fallback = "1")]
 public sealed class ClInterpolateConVar : BoolConVar { }
 
-/// <summary>Whether a single-player game simulates on alternate ticks.</summary>
-[EngineConVar("sv_alternateticks")]
-public sealed class SvAlternateTicksConVar : BoolConVar { }
-
 /// <summary>The client's prediction switch, before the server's bound.</summary>
 [EngineConVar("cl_predict")]
 public sealed class ClPredictConVar : FloatConVar { }

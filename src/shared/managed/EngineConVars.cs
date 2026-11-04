@@ -2,6 +2,10 @@ using SourceSharp.Abi;
 
 namespace SourceSharp.Shared;
 
+/// <summary>Whether a single-player game simulates on alternate ticks.</summary>
+[EngineConVar("sv_alternateticks")]
+public sealed class SvAlternateTicksConVar : BoolConVar { }
+
 /// <summary>Whether cheats are on. Read wherever a cheat is gated; missing means off.</summary>
 [EngineConVar("sv_cheats")]
 public sealed class SvCheatsConVar : BoolConVar { }

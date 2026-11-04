@@ -1275,7 +1275,7 @@ def self_test(out=sys.stdout):
     every_names = list(slots_of(interface_entry('ShimFrameVtbl')))
     ok('an every row forwards each slot, in the header\'s order',
        every_row['methods'] == every_names and len(every_names) > 1
-       and every_names[0] == 'IsSimulatingOnAlternateTicks')
+       and every_names[0] == 'TickCount')
     try:
         resolved(dict(struct='ShimFrameVtbl', every=True, methods=['TickCount']))
         every_refused = False

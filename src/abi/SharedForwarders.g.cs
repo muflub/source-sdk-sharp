@@ -942,16 +942,13 @@ internal unsafe struct VPhysicsKeyParserFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimFrame</c> through its forwarders (SSFwd_ShimFrame): 13 slot(s).
+/// <c>IShimFrame</c> through its forwarders (SSFwd_ShimFrame): 12 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimFrameFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimFrame";
-
-    // int32_t IShimFrame::IsSimulatingOnAlternateTicks( void )
-    public delegate* unmanaged<void*, int> IsSimulatingOnAlternateTicks;
 
     // int32_t IShimFrame::TickCount( void )
     public delegate* unmanaged<void*, int> TickCount;

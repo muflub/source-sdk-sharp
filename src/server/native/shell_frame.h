@@ -38,7 +38,6 @@ public:
 	CServerFrame& operator=(const CServerFrame&) = delete;
 
 	// gameinterface.cpp:1326. C# does the branching.
-	int32_t IsSimulatingOnAlternateTicks() override;
 
 	// For the `tickcount & 1` test; Globals is unavailable on this path.
 	int32_t TickCount() override;

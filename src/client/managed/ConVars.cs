@@ -309,7 +309,7 @@ public sealed class VCollideWireframeConVar : BoolConVar
         => LastSweep = Sweep?.Invoke() ?? 0;
 }
 
-// sv_alternateticks is the engine's (convar_ownership.h); read by name natively.
+// sv_alternateticks is the engine's (convar_ownership.h); SvAlternateTicksConVar holds it.
 
 /// <summary>
 /// How long a soundscape takes to crossfade into the next one. From

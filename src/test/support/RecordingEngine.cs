@@ -464,7 +464,6 @@ public sealed class RecordingEngine :
     // Frame -- plan_gamedll.md Part 4's fifteen steps. The recording is the
     // CALL LIST, which is what lets one fact assert the frame's order as a
     // sequence rather than as a set.
-    bool IEngineFrame.IsSimulatingOnAlternateTicks() => Record<bool>("Frame.IsSimulatingOnAlternateTicks");
     int IEngineFrame.TickCount() => Record<int>("Frame.TickCount");
     float IEngineFrame.GetFrameTime() => Record<float>("Frame.GetFrameTime");
     void IEngineFrame.SetFrameTime(float frameTime) => RecordVoid("Frame.SetFrameTime", frameTime);

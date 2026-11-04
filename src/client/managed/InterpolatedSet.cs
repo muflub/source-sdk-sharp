@@ -31,13 +31,6 @@ public static class InterpolationDelay
         int ticks = (int)(0.5f + clientInterp / tickInterval);
         return tickInterval * (ticks + (alternateTicks ? 2 : 1));
     }
-
-    /// <summary>
-    /// <c>CBaseEntity::IsSimulatingOnAlternateTicks</c>: only a single-player
-    /// game simulates on alternate ticks, and only with sv_alternateticks.
-    /// </summary>
-    public static bool AlternateTicks(int maxClients, bool alternateTicksConVar)
-        => maxClients == 1 && alternateTicksConVar;
 }
 
 /// <summary>

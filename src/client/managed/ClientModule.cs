@@ -1139,6 +1139,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // Beside the engine rather than down with the game services: the clock
         // forwards to the engine's own and is one of the same leaves.
         _services.AddInstance<IGameClock>(_clock);
+        _services.AddInstance<IAlternateTicks>(_services.Create<AlternateTicks>());
 
         // This side's seed source for entity-owned random streams, seeded once
         // from the engine's uniform stream. One per side's container.
@@ -1208,14 +1209,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // InterpolatedSet's (lane M1-A): the shell's list is every block, and
         // the admitted set goes back for its PreRender walk.
         IEngineEnvironment interpEnvironment = _services.Require<IEngineEnvironment>();
-        var interpAlternateTicks = _services.Require<SvAlternateTicksConVar>();
+        var interpAlternateTicks = _services.Require<IAlternateTicks>();
         _interpolationBlocks = new InterpolatedSet(
             _services.Require<IEngineEntities>().InterpolationBlocks,
             () => (_prediction?.DrivenHandle ?? EntityHandle.None).Value,
             () => interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.IntervalPerTick : 0f,
-            () => InterpolationDelay.AlternateTicks(
-                interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.MaxClients : 0,
-                interpAlternateTicks.Value),
+            () => interpAlternateTicks.Simulating,
             _services.Require<IInterpolationAdmission>());
 
         // AND THE GATE THE RENDER PASS OPENS ON (stock's InterpolateServerEntities

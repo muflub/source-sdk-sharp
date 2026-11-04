@@ -108,6 +108,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     private readonly GLanguageConVar _language;
     private readonly ServerTags _tags;
     private readonly IEngineFrame _frame;
+    private readonly IAlternateTicks _alternateTicks;
     private readonly StringTableRegistry _stringTables;
 
     // A3: the lifecycle driver, so that the PRE-ENTITY half of level init has
@@ -175,7 +176,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     public ServerGameDll(ILog log, IEngineEnvironment environment, ConVarRegistry convars, IEngineHost host,
                          ILocalCommandLine commandLine, IEngineLevel level, IEngineEntities entities, IEngineConsole console,
                          DeveloperConVar developer, GLanguageConVar language, SvTagsConVar tags,
-                         IEngineFrame frame, StringTableRegistry stringTables,
+                         IEngineFrame frame, IAlternateTicks alternateTicks, StringTableRegistry stringTables,
                          ManagedStringTable modTable, LifecycleDriver lifecycle,
                          TemplateStore templates, MapSpawner spawner,
                          EntityIoRoutes io,
@@ -204,6 +205,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         _host = host;
         _console = console;
         _frame = frame;
+        _alternateTicks = alternateTicks;
         _stringTables = stringTables;
         _modTable = modTable;
         TickInterval = TickIntervalFor(TickRateOn(commandLine));
@@ -1300,7 +1302,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         // alternate-tick server is a configuration almost nobody runs locally,
         // so a cleverer version of this would be wrong in a place nobody looks.
         // Read it against stock line for line; that is what it is for.
-        if (_frame.IsSimulatingOnAlternateTicks())
+        if (_alternateTicks.Simulating)
         {
             // "only run simulation on even numbered ticks"
             if ((_frame.TickCount() & 1) != 0)

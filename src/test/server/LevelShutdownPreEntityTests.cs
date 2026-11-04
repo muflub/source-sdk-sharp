@@ -80,7 +80,7 @@ public class LevelShutdownPreEntityTests
         var (stringTables, modTable) = TestStringTables.For(engine);
 
         return new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine,
-                                 engine, DeclaredConVars.Fresh<DeveloperConVar>(), DeclaredConVars.Fresh<GLanguageConVar>(), DeclaredConVars.Fresh<SvTagsConVar>(), engine, stringTables, modTable, driver,
+                                 engine, DeclaredConVars.Fresh<DeveloperConVar>(), DeclaredConVars.Fresh<GLanguageConVar>(), DeclaredConVars.Fresh<SvTagsConVar>(), engine, new StubAlternateTicks(), stringTables, modTable, driver,
                                  new TemplateStore(new RecordingLog()),
                                  // plan_entity.md step 2d. Nothing here loads a
                                  // map; the spawner is a constructor argument.

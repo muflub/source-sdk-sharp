@@ -31,7 +31,6 @@ src/sourcesharp/game/server/shell_sharedappsystems.cpp	OURS	relocated Valve code
 src/sourcesharp/game/server/shell_stringtables.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/server/world_adapter.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/shared/collisionproperty.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
-src/sourcesharp/game/shared/entity_shared_statics.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/shared/particle_manifest.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/client/sound_emitter.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27
 src/sourcesharp/game/shared/takedamageinfo_library.cpp	OURS	relocated Valve code, kept local by user decision 2026-09-27

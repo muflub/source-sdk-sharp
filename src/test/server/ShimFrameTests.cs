@@ -44,7 +44,7 @@ public unsafe class ShimFrameTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void TheShimFrameTableHasThirteenSlots()
+    public void TheShimFrameTableHasTwelveSlots()
         // One forwarder per method IShimFrame declares (an every=True row in
         // tools/engine-forwarders), and nothing else.
         //
@@ -55,7 +55,8 @@ public unsafe class ShimFrameTests
         // plan_server_native_v2 T4e retired the three system walks and appended
         // DrainEntitySlots and the model-cache lock's two ends. Thirteen after
         // the serialised ABI pass (2026-10-20) removed the six retired steps.
-        => Assert.Equal(13, Forwarders.SlotCount<ShimFrameFwd>());
+        // Twelve when IsSimulatingOnAlternateTicks moved to managed.
+        => Assert.Equal(12, Forwarders.SlotCount<ShimFrameFwd>());
 
     [Fact]
     public void EveryShimFrameFieldIsPointerSized()
@@ -64,31 +65,31 @@ public unsafe class ShimFrameTests
         // describing one is its field count times eight and nothing else. A
         // field that was not pointer-sized would make every slot below it read
         // the wrong entry.
-        Assert.Equal(13 * sizeof(void*), sizeof(ShimFrameFwd));
+        Assert.Equal(12 * sizeof(void*), sizeof(ShimFrameFwd));
     }
 
     [Fact]
-    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotTwelve()
+    public void TheFirstFieldIsSlotZeroAndTheLastIsSlotEleven()
     {
         // The generated file's own claim, read as BYTE OFFSETS rather than as
         // an order in a listing -- which is what the ABI actually cares about.
         var layout = typeof(ShimFrameFwd);
 
-        int first = (int)Marshal.OffsetOf(layout, "IsSimulatingOnAlternateTicks");
+        int first = (int)Marshal.OffsetOf(layout, "TickCount");
         int last = (int)Marshal.OffsetOf(layout, "EndModelCacheLock");
 
         Assert.Equal(0, first);
-        Assert.Equal(12 * sizeof(void*), last);
+        Assert.Equal(11 * sizeof(void*), last);
     }
 
     [Fact]
-    public void UpdateAllClientDataIsSlotFour()
+    public void UpdateAllClientDataIsSlotThree()
         // A MIDDLE SLOT, named, because the two ends agreeing does not say the
         // slots in between are in the header's order -- and a reorder in the
         // middle is precisely what the span check cannot see.
         // (PhysicsRunThinkFunctions, slot five, was the named one until the
         // serialised ABI pass removed it.)
-        => Assert.Equal(4 * sizeof(void*),
+        => Assert.Equal(3 * sizeof(void*),
                         (int)Marshal.OffsetOf(typeof(ShimFrameFwd),
                                               "UpdateAllClientData"));
 
@@ -130,9 +131,9 @@ public unsafe class ShimFrameTests
     {
         table = (void**)NativeMemory.AllocZeroed((nuint)Forwarders.SlotCount<ShimFrameFwd>(), (nuint)sizeof(void*));
 
-        table[1] = (delegate* unmanaged<void*, int>)&TickCountAnswers;
-        table[2] = (delegate* unmanaged<void*, float>)&GetFrameTimeAnswers;
-        table[4] = (delegate* unmanaged<void*, void>)&UpdateAllClientDataCounts;
+        table[0] = (delegate* unmanaged<void*, int>)&TickCountAnswers;
+        table[1] = (delegate* unmanaged<void*, float>)&GetFrameTimeAnswers;
+        table[3] = (delegate* unmanaged<void*, void>)&UpdateAllClientDataCounts;
 
         return NativeMemory.AllocZeroed(1, (nuint)sizeof(void*));
     }
@@ -166,7 +167,7 @@ public unsafe class ShimFrameTests
                  .SetValue(target, value);
 
     [Fact]
-    public void TickCountReachesSlotOneWhenTheGlobalVarsPointerIsNotBound()
+    public void TickCountReachesSlotZeroWhenTheGlobalVarsPointerIsNotBound()
     {
         // GPGLOBALS IS NOT BOUND IN A TEST PROCESS, which is what makes this
         // fact able to see the binding at all: on a live server TickCount reads
@@ -190,10 +191,10 @@ public unsafe class ShimFrameTests
     }
 
     [Fact]
-    public void GetFrameTimeReachesSlotTwoAndNotSlotOne()
+    public void GetFrameTimeReachesSlotOneAndNotSlotZero()
     {
-        // THE ARM THAT SAYS THE POSITION IS THE SLOT. Slot 1 answers an int and
-        // slot 2 a float; a member wired to its neighbour would come back with
+        // THE ARM THAT SAYS THE POSITION IS THE SLOT. Slot 0 answers an int and
+        // slot 1 a float; a member wired to its neighbour would come back with
         // the tick reinterpreted, not with a compile error.
         s_TickAnswer = 7;
 
@@ -385,12 +386,12 @@ public unsafe class ShimFrameTests
     [Fact]
     public void AStructLongerThanTheServedTableIsRefusedNamingBothNumbers()
     {
-        Assert.False(AcquireAgainstNative(nativeEntries: 12, out string why),
+        Assert.False(AcquireAgainstNative(nativeEntries: 11, out string why),
                      "a managed struct expecting more slots than native serves "
                      + "must not bind");
 
+        Assert.Contains("11", why);
         Assert.Contains("12", why);
-        Assert.Contains("13", why);
     }
 
     [Fact]

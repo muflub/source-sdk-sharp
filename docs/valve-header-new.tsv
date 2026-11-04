@@ -557,7 +557,7 @@ src/client/managed/LevelPrediction.cs	ports CHLClient::LevelInitPreEntity's cl_p
 src/client/managed/LightmapBicubicDefault.cs	ports CHLClient::PostInit's r_lightmap_bicubic default (cdll_client_int.cpp)
 src/client/managed/Standalone/StandaloneFade.cs	ports ComputeDistanceFade (cdll_util.cpp) and C_FuncAreaPortalWindow::GetDistanceBlend (c_func_areaportalwindow.cpp), with mathlib's RemapValClamped and CalcDistanceToAABB, as C_StandaloneEntity::ComputeFxBlend applied them
 src/client/managed/Standalone/BreakableSurfaceDraw.cs	ports C_BreakableSurface::FindCrackedMaterial and OnDataChanged's edge material lists, RenderBrushModelSurface's draw order and DrawSolidBlocks' runs of standing panes (c_func_breakablesurf.cpp)
-src/client/managed/InterpolatedSet.cs	ports C_BaseEntity::GetInterpolationAmount's networked arm and CBaseEntity::IsSimulatingOnAlternateTicks (c_baseentity.cpp, baseentity_shared.cpp), as StandaloneInterpolationAmount applied them, and C_StandaloneEntity::WantsInterpolation's filter
+src/client/managed/InterpolatedSet.cs	ports C_BaseEntity::GetInterpolationAmount's networked arm (c_baseentity.cpp), as StandaloneInterpolationAmount applied it, and C_StandaloneEntity::WantsInterpolation's filter
 src/client/managed/TempEnts/LocalTempEntSuppression.cs	ports C_TempEntsSystem::SuppressTE (c_te.cpp)
 src/client/managed/TempEnts/BulletImpactEffect.cs	ports ImpactCallback (hl2/fx_hl2_impacts.cpp), ParseImpactData, PerformCustomEffects and PlayImpactSound (fx_impact.cpp), GetColorForSurface, FX_DebrisFlecks and FX_DustImpact (c_impact_effects.cpp)
 src/client/managed/TempEnts/DecalSettings.cs	ports the r_decals gates of C_TEBSPDecal, C_TEWorldDecal and C_TEFootprintDecal (c_te_bspdecal.cpp, c_te_worlddecal.cpp, c_te_footprint.cpp) and AddStudioDecal's r_drawmodeldecals gate (c_baseentity.cpp)
@@ -1148,3 +1148,4 @@ src/tf2/shared/Weapons/TFFlameDefs.cs	ports the flame_* item attributes CTFFlame
 src/client/native/standalone_shadow_hull.h	ports the placing arm of C_ObjectSentrygun::GetShadowRenderBounds: the collision hull widened by bbBloat (10, 10, 0) (c_obj_sentrygun.cpp:588-597)
 src/tf2/shared/Buildings/TFObjectNetState.cs	networks m_bPlacing, CBaseObject::m_bPlacing (baseobject.h), the flag the placing arm reads
 src/tf2/server/Player/TFTauntAttack.cs	ports CTFPlayer::DoTauntAttack's box and high noon arms and Taunt's scene keys (tf_player.cpp:17979-18068, 18377-18451, 18613-18635)
+src/shared/managed/AlternateTicks.cs	ports CBaseEntity::IsSimulatingOnAlternateTicks (baseentity_shared.cpp)
