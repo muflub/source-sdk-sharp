@@ -23,10 +23,10 @@ namespace SourceSharp.Tests;
 /// three colours' worth of bytes where the next field reads.
 /// </para>
 /// </summary>
-public class TempEntColorAndAngleTests
+public partial class TempEntColorAndAngleTests
 {
     [TempEntity("CTeColourProbe", "DT_TeColourProbe")]
-    private sealed class ColourProbe : TempEntState
+    private sealed partial class ColourProbe : TempEntState
     {
         [TeProp(Bits = -1, Flags = TeFlags.Coord)]
         public Vector Origin;
@@ -133,7 +133,7 @@ public class TempEntColorAndAngleTests
     {
         TeClass c = Probe();
         var type = new TempEntType(c, handle: 1,
-                                   fields: BuildLookup(c), new RecordingLog());
+                                   fields: BuildLookup(c), c.Fields, new RecordingLog());
 
         var sent = new ColourProbe
         {
@@ -144,7 +144,7 @@ public class TempEntColorAndAngleTests
         };
 
         byte[] blob = sent.ToBlob(type);
-        var back = TempEntDeclarationReader.Read<ColourProbe>(new TempEntReader(type, blob));
+        var back = ColourProbe.ReadFrom(new TempEntReader(type, blob));
 
         Assert.True(back.Facing == sent.Facing,
             $"the facing came back {back.Facing}, sent {sent.Facing}");

@@ -32,7 +32,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeSparks : TeParticleSystem
+public partial class TeSparks : TeParticleSystem
 {
     /// <summary>How big. Four bits unsigned, so 0..15.</summary>
     [TeProp(Bits = 4, Flags = TeFlags.Unsigned)]

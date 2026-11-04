@@ -35,7 +35,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity("CTEBSPDecal", "DT_TEBSPDecal")]
-public class TeBspDecal : TeBaseTempEntity
+public partial class TeBspDecal : TeBaseTempEntity
 {
     /// <summary>Where the mark goes, in world space. One COORD vector prop.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

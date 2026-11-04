@@ -92,10 +92,33 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
         string TypeName,
         bool IsStruct,
         string Handler,
+        string Key,
         ImmutableArray<Field> Fields,
         ImmutableArray<Diagnostic> Diagnostics,
         Location? HandlerLocation,
         bool Emit);
+
+    /// <summary>UserMessageKey.Of's rule: a stock message's bare name, else the module and the id.</summary>
+    private static string KeyOf(AttributeData attribute, string? assembly)
+    {
+        string id = attribute.ConstructorArguments.Length > 0 ? attribute.ConstructorArguments[0].Value as string ?? "" : "";
+        foreach (var named in attribute.NamedArguments)
+        {
+            if (named.Key == "Stock" && named.Value.Value is true)
+                return id;
+        }
+
+        string module = assembly ?? "";
+        foreach (string suffix in new[] { ".Shared", ".Server", ".Client" })
+        {
+            if (module.EndsWith(suffix, System.StringComparison.Ordinal) && module.Length > suffix.Length)
+            {
+                module = module.Substring(0, module.Length - suffix.Length);
+                break;
+            }
+        }
+        return module + ":" + id;
+    }
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -154,6 +177,7 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
 
         var location = ctx.TargetNode is ClassDeclarationSyntax cls ? cls.Identifier.GetLocation() : handler.Locations.FirstOrDefault();
         string handlerName = handler.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        string messageKey = KeyOf(ctx.Attributes[0], ctx.SemanticModel.Compilation.AssemblyName);
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
 
         if (named.Count > 1)
@@ -168,7 +192,7 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
         string payloadKey = payload.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
         Described Refused() => new(payloadKey, null, ImmutableArray<string>.Empty, "", payload.Name, false,
-                                   handlerName, ImmutableArray<Field>.Empty, diagnostics.ToImmutable(), location, Emit: false);
+                                   handlerName, "", ImmutableArray<Field>.Empty, diagnostics.ToImmutable(), location, Emit: false);
 
         if (payload.DeclaringSyntaxReferences.IsEmpty
             || !SymbolEqualityComparer.Default.Equals(payload.ContainingAssembly, handler.ContainingAssembly))
@@ -324,6 +348,7 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
             payload.Name,
             payload.IsValueType,
             handlerName,
+            messageKey,
             fields.ToImmutable(),
             diagnostics.ToImmutable(),
             location,
@@ -458,6 +483,10 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
         sb.AppendLine("    /// <summary>The handler this payload is sent under: its [UserMessage] key is the key.</summary>");
         sb.Append("    static global::System.Type global::SourceSharp.Abi.IUserMessagePayload<").Append(self)
           .Append(">.Handler => typeof(").Append(d.Handler).AppendLine(");");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>The key the handler is registered under.</summary>");
+        sb.Append("    static string global::SourceSharp.Abi.IUserMessagePayload<").Append(d.TypeName)
+          .Append(">.Key => \"").Append(d.Key).AppendLine("\";");
         sb.AppendLine();
 
         //---------------------------------------------------------------------

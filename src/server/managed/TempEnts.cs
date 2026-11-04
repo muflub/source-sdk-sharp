@@ -5,7 +5,6 @@
 //
 //=============================================================================//
 
-using System.Reflection;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -873,20 +872,7 @@ public sealed class TempEnts : ITempEnts
     /// follows, misspell it and it does not compile.
     /// </para>
     /// </summary>
-    private TempEntType? Resolve(TempEntState state)
-    {
-        Type declared = state.GetType();
-        var attr = declared.GetCustomAttribute<TempEntityAttribute>();
-
-        if (attr is null)
-        {
-            _log.Warning($"[SourceSharp] {state.GetType().Name} has no [TempEntity] on it, so " +
-                        "there is no class name to resolve it by; nothing sent\n");
-            return null;
-        }
-
-        return Resolve(TempEntityAttribute.ClassNameOf(declared));
-    }
+    private TempEntType? Resolve(TempEntState state) => Resolve(state.ClassName);
 
     private TempEntType? Resolve(string className)
     {

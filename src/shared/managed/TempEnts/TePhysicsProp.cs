@@ -69,7 +69,7 @@ namespace SourceSharp.Shared;
 /// </summary>
 [Precache(PrecacheKind.Model, "models/gibs/hgibs.mdl")]   // CTEPhysicsProp::Precache, te_physicsprop.cpp:73
 [TempEntity]
-public class TePhysicsProp : TeBaseTempEntity
+public partial class TePhysicsProp : TeBaseTempEntity
 {
     /// <summary>Where the prop starts.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

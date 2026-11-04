@@ -35,7 +35,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamEntPoint : TeBaseBeam
+public partial class TeBeamEntPoint : TeBaseBeam
 {
     /// <summary>
     /// The entity the beam starts at, or 0 for "use the start point instead".

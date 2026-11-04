@@ -28,7 +28,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeSmoke : TeBaseTempEntity
+public partial class TeSmoke : TeBaseTempEntity
 {
     /// <summary>Where the puff is.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

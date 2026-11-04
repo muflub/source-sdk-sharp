@@ -37,7 +37,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamRing : TeBaseBeam
+public partial class TeBeamRing : TeBaseBeam
 {
     /// <summary>The entity the ring starts at, in <c>MAX_EDICT_BITS</c> bits.</summary>
     [TeProp(BitsFrom = TeBits.MaxEdict, Flags = TeFlags.Unsigned)]

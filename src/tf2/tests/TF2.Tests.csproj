@@ -35,11 +35,13 @@
     <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
     <Compile Include="..\..\test\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\..\test\common\TempEntPathCensus.cs" Link="common\TempEntPathCensus.cs" />
     <!-- The CI skip, for the facts that need a mounted Team Fortress 2 install. -->
     <Compile Include="..\..\test\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <!-- The core's entity doubles (stage 2.4): the map entities' facts spawn
          through a ScriptedEntityRegistry over a RecordingEngine, as the core's do. -->
     <Compile Include="..\..\test\common\TestServices.cs" Link="common\TestServices.cs" />
+    <Compile Include="..\..\test\common\TempEntFill.cs" Link="common\TempEntFill.cs" />
     <Compile Include="..\..\test\common\TestServices.Server.cs" Link="common\TestServices.Server.cs" />
     <Compile Include="..\..\test\common\TestVPhysics.cs" Link="common\TestVPhysics.cs" />
     <!-- A spawner for facts that are not about map spawning (plan_entity.md 2d):

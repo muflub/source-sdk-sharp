@@ -28,8 +28,8 @@ namespace SourceSharp.Shared;
 /// in the port where <c>TempEntState</c>'s inheritance does something more than
 /// spell a base out: <c>new TeArmorRicochet { Position = …, Direction = … }</c>
 /// sets two fields the class itself does not declare, and
-/// <c>TempEntDeclarationWriter.WriteChain</c> writes them root-first at the
-/// offsets the base's own layout gave them.
+/// the generated write puts them down root-first at the offsets the base's own
+/// layout gave them.
 /// </para>
 ///
 /// <para>
@@ -49,7 +49,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeArmorRicochet : TeMetalSparks
+public partial class TeArmorRicochet : TeMetalSparks
 {
     // No fields of its own. DT_TEArmorRicochet declares no props in stock and
     // declares none here; a caller reaches Position and Direction because they

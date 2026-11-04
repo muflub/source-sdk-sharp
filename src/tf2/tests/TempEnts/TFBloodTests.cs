@@ -42,6 +42,16 @@ public sealed class TFBloodTests
     // =====================================================================
 
     [Fact]
+    public void Nothing_on_the_blood_s_send_path_reads_the_metadata()
+    {
+        var (walked, reflective) = TempEntPathCensus.From(TempEntPathCensus.Methods(typeof(TFTempEnts), "Blood"));
+
+        Assert.Empty(reflective);
+        Assert.Contains("TF2.Shared.TeTFBlood..ctor", walked);
+        Assert.Contains("SourceSharp.Abi.TempEntState.ToBlob", walked);
+    }
+
+    [Fact]
     public void The_blood_tempent_decodes_what_the_server_sends()
     {
         var (temps, engine, registry) = ServerWriter();

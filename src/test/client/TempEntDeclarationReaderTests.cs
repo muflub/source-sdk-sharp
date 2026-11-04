@@ -6,8 +6,8 @@ using static SourceSharp.Tests.TestServices;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// <see cref="TempEntDeclarationReader"/> — the client half of the declaration
-/// form, and the inverse of <see cref="TempEntDeclarationWriter"/>.
+/// A declaration's generated read — the client half of the declaration form, and
+/// the inverse of its generated write.
 ///
 /// <para>
 /// THE ROUND TRIP IS A SOUND GATE HERE, which it is NOT for the writer alone.
@@ -66,7 +66,7 @@ public class TempEntDeclarationReaderTests
             Direction   = new Vector(0f, 0f, 1f),
         };
 
-        var back = TempEntDeclarationReader.Read<TeSparks>(
+        var back = TeSparks.ReadFrom(
                        new TempEntReader(type, Packed(sent, type)));
 
         // The BASE's field as well as its own: Origin is DT_TEParticleSystem's,
@@ -127,7 +127,7 @@ public class TempEntDeclarationReaderTests
 
         // AND THE DECLARATION FORM CANNOT LAND ON THE WRONG ONE, because the
         // value goes back into the byte it came out of.
-        var back = TempEntDeclarationReader.Read<TeShatterSurface>(
+        var back = TeShatterSurface.ReadFrom(
                        new TempEntReader(type, blob));
 
         Assert.True(back.FrontColorR == 200 && back.FrontColorG == 201 && back.BackColorR == 202,
@@ -157,7 +157,7 @@ public class TempEntDeclarationReaderTests
             },
         };
 
-        var back = TempEntDeclarationReader.Read<TeEffectDispatch>(
+        var back = TeEffectDispatch.ReadFrom(
                        new TempEntReader(type, Packed(sent, type)));
 
         Assert.True(Same(back.EffectData.Origin, sent.EffectData.Origin),
@@ -173,9 +173,9 @@ public class TempEntDeclarationReaderTests
     }
 
     /// <summary>
-    /// The inventory's one array, element for element. Reflection cannot see
-    /// past element zero of an <c>[InlineArray]</c>, so this is the shape most
-    /// likely to come back as one point and fifteen origins.
+    /// The inventory's one array, element for element. An <c>[InlineArray]</c>
+    /// declares one field, so this is the shape most likely to come back as one
+    /// point and fifteen origins.
     /// </summary>
     [Fact]
     public void TheSplineRunComesBackElementForElement()
@@ -189,7 +189,7 @@ public class TempEntDeclarationReaderTests
         for (int i = 0; i < TeBeamSpline.MaxSplinePoints; i++)
             sent.Spline[i] = Point(i);
 
-        var back = TempEntDeclarationReader.Read<TeBeamSpline>(
+        var back = TeBeamSpline.ReadFrom(
                        new TempEntReader(type, Packed(sent, type)));
 
         Assert.True(back.Points == 6, $"the count came back {back.Points}");
@@ -216,8 +216,7 @@ public class TempEntDeclarationReaderTests
         };
 
         var into = new TeSparks();
-        int filled = TempEntDeclarationReader.ReadChain(
-                         new TempEntReader(type, Packed(sent, type)), into);
+        int filled = into.ReadMembers(new TempEntReader(type, Packed(sent, type)));
 
         // Four: Origin from DT_TEParticleSystem, and Magnitude, TrailLength and
         // Direction of its own. An exact number rather than "more than zero",
@@ -261,7 +260,7 @@ public class TempEntDeclarationReaderTests
         float  scale     = byName.Float("Scale");
 
         // The new one: one object, one hand-over.
-        var byDeclaration = TempEntDeclarationReader.Read<TeEffectDispatch>(
+        var byDeclaration = TeEffectDispatch.ReadFrom(
                                 new TempEntReader(type, blob));
 
         Assert.True(byDeclaration.EffectData.EffectName == nameIndex,

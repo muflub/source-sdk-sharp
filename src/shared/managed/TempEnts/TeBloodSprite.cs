@@ -43,7 +43,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBloodSprite : TempEntState
+public partial class TeBloodSprite : TempEntState
 {
     /// <summary>Where the wound is. Stock's <c>m_vecOrigin</c>.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

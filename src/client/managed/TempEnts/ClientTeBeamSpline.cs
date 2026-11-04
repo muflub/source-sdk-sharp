@@ -116,9 +116,8 @@ public sealed class ClientTeBeamSpline : ClientTempEnt<TeBeamSpline>
     {
         // THE COUNT AND ALL SIXTEEN POINTS IN ONE READ. m_nPoints is five bits
         // UNSIGNED and the run is a DPT_Array at a stride of twelve; both facts
-        // are the declaration's, and TempEntDeclarationReader is the one place
-        // that reads an [InlineArray] element by element rather than stopping at
-        // element zero, which is what reflection does if nothing makes it walk.
+        // are the declaration's, and its generated read takes the [InlineArray]
+        // element by element.
 
         PointCount = te.Points;
 

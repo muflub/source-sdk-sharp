@@ -67,7 +67,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeParticleSystem : TeBaseTempEntity
+public partial class TeParticleSystem : TeBaseTempEntity
 {
     /// <summary>
     /// The particle effect's sort origin. Three COORD floats.

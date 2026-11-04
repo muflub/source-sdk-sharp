@@ -15,7 +15,8 @@ namespace SourceSharp.Abi;
 ///
 /// <para>
 /// IT IS THE WRITER'S MIRROR AND NOT A SECOND OPINION. Both address by wire
-/// name through <see cref="TempEntType.Fields"/> — this class's own fields and
+/// name through <see cref="TempEntType.Fields"/>, or by position through
+/// <see cref="TempEntType.Slots"/> — this class's own fields and
 /// its base chain's — so a field the server packed at offset 12 is the field
 /// the client reads at offset 12, because one <see cref="TeClass"/> produced
 /// both numbers. There is nothing here for the two sides to disagree about,
@@ -85,13 +86,7 @@ public readonly ref struct TempEntReader
         if (!Slot(name, out TeField field, out ReadOnlySpan<byte> at))
             return fallback;
 
-        return field.SizeBytes switch
-        {
-            1 => (sbyte)at[0],
-            2 => MemoryMarshal.Read<short>(at),
-            4 => MemoryMarshal.Read<int>(at),
-            _ => fallback,
-        };
+        return SignedOf(field, at, fallback);
     }
 
     /// <summary>
@@ -103,13 +98,7 @@ public readonly ref struct TempEntReader
         if (!Slot(name, out TeField field, out ReadOnlySpan<byte> at))
             return fallback;
 
-        return field.SizeBytes switch
-        {
-            1 => at[0],
-            2 => MemoryMarshal.Read<ushort>(at),
-            4 => MemoryMarshal.Read<int>(at),
-            _ => fallback,
-        };
+        return UnsignedOf(field, at, fallback);
     }
 
     /// <summary>
@@ -126,6 +115,72 @@ public readonly ref struct TempEntReader
             return fallback;
 
         return MemoryMarshal.Read<float>(at);
+    }
+
+    /// <summary>The field at <paramref name="slot"/> of <see cref="TempEntType.Slots"/>, as <see cref="Int"/> reads it.</summary>
+    public int SlotInt(int slot)
+    {
+        TeField field = _type.Slots[slot];
+
+        return Bytes(field, out ReadOnlySpan<byte> at) ? SignedOf(field, at, 0) : 0;
+    }
+
+    /// <summary>As <see cref="UInt"/>.</summary>
+    public int SlotUInt(int slot)
+    {
+        TeField field = _type.Slots[slot];
+
+        return Bytes(field, out ReadOnlySpan<byte> at) ? UnsignedOf(field, at, 0) : 0;
+    }
+
+    /// <summary>As <see cref="Bool"/>.</summary>
+    public bool SlotBool(int slot) => SlotUInt(slot) != 0;
+
+    /// <summary>As <see cref="Float"/>.</summary>
+    public float SlotFloat(int slot)
+        => Bytes(_type.Slots[slot], out ReadOnlySpan<byte> at) && at.Length >= sizeof(float)
+               ? MemoryMarshal.Read<float>(at)
+               : 0f;
+
+    /// <summary>As <see cref="Vector"/>.</summary>
+    public Vector SlotVector(int slot)
+        => Bytes(_type.Slots[slot], out ReadOnlySpan<byte> at) && at.Length >= 3 * sizeof(float)
+               ? new Vector(MemoryMarshal.Read<float>(at),
+                            MemoryMarshal.Read<float>(at[4..]),
+                            MemoryMarshal.Read<float>(at[8..]))
+               : Abi.Vector.Zero;
+
+    /// <summary>As <see cref="QAngle"/>.</summary>
+    public QAngle SlotQAngle(int slot)
+        => Bytes(_type.Slots[slot], out ReadOnlySpan<byte> at) && at.Length >= 3 * sizeof(float)
+               ? new QAngle(MemoryMarshal.Read<float>(at),
+                            MemoryMarshal.Read<float>(at[4..]),
+                            MemoryMarshal.Read<float>(at[8..]))
+               : Abi.QAngle.Zero;
+
+    /// <summary>As <see cref="VectorAt"/>.</summary>
+    public Vector SlotVectorAt(int slot, int index) => ElementAt(_type.Slots[slot], index);
+
+    /// <summary>
+    /// The packed networked handle put back together the way
+    /// <c>TempEntWriter.EHandle</c> took it apart: the entry index in the low bits and the
+    /// serial at <c>NUM_SERIAL_NUM_SHIFT_BITS</c>. An invalid handle on the wire reads as
+    /// <see cref="EntityHandle.None"/> rather than as entity zero, which is the world.
+    /// </summary>
+    public EntityHandle SlotHandle(int slot)
+    {
+        const int SerialShift = 16;   // NUM_SERIAL_NUM_SHIFT_BITS
+
+        TeField field = _type.Slots[slot];
+
+        int packed = Bytes(field, out ReadOnlySpan<byte> at)
+                         ? UnsignedOf(field, at, InvalidHandle)
+                         : InvalidHandle;
+
+        if (packed == InvalidHandle)
+            return EntityHandle.None;
+
+        return new EntityHandle((uint)(EntryIndexOf(packed) | (((packed >> MaxEdictBits) & SerialMask) << SerialShift)));
     }
 
     /// <summary>
@@ -177,6 +232,11 @@ public readonly ref struct TempEntReader
             return Abi.Vector.Zero;
         }
 
+        return ElementAt(field, index);
+    }
+
+    private Vector ElementAt(TeField field, int index)
+    {
         if (index < 0 || index >= Math.Max(field.Elems, 1))
             return Abi.Vector.Zero;
 
@@ -258,11 +318,18 @@ public readonly ref struct TempEntReader
             return false;
         }
 
+        return Bytes(field, out at);
+    }
+
+    private bool Bytes(TeField field, out ReadOnlySpan<byte> at)
+    {
+        at = default;
+
         int width = Width(field);
 
         if (field.Offset < 0 || field.Offset + width > _blob.Length)
         {
-            _type.Log.Warning($"[SourceSharp] temp entity '{_type.Class.ClassName}' field '{name}' " +
+            _type.Log.Warning($"[SourceSharp] temp entity '{_type.Class.ClassName}' field '{field.Name}' " +
                         $"wants bytes {field.Offset}..{field.Offset + width} of a " +
                         $"{_blob.Length} byte blob; read as its default\n");
             return false;
@@ -271,6 +338,24 @@ public readonly ref struct TempEntReader
         at = _blob.Slice(field.Offset, width);
         return true;
     }
+
+    private static int SignedOf(TeField field, ReadOnlySpan<byte> at, int fallback)
+        => field.SizeBytes switch
+        {
+            1 => (sbyte)at[0],
+            2 => MemoryMarshal.Read<short>(at),
+            4 => MemoryMarshal.Read<int>(at),
+            _ => fallback,
+        };
+
+    private static int UnsignedOf(TeField field, ReadOnlySpan<byte> at, int fallback)
+        => field.SizeBytes switch
+        {
+            1 => at[0],
+            2 => MemoryMarshal.Read<ushort>(at),
+            4 => MemoryMarshal.Read<int>(at),
+            _ => fallback,
+        };
 
     private void Missing(string name)
         => _type.Log.Warning($"[SourceSharp] temp entity '{_type.Class.ClassName}' has no field " +

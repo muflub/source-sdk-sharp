@@ -677,7 +677,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private readonly EntityLayoutRegistry _layouts;
 
     /// <summary>This side's protocol-list hashes, sent with the layout check (plan_side_isolation §2.1). Built at the first send.</summary>
-    private ProtocolManifest? _protocol;
+    private ProtocolManifest _protocol = null!;
 
     // What the dev API's schema view reports, built on first ask. Fixed after
     // DLL init -- a ServerClass may only be made before the engine collects the
@@ -1617,6 +1617,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // built by ComposeEffects, straight after the areas.
         ServerTempEntEngine tempEntEngine = _tempEntEngine!;
         _tempEnts.RegisterAll("Server", Game, (ITempEntRegistrar)tempEntEngine);
+
+        // Scans the game's declarations: here at startup, not in the frame of the first join.
+        _protocol = ProtocolManifest.Of(Game, Log);
 
         // THE REGISTRY ITSELF, as the client already registers its own
         // (ClientModule). ITempEnts covers twenty-one of the forty-three tables
@@ -3849,8 +3852,6 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     private void SendLayoutCheck(int entIndex)
     {
-        _protocol ??= ProtocolManifest.Of(Game, Log);
-
         // 24 bytes, LayoutCheckMessage's declared Size: the engine drops a
         // fixed-size message of any other length, silently, and the generator
         // refuses a payload that disagrees with it (SSMSG009).

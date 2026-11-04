@@ -39,7 +39,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeDecal : TeBaseTempEntity
+public partial class TeDecal : TeBaseTempEntity
 {
     /// <summary>Where the trace ended, which is where the mark lands.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

@@ -74,6 +74,7 @@
     <Compile Include="..\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\common\LinuxOnlyFactAttribute.cs" Link="common\LinuxOnlyFactAttribute.cs" />
     <Compile Include="..\common\ThreadPoolFloor.cs" Link="common\ThreadPoolFloor.cs" />
+    <Compile Include="..\common\TempEntFill.cs" Link="common\TempEntFill.cs" />
     <Compile Include="..\common\RecordingRagdolls.cs" Link="common\RecordingRagdolls.cs" />
     <Compile Include="..\common\ProcessWide.cs" Link="common\ProcessWide.cs" />
     <Compile Include="..\common\FakeShimRoot.cs" Link="common\FakeShimRoot.cs" />
@@ -84,6 +85,7 @@
     <Compile Include="..\common\NullableEngineInterfaceCensus.cs" Link="common\NullableEngineInterfaceCensus.cs" />
     <Compile Include="..\common\EngineBoundCallerCensus.cs" Link="common\EngineBoundCallerCensus.cs" />
     <Compile Include="..\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\common\TempEntPathCensus.cs" Link="common\TempEntPathCensus.cs" />
     <Compile Include="..\common\EngineSideReachCensus.cs" Link="common\EngineSideReachCensus.cs" />
     <Compile Include="..\common\ShimAreaTypes.cs" Link="common\ShimAreaTypes.cs" />
     <Compile Include="..\common\FakePhysicsCallbacks.cs" Link="common\FakePhysicsCallbacks.cs" />

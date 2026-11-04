@@ -33,7 +33,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamRingPoint : TeBaseBeam
+public partial class TeBeamRingPoint : TeBaseBeam
 {
     /// <summary>The point the ring is centred on.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

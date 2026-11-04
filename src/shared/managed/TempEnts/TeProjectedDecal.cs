@@ -48,7 +48,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeProjectedDecal : TeBaseTempEntity
+public partial class TeProjectedDecal : TeBaseTempEntity
 {
     /// <summary>Where the projection starts.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

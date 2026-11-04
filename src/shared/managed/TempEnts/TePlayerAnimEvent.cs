@@ -33,7 +33,7 @@ namespace SourceSharp.Shared;
 /// network for other players).
 /// </para>
 [TempEntity]
-public class TePlayerAnimEvent : TempEntState
+public partial class TePlayerAnimEvent : TempEntState
 {
     /// <summary>The player, as <c>SendProxy_EHandleToInt</c> packs it.</summary>
     [TeProp(BitsFrom = TeBits.NetworkedEHandle, Flags = TeFlags.Unsigned)]

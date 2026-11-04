@@ -255,6 +255,19 @@ public sealed class TempEntityAttribute : Attribute
 }
 
 /// <summary>
+/// What the generator wrote for a declaration: the class name, and every field the
+/// declaration's generated read and write address, by position, base chain's first. The registry
+/// holds this against the schema at startup, so the two cannot disagree in a frame.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
+public sealed class TeGeneratedAttribute(string className, params string[] slots) : Attribute
+{
+    public string ClassName { get; } = className;
+
+    public string[] Slots { get; } = slots;
+}
+
+/// <summary>
 /// The <see cref="TeFilter"/> each audience is, by name.
 ///
 /// <para>

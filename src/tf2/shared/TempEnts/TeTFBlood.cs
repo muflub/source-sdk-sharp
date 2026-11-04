@@ -44,7 +44,7 @@ namespace TF2.Shared;
 /// </para>
 /// </summary>
 [TempEntity("CTETFBlood", "DT_TETFBlood")]
-public class TeTFBlood : TeBaseTempEntity
+public partial class TeTFBlood : TeBaseTempEntity
 {
     /// <summary>
     /// Where the hit happened. Three floats over the multiplayer INTEGRAL

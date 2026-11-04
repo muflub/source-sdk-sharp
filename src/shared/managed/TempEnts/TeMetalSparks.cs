@@ -60,7 +60,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeMetalSparks : TempEntState
+public partial class TeMetalSparks : TempEntState
 {
     /// <summary>
     /// Where the round hit. Stock spelt it <c>m_vecPos</c> and not

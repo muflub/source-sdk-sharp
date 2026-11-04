@@ -35,7 +35,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamFollow : TeBaseBeam
+public partial class TeBeamFollow : TeBaseBeam
 {
     /// <summary>Index and attachment of the entity the beam follows.</summary>
     [TeProp(Bits = 24, Flags = TeFlags.Unsigned)]

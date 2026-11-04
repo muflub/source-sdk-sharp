@@ -73,7 +73,7 @@ namespace SourceSharp.Shared;
 /// </summary>
 [Precache(PrecacheKind.Model, "models/gibs/hgibs.mdl")]   // CTEBreakModel::Precache, te_breakmodel.cpp:78
 [TempEntity]
-public class TeBreakModel : TeBaseTempEntity
+public partial class TeBreakModel : TeBaseTempEntity
 {
     /// <summary>Where the model was when it broke.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

@@ -93,7 +93,7 @@ public enum ShatterSurfaceType
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeShatterSurface : TeBaseTempEntity
+public partial class TeShatterSurface : TeBaseTempEntity
 {
     /// <summary>The middle of the pane.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

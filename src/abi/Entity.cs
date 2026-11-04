@@ -151,9 +151,15 @@ public readonly struct EntityHandle : IEquatable<EntityHandle>
 
 /// <summary>A 3D vector, laid out to match Source's <c>Vector</c>.</summary>
 [StructLayout(LayoutKind.Sequential)]
-public struct Vector
+public struct Vector : IEquatable<Vector>
 {
     public float X, Y, Z;
+
+    // As ValueType.Equals answered for floats, without its reflection: a record struct holding
+    // a Vector compares through this, per frame in the fog and sky states.
+    public readonly bool Equals(Vector other) => X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
+    public override readonly bool Equals(object? obj) => obj is Vector other && Equals(other);
+    public override readonly int GetHashCode() => HashCode.Combine(X, Y, Z);
 
     public Vector(float x, float y, float z)
     {

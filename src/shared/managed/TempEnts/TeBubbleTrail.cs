@@ -46,7 +46,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBubbleTrail : TeBaseTempEntity
+public partial class TeBubbleTrail : TeBaseTempEntity
 {
     /// <summary>One end of the trail.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

@@ -30,7 +30,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeWorldDecal : TeBaseTempEntity
+public partial class TeWorldDecal : TeBaseTempEntity
 {
     /// <summary>Where the mark goes. COORD, not COORD_MP_INTEGRAL — see the class note.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

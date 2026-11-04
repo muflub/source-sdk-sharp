@@ -47,7 +47,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBubbles : TeBaseTempEntity
+public partial class TeBubbles : TeBaseTempEntity
 {
     /// <summary>The low corner of the volume they come out of.</summary>
     [TeProp(Bits = -1, Flags = TeFlags.Coord)]

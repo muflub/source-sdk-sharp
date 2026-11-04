@@ -51,7 +51,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeKillPlayerAttachments : TeBaseTempEntity
+public partial class TeKillPlayerAttachments : TeBaseTempEntity
 {
     /// <summary>
     /// Whose attachments. A player SLOT in five bits — stock's literal, not

@@ -35,6 +35,21 @@ namespace SourceSharp.Abi;
 /// </summary>
 public abstract class TempEntState
 {
+    /// <summary>What the two sides pair on: <c>"CTESparks"</c>. Generated from the declaration.</summary>
+    public abstract string ClassName { get; }
+
+    /// <summary>
+    /// Fills every <c>[TeProp]</c> member, its own and every one it inherits, root of the chain
+    /// first, and answers how many. Generated, one override per class.
+    /// </summary>
+    public abstract int ReadMembers(in TempEntReader te);
+
+    /// <summary>
+    /// Writes every <c>[TeProp]</c> member, root of the chain first, and answers how many went
+    /// down, so a caller can assert it. Generated, one override per class.
+    /// </summary>
+    public abstract int WriteMembers(ref TempEntWriter writer);
+
     /// <summary>
     /// This declaration's bytes, laid out as native expects them: the base's
     /// fields first, then this class's own.
@@ -50,17 +65,27 @@ public abstract class TempEntState
         var blob = new byte[type.BlobBytes];
         var writer = new TempEntWriter(type, blob);
 
-        int written = TempEntDeclarationWriter.WriteChain(ref writer, this);
+        int written = WriteMembers(ref writer);
 
         if (written == 0)
         {
             type.Log.Warning(
                 $"[SourceSharp] temp entity '{type.Class.ClassName}' wrote NO fields from its " +
-                $"declaration {GetType().Name}. Every field would go out at zero -- an effect " +
+                "declaration. Every field would go out at zero -- an effect " +
                 "at the world origin with a model index of nothing -- so this is refused " +
                 "loudly rather than sent.\n");
         }
 
         return blob;
     }
+}
+
+/// <summary>
+/// A declaration that can make a new one of itself from a blob. Generated on every concrete
+/// <c>[TempEntity]</c> class, so a generic player needs no <c>new T()</c>.
+/// </summary>
+public interface ITempEntDeclaration<T> where T : TempEntState, ITempEntDeclaration<T>
+{
+    /// <summary>A new one, with every member its chain declares filled from <paramref name="te"/>.</summary>
+    static abstract T ReadFrom(in TempEntReader te);
 }

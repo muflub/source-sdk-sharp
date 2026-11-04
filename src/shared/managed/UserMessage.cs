@@ -92,6 +92,12 @@ public interface IUserMessagePayload<TSelf> where TSelf : IUserMessagePayload<TS
     /// </summary>
     static abstract Type Handler { get; }
 
+    /// <summary>
+    /// The key <see cref="Handler"/> is registered under, written by the generator, so a send
+    /// reads no attribute. <see cref="UserMessageKey.Of(Type)"/> is the same rule at registration.
+    /// </summary>
+    static abstract string Key { get; }
+
     /// <summary>Writes the members into <paramref name="into"/>: the length written, or -1 when they do not fit.</summary>
     int Write(Span<byte> into);
 
@@ -177,7 +183,7 @@ public static class UserMessagePayloadSending
     {
         ArgumentNullException.ThrowIfNull(sender);
 
-        string key = UserMessageKey.Of(TPayload.Handler);
+        string key = TPayload.Key;
         Span<byte> buffer = stackalloc byte[UserMessageSender.MaxPayloadBytes];
 
         int length = payload.Write(buffer);

@@ -93,7 +93,7 @@ public struct TeSplinePoints
 /// </para>
 /// </summary>
 [TempEntity]
-public class TeBeamSpline : TempEntState
+public partial class TeBeamSpline : TempEntState
 {
     /// <summary>
     /// <c>MAX_SPLINE_POINTS</c>, <c>te_beamspline.cpp:20</c> — a literal 16 in

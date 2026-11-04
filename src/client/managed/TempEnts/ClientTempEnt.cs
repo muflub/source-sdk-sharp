@@ -11,7 +11,7 @@ namespace SourceSharp.Client.TempEnts;
 /// <code>
 /// public void Play(in TempEntReader te)
 /// {
-///     TeSparks d = TempEntDeclarationReader.Read&lt;TeSparks&gt;(in te);
+///     TeSparks d = TeSparks.ReadFrom(in te);
 ///     ...
 /// </code>
 /// <para>
@@ -46,7 +46,7 @@ namespace SourceSharp.Client.TempEnts;
 /// type.
 /// </typeparam>
 public abstract class ClientTempEnt<T> : IClientTempEnt
-    where T : TempEntState, new()
+    where T : TempEntState, ITempEntDeclaration<T>
 {
     /// <summary>
     /// The untyped entry the registry calls, which reads the blob and is the
@@ -54,7 +54,7 @@ public abstract class ClientTempEnt<T> : IClientTempEnt
     /// and cannot be called with a reader by mistake.
     /// </summary>
     void IClientTempEnt.Play(in TempEntReader te)
-        => Play(TempEntDeclarationReader.Read<T>(in te));
+        => Play(T.ReadFrom(in te));
 
     /// <summary>
     /// The locally-forwarded entry. The cast is checked and cannot be wrong for

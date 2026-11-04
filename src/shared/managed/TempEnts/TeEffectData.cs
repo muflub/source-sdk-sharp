@@ -109,7 +109,7 @@ namespace SourceSharp.Shared;
 /// </para>
 /// </summary>
 [TempEntity("CEffectData", "DT_EffectData", RegistersClass = false)]
-public struct TeEffectData
+public partial struct TeEffectData
 {
     /// <summary>
     /// Where the effect happens.
