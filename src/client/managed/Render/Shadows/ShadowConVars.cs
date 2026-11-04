@@ -59,12 +59,14 @@ public sealed class ShadowConVars : IShadowSettings
     private readonly WatchedConVarValues _engine;
     private readonly IEngineConsole _console;
 
-    public ShadowConVars(ConVarRegistry convars, WatchedConVarValues engine, IEngineConsole console)
+    public ShadowConVars(FlashlightDrawFrustumConVar drawFrustum, FlashlightModelsConVar models,
+                         FlashlightDepthResConVar depthRes, ShadowMaxRenderedConVar maxRendered,
+                         WatchedConVarValues engine, IEngineConsole console)
     {
-        _drawFrustum = convars.Get<FlashlightDrawFrustumConVar>() ?? throw new InvalidOperationException("r_flashlightdrawfrustum is not registered");
-        _models = convars.Get<FlashlightModelsConVar>() ?? throw new InvalidOperationException("r_flashlightmodels is not registered");
-        _depthRes = convars.Get<FlashlightDepthResConVar>() ?? throw new InvalidOperationException("r_flashlightdepthres is not registered");
-        _maxRendered = convars.Get<ShadowMaxRenderedConVar>() ?? throw new InvalidOperationException("r_shadowmaxrendered is not registered");
+        _drawFrustum = drawFrustum;
+        _models = models;
+        _depthRes = depthRes;
+        _maxRendered = maxRendered;
         _engine = engine;
         _console = console;
     }

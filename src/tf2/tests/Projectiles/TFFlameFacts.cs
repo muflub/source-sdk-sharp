@@ -103,10 +103,10 @@ internal sealed class FlameRig
         Damage = new ScopedDamage(Scopes);
         Convars.RegisterAll(typeof(TF2.Server.Medigun.TFPlayerHealing).Assembly);
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
-                                     Convars.Get<TFAirBlastCrayConVar>()!,
-                                     Convars.Get<TFFlameThrowerBurstZvelocityConVar>()!,
-                                     Convars.Get<TFPushbackScaleConVar>()!,
-                                     Convars.Get<TFPushbackScaleVerticalConVar>()!, Carriers);
+                                     Convars.Declared<TFAirBlastCrayConVar>(),
+                                     Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
+                                     Convars.Declared<TFPushbackScaleConVar>(),
+                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers);
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);

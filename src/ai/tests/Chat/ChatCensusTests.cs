@@ -36,7 +36,7 @@ public sealed class ChatCensusTests
     /// <summary>Every call the chat types make out of themselves into the game's core: what a player's screen shows, and its say path.</summary>
     private static readonly string[] Allowed =
     [
-        "ConVarRegistry::Get", "ConVar`1::get_Value", "IEngineFiles::ReadGameFile", "IEngineFrame::TickCount", "ILog::Msg",
+        "ConVar`1::get_Value", "IEngineFiles::ReadGameFile", "IEngineFrame::TickCount", "ILog::Msg",
         "IEngineEntities::GetIndex", "IClientInfo::ClientConVar", "IPlayerDirectory::get_All", "PlayerRecord::get_Kills", "PlayerRecord::get_Deaths",
         "HostSay::CanHear", "HostSay::Say", "EntityHandle::get_None", "EntityHandle::op_Equality", "EntityHandle::op_Inequality",
         "DeathNoticeFacts::get_Victim", "DeathNoticeFacts::get_Scorer", "DeathNoticeFacts::get_Weapon",

@@ -66,7 +66,7 @@ public class PlayerViewOriginTests
     /// </summary>
     private static SsPlayer PlayerAt(int edictIndex, Vector origin, Vector viewOffset)
     {
-        var player = new SsPlayer(Fake(), Fake(), Impacts(Fake()), Fluid())
+        var player = new SsPlayer(Fake(), Fake(), Impacts(Fake()), Fluid(), InfiniteAux(), PrintDamage())
         {
             Handle = new EntityHandle((uint)((5 << 16) | edictIndex)),
         };

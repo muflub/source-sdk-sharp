@@ -37,7 +37,7 @@ namespace TF2.Server.Rules;
 /// </summary>
 [ScriptedEntity(TeamRoundTimerNetState.ClassName, ScriptedEntityKind.Effect)]
 public sealed class TeamRoundTimer(IRoundTimerHost host, IRoundTimers timers, IEngineGameEvents events,
-                                   IEngineEntityRender render, ConVarRegistry convars, IRandomSeeds seeds)
+                                   IEngineEntityRender render, TFOvertimeNagConVar overtimeNag, IRandomSeeds seeds)
     : ScriptedEntity, ITeamRoundTimer
 {
     /// <summary>Stock's think interval for both thinks (0.05 s).</summary>
@@ -278,7 +278,7 @@ public sealed class TeamRoundTimer(IRoundTimerHost host, IRoundTimers timers, IE
                     {
                         host.SetOvertime(true);
                     }
-                    else if (convars.Get<TFOvertimeNagConVar>() is { Value: true }
+                    else if (overtimeNag.Value
                              && GameTime > _nextOvertimeNag)
                     {
                         // stock's m_flNextOvertimeNag = curtime + 1.0f, then the

@@ -114,9 +114,9 @@ internal sealed class ProxyRig
             Services.AddInstance(typeof(KothMode), Tf.Koth);
         }
 
-        Modes = new GameModes(log, Host, Services, convars);
+        Modes = new GameModes(log, Host, Services, convars.Declare<SvModeSwitchWarmupConVar>(), convars.Declare<MpWaitingForPlayersTimeConVar>());
         var board = new Scoreboard(Host, new PlayerDisconnectEvent(), log);
-        Rules = new GameRules(log, convars, Host, Host, Host, board, new PlayerDeathEvent(), modes: Modes);
+        Rules = new GameRules(log, convars.Holder<GameRulesConVars>(), Host, Host, Host, board, new PlayerDeathEvent(), modes: Modes);
         Modes.Attach(Rules);
         Services.AddInstance(Modes);
     }

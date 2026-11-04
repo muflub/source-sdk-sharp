@@ -35,10 +35,10 @@ public sealed class LeafListConVars : ILeafListSettings
     private readonly PortalTestEntsConVar _portalTestEnts;
     private readonly WatchedConVarValues _engine;
 
-    public LeafListConVars(ConVarRegistry convars, WatchedConVarValues engine)
+    public LeafListConVars(ClDrawLeafConVar drawLeaf, PortalTestEntsConVar portalTestEnts, WatchedConVarValues engine)
     {
-        _drawLeaf = convars.Get<ClDrawLeafConVar>() ?? throw new InvalidOperationException("cl_drawleaf is not registered");
-        _portalTestEnts = convars.Get<PortalTestEntsConVar>() ?? throw new InvalidOperationException("r_PortalTestEnts is not registered");
+        _drawLeaf = drawLeaf;
+        _portalTestEnts = portalTestEnts;
         _engine = engine;
     }
 

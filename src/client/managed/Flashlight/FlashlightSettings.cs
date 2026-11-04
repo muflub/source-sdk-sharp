@@ -109,30 +109,41 @@ public sealed class FlashlightConVars : IFlashlightSettings
     private readonly WatchedConVarValues _engine;
     private readonly Func<int?> _dxLevel;
 
-    public FlashlightConVars(ConVarRegistry convars, WatchedConVarValues engine, Func<int?> dxLevel)
+    public FlashlightConVars(NewFlashlightConVar newFlashlight,
+                             SwingFlashlightConVar swing,
+                             FlashlightLockPositionConVar lockPosition,
+                             FlashlightFovConVar fov,
+                             FlashlightOffsetYConVar offsetY,
+                             FlashlightNearConVar near,
+                             FlashlightFarConVar far,
+                             FlashlightConstantConVar constant,
+                             FlashlightLinearConVar linear,
+                             FlashlightQuadraticConVar quadratic,
+                             FlashlightVisualizeTraceConVar visualize,
+                             FlashlightAmbientConVar ambient,
+                             FlashlightShadowAttenConVar shadowAtten,
+                             FlashlightLadderDistConVar ladderDist,
+                             WatchedConVarValues engine, Func<int?> dxLevel)
     {
-        _newFlashlight = Need<NewFlashlightConVar>(convars);
-        _swing = Need<SwingFlashlightConVar>(convars);
-        _lock = Need<FlashlightLockPositionConVar>(convars);
-        _fov = Need<FlashlightFovConVar>(convars);
-        _offsetY = Need<FlashlightOffsetYConVar>(convars);
-        _near = Need<FlashlightNearConVar>(convars);
-        _far = Need<FlashlightFarConVar>(convars);
-        _constant = Need<FlashlightConstantConVar>(convars);
-        _linear = Need<FlashlightLinearConVar>(convars);
-        _quadratic = Need<FlashlightQuadraticConVar>(convars);
-        _visualize = Need<FlashlightVisualizeTraceConVar>(convars);
-        _ambient = Need<FlashlightAmbientConVar>(convars);
-        _shadowAtten = Need<FlashlightShadowAttenConVar>(convars);
-        _ladderDist = Need<FlashlightLadderDistConVar>(convars);
+        _newFlashlight = newFlashlight;
+        _swing = swing;
+        _lock = lockPosition;
+        _fov = fov;
+        _offsetY = offsetY;
+        _near = near;
+        _far = far;
+        _constant = constant;
+        _linear = linear;
+        _quadratic = quadratic;
+        _visualize = visualize;
+        _ambient = ambient;
+        _shadowAtten = shadowAtten;
+        _ladderDist = ladderDist;
         _engine = engine;
         _dxLevel = dxLevel;
 
         _newFlashlight.Changed += OnNewFlashlightChanged;
     }
-
-    private static T Need<T>(ConVarRegistry convars) where T : ConVarBase
-        => convars.Get<T>() ?? throw new InvalidOperationException(typeof(T).Name + " is not registered");
 
     /// <summary>Watches the four the flashlight reads by name; the module routes their changes here.</summary>
     public void Start() => _engine.Watch(EngineNames());

@@ -85,10 +85,11 @@ public sealed class SsPlayer : AnimatingEntity
     private bool _killed;
 
     public SsPlayer(IEngineEntityRender render, IEnginePlayers players, PhysicsDamageQueue impacts,
-                    FluidTouches fluid, IPlayerRemovals? removals = null,
+                    FluidTouches fluid, SvInfiniteAuxPowerConVar infiniteAux, PlayerDebugPrintDamageConVar printDamage,
+                    IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
                     IEngineHost? host = null, DamageInflictors? inflictors = null,
-                    IPlayerShadows? shadows = null, IGameRules? rules = null, ConVarRegistry? convars = null,
+                    IPlayerShadows? shadows = null, IGameRules? rules = null,
                     ModelDescriptors? models = null, IGameClock? clock = null,
                     SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null,
                     SourceSharp.Server.Interop.ServerPlayerMoves? moves = null, IEngineSound? sound = null,
@@ -106,13 +107,13 @@ public sealed class SsPlayer : AnimatingEntity
         _entities = entities;
         _hitGroups = hitGroups;
         _sound = sound;
-        _infiniteAux = convars?.Get<SvInfiniteAuxPowerConVar>();
+        _infiniteAux = infiniteAux;
         _moves = moves;
         _shadows = shadows;
         _host = host;
         _inflictors = inflictors;
         _rules = rules;
-        _printDamage = convars?.Get<PlayerDebugPrintDamageConVar>();
+        _printDamage = printDamage;
         _messages = messages;
         _commands = commands;
         _fluid    = fluid;
@@ -166,7 +167,7 @@ public sealed class SsPlayer : AnimatingEntity
     private readonly IGameRules? _rules;
     private readonly IHooks<IPlayerHurtHook>? _hurtHooks;
     // player_debug_print_damage: null for a player built without the registry.
-    private readonly PlayerDebugPrintDamageConVar? _printDamage;
+    private readonly PlayerDebugPrintDamageConVar _printDamage;
 
     /// <summary>The suit's cap: stock's 100 (MAX_NORMAL_BATTERY).</summary>
     public const int MaxArmour = 100;
@@ -510,7 +511,7 @@ public sealed class SsPlayer : AnimatingEntity
 
         // Stock's player_debug_print_damage line, at stock's place (after the
         // rules, before the armour), and the hitgroup the rules were told.
-        if (_printDamage?.Value == true)
+        if (_printDamage.Value)
             Log.Msg($"{GameTime:F6}: Player {Handle} at [{Origin.X:F2} {Origin.Y:F2} {Origin.Z:F2}] "
                   + $"took {damage:F6} damage from {attacker}, type {damageType}, hitgroup={(int)hitGroup}\n");
 
@@ -767,7 +768,7 @@ public sealed class SsPlayer : AnimatingEntity
     // The engine's TakeDamage, which answers through OnDamaged and applies
     // what it answers: a drowning hit goes through it, not to OnDamaged.
     private readonly IEngineDamage? _damage;
-    private readonly SvInfiniteAuxPowerConVar? _infiniteAux;
+    private readonly SvInfiniteAuxPowerConVar _infiniteAux;
     // Carried across a hot reload: a player rebuilt under water with no air
     // left would drown on the first frame.
     [SaveField] private float _airFinished;
@@ -899,7 +900,7 @@ public sealed class SsPlayer : AnimatingEntity
                 GameMovement.AddSuitDevice(s, GameMovement.SuitDeviceBreather, GameMovement.SuitDeviceBreatherDrain);
             else
                 GameMovement.RemoveSuitDevice(s, GameMovement.SuitDeviceBreather, GameMovement.SuitDeviceBreatherDrain,
-                                              _infiniteAux?.Value ?? false, now);
+                                              _infiniteAux.Value, now);
         }
 
         _underwater = state;

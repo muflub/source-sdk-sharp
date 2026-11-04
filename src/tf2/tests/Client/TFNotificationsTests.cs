@@ -66,7 +66,7 @@ public sealed class TFNotificationsTests
 
             var convars = new ClientAbi.ConVarRegistry(new Backend());
             convars.RegisterTypes([typeof(ClientMod.TFHudNotificationDurationConVar)]);
-            var duration = convars.Get<ClientMod.TFHudNotificationDurationConVar>()!;
+            var duration = convars.Declared<ClientMod.TFHudNotificationDurationConVar>();
 
             var player = new ClientPlayer.ClientTFPlayerResource(Engine, Resources);
             player.State.BindLocal();

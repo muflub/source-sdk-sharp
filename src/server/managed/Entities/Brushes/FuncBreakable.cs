@@ -15,7 +15,7 @@ namespace SourceSharp.Server;
 public sealed class FuncBreakable(IServerPropData propData, IEngineSound sound, IEnginePrecache precache, ITempEnts temps,
                                   IEngineHost host, IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
                                   IBlastSweep blast, IServerDecals decals, IEngineEntityPhysics physics,
-                                  ConVarRegistry? convars = null)
+                                  BreakableBrushConVars convars)
     : BreakableBrush(propData, sound, precache, temps, host, damage, world, effects, blast, decals, physics, convars)
 {
     /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>

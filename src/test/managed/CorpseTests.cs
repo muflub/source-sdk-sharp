@@ -439,7 +439,7 @@ public class CorpseTests
     public void DyingStopsTheDeadPlayerBeingDrawn()
     {
         var engine = Fake();
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid());
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage());
         player.BindAreas(Areas(engine));   // dying makes the player not solid (A22)
 
         player.State.BindLocal();
@@ -475,7 +475,7 @@ public class CorpseTests
         // what makes "OnSpawn asked for something new" visible here at all.
         engine.Returns("Shadows.Init", true);
 
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid());
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage());
         player.BindAreas(Areas(engine));
 
         player.State.BindLocal();

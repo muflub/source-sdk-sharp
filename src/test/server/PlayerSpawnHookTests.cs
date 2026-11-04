@@ -70,7 +70,7 @@ public class PlayerSpawnHookTests
         players.Returns("Players.GiveItem", true);
         players.Returns("Players.GiveAmmo", 1);
         var log = new RecordingLog();
-        var rules = new GameRules(log, convars, host, players, Fake().Returns("Entities.IsValid", false),
+        var rules = new GameRules(log, convars.Holder<GameRulesConVars>(), host, players, Fake().Returns("Entities.IsValid", false),
                                   new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog()),
                                   new PlayerDeathEvent(), loadout: loadout, spawnHooks: hooks,
                                   kitGates: kitGates, spawnWeapon: spawnWeapon);

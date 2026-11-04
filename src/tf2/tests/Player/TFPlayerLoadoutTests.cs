@@ -33,9 +33,9 @@ public sealed class TFPlayerLoadoutTests
         {
             var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
             convars.RegisterAll(typeof(TFStalemateConVars).Assembly);
-            var melee = convars.Get<MpStalemateMeleeOnlyConVar>()!;
+            var melee = convars.Declared<MpStalemateMeleeOnlyConVar>();
             melee.Bind(-1, "mp_stalemate_meleeonly", "1");
-            var changeTime = convars.Get<TFStalemateChangeClassTimeConVar>()!;
+            var changeTime = convars.Declared<TFStalemateChangeClassTimeConVar>();
             changeTime.Bind(-1, "tf_stalematechangeclasstime", "20");
             stalemate = new TFStalemateConVars(melee, changeTime);
         }

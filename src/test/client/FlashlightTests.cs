@@ -427,7 +427,21 @@ public class FlashlightTests
         {
             Registry = new ConVarRegistry(Backend);
             Registry.RegisterTypes(FlashlightConVarTypes());
-            Settings = new FlashlightConVars(Registry, new WatchedConVarValues(new WatchSlots(), engineValue ?? (_ => null)), () => dx);
+            Settings = new FlashlightConVars(Registry.Declared<NewFlashlightConVar>(),
+                                             Registry.Declared<SwingFlashlightConVar>(),
+                                             Registry.Declared<FlashlightLockPositionConVar>(),
+                                             Registry.Declared<FlashlightFovConVar>(),
+                                             Registry.Declared<FlashlightOffsetYConVar>(),
+                                             Registry.Declared<FlashlightNearConVar>(),
+                                             Registry.Declared<FlashlightFarConVar>(),
+                                             Registry.Declared<FlashlightConstantConVar>(),
+                                             Registry.Declared<FlashlightLinearConVar>(),
+                                             Registry.Declared<FlashlightQuadraticConVar>(),
+                                             Registry.Declared<FlashlightVisualizeTraceConVar>(),
+                                             Registry.Declared<FlashlightAmbientConVar>(),
+                                             Registry.Declared<FlashlightShadowAttenConVar>(),
+                                             Registry.Declared<FlashlightLadderDistConVar>(),
+                                             new WatchedConVarValues(new WatchSlots(), engineValue ?? (_ => null)), () => dx);
             Settings.Start();
         }
 

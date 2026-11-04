@@ -690,7 +690,8 @@ public sealed class AiBotReserveConVar : IntConVar { }
 /// level changed; each frame, reconciles it (plan_hl2mp_ai §3.5).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class AiBotRosterService(Hl2mpRoster roster, Hl2mpBots bots, ConVarRegistry convars, IEngineFrame frame, ILog log) : ISaveCustom, IGameLifecycle, IFrameLifecycle
+public sealed class AiBotRosterService(Hl2mpRoster roster, Hl2mpBots bots, AiBotReserveConVar reserve, AiBotRosterConVar rosterSpec,
+                                       AiBotRerollConVar reroll, AiBotStreaksConVar streaks, IEngineFrame frame, ILog log) : ISaveCustom, IGameLifecycle, IFrameLifecycle
 {
     /// <summary>After the navigation (400), the senses (450) and the binding's level line (500).</summary>
     public int LifecycleOrder => ModStages.First + 700;
@@ -723,30 +724,28 @@ public sealed class AiBotRosterService(Hl2mpRoster roster, Hl2mpBots bots, ConVa
         roster.Resume(_carried);
         _carried = null;
         // The new composition's convar reads its default until told: the roster's reserve is the server's.
-        convars.Get<AiBotReserveConVar>()?.SetValue(roster.Reserve);
+        reserve.SetValue(roster.Reserve);
     }
 
     public void OnLevelInitPostEntity(string mapName)
     {
         _carried = null;
-        if (convars.Get<AiBotRosterConVar>() is { } convar && convar.Value.Trim().Length > 0)
+        if (rosterSpec.Value.Trim().Length > 0)
         {
-            string spec = convar.Value;
-            convar.SetValue("");
+            string spec = rosterSpec.Value;
+            rosterSpec.SetValue("");
             log.Msg($"[SourceSharp/Ai] ai_bot_roster for {mapName}: {spec}\n");
             roster.Take(spec);
             return;
         }
 
-        roster.LevelStarted(mapName, convars.Get<AiBotRerollConVar>()?.Value == true);
+        roster.LevelStarted(mapName, reroll.Value);
     }
 
     public void OnPreThink(float frameTime)
     {
-        if (convars.Get<AiBotReserveConVar>() is { } reserve)
-            roster.Reserve = reserve.Value;
-        if (convars.Get<AiBotStreaksConVar>() is { } streaks)
-            bots.Streaks = streaks.Value;
+        roster.Reserve = reserve.Value;
+        bots.Streaks = streaks.Value;
         roster.Reconcile(frame.TickCount());
     }
 }

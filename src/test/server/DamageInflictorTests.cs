@@ -27,7 +27,7 @@ public class DamageInflictorTests
         var engine = Fake();
         engine.Returns("Entities.GetHealth", 100).Returns("Entities.GetIndex", 3)
               .Returns("Entities.IsValid", true).Returns("Entities.GetOrigin", ThrowerAt);
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine, inflictors: inflictors)
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine, inflictors: inflictors)
             { Handle = new EntityHandle(0x010003) };
         player.BindAreas(Areas(engine));
         player.State.BindLocal();

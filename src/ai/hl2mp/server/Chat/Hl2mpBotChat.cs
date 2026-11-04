@@ -153,25 +153,27 @@ public interface IChatConfig
 
 /// <summary><see cref="IChatConfig"/> over the convars.</summary>
 [SideService(Side.Server, As = [typeof(IChatConfig)])]
-public sealed class ConVarChatConfig(ConVarRegistry convars) : IChatConfig
+public sealed class ConVarChatConfig(AiChatConVar enabled, AiChatUrlConVar url, AiChatModelConVar model,
+                                     AiChatTimeoutConVar timeout, AiChatIntervalConVar interval,
+                                     AiChatCooldownConVar cooldown, AiChatReplyChanceConVar replyChance) : IChatConfig
 {
     private ChatSettings _settings = new();
 
-    public bool Enabled => convars.Get<AiChatConVar>()?.Value == true;
+    public bool Enabled => enabled.Value;
 
-    public ChatTarget Target => new(convars.Get<AiChatUrlConVar>()?.Value ?? "", convars.Get<AiChatModelConVar>()?.Value ?? OllamaChatWriter.DefaultModel);
+    public ChatTarget Target => new(url.Value, model.Value);
 
-    public float TimeoutSeconds => convars.Get<AiChatTimeoutConVar>()?.Value ?? 5;
+    public float TimeoutSeconds => timeout.Value;
 
     public ChatSettings Settings
     {
         get
         {
-            float interval = convars.Get<AiChatIntervalConVar>()?.Value ?? 30;
-            float cooldown = convars.Get<AiChatCooldownConVar>()?.Value ?? 60;
-            float chance = (convars.Get<AiChatReplyChanceConVar>()?.Value ?? 10) / 100f;
-            if (interval != _settings.IntervalSeconds || cooldown != _settings.BotCooldownSeconds || chance != _settings.ReplyChance)
-                _settings = _settings with { IntervalSeconds = interval, BotCooldownSeconds = cooldown, ReplyChance = chance };
+            float every = interval.Value;
+            float wait = cooldown.Value;
+            float chance = replyChance.Value / 100f;
+            if (every != _settings.IntervalSeconds || wait != _settings.BotCooldownSeconds || chance != _settings.ReplyChance)
+                _settings = _settings with { IntervalSeconds = every, BotCooldownSeconds = wait, ReplyChance = chance };
             return _settings;
         }
     }

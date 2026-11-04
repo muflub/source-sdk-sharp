@@ -69,12 +69,13 @@ public sealed class PlacedObjects : IFrameLifecycle, IGameLifecycle
     private readonly IEngineEntityPhysics _physics;
     private readonly IEngineSound _sound;
     private readonly IEnginePrecache _precache;
-    private readonly ItemRespawnTimeConVar? _itemTime;
-    private readonly WeaponRespawnTimeConVar? _weaponTime;
+    private readonly ItemRespawnTimeConVar _itemTime;
+    private readonly WeaponRespawnTimeConVar _weaponTime;
     private readonly List<IPlacedObject> _objects = new();
 
     public PlacedObjects(IGameClock clock, IPhysicsRest rest, IEngineEntities entities, IEngineEntityPhysics physics,
-                         IEngineSound sound, IEnginePrecache precache, ConVarRegistry? convars = null)
+                         IEngineSound sound, IEnginePrecache precache, ItemRespawnTimeConVar itemTime,
+                         WeaponRespawnTimeConVar weaponTime)
     {
         _clock = clock;
         _rest = rest;
@@ -82,8 +83,8 @@ public sealed class PlacedObjects : IFrameLifecycle, IGameLifecycle
         _physics = physics;
         _sound = sound;
         _precache = precache;
-        _itemTime = convars?.Get<ItemRespawnTimeConVar>();
-        _weaponTime = convars?.Get<WeaponRespawnTimeConVar>();
+        _itemTime = itemTime;
+        _weaponTime = weaponTime;
     }
 
     int IFrameLifecycle.FrameOrder => (int)FrameStage.PlacedObjects;
@@ -91,10 +92,10 @@ public sealed class PlacedObjects : IFrameLifecycle, IGameLifecycle
     int IGameLifecycle.LifecycleOrder => (int)LifecycleStage.PlacedObjects;
 
     /// <summary>sv_hl2mp_item_respawn_time (FlItemRespawnTime).</summary>
-    public float ItemRespawnTime => _itemTime?.Value ?? 30f;
+    public float ItemRespawnTime => _itemTime.Value;
 
     /// <summary>sv_hl2mp_weapon_respawn_time (FlWeaponRespawnTime).</summary>
-    public float WeaponRespawnTime => _weaponTime?.Value ?? 20f;
+    public float WeaponRespawnTime => _weaponTime.Value;
 
     /// <summary>The objects joined now. For the facts.</summary>
     public int Count => _objects.Count;

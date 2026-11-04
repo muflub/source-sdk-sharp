@@ -28,6 +28,7 @@
     <Compile Include="..\..\common\ContractBaseline.cs" Link="Shared\ContractBaseline.cs" />
     <Compile Include="..\..\common\NotOnCiFactAttribute.cs" Link="Shared\NotOnCiFactAttribute.cs" />
     <Compile Include="..\..\common\TestServices.cs" Link="Shared\TestServices.cs" />
+    <Compile Include="..\..\common\DeclaredConVars.cs" Link="Shared\DeclaredConVars.cs" />
     <Compile Include="..\..\common\TestServices.Server.cs" Link="Shared\TestServices.Server.cs" />
     <Compile Include="..\..\common\ClientDoubles.cs" Link="Shared\ClientDoubles.cs" />
     <Compile Include="..\..\common\TestVPhysics.cs" Link="Shared\TestVPhysics.cs" />

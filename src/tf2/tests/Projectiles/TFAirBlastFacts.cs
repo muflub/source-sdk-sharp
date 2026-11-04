@@ -352,7 +352,7 @@ public class TFAirBlastFacts
         // (tf_weapon_flamethrower.cpp:1330-1331): 2 doubles it, and a
         // standing target takes the whole 1200 along the aim.
         var rig = new FlameRig();
-        rig.Convars.Get<TFPushbackScaleConVar>()!.Bind(-1, "tf_pushbackscalescale", "2");
+        rig.Convars.Declared<TFPushbackScaleConVar>().Bind(-1, "tf_pushbackscalescale", "2");
         rig.Directory.Instance = null;
         rig.Engine.FillsSphere(FlameRig.Victim);
         rig.Engine.Returns("Entities.IsPlayer", true);
@@ -377,7 +377,7 @@ public class TFAirBlastFacts
         // (:1574-1577): the mirrored 300 of Z leaves as 600 under 2, the
         // across-push untouched.
         var rig = new FlameRig();
-        rig.Convars.Get<TFPushbackScaleVerticalConVar>()!.Bind(-1, "tf_pushbackscalescale_vertical", "2");
+        rig.Convars.Declared<TFPushbackScaleVerticalConVar>().Bind(-1, "tf_pushbackscalescale_vertical", "2");
         rig.Directory.Instance = null;
         rig.Engine.FillsSphere(FlameRig.Victim);
         rig.Engine.Returns("Entities.IsPlayer", true);
@@ -554,7 +554,7 @@ public class TFAirBlastFacts
         // plus the burst's 350 of lift, the velocity stomped and the push
         // re-founded on the cond.
         var rig = new FlameRig();
-        rig.Convars.Get<TFAirBlastCrayConVar>()!.Bind(-1, "tf_airblast_cray", "0");
+        rig.Convars.Declared<TFAirBlastCrayConVar>().Bind(-1, "tf_airblast_cray", "0");
         var stun = rig.AttachStun(FlameRig.Victim);
         rig.Directory.Instance = null;
         rig.Engine.FillsSphere(FlameRig.Victim);
@@ -593,9 +593,9 @@ public class TFAirBlastFacts
         // The old arm's scales (:1789, :1811): the push runs
         // 2 · 922.5 = 1845 across, the lift 2 · 350 = 700 up.
         var rig = new FlameRig();
-        rig.Convars.Get<TFAirBlastCrayConVar>()!.Bind(-1, "tf_airblast_cray", "0");
-        rig.Convars.Get<TFPushbackScaleConVar>()!.Bind(-1, "tf_pushbackscalescale", "2");
-        rig.Convars.Get<TFPushbackScaleVerticalConVar>()!.Bind(-1, "tf_pushbackscalescale_vertical", "2");
+        rig.Convars.Declared<TFAirBlastCrayConVar>().Bind(-1, "tf_airblast_cray", "0");
+        rig.Convars.Declared<TFPushbackScaleConVar>().Bind(-1, "tf_pushbackscalescale", "2");
+        rig.Convars.Declared<TFPushbackScaleVerticalConVar>().Bind(-1, "tf_pushbackscalescale_vertical", "2");
         rig.AttachStun(FlameRig.Victim);
         rig.Directory.Instance = null;
         rig.Engine.FillsSphere(FlameRig.Victim);
@@ -621,8 +621,8 @@ public class TFAirBlastFacts
         // target's push Z under JUMP_MIN_SPEED becomes it — the burst dialed
         // to 100, under the 268.3281572999747 floor.
         var rig = new FlameRig();
-        rig.Convars.Get<TFAirBlastCrayConVar>()!.Bind(-1, "tf_airblast_cray", "0");
-        rig.Convars.Get<TFFlameThrowerBurstZvelocityConVar>()!.Bind(-1, "tf_flamethrower_burst_zvelocity", "100");
+        rig.Convars.Declared<TFAirBlastCrayConVar>().Bind(-1, "tf_airblast_cray", "0");
+        rig.Convars.Declared<TFFlameThrowerBurstZvelocityConVar>().Bind(-1, "tf_flamethrower_burst_zvelocity", "100");
         rig.AttachStun(FlameRig.Victim);
         rig.Directory.Instance = null;
         rig.Engine.FillsSphere(FlameRig.Victim);

@@ -137,7 +137,7 @@ public class OnSpawnFieldReloadTests
         services.AddInstance<IPlayerFlashlight>(
             new PlayerFlashlight(new EngineEntityEffectBits(engine, engine), engine, engine));
         // The useable ladders func_useableladder and info_ladder_dismount join at spawn.
-        services.AddInstance(new UseableLadders(ConVarRegistry.For(UnattachedConsole()), engine,
+        services.AddInstance(new UseableLadders(DeclaredConVars.Fresh<SvAutoLadderDismountConVar>(), DeclaredConVars.Fresh<SvLadderAutoMountDotConVar>(), DeclaredConVars.Fresh<SvLadderUseOnlyConVar>(), engine,
                                                 () => MoveConstantDefaults.Stock));
 
         registry.Services = services;

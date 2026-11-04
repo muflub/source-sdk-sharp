@@ -98,7 +98,9 @@ public sealed class HumanReferenceTests : IDisposable
                               DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
                               DispatchProxy.Create<IEngineFrame, Defaults>(), new Navigation(), DispatchProxy.Create<IBotInventory, Defaults>(),
                               new Names(), new ScoreboardTags(), _log);
-        _ai = new Hl2mpAiSession(new Navigation(), WeaponCatalog.Stock(), null!, null!, _log);
+        _ai = new Hl2mpAiSession(new Navigation(), WeaponCatalog.Stock(), null!, null!, _log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
+            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
     }
 
     private static IEngineEntities Indexes() => FakeEngine.Of<IEngineEntities>((m, a) => m.Name switch
@@ -250,7 +252,9 @@ public sealed class HumanReferenceTests : IDisposable
     {
         (List<string> Events, long Traces) Bots(bool record)
         {
-            var ai = new Hl2mpAiSession(new Navigation(), WeaponCatalog.Stock(), null!, null!, _log);
+            var ai = new Hl2mpAiSession(new Navigation(), WeaponCatalog.Stock(), null!, null!, _log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
+            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
             var s = new Sight(ai);
             s.Pass.TracesPerTick = 5;
             for (int i = 0; i < 3; i++)

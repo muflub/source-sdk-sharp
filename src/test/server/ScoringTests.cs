@@ -57,7 +57,7 @@ public class ScoringTests
             Host = Fake().Returns("Host.ActiveSide", Side.Server);
             Board = new Scoreboard(Host, Disconnects, new RecordingLog());
 
-            Rules = new GameRules(new RecordingLog(), ConVars, Host,
+            Rules = new GameRules(new RecordingLog(), ConVars.Holder<GameRulesConVars>(), Host,
                 Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GetTeam"),
                 Fake().Returns("Entities.IsValid", false), Board, Deaths);
 
@@ -69,7 +69,7 @@ public class ScoringTests
             => Rules.ScoreDeath(new PlayerDeathArgs(UserId: victim, AttackerUserId: attacker, weapon, false));
 
         public void FragLimit(string value)
-            => Bind(ConVars.Get<FragLimitConVar>()!, "cs_sv_fraglimit", value);
+            => Bind(ConVars.Declared<FragLimitConVar>(), "cs_sv_fraglimit", value);
     }
 
     //-------------------------------------------------------------------------

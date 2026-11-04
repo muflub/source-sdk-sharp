@@ -39,7 +39,7 @@ namespace TF2.Server;
 /// </summary>
 [SideService(Side.Server, As = [typeof(IPushEntitiesHook)])]
 public sealed class TFPhysicsPushEntities(IPushWorld world, IEngineEntities entities, ITFRespawnRooms rooms,
-                                          ITFMapPlayers players, IEngineDamage damage, ConVarRegistry? convars = null)
+                                          ITFMapPlayers players, IEngineDamage damage, TFGameModePayloadConVar payload)
     : IPushEntitiesHook
 {
     /// <inheritdoc />
@@ -72,10 +72,9 @@ public sealed class TFPhysicsPushEntities(IPushWorld world, IEngineEntities enti
 
     /// <summary>
     /// Stock's gate (:73, :114; tf_gamerules.cpp:2170-2182): the escort game
-    /// type, which our flags land on <c>tf_gamemode_payload</c>. No registry to
-    /// ask (a test's rig) keeps the TF answer, as the game's own does.
+    /// type, which our flags land on <c>tf_gamemode_payload</c>.
     /// </summary>
-    private bool UsesEscortPushLogic => convars?.Get<TFGameModePayloadConVar>()?.Value ?? true;
+    private bool UsesEscortPushLogic => payload.Value;
 
     /// <summary>
     /// <c>RotationPushTFPlayer</c> (:150-226): the sphere approximation of the

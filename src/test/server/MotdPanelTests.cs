@@ -22,7 +22,7 @@ public class MotdPanelTests
         engine.Returns("Console.FindConVarValue", hostname);
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        return (new MotdPanel(engine, engine, convars), engine, convars);
+        return (new MotdPanel(engine, engine, convars.Declared<MotdUnloadOnDismissalConVar>()), engine, convars);
     }
 
     private static (VguiMenu Menu, int Slot, bool Reliable) Sent(RecordingEngine engine)

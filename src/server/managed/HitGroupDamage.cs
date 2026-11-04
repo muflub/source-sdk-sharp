@@ -40,17 +40,13 @@ public interface IHitGroupDamageOwner
 /// the damage. Only a traced hit has a group, so a blast or a fall stays
 /// <see cref="HitGroup.Generic"/> and is not scaled.
 /// </summary>
-public sealed class HitGroupDamage(ConVarRegistry convars, IHooks<IHitGroupDamageOwner>? owners = null)
+public sealed class HitGroupDamage(PlayerHeadDamageConVar head, PlayerChestDamageConVar chest,
+                                    PlayerStomachDamageConVar stomach, PlayerArmDamageConVar arm,
+                                    PlayerLegDamageConVar leg, IHooks<IHitGroupDamageOwner>? owners = null)
     : IDamageModifier, IOrderedHook
 {
     /// <summary>First in the chain: stock scales in TraceAttack, before OnTakeDamage asks anybody.</summary>
     public const int Order = -1000;
-
-    private readonly PlayerHeadDamageConVar? _head = convars.Get<PlayerHeadDamageConVar>();
-    private readonly PlayerChestDamageConVar? _chest = convars.Get<PlayerChestDamageConVar>();
-    private readonly PlayerStomachDamageConVar? _stomach = convars.Get<PlayerStomachDamageConVar>();
-    private readonly PlayerArmDamageConVar? _arm = convars.Get<PlayerArmDamageConVar>();
-    private readonly PlayerLegDamageConVar? _leg = convars.Get<PlayerLegDamageConVar>();
 
     public int HookOrder => Order;
 
@@ -61,11 +57,11 @@ public sealed class HitGroupDamage(ConVarRegistry convars, IHooks<IHitGroupDamag
 
         return hit.HitGroup switch
         {
-            HitGroup.Head => damage * (_head?.Value ?? 1f),
-            HitGroup.Chest => damage * (_chest?.Value ?? 1f),
-            HitGroup.Stomach => damage * (_stomach?.Value ?? 1f),
-            HitGroup.LeftArm or HitGroup.RightArm => damage * (_arm?.Value ?? 1f),
-            HitGroup.LeftLeg or HitGroup.RightLeg => damage * (_leg?.Value ?? 1f),
+            HitGroup.Head => damage * head.Value,
+            HitGroup.Chest => damage * chest.Value,
+            HitGroup.Stomach => damage * stomach.Value,
+            HitGroup.LeftArm or HitGroup.RightArm => damage * arm.Value,
+            HitGroup.LeftLeg or HitGroup.RightLeg => damage * leg.Value,
             _ => damage,
         };
     }

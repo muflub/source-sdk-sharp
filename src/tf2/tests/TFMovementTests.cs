@@ -743,11 +743,11 @@ public sealed class TFMovementRulesTests
         convars.RegisterTypes([typeof(TFPlayerMovementRestartFreezeConVar)]);
         var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
                                         rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround),
-                                        restartFreeze: convars.Get<TFPlayerMovementRestartFreezeConVar>());
+                                        restartFreeze: convars.Declared<TFPlayerMovementRestartFreezeConVar>());
 
         Assert.Equal(1f, rules.MaxSpeedScale(Index, 400f, false, 0));
 
-        convars.Get<TFPlayerMovementRestartFreezeConVar>()!.SetValue(false);
+        convars.Declared<TFPlayerMovementRestartFreezeConVar>().SetValue(false);
 
         Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
     }
@@ -797,14 +797,14 @@ public sealed class TFMovementRulesTests
         var convars = new ConVarRegistry(new ClampBackend());
         convars.RegisterTypes([typeof(TFClampBackSpeedConVar), typeof(TFClampBackSpeedMinConVar)]);
         var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        backSpeed: convars.Get<TFClampBackSpeedConVar>(),
-                                        backSpeedMin: convars.Get<TFClampBackSpeedMinConVar>());
+                                        backSpeed: convars.Declared<TFClampBackSpeedConVar>(),
+                                        backSpeedMin: convars.Declared<TFClampBackSpeedMinConVar>());
 
         // The engine's read-back of the declared defaults, not a constant.
         Assert.Equal(new BackpedalLimit(0.9f, 100f), rules.BackpedalLimit(Index, 400f));
 
-        convars.Get<TFClampBackSpeedConVar>()!.SetValue(0.5f);
-        convars.Get<TFClampBackSpeedMinConVar>()!.SetValue(150f);
+        convars.Declared<TFClampBackSpeedConVar>().SetValue(0.5f);
+        convars.Declared<TFClampBackSpeedMinConVar>().SetValue(150f);
 
         Assert.Equal(new BackpedalLimit(0.5f, 150f), rules.BackpedalLimit(Index, 400f));
     }

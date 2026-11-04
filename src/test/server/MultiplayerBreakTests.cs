@@ -91,8 +91,8 @@ public sealed unsafe class MultiplayerBreakTests : IDisposable
         services.AddInstance<IEntityDirectory>(registry);
         var convars = new ConVarRegistry(new Backend());
         convars.RegisterTypes([typeof(BreakableMultiplayerConVar)]);
-        convars.Get<BreakableMultiplayerConVar>()!.SetValue(breakableMultiplayer);
-        services.AddInstance(convars);
+        convars.Declared<BreakableMultiplayerConVar>().SetValue(breakableMultiplayer);
+        convars.PublishTo(services);
         registry.Services = services;
         engine.Strict = false;
 

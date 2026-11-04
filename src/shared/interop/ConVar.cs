@@ -730,11 +730,8 @@ public sealed class ConVarRegistry
                                        unchecked((int)attr.Flags), min, max);
 
             // A refused ConVar is still bound, to its declared default and an id
-            // of -1. Dropping it would make Get<T>() return null and the policy
-            // reading it silently fall back to whatever its own null-coalesce
-            // says — which is a different value from the declared default, and
-            // impossible to spot from the outside. Bound-but-unregistered at
-            // least behaves as declared.
+            // of -1. Dropping it would leave nothing to publish for the class
+            // that takes it. Bound-but-unregistered at least behaves as declared.
             //
             // This is also what makes the rules testable without an engine.
             if (id < 0)
@@ -788,10 +785,6 @@ public sealed class ConVarRegistry
     }
 
     /// <summary>
-    /// Returns the registered instance of a ConVar class, so a module can hold a
-    /// typed reference instead of looking up by name on every read.
-    /// </summary>
-    /// <summary>
     /// Every convar this registry declared, by name. The development API reads
     /// values back through this — a convar can clamp or reject what it was
     /// given, and echoing the requested value would hide that.
@@ -817,9 +810,6 @@ public sealed class ConVarRegistry
 
         return null;
     }
-
-    public T? Get<T>() where T : ConVarBase
-        => _all.OfType<T>().FirstOrDefault();
 
     /// <summary>
     /// Puts every declared convar into the container, under BOTH keys: its own

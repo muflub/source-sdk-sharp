@@ -48,7 +48,7 @@ public sealed class FuncBreakableSurf : BreakableBrush, ITraceAttacked
                              IEngineHost host, IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
                              IBlastSweep blast, IServerDecals decals, IEngineEntityPhysics physics,
                              IEntityRoster<ITraceAttacked> traceAttacked, PhysicsDamageQueue impacts,
-                             ConVarRegistry? convars = null)
+                             BreakableBrushConVars convars)
         : base(propData, sound, precache, temps, host, damage, world, effects, blast, decals, physics, convars)
     {
         World = world;

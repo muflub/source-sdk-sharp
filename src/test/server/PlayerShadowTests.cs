@@ -74,7 +74,7 @@ public unsafe class PlayerShadowTests
     {
         var engine = Rig();
         var handle = new EntityHandle(0x0F0002);
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), commands: _queue,
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(), commands: _queue,
                                   shadows: new RecordingPlayerShadows(engine)) { Handle = handle };
         player.BindAreas(TestServices.Areas(engine));
 
@@ -99,7 +99,7 @@ public unsafe class PlayerShadowTests
     public void SpawningAsksForAPhysicsShadow()
     {
         var engine = Rig();
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
                                 shadows: new RecordingPlayerShadows(engine));
         player.BindAreas(TestServices.Areas(engine));
         player.State.BindLocal();
@@ -119,7 +119,7 @@ public unsafe class PlayerShadowTests
     public void RespawningAsksAgain()
     {
         var engine = Rig();
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
                                 shadows: new RecordingPlayerShadows(engine));
         player.BindAreas(TestServices.Areas(engine));
         player.State.BindLocal();
@@ -141,7 +141,7 @@ public unsafe class PlayerShadowTests
     public void ADyingPlayerIsNotSolidAtOnce()
     {
         var engine = Rig();
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
                                 shadows: new RecordingPlayerShadows(engine));
         player.BindAreas(TestServices.Areas(engine));
         player.State.BindLocal();
@@ -157,7 +157,7 @@ public unsafe class PlayerShadowTests
     {
         var engine = Rig();
         var handle = new EntityHandle((uint)((7 << 16) | 3));
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), commands: _queue,
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(), commands: _queue,
                                   shadows: new RecordingPlayerShadows(engine)) { Handle = handle };
         player.BindAreas(TestServices.Areas(engine));
         player.State.BindLocal();
@@ -198,7 +198,7 @@ public unsafe class PlayerShadowTests
     public void TheHullsReachTheEngineInStandThenCrouchOrder()
     {
         var engine = Rig();
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
                                 shadows: new RecordingPlayerShadows(engine));
         player.BindAreas(TestServices.Areas(engine));
         player.State.BindLocal();
@@ -254,7 +254,7 @@ public unsafe class PlayerShadowTests
     public void TheThreeNumbersReachTheEngine()
     {
         var engine = Rig();
-        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
                                 shadows: new RecordingPlayerShadows(engine));
         player.BindAreas(TestServices.Areas(engine));
         player.State.BindLocal();

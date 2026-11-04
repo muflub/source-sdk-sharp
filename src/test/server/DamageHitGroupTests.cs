@@ -122,11 +122,12 @@ public class DamageHitGroupTests
     {
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        convars.Get<PlayerDebugPrintDamageConVar>()!.Bind(-1, "player_debug_print_damage", print);
+        convars.Declared<PlayerDebugPrintDamageConVar>().Bind(-1, "player_debug_print_damage", print);
 
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
-        var services = Services(out var engine, convars);
+        var services = Services(out var engine);
+        convars.PublishTo(services);
         engine.Strict = false;   // the player's spawn-free build reads more than this fact asks
         registry.Services = services;
         registry.KeyValue(Victim, EntityNames.Player, "targetname", "victim");

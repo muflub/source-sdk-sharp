@@ -31,9 +31,9 @@ public sealed class PropDynamic : BreakableProp
                        IEngineEffects effects, IEnginePrecache precache, IEngineHost host, IBlastSweep blast,
                        IServerDecals decals, IEngineEntityRender render, IServerPropData propData,
                        PhysicsSoundBatch sounds, DamageInflictors inflictors, IEngineSound sound, ModelDescriptors models,
-                       ITempEnts temps, IEngineEnvironment environment, ConVarRegistry? convars = null)
+                       ITempEnts temps, IEngineEnvironment environment, BreakableMultiplayerConVar multiplayer)
         : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, sounds, inflictors, sound,
-               temps, environment, convars)
+               temps, environment, multiplayer)
     {
         Models = models;
     }

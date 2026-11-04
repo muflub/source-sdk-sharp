@@ -90,8 +90,8 @@ public class ServerTagsTests
     {
         var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
         registry.RegisterAll(typeof(SvGravityConVar).Assembly);
-        Assert.Equal("gravity", registry.Get<SvGravityConVar>()!.Tag);
-        Assert.Null(registry.Get<SvMaxSpeedConVar>()!.Tag);
+        Assert.Equal("gravity", registry.Declared<SvGravityConVar>().Tag);
+        Assert.Null(registry.Declared<SvMaxSpeedConVar>().Tag);
     }
 
     [Fact]

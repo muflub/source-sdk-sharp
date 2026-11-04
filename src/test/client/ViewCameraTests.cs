@@ -65,15 +65,15 @@ public class ViewCameraTests
             Engine.Returns("Console.FindConVarValue", cheats);
             _convars = new ConVarRegistry(_backend);
             _convars.RegisterTypes([typeof(ViewCameraModeConVar), typeof(ViewCameraEveryConVar)]);
-            Camera = new ViewCameraService(Targets, View, Engine, Engine, _convars.Get<ViewCameraModeConVar>()!,
-                                           _convars.Get<ViewCameraEveryConVar>()!);
+            Camera = new ViewCameraService(Targets, View, Engine, Engine, _convars.Declared<ViewCameraModeConVar>(),
+                                           _convars.Declared<ViewCameraEveryConVar>());
             if (eyeKnown)
                 View.PublishEye(Eye);
             View.PublishAngles(0f, 30f);
         }
 
         public ClientDebugViewCamera Route(SourceSharp.Client.Render.RenderPlanHost? plan = null)
-            => new(Camera, Targets, Engine, _convars.Get<ViewCameraModeConVar>()!, _convars.Get<ViewCameraEveryConVar>()!, plan);
+            => new(Camera, Targets, Engine, _convars.Declared<ViewCameraModeConVar>(), _convars.Declared<ViewCameraEveryConVar>(), plan);
 
         public Rig Set(string name, string value)
         {

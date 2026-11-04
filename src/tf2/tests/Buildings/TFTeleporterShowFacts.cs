@@ -215,8 +215,8 @@ public class TFTeleporterShowFacts
     public void TheArrivalEasesTheViewBackOverTheConvarsWords()
     {
         var (rig, entrance, exit, _) = APair();
-        rig.Convars.Get<TFTeleporterFovTimeConVar>()!.SetValue(1.5f);
-        rig.Convars.Get<TFTeleporterFovStartConVar>()!.SetValue(100);
+        rig.Convars.Declared<TFTeleporterFovTimeConVar>().SetValue(1.5f);
+        rig.Convars.Declared<TFTeleporterFovStartConVar>().SetValue(100);
         TickBoth(rig, entrance, exit, 0.05f);
         EntityHandle rider = ARider(rig);
 

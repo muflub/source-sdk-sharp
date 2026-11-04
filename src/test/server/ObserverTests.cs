@@ -72,8 +72,8 @@ public class ObserverTests
             }
             ConVars = ConVarRegistry.For(UnattachedConsole());
             ConVars.RegisterAll(typeof(GameRules).Assembly);
-            ConVars.Get<AllowSpectatorsConVar>()!.NotifyChanged("1", "0");   // stock's default
-            Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine, Engine, Engine, ConVars, Clients);
+            ConVars.Declared<AllowSpectatorsConVar>().NotifyChanged("1", "0");   // stock's default
+            Observers = new Observers(new RecordingLog(), registry, Engine, Engine, Engine, Engine, Engine, Engine, Engine, ConVars.Declare<ForceCameraConVar>(), ConVars.Declare<AllowSpectatorsConVar>(), Clients);
         }
 
         public void Die(int i, float at)
@@ -341,7 +341,7 @@ public class ObserverTests
     {
         var r = new Rig();
         var me = r.Players[0];
-        r.ConVars.Get<AllowSpectatorsConVar>()!.NotifyChanged("0", "1");
+        r.ConVars.Declared<AllowSpectatorsConVar>().NotifyChanged("0", "1");
 
         Assert.False(r.Observers.Spectate(me, 1f));
         Assert.Equal(0, me.State.ObserverMode);

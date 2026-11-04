@@ -142,7 +142,7 @@ public sealed class TFLagCompensationTargetsTests
         var convars = ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>());
         convars.RegisterAll(typeof(MpFriendlyFireConVar).Assembly);
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.ShippedWithClasses());
-        return (new TFLagCompensationTargets(convars, engine, engine, scripts,
+        return (new TFLagCompensationTargets(convars.Declared<MpFriendlyFireConVar>(), engine, engine, scripts,
                                              new TF2.Tests.Projectiles.ProjectileRig.FixedClasses { Class = cls },
                                              new Mediguns(patient)), convars);
     }
@@ -192,7 +192,7 @@ public sealed class TFLagCompensationTargetsTests
     public void With_friendly_fire_on_a_teammate_is_judged_by_the_reach_alone()
     {
         var (rule, convars) = Rule("tf_weapon_scattergun", TFClass.Scout);
-        convars.Get<MpFriendlyFireConVar>()!.NotifyChanged("1", "0");
+        convars.Declared<MpFriendlyFireConVar>().NotifyChanged("1", "0");
 
         Assert.Equal(Decision.Yes, rule.WantsLagCompensationOnEntity(Asked(Mate, yaw: 90f)));
     }
@@ -314,10 +314,10 @@ public sealed class TFFlameTickLagTests
             Lag = new LagCompensation(World, new LagSettings(), Commands, new RecordingLog());
             Effects = new TFFlameEffects(Flame.Engine, Flame.Engine, Flame.Directory, Flame.Engine, Flame.Engine,
                                          Flame.Conditions, Flame.Owners, Flame.Log,
-                                         Flame.Convars.Get<TFAirBlastCrayConVar>()!,
-                                         Flame.Convars.Get<TFFlameThrowerBurstZvelocityConVar>()!,
-                                         Flame.Convars.Get<TFPushbackScaleConVar>()!,
-                                         Flame.Convars.Get<TFPushbackScaleVerticalConVar>()!, Flame.Carriers,
+                                         Flame.Convars.Declared<TFAirBlastCrayConVar>(),
+                                         Flame.Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
+                                         Flame.Convars.Declared<TFPushbackScaleConVar>(),
+                                         Flame.Convars.Declared<TFPushbackScaleVerticalConVar>(), Flame.Carriers,
                                          withSession ? Lag : null);
             Swinger.Latency = 5 * LagWorld.Tick;
             Flame.Directory.Instance = Flame.Manager;

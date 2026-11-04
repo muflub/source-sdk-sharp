@@ -44,7 +44,7 @@ public sealed class TFPlayerSpawnsTests
             convars.RegisterAll(typeof(TFPlayerSpawns).Assembly);
             ConVars = convars;
             var directory = new NoPlayers();
-            Observers = new Observers(Player.Log, directory, engine, engine, engine, engine, engine, engine, engine, convars);
+            Observers = new Observers(Player.Log, directory, engine, engine, engine, engine, engine, engine, engine, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>());
             Conditions = new TFPlayerConditions(Player.Carriers, engine);
             Class = new TFPlayerClass(Player.Carriers, Player.Items);
             Jump = new TFBlastJumpState(Player.Carriers, Conditions, engine, directory, engine, engine);
@@ -53,7 +53,7 @@ public sealed class TFPlayerSpawnsTests
             Player.Join();
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
                                         directory, Observers, new Carried(Weapon),
-                                        convars.Get<TFSpawnGlowsDurationConVar>()!, Player.Log);
+                                        convars.Declared<TFSpawnGlowsDurationConVar>(), Player.Log);
         }
 
         public void Spawn()
@@ -192,7 +192,7 @@ public sealed class TFPlayerSpawnsTests
         // CTFPlayer::Spawn's AddCond( TF_COND_TEAM_GLOWS,
         // tf_spawn_glows_duration.GetInt() ) (tf_player.cpp:3635-3636).
         var rig = new Rig();
-        rig.ConVars.Get<TFSpawnGlowsDurationConVar>()!.Bind(-1, "tf_spawn_glows_duration", "3");
+        rig.ConVars.Declared<TFSpawnGlowsDurationConVar>().Bind(-1, "tf_spawn_glows_duration", "3");
         rig.Class.Desired = TFClass.Scout;
 
         rig.Spawn();
@@ -301,12 +301,12 @@ public sealed class TFPlayerSpawnsTests
         convars.RegisterAll(typeof(GameRules).Assembly);
         convars.RegisterAll(typeof(TFPlayerSpawns).Assembly);
         var log = new RecordingLog();
-        var observers = new Observers(log, registry, engine, engine, engine, engine, engine, engine, engine, convars);
+        var observers = new Observers(log, registry, engine, engine, engine, engine, engine, engine, engine, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>());
         var carriers = new TFPlayerCarriers();
         var spawns = new TFPlayerSpawns(carriers, new PlayerRig().Classes, engine, engine, engine,
                                         new TFPlayerConditions(carriers, engine), new TFCritBuckets(),
                                         registry, observers, new Carried(EntityHandle.None),
-                                        convars.Get<TFSpawnGlowsDurationConVar>()!, log);
+                                        convars.Declared<TFSpawnGlowsDurationConVar>(), log);
 
         spawns.OnSpawned(PlayerRig.Player, 1f);
 

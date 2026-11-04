@@ -142,6 +142,29 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _surfaceProps = _services.Require<IFwdPhysicsSurfaceProps>();
 
         _convars = ConVarRegistry.For(_services.Require<IEngineConsole>());
+
+        // Declared and published here, before anything else is composed: every
+        // class below takes the convars it reads by constructor, from the
+        // container. The registry goes in too, for what asks it about all of
+        // them (the server tags, the command-line policies).
+        _convars.RegisterAll(typeof(ServerModule).Assembly);
+        _convars.PublishTo(_services);
+        _services.AddInstance(_convars);
+
+        // The holders of the convars a class reads too many of to list.
+        _services.Add<GameRulesConVars>();
+        _services.Add<BreakableBrushConVars>();
+
+        // This module's own reads, all live.
+        _playerShadow = _services.Require<PlayerShadowConVar>();
+        _netTableProfile = _services.Require<NetTableProfileConVar>();
+        _greeting = _services.Require<GreetingConVar>();
+        _verboseJoinsVar = _services.Require<VerboseJoinsConVar>();
+        _damageScale = _services.Require<DamageScaleConVar>();
+        _spawnHealth = _services.Require<SpawnHealthConVar>();
+        _allowFlashlight = _services.Require<AllowFlashlightConVar>();
+        _bannedNames = _services.Require<BannedNamesConVar>();
+
         _userMessages = new UserMessageRegistry(Log, receives: false);
 
         // What sends a user message by key (plan_side_isolation §2.2a): this
@@ -159,15 +182,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // them, before anything that asks for one. Lifecycle participants
         // (level shutdown, the reload's carry).
         {
-            // sv_gravity found once: ConVarRegistry.Get walks every convar, and
-            // a medium asks for gravity on each object it acts on, each tick
-            // (plan_physics_bones_perf B3: 600 ns of a medium's Simulate).
-            SvGravityConVar? gravity = null;
+            SvGravityConVar gravity = _services.Require<SvGravityConVar>();
             var jointWorld = new EnginePhysicsJointWorld(_services.Require<IEngineEntityPhysics>(),
                                                          _services.Require<IEngineEntities>(),
                                                          _services.Require<IEngineEnvironment>(),
                                                          _services.Require<IGameClock>(),
-                                                         () => (gravity ??= _convars.Get<SvGravityConVar>())?.Value ?? 800f);
+                                                         () => gravity.Value);
             var jointTable = new PhysicsJointTable();
             var vphysicsJoints = new VPhysicsJoints(_engine.VPhysics);
             _physicsConstraints = new PhysicsConstraints(jointTable, vphysicsJoints, jointWorld, Log,
@@ -209,10 +229,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the route that answers game code's calls on a player's movement
         // state from those records.
         _playerMoves.Seed = (player, move) => _entities?.Get(player) is SsPlayer p && PlayerMovePublisher.Seed(p.State, move);
+        _moveConstants = NewMoveConstants();
         _serverCommands = ServerPlayerCommands.For(_engine, _services.Require<IFwdEngineTrace>(), _surfaceProps,
                                                    _playerMoves, _moveData,
                                                    new MoveSoundsOf(() => _serverSounds), this, _movement,
-                                                   NewMoveConstants().Read,
+                                                   _moveConstants.Read,
                                                    new PlayerMovePublisher(h => _entities?.Get(h) as SsPlayer),
                                                    _services.Require<IEngineEnvironment>());
         _services.AddInstance(_playerMoves);
@@ -241,7 +262,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _playerCommands.Observers = _services.Require<IHooks<IPlayerCommandObserver>>();
         _services.AddInstance<IPlayerCommandRunner>(
             PlayerCommandRunner.For(_playerCommands, _serverCommands, _services.Require<IEngineEnvironment>(), this, this,
-                                    _engine, () => _playerShadow?.Value ?? true));
+                                    _engine, () => _playerShadow.Value));
 
         // This side's declared networked states by name (statics to zero: it
         // was three static maps every side's Discover wrote), for native's
@@ -307,10 +328,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// (plan_server_native_v2 T4g): its convars, its registered movement
     /// params, the globals and engine-&gt;Time().
     /// </summary>
-    internal ServerMoveConstants NewMoveConstants()
-        => new(_convars, () => _movementRules?.Constants ?? Movement.Current,
+    private ServerMoveConstants NewMoveConstants()
+        => new(_services.Create<MoveConVars>(), () => _movementRules?.Constants ?? Movement.Current,
                _services.Require<IEngineEnvironment>(),
                () => _engineServer.Time());
+
+    private ServerMoveConstants _moveConstants = null!;
 
     /// <summary><c>engine-&gt;IsModelPrecached( name )</c>, through IVEngineServer's forwarders.</summary>
     private bool ModelAlreadyPrecached(string name)
@@ -610,7 +633,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     private EntityFactories _factories = null!;
 
-    private PlayerShadowConVar? _playerShadow;
+    private PlayerShadowConVar _playerShadow = null!;
 
     /// <summary>
     /// This composition's player command queues, counters and shadow run
@@ -661,7 +684,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // class list -- so there is nothing to invalidate.
     private IReadOnlyList<NetSchemaType>? _netSchema;
 
-    private NetTableProfileConVar? _netTableProfile;
+    private NetTableProfileConVar _netTableProfile = null!;
 
     /// <summary>
     /// Class name to declared fields, for the traffic view's attribution.
@@ -675,14 +698,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // Built in ComposeEngineAreas over this side's console (plan_abi_hotreload
     // D8), not over whichever side is active.
     private ConVarRegistry _convars = null!;
-    private GreetingConVar? _greeting;
-    private VerboseJoinsConVar? _verboseJoinsVar;
-    private DamageScaleConVar? _damageScale;
-    private ArmourRatioConVar? _armourRatio;
-    private ArmourBonusConVar? _armourBonus;
-    private SpawnHealthConVar? _spawnHealth;
-    private AllowFlashlightConVar? _allowFlashlight;
-    private BannedNamesConVar? _bannedNames;
+    private GreetingConVar _greeting = null!;
+    private VerboseJoinsConVar _verboseJoinsVar = null!;
+    private DamageScaleConVar _damageScale = null!;
+    private SpawnHealthConVar _spawnHealth = null!;
+    private AllowFlashlightConVar _allowFlashlight = null!;
+    private BannedNamesConVar _bannedNames = null!;
 
 
     public void Initialize(Side side)
@@ -893,7 +914,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                       v => ManagedAreaFactory.Create(v, new NetStateLayoutBinding(_engine.Crossings, Log, _netStates)));
         _bindings.Add("IManagedPlayerCommands",
                       v => ManagedAreaFactory.Create(v, PlayerCommandsBinding.For(_engine.Crossings, Log, this, this, _playerCommands,
-                                                             () => _playerShadow?.Value ?? true,
+                                                             () => _playerShadow.Value,
                                                              _serverCommands, _engine)));
         // The engine's hitbox traces against a standalone entity's skeleton
         // (plan physics_bones_native_zero step 1.1). Built when native
@@ -1035,13 +1056,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_services.Create<PvsCheckClient>());
         _services.AddInstance(_services.Create<PlayerNames>());
         // Stock's observer mode, the dead CBasePlayer arm (the death cycle and spec_*).
-        // Its convars are registered later in Initialize; it reads them when first asked.
         _movement.ObserverTargetPose = ObservedPose;
         _services.AddInstance(new Observers(Log, _entities, _services.Require<IEngineEntities>(), _services.Require<IEnginePlayers>(),
                                             _services.Require<IEnginePlayerMovement>(), _services.Require<IEngineEntityRender>(),
                                             _services.Require<IEngineDamage>(), _services.Require<IEngineWorldQuery>(),
-                                            _services.Require<IEngineEntityPhysics>(), _convars,
-                                            _services.Resolve<IConnectedClients>()));
+                                            _services.Require<IEngineEntityPhysics>(), _services.Require<ForceCameraConVar>(),
+                                            _services.Require<AllowSpectatorsConVar>(), _services.Resolve<IConnectedClients>()));
 
         // The weapon and ammo tables THIS side reads, registered before the
         // arsenal is built so the container hands the same objects to it, to
@@ -1487,21 +1507,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Its own Random rather than a shared one, so the spawn choice is independent of
         // anything else drawing random numbers this frame.
         _spawnPoints = new SpawnPoints(_entityApi, _playerApi, _services.Require<IEngineWorldQuery>(),
-                                       _services.Require<IEngineDamage>(), _convars, new Random(),
+                                       _services.Require<IEngineDamage>(), _services.Require<Hl2mpSpawnFragFallbackRadiusConVar>(), new Random(),
                                        _services.Resolve<IHooks<ISpawnPlacement>>(),
                                        _services.Resolve<IHooks<ISpawnFragRule>>(), Log);
         _clock = _services.Require<IGameClock>();
 
         _chapterTitle = new ChapterTitle(Log, _send);
 
-        int v = _convars.RegisterAll(typeof(ServerModule).Assembly);
-        _convars.PublishTo(_services);
-
-        // The registry itself, not just the convars in it. GameRules asks for
-        // it by type so it can hold typed references rather than look each one
-        // up by name on every read — and it is built through the container now,
-        // so the container has to be able to answer for it.
-        _services.AddInstance(_convars);
+        int v = _convars.All.Count;
 
         // The player's +USE (CHL2_Player::PlayerUse over FindUseEntity), run
         // before each command's move and, for its deny sound, after it. After
@@ -1674,8 +1687,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(friction);
         // cs_sv_playershadow_trace (A39): the shadow step's and the recovery's
         // per-frame record, read live from this side's convar.
-        var shadowTraceOn = _convars.Get<PlayerShadowTraceConVar>()
-            ?? throw new InvalidOperationException("cs_sv_playershadow_trace is not registered");
+        var shadowTraceOn = _services.Require<PlayerShadowTraceConVar>();
         var shadowTrace = new PlayerShadowTrace(Log, () => shadowTraceOn.Value);
         _playerCommands.Shadow.Trace = shadowTrace;
         // The players' physics shadows (plan_physics_bones_native_zero 2.5):
@@ -1688,14 +1700,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             Log.Warning($"[SourceSharp/Server] no VPhysics collision table: player shadows cannot be built: {collisionWhy}\n");
         var shadowBodies = PlayerShadowBodies.ForEngine(
             _engine, new VPhysicsShadowCalls(physicsCollision, _surfaceProps, _engine.VPhysics),
-            () => _playerShadow?.Value ?? true, text => Log.Warning(text), _playerMoves, _moveData);
+            () => _playerShadow.Value, text => Log.Warning(text), _playerMoves, _moveData);
         PlayerShadowBodies.RouteTeleports(_services, shadowBodies);
         _services.AddInstance(shadowBodies);
         _services.AddInstance<IPlayerShadows>(shadowBodies);
         _playerCommands.Shadow.Bodies = shadowBodies;
         // The players' shadows after the step (B7): VPhysicsShadowUpdate.
-        var physTimescale = _convars.Get<PhysTimescaleConVar>()
-            ?? throw new InvalidOperationException("phys_timescale is not registered");
+        var physTimescale = _services.Require<PhysTimescaleConVar>();
         var shadows = new PlayerShadowRecovery(_services.Require<IEnginePlayers>(),
                                                _services.Require<IEngineEntities>(),
                                                _services.Require<IEngineWorldQuery>(),
@@ -1732,8 +1743,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<IVPhysicsInspect>(inspect);
         {
             var diagnostics = _services.Require<IEngineDiagnostics>();
-            var reportOn = _convars.Get<PhysWorldReportConVar>()
-                ?? throw new InvalidOperationException("sourcesharp_physworld_report is not registered");
+            var reportOn = _services.Require<PhysWorldReportConVar>();
             var entityPhysics = _services.Require<IEngineEntityPhysics>();
             _services.AddInstance(new PhysWorldReport(inspect, entityPhysics.EnvironmentPointer,
                 entityPhysics.WorldObject, _physicsSolver,
@@ -1811,7 +1821,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // respawn wait and the wave release are the active mode's when it owns
         // them. Attach rather than a Players constructor parameter — the proxy
         // cannot be Create'd at the Players creation site above, which runs
-        // before the ConVarRegistry it takes is registered.
+        // before the proxy is composed.
         _players.AttachModes(modes);
 
         // And the say relay gets it too: say_team asks the active mode whether
@@ -1836,16 +1846,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // The usercmd decode's clamp (plan_server_novalve.md P2.2): read per
         // packet from this side's own ConVar, never by a crossing.
-        var moveMagnitude = _convars.Get<MaxUsercmdMoveMagnitudeConVar>()
-            ?? throw new InvalidOperationException("sv_max_usercmd_move_magnitude is not registered");
+        var moveMagnitude = _services.Require<MaxUsercmdMoveMagnitudeConVar>();
         _playerCommands.MaxMoveMagnitude = () => moveMagnitude.Value;
-
-        // sourcesharp_player_shadow, this composition's own (plan_abi_hotreload
-        // D7: it was the static PlayerShadow.Switch, which the convar's
-        // constructor set). The run reads it live; before this line it answers
-        // ON, the declared default.
-        _playerShadow = _convars.Get<PlayerShadowConVar>()
-            ?? throw new InvalidOperationException("sourcesharp_player_shadow is not registered");
 
         // Which kinds of damage behave which way. Beside the movement
         // parameters because it is the same kind of statement -- constants the
@@ -1928,14 +1930,19 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // entities join it at spawn, and the command loop's movement climbs
         // what it holds (CHL2GameMovement). A lifecycle participant, because
         // a level's end empties it.
-        var ladders = new UseableLadders(_convars, _services.Require<IEnginePlayers>(),
-                                         () => NewMoveConstants().Read().Constants);
+        var ladders = new UseableLadders(_services.Require<SvAutoLadderDismountConVar>(),
+                                         _services.Require<SvLadderAutoMountDotConVar>(),
+                                         _services.Require<SvLadderUseOnlyConVar>(), _services.Require<IEnginePlayers>(),
+                                         () => _moveConstants.Read().Constants);
         _services.AddInstance(ladders);
         _serverCommands.Ladders = ladders;
 
         // HL2MP's player speeds and suit power, which the loop runs for every
         // player's command (CHL2_Player's HandleSpeedChanges and ReduceTimers).
-        _serverCommands.Hl2Player = new Hl2PlayerMoveRules(_convars, _globalState);
+        _serverCommands.Hl2Player = new Hl2PlayerMoveRules(_services.Require<Hl2WalkSpeedConVar>(),
+                                                           _services.Require<Hl2NormSpeedConVar>(),
+                                                           _services.Require<Hl2SprintSpeedConVar>(),
+                                                           _services.Require<SvInfiniteAuxPowerConVar>(), _globalState);
 
         //---------------------------------------------------------------------
         // ...and now that every service is registered, the thing that drives
@@ -2046,10 +2053,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // participant, so registered before the driver below.
         {
             var frameCalls = VPhysicsFrameCalls.For(_engine.VPhysics);
-            var speeds = _convars.Get<PhysSpeedsConVar>()
-                ?? throw new InvalidOperationException("phys_speeds is not registered");
-            var timescale = _convars.Get<PhysTimescaleConVar>()
-                ?? throw new InvalidOperationException("phys_timescale is not registered");
+            var speeds = _services.Require<PhysSpeedsConVar>();
+            var timescale = _services.Require<PhysTimescaleConVar>();
             var directory = _players;
             var callbacks = _physicsCallbacks;
             _physicsFrame = new PhysicsFrame(frameCalls, EnginePhysicsFrameNative.ForEngine(_engine),
@@ -2058,8 +2063,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 new PlayerShadowStress(frameCalls, _services.Require<IPhysicsSolverWorld>()),
                 () => directory.All.Select(p => p.Player), ev => _physicsRouter?.Post(ev),
                 () => timescale.Value, () => speeds.Value, text => Log.Msg(text), callbacks.EnsureInstalled, _postSimulation);
-            var watchSetting = _convars.Get<PhysicsWatchConVar>()
-                ?? throw new InvalidOperationException("cs_sv_physics_watch is not registered");
+            var watchSetting = _services.Require<PhysicsWatchConVar>();
             var watch = new PhysicsWatch(_services.Require<IVPhysicsInspect>(), _services.Require<IVPhysicsSolverObjects>(),
                                          _services.Require<IGameClock>(), Log, () => watchSetting.Value);
             _physicsFrame.AfterStep = watch.AfterStep;
@@ -2078,7 +2082,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
                                          new StudioModels(_services.Require<IStudioMemory>()),
                                          _services.Require<IGameClock>(), Log,
-                                         _surfaceProps, _convars.Get<AnimThreeWayBlendConVar>());
+                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
         _arsenal.Attachments = _skeletons;
 
@@ -2099,12 +2103,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var lagCompensation = new LagCompensation(
             _services.Require<ILagCompensationWorld>(),
             new LagCompensationConVars(
-                _convars.Get<SvUnlagConVar>() ?? throw new InvalidOperationException("sv_unlag is not registered"),
-                _convars.Get<SvMaxUnlagConVar>() ?? throw new InvalidOperationException("sv_maxunlag is not registered"),
-                _convars.Get<SvLagFlushBoneCacheConVar>()
-                    ?? throw new InvalidOperationException("sv_lagflushbonecache is not registered"),
-                _convars.Get<SvLagCompensationTeleportDistConVar>()
-                    ?? throw new InvalidOperationException("sv_lagcompensation_teleport_dist is not registered")),
+                _services.Require<SvUnlagConVar>(),
+                _services.Require<SvMaxUnlagConVar>(),
+                _services.Require<SvLagFlushBoneCacheConVar>(),
+                _services.Require<SvLagCompensationTeleportDistConVar>()),
             _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
         _services.AddInstance(lagCompensation);
         _services.AddInstance<ILagCompensation>(lagCompensation);
@@ -2184,10 +2186,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                      _services.Require<EntityIoRoutes>(),
                                      _services.Require<IWorldNetBinding>(),
                                      new MessageOfTheDay(Log,
-                                         _convars.Get<MotdFileConVar>()
-                                             ?? throw new InvalidOperationException("motdfile is not registered"),
-                                         _convars.Get<MotdTextFileConVar>()
-                                             ?? throw new InvalidOperationException("motdfile_text is not registered"),
+                                         _services.Require<MotdFileConVar>(),
+                                         _services.Require<MotdTextFileConVar>(),
                                          _services.Require<IEngineFiles>(),
                                          EngineInfoPanel()));
         _gameDll.UserMessages = _userMessages;
@@ -2259,17 +2259,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         Log.Msg($"[SourceSharp/Server] {_services.ServiceTypes.Count} service(s), " +
                    $"{_services.Names.Count} console name(s) in the container\n");
 
-        _netTableProfile = _convars.Get<NetTableProfileConVar>();
-        _greeting        = _convars.Get<GreetingConVar>();
-        _verboseJoinsVar = _convars.Get<VerboseJoinsConVar>();
-        _damageScale     = _convars.Get<DamageScaleConVar>();
-        _armourRatio     = _convars.Get<ArmourRatioConVar>();
-        _armourBonus     = _convars.Get<ArmourBonusConVar>();
-        _spawnHealth     = _convars.Get<SpawnHealthConVar>();
-        _allowFlashlight = _convars.Get<AllowFlashlightConVar>();
-        if (_allowFlashlight is { } allowFlashlight)
-            _flashlight.Allowed = () => allowFlashlight.Value;
-        _bannedNames     = _convars.Get<BannedNamesConVar>();
+        _flashlight.Allowed = () => _allowFlashlight.Value;
 
         // Nothing publishes on the generated shell here any more:
         // sourcesharp_netentity was its only type, and the shell is deleted.
@@ -2337,7 +2327,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // sampling before the two managed writers sees the settled frame rather
         // than a half-updated one. It is also a diagnostic that does nothing
         // unless a convar turns it on.
-        _netTraffic.Frame(_netTableProfile?.Value ?? false, NetFieldsOf);
+        _netTraffic.Frame(_netTableProfile.Value, NetFieldsOf);
 
         // Every IFrameLifecycle, in FrameOrder. This is the MIDDLE of the frame
         // -- FrameUpdatePostEntityThink -- and it is where the soundscape and
@@ -2757,11 +2747,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     {
         // Apply the spawn health rule through the handle — proof C# both reads
         // and writes entity state safely.
-        int health = _spawnHealth?.Value ?? 100;
+        int health = _spawnHealth.Value;
         _entityApi.SetHealth(player, health);
 
         Log.Msg($"[SourceSharp/Server] {player} spawned at {_entityApi.GetOrigin(player)}, " +
-                   $"health set to {_entityApi.GetHealth(player)} (damage x{_damageScale?.Value ?? 1f:F2})\n");
+                   $"health set to {_entityApi.GetHealth(player)} (damage x{_damageScale.Value:F2})\n");
 
         // Run the handle-safety check here rather than from a console command:
         // spawn is the one moment a live player handle is guaranteed to exist.
@@ -2858,7 +2848,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     public string? OnClientConnect(string name, string address)
     {
-        string banned = _bannedNames?.Value ?? string.Empty;
+        string banned = _bannedNames.Value;
 
         if (banned.Length > 0)
         {
@@ -3364,12 +3354,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 // An entity's physics object (InitPhysics to managed): made
                 // here over the same model reads, held by the shell.
                 _entityPhysicsCalls = new VPhysicsEntityCalls(_engine.VPhysics);
-                var solidityFirst = _convars.Get<SolidityBeforePhysicsConVar>();
+                var solidityFirst = _services.Require<SolidityBeforePhysicsConVar>();
                 _entityPhysics = new EntityPhysicsCreation(_physicsWorldVPhysics, _entityPhysicsCalls,
                     new EngineEntityPhysicsHost(_services.Require<IEngineEntities>(), entityPhysics,
                                                 _services.Require<IEngineEntityRender>(),
                                                 EngineEntityPhysicsNative.ForEngine(_engine), _entities,
-                                                () => solidityFirst?.Value ?? true, text => Log.Warning(text)),
+                                                () => solidityFirst.Value, text => Log.Warning(text)),
                     _massCenters);
                 _services.AddInstance(_entityPhysics);
                 // phys_convert's conversion (stock's physobj.cpp), over the same
@@ -3489,7 +3479,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var render = _services.Require<IEngineEntityRender>();
         var recipients = new SoundRecipients(engine, new ServerSoundListeners(_services.Require<IEngineEnvironment>(),
                                                                                 players, server));
-        var trace = _convars.Get<SvSoundEmitterTraceConVar>();
+        var trace = _services.Require<SvSoundEmitterTraceConVar>();
 
         // The speaker: a player by its slot, anything else by the entry its
         // index names; null where nothing is bound, which has no gender.
@@ -3516,12 +3506,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var soundHooks = new Hooks<ISoundEmitHook>(_services, Log);
         var stepHooks = new Hooks<IClientStepHook>(_services, Log);
         var emitter = new SoundEmitter(engine, recipients, _services.Require<ICloseCaptions>(),
-                                       _services.Require<IGameClock>(), SpeakerModel, () => trace?.Value == true,
+                                       _services.Require<IGameClock>(), SpeakerModel, () => trace.Value,
                                        text => Log.Msg(text), DeveloperMessage, () => soundHooks.All, SourceOrigin);
-        var footsteps = _convars.Get<SvFootstepsConVar>();
+        var footsteps = _services.Require<SvFootstepsConVar>();
         _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
                                          text => Log.Warning(text), _soundSystem, SpeakerModel,
-                                         () => footsteps?.Value != false, () => stepHooks.All);
+                                         () => footsteps.Value, () => stepHooks.All);
         ServerSoundRouting.Route(_services, _serverSounds);
 
         // The temp entities' send (plan_server_native_v2 T4b): the same managed
@@ -3769,8 +3759,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The bot BotPlayers.Add is waiting for, or a bot a level change put in again.
         _services.Resolve<BotPlayers>()?.PutInServer(entIndex, playerName);
         // Reads two C#-declared ConVars — proof they hold live engine values.
-        if (_verboseJoinsVar?.Value != false)
-            Log.Msg($"[SourceSharp/Server] {_greeting?.Value ?? "hello"}, {playerName} (ent {entIndex})\n");
+        if (_verboseJoinsVar.Value)
+            Log.Msg($"[SourceSharp/Server] {_greeting.Value}, {playerName} (ent {entIndex})\n");
     }
 
     public bool OnClientNetMessage(int entIndex, string key, ReadOnlySpan<byte> payload)

@@ -50,9 +50,10 @@ public sealed partial class ServiceFlowTests
         Assert.NotNull(players.BySteamId(Hero));
 
         var engine = new RecordingEngine();
-        engine.Returns("Host.CurrentTime", 0f);
+        engine.Returns("Host.CurrentTime", 0f)
+              .Returns("Files.ReadGameFile", (string?)null);
         var console = new ReloadingConsole(players, 3);
-        var it = new Intermission(w.Log, ConVarRegistry.For(engine), new NoEntities(), engine, engine, engine, console, engine,
+        var it = new Intermission(w.Log, DeclaredConVars.Fresh<MpChatTimeConVar>(), DeclaredConVars.Fresh<NextLevelConVar>(), DeclaredConVars.Fresh<MapCycleFileConVar>(), new NoEntities(), engine, engine, engine, console, engine,
                                   gates.Length == 0 ? null : new Hooks<IRoundEndGate>(gates));
         it.LevelInit("tf2_descent-1-0123456789abcdef", 0f);
         return (w, players, it, console, engine);

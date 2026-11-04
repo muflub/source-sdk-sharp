@@ -39,7 +39,7 @@ public interface IPlayerModelOwner
 /// </summary>
 public sealed class PlayerModels(IConnectedClients clients, IEngineEntities entities, IEngineEntityRender render,
                                  IEnginePlayers players, IEnginePrecache precache, IGameClock clock, IChat chat,
-                                 ITeams teams, ConVarRegistry convars, IHooks<IPlayerModelOwner>? owners = null)
+                                 ITeams teams, TeamPlayConVar teamplay, IHooks<IPlayerModelOwner>? owners = null)
     : IGameLifecycle, ITeamChangeWatcher
 {
     public const string ConVarName = "cl_playermodel";
@@ -74,8 +74,6 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
         "models/police.mdl",
     ];
 
-    private readonly TeamPlayConVar? _teamplay = convars.Get<TeamPlayConVar>();
-
     private readonly Dictionary<EntityHandle, Worn> _worn = new();
 
     private int _lastCitizen;
@@ -86,7 +84,7 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
     /// <summary>Whether this game's players wear HL2MP's models at all.</summary>
     private bool Applies => owners is not { All.Count: > 0 };
 
-    private bool Teamplay => _teamplay?.Value == true;
+    private bool Teamplay => teamplay.Value;
 
     int IGameLifecycle.LifecycleOrder => (int)LifecycleStage.PlayerModels;
 

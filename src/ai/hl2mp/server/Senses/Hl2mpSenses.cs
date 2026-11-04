@@ -16,7 +16,8 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapons, ModelDescriptors models, IEnginePlayers players,
-                                   ILog log, ConVarRegistry? convars = null, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
+                                   ILog log, AiThreadsConVar threads, AiSyncConVar syncConVar, WeaponRespawnTimeConVar weaponRespawnTime,
+                                   ItemRespawnTimeConVar itemRespawnTime, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
 {
     private readonly AiWorkerPool _pool = new() { CpuClock = ThreadCpuClock.Micros() };
     private readonly InlineTransport _inline = new();
@@ -55,7 +56,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     {
         get
         {
-            int n = convars?.Get<AiThreadsConVar>()?.Value ?? 0;
+            int n = threads.Value;
             return n > 0 ? n : AiWorkerPool.DefaultThreads;
         }
     }
@@ -76,10 +77,10 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
     /// <summary>Follows <c>ai_sync</c>: a change takes effect at the next tick's senses.</summary>
     public void FollowSync()
     {
-        if (convars?.Get<AiSyncConVar>() is { } sync && sync.Value != Sync)
+        if (syncConVar.Value != Sync)
         {
-            SetSync(sync.Value);
-            log.Msg(sync.Value ? "[SourceSharp/Ai] the brains run inline (ai_sync 1)\n" : $"[SourceSharp/Ai] the brains run on {_pool.Threads} worker thread(s)\n");
+            SetSync(syncConVar.Value);
+            log.Msg(syncConVar.Value ? "[SourceSharp/Ai] the brains run inline (ai_sync 1)\n" : $"[SourceSharp/Ai] the brains run on {_pool.Threads} worker thread(s)\n");
         }
     }
 
@@ -127,13 +128,13 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
         WeaponKnowledge facts = Knowledge.WeaponKnowledgeBuilder.Build(weapons, w => Knowledge.WeaponKnowledgeBuilder.ReloadSeconds(models, w));
         MapKnowledge map = nav.Current is { } loaded
             ? Knowledge.MapKnowledgeBuilder.Build(mapName, loaded.Entities, weapons, facts,
-                                                  convars?.Get<WeaponRespawnTimeConVar>()?.Value ?? 20f,
-                                                  convars?.Get<ItemRespawnTimeConVar>()?.Value ?? 30f)
+                                                  weaponRespawnTime.Value,
+                                                  itemRespawnTime.Value)
             : new MapKnowledge(mapName, [], [], facts);
         Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight, nav.Chokes);
         // The level counts its ticks from low again: the last level's snapshots go.
         Session.Snapshots.Reset();
-        bool sync = convars?.Get<AiSyncConVar>()?.Value == true;
+        bool sync = syncConVar.Value;
         if (!sync)
             _pool.Start(ThreadsWanted);
         Session.Transport = sync ? _inline : _pooled ??= new PooledTransport(_pool);

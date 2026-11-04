@@ -109,7 +109,7 @@ public class TeamScoreTests
             // GameModesTests does — the container cannot fill its convars
             // parameter, which is why ServerModule hands it built.
             Modes = new GameModes(new RecordingLog(),
-                                  Fake().Returns("Clock.Now", 0f), Services, ConVars);
+                                  Fake().Returns("Clock.Now", 0f), Services, ConVars.Declare<SvModeSwitchWarmupConVar>(), ConVars.Declare<MpWaitingForPlayersTimeConVar>());
             Services.AddInstance(Modes);
             var handle = new EntityHandle(90);
             Registry.Spawn(handle, EntityNames.PlayerManager);

@@ -208,7 +208,7 @@ internal sealed class PayloadRig
 
         var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(TeamTrainWatcher).Assembly);
-        services.AddInstance(convars);
+        convars.PublishTo(services);
 
         Registry.Services = services;
     }

@@ -52,7 +52,7 @@ public sealed class TeamRoundCompositionTests
         services.AddInstance<IRandomSeeds>(new RandomSeeds(1));   // the server registers one too (ServerModule)
 
         // The core's half of the world, real.
-        services.AddInstance(new GameModes(new SourceSharp.Abi.RecordingLog(), clock, services, convars));
+        services.AddInstance(new GameModes(new SourceSharp.Abi.RecordingLog(), clock, services, convars.Declare<SvModeSwitchWarmupConVar>(), convars.Declare<MpWaitingForPlayersTimeConVar>()));
         services.AddInstance(registry.Directory);
         services.AddInstance<IEntityDirectory>(registry);
         services.AddInstance<IEngineEntities>(TestServices.Fake());

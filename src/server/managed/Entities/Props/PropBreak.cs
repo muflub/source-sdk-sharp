@@ -469,9 +469,9 @@ public enum BreakPieceSide
 public static class BreakPieceSides
 {
     /// <summary>gpGlobals->maxClients &gt; 1 &amp;&amp; breakable_multiplayer: the clients make the pieces.</summary>
-    public static bool InMultiplayer(IEngineEnvironment environment, ConVarRegistry? convars)
+    public static bool InMultiplayer(IEngineEnvironment environment, BreakableMultiplayerConVar multiplayer)
         => environment.Globals is { IsAvailable: true, MaxClients: > 1 }
-        && (convars?.Get<BreakableMultiplayerConVar>()?.Value ?? true);
+        && multiplayer.Value;
 
     /// <summary>Whether a piece with this <c>multiplayer_break</c> mode (stock's mp_break_t as an int) is made here.</summary>
     public static bool Makes(this BreakPieceSide side, int mode) => side switch

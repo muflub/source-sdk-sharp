@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Reflection.Emit;
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Render;
@@ -47,12 +48,26 @@ public class ConVarModRegistrationTests
     [ConVar("ss_test_mod_vignette", "2", Help = "a mod's convar")]
     private sealed class ModConVar : IntConVar { }
 
-    // The core declares mat_bloomscale (MatBloomscaleConVar, viewpostprocess.cpp's).
-    [ConVar("mat_bloomscale", "1", Help = "a mod redeclaring a core name")]
-    private sealed class ModRedeclaresCore : BoolConVar { }
+    /// <summary>
+    /// A class declaring <paramref name="name"/>, in an assembly of its own. Dynamic
+    /// because a side's scan skips those: declared in this assembly, these duplicates
+    /// would be refused by every client composition this test process builds.
+    /// </summary>
+    private static Type ModDeclaration(string name, Type baseType)
+    {
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("SourceSharp.ModFixture"),
+                                                             AssemblyBuilderAccess.Run);
+        var type = assembly.DefineDynamicModule("fixture").DefineType(name.Replace('_', 'X'), TypeAttributes.Public,
+                                                                      baseType);
+        type.SetCustomAttribute(new CustomAttributeBuilder(
+            typeof(ConVarAttribute).GetConstructor([typeof(string), typeof(string)])!, [name, "1"]));
+        return type.CreateType();
+    }
 
-    [ConVar("ss_test_mod_vignette", "3", Help = "a second declaration of the mod's name")]
-    private sealed class SecondModDeclaration : IntConVar { }
+    // The core declares mat_bloomscale (MatBloomscaleConVar, viewpostprocess.cpp's).
+    private static Type ModRedeclaresCore => ModDeclaration("mat_bloomscale", typeof(BoolConVar));
+
+    private static Type SecondModDeclaration => ModDeclaration("ss_test_mod_vignette", typeof(IntConVar));
 
     [Fact]
     public void TheSideScanFindsAMods()
@@ -68,7 +83,7 @@ public class ConVarModRegistrationTests
         var registry = new ConVarRegistry(new ProcessBackend());
         Assert.Equal(2, registry.RegisterTypes([typeof(MatBloomscaleConVar), typeof(ModConVar)]));
         Assert.Equal("2", registry.ValueOf("ss_test_mod_vignette"));
-        Assert.NotNull(registry.Get<ModConVar>());
+        Assert.Single(registry.All.OfType<ModConVar>());
     }
 
     [Fact]
@@ -77,30 +92,30 @@ public class ConVarModRegistrationTests
         var backend = new ProcessBackend();
         var before = new ConVarRegistry(backend);
         before.RegisterTypes([typeof(ModConVar)]);
-        before.Get<ModConVar>()!.SetValue(7);
-        Assert.Equal(7, before.Get<ModConVar>()!.Value);
+        before.Declared<ModConVar>().SetValue(7);
+        Assert.Equal(7, before.Declared<ModConVar>().Value);
 
         // The reload: a new module, a new registry, the same engine convar.
         var after = new ConVarRegistry(backend);
         Assert.Equal(1, after.RegisterTypes([typeof(ModConVar)]));
-        Assert.Equal(7, after.Get<ModConVar>()!.Value);
+        Assert.Equal(7, after.Declared<ModConVar>().Value);
     }
 
     [Fact]
     public void AModRedeclaringACoreNameIsRefusedNamingBoth()
     {
         var registry = new ConVarRegistry(new ProcessBackend());
-        var e = Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes([typeof(MatBloomscaleConVar), typeof(ModRedeclaresCore)]));
+        var e = Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes([typeof(MatBloomscaleConVar), ModRedeclaresCore]));
         Assert.Contains("'mat_bloomscale'", e.Message, StringComparison.Ordinal);
         Assert.Contains(typeof(MatBloomscaleConVar).Assembly.GetName().Name!, e.Message, StringComparison.Ordinal);
-        Assert.Contains(typeof(ModRedeclaresCore).Assembly.GetName().Name!, e.Message, StringComparison.Ordinal);
+        Assert.Contains(ModRedeclaresCore.Assembly.GetName().Name!, e.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void TwoDeclarationsOfOneModNameAreRefused()
     {
         var registry = new ConVarRegistry(new ProcessBackend());
-        Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes([typeof(ModConVar), typeof(SecondModDeclaration)]));
+        Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes([typeof(ModConVar), SecondModDeclaration]));
     }
 
     [Fact]

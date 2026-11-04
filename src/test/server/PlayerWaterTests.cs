@@ -29,7 +29,7 @@ public class PlayerWaterTests
               .Returns("Entities.GetOrigin", Vector.Zero);
         engine.Strict = false;
         var moves = new ServerPlayerMoves();
-        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine, moves: moves, sound: engine,
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), InfiniteAux(), PrintDamage(), messages: engine, moves: moves, sound: engine,
                                 damage: engine)
         {
             Handle = Self,

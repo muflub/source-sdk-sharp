@@ -21,6 +21,14 @@ public static partial class TestServices
     /// <summary>A fluid set over surfaces lighter than water, for a player built by hand.</summary>
     public static SourceSharp.Server.FluidTouches Fluid() => new(new FixedSurfaceDensity(500f));
 
+    /// <summary>A player's <c>sv_infinite_aux_power</c>, at its declared default.</summary>
+    public static SourceSharp.Server.SvInfiniteAuxPowerConVar InfiniteAux()
+        => DeclaredConVars.Fresh<SourceSharp.Server.SvInfiniteAuxPowerConVar>();
+
+    /// <summary>A player's <c>player_debug_print_damage</c>, at its declared default.</summary>
+    public static SourceSharp.Server.PlayerDebugPrintDamageConVar PrintDamage()
+        => DeclaredConVars.Fresh<SourceSharp.Server.PlayerDebugPrintDamageConVar>();
+
     /// <summary>
     /// A button source that reports nothing held.
     ///
@@ -105,6 +113,15 @@ public static partial class TestServices
 
     static partial void AddSideServices(ServiceContainer services, RecordingEngine engine)
     {
+        // The convars every map entity and player can take, at their declared
+        // defaults, through a side with no engine: the whole list is a walk
+        // over the assemblies, which is too slow to pay per container.
+        var convars = new ConVarRegistry(new NoEngineConVars());
+        services.AddInstance(convars.Declare<SourceSharp.Server.SvInfiniteAuxPowerConVar>());
+        services.AddInstance(convars.Declare<SourceSharp.Server.PlayerDebugPrintDamageConVar>());
+        services.AddInstance(convars.Declare<SourceSharp.Server.BreakableMultiplayerConVar>());
+        services.AddInstance(convars.Holder<SourceSharp.Server.BreakableBrushConVars>());
+
         // The constraint, spring and motion-controller tables
         // (plan_physics_bones_native_zero 2.4): the server's own now rather
         // than engine areas, recorded into the same double under the names
@@ -151,7 +168,9 @@ public static partial class TestServices
 
         // HL2MP's placed objects, whose physics never sleeps here: a pickup
         // a test spawns watches for a rest that does not come.
-        services.AddInstance(new SourceSharp.Server.PlacedObjects(engine, new NoPhysicsRest(), engine, engine, engine, engine));
+        services.AddInstance(new SourceSharp.Server.PlacedObjects(engine, new NoPhysicsRest(), engine, engine, engine, engine,
+                                                                  convars.Declare<SourceSharp.Server.ItemRespawnTimeConVar>(),
+                                                                  convars.Declare<SourceSharp.Server.WeaponRespawnTimeConVar>()));
         services.AddInstance<SourceSharp.Server.IObjectStressQuery>(new FixedStress());
 
         // The RPG's laser dots, which a missile searches: a real roster, empty.
@@ -177,7 +196,7 @@ public static partial class TestServices
         // caps ask: REAL rules over the double, resting bodies and the
         // console of a side with no module (every convar at its default).
         services.AddInstance(new SourceSharp.Server.PlayerPickupRules(engine, engine, RestingBodies, NoEntities.Instance,
-                                                                      ConVarRegistry.For(UnattachedConsole()),
+                                                                      convars.Declare<SourceSharp.Server.Hl2mpAllowPickupConVar>(),
                                                                       new RecordingLog()));
 
         // The scrape (D2), over the double and a controller that plays

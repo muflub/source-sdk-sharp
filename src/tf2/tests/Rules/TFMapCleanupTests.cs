@@ -52,7 +52,7 @@ public sealed class TFMapCleanupTests
         var live = new EntityDirectory(new RecordingLog());
         var players = new[] { new EntityHandle(0x0001_0001u), new EntityHandle(0x0002_0002u) };
         foreach (var handle in players)
-            Assert.True(live.Bind(handle, new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid()) { Handle = handle }));
+            Assert.True(live.Bind(handle, new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage()) { Handle = handle }));
 
         var services = new ServiceContainer();
         services.AddInstance<ITFPlayerConditions>(new Conditions(order));

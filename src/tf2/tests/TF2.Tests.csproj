@@ -32,6 +32,9 @@
   <ItemGroup>
     <!-- So facts can read the farm/fork the way core tests do. -->
     <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
+    <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
+    <Compile Include="..\..\test\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
     <!-- The CI skip, for the facts that need a mounted Team Fortress 2 install. -->
     <Compile Include="..\..\test\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <!-- The core's entity doubles (stage 2.4): the map entities' facts spawn

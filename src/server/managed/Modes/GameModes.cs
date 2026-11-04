@@ -51,8 +51,8 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
     private readonly ILog _log;
     private readonly IGameClock _clock;
     private readonly IServiceLocator _services;
-    private readonly SvModeSwitchWarmupConVar? _switchWarmup;
-    private readonly MpWaitingForPlayersTimeConVar? _waitingTime;
+    private readonly SvModeSwitchWarmupConVar _switchWarmup;
+    private readonly MpWaitingForPlayersTimeConVar _waitingTime;
 
     // The wiring Attach does, not the constructor's: GameRules takes this
     // service — it is the proxy's busiest caller — and neither can be the
@@ -67,13 +67,14 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
     private IGameMode? _active;
     private float? _warmupEndsAt;
 
-    public GameModes(ILog log, IGameClock clock, IServiceLocator services, ConVarRegistry convars)
+    public GameModes(ILog log, IGameClock clock, IServiceLocator services, SvModeSwitchWarmupConVar switchWarmup,
+                     MpWaitingForPlayersTimeConVar waitingTime)
     {
         _log = log;
         _clock = clock;
         _services = services;
-        _switchWarmup = convars.Get<SvModeSwitchWarmupConVar>();
-        _waitingTime = convars.Get<MpWaitingForPlayersTimeConVar>();
+        _switchWarmup = switchWarmup;
+        _waitingTime = waitingTime;
     }
 
     /// <summary>
@@ -288,7 +289,7 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
     }
 
     private float WarmupSeconds()
-        => Math.Max(0f, Math.Max(_switchWarmup?.Value ?? 0f, _waitingTime?.Value ?? 0f));
+        => Math.Max(0f, Math.Max(_switchWarmup.Value, _waitingTime.Value));
 
     //-------------------------------------------------------------------------
     // The switch (D6).

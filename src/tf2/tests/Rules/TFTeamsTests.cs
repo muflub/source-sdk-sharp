@@ -452,7 +452,7 @@ public sealed class TFTeamsTests
     {
         var convars = new ConVarRegistry(new StoredConVarBackend());
         convars.RegisterTypes([typeof(MpHumansMustJoinTeamConVar)]);
-        convars.Get<MpHumansMustJoinTeamConVar>()!.SetValue(value);
+        convars.Declared<MpHumansMustJoinTeamConVar>().SetValue(value);
         return convars;
     }
 
@@ -467,7 +467,7 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder();
         var convars = HumansTeam("blue");
         var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Get<MpHumansMustJoinTeamConVar>());
+                                            convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["red"]));
 
@@ -481,7 +481,7 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder();
         var convars = HumansTeam("any");
         var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Get<MpHumansMustJoinTeamConVar>());
+                                            convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["red"]));
 
@@ -498,7 +498,7 @@ public sealed class TFTeamsTests
         var convars = HumansTeam("blue");
         var bots = new KnownBots();
         var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Get<MpHumansMustJoinTeamConVar>(), bots);
+                                            convars.Declared<MpHumansMustJoinTeamConVar>(), bots);
         var player = new EntityHandle(1u);
         bots.Known.Add(player);
 
@@ -514,7 +514,7 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder();
         var convars = HumansTeam("red");
         var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Get<MpHumansMustJoinTeamConVar>());
+                                            convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["spectate"]));
 
@@ -530,7 +530,7 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder { TeamAnswer = (int)TFTeam.Blue };
         var convars = HumansTeam("blue");
         var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Get<MpHumansMustJoinTeamConVar>());
+                                            convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["blue"]));
 
@@ -667,7 +667,7 @@ public sealed class TFTeamsTests
         var tf = new TFModeRig();
         services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(new ModeSelector()));
         services.AddInstance(tf.Ctf.GetType(), tf.Ctf);
-        var modes = new GameModes(log, engine, services, convars);
+        var modes = new GameModes(log, engine, services, convars.Declare<SvModeSwitchWarmupConVar>(), convars.Declare<MpWaitingForPlayersTimeConVar>());
 
         var say = new HostSay(log, engine, engine, registry, engine, new Clients(), engine, engine);
         say.AttachModes(modes);

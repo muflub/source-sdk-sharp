@@ -102,6 +102,7 @@
     <Compile Include="..\common\TestDebugHooks.Client.cs" Link="common\TestDebugHooks.Client.cs" />
     <Compile Include="..\common\DebugApiJson.cs" Link="common\DebugApiJson.cs" />
     <Compile Include="..\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\common\ClientShellFactAttribute.cs" Link="common\ClientShellFactAttribute.cs" />
     <Compile Include="..\common\TestServices.cs" Link="common\TestServices.cs" />
     <Compile Include="..\common\ClientDoubles.cs" Link="common\ClientDoubles.cs" />

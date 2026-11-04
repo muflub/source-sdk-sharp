@@ -146,8 +146,8 @@ public class GameModesTests
             // The module's order: the proxy before the rules (the rules take
             // it as their mode owner), the rules before Attach (the proxy
             // takes the machine that is the round's default).
-            Modes = new GameModes(Log, Host, Services, ConVars);
-            Rules = new GameRules(RulesLog, ConVars, Host, Host,
+            Modes = new GameModes(Log, Host, Services, ConVars.Declare<SvModeSwitchWarmupConVar>(), ConVars.Declare<MpWaitingForPlayersTimeConVar>());
+            Rules = new GameRules(RulesLog, ConVars.Holder<GameRulesConVars>(), Host, Host,
                                   TestServices.Fake().Returns("Entities.IsValid", false), Board, Deaths,
                                   modes: Modes);
             Modes.Attach(Rules);
@@ -161,9 +161,9 @@ public class GameModesTests
             => Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(selectors));
 
         public void SetTime(float now) => Host.Returns("Clock.Now", now).Returns("Host.CurrentTime", now);
-        public void Warmup(float seconds) => ConVars.Get<SvModeSwitchWarmupConVar>()!.Bind(-1, "sv_mode_switch_warmup", seconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        public void Waiting(float seconds) => ConVars.Get<MpWaitingForPlayersTimeConVar>()!.Bind(-1, "mp_waitingforplayers_time", seconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        public void FragLimit(int n) => ConVars.Get<FragLimitConVar>()!.Bind(-1, "cs_sv_fraglimit", n.ToString());
+        public void Warmup(float seconds) => ConVars.Declared<SvModeSwitchWarmupConVar>().Bind(-1, "sv_mode_switch_warmup", seconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        public void Waiting(float seconds) => ConVars.Declared<MpWaitingForPlayersTimeConVar>().Bind(-1, "mp_waitingforplayers_time", seconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        public void FragLimit(int n) => ConVars.Declared<FragLimitConVar>().Bind(-1, "cs_sv_fraglimit", n.ToString());
         public void EndThink() => ((IFrameLifecycle)Modes).OnThink(0.1f);
     }
 

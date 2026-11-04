@@ -89,6 +89,7 @@
     <Compile Include="..\common\CMakeGraph.cs" Link="common\CMakeGraph.cs" />
     <Compile Include="..\common\ContractBaseline.cs" Link="common\ContractBaseline.cs" />
     <Compile Include="..\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\common\ReloadFixtures.cs" Link="common\ReloadFixtures.cs" />
     <Compile Include="..\common\RecordingCommandLine.cs" Link="common\RecordingCommandLine.cs" />
     <Compile Include="..\common\SandboxMapFactAttribute.cs" Link="common\SandboxMapFactAttribute.cs" />

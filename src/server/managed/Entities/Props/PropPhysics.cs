@@ -37,9 +37,9 @@ public class PropPhysics : BreakableProp, ITakesMassCenterOverride
                        IEngineEntityRender render, IServerPropData propData, PhysicsDamageQueue impacts,
                        FluidTouches fluid, PhysicsSoundBatch sounds, PlayerPickupRules pickups,
                        DamageInflictors inflictors, IEngineSound sound, IVPhysicsGrabCalls vphysics, ITempEnts temps,
-                       IEngineEnvironment environment, ConVarRegistry? convars = null)
+                       IEngineEnvironment environment, BreakableMultiplayerConVar multiplayer)
         : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, sounds, inflictors, sound,
-               temps, environment, convars)
+               temps, environment, multiplayer)
     {
         VPhysics = vphysics;
         Pickups = pickups;

@@ -14,7 +14,8 @@ namespace SourceSharp.Tests;
 /// </summary>
 public class ClientHl2PlayerMoveTests
 {
-    private static ClientHl2PlayerMove Rules() => new(ConVarRegistry.For(Fake()));
+    private static ClientHl2PlayerMove Rules() => new(DeclaredConVars.Fresh<Hl2WalkSpeedConVar>(), DeclaredConVars.Fresh<Hl2NormSpeedConVar>(),
+                                                 DeclaredConVars.Fresh<Hl2SprintSpeedConVar>(), DeclaredConVars.Fresh<SvInfiniteAuxPowerConVar>());
 
     [Fact]
     public void TheSpeedsAreStocks()

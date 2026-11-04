@@ -576,7 +576,7 @@ public class TFBlastApplierFacts
         rig.Engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f));
         rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
 
-        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid())
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage())
             { Handle = ProjectileRig.Player };
         player.State.BindLocal();
         player.State.WaterLevel = waterLevel;

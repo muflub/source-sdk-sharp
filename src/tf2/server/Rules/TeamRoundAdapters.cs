@@ -19,100 +19,113 @@ namespace TF2.Server.Rules;
 // own facts (TeamRoundAdapterTests).
 
 /// <summary>
-/// The round convars, read live. Each declaration is found once, on first
-/// read (after every assembly's convars have registered); a missing one is
-/// a startup bug and throws naming it.
+/// The round convars, read live.
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITeamRoundSettings)])]
-public sealed class ConVarTeamRoundSettings(ConVarRegistry convars) : ITeamRoundSettings
+public sealed class ConVarTeamRoundSettings(
+    MpRespawnWaveTimeConVar respawnWaveTime,
+    MpDisableRespawnTimesConVar disableRespawnTimes,
+    MpBonusRoundTimeConVar bonusRoundTime,
+    MpEnableRoundWaitTimeConVar enableRoundWaitTime,
+    MpStalemateEnableConVar stalemateEnable,
+    MpStalemateTimeLimitConVar stalemateTimeLimit,
+    MpWaitingForPlayersTimeConVar waitingForPlayersTime,
+    MpWaitingForPlayersCancelConVar waitingForPlayersCancel,
+    MpWaitingForPlayersRestartConVar waitingForPlayersRestart,
+    MpTimeLimitConVar timeLimit,
+    MpWinLimitConVar winLimit,
+    MpWinDifferenceConVar winDifference,
+    MpWinDifferenceMinConVar winDifferenceMin,
+    MpMaxRoundsConVar maxRounds,
+    MpScrambleTeamsAutoConVar scrambleTeamsAuto,
+    MpScrambleTeamsAutoWinDifferenceConVar scrambleTeamsAutoWinDifference,
+    NextLevelConVar nextLevel,
+    MpRestartRoundConVar restartRound,
+    MpRestartGameConVar restartGame,
+    MpRestartGameImmediateConVar restartGameImmediate,
+    MpMatchEndAtTimeLimitConVar matchEndAtTimeLimit,
+    MpTeamsUnbalanceLimitConVar teamsUnbalanceLimit,
+    MpSpectatorsRestrictedConVar spectatorsRestricted,
+    MpAutoTeamBalanceConVar autoTeamBalance,
+    MpForceAutoTeamConVar forceAutoTeam,
+    MpTournamentConVar tournament,
+    MpClanReadyRestartConVar clanReadyRestart,
+    MpClanReadySignalConVar clanReadySignal) : ITeamRoundSettings
 {
-    private readonly Dictionary<Type, ConVarBase> _found = new();
-
-    private T Get<T>() where T : ConVarBase
-    {
-        if (_found.TryGetValue(typeof(T), out var known))
-            return (T)known;
-
-        var found = convars.Get<T>()
-            ?? throw new InvalidOperationException($"the round rules read {typeof(T).Name}, which is not registered");
-        _found[typeof(T)] = found;
-        return found;
-    }
-
-    public float RespawnWaveTime => Get<MpRespawnWaveTimeConVar>().Value;
-    public bool DisableRespawnTimes => Get<MpDisableRespawnTimesConVar>().Value;
-    public int BonusRoundTime => Get<MpBonusRoundTimeConVar>().Value;
-    public float EnableRoundWaitTime => Get<MpEnableRoundWaitTimeConVar>().Value;
-    public bool StalemateEnable => Get<MpStalemateEnableConVar>().Value;
-    public int StalemateTimeLimit => Get<MpStalemateTimeLimitConVar>().Value;
-    public float WaitingForPlayersTime => Get<MpWaitingForPlayersTimeConVar>().Value;
+    public float RespawnWaveTime => respawnWaveTime.Value;
+    public bool DisableRespawnTimes => disableRespawnTimes.Value;
+    public int BonusRoundTime => bonusRoundTime.Value;
+    public float EnableRoundWaitTime => enableRoundWaitTime.Value;
+    public bool StalemateEnable => stalemateEnable.Value;
+    public int StalemateTimeLimit => stalemateTimeLimit.Value;
+    public float WaitingForPlayersTime => waitingForPlayersTime.Value;
 
     public bool WaitingForPlayersCancel
     {
-        get => Get<MpWaitingForPlayersCancelConVar>().Value;
-        set => Get<MpWaitingForPlayersCancelConVar>().SetValue(value);
+        get => waitingForPlayersCancel.Value;
+        set => waitingForPlayersCancel.SetValue(value);
     }
 
     public bool WaitingForPlayersRestart
     {
-        get => Get<MpWaitingForPlayersRestartConVar>().Value;
-        set => Get<MpWaitingForPlayersRestartConVar>().SetValue(value);
+        get => waitingForPlayersRestart.Value;
+        set => waitingForPlayersRestart.SetValue(value);
     }
 
     public int TimeLimitMinutes
     {
-        get => (int)Get<MpTimeLimitConVar>().Value;
-        set => Get<MpTimeLimitConVar>().SetValue(value);
+        get => (int)timeLimit.Value;
+        set => timeLimit.SetValue(value);
     }
 
     /// <summary>Stock's MPTimeLimitCallback, through the core convar's subscription.</summary>
     public IDisposable OnTimeLimitChanged(Action<int, int> handler)
-        => Get<MpTimeLimitConVar>().Subscribe((oldValue, newValue) => handler((int)oldValue, (int)newValue));
+        => timeLimit.Subscribe((oldValue, newValue) => handler((int)oldValue, (int)newValue));
 
     /// <summary>Stock's WinlimitChanged, through the core convar's subscription.</summary>
     public IDisposable OnWinLimitChanged(Action<int, int> handler)
-        => Get<MpWinLimitConVar>().Subscribe((oldValue, newValue) => handler(oldValue, newValue));
-    public int WinLimit => Get<MpWinLimitConVar>().Value;
-    public int WinDifference => Get<MpWinDifferenceConVar>().Value;
-    public int WinDifferenceMin => Get<MpWinDifferenceMinConVar>().Value;
-    public int MaxRounds => Get<MpMaxRoundsConVar>().Value;
-    public bool ScrambleAuto => Get<MpScrambleTeamsAutoConVar>().Value;
-    public int ScrambleAutoWinDifference => Get<MpScrambleTeamsAutoWinDifferenceConVar>().Value;
-    public string NextLevel => Get<NextLevelConVar>().Value ?? string.Empty;
+        => winLimit.Subscribe((oldValue, newValue) => handler(oldValue, newValue));
+    public int WinLimit => winLimit.Value;
+    public int WinDifference => winDifference.Value;
+    public int WinDifferenceMin => winDifferenceMin.Value;
+    public int MaxRounds => maxRounds.Value;
+    public bool ScrambleAuto => scrambleTeamsAuto.Value;
+    public int ScrambleAutoWinDifference => scrambleTeamsAutoWinDifference.Value;
+    public string NextLevel => nextLevel.Value;
 
     public int RestartRound
     {
-        get => Get<MpRestartRoundConVar>().Value;
-        set => Get<MpRestartRoundConVar>().SetValue(value);
+        get => restartRound.Value;
+        set => restartRound.SetValue(value);
     }
 
     public int RestartGame
     {
-        get => Get<MpRestartGameConVar>().Value;
-        set => Get<MpRestartGameConVar>().SetValue(value);
+        get => restartGame.Value;
+        set => restartGame.SetValue(value);
     }
 
     public bool RestartGameImmediate
     {
-        get => Get<MpRestartGameImmediateConVar>().Value;
-        set => Get<MpRestartGameImmediateConVar>().SetValue(value);
+        get => restartGameImmediate.Value;
+        set => restartGameImmediate.SetValue(value);
     }
 
-    public bool MatchEndAtTimeLimit => Get<MpMatchEndAtTimeLimitConVar>().Value;
-    public int TeamsUnbalanceLimit => Get<MpTeamsUnbalanceLimitConVar>().Value;
+    public bool MatchEndAtTimeLimit => matchEndAtTimeLimit.Value;
+    public int TeamsUnbalanceLimit => teamsUnbalanceLimit.Value;
 
-    public bool SpectatorsRestricted => Get<MpSpectatorsRestrictedConVar>().Value;
-    public int AutoTeamBalance => Get<MpAutoTeamBalanceConVar>().Value;
-    public bool ForceAutoTeam => Get<MpForceAutoTeamConVar>().Value;
-    public bool Tournament => Get<MpTournamentConVar>().Value;
+    public bool SpectatorsRestricted => spectatorsRestricted.Value;
+    public int AutoTeamBalance => autoTeamBalance.Value;
+    public bool ForceAutoTeam => forceAutoTeam.Value;
+    public bool Tournament => tournament.Value;
 
     public bool ReadyRestart
     {
-        get => Get<MpClanReadyRestartConVar>().Value;
-        set => Get<MpClanReadyRestartConVar>().SetValue(value);
+        get => clanReadyRestart.Value;
+        set => clanReadyRestart.SetValue(value);
     }
 
-    public string ReadySignal => Get<MpClanReadySignalConVar>().Value ?? string.Empty;
+    public string ReadySignal => clanReadySignal.Value ?? string.Empty;
 }
 
 /// <summary>

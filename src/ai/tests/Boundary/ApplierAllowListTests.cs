@@ -76,7 +76,7 @@ public class ApplierAllowListTests
         "PlayerHurt::get_Attacker", "PlayerHurt::get_HealthLeft", "PlayerHurt::get_Player", "PlayerHurt::get_Taken",
         "PlayerDeath::get_Attacker", "PlayerDeath::get_Player", "IPlayerDirectory::get_All", "PlayerRecord::get_Deaths", "PlayerRecord::get_Kills",
         // Hl2mpAiSession (§5.0): the respawn convars, the reload animation on the view model, the weapon table's projectile and behaviour; an opponent's user id.
-        "ConVarRegistry::Get", "ConVar`1::get_Value", "ModelDescriptors::ForModel", "ModelDescriptor::LookupSequenceByActivity",
+        "ConVar`1::get_Value", "ModelDescriptors::ForModel", "ModelDescriptor::LookupSequenceByActivity",
         "ModelDescriptor::SequenceDuration", "WeaponType::get_ViewModel", "WeaponType::get_Behaviour", "WeaponType::get_Projectile",
         "WeaponType::get_LaunchSpeed", "WeaponType::get_ClipSize", "WeaponType::get_Interval", "WeaponType::get_Name",
         "IEnginePlayers::GetUserId",

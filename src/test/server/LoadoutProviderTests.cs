@@ -94,7 +94,7 @@ public class LoadoutProviderTests
         }
 
         public GameRules Rules(IHooks<ILoadoutProvider>? chain = null, ISpawnWeapon? spawnWeapon = null)
-            => new(Log, ConVars, _host, _players,
+            => new(Log, ConVars.Holder<GameRulesConVars>(), _host, _players,
                    Fake().Returns("Entities.IsValid", false),
                    new Scoreboard(_host, new PlayerDisconnectEvent(), new RecordingLog()),
                    new PlayerDeathEvent(), loadout: chain, spawnWeapon: spawnWeapon);

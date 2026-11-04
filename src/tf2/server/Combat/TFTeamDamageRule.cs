@@ -23,7 +23,7 @@ namespace TF2.Server.Combat;
 /// TF reads stock's. The truce arm waits for a truce.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFTeamDamageRule(ConVarRegistry convars, IEnginePlayers players, IEngineEntities entities,
+public sealed class TFTeamDamageRule(MpFriendlyFireConVar friendlyFire, IEnginePlayers players, IEngineEntities entities,
                                      IEntityDirectory directory) : IDamageRule, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -45,7 +45,7 @@ public sealed class TFTeamDamageRule(ConVarRegistry convars, IEnginePlayers play
         // A teammate's hit with friendly fire off (teamplay_gamerules.cpp:363-370); the
         // relationship is between players only (CTeamplayRules::PlayerRelationship).
         if (entities.IsPlayer(hit.Attacker) && GameRules.Teammates(victimTeam, players.GetTeam(hit.Attacker))
-            && convars.Get<MpFriendlyFireConVar>() is { Value: false })
+            && !friendlyFire.Value)
             return Decision.No;
 
         return Decision.UseStockRule;

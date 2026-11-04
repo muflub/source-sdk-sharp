@@ -242,9 +242,9 @@ internal sealed class SpyRig
 
         Spies = new TFSpy(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random, Classes,
                           Clock, Engine,
-                          ConVars.Get<TFSpyCloakConsumeRateConVar>()!, ConVars.Get<TFSpyCloakRegenRateConVar>()!,
-                          ConVars.Get<TFSpyInvisTimeConVar>()!, ConVars.Get<TFSpyInvisUnstealthTimeConVar>()!,
-                          ConVars.Get<TFSpyCloakNoAttackTimeConVar>()!,
+                          ConVars.Declared<TFSpyCloakConsumeRateConVar>(), ConVars.Declared<TFSpyCloakRegenRateConVar>(),
+                          ConVars.Declared<TFSpyInvisTimeConVar>(), ConVars.Declared<TFSpyInvisUnstealthTimeConVar>(),
+                          ConVars.Declared<TFSpyCloakNoAttackTimeConVar>(),
                           Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag);
         Conditions.Spies = Spies;   // the rig's chain: removals run the disguise arms
         var component = new TFSpyComponent(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random,

@@ -41,7 +41,7 @@ public class DamageCheatsTests
     private static (DamageCheats Cheats, SsPlayer Subject) Rig(bool cheats = true)
     {
         var directory = new StubDirectory();
-        var subject = new SsPlayer(TestServices.Fake(), TestServices.Fake(), TestServices.Impacts(TestServices.Fake()), TestServices.Fluid());
+        var subject = new SsPlayer(TestServices.Fake(), TestServices.Fake(), TestServices.Impacts(TestServices.Fake()), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage());
         directory.Entities[Player] = subject;
 
         var damageCheats = new DamageCheats(new RecordingLog(), directory, TestServices.Fake())

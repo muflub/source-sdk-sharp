@@ -78,23 +78,23 @@ public sealed class PlayerUseFinder : IUseTargetFinder
     private readonly IEngineWorldQuery _world;
     private readonly IEngineEntities _entities;
     private readonly IEntityDirectory _directory;
-    private readonly ConVarRegistry _convars;
+    private readonly SvDebugPlayerUseConVar _debug;
     private readonly ILog _log;
 
     // Scratch for the radius query.
     private readonly EntityHandle[] _near = new EntityHandle[256];
 
     public PlayerUseFinder(IEngineWorldQuery world, IEngineEntities entities, IEntityDirectory directory,
-                           ConVarRegistry convars, ILog log)
+                           SvDebugPlayerUseConVar debug, ILog log)
     {
         _world = world;
         _entities = entities;
         _directory = directory;
-        _convars = convars;
+        _debug = debug;
         _log = log;
     }
 
-    private bool Debugging => _convars.Get<SvDebugPlayerUseConVar>()?.Value ?? false;
+    private bool Debugging => _debug.Value;
 
     /// <summary>GetDebugName: the name, else the classname.</summary>
     private string DebugName(EntityHandle entity)

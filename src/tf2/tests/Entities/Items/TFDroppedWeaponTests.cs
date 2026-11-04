@@ -50,10 +50,10 @@ public sealed class TFDroppedWeaponTests
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(TFDroppedWeapon).Assembly);
         if (lifetime is not null)
-            convars.Get<TFDroppedWeaponLifetimeConVar>()!.Bind(-1, "tf_dropped_weapon_lifetime", lifetime);
+            convars.Declared<TFDroppedWeaponLifetimeConVar>().Bind(-1, "tf_dropped_weapon_lifetime", lifetime);
 
         var seeds = new LoopSeeds();
-        var dropped = new TFDroppedWeapon(convars, seeds, engine);
+        var dropped = new TFDroppedWeapon(convars.Declared<TFDroppedWeaponLifetimeConVar>(), seeds, engine);
         dropped.BindEngine(engine);
         dropped.BindAreas(Areas(engine));
         dropped.RegisteredKind = ScriptedEntityKind.Prop;

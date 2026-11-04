@@ -65,8 +65,8 @@ public sealed class TFPlayerPredictionTests
             OtherCarrier = Data(Carriers, Other);
             Prediction = new Prediction(Log, Carriers, NetStateCatalog.Of(typeof(PlayerData).Assembly, Log),
                 new NoStandalones(), Engine,
-                convars.Get<CloakConsumeVar>()!, convars.Get<CloakRegenVar>()!,
-                convars.Get<InvisTimeVar>()!, convars.Get<InvisUnstealthVar>()!);
+                convars.Declared<CloakConsumeVar>(), convars.Declared<CloakRegenVar>(),
+                convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>());
         }
 
         /// <summary>The clock of the window's k-th command: the anchor plus the place in it.</summary>
@@ -117,8 +117,8 @@ public sealed class TFPlayerPredictionTests
         var convars = SpyConVars();
         var prediction = new Prediction(log, new Carriers(), NetStateCatalog.Of(typeof(PlayerData).Assembly, log),
             new NoStandalones(), EngineWithGlobals(),
-            convars.Get<CloakConsumeVar>()!, convars.Get<CloakRegenVar>()!,
-            convars.Get<InvisTimeVar>()!, convars.Get<InvisUnstealthVar>()!);
+            convars.Declared<CloakConsumeVar>(), convars.Declared<CloakRegenVar>(),
+            convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>());
 
         prediction.ResetBasis(LocalPlayer, 10);
 
@@ -346,10 +346,10 @@ public sealed class TFPlayerPredictionTests
             .Add<Prediction>()
             .AddInstance<client::SourceSharp.Client.IClientStandalones>(new NoStandalones())
             .AddInstance<client::SourceSharp.Abi.IEngineEnvironment>(EngineWithGlobals())
-            .AddInstance(convars.Get<InvisTimeVar>()!)
-            .AddInstance(convars.Get<InvisUnstealthVar>()!)
-            .AddInstance(convars.Get<CloakConsumeVar>()!)
-            .AddInstance(convars.Get<CloakRegenVar>()!);
+            .AddInstance(convars.Declared<InvisTimeVar>())
+            .AddInstance(convars.Declared<InvisUnstealthVar>())
+            .AddInstance(convars.Declared<CloakConsumeVar>())
+            .AddInstance(convars.Declared<CloakRegenVar>());
 
         Assert.NotNull(container.Create<Prediction>());
         Assert.NotNull(container.Create<ClientEffects>());

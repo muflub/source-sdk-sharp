@@ -90,11 +90,11 @@ public sealed class TFWinPanelTests
             Roster = new FakeRoster(new FakeClock());
             var convars = new ConVarRegistry(new Backend());
             convars.RegisterTypes([typeof(TFFlagCapsPerRoundConVar), typeof(TFGameModeCtfConVar)]);
-            convars.Get<TFFlagCapsPerRoundConVar>()!.SetValue(capsPerRound);
+            convars.Declared<TFFlagCapsPerRoundConVar>().SetValue(capsPerRound);
             if (ctfMode)
-                convars.Get<TFGameModeCtfConVar>()!.SetValue(true);
+                convars.Declared<TFGameModeCtfConVar>().SetValue(true);
             Panel = new TFWinPanelAnnouncer(Events, Scores, Stats, Roster, Cappers,
-                                            convars.Get<TFFlagCapsPerRoundConVar>()!, convars.Get<TFGameModeCtfConVar>()!);
+                                            convars.Declared<TFFlagCapsPerRoundConVar>(), convars.Declared<TFGameModeCtfConVar>());
         }
 
         public void Send(bool gameOver = false, TFTeam winning = TFTeam.Red, WinReason reason = WinReason.FlagCaptureLimit,

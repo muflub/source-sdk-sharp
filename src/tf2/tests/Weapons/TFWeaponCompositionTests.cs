@@ -232,10 +232,10 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<CAbi.IEngineWorldQuery>(engine);
         c.AddInstance<CAbi.IEngineEffects>(engine);
         var cloakVars = PredictionDeps.SpyConVars();
-        c.AddInstance(cloakVars.Get<CTF.TFSpyCloakConsumeRateConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyCloakRegenRateConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyInvisTimeConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyInvisUnstealthTimeConVar>()!);
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakConsumeRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakRegenRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisTimeConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisUnstealthTimeConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
         return c;
     }

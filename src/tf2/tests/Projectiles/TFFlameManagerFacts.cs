@@ -51,10 +51,10 @@ internal sealed class ManagerRig
         Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, Engine);
         Manager.BindAreas(TestServices.Areas(Engine));
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
-                                     Convars.Get<TFAirBlastCrayConVar>()!,
-                                     Convars.Get<TFFlameThrowerBurstZvelocityConVar>()!,
-                                     Convars.Get<TFPushbackScaleConVar>()!,
-                                     Convars.Get<TFPushbackScaleVerticalConVar>()!, Carriers);
+                                     Convars.Declared<TFAirBlastCrayConVar>(),
+                                     Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
+                                     Convars.Declared<TFPushbackScaleConVar>(),
+                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers);
 
         Engine.Returns("Entities.Create", ManagerHandle);
         Engine.Returns("Players.GetHandle", Attacker);

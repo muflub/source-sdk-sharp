@@ -484,7 +484,7 @@ public sealed class TFWeaponOwnersTests
     public void The_eyes_under_water_is_the_movement_state_s_water_level()
     {
         var rig = new PlayerRig().As(TFClass.Scout);
-        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid())
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage())
             { Handle = PlayerRig.Player };
         player.State.BindLocal();
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
@@ -543,10 +543,10 @@ public sealed class TFWeaponOwnersTests
         // The prediction's clock and cloak convars, as the client's composition holds them.
         c.AddInstance<CAbi.IEngineEnvironment>(PredictionDeps.Engine());
         var cloakVars = PredictionDeps.SpyConVars();
-        c.AddInstance(cloakVars.Get<CTF.TFSpyCloakConsumeRateConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyCloakRegenRateConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyInvisTimeConVar>()!);
-        c.AddInstance(cloakVars.Get<CTF.TFSpyInvisUnstealthTimeConVar>()!);
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakConsumeRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakRegenRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisTimeConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisUnstealthTimeConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTFPlayer.TFClientWeaponOwners).Assembly.GetTypes());
 
         Assert.IsType<CTFPlayer.TFClientWeaponOwners>(c.Resolve(typeof(CTF.ITFWeaponOwners)));
@@ -578,7 +578,7 @@ public sealed class TFWeaponOwnersTests
         public GroundDirectory()
         {
             var engine = new RecordingEngine();
-            Player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid())
+            Player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage())
                 { Handle = PlayerRig.Player };
             Player.State.BindLocal();
             Player.State.Flags = GameMovement.FlOnGround;

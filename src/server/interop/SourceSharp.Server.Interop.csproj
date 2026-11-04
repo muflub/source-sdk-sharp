@@ -20,6 +20,8 @@
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
     <InternalsVisibleTo Include="TF2.Tests" />
+    <InternalsVisibleTo Include="TF2.Descent.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
   </ItemGroup>
   <ItemGroup>
     <!-- plan_shim_areas_split phase 3: the interop both sides use is compiled

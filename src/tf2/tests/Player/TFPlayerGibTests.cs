@@ -57,7 +57,7 @@ public sealed class TFPlayerGibTests
     {
         convars = new ConVarRegistry(new Backend());
         convars.RegisterTypes([typeof(TFPlayerGibConVar)]);
-        return new TFPlayerGib(convars, records, entities, new Directory(body));
+        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, entities, new Directory(body));
     }
 
     private static SsRagdoll Corpse()

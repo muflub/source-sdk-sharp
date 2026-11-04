@@ -128,7 +128,7 @@ public class ConVarEngineOwnershipTests
         Assert.Equal(2, registry.RegisterTypes(new[] { typeof(OursA), typeof(OursB) }));
 
         Assert.Equal(new[] { "ss_test_ours_a", "ss_test_ours_b" }, backend.Registered);
-        Assert.Same(backend, registry.Get<OursA>()!.Backend);
+        Assert.Same(backend, registry.Declared<OursA>().Backend);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public class ConVarEngineOwnershipTests
 
         Assert.Throws<InvalidOperationException>(() => registry.RegisterTypes(new[] { typeof(EngineOne) }));
 
-        Assert.Null(registry.Get<EngineOne>());
+        Assert.Empty(registry.All.OfType<EngineOne>());
         Assert.Null(registry.ValueOf("ss_test_engine_one"));
     }
 

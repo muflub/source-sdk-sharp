@@ -30,7 +30,9 @@ namespace SourceSharp.Client;
 /// and OnPlayerGotOffLadder are the server's.
 /// </para>
 /// </summary>
-public sealed class ClientUseableLadders(IClientStandalones standalones, ConVarRegistry convars) : ILadderWorld
+public sealed class ClientUseableLadders(IClientStandalones standalones, SvAutoLadderDismountConVar autoDismount,
+                                         SvLadderAutoMountDotConVar autoMountDot, SvLadderUseOnlyConVar useOnly)
+    : ILadderWorld
 {
     // One command's ladders: Count fills it and At reads it, as the loop asks.
     private readonly List<ClientUseableLadder> _ladders = new();
@@ -81,9 +83,9 @@ public sealed class ClientUseableLadders(IClientStandalones standalones, ConVarR
     }
 
     public LadderConVars ConVars => new(
-        AutoDismount: convars.Get<SvAutoLadderDismountConVar>()?.Value ?? true,
-        AutoMountDot: convars.Get<SvLadderAutoMountDotConVar>()?.Value ?? 0.4f,
-        UseOnly: convars.Get<SvLadderUseOnlyConVar>()?.Value ?? false);
+        AutoDismount: autoDismount.Value,
+        AutoMountDot: autoMountDot.Value,
+        UseOnly: useOnly.Value);
 
     public void PlayerGotOn(int ladderIndex, int playerIndex)
     {

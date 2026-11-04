@@ -88,8 +88,8 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
     /// The wiring the module does once, before the first frame: the proxy the
     /// death cycle asks for its respawn policy. An ATTACH and not a
     /// constructor parameter because the proxy cannot be constructed this
-    /// early — it takes the ConVarRegistry, which the module registers only
-    /// later — and `Create` resolves constructor arguments eagerly, so asking
+    /// early — the module composes it with the rules, later — and `Create`
+    /// resolves constructor arguments eagerly, so asking
     /// for it by parameter would make the live game pass null. Same reason the
     /// proxy is attached to its own machine (<c>GameModes.Attach</c>). Null
     /// stays the no-owner arm: a test that builds the roster without ever

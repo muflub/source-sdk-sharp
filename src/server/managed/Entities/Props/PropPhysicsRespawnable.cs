@@ -24,9 +24,9 @@ public sealed class PropPhysicsRespawnable : PropPhysics
                        IServerPropData propData, PhysicsDamageQueue impacts, FluidTouches fluid, PhysicsSoundBatch sounds,
                        PlayerPickupRules pickups, DamageInflictors inflictors, IEngineSound sound,
                        IVPhysicsGrabCalls vphysics, ITempEnts temps, IEngineEnvironment environment,
-                       ConVarRegistry? convars = null)
+                       BreakableMultiplayerConVar multiplayer)
         : base(damage, physics, world, effects, precache, host, blast, decals, render, propData, impacts, fluid, sounds,
-               pickups, inflictors, sound, vphysics, temps, environment, convars)
+               pickups, inflictors, sound, vphysics, temps, environment, multiplayer)
     {
     }
 

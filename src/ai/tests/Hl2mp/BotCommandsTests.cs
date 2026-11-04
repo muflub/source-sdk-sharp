@@ -401,7 +401,9 @@ public class BotCommandsTests
     public void AnEventInTheTickABotJoinsReachesItsBrain()
     {
         var w = new SourceSharp.Ai.Tests.Senses.SenseWorld();
-        var ai = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, _log);
+        var ai = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, _log,
+            DeclaredConVars.Fresh<SourceSharp.Ai.Hl2mp.Senses.AiThreadsConVar>(), DeclaredConVars.Fresh<SourceSharp.Ai.Hl2mp.Senses.AiSyncConVar>(),
+            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
         var vision = new SourceSharp.Ai.Hl2mp.Senses.VisionPass(w.Engine(), w.Entities(), w.Traces());
         var senses = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses(_bots, ai, vision, null!, null!, null!, _log,
                                                                 new SourceSharp.Ai.Hl2mp.Senses.ReferenceRecorder(ai, vision));

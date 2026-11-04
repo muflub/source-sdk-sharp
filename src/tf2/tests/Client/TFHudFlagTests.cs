@@ -102,7 +102,7 @@ public sealed class TFHudFlagTests
 
             var convars = new ClientAbi.ConVarRegistry(new Backend());
             convars.RegisterTypes([typeof(ClientShared.TFFlagCapsPerRoundConVar)]);
-            Caps = convars.Get<ClientShared.TFFlagCapsPerRoundConVar>()!;
+            Caps = convars.Declared<ClientShared.TFFlagCapsPerRoundConVar>();
 
             var player = new ClientPlayer.ClientTFPlayerResource(Engine, Resources);
             player.State.BindLocal();

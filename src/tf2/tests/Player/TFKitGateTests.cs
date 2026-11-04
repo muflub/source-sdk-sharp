@@ -28,7 +28,7 @@ public sealed class TFKitGateTests
     {
         var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        return new GameRules(rig.Log, convars, rig.Engine, rig.Engine, rig.Engine,
+        return new GameRules(rig.Log, convars.Holder<GameRulesConVars>(), rig.Engine, rig.Engine, rig.Engine,
                              new Scoreboard(rig.Engine, new PlayerDisconnectEvent(), rig.Log),
                              new PlayerDeathEvent(),
                              kitGates: new ListHooks<IKitGate>(new TFKitGate(rig.Carriers)));

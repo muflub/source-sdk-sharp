@@ -37,9 +37,11 @@ namespace TF2.Server.Rules;
 /// </para>
 [SideService(Side.Server)]
 public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster roster, IRoundAnnouncer announcer,
-                                  IGameClock clock, ILog log, ITeamRoundState? rounds = null,
+                                  IGameClock clock, ILog log, TFAutobalanceDeadCandidatesMaxTimeConVar deadCandidatesMaxTime,
+                                  TFAutobalanceForceCandidatesMaxTimeConVar forceCandidatesMaxTime,
+                                  TFAutobalanceXpBonusConVar xpBonus, ITeamRoundState? rounds = null,
                                   ITFPlayerStats? stats = null, IUserMessageSender? messages = null,
-                                  ConVarRegistry? convars = null, IBotPlayers? bots = null)
+                                  IBotPlayers? bots = null)
     : IGameLifecycle, IFrameLifecycle
 {
     /// <summary>Stock's <c>autobalance_state_t</c>.</summary>
@@ -66,7 +68,6 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     private readonly ITeamRoundState? _rounds = rounds;
     private readonly ITFPlayerStats? _stats = stats;
     private readonly IUserMessageSender? _messages = messages;
-    private readonly ConVarRegistry? _convars = convars;
     private readonly IBotPlayers? _bots = bots;
 
     private AutobalanceState _state;
@@ -84,13 +85,11 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
 
     private float Now => _clock.Now;
 
-    private T? ConVar<T>() where T : ConVarBase => _convars?.Get<T>();
+    private float DeadCandidatesMaxTime => deadCandidatesMaxTime.Value;
 
-    private float DeadCandidatesMaxTime => ConVar<TFAutobalanceDeadCandidatesMaxTimeConVar>()?.Value ?? 15f;
+    private float ForceCandidatesMaxTime => forceCandidatesMaxTime.Value;
 
-    private float ForceCandidatesMaxTime => ConVar<TFAutobalanceForceCandidatesMaxTimeConVar>()?.Value ?? 5f;
-
-    private int XpBonus => (int)(ConVar<TFAutobalanceXpBonusConVar>()?.Value ?? 500f);
+    private int XpBonus => (int)xpBonus.Value;
 
     /// <summary>Stock's <c>Reset</c>: the state machine back to its floor.</summary>
     public void Reset()

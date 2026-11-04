@@ -293,7 +293,7 @@ internal sealed class ObjectiveRig
         // the overtime nag the timer's constructor asks for the convars and a
         // seed source, and the registry builds nothing without them. The nag
         // convar is left unregistered — Get answers null, so it stays off.
-        Services.AddInstance(new ConVarRegistry(new RigConVarBackend()));
+        Services.AddInstance(new ConVarRegistry(new RigConVarBackend()).Declare<TFOvertimeNagConVar>());
         Services.AddInstance<IRandomSeeds>(new RandomSeeds(7));
         Services.AddInstance<IResponseRules>(ConceptRules);
         Services.AddInstance<ITeams>(ConceptTeams);

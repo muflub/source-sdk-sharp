@@ -111,10 +111,10 @@ public sealed class ClientMovementCompositionTests
             services.AddInstance<IClientStandalones>(new ClientStandaloneRegistry(services));
 
         // The convar publish, when the module has published by now (it precedes
-        // the composition in Initialize): the graph below names the mod's
+        // the composition, in ComposeEngineAreas): the graph below names the mod's
         // convars by concrete type, so those are the instances the publish
         // leaves — the spy cloak's four, through the real registry.
-        int publish = source.IndexOf("_convars.PublishTo(_services)", open, StringComparison.Ordinal);
+        int publish = source.IndexOf("_convars.PublishTo(_services)", StringComparison.Ordinal);
         if (publish >= 0 && publish < create)
         {
             int nextId = 0;
