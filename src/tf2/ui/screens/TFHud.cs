@@ -20,6 +20,7 @@ namespace TF2.Client.Ui;
 public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel ammo,
                           ITFRoundTimer timer, RoundTimerPanel clock, ControlPointIconsPanel icons,
                           EscortPanel escort, FlagStatusPanel flags, MedicChargePanel medic,
+                          ItemMeterPanel meter,
                           TeamStatusPanel teams, CloakPanel cloak, DisguisePanel disguise, ChatPanel chat,
                           MetalPanel metal, DemomanPipesPanel pipes, TeamGoalPanel goal,
                           ITFRenderGroups? groups = null) : UiScreen
@@ -75,6 +76,18 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
             using (ui.Box().AtRes(UiAnchor.BottomRight, cloakAt.Right, cloakAt.Bottom)
                                .Size(Size.Du(cloakAt.Wide), Size.Du(cloakAt.Tall)).Layered().Key("cloak corner"))
                 ui.Sub("cloak", cloak);
+        }
+
+        // The timed item's charge bar, one plate above the cloak's row in the
+        // same column — stock stacks each item-effect meter element its own
+        // hudlayout.res row up from the bottom-right. Bare host like the
+        // cloak's: the plate is the panel's own art.
+        if (meter.Present)
+        {
+            var meterAt = StockRes.Spot(ItemMeterPanel.Panel, ui.Screen);
+            using (ui.Box().AtRes(UiAnchor.BottomRight, meterAt.Right, meterAt.Bottom)
+                               .Size(Size.Du(meterAt.Wide), Size.Du(meterAt.Tall)).Layered().Key("item meter corner"))
+                ui.Sub("item meter", meter);
         }
 
         // Bottom-left above the corners, stock's HudChat itself

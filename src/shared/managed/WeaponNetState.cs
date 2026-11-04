@@ -352,6 +352,34 @@ public partial class WeaponNetState
     public partial float BehaviourKeptTime { get; set; }
 
     /// <summary>
+    /// The carried item's charge meter, 0..1 — stock's <c>m_flItemChargeMeter</c>
+    /// (tf_player_shared.cpp:7832-7904; the networked array at
+    /// tf_player_shared.h:1124, sent and predicted plain, so this field compares
+    /// exact like stock's <c>DEFINE_PRED_ARRAY</c>). Stock keeps one meter per
+    /// loadout slot, outside the held weapon and surviving holsters; ours rides
+    /// the carrier's weapon blob and stands the same way — clear it on every
+    /// deploy would refuse the item after a plain weapon switch, where stock's
+    /// slot meter has charged on. The one float covers the one weapon the
+    /// carrier holds; the behaviour that owns it is the item's lane, and the
+    /// refill rule lives with it (the TF2 assembly's TFItemMeter).
+    /// </summary>
+    [Predicted]
+    public partial float ItemMeter { get; set; }
+
+    /// <summary>
+    /// The clock the item charge meter ages on, kept beside
+    /// <see cref="ItemMeter"/>: every command the machine's tail answers, the
+    /// bar fills by the span since this stamp and the stamp moves to the
+    /// command's own clock, so the server's run and the client's replay pay
+    /// the same dt (the medigun's charge clocks do the same thing with
+    /// <see cref="BehaviourTimeA"/>). It stands through deploys as the meter
+    /// does — stock's slot meter ages on across a holster — and carries the
+    /// clocks' millisecond tolerance like them.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float ItemMeterTime { get; set; }
+
+    /// <summary>
     /// The server's deploy stamp: bumped by <c>Arsenal.Deploy</c>, and by the
     /// client's <c>MirrorDeploy</c> when a command's weaponselect answers for
     /// the same deploy, so a switch the client predicted carries the same

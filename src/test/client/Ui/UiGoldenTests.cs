@@ -63,6 +63,9 @@ public class UiGoldenTests
         // The spy's meters: disguised shows the cloak meter and the status
         // row with the imitated team's tone, both over the world.
         { "tfhud", "spy-disguised-as-a-red-soldier" },
+        // The timed item's charge bar: half gold on the grey track, the
+        // item's own word beside it (tf_hud_itemeffectmeter.cpp).
+        { "tfhud", "bonk-half-charged" },
         // The flag row: one briefcase carried, the other ticking back; and
         // both home under a caps target, the state with the playing-to
         // caption (stock's "Playing to: %rounds%", tf_english.txt

@@ -662,6 +662,27 @@ public interface ITFMedicCharge
 }
 
 /// <summary>
+/// The timed item's charge bar (tf_hud_itemeffectmeter.cpp, stock's plain
+/// <c>CHudItemEffectMeter</c>): the carried item's charge as
+/// <c>m_flItemChargeMeter</c> on its own state (tf_player_shared.cpp:7832),
+/// present when the item sets <c>item_meter_charge_rate</c>, its label the
+/// <c>meter_label</c> string attribute stock's SetLabelText reads (:607-628).
+/// </summary>
+public interface ITFItemMeter
+{
+    /// <summary>The held item carries a charge meter at all (stock's meter
+    /// draws only for an item whose charge rate is set).</summary>
+    bool Present { get; }
+
+    /// <summary>The bar, 0..1 (the shared networked field, clamped).</summary>
+    float Charge { get; }
+
+    /// <summary>The words beside the bar (<c>meter_label</c>), or the empty
+    /// string when the item sets none.</summary>
+    string Label { get; }
+}
+
+/// <summary>
 /// The spy's meters (tf_hud_itemeffectmeter.cpp, tf_hud_disguise_status.cpp):
 /// the cloak watch's charge (the item-effect meter over m_flCloakMeter,
 /// GetProgress :513-519) and the disguise status (CDisguiseStatus::ShouldDraw

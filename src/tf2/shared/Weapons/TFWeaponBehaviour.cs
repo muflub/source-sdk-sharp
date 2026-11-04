@@ -78,7 +78,7 @@ namespace TF2.Shared;
 /// single-shell weapon fires rapid-fire crits, so the two never share a field.
 /// </para>
 /// </summary>
-public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
+public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes = null) : IWeaponBehaviour
 {
     /// <summary><see cref="WeaponNetState.BehaviourMode"/>'s single-shell-reload bit.</summary>
     public const int ModeReloadingSingly = 1;
@@ -104,6 +104,9 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
     protected const int ModeKindShift = 8;
 
     protected TFWeaponParts Parts { get; } = parts ?? throw new ArgumentNullException(nameof(parts));
+
+    /// <summary>The item attribute reads the charge meter asks through; the composition's own, else the bare chain.</summary>
+    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
 
     /// <summary>The script behind a row, or null for a row without one (it then behaves as stock).</summary>
     protected TFWeaponScript? ScriptOf(in WeaponType type) => Parts.Scripts.Get(type.Name);
@@ -591,6 +594,20 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
             // re-runs it, the visuals gate inside.
             Parts.Effects.ClassSpecialSkill(in attack);
         }
+
+        // The carried item's charge meter: stock fills it once a frame from
+        // CTFPlayer::ItemPostFrame (CTFPlayerShared::UpdateItemChargeMeters,
+        // tf_player_shared.cpp:7870-7904); ours runs here, the machine's tail,
+        // so the replay pays the same dt — the command's own span off the
+        // stamp in the blob (WeaponNetState.ItemMeterTime), one clock on both
+        // sides. A span outside a command interval (the first command over a
+        // stamp older than the break) pays nothing, as the medigun's
+        // predicted charge does. An item with no charge attribute answers its
+        // base rates and the bar stands, stock's skip (:7886-7887).
+        float meterDt = attack.Now - weapon.ItemMeterTime;
+        weapon.ItemMeterTime = attack.Now;
+        if (meterDt is >= 0f and <= 1f)
+            TFItemMeter.Tick(weapon, meterDt, _attributes, Parts.Owners, attack.Command.OwnerIndex, attack.Type.Name);
 
         if (ScriptOf(attack.Type) is not { } script)
             return;

@@ -52,8 +52,10 @@ public class WeaponMachineTests
         // and when a charging alt-fire goes off (WeaponNetState.ChargeFiresAt),
         // and the Huntsman's lit arrow (WeaponNetState.ArrowAlight),
         // and the last deploy's stamp the switch-from arm asks
-        // (WeaponNetState.LastDeployTime).
-        Assert.Equal(51, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        // (WeaponNetState.LastDeployTime), the timed item's charge the HUD plate
+        // reads (WeaponNetState.ItemMeter) and the clock it ages on
+        // (WeaponNetState.ItemMeterTime).
+        Assert.Equal(53, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 

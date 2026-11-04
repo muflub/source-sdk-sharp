@@ -1,6 +1,9 @@
+using SourceSharp.Abi;
 using SourceSharp.Tests;
 
+using TF2.Shared;
 using TF2.Shared.Econ;
+using TF2.Tests.Weapons;
 
 using Xunit;
 
@@ -72,6 +75,48 @@ public sealed class ItemsWorkingTableTests
         return item.Keys.Find("used_by_classes") is not null;
     }
 
+    /// <summary>
+    /// The shipped script a row's item class wears: the fixture named exactly
+    /// by it, else the longest fixture name that is its stem
+    /// (<c>tf_weapon_shotgun_hwg</c> under <c>tf_weapon_shotgun</c>, the match
+    /// <c>TFWeaponTypes.BaseItemFor</c> makes the other way). Milestone fixtures
+    /// first, then the extras set. Null when the game ships no script for it at
+    /// all, which is what the fact below reads as no behaviour.
+    /// </summary>
+    private static string? ShippedScriptFor(string itemClass)
+    {
+        string[] extraDir = Directory.GetFiles(
+                RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons-extra"), "tf_weapon_*.txt")
+            .Select(Path.GetFileNameWithoutExtension)
+            .Select(n => n!)
+            .ToArray();
+
+        return WeaponFixtures.Names()
+            .Concat(extraDir)
+            .Where(n => MatchesBaseClass(n, itemClass) || MatchesBaseClass(itemClass, n))
+            .OrderByDescending(n => n.Length)
+            .FirstOrDefault();
+
+        // TFWeaponTypes.BaseItemFor's match: equal, or a stem at an underscore.
+        static bool MatchesBaseClass(string longer, string baseClass) =>
+            string.Equals(longer, baseClass, StringComparison.OrdinalIgnoreCase)
+            || (longer.Length > baseClass.Length
+                && longer[baseClass.Length] == '_'
+                && longer.StartsWith(baseClass, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The fixture's script, from the milestone dir or the extras dir.</summary>
+    private static TFWeaponScript ParseShipped(string fixtureName)
+    {
+        if (WeaponFixtures.Names().Contains(fixtureName, StringComparer.Ordinal))
+            return WeaponFixtures.Parse(fixtureName);
+
+        string path = RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons-extra", fixtureName + ".txt");
+        var document = KeyValuesText.Parse(File.ReadAllText(path));
+        Assert.NotEmpty(document.Children);
+        return TFWeaponScriptParser.Parse(document.Children[0], fixtureName);
+    }
+
     /// <summary>TFWeaponTypes.BaseItemFor's match: equal, or a stem at an underscore.</summary>
     private static bool HasKindRow(string itemClass, IReadOnlyList<ItemDefinition> baseItems)
     {
@@ -141,4 +186,52 @@ public sealed class ItemsWorkingTableTests
                 $"{row[0]} {row[1]}: status works with no evidence and no behaviour attributes needs a kind-table row for {row[2]}");
         }
     }
+
+    /// <summary>
+    /// A works row's weapon carries a behaviour the game itself can run: the
+    /// kind the carried weapon resolves to through the shipped scripts — the
+    /// fixture set of <see cref="WeaponFixtures"/>, read the way
+    /// <see cref="TFWeaponTypes"/> reads them — is not
+    /// <see cref="TFWeaponKind.Inert"/>. A class with neither a shipped script
+    /// nor a case in <see cref="TFWeaponKinds.Of"/> falls through to the
+    /// no-attack kind, so its works row promises a behaviour the game never
+    /// picks up. The exceptions, each justified from stock: a wearable
+    /// (<c>tf_wearable*</c>) is an attribute holder whose stock weapon class
+    /// adds no attack of its own; the cloak watch (<c>tf_weapon_invis</c>) has
+    /// one stock attack which only toggles invisibility through the shared
+    /// cloak clock (<c>ActivateInvisibilityWatch</c>, tf_weapon_invis.cpp:206-263),
+    /// and that half rides the player's predicted cloak meter here — the watch
+    /// itself fires nothing, which is exactly what the no-attack kind says.
+    /// Their works rows stand on the no-attack kind.
+    /// </summary>
+    [Fact]
+    public void EveryWorksRowWeaponHasARunningBehaviour()
+    {
+        foreach (string[] row in TableRows()[1..])
+        {
+            if (row.Length < Columns || row[7] != "works")
+                continue;
+
+            string itemClass = row[2];
+            if (DoesNothingOnFireInStock(itemClass))
+                continue;
+
+            string? fixture = ShippedScriptFor(itemClass);
+            Assert.True(fixture is not null,
+                $"{row[0]} {row[1]} ({itemClass}): status works but the shipped scripts hold no script for {itemClass}"
+                + " and TFWeaponKinds.Of has no case for its id, so the game picks the no-attack kind for it");
+            if (fixture is null)
+                return;
+
+            TFWeaponKind kind = TFWeaponKinds.Of(ParseShipped(fixture));
+            Assert.True(kind != TFWeaponKind.Inert,
+                $"{row[0]} {row[1]} ({itemClass}): status works but its script makes no bullet or melee answer,"
+                + " so TFWeaponKinds.Of falls through to the no-attack kind");
+        }
+    }
+
+    /// <summary>The item classes whose stock weapon really does nothing on fire; see <see cref="EveryWorksRowWeaponHasARunningBehaviour"/>.</summary>
+    private static bool DoesNothingOnFireInStock(string itemClass) =>
+        itemClass.StartsWith("tf_wearable", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(itemClass, "tf_weapon_invis", StringComparison.OrdinalIgnoreCase);
 }

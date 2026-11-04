@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="20" y="945" width="225" height="113" fill="#2e2b2a" fill-opacity="0.78" data-e="2"/>
+<rect x="164" y="884" width="124" height="124" fill="#2e2b2a" fill-opacity="0.78" data-e="3"/>
+<text x="191" y="962" font-family="TF2 Secondary" font-size="40" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="4">175</text>
+<rect x="2196" y="842" width="224" height="112" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
+<rect x="2274" y="891" width="68" height="11" fill="#b2b2b2" data-e="8"/>
+<rect x="2274" y="891" width="34" height="11" fill="#ffcc00" data-e="9"/>
+<text x="2285" y="918.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ffffff" xml:space="preserve" data-e="10">Bonk!</text>
+</svg>
