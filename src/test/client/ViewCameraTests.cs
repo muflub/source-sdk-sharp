@@ -4,6 +4,7 @@ using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.ViewCamera;
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -58,14 +59,15 @@ public class ViewCameraTests
         public readonly RecordingEngine Engine = new() { Strict = false };
         private readonly Backend _backend = new();
         private readonly ConVarRegistry _convars;
+        private readonly SvCheatsConVar _cheats;
         public readonly ViewCameraService Camera;
 
         public Rig(bool eyeKnown = true, string? cheats = "1")
         {
-            Engine.Returns("Console.FindConVarValue", cheats);
+            _cheats = DeclaredConVars.Holding<SvCheatsConVar>(cheats);
             _convars = new ConVarRegistry(_backend);
             _convars.RegisterTypes([typeof(ViewCameraModeConVar), typeof(ViewCameraEveryConVar)]);
-            Camera = new ViewCameraService(Targets, View, Engine, Engine, _convars.Declared<ViewCameraModeConVar>(),
+            Camera = new ViewCameraService(Targets, View, Engine, _cheats, _convars.Declared<ViewCameraModeConVar>(),
                                            _convars.Declared<ViewCameraEveryConVar>());
             if (eyeKnown)
                 View.PublishEye(Eye);
@@ -73,7 +75,7 @@ public class ViewCameraTests
         }
 
         public ClientDebugViewCamera Route(SourceSharp.Client.Render.RenderPlanHost? plan = null)
-            => new(Camera, Targets, Engine, _convars.Declared<ViewCameraModeConVar>(), _convars.Declared<ViewCameraEveryConVar>(), plan);
+            => new(Camera, Targets, Engine, _cheats, _convars.Declared<ViewCameraModeConVar>(), _convars.Declared<ViewCameraEveryConVar>(), plan);
 
         public Rig Set(string name, string value)
         {
@@ -151,16 +153,6 @@ public class ViewCameraTests
         rig.Passes(4);
         Assert.Empty(rig.Targets.Requests);
         Assert.Equal(ViewCameraMode.Off, ((IViewCameraSource)rig.Camera).Mode);
-    }
-
-    [Fact]
-    public void Off_it_never_asks_whether_cheats_are_on()
-    {
-        // The default costs no crossing: sv_cheats is read only with a mode set.
-        var rig = new Rig();
-        rig.Passes(3);
-        _ = ((IViewCameraSource)rig.Camera).Mode;
-        Assert.DoesNotContain(rig.Engine.Calls, c => c.Member == "Console.FindConVarValue");
     }
 
     [Fact]

@@ -104,14 +104,14 @@ public sealed class TFFlameManager : ScriptedEntity
     private readonly ITFPlayerConditions Conditions;
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
-    private readonly IEngineConsole Console;
+    private readonly TF2.Shared.TFFlameThrowerBoxSizeConVar BoxSize;
     private readonly ITFWeaponOwners? Owners;
     private readonly IEntityDirectory? Directory;
     private readonly SeededUniformStream Stream = new();
 
     public TFFlameManager(IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers players,
                           IEngineHost host, ITFPlayerConditions conditions,
-                          TFDamageScopes scopes, DamageHitGroups hitGroups, IEngineConsole console,
+                          TFDamageScopes scopes, DamageHitGroups hitGroups, TF2.Shared.TFFlameThrowerBoxSizeConVar boxSize,
                           ITFWeaponOwners? owners = null, IEntityDirectory? directory = null)
     {
         World = world;
@@ -121,7 +121,7 @@ public sealed class TFFlameManager : ScriptedEntity
         Conditions = conditions;
         Scopes = scopes;
         HitGroups = hitGroups;
-        Console = console;
+        BoxSize = boxSize;
         Owners = owners;
         Directory = directory;
     }
@@ -133,11 +133,6 @@ public sealed class TFFlameManager : ScriptedEntity
         public float SpawnTime, LifeTime;
         public int HitWall;
     }
-
-    /// <summary>A named convar's float, or the stock default when the engine has no such value.</summary>
-    private float ConVarFloat(string name, float stock)
-        => float.TryParse(Console.FindConVarValue(name), NumberStyles.Float,
-                          CultureInfo.InvariantCulture, out float value) ? value : stock;
 
     /// <summary>A point as a fact reads it: <c>flame_point_t</c>'s live fields.</summary>
     public readonly record struct PointView(Vector Position, Vector Velocity, float SpawnTime,
@@ -307,7 +302,7 @@ public sealed class TFFlameManager : ScriptedEntity
         // The swept collision box's half extent: the convar stock declares for
         // it (CTFFlameManager::GetRadius, tf_flame.cpp:1209), the constant its
         // declared value.
-        float radius = ConVarFloat("tf_flamethrower_boxsize", TFFlameManagerDefs.BoxSize);
+        float radius = BoxSize.Value;
 
         Vector gravity = new Vector(0f, 0f, TFFlameManagerDefs.FlameGravity) * dt;
         Vector newVelocity = point.Velocity + gravity + AdditionalVelocity(point);

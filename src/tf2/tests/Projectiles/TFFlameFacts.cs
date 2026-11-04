@@ -79,6 +79,7 @@ internal sealed class FlameRig
     public readonly FakeMapPlayers StunPlayers = new();
 
     public ConVarRegistry Convars { get; } = new(new StoredConVarBackend());
+    public TFStickybombConVars StickyVars { get; }
 
     /// <summary>The victim's stun stack, attached: the trigger facts' rig shape.</summary>
     public TFStunStack AttachStun(EntityHandle player)
@@ -110,7 +111,7 @@ internal sealed class FlameRig
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);
-        Motion = new EntityMotion(motionLog, Engine, Engine, Engine, Engine, Engine, motionDirectory,
+        Motion = new EntityMotion(motionLog, Engine, Engine, Engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
         var blast = new TFBlastApplier(Engine, Engine, Engine, Scopes, HitGroups, new DamageInflictors(),
                                        new ProjectileRig.FixedClasses(), Log,
@@ -132,7 +133,13 @@ internal sealed class FlameRig
         Pipebomb.NetStates = NetStateBinding.AttachLocal(Pipebomb, Pipebomb.Handle,
                                                          new NetStateFields(new RecordingLog()));
 
-        Stickybomb = new TFStickybomb(Engine, blast, Engine, Engine, Engine, Engine, Directory, Engine);
+        StickyVars = Convars.Holder<TFStickybombConVars>();
+        StickyVars.ForceFromBullet.Hold("0");
+        StickyVars.ForceFromBuckshot.Hold("0");
+        StickyVars.ForceFromBlast.Hold("0");
+        StickyVars.ForceToMove.Hold("0");
+        StickyVars.ForceSleepTime.Hold("0");
+        Stickybomb = new TFStickybomb(Engine, blast, Engine, StickyVars, Engine, Engine, Directory, Engine);
         Stickybomb.BindAreas(TestServices.Areas(Engine));
         Stickybomb.Handle = StickyHandle;
         Stickybomb.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says

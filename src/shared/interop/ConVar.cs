@@ -246,6 +246,12 @@ public abstract class ConVarBase
     /// </summary>
     public string RawValue { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// False while the value is empty: an <see cref="EngineConVarAttribute"/> class with no
+    /// <see cref="EngineConVarAttribute.Fallback"/>, the engine holding nothing under the name yet.
+    /// </summary>
+    public bool HasValue => RawValue.Length != 0;
+
     /// <summary>The declared server-browser tag (<see cref="ConVarAttribute.Tag"/>), or null.</summary>
     public string? Tag { get; private set; }
 
@@ -288,7 +294,7 @@ public abstract class ConVarBase
     /// </summary>
     private protected void SetRaw(string value)
     {
-        if (_id < 0 || Backend is null)
+        if (Backend is null)
             return;
 
         string now;
@@ -299,6 +305,9 @@ public abstract class ConVarBase
         }
         else
         {
+            if (_id < 0)
+                return;
+
             Backend.Set(_id, value);
             now = Backend.Get(_id);
         }

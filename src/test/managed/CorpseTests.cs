@@ -98,7 +98,7 @@ public class CorpseTests
         // report what was written.
         body.State.BindLocal();
 
-        return new Corpses(new RecordingLog(), engine, engine, new OneBody(body), engine, engine);
+        return new Corpses(new RecordingLog(), engine, engine, new OneBody(body), players: engine);
     }
 
     /// <summary>
@@ -1036,7 +1036,7 @@ public class CorpseRetirementTests
     }
 
     private static Corpses Service(RecordingEngine engine)
-        => new(new RecordingLog(), engine, engine, new NoDirectory(), engine);
+        => new(new RecordingLog(), engine, engine, new NoDirectory());
 
     [Fact]
     public void ACapOfZeroMakesNoBodyAtAllRatherThanOneItSweepsNextFrame()
@@ -1079,29 +1079,13 @@ public class CorpseRetirementTests
     public void TheServerAnswersNotLowViolenceEvenWithEveryViolenceConVarOff()
     {
         var engine = Engine();
-        engine.Returns("Console.FindConVarValue", "0");
+        var violence = new ViolenceConVars(DeclaredConVars.Holding<ViolenceHBloodConVar>("0"), DeclaredConVars.Holding<ViolenceABloodConVar>("0"),
+                                           DeclaredConVars.Holding<ViolenceHGibsConVar>("0"), DeclaredConVars.Holding<ViolenceAGibsConVar>("0"));
 
-        var corpses = Service(engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new NoDirectory(), violence);
         ((IGameLifecycle)corpses).OnLevelInit("dm_lockdown");
 
         Assert.False(corpses.LowViolence);
-    }
-
-    /// <summary>
-    /// And the four ConVars ARE read, which the fact above cannot show on its
-    /// own: an implementation that never called <c>FindConVarValue</c> would
-    /// answer false too.
-    /// </summary>
-    [Fact]
-    public void TheFourViolenceConVarsAreActuallyRead()
-    {
-        var engine = Engine();
-        engine.Returns("Console.FindConVarValue", "1");
-
-        var corpses = Service(engine);
-        ((IGameLifecycle)corpses).OnLevelInit("dm_lockdown");
-
-        Assert.Equal(4, engine.CountOf("Console.FindConVarValue"));
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -44,7 +45,7 @@ public class DamageCheatsTests
         var subject = new SsPlayer(TestServices.Fake(), TestServices.Fake(), TestServices.Impacts(TestServices.Fake()), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage());
         directory.Entities[Player] = subject;
 
-        var damageCheats = new DamageCheats(new RecordingLog(), directory, TestServices.Fake())
+        var damageCheats = new DamageCheats(new RecordingLog(), directory, DeclaredConVars.Fresh<SvCheatsConVar>())
         {
             CheatsEnabled = () => cheats,
         };
@@ -116,7 +117,7 @@ public class DamageCheatsTests
     public void AHandleThatIsNotAPlayerTogglesNothing()
     {
         var directory = new StubDirectory();
-        var cheats = new DamageCheats(new RecordingLog(), directory, TestServices.Fake()) { CheatsEnabled = () => true };
+        var cheats = new DamageCheats(new RecordingLog(), directory, DeclaredConVars.Fresh<SvCheatsConVar>()) { CheatsEnabled = () => true };
 
         // Nothing at the handle at all: must not throw, must not toggle.
         cheats.ToggleGod(Player);
@@ -166,14 +167,14 @@ public class DamageCheatsTests
     /// answer each from its own.
     /// </summary>
     [Fact]
-    public void TheDefaultGateReadsItsOwnConsole()
+    public void TheDefaultGateReadsItsOwnConVar()
     {
         var on = new DamageCheats(new RecordingLog(), new StubDirectory(),
-            TestServices.Fake().Returns("Console.FindConVarValue", "1"));
+            DeclaredConVars.Holding<SvCheatsConVar>("1"));
         var off = new DamageCheats(new RecordingLog(), new StubDirectory(),
-            TestServices.Fake().Returns("Console.FindConVarValue", "0"));
+            DeclaredConVars.Holding<SvCheatsConVar>("0"));
 
-        Assert.True(on.CheatsEnabled(), "sv_cheats 1 on this console opens this gate");
-        Assert.False(off.CheatsEnabled(), "sv_cheats 0 on the other console keeps its gate shut");
+        Assert.True(on.CheatsEnabled(), "sv_cheats 1 opens this gate");
+        Assert.False(off.CheatsEnabled(), "sv_cheats 0 keeps it shut");
     }
 }

@@ -36,21 +36,10 @@ public sealed class DecalSettings(Func<bool> decals, Func<bool> modelDecals) : I
     public bool ModelDecals => modelDecals();
 }
 
-/// <summary>
-/// The two ConVars, watched (IShimConVarsClient): read once when the watch
-/// starts and again on each change, so a decal asks no crossing.
-/// </summary>
-public sealed class DecalConVarsWatch(WatchedConVarValues watch) : IDecalSettings
+/// <summary>The two ConVars.</summary>
+public sealed class DecalConVars(RDecalsConVar decals, RDrawModelDecalsConVar modelDecals) : IDecalSettings
 {
-    public const string DecalsName = "r_decals";
-    public const string ModelDecalsName = "r_drawmodeldecals";
+    public bool Decals => decals.Value;
 
-    public void Start() => watch.Watch([DecalsName, ModelDecalsName]);
-
-    /// <summary>A watched ConVar changed; false for an id this watch does not hold.</summary>
-    public bool OnChanged(int id, string newValue) => watch.OnChanged(id, newValue);
-
-    public bool Decals => watch.Bool(DecalsName);
-
-    public bool ModelDecals => watch.Bool(ModelDecalsName);
+    public bool ModelDecals => modelDecals.Value;
 }

@@ -50,6 +50,7 @@ public class GameManagerTests
         // (or the caller's) here, so no two tests share a listener list.
         registry.Services = new ServiceContainer()
             .AddInstance<IPlayerButtons>(new NoButtons())
+            .AddInstance(DeclaredConVars.Fresh<MatDxLevelConVar>())
             .AddInstance<IGameEventFeed>(feed ?? NewFeed());
 
         return registry;

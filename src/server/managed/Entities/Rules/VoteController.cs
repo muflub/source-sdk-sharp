@@ -102,8 +102,9 @@ public sealed class VoteIndices : IVoteIndices
 public sealed class VoteController : ScriptedEntity
 {
     public VoteController(IGameClock clock, IEngineConsole console, IEngineHost host, IEnginePlayers players,
-                          IVoteIndices indices, VoteOffice? office = null, IBotPlayers? bots = null)
+                          IVoteIndices indices, VoteConVars convars, VoteOffice? office = null, IBotPlayers? bots = null)
     {
+        _convars = convars;
         _indices = indices;
         _office = office;
         _bots = bots;
@@ -112,6 +113,8 @@ public sealed class VoteController : ScriptedEntity
         Host = host;
         Players = players;
     }
+
+    private readonly VoteConVars _convars;
 
     /// <summary>what the server thinks the time is.</summary>
     private readonly IGameClock Clock;
@@ -293,16 +296,16 @@ public sealed class VoteController : ScriptedEntity
 
         // The jitter is stock's, and it is deliberate: every server in a cluster
         // closing its ballots on the same tick makes one very uneven frame.
-        _ballotClosesAt = now + Number("sv_vote_timer_duration", 15f)
+        _ballotClosesAt = now + _convars.TimerDuration.Value
                               + Host.RandomFloat(-1f, 1f);
         _executeAt = Never;
         _resetAt = Never;
 
-        _callerCooldowns[caller.Value] = now + Number("sv_vote_creation_timer", 150f);
+        _callerCooldowns[caller.Value] = now + _convars.CreationTimer.Value;
 
         // Calling a yes/no vote is agreeing with it, unless the server lets the
         // caller vote against their own motion.
-        if (IsYesNoVote && !Flag("sv_vote_holder_may_vote_no", false))
+        if (IsYesNoVote && !_convars.HolderMayVoteNo.Value)
             Cast(caller, 1, now);
 
         Report();
@@ -347,7 +350,7 @@ public sealed class VoteController : ScriptedEntity
         _counts[option - 1]++;
         _castBy[voter.Value] = option;
 
-        if (Flag("sv_vote_timer_allow_early_finish", true) && VotesCast >= _potentialVoters)
+        if (_convars.EarlyFinish.Value && VotesCast >= _potentialVoters)
         {
             // Run the timer out rather than deciding here. Stock does the same,
             // and the second of grace is what stops the result appearing before
@@ -391,7 +394,7 @@ public sealed class VoteController : ScriptedEntity
     private void Decide(float now)
     {
         int leading = LeadingOption(_counts, IsYesNoVote);
-        bool passed = Passes(VotesCast, _potentialVoters, Number("sv_vote_quorum_ratio", 0.6f),
+        bool passed = Passes(VotesCast, _potentialVoters, _convars.QuorumRatio.Value,
                              leading, IsYesNoVote);
 
         Outcome = passed ? VoteOutcome.Passed : VoteOutcome.Failed;
@@ -404,7 +407,7 @@ public sealed class VoteController : ScriptedEntity
             if (!IsYesNoVote && leading >= 0 && leading < _options.Count)
                 _issue = _issue!.Value with { Details = _options[leading] };
 
-            _executeAt = now + Number("sv_vote_command_delay", 2f);
+            _executeAt = now + _convars.CommandDelay.Value;
         }
 
         _resetAt = now + ResetDelay;
@@ -508,7 +511,7 @@ public sealed class VoteController : ScriptedEntity
             if (Entities.IsValid(player))
                 players.Add((Players.GetTeam(player), _bots?.IsBot(player) ?? false));
         }
-        return CountVoters(players, Flag("sv_vote_allow_spectators", false), Flag("sv_vote_bots_allowed", false), _onlyTeam);
+        return CountVoters(players, _convars.AllowSpectators.Value, _convars.BotsAllowed.Value, _onlyTeam);
     }
 
     /// <summary>
@@ -537,17 +540,6 @@ public sealed class VoteController : ScriptedEntity
     /// <summary>Whether a team is allowed to vote on the current issue.</summary>
     private bool CanTeamCastVote(int team) => _onlyTeam == TeamUnassigned || team == _onlyTeam;
 
-    //-------------------------------------------------------------------------
-    // The sv_vote_* convars, read where they are used.
-    //
-    // Read by name from the engine's registry; declared in Votes.cs.
-    //-------------------------------------------------------------------------
+    public bool VotesAllowed => _convars.Allow.Value;
 
-    public bool VotesAllowed => Flag("sv_allow_votes", true);
-
-    private bool Flag(string name, bool fallback)
-        => ParseInt(Console.FindConVarValue(name) ?? string.Empty, fallback ? 1 : 0) != 0;
-
-    private float Number(string name, float fallback)
-        => ParseFloat(Console.FindConVarValue(name) ?? string.Empty, fallback);
 }

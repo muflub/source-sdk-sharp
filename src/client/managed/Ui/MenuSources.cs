@@ -12,7 +12,7 @@ namespace SourceSharp.Client.Vgui;
 /// frame while the scoreboard is open; names are asked once per user id.
 /// </summary>
 public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, IFwdEngineClient engine,
-                                 IPlayerNames names, IEngineConsole console, IEngineEnvironment environment,
+                                 IPlayerNames names, HostnameConVar hostname, IEngineEnvironment environment,
                                  TeamNames? teamNames = null) : IScoreboardSource
 {
     private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
@@ -95,7 +95,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
         if (_resource is null || !standalones.Live().Contains(_resource))
             _resource = standalones.OfClass(EntityNames.PlayerManager).OfType<Standalone.ClientPlayerResource>().FirstOrDefault();
 
-        ServerName = console.FindConVarValue("hostname") ?? string.Empty;
+        ServerName = hostname.Value;
         string level = engine.LevelName() ?? string.Empty;
         MapName = Path.GetFileNameWithoutExtension(level);
 

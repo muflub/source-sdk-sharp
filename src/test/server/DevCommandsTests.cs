@@ -104,7 +104,7 @@ public class DevCommandsTests
 
         _netState = new FakeNetState();
 
-        var context = new DevContext(engine, engine, engine, engine, giver, directory, new EntityFactories(), engine, new RecordingLog())
+        var context = new DevContext(engine, engine, engine, engine, giver, directory, new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => cheats,
             SinglePlayer = () => singlePlayer,
@@ -1364,7 +1364,7 @@ public class DevCommandsTests
         // reader could change.
         var (context, _, giver, _) = Rig(cheats: false);
         context.SinglePlayer = new DevContext(Fake(), Fake(), Fake(), Fake(), giver,
-                                              new FakeDirectory(), new EntityFactories(), Fake(), new RecordingLog()).SinglePlayer;
+                                              new FakeDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog()).SinglePlayer;
 
         Assert.True(!context.SinglePlayer(),
                     "an access question nobody can answer is a NO, the same direction " +
@@ -1824,7 +1824,7 @@ public class DevCommandsTests
         var services = new ServiceContainer();
         var engine = Fake();
         services.AddInstance(new DevContext(engine, engine, engine, engine,
-                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), engine, new RecordingLog()));
+                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog()));
         services.AddInstance<INetState>(new FakeNetState());
 
         // bloodspray's dependency, and playentitysound's. The game's container
@@ -1869,7 +1869,7 @@ services.AddInstance<ILog>(new RecordingLog());
         // god and buddha are registrations over a rule that already existed;
         // the toggles are DamageCheats' and are in the game's container
         // (ServerModule adds the instance beside the arsenal decorator).
-        services.AddInstance(new DamageCheats(new RecordingLog(), new FakeDirectory(), Fake().Ignores("Console.FindConVarValue")));
+        services.AddInstance(new DamageCheats(new RecordingLog(), new FakeDirectory(), DeclaredConVars.Fresh<SvCheatsConVar>()));
         services.AddInstance<IEnginePlayers>(engine);
 
         var registry = new ConCommandRegistry();
@@ -1900,7 +1900,7 @@ services.AddInstance<ILog>(new RecordingLog());
         var services = new ServiceContainer();
         var engine = Fake();
         services.AddInstance(new DevContext(engine, engine, engine, engine,
-                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), engine, new RecordingLog()));
+                                            new RecordingGiver(), new FakeDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog()));
         services.AddInstance<INetState>(new FakeNetState());
 
         // bloodspray's dependency. The game's container has every engine area

@@ -110,26 +110,9 @@ public sealed class PyroVisionTests
     }
 
     /// <summary>The convars by name, as the engine answers them.</summary>
-    private sealed class Convars(IReadOnlyDictionary<string, string> values) : IEngineConsole
-    {
-        public Dictionary<string, string> Overrides { get; } = new(StringComparer.Ordinal);
+    private static TF2.Client.PyroVisionConVars Convars(IReadOnlyDictionary<string, string> values)
+        => DeclaredClientConVars.Holder<TF2.Client.PyroVisionConVars>([.. values.Select(kv => (kv.Key, kv.Value))]);
 
-        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
-        public string? FindConVarValue(string name) =>
-            Overrides.TryGetValue(name, out string? o) ? o : values.TryGetValue(name, out string? v) ? v : null;
-
-        public void ExecuteServerCommand(string command) => throw new NotSupportedException();
-        public string GetConVarValue(int id) => throw new NotSupportedException();
-        public void Msg(string message) { }
-        public int RegisterConCommand(string name, string help, ConVarFlags flags) => throw new NotSupportedException();
-        public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null) => throw new NotSupportedException();
-        public void SendClientCommand(EntityHandle player, string command) => throw new NotSupportedException();
-        public void SetConVarValue(int id, string value) => throw new NotSupportedException();
-        public void SetConVarValueByName(string name, string value) { }
-        public int Snapshot() => 0;
-        public bool SnapshotEntry(int index, out NativeConsoleEntry entry) { entry = default; return false; }
-        public void Warning(string message) { }
-    }
 
     private sealed class Hooks(params IPostProcessContributor[] hooks) : client::SourceSharp.Abi.IHooks<IPostProcessContributor>
     {
@@ -190,7 +173,7 @@ public sealed class PyroVisionTests
         (RenderTrace t, string text) = Load("post-sandbox-pyro");
         PostProcessInputs input = InputsOf(t, text);
         Assert.Equal(1f, input.Cvar(PostCvar.localplayer_visionflags));
-        var pyro = new PyroVision(new ScriptedRandom(0.5f), new Convars(t.ConVars));
+        var pyro = new PyroVision(new ScriptedRandom(0.5f), Convars(t.ConVars));
         var planner = new PostProcessPlanner(() => "mods/test", new Hooks(pyro));
         (RenderOp[] ops, Materials names) = Run(planner, input, frames: 13);
 
@@ -213,7 +196,7 @@ public sealed class PyroVisionTests
         (RenderTrace t, string text) = Load("post-sandbox-pyro");
         PostProcessInputs input = InputsOf(t, text);
         var random = new ScriptedRandom(0.5f);
-        var pyro = new PyroVision(random, new Convars(t.ConVars));
+        var pyro = new PyroVision(random, Convars(t.ConVars));
         var planner = new PostProcessPlanner(() => "mods/test", new Hooks(pyro));
         input.SetCvar(PostCvar.localplayer_visionflags, 2f);
         Assert.DoesNotContain(Run(planner, input).Ops, o => o.Kind == (int)RenderOpKind.PostMeshBegin);
@@ -227,8 +210,8 @@ public sealed class PyroVisionTests
     public void VignetteOneDrawsTheBorderAndNoSides()
     {
         (RenderTrace t, string text) = Load("post-sandbox-pyro");
-        var console = new Convars(t.ConVars);
-        console.Overrides["pyro_vignette"] = "1";
+        var console = Convars(t.ConVars);
+        console.Vignette.Hold("1");
         var random = new ScriptedRandom(0.5f);
         var planner = new PostProcessPlanner(() => "mods/test", new Hooks(new PyroVision(random, console)));
         (RenderOp[] ops, Materials names) = Run(planner, InputsOf(t, text));
@@ -246,7 +229,7 @@ public sealed class PyroVisionTests
         (RenderTrace t, string text) = Load("post-sandbox-pyro");
         // limit, rate, width, length: fractions of 0.1-0.35, 0.05-0.2, 0.65-0.95, 0.3-0.55.
         var random = new ScriptedRandom(0.2f, 0.4f, 0.5f, 0.8f, 0f);
-        var pyro = new PyroVision(random, new Convars(t.ConVars));
+        var pyro = new PyroVision(random, Convars(t.ConVars));
         var planner = new PostProcessPlanner(() => "mods/test", new Hooks(pyro));
         PostProcessInputs input = InputsOf(t, text);
         input.FrameTime = 0.1f;
@@ -270,7 +253,7 @@ public sealed class PyroVisionTests
     public void ASideFadesUpToItsLimitThenDownAndDies()
     {
         (RenderTrace t, string text) = Load("post-sandbox-pyro");
-        var pyro = new PyroVision(new ScriptedRandom(0f), new Convars(t.ConVars)); // limit 0.1, rate 0.05
+        var pyro = new PyroVision(new ScriptedRandom(0f), Convars(t.ConVars)); // limit 0.1, rate 0.05
         var planner = new PostProcessPlanner(() => "mods/test", new Hooks(pyro));
         PostProcessInputs input = InputsOf(t, text);
         input.FrameTime = 0.5f;

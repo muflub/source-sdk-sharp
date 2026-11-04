@@ -14,7 +14,7 @@ namespace SourceSharp.Client.Physics;
 /// cl_ragdoll_collide is read when the solver reaches it, which for two
 /// debris bodies is never.
 /// </summary>
-public sealed class ClientCollisionFacts(IClientPhysicsObjectReads objects, IEngineConsole console,
+public sealed class ClientCollisionFacts(IClientPhysicsObjectReads objects, ClientRagdollCollideConVar ragdollCollide,
                                          IClientPhysicsPropOwners? props = null) : IClientCollisionFacts
 {
     public ushort GameFlags(nint physicsObject) => objects.GameFlags(physicsObject);
@@ -26,7 +26,5 @@ public sealed class ClientCollisionFacts(IClientPhysicsObjectReads objects, IEng
     public EngineCollisionGroup GroupOf(EntityHandle owner)
         => props is not null && props.TryGroup(owner, out EngineCollisionGroup group) ? group : EngineCollisionGroup.Debris;
 
-    public bool RagdollCollide
-        => int.TryParse(console.FindConVarValue("cl_ragdoll_collide"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
-           && v != 0;
+    public bool RagdollCollide => ragdollCollide.Value;
 }

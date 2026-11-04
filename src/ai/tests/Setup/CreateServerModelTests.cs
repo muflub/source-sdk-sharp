@@ -8,7 +8,7 @@ using CustomBot = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBot;
 using CustomBots = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBots;
 using IFwdEngineClient = client::SourceSharp.Abi.IFwdEngineClient;
 using BotEditorModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.BotEditorModel;
-using IEngineConsole = client::SourceSharp.Abi.IEngineConsole;
+using AiBotRerollOnMapConVar = client::SourceSharp.Ai.Hl2mp.Client.Setup.AiBotRerollOnMapConVar;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
@@ -37,25 +37,14 @@ public class CreateServerModelTests
         }
     }
 
-    /// <summary>A console that holds what a fact gives it.</summary>
-    public class ConVars : DispatchProxy
-    {
-        public Dictionary<string, string> Values { get; } = new();
-
-        protected override object? Invoke(MethodInfo? method, object?[]? args)
-            => method?.Name == "FindConVarValue" && Values.TryGetValue((string)args![0]!, out string? v) ? v
-               : method?.Name == "FindConVarValue" ? null
-               : throw new InvalidOperationException($"asked {method?.Name}");
-    }
-
     private readonly IFwdEngineClient _engine = DispatchProxy.Create<IFwdEngineClient, Lines>();
-    private readonly IEngineConsole _console = DispatchProxy.Create<IEngineConsole, ConVars>();
+    private readonly AiBotRerollOnMapConVar _reroll = DeclaredClientConVars.Fresh<AiBotRerollOnMapConVar>();
     private readonly CustomBots _customs = new();
     private readonly CreateServerModel _model;
 
     public CreateServerModelTests()
     {
-        _model = new CreateServerModel(_engine, _console, _customs, BotEditorModelTests.Editor(_customs));
+        _model = new CreateServerModel(_engine, _reroll, _customs, BotEditorModelTests.Editor(_customs));
     }
 
     private List<string> Sent => ((Lines)(object)_engine).Sent;
@@ -123,7 +112,7 @@ public class CreateServerModelTests
     [Fact]
     public void NewBotsEachMapStartsFromTheCvarAndStartSetsIt()
     {
-        ((ConVars)(object)_console).Values[CreateServerModel.RerollConVar] = "1";
+        DeclaredClientConVars.Hold(_reroll, "1");
         Assert.True(_model.NewBotsEachMap);
         Assert.Contains("ai_bot_reroll_on_map 1", BeforeMap());
         _model.SetNewBotsEachMap(false);

@@ -208,11 +208,10 @@ public interface ISplashEnvironment
 }
 
 /// <summary>The real one.</summary>
-public sealed class SplashEnvironment(IEngineConsole console, IClientWorldLight light, IParticleMaskTrace trace,
+public sealed class SplashEnvironment(ClShowSplashesConVar showSplashes, IClientWorldLight light, IParticleMaskTrace trace,
                                       IFxGameSounds sounds) : ISplashEnvironment
 {
-    // cl_show_splashes is still fx_water.cpp's ConVar until that TU leaves the build.
-    public bool ShowSplashes => NativeConsole.ValueOf(console, "cl_show_splashes") is not { } v || v.Trim() != "0";
+    public bool ShowSplashes => showSplashes.Value;
 
     public Vector LightForPoint(Vector position) => light.LightForPoint(position, true);
 

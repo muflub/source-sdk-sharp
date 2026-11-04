@@ -55,7 +55,7 @@ public class ScoreboardMaxPlayersTests
     private static ScoreboardUi Scores(RecordingEngine engine)
     {
         return new ScoreboardUi(new UiHostKit.NoStandalones(), engine, new DefaultForwarders.NoEngineClient(),
-                                new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), engine, engine);
+                                new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), DeclaredConVars.Fresh<HostnameConVar>(), engine);
     }
 
     [Fact]

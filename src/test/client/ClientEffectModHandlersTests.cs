@@ -4,6 +4,7 @@ using SourceSharp.Client.Effects;
 using SourceSharp.Client.Interop;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -79,7 +80,7 @@ public sealed class ClientEffectModHandlersTests
         var services = ModServices(typeof(ModBurstEffect));
         var handlers = new ClientEffectHandlers([new CoreTracer()]);
         Assert.Equal(1, handlers.AddFrom(services, new RecordingLog()));
-        var dispatch = new ClientEffectDispatch(TestServices.Fake().Returns("Console.FindConVarValue", "0"), handlers);
+        var dispatch = new ClientEffectDispatch(TestServices.Fake(), DeclaredConVars.Fresh<DeveloperConVar>(), handlers);
 
         dispatch.Dispatch("modburst", new EffectData { Scale = 3f });
 

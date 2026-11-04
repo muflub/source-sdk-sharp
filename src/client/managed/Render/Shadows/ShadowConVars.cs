@@ -41,67 +41,41 @@ public sealed class ThreadedClientShadowManagerConVar : BoolConVar { }
 [ConVar("r_shadowmaxrendered", "32")]
 public sealed class ShadowMaxRenderedConVar : IntConVar { }
 
-/// <summary>
-/// The shadow manager's ConVars (<see cref="IShadowSettings"/>): its own
-/// declarations, and the engine's five and viewrender's one through the
-/// convar watch (the module routes the watch's changes to <see cref="OnChanged"/>).
-/// </summary>
-public sealed class ShadowConVars : IShadowSettings
+/// <summary>The shadow manager's ConVars (<see cref="IShadowSettings"/>).</summary>
+public sealed class ShadowConVars(FlashlightDrawFrustumConVar drawFrustum, FlashlightModelsConVar models,
+                                  FlashlightDepthResConVar depthRes, ShadowMaxRenderedConVar maxRendered,
+                                  RShadowRenderToTextureConVar renderToTexture, RFlashlightDepthTextureConVar depthTexture,
+                                  RShadowsConVar shadows, RShadowsGameControlConVar gameControl,
+                                  RFlashlightVersion2ConVar version2, ClDrawShadowTextureConVar drawShadowTexture,
+                                  IEngineConsole console) : IShadowSettings
 {
-    /// <summary>The ConVars the manager reads but does not declare: the engine's five and viewrender's one.</summary>
-    public static string[] EngineNames() =>
-        ["r_shadowrendertotexture", "r_flashlightdepthtexture", "r_shadows", "r_shadows_gamecontrol", "r_flashlight_version2", "cl_drawshadowtexture"];
+    public bool RenderToTexture => renderToTexture.Value;
 
-    private readonly FlashlightDrawFrustumConVar _drawFrustum;
-    private readonly FlashlightModelsConVar _models;
-    private readonly FlashlightDepthResConVar _depthRes;
-    private readonly ShadowMaxRenderedConVar _maxRendered;
-    private readonly WatchedConVarValues _engine;
-    private readonly IEngineConsole _console;
-
-    public ShadowConVars(FlashlightDrawFrustumConVar drawFrustum, FlashlightModelsConVar models,
-                         FlashlightDepthResConVar depthRes, ShadowMaxRenderedConVar maxRendered,
-                         WatchedConVarValues engine, IEngineConsole console)
-    {
-        _drawFrustum = drawFrustum;
-        _models = models;
-        _depthRes = depthRes;
-        _maxRendered = maxRendered;
-        _engine = engine;
-        _console = console;
-    }
-
-    /// <summary>Watches the six it reads by name.</summary>
-    public void Start() => _engine.Watch(EngineNames());
-
-    public bool OnChanged(int id, string newValue) => _engine.OnChanged(id, newValue);
-
-    public bool RenderToTexture => _engine.Bool("r_shadowrendertotexture");
-
-    public bool FlashlightDepthTexture => _engine.Bool("r_flashlightdepthtexture");
+    public bool FlashlightDepthTexture => depthTexture.Value;
 
     public void SetFlashlightDepthTexture(int value) =>
-        _console.SetConVarValueByName("r_flashlightdepthtexture", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        console.SetConVarValueByName(depthTexture.Name, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-    public int FlashlightDepthResolution => _depthRes.Value;
+    public int FlashlightDepthResolution => depthRes.Value;
 
-    public void SetFlashlightDepthResolution(int value) => _depthRes.SetValue(value);
+    public void SetFlashlightDepthResolution(int value) => depthRes.SetValue(value);
 
-    public int Shadows => _engine.Int("r_shadows");
+    public int Shadows => shadows.Value;
 
-    public int ShadowMaxRendered => _maxRendered.Value;
+    public int ShadowMaxRendered => maxRendered.Value;
 
-    public int ShadowsGameControl => _engine.Int("r_shadows_gamecontrol");
+    public int ShadowsGameControl => gameControl.Value;
 
-    public void SetShadowsGameControl(int value) => _console.SetConVarValueByName("r_shadows_gamecontrol", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    public void SetShadowsGameControl(int value) =>
+        console.SetConVarValueByName(gameControl.Name, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-    public bool FlashlightModels => _models.Value;
+    public bool FlashlightModels => models.Value;
 
-    public int FlashlightVersion2 => _engine.Int("r_flashlight_version2");
+    public int FlashlightVersion2 => version2.Value;
 
-    public bool FlashlightDrawFrustum => _drawFrustum.Value;
+    public bool FlashlightDrawFrustum => drawFrustum.Value;
 
-    public int DrawShadowTexture => _engine.Int("cl_drawshadowtexture");
+    public int DrawShadowTexture => drawShadowTexture.Value;
 }
 
 /// <summary>Stock's Msg and Warning, each a line.</summary>

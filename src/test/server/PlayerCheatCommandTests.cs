@@ -73,7 +73,7 @@ public class PlayerCheatCommandTests
               .Ignores("PlayerMovement.SnapEyeAngles");
 
         var context = new DevContext(engine, engine, engine, engine,
-                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), engine, new RecordingLog())
+                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => cheats,
             Issuer = () => haveIssuer ? Player : EntityHandle.None,
@@ -200,7 +200,7 @@ public class PlayerCheatCommandTests
         engine.Ignores("Damage.Apply");
 
         var context = new DevContext(engine, engine, engine, engine,
-                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), engine, new RecordingLog())
+                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => false,
             Issuer = () => Player,
@@ -534,7 +534,7 @@ public class PlayerCheatCommandTests
         var testLog = new RecordingLog { Line = (text, _) => lines.Add(text) };
 
         var context = new DevContext(engine, engine, engine, engine,
-                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), engine, testLog)
+                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), testLog)
         {
             CheatsEnabled = () => false,
             Issuer = () => Player,
@@ -599,7 +599,7 @@ public class PlayerCheatCommandTests
 
         try
         {
-            new GodCommand(testLog, new DamageCheats(testLog, new EmptyDirectory(), Fake().Ignores("Console.FindConVarValue")), engine).Execute();
+            new GodCommand(testLog, new DamageCheats(testLog, new EmptyDirectory(), DeclaredConVars.Fresh<SvCheatsConVar>()), engine).Execute();
         }
         finally
         {

@@ -51,7 +51,7 @@ public sealed class TempEntSpawns
 
     private readonly ClientTempEntPool _pool;
     private readonly IEnginePrecache _models;
-    private readonly IEngineConsole _console;
+    private readonly FuncBreakMaxPiecesConVar _maxPieces;
     private readonly IGameClock _clock;
 
     /// <summary>
@@ -61,14 +61,14 @@ public sealed class TempEntSpawns
     private readonly TempEntRandom _random;
 
     public TempEntSpawns(ILog log, ClientTempEntPool pool, IEnginePrecache models,
-                         IEngineConsole console, IGameClock clock, IRandomSeeds seeds)
+                         FuncBreakMaxPiecesConVar maxPieces, IGameClock clock, IRandomSeeds seeds)
     {
 
         _log = log;
         _random = new TempEntRandom(seeds.Next());
         _pool = pool;
         _models = models;
-        _console = console;
+        _maxPieces = maxPieces;
         _clock = clock;
     }
 
@@ -809,26 +809,7 @@ public sealed class TempEntSpawns
         }
     }
 
-    /// <summary>
-    /// <c>func_break_max_pieces</c>, read off the engine. Stock's default of 15
-    /// when the convar cannot be read at all.
-    /// </summary>
-    private int MaxPieces()
-    {
-        string? held = _console.FindConVarValue("func_break_max_pieces");
-
-        if (int.TryParse(held, System.Globalization.CultureInfo.InvariantCulture, out int max))
-            return max;
-
-        // NOT SILENT. The convar is registered by c_te_legacytempents.cpp,
-        // which is still compiled, so failing to read it means something about
-        // the console is wrong rather than that the setting is absent -- and
-        // the symptom would be a gib count that quietly stopped following the
-        // server's.
-        _log.Warning("[SourceSharp/Client] BreakModel: func_break_max_pieces answered "
-                  + $"'{held ?? "(nothing)"}'; falling back to stock's 15\n");
-        return 15;
-    }
+    private int MaxPieces() => _maxPieces.Value;
 
     /// <summary>
     /// <c>CTempEnts::EjectBrass</c>'s decision half — a spent cartridge case,

@@ -6,6 +6,7 @@ using SourceSharp.Client.Effects;
 using SourceSharp.Client.Interop;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -94,8 +95,7 @@ public class ClientEffectListTests
         public Replay()
         {
             RecordingEngine console = TestServices.Fake();
-            console.Returns("Console.FindConVarValue", "0");
-            List = new ClientEffectList(Rig, console);
+            List = new ClientEffectList(Rig, console, DeclaredConVars.Fresh<DeveloperConVar>());
             Factory = new ClientSideEffectFactory(Rig, Rig, List, Rig, () => TracerExtra);
         }
 

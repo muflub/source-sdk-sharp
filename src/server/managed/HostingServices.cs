@@ -161,7 +161,7 @@ public sealed class ClientLifecycleDriver : IPlayerRemovals
 /// (/proc/self/fd), matched against the kernel's UDP tables
 /// (/proc/self/net/udp, udp6).
 /// </summary>
-public sealed class ProcBoundPort(IEngineConsole console) : IBoundPort
+public sealed class ProcBoundPort(HostPortConVar hostPort, TvPortConVar tvPort, ClientPortConVar clientPort) : IBoundPort
 {
     public int? Read()
     {
@@ -174,11 +174,10 @@ public sealed class ProcBoundPort(IEngineConsole console) : IBoundPort
                 ports.AddRange(UdpPortsOf(File.ReadAllText(table), inodes));
         }
 
-        return Choose(ports, Cvar("hostport"), [Cvar("tv_port"), Cvar("clientport")]);
+        return Choose(ports, Port(hostPort), [Port(tvPort), Port(clientPort)]);
     }
 
-    private int? Cvar(string name) =>
-        int.TryParse(console.FindConVarValue(name), NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : null;
+    private static int? Port(IntConVar convar) => convar.HasValue ? convar.Value : null;
 
     /// <summary>The inodes of the sockets in <paramref name="fdDir"/>.</summary>
     public static HashSet<ulong> SocketInodes(string fdDir)

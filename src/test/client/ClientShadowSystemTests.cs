@@ -382,7 +382,6 @@ public unsafe class ClientShadowSystemTests
         foreach (string name in EngineOwned)
         {
             Assert.False(convars.ContainsKey(name), name + " is client.so's in the snapshot");
-            Assert.Contains(name, ShadowConVars.EngineNames());
         }
     }
 

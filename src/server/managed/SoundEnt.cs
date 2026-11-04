@@ -8,6 +8,7 @@
 using System;
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -124,6 +125,8 @@ public sealed class SoundEnt : IServerSoundEnt, IFrameLifecycle
     }
 
     private readonly IEngineConsole _console;
+    private readonly DisplaySoundListConVar _displaySoundList;
+    private readonly DeveloperConVar _developer;
 
     /// <summary>
     /// Server time. <see cref="IGameClock"/> rather than a globals read, which
@@ -168,9 +171,12 @@ public sealed class SoundEnt : IServerSoundEnt, IFrameLifecycle
     /// </summary>
     private bool _up;
 
-    public SoundEnt(IEngineConsole console, IGameClock clock, IEngineEntities entities)
+    public SoundEnt(IEngineConsole console, IGameClock clock, IEngineEntities entities,
+                    DisplaySoundListConVar displaySoundList, DeveloperConVar developer)
     {
         _console = console;
+        _displaySoundList = displaySoundList;
+        _developer = developer;
         _clock = clock;
         _entities = entities;
     }
@@ -632,13 +638,7 @@ public sealed class SoundEnt : IServerSoundEnt, IFrameLifecycle
     /// one name lookup rather than four per sound.
     /// </para>
     /// </summary>
-    private int DisplaySoundList => IntConVar("displaysoundlist");
+    private int DisplaySoundList => _displaySoundList.Value;
 
-    private int Developer => IntConVar("developer");
-
-    private int IntConVar(string name)
-    {
-        string? value = _console.FindConVarValue(name);
-        return value is not null && int.TryParse(value, out int n) ? n : 0;
-    }
+    private int Developer => _developer.Value;
 }

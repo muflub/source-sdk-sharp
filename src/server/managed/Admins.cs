@@ -69,7 +69,7 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         _log = log;
     }
 
-    public static ServerAdmins For(IEngineHost host, IEngineFiles files, IEngineConsole console, IBoundPort port, IUserMessageSender messages,
+    public static ServerAdmins For(IEngineHost host, IEngineFiles files, AdminAddressConVar adminAddress, IBoundPort port, IUserMessageSender messages,
                                    IAdminMenu menu, IGameClock clock, ILog log)
     {
         IReadOnlyDictionary<string, string> List()
@@ -82,7 +82,7 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         }
 
         var gate = new AdminGate(() => clock.Now, List,
-                                 address => AdminAddress.IsOurs(address, port.Read(), AdminAddress.OwnInterfaces(), console.FindConVarValue("sv_admin_address")),
+                                 address => AdminAddress.IsOurs(address, port.Read(), AdminAddress.OwnInterfaces(), adminAddress.Value),
                                  AdminGate.SecureNonce);
         return new ServerAdmins(gate, host.IsDedicatedServer, messages, menu, log);
     }
@@ -185,7 +185,8 @@ public interface IAdminMenu
 
 /// <summary>The game's: its maps and modes, its players and the mods' additions.</summary>
 public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console, IEnginePlayers players, IEngineHost host, IEngineEnvironment environment,
-                                     IConnectedClients clients, PlayerNames names, IEngineEntities entities, ServiceContainer services) : IAdminMenu
+                                     IConnectedClients clients, PlayerNames names, IEngineEntities entities, ServiceContainer services,
+                                     MapCycleFileConVar mapCycle) : IAdminMenu
 {
     public IReadOnlyList<AdminNode> Build(int slot)
     {
@@ -216,7 +217,7 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
                           .ToList();
 
     private List<AdminNode> Maps()
-        => Intermission.ReadCycle(files, console.FindConVarValue("mapcyclefile"))
+        => Intermission.ReadCycle(files, mapCycle.Value)
                        .Distinct(StringComparer.OrdinalIgnoreCase)
                        .Select(map => new AdminNode(map, "map:" + map, () => console.ExecuteServerCommand($"changelevel {map}\n")))
                        .ToList();

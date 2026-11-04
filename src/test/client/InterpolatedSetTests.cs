@@ -43,17 +43,13 @@ public class InterpolatedSetTests
     [Fact]
     public void OnlyASinglePlayerGameSimulatesOnAlternateTicks()
     {
-        int asked = 0;
-        string? On() { asked++; return "1"; }
-
-        Assert.True(InterpolationDelay.AlternateTicks(1, On));
-        Assert.False(InterpolationDelay.AlternateTicks(8, On));
-        Assert.Equal(1, asked);   // a multiplayer game does not read the convar
+        Assert.True(InterpolationDelay.AlternateTicks(1, true));
+        Assert.False(InterpolationDelay.AlternateTicks(8, true));
     }
 
     [Fact]
     public void AlternateTicksNeedTheConVarOn()
-        => Assert.False(InterpolationDelay.AlternateTicks(1, () => "0"));
+        => Assert.False(InterpolationDelay.AlternateTicks(1, false));
 
     //=========================================================================
     // The set.

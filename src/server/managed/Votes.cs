@@ -48,15 +48,18 @@ public interface IVoteSettingSource
 }
 
 /// <summary>The maps of the map cycle, the modes registered but the one on, a restart, the game's settings; each by its convar.</summary>
-public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, ServiceContainer services) : IVoteOptions
+public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, ServiceContainer services,
+                                    MapCycleFileConVar mapCycle, VoteIssueChangeLevelAllowedConVar changeLevel,
+                                    VoteIssueModeAllowedConVar mode, VoteIssueRestartGameAllowedConVar restart,
+                                    VoteIssueSettingsAllowedConVar settings) : IVoteOptions
 {
     public IReadOnlyList<VoteOption> Build()
     {
         var modes = services.Resolve<GameModes>();
-        return Of(Intermission.ReadCycle(files, console.FindConVarValue("mapcyclefile")),
+        return Of(Intermission.ReadCycle(files, mapCycle.Value),
                   modes is null ? [] : [.. modes.Registered.Select(m => m.Id)], modes?.ActiveId,
-                  Allowed("sv_vote_issue_changelevel_allowed"), Allowed("sv_vote_issue_mode_allowed"), Allowed("sv_vote_issue_restart_game_allowed"),
-                  Allowed("sv_vote_issue_settings_allowed") ? SettingsOf(services) : [], console.FindConVarValue);
+                  changeLevel.Value, mode.Value, restart.Value,
+                  settings.Value ? SettingsOf(services) : [], console.FindConVarValue);
     }
 
     /// <summary>This game's settings: its mods' if any list them, else the core's.</summary>
@@ -78,8 +81,6 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
 
     public static VoteSetting TimeLimit()
         => new("mp_timelimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "#SS_UI_Vote_Min10"), ("20", "#SS_UI_Vote_Min20"), ("30", "#SS_UI_Vote_Min30"), ("60", "#SS_UI_Vote_Min60"));
-
-    private bool Allowed(string convar) => console.FindConVarValue(convar) != "0";
 
     public static List<VoteOption> Of(IEnumerable<string> maps, IEnumerable<string> modes, string? activeMode, bool allowMaps, bool allowModes, bool allowRestart,
                                       IEnumerable<VoteSetting>? settings = null, Func<string, string?>? current = null)
@@ -307,6 +308,23 @@ public sealed class VoteIssueChangeLevelAllowedConVar : BoolConVar;
 
 [ConVar("sv_vote_issue_mode_allowed", "1", Help = "Can players call votes to change the game mode?")]
 public sealed class VoteIssueModeAllowedConVar : BoolConVar;
+
+/// <summary>The vote convars a vote controller reads.</summary>
+public sealed class VoteConVars(AllowVotesConVar allow, VoteTimerDurationConVar timerDuration, VoteCreationTimerConVar creationTimer,
+                                VoteHolderMayVoteNoConVar holderMayVoteNo, VoteEarlyFinishConVar earlyFinish,
+                                VoteQuorumRatioConVar quorumRatio, VoteCommandDelayConVar commandDelay,
+                                VoteAllowSpectatorsConVar allowSpectators, VoteBotsAllowedConVar botsAllowed)
+{
+    public readonly AllowVotesConVar Allow = allow;
+    public readonly VoteTimerDurationConVar TimerDuration = timerDuration;
+    public readonly VoteCreationTimerConVar CreationTimer = creationTimer;
+    public readonly VoteHolderMayVoteNoConVar HolderMayVoteNo = holderMayVoteNo;
+    public readonly VoteEarlyFinishConVar EarlyFinish = earlyFinish;
+    public readonly VoteQuorumRatioConVar QuorumRatio = quorumRatio;
+    public readonly VoteCommandDelayConVar CommandDelay = commandDelay;
+    public readonly VoteAllowSpectatorsConVar AllowSpectators = allowSpectators;
+    public readonly VoteBotsAllowedConVar BotsAllowed = botsAllowed;
+}
 
 [ConVar("sv_vote_issue_settings_allowed", "1", Help = "Can players call votes to change game settings (friendly fire, time limit and so on)?")]
 public sealed class VoteIssueSettingsAllowedConVar : BoolConVar;

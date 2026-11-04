@@ -2,6 +2,8 @@ using System.Runtime.InteropServices;
 using SourceSharp.Client.Input;
 
 using Xunit;
+using SourceSharp.Shared;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -49,7 +51,6 @@ public class InputMailboxTests
         public bool IsPaused => false;
         public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) { x = y = 0; Calls.Add("delta " + ignoreNextMouseDelta); }
         public void ClientCmdUnrestricted(string command) => Calls.Add("cmd " + command);
-        public string? EngineConVar(string name) => name == "sv_cheats" ? "1" : null;
         public void Msg(string text) { }
         public void ConsolePrintAt(int line, string text) { }
         public bool CursorVisible => false;
@@ -72,9 +73,9 @@ public class InputMailboxTests
         var rng = new Random(0x5EED);
         var perCallHost = new CursorLog();
         var batchedHost = new CursorLog();
-        var perCall = new ClientInput(perCallHost, new FakeInputDevices(), new InputCvars());
+        var perCall = new ClientInput(perCallHost, new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("1"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>());
         using var block = new NativeMailboxBlock();
-        var batched = new ClientInput(batchedHost, new FakeInputDevices(), new InputCvars(), mailbox: block.Mailbox);
+        var batched = new ClientInput(batchedHost, new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("1"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), mailbox: block.Mailbox);
 
         int skipped = 0, made = 0, answered = 0;
         for (int step = 0; step < 2000; step++)

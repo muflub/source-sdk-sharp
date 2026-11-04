@@ -9,6 +9,7 @@ using System.Globalization;
 
 using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -18,6 +19,9 @@ namespace SourceSharp.Server;
 /// <c>m_bLagCompensation</c>, from the client's userinfo and the server's
 /// bounds on it.
 /// </summary>
+/// <summary>The server's bounds on a client's rate and interp ratio; each null where it has none.</summary>
+public readonly record struct LerpBounds(float? MinRate, float? MaxRate, float? MinRatio, float? MaxRatio);
+
 public static class LagCompensationClientSettings
 {
     /// <summary>
@@ -28,12 +32,12 @@ public static class LagCompensationClientSettings
     /// unless the minimum is -1; a ratio of 0 is 1. Off, no interpolation.
     /// </summary>
     /// <param name="client">The client's value of a convar it sent, or null.</param>
-    /// <param name="server">The server's value of one of its own convars, or null where it has none.</param>
-    public static float LerpTime(Func<string, string?> client, Func<string, string?> server)
+    /// <param name="server">The server's bounds, each null where it has none.</param>
+    public static float LerpTime(Func<string, string?> client, LerpBounds server)
     {
         int updateRate = Atoi(client("cl_updaterate"));
-        if (server("sv_minupdaterate") is { } minRate && server("sv_maxupdaterate") is { } maxRate)
-            updateRate = Math.Clamp(updateRate, (int)Atof(minRate), Math.Max((int)Atof(minRate), (int)Atof(maxRate)));
+        if (server.MinRate is { } minRate && server.MaxRate is { } maxRate)
+            updateRate = Math.Clamp(updateRate, (int)minRate, Math.Max((int)minRate, (int)maxRate));
 
         if (Atoi(client("cl_interpolate")) == 0)
             return 0f;
@@ -44,10 +48,8 @@ public static class LagCompensationClientSettings
 
         float lerpAmount = Atof(client("cl_interp"));
 
-        if (server("sv_client_min_interp_ratio") is { } minText && server("sv_client_max_interp_ratio") is { } maxText
-            && Atof(minText) != -1f)
+        if (server.MinRatio is { } min && server.MaxRatio is { } max && min != -1f)
         {
-            float min = Atof(minText), max = Atof(maxText);
             lerpRatio = Math.Clamp(lerpRatio, min, Math.Max(min, max));
         }
         else if (lerpRatio == 0f)
@@ -117,7 +119,9 @@ public static class LagCompensationClientSettings
 /// </summary>
 public sealed class EngineLagCompensationWorld(IEngineEnvironment environment, IEnginePlayers players,
                                                IEngineEntities entities, IEngineWorldQuery world,
-                                               IEngineConsole console, IClientInfo clients,
+                                               SvMinUpdateRateConVar minRate, SvMaxUpdateRateConVar maxRate,
+                                               SvClientMinInterpRatioConVar minRatio, SvClientMaxInterpRatioConVar maxRatio,
+                                               IClientInfo clients,
                                                IFwdEngineServer server, IServerEntityPlacement placement,
                                                ISkeletonAnimationRewind skeletons, ServerPlayerMoves moves)
     : ILagCompensationWorld
@@ -149,7 +153,8 @@ public sealed class EngineLagCompensationWorld(IEngineEnvironment environment, I
     {
         int index = entities.GetIndex(player);
         return LagCompensationClientSettings.LerpTime(name => clients.ClientConVar(index, name),
-                                                      console.FindConVarValue);
+                                                      new LerpBounds(minRate.HasValue ? minRate.Value : null, maxRate.HasValue ? maxRate.Value : null,
+                                                                     minRatio.HasValue ? minRatio.Value : null, maxRatio.HasValue ? maxRatio.Value : null));
     }
 
     public float? Latency(EntityHandle player) => server.ClientLatency(entities.GetIndex(player));

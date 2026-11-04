@@ -197,7 +197,7 @@ public class TFAirBlastFacts
         rig.Stickybomb.State.TeamNumber = 3;
         rig.Engine.Returns("Entities.GetVelocity", new Vector(0f, 1000f, 0f));
         rig.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, -36f), new Vector(16f, 16f, 36f)));
-        rig.Engine.Returns("Console.FindConVarValue", "10"); // the reset clock, refused blow or not
+        rig.StickyVars.DeflectResetTime.Hold("10"); // the reset clock, refused blow or not
 
         rig.Effects.AirBlast(Attack(), Script());
 
@@ -225,13 +225,8 @@ public class TFAirBlastFacts
         rig.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, -36f), new Vector(16f, 16f, 36f)));
         rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == FlameRig.Player ? 2 : 3);
-        rig.Engine.ReturnsEachCall("Console.FindConVarValue", () =>
-            rig.Engine.Calls[^1].Args[0] switch
-            {
-                "tf_grenade_forcefrom_bullet" => "0.7",
-                "tf_pipebomb_force_to_move" => "80",
-                _ => "0",
-            });
+        rig.StickyVars.ForceFromBullet.Hold("0.7");
+        rig.StickyVars.ForceToMove.Hold("80");
         rig.Stickybomb.OnTouch(new EntityHandle(0x0001_0000u)); // the world: it sticks
 
         rig.Effects.AirBlast(Attack(), Script());
@@ -255,7 +250,7 @@ public class TFAirBlastFacts
         // thinks the bomb already keeps.
         var rig = new FlameRig();
         rig.Engine.Returns("Clock.Now", 5f);
-        rig.Engine.Returns("Console.FindConVarValue", "10"); // the stock default
+        rig.StickyVars.DeflectResetTime.Hold("10"); // the stock default
         rig.Stickybomb.DeflectedBy(FlameRig.Player, new Vector(0f, 1000f, 0f));
         Assert.Equal(1, rig.Stickybomb.DeflectedCount);
 
@@ -274,7 +269,7 @@ public class TFAirBlastFacts
         // m_flDeflectedTime <= curtime, :1104).
         var rig = new FlameRig();
         rig.Engine.Returns("Clock.Now", 5f);
-        rig.Engine.Returns("Console.FindConVarValue", "3");
+        rig.StickyVars.DeflectResetTime.Hold("3");
         rig.Stickybomb.DeflectedBy(FlameRig.Player, new Vector(0f, 1000f, 0f));
         Assert.Equal(1, rig.Stickybomb.DeflectedCount);
 

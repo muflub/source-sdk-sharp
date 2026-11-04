@@ -104,6 +104,8 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     // life of the object, because the engine can activate Steam at any moment.
     private readonly IEngineHost _host;
     private readonly IEngineConsole _console;
+    private readonly DeveloperConVar _developer;
+    private readonly GLanguageConVar _language;
     private readonly ServerTags _tags;
     private readonly IEngineFrame _frame;
     private readonly StringTableRegistry _stringTables;
@@ -172,6 +174,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
 
     public ServerGameDll(ILog log, IEngineEnvironment environment, ConVarRegistry convars, IEngineHost host,
                          ILocalCommandLine commandLine, IEngineLevel level, IEngineEntities entities, IEngineConsole console,
+                         DeveloperConVar developer, GLanguageConVar language, SvTagsConVar tags,
                          IEngineFrame frame, StringTableRegistry stringTables,
                          ManagedStringTable modTable, LifecycleDriver lifecycle,
                          TemplateStore templates, MapSpawner spawner,
@@ -181,6 +184,8 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     {
 
         _log = log;
+        _developer = developer;
+        _language = language;
         _motd = motd;
         _lifecycle = lifecycle;
         _worldNet = worldNet ?? WorldNetBinding.Local(log);
@@ -204,7 +209,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         TickInterval = TickIntervalFor(TickRateOn(commandLine));
 
         // The server-browser tags declared on convars: applied now, pushed on change.
-        _tags = new ServerTags(_console, _convars);
+        _tags = new ServerTags(tags, _convars);
     }
 
     /// <summary>
@@ -739,8 +744,8 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
 
         // Stock sets the language to English and reads it back; the German arm
         // is a reader that answers German.
-        _console.SetConVarValueByName("g_Language", LanguageEnglish);
-        precache?.PrecacheModel(_console.FindConVarValue("g_Language") == LanguageGerman
+        _language.SetValue(LanguageEnglish);
+        precache?.PrecacheModel(_language.Value == LanguageGerman
             ? "models/germangibs.mdl" : "models/gibs/hgibs.mdl");
 
         PrecacheScriptSound?.Invoke("BaseEntity.EnterWater");
@@ -758,8 +763,8 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     }
 
     // ss_shareddefs.h's kLanguageEnglish and kLanguageGerman, as g_Language spells them.
-    private const string LanguageEnglish = "0";
-    private const string LanguageGerman = "1";
+    private const int LanguageEnglish = 0;
+    private const int LanguageGerman = 1;
 
     /// <summary><c>gpGlobals-&gt;maxClients</c>, or 0 before the engine has published the globals.</summary>
     private int MaxClients()
@@ -1105,14 +1110,7 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
     /// </summary>
     private void ApplyThinkLimitPolicy()
     {
-        string? developer = _console.FindConVarValue("developer");
-
-        bool on = developer is not null
-               && int.TryParse(developer, System.Globalization.NumberStyles.Integer,
-                               System.Globalization.CultureInfo.InvariantCulture, out int level)
-               && level != 0;
-
-        if (!on)
+        if (_developer.Value == 0)
             _console.SetConVarValueByName("think_limit", "0");
     }
 

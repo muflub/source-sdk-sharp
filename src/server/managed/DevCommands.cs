@@ -104,11 +104,11 @@ public sealed class DevContext
     public DevContext(IEngineEntities entities, IEngineWorldQuery world,
                       IEnginePlayers players, IEngineEntityRender render,
                       IWeaponGiver arsenal, IEntityDirectory directory,
-                      EntityFactories factories, IEngineConsole console, ILog log,
+                      EntityFactories factories, SvCheatsConVar cheats, ILog log,
                       WeaponCatalog? weapons = null, AmmoCatalog? ammo = null)
     {
         Log = log ?? throw new ArgumentNullException(nameof(log));
-        CheatsEnabled = () => ImpulseCheats.CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
+        CheatsEnabled = () => cheats.Value;
 
         Entities = entities;
         Factories = factories;

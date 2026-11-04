@@ -48,10 +48,10 @@ public class BlastTraceAttackTests
         engine.Returns("Entities.GetIndex", 5)
               .Returns("WorldQuery.TraceLine", new TraceResult(true, reached ? 0.5f : 1f, new Vector(50f, 0f, 0f),
                                                                new Vector(-1f, 0f, 0f), reached ? Pane : EntityHandle.None));
-        var sounds = new SoundEnt(engine, engine, engine);
+        var sounds = new SoundEnt(engine, engine, engine, DeclaredConVars.Fresh<DisplaySoundListConVar>(), DeclaredConVars.Fresh<DeveloperConVar>());
         sounds.Initialize(1, 0f);
 
-        new BlastSweep(new RecordingLog(), engine, engine, engine, engine, engine, sounds,
+        new BlastSweep(new RecordingLog(), engine, engine, engine, engine, DeclaredConVars.Fresh<OldRadiusDamageConVar>(), sounds,
                        directory: registry, traceAttacked: triggers)
             .Apply(Vector.Zero, 100f, 200f, DamageType.Blast, Attacker, Attacker, EntityHandle.None);
         return (engine, registry);

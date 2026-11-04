@@ -156,10 +156,11 @@ public sealed class TFCombatTextTests
         public readonly HurtEvent Hurts = new();
         public readonly Adapter Source;
 
+        public readonly client::TF2.Client.HudCombatTextConVar Enabled = DeclaredClientConVars.Holding<client::TF2.Client.HudCombatTextConVar>("1");
+
         public Rig(int localUserId = 7)
         {
             Engine.Returns("Hud.LocalPlayerIndex", 2);
-            Engine.Returns("Console.FindConVarValue", "1");
             Engine.Returns("Hud.LocalPlayerOrigin", new Vector(0f, 0f, 0f));
             Engine.Returns("WorldQuery.ClientTraceLine",
                 new ClientTraceResult(true, 1f, Vector.Zero, Vector.Zero, 0, 0, 0, 0));
@@ -169,7 +170,7 @@ public sealed class TFCombatTextTests
             Core.State.BindLocal();
             Core.State.SetRow(2, 0, 0, 100, localUserId, (int)TFTeam.Red, connected: true, alive: true, valid: true);
             St.All.Add(Core);
-            Source = new Adapter(Clock, Engine, St, Engine, Players, Beamer, Engine, Engine, Fx,
+            Source = new Adapter(Clock, Engine, St, Enabled, Players, Beamer, Engine, Engine, Fx,
                 new EventLink(new DeathEvent(), Hurts, new StartTouch(), new EndTouch(),
                               new WinPanel(), new RoundStart()));
         }
@@ -239,22 +240,11 @@ public sealed class TFCombatTextTests
     public void CombattextOffRecordsNothing()
     {
         var r = new Rig();
-        r.Engine.Returns("Console.FindConVarValue", "0");
+        DeclaredClientConVars.Hold(r.Enabled, "0");
 
         r.Hurt(7);
 
         Assert.Equal(0, r.Source.Count);
-    }
-
-    [Fact]
-    public void A_console_without_the_convar_answers_stocks_default()
-    {
-        var r = new Rig();
-        r.Engine.Returns("Console.FindConVarValue", "");
-
-        r.Hurt(7);
-
-        Assert.Equal(1, r.Source.Count);
     }
 
     [Fact]

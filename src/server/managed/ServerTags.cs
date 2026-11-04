@@ -51,12 +51,12 @@ public sealed class ServerTags
     /// <summary>The engine's cap on the tag string, terminator included.</summary>
     public const int MaxTagStringLength = 128;
 
-    private readonly IEngineConsole _console;
+    private readonly SvTagsConVar _tags;
     private readonly ConVarRegistry _convars;
 
-    public ServerTags(IEngineConsole console, ConVarRegistry convars)
+    public ServerTags(SvTagsConVar tags, ConVarRegistry convars)
     {
-        _console = console;
+        _tags = tags;
         _convars = convars;
         _convars.TaggedChanged += OnTaggedChanged;
         Apply();
@@ -77,13 +77,10 @@ public sealed class ServerTags
         if (tagged.Count == 0)
             return;
 
-        string? before = _console.FindConVarValue("sv_tags");
-        if (before is null)
-            return;
-
+        string before = _tags.Value;
         string after = Derive(before, tagged);
         if (!string.Equals(after, before, StringComparison.Ordinal))
-            _console.SetConVarValueByName("sv_tags", after);
+            _tags.SetValue(after);
     }
 
     /// <summary>The tag string after each tagged convar's rule is applied, in declaration order.</summary>

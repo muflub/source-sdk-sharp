@@ -11,6 +11,8 @@
          the client's facts bind them over tables they build, as the shared
          interop's facts do. -->
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <InternalsVisibleTo Include="TF2.Descent.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
     <!-- TF2.Tests' facts drive a convar the HUD adapters read (tf_flag_caps_per_round)
          through the registry's backend, the way SourceSharp.Client.Tests does. -->
     <InternalsVisibleTo Include="TF2.Tests" />

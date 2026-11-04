@@ -4,6 +4,7 @@ using SourceSharp.Client.Effects;
 using SourceSharp.Client.Interop;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -36,10 +37,10 @@ public class ClientTracerEffectsTests
 
         public Rig(string developer = "0")
         {
-            Console.Returns("Console.FindConVarValue", developer);
-            List = new ClientEffectList(Fx, Console);
+            var level = DeclaredConVars.Holding<DeveloperConVar>(developer);
+            List = new ClientEffectList(Fx, Console, level);
             Factory = new ClientSideEffectFactory(Fx, Fx, List, Fx, () => true);
-            Tracers = new TracerSupport(Fx, Console, () => Draw);
+            Tracers = new TracerSupport(Fx, Console, level, () => Draw);
         }
     }
 
@@ -188,9 +189,8 @@ public class ClientTracerEffectsTests
     public void AManagedHandlerAnswersItsNameInAnyCase()
     {
         RecordingEngine console = TestServices.Fake();
-        console.Returns("Console.FindConVarValue", "0");
         var handler = new Handler("Tracer");
-        var dispatch = new ClientEffectDispatch(console, new ClientEffectHandlers([handler]));
+        var dispatch = new ClientEffectDispatch(console, DeclaredConVars.Fresh<DeveloperConVar>(), new ClientEffectHandlers([handler]));
 
         dispatch.Dispatch("tracer", new EffectData());
         dispatch.Dispatch("Smoke", new EffectData());

@@ -19,7 +19,7 @@ namespace SourceSharp.Server;
 /// T4a; sound_emitter.cpp forwarded them through IManagedUserMessages before).
 /// </summary>
 public sealed class CloseCaptions(IUserMessageSender messages, IEngineEnvironment environment,
-                                  IEngineConsole console) : ICloseCaptions
+                                  CloseCaptionConVar closeCaption) : ICloseCaptions
 {
     /// <summary>CLOSE_CAPTION_WARNIFMISSING and its siblings, shareddefs.h's values.</summary>
     [Flags]
@@ -56,7 +56,7 @@ public sealed class CloseCaptions(IUserMessageSender messages, IEngineEnvironmen
                 return false;
 
             int maxClients = globals.MaxClients;
-            return !(maxClients > 1 || (maxClients == 1 && !IsOn(console.FindConVarValue("closecaption"))));
+            return !(maxClients > 1 || (maxClients == 1 && !closeCaption.Value));
         }
     }
 
@@ -136,9 +136,4 @@ public sealed class CloseCaptions(IUserMessageSender messages, IEngineEnvironmen
         return fixedText.ToString();
     }
 
-    /// <summary>A convar's value read as a bool, as ConVar::GetBool does: non-zero is on.</summary>
-    private static bool IsOn(string? value)
-        => value is not null && (int.TryParse(value, out int n) ? n != 0
-                                 : float.TryParse(value, System.Globalization.NumberStyles.Float,
-                                                  System.Globalization.CultureInfo.InvariantCulture, out float f) && f != 0f);
 }

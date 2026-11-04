@@ -8,6 +8,7 @@ using SourceSharp.Client.Input;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Vgui;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -171,7 +172,7 @@ public class WeaponSelectionTests
     public void Attack_the_selection_takes_is_swallowed_until_pressed_again()
     {
         var hud = new TakesAttack(takes: true);
-        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), hud: hud);
+        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("0"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), hud: hud);
         input.Buttons.Attack.KeyDown("1");
 
         Assert.Equal(0, Command(input) & (int)InputButtons.Attack);
@@ -183,7 +184,7 @@ public class WeaponSelectionTests
     public void Attack_the_selection_leaves_is_sent()
     {
         var hud = new TakesAttack(takes: false);
-        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), hud: hud);
+        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("0"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), hud: hud);
         input.Buttons.Attack.KeyDown("1");
 
         Assert.NotEqual(0, Command(input) & (int)InputButtons.Attack);
@@ -193,7 +194,7 @@ public class WeaponSelectionTests
     public void No_attack_asks_nothing()
     {
         var hud = new TakesAttack(takes: true);
-        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), hud: hud);
+        var input = new ClientInput(new FakeInputHost(), new FakeInputDevices(), new InputCvars(), DeclaredConVars.Holding<SvCheatsConVar>("0"), DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), hud: hud);
 
         Command(input);
 

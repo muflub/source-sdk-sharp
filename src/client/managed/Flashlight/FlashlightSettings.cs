@@ -78,20 +78,12 @@ public sealed class FlashlightShadowAttenConVar : FloatConVar { }
 public sealed class FlashlightLadderDistConVar : FloatConVar { }
 
 /// <summary>
-/// The flashlight's settings: its own ConVars, and the four it reads by name
-/// through the convar watch (the material system's two depth biases,
-/// clientshadowmgr.cpp's depth texture and resolution). Holds stock's
+/// The flashlight's settings: its own ConVars, the material system's two depth
+/// biases and clientshadowmgr.cpp's depth texture and resolution. Holds stock's
 /// r_newflashlight callback.
 /// </summary>
 public sealed class FlashlightConVars : IFlashlightSettings
 {
-    /// <summary>The ConVars the flashlight reads but does not declare.</summary>
-    public static string[] EngineNames() =>
-    [
-        "mat_slopescaledepthbias_shadowmap", "mat_depthbias_shadowmap", "r_flashlightdepthtexture",
-        "r_flashlightdepthres",
-    ];
-
     private readonly NewFlashlightConVar _newFlashlight;
     private readonly SwingFlashlightConVar _swing;
     private readonly FlashlightLockPositionConVar _lock;
@@ -106,7 +98,10 @@ public sealed class FlashlightConVars : IFlashlightSettings
     private readonly FlashlightAmbientConVar _ambient;
     private readonly FlashlightShadowAttenConVar _shadowAtten;
     private readonly FlashlightLadderDistConVar _ladderDist;
-    private readonly WatchedConVarValues _engine;
+    private readonly MatSlopeScaleDepthBiasShadowMapConVar _slopeScaleDepthBias;
+    private readonly MatDepthBiasShadowMapConVar _depthBias;
+    private readonly RFlashlightDepthTextureConVar _depthTexture;
+    private readonly Render.Shadows.FlashlightDepthResConVar _depthRes;
     private readonly Func<int?> _dxLevel;
 
     public FlashlightConVars(NewFlashlightConVar newFlashlight,
@@ -123,7 +118,11 @@ public sealed class FlashlightConVars : IFlashlightSettings
                              FlashlightAmbientConVar ambient,
                              FlashlightShadowAttenConVar shadowAtten,
                              FlashlightLadderDistConVar ladderDist,
-                             WatchedConVarValues engine, Func<int?> dxLevel)
+                             MatSlopeScaleDepthBiasShadowMapConVar slopeScaleDepthBias,
+                             MatDepthBiasShadowMapConVar depthBias,
+                             RFlashlightDepthTextureConVar depthTexture,
+                             Render.Shadows.FlashlightDepthResConVar depthRes,
+                             Func<int?> dxLevel)
     {
         _newFlashlight = newFlashlight;
         _swing = swing;
@@ -139,16 +138,14 @@ public sealed class FlashlightConVars : IFlashlightSettings
         _ambient = ambient;
         _shadowAtten = shadowAtten;
         _ladderDist = ladderDist;
-        _engine = engine;
+        _slopeScaleDepthBias = slopeScaleDepthBias;
+        _depthBias = depthBias;
+        _depthTexture = depthTexture;
+        _depthRes = depthRes;
         _dxLevel = dxLevel;
 
         _newFlashlight.Changed += OnNewFlashlightChanged;
     }
-
-    /// <summary>Watches the four the flashlight reads by name; the module routes their changes here.</summary>
-    public void Start() => _engine.Watch(EngineNames());
-
-    public bool OnChanged(int id, string newValue) => _engine.OnChanged(id, newValue);
 
     /// <summary>r_newflashlightCallback_f.</summary>
     private void OnNewFlashlightChanged()
@@ -174,8 +171,8 @@ public sealed class FlashlightConVars : IFlashlightSettings
     public float Ambient => _ambient.Value;
     public float ShadowAtten => _shadowAtten.Value;
     public float LadderDist => _ladderDist.Value;
-    public float SlopeScaleDepthBias => _engine.Float("mat_slopescaledepthbias_shadowmap");
-    public float DepthBias => _engine.Float("mat_depthbias_shadowmap");
-    public bool DepthTexture => _engine.Bool("r_flashlightdepthtexture");
-    public int DepthResolution => _engine.Int("r_flashlightdepthres");
+    public float SlopeScaleDepthBias => _slopeScaleDepthBias.Value;
+    public float DepthBias => _depthBias.Value;
+    public bool DepthTexture => _depthTexture.Value;
+    public int DepthResolution => _depthRes.Value;
 }

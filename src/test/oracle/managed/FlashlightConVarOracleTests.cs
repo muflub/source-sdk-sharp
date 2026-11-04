@@ -47,7 +47,7 @@ public class FlashlightConVarOracleTests
         var assembly = typeof(client::SourceSharp.Client.Flashlight.FlashlightConVars).Assembly;
         var registry = ConVarRegistry.For(SourceSharp.Tests.ClientDoubles.Require<client::SourceSharp.Abi.IEngineConsole>(SourceSharp.Tests.ClientDoubles.UnattachedEngine()));
         registry.RegisterAll(assembly);
-        return registry.All.Where(c => c.GetType().Assembly == assembly).ToDictionary(c => c.Name);
+        return registry.All.Where(c => c.GetType().Assembly == assembly && !c.HeldByEngine).ToDictionary(c => c.Name);
     }
 
     [Fact]

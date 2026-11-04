@@ -113,7 +113,7 @@ public sealed class ImpulseCheats
     private readonly AmmoCatalog _ammo;
 
     public ImpulseCheats(ILog log, IWeaponGiver arsenal, IEngineEntities entities,
-                         IEnginePlayers players, IEngineWorldQuery world, IEngineConsole console,
+                         IEnginePlayers players, IEngineWorldQuery world, SvCheatsConVar cheats,
                          WeaponCatalog? weapons = null, AmmoCatalog? ammo = null)
     {
 
@@ -124,7 +124,7 @@ public sealed class ImpulseCheats
         _world = world;
         _weapons = weapons ?? WeaponCatalog.Stock();
         _ammo = ammo ?? AmmoCatalog.Stock();
-        CheatsEnabled = () => CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
+        CheatsEnabled = () => cheats.Value;
     }
 
     /// <summary>

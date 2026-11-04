@@ -84,7 +84,7 @@ public class TempEntNoCallerArmsOracleTests
 
         var pool = new ClientTempEntPool(new RecordingLog(), native, clock, new NoSimulation());
 
-        return new Rigging(new TempEntSpawns(log, pool, engine, engine, clock, new RandomSeeds(1)),
+        return new Rigging(new TempEntSpawns(log, pool, engine, DeclaredClientConVars.Fresh<client::SourceSharp.Client.FuncBreakMaxPiecesConVar>(), clock, new RandomSeeds(1)),
                            native, pool, log);
     }
 

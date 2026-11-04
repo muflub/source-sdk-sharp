@@ -5,6 +5,7 @@ using SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
 
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -35,7 +36,8 @@ public class ClientWorldTextExecutorTests
     private static (ClientWorldText Text, RecordingEngine Engine) Text(Meshes meshes)
     {
         var engine = new RecordingEngine();
-        var text = new ClientWorldText(engine, meshes, engine);
+        var text = new ClientWorldText(engine, meshes, DeclaredConVars.Holding<PointworldtextRainbowspeedTimeConVar>("100.0f"),
+                                       DeclaredConVars.Holding<PointworldtextRainbowspeedCharConVar>("100.0f"));
         text.BindEngine(engine, engine);
         text.State.BindLocal();
         text.Handle = Owner;
@@ -82,7 +84,6 @@ public class ClientWorldTextExecutorTests
     public void TheRainbowReadsItsSpeedsAsAtofDoes()
     {
         var (text, engine) = Text(new Meshes());
-        engine.Returns("Console.FindConVarValue", "100.0f");
         text.State.Rainbow = true;
         text.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
         IManagedWorldTextSource source = text;

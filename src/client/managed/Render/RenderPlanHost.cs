@@ -24,7 +24,8 @@ public sealed class RenderPlanHost : IClientRenderPlan
     private int _nextTag = 1;
 
     /// <summary>The game's: the debug overlays' materials are found through <paramref name="fx"/> by the names <paramref name="console"/> holds.</summary>
-    public RenderPlanHost(IFxRender fx, IEngineConsole console, PostProcessHost post, ViewEffectsHost viewEffects,
+    public RenderPlanHost(IFxRender fx, IEngineConsole console, ClDrawmaterialConVar drawMaterial, MatDrawTextureConVar drawTexture,
+                          PostProcessHost post, ViewEffectsHost viewEffects,
                           IUniformRandom random, DemoViewCamera demoCamera, ScreenSpaceEffectManager screenEffects,
                           PlayerViewRecord playerView, LocalPlayerFov? fov = null, IViewModelBob? bob = null,
                           IViewModelOffset? offsets = null, GlowObjectManager? glow = null)
@@ -34,6 +35,8 @@ public sealed class RenderPlanHost : IClientRenderPlan
         _demoCamera = demoCamera;
         _fx = fx;
         _console = console;
+        _drawMaterial = drawMaterial;
+        _drawTexture = drawTexture;
         _post = post;
         _viewEffects = viewEffects;
         _fov = fov;
@@ -209,6 +212,8 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     private readonly IFxRender? _fx;
     private readonly IEngineConsole? _console;
+    private readonly ClDrawmaterialConVar? _drawMaterial;
+    private readonly MatDrawTextureConVar? _drawTexture;
     private readonly Dictionary<string, int> _materials = new(StringComparer.Ordinal);
 
     private int Material(string name)
@@ -230,10 +235,10 @@ public sealed class RenderPlanHost : IClientRenderPlan
     /// </summary>
     internal DebugOverlayMaterials DebugMaterials()
     {
-        if (_fx is null || _console is null)
+        if (_fx is null || _drawMaterial is null || _drawTexture is null)
             return DebugOverlayMaterials.None;
-        string drawMaterial = _console.FindConVarValue("cl_drawmaterial") ?? "";
-        string drawTexture = _console.FindConVarValue("mat_drawTexture") ?? "";
+        string drawMaterial = _drawMaterial.Value;
+        string drawTexture = _drawTexture.Value;
         return new DebugOverlayMaterials(
             Material("debug/yuv"), Material("debug/hsv"), Material("debug/debugreflect"), Material("debug/debugrefract"),
             Material("debug/debugcamerarendertarget"), Material("debug/debugfbtexture0"), Material("debug/debugfbtexture1"),

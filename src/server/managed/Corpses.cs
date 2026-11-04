@@ -47,14 +47,14 @@ public sealed class Corpses : IGameLifecycle
     private readonly IEngineEntities _entities;
     private readonly IEngineEntityRender _render;
     private readonly IEntityDirectory _directory;
-    private readonly IEngineConsole? _console;
+    private readonly ViolenceConVars? _violence;
     private readonly IEnginePlayers? _players;
 
     /// <summary>The bodies currently standing, oldest first. See <see cref="Limit"/>.</summary>
     private readonly List<EntityHandle> _live = new();
 
     public Corpses(ILog log, IEngineEntities entities, IEngineEntityRender render,
-                   IEntityDirectory directory, IEngineConsole? console = null,
+                   IEntityDirectory directory, ViolenceConVars? violence = null,
                    IEnginePlayers? players = null)
     {
 
@@ -62,7 +62,7 @@ public sealed class Corpses : IGameLifecycle
         _entities = entities;
         _render = render;
         _directory = directory;
-        _console = console;
+        _violence = violence;
         _players = players;
     }
 
@@ -111,23 +111,12 @@ public sealed class Corpses : IGameLifecycle
     private void ReadViolencePolicy(string mapName)
     {
         bool baseLow = RagdollViolencePolicy.IsLowViolence(
-            ConVarOn("violence_hblood"), ConVarOn("violence_ablood"),
-            ConVarOn("violence_hgibs"), ConVarOn("violence_agibs"),
+            _violence?.HumanBlood.Value ?? true, _violence?.AlienBlood.Value ?? true,
+            _violence?.HumanGibs.Value ?? true, _violence?.AlienGibs.Value ?? true,
             engineLowViolence: false);
 
         LowViolence = RagdollViolencePolicy.LowViolenceForMap(
             baseLow, isServer: true, isMultiplayer: true, episodic: false, mapName);
-    }
-
-    /// <summary>A ConVar read that defaults to ON, which is every one of the four's own default.</summary>
-    private bool ConVarOn(string name)
-    {
-        string? value = _console?.FindConVarValue(name);
-
-        if (string.IsNullOrEmpty(value))
-            return true;
-
-        return !(value == "0" || value.StartsWith("0.", StringComparison.Ordinal));
     }
 
     /// <summary>

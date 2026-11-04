@@ -32,7 +32,7 @@ public class RagdollDissolveTests
         registry.Services = services;
         registry.KeyValue(Player, EntityNames.Player, "targetname", "victim");
         registry.Spawn(Body, EntityNames.Hl2mpRagdoll);
-        var corpses = new Corpses(new RecordingLog(), engine, engine, registry, engine);
+        var corpses = new Corpses(new RecordingLog(), engine, engine, registry);
         return (corpses, Assert.IsType<SsPlayer>(registry.Get(Player)), Assert.IsType<SsRagdoll>(registry.Get(Body)), registry);
     }
 

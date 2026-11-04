@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using SourceSharp.Abi;
 
@@ -26,6 +27,18 @@ internal static class DeclaredConVars
     /// <summary>A convar held at its declared default, in a registry of its own with no engine behind it.</summary>
     public static T Fresh<T>() where T : ConVarBase => new ConVarRegistry(new NoEngineConVars()).Declare<T>();
 
+    /// <summary>A convar holding <paramref name="value"/>, as though the engine had it, in a registry of its own.</summary>
+    public static T Holding<T>(string? value) where T : ConVarBase
+    {
+        T convar = Fresh<T>();
+        if (value is not null)
+            convar.Hold(value);
+        return convar;
+    }
+
+    /// <summary>What a change from the engine does to a convar: the fact's way to move one.</summary>
+    public static void Hold(this ConVarBase convar, string value) => convar.NotifyChanged(value, convar.RawValue);
+
     /// <summary>
     /// A class built by a container holding this registry's convars, with each
     /// convar its constructor names declared first: how a fact builds a data
@@ -42,6 +55,25 @@ internal static class DeclaredConVars
         convars.PublishTo(services);
         return services.Create<T>();
     }
+}
+
+/// <summary>An engine that holds these values by name, and takes every declaration.</summary>
+internal sealed class NamedConVars(IReadOnlyDictionary<string, string> values) : IConVarBackend
+{
+    private readonly List<string> _names = [];
+    private readonly Dictionary<string, string> _held = new(values, StringComparer.OrdinalIgnoreCase);
+
+    public int Register(string name, string defaultValue, string help, int flags, float? min, float? max)
+    {
+        _names.Add(name);
+        _held.TryAdd(name, defaultValue);
+        return _names.Count - 1;
+    }
+
+    public void Set(int id, string value) => _held[_names[id]] = value;
+    public string Get(int id) => _held[_names[id]];
+    public string? ValueOf(string name) => _held.GetValueOrDefault(name);
+    public void SetNamed(string name, string value) => _held[name] = value;
 }
 
 /// <summary>What a side with no module answers a declaration: every registration refused.</summary>

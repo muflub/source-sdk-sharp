@@ -563,7 +563,7 @@ public sealed class ClientSporeTrail(IEngineEntityRender render, IClientParticle
 /// Enable), and so does this.
 /// </summary>
 [ClientStandaloneEntity(EntityNames.EnvSporeexplosion)]
-public sealed class ClientSporeExplosion(IEngineEntityRender render, IClientParticleExecutor executor, IRandomSeeds seeds, IEngineConsole console)
+public sealed class ClientSporeExplosion(IEngineEntityRender render, IClientParticleExecutor executor, IRandomSeeds seeds, ClSporeclipdistanceConVar clipDistance)
     : ClientTrailBase(render, executor, seeds)
 {
     private readonly List<SimpleParticle> _scratch = new();
@@ -594,8 +594,7 @@ public sealed class ClientSporeExplosion(IEngineEntityRender render, IClientPart
     {
     }
 
-    private float ClipDistance
-        => float.TryParse(console.FindConVarValue("cl_sporeclipdistance"), NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : 512f;
+    private float ClipDistance => clipDistance.Value;
 
     protected override void Step(in ParticleEmit emit, List<(int Channel, int Id)> added)
     {

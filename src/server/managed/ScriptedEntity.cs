@@ -2,6 +2,7 @@ using System.Runtime.Loader;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Abi;
 
@@ -3217,28 +3218,9 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     }
 
     /// <summary>
-    /// The <c>developer</c> convar, read at most once per level.
-    ///
-    /// Cached because the unclaimed path is the COMMON path — most of a map's
-    /// keys belong to the engine — and a console lookup per key per entity is a
-    /// few thousand string conversions per map load to answer a question whose
-    /// answer almost never changes mid-level.
+    /// The <c>developer</c> convar; a registry with no convars published reads 0.
     /// </summary>
-    private int _developer = -1;
-
-    private int DeveloperLevel
-    {
-        get
-        {
-            if (_developer < 0)
-            {
-                _developer = int.TryParse(NativeConsole.ValueOf(_engine.Require<IEngineConsole>(), "developer"), out int level)
-                    ? level : 0;
-            }
-
-            return _developer;
-        }
-    }
+    private int DeveloperLevel => _engine.Resolve<DeveloperConVar>()?.Value ?? 0;
 
     /// <summary>
     /// Creates any var set the class forgot to initialise and tells each which
@@ -4131,7 +4113,6 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
 
         // Re-read next time it is wanted. A level change is the one moment
         // somebody plausibly turned developer on to watch the next map load.
-        _developer = -1;
     }
 
     private ScriptedEntity? Find(EntityHandle handle)

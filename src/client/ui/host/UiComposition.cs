@@ -190,7 +190,7 @@ public static class ClientUi
         // assemblies cannot name ScoreboardUi (they hold no core screen), so it
         // reaches them as the IScoreboardSource the container now answers for.
         var scores = new ScoreboardUi(standalones, screen, engine, services.Require<IPlayerNames>(),
-                                      services.Require<IEngineConsole>(),
+                                      services.Require<HostnameConVar>(),
                                       services.Require<IEngineEnvironment>(), services.Resolve<TeamNames>());
         services.AddInstance<IScoreboardSource>(scores);
 

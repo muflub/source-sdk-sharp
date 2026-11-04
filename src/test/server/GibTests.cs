@@ -32,7 +32,7 @@ public class GibTests
     /// part the strict double cannot do for it — hand back a handle.
     /// </para>
     /// </summary>
-    private static (SsGib Gib, RecordingEngine Engine) Spawn()
+    private static (SsGib Gib, RecordingEngine Engine) Spawn(string? humanBlood = null)
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsGib).Assembly);
@@ -40,6 +40,8 @@ public class GibTests
         var services = TestServices.Services(out var engine);
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
+        if (humanBlood is not null)
+            services.Require<ViolenceHBloodConVar>().Hold(humanBlood);
 
         engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f));
         engine.Returns("EntityPhysics.GetMass", 10f);
@@ -55,7 +57,6 @@ public class GibTests
         // (on, its default), and "Blood" is decal 7. The count of PAINTS is
         // the subject.
         engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(0f, 0f, -4f), new Vector(0f, 0f, 1f), EntityHandle.None));
-        engine.Returns("Console.FindConVarValue", (string?)null);
         engine.Returns("Effects.PaintDecal", true);
         ((RecordingDecals)services.Resolve(typeof(IServerDecals))!).Answers("Blood", 7).Answers("YellowBlood", 8);
 
@@ -307,8 +308,7 @@ public class GibTests
     [InlineData("0.5")]
     public void ViolenceOffPaintsNoBlood(string value)
     {
-        var (gib, engine) = Spawn();
-        engine.Returns("Console.FindConVarValue", value);
+        var (gib, engine) = Spawn(humanBlood: value);
         gib.Throw(Shot(blood: BloodColor.Red), invisible: false);
 
         gib.OnTouch(EntityHandle.None);

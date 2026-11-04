@@ -29,7 +29,7 @@ public sealed class TFTeamMenuUiTests
         var engine = new Engine();
         engine.Returns("Hud.LocalPlayerIndex", 0);
         var st = new Standalones();
-        var menu = new Menu(st, engine, engine, new EngineClient(), new Recorder());
+        var menu = new Menu(st, engine, DeclaredClientConVars.Fresh<client::SourceSharp.Client.ClAllowSpectatorsConVar>(), new EngineClient(), new Recorder());
 
         // Before the resource arrives: nobody on either team.
         Assert.Equal(0, menu.RedPlayers);
@@ -123,10 +123,10 @@ public sealed class TFTeamMenuUiTests
     {
         var engine = new Engine();
         engine.Returns("Hud.LocalPlayerIndex", 0);
-        engine.Returns("Console.FindConVarValue", "0");
-        var menu = new Menu(new Standalones(), engine, engine, new EngineClient(), new Recorder());
+        var allow = DeclaredClientConVars.Holding<client::SourceSharp.Client.ClAllowSpectatorsConVar>("0");
+        var menu = new Menu(new Standalones(), engine, allow, new EngineClient(), new Recorder());
         Assert.False(menu.AllowsSpectators);                 // before: off
-        engine.Returns("Console.FindConVarValue", "1");
+        allow.Hold("1");
         Assert.True(menu.AllowsSpectators);                  // after: on
     }
 
@@ -141,7 +141,7 @@ public sealed class TFTeamMenuUiTests
             Arrive(st);
         var sent = new EngineClient();
         var nav = new Recorder();
-        return (new Menu(st, engine, engine, sent, nav), sent, nav);
+        return (new Menu(st, engine, DeclaredClientConVars.Fresh<client::SourceSharp.Client.ClAllowSpectatorsConVar>(), sent, nav), sent, nav);
     }
 
     /// <summary>The resource arriving with three connected players: two on

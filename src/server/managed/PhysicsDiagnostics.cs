@@ -10,6 +10,7 @@ using System.Globalization;
 
 using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
 
@@ -180,7 +181,7 @@ public sealed class PhysWorldReportCommand(PhysWorldReport report)
 [ConCommand("physics_budget", Help = "Times the cost of each active object")]
 public sealed class PhysicsBudgetCommand(PhysicsSolver solver, IVPhysicsInspect inspect, IEngineEntityPhysics physics,
                                          IEngineEntities entities, IEnginePlayers players, IEngineHost host,
-                                         IEngineEnvironment environment, IEngineConsole console,
+                                         IEngineEnvironment environment, IEngineConsole console, DeveloperConVar developer,
                                          VPhysicsTables vphysics)
 {
     public void Execute()
@@ -216,7 +217,7 @@ public sealed class PhysicsBudgetCommand(PhysicsSolver solver, IVPhysicsInspect 
 
         void Developer2(string text)
         {
-            if (int.TryParse(NativeConsole.ValueOf(console, "developer"), out int level) && level >= 2)
+            if (developer.Value >= 2)
                 console.Msg(text);
         }
 

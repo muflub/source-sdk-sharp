@@ -53,7 +53,7 @@ public class PhysicsPushedEntitiesTests
         directory.Bind(Mover, mover);
         world.Install(engine);
 
-        var motion = new EntityMotion(new RecordingLog(), engine, engine, engine, engine, engine, directory,
+        var motion = new EntityMotion(new RecordingLog(), engine, engine, engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, directory,
                                       new PhysicsPushedEntities(world, new RecordingLog()))
         {
             Parenting = new Hierarchy(world),

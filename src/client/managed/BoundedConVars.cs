@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client;
 
@@ -44,69 +45,64 @@ public static class BoundedConVarRules
         => boundedUpdateRate is float rate ? MathF.Max(boundedInterp, boundedRatio / rate) : 0.1f;
 }
 
+/// <summary>Every convar a value is decided from: the client's three, the update rate and the server's bounds.</summary>
+public sealed class BoundedConVarInputs(ClPredictConVar predict, SvClientPredictConVar serverPredict, ClInterpConVar interp,
+                                        ClInterpRatioConVar interpRatio, ClUpdateRateConVar updateRate,
+                                        SvClientMinInterpRatioConVar minRatio, SvClientMaxInterpRatioConVar maxRatio,
+                                        SvMinUpdateRateConVar minRate, SvMaxUpdateRateConVar maxRate)
+{
+    public readonly ClPredictConVar Predict = predict;
+    public readonly SvClientPredictConVar ServerPredict = serverPredict;
+    public readonly ClInterpConVar Interp = interp;
+    public readonly ClInterpRatioConVar InterpRatio = interpRatio;
+    public readonly ClUpdateRateConVar UpdateRate = updateRate;
+    public readonly SvClientMinInterpRatioConVar MinRatio = minRatio;
+    public readonly SvClientMaxInterpRatioConVar MaxRatio = maxRatio;
+    public readonly SvMinUpdateRateConVar MinRate = minRate;
+    public readonly SvMaxUpdateRateConVar MaxRate = maxRate;
+
+    public FloatConVar[] All => [Predict, ServerPredict, Interp, InterpRatio, UpdateRate, MinRatio, MaxRatio, MinRate, MaxRate];
+}
+
 /// <summary>
 /// The bounded convars' decision, pushed (plan_client_novalve C8, the
 /// integrator's ruling): the native ConVar_ServerBounded objects stay, because
 /// the engine reads them through their vtable (CClientState::GetClientInterpAmount
 /// calls cl_interp_ratio's GetFloat), but each answers a value this decided and
-/// stored, so a read costs no crossing. Every input is watched; a change of
-/// any recomputes all four values and pushes them.
+/// stored, so a read costs no crossing. A change of any input recomputes all four
+/// values and pushes them.
 /// </summary>
-public sealed class BoundedConVars(IClientConVarSlots slots, Func<string, string?> readConVar)
+public sealed class BoundedConVars(IClientConVarSlots slots, BoundedConVarInputs inputs)
 {
     /// <summary>The stored value GetClientInterpAmount answers.</summary>
     public const string InterpAmountName = "GetClientInterpAmount";
 
-    /// <summary>Every convar a value is decided from: the client's three, the update rate and the server's bounds.</summary>
-    public const string InputNames =
-        "cl_predict cl_interp cl_interp_ratio cl_updaterate sv_client_predict " +
-        "sv_client_min_interp_ratio sv_client_max_interp_ratio sv_minupdaterate sv_maxupdaterate";
-
-    private readonly HashSet<int> _watched = [];
-
     /// <summary>The four values last pushed (cl_predict, cl_interp_ratio, cl_interp, the amount), for cs_cl_bounded.</summary>
     public (float Predict, float Ratio, float Interp, float Amount) Pushed { get; private set; }
 
-    /// <summary>How many pushes since this load (the start and every watched change).</summary>
+    /// <summary>How many pushes since this load (the start and every change).</summary>
     public int Pushes { get; private set; }
 
-    /// <summary>How many inputs a watch answered.</summary>
-    public int Watched => _watched.Count;
-
-    /// <summary>Watch every input and push once (the load, and every reload).</summary>
+    /// <summary>Hear every input and push once (the load, and every reload).</summary>
     public void Start()
     {
-        _watched.Clear();
-        foreach (string name in InputNames.Split(' '))
-        {
-            int id = slots.Watch(name);
-            if (id >= 0)
-                _watched.Add(id);
-        }
+        foreach (FloatConVar input in inputs.All)
+            input.Subscribe((_, _) => Push());
         Push();
     }
 
-    /// <summary>A forwarded change: true when it was one of the inputs (and the values were pushed).</summary>
-    public bool OnChanged(int id)
-    {
-        if (!_watched.Contains(id))
-            return false;
-        Push();
-        return true;
-    }
-
-    private float? Read(string name) => readConVar(name) is string v ? VariantParse.Atof(v) : null;
+    private static float? Read(FloatConVar convar) => convar.HasValue ? convar.Value : null;
 
     private void Push()
     {
-        float predict = BoundedConVarRules.Predict(Read("cl_predict") ?? 1f,
-            Read("sv_client_predict") is float sp ? (int)sp : null);
-        float ratio = BoundedConVarRules.InterpRatio(Read("cl_interp_ratio") ?? 2f,
-            Read("sv_client_min_interp_ratio"), Read("sv_client_max_interp_ratio"));
-        float? rate = Read("cl_updaterate") is float ur
-            ? BoundedConVarRules.UpdateRate(ur, Read("sv_minupdaterate"), Read("sv_maxupdaterate"))
+        float predict = BoundedConVarRules.Predict(Read(inputs.Predict) ?? 1f,
+            Read(inputs.ServerPredict) is float sp ? (int)sp : null);
+        float ratio = BoundedConVarRules.InterpRatio(Read(inputs.InterpRatio) ?? 2f,
+            Read(inputs.MinRatio), Read(inputs.MaxRatio));
+        float? rate = Read(inputs.UpdateRate) is float ur
+            ? BoundedConVarRules.UpdateRate(ur, Read(inputs.MinRate), Read(inputs.MaxRate))
             : null;
-        float interp = BoundedConVarRules.Interp(Read("cl_interp") ?? 0.1f, Read("sv_client_min_interp_ratio"), rate);
+        float interp = BoundedConVarRules.Interp(Read(inputs.Interp) ?? 0.1f, Read(inputs.MinRatio), rate);
 
         slots.SetValue("cl_predict", predict);
         slots.SetValue("cl_interp_ratio", ratio);
@@ -126,6 +122,6 @@ public sealed class BoundedConVarsCommand(ILog log, BoundedConVars bounded)
     {
         var p = bounded.Pushed;
         log.Msg(FormattableString.Invariant(
-            $"[SourceSharp/Client] bounded: cl_predict {p.Predict:R} cl_interp_ratio {p.Ratio:R} cl_interp {p.Interp:R} amount {p.Amount:R} (watched {bounded.Watched}, pushes {bounded.Pushes})\n"));
+            $"[SourceSharp/Client] bounded: cl_predict {p.Predict:R} cl_interp_ratio {p.Ratio:R} cl_interp {p.Interp:R} amount {p.Amount:R} (pushes {bounded.Pushes})\n"));
     }
 }

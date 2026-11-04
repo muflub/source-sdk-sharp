@@ -34,12 +34,11 @@ public sealed class TFDamageDevCommandsTests
     private static (TFDamageDevCommands Commands, CritSpy Damage, CombatRig Rig, TFAfterburn Slice) Rig(string cheats)
     {
         var rig = new CombatRig();
-        rig.Engine.Returns("Console.FindConVarValue", cheats);
         var hits = new DamageHitGroups();
         var spy = new CritSpy(hits);
         var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
         slice.Attach(CombatRig.Victim);
-        return (new TFDamageDevCommands(spy, hits, rig.Afterburns, rig.Clock, rig.Engine, rig.Log), spy, rig, slice);
+        return (new TFDamageDevCommands(spy, hits, rig.Afterburns, rig.Clock, DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>(cheats), rig.Log), spy, rig, slice);
     }
 
     [Fact]

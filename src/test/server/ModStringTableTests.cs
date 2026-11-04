@@ -49,8 +49,7 @@ public class ModStringTableTests
 
         var (stringTables, modTable) = TestStringTables.For(engine);
 
-        var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine, engine, engine,
-                                    stringTables, modTable,
+        var dll = new ServerGameDll(new RecordingLog(), engine, ConVarRegistry.For(TestServices.UnattachedConsole()), engine, new RecordingCommandLine("srcds"), engine, engine, engine, DeclaredConVars.Fresh<DeveloperConVar>(), DeclaredConVars.Fresh<GLanguageConVar>(), DeclaredConVars.Fresh<SvTagsConVar>(), engine, stringTables, modTable,
                                     // Phase A3: the lifecycle driver MapLoadPreEntity
                                     // dispatches into. An empty container here, so the
                                     // pass reaches no participant -- these facts are

@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Effects;
 
@@ -35,12 +36,14 @@ public sealed class TracerSupport
 
     private readonly IFxRender _render;
     private readonly IEngineConsole _console;
+    private readonly DeveloperConVar _developer;
     private readonly Func<bool> _drawTracers;
 
-    public TracerSupport(IFxRender render, IEngineConsole console, Func<bool> drawTracers)
+    public TracerSupport(IFxRender render, IEngineConsole console, DeveloperConVar developer, Func<bool> drawTracers)
     {
         _render = render;
         _console = console;
+        _developer = developer;
         _drawTracers = drawTracers;
     }
 
@@ -74,7 +77,7 @@ public sealed class TracerSupport
 
             if (found == 0)
             {
-                if (int.TryParse(_console.FindConVarValue("developer"), out int level) && level >= 1)
+                if (_developer.Value >= 1)
                     _console.Msg($"GetTracerOrigin: Couldn't find attachment {data.AttachmentIndex} on model {model}\n");
             }
             else

@@ -3,6 +3,7 @@ using SourceSharp.Client;
 using SourceSharp.Client.Beams;
 using SourceSharp.Client.Interop;
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -135,27 +136,18 @@ public class ClientBeamSystemTests
         public readonly Executor Exec = new();
         public readonly Clock Clock = new();
         public readonly RecordingLog Log = new();
-        public readonly Dictionary<string, string?> EngineConVars = new()
-        {
-            ["sv_cheats"] = "0", ["mat_wireframe"] = "0", ["r_DrawBeams"] = "1",
-        };
+        public readonly RDrawBeamsConVar DrawBeams;
         public readonly ClientBeamSystem Beams;
 
-        public Rig(string svCheats = "0", string matWireframe = "0")
+        public Rig(string svCheats = "0", string matWireframe = "0", string? drawBeams = "1")
         {
             Engine.Strict = false;
-            EngineConVars["sv_cheats"] = svCheats;
-            EngineConVars["mat_wireframe"] = matWireframe;
-            Engine.ReturnsEachCall("Console.FindConVarValue",
-                () => EngineConVars.TryGetValue((string)Engine.Last("Console.FindConVarValue")!.Value.Arg(0)!,
-                                                out string? v) ? v : null);
-
-            Beams = new ClientBeamSystem(Exec, Clock, Engine, Log, new AllVisible(), ViewModels);
+            DrawBeams = DeclaredConVars.Holding<RDrawBeamsConVar>(drawBeams);
+            Beams = new ClientBeamSystem(Exec, Clock, DrawBeams, DeclaredConVars.Holding<SvCheatsConVar>(svCheats),
+                                         DeclaredConVars.Holding<MatWireframeConVar>(matWireframe), Log, new AllVisible(), ViewModels);
         }
 
         public readonly ViewModelFormat ViewModels = new();
-
-        public void Set(string name, string value) => EngineConVars[name] = value;
 
         public void Update() => Beams.Update(Clock.Now, 1f / 60f);
     }
@@ -181,8 +173,7 @@ public class ClientBeamSystemTests
     [Fact]
     public void RDrawBeamsIsTheEnginesReadByNameAndAMissingOneIsStocksDefault()
     {
-        var rig = new Rig();
-        rig.EngineConVars.Remove("r_DrawBeams");
+        var rig = new Rig(drawBeams: null);
         CreateRingPoint(rig);
         rig.Update();
 
@@ -415,12 +406,12 @@ public class ClientBeamSystemTests
         rig.Update();
         int renderable = rig.Beams.Bookkeeping.Active[0].Renderable;
 
-        rig.Set("r_DrawBeams", "0");
+        rig.DrawBeams.Hold("0");
         rig.Update();
         rig.Beams.Draw(renderable);
         Assert.Empty(rig.Exec.Draws);
 
-        rig.Set("r_DrawBeams", "2");
+        rig.DrawBeams.Hold("2");
         rig.Update();
         rig.Beams.Draw(renderable);
         Assert.Equal([true], rig.Exec.Wireframes);

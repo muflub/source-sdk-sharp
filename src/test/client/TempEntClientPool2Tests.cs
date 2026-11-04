@@ -5,6 +5,7 @@ using client::SourceSharp.Client.TempEnts;
 using SourceSharp.Shared;
 
 using Xunit;
+using SourceSharp.Client;
 
 using static SourceSharp.Tests.TestServices;
 
@@ -127,7 +128,6 @@ public class TempEntClientPool2Tests
         engine.ReturnsEachCall("Effects.TempEntRegister", () => next++);
         engine.Returns("Precache.ModelFrameCount", frames);
         engine.Returns("Precache.ModelTypeOf", kind);
-        engine.Returns("Console.FindConVarValue", "15");
 
         var registry = new TempEntRegistry(log);
         registry.RegisterAll("Test", TestServices.ClientGame, engine);
@@ -135,7 +135,7 @@ public class TempEntClientPool2Tests
         var native = new SpawningPool(engine);
         var clock = new Clock();
         var pool = new ClientTempEntPool(log, native, clock, new TempEntPoolTests.NoSimulation());
-        var spawns = new TempEntSpawns(log, pool, engine, engine, clock, new RandomSeeds(1));
+        var spawns = new TempEntSpawns(log, pool, engine, DeclaredConVars.Fresh<FuncBreakMaxPiecesConVar>(), clock, new RandomSeeds(1));
 
         var players = new ClientTempEnts(log, registry);
 

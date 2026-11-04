@@ -9,6 +9,23 @@ using SourceSharp.Abi;
 
 namespace TF2.Client;
 
+/// <summary>The convars the pyro vision's vignette reads.</summary>
+public sealed class PyroVisionConVars(PyroVignetteConVar vignette, PyroMinIntensityConVar minIntensity, PyroMaxIntensityConVar maxIntensity,
+                                      PyroMinRateConVar minRate, PyroMaxRateConVar maxRate,
+                                      PyroMinSideWidthConVar minSideWidth, PyroMaxSideWidthConVar maxSideWidth,
+                                      PyroMinSideLengthConVar minSideLength, PyroMaxSideLengthConVar maxSideLength)
+{
+    public readonly PyroVignetteConVar Vignette = vignette;
+    public readonly PyroMinIntensityConVar MinIntensity = minIntensity;
+    public readonly PyroMaxIntensityConVar MaxIntensity = maxIntensity;
+    public readonly PyroMinRateConVar MinRate = minRate;
+    public readonly PyroMaxRateConVar MaxRate = maxRate;
+    public readonly PyroMinSideWidthConVar MinSideWidth = minSideWidth;
+    public readonly PyroMaxSideWidthConVar MaxSideWidth = maxSideWidth;
+    public readonly PyroMinSideLengthConVar MinSideLength = minSideLength;
+    public readonly PyroMaxSideLengthConVar MaxSideLength = maxSideLength;
+}
+
 // Pyro vision's convars (viewpostprocess.cpp's pyro_* family), declared by the
 // TF2 client library since that TU left client.so: names, defaults, flags and
 // help as stock declared them (PyroVisionTests holds them). PyroVision reads

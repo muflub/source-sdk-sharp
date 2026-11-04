@@ -40,6 +40,7 @@ internal sealed class ManagerRig
     public TFPlayerCarriers Carriers { get; } = new();
 
     public TFFlameManager Manager { get; }
+    public TF2.Shared.TFFlameThrowerBoxSizeConVar BoxSize { get; }
     public TFFlameEffects Effects { get; }
 
     private int _teamAsk;
@@ -48,7 +49,8 @@ internal sealed class ManagerRig
     {
         Damage = new ScopedDamage(Scopes);
         Convars.RegisterAll(typeof(TF2.Server.Medigun.TFPlayerHealing).Assembly);
-        Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, Engine);
+        BoxSize = DeclaredConVars.Holding<TF2.Shared.TFFlameThrowerBoxSizeConVar>("12");
+        Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, BoxSize);
         Manager.BindAreas(TestServices.Areas(Engine));
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
                                      Convars.Declared<TFAirBlastCrayConVar>(),
@@ -73,8 +75,6 @@ internal sealed class ManagerRig
         // A clear path, unless a fact says otherwise.
         Engine.Returns("WorldQuery.TraceBox", Clear);
         Engine.Returns("Host.CurrentTime", 0f);
-        // The box size the tick's sweep asks for, at its declared value.
-        Engine.Returns("Console.FindConVarValue", "12");
     }
 
     public static SurfaceTraceResult Clear { get; } =
@@ -250,7 +250,7 @@ public class TFFlameManagerFacts
     public void TheCollisionBoxIsHalfTheConvarEachWay()
     {
         var rig = new ManagerRig();
-        rig.Engine.Returns("Console.FindConVarValue", "30");
+        rig.BoxSize.Hold("30");
         rig.Manager.AddPoint(default, new Vector(1f, 0f, 0f), default);
         rig.Engine.Returns("Host.CurrentTime", 0.015f);
         rig.Manager.OnThink();
@@ -261,21 +261,6 @@ public class TFFlameManagerFacts
         Assert.NotNull(trace);
         Assert.Equal(new Vector(-30f, -30f, -30f), trace!.ArgAs<Vector>(2));
         Assert.Equal(new Vector(30f, 30f, 30f), trace!.ArgAs<Vector>(3));
-    }
-
-    [Fact]
-    public void AnUnparsableConvarFallsToTheDeclaredTwelve()
-    {
-        var rig = new ManagerRig();
-        rig.Engine.Returns("Console.FindConVarValue", "soon");
-        rig.Manager.AddPoint(default, new Vector(1f, 0f, 0f), default);
-        rig.Engine.Returns("Host.CurrentTime", 0.015f);
-        rig.Manager.OnThink();
-
-        var trace = rig.Engine.Last("WorldQuery.TraceBox");
-        Assert.NotNull(trace);
-        Assert.Equal(new Vector(-12f, -12f, -12f), trace!.ArgAs<Vector>(2));
-        Assert.Equal(new Vector(12f, 12f, 12f), trace!.ArgAs<Vector>(3));
     }
 }
 

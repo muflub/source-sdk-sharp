@@ -5,6 +5,7 @@ using SourceSharp.Client.Effects;
 using SourceSharp.Client.Interop;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -60,8 +61,7 @@ public unsafe class ClientEffectDispatchTests
     private static (ClientEffectDispatch Dispatch, RecordingEngine Engine) Rig(string developer = "0")
     {
         RecordingEngine engine = TestServices.Fake();
-        engine.Returns("Console.FindConVarValue", developer);
-        return (new ClientEffectDispatch(engine), engine);
+        return (new ClientEffectDispatch(engine, DeclaredConVars.Holding<DeveloperConVar>(developer)), engine);
     }
 
     [Fact]

@@ -20,9 +20,9 @@ public class BlastSoundTests
     private static (BlastSweep Sweep, SoundEnt Sounds) Build()
     {
         var engine = new RecordingEngine { Strict = false };
-        var sounds = new SoundEnt(engine, engine, engine);
+        var sounds = new SoundEnt(engine, engine, engine, DeclaredConVars.Fresh<DisplaySoundListConVar>(), DeclaredConVars.Fresh<DeveloperConVar>());
         sounds.Initialize(1, 0f);
-        var sweep = new BlastSweep(new RecordingLog(), engine, engine, engine, engine, engine, sounds);
+        var sweep = new BlastSweep(new RecordingLog(), engine, engine, engine, engine, DeclaredConVars.Fresh<OldRadiusDamageConVar>(), sounds);
         return (sweep, sounds);
     }
 

@@ -12,19 +12,13 @@ public interface IClientLowViolence
 /// <summary>
 /// <c>UTIL_IsLowViolence</c> (util_shared.cpp): low when any of the four
 /// legacy violence_* convars is off, else the engine's answer, asked only then
-/// as stock asks it. A convar the console does not answer reads as off, as the
-/// native reference read it.
+/// as stock asks it.
 /// </summary>
-public sealed class ClientLowViolence(IEngineConsole console, IViolenceSettings engine) : IClientLowViolence
+public sealed class ClientLowViolence(ViolenceHBloodConVar humanBlood, ViolenceABloodConVar alienBlood,
+                                      ViolenceHGibsConVar humanGibs, ViolenceAGibsConVar alienGibs,
+                                      IViolenceSettings engine) : IClientLowViolence
 {
     public bool IsLowViolence
-        => RagdollViolencePolicy.AnyLegacyConVarOff(On("violence_hblood"), On("violence_ablood"),
-                                                    On("violence_hgibs"), On("violence_agibs"))
+        => RagdollViolencePolicy.AnyLegacyConVarOff(humanBlood.Value, alienBlood.Value, humanGibs.Value, alienGibs.Value)
            || engine.EngineSaysLowViolence;
-
-    private bool On(string name)
-    {
-        string? value = console.FindConVarValue(name);
-        return value is not null && (int)VariantParse.Atof(value) != 0;
-    }
 }

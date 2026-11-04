@@ -34,9 +34,6 @@ public interface IInputHost
     /// <summary><c>ClientCmd_Unrestricted</c>: the Steam Controller's actions, the controller cfg files.</summary>
     void ClientCmdUnrestricted(string command);
 
-    /// <summary>A convar input does not own, by name (sv_cheats, joy_xcontroller_found), or null.</summary>
-    string? EngineConVar(string name);
-
     /// <summary>A console line (Msg).</summary>
     void Msg(string text);
 

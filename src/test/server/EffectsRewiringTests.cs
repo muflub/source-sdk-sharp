@@ -628,7 +628,7 @@ public class EffectsRewiringTests
         var engine = TestServices.Fake();
         var temps = new RecordingTempEnts();
 
-        return (new EffectsOverTempEnts(engine, temps, engine, engine, new OpenWorld(), engine, new DefaultForwarders.LowestRandom(), _ => { }), temps, engine);
+        return (new EffectsOverTempEnts(engine, temps, engine, engine, new OpenWorld(), DeclaredConVars.Fresh<ViolenceHBloodConVar>(), DeclaredConVars.Fresh<ViolenceABloodConVar>(), new DefaultForwarders.LowestRandom(), _ => { }), temps, engine);
     }
 
     /// <summary>

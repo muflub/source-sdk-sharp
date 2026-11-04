@@ -161,14 +161,18 @@ public sealed class ClientTonemapController : ClientStandaloneEntity
 [ClientStandaloneEntity(EntityNames.EnvDetailController)]
 public sealed class ClientEnvDetailController : ClientStandaloneEntity
 {
-    public ClientEnvDetailController(IEngineEntityRender render, IEngineConsole console)
+    public ClientEnvDetailController(IEngineEntityRender render, IEngineConsole console, Detail.DetailFadeConVar fade, Detail.DetailDistConVar dist)
         : base(render)
     {
         Console = console;
+        _fade = fade;
+        _dist = dist;
     }
 
     /// <summary>the console: convars, and commands run on the server or a client.</summary>
     private readonly IEngineConsole Console;
+    private readonly Detail.DetailFadeConVar _fade;
+    private readonly Detail.DetailDistConVar _dist;
 
     public override string ClassName => EntityNames.EnvDetailController;
 
@@ -182,8 +186,8 @@ public sealed class ClientEnvDetailController : ClientStandaloneEntity
     /// <summary>Says the clamp again. See the class comment for who calls this and why.</summary>
     internal void Reclamp()
     {
-        Clamp("cl_detailfade", State.FadeStartDist);
-        Clamp("cl_detaildist", State.FadeEndDist);
+        Clamp(_fade, State.FadeStartDist);
+        Clamp(_dist, State.FadeEndDist);
     }
 
     /// <summary>
@@ -192,16 +196,9 @@ public sealed class ClientEnvDetailController : ClientStandaloneEntity
     /// min is itself, and self-healing across maps, because the detail system
     /// restores the defaults at every level init before any entity arrives.
     /// </summary>
-    private void Clamp(string convar, float distance)
+    private void Clamp(FloatConVar convar, float distance)
     {
-        string? held = Console.FindConVarValue(convar);
-
-        if (!float.TryParse(held, System.Globalization.CultureInfo.InvariantCulture, out float current))
-        {
-            Log.Warning($"[SourceSharp] env_detail_controller: {convar} answered " +
-                        $"'{held ?? "(nothing)"}', so nothing was clamped\n");
-            return;
-        }
+        float current = convar.Value;
 
         if (distance >= current)
             return;
@@ -209,9 +206,9 @@ public sealed class ClientEnvDetailController : ClientStandaloneEntity
         // Said out loud on the ColorCorrection principle: the map ships no
         // detail props to fade, so this line IS the visible proof the blob
         // arrived and the clamp ran.
-        Log.Msg($"[SourceSharp] env_detail_controller: {convar} {current} -> {distance}\n");
+        Log.Msg($"[SourceSharp] env_detail_controller: {convar.Name} {current} -> {distance}\n");
 
-        Console.SetConVarValueByName(convar,
+        Console.SetConVarValueByName(convar.Name,
             distance.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 }

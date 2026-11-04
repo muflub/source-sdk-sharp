@@ -224,6 +224,8 @@ public class WorldTextTests
         var meshes = new Meshes();
         var services = ClientDoubles.Services(out var engine);
         services.AddInstance<client::SourceSharp.Client.Interop.IClientWorldTextMeshes>(meshes);
+        services.AddInstance(DeclaredClientConVars.Fresh<client::SourceSharp.Client.PointworldtextRainbowspeedTimeConVar>());
+        services.AddInstance(DeclaredClientConVars.Fresh<client::SourceSharp.Client.PointworldtextRainbowspeedCharConVar>());
         registry.Services = services;
         engine.Ignores("EntityRender.RegisterRenderable", "EntityRender.UnregisterRenderable");
 

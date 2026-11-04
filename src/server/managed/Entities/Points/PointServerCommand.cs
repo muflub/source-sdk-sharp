@@ -23,21 +23,16 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.PointServercommand)]
 public sealed class PointServerCommand : ScriptedEntity
 {
-    public PointServerCommand(IEngineConsole console)
+    public PointServerCommand(IEngineConsole console, AllowPointServerCommandConVar allow)
     {
         Console = console;
+        _allow = allow;
     }
 
     /// <summary>the console: convars, and commands run on the server or a client.</summary>
     private readonly IEngineConsole Console;
-    /// <summary>
-    /// The gate, read live and BY NAME — which is why Phase 1b could move the
-    /// declaration from C++ (client.cpp, then shell_client_orphans.cpp) into
-    /// <see cref="AllowPointServerCommandConVar"/> without touching anything
-    /// here: FindConVarValue asks the engine's one registry, and the registry
-    /// does not record which side put the name in it.
-    /// </summary>
-    internal const string AllowConVar = "sv_allow_point_servercommand";
+    /// <summary>The gate, read live.</summary>
+    private readonly AllowPointServerCommandConVar _allow;
 
     /// <summary>
     /// Commands taken but not yet run. See <see cref="OnThink"/> for why there is
@@ -62,7 +57,7 @@ public sealed class PointServerCommand : ScriptedEntity
         if (command.Length == 0)
             return;
 
-        if (!Allows(Console.FindConVarValue(AllowConVar)))
+        if (!Allows(_allow.Value))
         {
             // Stock's exact sentence, kept verbatim rather than given this
             // file's usual [SourceSharp] prefix. It is the one warning here an

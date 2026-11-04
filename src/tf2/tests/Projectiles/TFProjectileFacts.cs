@@ -32,6 +32,8 @@ internal static class EngineCallFacts
 /// <summary>The applier's world: the recording engine, the real scopes and the tray.</summary>
 internal sealed class ProjectileRig
 {
+    public TFStickybombConVars StickyVars { get; }
+
     public static readonly EntityHandle Player = new(0x0001_0000u | 3);
     public static readonly EntityHandle Victim = new(0x0001_0000u | 5);
     public static readonly EntityHandle ProjectileHandle = new(0x0003_0000u | 9);
@@ -104,7 +106,7 @@ internal sealed class ProjectileRig
     {
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);
-        Motion = new EntityMotion(motionLog, Engine, Engine, Engine, Engine, Engine, motionDirectory,
+        Motion = new EntityMotion(motionLog, Engine, Engine, Engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
@@ -151,15 +153,13 @@ internal sealed class ProjectileRig
         Engine.Returns("WorldQuery.EntitiesInSphere", 0);
         // The registered defaults (tf_gamerules.cpp:859-860) for the convars
         // the sticky's air-burst radius reads, as the game would answer; a
-        // fact's Returns turns them or names another convar.
-        Engine.ReturnsEachCall("Console.FindConVarValue", () =>
-            Engine.Calls[^1].Args[0] switch
-            {
-                "tf_sticky_radius_ramp_time" => "2.0",
-                "tf_sticky_airdet_radius" => "0.85",
-                "tf_grenadelauncher_livetime" => "0.8",
-                _ => "0",
-            });
+        // fact turns them. The blow's force scales are held off.
+        StickyVars = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>())).Holder<TFStickybombConVars>();
+        StickyVars.ForceFromBullet.Hold("0");
+        StickyVars.ForceFromBuckshot.Hold("0");
+        StickyVars.ForceFromBlast.Hold("0");
+        StickyVars.ForceToMove.Hold("0");
+        StickyVars.ForceSleepTime.Hold("0");
         // The blast's answered damage ask lands by default — the damage the
         // applier passed (>0) is the amount taken, so the push that gates on
         // it runs as it did before the gate existed. A fact that wants a
@@ -177,7 +177,7 @@ internal sealed class ProjectileRig
     {
         Engine.Returns("Clock.Now", 10f)
               .Returns("Entities.GetParent", EntityHandle.None);
-        var sticky = new TFStickybomb(Engine, Blast, Engine, Engine, Engine, Engine, Directory, Engine);
+        var sticky = new TFStickybomb(Engine, Blast, Engine, StickyVars, Engine, Engine, Directory, Engine);
         sticky.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says
         sticky.BindAreas(TestServices.Areas(Engine));
         return BindStates(sticky);
@@ -951,15 +951,11 @@ public class TFGrenadePhysicsFacts
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
             rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == attacker ? 3 : 2);
-        rig.Engine.ReturnsEachCall("Console.FindConVarValue", () =>
-            rig.Engine.Calls[^1].Args[0] switch
-            {
-                "tf_grenade_forcefrom_bullet" => "2.0",
-                "tf_grenade_forcefrom_buckshot" => "0.75",
-                "tf_grenade_forcefrom_blast" => "0.15",
-                "tf_grenade_force_sleeptime" => "1.0",
-                _ => "1500.0", // tf_pipebomb_force_to_move
-            });
+        rig.StickyVars.ForceFromBullet.Hold("2.0");
+        rig.StickyVars.ForceFromBuckshot.Hold("0.75");
+        rig.StickyVars.ForceFromBlast.Hold("0.15");
+        rig.StickyVars.ForceSleepTime.Hold("1.0");
+        rig.StickyVars.ForceToMove.Hold("1500.0");
         var sticky = rig.Sticky();
         sticky.OnSpawn();
         sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
@@ -1384,14 +1380,8 @@ public class TFStickyDetonateFacts
         // Both names read live: ramp_time 4.0 and airdet 0.5 put an age-2.8
         // bomb at the half of a half — scale 0.75, radius 146 * 0.75.
         var rig = new ProjectileRig();
-        rig.Engine.ReturnsEachCall("Console.FindConVarValue", () =>
-            rig.Engine.Calls[^1].Args[0] switch
-            {
-                "tf_sticky_radius_ramp_time" => "4.0",
-                "tf_sticky_airdet_radius" => "0.5",
-                "tf_grenadelauncher_livetime" => "0.8",
-                _ => "0",
-            });
+        rig.StickyVars.RadiusRampTime.Hold("4.0");
+        rig.StickyVars.AirDetRadius.Hold("0.5");
         var sticky = Airborne(rig);
         rig.Engine.Returns("Clock.Now", 12.8f);
 
@@ -1407,14 +1397,7 @@ public class TFStickyDetonateFacts
         // live 1.8 at the same age-2.8 clock holds the bomb at the ramp's
         // half — 0.925, radius 135.05 — where the declared 0.8 would end it.
         var rig = new ProjectileRig();
-        rig.Engine.ReturnsEachCall("Console.FindConVarValue", () =>
-            rig.Engine.Calls[^1].Args[0] switch
-            {
-                "tf_grenadelauncher_livetime" => "1.8",
-                "tf_sticky_radius_ramp_time" => "2.0",
-                "tf_sticky_airdet_radius" => "0.85",
-                _ => "0",
-            });
+        rig.StickyVars.LiveTime.Hold("1.8");
         var sticky = Airborne(rig);
         rig.Engine.Returns("Clock.Now", 12.8f);
 
@@ -1439,7 +1422,7 @@ public class TFStickyPulseFacts
         // PreArmThink books the arm tf_grenadelauncher_livetime out
         // (tf_weapon_grenade_pipebomb.cpp:1144), not the constant.
         var rig = new ProjectileRig();
-        rig.Engine.Returns("Console.FindConVarValue", "1.5");
+        rig.StickyVars.LiveTime.Hold("1.5");
         var sticky = rig.Sticky();
         sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
                         TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);

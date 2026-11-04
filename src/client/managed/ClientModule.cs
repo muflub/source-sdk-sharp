@@ -307,7 +307,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private SteamCallbacks? _steamCallbacks;
 
     // The server-bounded convars' decision (C8): watched inputs, pushed values.
-    private BoundedConVars? _boundedConVars;
 
     // The client's input (plan_client_novalve §2 cluster 13, lane c6-input):
     // native's IInput thunk set asks it through IManagedInputClient.
@@ -398,10 +397,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // through their vtable, answering values decided here. Started now so
         // the first frame already reads decided values; a reload starts it
         // again (the native watch ids and stored values survive).
-        IEngineConsole boundedConsole = _services.Require<IEngineConsole>();
-        _boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), boundedConsole.FindConVarValue);
-        _services.AddInstance(_boundedConVars);
-        _boundedConVars.Start();
+        _services.Add<BoundedConVarInputs>();
+        var boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), _services.Require<BoundedConVarInputs>());
+        _services.AddInstance(boundedConVars);
+        boundedConVars.Start();
         _userMessages = new UserMessageRegistry(Log);
         // In the container for the dev API's received counts (ClientDebugBuild).
         _services.AddInstance(_userMessages);
@@ -881,10 +880,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             IEngineEnvironment environment = locator.Require<IEngineEnvironment>();
             return new LevelPrediction(() => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
-                                       locator.Require<IEngineConsole>().FindConVarValue,
+                                       locator.Require<ClPredictConVar>(), locator.Require<SvClientPredictConVar>(),
                                        locator.Require<IClientPredictCommand>());
         });
-        _services.AddFactory(locator => new LightmapBicubicDefault(locator.Require<IEngineConsole>(), OperatingSystem.IsLinux()));
+        _services.AddFactory(locator => new LightmapBicubicDefault(locator.Require<IEngineConsole>(), locator.Require<LightmapBicubicSetConVar>(), OperatingSystem.IsLinux()));
         _services.AddInstance(new ClientMapMaterials(log));
         _services.AddInstance(new MapMaterialReloadWindow(_services.Require<ClientMapMaterials>().ReloadSet));
         // worldspawn's arrival (stock's C_World::OnDataChanged): the start-dark
@@ -901,7 +900,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // loads after both).
         _services.AddFactory<IClientMaterialProxies>(locator => new MaterialProxies.MaterialProxyHost(
             locator.Require<IClientMaterialProxyExecutor>(), locator.Require<IEngineHost>(),
-            locator.Require<IEngineConsole>(), Log, locator.Require<MaterialProxies.MatStubConVar>(),
+            locator.Require<DeveloperConVar>(), Log, locator.Require<MaterialProxies.MatStubConVar>(),
             locator.Require<MaterialProxies.IPostProxyValues>(),
             locator.Require<Render.Shadows.IShadowProxySource>(),
             () => _services.ResolveAll<MaterialProxies.IMaterialProxyProvider>(),
@@ -950,9 +949,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.GlowObjectManager>(locator =>
         {
             IEngineEntityRender render = locator.Require<IEngineEntityRender>();
-            IEngineConsole console = locator.Require<IEngineConsole>();
             IFxRender fx = locator.Require<IFxRender>();
-            return new Render.GlowObjectManager(render.IsDormant, console.FindConVarValue, fx.MaterialFind);
+            return new Render.GlowObjectManager(render.IsDormant, locator.Require<GlowOutlineEffectEnableConVar>(), fx.MaterialFind);
         });
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
         // The kClientSystems[] rows whose system is managed's (C7): the
@@ -978,15 +976,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // the bullet impact read them).
         // UTIL_IsLowViolence: the four violence_* convars and the engine's word.
         _services.AddFactory<Effects.IClientLowViolence>(locator =>
-            new Effects.ClientLowViolence(locator.Require<IEngineConsole>(), locator.Require<IViolenceSettings>()));
-        _services.AddFactory<TempEnts.IDecalSettings>(locator =>
-        {
-            var watch = new TempEnts.DecalConVarsWatch(
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            watch.Start();
-            _decalConVars = watch;
-            return watch;
-        });
+            new Effects.ClientLowViolence(locator.Require<ViolenceHBloodConVar>(), locator.Require<ViolenceABloodConVar>(),
+                                          locator.Require<ViolenceHGibsConVar>(), locator.Require<ViolenceAGibsConVar>(),
+                                          locator.Require<IViolenceSettings>()));
+        _services.Add<TempEnts.IDecalSettings, TempEnts.DecalConVars>();
         // A player's spray (lane M1-C): c_te_playerdecal.cpp's decisions over
         // the engine client, the file system and the carry-out slot.
         _services.AddFactory<TempEnts.IPlayerSprays>(locator =>
@@ -996,17 +989,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                              locator.Require<IFwdEngineClient>(), locator.Require<IFwdBaseFileSystem>(),
                                              locator.Require<IEngineEffects>(), locator.Require<IClientSprayEngine>());
         });
-        _services.AddFactory<Render.PixelVisibility.BuildingCubemapsWatch>(locator =>
-        {
-            var watch = new Render.PixelVisibility.BuildingCubemapsWatch(
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            watch.Start();
-            _buildingCubemaps = watch;
-            return watch;
-        });
         _services.AddFactory<Render.GlowOverlays.GlowSettings>(locator =>
         {
-            var buildingCubemaps = locator.Require<Render.PixelVisibility.BuildingCubemapsWatch>();
+            var buildingCubemaps = locator.Require<BuildingCubemapsConVar>();
             var sunDecayRate = _services.Require<Render.GlowOverlays.SunDecayRateConVar>();
             return new Render.GlowOverlays.GlowSettings(() => buildingCubemaps.Value, () => sunDecayRate.Value);
         });
@@ -1032,13 +1017,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             var partial = _services.Require<Render.PixelVisibility.PixelVisPartialConVar>();
             var enabled = _services.Require<Render.PixelVisibility.PixelVisEnabledConVar>();
             var spew = _services.Require<Render.PixelVisibility.PixelVisSpewConVar>();
-            var buildingCubemaps = locator.Require<Render.PixelVisibility.BuildingCubemapsWatch>();
+            var buildingCubemaps = locator.Require<BuildingCubemapsConVar>();
             return new Render.PixelVisibility.PixelVisSettings(() => partial.Value, () => enabled.Value, () => spew.Value,
                                                                () => buildingCubemaps.Value);
         });
         _services.AddFactory<Render.PixelVisibility.ClientPixelVisEngine>(locator => new Render.PixelVisibility.ClientPixelVisEngine(
             locator.Require<IPixelVisSlots>(), locator.Require<IFxRender>(), locator.Require<IEngineWorldQuery>(),
-            locator.Require<IFlashlightSlots>().DXSupportLevel, Log, locator.Require<IEngineConsole>().FindConVarValue));
+            locator.Require<IFlashlightSlots>().DXSupportLevel, Log, locator.Require<DeveloperConVar>()));
         // The frame's view, for a mod's HUD that reads it (TF2's damage
         // indicator): the same engine object the passes read.
         _services.AddFactory<ICurrentView>(locator => locator.Require<Render.PixelVisibility.ClientPixelVisEngine>());
@@ -1067,15 +1052,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<ILeafNative>(_ => (ILeafNative?)NativeLeafCalls.Acquire(_engine, out string why)
                                                ?? throw new InvalidOperationException("the client leaf system's native table: " + why));
         _services.AddFactory<Render.LeafSystem.LeafRegistry>(locator => new Render.LeafSystem.LeafRegistry(locator.Require<ILeafNative>()));
-        _services.AddFactory<Render.LeafSystem.LeafListConVars>(locator =>
-        {
-            var leafConVars = new Render.LeafSystem.LeafListConVars(_services.Require<Render.LeafSystem.ClDrawLeafConVar>(),
-                _services.Require<Render.LeafSystem.PortalTestEntsConVar>(),
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue));
-            leafConVars.Start();
-            _leafConVars = leafConVars;
-            return leafConVars;
-        });
+        _services.Add<Render.LeafSystem.LeafListConVars>();
         // The standalone entities' per-view fade (lane M1-A: C_StandaloneEntity::
         // ComputeFxBlend's rule), run before each of the builder's blend batches.
         _services.AddFactory<Standalone.StandaloneFadePass>(locator => new Standalone.StandaloneFadePass(
@@ -1104,17 +1081,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                 ?? throw new InvalidOperationException("the client shadow manager's native table: " + why));
         _services.AddFactory<Render.Shadows.EntityShadows>(locator => new Render.Shadows.EntityShadows(locator.Require<ShadowNative>()));
         _services.AddFactory<Render.Shadows.IEntityShadowState>(locator => locator.Require<Render.Shadows.EntityShadows>());
-        _services.AddFactory<Render.Shadows.ShadowConVars>(locator =>
-        {
-            var shadowConVars = new Render.Shadows.ShadowConVars(_services.Require<Render.Shadows.FlashlightDrawFrustumConVar>(),
-                _services.Require<Render.Shadows.FlashlightModelsConVar>(), _services.Require<Render.Shadows.FlashlightDepthResConVar>(),
-                _services.Require<Render.Shadows.ShadowMaxRenderedConVar>(),
-                new Flashlight.WatchedConVarValues(locator.Require<IClientConVarSlots>(), locator.Require<IEngineConsole>().FindConVarValue),
-                locator.Require<IEngineConsole>());
-            shadowConVars.Start();
-            _shadowConVars = shadowConVars;
-            return shadowConVars;
-        });
+        _services.Add<Render.Shadows.ShadowConVars>();
         _services.AddFactory<Render.Shadows.ShadowManager>(locator =>
         {
             ShadowNative native = locator.Require<ShadowNative>();
@@ -1219,7 +1186,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.ViewEffectsHost>(locator => new Render.ViewEffectsHost(
             locator.Require<IUniformRandom>(), locator.Require<IGameClock>(), locator.Require<Render.ShakeShowConVar>(),
             _engineClient, shake => _inputService?.RumbleScreenShake(shake, 0f)));
-        _services.AddInstance<IClientMessageEffects>(new ClientMessageEffects(_services.Require<IEngineHud>(), () => _uiLoader?.Current, () => _voiceStatus,
+        _services.AddInstance<IClientMessageEffects>(new ClientMessageEffects(_services.Require<IEngineHud>(), _services.Require<Vgui.HudTakesShotsConVar>(), () => _uiLoader?.Current, () => _voiceStatus,
                                                                              m => _inputService?.RumbleEffect(m.Waveform, m.Data, m.Flags),
                                                                              () => _services.Require<Render.ViewEffectsHost>(),
                                                                              _services.Require<IGameClock>()));
@@ -1235,21 +1202,21 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // InterpolatedSet's (lane M1-A): the shell's list is every block, and
         // the admitted set goes back for its PreRender walk.
         IEngineEnvironment interpEnvironment = _services.Require<IEngineEnvironment>();
-        IEngineConsole interpConsole = _services.Require<IEngineConsole>();
+        var interpAlternateTicks = _services.Require<SvAlternateTicksConVar>();
         _interpolationBlocks = new InterpolatedSet(
             _services.Require<IEngineEntities>().InterpolationBlocks,
             () => (_prediction?.DrivenHandle ?? EntityHandle.None).Value,
             () => interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.IntervalPerTick : 0f,
             () => InterpolationDelay.AlternateTicks(
                 interpEnvironment.Globals.IsAvailable ? interpEnvironment.Globals.MaxClients : 0,
-                () => interpConsole.FindConVarValue("sv_alternateticks")),
+                interpAlternateTicks.Value),
             _services.Require<IInterpolationAdmission>());
 
         // AND THE GATE THE RENDER PASS OPENS ON (stock's InterpolateServerEntities
         // policy, which was native and read by nothing): its engine reads are
         // asked once a frame, at RenderStart.
         _interpolationGate = new InterpolationGate(_services.Require<IPlaybackState>(), _services.Require<IClientNetChannel>(),
-                                                   _services.Require<IEngineConsole>().FindConVarValue);
+                                                   _services.Require<ClInterpolateConVar>());
 
         // AND THE RENDER-POLICY LIST (step 6b), for the same reason and out of
         // the same area.
@@ -1631,7 +1598,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             var ragdollWorld = new Ragdolls.ClientRagdollWorld(_services.Require<IEngineWorldQuery>(),
                                                                _services.Require<IEngineEntities>(),
-                                                               _services.Require<IEngineConsole>(),
+                                                               _services.Require<DeveloperConVar>(),
                                                                _services.Require<Ragdolls.RagdollSleepAfterTimeConVar>());
             var ragdollBlocks = ClientStandaloneBlocks.For(_engine);
             _ragdolls = new Ragdolls.ClientRagdolls(
@@ -1666,13 +1633,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var fxConsole = _services.Require<IEngineConsole>();
         var tracerExtra = _services.Require<TracerExtraConVar>();
         var drawTracers = _services.Require<DrawTracersConVar>();
-        var effectList = new Effects.ClientEffectList(fxRender, fxConsole) { TracerExtra = () => tracerExtra.Value };
+        var effectList = new Effects.ClientEffectList(fxRender, fxConsole, _services.Require<DeveloperConVar>()) { TracerExtra = () => tracerExtra.Value };
         _services.AddInstance(effectList);
         var effectFactory = new Effects.ClientSideEffectFactory(fxRender, _services.Require<IFxTracerSound>(), effectList,
                                                                 _services.Require<IEngineHost>(),
                                                                 () => tracerExtra.Value);
         _services.AddInstance(effectFactory);
-        var tracers = new Effects.TracerSupport(fxRender, fxConsole, () => drawTracers.Value);
+        var tracers = new Effects.TracerSupport(fxRender, fxConsole, _services.Require<DeveloperConVar>(), () => drawTracers.Value);
         _services.AddInstance(tracers);
         _effectListHost = new Effects.ClientEffectListHost(effectList, effectFactory);
         // fx_sparks.cpp's routines (lane c5-particles): IEffects' sparks, metal
@@ -1687,10 +1654,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // CEntityDissolve on the client's bodies: what the AR2's ball kills with.
         if (_ragdollBlocks is { } dissolveBlocks && _ragdolls is { } dissolving && _skeletons is { } dissolveSkeletons)
         {
+            var gravity = _services.Require<ClientSvGravityConVar>();
             var dissolves = new Ragdolls.RagdollDissolves(dissolving, dissolveBlocks, dissolveSkeletons,
                 _services.Require<IEngineEntityRender>(), _services.Require<IPixelVisSlots>(), _services.Require<IUniformRandom>(), _sparks,
                 _services.Require<IGameClock>(),
-                () => float.TryParse(_services.Require<IEngineConsole>().FindConVarValue("sv_gravity"), System.Globalization.CultureInfo.InvariantCulture, out float g) ? g : 600f);
+                () => gravity.Value);
             _services.AddInstance<Ragdolls.IRagdollDissolves>(dissolves);
             _services.AddInstance<IClientFrameThink>(dissolves);
         }
@@ -1948,7 +1916,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _impactSounds = new Physics.ClientImpactSounds(_services.Require<IClientImpactSoundWorld>(),
                                                        _services.Require<IClientImpactSoundEmitter>());
         _collisionSolver = new Physics.ClientCollisionSolver(
-            new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<IEngineConsole>(),
+            new Physics.ClientCollisionFacts(_services.Require<IClientPhysicsObjectReads>(), _services.Require<Physics.ClientRagdollCollideConVar>(),
                                              propOwners));
         _services.AddInstance(_impactSounds);
         _services.AddInstance(_collisionSolver);
@@ -1979,12 +1947,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // their HitSurface splats blood where the model asks for it.
         if (scrapingProps is not null)
         {
-            var bloodConsole = _services.Require<IEngineConsole>();
+            var humanBlood = _services.Require<ViolenceHBloodConVar>();
             scrapingProps.HitSurfaces = new TempEnts.ClientPropHitSurfaces(
                 _services.Require<IEngineEntityRender>().GetModelKeyValueText, _services.Require<IClientDecals>(),
                 _services.Require<IEngineWorldQuery>(), _services.Require<IEngineEffects>(),
                 _services.Require<TempEnts.IDecalSettings>(),
-                () => !int.TryParse(bloodConsole.FindConVarValue("violence_hblood"), out int hblood) || hblood != 0);
+                () => humanBlood.Value);
             _contactTouches = new Physics.ClientContactTouches(
                 new Physics.VPhysicsTouchWorld(new VPhysicsObjects(_engine.VPhysics)), scrapingProps);
             _services.AddInstance(_contactTouches);
@@ -2300,11 +2268,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _services.Require<Flashlight.FlashlightAmbientConVar>(),
             _services.Require<Flashlight.FlashlightShadowAttenConVar>(),
             _services.Require<Flashlight.FlashlightLadderDistConVar>(),
-            new Flashlight.WatchedConVarValues(_services.Require<IClientConVarSlots>(),
-                                               _services.Require<IEngineConsole>().FindConVarValue),
+            _services.Require<MatSlopeScaleDepthBiasShadowMapConVar>(),
+            _services.Require<MatDepthBiasShadowMapConVar>(),
+            _services.Require<RFlashlightDepthTextureConVar>(),
+            _services.Require<Render.Shadows.FlashlightDepthResConVar>(),
             flashlightSlots.DXSupportLevel);
-        flashlightSettings.Start();
-        _flashlightSettings = flashlightSettings;
         _flashlight = new Flashlight.LocalPlayerFlashlight(
             new Flashlight.StandaloneFlashlightViewers(_services.Require<IClientStandalones>(),
                                                        _services.Require<IEngineHud>(),
@@ -2342,7 +2310,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         Input.IInputMailbox? inputMailbox = Input.InputMailbox.Open(_engine, out string whyNoMailbox);
         if (inputMailbox is null)
             Log.Warning($"[SourceSharp/Client] input: no input mailbox ({whyNoMailbox}); every input call crosses\n");
-        var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, new Input.UiMenuInputGate(() => _uiLoader?.Current),
+        var input = new Input.ClientInput(inputHost, inputDevices, inputCvars, _services.Require<SvCheatsConVar>(), _services.Require<JoyXControllerFoundConVar>(), new Input.UiMenuInputGate(() => _uiLoader?.Current),
                                           mailbox: inputMailbox, hud: _weaponSelection);
 
         // The rumble mixer (c_rumble.cpp's CRumbleEffects), stepped once a frame
@@ -2386,9 +2354,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _otherSteps = _services.Create<Sounds.OtherPlayerSteps>();
         _frameThinks = _services.Require<IHooks<IClientFrameThink>>();
 
-        IEngineConsole inputConsole = _services.Require<IEngineConsole>();
         _services.AddInstance<IDebugClientInput>(new ClientDebugInput(_inputService, inputCvars, inputHost,
-                                                                      () => inputConsole.FindConVarValue("sv_cheats")));
+                                                                      _services.Require<SvCheatsConVar>()));
         int inputCommands = 0;
         foreach (Input.InputCommandSpec spec in Input.InputCommands.For(input, inputHost, inputCvars))
         {
@@ -2727,11 +2694,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private ViewCamera.ViewCameraService? _viewCamera;
     private Render.ObserverCamera? _observerCamera;
     private Flashlight.LocalPlayerFlashlight? _flashlight;
-    private Flashlight.FlashlightConVars? _flashlightSettings;
-    private Render.LeafSystem.LeafListConVars? _leafConVars;
-    private Render.Shadows.ShadowConVars? _shadowConVars;
-    private Render.PixelVisibility.BuildingCubemapsWatch? _buildingCubemaps;
-    private TempEnts.DecalConVarsWatch? _decalConVars;
     private IClientSchemaGate? _schemaGate;
 
     private IInterpolationBlocks _interpolationBlocks = NoInterpolationBlocks.Instance;
@@ -2972,32 +2934,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public void OnConVarChanged(int id, string newValue, string oldValue)
     {
-        // A watched engine convar (IShimConVarsClient): the bounded convars' inputs.
-        if (_boundedConVars is { } bounded && bounded.OnChanged(id))
-            return;
-
-        // The flashlight's ConVars, read through the same watch.
-        if (_flashlightSettings is { } flashlight && flashlight.OnChanged(id, newValue))
-            return;
-
-        // The leaf system's (C7 cluster 12 L2): r_portalsopenall, the engine's.
-        if (_leafConVars is { } leafConVars && leafConVars.OnChanged(id, newValue))
-            return;
-
-        // The shadow manager's (C7 cluster 12 S2): r_shadowrendertotexture, r_flashlightdepthtexture,
-        // r_shadows, r_shadows_gamecontrol and r_flashlight_version2, the engine's, and viewrender's
-        // cl_drawshadowtexture.
-        if (_shadowConVars is { } shadowConVars && shadowConVars.OnChanged(id, newValue))
-            return;
-
-        // building_cubemaps, the engine's, which the pixel visibility and the glow overlays read (C7).
-        if (_buildingCubemaps is { } buildingCubemaps && buildingCubemaps.OnChanged(id, newValue))
-            return;
-
-        // r_decals and r_drawmodeldecals, the engine's, which the client's decals read (lane M1-C).
-        if (_decalConVars is { } decalConVars && decalConVars.OnChanged(id, newValue))
-            return;
-
         if (!_convars.NotifyChanged(id, newValue, oldValue))
             Log.Warning($"[SourceSharp/Client] no convar bound to id {id}\n");
     }
@@ -3227,10 +3163,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             => standalones.GetByIndex(index) is { } speaker ? render.GetModelName(speaker.Handle) ?? string.Empty : null;
 
         var emitterTrace = _services.Require<SvSoundEmitterTraceConVar>();
+        var closeCaption = _services.Require<CloseCaptionConVar>();
         var context = new Sounds.ClientSoundContext(
             () => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 1,
-            () => float.TryParse(console.FindConVarValue("closecaption"), System.Globalization.NumberStyles.Float,
-                                 System.Globalization.CultureInfo.InvariantCulture, out float on) && (int)on != 0,
+            () => closeCaption.Value,
             engineClient.LocalPlayerSlot,
             () => emitterTrace.Value,
             SpeakerModel);
@@ -3245,8 +3181,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     /// <summary><c>DevMsg</c>: the console line when <c>developer</c> is 1 or more.</summary>
     private void DeveloperMessage(string text)
     {
-        if (int.TryParse(NativeConsole.ValueOf(_services.Require<IEngineConsole>(), "developer"), out int level)
-            && level >= 1)
+        if (_services.Require<DeveloperConVar>().Value >= 1)
             Log.Msg(text);
     }
 
@@ -3270,10 +3205,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             return;
         }
 
-        IEngineConsole console = _services.Require<IEngineConsole>();
+        var developer = _services.Require<DeveloperConVar>();
         new Steam.ClientSteamCallbacks(_steamCallbacks, _steamContext,
             new Steam.SecureLaunch(steam, commands, Log,
-                () => int.TryParse(console.FindConVarValue("developer"), out int level) ? level : 0)).RegisterAll();
+                () => developer.Value)).RegisterAll();
     }
 
     /// <summary>

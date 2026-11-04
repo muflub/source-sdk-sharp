@@ -36,8 +36,8 @@ public static class InterpolationDelay
     /// <c>CBaseEntity::IsSimulatingOnAlternateTicks</c>: only a single-player
     /// game simulates on alternate ticks, and only with sv_alternateticks.
     /// </summary>
-    public static bool AlternateTicks(int maxClients, Func<string?> alternateTicksConVar)
-        => maxClients == 1 && VariantParse.Atof(alternateTicksConVar() ?? "0") != 0f;
+    public static bool AlternateTicks(int maxClients, bool alternateTicksConVar)
+        => maxClients == 1 && alternateTicksConVar;
 }
 
 /// <summary>

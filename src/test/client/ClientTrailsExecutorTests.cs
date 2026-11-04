@@ -5,6 +5,7 @@ using SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
 
 using Xunit;
+using SourceSharp.Client;
 
 namespace SourceSharp.Tests;
 
@@ -73,7 +74,7 @@ public class ClientTrailsExecutorTests
             new ClientFireTrail(engine, executor, new RandomSeeds(1)),
             new ClientRocketTrail(engine, executor, new RandomSeeds(1)),
             new ClientSporeTrail(engine, executor, new RandomSeeds(1)),
-            new ClientSporeExplosion(engine, executor, new RandomSeeds(1), engine),
+            new ClientSporeExplosion(engine, executor, new RandomSeeds(1), DeclaredConVars.Fresh<ClSporeclipdistanceConVar>()),
         ];
 
         var names = trails.SelectMany(t => Enumerable.Range(0, t.ChannelCount).Select(c => t.ClassName + ":" + t.MaterialOf(c))).ToList();
@@ -188,8 +189,7 @@ public class ClientTrailsExecutorTests
     public void TheSporeExplosionReadsTheViewAndTheClipDistance()
     {
         var engine = new RecordingEngine();
-        engine.Returns("Console.FindConVarValue", "100");
-        var spores = Bind(new ClientSporeExplosion(engine, new RecordingParticleExecutor(), new RandomSeeds(2), engine), engine);
+        var spores = Bind(new ClientSporeExplosion(engine, new RecordingParticleExecutor(), new RandomSeeds(2), DeclaredConVars.Holding<ClSporeclipdistanceConVar>("100")), engine);
         spores.State.BindLocal();
         spores.State.SpawnRate = 40;
         spores.State.SpawnRadius = 16;
@@ -203,8 +203,6 @@ public class ClientTrailsExecutorTests
         emit.ViewOrigin = new Vector(500, 0, 0);
         source.Emit(0, ref emit, ids);
         Assert.True(spores.Sim.PreviousSpawnRate == 20, $"a view past cl_sporeclipdistance halves the rate ({spores.Sim.PreviousSpawnRate})");
-        Assert.True(engine.Calls.Any(c => c.Member == "Console.FindConVarValue" && (string?)c.Args[0] == "cl_sporeclipdistance"),
-            "the distance is the convar's");
     }
 
     [Fact]

@@ -98,12 +98,6 @@ public sealed class SkyboxSwapper : ScriptedEntity
         if (Vars.SkyboxName.Length == 0)
             return;
 
-        if (Console.FindConVarValue("sv_skyname") is null)
-        {
-            Log.Warning($"[SourceSharp] skybox_swapper '{Name}': no 'sv_skyname' convar\n");
-            return;
-        }
-
         Console.ExecuteServerCommand($"sv_skyname {Vars.SkyboxName}");
     }
 }

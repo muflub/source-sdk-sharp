@@ -59,13 +59,13 @@ public sealed class TeFireCommand
     private readonly TempEntRegistry _registry;
     private readonly ITeFire _fire;
 
-    public TeFireCommand(ILog log, TempEntRegistry registry, ITeFire fire, IEngineConsole console)
+    public TeFireCommand(ILog log, TempEntRegistry registry, ITeFire fire, SvCheatsConVar cheats)
     {
 
         _log = log;
         _registry = registry;
         _fire = fire;
-        CheatsEnabled = () => ImpulseCheats.CheatsOn(NativeConsole.ValueOf(console, "sv_cheats"));
+        CheatsEnabled = () => cheats.Value;
     }
 
     /// <summary>

@@ -5,6 +5,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using Xunit;
+using SourceSharp.Shared;
 
 using static SourceSharp.Tests.TestServices;
 
@@ -62,7 +63,7 @@ public class DebugDrawCommandTests
                                        Vector.Zero, Vector.Zero, EntityHandle.None));
 
         var context = new DevContext(engine, engine, engine, engine,
-                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), engine, new RecordingLog())
+                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => cheats,
             Issuer = () => EntityHandle.None,

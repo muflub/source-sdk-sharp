@@ -331,6 +331,7 @@ public unsafe class ClientAdapterRegistrationTests
                                                                c => c.PointContents(new Vector(0, 0, 6))));
 
     [UnmanagedCallersOnly] private static int SevenFor(void* self, byte* name) => 7;
+    [UnmanagedCallersOnly] private static int SevenForSet(void* self, byte* name, float value) => 7;
     [UnmanagedCallersOnly] private static int GotCmd(void* self, int command, void* cmd) => 1;
 
     [UnmanagedCallersOnly]
@@ -391,8 +392,8 @@ public unsafe class ClientAdapterRegistrationTests
 
     [Fact]
     public void TheRegisteredConVarSlotsAskTheConVarsArea()
-        => Assert.Equal(7, Through<IClientConVarSlots, int>("SourceSharpConVarsClient001", nameof(ShimConVarsClientFwd.ConVarsClientWatch),
-                                                            (nint)(delegate* unmanaged<void*, byte*, int>)&SevenFor, c => c.Watch("fov")));
+        => Assert.True(Through<IClientConVarSlots, bool>("SourceSharpConVarsClient001", nameof(ShimConVarsClientFwd.ConVarsClientSetValue),
+                                                         (nint)(delegate* unmanaged<void*, byte*, float, int>)&SevenForSet, c => c.SetValue("fov", 1f)));
 
     [Fact]
     public void TheRegisteredNetChannelAsksTheNetArea()

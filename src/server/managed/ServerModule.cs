@@ -153,6 +153,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // The holders of the convars a class reads too many of to list.
         _services.Add<GameRulesConVars>();
+        _services.Add<VoteConVars>();
+        _services.Add<ViolenceConVars>();
         _services.Add<BreakableBrushConVars>();
 
         // This module's own reads, all live.
@@ -1968,7 +1970,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // Who is an admin, and the menu they get.
         _services.Add<IAdminMenu, AdminMenuBuilder>();
-        _services.AddFactory(locator => ServerAdmins.For(locator.Require<IEngineHost>(), locator.Require<IEngineFiles>(), locator.Require<IEngineConsole>(),
+        _services.AddFactory(locator => ServerAdmins.For(locator.Require<IEngineHost>(), locator.Require<IEngineFiles>(), locator.Require<AdminAddressConVar>(),
                                                          locator.Require<IBoundPort>(), locator.Require<IUserMessageSender>(), locator.Require<IAdminMenu>(),
                                                          locator.Require<IGameClock>(), locator.Require<ILog>()));
         _services.AddFactory<IAdminStatus>(locator => locator.Require<ServerAdmins>());
@@ -2100,7 +2102,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<ILagCompensationWorld>(
             new EngineLagCompensationWorld(_services.Require<IEngineEnvironment>(), _services.Require<IEnginePlayers>(),
                                            _services.Require<IEngineEntities>(), _services.Require<IEngineWorldQuery>(),
-                                           _services.Require<IEngineConsole>(), _services.Require<IClientInfo>(),
+                                           _services.Require<SvMinUpdateRateConVar>(), _services.Require<SvMaxUpdateRateConVar>(),
+                                           _services.Require<SvClientMinInterpRatioConVar>(), _services.Require<SvClientMaxInterpRatioConVar>(),
+                                           _services.Require<IClientInfo>(),
                                            _engineServer, _services.Require<IServerEntityPlacement>(), _skeletons,
                                            _playerMoves));
         var lagCompensation = new LagCompensation(
@@ -2180,6 +2184,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                      _services.Require<IEngineLevel>(),
                                      _services.Require<IEngineEntities>(),
                                      _services.Require<IEngineConsole>(),
+                                     _services.Require<DeveloperConVar>(), _services.Require<GLanguageConVar>(), _services.Require<SvTagsConVar>(),
                                      _services.Require<IEngineFrame>(),
                                      _stringTables,
                                      _services.Require<ManagedStringTable>(),
@@ -3447,7 +3452,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IEngineEntities>(),
             new EngineEffectsWorld(_services.Require<SideRoute<IServerTraceRoute>>(), _services.Require<IEngineEntities>(),
                                    _services.Require<IEnginePrecache>(), _engineServer),
-            _services.Require<IEngineConsole>(), _services.Require<IUniformRandom>(),
+            _services.Require<ViolenceHBloodConVar>(), _services.Require<ViolenceABloodConVar>(), _services.Require<IUniformRandom>(),
             text => Log.Warning(text)));
     }
 
@@ -3578,8 +3583,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// </summary>
     private void DeveloperMessage(string text)
     {
-        if (int.TryParse(NativeConsole.ValueOf(_services.Require<IEngineConsole>(), "developer"), out int level)
-            && level >= 1)
+        if (_services.Require<DeveloperConVar>().Value >= 1)
             Log.Msg(text);
     }
 

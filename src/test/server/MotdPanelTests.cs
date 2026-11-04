@@ -19,10 +19,9 @@ public class MotdPanelTests
     private static (MotdPanel Panel, RecordingEngine Engine, ConVarRegistry ConVars) Rig(string? hostname)
     {
         var engine = Fake();
-        engine.Returns("Console.FindConVarValue", hostname);
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        return (new MotdPanel(engine, engine, convars.Declared<MotdUnloadOnDismissalConVar>()), engine, convars);
+        return (new MotdPanel(engine, DeclaredConVars.Holding<HostnameConVar>(hostname), convars.Declared<MotdUnloadOnDismissalConVar>()), engine, convars);
     }
 
     private static (VguiMenu Menu, int Slot, bool Reliable) Sent(RecordingEngine engine)

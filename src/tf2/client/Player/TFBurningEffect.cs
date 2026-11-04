@@ -36,7 +36,7 @@ namespace TF2.Client.Player;
 public sealed class TFBurningEffect(
     IEngineEffects effects,
     IEngineHud hud,
-    IEngineConsole console,
+    SourceSharp.Client.LocalPlayerVisionFlagsConVar visionFlags,
     TFClientPlayerResources resources) : ITFClientConditionHook, IOrderedHook
 {
     /// <summary>The players whose burn particle is running.</summary>
@@ -77,10 +77,5 @@ public sealed class TFBurningEffect(
         => resources.Live is { } resource ? resource.State.Team[player.EntryIndex] : 0;
 
     /// <summary><c>localplayer_visionflags</c> &amp; TF_VISION_FILTER_PYRO.</summary>
-    private bool PyroVision(EntityHandle player)
-    {
-        string? raw = console.FindConVarValue("localplayer_visionflags");
-
-        return int.TryParse(raw, out int flags) && (flags & 0x1) != 0;
-    }
+    private bool PyroVision(EntityHandle player) => (visionFlags.Value & 0x1) != 0;
 }

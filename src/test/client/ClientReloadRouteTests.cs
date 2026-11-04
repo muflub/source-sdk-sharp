@@ -7,6 +7,7 @@ using Debug.Api.Client.Interfaces;
 using Debug.Api;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -96,28 +97,11 @@ public class ClientReloadRouteTests
         Assert.Equal(2, third.Sequence);
     }
 
-    private sealed class Console(string? cheats) : IEngineConsole
-    {
-        public void ExecuteServerCommand(string command) => throw new NotSupportedException();
-        public IReadOnlyList<string> CompleteCommandLine(string line) => [];
-        public string? FindConVarValue(string name) => name == "sv_cheats" ? cheats : null;
-        public string GetConVarValue(int id) => throw new NotSupportedException();
-        public void Msg(string message) { }
-        public int RegisterConCommand(string name, string help, ConVarFlags flags) => throw new NotSupportedException();
-        public int RegisterConVar(string name, string defaultValue, string help, int flags, float? min = null, float? max = null) => throw new NotSupportedException();
-        public void SendClientCommand(EntityHandle player, string command) => throw new NotSupportedException();
-        public void SetConVarValue(int id, string value) => throw new NotSupportedException();
-        public void SetConVarValueByName(string name, string value) => throw new NotSupportedException();
-        public int Snapshot() => 0;
-        public bool SnapshotEntry(int index, out NativeConsoleEntry entry) { entry = default; return false; }
-        public void Warning(string message) { }
-    }
-
     private static (ClientDebugReload Route, ClientReloadRequester Requester) Route(string? cheats, List<string>? sent = null)
     {
         var (_, fresh, _, _) = Pair();
         var requester = new ClientReloadRequester(new ChatFeedTests.RecordingEngineClient(sent ?? []));
-        return (new ClientDebugReload(fresh, requester, new Console(cheats)), requester);
+        return (new ClientDebugReload(fresh, requester, DeclaredConVars.Holding<SvCheatsConVar>(cheats)), requester);
     }
 
     [Fact]

@@ -66,16 +66,18 @@ public sealed class EntityMotion
 
     public EntityMotion(ILog log, IEngineEntities entities, IEngineWorldQuery world,
                         IEngineEffects effects,
-                        IEngineConsole console, IEngineEntityPhysics physics, EntityDirectory directory,
+                        MoversBlockedConVar blockedReporting, MoversPushedConVar pushedTrace,
+                        IEngineEntityPhysics physics, EntityDirectory directory,
                         PhysicsPushedEntities pushed)
     {
+        _blockedReporting = blockedReporting;
+        _pushedTrace = pushedTrace;
         _log = log;
         _physics = physics;
         _pushed = pushed;
         _entities = entities;
         _world = world;
         _effects = effects;
-        _console = console;
         _directory = directory;
     }
 
@@ -99,8 +101,8 @@ public sealed class EntityMotion
     /// </summary>
     public Hierarchy? Parenting { get; set; }
 
-    /// <summary>For the one convar the blocked diagnostic reads. See <see cref="BlockedReportingOn"/>.</summary>
-    private readonly IEngineConsole _console;
+    private readonly MoversBlockedConVar _blockedReporting;
+    private readonly MoversPushedConVar _pushedTrace;
 
     private readonly IEngineEntities _entities;
     private readonly IEngineWorldQuery _world;
@@ -1057,7 +1059,7 @@ public sealed class EntityMotion
             return 0;
 
         // One convar read per frame there are movers, for the push trace.
-        _pushed.Trace = ConVarOn(MoversPushedConVar.ConVarName);
+        _pushed.Trace = _pushedTrace.Value;
 
         _pushPass.Clear();
         _pushPass.AddRange(_pushOrder);
@@ -1358,7 +1360,7 @@ public sealed class EntityMotion
     /// </summary>
     private void ReportBlocked(EntityHandle mover, EntityHandle blocker, in Vector destination)
     {
-        if (!BlockedReportingOn())
+        if (!_blockedReporting.Value)
             return;
 
         var (mins, maxs) = _entities.GetBounds(blocker);
@@ -1369,27 +1371,6 @@ public sealed class EntityMotion
                 $"its top is {_entities.GetOrigin(mover).Z + moverMaxs.Z:F1}. " +
                 $"Blocked by '{Name(blocker)}' box {origin + mins} .. {origin + maxs}, " +
                 $"feet {origin.Z + mins.Z:F1}\n");
-    }
-
-    /// <summary>
-    /// <c>cs_sv_movers_blocked</c>, read through the console BY NAME rather than
-    /// through an injected <c>ConVarRegistry</c>.
-    ///
-    /// <para>
-    /// Not a preference: <see cref="EntityMotion"/> is constructed before
-    /// <c>ServerModule</c> registers its ConVars and publishes them to the
-    /// container, so an injected instance would be null for the life of the
-    /// object. The lookup costs one native call and one small string, and it is
-    /// only made on a frame that is actually blocked.
-    /// </para>
-    /// </summary>
-    private bool BlockedReportingOn() => ConVarOn(MoversBlockedConVar.ConVarName);
-
-    private bool ConVarOn(string name)
-    {
-        string? value = _console.FindConVarValue(name);
-
-        return value is not null && value.Length != 0 && value != "0";
     }
 
     private void MoveDone(EntityHandle entity) => _directory.Resolve(entity)?.OnMoveDone();

@@ -597,20 +597,20 @@ public sealed class TFStickybomb : ScriptedEntity
     private readonly IEngineEntityPhysics Physics;
     private readonly TFBlastApplier Blast;
     private readonly IEnginePlayers Players;
-    private readonly IEngineConsole Console;
+    private readonly TFStickybombConVars ConVars;
     private readonly IGameClock Clock;
     private readonly IEngineWorldQuery World;
     private readonly IEntityDirectory Directory;
     private readonly IEngineFrame Frame;
 
     public TFStickybomb(IEngineEntityPhysics physics, TFBlastApplier blast, IEnginePlayers players,
-                        IEngineConsole console, IGameClock clock, IEngineWorldQuery world,
+                        TFStickybombConVars convars, IGameClock clock, IEngineWorldQuery world,
                         IEntityDirectory directory, IEngineFrame frame)
     {
         Physics = physics;
         Blast = blast;
         Players = players;
-        Console = console;
+        ConVars = convars;
         Clock = clock;
         World = world;
         Directory = directory;
@@ -656,7 +656,7 @@ public sealed class TFStickybomb : ScriptedEntity
         // PreArmThink books the arm at the live time
         // (tf_weapon_grenade_pipebomb.cpp:1144, GetLiveTime :1186-1210), the
         // constant its declared value.
-        SetNextThink(ConVarFloat("tf_grenadelauncher_livetime", TFProjectileDefs.StickyArmTime));
+        SetNextThink(ConVars.LiveTime.Value);
     }
 
     public override bool TouchedByAnything => true;
@@ -823,18 +823,18 @@ public sealed class TFStickybomb : ScriptedEntity
 
         Vector scaled = force;
         if ((damageType & (DamageType.Bullet | TFDamageBits.Melee)) != 0)
-            scaled *= ForceFrom("tf_grenade_forcefrom_bullet");
+            scaled *= ConVars.ForceFromBullet.Value;
         if ((damageType & DamageType.Sonic) != 0)
-            scaled *= ForceFrom("tf_grenade_forcefrom_bullet");
+            scaled *= ConVars.ForceFromBullet.Value;
         else if ((damageType & DamageType.Buckshot) != 0)
-            scaled *= ForceFrom("tf_grenade_forcefrom_buckshot");
+            scaled *= ConVars.ForceFromBuckshot.Value;
         else if ((damageType & DamageType.Blast) != 0)
             // The DMG_IGNITE arm (the Cow Mangler's destroy, :992-996) breaks
             // pipes too; ignition is not ported, so the bit is not read.
-            scaled *= ForceFrom("tf_grenade_forcefrom_blast");
+            scaled *= ConVars.ForceFromBlast.Value;
 
         // If the force is sufficient, detach & move the pipebomb (:1046-1069).
-        float toMove = ForceFrom("tf_pipebomb_force_to_move");
+        float toMove = ConVars.ForceToMove.Value;
         if (scaled.LengthSquared <= toMove * toMove)
             return 0;
 
@@ -842,20 +842,10 @@ public sealed class TFStickybomb : ScriptedEntity
         VPhysicsTakeDamage(damageType, position, scaled);
 
         // The pipebomb will re-stick to the ground after this time expires.
-        _minSleepTime = Clock.Now + ForceFrom("tf_grenade_force_sleeptime");
+        _minSleepTime = Clock.Now + ConVars.ForceSleepTime.Value;
         _stuck = false;
         return 1;
     }
-
-    /// <summary>A named convar's float, or 0 when the engine has no such value.</summary>
-    private float ForceFrom(string name)
-        => float.TryParse(Console.FindConVarValue(name), NumberStyles.Float,
-                          CultureInfo.InvariantCulture, out float value) ? value : 0f;
-
-    /// <summary>A named convar's float, or the stock default when the engine has no such value.</summary>
-    private float ConVarFloat(string name, float stock)
-        => float.TryParse(Console.FindConVarValue(name), NumberStyles.Float,
-                          CultureInfo.InvariantCulture, out float value) ? value : stock;
 
     /// <summary>
     /// <c>CTFGrenadePipebombProjectile::GetDamageRadius</c>
@@ -878,13 +868,13 @@ public sealed class TFStickybomb : ScriptedEntity
 
         // The ramp starts at the live time, as stock's flArmTime does
         // (:1428) — the same number the arm think booked itself by.
-        float armTime = ConVarFloat("tf_grenadelauncher_livetime", TFProjectileDefs.StickyArmTime);
+        float armTime = ConVars.LiveTime.Value;
         return Radius * TFRadiusDamage.RemapClamped(
             Clock.Now - _createdAt,
             armTime,
             armTime
-            + ConVarFloat("tf_sticky_radius_ramp_time", TFProjectileDefs.StickyRadiusRampTime),
-            ConVarFloat("tf_sticky_airdet_radius", TFProjectileDefs.StickyAirDetRadius), 1f);
+            + ConVars.RadiusRampTime.Value,
+            ConVars.AirDetRadius.Value, 1f);
     }
 
     public void ThrownBy(EntityHandle thrower, Vector velocity, float fullDamage, float radius,
@@ -923,8 +913,7 @@ public sealed class TFStickybomb : ScriptedEntity
     public void DeflectedBy(EntityHandle deflector, Vector force)
     {
         DeflectedCount++;
-        _deflectedResetAt = Clock.Now + ConVarFloat("tf_pipebomb_deflect_reset_time",
-                                                    TFProjectileDefs.PipebombDeflectResetTime);
+        _deflectedResetAt = Clock.Now + ConVars.DeflectResetTime.Value;
         OnDamagedAt(deflector, damage: 0f, DamageType.Sonic, Origin, force);
     }
 

@@ -48,44 +48,42 @@ public class InterpolationGateTests
 
     [Fact]
     public void ClInterpolatesDefaultIsOn()
-        => Assert.True(InterpolationGate.ConVarOn("1.0f"));
+        => Assert.True(DeclaredConVars.Holding<ClInterpolateConVar>("1.0f").Value);
 
     [Fact]
     public void ClInterpolateZeroIsOff()
-        => Assert.False(InterpolationGate.ConVarOn("0"));
+        => Assert.False(DeclaredConVars.Holding<ClInterpolateConVar>("0").Value);
 
     [Fact]
     public void ClInterpolateTruncatesLikeConVarGetInt()
-        => Assert.False(InterpolationGate.ConVarOn("0.5"));
+        => Assert.False(DeclaredConVars.Holding<ClInterpolateConVar>("0.5").Value);
 
     [Fact]
     public void AConVarTheEngineDoesNotAnswerIsItsDeclaredDefault()
-        => Assert.True(InterpolationGate.ConVarOn(null));
+        => Assert.True(DeclaredConVars.Fresh<ClInterpolateConVar>().Value);
 
     [Fact]
     public void OpenClosesOnTheChannelsSilence()
     {
         var channel = new FakeChannel { SinceLastReceived = 2f };
-        var gate = new InterpolationGate(new FakePlayback(), channel, _ => "1");
+        var gate = new InterpolationGate(new FakePlayback(), channel, DeclaredConVars.Holding<ClInterpolateConVar>("1"));
 
         Assert.False(gate.Open());
     }
 
     [Fact]
-    public void OpenReadsTheConVarByItsProtocolName()
+    public void OpenClosesWithTheConVarOff()
     {
-        string? asked = null;
-        var gate = new InterpolationGate(new FakePlayback(), new FakeChannel(), name => { asked = name; return "0"; });
+        var gate = new InterpolationGate(new FakePlayback(), new FakeChannel(), DeclaredConVars.Holding<ClInterpolateConVar>("0"));
 
         Assert.False(gate.Open());
-        Assert.Equal("cl_interpolate", asked);
     }
 
     [Fact]
     public void OpenDoesNotAskTheChannelDuringDemoPlayback()
     {
         var channel = new FakeChannel { SinceLastReceived = 2f };
-        var gate = new InterpolationGate(new FakePlayback { IsPlayingDemo = true }, channel, _ => "1");
+        var gate = new InterpolationGate(new FakePlayback { IsPlayingDemo = true }, channel, DeclaredConVars.Holding<ClInterpolateConVar>("1"));
 
         Assert.True(gate.Open());
         Assert.Equal(0, channel.Asked);
@@ -94,7 +92,7 @@ public class InterpolationGateTests
     [Fact]
     public void OpenClosesWhileTheEngineIsPaused()
     {
-        var gate = new InterpolationGate(new FakePlayback { IsPaused = true }, new FakeChannel(), _ => "1");
+        var gate = new InterpolationGate(new FakePlayback { IsPaused = true }, new FakeChannel(), DeclaredConVars.Holding<ClInterpolateConVar>("1"));
 
         Assert.False(gate.Open());
     }

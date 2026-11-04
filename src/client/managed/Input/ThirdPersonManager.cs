@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using SourceSharp.Shared;
 namespace SourceSharp.Client.Input;
 
 /// <summary>A mutable float triple: the camera offset (pitch, yaw, distance), stock's Vector.</summary>
@@ -27,6 +28,7 @@ public sealed class ThirdPersonManager
 {
     private readonly ClientInput _input;
     private readonly IInputHost _host;
+    private readonly SvCheatsConVar _cheats;
     private readonly InputCvars _cvars;
 
     /// <summary>
@@ -37,10 +39,11 @@ public sealed class ThirdPersonManager
     /// </summary>
     private readonly bool _gameRulesAllowThirdPerson;
 
-    public ThirdPersonManager(ClientInput input, IInputHost host, InputCvars cvars, bool gameRulesAllowThirdPerson = false)
+    public ThirdPersonManager(ClientInput input, IInputHost host, SvCheatsConVar cheats, InputCvars cvars, bool gameRulesAllowThirdPerson = false)
     {
         _input = input;
         _host = host;
+        _cheats = cheats;
         _cvars = cvars;
         _gameRulesAllowThirdPerson = gameRulesAllowThirdPerson;
     }
@@ -70,11 +73,7 @@ public sealed class ThirdPersonManager
     /// </summary>
     public void Update()
     {
-        string? cheats = _host.EngineConVar("sv_cheats");
-        bool cheatsKnown = cheats is not null;
-        bool cheatsOn = cheatsKnown && (int)(float)CRuntime.Atof(cheats) != 0;
-
-        if (cheatsKnown && !cheatsOn && !_gameRulesAllowThirdPerson)
+        if (_cheats.HasValue && !_cheats.Value && !_gameRulesAllowThirdPerson)
         {
             if (_input.CamIsThirdPerson())
                 _input.CamToFirstPerson();

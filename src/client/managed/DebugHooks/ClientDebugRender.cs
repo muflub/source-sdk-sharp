@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using Debug.Api.Client.Interfaces;
 using SourceSharp.Client.Render;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client;
 
@@ -9,7 +10,7 @@ namespace SourceSharp.Client;
 /// C7, §4.4's <c>render</c> and <c>render/compare</c>). The compare is a write:
 /// it answers only with sv_cheats on, and says so otherwise.
 /// </summary>
-public sealed class ClientDebugRender(RenderPlanHost plan, IEngineConsole console, Render.ObserverCamera? observer = null) : IDebugClientRender
+public sealed class ClientDebugRender(RenderPlanHost plan, SvCheatsConVar cheats, Render.ObserverCamera? observer = null) : IDebugClientRender
 {
     public DebugClientRender Read(bool resetTimes = false)
     {
@@ -36,7 +37,7 @@ public sealed class ClientDebugRender(RenderPlanHost plan, IEngineConsole consol
 
     public DebugClientRenderRequest CompareFrozen(string path, bool mutate)
     {
-        if (console.FindConVarValue("sv_cheats") is not "1")
+        if (!cheats.Value)
             return new DebugClientRenderRequest(false, "a write: needs sv_cheats 1", plan.CompareReading().Sequence);
         string text;
         try

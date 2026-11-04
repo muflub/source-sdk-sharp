@@ -45,7 +45,7 @@ public class TeFireCommandTests
         var registry = new TempEntRegistry(new RecordingLog());
         registry.RegisterAll("Test", TestServices.ServerGame, engine);
 
-        var command = new TeFireCommand(new RecordingLog(), registry, new TeFire(new RecordingLog(), registry, engine, engine), engine)
+        var command = new TeFireCommand(new RecordingLog(), registry, new TeFire(new RecordingLog(), registry, engine, engine), DeclaredConVars.Fresh<SvCheatsConVar>())
         {
             CheatsEnabled = () => cheats,
         };

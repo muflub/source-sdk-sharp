@@ -244,10 +244,9 @@ public class FlashlightTests
     }
 
     [Fact]
-    public void TheModuleRoutesTheWatchesChangesAndTheLevelsEnd()
+    public void TheModuleTellsTheFlashlightOfTheLevelsEnd()
     {
         string module = Module();
-        Assert.Contains("if (_flashlightSettings is { } flashlight && flashlight.OnChanged(id, newValue))", module);
         int shutdown = module.IndexOf("public void LevelShutdown()", StringComparison.Ordinal);
         Assert.True(shutdown >= 0 && module.IndexOf("_flashlight?.LevelShutdown();", shutdown, StringComparison.Ordinal) > shutdown,
                     "LevelShutdown does not forget the flashlight");
@@ -340,51 +339,6 @@ public class FlashlightTests
         Assert.Null(source.Viewer());
     }
 
-    // ---- the watched ConVars ----------------------------------------------
-
-    /// <summary>shell_convars_client.h's SOURCESHARP_CONVAR_WATCH_ID_BASE.</summary>
-    private const int WatchIdBase = 0x10000;
-
-    private sealed class WatchSlots : IClientConVarSlots
-    {
-        public readonly List<string> Watched = [];
-        public int Watch(string name)
-        {
-            if (name == "no_such_convar")
-                return -1;
-            Watched.Add(name);
-            return WatchIdBase + Watched.Count - 1;
-        }
-        public bool SetValue(string name, float value) => false;
-    }
-
-    [Fact]
-    public void AWatchedValueIsReadOnceThenFollowsItsChanges()
-    {
-        var slots = new WatchSlots();
-        var values = new WatchedConVarValues(slots, name => name == "r_flashlightfov" ? "45.0" : null);
-        values.Watch(["r_flashlightfov", "no_such_convar"]);
-
-        Assert.Equal(1, values.Watched);
-        Assert.Equal(45f, values.Float("r_flashlightfov"));
-
-        Assert.True(values.OnChanged(WatchIdBase, "60.5x"));
-        Assert.Equal(60.5f, values.Float("r_flashlightfov"));   // atof's prefix
-        Assert.Equal(60, values.Int("r_flashlightfov"));        // GetInt: the float truncated
-        Assert.False(values.OnChanged(WatchIdBase + 1, "1"), "an id it never watched is not its");
-    }
-
-    [Fact]
-    public void GetBoolIsGetIntNotZero()
-    {
-        var slots = new WatchSlots();
-        var values = new WatchedConVarValues(slots, _ => "0.5");
-        values.Watch(["r_newflashlight"]);
-        Assert.False(values.Bool("r_newflashlight"));
-        values.OnChanged(WatchIdBase, "1.0");
-        Assert.True(values.Bool("r_newflashlight"));
-    }
-
     // ---- the flashlight's own ConVars ---------------------------------------
 
     /// <summary>A console that keeps what it is set to, as the engine's ConVar does.</summary>
@@ -441,8 +395,11 @@ public class FlashlightTests
                                              Registry.Declared<FlashlightAmbientConVar>(),
                                              Registry.Declared<FlashlightShadowAttenConVar>(),
                                              Registry.Declared<FlashlightLadderDistConVar>(),
-                                             new WatchedConVarValues(new WatchSlots(), engineValue ?? (_ => null)), () => dx);
-            Settings.Start();
+                                             DeclaredConVars.Holding<MatSlopeScaleDepthBiasShadowMapConVar>(engineValue?.Invoke("mat_slopescaledepthbias_shadowmap")),
+                                             DeclaredConVars.Holding<MatDepthBiasShadowMapConVar>(engineValue?.Invoke("mat_depthbias_shadowmap")),
+                                             DeclaredConVars.Holding<RFlashlightDepthTextureConVar>(engineValue?.Invoke("r_flashlightdepthtexture")),
+                                             DeclaredConVars.Holding<SourceSharp.Client.Render.Shadows.FlashlightDepthResConVar>(engineValue?.Invoke("r_flashlightdepthres")),
+                                             () => dx);
         }
 
         public void Change(string name, string value)
@@ -455,12 +412,10 @@ public class FlashlightTests
     }
 
     [Fact]
-    public void TheFlashlightDeclaresSixteenConVarsAndWatchesTheFourItDoesNot()
+    public void TheFlashlightDeclaresSixteenConVars()
     {
         var rig = new ConVarRig();
         Assert.Equal(16, rig.Backend.Ids.Count);
-        Assert.Equal(4, FlashlightConVars.EngineNames().Distinct().Count());
-        Assert.All(FlashlightConVars.EngineNames(), n => Assert.False(rig.Backend.Ids.ContainsKey(n), n + " is registered by the flashlight"));
     }
 
     [Fact]
@@ -468,7 +423,7 @@ public class FlashlightTests
     {
         // A distinct value per name: a setting that read a neighbour's name
         // would answer that neighbour's number.
-        string[] engineNames = FlashlightConVars.EngineNames();
+        string[] engineNames = ["mat_slopescaledepthbias_shadowmap", "mat_depthbias_shadowmap", "r_flashlightdepthtexture", "r_flashlightdepthres"];
         var engine = engineNames.Select((n, i) => (n, i)).ToDictionary(p => p.n, p => (p.i + 100).ToString(System.Globalization.CultureInfo.InvariantCulture));
         var rig = new ConVarRig(engineValue: n => engine[n]);
         var own = rig.Backend.Ids.Keys.OrderBy(n => n, StringComparer.Ordinal).Select((n, i) => (n, i))

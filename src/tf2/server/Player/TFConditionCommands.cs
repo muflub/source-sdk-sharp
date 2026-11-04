@@ -40,7 +40,7 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFConditionCommands(ITFPlayerConditions conditions, ITeamRoundRoster roster,
-                                        IEngineConsole console, ILog log)
+                                        SourceSharp.Shared.SvCheatsConVar cheats, ILog log)
     : IClientCommandHook, IOrderedHook
 {
     public const string Add = "addcond";
@@ -55,9 +55,7 @@ public sealed class TFConditionCommands(ITFPlayerConditions conditions, ITeamRou
         if (!add && !string.Equals(command, Remove, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        // sv_cheats read live, fail-closed: missing or not a number is off
-        // (the damage dev commands' reading).
-        if (!(float.TryParse(console.FindConVarValue("sv_cheats"), NumberStyles.Float, CultureInfo.InvariantCulture, out float on) && on != 0f))
+        if (!cheats.Value)
             return true;
 
         if (args.Length < 1)

@@ -53,12 +53,9 @@ public class BloodEffectTests
     {
         var engine = new RecordingEngine();
         var temps = new EffectsRewiringTests.RecordingTempEnts();
-        var console = new Console(new Dictionary<string, string>
-        {
-            ["violence_hblood"] = humanBlood ? "1" : "0",
-            ["violence_ablood"] = alienBlood ? "1" : "0",
-        });
-        var effects = new EffectsOverTempEnts(engine, temps, engine, engine, new World(), console,
+        var effects = new EffectsOverTempEnts(engine, temps, engine, engine, new World(),
+                                              DeclaredConVars.Holding<ViolenceHBloodConVar>(humanBlood ? "1" : "0"),
+                                              DeclaredConVars.Holding<ViolenceABloodConVar>(alienBlood ? "1" : "0"),
                                               random ?? new DefaultForwarders.LowestRandom(), _ => { });
         return (effects, temps);
     }

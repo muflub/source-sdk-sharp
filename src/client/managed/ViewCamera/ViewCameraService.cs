@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.ViewCamera;
 
@@ -31,7 +32,7 @@ public interface IViewCameraService
 /// view it is handed (shell_view_targets.cpp).
 /// </summary>
 public sealed class ViewCameraService(
-    IViewTargets targets, ViewReadout view, IEngineWorldQuery world, IEngineConsole console,
+    IViewTargets targets, ViewReadout view, IEngineWorldQuery world, SvCheatsConVar cheats,
     ViewCameraModeConVar mode, ViewCameraEveryConVar every) : IViewCameraService, IViewCameraSource
 {
     /// <summary>The one view target the prototype has.</summary>
@@ -157,15 +158,14 @@ public sealed class ViewCameraService(
     /// <summary>
     /// cs_cl_overview, or Off without sv_cheats 1: a debug camera (user ruling
     /// 2026-10-11). The engine already refuses the cheat convar's change; this
-    /// holds the camera off should the value get set some other way. sv_cheats
-    /// is asked only with a mode set, so the default costs no crossing.
+    /// holds the camera off should the value get set some other way.
     /// </summary>
     public ViewCameraMode Requested
     {
         get
         {
             var m = (ViewCameraMode)Math.Clamp(mode.Value, 0, 2);
-            return m != ViewCameraMode.Off && console.FindConVarValue("sv_cheats") is "1" ? m : ViewCameraMode.Off;
+            return m != ViewCameraMode.Off && cheats.Value ? m : ViewCameraMode.Off;
         }
     }
 

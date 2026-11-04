@@ -21,35 +21,13 @@ public sealed class PortalTestEntsConVar : BoolConVar { }
 [ConVar("cl_threaded_client_leaf_system", "0")]
 public sealed class ThreadedClientLeafSystemConVar : BoolConVar { }
 
-/// <summary>
-/// The leaf system's ConVars for its decisions: its own declarations, and
-/// r_portalsopenall through the convar watch (the module routes the watch's
-/// changes to <see cref="OnChanged"/>).
-/// </summary>
-public sealed class LeafListConVars : ILeafListSettings
+/// <summary>The leaf system's ConVars for its decisions.</summary>
+public sealed class LeafListConVars(ClDrawLeafConVar drawLeaf, PortalTestEntsConVar portalTestEnts, RPortalsOpenAllConVar portalsOpenAll)
+    : ILeafListSettings
 {
-    /// <summary>The ConVars the leaf system reads but does not declare.</summary>
-    public static string[] EngineNames() => ["r_portalsopenall"];
+    public bool PortalTestEnts => portalTestEnts.Value;
 
-    private readonly ClDrawLeafConVar _drawLeaf;
-    private readonly PortalTestEntsConVar _portalTestEnts;
-    private readonly WatchedConVarValues _engine;
+    public bool PortalsOpenAll => portalsOpenAll.Value;
 
-    public LeafListConVars(ClDrawLeafConVar drawLeaf, PortalTestEntsConVar portalTestEnts, WatchedConVarValues engine)
-    {
-        _drawLeaf = drawLeaf;
-        _portalTestEnts = portalTestEnts;
-        _engine = engine;
-    }
-
-    /// <summary>Watches the one it reads by name.</summary>
-    public void Start() => _engine.Watch(EngineNames());
-
-    public bool OnChanged(int id, string newValue) => _engine.OnChanged(id, newValue);
-
-    public bool PortalTestEnts => _portalTestEnts.Value;
-
-    public bool PortalsOpenAll => _engine.Bool("r_portalsopenall");
-
-    public int DrawLeaf => _drawLeaf.Value;
+    public int DrawLeaf => drawLeaf.Value;
 }

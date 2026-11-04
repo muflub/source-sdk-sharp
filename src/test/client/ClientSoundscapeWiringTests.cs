@@ -6,6 +6,7 @@ using SourceSharp.Client.Soundscapes;
 using SourceSharp.Shared.Soundscapes;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -89,7 +90,7 @@ public class ClientSoundscapeWiringTests
         var engine = TestServices.Fake();
         engine.Returns("Console.FindConVarValue", "0");
         var audio = new Audio();
-        var system = new ClientSoundscapes(audio, audio, new Clock(), engine, engine);
+        var system = new ClientSoundscapes(audio, audio, new Clock(), engine, engine, DeclaredConVars.Fresh<DeveloperConVar>());
         system.LevelInit(SoundscapeLibrary.Load(path => path == SoundscapeLibrary.ManifestPath
             ? "\"manifest\" { \"file\" \"scripts/restore.txt\" }"
             : path == "scripts/restore.txt" ? Script : null));

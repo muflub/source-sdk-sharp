@@ -29,5 +29,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
+    <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
   </ItemGroup>
 </Project>

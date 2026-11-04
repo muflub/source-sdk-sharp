@@ -158,7 +158,7 @@ public sealed class TFPlayerGlowsTests
         resource.State.Team[4] = (byte)team;
         resource.State.Team[5] = (byte)TFTeam.Blue;
 
-        var glow = new GlowRegistry(_ => false, _ => null, _ => 7);
+        var glow = new GlowRegistry(_ => false, DeclaredClientConVars.Fresh<client::SourceSharp.Client.GlowOutlineEffectEnableConVar>(), _ => 7);
 
         return new Rig(glow, new Glows(glow, resources));
     }
@@ -168,7 +168,7 @@ public sealed class TFPlayerGlowsTests
         var engine = new ClientEffects();
         engine.Returns("Hud.LocalPlayerIndex", 4);
 
-        var glow = new GlowRegistry(_ => false, _ => null, _ => 7);
+        var glow = new GlowRegistry(_ => false, DeclaredClientConVars.Fresh<client::SourceSharp.Client.GlowOutlineEffectEnableConVar>(), _ => 7);
 
         return new Rig(glow, new Glows(glow, new PlayerResources()));
     }

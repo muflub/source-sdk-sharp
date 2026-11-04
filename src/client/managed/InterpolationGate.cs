@@ -43,16 +43,16 @@ public sealed class InterpolationGate
 
     private readonly IPlaybackState _playback;
     private readonly IClientNetChannel _channel;
-    private readonly Func<string, string?> _readConVar;
+    private readonly ClInterpolateConVar _interpolate;
 
     /// <param name="playback">The engine's pause and demo state.</param>
     /// <param name="channel">The engine's net channel, for the time since a packet last arrived.</param>
-    /// <param name="readConVar">A ConVar's current value by name (<c>IEngineConsole.FindConVarValue</c>).</param>
-    public InterpolationGate(IPlaybackState playback, IClientNetChannel channel, Func<string, string?> readConVar)
+    /// <param name="interpolate">cl_interpolate.</param>
+    public InterpolationGate(IPlaybackState playback, IClientNetChannel channel, ClInterpolateConVar interpolate)
     {
         _playback = playback;
         _channel = channel;
-        _readConVar = readConVar;
+        _interpolate = interpolate;
     }
 
     /// <summary>
@@ -82,13 +82,10 @@ public sealed class InterpolationGate
     /// (<c>ConVar::GetInt</c> truncates the float, so "0.5" is off). A value
     /// the engine does not answer is the declaration's default, "1.0f".
     /// </summary>
-    public static bool ConVarOn(string? value)
-        => value is null || (int)VariantParse.Atof(value) != 0;
-
     /// <summary>This frame's answer, read in stock's order.</summary>
     public bool Open()
     {
-        bool clInterpolate = ConVarOn(_readConVar(ConVarName));
+        bool clInterpolate = _interpolate.Value;
         bool timeDemo = _playback.IsPlayingTimeDemo;
         bool paused = _playback.IsPaused;
         bool demo = _playback.IsPlayingDemo;

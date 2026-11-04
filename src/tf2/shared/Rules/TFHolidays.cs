@@ -31,6 +31,9 @@ namespace TF2.Shared.Rules;
 /// at the time the caller hands in.
 /// </para>
 /// </summary>
+/// <summary>The four holiday cvars stock reads, as they stand now.</summary>
+public readonly record struct TFHolidaySwitches(bool Birthday, bool ForceOff, int Forced, int ItemForced);
+
 public static class TFHolidays
 {
     /// <summary><c>kHoliday_TFBirthday</c> (<c>econ_item_constants.h:969</c>).</summary>
@@ -42,8 +45,8 @@ public static class TFHolidays
     /// <c>tf_birthday</c> a line later in stock's own chain, which changes
     /// nothing a reader could observe.
     /// </summary>
-    public static bool IsBirthday(IEngineConsole console, DateTime now)
-        => Flag(console, "tf_birthday") || IsHolidayActive(console, TFBirthday, now);
+    public static bool IsBirthday(in TFHolidaySwitches switches, DateTime now)
+        => switches.Birthday || IsHolidayActive(in switches, TFBirthday, now);
 
     /// <summary>
     /// <c>TF_IsHolidayActive</c> for the birthday: the off switch, the two
@@ -51,19 +54,19 @@ public static class TFHolidays
     /// <c>tf_gamerules.cpp:988</c>), <c>tf_birthday</c> itself, then the
     /// calendar.
     /// </summary>
-    private static bool IsHolidayActive(IEngineConsole console, int holiday, DateTime now)
+    private static bool IsHolidayActive(in TFHolidaySwitches switches, int holiday, DateTime now)
     {
-        if (Flag(console, "tf_force_holidays_off"))
+        if (switches.ForceOff)
             return false;
 
-        if (Indicates(console, "tf_forced_holiday", holiday))
+        if (Indicates(switches.Forced, holiday))
             return true;
 
-        if (Indicates(console, "tf_item_based_forced_holiday", holiday))
+        if (Indicates(switches.ItemForced, holiday))
             return true;
 
         // ( eHoliday == kHoliday_TFBirthday ) && tf_birthday.GetBool()
-        if (holiday == TFBirthday && Flag(console, "tf_birthday"))
+        if (holiday == TFBirthday && switches.Birthday)
             return true;
 
         return TFHolidayCalendar.IsActive((TFHoliday)holiday, now);
@@ -74,17 +77,5 @@ public static class TFHolidays
     /// holiday exactly — "Holidays are not a proper bitfield", stock's own
     /// comment says.
     /// </summary>
-    private static bool Indicates(IEngineConsole console, string name, int holiday)
-    {
-        string? raw = console.FindConVarValue(name);
-
-        return int.TryParse(raw, out int value) && value != 0 && value == holiday;
-    }
-
-    private static bool Flag(IEngineConsole console, string name)
-    {
-        string? raw = console.FindConVarValue(name);
-
-        return raw is not null && (raw == "1" || raw.Equals("true", StringComparison.OrdinalIgnoreCase));
-    }
+    private static bool Indicates(int value, int holiday) => value != 0 && value == holiday;
 }

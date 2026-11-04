@@ -41,45 +41,40 @@ public class LightmapBicubicDefaultTests
     [Fact]
     public void A_fresh_install_gets_the_default_and_the_marker()
     {
-        var console = new Console(new() { [LightmapBicubicDefault.MarkerName] = "0" });
+        var console = new Console([]);
+        var marker = DeclaredConVars.Holding<LightmapBicubicSetConVar>("0");
 
-        Assert.True(new LightmapBicubicDefault(console, linux: true).PostInit(90));
+        Assert.True(new LightmapBicubicDefault(console, marker, linux: true).PostInit(90));
         Assert.Equal([("r_lightmap_bicubic", "1"), ("r_lightmap_bicubic_set", "1")], console.Set);
     }
 
     [Fact]
     public void An_old_adapter_gets_bicubic_off_and_the_marker()
     {
-        var console = new Console(new() { [LightmapBicubicDefault.MarkerName] = "0" });
+        var console = new Console([]);
+        var marker = DeclaredConVars.Holding<LightmapBicubicSetConVar>("0");
 
-        Assert.False(new LightmapBicubicDefault(console, linux: false).PostInit(90));
+        Assert.False(new LightmapBicubicDefault(console, marker, linux: false).PostInit(90));
         Assert.Equal([("r_lightmap_bicubic", "0"), ("r_lightmap_bicubic_set", "1")], console.Set);
     }
 
     [Fact]
     public void A_set_marker_leaves_the_players_choice_alone()
     {
-        var console = new Console(new() { [LightmapBicubicDefault.MarkerName] = "1" });
-
-        Assert.Null(new LightmapBicubicDefault(console, linux: true).PostInit(95));
-        Assert.Empty(console.Set);
-    }
-
-    [Fact]
-    public void No_marker_registered_decides_nothing()
-    {
         var console = new Console([]);
+        var marker = DeclaredConVars.Holding<LightmapBicubicSetConVar>("1");
 
-        Assert.Null(new LightmapBicubicDefault(console, linux: true).PostInit(95));
+        Assert.Null(new LightmapBicubicDefault(console, marker, linux: true).PostInit(95));
         Assert.Empty(console.Set);
     }
 
     [Fact]
     public void No_material_system_decides_nothing()
     {
-        var console = new Console(new() { [LightmapBicubicDefault.MarkerName] = "0" });
+        var console = new Console([]);
+        var marker = DeclaredConVars.Holding<LightmapBicubicSetConVar>("0");
 
-        Assert.Null(new LightmapBicubicDefault(console, linux: true).PostInit(-1));
+        Assert.Null(new LightmapBicubicDefault(console, marker, linux: true).PostInit(-1));
         Assert.Empty(console.Set);
     }
 }

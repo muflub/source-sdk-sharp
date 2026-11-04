@@ -386,7 +386,7 @@ public sealed class TFDeathDropsTests
         var body = new SsRagdoll(engineC) { Handle = new EntityHandle(99u) };
         body.BindEngine(engineC);
         body.State.BindLocal();
-        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body), engineC);
+        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body));
         var playersC = new Players(new RecordingLog(), engineC, engineC, engineC, NoButtons);
         var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs, playersC, rig.World, rig.Engine, rig.Medigun);
         ((IGameLifecycle)hook).OnLevelInit("tc_2fort");
@@ -453,7 +453,7 @@ public sealed class TFDeathDropsTests
         var body = new SsRagdoll(engineC) { Handle = new EntityHandle(99u) };
         body.BindEngine(engineC);
         body.State.BindLocal();
-        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body), engineC);
+        var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body));
         var chain = new PlayerDeaths(new RecordingLog(), engineC, corpses, chainPlayers,
                                      engineC, new ListHooks<IPlayerDeathHook>(hook),
                                      new DeathNotice(engineC, engineC, engineC, new DamageInflictors()),

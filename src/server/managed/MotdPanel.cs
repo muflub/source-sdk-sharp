@@ -22,7 +22,7 @@ public sealed class MotdUnloadOnDismissalConVar : BoolConVar { }
 /// string-table entry named by msg, <c>motd</c> (MessageOfTheDay loads it into
 /// InfoPanel); unload sv_motd_unload_on_dismissal. Reliable, to them alone.
 /// </summary>
-public sealed class MotdPanel(IUserMessageSender messages, IEngineConsole console, MotdUnloadOnDismissalConVar unload)
+public sealed class MotdPanel(IUserMessageSender messages, HostnameConVar hostname, MotdUnloadOnDismissalConVar unload)
 {
     /// <summary>PANEL_INFO.</summary>
     public const string InfoPanel = "info";
@@ -35,7 +35,7 @@ public sealed class MotdPanel(IUserMessageSender messages, IEngineConsole consol
 
     public void OnClientActive(int entIndex)
     {
-        string title = console.FindConVarValue("hostname") ?? DefaultTitle;
+        string title = hostname.HasValue ? hostname.Value : DefaultTitle;
 
         bool sent = messages.Send(new VguiMenu
         {

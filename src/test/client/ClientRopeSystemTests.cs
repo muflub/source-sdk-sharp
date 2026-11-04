@@ -101,7 +101,7 @@ public class ClientRopeSystemTests
                 Get<RopeRenderSolidConVar>(), Get<RopeSolidMinWidthConVar>(), Get<RopeSolidMaxWidthConVar>(),
                 Get<RopeSolidMinAlphaConVar>(), Get<RopeSolidMaxAlphaConVar>());
 
-            Ropes = new ClientRopeSystem(Exec, Engine, Engine, Engine, Engine, Clock, vars, Engine);
+            Ropes = new ClientRopeSystem(Exec, Engine, Engine, Engine, Engine, Clock, vars, DeclaredConVars.Fresh<MatFullbrightConVar>());
         }
 
         private T Get<T>() where T : ConVarBase => ConVars.Declared<T>();

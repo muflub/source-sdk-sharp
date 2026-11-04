@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using Xunit;
+using SourceSharp.Shared;
 using static SourceSharp.Tests.TestServices;
 
 namespace SourceSharp.Tests;
@@ -90,7 +91,7 @@ public class EntFireCommandTests
               });
 
         var context = new DevContext(engine, engine, engine, engine,
-                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), engine, new RecordingLog())
+                                     new NoGiver(), new EmptyDirectory(), new EntityFactories(), DeclaredConVars.Fresh<SvCheatsConVar>(), new RecordingLog())
         {
             CheatsEnabled = () => cheats,
             Issuer = () => issuer ?? Player,

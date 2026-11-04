@@ -8,6 +8,7 @@ using SourceSharp.Tests.Ui;
 using SourceSharp.UiPreview;
 
 using Xunit;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Tests;
 
@@ -191,8 +192,8 @@ public class UiMenuHostTests
     {
         var (host, _, _) = Host();
         var engine = TestServices.Fake().Returns("Hud.ViewportQuery", (ViewportFacts)0);
-        var effects = new Client.ClientMessageEffects(engine, () => host);
-        var message = new Shared.VguiMenuMessage(effects, null, null);
+        var effects = new Client.ClientMessageEffects(engine, DeclaredConVars.Fresh<Client.Vgui.HudTakesShotsConVar>(), () => host);
+        var message = new Shared.VguiMenuMessage(effects, null);
 
         message.OnReceived(new Shared.VguiMenu { Name = "team", Show = true, Keys = [], Values = [] });
 
@@ -611,10 +612,11 @@ public class UiMenuHostTests
         float now = 5f;
         var engine = new RecordingEngine()
             .Returns("Hud.LocalPlayerHealth", 80).Returns("Hud.LocalPlayerIndex", 1)
-            .Returns("Console.FindConVarValue", "host a").Returns("Environment.Globals", default(Globals))
+            .Returns("Environment.Globals", default(Globals))
             .ReturnsEachCall("Clock.Now", () => now);
         var surface = new UiFidelityTests.RecordingSurface();
-        var seed = UiHostKit.Build(surface, [], null, null, engine);
+        var hostname = DeclaredConVars.Holding<HostnameConVar>("host a");
+        var seed = UiHostKit.Build(surface, [], null, null, engine, hostname: hostname);
         var scores = seed.Menus.Scores;
         var host = UiHostKit.Build(surface, [],
             new UiScreen[] { new Client.Ui.Screens.Scoreboard(scores, new TeamTable(scores)) }, seed.Menus, engine);
@@ -623,7 +625,7 @@ public class UiMenuHostTests
         host.Paint((int)UiLayerKind.Menu, 1280, 720);
         Assert.Equal("host a", host.Menus.Scores.ServerName);
 
-        engine.Returns("Console.FindConVarValue", "host b");
+        hostname.Hold("host b");
         now += 0.3f;                                    // past MenuRefreshSeconds
         host.Paint((int)UiLayerKind.Menu, 1280, 720);
         Assert.Equal("host b", host.Menus.Scores.ServerName);
