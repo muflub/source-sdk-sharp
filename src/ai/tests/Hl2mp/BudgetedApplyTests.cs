@@ -263,9 +263,8 @@ public sealed class BudgetedApplyTests
 
     private static AiMainBudget Binding(TestGlobals env, string? fpsMax = "60", bool dedicated = false)
     {
-        IEngineConsole console = FakeEngine.Of<IEngineConsole>((m, a) => m.Name == "FindConVarValue" && (string)a[0]! == "fps_max" ? fpsMax : throw FakeEngine.Unasked(m));
         IEngineHost host = FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? dedicated : throw FakeEngine.Unasked(m));
-        return new AiMainBudget(env, console, host, DeclaredConVars.FreshAt<AiBudgetConVar>("1"), DeclaredConVars.Fresh<AiBudgetFloorConVar>(), DeclaredConVars.Fresh<AiBudgetWaitConVar>());
+        return new AiMainBudget(env, DeclaredConVars.FreshAt<FpsMaxConVar>(fpsMax ?? "0"), host, DeclaredConVars.FreshAt<AiBudgetConVar>("1"), DeclaredConVars.Fresh<AiBudgetFloorConVar>(), DeclaredConVars.Fresh<AiBudgetWaitConVar>());
     }
 
     [Fact]
@@ -286,9 +285,8 @@ public sealed class BudgetedApplyTests
     public void TheMasterSwitchTurnsTheCapOff()
     {
         using var env = new TestGlobals();
-        IEngineConsole console = FakeEngine.Of<IEngineConsole>((m, _) => m.Name == "FindConVarValue" ? "60" : throw FakeEngine.Unasked(m));
         IEngineHost host = FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m));
-        var b = new AiMainBudget(env, console, host, DeclaredConVars.FreshAt<AiBudgetConVar>("0"), DeclaredConVars.Fresh<AiBudgetFloorConVar>(), DeclaredConVars.Fresh<AiBudgetWaitConVar>());
+        var b = new AiMainBudget(env, DeclaredConVars.FreshAt<FpsMaxConVar>("60"), host, DeclaredConVars.FreshAt<AiBudgetConVar>("0"), DeclaredConVars.Fresh<AiBudgetFloorConVar>(), DeclaredConVars.Fresh<AiBudgetWaitConVar>());
         b.Begin(sync: false);
         Assert.False(b.Current!.Capped);
     }
@@ -320,12 +318,11 @@ public sealed class BudgetedApplyTests
     }
 
     [Theory]
-    [InlineData("0", 0d)]
-    [InlineData("60", 1e6 / 60d)]
-    [InlineData("300", 1e6 / 300d)]
-    [InlineData(null, 0d)]
-    [InlineData("not a number", 0d)]
-    public void AFrameTargetIsFpsMaxsPeriod(string? fpsMax, double expected) => Assert.Equal(expected, AiMainBudget.TargetOf(fpsMax), 3);
+    [InlineData(0f, 0d)]
+    [InlineData(60f, 1e6 / 60d)]
+    [InlineData(300f, 1e6 / 300d)]
+    [InlineData(-1f, 0d)]
+    public void AFrameTargetIsFpsMaxsPeriod(float fpsMax, double expected) => Assert.Equal(expected, AiMainBudget.TargetOf(fpsMax), 3);
 
     /// <summary>A dedicated server has no render to protect: its frame is the tick, whatever fps_max says, and its wait does not spin.</summary>
     [Fact]
@@ -341,7 +338,7 @@ public sealed class BudgetedApplyTests
     public void WithNoEngineGlobalsThereIsNoBudget()
     {
         IEngineEnvironment none = FakeEngine.Of<IEngineEnvironment>((m, _) => m.Name == "get_Globals" ? default(Globals) : throw FakeEngine.Unasked(m));
-        var b = new AiMainBudget(none, null!, null!, DeclaredConVars.FreshAt<AiBudgetConVar>("1"), DeclaredConVars.Fresh<AiBudgetFloorConVar>(), DeclaredConVars.Fresh<AiBudgetWaitConVar>());
+        var b = new AiMainBudget(none, DeclaredConVars.Fresh<FpsMaxConVar>(), null!, DeclaredConVars.FreshAt<AiBudgetConVar>("1"), DeclaredConVars.Fresh<AiBudgetFloorConVar>(), DeclaredConVars.Fresh<AiBudgetWaitConVar>());
         b.Begin(sync: false);
         Assert.Null(b.Current);
     }

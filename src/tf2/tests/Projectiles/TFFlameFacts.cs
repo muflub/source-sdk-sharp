@@ -111,7 +111,7 @@ internal sealed class FlameRig
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);
-        Motion = new EntityMotion(motionLog, Engine, Engine, Engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
+        Motion = new EntityMotion(motionLog, Engine, Engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
         var blast = new TFBlastApplier(Engine, Engine, Engine, Scopes, HitGroups, new DamageInflictors(),
                                        new ProjectileRig.FixedClasses(), Log,

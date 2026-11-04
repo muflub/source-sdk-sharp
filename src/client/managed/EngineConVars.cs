@@ -188,7 +188,7 @@ public sealed class ClInterpRatioConVar : FloatConVar { }
 [EngineConVar("cl_updaterate")]
 public sealed class ClUpdateRateConVar : FloatConVar { }
 
-/// <summary>The server's gravity, replicated; the client declares no sv_gravity of its own.</summary>
+/// <summary>The server's gravity, replicated. Stock's GetCurrentGravity on this side.</summary>
 [EngineConVar("sv_gravity", Fallback = "600")]
 public sealed class ClientSvGravityConVar : FloatConVar { }
 

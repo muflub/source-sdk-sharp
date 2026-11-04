@@ -628,7 +628,7 @@ public sealed class BotDriveLaneTests
     {
         using var globals = new TestGlobals();
         AiBudgetFloorConVar floor = DeclaredConVars.FreshAt<AiBudgetFloorConVar>("0");
-        var budget = new AiMainBudget(globals, FakeEngine.Of<IEngineConsole>((m, _) => m.Name == "FindConVarValue" ? "0" : throw FakeEngine.Unasked(m)),
+        var budget = new AiMainBudget(globals, DeclaredConVars.FreshAt<FpsMaxConVar>("0"),
                                       FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m)),
                                       DeclaredConVars.FreshAt<AiBudgetConVar>("1"), floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
         using var match = new Match(2, budget);
@@ -660,7 +660,7 @@ public sealed class BotDriveLaneTests
         List<(int Slot, UserCmd Cmd)> plain = Played(0, Ticks).Commands;
         using var globals = new TestGlobals();
         AiBudgetFloorConVar floor = DeclaredConVars.FreshAt<AiBudgetFloorConVar>("0");
-        var budget = new AiMainBudget(globals, FakeEngine.Of<IEngineConsole>((m, _) => m.Name == "FindConVarValue" ? "0" : throw FakeEngine.Unasked(m)),
+        var budget = new AiMainBudget(globals, DeclaredConVars.FreshAt<FpsMaxConVar>("0"),
                                       FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m)),
                                       DeclaredConVars.FreshAt<AiBudgetConVar>("1"), floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
         using var match = new Match(0, budget);

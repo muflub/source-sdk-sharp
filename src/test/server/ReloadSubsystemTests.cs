@@ -280,7 +280,7 @@ public class ReloadSubsystemTests
     {
         var engine = new RecordingEngine { Strict = false };
         var directory = new EntityDirectory(new RecordingLog());
-        var motion = new EntityMotion(new RecordingLog(), engine, engine, engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, directory,
+        var motion = new EntityMotion(new RecordingLog(), engine, engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, directory,
             new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, directory), new RecordingLog()));
         return (new StandaloneHierarchy(new RecordingLog(), engine, engine, engine, directory, motion, engine,
                                         new ShellLessRoutes(), engine, new SolverHeldOverlaps(), engine, engine),

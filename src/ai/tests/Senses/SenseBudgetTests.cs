@@ -109,7 +109,7 @@ public sealed class SenseBudgetTests : IDisposable
         IEngineFrame frame = FakeEngine.Of<IEngineFrame>((m, _) => m.Name == "TickCount" ? _tick : throw FakeEngine.Unasked(m));
         IEngineEntities entities = _world.Entities();
         IEnginePlayers players = _world.Engine();
-        Budget = new AiMainBudget(_globals, FakeEngine.Of<IEngineConsole>((m, _) => m.Name == "FindConVarValue" ? "0" : throw FakeEngine.Unasked(m)),
+        Budget = new AiMainBudget(_globals, DeclaredConVars.FreshAt<FpsMaxConVar>("0"),
                                   FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m)),
                                   DeclaredConVars.FreshAt<AiBudgetConVar>("1"), Floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
         _bots = new Hl2mpBots(new WorldPlayers(_world), new Runner(), players, entities, WeaponCatalog.Stock(), frame, nav, _holdings, new Names(), new ScoreboardTags(), log, _ai, null, Budget);

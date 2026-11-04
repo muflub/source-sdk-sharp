@@ -20,7 +20,8 @@ namespace SourceSharp.Server;
 /// model's solid itself (EntityPhysicsCreation over <c>ModelSolidParse</c>).
 /// </summary>
 public sealed class ServerPhysicsWorld(IPhysicsWorldVPhysics vphysics, ISurfaceSoundTable surfaces,
-                                       Func<string, short> precacheScript, nint defaultName) : IServerPhysicsWorld
+                                       Func<string, short> precacheScript, nint defaultName,
+                                       IVPhysicsFrameCalls frame, SvGravityConVar gravity) : IServerPhysicsWorld
 {
     /// <summary>
     /// The handle stock's server <c>GameSound_PrecacheScript</c> answers:
@@ -41,7 +42,13 @@ public sealed class ServerPhysicsWorld(IPhysicsWorldVPhysics vphysics, ISurfaceS
     }
 
     public nint CreateWorld()
-        => PhysicsWorldBuilder.Create(vphysics, 0, ObjectParams.Defaults(defaultName), staticProps: true);
+    {
+        // Stock's LevelInitPreEntity, before PhysCreateWorld: "HL Game gravity,
+        // not real-world gravity". Once a level, as stock: a sv_gravity moved
+        // mid-level reaches the environment at the next one.
+        frame.SetGravity(vphysics.Environment(), new Vector(0f, 0f, -gravity.Value));
+        return PhysicsWorldBuilder.Create(vphysics, 0, ObjectParams.Defaults(defaultName), staticProps: true);
+    }
 
     public int PrecacheSurfaceSounds() => SurfaceSoundPrecache.Run(surfaces, precacheScript);
 }

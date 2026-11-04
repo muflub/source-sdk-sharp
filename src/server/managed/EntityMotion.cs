@@ -65,7 +65,7 @@ public sealed class EntityMotion
     private readonly ILog _log;
 
     public EntityMotion(ILog log, IEngineEntities entities, IEngineWorldQuery world,
-                        IEngineEffects effects,
+                        SvGravityConVar gravity,
                         MoversBlockedConVar blockedReporting, MoversPushedConVar pushedTrace,
                         IEngineEntityPhysics physics, EntityDirectory directory,
                         PhysicsPushedEntities pushed)
@@ -77,7 +77,7 @@ public sealed class EntityMotion
         _pushed = pushed;
         _entities = entities;
         _world = world;
-        _effects = effects;
+        _gravity = gravity;
         _directory = directory;
     }
 
@@ -107,18 +107,8 @@ public sealed class EntityMotion
     private readonly IEngineEntities _entities;
     private readonly IEngineWorldQuery _world;
 
-    /// <summary>
-    /// For <see cref="IEngineEffects.CurrentGravity"/> and nothing else.
-    ///
-    /// <para>
-    /// An integrator depending on the EFFECTS area reads wrong, and it is where
-    /// the ABI actually puts <c>GetCurrentGravity()</c> (see
-    /// <c>EngineAreas.World.cs</c>). Taken as it is rather than moved, because
-    /// the areas are a shared file this step does not own; naming it here is
-    /// the honest version of the compromise.
-    /// </para>
-    /// </summary>
-    private readonly IEngineEffects _effects;
+    /// <summary>stock's GetCurrentGravity: sv_gravity.</summary>
+    private readonly SvGravityConVar _gravity;
 
     private readonly EntityDirectory _directory;
 
@@ -368,11 +358,7 @@ public sealed class EntityMotion
         if (_movers.Count == 0)
             return PushedLastFrame;
 
-        // The world's gravity ONCE per frame rather than once per entity: it is
-        // a convar, every falling thing reads the same number, and reading it
-        // per entity would be a native call per entity for a value that cannot
-        // change between them.
-        float gravity = _effects.CurrentGravity();
+        float gravity = _gravity.Value;
 
         _pass.Clear();
         _pass.AddRange(_order);

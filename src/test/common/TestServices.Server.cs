@@ -279,7 +279,7 @@ public static partial class TestServices
         // frame through: EntityMotionTests builds its own with a directory it
         // binds entities into, which is what a frame needs.
         var motionDirectory = new EntityDirectory(new RecordingLog());
-        services.AddInstance(new EntityMotion(new RecordingLog(), engine, engine, engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, motionDirectory,
+        services.AddInstance(new EntityMotion(new RecordingLog(), engine, engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, motionDirectory), new RecordingLog())));
 
         // The cross-level global state table (plan_entity.md Phase 4 exit).

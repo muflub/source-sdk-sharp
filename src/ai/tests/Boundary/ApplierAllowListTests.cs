@@ -95,9 +95,9 @@ public class ApplierAllowListTests
         // A marker on the asker's own screen (§3.6): a generic seam, from the map's own list.
         "IPlayerMarkers::Show",
         // AiMainBudget: the host frame a tick is in, and fps_max's value, as what the bots' main-thread time is measured against.
-        "Globals::get_FrameCount", "Globals::get_IntervalPerTick", "IEngineConsole::FindConVarValue",
+        "Globals::get_FrameCount", "Globals::get_IntervalPerTick",
         // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
-        "IntConVar::.ctor", "BoolConVar::.ctor",
+        "IntConVar::.ctor", "BoolConVar::.ctor", "FloatConVar::.ctor",
         // EngineServerSlots: the people on the server, for the roster's free slots (§3.5).
         "IClientInfo::Address", "IEngineHost::get_IsDedicatedServer",
         // AiBotRosterService (Phase 5c): the roster convar, declared, read and cleared at the level's start.

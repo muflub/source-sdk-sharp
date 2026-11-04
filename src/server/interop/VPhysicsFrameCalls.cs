@@ -28,6 +28,9 @@ public interface IVPhysicsFrameCalls
     /// <summary><c>IPhysicsEnvironment::GetGravity</c>.</summary>
     Vector Gravity(nint environment);
 
+    /// <summary><c>IPhysicsEnvironment::SetGravity</c>.</summary>
+    void SetGravity(nint environment, Vector gravity);
+
     /// <summary><c>IPhysicsEnvironment::GetSimulationTimestep</c>.</summary>
     float Timestep(nint environment);
 
@@ -122,6 +125,12 @@ public sealed unsafe class VPhysicsFrameCalls : IVPhysicsFrameCalls
         Vector g;
         Env(environment)->GetGravity((void*)environment, &g);
         return g;
+    }
+
+    public void SetGravity(nint environment, Vector gravity)
+    {
+        if (environment != 0)
+            Env(environment)->SetGravity((void*)environment, &gravity);
     }
 
     public float Timestep(nint environment)

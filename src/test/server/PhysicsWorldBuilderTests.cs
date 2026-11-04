@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
 using SourceSharp.Shared;
 using Xunit;
 
@@ -141,6 +142,28 @@ public class PhysicsWorldBuilderTests
     }
 
     private static readonly ObjectParams Defaults = ObjectParams.Defaults(0x4242);
+
+    /// <summary>
+    /// Stock's CPhysicsHook::LevelInitPreEntity: the environment takes sv_gravity,
+    /// pointing down, before the world's first object is made.
+    /// </summary>
+    [Fact]
+    public void TheServersEnvironmentTakesSvGravityBeforeTheWorldIsBuilt()
+    {
+        FakeWorld w = World(1);
+        var frame = new FakeFrameCalls { GravityValue = Vector.Zero };
+        int madeWhenSet = -1;
+        frame.OnSetGravity = () => madeWhenSet = w.Made.Count;
+        var world = new ServerPhysicsWorld(w, new FakeSounds(), _ => 0, 0x77, frame,
+                                           DeclaredConVars.Holding<SvGravityConVar>("432.5"));
+
+        Assert.NotEqual(0, world.CreateWorld());
+
+        Assert.Equal(new Vector(0f, 0f, -432.5f), frame.GravityValue);
+        Assert.Equal(new[] { $"SetGravity {w.Env:x}" }, frame.Calls);
+        Assert.Equal(0, madeWhenSet);
+        Assert.NotEmpty(w.Made);
+    }
 
     private static FakeWorld World(int solidCount = 3, params Block[] blocks)
     {

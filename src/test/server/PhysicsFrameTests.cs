@@ -37,6 +37,16 @@ public sealed class FakeFrameCalls : IVPhysicsFrameCalls
     }
 
     public Vector Gravity(nint environment) => GravityValue;
+
+    /// <summary>Told as the gravity is set, before it is held.</summary>
+    public Action? OnSetGravity;
+
+    public void SetGravity(nint environment, Vector gravity)
+    {
+        OnSetGravity?.Invoke();
+        GravityValue = gravity;
+        Calls.Add($"SetGravity {environment:x}");
+    }
     public float Timestep(nint environment) => TimestepValue;
     public bool IsAsleep(nint o) => Asleep.Contains(o);
     public readonly Dictionary<nint, Vector> ObjectVelocities = new();

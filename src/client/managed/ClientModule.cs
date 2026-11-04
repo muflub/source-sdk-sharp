@@ -1976,7 +1976,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         {
             _physicsSystem = new Physics.ClientPhysicsSystem(
                 level,
-                new Physics.ClientPhysicsClock(_services.Require<IEngineEnvironment>(), _services.Require<IEngineEffects>(),
+                new Physics.ClientPhysicsClock(_services.Require<IEngineEnvironment>(), _services.Require<ClientSvGravityConVar>(),
                                                _services.Require<Physics.ClientPhysTimescaleConVar>()),
                 _services.Require<ClientPhysicsEnvironment>(), () => _physicsWorld, () => _ragdolls,
                 new Physics.ClientPhysicsStepTail(_impactSounds, _fluidEvents!, _frictionSounds, _clock, _contactTouches), Log);

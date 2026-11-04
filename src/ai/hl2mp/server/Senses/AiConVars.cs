@@ -29,6 +29,10 @@ public sealed class AiSyncConVar : BoolConVar { }
 [ConVar("ai_budget", "0", Help = "1 caps the bots' main-thread time at ai_budget_floor_us plus the frame's unused time; 0 runs every bot every tick")]
 public sealed class AiBudgetConVar : BoolConVar { }
 
+/// <summary><c>fps_max</c>, the engine's: a listen server's frame target for the budget.</summary>
+[EngineConVar("fps_max")]
+public sealed class FpsMaxConVar : FloatConVar { }
+
 /// <summary><c>ai_budget_floor_us</c>: what the bots always get in a frame, however full it is.</summary>
 [ConVar("ai_budget_floor_us", "1000", Help = "Microseconds of the main thread the bots always get in a frame", Min = 0, Max = 100000)]
 public sealed class AiBudgetFloorConVar : IntConVar { }

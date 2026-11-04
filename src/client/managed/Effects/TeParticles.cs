@@ -401,7 +401,7 @@ public interface IClientTeParticles
 /// <see cref="TeParticleSheet"/> per effect at its origin, stepped at the
 /// engine's current gravity.
 /// </summary>
-public sealed class ClientTeParticles(ClientParticleEffects effects, IEngineEffects engine, IRandomSeeds seeds) : IClientTeParticles
+public sealed class ClientTeParticles(ClientParticleEffects effects, ClientSvGravityConVar gravity, IRandomSeeds seeds) : IClientTeParticles
 {
     private readonly IParticleRandom _random = new ParticleStream(seeds.Next());
 
@@ -418,7 +418,7 @@ public sealed class ClientTeParticles(ClientParticleEffects effects, IEngineEffe
 
     private int Start(Vector origin, List<TeParticle> made)
     {
-        var sheet = new TeParticleSheet(engine.CurrentGravity, _random, n => QuadsDrawn += n);
+        var sheet = new TeParticleSheet(() => gravity.Value, _random, n => QuadsDrawn += n);
         foreach (var p in made)
             sheet.Add(p);
         sheet.EffectId = effects.Start(sheet, origin);

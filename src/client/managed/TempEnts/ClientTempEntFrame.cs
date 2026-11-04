@@ -56,6 +56,7 @@ public sealed class ClientTempEntFrame : IClientTempEntSimulation
     private readonly ILog _log;
 
     private readonly IEngineEffects _effects;
+    private readonly ClientSvGravityConVar _gravity;
     private readonly ITempEntBounceSounds _bounceSounds;
     private readonly IEngineWorldQuery _world;
     private readonly IGameClock _clock;
@@ -107,13 +108,14 @@ public sealed class ClientTempEntFrame : IClientTempEntSimulation
 
     public ClientTempEntFrame(ILog log, IEngineEffects effects, IEngineWorldQuery world,
                               IEngineVisibility visibility, IGameClock clock,
-                              ITempEntBounceSounds bounceSounds,
+                              ITempEntBounceSounds bounceSounds, ClientSvGravityConVar gravity,
                               IClientStandalones? standalones = null)
     {
         _bounceSounds = bounceSounds;
 
         _log = log;
         _effects = effects;
+        _gravity = gravity;
         _world = world;
         _visibility = visibility;
         _clock = clock;
@@ -260,7 +262,7 @@ public sealed class ClientTempEntFrame : IClientTempEntSimulation
         }
 
         float fastFreq = _clock.Now * 5.5f;
-        float gravity = -frameTime * _effects.CurrentGravity();
+        float gravity = -frameTime * _gravity.Value;
         float gravitySlow = gravity * 0.5f;
         float traceFraction = 1f;
 

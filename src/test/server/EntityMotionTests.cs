@@ -468,7 +468,7 @@ public class EntityMotionTests
         var engine = Fake();
         var directory = new EntityDirectory(new RecordingLog());
 
-        return (new EntityMotion(new RecordingLog(), engine, engine, engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, directory,
+        return (new EntityMotion(new RecordingLog(), engine, engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, directory,
             new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, directory), new RecordingLog())), engine, directory);
     }
 
@@ -517,7 +517,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Returns("WorldQuery.TraceLine",
                        new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
@@ -546,7 +545,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Returns("Entities.GetAngles", new Vector(10f, 20f, 30f))
               .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
@@ -565,7 +563,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
               .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
@@ -587,7 +584,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Returns("WorldQuery.TraceLine", new TraceResult(true, 0.5f, new Vector(0f, 7.5f, 0f), new Vector(0f, -1f, 0f), EntityHandle.None))
               .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
@@ -614,7 +610,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Returns("WorldQuery.TraceBox", new SurfaceTraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None, -1, 0))
               .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
@@ -635,7 +630,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
               .Ignores("Entities.SetOrigin", "Entities.SetVelocity");
@@ -648,9 +642,8 @@ public class EntityMotionTests
     }
 
     /// <summary>
-    /// Nothing flying is a pass that costs nothing — not even the one native
-    /// call for the world's gravity, which is what a server at rest does every
-    /// tick of its life.
+    /// Nothing flying is a pass that costs nothing, which is what a server at
+    /// rest does every tick of its life.
     /// </summary>
     [Fact]
     public void AFrameWithNothingFlyingAsksTheEngineNothing()
@@ -663,33 +656,38 @@ public class EntityMotionTests
     }
 
     /// <summary>
-    /// The world's gravity is read ONCE per frame and not once per entity: it
-    /// is a convar, every falling thing reads the same number, and a native
-    /// call per entity for it is the shape this port exists to remove.
+    /// sv_gravity moved mid-game reaches the next step: stock's PhysicsAddGravityMove
+    /// asks GetCurrentGravity() on each one, and a mover that kept the number it
+    /// started with would fall at the old gravity while the players fell at the new.
     /// </summary>
     [Fact]
-    public void TheWorldsGravityIsReadOncePerFrameRatherThanOncePerEntity()
+    public void AMovedSvGravityReachesTheNextStep()
     {
-        var (motion, engine, directory) = AMotionPass();
+        var engine = Fake();
+        var directory = new EntityDirectory(new RecordingLog());
+        var gravity = DeclaredConVars.Holding<SvGravityConVar>("600");
+        var motion = new EntityMotion(new RecordingLog(), engine, engine, gravity, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), engine, directory,
+            new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, directory), new RecordingLog()));
+        Bound(directory, TheProjectile);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
-              .Returns("WorldQuery.TraceLine",
-                       new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
               .Ignores("Entities.SetOrigin")
-              .Ignores("Entities.SetVelocity");
+              .Ignores("Entities.SetVelocity")
+              .Returns("WorldQuery.TraceLine",
+                       new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None));
 
-        for (uint i = 30; i < 38; i++)
-        {
-            var handle = new EntityHandle(i);
-            Bound(directory, handle);
-            motion.Launch(handle, new Vector(0f, 1000f, 0f), 1f, 0, TheShooter);
-        }
+        motion.Launch(TheProjectile, new Vector(0f, 2500f, 0f), 1f, 0, TheShooter);
 
-        motion.RunFrame(0.015f);
+        motion.RunFrame(0.1f);
+        float atSixHundred = motion.VelocityOf(TheProjectile).Z;
 
-        Assert.Equal(1, engine.CountOf("Effects.CurrentGravity"));
+        gravity.Hold("200");
+        motion.RunFrame(0.1f);
+        float atTwoHundred = motion.VelocityOf(TheProjectile).Z;
+
+        Assert.Equal(-60f, atSixHundred, 3);
+        Assert.Equal(-80f, atTwoHundred, 3);
     }
 
     /// <summary>
@@ -706,7 +704,6 @@ public class EntityMotionTests
         Bound(directory, TheProjectile);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Returns("WorldQuery.TraceLine",
@@ -735,7 +732,6 @@ public class EntityMotionTests
         var projectile = Bound(directory, TheProjectile);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Returns("WorldQuery.TraceLine",
@@ -761,7 +757,6 @@ public class EntityMotionTests
         var crate = new EntityHandle(42);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Returns("WorldQuery.TraceLine",
@@ -786,7 +781,6 @@ public class EntityMotionTests
         var projectile = Bound(directory, TheProjectile);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Returns("WorldQuery.TraceLine",
@@ -811,7 +805,6 @@ public class EntityMotionTests
         Bound(directory, TheProjectile);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Returns("WorldQuery.TraceLine",
@@ -835,7 +828,6 @@ public class EntityMotionTests
         Bound(directory, TheProjectile);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Ignores("Entities.SetVelocity")
@@ -883,8 +875,7 @@ public class EntityMotionTests
 
         // Log.Warning goes to the static Engine facade and not through this
         // double, so there is nothing to stub for the refusal's message.
-        engine.Returns("Entities.GetParent", new EntityHandle(9))
-              .Returns("Effects.CurrentGravity", 600f);
+        engine.Returns("Entities.GetParent", new EntityHandle(9));
 
         motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
         motion.RunFrame(0.015f);
@@ -904,7 +895,6 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
 
-        engine.Returns("Effects.CurrentGravity", 600f);
         motion.Follow(TheProjectile);
 
         Assert.Equal(0, motion.RunFrame(0.015f));
@@ -921,8 +911,7 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
 
-        engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f);
+        engine.Returns("Entities.GetParent", EntityHandle.None);
 
         motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
 
@@ -959,8 +948,7 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
 
-        engine.Returns("Effects.CurrentGravity", 600f)
-              .Returns("Entities.GetOrigin", new Vector(1f, 2f, 3f));
+        engine.Returns("Entities.GetOrigin", new Vector(1f, 2f, 3f));
 
         motion.NoClip(TheProjectile, new Vector(10f, 20f, 30f));
         motion.RunFrame(0.5f);
@@ -984,7 +972,7 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
 
-        engine.Returns("Entities.GetParent", EntityHandle.None).Returns("Effects.CurrentGravity", 600f);
+        engine.Returns("Entities.GetParent", EntityHandle.None);
         motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
 
         directory.Unbind(TheProjectile);
@@ -1012,7 +1000,6 @@ public class EntityMotionTests
         directory.Bind(TheProjectile, first);
 
         engine.Returns("Entities.GetParent", EntityHandle.None)
-              .Returns("Effects.CurrentGravity", 600f)
               .Returns("Entities.GetOrigin", Vector.Zero)
               .Ignores("Entities.SetOrigin")
               .Returns("WorldQuery.TraceLine",
@@ -1067,7 +1054,7 @@ public class EntityMotionTests
         var (motion, engine, directory) = AMotionPass();
         Bound(directory, TheProjectile);
 
-        engine.Returns("Entities.GetParent", EntityHandle.None).Returns("Effects.CurrentGravity", 600f);
+        engine.Returns("Entities.GetParent", EntityHandle.None);
         motion.Launch(TheProjectile, new Vector(0f, 1000f, 0f), 0f, 0, TheShooter);
 
         motion.Stop(TheProjectile);

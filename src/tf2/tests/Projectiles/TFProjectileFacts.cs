@@ -106,7 +106,7 @@ internal sealed class ProjectileRig
     {
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);
-        Motion = new EntityMotion(motionLog, Engine, Engine, Engine, DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
+        Motion = new EntityMotion(motionLog, Engine, Engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,

@@ -3359,7 +3359,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 _physicsWorld = new ServerPhysicsWorld(_physicsWorldVPhysics, _physicsWorldVPhysics,
                     ServerPhysicsWorld.ServerPrecache(_services.Require<IEnginePrecache>().PrecacheSound,
                                                       emitter.SoundIndex),
-                    solidKeys.Solids.DefaultName);
+                    solidKeys.Solids.DefaultName,
+                    VPhysicsFrameCalls.For(_engine.VPhysics), _services.Require<SvGravityConVar>());
 
                 // An entity's physics object (InitPhysics to managed): made
                 // here over the same model reads, held by the shell.

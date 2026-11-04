@@ -25,15 +25,15 @@ public sealed class ClientPhysTimescaleConVar : FloatConVar { }
 [ConVar("cl_ragdoll_collide", "0")]
 public sealed class ClientRagdollCollideConVar : BoolConVar { }
 
-/// <summary><see cref="IClientPhysicsClock"/> over the engine's globals, its gravity and the timescale.</summary>
-public sealed class ClientPhysicsClock(IEngineEnvironment engine, IEngineEffects effects, ClientPhysTimescaleConVar timescale)
+/// <summary><see cref="IClientPhysicsClock"/> over the engine's globals, sv_gravity and the timescale.</summary>
+public sealed class ClientPhysicsClock(IEngineEnvironment engine, ClientSvGravityConVar gravity, ClientPhysTimescaleConVar timescale)
     : IClientPhysicsClock
 {
     public float FrameTime => engine.Globals.FrameTime;
 
     public float IntervalPerTick => engine.Globals.IntervalPerTick;
 
-    public float Gravity => effects.CurrentGravity();
+    public float Gravity => gravity.Value;
 
     public float TimeScale => timescale.Value;
 }

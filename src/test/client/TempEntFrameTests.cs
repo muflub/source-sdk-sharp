@@ -92,7 +92,7 @@ public class TempEntFrameTests
         ClientTempEntFrame Frame,
         RecordingEngine Engine,
         Clock Clock,
-        Standalones Standalones, RecordingLog Log, BounceSounds Sounds);
+        Standalones Standalones, RecordingLog Log, BounceSounds Sounds, ClientSvGravityConVar Gravity);
 
     /// <summary>The bounce sounds the frame asked for, with the inputs it gave.</summary>
     private sealed class BounceSounds : ITempEntBounceSounds
@@ -124,15 +124,16 @@ public class TempEntFrameTests
         engine.Returns("Effects.TempEntPoolReadStatics", true);
         engine.Returns("Effects.TempEntPoolReadStatics.Statics", statics);
         engine.Returns("Effects.TempEntPoolWriteTransform", true);
-        engine.Returns("Effects.CurrentGravity", gravity);
 
         var clock = new Clock { Now = now };
         var standalones = new Standalones();
 
         var sounds = new BounceSounds();
 
-        return new Rig(new ClientTempEntFrame(log, engine, engine, engine, clock, sounds, standalones),
-                       engine, clock, standalones, log, sounds);
+        var svGravity = DeclaredConVars.Holding<ClientSvGravityConVar>(gravity.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        return new Rig(new ClientTempEntFrame(log, engine, engine, engine, clock, sounds, svGravity, standalones),
+                       engine, clock, standalones, log, sounds, svGravity);
     }
 
     /// <summary>
@@ -284,11 +285,10 @@ public class TempEntFrameTests
     }
 
     /// <summary>
-    /// A <c>FTENT_GRAVITY</c> tempent is pulled down by the engine's own
-    /// gravity, and a <c>FTENT_SLOWGRAVITY</c> one by half of it.
+    /// A <c>FTENT_GRAVITY</c> tempent is pulled down by sv_gravity, and a <c>FTENT_SLOWGRAVITY</c> one by half of it.
     /// </summary>
     [Fact]
-    public void GravityComesFromTheEngineAndSlowGravityIsHalfOfIt()
+    public void GravityIsSvGravityAndSlowGravityIsHalfOfIt()
     {
         var rig = Rigged(new TempEntTransform(), Prepared(), gravity: 800f);
         var life = Live(TempEntFlags.Gravity);
@@ -296,7 +296,7 @@ public class TempEntFrameTests
         rig.Frame.Step(0, 0.25f, 0, 1, ref life);
 
         Assert.True(Near(Written(rig.Engine).Velocity.Z, -200f),
-            $"-frametime * GetCurrentGravity(): {Written(rig.Engine).Velocity.Z}");
+            $"-frametime * sv_gravity: {Written(rig.Engine).Velocity.Z}");
 
         var slow = Rigged(new TempEntTransform(), Prepared(), gravity: 800f);
         var slowLife = Live(TempEntFlags.SlowGravity);
@@ -305,6 +305,20 @@ public class TempEntFrameTests
 
         Assert.True(Near(Written(slow.Engine).Velocity.Z, -100f),
             $"and FTENT_SLOWGRAVITY is exactly half: {Written(slow.Engine).Velocity.Z}");
+    }
+
+    /// <summary>sv_gravity moved mid-game reaches the next step of a tempent already in the air.</summary>
+    [Fact]
+    public void AMovedSvGravityReachesTheNextStep()
+    {
+        var rig = Rigged(new TempEntTransform(), Prepared(), gravity: 800f);
+        var life = Live(TempEntFlags.Gravity);
+
+        rig.Gravity.Hold("200");
+        rig.Frame.Step(0, 0.25f, 0, 1, ref life);
+
+        Assert.True(Near(Written(rig.Engine).Velocity.Z, -50f),
+            $"-frametime * the moved sv_gravity: {Written(rig.Engine).Velocity.Z}");
     }
 
     /// <summary>
