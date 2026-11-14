@@ -20,9 +20,9 @@ public sealed class TFPlayerClassTests
     private static (PlayerRig Rig, TFPlayerClass Class, TFPlayerConditions Conditions, TFPlayerConditionTicker Ticker) Make()
     {
         var rig = new PlayerRig();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var cls = new TFPlayerClass(rig.Carriers, rig.Items);
-        var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine);
+        var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine, new IdleHealing());
         rig.Extra.Add(cls);
         rig.Extra.Add(ticker);
         rig.Join();
@@ -118,7 +118,7 @@ public sealed class TFPlayerClassTests
     {
         var rig = new PlayerRig();
         var source = ComposedComponents.Source(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
-                                            new TFPlayerConditions(rig.Carriers, rig.Engine),
+                                            new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine),
                                             new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), rig.Engine,
                                             rig.Schema, new PoollessGiver(), rig.Engine, rig.Engine,
                                             rig.Engine, rig.Engine,
@@ -180,5 +180,26 @@ public sealed class TFPlayerClassTests
         public IEnumerable<ScriptedEntity> OfClass(string className) => [];
         public bool IsRegistered(string className) => className == TFEntityNames.PlayerData;
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
+    }
+
+    /// <summary>The healing the countdown asks: nobody heals here, no healer ever.</summary>
+    private sealed class IdleHealing : TF2.Server.Medigun.ITFPlayerHealing
+    {
+        public int NumHealers(int patientIndex) => 0;
+        public System.Collections.Generic.IEnumerable<int> HealerIndexes(int patientIndex) => [];
+
+        public void Heal(EntityHandle patient, EntityHandle healer, float healRate, float now,
+                         float overhealBonus = TF2.Server.Medigun.ITFPlayerHealing.StandardOverhealBonus,
+                         float decayMult = TF2.Server.Medigun.ITFPlayerHealing.StandardOverhealDecayMult,
+                         bool dispenserHeal = false, int scorer = -1) { }
+        public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => 0f;
+        public void RecalculateChargeEffects(EntityHandle player, float now) { }
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) { }
+        public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => 0;
+        public bool CanReceiveMedigunChargeEffect(EntityHandle player) => false;
+        public void RemoveChargeEffect(EntityHandle player) { }
+        public void TestAndExpireChargeEffect(EntityHandle player, float now) { }
+        public void TickPatient(EntityHandle patient, float now, float frametime) { }
+        public void Extinguished(EntityHandle patient) { }
     }
 }

@@ -59,7 +59,7 @@ public sealed class TFMedigunTickerTests
     {
         var rig = new PlayerRig();
         var healing = new CountingHealing();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine, healing);
         rig.Extra.Add(ticker);
         rig.Join();
@@ -83,7 +83,7 @@ public sealed class TFMedigunTickerTests
     public void A_frame_with_no_frametime_and_a_player_with_no_carrier_are_never_asked()
     {
         var (rig, _, ticker, healing) = Tickered();
-        var outsider = new TFPlayerConditionTicker(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine),
+        var outsider = new TFPlayerConditionTicker(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine),
                                                    rig.Engine, healing);
         outsider.Attach(new EntityHandle(0x0001_0000u | 5));   // a player who never joined
 
@@ -98,8 +98,9 @@ public sealed class TFMedigunTickerTests
     public void Without_the_healing_lane_the_countdown_counts_no_healers_as_2_3_did()
     {
         var rig = new PlayerRig();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine);   // the 2.3 shape still compiles
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
+        var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine,
+                                                 new CountingHealing { Healers = 0 });   // no healer, as 2.3's none was
         rig.Extra.Add(ticker);
         rig.Join();
         conditions.Add(PlayerRig.Player, TFCond.Burning, 3f);

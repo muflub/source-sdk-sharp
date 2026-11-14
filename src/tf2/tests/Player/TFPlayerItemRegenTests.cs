@@ -66,6 +66,10 @@ public sealed class TFPlayerItemRegenTests
     {
         var engine = new RecordingEngine();
         engine.Returns("Players.IsAlive", true);
+        // The medic arm's patient ask: the heal target is the medic itself,
+        // unhurt, so the base rate stands.
+        engine.Returns("Players.GetHandle", new EntityHandle(0x0001_0000u | Index));
+        engine.Returns("Entities.GetHealth", 100);
 
         var owners = new FakeOwners();
         var manager = new AttributeContainer();
@@ -79,7 +83,8 @@ public sealed class TFPlayerItemRegenTests
         var resupply = new RecordingResupply();
         var records = new TFDamageRecords();
         var damage = new ScopedDamage(new TFDamageScopes());
-        var slice = new TFPlayerItemRegen(resupply, new AttributeHooks(), owners, engine, records, damage, engine);
+        var slice = new TFPlayerItemRegen(resupply, new AttributeHooks(), owners, engine, records, damage, engine,
+                                          new HealingPlayers());
         slice.Attach(Player);
         return (engine, owners, resupply, records, damage, slice);
     }

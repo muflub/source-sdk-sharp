@@ -44,9 +44,9 @@ namespace TF2.Server.Player;
 [SideService(Side.Server)]
 public sealed class TFEurekaTeleport(TFPlayerCarriers carriers, IEngineEntities entities, IEnginePlayers enginePlayers,
                                      ITeams teams, IEngineSound sound, ITFBuildings buildings,
-                                     TFTauntCommand taunt, IHooks<ISpawnPlacement>? placement = null,
-                                     ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                                     ICtfRules? ctf = null) : IClientCommandHook, IOrderedHook
+                                     TFTauntCommand taunt, IHooks<ISpawnPlacement> placement,
+                                     ITFWeaponOwners owners, AttributeHooks hooks,
+                                     ICtfRules ctf) : IClientCommandHook, IOrderedHook
 {
     /// <summary><c>eureka_teleport</c> (tf_player.cpp:7705).</summary>
     public const string Command = "eureka_teleport";
@@ -71,8 +71,8 @@ public sealed class TFEurekaTeleport(TFPlayerCarriers carriers, IEngineEntities 
         if (carriers.ClassOf(player) != TFClass.Engineer)
             return true;
 
-        int teleport = hooks?.Int(0, "alt_fire_teleport_to_spawn",
-                                  owners?.ActiveItemOf(player.EntryIndex)) ?? 0;
+        int teleport = hooks.Int(0, "alt_fire_teleport_to_spawn",
+                                 owners.ActiveItemOf(player.EntryIndex));
         if (teleport == 0)
             return true;
 
@@ -98,7 +98,7 @@ public sealed class TFEurekaTeleport(TFPlayerCarriers carriers, IEngineEntities 
 
         // The drops and the send (:1602-1605): the carried flag goes back to
         // its base and the departure sounds from the player.
-        ctf?.CarriedBy(player)?.DropFlag(player);
+        ctf.CarriedBy(player)?.DropFlag(player);
         sound.EntityEmitSound(player, TFTeleporter.SendSound);
 
         // The chosen exit, built (:1608-1614): the builder's own mode 1
@@ -122,11 +122,8 @@ public sealed class TFEurekaTeleport(TFPlayerCarriers carriers, IEngineEntities 
         // lift and the facing — CGameRules::GetPlayerSpawnSpot's tail, whose
         // core home this is; the interpolation breaks as any spawn's does.
         Vector origin = entities.GetOrigin(spot);
-        if (placement is not null)
-        {
-            foreach (ISpawnPlacement hook in placement.All)
-                origin = hook.PlaceAt(player, spot, origin);
-        }
+        foreach (ISpawnPlacement hook in placement.All)
+            origin = hook.PlaceAt(player, spot, origin);
 
         enginePlayers.PlaceAtSpawn(player, origin with { Z = origin.Z + 1f }, entities.GetAngles(spot));
         enginePlayers.BreakInterpolation(player);
@@ -141,7 +138,7 @@ public sealed class TFEurekaTeleport(TFPlayerCarriers carriers, IEngineEntities 
 /// condition stands removed — the stop's water arm and the countdown's
 /// expiry both — and the player's leaving clears the pending target.
 /// </summary>
-public sealed class TFEurekaTauntWatch(TFEurekaTeleport? eureka, TFPlayerConditions conditions) : IPlayerComponent
+public sealed class TFEurekaTauntWatch(TFEurekaTeleport eureka, TFPlayerConditions conditions) : IPlayerComponent
 {
     /// <summary>After the taunt attack (27): the cond is the think's and the attack's before this asks.</summary>
     public int Order => 28;
@@ -157,8 +154,8 @@ public sealed class TFEurekaTauntWatch(TFEurekaTeleport? eureka, TFPlayerConditi
         if (_player == EntityHandle.None || conditions.InCond(_player, TFCond.Taunting))
             return;
 
-        eureka?.TauntWent(_player);
+        eureka.TauntWent(_player);
     }
 
-    public void Detach() => eureka?.Left(_player);
+    public void Detach() => eureka.Left(_player);
 }

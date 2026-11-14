@@ -300,6 +300,7 @@ public sealed class TFFlameTickLagTests
         public ManagerRig Flame { get; } = new();
         public LagWorld World { get; } = new();
         public PlayerCurrentCommands Commands { get; } = new();
+        public LagSettings Settings { get; } = new();
         public LagCompensation Lag { get; }
         public LagPlayer Swinger { get; }
         public LagPlayer Victim { get; }
@@ -313,7 +314,8 @@ public sealed class TFFlameTickLagTests
             Victim = World.Add(ManagerRig.Victim.EntryIndex);
             Assert.Equal((ManagerRig.Attacker, ManagerRig.Victim), (Swinger.Handle, Victim.Handle));
             World.MaxClients = ManagerRig.Victim.EntryIndex;     // the rig's victim sits at slot 5
-            Lag = new LagCompensation(World, new LagSettings(), Commands, new RecordingLog());
+            Settings.Unlag = withSession;                        // the off arm: the session opens, nothing rewinds
+            Lag = new LagCompensation(World, Settings, Commands, new RecordingLog());
             Effects = new TFFlameEffects(Flame.Engine, Flame.Engine, Flame.Directory, Flame.Engine, Flame.Engine,
                                          Flame.Conditions, Flame.Owners, Flame.Log,
                                          Flame.Convars.Declared<TFAirBlastCrayConVar>(),
@@ -321,8 +323,7 @@ public sealed class TFFlameTickLagTests
                                          Flame.Convars.Declared<TFPushbackScaleConVar>(),
                                          Flame.Convars.Declared<TFPushbackScaleVerticalConVar>(), Flame.Carriers,
                                          new TF2.Shared.Econ.AttributeHooks(), new ProjectileRig.Resupply(),
-                                         Flame.Engine,
-                                         withSession ? Lag : null);
+                                         Flame.Engine, Lag, Flame.Afterburns);
             Swinger.Latency = 5 * LagWorld.Tick;
             Flame.Directory.Instance = Flame.Manager;
 

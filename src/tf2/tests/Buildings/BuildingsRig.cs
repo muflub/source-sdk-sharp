@@ -251,7 +251,8 @@ internal sealed partial class BuildingsRig
         Services.AddInstance(new TFBlastApplier(Engine, Engine, Engine, Services.Resolve<TFDamageScopes>()!,
                                                 hitGroups, Services.Resolve<DamageInflictors>()!, classes, Log, Engine,
                                                 Owners, Hooks,
-                                                resupply, Engine, Engine, Registry, Carriers));
+                                                resupply, Engine, Engine, Registry, Carriers,
+                                                DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()));
 
         // The typed convars the subjects read, held by a backend of the rig's
         // own (the engine's console only records): the declared defaults, and
@@ -271,7 +272,8 @@ internal sealed partial class BuildingsRig
         Services.AddInstance<ITeams>(ConceptTeams);
         Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
                                      Services.Resolve<IEnginePlayers>()!, TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(),
-                                     Engine, Random);
+                                     Engine, Random, new LoadoutDeps.IdleRound(), new Tests.Weapons.FakeOwners(),
+                                     new RecordingLog());
         Services.AddInstance(Speech);
         // The sapper-crit bucket the buildings' removal cascade pays; a fact
         // replaces it with a recording double the way the sapper facts do.

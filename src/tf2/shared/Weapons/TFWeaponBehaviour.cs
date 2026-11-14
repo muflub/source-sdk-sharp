@@ -78,8 +78,14 @@ namespace TF2.Shared;
 /// single-shell weapon fires rapid-fire crits, so the two never share a field.
 /// </para>
 /// </summary>
-public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes = null) : IWeaponBehaviour
+public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks attributes) : IWeaponBehaviour
 {
+    /// <summary>The base's shape for a kind whose file names only its parts: the bare attribute chain.</summary>
+    public TFWeaponBehaviour(TFWeaponParts parts)
+        : this(parts, new AttributeHooks())
+    {
+    }
+
     /// <summary><see cref="WeaponNetState.BehaviourMode"/>'s single-shell-reload bit.</summary>
     public const int ModeReloadingSingly = 1;
 
@@ -131,8 +137,8 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
 
     protected TFWeaponParts Parts { get; } = parts ?? throw new ArgumentNullException(nameof(parts));
 
-    /// <summary>The item attribute reads the charge meter asks through; the composition's own, else the bare chain.</summary>
-    protected readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    /// <summary>The item attribute reads the charge meter asks through, handed at the compose.</summary>
+    protected readonly AttributeHooks _attributes = attributes;
 
     /// <summary>The script behind a row, or null for a row without one (it then behaves as stock).</summary>
     protected TFWeaponScript? ScriptOf(in WeaponType type) => Parts.Scripts.Get(type.Name);

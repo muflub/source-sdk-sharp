@@ -68,6 +68,7 @@ public sealed class TFWeaponTypesTests
                 .Append("tf_weapon_mechanical_arm")
                 .Append("tf_weapon_charged_smg")
                 .Append("tf_weapon_shotgun_building_rescue")
+                .Append("tf_weapon_parachute")
                 .Order(StringComparer.Ordinal).ToArray(),
             names);
         Assert.Contains("tf_weapon_minigun", names);

@@ -26,7 +26,7 @@ namespace TF2.Server.Player;
 /// the player, culled on the add as stock culls.
 /// </summary>
 public sealed class TFDonkVictims(TFPlayerCarriers carriers, IGameClock clock,
-                                  TFDoubleDonkWindowConVar? donkWindow = null) : IPlayerComponent
+                                  TFDoubleDonkWindowConVar donkWindow) : IPlayerComponent
 {
     /// <summary>After the stun stack (30), the push that feeds it read in the same frame's damage.</summary>
     public int Order => 33;
@@ -63,8 +63,8 @@ public sealed class TFDonkVictims(TFPlayerCarriers carriers, IGameClock clock,
     public void Donk(EntityHandle victim)
     {
         float now = clock.Now;
-        _victims.RemoveAll(donk => donk.Expire <= now);
-        _victims.Add((victim, now + (donkWindow?.Value ?? 0.5f)));
+        _victims.RemoveAll(donk => donk.Expire < now);
+        _victims.Add((victim, now + donkWindow.Value));
     }
 
     /// <summary><c>IsDoubleDonk</c>'s scan (:458-464): the victim pushed within the window.</summary>

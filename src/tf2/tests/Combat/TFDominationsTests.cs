@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Combat;
+using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Combat;
@@ -43,7 +44,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void The_fourth_unanswered_kill_dominates()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
 
         Kills(dominations, Victim, Attacker, 2);
         Assert.Equal(0, dominations.DeathFlags(Victim, Attacker, -1));
@@ -57,7 +58,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void The_fourth_kill_is_the_only_one_that_carries_the_flag()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
 
         Kills(dominations, Victim, Attacker, 4);
         // Already dominating: the fifth kill flags nothing (tf_gamerules.cpp:12042).
@@ -67,7 +68,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void The_revenge_kill_flags_and_forgives()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, Victim, Attacker, 4);
 
         Assert.Equal(TFDominations.Revenge, dominations.DeathFlags(Attacker, Victim, -1));
@@ -78,7 +79,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void The_answer_resets_the_unanswered_count()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, Victim, Attacker, 4);
         Assert.Equal(TFDominations.Revenge, dominations.DeathFlags(Attacker, Victim, -1));
 
@@ -91,7 +92,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void An_assisted_domination_flags_the_assister()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, Victim, Attacker, 3);
 
         Assert.Equal(TFDominations.AssisterDomination, dominations.DeathFlags(Victim, Third, Attacker));
@@ -101,7 +102,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void An_assisted_revenge_flags_the_assister()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, Victim, Attacker, 4);
 
         Assert.Equal(TFDominations.AssisterRevenge, dominations.DeathFlags(Attacker, Third, Victim));
@@ -111,7 +112,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void A_suicide_records_nothing()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
 
         Assert.Equal(0, dominations.DeathFlags(Victim, Victim, -1));
         Assert.Equal(0, dominations.DeathFlags(Victim, -1, -1));
@@ -122,7 +123,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void A_round_restart_clears_the_domination()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, Victim, Attacker, 4);
 
         ((ITeamRoundListener)dominations).OnStateChanged(RoundState.TeamWin, RoundState.Preround);
@@ -138,7 +139,7 @@ public sealed class TFDominationsTests
     [Fact]
     public void A_departure_forgives_their_kills()
     {
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, Victim, Attacker, 4);
 
         ((IClientLifecycle)dominations).OnClientDisconnected(Attacker);
@@ -224,9 +225,10 @@ public sealed class TFDominationsTests
         var rig = new CombatRig { AttackerWeapon = "tf_weapon_scattergun" };
         rig.Hit(6f, DamageType.Bullet);
 
-        var dominations = new TFDominations();
+        var dominations = new TFDominations(new TFPlayerCarriers());
         Kills(dominations, CombatRig.Victim.EntryIndex, CombatRig.Attacker.EntryIndex, 3);
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level, dominations);
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level, dominations,
+                                       rig.Owners, new TF2.Shared.Econ.AttributeHooks());
         var fields = new TFDeathNoticeTests.Fields();
 
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker,

@@ -26,7 +26,7 @@ public sealed class TFHypeDrainTests
         var players = new TFMovementFixtures.Players();
         var state = players.Add(7, TFClass.Scout);
         var conditions = new RigConditions(players);
-        var drain = new TFHypeDrain(players, conditions, consume);
+        var drain = new TFHypeDrain(players, conditions, consume ?? DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>());
         drain.Attach(Player);
         return (state, drain, conditions);
     }

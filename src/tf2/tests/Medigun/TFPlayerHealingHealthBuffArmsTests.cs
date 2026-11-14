@@ -100,7 +100,7 @@ public sealed class TFPlayerHealingHealthBuffArmsTests
             conVars.RegisterAll(typeof(TFPlayerHealing).Assembly);
 
             var chain = new Chain();
-            Conditions = new TFPlayerConditions(Player.Carriers, Player.Engine, chain);
+            Conditions = new TFPlayerConditions(Player.Carriers, Player.Engine, chain, Player.Engine);
             Healing = new TFPlayerHealing(Player.Engine, Player.Engine, Conditions, Resupply,
                                           conVars.Declared<TFMaxHealthBoostConVar>(),
                                           conVars.Declared<TFBoostDrainTimeConVar>(),

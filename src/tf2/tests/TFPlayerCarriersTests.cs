@@ -60,7 +60,7 @@ public sealed class TFPlayerCarriersTests
 
             Carriers = new TFPlayerCarriers();
             var source = ComposedComponents.Source(Engine, new Directory(CarrierHandle, Entity), Carriers, Log, new TFPlayerItems(),
-                                                new TFPlayerConditions(Carriers, Engine),
+                                                new TFPlayerConditions(Carriers, Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), Engine),
                                                 new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), Engine,
                                                 EconTestFiles.TrimmedSchema(), new PoollessGiver(), Engine, Engine,
                                                 Engine, Engine,

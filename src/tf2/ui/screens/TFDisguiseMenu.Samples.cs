@@ -15,6 +15,7 @@ public static class TFDisguiseMenuSamples
     {
         s.Add<ITFDisguiseMenuSource>(source ?? new FakeTFDisguiseMenuSource());
         s.Add<ITFDisguiseMenuActions>(actions ?? new FakeTFDisguiseMenuActions());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         return s.Create<TFDisguiseMenu>();
     }
 

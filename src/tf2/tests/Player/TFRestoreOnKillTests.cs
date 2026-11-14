@@ -38,7 +38,7 @@ public sealed class TFRestoreOnKillTests
         {
             Player.As(TFClass.Demoman);
             Player.Join(VictimIndex);
-            Conditions = new TFPlayerConditions(Player.Carriers, Player.Engine);
+            Conditions = new TFPlayerConditions(Player.Carriers, Player.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), Player.Engine);
             Resupply = new TFPlayerResupply(Player.Carriers, Player.Classes, Player.Engine, Player.Engine,
                                             Conditions, Player.Loadout, Player.Engine, Player.Items, Hooks,
                                             scripts: new TFWeaponScripts(Player.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),

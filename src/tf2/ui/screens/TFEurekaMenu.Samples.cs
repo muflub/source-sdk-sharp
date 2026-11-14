@@ -15,6 +15,7 @@ public static class TFEurekaMenuSamples
     {
         s.Add<ITFEurekaMenuSource>(source ?? new FakeTFEurekaMenuSource());
         s.Add<ITFEurekaMenuActions>(actions ?? new FakeTFEurekaMenuActions());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         return s.Create<TFEurekaMenu>();
     }
 

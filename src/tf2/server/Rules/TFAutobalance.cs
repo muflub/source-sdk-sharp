@@ -39,9 +39,9 @@ namespace TF2.Server.Rules;
 public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster roster, IRoundAnnouncer announcer,
                                   IGameClock clock, ILog log, TFAutobalanceDeadCandidatesMaxTimeConVar deadCandidatesMaxTime,
                                   TFAutobalanceForceCandidatesMaxTimeConVar forceCandidatesMaxTime,
-                                  TFAutobalanceXpBonusConVar xpBonus, ITeamRoundState? rounds = null,
-                                  ITFPlayerStats? stats = null, IUserMessageSender? messages = null,
-                                  IBotPlayers? bots = null)
+                                  TFAutobalanceXpBonusConVar xpBonus, ITeamRoundState rounds,
+                                  ITFPlayerStats stats, IUserMessageSender messages,
+                                  IBotPlayers bots)
     : IGameLifecycle, IFrameLifecycle
 {
     /// <summary>Stock's <c>autobalance_state_t</c>.</summary>
@@ -65,10 +65,10 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     private readonly IRoundAnnouncer _announcer = announcer;
     private readonly IGameClock _clock = clock;
     private readonly ILog _log = log;
-    private readonly ITeamRoundState? _rounds = rounds;
-    private readonly ITFPlayerStats? _stats = stats;
-    private readonly IUserMessageSender? _messages = messages;
-    private readonly IBotPlayers? _bots = bots;
+    private readonly ITeamRoundState _rounds = rounds;
+    private readonly ITFPlayerStats _stats = stats;
+    private readonly IUserMessageSender _messages = messages;
+    private readonly IBotPlayers _bots = bots;
 
     private AutobalanceState _state;
     private TFTeam _lightestTeam = TFTeam.Unassigned;
@@ -110,9 +110,6 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
         if (_settings.TeamsUnbalanceLimit <= 0)
             return false;
 
-        if (_rounds is null)
-            return false;
-
         // Stock's tournament, training, item-testing, arena-queue and
         // community arms; the round settings carry the one this build has.
         return !_settings.Tournament;
@@ -124,7 +121,7 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     public bool AreTeamsUnbalanced()
     {
         // Don't bother switching teams if the round isn't running.
-        if (_rounds is null || _rounds.State != RoundState.RoundRunning)
+        if (_rounds.State != RoundState.RoundRunning)
             return false;
 
         int limit = _settings.TeamsUnbalanceLimit;
@@ -167,9 +164,6 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     /// sides of the division read off the TF player resource's score rows.</summary>
     private double TeamAutoBalanceScore(TFTeam team)
     {
-        if (_stats is null)
-            return 0.0;
-
         int teamScore = 0;
         int totalScore = 0;
 
@@ -193,9 +187,6 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     /// over everyone's total.</summary>
     private double PlayerAutoBalanceScore(EntityHandle player)
     {
-        if (_stats is null)
-            return 0.0;
-
         int playerScore = 0;
         int totalScore = 0;
 
@@ -245,7 +236,7 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
         List<EntityHandle> candidates = new();
         foreach (var player in _roster.Players(_heaviestTeam))
         {
-            if (_bots?.IsBot(player) == true)
+            if (_bots.IsBot(player))
                 continue;
 
             if (!_candidates.Any(c => c.Player == player) && StillOnAPlayingTeam(player))
@@ -335,16 +326,13 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
         _announcer.TeamBalanced(_roster.EntIndex(player), _lightestTeam, name);
         _log.Msg($"[TF2/Teams] {name} ({player}) was moved to {_lightestTeam} to balance the teams\n");
 
-        if (_messages is not null)
+        string teamName = TFMessages.BalanceTeamName(_lightestTeam);
+        _messages.Send(new TextMsg
         {
-            string teamName = TFMessages.BalanceTeamName(_lightestTeam);
-            _messages.Send(new TextMsg
-            {
-                Destination = TFMessages.HudPrintTalk,
-                Text = TFMessages.AutoBalanceTeamChangeDone,
-                Params = [teamName, XpBonus.ToString()],
-            }, player: _roster.EntIndex(player), reliable: true);
-        }
+            Destination = TFMessages.HudPrintTalk,
+            Text = TFMessages.AutoBalanceTeamChangeDone,
+            Params = [teamName, XpBonus.ToString()],
+        }, player: _roster.EntIndex(player), reliable: true);
     }
 
     /// <summary>Stock's <c>ForceDeadCandidates</c>: a dead candidate is moved
@@ -398,15 +386,12 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
             // Stock re-sends every frame of the window, so the centre print
             // stays up; a candidate who moves themselves first stops being
             // needed when the teams balance.
-            if (_messages is not null)
+            _messages.Send(new TextMsg
             {
-                _messages.Send(new TextMsg
-                {
-                    Destination = TFMessages.HudPrintCenter,
-                    Text = TFMessages.AutoBalanceTeamChangePending,
-                    Params = [teamName, ((int)ForceCandidatesMaxTime).ToString()],
-                }, player: _roster.EntIndex(candidate.Player), reliable: true);
-            }
+                Destination = TFMessages.HudPrintCenter,
+                Text = TFMessages.AutoBalanceTeamChangePending,
+                Params = [teamName, ((int)ForceCandidatesMaxTime).ToString()],
+            }, player: _roster.EntIndex(candidate.Player), reliable: true);
         }
     }
 

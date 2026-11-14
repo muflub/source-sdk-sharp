@@ -20,7 +20,8 @@ namespace SourceSharp.Tests.Ui;
 public class TFDisguiseMenuTests
 {
     private static TFDisguiseMenu Screen(FakeTFDisguiseMenuSource source, FakeTFDisguiseMenuActions? actions = null)
-        => new(source, new TFDisguiseTile(new NoArt()), new NoArt(), actions);
+        => new(source, new TFDisguiseTile(new NoArt()), new NoArt(), actions ?? new FakeTFDisguiseMenuActions(),
+               new UnlockedGroups());
 
     /// <summary>The library that misses everything: the layout facts read
     /// the fallback, not the VPK art (the art arms are TFDisguiseMenuArtTests').</summary>

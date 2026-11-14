@@ -135,7 +135,8 @@ internal sealed class FlameRig
                                      Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                      Convars.Declared<TFPushbackScaleConVar>(),
                                      Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers,
-                                     Hooks, Health, Engine, afterburns: Afterburns);
+                                     Hooks, Health, Engine, new TF2.Tests.Player.ComposedComponents.IdleLag(),
+                                     afterburns: Afterburns);
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);
@@ -145,7 +146,7 @@ internal sealed class FlameRig
                                        new ProjectileRig.FixedClasses(), Log,
                                        Engine, Owners, new TF2.Shared.Econ.AttributeHooks(),
                                        new ProjectileRig.Resupply(), Engine, Engine, new ProjectileRig.DirectoryView(),
-                                       Carriers);
+                                       Carriers, DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
         Rocket = new TFRocket(Engine, Motion, blast, Owners, Engine, new TF2.Shared.Econ.AttributeHooks(),
                               new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine);
         Rocket.BindAreas(TestServices.Areas(Engine));
@@ -168,7 +169,8 @@ internal sealed class FlameRig
         StickyVars.ForceFromBlast.Hold("0");
         StickyVars.ForceToMove.Hold("0");
         StickyVars.ForceSleepTime.Hold("0");
-        Stickybomb = new TFStickybomb(Engine, blast, Engine, StickyVars, Engine, Engine, Directory, Engine);
+        Stickybomb = new TFStickybomb(Engine, blast, Engine, StickyVars, Engine, Engine, Directory, Engine,
+                                      new PostSimulationQueue());
         Stickybomb.BindAreas(TestServices.Areas(Engine));
         Stickybomb.Handle = StickyHandle;
         Stickybomb.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says

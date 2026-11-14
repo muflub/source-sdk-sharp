@@ -31,9 +31,9 @@ public sealed class TriggerTimerDoor(
     ICapturePlayers players,
     IObjectiveEntities entities,
     IObjectiveEvents events,
-    ITFPlayerObjectiveTimes? objectiveTimes = null,
-    ITFPlayerStats? stats = null,
-    IEngineGameEvents? gameEvents = null) : TriggerAreaCapture(clock, settings, objectives, roundRules, rules,
+    ITFPlayerObjectiveTimes objectiveTimes,
+    ITFPlayerStats stats,
+    IEngineGameEvents gameEvents) : TriggerAreaCapture(clock, settings, objectives, roundRules, rules,
                                                               playerRules, players, entities, events,
                                                               objectiveTimes, stats, gameEvents)
 {

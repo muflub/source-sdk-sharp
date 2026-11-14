@@ -47,10 +47,21 @@ public sealed class TFCrosshairScreenTests
         public UiTextureIcon? Icon(string name) => null;
     }
 
+    /// <summary>The layer's groups, unlocked: the hud element draws unless
+    /// the scoreboard locks the global group.</summary>
+    private sealed class UnlockedGroups : TF2.Client.Ui.ITFRenderGroups
+    {
+        public bool GlobalLocked => false;
+    }
+
     private static UiContext Painted(TF2.Client.Ui.ITFCrosshair source, IUiTextureLibrary? textures = null)
     {
         var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
-        UiSamples.Render(ctx, new TF2.Client.Ui.TFCrosshair(source, textures), UiSamples.Screen(1920, 1080), 1.0);
+        // Every constructor dependency is handed in required: an omitted
+        // library answers like the preview's, so the shape arms still fall back.
+        UiSamples.Render(ctx, new TF2.Client.Ui.TFCrosshair(source, textures ?? new CrosshairMaterials(""),
+                                                             new UnlockedGroups()),
+                         UiSamples.Screen(1920, 1080), 1.0);
         return ctx;
     }
 

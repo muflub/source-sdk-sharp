@@ -204,7 +204,7 @@ public sealed class TFJarSpawnFacts
                                                 table: Rig.Classes, catalog: Weapons.Catalog, carriers: Rig.Carriers,
                                                 players: Rig.Engine, precache: Rig.Engine, log: Rig.Log);
             Loadout = loadout;
-            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
+            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine, new ListHooks<ITFConditionHook>(), Rig.Engine);
             Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Engine, Arsenal),
                                             Rig.Engine, conditions, loadout, Rig.Engine,
                                             Items, new AttributeHooks(),

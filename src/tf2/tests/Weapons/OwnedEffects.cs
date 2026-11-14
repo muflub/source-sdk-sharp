@@ -60,7 +60,8 @@ internal static class OwnedEffects
         var engine = TestServices.Ignoring("Players.GetHandle");
         return new TFConceptSpeech(new FakeConceptRules(), new TFPlayerCarriers(), new FakeConceptTeams(),
                                    engine.Resolve<IEnginePlayers>()!, ObjectiveRig.ConceptSceneImage(),
-                                   engine.Resolve<IEngineSound>()!, new FakeRandom());
+                                   engine.Resolve<IEngineSound>()!, new FakeRandom(),
+                                   new LoadoutDeps.IdleRound(), new FakeOwners(), new RecordingLog());
     });
 
     /// <summary>The dispatcher with <paramref name="speech"/> and the named seams held, the rest silent.</summary>

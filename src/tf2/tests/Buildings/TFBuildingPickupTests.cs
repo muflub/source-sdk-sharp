@@ -44,7 +44,7 @@ public class TFBuildingPickupTests
 
         Assert.True(rig.Builder().Build(engineer, TFObjectType.Sentrygun, 0, new Vector(48f, 0f, 0f), Vector.Zero)
                     .Result == TFCanBuildResult.CanBuild);
-        var sentry = (TFSentryGun)Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
+        var sentry = (TFSentryGun)Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
 
         if (standing)
         {
@@ -215,7 +215,7 @@ public class TFBuildingPickupTests
         EntityHandle blue = rig.AddBuilder(TFTeam.Blue);
         Assert.True(rig.Builder().Build(blue, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero).Result
                     == TFCanBuildResult.CanBuild);
-        var blueSentry = (TFSentryGun)Assert.Single(rig.Buildings().OwnedBy(blue, TFObjectType.Sentrygun));
+        var blueSentry = (TFSentryGun)Assert.Single(rig.Buildings().OwnedBy(blue, TFObjectType.Sentrygun, null));
         rig.Clock.Now += 100f;          // the blue sentry stands
         blueSentry.OnThink();
         rig.Origins[blueSentry.Handle] = new Vector(48f, 0f, 0f);
@@ -347,7 +347,7 @@ public class TFBuildingPickupTests
         var states = new TFMovementFixtures.Players();
         states.Add(3, TFClass.Engineer);
         var skill = new TFClassSpecialSkill(states, rig.Engine, new IdleSkillSpies(),
-                                            new TFStickyTray(), pickup: rig.Pickup(),
+                                            new TFStickyTray(rig.Carriers), pickup: rig.Pickup(),
                                             new NoTFWeaponOwners(), new IdleSkillShields());
 
         Assert.True(skill.DoSpecialSkill(3));

@@ -57,6 +57,9 @@ public sealed class TeamRoundCompositionTests
         services.AddInstance<IHooks<ITeamRoundListener>>(new ListHooks<ITeamRoundListener>());
         services.AddInstance<IHooks<ITimerExpiryVeto>>(new ListHooks<ITimerExpiryVeto>());
         services.AddInstance(new TF2.Server.Player.TFPlayerCarriers());
+        // The balancer's class rows: the carrier's own interface half, which
+        // the server module registers as the scan's As rows.
+        services.AddInstance<TF2.Server.Econ.ITFPlayerClasses>(services.Create<TF2.Server.Player.TFPlayerCarriers>());
         services.AddInstance<ITFWinPanel>(new FakeWinPanel());
         services.AddInstance<ILevelInfo>(new FakeLevel());
         services.AddInstance<TF2.Server.Player.ITFPlayerStats>(new NoScores());

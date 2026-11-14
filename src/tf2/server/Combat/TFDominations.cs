@@ -54,9 +54,14 @@ public sealed class TFDominations : ITeamRoundListener, IClientLifecycle
 
     private const int Slots = TFPlayerResourceNetState.Slots;
 
-    private readonly TFPlayerCarriers? _carriers;
+    private readonly TFPlayerCarriers _carriers;
 
-    public TFDominations(TFPlayerCarriers? carriers = null) => _carriers = carriers;
+    /// <summary>
+    /// Every dependency is injected: the server's composition registers the
+    /// carriers beside the players' other components, so a missing one fails
+    /// the composition by name instead of answering from a null branch.
+    /// </summary>
+    public TFDominations(TFPlayerCarriers carriers) => _carriers = carriers;
 
     // [victim, attacker]: how many unanswered deaths the victim has been dealt by the attacker.
     private readonly int[,] _unanswered = new int[Slots, Slots];
@@ -118,9 +123,9 @@ public sealed class TFDominations : ITeamRoundListener, IClientLifecycle
     /// </summary>
     private void Mark(int dominatorIndex, int dominatedIndex, bool dominates)
     {
-        if (_carriers?.Get(dominatorIndex) is { } dominator)
+        if (_carriers.Get(dominatorIndex) is { } dominator)
             dominator.PlayerDominated[dominatedIndex] = dominates;
-        if (_carriers?.Get(dominatedIndex) is { } dominated)
+        if (_carriers.Get(dominatedIndex) is { } dominated)
             dominated.PlayerDominatingMe[dominatorIndex] = dominates;
     }
 
@@ -176,8 +181,6 @@ public sealed class TFDominations : ITeamRoundListener, IClientLifecycle
         Array.Clear(_dominates);
         Array.Clear(_dominations);
 
-        if (_carriers is null)
-            return;
         for (int i = 1; i < Slots; i++)
         {
             if (_carriers.Get(i) is not { } state)

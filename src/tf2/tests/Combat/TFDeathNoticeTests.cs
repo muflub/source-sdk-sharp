@@ -31,7 +31,8 @@ public sealed class TFDeathNoticeTests
     private static Dictionary<string, object> Fill(CombatRig rig, EntityHandle attacker, EntityHandle? inflictor = null,
                                                    string coreWeapon = "tf_weapon_scattergun")
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level);
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
+                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
         var fields = new Fields();
         EntityHandle scorer = attacker == CombatRig.Attacker || attacker == CombatRig.Third || attacker == CombatRig.Victim
             ? attacker : EntityHandle.None;
@@ -174,7 +175,7 @@ public sealed class TFDeathNoticeTests
     /// <summary>The victim's blast jump component, as the rig's players have it.</summary>
     private static TFBlastJumpState Jump(CombatRig rig, TFBlastJump state)
     {
-        var jump = new TFBlastJumpState(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine), rig.Engine,
+        var jump = new TFBlastJumpState(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine), rig.Engine,
                                         new NoEntities(), rig.Engine, rig.Engine);
         jump.Attach(CombatRig.Victim);
         if (state != TFBlastJump.None)
@@ -291,7 +292,7 @@ public sealed class TFDeathNoticeTests
     private static Dictionary<string, object> FillSilent(CombatRig rig)
     {
         var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       null, rig.Owners, new AttributeHooks());
+                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
         var fields = new Fields();
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
                                          "tf_weapon_knife"), fields);
@@ -356,7 +357,7 @@ public sealed class TFDeathNoticeTests
     private static Dictionary<string, object> FillGilded(CombatRig rig)
     {
         var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       null, rig.Owners, new AttributeHooks());
+                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
         var fields = new Fields();
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
                                          "tf_weapon_wrench"), fields);
@@ -434,7 +435,7 @@ public sealed class TFDeathNoticeTests
     private static Dictionary<string, object> FillFish(CombatRig rig)
     {
         var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
-                                       null, rig.Owners, new AttributeHooks());
+                                       new TFDominations(rig.Carriers), rig.Owners, new AttributeHooks());
         var fields = new Fields();
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
                                          "tf_weapon_scattergun"), fields);

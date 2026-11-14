@@ -165,6 +165,9 @@ public sealed class ClientMovementCompositionTests
                 typeof(TF2.Shared.TFParachuteMaxSpeedXYConVar),
                 typeof(TF2.Shared.TFParachuteMaxSpeedZConVar),
                 typeof(TF2.Shared.TFParachuteMaxSpeedOnfireZConVar),
+                typeof(TF2.Shared.TFDemomanChargeDrainTimeConVar),
+                typeof(TF2.Shared.TFDemomanChargeRegenRateConVar),
+                typeof(TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),
             ]);
             convars.PublishTo(services);
         }

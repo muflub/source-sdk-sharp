@@ -37,8 +37,8 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
                                      ITFWeaponOwners owners, AttributeHooks attributes,
                                      TFTauntCommand taunts, IEngineEntities entities, IEnginePlayers enginePlayers,
                                      IEngineEntityRender render, IEntityDirectory directory,
-                                     TFScoutEnergydrinkConsumeRateConVar? convar = null,
-                                     Arsenal? arsenal = null) : ITFLunchboxEffects
+                                     TFScoutEnergydrinkConsumeRateConVar convar,
+                                     Arsenal arsenal) : ITFLunchboxEffects
 {
     /// <summary>The Dalokos buff, thirty seconds of it (:387, :392).</summary>
     public const float MaxHealthBuff = 50f;
@@ -144,7 +144,7 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
 
         // The fall-back dead time (:18644): a hundred of meter over the
         // drain rate, plus the one — normally over in the meter's own seconds.
-        float seconds = DrinkSeconds(convar?.Value ?? DefaultDrinkSeconds);
+        float seconds = DrinkSeconds(convar.Value);
 
         if (mode == TFLunchboxBehaviour.ModeAddsMinicrits)
         {
@@ -158,8 +158,7 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
             players.AddCond(player, TFCond.Phase, seconds);
         }
 
-        // SelectLastItem (:18672): the remembered hand, the core arsenal's walk.
-        arsenal?.SwitchLast(enginePlayers.GetHandle(playerIndex));
+        arsenal.SwitchLast(enginePlayers.GetHandle(playerIndex));
     }
 
     /// <summary>Stock's fall-back dead time (:18644): <c>(100 / rate) + 1</c>.</summary>

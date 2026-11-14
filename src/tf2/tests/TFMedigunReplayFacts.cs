@@ -130,13 +130,15 @@ public sealed class TFMedigunReplayFacts
             var files = new Served(WeaponFixtures.ShippedWithClasses());
             var log = new ClientLog();
             var scripts = new ClientScripts(log, files);
-            var catalog = new ClientCatalog(() => [new ClientScriptTypes(scripts, new ClientClassTable(log, files), new ClientItemSchema(files, log))], log);
+            var schema = new ClientItemSchema(files, log);
+            var catalog = new ClientCatalog(() => [new ClientScriptTypes(scripts, new ClientClassTable(log, files), schema)], log);
             var ammo = new ClientAmmo(() => [new client::TF2.Shared.TFAmmoTypes()], log);
 
             // The world's answer: every aim line stops on the target entity.
             Engine.Returns("WorldQuery.ClientTraceLine", Hit);
             Engine.Returns("WorldQuery.ClientClipRayToEntities", Hit);
             Engine.Returns("EntityRender.LookupSequenceByActivity", 0);   // any fire anim resolves
+            Engine.Returns("Hud.LocalPlayerIndex", Local);   // the manager's held-weapon walk names the local hand
 
             Weapon = new ClientWeapon(Engine) { Handle = WeaponHandle };
             Weapon.State.BindLocal();
@@ -172,7 +174,8 @@ public sealed class TFMedigunReplayFacts
                                             [new client::TF2.Shared.TFAttributeWeaponHook(new ClientHooks())]),
                                         new ClientBuckets(),
                                         new NoRandomCrits(),
-                                        new client::TF2.Client.Player.TFClientWeaponOwners(data, pair),
+                                        new client::TF2.Client.Player.TFClientWeaponOwners(data, pair, resources,
+                                                                                            schema, catalog, new EmptyArsenal(), Engine),
                                         new client::TF2.Shared.NoTFWeaponEffects(),
                                         new client::TF2.Client.Buildings.TFClientBuilderPlacement(),
                                         data,
@@ -243,5 +246,17 @@ public sealed class TFMedigunReplayFacts
         public string? ReadGameFile(string path) => files.ReadGameFile(path);
         public byte[]? ReadGameFileBytes(string path) => files.ReadGameFileBytes(path);
         public byte[]? ReadFileOnPath(string path, string pathId) => files.ReadFileOnPath(path, pathId);
+    }
+
+    /// <summary>No hands: the replay's owners ask nothing of the local arsenal.</summary>
+    private sealed class EmptyArsenal : client::SourceSharp.Client.ILocalArsenal
+    {
+        public bool TryGetActive(out string name, out int clip, out int reserve)
+        {
+            name = "";
+            clip = 0;
+            reserve = 0;
+            return false;
+        }
     }
 }

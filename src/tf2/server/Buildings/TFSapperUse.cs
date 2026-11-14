@@ -62,12 +62,18 @@ namespace TF2.Server.Buildings;
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFSapperState)])]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one
+/// (the convars through the registry's publish, the seams through their
+/// <see cref="SideServiceAttribute"/>), so a missing one fails the
+/// composition by name instead of answering a default.
+/// </summary>
 public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                 IEngineWorldQuery world, ITFBuildings buildings, IEngineDamage damage,
                                 TFDamageScopes scopes, ITFObjectSpawner spawner, ILog log,
-                                TFConstructionBuildRateConVar? constructionRate = null,
-                                ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                                ITFBuilderArms? arms = null, ILagCompensation? lagCompensation = null) : ITFSapperState
+                                TFConstructionBuildRateConVar constructionRate, ITFWeaponOwners owners,
+                                AttributeHooks hooks, ITFBuilderArms arms, ILagCompensation lagCompensation)
+    : ITFSapperState
 {
     /// <summary>The player's <c>m_flFieldOfView</c> (player.cpp:5108).</summary>
     public const float FieldOfView = 0.766f;
@@ -92,7 +98,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         // The placed sapper leaves the hands for the last weapon
         // (SwitchOwnersWeaponToLast, tf_weapon_builder.cpp:421) — the sapper
         // row carries no OF_ALLOW_REPEAT_PLACEMENT to hold it out.
-        arms?.SwitchLast(spy);
+        arms.SwitchLast(spy);
         return true;
     }
 
@@ -128,7 +134,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         Vector bestPoint = default;
         float bestDistance = MaxAttachDistance;
 
-        foreach (TFBaseObject candidate in buildings.OwnedBy())
+        foreach (TFBaseObject candidate in buildings.OwnedBy(null, null, null))
         {
             // The hostile attachment looks at the other team's objects only,
             // and never at one being placed or already sapped — the one
@@ -201,7 +207,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         // The wrench's session (tf_weapon_wrench.cpp:497, :521): the swing's
         // trace and the building pick see the other players where the
         // engineer saw them.
-        lagCompensation?.Start(player);
+        lagCompensation.Start(player);
         try
         {
             if (PickFriendlyBuilding(player, range) is not { } hit)
@@ -234,16 +240,14 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
             // tf_weapon_wrench.cpp:334-339): the build-rate convar, times the
             // swung wrench's mult_construction_value — the active weapon at
             // the smack is the melee.
-            float constructionValue = constructionRate?.Value ?? 1f;
-            if (hooks is not null && owners is not null)
-                constructionValue = hooks.Float(constructionValue, "mult_construction_value",
-                                                owners.ActiveItemOf(player.EntryIndex));
+            float constructionValue = hooks.Float(constructionRate.Value, "mult_construction_value",
+                                                  owners.ActiveItemOf(player.EntryIndex));
 
             return hit.Building.WrenchHit(player, constructionValue);
         }
         finally
         {
-            lagCompensation?.Finish(player);
+            lagCompensation.Finish(player);
         }
     }
 
@@ -262,7 +266,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         if (player == EntityHandle.None)
             return false;
 
-        lagCompensation?.Start(player);
+        lagCompensation.Start(player);
         try
         {
             if (PickFriendlyBuilding(player, range) is not { } hit || hit.Sapper is not { } bestSapper)
@@ -284,7 +288,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         }
         finally
         {
-            lagCompensation?.Finish(player);
+            lagCompensation.Finish(player);
         }
     }
 
@@ -309,7 +313,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         TFSapper? bestSapper = null;
         float bestAlong = 0f;
 
-        foreach (TFBaseObject building in buildings.OwnedBy())
+        foreach (TFBaseObject building in buildings.OwnedBy(null, null, null))
         {
             // OnFriendlyBuildingHit: the building is the engineer's team's.
             if (building.Team != team)
@@ -342,7 +346,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
 
     /// <summary>The sapper riding <paramref name="building"/>, as the use layer keeps it.</summary>
     private TFSapper? SapperOn(TFBaseObject building) =>
-        buildings.OwnedBy(type: TFObjectType.AttachmentSapper).OfType<TFSapper>()
+        buildings.OwnedBy(null, TFObjectType.AttachmentSapper, null).OfType<TFSapper>()
                  .FirstOrDefault(s => s.BuiltOn == building.Handle);
 
     /// <summary>Stock's z-flattened normalize; a zero vector stays zero.</summary>

@@ -32,10 +32,10 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers players, ITFPlayerClasses classes,
                                        ITFPlayerResupply resupply, ITFPlayerConditions conditions,
                                        TFPlayerCarriers carriers,
-                                       TFPlayerItems items, AttributeHooks? attributes = null) : ITFMapPlayers
+                                       TFPlayerItems items, AttributeHooks attributes) : ITFMapPlayers
 {
     private readonly TFPlayerItems _items = items;
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly AttributeHooks _attributes = attributes;
 
     public bool IsAlive(EntityHandle player) => players.IsAlive(player);
 

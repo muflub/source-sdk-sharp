@@ -47,13 +47,19 @@ public sealed class TFKillFeedSource : ITFKillFeed, IKillFeedListener
 
     private readonly IGameClock _clock;
     private readonly IKillFeedPlayers _players;
-    private readonly HudDeathNoticeTimeConVar? _time;
+    private readonly HudDeathNoticeTimeConVar _time;
     private readonly TFKillFeedLine[] _lines = new TFKillFeedLine[MaxLines];
     private readonly float[] _expires = new float[MaxLines];
     private int _count;
     private float _seen;
 
-    public TFKillFeedSource(IGameClock clock, IKillFeedPlayers players, HudDeathNoticeTimeConVar? time = null)
+    /// <summary>
+    /// Every dependency is injected: the client's composition holds the clock
+    /// and the players resolver by their registrations and publishes the
+    /// declared convars as the game's registry does, so a missing one fails
+    /// the composition by name instead of answering a fallback default.
+    /// </summary>
+    public TFKillFeedSource(IGameClock clock, IKillFeedPlayers players, HudDeathNoticeTimeConVar time)
         => (_clock, _players, _time) = (clock, players, time);
 
     void IKillFeedListener.OnDeath(PlayerDeathArgs death) => Add(death);
@@ -72,7 +78,7 @@ public sealed class TFKillFeedSource : ITFKillFeed, IKillFeedListener
     /// <summary>One player_death (<c>FireGameEvent</c>'s player-death arm).</summary>
     public void Add(PlayerDeathArgs death)
     {
-        float display = _time?.Value ?? 6f;
+        float display = _time.Value;
         if (display == 0f)
             return;
 

@@ -121,7 +121,8 @@ public sealed class TFManmelterFacts
         var carrier = new TFPlayerNetState();
         var world = World(carrier);
         carrier.RevengeCrits = 2;
-        var conds = new TFConditions(authoritative: true);
+        var conds = new TFConditions(authoritative: true,
+                             new TFCondHolder());
         world.Owners.Conditions[TFWeaponWorld.Owner] = conds;
         conds.Add(TFCond.Critboosted);
         var (w, vm) = world.Armed(Manmelter, clip: -1, reserve: 20);
@@ -219,7 +220,7 @@ public sealed class TFManmelterFacts
         var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(FlameRig.Victim));
         slice.Attach(FlameRig.Victim);
         slice.Burn.Ignite(100f, alive: true, TFClass.Pyro, default, burner,
-                          TFWeaponId.Flamethrower, "tf_weapon_flamethrower");
+                          TFWeaponId.Flamethrower, "tf_weapon_flamethrower", [], null);
         return slice;
     }
 

@@ -79,7 +79,8 @@ internal sealed class FakeOwners : ITFWeaponOwners
     public TFConditions Of(int playerIndex)
     {
         if (!Conditions.TryGetValue(playerIndex, out var c))
-            Conditions[playerIndex] = c = new TFConditions(authoritative: true);
+            Conditions[playerIndex] = c = new TFConditions(authoritative: true,
+                                         new TFCondHolder());
         return c;
     }
 }

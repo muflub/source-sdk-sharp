@@ -131,6 +131,6 @@ public sealed class TFAutoReloadTests
         Assert.False(new TFServerAutoReload(new Said("0")).Wants(TFWeaponWorld.Owner));
         Assert.False(new TFServerAutoReload(new Said("")).Wants(TFWeaponWorld.Owner));
         Assert.False(new TFServerAutoReload(new Said("1")).Wants(0));
-        Assert.False(new TFServerAutoReload(null).Wants(TFWeaponWorld.Owner));
+        Assert.False(new TFServerAutoReload(new Said("1")).Wants(-1));
     }
 }

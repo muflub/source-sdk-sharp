@@ -26,7 +26,7 @@ public sealed class TFTauntCommandTests
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new TF2.Shared.Econ.AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -38,7 +38,7 @@ public sealed class TFTauntCommandTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var scenes = new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files(
             ("scenes/scenes.image", TF2.Tests.Voice.TFSceneImageTests.Image(("vo/concept.ogg", 2800, ["vo/concept.ogg"])))));
         var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules ?? new()),
@@ -49,7 +49,8 @@ public sealed class TFTauntCommandTests
     /// <summary>The voice over the rig's engine: the staged rules answer, nothing else named.</summary>
     private static TF2.Server.Voice.TFConceptSpeech Voice(PlayerRig rig, TF2.Tests.Entities.FakeConceptRules rules)
         => new(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
-               TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom());
+               TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom(),
+               new LoadoutDeps.IdleRound(), new TF2.Tests.Weapons.FakeOwners(), rig.Log);
 
     [Fact]
     public void TheTauntIsItsScenesSpeak()
@@ -62,7 +63,7 @@ public sealed class TFTauntCommandTests
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_shotgun_soldier");
         var rules = new TF2.Tests.Entities.FakeConceptRules();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new TF2.Shared.Econ.AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -74,7 +75,7 @@ public sealed class TFTauntCommandTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules),
                                          new NoTFWeaponOwners(), new AttributeHooks(),
                                          new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()));
@@ -97,7 +98,7 @@ public sealed class TFTauntCommandTests
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_shotgun_soldier");
         var rules = new TF2.Tests.Entities.FakeConceptRules { Name = "scenes/player/soldier/low/taunt05.vcd" };
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new TF2.Shared.Econ.AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -109,9 +110,10 @@ public sealed class TFTauntCommandTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var voice = new TF2.Server.Voice.TFConceptSpeech(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
-            TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom());
+            TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom(),
+            new LoadoutDeps.IdleRound(), new TF2.Tests.Weapons.FakeOwners(), rig.Log);
 
         Assert.True(voice.Speak(PlayerRig.Player, TF2.Server.Voice.TFConceptSpeech.PlayerTaunt, "tf_shotgun_soldier", out string scene));
 
@@ -128,7 +130,7 @@ public sealed class TFTauntCommandTests
         rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
         var rules = new TF2.Tests.Entities.FakeConceptRules { Match = false };
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new TF2.Shared.Econ.AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -140,7 +142,7 @@ public sealed class TFTauntCommandTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, Voice(rig, rules),
                                          new NoTFWeaponOwners(), new AttributeHooks(),
                                          new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()));
@@ -176,7 +178,7 @@ public sealed class TFTauntCommandTests
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_knife");
         var rules = new TF2.Tests.Entities.FakeConceptRules { Kind = ResponseKind.Scene, Name = Scene };
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new TF2.Shared.Econ.AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -188,11 +190,12 @@ public sealed class TFTauntCommandTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var image = new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files(
             ("scenes/scenes.image", TF2.Tests.Voice.TFSceneImageTests.Image((Scene, 4200, ["vo/taunt.ogg"])))));
         var voice = new TF2.Server.Voice.TFConceptSpeech(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
-                                                         image, rig.Engine, new TF2.Tests.Entities.FakeRandom());
+                                                         image, rig.Engine, new TF2.Tests.Entities.FakeRandom(),
+                                                         new LoadoutDeps.IdleRound(), new TF2.Tests.Weapons.FakeOwners(), rig.Log);
         var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice,
                                          new NoTFWeaponOwners(), new AttributeHooks(), scenes: image);
 

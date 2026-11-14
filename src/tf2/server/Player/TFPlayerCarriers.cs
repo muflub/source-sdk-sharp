@@ -160,6 +160,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        TFDemomanChargeRegenRateConVar chargeRegen,
                                        TFShieldCharge shields,
                                        TF2.Shared.TFDoubleDonkWindowConVar donkWindow,
+                                       TFScoutEnergydrinkConsumeRateConVar drink,
                                        TFEurekaTeleport eureka)
     : IPlayerComponentSource, IOrderedHook
 {
@@ -183,7 +184,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFDonkVictims(carriers, clock, donkWindow);
         yield return new TFRespawnOverride(carriers, clock);
         yield return new TFBuffRageTicker(carriers, buffs, enginePlayers);
-        yield return new TFHypeDrain(carriers, conditions);
+        yield return new TFHypeDrain(carriers, conditions, drink);
         yield return new TFPlayerAttributes(carriers, items, schema, clock);
         yield return new TFAmmoPoolMirror(entities, carriers, arsenal);
         yield return new TFWeaponClipMirror(entities, carriers, arsenal);

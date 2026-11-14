@@ -52,7 +52,7 @@ internal sealed class FakeBuildings : ITFBuildings
     public List<TFBaseObject> Standing { get; } = new();
     public int Queries { get; private set; }
 
-    public IEnumerable<TFBaseObject> OwnedBy(EntityHandle? builder = null, TFObjectType? type = null, int? mode = null)
+    public IEnumerable<TFBaseObject> OwnedBy(EntityHandle? builder, TFObjectType? type, int? mode)
     {
         Queries++;
         return Standing;

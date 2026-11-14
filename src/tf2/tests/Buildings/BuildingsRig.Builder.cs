@@ -139,6 +139,21 @@ internal sealed class FakeBuilderArms : ITFBuilderArms
     }
 }
 
+/// <summary>A lag session that never records: the smacks' plain traces, as the
+/// composition's idle lag answers them.</summary>
+internal sealed class RigLag : ILagCompensation
+{
+    public void Start(EntityHandle player) { }
+
+    public void Start(EntityHandle player, in UserCmd cmd) { }
+
+    public void Finish(EntityHandle player) { }
+
+    public bool IsCurrentlyDoingLagCompensation => false;
+
+    public void NoteWeaponFired(EntityHandle player) { }
+}
+
 /// <summary>The build command's world: purse, spot refusals, spawner, and the subjects over them.</summary>
 internal sealed partial class BuildingsRig
 {
@@ -197,7 +212,9 @@ internal sealed partial class BuildingsRig
         EnsureBuilderSeams();
         StubWorld();
         StubPlacementTraces();
-        var sapper = new TFSapperUse(Players, Engine, Engine, Engine, Buildings(), Engine, Scopes, Spawner, Log);
+        var sapper = new TFSapperUse(Players, Engine, Engine, Engine, Buildings(), Engine, Scopes, Spawner, Log,
+                                     Convars.Declared<TFConstructionBuildRateConVar>(), Owners, Hooks, BuilderArms,
+                                     new RigLag());
         return new TFBuilderPlacement(Engine, Engine, Engine, NoBuild, Rooms, Buildings(),
                                       builder ?? Builder(), Purse, Spawner, sapper, arms ?? BuilderArms, Log);
     }
@@ -246,7 +263,9 @@ internal sealed partial class BuildingsRig
     public TFBuildCommand BuildCommand(ITFBuilderPlacement? placement = null,
                                        TF2.Server.Rules.ITeamRoundState? round = null,
                                        TF2.Shared.ITFStalemateSettings? stalemate = null)
-        => new(Players, Pickup(), placement ?? Placement(), Log, round, stalemate);
+        => new(Players, Pickup(), placement ?? Placement(), Log,
+               round ?? new TF2.Tests.Entities.FakeRoundState(),
+               stalemate ?? new TF2.Tests.LoadoutDeps.NoStalemate());
 
     public TFDestroyCommand DestroyCommand(ITFObjectBuilder? builder = null)
         => new(Players, builder ?? Builder(), Log);

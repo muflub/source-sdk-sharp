@@ -166,7 +166,7 @@ public sealed class TFHolsterAnimFacts
             var loadout = LoadoutDeps.Loadout(inventory, schema, classes: Rig.Carriers, items: new TFPlayerItems(),
                                                 table: Rig.Classes, catalog: Weapons.Catalog, carriers: Rig.Carriers,
                                                 players: Rig.Engine, precache: Rig.Engine, log: Rig.Log);
-            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
+            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), Rig.Engine);
             Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Engine, Arsenal),
                                             Rig.Engine, conditions, loadout, Rig.Engine,
                                             new TFPlayerItems(), new AttributeHooks(),

@@ -98,6 +98,10 @@ internal static class ComposedComponents
             weapons: new WeaponCatalog(() => [new TFWeaponTypes(scripts, new TFClassTable(log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()), schema)], log),
             ammo: new AmmoCatalog(() => [new TF2.Shared.TFAmmoTypes()], log)));
         services.AddInstance<IPlayerDirectory>(new NoRecords());
+        // The placement hooks the eureka teleport's required arm asks; no mod
+        // places anything here, the empty chain, as the server module's
+        // factory answers when no mod registers a placement.
+        services.AddInstance<IHooks<ISpawnPlacement>>(new TF2.Tests.Rules.ListHooks<ISpawnPlacement>());
         services.AddInstance<IMapCleanup>(new NoCleanup());
         services.AddInstance(new EntityDirectory(log));
         services.AddInstance(new GameModes(log, clock, services,
@@ -110,6 +114,9 @@ internal static class ComposedComponents
         services.AddInstance(new Observers(log, directory, entities, players, engine, engine, damage, world, engine,
                                            DeclaredConVars.Fresh<ForceCameraConVar>(),
                                            DeclaredConVars.Fresh<AllowSpectatorsConVar>()));
+        // The round roster's names: ServerModule's own instance beside the
+        // scan (the same Create the module runs, after the clients it reads).
+        services.AddInstance(services.Create<PlayerNames>());
 
         return services.Resolve<TFPlayerComponents>() ?? throw new ServiceResolutionException(
             "the composition resolved no TFPlayerComponents");

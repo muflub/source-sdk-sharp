@@ -39,8 +39,9 @@ public sealed class TFSapperUseTests
                                    TFConstructionBuildRateConVar? constructionRate = null,
                                    ITFWeaponOwners? owners = null, AttributeHooks? hooks = null) =>
         new(rig.Players, rig.Engine, rig.Engine, rig.Engine, rig.Buildings(), rig.Engine,
-            rig.Scopes, rig.Spawner, rig.Log, constructionRate: constructionRate, owners: owners, hooks: hooks,
-            arms: arms, lagCompensation: lag);
+            rig.Scopes, rig.Spawner, rig.Log,
+            constructionRate ?? rig.Convars.Declared<TFConstructionBuildRateConVar>(),
+            owners ?? rig.Owners, hooks ?? rig.Hooks, arms ?? new RecordingArms(), lag ?? new NoLag());
 
     /// <summary>The whack's convar as the rig's registry declared it.</summary>
     private static TFConstructionBuildRateConVar ConstructionRate(BuildingsRig rig) =>
@@ -68,6 +69,21 @@ public sealed class TFSapperUseTests
         public bool GiveWeapon(EntityHandle player, string className) { Asked.Add($"give {player} {className}"); return true; }
 
         public SwitchOutcome SwitchLast(EntityHandle player) { Asked.Add($"last {player}"); return default; }
+    }
+
+    /// <summary>A lag session that never records: the plain smacks, as the
+    /// composition's idle lag answers them.</summary>
+    private sealed class NoLag : ILagCompensation
+    {
+        public void Start(EntityHandle player) { }
+
+        public void Start(EntityHandle player, in UserCmd cmd) { }
+
+        public void Finish(EntityHandle player) { }
+
+        public bool IsCurrentlyDoingLagCompensation => false;
+
+        public void NoteWeaponFired(EntityHandle player) { }
     }
 
     /// <summary>
@@ -132,9 +148,9 @@ public sealed class TFSapperUseTests
 
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
 
-        TFSapper sapper = rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper).OfType<TFSapper>().Single();
+        TFSapper sapper = rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null).OfType<TFSapper>().Single();
         rig.Centers[sapper.Handle] = new Vector(40f, 0f, 64f);
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         rig.Centers[sentry.Handle] = new Vector(60f, 0f, 64f);   // the building sits on the swing line
         return (rig, sapper, sentry, engineer);
     }
@@ -163,7 +179,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
         BuildingsRig.Hit(sentry, enemy, 100f, DamageType.Bullet);   // 150 → 50
         StubEngine(rig, engineer);
@@ -205,7 +221,7 @@ public sealed class TFSapperUseTests
 
     /// <summary>The sappers the placement left, by the building they ride.</summary>
     private static TFSapper SapperOn(BuildingsRig rig, TFBaseObject building) =>
-        rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper).OfType<TFSapper>()
+        rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null).OfType<TFSapper>()
            .Single(s => s.BuiltOn == building.Handle);
 
     //---------------------------------------------------------------------
@@ -218,7 +234,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         StubEngine(rig, builder, spy);
 
@@ -272,7 +288,7 @@ public sealed class TFSapperUseTests
         StubEngine(rig, builder, spy);
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -281,14 +297,14 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         StubEngine(rig, builder, spy);
 
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));   // one sapper a building
 
-        Assert.Single(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Single(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -301,7 +317,7 @@ public sealed class TFSapperUseTests
         StubEngine(rig, builder, spy);
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -317,7 +333,7 @@ public sealed class TFSapperUseTests
         StubEngine(rig, builder, behind, spy);
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -331,7 +347,7 @@ public sealed class TFSapperUseTests
         rig.BlockedEnds.Add(new Vector(100f, 0f, 32f));   // the eye's line stops short of the building
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -341,14 +357,14 @@ public sealed class TFSapperUseTests
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
         EntityHandle farther = ABuilt(rig, TFTeam.Red, new Vector(150f, 0f, 32f));
-        var near = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun)
+        var near = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null)
                       .Single(b => RigVectors.Same(rig.Centers[b.Handle], new Vector(100f, 0f, 32f)));
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         StubEngine(rig, builder, farther, spy);
 
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
 
-        Assert.Single(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Single(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
         Assert.Equal(near.Handle, SapperOn(rig, near).BuiltOn);
     }
 
@@ -476,8 +492,8 @@ public sealed class TFSapperUseTests
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
 
-        TFDispenser dispenser = rig.Buildings().OwnedBy(type: TFObjectType.Dispenser).OfType<TFDispenser>().Single();
-        TFSentryGun sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        TFDispenser dispenser = rig.Buildings().OwnedBy(null, TFObjectType.Dispenser, null).OfType<TFDispenser>().Single();
+        TFSentryGun sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         TFSapper onDispenser = SapperOn(rig, dispenser);
         TFSapper onSentry = SapperOn(rig, sentry);
         rig.Centers[dispenser.Handle] = new Vector(40f, 0f, 64f);   // the nearer, on the swing line
@@ -498,7 +514,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Blue, new Vector(100f, 0f, 32f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle spy = rig.AddBuilder(TFTeam.Red, TFClass.Spy);   // the red spy saps the blue sentry
         EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
         StubEngine(rig, builder, spy, engineer);
@@ -533,7 +549,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));   // on the swing line
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
         BuildingsRig.Hit(sentry, enemy, 30f, DamageType.Bullet);   // 150 → 120
         StubEngine(rig, engineer);
@@ -630,7 +646,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         StubEngine(rig, engineer);
         rig.Purse.Pockets[MetalName] = 200;
 

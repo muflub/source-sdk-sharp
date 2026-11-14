@@ -37,9 +37,9 @@ namespace TF2.Server.Player;
 [SideService(Side.Server, As = [typeof(ITFBuffEffects)])]
 public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions conditions,
                                      IEnginePlayers enginePlayers, IEngineEntities entities,
-                                     IGameClock? clock = null, TFTauntCommand? taunts = null,
-                                     TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                                     IEngineSound? sound = null, IEngineGameEvents? events = null) : ITFBuffEffects
+                                     IGameClock clock, TFTauntCommand taunts,
+                                     TFPlayerCarriers carriers, TFConceptSpeech speech,
+                                     IEngineSound sound, IEngineGameEvents events) : ITFBuffEffects
 {
     public void DeployBuff(int ownerIndex, int buffType)
     {
@@ -104,7 +104,7 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
             _ => null,
         };
         if (horn is { } name)
-            sound?.EntityEmitSound(owner, name);
+            sound.EntityEmitSound(owner, name);
     }
 
     /// <summary>
@@ -121,18 +121,15 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
         if (owner == EntityHandle.None || !enginePlayers.IsAlive(owner))
             return;
 
-        if (events is { } seam)
+        IntPtr ev = events.EventCreate("deploy_buff_banner"); // :243, before the ActivateRageBuff ask (:242's comment)
+        if (ev != IntPtr.Zero)
         {
-            IntPtr ev = seam.EventCreate("deploy_buff_banner"); // :243, before the ActivateRageBuff ask (:242's comment)
-            if (ev != IntPtr.Zero)
-            {
-                seam.EventSetInt(ev, "buff_type", buffType); // :246
-                seam.EventSetInt(ev, "buff_owner", enginePlayers.GetUserId(owner)); // :247
-                seam.EventFire(ev); // :248
-            }
+            events.EventSetInt(ev, "buff_type", buffType); // :246
+            events.EventSetInt(ev, "buff_owner", enginePlayers.GetUserId(owner)); // :247
+            events.EventFire(ev); // :248
         }
 
-        sound?.EntityEmitSound(owner, "Weapon_BuffBanner.Flag"); // :251
+        sound.EntityEmitSound(owner, "Weapon_BuffBanner.Flag"); // :251
     }
 
     /// <summary>
@@ -158,9 +155,6 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
     /// </remarks>
     public void UseRage(int ownerIndex, int buffType)
     {
-        if (taunts is null || carriers is null || clock is null)
-            return; // a side without the taunt half has no rage to press.
-
         EntityHandle owner = ownerIndex > 0 ? enginePlayers.GetHandle(ownerIndex) : EntityHandle.None;
         if (owner == EntityHandle.None || buffType <= 0)
             return;
@@ -184,7 +178,7 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
         state.RageBuffPulsesLeft = TFRageMeter.BuffPulses;             // :13744
         state.RageBuffNextPulseTime = clock.Now + TFBuffItemBehaviour.PulseInterval; // :13745
 
-        speech?.Speak(ownerIndex, TFConceptSpeech.PlayerBattlecry);    // :13784's case 5
+        speech.Speak(ownerIndex, TFConceptSpeech.PlayerBattlecry);    // :13784's case 5
         DeployBuff(ownerIndex, buffType);                              // :13747's first pulse
 
         // The taunt's shields (:17917-17918): invulnerability and mega-heal

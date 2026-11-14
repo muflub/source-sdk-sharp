@@ -43,7 +43,7 @@ public sealed class TFBuildingResourceRows(ITFBuildings buildings, IEnginePlayer
         for (int i = 0; i < TFBuildingResourceNetState.Rows; i++)
             state.Flags[i] = 0;
 
-        foreach (TFBaseObject building in buildings.OwnedBy())
+        foreach (TFBaseObject building in buildings.OwnedBy(null, null, null))
         {
             int kind = KindOf(building);
             if (kind < 0)

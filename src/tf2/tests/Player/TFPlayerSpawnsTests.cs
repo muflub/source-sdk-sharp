@@ -53,7 +53,7 @@ public sealed class TFPlayerSpawnsTests
             ConVars = convars;
             var directory = new NoPlayers();
             Observers = new Observers(Player.Log, directory, engine, engine, engine, engine, engine, engine, engine, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>());
-            Conditions = new TFPlayerConditions(Player.Carriers, engine);
+            Conditions = new TFPlayerConditions(Player.Carriers, engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), engine);
             Class = new TFPlayerClass(Player.Carriers, Player.Items);
             Jump = new TFBlastJumpState(Player.Carriers, Conditions, engine, directory, engine, engine);
             Player.Extra.Add(Jump);
@@ -350,10 +350,10 @@ public sealed class TFPlayerSpawnsTests
         var observers = new Observers(log, registry, engine, engine, engine, engine, engine, engine, engine, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>());
         var carriers = new TFPlayerCarriers();
         var spawns = new TFPlayerSpawns(carriers, new PlayerRig().Classes, engine, engine, engine,
-                                        new TFPlayerConditions(carriers, engine), new TFCritBuckets(),
+                                        new TFPlayerConditions(carriers, engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), engine), new TFCritBuckets(),
                                         registry, observers, new Carried(EntityHandle.None),
                                         new TFPlayerResupply(carriers, new PlayerRig().Classes, engine, engine,
-                                                             new TFPlayerConditions(carriers, engine),
+                                                             new TFPlayerConditions(carriers, engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), engine),
                                                              new PlayerRig().Loadout, engine,
                                                              new PlayerRig().Items, new AttributeHooks(),
                                                              scripts: new TFWeaponScripts(log, Weapons.WeaponFixtures.ShippedWithClasses()),

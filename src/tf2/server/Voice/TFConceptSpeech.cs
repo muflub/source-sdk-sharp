@@ -40,9 +40,9 @@ public sealed class TFConceptSpeech(
     TFSceneImage scenes,
     IEngineSound sound,
     IUniformRandom rng,
-    ITeamRoundState? round = null,
-    ITFWeaponOwners? owners = null,
-    ILog? log = null)
+    ITeamRoundState round,
+    ITFWeaponOwners owners,
+    ILog log)
 {
     /// <summary>MP_CONCEPT_BUILDING_OBJECT (mp_shareddefs.cpp:57) — the builder's line as construction starts.</summary>
     public const string BuildingObject = "TLK_BUILDING_OBJECT";
@@ -147,7 +147,7 @@ public sealed class TFConceptSpeech(
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", concept);
         TFPlayerCriteriaWords.Append(carriers.Get(speaker.EntryIndex), teams.Team(speaker), round, criteria,
-                                     (owners?.ActiveItemOf(speaker.EntryIndex) as AttributeContainer)?.Item);
+                                     (owners.ActiveItemOf(speaker.EntryIndex) as AttributeContainer)?.Item);
 
         // The roll behind the percent-chance criteria (SpeakInternal): a missing key
         // fails them all, so it rides every ask.
@@ -187,7 +187,7 @@ public sealed class TFConceptSpeech(
         }
 
         if (spoke)
-            log?.Msg($"[TF2/Voice] player {speaker.EntryIndex} spoke concept {concept} ({response.Kind} {response.Name})\n");
+            log.Msg($"[TF2/Voice] player {speaker.EntryIndex} spoke concept {concept} ({response.Kind} {response.Name})\n");
 
         return (spoke, response.Name);
     }

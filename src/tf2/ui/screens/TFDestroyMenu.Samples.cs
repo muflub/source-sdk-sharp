@@ -15,6 +15,7 @@ public static class TFDestroyMenuSamples
     {
         s.Add<ITFDestroyMenuSource>(source ?? new FakeTFDestroyMenuSource());
         s.Add<ITFDestroyMenuActions>(actions ?? new FakeTFDestroyMenuActions());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         return s.Create<TFDestroyMenu>();
     }
 

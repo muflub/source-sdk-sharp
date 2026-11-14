@@ -373,4 +373,50 @@ public sealed class TFPlayerLoadoutTests
         Assert.Equal(["tf_weapon_scattergun", "tf_weapon_pistol_scout"], loadout.Weapons(PlayerRig.Player));
         Assert.DoesNotContain(rig.Log.Lines, l => l.Warning);
     }
+
+    // ---- the soldier's B.A.S.E. Jumper (items_working.tsv:312) -------------
+
+    /// <summary>The shipped schema's B.A.S.E. Jumper, the soldier's backpack secondary.</summary>
+    private const int ParachuteDefindex = 1101;
+
+    [Fact]
+    public void TheEquippedParachuteAnswersItsAttributeOnThePlayersManager()
+    {
+        // The shipped game's backpack case: the soldier equips the B.A.S.E.
+        // Jumper (defindex 1101, item_class tf_weapon_parachute), and its one
+        // attribute parachute_attribute must reach the player's own manager —
+        // stock's ToggleParachute reads it there through CALL_ATTRIB_HOOK_
+        // INT_ON_OTHER (tf_gamemovement.cpp:1117-1155). Without a catalogue
+        // row for the class the kit hands the slot back to its base item
+        // (TFLoadoutProvider.Weapons) and the attribute never arrives.
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        var weapons = new TFWeaponWorld(extras: true);
+
+        // The shipped schema, as the live game ships it: defindex 1101 with
+        // parachute_attribute 1 (its attributes block) on the soldier.
+        string path = RepoLayout.Repo("bin", RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        var schema = EconTestFiles.Schema(File.ReadAllText(path), rig.Log);
+
+        var inventory = new LocalInventory(
+            new InventoryStore(new ModInfo(_ => null), schema, rig.Log), schema,
+            new TFWeaponOwnersTests.NoClients(), rig.Log);
+        inventory.OnClientActive(PlayerRig.Index);
+        var loadout = LoadoutDeps.Loadout(inventory, schema, classes: rig.Carriers, items: rig.Items,
+                                             table: rig.Classes, catalog: weapons.Catalog, carriers: rig.Carriers,
+                                             players: rig.Engine, precache: rig.Engine, log: rig.Log);
+
+        var chute = inventory.Grant(PlayerRig.Index, ParachuteDefindex);
+        Assert.NotNull(chute);
+        Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Soldier, TFLoadoutSlot.Secondary, chute!.Id),
+                    "the soldier equips the B.A.S.E. Jumper in the secondary");
+
+        Assert.Contains("tf_weapon_parachute", loadout.Weapons(PlayerRig.Player));
+
+        // The grant's equip provides the item's attributes to the manager, as
+        // stock's ReapplyProvision does (econ_entity.cpp:304); the hook on the
+        // player finds the parachute's answer. Red without the catalogue row:
+        // the fallback keeps the slot's base shotgun and the walk answers 0.
+        Assert.NotEqual(0, new AttributeHooks().Int(0, "parachute_attribute", rig.Items.ManagerOf(PlayerRig.Index)));
+    }
 }

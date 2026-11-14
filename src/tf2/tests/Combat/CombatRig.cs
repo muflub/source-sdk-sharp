@@ -375,8 +375,9 @@ internal sealed class CombatRig
                                   Stats, Inflictors, SentryDamages, ConVars.Declared<TFStealthDamageReductionConVar>(),
                                   Conditions, Engine, Engine, Mediguns, Damage, Healing, Temps, Engine, Engine,
                                   Engine, ConVars.Declared<TFRocketPackImpactPushMinConVar>(),
-                                  ConVars.Declared<TFRocketPackImpactPushMaxConVar>(), spies);
-        Rules = new TFDamageRules(Players, Engine, Scopes);
+                                  ConVars.Declared<TFRocketPackImpactPushMaxConVar>(),
+                                  spies ?? new TF2.Tests.Player.IdleSkillSpies());
+        Rules = new TFDamageRules(Players, Engine, Scopes, Carriers);
         ShoveFlush = new TFScattergunKnockback(Carriers, Engine, Layer);
         ShoveFlush.Attach(CombatRig.Victim);
     }

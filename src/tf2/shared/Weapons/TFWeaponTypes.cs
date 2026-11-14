@@ -225,6 +225,15 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // equipped item whose class is its own row, no class script's
             // weaponN naming it.
             TFWeaponNames.Name(TFWeaponId.ShotgunBuildingRescue).ToLowerInvariant(),
+            // The B.A.S.E. Jumper (items_working.tsv:312): the soldier's
+            // backpack secondary, held as the equipped item whose class is its
+            // own row (tf_weapon_parachute, stock's TF_WEAPON_PARACHUTE in
+            // CREATE_SIMPLE_WEAPON_TABLE, tf_weapon_parachute.cpp) — no class
+            // script's weaponN names it either. Its one attribute
+            // parachute_attribute is read on the player's manager by
+            // TFMovementRules.AirJump, so the row is what keeps the item's
+            // container in that manager when equipped.
+            TFWeaponNames.Name(TFWeaponId.Parachute).ToLowerInvariant(),
         };
 
         for (var c = TFClass.Scout; c < TFClass.CountAll; c++)

@@ -142,7 +142,7 @@ public sealed class EntityForceRespawn(ITeamRoundRoster roster, ITFMapPlayers pl
             foreach (EntityHandle projectile in Entities.FindAllByClassname(className).ToList())
                 Entities.Remove(projectile);
 
-        foreach (TFBaseObject building in buildings.OwnedBy().ToList())
+        foreach (TFBaseObject building in buildings.OwnedBy(null, null, null).ToList())
             building.DestroyObject();
     }
 }

@@ -54,6 +54,7 @@ using ClientViewmodelActivity = client::SourceSharp.Shared.ViewmodelActivity;
 using ClientViewModelNet = client::SourceSharp.Shared.ViewModelNetState;
 using Views = client::TF2.Shared.Player.TFPlayerNetStateViews;
 using ClientConditions = client::TF2.Shared.Conditions.TFConditions;
+using ClientCondWords = client::TF2.Shared.Conditions.ITFCondWords;
 using ClientItem = client::TF2.Shared.Econ.IAttributeProvider;
 using ClientOwners = client::TF2.Shared.ITFWeaponOwners;
 using ClientPlayerNet = client::SourceSharp.Shared.PlayerNetState;
@@ -154,8 +155,35 @@ public sealed class TF2ClientPredictionTests
 
         /// <summary>The owners over nobody: the classless answers, as the real
         /// client's side service stands when no carrier has arrived.</summary>
-        private static readonly client::TF2.Client.Player.TFClientWeaponOwners NoOwners =
-            new(new NoCarrierData(), new EmptyStandalones());
+        private static readonly client::TF2.Client.Player.TFClientWeaponOwners NoOwners = Nobody();
+
+        /// <summary>The nobody rig's own env: the parsed schema and catalog the
+        /// real composition hands the owners, an empty arsenal, a hud with no
+        /// local player.</summary>
+        private static client::TF2.Client.Player.TFClientWeaponOwners Nobody()
+        {
+            var log = new ClientLog();
+            ClientFiles files = new Served(WeaponFixtures.ShippedWithClasses());
+            var schema = new ClientItemSchema(files, log);
+            var catalog = new ClientCatalog(() => [], log);
+            var hud = new ClientEngine();
+            hud.Returns("Hud.LocalPlayerIndex", 0);
+            return new(new NoCarrierData(), new EmptyStandalones(),
+                       new client::TF2.Client.Player.TFClientPlayerResources(),
+                       schema, catalog, new NoLocalArsenal(), hud);
+        }
+
+        /// <summary>No hands: every active-weapon ask goes unanswered.</summary>
+        private sealed class NoLocalArsenal : client::SourceSharp.Client.ILocalArsenal
+        {
+            public bool TryGetActive(out string name, out int clip, out int reserve)
+            {
+                name = "";
+                clip = 0;
+                reserve = 0;
+                return false;
+            }
+        }
 
         private static client::TF2.Shared.ITFAutoReload NoAutoReload() => new NobodyWantsAutoReload();
 
@@ -199,15 +227,6 @@ public sealed class TF2ClientPredictionTests
 
         public ClientBehaviours Behaviours(ClientParts parts)
             => new(() => [new ClientWeaponBehaviours(parts)], Log);
-
-        /// <summary>The shipped pack, served as the client's files.</summary>
-        private sealed class Served(TFClassTableTests.Files files) : ClientFiles
-        {
-            public int GameFileSize(string path) => files.GameFileSize(path);
-            public string? ReadGameFile(string path) => files.ReadGameFile(path);
-            public byte[]? ReadGameFileBytes(string path) => files.ReadGameFileBytes(path);
-            public byte[]? ReadFileOnPath(string path, string pathId) => files.ReadFileOnPath(path, pathId);
-        }
 
         private sealed class NoRandomCrits : ClientCrits
         {
@@ -616,12 +635,24 @@ public sealed class TF2ClientPredictionTests
             Carrier.State.OwnerIndex = Local;
             Carrier.OnSpawn();
             var convars = PredictionDeps.SpyConVars();
+            convars.RegisterTypes(
+            [
+                typeof(client::TF2.Shared.TFDemomanChargeDrainTimeConVar),
+                typeof(client::TF2.Shared.TFDemomanChargeRegenRateConVar),
+                typeof(client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),
+            ]);
+            var files = new Served(WeaponFixtures.ShippedWithClasses());
             Prediction = new ClientPrediction(Log, Carriers, ClientNetCatalog.Of(typeof(ClientPlayerData).Assembly, Log),
                                               new NoStandalones(), PredictionDeps.Engine(),
                                               convars.Declared<client::TF2.Shared.TFSpyCloakConsumeRateConVar>(),
                                               convars.Declared<client::TF2.Shared.TFSpyCloakRegenRateConVar>(),
                                               convars.Declared<client::TF2.Shared.TFSpyInvisTimeConVar>(),
-                                              convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>());
+                                              convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+                                              new ClientItemSchema(files, Log),
+                                              new ClientCatalog(() => [], Log));
         }
 
         /// <summary>The server's word arriving: the decoded state changes and counts a decode.</summary>
@@ -757,9 +788,29 @@ public sealed class TF2ClientPredictionTests
     //-------------------------------------------------------------------------
 
     /// <summary>What the zoom facts ask of the holder: one player's conditions, grounded.</summary>
+    /// <summary>The shipped pack, served as the client's files.</summary>
+    private sealed class Served(TFClassTableTests.Files files) : ClientFiles
+    {
+        public int GameFileSize(string path) => files.GameFileSize(path);
+        public string? ReadGameFile(string path) => files.ReadGameFile(path);
+        public byte[]? ReadGameFileBytes(string path) => files.ReadGameFileBytes(path);
+        public byte[]? ReadFileOnPath(string path, string pathId) => files.ReadFileOnPath(path, pathId);
+    }
+
     private sealed class ZoomOwners : ClientOwners
     {
-        public readonly ClientConditions Conditions = new(authoritative: true);
+        /// <summary>The client side's condition words, kept here: the aliased shared types are
+        /// their own identity, so the server-side holder does not fit them.</summary>
+        private sealed class CondWords : ClientCondWords
+        {
+            private ClientCondMask bits;
+
+            public ClientCondMask Read() => bits;
+
+            public void Write(in ClientCondMask bits) => this.bits = bits;
+        }
+
+        public readonly ClientConditions Conditions = new(authoritative: true, new CondWords());
 
         public ClientClass ClassOf(int playerIndex) => ClientClass.Sniper;
         public ClientConditions? ConditionsOf(int playerIndex) => Conditions;

@@ -121,14 +121,14 @@ public static class TFMaxAmmoHooks
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFAmmoCarryRule(TFClassTable classes, ITFWeaponOwners? owners = null,
-                                    AttributeHooks? attributes = null) : IAmmoCarryRule, IOrderedHook
+public sealed class TFAmmoCarryRule(TFClassTable classes, ITFWeaponOwners owners,
+                                    AttributeHooks attributes) : IAmmoCarryRule, IOrderedHook
 {
     /// <summary>The rule's order: TF2's layer, below the mods' range (see <see cref="TFClassTable.LoadOrder"/>).</summary>
     public const int Order = 1_000_000 - 1_000 + 20;
 
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly ITFWeaponOwners _owners = owners;
+    private readonly AttributeHooks _attributes = attributes;
 
     public int HookOrder => Order;
 

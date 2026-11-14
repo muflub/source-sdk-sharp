@@ -78,8 +78,8 @@ public sealed class TFClassMenu : UiScreen
     private readonly ITFClassMenuSource _source;
     private readonly TFClassTile _tile;
     private readonly IUiTextureLibrary _textures;
-    private readonly ITFClassMenuActions? _actions;
-    private readonly IUiKeyBindingStore? _keys;
+    private readonly ITFClassMenuActions _actions;
+    private readonly IUiKeyBindingStore _keys;
 
     /// <summary>The team the last named show named (null until one did or
     /// for the plain name): what the tiles' bands wear.</summary>
@@ -88,11 +88,12 @@ public sealed class TFClassMenu : UiScreen
     /// <param name="textures">The art library the portraits and the shaded
     /// bar come from; every miss falls back to the tile's tone and name.</param>
     /// <param name="actions">What a choice does (the named
-    /// <c>joinclass</c> and the closing clicks); none in a sample.</param>
-    /// <param name="keys">The binds, for the changeclass close key; null
-    /// leaves the keyless closes.</param>
+    /// <c>joinclass</c> and the closing clicks); the samples register their
+    /// recorder fake.</param>
+    /// <param name="keys">The binds, for the changeclass close key: the
+    /// side's bind store, the samples an unbound one.</param>
     public TFClassMenu(ITFClassMenuSource source, TFClassTile tile, IUiTextureLibrary textures,
-                       ITFClassMenuActions? actions = null, IUiKeyBindingStore? keys = null)
+                       ITFClassMenuActions actions, IUiKeyBindingStore keys)
     {
         _source = source;
         _tile = tile;
@@ -122,13 +123,13 @@ public sealed class TFClassMenu : UiScreen
             "class_blue" => 3,    // TF_TEAM_BLUE (:162)
             _ => null,
         };
-        _actions?.Opened();
+        _actions.Opened();
     }
 
     /// <summary>The host closed the menu, whichever way — Escape, a named
     /// close, the window's own button: stock's <c>SetVisible(false)</c>
     /// telling the server <c>menuclosed</c> (tf_classmenu.cpp:1195-1199).</summary>
-    public override void Closed() => _actions?.Closed();
+    public override void Closed() => _actions.Closed();
 
     /// <summary>The raw TF_CLASS number of the class last clicked
     /// (Random's number for the random button), null until one is: what
@@ -140,9 +141,9 @@ public sealed class TFClassMenu : UiScreen
     {
         Chosen = number;
         if (number == RandomClass)
-            _actions?.ChooseRandom();
+            _actions.ChooseRandom();
         else
-            _actions?.Choose(number);
+            _actions.Choose(number);
     }
 
     /// <summary>Whether this frame pressed a close key: stock's arm at
@@ -159,11 +160,11 @@ public sealed class TFClassMenu : UiScreen
             return true;
         if (ui.ConsumeKey((int)UiKey.KeyPad0))
             return true;
-        string? bound = _keys?.KeyFor("changeclass");
+        string? bound = _keys.KeyFor("changeclass");
         if (bound is null)
             return false;
         foreach (int code in ui.ButtonsPressed)
-            if (_keys!.KeyName(code) == bound)
+            if (_keys.KeyName(code) == bound)
                 return true;
         return false;
     }
@@ -176,7 +177,7 @@ public sealed class TFClassMenu : UiScreen
         // (the GetClassIndex gate, :903-908). The ask is the Cancel's: the
         // hide is the host's close, which tells the server after it.
         if (CloseKeyed(ui))
-            _actions?.Cancel();
+            _actions.Cancel();
 
         // The team the menu wears: the named show's, or the local player's
         // (stock's one menu took its team from the panel raised).
@@ -336,16 +337,16 @@ public sealed class TFClassMenu : UiScreen
 
         // Stock shows Cancel only with a class already chosen (:1044-1081).
         if (_source.HasClass && AskButton(ref ui, Stock.Cancel, "#SS_UI_Cancel", "cancel"))
-            _actions?.Cancel();
+            _actions.Cancel();
 
         // Edit Loadout is stock's openloadout (tf_classmenu.cpp:1307-1320)
         // and shows always; Reset (its resetclass arm, :1300-1306 — ours is
         // docs/divergences.md's) stock's OnTick hides until a class is
         // chosen (:1138-1142).
         if (AskButton(ref ui, Stock.EditLoadout, "#EditLoadout", "edit loadout"))
-            _actions?.EditLoadout();
+            _actions.EditLoadout();
         if (_source.HasClass && AskButton(ref ui, Stock.Reset, "#TF_ClassMenu_Reset", "reset"))
-            _actions?.ResetLoadout();
+            _actions.ResetLoadout();
     }
 
     /// <summary>One of the bottom band's buttons: the .res box's spot on the
@@ -437,11 +438,11 @@ public sealed class TFClassMenu : UiScreen
                 // Loadout and Reset stand with it (their stock-canvas spots
                 // cannot hold on the stacked row).
                 if (_source.HasClass && ui.Button("cancel", "#SS_UI_Cancel").Clicked)
-                    _actions?.Cancel();
+                    _actions.Cancel();
                 if (ui.Button("edit loadout", "#EditLoadout").Clicked)
-                    _actions?.EditLoadout();
+                    _actions.EditLoadout();
                 if (_source.HasClass && ui.Button("reset", "#TF_ClassMenu_Reset").Clicked)
-                    _actions?.ResetLoadout();
+                    _actions.ResetLoadout();
                 ui.Flex();
                 if (!_source.HasClass)      // stock's title yields to the Cancel (:1035-1038)
                     ui.Text("#TF2_ClassMenu_Select", Text.Title, Tone.Text);

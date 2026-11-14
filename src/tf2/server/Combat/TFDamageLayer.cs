@@ -109,7 +109,7 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                   IEngineNetworking networking, IEngineWorldQuery world,
                                   TFRocketPackImpactPushMinConVar rocketPackPushMin,
                                   TFRocketPackImpactPushMaxConVar rocketPackPushMax,
-                                  ITFSpyState? spies = null)
+                                  ITFSpyState spies)
     : IDamageModifier, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -640,7 +640,7 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
 
             float meltSeconds = attributes.Float(0f, "melts_in_fire", heldItem);               // :123
             if (meltSeconds > 0f)
-                spies?.MeltKnife(victimIndex, now, meltSeconds);                               // :126-131
+                spies.MeltKnife(victimIndex, now, meltSeconds);                                // :126-131
         }
 
         // THE BLEED (tf_player.cpp:10577-10585, :10665-10667): a hit whose
@@ -763,7 +763,7 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // tail, right where the held weapon's post-hit effects follow
         // (:9695-9698), so it stands beside them here.
         if (victim.Class() == TFClass.Spy)
-            spies?.FeignDeathHit(victimIndex, hit.Attacker);
+            spies.FeignDeathHit(victimIndex, hit.Attacker);
 
         // THE SCATTERGUN'S SHOVE (CTFScatterGun::ApplyPostHitEffects,
         // tf_weapon_shotgun.cpp:369-409, called from the tail of the victim's
@@ -1396,7 +1396,7 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFDamageRules(ITFPlayerData players, IEngineEntities entities, TFDamageScopes scopes,
-                                  TFPlayerCarriers? carriers = null)
+                                  TFPlayerCarriers carriers)
     : IDamageRule, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -1432,7 +1432,7 @@ public sealed class TFDamageRules(ITFPlayerData players, IEngineEntities entitie
             if (TriggerHurtCustom(in hit))
                 return Decision.UseStockRule;
 
-            carriers?.ConditionsOf(hit.Victim.EntryIndex)?.AddPreventedDamage(TFCond.Phase, (int)hit.Damage);
+            carriers.ConditionsOf(hit.Victim.EntryIndex)?.AddPreventedDamage(TFCond.Phase, (int)hit.Damage);
             return Decision.No;
         }
 

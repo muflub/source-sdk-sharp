@@ -38,7 +38,8 @@ internal static class MeleeDeps
                    lag ?? new IdleLag(), scopes ?? new TFDamageScopes(), conditions ?? new NoConditions(),
                    blast ?? new TFBlastApplier(engine, damage, engine, new TFDamageScopes(), hitGroups,
                                                new DamageInflictors(), new NoClasses(), log, engine, hold, walk,
-                                               supply, engine, engine, world, new TFPlayerCarriers()),
+                                               supply, engine, engine, world, new TFPlayerCarriers(),
+                                               DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>()),
                    supply, render ?? engine, world);
     }
 

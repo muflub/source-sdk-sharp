@@ -175,8 +175,10 @@ public sealed class TFDeathDropsTests
         public TFDeathDrops Hook(AttributeHooks? hooks = null, ITFWeaponOwners? owners = null,
                                  ITFPlayerConditions? conditions = null, TFDamageRecords? hitRecords = null,
                                  ITFPlayerData? playerData = null)
-            => new(Log, Arsenal, Scripts, Map, Packs, Roster, World, Engine, Medigun, hooks, owners, Seeds,
-                   conditions, hitRecords, playerData);
+            => new(Log, Arsenal, Scripts, Map, Packs, Roster, World, Engine, Medigun,
+                   hooks ?? new AttributeHooks(), owners ?? new NoTFWeaponOwners(), Seeds,
+                   conditions ?? new KillConditions(), hitRecords ?? new TFDamageRecords(),
+                   playerData ?? new HeadsStates());
 
         public PlayerDeath Death => new(Dead.Handle, 3, EntityHandle.None, DiedAt, EntityHandle.None);
 
@@ -469,7 +471,9 @@ public sealed class TFDeathDropsTests
         body.State.BindLocal();
         var corpses = new Corpses(new RecordingLog(), engineC, engineC, new Bodies(body));
         var playersC = new Players(new RecordingLog(), engineC, engineC, engineC, NoButtons);
-        var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs, playersC, rig.World, rig.Engine, rig.Medigun);
+        var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs, playersC, rig.World, rig.Engine, rig.Medigun,
+                                    new AttributeHooks(), new NoTFWeaponOwners(), rig.Seeds,
+                                    new KillConditions(), new TFDamageRecords(), new HeadsStates());
         ((IGameLifecycle)hook).OnLevelInit("tc_2fort");
         var chain = new PlayerDeaths(new RecordingLog(), engineC, corpses, playersC,
                                      engineC, new ListHooks<IPlayerDeathHook>(hook),
@@ -500,7 +504,9 @@ public sealed class TFDeathDropsTests
         rig.GiveAmmo(rig.Dead.Handle, 30, 12, 200);
         var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs,
                                     new Players(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine, NoButtons),
-                                    rig.World, rig.Engine, rig.Medigun);
+                                    rig.World, rig.Engine, rig.Medigun,
+                                    new AttributeHooks(), new NoTFWeaponOwners(), rig.Seeds,
+                                    new KillConditions(), new TFDamageRecords(), new HeadsStates());
 
         hook.OnFeignDeathDropped(new PlayerDeath(rig.Dead.Handle, rig.Dead.Handle.EntryIndex,
                                                  EntityHandle.None, DiedAt, EntityHandle.None));
@@ -558,7 +564,9 @@ public sealed class TFDeathDropsTests
                .Returns("Clock.Now", 10f);
         var chainPlayers = new Players(new RecordingLog(), engineC, decor, engineC, NoButtons);
         Assert.True(chainPlayers.DropWeaponOnDeath); // the state the report observed: the drop is live
-        var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs, chainPlayers, rig.World, rig.Engine, rig.Medigun);
+        var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs, chainPlayers, rig.World, rig.Engine, rig.Medigun,
+                                    new AttributeHooks(), new NoTFWeaponOwners(), rig.Seeds,
+                                    new KillConditions(), new TFDamageRecords(), new HeadsStates());
         var body = new SsRagdoll(engineC) { Handle = new EntityHandle(99u) };
         body.BindEngine(engineC);
         body.State.BindLocal();

@@ -45,12 +45,14 @@ internal sealed class ProjectileRig
     public TFDamageScopes Scopes { get; } = new();
     public DamageHitGroups HitGroups { get; } = new();
     public DamageInflictors Inflictors { get; } = new();
-    public TFStickyTray Tray { get; } = new();
     public TFFlareTray FlareTray { get; } = new();
     public FixedClasses Classes { get; } = new();
 
     /// <summary>The carrier registry the rocket's stun arm asks.</summary>
     public TFPlayerCarriers Carriers { get; } = new();
+
+    /// <summary>The pipebomb tray, over the rig's carriers.</summary>
+    public TFStickyTray Tray { get; }
 
     /// <summary>The temp-entity sink the rocket's effects dispatch through.</summary>
     public RecordingEffectDispatch Temps { get; } = new();
@@ -110,13 +112,16 @@ internal sealed class ProjectileRig
 
     public ProjectileRig(TFPreroundPushFromDamageEnableConVar? preroundPush = null)
     {
+        Tray = new(Carriers);
+
         var motionLog = new RecordingLog();
         var motionDirectory = MotionDirectory = new EntityDirectory(motionLog);
         Motion = new EntityMotion(motionLog, Engine, Engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
-                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers, preroundPush);
+                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers,
+                    preroundPush ?? DeclaredConVars.Fresh<TFPreroundPushFromDamageEnableConVar>());
         // The registered defaults for the convars the sticky's arm and
         // air-burst radius read, as the game would answer; a fact turns them.
         // The blow's force scales are held off.
@@ -180,12 +185,15 @@ internal sealed class ProjectileRig
     /// double. The clock stands at 10 (the sleep-time gate reads it) and the
     /// toucher has no parent unless a fact names one.
     /// </summary>
+    public PostSimulationQueue Queue { get; } = new();
+
+    /// <summary>A stickybomb, pinned through <see cref="Queue"/> unless the fact brings its own.</summary>
     public TFStickybomb Sticky(PostSimulationQueue? postSimulation = null)
     {
         Engine.Returns("Clock.Now", 10f)
               .Returns("Entities.GetParent", EntityHandle.None);
         var sticky = new TFStickybomb(Engine, Blast, Engine, StickyVars, Engine, Engine, Directory, Engine,
-                                      postSimulation);
+                                      postSimulation ?? Queue);
         sticky.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says
         sticky.BindAreas(TestServices.Areas(Engine));
         return BindStates(sticky);
@@ -1094,6 +1102,7 @@ public class TFGrenadePhysicsFacts
         rig.Engine.Returns("Entities.GetIndex", 0);
 
         sticky.OnTouch(new EntityHandle(0x0001_0000u)); // the world, entry 0
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1138,6 +1147,7 @@ public class TFGrenadePhysicsFacts
         rig.Engine.Returns("Entities.GetClassName", "prop_dynamic");
 
         sticky.OnTouch(new EntityHandle(0x0002_0000u | 42)); // a prop_dynamic
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1169,6 +1179,7 @@ public class TFGrenadePhysicsFacts
                         TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
 
         sticky.OnTouch(new EntityHandle(0x0001_0000u)); // the world: it sticks
+        rig.Queue.Run(); // the pin waits for the step's end
         Assert.Equal(1, rig.Engine.CountOf("EntityPhysics.EnableMotion"));
 
         var moved = sticky.OnDamagedAt(attacker, 10f, DamageType.Bullet, default,
@@ -1182,6 +1193,7 @@ public class TFGrenadePhysicsFacts
 
         rig.Engine.Returns("Clock.Now", 11.5f);
         sticky.OnTouch(new EntityHandle(0x0001_0000u)); // past it: re-sticks
+        rig.Queue.Run(); // the re-pin waits for the step's end too
         var restuck = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(restuck);
         Assert.False(restuck!.ArgAs<bool>(1));
@@ -1235,6 +1247,7 @@ public class TFGrenadePhysicsFacts
         sticky.OnSpawn();
 
         sticky.OnTouch(new EntityHandle(0x0002_0000u | 42));
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1251,6 +1264,7 @@ public class TFGrenadePhysicsFacts
 
         sticky.OnThink(); // arms
         sticky.OnThink(); // the rest check: still not moving
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1291,6 +1305,7 @@ public class TFGrenadePhysicsFacts
 
         var ev = WorldCollision(sticky.Handle.Value, mySide: 1);
         sticky.OnVPhysicsCollision(in ev, 1);
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1332,6 +1347,7 @@ public class TFGrenadePhysicsFacts
 
         var ev = WorldCollision(sticky.Handle.Value, mySide: 0);
         sticky.OnVPhysicsCollision(in ev, 0);
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);

@@ -15,6 +15,7 @@ public static class TFClassMenuSamples
     {
         s.Add<ITFClassMenuSource>(source ?? new FakeTFClassMenuSource());
         s.Add<ITFClassMenuActions>(actions ?? new FakeTFClassMenuActions());
+        s.Add<IUiKeyBindingStore>(new UnboundKeys());
         return s.Create<TFClassMenu>();
     }
 
@@ -111,4 +112,24 @@ public sealed class FakeTFClassMenuActions : ITFClassMenuActions
     public void EditLoadout() => EditLoadouts++;
 
     public void ResetLoadout() => Resets++;
+}
+
+/// <summary>The bind store with nothing bound: only the zeros' closes reach
+/// the menu, as on a fresh player's config.cfg.</summary>
+public sealed class UnboundKeys : IUiKeyBindingStore
+{
+    public string? KeyFor(string command) => null;
+
+    public string? KeyName(int buttonCode) => null;
+
+    public void Bind(string key, string command) { }
+
+    public void Unbind(string key) { }
+}
+
+/// <summary>The layer's groups, unlocked: a hud element stands down only for
+/// the scoreboard's locked global group, which no sample shows.</summary>
+public sealed class UnlockedGroups : ITFRenderGroups
+{
+    public bool GlobalLocked => false;
 }

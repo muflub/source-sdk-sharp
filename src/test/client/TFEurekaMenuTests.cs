@@ -11,6 +11,7 @@ using TF2.Shared;
 using TF2.Shared.Buildings;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 using Xunit;
 
@@ -142,8 +143,19 @@ public class TFEurekaMenuTests
                                     new ChatFeedTests.RecordingEngineClient(sent),
                                     new FakeOwners { Active = held },
                                     new OneStandalone(player ? new TestPlayer(engine) : null),
-                                    engine, buildings);
+                                    engine, buildings,
+                                    new NoPlayerData(), new AttributeHooks());
         return (ui, arsenal, engine, sent, buildings);
+    }
+
+    /// <summary>The client's prediction participant as the menu reads it at
+    /// rest: no predicted state for anyone, the in-game answer before the
+    /// local carrier arrives.</summary>
+    internal sealed class NoPlayerData : ITFPlayerData
+    {
+        public TFPlayerNetState? Predicted(int playerIndex) => null;
+
+        public TFPlayerNetState? Networked(int playerIndex) => null;
     }
 
     /// <summary>One think with the reload button where <paramref name="down"/> says.</summary>

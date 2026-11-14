@@ -57,7 +57,7 @@ public static class TFWearableOrders
 /// </summary>
 public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entities, IEntityDirectory directory,
                                 IEnginePrecache precache, IEngineEntityRender render, ILog log,
-                                IServerSkins? skins = null, TFPlayerItems? items = null)
+                                IServerSkins skins, TFPlayerItems items)
     : IPlayerComponent
 {
     private readonly List<EntityHandle> _wearables = [];
@@ -199,7 +199,7 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             // CTFWearable::Equip's m_nSkin = GetSkin() (tf_item_wearable.cpp:741):
             // the render skin, networked on the block. The netstate's Skin above
             // is the declared copy the client's own skin arm reads.
-            skins?.SetSkin(wearable, skin);
+            skins.SetSkin(wearable, skin);
             // The item rides its entity (stock's CEconEntity::m_Item), so the
             // ON_OTHER arms against the wearable find its attributes.
             entity.Item = Econ.TFLoadoutProvider.Attributes(entry.Item);
@@ -209,7 +209,7 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             // player-level hook — the charge meter's regen, the kill's
             // refill — reads the worn items with the weapons'. The strip
             // stops each provide, as stock's StopProvidingTo does.
-            if (items?.ManagerOf(_index) is AttributeContainer manager)
+            if (items.ManagerOf(_index) is AttributeContainer manager)
             {
                 entity.Item.ProvideTo(manager);
                 _provided.Add(entity.Item);
@@ -224,7 +224,7 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             if (entities.IsValid(wearable))
                 entities.Remove(wearable);
         _wearables.Clear();
-        if (items?.ManagerOf(_index) is AttributeContainer manager)
+        if (items.ManagerOf(_index) is AttributeContainer manager)
             foreach (var item in _provided)
                 item.StopProvidingTo(manager);
         _provided.Clear();
@@ -241,7 +241,7 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
 public sealed class TFWearableComponents(TFPlayerCarriers carriers, IEngineEntities entities,
                                          IEntityDirectory directory, IEnginePrecache precache,
                                          IEngineEntityRender render, ILog log,
-                                         IServerSkins? skins = null, TFPlayerItems? items = null)
+                                         IServerSkins skins, TFPlayerItems items)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFWearableOrders.Components;

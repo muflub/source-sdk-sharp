@@ -396,7 +396,7 @@ public sealed class TFEnergyBehaviourTests
     public void A_hidden_victim_hears_no_drain()
     {
         var rig = PomsonRing(out var ring, "subtract_victim_cloak_on_hit", 35f);
-        rig.Owners.Conditions = new TFConditions(true);
+        rig.Owners.Conditions = new TFConditions(true, new TFCondHolder());
         rig.Owners.Conditions.Add(TFCond.Stealthed);
 
         ring.OnTouch(ProjectileRig.Victim);

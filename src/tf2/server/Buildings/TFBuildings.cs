@@ -25,14 +25,14 @@ public interface ITFBuildings
     /// mode. Enumerated from the entity directory, so a removed building is
     /// out of the answer at once.
     /// </summary>
-    IEnumerable<TFBaseObject> OwnedBy(EntityHandle? builder = null, TFObjectType? type = null, int? mode = null);
+    IEnumerable<TFBaseObject> OwnedBy(EntityHandle? builder, TFObjectType? type, int? mode);
 }
 
 /// <summary>The directory's obj_* entities, as <see cref="ITFBuildings"/>.</summary>
 [SideService(Side.Server, As = [typeof(ITFBuildings)])]
 public sealed class TFBuildings(IEntityDirectory directory) : ITFBuildings
 {
-    public IEnumerable<TFBaseObject> OwnedBy(EntityHandle? builder = null, TFObjectType? type = null, int? mode = null)
+    public IEnumerable<TFBaseObject> OwnedBy(EntityHandle? builder, TFObjectType? type, int? mode)
     {
         foreach (string className in TFObjectClassNames.AllClassNames())
         {

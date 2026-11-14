@@ -2,7 +2,9 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
+using TF2.Server;
 using TF2.Server.Rules;
+using TF2.Tests.Buildings;
 using TF2.Shared;
 using TF2.Shared.Rules;
 
@@ -20,6 +22,19 @@ namespace TF2.Tests.Rules;
 public sealed class TFJoinTeamPanelTests
 {
     private static readonly EntityHandle Player = new(0x0001_0003u);
+
+    /// <summary>No bots: every join is a human's.</summary>
+    private sealed class NobodyABot : IBotPlayers
+    {
+        public bool IsBot(EntityHandle player) => false;
+
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+            => throw new NotSupportedException();
+
+        public bool Kick(EntityHandle bot, string reason) => false;
+
+        public IReadOnlyList<BotPlayer> Bots => [];
+    }
 
     private sealed class FixedState(RoundState state) : ITeamRoundState
     {
@@ -76,6 +91,16 @@ public sealed class TFJoinTeamPanelTests
     private static TFTeams Policy(RoundRig rig, RoundState state = RoundState.RoundRunning)
         => new(rig.Balance, rig.Roster, rig.Slot, new FixedState(state), new RandomSeeds(7), rig.Settings, new TFTeamRoles());
 
+    /// <summary>The command over its required seams: the humans'-team convar
+    /// declared at its default, nobody a bot.</summary>
+    private static TFJoinTeamCommand JoinCommand(ITeams board, TFTeams policy, IUserMessageSender panels,
+                                                 MpHumansMustJoinTeamConVar? team = null, IBotPlayers? bots = null)
+    {
+        var convars = new ConVarRegistry(new StoredConVarBackend());
+        convars.RegisterTypes([typeof(MpHumansMustJoinTeamConVar)]);
+        return new(board, policy, panels, team ?? convars.Declared<MpHumansMustJoinTeamConVar>(), bots ?? new NobodyABot());
+    }
+
     private static void Fill(RoundRig rig, int red, int blue)
     {
         for (int i = 0; i < red; i++)
@@ -90,7 +115,7 @@ public sealed class TFJoinTeamPanelTests
         var rig = new RoundRig();
         var board = new JoinBoard();
         var panels = new Panels();
-        return (new TFJoinTeamCommand(board, Policy(rig, state), panels), board, panels);
+        return (JoinCommand(board, Policy(rig, state), panels), board, panels);
     }
 
     [Fact]
@@ -122,7 +147,7 @@ public sealed class TFJoinTeamPanelTests
         Fill(rig, red: 2, blue: 1);
         var board = new JoinBoard();
         var sender = new Panels();
-        var joined = new TFJoinTeamCommand(board, Policy(rig), sender);
+        var joined = JoinCommand(board, Policy(rig), sender);
 
         Assert.True(joined.Handle(Player, "jointeam", ["auto"]));
 
@@ -163,7 +188,7 @@ public sealed class TFJoinTeamPanelTests
         var joiner = rig.Roster.Add(TFTeam.Unassigned);
         var board = new JoinBoard { Result = JoinTeamResult.Refused };
         var panels = new Panels();
-        var command = new TFJoinTeamCommand(board, Policy(rig), panels);
+        var command = JoinCommand(board, Policy(rig), panels);
 
         Assert.True(command.Handle(joiner, "jointeam", ["red"]));
 
@@ -187,7 +212,7 @@ public sealed class TFJoinTeamPanelTests
         var rig = new RoundRig();
         var board = new JoinBoard();
         var panels = new Panels();
-        var command = new TFJoinTeamCommand(board, Policy(rig), panels);
+        var command = JoinCommand(board, Policy(rig), panels);
 
         command.Handle(Player, "jointeam", ["red"]);
 

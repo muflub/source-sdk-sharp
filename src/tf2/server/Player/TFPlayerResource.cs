@@ -27,8 +27,8 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerResupply resupply, TFPlayerStats stats,
-                                         IEnginePlayers players, ITeamRespawnWaves? waves = null,
-                                         Combat.TFDominations? dominations = null, ITeamRoundState? rounds = null)
+                                         IEnginePlayers players, ITeamRespawnWaves waves,
+                                         Combat.TFDominations dominations, ITeamRoundState rounds)
 {
     /// <summary><c>STATS_SEND_FREQUENCY</c> (tf_player_resource.cpp:17).</summary>
     public const float StatsSendFrequency = 1f;
@@ -40,11 +40,11 @@ public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerRes
     {
         // The gamerules' words (see the netstate's RoundState): written every
         // think, one value for the whole resource.
-        state.RoundState = rounds is { } r ? (byte)r.State : default;
-        state.WinningTeam = rounds is { } won ? (byte)won.WinningTeam : default;
-        state.WaitingForPlayers = rounds is { } waiting && waiting.InWaitingForPlayers ? (byte)1 : default;
-        state.InSetup = rounds is { } setup && setup.InSetup ? (byte)1 : default;
-        state.MapResetTime = rounds?.MapResetTime ?? default;
+        state.RoundState = (byte)rounds.State;
+        state.WinningTeam = (byte)rounds.WinningTeam;
+        state.WaitingForPlayers = rounds.InWaitingForPlayers ? (byte)1 : default;
+        state.InSetup = rounds.InSetup ? (byte)1 : default;
+        state.MapResetTime = rounds.MapResetTime;
 
         bool sendStats = now > _nextDamageAndHealingSend;
         if (sendStats)
@@ -85,10 +85,10 @@ public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerRes
             state.PlayerClass[i] = (byte)carriers.ClassOf(player);
             state.Team[i] = (byte)players.GetTeam(player);
             state.TotalScore[i] = stats.Score(i);
-            state.ActiveDominations[i] = (byte)(dominations?.CountOf(i) ?? 0);
+            state.ActiveDominations[i] = (byte)dominations.CountOf(i);
 
             bool alive = players.IsAlive(player) && players.GetObserverMode(player) == ObserverMode.None;
-            state.NextRespawnTime[i] = alive || waves is null ? 0f : waves.NextRespawnWave((TFTeam)players.GetTeam(player), player);
+            state.NextRespawnTime[i] = alive ? 0f : waves.NextRespawnWave((TFTeam)players.GetTeam(player), player);
 
             // UpdatePlayerRespawnData's override arm (tf_player_resource.cpp:274-275):
             // the death time plus the override answers instead of the wave. Stock

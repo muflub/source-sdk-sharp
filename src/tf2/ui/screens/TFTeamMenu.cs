@@ -40,14 +40,14 @@ public sealed class TFTeamMenu : UiScreen
     private readonly ITFTeamMenuSource _source;
     private readonly TFTeamCard _card;
     private readonly IUiTextureLibrary _textures;
-    private readonly ITFTeamMenuActions? _actions;
+    private readonly ITFTeamMenuActions _actions;
 
     /// <param name="textures">The art library the shaded bar comes from; a
     /// miss leaves the layout without it.</param>
     /// <param name="actions">What a choice does (the named <c>jointeam</c>
-    /// send and the closing click); none in a sample.</param>
+    /// send and the closing click).</param>
     public TFTeamMenu(ITFTeamMenuSource source, TFTeamCard card, IUiTextureLibrary textures,
-                      ITFTeamMenuActions? actions = null)
+                      ITFTeamMenuActions actions)
     {
         _source = source;
         _card = card;
@@ -66,7 +66,7 @@ public sealed class TFTeamMenu : UiScreen
     private void Choose(TFTeamChoice choice)
     {
         Chosen = choice;
-        _actions?.Choose(choice);
+        _actions.Choose(choice);
     }
 
     public override void Describe(ref UiFrame ui)
@@ -177,7 +177,7 @@ public sealed class TFTeamMenu : UiScreen
                 ui.Text("#SS_UI_Cancel", Text.Body, Tone.Text)
                     .At(UiAnchor.Centre).TextAlign(Align.Centre).Layered();
             if (hit.Clicked)
-                _actions?.Cancel();
+                _actions.Cancel();
         }
     }
 
@@ -240,7 +240,7 @@ public sealed class TFTeamMenu : UiScreen
                 if (_source.AllowsSpectators && ui.Button("spectate", "#TF2_TeamMenu_Spectate").Clicked)
                     Choose(TFTeamChoice.Spectate);
                 if (_source.CurrentTeam > 1 && ui.Button("cancel", "#SS_UI_Cancel").Clicked)
-                    _actions?.Cancel();
+                    _actions.Cancel();
                 ui.Flex();
                 ui.Text("#TF2_TeamMenu_Title", Text.Title, Tone.Text);
             }

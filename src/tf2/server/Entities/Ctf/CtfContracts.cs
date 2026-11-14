@@ -109,7 +109,7 @@ public interface ICtfPlayers
 [SideService(Side.Server, As = [typeof(ICtfPlayers)])]
 public sealed class EngineCtfPlayers(IEngineEntities entities, IEnginePlayers players, IEngineEntityRender render,
                                      ITFPlayerData carriers, AttributeHooks attributes, IGameClock clock,
-                                     IMovementRules? movement = null, ITFWeaponOwners? owners = null) : ICtfPlayers
+                                     IMovementRules movement, ITFWeaponOwners owners) : ICtfPlayers
 {
     public bool IsPlayer(EntityHandle entity) => entities.IsValid(entity) && entities.IsPlayer(entity);
 
@@ -130,7 +130,7 @@ public sealed class EngineCtfPlayers(IEngineEntities entities, IEnginePlayers pl
     public TFCondMask Conditions(EntityHandle player) => carriers.Networked(Index(player))?.Conditions() ?? default;
 
     public bool AllowedToPickUpFlag(EntityHandle player)
-        => attributes.Int(0, "cannot_pick_up_intelligence", owners?.ManagerOf(Index(player))) == 0;
+        => attributes.Int(0, "cannot_pick_up_intelligence", owners.ManagerOf(Index(player))) == 0;
 
     public float PercentInvisible(EntityHandle player)
         => carriers.Networked(Index(player)) is { } state ? TFInvisibility.Percent(state, clock.Now) : 0f;
@@ -145,7 +145,7 @@ public sealed class EngineCtfPlayers(IEngineEntities entities, IEnginePlayers pl
     /// own answer is asked with nothing to scale.
     /// </summary>
     public float MaxSpeed(EntityHandle player)
-        => movement?.MaxSpeedScale(Index(player), 0f, ducking: false, groundMaterial: 0) ?? 0f;
+        => movement.MaxSpeedScale(Index(player), 0f, ducking: false, groundMaterial: 0);
 }
 
 /// <summary>The convars the flag reads, as one seam a fact sets.</summary>

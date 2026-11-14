@@ -36,9 +36,15 @@ namespace TF2.Shared;
 /// for the deploy/holster seam, like every wearable's.
 /// </para>
 /// </summary>
-public sealed class TFRocketPackBehaviour(TFWeaponParts parts, AttributeHooks? attributes = null)
+public sealed class TFRocketPackBehaviour(TFWeaponParts parts, AttributeHooks attributes)
     : TFWeaponBehaviour(parts, attributes)
 {
+    /// <summary>The kind's shape for the factory's one-name call: the bare attribute chain.</summary>
+    public TFRocketPackBehaviour(TFWeaponParts parts)
+        : this(parts, new AttributeHooks())
+    {
+    }
+
     /// <summary><c>tf_rocketpack_launch_delay</c>'s default (:63): the wait
     /// between the pop and the packed force.</summary>
     public const float LaunchDelaySeconds = 0.65f;

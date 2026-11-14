@@ -273,6 +273,7 @@ internal sealed class ObjectiveRig
         Services.AddInstance<ITeamRoundState>(Round);
         Services.AddInstance<ITeamRoundControl>(Control);
         Services.AddInstance<ICapturePlayerRules>(PlayerRules);
+        Services.AddInstance<ITFTeamRoles>(new TFTeamRoles());
         Services.AddInstance<ITFPlayerObjectiveTimes>(ObjectiveTimes);
         Services.AddInstance<ITFPlayerStats>(Stats);
         Services.AddInstance<IEngineGameEvents>(GameEvents);
@@ -298,7 +299,8 @@ internal sealed class ObjectiveRig
         Services.AddInstance<IResponseRules>(ConceptRules);
         Services.AddInstance<ITeams>(ConceptTeams);
         Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
-            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!, Random);
+            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!, Random,
+            new LoadoutDeps.IdleRound(), new Tests.Weapons.FakeOwners(), new RecordingLog());
         Services.AddInstance(Speech);
         Registry.Services = Services;
     }

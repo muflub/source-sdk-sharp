@@ -76,7 +76,7 @@ public sealed class TFSentryWrangle(ITFBuildings buildings, IEnginePlayers playe
         if (builder == EntityHandle.None)
             return null;
 
-        return buildings.OwnedBy(builder, TFObjectType.Sentrygun).OfType<TFSentryGun>();
+        return buildings.OwnedBy(builder, TFObjectType.Sentrygun, null).OfType<TFSentryGun>();
     }
 
     private Vector TraceAim(int ownerIndex)

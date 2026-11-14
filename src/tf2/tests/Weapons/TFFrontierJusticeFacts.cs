@@ -28,7 +28,8 @@ public sealed class TFFrontierJusticeFacts
         carrier.RevengeCrits = crits;
         var world = new TFWeaponWorld(new FakePredictedData { Carrier = carrier },
                                       files: WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()));
-        var conds = new TFConditions(authoritative: true);
+        var conds = new TFConditions(authoritative: true,
+                             new TFCondHolder());
         world.Owners.Conditions[TFWeaponWorld.Owner] = conds;
         if (boosted)
             conds.Add(TFCond.Critboosted);

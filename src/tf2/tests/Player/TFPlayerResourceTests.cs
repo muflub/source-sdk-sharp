@@ -38,7 +38,7 @@ public sealed class TFPlayerResourceTests
         rig.Engine.Returns("Players.GetObserverMode", ObserverMode.None);
         var stats = new TFPlayerStats();
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            new TFPlayerConditions(rig.Carriers, rig.Engine), rig.Loadout, rig.Engine,
+                                            new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine), rig.Loadout, rig.Engine,
                                             rig.Items, new TF2.Shared.Econ.AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
                                             catalog: rig.Catalog,
@@ -51,7 +51,9 @@ public sealed class TFPlayerResourceTests
                                             clock: rig.Engine);
         var state = new TFPlayerResourceNetState();
         state.BindLocal();
-        return (rig, stats, new TFPlayerResourceRows(rig.Carriers, resupply, stats, rig.Engine, new Waves(), dominations, rounds), state);
+        return (rig, stats, new TFPlayerResourceRows(rig.Carriers, resupply, stats, rig.Engine, new Waves(),
+                                                     dominations ?? new TF2.Server.Combat.TFDominations(new TFPlayerCarriers()),
+                                                     rounds ?? new FixedRounds(RoundState.RoundRunning)), state);
     }
 
     [Fact]
@@ -205,7 +207,7 @@ public sealed class TFPlayerResourceTests
     [Fact]
     public void A_dominating_players_row_carries_their_domination_count()
     {
-        var dominations = new TF2.Server.Combat.TFDominations();
+        var dominations = new TF2.Server.Combat.TFDominations(new TFPlayerCarriers());
         var (_, _, rows, state) = Make(TFClass.Soldier, dominations);
         dominations.DeathFlags(9, PlayerRig.Index, -1);
         dominations.DeathFlags(9, PlayerRig.Index, -1);

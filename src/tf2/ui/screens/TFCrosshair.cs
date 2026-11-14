@@ -31,8 +31,8 @@ namespace TF2.Client.Ui;
 /// preview, or a file the game lacks — the shape stands in: stock's error
 /// texture is pixels the toolkit cannot show (docs/divergences.md).
 /// </summary>
-public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textures = null,
-                                ITFRenderGroups? groups = null) : UiScreen
+public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary textures,
+                                ITFRenderGroups groups) : UiScreen
 {
     public override string Name => "tfcrosshair";
 
@@ -41,7 +41,7 @@ public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textu
     // Stock's hud elements stand down for the scoreboard's locked "global"
     // group (ITFRenderGroups): the layer skips a screen whose Visible is
     // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
-    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
+    public override bool Visible => base.Visible && groups.GlobalLocked != true;
 
     // The core HUD's crosshair: this screen replaces it (Hud.cs's
     // hud.crosshair gate).
@@ -62,7 +62,7 @@ public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textu
         if (crosshair.Material.Length > 0)
         {
             int iWidth = (int)(32f * crosshair.Scale + 0.5f);
-            int texture = textures?.Material(crosshair.Material) ?? 0;
+            int texture = textures.Material(crosshair.Material);
             if (texture != 0)
             {
                 _ = ui.Texture(texture, Size.Du(2f * iWidth), Size.Du(2f * iWidth))
@@ -85,14 +85,14 @@ public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textu
         {
             int iWidth = (int)(crosshair.Scale * crosshair.ScriptWide + 0.5f);
             int iHeight = (int)(crosshair.Scale * crosshair.ScriptTall + 0.5f);
-            int script = textures?.Material(crosshair.ScriptFile) ?? 0;
+            int script = textures.Material(crosshair.ScriptFile);
             if (script != 0)
             {
                 // DrawSelfCropped's interpolation (hud.cpp:645-656): the crop
                 // over the whole file size; a file whose size is unknown
                 // draws whole.
                 UiRect uv = new(0f, 0f, 1f, 1f);
-                if (textures!.About(crosshair.ScriptFile) is { Wide: > 0, Tall: > 0 } info)
+                if (textures.About(crosshair.ScriptFile) is { Wide: > 0, Tall: > 0 } info)
                     uv = new UiRect((float)crosshair.ScriptX / info.Wide,
                                     (float)crosshair.ScriptY / info.Tall,
                                     (float)crosshair.ScriptWide / info.Wide,

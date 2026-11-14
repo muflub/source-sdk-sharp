@@ -40,7 +40,7 @@ public sealed class TFViewmodelHandsTests
 
     private static TFClassTable Classes() => new(new RecordingLog(), WeaponFixtures.ShippedWithClasses());
 
-    private static TFViewmodelHandsRule Rule(TFClass cls) => new(Types(), Classes(), new Plain(cls));
+    private static TFViewmodelHandsRule Rule(TFClass cls) => new(Types(), Classes(), new Plain(cls), new AttributeHooks());
 
     /// <summary>The owner every earlier fact held: a class, no manager.</summary>
     private sealed class Plain(TFClass cls) : Owner(cls);
@@ -120,7 +120,7 @@ public sealed class TFViewmodelHandsTests
     [Fact]
     public void A_classless_player_leaves_the_answer()
     {
-        var rule = new TFViewmodelHandsRule(Types(), Classes());
+        var rule = new TFViewmodelHandsRule(Types(), Classes(), new Plain(TFClass.Undefined), new AttributeHooks());
 
         Assert.Null(rule.Model(Player, Row(Types(), "tf_weapon_rocketlauncher"), null));
         Assert.Equal("models/weapons/c_models/c_oldschool.mdl",

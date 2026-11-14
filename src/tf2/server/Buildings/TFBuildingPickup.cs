@@ -105,7 +105,7 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
     public int HookOrder => Order;
 
     public TFBaseObject? Carried(EntityHandle player)
-        => buildings.OwnedBy(player).FirstOrDefault(b => b.IsCarried && !b.IsDead);
+        => buildings.OwnedBy(player, null, null).FirstOrDefault(b => b.IsCarried && !b.IsDead);
 
     public bool TryPickup(EntityHandle player)
     {
@@ -133,7 +133,7 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
         TFBaseObject? picked = null;
         float bestSq = reach * reach;
 
-        foreach (TFBaseObject owned in buildings.OwnedBy(player))
+        foreach (TFBaseObject owned in buildings.OwnedBy(player, null, null))
         {
             Vector toObject = entities.GetOrigin(owned.Handle) - origin;
             float distSq = toObject.LengthSquared;

@@ -310,7 +310,7 @@ public sealed class TeamResourceEntity(ITeamResource table, ITeams teams, ITFBui
 
             // CTFTeam's m_aObjects: every live building of the team.
             List<int> indices = new();
-            foreach (TFBaseObject building in buildings.OwnedBy())
+            foreach (TFBaseObject building in buildings.OwnedBy(null, null, null))
                 if (building.Team == team)
                     indices.Add(entities.GetIndex(building.Handle));
             table.SetObjects(team, indices);

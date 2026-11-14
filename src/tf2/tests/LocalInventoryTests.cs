@@ -288,12 +288,26 @@ public sealed class LocalInventoryTests : IDisposable
     public void TheLoadoutCommandListsTheSlots()
     {
         var inventory = Connected();
-        var command = new LoadoutCommand(LoadoutDeps.Loadout(inventory, _schema), inventory, _log);
+        var command = new LoadoutCommand(LoadoutDeps.Loadout(inventory, _schema), inventory, _log,
+                                         new Classes(TFClass.Scout));
 
         string text = command.Describe(Seat, "scout");
 
         Assert.Contains("as Scout", text);
         Assert.Contains("Primary: base 13 TF_WEAPON_SCATTERGUN (tf_weapon_scattergun)", text);
         Assert.Contains("Melee: base 0 TF_WEAPON_BAT", text);
+    }
+
+    [Fact]
+    public void TheLoadoutCommandWithoutANameAsksTheRegisteredClass()
+    {
+        var inventory = Connected();
+        var command = new LoadoutCommand(LoadoutDeps.Loadout(inventory, _schema), inventory, _log,
+                                         new Classes(TFClass.Pyro));
+
+        string text = command.Describe(Seat);
+
+        Assert.Contains("as Pyro", text);
+        Assert.Contains("Primary: base 21 TF_WEAPON_FLAMETHROWER (tf_weapon_flamethrower)", text);
     }
 }

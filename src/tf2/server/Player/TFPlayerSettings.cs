@@ -24,7 +24,7 @@ namespace TF2.Server.Player;
 /// written onto the player's record for the view to answer unzoomed with.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFPlayerSettings(IConnectedClients? clients = null, IEnginePlayers? players = null) : IClientLifecycle
+public sealed class TFPlayerSettings(IConnectedClients clients, IEnginePlayers players) : IClientLifecycle
 {
     /// <summary>Stock's clamp, the convar's floor being 20 but the server's 75 (tf_gamerules.cpp:10277).</summary>
     public const int Floor = 75;
@@ -36,14 +36,11 @@ public sealed class TFPlayerSettings(IConnectedClients? clients = null, IEngineP
 
     public void OnClientSettingsChanged(int entIndex)
     {
-        if (players is null)
-            return;
-
         var handle = players.GetHandle(entIndex);
         if (handle.Equals(EntityHandle.None))
             return;
 
-        players.SetDefaultFov(handle, Fov(clients?.ClientConVar(entIndex, "fov_desired")));
+        players.SetDefaultFov(handle, Fov(clients.ClientConVar(entIndex, "fov_desired")));
     }
 
     /// <summary>The clamped desire; a value the client never sent is the floor, as atoi's 0 clamps to.</summary>

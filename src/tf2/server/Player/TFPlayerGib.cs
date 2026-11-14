@@ -89,7 +89,7 @@ public static class TFPlayerGibRule
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords records, IEngineEntities entities,
-    IEntityDirectory directory, IGameClock clock, AttributeHooks? hooks = null, ITFWeaponOwners? owners = null)
+    IEntityDirectory directory, IGameClock clock, AttributeHooks hooks, ITFWeaponOwners owners)
     : IPlayerDeathHook, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.PlayerGib;
@@ -113,9 +113,9 @@ public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords rec
         // gib, as stock's two fields are — the client's ash arm refuses a gibed
         // body itself. Stamped first, as stock's order is (:15849), because the
         // plasma arm reads it.
-        bool ash = hit is { } ashHit && hooks is { } ashWalk && owners is { } ashHolder
-                   && ashWalk.Int(0, "ragdolls_become_ash",
-                                  ashHolder.ItemOf(ashHit.Attacker.EntryIndex, ashHit.WeaponName)) > 0;
+        bool ash = hit is { } ashHit
+                   && hooks.Int(0, "ragdolls_become_ash",
+                                owners.ItemOf(ashHit.Attacker.EntryIndex, ashHit.WeaponName)) > 0;
         body.State.Ash = ash;
 
         // ragdolls_plasma_effect, stock's second walk beside the ash's
@@ -123,9 +123,9 @@ public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords rec
         // instead of gibbing it (c_tf_player.cpp:1202-1210). The MiniBoss arm
         // of that client gate has no case here (this mod has no minibosses), so
         // ash alone keeps the fade away; the gib is off either way (:1209).
-        bool plasma = hit is { } plasmaHit && hooks is { } plasmaWalk && owners is { } plasmaHolder
-                      && plasmaWalk.Int(0, "ragdolls_plasma_effect",
-                                        plasmaHolder.ItemOf(plasmaHit.Attacker.EntryIndex, plasmaHit.WeaponName)) > 0;
+        bool plasma = hit is { } plasmaHit
+                      && hooks.Int(0, "ragdolls_plasma_effect",
+                                   owners.ItemOf(plasmaHit.Attacker.EntryIndex, plasmaHit.WeaponName)) > 0;
 
         body.State.Gib = !plasma && TFPlayerGibRule.ShouldGib(playerGib.Value,
             hit?.Bits ?? DamageType.None, hit?.Crit ?? TFCritType.None,
@@ -144,17 +144,17 @@ public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords rec
         // ice — m_bIceRagdoll, networked beside the ash mark (:433, :462, :15628). The
         // client's ice arm (sound, frost, freeze timers) reads the flag at creation,
         // c_tf_player.cpp:736-742. Independent of the gib and the ash, as stock's fields are.
-        body.State.Ice = hit is { Custom: TFDamageCustom.Backstab } iceHit && hooks is { } iceWalk && owners is { } iceHolder
-                      && iceWalk.Int(0, "freeze_backstab_victim",
-                                     iceHolder.ItemOf(iceHit.Attacker.EntryIndex, iceHit.WeaponName)) > 0;
+        body.State.Ice = hit is { Custom: TFDamageCustom.Backstab } iceHit
+                      && hooks.Int(0, "freeze_backstab_victim",
+                                   owners.ItemOf(iceHit.Attacker.EntryIndex, iceHit.WeaponName)) > 0;
 
         // The killing weapon's set_turn_to_gold, stock's ON_OTHER hook over the
         // killer's weapon (tf_player.cpp:12717-12721 — pKillerWeapon, where the
         // ash arm reads the swing's; this record serves both), stamped the same
         // way (:15627): the Golden Wrench's gilded corpse.
-        body.State.Gold = hit is { } goldHit && hooks is { } goldWalk && owners is { } goldHolder
-                       && goldWalk.Int(0, "set_turn_to_gold",
-                                       goldHolder.ItemOf(goldHit.Attacker.EntryIndex, goldHit.WeaponName)) > 0;
+        body.State.Gold = hit is { } goldHit
+                       && hooks.Int(0, "set_turn_to_gold",
+                                    owners.ItemOf(goldHit.Attacker.EntryIndex, goldHit.WeaponName)) > 0;
     }
 
     /// <summary>
@@ -186,11 +186,11 @@ public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords rec
     {
         TFHitRecord? hit = records.LastHit(victim);
 
-        bool critOnHardHit = hit is { } hard && hooks is { } hardWalk && owners is { } hardHolder
-                          && hardWalk.Int(0, "crit_on_hard_hit",
-                                          hardHolder.ItemOf(hard.Attacker.EntryIndex, hard.WeaponName)) > 0;
-        bool gibOnCrit = hit is { Crit: not TFCritType.None } w && hooks is { } walk && owners is { } holder
-                         && walk.Int(0, "crit_kill_will_gib", holder.ItemOf(w.Attacker.EntryIndex, w.WeaponName)) > 0;
+        bool critOnHardHit = hit is { } hard
+                          && hooks.Int(0, "crit_on_hard_hit",
+                                       owners.ItemOf(hard.Attacker.EntryIndex, hard.WeaponName)) > 0;
+        bool gibOnCrit = hit is { Crit: not TFCritType.None } w
+                         && hooks.Int(0, "crit_kill_will_gib", owners.ItemOf(w.Attacker.EntryIndex, w.WeaponName)) > 0;
 
         return (gibOnCrit, critOnHardHit);
     }

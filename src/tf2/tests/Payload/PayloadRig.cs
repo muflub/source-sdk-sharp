@@ -178,6 +178,8 @@ internal sealed class PayloadRig
         services.AddInstance<IObjectiveEntities>(Entities);
         services.AddInstance<ISoundPatchRamps>(Ramps);
         services.AddInstance<ITFPlayerResupply>(Resupply);
+        services.AddInstance<ITFPlayerObjectiveTimes>(new TFPlayerObjectiveTimes());
+        services.AddInstance<ITFPlayerStats>(new TF2.Server.Player.TFPlayerStats());
 
         // the points and master read the same table the watcher writes
         var objectives = new ObjectiveResource(new TF2.Tests.Client.ServerWarnScripts());
@@ -203,7 +205,8 @@ internal sealed class PayloadRig
         services.AddInstance<ITeams>(ConceptTeams);
         Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
             services.Resolve<IEnginePlayers>()!, ObjectiveRig.ConceptSceneImage(), services.Resolve<IEngineSound>()!,
-            services.Resolve<IUniformRandom>()!);
+            services.Resolve<IUniformRandom>()!, new LoadoutDeps.IdleRound(), new Tests.Weapons.FakeOwners(),
+            new RecordingLog());
         services.AddInstance(Speech);
 
         var convars = ConVarRegistry.For(TestServices.UnattachedConsole());

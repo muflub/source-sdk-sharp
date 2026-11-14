@@ -68,7 +68,7 @@ public sealed class TFDroppedWeaponPickup(
     Arsenal arsenal, ITFMapPlayers players, IEngineEntities entities, IEngineEntityRender render,
     IEngineWorldQuery world, IEntityDirectory directory, IGameClock clock, ITFMedigunWeapons medigun,
     TFWeaponScripts scripts, ItemSchema schema, TFClassTable classes,
-    ITFRespawnRooms? rooms = null, ITeamRoundState? rounds = null)
+    ITFRespawnRooms rooms, ITeamRoundState rounds)
     : ITFDroppedWeaponPickup
 {
     /// <summary><c>TF_WEAPON_PICKUP_RANGE</c> (tf_shareddefs.h:2697): 150.</summary>
@@ -229,7 +229,7 @@ public sealed class TFDroppedWeaponPickup(
         // false — and the room is the one place the floor stays clear. The
         // origin is the player's (:22728-30 stock computes the ammo-pack
         // pose; the placement is the death drop's deferred row 126's).
-        if (rooms?.InRespawnRoom(player, sameTeamOnly: false) != true)
+        if (!rooms.InRespawnRoom(player, sameTeamOnly: false))
         {
             TFDroppedWeapon.CleanUp(directory, player, heldName);
 
@@ -336,8 +336,8 @@ public sealed class TFDroppedWeaponPickup(
 
     /// <summary><c>CTFPlayerShared::IsLoser</c> (:13673): the round won and not by the player's team.</summary>
     private bool Loser(EntityHandle player)
-        => rounds is { } state && state.State == RoundState.TeamWin
-           && state.WinningTeam != (TFTeam)players.Team(player);
+        => rounds.State == RoundState.TeamWin
+           && rounds.WinningTeam != (TFTeam)players.Team(player);
 }
 
 /// <summary>

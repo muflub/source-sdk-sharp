@@ -36,14 +36,15 @@ public class TFBlastJumpTests
     {
         owners ??= new ProjectileRig.FixedOwners();
         var rig = new PlayerRig().As(cls);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var jump = new TFBlastJumpState(rig.Carriers, conditions, rig.Engine, new NoEntities(), rig.Engine, rig.Engine);
         jump.Attach(PlayerRig.Player);
 
         var blast = new TFBlastApplier(rig.Engine, rig.Engine, rig.Engine, new TFDamageScopes(), new DamageHitGroups(),
             new DamageInflictors(), rig.Carriers, rig.Log, rig.Engine, owners,
             new AttributeHooks(), new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
-            new ProjectileRig.DirectoryView(), rig.Carriers);
+            new ProjectileRig.DirectoryView(), rig.Carriers,
+            DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
         return (rig, blast, conditions, jump);
     }
 

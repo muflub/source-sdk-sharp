@@ -22,7 +22,7 @@ public sealed class TFTauntThinkTests
     private static (PlayerRig Rig, TFPlayerConditions Conditions) Taunted()
     {
         var rig = new PlayerRig().As(TFClass.Soldier);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         Assert.True(conditions.Add(PlayerRig.Player, TFCond.Taunting, 3f) is TFCondAdd.Added or TFCondAdd.Refreshed);
         return (rig, conditions);
     }

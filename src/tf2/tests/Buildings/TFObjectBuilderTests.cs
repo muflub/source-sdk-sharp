@@ -175,8 +175,8 @@ public class TFObjectBuilderTests
         int destroyed = builder.DestroyAll(engineer, TFObjectType.Sentrygun);
 
         Assert.Equal(1, destroyed);
-        Assert.Empty(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
-        Assert.Single(rig.Buildings().OwnedBy(mate, TFObjectType.Sentrygun));
+        Assert.Empty(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
+        Assert.Single(rig.Buildings().OwnedBy(mate, TFObjectType.Sentrygun, null));
         Assert.Contains("destroyed Sentrygun 0", rig.Announcer.Said);
     }
 

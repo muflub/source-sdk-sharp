@@ -67,8 +67,5 @@ public sealed class TFPlayerSettingsTests
         engine.Returns("Players.GetHandle", EntityHandle.None);
         settings.OnClientSettingsChanged(PlayerRig.Index);
         Assert.Empty(engine.AllOf("Players.SetDefaultFov"));
-
-        var bare = new TFPlayerSettings(new Said("80"), null);
-        bare.OnClientSettingsChanged(PlayerRig.Index);     // no engine side: nothing to throw
     }
 }

@@ -35,12 +35,12 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
                                TFWeaponRagdollVelocityMinConVar velocityMin, TFWeaponRagdollVelocityMaxConVar velocityMax,
                                TFWeaponRagdollMaxSpeedConVar ragdollMaxSpeed,
                                IUniformRandom random, IEngineEntityRender render,
-                               ITFPlayerStats? stats = null) : ScriptedEntity
+                               ITFPlayerStats stats) : ScriptedEntity
 {
     public const string Class = "tf_ammo_pack";
 
     /// <summary><c>CGameStats::Event_PlayerAmmokitPickup</c> (:434).</summary>
-    private readonly ITFPlayerStats? _stats = stats;
+    private readonly ITFPlayerStats _stats = stats;
 
     /// <summary>
     /// The model <c>DropAmmoPack</c> names at the call (<c>CTFAmmoPack::Create</c>,
@@ -316,7 +316,7 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         if (taken > 0) // :432-445 — the quirk kept: gave nothing, keep the pack.
         {
             notices.ItemPickupEvent(toucher, Class);
-            _stats?.Increment(toucher, TFStat.Ammokits); // :434 — Event_PlayerAmmokitPickup
+            _stats.Increment(toucher, TFStat.Ammokits); // :434 — Event_PlayerAmmokitPickup
             Remove();
         }
     }

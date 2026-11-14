@@ -40,9 +40,15 @@ namespace TF2.Shared;
 /// the same and a held item swap does not change whose buff is pulsing.
 /// </para>
 /// </summary>
-public sealed class TFBuffItemBehaviour(TFWeaponParts parts, AttributeHooks? attributes = null)
+public sealed class TFBuffItemBehaviour(TFWeaponParts parts, AttributeHooks attributes)
     : TFWeaponBehaviour(parts, attributes)
 {
+    /// <summary>The kind's shape for the factory's one-name call: the bare attribute chain.</summary>
+    public TFBuffItemBehaviour(TFWeaponParts parts)
+        : this(parts, new AttributeHooks())
+    {
+    }
+
     /// <summary>The pulse's one-second clock (<c>m_flNextBuffPulseTime +=
     /// 1.0f</c>, tf_player_shared.cpp:13858).</summary>
     public const float PulseInterval = 1.0f;

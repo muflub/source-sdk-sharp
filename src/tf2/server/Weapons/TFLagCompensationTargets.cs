@@ -26,7 +26,7 @@ namespace TF2.Server.Weapons;
 [SideService(Side.Server, As = [typeof(ILagCompensationTargets)])]
 public sealed class TFLagCompensationTargets(MpFriendlyFireConVar friendlyFire, IEnginePlayers players, IEngineEntities entities,
                                              TFWeaponScripts scripts, ITFPlayerClasses classes,
-                                             ITFMedigunWeapons? mediguns = null)
+                                             ITFMedigunWeapons mediguns)
     : ILagCompensationTargets, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -45,7 +45,7 @@ public sealed class TFLagCompensationTargets(MpFriendlyFireConVar friendlyFire, 
 
             // Lag compensation on medics healing teammates: their patient only.
             bool medic = classes.ClassOf(target.Shooter) == TFClass.Medic;
-            if (medic && sameTeam && active is { Id: TFWeaponId.Medigun } && mediguns is not null)
+            if (medic && sameTeam && active is { Id: TFWeaponId.Medigun })
             {
                 int patient = mediguns.HealingTargetIndex(entities.GetIndex(target.Shooter));
                 if (patient > 0)

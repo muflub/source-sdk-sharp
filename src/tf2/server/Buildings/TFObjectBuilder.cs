@@ -99,13 +99,19 @@ public interface ITFObjectBuilder
 /// the metal paid through <see cref="ITFAmmoPurse"/> so a refusal never pays.
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFObjectBuilder)])]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one,
+/// so a missing one fails the composition by name instead of answering a
+/// default — the hook walk runs whenever a build is asked its cost, with
+/// or without the second wrench attribute.
+/// </summary>
 public sealed class TFObjectBuilder(ITFMapPlayers players, ITFBuildings buildings, ITFNoBuildAreas noBuild,
                                      ITFRespawnRooms rooms, ITFAmmoPurse purse, ITFObjectSpawner spawner, ILog log,
-                                     ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+                                     ITFWeaponOwners owners, AttributeHooks hooks)
     : ITFObjectBuilder
 {
-    private readonly ITFWeaponOwners? _owners = owners;
-    private readonly AttributeHooks _hooks = hooks ?? new AttributeHooks();
+    private readonly ITFWeaponOwners _owners = owners;
+    private readonly AttributeHooks _hooks = hooks;
 
     /// <summary>The metal an engineer pays with: the class script's <c>AmmoMax</c> key.</summary>
     private static string MetalName => TFAmmoNames.Name(TFAmmo.Metal);
@@ -120,7 +126,7 @@ public sealed class TFObjectBuilder(ITFMapPlayers players, ITFBuildings building
     /// <summary>Whether the builder's wrench carries <c>wrench_builds_minisentry</c>: stock's
     /// <c>IsPDQ</c> (<c>tf_weapon_wrench.h:42</c>), the hook summed and read as exactly 1.</summary>
     private bool IsMiniWrench(EntityHandle player)
-        => _hooks.Int(0, "wrench_builds_minisentry", _owners?.ItemOf(player.EntryIndex, WrenchItemName)) == 1;
+        => _hooks.Int(0, "wrench_builds_minisentry", _owners.ItemOf(player.EntryIndex, WrenchItemName)) == 1;
 
     /// <summary><c>InternalCalculateObjectCost</c> (<c>tf_player_shared.cpp:11529-11536</c>): the row's cost,
     /// the PDQ's mini sentry 30 cheaper.</summary>
@@ -253,7 +259,7 @@ public sealed class TFObjectBuilder(ITFMapPlayers players, ITFBuildings building
     public int DestroyAll(EntityHandle player, TFObjectType type)
     {
         int destroyed = 0;
-        foreach (TFBaseObject owned in buildings.OwnedBy(player, type))
+        foreach (TFBaseObject owned in buildings.OwnedBy(player, type, null))
         {
             owned.DestroyObject();
             destroyed++;

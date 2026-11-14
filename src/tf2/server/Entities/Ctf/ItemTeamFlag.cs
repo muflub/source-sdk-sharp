@@ -56,9 +56,9 @@ public sealed class ItemTeamFlag(
     ITFAnnouncer announcer,
     TFWinPanelCappers panelCappers,
     IServerSkins skins,
-    ITFRespawnRooms? respawnRooms = null,
-    IFlagCarrierEffects? effects = null,
-    IFlagDetectionZoneDispatch? zones = null) : ScriptedEntity
+    ITFRespawnRooms respawnRooms,
+    IFlagCarrierEffects effects,
+    IFlagDetectionZoneDispatch zones) : ScriptedEntity
 {
     public const string MapClass = "item_teamflag";
 
@@ -628,7 +628,7 @@ public sealed class ItemTeamFlag(
         }
 
         // PointInRespawnRoom( pPlayer, pPlayer->WorldSpaceCenter() ): bTeamOnly defaults false.
-        if (respawnRooms?.InRespawnRoom(other, sameTeamOnly: false) == true)
+        if (respawnRooms.InRespawnRoom(other, sameTeamOnly: false))
             return;
 
         if (IsDropped && otherTeam == _team && Type == TFFlagType.Ctf && settings.ReturnOnTouch)
@@ -687,7 +687,7 @@ public sealed class ItemTeamFlag(
         {
             TFCondMask conds = players.Conditions(player);
             if (conds.Has(TFCond.Disguised) || conds.Has(TFCond.Disguising))
-                effects?.RemoveDisguise(player);
+                effects.RemoveDisguise(player);
         }
 
         // switch to brighter picked up skin
@@ -749,7 +749,7 @@ public sealed class ItemTeamFlag(
         StartFlagTrail();
 
         // The detection zones hear the pick-up (entity_capture_flag.cpp:1451).
-        zones?.PickedUp(player);
+        zones.PickedUp(player);
 
         rules.Report("flag_picked_up", _team, Entities.GetIndex(Handle));
         Log.Msg($"[TF2/Ctf] {Name} ({_team}) picked up by player {players.Index(player)} ({players.Team(player)}), was {oldStatus}\n");
@@ -785,7 +785,7 @@ public sealed class ItemTeamFlag(
             if (notify)
             {
                 announcer.Captured(Handle, playerTeam, player);
-                effects?.CaptureBonus(playerTeam);
+                effects.CaptureBonus(playerTeam);
             }
 
             // Reward the team
@@ -824,7 +824,7 @@ public sealed class ItemTeamFlag(
 
         // The zones hear the capture's drop half; the capture arm is the
         // doomsday achievement, deferred (entity_capture_flag.cpp:1738-1739).
-        zones?.Dropped(player);
+        zones.Dropped(player);
 
         // Reset the flag (CTFItem::Drop, then Reset).
         Unparent();
@@ -946,7 +946,7 @@ public sealed class ItemTeamFlag(
 
         // The zones hear the drop, after that reset, as stock's order runs
         // (entity_capture_flag.cpp:2112-2118).
-        zones?.Dropped(player);
+        zones.Dropped(player);
     }
 
     /// <summary>

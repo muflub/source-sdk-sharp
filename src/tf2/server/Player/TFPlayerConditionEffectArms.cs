@@ -28,7 +28,7 @@ namespace TF2.Server.Player;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFPlayerConditionEffectArms(IEngineSound sound, TFPlayerCarriers? carriers = null)
+public sealed class TFPlayerConditionEffectArms(IEngineSound sound, TFPlayerCarriers carriers)
     : ITFConditionHook, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.ConditionEffectArms;
@@ -59,7 +59,7 @@ public sealed class TFPlayerConditionEffectArms(IEngineSound sound, TFPlayerCarr
     /// </summary>
     public void OnRemoved(EntityHandle player, TFCond cond)
     {
-        if (cond == TFCond.ShieldCharge && carriers?.Get(player.EntryIndex) is { } state)
+        if (cond == TFCond.ShieldCharge && carriers.Get(player.EntryIndex) is { } state)
             state.ChargeMeter = 0f;                                           // :6203
 
         // OnRemovePhase (:3551-3577): once the phase is gone, the damage it
@@ -69,7 +69,7 @@ public sealed class TFPlayerConditionEffectArms(IEngineSound sound, TFPlayerCarr
         // TF_STUN_SOUND bit (:3571, tf_shareddefs.h:1342) has no member in
         // this build's enum; its consumer, the stun sound, is out (the
         // stack's own note).
-        if (cond != TFCond.Phase || carriers?.ConditionsOf(player.EntryIndex) is not { } conditions)
+        if (cond != TFCond.Phase || carriers.ConditionsOf(player.EntryIndex) is not { } conditions)
             return;
 
         int prevented = conditions.PreventedDamage(TFCond.Phase);

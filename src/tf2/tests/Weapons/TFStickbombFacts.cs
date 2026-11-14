@@ -88,7 +88,8 @@ public sealed class TFStickbombFacts
 
             Damage = new MeleeDamage(HitGroups);
             Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
-                        Engine, Owners, new(), Health, Engine, Engine, Directory, Carriers);
+                        Engine, Owners, new(), Health, Engine, Engine, Directory, Carriers,
+                        DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
             Effects = MeleeDeps.Effects(Engine, Damage, HitGroups, Log, owners: Owners,
                                         blast: Blast, health: Health,
                                         render: render, directory: directory);

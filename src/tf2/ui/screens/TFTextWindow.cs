@@ -32,11 +32,11 @@ namespace TF2.Client.Ui;
 public sealed class TFTextWindow : UiScreen
 {
     private readonly IMotdSource _source;
-    private readonly ITFTextWindowActions? _actions;
+    private readonly ITFTextWindowActions _actions;
 
     /// <param name="actions">What OK does (stock's okay: hide the window
-    /// and raise); none in a sample.</param>
-    public TFTextWindow(IMotdSource source, ITFTextWindowActions? actions = null)
+    /// and raise).</param>
+    public TFTextWindow(IMotdSource source, ITFTextWindowActions actions)
     {
         _source = source;
         _actions = actions;
@@ -74,7 +74,7 @@ public sealed class TFTextWindow : UiScreen
             {
                 ui.Flex();
                 if (ui.Button("ok", "#SS_UI_Ok", primary: true).Clicked)
-                    _actions?.Okay();
+                    _actions.Okay();
             }
         }
     }

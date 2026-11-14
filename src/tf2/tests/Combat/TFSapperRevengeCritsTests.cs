@@ -27,7 +27,7 @@ public sealed class TFSapperRevengeCritsTests
     {
         var rig = new PlayerRig();
         rig.Join();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var owners = new FakeOwners();
         owners.Held[PlayerRig.Index] = "tf_weapon_revolver";
         if (collecting)

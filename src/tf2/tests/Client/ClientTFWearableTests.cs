@@ -200,11 +200,15 @@ public sealed class ClientTFWearableTests
         Assert.Equal(before, Skins(engine));
     }
 
-    /// <summary>The wearable's first decode: merged, skinned, wished.</summary>
+    /// <summary>The wearable's first decode: merged, skinned, wished. The
+    /// holders are required since the class takes them outright: with no
+    /// scripted viewer the engine answers no local player, and the wish
+    /// stays quiet the way the old null-screen skip left it.</summary>
     private static Wearable Decoded(ClientEngine engine, Wishes wishes, int owner, int skin = 0,
                                     client::SourceSharp.Abi.IEngineHud? screen = null)
     {
-        var wearable = new Wearable(engine, wishes, screen) { Handle = Hat };
+        screen ??= engine.Returns("Hud.LocalPlayerIndex", 0);
+        var wearable = new Wearable(engine, wishes, screen, new Carriers(), new PlayerResources()) { Handle = Hat };
         wearable.State.BindLocal();
         wearable.State.OwnerIndex = owner;
         wearable.State.Skin = skin;

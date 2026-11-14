@@ -67,13 +67,14 @@ public interface ITFSapperState
 /// (<c>CTFWrench::Smack</c>'s <c>OnFriendlyBuildingHit</c>,
 /// tf_weapon_wrench.cpp:145-199). Stock lands the hit at the smack 0.5 s
 /// after the swing; here it is asked at the swing itself, the knife's
-/// precedent (docs/divergences.md). A client replay without the seam asks
-/// nothing: the sapper's wound is the server's, and so is the building's
-/// repair, refill and upgrade metal that rides the same call.
+/// precedent (docs/divergences.md). The holder is required, each side's own:
+/// on a client replay the quiet one answers none — the sapper's wound is the
+/// server's, and so is the building's repair, refill and upgrade metal that
+/// rides the same call.
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFWrenchHook(ITFSapperState? sappers = null) : ITFWeaponHook
+public sealed class TFWrenchHook(ITFSapperState sappers) : ITFWeaponHook
 {
     /// <summary>The wrench's row (<c>TF_WEAPON_WRENCH</c>'s script).</summary>
     public const string WrenchScript = "tf_weapon_wrench";
@@ -96,8 +97,8 @@ public sealed class TFWrenchHook(ITFSapperState? sappers = null) : ITFWeaponHook
 
     public bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
     {
-        if (IsWrench(in weapon) && attack.Command.OwnerIndex > 0 && attack.EffectsLive && sappers is { } state)
-            state.WrenchSmack(attack.Command.OwnerIndex, SmackRange);
+        if (IsWrench(in weapon) && attack.Command.OwnerIndex > 0 && attack.EffectsLive)
+            sappers.WrenchSmack(attack.Command.OwnerIndex, SmackRange);
         return true;
     }
 }

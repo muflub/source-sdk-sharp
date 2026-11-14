@@ -51,7 +51,7 @@ public partial class TFGameRulesProxyVars
 [ScriptedEntity(TFGameRulesProxy.MapClass)]
 public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves waves, IEngineEntityRender render,
                                      ICtfRules ctf, ITeamRoundControl rounds, IFlagCarrierEffects effects,
-                                     ITeamResource teamsTable, ITFTeamRoles? roles = null)
+                                     ITeamResource teamsTable, ITFTeamRoles roles)
     : ScriptedEntity
 {
     public const string MapClass = "tf_gamerules";
@@ -123,11 +123,11 @@ public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves wav
     /// <summary>Stock <c>InputSetRedTeamRole</c> (L1605, handler L1785-1792): the map's
     /// integer names RED's role (<c>TEAM_ROLE_*</c>, tf_shareddefs.h:74-76).</summary>
     [ScriptedEvent] private void OnSetRedTeamRole(float role)
-        => roles?.SetRole(TFTeam.Red, (TFTeamRole)(int)role);
+        => roles.SetRole(TFTeam.Red, (TFTeamRole)(int)role);
 
     /// <summary>Stock <c>InputSetBlueTeamRole</c> (L1606, handler L1797-1804): the blue mirror.</summary>
     [ScriptedEvent] private void OnSetBlueTeamRole(float role)
-        => roles?.SetRole(TFTeam.Blue, (TFTeamRole)(int)role);
+        => roles.SetRole(TFTeam.Blue, (TFTeamRole)(int)role);
 }
 
 /// <summary>

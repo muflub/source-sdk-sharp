@@ -39,8 +39,8 @@ namespace TF2.Shared.Anim;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable classes, ITFWeaponOwners? owners = null,
-                                         AttributeHooks? hooks = null) : IViewmodelModelRule, IOrderedHook
+public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable classes, ITFWeaponOwners owners,
+                                         AttributeHooks hooks) : IViewmodelModelRule, IOrderedHook
 {
     /// <summary>The rule's order: the weapons band, after the act table (+220).</summary>
     public const int Order = 1_000_000 - 1_000 + 221;
@@ -54,9 +54,9 @@ public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable class
     /// engineer's mechanical arm. Stock precaches it in CTFRobotArm.</summary>
     public const string GunslingerArms = "models/weapons/c_models/c_engineer_gunslinger.mdl";
 
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
+    private readonly ITFWeaponOwners _owners = owners;
 
-    private readonly AttributeHooks? _hooks = hooks;
+    private readonly AttributeHooks _hooks = hooks;
 
     /// <inheritdoc />
     public int HookOrder => Order;
@@ -75,7 +75,7 @@ public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable class
         // (tf_weaponbase.cpp:658-663): 0 the class's own hands, anything
         // else the Gunslinger's arm (GetHandModelName,
         // tf_playerclass_shared.cpp:161-166).
-        string hands = _hooks is { } h && h.Int(0, WrenchBuildsMinisentry, _owners.ManagerOf(playerIndex)) != 0
+        string hands = _hooks.Int(0, WrenchBuildsMinisentry, _owners.ManagerOf(playerIndex)) != 0
             ? GunslingerArms
             : classes[cls].ModelHands;
         return hands.Length > 0 ? hands : chosen;

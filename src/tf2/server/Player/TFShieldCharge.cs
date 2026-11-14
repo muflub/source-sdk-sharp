@@ -265,10 +265,10 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
 /// </para>
 /// </summary>
 public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerConditions conditions,
-                                        TFPlayerItems items, AttributeHooks? hooks,
-                                        TFDemomanChargeDrainTimeConVar? drainTime,
-                                        TFDemomanChargeRegenRateConVar? regenRate,
-                                        IEngineEnvironment? environment = null)
+                                        TFPlayerItems items, AttributeHooks hooks,
+                                        TFDemomanChargeDrainTimeConVar drainTime,
+                                        TFDemomanChargeRegenRateConVar regenRate,
+                                        IEngineEnvironment environment)
     : IPlayerComponent
 {
     private EntityHandle _player = EntityHandle.None;
@@ -298,7 +298,7 @@ public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerCondi
 
         // No engine, no tick to slice by: the whole frame is one add, the
         // shape the no-engine caller (a test) stands for.
-        float interval = environment?.Globals is { IsAvailable: true } globals
+        float interval = environment.Globals is { IsAvailable: true } globals
             ? globals.IntervalPerTick
             : 0f;
         int slices = interval > 0f ? Math.Max(1, (int)MathF.Round(frame / interval)) : 1;
@@ -310,8 +310,7 @@ public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerCondi
             {
                 // The drain: the seconds a full meter lasts, the hook on the
                 // player as stock's ON_OTHER walk is (:6025-6026).
-                float drain = hooks?.Float(drainTime?.Value ?? 1.5f, "mod_charge_time", items.ManagerOf(_player.EntryIndex))
-                              ?? drainTime?.Value ?? 1.5f;
+                float drain = hooks.Float(drainTime.Value, "mod_charge_time", items.ManagerOf(_player.EntryIndex));
                 state.ChargeMeter -= dt * (100f / drain);                     // :6027-6028
                 if (state.ChargeMeter <= 0f)                                  // :6029
                 {
@@ -324,8 +323,7 @@ public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerCondi
                 // The refill: per second, the hook on the player (:6040-6041),
                 // at least a point (:6052), capped at full (:6054-6057). The
                 // powerup-mode multipliers (:6042-6050) wait for that mode.
-                float regen = hooks?.Float(regenRate?.Value ?? 8.3f, "charge_recharge_rate", items.ManagerOf(_player.EntryIndex))
-                              ?? regenRate?.Value ?? 8.3f;
+                float regen = hooks.Float(regenRate.Value, "charge_recharge_rate", items.ManagerOf(_player.EntryIndex));
                 regen = MathF.Max(regen, 1f);                                 // :6052
                 state.ChargeMeter = MathF.Min(100f, state.ChargeMeter + dt * regen);  // :6053-6057
             }
@@ -354,7 +352,7 @@ public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerCondi
 /// </para>
 /// </summary>
 public sealed class TFShieldChargeEnd(TFPlayerCarriers carriers, TFShieldCharge? shields,
-                                      AttributeHooks? hooks, IGameClock clock) : IPlayerComponent
+                                      AttributeHooks hooks, IGameClock clock) : IPlayerComponent
 {
     private EntityHandle _player = EntityHandle.None;
 
@@ -417,7 +415,7 @@ public sealed class TFShieldChargeEnd(TFPlayerCarriers carriers, TFShieldCharge?
         if (_index < 0 || carriers.Get(_index) is not { } state)
             return;
 
-        if ((hooks?.Int(0, "attack_not_cancel_charge", shields?.EquippedShield(_index)) ?? 0) > 0)
+        if (hooks.Int(0, "attack_not_cancel_charge", shields?.EquippedShield(_index)) > 0)
             return;                                                           // :74-79
 
         if (!state.InCond(TFCond.ShieldCharge))
@@ -454,7 +452,7 @@ public sealed class TFShieldChargeEnd(TFPlayerCarriers carriers, TFShieldCharge?
         if (carriers.Get(_index) is not { } state)
             return;
 
-        int tideTurner = hooks?.Int(0, "lose_demo_charge_on_damage_when_charging", shields?.EquippedShield(_index)) ?? 0;   // :6129-6130
+        int tideTurner = hooks.Int(0, "lose_demo_charge_on_damage_when_charging", shields?.EquippedShield(_index));   // :6129-6130
 
         if (tideTurner != 0 && meter <= 75f)                                  // :6131
             state.NextMeleeCrit = (int)TFMeleeCrit.MiniCrit;                  // :6133

@@ -25,7 +25,7 @@ namespace TF2.Server.Player;
 /// guest; the hype meter refills by no clock, only by damage.
 /// </summary>
 public sealed class TFHypeDrain(ITFPlayerData players, ITFPlayerConditions conditions,
-                                TFScoutEnergydrinkConsumeRateConVar? consume = null)
+                                TFScoutEnergydrinkConsumeRateConVar consume)
     : IPlayerComponent
 {
     private EntityHandle _player = EntityHandle.None;
@@ -59,7 +59,7 @@ public sealed class TFHypeDrain(ITFPlayerData players, ITFPlayerConditions condi
             return;
 
         // :14073 — no clamp; the emptied meter's branch owns the bottom.
-        state.HypeMeter -= frametime * (consume?.Value ?? 12.5f) * 0.75f;
+        state.HypeMeter -= frametime * consume.Value * 0.75f;
         if (state.HypeMeter <= 0f)
             conditions.Remove(_player, TFCond.SodapopperHype);   // :14076
     }

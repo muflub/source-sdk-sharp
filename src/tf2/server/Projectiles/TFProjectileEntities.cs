@@ -807,10 +807,15 @@ public sealed class TFStickybomb : ScriptedEntity
     private readonly IEntityDirectory Directory;
     private readonly IEngineFrame Frame;
 
+    /// <summary>
+    /// Every dependency is injected: the server's composition registers the
+    /// post-simulation queue (<c>ServerModule</c>'s instance), so the pinning
+    /// always waits for the step's end and no direct path stands beside it.
+    /// </summary>
     public TFStickybomb(IEngineEntityPhysics physics, TFBlastApplier blast, IEnginePlayers players,
                         TFStickybombConVars convars, IGameClock clock, IEngineWorldQuery world,
                         IEntityDirectory directory, IEngineFrame frame,
-                        PostSimulationQueue? postSimulation = null)
+                        PostSimulationQueue postSimulation)
     {
         Physics = physics;
         Blast = blast;
@@ -824,7 +829,7 @@ public sealed class TFStickybomb : ScriptedEntity
     }
 
     /// <summary>Stock's <c>g_PostSimulationQueue</c>, holding the pin until the step's end.</summary>
-    private readonly PostSimulationQueue? _postSimulation;
+    private readonly PostSimulationQueue _postSimulation;
 
     public const string Model = TFProjectileDefs.StickyModel;
 
@@ -1008,10 +1013,7 @@ public sealed class TFStickybomb : ScriptedEntity
         // contact is a solver callback, and the pinning waits for the step's
         // end. A stick reached outside the step (the rest check's think) rides
         // the same queue, which runs before the next one.
-        if (_postSimulation is { } afterStep)
-            afterStep.Add(DisableMotion);
-        else
-            Physics.EnableMotion(Handle, false);
+        _postSimulation.Add(DisableMotion);
 
         Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Stickybomb} stuck at {Origin}\n");
     }
@@ -2774,11 +2776,11 @@ public sealed class TFFlareTray
 /// fizzle (:479-486) — fizzles the whole tray.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDeathHook
+public sealed class TFStickyTray(TFPlayerCarriers carriers) : IPlayerDeathHook
 {
     private readonly Dictionary<int, List<TFStickybomb>> _trays = new();
 
-    private readonly TFPlayerCarriers? _carriers = carriers;
+    private readonly TFPlayerCarriers _carriers = carriers;
 
     /// <summary>
     /// Records a sticky and removes the oldest past the cap — the stock
@@ -2911,7 +2913,7 @@ public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDea
     /// </summary>
     private void Publish(int ownerIndex)
     {
-        if (_carriers?.Get(ownerIndex) is not { } state)
+        if (_carriers.Get(ownerIndex) is not { } state)
             return;
 
         state.PipebombCount = Count(ownerIndex);

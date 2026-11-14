@@ -1022,10 +1022,10 @@ public sealed class TFDamageLayerTests
     [Fact]
     public void The_balls_fire_has_its_own_seconds()
     {
-        var burn = new TFBurn();
+        var burn = new TFBurn(new AttributeHooks());
 
         burn.Ignite(1f, true, TFClass.HeavyWeapons, default, CombatRig.Attacker, TFWeaponId.FlameBall,
-                    "tf_weapon_rocketlauncher_fireball");
+                    "tf_weapon_rocketlauncher_fireball", [], null);
 
         Assert.Equal(TFProjectileDefs.BallBurnDuration, burn.AfterburnDuration, 3);
     }

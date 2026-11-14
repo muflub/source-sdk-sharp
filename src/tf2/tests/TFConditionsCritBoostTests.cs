@@ -18,7 +18,8 @@ public sealed class TFConditionsCritBoostTests
 {
     private const float Tick = 0.25f;
 
-    private static TFConditions Server() => new(authoritative: true);
+    private static TFConditions Server() =>
+        new(authoritative: true, new TFCondHolder());
 
     [Fact]
     public void The_first_add_starts_the_max_duration()
@@ -161,7 +162,8 @@ public sealed class TFConditionsCritBoostTests
     [Fact]
     public void A_client_add_is_left_to_the_server()
     {
-        var conditions = new TFConditions(authoritative: false);
+        var conditions = new TFConditions(authoritative: false,
+                         new TFCondHolder());
 
         Assert.Equal(TFCondAdd.Ignored, conditions.Add(TFCond.Critboosted, 5f));
 
@@ -171,7 +173,8 @@ public sealed class TFConditionsCritBoostTests
     [Fact]
     public void A_client_cannot_remove_a_networked_crit_boost()
     {
-        var conditions = new TFConditions(authoritative: false);
+        var conditions = new TFConditions(authoritative: false,
+                         new TFCondHolder());
         conditions.ReceiveBits(TFCondMask.Of(TFCond.Critboosted));
 
         Assert.False(conditions.Remove(TFCond.Critboosted, ignoreDuration: true));
@@ -197,7 +200,8 @@ public sealed class TFConditionsCritBoostTests
     /// <summary>The hook over a held weapon, the rage on.</summary>
     private static bool RageBoosts(string weapon)
     {
-        var conditions = new TFConditions(authoritative: true);
+        var conditions = new TFConditions(authoritative: true,
+                         new TFCondHolder());
         conditions.Add(TFCond.CritboostedRageBuff);
         var context = new TFWeaponHookContext(default, WeaponFixtures.Parse(weapon), 1, conditions);
 

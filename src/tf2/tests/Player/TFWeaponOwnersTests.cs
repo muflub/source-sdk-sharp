@@ -260,7 +260,7 @@ public sealed class TFWeaponOwnersTests
     public void The_carry_rule_reads_the_class_through_the_owners()
     {
         var (rig, owners, _, _) = Server(TFClass.Scout);
-        var rule = new TFAmmoCarryRule(rig.Classes, owners);
+        var rule = new TFAmmoCarryRule(rig.Classes, owners, new AttributeHooks());
         var primary = new AmmoType(TFAmmoNames.Name(TFAmmo.Primary), default, TFAmmoTypes.AmmoMax);
 
         Assert.Equal(32, rule.MaxCarry(PlayerRig.Index, in primary, TFAmmoTypes.AmmoMax));
@@ -276,7 +276,7 @@ public sealed class TFWeaponOwnersTests
     public void The_players_attribute_manager_scales_the_carry_rule()
     {
         var (rig, owners, _, items) = Server(TFClass.Engineer);
-        var rule = new TFAmmoCarryRule(rig.Classes, owners);
+        var rule = new TFAmmoCarryRule(rig.Classes, owners, new AttributeHooks());
         var metal = new AmmoType(TFAmmoNames.Name(TFAmmo.Metal), default, TFAmmoTypes.AmmoMax);
 
         Assert.Null(owners.ManagerOf(PlayerRig.Index));
@@ -303,7 +303,7 @@ public sealed class TFWeaponOwnersTests
     {
         var rig = new PlayerRig().As(TFClass.Scout);
         var winners = new TFRoundWinners();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var roster = new Roster { Red = [PlayerRig.Player] };
         var crits = new TFRoundWinCrits(winners, roster, conditions);
 
@@ -318,7 +318,7 @@ public sealed class TFWeaponOwnersTests
     public void A_dead_winner_is_not_boosted()
     {
         var rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var crits = new TFRoundWinCrits(new TFRoundWinners(), new Roster { Red = [PlayerRig.Player], Dead = true }, conditions);
 
         crits.OnRoundWon(TFTeam.Red, WinReason.AllPointsCaptured, 16f);
@@ -332,7 +332,7 @@ public sealed class TFWeaponOwnersTests
         var rig = new PlayerRig().As(TFClass.Scout);
         var winners = new TFRoundWinners();
         var crits = new TFRoundWinCrits(winners, new Roster { Red = [PlayerRig.Player] },
-                                        new TFPlayerConditions(rig.Carriers, rig.Engine));
+                                        new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine));
 
         crits.OnRoundWon(TFTeam.Unassigned, WinReason.Stalemate, 16f);
         Assert.False(rig.State.InCond(TFCond.CritboostedBonusTime));
@@ -347,7 +347,7 @@ public sealed class TFWeaponOwnersTests
     {
         var working = new CTFData.TFPlayerNetState();
         working.BindLocal();
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(working, local: 2), new Standalones());
+        var owners = ClientOwners(new ClientData(working, local: 2), new Standalones());
 
         var conditions = owners.ConditionsOf(2);
         Assert.NotNull(conditions);
@@ -362,7 +362,7 @@ public sealed class TFWeaponOwnersTests
     {
         var working = new CTFData.TFPlayerNetState();
         working.BindLocal();
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(working, local: 2), new Standalones());
+        var owners = ClientOwners(new ClientData(working, local: 2), new Standalones());
         owners.ConditionsOf(2)!.Add(CTF.TFCond.Aiming);
 
         CTFData.TFPlayerNetStateViews.SetConditions(working, default);
@@ -376,7 +376,7 @@ public sealed class TFWeaponOwnersTests
         var other = new CTFData.TFPlayerNetState();
         other.BindLocal();
         CTFData.TFPlayerNetStateViews.SetClass(other, CTF.TFClass.Medic);
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2, networked: other), new Standalones());
+        var owners = ClientOwners(new ClientData(null, local: 2, networked: other), new Standalones());
 
         Assert.Equal(CTF.TFClass.Medic, owners.ClassOf(7));
         Assert.False(owners.WinsCrits(7));
@@ -459,6 +459,59 @@ public sealed class TFWeaponOwnersTests
         Assert.Equal(0.608f, new CTFEcon.AttributeHooks().Float(1f, "weapon_stattrak_module_scale", clientItem), 3);
     }
 
+    /// <summary>The client's player manager (stock's <c>m_AttributeManager</c>,
+    /// the root of the hooks walked ON the player): every defindex the kit wrote
+    /// on the carrier's rows — the wire word <see cref="CTFPlayer.TFClientWeaponOwners.ItemOf"/>
+    /// reads — provides to it, so the walk reaches each held item's own answer:
+    /// the scattergun prefab's 0.608 stattrak scale, asked through the manager
+    /// rather than the item.</summary>
+    [Fact]
+    public void The_client_manager_walks_the_items_behind_the_carrier_rows()
+    {
+        var econ = new ClientEcon();
+        var networked = new CTFData.TFPlayerNetState();
+        networked.BindLocal();
+        networked.WeaponItemDefIndex[econ.Catalog.IndexOf("tf_weapon_scattergun")] = 13 + 1;   // the fixture's scattergun, defindex + 1 on the wire
+        var owners = econ.Owners(networked);
+
+        Assert.Equal(0.608f, new CTFEcon.AttributeHooks().Float(1f, "weapon_stattrak_module_scale", owners.ManagerOf(2)), 3);
+    }
+
+    /// <summary>The manager's own parity: the server's kit-built manager
+    /// (TFLoadoutProvider.Weapons) and the client's carrier-rebuilt
+    /// one answer the same walk for the same held rows — the defindex word puts
+    /// the same item behind the same row on both sides.</summary>
+    [Fact]
+    public void The_two_sides_walk_the_players_manager_alike()
+    {
+        var rig = new PlayerRig().As(TFClass.Scout);
+        _ = rig.Loadout.Weapons(PlayerRig.Player);
+        var serverOwners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), rig.Items,
+                                                    rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                                    new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
+
+        int serverRow = rig.Catalog.IndexOf("tf_weapon_scattergun");
+        var econ = new ClientEcon();
+        int clientRow = econ.Catalog.IndexOf("tf_weapon_scattergun");
+        Assert.Equal(serverRow, clientRow);   // the wire index: both sides number the rows alike
+
+        var networked = new CTFData.TFPlayerNetState();
+        networked.BindLocal();
+
+        // The same held rows on both wires: every defindex the kit wrote onto
+        // the server's carrier, copied onto the client's.
+        int rows = Math.Min(rig.State!.WeaponItemDefIndex.Length, networked.WeaponItemDefIndex.Length);
+        for (int row = 0; row < rows; row++)
+            networked.WeaponItemDefIndex[row] = rig.State.WeaponItemDefIndex[row];
+
+        var clientOwners = econ.Owners(networked);
+
+        float serverScale = new AttributeHooks().Float(1f, "weapon_stattrak_module_scale", serverOwners.ManagerOf(PlayerRig.Index));
+        float clientScale = new CTFEcon.AttributeHooks().Float(1f, "weapon_stattrak_module_scale", clientOwners.ManagerOf(2));
+        Assert.Equal(serverScale, clientScale, 3);
+        Assert.NotEqual(1f, serverScale);   // the stimulus is not the identity: the walk applied something
+    }
+
     /// <summary>The min-viewmodel chain end to end on stock weapons
     /// (tf_weaponbase.cpp GetViewmodelOffset): the sniper's kit item carries
     /// the prefab's <c>min_viewmodel_offset</c> "10 0 -10" on both sides, the
@@ -497,8 +550,9 @@ public sealed class TFWeaponOwnersTests
         minCvar.Bind(-1, "tf_use_min_viewmodels", "1");
         var overrideCvar = new ClientOverrideCvar();
         overrideCvar.Bind(-1, "tf_viewmodels_offset_override", "");
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, 2, networked), new Standalones(),
-                                                        null, econ.Schema, econ.Catalog, new StubArsenal(), engine);
+        var owners = ClientOwners(new ClientData(null, 2, networked), new Standalones(),
+                                  schema: econ.Schema, catalog: econ.Catalog,
+                                  arsenal: new StubArsenal(), hud: engine);
         var offset = new ClientOffset(minCvar, overrideCvar, engine, owners);
 
         var taken = new float[3];
@@ -517,8 +571,8 @@ public sealed class TFWeaponOwnersTests
         drawn.BehaviourMeter = 3f;
         var hud = LocalHud();
         var bow = new StubArsenal("tf_weapon_compound_bow") { ActiveWeaponState = drawn };
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(),
-                                                        null, null, null, bow, hud);
+        var owners = ClientOwners(new ClientData(null, local: 2), new Standalones(),
+                                  arsenal: bow, hud: hud);
 
         // The local player's drawn bow: no jump (OwnerCanJump's read of the
         // arsenal's state, the same gate the server's frame asks).
@@ -530,15 +584,15 @@ public sealed class TFWeaponOwnersTests
 
         // A state the arsenal cannot serve yet is no refusal either.
         var bare = new StubArsenal("tf_weapon_compound_bow");
-        var others = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(),
-                                                        null, null, null, bare, hud);
+        var others = ClientOwners(new ClientData(null, local: 2), new Standalones(),
+                                  arsenal: bare, hud: hud);
         Assert.True(others.OwnerCanJump(2));
 
         // Another weapon's draw is not the bow's.
         var rifle = new StubArsenal { ActiveWeaponState = drawn };
         drawn.BehaviourMeter = 3f;
-        var rev = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(),
-                                                     null, null, null, rifle, hud);
+        var rev = ClientOwners(new ClientData(null, local: 2), new Standalones(),
+                               arsenal: rifle, hud: hud);
         Assert.True(rev.OwnerCanJump(2));
 
         // Nobody else's hand is predicted here.
@@ -551,6 +605,19 @@ public sealed class TFWeaponOwnersTests
         var hud = new CAbi.RecordingEngine();
         hud.Returns("Hud.LocalPlayerIndex", 2);
         return hud;
+    }
+
+    /// <summary>The client's owners over the full env the real composition
+    /// hands it: the parsed econ, an empty arsenal and the local hud — each
+    /// overridable for the fact that owns it.</summary>
+    private static CTFPlayer.TFClientWeaponOwners ClientOwners(ClientData data, Standalones standalones,
+        CTFPlayer.TFClientPlayerResources? resources = null, CTFEcon.ItemSchema? schema = null,
+        CShared.WeaponCatalog? catalog = null, CClient.ILocalArsenal? arsenal = null, CAbi.IEngineHud? hud = null)
+    {
+        ClientEcon? econ = schema is null || catalog is null ? new ClientEcon() : null;
+        return new(data, standalones, resources ?? new CTFPlayer.TFClientPlayerResources(),
+                   schema ?? econ!.Schema, catalog ?? econ!.Catalog,
+                   arsenal ?? new StubArsenal(), hud ?? LocalHud());
     }
 
     /// <summary>The client's own econ parts over the shipped scripts and the
@@ -576,7 +643,8 @@ public sealed class TFWeaponOwnersTests
 
         /// <summary>The owner over these parts, reading <paramref name="networked"/> as everyone else's state.</summary>
         public CTFPlayer.TFClientWeaponOwners Owners(CTFData.TFPlayerNetState? networked) =>
-            new(new ClientData(null, local: 2, networked: networked), new Standalones(), null, Schema, Catalog);
+            ClientOwners(new ClientData(null, local: 2, networked: networked), new Standalones(),
+                         schema: Schema, catalog: Catalog);
     }
 
     /// <summary>The shipped scripts and the trimmed schema, served as the client's
@@ -610,7 +678,7 @@ public sealed class TFWeaponOwnersTests
         resource.State.RoundState = (byte)RoundState.TeamWin;
         resource.State.WinningTeam = (byte)TFTeam.Red;
         resource.State.Team[2] = (byte)TFTeam.Red;
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(), resources);
+        var owners = ClientOwners(new ClientData(null, local: 2), new Standalones(), resources);
 
         Assert.True(owners.WinsCrits(2));
 
@@ -652,7 +720,7 @@ public sealed class TFWeaponOwnersTests
     [Fact]
     public void The_client_refuses_the_flamethrower_only_at_the_eyes_water_level()
     {
-        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(3));
+        var owners = ClientOwners(new ClientData(null, local: 2), new Standalones(3));
 
         Assert.True(owners.EyesUnderwater(2));
         Assert.False(owners.EyesUnderwater(7), "only the local player's prediction is read");
@@ -661,8 +729,8 @@ public sealed class TFWeaponOwnersTests
     [Fact]
     public void The_client_reads_the_local_players_ground_flag()
     {
-        var airborne = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(flags: 0));
-        var grounded = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(flags: 1));
+        var airborne = ClientOwners(new ClientData(null, local: 2), new Standalones(flags: 0));
+        var grounded = ClientOwners(new ClientData(null, local: 2), new Standalones(flags: 1));
 
         Assert.True(airborne.OffGround(2));
         Assert.False(grounded.OffGround(2));
@@ -689,6 +757,11 @@ public sealed class TFWeaponOwnersTests
         c.AddInstance<CAbi.IEngineFiles>(new ClientFiles());   // the owner now reaches the schema through the scan
         c.AddInstance(CAbi.NetStateCatalog.Of(typeof(CTFPlayer.TFClientWeaponOwners).Assembly, new RecordingLog()));
         c.AddInstance<CClient.IClientStandalones>(new Standalones());
+        // The owners' required deps the module itself holds: the weapon
+        // catalog, the local arsenal and the hud the engine compose binds.
+        c.AddInstance(new CShared.WeaponCatalog(() => c.ResolveAll<CShared.IWeaponTypeSource>(), new CAbi.RecordingLog()));
+        c.AddInstance<CClient.ILocalArsenal>(new StubArsenal());
+        c.AddInstance<CAbi.IEngineHud>(LocalHud());
         // The prediction's clock and cloak convars, as the client's composition holds them.
         c.AddInstance<CAbi.IEngineEnvironment>(PredictionDeps.Engine());
         var cloakVars = PredictionDeps.SpyConVars();
@@ -696,6 +769,9 @@ public sealed class TFWeaponOwnersTests
         c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakRegenRateConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisTimeConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisUnstealthTimeConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFDemomanChargeDrainTimeConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFDemomanChargeRegenRateConVar>());
+        c.AddInstance(cloakVars.Declared<CTF.TFScoutEnergydrinkConsumeRateConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTFPlayer.TFClientWeaponOwners).Assembly.GetTypes());
 
         Assert.IsType<CTFPlayer.TFClientWeaponOwners>(c.Resolve(typeof(CTF.ITFWeaponOwners)));

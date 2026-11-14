@@ -41,8 +41,8 @@ namespace TF2.Server.Player;
 public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers players, IEngineEntities entities,
                                   IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers enginePlayers,
                                   IEngineNetworking networking, TFWeaponScripts scripts, TFDamageScopes scopes,
-                                  IEntityDirectory directory, ITFLunchboxEffects? lunchbox = null,
-                                  ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+                                  IEntityDirectory directory, ITFLunchboxEffects lunchbox,
+                                  ITFWeaponOwners owners, AttributeHooks hooks)
     : IPlayerComponent
 {
     /// <summary>After the taunt think (26): the same PostThink, stock's stop asked before the window fires.</summary>
@@ -120,9 +120,9 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     private Attack _attack = Attack.None;
     private float _fireAt;
     private EntityHandle _player = EntityHandle.None;
-    private readonly ITFLunchboxEffects? _lunchbox = lunchbox;
-    private readonly ITFWeaponOwners? _owners = owners;
-    private readonly AttributeHooks? _hooks = hooks;
+    private readonly ITFLunchboxEffects _lunchbox = lunchbox;
+    private readonly ITFWeaponOwners _owners = owners;
+    private readonly AttributeHooks _hooks = hooks;
 
     /// <summary>The scene the standing taunt spoke, whose head the phlog's
     /// rage arm gates on; empty with no taunt (<c>szResponse</c>'s life, the
@@ -159,32 +159,29 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
         // scene's keying answers only behind them. Stock matches the name
         // against the enum spellings, case-insensitively
         // (tf_shareddefs.cpp:1066-1075).
-        if (_hooks is { } attrHooks && _owners is { } attrOwners)
+        IAttributeProvider? held = _owners.ActiveItemOf(_player.EntryIndex);
+        string attackName = _hooks.String("", TauntAttackNameAttribute, held) ?? "";
+        Attack named = attackName.ToUpperInvariant() switch
         {
-            IAttributeProvider? held = attrOwners.ActiveItemOf(_player.EntryIndex);
-            string attackName = attrHooks.String("", TauntAttackNameAttribute, held) ?? "";
-            Attack named = attackName.ToUpperInvariant() switch
+            "TAUNTATK_PYRO_HADOUKEN" => Attack.PyroHadouken,
+            "TAUNTATK_PYRO_GASBLAST" => Attack.PyroGasBlast,
+            "TAUNTATK_HEAVY_HIGHNOON" => Attack.HeavyHighNoon,
+            "TAUNTATK_SPY_FENCING_SLASH_A" => Attack.SpyFencingSlashA,
+            _ => Attack.None,
+        };
+        if (named != Attack.None)
+        {
+            float delay = _hooks.Float(0f, TauntAttackTimeAttribute, held);
+            Arm(named, delay > 0f ? delay : named switch
             {
-                "TAUNTATK_PYRO_HADOUKEN" => Attack.PyroHadouken,
-                "TAUNTATK_PYRO_GASBLAST" => Attack.PyroGasBlast,
-                "TAUNTATK_HEAVY_HIGHNOON" => Attack.HeavyHighNoon,
-                "TAUNTATK_SPY_FENCING_SLASH_A" => Attack.SpyFencingSlashA,
-                _ => Attack.None,
-            };
-            if (named != Attack.None)
-            {
-                float delay = attrHooks.Float(0f, TauntAttackTimeAttribute, held);
-                Arm(named, delay > 0f ? delay : named switch
-                {
-                    Attack.HeavyHighNoon => 1.8f,
-                    Attack.SpyFencingSlashA => 1.8f,
-                    Attack.SpyFencingSlashB => FencingSlashDelay,
-                    Attack.SpyFencingStab => FencingStabDelay,
-                    _ => 2.1f,   // the pyro arms' scene lengths (:17982-17986)
-                }, now);
-                Scene = scene;
-                return;
-            }
+                Attack.HeavyHighNoon => 1.8f,
+                Attack.SpyFencingSlashA => 1.8f,
+                Attack.SpyFencingSlashB => FencingSlashDelay,
+                Attack.SpyFencingStab => FencingStabDelay,
+                _ => 2.1f,   // the pyro arms' scene lengths (:17982-17986)
+            }, now);
+            Scene = scene;
+            return;
         }
 
         switch (players.ClassOf(_player))
@@ -253,7 +250,7 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
             // one, a second on, till the condition ends (:18564-18566 — the
             // gate at the head is the chain's end either way).
             if (WeaponOf() == TFWeaponId.Lunchbox)
-                _lunchbox?.Bite(_player.EntryIndex);
+                _lunchbox.Bite(_player.EntryIndex);
 
             Arm(Attack.HeavyEat, HeavyEatSeconds, now);
         }
@@ -264,7 +261,7 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
             // (:18638-18673). Once per press — the phase the plain drink leaves
             // behind refuses the next arm (:17924).
             if (WeaponOf() == TFWeaponId.Lunchbox)
-                _lunchbox?.Drink(_player.EntryIndex);
+                _lunchbox.Drink(_player.EntryIndex);
         }
         else
             BoxAttack(attack);

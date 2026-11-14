@@ -109,14 +109,14 @@ public sealed class TFFlameManager : ScriptedEntity
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
     private readonly TF2.Shared.TFFlameThrowerBoxSizeConVar BoxSize;
-    private readonly ITFWeaponOwners? Owners;
-    private readonly IEntityDirectory? Directory;
+    private readonly ITFWeaponOwners Owners;
+    private readonly IEntityDirectory Directory;
     private readonly SeededUniformStream Stream = new();
 
     public TFFlameManager(IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers players,
                           IEngineHost host, ITFPlayerConditions conditions,
                           TFDamageScopes scopes, DamageHitGroups hitGroups, TF2.Shared.TFFlameThrowerBoxSizeConVar boxSize,
-                          ITFWeaponOwners? owners = null, IEntityDirectory? directory = null)
+                          ITFWeaponOwners owners, IEntityDirectory directory)
     {
         World = world;
         Damage = damage;
@@ -477,9 +477,6 @@ public sealed class TFFlameManager : ScriptedEntity
     /// </summary>
     private void LightTeammatesBow(EntityHandle victim)
     {
-        if (Owners is null || Directory is null)
-            return;
-
         if (Owners.ClassOf(Entities.GetIndex(victim)) != TFClass.Sniper)
             return;
 

@@ -69,9 +69,9 @@ public sealed class TFVoiceMenuCommand(
     IGameClock clock,
     TFVoiceCommandSuspensionModeConVar suspensionMode,
     TFMaxVoiceSpeakDelayConVar speakDelay,
-    ITeamRoundState? round = null,
-    ITFWeaponOwners? owners = null,
-    ILog? log = null)
+    ITeamRoundState round,
+    ITFWeaponOwners owners,
+    ILog log)
     : IClientCommandHook, IOrderedHook
 {
     /// <summary>The verb, as <see cref="TFJoinClassCommand.Verb"/> is for its own.</summary>
@@ -202,7 +202,7 @@ public sealed class TFVoiceMenuCommand(
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", entry.Concept);
         TFPlayerCriteriaWords.Append(carrierState, teams.Team(player), round, criteria,
-                                     (owners?.ActiveItemOf(index) as AttributeContainer)?.Item);
+                                     (owners.ActiveItemOf(index) as AttributeContainer)?.Item);
 
         if (!responseRules.FindBestResponse(criteria, out var response))
             return Outcome.Unmatched;
@@ -257,7 +257,7 @@ public sealed class TFVoiceMenuCommand(
         if (state.SpamCounter > 0)
             state.NextVoiceCommand += state.SpamCounter * SpamSecondsEach;
 
-        log?.Msg($"[TF2/Voice] player {index} spoke {response.Kind} {response.Name} (menu {menu} item {item})\n");
+        log.Msg($"[TF2/Voice] player {index} spoke {response.Kind} {response.Name} (menu {menu} item {item})\n");
         return Outcome.Spoke;
     }
 

@@ -71,6 +71,18 @@ public sealed class TFWeaponCompositionTests
         public CClient.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
     }
 
+    /// <summary>No hands: the composition's owners ask nothing of the local arsenal.</summary>
+    private sealed class NoLocalArsenal : CClient.ILocalArsenal
+    {
+        public bool TryGetActive(out string name, out int clip, out int reserve)
+        {
+            name = "";
+            clip = 0;
+            reserve = 0;
+            return false;
+        }
+    }
+
     internal static ServiceContainer Server()
     {
         var c = new ServiceContainer();
@@ -226,6 +238,9 @@ public sealed class TFWeaponCompositionTests
         // both read it, so it joins over the same engine fake and directory.
         c.AddInstance(new SourceSharp.Server.Corpses(new RecordingLog(), engine, engine,
                                                      new TF2.Tests.Combat.NoEntities()));
+        // The round roster's names: ServerModule's own instance beside the
+        // scan (the same Create the module runs, after the clients it reads).
+        c.AddInstance(c.Create<SourceSharp.Server.PlayerNames>());
         return c;
     }
 
@@ -345,6 +360,17 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(DeclaredClientConVars.Fresh<CTF.WeaponMedigunChargeRateConVar>());
         c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFUseFixedWeaponspreadsConVar>());
         c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFFlameThrowerBurstammoConVar>());
+        // The prediction's charge and hype meters' rates, as the module's
+        // convar publish holds them.
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFDemomanChargeDrainTimeConVar>());
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFDemomanChargeRegenRateConVar>());
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFScoutEnergydrinkConsumeRateConVar>());
+        // The owners' required deps the module itself holds: the catalogue over
+        // the sides' rows (ClientModule's own), the local arsenal it registers,
+        // and the hud the engine compose binds.
+        c.AddInstance(new CShared.WeaponCatalog(() => c.ResolveAll<CShared.IWeaponTypeSource>(), new RecordingLog()));
+        c.AddInstance<CClient.ILocalArsenal>(new NoLocalArsenal());
+        c.AddInstance<CAbi.IEngineHud>(engine);
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
         // The item-carried names the client's rows read ride the schema over the
         // same file seam; join it after the scan, as the server helper does, so

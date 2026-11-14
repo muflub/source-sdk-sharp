@@ -53,10 +53,19 @@ public sealed class TFKillFeedSourceTests
         }
     }
 
+    /// <summary>The convar every build hands: held at the declared default,
+    /// as the game's registry binds it, so the queue's own arms read it.</summary>
+    private static Time HeldTime()
+    {
+        var time = new Time();
+        time.NotifyChanged("6", "6");   // hud_deathnotice_time's declared default
+        return time;
+    }
+
     private static (Feed Feed, Clock Clock) Rig(Time? time = null)
     {
         var clock = new Clock();
-        return (new Feed(clock, new Players(), time), clock);
+        return (new Feed(clock, new Players(), time ?? HeldTime()), clock);
     }
 
     [Fact]

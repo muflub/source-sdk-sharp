@@ -12,6 +12,7 @@ public static class TFWinPanelSamples
     public static UiScreen Build(UiSampleServices s, FakeWinPanelSource? source = null)
     {
         s.Add<ITFWinPanelSource>(source ?? new FakeWinPanelSource());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         return s.Create<TFWinPanel>();
     }
 

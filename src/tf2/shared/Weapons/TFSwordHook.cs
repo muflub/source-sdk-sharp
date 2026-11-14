@@ -16,7 +16,7 @@ namespace TF2.Shared;
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFSwordHook(AttributeHooks? attributes = null) : ITFWeaponHook
+public sealed class TFSwordHook(AttributeHooks attributes) : ITFWeaponHook
 {
     /// <summary>The sword's row (<c>TF_WEAPON_SWORD</c>'s script).</summary>
     public const string SwordScript = "tf_weapon_sword";
@@ -57,11 +57,11 @@ public sealed class TFSwordHook(AttributeHooks? attributes = null) : ITFWeaponHo
 
     public int HookOrder => Order;
 
-    private readonly AttributeHooks? _attributes = attributes;
+    private readonly AttributeHooks _attributes = attributes;
 
     private bool IsSword(in TFWeaponHookContext weapon) =>
         string.Equals(weapon.Type.Name, SwordScript, StringComparison.Ordinal)
-        || (_attributes?.Int(0, "is_a_sword", weapon.Item) ?? 0) != 0;
+        || _attributes.Int(0, "is_a_sword", weapon.Item) != 0;
 
     public float ModifyMeleeRange(in TFWeaponHookContext weapon, float range)
     {

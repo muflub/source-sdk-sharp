@@ -64,18 +64,19 @@ public sealed class ItemTeamFlagTests
     }
 
     [Fact]
-    public void A_flag_builds_and_plays_without_the_optional_seams()
+    public void A_flag_builds_and_plays_with_every_seam_held()
     {
-        var rig = new CtfRig(optionalSeams: false);
+        var rig = new CtfRig();
         var red = rig.Flag(TFTeam.Red);
         var spy = rig.Players.Add(3, TFTeam.Blue, TFClass.Spy);
         rig.Players[spy].Conditions = TFCondMask.Of(TFCond.Disguised);
-        rig.RespawnRooms.Inside.Add(spy); // not registered: nobody asks it
 
         rig.Registry.Touch(red.Handle, spy);
 
+        // the rooms ask happens and answers false off the empty table, and
+        // the carrier effects hear the disguised pick-up
         Assert.True(red.IsStolen);
-        Assert.Empty(rig.Effects.Done);
+        Assert.Equal(new[] { "undisguise 3" }, rig.Effects.Done);
     }
 
     [Fact]

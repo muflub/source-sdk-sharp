@@ -28,7 +28,7 @@ public sealed class TFPlayerMapPlayersTests
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Entities.GetHealth", health);
         var hook = new Hook();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook));
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -40,7 +40,7 @@ public sealed class TFPlayerMapPlayersTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items), hook);
+        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks()), hook);
     }
 
     /// <summary>The same player for the cloak facts, with the items table the watch's hooks ride.</summary>
@@ -49,7 +49,7 @@ public sealed class TFPlayerMapPlayersTests
     {
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Entities.GetHealth", 100);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                             rig.Items, new AttributeHooks(),
                                             scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
@@ -62,7 +62,7 @@ public sealed class TFPlayerMapPlayersTests
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
         var table = items ?? rig.Items;
-        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, table), table, conditions);
+        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, table, new AttributeHooks()), table, conditions);
     }
 
     [Fact]

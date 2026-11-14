@@ -61,6 +61,17 @@ public readonly record struct TFBurnThink(float TickDamage, TFDamageCustom Custo
 /// </summary>
 public sealed class TFBurn
 {
+    private readonly AttributeHooks _hooks;
+
+    /// <summary>
+    /// Every dependency is injected: the item-attribute arms run through the
+    /// hooks, so a missing one is the caller's composition to fix, not a
+    /// silent no-attribute burn.
+    /// </summary>
+    public TFBurn(AttributeHooks hooks)
+    {
+        _hooks = hooks;
+    }
     /// <summary><c>tf_afterburn_max_duration</c> (<c>tf_player_shared.cpp:188</c>).</summary>
     public const float MaxDuration = 10f;
 
@@ -154,9 +165,9 @@ public sealed class TFBurn
     /// the arms then unset.
     /// </summary>
     public TFCondMask Ignite(float now, bool alive, TFClass playerClass, TFCondMask conditions,
-                             EntityHandle attacker, TFWeaponId weapon, string weaponName, float burningTime = -1f,
-                             AttributeHooks? hooks = null, IReadOnlyList<IAttributeProvider>? immunitySources = null,
-                             IAttributeProvider? burnWeapon = null)
+                             EntityHandle attacker, TFWeaponId weapon, string weaponName,
+                             IReadOnlyList<IAttributeProvider> immunitySources, IAttributeProvider? burnWeapon,
+                             float burningTime = -1f)
     {
         if (!alive)
             return conditions;
@@ -175,13 +186,11 @@ public sealed class TFBurn
 
             // CTFFireAxe::GetInitialAfterburnDuration (tf_weapon_fireaxe.cpp:29-36): an axe
             // that sets fire with its hit starts the victim on seven and a half seconds.
-            if (weapon == TFWeaponId.Fireaxe && hooks is not null
-                && hooks.Int(0, "set_dmgtype_ignite", burnWeapon) != 0)
+            if (weapon == TFWeaponId.Fireaxe && _hooks.Int(0, "set_dmgtype_ignite", burnWeapon) != 0)
                 AfterburnDuration = FireAxeIgniteBurn;
 
             // CTFMinigun::GetInitialAfterburnDuration (tf_weapon_minigun.cpp:686-695): the Huo-Long.
-            if (weapon == TFWeaponId.Minigun && hooks is not null
-                && hooks.Int(0, "ring_of_fire_while_aiming", burnWeapon) != 0)
+            if (weapon == TFWeaponId.Minigun && _hooks.Int(0, "ring_of_fire_while_aiming", burnWeapon) != 0)
                 AfterburnDuration = RingOfFireBurn;
         }
 
@@ -189,9 +198,9 @@ public sealed class TFBurn
 
         // The active weapon's, the shield's and the wearables' immunities, the
         // three walks of stock's arm (:6672-6720), ORed as it ORs them.
-        if (!immunity && hooks is not null && immunitySources is not null)
+        if (!immunity)
             foreach (IAttributeProvider source in immunitySources)
-                immunity |= hooks.Int(0, ImmunityAttrib, source) != 0;
+                immunity |= _hooks.Int(0, ImmunityAttrib, source) != 0;
 
         float flameLife = AfterburnRateOnHit(weapon);
         if (immunity)
@@ -199,8 +208,7 @@ public sealed class TFBurn
         else if (burningTime > 0f)
             flameLife = burningTime;
 
-        if (hooks is not null)
-            flameLife = hooks.Float(flameLife, BurnTimeAttrib, burnWeapon);
+        flameLife = _hooks.Float(flameLife, BurnTimeAttrib, burnWeapon);
 
         AfterburnDuration = immunity ? flameLife : AfterburnDuration + flameLife;
         AfterburnDuration = Math.Clamp(AfterburnDuration, 0f, MaxDuration);
@@ -214,12 +222,12 @@ public sealed class TFBurn
     /// <summary>
     /// The burning arm of <c>ConditionGameRulesThink</c> for one frame of
     /// <paramref name="frametime"/>: what to deal, or whether the fire is out.
-    /// Nothing when the player is not burning. <paramref name="hooks"/> with
-    /// <paramref name="burnWeapon"/>, the burn weapon's item, carry the tick's
-    /// <see cref="BurnDamageAttrib"/>; null for none, the arm then unset.
+    /// Nothing when the player is not burning. <paramref name="burnWeapon"/>,
+    /// the burn weapon's item, carries the tick's <see cref="BurnDamageAttrib"/>
+    /// — null for none, the arm then unset.
     /// </summary>
     public TFBurnThink Think(float now, float frametime, TFClass playerClass, TFCondMask conditions, int waterLevel,
-                             AttributeHooks? hooks = null, IAttributeProvider? burnWeapon = null)
+                             IAttributeProvider? burnWeapon)
     {
         if (!conditions.Has(TFCond.Burning))
             return default;
@@ -246,8 +254,7 @@ public sealed class TFBurn
                 _ => TFDamageCustom.Burning,
             };
 
-            if (hooks is not null)
-                damage = hooks.Float(damage, BurnDamageAttrib, burnWeapon);
+            damage = _hooks.Float(damage, BurnDamageAttrib, burnWeapon);
 
             if (AfterburnDuration >= ThirdDegreeRatio * MaxDuration)
                 damage *= ThirdDegreeMult;

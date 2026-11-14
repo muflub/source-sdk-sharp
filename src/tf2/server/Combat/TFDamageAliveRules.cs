@@ -69,7 +69,7 @@ public static class TFDamageAliveRules
     /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> root for the medic's take
     /// (:6961-6974).
     /// </summary>
-    public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks? hooks, IAttributeProvider? victimItem,
+    public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks hooks, IAttributeProvider? victimItem,
                                TFClass victimClass, float stealthReduction,
                                bool spunUp = false, bool fromSentry = false,
                                Func<TFCond, IAttributeProvider?>? medicOf = null)
@@ -87,15 +87,13 @@ public static class TFDamageAliveRules
     /// answers whether the scale saved the spy from the hit (:7412-7422), the
     /// fact that makes the watch's save event.
     /// </summary>
-    public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks? hooks, IAttributeProvider? victimItem,
+    public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks hooks, IAttributeProvider? victimItem,
                                TFClass victimClass, float stealthReduction, bool spunUp, bool fromSentry,
                                float cloakMeter, bool feignReady, float health, out bool savedFromDeath,
                                Func<TFCond, IAttributeProvider?>? medicOf = null)
     {
         float damage = hit.Damage;
         savedFromDeath = false;
-        if (hooks is null)
-            return damage;
 
         float bonus = hit.Bonus;
         float baseDamage = damage - bonus;

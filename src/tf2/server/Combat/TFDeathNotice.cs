@@ -63,10 +63,16 @@ namespace TF2.Server.Combat;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one (the
+/// dominations and the owners through their own <c>SideService</c> rows, the
+/// attribute hooks beside them), so a missing one fails the composition by
+/// name instead of answering a default.
+/// </summary>
 public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entities, TFDamageRecords records,
                                   IGameClock clock, TFPlayerCarriers carriers, ILevelInfo level,
-                                  TFDominations? dominations = null,
-                                  ITFWeaponOwners? owners = null, AttributeHooks? attributes = null)
+                                  TFDominations dominations,
+                                  ITFWeaponOwners owners, AttributeHooks attributes)
     : IDeathNoticeHook, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -129,13 +135,13 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
         // tf_weaponbase.cpp:6184-6192 — together with the backstab's custom kind makes this
         // notice silent; everything else keeps silent_kill false.
         bool silentKill = scorer != EntityHandle.None && entities.IsValid(scorer) && custom == TFDamageCustom.Backstab;
-        if (silentKill && owners is { } own && attributes is { } hook)
-            silentKill = hook.Int(0, "set_silent_killer",
-                                  own.ItemOf(scorer.EntryIndex, players.GetActiveWeapon(scorer))) == 1;   // :6188
+        if (silentKill)
+            silentKill = attributes.Int(0, "set_silent_killer",
+                                        owners.ItemOf(scorer.EntryIndex, players.GetActiveWeapon(scorer))) == 1;   // :6188
         fields.SetBool("silent_kill", silentKill);
-        int deathFlags = dominations?.DeathFlags(victimIndex,
+        int deathFlags = dominations.DeathFlags(victimIndex,
             scorer != EntityHandle.None ? entities.GetIndex(scorer) : -1,
-            assister != EntityHandle.None ? entities.GetIndex(assister) : -1) ?? 0;
+            assister != EntityHandle.None ? entities.GetIndex(assister) : -1);
 
         // The gilded deaths (tf_gamerules.cpp:13092-13108): the killing blow's
         // weapon wearing is_australium_item or set_turn_to_gold — the Golden
@@ -198,8 +204,8 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
                 name = "recorder";
                 break;
             case TFDamageCustom.PlayerSentry:              // :12296-12311
-                name = scorer != EntityHandle.None && owners is { } own
-                       && attributes!.Int(0, "is_giger_counter", own.ActiveItemOf(scorer.EntryIndex)) > 0
+                name = scorer != EntityHandle.None
+                       && attributes.Int(0, "is_giger_counter", owners.ActiveItemOf(scorer.EntryIndex)) > 0
                     ? "giger_counter" : "wrangler_kill";
                 break;
             // THE FISH KILL'S NOTICE (CTFPlayer::OnTakeDamage's call,
@@ -208,9 +214,8 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             // CALL_ATTRIB_HOOK_INT_ON_OTHER over the weapon that dealt the blow.
             case TFDamageCustom.FishKill:
                 name = scorer != EntityHandle.None && entities.IsValid(scorer)
-                       && owners is { } fishOwn
-                       && attributes!.Int(0, "fish_damage_override",
-                                          fishOwn.ItemOf(scorer.EntryIndex, hitWeaponName)) > 0
+                       && attributes.Int(0, "fish_damage_override",
+                                          owners.ItemOf(scorer.EntryIndex, hitWeaponName)) > 0
                     ? "fish_notice__arm" : "fish_notice";
                 id = hitWeapon;
                 break;

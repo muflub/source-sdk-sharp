@@ -68,6 +68,12 @@ public sealed class TFJoinClassCommandTests
         public int ClassLimit { get; set; }
     }
 
+    private sealed class StalemateSettings : ITFStalemateSettings
+    {
+        public bool MeleeOnly => true;
+        public float ChangeClassTime => 20f;
+    }
+
     private sealed class Rig
     {
         public readonly PlayerRig Player = new();
@@ -79,6 +85,7 @@ public sealed class TFJoinClassCommandTests
         public readonly FakeClock Clock = new() { Now = 100f };
         public readonly FakeRandom Random = new();
         public readonly Limits Limits = new();
+        public readonly StalemateSettings Stalemate = new();
         public readonly TFPlayerClass Class;
         public readonly TFJoinClassCommand Command;
 
@@ -92,7 +99,7 @@ public sealed class TFJoinClassCommandTests
             Player.Extra.Add(Class);
             Player.Join();
             Command = new TFJoinClassCommand(Player.Carriers, engine, Roster, Rooms, Player.Classes, Random,
-                                             engine, engine, Clock, Player.Log, Round, Waves, Limits);
+                                             engine, engine, Clock, Player.Log, Round, Waves, Limits, Stalemate);
         }
 
         /// <summary>The player has spawned as <paramref name="cls"/> before.</summary>

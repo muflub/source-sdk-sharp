@@ -5,6 +5,7 @@ using SourceSharp.Tests;
 
 using TF2.Server;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Tests.Weapons;
 
 using Xunit;
@@ -106,7 +107,7 @@ public sealed class TFWidowmakerPoolTests
                                   weapons: Weapons.Catalog, ammo: new AmmoCatalog(() => [new TFAmmoTypes()], log),
                                   behaviours: Weapons.Behaviours,
                                   carryLimits: new AmmoCarry(new ListHooks<IAmmoCarryRule>(
-                                      new TFAmmoCarryRule(Rig.Classes, Weapons.Owners)), log));
+                                      new TFAmmoCarryRule(Rig.Classes, Weapons.Owners, new AttributeHooks())), log));
         }
 
         public SsWeapon Weapon => (SsWeapon)Registry.Get(_weapon)!;

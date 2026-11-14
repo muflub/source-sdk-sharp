@@ -5,9 +5,13 @@ using SourceSharp.Server;
 
 using TF2.Server;
 using TF2.Server.Player;
+using TF2.Server.Rules;
 using TF2.Server.Voice;
 using TF2.Shared;
+using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
+using TF2.Shared.Rules;
 using TF2.Shared.Voice;
 using TF2.Tests.Entities;
 using TF2.Tests.Player;
@@ -194,6 +198,32 @@ public sealed class TFVoiceMenuCommandTests
     }
 
     [Fact]
+    public void TheRoundMachineSpeaksTheWaitingWordIntoTheCriteria()
+    {
+        var rig = new Rig();
+        rig.Speak(ResponseKind.Speak, "vo/medic.ogg");
+
+        Assert.Equal(Outcome.Spoke, rig.VoiceMenu(0, 0));
+        Assert.Equal("0", Value(rig.Rules.Asked!, "waitingforplayers"));
+
+        rig.Round.Waiting = true;
+        rig.Clock.Now += 1f;
+        Assert.Equal(Outcome.Spoke, rig.VoiceMenu(0, 0));
+        Assert.Equal("1", Value(rig.Rules.Asked!, "waitingforplayers"));
+    }
+
+    [Fact]
+    public void TheHeldWeaponsItemWordsRideTheCriteria()
+    {
+        var rig = new Rig();
+        rig.Owners.Active = new AttributeContainer(UniqueWrench());
+        rig.Speak(ResponseKind.Speak, "vo/medic.ogg");
+
+        Assert.Equal(Outcome.Spoke, rig.VoiceMenu(0, 0));
+        Assert.Equal("The Eureka Effect", Value(rig.Rules.Asked!, "item_name"));
+    }
+
+    [Fact]
     public void TheMedicCriteriaMatchThePlayerMedicMedicRule()
     {
         var rig = new Rig();
@@ -313,6 +343,8 @@ public sealed class TFVoiceMenuCommandTests
         public readonly CapturingRules Rules = new();
         public readonly FakeTeams Teams = new();
         public readonly Roster Records = new();
+        public readonly WaitingRound Round = new();
+        public readonly HeldOwners Owners = new();
         public readonly Origins World;
         public readonly TFVoiceMenuCommand Command;
 
@@ -333,7 +365,7 @@ public sealed class TFVoiceMenuCommandTests
             Teams.SetTeam((int)TFTeam.Red, PlayerRig.Player);
             Command = new TFVoiceMenuCommand(Menus, Scenes, Rules, Player.Carriers, Records, Teams,
                 World, Player.Engine, Player.Engine, Player.Engine, Clock, Suspension, SpeakDelay,
-                round: null, log: Player.Log);
+                Round, Owners, Player.Log);
             Player.Join();
             Player.As(TFClass.Medic);
             Records.Add(PlayerRig.Player); // the speaker is a recipient too
@@ -583,4 +615,82 @@ public sealed class TFVoiceMenuCommandTests
 
         public void SetTeam(int team, params EntityHandle[] players) => _byTeam[team] = [.. players];
     }
+
+    /// <summary>The held weapon the criteria's item words read: nothing, until a test hands an item.</summary>
+    private sealed class HeldOwners : ITFWeaponOwners
+    {
+        /// <summary>The active item the next ask reads, an attribute container's payload.</summary>
+        public object? Active;
+
+        public TFClass ClassOf(int playerIndex) => TFClass.Undefined;
+
+        public TFConditions? ConditionsOf(int playerIndex) => null;
+
+        public float CritMult(int playerIndex) => 1f;
+
+        public bool WinsCrits(int playerIndex) => false;
+
+        public IAttributeProvider? ItemOf(int playerIndex, string weaponName) => null;
+
+        public IAttributeProvider? ManagerOf(int playerIndex) => null;
+
+        public bool OffGround(int playerIndex) => false;
+
+        public bool EyesUnderwater(int playerIndex) => false;
+
+        public bool DuckingOf(int playerIndex) => false;
+
+        public IAttributeProvider? ActiveItemOf(int playerIndex) => Active as IAttributeProvider;
+    }
+
+    /// <summary>The round machine, in the pre-game wait when a fact says so.</summary>
+    private sealed class WaitingRound : ITeamRoundState
+    {
+        public bool Waiting;
+
+        public RoundState State => RoundState.Init;
+
+        public bool InWaitingForPlayers => Waiting;
+
+        public bool InSetup => false;
+
+        public float MapResetTime => 0f;
+
+        public float StalemateStartTime => -1f;
+
+        public TFTeam WinningTeam => TFTeam.Unassigned;
+    }
+
+    /// <summary>The held wrench's item, as the schema parses it: the quality and names the criteria words read.</summary>
+    private static ItemDefinition UniqueWrench() => SchemaParser.Parse(WrenchSchema()).Items[589];
+
+    private static string WrenchSchema() => """
+        "items_game"
+        {
+            "qualities"
+            {
+                "normal"	{ "value"	"0" }
+                "unique"	{ "value"	"6" }
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "589"
+                {
+                    "name"	"The Eureka Effect"
+                    "item_class"	"tf_weapon_wrench"
+                    "item_name"	"#TF_Unique_Wrench_Eureka"
+                    "item_type_name"	"#TF_Weapon_Wrench"
+                    "item_quality"	"unique"
+                    "item_slot"	"melee"
+                    "used_by_classes"
+                    {
+                        "engineer"	"1"
+                    }
+                }
+            }
+        }
+        """;
 }

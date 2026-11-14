@@ -65,7 +65,7 @@ public sealed class TFPlayerGibTests
         convars.RegisterTypes([typeof(TFPlayerGibConVar)]);
         // The engine doubles as the clock: RecordingEngine answers both seams.
         return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, engine, new Directory(body),
-                               engine, hooks, owners);
+                               engine, hooks ?? new AttributeHooks(), owners ?? new FakeOwners());
     }
 
     private static SsRagdoll Corpse()

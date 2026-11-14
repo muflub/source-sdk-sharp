@@ -68,9 +68,9 @@ namespace TF2.Client.Player;
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITFWeaponOwners)])]
 public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones standalones,
-                                         TFClientPlayerResources? resources = null,
-                                         ItemSchema? itemSchema = null, WeaponCatalog? catalog = null,
-                                         ILocalArsenal? arsenal = null, IEngineHud? hud = null)
+                                         TFClientPlayerResources resources,
+                                         ItemSchema itemSchema, WeaponCatalog catalog,
+                                         ILocalArsenal arsenal, IEngineHud hud)
     : ITFWeaponOwners
 {
     /// <summary>WL_Eyes (<c>GameMovement.WlEyes</c>, which a client class cannot name).</summary>
@@ -84,6 +84,14 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
 
     private TFConditions? _conditions;
     private TFPlayerNetState? _bound;
+
+    /// <summary>The bare chain, for the manager's own attribute reads (the
+    /// provide gate) when the composition hands none.</summary>
+    private readonly AttributeHooks _hooks = new();
+
+    /// <summary>The player's manager, cached against the carrier and the defindex
+    /// words it was built from.</summary>
+    private readonly Dictionary<int, (TFPlayerNetState Bound, int[] Rows, AttributeContainer Manager)> _managers = [];
 
     public TFClass ClassOf(int playerIndex) => State(playerIndex)?.Class() ?? TFClass.Undefined;
 
@@ -112,7 +120,7 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     public int DecapitationsOf(int playerIndex) => State(playerIndex)?.Decapitations ?? 0;
 
     public bool WinsCrits(int playerIndex)
-        => resources?.Live is { } live
+        => resources.Live is { } live
            && playerIndex is > 0 and < TFPlayerResourceNetState.Slots
            && live.State.RoundState == (byte)RoundState.TeamWin
            && live.State.WinningTeam == live.State.Team[playerIndex];
@@ -123,13 +131,13 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     /// <summary>
     /// The item walk itself, static so the replay's press reads the same table
     /// this does: the row the carrier's defindex array names, looked up in the
-    /// parsed schema. Null schema, catalog or carrier — or a row and defindex
-    /// that name nothing — is no item.
+    /// parsed schema. No carrier — or a row and defindex that name nothing —
+    /// is no item.
     /// </summary>
-    internal static IAttributeProvider? ItemOf(ItemSchema? itemSchema, WeaponCatalog? catalog,
+    internal static IAttributeProvider? ItemOf(ItemSchema itemSchema, WeaponCatalog catalog,
                                                TFPlayerNetState? state, string weaponName)
     {
-        if (itemSchema is null || catalog is null || state is null)
+        if (state is null)
             return null;
 
         int row = catalog.IndexOf(weaponName);
@@ -147,7 +155,88 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
         return new AttributeContainer(definition, AttributeProviderType.Weapon);
     }
 
-    public IAttributeProvider? ManagerOf(int playerIndex) => null;
+    /// <summary>
+    /// The player's own attribute manager (stock's <c>m_AttributeManager</c>,
+    /// tf_player.h:647, sent at tf_player.cpp:831): every item the carrier's
+    /// rows hold behind them — ItemOf's defindex word — provides to it, each
+    /// answering the manager as its owner, the shape the server's kit gives its
+    /// players (TFLoadoutProvider.Weapons). Cached per player against the
+    /// carrier it was built from and the defindex words behind it: a new kit
+    /// writes new rows and rebuilds it, the same moment the server's rebuilds
+    /// its own, so a hook walked on the player answers alike on both sides
+    /// (the AirJump parachute ask, the blast-jump scale, the medigun's ring).
+    /// </summary>
+    public IAttributeProvider? ManagerOf(int playerIndex)
+    {
+        if (itemSchema is null || catalog is null || data.Networked(playerIndex) is not { } state)
+            return null;
+
+        var rows = state.WeaponItemDefIndex;
+        if (_managers.TryGetValue(playerIndex, out var cache) && Holds(cache, state, rows))
+            return cache.Manager;
+
+        var manager = BuildManager(playerIndex, state);
+        var held = new int[rows.Length];
+        for (int i = 0; i < held.Length; i++)
+            held[i] = rows[i];
+
+        _managers[playerIndex] = (state, held, manager);
+        return manager;
+    }
+
+    /// <summary>Whether the cache still stands on the carrier it was built from,
+    /// with the defindex words that built it.</summary>
+    private static bool Holds((TFPlayerNetState Bound, int[] Rows, AttributeContainer Manager) cache,
+                              TFPlayerNetState state, NetArray<int> rows)
+    {
+        if (!ReferenceEquals(cache.Bound, state) || cache.Rows.Length != rows.Length)
+            return false;
+
+        for (int i = 0; i < cache.Rows.Length; i++)
+        {
+            if (cache.Rows[i] != rows[i])
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The manager itself, shaped as the server's kit builds it: each item
+    /// gated by its own <c>provide_on_active</c> mode before it provides
+    /// (stock's ReapplyProvision, tf_weaponbase.cpp:5709-5740), every item
+    /// then answering the manager as its owner. This side names the held
+    /// weapon through the arsenal; nobody else's hand is known here, and a
+    /// player with no arsenal reads as stock's no-active answer — mode 1
+    /// items stay out until their weapon is held.
+    /// </summary>
+    private AttributeContainer BuildManager(int playerIndex, TFPlayerNetState state)
+    {
+        var manager = new AttributeContainer();
+        string active = hud is not null && arsenal is not null && playerIndex == hud.LocalPlayerIndex
+                      && arsenal.TryGetActive(out string heldWeapon, out _, out _)
+            ? heldWeapon
+            : string.Empty;
+
+        var rows = state.WeaponItemDefIndex;
+        for (int row = 0; row < rows.Length; row++)
+        {
+            if (rows[row] == 0 || catalog!.ByIndex(row) is not { } type)
+                continue;
+
+            // The item itself, ItemOf's builder: the manager's provider answers
+            // exactly what the held-weapon read answers.
+            if (ItemOf(itemSchema!, catalog, state, type.Name) is not AttributeContainer item)
+                continue;
+
+            if (_hooks.Int(0, "provide_on_active", item) != 1 || catalog.IndexOf(active) == row)
+                item.ProvideTo(manager);
+
+            item.Owner = manager;
+        }
+
+        return manager;
+    }
 
     /// <summary>
     /// The local player's active weapon, as the arsenal holds it; the client
@@ -155,7 +244,7 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     /// </summary>
     public IAttributeProvider? ActiveItemOf(int playerIndex)
     {
-        if (hud is null || arsenal is null || playerIndex != hud.LocalPlayerIndex)
+        if (playerIndex != hud.LocalPlayerIndex)
             return null;
 
         return arsenal.TryGetActive(out string name, out _, out _)
@@ -182,9 +271,7 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     /// predicted here, and a state the arsenal cannot serve is no refusal.
     /// </summary>
     public bool OwnerCanJump(int playerIndex)
-        => hud is null
-           || playerIndex != hud.LocalPlayerIndex
-           || arsenal is null
+        => playerIndex != hud.LocalPlayerIndex
            || !arsenal.TryGetActive(out string name, out _, out _)
            || TFWeaponNames.IdOf(name) != TFWeaponId.CompoundBow
            || arsenal.ActiveWeaponState is not { } state
@@ -202,7 +289,7 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
         bool drained = false;
 
         if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
-            && arsenal?.TryGetActive(out _, out _, out _) == true
+            && arsenal.TryGetActive(out _, out _, out _)
             && arsenal.ActiveWeaponState is { } weapon)
         {
             weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - medicFraction);

@@ -69,11 +69,15 @@ public sealed class TFPlayerPredictionTests
 
             Carrier = Data(Carriers, Local);
             OtherCarrier = Data(Carriers, Other);
+            var (schema, catalog) = ClientItems();
             Prediction = new Prediction(Log, Carriers, NetStateCatalog.Of(typeof(PlayerData).Assembly, Log),
                 standalones ?? new NoStandalones(), Engine,
                 convars.Declared<CloakConsumeVar>(), convars.Declared<CloakRegenVar>(),
                 convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>(),
-                itemSchema: itemSchema, weaponCatalog: itemCatalog);
+                convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
+                convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
+                convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+                itemSchema ?? schema, itemCatalog ?? catalog);
         }
 
         /// <summary>The clock of the window's k-th command: the anchor plus the place in it.</summary>
@@ -141,10 +145,15 @@ public sealed class TFPlayerPredictionTests
     {
         var log = new ClientLog();
         var convars = SpyConVars();
+        var (schema, catalog) = ClientItems();
         var prediction = new Prediction(log, new Carriers(), NetStateCatalog.Of(typeof(PlayerData).Assembly, log),
             new NoStandalones(), EngineWithGlobals(),
             convars.Declared<CloakConsumeVar>(), convars.Declared<CloakRegenVar>(),
-            convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>());
+            convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>(),
+            convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+            schema, catalog);
 
         prediction.ResetBasis(LocalPlayer, 10);
 
@@ -375,7 +384,12 @@ public sealed class TFPlayerPredictionTests
             .AddInstance(convars.Declared<InvisTimeVar>())
             .AddInstance(convars.Declared<InvisUnstealthVar>())
             .AddInstance(convars.Declared<CloakConsumeVar>())
-            .AddInstance(convars.Declared<CloakRegenVar>());
+            .AddInstance(convars.Declared<CloakRegenVar>())
+            .AddInstance(convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>())
+            .AddInstance(convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>())
+            .AddInstance(convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>())
+            .AddInstance(ClientItems().Item1)
+            .AddInstance(ClientItems().Item2);
 
         Assert.NotNull(container.Create<Prediction>());
         Assert.NotNull(container.Create<ClientEffects>());

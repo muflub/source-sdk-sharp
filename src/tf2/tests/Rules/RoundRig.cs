@@ -463,7 +463,8 @@ internal sealed class RoundRig
         Scores = new TFTeamScores(table ?? new TF2.Server.Entities.TeamResource());
         Roster = new FakeRoster(Clock);
         Slot.Current = Mode;
-        Balance = new TeamBalance(Settings, Roster, Announcer, Timers, Clock, Log, classes);
+        Balance = new TeamBalance(Settings, Roster, Announcer, Timers, Clock, Log,
+                                  classes ?? new TF2.Server.Player.TFPlayerCarriers());
         // The auto scramble's dedicated-server gate: a dedicated box, as the
         // arm presumes; a listen-server fact flips it before the win.
         Engine = RecordingEngine.Default().Returns("Host.IsDedicatedServer", true);

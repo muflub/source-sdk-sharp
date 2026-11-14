@@ -50,8 +50,23 @@ public sealed class EngineCtfPlayersTests
         var data = new TFHealingPlayerData();
         var clock = new FakeClock { Now = 100f };
         var owners = new FakeOwners();
-        return (new EngineCtfPlayers(engine, engine, engine, data, new AttributeHooks(), clock, movement, owners: owners),
+        return (new EngineCtfPlayers(engine, engine, engine, data, new AttributeHooks(), clock,
+                                     movement ?? new SilentMovement(), owners),
                 data, clock, owners);
+    }
+
+    /// <summary>The silent stand: every seam a fact does not follow, the speed unmoved.</summary>
+    private sealed class SilentMovement : IMovementRules
+    {
+        public MovementParams? Constants => null;
+
+        public float JumpScale(in JumpRequest request) => 1f;
+
+        public float FrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial)
+            => friction;
+
+        public float MaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial)
+            => maxSpeed;
     }
 
     /// <summary>A movement table that answers its index over a base, so the ask is visible.</summary>
@@ -93,14 +108,16 @@ public sealed class EngineCtfPlayersTests
     }
 
     [Fact]
-    public void No_owners_service_at_all_still_allows_the_flag()
+    public void An_owner_slice_without_a_manager_for_the_player_still_allows_the_flag()
     {
-        // The optional arm: a build without the weapon-owner slice never refuses.
+        // The hook's walk answers the starting 0 when no manager is registered
+        // for the player either (attribute_manager.cpp) — the refusal arm is the only one.
         var engine = TestServices.Fake();
         engine.ReturnsEachCall("Entities.GetIndex",
                                () => engine.Calls[^1].Args[0] is EntityHandle h ? h.EntryIndex : 0);
         var players = new EngineCtfPlayers(engine, engine, engine, new TFHealingPlayerData(),
-                                           new AttributeHooks(), new FakeClock { Now = 100f });
+                                           new AttributeHooks(), new FakeClock { Now = 100f },
+                                           new SilentMovement(), new FakeOwners());
 
         Assert.True(players.AllowedToPickUpFlag(Blue));
     }
@@ -137,7 +154,8 @@ public sealed class EngineCtfPlayersTests
         var engine = TestServices.Fake();
         engine.Returns("Entities.GetVelocity", new Vector(3f, 0f, 4f));
         var players = new EngineCtfPlayers(engine, engine, engine, new TFHealingPlayerData(),
-                                           new AttributeHooks(), new FakeClock { Now = 100f });
+                                           new AttributeHooks(), new FakeClock { Now = 100f },
+                                           new SilentMovement(), new FakeOwners());
 
         Assert.Equal(new Vector(3f, 0f, 4f), players.Velocity(Blue));
     }
@@ -152,10 +170,11 @@ public sealed class EngineCtfPlayersTests
     }
 
     [Fact]
-    public void No_movement_rules_answers_zero()
+    public void The_silent_movement_table_passes_the_engine_answer_through()
     {
         var (players, _, _, _) = Compose();
 
+        // The silent stand scales nothing: the engine's 0 asks back unchanged.
         Assert.Equal(0f, players.MaxSpeed(Blue), 4);
     }
 }

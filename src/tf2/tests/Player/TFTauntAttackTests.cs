@@ -105,7 +105,8 @@ public sealed class TFTauntAttackTests
             Players.All[Fighter].Conditions.Add(TFCond.Taunting);
 
             Damage = new TauntDamage(Scopes);
-            Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities(), lunchbox, owners, hooks);
+            Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities(),
+                                       lunchbox ?? new LunchboxStub(), owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks());
             Attack.Attach(Fighter);
 
             Engine.Returns("Networking.EntityGetState", EntityState.Solid);

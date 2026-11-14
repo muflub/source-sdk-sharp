@@ -35,7 +35,7 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server, As = [typeof(ICapturePlayerRules)])]
 public sealed class TFCapturePlayerRules(TFPlayerCarriers carriers, ITeams teams, AttributeHooks hooks,
-                                         ITFWeaponOwners owners, MpCapStyleConVar? capStyle = null)
+                                         ITFWeaponOwners owners, MpCapStyleConVar capStyle)
     : ICapturePlayerRules
 {
     /// <summary><c>add_player_capturevalue</c>, the capture value's hook (tf_gamerules.cpp:18156).</summary>
@@ -82,7 +82,7 @@ public sealed class TFCapturePlayerRules(TFPlayerCarriers carriers, ITeams teams
         if (carriers.Get(player.EntryIndex)?.Class() == TFClass.Scout)
         {
             // Scouts count for 2 people in timebased capping, else they cap all points on their own.
-            value = (capStyle?.Value ?? 1) == 1 ? 2 : 10;
+            value = capStyle.Value == 1 ? 2 : 10;
         }
 
         // CALL_ATTRIB_HOOK_INT_ON_OTHER on the player (tf_gamerules.cpp:18156),

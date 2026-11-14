@@ -556,7 +556,7 @@ public sealed class TFProjectileEntityFacts
                            (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
         rig.AttachStun(ProjectileRig.Victim);
         rig.Engine.Returns("Clock.Now", 10f);
-        var donks = new TFDonkVictims(rig.Carriers, rig.Engine);
+        var donks = new TFDonkVictims(rig.Carriers, rig.Engine, DeclaredConVars.Fresh<TFDoubleDonkWindowConVar>());
         donks.Attach(ProjectileRig.Player);
         var ball = ThrownCannonball(rig);
 

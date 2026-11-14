@@ -54,7 +54,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                                    TFPushbackScaleVerticalConVar pushbackScaleVertical,
                                    TFPlayerCarriers carriers,
                                    AttributeHooks hooks, ITFPlayerResupply health, IEngineGameEvents events,
-                                   ILagCompensation? lagCompensation = null, TFAfterburns? afterburns = null)
+                                   ILagCompensation lagCompensation, TFAfterburns afterburns)
     : ITFFlameEffects, IOrderedHook
 {
     /// <summary>Stage 2.11's band (+960..+979 of TF2's thousand).</summary>
@@ -83,7 +83,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
     private readonly TFPushbackScaleConVar _pushbackScale = pushbackScale;
     private readonly TFPushbackScaleVerticalConVar _pushbackVertical = pushbackScaleVertical;
     private readonly TFPlayerCarriers _carriers = carriers;
-    private readonly TFAfterburns? _afterburns = afterburns;
+    private readonly TFAfterburns _afterburns = afterburns;
 
     public int HookOrder => Order;
 
@@ -95,7 +95,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
 
         // The flame's session (tf_weapon_flamethrower.cpp:808, :934): the
         // per-tick cone work sees the other players where the pyro saw them.
-        lagCompensation?.Start(owner);
+        lagCompensation.Start(owner);
         try
         {
             Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
@@ -129,7 +129,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         }
         finally
         {
-            lagCompensation?.Finish(owner);
+            lagCompensation.Finish(owner);
         }
     }
 
@@ -457,7 +457,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
 
         // The burner, before the removal takes the burn's answer with it
         // (:541-542's order).
-        EntityHandle burner = _afterburns?.Of(entities.GetIndex(target))?.Burn.Attacker ?? EntityHandle.None;
+        EntityHandle burner = _afterburns.Of(entities.GetIndex(target))?.Burn.Attacker ?? EntityHandle.None;
 
         if (!conditions.Remove(target, TFCond.Burning))
             return false;

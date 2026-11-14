@@ -179,6 +179,9 @@ internal sealed class SpyRig
     private readonly TFMovementFixtures.Players _states = new();
 
     public RecordingEngine Engine { get; } = TestServices.Fake();
+
+    /// <summary>The carrier states, as the pipebomb tray's publish reads them.</summary>
+    public TFPlayerCarriers Carriers { get; } = new();
     public SpyClock Clock { get; } = new();
     public SpyRandom Random { get; } = new();
     public DamageHitGroups HitGroups { get; } = new();
@@ -373,7 +376,8 @@ internal sealed class SpyRig
         Gibs = new TFPlayerGib(ConVars.Declared<TFPlayerGibConVar>(), Records, Engine, Armory, Clock, Hooks, Owners);
         FeignRagdoll = new TFFeignRagdoll(Armory, Engine, Gibs);
         Drops = new TFDeathDrops(Log, Arsenal, Scripts, Map, Armory, new SpyRecords(), Engine, Engine,
-                                 new SpyMedigun(), Hooks, Owners, Random, Conditions);
+                                 new SpyMedigun(), Hooks, Owners, Random, Conditions,
+                                 new TFDamageRecords(), _states);
 
         Spies = new TFSpy(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random, Classes,
                           Clock, Engine,

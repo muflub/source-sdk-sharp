@@ -13,6 +13,7 @@ using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using TF2.Tests.Combat;
+using TF2.Tests.Player;
 
 using Xunit;
 
@@ -177,7 +178,8 @@ public sealed class TFBannerTests
             Engine.ReturnsEachCall("Players.GetTeam", () => Arg() is EntityHandle h ? TeamOf(h) : 0)
                   .ReturnsEachCall("Players.GetHandle", () => Arg() is int i ? HandleOf(i) : EntityHandle.None)
                   .ReturnsEachCall("Entities.GetOrigin", () => Arg() is EntityHandle h ? OriginOf(h) : Vector.Zero)
-                  .Returns("Players.IsAlive", true); // the rage think's alive gate (:13806)
+                  .Returns("Players.IsAlive", true) // the rage think's alive gate (:13806)
+                  .Returns("GameEvents.EventCreate", IntPtr.Zero); // the raise's no-event arm; a fact wanting the event restubs
         }
 
         /// <summary>A player on <paramref name="index"/>, of <paramref name="team"/>,
@@ -213,7 +215,45 @@ public sealed class TFBannerTests
         }
 
         /// <summary>The dispatcher over the server's walk, as the side composes it.</summary>
-        public TFWeaponEffects Dispatcher() => OwnedEffects.Of(buffs: new TFBuffDeployment(Players, Conditions, Engine, Engine));
+        public TFWeaponEffects Dispatcher() => OwnedEffects.Of(buffs: Buffs());
+
+        private TFBuffDeployment? _buffs;
+
+        /// <summary>The deployment as the side composes it: this rig's walk seams, and the
+        /// rage press's taunt half (speech, scene read, clock) over its own player rig's
+        /// holders, the same chain the composition wires.</summary>
+        public TFBuffDeployment Buffs()
+        {
+            if (_buffs is not null)
+                return _buffs;
+
+            var holder = new PlayerRig();
+            var resupply = new TFPlayerResupply(holder.Carriers, holder.Classes, holder.Engine, holder.Engine,
+                                                Conditions, holder.Loadout, holder.Engine,
+                                                holder.Items, new AttributeHooks(),
+                                                scripts: new TFWeaponScripts(holder.Log, WeaponFixtures.ShippedWithClasses()),
+                                                catalog: holder.Catalog,
+                                                arsenal: new SourceSharp.Server.Arsenal(holder.Log, holder.Engine, holder.Engine, holder.Engine, holder.Engine,
+                                                                     holder.Engine, holder.Engine, holder.Engine, holder.Engine,
+                                                                     new SourceSharp.Abi.ScriptedEntityRegistry(TestEngines.Server()), holder.Engine,
+                                                                     new SourceSharp.Server.DamageHitGroups()),
+                                                hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                                deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                                clock: holder.Engine);
+            var mapPlayers = new TFPlayerMapPlayers(holder.Engine, holder.Engine, holder.Carriers, resupply,
+                                                    Conditions, holder.Carriers, holder.Items, new AttributeHooks());
+            var voice = new TF2.Server.Voice.TFConceptSpeech(new TF2.Tests.Entities.FakeConceptRules(), holder.Carriers,
+                                                             new TF2.Tests.Entities.FakeConceptTeams(), holder.Engine,
+                                                             TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), holder.Engine,
+                                                             new TF2.Tests.Entities.FakeRandom(),
+                                                             new LoadoutDeps.IdleRound(), new FakeOwners(), holder.Log);
+            var taunts = new TFTauntCommand(mapPlayers, holder.Engine, holder.Engine, holder.Engine, holder.Carriers, voice,
+                                            new NoTFWeaponOwners(), new AttributeHooks(),
+                                            TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage());
+            _buffs = new TFBuffDeployment(Players, Conditions, Engine, Engine, Engine, taunts, holder.Carriers,
+                                          voice, Engine, Engine);
+            return _buffs;
+        }
 
         public static WeaponAttackContext At(WeaponNetState weapon, float now) =>
             new(new WeaponType("tf_weapon_buff_item", 0.1f), weapon, default!, now, EffectsLive: true,
@@ -425,8 +465,7 @@ public sealed class TFBannerTests
         rig.Engine.Returns("GameEvents.EventFire", true);
         rig.Engine.Returns("Players.GetUserId", 103); // the owner's userid, as the server answers it (:247)
 
-        var dispatcher = OwnedEffects.Of(buffs: new TFBuffDeployment(
-            rig.Players, rig.Conditions, rig.Engine, rig.Engine, sound: rig.Engine, events: rig.Engine));
+        var dispatcher = OwnedEffects.Of(buffs: rig.Buffs());
         var behaviour = rig.Behaviour(dispatcher);
         behaviour.PrimaryAttack(BuffRig.At(BuffRig.Armed(), 10f));
 
@@ -520,7 +559,7 @@ public sealed class TFBannerTests
     /// <summary>The walk of the deploy, recording each pulse ask beside handing it over.</summary>
     private sealed class WalkingBuffs(BuffRig rig, RecordingEffects effects) : ITFBuffEffects
     {
-        private readonly TFBuffDeployment _walk = new(rig.Players, rig.Conditions, rig.Engine, rig.Engine);
+        private readonly TFBuffDeployment _walk = rig.Buffs();
 
         public void DeployBuff(int ownerIndex, int buffType)
         {

@@ -18,9 +18,11 @@ public sealed class TFConditionsTests
 {
     private const float Tick = 0.25f;
 
-    private static TFConditions Server() => new(authoritative: true);
+    private static TFConditions Server() =>
+        new(authoritative: true, new TFCondHolder());
 
-    private static TFConditions Client() => new(authoritative: false);
+    private static TFConditions Client() =>
+        new(authoritative: false, new TFCondHolder());
 
     private static TFCondMask Tick1(TFConditions conditions) => conditions.Tick(Tick, 0, default);
 

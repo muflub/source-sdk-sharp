@@ -42,7 +42,7 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerItemRegen(ITFPlayerResupply resupply, AttributeHooks hooks, ITFWeaponOwners owners,
                                       IEnginePlayers enginePlayers, TFDamageRecords hitRecords,
                                       IEngineDamage damage, IEngineEntities entities,
-                                      ITFPlayerData? players = null) : IPlayerComponent
+                                      ITFPlayerData players) : IPlayerComponent
 {
     /// <summary>The think's period (<c>TF_REGEN_TIME</c>, tf_shareddefs.h:916).</summary>
     public const float RegenInterval = 1.0f;
@@ -124,7 +124,7 @@ public sealed class TFPlayerItemRegen(ITFPlayerResupply resupply, AttributeHooks
         float scale = TFDamageModifyRules.RemapValClamped(peace, 5f, 10f, 1f, 2f);
 
         float amount = MedicRegenAmount;
-        int patientIndex = players?.Networked(_index)?.HealTargetIndex ?? 0;
+        int patientIndex = players.Networked(_index)?.HealTargetIndex ?? 0;
         if (patientIndex > 0)
         {
             EntityHandle patient = enginePlayers.GetHandle(patientIndex);
@@ -143,16 +143,15 @@ public sealed class TFPlayerItemRegen(ITFPlayerResupply resupply, AttributeHooks
 }
 
 /// <summary>
-/// The item regen's source in the per-player composite. The hook walk, the
-/// owners and the hit records are optional as everywhere in the player lane:
-/// without them the slice answers like an attribute-less player, healing
-/// nothing.
+/// The item regen's source in the per-player composite: the container's own
+/// hook walk, owners, hit records and player data, handed to the slice as
+/// they stand.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFPlayerItemRegens(ITFPlayerResupply resupply, IEnginePlayers enginePlayers,
                                        IEngineDamage damage, IEngineEntities entities,
-                                       AttributeHooks? hooks = null, ITFWeaponOwners? owners = null,
-                                       TFDamageRecords? hitRecords = null, ITFPlayerData? players = null)
+                                       AttributeHooks hooks, ITFWeaponOwners owners,
+                                       TFDamageRecords hitRecords, ITFPlayerData players)
     : IPlayerComponentSource, IOrderedHook
 {
     /// <summary>After the bleed's 707 in the combat band.</summary>
@@ -162,8 +161,7 @@ public sealed class TFPlayerItemRegens(ITFPlayerResupply resupply, IEnginePlayer
 
     public IEnumerable<IPlayerComponent> Create(EntityHandle player)
     {
-        yield return new TFPlayerItemRegen(resupply, hooks ?? new AttributeHooks(),
-                                           owners ?? new NoTFWeaponOwners(), enginePlayers,
-                                           hitRecords ?? new TFDamageRecords(), damage, entities, players);
+        yield return new TFPlayerItemRegen(resupply, hooks, owners, enginePlayers,
+                                           hitRecords, damage, entities, players);
     }
 }

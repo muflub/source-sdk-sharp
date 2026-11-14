@@ -186,8 +186,7 @@ internal sealed class CtfRig
     private uint _next = 0x0040_0000u;
     private readonly Dictionary<EntityHandle, Vector> _origins = new();
 
-    /// <param name="optionalSeams">False leaves the two optional seams (respawn rooms, carrier effects) unregistered, as the game has them today.</param>
-    public CtfRig(bool optionalSeams = true)
+    public CtfRig()
     {
         Registry.RegisterAll(typeof(ItemTeamFlag).Assembly);
         ObjectiveState.BindLocal();
@@ -227,11 +226,8 @@ internal sealed class CtfRig
         services.AddInstance<IFlagDetectionZoneDispatch>(new FlagDetectionZoneDispatch(Registry));
         services.AddInstance(new TF2.Server.Rules.TFWinPanelCappers());
         services.AddInstance<IModeObjectives>(Objectives);
-        if (optionalSeams)
-        {
-            services.AddInstance<IFlagCarrierEffects>(Effects);
-            services.AddInstance<ITFRespawnRooms>(RespawnRooms);
-        }
+        services.AddInstance<IFlagCarrierEffects>(Effects);
+        services.AddInstance<ITFRespawnRooms>(RespawnRooms);
         Registry.Services = services;
     }
 

@@ -30,7 +30,7 @@ namespace TF2.Server.Player;
 /// </para>
 /// </summary>
 public sealed class TFScattergunKnockback(TFPlayerCarriers carriers, IEngineEntities entities,
-                                          TFDamageLayer? layer = null) : IPlayerComponent
+                                          TFDamageLayer layer) : IPlayerComponent
 {
     /// <summary>Between the taunt attack (27) and the stun stack (30): the
     /// stun lands on a stack that is already there.</summary>
@@ -46,7 +46,7 @@ public sealed class TFScattergunKnockback(TFPlayerCarriers carriers, IEngineEnti
         carriers.EnterPart(_index, this);
     }
 
-    public void Tick(float now) => layer?.FlushShoves(_index);
+    public void Tick(float now) => layer.FlushShoves(_index);
 
     public void Detach()
     {

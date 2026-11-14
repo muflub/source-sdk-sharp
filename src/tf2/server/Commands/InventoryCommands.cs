@@ -32,7 +32,7 @@ public sealed class GiveItemCommand(LocalInventory inventory, ILog log)
 /// </summary>
 [ConCommand("tf2_loadout", Help = "tf2_loadout <player entindex> [class]: the class loadout, slot by slot.")]
 public sealed class LoadoutCommand(TFLoadoutProvider loadout, LocalInventory inventory, ILog log,
-                                   ITFPlayerClasses? classes = null)
+                                   ITFPlayerClasses classes)
 {
     public void Execute(int player, [Complete("scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer")] string? className = null) => log.Msg(Describe(player, className));
 
@@ -49,7 +49,7 @@ public sealed class LoadoutCommand(TFLoadoutProvider loadout, LocalInventory inv
         }
         else
         {
-            cls = classes?.ClassOf(new EntityHandle((uint)player)) ?? TFClass.Undefined;
+            cls = classes.ClassOf(new EntityHandle((uint)player));
         }
 
         var sb = new StringBuilder();

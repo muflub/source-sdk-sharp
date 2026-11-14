@@ -49,7 +49,7 @@ namespace TF2.Client.Ui;
 public sealed class TFEurekaMenuUi(ILocalArsenal arsenal, IEngineHud screen, IUiLocalisation localisation,
                                    IFwdEngineClient engine, ITFWeaponOwners owners, IClientStandalones standalones,
                                    IEngineSound sound, TFClientBuildingResources buildings,
-                                   ITFPlayerData? players = null, AttributeHooks? hooks = null)
+                                   ITFPlayerData players, AttributeHooks hooks)
     : ITFEurekaMenuSource, ITFEurekaMenuActions, IClientFrameThink, IOrderedHook, IHudMenuKeys
 {
     /// <summary>The frame think's place, past the viewmodel rules' +223 and
@@ -75,8 +75,8 @@ public sealed class TFEurekaMenuUi(ILocalArsenal arsenal, IEngineHud screen, IUi
     private readonly IClientStandalones _standalones = standalones;
     private readonly IEngineSound _sound = sound;
     private readonly TFClientBuildingResources _buildings = buildings;
-    private readonly ITFPlayerData? _players = players;
-    private readonly AttributeHooks _hooks = hooks ?? new();
+    private readonly ITFPlayerData _players = players;
+    private readonly AttributeHooks _hooks = hooks;
 
     /// <summary>Stock's m_bWantsToTeleport: laid by the press, spent by the
     /// choice, cleared with the wrench (:103, :189, :351-354).</summary>
@@ -192,7 +192,7 @@ public sealed class TFEurekaMenuUi(ILocalArsenal arsenal, IEngineHud screen, IUi
     /// <summary>The taunting arm of stock's CanAttack, off the local player's
     /// predicted words: the taunt is the teleport, its player is not asked.</summary>
     private bool Taunting()
-        => _players?.Predicted(_screen.LocalPlayerIndex)?.InCond(TFCond.Taunting) ?? false;
+        => _players.Predicted(_screen.LocalPlayerIndex)?.InCond(TFCond.Taunting) ?? false;
 
     /// <summary>Stock's cancel and the hint's binding, the literal stock's
     /// own keys run (:292, :324).</summary>

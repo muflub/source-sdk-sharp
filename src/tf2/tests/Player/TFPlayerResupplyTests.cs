@@ -24,7 +24,7 @@ public sealed class TFPlayerResupplyTests
     private static (PlayerRig Rig, TFPlayerResupply Resupply, TFPlayerConditions Conditions) Make(TFClass cls)
     {
         var rig = new PlayerRig().As(cls);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         return (rig, new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
                                            rig.Items, new AttributeHooks(),
                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
@@ -71,7 +71,7 @@ public sealed class TFPlayerResupplyTests
         // a buffing primary — the scout's scattergun carrying add_maxhealth
         // 50 — spawns full at 175, not the class's 125.
         var rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var inventory = new LocalInventory(new InventoryStore(new ModInfo(_ => null), rig.Schema, rig.Log),
                                            rig.Schema, new TFWeaponOwnersTests.NoClients(), rig.Log);
         inventory.OnClientActive(PlayerRig.Index);
@@ -138,7 +138,7 @@ public sealed class TFPlayerResupplyTests
         // recomputed maximum. The rate still reaching the player's own manager
         // would otherwise refill slowly from the drained bucket.
         var rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 100);
@@ -172,7 +172,7 @@ public sealed class TFPlayerResupplyTests
         // second on top takes the hook's half. The health follows its own
         // percentage of the same rate (:14343-14352).
         var rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 100);
@@ -212,7 +212,7 @@ public sealed class TFPlayerResupplyTests
         // second gives the bucket two of its 21, and the health its
         // percentage of the same two.
         var rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 100);
@@ -266,7 +266,7 @@ public sealed class TFPlayerResupplyTests
     public void A_respawn_after_reequipping_the_gloves_comes_back_whole()
     {
         var rig = new PlayerRig().As(TFClass.HeavyWeapons);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_fists");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 300);
@@ -310,7 +310,7 @@ public sealed class TFPlayerResupplyTests
     private static TFPlayerResupply OwnedResupply(out PlayerRig rig, bool managers = false, bool nonbuffed = false, float healing = 0f)
     {
         rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         var hooks = new AttributeHooks();
         if (managers)
             rig.Items.SetManager(PlayerRig.Index, Arm("add_maxhealth", 50f, AttributeDescriptionFormat.Additive, 5001));
@@ -416,7 +416,7 @@ public sealed class TFPlayerResupplyTests
     public void Max_ammo_rides_the_attribute_manager_through_the_handle()
     {
         var rig = new PlayerRig().As(TFClass.Scout);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         // scout.txt AmmoMax "tf_ammo_secondary" "36" → ×2.
         rig.Items.SetManager(PlayerRig.Index, SecondaryManager());
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
@@ -464,7 +464,7 @@ public sealed class TFPlayerResupplyTests
         // metal grant, the count truncated under the multiplier — the
         // Eureka Effect's half-weight packs. A non-metal grant weighs full.
         var rig = new PlayerRig().As(TFClass.Engineer);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         rig.Items.SetManager(PlayerRig.Index, Arm("mult_metal_pickup", 0.5f, AttributeDescriptionFormat.Percentage, 5021));
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
                                             conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
@@ -490,7 +490,7 @@ public sealed class TFPlayerResupplyTests
         // over zero leaves the sandvich's one-grenade grant at zero. The
         // stock hook answers the player themselves — the held item's manager.
         var rig = new PlayerRig().As(TFClass.HeavyWeapons);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_hwg");
         rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_shotgun_hwg"] =
             Arm("grenades1_resupply_denied", 1f, AttributeDescriptionFormat.Additive, 5031) });
@@ -652,14 +652,14 @@ public sealed class TFPlayerResupplyTests
                                   Registry, Engine, new DamageHitGroups(),
                                   weapons: Weapons.Catalog, ammo: new AmmoCatalog(() => [new TFAmmoTypes()], log),
                                   carryLimits: new AmmoCarry(new ListHooks<IAmmoCarryRule>(
-                                      new TFAmmoCarryRule(Rig.Classes, Weapons.Owners)), log));
+                                      new TFAmmoCarryRule(Rig.Classes, Weapons.Owners, new AttributeHooks())), log));
 
             Assert.True(Arsenal.GiveWeapon(PlayerRig.Player, Rocket), "the arsenal gives the rocket launcher");
             Arsenal.SetClip(PlayerRig.Player, Rocket, 2);
 
             DeployEpoch = RocketEpoch();
 
-            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
+            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine, new ListHooks<ITFConditionHook>(), Rig.Engine);
             Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Rig.Engine, Arsenal),
                                             Rig.Engine, conditions, Rig.Loadout, Rig.Engine,
                                             new TFPlayerItems(), new AttributeHooks(),

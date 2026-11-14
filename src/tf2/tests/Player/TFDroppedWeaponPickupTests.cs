@@ -115,7 +115,9 @@ public sealed class TFDroppedWeaponPickupTests
         /// <summary>The pickup over this rig, with the seams a fact names.</summary>
         public TFDroppedWeaponPickup Pickup(ITFRespawnRooms? rooms = null, ITeamRoundState? rounds = null)
             => new(Arsenal, Map, World, Engine, Engine, Lies, Engine, Meter, Scripts, Schema,
-                   Classes, rooms, rounds);
+                   Classes,
+                   rooms ?? new TF2.Tests.Ctf.FakeRespawnRooms(),
+                   rounds ?? new TF2.Tests.Entities.FakeRoundState());
 
         /// <summary>A lie on the floor before the eye, its handle the one the ray ends on.</summary>
         public (TFDroppedWeapon Dropped, EntityHandle Handle) Drop(string weapon, float clock = 40f)

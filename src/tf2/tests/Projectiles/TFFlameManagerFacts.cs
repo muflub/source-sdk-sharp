@@ -46,19 +46,28 @@ internal sealed class ManagerRig
 
     private int _teamAsk;
 
+    public TFAfterburns Afterburns { get; }
+
     public ManagerRig()
     {
         Damage = new ScopedDamage(Scopes, HitGroups);
+        // The teammate arm's class gate now runs on every flame (the manager's
+        // owners are required): a victim of no recorded class, never the Sniper.
+        Engine.Returns("Entities.GetIndex", 3);
         Convars.RegisterAll(typeof(TF2.Server.Medigun.TFPlayerHealing).Assembly);
+        Afterburns = new TFAfterburns(Carriers, Conditions, Engine, Engine, Damage, Directory, Scopes,
+                                      new CombatRig.HealingSpy(), Owners, new AttributeHooks(), Carriers);
         BoxSize = DeclaredConVars.Holding<TF2.Shared.TFFlameThrowerBoxSizeConVar>("12");
-        Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, BoxSize);
+        Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, BoxSize,
+                                     Owners, Directory);
         Manager.BindAreas(TestServices.Areas(Engine));
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
                                      Convars.Declared<TFAirBlastCrayConVar>(),
                                      Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                      Convars.Declared<TFPushbackScaleConVar>(),
                                      Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers,
-                                     new TF2.Shared.Econ.AttributeHooks(), new ProjectileRig.Resupply(), Engine);
+                                     new TF2.Shared.Econ.AttributeHooks(), new ProjectileRig.Resupply(), Engine,
+                                     new TF2.Tests.Player.ComposedComponents.IdleLag(), Afterburns);
 
         Engine.Returns("Entities.Create", ManagerHandle);
         Engine.Returns("Players.GetHandle", Attacker);

@@ -28,7 +28,7 @@ public class TFClassSpecialSkillFacts
     private static TFClassSpecialSkill Service(SpyRig rig)
     {
         rig.Engine.Returns("Players.GetHandle", SpyRig.Spy);
-        return new(rig.States, rig.Engine, rig.Spies, new TFStickyTray(),
+        return new(rig.States, rig.Engine, rig.Spies, new TFStickyTray(rig.Carriers),
                    new IdleSkillPickup(), rig.Owners, new IdleSkillShields());
     }
 

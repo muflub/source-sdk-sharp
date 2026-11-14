@@ -31,12 +31,12 @@ namespace TF2.Client.Ui;
 /// menu's own two rows over it.
 /// </para>
 /// </summary>
-public sealed class TFEurekaMenu(ITFEurekaMenuSource source, ITFEurekaMenuActions? actions = null,
-                                 ITFRenderGroups? groups = null)
+public sealed class TFEurekaMenu(ITFEurekaMenuSource source, ITFEurekaMenuActions actions,
+                                 ITFRenderGroups groups)
     : UiScreen
 {
     private readonly ITFEurekaMenuSource _source = source;
-    private readonly ITFEurekaMenuActions? _actions = actions;
+    private readonly ITFEurekaMenuActions _actions = actions;
 
     public override string Name => "tf2eurekamenu";
 
@@ -46,7 +46,7 @@ public sealed class TFEurekaMenu(ITFEurekaMenuSource source, ITFEurekaMenuAction
     /// (:159-181), and not while the scoreboard locks the hud's group
     /// (the hud menus' ITFRenderGroups arm).</summary>
     public override bool Visible => _source.WantsTeleport && _source.WrenchActive
-                                    && groups?.GlobalLocked != true;
+                                    && groups.GlobalLocked != true;
 
     public override void Describe(ref UiFrame ui)
     {
@@ -83,7 +83,7 @@ public sealed class TFEurekaMenu(ITFEurekaMenuSource source, ITFEurekaMenuAction
         {
             var hit = ui.Interact(row);
             if (hit.Clicked)
-                _actions?.Teleport(number - 1);   // the chip's 1 is EUREKA_TELEPORT_HOME's 0
+                _actions.Teleport(number - 1);   // the chip's 1 is EUREKA_TELEPORT_HOME's 0
 
             using (row)
             {

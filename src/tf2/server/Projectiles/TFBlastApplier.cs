@@ -83,7 +83,7 @@ public sealed class TFBlastApplier
     private readonly IEngineNetworking Networking;
     private readonly IEntityDirectory Directory;
     private readonly TFPlayerCarriers Carriers;
-    private readonly TFPreroundPushFromDamageEnableConVar? PreroundPush;
+    private readonly TFPreroundPushFromDamageEnableConVar PreroundPush;
 
     /// <summary>TFViewVectors' crouched hull size, the shape a self push folds (:10246-10252).</summary>
     private readonly Vector CrouchHullSize;
@@ -96,7 +96,7 @@ public sealed class TFBlastApplier
                           ITFPlayerResupply health, IEngineGameEvents events,
                           IEngineNetworking networking, IEntityDirectory directory,
                           TFPlayerCarriers carriers,
-                          TFPreroundPushFromDamageEnableConVar? preroundPush = null)
+                          TFPreroundPushFromDamageEnableConVar preroundPush)
     {
         World = world;
         Damage = damage;
@@ -463,9 +463,9 @@ public sealed class TFBlastApplier
         // EnterRestart), and the observer and noclip movetypes move
         // regardless: nobody is held, so the ask is yes, and the gate is
         // the convar's until a freeze lands in CanPlayerMove to refuse. The
-        // absent convar is the default's off, read as the free player it
-        // leaves.
-        if (PreroundPush is { Value: false } && !CanPlayerMove())
+        // injected convar answers its declared default when the engine has
+        // no more to say, so the gate always asks it.
+        if (!PreroundPush.Value && !CanPlayerMove())
             return;
 
         TFClass cls = Classes.ClassOf(victim);

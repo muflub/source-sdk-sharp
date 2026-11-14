@@ -320,7 +320,7 @@ public class TFBuilderPlacementTests
     public void AWalkWithNoSappableHidesTheGhostAndLeavesItStanding()
     {
         var (rig, placement, spy, _) = ASappable();
-        rig.Buildings().OwnedBy().First().DestroyObject();   // the field empties
+        rig.Buildings().OwnedBy(null, null, null).First().DestroyObject();   // the field empties
 
         placement.StartAttachmentPlacement(spy.EntryIndex);
         placement.UpdatePlacement(spy.EntryIndex);

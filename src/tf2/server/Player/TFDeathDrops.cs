@@ -38,9 +38,9 @@ namespace TF2.Server.Player;
 public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scripts, ITFMapPlayers mapPlayers,
                                  IEntityDirectory directory, IPlayerDirectory records, IEngineEntities entities,
                                  IEngineEntityRender render, ITFMedigunWeapons medigun,
-                                 AttributeHooks? hooks = null, ITFWeaponOwners? owners = null,
-                                 IUniformRandom? random = null, ITFPlayerConditions? conditions = null,
-                                 TFDamageRecords? hitRecords = null, ITFPlayerData? carriers = null)
+                                 AttributeHooks hooks, ITFWeaponOwners owners,
+                                 IUniformRandom random, ITFPlayerConditions conditions,
+                                 TFDamageRecords hitRecords, ITFPlayerData carriers)
     : IPlayerDeathHook, IGameLifecycle, IOrderedHook
 {
     /// <summary>The drop's order in the player band.</summary>
@@ -243,10 +243,7 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         if (death.Attacker == EntityHandle.None) // :12307 `if (pPlayerAttacker)`
             return;
 
-        if (hooks is not { } walk || owners is not { } holder || random is not { } draw)
-            return;
-
-        if (walk.Int(0, "drop_health_pack_on_kill", holder.ActiveItemOf(subject.EntryIndex)) != 1)
+        if (hooks.Int(0, "drop_health_pack_on_kill", owners.ActiveItemOf(subject.EntryIndex)) != 1)
             return; // :12311
 
         var kit = entities.Create(HealthKitSmall.SmallClass); // :13143
@@ -258,8 +255,8 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
 
         if (directory.Get(kit) is HealthKit small)
         {
-            float x = draw.RandomFloat(-1f, 1f); // :13146 RandomVector(-1, 1)
-            float y = draw.RandomFloat(-1f, 1f);
+            float x = random.RandomFloat(-1f, 1f); // :13146 RandomVector(-1, 1)
+            float y = random.RandomFloat(-1f, 1f);
             float length = MathF.Sqrt(x * x + y * y + 1f); // z pinned to 1 (:13147), VectorNormalize (:13148)
             small.DropSingleInstance(new Vector(250f * x / length, 250f * y / length, 250f / length),
                                      death.Player, throwerTouchDelay: 0f); // :13150-13151
@@ -286,18 +283,15 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         if (death.Attacker == EntityHandle.None)   // :416's weapon-owner guard
             return;
 
-        if (carriers is not { } states)
-            return;
-
         // Stock's override lives on the Air Strike's class alone: any other
         // launcher's kill must leave the count the swords share alone.
         if (arsenal.ActiveWeaponName(death.Attacker) != AirStrikeClass)
             return;
 
-        if (states.Predicted(death.Attacker.EntryIndex) is not { } killer)   // :415's GetOwner
+        if (carriers.Predicted(death.Attacker.EntryIndex) is not { } killer)   // :415's GetOwner
             return;
 
-        killer.Decapitations += (states.Predicted(death.Player.EntryIndex)?.Decapitations ?? 0) + 1;   // :419-424
+        killer.Decapitations += (carriers.Predicted(death.Player.EntryIndex)?.Decapitations ?? 0) + 1;   // :419-424
     }
 
     /// <summary>
@@ -315,17 +309,13 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         if (death.Attacker == EntityHandle.None)
             return; // :11136: no killing player, so no killing weapon to ask
 
-        if (hooks is not { } walk || owners is not { } holder || hitRecords is not { } notes
-            || conditions is not { } shared)
-            return;
-
-        if (notes.LastHit(death.EntIndex) is not { } wound)
+        if (hitRecords.LastHit(death.EntIndex) is not { } wound)
             return; // :11135: info.GetWeapon(), the hit's own weapon record
 
-        int boost = walk.Int(0, "add_onkill_critboost_time",
-                             holder.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
+        int boost = hooks.Int(0, "add_onkill_critboost_time",
+                              owners.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
         if (boost != 0) // :11142
-            shared.Add(death.Attacker, TFCond.CritboostedOnKill, boost + 1f); // :11145
+            conditions.Add(death.Attacker, TFCond.CritboostedOnKill, boost + 1f); // :11145
     }
 
     /// <summary>
@@ -347,28 +337,24 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         if (death.Attacker == EntityHandle.None)
             return; // :11365 with no killing player there is no sniper to ask
 
-        if (hooks is not { } walk || owners is not { } holder || hitRecords is not { } notes
-            || conditions is not { } shared || carriers is not { } states)
-            return;
-
-        if (notes.LastHit(death.EntIndex) is not { } wound)
+        if (hitRecords.LastHit(death.EntIndex) is not { } wound)
             return; // info.GetWeapon()'s record: no wound, no killing weapon to walk
 
-        if (states.Predicted(death.Attacker.EntryIndex) is not { } killer)
+        if (carriers.Predicted(death.Attacker.EntryIndex) is not { } killer)
             return; // the owner of the gain, stock's m_Shared on the killing player
 
         if (killer.Class() != TFClass.Sniper)
             return; // :11365 IsPlayerClass(TF_CLASS_SNIPER)
 
-        float gain = walk.Float(0f, "rage_on_kill",
-                                holder.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
+        float gain = hooks.Float(0f, "rage_on_kill",
+                                 owners.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
         if (gain == 0f) // :11371
             return;
 
         // :13873: the drain only refuses while no sniper buff rides the owner
         // and the owner is not the spy; :13883 caps the write.
         if (!killer.RageDraining || killer.Class() == TFClass.Spy
-            || shared.InCond(death.Attacker, TFCond.SniperchargeRageBuff))
+            || conditions.InCond(death.Attacker, TFCond.SniperchargeRageBuff))
             killer.RageMeter = Math.Min(TFRageMeter.FullMeter, killer.RageMeter + gain);
     }
 

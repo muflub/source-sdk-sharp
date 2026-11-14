@@ -102,7 +102,7 @@ public sealed class TFConditions
     public const int Count = (int)TFCond.Last;
 
     private TFConditionState _state;
-    private readonly ITFCondWords? _words;
+    private readonly ITFCondWords _words;
 
     /// <summary>
     /// A player's empty condition set. <paramref name="authoritative"/> is the
@@ -110,7 +110,7 @@ public sealed class TFConditions
     /// the countdown) run only there.
     ///
     /// <para>
-    /// <paramref name="words"/>, when given, is where the active set LIVES:
+    /// <paramref name="words"/>, handed in, is where the active set LIVES:
     /// the player's carrier (<c>m_nPlayerCond</c> and the four <c>Ex</c>
     /// words, networked and predicted). Every call reads the set from there
     /// first and writes it back after, so a write anyone made to the words
@@ -121,7 +121,7 @@ public sealed class TFConditions
     /// <c>m_ConditionData</c> is not sent either).
     /// </para>
     /// </summary>
-    public TFConditions(bool authoritative, ITFCondWords? words = null)
+    public TFConditions(bool authoritative, ITFCondWords words)
     {
         Authoritative = authoritative;
         _words = words;
@@ -158,17 +158,13 @@ public sealed class TFConditions
         Push();
     }
 
-    /// <summary>The active set from the bound words, when there are any.</summary>
-    private void Pull()
-    {
-        if (_words is not null)
-            _state.Bits = _words.Read();
-    }
+    /// <summary>The active set from the bound words.</summary>
+    private void Pull() => _state.Bits = _words.Read();
 
-    /// <summary>The active set back to the bound words, when there are any and it changed.</summary>
+    /// <summary>The active set back to the bound words, when it changed.</summary>
     private void Push()
     {
-        if (_words is not null && _words.Read() != _state.Bits)
+        if (_words.Read() != _state.Bits)
             _words.Write(in _state.Bits);
     }
 

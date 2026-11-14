@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
@@ -310,18 +311,27 @@ public sealed class TFMovementRules : IMovementRules
         var chuteManager = _owners.ManagerOf(request.PlayerIndex);
         if (_hooks.Int(0, "parachute_attribute", chuteManager) != 0)
         {
-            var bits = state.Conditions();
-            if (bits.Has(TFCond.ParachuteActive))
+            // Stock stamps the pair through the player's one condition set
+            // (:1150-1151's AddCond, :1139's RemoveCond), which holds a
+            // permanent add over the next ConditionGameRulesThink (:1144's
+            // PERMANENT_CONDITION). Writing the carrier's words alone does
+            // not: that tick sweeps a bit whose tracked duration is absent,
+            // so the pair must go onto the player's set itself. Where the
+            // side answers no set (a bare chain, a fixture), the state's own
+            // words stand in for one, read-and-write alike (:1143).
+            var conditions = _owners.ConditionsOf(request.PlayerIndex)
+                             ?? new TFConditions(authoritative: true, new TFCarrierCondWords(state));
+
+            if (conditions.Has(TFCond.ParachuteActive))                          // :1139-1141
             {
-                bits.Clear(TFCond.ParachuteActive);                            // :1139-1141
+                conditions.Remove(TFCond.ParachuteActive);
             }
-            else if (_hooks.Int(0, "parachute_disabled", chuteManager) == 0   // :1146-1147
-                     && !bits.Has(TFCond.ParachuteDeployed))                   // :1148
+            else if (_hooks.Int(0, "parachute_disabled", chuteManager) == 0      // :1146-1147
+                     && !conditions.Has(TFCond.ParachuteDeployed))                // :1148
             {
-                bits.Set(TFCond.ParachuteActive);                              // :1150
-                bits.Set(TFCond.ParachuteDeployed);                            // :1151
+                conditions.Add(TFCond.ParachuteActive);                          // :1150
+                conditions.Add(TFCond.ParachuteDeployed);                        // :1151
             }
-            state.SetConditions(in bits);                                       // :1143
         }
 
         // The no-dash attribute walks the player's own manager, the dash count

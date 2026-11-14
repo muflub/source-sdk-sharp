@@ -19,7 +19,8 @@ namespace SourceSharp.Tests.Ui;
 public class TFBuildMenuTests
 {
     private static TFBuildMenu Screen(FakeTFBuildMenuSource source, FakeTFBuildMenuActions? actions = null)
-        => new(source, new TFBuildTile(new NoArt()), new NoArt(), actions);
+        => new(source, new TFBuildTile(new NoArt()), new NoArt(), actions ?? new FakeTFBuildMenuActions(),
+               new UnlockedGroups());
 
     /// <summary>The library that misses everything: the layout facts read
     /// the fallback, not the VPK art (the art arms are TFBuildMenuArtTests').</summary>

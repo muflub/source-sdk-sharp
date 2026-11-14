@@ -34,7 +34,7 @@ public sealed class TFLunchboxWeaponTests
         rig.Extra.Add(new TFPlayerAttributes(rig.Carriers, rig.Items, rig.Schema, rig.Engine));
         rig.As(cls);
 
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), rig.Items, rig.Engine,
                                               new NoEntities(), new TFPlayerStats(),
                                               new Combat.RigMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
@@ -50,17 +50,22 @@ public sealed class TFLunchboxWeaponTests
                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks());
         var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers,
                                         new TF2.Server.Voice.TFConceptSpeech(new TF2.Tests.Entities.FakeConceptRules(), rig.Carriers,
                                                                              new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
                                                                              new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()),
-                                                                             rig.Engine, new TF2.Tests.Entities.FakeRandom()),
+                                                                             rig.Engine, new TF2.Tests.Entities.FakeRandom(),
+                                                                             new LoadoutDeps.IdleRound(), new TF2.Tests.Weapons.FakeOwners(), rig.Log),
                                         owners, hooks,
                                         new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()));
+        IEntityDirectory entities = items is null ? new NoEntities() : items.Registry;
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, owners, hooks, taunts,
-                                            rig.Engine, rig.Engine, rig.Engine,
-                                            items is null ? new NoEntities() : items.Registry);
+                                            rig.Engine, rig.Engine, rig.Engine, entities,
+                                            DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
+                                            new Arsenal(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine,
+                                                        rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                        entities, rig.Engine, new DamageHitGroups()));
 
         if (item is not null)
             rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { [Lunchbox] = item });

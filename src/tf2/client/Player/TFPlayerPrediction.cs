@@ -88,15 +88,14 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     private readonly TFSpyCloakRegenRateConVar _cloakRegen;
     private readonly TFSpyInvisTimeConVar _invisTime;
     private readonly TFSpyInvisUnstealthTimeConVar _invisUnstealth;
-    private readonly TFDemomanChargeDrainTimeConVar? _chargeDrain;
-    private readonly TFDemomanChargeRegenRateConVar? _chargeRegen;
-    private readonly TFScoutEnergydrinkConsumeRateConVar? _hypeConsume;
+    private readonly TFDemomanChargeDrainTimeConVar _chargeDrain;
+    private readonly TFDemomanChargeRegenRateConVar _chargeRegen;
+    private readonly TFScoutEnergydrinkConsumeRateConVar _hypeConsume;
 
     // The client's item world, for the watch's own mode read: the same pair
-    // TFClientWeaponOwners walks, and the same null story — without them the
-    // press cannot name a Dead Ringer and the plain cloak stands.
-    private readonly ItemSchema? _itemSchema;
-    private readonly WeaponCatalog? _weaponCatalog;
+    // TFClientWeaponOwners walks.
+    private readonly ItemSchema _itemSchema;
+    private readonly WeaponCatalog _weaponCatalog;
     private readonly AttributeHooks _hooks = new();
 
     private readonly TFPlayerNetState _working = new();
@@ -151,10 +150,10 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
                               IClientStandalones standalones, IEngineEnvironment environment,
                               TFSpyCloakConsumeRateConVar cloakConsume, TFSpyCloakRegenRateConVar cloakRegen,
                               TFSpyInvisTimeConVar invisTime, TFSpyInvisUnstealthTimeConVar invisUnstealth,
-                              TFDemomanChargeDrainTimeConVar? chargeDrain = null,
-                              TFDemomanChargeRegenRateConVar? chargeRegen = null,
-                              TFScoutEnergydrinkConsumeRateConVar? hypeConsume = null,
-                              ItemSchema? itemSchema = null, WeaponCatalog? weaponCatalog = null)
+                              TFDemomanChargeDrainTimeConVar chargeDrain,
+                              TFDemomanChargeRegenRateConVar chargeRegen,
+                              TFScoutEnergydrinkConsumeRateConVar hypeConsume,
+                              ItemSchema itemSchema, WeaponCatalog weaponCatalog)
     {
         _log = log;
         _carriers = carriers;
@@ -596,7 +595,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
 
         if (_working.InCond(TFCond.ShieldCharge))                         // :6022
         {
-            float drain = _chargeDrain?.Value ?? 1.5f;                    // tf_demoman_charge_drain_time
+            float drain = _chargeDrain.Value;                             // tf_demoman_charge_drain_time
             _working.ChargeMeter -= dt * (100f / drain);                  // :6027-6028
             if (_working.ChargeMeter <= 0f)                               // :6029-6033
             {
@@ -606,7 +605,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         }
         else if (_working.ChargeMeter < 100f)                             // :6037
         {
-            float regen = MathF.Max(_chargeRegen?.Value ?? 8.3f, 1f);     // :6040-6052
+            float regen = MathF.Max(_chargeRegen.Value, 1f);              // :6040-6052
             _working.ChargeMeter = MathF.Min(100f, _working.ChargeMeter + dt * regen);  // :6053-6057
         }
     }
@@ -629,7 +628,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         if (!_working.InCond(TFCond.SodapopperHype))
             return;
 
-        _working.HypeMeter -= dt * (_hypeConsume?.Value ?? 12.5f) * 0.75f;    // :14073, no clamp
+        _working.HypeMeter -= dt * _hypeConsume.Value * 0.75f;    // :14073, no clamp
         if (_working.HypeMeter <= 0f)                                         // :14074
             _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.SodapopperHype));
     }

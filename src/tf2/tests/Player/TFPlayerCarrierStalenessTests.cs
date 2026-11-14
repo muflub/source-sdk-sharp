@@ -193,7 +193,7 @@ public sealed class TFPlayerCarrierStalenessTests
             Engine.Registry = Registry;
 
             var source = ComposedComponents.Source(Engine, Registry, Carriers, Log,
-                                                new TFPlayerItems(), new TFPlayerConditions(Carriers, recording),
+                                                new TFPlayerItems(), new TFPlayerConditions(Carriers, recording, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), recording),
                                                 new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), recording,
                                                 EconTestFiles.TrimmedSchema(), new PoollessGiver(), recording, recording,
                                                 recording, recording,

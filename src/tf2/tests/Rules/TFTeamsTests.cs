@@ -78,6 +78,16 @@ public sealed class TFTeamsTests
         => new(rig.Balance, rig.Roster, rig.Slot, new FixedState(state), new RandomSeeds(7), rig.Settings,
                roles ?? new TFTeamRoles());
 
+    /// <summary>The jointeam command over its required seams: the humans'-team
+    /// convar declared at its default and nobody a bot, unless handed in.</summary>
+    private static TFJoinTeamCommand JoinCommand(ITeams core, TFTeams policy, IUserMessageSender sink,
+                                                 MpHumansMustJoinTeamConVar? team = null, IBotPlayers? bots = null)
+    {
+        var convars = new ConVarRegistry(new StoredConVarBackend());
+        convars.RegisterTypes([typeof(MpHumansMustJoinTeamConVar)]);
+        return new(core, policy, sink, team ?? convars.Declared<MpHumansMustJoinTeamConVar>(), bots ?? new KnownBots());
+    }
+
     private static void Fill(RoundRig rig, int red, int blue)
     {
         for (int i = 0; i < red; i++)
@@ -403,7 +413,7 @@ public sealed class TFTeamsTests
     {
         var rig = new RoundRig();
         var core = new JoinRecorder();
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink());
+        var command = JoinCommand(core, Policy(rig), new PanelSink());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", [name]));
 
@@ -417,7 +427,7 @@ public sealed class TFTeamsTests
         Fill(rig, red: 2, blue: 1);
         var core = new JoinRecorder();
 
-        Assert.True(new TFJoinTeamCommand(core, Policy(rig), new PanelSink()).Handle(new EntityHandle(1u), "jointeam", ["auto"]));
+        Assert.True(JoinCommand(core, Policy(rig), new PanelSink()).Handle(new EntityHandle(1u), "jointeam", ["auto"]));
 
         Assert.Equal(new[] { (int)TFTeam.Blue }, core.Joined);
     }
@@ -428,7 +438,7 @@ public sealed class TFTeamsTests
         var rig = new RoundRig();
         var core = new JoinRecorder();
 
-        Assert.True(new TFJoinTeamCommand(core, Policy(rig), new PanelSink()).Handle(new EntityHandle(1u), "jointeam", ["unassigned"]));
+        Assert.True(JoinCommand(core, Policy(rig), new PanelSink()).Handle(new EntityHandle(1u), "jointeam", ["unassigned"]));
 
         Assert.Empty(core.Joined);
     }
@@ -438,7 +448,7 @@ public sealed class TFTeamsTests
     {
         var rig = new RoundRig();
         var core = new JoinRecorder();
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink());
+        var command = JoinCommand(core, Policy(rig), new PanelSink());
 
         Assert.False(command.Handle(new EntityHandle(1u), "jointeam", ["3"]));
         Assert.False(command.Handle(new EntityHandle(1u), "joinclass", ["heavy"]));
@@ -466,8 +476,8 @@ public sealed class TFTeamsTests
         var rig = new RoundRig();
         var core = new JoinRecorder();
         var convars = HumansTeam("blue");
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Declared<MpHumansMustJoinTeamConVar>());
+        var command = JoinCommand(core, Policy(rig), new PanelSink(),
+                                  convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["red"]));
 
@@ -480,8 +490,8 @@ public sealed class TFTeamsTests
         var rig = new RoundRig();
         var core = new JoinRecorder();
         var convars = HumansTeam("any");
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Declared<MpHumansMustJoinTeamConVar>());
+        var command = JoinCommand(core, Policy(rig), new PanelSink(),
+                                  convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["red"]));
 
@@ -497,8 +507,8 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder();
         var convars = HumansTeam("blue");
         var bots = new KnownBots();
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Declared<MpHumansMustJoinTeamConVar>(), bots);
+        var command = JoinCommand(core, Policy(rig), new PanelSink(),
+                                  convars.Declared<MpHumansMustJoinTeamConVar>(), bots);
         var player = new EntityHandle(1u);
         bots.Known.Add(player);
 
@@ -513,8 +523,8 @@ public sealed class TFTeamsTests
         var rig = new RoundRig();
         var core = new JoinRecorder();
         var convars = HumansTeam("red");
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Declared<MpHumansMustJoinTeamConVar>());
+        var command = JoinCommand(core, Policy(rig), new PanelSink(),
+                                  convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["spectate"]));
 
@@ -529,8 +539,8 @@ public sealed class TFTeamsTests
         var rig = new RoundRig();
         var core = new JoinRecorder { TeamAnswer = (int)TFTeam.Blue };
         var convars = HumansTeam("blue");
-        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
-                                            convars.Declared<MpHumansMustJoinTeamConVar>());
+        var command = JoinCommand(core, Policy(rig), new PanelSink(),
+                                  convars.Declared<MpHumansMustJoinTeamConVar>());
 
         Assert.True(command.Handle(new EntityHandle(1u), "jointeam", ["blue"]));
 
@@ -602,7 +612,7 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder();
         var sink = new RecordingSink();
 
-        Assert.True(new TFJoinTeamCommand(core, Policy(rig), sink).Handle(leaver, "jointeam", ["spectate"]));
+        Assert.True(JoinCommand(core, Policy(rig), sink).Handle(leaver, "jointeam", ["spectate"]));
 
         Assert.Empty(core.Joined);
         Assert.Equal(("TextMsg", leaver.EntryIndex), Assert.Single(sink.Sent));
@@ -617,7 +627,7 @@ public sealed class TFTeamsTests
         var core = new JoinRecorder();
         var sink = new RecordingSink();
 
-        Assert.True(new TFJoinTeamCommand(core, Policy(rig), sink).Handle(leaver, "jointeam", ["spectate"]));
+        Assert.True(JoinCommand(core, Policy(rig), sink).Handle(leaver, "jointeam", ["spectate"]));
 
         Assert.Equal(new[] { (int)TFTeam.Spectator }, core.Joined);
         Assert.DoesNotContain(sink.Sent, s => s.Key == "TextMsg");

@@ -94,8 +94,9 @@ public sealed class TFKnifeMirrorFacts
             Carrier.BindLocal();  // the replay's own buffer, as the prediction's working copy stands
             var files = new Served(WeaponFixtures.ShippedWithClasses());
             var scripts = new ClientScripts(Log, files);
+            var schema = new ClientItemSchema(files, Log);
             var catalog = new ClientCatalog(() => [new ClientScriptTypes(scripts, new ClientClassTable(Log, files),
-                                                                      new ClientItemSchema(files, Log))], Log);
+                                                                      schema)], Log);
             var ammo = new ClientAmmo(() => [new client::TF2.Shared.TFAmmoTypes()], Log);
             KnifeRow = catalog.IndexOf(Knife);
             RevolverRow = catalog.IndexOf(Revolver);
@@ -123,7 +124,9 @@ public sealed class TFKnifeMirrorFacts
                                             [new client::TF2.Shared.TFAttributeWeaponHook(new ClientHooks()),
                                              new ClientKnifeHook(data)]),
                                         new ClientBuckets(), new NoRandomCrits(),
-                                        new client::TF2.Client.Player.TFClientWeaponOwners(data, pair),
+                                        new client::TF2.Client.Player.TFClientWeaponOwners(data, pair,
+                                                                                           new client::TF2.Client.Player.TFClientPlayerResources(),
+                                                                                           schema, catalog, new EmptyArsenal(), Engine),
                                         NoEffects,
                                         new client::TF2.Client.Buildings.TFClientBuilderPlacement(),
                                         data,
@@ -146,6 +149,18 @@ public sealed class TFKnifeMirrorFacts
             public string? ReadGameFile(string path) => files.ReadGameFile(path);
             public byte[]? ReadGameFileBytes(string path) => files.ReadGameFileBytes(path);
             public byte[]? ReadFileOnPath(string path, string pathId) => files.ReadFileOnPath(path, pathId);
+        }
+
+        /// <summary>No hands: the mirror's owners ask nothing of the local arsenal.</summary>
+        private sealed class EmptyArsenal : client::SourceSharp.Client.ILocalArsenal
+        {
+            public bool TryGetActive(out string name, out int clip, out int reserve)
+            {
+                name = "";
+                clip = 0;
+                reserve = 0;
+                return false;
+            }
         }
     }
 

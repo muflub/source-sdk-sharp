@@ -38,8 +38,8 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile tile,
-                                   IUiTextureLibrary textures, ITFDisguiseMenuActions? actions = null,
-                                   ITFRenderGroups? groups = null)
+                                   IUiTextureLibrary textures, ITFDisguiseMenuActions actions,
+                                   ITFRenderGroups groups)
     : UiScreen
 {
     /// <summary>How many class tiles the menu holds.</summary>
@@ -48,7 +48,7 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
     private readonly ITFDisguiseMenuSource _source = source;
     private readonly TFDisguiseTile _tile = tile;
     private readonly IUiTextureLibrary _textures = textures;
-    private readonly ITFDisguiseMenuActions? _actions = actions;
+    private readonly ITFDisguiseMenuActions _actions = actions;
 
     public override string Name => "tf2disguisemenu";
 
@@ -58,7 +58,7 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
     /// (the PDA's OnDataChanged pair, tf_weapon_pda.cpp:157-180), stood
     /// down while the scoreboard locks the hud's global group
     /// (ITFRenderGroups, hud.cpp:288-303).</summary>
-    public override bool Visible => _source.DisguiseKitEquipped && groups?.GlobalLocked != true;
+    public override bool Visible => _source.DisguiseKitEquipped && groups.GlobalLocked != true;
 
     /// <summary>The team the tiles show, the raw TF number (2 RED, 3
     /// BLU): the enemy until toggled (:607-629, :569-582); no team yet
@@ -135,7 +135,7 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
             // team, in the interception's naming — the enemy -1, the
             // player's own -2 (c_tf_player.cpp:9637-9679).
             if (_tile.Clicked)
-                _actions?.Disguise(RemapClass(slot), blue ? (_source.Team == 3 ? -2 : -1)
+                _actions.Disguise(RemapClass(slot), blue ? (_source.Team == 3 ? -2 : -1)
                                                           : (_source.Team == 2 ? -2 : -1));
         }
 
@@ -209,7 +209,7 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
                                new TFDisguiseTileProps(RemapClass(slot), Icon(slot, blue), slot + 1))
                             .Size(Size.Du(TFDisguiseTile.Stock.WideDu), Size.Du(TFDisguiseTile.Stock.TallDu));
                         if (_tile.Clicked)
-                            _actions?.Disguise(RemapClass(slot), blue ? (_source.Team == 3 ? -2 : -1)
+                            _actions.Disguise(RemapClass(slot), blue ? (_source.Team == 3 ? -2 : -1)
                                                                       : (_source.Team == 2 ? -2 : -1));
                     }
                 }

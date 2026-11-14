@@ -54,14 +54,20 @@ namespace TF2.Server.Player;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one (the
+/// round state, waves, class limit and stalemate window through their own
+/// <c>SideService</c> rows, the rest through the engine's registration), so a
+/// missing one fails the composition by name instead of answering a default.
+/// </summary>
 public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers players, ITeamRoundRoster roster,
                                        TF2.Server.Entities.Rooms.ITFRespawnRooms rooms, TFClassTable classes, IUniformRandom random,
                                        IEngineGameEvents events, IUserMessageSender messages, IGameClock clock, ILog log,
-                                       ITeamRoundState? round = null, ITeamRespawnWaves? waves = null,
-                                       ITFClassLimitSettings? limits = null, ITFStalemateSettings? stalemate = null)
+                                       ITeamRoundState round, ITeamRespawnWaves waves,
+                                       ITFClassLimitSettings limits, ITFStalemateSettings stalemate)
     : IClientCommandHook, IOrderedHook
 {
-    private readonly ITFStalemateSettings? _stalemate = stalemate;
+    private readonly ITFStalemateSettings _stalemate = stalemate;
     public const string Verb = "joinclass";
 
     /// <summary>The stock event a class choice fires.</summary>
@@ -109,7 +115,7 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
 
     public Outcome JoinClass(EntityHandle player, string name)
     {
-        RoundState state = round?.State ?? RoundState.RoundRunning;
+        RoundState state = round.State;
         if (state == RoundState.GameOver)
             return Outcome.Refused;
 
@@ -136,20 +142,20 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
         // is tf_stalematechangeclasstime seconds from the stalemate's start.
         // An alive player outside it is refused with the window's length
         // (tf_player.cpp:6785-6795).
-        bool inChangeWindow = stalemate && !round!.InWaitingForPlayers
-                              && clock.Now < round.StalemateStartTime + (_stalemate?.ChangeClassTime ?? 20f);
+        bool inChangeWindow = stalemate && !round.InWaitingForPlayers
+                              && clock.Now < round.StalemateStartTime + _stalemate.ChangeClassTime;
         if (stalemate && alive && !inChangeWindow)
         {
             messages.Send(new TextMsg
             {
                 Destination = TFMessages.HudPrintTalk,
                 Text = TFMessages.StalemateCantChangeClass,
-                Params = [((int)(_stalemate?.ChangeClassTime ?? 20f)).ToString(System.Globalization.CultureInfo.InvariantCulture)],
+                Params = [((int)_stalemate.ChangeClassTime).ToString(System.Globalization.CultureInfo.InvariantCulture)],
             }, player: player.EntryIndex, reliable: true);
             return Outcome.Refused;
         }
 
-        bool shouldNotRespawn = state == RoundState.TeamWin && (int)(round?.WinningTeam ?? TFTeam.Unassigned) != team;
+        bool shouldNotRespawn = state == RoundState.TeamWin && (int)round.WinningTeam != team;
         if (shouldNotRespawn)
             desired.AllowInstantSpawn = false; // tf_player.cpp:6838-6842
         TFClass current = carriers.ClassOf(player);
@@ -201,7 +207,7 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
 
         bool inRespawnRoom = alive && !stalemate && rooms.InRespawnRoom(player, sameTeamOnly: true);
         bool deadInstantSpawn = !alive && !stalemate;
-        if (deadInstantSpawn && roster.DeathTime(player) > 0f && waves is not null)
+        if (deadInstantSpawn && roster.DeathTime(player) > 0f)
         {
             // "In death mode, don't allow class changes to force respawns ahead of respawn waves."
             deadInstantSpawn = clock.Now > waves.NextRespawnWave((TFTeam)team, player);
@@ -277,9 +283,9 @@ public sealed class TFJoinClassCommand(TFPlayerCarriers carriers, IEnginePlayers
     /// <summary><c>CTFGameRules::GetClassLimit</c> outside tournament mode.</summary>
     public int ClassLimit()
     {
-        if (limits?.Highlander == true)
+        if (limits.Highlander)
             return 1;
-        int limit = limits?.ClassLimit ?? 0;
+        int limit = limits.ClassLimit;
         return limit != 0 ? limit : NoClassLimit;
     }
 

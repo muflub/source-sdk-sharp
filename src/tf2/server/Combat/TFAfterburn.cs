@@ -73,10 +73,11 @@ public sealed class TFAfterburn : IPlayerComponent
         _owners = owners;
         _hooks = hooks;
         _carriers = carriers;
+        Burn = new(hooks);
     }
 
-    /// <summary>The burn state.</summary>
-    public TFBurn Burn { get; } = new();
+    /// <summary>The burn state, over the component's hooks.</summary>
+    public TFBurn Burn { get; }
 
     public int Order => 0;
 
@@ -98,11 +99,12 @@ public sealed class TFAfterburn : IPlayerComponent
 
         TFCondMask before = state.Conditions();
         TFCondMask after = Burn.Ignite(now, _enginePlayers.IsAlive(_player), state.Class(), before,
-                                       attacker, weapon, weaponName, burningTime, _hooks,
+                                       attacker, weapon, weaponName,
                                        // The immune arm's walks, stock's three in its order
                                        // (tf_player_shared.cpp:6672-6720).
                                        ImmunitySources(state),
-                                       attacker != EntityHandle.None ? _owners.ItemOf(attacker.EntryIndex, weaponName) : null);
+                                       attacker != EntityHandle.None ? _owners.ItemOf(attacker.EntryIndex, weaponName) : null,
+                                       burningTime);
         foreach (TFCond cond in TFCondMask.Added(before, after))
             _conditions.Add(_player, cond,
                 // The debuff's time is the weapon's initial afterburn, taken
@@ -171,7 +173,7 @@ public sealed class TFAfterburn : IPlayerComponent
         if (!_enginePlayers.IsAlive(_player))
             return;
 
-        var think = Burn.Think(now, frametime, state.Class(), conditions, WaterLevel(), _hooks,
+        var think = Burn.Think(now, frametime, state.Class(), conditions, WaterLevel(),
                                // The burn weapon's item, the tick arm's walk
                                // (tf_player_shared.cpp:2898); the attacker gone, none.
                                Burn.Attacker != EntityHandle.None

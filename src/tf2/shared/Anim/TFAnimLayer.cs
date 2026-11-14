@@ -83,19 +83,24 @@ public sealed class TFAnimLayer : IAnimStateLayer
     private readonly TFClassTable _classes;
     private readonly ITFPlayerData _players;
     private readonly ITFAnimWeapons _weapons;
-    private TFAnimHookChain? _hooks;
+    private readonly TFAnimHookChain _hooks;
     private readonly ConditionalWeakTable<IAnimTarget, PerPlayerAnim> _book = new();
 
-    public TFAnimLayer(TFClassTable classes, ITFPlayerData players, ITFAnimWeapons weapons, TFAnimHookChain? hooks = null)
+    /// <summary>
+    /// Every dependency is injected: the composition registers the hook chain
+    /// beside the layer's other components, so a missing one fails the
+    /// composition by name instead of answering from a null branch.
+    /// </summary>
+    public TFAnimLayer(TFClassTable classes, ITFPlayerData players, ITFAnimWeapons weapons, TFAnimHookChain hooks)
     {
         _classes = classes ?? throw new ArgumentNullException(nameof(classes));
         _players = players ?? throw new ArgumentNullException(nameof(players));
         _weapons = weapons ?? throw new ArgumentNullException(nameof(weapons));
-        _hooks = hooks;   // null until first ask: no composition means the no-hook chain
+        _hooks = hooks;
     }
 
-    /// <summary>The hook chain consulted before every decision; absent composition is the empty chain.</summary>
-    private TFAnimHookChain Hooks => _hooks ??= TFAnimHookChain.Of();
+    /// <summary>The hook chain consulted before every decision, handed at construction.</summary>
+    private TFAnimHookChain Hooks => _hooks;
 
     /// <summary>The hook context for this frame's player: the two reads the hook sees are the layer's own.</summary>
     private TFAnimHookContext HookContext(AnimStateContext context, TFClass playerClass) =>

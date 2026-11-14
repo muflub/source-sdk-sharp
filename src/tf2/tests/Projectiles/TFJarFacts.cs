@@ -248,7 +248,8 @@ public sealed class TFJarFacts
     {
         var (rig, jar) = LandedJar();
         EnemyInTheOpen(rig);
-        var conditions = new TFConditions(authoritative: true);
+        var conditions = new TFConditions(authoritative: true,
+                         new TFCondHolder());
         conditions.ReceiveBits(TFCondMask.Of([TFCond.Invulnerable]));
         rig.Wet.States[ProjectileRig.Victim.EntryIndex] = conditions;
 
@@ -262,7 +263,8 @@ public sealed class TFJarFacts
     {
         var (rig, jar) = LandedJar();
         EnemyInTheOpen(rig);
-        var conditions = new TFConditions(authoritative: true);
+        var conditions = new TFConditions(authoritative: true,
+                         new TFCondHolder());
         conditions.ReceiveBits(TFCondMask.Of([TFCond.Phase]));
         rig.Wet.States[ProjectileRig.Victim.EntryIndex] = conditions;
 

@@ -68,9 +68,10 @@ public sealed class TFShieldChargeTests
             Player.Engine.Returns("Networking.EntityGetState.moveType", default(MoveType));
             if (replayClock)
                 Player.Engine.Returns("Environment.Globals", new Globals(PredictionDeps.SharedGlobals()));
-            Conditions = new(Player.Carriers, Player.Engine);
-            Ticker = new(Player.Carriers, Conditions, Player.Engine);
-            var wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine, Player.Engine, Player.Log);
+            Conditions = new(Player.Carriers, Player.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), Player.Engine);
+            Ticker = new(Player.Carriers, Conditions, Player.Engine, new ShieldHealing());
+            var wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine, Player.Engine, Player.Log,
+                                            new TF2.Tests.Player.TFWearablesTests.RecordingSkins(), Player.Items);
             Shields = new(Player.Carriers, Directory, Player.Schema, Player.Engine, Player.Engine,
                           Player.Engine, Player.Engine, Player.Engine,
                           new ScreenEffects(Player.Engine, Player.Engine, Player.Engine, Player.Engine),
@@ -78,12 +79,16 @@ public sealed class TFShieldChargeTests
                           new AttributeHooks(), new NoTFWeaponOwners(),
                           new TFMovementFixtures.RoundAt(TF2.Shared.Rules.RoundState.RoundRunning),
                           new TF2.Server.Combat.TFDamageScopes());
-            var end = new TFShieldChargeEnd(Player.Carriers, Shields, null, Player.Engine);
+            var end = new TFShieldChargeEnd(Player.Carriers, Shields, new TF2.Shared.Econ.AttributeHooks(), Player.Engine);
             Meter = replayClock
-                ? new(Player.Carriers, Conditions, Player.Items, null, null, null, Player.Engine)
-                : new(Player.Carriers, Conditions, Player.Items, null, null, null);
+                ? new(Player.Carriers, Conditions, Player.Items, new TF2.Shared.Econ.AttributeHooks(),
+                      DeclaredConVars.Fresh<TFDemomanChargeDrainTimeConVar>(),
+                      DeclaredConVars.Fresh<TFDemomanChargeRegenRateConVar>(), Player.Engine)
+                : new TFShieldChargeMeter(Player.Carriers, Conditions, Player.Items, new TF2.Shared.Econ.AttributeHooks(),
+                      DeclaredConVars.Fresh<TFDemomanChargeDrainTimeConVar>(),
+                      DeclaredConVars.Fresh<TFDemomanChargeRegenRateConVar>(), new NoGlobalsEnv());
             Player.Extra.AddRange([Ticker, wearables, end, Meter]);
-            Skill = new(Player.Carriers, Player.Engine, new IdleSkillSpies(), new TFStickyTray(),
+            Skill = new(Player.Carriers, Player.Engine, new IdleSkillSpies(), new TFStickyTray(Player.Carriers),
                         new IdleSkillPickup(), new NoTFWeaponOwners(), Shields);
 
             // The class first: the attach window's create is the carrier's, so
@@ -112,6 +117,17 @@ public sealed class TFShieldChargeTests
             Conditions.Add(PlayerRig.Player, TFCond.ShieldCharge);
             Player.State.ChargeMeter = meter;
         }
+    }
+
+    /// <summary>
+    /// No engine globals: the slice ask stays unavailable, so the frame is one
+    /// add — the shape the meter's no-engine caller stood for.
+    /// </summary>
+    private sealed class NoGlobalsEnv : IEngineEnvironment
+    {
+        public nint GetInterface(string name) => 0;
+
+        public Globals Globals => default;
     }
 
     /// <summary>The wearable entities the rig's creates handed out, by handle.</summary>
@@ -324,5 +340,26 @@ public sealed class TFShieldChargeTests
         var mini = world.Effects.Swings[^1];
         Assert.False(mini.Shot.Critical);
         Assert.True(mini.Shot.Mini);
+    }
+
+    /// <summary>The healing the ticker's countdown asks: nobody heals here, no healer ever.</summary>
+    private sealed class ShieldHealing : TF2.Server.Medigun.ITFPlayerHealing
+    {
+        public int NumHealers(int patientIndex) => 0;
+        public System.Collections.Generic.IEnumerable<int> HealerIndexes(int patientIndex) => [];
+
+        public void Heal(EntityHandle patient, EntityHandle healer, float healRate, float now,
+                         float overhealBonus = TF2.Server.Medigun.ITFPlayerHealing.StandardOverhealBonus,
+                         float decayMult = TF2.Server.Medigun.ITFPlayerHealing.StandardOverhealDecayMult,
+                         bool dispenserHeal = false, int scorer = -1) { }
+        public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => 0f;
+        public void RecalculateChargeEffects(EntityHandle player, float now) { }
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) { }
+        public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => 0;
+        public bool CanReceiveMedigunChargeEffect(EntityHandle player) => false;
+        public void RemoveChargeEffect(EntityHandle player) { }
+        public void TestAndExpireChargeEffect(EntityHandle player, float now) { }
+        public void TickPatient(EntityHandle patient, float now, float frametime) { }
+        public void Extinguished(EntityHandle patient) { }
     }
 }

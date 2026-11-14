@@ -137,7 +137,7 @@ public sealed class ConVarTeamRoundSettings(
 [SideService(Side.Server, As = [typeof(ITeamRoundRoster)])]
 public sealed class CoreTeamRoundRoster(ITeams teams, IEnginePlayers players, IEngineEntities entities,
                                         IPlayerDirectory records, IEntityDirectory directory, Observers observers,
-                                        PlayerNames? names = null, ITeamRoundReadiness? readiness = null)
+                                        PlayerNames names, ITeamRoundReadiness readiness)
     : ITeamRoundRoster
 {
     public IReadOnlyList<EntityHandle> Players(TFTeam team) => teams.Players((int)team);
@@ -153,7 +153,9 @@ public sealed class CoreTeamRoundRoster(ITeams teams, IEnginePlayers players, IE
     public float DeathTime(EntityHandle player) => records.Knows(player) ? records[player].DiedAt : -1f;
 
     public bool IsReadyToPlay(EntityHandle player)
-        => TeamOf(player) is TFTeam.Red or TFTeam.Blue && (readiness?.HasChosenClass(player) ?? true);
+    {
+        return TeamOf(player) is TFTeam.Red or TFTeam.Blue && readiness.HasChosenClass(player);
+    }
 
     public void ForceRespawn(EntityHandle player)
     {
@@ -180,7 +182,7 @@ public sealed class CoreTeamRoundRoster(ITeams teams, IEnginePlayers players, IE
         return TeamOf(player) == team;
     }
 
-    public string Name(EntityHandle player) => names?.NameOf(entities.GetIndex(player)) ?? string.Empty;
+    public string Name(EntityHandle player) => names.NameOf(entities.GetIndex(player));
 
     public int EntIndex(EntityHandle player) => entities.GetIndex(player);
 }
@@ -434,7 +436,7 @@ public sealed class CoreRoundWorld(IMapCleanup cleanup, EntityDirectory live, IE
             return;
         }
 
-        foreach (TFBaseObject building in buildings.OwnedBy().ToList())
+        foreach (TFBaseObject building in buildings.OwnedBy(null, null, null).ToList())
             building.DestroyObject();
     }
 

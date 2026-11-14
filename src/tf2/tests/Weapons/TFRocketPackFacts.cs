@@ -44,7 +44,8 @@ public sealed class TFRocketPackFacts
     {
         var world = new TFWeaponWorld(extras: true);
         world.Arms.AimAnswers = true;
-        world.Owners.Conditions[TFWeaponWorld.Owner] = new TFConditions(authoritative: true);
+        world.Owners.Conditions[TFWeaponWorld.Owner] = new TFConditions(authoritative: true,
+                                         new TFCondHolder());
         carrier = new PlayerNetState();
         carrier.BindLocal();
         world.Arms.Carrier = carrier;
@@ -240,7 +241,8 @@ public sealed class TFRocketPackFacts
     public void The_server_second_launch_fires_after_the_landing()
     {
         var server = new ServerPress();
-        server.Weapons.Owners.Conditions[TFWeaponWorld.Owner] = new TFConditions(authoritative: true);
+        server.Weapons.Owners.Conditions[TFWeaponWorld.Owner] = new TFConditions(authoritative: true,
+                                         new TFCondHolder());
 
         Assert.True(server.Arsenal.GiveWeapon(PlayerRig.Player, "tf_weapon_rocketpack"),
                     "the thruster is taken and deploys itself");

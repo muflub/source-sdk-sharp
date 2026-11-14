@@ -47,19 +47,13 @@ namespace TF2.Client.Entities;
 public sealed class ClientTFWearable : ClientStandaloneEntity
 {
     private readonly IRenderPolicyWishes _policy;
-    private readonly IEngineHud? _screen;
-    private readonly TFClientCarriers? _carriers;
-    private readonly TFClientPlayerResources? _resources;
-
-    /// <summary>A wearable with no policy to ask and no viewer to read (a test's).</summary>
-    public ClientTFWearable(IEngineEntityRender render)
-        : this(render, new NoRenderPolicyWishes())
-    {
-    }
+    private readonly IEngineHud _screen;
+    private readonly TFClientCarriers _carriers;
+    private readonly TFClientPlayerResources _resources;
 
     [Inject]
-    public ClientTFWearable(IEngineEntityRender render, IRenderPolicyWishes policy, IEngineHud? screen = null,
-                            TFClientCarriers? carriers = null, TFClientPlayerResources? resources = null)
+    public ClientTFWearable(IEngineEntityRender render, IRenderPolicyWishes policy, IEngineHud screen,
+                            TFClientCarriers carriers, TFClientPlayerResources resources)
         : base(render)
     {
         _policy = policy;
@@ -117,15 +111,12 @@ public sealed class ClientTFWearable : ClientStandaloneEntity
 
         // Stock's first-person arm: the owner's own world copy hides while the
         // camera is inside them, per decode like the carried weapon's wish.
-        if (_screen is not null)
-        {
-            bool wish = _screen.LocalPlayerIndex > 0 && State.OwnerIndex == _screen.LocalPlayerIndex;
+        bool wish = _screen.LocalPlayerIndex > 0 && State.OwnerIndex == _screen.LocalPlayerIndex;
 
-            if (wish != _wishedOwnerSeen)
-            {
-                _wishedOwnerSeen = wish;
-                _policy.WantOwnerSeen(Handle, wish);
-            }
+        if (wish != _wishedOwnerSeen)
+        {
+            _wishedOwnerSeen = wish;
+            _policy.WantOwnerSeen(Handle, wish);
         }
     }
 
@@ -140,7 +131,7 @@ public sealed class ClientTFWearable : ClientStandaloneEntity
     {
         int owner = State.OwnerIndex;
 
-        if (_screen is null || _carriers is null || _resources?.Live is not { } resources)
+        if (_resources.Live is not { } resources)
             return State.Skin;
 
         int local = _screen.LocalPlayerIndex;
