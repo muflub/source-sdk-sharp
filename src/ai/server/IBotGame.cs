@@ -5,8 +5,8 @@ namespace SourceSharp.Ai.Server;
 /// <summary>
 /// What the generic server binding asks of the game its bots play
 /// (plan_bots_teams_tf2 C.2): the decider a brain runs, the game's weapon and
-/// map knowledge, the USERINFO a bot joins with, and which weapon is the
-/// thrown grenade. The binding of one game (HL2MP's, later TF2's) registers
+/// map knowledge, the USERINFO a bot joins with, which weapon is the
+/// thrown grenade, and what its client draws past the engine (<see cref="View"/>). The binding of one game (HL2MP's, later TF2's) registers
 /// the one implementation; nothing else in the server binding names a game.
 /// </summary>
 public interface IBotGame
@@ -38,4 +38,11 @@ public interface IBotGame
 
     /// <summary>Whether <paramref name="weapon"/> is thrown rather than aimed: its shot is no aimed shot of a hit rate.</summary>
     bool Thrown(in WeaponType weapon);
+
+    /// <summary>
+    /// What the game's client draws past the engine's (plan_bots_teams_tf2 C.3): the HUD's game
+    /// rows, a player as the bot's client renders them, the things that are not players, the
+    /// objectives. A game that draws nothing more answers a <see cref="SourceSharp.Ai.Server.Senses.PlainBotGameView"/>.
+    /// </summary>
+    SourceSharp.Ai.Server.Senses.IBotGameView View { get; }
 }

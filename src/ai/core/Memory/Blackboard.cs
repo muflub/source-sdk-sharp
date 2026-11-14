@@ -75,6 +75,12 @@ public sealed class KnownActor
 
     public int BoardClass { get; internal set; }
 
+    /// <summary>The class the bot's client last drew it as (<see cref="ActorFacts.Class"/>: a disguise's, when it wore one); 0 before it was seen, and for a game without classes.</summary>
+    public int ClassSeen { get; internal set; }
+
+    /// <summary>The class the bot takes it for: as last drawn, else as its scoreboard row shows; 0 unknown.</summary>
+    public int ClassBelieved => ClassSeen != 0 ? ClassSeen : BoardClass;
+
     public bool Dead { get; internal set; }
 
     /// <summary>
@@ -115,6 +121,18 @@ public sealed class KnownActor
     /// <summary>Where it is now while unseen (§5.3.1), or null with no nav graph.</summary>
     public PositionPredictor? Where { get; internal set; }
 
+    /// <summary>
+    /// Where the bot believes it is while unseen (§5.3.1): the likeliest cell of its belief over
+    /// <paramref name="graph"/> (the one <see cref="Where"/> spreads on), else where it was last
+    /// seen or heard, whichever is the later.
+    /// </summary>
+    public AiVector BelievedAt(NavGraph? graph)
+    {
+        if (Where is { Active: true } w && graph is not null && w.ArgMax.IsValid)
+            return graph.Cell(w.ArgMax).Centre;
+        return LastHeardTick > LastSeenTick ? LastHeardPos : LastSeenPos;
+    }
+
     /// <summary>The last perception of any kind.</summary>
     public Tick LastPerceivedTick => LastSeenTick > LastHeardTick ? LastSeenTick : LastHeardTick;
 
@@ -142,6 +160,7 @@ public sealed class KnownActor
         Confidence = 0f;
         HealthEstimate = 100;
         WeaponSeen = -1;
+        ClassSeen = 0;
         LastKnownCell = CellId.None;
         TimesEngaged = 0;
         DamageTakenFrom = 0f;

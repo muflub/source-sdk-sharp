@@ -18,7 +18,7 @@ public enum ClearanceClass : byte
     Crouch = 1,
 }
 
-/// <summary>How an edge is crossed (§6.2): the six types, each a different usercmd.</summary>
+/// <summary>How an edge is crossed (§6.2): each type a different usercmd.</summary>
 public enum NavEdgeType : byte
 {
     Walk = 0,
@@ -27,6 +27,27 @@ public enum NavEdgeType : byte
     Drop,
     Ladder,
     Door,
+
+    /// <summary>
+    /// A rise past the crouch jump that a second jump in the air reaches (TF's
+    /// Scout, plan_bots_teams_tf2 C.7): taken only by an agent whose
+    /// <see cref="NavObstacleState.Reach"/> has <see cref="JumpReach.Double"/>.
+    /// </summary>
+    DoubleJump,
+}
+
+/// <summary>
+/// The jump reaches beyond a plain and a crouched jump that an agent has
+/// (plan_bots_teams_tf2 C.7): a class's movement, not its body, so one graph
+/// serves every class and each agent's searches leave out the edges it cannot take.
+/// </summary>
+[Flags]
+public enum JumpReach : byte
+{
+    None = 0,
+
+    /// <summary>A second jump in the air (<see cref="NavEdgeType.DoubleJump"/>).</summary>
+    Double = 1 << 0,
 }
 
 /// <summary>A cell's flags beyond its clearance.</summary>
@@ -254,6 +275,7 @@ public sealed class NavGraph
     /// </summary>
     public bool Admits(in NavEdge e, ClearanceClass cls, NavObstacleState obstacles)
         => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls)
+           && (e.Type != NavEdgeType.DoubleJump || (obstacles.Reach & JumpReach.Double) != 0)
            && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle) || (obstacles.OpenDoors && e.Type == NavEdgeType.Door));
 
     /// <summary>
@@ -409,8 +431,17 @@ public sealed class NavObstacleState
         set => _cells = value;
     }
 
+    /// <summary>
+    /// The cells closed to this state's owner's team alone (a volume solid to every team but
+    /// another's: TF's respawn room visualizers), or null for none. Kept by every copy: a shove
+    /// moves no such volume.
+    /// </summary>
+    public NavCellBlocks? TeamCells { get; set; }
+
     /// <summary>Whether no route goes through <paramref name="cell"/>.</summary>
-    public bool CellBlocked(int cell) => Cells is { } cells && cells.State(cell) == NavCellBlocks.Blocked;
+    public bool CellBlocked(int cell)
+        => (Cells is { } cells && cells.State(cell) == NavCellBlocks.Blocked)
+           || (TeamCells is { } team && team.State(cell) == NavCellBlocks.Blocked);
 
     /// <summary>What a step into <paramref name="cell"/> costs over the edge's own.</summary>
     public float CellExtra(int cell) => Cells?.State(cell) switch
@@ -434,6 +465,13 @@ public sealed class NavObstacleState
     public bool OpenDoors { get; set; }
 
     public void Set(int obstacle, bool blocking) => _blocking[obstacle] = blocking;
+
+    /// <summary>
+    /// The jump reaches this state's owner has (its class's movement): an edge of a
+    /// reach it lacks is no way for it. <see cref="JumpReach.None"/> unless the game's
+    /// binding says otherwise, which every HL2MP player is.
+    /// </summary>
+    public JumpReach Reach { get; set; }
 
     /// <summary>Says a player can get through <paramref name="obstacle"/> by walking into it: a prop that moves when pushed.</summary>
     public void SetShovable(int obstacle) => (_shovable ??= new bool[_blocking.Length])[obstacle] = true;
@@ -463,13 +501,15 @@ public sealed class NavObstacleState
         other._blocking.CopyTo(_blocking, 0);
         _shovable = other._shovable;
         OpenDoors = other.OpenDoors;
+        Reach = other.Reach;
+        TeamCells = other.TeamCells;
         _cells = other.Cells;
     }
 
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {
-        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors };
+        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, TeamCells = TeamCells };
         _blocking.CopyTo(copy._blocking, 0);
         copy._shovable = _shovable;
         copy._cells = Cells;

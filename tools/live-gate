@@ -9851,6 +9851,234 @@ def step_ss_ai_sight(g):
     g.api.cmd("ai_think 1")
 
 
+#-- the server builds a .nav3d (plan_bots_teams_tf2 Part E, E.7) ------------
+# Four steps on ss_ai_routes, in this order: nav-build moves its shipped
+# .nav3d aside and changes to it, so the server builds one into the cache dir
+# while a bot added before the build lands waits and then joins and walks;
+# nav-cache changes to it again and finds the build (the second map load);
+# nav-corrupt truncates the build, then flips one byte of it, and each time a
+# reload rebuilds it; nav-fail plants a bsp with no world and asks for its
+# build ahead (ai_nav_prebuild: the engine could not load such a map), and the
+# refusal names why while the dev API still answers. The shipped file is put
+# back in a finally. The machine's load is stated in each report line.
+NAV_BUILD_MAP = "ss_ai_routes"
+NAV_FAIL_MAP = "ss_nav_fail"
+
+
+def nav_cache_files(maps_dir, name):
+    """The server's builds of `name` in the cache dir: maps/ai-nav/<name>-<sha16>.nav3d."""
+    d = os.path.join(maps_dir, "ai-nav")
+    if not os.path.isdir(d):
+        return []
+    pat = re.compile(r"^%s-[0-9a-f]{16}\.nav3d$" % re.escape(name))
+    return sorted(os.path.join(d, f) for f in os.listdir(d) if pat.match(f))
+
+
+def nav_truncate(path):
+    """Cuts a file to its first half, as a crash mid-write would leave it (a rename never does)."""
+    with open(path, "rb") as f:
+        data = f.read()
+    with open(path, "wb") as f:
+        f.write(data[:len(data) // 2])
+    return len(data), len(data) // 2
+
+
+def nav_flip(path, at=None):
+    """Flips one byte inside the file's stored image (past the 24-byte envelope)."""
+    with open(path, "rb") as f:
+        data = bytearray(f.read())
+    at = at if at is not None else 24 + (len(data) - 24) // 3
+    data[at] ^= 0x5A
+    with open(path, "wb") as f:
+        f.write(bytes(data))
+    return at
+
+
+def nav_fail_bsp():
+    """A VBSP 20 holding an entity lump and nothing a build can stand on: no world model."""
+    header = 4 + 4 + 64 * 16 + 4
+    text = b'{\n"classname" "worldspawn"\n}\n\0'
+    other = bytes([1, 2, 3, 4, 5, 6, 7, 8])
+    bsp = bytearray(header + len(text) + len(other))
+    bsp[0:4] = b"VBSP"
+    bsp[4:8] = (20).to_bytes(4, "little")
+    bsp[8:12] = header.to_bytes(4, "little")
+    bsp[12:16] = len(text).to_bytes(4, "little")
+    bsp[24:28] = (header + len(text)).to_bytes(4, "little")
+    bsp[28:32] = len(other).to_bytes(4, "little")
+    bsp[header:header + len(text)] = text
+    bsp[header + len(text):] = other
+    return bytes(bsp)
+
+
+def box_load():
+    try:
+        return "load %.1f/%.1f/%.1f on %d cores" % (os.getloadavg() + (os.cpu_count() or 0,))
+    except OSError:
+        return "load unknown"
+
+
+def nav_change(g, name, seconds=180.0):
+    """Changes to `name` and waits for its level and the client's rejoin; True when both came."""
+    g.api.cmd("map %s" % name)
+    up = g.api.wait_for(lambda: g.api.player(g.scen["playerClass"]), seconds, 1.0)
+    return bool(up)
+
+
+def nav_built(g, name, before, seconds=120.0):
+    """Waits for the build's `(built)` line after `before` lines; the seconds it took, or None."""
+    start = time.monotonic()
+    got = g.api.wait_for(lambda: len([l for l in g.console_lines("navigation for %s:" % name) if "(built)" in l]) > before or None,
+                         seconds, 1.0)
+    return time.monotonic() - start if got else None
+
+
+def nav_step_ready(g):
+    if ai_counters(g) is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return None
+    maps = os.path.join(MOD_DIR, "maps")
+    if not os.path.exists(os.path.join(maps, NAV_BUILD_MAP + ".bsp")):
+        g.skip("this tree has no %s.bsp: `make map MAP=%s` builds it" % (NAV_BUILD_MAP, NAV_BUILD_MAP))
+        return None
+    return maps
+
+
+def nav_home(g):
+    g.api.cmd("ai_bot_kick all")
+    home = g.scen["map"]
+    g.api.cmd("map %s" % home)
+    back = g.api.wait_map(g.scen["entities"], 180.0)
+    player = g.api.wait_for(lambda: g.api.player(g.scen["playerClass"]), 60.0)
+    g.check(bool(back) and bool(player), "back on %s, the client rejoined" % home)
+
+
+def step_nav_build(g):
+    """With its .nav3d moved aside, ss_ai_routes has one built in the server's
+    process: `building ... 100 %` on the console, the file in the cache dir,
+    a bot added before it landed joins and walks, under 60 s, the frames in
+    budget."""
+    maps = nav_step_ready(g)
+    if maps is None:
+        return
+    shipped = os.path.join(maps, NAV_BUILD_MAP + ".nav3d")
+    aside = shipped + ".gate-aside"
+    old = nav_cache_files(maps, NAV_BUILD_MAP)
+    try:
+        if os.path.exists(shipped):
+            os.replace(shipped, aside)
+        for f in old:
+            os.replace(f, f + ".gate-aside")
+        g.cheats()
+        before = len([l for l in g.console_lines("navigation for %s:" % NAV_BUILD_MAP) if "(built)" in l])
+        up = nav_change(g, NAV_BUILD_MAP)
+        g.check(up, "%s loaded with no .nav3d beside it" % NAV_BUILD_MAP)
+        if not up:
+            return
+        c = ai_counters(g) or {}
+        g.api.cmd("sv_cheats 1")
+        g.api.cmd("ai_bot_add Builder normal")
+        took = nav_built(g, NAV_BUILD_MAP, before)
+        g.check(took is not None and took < 60.0, "the server built %s's nav in %s s (under 60; %s)"
+                % (NAV_BUILD_MAP, "%.1f" % took if took is not None else "no", box_load()))
+        g.check(bool(g.last_console_line("navigation for %s: building 100 %%" % NAV_BUILD_MAP)), "the console said building ... 100 %")
+        g.check(bool(c.get("nav.building")) or took is not None, "the level said it was building (%s)" % c.get("nav.refusal"))
+        g.check(len(nav_cache_files(maps, NAV_BUILD_MAP)) == 1, "the file is in maps/ai-nav (%s)" % nav_cache_files(maps, NAV_BUILD_MAP))
+        slot = g.api.wait_for(lambda: ai_slot(g, "Builder"), 30.0)
+        g.check(bool(slot), "the bot added while it built joined once it landed")
+        if slot:
+            at = lambda: [e["origin"] for e in g.api.ents(g.scen["playerClass"]) if e["index"] == slot]
+            first = at()
+            g.api.wait_ticks(660)
+            later = at()
+            moved = first and later and math.dist(first[0], later[0]) > 64.0
+            g.check(bool(moved), "and walks (%s -> %s)" % (first, later))
+        c = ai_counters(g) or {}
+        g.say("    frames during and after the build: p50 %s us, p99 %s us, max %s us (%s)"
+              % (c.get("ai.frame.us.p50"), c.get("ai.frame.us.p99"), c.get("ai.frame.us.max"), box_load()))
+    finally:
+        if os.path.exists(aside):
+            os.replace(aside, shipped)
+        for f in old:
+            if os.path.exists(f + ".gate-aside"):
+                os.replace(f + ".gate-aside", f)
+
+
+def step_nav_cache(g):
+    """A second change to ss_ai_routes with its nav still aside finds the
+    server's build in the cache dir: `(cached)`, no `building` line (the
+    second map load)."""
+    maps = nav_step_ready(g)
+    if maps is None:
+        return
+    shipped = os.path.join(maps, NAV_BUILD_MAP + ".nav3d")
+    aside = shipped + ".gate-aside"
+    try:
+        if os.path.exists(shipped):
+            os.replace(shipped, aside)
+        g.check(len(nav_cache_files(maps, NAV_BUILD_MAP)) == 1, "nav-build left its build in maps/ai-nav")
+        building = len(g.console_lines("navigation for %s: building" % NAV_BUILD_MAP))
+        up = nav_change(g, NAV_BUILD_MAP)
+        g.check(up, "%s loaded again" % NAV_BUILD_MAP)
+        line = g.last_console_line("navigation for %s:" % NAV_BUILD_MAP) or ""
+        g.check("(cached)" in line, "it read the build from the cache: %s" % line)
+        g.check(len(g.console_lines("navigation for %s: building" % NAV_BUILD_MAP)) == building, "and built nothing")
+    finally:
+        if os.path.exists(aside):
+            os.replace(aside, shipped)
+        nav_home(g)
+
+
+def step_nav_corrupt(g):
+    """The server's build cut to half, and then one byte flipped in it: each
+    time the next load rebuilds it rather than trusting it."""
+    maps = nav_step_ready(g)
+    if maps is None:
+        return
+    shipped = os.path.join(maps, NAV_BUILD_MAP + ".nav3d")
+    aside = shipped + ".gate-aside"
+    try:
+        if os.path.exists(shipped):
+            os.replace(shipped, aside)
+        for label, spoil in (("cut to half", nav_truncate), ("one byte flipped", nav_flip)):
+            built = nav_cache_files(maps, NAV_BUILD_MAP)
+            g.check(len(built) == 1, "a build to spoil (%s)" % built)
+            if not built:
+                return
+            spoil(built[0])
+            before = len([l for l in g.console_lines("navigation for %s:" % NAV_BUILD_MAP) if "(built)" in l])
+            up = nav_change(g, NAV_BUILD_MAP)
+            took = up and nav_built(g, NAV_BUILD_MAP, before)
+            g.check(bool(took), "the build %s was rebuilt (%s s; %s)" % (label, "%.1f" % took if took else "no", box_load()))
+    finally:
+        if os.path.exists(aside):
+            os.replace(aside, shipped)
+        nav_home(g)
+
+
+def step_nav_fail(g):
+    """A bsp with no world, planted and built ahead: the refusal names the
+    build's reason, and the server still answers the dev API."""
+    if ai_counters(g) is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    planted = os.path.join(MOD_DIR, "maps", NAV_FAIL_MAP + ".bsp")
+    try:
+        with open(planted, "wb") as f:
+            f.write(nav_fail_bsp())
+        before = len(g.console_lines("no navigation for %s: build failed:" % NAV_FAIL_MAP))
+        g.api.cmd("ai_nav_prebuild %s" % NAV_FAIL_MAP)
+        got = g.api.wait_for(lambda: len(g.console_lines("no navigation for %s: build failed:" % NAV_FAIL_MAP)) > before or None, 60.0, 1.0)
+        line = g.last_console_line("no navigation for %s: build failed:" % NAV_FAIL_MAP) or ""
+        g.check(bool(got) and "no world model" in line, "the build was refused by name: %s" % line)
+        g.check(ai_counters(g) is not None, "and the server answers the dev API after it")
+    finally:
+        if os.path.exists(planted):
+            os.remove(planted)
+        for f in nav_cache_files(os.path.join(MOD_DIR, "maps"), NAV_FAIL_MAP):
+            os.remove(f)
+
+
 def step_ss_ai_hearing(g):
     """ss_ai_hearing (§6.6): two bots out of sight of each other; one hears the
     other (its perception lists a heard actor)."""
@@ -11298,6 +11526,14 @@ EXTRA_STEPS = [
     ("ss-ai-nav", "a bot walks ss_ai_nav to the .357 (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_nav),
     ("ss-ai-sight", "a bot sees another on ss_ai_sight (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_sight),
     ("ss-ai-hearing", "a bot hears another on ss_ai_hearing (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_hearing),
+    ("nav-build", "with its .nav3d aside, ss_ai_routes has one built by the server; a bot added meanwhile "
+                  "joins and walks (not in §5; plan_bots_teams_tf2 E.7)", step_nav_build),
+    ("nav-cache", "a second load of ss_ai_routes reads the server's build from the cache "
+                  "(not in §5; plan_bots_teams_tf2 E.7)", step_nav_cache),
+    ("nav-corrupt", "a truncated build and one with a flipped byte are each rebuilt "
+                    "(not in §5; plan_bots_teams_tf2 E.7)", step_nav_corrupt),
+    ("nav-fail", "a bsp with no world is refused with the build's reason and the server answers "
+                 "(not in §5; plan_bots_teams_tf2 E.7)", step_nav_fail),
 ]
 
 ALL_STEPS = STEPS + EXTRA_STEPS
@@ -11313,6 +11549,7 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
              "skinned-model", "viewmodel-merge", "gib-ragdoll",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
              "phys-convert", "render-plan-sandbox", "ai-nav", "ai-reload", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
+             "nav-build", "nav-cache", "nav-corrupt", "nav-fail",
              "map-change", "sigterm-shutdown", "shutdown"]
 
 # The team deathmatch steps (plan_bots_teams_tf2 A.5, A.6, B.8, B.9), written
@@ -12312,6 +12549,30 @@ def self_test():
     ok(combine_model("models/Combine_Soldier.mdl") and combine_model("models/police.mdl")
        and not combine_model("models/humans/group03/female_01.mdl"),
        "a Combine model by its path, a Rebel one not")
+    #-- the nav build steps' file handling (plan_bots_teams_tf2 E.7) ---------
+    nav_dir = __import__("tempfile").mkdtemp(prefix="live-gate-nav-")
+    try:
+        os.makedirs(os.path.join(nav_dir, "ai-nav"))
+        for f in ("ss_ai_routes-0123456789abcdef.nav3d", "ss_ai_routes-0123456789abcdef.nav3d.stamp",
+                  "ss_ai_routes2-0123456789abcdef.nav3d", "ss_ai_routes-0123456789abcdef.nav3d.1f2e.tmp"):
+            with open(os.path.join(nav_dir, "ai-nav", f), "wb") as h:
+                h.write(bytes(range(200)))
+        found = nav_cache_files(nav_dir, "ss_ai_routes")
+        ok([os.path.basename(f) for f in found] == ["ss_ai_routes-0123456789abcdef.nav3d"],
+           "nav_cache_files finds the map's build and not its stamp, a temporary name or another map's")
+        ok(nav_truncate(found[0]) == (200, 100) and os.path.getsize(found[0]) == 100, "nav_truncate leaves the first half")
+        at = nav_flip(found[0])
+        with open(found[0], "rb") as h:
+            spoiled = h.read()
+        ok(24 <= at < 100 and spoiled[at] == at ^ 0x5A and spoiled[:at] == bytes(range(at)), "nav_flip changes one byte past the envelope")
+        ok(nav_cache_files(os.path.join(nav_dir, "nowhere"), "x") == [], "and no cache dir is no builds")
+    finally:
+        shutil.rmtree(nav_dir)
+    tiny = nav_fail_bsp()
+    ok(tiny[:4] == b"VBSP" and int.from_bytes(tiny[4:8], "little") == 20 and b"worldspawn" in tiny,
+       "nav_fail_bsp is a VBSP 20 with an entity lump")
+    ok(int.from_bytes(tiny[8:12], "little") + int.from_bytes(tiny[12:16], "little") == int.from_bytes(tiny[24:28], "little"),
+       "whose second lump follows its entity lump")
 
     #-- the registry ---------------------------------------------------------
     ok(len(STEPS) == 16, "sixteen steps, as §5 lists")

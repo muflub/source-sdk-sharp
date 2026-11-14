@@ -30,6 +30,15 @@ public class ServerBindingTests
     public void TheServerBindingNamesNoHl2mp()
         => Assert.Empty(CoreReferenceTests.Naming(Server, "HL2MP"));
 
+    /// <summary>A game's own entities are its binding's to read (plan_bots_teams_tf2 P6): the map reader names no team's spawn.</summary>
+    [Fact]
+    public void TheServerBindingNamesNoGamesTeamSpawn()
+    {
+        string[] hits = [.. CoreReferenceTests.Naming(Server, "info_player_combine"), .. CoreReferenceTests.Naming(Server, "info_player_rebel"),
+                         .. CoreReferenceTests.Naming(Server, "info_player_teamspawn")];
+        Assert.Empty(hits);
+    }
+
     [Fact]
     public void TheHl2mpBindingBuildsOnTheServerBinding()
         => Assert.Contains(Server.GetName().Name, typeof(SourceSharp.Ai.Hl2mp.Hl2mpBotGame).Assembly.GetReferencedAssemblies().Select(a => a.Name));

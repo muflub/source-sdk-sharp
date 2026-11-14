@@ -21,6 +21,9 @@
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\server\SourceSharp.Ai.Server.csproj" />
     <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
+    <!-- TF2's binding (plan_bots_teams_tf2 P6) and the mod it reads. -->
+    <ProjectReference Include="..\tf2\server\SourceSharp.Ai.TF2.csproj" />
+    <ProjectReference Include="..\..\tf2\server\TF2.Server.csproj" />
     <!-- The nav PNG and its golden (§7.3). -->
     <ProjectReference Include="..\replay\SourceSharp.Ai.Replay.csproj" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />

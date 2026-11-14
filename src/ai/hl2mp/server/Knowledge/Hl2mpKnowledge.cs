@@ -154,7 +154,14 @@ public static class MapKnowledgeBuilder
             items.Add(new ItemSpawn(items.Count, e.ClassName, kind, e.Origin, respawn, kind == ItemKind.Weapon ? weapons.IndexOf(e.ClassName) : -1));
         }
 
-        return new MapKnowledge(map, items.ToImmutable(), [.. lump.Spawns.Select(s => s.Origin)], weaponFacts,
-                                [.. lump.TeamSpawns.Select(t => new TeamSpawn(t.Team, t.Spawn.Origin))]);
+        return new MapKnowledge(map, items.ToImmutable(), [.. lump.Spawns.Select(s => s.Origin)], weaponFacts, TeamSpawns(lump), bodies: Bodies());
     }
+
+    /// <summary>HL2MP has one body: everybody runs at <see cref="Trees.Hl2mpDecider.RunSpeed"/> (hl2_normspeed, hl2mp_player.cpp).</summary>
+    public static BodyKnowledge Bodies() => BodyKnowledge.Same(new BodyFacts(Trees.Hl2mpDecider.RunSpeed));
+
+    /// <summary>The teams' own spawns (plan_bots_teams_tf2 B.5): HL2MP's Combine spawns are team 2's, the Rebels' team 3's, in lump order.</summary>
+    public static ImmutableArray<TeamSpawn> TeamSpawns(MapEntities lump)
+        => [.. lump.All.Where(e => e.ClassName is "info_player_combine" or "info_player_rebel")
+                       .Select(e => new TeamSpawn(e.ClassName == "info_player_combine" ? 2 : 3, e.Origin))];
 }

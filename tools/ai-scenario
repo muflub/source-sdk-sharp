@@ -86,10 +86,12 @@ def sha256(path):
 
 
 class Game:
-    def __init__(self, map_name, config, extra=""):
+    def __init__(self, map_name, config, extra="", mod=None):
         self.map = map_name
         self.config = config
         self.extra = extra
+        # The mod to launch (make's RUN_MOD_ID); None is the Makefile's own (the test mod).
+        self.mod = mod
         self.api_dir = os.environ.get("AI_SCENARIO_API_DIR", "/tmp/ss-ais-%s" % USER)
         self.tmp = os.environ.get("AI_SCENARIO_TMPDIR", "/tmp/ss-ais-tmp-%s" % USER)
         self.port = os.environ.get("AI_SCENARIO_PORT", "27265")
@@ -104,7 +106,8 @@ class Game:
         env = dict(os.environ, DEBUG_API_DIR=self.api_dir, DEBUG_API_UI_PORT=str(int(self.port) + 1), TMPDIR=self.tmp)
         args = "$(RUN_ARGS) -assertlog -port %s +maxplayers 8 +sv_cheats 1%s" % (self.port, " " + self.extra if self.extra else "")
         self.log = open(os.path.join(self.tmp, "ai-scenario-%s.log" % self.map), "w")
-        self.make = subprocess.Popen(["make", "-C", ROOT, "headless", "CONFIG=" + self.config, "MAP=" + self.map, "HEADLESS_ARGS=" + args],
+        mod = ["RUN_MOD_ID=" + self.mod] if self.mod else []
+        self.make = subprocess.Popen(["make", "-C", ROOT, "headless", "CONFIG=" + self.config, "MAP=" + self.map, "HEADLESS_ARGS=" + args] + mod,
                                      env=env, stdout=self.log, stderr=subprocess.STDOUT)
         deadline = time.time() + 600
         while time.time() < deadline:

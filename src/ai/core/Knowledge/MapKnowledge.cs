@@ -105,8 +105,26 @@ public enum ItemKind : byte
 /// <summary>A static item spawn the map places (§5.0): where, what, and how long it takes to come back.</summary>
 public readonly record struct ItemSpawn(int Index, string ClassName, ItemKind Kind, AiVector Position, float RespawnSeconds, int WeaponKind = -1);
 
-/// <summary>A team's own spawn point (plan_bots_teams_tf2 B.5): <c>info_player_combine</c> is team 2's, <c>info_player_rebel</c> team 3's.</summary>
+/// <summary>A team's own spawn point (plan_bots_teams_tf2 B.5), by the game's team number.</summary>
 public readonly record struct TeamSpawn(int Team, AiVector Position);
+
+/// <summary>What a team's own volume of the map is (plan_bots_teams_tf2 C.7, P6 step 5).</summary>
+public enum ZoneKind : byte
+{
+    /// <summary>Where the team respawns: the other team may not be fought in it, and a player may change class in their own.</summary>
+    RespawnRoom = 0,
+
+    /// <summary>A cabinet's volume that refills health and ammunition when stood in (TF2's resupply), the team's own.</summary>
+    Resupply,
+}
+
+/// <summary>A volume of the map that belongs to a team (plan_bots_teams_tf2 C.7), as its brush's bounds; team 0 is every team's.</summary>
+public readonly record struct TeamZone(int Team, ZoneKind Kind, AiVector Mins, AiVector Maxs)
+{
+    /// <summary>Whether <paramref name="p"/> lies inside the volume.</summary>
+    public bool Contains(AiVector p)
+        => p.X >= Mins.X && p.X <= Maxs.X && p.Y >= Mins.Y && p.Y <= Maxs.Y && p.Z >= Mins.Z && p.Z <= Maxs.Z;
+}
 
 /// <summary>
 /// What every bot knows of a map before it plays (§5.0): the item spawns, the
@@ -116,7 +134,8 @@ public readonly record struct TeamSpawn(int Team, AiVector Position);
 /// </summary>
 public sealed class MapKnowledge(string map, ImmutableArray<ItemSpawn> items, ImmutableArray<AiVector> spawns, WeaponKnowledge weapons,
                                   ImmutableArray<TeamSpawn> teamSpawns = default, AbilityTable abilities = default,
-                                  ObjectiveKnowledge? objectives = null)
+                                  ObjectiveKnowledge? objectives = null, ImmutableArray<TeamZone> teamZones = default,
+                                  BodyKnowledge? bodies = null)
 {
     public string Map { get; } = map;
 
@@ -134,6 +153,12 @@ public sealed class MapKnowledge(string map, ImmutableArray<ItemSpawn> items, Im
 
     /// <summary>The map's objectives (plan_bots_teams_tf2 C.6): none on a map without.</summary>
     public ObjectiveKnowledge Objectives { get; } = objectives ?? new ObjectiveKnowledge([]);
+
+    /// <summary>The teams' own volumes (plan_bots_teams_tf2 C.7: the respawn rooms, the resupply cabinets), empty on a map with none.</summary>
+    public ImmutableArray<TeamZone> TeamZones { get; } = teamZones.IsDefault ? [] : teamZones;
+
+    /// <summary>The game's bodies by class (plan_bots_teams_tf2_part_g G.2.1): everybody at <see cref="BodyKnowledge.DefaultRunSpeed"/> for a game that names none.</summary>
+    public BodyKnowledge Bodies { get; } = bodies ?? BodyKnowledge.Default();
 
     /// <summary>A map with nothing on it (a fact's, or a level without navigation).</summary>
     public static MapKnowledge Empty(WeaponKnowledge weapons) => new("", [], [], weapons);

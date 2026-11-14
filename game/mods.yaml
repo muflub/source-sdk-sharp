@@ -75,8 +75,10 @@ mods:
     # print-name lookups and the server's precache reach the GAME paths; the
     # TF side reaches the same content through TFEncryption.Key).
     encryption_key: E2NcUkG2
+    # TF2's AI binding (plan_bots_teams_tf2 C.2) over the generic server
+    # binding before it, as the test mod lists HL2MP's.
     assemblies:
-      server: [SourceSharp.Server, TF2.Server]
+      server: [SourceSharp.Server, TF2.Server, SourceSharp.Ai.Server, SourceSharp.Ai.TF2]
       client: [SourceSharp.Client, TF2.Client]
       client_ui: [TF2.Client.Ui]
   # TF2Descent builds on the TF2 mod: its assemblies load after TF2's.

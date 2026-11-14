@@ -93,6 +93,37 @@ public readonly record struct ActorFacts(
     ActorConditions Conditions = ActorConditions.None,
     int NameSlot = 0);
 
+/// <summary>What a sighted thing that is not a player is (plan_bots_teams_tf2 C.3).</summary>
+public enum ThingKind : byte
+{
+    None = 0,
+
+    /// <summary>Something fired, in flight or lying where it landed: a rocket, a grenade, a sticky, an arrow, a flare.</summary>
+    Projectile,
+
+    /// <summary>Something built and standing: a sentry, a dispenser, a teleporter.</summary>
+    Building,
+}
+
+/// <summary>
+/// A thing that is not a player, as a client at the bot's eyes would draw it (plan_bots_teams_tf2
+/// C.3, P6 step 3): what it is, where, how fast, whose team it is drawn in and whose it is. A
+/// building's <see cref="Level"/> is its model's; its <see cref="Health"/> is what that client's
+/// target ID shows, -1 when it shows none (stock shows a building's health only to its own team
+/// and to a Spy). <see cref="Type"/> is the binding's own number for the kind of projectile or
+/// building; <see cref="Id"/> the binding's id for the thing, the same while it lasts.
+/// </summary>
+public readonly record struct ThingFacts(
+    int Id,
+    ThingKind Kind,
+    int Type,
+    AiVector Origin,
+    AiVector Velocity,
+    int Team,
+    int OwnerSlot = 0,
+    int Level = 0,
+    int Health = -1);
+
 /// <summary>
 /// One bot's perception at one tick: its own state, and the actors it holds
 /// sight of. It is the only thing a brain's senses read (§4.3). The builder
@@ -104,12 +135,18 @@ public readonly record struct ActorFacts(
 /// </summary>
 public sealed class PerceivedView
 {
-    private readonly ActorFacts[] _sighted;
+    /// <summary>How many things a view holds unless told otherwise.</summary>
+    public const int DefaultThingCapacity = 32;
 
-    public PerceivedView(int capacity)
+    private readonly ActorFacts[] _sighted;
+    private readonly ThingFacts[] _things;
+
+    public PerceivedView(int capacity, int thingCapacity = DefaultThingCapacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        ArgumentOutOfRangeException.ThrowIfNegative(thingCapacity);
         _sighted = new ActorFacts[capacity];
+        _things = new ThingFacts[thingCapacity];
     }
 
     public ActorId Bot { get; private set; }
@@ -124,6 +161,22 @@ public sealed class PerceivedView
     /// <summary>The sighted actors, in the order the builder added them.</summary>
     public ReadOnlySpan<ActorFacts> Sighted => _sighted.AsSpan(0, SightedCount);
 
+    /// <summary>How many things that are not players the bot holds sight of (plan_bots_teams_tf2 C.3).</summary>
+    public int ThingCount { get; private set; }
+
+    /// <summary>The sighted things, in the order the builder added them.</summary>
+    public ReadOnlySpan<ThingFacts> Things => _things.AsSpan(0, ThingCount);
+
+    /// <summary>How many things the view can hold.</summary>
+    public int ThingCapacity => _things.Length;
+
+    /// <summary>
+    /// The map's objectives as every player's HUD shows them this tick (plan_bots_teams_tf2 C.6):
+    /// the binding's published knowledge, the same object for every bot until it changes; null for a
+    /// game that publishes none.
+    /// </summary>
+    public ObjectiveKnowledge? Objectives { get; private set; }
+
     /// <summary>Starts this view over for <paramref name="bot"/> at <paramref name="tick"/>.</summary>
     public void Reset(ActorId bot, Tick tick, in SelfState self)
     {
@@ -131,6 +184,8 @@ public sealed class PerceivedView
         Tick = tick;
         Self = self;
         SightedCount = 0;
+        ThingCount = 0;
+        Objectives = null;
     }
 
     /// <summary>The self's second-trigger pool and frags, read after the view (format 5's tail, <see cref="AiRecordFormat"/>).</summary>
@@ -150,10 +205,29 @@ public sealed class PerceivedView
         ArgumentNullException.ThrowIfNull(other);
         if (other.SightedCount > _sighted.Length)
             throw new InvalidOperationException($"the view holds {_sighted.Length} sighted actors at most, the copied one {other.SightedCount}");
+        if (other.ThingCount > _things.Length)
+            throw new InvalidOperationException($"the view holds {_things.Length} things at most, the copied one {other.ThingCount}");
         Reset(other.Bot, other.Tick, other.Self);
         other.Sighted.CopyTo(_sighted);
         SightedCount = other.SightedCount;
+        other.Things.CopyTo(_things);
+        ThingCount = other.ThingCount;
+        Objectives = other.Objectives;
     }
+
+    /// <summary>Adds a thing the bot has sight of this tick; false, and nothing added, when the view is full.</summary>
+    public bool AddThing(in ThingFacts facts)
+    {
+        if (facts.Kind == ThingKind.None)
+            throw new ArgumentException("a sighted thing needs a kind", nameof(facts));
+        if (ThingCount == _things.Length)
+            return false;
+        _things[ThingCount++] = facts;
+        return true;
+    }
+
+    /// <summary>The objectives the HUD shows this tick (<see cref="Objectives"/>).</summary>
+    public void SetObjectives(ObjectiveKnowledge? objectives) => Objectives = objectives;
 
     /// <summary>Adds an actor the bot has sight of this tick.</summary>
     public void AddSighted(in ActorFacts facts)

@@ -14,7 +14,10 @@ public interface IBotHud
 /// <summary>
 /// <see cref="IBotHud"/> over the engine and the arsenal, for the bot's own
 /// player only: its health, armour, the weapon in its hands, that weapon's
-/// clip and the reserve of its ammo, as its HUD shows them.
+/// clip and the reserve of its ammo, as its HUD shows them; then the game's
+/// own rows (<see cref="IBotGameView.Hud"/>: a class, conditions, metal). The
+/// weapon catalog and the arsenal are the core's, every game's weapons' rows
+/// (TF2's register there too); what is the game's is asked of the game.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IBotHud)])]
 public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entities, Arsenal arsenal, WeaponCatalog weapons, IBotGame game) : IBotHud
@@ -41,8 +44,9 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
 
         int grenades = weapons.For(game.GrenadeWeapon) is { } frag && arsenal.PoolOf(bot, frag.AmmoName, out int carried) ? carried : 0;
         SelfFlags flags = (alive ? SelfFlags.Alive : SelfFlags.None) | (observer ? SelfFlags.Observer : SelfFlags.None);
-        return new SelfState(new AiVector(o.X, o.Y, o.Z), new AiVector(v.X, v.Y, v.Z), new AiAngles(a.X, a.Y, a.Z),
-                             entities.GetHealth(bot), entities.GetArmor(bot), kind, clip, reserve, flags, alt, grenades);
+        var read = new SelfState(new AiVector(o.X, o.Y, o.Z), new AiVector(v.X, v.Y, v.Z), new AiAngles(a.X, a.Y, a.Z),
+                                 entities.GetHealth(bot), entities.GetArmor(bot), kind, clip, reserve, flags, alt, grenades);
+        return game.View.Hud(bot, in read);
     }
 }
 
@@ -53,10 +57,15 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
 /// hands and what their animation shows. Never another player's health, clip
 /// or reserve (the IL census over its callees holds that); one of the two
 /// types that read another actor (§4.4). Each view carries the team a client
-/// renders the bot and each actor on (plan_bots_teams_tf2 B.2).
+/// renders the bot and each actor on (plan_bots_teams_tf2 B.2), then what the
+/// game's client draws over that (<see cref="IBotGameView.Render"/>: a disguise,
+/// a cloak; an actor it draws nothing of is not in the view), the things that
+/// are not players the bot sees (<see cref="ThingSight"/>) and the objectives the
+/// HUD shows (plan_bots_teams_tf2 C.3, C.6).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances, IRenderedTeams teams)
+public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances, IRenderedTeams teams,
+                                    IBotGame game, ThingSight things)
 {
     /// <summary>
     /// Adds a view for every bot in <paramref name="bots"/> to
@@ -68,6 +77,9 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
 
     public void Build(AiSnapshot snapshot, ReadOnlySpan<SensedBot> bots, VisionPass vision, Func<int, ActorActivity> activityOf)
     {
+        if (!bots.IsEmpty)
+            things.Begin(snapshot.Tick);
+        ObjectiveKnowledge? objectives = game.View.Objectives;
         foreach (SensedBot b in bots)
         {
             SelfState self = hud.Read(b.Player) with { Team = teams.TeamOf(b.Player) };
@@ -76,6 +88,9 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
             if ((activityOf(b.Id.Slot) & ActorActivity.Reloading) != 0)
                 self = self with { Flags = self.Flags | SelfFlags.Reloading };
             PerceivedView view = snapshot.Add(b.Id, self);
+            view.SetObjectives(objectives);
+            if (vision.ReadOf(b.Id.Slot) is { } me)
+                things.AddSeen(in b, me.Eye, view);
             if (vision.SightOf(b.Id.Slot) is not { } sight)
                 continue;
             for (int t = 1; t < VisionPass.Slots; t++)
@@ -84,7 +99,9 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                     continue;
                 int weapon = weapons.IndexOf(players.GetActiveWeapon(them.Player));
                 ActorActivity activity = activityOf(t) | (stances.Ducked(them.Player) ? ActorActivity.Crouched : ActorActivity.None);
-                view.AddSighted(new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player)));
+                var facts = new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player));
+                if (game.View.Render(b.Player, them.Player, ref facts))
+                    view.AddSighted(in facts);
             }
         }
     }

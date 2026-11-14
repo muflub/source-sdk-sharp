@@ -204,6 +204,67 @@ public class NavGraphFromNav3dTests
         Assert.Equal(expected.Order().ToArray(), d.LeafOfCell.Order().ToArray());
     }
 
+    /// <summary>Numbers with a double jump that reaches 117 u (TF's Scout's: 52 + 45 + 20).</summary>
+    private static readonly NavNumbers DoubleJumper = Numbers with { MaxDoubleJumpRise = 117f };
+
+    [Fact]
+    public void ASeventyUnitLedgeIsADoubleJumpForNumbersThatHaveOne()
+    {
+        Fixture f = Build();
+        DerivedNav d = NavGraphFromNav3d.Derive(f.Src, DoubleJumper, NavEdgeCosts.Default, []);
+        Assert.Equal((NavEdgeType.DoubleJump, NavEdgeType.Drop), (EdgeType(d, f.Floor, f.Tall), EdgeType(d, f.Tall, f.Floor)));
+    }
+
+    [Fact]
+    public void ADoubleJumpCostsItsOwnExtra()
+    {
+        float Cost(float extra)
+        {
+            Fixture f = Build();
+            DerivedNav d = NavGraphFromNav3d.Derive(f.Src, DoubleJumper, NavEdgeCosts.Default with { DoubleJump = extra }, []);
+            Assert.True(d.Graph.TryEdge(d.CellOfLeaf[f.Floor], d.CellOfLeaf[f.Tall], out NavEdge e));
+            return e.Cost;
+        }
+
+        // The edge's length and the extra: only the extra moves with it.
+        Assert.Equal(51f, Cost(99f) - Cost(48f), 3);
+    }
+
+    [Fact]
+    public void AHundredAndTwentyUnitLedgeIsBeyondTheDoubleJump()
+    {
+        var s = new FakeNavSource();
+        int floor = s.Add(0, 0, 0);
+        int high = s.Add(0, 1, 120);
+        s.JumpLink(floor, high);
+        DerivedNav d = NavGraphFromNav3d.Derive(s, DoubleJumper, NavEdgeCosts.Default, []);
+        Assert.Null(EdgeType(d, floor, high));
+    }
+
+    [Fact]
+    public void OnlyAnAgentWithTheReachRoutesUpADoubleJump()
+    {
+        Fixture f = Build();
+        DerivedNav d = NavGraphFromNav3d.Derive(f.Src, DoubleJumper, NavEdgeCosts.Default, []);
+        var field = new FlowField();
+        var plain = new NavObstacleState(d.Graph.ObstacleCount);
+        field.Build(d.Graph, new CellId(d.CellOfLeaf[f.Tall]), ClearanceClass.Crouch, plain);
+        Assert.NotEqual(NavEdgeType.DoubleJump, field.ViaFrom(d.CellOfLeaf[f.Floor]));
+
+        var scout = new NavObstacleState(d.Graph.ObstacleCount) { Reach = JumpReach.Double };
+        field.Build(d.Graph, new CellId(d.CellOfLeaf[f.Tall]), ClearanceClass.Crouch, scout);
+        Assert.Equal(NavEdgeType.DoubleJump, field.ViaFrom(d.CellOfLeaf[f.Floor]));
+    }
+
+    [Fact]
+    public void TheReachRidesEveryCopyOfTheState()
+    {
+        var state = new NavObstacleState(2) { Reach = JumpReach.Double };
+        var lane = new NavObstacleState(2);
+        lane.CopyFrom(state);
+        Assert.Equal((JumpReach.Double, JumpReach.Double, JumpReach.Double), (state.Clone().Reach, state.Shoved().Reach, lane.Reach));
+    }
+
     [Fact]
     public void TheFixtureDerivesExactlyItsEdgeTypes()
     {

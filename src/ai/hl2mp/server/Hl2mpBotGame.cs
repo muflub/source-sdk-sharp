@@ -33,4 +33,7 @@ public sealed class Hl2mpBotGame(WeaponCatalog weapons, ModelDescriptors models,
     public string GrenadeWeapon => EntityNames.WeaponFrag;
 
     public bool Thrown(in WeaponType weapon) => weapon.Behaviour == Hl2mpWeaponBehaviours.Frag;
+
+    /// <summary>HL2MP's client draws nothing past the engine's: no disguise, no things, no objectives.</summary>
+    public SourceSharp.Ai.Server.Senses.IBotGameView View { get; } = new SourceSharp.Ai.Server.Senses.PlainBotGameView();
 }

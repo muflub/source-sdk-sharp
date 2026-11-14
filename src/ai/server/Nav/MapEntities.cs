@@ -6,15 +6,41 @@ using SourceSharp.MapFormats.Bsp.Structs;
 
 namespace SourceSharp.Ai.Server.Nav;
 
-/// <summary>One entity of interest from the map's entity lump: its classname, name, origin and, for a brush entity, its bounds in the world.</summary>
+/// <summary>
+/// One entity of interest from the map's entity lump: its classname, name, origin and, for a brush entity, its bounds in the world;
+/// and its <c>TeamNum</c>, the team every Source entity may be placed on (0 for none); and all its keys, as the lump
+/// holds them, for what a game's binding reads of its own entities.
+/// </summary>
 public readonly record struct MapEntity(string ClassName, string? Name, AiVector Origin, AiVector? Mins, AiVector? Maxs,
-                                        AiVector? Point0 = null, AiVector? Point1 = null);
+                                        AiVector? Point0 = null, AiVector? Point1 = null, int Team = 0,
+                                        IReadOnlyList<KeyValuePair<string, string>>? Keys = null)
+{
+    /// <summary>The first value of <paramref name="key"/>, compared as the tools compare keys (case-sensitively), or null.</summary>
+    public string? Get(string key)
+    {
+        if (Keys is null)
+            return null;
+        foreach (KeyValuePair<string, string> pair in Keys)
+        {
+            if (string.Equals(pair.Key, key, StringComparison.Ordinal))
+                return pair.Value;
+        }
+
+        return null;
+    }
+
+    /// <summary>The integer value of <paramref name="key"/>, or <paramref name="otherwise"/> when it is missing or not a number.</summary>
+    public int Int(string key, int otherwise = 0)
+        => int.TryParse(Get(key), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : otherwise;
+}
 
 /// <summary>
 /// What a bot knows about the map before it plays (plan_hl2mp_ai §5.0, §6.2),
 /// read from the bsp's entity lump: the spawns, the weapon and item spawns,
 /// the hurt volumes the nav leaves out, and the ladders and obstacles the
-/// lump names. A player who knows the game knows these.
+/// lump names. A player who knows the game knows these. Which entities are a
+/// game's own (a team's spawn, a resupply cabinet) its binding reads from
+/// <see cref="All"/>: this reader names no game's entities.
 /// </summary>
 public sealed class MapEntities
 {
@@ -22,11 +48,19 @@ public sealed class MapEntities
     private const int ModelsLumpIndex = 14;
     private const int ModelBytes = 48;
 
-    public MapEntities(IReadOnlyList<MapEntity> all, string? levelId)
+    public MapEntities(IReadOnlyList<MapEntity> all, string? levelId, string? unread = null)
     {
         All = all;
         LevelId = levelId;
+        Unread = unread;
     }
+
+    /// <summary>
+    /// Why the map's entities could not be read, or null when they were: a shipped map
+    /// (TF2's) stores its lumps LZMA-compressed, which the MapFormats this binding runs
+    /// does not decode, and then the bots know none of its entities.
+    /// </summary>
+    public string? Unread { get; }
 
     public IReadOnlyList<MapEntity> All { get; }
 
@@ -35,11 +69,6 @@ public sealed class MapEntities
 
     /// <summary>The deathmatch spawns.</summary>
     public IEnumerable<MapEntity> Spawns => All.Where(e => e.ClassName == "info_player_deathmatch");
-
-    /// <summary>The teams' own spawns (plan_bots_teams_tf2 B.5): Combine's are team 2's, the Rebels' team 3's.</summary>
-    public IEnumerable<(int Team, MapEntity Spawn)> TeamSpawns
-        => All.Where(e => e.ClassName is "info_player_combine" or "info_player_rebel")
-              .Select(e => (e.ClassName == "info_player_combine" ? 2 : 3, e));
 
     /// <summary>The weapons the map places.</summary>
     public IEnumerable<MapEntity> Weapons => All.Where(e => e.ClassName.StartsWith("weapon_", StringComparison.Ordinal));
@@ -70,6 +99,12 @@ public sealed class MapEntities
     {
         if (bsp.Length < BspData.HeaderSize || BinaryPrimitives.ReadInt32LittleEndian(bsp) != BspData.Ident)
             throw new InvalidDataException("not a bsp: the VBSP ident is missing");
+        foreach (int lump in (ReadOnlySpan<int>)[EntityLumpIndex, ModelsLumpIndex])
+        {
+            if (UncompressedSize(bsp, lump) != 0)
+                return new MapEntities([], null, $"bsp lump {lump} is LZMA-compressed, which MapFormats {NavReaderVersion.Package} does not decode");
+        }
+
         ReadOnlySpan<byte> entities = Lump(bsp, EntityLumpIndex);
         ReadOnlySpan<byte> models = Lump(bsp, ModelsLumpIndex);
         int end = entities.IndexOf((byte)0);
@@ -93,13 +128,18 @@ public sealed class MapEntities
                 maxs = origin + new AiVector(F(m, 12), F(m, 16), F(m, 20));
             }
 
-            all.Add(new MapEntity(e.ClassName, e.Get("targetname"), origin, mins, maxs, Vec(e.Get("point0")), Vec(e.Get("point1"))));
+            int team = int.TryParse(e.Get("TeamNum"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int t) ? t : 0;
+            all.Add(new MapEntity(e.ClassName, e.Get("targetname"), origin, mins, maxs, Vec(e.Get("point0")), Vec(e.Get("point1")), team,
+                                  [.. e.Pairs.Select(p => new KeyValuePair<string, string>(p.Key, p.Value))]));
         }
 
         return new MapEntities(all, levelId);
     }
 
     private static float F(ReadOnlySpan<byte> b, int at) => BinaryPrimitives.ReadSingleLittleEndian(b[at..]);
+
+    /// <summary>The header's uncompressed size of lump <paramref name="index"/>: non-zero for a lump stored LZMA-compressed.</summary>
+    private static int UncompressedSize(ReadOnlySpan<byte> bsp, int index) => BinaryPrimitives.ReadInt32LittleEndian(bsp[(8 + index * 16 + 12)..]);
 
     private static ReadOnlySpan<byte> Lump(ReadOnlySpan<byte> bsp, int index)
     {

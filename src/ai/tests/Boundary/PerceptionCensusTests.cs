@@ -36,8 +36,9 @@ public sealed class PerceptionCensusTests
     /// <summary>The binding's readers, each with what it reads.</summary>
     private static readonly string[] Readers =
     [
-        // The two perception types (§4.4).
-        typeof(VisionPass).FullName!, typeof(SnapshotBuilder).FullName!,
+        // The two perception types (§4.4), and the things' sight beside the vision pass (plan_bots_teams_tf2 C.3):
+        // the bot's own view, the things' places only as the game drew them.
+        typeof(VisionPass).FullName!, typeof(SnapshotBuilder).FullName!, typeof(ThingSight).FullName!,
         // The bot itself: its own origin, eye, view and holdings (§2.4), its own HUD (§4.3).
         typeof(EngineBotSelf).FullName!, typeof(ArsenalBotInventory).FullName!, typeof(EngineBotHud).FullName!,
         // Doors and props the nav blocks, never a player (§6.3).

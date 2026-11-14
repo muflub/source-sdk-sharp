@@ -54,6 +54,34 @@ public sealed class AimHeightHold(AiRandom random)
         Phase = AimHeightPhase.Settled;
     }
 
+    /// <summary>The soonest anyone's crosshair answers a change of stance.</summary>
+    public const float ReAimLeastSeconds = 0.25f;
+
+    /// <summary>
+    /// How long a change of stance goes unanswered: seeing it (<paramref name="recognizeSeconds"/>), then
+    /// reacting (<paramref name="reactionMs"/>), with a person's least. A curve's 100 ms is for a reaction
+    /// already braced for a shot, and a re-aim has to be noticed first.
+    /// </summary>
+    public static float ReAimSeconds(float recognizeSeconds, float reactionMs) => MathF.Max(ReAimLeastSeconds, recognizeSeconds + reactionMs / 1000f);
+
+    /// <summary>
+    /// One decide's height on a body whose feet are at <paramref name="feetZ"/> and whose aim point
+    /// sits at <paramref name="heights"/> over them, <paramref name="rise"/> higher by the aimer's hand.
+    /// A body not in sight is aimed at where it would stand, and nothing is held. A
+    /// <paramref name="fresh"/> engagement starts where it would stand too, its default, so a body that
+    /// is not there (<paramref name="crouched"/>), or leaves it, asks for a re-aim (<see cref="Step"/>).
+    /// </summary>
+    public float Hold(bool fresh, bool sighted, float feetZ, StanceHeight heights, bool crouched, float rise, float reactionSeconds,
+                      float overshootPct, float distance, float dt)
+    {
+        float standing = feetZ + heights.Standing + rise;
+        if (!sighted)
+            return standing;
+        if (fresh)
+            Start(standing);
+        return Step(feetZ + heights.At(crouched) + rise, reactionSeconds, overshootPct, distance, dt);
+    }
+
     /// <summary>
     /// One step of <paramref name="dt"/> seconds with the body's point at <paramref name="wanted"/>;
     /// <paramref name="distance"/> away (a height's angle is what a move's length is).

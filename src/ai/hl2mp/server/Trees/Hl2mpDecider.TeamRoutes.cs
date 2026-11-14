@@ -113,7 +113,7 @@ public sealed partial class Hl2mpDecider
 
         if (_crossOf == _target!.Id || _p.CrossfireWeight <= 0f || !Partner(out KnownActor? partner))
             return false;
-        AiVector enemy = Where(_target);
+        AiVector enemy = _target.BelievedAt(_graph);
         if (!ShortestWay(enemy, out float shortest, out CellId from) || !SamePathAhead(partner!, shortest))
             return false;
         // One draw per enemy once a partner is on the path, from the team layer's own stream.

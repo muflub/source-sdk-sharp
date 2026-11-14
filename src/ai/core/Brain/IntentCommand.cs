@@ -43,6 +43,9 @@ public enum AimPoint : byte
 
     /// <summary>The shoulders, a gun's default (§3.4.1, ruling 2026-11-03): the height a crosshair is kept at.</summary>
     Shoulder,
+
+    /// <summary>The feet: where a splash weapon is aimed, so a miss still lands its blast by the body (plan_bots_teams_tf2 C.3, a Soldier's rocket).</summary>
+    Feet,
 }
 
 /// <summary>What the hands do.</summary>

@@ -114,7 +114,7 @@ public sealed class SenseBudgetTests : IDisposable
                                   DeclaredConVars.FreshAt<AiBudgetConVar>("1"), Floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
         _bots = new AiBots(new WorldPlayers(_world), new Runner(), players, entities, WeaponCatalog.Stock(), frame, nav, TestGames.Hl2mp(), _holdings, new Names(), new ScoreboardTags(), log, _ai, null, Budget);
         var vision = new VisionPass(players, entities, _world.Traces());
-        _senses = new AiSenses(_bots, _ai, vision, new SnapshotBuilder(players, WeaponCatalog.Stock(), _hud, _world.Stance(), new FakeTeams()), new ActorDirectory(players, _globals), frame, log,
+        _senses = new AiSenses(_bots, _ai, vision, new SnapshotBuilder(players, WeaponCatalog.Stock(), _hud, _world.Stance(), new FakeTeams(), TestGames.Hl2mp(), new ThingSight(players, entities, _world.Traces(), TestGames.Hl2mp())), new ActorDirectory(players, _globals), frame, log,
                                   new ReferenceRecorder(_ai, vision), _holdings, WeaponCatalog.Stock(), Budget);
         SkillPresets.TryGet("normal", out SkillProfile? p);
         Assert.Null(_bots.Add("Alyx", p!, 1, out _));

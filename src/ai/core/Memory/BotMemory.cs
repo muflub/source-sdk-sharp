@@ -54,8 +54,15 @@ public sealed class BotMemory
         }
     }
 
-    /// <summary>The speed an unseen opponent is predicted to move at: HL2MP's run (190 u/s, hl2mp_player.cpp).</summary>
-    public const float OpponentSpeed = 190f;
+    /// <summary>
+    /// The speed <paramref name="a"/> is believed to move at while unseen: its class's run, as the
+    /// game's knowledge has it (<see cref="MapKnowledge.Bodies"/>), by the class the bot takes it for.
+    /// </summary>
+    public float OpponentSpeed(KnownActor a)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        return World.Map.Bodies.Of(a.ClassBelieved).RunSpeed;
+    }
 
     public ActorId Bot { get; }
 
@@ -740,6 +747,7 @@ public sealed class BotMemory
                 Reclassified(a, f.Team, view.Tick);
             a.InSight = true;
             a.Dead = false;
+            a.ClassSeen = f.Class;
             Seen(a, f.Origin, f.Velocity, view.Tick);
             if (f.WeaponSeen != a.WeaponSeen && f.WeaponSeen >= 0)
             {
@@ -778,7 +786,7 @@ public sealed class BotMemory
             {
                 KnownActor a = Board.Actor(s);
                 if (a.Known && !a.InSight && !a.Dead && a.Where is { Active: true } where)
-                    where.Step(step, OpponentSpeed, TryHabits(a.Id, out OpponentHabits? h) ? h!.Route : []);
+                    where.Step(step, OpponentSpeed(a), TryHabits(a.Id, out OpponentHabits? h) ? h!.Route : []);
             }
         }
 

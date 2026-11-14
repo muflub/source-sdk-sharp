@@ -14,7 +14,7 @@
     host-sdk-rev-every-drop); bump MapFormatsVersion with the lock.
   -->
   <PropertyGroup>
-    <MapFormatsVersion>1.0.2</MapFormatsVersion>
+    <MapFormatsVersion>1.0.3</MapFormatsVersion>
   </PropertyGroup>
 
   <!--

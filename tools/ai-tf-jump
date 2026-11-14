@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+"""Measure the TF2 Soldier bot's blast jump on ss_ai_tf_jump (plan_bots_teams_tf2_part_g G0, G.5).
+
+  tools/ai-tf-jump measure [--seconds 240] [--config debug] [--out FILE.json] [--keep]
+  tools/ai-tf-jump read FILE.json      an earlier run's numbers again, from its kept track
+  tools/ai-tf-jump --self-test
+
+Starts a headless tf2 game on the map (tools/ai-scenario's Game: its own
+instance, temp dir, dev-API directory and port), adds one red Soldier, and
+runs two arms of --seconds each with the bot's brain deciding:
+
+  jump   its health held at 200 (`ai_aim_tough`), so it may rocket jump
+  walk   its health held at 85, under the jump's health floor and over the
+         share at which it leaves for a health pack: the same walk, no jump
+
+The bot has nobody to fight, so it plays capture the flag alone, round and
+round: east along the run for the blue flag, west along it carrying, east
+under the low lane's slab to its capture zone, and west under the slab with
+nothing in its hands. A carrier never jumps, so each arm holds its own walk
+beside it. Its place is read from the game (`/ai/world`, about ten times a
+second, each sample stamped with the server's tick), and every time it
+crosses a lane's middle stretch (x 500 to 1700, 1,200 u) without leaving the
+lane, that is one traverse of that lane and direction:
+
+  n        traverses
+  seconds  the median time over the stretch, by server ticks
+  speed    1,200 u over that, u/s
+  peak     the highest the bot's feet rose over the floor in a traverse, u
+  hops     times in a traverse it left the floor by more than 24 u
+
+and the applier's count of ability sequences begun in the arm
+(`ai.apply.ability.sequences`). A round's restart puts the bot back on its
+spawn: a step faster than 1,500 u/s is that, and drops the traverse it was in.
+Each flight of more than 200 u up is listed too:
+
+  air      seconds off the floor
+  along    how far it went over the floor in that time, u (a walk covers 240 u a second)
+  walked   the same time at the bot's own walking speed, u
+ The map is per-tree build output: `make map
+MAP=ss_ai_tf_jump` first; a missing map is a failure.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+import statistics
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MAP = "ss_ai_tf_jump"
+
+# TFAiTestMaps' numbers: the floor's top, the lanes across the room, the stretch timed.
+FLOOR_Z = 16.0
+LANES = {"run": (16.0, 448.0), "low": (464.0, 800.0)}
+STRETCH = (500.0, 1700.0)
+HOP_UNITS = 24.0
+FLIGHT_UNITS = 200.0
+TELEPORT_SPEED = 1500.0
+WALK_SPEED = 240.0
+
+_loader = importlib.machinery.SourceFileLoader("ai_scenario", os.path.join(ROOT, "tools", "ai-scenario"))
+_spec = importlib.util.spec_from_loader("ai_scenario", _loader)
+ai_scenario = importlib.util.module_from_spec(_spec)
+_loader.exec_module(ai_scenario)
+
+
+def lane_of(y):
+    """The lane a y lies in, or None. PURE."""
+    for name, (lo, hi) in LANES.items():
+        if lo <= y <= hi:
+            return name
+    return None
+
+
+def crossing_tick(a, b, x):
+    """The tick at which the walk from sample a to sample b passes x, by a
+    straight line between them. Samples are (tick, x, y, z). PURE."""
+    (ta, xa), (tb, xb) = (a[0], a[1]), (b[0], b[1])
+    if xa == xb:
+        return float(ta)
+    return ta + (tb - ta) * (x - xa) / (xb - xa)
+
+
+def traverses(samples, tick_seconds):
+    """Every crossing of a lane's stretch, either way, in samples
+    [(tick, x, y, z)] in tick order: [{lane, seconds, peak, hops}]. A crossing
+    starts where the bot enters the stretch from one end and counts when it
+    leaves by the other without having left the lane or the stretch's far
+    side; turning back, leaving the lane, or a gap in the samples of more than
+    a second drops it. PURE: the self-test holds it."""
+    lo, hi = STRETCH
+    out = []
+    open_ = None
+    for i in range(1, len(samples)):
+        a, b = samples[i - 1], samples[i]
+        if (b[0] - a[0]) * tick_seconds > 1.0 or teleported(a, b, tick_seconds):
+            open_ = None
+            continue
+        lane = lane_of(b[2])
+        if open_ is not None:
+            if lane != open_["lane"]:
+                open_ = None
+            else:
+                height = b[3] - FLOOR_Z
+                open_["peak"] = max(open_["peak"], height)
+                if height > HOP_UNITS and not open_["up"]:
+                    open_["hops"] += 1
+                open_["up"] = height > HOP_UNITS
+                exit_x = hi if open_["east"] else lo
+                back_x = lo if open_["east"] else hi
+                if (a[1] - exit_x) * (b[1] - exit_x) <= 0 and a[1] != b[1]:
+                    seconds = (crossing_tick(a, b, exit_x) - open_["start"]) * tick_seconds
+                    out.append({"lane": open_["lane"] + ("-east" if open_["east"] else "-west"), "seconds": seconds,
+                                "peak": open_["peak"], "hops": open_["hops"]})
+                    open_ = None
+                    continue
+                if (a[1] - back_x) * (b[1] - back_x) < 0:
+                    open_ = None
+        if open_ is None and lane is not None and lane == lane_of(a[2]) and a[1] != b[1]:
+            for enter_x, east in ((lo, True), (hi, False)):
+                moving = b[1] > a[1] if east else b[1] < a[1]
+                if moving and (a[1] - enter_x) * (b[1] - enter_x) <= 0:
+                    open_ = {"lane": lane, "east": east, "start": crossing_tick(a, b, enter_x), "peak": max(0.0, b[3] - FLOOR_Z),
+                             "hops": 0, "up": b[3] - FLOOR_Z > HOP_UNITS}
+    return out
+
+
+def teleported(a, b, tick_seconds):
+    """Whether the step from sample a to sample b is faster than anything a player does. PURE."""
+    seconds = max((b[0] - a[0]) * tick_seconds, 1e-6)
+    return ((b[1] - a[1]) ** 2 + (b[2] - a[2]) ** 2) ** 0.5 / seconds > TELEPORT_SPEED
+
+
+def flights(samples, tick_seconds):
+    """Every time off the floor that rose past FLIGHT_UNITS, in samples
+    [(tick, x, y, z)]: [{air, along, walked, peak}], from the last sample on
+    the floor to the first back on it. PURE."""
+    out = []
+    start = None
+    peak = 0.0
+    for i in range(1, len(samples)):
+        a, b = samples[i - 1], samples[i]
+        if teleported(a, b, tick_seconds):
+            start = None
+            continue
+        up = b[3] - FLOOR_Z > 1.0
+        if start is None:
+            if up and a[3] - FLOOR_Z <= 1.0:
+                start, peak = a, b[3] - FLOOR_Z
+            continue
+        peak = max(peak, b[3] - FLOOR_Z)
+        if not up:
+            if peak > FLIGHT_UNITS:
+                air = (b[0] - start[0]) * tick_seconds
+                along = ((b[1] - start[1]) ** 2 + (b[2] - start[2]) ** 2) ** 0.5
+                out.append({"air": round(air, 2), "along": round(along, 1), "walked": round(air * WALK_SPEED, 1), "peak": round(peak, 1)})
+            start = None
+    return out
+
+
+def summary(found):
+    """Per lane and direction: n, the median seconds and speed, the highest peak, the mean hops. PURE."""
+    out = {}
+    for lane in [l + d for l in LANES for d in ("-east", "-west")]:
+        mine = [t for t in found if t["lane"] == lane]
+        if not mine:
+            out[lane] = {"n": 0}
+            continue
+        seconds = statistics.median(t["seconds"] for t in mine)
+        out[lane] = {"n": len(mine), "seconds": round(seconds, 2), "speed": round((STRETCH[1] - STRETCH[0]) / seconds, 1),
+                     "peak": round(max(t["peak"] for t in mine), 1), "hops": round(sum(t["hops"] for t in mine) / len(mine), 2)}
+    return out
+
+
+def self_test():
+    tick = 0.015
+    # East along the run at 240 u/s, one sample every 7 ticks (25.2 u), flat.
+    walk = [(i * 7, 300.0 + i * 25.2, 232.0, FLOOR_Z) for i in range(70)]
+    got = traverses(walk, tick)
+    assert len(got) == 1 and got[0]["lane"] == "run-east", got
+    assert abs(got[0]["seconds"] - 1200.0 / 240.0) < 0.02, got
+    assert got[0]["peak"] == 0 and got[0]["hops"] == 0, got
+    # West along the low lane with one hop 60 u high in the middle.
+    hop = [(i * 7, 1900.0 - i * 25.2, 632.0, FLOOR_Z + (60.0 if 30 <= i < 34 else 0.0)) for i in range(70)]
+    got = traverses(hop, tick)
+    assert len(got) == 1 and got[0]["lane"] == "low-west" and got[0]["hops"] == 1 and got[0]["peak"] == 60.0, got
+    # Turning back before the far end is no traverse; nor is one that leaves the lane.
+    back = walk[:30] + [(210 + i * 7, walk[29][1] - (i + 1) * 25.2, 232.0, FLOOR_Z) for i in range(40)]
+    assert traverses(back, tick) == [], traverses(back, tick)
+    out = [(t, x, 900.0 if 20 <= i < 24 else y, z) for i, (t, x, y, z) in enumerate(walk)]
+    assert traverses(out, tick) == [], traverses(out, tick)
+    # A gap in the samples of over a second drops the open traverse.
+    gap = walk[:25] + [(t + 200, x, y, z) for (t, x, y, z) in walk[25:]]
+    assert traverses(gap, tick) == [], traverses(gap, tick)
+    # A restart puts the bot back on its spawn mid-traverse: no traverse, and the next one counts.
+    restart = walk[:30] + [(210 + i * 7, 128.0 + i * 25.2, 136.0, FLOOR_Z) for i in range(80)]
+    got = traverses(restart, tick)
+    assert len(got) == 1 and abs(got[0]["seconds"] - 5.0) < 0.02, got
+    assert traverses(walk[:30] + [(210, 128.0, 136.0, FLOOR_Z)], tick) == []
+    # A flight: up 900 u over 3 s while drifting 150 u, then down; a 60 u hop is none.
+    fly = [(i * 10, 300.0 + i * 7.5, 232.0, FLOOR_Z + (0.0 if i in (0, 21) else 900.0 - abs(i - 10.5) * 80.0)) for i in range(22)]
+    got = flights(fly, tick)
+    assert len(got) == 1 and abs(got[0]["air"] - 3.15) < 0.01 and abs(got[0]["along"] - 157.5) < 0.1 and got[0]["walked"] == 756.0, got
+    assert flights(hop, tick) == [] and flights(walk, tick) == []
+    # Twice the speed is half the time: the stimulus reaches the number.
+    fast = [(i * 7, 300.0 + i * 50.4, 232.0, FLOOR_Z) for i in range(40)]
+    assert abs(traverses(fast, tick)[0]["seconds"] - 2.5) < 0.02
+    s = summary(traverses(walk, tick) + traverses(hop, tick))
+    assert s["run-east"]["n"] == 1 and s["low-west"]["hops"] == 1.0 and abs(s["run-east"]["speed"] - 240.0) < 1.5, s
+    assert s["run-west"] == {"n": 0} and s["low-east"] == {"n": 0}, s
+    print("ai-tf-jump self-test: ok")
+
+
+def vector(v):
+    if isinstance(v, dict):
+        low = {k.lower(): val for k, val in v.items()}
+        return float(low["x"]), float(low["y"]), float(low["z"])
+    return float(v[0]), float(v[1]), float(v[2])
+
+
+def lower(o):
+    if isinstance(o, dict):
+        return {k.lower(): lower(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [lower(v) for v in o]
+    return o
+
+
+def bot_sample(world, slot):
+    """(tick, x, y, z) of the actor in the slot from an /ai/world answer, or None while it is not in the world."""
+    for a in world.get("actors") or []:
+        if a.get("slot") == slot and a.get("alive") and a.get("at") is not None:
+            x, y, z = vector(a["at"])
+            return world["tick"], x, y, z
+    return None
+
+
+def arm(game, slot, health, seconds):
+    game.cmd("ai_aim_tough %d %d" % (slot, health))
+    time.sleep(2.0)
+    before = game.json("/ai/counters").get("ai.apply.ability.sequences", 0)
+    samples, tick_seconds, leaves = [], 0.015, {}
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        world = lower(game.json("/ai/world"))
+        tick_seconds = world.get("tickseconds", tick_seconds)
+        s = bot_sample(world, slot)
+        if s is not None and (not samples or s[0] > samples[-1][0]):
+            samples.append(s)
+        for b in world.get("bots") or []:
+            if b.get("slot") == slot and b.get("going"):
+                leaf = b["going"].get("leaf") or ""
+                leaves[leaf] = leaves.get(leaf, 0) + 1
+        time.sleep(0.1)
+    after = game.json("/ai/counters").get("ai.apply.ability.sequences", 0)
+    found = traverses(samples, tick_seconds)
+    return {"health": health, "flights": flights(samples, tick_seconds), "samples": len(samples), "sequences": after - before, "leaves": leaves, "lanes": summary(found), "traverses": found,
+            "tick_seconds": tick_seconds, "track": [[t, round(x, 1), round(y, 1), round(z, 1)] for t, x, y, z in samples]}
+
+
+def measure(config, seconds, out, keep):
+    nav = os.path.join(ROOT, "bin", config, "mods", "tf2", "maps", MAP + ".nav3d")
+    if not os.path.exists(nav):
+        raise SystemExit("ai-tf-jump: no %s: `make map MAP=%s` builds it" % (nav, MAP))
+    game = ai_scenario.Game(MAP, config, mod="tf2")
+    game.start()
+    try:
+        game.cmd("ai_bot_add Jumper medium team=2")
+        slot = None
+        deadline = time.time() + 120
+        while time.time() < deadline and slot is None:
+            for b in lower(game.json("/ai/world")).get("bots") or []:
+                if b.get("name") == "Jumper" and b.get("truth"):
+                    slot = b["slot"]
+            time.sleep(1.0)
+        if slot is None:
+            raise SystemExit("ai-tf-jump: the bot never spawned")
+        result = {"map": MAP, "seconds": seconds, "stretch": STRETCH[1] - STRETCH[0],
+                  "jump": arm(game, slot, 200, seconds), "walk": arm(game, slot, 85, seconds)}
+    finally:
+        game.stop(keep)
+    report(result)
+    if out:
+        with open(out, "w") as f:
+            json.dump(result, f, indent=1)
+        print("wrote %s" % out)
+    return 0 if result["jump"]["samples"] and result["walk"]["samples"] else 1
+
+
+def report(result):
+    for name in ("jump", "walk"):
+        a = result[name]
+        print("%s (health %d): %d sequences, %d samples, leaves %s" % (name, a["health"], a["sequences"], a["samples"], a["leaves"]))
+        for lane, s in a["lanes"].items():
+            print("  %-8s %s" % (lane, " ".join("%s=%s" % kv for kv in s.items())))
+        f = a["flights"]
+        if f:
+            print("  flights n=%d air=%.2f along=%.1f walked=%.1f peak=%.1f (medians)" % (
+                len(f), statistics.median(x["air"] for x in f), statistics.median(x["along"] for x in f),
+                statistics.median(x["walked"] for x in f), statistics.median(x["peak"] for x in f)))
+
+
+def read(path):
+    """An earlier run's numbers, made again from its kept track by this tool's arithmetic."""
+    with open(path) as f:
+        result = json.load(f)
+    for name in ("jump", "walk"):
+        a = result[name]
+        samples = [tuple(s) for s in a["track"]]
+        found = traverses(samples, a["tick_seconds"])
+        a["traverses"], a["lanes"], a["flights"] = found, summary(found), flights(samples, a["tick_seconds"])
+    report(result)
+    return 0
+
+
+def main(argv):
+    if "--self-test" in argv:
+        self_test()
+        return 0
+    p = argparse.ArgumentParser(prog="ai-tf-jump")
+    p.add_argument("what", choices=["measure", "read"])
+    p.add_argument("file", nargs="?")
+    p.add_argument("--seconds", type=float, default=240.0)
+    p.add_argument("--config", default="debug")
+    p.add_argument("--out")
+    p.add_argument("--keep", action="store_true")
+    a = p.parse_args(argv)
+    if a.what == "read":
+        if not a.file:
+            raise SystemExit("ai-tf-jump: read needs a run's FILE.json")
+        return read(a.file)
+    return measure(a.config, a.seconds, a.out, a.keep)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

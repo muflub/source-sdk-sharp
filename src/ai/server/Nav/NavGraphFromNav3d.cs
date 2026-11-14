@@ -38,8 +38,8 @@ public sealed record DerivedNav(NavGraph Graph, int[] CellOfLeaf, int[] LeafOfCe
 /// Drop to a lower one within the safe drop whose column holds the body from
 /// the higher floor down, so over an edge and never through a floor, a wall or
 /// a rail;
-/// Jump, CrouchJump or Drop along the file's jump links, split by
-/// HL2MP's numbers; Ladder up and down a climb's column and on and off it to
+/// Jump, CrouchJump, DoubleJump (when the numbers give a double jump's rise) or
+/// Drop along the file's jump links, split by the game's numbers; Ladder up and down a climb's column and on and off it to
 /// floors the body reaches; Door when either end is a door's leaf.</item>
 /// <item>Every dynamic obstacle is a graph obstacle; an edge with an end in
 /// its leaves carries it (a door's first), so the binding can block it from
@@ -160,7 +160,7 @@ public static class NavGraphFromNav3d
                                 && !CrossedAbove(src, leaf, dx, dy, MathF.Max(l.FloorZ, floorO), n.HullWidth, n.CrouchHeight, between))
                                 continue;
                             NavEdgeType? type = MathF.Abs(rise) <= n.StepHeight ? NavEdgeType.Walk
-                                : rise > n.MaxCrouchJumpRise ? null
+                                : rise > n.MaxCrouchJumpRise ? (rise <= n.MaxDoubleJumpRise ? NavEdgeType.DoubleJump : null)
                                 : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump
                                 : rise > 0f ? NavEdgeType.Jump
                                 : -rise <= n.SafeDrop && FallsClear(src, leaf, dx * k, dy * k, l.FloorZ, floorO, n, fall) ? NavEdgeType.Drop
@@ -178,7 +178,7 @@ public static class NavGraphFromNav3d
                     if (!stand[link.Leaf])
                         continue;
                     float rise = src.Leaf(link.Leaf).FloorZ - l.FloorZ;
-                    NavEdgeType? type = rise > n.MaxCrouchJumpRise ? null
+                    NavEdgeType? type = rise > n.MaxCrouchJumpRise ? (rise <= n.MaxDoubleJumpRise ? NavEdgeType.DoubleJump : null)
                         : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump
                         : rise > 0f || link.Columns > 1 ? NavEdgeType.Jump
                         : -rise <= n.SafeDrop ? NavEdgeType.Drop : null;
@@ -303,7 +303,7 @@ public static class NavGraphFromNav3d
     {
         int a = obstacleOfLeaf[fromLeaf], c = obstacleOfLeaf[toLeaf];
         int obstacle = a >= 0 && (c < 0 || infos[a].Kind == NavObstacleKind.Door) ? a : c;
-        if ((obstacle < 0 || infos[obstacle].Kind != NavObstacleKind.Door) && type is NavEdgeType.Drop or NavEdgeType.Jump or NavEdgeType.CrouchJump)
+        if ((obstacle < 0 || infos[obstacle].Kind != NavObstacleKind.Door) && type is NavEdgeType.Drop or NavEdgeType.Jump or NavEdgeType.CrouchJump or NavEdgeType.DoubleJump)
         {
             int pane = PaneAcross(infos, src.Leaf(fromLeaf), src.Leaf(toLeaf));
             if (pane >= 0)

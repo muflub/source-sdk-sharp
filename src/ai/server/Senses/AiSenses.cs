@@ -135,7 +135,9 @@ public sealed class ServerAiSession(IAiNavigation nav, IBotGame game, IEnginePla
     public void OnLevelInitPostEntity(string mapName)
     {
         WeaponKnowledge facts = game.Weapons();
-        MapKnowledge map = nav.Current is { } loaded ? game.Map(mapName, loaded.Entities, facts) : new MapKnowledge(mapName, [], [], facts);
+        // Without navigation the game is asked over an empty lump: what it knows of the level from elsewhere (TF2's
+        // placed entities, plan_bots_teams_tf2 P6 step 5) it still knows; HL2MP's knows nothing, as before.
+        MapKnowledge map = game.Map(mapName, nav.Current?.Entities ?? new MapEntities([], null), facts);
         Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight, nav.Chokes);
         // The level counts its ticks from low again: the last level's snapshots go.
         Session.Snapshots.Reset();

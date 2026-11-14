@@ -132,6 +132,7 @@ public sealed class AiBotRoutes(AiBots bots, AiRoster roster, AiSenses senses, V
                 + $"\"ai.pool.ran\":{Pool.Ran},\"ai.pool.faults\":{Pool.Faults},\"ai.steps.skipped\":{senses.Session.Counters.StepsSkipped},\"ai.steps.faulted\":{senses.Session.Counters.StepsFaulted},\"ai.steps.held\":{senses.Session.Counters.StepsHeld},"
                 + $"\"ai.steps.inflight\":{senses.Session.Counters.InFlight},\"ai.steps.inflight.max\":{senses.Session.Counters.InFlightMax},\"process.threads\":{ProcessThreads()},"
                 + $"{BudgetCounters()}{ChatCounters()}"
+                + $"\"nav.building\":{(nav.Building ? 1 : 0)},\"nav.build.percent\":{nav.BuildProgress?.Percent ?? -1},\"nav.version\":{nav.Version},"
                 + $"\"nav.map\":{AiJson.Quote(nav.Current?.Map ?? "")},\"nav.cells\":{nav.Current?.Nav.Graph.CellCount ?? 0},\"nav.refusal\":{AiJson.Quote(nav.Refusal)}}}"));
 
         string[] parts = path["/ai/bot/".Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);

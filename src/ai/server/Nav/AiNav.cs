@@ -47,12 +47,14 @@ public interface IAiNavigation
 /// re-read every <see cref="ObstacleTicks"/> ticks.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IAiNavigation)])]
-public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities entities, ILog log, IEnginePlayers players, ITraceQueries traces, IEngineEntityRender? render = null) : IGameLifecycle, IFrameLifecycle, IAiNavigation
+public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities entities, ILog log, IEnginePlayers players, ITraceQueries traces,
+                          INavProfile profile, IEngineEntityRender? render = null) : IGameLifecycle, IFrameLifecycle, IAiNavigation
 {
     public const int ObstacleTicks = 8;
 
     private NavObstacles? _obstacles;
     private NavObstacleField? _field;
+    private NavTeamBlockers _teamBlockers = NavTeamBlockers.None;
     private int _ticks;
 
     /// <summary>Before the bots, so a bot added at level start finds the nav.</summary>
@@ -80,7 +82,15 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
 
     public NavObstacleState? Obstacles => _obstacles?.State;
 
-    public NavObstacleState? ObstaclesFor(EntityHandle player) => _field?.StateFor(player);
+    /// <summary>The player's obstacles, carrying the jump reaches its class has now (the game's <see cref="INavProfile"/>).</summary>
+    public NavObstacleState? ObstaclesFor(EntityHandle player)
+    {
+        if (_field?.StateFor(player) is not { } state)
+            return null;
+        state.Reach = profile.Reach(player);
+        state.TeamCells = _teamBlockers.For(players.GetTeam(player));
+        return state;
+    }
 
     /// <summary>The solid entities' cells and who knows of them, or null with no navigation.</summary>
     public NavObstacleField? Field => _field;
@@ -135,7 +145,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         _chokeWork = Task.Run(() =>
         {
             long start = System.Diagnostics.Stopwatch.GetTimestamp();
-            ChokeMap? map = cache.TryReadChokes(nav.Map, nav.BspSha256, nav.NavSha256, nav.Nav.Graph);
+            ChokeMap? map = cache.TryReadChokes(nav.Map, nav.BspSha256, nav.NavSha256, nav.Nav.Graph, nav.NumbersKey);
             bool cached = map is not null;
             if (map is null)
             {
@@ -143,7 +153,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    cache.WriteChokes(nav.Map, nav.BspSha256, nav.NavSha256, nav.Nav.Graph, map);
+                    cache.WriteChokes(nav.Map, nav.BspSha256, nav.NavSha256, nav.Nav.Graph, map, nav.NumbersKey);
                 }
                 catch (IOException e)
                 {
@@ -165,6 +175,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         Sight = null;
         _obstacles = null;
         _field = null;
+        _teamBlockers = NavTeamBlockers.None;
         Breakables = null;
         Refusal = "no level is loaded";
         MissingFile = null;
@@ -177,11 +188,19 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         _field?.Tick();
     }
 
+    /// <summary>The load line's account of the cells closed to one team: "" when none are.</summary>
+    private string TeamBlockersText()
+    {
+        IReadOnlyDictionary<int, int> blocked = _teamBlockers.BlockedCells;
+        return blocked.Count == 0 ? ""
+            : "; closed to one team: " + string.Join(", ", blocked.OrderBy(p => p.Key).Select(p => string.Create(CultureInfo.InvariantCulture, $"team {p.Key} {p.Value} cells")));
+    }
+
     public void Load(string mapName)
     {
         OnLevelShutdown();
         var cache = new NavGraphCache(CacheDirectory, NavEdgeCosts.Default);
-        NavLoadResult result = NavLoader.Load(mapName, files.ReadGameFileBytes, cache);
+        NavLoadResult result = NavLoader.Load(mapName, files.ReadGameFileBytes, cache, profile, new BuiltNavStore(CacheDirectory));
         if (result.Nav is not { } nav)
         {
             Refusal = result.Refusal;
@@ -190,6 +209,8 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
             return;
         }
 
+        if (nav.Entities.Unread is { } unread)
+            log.Warning($"[SourceSharp/Ai] {mapName}'s entities are not read ({unread}): the bots know none of its spawns, pickups, hurt volumes or team solids\n");
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
         Sight = NavSight.Build(nav.Nav.Graph, new Nav3dVoxelSpace(nav.Reader));
         double sightMs = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
@@ -197,6 +218,7 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         _obstacles.Resolve();
         _field = new NavObstacleField(nav.Nav.Graph, new EngineObstacleWorld(entities, render is null ? null : render.GetModelName), new EnginePvsSight(players), nav.Nav.Obstacles, _obstacles.State);
         _field.OnLevelStart();
+        _teamBlockers = NavTeamBlockers.From(nav.Nav.Graph, profile.TeamSolids(nav.Entities), profile.Numbers(nav.Reader.JumpHeight));
         Breakables = new EngineBreakableAim(_field, traces);
         StartChokes(nav, cache);
         Current = nav;
@@ -204,9 +226,9 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
         NavGraph g = nav.Nav.Graph;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] navigation for {mapName}: {g.CellCount} cells, {g.EdgeCount} edges, {g.ObstacleCount} obstacles "
-            + $"({_obstacles.Matched} matched, {_obstacles.Blocking} blocking); {(nav.FromCache ? "read from the cache" : "derived")} in {nav.DeriveMs:F0} ms; "
+            + $"({_obstacles.Matched} matched, {_obstacles.Blocking} blocking){(nav.Built ? " (cached)" : "")}; {(nav.FromCache ? "read from the cache" : "derived")} in {nav.DeriveMs:F0} ms; "
             + $"sight {Sight.NodeCount} nodes, {Sight.Pairs} pairs in {sightMs:F0} ms; "
-            + $"{_field.Bodies} solid entities take {_field.TruthCells.Blocked} cells and cost {_field.TruthCells.Costly}, {_field.BreakableBodies} a gun can break\n"));
+            + $"{_field.Bodies} solid entities take {_field.TruthCells.Blocked} cells and cost {_field.TruthCells.Costly}, {_field.BreakableBodies} a gun can break{TeamBlockersText()}\n"));
     }
 }
 

@@ -45,6 +45,7 @@
     <!-- The static-state census covers the AI's assemblies (plan_hl2mp_ai §1.3). -->
     <ProjectReference Include="..\..\ai\server\SourceSharp.Ai.Server.csproj" />
     <ProjectReference Include="..\..\ai\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
+    <ProjectReference Include="..\..\ai\tf2\server\SourceSharp.Ai.TF2.csproj" />
     <ProjectReference Include="..\..\ai\hl2mp\client\SourceSharp.Ai.Hl2mp.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\..\ai\hl2mp\interface\SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
     <ProjectReference Include="..\..\ai\hl2mp\ui\SourceSharp.Ai.Hl2mp.Ui.csproj" />

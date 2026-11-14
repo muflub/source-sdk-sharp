@@ -5,7 +5,8 @@ namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>
 /// The derived graph cached on disk (plan_hl2mp_ai §6.2):
-/// <c>&lt;dir&gt;/&lt;map&gt;-&lt;sha256(bsp)[:16]&gt;-&lt;sha256(nav3d)[:16]&gt;-v&lt;MapFormatsVersion&gt;-g&lt;revision&gt;.navgraph</c>.
+/// <c>&lt;dir&gt;/&lt;map&gt;-&lt;sha256(bsp)[:16]&gt;-&lt;sha256(nav3d)[:16]&gt;-v&lt;MapFormatsVersion&gt;-g&lt;revision&gt;[-n&lt;numbers&gt;].navgraph</c>,
+/// the last part only for a game whose numbers are not the core's default movement's (<see cref="NumbersKey"/>).
 /// The name and the header both carry the two hashes, the reader version and
 /// the derivation's revision, so a changed map, a changed nav, another reader
 /// or a changed derivation finds no file, and a
@@ -23,23 +24,45 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
 {
     private static ReadOnlySpan<byte> Magic => "SSNAVG01"u8;
 
-    /// <summary>What a cached graph was written by: the reader's package and the derivation's revision.</summary>
-    private static string Version => $"{NavReaderVersion.Package}-g{NavGraphFromNav3d.Revision}";
+    /// <summary>
+    /// What a cached graph was written by: the reader's package, the derivation's revision,
+    /// and the numbers it derived by when they are not the default's (<see cref="NumbersKey"/>).
+    /// </summary>
+    private static string Version(string numbersKey)
+        => numbersKey.Length == 0 ? $"{NavReaderVersion.Package}-g{NavGraphFromNav3d.Revision}"
+                                  : $"{NavReaderVersion.Package}-g{NavGraphFromNav3d.Revision}-n{numbersKey}";
 
     public string Directory => directory;
 
-    public string PathFor(string map, string bspSha256, string navSha256)
-        => Path.Combine(directory, $"{map}-{bspSha256[..16]}-{navSha256[..16]}-v{Version}.navgraph");
+    /// <summary>
+    /// The name a derivation's numbers carry in the cache: "" for the core's default movement over
+    /// a file of jump height <paramref name="fileJumpHeight"/> (so HL2MP's graphs keep their names),
+    /// else the first 16 hex digits of the SHA-256 of their bits.
+    /// </summary>
+    public static string NumbersKey(NavNumbers numbers, float fileJumpHeight)
+    {
+        if (numbers == NavNumbers.Stock(fileJumpHeight))
+            return "";
+        Span<byte> bits = stackalloc byte[8 * sizeof(float)];
+        ReadOnlySpan<float> values = [numbers.HullWidth, numbers.StandHeight, numbers.CrouchHeight, numbers.StepHeight,
+                                      numbers.MaxJumpRise, numbers.MaxCrouchJumpRise, numbers.SafeDrop, numbers.MaxDoubleJumpRise];
+        for (int i = 0; i < values.Length; i++)
+            BinaryPrimitives.WriteSingleLittleEndian(bits[(i * sizeof(float))..], values[i]);
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16];
+    }
+
+    public string PathFor(string map, string bspSha256, string navSha256, string numbersKey = "")
+        => Path.Combine(directory, $"{map}-{bspSha256[..16]}-{navSha256[..16]}-v{Version(numbersKey)}.navgraph");
 
     /// <summary>The cached graph, or null when there is none or it does not describe these files.</summary>
-    public DerivedNav? TryRead(string map, string bspSha256, string navSha256)
+    public DerivedNav? TryRead(string map, string bspSha256, string navSha256, string numbersKey = "")
     {
-        string path = PathFor(map, bspSha256, navSha256);
+        string path = PathFor(map, bspSha256, navSha256, numbersKey);
         if (!File.Exists(path))
             return null;
         try
         {
-            return Decode(File.ReadAllBytes(path), map, bspSha256, navSha256);
+            return Decode(File.ReadAllBytes(path), map, bspSha256, navSha256, numbersKey);
         }
         catch (Exception e) when (e is InvalidDataException or ArgumentException or IndexOutOfRangeException)
         {
@@ -47,23 +70,21 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         }
     }
 
-    public void Write(string map, string bspSha256, string navSha256, DerivedNav nav)
+    public void Write(string map, string bspSha256, string navSha256, DerivedNav nav, string numbersKey = "")
     {
         System.IO.Directory.CreateDirectory(directory);
-        string path = PathFor(map, bspSha256, navSha256);
-        string temp = path + ".tmp";
-        File.WriteAllBytes(temp, Encode(map, bspSha256, navSha256, nav));
-        File.Move(temp, path, overwrite: true);
+        // A temporary name of its own: two games on one tree derive the same key at once.
+        BuiltNavStore.Replace(PathFor(map, bspSha256, navSha256, numbersKey), Encode(map, bspSha256, navSha256, nav, numbersKey));
     }
 
     /// <summary>A graph's choke points beside it: the graph's own name, and the map's revision.</summary>
-    public string ChokesPathFor(string map, string bspSha256, string navSha256)
-        => $"{PathFor(map, bspSha256, navSha256)}.chokes{ChokeMap.Revision}";
+    public string ChokesPathFor(string map, string bspSha256, string navSha256, string numbersKey = "")
+        => $"{PathFor(map, bspSha256, navSha256, numbersKey)}.chokes{ChokeMap.Revision}";
 
     /// <summary>The cached choke points, or null when there are none or they are of another graph.</summary>
-    public ChokeMap? TryReadChokes(string map, string bspSha256, string navSha256, NavGraph graph)
+    public ChokeMap? TryReadChokes(string map, string bspSha256, string navSha256, NavGraph graph, string numbersKey = "")
     {
-        string path = ChokesPathFor(map, bspSha256, navSha256);
+        string path = ChokesPathFor(map, bspSha256, navSha256, numbersKey);
         if (!File.Exists(path))
             return null;
         try
@@ -85,7 +106,7 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         }
     }
 
-    public void WriteChokes(string map, string bspSha256, string navSha256, NavGraph graph, ChokeMap chokes)
+    public void WriteChokes(string map, string bspSha256, string navSha256, NavGraph graph, ChokeMap chokes, string numbersKey = "")
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(chokes);
@@ -96,18 +117,15 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(12), chokes.CellCount);
         for (int c = 0; c < chokes.CellCount; c++)
             BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(16 + c * sizeof(float)), BitConverter.SingleToInt32Bits(chokes.ScoreOf(c)));
-        string path = ChokesPathFor(map, bspSha256, navSha256);
-        string temp = path + ".tmp";
-        File.WriteAllBytes(temp, bytes);
-        File.Move(temp, path, overwrite: true);
+        BuiltNavStore.Replace(ChokesPathFor(map, bspSha256, navSha256, numbersKey), bytes);
     }
 
-    public byte[] Encode(string map, string bspSha256, string navSha256, DerivedNav nav)
+    public byte[] Encode(string map, string bspSha256, string navSha256, DerivedNav nav, string numbersKey = "")
     {
         ArgumentNullException.ThrowIfNull(nav);
         var w = new Writer();
         w.Bytes(Magic);
-        w.Str(Version);
+        w.Str(Version(numbersKey));
         w.Str(bspSha256);
         w.Str(navSha256);
         w.Str(map);
@@ -154,13 +172,13 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
     }
 
     /// <summary>The graph a cache file holds, or an exception when it is not one for these files.</summary>
-    public DerivedNav Decode(ReadOnlySpan<byte> bytes, string map, string bspSha256, string navSha256)
+    public DerivedNav Decode(ReadOnlySpan<byte> bytes, string map, string bspSha256, string navSha256, string numbersKey = "")
     {
         var r = new Reader(bytes);
         if (!r.Bytes(Magic.Length).SequenceEqual(Magic))
             throw new InvalidDataException("not a .navgraph");
         string version = r.Str(), bsp = r.Str(), nav = r.Str(), name = r.Str();
-        if (version != Version || bsp != bspSha256 || nav != navSha256 || name != map)
+        if (version != Version(numbersKey) || bsp != bspSha256 || nav != navSha256 || name != map)
             throw new InvalidDataException($"the cache names {name} {bsp[..Math.Min(16, bsp.Length)]} {nav[..Math.Min(16, nav.Length)]} v{version}");
         int leaves = r.I32();
         var b = new NavGraphBuilder();

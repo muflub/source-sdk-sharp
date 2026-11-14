@@ -143,6 +143,249 @@ public sealed class NavFollowerTests
     }
 
     /// <summary>
+    /// A battlement (four cells at z 256, x 0..64) whose last cell drops to a moat (z -212, x 64..160)
+    /// beside and under it; the moat's cells run under the battlement too. A sill at the battlement's
+    /// edge, over the moat's column, is no place.
+    /// </summary>
+    private static (NavGraph G, CellId Edge, CellId Far) Battlement()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        var top = new CellId[4];
+        for (int x = 0; x < 4; x++)
+            top[x] = b.AddCell(new NavCell(x * 16f, 0f, x * 16f + 16f, 16f, 256f, Both, NavCellFlags.None, 1f));
+        var moat = new CellId[10];
+        for (int x = 0; x < 10; x++)
+            moat[x] = b.AddCell(new NavCell(x * 16f, 0f, x * 16f + 16f, 16f, -212f, Both, NavCellFlags.Water, 2f));
+        for (int x = 0; x + 1 < 4; x++)
+            b.AddBoth(top[x], top[x + 1], NavEdgeType.Walk);
+        for (int x = 0; x + 1 < 10; x++)
+            b.AddBoth(moat[x], moat[x + 1], NavEdgeType.Walk);
+        b.AddEdge(top[3], moat[4], NavEdgeType.Drop);
+        return (b.Build(), top[3], moat[9]);
+    }
+
+    /// <summary>
+    /// A bot standing on the sill, not falling, high over the moat's column: it is where it last
+    /// stood on a floor, the battlement's edge, not in the water 480 u under it (live, ctf_2fort:
+    /// taken to be in the moat it walked the moat's route into the wall, for good).
+    /// </summary>
+    [Fact]
+    public void ABotOnASillHighOverTheOnlyFloorUnderItIsWhereItLastStood()
+    {
+        var (g, edge, far) = Battlement();
+        var f = new NavFollower(g, far, g.Cell(far).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        f.Next(new AiVector(56f, 8f, 256f), out _);
+        Assert.Equal(edge, f.At);
+        // On the sill, over the moat's eighth column and past the battlement's reach (TouchReach), still: twice, so it is not falling.
+        f.Next(new AiVector(120f, 8f, 267f), out _);
+        f.Next(new AiVector(120f, 8f, 267f), out _);
+        Assert.Equal(edge, f.At);
+    }
+
+    /// <summary>A moat whose floor slopes up (z -290 at x 0 to -212 at x 96) to a dry bank (z -200, x 96..128), all walked.</summary>
+    private static (NavGraph G, CellId Deep, CellId Shallow, CellId Bank) MoatBank()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        float[] floors = [-290f, -274f, -258f, -242f, -226f, -212f];
+        var moat = new CellId[floors.Length];
+        for (int x = 0; x < moat.Length; x++)
+            moat[x] = b.AddCell(new NavCell(x * 16f, 0f, x * 16f + 16f, 16f, floors[x], Both, NavCellFlags.Water, 2f));
+        for (int x = 0; x + 1 < moat.Length; x++)
+            b.AddBoth(moat[x], moat[x + 1], NavEdgeType.Walk);
+        CellId bank = b.AddCell(new NavCell(96f, 0f, 128f, 16f, -200f, Both, NavCellFlags.None, 1f));
+        b.AddBoth(moat[^1], bank, NavEdgeType.Walk);
+        return (b.Build(), moat[0], moat[^1], bank);
+    }
+
+    /// <summary>In the moat a bot making for the bank over it holds jump, as a player swims up and climbs out; on the bank it walks.</summary>
+    [Fact]
+    public void ABotInWaterSwimsUpToABankAndOnAFloorWalks()
+    {
+        var (g, deep, _, bank) = MoatBank();
+        var f = new NavFollower(g, bank, g.Cell(bank).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        MoveIntent swim = f.Next(g.Cell(deep).Centre, out FollowState state);
+        Assert.Equal((FollowState.Moving, MoveKind.Jump), (state, swim.Kind));
+
+        var (battlement, _, _) = Battlement();
+        var top = new NavFollower(battlement, battlement.FindCell(new AiVector(8f, 8f, 257f)), new AiVector(8f, 8f, 256f), ClearanceClass.Crouch, new NavObstacleState(0));
+        MoveIntent walk = top.Next(new AiVector(40f, 8f, 256f), out _);
+        Assert.Equal(MoveKind.Follow, walk.Kind);
+    }
+
+    /// <summary>
+    /// Down into the moat a swimmer does not hold jump: held all the way it bobbed at
+    /// the surface, as often out of the water as in it, and drifted on the spot (live, ctf_2fort).
+    /// </summary>
+    [Fact]
+    public void ASwimmerGoingDownIntoTheMoatDoesNotHoldJump()
+    {
+        var (g, deep, shallow, _) = MoatBank();
+        var f = new NavFollower(g, deep, g.Cell(deep).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        MoveIntent swim = f.Next(g.Cell(shallow).Centre, out FollowState state);
+        Assert.Equal((FollowState.Moving, MoveKind.Follow), (state, swim.Kind));
+    }
+
+    /// <summary>
+    /// A moat's deep floor (z -250, x -64..32) and a ramp up out of it (x 32..96, z -240 to -212),
+    /// all water: ctf_2fort's moat under the bridge at its channels.
+    /// </summary>
+    private static (NavGraph G, CellId Deep, CellId Far) MoatRamp()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        float[] floors = [-250f, -250f, -250f, -250f, -250f, -250f, -240f, -230f, -221f, -212f];
+        var cells = new CellId[floors.Length];
+        for (int i = 0; i < floors.Length; i++)
+            cells[i] = b.AddCell(new NavCell(-64f + i * 16f, 0f, -48f + i * 16f, 16f, floors[i], Both, NavCellFlags.Water, 2f));
+        for (int i = 0; i + 1 < floors.Length; i++)
+            b.AddBoth(cells[i], cells[i + 1], NavEdgeType.Walk);
+        return (b.Build(), cells[4], cells[0]);
+    }
+
+    /// <summary>
+    /// A swimmer afloat 29 u over the deep floor is in the deep cell under it, not on the ramp's
+    /// cell at its feet' height beside it; and the corner under it is passed. Live on ctf_2fort,
+    /// taken to be on the ramp, swimmers at the surface were sent back to the cell they floated
+    /// over, for good.
+    /// </summary>
+    [Fact]
+    public void ASwimmerAfloatOverTheDeepFloorIsInTheCellUnderIt()
+    {
+        var (g, deep, far) = MoatRamp();
+        var f = new NavFollower(g, far, g.Cell(far).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        AiVector afloat = g.Cell(deep).Centre with { Z = -221f };
+        MoveIntent move = f.Next(afloat, out FollowState state);
+        Assert.Equal(deep, f.At);
+        Assert.Equal(FollowState.Moving, state);
+        Assert.True(move.Corner(0).X < afloat.X - 8f, $"the corner {move.Corner(0)} is not on the way to the far end");
+    }
+
+    /// <summary>
+    /// A swimmer over a moat whose cells leave every other column out (no body at a slope's column
+    /// centre: each move is two columns along) passes the corner under it and makes for the next:
+    /// live on ctf_2fort it steered at the corner 4 u from it, and drifted away from its goal.
+    /// </summary>
+    [Fact]
+    public void ASwimmerPassesTheCornerUnderItWhereTheMoatsCellsHaveGaps()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        var cells = new CellId[6];
+        for (int i = 0; i < cells.Length; i++)
+            cells[i] = b.AddCell(new NavCell(i * 32f, 0f, i * 32f + 16f, 16f, -288f - i, Both, NavCellFlags.Water, 2f));
+        for (int i = 0; i + 1 < cells.Length; i++)
+            b.AddBoth(cells[i], cells[i + 1], NavEdgeType.Walk);
+        NavGraph g = b.Build();
+        CellId far = cells[^1];
+        var f = new NavFollower(g, far, g.Cell(far).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        AiVector afloat = g.Cell(cells[1]).Centre with { Y = 6f, Z = -221f };
+
+        MoveIntent move = f.Next(afloat, out FollowState state);
+
+        Assert.Equal((FollowState.Moving, cells[1]), (state, f.At));
+        Assert.True(move.Corner(0).X > afloat.X + 16f, $"it steers at {move.Corner(0)}, the corner under it at {afloat}");
+    }
+
+    /// <summary>
+    /// A swimmer's corners on the water's floor under it are at its own depth, so the applier
+    /// passes them by the flat: on the floor, 40 u under a swimmer at ctf_2fort's moat, a corner
+    /// beside it was one it circled for good (live).
+    /// </summary>
+    [Fact]
+    public void ASwimmersCornersOnTheFloorUnderItAreAtItsDepth()
+    {
+        var (g, deep, far) = MoatRamp();
+        var f = new NavFollower(g, far, g.Cell(far).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        AiVector afloat = g.Cell(deep).Centre with { Z = -210f };
+
+        MoveIntent move = f.Next(afloat, out _);
+
+        Assert.True(move.CornerCount >= 1);
+        Assert.Equal(afloat.Z, move.Corner(0).Z);
+    }
+
+    /// <summary>The control: a bot standing on a dry floor 29 u over a lower one beside it is not in the lower one.</summary>
+    [Fact]
+    public void ABotOverADryFloorIsNotAfloat()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        CellId low = b.AddCell(new NavCell(0f, 0f, 16f, 16f, -250f, Both, NavCellFlags.None, 1f));
+        CellId high = b.AddCell(new NavCell(16f, 0f, 32f, 16f, -221f, Both, NavCellFlags.None, 1f));
+        b.AddBoth(low, high, NavEdgeType.Jump);
+        NavGraph g = b.Build();
+        var f = new NavFollower(g, high, g.Cell(high).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        f.Next(new AiVector(10f, 8f, -221f), out _);
+        Assert.Equal(high, f.At);
+    }
+
+    /// <summary>The control: a bot falling past the sill is in the moat it falls to.</summary>
+    [Fact]
+    public void ABotFallingOverTheEdgeIsOnTheFloorItFallsTo()
+    {
+        var (g, edge, far) = Battlement();
+        var f = new NavFollower(g, far, g.Cell(far).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+        f.Next(new AiVector(56f, 8f, 256f), out _);
+        f.Next(new AiVector(120f, 8f, 200f), out _);
+        Assert.Equal(g.FindCell(new AiVector(120f, 8f, -211f)), f.At);
+    }
+
+    /// <summary>A floor and a ledge 100 u over the column beside it, joined only by a double jump up and a drop down.</summary>
+    private static (NavGraph G, CellId Floor, CellId Ledge) DoubleJumpCourse()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        CellId floor = b.AddCell(new NavCell(0f, 0f, 16f, 16f, 0f, Both, NavCellFlags.None, 1f));
+        CellId ledge = b.AddCell(new NavCell(0f, 16f, 16f, 32f, 100f, Both, NavCellFlags.None, 1f));
+        b.AddEdge(floor, ledge, NavEdgeType.DoubleJump);
+        b.AddEdge(ledge, floor, NavEdgeType.Drop);
+        return (b.Build(), floor, ledge);
+    }
+
+    [Fact]
+    public void ABotWithoutTheReachHasNoRouteUpADoubleJump()
+    {
+        var (g, _, ledge) = DoubleJumpCourse();
+        var f = new NavFollower(g, ledge, g.Cell(ledge).Centre, ClearanceClass.Crouch, new NavObstacleState(0));
+
+        f.Next(new AiVector(8f, 8f, 0f), out FollowState state);
+
+        Assert.Equal(FollowState.NoRoute, state);
+    }
+
+    /// <summary>
+    /// A double jump: the take-off is a crouch-jump, held while the bot rises; once it stops
+    /// rising the jump is let go for a move and pressed again, the second jump in the air.
+    /// </summary>
+    [Fact]
+    public void ABotWithTheReachJumpsLetsGoAtTheTopAndJumpsAgain()
+    {
+        var (g, _, ledge) = DoubleJumpCourse();
+        var f = new NavFollower(g, ledge, g.Cell(ledge).Centre, ClearanceClass.Crouch, new NavObstacleState(0) { Reach = JumpReach.Double });
+
+        MoveKind Kind(float z) => f.Next(new AiVector(8f, 8f, z), out _).Kind;
+
+        Assert.Equal(MoveKind.CrouchJump, Kind(0f));
+        Assert.Equal(NavEdgeType.DoubleJump, f.NextVia);
+        Assert.Equal([MoveKind.CrouchJump, MoveKind.CrouchJump, MoveKind.Follow, MoveKind.CrouchJump],
+                     new[] { Kind(20f), Kind(40f), Kind(40f), Kind(42f) });
+    }
+
+    [Fact]
+    public void ABotThatLandsBeforeTheTopDropsTheSecondPress()
+    {
+        var (g, _, ledge) = DoubleJumpCourse();
+        var f = new NavFollower(g, ledge, g.Cell(ledge).Centre, ClearanceClass.Crouch, new NavObstacleState(0) { Reach = JumpReach.Double });
+
+        MoveKind Kind(float z) => f.Next(new AiVector(8f, 8f, z), out _).Kind;
+
+        Kind(0f);
+        Assert.DoesNotContain(MoveKind.Follow, Enumerable.Range(0, NavFollower.TuckRise + 2).Select(_ => Kind(0f)).ToArray());
+    }
+
+    /// <summary>
     /// A walkway at z 128 whose edge column has only the floor below it (its
     /// body does not fit at the column's centre for the rail), a rail top past
     /// it, and that floor running on.

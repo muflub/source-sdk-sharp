@@ -315,6 +315,8 @@ public sealed class NavFollower
 
         _stuckReports = old._stuckReports;
         _jumpLeft = old._jumpLeft;
+        _lastOnFloor = old._lastOnFloor;
+        _lastZ = old._lastZ;
         if (old._avoidLeft > 0)
         {
             _avoidLeft = old._avoidLeft;
@@ -465,10 +467,15 @@ public sealed class NavFollower
             if (i >= count)
                 return default;
             AiVector point = _corners[i + 1 + skip].Point;
-            return i == 0 && via == NavEdgeType.Drop && point == _graph.Cell(_field.NextFrom(At.Index)).Centre ? overTheEdge : point;
+            return Afloat(i == 0 && via == NavEdgeType.Drop && point == _graph.Cell(_field.NextFrom(At.Index)).Centre ? overTheEdge : point);
         }
 
-        AiVector? held = HoldCorner(via, count > 0 ? _corners[1 + skip] : default, origin);
+        // Afloat, a corner on the water's floor under the bot is at its own depth: the applier
+        // passes a corner on another floor only once on top of it, and a swimmer 40 u over the
+        // moat's floor circled the corner beside it (live, ctf_2fort). A corner above it stays.
+        AiVector Afloat(AiVector point) => _swimming && point != default && point.Z < origin.Z ? point with { Z = origin.Z } : point;
+
+        AiVector? held = HoldCorner(via, count > 0 ? _corners[1 + skip] : default, origin) is { } h ? Afloat(h) : null;
         if (held is not null)
             count = 1;
 
@@ -479,10 +486,19 @@ public sealed class NavFollower
             // tops out near 20 u and the step does not come in the air (live,
             // ss_ai_nav's 32 u ledge: the bot rose to 35 and fell back, for
             // ever), and the duck tucks the feet up as a player's does.
-            NavEdgeType.Jump or NavEdgeType.CrouchJump => MoveKind.CrouchJump,
+            NavEdgeType.Jump or NavEdgeType.CrouchJump or NavEdgeType.DoubleJump => MoveKind.CrouchJump,
             _ => MoveKind.Follow,
         };
-        if (_jumpLeft > 0 && kind == MoveKind.Follow)
+        kind = DoubleJump(via, kind, origin);
+        // In water a player holds jump to rise: it swims up to the surface and climbs out at a bank
+        // (the movement's water jump). Walking, a bot sank to the bottom of ctf_2fort's moat and
+        // stood against its bank (live: 400 stuck reports under the bridge in eight minutes). But
+        // held all the way it bobs at the surface, its feet out of the water as often as not and
+        // the air's control its only one (live, 9acebc65f: swimmers drifted on the spot by the
+        // moat's channels): only while the way on is higher than it can swim up to unaided.
+        if (kind == MoveKind.Follow && (_graph.Cell(At).Flags & NavCellFlags.Water) != 0 && SwimsUp(origin, held ?? Corner(0)))
+            kind = MoveKind.Jump;
+        if (_jumpLeft > 0 && kind == MoveKind.Follow && _dash != DashPhase.LetGo)
         {
             _jumpLeft--;
             kind = MoveKind.CrouchJump;
@@ -504,6 +520,18 @@ public sealed class NavFollower
 
         state = FollowState.Moving;
         return new MoveIntent(kind, MoveSpeed.Run, (byte)Math.Max(count, 0), held ?? Corner(0), Corner(1), Corner(2), Corner(3), default, crouch, 0);
+    }
+
+    /// <summary>How far over a swimmer's feet the way on may rise before it holds jump to swim up to it: a step's height.</summary>
+    public const float SwimUpRise = 18f;
+
+    /// <summary>Whether a swimmer at <paramref name="origin"/> swims up: its steering corner, or the next cell's floor, is over its feet by more than <see cref="SwimUpRise"/>.</summary>
+    private bool SwimsUp(AiVector origin, AiVector corner)
+    {
+        float way = corner == default ? float.NegativeInfinity : corner.Z;
+        if (_field.NextFrom(At.Index) is { IsValid: true } next)
+            way = MathF.Max(way, _graph.Cell(next).FloorZ);
+        return way - origin.Z > SwimUpRise;
     }
 
     /// <summary>How much further from the objective than the bot a held corner may stand and still be on its way.</summary>
@@ -617,6 +645,61 @@ public sealed class NavFollower
     /// <summary>How many moves a crouch-jump keeps the duck at most (0.8 s, its air time), and how many of them are the rise, when being on a floor is the take-off's.</summary>
     public const int TuckMoves = 53, TuckRise = 10;
 
+    /// <summary>How far over the take-off's floor a bot is in the air, for a double jump's second press.</summary>
+    public const float AirborneRise = 1f;
+
+    private enum DashPhase : byte
+    {
+        None = 0,
+        Rising,
+        LetGo,
+    }
+
+    private DashPhase _dash;
+    private float _dashFloor, _dashLastZ;
+    private int _dashMoves;
+
+    /// <summary>
+    /// A <see cref="NavEdgeType.DoubleJump"/> (plan_bots_teams_tf2 C.7): the take-off is a
+    /// crouch-jump as any other; in the air the jump is let go once the bot stops rising, and
+    /// pressed again on the next move, which a game that has the second jump answers (TF's
+    /// Scout dashes on a fresh press in the air). A bot that lands first, or has been in the
+    /// air a crouch-jump's whole time, drops the second press.
+    /// </summary>
+    private MoveKind DoubleJump(NavEdgeType via, MoveKind kind, AiVector origin)
+    {
+        switch (_dash)
+        {
+            case DashPhase.None:
+                if (via == NavEdgeType.DoubleJump && kind == MoveKind.CrouchJump)
+                {
+                    _dash = DashPhase.Rising;
+                    _dashFloor = _graph.Cell(At).FloorZ;
+                    _dashLastZ = origin.Z;
+                    _dashMoves = 0;
+                }
+
+                return kind;
+            case DashPhase.Rising:
+                bool airborne = origin.Z - _dashFloor > AirborneRise;
+                bool topped = airborne && origin.Z <= _dashLastZ;
+                _dashLastZ = origin.Z;
+                if (++_dashMoves > TuckMoves || (!airborne && _dashMoves > TuckRise))
+                {
+                    _dash = DashPhase.None;
+                    return kind;
+                }
+
+                if (!topped)
+                    return kind;
+                _dash = DashPhase.LetGo;
+                return MoveKind.Follow;
+            default:
+                _dash = DashPhase.None;
+                return MoveKind.CrouchJump;
+        }
+    }
+
     private int _tuckLeft;
 
     /// <summary>How far past a drop's landing a bot still on the edge is steered.</summary>
@@ -643,11 +726,16 @@ public sealed class NavFollower
     private bool Passed(int corner, AiVector origin)
     {
         AiVector point = _corners[corner].Point;
-        if (Flat(point, origin) >= PassedRadius || MathF.Abs(point.Z - origin.Z) > OnFloorReach)
+        if (Flat(point, origin) >= PassedRadius || MathF.Abs(point.Z - origin.Z) > (_swimming ? SwimReach : OnFloorReach))
             return false;
         bool takeOff = corner + 1 < _corners.Count && _corners[corner + 1].Arrive != NavEdgeType.Walk;
         if (takeOff)
             return point == _graph.Cell(At).Centre;
+        // Afloat there is no wall to see round at the water's floor, and a moat's cells leave
+        // columns out where its slope holds no body at the centre, so no line on its floor is
+        // clear: live on ctf_2fort a swimmer steered at the corner under it, and drifted.
+        if (_swimming)
+            return true;
         // A corner round a wall is not passed for being near through it (live,
         // dm_lockdown's balcony at (-3226 4438 128): steered past it, into the
         // wall, until the stuck detector).
@@ -659,6 +747,15 @@ public sealed class NavFollower
 
     /// <summary>How far above a cell's floor a bot may stand and still be taken to be on it.</summary>
     public const float OnFloorReach = 24f;
+
+    /// <summary>
+    /// How far above a water cell's floor a swimmer may float and still be in it: a body held up
+    /// at the surface (ctf_2fort's moat, 136 u deep at its deepest, floats a TF2 body's feet 95 u
+    /// over its floor).
+    /// </summary>
+    public const float SwimReach = 112f;
+
+    private bool _swimming;
 
     /// <summary>
     /// The cell a bot is in. A column's only cell can be a floor far below the
@@ -676,15 +773,33 @@ public sealed class NavFollower
         bool admits = c.IsValid && _graph.Cell(c).Admits(Class);
         _falling = origin.Z < _lastZ - 1f && admits && origin.Z - _graph.Cell(c).FloorZ > FallReach;
         _lastZ = origin.Z;
+        _swimming = false;
         if (admits && (_falling || origin.Z - _graph.Cell(c).FloorZ <= OnFloorReach))
+            return OnFloor(c, origin);
+        // Afloat over a water cell's floor, a bot is in that cell: taken to be on a shallower
+        // water cell beside it at its feet' height (a ramp's), a swimmer at the surface over
+        // ctf_2fort's moat was sent back to the deep cell it floated over, and never reached it
+        // (live: some 150 stuck reports at the moat's ramps in ten minutes).
+        if (admits && (_graph.Cell(c).Flags & NavCellFlags.Water) != 0 && origin.Z - _graph.Cell(c).FloorZ <= SwimReach)
+        {
+            _swimming = true;
             return c;
+        }
+
         List<CellId> near = NavPoints.CellsNear(_graph, origin, Class);
         foreach (CellId n in near)
         {
             if (MathF.Abs(_graph.Cell(n).FloorZ - origin.Z) <= OnFloorReach && float.IsFinite(_field.CostAt(n.Index)))
-                return n;
+                return OnFloor(n, origin);
         }
 
+        // Standing (a falling bot was answered above) on something the file has no place on, high over the only floor
+        // under it: a sill or a parapet's top. Taken to be on that floor, the bot walked the
+        // floor's route into the wall, for good (live, ctf_2fort: a battlement's crenel over the
+        // moat, 480 u up, "next Walk to" a water cell). It is where it last stood on a floor, still
+        // near its height: the way on, and a stuck report's way round, start there.
+        if (admits && _lastOnFloor.IsValid && MathF.Abs(_graph.Cell(_lastOnFloor).FloorZ - origin.Z) <= FallReach)
+            return _lastOnFloor;
         if (admits)
             return c;
         foreach (CellId n in near)
@@ -695,6 +810,16 @@ public sealed class NavFollower
 
         return c;
     }
+
+    /// <summary><paramref name="c"/>, the cell the bot stands on at its feet' height: remembered as where it last stood on a floor.</summary>
+    private CellId OnFloor(CellId c, AiVector origin)
+    {
+        if (MathF.Abs(_graph.Cell(c).FloorZ - origin.Z) <= OnFloorReach)
+            _lastOnFloor = c;
+        return c;
+    }
+
+    private CellId _lastOnFloor;
 
     /// <summary>How far across a bot with no way from where it stands looks for a cell that has one.</summary>
     public const float AwayReach = 128f;
