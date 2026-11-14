@@ -33,6 +33,14 @@ public sealed class SkillCurves
         ["calloutDelayMs", "leashUnits", "calloutChance", "followSeconds", "teamCoverWeight", "tradeWeight", "crossfireWeight"];
 
     /// <summary>
+    /// The personality parameters (plan_bots_teams_tf2_part_g G.2.2): what a bot's traits make of
+    /// the scores its tree ranks its branches by, each a factor about 1, and the size of the noise
+    /// on them. Read from the file when it has them, else neutral (a factor of 1, no noise), so a
+    /// game whose tree does not weigh its scores, and curves written before these, decide as before.
+    /// </summary>
+    public static readonly ImmutableArray<string> Drives = ["fightDrive", "chaseDrive", "holdDrive", "escortDrive", "surviveDrive", "scoreNoise"];
+
+    /// <summary>
     /// The style level of a skill at its own mean. Spending points on favourites puts
     /// the rest about half a spread under the mean, so a bot's other skills read about
     /// 3.25, where Medium's levels 3 and 4 are: a favourite stands out against a bot
@@ -298,7 +306,10 @@ public sealed class SkillCurves
                                   Optional("leashUnits", "teamwork", 1500f, 300f), Optional("calloutChance", "teamwork", 0.45f, 0.85f),
                                   Optional("followSeconds", "teamwork", 5f, 30f), Optional("teamCoverWeight", "teamwork", 0f, 1f),
                                   Optional("tradeWeight", "teamwork", 0.2f, 0.9f), Optional("crossfireWeight", "teamwork", 0f, 0.8f),
-                                  StandardSkills.TeamworkOf(profile));
+                                  StandardSkills.TeamworkOf(profile),
+                                  FightDrive: Optional("fightDrive", "aggression", 1f, 1f), ChaseDrive: Optional("chaseDrive", "tenacity", 1f, 1f),
+                                  HoldDrive: Optional("holdDrive", "discipline", 1f, 1f), EscortDrive: Optional("escortDrive", "teamwork", 1f, 1f),
+                                  SurviveDrive: Optional("surviveDrive", "nerve", 1f, 1f), ScoreNoise: Optional("scoreNoise", "discipline", 0f, 0f));
     }
 }
 
@@ -351,7 +362,17 @@ public readonly record struct DecisionParams(
     float TeamCoverWeight = 0.5f,
     float TradeWeight = 0.55f,
     float CrossfireWeight = 0.4f,
-    float Teamwork = 5f);
+    float Teamwork = 5f,
+    // The personality in a tree's scores (plan_bots_teams_tf2_part_g G.2.2; SkillCurves.Drives): each a
+    // factor on the branches its trait leans to (Aggression on a fight and an objective to take, Tenacity
+    // on a chase, Discipline on a post held, Teamwork on going with a teammate, Nerve, falling, on
+    // leaving for health), and how large the seeded noise on every score is. Neutral without the curves.
+    float FightDrive = 1f,
+    float ChaseDrive = 1f,
+    float HoldDrive = 1f,
+    float EscortDrive = 1f,
+    float SurviveDrive = 1f,
+    float ScoreNoise = 0f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

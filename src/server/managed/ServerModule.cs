@@ -883,6 +883,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // (MapCleanup): unregistered, each of these was built with no chain.
         _services.AddFactory<IHooks<IPlayerWeaponEventHook>>(locator => new Hooks<IPlayerWeaponEventHook>(locator, log));
         _services.AddFactory<IHooks<IPlayerHurtHook>>(locator => new Hooks<IPlayerHurtHook>(locator, log));
+        // The damage path of an entity that runs the damage rules
+        // (ScriptedEntity.RunsDamageRules) and the mods' taps on its hits and
+        // its death. Built on the first such hit: the registry asks for it
+        // then, long after the rules and the hitgroups below are registered.
+        _services.AddFactory<IHooks<IEntityHurtHook>>(locator => new Hooks<IEntityHurtHook>(locator, log));
+        _services.AddFactory<IHooks<IEntityDeathHook>>(locator => new Hooks<IEntityDeathHook>(locator, log));
+        _services.Add<ScriptedDamage>();
         // The modes' third-person weapon gestures (IWeaponGestureRule): which
         // player-animation event a shot, swing or reload shows. The server
         // asks alone — the event goes out once over TE_PlayerAnimEvent.

@@ -21,7 +21,7 @@ namespace SourceSharp.Ai.Server.Senses;
 [SideService(Side.Server)]
 public sealed class AiBotRoutes(AiBots bots, AiRoster roster, AiSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities,
                                 ServerAiSession ai, IAiNavigation nav, AimMeter aim, SourceSharp.Ai.Server.Chat.IBotChatReport? chat = null, AiNav? navField = null, IEngineEntityRender? modelNames = null,
-                                AiMainBudget? budget = null)
+                                AiMainBudget? budget = null, SourceSharp.Ai.Server.Experience.ExperienceService? experience = null)
 {
     private AiWorkerPool Pool => ai.Pool;
 
@@ -89,11 +89,12 @@ public sealed class AiBotRoutes(AiBots bots, AiRoster roster, AiSenses senses, V
         new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception|trace]"),
         new("GET", "/ai/aim", "the aim meter: each bot's account of each player it saw, shot at or hit (in-sight ticks, firing, crosshair error, first shot, shots, hits by weapon and band, leaves); ?reset=1 starts afresh"),
         new("GET", "/ai/steps", "how far each bot went each tick, all bots together: a histogram of steps, the runs of ticks it stood between steps, and ?reset=1 to start afresh"),
-        new("GET", "/ai/counters", "the AI's counters: ai.sense.us, ai.publish.us, ai.apply.us, ai.main.us (300-tick means), ai.brain.us per decide, ai.pool.* (threads, busy µs a second), ai.steps.* (skipped, faulted, in flight), process.threads"),
+        new("GET", "/ai/counters", "the AI's counters: ai.sense.us, ai.publish.us, ai.apply.us, ai.main.us (300-tick means), ai.brain.us per decide, ai.pool.* (threads, busy µs a second), ai.steps.* (skipped, faulted, in flight), ai.experience.* (the experience feed), process.threads"),
+        new("GET", "/ai/experience", "the bots' experience store (ai_experience_db): state (on, memory, off), path, map key (map, checksum, mode), rounds, rows per table, the snapshot the brains read (rows, rounds, hash), flushes and the last one's age, the refusal"),
     ];
 
     /// <summary>Whether <paramref name="path"/> is one of these routes'.</summary>
-    public static bool Serves(string path) => path is "/ai/bots" or "/ai/counters" or "/ai/aim" or "/ai/chat" or "/ai/steps" || path.StartsWith("/ai/bot/", StringComparison.Ordinal);
+    public static bool Serves(string path) => path is "/ai/bots" or "/ai/counters" or "/ai/aim" or "/ai/chat" or "/ai/steps" or "/ai/experience" || path.StartsWith("/ai/bot/", StringComparison.Ordinal);
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
@@ -117,6 +118,8 @@ public sealed class AiBotRoutes(AiBots bots, AiRoster roster, AiSenses senses, V
 
         if (path == "/ai/chat")
             return new DebugRouteReply(200, chat?.Json() ?? "{}");
+        if (path == "/ai/experience")
+            return new DebugRouteReply(200, experience?.Json() ?? "{\"state\":\"off\",\"off\":\"no experience feed in this composition\"}");
         if (path == "/ai/counters")
             return new DebugRouteReply(200, string.Create(CultureInfo.InvariantCulture,
                 $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, AiSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"ai.brain.us\":{senses.Session.Counters.BrainMicrosMean:F1},\"ai.brain.us.max\":{senses.Session.Counters.BrainMicrosMax:F1},\"ai.brain.cpu.us\":{senses.Session.Counters.BrainCpuMicrosMean:F1},\"ai.brain.steps\":{senses.Session.Counters.StepsRun},\"ai.follow.builds\":{ai.Drives.Totals.Builds},\"ai.follow.builds.main\":{ai.Drives.Totals.BuildsOnMain},\"ai.drive.steps\":{ai.Drives.Steps},\"ai.drive.main\":{ai.Drives.StepsOnMain},\"ai.drive.late\":{ai.Drives.Late},\"ai.drive.repeats\":{bots.Applier.Repeats},\"ai.drive.refused\":{ai.Drives.Refused},\"ai.drive.faults\":{ai.Drives.Faults},\"ai.drive.us\":{(ai.Drives.Steps == 0 ? 0 : ai.Drives.Micros / ai.Drives.Steps):F1},\"ai.drive.us.max\":{ai.Drives.MicrosMax:F1},\"bots\":{bots.Bots.Count},"
@@ -131,7 +134,7 @@ public sealed class AiBotRoutes(AiBots bots, AiRoster roster, AiSenses senses, V
                 + $"\"ai.sync\":{(senses.Session.Transport.Inline ? 1 : 0)},\"ai.pool.threads\":{Pool.Threads},\"ai.pool.alive\":{Pool.Alive},\"ai.pool.os_threads\":{WorkerThreads()},\"ai.pool.us\":{senses.PoolUsPerSecond:F1},"
                 + $"\"ai.pool.ran\":{Pool.Ran},\"ai.pool.faults\":{Pool.Faults},\"ai.steps.skipped\":{senses.Session.Counters.StepsSkipped},\"ai.steps.faulted\":{senses.Session.Counters.StepsFaulted},\"ai.steps.held\":{senses.Session.Counters.StepsHeld},"
                 + $"\"ai.steps.inflight\":{senses.Session.Counters.InFlight},\"ai.steps.inflight.max\":{senses.Session.Counters.InFlightMax},\"process.threads\":{ProcessThreads()},"
-                + $"{BudgetCounters()}{ChatCounters()}"
+                + $"{BudgetCounters()}{ChatCounters()}{experience?.Counters() ?? ""}"
                 + $"\"nav.building\":{(nav.Building ? 1 : 0)},\"nav.build.percent\":{nav.BuildProgress?.Percent ?? -1},\"nav.version\":{nav.Version},"
                 + $"\"nav.map\":{AiJson.Quote(nav.Current?.Map ?? "")},\"nav.cells\":{nav.Current?.Nav.Graph.CellCount ?? 0},\"nav.refusal\":{AiJson.Quote(nav.Refusal)}}}"));
 

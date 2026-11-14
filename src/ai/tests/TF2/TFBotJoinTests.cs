@@ -38,7 +38,7 @@ public sealed class TFBotJoinTests
         }
     }
 
-    private static TFBotGame Game() => new(WeaponCatalog.Stock(), null!, null!, null!, null!);
+    private static TFBotGame Game() => new(WeaponCatalog.Stock(), null!, null!, null!, null!, null!);
 
     [Theory]
     [InlineData(0, "jointeam auto")]

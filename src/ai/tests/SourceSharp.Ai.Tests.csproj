@@ -20,6 +20,8 @@
   <ItemGroup>
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\server\SourceSharp.Ai.Server.csproj" />
+    <!-- The experience store's database (Part G, G.3): its facts write to a temp file. -->
+    <ProjectReference Include="..\store\SourceSharp.Ai.Store.csproj" />
     <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
     <!-- TF2's binding (plan_bots_teams_tf2 P6) and the mod it reads. -->
     <ProjectReference Include="..\tf2\server\SourceSharp.Ai.TF2.csproj" />

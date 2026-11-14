@@ -39,6 +39,21 @@
 #   tools/ai-replay tactics <map> <recording.airec>... [--config ..]
 #       per bot, its camps (how long, how far from a pickup and a choke, kills
 #       there) and its prefires (bursts a minute, rounds, hits, kills) (§5.4, §5.5)
+#   tools/ai-replay cost <map> <recording.airec> [--mod test|tf2] [--bodies -|tf2|N|class=N,..] [--passes 2] [--config ..]
+#       where a decide's time goes: replays the recording on one thread through the
+#       mod's own trees (test: HL2MP's) over the map's graph and prints each part of a
+#       brain step in microseconds of thread CPU time a step (the memory's event
+#       intake, its reading of the view, the ammo estimates, the beliefs' spread with
+#       its hops, the fading; the decide: the tree and all it does beside it),
+#       then the whole step by the session's own clock (the game's ai.brain.cpu.us).
+#       The first pass warms the code up; the last is printed. A recording carries no
+#       class, no objectives and no bodies: --bodies gives the believed runs back
+#       (tf2: each class's, by the scoreboard's class; N: everybody's; -: the recording's
+#       190 u/s), so one recording is timed at two beliefs.
+#       The recording is build output, never in git: make one with the game's own
+#         ai_record start <tree>/bin/<config>/ai-cost/<name>.airec <map>   (before the bots are added)
+#         ai_bot_add (x12) ... ai_record stop
+#       and a missing one is an error, not an empty table.
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
@@ -84,7 +99,31 @@ if [[ "$verb" == style ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics)$ && -n "${3:-}" ) ]] || { sed -n '2,40p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics|jank|threat|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics|cost)$ && -n "${3:-}" ) ]] || { sed -n '2,56p' "$0"; exit 2; }
+if [[ "$verb" == cost ]]; then
+  map="$2"; recording="$3"; shift 3
+  config=debug; mod=test; bodies=-; passes=2
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      --mod) mod="$2"; shift 2 ;;
+      --bodies) bodies="$2"; shift 2 ;;
+      --passes) passes="$2"; shift 2 ;;
+      *) echo "ai-replay cost: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  case "$mod" in
+    test) game=hl2mp; nav="$root/bin/$config/mods/test/maps/$map.nav3d"; bsp="$root/bin/$config/mods/test/maps/$map.bsp" ;;
+    tf2) game=tf2; nav="$root/bin/$config/mods/tf2/maps/$map.nav3d"; bsp="$root/bin/$config/content/tf/maps/$map.bsp"
+         [[ -f "$bsp" ]] || bsp="$root/bin/$config/mods/tf2/maps/$map.bsp" ;;
+    *) echo "ai-replay cost: no trees for the mod $mod (test or tf2)" >&2; exit 2 ;;
+  esac
+  [[ -f "$recording" ]] || { echo "ai-replay: no recording $recording: it is build output, made with ai_record (tools/ai-replay's header says how)" >&2; exit 1; }
+  [[ -f "$nav" ]] || { echo "ai-replay: no $nav: build the map's nav first" >&2; exit 1; }
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" cost "$game" "$nav" "$bsp" "$(realpath "$recording")" "$bodies" "$passes"
+fi
 if [[ "$verb" == tactics ]]; then
   map="$2"; shift 2
   config=debug; recs=()

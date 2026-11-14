@@ -10,8 +10,8 @@ namespace SourceSharp.Ai.TF2.Trees;
 ///
 /// <para>The root ranks, by utility: deliver the enemy's flag the bot carries, survive (a health
 /// pack or the team's resupply when hurt), fight what it sees, chase the enemy carrying its flag,
-/// guard its dropped flag, escort its carrier, fetch the enemy's flag, defend its own, and roam
-/// toward the enemy. Beside the branch, every decide: the hands fire on what the bot sees, the
+/// guard its dropped flag, escort its carrier, fetch the enemy's flag, defend its own, go to look
+/// into a sound it cannot explain (Search), and roam toward the enemy. Beside the branch, every decide: the hands fire on what the bot sees, the
 /// Soldier aims a rocket at the feet of a grounded target (<see cref="AimPoint.Feet"/>), keeps its
 /// launcher loaded, swaps to the shotgun when the launcher is dry up close, and rocket-jumps on a
 /// long run where the nav says the way ahead is clear.</para>
@@ -35,7 +35,7 @@ public sealed partial class TFDecider : IDecider
     /// <summary>A goal this near is reached.</summary>
     public const float ArriveUnits = 96f;
 
-    /// <summary>Survive: under this share of its health the bot goes to a pack or a cabinet within <see cref="HealReach"/>.</summary>
+    /// <summary>Survive: in a lull, under this share of its health the bot goes to a pack or a cabinet within <see cref="HealReach"/> (<see cref="WantsHealth"/>).</summary>
     public const float HurtShare = 0.4f, HealReach = 2500f;
 
     /// <summary>Defend: the bot keeps within this of its flag, picking a new spot near it this often.</summary>
@@ -244,6 +244,7 @@ public sealed partial class TFDecider : IDecider
             new BtScored<TFDecider>(Escort, d => d.EscortUtility(), Act("escort", d => d.GoEscort()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Fetch, d => d.FetchUtility(), Act("fetch", d => d.GoFetch()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Defend, d => d.DefendUtility(), Act("defend", d => d.GoDefend()), new BtCommit(3f, 0.1f)),
+            new BtScored<TFDecider>(Search, d => d.SearchUtility(), Act("search", d => d.GoSearch()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Roam, _ => 0.1f, Act("roam", d => d.GoRoam()), new BtCommit(1f, 0.05f)))
         {
             Interrupt = d => d._interrupted,
@@ -345,7 +346,7 @@ public sealed partial class TFDecider : IDecider
 
     private float SurviveUtility()
     {
-        if (Carrying || HealthShare >= HurtShare || !HealPlace(out _))
+        if (Carrying || !WantsHealth || !HealPlace(out _))
             return 0f;
         return _targetSighted ? 0.82f : 0.9f;
     }

@@ -38,8 +38,14 @@ public sealed class TFBindingTests
     {
         var services = new ServiceContainer();
         IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server,
-            [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
+            [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(SourceSharp.Ai.Store.SqliteExperienceStores).Assembly.GetTypes(),
+             .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
         Assert.Contains(typeof(IBotGame), registered);
+        // The bots' experience database (Part G, G.3): the tf2 list names its assembly.
+        Assert.Contains(typeof(IExperienceStores), registered);
+        // The feed that fills it, and TF2's answers to the feed.
+        Assert.Contains(typeof(SourceSharp.Ai.Server.Experience.ExperienceService), registered);
+        Assert.Contains(typeof(SourceSharp.Ai.Server.Experience.IExperienceGame), registered);
         Assert.Contains(typeof(TFAiService), registered);
         // Without curves a brain has no decider: the TF2 list must bring its own.
         Assert.Contains(typeof(SourceSharp.Ai.Server.Skills.ISkillCurveSource), registered);
@@ -110,7 +116,7 @@ public sealed class TFBindingTests
     public void TheTF2GameDecidesWithItsTree()
     {
         var classes = new global::TF2.Shared.TFClassTable(new NoLog(), DispatchProxy.Create<IEngineFiles, ServerNav.AiNavBuildTests.Files>());
-        var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!);
+        var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!, TFFeelSwitchTests.Switches());
         var duel = new Trees.Duel(Trees.Duel.Preset("normal"));
         var bot = new ActorId(1, 1);
         IDecider decider = game.Decider(new BrainSetup(bot, 7UL, duel.Memory, duel.Params, 0.015f));
@@ -118,6 +124,24 @@ public sealed class TFBindingTests
         // Dead (the view's default self): it holds.
         IntentCommand intent = decider.Decide(new Tick(100), new PerceivedView(4), 3);
         Assert.Equal((bot, MoveKind.Hold, ActionKind.None), (intent.Bot, intent.Move.Kind, intent.Action.Kind));
+    }
+
+    /// <summary>The wiring: a bot's decider has the feel layer's switches as the convars stood when it was added, and a later change is the next bot's.</summary>
+    [Fact]
+    public void ADeciderHasTheFeelSwitchesAsTheConVarsStoodWhenItsBotWasAdded()
+    {
+        var classes = new global::TF2.Shared.TFClassTable(new NoLog(), DispatchProxy.Create<IEngineFiles, ServerNav.AiNavBuildTests.Files>());
+        TFFeelGlanceConVar glance = DeclaredConVars.Fresh<TFFeelGlanceConVar>();
+        var feel = new TFFeelSwitchConVars(DeclaredConVars.Fresh<TFFeelCarrierConVar>(), DeclaredConVars.Fresh<TFFeelSearchConVar>(), DeclaredConVars.Fresh<TFFeelAimConVar>(),
+                                           DeclaredConVars.Fresh<TFFeelRetreatConVar>(), DeclaredConVars.Fresh<TFFeelFriendGateConVar>(), glance);
+        var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!, feel);
+        var duel = new Trees.Duel(Trees.Duel.Preset("normal"));
+        var setup = new BrainSetup(new ActorId(1, 1), 7UL, duel.Memory, duel.Params, 0.015f);
+        var before = (SourceSharp.Ai.TF2.Trees.TFDecider)game.Decider(setup);
+        glance.Hold("0");
+        var after = (SourceSharp.Ai.TF2.Trees.TFDecider)game.Decider(setup);
+        var all = SourceSharp.Ai.TF2.Trees.TFFeelSwitches.All;
+        Assert.Equal((all, all with { Glance = false }), (before.Feel, after.Feel));
     }
 
     private sealed class NoLog : ILog

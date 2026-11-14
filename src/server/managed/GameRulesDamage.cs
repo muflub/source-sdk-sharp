@@ -88,7 +88,7 @@ public interface IDamageRule
 }
 
 /// <summary>
-/// What a hit the rules allowed does to a player, folded over every registered
+/// What a hit the rules allowed does to its victim, folded over every registered
 /// modifier (tf2 stage 2.7): stock's <c>ApplyOnDamageModifyRules</c> seat, where
 /// TF scales a hit for its crit, its range and the victim's conditions.
 ///
@@ -100,6 +100,18 @@ public interface IDamageRule
 /// modify rules before <c>CBasePlayer</c>'s armour block. Both ends are managed
 /// and the answer is what the player takes, so this needs no ABI: the number
 /// a modifier returns is the number the health rule is handed.
+/// </para>
+///
+/// <para>
+/// <b>AND FOR A VICTIM THAT IS NOT A PLAYER</b>, when its class runs the
+/// damage rules (<see cref="ScriptedEntity.RunsDamageRules"/>): the registry's
+/// damage route folds the hit the same way before the entity's
+/// <see cref="ScriptedEntity.OnDamagedAt"/> is handed it
+/// (<see cref="ScriptedDamage"/>), as stock's <c>CTFBaseBoss::OnTakeDamage</c>
+/// calls the same modify rules a player's does. So
+/// <see cref="DamageContext.Victim"/> is not always a player: a modifier that
+/// reads a player's state asks whether there is one. No other entity's hit
+/// reaches a modifier.
 /// </para>
 ///
 /// <para>

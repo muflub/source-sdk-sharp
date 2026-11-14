@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The experience store's database (plan_bots_teams_tf2 Part G, G.3):
+    SqliteExperienceStore, an IExperienceStore of the AI core over
+    Microsoft.Data.Sqlite, with the schema and its migrations. The one AI
+    assembly that names a database: the core and the server binding hold
+    IExperienceStore and IExperienceStores, which this registers. A mod
+    assembly, listed in mods.yaml by the mods whose bots keep experience
+    (tf2), under the mod analyzers (SS0010-SS0013, Directory.Build.props).
+  -->
+  <PropertyGroup>
+    <!-- The bootstrap loads assemblies by simple name from bin/<config>/bin/managed,
+         so Microsoft.Data.Sqlite and SQLitePCLRaw must be copied there, with the
+         native e_sqlite3 under runtimes/<rid>/native: a class library does not
+         copy its packages by default. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Brings SQLitePCLRaw.bundle_e_sqlite3: a prebuilt native SQLite per platform (Part G, Q-G4: shipped). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
+  </ItemGroup>
+</Project>

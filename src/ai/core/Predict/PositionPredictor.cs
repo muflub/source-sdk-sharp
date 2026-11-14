@@ -195,12 +195,12 @@ public sealed class PositionPredictor
     /// <paramref name="seconds"/> pass at <paramref name="speed"/>: the mass
     /// spreads one hop per cell width travelled, out of each cell along its
     /// edges by the route prior (<paramref name="routePrior"/>, visit counts
-    /// by cell, or empty for a flat prior) and the fading momentum.
+    /// by cell, or empty for a flat prior) and the fading momentum. Answers the hops made.
     /// </summary>
-    public void Step(float seconds, float speed, ReadOnlySpan<byte> routePrior, ClearanceClass cls = ClearanceClass.Crouch)
+    public int Step(float seconds, float speed, ReadOnlySpan<byte> routePrior, ClearanceClass cls = ClearanceClass.Crouch)
     {
         if (_n == 0 || seconds <= 0f || _spread >= MaxSpreadSeconds)
-            return;
+            return 0;
         _spread += seconds;
         float cell = MathF.Max(1f, _graph.Cell(_cells[0]).MaxX - _graph.Cell(_cells[0]).MinX);
         _carry += speed * seconds / cell;
@@ -208,6 +208,7 @@ public sealed class PositionPredictor
         _carry -= hops;
         for (int h = 0; h < hops; h++)
             Hop(routePrior, cls);
+        return hops;
     }
 
     private void Hop(ReadOnlySpan<byte> prior, ClearanceClass cls)

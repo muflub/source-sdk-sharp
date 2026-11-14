@@ -1398,3 +1398,9 @@ Per event:
 Not resolved: `ServiceContainer.Resolve` builds `Add<T>()` services on first ask (31 registrations, not traced); `UiForm.IsDirty`'s `EqualityComparer<T>.Default` on struct fields without `IEquatable`; reflection-based JSON in `TF2DescentRules` and `InventoryStore`.
 
 Worth adding: the crash fix's material thread marks are proven only live, with no live-gate step (`MaterialConfigConVars`).
+
+## AI nav: a hull wider than the game's cannot climb stairs (2026-11-11)
+
+Found by the Descent CR3 lane (`docs/plans/tf2_descent/plan_descent_logic.md`). `NavGraphFromNav3d` raises an extra hull (`NavNumbers.ExtraHulls`) by one step only, so a box that reaches the step two up is admitted on no step: on `ctf_2fort` at map-tools 3551fa8 a 49 by 83 hull has 0 of 4 spawn-to-flag ways and an 86 by 145 hull 0 of 4, where the game's own 48 by 82 has 4 of 4. The fixture is `src/ai/tests/ServerNav/NavExtraHullStairTests.cs`, which pins today's answer and is the red-to-green fact for the fix.
+
+The fix, as the AI coordinator ruled it on 2026-11-11: stand the hull on the highest step under its footprint, with each rise within `StepHeight`. It is a Descent lane's, for when Descent needs giants on stairs, based on main after the coordinator's lane p6e (which is in `NavGraphFromNav3d` for the 2fort traps) has landed. Existing numbers stay byte-identical: the checks CR3 ran (`NumbersKey`, cache names, the dm_lockdown and ctf_2fort graph hashes, the HL2MP replays).

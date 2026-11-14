@@ -78,6 +78,14 @@ public static class EntityOpMask
     /// either has to arm it. Missing one would silently make a breakable
     /// invulnerable.
     /// </para>
+    ///
+    /// <para>
+    /// <see cref="EntityOp.Killed"/> reads two as well: <c>OnKilled</c>, and
+    /// the getter of <see cref="ScriptedEntity.RunsDamageRules"/>. A class
+    /// that runs the damage rules has its death told to the mods' death hooks
+    /// (<see cref="SourceSharp.Server.ScriptedDamage"/>) whether or not it has a death of its
+    /// own to run, so the opt-in has to arm the op too.
+    /// </para>
     /// </summary>
     public static IReadOnlyDictionary<EntityOp, string[]> Virtuals { get; } =
         new Dictionary<EntityOp, string[]>
@@ -94,7 +102,10 @@ public static class EntityOpMask
             {
                 nameof(ScriptedEntity.OnDamaged), nameof(ScriptedEntity.OnDamagedAt),
             },
-            [EntityOp.Killed] = new[] { nameof(ScriptedEntity.OnKilled) },
+            [EntityOp.Killed] = new[]
+            {
+                nameof(ScriptedEntity.OnKilled), "get_" + nameof(ScriptedEntity.RunsDamageRules),
+            },
             [EntityOp.PhysicsCreated] = new[] { nameof(ScriptedEntity.OnPhysicsCreated) },
         };
 

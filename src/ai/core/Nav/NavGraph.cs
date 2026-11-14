@@ -2,20 +2,40 @@ using System.Collections.Immutable;
 
 namespace SourceSharp.Ai;
 
-/// <summary>Which body sizes may stand in a cell (plan_hl2mp_ai §6.2).</summary>
+/// <summary>
+/// Which body sizes may stand in a cell (plan_hl2mp_ai §6.2): the game's own body standing and
+/// crouched, and up to six more hulls a game's numbers may class its cells for
+/// (<see cref="Hull2"/> to <see cref="Hull7"/>; none unless it does). A class's bit is 1 shifted
+/// by its <see cref="ClearanceClass"/>.
+/// </summary>
 [Flags]
 public enum ClearanceClasses : byte
 {
     None = 0,
     Stand = 1 << 0,
     Crouch = 1 << 1,
+    Hull2 = 1 << 2,
+    Hull3 = 1 << 3,
+    Hull4 = 1 << 4,
+    Hull5 = 1 << 5,
+    Hull6 = 1 << 6,
+    Hull7 = 1 << 7,
 }
 
-/// <summary>The body size a path is planned for.</summary>
+/// <summary>
+/// The body size a path is planned for: the game's own body standing or crouched, or one of the
+/// extra hulls its graph was classed for (which hull each is, the game that asked for them says).
+/// </summary>
 public enum ClearanceClass : byte
 {
     Stand = 0,
     Crouch = 1,
+    Hull2 = 2,
+    Hull3 = 3,
+    Hull4 = 4,
+    Hull5 = 5,
+    Hull6 = 6,
+    Hull7 = 7,
 }
 
 /// <summary>How an edge is crossed (§6.2): each type a different usercmd.</summary>
@@ -76,10 +96,11 @@ public readonly record struct NavCell(
     /// <summary>The centre of the footprint, on the floor.</summary>
     public AiVector Centre => new((MinX + MaxX) * 0.5f, (MinY + MaxY) * 0.5f, FloorZ);
 
-    public bool Admits(ClearanceClass c) => (Classes & (c == ClearanceClass.Stand ? ClearanceClasses.Stand : ClearanceClasses.Crouch)) != 0;
+    /// <summary>Whether a body of <paramref name="c"/> stands here: the cell holds that class's own bit.</summary>
+    public bool Admits(ClearanceClass c) => (uint)c < 8u && ((int)Classes & (1 << (int)c)) != 0;
 
-    /// <summary>Only a crouched body fits.</summary>
-    public bool CrouchOnly => Classes == ClearanceClasses.Crouch;
+    /// <summary>Of the game's own body, only a crouched one fits (whatever extra hulls do).</summary>
+    public bool CrouchOnly => (Classes & (ClearanceClasses.Stand | ClearanceClasses.Crouch)) == ClearanceClasses.Crouch;
 }
 
 /// <summary>

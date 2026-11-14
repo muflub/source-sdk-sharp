@@ -66,4 +66,20 @@ public class ServerHookRegistrationTests
                                 .ToArray();
         Assert.True(missing.Length == 0, string.Join("\n", missing));
     }
+
+    /// <summary>
+    /// The damage path of the entities that run the damage rules is asked for
+    /// by type on the first such hit (<c>ScriptedEntityRegistry.Damaged</c>);
+    /// unregistered, those hits would land as dealt and the entity hooks
+    /// would hear nothing, with one warning to show for it.
+    /// </summary>
+    [Fact]
+    public void TheScriptedDamagePathIsRegisteredAndItsChainsAreAmongThoseTaken()
+    {
+        string source = File.ReadAllText(RepoLayout.Sdk("src/sourcesharp/managed/SourceSharp.Server/ServerModule.cs"));
+
+        Assert.Matches(@"_services\.Add<\s*ScriptedDamage\s*>\(\)", source);
+        Assert.Contains(Taken(), x => x.Hook == nameof(IEntityHurtHook) && x.Taker == nameof(ScriptedDamage));
+        Assert.Contains(Taken(), x => x.Hook == nameof(IEntityDeathHook) && x.Taker == nameof(ScriptedDamage));
+    }
 }

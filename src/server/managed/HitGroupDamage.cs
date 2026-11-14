@@ -38,11 +38,14 @@ public interface IHitGroupDamageOwner
 /// <summary>
 /// CBasePlayer::TraceAttack's switch on the hit group: a hit on the head does three times
 /// the damage. Only a traced hit has a group, so a blast or a fall stays
-/// <see cref="HitGroup.Generic"/> and is not scaled.
+/// <see cref="HitGroup.Generic"/> and is not scaled. The table is the player's: a victim that
+/// is not one (an entity that runs the damage rules, <see cref="ScriptedEntity.RunsDamageRules"/>)
+/// is not scaled, as stock's CBaseEntity::TraceAttack has no such switch.
 /// </summary>
 public sealed class HitGroupDamage(PlayerHeadDamageConVar head, PlayerChestDamageConVar chest,
                                     PlayerStomachDamageConVar stomach, PlayerArmDamageConVar arm,
-                                    PlayerLegDamageConVar leg, IHooks<IHitGroupDamageOwner>? owners = null)
+                                    PlayerLegDamageConVar leg, IEngineEntities entities,
+                                    IHooks<IHitGroupDamageOwner>? owners = null)
     : IDamageModifier, IOrderedHook
 {
     /// <summary>First in the chain: stock scales in TraceAttack, before OnTakeDamage asks anybody.</summary>
@@ -53,6 +56,9 @@ public sealed class HitGroupDamage(PlayerHeadDamageConVar head, PlayerChestDamag
     public float Modify(in DamageContext hit, float damage)
     {
         if (owners is { All.Count: > 0 })
+            return damage;
+
+        if (!entities.IsPlayer(hit.Victim))
             return damage;
 
         return hit.HitGroup switch

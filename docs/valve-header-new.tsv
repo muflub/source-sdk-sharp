@@ -1224,3 +1224,4 @@ src/tf2/server/Player/TFKillStats.cs	ports CTFGameStats::Event_PlayerKilled's TF
 src/server/managed/VoteIssues.cs	ports the TF2 vote issues CChangeLevelIssue, CNextLevelIssue, CExtendLevelIssue, CRestartGameIssue and CScrambleTeams (tf_voteissues.cpp) as IVoteIssue rows
 src/tf2/client/Entities/ClientRespawnRoomVisualizer.cs	ports DrawModel arms of the respawn-room visualizer client class (c_func_respawnroom.cpp:48-64)
 src/tf2/shared/Rooms/RespawnRoomVisualizerNetState.cs	ports the networked team and brush box carried for the visualizer draw (func_respawnroom.cpp)
+src/ai/tf2/server/Jump/BlastJumpSim.cs	follows the shooter's own pass of CTFGameRules::RadiusDamage and CTFPlayer::ApplyPushFromDamage as TFBlastApplier ports them, and CTFWeaponBaseGun::FireRocket's muzzle as TFProjectileEffects does (tf_gamerules.cpp, tf_player.cpp, tf_weaponbase_gun.cpp)

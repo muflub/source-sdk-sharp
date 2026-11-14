@@ -84,6 +84,48 @@ public sealed class TF2NavTests
         }
     }
 
+    /// <summary>
+    /// Each spawn has a dry way to both flags, as a Soldier walks, jumps and drops without the
+    /// Scout's double jump: over the courtyards and the bridge, not only through the sewers. Built
+    /// by map-tools before claude/tf2-nav-exits, the vis clusters' and occluders' brushes walled
+    /// each base's front doorway and the sides of the bridge, and the only way between the bases
+    /// was 250 cells of water (live: bots swam the moat, and stuck there).
+    /// </summary>
+    [PerTreeTFNavFact(Map)]
+    public void EachTeamsSpawnHasADryWayToBothFlags()
+    {
+        NavGraph g = Loaded.Value.Nav!.Nav.Graph;
+        AiVector[] flags = [new(489f, -3348.5f, -131f), new(-488.7f, 3348.5f, -131f)];
+        AiVector[] spawns = [new(-1888f, -1280f, 257f), new(1888f, 1368f, 257f)];
+        foreach (AiVector spawn in spawns)
+        {
+            bool[] dry = DryReach(g, g.FindCell(spawn).Index);
+            foreach (AiVector flag in flags)
+                Assert.True(dry[g.FindCell(flag).Index], $"no dry way from the spawn at {spawn} to the flag at {flag}");
+        }
+    }
+
+    /// <summary>The cells reached from <paramref name="from"/> along every edge but a double jump, through no water cell.</summary>
+    private static bool[] DryReach(NavGraph g, int from)
+    {
+        var seen = new bool[g.CellCount];
+        var queue = new Queue<int>();
+        seen[from] = true;
+        queue.Enqueue(from);
+        while (queue.TryDequeue(out int c))
+        {
+            foreach (NavEdge e in g.EdgesFrom(c))
+            {
+                if (e.Type == NavEdgeType.DoubleJump || seen[e.To] || (g.Cell(e.To).Flags & NavCellFlags.Water) != 0)
+                    continue;
+                seen[e.To] = true;
+                queue.Enqueue(e.To);
+            }
+        }
+
+        return seen;
+    }
+
     [PerTreeTFNavFact(Map)]
     public void ItsCompressedEntitiesAreReadAsNone() => Assert.NotNull(Loaded.Value.Nav!.Entities.Unread);
 }

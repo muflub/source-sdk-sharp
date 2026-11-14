@@ -1613,7 +1613,7 @@ public sealed partial class Hl2mpDecider : IDecider
     }
 
     private float SearchUtility()
-        => _memory.Board.TryBestInvestigation(_now, _tick, out Investigation i) && (_now - i.Tick) * _tick < _p.SearchSeconds ? 0.4f : 0f;
+        => SoundSearch.Worth(_memory.Board, _now, _tick, _p.SearchSeconds, out _) ? 0.4f : 0f;
 
     private float AmbushUtility()
     {
@@ -1896,12 +1896,10 @@ public sealed partial class Hl2mpDecider : IDecider
 
     private bool Search()
     {
-        if (!_memory.Board.TryBestInvestigation(_now, _tick, out Investigation i))
+        // Near it, or getting nowhere towards it, the sound is done with (SoundSearch).
+        if (!SoundSearch.Next(_memory.Board, _now, _tick, _self.Origin, LastInterrupt == "stuck", out AiVector at))
             return false;
-        // Near it, or getting nowhere towards it: a person gives up on a noise they cannot get to.
-        if (_self.Origin.DistanceTo(i.Position) < 96f || LastInterrupt == "stuck")
-            _memory.Board.Resolve(i.Position, 128f, i.Source);
-        GoTo(i.Position, MoveSpeed.Run, MoveKind.Follow);
+        GoTo(at, MoveSpeed.Run, MoveKind.Follow);
         return true;
     }
 

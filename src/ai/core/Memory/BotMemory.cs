@@ -4,10 +4,18 @@ namespace SourceSharp.Ai;
 /// What a bot's memory works over for one map (plan_hl2mp_ai §5.0): the map's
 /// knowledge, its graph (null with no navigation), the tick length, the
 /// identity an opponent's habits are kept under (§5.2), and the map's static
-/// sight between cells for planning cover (null with none).
+/// sight between cells for planning cover (null with none). Its
+/// <see cref="Experience"/> is what players did on the map before
+/// (plan_bots_teams_tf2 Part G, G.3), never null: empty with no store.
 /// </summary>
 public sealed record MemoryWorld(MapKnowledge Map, NavGraph? Graph, float TickSeconds, Func<ActorId, string> IdentityOf, ICellSight? Sight = null, ChokeSlot? Chokes = null)
 {
+    /// <summary>Where the map's experience turns up and is replaced at a round's start; a world made without one holds an empty one.</summary>
+    public ExperienceSlot ExperienceSlot { get; init; } = new();
+
+    /// <summary>The snapshot of the map's experience a decide reads now.</summary>
+    public MapExperience Experience => ExperienceSlot.Current;
+
     public static MemoryWorld Empty(float tickSeconds = 0.015f)
         => new(MapKnowledge.Empty(new WeaponKnowledge([])), null, tickSeconds, id => id.ToString());
 }
@@ -46,12 +54,24 @@ public sealed class BotMemory
         Board = new Blackboard(slots);
         Board.KnowItems(world.Map);
         _track = new Track[slots];
-        if (world.Graph is { } graph)
-        {
-            var scratch = new PredictorScratch(graph.CellCount);
-            for (int i = 0; i < slots; i++)
-                Board.Actor(i).Where = new PositionPredictor(graph, scratch);
-        }
+    }
+
+    // The one working block this memory's predictors share (they step one after another on the
+    // bot's own thread), made with the first of them.
+    private PredictorScratch? _scratch;
+
+    /// <summary>
+    /// The belief of where <paramref name="a"/> is, made when the bot first has a place on the graph
+    /// to believe it at (<paramref name="at"/>): the callers are an enemy lost from sight, heard, or
+    /// called out, never a teammate (B.3). Null with no nav graph, or before such a place. A slot
+    /// nobody was lost in holds none: a memory of many slots pays some 40 KB for each opponent it
+    /// has met, not for each slot.
+    /// </summary>
+    private PositionPredictor? Belief(KnownActor a, CellId at)
+    {
+        if (a.Where is null && at.IsValid && World.Graph is { } graph)
+            a.Where = new PositionPredictor(graph, _scratch ??= new PredictorScratch(graph.CellCount));
+        return a.Where;
     }
 
     /// <summary>
@@ -65,6 +85,9 @@ public sealed class BotMemory
     }
 
     public ActorId Bot { get; }
+
+    /// <summary>What the bot's steps cost by part, for an instrument (<see cref="StepCost"/>): the memory marks its own parts. Null in a game.</summary>
+    public StepCost? Cost { get; init; }
 
     /// <summary>The last time the bot killed someone it held a grudge against (§5.5).</summary>
     public (ActorId Who, Tick When) LastRevenge { get; private set; }
@@ -125,7 +148,13 @@ public sealed class BotMemory
     /// <summary>How many hits and kills by a teammate the bot has taken.</summary>
     public int FriendlyFireTaken { get; private set; }
 
-    // An enemy's memory is built; a teammate's never is (B.3): no ammo estimate, habits or grudge.
+    // An enemy's memory is built; a teammate's never is (B.3): no ammo estimate, habits or grudge,
+    // and no belief of where it is (KnownActor.Where). Losing sight of a teammate, or hearing one,
+    // starts no spread over the graph: a target, a prefire and a pincer read an enemy's belief, and
+    // on ctf_2fort with twelve bots the teammates' beliefs were five in six of every hop the brains
+    // made, which was 99 % of a decide's time (tools/ai-replay cost). KnownActor.BelievedAt of a
+    // teammate is where it was last seen or heard (HL2MP's DenyItem asks it of anyone with habits,
+    // a teammate who was an enemy before among them).
     private bool Foe(KnownActor a) => !IsFriend(a);
 
     private void FriendlyFire(ActorId who, Tick tick)
@@ -211,7 +240,9 @@ public sealed class BotMemory
 
         foreach (AiEvent e in events)
             Apply(e);
+        Cost?.Mark(StepPart.Events, events.Length);
         Observe(view);
+        Cost?.Mark(StepPart.Observe, view.SightedCount);
         Advance(tick);
     }
 
@@ -276,6 +307,8 @@ public sealed class BotMemory
             case AiEventKind.Damaged:
                 Board.LastDamageDir = e.Position;
                 Board.LastDamageTick = e.Tick;
+                if (e.Other.IsValid && e.Other != Bot)
+                    Board.LastAttackTick = e.Tick;
                 if (Board.Of(e.Other, make: true) is { } attacker)
                 {
                     if (!Foe(attacker))
@@ -458,7 +491,7 @@ public sealed class BotMemory
                     about.LastHeardTick = e.Tick;
                     about.Confidence = Math.Max(about.Confidence, e.Amount);
                     about.LastKnownCell = CellAt(e.Position);
-                    about.Where?.Heard(about.LastKnownCell, CalloutSpread);
+                    Belief(about, about.LastKnownCell)?.Heard(about.LastKnownCell, CalloutSpread);
                 }
 
                 Board.Investigate(new Investigation(e.Position, e.Amount, e.Tick, SoundKind.Unknown, ActorId.None), e.Tick, Dt);
@@ -559,9 +592,9 @@ public sealed class BotMemory
         a.LastSeenVel = e.Velocity;
         a.LastSeenTick = e.Tick;
         a.LastKnownCell = CellAt(e.Position);
-        a.Where?.LostAt(a.LastKnownCell, e.Velocity);
         if (!Foe(a))
             return;
+        Belief(a, a.LastKnownCell)?.LostAt(a.LastKnownCell, e.Velocity);
         ref Track t = ref _track[a.Id.Slot];
         OpponentHabits h = HabitsOf(a.Id);
         h.LostSight(t.Hurt && (e.Tick - t.HurtTick) * Dt <= HurtRetreatSeconds);
@@ -631,8 +664,9 @@ public sealed class BotMemory
             {
                 a.Confidence = Math.Max(a.Confidence, 0.5f + 0.5f * e.Amount);
                 a.LastKnownCell = CellAt(e.Position);
-                // Heard: the mass collapses round the heard place, its error's width (§5.3.1).
-                a.Where?.Heard(a.LastKnownCell, MathF.Max(64f, Self.DistanceTo(e.Position) * 0.15f));
+                // Heard: an enemy's mass collapses round the heard place, its error's width (§5.3.1).
+                if (Foe(a))
+                    Belief(a, a.LastKnownCell)?.Heard(a.LastKnownCell, MathF.Max(64f, Self.DistanceTo(e.Position) * 0.15f));
             }
 
             if (e.Code2 >= 0 && Foe(a))
@@ -779,15 +813,19 @@ public sealed class BotMemory
                 a.Ammo.Advance(g, now, Dt);
         }
 
+        Cost?.Mark(StepPart.Ammo);
         if (_lastAdvance.Value > 0 && now > _lastAdvance)
         {
             float step = (now - _lastAdvance) * Dt;
+            int hops = 0;
             for (int s = 0; s < Board.Slots; s++)
             {
                 KnownActor a = Board.Actor(s);
                 if (a.Known && !a.InSight && !a.Dead && a.Where is { Active: true } where)
-                    where.Step(step, OpponentSpeed(a), TryHabits(a.Id, out OpponentHabits? h) ? h!.Route : []);
+                    hops += where.Step(step, OpponentSpeed(a), TryHabits(a.Id, out OpponentHabits? h) ? h!.Route : []);
             }
+
+            Cost?.Mark(StepPart.Predict, hops);
         }
 
         Board.Decay(now, Dt, _params);
@@ -803,6 +841,7 @@ public sealed class BotMemory
         }
 
         _lastAdvance = now;
+        Cost?.Mark(StepPart.Decay);
     }
 
     /// <summary>How long after hearing an opponent the bot takes its silence as evidence (§5.1).</summary>

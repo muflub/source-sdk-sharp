@@ -23,5 +23,8 @@ public sealed class BindingCompositionTests
         Assert.Contains(typeof(CombatTap), registered);
         Assert.Contains(typeof(SourceSharp.Server.ISoundEmitHook), registered);
         Assert.Contains(typeof(SourceSharp.Server.IClientStepHook), registered);
+        // HL2MP answers the experience feed (it keeps none) and lists no database (Part G, Q-G2).
+        Assert.Contains(typeof(SourceSharp.Ai.Server.Experience.IExperienceGame), registered);
+        Assert.DoesNotContain(typeof(IExperienceStores), registered);
     }
 }

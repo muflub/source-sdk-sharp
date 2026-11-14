@@ -101,7 +101,8 @@ public static class NavGraphFromNav3d
                 classes = ClearanceClasses.Stand | ClearanceClasses.Crouch;
             NavCellFlags flags = (l.Water ? NavCellFlags.Water : 0) | (climb[leaf] ? NavCellFlags.Ladder : 0);
             float floor = stand[leaf] ? l.FloorZ : l.BottomZ;
-            cellOfLeaf[leaf] = b.AddCell(new NavCell(l.MinX, l.MinY, l.MaxX, l.MaxY, floor, classes, flags,
+            // The cost is the game's own body's; the extra hulls add their bits and nothing else.
+            cellOfLeaf[leaf] = b.AddCell(new NavCell(l.MinX, l.MinY, l.MaxX, l.MaxY, floor, classes | ExtraHulls(src, leaf, l, n, stand[leaf]), flags,
                                                      MathF.Max(1f, l.CostMultiplier) * (classes == ClearanceClasses.Crouch ? n.CrouchOnlyCost : 1f))).Index;
             leafOfCell.Add(leaf);
         }
@@ -239,6 +240,35 @@ public static class NavGraphFromNav3d
         }
 
         return new DerivedNav(b.Build(), cellOfLeaf, [.. leafOfCell], infos, leaves);
+    }
+
+    /// <summary>
+    /// The bits of the extra hulls (<see cref="NavNumbers.ExtraHulls"/>) admitted in a place of the
+    /// game's own body: hull i's is bit 2 + i. Where the body stands, a hull is admitted when its
+    /// box stands at the column's centre on the same floor or fits there one step up: on a stair
+    /// a box wider than a voxel meets the step beside, and the game's movement puts its feet on
+    /// it (the rule the game's own wide hull has, <see cref="NavNumbers.WideHull"/>). The raise is
+    /// asked for every extra hull, whatever its width, not only one wider than two voxels: on
+    /// ctf_2fort a 29 by 50 hull without it had none of the four ways from a spawn to a flag, and
+    /// with it all four the game's own hull has (the count without it was taken on the map-tools
+    /// 7cdfe4d nav only; with it, on 3551fa8 as well). One step only: a box that reaches the step
+    /// two up is admitted nowhere on such a stair (NavExtraHullStairTests). Where the body only
+    /// climbs, a hull is admitted when its box climbs there. None with no extra hulls.
+    /// </summary>
+    private static ClearanceClasses ExtraHulls(INavSource src, int leaf, in NavLeaf l, NavNumbers n, bool stands)
+    {
+        ClearanceClasses admitted = ClearanceClasses.None;
+        for (int i = 0; i < n.ExtraHulls.Count; i++)
+        {
+            NavHull h = n.ExtraHulls[i];
+            bool fits = stands
+                ? src.Stands(leaf, h.Width, h.Height) || src.FitsAt(leaf, l.FloorZ + n.StepHeight, h.Width, h.Height)
+                : src.Climbs(leaf, h.Width, h.Height);
+            if (fits)
+                admitted |= (ClearanceClasses)(1 << (int)NavHulls.ClassOf(i));
+        }
+
+        return admitted;
     }
 
     private static bool ClimbsThrough(IReadOnlyList<LadderClimb> ladders, in NavLeaf low, float high, float reach)

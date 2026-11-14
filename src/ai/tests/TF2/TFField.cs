@@ -33,11 +33,13 @@ public sealed class TFField
     private readonly PerceivedView _view = new(8);
     private int _tick;
 
-    public TFField(int slot = 2, ulong seed = 7, string preset = "hard", bool graph = true, int floorLength = Length, Func<DecisionParams, DecisionParams>? tune = null)
+    public TFField(int slot = 2, ulong seed = 7, string preset = "hard", bool graph = true, int floorLength = Length, Func<DecisionParams, DecisionParams>? tune = null,
+                   TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null)
     {
         Bot = new ActorId(slot, 1);
-        SkillProfile profile = SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
-        Params = Skills.Curves.Game().For(profile);
+        profile ??= SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
+        // HL2MP's curves unless a fact asks for others (the tf2 mod's own: TFSkillCurvesTests.ShippedCurves).
+        Params = (curves ?? Skills.Curves.Game()).For(profile);
         if (tune is not null)
             Params = tune(Params);
         ItemSpawn[] items =
@@ -51,7 +53,7 @@ public sealed class TFField
         Graph = graph ? Floor(floorLength) : null;
         Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, Graph, 0.015f, id => id.ToString()), new HabitStore());
         Decider = new TFDecider(new BrainSetup(Bot, seed, Memory, Params, 0.015f),
-                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125)));
+                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All };
         Brain = new Brain(Bot, seed, Memory, Params, Decider);
     }
 

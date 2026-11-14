@@ -18,6 +18,8 @@ namespace SourceSharp.Ai.Server.Nav;
 /// A game's <see cref="INavProfile"/>
 /// publishes them; <see cref="Stock"/> is the core's default movement, HL2MP's
 /// (NavNumbersTests pins them).
+/// <see cref="ExtraHulls"/> are more bodies the cells are classed for, beside the game's own:
+/// none unless a game names some, and then nothing but their bits is added to the graph.
 /// </summary>
 public readonly record struct NavNumbers(
     float HullWidth,
@@ -32,6 +34,14 @@ public readonly record struct NavNumbers(
     float CrouchOnlyCost = 1f)
 {
     /// <summary>
+    /// The extra hulls, in order: hull i is <see cref="ClearanceClass"/> 2 + i
+    /// (<see cref="NavHulls.ClassOf"/>), admitted in a cell where its box stands. They add no cell
+    /// and no edge: the places and the moves are the game's own body's. Part of a cached graph's
+    /// name only when there are any, so a game without them keeps its graphs' names and hashes.
+    /// </summary>
+    public NavHulls ExtraHulls { get; init; }
+
+    /// <summary>
     /// The core's default movement (HL2MP's): the player hull (32 wide, 72
     /// standing, 36 crouched), the step, the highest plain jump (jump height +
     /// step, 21 + 18 = 39), the highest crouch jump (the file's own 56), and
@@ -45,6 +55,68 @@ public readonly record struct NavNumbers(
         float v = MoveMath.PlayerMaxSafeFallSpeed;
         return new NavNumbers(32f, 72f, 36f, m.StepSize, m.JumpHeight + m.StepSize, fileJumpHeight, v * v / (2f * m.Gravity));
     }
+}
+
+/// <summary>A body the derivation classes cells for beside the game's own: a box <see cref="Width"/> across and <see cref="Height"/> tall.</summary>
+public readonly record struct NavHull(float Width, float Height);
+
+/// <summary>
+/// An ordered list of at most <see cref="Max"/> extra hulls (<see cref="NavNumbers.ExtraHulls"/>),
+/// compared by what it holds, so two numbers naming the same hulls are the same numbers; the
+/// default is the empty list.
+/// </summary>
+public readonly struct NavHulls : IEquatable<NavHulls>
+{
+    /// <summary>The most hulls a list holds: the clearance classes past Stand and Crouch.</summary>
+    public const int Max = 6;
+
+    private readonly NavHull[]? _hulls;
+
+    private NavHulls(NavHull[] hulls) => _hulls = hulls;
+
+    /// <summary>The list of <paramref name="hulls"/>, in their order: each with a width and a height above zero, at most <see cref="Max"/> of them.</summary>
+    public static NavHulls Of(params ReadOnlySpan<NavHull> hulls)
+    {
+        if (hulls.Length > Max)
+            throw new ArgumentException($"{hulls.Length} extra hulls: a graph is classed for at most {Max}", nameof(hulls));
+        foreach (NavHull h in hulls)
+        {
+            if (!(h.Width > 0f) || !(h.Height > 0f) || !float.IsFinite(h.Width) || !float.IsFinite(h.Height))
+                throw new ArgumentException($"a hull has a width and a height above zero, not {h.Width} by {h.Height}", nameof(hulls));
+        }
+
+        return hulls.Length == 0 ? default : new NavHulls(hulls.ToArray());
+    }
+
+    public int Count => _hulls?.Length ?? 0;
+
+    public NavHull this[int index] => _hulls is { } hulls ? hulls[index] : throw new ArgumentOutOfRangeException(nameof(index), index, "the list is empty");
+
+    /// <summary>The class paths are planned by for extra hull <paramref name="hull"/> (0 the first): 2 + <paramref name="hull"/>.</summary>
+    public static ClearanceClass ClassOf(int hull)
+    {
+        if ((uint)hull >= Max)
+            throw new ArgumentOutOfRangeException(nameof(hull), hull, $"extra hulls run 0..{Max - 1}");
+        return (ClearanceClass)(2 + hull);
+    }
+
+    public bool Equals(NavHulls other) => ((ReadOnlySpan<NavHull>)_hulls).SequenceEqual(other._hulls);
+
+    public override bool Equals(object? obj) => obj is NavHulls other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        var hash = default(HashCode);
+        foreach (NavHull h in (ReadOnlySpan<NavHull>)_hulls)
+            hash.Add(h);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(NavHulls a, NavHulls b) => a.Equals(b);
+
+    public static bool operator !=(NavHulls a, NavHulls b) => !a.Equals(b);
+
+    public override string ToString() => $"[{string.Join(", ", (_hulls ?? []).Select(h => FormattableString.Invariant($"{h.Width}x{h.Height}")))}]";
 }
 
 /// <summary>What crossing each edge type adds to its distance (a jump's effort, a door's wait), in world units.</summary>

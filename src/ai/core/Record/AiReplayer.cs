@@ -56,9 +56,27 @@ public static class AiReplayer
         return Replay(recording, transport, null, null, deciders, nav, published);
     }
 
+    /// <summary>
+    /// Replays a recording that carries its world for a measurement of the brains, not for its
+    /// intents: <paramref name="session"/> is handed the replay's session before anything is fed
+    /// to it (its clock and its brains' <see cref="AiSession.Costs"/>), and <paramref name="knows"/>
+    /// answers the map knowledge the brains are given from the recorded one (what a recording does
+    /// not carry of a game: its bodies, its abilities).
+    /// </summary>
+    public static AiReplayResult ReplayForCost(Stream recording, IAiTransport transport,
+                                               Func<AiRecordedWorld, (NavGraph? Graph, ICellSight? Sight)> nav,
+                                               Func<BrainSetup, IDecider?> deciders, Action<AiSession> session,
+                                               Func<MapKnowledge, MapKnowledge>? knows = null)
+    {
+        ArgumentNullException.ThrowIfNull(nav);
+        ArgumentNullException.ThrowIfNull(session);
+        return Replay(recording, transport, null, null, deciders, nav, null, session, knows);
+    }
+
     private static AiReplayResult Replay(Stream recording, IAiTransport transport, MemoryWorld? world, SkillCurves? curves,
                                          Func<BrainSetup, IDecider?>? deciders, Func<AiRecordedWorld, (NavGraph? Graph, ICellSight? Sight)>? nav,
-                                         Action<AiSession, Tick>? published)
+                                         Action<AiSession, Tick>? published, Action<AiSession>? prepare = null,
+                                         Func<MapKnowledge, MapKnowledge>? knows = null)
     {
         ArgumentNullException.ThrowIfNull(recording);
         ArgumentNullException.ThrowIfNull(transport);
@@ -71,6 +89,7 @@ public static class AiReplayer
         AiRecordingHeader header = Parse(headerBytes, AiRecordFormat.ReadHeader);
         var replayed = new IntentCapture();
         var session = new AiSession(transport, replayed, header.Slots, header.SightedCapacity) { World = world, Curves = curves, Deciders = deciders };
+        prepare?.Invoke(session);
         var recorded = new IntentCapture();
         int userCmds = 0;
 
@@ -136,7 +155,7 @@ public static class AiReplayer
                     (NavGraph? graph, ICellSight? sight) = nav(known);
                     if (known.NavGraphHash != 0 && graph?.Hash != known.NavGraphHash)
                         throw new InvalidDataException($"the recording's nav graph is {known.NavGraphHash:x16}, the one at hand {graph?.Hash ?? 0:x16}: rebuild the map's nav or re-record");
-                    session.World = new MemoryWorld(known.Map, graph, known.TickSeconds, id => id.ToString(), sight, new ChokeSlot());
+                    session.World = new MemoryWorld(knows is null ? known.Map : knows(known.Map), graph, known.TickSeconds, id => id.ToString(), sight, new ChokeSlot());
                     session.Curves = known.CurvesJson.Length > 0 ? SkillCurves.Parse(known.CurvesJson) : null;
                     break;
             }

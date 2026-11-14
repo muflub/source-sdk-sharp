@@ -120,6 +120,10 @@ public class ApplierAllowListTests
         "Angles::Vectors", "Basis::get_Forward", "Basis::get_Right", "Basis::get_Up", "Vector::op_Addition", "Vector::op_Multiply", "Vector::op_Subtraction",
         // ai_nav_prebuild all (plan_bots_teams_tf2 E.4): the map cycle's maps, read as the intermission reads them.
         "Intermission::ReadCycle",
+        // ExperienceService (Part G, G.3): where a player died, as the death hook says it, for the experience store's death and sight-line rows.
+        "PlayerDeath::get_Origin",
+        // ExperienceService: the process's command line, for the launcher's -toolgame alone: a tool's game opens no default experience file.
+        "ILocalCommandLine::get_Args",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>

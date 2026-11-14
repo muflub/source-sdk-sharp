@@ -20,5 +20,6 @@
   <ItemGroup>
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
+    <ProjectReference Include="..\tf2\server\SourceSharp.Ai.TF2.csproj" />
   </ItemGroup>
 </Project>

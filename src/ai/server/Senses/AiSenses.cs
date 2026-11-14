@@ -18,7 +18,8 @@ namespace SourceSharp.Ai.Server.Senses;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class ServerAiSession(IAiNavigation nav, IBotGame game, IEnginePlayers players, ILog log, AiThreadsConVar threads,
-                                   AiSyncConVar syncConVar, SourceSharp.Ai.Server.Skills.ISkillCurveSource? curves = null) : IGameLifecycle
+                                   AiSyncConVar syncConVar, SourceSharp.Ai.Server.Skills.ISkillCurveSource? curves = null,
+                                   SourceSharp.Ai.Server.Experience.ExperienceService? experience = null) : IGameLifecycle
 {
     private readonly AiWorkerPool _pool = new() { CpuClock = ThreadCpuClock.Micros() };
     private readonly InlineTransport _inline = new();
@@ -138,7 +139,11 @@ public sealed class ServerAiSession(IAiNavigation nav, IBotGame game, IEnginePla
         // Without navigation the game is asked over an empty lump: what it knows of the level from elsewhere (TF2's
         // placed entities, plan_bots_teams_tf2 P6 step 5) it still knows; HL2MP's knows nothing, as before.
         MapKnowledge map = game.Map(mapName, nav.Current?.Entities ?? new MapEntities([], null), facts);
-        Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight, nav.Chokes);
+        // The map's experience (plan_bots_teams_tf2 Part G, G.3) turns up in the feed's slot; without a feed the world's own stays empty.
+        Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight, nav.Chokes)
+        {
+            ExperienceSlot = experience?.Slot ?? new ExperienceSlot(),
+        };
         // The level counts its ticks from low again: the last level's snapshots go.
         Session.Snapshots.Reset();
         bool sync = syncConVar.Value;

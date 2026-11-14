@@ -25,6 +25,16 @@ public sealed class CombatTapTests
         Assert.DoesNotContain(into, e => e.Bot == C);
     }
 
+    /// <summary>A bot's own blast (a rocket jump) is its damage with itself named as the attacker, and no hit marker: the memory tells it from an attack by that.</summary>
+    [Fact]
+    public void ABotsOwnBlastIsItsDamageNamingItself()
+    {
+        var into = new List<AiEvent>();
+        CombatTap.Hurt(A, A, 45, 155, AiVector.Zero, [A, B, C], new Tick(4), into);
+        AiEvent hurt = Assert.Single(into);
+        Assert.Equal((AiEventKind.Damaged, A, A, 45f), (hurt.Kind, hurt.Bot, hurt.Other, hurt.Amount));
+    }
+
     [Fact]
     public void AHumanHurtByTheWorldTellsNoBot()
     {

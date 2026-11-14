@@ -246,7 +246,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-rooms mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
 help:
@@ -702,13 +702,33 @@ ai-nav-tf:
 # mod reads the spawns from the .nav3d and the report reaches nothing). The map tools are $(MAPTOOLS_DIR) (the plan's kit needs a
 # checkout whose doors stand on the floor at any height, e.g.
 # MAPTOOLS_DIR=../mt-descent-rooms); a built bin/Release/ssmap.dll there is run
-# directly, else $(SSMAP). DESCENT_GAME is the content the compile reads.
+# directly, else $(SSMAP).
+# DESCENT_GAME is the game directory the compile and the previews read: by
+# default the tf2_descent mod itself, through DESCENT_VIEW, so the rooms' own
+# materials (game/mod_tf2_descent/materials/descent, the door plugs) resolve
+# as they do in the game. The view is links: the mod and the two mods its
+# gameinfo names beside it, and TF2's hl2 and platform folders, because the
+# tools take |all_source_engine_paths| to be the game directory's parent
+# where the engine takes its own install (TF2's, which holds hl2/: the grey
+# dev/graygrid is only in hl2's VPKs). `ssmap room` reports no missing
+# material (it compiles one as texinfo 0), so every preview's count of
+# missing materials and models must be 0.
 DESCENT_DIR    := $(CURDIR)/bin/$(CONFIG)/descent-rooms
 DESCENT_SEED   ?= 0
 DESCENT_DEPTHS ?= 1
-DESCENT_GAME   ?= $(HOME)/.steam/debian-installation/steamapps/common/Team Fortress 2/tf
+DESCENT_VIEW   := $(CURDIR)/bin/$(CONFIG)/descent-game
+DESCENT_GAME   ?= $(DESCENT_VIEW)/tf2_descent
 SSMAP_DESCENT  ?= $(if $(wildcard $(MAPTOOLS_DIR)/bin/Release/ssmap.dll),$(DOTNET) $(MAPTOOLS_DIR)/bin/Release/ssmap.dll,$(SSMAP))
-descent-rooms:
+# Fails unless a preview log says it found every material and model.
+DESCENT_CONTENT_CHECK = grep -q ' 0 missing materials, 0 missing models'
+descent-view:
+	@test -f $(CURDIR)/bin/$(CONFIG)/mods/tf2_descent/materials/descent/grey_plug.vmt || { \
+	    echo "error: bin/$(CONFIG)/mods/tf2_descent has no materials/descent: run make setup"; exit 1; }
+	@test -d $(CURDIR)/bin/$(CONFIG)/content/hl2 || { echo "error: bin/$(CONFIG)/content (TF2) has no hl2/: run make setup"; exit 1; }
+	@mkdir -p $(DESCENT_VIEW)
+	@for m in tf2_descent tf2 test; do ln -sfn ../mods/$$m $(DESCENT_VIEW)/$$m; done
+	@for c in hl2 platform; do ln -sfn ../content/$$c $(DESCENT_VIEW)/$$c; done
+descent-rooms: descent-view
 	@test -d "$(MAPTOOLS_DIR)" || { echo "error: no map tools at $(MAPTOOLS_DIR) (MAPTOOLS_DIR)"; exit 1; }
 	@test -d "$(DESCENT_GAME)" || { echo "error: no game content at $(DESCENT_GAME) (DESCENT_GAME)"; exit 1; }
 	@mkdir -p $(DESCENT_DIR)/maps
@@ -727,6 +747,9 @@ descent-rooms:
 	        $(SSMAP_DESCENT) preview $(DESCENT_DIR)/maps/$$level.bsp -game "$(DESCENT_GAME)" -movement $$class \
 	            -out $(DESCENT_DIR)/$$level-preview-$$class > $(DESCENT_DIR)/$$level.preview-$$class.log 2>&1 \
 	            || { tail -20 $(DESCENT_DIR)/$$level.preview-$$class.log; exit 1; }; \
+	        $(DESCENT_CONTENT_CHECK) $(DESCENT_DIR)/$$level.preview-$$class.log || { \
+	            echo "error: $$level names a material or model $(DESCENT_GAME) does not hold:"; \
+	            grep 'missing' $(DESCENT_DIR)/$$level.preview-$$class.log; exit 1; }; \
 	    done; \
 	done
 	@echo "==> $(DESCENT_DIR): open each *-preview-*/sheet.png"

@@ -45,10 +45,26 @@ public class HitGroupDamageTests
         Assert.Equal(damage, scale.Modify(in hit, 10f));
     }
 
-    private static HitGroupDamage Subject(ConVarRegistry convars, IHooks<IHitGroupDamageOwner>? owners = null)
+    private static HitGroupDamage Subject(ConVarRegistry convars, IHooks<IHitGroupDamageOwner>? owners = null,
+                                          bool victimIsPlayer = true)
         => new(convars.Declared<PlayerHeadDamageConVar>(), convars.Declared<PlayerChestDamageConVar>(),
                convars.Declared<PlayerStomachDamageConVar>(), convars.Declared<PlayerArmDamageConVar>(),
-               convars.Declared<PlayerLegDamageConVar>(), owners);
+               convars.Declared<PlayerLegDamageConVar>(), Fake().Returns("Entities.IsPlayer", victimIsPlayer), owners);
+
+    /// <summary>
+    /// The table is the player's (CBasePlayer::TraceAttack): a victim that is not a player, reached
+    /// by the fold because it runs the damage rules, keeps the hit whatever group it landed on.
+    /// </summary>
+    [Fact]
+    public void A_victim_that_is_not_a_player_is_not_scaled()
+    {
+        DamageContext hit = Hit(HitGroup.Head);
+
+        float player = Subject(ConVars()).Modify(in hit, 10f);
+        float other = Subject(ConVars(), victimIsPlayer: false).Modify(in hit, 10f);
+
+        Assert.Equal((30f, 10f), (player, other));
+    }
 
     [Fact]
     public void The_running_damage_is_what_scales()

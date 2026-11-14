@@ -418,8 +418,8 @@ public class ModsConfigTests
 
         Assert.Equal("TF2", tf2.Title);
         Assert.Equal("game/mod_tf2", tf2.Content);
-        // TF2's AI binding over the generic server binding (plan_bots_teams_tf2 C.2).
-        Assert.Equal(["SourceSharp.Server", "TF2.Server", "SourceSharp.Ai.Server", "SourceSharp.Ai.TF2"], tf2.ServerAssemblies);
+        // TF2's AI binding over the generic server binding (plan_bots_teams_tf2 C.2), with the bots' experience database (Part G, G.3).
+        Assert.Equal(["SourceSharp.Server", "TF2.Server", "SourceSharp.Ai.Store", "SourceSharp.Ai.Server", "SourceSharp.Ai.TF2"], tf2.ServerAssemblies);
         Assert.Equal(["SourceSharp.Client", "TF2.Client"], tf2.ClientAssemblies);
         Assert.True(File.Exists(RepoLayout.Repo("game", "mod_tf2", "gameinfo.txt")));
     }

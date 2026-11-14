@@ -3,6 +3,8 @@
 
   tools/ai-tf-jump measure [--seconds 240] [--config debug] [--out FILE.json] [--keep]
   tools/ai-tf-jump read FILE.json      an earlier run's numbers again, from its kept track
+  tools/ai-tf-jump record [--seconds 300] [--config debug] [--keep]
+  tools/ai-tf-jump sim [--config debug|release]   the simulator against the recording: its gaps and its speed
   tools/ai-tf-jump --self-test
 
 Starts a headless tf2 game on the map (tools/ai-scenario's Game: its own
@@ -36,15 +38,39 @@ Each flight of more than 200 u up is listed too:
   air      seconds off the floor
   along    how far it went over the floor in that time, u (a walk covers 240 u a second)
   walked   the same time at the bot's own walking speed, u
- The map is per-tree build output: `make map
-MAP=ss_ai_tf_jump` first; a missing map is a failure.
+
+`record` plays the jump arm alone with the AI session recorded (`ai_record`),
+and writes what the blast-jump simulator's differential facts replay
+(BlastJumpDifferentialTests, G.5 step 3):
+
+  src/ai/tests/recordings/ss_ai_tf_jump.airec   the bot's usercmds and frames (where it stood and moved each
+                                                tick) around each flight: 100 ticks before it left the floor
+                                                to 34 after it came back; the rest of the session is cut
+  src/ai/tests/recordings/ss_ai_tf_jump.json    the map source's sha256, the game's commit, the flights
+                                                this tool saw, the bot's slot, what was cut and the counters
+
+`sim` runs the simulator's facts (BlastJumpDifferentialTests and
+BlastJumpSpeedTests) and prints the numbers they write under
+bin/<config>/ai-jump/: each recorded flight flown again from its takeoff
+state, the gap in apex, air time and landing place (medians and the worst),
+and how many flights a second one core simulates. The debug build is
+`make ai-test`'s; `--config release` builds and runs the same facts optimised
+(`dotnet test -c Release`), which is the speed a played server has, and needs
+the map built for it (`make map MAP=ss_ai_tf_jump CONFIG=release`). No game
+is started. A report the facts did not write is a failure.
+
+The map is per-tree build output: `make map MAP=ss_ai_tf_jump` first; a
+missing map is a failure.
 """
 import argparse
+import hashlib
 import importlib.machinery
 import importlib.util
 import json
 import os
 import statistics
+import struct
+import subprocess
 import sys
 import time
 
@@ -210,6 +236,26 @@ def self_test():
     s = summary(traverses(walk, tick) + traverses(hop, tick))
     assert s["run-east"]["n"] == 1 and s["low-west"]["hops"] == 1.0 and abs(s["run-east"]["speed"] - 240.0) < 1.5, s
     assert s["run-west"] == {"n": 0} and s["low-east"] == {"n": 0}, s
+    # The trim: a session of two actors, one flight of slot 2 from tick 300 to 500. Kept: the header and bot
+    # records, and slot 2's usercmds and frames from 100 ticks before the flight to 34 after; nothing of slot 1.
+    def rec(kind, payload):
+        return bytes([kind]) + struct.pack("<I", len(payload)) + payload
+
+    def frame(slot, t):
+        z = FLOOR_Z + (600.0 if 300 <= t < 500 else 0.0)
+        return rec(REC_FRAME, struct.pack("<iii9f", slot, 1, t, 0.0, 0.0, z, 0.0, 0.0, z + 68.0, 0.0, 0.0, 0.0))
+
+    session = AIREC_MAGIC + struct.pack("<H", 7) + rec(REC_HEADER, b"h") + rec(REC_BOT_ADDED, b"b") + rec(5, b"a snapshot")
+    for t in range(100, 700):
+        for slot in (1, 2):
+            session += rec(REC_USERCMD, struct.pack("<iii", slot, 1, t) + b"cmd") + frame(slot, t)
+    cut, windows = trim(session, 2)
+    assert windows == [(200, 534)], windows
+    kept = list(airec_records(cut))
+    assert [k for k, _ in kept[:2]] == [REC_HEADER, REC_BOT_ADDED] and all(k in (REC_USERCMD, REC_FRAME) for k, _ in kept[2:]), kept[:3]
+    assert len(kept) == 2 + 2 * 335 and all(struct.unpack_from("<i", p, 0)[0] == 2 for _, p in kept[2:]), len(kept)
+    assert {struct.unpack_from("<i", p, 8)[0] for _, p in kept[2:]} == set(range(200, 535))
+    assert trim(session, 1)[1] == windows and trim(session, 3) == (session[:10] + rec(REC_HEADER, b"h") + rec(REC_BOT_ADDED, b"b"), [])
     print("ai-tf-jump self-test: ok")
 
 
@@ -260,23 +306,158 @@ def arm(game, slot, health, seconds):
             "tick_seconds": tick_seconds, "track": [[t, round(x, 1), round(y, 1), round(z, 1)] for t, x, y, z in samples]}
 
 
-def measure(config, seconds, out, keep):
+def start_game(config):
+    """A headless tf2 game on the map, up; a missing map is a failure."""
     nav = os.path.join(ROOT, "bin", config, "mods", "tf2", "maps", MAP + ".nav3d")
     if not os.path.exists(nav):
         raise SystemExit("ai-tf-jump: no %s: `make map MAP=%s` builds it" % (nav, MAP))
     game = ai_scenario.Game(MAP, config, mod="tf2")
     game.start()
+    return game
+
+
+def add_jumper(game):
+    """Adds the one red Soldier and answers its slot once it is in the world."""
+    game.cmd("ai_bot_add Jumper medium team=2")
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        for b in lower(game.json("/ai/world")).get("bots") or []:
+            if b.get("name") == "Jumper" and b.get("truth"):
+                return b["slot"]
+        time.sleep(1.0)
+    raise SystemExit("ai-tf-jump: the bot never spawned")
+
+
+# The .airec envelope (AiRecordFormat): an 8-byte magic and a version, then records of a type byte, a
+# 4-byte length and a payload. A usercmd (7) and a frame (9) both start with the actor's slot and serial
+# and the tick, 4 bytes each; a frame goes on with its origin's x, y and z as floats.
+AIREC_MAGIC = b"SSAIREC\0"
+REC_HEADER, REC_BOT_ADDED, REC_USERCMD, REC_FRAME = 1, 2, 7, 9
+TRIM_BEFORE, TRIM_AFTER = 100, 34
+
+
+def airec_records(data):
+    """The (type, payload) records of an .airec's bytes, after its header. PURE."""
+    if data[:8] != AIREC_MAGIC:
+        raise SystemExit("ai-tf-jump: not an .airec: the magic is wrong")
+    at = 10
+    while at < len(data):
+        kind, size = data[at], struct.unpack_from("<I", data, at + 1)[0]
+        yield kind, data[at + 5:at + 5 + size]
+        at += 5 + size
+
+
+def flight_windows(frames):
+    """The tick windows to keep, from [(tick, z)] of the bot's frames in tick order: each time
+    off the floor that rose past FLIGHT_UNITS, TRIM_BEFORE ticks before to TRIM_AFTER after. PURE."""
+    out, start, peak = [], None, 0.0
+    for i in range(1, len(frames)):
+        (ta, za), (tb, zb) = frames[i - 1], frames[i]
+        up = zb - FLOOR_Z > 1.0
+        if start is None:
+            if up and za - FLOOR_Z <= 1.0:
+                start, peak = tb, zb - FLOOR_Z
+            continue
+        peak = max(peak, zb - FLOOR_Z)
+        if not up:
+            if peak > FLIGHT_UNITS:
+                out.append((start - TRIM_BEFORE, tb + TRIM_AFTER))
+            start = None
+    return out
+
+
+def trim(data, slot):
+    """An .airec's bytes cut down to what the simulator's facts replay: its header and bot records,
+    and the usercmds and frames of the actor in the slot inside the flight windows. Answers the
+    bytes and the windows. PURE: the self-test holds it."""
+    records = list(airec_records(data))
+    frames = [(struct.unpack_from("<i", p, 8)[0], struct.unpack_from("<f", p, 20)[0]) for k, p in records
+              if k == REC_FRAME and struct.unpack_from("<i", p, 0)[0] == slot]
+    windows = flight_windows(frames)
+    out = bytearray(data[:10])
+    for kind, payload in records:
+        keep = kind in (REC_HEADER, REC_BOT_ADDED)
+        if kind in (REC_USERCMD, REC_FRAME) and struct.unpack_from("<i", payload, 0)[0] == slot:
+            tick = struct.unpack_from("<i", payload, 8)[0]
+            keep = any(lo <= tick <= hi for lo, hi in windows)
+        if keep:
+            out += bytes([kind]) + struct.pack("<I", len(payload)) + payload
+    return bytes(out), windows
+
+
+def record(config, seconds, keep):
+    out_dir = os.path.join(ROOT, "src", "ai", "tests", "recordings")
+    rec = os.path.join(out_dir, MAP + ".airec")
+    source = ai_scenario.sha256(os.path.join(ROOT, "game", "mod_tf2", "maps", "src", "ai", MAP + ".vmf"))
+    commit = subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    game = start_game(config)
     try:
-        game.cmd("ai_bot_add Jumper medium team=2")
-        slot = None
-        deadline = time.time() + 120
-        while time.time() < deadline and slot is None:
-            for b in lower(game.json("/ai/world")).get("bots") or []:
-                if b.get("name") == "Jumper" and b.get("truth"):
-                    slot = b["slot"]
-            time.sleep(1.0)
-        if slot is None:
-            raise SystemExit("ai-tf-jump: the bot never spawned")
+        slot = add_jumper(game)
+        game.cmd("ai_record start %s %s@%s" % (rec, MAP, source[:12]))
+        time.sleep(0.5)
+        a = arm(game, slot, 200, seconds)
+        counters = game.json("/ai/counters")
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    with open(rec, "rb") as f:
+        raw = f.read()
+    cut, windows = trim(raw, slot)
+    with open(rec, "wb") as f:
+        f.write(cut)
+    summary = {"map": MAP, "source_sha256": source, "game_commit": commit, "config": config, "seconds": seconds, "slot": slot,
+               "bot": "Jumper medium team=2, health held at 200 (ai_aim_tough)", "tick_seconds": a["tick_seconds"],
+               "sequences": a["sequences"], "flights": a["flights"],
+               "kept": "the bot's usercmds and frames, %d ticks before each flight to %d after" % (TRIM_BEFORE, TRIM_AFTER),
+               "windows": windows, "session_bytes": len(raw), "session_sha256": hashlib.sha256(raw).hexdigest(), "counters": counters}
+    with open(os.path.join(out_dir, MAP + ".json"), "w") as f:
+        json.dump(summary, f, indent=1)
+        f.write("\n")
+    print("ai-tf-jump: wrote %s (%d bytes) and %s.json: %d flights over %d sequences" % (
+        rec, os.path.getsize(rec), MAP, len(a["flights"]), a["sequences"]))
+    return 0 if a["flights"] else 1
+
+
+SIM_FILTER = "FullyQualifiedName~SourceSharp.Ai.Tests.Jump.BlastJump"
+
+
+def sim(config):
+    """Runs the simulator's facts in the build asked for and prints the reports they wrote; a missing nav or report is a failure."""
+    nav = os.path.join(ROOT, "bin", config, "mods", "tf2", "maps", MAP + ".nav3d")
+    if not os.path.exists(nav):
+        raise SystemExit("ai-tf-jump: no %s: `make map MAP=%s CONFIG=%s` builds it" % (nav, MAP, config))
+    out = os.path.join(ROOT, "bin", config, "ai-jump")
+    if os.path.isdir(out):
+        for name in os.listdir(out):
+            if name.endswith(".json"):
+                os.remove(os.path.join(out, name))
+    if config == "debug":
+        run = ["make", "-C", ROOT, "--no-print-directory", "ai-test", "FILTER=" + SIM_FILTER]
+    else:
+        dotnet = os.environ.get("DOTNET", os.path.expanduser("~/.dotnet/dotnet"))
+        run = [dotnet, "test", os.path.join(ROOT, "src", "ai", "tests"), "-c", "Release", "--nologo", "--filter", SIM_FILTER]
+    p = subprocess.run(run, capture_output=True, text=True, cwd=ROOT)
+    lines = (p.stdout + p.stderr).splitlines()
+    print("\n".join(l for l in lines if "Passed!" in l or "Failed!" in l))
+    if p.returncode != 0:
+        print("\n".join(lines[-30:]))
+        raise SystemExit("ai-tf-jump: the simulator's facts failed (rc %d)" % p.returncode)
+    reports = sorted(n for n in os.listdir(out) if n.endswith(".json")) if os.path.isdir(out) else []
+    for wanted in ("differential.json", "speed.json"):
+        if wanted not in reports:
+            raise SystemExit("ai-tf-jump: the facts wrote no %s" % os.path.join(out, wanted))
+    commit = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    for name in reports:
+        with open(os.path.join(out, name)) as f:
+            print("%s at %s:\n%s" % (name, commit, f.read().rstrip()))
+    return 0
+
+
+def measure(config, seconds, out, keep):
+    game = start_game(config)
+    try:
+        slot = add_jumper(game)
         result = {"map": MAP, "seconds": seconds, "stretch": STRETCH[1] - STRETCH[0],
                   "jump": arm(game, slot, 200, seconds), "walk": arm(game, slot, 85, seconds)}
     finally:
@@ -320,9 +501,9 @@ def main(argv):
         self_test()
         return 0
     p = argparse.ArgumentParser(prog="ai-tf-jump")
-    p.add_argument("what", choices=["measure", "read"])
+    p.add_argument("what", choices=["measure", "read", "record", "sim"])
     p.add_argument("file", nargs="?")
-    p.add_argument("--seconds", type=float, default=240.0)
+    p.add_argument("--seconds", type=float)
     p.add_argument("--config", default="debug")
     p.add_argument("--out")
     p.add_argument("--keep", action="store_true")
@@ -331,7 +512,13 @@ def main(argv):
         if not a.file:
             raise SystemExit("ai-tf-jump: read needs a run's FILE.json")
         return read(a.file)
-    return measure(a.config, a.seconds, a.out, a.keep)
+    if a.what == "sim":
+        if a.config not in ("debug", "release"):
+            raise SystemExit("ai-tf-jump: sim runs the debug or the release build")
+        return sim(a.config)
+    if a.what == "record":
+        return record(a.config, a.seconds or 300.0, a.keep)
+    return measure(a.config, a.seconds or 240.0, a.out, a.keep)
 
 
 if __name__ == "__main__":

@@ -819,6 +819,118 @@
     0.72,
     0.8
    ]
+  },
+  "fightDrive": {
+   "skill": "aggression",
+   "direction": "up",
+   "note": "what Aggression makes of the scores of a fight and of going for the enemy's objective (plan_bots_teams_tf2_part_g G.2.2): a factor on them, 1 leaves them as the tree scores them",
+   "reads": "style",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "chaseDrive": {
+   "skill": "tenacity",
+   "direction": "up",
+   "note": "what Tenacity makes of the score of chasing the enemy who carries the team's flag: a factor on it",
+   "reads": "style",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "holdDrive": {
+   "skill": "discipline",
+   "direction": "up",
+   "note": "what Discipline makes of the scores of defending the team's flag and of guarding it dropped: a factor on them",
+   "reads": "style",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "escortDrive": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "what Teamwork makes of the score of going with the teammate who carries the flag: a factor on it",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "surviveDrive": {
+   "skill": "nerve",
+   "direction": "down",
+   "note": "what Nerve makes of the score of leaving for health: a factor on it, a timid bot's above 1",
+   "reads": "style",
+   "levels": [
+    1.3,
+    1.24,
+    1.18,
+    1.12,
+    1.06,
+    1.0,
+    0.94,
+    0.88,
+    0.82,
+    0.76,
+    0.7
+   ]
+  },
+  "scoreNoise": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "how far each of a bot's scores wanders about its own value (ScoreNoise): the most a score is off by, as a share of it",
+   "levels": [
+    0.1,
+    0.094,
+    0.088,
+    0.082,
+    0.076,
+    0.07,
+    0.064,
+    0.058,
+    0.052,
+    0.046,
+    0.04
+   ]
   }
  },
  "styleNote": "A parameter that reads 'style' is read at a skill's height above the bot's own mean (SkillCurves.StyleLevel, \u00a710, ruling 2026-11-02), not its level, so a bot's favourite shows at any difficulty; the rest read the level itself, so difficulty still means skill."

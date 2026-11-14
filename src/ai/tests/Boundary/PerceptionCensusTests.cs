@@ -56,6 +56,11 @@ public sealed class PerceptionCensusTests
         typeof(ShotTap).FullName!,
         // The 3D view's route (§7.1): the bot's own view too, for the web UI only; held below.
         typeof(AiWorldRoutes).FullName!,
+        // The experience feed (plan_bots_teams_tf2 Part G, G.3; Q-G1 as ruled 2026-11-10: the store learns from every
+        // player's state, as watching a demo): where each player stands and looks, handed to the feed's worker as samples
+        // with no identity. A brain gets none of it live: what reaches one is the store's snapshot of counts by place,
+        // replaced at a round's start (ExperienceServiceTests.WhatTheFeedReadsGoesOnlyToItsWorker holds the hand-off).
+        typeof(SourceSharp.Ai.Server.Experience.ExperienceService).FullName!,
     ];
 
     /// <summary>

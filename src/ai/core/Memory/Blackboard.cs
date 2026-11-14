@@ -242,6 +242,12 @@ public sealed class Blackboard
 
     public Tick LastDamageTick { get; internal set; }
 
+    /// <summary>
+    /// When someone else last hurt the bot: a hit whose attacker its HUD names and who is not
+    /// itself. Its own blast and the world's hurt (a fall) move <see cref="LastDamageTick"/> only.
+    /// </summary>
+    public Tick LastAttackTick { get; internal set; }
+
     private readonly int[] _teamScores = new int[TeamRule.LastGameTeam + 1];
 
     /// <summary>The score the bot's HUD shows for <paramref name="team"/> (plan_bots_teams_tf2 B.2); 0 for none.</summary>

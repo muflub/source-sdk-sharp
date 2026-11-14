@@ -37,18 +37,29 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
     /// <summary>
     /// The name a derivation's numbers carry in the cache: "" for the core's default movement over
     /// a file of jump height <paramref name="fileJumpHeight"/> (so HL2MP's graphs keep their names),
-    /// else the first 16 hex digits of the SHA-256 of their bits.
+    /// else the first 16 hex digits of the SHA-256 of their bits. The extra hulls
+    /// (<see cref="NavNumbers.ExtraHulls"/>) are bits after the body's ten numbers, a width and a
+    /// height each in their order, and none when there are none: numbers without them are named
+    /// as they were before a graph could be classed for more hulls.
     /// </summary>
     public static string NumbersKey(NavNumbers numbers, float fileJumpHeight)
     {
         if (numbers == NavNumbers.Stock(fileJumpHeight))
             return "";
-        Span<byte> bits = stackalloc byte[10 * sizeof(float)];
+        NavHulls hulls = numbers.ExtraHulls;
+        Span<byte> bits = stackalloc byte[(10 + 2 * NavHulls.Max) * sizeof(float)];
+        bits = bits[..((10 + 2 * hulls.Count) * sizeof(float))];
         ReadOnlySpan<float> values = [numbers.HullWidth, numbers.StandHeight, numbers.CrouchHeight, numbers.StepHeight,
                                       numbers.MaxJumpRise, numbers.MaxCrouchJumpRise, numbers.SafeDrop, numbers.MaxDoubleJumpRise,
                                       numbers.WideHull ? 1f : 0f, numbers.CrouchOnlyCost];
         for (int i = 0; i < values.Length; i++)
             BinaryPrimitives.WriteSingleLittleEndian(bits[(i * sizeof(float))..], values[i]);
+        for (int i = 0; i < hulls.Count; i++)
+        {
+            BinaryPrimitives.WriteSingleLittleEndian(bits[((10 + 2 * i) * sizeof(float))..], hulls[i].Width);
+            BinaryPrimitives.WriteSingleLittleEndian(bits[((11 + 2 * i) * sizeof(float))..], hulls[i].Height);
+        }
+
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16];
     }
 

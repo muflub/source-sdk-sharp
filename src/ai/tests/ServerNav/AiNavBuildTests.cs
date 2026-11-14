@@ -259,11 +259,14 @@ public sealed class AiNavBuildTests : IDisposable
         NavService nav = Nav("dm_lockdown", lockdown);
         nav.Load("dm_lockdown");
         Assert.True(nav.Building);
+        NavBuildJob job = nav.Job!;
 
-        long start = System.Diagnostics.Stopwatch.GetTimestamp();
         ((IGameLifecycle)nav).OnLevelShutdown();
 
-        Assert.True(System.Diagnostics.Stopwatch.GetElapsedTime(start) < TimeSpan.FromSeconds(NavService.BuildStopSeconds));
+        // The build was cut short, not waited out: a bound on the stop's wall
+        // time failed on a box at load 50.
+        Assert.IsType<NavBuildOutcome.Cancelled>(job.Outcome);
+        Assert.True(job.Cells.Done < job.Cells.Total || job.Cells.Total == 0, $"{job.Cells.Done} of {job.Cells.Total} cells built");
         Assert.Null(nav.Job);
         Assert.Equal("no level is loaded", nav.Refusal);
         Assert.False(File.Exists(nav.Store.PathFor("dm_lockdown", BuiltNavStore.Sha256(lockdown))));

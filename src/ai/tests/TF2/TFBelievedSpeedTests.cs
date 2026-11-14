@@ -101,7 +101,7 @@ public sealed class TFBelievedSpeedTests
         var classes = new TFClassTable(new NoLog(), DispatchProxy.Create<IEngineFiles, Scripts>());
         Assert.Equal(9, classes.Load());
         var placed = new TFPlacedEntities(DispatchProxy.Create<IEntityDirectory, NothingPlaced>(), DispatchProxy.Create<IEngineEntities, TFViewWiringTests.Unasked>());
-        var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, placed, null!);
+        var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, placed, null!, TFFeelSwitchTests.Switches());
         MapKnowledge map = game.Map("m", new MapEntities([], null), new WeaponKnowledge([]));
         Assert.Equal((400f, 230f), (map.Bodies.Of((int)TFClass.Scout).RunSpeed, map.Bodies.Of((int)TFClass.HeavyWeapons).RunSpeed));
     }

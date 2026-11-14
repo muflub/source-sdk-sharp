@@ -195,6 +195,10 @@ if (args.Length >= 1 && args[0] == "chat-truth")
 if (args.Length >= 1 && args[0] == "chat-eval")
     return ChatEval.Run(args[1..]);
 
+//   cost <hl2mp|tf2> <map.nav3d> <map.bsp> <recording.airec> [bodies=-] [passes=2]   where a decide's CPU time goes
+if (args.Length >= 1 && args[0] == "cost")
+    return CostTool.Run(args[1..], Console.Out, Console.Error);
+
 if (args.Length >= 4 && args[0] == "verify")
 {
     string vNav = args[1], vBsp = args[2], vRec = args[3];

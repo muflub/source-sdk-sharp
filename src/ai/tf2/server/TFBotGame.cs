@@ -18,11 +18,13 @@ namespace SourceSharp.Ai.TF2;
 /// TF2 has no thrown grenade: its HUD counts none.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IBotGame)])]
-public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TFClassTable classes, TFPlacedEntities placed, TFBotGameView view) : IBotGame
+public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TFClassTable classes, TFPlacedEntities placed, TFBotGameView view,
+                              TFFeelSwitchConVars feel) : IBotGame
 {
     private readonly AbilityTable _abilities = TFAbilities.Table();
 
-    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes());
+    /// <summary>A bot's decider has the feel layer's parts as the <c>ai_tf_feel_*</c> convars stand when it is added, for its life.</summary>
+    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read() };
 
     public AbilityTable Abilities => _abilities;
 

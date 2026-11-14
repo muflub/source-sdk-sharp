@@ -456,13 +456,13 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// stage 2.7): the running damage through each in order, a throwing
     /// modifier named and skipped. No modifiers is the hit as dealt.
     /// </summary>
-    public float ModifyDamage(EntityHandle player, EntityHandle attacker, float damage, int damageType,
+    public float ModifyDamage(EntityHandle victim, EntityHandle attacker, float damage, int damageType,
                               HitGroup hitGroup = HitGroup.Generic)
     {
         if (_damageModifiers is not { } modifiers)
             return damage;
 
-        var hit = new DamageContext(player, attacker, damage, damageType, hitGroup,
+        var hit = new DamageContext(victim, attacker, damage, damageType, hitGroup,
                                     Critical: _hits?.Critical ?? false);
 
         float running = damage;

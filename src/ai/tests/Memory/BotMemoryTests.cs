@@ -188,6 +188,34 @@ public sealed class BotMemoryTests
         Assert.NotEmpty(IlCallCensus.Callers(m => m.DeclaringType == typeof(OpponentHabits), core));
     }
 
+    [Fact]
+    public void AnothersHitIsAnAttack()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.Damaged(Bot, new Tick(40), Them, 20f, new AiVector(1, 0, 0), 0));
+        Assert.Equal((new Tick(40), new Tick(40)), (m.Board.LastDamageTick, m.Board.LastAttackTick));
+    }
+
+    /// <summary>The bot's own blast (plan_bots_teams_tf2_part_g G.13: a rocket jump) is damage on its HUD and nobody's attack.</summary>
+    [Fact]
+    public void TheBotsOwnBlastIsDamageAndNoAttack()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.Damaged(Bot, new Tick(40), Them, 20f, new AiVector(1, 0, 0), 0));
+        m.Apply(AiEvent.Damaged(Bot, new Tick(90), Bot, 45f, default, 0));
+        Assert.Equal((new Tick(90), new Tick(40)), (m.Board.LastDamageTick, m.Board.LastAttackTick));
+    }
+
+    /// <summary>A hurt with no attacker (a fall, the water) is damage and nobody's attack.</summary>
+    [Fact]
+    public void TheWorldsHurtIsDamageAndNoAttack()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.Damaged(Bot, new Tick(40), Them, 20f, new AiVector(1, 0, 0), 0));
+        m.Apply(AiEvent.Damaged(Bot, new Tick(90), ActorId.None, 12f, default, 0));
+        Assert.Equal((new Tick(90), new Tick(40)), (m.Board.LastDamageTick, m.Board.LastAttackTick));
+    }
+
     // Live, dm_lockdown (2026-11-02): a bot's memory listed itself and its
     // scoreboard-only rivals with a decaying confidence.
     [Fact]
