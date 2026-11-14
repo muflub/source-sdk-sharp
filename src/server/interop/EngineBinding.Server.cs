@@ -1512,6 +1512,7 @@ internal sealed unsafe partial class EngineEntityRender
     public void SetViewModel(EntityHandle entity, bool enable) { }
     public void SetSkin(EntityHandle entity, int skin) { }
     public void SetModelOverride(EntityHandle entity, string model) { }
+    public void SetMaterialOverride(EntityHandle entity, string material) { }
     private partial bool EngineIsDormant(EntityHandle entity) => false;
 }
 

@@ -21,6 +21,9 @@ public class PlayerImpactDamageTests
     private static readonly EntityHandle Player = new(0x0001_0001u);
     private const uint Crate = 41;
 
+    /// <summary>A thrown bomb: the pipe's own entity, its model's light mass.</summary>
+    private const uint Bomb = 42;
+
     /// <summary>The ground word's "standing on nothing" (ground_handle_wire.h).</summary>
     private const int GroundNone = (1 << 21) - 1;
 
@@ -154,6 +157,54 @@ public class PlayerImpactDamageTests
         var ev = CrateIntoPlayer();
         ev.PreVelocity0X = 100f;
         ev.PostVelocity0X = 40f;
+
+        player.OnVPhysicsShadowCollision(in ev, 1);
+        impacts.Deliver();
+
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "Damage.TakeDamage");
+    }
+
+    // A thrown bomb's bump: the grenade models' masses sit under the player
+    // table's small-mass gate, so a bomb that flies into a player is capped at
+    // the table's SmallMassCap whatever the impulse -- stock's and the lane's
+    // measured 5, the thrown-bomb bump. A pipe at 1,400 in/s losing all but 50
+    // carries 1,350^2 x 3 = 5.5e6, over the player's 85 = 64,235, past the
+    // 250^2 step whose 10 the cap then folds to 5.
+    private static PhysicsEvent BombIntoPlayer() => new()
+    {
+        KindRaw = (uint)PhysicsEventKind.PostCollision,
+        Entity0 = Bomb, Entity1 = Player.Value,
+        Mass0 = 3f, Mass1 = 85f,
+        MoveType0 = (int)MoveType.VPhysics,
+        MoveType1 = 0,
+        Flags = PhysicsEvent.FlagMoveable0 | PhysicsEvent.FlagMoveable1 | PhysicsEvent.FlagShadow1
+              | PhysicsEvent.FlagCollision | PhysicsEvent.FlagShadowCollision,
+        PreVelocity0X = 1400f,
+        PostVelocity0X = 50f,
+    };
+
+    [Fact]
+    public void A_bombs_bump_is_capped_at_the_small_masses_five()
+    {
+        var (player, engine, impacts) = World();
+        var ev = BombIntoPlayer();
+
+        player.OnVPhysicsShadowCollision(in ev, 1);
+        impacts.Deliver();
+
+        var hit = Assert.Single(engine.Calls, c => c.Member == "Damage.TakeDamage");
+        Assert.Equal(Player, hit.Args[0]);
+        Assert.Equal(new EntityHandle(Bomb), hit.Args[1]);
+        Assert.Equal(5f, hit.Args[2]);
+    }
+
+    [Fact]
+    public void Whatever_is_under_the_mass_gate_hurts_nobody()
+    {
+        // A feathery object, 1.5: under MinMass 2, no bump at any speed.
+        var (player, engine, impacts) = World();
+        var ev = BombIntoPlayer();
+        ev.Mass0 = 1.5f;
 
         player.OnVPhysicsShadowCollision(in ev, 1);
         impacts.Deliver();

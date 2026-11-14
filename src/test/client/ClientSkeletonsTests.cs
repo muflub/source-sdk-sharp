@@ -159,7 +159,7 @@ public unsafe class ClientSkeletonsTests
         public int Count => Owner == EntityHandle.None ? 0 : 1;
 
         public bool Become(EntityHandle owner, Vector force, int forceBone,
-                           out SourceSharp.Client.Ragdolls.RagdollRefusal refusal)
+                           out SourceSharp.Client.Ragdolls.RagdollRefusal refusal, bool fixedConstraints = false)
         {
             refusal = SourceSharp.Client.Ragdolls.RagdollRefusal.None;
             return false;

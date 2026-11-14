@@ -110,6 +110,30 @@ public sealed class ClientMovementCompositionTests
         if (standalonesIn)
             services.AddInstance<IClientStandalones>(new ClientStandaloneRegistry(services));
 
+        // The arsenal, when the module has registered it by now (it precedes
+        // the composition with the weapon services): the walk reaches it
+        // through the held-shovel arm's ITFAnimWeapons, whose registered
+        // TFClientAnimWeapons names it. As the module builds it, the same
+        // instance under its interface — not a second arsenal.
+        bool arsenalIn = Registration.Matches(source, open)
+            .Any(m => m.Index < create && m.Groups[1].Value == "ILocalArsenal");
+        if (arsenalIn)
+        {
+            // The clock forwards to the engine's own (module :1141, above the
+            // composition); the fake answers it beside the areas. The arsenal
+            // names it as its leaf.
+            services.AddInstance<IGameClock>(engine);
+            services.AddInstance<ILocalArsenal>(services.Create<ClientArsenal>());
+
+            // The weapon catalogue, as the module publishes it above the
+            // composition (module :1436): the held-shovel arm's
+            // TFClientAnimWeapons names it beside the arsenal. Its sources are
+            // asked lazily, so the walk only needs the instance itself.
+            int catalog = source.IndexOf("new WeaponCatalog(", open, StringComparison.Ordinal);
+            if (catalog >= 0 && catalog < create)
+                services.AddInstance(new WeaponCatalog(() => services.ResolveAll<IWeaponTypeSource>(), new RecordingLog()));
+        }
+
         // The convar publish, when the module has published by now (it precedes
         // the composition, in ComposeEngineAreas): the graph below names the mod's
         // convars by concrete type, so those are the instances the publish

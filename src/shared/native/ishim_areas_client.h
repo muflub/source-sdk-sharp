@@ -229,6 +229,9 @@ public:
 	// The entity's shadow is its collision hull widened, stock's placing arm of
 	// C_ObjectSentrygun::GetShadowRenderBounds (c_obj_sentrygun.cpp:588).
 	virtual void StandaloneSetShadowHull(uint32_t hEntity, int32_t bShadowHull) = 0;
+	// A named material drawn over the entity's model (stock's m_MaterialOverride,
+	// C_TFRagdoll::InternalDrawModel, c_tf_player.cpp:1280); empty clears.
+	virtual void EntitySetMaterialOverride(uint32_t hEntity, const char* pMaterialName) = 0;
 };
 
 abstract_class IShimViewClient

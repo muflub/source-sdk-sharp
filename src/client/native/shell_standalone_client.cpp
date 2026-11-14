@@ -132,6 +132,8 @@ C_StandaloneEntity::~C_StandaloneEntity()
 	// The eye pin must not chase a freed entity.
 	m_Clients.SetViewModelPass(this, false);
 
+	ReleaseMaterialOverride();
+
 	if (m_Clients.LocalPlayer() == this)
 		m_Clients.SetLocalPlayer(NULL);
 
@@ -417,6 +419,37 @@ void C_StandaloneEntity::SetModelOverride(int nModelIndex)
 {
 	m_nModelOverride = nModelIndex;
 	ReassertModel();
+}
+
+void C_StandaloneEntity::SetMaterialOverride(const char* pMaterialName)
+{
+	ReleaseMaterialOverride();
+	m_pMaterialOverride = NULL;
+
+	if (!pMaterialName || !pMaterialName[0])
+		return;
+
+	// Stock's TEXTURE_GROUP_CLIENT_EFFECTS group, the one
+	// m_MaterialOverride.Init names (c_tf_player.cpp:981). Unfound is kept as
+	// NULL: a name the materials system has not seen yet draws unoverridden,
+	// and the next arrival asks again.
+	if (!m_Clients.Engines().m_pMaterials)
+		return;
+
+	m_pMaterialOverride = m_Clients.Engines().m_pMaterials->FindMaterial(pMaterialName, TEXTURE_GROUP_CLIENT_EFFECTS);
+
+	// The reference CMaterialReference::Init takes (materialsystem.cpp): a
+	// bound material whose count is still zero is refused at the draw with
+	// "bad reference count".
+	if (m_pMaterialOverride)
+		m_pMaterialOverride->IncrementReferenceCount();
+}
+
+void C_StandaloneEntity::ReleaseMaterialOverride()
+{
+	if (m_pMaterialOverride && m_Clients.Engines().m_pMaterials)
+		m_pMaterialOverride->DecrementReferenceCount();
+	m_pMaterialOverride = NULL;
 }
 
 void C_StandaloneEntity::ReassertModel()
@@ -1027,7 +1060,15 @@ int C_StandaloneEntity::DrawModel(int flags)
 	info.hitboxset = Block().Client.HitboxSet;
 	info.flags = flags;
 
+	// The entity's material override, for this draw only (stock's
+	// C_TFRagdoll::InternalDrawModel, c_tf_player.cpp:1280-1295).
+	if (m_pMaterialOverride)
+		m_Clients.Engines().m_pModelRender->ForcedMaterialOverride(m_pMaterialOverride, OVERRIDE_NORMAL);
+
 	const int nDrawn = m_Clients.Engines().m_pModelRender->DrawModelEx(info);
+
+	if (m_pMaterialOverride)
+		m_Clients.Engines().m_pModelRender->ForcedMaterialOverride(NULL, OVERRIDE_NORMAL);
 	DrawExtras(flags, true);
 	return nDrawn;
 }
@@ -1661,6 +1702,15 @@ void CStandaloneClients::EntitySetModelOverride(uint32_t hEntity, const char* pM
 
 	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
 		pEntity->SetModelOverride(pModel[0] ? m_Engines.m_pModelInfo->GetModelIndex(pModel) : -1);
+}
+
+void CStandaloneClients::EntitySetMaterialOverride(uint32_t hEntity, const char* pMaterialName)
+{
+	if (!pMaterialName)
+		return;
+
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
+		pEntity->SetMaterialOverride(pMaterialName);
 }
 
 void CStandaloneClients::StandaloneSetModelScale(uint32_t hEntity, float flScale)

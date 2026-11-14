@@ -221,6 +221,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         ArrivedAsh();
         ArrivedCritMist();
         ArrivedIce();
+        ArrivedGold();
         DressSkin();
 
         if (IsRagdoll)
@@ -239,7 +240,9 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         // A refusal is an ordinary answer and not an error: BecomeRagdoll says
         // no for a model with no jointed body in its .phy, which is most
         // models and would be a bug in what got spawned rather than here.
-        IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _);
+        // A gilded body is the exception stock builds too (m_bFixedConstraints,
+        // c_tf_player.cpp:733): every joint fixed, a statue and not a collapse.
+        IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _, fixedConstraints: State.Gold);
 
         if (IsRagdoll && !State.Velocity.Equals(Vector.Zero))
             _ragdolls.AddVelocity(Handle, State.Velocity);
@@ -374,11 +377,18 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// Spy-cicle backstab — the killing weapon's <c>freeze_backstab_victim</c>,
     /// read at <see cref="TFPlayerGib"/> — plays the turn-to-ice sound and raises
     /// stock's dry-ice frost over itself. Once, on the flag's arrival. The freeze
-    /// timers stock starts beside the sound (:740-741) and the ice texture
-    /// override (:972-976) wait with the solver's frozen-constraint lane.</summary>
+    /// timers stock starts beside the sound (:740-741) wait with the solver's
+    /// frozen-constraint lane; the ice texture is
+    /// <see cref="IceMaterial"/>.</summary>
     public const string IceSound = "Icicle.TurnToIce";
 
     public const string IceParticle = "xms_icicle_impact_dryice";
+
+    /// <summary>Stock's ice texture, "we've been turned into an ice statue!"
+    /// (c_tf_player.cpp:974-975). Held for the whole statue, thaw included —
+    /// stock's single override outlives the frozen hold, and the statue thaws
+    /// into a ragdoll of the same material (:1007-1025).</summary>
+    public const string IceMaterial = "models/player/shared/ice_player";
 
     /// <summary>The frost's slot, beside the mist's <see cref="CritMistSlot"/>.</summary>
     public const int IceSlot = 9;
@@ -396,9 +406,42 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 
         _sounds?.EmitFrom(Handle, IceSound);
 
+        Render.SetMaterialOverride(Handle, IceMaterial);
+
         if (!_effects.ParticleSystemStartSlot(Handle, IceParticle, IceSlot))
             Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
                         $"'{IceParticle}'\n");
+    }
+
+    /// <summary>Stock's gold arrival (c_tf_player.cpp:730-734): a body the Golden
+    /// Wrench left — the killing weapon's <c>set_turn_to_gold</c>, read at
+    /// <see cref="TFPlayerGib"/> — plays the turn-to-gold call and is built for
+    /// the rest of the death as a statue. Once, on the flag's arrival; the
+    /// statue itself is the collapse's shape, decided at
+    /// <see cref="OnDataChanged"/>'s become. The gold material override over the
+    /// body itself (:965-969) is <see cref="GoldMaterial"/>; stock's second arm,
+    /// the same override pushed onto the followed wearables (:983-994), has no
+    /// bodies to dress here — this tree's wearables die with their player
+    /// (TFWearables' death arm), so nothing follows the corpse.</summary>
+    public const string GoldSound = "Saxxy.TurnGold";
+
+    /// <summary>Stock's gold texture, "we've been turned into a golden corpse!"
+    /// (c_tf_player.cpp:967-968).</summary>
+    public const string GoldMaterial = "models/player/shared/gold_player";
+
+    /// <summary>Whether this body's gilding was announced; the once-guard, kept
+    /// across a save like <see cref="IceShown"/>.</summary>
+    [SaveField] public bool GoldShown { get; private set; }
+
+    private void ArrivedGold()
+    {
+        if (!State.Gold || GoldShown)
+            return;
+
+        GoldShown = true;
+
+        _sounds?.EmitFrom(Handle, GoldSound);
+        Render.SetMaterialOverride(Handle, GoldMaterial);
     }
 
     /// <summary>

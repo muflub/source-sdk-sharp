@@ -61,6 +61,8 @@ enum StandaloneOwnerSeenRule_t
 
 class CStudioHdr;
 
+class IMaterial;
+
 class CJiggleBones;
 
 class CIKContext;
@@ -417,6 +419,12 @@ public:
 	void SetModelOverride(int nModelIndex);
 	void ReassertModel();
 
+	// A per-entity named material, drawn over the model for as long as the
+	// draw lasts (stock's C_TFRagdoll::InternalDrawModel, c_tf_player.cpp:1280,
+	// wrapping m_MaterialOverride around the draw). Empty clears, and so does
+	// a name no material answers: the old one is released before the lookup.
+	void SetMaterialOverride(const char* pMaterialName);
+
 	// Refused at zero and below: it scales the bones' 3x3 block.
 	void SetModelScale(float flScale);
 
@@ -493,6 +501,12 @@ private:
 
 	int m_nOverlayModelIndex;
 	int m_nModelOverride;
+
+	// The named material the draw is overridden with, or none.
+	IMaterial* m_pMaterialOverride = nullptr;
+
+	// Gives the override's reference back, as ~CMaterialReference does.
+	void ReleaseMaterialOverride();
 
 	// The wire's word, latched by the model index's recv proxy so a cleared
 	// override restores it.

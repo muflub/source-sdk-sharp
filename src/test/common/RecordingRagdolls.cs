@@ -19,9 +19,9 @@ public sealed class RecordingRagdolls(client::SourceSharp.Abi.RecordingEngine en
 {
     public int Count => 0;
 
-    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal)
+    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false)
     {
-        bool became = engine.RecordAnswer<bool>("EntityRender.BecomeRagdoll", owner, force, forceBone);
+        bool became = engine.RecordAnswer<bool>("EntityRender.BecomeRagdoll", owner, force, forceBone, fixedConstraints);
         refusal = became ? RagdollRefusal.None : RagdollRefusal.NotJointed;
         return became;
     }
@@ -30,6 +30,18 @@ public sealed class RecordingRagdolls(client::SourceSharp.Abi.RecordingEngine en
     {
         position = default;
         return false;
+    }
+
+    /// <summary>Thaws asked, and of whom — the ice hold's evidence.</summary>
+    public int Thawed { get; private set; }
+
+    public EntityHandle ThawedWho { get; private set; } = EntityHandle.None;
+
+    public bool Thaw(EntityHandle owner)
+    {
+        Thawed++;
+        ThawedWho = owner;
+        return engine.RecordAnswer<bool>("EntityRender.Thaw", owner);
     }
 
     public bool IsRagdoll(EntityHandle owner)

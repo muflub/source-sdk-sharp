@@ -27,8 +27,11 @@
   <ItemGroup>
     <ProjectReference Include="..\mods\SourceSharp.Mods.csproj" />
     <!-- The SDK's implicit compiler (10.0.11 under SDK 10.0.400) carries
-         GHSA-p3jp-9v83-76w9, which NuGet audit fails the restore on. -->
-    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="10.0.14" />
+         GHSA-p3jp-9v83-76w9, which NuGet audit fails the restore on. The
+         SDK's own pack row moves to the patched build: an explicit
+         PackageReference beside PublishAot draws the SDK's
+         delete-the-reference warning. -->
+    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" ILCompilerPackVersion="10.0.14" />
     <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />

@@ -448,7 +448,10 @@ public partial class EngineApiCensusTests
     // The crit glow's render group (tf2 critfp): ParticleSystemViewModelSlot,
     // which list a held system draws in, the local player's glow the
     // viewmodel's translucent pass (263 + 1 = 264).
-    private const int ClientOnly = 264;
+    // The statue's material (gold, ice): EntitySetMaterialOverride, the named
+    // material a client ragdoll is drawn in, beside its model override
+    // (264 + 1 = 265).
+    private const int ClientOnly = 265;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

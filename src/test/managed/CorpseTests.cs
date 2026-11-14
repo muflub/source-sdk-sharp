@@ -118,15 +118,26 @@ public class CorpseTests
             => _byIndex.TryGetValue(entityIndex, out var e) ? e : null;
     }
 
+    /// <summary>The ice hold's receiving end: what bodies were frozen, when.</summary>
+    private sealed class Holds : client::SourceSharp.Client.Ragdolls.IIceRagdolls
+    {
+        public readonly List<(EntityHandle Body, float At)> Began = [];
+
+        public void Begin(EntityHandle body, float now) => Began.Add((body, now));
+
+        public void End(EntityHandle body) { }
+    }
+
     /// <summary>A client body with somewhere for its decoded state to live.</summary>
     private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null,
-                                          client::SourceSharp.Client.Sounds.IClientEntitySounds? sounds = null)
+                                          client::SourceSharp.Client.Sounds.IClientEntitySounds? sounds = null,
+                                          client::SourceSharp.Client.Ragdolls.IIceRagdolls? ice = null)
     {
         // At the origin, matching the state's default -- see the note below.
         // Set on the engine rather than in each test, because every viewer test
         // reaches the placement check before anything it is actually about.
         var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine),
-                                       sounds: sounds);
+                                       ice: ice, sounds: sounds);
 
         // The registry does both of these in a game (ClientStandaloneRegistry
         // binds the engine at create, and the decode gives the state its
@@ -1208,6 +1219,186 @@ public class CorpseTests
         Assert.False(body.IceShown);
         Assert.Empty(sounds.Sounds);
         Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
+    }
+
+    // ---- the gold the Golden Wrench leaves (set_turn_to_gold) ---------------
+
+    /// <summary>Stock's gold arrival (c_tf_player.cpp:730-734): a body the Golden
+    /// Wrench left plays the turn-to-gold call — once, however many updates
+    /// arrive, like the ice sound's.</summary>
+    [Fact]
+    public void AGildedBodyPlaysTheTurnToGoldCallOnce()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+        body.State.Gold = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(body.GoldShown);
+
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.GoldSound, Assert.Single(sounds.Sounds));
+    }
+
+    /// <summary>And the statue itself (m_bFixedConstraints' arm, :733): the gilded
+    /// body's collapse is ASKED FOR RIGID — every joint a fixed constraint, the
+    /// death anim stock skips (:813) having no hinge to play through.</summary>
+    [Fact]
+    public void AGildedBodyIsAskedForRigid()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Gold = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(engine.Last("EntityRender.BecomeRagdoll")!.Value.ArgAs<bool>(3),
+            "the gilded body's collapse carries the fixed-constraint tell");
+    }
+
+    /// <summary>The plain body beside it: no call, and a loose collapse with
+    /// hinges — stock's statue facts are the gold mark's alone.</summary>
+    [Fact]
+    public void APlainBodyIsNeitherGoldenNorRigid()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.False(body.GoldShown);
+        Assert.Empty(sounds.Sounds);
+        Assert.False(engine.Last("EntityRender.BecomeRagdoll")!.Value.ArgAs<bool>(3),
+            "a plain collapse keeps its hinges");
+    }
+
+    /// <summary>Stock's gold texture (c_tf_player.cpp:965-969): the gilded body
+    /// asks the render for the named material over its model, the statue's
+    /// golden skin, at the same arrival that plays the call.</summary>
+    [Fact]
+    public void AGildedBodyIsDrawnInTheGoldMaterial()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Gold = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var gilding = engine.Last("EntityRender.SetMaterialOverride")!.Value;
+
+        Assert.True(gilding.ArgAs<string>(1) == ClientSsRagdoll.GoldMaterial,
+            $"the gilded body draws in '{ClientSsRagdoll.GoldMaterial}', not "
+          + $"'{gilding.ArgAs<string>(1)}'");
+        Assert.Equal(body.Handle, gilding.ArgAs<EntityHandle>(0));
+    }
+
+    /// <summary>And the plain body beside it is drawn in nothing: no override
+    /// crosses to the render at all.</summary>
+    [Fact]
+    public void APlainBodyAsksForNoMaterial()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Null(engine.Last("EntityRender.SetMaterialOverride"));
+    }
+
+    /// <summary>Stock's ice texture (c_tf_player.cpp:972-976): the frozen body
+    /// draws in the ice material from the same arrival that plays its sound —
+    /// and keeps it for the whole statue, the thaw included, stock's single
+    /// override never being lifted while the body lives.</summary>
+    [Fact]
+    public void AFrozenBodyIsDrawnInTheIceMaterial()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("EntityRender.ParticleSystemStartSlot", true);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var icing = engine.Last("EntityRender.SetMaterialOverride")!.Value;
+
+        Assert.True(icing.ArgAs<string>(1) == ClientSsRagdoll.IceMaterial,
+            $"the frozen body draws in '{ClientSsRagdoll.IceMaterial}', not "
+          + $"'{icing.ArgAs<string>(1)}'");
+        Assert.True(engine.Calls.Count(c => c.Member == "EntityRender.SetMaterialOverride") == 1,
+            "once, however many updates arrive: the override is the arrival's, not per frame");
+    }
+
+    /// <summary>The frozen body's collapse is asked for rigid too, so the statue
+    /// stands while it holds. Stock sets m_bFixedConstraints in the gold arm only
+    /// (c_tf_player.cpp:730-734) and holds the ice statue as a frozen death
+    /// animation (:1007-1030); a rigid ragdoll is this port's stand-in for that
+    /// held pose.</summary>
+    [Fact]
+    public void AFrozenBodyIsAskedForRigid()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("EntityRender.ParticleSystemStartSlot", true);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(engine.Last("EntityRender.BecomeRagdoll")!.Value.ArgAs<bool>(3),
+            "the frozen body's collapse carries the fixed-constraint tell");
+    }
+
+    /// <summary>And the arrival starts the hold (stock's m_frozenTimer.Start,
+    /// :741): the freeze names the body once, at the game's clock, however many
+    /// updates arrive — the thaw's other half is the frame walk's.</summary>
+    [Fact]
+    public void AFrozenBodysArrivalStartsTheHoldOnce()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("EntityRender.ParticleSystemStartSlot", true);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var holds = new Holds();
+        var body = Viewer(engine, ice: holds);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        (EntityHandle frozen, float at) = Assert.Single(holds.Began);
+        Assert.Equal(body.Handle, frozen);
+        Assert.Equal(100f, at);
     }
 }
 

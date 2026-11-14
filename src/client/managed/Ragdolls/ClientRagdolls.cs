@@ -117,8 +117,13 @@ public interface IClientRagdolls
     /// The entity becomes a jointed body: <c>C_StandaloneEntity::BecomeRagdoll</c>,
     /// and stock's <c>CreateRagdoll</c>. True when it is one (including when it
     /// already was).
+    ///
+    /// <para><paramref name="fixedConstraints"/> is stock's
+    /// <c>bFixedConstraints</c>: every joint a fixed constraint instead of a
+    /// hinge and every element at a thousand mass — the gilded statue, whose
+    /// death the client skips (c_tf_player.cpp:733, :813).</para>
     /// </summary>
-    bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal);
+    bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false);
 
     /// <summary>Where <paramref name="owner"/>'s body's first element is, as the physics has it; false with no body.</summary>
     bool TryRoot(EntityHandle owner, out Vector position);
@@ -226,7 +231,7 @@ public sealed class ClientRagdolls(
         return false;
     }
 
-    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal)
+    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false)
     {
         refusal = RagdollRefusal.None;
 
@@ -272,6 +277,7 @@ public sealed class ClientRagdolls(
             ForceBoneIndex = forceBone,
             CurrentBones = bones,
             JointFrictionScale = 1f,
+            FixedConstraints = fixedConstraints,
         };
 
         // CRagdoll::Init. No RagdollApplyAnimationAsVelocity: this hierarchy
@@ -741,7 +747,7 @@ public sealed class NoClientRagdolls : IClientRagdolls
         return false;
     }
 
-    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal)
+    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false)
     {
         refusal = RagdollRefusal.NoEnvironment;
         return false;

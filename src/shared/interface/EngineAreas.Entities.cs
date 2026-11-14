@@ -672,6 +672,14 @@ public interface IEngineEntityRender
     /// </summary>
     void SetModelOverride(EntityHandle entity, string model);
 
+    /// <summary>
+    /// A named material drawn over the entity's model for each draw, stock's
+    /// <c>m_MaterialOverride</c> around <c>C_TFRagdoll::InternalDrawModel</c>
+    /// (c_tf_player.cpp:1280-1295) — the golden and the ice statue's texture.
+    /// An empty name clears it, and so does a name no material answers.
+    /// </summary>
+    void SetMaterialOverride(EntityHandle entity, string material);
+
     /// <summary>m_nTextureFrameIndex left with CBaseEntity; env_texturetoggle asks.</summary>
     void SetTextureFrame(EntityHandle entity, int frame);
 

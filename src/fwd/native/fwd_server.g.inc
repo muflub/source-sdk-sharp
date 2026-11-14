@@ -2301,7 +2301,7 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 37 };
 
 //-----------------------------------------------------------------------------
-// ShimStandaloneClient: 26 forwarder(s) over IShimStandaloneClient.
+// ShimStandaloneClient: 27 forwarder(s) over IShimStandaloneClient.
 //-----------------------------------------------------------------------------
 // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
@@ -2355,6 +2355,8 @@ static void SSFwd_ShimStandaloneClient_ClientInterpAdmitted( IShimStandaloneClie
 static void SSFwd_ShimStandaloneClient_EntitySetModelOverride( IShimStandaloneClient *self, uint32_t a0, const char * a1 ) { self->EntitySetModelOverride( a0, a1 ); }
 // void IShimStandaloneClient::StandaloneSetShadowHull( uint32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_StandaloneSetShadowHull( IShimStandaloneClient *self, uint32_t a0, int32_t a1 ) { self->StandaloneSetShadowHull( a0, a1 ); }
+// void IShimStandaloneClient::EntitySetMaterialOverride( uint32_t, const char * )
+static void SSFwd_ShimStandaloneClient_EntitySetMaterialOverride( IShimStandaloneClient *self, uint32_t a0, const char * a1 ) { self->EntitySetMaterialOverride( a0, a1 ); }
 
 static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ActivateOccluder ),
@@ -2383,9 +2385,10 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientInterpAdmitted ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_EntitySetModelOverride ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_StandaloneSetShadowHull ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_EntitySetMaterialOverride ),
 };
 
-static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 26 };
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 27 };
 
 //-----------------------------------------------------------------------------
 // ShimViewClient: 31 forwarder(s) over IShimViewClient.

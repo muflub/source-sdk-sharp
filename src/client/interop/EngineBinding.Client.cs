@@ -1292,6 +1292,16 @@ internal sealed unsafe partial class EngineEntityRender
         fixed (byte* p = bytes) { _standaloneClientArea.EntitySetModelOverride(entity.Value, p); }
     }
 
+    /// <summary>
+    /// A named material over the entity's model for each draw — the golden and
+    /// the ice corpse's statues (<see cref="Client.Standalone.ClientSsRagdoll"/>).
+    /// </summary>
+    public void SetMaterialOverride(EntityHandle entity, string material)
+    {
+        var bytes = Encoding.UTF8.GetBytes(material + "\0");
+        fixed (byte* p = bytes) { _standaloneClientArea.EntitySetMaterialOverride(entity.Value, p); }
+    }
+
     private partial bool EngineIsDormant(EntityHandle entity) => E.StandaloneIsDormant(_standaloneClientArea, entity);
 
     // The server's members, as a client engine answers them: what each one's

@@ -907,6 +907,7 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.SetCycle(EntityHandle entity, float cycle) => RecordVoid("EntityRender.SetCycle", entity, cycle);
     void IEngineEntityRender.SetSkin(EntityHandle entity, int skin) => RecordVoid("EntityRender.SetSkin", entity, skin);
     void IEngineEntityRender.SetModelOverride(EntityHandle entity, string model) => RecordVoid("EntityRender.SetModelOverride", entity, model);
+    void IEngineEntityRender.SetMaterialOverride(EntityHandle entity, string material) => RecordVoid("EntityRender.SetMaterialOverride", entity, material);
     void IEngineEntityRender.SetTextureFrame(EntityHandle entity, int frame) => RecordVoid("EntityRender.SetTextureFrame", entity, frame);
     void IEngineEntityRender.SetTransmitAlways(EntityHandle entity, bool always) => RecordVoid("EntityRender.SetTransmitAlways", entity, always);
     bool IEngineEntityRender.DetectInSkybox(EntityHandle entity) => Record<bool>("EntityRender.DetectInSkybox", entity);

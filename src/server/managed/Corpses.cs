@@ -280,7 +280,7 @@ public sealed class Corpses : IGameLifecycle
 
         _live.Add(body);
 
-        _log.Msg($"[SourceSharp/Corpse] {player} left a body at {origin} " +
+        _log.Msg($"[SourceSharp/Corpse] {player} left a body (entity {body.EntryIndex}) at {origin} " +
                 $"({_live.Count} of {Limit})\n");
 
         return body;

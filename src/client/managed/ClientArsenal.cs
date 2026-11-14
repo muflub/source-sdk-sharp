@@ -397,6 +397,19 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         _weapon.OwnerIndex = _localIndex;
         _weapon.WeaponTypeId = typeIndex;
+
+        // The held word of the server's Deploy (Arsenal.ShowHeld), on the same
+        // command: stock predicts the active weapon on the client too
+        // (DEFINE_PRED_FIELD m_hActiveWeapon, c_basecombatcharacter.cpp:194)
+        // through the shared Weapon_Switch's write, so a replay that left the
+        // working copy's held word alone mispredicted every switch by exactly
+        // that byte. The catalog index plus one, the server's ShowHeld spelling
+        // — cmd.WeaponSelect already carries that number. Past the AlreadyHeld,
+        // unknown-type and dead refusals above, which are the server's Take
+        // refusing the ShowHeld too.
+        if (WorkingPlayer is { } working)
+            working.HeldWeapon = typeIndex + 1;
+
         _weapon.Clip = type.ClipSize > 0
             ? ClipOf(typeIndex, FreshClip(type))
             : -1;

@@ -57,12 +57,14 @@ public class EngineNameTableTests
     {
         var table = new EngineNameTable();
         byte[] utf8 = "models/player/male_01.mdl"u8.ToArray();
-        for (int i = 0; i < 8; i++)
-            table.Of(utf8);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 64; i++)
-            table.Of(utf8);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+
+        // SteadyAllocation's own doc: the tiered-JIT tier-up and the
+        // call-counting stubs allocate on the calling thread, so a single
+        // measured pass charged this fact for whatever landed inside it
+        // under a full leg's load. The warm-up takes the one-offs; the
+        // fewest of several measured calls still reads a steady
+        // per-call allocation as non-zero.
+        Assert.Equal(0, SteadyAllocation.LeastAllocated(() => table.Of(utf8), warm: 64, samples: 8));
     }
 
     [Fact]

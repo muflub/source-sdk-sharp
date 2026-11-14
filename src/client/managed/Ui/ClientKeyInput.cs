@@ -32,7 +32,7 @@ namespace SourceSharp.Client.Vgui;
 /// its CHudChat, and KeyInput still used the key.
 /// </summary>
 public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, IFwdEngineClient engine,
-                                   WeaponSelectionHud? selection = null)
+                                   WeaponSelectionHud? selection = null, IHooks<IHudMenuKeys>? hudMenus = null)
     : IClientKeyEvents
 {
     public const int EngineRuns = 1, Used = 0, NoDecision = UiClientBinding.KeyNoDecision;
@@ -64,6 +64,16 @@ public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, I
         if (binding == ClientKeyBinding.CancelSelect && selection is not null && selection.CancelKey())
             return Used;
 
+        // The hud menus' own keys, the ask stock's client mode makes of each
+        // element (ClientModeTFNormal::KeyInput's HudElementKeyInput walk,
+        // clientmode_tf.cpp:1543-1553): the first that takes the key uses it.
+        if (down && hudMenus is not null)
+        {
+            foreach (IHudMenuKeys menu in hudMenus.All)
+                if (menu.Key(binding))
+                    return Used;
+        }
+
         return NoDecision;
     }
 
@@ -81,4 +91,20 @@ public sealed class ClientKeyInput(IChatOpener chat, IObserverSource observer, I
     }
 
     private void Run(SpectatorKeyCommand command) => engine.SpectatorCommand(command);
+}
+
+/// <summary>
+/// One hud menu's own keys, the element half of stock's
+/// <c>ClientModeTFNormal::KeyInput</c> walk (clientmode_tf.cpp:1543-1553, each
+/// hud element's <c>HudElementKeyInput</c>): asked on every press the client
+/// mode has no other answer for; taking the key uses it, so the engine never
+/// runs the binding, and refusing lets it through. Only presses are asked —
+/// stock's walk begins with the down check — and the console-visible and
+/// spectator decisions stand ahead of it, stock's order.
+/// </summary>
+public interface IHudMenuKeys
+{
+    /// <summary>Whether this menu takes <paramref name="binding"/> now
+    /// (stock's <c>return 0</c> arms); false leaves the key to the engine.</summary>
+    bool Key(ClientKeyBinding binding);
 }
