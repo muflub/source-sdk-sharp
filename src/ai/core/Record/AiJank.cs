@@ -23,6 +23,27 @@ public readonly record struct JankShare(int NotFiring, int Ticks)
 /// </summary>
 public readonly record struct JankTraits(double WalkedUnits, double UnseenSeconds, int Kills, int KillsFromAmbush, double HitRangeSum, int HitsWithRange);
 
+/// <summary>
+/// How an actor plays on a team (plan_bots_teams_tf2 B.8), reported and not in the headline
+/// but for <see cref="HeldFireSeconds"/>: <see cref="Team"/> is its last game team (0 none);
+/// teammates it killed; the seconds it held fire for a teammate on its line; the ticks of its life
+/// within <see cref="AiJank.TeammateUnits"/> of a living teammate; the callouts it said; and
+/// the engagements it began (an enemy sighted with none in sight before), those with a teammate
+/// that near apart.
+/// </summary>
+public readonly record struct JankTeam(int Team, int TeamKills, double HeldFireSeconds, long NearTeammateTicks, long AliveTicks, int Callouts, int Engagements, int EngagementsWithTeammate)
+{
+    /// <summary>The share of its life near a teammate, or NaN with no life.</summary>
+    public double NearShare => AliveTicks > 0 ? NearTeammateTicks / (double)AliveTicks : double.NaN;
+
+    /// <summary>The share of its engagements begun with a teammate near, or NaN with none.</summary>
+    public double EngagedWithTeammateShare => Engagements > 0 ? EngagementsWithTeammate / (double)Engagements : double.NaN;
+
+    public static JankTeam operator +(JankTeam a, JankTeam b)
+        => new(a.Team == b.Team ? a.Team : 0, a.TeamKills + b.TeamKills, a.HeldFireSeconds + b.HeldFireSeconds, a.NearTeammateTicks + b.NearTeammateTicks,
+               a.AliveTicks + b.AliveTicks, a.Callouts + b.Callouts, a.Engagements + b.Engagements, a.EngagementsWithTeammate + b.EngagementsWithTeammate);
+}
+
 /// <summary>One actor's parts of the jank score (or a total's), by <see cref="AiJank"/>'s definitions.</summary>
 public sealed record JankActor(
     ActorId Actor,
@@ -40,7 +61,8 @@ public sealed record JankActor(
     double CommandMinutes,
     int GoalJumps = 0,
     double TurnBackSeconds = 0,
-    JankTraits Traits = default)
+    JankTraits Traits = default,
+    JankTeam Teamplay = default)
 {
     public double AliveMinutes => AliveSeconds / 60.0;
 
@@ -70,6 +92,15 @@ public sealed record JankActor(
 
     /// <summary>The mean range of its hits, or NaN with none.</summary>
     public double MeanHitRange => Traits.HitsWithRange > 0 ? Traits.HitRangeSum / Traits.HitsWithRange : double.NaN;
+
+    /// <summary>Seconds a minute it held fire for a teammate in the way (B.8's held-fire part).</summary>
+    public double HeldFirePerMinute => PerMinute(Teamplay.HeldFireSeconds);
+
+    /// <summary>Teammates it killed a minute alive.</summary>
+    public double TeamKillsPerMinute => PerMinute(Teamplay.TeamKills);
+
+    /// <summary>Callouts it said a minute alive.</summary>
+    public double CalloutsPerMinute => PerMinute(Teamplay.Callouts);
 }
 
 /// <summary>What happened under one leaf: its in-sight, not-firing ticks, and its seconds of stuck (those with an opponent in sight apart), wall bump and idle.</summary>
@@ -85,7 +116,8 @@ public sealed record JankReport(
     JankActor People,
     IReadOnlyList<JankLeaf> Leaves,
     IReadOnlyDictionary<string, IReadOnlyList<JankSpot>> Places,
-    string TreeSource);
+    string TreeSource,
+    bool? FriendlyFire = null);
 
 /// <summary>
 /// The headline: each part over the value that reads as plainly wrong, times its
@@ -116,6 +148,9 @@ public static class JankScore
         new("idle", "s/min", 12, 10, a => a.IdlePerMinute),
         new("yaw reversals over allowed", "/min", 120, 5, a => Math.Max(0, a.ReversalsPerMinute - ReversalsAllowed)),
         new("strafe short of allowed", "share", 1, 5, a => Strafe(a.StrafeIntervalMs)),
+        // B.8: fire held for a teammate on the line, weighed as strafing is. Measured by three tdm runs
+        // (make ai-jank MODE=tdm, 1ac53bb08): 0.01-0.06 s a minute for the bots.
+        new("held fire for a teammate", "s/min", 6, 5, a => a.HeldFirePerMinute),
     ];
 
     /// <summary>The score of an actor or a total.</summary>
@@ -229,11 +264,67 @@ public static class AiJank
         var leaves = new SortedDictionary<string, LeafTotals>(StringComparer.Ordinal);
         var actors = new List<JankActor>();
         foreach (ActorId actor in data.Frames.Keys.OrderBy(a => a.Slot).ThenBy(a => a.Serial))
-            actors.Add(new Sweep(actor, data, tree, weaponRange, places, leaves).Run());
+            actors.Add(new Sweep(actor, data, tree, weaponRange, places, leaves).Run() with { Teamplay = Teamplay(actor, data) });
 
         return new JankReport(actors, Total(actors, true), Total(actors, false),
                               [.. leaves.Select(kv => new JankLeaf(kv.Key, kv.Value.Close, kv.Value.Far, kv.Value.Stuck, kv.Value.StuckSeen, kv.Value.Wall, kv.Value.Idle, kv.Value.TurnBack))],
-                              places.Top(TopSpots), source);
+                              places.Top(TopSpots), source, data.FriendlyFire);
+    }
+
+    /// <summary>B.8's team measure's reach: a teammate this near is with the actor.</summary>
+    public const float TeammateUnits = 512f;
+
+    /// <summary>The longest gap between one bot's views that its held fire is counted across.</summary>
+    private const int HeldFireGapTicks = IntentCommand.LifetimeTicks;
+
+    /// <summary>An actor's <see cref="JankTeam"/>: by its last game team; an actor with none has none.</summary>
+    private static JankTeam Teamplay(ActorId actor, Data data)
+    {
+        int team = data.TeamOf.GetValueOrDefault(actor);
+        if (!TeamRule.IsGameTeam(team))
+            return default;
+        ActorId[] mates = [.. data.Frames.Keys.Where(a => a != actor && data.TeamOf.GetValueOrDefault(a) == team)];
+        bool Near(int tick, AiVector at)
+        {
+            foreach (ActorId m in mates)
+            {
+                if (data.Frames[m].TryGetValue(tick, out AiActorFrame f) && f.Origin.DistanceTo(at) <= TeammateUnits)
+                    return true;
+            }
+
+            return false;
+        }
+
+        SortedList<int, AiActorFrame> mine = data.Frames[actor];
+        long near = 0;
+        foreach ((int tick, AiActorFrame f) in mine)
+            near += Near(tick, f.Origin) ? 1 : 0;
+        int kills = data.Kills.Count(k => k.Killer == actor && k.Victim != actor && data.TeamOf.GetValueOrDefault(k.Victim) == team);
+        int engagements = 0, withMate = 0;
+        var inSight = new HashSet<ActorId>();
+        foreach (AiEvent e in data.Sights.Where(e => e.Bot == actor).OrderBy(e => e.Tick.Value))
+        {
+            int theirs = data.TeamOf.GetValueOrDefault(e.Other);
+            if (!TeamRule.IsGameTeam(theirs) || theirs == team)
+                continue;
+            if (e.Kind == AiEventKind.SightLost)
+            {
+                inSight.Remove(e.Other);
+                continue;
+            }
+
+            if (inSight.Count == 0)
+            {
+                engagements++;
+                int at = mine.Keys.LastOrDefault(t => t <= e.Tick.Value, -1);
+                withMate += at >= 0 && Near(at, mine[at].Origin) ? 1 : 0;
+            }
+
+            inSight.Add(e.Other);
+        }
+
+        return new JankTeam(team, kills, data.HeldFireTicks.GetValueOrDefault(actor) * (double)AiMetrics.TickSeconds, near, mine.Count,
+                            data.Callouts.GetValueOrDefault(actor), engagements, withMate);
     }
 
     /// <summary>The sum of the bots' or the people's parts, as one actor.</summary>
@@ -248,7 +339,8 @@ public static class AiJank
                              [.. of.SelectMany(a => a.StrafeIntervalMs)],
                              minutes > 0 ? of.Sum(a => a.ReversalsPerMinute * a.CommandMinutes) / minutes : 0, minutes, of.Sum(a => a.GoalJumps), of.Sum(a => a.TurnBackSeconds),
                              new JankTraits(of.Sum(a => a.Traits.WalkedUnits), of.Sum(a => a.Traits.UnseenSeconds), of.Sum(a => a.Traits.Kills),
-                                            of.Sum(a => a.Traits.KillsFromAmbush), of.Sum(a => a.Traits.HitRangeSum), of.Sum(a => a.Traits.HitsWithRange)));
+                                            of.Sum(a => a.Traits.KillsFromAmbush), of.Sum(a => a.Traits.HitRangeSum), of.Sum(a => a.Traits.HitsWithRange)),
+                             of.Aggregate(default(JankTeam), (sum, a) => sum + a.Teamplay));
     }
 
     /// <summary>One leaf's totals while the sweep runs.</summary>
@@ -272,12 +364,22 @@ public static class AiJank
         public readonly Dictionary<ActorId, List<(int Tick, int Weapon)>> Held = [];
         public readonly Dictionary<ActorId, List<(int Tick, int Node, AiVector? Goal)>> Decisions = [];
         public AiDecisionTree? Tree;
+        public readonly Dictionary<ActorId, int> TeamOf = [];
+        public readonly Dictionary<ActorId, IntentCommand> LastIntent = [];
+        public readonly Dictionary<ActorId, int> LastView = [];
+        public readonly Dictionary<ActorId, int> HeldFireTicks = [];
+        public readonly Dictionary<ActorId, int> Callouts = [];
+        public bool? FriendlyFire;
 
         public void Take(AiRecordType type, byte[] payload)
         {
             using var r = new BinaryReader(new MemoryStream(payload, writable: false));
             switch (type)
             {
+                case AiRecordType.Header:
+                    AiRecordingHeader header = AiRecordFormat.ReadHeader(r);
+                    (_slots, _sighted, _ring) = (header.Slots, header.SightedCapacity, null);
+                    break;
                 case AiRecordType.BotAdded:
                     Bots.Add(AiRecordFormat.ReadActor(r));
                     break;
@@ -297,6 +399,9 @@ public static class AiJank
                 case AiRecordType.Intent:
                     IntentCommand i = AiRecordFormat.ReadIntent(r);
                     Of(Decisions, i.Bot).Add((i.FromTick.Value, i.Reason.NodeId, i.Move.Kind is MoveKind.Follow or MoveKind.Retreat && i.Move.CornerCount > 0 ? i.Move.Corner0 : null));
+                    LastIntent[i.Bot] = i;
+                    if (i.Say.Kind == CalloutKind.Enemy)
+                        Callouts[i.Bot] = Callouts.GetValueOrDefault(i.Bot) + 1;
                     break;
                 case AiRecordType.Snapshot:
                     TakeSnapshot(r);
@@ -310,6 +415,8 @@ public static class AiJank
                         Shots.Add(e);
                     else if (e.Kind == AiEventKind.KillFeed)
                         Kills.Add((new ActorId(e.Code, e.Code2), e.Other, e.Tick.Value));   // each bot's HUD tells it: one kill
+                    else if (e.Kind == AiEventKind.FriendlyFireSet)
+                        FriendlyFire = e.Code != 0;
                     break;
                 case AiRecordType.World:
                     foreach (WeaponFacts w in AiRecordFormat.ReadWorld(r).Map.Weapons.All)
@@ -322,22 +429,88 @@ public static class AiJank
             }
         }
 
-        /// <summary>What each bot held, by when it changed: its HUD's weapon, from its view.</summary>
+        /// <summary>
+        /// What each bot held, by when it changed (its HUD's weapon, from its view); each actor's
+        /// game team (B.8, the views' team tail); and the bot's fire held for a teammate.
+        /// </summary>
         private void TakeSnapshot(BinaryReader r)
         {
-            int tick = r.ReadInt32();
-            int views = r.ReadUInt16();
-            for (int i = 0; i < views; i++)
+            _ring ??= new SnapshotRing(2, _slots, _sighted);
+            AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, _ring);
+            int tick = snap.Tick.Value;
+            for (int slot = 0; slot < snap.Slots; slot++)
             {
-                ActorId bot = AiRecordFormat.ReadActor(r);
-                SelfState self = AiRecordFormat.ReadSelf(r);
-                int sighted = r.ReadUInt16();
-                for (int j = 0; j < sighted; j++)
-                    AiRecordFormat.ReadFacts(r);
+                if (snap.ViewFor(slot) is not { } view)
+                    continue;
+                ActorId bot = view.Bot;
+                SelfState self = view.Self;
+                _facts.Clear();
+                foreach (ref readonly ActorFacts f in view.Sighted)
+                    _facts.Add(f);
                 List<(int Tick, int Weapon)> held = Of(Held, bot);
                 if (held.Count == 0 || held[^1].Weapon != self.ActiveWeapon)
                     held.Add((tick, self.ActiveWeapon));
+                if (TeamRule.IsGameTeam(self.Team) || TeamOf.ContainsKey(bot))
+                    TeamOf[bot] = self.Team;
+                foreach (ActorFacts f in _facts)
+                {
+                    if (TeamRule.IsGameTeam(f.Team) || TeamOf.ContainsKey(f.Id))
+                        TeamOf[f.Id] = f.Team;
+                }
+
+                int gap = LastView.TryGetValue(bot, out int before) ? Math.Clamp(tick - before, 0, HeldFireGapTicks) : 1;
+                LastView[bot] = tick;
+                if (LastIntent.TryGetValue(bot, out IntentCommand intent) && HeldForTeammate(self, intent))
+                    HeldFireTicks[bot] = HeldFireTicks.GetValueOrDefault(bot) + gap;
             }
+
+            _ring.Publish(snap);
+        }
+
+        private SnapshotRing? _ring;
+        private int _slots = 64, _sighted = 16;
+
+        private readonly List<ActorFacts> _facts = [];
+
+        /// <summary>
+        /// Fire held for a teammate (B.8, as the bots' own gate reads it): alive on a team, looking at
+        /// a sighted enemy and not firing, with a sighted teammate nearer than the aim point within
+        /// <see cref="AimCone"/> of the line to it or of the view.
+        /// </summary>
+        private bool HeldForTeammate(in SelfState self, in IntentCommand intent)
+        {
+            if (!self.Alive || !TeamRule.IsGameTeam(self.Team) || intent.Look.Kind != LookKind.Actor
+                || intent.Action.Kind is ActionKind.Fire or ActionKind.AltFire)
+                return false;
+            bool enemy = false;
+            foreach (ActorFacts f in _facts)
+                enemy |= f.Id == intent.Look.Actor && TeamRule.IsGameTeam(f.Team) && !TeamRule.Friends(self.Team, f.Team);
+            if (!enemy)
+                return false;
+            AiVector eye = self.Origin + new AiVector(0f, 0f, EyeHeight);
+            AiVector viewDir = VisionMath.Forward(self.Eye);
+            float reach = (intent.Look.Point - eye).Length;
+            AiVector aimDir = reach > 0f ? (intent.Look.Point - eye) * (1f / reach) : viewDir;
+            foreach (ActorFacts f in _facts)
+            {
+                if (f.Id == intent.Look.Actor || !TeamRule.Friends(self.Team, f.Team))
+                    continue;
+                float d = (f.Origin - eye).Length;
+                if (d < reach && (AimCone.Holds(AngleToBody(aimDir, eye, f.Origin), d) || AimCone.Holds(AngleToBody(viewDir, eye, f.Origin), d)))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private const float EyeHeight = 64f;
+
+        private static double AngleToBody(AiVector dir, AiVector eye, AiVector origin)
+        {
+            AiVector axis = new(0f, 0f, EyeHeight);
+            float u = Math.Clamp((eye - origin).Dot(axis) / axis.LengthSquared, 0f, 1f);
+            AiVector to = (origin + axis * u - eye).Normalised();
+            return Math.Acos(Math.Clamp(dir.Dot(to), -1f, 1f)) * (180.0 / Math.PI);
         }
 
         private static List<T> Of<T>(Dictionary<ActorId, List<T>> by, ActorId actor)
@@ -782,6 +955,19 @@ public static class AiJank
         {
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"  {a.Actor.Slot}#{a.Actor.Serial,-18} {(a.Bot ? "bot" : "human"),-5} {a.WalkedPerMinute,8:F0} | {a.UnseenShare * 100,4:F0}% | {a.Traits.Kills,3}, {Pct(a.FromAmbushShare),4} | {F0(a.MeanHitRange),5}"));
+        }
+
+        if (report.Actors.Any(a => TeamRule.IsGameTeam(a.Teamplay.Team)))
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"team play (B.8, reported; friendly fire {(report.FriendlyFire is { } ff ? ff ? "on" : "off" : "unknown")}): team | team kills/min | held fire s/min | near a teammate | callouts/min | engagements, with a teammate near"));
+            foreach (JankActor a in report.Actors.Where(a => TeamRule.IsGameTeam(a.Teamplay.Team)).Append(report.Bots))
+            {
+                JankTeam t = a.Teamplay;
+                string name = a.Actor.IsValid ? $"{a.Actor.Slot}#{a.Actor.Serial}" : "bots";
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  {name,-20} {(a.Bot ? "bot" : "human"),-5} {(a.Actor.IsValid ? t.Team.ToString(CultureInfo.InvariantCulture) : "-"),4} | {a.TeamKillsPerMinute,14:F2} | {a.HeldFirePerMinute,15:F2} | {Pct(t.NearShare),15} | {a.CalloutsPerMinute,12:F2} | {t.Engagements}, {Pct(t.EngagedWithTeammateShare)}"));
+            }
         }
 
         sb.AppendLine("worst places:");

@@ -355,6 +355,7 @@ public sealed partial class Hl2mpDecider : IDecider
         _crouchRng = new AiRandom(setup.Seed ^ 0x4455_434BUL);
         _streakRng = new AiRandom(setup.Seed ^ 0x484F_5421UL);
         _calloutRng = new AiRandom(setup.Seed ^ 0x4341_4C4CUL);
+        _crossRng = new AiRandom(setup.Seed ^ 0x4352_5353UL);
         _campSeed = setup.Seed ^ 0x4341_4D50UL;
         Array.Fill(_watched, new AiVector(float.MaxValue, float.MaxValue, float.MaxValue));
         _coverSeen = new int[_graph?.CellCount ?? 0];

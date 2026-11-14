@@ -110,9 +110,9 @@ public sealed class TFTeamScoring(ITFTeamScores scores) : IScoring
 {
     public void OnDeath(PlayerDeathArgs death) { }
 
-    public int TeamScore(int team) => team is >= (int)TFTeam.Red and <= (int)TFTeam.Blue
+    public int? TeamScore(int team) => team is >= (int)TFTeam.Red and <= (int)TFTeam.Blue
         ? scores.Score((TFTeam)team)
-        : -1;
+        : null;
 
     public void ResetRound() => scores.ResetScores();
 }

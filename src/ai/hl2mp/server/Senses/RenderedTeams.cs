@@ -16,7 +16,7 @@ public interface IRenderedTeams
     /// <summary>The team a client renders <paramref name="player"/> on; 0 under a mode with no teams.</summary>
     int TeamOf(EntityHandle player);
 
-    /// <summary>The score the HUD shows for <paramref name="team"/>; 0 under a mode with no teams.</summary>
+    /// <summary>The score the HUD shows for <paramref name="team"/>, negative included; 0 under a mode with no teams, or for no such team.</summary>
     int Score(int team);
 
     /// <summary>Whether a teammate's fire hurts (<c>mp_friendlyfire</c>, replicated to every client).</summary>
@@ -48,6 +48,6 @@ public sealed class EngineRenderedTeams(GameModes modes, IEnginePlayers players,
     {
         if (!Teamplay || modes.Active?.Scoring is not { } scoring)
             return 0;
-        return Math.Max(0, scoring.TeamScore(team));
+        return scoring.TeamScore(team) ?? 0;
     }
 }

@@ -935,8 +935,8 @@ public sealed class RosterTests
     public void AiBotAddTakesATeam()
     {
         Rig r = Teamed();
-        new AiBotAddCommand(r.Roster, r.Log).Execute("Alyx", "hard", "team=3");
-        new AiBotAddCommand(r.Roster, r.Log).Execute("team=2");
+        new AiBotAddCommand(r.Roster, r.Log, new RecordingNotices()).Execute("Alyx", "hard", "team=3");
+        new AiBotAddCommand(r.Roster, r.Log, new RecordingNotices()).Execute("team=2");
         Assert.Equal([3, 2], r.Roster.Bots.Select(b => b.Team));
     }
 

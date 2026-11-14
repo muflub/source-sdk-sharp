@@ -279,6 +279,13 @@ public sealed class Hl2mpBots : IFrameLifecycle
         return null;
     }
 
+    /// <summary>The player of the bot called <paramref name="name"/> (any case), or <see cref="EntityHandle.None"/> with no such bot.</summary>
+    public EntityHandle PlayerNamed(string name)
+    {
+        int at = _bots.FindIndex(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase));
+        return at < 0 ? EntityHandle.None : _applier.PlayerOf(_bots[at].Id);
+    }
+
     /// <summary>
     /// A scripted action for the bot called <paramref name="name"/> (the
     /// scenario harness's, §6.6): fire for <paramref name="seconds"/>, stand

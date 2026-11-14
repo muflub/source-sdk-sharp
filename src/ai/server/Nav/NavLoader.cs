@@ -7,8 +7,11 @@ namespace SourceSharp.Ai.Hl2mp.Nav;
 public sealed record LoadedNav(string Map, Nav3dReader Reader, DerivedNav Nav, MapEntities Entities, string BspSha256, string NavSha256,
                                bool FromCache, double DeriveMs);
 
-/// <summary>What loading answered: the navigation, or a refusal naming the map and the file (never both).</summary>
-public sealed record NavLoadResult(LoadedNav? Nav, string? Refusal)
+/// <summary>
+/// What loading answered: the navigation, or a refusal naming the map and the file (never both);
+/// <see cref="Missing"/> is the file a refusal found absent, null for any other refusal.
+/// </summary>
+public sealed record NavLoadResult(LoadedNav? Nav, string? Refusal, string? Missing = null)
 {
     public static NavLoadResult Refuse(string why) => new(null, why);
 }
@@ -33,7 +36,7 @@ public static class NavLoader
         ArgumentNullException.ThrowIfNull(read);
         byte[]? nav = read(NavPath(map));
         if (nav is null)
-            return NavLoadResult.Refuse($"no navigation for {map}: expected {NavPath(map)}");
+            return new NavLoadResult(null, $"no navigation for {map}: expected {NavPath(map)}", NavPath(map));
         byte[]? bsp = read(BspPath(map));
         if (bsp is null)
             return NavLoadResult.Refuse($"no {BspPath(map)} to bind {NavPath(map)} to");

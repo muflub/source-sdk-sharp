@@ -205,9 +205,10 @@ public sealed class PlayerResource : ScriptedEntity
     /// <summary>
     /// The team column, from the active mode's <see cref="IScoring"/> (tf2
     /// stage 0.7 part C). Every team index the run has room for is asked —
-    /// <see cref="IScoring.TeamScore"/>'s negative means "no such team", the
+    /// <see cref="IScoring.TeamScore"/>'s null means "no such team", the
     /// zero the run already holds — so a team that scores for the first time
-    /// needs no registration step.
+    /// needs no registration step. A negative score is a real one (stock
+    /// <c>CTeam::m_iScore</c> is signed) and goes on the wire as it is.
     ///
     /// <para>
     /// No mode, or a mode that left scoring out, CLEARS the run rather than
@@ -239,13 +240,13 @@ public sealed class PlayerResource : ScriptedEntity
 
             try
             {
-                // A negative answer is "no such team" (IScoring.TeamScore's
-                // contract): the wire says zero, not "keep what was there" —
-                // a team the mode does not know had better not keep another
-                // round's points on the header.
-                int score = scoring.TeamScore(team);
-                State.TeamScore[team] = score < 0 ? (short)0
-                    : (short)(score > short.MaxValue ? short.MaxValue : score);
+                // Null is "no such team" (IScoring.TeamScore's contract): the
+                // wire says zero, not "keep what was there" — a team the mode
+                // does not know had better not keep another round's points on
+                // the header. A number, negative or not, is clamped to the
+                // run's width rather than wrapped.
+                int score = scoring.TeamScore(team) ?? 0;
+                State.TeamScore[team] = (short)Math.Clamp(score, short.MinValue, short.MaxValue);
             }
             catch (Exception e)
             {

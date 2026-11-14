@@ -13,7 +13,7 @@ public sealed class SkillCurvesTests
     public void TheGamesFileHasEveryParameterTheBrainReads()
     {
         SkillCurves c = Curves.Game();
-        Assert.Equal(SkillCurves.Required.Order(), c.All.Select(x => x.Parameter).Order());
+        Assert.Equal(SkillCurves.Required.Concat(SkillCurves.Team).Order(), c.All.Select(x => x.Parameter).Order());
     }
 
     /// <summary>Each knob moves: monotonic in its skill's level and apart at 0 and 10, with the other nine skills held.</summary>
@@ -21,22 +21,35 @@ public sealed class SkillCurvesTests
     public void EveryParameterMovesWithItsSkillAndNoOther()
     {
         SkillCurves c = Curves.Game();
-        Assert.True(SkillPresets.TryGet("normal", out SkillProfile? normal));
+        Assert.True(SkillPresets.TryGet("normal", out SkillProfile? medium));
+        // Medium's levels with a Teamwork of its own, so the team curves have a row to move.
+        var normal = new SkillProfile("normal", StandardSkills.Eleven, [.. medium!.Levels, 4]);
         foreach (SkillCurves.Curve curve in c.All)
         {
-            int i = normal!.IndexOf(curve.Skill);
+            int i = normal.IndexOf(curve.Skill);
             float[] values = [.. Enumerable.Range(0, 11).Select(l => Param(c.For(normal.With(i, l)), curve.Parameter))];
             for (int l = 1; l < values.Length; l++)
                 Assert.True(curve.Rises ? values[l] >= values[l - 1] : values[l] <= values[l - 1], $"{curve.Parameter} at {curve.Skill} {l}");
             Assert.NotEqual(values[0], values[10]);
             // A style reads the skill's height above the bot's other levels (StyleTests), so only a level's reading is free of them.
-            foreach (int other in Enumerable.Range(0, 10).Where(o => o != i && !curve.Style))
+            foreach (int other in Enumerable.Range(0, normal.Levels.Length).Where(o => o != i && !curve.Style))
                 Assert.Equal(Param(c.For(normal), curve.Parameter), Param(c.For(normal.With(other, normal.Levels[other] == 0 ? 10 : 0)), curve.Parameter));
         }
     }
 
     private static float Param(DecisionParams d, string name)
         => (float)typeof(DecisionParams).GetProperty(name, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)!.GetValue(d)!;
+
+    /// <summary>The team curves are the file's (B.7): a file whose leash at Teamwork 10 says 250 makes a bot of Teamwork 10 keep 250.</summary>
+    [Fact]
+    public void TheTeamCurvesAreReadFromTheFile()
+    {
+        var glued = new SkillProfile("glued", StandardSkills.Eleven, [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 10]);
+        string json = File.ReadAllText(Curves.Path);
+        var doc = System.Text.Json.Nodes.JsonNode.Parse(json)!;
+        doc["parameters"]!["leashUnits"]!["levels"]![10] = 250.0;
+        Assert.Equal((300f, 250f), (Curves.Game().For(glued).LeashUnits, SkillCurves.Parse(doc.ToJsonString()).For(glued).LeashUnits));
+    }
 
     [Fact]
     public void HeadhuntersRankBonusIsNothingAtZeroAndWholeAtTen()

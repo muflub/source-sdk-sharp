@@ -4,7 +4,8 @@
   tools/ai-scenario sight   [--config debug] [--keep]
   tools/ai-scenario hearing [--config debug] [--keep]
   tools/ai-scenario duel|routes|nav [--config debug] [--keep]
-  tools/ai-scenario jank [--minutes 5] [--streaks 0|1] [--preset hard] [--config debug] [--keep]   (`make ai-jank`)
+  tools/ai-scenario tdm     [--config debug] [--keep]
+  tools/ai-scenario jank [--minutes 5] [--streaks 0|1] [--preset hard] [--mode tdm] [--config debug] [--keep]   (`make ai-jank`)
   tools/ai-scenario live [--config debug] [--keep]
   tools/ai-scenario traits [--minutes 5] [--points 50|35|20] [--config debug] [--keep]
   tools/ai-scenario habit [--minutes 5] [--config debug] [--keep]
@@ -27,11 +28,22 @@ which the scenario facts replay (SsAiScenarioTests). The map is per-tree
 build output: `make map MAP=ss_ai_<name>` first; a missing map is a failure.
 The game is killed by its PID at the end (--keep leaves it up).
 
+`tdm` (plan_bots_teams_tf2 B.8) plays ss_ai_tdm under team deathmatch (mp_teamplay 1),
+two bots a side of Teamwork 10, the listen client spectating, brains deciding and
+nobody acting: a teammate stands and walks across a bot's line of fire to a sighted
+enemy (the friend gate), a spotter sees an enemy its teammate cannot (callouts), and
+a teammate is killed in sight by an enemy in sight, ten times (Trade). SsAiTdmScenarioTests
+replays it with the game's trees (inline, and at 1, 2 and 4 threads) and reads what each
+brain decided.
+
 `jank` is the standard run of the jank score (plan_hl2mp_ai §3.4.5), not a map
 scenario: dm_lockdown (`make ai-nav`), four bots of mixed presets and a scripted
 client, recorded for the minutes asked, scored with `tools/ai-replay jank`. It
 writes bin/<config>/ai-jank/<utc>-<sha>.airec and its report beside it, never
-into the tree's recordings.
+into the tree's recordings. `--mode tdm` (`make ai-jank MODE=tdm`, plan_bots_teams_tf2
+B.8) plays it as team deathmatch with friendly fire on: the same four bots 2v2
+(Alyx and Gordon Combine, Barney and Kleiner Rebels), the scripted client on the team
+the mode gives it; the report's team block is the measure.
 
 `live` makes the committed live session again, after a change to what the brains
 decide: dm_lockdown, the four bots of LiveRecordingTests, 2,400 ticks on the pool
@@ -74,9 +86,10 @@ def sha256(path):
 
 
 class Game:
-    def __init__(self, map_name, config):
+    def __init__(self, map_name, config, extra=""):
         self.map = map_name
         self.config = config
+        self.extra = extra
         self.api_dir = os.environ.get("AI_SCENARIO_API_DIR", "/tmp/ss-ais-%s" % USER)
         self.tmp = os.environ.get("AI_SCENARIO_TMPDIR", "/tmp/ss-ais-tmp-%s" % USER)
         self.port = os.environ.get("AI_SCENARIO_PORT", "27265")
@@ -89,7 +102,7 @@ class Game:
     def start(self):
         before = set(os.listdir(self.api_dir))
         env = dict(os.environ, DEBUG_API_DIR=self.api_dir, DEBUG_API_UI_PORT=str(int(self.port) + 1), TMPDIR=self.tmp)
-        args = "$(RUN_ARGS) -assertlog -port %s +maxplayers 8 +sv_cheats 1" % self.port
+        args = "$(RUN_ARGS) -assertlog -port %s +maxplayers 8 +sv_cheats 1%s" % (self.port, " " + self.extra if self.extra else "")
         self.log = open(os.path.join(self.tmp, "ai-scenario-%s.log" % self.map), "w")
         self.make = subprocess.Popen(["make", "-C", ROOT, "headless", "CONFIG=" + self.config, "MAP=" + self.map, "HEADLESS_ARGS=" + args],
                                      env=env, stdout=self.log, stderr=subprocess.STDOUT)
@@ -361,6 +374,75 @@ def nav(game):
     return out, {"walker": w, "ladder": ladder, "jumps": jumps, "stuck": stuck}
 
 
+# Teamwork 10 at a Hard bot's other levels: a teammate who calls out, trades and holds fire.
+TDM_SKILLS = "skills=6,6,5,5,5,5,6,4,5,3,10"
+# ss_ai_tdm's rooms are 512 on a side: the mid room is (512..1024, 512..1024), the bases west
+# and east of it with doors north and south only, the north route's room above the mid one.
+TDM_LINE_Y = 768.0
+
+
+def settle_alive(game, slots, seconds=20):
+    """Waits until each of the slots is alive (/ai/world), then parks each in the Rebel base."""
+    deadline = time.time() + seconds
+    while True:
+        alive = {a["slot"] for a in game.json("/ai/world").get("actors", []) if a.get("alive")}
+        if all(s in alive for s in slots):
+            break
+        if time.time() > deadline:
+            raise SystemExit("ai-scenario: players %s never all came back to life (alive: %s)" % (slots, sorted(alive)))
+        time.sleep(0.5)
+    for slot in slots:
+        game.teleport(slot, 1440, 600 + 60 * (slot % 5), 16, yaw=180)
+
+
+def tdm(game):
+    """Two a side under team deathmatch (B.8): the friend gate, callouts and Trade, brains deciding and nobody acting."""
+    game.cmd("spectate")
+    game.cmd("ai_think 0")
+    game.cmd("ai_sense_log 1")
+    game.cmd("ai_think_log 1")
+    for name, team in (("Shooter", 2), ("Mate", 2), ("Foe", 3), ("Foe2", 3)):
+        game.cmd("ai_bot_add %s %s team=%d" % (name, TDM_SKILLS, team))
+    time.sleep(3)
+    slots = bots_by_name(game)
+    if len(slots) != 4:
+        raise SystemExit("ai-scenario: %d of the 4 bots came in: %s" % (len(slots), sorted(slots)))
+    sh, m, f, f2 = slots["Shooter"], slots["Mate"], slots["Foe"], slots["Foe2"]
+    scenes, scene = scenes_of(game, {"s": sh, "m": m, "f": f, "f2": f2})
+    rebel_park = [("f2", 1440, 672, 16, 180)]
+    shooter_post = ("s", 560, TDM_LINE_Y, 16, 0)
+    foe_post = ("f", 980, TDM_LINE_Y, 16, 180)
+    # The control: the line is clear, and the bot fires.
+    scene("clear", rebel_park + [foe_post, ("m", 560, 600, 16, 0), shooter_post], 2.5)
+    # A teammate nearer on the line, close enough to it to be in the way, not so close as to hide the enemy.
+    for i, (x, dy) in enumerate(((770, 22), (770, -22), (700, 20), (840, -25))):
+        scene("in line %d" % (i + 1), [("m", x, TDM_LINE_Y + dy, 16, 90), shooter_post], 1.5)
+    # The teammate walks across the line and back.
+    scene("crossing", [("m", 770, 560, 16, 90), shooter_post, "ai_bot_drive Mate 90 2"], 2.2)
+    scene("crossing back", ["ai_bot_drive Mate 270 2"], 2.2)
+    # The spotter in the north room sees the enemy come and go; its teammate, in the Combine
+    # base (doors north and south only), sees nobody: what it knows it was told.
+    scene("callouts", [("s", 96, 736, 16, 0), ("m", 700, 1280, 16, 0), ("f", 1440, 800, 16, 180)], 1.0)
+    for i in range(4):
+        scene("spotted %d" % (i + 1), [("f", 940, 1280 + 40 * (i % 2), 16, 180)], 1.5)
+        scene("gone %d" % (i + 1), [("f", 1440, 800, 16, 180)], 2.5)
+    # Trade, ten times: a teammate is killed by the enemy in the watcher's sight (the two
+    # teammates take turns). Each kill is drawn against tradeWeight (0.9 at Teamwork 10), so a
+    # trial can be declined. The dead come back by mp_forcerespawn (a few seconds): each
+    # trial waits until all four can be placed.
+    trades = []
+    for i in range(10):
+        watcher, victim = ("s", "m") if i % 2 == 0 else ("m", "s")
+        settle_alive(game, [sh, m, f, f2])
+        scene("trade sight %d" % (i + 1), rebel_park + [foe_post, (victim, 760, 700, 16, 0), (watcher, 560, TDM_LINE_Y, 16, 0)], 1.0)
+        scene("trade %d" % (i + 1), [], 0.0)
+        game.api("hurt", "#%d" % slots["Mate" if victim == "m" else "Shooter"], "500", "", "", "#%d" % f)
+        time.sleep(1.5)
+        scenes[-1]["to"] = game.tick()
+        trades.append({"scene": "trade %d" % (i + 1), "watcher": sh if watcher == "s" else m, "victim": m if victim == "m" else sh})
+    return scenes, {"shooter": sh, "mate": m, "foe": f, "foe2": f2, "teams": {str(sh): 2, str(m): 2, str(f): 3, str(f2): 3}, "trades": trades}
+
+
 # The standard run's bots: one of each preset (plan_hl2mp_ai §3.4.5).
 JANK_BOTS = [("Alyx", "expert"), ("Barney", "hard"), ("Gordon", "normal"), ("Kleiner", "easy")]
 TICKS_PER_MINUTE = 60 / 0.015
@@ -394,21 +476,27 @@ class ScriptedClient:
             self.game.cmd("-" + key)
 
 
-def jank(config, keep, minutes, streaks=1, preset=None):
+# Team deathmatch's sides for the standard run's bots: each team a stronger and a weaker bot.
+JANK_TEAMS = {"Alyx": 2, "Gordon": 2, "Barney": 3, "Kleiner": 3}
+
+
+def jank(config, keep, minutes, streaks=1, preset=None, mode=None):
     """The standard run: its exit is the score tool's, and a run with too few bots or too little play is a failure."""
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
     out_dir = os.path.join(ROOT, "bin", config, "ai-jank")
     os.makedirs(out_dir, exist_ok=True)
-    rec = os.path.join(out_dir, "%s-%s.airec" % (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), sha))
+    rec = os.path.join(out_dir, "%s-%s%s.airec" % (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), sha, "-" + mode if mode else ""))
     # One preset four times: what that difficulty does to the scripted client, with four times the sample (§12.3).
     bots_asked = [(name, preset or p) for name, p in JANK_BOTS]
-    game = Game("dm_lockdown", config)
+    if mode not in (None, "tdm"):
+        raise SystemExit("ai-scenario: jank knows --mode tdm only, not %r" % mode)
+    game = Game("dm_lockdown", config, "+mp_teamplay 1 +mp_friendlyfire 1" if mode == "tdm" else "")
     try:
         game.start()
         game.cmd("ai_record start %s dm_lockdown" % rec)
         game.cmd("ai_bot_streaks %d" % streaks)
         for name, asked in bots_asked:
-            game.cmd("ai_bot_add %s %s" % (name, asked))
+            game.cmd("ai_bot_add %s %s%s" % (name, asked, " team=%d" % JANK_TEAMS[name] if mode == "tdm" else ""))
         time.sleep(2)
         bots = bots_by_name(game)
         if len(bots) != len(JANK_BOTS):
@@ -433,8 +521,9 @@ def jank(config, keep, minutes, streaks=1, preset=None):
     finally:
         game.stop(keep)
     p = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "jank", rec, "--config", config], capture_output=True, text=True)
-    header = "ai-scenario: jank at %s: %s, dm_lockdown, %g minutes, bots %s, %s\n" % (
-        sha, config, minutes, " ".join("%s=%s" % b for b in bots_asked), rec)
+    header = "ai-scenario: jank at %s: %s, dm_lockdown%s, %g minutes, bots %s, %s\n" % (
+        sha, config, " as tdm (friendly fire on, teams %s)" % " ".join("%s=%d" % kv for kv in JANK_TEAMS.items()) if mode == "tdm" else "",
+        minutes, " ".join("%s=%s" % b for b in bots_asked), rec)
     report = header + p.stdout + p.stderr
     with open(rec + ".txt", "w") as f:
         f.write(report)
@@ -775,7 +864,7 @@ def habit(config, keep, minutes):
 
 
 def main(argv):
-    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "jank", "live", "traits", "habit", "prefire", "camp", "spectator"):
+    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "tdm", "jank", "live", "traits", "habit", "prefire", "camp", "spectator"):
         print(__doc__)
         return 2
     which = argv[0]
@@ -784,7 +873,8 @@ def main(argv):
     if which == "jank":
         return jank(config, keep, float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0,
                     int(argv[argv.index("--streaks") + 1]) if "--streaks" in argv else 1,
-                    argv[argv.index("--preset") + 1] if "--preset" in argv else None)
+                    argv[argv.index("--preset") + 1] if "--preset" in argv else None,
+                    argv[argv.index("--mode") + 1] if "--mode" in argv and argv[argv.index("--mode") + 1] else None)
     if which == "live":
         return live(config, keep)
     minutes = float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0
@@ -808,7 +898,7 @@ def main(argv):
     os.makedirs(out_dir, exist_ok=True)
     rec = os.path.join(out_dir, map_name + ".airec")
     source = sha256(vmf)
-    game = Game(map_name, config)
+    game = Game(map_name, config, "+mp_teamplay 1" if which == "tdm" else "")
     try:
         game.start()
         game.cmd("ai_record start %s %s@%s" % (rec, map_name, source[:12]))
@@ -820,7 +910,7 @@ def main(argv):
             scenes, truth, who = hearing(game)
             summary.update(scenes=scenes, truth=truth, **who)
         else:
-            scenes, more = {"duel": duel, "routes": routes, "nav": nav}[which](game)
+            scenes, more = {"duel": duel, "routes": routes, "nav": nav, "tdm": tdm}[which](game)
             summary.update(scenes=scenes, **more)
         counters = game.json("/ai/counters")
         summary["counters"] = counters

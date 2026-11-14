@@ -177,8 +177,13 @@ public interface IScoring
     /// <summary>One death's extra writes, after the core's own have been made.</summary>
     void OnDeath(PlayerDeathArgs death);
 
-    /// <summary>A team's current score, for the scoreboard; negative for "no such team".</summary>
-    int TeamScore(int team);
+    /// <summary>
+    /// A team's current score, for the scoreboard; null for "no such team".
+    /// A real score may be negative (stock <c>CTeam::m_iScore</c> is a signed
+    /// int: a team kill or a suicide costs a point), so "no such team" is
+    /// not a number.
+    /// </summary>
+    int? TeamScore(int team);
 
     /// <summary>Per-round state: the mode's own score totals go back to zero.</summary>
     void ResetRound();

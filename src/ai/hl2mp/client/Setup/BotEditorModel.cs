@@ -32,11 +32,11 @@ public sealed class BotEditorModel(BotProfileStore store, CustomBots customs, Cl
 
     private SkillProfile Current => History.Current;
 
-    /// <summary>The Medium preset, unnamed: where a new bot starts.</summary>
+    /// <summary>The Medium preset, unnamed, with the Teamwork it plays at: where a new bot starts.</summary>
     private static SkillProfile Medium()
     {
         SkillPresets.TryGet("normal", out SkillProfile? medium);
-        return medium!.Named("");
+        return StandardSkills.WithTeamwork(medium!.Named(""));
     }
 
     /// <summary>Starts editing custom bot <paramref name="index"/>, or a new one from the Medium preset for -1.</summary>
@@ -45,7 +45,8 @@ public sealed class BotEditorModel(BotProfileStore store, CustomBots customs, Cl
         customs.Editing = index;
         CustomBot? bot = (uint)index < (uint)customs.Count ? customs[index] : null;
         _name = bot?.Profile.Name ?? "";
-        _history = new EditHistory(store.Pool, bot?.Profile ?? Medium(), bot?.Revisions ?? []);
+        // A bot made before teams is shown with the Teamwork it played at, and saved with it.
+        _history = new EditHistory(store.Pool, bot is null ? Medium() : StandardSkills.WithTeamwork(bot.Profile), WithTeamwork(bot?.Revisions ?? []));
         Unsaved = bot is null;
         Panel = BotEditorPanel.None;
         NameDraft = _name;
@@ -246,6 +247,9 @@ public sealed class BotEditorModel(BotProfileStore store, CustomBots customs, Cl
         customs.Editing = -1;
         Panel = BotEditorPanel.None;
     }
+
+    private static IEnumerable<ProfileRevision> WithTeamwork(IEnumerable<ProfileRevision> revisions)
+        => revisions.Select(r => r.Levels.Length == StandardSkills.Ten.Length ? r with { Levels = [.. r.Levels, StandardSkills.TeamworkToAdd(r.Levels)] } : r);
 
     private bool Write(string token)
     {

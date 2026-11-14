@@ -15,6 +15,12 @@
     <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The lift into SourceSharp.Ai.Server (plan_bots_teams_tf2 C.2) moves
+         this binding's generic half to src/ai/server one directory per commit;
+         until that project exists the moved files still build here. -->
+    <Compile Include="..\..\server\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- map-tools' .nav3d reader (§6.1), from MAPTOOLS_DIR/bin/nupkg (Directory.Build.props). -->
     <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
     <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />

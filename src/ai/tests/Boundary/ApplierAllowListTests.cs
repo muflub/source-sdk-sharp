@@ -22,7 +22,9 @@ public class ApplierAllowListTests
     private static readonly string[] Allowed =
     [
         // AiAdminMenu: the bots' place in the admin menu, data whose actions are the roster's own.
-        "AdminNode::.ctor", "AdminNode::Folder",
+        "AdminNode::.ctor", "AdminNode::Folder", "AdminNode::Refusable",
+        // AiBotAddCommand: the player who typed a refused add hears why (plan_bots_teams_tf2 D.4).
+        "IPlayerNotices::CommandIssuer", "IPlayerNotices::Refused",
         // Hl2mpBots and the commands: the core's bots, and the log.
         "BotPlayer::get_EntIndex", "BotPlayer::get_Name", "BotPlayer::get_Player",
         "EntityHandle::get_None", "EntityHandle::op_Equality", "EntityHandle::op_Inequality",

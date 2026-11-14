@@ -138,7 +138,7 @@ public static class MapKnowledgeBuilder
     /// <summary>
     /// Every weapon and item the lump places, in lump order, with the game's
     /// respawn rule for it (a weapon <paramref name="weaponRespawn"/>, an item
-    /// <paramref name="itemRespawn"/>, a charger none), and the deathmatch spawns.
+    /// <paramref name="itemRespawn"/>, a charger none), the deathmatch spawns and the teams' own.
     /// </summary>
     public static MapKnowledge Build(string map, MapEntities lump, WeaponCatalog weapons, WeaponKnowledge weaponFacts,
                                      float weaponRespawn, float itemRespawn)
@@ -153,6 +153,7 @@ public static class MapKnowledgeBuilder
             items.Add(new ItemSpawn(items.Count, e.ClassName, kind, e.Origin, respawn, kind == ItemKind.Weapon ? weapons.IndexOf(e.ClassName) : -1));
         }
 
-        return new MapKnowledge(map, items.ToImmutable(), [.. lump.Spawns.Select(s => s.Origin)], weaponFacts);
+        return new MapKnowledge(map, items.ToImmutable(), [.. lump.Spawns.Select(s => s.Origin)], weaponFacts,
+                                [.. lump.TeamSpawns.Select(t => new TeamSpawn(t.Team, t.Spawn.Origin))]);
     }
 }

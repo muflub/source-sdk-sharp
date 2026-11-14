@@ -75,9 +75,10 @@ public static class AiRecordFormat
     /// records: the weapons' second triggers and each view's pool for one and its frags. A
     /// record with no tail, an older one, has none of either; format 6 a second tail on the
     /// Snapshot record, each view's own team and its sighted actors' (plan_bots_teams_tf2 B.2),
-    /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something).
+    /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something);
+    /// format 7 a second tail on the World record, the map's team spawns (B.5).
     /// </summary>
-    public const ushort Version = 6;
+    public const ushort Version = 7;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -203,6 +204,14 @@ public static class AiRecordFormat
             w.Write(f.Alt.AmmoCost);
             w.Write(f.Alt.FromClip);
         }
+
+        // Format 7's tail: the teams' own spawns.
+        w.Write(world.Map.TeamSpawns.Length);
+        foreach (TeamSpawn t in world.Map.TeamSpawns)
+        {
+            w.Write((byte)t.Team);
+            Write(w, t.Position);
+        }
     }
 
     public static void Write(BinaryWriter w, AiDecisionTree tree)
@@ -251,7 +260,10 @@ public static class AiRecordFormat
             }
         }
 
-        return new AiRecordedWorld(new MapKnowledge(map, [.. items], [.. spawns], new WeaponKnowledge(weapons)), tick, curves, nav);
+        var teamSpawns = new TeamSpawn[More(r) ? Count(r) : 0];
+        for (int i = 0; i < teamSpawns.Length; i++)
+            teamSpawns[i] = new TeamSpawn(r.ReadByte(), ReadVector(r));
+        return new AiRecordedWorld(new MapKnowledge(map, [.. items], [.. spawns], new WeaponKnowledge(weapons), [.. teamSpawns]), tick, curves, nav);
     }
 
     /// <summary>Whether the record has a tail: a payload is read from a stream of its own.</summary>

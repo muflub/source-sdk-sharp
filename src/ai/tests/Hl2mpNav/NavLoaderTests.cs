@@ -32,6 +32,14 @@ public sealed class NavLoaderTests
                         Load(new() { ["maps/dm_test.bsp"] = Bsp }).Refusal);
 
     [Fact]
+    public void AMissingNavNamesTheFileItFoundAbsent()
+        => Assert.Equal("maps/dm_test.nav3d", Load(new() { ["maps/dm_test.bsp"] = Bsp }).Missing);
+
+    [Fact]
+    public void AnotherRefusalNamesNoMissingNav()
+        => Assert.Null(Load(new() { ["maps/dm_test.nav3d"] = NavFor(Bsp) }).Missing);
+
+    [Fact]
     public void AMissingBspIsRefused()
         => Assert.Equal("no maps/dm_test.bsp to bind maps/dm_test.nav3d to",
                         Load(new() { ["maps/dm_test.nav3d"] = NavFor(Bsp) }).Refusal);

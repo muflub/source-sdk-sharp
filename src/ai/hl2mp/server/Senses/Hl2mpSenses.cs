@@ -151,7 +151,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
         Session.Deciders = setup => new Trees.Hl2mpDecider(setup);
         if (curves is not null && Session.Curves is null)
             log.Warning($"[SourceSharp/Ai] {curves.Refusal}: the bots decide nothing\n");
-        log.Msg($"[SourceSharp/Ai] {mapName}: the bots know {map.Items.Length} item spawns, {map.Spawns.Length} spawns, "
+        log.Msg($"[SourceSharp/Ai] {mapName}: the bots know {map.Items.Length} item spawns, {map.Spawns.Length} spawns, {map.TeamSpawns.Length} team spawns, "
                 + $"{facts.All.Count(f => f.HasClip)} clip weapons ({string.Join(", ", facts.All.Where(f => f.HasClip).Select(f => $"{f.Name} {f.ClipSize}/{f.ReloadSeconds:F2}s"))})\n");
     }
 

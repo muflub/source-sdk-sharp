@@ -319,14 +319,17 @@ public sealed class TeamDeathmatchScoring(IEnginePlayers players, Func<int>? tea
     /// <summary>
     /// Each of team deathmatch's teams, 2 to 5 (one not in play reads 0); the
     /// two shared teams (Unassigned, Spectator) exist and never score;
-    /// anything else is no such team.
+    /// anything else is no such team (null).
     /// </summary>
-    public int TeamScore(int team) => team switch
+    public int? TeamScore(int team) => team switch
     {
         >= TeamDeathmatchMode.TeamCombine and <= TeamDeathmatchMode.LastPossibleTeam => _scores[team - TeamDeathmatchMode.TeamCombine],
         0 or 1 => 0,
-        _ => -1,
+        _ => null,
     };
+
+    /// <summary>A playing team's score: 2 to 5 always has one.</summary>
+    private int Score(int team) => _scores[team - TeamDeathmatchMode.TeamCombine];
 
     public void ResetRound() => Array.Clear(_scores);
 
@@ -336,11 +339,11 @@ public sealed class TeamDeathmatchScoring(IEnginePlayers players, Func<int>? tea
         int best = TeamDeathmatchMode.TeamCombine;
         for (int team = best + 1; team <= LastTeam; team++)
         {
-            if (TeamScore(team) > TeamScore(best))
+            if (Score(team) > Score(best))
                 best = team;
         }
 
-        return new GameRules.FragLeader($"team {HostSay.TeamName(best)}", TeamScore(best));
+        return new GameRules.FragLeader($"team {HostSay.TeamName(best)}", Score(best));
     }
 }
 

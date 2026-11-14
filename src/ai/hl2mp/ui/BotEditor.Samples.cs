@@ -12,7 +12,7 @@ public sealed class FakeBotEditor : IBotEditorSource, IBotEditorActions
 
     public int Cap => 10;
 
-    public int[] Levels { get; set; } = [8, 7, 6, 6, 6, 6, 1, 1, 2, 2];
+    public int[] Levels { get; set; } = [8, 7, 6, 6, 6, 6, 1, 1, 2, 2, 5];
 
     public int Spent => Levels.Sum();
 
@@ -34,14 +34,15 @@ public sealed class FakeBotEditor : IBotEditorSource, IBotEditorActions
         6 => "#Ai_Skill_Discipline",
         7 => "#Ai_Skill_Agility",
         8 => "#Ai_Skill_Nerve",
-        _ => "#Ai_Skill_Headhunter",
+        9 => "#Ai_Skill_Headhunter",
+        _ => "#Ai_Skill_Teamwork",
     };
 
     /// <summary>The parameters a row shows (keys as the model gives them, values from the committed curves at these levels).</summary>
     private static BotParameter[] Derived(int i) => i switch
     {
         0 => [new("AimErrorDeg", 2.6f), new("LeadQuality", 0.84f)],
-        1 => [new("FovDeg", 85), new("GlanceRate", 0.26f), new("ReactionMs", 200), new("RecognizeS", 0.25f), new("SightRange", 3000)],
+        1 => [new("CalloutDelayMs", 800), new("FovDeg", 85), new("GlanceRate", 0.26f), new("ReactionMs", 200), new("RecognizeS", 0.25f), new("SightRange", 3000)],
         2 => [new("ChaseSeconds", 5.2f), new("PreferredRangeScale", 0.92f)],
         3 => [new("CoverWeight", 0.6f), new("ReloadBelowPct", 0.36f)],
         4 => [new("HabitHalfLifeS", 300), new("MemoryHalfLifeS", 18), new("SearchSeconds", 16.2f)],
@@ -49,7 +50,8 @@ public sealed class FakeBotEditor : IBotEditorSource, IBotEditorActions
         6 => [new("FireRangeGate", 1.9f), new("PushMarginSeconds", 0.92f), new("PushTrust", 0.6f)],
         7 => [new("StrafeMeanSeconds", 1.12f), new("StrafeWeight", 0.1f)],
         8 => [new("RetreatHealthPct", 0.5f)],
-        _ => [new("EasyTargetDiscount", 0.86f), new("PathCapMultiplier", 1.4f), new("RankBonus", 0.2f)],
+        9 => [new("EasyTargetDiscount", 0.86f), new("PathCapMultiplier", 1.4f), new("RankBonus", 0.2f)],
+        _ => [new("CalloutChance", 0.65f), new("CrossfireWeight", 0.4f), new("FollowSeconds", 17.5f), new("LeashUnits", 900), new("TeamCoverWeight", 0.5f), new("TradeWeight", 0.55f)],
     };
 
     public string StyleFirstToken { get; set; } = "#Ai_Skill_Accuracy";
@@ -174,6 +176,13 @@ public sealed class AiParamLocalise : IUiLocalisation
         "#Ai_Param_EasyTargetDiscount" => "Easy target ×%s1",
         "#Ai_Param_PathCapMultiplier" => "Detour ×%s1",
         "#Ai_Param_RankBonus" => "Rank bonus %s1",
+        "#Ai_Param_CalloutDelayMs" => "Callout delay %s1 ms",
+        "#Ai_Param_LeashUnits" => "Leash %s1 u",
+        "#Ai_Param_CalloutChance" => "Callouts %s1",
+        "#Ai_Param_FollowSeconds" => "Follows %s1 s",
+        "#Ai_Param_TeamCoverWeight" => "Covers %s1",
+        "#Ai_Param_TradeWeight" => "Trades %s1",
+        "#Ai_Param_CrossfireWeight" => "Crossfire %s1",
         _ => null,
     };
 }
@@ -186,7 +195,7 @@ internal static class BotEditorSamples
 
     [UiSample("full spend")]
     private static UiScreen Full(UiSampleServices s)
-        => new FakeBotEditor { Levels = [10, 10, 10, 6, 6, 6, 10, 0, 0, 2], CanRedo = true, StyleSecondToken = "#Ai_Skill_Alertness" }
+        => new FakeBotEditor { Levels = [10, 10, 10, 6, 6, 6, 10, 0, 0, 2, 0], CanRedo = true, StyleSecondToken = "#Ai_Skill_Alertness" }
            .Register(s).Create<BotEditor>();
 
     [UiSample("revisions open")]

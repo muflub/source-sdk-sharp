@@ -1095,9 +1095,12 @@ ai-test:
 
 # The jank score's standard run (plan_hl2mp_ai §3.4.5): dm_lockdown, four bots of
 # mixed presets and a scripted client, recorded and scored. MINUTES as asked (5).
+# MODE=tdm plays it as team deathmatch, 2v2 with friendly fire on, and the report
+# carries the team block (plan_bots_teams_tf2 B.8).
 MINUTES ?= 5
+MODE ?=
 ai-jank:
-	@tools/ai-scenario jank --config $(CONFIG) --minutes $(MINUTES)
+	@tools/ai-scenario jank --config $(CONFIG) --minutes $(MINUTES) $(if $(MODE),--mode $(MODE))
 
 # The oracle leg alone.
 oracle-test:

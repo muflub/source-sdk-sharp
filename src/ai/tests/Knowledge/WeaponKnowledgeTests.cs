@@ -148,4 +148,25 @@ public sealed class WeaponKnowledgeTests
         Assert.Equal(9, map.Spawns.Length);
         Assert.All(map.Items.Where(i => i.Kind == ItemKind.Weapon), i => Assert.Equal(20f, i.RespawnSeconds));
     }
+
+    /// <summary>The teams' own spawns (plan_bots_teams_tf2 B.5): Combine's team 2's, the Rebels' team 3's; the deathmatch ones stay apart.</summary>
+    [Fact]
+    public void TheTeamsSpawnsAreKnownByTeam()
+    {
+        var lump = new MapEntities([new MapEntity("info_player_combine", null, new AiVector(1, 0, 0), null, null),
+                                    new MapEntity("info_player_rebel", null, new AiVector(2, 0, 0), null, null),
+                                    new MapEntity("info_player_deathmatch", null, new AiVector(3, 0, 0), null, null)], null);
+        MapKnowledge map = MapKnowledgeBuilder.Build("m", lump, Catalog, Facts, 20f, 30f);
+        Assert.Equal([new TeamSpawn(2, new AiVector(1, 0, 0)), new TeamSpawn(3, new AiVector(2, 0, 0))], map.TeamSpawns.ToArray());
+        Assert.Equal([new AiVector(3, 0, 0)], map.Spawns.ToArray());
+    }
+
+    /// <summary>ss_ai_tdm's four spawns a base are what its bots know.</summary>
+    [PerTreeNavFact("ss_ai_tdm")]
+    public void SsAiTdmsBotsKnowFourSpawnsABase()
+    {
+        MapEntities lump = MapEntities.Read(File.ReadAllBytes(PerTreeNav.BspPath("ss_ai_tdm")));
+        MapKnowledge map = MapKnowledgeBuilder.Build("ss_ai_tdm", lump, Catalog, Facts, 20f, 30f);
+        Assert.Equal((4, 4), (map.TeamSpawns.Count(t => t.Team == 2), map.TeamSpawns.Count(t => t.Team == 3)));
+    }
 }

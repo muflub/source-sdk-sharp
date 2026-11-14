@@ -86,6 +86,45 @@ public sealed class TeamRoleTests
         Assert.True(traded >= 4, $"Teamwork 10 trades most chances: {traded} of 6");
     }
 
+    /// <summary>
+    /// The game drops a body from sight the tick it dies, before the kill feed (ss_ai_tdm's trade
+    /// scene): a teammate lost from sight with its death is still a death seen, and is traded.
+    /// </summary>
+    [Fact]
+    public void ATeammateWhoLeavesSightAsItDiesIsTraded()
+    {
+        int traded = 0;
+        for (ulong seed = 1; seed <= 6; seed++)
+        {
+            var d = new Duel(Teamwork(10), Duel.Bot, seed, null, null, null);
+            var mate = new AiVector(300, 200, 0);
+            var foe = new AiVector(900, 200, 0);
+            d.StepTeams(Self(d), [(Mate, mate, 2), (Foe, foe, 3)], [OnTeam(d, Mate, 2), OnTeam(d, Foe, 3), .. d.SeeAt(Mate, mate), .. d.SeeAt(Foe, foe)]);
+            d.StepTeams(Self(d), [(Foe, foe, 3)], AiEvent.SightLost(Duel.Bot, new Tick(d.Tick + 3), Mate, mate, default),
+                        AiEvent.KillFeed(Duel.Bot, new Tick(d.Tick + 3), Mate, Foe));
+            traded += d.Decider.TeamRole == "trade" ? 1 : 0;
+        }
+
+        Assert.True(traded >= 4, $"Teamwork 10 trades most chances: {traded} of 6");
+    }
+
+    /// <summary>The control: a teammate out of sight for seconds before the kill feed died unseen, and is no trade.</summary>
+    [Fact]
+    public void ATeammateLongOutOfSightIsNotTraded()
+    {
+        for (ulong seed = 1; seed <= 6; seed++)
+        {
+            var d = new Duel(Teamwork(10), Duel.Bot, seed, null, null, null);
+            var mate = new AiVector(300, 200, 0);
+            var foe = new AiVector(900, 200, 0);
+            d.StepTeams(Self(d), [(Mate, mate, 2), (Foe, foe, 3)], [OnTeam(d, Mate, 2), OnTeam(d, Foe, 3), .. d.SeeAt(Mate, mate), .. d.SeeAt(Foe, foe)]);
+            d.StepTeams(Self(d), [(Foe, foe, 3)], AiEvent.SightLost(Duel.Bot, new Tick(d.Tick + 3), Mate, mate, default));
+            d.Skip(200);
+            d.StepTeams(Self(d), [(Foe, foe, 3)], AiEvent.KillFeed(Duel.Bot, new Tick(d.Tick + 3), Mate, Foe));
+            Assert.NotEqual("trade", d.Decider.TeamRole);
+        }
+    }
+
     /// <summary>The control: the same enemy in sight with no teammate's death is no trade.</summary>
     [Fact]
     public void NoDeathNoTrade()

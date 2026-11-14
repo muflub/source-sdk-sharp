@@ -255,7 +255,7 @@ public class RejoinScoresTests
         var tdm = new TeamDeathmatchTests.Rig().Tdm();
         tdm.Kill(victim: 3, attacker: 1);
         tdm.Kill(victim: 3, attacker: 1);
-        int before = tdm.Mode.Scoring!.TeamScore(TeamDeathmatchMode.TeamCombine);
+        int? before = tdm.Mode.Scoring!.TeamScore(TeamDeathmatchMode.TeamCombine);
         var rig = new Rig(tdm.Board);
         var a = rig.Connect(1, steam: 9);
         rig.Score(a, frags: 2, deaths: 0);

@@ -29,8 +29,8 @@ public sealed class BotProfileStore(IProfileDisk disk)
 {
     public const string Directory = "cfg/ai/bots";
 
-    /// <summary>The pool every profile is judged by.</summary>
-    public SkillPool Pool { get; } = StandardSkills.StandardPool();
+    /// <summary>The pool every profile is judged by: the ten and Teamwork (plan_bots_teams_tf2 B.7).</summary>
+    public SkillPool Pool { get; } = StandardSkills.TeamPool();
 
     /// <summary>The file a profile called <paramref name="name"/> lives in; the name must already be valid.</summary>
     public static string PathOf(string name)
@@ -61,7 +61,7 @@ public sealed class BotProfileStore(IProfileDisk disk)
         if (IsBuiltIn(name))
         {
             SkillPresets.TryGet(name.ToLowerInvariant(), out SkillProfile? preset);
-            document = new BotProfileDocument(preset!, Pool.Points, []);
+            document = new BotProfileDocument(StandardSkills.WithTeamwork(preset!), Pool.Points, []);
             return SkillVerdict.Ok;
         }
 

@@ -6,7 +6,7 @@ namespace SourceSharp.Ai.Hl2mp.Ui;
 /// <summary>
 /// The custom bot editor (plan_hl2mp_ai §3.5): the pool's limits in sight —
 /// the points left as the biggest number, the spend against the pool, the
-/// cap of a skill as ten pips a row — then the ten skills, each with − and
+/// cap of a skill as ten pips a row — then the ten skills and Teamwork, each with − and
 /// + (a step of 1 or 5, the Descent sheet's toggle), its level and what the
 /// level makes of the bot's parameters; the style name; Undo and Redo; and
 /// Load (the built-in presets as starting points, the saved profiles),
@@ -49,12 +49,19 @@ public sealed class BotEditor : UiScreen, IUiWindowed
     public const float SideDu = 360;
 
     /// <summary>
-    /// 1040 x 800 du by default, at least 600 x 800: the header, ten 48 du
-    /// rows and the footer. Narrow below 900 du, where the side panel beside
-    /// the rows would cut their parameters to nothing.
+    /// 1040 x 848 du by default, at least 600 x 848: the header, eleven 48 du
+    /// rows (the ten skills and Teamwork) and the footer; 64 du more where the
+    /// window is narrow and the footer takes two rows. Narrow below 900 du, where
+    /// the side panel beside the rows would cut their parameters to nothing.
     /// </summary>
     public static UiWindowSpec Spec(float screenW, float screenH)
-        => new(MathF.Min(1040, screenW - 32), MathF.Min(800, screenH - 32), 600, 800, screenW, screenH, 900);
+    {
+        float w = MathF.Min(1040, screenW - 32), h = w < NarrowDu ? 912 : 848;
+        return new(w, MathF.Min(h, screenH - 32), 600, h, screenW, screenH, NarrowDu);
+    }
+
+    /// <summary>Below this width the editor is narrow.</summary>
+    public const float NarrowDu = 900;
 
     public override void Describe(ref UiFrame ui)
     {
@@ -86,7 +93,8 @@ public sealed class BotEditor : UiScreen, IUiWindowed
             {
                 if (panel == BotEditorPanel.None || !narrow)
                 {
-                    using (ui.Column(Space.None, Align.Stretch).Size(Size.Fill, Size.Fill))
+                    // A screen too short for the eleven rows scrolls them, the footer still in reach.
+                    using (ui.Scroll("skills", Space.None).Size(Size.Fill, Size.Fill))
                     {
                         for (int i = 0; i < s.SkillCount; i++)
                             ui.Sub(SkillKeys + i, _row, new SkillRowProps(i, _step)).Width(Size.Fill);

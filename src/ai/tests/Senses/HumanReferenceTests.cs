@@ -128,7 +128,7 @@ public sealed class HumanReferenceTests : IDisposable
     [Fact]
     public void EveryPlayersCommandIsRecordedWithTheServersTick()
     {
-        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log, new Hl2mp.FakeRosterTeams()), _log).RunLine("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log, new Hl2mp.FakeRosterTeams()), _log, new Hl2mp.RecordingNotices()).RunLine("Alyx hard");
         Hl2mpBot bot = Assert.Single(_bots.Bots);
         var human = new EntityHandle((uint)(0x0005_0000 * 8 + 2));   // slot 2
         var tap = new CommandTap(_ai, _bots, Indexes(), AtTick(4321));

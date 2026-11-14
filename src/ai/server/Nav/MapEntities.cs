@@ -36,6 +36,11 @@ public sealed class MapEntities
     /// <summary>The deathmatch spawns.</summary>
     public IEnumerable<MapEntity> Spawns => All.Where(e => e.ClassName == "info_player_deathmatch");
 
+    /// <summary>The teams' own spawns (plan_bots_teams_tf2 B.5): Combine's are team 2's, the Rebels' team 3's.</summary>
+    public IEnumerable<(int Team, MapEntity Spawn)> TeamSpawns
+        => All.Where(e => e.ClassName is "info_player_combine" or "info_player_rebel")
+              .Select(e => (e.ClassName == "info_player_combine" ? 2 : 3, e));
+
     /// <summary>The weapons the map places.</summary>
     public IEnumerable<MapEntity> Weapons => All.Where(e => e.ClassName.StartsWith("weapon_", StringComparison.Ordinal));
 

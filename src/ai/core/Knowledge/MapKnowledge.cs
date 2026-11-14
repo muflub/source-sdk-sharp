@@ -93,19 +93,26 @@ public enum ItemKind : byte
 /// <summary>A static item spawn the map places (§5.0): where, what, and how long it takes to come back.</summary>
 public readonly record struct ItemSpawn(int Index, string ClassName, ItemKind Kind, AiVector Position, float RespawnSeconds, int WeaponKind = -1);
 
+/// <summary>A team's own spawn point (plan_bots_teams_tf2 B.5): <c>info_player_combine</c> is team 2's, <c>info_player_rebel</c> team 3's.</summary>
+public readonly record struct TeamSpawn(int Team, AiVector Position);
+
 /// <summary>
-/// What every bot knows of a map before it plays (§5.0): the item spawns and
-/// the player spawns from the entity lump, and the weapon table. Immutable,
+/// What every bot knows of a map before it plays (§5.0): the item spawns, the
+/// player spawns and the teams' own spawns from the entity lump, and the weapon table. Immutable,
 /// shared by every bot of the map. Anything dynamic (an item there now, a
 /// player anywhere) comes only through perception.
 /// </summary>
-public sealed class MapKnowledge(string map, ImmutableArray<ItemSpawn> items, ImmutableArray<AiVector> spawns, WeaponKnowledge weapons)
+public sealed class MapKnowledge(string map, ImmutableArray<ItemSpawn> items, ImmutableArray<AiVector> spawns, WeaponKnowledge weapons,
+                                  ImmutableArray<TeamSpawn> teamSpawns = default)
 {
     public string Map { get; } = map;
 
     public ImmutableArray<ItemSpawn> Items { get; } = items;
 
     public ImmutableArray<AiVector> Spawns { get; } = spawns;
+
+    /// <summary>The teams' own spawns, empty on a map with none (the deathmatch spawns are <see cref="Spawns"/>).</summary>
+    public ImmutableArray<TeamSpawn> TeamSpawns { get; } = teamSpawns.IsDefault ? [] : teamSpawns;
 
     public WeaponKnowledge Weapons { get; } = weapons;
 

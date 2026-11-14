@@ -70,7 +70,7 @@ public class GameModesTests
     {
         public int Deaths { get; private set; }
         public void OnDeath(PlayerDeathArgs death) { Deaths++; log.Add($"score:{id}"); }
-        public int TeamScore(int team) => -1;
+        public int? TeamScore(int team) => null;
         public void ResetRound() => log.Add($"scores-reset:{id}");
     }
 

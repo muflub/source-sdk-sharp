@@ -193,14 +193,26 @@ public static class ProfileFile
             found[i] = level;
         }
 
+        // A profile saved before teams has no Teamwork: it gets the level it played at (B.7).
+        int team = -1;
+        for (int k = 0; k < pool.Skills.Length; k++)
+        {
+            if (found[k] is null && pool.Skills[k].Key == StandardSkills.Teamwork.Key)
+                team = k;
+        }
+
         var b = ImmutableArray.CreateBuilder<int>(pool.Skills.Length);
         for (int k = 0; k < found.Length; k++)
         {
+            if (k == team)
+                continue;
             if (found[k] is not { } level)
                 return SkillVerdict.Refuse($"{fileName}{where}: no level for '{pool.Skills[k].Key}'");
             b.Add(level);
         }
 
+        if (team >= 0)
+            b.Insert(team, StandardSkills.TeamworkToAdd(b.ToImmutable()));
         levels = b.MoveToImmutable();
         return SkillVerdict.Ok;
     }

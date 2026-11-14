@@ -1,5 +1,6 @@
 using System.Globalization;
 using SourceSharp.Abi;
+using SourceSharp.Server;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Ai.Hl2mp;
@@ -44,7 +45,7 @@ public static class BotSkillSpec
 /// preset bot draws its levels from its seed.
 /// </summary>
 [ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j] [team=auto|2|3|4|5]: add a bot (no name: one is drawn; team: under a mode with teams)")]
-public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log)
+public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log, IPlayerNotices notices)
 {
     private IEnumerable<string> Presets() => SkillPresets.Names;
 
@@ -62,7 +63,7 @@ public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log)
             string value = teamField.StartsWith("team=", StringComparison.Ordinal) ? teamField["team=".Length..] : teamField;
             if (RosterTeam.Parse(value, out string? bad) is not { } parsed)
             {
-                log.Warning($"[SourceSharp/Ai] ai_bot_add refused: {bad}\n");
+                Refuse($"ai_bot_add refused: {bad}");
                 return;
             }
 
@@ -76,7 +77,14 @@ public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log)
         string? spec = specOnly ? nameOrSkills : skills;
         string who = name ?? "(unnamed)";
         if (roster.Add(name, spec, wanted) is { } refusal)
-            log.Warning($"[SourceSharp/Ai] ai_bot_add {who} refused: {refusal}\n");
+            Refuse($"ai_bot_add {who} refused: {refusal}");
+    }
+
+    // The server's console keeps its line; the player who typed it (a listen server's host too) hears it as well.
+    private void Refuse(string line)
+    {
+        log.Warning($"[SourceSharp/Ai] {line}\n");
+        notices.Refused(notices.CommandIssuer(), line);
     }
 }
 
@@ -92,6 +100,37 @@ public sealed class AiBotKickCommand(Hl2mpRoster roster, ILog log)
         name = name.Trim('"');
         int kicked = roster.Remove(name);
         log.Msg($"[SourceSharp/Ai] ai_bot_kick {name}: {kicked} kicked\n");
+    }
+}
+
+/// <summary>
+/// <c>ai_bot_say &lt;name&gt; team|all &lt;text&gt;</c>: the bot says a chat line
+/// through the say path a player's <c>say</c> and <c>say_team</c> take (the
+/// live gate's <c>tdm-chat</c>, plan_bots_teams_tf2 A.5): a scripted line, so a
+/// step knows what was said, by whom and to whom.
+/// </summary>
+[ConCommand("ai_bot_say", Help = "ai_bot_say <name> team|all <text>: the bot says a chat line, to its team or to everyone", Flags = ConVarFlags.Cheat)]
+public sealed class AiBotSayCommand(Hl2mpBots bots, HostSay say, ILog log)
+{
+    private IEnumerable<string> BotNames() => bots.Bots.Select(b => b.Name);
+
+    public void Execute([Complete(From = nameof(BotNames))] string name, Audience to, [Rest] string text = "")
+    {
+        EntityHandle player = bots.PlayerNamed(name);
+        if (player == EntityHandle.None)
+        {
+            log.Warning($"[SourceSharp/Ai] ai_bot_say refused: no bot called '{name}'\n");
+            return;
+        }
+
+        say.Say(player, text, teamOnly: to == Audience.Team);
+    }
+
+    /// <summary>Who hears the line: the speaker's team (<c>say_team</c>) or everyone (<c>say</c>).</summary>
+    public enum Audience
+    {
+        Team,
+        All,
     }
 }
 
@@ -235,25 +274,45 @@ public sealed class AiThinkLogCommand(Hl2mpBots bots, ILog log)
     }
 }
 
-/// <summary>The bots' place in the admin menu.</summary>
+/// <summary>
+/// The bots' place in the admin menu. While the level cannot take a bot (no
+/// navigation), the add items say why in their place rather than doing nothing
+/// when chosen; an add refused when it is taken answers why, and the admin who
+/// chose it is told (plan_bots_teams_tf2 D.4's refusal line).
+/// </summary>
 [SideService(Side.Server, As = [typeof(IAdminMenuProvider)])]
-public sealed class AiAdminMenu(Hl2mpRoster roster) : IAdminMenuProvider
+public sealed class AiAdminMenu(Hl2mpRoster roster, Nav.IHl2mpNavigation nav) : IAdminMenuProvider
 {
     public IEnumerable<AdminNode> AdminItems(int slot)
     {
+        string? unavailable = Unavailable(nav.Refusal, nav.MissingFile);
         yield return AdminNode.Folder("#SS_UI_Admin_Bots",
         [
             AdminNode.Folder("#SS_UI_Admin_BotAdd",
             [
-                Add("#SS_UI_Admin_BotEasy", "easy"),
-                Add("#SS_UI_Admin_BotNormal", "normal"),
-                Add("#SS_UI_Admin_BotHard", "hard"),
-                Add("#SS_UI_Admin_BotExpert", "expert"),
+                Add("#SS_UI_Admin_BotEasy", "easy", unavailable),
+                Add("#SS_UI_Admin_BotNormal", "normal", unavailable),
+                Add("#SS_UI_Admin_BotHard", "hard", unavailable),
+                Add("#SS_UI_Admin_BotExpert", "expert", unavailable),
             ]),
             new AdminNode("#SS_UI_Admin_BotRemoveAll", "bots:remove", () => roster.Remove("all"), Stay: true),
         ]);
     }
 
+    /// <summary>
+    /// Why no bot can be added on this level, for the menu, from the navigation's
+    /// <paramref name="refusal"/> and the file it found <paramref name="missing"/>; null when one can.
+    /// </summary>
+    public static string? Unavailable(string? refusal, string? missing)
+    {
+        if (refusal is null)
+            return null;
+        if (missing is null)
+            return $"Bots need navigation: {refusal}";
+        return $"Bots need navigation: {missing} is missing (make map MAP={Path.GetFileNameWithoutExtension(missing)} builds it)";
+    }
+
     // The menu stays up: bots are added a few at a time.
-    private AdminNode Add(string label, string skill) => new(label, "bots:add:" + skill, () => roster.Add(null, skill), Stay: true);
+    private AdminNode Add(string label, string skill, string? unavailable)
+        => AdminNode.Refusable(label, "bots:add:" + skill, () => roster.Add(null, skill), stay: true, unavailable);
 }

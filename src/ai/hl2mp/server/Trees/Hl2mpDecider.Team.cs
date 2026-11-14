@@ -136,8 +136,12 @@ public sealed partial class Hl2mpDecider
     public const float PushSeconds = 12f;
 
     /// <summary>
-    /// The team role's utilities against the tree's (B.5). Provisional numbers, to be set by
-    /// the tdm jank run's measurement (B.5's last line); none of them can outrank a fight in sight.
+    /// The team role's utilities against the tree's (B.5); none of them can outrank a fight in
+    /// sight. Measured by <c>make ai-jank MODE=tdm</c> (three 5-minute runs at 8af414a88 and
+    /// 1ac53bb08, dm_lockdown 2v2, friendly fire on): no team kill in 56 bot-minutes, fire held
+    /// for a teammate 0.01-0.06 s a minute, bots within 512 u of a teammate 17-25% of their
+    /// lives, 1.9-3.8 callouts a minute, 9-35% of engagements begun with a teammate near, and the
+    /// headline 26.3-35.6 under the budget of 60. Nothing there asks for a different number: kept.
     /// </summary>
     public const float StickBase = 0.12f, StickTeamwork = 0.3f, CoverBase = 0.35f, RallyUtility = 0.62f, PushUtility = 0.66f;
 
@@ -147,7 +151,7 @@ public sealed partial class Hl2mpDecider
     /// <summary>Decides on which a team role overrode the tree, by role, for the facts and the inspector.</summary>
     public int TeamRoleDecides { get; private set; }
 
-    /// <summary>The team role this decide ("" none): Stick, Cover, Trade, Regroup, Push.</summary>
+    /// <summary>The team role this decide ("" none): Stick, Cover, Trade, Regroup, Push, an order, crossfire, chase exit (the follower of a chase with a partner).</summary>
     public string TeamRole => _teamRole;
 
     private float Teamwork => _p.Teamwork;
@@ -216,7 +220,13 @@ public sealed partial class Hl2mpDecider
         if (StickPlace(out AiVector stick))
             Offer("stick", StickBase + StickTeamwork * Teamwork / StandardSkills.Cap, stick, MoveSpeed.Walk);
         if (role.Length == 0)
+        {
+            // Nothing outranked the tree's hunt: a crossfire or a chase may take the way there.
+            if (chosen == "Hunt")
+                RouteRoles();
             return;
+        }
+
         _teamRole = role;
         _leaf = role;
         _verdict = "team: " + role;
@@ -351,7 +361,7 @@ public sealed partial class Hl2mpDecider
             || (_pushCalledAt.Value > 0 && (_now - _pushCalledAt) * _tick < RallyCooldownSeconds)
             || (_memory.LastPush.Kind == CalloutKind.Push && (_now - _memory.LastPush.Tick) * _tick < RallyCooldownSeconds))
             return;
-        AiVector place = CalloutPlace(TeamCentre());
+        AiVector place = CalloutPlace(RallySpot());
         Say(CalloutKind.Rally, place, 0, 0);
         _memory.Said(CalloutKind.Rally, place, _now);
     }
@@ -387,8 +397,57 @@ public sealed partial class Hl2mpDecider
         return true;
     }
 
-    /// <summary>Where the bot believes its team is: itself and the teammates it has seen lately.</summary>
-    private AiVector TeamCentre()
+    /// <summary>
+    /// Where a rally is called (B.5): the team's believed centre when the bot knows where any
+    /// teammate is; else a spawn of its own team (the map's, known before play) that no enemy's
+    /// last-seen place looks at, the nearest such; else the nearest of its team's spawns; else
+    /// where it stands.
+    /// </summary>
+    private AiVector RallySpot()
+    {
+        AiVector centre = TeamCentre(out int counted);
+        if (counted > 1)
+            return centre;
+        AiVector? best = null, open = null;
+        float bestD = float.MaxValue, openD = float.MaxValue;
+        foreach (TeamSpawn t in _map.TeamSpawns)
+        {
+            if (t.Team != _self.Team)
+                continue;
+            float d = _self.Origin.DistanceTo(t.Position);
+            if (d < openD)
+                (openD, open) = (d, t.Position);
+            if (d < bestD && !EnemySees(t.Position))
+                (bestD, best) = (d, t.Position);
+        }
+
+        return best ?? open ?? centre;
+    }
+
+    /// <summary>Whether an enemy, from where the bot last saw it, would see <paramref name="at"/> (the map's static sight; none known, none sees).</summary>
+    private bool EnemySees(AiVector at)
+    {
+        if (_memory.World.Sight is not { } sight || _graph is null)
+            return false;
+        CellId cell = _graph.FindCell(at + new AiVector(0f, 0f, 1f));
+        if (!cell.IsValid)
+            return false;
+        Blackboard board = _memory.Board;
+        for (int s = 0; s < board.Slots; s++)
+        {
+            KnownActor a = board.Actor(s);
+            if (!a.Known || a.Dead || !a.EverSeen || _memory.IsFriend(a))
+                continue;
+            CellId from = _graph.FindCell(a.LastSeenPos + new AiVector(0f, 0f, 1f));
+            if (from.IsValid && sight.Visible(from.Index, cell.Index))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Where the bot believes its team is: itself and the teammates it has seen lately (<paramref name="counted"/> of them, itself included).</summary>
+    private AiVector TeamCentre(out int counted)
     {
         AiVector sum = _self.Origin;
         int n = 1;
@@ -403,6 +462,7 @@ public sealed partial class Hl2mpDecider
             }
         }
 
+        counted = n;
         return sum * (1f / n);
     }
 

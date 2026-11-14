@@ -478,11 +478,22 @@ public sealed class BotMemory
         if (!TeamRule.IsGameTeam(Team))
             return;
         KnownActor? by = killer == Bot ? null : Board.Of(killer, make: false);
-        if (!Foe(dead) && dead.InSight && by is { InSight: true } && Foe(by))
+        if (!Foe(dead) && SawDie(dead, tick) && by is { InSight: true } && Foe(by))
             TradeChance = (by.Id, tick);
         if (Foe(dead) && (killer == Bot || by is not null && !Foe(by)))
             LastTeamKill = tick;
     }
+
+    /// <summary>A body leaves sight as it falls: a teammate seen this lately before the kill feed was seen to die.</summary>
+    public const float DeathSightSeconds = 0.5f;
+
+    /// <summary>
+    /// Whether the bot saw <paramref name="dead"/> die: in sight, or lost from sight within
+    /// <see cref="DeathSightSeconds"/> of the kill feed. The game drops a body from sight the
+    /// tick it dies, the same tick as or before the kill feed arrives (ss_ai_tdm's trade scene).
+    /// </summary>
+    private bool SawDie(KnownActor dead, Tick tick)
+        => dead.InSight || (dead.EverSeen && (tick - dead.LastSeenTick) * World.TickSeconds <= DeathSightSeconds);
 
     /// <summary>The bot's own rally or push call: it hears its own words as its teammates will.</summary>
     public void Said(CalloutKind kind, AiVector place, Tick tick)

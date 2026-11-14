@@ -26,6 +26,13 @@ public sealed class SkillCurves
     ];
 
     /// <summary>
+    /// The team parameters (plan_bots_teams_tf2 B.4, B.7): read from the file when it has them,
+    /// else from the plan's own numbers, so curves written before teams still parse.
+    /// </summary>
+    public static readonly ImmutableArray<string> Team =
+        ["calloutDelayMs", "leashUnits", "calloutChance", "followSeconds", "teamCoverWeight", "tradeWeight", "crossfireWeight"];
+
+    /// <summary>
     /// The style level of a skill at its own mean. Spending points on favourites puts
     /// the rest about half a spread under the mean, so a bot's other skills read about
     /// 3.25, where Medium's levels 3 and 4 are: a favourite stands out against a bot

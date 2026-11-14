@@ -61,6 +61,29 @@ public static class StandardSkills
             return profile.Levels[i];
         return profile.Levels.Length == 0 ? 0f : MathF.Floor((float)profile.Levels.Sum() / profile.Levels.Length);
     }
+
+    /// <summary>
+    /// Teamwork's level for a profile of the ten given the row (the editor, a profile saved
+    /// before teams): the level it plays it at (<see cref="TeamworkOf"/>), as far as
+    /// <see cref="Pool"/>'s points left and the cap allow.
+    /// </summary>
+    public static int TeamworkToAdd(ImmutableArray<int> tenLevels)
+    {
+        int spent = tenLevels.Sum();
+        int even = tenLevels.Length == 0 ? 0 : spent / tenLevels.Length;
+        return Math.Clamp(even, 0, Math.Max(0, Math.Min(Cap, Pool - spent)));
+    }
+
+    /// <summary>A profile over the eleven: one of the ten with <see cref="TeamworkToAdd"/>'s Teamwork; one with the row as it is.</summary>
+    public static SkillProfile WithTeamwork(SkillProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        if (profile.IndexOf(Teamwork.Key) >= 0)
+            return profile;
+        if (!profile.Skills.SequenceEqual(Ten))
+            throw new ArgumentException($"profile '{profile.Name}' is not over the ten skills", nameof(profile));
+        return new SkillProfile(profile.Name, Eleven, [.. profile.Levels, TeamworkToAdd(profile.Levels)]);
+    }
 }
 
 /// <summary>

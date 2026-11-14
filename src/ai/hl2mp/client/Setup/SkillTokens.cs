@@ -1,9 +1,9 @@
 namespace SourceSharp.Ai.Hl2mp.Client.Setup;
 
-/// <summary>The screens' copy for the ten skills (game/mod_test/resource/test_english.txt), in the pool's order.</summary>
+/// <summary>The screens' copy for the ten skills and Teamwork (game/mod_test/resource/test_english.txt), in the pool's order.</summary>
 public static class SkillTokens
 {
-    /// <summary>The token of skill <paramref name="index"/> of the standard ten.</summary>
+    /// <summary>The token of skill <paramref name="index"/> of the eleven (the standard ten, then Teamwork).</summary>
     public static string Of(int index) => index switch
     {
         0 => "#Ai_Skill_Accuracy",
@@ -16,7 +16,8 @@ public static class SkillTokens
         7 => "#Ai_Skill_Agility",
         8 => "#Ai_Skill_Nerve",
         9 => "#Ai_Skill_Headhunter",
-        _ => throw new ArgumentOutOfRangeException(nameof(index), index, "the ten skills are 0..9"),
+        10 => "#Ai_Skill_Teamwork",
+        _ => throw new ArgumentOutOfRangeException(nameof(index), index, "the eleven skills are 0..10"),
     };
 
     /// <summary>A profile's style name as the two skills' tokens, highest first, ties by table order (§10).</summary>

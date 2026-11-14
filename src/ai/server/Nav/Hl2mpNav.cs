@@ -15,6 +15,9 @@ public interface IHl2mpNavigation
     /// <summary>Why there is none, or null when there is.</summary>
     string? Refusal { get; }
 
+    /// <summary>The level's navigation file when the refusal is that it is missing, else null.</summary>
+    string? MissingFile => null;
+
     /// <summary>The obstacles as the entities stand now, or null with no navigation.</summary>
     NavObstacleState? Obstacles { get; }
 
@@ -71,6 +74,9 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
 
     /// <summary>Why there is no navigation for this level, or null.</summary>
     public string? Refusal { get; private set; } = "no level is loaded";
+
+    /// <summary>The level's <c>.nav3d</c> when the refusal is that it is missing, else null.</summary>
+    public string? MissingFile { get; private set; }
 
     public NavObstacleState? Obstacles => _obstacles?.State;
 
@@ -161,6 +167,7 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
         _field = null;
         Breakables = null;
         Refusal = "no level is loaded";
+        MissingFile = null;
     }
 
     public void OnPreThink(float frameTime)
@@ -178,6 +185,7 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
         if (result.Nav is not { } nav)
         {
             Refusal = result.Refusal;
+            MissingFile = result.Missing;
             log.Warning($"[SourceSharp/Ai] {Refusal}\n");
             return;
         }

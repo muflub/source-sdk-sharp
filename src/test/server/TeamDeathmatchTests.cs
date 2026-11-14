@@ -288,7 +288,7 @@ public class TeamDeathmatchTests
     {
         var scoring = new TeamDeathmatchScoring(Fake());
 
-        Assert.Equal((0, 0, -1), (scoring.TeamScore(0), scoring.TeamScore(1), scoring.TeamScore(6)));
+        Assert.Equal(((int?)0, (int?)0, (int?)null), (scoring.TeamScore(0), scoring.TeamScore(1), scoring.TeamScore(6)));
     }
 
     //-------------------------------------------------------------------------

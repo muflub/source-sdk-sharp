@@ -97,7 +97,7 @@ public class BotCommandsTests
                                  DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
                                  DispatchProxy.Create<IEngineFrame, Defaults>(), _nav, DispatchProxy.Create<IBotInventory, Defaults>(),
                                  new DataFileNames(), _tags, _log);
-        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log, new FakeRosterTeams()), _log).RunLine("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log, new FakeRosterTeams()), _log, new RecordingNotices()).RunLine("Alyx hard");
         Assert.Null(bots.Act("Alyx", ActionKind.Fire, 5f, 0));
         bots.OnPreThink(0.015f);
         Assert.Equal(0L, bots.Applier.Refused(IntentRefusal.UnknownBot) + bots.Applier.Refused(IntentRefusal.StaleSerial));
@@ -120,6 +120,8 @@ public class BotCommandsTests
     private sealed class Navigation : IHl2mpNavigation
     {
         public string? Refusal { get; set; }
+
+        public string? MissingFile { get; set; }
 
         public LoadedNav? Current => null;
 
@@ -149,6 +151,7 @@ public class BotCommandsTests
         public string Refusal => "";
     }
     private readonly Lines _log = new();
+    private readonly RecordingNotices _notices = new();
     private readonly Players _players = new();
     private readonly Hl2mpBots _bots;
     private readonly Hl2mpRoster _roster;
@@ -162,7 +165,7 @@ public class BotCommandsTests
         _roster = new Hl2mpRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log, new FakeRosterTeams());
     }
 
-    private void Add(string args) => new AiBotAddCommand(_roster, _log).RunLine(args, _log.Msg);
+    private void Add(string args) => new AiBotAddCommand(_roster, _log, _notices).RunLine(args, _log.Msg);
 
     [Fact]
     public void APresetAddsABotWithThatPresetsSkills()
@@ -216,7 +219,7 @@ public class BotCommandsTests
 
     [Fact]
     public void AddCompletesThePresets()
-        => Assert.Equal(["ai_bot_add hard"], new AiBotAddCommand(_roster, _log).SuggestFor("ha"));
+        => Assert.Equal(["ai_bot_add hard"], new AiBotAddCommand(_roster, _log, _notices).SuggestFor("ha"));
 
     [Fact]
     public void KickCompletesTheRosterAndAll()
@@ -244,7 +247,7 @@ public class BotCommandsTests
     {
         var said = new List<string>();
 
-        new AiBotAddCommand(_roster, _log).RunLine("Alyx hard team=2 extra", said.Add);
+        new AiBotAddCommand(_roster, _log, _notices).RunLine("Alyx hard team=2 extra", said.Add);
 
         Assert.Contains("'extra' is one argument too many", Assert.Single(said));
         Assert.Empty(_players.Asked);
@@ -254,7 +257,7 @@ public class BotCommandsTests
     [Fact]
     public void AThirdWordThatIsNoTeamIsRefused()
     {
-        new AiBotAddCommand(_roster, _log).RunLine("Alyx hard extra");
+        new AiBotAddCommand(_roster, _log, _notices).RunLine("Alyx hard extra");
 
         Assert.Contains(_log.All, l => l.Contains("team 'extra' is not auto or 2 to 5", StringComparison.Ordinal));
         Assert.Empty(_players.Asked);
@@ -278,6 +281,64 @@ public class BotCommandsTests
         string model = info.Single(p => p.Key == "cl_playermodel").Value;
         Assert.Contains(model, Enumerable.Range(0, BotAppearance.ModelCount).Select(BotAppearance.Model));
         Assert.Equal(BotAppearance.DefaultWeapon, info.Single(p => p.Key == "cl_defaultweapon").Value);
+    }
+
+    /// <summary>The engine a <see cref="HostSay"/> reaches: every call its type's default, an enumerable empty.</summary>
+    public class Quiet : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            Type? t = method?.ReturnType;
+            if (t is { IsGenericType: true } && t.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                return Array.CreateInstance(t.GetGenericArguments()[0], 0);
+            return t is { IsValueType: true } && t != typeof(void) ? Activator.CreateInstance(t) : null;
+        }
+    }
+
+    /// <summary>The game's chat hook: every line a player said, as the say path hands it on.</summary>
+    private sealed class HeardChat : IPlayerChatHook, IHooks<IPlayerChatHook>
+    {
+        public readonly List<PlayerChat> Lines = new();
+        public IReadOnlyList<IPlayerChatHook> All => [this];
+        public void Each(string what, Action<IPlayerChatHook> call) => call(this);
+        public void OnPlayerChat(PlayerChat chat) => Lines.Add(chat);
+    }
+
+    private static T Quietly<T>() where T : class => DispatchProxy.Create<T, Quiet>();
+
+    /// <summary>User messages to nobody (a span argument no proxy can take).</summary>
+    private sealed class NoMessages : IUserMessageSender
+    {
+        public void Send(string name, ReadOnlySpan<byte> payload, int player, bool reliable) { }
+    }
+
+    private HostSay SayPath(HeardChat heard)
+        => new(_log, Quietly<IEnginePlayers>(), Quietly<IEngineEntities>(), Quietly<IEntityDirectory>(), new NoMessages(),
+               Quietly<IConnectedClients>(), Quietly<IEngineGameEvents>(), Quietly<IEngineHost>(), chatHooks: heard);
+
+    [Theory]
+    [InlineData("team", true)]
+    [InlineData("all", false)]
+    public void ABotSaysItsLineThroughThePlayersSayPathToTheAudienceNamed(string to, bool teamOnly)
+    {
+        Add("Alyx");
+        var heard = new HeardChat();
+
+        new AiBotSayCommand(_bots, SayPath(heard), _log).RunLine($"alyx {to} hold the door");
+
+        Assert.Equal(new PlayerChat(new EntityHandle(0x0002_0002u), "hold the door", teamOnly), Assert.Single(heard.Lines));
+    }
+
+    [Fact]
+    public void ASayForNoSuchBotIsRefusedAndNothingIsSaid()
+    {
+        Add("Alyx");
+        var heard = new HeardChat();
+
+        new AiBotSayCommand(_bots, SayPath(heard), _log).RunLine("barney team hold the door");
+
+        Assert.Empty(heard.Lines);
+        Assert.Contains("[SourceSharp/Ai] ai_bot_say refused: no bot called 'barney'\n", _log.All);
     }
 
     [Fact]
@@ -322,6 +383,85 @@ public class BotCommandsTests
         Assert.Empty(_players.Asked);
         Assert.Contains("[SourceSharp/Ai] ai_bot_add Alyx refused: no navigation for dm_lockdown: expected maps/dm_lockdown.nav3d\n", _log.All);
     }
+
+    [Fact]
+    public void ARefusedAddTellsThePlayerWhoTypedItWhy()
+    {
+        _nav.Refusal = "no navigation for dm_lockdown: expected maps/dm_lockdown.nav3d";
+        _notices.Issuer = 3;
+
+        Add("Alyx hard");
+
+        Assert.Equal((3, "ai_bot_add Alyx refused: no navigation for dm_lockdown: expected maps/dm_lockdown.nav3d"), Assert.Single(_notices.Told));
+    }
+
+    [Fact]
+    public void ABadTeamIsToldToThePlayerWhoTypedIt()
+    {
+        _notices.Issuer = 2;
+
+        Add("Alyx hard team=9");
+
+        var (slot, line) = Assert.Single(_notices.Told);
+        Assert.Equal(2, slot);
+        Assert.StartsWith("ai_bot_add refused: ", line, StringComparison.Ordinal);
+        Assert.Empty(_bots.Bots);
+    }
+
+    [Fact]
+    public void AnAddThatWorksTellsNobodyAnything()
+    {
+        _notices.Issuer = 3;
+
+        Add("Alyx hard");
+
+        Assert.Single(_bots.Bots);
+        Assert.Empty(_notices.Told);
+    }
+
+    private AiAdminMenu AdminMenu() => new(_roster, _nav);
+
+    private static List<AdminNode> AddItems(AiAdminMenu menu)
+        => [.. Assert.Single(Assert.Single(menu.AdminItems(1)).Children!, n => n.Label == "#SS_UI_Admin_BotAdd").Children!];
+
+    [Fact]
+    public void WithTheNavigationMissingTheMenusAddItemsSayWhy()
+    {
+        _nav.Refusal = "no navigation for dm_lockdown: expected maps/dm_lockdown.nav3d";
+        _nav.MissingFile = "maps/dm_lockdown.nav3d";
+
+        var items = AddItems(AdminMenu());
+
+        Assert.Equal(4, items.Count);
+        Assert.All(items, n => Assert.Equal("Bots need navigation: maps/dm_lockdown.nav3d is missing (make map MAP=dm_lockdown builds it)", n.Unavailable));
+    }
+
+    [Fact]
+    public void ChoosingAnUnavailableAddAddsNoBotAndSaysWhy()
+    {
+        _nav.Refusal = "no navigation for dm_lockdown: expected maps/dm_lockdown.nav3d";
+        _nav.MissingFile = "maps/dm_lockdown.nav3d";
+
+        string? why = AddItems(AdminMenu())[1].Take();
+
+        Assert.StartsWith("Bots need navigation: ", why, StringComparison.Ordinal);
+        Assert.Empty(_players.Asked);
+    }
+
+    [Fact]
+    public void WithNavigationTheMenusAddItemsAreLiveAndAddABot()
+    {
+        var items = AddItems(AdminMenu());
+
+        Assert.All(items, n => Assert.Null(n.Unavailable));
+        Assert.Null(items[1].Take());
+        Assert.Single(_bots.Bots);
+    }
+
+    [Fact]
+    public void AnotherNavigationRefusalIsTheMenusReasonAsItIs()
+        => Assert.Equal("Bots need navigation: maps/dm_x.nav3d was built from another map",
+                        AiAdminMenu.Unavailable("maps/dm_x.nav3d was built from another map", null));
 
     [Fact]
     public void AnUnnamedBotIsNamedByItsTraitAndTaggedWithItsPreset()
