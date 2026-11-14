@@ -282,6 +282,7 @@ public:
 	void SetCollisionBounds(const Vector& vecMins, const Vector& vecMaxs);
 
 	void SetCollisionGroup(int nGroup);
+	void CollisionRulesChanged();
 
 	const Vector& GetSpawnOrigin() const { return m_vecSpawnOrigin; }
 
@@ -293,6 +294,10 @@ public:
 	void DestroyPhysics();
 
 	IPhysicsObject* GetPhysics() const { return m_pPhysics; }
+
+	// The object whose cached filter answers go stale when this entity's rules change: stock's
+	// VPhysicsGetObject in CollisionRulesChanged.
+	virtual IPhysicsObject* CollisionRulesObject() const { return m_pPhysics; }
 
 	// Stock's VPhysicsSwapObject: the previous object is returned, not destroyed.
 	IPhysicsObject* SwapPhysics(IPhysicsObject* pObject)

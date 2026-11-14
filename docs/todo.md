@@ -43,14 +43,17 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
-## A 12-bot game died inside vphysics.so once (2026-11-03)
+## Collision rule changes stock tells vphysics of and ours does not (2026-11-03)
 
-One 5-minute run of four on dm_lockdown with 12 bots segfaulted on the main thread in
-`vphysics.so` during the server's frame, reading address 0x28
-(`/tmp/dumps/crash_20261103063512_2.dmp`, `vphysics.so+0x112f61`, reached from
-`libss_fwd_server.so+0x1a3f1`), in a burst of kills with ragdolls and an `entityflame`. Bot
-chat is not on the stack. About 20 minutes of 12 bots: too few to rate it. Next: a longer
-12-bot soak with the stack resolved, to see what it was simulating.
+A 12-bot game's segfault in `vphysics.so` was a player's rules changing with no recheck: a
+player's physics is its shadow hull, the entity's own object is NULL, so `SetSolidity` told
+nobody. vphysics re-asks the filter for an object as it wakes and deletes what it refuses, here a
+mindist whose impact was running, and the friction pair lookup read the freed one (the fix's commit
+has the stack). Fixed for solidity and group. Stock's `CollisionRulesChanged` also runs from
+`SetOwnerEntity`, `SetMoveType` and `SetParent`; ours are in `SetOwnerHandle` and managed's block
+writes and do not recheck. 0 stale pairs measured without them (88 game-minutes, debug, 12
+bots), and `live-gate`'s log check now fails on any: `DebugCheckContacts` prints the pair. Next
+if a pair shows: call it from that setter. Debug builds only: release does not check its contacts.
 
 ## live-gate's render budget went over once, on ClientDetailPrepare (2026-11-02)
 

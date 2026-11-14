@@ -850,6 +850,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // (MapCleanup): unregistered, each of these was built with no chain.
         _services.AddFactory<IHooks<IPlayerWeaponEventHook>>(locator => new Hooks<IPlayerWeaponEventHook>(locator, log));
         _services.AddFactory<IHooks<IPlayerHurtHook>>(locator => new Hooks<IPlayerHurtHook>(locator, log));
+        // The modes' third-person weapon gestures (IWeaponGestureRule): which
+        // player-animation event a shot, swing or reload shows. The server
+        // asks alone — the event goes out once over TE_PlayerAnimEvent.
+        _services.AddFactory<IHooks<SourceSharp.Shared.Anim.IWeaponGestureRule>>(
+            locator => new Hooks<SourceSharp.Shared.Anim.IWeaponGestureRule>(locator, log));
         _services.AddFactory<IHooks<IMapCleanupPreserve>>(locator => new Hooks<IMapCleanupPreserve>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
@@ -1082,6 +1087,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(new ViewmodelModel(_services.Require<IHooks<IViewmodelModelRule>>(), Log));
         _services.AddInstance(new ViewmodelSkin(_services.Require<IHooks<IViewmodelSkinRule>>(), Log));
         _services.AddInstance(new TeamNames(_services.Require<IHooks<ITeamNameRule>>(), Log));
+        // The gesture chain, beside the hooks it reads; the arsenal takes it
+        // from the container like every other optional tail.
+        _services.AddInstance(new SourceSharp.Shared.Anim.WeaponGestures(
+            _services.Require<IHooks<SourceSharp.Shared.Anim.IWeaponGestureRule>>(), Log));
 
         // The skin a server entity is drawn with, sent as m_nSkin (2026-10-19).
         // Before the arsenal, whose attachment dressing writes through it.

@@ -186,6 +186,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    ViewmodelSkin? viewmodelSkin = null,
                    IServerSkins? skins = null,
                    IHooks<IPlayerWeaponEventHook>? weaponEvents = null,
+                   SourceSharp.Shared.Anim.WeaponGestures? gestures = null,
                    IScreenEffects? screen = null)
     {
         _screen = screen;
@@ -224,6 +225,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // HasTeamSkins_Viewmodel wears.
         _viewmodelSkin = viewmodelSkin ?? ViewmodelSkin.Stock();
         _skins = skins;
+        // The gesture chain: the modes' rules over the core's HL2MP default.
+        _gestures = gestures ?? SourceSharp.Shared.Anim.WeaponGestures.Stock();
     }
 
     /// <summary>
@@ -242,6 +245,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     public Action<EntityHandle, EntityHandle, Vector, float>? Launched { get; set; }
 
     private readonly IHooks<IPlayerWeaponEventHook>? _weaponEvents;
+
+    /// <summary>
+    /// Which player-animation event each weapon action shows: the modes'
+    /// rules, with the core's HL2MP tables behind them
+    /// (<see cref="SourceSharp.Shared.Anim.WeaponGestures"/>).
+    /// </summary>
+    private readonly SourceSharp.Shared.Anim.WeaponGestures _gestures;
 
     /// <summary>
     /// The side's temp entities, for the named client effects a weapon
@@ -1280,15 +1290,28 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         bool shot = fired > 0 && !(reloadingBefore && w.InReload);
         bool reload = !reloadingBefore && w.InReload;
         string className = _weapons.ByIndex(type)?.Name ?? "";
-        // The attack gesture, once a command: a shot, a melee swing (hit or
-        // miss) or an alt-fire, each where its stock code calls
-        // SetAnimation( PLAYER_ATTACK1 ).
-        if ((shot && SourceSharp.Shared.Anim.PlayerAnimGestures.ShotShowsGesture(className))
-            || (swung && SourceSharp.Shared.Anim.PlayerAnimGestures.SwingShowsGesture(className))
-            || (secondary && SourceSharp.Shared.Anim.PlayerAnimGestures.SecondaryShowsGesture(className)))
-            Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.AttackPrimary, type);
-        if (reload && SourceSharp.Shared.Anim.PlayerAnimGestures.ReloadShowsGesture(className))
-            Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.Reload, type);
+        // The gestures, once a command each: the modes' rules name the event
+        // per action (the core's HL2MP tables behind them, where stock's code
+        // calls SetAnimation( PLAYER_ATTACK1 ) / ( PLAYER_RELOAD )). A shot
+        // outranks a swing and a swing an alt-fire, the order the asks happen
+        // in one command.
+        if (shot && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Shot, className) is { } shotGesture)
+            Animate(player, shotGesture, type);
+        else if (swung && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Swing, className) is { } swingGesture)
+            Animate(player, swingGesture, type);
+        else if (secondary && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary, className) is { } secondaryGesture)
+            Animate(player, secondaryGesture, type);
+
+        if (reload && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.ReloadStart, className) is { } reloadGesture)
+            Animate(player, reloadGesture, type);
+        // A shell-by-shell reload speaks per round and at its end, where stock's
+        // ReloadSingly does; a whole-clip reload said its piece at the start.
+        if (reloadingBefore && w.InReload && w.Clip > clipBefore
+            && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.ReloadShell, className) is { } shellGesture)
+            Animate(player, shellGesture, type);
+        if (reloadingBefore && !w.InReload
+            && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.ReloadEnd, className) is { } endGesture)
+            Animate(player, endGesture, type);
 
         if (_weaponEvents is null || _weaponEvents.All.Count == 0)
             return;
@@ -1326,7 +1349,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private void Animate(EntityHandle player, SourceSharp.Shared.Anim.PlayerAnimEvent e, int weaponType)
     {
         ServerAnimEvent?.Invoke(player, e, weaponType);
-        Temps?.PlayerAnimEvent(TeFilters.Pvs(_players.GetShootOrigin(player)), 0f, TempEntWriter.PackEHandle(player), (int)e, weaponType);
+        // Stock's TE_PlayerAnimEvent takes the firing player out of the filter
+        // when they predict (tf_player.cpp:349): their client replays the
+        // event from its own shared code. This client predicts no body gesture
+        // — the event arrives only on the wire — so the owner must survive
+        // SuppressTE to see their own gesture, exactly once, like any other
+        // client's (EffectsServer.cpp keeps the host the same way).
+        TeFilter seen = TeFilters.Pvs(_players.GetShootOrigin(player)) with { IgnorePredictionCull = true };
+        Temps?.PlayerAnimEvent(seen, 0f, TempEntWriter.PackEHandle(player), (int)e, weaponType);
     }
 
     /// <summary>The server's copy of a player's animation state, told of an event; null tells nobody.</summary>

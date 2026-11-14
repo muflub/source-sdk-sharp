@@ -77,8 +77,8 @@ public class ViewModelPresenterTests
             "another player's viewmodel never touches the viewmodel pass");
         Assert.True(engine.CountOf("EntityRender.PlaySequence") == 0,
             "and plays nothing — there is nothing of it to see");
-        Assert.True(engine.CountOf("EntityRender.SetCustomDraw") == 1,
-            "the draw-nothing placeholder from OnSpawn is all it registers");
+        Assert.True(engine.CountOf("EntityRender.SetCustomDraw") == 2,
+            "draw-nothing from OnSpawn, and said again by the decode");
     }
 
     [Fact]

@@ -4194,11 +4194,9 @@ Crouched was above standing before at every Medium, Hard and Expert cell; now be
 - **Bot chat: the model's share** (2026-11-03). A strict check over a tiny model means most answers
   are the plain line, and those are what make it true. A larger model might get more voice
   through it; `chat-truth` is the measure, and no model was tried beyond the default.
-- **A crash seen, not chat's** (2026-11-03). One 12-bot run of four (each 5 min) died with a segfault
-  on the main thread inside `vphysics.so` under the server's frame, a null read at +0x28
-  (minidump `crash_20261103063512_2.dmp`, read by a stack scan), during a burst of kills with
-  ragdolls and an `entityflame`. Nothing of chat is on that stack. One in about 20 minutes of 12 bots is too few to
-  rate it, and no run at the old base saw it. In `docs/todo.md`.
+- **A crash seen, not chat's** (2026-11-03). One 12-bot run of four (each 5 min) segfaulted inside
+  `vphysics.so` during a burst of kills: a dead player's hull, its rules changed with no recheck, hit
+  a sleeping prop (fixed; the cause is in that commit and what is left in `docs/todo.md`).
 - **Mutation arms, others' needles** (2026-11-03). `tools/ai-mutations` has 11 stale arms outside
   chat (`aim-*`, `crouch-flat`, `reroll-*`, `field-big-blocks`, `break-trigger`): their subjects moved,
   and they are the owners' to fix.

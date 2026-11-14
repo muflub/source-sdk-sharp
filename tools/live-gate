@@ -4356,10 +4356,15 @@ def step_die(g):
         g.check(False, "no player to kill")
         return
 
+    # Dying at a walk: the hull in motion is what the log check's stale pairs need.
+    g.api.cmd("+forward")
+    g.ticks(0.5)
     g.api.get("hurtclass", g.scen["playerClass"], 500)
 
     dead = g.api.wait_for(
         lambda: g.api.fields(player["index"]).get("Alive") == "false", 10.0)
+    g.ticks(0.5)
+    g.api.cmd("-forward")
     fields = g.api.fields(player["index"])
     g.check(bool(dead), "the player's networked Alive went false")
     g.check(int(fields.get("Health", "1")) <= 0,
@@ -10437,6 +10442,20 @@ def log_checks(gate, before_decals):
     else:
         gate.say("    --    this map places no decals; that leg is not measured")
 
+    # IPhysicsEnvironment::DebugCheckContacts, each step of a debug build: a pair
+    # still in the solver that ShouldCollide now refuses. vphysics re-asks the filter
+    # when an object wakes and deletes what it refuses, even a mindist whose impact
+    # is running, and that was a segfault in a 12-bot game (2026-11-03).
+    # In the console and not on stdout, so not count_log, which cannot see it.
+    if DEBUG_COMMANDS:
+        gate.check(gate.count_console("[SourceSharp") > 0, "this game's console reads")
+        stale = gate.count_console("without calling recheck") - gate.stale_before
+        gate.check(stale == 0,
+                   "every rule change reached vphysics (%d pairs in the solver their "
+                   "filter refuses)" % stale)
+    else:
+        gate.say("    --    only a debug build checks its contacts; that leg is not measured")
+
     gate.check(gate.count_log("SourceSharp] FATAL") == 0, "nothing FATAL in the log")
     asserts = gate.count_log("Assertion Failed")
     gate.check(asserts == 0,
@@ -12554,6 +12573,7 @@ def _run(args, order, state):
     # accumulates across runs and every poll read all of it; the API follows
     # it from this game's start, and ConsoleMirror keeps what it has read.
     attach_console(gate, api)
+    gate.stale_before = gate.count_console("without calling recheck")
 
     budget = read_budget(args.budget)
     if not budget:
