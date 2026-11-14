@@ -1,0 +1,35 @@
+# Palette of depth 9 (the Buried Chapel), plan_descent_mine_levels.md E7 and task B2; brief p4.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p4-m*.png, p4-mod*.png).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+koth_viaduct_event/viaduct_cobblestone001	material	floor	grey cobbles (the plan's), a laid floor under the earth
+medieval/stonewall001a	material	wall	cut stone blocks (the plan's), the buried chapel's walls; 39 maps
+medieval/cobblestone002	material	ceiling	dark stone for the vault (#545152)
+medieval/stonewall001a	material	large-wall	the stone at 0.5 on a nave's 2048 walls
+medieval/stonetrim001a	material	block	dressed stone slabs for tombs, daises and steps (the plan's trim)
+medieval/stonetrim001a	material	trim	dressed stone for columns, bands and arches
+cp_manor/wood_wall002_burnt	material	wall-low	burnt timber wainscot at a wall's foot (the plan's): something old, burned; 27 maps
+medieval/stonetrim001a	material	door-frame	a carved stone arch of brushes round each doorway: jambs on plinths, haunched corners, a keystone
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_manor/wall_candelabra_01	static	lamp	a two-candle sconce on the walls (the plan's candelabra): candle orange in black; 18 maps
+props_manor/chandelier_01	static	cover-lamp	a chandelier under the vault where the sconces leave the floor dark
+props_halloween/candle_cluster	static	companion	burnt-down candles by the tombs (the plan's candles); 53 maps
+props_medieval/brazier	static	work-lamp	a brazier in each large room, the act's darkest level's one strong fire; 9 maps
+props_manor/chandelier_01	static	pendant	a chandelier on a chain in the tall naves: overhead interest; 17 maps
+props_island/gantry_support_cable_128	static	pendant-cord	the chain the chandelier hangs from
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of it
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of it
+props_viaduct_event/coffin_simple_closed	static	wall-prop	an upright coffin against the wall (the plan's); 44 maps
+props_manor/gravestone_04	static	wall-prop	a headstone set against the wall
+props_manor/gravestone_01	static	wall-prop	a narrow grave slab against the wall
+props_manor/gravestone_07	static	corner-pile	a monument with a cross in a corner (the plan's gravestone_07)
+props_manor/gravestone_08	static	corner-pile	a second monument
+props_manor/coffin_01	static	floor-prop	a coffin laid on the floor, 28 high
+props_manor/gravestone_07	static	floor-prop	a monument on the open floor
+props_manor/gravestone_01	static	companion	a grave slab beside a pile
+props_manor/coffin_01	static	companion	a coffin beside a pile
+props_c17/gravestone_statue001a	static	centrepiece	a mourning statue on a nave's focus (SDK Base hl2 in TF2's VPKs)
+props_manor/gargoyle_01	static	centrepiece	a gargoyle where the statue does not fit (the plan's gargoyle, there for level 13)
+props_halloween/cobweb_01	static	hung	cobwebs high on the walls (the plan's); 60 maps
+props_halloween/cobweb_02	static	hung	a second web

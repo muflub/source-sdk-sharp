@@ -309,3 +309,10 @@ Each rule is measured from the brushes and markers, on 16-unit columns:
   generator (`MapGen descent-level`), links it as the host does and again for
   the preview, and previews it with `-movement heavy`. Open
   `dNN/tf2_descent-n-ss-preview/sheet.png` and look before you ship a family.
+  The preview draws a face from either side; the game does not. After each
+  link `tools/descent-face-sides` sets every face's side flag from its BSP
+  node, because the linker writes it wrong in every turned room and the game
+  then shows that room's walls only from behind (sky or black through them).
+- `make descent-install DEPTH=n SEED=s` links the level's `.bsp`, `.nav3d`
+  and `.map2d` into the tf2_descent mod's `pool/maps`, where `map
+  tf2_descent-n-ss` finds it in game.

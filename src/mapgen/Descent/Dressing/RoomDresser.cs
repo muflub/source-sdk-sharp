@@ -619,7 +619,7 @@ public static partial class RoomDresser
             if (!Fits(site.Box, solid: f.Solid && f.Static, floorStanding: onFloor, Role.Lamp, touching: site.Stand is not null || site.Hung))
                 return false;
             // A lamp standing on the floor (a brazier, a lamp post) is clutter a giant walks round: it may not wall floor off.
-            if (onFloor && f.Solid && f.Static && (CutsOff(site.Box) || LeavesSliver(site.Box)))
+            if (onFloor && f.Solid && f.Static && CutsOff(site.Box))
                 return false;
             if (site.Stand is { } stand && (!Fits(stand.Box, solid: stand.Model.Solid, floorStanding: true, Role.Lamp) || CutsOff(stand.Box)))
                 return false;

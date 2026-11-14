@@ -7,8 +7,9 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// A door plug is the theme's own material: the wall's base texture with
 /// <c>%compileTrigger</c> (the flag the link finds a plug by) and no
-/// <c>%compileNonsolid</c> (a room's compile stays sealed), so a capped socket
-/// reads as the wall at no entity's cost. The mod ships the material.
+/// <c>%compileNonsolid</c> (a room's compile stays sealed), drawn by nothing
+/// (<c>$no_draw</c>): the link leaves a joined socket's plug faces in the map,
+/// and the engine draws them. The mod ships the material.
 /// </summary>
 public sealed class DescentPlugMaterialTests
 {
@@ -38,6 +39,15 @@ public sealed class DescentPlugMaterialTests
 
     [Theory]
     [MemberData(nameof(Themes))]
+    public void A_plug_material_is_drawn_by_nothing_so_a_joined_doorway_is_open_in_game(string theme)
+    {
+        var (_, text) = Assert.Single(Theme(theme).OwnMaterials);
+
+        Assert.Contains("\"$no_draw\" \"1\"", text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Themes))]
     public void The_mods_copy_of_a_plug_material_is_what_the_generator_writes(string theme)
     {
         var (path, text) = Assert.Single(Theme(theme).OwnMaterials);
@@ -56,8 +66,10 @@ public sealed class DescentPlugMaterialTests
             var written = DescentRooms.WriteMaterials(dir).Select(f => Path.GetRelativePath(dir, f).Replace('\\', '/')).Order();
 
             Assert.Equal(
-                ["materials/descent/collar_plug.vmt", "materials/descent/grey_plug.vmt", "materials/descent/haulage_plug.vmt",
-                 "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt", "materials/descent/stopes_plug.vmt"],
+                ["materials/descent/breakthrough_plug.vmt", "materials/descent/chapel_plug.vmt", "materials/descent/collar_plug.vmt",
+                 "materials/descent/dripstone_plug.vmt", "materials/descent/grey_plug.vmt", "materials/descent/haulage_plug.vmt",
+                 "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt", "materials/descent/stopes_plug.vmt",
+                 "materials/descent/sunken_plug.vmt"],
                 written);
         }
         finally

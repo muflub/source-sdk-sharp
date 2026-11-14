@@ -49,3 +49,4 @@ unity-check	routine	tools/unity-check --self-test && tools/unity-check --config 
 convar-typeinfo	routine	tools/convar-typeinfo --self-test && tools/convar-typeinfo --config $SOURCESHARP_CONFIG
 descent-gate	routine	tools/descent-gate --self-test
 descent-preview-spawns	routine	tools/descent-preview-spawns --self-test
+descent-face-sides	routine	tools/descent-face-sides --self-test

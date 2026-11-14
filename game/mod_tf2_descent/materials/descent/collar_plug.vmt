@@ -1,5 +1,6 @@
 "LightmappedGeneric"
 {
 	"$basetexture" "concrete/computerwall003c"
+	"$no_draw" "1"
 	"%compileTrigger" "1"
 }

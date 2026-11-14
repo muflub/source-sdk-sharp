@@ -309,6 +309,12 @@ as in the preview: every frame `func_brush` carries `_minlight 0.35`
 plug when the room was lit), a floor far above a dark level's walls; not
 changed here (a look decision: a per-depth floor, or the doorway faces split
 off). Every joined doorway's let-down floor under the plug is lit black (H9).
+Eight Act II models placed solid have no collision model (boulder piles, wood
+debris, the wooden barrier, `rock006`, candle clusters): the engine loads
+them non-solid ("SOLID_VPHYSICS static prop with no vphysics model!", 51 at
+level 6, 5 at 7, 39 at 9). They are non-solid in the themes now, and the
+palette fact refuses a solid model without collision; the libraries built
+before it still carry the old flag until rebuilt.
 
 ### 1.2 Defaults I chose (overrule by editing this table)
 

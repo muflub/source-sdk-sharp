@@ -1,0 +1,40 @@
+# Palette of depth 6 (the Breakthrough), plan_descent_mine_levels.md E7 and task B2; brief p4.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p4-m*.png, p4-mod*.png).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/blendgroundtogravel007	material	floor	dark rubble gravel (#443d3b): the floor the breakthrough left; 10 maps
+winter/rockwall014	material	wall	grey layered rock (#69615c), the raw cave the miners broke into; 36 maps
+winter/rockwall014	material	ceiling	the same rock overhead
+winter/rockwall014	material	large-wall	the rock at 0.5 on a grotto's 2048 walls, which at 0.25 tile into a pattern
+wood/wood_wall006	material	block	old brown planks (#75594f) for the miners' decks, stairs and stores
+cp_manor/wood_beam03_burnt	material	trim	scorched timber for the sets (#6b574e): the old workings, burnt and left; 30 maps
+nature/rockwall002_island	material	wall-low	dark wet rock (#4d3f3a) as the band at a wall's foot, where the cave seeps
+cp_manor/wood_beam03_burnt	material	door-frame	the broken timber set of brushes round each doorway: its head cracked and sagging, its cap gone past one post
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_2fort/lantern001	dynamic	lamp	the miners' lanterns, two or three pools a room far apart (plan §7: far apart); not a static prop, within the budget
+props_2fort/lantern001	dynamic	cover-lamp	a lantern hung on a wall where the pools leave floor dark
+props_hydro/construction_light	static	pendant	a work lamp hung on a cable in the tall rooms: cold grey light, the level's own kind of source; 58 maps
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the work lamp hangs from
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable
+props_2fort/miningcrate002	static	lamp-stand	the powder crate a lantern stands on against a wall
+props_coalmines/wood_debris2	static	wall-prop	broken boards leaning on the rock; 42 maps
+props_coalmines/wood_debris4	static	wall-prop	fallen planks against a wall; 33 maps
+props_mining/wooden_barrier01	static	wall-prop	the miners' broken plank barrier (the plan's); 55 maps
+props_mining/junctionbox02	static	wall-prop	level 4's fuse box left behind: the Mill's kit, wrecked (brief p4)
+props_coalmines/boulder_pile1	static	corner-pile	rubble in a corner (the plan's); 9 maps
+props_coalmines/boulder3	static	corner-pile	a fallen boulder
+props_coalmines/boulder2	static	floor-prop	a boulder on the open floor
+props_coalmines/boulder1	static	floor-prop	a larger boulder, for a room with the floor for it
+props_coalmines/boulder_pile2	static	floor-prop	a spill of rubble, 22 high
+props_2fort/lantern001_off	static	hung	the miners' dead lanterns on the walls (the plan's lantern001_off): static, its glass black
+props_badlands/barrel01	static	companion	level 4's hazard drum left beside a pile: the Mill's kit, wrecked
+props_2fort/oildrum	static	companion	an oil drum beside a pile
+props_coalmines/boulder_pile2	static	companion	rubble spilled beside a pile
+props_mining/rock005	static	centrepiece	a collapse heaped on a grotto's middle, 379 high
+# rejected props_mining/rock003 (the plan's): 400 long, takes a one-cell room's floor; boulders read better
+# rejected nature/rockwall006 (the plan's): pink-red, reads as level 3's rock
+# rejected coalmines/blendgroundtowall_coalmines (the plan's): a blend whose brush face shows only its first texture, orange dirt
+# rejected cp_manor/wood_floor01: its $envmap crashes the room compile (map tools 7cdfe4d CubemapFixups.FindClosestCubemap answers sample 0 in a room with no cubemap)
+# rejected nature/rockwall003: drew a warm tan under the lanterns (round 1 sheets), so level 6 read as level 3

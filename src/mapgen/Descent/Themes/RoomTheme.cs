@@ -142,12 +142,10 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
 
     /// <summary>
     /// The theme's door plug material: the wall's base texture with
-    /// <c>%compileTrigger</c> and nothing else. The trigger flag is what the
-    /// link finds a plug by (it strips a joined socket's plug faces); leaving
-    /// out <c>%compileNonsolid</c> keeps the plug solid, so a room's compile is
-    /// sealed. It draws the wall's texture, but unlit (see
-    /// <see cref="RoomBuilder.CapThickness"/>), so a capped socket's plug is
-    /// still covered by the cap panel.
+    /// <c>%compileTrigger</c>, drawn by nothing. The trigger flag is what the
+    /// link finds a plug by; leaving out <c>%compileNonsolid</c> keeps the plug
+    /// solid, so a room's compile is sealed. A capped socket is covered by its
+    /// cap panel (<see cref="RoomBuilder.CapThickness"/>), never by the plug.
     /// </summary>
     public static Surface PlugOf(string name, Surface wall) => new($"{MaterialFolder}/{name}_plug", wall.Scale);
 
@@ -155,9 +153,15 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
     /// The <c>.vmt</c> text of a plug material over <paramref name="baseTexture"/>
     /// (each theme's wall material's own base texture has its name, as the asset
     /// database records for <c>dev/graygrid</c> and <c>nature/rockwall012</c>).
+    /// <c>$no_draw</c>: the link keeps a joined socket's plug faces in the map,
+    /// flagged <c>SURF_NODRAW</c>, and the engine draws a world face whatever its
+    /// flags (vbsp never writes a nodraw one), so without it every joined
+    /// doorway was shut in game by a panel of the wall's texture on each side
+    /// (brief p5, 2026-11-11), while the preview, which honours the flag,
+    /// showed it open.
     /// </summary>
     public static string PlugVmt(string baseTexture) =>
-        $"\"LightmappedGeneric\"\n{{\n\t\"$basetexture\" \"{baseTexture}\"\n\t\"%compileTrigger\" \"1\"\n}}\n";
+        $"\"LightmappedGeneric\"\n{{\n\t\"$basetexture\" \"{baseTexture}\"\n\t\"$no_draw\" \"1\"\n\t\"%compileTrigger\" \"1\"\n}}\n";
 
     /// <summary>The materials the theme names that ship with the mod, as paths under <c>materials/</c> and their text.</summary>
     public IReadOnlyList<(string Path, string Text)> OwnMaterials =>
@@ -166,7 +170,7 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
             : [];
 
     /// <summary>Every theme the generators draw rooms in.</summary>
-    public static IReadOnlyList<RoomTheme> All => [Grey, Mine, .. Themes.ActOne.All];
+    public static IReadOnlyList<RoomTheme> All => [Grey, Mine, .. Themes.ActOne.All, .. Themes.ActTwo.All];
 
     /// <summary>
     /// The same room drawn in <paramref name="to"/>: every brush face of this
@@ -251,10 +255,11 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
         Plug: PlugOf("grey", new("dev/graygrid", 1f)),
         Trigger: "TOOLS/TOOLSTRIGGER");
 
-    /// <summary>The theme of a depth: Act I's four themes at depths 1 to 4, the grey everywhere else for now.</summary>
+    /// <summary>The theme of a depth: Act I's four themes at depths 1 to 4, Act II's at 6 to 9, the grey everywhere else for now.</summary>
     public static RoomTheme ForDepth(int depth) => depth switch
     {
         >= 1 and <= 4 => Themes.ActOne.All[depth - 1],
+        >= 6 and <= 9 => Themes.ActTwo.All[depth - 6],
         _ => Grey,
     };
 }

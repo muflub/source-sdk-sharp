@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""tools/descent-face-sides -- a linked Descent level's turned rooms drawn from the front.
+
+    tools/descent-face-sides <level.bsp>      set each face's side flag from its node
+    tools/descent-face-sides --check <level.bsp>   count the faces whose flag is wrong; exit 1 if any
+    tools/descent-face-sides --self-test
+
+The engine files every world face on the BSP node whose plane it lies on, and
+draws it only when the eye is on the side its flag names: side 0 faces the way
+the node's plane does, side 1 the other way (vbsp writes face plane == node
+plane with side 0, or the node plane's pair with side 1). `ssmap link` (map
+tools 7cdfe4d and 3551fa8, the lock) gets the flag wrong for every face of a
+room the layout turns (90, 180 or 270): the face's own plane still faces into
+the room, but its side flag says the other way, so the engine culls it from
+inside the room and draws it from inside the wall. In game a turned room shows
+its walls only from behind: the sky or black through most of them
+(brief p5, 2026-11-11: level 1 seed 1 had 1,063 of 3,312 faces wrong, every
+one in a turned room and none in an unturned one). The map tools' own preview
+does not cull by the flag, which is why no preview showed it.
+
+Until the linker writes the flag, this sets it from the face's own plane: 0
+when the face's plane is the node's, 1 when it is the node's pair. A face on a
+plane that is neither is left alone and counted. Faces are fixed-size records,
+so the file is rewritten in place and no lump moves.
+"""
+import os
+import struct
+import sys
+import tempfile
+
+PLANES, FACES, NODES = 1, 7, 5
+HEADER_LUMPS = 64
+PLANE = struct.Struct('<ffffi')
+FACE = struct.Struct('<HBBihhhh4BifiiiiiHHI')   # dface_t, 56 bytes
+NODE = struct.Struct('<iiihhhhhhHHhh')          # dnode_t, 32 bytes
+SIDE_AT = 2                                       # dface_t.side: after the ushort planenum
+
+
+def lump(data, index):
+    off, length, version, fourcc = struct.unpack_from('<iiii', data, 8 + 16 * index)
+    if fourcc != 0:
+        raise ValueError('lump %d is compressed; this reads plain lumps only' % index)
+    return off, length
+
+
+def wrong_sides(data):
+    """[(face offset in the file, the side it should have)] for every face whose flag disagrees with its node; and the count on another plane."""
+    if data[:4] != b'VBSP':
+        raise ValueError('not a BSP')
+    face_off, face_len = lump(data, FACES)
+    node_off, node_len = lump(data, NODES)
+    if face_len % FACE.size or node_len % NODE.size:
+        raise ValueError('the face or node lump is not a whole number of records')
+    fixes, other = [], 0
+    for n in range(node_len // NODE.size):
+        node = NODE.unpack_from(data, node_off + n * NODE.size)
+        plane, first, count = node[0], node[9], node[10]
+        for f in range(first, first + count):
+            at = face_off + f * FACE.size
+            face_plane, side = struct.unpack_from('<HB', data, at)
+            if face_plane == plane:
+                want = 0
+            elif face_plane == plane ^ 1:
+                want = 1
+            else:
+                other += 1
+                continue
+            if side != want:
+                fixes.append((at, want))
+    return fixes, other
+
+
+def rewrite(path):
+    with open(path, 'rb') as f:
+        data = bytearray(f.read())
+    fixes, other = wrong_sides(data)
+    for at, want in fixes:
+        data[at + SIDE_AT] = want
+    if fixes:
+        tmp = path + '.tmp'
+        with open(tmp, 'wb') as f:
+            f.write(data)
+        os.replace(tmp, path)
+    return len(fixes), other
+
+
+def minimal_bsp(faces, nodes):
+    """A BSP with only a plane, face and node lump, for the self-test."""
+    planes = b''.join(PLANE.pack(*p) for p in [(1, 0, 0, 0, 0), (-1, 0, 0, 0, 0)])
+    face_blob = b''.join(FACE.pack(plane, side, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0)
+                         for plane, side in faces)
+    node_blob = b''.join(NODE.pack(plane, -1, -1, 0, 0, 0, 0, 0, 0, first, count, 0, 0)
+                         for plane, first, count in nodes)
+    head = bytearray(b'VBSP' + struct.pack('<i', 20) + b'\x00' * (16 * HEADER_LUMPS) + b'\x00\x00\x00\x00')
+    body = bytearray()
+    for index, blob in ((PLANES, planes), (FACES, face_blob), (NODES, node_blob)):
+        struct.pack_into('<iiii', head, 8 + 16 * index, len(head) + len(body), len(blob), 0, 0)
+        body += blob
+    return bytes(head + body)
+
+
+def self_test():
+    bad = []
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, 'm.bsp')
+        # Faces 0, 1 agree with node 0 (plane 0): same plane side 0, pair side 1.
+        # Faces 2, 3 are a turned room's: same plane side 1, pair side 0.
+        with open(path, 'wb') as f:
+            f.write(minimal_bsp([(0, 0), (1, 1), (0, 1), (1, 0)], [(0, 0, 4)]))
+        with open(path, 'rb') as f:
+            before = f.read()
+        fixes, _ = wrong_sides(before)
+        if sorted(at for at, _ in fixes) != sorted(lump(before, FACES)[0] + i * FACE.size for i in (2, 3)):
+            bad.append('the wrong faces were found: want faces 2 and 3 only')
+        fixed, other = rewrite(path)
+        with open(path, 'rb') as f:
+            after = f.read()
+        if fixed != 2 or other != 0:
+            bad.append('the rewrite fixed %d face(s), want 2' % fixed)
+        off = lump(after, FACES)[0]
+        sides = [after[off + i * FACE.size + SIDE_AT] for i in range(4)]
+        if sides != [0, 1, 0, 1]:
+            bad.append('the sides after the rewrite are %s, want [0, 1, 0, 1]' % sides)
+        if before == after:
+            bad.append('the file did not change')
+        if wrong_sides(after)[0]:
+            bad.append('a second pass still finds faces to fix')
+        if len(before) != len(after):
+            bad.append('the file changed size')
+        # A face on neither the node's plane nor its pair is counted and left alone.
+        with open(path, 'wb') as f:
+            f.write(minimal_bsp([(0, 1)], [(2, 0, 1)]))
+        fixed, other = rewrite(path)
+        if fixed != 0 or other != 1:
+            bad.append('a face on another plane was changed or not counted')
+    for b in bad:
+        print('descent-face-sides self-test: FAIL: ' + b)
+    print('descent-face-sides self-test: %s' % ('FAIL' if bad else 'ok'))
+    return 1 if bad else 0
+
+
+def main(argv):
+    if argv == ['--self-test']:
+        return self_test()
+    check = argv[:1] == ['--check']
+    paths = argv[1:] if check else argv
+    if len(paths) != 1:
+        print(__doc__.strip().splitlines()[2], file=sys.stderr)
+        return 2
+    try:
+        if check:
+            with open(paths[0], 'rb') as f:
+                fixes, other = wrong_sides(f.read())
+            print('descent-face-sides: %d face(s) with the wrong side flag, %d on another plane, in %s'
+                  % (len(fixes), other, paths[0]))
+            return 1 if fixes else 0
+        fixed, other = rewrite(paths[0])
+    except (OSError, ValueError) as e:
+        print('descent-face-sides: %s' % e, file=sys.stderr)
+        return 1
+    print('descent-face-sides: set the side flag of %d face(s) from their node (%d on another plane) in %s'
+          % (fixed, other, paths[0]))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

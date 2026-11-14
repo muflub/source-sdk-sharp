@@ -80,7 +80,7 @@ public static class AssetDb
 
             using var m = db.CreateCommand();
             m.CommandText = """
-                SELECT mo.static_prop, mo.prop_data, mo.mesh_min_x, mo.mesh_min_y, mo.mesh_min_z, mo.mesh_max_x, mo.mesh_max_y, mo.mesh_max_z
+                SELECT mo.static_prop, mo.prop_data, mo.mesh_min_x, mo.mesh_min_y, mo.mesh_min_z, mo.mesh_max_x, mo.mesh_max_y, mo.mesh_max_z, mo.has_collision
                 FROM game_models gm JOIN games g ON g.id = gm.game_id JOIN models mo ON mo.id = gm.model_id
                 WHERE g.name = 'tf' AND mo.path = $p
                 """;
@@ -94,6 +94,11 @@ public static class AssetDb
 
             if (a.Kind == "static" && (mr.GetInt32(0) != 1 || !mr.IsDBNull(1)))
                 problems.Add($"{a.Role} {a.Asset}: placed as a prop_static, but static_prop is {mr.GetInt32(0)} and prop_data is {(mr.IsDBNull(1) ? "null" : "set")}");
+            // A solid prop_static of a model with no collision model is
+            // non-solid in game ("SOLID_VPHYSICS static prop with no vphysics
+            // model!"), while the dresser and the reach gate take it as solid.
+            if (a.Model is { Solid: true } solid && a.Kind == "static" && !mr.IsDBNull(8) && mr.GetInt32(8) == 0)
+                problems.Add($"{a.Role} {a.Asset}: placed solid, but the model has no collision model");
             if (a.Model is { } model)
             {
                 float[] db6 = [.. Enumerable.Range(2, 6).Select(i => (float)mr.GetDouble(i))];
@@ -117,7 +122,7 @@ public sealed class DescentPaletteTests
 {
     public static TheoryData<int> ActOne => [1, 2, 3, 4];
 
-    public static TheoryData<int> Themed => [1, 2, 3, 4];
+    public static TheoryData<int> Themed => [1, 2, 3, 4, 6, 7, 8, 9];
 
     private static string PalettePath(int depth) =>
         RepoLayout.Repo("src", "mapgen", "Descent", "Themes", "palettes", ThemeAssets.PaletteFile(depth));
@@ -181,6 +186,15 @@ public sealed class DescentPaletteTests
         RoomTheme theme = DescentRooms.ThemeFor(depth);
 
         Assert.Empty(AssetDb.Problems(ThemeAssets.Of(theme), Scales(theme)));
+    }
+
+    [AssetDbFact]
+    public void A_solid_prop_of_a_model_without_collision_is_refused()
+    {
+        PropModel pile = ActTwo.RubbleSpill with { Solid = true };
+
+        Assert.Contains(AssetDb.Problems([new ThemeAsset("props_coalmines/boulder_pile2", "static", "floor", pile)], new Dictionary<string, float>()),
+            p => p.Contains("placed solid, but the model has no collision model", StringComparison.Ordinal));
     }
 
     [AssetDbFact]
