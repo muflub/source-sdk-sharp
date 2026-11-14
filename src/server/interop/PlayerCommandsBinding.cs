@@ -60,7 +60,9 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
             i => game.GetChargeSlowEnd(i),
             (i, h) => game.GetChargeBump(i, h),
             (i, v) => game.GetParachuteFallCap(i, v),
-            (i, m, b) => game.GetPlayerSolidMask(i, m, b));
+            (i, m, b) => game.GetPlayerSolidMask(i, m, b),
+            (i, b, g, w, t) => game.GetDuckButtons(i, b, g, w, t),
+            (i, t, a) => game.GetDuckRelease(i, t, a));
 
         if (serverCommands is not null)
             serverCommands.Rules = rules;

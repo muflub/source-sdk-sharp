@@ -1215,6 +1215,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var bots = _services.Create<BotPlayers>();
         _services.AddInstance(bots);
         _services.AddInstance<IBotPlayers>(bots);
+        _services.AddInstance<IWantedTeams>(bots);
 
         // A short label per player beside its name on the scoreboard, which a
         // mod sets (user ruling 2026-11-01: a bot's skill) and the player
@@ -4529,6 +4530,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public bool GetKeepGround(int playerIndex) => _movementRules.Rules.KeepGround(playerIndex);
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
+
+    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime);
+
+    public void GetDuckRelease(int playerIndex, float curTime, bool inAir) => _movementRules.Rules.DuckRelease(playerIndex, curTime, inAir);
 
     public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
 

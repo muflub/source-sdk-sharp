@@ -1,12 +1,12 @@
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using SourceSharp.Ai.Hl2mp.Knowledge;
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Tests.Hl2mpNav;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Tests.ServerNav;
 
 namespace SourceSharp.Ai.Tests.Chat;
 

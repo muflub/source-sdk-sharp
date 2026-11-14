@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using SourceSharp.MapFormats.Nav;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>A level's navigation, loaded and derived: the reader, the graph, the map's entities, and the hashes that name them.</summary>
 public sealed record LoadedNav(string Map, Nav3dReader Reader, DerivedNav Nav, MapEntities Entities, string BspSha256, string NavSha256,
@@ -73,7 +73,7 @@ public static class NavLoader
         bool fromCache = derived is not null;
         if (derived is null)
         {
-            derived = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), Hl2mpNavNumbers.Stock(reader.JumpHeight), NavEdgeCosts.Default,
+            derived = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), NavNumbers.Stock(reader.JumpHeight), NavEdgeCosts.Default,
                                                entities.Hurt, entities.LadderClimbs);
             cache?.Write(map, bspSha, navSha, derived);
         }

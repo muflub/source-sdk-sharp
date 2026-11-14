@@ -3,7 +3,7 @@ using System.Text;
 using Debug.Api.Server.Interfaces;
 using SourceSharp.Abi;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>
 /// The AI's dev-API routes (plan_hl2mp_ai §7.1, §7.3): <c>/ai/nav</c>, the
@@ -12,7 +12,7 @@ namespace SourceSharp.Ai.Hl2mp.Nav;
 /// What the web UI's map tab draws its nav and flow layers from.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IDebugRouteProvider)])]
-public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots = null, Senses.AiReplayRoutes? replay = null, Senses.AiWorldRoutes? world = null)
+public sealed class AiDebugRoutes(IAiNavigation nav, SourceSharp.Ai.Server.Senses.AiBotRoutes? bots = null, SourceSharp.Ai.Server.Senses.AiReplayRoutes? replay = null, SourceSharp.Ai.Server.Senses.AiWorldRoutes? world = null)
     : IDebugRouteProvider
 {
     public IReadOnlyList<DebugRoute> Routes =>
@@ -26,11 +26,11 @@ public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
-        if (bots is not null && Senses.AiBotRoutes.Serves(path))
+        if (bots is not null && SourceSharp.Ai.Server.Senses.AiBotRoutes.Serves(path))
             return bots.Handle(path, query);
-        if (replay is not null && Senses.AiReplayRoutes.Serves(path))
+        if (replay is not null && SourceSharp.Ai.Server.Senses.AiReplayRoutes.Serves(path))
             return replay.Handle(path, query);
-        if (world is not null && Senses.AiWorldRoutes.Serves(path))
+        if (world is not null && SourceSharp.Ai.Server.Senses.AiWorldRoutes.Serves(path))
             return world.Handle();
 
         if (nav.Current is not { } loaded)
@@ -130,5 +130,5 @@ public static class NavJson
 
     private static string F(float v) => v.ToString("0.#", CultureInfo.InvariantCulture);
 
-    public static string Quote(string s) => Senses.AiJson.Quote(s);
+    public static string Quote(string s) => SourceSharp.Ai.Server.Senses.AiJson.Quote(s);
 }

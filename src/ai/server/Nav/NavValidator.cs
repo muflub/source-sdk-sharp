@@ -2,7 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>The world's own answers the validator compares the nav with.</summary>
 public interface IWorldProbe

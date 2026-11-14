@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Server.Skills;
 
 namespace SourceSharp.Ai.Hl2mp.Skills;
 

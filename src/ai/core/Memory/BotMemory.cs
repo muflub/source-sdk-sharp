@@ -344,6 +344,8 @@ public sealed class BotMemory
                     row.Frags = e.Code;
                     row.Deaths = e.Code2;
                     row.Rank = (int)e.Amount;
+                    row.BoardTeam = (int)e.Position.X;
+                    row.BoardClass = (int)e.Position.Y;
                 }
 
                 break;

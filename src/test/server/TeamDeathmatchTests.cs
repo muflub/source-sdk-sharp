@@ -45,7 +45,7 @@ public class TeamDeathmatchTests
 
     internal sealed class BotRoster(params EntityHandle[] bots) : IBotPlayers
     {
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
             => throw new NotSupportedException();
         public bool IsBot(EntityHandle player) => bots.Contains(player);
         public bool Kick(EntityHandle bot, string reason) => false;
@@ -57,6 +57,13 @@ public class TeamDeathmatchTests
     internal static readonly EntityHandle RebelA = new(0x0001_0003u);
     internal static readonly EntityHandle Fresh = new(0x0001_0004u);
     internal static readonly EntityHandle Bot = new(0x0001_0005u);
+
+    /// <summary>The teams the players were brought in for, by handle.</summary>
+    internal sealed class Wanted : IWantedTeams
+    {
+        public readonly Dictionary<EntityHandle, int> Teams = new();
+        public int WantedTeam(EntityHandle player) => Teams.TryGetValue(player, out int t) ? t : 0;
+    }
 
     /// <summary>
     /// The proxy, the rules and the mode over one engine double: userids 1-3
@@ -76,6 +83,7 @@ public class TeamDeathmatchTests
         public readonly SpawnPoints Spawns;
         public readonly TableTeams TeamTable;
         public readonly BotRoster BotList = new(Bot);
+        public readonly Wanted WantedTeams = new();
         public readonly Dictionary<EntityHandle, int> Teams = new()
         {
             [CombineA] = TeamDeathmatchMode.TeamCombine,
@@ -112,7 +120,7 @@ public class TeamDeathmatchTests
             TeamTable = new TableTeams(Teams);
             Mode = new TeamDeathmatchMode(Modes, Host, Spawns, TeamTable, TeamTable, Host,
                                           ConVars.Declared<TeamsUnbalanceLimitConVar>(), ConVars.Declared<TdmTeamsConVar>(),
-                                          Host, BotList, new Random(1));
+                                          Host, BotList, new Random(1), WantedTeams);
             Services.AddInstance(Mode);
         }
 
@@ -384,6 +392,68 @@ public class TeamDeathmatchTests
         rig.Mode.Spawns!.SelectSpawn(Fresh);
 
         Assert.Equal(TeamDeathmatchMode.TeamRebels, rig.Teams[Fresh]);
+    }
+
+    /// <summary>
+    /// A bot added for team Combine, where the auto-assign would put it on the
+    /// Rebels (two Combine to one Rebel): it spawns on Combine, with one
+    /// assignment and no switch, so no switch kill costs it a frag or its
+    /// team a point.
+    /// </summary>
+    [Fact]
+    public void APlayerBroughtInForATeamSpawnsOnItWithNoSwitch()
+    {
+        var rig = new Rig().Tdm();
+        rig.Teams[Fresh] = 0;
+        rig.WantedTeams.Teams[Fresh] = TeamDeathmatchMode.TeamCombine;
+        rig.Host.Returns("Entities.FindAllByClassname", Array.Empty<EntityHandle>());
+        rig.TeamTable.Assigned.Clear();
+
+        rig.Mode.Spawns!.SelectSpawn(Fresh);
+
+        Assert.Equal([(Fresh, TeamDeathmatchMode.TeamCombine)], rig.TeamTable.Assigned);
+    }
+
+    [Fact]
+    public void AWantedTeamNotInPlayFallsBackToTheAutoAssign()
+    {
+        var rig = new Rig().Tdm();
+        rig.Teams[Fresh] = 0;
+        rig.WantedTeams.Teams[Fresh] = TeamDeathmatchMode.TeamResistance;   // mp_tdm_teams is 2
+        rig.Host.Returns("Entities.FindAllByClassname", Array.Empty<EntityHandle>());
+
+        rig.Mode.Spawns!.SelectSpawn(Fresh);
+
+        Assert.Equal(TeamDeathmatchMode.TeamRebels, rig.Teams[Fresh]);
+    }
+
+    /// <summary>The wanted team is a join like any other: the unbalance limit refuses it, and the auto-assign decides.</summary>
+    [Fact]
+    public void AWantedTeamTheLimitRefusesFallsBackToTheAutoAssign()
+    {
+        var rig = new Rig().Tdm();
+        rig.ConVars.Declared<TeamsUnbalanceLimitConVar>().Bind(-1, "cs_sv_teams_unbalance_limit", "1");
+        rig.Teams[Fresh] = 0;
+        rig.WantedTeams.Teams[Fresh] = TeamDeathmatchMode.TeamCombine;   // 3 to 1 is two over
+        rig.Host.Returns("Entities.FindAllByClassname", Array.Empty<EntityHandle>());
+
+        rig.Mode.Spawns!.SelectSpawn(Fresh);
+
+        Assert.Equal(TeamDeathmatchMode.TeamRebels, rig.Teams[Fresh]);
+    }
+
+    /// <summary>Switching to tdm puts a player on Unassigned on the team they were brought in for.</summary>
+    [Fact]
+    public void SwitchingToTdmPutsAPlayerOnTheTeamTheyWereBroughtInFor()
+    {
+        var rig = new Rig();
+        rig.Teams[Fresh] = 0;
+        rig.WantedTeams.Teams[Fresh] = TeamDeathmatchMode.TeamCombine;
+
+        rig.Tdm();
+
+        Assert.Contains(rig.TeamTable.Assigned, a => a.Player == Fresh && a.Team == TeamDeathmatchMode.TeamCombine);
+        Assert.DoesNotContain(rig.TeamTable.Assigned, a => a.Player == Fresh && a.Team != TeamDeathmatchMode.TeamCombine);
     }
 
     //-------------------------------------------------------------------------

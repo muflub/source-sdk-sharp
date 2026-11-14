@@ -3,8 +3,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using SourceSharp.Ai.Hl2mp.Chat;
 using SourceSharp.Ai.Hl2mp.Knowledge;
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Chat;
 
 namespace SourceSharp.Ai.Replay;
 

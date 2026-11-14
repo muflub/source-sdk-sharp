@@ -1,7 +1,7 @@
 using System.Globalization;
 using SourceSharp.Ai;
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Ai.Replay;
+using SourceSharp.Ai.Server.Nav;
 
 // tools/ai-replay's entry point (plan_hl2mp_ai §7.3):
 //   nav  <map.nav3d> <map.bsp> <out.png> [pixels-per-unit]

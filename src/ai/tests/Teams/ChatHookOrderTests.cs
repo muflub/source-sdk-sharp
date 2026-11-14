@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Teams;
 using SourceSharp.Server;
 using Xunit;
+using SourceSharp.Ai.Server.Teams;
 
 namespace SourceSharp.Ai.Tests.Teams;
 
@@ -19,7 +19,7 @@ public class ChatHookOrderTests
     [Fact]
     public void EveryPlayerChatHookHasItsOwnOrder()
     {
-        var hooks = new[] { typeof(TeamOrderTap).Assembly, typeof(HostSay).Assembly }
+        var hooks = new[] { typeof(TeamOrderTap).Assembly, typeof(SourceSharp.Ai.Hl2mp.Hl2mpBotGame).Assembly, typeof(HostSay).Assembly }
             .SelectMany(a => a.GetTypes())
             .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IPlayerChatHook).IsAssignableFrom(t))
             .ToArray();

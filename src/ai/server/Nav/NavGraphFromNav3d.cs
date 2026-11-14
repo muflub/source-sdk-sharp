@@ -1,4 +1,4 @@
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>A volume no bot may stand in: a <c>trigger_hurt</c> from the entity lump (the file does not mark them).</summary>
 public readonly record struct HurtVolume(AiVector Min, AiVector Max);
@@ -59,7 +59,7 @@ public static class NavGraphFromNav3d
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
 
-    public static DerivedNav Derive(INavSource src, Hl2mpNavNumbers n, NavEdgeCosts costs, IReadOnlyList<HurtVolume> hurt,
+    public static DerivedNav Derive(INavSource src, NavNumbers n, NavEdgeCosts costs, IReadOnlyList<HurtVolume> hurt,
                                     IReadOnlyList<LadderClimb>? ladders = null)
     {
         ArgumentNullException.ThrowIfNull(src);
@@ -251,7 +251,7 @@ public static class NavGraphFromNav3d
     /// leaves holds each height (a real file splits a column's open run): over
     /// an edge, and never through a floor, a wall or a rail.
     /// </summary>
-    private static bool FallsClear(INavSource src, int leaf, int dx, int dy, float from, float to, Hl2mpNavNumbers n, Span<int> into)
+    private static bool FallsClear(INavSource src, int leaf, int dx, int dy, float from, float to, NavNumbers n, Span<int> into)
     {
         int count = src.ColumnLeaves(leaf, dx, dy, into);
         for (float z = from; z > to; z -= src.VoxelSize)

@@ -35,6 +35,11 @@ public class NoStockNavTests
     public void TheHl2mpBindingNamesNoStockNavType()
         => Assert.Empty(StockNavTypes(typeof(SourceSharp.Ai.Hl2mp.Hl2mpAiService).Assembly));
 
+    /// <summary>The generic server binding holds the navigation since the lift (plan_bots_teams_tf2 C.2).</summary>
+    [Fact]
+    public void TheServerBindingNamesNoStockNavType()
+        => Assert.Empty(StockNavTypes(typeof(SourceSharp.Ai.Server.Nav.AiNav).Assembly));
+
     [Fact]
     public void TheSourceRuleSeesAStockNavCitation()
         // The control: the rule matches what a ported file's row would say.

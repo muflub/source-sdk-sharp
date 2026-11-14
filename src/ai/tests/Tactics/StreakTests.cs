@@ -4,6 +4,7 @@ using SourceSharp.Ai.Hl2mp;
 using SourceSharp.Ai.Hl2mp.Trees;
 using SourceSharp.Ai.Tests.Trees;
 using Xunit;
+using SourceSharp.Ai.Server;
 
 namespace SourceSharp.Ai.Tests.Tactics;
 

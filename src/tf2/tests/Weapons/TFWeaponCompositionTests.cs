@@ -44,7 +44,7 @@ public sealed class TFWeaponCompositionTests
     /// engine fake's own answer; BotInventory's log names through it.</summary>
     private sealed class NoBots : SourceSharp.Server.IBotPlayers
     {
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             refusal = "the composition fake adds no clients";
             return EntityHandle.None;

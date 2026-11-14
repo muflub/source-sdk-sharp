@@ -1,13 +1,13 @@
 using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp.Chat;
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Ai.Hl2mp.Trees;
 using SourceSharp.Ai.Tests.Senses;
 using SourceSharp.Ai.Tests.Trees;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Tactics;
 

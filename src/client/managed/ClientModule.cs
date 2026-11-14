@@ -3399,6 +3399,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
 
+    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime);
+
+    public void GetDuckRelease(int playerIndex, float curTime, bool inAir) => _movementRules.Rules.DuckRelease(playerIndex, curTime, inAir);
+
     public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
 
     public uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => _movementRules.Rules.SolidMask(playerIndex, mask, brushOnly);

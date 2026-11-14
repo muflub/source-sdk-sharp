@@ -2,7 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 using SourceSharp.Server;
 
-namespace SourceSharp.Ai.Hl2mp;
+namespace SourceSharp.Ai.Server;
 
 /// <summary>
 /// What a bot knows about itself, as a client does from its own HUD and view

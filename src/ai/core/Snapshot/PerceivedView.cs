@@ -20,7 +20,9 @@ public enum SelfFlags : byte
 /// binding's weapon-kind index. <see cref="AltAmmo"/> is what the HUD shows of the second trigger's
 /// pool for that weapon (the SMG's grenades, the AR2's balls), <see cref="Grenades"/> what its weapon list
 /// shows of the frags it carries. <see cref="Team"/> is the team its own HUD shows it on: the binding's
-/// number, 0 when the mode plays no teams (plan_bots_teams_tf2 B.2).
+/// number, 0 when the mode plays no teams (plan_bots_teams_tf2 B.2). <see cref="Class"/>, <see cref="Conditions"/>
+/// and <see cref="Metal"/> are what a class-based game's HUD shows of the bot (plan_bots_teams_tf2 C.2): its
+/// class (the binding's number, 0 for a game without classes), the conditions it is in, and its metal.
 /// </summary>
 public readonly record struct SelfState(
     AiVector Origin,
@@ -34,9 +36,29 @@ public readonly record struct SelfState(
     SelfFlags Flags,
     int AltAmmo = 0,
     int Grenades = 0,
-    int Team = 0)
+    int Team = 0,
+    int Class = 0,
+    ActorConditions Conditions = ActorConditions.None,
+    int Metal = 0)
 {
     public bool Alive => (Flags & SelfFlags.Alive) != 0;
+}
+
+/// <summary>
+/// The conditions a client renders on a player (plan_bots_teams_tf2 C.2), its
+/// own or another's: on fire, stunned, invulnerable, disguised, cloaked, taunting.
+/// A game without them leaves <see cref="None"/>.
+/// </summary>
+[Flags]
+public enum ActorConditions : byte
+{
+    None = 0,
+    Burning = 1 << 0,
+    Stunned = 1 << 1,
+    Invulnerable = 1 << 2,
+    Disguised = 1 << 3,
+    Cloaked = 1 << 4,
+    Taunting = 1 << 5,
 }
 
 /// <summary>What a client renders of another actor's animation.</summary>
@@ -54,7 +76,10 @@ public enum ActorActivity : byte
 /// health, clip or reserve field, on purpose: a client is never sent them, so
 /// the type cannot carry them (§4.3; ActorFactsShapeTests holds the member
 /// list). <see cref="Team"/> is the team a client at the bot's eyes would render it on (plan_bots_teams_tf2
-/// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams.
+/// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams. <see cref="Class"/>
+/// is the class a client renders it as (a disguise's; 0 for a game without classes), <see cref="Conditions"/>
+/// the conditions drawn on it, and <see cref="NameSlot"/> the slot of the player whose name its target ID
+/// shows when that is not its own (a disguise's borrowed name, 0 for its own: plan_bots_teams_tf2 C.3).
 /// </summary>
 public readonly record struct ActorFacts(
     ActorId Id,
@@ -63,7 +88,10 @@ public readonly record struct ActorFacts(
     int WeaponSeen,
     ActorActivity Activity,
     float VisibleFraction,
-    int Team = 0);
+    int Team = 0,
+    int Class = 0,
+    ActorConditions Conditions = ActorConditions.None,
+    int NameSlot = 0);
 
 /// <summary>
 /// One bot's perception at one tick: its own state, and the actors it holds

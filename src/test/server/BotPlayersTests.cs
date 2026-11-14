@@ -39,10 +39,17 @@ public class BotPlayersTests
             Bots!.PutInServer(index, Rename(name));
             // The engine spawns the player before it returns: what the first spawn could read.
             AtFirstSpawn = new(ConVars);
+            WantedAtFirstSpawn = Spawned is { } spawned ? Bots.WantedTeam(spawned(index)) : -1;
             return index;
         }
 
         public Dictionary<(int, string), string> AtFirstSpawn = new();
+
+        /// <summary>The player of a slot, for the first-spawn read of the wanted team.</summary>
+        public Func<int, EntityHandle>? Spawned;
+
+        /// <summary>What <see cref="BotPlayers.WantedTeam"/> answered at the first spawn; -1 unasked.</summary>
+        public int WantedAtFirstSpawn = -1;
 
         public bool SetFakeClientConVar(int entIndex, string name, string value)
         {
@@ -125,6 +132,83 @@ public class BotPlayersTests
     {
         _bots.Add("Alyx", [new("cl_playermodel", "models/police.mdl")], out _);
         Assert.Equal("models/police.mdl", _engine.AtFirstSpawn[(2, "cl_playermodel")]);
+    }
+
+    /// <summary>
+    /// A bot added for a team is on it from the first spawn, the moment a mode
+    /// assigns one (TeamDeathmatchMode's PickDefaultSpawnTeam): known only
+    /// after the create returns, it had already landed on the auto team.
+    /// </summary>
+    [Fact]
+    public void TheWantedTeamIsThereAtTheFirstSpawn()
+    {
+        _engine.Spawned = i => Slots[i];
+
+        _bots.Add("Alyx", Appearance, out _, team: 3);
+
+        Assert.Equal(3, _engine.WantedAtFirstSpawn);
+    }
+
+    [Fact]
+    public void ABotAddedForNoTeamWantsNone()
+    {
+        _engine.Spawned = i => Slots[i];
+
+        EntityHandle bot = _bots.Add("Alyx", Appearance, out _);
+
+        Assert.Equal((0, 0), (_engine.WantedAtFirstSpawn, _bots.WantedTeam(bot)));
+    }
+
+    [Fact]
+    public void AHumanWantsNoTeam()
+    {
+        _bots.Add("Alyx", Appearance, out _, team: 3);
+        _bots.PutInServer(5, "gordon");
+
+        Assert.Equal((3, 0), (_bots.WantedTeam(Slots[2]), _bots.WantedTeam(Slots[5])));
+    }
+
+    [Fact]
+    public void ADisconnectForgetsTheWantedTeam()
+    {
+        EntityHandle bot = _bots.Add("Alyx", Appearance, out _, team: 2);
+
+        _bots.OnClientDisconnected(2);
+
+        Assert.Equal(0, _bots.WantedTeam(bot));
+    }
+
+    [Fact]
+    public void ALevelShutdownForgetsEveryWantedTeam()
+    {
+        EntityHandle bot = _bots.Add("Alyx", Appearance, out _, team: 2);
+
+        _bots.OnLevelShutdown();
+
+        Assert.Equal(0, _bots.WantedTeam(bot));
+    }
+
+    /// <summary>A player put in a former bot's slot is not the bot that wanted the team.</summary>
+    [Fact]
+    public void APlayerPutInTheSlotIsNotTheBotThatWantedTheTeam()
+    {
+        _bots.Add("Alyx", Appearance, out _, team: 2);
+        var human = new EntityHandle(0x0009_0002u);
+        Slots[2] = human;
+
+        _bots.PutInServer(2, "gordon");
+
+        Assert.Equal(0, _bots.WantedTeam(human));
+    }
+
+    /// <summary>The bot's own handle, once another entity holds its slot, wants nothing.</summary>
+    [Fact]
+    public void AStaleHandleWantsNoTeam()
+    {
+        EntityHandle bot = _bots.Add("Alyx", Appearance, out _, team: 2);
+        Slots[2] = new EntityHandle(0x0009_0002u);
+
+        Assert.Equal(0, _bots.WantedTeam(bot));
     }
 
     [Fact]

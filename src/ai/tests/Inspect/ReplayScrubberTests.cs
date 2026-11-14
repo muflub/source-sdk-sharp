@@ -1,9 +1,9 @@
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Ai.Hl2mp.Trees;
 using SourceSharp.Ai.Tests.Trees;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Inspect;
 
@@ -18,7 +18,7 @@ public sealed class ReplayScrubberTests
 {
     private static string Golden => RepoLayout.Repo("src", "ai", "tests", "goldens", "ai-replay-frame.json");
 
-    private sealed class NoNav : IHl2mpNavigation
+    private sealed class NoNav : IAiNavigation
     {
         public LoadedNav? Current => null;
 
@@ -48,7 +48,7 @@ public sealed class ReplayScrubberTests
     private static string Frame(AiReplayCursor c, int tick, int slot = 1)
     {
         c.SeekTo(new Tick(tick));
-        return new AiReplayRoutes(new NoNav(), new Log()).Record(c, slot);
+        return new AiReplayRoutes(new NoNav(), TestGames.Hl2mp(), new Log()).Record(c, slot);
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 using SourceSharp.Abi;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>What the binding sees of an obstacle's entity this tick.</summary>
 public readonly record struct ObstacleSighting(bool Found, bool Alive, float Moved, float Turned);

@@ -1,7 +1,7 @@
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Nav;
+using SourceSharp.Ai.Server.Nav;
 
-namespace SourceSharp.Ai.Hl2mp;
+namespace SourceSharp.Ai.Server;
 
 /// <summary>
 /// From a brain's intent to the commands of each tick between its decides
@@ -103,7 +103,7 @@ public sealed class BrainDriver
     public long BreaksGivenUp { get; private set; }
 
     /// <summary>What a bot's hands ask of the breakable on its route; the side sets it.</summary>
-    public SourceSharp.Ai.Hl2mp.Nav.IBreakableAim? Breakables { get; set; }
+    public SourceSharp.Ai.Server.Nav.IBreakableAim? Breakables { get; set; }
 
     /// <summary>A breakable this many route steps on is one to deal with, and a shot goes this far: a person shoots a crate from a little way off, on the move.</summary>
     public const int BreakHops = 16;

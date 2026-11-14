@@ -19,6 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\server\SourceSharp.Ai.Server.csproj" />
     <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
     <!-- The nav PNG and its golden (§7.3). -->
     <ProjectReference Include="..\replay\SourceSharp.Ai.Replay.csproj" />

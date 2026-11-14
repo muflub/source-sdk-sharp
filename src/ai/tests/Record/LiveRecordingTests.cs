@@ -1,8 +1,8 @@
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Ai.Hl2mp.Trees;
-using SourceSharp.Ai.Tests.Hl2mpNav;
 using SourceSharp.MapFormats.Nav;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Tests.ServerNav;
 
 namespace SourceSharp.Ai.Tests.Record;
 

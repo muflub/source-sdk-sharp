@@ -1,7 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
 
-namespace SourceSharp.Ai.Hl2mp;
+namespace SourceSharp.Ai.Server;
 
 /// <summary>Why an intent was not taken (§2.4); counted, and reported back as CommandRejected later.</summary>
 public enum IntentRefusal : byte
@@ -46,7 +46,7 @@ public enum IntentRefusal : byte
 /// watching bot, is refused at the tick and the bot holds.
 /// </para>
 /// </summary>
-public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self, Func<double>? cpu = null)
+public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self, Func<double>? cpu = null, AbilityTable abilities = default)
 {
     /// <summary>A full key's move, as <c>cl_forwardspeed</c> and <c>cl_sidespeed</c> send it; the server's max speed caps it.</summary>
     public const float FullMove = 450f;
@@ -329,9 +329,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             {
                 if (once.Kind == ActionKind.SelectWeapon)
                     cmd.WeaponSelect = self.WeaponSelectFor(bot.Player, once.WeaponSlot);
+                else if (once.Kind == ActionKind.Ability)
+                    StartAbility(bot, once.WeaponSlot);
                 else
                     buttons |= Press(once.Kind);
             }
+
+            buttons |= AbilityHeld(bot);
         }
 
         cmd.Buttons = buttons;
@@ -682,6 +686,29 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
     private void NotePunch(in BotSelfFacts facts) => PunchPeakDeg = MathF.Max(PunchPeakDeg, PunchSize(in facts));
 
+    /// <summary>
+    /// An <see cref="ActionKind.Ability"/> one-shot (plan_bots_teams_tf2 C.3): row
+    /// <paramref name="row"/> of the game's <see cref="AbilityTable"/>. A button row is held
+    /// for its ticks from this command on; a row the table lacks does nothing. Command and
+    /// sequence rows wait for the game that needs them (plan P6): they do nothing yet.
+    /// </summary>
+    private void StartAbility(BotState bot, int row)
+    {
+        if (!abilities.TryGet(row, out AbilityRow a) || a.Run != AbilityRun.Buttons)
+            return;
+        bot.AbilityButtons = a.Buttons;
+        bot.AbilityTicks = Math.Max(1, a.HoldTicks);
+    }
+
+    /// <summary>The buttons an ability holds this command, counting its ticks down.</summary>
+    private static int AbilityHeld(BotState bot)
+    {
+        if (bot.AbilityTicks <= 0)
+            return 0;
+        bot.AbilityTicks--;
+        return bot.AbilityButtons;
+    }
+
     private static int Press(ActionKind kind) => kind switch
     {
         ActionKind.Fire => (int)InputButtons.Attack,
@@ -731,6 +758,11 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         /// <summary>The buttons of the bot's last playing command (the aim meter's "firing").</summary>
         public int LastButtons { get; set; }
+
+        /// <summary>An ability's buttons, and how many more commands hold them (plan_bots_teams_tf2 C.3).</summary>
+        public int AbilityButtons { get; set; }
+
+        public int AbilityTicks { get; set; }
 
         /// <summary>The <see cref="PressKeys"/> its last command held, playing or not.</summary>
         public int HeldKeys { get; set; }

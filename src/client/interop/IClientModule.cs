@@ -186,6 +186,20 @@ public interface IClientModule
     float GetDuckSeconds(int playerIndex, float seconds) => seconds;
 
     /// <summary>
+    /// The duck button of one command, masked before the duck reads it (the
+    /// buttons unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.DuckButtons</c>.
+    /// </summary>
+    int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => buttons;
+
+    /// <summary>
+    /// The duck button's release edge: the timer stamp and the air-duck count.
+    /// Runs on both sides; see <c>IMovementRules.DuckRelease</c>. Nothing by
+    /// default.
+    /// </summary>
+    void GetDuckRelease(int playerIndex, float curTime, bool inAir) { }
+
+    /// <summary>
     /// The parachute's fall trim on the walk's first beat (the velocity
     /// unchanged, stock HL2MP). Runs on both sides; see
     /// <c>IMovementRules.ParachuteFallCap</c>.

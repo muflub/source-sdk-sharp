@@ -1,4 +1,4 @@
-namespace SourceSharp.Ai.Hl2mp.Skills;
+namespace SourceSharp.Ai.Server.Skills;
 
 /// <summary>The skill curves the brains read (plan_hl2mp_ai §10), or why there are none.</summary>
 public interface ISkillCurveSource

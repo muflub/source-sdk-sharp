@@ -1,6 +1,6 @@
-using SourceSharp.Ai.Hl2mp.Nav;
+using SourceSharp.Ai.Server.Nav;
 
-namespace SourceSharp.Ai.Hl2mp;
+namespace SourceSharp.Ai.Server;
 
 /// <summary>A player where the driver can feel them: a slot and a place.</summary>
 /// <summary>A player near the bots this tick: its slot, where it stands, and the team a client renders it on (0 none).</summary>

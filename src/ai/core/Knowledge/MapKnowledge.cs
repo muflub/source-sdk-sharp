@@ -35,11 +35,15 @@ public readonly record struct AltFireFacts(AltFireKind Kind, float Speed = 0f, f
 /// What a weapon kind is, as a player who knows the game knows it (plan_hl2mp_ai
 /// §5.0, ruling 2026-11-01): its clip, how fast it fires, how long its reload
 /// takes and whether others hear it, whether it reloads shell by shell, how
-/// fast its projectile flies (0 for hitscan). The binding reads every number
-/// from the classes the weapons run on.
+/// fast its projectile flies (0 for hitscan), what pulls that projectile down
+/// (<c>ProjectileGravity</c>, units/s², 0 flies flat: a grenade launcher's arc)
+/// and how long a charge takes (<c>ChargeSeconds</c>, 0 none: a sniper rifle's,
+/// a bow's; plan_bots_teams_tf2 C.2). The binding reads every number from the
+/// classes the weapons run on.
 /// </summary>
 public readonly record struct WeaponFacts(int Kind, string Name, int ClipSize, float CadenceSeconds, float ReloadSeconds, bool ReloadAudible,
-                                          bool ShellByShell, float ProjectileSpeed, AltFireFacts Alt = default)
+                                          bool ShellByShell, float ProjectileSpeed, AltFireFacts Alt = default, float ProjectileGravity = 0f,
+                                          float ChargeSeconds = 0f)
 {
     /// <summary>Whether the weapon has a clip to estimate (a melee weapon, a grenade or the RPG fires from its reserve).</summary>
     public bool HasClip => ClipSize > 0;
@@ -88,6 +92,14 @@ public enum ItemKind : byte
     Armour,
     Ammo,
     Charger,
+
+    /// <summary>The packs of a game that sizes them (plan_bots_teams_tf2 C.2, TF2's three of each).</summary>
+    HealthSmall,
+    HealthMedium,
+    HealthLarge,
+    AmmoSmall,
+    AmmoMedium,
+    AmmoLarge,
 }
 
 /// <summary>A static item spawn the map places (§5.0): where, what, and how long it takes to come back.</summary>
@@ -103,7 +115,8 @@ public readonly record struct TeamSpawn(int Team, AiVector Position);
 /// player anywhere) comes only through perception.
 /// </summary>
 public sealed class MapKnowledge(string map, ImmutableArray<ItemSpawn> items, ImmutableArray<AiVector> spawns, WeaponKnowledge weapons,
-                                  ImmutableArray<TeamSpawn> teamSpawns = default)
+                                  ImmutableArray<TeamSpawn> teamSpawns = default, AbilityTable abilities = default,
+                                  ObjectiveKnowledge? objectives = null)
 {
     public string Map { get; } = map;
 
@@ -115,6 +128,12 @@ public sealed class MapKnowledge(string map, ImmutableArray<ItemSpawn> items, Im
     public ImmutableArray<TeamSpawn> TeamSpawns { get; } = teamSpawns.IsDefault ? [] : teamSpawns;
 
     public WeaponKnowledge Weapons { get; } = weapons;
+
+    /// <summary>The game's abilities, by row (plan_bots_teams_tf2 C.3): empty for a game with none.</summary>
+    public AbilityTable Abilities { get; } = abilities;
+
+    /// <summary>The map's objectives (plan_bots_teams_tf2 C.6): none on a map without.</summary>
+    public ObjectiveKnowledge Objectives { get; } = objectives ?? new ObjectiveKnowledge([]);
 
     /// <summary>A map with nothing on it (a fact's, or a level without navigation).</summary>
     public static MapKnowledge Empty(WeaponKnowledge weapons) => new("", [], [], weapons);

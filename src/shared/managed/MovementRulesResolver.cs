@@ -257,6 +257,22 @@ public interface IMovementRules
     float DuckSeconds(int playerIndex, float seconds) => seconds;
 
     /// <summary>
+    /// The duck button of one command, masked before the duck reads it:
+    /// stock's <c>CTFGameMovement::DuckOverrides</c> (tf_gamemovement.cpp:3179-3223),
+    /// called at the top of TF's <c>Duck</c> (:3392) so a masked press is no
+    /// press and the duck never starts. The buttons unchanged is the default
+    /// and stock Half-Life.
+    /// </summary>
+    int DuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime) => buttons;
+
+    /// <summary>
+    /// The duck button's release edge: stock's <c>OnUnDuck</c> opening block
+    /// (tf_gamemovement.cpp:3293-3302) stamps the duck timer and counts the
+    /// duck on the airborne release. Nothing by default.
+    /// </summary>
+    void DuckRelease(int playerIndex, float curTime, bool inAir) { }
+
+    /// <summary>
     /// The parachute's fall trim, asked between the walk's water check and its
     /// gravity — stock TF's <c>CTFGameMovement::FullWalkMove</c>, which caps a
     /// falling parachutist's z at the onfire or plain cap and dampens the xy
@@ -380,7 +396,9 @@ public sealed class MovementRulesResolver
                 i => _rules.ChargeSlowEnd(i),
                 (i, h) => _rules.ChargeBump(i, h),
                 (i, v) => _rules.ParachuteFallCap(i, v),
-                (i, m, b) => _rules.PlayerSolidMask(i, m, b));
+                (i, m, b) => _rules.PlayerSolidMask(i, m, b),
+                (i, b, g, w, t) => _rules.DuckButtons(i, b, g, w, t),
+                (i, t, a) => _rules.DuckRelease(i, t, a));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Nav;
+using SourceSharp.Ai.Server.Nav;
 
-namespace SourceSharp.Ai.Hl2mp;
+namespace SourceSharp.Ai.Server;
 
 /// <summary>What the main thread's trace answered about the breakable a bot's last step said is on its route (§6.2).</summary>
 public readonly record struct BreakableSight(int Cell, bool Clear, AiVector Point)

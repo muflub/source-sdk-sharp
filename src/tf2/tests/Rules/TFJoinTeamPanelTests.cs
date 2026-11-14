@@ -28,7 +28,7 @@ public sealed class TFJoinTeamPanelTests
     {
         public bool IsBot(EntityHandle player) => false;
 
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
             => throw new NotSupportedException();
 
         public bool Kick(EntityHandle bot, string reason) => false;

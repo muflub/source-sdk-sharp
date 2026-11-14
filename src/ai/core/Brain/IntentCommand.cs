@@ -54,6 +54,13 @@ public enum ActionKind : byte
     Reload,
     SelectWeapon,
     Use,
+
+    /// <summary>
+    /// A one-shot of the binding's own (plan_bots_teams_tf2 C.3): the
+    /// <see cref="ActionIntent.WeaponSlot"/> field carries the row of the
+    /// binding's <see cref="AbilityTable"/>, so the core names no game's verb.
+    /// </summary>
+    Ability,
 }
 
 /// <summary>How a <see cref="ActionKind.Fire"/> is held.</summary>

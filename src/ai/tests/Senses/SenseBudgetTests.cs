@@ -1,11 +1,12 @@
 using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp;
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 using Xunit;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Senses;
 
@@ -23,7 +24,7 @@ public sealed class SenseBudgetTests : IDisposable
         public void Warning(string message) { }
     }
 
-    private sealed class Navigation : IHl2mpNavigation
+    private sealed class Navigation : IAiNavigation
     {
         public LoadedNav? Current => null;
         public string? Refusal => null;
@@ -49,7 +50,7 @@ public sealed class SenseBudgetTests : IDisposable
     {
         public readonly List<BotPlayer> Made = new();
 
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             SenseWorld.Player p = world.Players.First(x => Made.All(b => b.Player != x.Handle));
             Made.Add(new BotPlayer(p.Handle, p.Slot, name));
@@ -90,9 +91,9 @@ public sealed class SenseBudgetTests : IDisposable
     private readonly Hud _hud = new();
     private readonly Holdings _holdings = new();
     private readonly TestGlobals _globals = new();
-    private readonly Hl2mpAiSession _ai;
-    private readonly Hl2mpBots _bots;
-    private readonly Hl2mpSenses _senses;
+    private readonly ServerAiSession _ai;
+    private readonly AiBots _bots;
+    private readonly AiSenses _senses;
     private readonly string _file = Path.GetTempFileName();
     private int _tick = 1200;
 
@@ -103,18 +104,17 @@ public sealed class SenseBudgetTests : IDisposable
         _world.Add(2, new AiVector(0f, 0f, 0f));
         _world.Add(3, new AiVector(500f, 0f, 0f), yaw: 180f);
         IEnginePlayers nobody = FakeEngine.Of<IEnginePlayers>((m, _) => m.Name == "GetHandle" ? EntityHandle.None : throw FakeEngine.Unasked(m));
-        _ai = new Hl2mpAiSession(nav, WeaponCatalog.Stock(), null!, nobody, log,
-                                 DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
-                                 DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
+        _ai = new ServerAiSession(nav, TestGames.Hl2mp(), nobody, log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>());
         IEngineFrame frame = FakeEngine.Of<IEngineFrame>((m, _) => m.Name == "TickCount" ? _tick : throw FakeEngine.Unasked(m));
         IEngineEntities entities = _world.Entities();
         IEnginePlayers players = _world.Engine();
         Budget = new AiMainBudget(_globals, DeclaredConVars.FreshAt<FpsMaxConVar>("0"),
                                   FakeEngine.Of<IEngineHost>((m, _) => m.Name == "get_IsDedicatedServer" ? false : throw FakeEngine.Unasked(m)),
                                   DeclaredConVars.FreshAt<AiBudgetConVar>("1"), Floor, DeclaredConVars.Fresh<AiBudgetWaitConVar>());
-        _bots = new Hl2mpBots(new WorldPlayers(_world), new Runner(), players, entities, WeaponCatalog.Stock(), frame, nav, _holdings, new Names(), new ScoreboardTags(), log, _ai, null, Budget);
+        _bots = new AiBots(new WorldPlayers(_world), new Runner(), players, entities, WeaponCatalog.Stock(), frame, nav, TestGames.Hl2mp(), _holdings, new Names(), new ScoreboardTags(), log, _ai, null, Budget);
         var vision = new VisionPass(players, entities, _world.Traces());
-        _senses = new Hl2mpSenses(_bots, _ai, vision, new SnapshotBuilder(players, WeaponCatalog.Stock(), _hud, _world.Stance(), new FakeTeams()), new ActorDirectory(players, _globals), frame, log,
+        _senses = new AiSenses(_bots, _ai, vision, new SnapshotBuilder(players, WeaponCatalog.Stock(), _hud, _world.Stance(), new FakeTeams()), new ActorDirectory(players, _globals), frame, log,
                                   new ReferenceRecorder(_ai, vision), _holdings, WeaponCatalog.Stock(), Budget);
         SkillPresets.TryGet("normal", out SkillProfile? p);
         Assert.Null(_bots.Add("Alyx", p!, 1, out _));
@@ -166,7 +166,7 @@ public sealed class SenseBudgetTests : IDisposable
     [Fact]
     public void ARecordingReadsEveryBotsHudEveryTick()
     {
-        _ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity));
+        _ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, ServerAiSession.SightedCapacity));
         for (int t = 0; t < 12; t++)
             Tick();
         Assert.Equal(24, _hud.Reads.Count);

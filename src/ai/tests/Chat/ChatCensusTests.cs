@@ -1,9 +1,11 @@
 using System.Reflection;
 using SourceSharp.Ai.Hl2mp;
 using SourceSharp.Ai.Hl2mp.Chat;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Senses;
+using SourceSharp.Ai.Server.Chat;
 
 namespace SourceSharp.Ai.Tests.Chat;
 
@@ -15,11 +17,13 @@ namespace SourceSharp.Ai.Tests.Chat;
 /// </summary>
 public sealed class ChatCensusTests
 {
-    private static readonly Assembly Binding = typeof(Hl2mpBotChat).Assembly;
+    /// <summary>The binding: HL2MP's chat and the generic server half's chat worker (plan_bots_teams_tf2 C.2).</summary>
+    private static readonly Assembly[] Binding = [typeof(Hl2mpBotChat).Assembly, typeof(SourceSharp.Ai.Server.Chat.OllamaChatWriter).Assembly];
     private static readonly Assembly Core = typeof(ChatDirector).Assembly;
 
     private static bool IsChatType(string? fullName)
-        => fullName is not null && (fullName.StartsWith("SourceSharp.Ai.Chat", StringComparison.Ordinal) || fullName.StartsWith("SourceSharp.Ai.Hl2mp.Chat.", StringComparison.Ordinal));
+        => fullName is not null && (fullName.StartsWith("SourceSharp.Ai.Chat", StringComparison.Ordinal) || fullName.StartsWith("SourceSharp.Ai.Hl2mp.Chat.", StringComparison.Ordinal)
+                                  || fullName.StartsWith("SourceSharp.Ai.Server.Chat.", StringComparison.Ordinal));
 
     /// <summary>The core's chat types, by name: they sit in the core's one namespace.</summary>
     private static readonly string[] CoreChat =
@@ -75,7 +79,7 @@ public sealed class ChatCensusTests
     private static IEnumerable<MethodBase> ChatMethods()
     {
         const BindingFlags every = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
-        foreach (Type t in Binding.GetTypes().Where(t => t.FullName!.StartsWith("SourceSharp.Ai.Hl2mp.Chat.", StringComparison.Ordinal)))
+        foreach (Type t in Binding.SelectMany(b => b.GetTypes()).Where(t => IsChatType(t.FullName) && !t.FullName!.StartsWith("SourceSharp.Ai.Chat", StringComparison.Ordinal)))
         {
             foreach (MethodBase m in t.GetMethods(every).Cast<MethodBase>().Concat(t.GetConstructors(every)))
                 yield return m;
@@ -86,7 +90,7 @@ public sealed class ChatCensusTests
     [Fact]
     public void ChatCallsNoBrainCommandSenseOrRecording()
     {
-        string[] forbidden = ["Brain", "AiSession", "BotCommandApplier", "Hl2mpSenses", "VisionPass", "SnapshotBuilder", "AiRecorder", "Hl2mpAiSession", "PerceivedView", "BotMemory"];
+        string[] forbidden = ["Brain", "AiSession", "BotCommandApplier", "AiSenses", "VisionPass", "SnapshotBuilder", "AiRecorder", "ServerAiSession", "PerceivedView", "BotMemory"];
         var hits = new List<string>();
         foreach (MethodBase m in ChatMethods())
         {
@@ -151,11 +155,11 @@ public sealed class ChatCensusTests
     [Fact]
     public void NothingOutsideChatCallsIntoIt()
     {
-        string[] callers = IlCallCensus.Callers(m => m.DeclaringType is { } t && (IsChatType(t.FullName) || IsCoreChat(t.FullName ?? "")), Binding, Core);
+        string[] callers = IlCallCensus.Callers(m => m.DeclaringType is { } t && (IsChatType(t.FullName) || IsCoreChat(t.FullName ?? "")), [.. Binding, Core]);
         string[] outside = [.. callers.Where(c => !IsChatType(c) && !IsCoreChat(c) && !c.StartsWith("SourceSharp.Ai.Chat", StringComparison.Ordinal))];
         // The team callouts' words (plan_bots_teams_tf2 B.4): ChatPlaces names a place for the humans' say_team
         // line, after the brain spoke; nothing reads the words back.
-        Assert.Equal([typeof(CalloutWords).FullName!, typeof(AiBotRoutes).FullName!, typeof(SourceSharp.Ai.Hl2mp.Teams.TeamCalloutChat).FullName!], outside);
+        Assert.Equal([typeof(CalloutWords).FullName!, typeof(AiBotRoutes).FullName!, typeof(SourceSharp.Ai.Server.Teams.TeamCalloutChat).FullName!], outside);
     }
 
     /// <summary>A recording's events have no chat kind: chat is not in <c>.airec</c> (by ruling).</summary>
@@ -169,8 +173,8 @@ public sealed class ChatCensusTests
     {
         string[] draws = IlCallCensus.Callers(m => m.DeclaringType == typeof(AiRandom) && m.IsConstructor, Binding);
         Assert.DoesNotContain(typeof(Hl2mpBotChat).FullName!, draws);
-        Assert.NotEqual(Hl2mpBots.NameSalt, Hl2mpBotChat.ChatSalt);
-        Assert.NotEqual(Hl2mpAiSession.BrainSalt, Hl2mpBotChat.ChatSalt);
+        Assert.NotEqual(AiBots.NameSalt, Hl2mpBotChat.ChatSalt);
+        Assert.NotEqual(ServerAiSession.BrainSalt, Hl2mpBotChat.ChatSalt);
     }
 
     /// <summary>The setting is off by default: nothing about chat runs until someone asks.</summary>

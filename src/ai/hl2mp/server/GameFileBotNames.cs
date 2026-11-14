@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Ai.Server;
 
 namespace SourceSharp.Ai.Hl2mp;
 

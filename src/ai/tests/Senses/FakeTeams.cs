@@ -1,5 +1,5 @@
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Senses;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Senses;
 

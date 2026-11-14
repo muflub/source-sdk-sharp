@@ -2,9 +2,9 @@ using System.Diagnostics;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
-using SourceSharp.Ai.Hl2mp.Senses;
+using SourceSharp.Ai.Server.Senses;
 
-namespace SourceSharp.Ai.Hl2mp;
+namespace SourceSharp.Ai.Server;
 
 /// <summary>
 /// The binding's <see cref="MainThreadBudget"/>: its clocks, and each frame's

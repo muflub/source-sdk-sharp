@@ -1,6 +1,6 @@
 using SourceSharp.MapFormats.Nav;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>
 /// The version of map-tools' <c>SourceSharp.MapFormats</c> the binding runs

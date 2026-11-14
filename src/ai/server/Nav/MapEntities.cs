@@ -4,7 +4,7 @@ using System.Text;
 using SourceSharp.MapFormats.Bsp;
 using SourceSharp.MapFormats.Bsp.Structs;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>One entity of interest from the map's entity lump: its classname, name, origin and, for a brush entity, its bounds in the world.</summary>
 public readonly record struct MapEntity(string ClassName, string? Name, AiVector Origin, AiVector? Mins, AiVector? Maxs,

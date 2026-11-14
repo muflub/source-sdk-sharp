@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using SourceSharp.Ai.Hl2mp.Chat;
+using SourceSharp.Ai.Server.Chat;
 
 namespace SourceSharp.Ai.Replay;
 

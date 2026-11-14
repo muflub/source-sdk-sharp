@@ -35,6 +35,16 @@ namespace SourceSharp.Server;
 /// teams back on Unassigned (stock's deathmatch <c>ChangeTeam</c> forces
 /// team 0, hl2mp_player.cpp:971-975).
 /// </para>
+///
+/// <para>
+/// A player brought in for a team (<see cref="IWantedTeams"/>: a bot added
+/// with <c>team=N</c>) is put on it at that first assignment, when it is in
+/// play and the join rule would let them join it, rather than on the
+/// auto-assigned team. Stock's <c>hl2mp_bot_add</c> spawns the bot on the
+/// auto team and then calls <c>HandleCommand_JoinTeam</c>, whose switch is
+/// a suicide (a frag and a team point lost); joining directly is a
+/// divergence row.
+/// </para>
 /// </summary>
 public sealed class TeamDeathmatchMode : IGameMode, IModeSetup, IModeTeardown, ITeamScramble
 {
@@ -67,15 +77,17 @@ public sealed class TeamDeathmatchMode : IGameMode, IModeSetup, IModeTeardown, I
     private readonly GameModes _modes;
     private readonly IEnginePlayers _players;
     private readonly Random _random;
+    private readonly IWantedTeams? _wanted;
 
     public TeamDeathmatchMode(GameModes modes, IEnginePlayers players, SpawnPoints spawnPoints, ITeams teams,
                               ITeamAssignment assign, IEngineDamage damage, TeamsUnbalanceLimitConVar unbalanceLimit,
                               TdmTeamsConVar teamCount, IUserMessageSender messages, IBotPlayers? bots = null,
-                              Random? random = null)
+                              Random? random = null, IWantedTeams? wanted = null)
     {
         _modes = modes;
         _players = players;
         _random = random ?? new Random();
+        _wanted = wanted;
         _teams = teams;
         _assign = assign;
         _teamCount = teamCount;
@@ -219,11 +231,22 @@ public sealed class TeamDeathmatchMode : IGameMode, IModeSetup, IModeTeardown, I
         }
     }
 
-    /// <summary>Stock's <c>PickDefaultSpawnTeam</c> under teamplay: only a player on Unassigned moves.</summary>
+    /// <summary>
+    /// Stock's <c>PickDefaultSpawnTeam</c> under teamplay: only a player on
+    /// Unassigned moves, to the team they were brought in for if they may
+    /// join it, else to the auto-assigned one.
+    /// </summary>
     private void PickDefaultSpawnTeam(EntityHandle player)
     {
         if (_teams.Team(player) == 0)
-            _assign.Assign(player, _join.AutoTeam(player));
+            _assign.Assign(player, WantedTeam(player) ?? _join.AutoTeam(player));
+    }
+
+    /// <summary>The team <paramref name="player"/> was brought in for, when it is in play and the join rule allows it.</summary>
+    private int? WantedTeam(EntityHandle player)
+    {
+        int team = _wanted?.WantedTeam(player) ?? 0;
+        return team >= TeamCombine && team <= LastTeam && _join.MayJoin(player, team, out _) ? team : null;
     }
 }
 

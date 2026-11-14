@@ -1,8 +1,9 @@
 using System.Reflection;
 using SourceSharp.Ai.Hl2mp;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Boundary;
 
@@ -19,7 +20,8 @@ namespace SourceSharp.Ai.Tests.Boundary;
 /// </summary>
 public sealed class PerceptionCensusTests
 {
-    private static readonly Assembly Binding = typeof(VisionPass).Assembly;
+    /// <summary>The binding: the generic server half (plan_bots_teams_tf2 C.2) and HL2MP's over it.</summary>
+    private static readonly Assembly[] Binding = [typeof(VisionPass).Assembly, typeof(Hl2mpBotGame).Assembly];
 
     /// <summary>The reads of an actor's state the census watches, by declaring type and member.</summary>
     private static readonly string[] Reads =
@@ -39,12 +41,12 @@ public sealed class PerceptionCensusTests
         // The bot itself: its own origin, eye, view and holdings (§2.4), its own HUD (§4.3).
         typeof(EngineBotSelf).FullName!, typeof(ArsenalBotInventory).FullName!, typeof(EngineBotHud).FullName!,
         // Doors and props the nav blocks, never a player (§6.3).
-        "SourceSharp.Ai.Hl2mp.Nav.EngineObstacleEyes",
+        "SourceSharp.Ai.Server.Nav.EngineObstacleEyes",
         // The solid entities' cells (ruling 2026-11-02), never a player, a weapon or an item: the
         // field reads the truth and gives a bot only what was in its PVS (NavObstacleField).
-        "SourceSharp.Ai.Hl2mp.Nav.EngineObstacleWorld",
+        "SourceSharp.Ai.Server.Nav.EngineObstacleWorld",
         // ai_bot_goto: the debug command's target, an item by class or a point.
-        "SourceSharp.Ai.Hl2mp.AiBotGotoCommand",
+        "SourceSharp.Ai.Server.AiBotGotoCommand",
         // The inspector's perception part (§7.1): the bot's own view, for the web UI only.
         typeof(AiBotRoutes).FullName!,
         // The recording's hit: the weapon in the attacker's hands, written to the file, never to a brain (§3.4.4).
@@ -88,7 +90,7 @@ public sealed class PerceptionCensusTests
     {
         string route = typeof(AiWorldRoutes).FullName!;
         string[] routeCallers = [.. IlCallCensus.Callers(m => m.DeclaringType == typeof(AiWorldRoutes), Binding).Where(c => c != route)];
-        Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.AiDebugRoutes"], routeCallers);
+        Assert.Equal(["SourceSharp.Ai.Server.Nav.AiDebugRoutes"], routeCallers);
         string[] logCallers = [.. IlCallCensus.Callers(m => m.DeclaringType == typeof(HeardLog), Binding).Where(c => c != typeof(HeardLog).FullName)];
         Assert.Equal(new[] { route, typeof(SoundTap).FullName! }.Order(StringComparer.Ordinal), logCallers);
     }
@@ -96,22 +98,22 @@ public sealed class PerceptionCensusTests
     /// <summary>
     /// The obstacle field reads the world's truth so a bot need not (ruling 2026-11-02): only
     /// it asks the world's seam, and what a bot routes by reaches it through
-    /// <see cref="SourceSharp.Ai.Hl2mp.Nav.IObstacleSight"/>, the PVS a client would be sent an entity by.
+    /// <see cref="SourceSharp.Ai.Server.Nav.IObstacleSight"/>, the PVS a client would be sent an entity by.
     /// </summary>
     [Fact]
     public void OnlyTheObstacleFieldAsksTheObstacleWorld()
     {
-        string[] callers = IlCallCensus.Callers(m => m.DeclaringType == typeof(SourceSharp.Ai.Hl2mp.Nav.IObstacleWorld), Binding);
-        Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.NavObstacleField"], callers);
-        Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.NavObstacleField"], IlCallCensus.Callers(m => m.DeclaringType == typeof(SourceSharp.Ai.Hl2mp.Nav.IObstacleSight), Binding));
+        string[] callers = IlCallCensus.Callers(m => m.DeclaringType == typeof(SourceSharp.Ai.Server.Nav.IObstacleWorld), Binding);
+        Assert.Equal(["SourceSharp.Ai.Server.Nav.NavObstacleField"], callers);
+        Assert.Equal(["SourceSharp.Ai.Server.Nav.NavObstacleField"], IlCallCensus.Callers(m => m.DeclaringType == typeof(SourceSharp.Ai.Server.Nav.IObstacleSight), Binding));
     }
 
     /// <summary>A player, a weapon or an item stops nobody by our collision rules, and is not a thing the field may read.</summary>
     [Fact]
     public void TheObstacleWorldsRostersNameNoPlayerWeaponOrItem()
     {
-        var world = new SourceSharp.Ai.Hl2mp.Nav.EngineObstacleWorld(null!);
-        string[] classes = [.. Enumerable.Range(0, world.RosterCount).Select(SourceSharp.Ai.Hl2mp.Nav.EngineObstacleWorld.RosterClass)];
+        var world = new SourceSharp.Ai.Server.Nav.EngineObstacleWorld(null!);
+        string[] classes = [.. Enumerable.Range(0, world.RosterCount).Select(SourceSharp.Ai.Server.Nav.EngineObstacleWorld.RosterClass)];
         Assert.Equal(world.RosterCount, classes.Distinct().Count());
         Assert.Contains("prop_physics", classes);
         Assert.Contains("func_brush", classes);
@@ -125,7 +127,7 @@ public sealed class PerceptionCensusTests
     [Fact]
     public void TheSnapshotBuilderNeverReadsHealthArmourClipOrReserve()
     {
-        string[] calls = [.. IlCallCensus.Calls(m => m.DeclaringType?.Assembly != Binding, Binding)
+        string[] calls = [.. IlCallCensus.Calls(m => m.DeclaringType?.Assembly is not { } a || !Binding.Contains(a), Binding)
                                          .Where(c => c.Caller == typeof(SnapshotBuilder).FullName).Select(c => c.Callee).Distinct()];
         Assert.True(calls.Contains("GetActiveWeapon"), "the control: the census sees the builder's calls");
         string[] truth = ["GetHealth", "GetArmor", "Holdings", "CarriedClipOf", "PoolOf", "Pools", "MaxCarryOf", "GetWeaponEntity"];

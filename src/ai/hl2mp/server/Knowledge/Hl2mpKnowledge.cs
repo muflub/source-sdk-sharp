@@ -1,8 +1,9 @@
 using System.Collections.Immutable;
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Hl2mp.Knowledge;
 
@@ -94,7 +95,7 @@ public static class WeaponKnowledgeBuilder
 /// crossbow, the RPG, the shotgun and the AR2 of ruling 2026-11-03). Nothing dynamic.
 /// </summary>
 [SideService(Side.Server, As = [typeof(Chat.IChatMapFacts)])]
-public sealed class SessionMapFacts(Senses.Hl2mpAiSession ai, IHl2mpNavigation nav) : Chat.IChatMapFacts
+public sealed class SessionMapFacts(ServerAiSession ai, IAiNavigation nav) : Chat.IChatMapFacts
 {
     /// <summary>The rank from which a weapon is one a bot keeps vague about.</summary>
     public const int GoodRank = 6;

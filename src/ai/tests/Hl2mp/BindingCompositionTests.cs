@@ -1,6 +1,6 @@
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Senses;
 using Xunit;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Hl2mp;
 
@@ -16,7 +16,10 @@ public sealed class BindingCompositionTests
     public void EveryServiceOfTheBindingRegistersOnce()
     {
         var services = new ServiceContainer();
-        IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server, typeof(VisionPass).Assembly.GetTypes());
+        // Both of the test mod's AI assemblies, as mods.yaml lists them (plan_bots_teams_tf2 C.2).
+        IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server,
+            [.. typeof(VisionPass).Assembly.GetTypes(), .. typeof(SourceSharp.Ai.Hl2mp.Hl2mpBotGame).Assembly.GetTypes()]);
+        Assert.Contains(typeof(SourceSharp.Ai.Server.IBotGame), registered);
         Assert.Contains(typeof(CombatTap), registered);
         Assert.Contains(typeof(SourceSharp.Server.ISoundEmitHook), registered);
         Assert.Contains(typeof(SourceSharp.Server.IClientStepHook), registered);

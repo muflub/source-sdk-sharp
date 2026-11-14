@@ -26,7 +26,7 @@ public class ConCommandCensusTests
     /// <summary>The assemblies that declare commands: an empty scan of any of them is a broken census.</summary>
     private static readonly string[] Declaring =
     [
-        "SourceSharp.Server", "SourceSharp.Client", "TF2.Server", "TF2.Client", "TF2.Descent.Server", "SourceSharp.Ai.Hl2mp",
+        "SourceSharp.Server", "SourceSharp.Client", "TF2.Server", "TF2.Client", "TF2.Descent.Server", "SourceSharp.Ai.Server",
     ];
 
     /// <summary>The fixture the census must be able to see.</summary>

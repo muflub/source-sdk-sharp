@@ -70,6 +70,11 @@ public sealed class KnownActor
     /// <summary>Its scoreboard rank, 1 the leader; 0 before the bot's HUD showed it.</summary>
     public int Rank { get; internal set; }
 
+    /// <summary>The team and class its scoreboard row shows (plan_bots_teams_tf2 C.2): 0 when the board shows none.</summary>
+    public int BoardTeam { get; internal set; }
+
+    public int BoardClass { get; internal set; }
+
     public bool Dead { get; internal set; }
 
     /// <summary>

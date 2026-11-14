@@ -553,7 +553,9 @@ public readonly record struct MovementRules(
     Action<int> ChargeSlowEnd,
     Action<int, EntityHandle> ChargeBump,
     Func<int, Vector, Vector> ParachuteFallCap,
-    Func<int, uint, bool, uint> SolidMask)
+    Func<int, uint, bool, uint> SolidMask,
+    Func<int, int, bool, int, float, int> DuckButtons,
+    Action<int, float, bool> DuckRelease)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -579,7 +581,9 @@ public readonly record struct MovementRules(
         static _ => { },
         static (_, _) => { },
         static (_, v) => v,
-        static (_, mask, _) => mask);
+        static (_, mask, _) => mask,
+        static (_, buttons, _, _, _) => buttons,
+        static (_, _, _) => { });
 }
 
 /// <summary>
@@ -3847,6 +3851,13 @@ public sealed partial class GameMovement
     /// <summary><c>Duck</c> (gamemovement.cpp:4786).</summary>
     private void Duck()
     {
+        // Stock's DuckOverrides (tf_gamemovement.cpp:3179-3223, called at the
+        // top of TF's Duck :3392): the mod masks the duck button off the
+        // command BEFORE the button edges are computed, so a masked press is
+        // no press at all and a masked release keeps the held bit in the old
+        // word as stock's masked m_nButtons does.
+        _s.Buttons = Rules.DuckButtons(_s.EntIndex, _s.Buttons, _s.HasGround, _s.WaterLevel, _s.CurTime);
+
         int buttonsChanged = _s.OldButtons ^ _s.Buttons;
         int buttonsPressed = buttonsChanged & _s.Buttons;
         int buttonsReleased = buttonsChanged & _s.OldButtons;
@@ -3865,6 +3876,13 @@ public sealed partial class GameMovement
             return;
 
         HandleDuckingSpeedCrop();
+
+        // Stock's OnUnDuck start of business (tf_gamemovement.cpp:3293-3302):
+        // the release edge stamps the duck timer and counts the air duck,
+        // ahead of the unduck's automovement gate. The edge is computed from
+        // the masked button word, as stock's mv->m_nButtons is masked by then.
+        if ((buttonsReleased & InDuck) != 0)
+            Rules.DuckRelease(_s.EntIndex, _s.CurTime, inAir);
 
         // "Assumes we never rerun commands on the server." On the client this
         // is prediction->IsFirstTimePredicted(), which only gates the eye-height

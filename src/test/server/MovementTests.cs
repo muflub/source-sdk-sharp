@@ -1689,6 +1689,111 @@ public class MovementTests
         AssertBits(700f, s.DuckTime, "the timer counts down by the tick alone");
     }
 
+    /// <summary>
+    /// TF's duck mask (stock's <c>DuckOverrides</c>, tf_gamemovement.cpp:3179-3223,
+    /// called at the top of TF's Duck :3392): the mask trims the duck button off
+    /// the command BEFORE the press edge is computed, so a refused press never
+    /// starts the duck at all — while the same command under an answer that
+    /// passes the button through takes the duck on its press edge.
+    /// </summary>
+    [Fact]
+    public void TheMaskedDuckButtonNeverStartsTheDuckWhereAPassedOneDoes()
+    {
+        // Refused arm: the mask drops IN_DUCK before the edges.
+        MoveState refused = DuckMaskedCommand(static (_, b, _, _, _) => b & ~GameMovement.InDuck);
+        Assert.False(refused.Ducking);
+        Assert.Equal(0f, refused.DuckTime);
+
+        // Passing arm (positive control): the identity answer ducks on the press.
+        MoveState passed = DuckMaskedCommand(static (_, b, _, _, _) => b);
+        Assert.True(passed.Ducking);
+        Assert.True(passed.DuckTime > 0f, "the press opened its easing window");
+    }
+
+    /// <summary>
+    /// One grounded command that presses the duck button (the old word up),
+    /// under one answer for the duck-button mask ask.
+    /// </summary>
+    private static MoveState DuckMaskedCommand(Func<int, int, bool, int, float, int> mask)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { DuckButtons = mask };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InDuck;
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The duck release's stamp (stock's <c>OnUnDuck</c> opening block,
+    /// tf_gamemovement.cpp:3293-3302): the command that lets go of the duck
+    /// button answers <see cref="MovementRules.DuckRelease"/> once, carrying
+    /// the loop's own clock and ground answer — on the ground under the feet,
+    /// airborne above them.
+    /// </summary>
+    [Fact]
+    public void TheDuckReleaseEdgeAnswersOnceWithTheLoopsClockAndGround()
+    {
+        var calls = new List<(int Index, float Time, bool Air)>();
+
+        var movement = new GameMovement(
+            new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) },
+            MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { DuckRelease = (i, t, a) => calls.Add((i, t, a)) };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.CurTime = 3.25f;
+        s.Buttons = 0;
+        s.OldButtons = GameMovement.InDuck;
+        s.Ducking = true;
+        movement.ProcessMovement(s);
+
+        Assert.Single(calls);
+        Assert.Equal(1, calls[0].Index);
+        Assert.Equal(3.25f, calls[0].Time);
+        Assert.False(calls[0].Air, "the grounded release names the ground");
+
+        // Airborne: no clear floor under the feet, and the stamp says air.
+        calls.Clear();
+        var air = new GameMovement(
+            new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => MoveTrace.Clear(en) },
+            MoveConstantDefaults.Stock);
+        air.Rules = MovementRules.Stock with { DuckRelease = (i, t, a) => calls.Add((i, t, a)) };
+        MoveState a = BaselineState();
+        a.HasGround = false;
+        a.CurTime = 3.25f;
+        a.Buttons = 0;
+        a.OldButtons = GameMovement.InDuck;
+        a.Ducking = true;
+        air.ProcessMovement(a);
+
+        Assert.Single(calls);
+        Assert.True(calls[0].Air, "the airborne release says so");
+    }
+
+    /// <summary>
+    /// Only the edge stamps: a command that holds the duck button down across
+    /// both words (pressed and held) releases nothing and answers nothing.
+    /// </summary>
+    [Fact]
+    public void APlainlyHeldDuckButtonDoesNotStampItsRelease()
+    {
+        var calls = 0;
+        var movement = new GameMovement(
+            new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) },
+            MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { DuckRelease = (_, _, _) => calls++ };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InDuck;
+        s.OldButtons = GameMovement.InDuck;
+        movement.ProcessMovement(s);
+
+        Assert.Equal(0, calls);
+    }
+
     //=========================================================================
     // The stun's command rewrite (CTFGameMovement::StunMove,
     // tf_gamemovement.cpp:537-627): stock's ProcessMovement asks it between

@@ -97,7 +97,7 @@ internal static class LoadoutDeps
     /// <summary>A server with no bots: <see cref="IBotPlayers.IsBot"/> false for everyone.</summary>
     private sealed class NoBotPlayers : IBotPlayers
     {
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             refusal = "no bots";
             return EntityHandle.None;

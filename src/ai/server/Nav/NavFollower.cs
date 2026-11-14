@@ -1,4 +1,4 @@
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>Where a follower stands relative to its objective.</summary>
 public enum FollowState : byte

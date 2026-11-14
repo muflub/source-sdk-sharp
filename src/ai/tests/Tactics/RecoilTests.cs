@@ -4,6 +4,7 @@ using SourceSharp.Ai.Tests.Senses;
 using SourceSharp.Ai.Tests.Trees;
 using SourceSharp.Shared;
 using Xunit;
+using SourceSharp.Ai.Server;
 
 namespace SourceSharp.Ai.Tests.Tactics;
 

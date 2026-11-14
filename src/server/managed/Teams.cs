@@ -108,6 +108,20 @@ public interface ITeamAutoAssign
 }
 
 /// <summary>
+/// The team a player was brought in for, before their first spawn: a bot
+/// added onto a team (<see cref="IBotPlayers.Add"/>'s <c>team</c>). A mode's
+/// spawn-time assignment (stock <c>PickDefaultSpawnTeam</c>) asks it before
+/// its auto-assign, so the player joins that team directly instead of
+/// landing on another and switching, which under teamplay is a suicide that
+/// costs a frag and a team point. The mode decides whether to honour it.
+/// </summary>
+public interface IWantedTeams
+{
+    /// <summary>The team <paramref name="player"/> was brought in for; 0 for none.</summary>
+    int WantedTeam(EntityHandle player);
+}
+
+/// <summary>
 /// How many playing teams the active mode plays with, implemented beside
 /// <see cref="IJoinTeamPolicy"/> by the active mode's rule: the joinable
 /// teams are Spectator (1) to <see cref="LastTeam"/>. A mode whose rule does

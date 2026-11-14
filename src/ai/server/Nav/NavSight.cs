@@ -2,7 +2,7 @@ using System.Collections;
 using SourceSharp.MapFormats.Geometry;
 using SourceSharp.MapFormats.Nav;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>Whether a point is in the file's free space (not solid, inside the grid).</summary>
 public interface IVoxelSpace

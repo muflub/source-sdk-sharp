@@ -56,7 +56,7 @@ public sealed class BotInventoryTests
 
     private sealed class TestBots(bool isBot) : IBotPlayers
     {
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             refusal = "the test fake adds no clients";
             return EntityHandle.None;

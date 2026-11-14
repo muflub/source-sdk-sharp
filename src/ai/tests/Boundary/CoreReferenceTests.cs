@@ -31,7 +31,7 @@ public class CoreReferenceTests
         => Assert.DoesNotContain(References(), n => !IsFramework(n));
 
     /// <summary>Every type name, string literal and constant in an assembly that names <paramref name="needle"/>.</summary>
-    private static List<string> Naming(Assembly assembly, string needle)
+    internal static List<string> Naming(Assembly assembly, string needle)
     {
         var hits = new List<string>();
         using var pe = new PEReader(File.OpenRead(assembly.Location));

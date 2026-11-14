@@ -1,6 +1,7 @@
 using SourceSharp.Ai.Hl2mp;
 using SourceSharp.Ai.Tests.Skills;
 using Xunit;
+using SourceSharp.Ai.Server;
 
 namespace SourceSharp.Ai.Tests.Teams;
 

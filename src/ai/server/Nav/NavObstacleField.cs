@@ -3,8 +3,9 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Server;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>What a solid entity is to a walking player.</summary>
 public enum ObstacleBodyKind : byte
@@ -556,7 +557,7 @@ public sealed class EngineBreakableAim(NavObstacleField field, ITraceQueries tra
     {
         if (!field.BreakableAt(cell, out EntityHandle entity, out point))
             return false;
-        TraceAnswer t = traces.Line(new Vector(eye.X, eye.Y, eye.Z), new Vector(point.X, point.Y, point.Z), Senses.AiWorldRoutes.ShotMask, shooter);
+        TraceAnswer t = traces.Line(new Vector(eye.X, eye.Y, eye.Z), new Vector(point.X, point.Y, point.Z), SourceSharp.Ai.Server.Senses.AiWorldRoutes.ShotMask, shooter);
         return t.Fraction >= 1f || t.Entity == entity;
     }
 }

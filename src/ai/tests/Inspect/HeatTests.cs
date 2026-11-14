@@ -1,8 +1,8 @@
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Ai.Replay;
-using SourceSharp.Ai.Tests.Hl2mpNav;
 using SkiaSharp;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Tests.ServerNav;
 
 namespace SourceSharp.Ai.Tests.Inspect;
 
@@ -17,7 +17,7 @@ public sealed class HeatTests
 
     private static (DerivedNav Nav, List<HeatFrame> Frames) Replayed()
     {
-        DerivedNav nav = NavGraphFromNav3d.Derive(new Nav3dNavSource(NavFixtures.Course().Open()), Hl2mpNavNumbers.Stock(56f), NavEdgeCosts.Default, []);
+        DerivedNav nav = NavGraphFromNav3d.Derive(new Nav3dNavSource(NavFixtures.Course().Open()), NavNumbers.Stock(56f), NavEdgeCosts.Default, []);
         var stream = new MemoryStream();
         var rec = new AiRecorder(stream, new AiRecordingHeader(0x5EED, "course", 0, 0, 8, 4));
         var session = new AiSession(new InlineTransport(), rec, 8, 4);

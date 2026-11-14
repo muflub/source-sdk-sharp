@@ -1,4 +1,4 @@
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>
 /// One free-space leaf of a <c>.nav3d</c>, as the derivation reads it: its

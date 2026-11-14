@@ -1,7 +1,7 @@
 using SourceSharp.MapFormats.Geometry;
 using SourceSharp.MapFormats.Nav;
 
-namespace SourceSharp.Ai.Hl2mp.Nav;
+namespace SourceSharp.Ai.Server.Nav;
 
 /// <summary>
 /// <see cref="INavSource"/> over map-tools' <see cref="Nav3dReader"/>

@@ -74,7 +74,7 @@ public sealed class AimModelTests
         SelfState there = d.Self() with { Origin = place - new AiVector(away, 0f, 0f) };
         IntentCommand c = d.Step(there, []);
         Assert.Equal(Duel.Opponent, c.Look.Actor);
-        float pitch = SourceSharp.Ai.Hl2mp.BotCommandApplier.AnglesTo(there.Origin + new AiVector(0f, 0f, 64f), c.Look.Point).Pitch;
+        float pitch = SourceSharp.Ai.Server.BotCommandApplier.AnglesTo(there.Origin + new AiVector(0f, 0f, 64f), c.Look.Point).Pitch;
         Assert.InRange(pitch, -10f, 10f);
     }
 

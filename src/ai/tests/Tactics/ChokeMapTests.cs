@@ -1,6 +1,6 @@
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Ai.Tests.Nav;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
 
 namespace SourceSharp.Ai.Tests.Tactics;
 

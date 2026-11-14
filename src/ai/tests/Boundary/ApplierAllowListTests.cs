@@ -2,6 +2,7 @@ using System.Reflection;
 using SourceSharp.Ai.Hl2mp;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server;
 
 namespace SourceSharp.Ai.Tests.Boundary;
 
@@ -25,7 +26,7 @@ public class ApplierAllowListTests
         "AdminNode::.ctor", "AdminNode::Folder", "AdminNode::Refusable",
         // AiBotAddCommand: the player who typed a refused add hears why (plan_bots_teams_tf2 D.4).
         "IPlayerNotices::CommandIssuer", "IPlayerNotices::Refused",
-        // Hl2mpBots and the commands: the core's bots, and the log.
+        // AiBots and the commands: the core's bots, and the log.
         "BotPlayer::get_EntIndex", "BotPlayer::get_Name", "BotPlayer::get_Player",
         "EntityHandle::get_None", "EntityHandle::op_Equality", "EntityHandle::op_Inequality",
         "IBotPlayers::Add", "IBotPlayers::Kick", "IBotPlayers::get_Bots",
@@ -47,11 +48,11 @@ public class ApplierAllowListTests
         "UserCmd::set_Pitch", "UserCmd::set_Roll", "UserCmd::set_Yaw",
         // CommandTap: every player's command's view angles, read into the recording (§3.4.4).
         "UserCmd::get_Pitch", "UserCmd::get_Roll", "UserCmd::get_Yaw",
-        // Hl2mpNavNumbers: the movement code's step, jump and fall numbers (Phase 2).
+        // NavNumbers: the movement code's step, jump and fall numbers (Phase 2).
         "Movement::get_Current",
-        // Hl2mpNav: the level's files through the file seam, the cache under the game dir (Phase 2 step 3).
+        // AiNav: the level's files through the file seam, the cache under the game dir (Phase 2 step 3).
         "IEngineFiles::ReadGameFileBytes", "IModInfo::get_GameDir",
-        // GameFileBotNames: the name pools' data file; Hl2mpBots: a bot's skill label beside its name (user rulings 2026-11-01).
+        // GameFileBotNames: the name pools' data file; AiBots: a bot's skill label beside its name (user rulings 2026-11-01).
         "IEngineFiles::ReadGameFile", "IScoreboardTags::Set",
         // EngineObstacleEyes: an obstacle's entity, found by name or class and place, alive, where and how turned.
         "IEngineEntities::FindAllByClassname", "IEngineEntities::FindByName", "IEngineEntities::GetAngles",
@@ -87,7 +88,7 @@ public class ApplierAllowListTests
         // CombatTap (Phase 4 step 4): a hit and a death as the hooks tell them; the scoreboard's kills and deaths (the player resource's).
         "PlayerHurt::get_Attacker", "PlayerHurt::get_HealthLeft", "PlayerHurt::get_Player", "PlayerHurt::get_Taken",
         "PlayerDeath::get_Attacker", "PlayerDeath::get_Player", "IPlayerDirectory::get_All", "PlayerRecord::get_Deaths", "PlayerRecord::get_Kills",
-        // Hl2mpAiSession (§5.0): the respawn convars, the reload animation on the view model, the weapon table's projectile and behaviour; an opponent's user id.
+        // ServerAiSession (§5.0): the respawn convars, the reload animation on the view model, the weapon table's projectile and behaviour; an opponent's user id.
         "ConVar`1::get_Value", "ModelDescriptors::ForModel", "ModelDescriptor::LookupSequenceByActivity",
         "ModelDescriptor::SequenceDuration", "WeaponType::get_ViewModel", "WeaponType::get_Behaviour", "WeaponType::get_Projectile",
         "WeaponType::get_LaunchSpeed", "WeaponType::get_ClipSize", "WeaponType::get_Interval", "WeaponType::get_Name",
@@ -123,7 +124,8 @@ public class ApplierAllowListTests
         "IEngineEntities::SetOrigin", "IEngineEntities::SetAngles", "IEngineEntities::SetVelocity", "IEngineEntities::Teleport",
     ];
 
-    private static readonly Assembly Binding = typeof(BotCommandApplier).Assembly;
+    /// <summary>The binding: the generic server half (plan_bots_teams_tf2 C.2) and HL2MP's over it.</summary>
+    private static readonly Assembly[] Binding = [typeof(BotCommandApplier).Assembly, typeof(Hl2mpBotGame).Assembly];
 
     private static bool IsCore(MethodBase m)
     {

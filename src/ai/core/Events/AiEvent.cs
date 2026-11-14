@@ -262,7 +262,11 @@ public readonly record struct AiEvent(
     public static AiEvent CommandRejected(ActorId bot, Tick tick, int seq, RejectReason why)
         => new(AiEventKind.CommandRejected, bot, tick, ActorId.None, default, default, 0f, (int)why, seq);
 
-    /// <summary>One scoreboard row as the bot's HUD shows it: an actor's frags, deaths and rank (1 the leader, in <see cref="Amount"/>).</summary>
-    public static AiEvent ScoreboardRow(ActorId bot, Tick tick, ActorId actor, int frags, int deaths, int rank = 0)
-        => new(AiEventKind.ScoreboardRow, bot, tick, actor, default, default, rank, frags, deaths);
+    /// <summary>
+    /// One scoreboard row as the bot's HUD shows it: an actor's frags, deaths and rank (1 the leader, in
+    /// <see cref="Amount"/>), and the team and class the row shows (plan_bots_teams_tf2 C.2; 0 for none),
+    /// carried in <see cref="Position"/>'s X and Y so the recording's layout stays.
+    /// </summary>
+    public static AiEvent ScoreboardRow(ActorId bot, Tick tick, ActorId actor, int frags, int deaths, int rank = 0, int team = 0, int playerClass = 0)
+        => new(AiEventKind.ScoreboardRow, bot, tick, actor, new AiVector(team, playerClass, 0f), default, rank, frags, deaths);
 }

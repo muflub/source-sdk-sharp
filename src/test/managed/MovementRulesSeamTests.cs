@@ -287,6 +287,7 @@ public class MovementRulesSeamTests
                 "GetClampXY" => rules.ClampXY((int)a![0]!),
                 "GetKeepGround" => rules.KeepGround((int)a![0]!),
                 "GetDuckSeconds" => rules.DuckSeconds((int)a![0]!, (float)a[1]!),
+                "GetDuckButtons" => rules.DuckButtons((int)a![0]!, (int)a[1]!, (bool)a[2]!, (int)a[3]!, (float)a[4]!),
                 _ => throw new NotSupportedException(method.Name + " is not a movement getter"),
             };
         }
