@@ -137,14 +137,25 @@ public sealed class TFRocket : FlyingProjectile
 
     private int _ownerIndex;
 
+    /// <summary>
+    /// The team the launch handed in, for an owner the player seam has no
+    /// team for (<see cref="ITFProjectileSpawner"/>): stock's
+    /// <c>ChangeTeam( pOwner->GetTeamNumber() )</c> at the create
+    /// (<c>tf_weaponbase_rocket.cpp:321</c>) asks any entity. Null asks the
+    /// owning player, as every weapon's launch does.
+    /// </summary>
+    private int? _team;
+
     /// <summary>The launcher's deal: what the blast is worth and whose it is.</summary>
-    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, int ownerIndex)
+    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, int ownerIndex,
+                        int? team = null)
     {
         Damage = damage;
         Weapon = weapon;
         WeaponName = weaponName;
         Critical = critical;
         _ownerIndex = ownerIndex;
+        _team = team;
 
         // The client's CreateTrails reads the team off the projectile; here
         // the owner's team rides the row, with the owner and launcher its
@@ -167,6 +178,7 @@ public sealed class TFRocket : FlyingProjectile
         Steer(velocity, GravityScale);
         Retarget(deflector);
         _ownerIndex = Entities.GetIndex(deflector);
+        _team = null; // the deflector's now, through its owner (:165)
         Deflected = true;
         if (deflectorCritBoosted)
             Critical = true;
@@ -182,8 +194,8 @@ public sealed class TFRocket : FlyingProjectile
         State.WeaponName = WeaponName;
     }
 
-    /// <summary>The owner's team, through the engine's handle for the index.</summary>
-    private int Team() => Players.GetTeam(Players.GetHandle(_ownerIndex));
+    /// <summary>The handed-in team, or the owner's through the engine's handle for the index.</summary>
+    private int Team() => _team ?? Players.GetTeam(Players.GetHandle(_ownerIndex));
 
     protected override void Impact(EntityHandle hit)
     {
@@ -409,6 +421,12 @@ public sealed class TFPipebomb : ScriptedEntity
     private bool _touched;
     private float _createdAt;
 
+    /// <summary>The team the throw handed in (<see cref="ITFProjectileSpawner"/>); null asks the thrower.</summary>
+    private int? _team;
+
+    /// <summary>The pipe's side: the handed-in team, or the thrower's while there is one.</summary>
+    private int MyTeam() => _team ?? (Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0);
+
     /// <summary>Stock's <c>m_penetratedEntities</c> (:158): the victims the cannonball pushed.</summary>
     private readonly List<EntityHandle> _penetrated = [];
 
@@ -450,9 +468,10 @@ public sealed class TFPipebomb : ScriptedEntity
     /// </summary>
     public void ThrownBy(EntityHandle thrower, Vector velocity, float fullDamage, float radius,
                          TFWeaponId weapon, string weaponName, bool critical,
-                         int grenadeMode = TFProjectileDefs.GrenadeModeRegular)
+                         int grenadeMode = TFProjectileDefs.GrenadeModeRegular, int? team = null)
     {
         _thrower = thrower;
+        _team = team;
         FullDamage = fullDamage;
         Radius = radius;
         Weapon = weapon;
@@ -474,7 +493,7 @@ public sealed class TFPipebomb : ScriptedEntity
 
         // The client's CreateTrailParticles reads the team off the projectile.
         State.Critical = critical;
-        State.TeamNumber = Players.GetTeam(thrower);
+        State.TeamNumber = team ?? Players.GetTeam(thrower);
 
         Entities.SetOwner(Handle, thrower);
         Entities.SetVelocity(Handle, velocity);
@@ -533,7 +552,7 @@ public sealed class TFPipebomb : ScriptedEntity
         if (hit.Entity == EntityHandle.None || hit.Entity == _thrower)
             return;
 
-        int myTeam = Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0;
+        int myTeam = MyTeam();
         int hitTeam = Players.GetTeam(hit.Entity);
         bool hitEnemy = hitTeam != 0 && myTeam != 0 && hitTeam != myTeam;
         bool hitFriendly = hitTeam == myTeam && CanCollideWithTeammates;
@@ -578,6 +597,7 @@ public sealed class TFPipebomb : ScriptedEntity
     public void DeflectedBy(EntityHandle deflector, bool deflectorCritBoosted, string launcherName)
     {
         _thrower = deflector;
+        _team = null; // the deflector's now (:1094-1097)
         _ownerIndex = Entities.GetIndex(deflector);
         WeaponName = launcherName;
         if (deflectorCritBoosted)
@@ -666,7 +686,7 @@ public sealed class TFPipebomb : ScriptedEntity
         // restored first (:824), because the fuse would have taken 40% off —
         // unless the cannonball's push takes the touch first (:772-817).
         int toucherTeam = Players.GetTeam(toucher);
-        int myTeam = Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0;
+        int myTeam = MyTeam();
         if (toucherTeam != 0 && myTeam != 0 && toucherTeam != myTeam && Hurtable(toucher))
         {
             if (PipebombMode == TFProjectileDefs.GrenadeModeCannonball && CannonballPush(toucher))
@@ -2546,7 +2566,7 @@ public sealed class TFFlare : FlyingProjectile
     public float ShotDamage { get; private set; }
 
     public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, float gravity,
-                        int ownerIndex, int flareMode)
+                        int ownerIndex, int flareMode, int? team = null)
     {
         ShotDamage = damage;
         Weapon = weapon;
@@ -2555,12 +2575,16 @@ public sealed class TFFlare : FlyingProjectile
         FlareMode = flareMode;
         OwnerIndex = ownerIndex;
         _gravity = gravity;
+        _team = team;
 
         // The trail's pair, as the rocket's ArmedBy writes its own: the
         // owner's team and the crit the shot carries.
         State.Critical = critical;
-        State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
+        State.TeamNumber = team ?? Players.GetTeam(Players.GetHandle(ownerIndex));
     }
+
+    /// <summary>The team the launch handed in (<see cref="ITFProjectileSpawner"/>); null asks the shooter.</summary>
+    private int? _team;
 
     private int OwnerIndex { get; set; }
 
@@ -2685,7 +2709,7 @@ public sealed class TFFlare : FlyingProjectile
             Damage.TakeDamage(victim, Attribution, ShotDamage,
                               TFWeaponDamageTypes.Of(Weapon) | DamageType.PreventPhysicsForce);
 
-        int attackerTeam = Players.GetTeam(Attribution);
+        int attackerTeam = _team ?? Players.GetTeam(Attribution);
         if (!Conditions.InCond(victim, TFCond.ImmuneToPushback)
             && attackerTeam != Players.GetTeam(victim))
         {

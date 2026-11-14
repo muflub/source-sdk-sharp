@@ -173,6 +173,13 @@ public static class TFPlayerOrders
     public const int KillStats = Band + 109;
 
     /// <summary>
+    /// The runtime attribute list's sweep (<see cref="TFCustomAttributeLifetime"/>):
+    /// the spawn walk after the kit and the health are in (the spawn's own arm is +0), and
+    /// the death walk, on +87 — the band's hundred ends where the objectives' begins.
+    /// </summary>
+    public const int CustomAttributeLifetime = Band + 87;
+
+    /// <summary>
     /// The owner's death fizzles a launcher's stickies (<see cref="TF2.Server.Projectiles.TFStickyTray"/>):
     /// its own place on the death walk, after the scoreboard's, on +149.
     /// </summary>

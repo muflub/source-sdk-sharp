@@ -10,5 +10,6 @@ public sealed class TFPlayerRegistrar : ISideServiceRegistrar
     {
         registry.AddHooks<ITFConditionHook>();
         registry.AddHooks<ITFWeaponEquipHook>();
+        registry.AddHooks<ITFPlayerAttributeSource>();
     }
 }

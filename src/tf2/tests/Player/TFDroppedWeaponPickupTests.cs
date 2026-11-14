@@ -615,9 +615,10 @@ public sealed class TFDroppedWeaponPickupTests
     /// The Arsenal's entity double: hands out handles and routes the carried
     /// pair's spawn to the registry (the rest forwards to the recording
     /// engine). A copy of the death drops' SpawningEntities, which is private
-    /// over there.
+    /// over there. Internal: the kit refresh's facts hold a live arsenal over
+    /// the same double.
     /// </summary>
-    private sealed class SpawningEntities : IEngineEntities
+    internal sealed class SpawningEntities : IEngineEntities
     {
         public IInterpolationBlocks InterpolationBlocks => NoInterpolationBlocks.Instance;
         public IRenderPolicyBlocks RenderPolicyBlocks => NoRenderPolicyBlocks.Instance;

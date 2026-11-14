@@ -78,6 +78,9 @@ internal sealed class ProjectileRig
 
     public TFBlastApplier Blast { get; }
     public TFProjectileEffects Effects { get; }
+
+    /// <summary>The one birth the weapons' launches and a caller's own spawn share.</summary>
+    public TFProjectileSpawner Spawner { get; }
     public DirectoryView Directory { get; } = new();
 
     /// <summary>The directory the motion pass resolves its flyers through.</summary>
@@ -131,7 +134,8 @@ internal sealed class ProjectileRig
         StickyVars.ForceFromBlast.Hold("0");
         StickyVars.ForceToMove.Hold("0");
         StickyVars.ForceSleepTime.Hold("0");
-        Effects = new(Engine, Directory, Engine, Tray, FlareTray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
+        Spawner = new(Engine, Directory, Log);
+        Effects = new(Engine, Spawner, Engine, Tray, FlareTray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
         Engine.Returns("Players.GetHandle", Player);

@@ -65,6 +65,9 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
     /// <summary>The worn items provided to the player's manager; stopped on the strip.</summary>
     private readonly List<AttributeContainer> _provided = [];
 
+    /// <summary>The items the last <see cref="Rebuild"/> was handed, in order: what <see cref="Settle"/> compares.</summary>
+    private readonly List<ItemInstance> _worn = [];
+
     private int _index = -1;
 
     // The owner, held from the attach: the park below needs their origin every
@@ -143,6 +146,8 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
     public void Rebuild(EntityHandle player, TFClass cls, TFTeam team, IReadOnlyList<LoadoutItem> wearables)
     {
         RemoveAll();
+        foreach (var entry in wearables)
+            _worn.Add(entry.Item);
 
         int teamNumber = (int)team;
         // CEconWearable::GetSkin: ( iTeamNumber == LAST_SHARED_TEAM+1 ) ? 0 : 1,
@@ -217,9 +222,48 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
         }
     }
 
+    /// <summary>
+    /// <see cref="Rebuild"/> only when <paramref name="wearables"/> are not
+    /// the items worn now (<see cref="ItemInstance.SameAs"/>, in order) —
+    /// stock's <c>ValidateWearables</c> keeps a wearable whose item still
+    /// matches the loadout's (tf_player.cpp:5251). Answers whether anything
+    /// was rebuilt; false leaves every wearable entity the one it was.
+    /// </summary>
+    public bool Settle(EntityHandle player, TFClass cls, TFTeam team, IReadOnlyList<LoadoutItem> wearables)
+    {
+        bool same = wearables.Count == _worn.Count;
+        for (int i = 0; same && i < _worn.Count; i++)
+            same = _worn[i].SameAs(wearables[i].Item);
+
+        if (same)
+            return false;
+
+        Rebuild(player, cls, team, wearables);
+        return true;
+    }
+
+    /// <summary>
+    /// The worn part of a class loadout: the wearable slots' items, and the
+    /// wearable classes whatever the slot — the demoshield's secondary (the
+    /// class lookup's CTFWearable, tf_player.cpp:4619-4621).
+    /// </summary>
+    public static List<LoadoutItem> Worn(IReadOnlyList<LoadoutItem> loadout)
+    {
+        var worn = new List<LoadoutItem>();
+        foreach (var entry in loadout)
+        {
+            if (TFItemStrings.IsWearableSlot((int)entry.Slot)
+                || TFItemStrings.IsWearableClass(entry.Item.Definition.ItemClass))
+                worn.Add(entry);
+        }
+
+        return worn;
+    }
+
     /// <summary>Every wearable the player wears goes (death, level end, departure, rebuild).</summary>
     public void RemoveAll()
     {
+        _worn.Clear();
         foreach (var wearable in _wearables)
             if (entities.IsValid(wearable))
                 entities.Remove(wearable);
@@ -292,18 +336,8 @@ public sealed class TFWearableSpawns(TFPlayerCarriers carriers, TFLoadoutProvide
             return;
         }
 
-        var items = new List<LoadoutItem>();
-        foreach (var entry in loadout.Loadout(index, cls))
-        {
-            // The wearable slot's items, and the wearable classes whatever
-            // the slot — the demoshield's secondary (the class lookup's
-            // CTFWearable, tf_player.cpp:4619-4621).
-            if (TFItemStrings.IsWearableSlot((int)entry.Slot)
-                || TFItemStrings.IsWearableClass(entry.Item.Definition.ItemClass))
-                items.Add(entry);
-        }
-
-        wearables.Rebuild(player, cls, (TFTeam)players.GetTeam(player), items);
+        wearables.Rebuild(player, cls, (TFTeam)players.GetTeam(player),
+                          TFWearables.Worn(loadout.Loadout(index, cls)));
     }
 
     public void OnPlayerDied(PlayerDeath death)

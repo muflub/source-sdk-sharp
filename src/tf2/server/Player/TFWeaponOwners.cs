@@ -240,6 +240,7 @@ public sealed class TFPlayerItems : IGameLifecycle
 {
     private readonly Dictionary<int, Dictionary<string, IAttributeProvider>> _byPlayer = new();
     private readonly Dictionary<int, IAttributeProvider> _managers = new();
+    private readonly Dictionary<int, IReadOnlyList<AttributeContainer>> _standing = new();
 
     /// <summary>A stage of its own in the TF player's band.</summary>
     public int LifecycleOrder => TFPlayerOrders.PlayerItems;
@@ -254,6 +255,22 @@ public sealed class TFPlayerItems : IGameLifecycle
 
     /// <summary>How many items the player holds.</summary>
     public int Count(int playerIndex) => _byPlayer.GetValueOrDefault(playerIndex)?.Count ?? 0;
+
+    /// <summary>The items of the player's kit, in no order: what a new kit's grants replace.</summary>
+    public IReadOnlyCollection<IAttributeProvider> Kit(int playerIndex)
+        => _byPlayer.TryGetValue(playerIndex, out var items) ? items.Values : [];
+
+    /// <summary>
+    /// The providers the attribute sources handed the player's manager when
+    /// it was last built (<see cref="ITFPlayerAttributeSource"/>): asked for
+    /// again at the next build, so the last ones are let go there.
+    /// </summary>
+    public void SetStanding(int playerIndex, IReadOnlyList<AttributeContainer> standing)
+        => _standing[playerIndex] = standing;
+
+    /// <summary>The sources' providers on the player's manager now; none before a first kit.</summary>
+    public IReadOnlyList<AttributeContainer> StandingOf(int playerIndex)
+        => _standing.GetValueOrDefault(playerIndex) ?? [];
 
     /// <summary>
     /// The player's own attribute manager (stock's <c>m_AttributeManager</c>,
@@ -274,11 +291,13 @@ public sealed class TFPlayerItems : IGameLifecycle
     {
         _byPlayer.Remove(playerIndex);
         _managers.Remove(playerIndex);
+        _standing.Remove(playerIndex);
     }
 
     void IGameLifecycle.OnLevelShutdown()
     {
         _byPlayer.Clear();
         _managers.Clear();
+        _standing.Clear();
     }
 }

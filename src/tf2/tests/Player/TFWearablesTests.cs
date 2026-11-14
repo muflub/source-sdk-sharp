@@ -438,4 +438,53 @@ public sealed class TFWearablesTests
 
         Assert.DoesNotContain(rig.Player.Log.Lines, l => l.Text.Contains("[TF2/Wearables]"));
     }
+
+    /// <summary>The worn part of the spy's loadout as the item sources answer it now.</summary>
+    private static List<LoadoutItem> WornNow(WearableRig rig)
+        => TFWearables.Worn(rig.Loadout.Loadout(PlayerRig.Index, TFClass.Spy));
+
+    [Fact]
+    public void Settling_the_same_items_keeps_the_wearable_entities()
+    {
+        // ValidateWearables: a wearable whose item still matches stays.
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        EntityHandle worn = Assert.Single(rig.Wearables.Wearables);
+
+        Assert.False(rig.Wearables.Settle(PlayerRig.Player, TFClass.Spy, TFTeam.Red, WornNow(rig)));
+
+        Assert.Equal(worn, Assert.Single(rig.Wearables.Wearables));
+        Assert.Equal(0, rig.Player.Engine.CountOf("Entities.Remove"));
+    }
+
+    [Fact]
+    public void Settling_changed_items_rebuilds_the_wearables()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        EntityHandle worn = Assert.Single(rig.Wearables.Wearables);
+        rig.Equip(TFClass.Spy, GrapplingHook);
+
+        Assert.True(rig.Wearables.Settle(PlayerRig.Player, TFClass.Spy, TFTeam.Red, WornNow(rig)));
+
+        Assert.NotEqual(worn, Assert.Single(rig.Wearables.Wearables));
+    }
+
+    [Fact]
+    public void Settling_after_the_strip_wears_the_items_again()
+    {
+        // The death's RemoveAll forgets what was worn: the same items are a
+        // change to a player wearing nothing.
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        rig.Die();
+        Assert.Empty(rig.Wearables.Wearables);
+
+        Assert.True(rig.Wearables.Settle(PlayerRig.Player, TFClass.Spy, TFTeam.Red, WornNow(rig)));
+
+        Assert.Single(rig.Wearables.Wearables);
+    }
 }

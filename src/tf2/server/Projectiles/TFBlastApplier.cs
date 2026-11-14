@@ -261,6 +261,11 @@ public sealed class TFBlastApplier
         // THE SELF PASS (stock's :5661-5714): the attacker at their own
         // radius and the launcher's base damage, whether or not the main
         // sweep's radius reached anyone — a zero-radius blast still jumps.
+        // A player's pass only: stock asks just that there is an attacker
+        // (:5663), so an owner that is no player (ITFProjectileSpawner's)
+        // would take its own blast there, and takes none here — it was
+        // skipped in the sweep above and is not hit after it
+        // (docs/divergences.md).
         if (selfRadius > 0f && Entities.IsPlayer(attacker) && attacker != directVictim)
         {
             Vector center = Entities.GetWorldSpaceCenter(attacker);

@@ -60,9 +60,12 @@ internal sealed class PlayerRig
             new TFWeaponScripts(Log, Weapons.WeaponFixtures.ShippedWithClasses()), Classes, Schema)], Log);
         var inventory = new LocalInventory(
             new InventoryStore(new ModInfo(_ => null), Schema, Log), Schema, new NoClients(), Log);
-        Loadout = new TFLoadoutProvider(inventory, Schema, Carriers, Items, Classes,
+        Loadout = new TFLoadoutProvider(
+            new ListHooks<ITFItemSource>(new TFInventoryItemSource(
+                inventory, new BotInventory(Schema, Engine, LoadoutDeps.NoBots(), Log), LoadoutDeps.NoBots(), Schema)),
+            new ListHooks<ITFPlayerAttributeSource>(),
+            Schema, Carriers, Items, Classes,
             new LoadoutDeps.IdleRound(), new LoadoutDeps.NoStalemate(), Catalog, Carriers,
-            new BotInventory(Schema, Engine, LoadoutDeps.NoBots(), Log), LoadoutDeps.NoBots(),
             new AttributeHooks(), Engine, Engine, Log);
 
         var source = new Source(this);

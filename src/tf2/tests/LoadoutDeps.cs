@@ -34,7 +34,9 @@ internal static class LoadoutDeps
                                             AttributeHooks? hooks = null,
                                             IEnginePlayers? players = null,
                                             IEnginePrecache? precache = null,
-                                            ILog? log = null)
+                                            ILog? log = null,
+                                            ITFPlayerAttributeSource[]? attributeSources = null,
+                                            params ITFItemSource[] sources)
     {
         log ??= new RecordingLog();
         schema ??= EconTestFiles.TrimmedSchema();
@@ -49,8 +51,14 @@ internal static class LoadoutDeps
         var theTable = table ?? new TFClassTable(log, shipped);
         var theCatalog = catalog ?? new WeaponCatalog(
             () => [new TFWeaponTypes(new TFWeaponScripts(log, shipped), theTable, schema)], log);
+        // TF2's own source over the inventories, then the fact's own after
+        // it — the order a mod's source takes in the chain.
+        var own = new TFInventoryItemSource(inventory,
+                                            botInventory ?? new BotInventory(schema, engine, NoBots(), log),
+                                            bots ?? NoBots(), schema);
         return new TFLoadoutProvider(
-            inventory,
+            new Rules.ListHooks<ITFItemSource>([own, .. sources]),
+            new Rules.ListHooks<ITFPlayerAttributeSource>(attributeSources ?? []),
             schema,
             classes ?? side,
             items ?? new TFPlayerItems(),
@@ -59,8 +67,6 @@ internal static class LoadoutDeps
             stalemate ?? new NoStalemate(),
             theCatalog,
             carriers ?? side,
-            botInventory ?? new BotInventory(schema, engine, NoBots(), log),
-            bots ?? NoBots(),
             hooks ?? new AttributeHooks(),
             players ?? engine,
             precache ?? engine,

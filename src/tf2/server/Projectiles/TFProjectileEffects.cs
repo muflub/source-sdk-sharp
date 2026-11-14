@@ -50,7 +50,7 @@ namespace TF2.Server.Projectiles;
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFProjectileEffects)])]
-public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirectory directory,
+public sealed class TFProjectileEffects(IEngineEntities entities, ITFProjectileSpawner spawner,
                                         IEnginePlayers players, TFStickyTray tray, TFFlareTray flareTray,
                                         ILog log, ITFWeaponOwners owners, IUniformRandom random,
                                         AttributeHooks attributes, ITempEnts temps,
@@ -630,10 +630,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
     /// <summary>
     /// A projectile is born at its launcher's own muzzle — the offset along
     /// the firing basis that stock's <c>FireRocket</c>, <c>FireNail</c> and
-    /// <c>FirePipeBomb</c> carry — and is brought to life before its managed
-    /// half is asked for: the registry binds the instance when the engine
-    /// spawns the shell (the <c>env_fire</c> flame's order), so an entity that
-    /// was created but never spawned has no managed half to arm.
+    /// <c>FirePipeBomb</c> carry — through the one birth every projectile
+    /// shares (<see cref="ITFProjectileSpawner.Born"/>).
     ///
     /// <para>
     /// The offset is measured from the eye. Stock measures it from
@@ -649,16 +647,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
     private ScriptedEntity? Born(string className, EntityHandle owner, Vector forward,
                                  Vector right, Vector up, float forwardOffset, float rightOffset,
                                  float upOffset)
-    {
-        EntityHandle handle = entities.Create(className);
-        if (!entities.IsValid(handle))
-            return null;
-
-        entities.SetOrigin(handle, entities.GetEyePosition(owner)
-            + forward * forwardOffset + right * rightOffset + up * upOffset);
-        entities.Spawn(handle);
-        return directory.Get(handle);
-    }
+        => spawner.Born(className, entities.GetEyePosition(owner)
+                                   + forward * forwardOffset + right * rightOffset + up * upOffset);
 
     /// <summary>The script's speed, or stock's when the script names none.</summary>
     private static float Speed(float scriptSpeed, float stock) => TFProjectileDefs.Speed(scriptSpeed, stock);

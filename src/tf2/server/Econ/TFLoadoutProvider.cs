@@ -33,7 +33,8 @@ public readonly record struct LoadoutItem(TFLoadoutSlot Slot, ItemInstance Item)
 
 /// <summary>
 /// TF2's spawn kit (stage1 1.6): the Stage 0.7 <see cref="ILoadoutProvider"/>
-/// answered from the player's class and <see cref="LocalInventory"/> loadout,
+/// answered from the player's class and the items their sources name
+/// (<see cref="ITFItemSource"/>: TF2's own is the <see cref="LocalInventory"/> loadout),
 /// as <c>CTFPlayer::ManageRegularWeapons</c> walks it (tf_player.cpp:4496-4560):
 /// every slot's item (<c>GetLoadoutItem</c> → <c>GetItemInLoadout</c>, the
 /// equipped item or the base item), minus what <c>ItemIsAllowed</c> refuses.
@@ -43,11 +44,12 @@ public readonly record struct LoadoutItem(TFLoadoutSlot Slot, ItemInstance Item)
 /// class has no opinion, and the core kit stands.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schema, ITFPlayerClasses classes,
+public sealed class TFLoadoutProvider(IHooks<ITFItemSource> sources,
+                                      IHooks<Player.ITFPlayerAttributeSource> attributeSources,
+                                      ItemSchema schema, ITFPlayerClasses classes,
                                       Player.TFPlayerItems items, TFClassTable table,
                                       ITeamRoundState round, ITFStalemateSettings stalemate,
                                       WeaponCatalog catalog, Player.TFPlayerCarriers carriers,
-                                      BotInventory botInventory, IBotPlayers bots,
                                       AttributeHooks hooks, IEnginePlayers players,
                                       IEnginePrecache precache, ILog log)
     : ILoadoutProvider, IOrderedHook
@@ -60,6 +62,19 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
     public const int Order = 1_000_000 - 1_000 + 60;
 
     public int HookOrder => Order;
+
+    /// <summary>The last kit handed to each player: weapon row to the loadout slot and item it came from.</summary>
+    private readonly Dictionary<int, Dictionary<string, LoadoutItem>> _kits = new();
+
+    /// <summary>
+    /// The item behind each weapon row of the kit <see cref="Weapons"/> last
+    /// handed the player at <paramref name="entIndex"/>, with its loadout
+    /// slot — stock's <c>CEconItemView</c> on each carried weapon, what
+    /// <c>ValidateWeapons</c> compares the loadout against
+    /// (tf_player.cpp:5158-5170). Empty before a first kit.
+    /// </summary>
+    public IReadOnlyDictionary<string, LoadoutItem> KitOf(int entIndex)
+        => _kits.TryGetValue(entIndex, out var kit) ? kit : new Dictionary<string, LoadoutItem>();
 
     /// <summary>
     /// The weapon column: each weapon slot's item class as the class's own
@@ -88,6 +103,8 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         var weapons = new List<string>();
         var byWeapon = new Dictionary<string, IAttributeProvider>(StringComparer.Ordinal);
         var granted = new List<(string Weapon, AttributeContainer Container)>();
+        var kit = new Dictionary<string, LoadoutItem>(StringComparer.Ordinal);
+        _kits[player.EntryIndex] = kit;
         foreach (var entry in Loadout(player.EntryIndex, cls))
         {
             // The wearables are the spawn's own entities (the wearable arm
@@ -121,6 +138,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
             var container = Attributes(equipped);
             byWeapon[weapon] = container;
             granted.Add((weapon, container));
+            kit[weapon] = new LoadoutItem(entry.Slot, equipped);
 
             // The models the item wears, precached as its grant lands — the
             // wearable's arm (CEconWearable::Spawn precaches its display
@@ -161,6 +179,8 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
             // initiator then skipped in the providers round.
             container.Owner = manager;
         }
+
+        CarryOver(player, manager);
         items.SetManager(player.EntryIndex, manager);
         items.Set(player.EntryIndex, byWeapon);
 
@@ -188,6 +208,62 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         }
 
         return weapons;
+    }
+
+    /// <summary>
+    /// What is the player's and not the kit's moves from the manager the last
+    /// kit built to <paramref name="manager"/>. Stock keeps one
+    /// <c>CAttributeManager</c> for the player's life and a regeneration only
+    /// changes which weapons provide to it (<c>ManageRegularWeapons</c>,
+    /// tf_player.cpp:4496); here each kit builds a manager, so the rest is
+    /// carried: the player's runtime list (<c>m_AttributeList</c>, what
+    /// <c>AddCustomAttribute</c> wrote, through its owner
+    /// <see cref="Player.TFPlayerAttributes.CarryTo"/> — stock sweeps it at the
+    /// spawn and the death, never at a locker) and every provider that is not
+    /// one of the outgoing kit's weapons (the worn items, which provide from
+    /// their spawn until their strip). The attribute sources are asked anew
+    /// (<see cref="Player.ITFPlayerAttributeSource"/>): the containers they
+    /// answered last time are let go and the ones they answer now provide
+    /// last, after the kit's and the carried.
+    /// </summary>
+    private void CarryOver(EntityHandle player, AttributeContainer manager)
+    {
+        int index = player.EntryIndex;
+        if (items.ManagerOf(index) is AttributeContainer old)
+        {
+            carriers.Part<Player.TFPlayerAttributes>(index)?.CarryTo(old, manager);
+
+            var outgoing = items.Kit(index);
+            var standing = items.StandingOf(index);
+            foreach (var provider in old.Providers.ToArray())
+            {
+                if (provider is not AttributeContainer held || outgoing.Contains(held))
+                    continue;
+
+                held.StopProvidingTo(old);
+                if (!standing.Contains(held))
+                    held.ProvideTo(manager);
+            }
+        }
+
+        var provided = new List<AttributeContainer>();
+        foreach (var source in attributeSources.All)
+        {
+            try
+            {
+                if (source.AttributesOf(player) is { } attributes)
+                {
+                    attributes.ProvideTo(manager);
+                    provided.Add(attributes);
+                }
+            }
+            catch (Exception e)
+            {
+                log.Warning($"[TF2/Loadout] attribute source {source.GetType().FullName} threw: {e.Message}\n");
+            }
+        }
+
+        items.SetStanding(index, provided);
     }
 
     /// <summary>An item's attributes as its weapon provides them: its own over its definition's statics.</summary>
@@ -226,33 +302,48 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
     /// <summary>
     /// The items <paramref name="cls"/> spawns with for the client at
     /// <paramref name="entIndex"/>, slot by slot in slot order; empty for a
-    /// class outside Scout..Engineer. A client with no active inventory gets
-    /// the base items.
+    /// class outside Scout..Engineer. Each slot's item is the item sources'
+    /// answer (<see cref="ITFItemSource"/>): TF2's own gives a client with no
+    /// active inventory the base items.
     /// </summary>
     public IReadOnlyList<LoadoutItem> Loadout(int entIndex, TFClass cls)
     {
         if (cls < TFClass.Scout || cls >= TFClass.Civilian)
             return [];
 
-        var owned = OwnedFor(entIndex);
         var items = new List<LoadoutItem>();
         for (var slot = TFLoadoutSlot.Primary; slot < TFLoadoutSlot.Count; slot++)
         {
-            if (owned.ItemInLoadout(cls, slot, schema) is { } item && ItemIsAllowed(item, slot, cls))
+            if (ItemInLoadout(entIndex, cls, slot) is { } item && ItemIsAllowed(item, slot, cls))
                 items.Add(new LoadoutItem(slot, item));
         }
         return items;
     }
 
-    /// <summary>Whose inventory the loadout reads: the bot's seeded items for a bot, the local inventory for everyone else.</summary>
-    private PlayerInventory OwnedFor(int entIndex)
+    /// <summary>
+    /// The chain's fold for one slot: every source is asked and the last
+    /// opinion stands (<see cref="ITFItemSource"/>). A source that throws is
+    /// named on the log and has answered nothing, so the kit the player would
+    /// have had without it is what a broken source leaves behind.
+    /// </summary>
+    private ItemInstance? ItemInLoadout(int entIndex, TFClass cls, TFLoadoutSlot slot)
     {
-        // A bot's draw is seeded by its name (BotInventory.SeedOf), so bots' loadouts differ and the
-        // same roster replays the same items.
-        if (bots.IsBot(new EntityHandle((uint)entIndex))
-            && botInventory.ForBot(entIndex) is { } botOwned)
-            return botOwned;
-        return inventory.Of(entIndex) ?? new PlayerInventory(0);
+        ItemInstance? item = null;
+        foreach (var source in sources.All)
+        {
+            try
+            {
+                TFSlotItem answer = source.ItemInLoadout(entIndex, cls, slot);
+                if (answer.HasOpinion)
+                    item = answer.Item;
+            }
+            catch (Exception e)
+            {
+                log.Warning($"[TF2/Loadout] item source {source.GetType().FullName} threw on {cls}'s {slot}: {e.Message}\n");
+            }
+        }
+
+        return item;
     }
 
     /// <summary>
