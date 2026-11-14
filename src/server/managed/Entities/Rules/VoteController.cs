@@ -447,6 +447,13 @@ public sealed class VoteController : ScriptedEntity
         Report();
     }
 
+    /// <summary>An admin's cancel: the ballot ends now, with no result and no failure recorded.</summary>
+    public void Cancel()
+    {
+        if (_issue is not null)
+            Reset();
+    }
+
     private void Reset()
     {
         _issue = null;

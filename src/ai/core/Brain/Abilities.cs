@@ -11,8 +11,22 @@ public enum AbilityRun : byte
     /// <summary>A button mask pressed for <see cref="AbilityRow.HoldTicks"/> ticks (<c>IN_ATTACK2</c>).</summary>
     Buttons,
 
-    /// <summary>A sequence the applier knows by <see cref="AbilityRow.Name"/>, from the bot's own eye (a rocket jump).</summary>
+    /// <summary>
+    /// The row's <see cref="AbilityRow.Steps"/>, one after another, from the bot's own eye (a rocket jump:
+    /// look down, jump and duck, fire at the ground). The applier runs them; the game only writes the data.
+    /// </summary>
     Sequence,
+}
+
+/// <summary>
+/// One step of a <see cref="AbilityRun.Sequence"/> row (plan_bots_teams_tf2 C.3): the buttons
+/// held for <paramref name="Ticks"/> commands, and the pitch the view turns to while it lasts
+/// (<see cref="float.NaN"/>: the view goes where the intent looks).
+/// </summary>
+public readonly record struct AbilityStep(int Buttons, int Ticks, float Pitch = float.NaN)
+{
+    /// <summary>Whether the step turns the view to its own pitch.</summary>
+    public bool TurnsTheView => !float.IsNaN(Pitch);
 }
 
 /// <summary>
@@ -25,7 +39,13 @@ public enum AbilityRun : byte
 /// <param name="Command">The client command, for <see cref="AbilityRun.Command"/>.</param>
 /// <param name="Buttons">The buttons, for <see cref="AbilityRun.Buttons"/> (the engine's <c>IN_*</c> bits).</param>
 /// <param name="HoldTicks">How many ticks the buttons are held.</param>
-public readonly record struct AbilityRow(string Name, AbilityRun Run, string Command = "", int Buttons = 0, int HoldTicks = 1);
+/// <param name="Steps">The steps, for <see cref="AbilityRun.Sequence"/>.</param>
+public readonly record struct AbilityRow(string Name, AbilityRun Run, string Command = "", int Buttons = 0, int HoldTicks = 1,
+                                         ImmutableArray<AbilityStep> Steps = default)
+{
+    /// <summary>How many steps the row has: 0 for a row that is not a sequence.</summary>
+    public int StepCount => Steps.IsDefault ? 0 : Steps.Length;
+}
 
 /// <summary>
 /// The abilities a game's binding publishes with its <see cref="MapKnowledge"/>

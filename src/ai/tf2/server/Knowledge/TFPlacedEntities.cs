@@ -7,6 +7,13 @@ using TF2.Server.Entities.Rooms;
 
 namespace SourceSharp.Ai.TF2.Knowledge;
 
+/// <summary>The level's own entities, as a bot knows its map's placements: <see cref="TFPlacedEntities"/>.</summary>
+public interface ITFLevelEntities
+{
+    /// <summary>The placements the level's entities make, read now.</summary>
+    MapEntities Read();
+}
+
 /// <summary>
 /// The placements a TF2 map makes that its bots know before playing (P6 step 5), read from the
 /// level's own entities as it comes up: the team spawns, the packs, the respawn rooms and the
@@ -14,8 +21,8 @@ namespace SourceSharp.Ai.TF2.Knowledge;
 /// entity lump LZMA-compressed, which the lump reader (<see cref="MapEntities.Read"/>) cannot
 /// read; the level's entities are the same placements, spawned from it.
 /// </summary>
-[SideService(Side.Server)]
-public sealed class TFPlacedEntities(IEntityDirectory directory, IEngineEntities entities)
+[SideService(Side.Server, As = [typeof(ITFLevelEntities)])]
+public sealed class TFPlacedEntities(IEntityDirectory directory, IEngineEntities entities) : ITFLevelEntities
 {
     /// <summary>The pack classes, by size: what <see cref="TFMapKnowledge.KindOf"/> names.</summary>
     private static string[] Packs() =>
@@ -28,7 +35,13 @@ public sealed class TFPlacedEntities(IEntityDirectory directory, IEngineEntities
     {
         var all = new List<MapEntity>();
         foreach (InfoPlayerTeamSpawn spawn in directory.OfClass(InfoPlayerTeamSpawn.MapClass).OfType<InfoPlayerTeamSpawn>())
-            all.Add(Point(InfoPlayerTeamSpawn.MapClass, spawn.Handle, spawn.Team));
+        {
+            all.Add(Point(InfoPlayerTeamSpawn.MapClass, spawn.Handle, spawn.Team) with
+            {
+                Keys = [Key("TeamNum", spawn.Team), Key("StartDisabled", spawn.Disabled ? 1 : 0)],
+            });
+        }
+
         foreach (string pack in Packs())
         {
             foreach (ScriptedEntity e in directory.OfClass(pack))
@@ -36,11 +49,30 @@ public sealed class TFPlacedEntities(IEntityDirectory directory, IEngineEntities
         }
 
         foreach (FuncRespawnRoom room in directory.OfClass(FuncRespawnRoom.MapClass).OfType<FuncRespawnRoom>())
-            all.Add(Brush(FuncRespawnRoom.MapClass, room.Handle, room.Team));
+        {
+            all.Add(Brush(FuncRespawnRoom.MapClass, room.Handle, room.Team) with
+            {
+                Name = entities.GetName(room.Handle),
+                Keys = [Key("TeamNum", room.Team)],
+            });
+        }
+
+        // The visualizers, with the keys TFTeamSolids reads: the room each names and whether it
+        // is solid to the room's enemies.
+        foreach (FuncRespawnRoomVisualizer v in directory.OfClass(FuncRespawnRoomVisualizer.MapClass).OfType<FuncRespawnRoomVisualizer>())
+        {
+            all.Add(Brush(FuncRespawnRoomVisualizer.MapClass, v.Handle, v.Team) with
+            {
+                Keys = [new("respawnroomname", v.VisualizerVars.RespawnRoomName), Key("solid_to_enemies", v.SolidToEnemies ? 1 : 0)],
+            });
+        }
+
         foreach (FuncRegenerate cabinet in directory.OfClass(FuncRegenerate.MapClass).OfType<FuncRegenerate>())
             all.Add(Brush(FuncRegenerate.MapClass, cabinet.Handle, cabinet.RegenerateVars.TeamNum));
         return new MapEntities(all, null);
     }
+
+    private static KeyValuePair<string, string> Key(string key, int value) => new(key, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private MapEntity Point(string className, EntityHandle e, int team)
     {

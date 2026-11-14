@@ -65,6 +65,15 @@ public interface ITFLocalPlayer
     /// hudplayerclass.res).</summary>
     int Team { get; }
 
+    /// <summary>Whether the local player rides a crit boost — the
+    /// <c>IsCritBoosted</c> family of condition words
+    /// (<c>tf_player_shared.cpp:8058-8069</c>), the same gate the weapon's
+    /// glow wears (:7578-7584). Stock's HUD portrait takes the glow into
+    /// its render (the model panel's eye-glow arm,
+    /// tf_hud_playerstatus.cpp:391-401); the HUD's portrait ink rides this
+    /// word.</summary>
+    bool Boosted { get; }
+
     /// <summary>The pool behind the clip (<c>GetAmmoCount</c> of the
     /// primary type, the <c>nAmmo2</c> of the clip arm,
     /// tf_hud_ammostatus.cpp:284-287) — and on a clip-less weapon the

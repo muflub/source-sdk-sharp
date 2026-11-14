@@ -258,6 +258,8 @@ public sealed class TFWeaponSelectUiTests
         public int MaxTotalAmmo => 0;
 
         public int Metal => 0;
+
+        public bool Boosted => false;
     }
 
     // --- the forecast rig's doubles, verbatim ---

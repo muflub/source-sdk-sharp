@@ -98,6 +98,45 @@ public class TFHudArtTests
     }
 
     [Fact]
+    public void A_boosted_local_tints_the_portrait_the_teams_glow()
+    {
+        // Stock's model panel takes the crit glow into its render, the team
+        // pair critgun_weaponmodel_red/blu (tf_player_shared.cpp:7578-7584,
+        // the eye-glow arm of tf_hud_playerstatus.cpp:391-401); the static
+        // class image carries the same glow as its tint.
+        Assert.Equal(new UiColor(255, 0, 0, 255), PortraitTint(boosted: true, team: 2));
+        Assert.Equal(new UiColor(0, 146, 255, 255), PortraitTint(boosted: true, team: 3));
+    }
+
+    [Fact]
+    public void An_unboosted_local_keeps_the_portrait_at_full_colour()
+    {
+        Assert.Equal(new UiColor(255, 255, 255, 255), PortraitTint(boosted: false, team: 2));
+    }
+
+    /// <summary>The portrait quad's tint for a local with the given boost
+    /// state and team, over the stock art.</summary>
+    private static UiColor PortraitTint(bool boosted, int team)
+    {
+        var lib = new RecordingLibrary();
+        var panel = new HealthPanel(
+            new FakeLocalPlayer
+            {
+                ClassName = "Soldier", Team = team, Boosted = boosted,
+                Health = 125, MaxHealth = 125, MaxBuffedHealth = 125,
+            },
+            lib);
+        var ctx = Context();
+        Frame(ctx, UiTestKit.Screen(1920, 1080), (ref UiFrame ui) => panel.Describe(ref ui));
+        var ops = ctx.List.AsDrawList().Ops.ToArray();
+        var quads = ctx.List.AsDrawList().TexturedQuads.ToArray();
+        var elements = Elements(ctx);
+        var names = elements.Select((e, i) => (i, Name: NameOf(ctx, e))).ToDictionary(p => p.i, p => p.Name);
+        int key = names.Single(p => p.Value == "portrait").Key;
+        return quads[ops.Single(o => o.Element == key && o.Kind == UiPrimitiveKind.TexturedQuad).Index].Tint;
+    }
+
+    [Fact]
     public void The_cross_crops_from_the_bottom_as_health_drops()
     {
         // CTFHealthPanel::Paint crops the destination slice and the uv in

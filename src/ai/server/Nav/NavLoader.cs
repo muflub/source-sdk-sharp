@@ -72,10 +72,51 @@ public static class NavLoader
         return new NavLoadResult(null, refusal, nav is null ? NavPath(map) : null) { Bsp = bsp };
     }
 
-    private static NavLoadResult Bind(string map, string navName, byte[] nav, byte[] bsp, NavGraphCache? cache, INavProfile? profile, bool fromStore)
+    /// <summary>
+    /// Where a usable navigation for <paramref name="map"/> is, without deriving
+    /// it: <c>shipped</c> (beside the map) or <c>cached</c> (the server's build),
+    /// or null with <paramref name="refusal"/> saying why not and
+    /// <paramref name="bsp"/> the map's bytes when there is a map to build from.
+    /// </summary>
+    public static string? Usable(string map, Func<string, byte[]?> read, BuiltNavStore? built, out string? refusal, out byte[]? bsp)
     {
-        Nav3dReader reader;
-        MapEntities entities;
+        ArgumentNullException.ThrowIfNull(read);
+        byte[]? nav = read(NavPath(map));
+        bsp = read(BspPath(map));
+        if (bsp is null)
+        {
+            refusal = nav is null ? $"no navigation for {map}: expected {NavPath(map)}" : $"no {BspPath(map)} to bind {NavPath(map)} to";
+            return null;
+        }
+
+        refusal = $"no navigation for {map}: expected {NavPath(map)}";
+        if (nav is not null)
+        {
+            refusal = Check(map, NavPath(map), nav, bsp, out _, out _);
+            if (refusal is null)
+                return "shipped";
+        }
+
+        if (built is not null && built.TryRead(map, BuiltNavStore.Sha256(bsp)) is { } own)
+        {
+            string? why = Check(map, built.Name(map, BuiltNavStore.Sha256(bsp)), own, bsp, out _, out _);
+            if (why is null)
+            {
+                refusal = null;
+                return "cached";
+            }
+
+            refusal = $"{refusal}; {why}";
+        }
+
+        return null;
+    }
+
+    /// <summary>Opens a navigation and binds it to the bsp: null, or why it cannot be this map's.</summary>
+    private static string? Check(string map, string navName, byte[] nav, byte[] bsp, out Nav3dReader? reader, out MapEntities? entities)
+    {
+        reader = null;
+        entities = null;
         try
         {
             reader = Nav3dReader.Open(nav);
@@ -83,34 +124,41 @@ public static class NavLoader
         }
         catch (InvalidDataException e)
         {
-            return NavLoadResult.Refuse($"{navName} for {map} cannot be read: {e.Message}");
+            return $"{navName} for {map} cannot be read: {e.Message}";
         }
 
         string? levelId = entities.LevelId;
         if (!string.IsNullOrEmpty(levelId) && !reader.MatchesMap(levelId) && !reader.MatchesBsp(bsp))
-            return NavLoadResult.Refuse($"{navName} was built for another level: it names {reader.LevelId}, {map}'s ss_level_id is {levelId}");
+            return $"{navName} was built for another level: it names {reader.LevelId}, {map}'s ss_level_id is {levelId}";
         if (string.IsNullOrEmpty(levelId) && !reader.MatchesBsp(bsp))
         {
             string named = reader.Bsp is { } b ? $"names map checksum {b.MapChecksum}" : "names no map";
-            return NavLoadResult.Refuse($"{navName} was built from another map: it {named}, not {BspPath(map)} "
-                                        + $"(checksum {Nav3dBspBinding.Of(bsp).MapChecksum})");
+            return $"{navName} was built from another map: it {named}, not {BspPath(map)} (checksum {Nav3dBspBinding.Of(bsp).MapChecksum})";
         }
+
+        return null;
+    }
+
+    private static NavLoadResult Bind(string map, string navName, byte[] nav, byte[] bsp, NavGraphCache? cache, INavProfile? profile, bool fromStore)
+    {
+        if (Check(map, navName, nav, bsp, out Nav3dReader? reader, out MapEntities? entities) is { } why)
+            return NavLoadResult.Refuse(why);
 
         string bspSha = Convert.ToHexStringLower(SHA256.HashData(bsp));
         string navSha = Convert.ToHexStringLower(SHA256.HashData(nav));
-        NavNumbers numbers = profile?.Numbers(reader.JumpHeight) ?? NavNumbers.Stock(reader.JumpHeight);
+        NavNumbers numbers = profile?.Numbers(reader!.JumpHeight) ?? NavNumbers.Stock(reader!.JumpHeight);
         string key = NavGraphCache.NumbersKey(numbers, reader.JumpHeight);
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
         DerivedNav? derived = cache?.TryRead(map, bspSha, navSha, key);
         bool fromCache = derived is not null;
         if (derived is null)
         {
-            derived = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), numbers, NavEdgeCosts.Default,
-                                               entities.Hurt, entities.LadderClimbs);
+            derived = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader!), numbers, NavEdgeCosts.Default,
+                                               entities!.Hurt, entities.LadderClimbs);
             cache?.Write(map, bspSha, navSha, derived, key);
         }
 
         double ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-        return new NavLoadResult(new LoadedNav(map, reader, derived, entities, bspSha, navSha, fromCache, ms, key, fromStore), null);
+        return new NavLoadResult(new LoadedNav(map, reader!, derived, entities!, bspSha, navSha, fromCache, ms, key, fromStore), null);
     }
 }

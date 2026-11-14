@@ -9,7 +9,13 @@ namespace SourceSharp.Ai.Server.Nav;
 /// the player hull's width, standing and crouched heights, the step, the
 /// highest plain jump, the highest crouch jump, the highest safe drop, and the
 /// highest rise a double jump reaches (0 for a game without one: no edge is a
-/// <see cref="NavEdgeType.DoubleJump"/>). A game's <see cref="INavProfile"/>
+/// <see cref="NavEdgeType.DoubleJump"/>), and whether the hull is wider than two voxels
+/// (<see cref="WideHull"/>, TF2's 48 over 16 u voxels): such a box at a column's centre
+/// reaches into the columns beside it, so the derivation stands it on a stair's step a step
+/// up, and drops it past a ledge as the two-voxel body that clears the edge it leaves.
+/// <see cref="CrouchOnlyCost"/> multiplies what a crouch-only place costs to cross (1, HL2MP's: as any
+/// place), for a game whose players all but never duck to get round: TF2's.
+/// A game's <see cref="INavProfile"/>
 /// publishes them; <see cref="Stock"/> is the core's default movement, HL2MP's
 /// (NavNumbersTests pins them).
 /// </summary>
@@ -21,7 +27,9 @@ public readonly record struct NavNumbers(
     float MaxJumpRise,
     float MaxCrouchJumpRise,
     float SafeDrop,
-    float MaxDoubleJumpRise = 0f)
+    float MaxDoubleJumpRise = 0f,
+    bool WideHull = false,
+    float CrouchOnlyCost = 1f)
 {
     /// <summary>
     /// The core's default movement (HL2MP's): the player hull (32 wide, 72

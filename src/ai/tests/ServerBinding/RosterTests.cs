@@ -82,6 +82,10 @@ public sealed class RosterTests
         public NavSight? Sight => null;
 
         public ChokeSlot? Chokes => null;
+
+        public bool Building { get; set; }
+
+        public int Version { get; set; }
     }
 
     private sealed class Names : IBotNameSource
@@ -532,6 +536,54 @@ public sealed class RosterTests
         Assert.Equal(3, r.ActiveNames.Count());
     }
 
+    /// <summary>While the level's navigation is being built (plan_bots_teams_tf2 E.3) a bot added joins the roster and waits, saying why; the engine is not asked.</summary>
+    [Fact]
+    public void WhileTheNavIsBuildingAnAddedBotWaitsAndTheEngineIsNotAsked()
+    {
+        var r = new Rig();
+        (r.Nav.Building, r.Nav.Refusal) = (true, "navigation for dm_x: building");
+
+        Assert.Null(r.Add("Alyx", "hard"));
+        for (int t = 8; t < 40; t += 8)
+            r.Frame(t);
+
+        Assert.Empty(r.Players.Added);
+        Assert.Equal("bots will join when navigation is built (navigation for dm_x: building)", Assert.Single(r.Roster.Bots).Reason);
+        Assert.Contains(r.Log.All, l => l.Contains("bot Alyx waits: bots will join when navigation is built", StringComparison.Ordinal));
+    }
+
+    /// <summary>When the build lands the waiting bots join, with no level change.</summary>
+    [Fact]
+    public void WhenTheBuildLandsTheWaitingBotsJoinWithoutALevelChange()
+    {
+        var r = new Rig();
+        (r.Nav.Building, r.Nav.Refusal) = (true, "navigation for dm_x: building");
+        Assert.Null(r.Add("Alyx", "hard"));
+        Assert.Null(r.Add("Barney", "normal"));
+        r.Frame(8);
+
+        (r.Nav.Building, r.Nav.Refusal, r.Nav.Version) = (false, null, 1);
+        r.Frame(16);
+
+        Assert.Equal(["Alyx", "Barney"], r.ActiveNames);
+    }
+
+    /// <summary>A bot this level refused for no navigation is asked again when a navigation is set (its version moves), not only at the next level.</summary>
+    [Fact]
+    public void ABotRefusedForNoNavIsAskedAgainWhenANavIsSet()
+    {
+        Rig r = ThreeBotsInFiveSlots();
+        r.Nav.Refusal = "no navigation for dm_x";
+        r.ChangeLevel("dm_x");
+        r.Frame(8);
+        Assert.Empty(r.ActiveNames);
+
+        (r.Nav.Refusal, r.Nav.Version) = (null, 1);
+        r.Frame(16);
+
+        Assert.Equal(3, r.ActiveNames.Count());
+    }
+
     // ---- people -------------------------------------------------------------
 
     /// <summary>The engine's clients: <paramref name="connected"/> have a channel; a player entity, so a user id, comes only at the spawn.</summary>
@@ -621,6 +673,63 @@ public sealed class RosterTests
         r.Add(null, "skills=4,4,4,3,3,3,4,3,4,3");
         return r;
     }
+
+    // ---- the admin's re-roll now (plan_bots_teams_tf2 D.4) ----------------------
+
+    [Fact]
+    public void ARerollNowDrawsPresetBotsAnewAndBringsThemBackAsTheNewDraw()
+    {
+        Rig r = FourKinds();
+        r.ChangeLevel("dm_lockdown");
+        var before = Facts(r);
+
+        Assert.Null(r.Roster.RerollNow());
+        r.Frame(16);
+        var after = Facts(r);
+
+        foreach (int i in new[] { 0, 1 })
+        {
+            Assert.NotEqual(before[i].Seed, after[i].Seed);
+            Assert.NotEqual(before[i].Name, after[i].Name);
+            Assert.Equal(before[i].Tag, after[i].Tag);
+        }
+
+        Assert.Equal(before[2], after[2]);
+        Assert.Equal(after.Select(a => a.Name).Order(), r.Players.Made.Select(p => p.Name).Order());
+        Assert.All(r.Roster.Bots, b => Assert.True(b.Active, b.Name));
+    }
+
+    [Fact]
+    public void ARerollNowKicksOnlyTheBotsItDraws()
+    {
+        Rig r = FourKinds();
+        r.ChangeLevel("dm_lockdown");
+        string named = r.Roster.Bots[2].Name;
+
+        r.Roster.RerollNow();
+
+        Assert.Contains(r.Players.Made, p => p.Name == named);
+        Assert.Equal(3, r.Players.Kicked.Count);
+    }
+
+    [Fact]
+    public void ASecondRerollNowDrawsAgain()
+    {
+        Rig r = FourKinds();
+        r.ChangeLevel("dm_lockdown");
+        r.Roster.RerollNow();
+        r.Frame(16);
+        var once = Facts(r);
+
+        r.Roster.RerollNow();
+        r.Frame(32);
+
+        Assert.NotEqual(once[0].Seed, Facts(r)[0].Seed);
+    }
+
+    [Fact]
+    public void ARerollNowWithNoBotsSaysSo()
+        => Assert.Equal("there are no bots", new Rig().Roster.RerollNow());
 
     [Fact]
     public void WithRerollOffBotsComeBackUnchanged()
@@ -807,6 +916,125 @@ public sealed class RosterTests
         Assert.Null(r.Add("Alyx", "hard"));
         r.Frame(8);
         Assert.Empty(r.Teams.Joins);
+    }
+
+    // ---- a mode switch (plan_bots_teams_tf2 D.2, step 8) ------------------------
+
+    /// <summary>Two bots added under a deathmatch, then the mode turns teams on, as <c>sv_mode tdm</c> does.</summary>
+    private static Rig SwitchedToTeams(string? fixedTeamBot = null)
+    {
+        var r = new Rig();
+        r.Slots.MaxClients = 12;
+        Assert.Null(r.Add("Alyx", "hard", fixedTeamBot == "Alyx" ? 3 : 0));
+        Assert.Null(r.Add("Barney", "hard"));
+        r.Frame(8);
+        Assert.Empty(r.Teams.Joins);
+        r.Teams.Teamplay = true;
+        return r;
+    }
+
+    [Fact]
+    public void AfterASwitchToTeamsEveryBotIsOnATeamTheNextFrame()
+    {
+        Rig r = SwitchedToTeams();
+
+        r.Roster.ModeSwitched();
+        r.Frame(9);
+
+        Assert.Equal((1, 1), (r.Teams.Count(2), r.Teams.Count(3)));
+    }
+
+    /// <summary>
+    /// Regression: a bot added under a deathmatch had never asked, and its ask tick
+    /// (int.MinValue) less the tick overflowed, so it never asked for its team once
+    /// teams played, the switch heard or not.
+    /// </summary>
+    [Fact]
+    public void ABotAddedUnderADeathmatchAsksForItsTeamAtTheNextCountOnceTeamsPlay()
+    {
+        Rig r = SwitchedToTeams(fixedTeamBot: "Alyx");
+
+        r.Frame(16);
+
+        Assert.Contains((Actor(r, "Alyx"), 3), r.Teams.Joins);
+    }
+
+    /// <summary>The control: unheard, the switch waits for the roster's next count.</summary>
+    [Fact]
+    public void WithoutTheSwitchHeardTheBotsWaitForTheNextCount()
+    {
+        Rig r = SwitchedToTeams();
+
+        r.Frame(9);
+
+        Assert.Empty(r.Teams.Joins);
+    }
+
+    [Fact]
+    public void AfterASwitchToTeamsAFixedTeamBotGoesToItsOwnTeam()
+    {
+        Rig r = SwitchedToTeams(fixedTeamBot: "Alyx");
+
+        r.Roster.ModeSwitched();
+        r.Frame(9);
+
+        Assert.Contains((Actor(r, "Alyx"), 3), r.Teams.Joins);
+        Assert.Equal(3, r.Teams.TeamOf(Actor(r, "Alyx")));
+    }
+
+    /// <summary>
+    /// A bot asked for a team a moment ago, under the teams before a quick switch
+    /// away and back: heard, the switch lets it ask again at once.
+    /// </summary>
+    [Fact]
+    public void ASwitchLetsABotAskedAMomentAgoAskAgainAtOnce()
+    {
+        Rig r = Teamed();
+        r.Teams.Refuses = true;
+        Assert.Null(r.Add("Alyx", "hard", 3));
+        r.Teams.Joins.Clear();
+
+        r.Roster.ModeSwitched();
+        r.Frame(9);
+
+        Assert.Equal(3, Assert.Single(r.Teams.Joins).Asked);
+    }
+
+    [Fact]
+    public void AfterASwitchAwayFromTeamsNoBotIsMoved()
+    {
+        Rig r = Teamed();
+        Assert.Null(r.Add("Alyx", "hard"));
+        Assert.Null(r.Add("Barney", "hard"));
+        r.Frame(8);
+        r.Teams.Joins.Clear();
+        r.Teams.Teamplay = false;
+
+        r.Roster.ModeSwitched();
+        r.Frame(9);
+        r.Frame(400);
+
+        Assert.Empty(r.Teams.Joins);
+    }
+
+    [Fact]
+    public void TheHookTellsTheRosterAndSaysSo()
+    {
+        Rig r = SwitchedToTeams();
+        var mode = new SwitchedMode("tdm", teamplay: true);
+
+        new AiModeSwitch(r.Roster, r.Log).OnModeSwitched(new SwitchedMode("null", teamplay: false), mode);
+        r.Frame(9);
+
+        Assert.Equal(2, r.Teams.Joins.Count);
+        Assert.Contains("[SourceSharp/Ai] mode 'null' -> 'tdm': 2 bot(s) re-team, teams on\n", r.Log.All);
+    }
+
+    private sealed class SwitchedMode(string id, bool teamplay) : SourceSharp.Server.IGameMode
+    {
+        public string Id => id;
+        public bool Teamplay => teamplay;
+        public SourceSharp.Server.IRoundFlow Rounds => throw new NotSupportedException();
     }
 
     /// <summary>Two people on team 2: the next two auto bots fill team 3.</summary>

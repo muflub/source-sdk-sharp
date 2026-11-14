@@ -78,6 +78,19 @@ public sealed class TFKillFeedSourceTests
                      (l.Killer, l.KillerTeam, l.Victim, l.VictimTeam, l.Icon, l.Suicide, l.LocalInvolved));
     }
 
+    /// <summary>A taunt kill's icon (:513-516): the event already carries the
+    /// stripped taunt name (the server strips the <c>tf_weapon_</c> prefix), so
+    /// the lookup resolves it like any other — <c>d_</c> + the name.</summary>
+    [Theory]
+    [InlineData("taunt_scout", "d_taunt_scout")]
+    [InlineData("taunt_soldier", "d_taunt_soldier")]
+    public void A_taunt_kills_icon_resolves_from_the_stripped_name(string weapon, string icon)
+    {
+        var (f, _) = Rig();
+        f.Add(new Death(3, 2, weapon, false));
+        Assert.Equal(icon, f.Line(0).Icon);
+    }
+
     [Fact]
     public void Killing_yourself_and_the_world_are_suicides_with_no_killer_and_the_weapon_icon_kept()
     {

@@ -7,6 +7,7 @@ using SourceSharp.Shared;
 using Xunit;
 using SourceSharp.Ai.Server;
 using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Teams;
 
 namespace SourceSharp.Ai.Tests.ServerBinding;
 
@@ -124,6 +125,8 @@ public class BotCommandsTests
 
         public string? MissingFile { get; set; }
 
+        public bool Building { get; set; }
+
         public LoadedNav? Current => null;
 
         public NavObstacleState? Obstacles => null;
@@ -156,6 +159,8 @@ public class BotCommandsTests
     private readonly Players _players = new();
     private readonly AiBots _bots;
     private readonly AiRoster _roster;
+    private readonly FakeRosterTeams _teams = new();
+    private readonly AiBotOrdersConVar _orders = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>())).Declare<AiBotOrdersConVar>();
 
     public BotCommandsTests()
     {
@@ -163,7 +168,7 @@ public class BotCommandsTests
                               DispatchProxy.Create<IEngineEntities, Unasked>(), WeaponCatalog.Stock(),
                               DispatchProxy.Create<IEngineFrame, Unasked>(), _nav, TestGames.Hl2mp(), DispatchProxy.Create<IBotInventory, Unasked>(),
                               new DataFileNames(), _tags, _log);
-        _roster = new AiRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log, new FakeRosterTeams());
+        _roster = new AiRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log, _teams);
     }
 
     private void Add(string args) => new AiBotAddCommand(_roster, _log, _notices).RunLine(args, _log.Msg);
@@ -420,7 +425,45 @@ public class BotCommandsTests
         Assert.Empty(_notices.Told);
     }
 
-    private AiAdminMenu AdminMenu() => new(_roster, _nav);
+    private AiAdminMenu AdminMenu() => new(_roster, _nav, _teams, _orders);
+
+    private static List<AdminNode> BotsFolder(AiAdminMenu menu) => [.. Assert.Single(menu.AdminItems(1)).Children!];
+
+    [Fact]
+    public void WithoutTeamsTheBotsFolderHasNoTeamAddsAndNoOrders()
+        => Assert.Equal(["#SS_UI_Admin_BotAdd", "#SS_UI_Admin_BotReroll", "#SS_UI_Admin_BotRemoveAll"], BotsFolder(AdminMenu()).Select(n => n.Label));
+
+    [Fact]
+    public void WithTeamsABotIsAddedToTheTeamChosen()
+    {
+        _teams.Teamplay = true;
+        _teams.Teams = 3;
+        var menu = AdminMenu();
+        var byTeam = Assert.Single(BotsFolder(menu), n => n.Label == "#SS_UI_Admin_BotTeam").Children!;
+
+        Assert.Equal(["#SS_UI_Team_2", "#SS_UI_Team_3", "#SS_UI_Team_4"], byTeam.Select(n => n.Label));
+        Assert.Null(AdminNode.Find(menu.AdminItems(1), "bots:add:hard:team4")!.Take());
+
+        Assert.Equal(4, Assert.Single(_teams.Joins).Asked);
+        Assert.Equal(4, Assert.Single(_roster.Bots).Team);
+    }
+
+    [Fact]
+    public void TheOrdersItemTurnsTheOrdersOffAndThenOn()
+    {
+        _teams.Teamplay = true;
+        Assert.True(_orders.Value);
+
+        AdminNode.Find(AdminMenu().AdminItems(1), "bots:orders:0")!.Run!();
+        Assert.False(_orders.Value);
+        AdminNode.Find(AdminMenu().AdminItems(1), "bots:orders:1")!.Run!();
+
+        Assert.True(_orders.Value);
+    }
+
+    [Fact]
+    public void TheRerollItemSaysWhyWithNoBots()
+        => Assert.Equal("there are no bots", AdminNode.Find(AdminMenu().AdminItems(1), "bots:reroll")!.Take());
 
     private static List<AdminNode> AddItems(AiAdminMenu menu)
         => [.. Assert.Single(Assert.Single(menu.AdminItems(1)).Children!, n => n.Label == "#SS_UI_Admin_BotAdd").Children!];
@@ -447,6 +490,19 @@ public class BotCommandsTests
 
         Assert.StartsWith("Bots need navigation: ", why, StringComparison.Ordinal);
         Assert.Empty(_players.Asked);
+    }
+
+    [Fact]
+    public void WhileTheNavigationIsBuiltTheMenusAddItemsAreLiveAndTheBotWaits()
+    {
+        (_nav.Refusal, _nav.MissingFile, _nav.Building) = ("navigation for dm_lockdown: building", "maps/dm_lockdown.nav3d", true);
+
+        var items = AddItems(AdminMenu());
+
+        Assert.All(items, n => Assert.Null(n.Unavailable));
+        Assert.Null(items[1].Take());
+        Assert.Empty(_players.Asked);
+        Assert.StartsWith(AiRoster.WaitsForNav, Assert.Single(_roster.Bots).Reason, StringComparison.Ordinal);
     }
 
     [Fact]

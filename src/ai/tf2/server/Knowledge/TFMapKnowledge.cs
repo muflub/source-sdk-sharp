@@ -11,7 +11,7 @@ namespace SourceSharp.Ai.TF2.Knowledge;
 /// step 5), from the entity lump the navigation read: the health and ammo packs by size (each back
 /// <see cref="TFPowerup.ItemRespawnTime"/> after it is taken), each team's spawns
 /// (<c>info_player_teamspawn</c> by its team), and each team's respawn rooms and resupply cabinets
-/// as their volumes. The objectives move, so they ride every view (<see cref="TFObjectiveFeed"/>),
+/// as their volumes; and the classes' bodies it is given (<see cref="TFKnowledge.Bodies"/>). The objectives move, so they ride every view (<see cref="TFObjectiveFeed"/>),
 /// not this.
 /// </summary>
 public static class TFMapKnowledge
@@ -28,7 +28,7 @@ public static class TFMapKnowledge
         _ => ItemKind.Other,
     };
 
-    public static MapKnowledge Build(string map, MapEntities lump, WeaponKnowledge weapons, AbilityTable abilities)
+    public static MapKnowledge Build(string map, MapEntities lump, WeaponKnowledge weapons, AbilityTable abilities, BodyKnowledge bodies)
     {
         var items = ImmutableArray.CreateBuilder<ItemSpawn>();
         var spawns = ImmutableArray.CreateBuilder<TeamSpawn>();
@@ -43,7 +43,7 @@ public static class TFMapKnowledge
                 zones.Add(new TeamZone(e.Team, zone, mins, maxs));
         }
 
-        return new MapKnowledge(map, items.ToImmutable(), [], weapons, spawns.ToImmutable(), abilities, teamZones: zones.ToImmutable());
+        return new MapKnowledge(map, items.ToImmutable(), [], weapons, spawns.ToImmutable(), abilities, teamZones: zones.ToImmutable(), bodies: bodies);
     }
 
     private static ZoneKind? ZoneOf(string className) => className switch

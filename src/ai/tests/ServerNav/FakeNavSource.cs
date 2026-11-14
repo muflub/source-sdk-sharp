@@ -51,14 +51,30 @@ internal sealed class FakeNavSource : INavSource
 
     public NavLeaf Leaf(int leaf) => _leaves[leaf].Leaf;
 
-    public bool Stands(int leaf, float width, float height) => _leaves[leaf].Leaf.Walkable && _leaves[leaf].Ceiling - _leaves[leaf].Leaf.FloorZ >= height;
+    public bool Stands(int leaf, float width, float height)
+        => _leaves[leaf].Leaf.Walkable && !_steps.Contains(leaf) && _leaves[leaf].Ceiling - _leaves[leaf].Leaf.FloorZ >= height;
+
+    private readonly HashSet<int> _steps = new();
+
+    /// <summary>
+    /// Marks <paramref name="leaf"/> a stair's step that a wide body's box reaches past: at its own
+    /// floor the box meets the next step up, so it does not stand there; raised a step it fits.
+    /// </summary>
+    public void Step(int leaf) => _steps.Add(leaf);
 
     public bool Climbs(int leaf, float width, float height) => _leaves[leaf].Leaf.Ladder && _leaves[leaf].Ceiling - _leaves[leaf].Leaf.BottomZ >= height;
 
     public bool FitsAbove(int leaf, float feet, float width, float height) => FitsAt(leaf, feet, width, height);
 
     public bool FitsAt(int leaf, float originZ, float width, float height)
-        => originZ >= _leaves[leaf].Leaf.BottomZ && _leaves[leaf].Ceiling - originZ >= height;
+        => originZ >= _leaves[leaf].Leaf.BottomZ && _leaves[leaf].Ceiling - originZ >= height
+           && (!_steps.Contains(leaf) || originZ >= _leaves[leaf].Leaf.FloorZ + VoxelSize)
+           && (!_belowLedges.Contains(leaf) || width <= 2f * VoxelSize);
+
+    private readonly HashSet<int> _belowLedges = new();
+
+    /// <summary>Marks <paramref name="leaf"/> the column under a ledge's lip: a box wider than two voxels at its centre reaches back over the ledge.</summary>
+    public void BelowLedge(int leaf) => _belowLedges.Add(leaf);
 
     public int ColumnLeaves(int leaf, int dx, int dy, Span<int> into)
     {

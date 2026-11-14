@@ -229,6 +229,25 @@ if (args.Length > 0 && args[0] == "aimaps")
     return 0;
 }
 
+// "tfaimaps" writes the TF2 AI's test maps (plan_bots_teams_tf2_part_g G.5)
+// into the directory given, as "aimaps" does the test mod's:
+// `make map MAP=ss_ai_tf_*` links them into the tf2 mod's maps.
+if (args.Length > 0 && args[0] == "tfaimaps")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen tfaimaps <dir>");
+        return 2;
+    }
+
+    Directory.CreateDirectory(args[1]);
+    var jump = TFAiTestMaps.Jump();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_jump.vmf"), jump.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_jump.yaml"), AiTestMaps.Level("ss_ai_tf_jump.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_jump.vmf")}: {jump.Entities.Count} entities, {jump.WorldSolids.Count} world brushes");
+    return 0;
+}
+
 // "stockmap" writes the copy of a compiled ss_sandbox that stock hl2mp loads:
 // the SourceSharp-only classnames renamed (StockMap.Renames), nothing else
 // changed. tools/stock-ab makes it on every run, from the tree's own .bsp.

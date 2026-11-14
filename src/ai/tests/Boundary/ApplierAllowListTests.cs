@@ -41,6 +41,8 @@ public class ApplierAllowListTests
         // The tick a bot's command runs on.
         "IEngineFrame::TickCount",
         "ILog::Msg", "ILog::Warning",
+        // HookedBotClientCommand (plan_bots_teams_tf2 C.3): an ability row's word through the mods' command chain, a player's route to a game's verb.
+        "IHooks`1::get_All", "IClientCommandHook::Handle",
         // The applier: the human path (§3.2) and the command's angles.
         "IPlayerCommandRunner::Queue", "IPlayerCommandRunner::RunQueued",
         // EngineBotSelf: where recoil has its own crosshair.
@@ -64,6 +66,8 @@ public class ApplierAllowListTests
         "IEngineEntities::GetIndex", "Vector::.ctor",
         // EngineRenderedTeams (plan_bots_teams_tf2 B.2): whether the active mode plays teams, and the HUD's team scores.
         "GameModes::get_Active", "IGameMode::get_Teamplay", "IGameMode::get_Scoring", "IScoring::TeamScore",
+        // AiModeSwitch (plan_bots_teams_tf2 D.2): the modes a switch left and took, by id, in its log line.
+        "IGameMode::get_Id",
         // EngineRosterTeams (B.6): a bot's jointeam through the team service, the route a player's takes; who is a bot.
         "ITeams::Join", "IBotPlayers::IsBot",
                 // ActorDirectory: the living players by slot, a human's actor from its handle (Phase 4 step 1).
@@ -73,7 +77,7 @@ public class ApplierAllowListTests
         "IEngineEntities::GetVelocity", "IEnginePlayers::BoxInPvs",
         // SnapshotBuilder: the weapon model a client sees in another's hands (§4.3); EngineBotHud: the bot's own HUD.
         "IEnginePlayers::GetActiveWeapon", "IEngineEntities::GetHealth", "IEngineEntities::GetArmor",
-        "Arsenal::PoolOf", "WeaponCatalog::get_All", "WeaponCatalog::For", "WeaponType::get_AmmoName", "IPlayerStances::Ducked", "WeaponType::get_SecondaryAmmoName",
+        "Arsenal::PoolOf", "WeaponCatalog::get_All", "WeaponCatalog::For", "WeaponType::get_AmmoName", "IPlayerStances::Ducked", "IPlayerStances::OnGround", "WeaponType::get_SecondaryAmmoName",
         // WeaponKnowledgeBuilder.AltOf (§5.4): what a second trigger is, from its row and the classes it launches.
         "SecondaryFire::get_AmmoCost", "SecondaryFire::get_FromClip", "SecondaryFire::get_LaunchSpeed", "SecondaryFire::get_Pellets", "SecondaryFire::get_Projectile",
         "GrenadeAr2Vars::.ctor", "GrenadeAr2Vars::get_Magnitude", "GrenadeAr2Vars::get_Radius", "EnergyBallVars::.ctor", "EnergyBallVars::get_Damage",
@@ -114,6 +118,8 @@ public class ApplierAllowListTests
         // NavObstacleField: the solid entities' place, size and solidity, on the main thread (ruling 2026-11-02).
         "IEngineEntities::GetBounds", "IEngineEntities::GetSolidFlags", "IEngineEntities::GetSolidType", "IEngineEntities::GetSpawnFlags",
         "Angles::Vectors", "Basis::get_Forward", "Basis::get_Right", "Basis::get_Up", "Vector::op_Addition", "Vector::op_Multiply", "Vector::op_Subtraction",
+        // ai_nav_prebuild all (plan_bots_teams_tf2 E.4): the map cycle's maps, read as the intermission reads them.
+        "Intermission::ReadCycle",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>
@@ -130,9 +136,10 @@ public class ApplierAllowListTests
     private static bool IsCore(MethodBase m)
     {
         string name = m.DeclaringType?.Assembly.GetName().Name ?? "";
-        // The core is this repo's: map-tools' reader (SourceSharp.MapFormats) is a package the binding reads files with.
+        // The core is this repo's: map-tools' reader (SourceSharp.MapFormats) is a package the binding reads files with,
+        // and its builder (SourceSharp.MapTools, plan_bots_teams_tf2 E.2) one it builds a map's navigation with.
         return name.StartsWith("SourceSharp.", StringComparison.Ordinal) && !name.StartsWith("SourceSharp.Ai", StringComparison.Ordinal)
-               && name != "SourceSharp.MapFormats";
+               && name is not "SourceSharp.MapFormats" and not "SourceSharp.MapTools";
     }
 
     private static string[] CoreCalls()

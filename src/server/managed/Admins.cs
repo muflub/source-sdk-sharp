@@ -60,8 +60,11 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
     private readonly IAdminMenu _menu;
     private readonly IPlayerNotices _notices;
     private readonly ILog _log;
+    private readonly PlayerNames? _names;
+    private readonly IConnectedClients? _clients;
 
-    public ServerAdmins(AdminGate gate, bool dedicated, IUserMessageSender messages, IAdminMenu menu, IPlayerNotices notices, ILog log)
+    public ServerAdmins(AdminGate gate, bool dedicated, IUserMessageSender messages, IAdminMenu menu, IPlayerNotices notices, ILog log,
+                        PlayerNames? names = null, IConnectedClients? clients = null)
     {
         _gate = gate;
         _dedicated = dedicated;
@@ -69,10 +72,13 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         _menu = menu;
         _notices = notices;
         _log = log;
+        _names = names;
+        _clients = clients;
     }
 
     public static ServerAdmins For(IEngineHost host, IEngineFiles files, AdminAddressConVar adminAddress, IBoundPort port, IUserMessageSender messages,
-                                   IAdminMenu menu, IPlayerNotices notices, IGameClock clock, ILog log)
+                                   IAdminMenu menu, IPlayerNotices notices, IGameClock clock, ILog log, PlayerNames? names = null,
+                                   IConnectedClients? clients = null)
     {
         IReadOnlyDictionary<string, string> List()
         {
@@ -86,7 +92,15 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         var gate = new AdminGate(() => clock.Now, List,
                                  address => AdminAddress.IsOurs(address, port.Read(), AdminAddress.OwnInterfaces(), adminAddress.Value),
                                  AdminGate.SecureNonce);
-        return new ServerAdmins(gate, host.IsDedicatedServer, messages, menu, notices, log);
+        return new ServerAdmins(gate, host.IsDedicatedServer, messages, menu, notices, log, names, clients);
+    }
+
+    /// <summary>A player as the log names them, so a gate can find the line: the name, the slot and the user id.</summary>
+    public string Who(int slot)
+    {
+        string name = _names?.NameOf(slot) is { Length: > 0 } n ? n : "?";
+        string id = _clients is null ? "?" : _clients.UserId(slot).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return $"{name} (slot {slot}, user id {id})";
     }
 
     public int ClientLifecycleOrder => (int)LifecycleStage.Admins;
@@ -150,7 +164,7 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
     {
         if (!IsAdmin(slot))
         {
-            _log.Warning($"[SourceSharp/Admin] slot {slot} is no admin and asked for {id}\n");
+            _log.Warning($"[SourceSharp/Admin] {Who(slot)} is no admin and asked for {id}: refused\n");
             Refuse(slot, AdminRefusal.NotAllowed);
             _notices.Refused(slot, $"Admin: {id} refused: you are not an admin on this server");
             return;
@@ -160,15 +174,15 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
             if (node.Take() is { } why)
             {
                 // The admin who chose it hears why, as a player typing the command would.
-                _log.Warning($"[SourceSharp/Admin] slot {slot} asked for {id}, refused: {why}\n");
+                _log.Warning($"[SourceSharp/Admin] admin {Who(slot)} asked for {id}, refused: {why}\n");
                 _notices.Refused(slot, $"Admin: {id} refused: {why}");
                 return;
             }
-            _log.Msg($"[SourceSharp/Admin] slot {slot} ran {id}\n");
+            _log.Msg($"[SourceSharp/Admin] admin {Who(slot)} ran {id}\n");
             return;
         }
         // A player gone, or a map off the list, since the menu was sent.
-        _log.Warning($"[SourceSharp/Admin] slot {slot} asked for {id}, which is not on the menu now\n");
+        _log.Warning($"[SourceSharp/Admin] admin {Who(slot)} asked for {id}, which is not on the menu now\n");
         _notices.Refused(slot, $"Admin: {id} refused: it is not on the menu now");
     }
 
@@ -193,23 +207,55 @@ public interface IAdminMenu
     IReadOnlyList<AdminNode> Build(int slot);
 }
 
-/// <summary>The game's: its maps and modes, its players and the mods' additions.</summary>
-public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console, IEnginePlayers players, IEngineHost host, IEngineEnvironment environment,
+/// <summary>
+/// What a mode adds to each player's folder in the admin menu (team
+/// deathmatch's moves to a team): the core gives every player Kick and
+/// Spectate, and each registered member adds its own.
+/// </summary>
+public interface IAdminPlayerActions
+{
+    /// <summary>The actions on <paramref name="player"/>, whose user id is <paramref name="userId"/>; ids name the user id.</summary>
+    IEnumerable<AdminNode> ActionsFor(EntityHandle player, int userId);
+}
+
+/// <summary>
+/// The game's admin menu (plan_bots_teams_tf2 D.4): Map (the candidates, and
+/// the next map), Mode (the catalog's modes, those this map cannot play
+/// unavailable with the reason), Players (kick, spectate and a mode's moves),
+/// Settings (the playing mode's), Votes (call one as the server, cancel the
+/// one running) and Restart, then every <see cref="IAdminMenuProvider"/>'s
+/// folders (team deathmatch's Teams, the AI's Bots).
+/// </summary>
+public sealed class AdminMenuBuilder(IEngineConsole console, IEnginePlayers players, IEngineHost host, IEngineEnvironment environment,
                                      IConnectedClients clients, PlayerNames names, IEngineEntities entities, ServiceContainer services,
-                                     MapCycleFileConVar mapCycle, GameModeCatalog catalog, ModeSettingWrites writes) : IAdminMenu
+                                     GameModeCatalog catalog, ModeSettingWrites writes, MapCandidates candidates, ITeams teams) : IAdminMenu
 {
     public IReadOnlyList<AdminNode> Build(int slot)
     {
         var items = new List<AdminNode>
         {
-            AdminNode.Folder("#SS_UI_Admin_Map", Maps()),
+            AdminNode.Folder("#SS_UI_Admin_Map", Maps(candidates.All(), line => console.ExecuteServerCommand(line + "\n"))),
             AdminNode.Folder("#SS_UI_Admin_Mode", Modes()),
-            AdminNode.Folder("#SS_UI_Admin_Kick", Kicks(slot)),
+            AdminNode.Folder("#SS_UI_Admin_Players", Players(slot)),
             AdminNode.Folder("#SS_UI_Vote_Settings", Settings(catalog.Active?.Settings ?? [], writes.Current, writes.Write)),
+            AdminNode.Folder("#SS_UI_Admin_Votes", Votes()),
             new("#SS_UI_Admin_Restart", "restart", () => console.ExecuteServerCommand("mp_restartgame 1\n")),
         };
         foreach (var provider in services.ResolveAll<IAdminMenuProvider>())
             items.AddRange(provider.AdminItems(slot));
+        return items;
+    }
+
+    /// <summary>
+    /// Each candidate, by its label (the modes it plays, no nav), to change to
+    /// now; then a Next map folder of the same, each setting <c>nextlevel</c>.
+    /// </summary>
+    public static List<AdminNode> Maps(IReadOnlyList<MapCandidate> maps, Action<string> run)
+    {
+        var items = maps.Select(c => new AdminNode(c.Label, "map:" + c.Map, () => run($"changelevel {c.Map}"))).ToList();
+        if (maps.Count > 0)
+            items.Add(AdminNode.Folder("#SS_UI_Admin_NextMap",
+                                       [.. maps.Select(c => new AdminNode(c.Label, "nextmap:" + c.Map, () => run($"nextlevel {c.Map}")))]));
         return items;
     }
 
@@ -228,34 +274,120 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
                                                                                               () => write(g.Key, o.Id[(o.Id.IndexOf('=') + 1)..])))]))
                           .ToList();
 
-    private List<AdminNode> Maps()
-        => Intermission.ReadCycle(files, mapCycle.Value)
-                       .Distinct(StringComparer.OrdinalIgnoreCase)
-                       .Select(map => new AdminNode(map, "map:" + map, () => console.ExecuteServerCommand($"changelevel {map}\n")))
-                       .ToList();
-
-    // Resolved here, not constructed with: the mode proxy comes up after the services.
+    /// <summary>
+    /// The catalog's modes; one this map cannot play is shown unavailable with
+    /// the reason (no flag, no control points). Resolved here, not constructed
+    /// with: the mode proxy comes up after the services.
+    /// </summary>
     private List<AdminNode> Modes()
-    {
-        if (services.Resolve<GameModes>() is not { } modes)
-            return [];
-        return modes.Registered.Select(m => new AdminNode(GameVoteOptions.ModeLabel(m.Id), "mode:" + m.Id, () => modes.SwitchTo(m.Id))).ToList();
-    }
+        => services.Resolve<GameModes>() is { } modes
+            ? Modes(catalog.Modes(), id => catalog.Supports(catalog.CurrentMap, id), id => modes.SwitchTo(id))
+            : [];
 
-    // By user id, which no later player reuses: a slot in a stale menu may have changed hands.
-    private List<AdminNode> Kicks(int self)
+    /// <summary>Each of <paramref name="modes"/>, switched to by <paramref name="switchTo"/>; one <paramref name="support"/> refuses is unavailable with its reason.</summary>
+    public static List<AdminNode> Modes(IReadOnlyList<ModeSpec> modes, Func<string, MapSupport> support, Action<string> switchTo)
+        => [.. modes.Select(m => new AdminNode(m.Title.StartsWith('#') ? m.Title : GameVoteOptions.ModeLabel(m.Id), "mode:" + m.Id,
+                                               () => switchTo(m.Id),
+                                               Unavailable: support(m.Id) is { Supported: false } no ? no.Reason : null))];
+
+    /// <summary>
+    /// A folder each player in the game: Kick (not the admin themselves, nor a
+    /// listen server's host), Spectate (one not watching already), then each
+    /// <see cref="IAdminPlayerActions"/>'s. By user id, which no later player
+    /// reuses: a slot in a stale menu may have changed hands.
+    /// </summary>
+    private List<AdminNode> Players(int self)
     {
-        var kicks = new List<AdminNode>();
+        var people = new List<AdminPlayer>();
         var globals = environment.Globals;
         for (int other = 1; other <= globals.MaxClients; other++)
         {
-            if (other == self || (!host.IsDedicatedServer && other == 1))
-                continue;
-            if (!entities.IsValid(players.GetHandle(other)))
-                continue;
-            int target = other;
-            kicks.Add(new AdminNode(names.NameOf(other), $"kick:{clients.UserId(other)}", () => clients.Kick(target, "Kicked by an admin")));
+            EntityHandle player = players.GetHandle(other);
+            if (entities.IsValid(player))
+                people.Add(new AdminPlayer(other, player, clients.UserId(other), names.NameOf(other), teams.Team(player) == Server.Teams.TeamSpectator));
         }
-        return kicks;
+        return Players(people, self, host.IsDedicatedServer, services.ResolveAll<IAdminPlayerActions>(),
+                       p => clients.Kick(p.Slot, "Kicked by an admin"), p => teams.Join(p.Handle, Server.Teams.TeamSpectator));
     }
+
+    /// <summary>One player in the game, as the Players folder lists them.</summary>
+    public readonly record struct AdminPlayer(int Slot, EntityHandle Handle, int UserId, string Name, bool Spectating);
+
+    /// <summary>
+    /// A folder each of <paramref name="people"/>: Kick (not the admin in
+    /// <paramref name="self"/>, nor a listen server's host), Spectate (one not
+    /// watching already), then each of <paramref name="actions"/>'. By user id,
+    /// which no later player reuses: a slot in a stale menu may have changed hands.
+    /// </summary>
+    public static List<AdminNode> Players(IEnumerable<AdminPlayer> people, int self, bool dedicated, IEnumerable<IAdminPlayerActions> actions,
+                                          Action<AdminPlayer> kick, Action<AdminPlayer> spectate)
+    {
+        var folders = new List<AdminNode>();
+        foreach (var person in people)
+        {
+            var items = new List<AdminNode>();
+            if (person.Slot != self && (dedicated || person.Slot != 1))
+                items.Add(new AdminNode("#SS_UI_Admin_Kick", $"kick:{person.UserId}", () => kick(person)));
+            if (!person.Spectating)
+                items.Add(new AdminNode("#SS_UI_Admin_Spectate", $"players:spectate:{person.UserId}", () => spectate(person)));
+            foreach (var provider in actions)
+                items.AddRange(provider.ActionsFor(person.Handle, person.UserId));
+            if (items.Count > 0)
+                folders.Add(AdminNode.Folder(person.Name, items));
+        }
+        return folders;
+    }
+
+    /// <summary>
+    /// Call a vote as the server (each issue players may call, by kind, its
+    /// refusals shown unavailable), and cancel the one running. The admin's own
+    /// changes are the other folders' actions, which need no vote. Resolved
+    /// here: the votes take the admins, who take this menu.
+    /// </summary>
+    private List<AdminNode> Votes()
+        => services.Resolve<ServerVotes>() is { } votes && services.Resolve<IVoteOptions>() is { } options
+            ? Votes(options.Build(), options.Refusal, votes.CallAsServer, votes.Cancel, votes.Running)
+            : [];
+
+    /// <summary>
+    /// A Call folder of <paramref name="choices"/> by kind (a setting's by its
+    /// row), each <paramref name="call"/>ed as the server, one
+    /// <paramref name="refusal"/> refuses unavailable with the reason; and
+    /// Cancel, unavailable unless a vote is <paramref name="running"/>.
+    /// </summary>
+    public static List<AdminNode> Votes(IReadOnlyList<VoteOption> choices, Func<VoteOption, string?> refusal, Func<VoteOption, string?> call,
+                                        Func<string?> cancel, bool running)
+    {
+        AdminNode Call(VoteOption o)
+            => AdminNode.Refusable(o.Label.Length > 0 ? o.Label : KindLabel(o.Kind), $"vote:{VoteOptionWords.WordOf(o.Kind)}:{o.Id}",
+                                   () => call(o), unavailable: refusal(o));
+        AdminNode Group(IGrouping<string, VoteOption> g)
+        {
+            VoteKind kind = g.First().Kind;
+            if (g.Count() == 1 && g.First().Label.Length == 0)
+                return Call(g.First());
+            return AdminNode.Folder(kind == VoteKind.Setting ? CoreModeSpecs.SettingToken(g.Key) : KindLabel(kind), [.. g.Select(Call)]);
+        }
+        var calls = choices.GroupBy(o => o.Kind == VoteKind.Setting ? o.Id[..Math.Max(0, o.Id.IndexOf('='))] : o.Kind.ToString())
+                           .Select(Group)
+                           .ToList();
+        return
+        [
+            AdminNode.Folder("#SS_UI_Admin_VoteCall", calls),
+            AdminNode.Refusable("#SS_UI_Admin_VoteCancel", "vote:cancel", cancel, unavailable: running ? null : "no vote is running"),
+        ];
+    }
+
+    /// <summary>What the vote menus call a kind.</summary>
+    public static string KindLabel(VoteKind kind) => kind switch
+    {
+        VoteKind.Map => "#SS_UI_Vote_ChangeMap",
+        VoteKind.NextMap => "#SS_UI_Vote_NextMap",
+        VoteKind.Mode => "#SS_UI_Vote_Mode",
+        VoteKind.Restart => "#SS_UI_Vote_Restart",
+        VoteKind.Scramble => "#SS_UI_Admin_Scramble",
+        VoteKind.Extend => "#SS_UI_Vote_Extend",
+        VoteKind.Setting => "#SS_UI_Vote_Settings",
+        _ => kind.ToString(),
+    };
 }

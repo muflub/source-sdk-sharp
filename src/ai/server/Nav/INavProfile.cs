@@ -25,8 +25,7 @@ public interface INavProfile
 
     /// <summary>
     /// The volumes of <paramref name="entities"/>' map solid to every team but one (TF's respawn room
-    /// visualizers: <see cref="TF2TeamSolids"/>), which each team's players route round; none for a
-    /// game without them.
+    /// visualizers), which each team's players route round; none for a game without them.
     /// </summary>
     IReadOnlyList<TeamSolid> TeamSolids(MapEntities entities);
 }

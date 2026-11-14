@@ -344,7 +344,7 @@ public static class AiTestMaps
     /// <summary>The cell's low corner of the room at index <paramref name="i"/>.</summary>
     public static Point Origin(int i) => new(i * (Cell + Gap), 0, 0);
 
-    private static void Room(VmfMap map, int index, string name, bool east, bool west, float cell = Cell, bool north = false, bool south = false)
+    internal static void Room(VmfMap map, int index, string name, bool east, bool west, float cell = Cell, bool north = false, bool south = false)
     {
         Point o = Origin(index);
         float c = cell, w = Wall;
@@ -403,7 +403,7 @@ public static class AiTestMaps
         map.Entities.Add(e);
     }
 
-    private static void Item(VmfMap map, string className, Point at)
+    internal static void Item(VmfMap map, string className, Point at)
     {
         var e = new VmfEntity { ClassName = className };
         e.Set("origin", at.ToString());

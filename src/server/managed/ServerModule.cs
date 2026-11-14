@@ -2072,6 +2072,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));
         // The server's own choice of the next map when a level's round ends.
         _services.Add<EndOfMapVote>();
+        // The web UI's Match card: the mode, its settings, the vote on now and the next map (dev API, read only).
+        _services.Add(typeof(MatchRoutes), typeof(MatchRoutes));
         // The admin menu's Teams folder, under team deathmatch.
         _services.Add(typeof(TeamAdminMenu), typeof(TeamAdminMenu));
 
@@ -2081,7 +2083,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.Add<IPlayerNotices, PlayerNotices>();
         _services.AddFactory(locator => ServerAdmins.For(locator.Require<IEngineHost>(), locator.Require<IEngineFiles>(), locator.Require<AdminAddressConVar>(),
                                                          locator.Require<IBoundPort>(), locator.Require<IUserMessageSender>(), locator.Require<IAdminMenu>(),
-                                                         locator.Require<IPlayerNotices>(), locator.Require<IGameClock>(), locator.Require<ILog>()));
+                                                         locator.Require<IPlayerNotices>(), locator.Require<IGameClock>(), locator.Require<ILog>(),
+                                                         locator.Resolve<PlayerNames>(), locator.Resolve<IConnectedClients>()));
         _services.AddFactory<IAdminStatus>(locator => locator.Require<ServerAdmins>());
 
         // THE SERVER'S SKELETONS (plan physics_bones_native_zero step 1.2):

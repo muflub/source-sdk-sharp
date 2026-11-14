@@ -167,6 +167,39 @@ public unsafe class PlayerShadowTests
         Assert.Equal(handle, engine.Last("Shadows.Init")!.Value.ArgAs<EntityHandle>(0));
     }
 
+    /// <summary>
+    /// THE BOX EVERY GENERIC ENTITY CLIP STOPS ON (docs/todo.md's missing
+    /// teammate name tag). The scripted kind gives the player shell
+    /// SOLID_BBOX, the movement loop passes its hull to traces by hand, and
+    /// the collideable's own box — the one stock sizes from the movement
+    /// hull in <c>CBasePlayer::Activate</c> (player.cpp) — stayed empty. A
+    /// clip ray that reads the collideable stops on nothing when the box is
+    /// empty, so the target ID's centre ray walked past every teammate and
+    /// painted no plate. The spawn now writes the standing hull into it.
+    /// </summary>
+    [Fact]
+    public void TheSpawnSizesTheEntityWithTheStandingHull()
+    {
+        var engine = Rig();
+        var handle = new EntityHandle((uint)((7 << 16) | 3));
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
+                                  shadows: new RecordingPlayerShadows(engine), entities: engine) { Handle = handle };
+        player.BindAreas(TestServices.Areas(engine));
+        player.State.BindLocal();
+
+        player.OnSpawn();
+
+        var call = engine.Last("Entities.SetBounds");
+        Assert.NotNull(call);
+        Assert.Equal(handle, call!.Value.ArgAs<EntityHandle>(0));
+
+        // The same hull the shadow carries: one opinion about how big a
+        // player is, stated by MoveConstantDefaults and read from it twice.
+        var c = MoveConstantDefaults.Stock;
+        Assert.Equal(c.HullMin, call.Value.ArgAs<Vector>(1));
+        Assert.Equal(c.HullMax, call.Value.ArgAs<Vector>(2));
+    }
+
     // -----------------------------------------------------------------------
     // The numbers, which are the game's and not the engine's
     // -----------------------------------------------------------------------

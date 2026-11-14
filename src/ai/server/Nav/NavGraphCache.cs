@@ -43,9 +43,10 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
     {
         if (numbers == NavNumbers.Stock(fileJumpHeight))
             return "";
-        Span<byte> bits = stackalloc byte[8 * sizeof(float)];
+        Span<byte> bits = stackalloc byte[10 * sizeof(float)];
         ReadOnlySpan<float> values = [numbers.HullWidth, numbers.StandHeight, numbers.CrouchHeight, numbers.StepHeight,
-                                      numbers.MaxJumpRise, numbers.MaxCrouchJumpRise, numbers.SafeDrop, numbers.MaxDoubleJumpRise];
+                                      numbers.MaxJumpRise, numbers.MaxCrouchJumpRise, numbers.SafeDrop, numbers.MaxDoubleJumpRise,
+                                      numbers.WideHull ? 1f : 0f, numbers.CrouchOnlyCost];
         for (int i = 0; i < values.Length; i++)
             BinaryPrimitives.WriteSingleLittleEndian(bits[(i * sizeof(float))..], values[i]);
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bits))[..16];

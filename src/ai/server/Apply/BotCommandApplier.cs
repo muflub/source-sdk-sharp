@@ -46,7 +46,8 @@ public enum IntentRefusal : byte
 /// watching bot, is refused at the tick and the bot holds.
 /// </para>
 /// </summary>
-public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self, Func<double>? cpu = null, AbilityTable abilities = default)
+public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self, Func<double>? cpu = null, AbilityTable abilities = default,
+                                     IBotClientCommand? commands = null)
 {
     /// <summary>A full key's move, as <c>cl_forwardspeed</c> and <c>cl_sidespeed</c> send it; the server's max speed caps it.</summary>
     public const float FullMove = 450f;
@@ -276,6 +277,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
             bot.OneShots.Clear();
             bot.Spawned = false;
+            // An ability does not outlive the life that began it.
+            bot.AbilityTicks = 0;
+            bot.Sequence = default;
             SetView(ref cmd, facts.View);
             // On a tick of its own, by slot: pressed together, bots respawned in
             // one tick, each before the spawn check could see the other on the
@@ -307,6 +311,12 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         AiVector? corner = NextCorner(intent.Move, in facts);
         (AiAngles look, int stimulus) = LookTarget(in intent, in facts, corner);
+        if (SequenceStepNow(bot) is { TurnsTheView: true } step)
+        {
+            // A sequence's own look (down at the feet, say): a place the bot chose, flicked to as a look of its own.
+            look = new AiAngles(step.Pitch, bot.Motion.View.Yaw, 0f);
+            stimulus = SequenceStimulus;
+        }
         NotePunch(in facts);
         AiAngles view = bot.Motion.Step(AgainstTheClimb(bot, in intent, in facts, look), stimulus, dt);
         SetView(ref cmd, view);
@@ -336,8 +346,11 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             }
 
             buttons |= AbilityHeld(bot);
+            buttons |= SequenceHeld(bot);
         }
 
+        if ((buttons & (int)InputButtons.Attack) != 0 && intent.Look.Kind == LookKind.Actor && intent.Look.Aim == AimPoint.Feet)
+            FeetFireCommands++;
         cmd.Buttons = buttons;
         bot.LastButtons = buttons;
         bot.HeldKeys = buttons & PressKeys;
@@ -689,15 +702,65 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// <summary>
     /// An <see cref="ActionKind.Ability"/> one-shot (plan_bots_teams_tf2 C.3): row
     /// <paramref name="row"/> of the game's <see cref="AbilityTable"/>. A button row is held
-    /// for its ticks from this command on; a row the table lacks does nothing. Command and
-    /// sequence rows wait for the game that needs them (plan P6): they do nothing yet.
+    /// for its ticks from this command on; a command row's word is sent once, now, as the
+    /// player's (<see cref="IBotClientCommand"/>); a sequence row's steps run from this command
+    /// on, each its buttons for its ticks, turning the view to its pitch while it lasts. A new
+    /// sequence replaces one still running; a row the table lacks does nothing.
     /// </summary>
     private void StartAbility(BotState bot, int row)
     {
-        if (!abilities.TryGet(row, out AbilityRow a) || a.Run != AbilityRun.Buttons)
+        if (!abilities.TryGet(row, out AbilityRow a))
             return;
-        bot.AbilityButtons = a.Buttons;
-        bot.AbilityTicks = Math.Max(1, a.HoldTicks);
+        switch (a.Run)
+        {
+            case AbilityRun.Buttons:
+                bot.AbilityButtons = a.Buttons;
+                bot.AbilityTicks = Math.Max(1, a.HoldTicks);
+                break;
+            case AbilityRun.Command when a.Command.Length > 0 && commands is not null:
+                commands.Run(bot.Player, a.Command);
+                AbilityCommands++;
+                break;
+            case AbilityRun.Sequence when a.StepCount > 0:
+                AbilitySequences++;
+                bot.Sequence = a.Steps;
+                bot.SequenceStep = 0;
+                bot.SequenceTicks = Math.Max(1, a.Steps[0].Ticks);
+                break;
+        }
+    }
+
+    /// <summary>The stimulus a sequence's own look answers: one look, the bot's own, apart from any the brain asks for.</summary>
+    public const int SequenceStimulus = 0x5E0_0001;
+
+    /// <summary>Ability command rows sent (plan_bots_teams_tf2 C.3).</summary>
+    public long AbilityCommands { get; private set; }
+
+    /// <summary>Ability sequence rows begun (plan_bots_teams_tf2 C.3: a Soldier's rocket jump).</summary>
+    public long AbilitySequences { get; private set; }
+
+    /// <summary>Commands that pressed fire with the view's intent at a target's feet (a splash weapon's aim, plan_bots_teams_tf2 C.3).</summary>
+    public long FeetFireCommands { get; private set; }
+
+    /// <summary>The step of the bot's running sequence, or null.</summary>
+    private static AbilityStep? SequenceStepNow(BotState bot)
+        => !bot.Sequence.IsDefaultOrEmpty && bot.SequenceStep < bot.Sequence.Length ? bot.Sequence[bot.SequenceStep] : null;
+
+    /// <summary>The buttons the running sequence's step holds this command, counting its ticks down and moving on.</summary>
+    private static int SequenceHeld(BotState bot)
+    {
+        if (SequenceStepNow(bot) is not { } step)
+            return 0;
+        if (--bot.SequenceTicks <= 0)
+        {
+            bot.SequenceStep++;
+            if (bot.SequenceStep < bot.Sequence.Length)
+                bot.SequenceTicks = Math.Max(1, bot.Sequence[bot.SequenceStep].Ticks);
+            else
+                bot.Sequence = default;
+        }
+
+        return step.Buttons;
     }
 
     /// <summary>The buttons an ability holds this command, counting its ticks down.</summary>
@@ -763,6 +826,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         public int AbilityButtons { get; set; }
 
         public int AbilityTicks { get; set; }
+
+        /// <summary>A running ability sequence's steps, the one it is on and that step's commands left.</summary>
+        public System.Collections.Immutable.ImmutableArray<AbilityStep> Sequence { get; set; }
+
+        public int SequenceStep { get; set; }
+
+        public int SequenceTicks { get; set; }
 
         /// <summary>The <see cref="PressKeys"/> its last command held, playing or not.</summary>
         public int HeldKeys { get; set; }

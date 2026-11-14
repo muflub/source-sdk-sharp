@@ -130,18 +130,29 @@ public class TeamVotesAdminTests
     public void TheTeamsFolderIsAbsentWithoutTeams()
     {
         var rig = new TeamDeathmatchJoinTests.JoinRig(GameModes.NullModeId);
-        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine, new PlayerNames(rig.Engine), rig.Engine);
+        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine);
 
         Assert.Empty(menu.AdminItems(1));
+        Assert.Empty(menu.ActionsFor(TeamDeathmatchJoinTests.JoinRig.Other, 0));
+    }
+
+    [Fact]
+    public void APlayersMovesAreToTheTeamsInPlayTheyAreNotOn()
+    {
+        var rig = new TeamDeathmatchJoinTests.JoinRig(TeamDeathmatchMode.ModeId);
+        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine);
+        var other = TeamDeathmatchJoinTests.JoinRig.Other;
+
+        Assert.Equal(["teams:move:7:3"], menu.ActionsFor(other, 7).Select(n => n.Id));
     }
 
     [Fact]
     public void AnAdminMoveMovesThePlayerAndKillsThem()
     {
         var rig = new TeamDeathmatchJoinTests.JoinRig(TeamDeathmatchMode.ModeId);
-        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine, new PlayerNames(rig.Engine), rig.Engine);
-        var items = menu.AdminItems(1).ToList();
+        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine);
         var other = TeamDeathmatchJoinTests.JoinRig.Other;
+        var items = menu.ActionsFor(other, 0).ToList();
 
         var move = AdminNode.Find(items, "teams:move:0:3");
         Assert.NotNull(move);
@@ -155,7 +166,7 @@ public class TeamVotesAdminTests
     public void TheTeamCountChoicesRunTheConvar()
     {
         var rig = new TeamDeathmatchJoinTests.JoinRig(TeamDeathmatchMode.ModeId);
-        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine, new PlayerNames(rig.Engine), rig.Engine);
+        var menu = new TeamAdminMenu(rig.Modes, rig.Teams, rig.Teams, rig.Engine);
 
         AdminNode.Find(menu.AdminItems(1).ToList(), "teams:count:4")!.Run!();
 

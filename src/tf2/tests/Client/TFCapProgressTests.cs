@@ -56,6 +56,7 @@ public sealed class TFCapProgressTests
         public int Reserve => 20;
         public int MaxTotalAmmo => 20;
         public int Metal => 0;
+        public bool Boosted => false;
     }
 
     private sealed class DataFake : Data

@@ -7,7 +7,8 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// <summary>
 /// Loading a level's navigation (plan_hl2mp_ai §6.3): the files through the
 /// engine's file seam (a dictionary here), a refusal naming the map and the
-/// file for each way it can be missing or wrong, never a fallback.
+/// file for each way it can be missing or wrong (the server then builds one:
+/// BuiltNavStoreTests, AiNavBuildTests).
 /// </summary>
 public sealed class NavLoaderTests
 {

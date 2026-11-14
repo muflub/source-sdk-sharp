@@ -46,6 +46,19 @@ public static class TFKnowledge
         })];
     }
 
+    /// <summary>
+    /// The classes as the bodies a bot believes of (plan_bots_teams_tf2_part_g G.2.1): each class's
+    /// run from its script, by the class a client draws (<see cref="ActorFacts.Class"/> is the mod's
+    /// class number). An enemy whose class the bot has not seen runs at the classes' mean. A class
+    /// whose script gave no speed has no row, and with none at all (the table not loaded) the
+    /// bodies are the core's default.
+    /// </summary>
+    public static BodyKnowledge Bodies(ImmutableArray<TFClassFacts> classes)
+    {
+        (int Class, BodyFacts Facts)[] rows = [.. classes.Where(c => c.MaxSpeed > 0f).Select(c => ((int)c.Class, new BodyFacts(c.MaxSpeed)))];
+        return rows.Length == 0 ? BodyKnowledge.Default() : new BodyKnowledge(new BodyFacts(rows.Average(r => r.Facts.RunSpeed)), rows);
+    }
+
     /// <summary>The engine's pull on a projectile whose gravity scale is 1: the mod's movement gravity.</summary>
     public static float Gravity => TFViewVectors.Params.Gravity;
 

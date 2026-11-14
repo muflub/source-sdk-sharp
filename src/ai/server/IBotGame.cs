@@ -45,4 +45,12 @@ public interface IBotGame
     /// objectives. A game that draws nothing more answers a <see cref="SourceSharp.Ai.Server.Senses.PlainBotGameView"/>.
     /// </summary>
     SourceSharp.Ai.Server.Senses.IBotGameView View { get; }
+
+    /// <summary>
+    /// The word a player's team menu sends in this game to join <paramref name="team"/> (0 auto,
+    /// the mode's pick), which a bot sends as its own (plan_bots_teams_tf2 P6 step 7): TF2's
+    /// <c>jointeam red</c>, run through the mods' commands. Null for a game whose menu's word is
+    /// the core's own <c>jointeam N</c>, whose join the roster asks of the team service directly.
+    /// </summary>
+    string? JoinTeamWord(int team) => null;
 }

@@ -54,7 +54,7 @@ public static class NavGraphFromNav3d
     /// from a graph the old one wrote for the same files. Raise it with any
     /// change to what the derivation yields.
     /// </summary>
-    public const int Revision = 4;
+    public const int Revision = 5;
 
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
@@ -83,6 +83,13 @@ public static class NavGraphFromNav3d
             {
                 classes = src.Stands(leaf, n.HullWidth, n.StandHeight) ? ClearanceClasses.Stand | ClearanceClasses.Crouch
                     : src.Stands(leaf, n.HullWidth, n.CrouchHeight) ? ClearanceClasses.Crouch : ClearanceClasses.None;
+                if (classes == ClearanceClasses.None && n.WideHull)
+                {
+                    // A stair: the box reaches the next step's column, and stands on it a step up.
+                    float raised = l.FloorZ + n.StepHeight;
+                    classes = src.FitsAt(leaf, raised, n.HullWidth, n.StandHeight) ? ClearanceClasses.Stand | ClearanceClasses.Crouch
+                        : src.FitsAt(leaf, raised, n.HullWidth, n.CrouchHeight) ? ClearanceClasses.Crouch : ClearanceClasses.None;
+                }
             }
 
             stand[leaf] = classes != ClearanceClasses.None;
@@ -95,7 +102,7 @@ public static class NavGraphFromNav3d
             NavCellFlags flags = (l.Water ? NavCellFlags.Water : 0) | (climb[leaf] ? NavCellFlags.Ladder : 0);
             float floor = stand[leaf] ? l.FloorZ : l.BottomZ;
             cellOfLeaf[leaf] = b.AddCell(new NavCell(l.MinX, l.MinY, l.MaxX, l.MaxY, floor, classes, flags,
-                                                     MathF.Max(1f, l.CostMultiplier))).Index;
+                                                     MathF.Max(1f, l.CostMultiplier) * (classes == ClearanceClasses.Crouch ? n.CrouchOnlyCost : 1f))).Index;
             leafOfCell.Add(leaf);
         }
 
@@ -254,11 +261,14 @@ public static class NavGraphFromNav3d
     private static bool FallsClear(INavSource src, int leaf, int dx, int dy, float from, float to, NavNumbers n, Span<int> into)
     {
         int count = src.ColumnLeaves(leaf, dx, dy, into);
+        // A wide hull (NavNumbers.WideHull) at the column's centre still reaches over the ledge it
+        // leaves; it falls once its centre is past the edge, the box clear of it: a two-voxel body.
+        float fallWidth = n.WideHull ? MathF.Min(n.HullWidth, 2f * src.VoxelSize) : n.HullWidth;
         for (float z = from; z > to; z -= src.VoxelSize)
         {
             bool fits = false;
             for (int i = 0; i < count && !fits; i++)
-                fits = src.FitsAt(into[i], z, n.HullWidth, n.CrouchHeight);
+                fits = src.FitsAt(into[i], z, fallWidth, n.CrouchHeight);
             if (!fits)
                 return false;
         }

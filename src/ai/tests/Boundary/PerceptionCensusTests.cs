@@ -29,7 +29,7 @@ public sealed class PerceptionCensusTests
         "IEngineEntities::GetOrigin", "IEngineEntities::GetEyePosition", "IEngineEntities::GetVelocity", "IEngineEntities::GetEyeAngles",
         "IEngineEntities::GetWorldSpaceCenter", "IEngineEntities::GetHealth", "IEngineEntities::GetArmor", "IEngineEntities::GetAngles",
         "IEnginePlayers::GetActiveWeapon", "IEnginePlayers::GetActiveWeaponEntity", "IEnginePlayers::GetWeaponEntity", "IEnginePlayers::GetShootOrigin",
-        "IPlayerStances::Ducked",
+        "IPlayerStances::Ducked", "IPlayerStances::OnGround",
         "Arsenal::Holdings", "Arsenal::CarriedClipOf", "Arsenal::PoolOf", "Arsenal::Pools", "Arsenal::MaxCarryOf",
     ];
 
@@ -41,6 +41,8 @@ public sealed class PerceptionCensusTests
         typeof(VisionPass).FullName!, typeof(SnapshotBuilder).FullName!, typeof(ThingSight).FullName!,
         // The bot itself: its own origin, eye, view and holdings (§2.4), its own HUD (§4.3).
         typeof(EngineBotSelf).FullName!, typeof(ArsenalBotInventory).FullName!, typeof(EngineBotHud).FullName!,
+        // The bot's own body, for its HUD: on the ground, ducked (plan_bots_teams_tf2 P6).
+        typeof(BotBodyFlags).FullName!,
         // Doors and props the nav blocks, never a player (§6.3).
         "SourceSharp.Ai.Server.Nav.EngineObstacleEyes",
         // The solid entities' cells (ruling 2026-11-02), never a player, a weapon or an item: the

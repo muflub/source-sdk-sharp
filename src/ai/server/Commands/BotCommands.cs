@@ -281,22 +281,38 @@ public sealed class AiThinkLogCommand(AiBots bots, ILog log)
 /// chose it is told (plan_bots_teams_tf2 D.4's refusal line).
 /// </summary>
 [SideService(Side.Server, As = [typeof(IAdminMenuProvider)])]
-public sealed class AiAdminMenu(AiRoster roster, SourceSharp.Ai.Server.Nav.IAiNavigation nav) : IAdminMenuProvider
+public sealed class AiAdminMenu(AiRoster roster, SourceSharp.Ai.Server.Nav.IAiNavigation nav, SourceSharp.Ai.Server.Teams.IRosterTeams teams,
+                                SourceSharp.Ai.Server.Teams.AiBotOrdersConVar orders) : IAdminMenuProvider
 {
+    /// <summary>The add folder's difficulties: the label and the preset each adds.</summary>
+    private static (string Label, string Skill)[] Presets
+        => [("#SS_UI_Admin_BotEasy", "easy"), ("#SS_UI_Admin_BotNormal", "normal"), ("#SS_UI_Admin_BotHard", "hard"), ("#SS_UI_Admin_BotExpert", "expert")];
+
+    /// <summary>
+    /// The Bots folder (plan_bots_teams_tf2 D.4): add a bot of a difficulty, under a
+    /// mode with teams to a chosen team too, re-roll them, whether they follow orders
+    /// (with teams), and remove them all.
+    /// </summary>
     public IEnumerable<AdminNode> AdminItems(int slot)
     {
-        string? unavailable = Unavailable(nav.Refusal, nav.MissingFile);
-        yield return AdminNode.Folder("#SS_UI_Admin_Bots",
-        [
-            AdminNode.Folder("#SS_UI_Admin_BotAdd",
-            [
-                Add("#SS_UI_Admin_BotEasy", "easy", unavailable),
-                Add("#SS_UI_Admin_BotNormal", "normal", unavailable),
-                Add("#SS_UI_Admin_BotHard", "hard", unavailable),
-                Add("#SS_UI_Admin_BotExpert", "expert", unavailable),
-            ]),
-            new AdminNode("#SS_UI_Admin_BotRemoveAll", "bots:remove", () => roster.Remove("all"), Stay: true),
-        ]);
+        // While the level's navigation is built (plan_bots_teams_tf2 E.3) an add is taken: the bot waits and joins when it lands.
+        string? unavailable = nav.Building ? null : Unavailable(nav.Refusal, nav.MissingFile);
+        var items = new List<AdminNode>
+        {
+            AdminNode.Folder("#SS_UI_Admin_BotAdd", [.. Presets.Select(p => Add(p.Label, p.Skill, RosterTeam.Auto, unavailable))]),
+        };
+        if (teams.Teamplay)
+        {
+            items.Add(AdminNode.Folder("#SS_UI_Admin_BotTeam",
+                [.. Enumerable.Range(TeamRule.FirstGameTeam, teams.TeamCount)
+                              .Select(t => AdminNode.Folder($"#SS_UI_Team_{t}", [.. Presets.Select(p => Add(p.Label, p.Skill, t, unavailable))]))]));
+            items.Add(orders.Value
+                ? new AdminNode("#SS_UI_Admin_BotOrdersOff", "bots:orders:0", () => orders.SetValue(false))
+                : new AdminNode("#SS_UI_Admin_BotOrdersOn", "bots:orders:1", () => orders.SetValue(true)));
+        }
+        items.Add(AdminNode.Refusable("#SS_UI_Admin_BotReroll", "bots:reroll", roster.RerollNow));
+        items.Add(new AdminNode("#SS_UI_Admin_BotRemoveAll", "bots:remove", () => roster.Remove("all"), Stay: true));
+        yield return AdminNode.Folder("#SS_UI_Admin_Bots", items);
     }
 
     /// <summary>
@@ -313,6 +329,7 @@ public sealed class AiAdminMenu(AiRoster roster, SourceSharp.Ai.Server.Nav.IAiNa
     }
 
     // The menu stays up: bots are added a few at a time.
-    private AdminNode Add(string label, string skill, string? unavailable)
-        => AdminNode.Refusable(label, "bots:add:" + skill, () => roster.Add(null, skill), stay: true, unavailable);
+    private AdminNode Add(string label, string skill, int team, string? unavailable)
+        => AdminNode.Refusable(label, team == RosterTeam.Auto ? "bots:add:" + skill : $"bots:add:{skill}:team{team}",
+                               () => roster.Add(null, skill, team), stay: true, unavailable);
 }

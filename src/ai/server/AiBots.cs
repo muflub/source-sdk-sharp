@@ -57,7 +57,7 @@ public sealed class AiBots : IFrameLifecycle
     public AiBots(IBotPlayers players, IPlayerCommandRunner runner, IEnginePlayers enginePlayers, IEngineEntities entities,
                      WeaponCatalog weapons, IEngineFrame frame, IAiNavigation nav, IBotGame game, IBotInventory inventory,
                      IBotNameSource names, IScoreboardTags tags, ILog log, SourceSharp.Ai.Server.Senses.ServerAiSession? ai = null,
-                     IEngineNetworking? networking = null, AiMainBudget? budget = null)
+                     IEngineNetworking? networking = null, AiMainBudget? budget = null, IBotClientCommand? commands = null)
     {
         _ai = ai;
         _budget = budget;
@@ -71,7 +71,7 @@ public sealed class AiBots : IFrameLifecycle
         _log = log;
         _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking);
         _inventory = inventory;
-        _applier = new BotCommandApplier(runner, _self, _cpu, game.Abilities);
+        _applier = new BotCommandApplier(runner, _self, _cpu, game.Abilities, commands);
     }
 
     /// <summary>Before the entities think, so a bot's command runs in the same frame stage order every tick.</summary>
@@ -103,6 +103,12 @@ public sealed class AiBots : IFrameLifecycle
 
     /// <summary>No navigation, no bot (plan_hl2mp_ai §6.3): the same line the level load printed; null when bots can be added.</summary>
     public string? AddRefusal => _nav.Refusal;
+
+    /// <summary>Whether the level's navigation is being built: a bot waits for it rather than being refused (plan_bots_teams_tf2 E.3).</summary>
+    public bool NavBuilding => _nav.Building;
+
+    /// <summary>The navigation's count of sets: a bot refused for none is asked again when it moves.</summary>
+    public int NavVersion => _nav.Version;
 
     /// <summary>
     /// A name for a bot with <paramref name="skills"/> from the pools, by its

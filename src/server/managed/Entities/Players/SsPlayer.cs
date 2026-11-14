@@ -440,6 +440,15 @@ public sealed class SsPlayer : AnimatingEntity
         _shadows?.Init(Handle, standMin, standMax, crouchMin, crouchMax,
                                 ShadowMass, PushMassLimit, PushSpeedLimit);
 
+        // THE HEAD BOX EVERY GENERIC ENTITY CLIP STOPS ON. Stock's
+        // CBasePlayer::Activate sizes the player from its own movement hull
+        // (SetSize, player.cpp), and every collideable-based clip — the
+        // target ID's centre ray among them — stops on that box. The scripted
+        // kind hands the shell SOLID_BBOX with no box at all, and an empty
+        // box is stopped by nothing, so the same standing hull goes into the
+        // head here.
+        _entities?.SetBounds(Handle, standMin, standMax);
+
         Log.Msg($"[SourceSharp/C#] player spawned at {Origin}, {Health} health\n");
     }
 

@@ -36,7 +36,7 @@ public interface IRosterTeams
 /// <summary><see cref="IRosterTeams"/> over the rendered teams, the team service's join and the player directory.</summary>
 [SideService(Side.Server, As = [typeof(IRosterTeams)])]
 public sealed class EngineRosterTeams(IRenderedTeams rendered, ITeams teams, AiBots bots, IPlayerDirectory directory, IBotPlayers players,
-                                      IEnginePlayers life) : IRosterTeams
+                                      IEnginePlayers life, IBotGame game, IBotClientCommand commands) : IRosterTeams
 {
     public bool Teamplay => rendered.Teamplay;
 
@@ -66,6 +66,23 @@ public sealed class EngineRosterTeams(IRenderedTeams rendered, ITeams teams, AiB
     {
         EntityHandle player = bots.Applier.PlayerOf(bot);
         if (player != EntityHandle.None)
+            RosterJoin.Join(game, commands, teams, player, team);
+    }
+}
+
+/// <summary>A bot's join, as a player's team menu makes it in its game (plan_bots_teams_tf2 P6 step 7).</summary>
+public static class RosterJoin
+{
+    /// <summary>
+    /// <paramref name="player"/> asks to join <paramref name="team"/>: the game's own word for it
+    /// (<see cref="IBotGame.JoinTeamWord"/>) through the mods' commands, as a player's key sends it,
+    /// else the core's team service, which the core's <c>jointeam N</c> asks too.
+    /// </summary>
+    public static void Join(IBotGame game, IBotClientCommand commands, ITeams teams, EntityHandle player, int team)
+    {
+        if (game.JoinTeamWord(team) is { } word)
+            commands.Run(player, word);
+        else
             teams.Join(player, team);
     }
 }

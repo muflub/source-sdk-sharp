@@ -18,19 +18,23 @@ public class EndOfMapVoteTests
 
     private static EntityHandle Slot(int slot) => new((uint)(0x0080_0000 | slot));
 
-    private sealed class Level : ILevelInfo
+    internal sealed class Level : ILevelInfo
     {
         public string? Map => "a";
         public bool IsReady => true;
     }
 
-    private sealed class Rig
+    internal sealed class Rig
     {
         public readonly VoteOffice Office = new();
         public readonly RecordingEngine Engine;
         public readonly ServerVotes Votes;
         public readonly EndOfMapVote EndOfMap;
         public readonly NextLevelConVar NextLevel;
+        public readonly ConVarRegistry ConVars;
+        public readonly GameModeCatalogTests.Bsps Files = new();
+        public readonly GameModeCatalog Catalog;
+        public readonly MapCandidates Candidates;
 
         public VoteController Vote => Office.Current!;
 
@@ -44,7 +48,7 @@ public class EndOfMapVoteTests
                 ["mapcyclefile"] = "mapcycle.txt",
                 ["sv_vote_command_delay"] = "2",
             };
-            var registry = new ConVarRegistry(new NamedConVars(convars));
+            var registry = ConVars = new ConVarRegistry(new NamedConVars(convars));
             var services = Services(out Engine);
             Engine.Ignores("Entities.FireInput", "Host.RandomFloat", "Console.FindConVarValue", "Console.ExecuteServerCommand");
             Engine.ReturnsEachCall("Players.GetHandle", () => Engine.Calls[^1].Args[0] is int slot && slot <= humans ? Slot(slot) : EntityHandle.None);
@@ -62,13 +66,13 @@ public class EndOfMapVoteTests
             entities.Services = services;
             entities.Spawn(Ctrl, EntityNames.VoteController);
 
-            var files = new GameModeCatalogTests.Bsps();
+            var files = Files;
             files.Files["cfg/mapcycle.txt"] = System.Text.Encoding.UTF8.GetBytes(cycle);
             foreach (string map in new[] { "a", "b", "c", "d" })
                 files.Files[$"maps/{map}.bsp"] = GameModeCatalogTests.Bsp("info_player_deathmatch");
-            var catalog = new GameModeCatalog(new TeamDeathmatchTests.Rig().Modes, new BspEntityClasses(files), new Level());
+            var catalog = Catalog = new GameModeCatalog(new TeamDeathmatchTests.Rig().Modes, new BspEntityClasses(files), new Level());
             NextLevel = registry.Declare<NextLevelConVar>();
-            var candidates = new MapCandidates(files, registry.Declare<MapCycleFileConVar>(), catalog, registry.Declare<SvModeNextConVar>());
+            var candidates = Candidates = new MapCandidates(files, registry.Declare<MapCycleFileConVar>(), catalog, registry.Declare<SvModeNextConVar>());
             Votes = new ServerVotes(Office, Engine, Engine, Engine, Engine, Engine, log: new RecordingLog());
             EndOfMap = new EndOfMapVote(Votes, Office, candidates, NextLevel, registry.Declare<VoteIssueNextLevelAllowedConVar>(),
                                         registry.Declare<VoteIssueNextLevelChoicesModeConVar>(), new RecordingLog());
@@ -190,6 +194,23 @@ public class EndOfMapVoteTests
 
         Assert.Equal("Restart", rig.Vote.ActiveIssue!.Value.Name);
         Assert.False(rig.EndOfMap.HoldsLevel(100f));
+    }
+
+    [Fact]
+    public void AnAdminsCancelEndsTheVoteWithNoResult()
+    {
+        var rig = new Rig();
+        rig.EndOfMap.OnIntermission("a", "b", 100f);
+        rig.Vote.Cast(Slot(1), 1, 101f);
+
+        Assert.True(rig.Votes.Running);
+        Assert.Null(rig.Votes.Cancel());
+        rig.Vote.Tick(130f);
+
+        Assert.False(rig.Vote.IsVoteActive);
+        Assert.Empty(rig.ServerCommands);
+        Assert.False(rig.EndOfMap.HoldsLevel(130f));
+        Assert.Equal("no vote is running", rig.Votes.Cancel());
     }
 
     [Fact]

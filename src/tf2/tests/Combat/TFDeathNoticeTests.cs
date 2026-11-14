@@ -249,6 +249,33 @@ public sealed class TFDeathNoticeTests
         Assert.Equal("taunt_spy", f["weapon"]);
     }
 
+    /// <summary>The taunt kills' names (tf_gamerules.cpp:12209-12258): each
+    /// taunt's custom kind names its own taunt weapon, whatever the killer
+    /// holds; the soldier's taunt is the plain soldier's, stock's lumbricus
+    /// half waiting on the wearable schema (the Worms Gear hat).</summary>
+    [Theory]
+    [InlineData(TFDamageCustom.TauntatkHadouken, "taunt_pyro")]                // :12209-12211
+    [InlineData(TFDamageCustom.TauntatkHighNoon, "taunt_heavy")]              // :12213-12215
+    [InlineData(TFDamageCustom.TauntatkGrandSlam, "taunt_scout")]             // :12217-12219
+    [InlineData(TFDamageCustom.TauntatkBarbarianSwing, "taunt_demoman")]      // :12221-12223
+    [InlineData(TFDamageCustom.TauntatkUberslice, "taunt_medic")]             // :12225-12227
+    [InlineData(TFDamageCustom.TauntatkFencing, "taunt_spy")]                 // :12229-12231
+    [InlineData(TFDamageCustom.TauntatkArrowStab, "taunt_sniper")]            // :12233-12235
+    [InlineData(TFDamageCustom.TauntatkGrenade, "taunt_soldier")]             // :12237-12246
+    [InlineData(TFDamageCustom.TauntatkEngineerGuitarSmash, "taunt_guitar_kill")]     // :12248-12250
+    [InlineData(TFDamageCustom.TauntatkAllclassGuitarRiff, "taunt_guitar_riff_kill")] // :12252-12254
+    [InlineData(TFDamageCustom.TauntatkEngineerArmKill, "robot_arm_blender_kill")]    // :12256-12258
+    public void Each_taunt_kill_names_its_taunt_whatever_is_held(TFDamageCustom custom, string expected)
+    {
+        // The scope carries a held weapon; the kill name is the taunt's own,
+        // not the held gun's stripped name.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_shotgun_pyro" };
+        using (rig.Scopes.Push(custom, TFWeaponId.None, ""))
+            rig.Hit(50f, DamageType.Bullet);
+
+        Assert.Equal(expected, Fill(rig, CombatRig.Attacker)["weapon"]);
+    }
+
     [Theory]
     [InlineData("koth_cachoeira", "helicopter")]
     [InlineData("koth_megaton", "megaton")]

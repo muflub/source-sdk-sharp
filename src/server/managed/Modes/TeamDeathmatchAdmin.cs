@@ -41,14 +41,14 @@ public sealed class TeamScrambleCommand(ILog log, GameModes modes)
 }
 
 /// <summary>
-/// The admin menu's Teams folder under team deathmatch (user 2026-11-08: "make
-/// sure to add vote and admin menus for teams"): each player's moves to every
-/// team in play and to the spectators (a move between teams kills, as a
-/// switch does), Scramble, Balance now, and the team count. Absent while a
-/// mode without teams plays.
+/// The admin menu under team deathmatch (user 2026-11-08: "make sure to add
+/// vote and admin menus for teams"): a Teams folder of Scramble, Balance now
+/// and the team count, and in each player's folder (the core's Players) a move
+/// to every other team in play (a move between teams kills, as a switch does).
+/// Absent while a mode without teams plays.
 /// </summary>
-public sealed class TeamAdminMenu(GameModes modes, ITeams teams, ITeamAssignment assign, IEnginePlayers players,
-                                  PlayerNames names, IEngineConsole console) : IAdminMenuProvider
+public sealed class TeamAdminMenu(GameModes modes, ITeams teams, ITeamAssignment assign, IEngineConsole console)
+    : IAdminMenuProvider, IAdminPlayerActions
 {
     public IEnumerable<AdminNode> AdminItems(int slot)
     {
@@ -57,7 +57,6 @@ public sealed class TeamAdminMenu(GameModes modes, ITeams teams, ITeamAssignment
 
         yield return AdminNode.Folder("#SS_UI_Admin_Teams",
         [
-            .. Players(tdm),
             new AdminNode("#SS_UI_Admin_Scramble", "teams:scramble", tdm.Scramble),
             new AdminNode("#SS_UI_Admin_Balance", "teams:balance", tdm.Balance),
             AdminNode.Folder("#SS_UI_Admin_TeamCount",
@@ -67,32 +66,19 @@ public sealed class TeamAdminMenu(GameModes modes, ITeams teams, ITeamAssignment
         ]);
     }
 
-    /// <summary>
-    /// One folder a player, by user id (no later player reuses one), of the
-    /// teams they are not on.
-    /// </summary>
-    private IEnumerable<AdminNode> Players(TeamDeathmatchMode tdm)
+    /// <summary>The teams in play <paramref name="player"/> is not on, by user id (no later player reuses one).</summary>
+    public IEnumerable<AdminNode> ActionsFor(EntityHandle player, int userId)
     {
-        for (int team = 0; team <= tdm.LastTeam; team++)
+        if (modes.Active is not TeamDeathmatchMode tdm)
+            yield break;
+
+        int on = teams.Team(player);
+        for (int to = TeamDeathmatchMode.TeamCombine; to <= tdm.LastTeam; to++)
         {
-            foreach (EntityHandle player in teams.Players(team))
-            {
-                int userId = players.GetUserId(player);
-                int on = team;
-                var moves = new List<AdminNode>();
-                for (int to = TeamDeathmatchMode.TeamCombine; to <= tdm.LastTeam; to++)
-                {
-                    if (to == on)
-                        continue;
-                    int target = to;
-                    moves.Add(new AdminNode($"#SS_UI_Team_{target}", $"teams:move:{userId}:{target}", () => assign.Assign(player, target)));
-                }
-
-                if (on != Teams.TeamSpectator)
-                    moves.Add(new AdminNode("#SS_UI_Admin_Spectate", $"teams:move:{userId}:1", () => teams.Join(player, Teams.TeamSpectator)));
-
-                yield return AdminNode.Folder(names.NameOf(player.EntryIndex), moves);
-            }
+            if (to == on)
+                continue;
+            int target = to;
+            yield return new AdminNode($"#SS_UI_Team_{target}", $"teams:move:{userId}:{target}", () => assign.Assign(player, target));
         }
     }
 }

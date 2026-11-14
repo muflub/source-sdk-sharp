@@ -82,7 +82,8 @@ fact	managed-client	SourceSharp.Tests.Ui.UiGoldenTests.The_svg_is_its_golden	3.3
 fact	managed-client	SourceSharp.Tests.Ui.UiKeyCaptureTests.The_generator_writes_key_accessors_that_compile	4.1	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.NavBuildDeterminismTests.TheServersBuildAtOneThreadIsTheFileMakeMapWrote	36.0	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.NavBuildDeterminismTests.TheServersBuildAtFourThreadsIsTheFileMakeMapWrote	10.0	1
-fact	ai	SourceSharp.Ai.Tests.ServerNav.Hl2mpNavBuildTests.AFinishedBuildIsTheLevelsNavigationAtTheNextFrame	6.0	1
+fact	ai	SourceSharp.Ai.Tests.ServerNav.AiNavBuildTests.AFinishedBuildIsTheLevelsNavigationAtTheNextFrame	6.0	1
+fact	ai	SourceSharp.Ai.Tests.ServerNav.AiNavBuildTests.ABuildIsDerivedByTheGamesProfile	8.0	1
 gtest-binaries	native	dead_conditionals_test	6.2	1
 must-not-compile	native	client_slot_table_no_own_serial	5.8	1
 must-not-compile	native	slot_table_no_activelist	7.0	1

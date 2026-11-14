@@ -19,6 +19,7 @@ public sealed class AiDebugRoutes(IAiNavigation nav, SourceSharp.Ai.Server.Sense
     [
         new("GET", "/ai/nav", "the level's derived AI graph: cells [minX,minY,maxX,maxY,floorZ,classes,flags], non-walk links [from,to,type], obstacles, chokes [{x,y,z,score}] (empty until worked out)"),
         new("GET", "/ai/flow", "a flow field: ?cell=N (or x=&y=&z=) &class=stand|crouch; each cell's next cell (-1 none) and cost (-1 unreachable)"),
+        new("GET", "/ai/nav/build", "the navigation build in flight (Part E.3 of the bots plan): building, map, phase, percent, seconds, threads, queued, and the level's refusal"),
         .. bots?.Routes ?? [],
         .. replay?.Routes ?? [],
         .. world?.Routes ?? [],
@@ -33,8 +34,10 @@ public sealed class AiDebugRoutes(IAiNavigation nav, SourceSharp.Ai.Server.Sense
         if (world is not null && SourceSharp.Ai.Server.Senses.AiWorldRoutes.Serves(path))
             return world.Handle();
 
+        if (path == "/ai/nav/build")
+            return new DebugRouteReply(200, NavJson.Build(nav.BuildProgress, nav.Refusal));
         if (nav.Current is not { } loaded)
-            return new DebugRouteReply(409, $"{{\"error\":{NavJson.Quote(nav.Refusal ?? "no navigation")}}}");
+            return new DebugRouteReply(409, $"{{\"error\":{NavJson.Quote(nav.Refusal ?? "no navigation")}{(nav.Building ? ",\"building\":true" : "")}}}");
         NavObstacleState obstacles = nav.Obstacles ?? new NavObstacleState(loaded.Nav.Graph.ObstacleCount);
         if (path == "/ai/nav")
             return new DebugRouteReply(200, NavJson.Nav(loaded.Map, loaded.Nav, obstacles, nav.Chokes?.Map));
@@ -109,6 +112,24 @@ public static class NavJson
         }
 
         return json.Append("]}").ToString();
+    }
+
+    /// <summary><c>/ai/nav/build</c>: whether a build runs, and its numbers; the level's refusal (null with a navigation).</summary>
+    public static string Build(NavBuildProgress? build, string? refusal)
+    {
+        var json = new StringBuilder("{\"building\":");
+        json.Append(build is null ? "false" : "true");
+        if (build is not null)
+        {
+            json.Append(",\"map\":").Append(Quote(build.Map)).Append(",\"phase\":").Append(Quote(build.Phase))
+                .Append(",\"percent\":").Append(build.Percent.ToString(CultureInfo.InvariantCulture))
+                .Append(",\"seconds\":").Append(build.Seconds.ToString("0.0", CultureInfo.InvariantCulture))
+                .Append(",\"threads\":").Append(build.Threads.ToString(CultureInfo.InvariantCulture))
+                .Append(",\"queued\":").Append(build.Queued.ToString(CultureInfo.InvariantCulture))
+                .Append(",\"forLevel\":").Append(build.ForTheLevel ? "true" : "false");
+        }
+
+        return json.Append(",\"refusal\":").Append(refusal is null ? "null" : Quote(refusal)).Append('}').ToString();
     }
 
     public static string Flow(NavGraph g, FlowField field)

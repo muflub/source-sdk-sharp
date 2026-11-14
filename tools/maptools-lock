@@ -67,6 +67,13 @@ def default_dir(repo, env=None):
     return os.path.normpath(os.path.join(repo, "..", "source-sdk-map-tools"))
 
 
+def maptools_version(repo):
+    """The pinned SourceSharp.MapTools version, or None when the AI pins none."""
+    props = os.path.join(repo, "src", "ai", "Directory.Build.props")
+    m = re.search(r"<MapToolsVersion>([^<]+)</MapToolsVersion>", open(props).read())
+    return m.group(1).strip() if m else None
+
+
 def check(repo, mt, version=None):
     """Verify `mt` is a clean checkout at the lock holding the pinned package;
     answers the lines to print. Raises LockError naming the lock."""
@@ -88,7 +95,13 @@ def check(repo, mt, version=None):
     package = os.path.join(mt, "bin", "nupkg", f"SourceSharp.MapFormats.{version}.nupkg")
     if not os.path.exists(package):
         raise LockError(f"{package} is missing: run `make mapformats-pack` (map-tools' tools/pack-mapformats.sh)")
-    return [f"map-tools: {mt} at {lock[:12]} (maptools.lock), SourceSharp.MapFormats {version}"]
+    tools = maptools_version(repo)
+    if tools is not None:
+        package = os.path.join(mt, "bin", "nupkg", f"SourceSharp.MapTools.{tools}.nupkg")
+        if not os.path.exists(package):
+            raise LockError(f"{package} is missing: run `make mapformats-pack` (map-tools' tools/pack-mapformats.sh)")
+    return [f"map-tools: {mt} at {lock[:12]} (maptools.lock), SourceSharp.MapFormats {version}"
+            + (f", SourceSharp.MapTools {tools}" if tools else "")]
 
 
 def record(repo, mt):
@@ -109,7 +122,8 @@ def self_test():
         mt = os.path.join(tmp, "mt")
         os.makedirs(os.path.join(repo, "src", "ai"))
         with open(os.path.join(repo, "src", "ai", "Directory.Build.props"), "w") as f:
-            f.write("<Project><PropertyGroup><MapFormatsVersion>9.9.9</MapFormatsVersion></PropertyGroup></Project>\n")
+            f.write("<Project><PropertyGroup><MapFormatsVersion>9.9.9</MapFormatsVersion>"
+                    "<MapToolsVersion>8.8.8</MapToolsVersion></PropertyGroup></Project>\n")
         os.makedirs(os.path.join(mt, "bin", "nupkg"))
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         env.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
@@ -128,6 +142,8 @@ def self_test():
         run("commit", "-q", "-am", "two")
         second = git(mt, "rev-parse", "HEAD")
         with open(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapFormats.9.9.9.nupkg"), "w") as f:
+            f.write("pkg")
+        with open(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapTools.8.8.8.nupkg"), "w") as f:
             f.write("pkg")
         with open(os.path.join(mt, ".git", "info", "exclude"), "a") as f:
             f.write("bin/\n")
@@ -152,6 +168,11 @@ def self_test():
         expect("tracked edits are refused", why is not None and "tracked edits" in why)
         run("checkout", "-q", "--", "a.txt")
         expect("restored, it is accepted again", refusal(second) is None)
+        os.remove(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapTools.8.8.8.nupkg"))
+        why = refusal(second)
+        expect("a missing MapTools package is refused, naming the version", why is not None and "MapTools.8.8.8.nupkg" in why)
+        with open(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapTools.8.8.8.nupkg"), "w") as f:
+            f.write("pkg")
         os.remove(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapFormats.9.9.9.nupkg"))
         why = refusal(second)
         expect("a missing package is refused, naming the version", why is not None and "MapFormats.9.9.9.nupkg" in why)

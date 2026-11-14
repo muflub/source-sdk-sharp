@@ -144,6 +144,23 @@ public class NavGraphFromNav3dTests
         Assert.Equal(ClearanceClasses.Crouch, d.Graph.Cell(d.CellOfLeaf[f.Low]).Classes);
     }
 
+    /// <summary>
+    /// A crouch-only place costs the numbers' <see cref="NavNumbers.CrouchOnlyCost"/> times what a standing one
+    /// does, and nothing more by the core's numbers (HL2MP's graphs do not change): live on ctf_2fort a TF2
+    /// carrier routed home under the red base's stairs stuck there with the flag.
+    /// </summary>
+    [Fact]
+    public void ACrouchOnlyPlaceCostsTheNumbersCrouchOnlyCost()
+    {
+        Fixture f = Build();
+        DerivedNav stock = Derive(f);
+        DerivedNav dear = NavGraphFromNav3d.Derive(f.Src, Numbers with { CrouchOnlyCost = 8f }, NavEdgeCosts.Default, []);
+
+        Assert.Equal(1f, stock.Graph.Cell(stock.CellOfLeaf[f.Low]).CostMultiplier);
+        Assert.Equal(8f, dear.Graph.Cell(dear.CellOfLeaf[f.Low]).CostMultiplier);
+        Assert.Equal(1f, dear.Graph.Cell(dear.CellOfLeaf[f.Floor]).CostMultiplier);
+    }
+
     [Fact]
     public void AnOpenFloorAdmitsBothClasses()
     {

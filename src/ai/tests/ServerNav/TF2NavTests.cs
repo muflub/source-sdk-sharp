@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.TF2.Nav;
 using SourceSharp.Tests;
 using Xunit;
 
@@ -34,11 +35,11 @@ public sealed class TF2NavTests
 
     private sealed class TF2Profile : INavProfile
     {
-        public NavNumbers Numbers(float fileJumpHeight) => TF2NavNumbers.Numbers;
+        public NavNumbers Numbers(float fileJumpHeight) => TFNavProfile.ModNumbers;
 
         public JumpReach Reach(EntityHandle player) => JumpReach.None;
 
-        public IReadOnlyList<TeamSolid> TeamSolids(MapEntities entities) => TF2TeamSolids.Read(entities);
+        public IReadOnlyList<TeamSolid> TeamSolids(MapEntities entities) => TFTeamSolids.Read(entities);
     }
 
     private static readonly Lazy<NavLoadResult> Loaded = new(() => NavLoader.Load(
@@ -58,6 +59,29 @@ public sealed class TF2NavTests
         Assert.Equal(16, nav.NumbersKey.Length);
         int doubles = Enumerable.Range(0, nav.Nav.Graph.CellCount).Sum(c => nav.Nav.Graph.EdgesFrom(c).ToArray().Count(e => e.Type == NavEdgeType.DoubleJump));
         Assert.True(doubles > 0, "no double-jump edge");
+    }
+
+    /// <summary>
+    /// Each team's spawn has a way to both flags, as a Soldier walks and drops (P6 step 6): live,
+    /// before the stairs were places for TF2's wide body each spawn's component held neither flag,
+    /// and before a wide body dropped past a ledge's lip a red spawn's way reached 13,792 cells,
+    /// all in its own base (<see cref="NavNumbers.WideHull"/>).
+    /// </summary>
+    [PerTreeTFNavFact(Map)]
+    public void EachTeamsSpawnHasAWayToBothFlags()
+    {
+        NavGraph g = Loaded.Value.Nav!.Nav.Graph;
+        // The flags' homes and a spawn of each team, as the live game has them.
+        AiVector[] flags = [new(489f, -3348.5f, -131f), new(-488.7f, 3348.5f, -131f)];
+        AiVector[] spawns = [new(-1888f, -1280f, 257f), new(1888f, 1368f, 257f)];
+        var open = new NavObstacleState(g.ObstacleCount) { OpenDoors = true };
+        foreach (AiVector flag in flags)
+        {
+            var field = new FlowField();
+            field.Build(g, g.FindCell(flag), ClearanceClass.Crouch, open);
+            foreach (AiVector spawn in spawns)
+                Assert.True(float.IsFinite(field.CostAt(g.FindCell(spawn).Index)), $"no way from the spawn at {spawn} to the flag at {flag}");
+        }
     }
 
     [PerTreeTFNavFact(Map)]

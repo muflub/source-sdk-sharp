@@ -28,7 +28,7 @@ public sealed class TFMapKnowledgeTests
         new("prop_dynamic", null, new AiVector(70, 0, 0), null, null),
     ];
 
-    private static readonly MapKnowledge Known = TFMapKnowledge.Build("ctf_test", new MapEntities(Placed, null), new WeaponKnowledge([]), default);
+    private static readonly MapKnowledge Known = TFMapKnowledge.Build("ctf_test", new MapEntities(Placed, null), new WeaponKnowledge([]), default, BodyKnowledge.Default());
 
     [Fact]
     public void EveryPackIsKnownBySizeWhereItLies()
@@ -62,8 +62,9 @@ public sealed class TFMapKnowledgeTests
 
     /// <summary>
     /// The premise the placements rest on: the shipped ctf_2fort's entity lump has a non-zero
-    /// uncompressed size (its LZMA mark), so the lump reader cannot read it. Should a reader learn
-    /// LZMA, this goes red and the knowledge can come from the lump again.
+    /// uncompressed size (its LZMA mark), so the lump reader cannot read it: it reads no entities
+    /// and says why. Should a reader learn LZMA, this goes red and the knowledge can come from the
+    /// lump again.
     /// </summary>
     [Fact]
     public void TheShippedTwoFortsEntityLumpIsCompressed()
@@ -74,6 +75,8 @@ public sealed class TFMapKnowledgeTests
         using (FileStream f = File.OpenRead(path))
             f.ReadExactly(head);
         Assert.NotEqual(0, BinaryPrimitives.ReadInt32LittleEndian(head.AsSpan(8 + 12)));
-        Assert.ThrowsAny<Exception>(() => MapEntities.Read(File.ReadAllBytes(path)));
+        MapEntities read = MapEntities.Read(File.ReadAllBytes(path));
+        Assert.Empty(read.All);
+        Assert.Contains("LZMA-compressed", read.Unread, StringComparison.Ordinal);
     }
 }

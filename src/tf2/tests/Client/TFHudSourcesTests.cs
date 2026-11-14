@@ -95,6 +95,31 @@ public sealed class TFHudSourcesTests
     }
 
     [Fact]
+    public void The_boost_bit_in_the_networked_word_shows_the_portrait_boost()
+    {
+        var engine = new Engine();
+        var resources = new PlayerResources();
+        engine.Returns("Hud.LocalPlayerIndex", 2);
+        var carriers = new Carriers();
+        var source = Cross(engine, resources, carriers: carriers);
+
+        // No carrier decoded yet: nothing carries the word.
+        Assert.False(source.Boosted);
+
+        var carrier = new Carrier();
+        carrier.BindLocal();
+        carriers.States[2] = carrier;
+
+        // A decoded carrier with a plain word: still an ordinary hero.
+        Assert.False(source.Boosted);
+
+        // addcond 34: TF_COND_CRITBOOSTED_USER_BUFF, the crit family the
+        // boost glow wears (tf_player_shared.cpp:7578-7584).
+        ClientViews.SetConditions(carrier, CondMask.Of(TFCondId.CritboostedUserBuff));
+        Assert.True(source.Boosted);
+    }
+
+    [Fact]
     public void A_classless_local_shows_no_name_and_removal_clears_the_columns()
     {
         var engine = new Engine();
@@ -433,12 +458,12 @@ public sealed class TFHudSourcesTests
     /// indexes it.</summary>
     private static HudLocalPlayer Cross(Engine engine, PlayerResources resources,
         Arsenal? weapon = null, Scripts? scripts = null, LocalPools? pools = null,
-        RigOwners? owners = null, Econ.AttributeHooks? hooks = null) =>
+        RigOwners? owners = null, Econ.AttributeHooks? hooks = null, Carriers? carriers = null) =>
         new(engine, resources, weapon ?? new Hands(null, 0, 0),
             scripts ?? new Scripts(new RecordingLog(), new EmptyFiles()),
             new client::TF2.Shared.TFClassTable(new RecordingLog(), new EmptyFiles()),
             pools ?? new NoPools(),
-            owners ?? new RigOwners(), hooks ?? new Econ.AttributeHooks());
+            owners ?? new RigOwners(), hooks ?? new Econ.AttributeHooks(), carriers ?? new Carriers());
 
     /// <summary>The local player's item as the client contract sees it (the
     /// crosshair rig's <c>RigOwners</c> shape): no item until one is set, the

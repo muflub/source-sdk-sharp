@@ -24,8 +24,15 @@ public interface IBotFightClock
 /// </summary>
 [SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(IBotFightClock)])]
 public sealed class CombatTap(AiSenses senses, VisionPass vision, AiBots bots, IEnginePlayers players, IEngineEntities entities,
-                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock
+                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock, IOrderedHook
 {
+    /// <summary>
+    /// After the game's own death and hurt hooks, in the mods' range: unordered (0) it collided
+    /// with TF2's TFStickyTray, also 0, and every kill on a TF2 server with bots threw a
+    /// StageCollisionException out of OnPlayerKilled (live, ctf_2fort, P6).
+    /// </summary>
+    public int HookOrder => ModStages.First + 900;
+
     /// <summary>How often the scoreboard is read: twice a second.</summary>
     public const int ScoreTicks = 33;
 

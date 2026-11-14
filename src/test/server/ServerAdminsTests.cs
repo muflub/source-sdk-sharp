@@ -251,6 +251,43 @@ public class ServerAdminsTests
         Assert.Empty(_notices.Told);
     }
 
+    private sealed class UserIds(int id) : IConnectedClients
+    {
+        public float? AvgLatency(int entIndex) => null;
+        public ulong SteamId64(int entIndex) => 0;
+        public string? Address(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+        public int UserId(int entIndex) => id;
+        public void Kick(int entIndex, string reason) { }
+        public void ClientCommand(int entIndex, string command) { }
+        public void Reconnect(int entIndex) { }
+    }
+
+    private ServerAdmins NamedAdmins()
+    {
+        var names = new PlayerNames(TestServices.Fake());
+        names.PutInServer(Player, "Mallory");
+        names.PutInServer(Host, "Gordon");
+        return new(new AdminGate(() => _now, () => _list, a => a == Here, AdminGate.SecureNonce), false, _sender, _menu, _notices, _log,
+                   names, new UserIds(42));
+    }
+
+    [Fact]
+    public void A_refused_non_admin_is_logged_by_name_slot_and_user_id()
+    {
+        From(NamedAdmins(), Player, AdminWire.WriteRun("do:it"));
+
+        Assert.Contains(_log.Lines, l => l.Warning && l.Text == "[SourceSharp/Admin] Mallory (slot 3, user id 42) is no admin and asked for do:it: refused\n");
+    }
+
+    [Fact]
+    public void An_admins_action_is_logged_by_name()
+    {
+        From(NamedAdmins(), Host, AdminWire.WriteRun("do:it"));
+
+        Assert.Contains(_log.Lines, l => !l.Warning && l.Text == "[SourceSharp/Admin] admin Gordon (slot 1, user id 42) ran do:it\n");
+    }
+
     [Fact]
     public void Someone_who_is_no_admin_is_told_so_when_they_ask_for_an_item()
     {

@@ -72,3 +72,28 @@ nobody).
 `make managed-test FILTER='FullyQualifiedName~RespawnRoom'` → `Failed: 0`;
 `tools/tf2-gate --steps join,teams,respawn` → every row PASS; `make test`;
 `tools/valve-header check` 0.
+
+## Status
+
+2026-11-10 - landed on tf2ai-F166.
+
+Step 1, commit 8faca818a: the per-entity trace arm
+(`TFRespawnRoomCollide.ShouldCollide`, stock func_respawnroom.cpp:494-523)
+blocks a player-movement trace whose mask carries the other team bit, opens
+the rooms in the win state, ignores an unassigned wall, lets bullets through,
+and stands aside for other entities; held by `RespawnRoomVisualizerTests`
+(`Failed: 0, Passed: 8` once the mover parameter main added was carried).
+
+Step 2, commit 57c550399: always-send and always-visible at the spawn and
+every on/off switch (`SetTransmitAlways`, `SetVisible(true)`, stock
+func_respawnroom.cpp:464-469 with the FULLCHECK arm commented); team and
+brush box published to `RespawnRoomVisualizerNetState`; and
+`ClientRespawnRoomVisualizer.OnDraw` answers stock
+`C_FuncRespawnRoomVisualizer::DrawModel`
+(c_func_respawnroom.cpp:48-64): nothing in the win state, nothing for a
+local player on the wall own team, the team half-alpha billboard for every
+other eye and for the null-player case. Gate
+`make tf2-test FILTER='FullyQualifiedName~RespawnRoom'` went first red (`Failed: 1`, Expected: 0 Actual:
+1 on the teammate arm before the local-player stub) then green (`Failed: 0,
+Passed: 31`); the flipped-comparison mutation proof went `Failed: 3`.
+`tools/valve-header check`: 0 problems.

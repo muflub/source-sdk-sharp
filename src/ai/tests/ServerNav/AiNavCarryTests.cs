@@ -6,6 +6,7 @@ using SourceSharp.MapFormats.Nav;
 using SourceSharp.Server;
 using Xunit;
 using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.TF2.Nav;
 using NavService = SourceSharp.Ai.Server.Nav.AiNav;
 
 namespace SourceSharp.Ai.Tests.ServerNav;
@@ -83,7 +84,7 @@ public sealed class AiNavCarryTests : IDisposable
             _ => throw FakeEngine.Unasked(m),
         });
         return new NavService(files, new Mod(_dir), world, new Lines(), players, new NoTraces(),
-                              profile ?? new SourceSharp.Ai.Hl2mp.Nav.Hl2mpNavProfile());
+                              profile ?? new SourceSharp.Ai.Hl2mp.Nav.Hl2mpNavProfile(), NavBuildTestKnobs.Off());
     }
 
     [Fact]
@@ -123,7 +124,7 @@ public sealed class AiNavCarryTests : IDisposable
     [Fact]
     public void TheLevelIsDerivedByTheProfilesNumbers()
     {
-        NavService stock = Nav(), tf = Nav(new Profile(TF2NavNumbers.Numbers, JumpReach.None));
+        NavService stock = Nav(), tf = Nav(new Profile(TFNavProfile.ModNumbers, JumpReach.None));
         ((IGameLifecycle)stock).OnLevelCarried("course");
         ((IGameLifecycle)tf).OnLevelCarried("course");
 

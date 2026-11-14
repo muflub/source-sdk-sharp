@@ -14,8 +14,12 @@ namespace SourceSharp.Ai.Tests.ServerNav;
 /// </summary>
 public sealed class AiDebugRoutesTests
 {
-    private sealed class Navigation(LoadedNav? current, string? refusal, NavObstacleState? obstacles) : IAiNavigation
+    private sealed class Navigation(LoadedNav? current, string? refusal, NavObstacleState? obstacles, NavBuildProgress? build = null) : IAiNavigation
     {
+        public NavBuildProgress? BuildProgress => build;
+
+        public bool Building => build is { ForTheLevel: true };
+
         public LoadedNav? Current => current;
         public string? Refusal => refusal;
         public NavObstacleState? Obstacles => obstacles;
@@ -61,6 +65,34 @@ public sealed class AiDebugRoutesTests
     }
 
     [Fact]
+    public void TheBuildRouteServesTheBuildInFlightAndTheRefusal()
+    {
+        var routes = new AiDebugRoutes(new Navigation(null, "navigation for dm_x: building", null, new NavBuildProgress("dm_x", "building", 40, 12.25, 4, 1, true)));
+
+        DebugRouteReply reply = routes.Handle("/ai/nav/build", new Dictionary<string, string>());
+        using JsonDocument doc = JsonDocument.Parse(reply.Json);
+
+        Assert.Equal(200, reply.Status);
+        JsonElement r = doc.RootElement;
+        Assert.Equal((true, "dm_x", 40, 4, 1), (r.GetProperty("building").GetBoolean(), r.GetProperty("map").GetString(), r.GetProperty("percent").GetInt32(),
+                                               r.GetProperty("threads").GetInt32(), r.GetProperty("queued").GetInt32()));
+        Assert.Equal("navigation for dm_x: building", r.GetProperty("refusal").GetString());
+        Assert.Contains(routes.Routes, x => x.Path == "/ai/nav/build");
+    }
+
+    [Fact]
+    public void TheNavRouteSaysWhenTheLevelsNavIsBuilding()
+    {
+        var routes = new AiDebugRoutes(new Navigation(null, "navigation for dm_x: building", null, new NavBuildProgress("dm_x", "building", 40, 12.25, 4, 0, true)));
+
+        DebugRouteReply reply = routes.Handle("/ai/nav", new Dictionary<string, string>());
+        using JsonDocument doc = JsonDocument.Parse(reply.Json);
+
+        Assert.Equal(409, reply.Status);
+        Assert.True(doc.RootElement.GetProperty("building").GetBoolean());
+    }
+
+    [Fact]
     public void FlowIsTheFieldsNextAndCost()
     {
         NavGraph g = Course.Value.Nav.Graph;
@@ -91,5 +123,29 @@ public sealed class AiDebugRoutesTests
         var routes = new AiDebugRoutes(new Navigation(null, "no navigation for dm_x: expected maps/dm_x.nav3d", null));
         DebugRouteReply reply = routes.Handle("/ai/nav", new Dictionary<string, string>());
         Assert.Equal((409, "{\"error\":\"no navigation for dm_x: expected maps/dm_x.nav3d\"}"), (reply.Status, reply.Json));
+    }
+
+    /// <summary>
+    /// The server collects every route provider as one chain, and two at one place
+    /// throw at the first request, which answers nothing for every route (found
+    /// live: the core's /match beside these took /ai/* down). The core's Match
+    /// routes and these hold different places.
+    /// </summary>
+    [Fact]
+    public void TheMatchRoutesAndTheseShareTheRouteChain()
+    {
+        var services = new SourceSharp.Abi.ServiceContainer();
+        services.AddInstance(typeof(AiDebugRoutes), new AiDebugRoutes(new Navigation(null, "none", null)));
+        services.AddInstance(typeof(SourceSharp.Server.MatchRoutes),
+                             System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(SourceSharp.Server.MatchRoutes)));
+        var chain = new SourceSharp.Abi.Hooks<IDebugRouteProvider>(services, new Quiet());
+
+        Assert.Equal(2, chain.All.Count);
+    }
+
+    private sealed class Quiet : SourceSharp.Abi.ILog
+    {
+        public void Msg(string message) { }
+        public void Warning(string message) { }
     }
 }

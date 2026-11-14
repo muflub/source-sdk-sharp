@@ -71,4 +71,16 @@ public sealed class MapFormatsPackageTests
         Assert.Equal(pinned, $"{actual!.Major}.{actual.Minor}.{actual.Build}");
         Assert.Equal(pinned, SourceSharp.Ai.Server.Nav.NavReaderVersion.Package);
     }
+
+    /// <summary>The builder the server runs on a map with no nav (plan_bots_teams_tf2 E.2) is map-tools' package at the version the props pin.</summary>
+    [Fact]
+    public void TheBuilderIsThePinnedMapToolsPackageVersion()
+    {
+        string props = File.ReadAllText(RepoLayout.Repo("src", "ai", "Directory.Build.props"));
+        string pinned = props.Split("<MapToolsVersion>")[1].Split("</MapToolsVersion>")[0].Trim();
+        Version? actual = typeof(SourceSharp.MapTools.Nav.LevelNavFromBsp).Assembly.GetName().Version;
+
+        Assert.NotNull(actual);
+        Assert.Equal(pinned, $"{actual!.Major}.{actual.Minor}.{actual.Build}");
+    }
 }

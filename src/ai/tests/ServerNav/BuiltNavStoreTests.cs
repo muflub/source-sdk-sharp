@@ -135,6 +135,18 @@ public sealed class BuiltNavStoreTests : IDisposable
         => Assert.Equal(_dir, Path.GetDirectoryName(Store.PathFor("workshop/123/dm_x", BuiltNavStore.Sha256(Bsp))));
 
     [Fact]
+    public void UsableNamesWhereTheNavIsWithoutDerivingIt()
+    {
+        Assert.Equal("shipped", NavLoader.Usable("dm_test", p => p.EndsWith(".bsp", StringComparison.Ordinal) ? Bsp : NavFor(Bsp), Store, out _, out _));
+        Assert.Null(NavLoader.Usable("dm_test", p => p.EndsWith(".bsp", StringComparison.Ordinal) ? Bsp : null, Store, out string? why, out byte[]? bsp));
+        Assert.Equal(("no navigation for dm_test: expected maps/dm_test.nav3d", Bsp), (why, bsp));
+
+        StoreBuild(NavFor(Bsp));
+        Assert.Equal("cached", NavLoader.Usable("dm_test", p => p.EndsWith(".bsp", StringComparison.Ordinal) ? Bsp : null, Store, out _, out _));
+        Assert.Empty(Directory.GetFiles(_dir, "*.navgraph"));
+    }
+
+    [Fact]
     public void TheGraphCacheLeavesNoTemporaryName()
     {
         var cache = new NavGraphCache(_dir, NavEdgeCosts.Default);

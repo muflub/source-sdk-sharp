@@ -1,4 +1,5 @@
 using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.TF2.Nav;
 using Xunit;
 
 namespace SourceSharp.Ai.Tests.ServerNav;
@@ -27,7 +28,7 @@ public class NavTeamBlockersTests
     /// <summary>Red's (team 2) visualizer: a thin brush across the corridor at x 64.</summary>
     private static readonly TeamSolid RedDoor = new(new AiVector(63f, 0f, 0f), new AiVector(65f, 32f, 128f), 2);
 
-    private static readonly NavNumbers Body = TF2NavNumbers.Numbers;
+    private static readonly NavNumbers Body = TFNavProfile.ModNumbers;
 
     [Fact]
     public void AVolumeSolidToTheEnemyClosesItsCellsToTheEnemy()
@@ -80,15 +81,15 @@ public class NavTeamBlockersTests
     private static readonly AiVector Lo = new(0f, 0f, 0f), Hi = new(256f, 256f, 128f);
 
     private static MapEntity Visualizer(params (string, string)[] keys)
-        => Entity(TF2TeamSolids.Visualizer, null, default, new AiVector(256f, 96f, 0f), new AiVector(264f, 160f, 128f),
+        => Entity(TFTeamSolids.Visualizer, null, default, new AiVector(256f, 96f, 0f), new AiVector(264f, 160f, 128f),
                   [("respawnroomname", "spawn_red"), .. keys]);
 
     [Fact]
     public void AVisualizerIsSolidToTheEnemyOfItsRoomsTeam()
     {
-        var entities = new MapEntities([Entity(TF2TeamSolids.Room, "spawn_red", default, Lo, Hi, ("TeamNum", "2")), Visualizer()], null);
+        var entities = new MapEntities([Entity(TFTeamSolids.Room, "spawn_red", default, Lo, Hi, ("TeamNum", "2")), Visualizer()], null);
 
-        TeamSolid solid = Assert.Single(TF2TeamSolids.Read(entities));
+        TeamSolid solid = Assert.Single(TFTeamSolids.Read(entities));
         Assert.Equal((2, 256f, 264f), (solid.Team, solid.Mins.X, solid.Maxs.X));
     }
 
@@ -96,31 +97,31 @@ public class NavTeamBlockersTests
     public void ARoomWithNoTeamTakesTheTeamOfASpawnInsideIt()
     {
         var entities = new MapEntities([
-            Entity(TF2TeamSolids.Room, "spawn_red", default, Lo, Hi),
-            Entity(TF2TeamSolids.TeamSpawn, null, new AiVector(500f, 500f, 0f), null, null, ("TeamNum", "2")),
-            Entity(TF2TeamSolids.TeamSpawn, null, new AiVector(64f, 64f, 0f), null, null, ("TeamNum", "2"), ("StartDisabled", "1")),
-            Entity(TF2TeamSolids.TeamSpawn, null, new AiVector(128f, 128f, 0f), null, null, ("TeamNum", "3")),
+            Entity(TFTeamSolids.Room, "spawn_red", default, Lo, Hi),
+            Entity(TFTeamSolids.TeamSpawn, null, new AiVector(500f, 500f, 0f), null, null, ("TeamNum", "2")),
+            Entity(TFTeamSolids.TeamSpawn, null, new AiVector(64f, 64f, 0f), null, null, ("TeamNum", "2"), ("StartDisabled", "1")),
+            Entity(TFTeamSolids.TeamSpawn, null, new AiVector(128f, 128f, 0f), null, null, ("TeamNum", "3")),
             Visualizer(),
         ], null);
 
-        Assert.Equal(3, Assert.Single(TF2TeamSolids.Read(entities)).Team);
+        Assert.Equal(3, Assert.Single(TFTeamSolids.Read(entities)).Team);
     }
 
     [Fact]
     public void AVisualizerNotSolidToEnemiesIsNoSolid()
     {
-        var entities = new MapEntities([Entity(TF2TeamSolids.Room, "spawn_red", default, Lo, Hi, ("TeamNum", "2")),
+        var entities = new MapEntities([Entity(TFTeamSolids.Room, "spawn_red", default, Lo, Hi, ("TeamNum", "2")),
                                         Visualizer(("solid_to_enemies", "0"))], null);
-        Assert.Empty(TF2TeamSolids.Read(entities));
+        Assert.Empty(TFTeamSolids.Read(entities));
     }
 
     [Fact]
     public void AVisualizerWithNoRoomIsNoSolid()
-        => Assert.Empty(TF2TeamSolids.Read(new MapEntities([Visualizer()], null)));
+        => Assert.Empty(TFTeamSolids.Read(new MapEntities([Visualizer()], null)));
 
     [Fact]
     public void ARoomWithNoTeamAndNoSpawnGivesNoSolid()
-        => Assert.Empty(TF2TeamSolids.Read(new MapEntities([Entity(TF2TeamSolids.Room, "spawn_red", default, Lo, Hi), Visualizer()], null)));
+        => Assert.Empty(TFTeamSolids.Read(new MapEntities([Entity(TFTeamSolids.Room, "spawn_red", default, Lo, Hi), Visualizer()], null)));
 
     [Fact]
     public void AnEntitysKeysAreReadAsTheLumpHoldsThem()

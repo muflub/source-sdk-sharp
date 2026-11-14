@@ -20,7 +20,8 @@ public interface IBotHud
 /// (TF2's register there too); what is the game's is asked of the game.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IBotHud)])]
-public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entities, Arsenal arsenal, WeaponCatalog weapons, IBotGame game) : IBotHud
+public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entities, Arsenal arsenal, WeaponCatalog weapons, IBotGame game,
+                                 IPlayerStances stances) : IBotHud
 {
     public SelfState Read(EntityHandle bot)
     {
@@ -43,11 +44,23 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
         }
 
         int grenades = weapons.For(game.GrenadeWeapon) is { } frag && arsenal.PoolOf(bot, frag.AmmoName, out int carried) ? carried : 0;
-        SelfFlags flags = (alive ? SelfFlags.Alive : SelfFlags.None) | (observer ? SelfFlags.Observer : SelfFlags.None);
+        SelfFlags flags = (alive ? SelfFlags.Alive : SelfFlags.None) | (observer ? SelfFlags.Observer : SelfFlags.None)
+                          | BotBodyFlags.Of(stances, bot);
         var read = new SelfState(new AiVector(o.X, o.Y, o.Z), new AiVector(v.X, v.Y, v.Z), new AiAngles(a.X, a.Y, a.Z),
                                  entities.GetHealth(bot), entities.GetArmor(bot), kind, clip, reserve, flags, alt, grenades);
         return game.View.Hud(bot, in read);
     }
+}
+
+/// <summary>
+/// What a bot's own body tells it, as its client predicts its own movement (plan_bots_teams_tf2 P6
+/// step 6): whether it stands on the ground and whether it is ducked. Live, no bot's view said it
+/// was grounded, so a TF2 Soldier never rocket-jumped.
+/// </summary>
+public static class BotBodyFlags
+{
+    public static SelfFlags Of(IPlayerStances stances, EntityHandle bot)
+        => (stances.OnGround(bot) ? SelfFlags.Grounded : SelfFlags.None) | (stances.Ducked(bot) ? SelfFlags.Ducking : SelfFlags.None);
 }
 
 /// <summary>

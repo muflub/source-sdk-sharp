@@ -188,8 +188,35 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             case TFDamageCustom.TauntatkHighNoon:              // :12213-12215
                 name = "tf_weapon_taunt_heavy";
                 break;
+            case TFDamageCustom.TauntatkGrandSlam:             // :12217-12219
+                name = "tf_weapon_taunt_scout";
+                break;
+            case TFDamageCustom.TauntatkBarbarianSwing:        // :12221-12223
+                name = "tf_weapon_taunt_demoman";
+                break;
+            case TFDamageCustom.TauntatkUberslice:             // :12225-12227
+                name = "tf_weapon_taunt_medic";
+                break;
             case TFDamageCustom.TauntatkFencing:               // :12229-12231
                 name = "tf_weapon_taunt_spy";
+                break;
+            case TFDamageCustom.TauntatkArrowStab:             // :12233-12235
+                name = "tf_weapon_taunt_sniper";
+                break;
+            // The soldier's taunt (:12237-12246); stock's lumbricus half asks
+            // the killer's hat for the Worms Gear item def (tf_player.cpp:17243-17248),
+            // which waits on the wearable schema.
+            case TFDamageCustom.TauntatkGrenade:
+                name = "tf_weapon_taunt_soldier";
+                break;
+            case TFDamageCustom.TauntatkEngineerGuitarSmash:   // :12248-12250
+                name = "tf_weapon_taunt_guitar_kill";
+                break;
+            case TFDamageCustom.TauntatkAllclassGuitarRiff:    // :12252-12254
+                name = "tf_weapon_taunt_guitar_riff_kill";
+                break;
+            case TFDamageCustom.TauntatkEngineerArmKill:       // :12256-12258
+                name = "robot_arm_blender_kill";
                 break;
             case TFDamageCustom.TriggerHurt:                   // :12429-12439
                 name = MapHazard() ?? name;

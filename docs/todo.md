@@ -53,15 +53,6 @@ links with `tar -ch` (tools/mod-image:74), so a leg that writes `bin/debug/bin/l
 fails it. Which leg writes there was not found. **Next:** find the writer, or plant a copy of
 `bin/linux64` (or a listing) instead of a link to the live directory.
 
-## The server has no single-recipient sound emit (2026-11-09)
-
-Stock plays several sounds to one player over a `CSingleUserRecipientFilter`; our server's
-sound area has no such filter, so each goes to everyone in earshot instead:
-`HealthKit.cs:118-119` (the pickup sound), `TFAnnouncer.cs:100` (the touching-enemy-cap
-notice) and `TFPlayerHealing.cs:427` (the medigun charge on/off sounds, stock :9078-9079).
-**Next:** a generic recipient argument on the server's entity emit (a forwarder row, as the
-other emits), then the three callers.
-
 ## The daily gate's rope and overlay flake follows knock-loose (2026-11-08)
 
 `rope-settle` and `debug-overlay` came back FLAKY (2 of 3) in the daily gate. Lanes F143 and
@@ -1362,12 +1353,9 @@ and where its record lives now.
 
 ## TF2: small differences seen while checking the name tag (2026-11-03)
 
-- A teammate may get no name tag. In a two-client run on one team, each player's ray at the other missed: 0 hits in 3 samples from the joiner, 0 in 11 from the host, against 2 of 3 from the joiner on opposite teams. Too few samples to call it a rule, and the host missed on opposite teams too. Next: a real count at one pose, then `CWorldQueryClient::ClientClipRayToEntities`'s solid and contents gates.
 - The window in 2fort's red spawn: the shutter behind the glass reads 105.7 in stock and 69.6 in ours; inside the room with no glass they match at 1.00. 2fort has no `func_reflective_glass`, so that isn't the path. Something about the pane still differs.
 - F38's quality prefix reaches the loadout screens, not yet the scoreboard or target ID.
-- A crit-boosted player's HUD portrait is tinted red in stock and not in ours (same-pose shots, soldier with `addcond 34`). The first-person glow matches.
 - `TFConceptSpeech`'s scene arm counts a scene with no sounds as not spoken, which refuses a taunt whose scene is silent; stock plays any scene it finds. The three kill scenes all have sounds. Nothing has been measured for the others.
-- A taunt kill's kill feed names the weapon (`fists`, `knife`). Stock has a `taunt_*` name for each (tf_gamerules.cpp:12213); check the icon against stock.
 - The minigun's flash draws at the muzzle now; stock's core may read brighter than ours. It flickers, so compare several frames before calling it a difference.
 
 ## Performance: what the 2026-11-03 pass left (release, AMD, five bots fighting)

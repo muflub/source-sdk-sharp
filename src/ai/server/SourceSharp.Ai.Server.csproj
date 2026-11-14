@@ -12,7 +12,7 @@
   -->
   <PropertyGroup>
     <!-- The bootstrap loads assemblies by simple name from bin/<config>/bin/managed,
-         so SourceSharp.MapFormats must be copied there: a class library does not
+         so SourceSharp.MapFormats and SourceSharp.MapTools must be copied there: a class library does not
          copy its packages by default. -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -22,6 +22,8 @@
   <ItemGroup>
     <!-- map-tools' .nav3d reader (plan_hl2mp_ai §6.1), from MAPTOOLS_DIR/bin/nupkg (Directory.Build.props). -->
     <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
+    <!-- map-tools' .nav3d builder (plan_bots_teams_tf2 Part E): a map with no nav is built in-process. -->
+    <PackageReference Include="SourceSharp.MapTools" Version="$(MapToolsVersion)" />
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />

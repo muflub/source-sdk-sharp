@@ -1,8 +1,10 @@
-namespace SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Nav;
+
+namespace SourceSharp.Ai.TF2.Nav;
 
 /// <summary>
 /// TF's respawn room visualizers as <see cref="TeamSolid"/>s, from the map's entities
-/// (plan_bots_teams_tf2 C.7), for TF2's binding to publish through its
+/// (plan_bots_teams_tf2 C.7), which <see cref="TFNavProfile"/> publishes as its
 /// <see cref="INavProfile.TeamSolids"/>. A visualizer is solid to the enemy of its room's team
 /// (stock's <c>CFuncRespawnRoomVisualizer::ShouldCollide</c>, the mod's
 /// <c>FuncRespawnRoomVisualizer</c>) unless its <c>solid_to_enemies</c> is 0; its room is the
@@ -11,7 +13,7 @@ namespace SourceSharp.Ai.Server.Nav;
 /// enemy sees it drawn in the room's colour, so a bot knows it as a player does. A visualizer
 /// with no room, or a room with no team, is solid to nobody.
 /// </summary>
-public static class TF2TeamSolids
+public static class TFTeamSolids
 {
     public const string Visualizer = "func_respawnroomvisualizer", Room = "func_respawnroom", TeamSpawn = "info_player_teamspawn";
 

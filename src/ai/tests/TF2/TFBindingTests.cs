@@ -14,7 +14,7 @@ namespace SourceSharp.Ai.Tests.TF2;
 /// generic server binding and answers <see cref="IBotGame"/>; it names no
 /// HL2MP (the other game's binding is not its business, nor its vocabulary);
 /// its services register beside the tf2 mod's list without a contract twice;
-/// and until the trees land its decider stands still.
+/// and its decider is TF2's tree.
 /// </summary>
 public sealed class TFBindingTests
 {
@@ -41,7 +41,36 @@ public sealed class TFBindingTests
             [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
         Assert.Contains(typeof(IBotGame), registered);
         Assert.Contains(typeof(TFAiService), registered);
+        // Without curves a brain has no decider: the TF2 list must bring its own.
+        Assert.Contains(typeof(SourceSharp.Ai.Server.Skills.ISkillCurveSource), registered);
         Assert.Contains(typeof(AiSenses), registered);
+    }
+
+    /// <summary>
+    /// Each hook chain the AI's services join on a TF2 server, as the tf2 mod's list registers it:
+    /// no two members at one <see cref="IOrderedHook.HookOrder"/> (an unordered one is 0). Two at one
+    /// order throw only at the chain's first call (StageUniqueness), so the boot passes and the
+    /// facts stay green: live, every kill threw out of OnPlayerKilled (CombatTap and TFStickyTray).
+    /// </summary>
+    [Fact]
+    public void NoHookChainAnAiServiceJoinsHasTwoMembersAtOneOrder()
+    {
+        var services = new ServiceContainer();
+        IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server,
+            [.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]);
+        Type[] concrete = [.. registered.Where(t => t.IsClass && !t.IsAbstract).Distinct()];
+        Assembly[] ai = [typeof(VisionPass).Assembly, Binding];
+        static int Order(Type t)
+            => typeof(IOrderedHook).IsAssignableFrom(t)
+                ? ((IOrderedHook)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t)).HookOrder
+                : 0;
+        var chains = concrete.Where(t => ai.Contains(t.Assembly))
+                             .SelectMany(t => t.GetInterfaces().Where(i => i.Name.EndsWith("Hook", StringComparison.Ordinal) && i != typeof(IOrderedHook)))
+                             .Distinct().ToArray();
+        Assert.Contains(chains, c => c.Name == "IPlayerDeathHook");
+        string[] clashes = [.. chains.SelectMany(chain => concrete.Where(chain.IsAssignableFrom).GroupBy(Order).Where(g => g.Count() > 1)
+                                                         .Select(g => $"{chain.Name} at {g.Key}: {string.Join(", ", g.Select(t => t.Name))}"))];
+        Assert.Empty(clashes);
     }
 
     /// <summary>
@@ -76,16 +105,29 @@ public sealed class TFBindingTests
     public void TheTF2ListLeavesNoAiContractUnfilled()
         => Assert.Empty(Unfilled([.. typeof(global::TF2.Server.Player.TFServerActorFacts).Assembly.GetTypes(), .. typeof(VisionPass).Assembly.GetTypes(), .. Binding.GetTypes()]));
 
+    /// <summary>The game's decider is TF2's tree, a subtree per class (P6 step 6); before the class table loads it reads the Soldier's numbers.</summary>
     [Fact]
-    public void TheTF2DeciderStandsStill()
+    public void TheTF2GameDecidesWithItsTree()
     {
-        var game = new TFBotGame(WeaponCatalog.Stock(), null!, null!, null!);
+        var classes = new global::TF2.Shared.TFClassTable(new NoLog(), DispatchProxy.Create<IEngineFiles, ServerNav.AiNavBuildTests.Files>());
+        var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!);
         var duel = new Trees.Duel(Trees.Duel.Preset("normal"));
         var bot = new ActorId(1, 1);
         IDecider decider = game.Decider(new BrainSetup(bot, 7UL, duel.Memory, duel.Params, 0.015f));
+        Assert.IsType<SourceSharp.Ai.TF2.Trees.TFDecider>(decider);
+        // Dead (the view's default self): it holds.
         IntentCommand intent = decider.Decide(new Tick(100), new PerceivedView(4), 3);
-        Assert.Equal(bot, intent.Bot);
-        Assert.Equal(MoveKind.Hold, intent.Move.Kind);
-        Assert.Equal(ActionKind.None, intent.Action.Kind);
+        Assert.Equal((bot, MoveKind.Hold, ActionKind.None), (intent.Bot, intent.Move.Kind, intent.Action.Kind));
+    }
+
+    private sealed class NoLog : ILog
+    {
+        public void Msg(string message)
+        {
+        }
+
+        public void Warning(string message)
+        {
+        }
     }
 }

@@ -1,0 +1,202 @@
+using SourceSharp.Abi;
+using SourceSharp.Ai.Server.Senses;
+using SourceSharp.Ai.TF2.Knowledge;
+using SourceSharp.Server;
+using SourceSharp.Shared;
+using TF2.Server.Buildings;
+using TF2.Server.Player;
+using TF2.Server.Projectiles;
+using TF2.Shared;
+using TF2.Shared.Player;
+
+namespace SourceSharp.Ai.TF2.Senses;
+
+/// <summary>The binding's numbers for the things TF2 draws that are not players (<see cref="ThingFacts.Type"/>).</summary>
+public enum TFThingType
+{
+    None = 0,
+    Rocket,
+    Pipe,
+    Sticky,
+    Arrow,
+    Flare,
+    HealingBolt,
+    Jar,
+    Cleaver,
+    Syringe,
+    Sentry = 20,
+    Dispenser,
+    TeleporterEntrance,
+    TeleporterExit,
+}
+
+/// <summary>
+/// What a TF2 client draws past the engine (plan_bots_teams_tf2 C.3, P6 step 3), for the
+/// generic senses (<see cref="IBotGameView"/>). Everything is what the mod sends every client:
+/// <see cref="ITFActorFacts"/> per player, the projectiles' rows and the buildings'.
+///
+/// <para>
+/// HONESTY ABOUT THE SPY, BOTH WAYS. To a viewer on the Spy's own team a disguised Spy is drawn as
+/// what he is, a Spy (the paper mask): his own team and class, the disguise shown. To anyone else
+/// he is the disguise: its team, its class, the borrowed name's slot and the disguise class's
+/// primary in his hands, and no sign of a disguise. A cloak fades him by the client's invisibility
+/// level and past <see cref="CloakHidden"/> he is not drawn at all (stock's 75 % in
+/// <c>tf_bot_vision.cpp:258-302</c>'s vocabulary). The real team is read only to choose between
+/// those two drawings; it never reaches a view of an enemy.
+/// </para>
+/// </summary>
+[SideService(Side.Server)]
+public sealed class TFBotGameView(ITFActorFacts actors, ITFPlayerData players, IEngineEntities entities, IEntityDirectory directory,
+                                  TFDisguiseWeapons disguises, WeaponCatalog weapons, TFObjectiveFeed objectives) : IBotGameView
+{
+    /// <summary>How invisible a cloaked Spy is when a client draws nothing of him.</summary>
+    public const float CloakHidden = 0.75f;
+
+    /// <summary>How far a projectile's body reaches round its origin, and a building's (its middle is half that over its feet).</summary>
+    public const float ProjectileReach = 8f, BuildingReach = 48f;
+
+    public SelfState Hud(EntityHandle bot, in SelfState read)
+    {
+        int index = bot.EntryIndex;
+        if (!actors.TryRead(index, out TFActorFacts own))
+            return read;
+        int metal = players.Networked(index) is { } state ? state.Ammo[(int)TFAmmo.Metal] : 0;
+        return read with { Class = (int)own.Class, Conditions = Conditions(in own, disguiseShown: true), Metal = metal };
+    }
+
+    public bool Render(EntityHandle viewer, EntityHandle them, ref ActorFacts facts)
+    {
+        if (!actors.TryRead(them.EntryIndex, out TFActorFacts drawn))
+            return true;
+        int viewerTeam = actors.TryRead(viewer.EntryIndex, out TFActorFacts own) ? (int)own.Team : 0;
+        int dress = disguises.DressOf(them.EntryIndex) is { } row ? weapons.IndexOf(row) : -1;
+        return Draw(viewerTeam, in drawn, dress, ref facts);
+    }
+
+    /// <summary>
+    /// What a client of <paramref name="viewerTeam"/> draws of a player whose mod facts are
+    /// <paramref name="them"/>, over the engine's <paramref name="facts"/>; false when it draws
+    /// nothing. <paramref name="dressWeapon"/> is the catalog kind of the weapon his disguise
+    /// shows in his hands, -1 for none.
+    /// </summary>
+    public static bool Draw(int viewerTeam, in TFActorFacts them, int dressWeapon, ref ActorFacts facts)
+    {
+        if (them.PercentInvisible >= CloakHidden)
+            return false;
+        bool sameTeam = viewerTeam != 0 && viewerTeam == (int)them.Team;
+        facts = facts with
+        {
+            VisibleFraction = facts.VisibleFraction * (1f - them.PercentInvisible),
+            Conditions = Conditions(in them, disguiseShown: sameTeam),
+        };
+        if (them.Disguised && !sameTeam)
+        {
+            facts = facts with
+            {
+                Team = (int)them.DisguiseTeam,
+                Class = (int)them.DisguiseClass,
+                NameSlot = them.DisguiseTargetIndex,
+                WeaponSeen = dressWeapon >= 0 ? dressWeapon : facts.WeaponSeen,
+            };
+        }
+        else
+        {
+            facts = facts with { Class = (int)them.Class };
+        }
+
+        return true;
+    }
+
+    /// <summary>The conditions a client draws on a player; a disguise shows only to the Spy's own team.</summary>
+    public static ActorConditions Conditions(in TFActorFacts f, bool disguiseShown)
+        => (f.Burning ? ActorConditions.Burning : 0) | (f.Stunned ? ActorConditions.Stunned : 0) | (f.Ubered ? ActorConditions.Invulnerable : 0)
+           | (f.Disguised && disguiseShown ? ActorConditions.Disguised : 0) | (f.Cloaked ? ActorConditions.Cloaked : 0)
+           | (f.Taunting ? ActorConditions.Taunting : 0);
+
+    public void Things(List<ThingRead> into)
+    {
+        into.Clear();
+        Projectiles(into, TFProjectileEntityNames.Rocket, TFThingType.Rocket);
+        Projectiles(into, TFProjectileEntityNames.Pipebomb, TFThingType.Pipe);
+        Projectiles(into, TFProjectileEntityNames.Stickybomb, TFThingType.Sticky);
+        Projectiles(into, TFProjectileEntityNames.Arrow, TFThingType.Arrow);
+        Projectiles(into, TFProjectileEntityNames.Flare, TFThingType.Flare);
+        Projectiles(into, TFProjectileEntityNames.HealingBolt, TFThingType.HealingBolt);
+        Projectiles(into, TFProjectileEntityNames.Jar, TFThingType.Jar);
+        Projectiles(into, TFProjectileEntityNames.JarMilk, TFThingType.Jar);
+        Projectiles(into, TFProjectileEntityNames.Cleaver, TFThingType.Cleaver);
+        Projectiles(into, TFProjectileEntityNames.Syringe, TFThingType.Syringe);
+        Buildings(into, TFObjectClassNames.SentryGun);
+        Buildings(into, TFObjectClassNames.Dispenser);
+        Buildings(into, TFObjectClassNames.Teleporter);
+    }
+
+    /// <summary>
+    /// A projectile's team and owner as its networked row carries them (every client's trail reads
+    /// them); an arrow and a syringe carry no row here, so their team reads 0 (docs/divergences.md).
+    /// </summary>
+    private static (int Team, int Owner) TeamOf(ScriptedEntity e) => e switch
+    {
+        TFRocket r => (r.State.TeamNumber, r.State.OwnerIndex),
+        TFPipebomb p => (p.State.TeamNumber, 0),
+        TFStickybomb s => (s.State.TeamNumber, 0),
+        TFFlare f => (f.State.TeamNumber, 0),
+        TFHealingBolt b => (b.State.TeamNumber, 0),
+        TFJar j => (j.State.TeamNumber, 0),
+        TFCleaver c => (c.State.TeamNumber, 0),
+        _ => (0, 0),
+    };
+
+    private void Projectiles(List<ThingRead> into, string className, TFThingType type)
+    {
+        foreach (ScriptedEntity e in directory.OfClass(className))
+        {
+            (int team, int owner) = TeamOf(e);
+            Vector o = entities.GetOrigin(e.Handle), v = entities.GetVelocity(e.Handle);
+            into.Add(new ThingRead(e.Handle, new ThingFacts((int)e.Handle.Value, ThingKind.Projectile, (int)type, new AiVector(o.X, o.Y, o.Z),
+                                                            new AiVector(v.X, v.Y, v.Z), team, owner), ProjectileReach));
+        }
+    }
+
+    /// <summary>A building as it stands: a blueprint being placed is its builder's alone, and one carried is in nobody's sight.</summary>
+    private void Buildings(List<ThingRead> into, string className)
+    {
+        foreach (TFBaseObject b in directory.OfClass(className).OfType<TFBaseObject>())
+        {
+            if (b.IsPlacing || b.IsCarried)
+                continue;
+            Vector o = entities.GetOrigin(b.Handle);
+            int builder = b.Builder == EntityHandle.None ? 0 : b.Builder.EntryIndex;
+            into.Add(new ThingRead(b.Handle, new ThingFacts((int)b.Handle.Value, ThingKind.Building, (int)BuildingType(b.Type, b.Mode),
+                                                            new AiVector(o.X, o.Y, o.Z), default, b.Team, builder, b.Level, b.Health), BuildingReach));
+        }
+    }
+
+    /// <summary>A building's type, a teleporter's end by its mode (0 the entrance, 1 the exit).</summary>
+    public static TFThingType BuildingType(TFObjectType type, int mode) => type switch
+    {
+        TFObjectType.Sentrygun => TFThingType.Sentry,
+        TFObjectType.Dispenser => TFThingType.Dispenser,
+        TFObjectType.Teleporter => mode == 0 ? TFThingType.TeleporterEntrance : TFThingType.TeleporterExit,
+        _ => TFThingType.None,
+    };
+
+    public bool RenderThing(EntityHandle viewer, ref ThingFacts facts)
+    {
+        if (facts.Kind != ThingKind.Building)
+            return true;
+        bool seesHealth = actors.TryRead(viewer.EntryIndex, out TFActorFacts own) && ShowsBuildingHealth(in own, facts.Team);
+        if (!seesHealth)
+            facts = facts with { Health = -1 };
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a viewer's target ID shows a building's health (<c>tf_hud_target_id.cpp:483</c>,
+    /// :865-878): to the building's own team and to a Spy, and to nobody else.
+    /// </summary>
+    public static bool ShowsBuildingHealth(in TFActorFacts viewer, int buildingTeam)
+        => (int)viewer.Team == buildingTeam || viewer.Class == TFClass.Spy;
+
+    public ObjectiveKnowledge? Objectives => objectives.Current;
+}

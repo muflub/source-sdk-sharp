@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CHOKE_POINTS,
-  NAV_COLOURS, buildFlowLayer, buildNavLayers, cellCentre, type AiFlow, type AiNav,
+  NAV_COLOURS, buildFlowLayer, buildNavLayers, cellCentre, navBuildNote, type AiFlow, type AiNav,
 } from '../aiNav';
 
 // Three cells in a row, 16 wide: a standing one, a crouch-only one, a ladder.
@@ -66,5 +66,16 @@ describe('the flow layer', () => {
   it('points each arrow toward the next cell', () => {
     const [ax, , , bx] = Array.from(layer.positions.slice(0, 4));
     expect(bx!).toBeGreaterThan(ax!);
+  });
+});
+
+describe('the build note', () => {
+  it('says the map, how far and how long, and that bots wait for the level\'s own build', () => {
+    expect(navBuildNote({ building: true, map: 'dm_x', phase: 'building', percent: 40, seconds: 12.4, threads: 4, queued: 0, forLevel: true, refusal: 'navigation for dm_x: building' }))
+      .toBe('AI nav: building dm_x 40 % (12 s, building), bots join when it is built');
+  });
+
+  it('says nothing when no build runs', () => {
+    expect(navBuildNote({ building: false, refusal: null })).toBeNull();
   });
 });

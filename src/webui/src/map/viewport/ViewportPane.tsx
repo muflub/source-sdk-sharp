@@ -19,9 +19,9 @@ import type { MapGeometry } from '../../types';
 import { keyOf, type Entity } from '../model';
 import { View, buildEntities, buildWorld, type ViewMode } from './renderer';
 import { attachCamera } from './cameraControls';
-import { getAiBot, getAiBots, getAiFlow, getAiNav } from '../../api';
+import { getAiBot, getAiBots, getAiFlow, getAiNav, getAiNavBuild } from '../../api';
 import { buildConeLayer, buildHeatLayer } from '../../ai/aiInspect';
-import { buildFlowLayer, buildNavLayers, type AiNav } from '../aiNav';
+import { buildFlowLayer, buildNavLayers, navBuildNote, type AiNav } from '../aiNav';
 
 const VIEWS: [ViewMode, string][] = [
   ['persp', '3D'],
@@ -165,9 +165,27 @@ export function ViewportPane({ visible, entities, map, selectedKey, onSelect, lo
     draw();
   }, [visible, entities, geometry, selectedKey, draw]);
 
+  // A level whose navigation is being built (plan_bots_teams_tf2 E.3): the
+  // note says how far, polled each second, and the nav is asked for again
+  // when the build is done.
+  const [navTry, setNavTry] = useState(0);
   useEffect(() => {
     if (!visible || !showNav) return;
     let cancelled = false;
+    let poll: ReturnType<typeof setTimeout> | undefined;
+    const watchBuild = (refusal: string) => {
+      void getAiNavBuild().then(build => {
+        if (cancelled) return;
+        const building = navBuildNote(build);
+        if (building === null) {
+          setNote(`AI nav: ${build.refusal ?? refusal}`);
+          if (build.refusal === null) setNavTry(t => t + 1);
+          return;
+        }
+        setNote(building);
+        poll = setTimeout(() => watchBuild(refusal), 1000);
+      }).catch(() => { if (!cancelled) setNote(`AI nav: ${refusal}`); });
+    };
     void getAiNav().then(answer => {
       if (cancelled) return;
       if (answer.error || !answer.cell) {
@@ -176,9 +194,14 @@ export function ViewportPane({ visible, entities, map, selectedKey, onSelect, lo
         return;
       }
       setAiNav(answer);
+    }).catch(() => {
+      // A level with no navigation answers 409: ask whether one is being built.
+      if (cancelled) return;
+      setAiNav(null);
+      watchBuild('no navigation');
     });
-    return () => { cancelled = true; };
-  }, [visible, showNav, map]);
+    return () => { cancelled = true; if (poll) clearTimeout(poll); };
+  }, [visible, showNav, map, navTry]);
 
   useEffect(() => {
     if (!visible) return;

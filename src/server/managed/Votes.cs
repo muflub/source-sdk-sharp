@@ -280,6 +280,19 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifec
         }
     }
 
+    /// <summary>Whether a vote is running now, or its result is still shown.</summary>
+    public bool Running => _office.Current is { IsVoteActive: true };
+
+    /// <summary>The admin's cancel: the ballot on now ends with no result. Answers null, or why not.</summary>
+    public string? Cancel()
+    {
+        if (_office.Current is not { IsVoteActive: true } vote)
+            return "no vote is running";
+        vote.Cancel();
+        _log?.Msg("[SourceSharp/Vote] the vote was cancelled by an admin\n");
+        return null;
+    }
+
     /// <summary>A kick's issue name on the controller (the other kinds go by their <see cref="VoteKind"/>).</summary>
     public const string KickIssue = "kick";
 

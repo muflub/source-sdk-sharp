@@ -126,8 +126,16 @@ public sealed class RosterBot(int ordinal, string? givenName, RosterKind kind, S
     /// <summary>The team it joins under a mode with teams (plan_bots_teams_tf2 B.6): <see cref="RosterTeam.Auto"/>, 2 or 3.</summary>
     public int Team { get; set; }
 
-    /// <summary>The tick it last asked to join a team (a refusal is asked again later, not every frame).</summary>
-    public int AskedTeamAt { get; set; } = int.MinValue;
+    /// <summary>
+    /// The tick it last asked to join a team (a refusal is asked again later, not every
+    /// frame). Never asked is far enough back to ask now, and near enough that the
+    /// tick less it does not overflow (int.MinValue did: a bot added under a deathmatch
+    /// never asked for its team after a switch to one with teams).
+    /// </summary>
+    public int AskedTeamAt { get; set; } = NeverAsked;
+
+    /// <summary>The ask tick of a bot that has not asked.</summary>
+    public const int NeverAsked = int.MinValue / 2;
 }
 
 /// <summary>
@@ -187,7 +195,13 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
     private int _balancedAt = int.MinValue / 2;
     private int _humans;
     private int _level;
+    private int _rerolls;
+    private string _map = "";
+    private int _navSeen;
     private bool _recount = true;
+
+    /// <summary>What a bot waiting for the level's navigation to be built is told, and the console with it (plan_bots_teams_tf2 E.3).</summary>
+    public const string WaitsForNav = "bots will join when navigation is built";
 
     /// <summary>The wanted bots, in the order they were added.</summary>
     public IReadOnlyList<RosterBot> Bots => _bots;
@@ -214,7 +228,7 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
         SkillVerdict verdict = BotSkillSpec.Parse(name ?? "custom", spec, out SkillProfile? skills);
         if (!verdict.Accepted)
             return verdict.Refusal;
-        if (bots.AddRefusal is { } refused)
+        if (!bots.NavBuilding && bots.AddRefusal is { } refused)
             return refused;
         RosterKind kind = SkillPresets.Names.Contains(skills!.Name) && SkillPresets.TryGet(skills.Name, out SkillProfile? preset) && preset!.SameLevels(skills)
             ? RosterKind.Preset
@@ -225,6 +239,14 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
         Count();
         RosterBot bot = _bots[^1];
         bot.Team = team;
+        if (bots.NavBuilding)
+        {
+            // It joins the roster now and the game when the build lands (Reconcile, on the nav's version).
+            Bench(bot, $"{WaitsForNav} ({bots.AddRefusal})");
+            log.Msg($"[SourceSharp/Ai] bot {bot.Name} waits: {WaitsForNav}\n");
+            return null;
+        }
+
         if (_bots.Count(b => b.Active) >= Room)
         {
             Bench(bot, NoRoom());
@@ -342,6 +364,7 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
     /// </summary>
     public void LevelStarted(string mapName, bool reroll)
     {
+        _map = mapName;
         _level++;
         _holdUntil = 0;
         _recount = true;
@@ -357,20 +380,56 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
 
         if (!reroll)
             return;
+        Redraw(mapName, _level, "ai_bot_reroll_on_map");
+        log.Msg($"[SourceSharp/Ai] ai_bot_reroll_on_map: {_bots.Count(b => b.Kind != RosterKind.NamedCustom)} of {_bots.Count} bots drawn anew for {mapName}\n");
+    }
+
+    /// <summary>Every bot but a named custom one draws anew from the seed of <paramref name="mapName"/> and <paramref name="level"/>.</summary>
+    private void Redraw(string mapName, int level, string why)
+    {
         foreach (RosterBot bot in _bots)
         {
             if (bot.Kind == RosterKind.NamedCustom)
                 continue;
-            bot.SeedIndex = RerollIndex(mapName, _level, bot.Ordinal);
+            bot.SeedIndex = RerollIndex(mapName, level, bot.Ordinal);
             bot.Skills = Draw(bot.Shape, bot.SeedIndex);
             bot.Name = "";
             if (bot.GivenName is not null)
                 bot.Name = Unique(bot.GivenName, bot);
             else if (NameFor(bot) is { } refusal)
-                log.Warning($"[SourceSharp/Ai] ai_bot_reroll_on_map: bot {bot.Ordinal} keeps no name: {refusal}\n");
+                log.Warning($"[SourceSharp/Ai] {why}: bot {bot.Ordinal} keeps no name: {refusal}\n");
+        }
+    }
+
+    /// <summary>
+    /// The admin's re-roll (plan_bots_teams_tf2 D.4): every bot draws anew as
+    /// <c>ai_bot_reroll_on_map</c> does at a level's start, from a seed of this
+    /// level and the re-rolls before it on it, and each in the game leaves and
+    /// comes back as the new draw, as a player would rejoin. Answers null, or
+    /// why nothing was done.
+    /// </summary>
+    public string? RerollNow()
+    {
+        if (_bots.Count == 0)
+            return "there are no bots";
+        if (_bots.All(b => b.Kind == RosterKind.NamedCustom))
+            return "every bot is a named custom one, which keeps what it was given";
+        _rerolls++;
+        foreach (RosterBot bot in _bots)
+        {
+            if (!bot.Active || bot.Kind == RosterKind.NamedCustom)
+                continue;
+            bots.Kick(bot.Actor, "re-rolled by an admin");
+            bot.Actor = ActorId.None;
+            bot.Reason = "re-rolled";
+            bot.BenchOrder = long.MinValue + bot.Ordinal;
         }
 
-        log.Msg($"[SourceSharp/Ai] ai_bot_reroll_on_map: {_bots.Count(b => b.Kind != RosterKind.NamedCustom)} of {_bots.Count} bots drawn anew for {mapName}\n");
+        Redraw(_map, _level + (_rerolls << 16), "re-roll");
+        _recount = true;
+        _holdUntil = _askTick + RecountTicks;
+        log.Msg($"[SourceSharp/Ai] re-roll: {_bots.Count(b => b.Kind != RosterKind.NamedCustom)} of {_bots.Count} bots drawn anew\n");
+        return null;
     }
 
     /// <summary>The seed a bot draws from when re-rolled: of the match seed (through the draw), the map, the level's number and its place, stable across runs.</summary>
@@ -385,10 +444,43 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
         return (int)(h & 0x7FFF_FFFF);
     }
 
+    /// <summary>
+    /// The game switched modes (plan_bots_teams_tf2 D.2): the next frame counts
+    /// and places at once, every bot may ask for its team straight away (one
+    /// asked a moment ago, under the mode before, does not wait out the retry),
+    /// and the people now on each team are the baseline, so the switch's own
+    /// assignments are not read as a person joining one. Whether teams play is
+    /// the mode's (<see cref="IRosterTeams.Teamplay"/>), read live: under one with
+    /// them the bots go to their teams as a player's team menu sends them, under
+    /// one without the mode has already put everyone on none.
+    /// </summary>
+    public void ModeSwitched()
+    {
+        _recount = true;
+        _balancedAt = int.MinValue / 2;
+        foreach (RosterBot bot in _bots)
+            bot.AskedTeamAt = RosterBot.NeverAsked;
+        for (int team = TeamRule.FirstGameTeam; team <= TeamRule.LastGameTeam; team++)
+            _humansOn[team] = teams.Teamplay ? teams.HumansOn(team) : 0;
+    }
+
     /// <summary>One frame, after the binding has followed the engine: bots that left, then the slots.</summary>
     public void Reconcile(int tick)
     {
         _askTick = tick;
+        if (bots.NavVersion != _navSeen)
+        {
+            // A navigation arrived (a build landed mid-level): the bots this level refused are asked again.
+            _navSeen = bots.NavVersion;
+            foreach (RosterBot b in _bots)
+            {
+                if (b.RefusedOnLevel == _level)
+                    b.RefusedOnLevel = -1;
+            }
+
+            _recount = true;
+        }
+
         foreach (RosterBot bot in _bots)
         {
             if (bot.Active && !bots.Bots.Any(b => b.Id == bot.Actor))
@@ -420,6 +512,14 @@ public sealed class AiRoster(AiBots bots, IBotProfileSource profiles, IServerSlo
         if (active >= room || _bots.Count == active || tick < _holdUntil)
         {
             SayRoom(active, room);
+            return;
+        }
+
+        if (bots.NavBuilding)
+        {
+            // Nothing to ask the engine yet: every waiting bot says why, and joins when the build lands.
+            foreach (RosterBot bot in _bots.Where(b => !b.Active))
+                bot.Reason = $"{WaitsForNav} ({bots.AddRefusal})";
             return;
         }
 
@@ -819,6 +919,28 @@ public sealed class AiBotStreaksConVar : BoolConVar { }
 /// </summary>
 [ConVar("ai_bot_reserve_slots", "1", Help = "Slots the roster's bots leave free for people to connect to", Min = 0, Max = 64)]
 public sealed class AiBotReserveConVar : IntConVar { }
+
+/// <summary>
+/// The roster told of a mode switch (plan_bots_teams_tf2 D.2, step 8), after the
+/// new mode's round is set up: its bots re-team at the next frame as players
+/// rejoining would (<see cref="AiRoster.ModeSwitched"/>). Each bot's decider reads
+/// its team and its friends from every client's view at each decide, so a switch
+/// reaches the brains through the teams themselves.
+/// </summary>
+[SideService(Side.Server)]
+public sealed class AiModeSwitch(AiRoster roster, ILog log) : IModeSwitchHook, IOrderedHook
+{
+    /// <summary>Unique in the switch chain: the core's votes sit at 999 100.</summary>
+    public const int Order = 500;
+
+    public int HookOrder => Order;
+
+    public void OnModeSwitched(IGameMode? previous, IGameMode next)
+    {
+        roster.ModeSwitched();
+        log.Msg($"[SourceSharp/Ai] mode '{previous?.Id ?? "none"}' -> '{next.Id}': {roster.Bots.Count(b => b.Active)} bot(s) re-team, teams {(next.Teamplay ? "on" : "off")}\n");
+    }
+}
 
 /// <summary>
 /// Drives the roster with the game: at a level's start, reads

@@ -80,6 +80,46 @@ public class RenderedTeamsTests
         Assert.Equal((4, -1), (teams.Score(2), teams.Score(3)));
     }
 
+    private sealed class SoloMode : IGameMode
+    {
+        public string Id => "solo";
+        public IRoundFlow Rounds { get; } = new Flow();
+    }
+
+    /// <summary>Every player on team 2, as the engine's team store answers.</summary>
+    public class OnTeamTwo : System.Reflection.DispatchProxy
+    {
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args)
+            => method!.Name == nameof(IEnginePlayers.GetTeam) ? 2 : throw new NotSupportedException(method.Name);
+    }
+
+    /// <summary>
+    /// A mode switch reaches every bot's view of the teams at once (plan_bots_teams_tf2
+    /// D.2, step 8): the friends a decider reads are the rendered teams, which follow
+    /// the playing mode's teamplay, so off it a player on team 2 is on none.
+    /// </summary>
+    [Fact]
+    public void ASwitchToAModeWithoutTeamsPutsEveryoneOnNoneAndBackOnTheirTeam()
+    {
+        var services = new ServiceContainer();
+        var mode = new TeamMode(new Scores([]));
+        services.AddInstance(typeof(TeamMode), mode);
+        services.AddInstance(typeof(SoloMode), new SoloMode());
+        services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(new Selector(mode.Id)));
+        var modes = new GameModes(new Quiet(), new Clock(), services, DeclaredConVars.Fresh<SvModeSwitchWarmupConVar>(),
+                                  DeclaredConVars.Fresh<MpWaitingForPlayersTimeConVar>());
+        var teams = new EngineRenderedTeams(modes, System.Reflection.DispatchProxy.Create<IEnginePlayers, OnTeamTwo>(),
+                                            DeclaredConVars.Fresh<MpFriendlyFireConVar>(), DeclaredConVars.Fresh<TdmTeamsConVar>());
+        var player = new EntityHandle(0x10002u);
+        Assert.Equal(2, teams.TeamOf(player));
+
+        Assert.True(modes.SwitchTo("solo"));
+        Assert.Equal((false, 0, 0), (teams.Teamplay, teams.TeamOf(player), teams.TeamCount));
+        Assert.True(modes.SwitchTo("teams"));
+
+        Assert.Equal((true, 2), (teams.Teamplay, teams.TeamOf(player)));
+    }
+
     [Fact]
     public void NoSuchTeamReadsZero()
         => Assert.Equal(0, Over(new() { [2] = 4 }).Score(7));
