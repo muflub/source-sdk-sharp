@@ -632,4 +632,26 @@ public partial class TFPlayerNetState
     /// the <see cref="Ammo"/> rows' rule.
     /// </summary>
     public partial int PipebombCount { get; set; }
+
+    /// <summary>
+    /// When the Spy-cicle's knife melted — stock's
+    /// <c>m_flKnifeMeltTimestamp</c> (<c>tf_weapon_knife.cpp:39</c>), written
+    /// by the server's melt (<c>ApplyOnInjuredAttributes</c> through
+    /// <c>TF2.Server.Player</c>'s spy slice, the stamp <c>:126-129</c> keeps).
+    /// It rides the carrier as the clips do: the melted knife is refused at
+    /// the switch back (<c>CanDeploy</c>, <c>:521-531</c>) while holstered,
+    /// and the hierarchy's one weapon entity is whichever is in hand.
+    /// </summary>
+    public partial float KnifeMeltTimestamp { get; set; }
+
+    /// <summary>
+    /// How long that melt takes to regenerate — stock's
+    /// <c>m_flKnifeRegenerateDuration</c> (<c>tf_weapon_knife.cpp:40</c>), the
+    /// window <c>CanDeploy</c> holds the switch for (<c>:523</c>). Zero with a
+    /// zero stamp is stock's fresh <c>m_bKnifeExists</c> (<c>:77</c>): the
+    /// formula answers ready. Sent, not predicted, on the stamps' row's
+    /// showing: the client's replay runs no melt arithmetic, the switch reads
+    /// the arrival.
+    /// </summary>
+    public partial float KnifeRegenerateDuration { get; set; }
 }

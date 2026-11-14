@@ -260,24 +260,25 @@ public sealed class DeathServiceTests
         var deaths = Deaths(w);
 
         Die(deaths);
-        w.Body.OnThink();     // the lifetime is up; a kept body does not care
 
-        Assert.False(w.Body.Gone);
+        // The body is out of the service's hands (the hook's Keep): no sweep
+        // and no later death ends it. There is no lifetime left to outlive —
+        // the server retires a body only by replace, cap or round reset.
+        Assert.Equal(0, w.Corpses.Count);
     }
 
     [Fact]
     public void An_unhosted_death_leaves_the_stock_cycle_untouched()
     {
-        // The same death with no hosting service: the body still goes at its
-        // lifetime, nothing is shown, nothing is recorded, and the gate says
-        // nothing. World()'s hosted arm is the positive control for each.
+        // The same death with no hosting service: nothing keeps the body, the
+        // screen stays up, nothing is recorded, and the gate says nothing.
+        // World()'s hosted arm is the positive control for each.
         var w = World(HostingMode.Unhosted);
         var deaths = Deaths(w);
 
         Die(deaths);
-        w.Body.OnThink();
 
-        Assert.True(w.Body.Gone);
+        Assert.Equal(1, w.Corpses.Count);
         Assert.Empty(w.Screen.Fades);
         Assert.Empty(Notices(w.Net));
         Assert.Empty(w.Link.Recorded);

@@ -80,9 +80,8 @@ public readonly record struct TFMoveInputs(
 /// rooted the hooks with.
 /// </summary>
 /// <param name="Index">The entity index the inputs belong to — the walk's re-entry check is keyed by it.</param>
-public sealed record TFPeerInput(int Index, TFMoveInputs Inputs,
-                                 AttributeHooks? Attribs = null, IAttributeProvider? Manager = null,
-                                 IAttributeProvider? ActiveItem = null);
+public sealed record TFPeerInput(int Index, TFMoveInputs Inputs, AttributeHooks Attribs,
+                                 IAttributeProvider? Manager, IAttributeProvider? ActiveItem);
 
 /// <summary>
 /// <c>CTFPlayer::TeamFortress_CalculateMaxSpeed</c>
@@ -139,29 +138,31 @@ public static class TFMaxSpeed
     /// <summary><c>tf_max_charge_speed</c>'s default, the shield charge's speed (tf_gamemovement.cpp:52, read at tf_player_shared.cpp:10972).</summary>
     public const float MaxChargeSpeed = 750f;
 
-    /// <summary>The player's maximum speed.</summary>
+    /// <summary>The player's maximum speed. Every dependency is handed in: both
+    /// sides' registrations hold the walker and the peer lookup, so the call
+    /// never answers itself a fallback.</summary>
     /// <param name="spyMaxCloakedSpeed"><c>tf_spy_max_cloaked_speed</c>.</param>
-    /// <param name="attribs">The side's attribute walk, with the player's own
-    /// attribute manager as its root (<c>CALL_ATTRIB_HOOK_FLOAT</c> on the
-    /// player); null for none, both arms then the value unchanged.</param>
-    /// <param name="playerAttributes"><c>m_AttributeManager</c>.</param>
+    /// <param name="attribs">The side's attribute walk, the one
+    /// <c>CALL_ATTRIB_HOOK_FLOAT</c> takes on the player.</param>
+    /// <param name="playerAttributes"><c>m_AttributeManager</c>, the hooks'
+    /// root; null when the player has none, as stock's absent manager.</param>
     /// <param name="peers">The other players' speed environments, for the
-    /// medic's match; null for none, the arm then stands down.</param>
+    /// medic's match; answers null for an index the side never saw.</param>
     /// <param name="playerIndex">The caller's entity index, the re-entry
     /// check's key; -1 for a caller with none, the match then unable to run.</param>
     /// <param name="activeItem">The active weapon's item, the root of the
     /// <c>mult_player_movespeed_active</c> hook (stock's
-    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> on the held weapon); null for
-    /// none, the hook arm then the value unchanged.</param>
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> on the held weapon); null when
+    /// nothing is held, stock's null <c>pTFActiveWeapon</c>.</param>
     public static float Calculate(TFClassTable classes, in TFMoveInputs inputs, float spyMaxCloakedSpeed,
-                                  AttributeHooks? attribs = null, IAttributeProvider? playerAttributes = null,
-                                  Func<int, TFPeerInput?>? peers = null, int playerIndex = -1,
-                                  IAttributeProvider? activeItem = null)
-        => Walk(classes, inputs, spyMaxCloakedSpeed, attribs, playerAttributes, peers, playerIndex, null, activeItem);
+                                  AttributeHooks attribs, IAttributeProvider? playerAttributes,
+                                  Func<int, TFPeerInput?> peers, int playerIndex,
+                                  IAttributeProvider? activeItem)
+        => Walk(classes, inputs, spyMaxCloakedSpeed, attribs, playerAttributes, peers, playerIndex, [], activeItem);
 
     private static float Walk(TFClassTable classes, in TFMoveInputs inputs, float spyMaxCloakedSpeed,
-                              AttributeHooks? attribs, IAttributeProvider? playerAttributes,
-                              Func<int, TFPeerInput?>? peers, int playerIndex, HashSet<int>? inFlight,
+                              AttributeHooks attribs, IAttributeProvider? playerAttributes,
+                              Func<int, TFPeerInput?> peers, int playerIndex, HashSet<int> inFlight,
                               IAttributeProvider? activeItem)
     {
         TFClass playerClass = inputs.Class;
@@ -176,10 +177,12 @@ public static class TFMaxSpeed
         // its only guard. Stock scopes the flag to the one call; the walk
         // here keeps the whole visit's set, which the same chain meets the
         // same way — one heal target each, nobody visited twice.
-        if (inFlight is not null && playerIndex >= 0 && inFlight.Contains(playerIndex))
-            return defaultSpeed;
-        if (peers is not null && playerIndex >= 0)
-            (inFlight ??= []).Add(playerIndex);
+        if (playerIndex >= 0)
+        {
+            if (inFlight.Contains(playerIndex))
+                return defaultSpeed;
+            inFlight.Add(playerIndex);
+        }
 
         TFCondMask conditions = inputs.Conditions;
         bool stealthed = IsStealthed(in conditions);
@@ -198,7 +201,7 @@ public static class TFMaxSpeed
             float aimMax = playerClass == TFClass.HeavyWeapons
                 ? HeavyAiming
                 : inputs.ActiveWeapon == TFWeaponId.CompoundBow ? BowAiming : Aiming;
-            aimMax = attribs?.Float(aimMax, AimSpeedAttrib, playerAttributes) ?? aimMax;
+            aimMax = attribs.Float(aimMax, AimSpeedAttrib, playerAttributes);
             maxfbspeed = MathF.Min(maxfbspeed, aimMax);
         }
 
@@ -248,20 +251,20 @@ public static class TFMaxSpeed
         // If we have an item with a move speed modification, apply it to the
         // final speed. (tf_player_shared.cpp:11002-11003, after the weapon's
         // own mod as stock's order runs.)
-        maxfbspeed = attribs?.Float(maxfbspeed, MoveSpeedAttrib, playerAttributes) ?? maxfbspeed;
+        maxfbspeed = attribs.Float(maxfbspeed, MoveSpeedAttrib, playerAttributes);
 
         // The shield wearer's toll (:11005-11008): while the demoman wears the
         // shield, the boots' mult_player_movespeed_shieldrequired — stock's
         // player-rooted hook, the same walk the line above takes.
         if (inputs.ShieldEquipped)
-            maxfbspeed = attribs?.Float(maxfbspeed, ShieldRequiredSpeedAttrib, playerAttributes) ?? maxfbspeed;
+            maxfbspeed = attribs.Float(maxfbspeed, ShieldRequiredSpeedAttrib, playerAttributes);
 
         // The medic matches a faster patient (tf_player_shared.cpp:11029-11045,
         // after the hook as stock's order runs): the patient runs the same
         // walk, arms and all. Only the medigun publishes a target, so the
         // index stands for stock's active-medigun cast; the Quick-Fix's
         // charge arm is the convar row's.
-        if (playerClass == TFClass.Medic && inputs.HealTargetIndex >= 0 && peers is not null)
+        if (playerClass == TFClass.Medic && inputs.HealTargetIndex >= 0)
         {
             if (peers(inputs.HealTargetIndex) is { } target)
             {
@@ -276,7 +279,7 @@ public static class TFMaxSpeed
         // the owned medigun's charge remapped 0..1 onto 1..mod. Stock asks the
         // medic's Weapon_OwnsThisID(TF_WEAPON_MEDIGUN); ours is the carrier's
         // mirror, and the class gate is stock's medic arm.
-        if (playerClass == TFClass.Medic && attribs is not null && activeItem is not null)
+        if (playerClass == TFClass.Medic && activeItem is not null)
         {
             float levelMod = attribs.Float(1f, ResourceLevelSpeedAttrib, activeItem);
             if (levelMod != 1f)
@@ -287,7 +290,7 @@ public static class TFMaxSpeed
         // hooked on the active weapon after the medic's match — the running
         // Gloves of Running Urgently. The walk starts the mod at one, as the
         // hook does; only a differing one scales the speed.
-        if (attribs is not null && activeItem is not null)
+        if (activeItem is not null)
         {
             float itemSpeedMod = attribs.Float(1f, ActiveSpeedAttrib, activeItem);
             if (itemSpeedMod != 1f)

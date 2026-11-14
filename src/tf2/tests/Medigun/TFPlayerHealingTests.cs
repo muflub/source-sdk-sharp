@@ -125,7 +125,7 @@ public sealed class TFPlayerHealingTests
         var rig = new MedigunRig();
         rig.Give(3, 80, 200);
         rig.NoteDamage(3, time: 10f);                     // recent: scale starts at 1
-        rig.Owners.Managers[3] = HealScale("mult_healing_from_medics", 2f);   // :2519 — asked on the patient's own manager
+        rig.Items.SetManager(3, HealScale("mult_healing_from_medics", 2f));   // :2519 — asked on the patient's own manager
         rig.Healing.Heal(H(3), H(1), 24f, 10f);
 
         rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 walked to 3: pays out 72
@@ -145,7 +145,7 @@ public sealed class TFPlayerHealingTests
         var rig = new MedigunRig();
         rig.Give(3, 110, 100);                     // past the class max: the walk runs
         rig.NoteDamage(3, time: 10f);              // recent: scale starts at 1
-        rig.Owners.Managers[1] = HealScale("overheal_fill_rate", 2f);   // healer's manager, not the patient's
+        rig.Items.SetManager(1, HealScale("overheal_fill_rate", 2f));   // healer's manager, not the patient's
         rig.Healing.Heal(H(3), H(1), 24f, 10f);
 
         rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // 24 walked to 72, the room to the boost max takes 40
@@ -172,7 +172,7 @@ public sealed class TFPlayerHealingTests
         var rig = new MedigunRig();
         rig.Give(3, 100, 125);
         rig.NoteDamage(3, time: 10f);                     // recent: scale 1
-        rig.Owners.Managers[3] = HealScale("mult_health_fromhealers", 0.5f);   // :2406 — asked on the patient's own manager
+        rig.Items.SetManager(3, HealScale("mult_health_fromhealers", 0.5f));   // :2406 — asked on the patient's own manager
         rig.Healing.Heal(H(3), H(1), 24f, 10f);
 
         rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 × attribute scale 1.5
@@ -187,8 +187,9 @@ public sealed class TFPlayerHealingTests
         var rig = new MedigunRig();
         rig.Give(3, 100, 125);
         rig.NoteDamage(3, time: 10f);
-        rig.Owners.Items[3] = HealScale("mult_health_fromhealers_penalty_active", 0.25f);   // :2410 — asked on the active weapon
-        rig.Owners.Held[3] = "tf_weapon_pistol";
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_pistol");
+        rig.Items.Set(3, new Dictionary<string, IAttributeProvider> { ["tf_weapon_pistol"] =
+            HealScale("mult_health_fromhealers_penalty_active", 0.25f) });   // :2410 — asked on the active weapon
         rig.Healing.Heal(H(3), H(1), 24f, 10f);
 
         rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 × attribute scale 1.25
@@ -687,8 +688,8 @@ public sealed class TFPlayerHealingTests
         var rig = new MedigunRig();
         rig.Give(3, 100, 125);
         rig.Give(1, 100, 125);
-        rig.Owners.Items[1] = new AttributeContainer(new ItemSchema(files, log).Item(13),
-                                                     AttributeProviderType.Generic);
+        rig.Items.Set(1, new Dictionary<string, IAttributeProvider> { ["tf_weapon_medigun"] =
+            new AttributeContainer(new ItemSchema(files, log).Item(13), AttributeProviderType.Generic) });
         rig.Healing.Heal(H(3), H(1), 24f, 10f);
 
         rig.Healing.Extinguished(H(3));

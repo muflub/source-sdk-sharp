@@ -69,13 +69,20 @@ public sealed class TFObjectAnnouncer(ILog log) : ITFObjectAnnouncer
 /// (shell_standalone_base.cpp:1199-1213) — so <see cref="Health"/> reads and
 /// writes through the engine and managed keeps no second copy to go stale.
 /// </para>
+///
+/// <para>
+/// Every dependency is injected: the side's registrations hold each one (the
+/// carrier word, the speech, the owners, the hooks, the scopes and the
+/// sapper-crit bucket are all <c>SideService</c> rows), so a composition
+/// missing one fails at the activator, naming the parameter.
+/// </para>
 /// </summary>
 public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer announcer,
                                    IEnginePrecache precache, IEngineEntityRender render,
-                                   ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
-                                   TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
-                                   AttributeHooks? hooks = null, TFDamageScopes? scopes = null,
-                                   ITFRevengeCrits? crits = null) : ScriptedEntity
+                                   ITFAmmoPurse purse, TFPlayerCarriers carriers,
+                                   TFConceptSpeech speech, ITFWeaponOwners owners,
+                                   AttributeHooks hooks, TFDamageScopes scopes,
+                                   ITFRevengeCrits crits) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -130,19 +137,19 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     protected readonly ITFAmmoPurse Purse = purse;
 
     /// <summary>The response rules the build, the loss and the sapping are told through.</summary>
-    protected readonly TFConceptSpeech? Speech = speech;
+    protected readonly TFConceptSpeech Speech = speech;
 
     /// <summary>The carrier the held-item attribute asks go through (<see cref="OnDamaged"/>).</summary>
-    protected readonly ITFWeaponOwners? Owners = owners;
+    protected readonly ITFWeaponOwners Owners = owners;
 
     /// <summary>The attribute hooks a held item is asked through (<see cref="OnDamaged"/>).</summary>
-    protected readonly AttributeHooks? Hooks = hooks;
+    protected readonly AttributeHooks Hooks = hooks;
 
     /// <summary>The damage scopes the plasma-resistance arm reads at the hit (<see cref="OnDamaged"/>).</summary>
-    protected readonly TFDamageScopes? Scopes = scopes;
+    protected readonly TFDamageScopes Scopes = scopes;
 
     /// <summary>The sapper's crit bucket (<see cref="ITFRevengeCrits"/>): the removal cascade pays it (<see cref="RemoveAttachedSapper"/>).</summary>
-    protected readonly ITFRevengeCrits? Crits = crits;
+    protected readonly ITFRevengeCrits Crits = crits;
 
     [SaveField] private EntityHandle _builder;
     [SaveField] private int _team;
@@ -353,7 +360,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     {
         _hasSapper = true;
         _sapper = sapper;
-        Speech?.Speak(_builder, TFConceptSpeech.SpySapper, "objtype", ResponseModifier());
+        Speech.Speak(_builder, TFConceptSpeech.SpySapper, "objtype", ResponseModifier());
     }
 
     /// <summary>
@@ -373,7 +380,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             // Stock's sapper-crit arm (tf_obj.cpp:269-283): the building that goes while a
             // sapper rides pays the sapper's owner one stored crit, before the riding
             // sapper is taken down itself.
-            Crits?.Grant(sapper.Builder);
+            Crits.Grant(sapper.Builder);
             sapper.DestroyObject();
         }
 
@@ -400,7 +407,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     private void SetCarriedObject(EntityHandle carrier, bool carrying)
     {
         if (carrier != EntityHandle.None)
-            carriers?.Get(carrier.EntryIndex)?.CarryingObject = carrying;
+            carriers.Get(carrier.EntryIndex)?.CarryingObject = carrying;
     }
 
     public void MakeCarriedObject(EntityHandle carrier)
@@ -553,7 +560,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // The builder's line (tf_obj.cpp:1339, :1349): the redeploy's own
         // where the object came out of the arms, else the building's — each
         // with the object type the rules' Is* criteria read.
-        Speech?.Speak(_builder, _carryDeploy ? TFConceptSpeech.RedeployBuilding : TFConceptSpeech.BuildingObject,
+        Speech.Speak(_builder, _carryDeploy ? TFConceptSpeech.RedeployBuilding : TFConceptSpeech.BuildingObject,
                       "objtype", ResponseModifier());
 
         // SetStartBuildingModel + RemoveSolidFlags(FSOLID_NOT_SOLID)
@@ -712,7 +719,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// </summary>
     private float BuildRateBonus()
     {
-        if (Hooks is null || Owners is null || Builder == EntityHandle.None)
+        if (Builder == EntityHandle.None)
             return 0f;
 
         string attribute = Type switch
@@ -869,8 +876,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // the owners seam, and no shipped primary carries the attribute;
         // recorded with the row.
         float repair = WrenchRepairAmount;
-        if (Hooks is not null && Owners is not null)
-            repair = Hooks.Float(repair, "mult_repair_value", Owners.ActiveItemOf(player.EntryIndex));
+        repair = Hooks.Float(repair, "mult_repair_value", Owners.ActiveItemOf(player.EntryIndex));
 
         return CommandRepair(player, repair, 1f, RepairMetalRatio);
     }
@@ -1117,7 +1123,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // holds the building off for PLASMA_DISABLE_TIME seconds. The custom
         // rides the blast's scope beside the hit, as the sapper's wrench-fix
         // gate reads it.
-        if (Scopes is { } scopes && scopes.TryCurrent(out var plasma, out _, out _))
+        if (Scopes.TryCurrent(out var plasma, out _, out _))
         {
             if (plasma is TFDamageCustom.Plasma or TFDamageCustom.PlasmaCharged)
                 damage *= 0.2f;
@@ -1128,7 +1134,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // mult_dmg_vs_buildings on the attacker's held weapon, stock's
         // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER behind the weapon-caused gate
         // (tf_obj.cpp:1922-1927): the item's multiplier rides the health lost.
-        if (attacker != EntityHandle.None && Hooks is not null && Owners is not null)
+        if (attacker != EntityHandle.None)
             damage = Hooks.Float(damage, "mult_dmg_vs_buildings", Owners.ActiveItemOf(Entities.GetIndex(attacker)));
 
         return (int)damage;
@@ -1152,7 +1158,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
         // The builder's line (tf_obj.cpp:2041-2045): the blow's death tells
         // its builder, the same object word beside it.
-        Speech?.Speak(_builder, TFConceptSpeech.LostObject, "objtype", ResponseModifier());
+        Speech.Speak(_builder, TFConceptSpeech.LostObject, "objtype", ResponseModifier());
         OnDestroyed();
         RemoveAttachedSapper();
         StopThinking();

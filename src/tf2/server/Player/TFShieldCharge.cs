@@ -61,10 +61,10 @@ public interface ITFShieldCharge
 public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory directory,
                                    ItemSchema schema, IEngineEntities entities, IEnginePlayers players,
                                    IEngineWorldQuery world, IEngineDamage damage, IEngineSound sound,
-                                   IScreenEffects screen, ILog log, AttributeHooks? hooks = null,
-                                   ITFWeaponOwners? owners = null,
-                                   TF2.Shared.Rules.ITFRoundStateView? rounds = null,
-                                   TFDamageScopes? scopes = null)
+                                   IScreenEffects screen, ILog log, AttributeHooks hooks,
+                                   ITFWeaponOwners owners,
+                                   TF2.Shared.Rules.ITFRoundStateView rounds,
+                                   TFDamageScopes scopes)
     : ITFShieldCharge
 {
     /// <summary>The demoshield's item class (<c>tf_wearable_demoshield</c>), the wearable the charge rides.</summary>
@@ -91,7 +91,7 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
         // ground gate under it is commented out in stock itself; the Passtime
         // and grapple arms wait for their modes (the deferred rows), neither
         // of which this build runs.
-        if (rounds?.State == TF2.Shared.Rules.RoundState.Preround)            // :98-99
+        if (rounds.State == TF2.Shared.Rules.RoundState.Preround)             // :98-99
             return false;
 
         bool stunned = state.StunIndex >= 0 && state.InCond(TFCond.Stunned);
@@ -112,8 +112,7 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
         // manager carries the weapons (TFLoadoutProvider), so a
         // mod_charge_time worn on the shield is the deferred row's until the
         // wearables feed the manager.
-        float chargeTime = hooks?.Float(BaseChargeTime, "mod_charge_time", owners?.ManagerOf(playerIndex))
-                           ?? BaseChargeTime;
+        float chargeTime = hooks.Float(BaseChargeTime, "mod_charge_time", owners.ManagerOf(playerIndex));
         conditions.Add(TFCond.ShieldCharge, chargeTime);
         carriers.Part<TFShieldChargeEnd>(playerIndex)?.ResetImpact();         // :132
         return true;
@@ -163,7 +162,7 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
             {
                 float bashDamage = ImpactDamage(playerIndex, meter);          // :183
                 Vector force = DamageForce(playerIndex, bashDamage);          // :190
-                using (scopes?.Push(TFDamageCustom.ChargeImpact, TFWeaponId.None, ShieldItemClass))
+                using (scopes.Push(TFDamageCustom.ChargeImpact, TFWeaponId.None, ShieldItemClass))
                     damage.ApplyAt(trace.Entity, owner, bashDamage, DamageType.Club, force, trace.End);  // :184-197
             }
 
@@ -193,7 +192,7 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
         if (decaps > 0)
             impact *= 1f + decaps * 0.1f;                                     // :222-224
 
-        return hooks?.Float(impact, "charge_impact_damage", EquippedShield(playerIndex)) ?? impact;   // :226
+        return hooks.Float(impact, "charge_impact_damage", EquippedShield(playerIndex));   // :226
     }
 
     /// <summary>

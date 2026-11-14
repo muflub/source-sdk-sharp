@@ -118,8 +118,9 @@ public sealed class TFCapperFacts
             new InventoryStore(new ModInfo(_ => null), schema, rig.Log), schema,
             new TFWeaponOwnersTests.NoClients(), rig.Log);
         inventory.OnClientActive(PlayerRig.Index);
-        var loadout = new TFLoadoutProvider(inventory, schema, rig.Carriers, rig.Items, rig.Classes,
-                                             catalog: rig.Catalog, carriers: rig.Carriers, log: rig.Log);
+        var loadout = LoadoutDeps.Loadout(inventory, schema, classes: rig.Carriers, items: rig.Items,
+                                             table: rig.Classes, catalog: rig.Catalog, carriers: rig.Carriers,
+                                             players: rig.Engine, precache: rig.Engine, log: rig.Log);
         return (rig, inventory, loadout);
     }
 

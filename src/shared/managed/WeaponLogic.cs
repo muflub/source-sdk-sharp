@@ -129,8 +129,8 @@ public interface IWeaponArms
     /// The weapon in the hands has nothing left to fire: stock's
     /// <c>SwitchToNextBestWeapon</c> for the carrier (CMultiplayRules::
     /// GetNextBestWeapon by weight). True when the hands will take another,
-    /// which happens once this command has run. The server's; the client's
-    /// replay never switches.
+    /// which happens once this command has run. Both sides answer it: the
+    /// server's arsenal and the client's replay pick the same next best.
     /// </summary>
     bool SwitchToNextBest() => false;
 
@@ -461,6 +461,7 @@ public static class WeaponAnimNames
         WeaponAnim.HitLeft      => [],
         WeaponAnim.HitRight     => [],
         WeaponAnim.Charge       => [],
+        WeaponAnim.AltAttack    => [],
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -504,6 +505,7 @@ public static class WeaponAnimNames
         // The bow's draw: already the role's own act, the table has no row to
         // add (tf_weapon_compound_bow.cpp:396-399 retags before the table).
         WeaponAnim.Charge       => new[] { "ACT_ITEM2_VM_CHARGE" },
+        WeaponAnim.AltAttack    => new[] { "ACT_SECONDARY_VM_ALTATTACK" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 

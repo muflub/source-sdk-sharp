@@ -48,9 +48,9 @@ public sealed class TFSpyComponent(
     TFDamageScopes scopes, IUniformRandom random, TFClassTable classes, TFSpy source,
     TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
     ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
-    ICtfRules? ctf = null, ILagCompensation? lagCompensation = null,
-    ITFPlayerResupply? resupply = null, DeathNotice? notice = null, Corpses? corpses = null,
-    TFDeathDrops? drops = null, TFFeignRagdoll? feignRagdoll = null) : IPlayerComponent
+    ICtfRules ctf, ILagCompensation lagCompensation,
+    ITFPlayerResupply resupply, DeathNotice notice, Corpses corpses,
+    TFDeathDrops drops, TFFeignRagdoll feignRagdoll) : IPlayerComponent
 {
     /// <summary><c>TF_TIME_TO_DISGUISE</c> (tf_shareddefs.h:674).</summary>
     public const float TimeToDisguise = 2.0f;
@@ -66,6 +66,13 @@ public sealed class TFSpyComponent(
     /// (<c>HasFeignDeath</c>, :67). The shared enum's home is
     /// <see cref="TFInvisibility.InvisFeignDeathMode"/>.</summary>
     public const int InvisFeignDeathMode = TFInvisibility.InvisFeignDeathMode;
+
+    /// <summary><c>INVIS_MOTION_CLOAK</c> (<c>tf_weapon_invis.h:22-27</c>): the
+    /// watch's <c>set_weapon_mode</c> the Cloak and Dagger wears
+    /// (<c>HasMotionCloak</c>, :68), the meter's motion arm gated on it
+    /// (<c>UpdateCloakMeter</c>, tf_player_shared.cpp:14153). The shared enum's
+    /// home is <see cref="TFInvisibility.InvisMotionCloakMode"/>.</summary>
+    public const int InvisMotionCloakMode = TFInvisibility.InvisMotionCloakMode;
 
     /// <summary><c>tf_feign_death_duration</c>'s stock default
     /// (tf_player_shared.cpp:180): the seconds the feign condition rides.</summary>
@@ -95,6 +102,10 @@ public sealed class TFSpyComponent(
 
     // tf_weapon_invis.cpp's m_flStealthNextChangeTime, the toggle's cooldown.
     private float _stealthNextChangeTime;
+
+    // Stock's m_flLastStealthExposeTime (tf_player_shared.h:970): when the
+    // motion cloak was last moving, the second the still refill waits for.
+    private float _lastStealthExposeTime;
 
     // Stock's m_flFeignDeathEnd (tf_player_shared.cpp:7190): when the feign ends,
     // the buffs' window; checked every think (:2997-3002).
@@ -187,11 +198,48 @@ public sealed class TFSpyComponent(
             if (consumeFactor < 1f)
                 consumeFactor = 1f / (2f - consumeFactor);
 
-            // The classic drain does not clamp (tf_player_shared.cpp:14204-14206):
-            // the meter runs past zero and regenerates from the overshoot;
-            // only the motion cloak's arm clamps (:14196-14199).
-            state.CloakMeter -= frametime * source.ConsumeRate.Value * consumeFactor;
-            if (state.CloakMeter <= 0f)
+            bool motionCloak = hooks.Int(0, "set_weapon_mode", owners.ManagerOf(_index)) == InvisMotionCloakMode;
+
+            if (motionCloak)
+            {
+                // The motion cloak's arms (tf_player_shared.cpp:14153-14181):
+                // moving drains scaled by the squared speed over the squared
+                // class maximum and the extra half (:14169-14181); standing
+                // still regenerates, once the second since the last expose has
+                // gone (:14158-14168). Both clamp, unlike the classic drain.
+                float spdSqr = entities.GetVelocity(_player).LengthSquared;
+                if (spdSqr == 0f)
+                {
+                    if (now - _lastStealthExposeTime > 1f)
+                    {
+                        // SetCloakRates' regen arm (tf_weapon_invis.cpp:340-343).
+                        float regenFactor = hooks.Float(1f, "mult_cloak_meter_regen_rate", owners.ManagerOf(_index));
+                        state.CloakMeter += frametime * source.RegenRate.Value * regenFactor;
+                        if (state.CloakMeter >= 100f)
+                            state.CloakMeter = 100f;
+                    }
+                }
+                else
+                {
+                    _lastStealthExposeTime = now;
+                    float maxSpeed = classes[(TFClass)state.PlayerClass].MaxSpeed;
+                    float fFactor = Math.Clamp(spdSqr / (maxSpeed * maxSpeed), 0f, 1f);   // :14171-14175
+                    state.CloakMeter -= frametime * source.ConsumeRate.Value * consumeFactor * fFactor * 1.5f;
+                    if (state.CloakMeter < 0f)
+                        state.CloakMeter = 0f;
+                }
+            }
+            else
+            {
+                // The classic drain does not clamp (tf_player_shared.cpp:14204-14206):
+                // the meter runs past zero and regenerates from the overshoot;
+                // only the motion cloak's arm clamps (:14196-14199).
+                state.CloakMeter -= frametime * source.ConsumeRate.Value * consumeFactor;
+            }
+
+            // A motion-cloaked meter that empties fades nothing: the spy
+            // stands half-visible instead (:14189-14192).
+            if (state.CloakMeter <= 0f && !motionCloak)
                 FadeInvis(1f, now);
         }
         else
@@ -240,7 +288,7 @@ public sealed class TFSpyComponent(
     /// </summary>
     private bool CanGoInvisible()
     {
-        if (ctf?.CarriedBy(_player) is { } flag && flag.Type != TFFlagType.PlayerDestruction)
+        if (ctf.CarriedBy(_player) is { } flag && flag.Type != TFFlagType.PlayerDestruction)
             return false;
 
         if (winners.WinningTeam is TFTeam.Red or TFTeam.Blue
@@ -358,11 +406,11 @@ public sealed class TFSpyComponent(
         // (docs/plans/tf2/deferred.tsv); the flag, rune, medieval, laugh,
         // calling-card and ghost arms (:15704-15778) wait with their modes.
         sound.EntityEmitSound(_player, "BaseCombatCharacter.StopWeaponSounds");   // :15724
-        notice?.Fire(_player, attacker);                                           // :15736
-        drops?.OnFeignDeathDropped(new PlayerDeath(_player, _index, attacker,
-                                                   entities.GetOrigin(_player), EntityHandle.None));   // :15742
-        EntityHandle corpse = corpses?.Make(_player) ?? EntityHandle.None;         // :15782
-        feignRagdoll?.Dress(_player, corpse, state, disguised, burning);           // :15816-15817, :15870-15879
+        notice.Fire(_player, attacker);                                            // :15736
+        drops.OnFeignDeathDropped(new PlayerDeath(_player, _index, attacker,
+                                                  entities.GetOrigin(_player), EntityHandle.None));   // :15742
+        EntityHandle corpse = corpses.Make(_player);                               // :15782
+        feignRagdoll.Dress(_player, corpse, state, disguised, burning);            // :15816-15817, :15870-15879
 
         conditions.Add(_player, TFCond.FeignDeath, FeignDeathSeconds);   // :15695
         return true;
@@ -665,7 +713,7 @@ public sealed class TFSpyComponent(
         // The knife's session (tf_weapon_knife.cpp:192, :225): the swing's
         // trace and the behind-and-facing check see the other players where
         // the spy saw them.
-        lagCompensation?.Start(_player);
+        lagCompensation.Start(_player);
         try
         {
             Vector from = enginePlayers.GetShootOrigin(_player);
@@ -738,15 +786,14 @@ public sealed class TFSpyComponent(
                 // (at least 75). The rune bonus and the reflect-rune zero that
                 // share stock's arm are deferred (docs/plans/tf2/deferred.tsv).
                 if (!enginePlayers.IsAlive(trace.Entity)
-                    && hooks.Int(0, "sanguisuge", owners.ItemOf(_index, TFKnifeHook.KnifeScript)) > 0
-                    && resupply is { } heal)
+                    && hooks.Int(0, "sanguisuge", owners.ItemOf(_index, TFKnifeHook.KnifeScript)) > 0)
                 {
                     int spyHealth = entities.GetHealth(_player);
                     int newHealth = Math.Min(spyHealth + Math.Max(victimHealth, 75),
-                                             heal.MaxHealth(_player) * 3);
+                                             resupply.MaxHealth(_player) * 3);
                     int gained = newHealth - spyHealth;
                     if (gained > 0)
-                        heal.TakeHealth(_player, gained, ignoreMaxHealth: true);
+                        resupply.TakeHealth(_player, gained, ignoreMaxHealth: true);
                 }
 
                 // The kill arms (stock's CTFPlayer::OnKilledOther_Effects, tf_player.cpp:11509-11572),
@@ -780,7 +827,7 @@ public sealed class TFSpyComponent(
         }
         finally
         {
-            lagCompensation?.Finish(_player);
+            lagCompensation.Finish(_player);
         }
     }
 
@@ -813,7 +860,7 @@ public sealed class TFSpyComponent(
         if (_backstabVictim == EntityHandle.None || enginePlayers.IsAlive(_backstabVictim))
             return false;
 
-        if (ctf?.CarriedBy(_player) is { } flag && flag.Type != TFFlagType.PlayerDestruction)
+        if (ctf.CarriedBy(_player) is { } flag && flag.Type != TFFlagType.PlayerDestruction)
             return false;
 
         if (_players.Networked(_backstabVictim.EntryIndex) is not { } victim)
@@ -841,6 +888,16 @@ public sealed class TFSpyComponent(
 
         _knifeMeltStamp = now;
         _knifeMeltWindow = seconds;
+
+        // The wire (tf_weapon_knife.cpp:33-40): the pair rides the carrier, the
+        // client's CanDeploy recomputing the same line from it (:523) at the
+        // switch back, where no spy slice stands to ask.
+        if (_players.Predicted(_index) is { } carrier)
+        {
+            carrier.KnifeMeltTimestamp = now;
+            carrier.KnifeRegenerateDuration = seconds;
+        }
+
         sound.EntityEmitSound(_player, "Icicle.Melt");
     }
 
@@ -889,10 +946,10 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
                           TFSpyCloakNoAttackTimeConVar noAttackTime,
                           TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
                           ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
-                          ICtfRules? ctf = null, ILagCompensation? lagCompensation = null,
-                          ITFPlayerResupply? resupply = null, DeathNotice? notice = null,
-                          Corpses? corpses = null, TFDeathDrops? drops = null,
-                          TFFeignRagdoll? feignRagdoll = null)
+                          ICtfRules ctf, ILagCompensation lagCompensation,
+                          ITFPlayerResupply resupply, DeathNotice notice,
+                          Corpses corpses, TFDeathDrops drops,
+                          TFFeignRagdoll feignRagdoll)
     : IPlayerComponentSource, IOrderedHook, ITFSpyState, ITFConditionHook
 {
     private readonly Dictionary<int, TFSpyComponent> _byIndex = new();

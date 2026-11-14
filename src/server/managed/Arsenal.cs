@@ -65,6 +65,17 @@ public enum SwitchOutcome
     /// window is past.
     /// </summary>
     Deferred,
+
+    /// <summary>
+    /// The incoming weapon's behaviour refused the deploy — stock's
+    /// <c>Weapon_CanSwitchTo</c>'s <c>CanDeploy</c> clause
+    /// (<c>basecombatcharacter_shared.cpp:88</c>), which every switch to a
+    /// weapon crosses (<c>Weapon_Switch</c>:51, <c>CTFPlayer::SelectItem</c>
+    /// tf_player_shared.cpp:11778): the melted Spy-cicle's
+    /// <c>CTFKnife::CanDeploy</c> (<c>tf_weapon_knife.cpp:521-531</c>) is the
+    /// shipped refuser.
+    /// </summary>
+    CannotDeploy,
 }
 
 /// <summary>
@@ -651,6 +662,40 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         return false;
     }
 
+    /// <inheritdoc cref="IWeaponGiver.AdvanceCarriedMeter"/>
+    public void AdvanceCarriedMeter(EntityHandle player, string className, float seconds)
+    {
+        if (seconds <= 0f || !_carries.TryGetValue(player.Value, out var carry))
+            return;
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            var owned = carry.Weapons[slot];
+            if (_weapons.ByIndex(owned.TypeIndex) is not WeaponType type
+                || !string.Equals(type.Name, className, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // The row's own charge seconds gate the walk, as the metre-less
+            // row has no charge to bring closer (the machine's own ask, the
+            // behaviour's <see cref="IWeaponBehaviour.ItemMeterSeconds"/>).
+            float chargeSeconds = _behaviours.For(type.Behaviour)?.ItemMeterSeconds(in type, _entities.GetIndex(carry.Player)) ?? 0f;
+            if (chargeSeconds <= 0f)
+                return;
+
+            if (slot == carry.ActiveSlot && _directory.Get(carry.Weapon) is SsWeapon live)
+            {
+                live.State.ItemMeter = Math.Min(1f, live.State.ItemMeter + seconds / chargeSeconds);
+                owned.Meter = live.State.ItemMeter;
+                return;
+            }
+
+            // The holstered row's charge is anchored, not counted: the reads
+            // subtract the stamp from now, so the seconds come off the stamp.
+            owned.MeterTime -= seconds;
+            return;
+        }
+    }
+
     /// <summary>
     /// Adds to a pool, honouring the player's carry limit for it
     /// (<see cref="MaxCarryOf"/>). Answers how much was actually taken, zero
@@ -945,14 +990,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (slot == carry.ActiveSlot)
             return SwitchOutcome.AlreadyHeld;
 
-        // Stock's holster-animation gate on Weapon_Switch
-        // (tf_player_shared.cpp:11798-11826): the window an anim started on
-        // the first ask holds every later ask at Deferred; once it passes,
-        // the switch walks — here on the next ask rather than on stock's
-        // anim-over re-call. Stock's other halves of the first gate
-        // (m_bSwitchedClass, m_bRespawning, m_bRegenerating) are the
-        // class-change and respawn flows, whose asks Refusal turns away.
         float now = _clock.Now;
+
+        // Stock's order on Weapon_Switch (tf_player_shared.cpp:11798-11826):
+        // the holster-animation gate FIRST — the window an anim started on the
+        // first ask holds every later ask at Deferred, whatever the candidate
+        // would answer; once the window passes the press walks on — here on
+        // the next ask rather than on stock's anim-over re-call. Stock's other
+        // halves of the first gate (m_bSwitchedClass, m_bRespawning,
+        // m_bRegenerating) are the class-change and respawn flows, whose asks
+        // Refusal turns away.
         bool pendingOver = false;               // the armed window's own expiry completes its switch
         if (carry.HolsterUntil > 0f)
         {
@@ -982,6 +1029,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 }
             }
         }
+
+        // Stock's Weapon_CanSwitchTo deploy clause, behind the holster window
+        // exactly as BaseClass::Weapon_Switch is (:11836 — its
+        // Weapon_CanSwitchTo ask, basecombatcharacter_shared.cpp:88, runs only
+        // once the window has armed or let the press through, never before):
+        // the candidate's behaviour refusing the deploy refuses the switch on
+        // the press the window walked on.
+        if (_weapons.ByIndex(carry.Weapons[slot].TypeIndex) is WeaponType incoming
+            && DeployRefused(carry, in incoming, now))
+            return SwitchOutcome.CannotDeploy;
 
         Deploy(carry, slot);
         return SwitchOutcome.Switched;
@@ -1776,7 +1833,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return -1;
 
         WeaponScript? currentScript = _scripts?.ReadScript(current.Name);
-        if (currentScript is not null && (currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0)
+        if (currentScript is not null && ((currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0 ||
+                                          !currentScript.AutoSwitchFrom))
             return -1;
 
         if (ActiveBehaviour(carry, out var context) is { } behaviour && !behaviour.CanHolster(in context))
@@ -1789,12 +1847,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (slot == carry.ActiveSlot || _weapons.ByIndex(carry.Weapons[slot].TypeIndex) is not WeaponType check)
                 continue;
 
-            int weight = _scripts?.ReadScript(check.Name)?.Weight ?? 0;
+            WeaponScript? checkScript = _scripts?.ReadScript(check.Name);
+            if (checkScript is not null && !checkScript.AutoSwitchTo)
+                continue;
+
+            int weight = checkScript?.Weight ?? 0;
             bool hasAmmo = HasAnyAmmo(carry, carry.Weapons[slot].Clip, in check);
 
             if (weight > -1 && weight == currentWeight)
             {
-                if (hasAmmo)
+                if (hasAmmo && SwitchTo(carry, in check))
                     return slot;
             }
             else if (weight > bestWeight && hasAmmo)
@@ -1805,6 +1867,37 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         return best;
+    }
+
+    /// <summary>
+    /// CBaseCombatCharacter::Weapon_CanSwitchTo
+    /// (<c>shared/basecombatcharacter_shared.cpp:71</>) for a holstered
+    /// candidate, as the same-weight handover asks it
+    /// (<c>multiplay_gamerules.cpp:550</>) and the direct switch with it
+    /// (<see cref="Take"/>): the candidate's behaviour refusing
+    /// the deploy is the clause this port carries — the hands' holsterable
+    /// half is the entry gate, the ammo the pick's own, and the vehicle and
+    /// force-switch clauses no surface this side holds.
+    /// </summary>
+    private bool SwitchTo(Carry carry, in WeaponType candidate) => !DeployRefused(carry, in candidate, _clock.Now);
+
+    /// <summary>
+    /// The deploy clause of <c>Weapon_CanSwitchTo</c>
+    /// (<c>basecombatcharacter_shared.cpp:88</c>): the candidate's behaviour's
+    /// <c>CanDeploy</c>, asked with the stand-in whose words are the row, the
+    /// carrier and the switch's own clock — the melted knife's answer reads
+    /// the stamp against it (<c>tf_weapon_knife.cpp:523</c>). No behaviour, or
+    /// no row: stock's base true.
+    /// </summary>
+    private bool DeployRefused(Carry carry, in WeaponType candidate, float now)
+    {
+        if (_behaviours.For(candidate.Behaviour) is not { } behaviour)
+            return false;
+
+        var attack = new WeaponAttackContext(candidate, new WeaponNetState(), new ViewModelNetState(),
+                                             now, EffectsLive: false, carry.Arms,
+                                             new WeaponCommand(0, 0, _entities.GetIndex(carry.Player)));
+        return !behaviour.CanDeploy(in attack);
     }
 
     /// <summary>CBaseCombatWeapon::HasAnyAmmo for a holstered weapon: its kept clip, or its pools.</summary>

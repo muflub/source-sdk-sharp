@@ -170,7 +170,7 @@ public sealed class TFManmelterFacts
         // the run reaches the real ExtinguishBeam, burner, grant, condition
         // and heal in one.
         var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()),
-                                      effects: new TFWeaponEffects(flames: rig.Effects));
+                                      effects: OwnedEffects.Of(flames: rig.Effects));
         var (w, vm) = world.Armed(Manmelter, clip: -1, reserve: 20);
 
         world.Run(w, vm, Attack2, 10f);

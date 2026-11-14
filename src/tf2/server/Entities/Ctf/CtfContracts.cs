@@ -265,6 +265,23 @@ public interface IFlagCarrierEffects
 }
 
 /// <summary>
+/// The carried-flag ask of <see cref="ICtfRules"/>, alone: the flag a player
+/// holds, or none. Its one taker is the medigun healing's charge refusal —
+/// <c>CTFPlayerShared::CanRecieveMedigunChargeEffect</c>'s carried-item arm
+/// (tf_player_shared.cpp:8733-8734) — and the full rules seam drags the round
+/// machine and the players along behind it, a constructor edge that closed the
+/// medigun's composition into a cycle the container refuses (the boot's
+/// ServiceResolutionException). This seam is the leaf under that edge: the
+/// game's is <see cref="FlagCarriers"/>, over the entity directory the rules'
+/// own <c>CarriedBy</c> walks.
+/// </summary>
+public interface IFlagCarriers
+{
+    /// <summary><see cref="ICtfRules.CarriedBy"/>: the flag this player carries, or null.</summary>
+    ItemTeamFlag? CarriedBy(EntityHandle player);
+}
+
+/// <summary>
 /// The CTFGameRules members the flag, the zones and the CTF mode call
 /// (tf_gamerules.cpp): whether flags may be capped now, whether a team may
 /// capture, the caps-per-round win, and the flags themselves (stock's

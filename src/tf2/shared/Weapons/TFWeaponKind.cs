@@ -191,6 +191,11 @@ public static class TFWeaponKinds
             // grenade lobbed at the meter, the milk its second face.
             case TFWeaponId.Jar:
             case TFWeaponId.JarMilk:
+            // The Flying Guillotine and its Promo skin: the scout's secondary
+            // throwing the bouncing cleaver (tf_projectile_cleaver) at the
+            // effect-bar meter — the jar pair's shell, the meter's charge
+            // the cleaver's own (TFItemMeter.EffectBarSeconds).
+            case TFWeaponId.Cleaver:
             // The Crusader's Crossbow: CTFCrossbow : CTFRocketLauncher
             // (tf_weapon_rocketlauncher.cpp:670), the launcher's projectile
             // behaviour behind the healing bolt.

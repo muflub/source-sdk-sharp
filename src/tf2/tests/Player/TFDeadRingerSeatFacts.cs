@@ -51,12 +51,14 @@ public sealed class TFDeadRingerSeatFacts
         }
 
         TFPlayerItems items = rig.Items;
-        var loadout = new TFLoadoutProvider(inventory, rig.Schema, rig.Carriers, items, rig.Classes,
-            catalog: rig.Catalog, carriers: rig.Carriers);
+        var loadout = LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: items,
+            table: rig.Classes, catalog: rig.Catalog, carriers: rig.Carriers,
+            players: rig.Engine, precache: rig.Engine, log: rig.Log);
         Assert.Contains(InvisWatch, loadout.Weapons(Player));
 
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), items,
-            rig.Engine, new EmptyDirectory(), new FakeStats());
+            rig.Engine, new EmptyDirectory(), new FakeStats(),
+            new Combat.RigMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
         return (owners, new AttributeHooks());
     }
 

@@ -546,6 +546,25 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     break;
                 }
 
+            case TFProjectile.Cleaver:
+                {
+                    // The cleaver's throw (CTFCleaver::GetVelocityVector,
+                    // tf_weapon_jar.cpp:906-916): ten forward parts to one up
+                    // of the sight basis, normalized, at the override's 3000 —
+                    // the jar's muzzle, no jitter and no sideways draw, the
+                    // tilt the lob's constants stand in for.
+                    if (Born(TFProjectileEntityNames.Cleaver, owner, forward, right, up,
+                             TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
+                             TFProjectileDefs.PipeMuzzleUp) is not TFCleaver cleaver)
+                        return;
+
+                    cleaver.ArmedBy(shot.Critical, attack.Command.OwnerIndex, script.Name);
+                    cleaver.FiredBy(owner, (forward * TFProjectileDefs.CleaverAimForward + up).Normalized
+                                          * TFProjectileDefs.CleaverSpeed);
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Cleaver} created by {owner}\n");
+                    break;
+                }
+
             default:
                 return;
         }

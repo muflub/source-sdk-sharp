@@ -40,6 +40,10 @@ internal sealed class MedigunRig
     public readonly TFHealingStats Stats = new();
     public readonly TFHealingEvents Events = new();
     public readonly TFHealingCtf Ctf = new();
+
+    /// <summary>The healing's flag-rule ask rides the locator it resolves at use (the
+    /// composition cycle's late edge), so the fake stands behind it as the game's does.</summary>
+    public readonly ServiceContainer Services = new();
     public readonly TFHealingClients Clients = new();
     public readonly TFDamageRecords Records = new();
     public readonly TFHealingPlayerData Data = new();
@@ -49,6 +53,7 @@ internal sealed class MedigunRig
     public readonly MedigunRooms Rooms = new();
     public readonly AttributeHooks Hooks = new();
     public readonly FakeOwners Owners = new();
+    public readonly TFPlayerItems Items = new();
     public readonly FakeRoundSetup Setup = new();
 
     /// <summary>Players this rig says are dead; everyone the rig <see cref="Give"/>s is alive by default.</summary>
@@ -82,18 +87,28 @@ internal sealed class MedigunRig
         Engine.ReturnsEachCall("WorldQuery.TraceLine", () => NextTrace());
         Engine.Returns("Players.GetActiveWeapon", "tf_weapon_medigun");
         Engine.WhenCalled("Entities.SetHealth", c => healths[c.ArgAs<EntityHandle>(0).EntryIndex] = c.ArgAs<int>(1));
+        Services.AddInstance<ICtfRules>(Ctf);
         Healing = new TFPlayerHealing(Engine, Engine, Conditions, Resupply,
                                       ConVars.Declared<TFMaxHealthBoostConVar>(), ConVars.Declared<TFBoostDrainTimeConVar>(),
                                       ConVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
-                                      Stats, Records, Events, Ctf, Data, Owners, Hooks);
+                                      Stats, Records, Events, Ctf, Data, Items, Hooks);
     }
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon
-    /// reports its release to the healing, which holds the answer the recalc reads.</summary>
+    /// reports its release to the healing, which holds the answer the recalc reads. The
+    /// idle lag and round view are the no-session and no-round answers the weapon
+    /// now carries named.</summary>
     public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null, TF2.Shared.Rules.ITFRoundStateView? rounds = null)
         => new(Engine, Engine, Engine, Healing, Conditions, Resupply, ConVars.Declared<TFInvulnTimeConVar>(),
-               ConVars.Declared<WeaponMedigunChargeRateConVar>(), Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup,
-               ConVars.Declared<TFMedigunLagCompConVar>(), lag, rounds);
+               ConVars.Declared<WeaponMedigunChargeRateConVar>(), Rooms, Hooks, Items, Stats, Events, Clients, Data, Setup,
+               ConVars.Declared<TFMedigunLagCompConVar>(), lag ?? new Player.ComposedComponents.IdleLag(),
+               rounds ?? new IdleRounds());
+
+    /// <summary>No round: the Init state, the null view's standing answer.</summary>
+    private sealed class IdleRounds : TF2.Shared.Rules.ITFRoundStateView
+    {
+        public TF2.Shared.Rules.RoundState State => TF2.Shared.Rules.RoundState.Init;
+    }
 
     public void QueueHit(EntityHandle hit) => TraceQueue.Add(new TraceResult(true, 1f, default, default, hit));
     public void QueueMiss() => TraceQueue.Add(new TraceResult(false, 1f, default, default, default));
@@ -289,9 +304,10 @@ internal sealed class TFHealingClients : IConnectedClients
     public void Reconnect(int entIndex) => throw new NotSupportedException();
 }
 
-/// <summary>The CTF rules seam for the flag-carrier refusal arm; the flag-list
+/// <summary>The CTF seams the healing's flag-carrier refusal arm reads — the
+/// carriers leaf the healing holds, and the rules behind it; the flag-list
 /// members answer nothing — this fact's subject is <c>CarriedBy</c>.</summary>
-internal sealed class TFHealingCtf : ICtfRules
+internal sealed class TFHealingCtf : ICtfRules, IFlagCarriers
 {
     /// <summary>The players this fake says carry a flag; their CarriedBy answers an uninitialized item.</summary>
     public readonly HashSet<int> Carriers = new();

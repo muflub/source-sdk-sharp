@@ -109,7 +109,9 @@ public sealed class TF2LifecycleOrderTests
 
         Assert.True(orders.Count >= 4, "only " + orders.Count + " hooks found: the scan is not reading the assemblies");
         Assert.All(orders, o => Assert.InRange(o.Order, 1_000_000 - 1_000, 1_000_000 - 1));
-        Assert.Equal(orders.Count, orders.Select(o => o.Order).Distinct().Count());
+        Assert.True(orders.Count == orders.Select(o => o.Order).Distinct().Count(),
+                    "tied orders: " + string.Join(", ", orders.GroupBy(o => o.Order).Where(g => g.Count() > 1)
+                        .Select(g => g.Key + ":" + string.Join("/", g.Select(o => o.Name)))));
     }
 
     /// <summary>

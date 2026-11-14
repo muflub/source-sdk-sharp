@@ -43,18 +43,18 @@ public readonly record struct LoadoutItem(TFLoadoutSlot Slot, ItemInstance Item)
 /// class has no opinion, and the core kit stands.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schema, ITFPlayerClasses? classes = null,
-                                      Player.TFPlayerItems? items = null, TFClassTable? table = null,
-                                      ITeamRoundState? round = null, ITFStalemateSettings? stalemate = null,
-                                      WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null,
-                                      BotInventory? botInventory = null, IBotPlayers? bots = null,
-                                      AttributeHooks? hooks = null, IEnginePlayers? players = null,
-                                      IEnginePrecache? precache = null, ILog? log = null)
+public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schema, ITFPlayerClasses classes,
+                                      Player.TFPlayerItems items, TFClassTable table,
+                                      ITeamRoundState round, ITFStalemateSettings stalemate,
+                                      WeaponCatalog catalog, Player.TFPlayerCarriers carriers,
+                                      BotInventory botInventory, IBotPlayers bots,
+                                      AttributeHooks hooks, IEnginePlayers players,
+                                      IEnginePrecache precache, ILog log)
     : ILoadoutProvider, IOrderedHook
 {
-    private readonly ITeamRoundState? _round = round;
-    private readonly ITFStalemateSettings? _stalemate = stalemate;
-    private readonly IEnginePrecache? _precache = precache;
+    private readonly ITeamRoundState _round = round;
+    private readonly ITFStalemateSettings _stalemate = stalemate;
+    private readonly IEnginePrecache _precache = precache;
 
     /// <summary>TF2's range (999,000-999,999), so a further mod's provider (from ModStages.First) runs after TF2's.</summary>
     public const int Order = 1_000_000 - 1_000 + 60;
@@ -84,7 +84,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
     /// </summary>
     public IEnumerable<string> Weapons(EntityHandle player)
     {
-        var cls = classes?.ClassOf(player) ?? TFClass.Undefined;
+        var cls = classes.ClassOf(player);
         var weapons = new List<string>();
         var byWeapon = new Dictionary<string, IAttributeProvider>(StringComparer.Ordinal);
         var granted = new List<(string Weapon, AttributeContainer Container)>();
@@ -99,7 +99,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
                 || entry.Item.Definition.ItemClass is not { Length: > 0 } itemClass)
                 continue;
 
-            string weapon = table is null ? itemClass : TFItemClassTranslation.Translate(itemClass, table[cls]);
+            string weapon = TFItemClassTranslation.Translate(itemClass, table[cls]);
             var equipped = entry.Item;
 
             // An equipped class the catalogue holds no row for must not leave
@@ -108,11 +108,11 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
             // cannot fit (tf_item_inventory.cpp:1443-1470), said once with a
             // line naming the swap. Without the check a no-row name reaches
             // the client as a weapon nothing resolves.
-            if (catalog is not null && !catalog.Contains(weapon)
+            if (!catalog.Contains(weapon)
                 && schema.BaseItem(cls, entry.Slot) is { } baseDefinition && baseDefinition.ItemClass is { Length: > 0 } baseClass)
             {
-                string baseWeapon = table is null ? baseClass : TFItemClassTranslation.Translate(baseClass, table[cls]);
-                log?.Warning($"[TF2/Loadout] {itemClass} has no weapon row; {cls}'s {entry.Slot} keeps its base {baseWeapon}\n");
+                string baseWeapon = TFItemClassTranslation.Translate(baseClass, table[cls]);
+                log.Warning($"[TF2/Loadout] {itemClass} has no weapon row; {cls}'s {entry.Slot} keeps its base {baseWeapon}\n");
                 weapon = baseWeapon;
                 equipped = ItemInstance.Base(baseDefinition);
             }
@@ -126,52 +126,43 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
             // wearable's arm (CEconWearable::Spawn precaches its display
             // model): the world rule's answers, so a kit swap to an unlock
             // the level has not seen is a model, not an error.
-            if (_precache is { } models)
-            {
-                if (entry.Item.Definition.ModelWorld is { Length: > 0 } world)
-                    models.PrecacheModel(world);
+            if (entry.Item.Definition.ModelWorld is { Length: > 0 } world)
+                _precache.PrecacheModel(world);
 
-                string? playerModel = entry.Item.Definition.PlayerModel(cls);
-                if (string.IsNullOrEmpty(playerModel))
-                    playerModel = entry.Item.Definition.ModelPlayer;
-                if (playerModel is { Length: > 0 })
-                    models.PrecacheModel(playerModel);
-            }
+            string? playerModel = entry.Item.Definition.PlayerModel(cls);
+            if (string.IsNullOrEmpty(playerModel))
+                playerModel = entry.Item.Definition.ModelPlayer;
+            if (playerModel is { Length: > 0 })
+                _precache.PrecacheModel(playerModel);
         }
 
-        if (items is { } kit)
+        var manager = new AttributeContainer();
+
+        // Stock's ReapplyProvision gate (tf_weaponbase.cpp:5709-5740):
+        // an item whose provide_on_active mode is 1 provides only while
+        // its weapon is the player's active weapon; any other mode always
+        // does. The mode reads on the item itself, before the owner link,
+        // so the walk sees its own list and its definition's statics
+        // (wearables need no mode: they always provide, and their slots
+        // are skipped above). Each grant builds a fresh manager, so
+        // skipping the provide is stock's StopProvidingTo in one pass.
+        string active = players.GetActiveWeapon(players.GetHandle(player.EntryIndex));
+        foreach (var (weapon, container) in granted)
         {
-            var manager = new AttributeContainer();
+            bool provide = hooks.Int(0, "provide_on_active", container) != 1
+                           || weapon == active;
+            if (provide)
+                container.ProvideTo(manager);
 
-            // Stock's ReapplyProvision gate (tf_weaponbase.cpp:5709-5740):
-            // an item whose provide_on_active mode is 1 provides only while
-            // its weapon is the player's active weapon; any other mode always
-            // does. The mode reads on the item itself, before the owner link,
-            // so the walk sees its own list and its definition's statics
-            // (wearables need no mode: they always provide, and their slots
-            // are skipped above). Each grant builds a fresh manager, so
-            // skipping the provide is stock's StopProvidingTo in one pass.
-            string active = players is null
-                ? string.Empty
-                : players.GetActiveWeapon(players.GetHandle(player.EntryIndex));
-            foreach (var (weapon, container) in granted)
-            {
-                bool provide = hooks is null || players is null
-                               || hooks.Int(0, "provide_on_active", container) != 1
-                               || weapon == active;
-                if (provide)
-                    container.ProvideTo(manager);
-
-                // The same equip answers this item's GetAttributeOwner with the
-                // player (econ_entity.cpp), so a hook walked ON the item —
-                // CALL_ATTRIB_HOOK_*_ON_OTHER of the weapon — reaches the
-                // manager (whose own list and other items apply), the
-                // initiator then skipped in the providers round.
-                container.Owner = manager;
-            }
-            kit.SetManager(player.EntryIndex, manager);
-            kit.Set(player.EntryIndex, byWeapon);
+            // The same equip answers this item's GetAttributeOwner with the
+            // player (econ_entity.cpp), so a hook walked ON the item —
+            // CALL_ATTRIB_HOOK_*_ON_OTHER of the weapon — reaches the
+            // manager (whose own list and other items apply), the
+            // initiator then skipped in the providers round.
+            container.Owner = manager;
         }
+        items.SetManager(player.EntryIndex, manager);
+        items.Set(player.EntryIndex, byWeapon);
 
         // The same hand-out writes each weapon's item definition index onto
         // the carrier, keyed by the catalogue row — what stock networks on
@@ -180,8 +171,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         // own parsed schema (GetItemDefinition over GetStaticData, :435) and the
         // predicted attribute hooks read the server's statics. A new kit
         // starts from no items: the previous class's rows clear with it.
-        if (catalog is not null && carriers is not null
-            && carriers.Get(player.EntryIndex) is { } state)
+        if (carriers.Get(player.EntryIndex) is { } state)
         {
             state.WeaponItemDefIndex.Fill(0);
             foreach (var (weapon, provider) in byWeapon)
@@ -217,8 +207,8 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
     /// </summary>
     public IEnumerable<(string Ammo, int Count)> Ammo(EntityHandle player)
     {
-        var cls = classes?.ClassOf(player) ?? TFClass.Undefined;
-        if (table is null || cls < TFClass.Scout || cls >= TFClass.CountAll)
+        var cls = classes.ClassOf(player);
+        if (cls < TFClass.Scout || cls >= TFClass.CountAll)
             return [];
 
         var ammo = new List<(string, int)>();
@@ -260,7 +250,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         // The bot's seed is the roster's SeedIndex later (stage F2x); until the AI binding supplies
         // one, the provider passes 0 for every bot. The draw is pure, so 0 already replays the same
         // items for the same class and slot.
-        if (bots is not null && botInventory is not null && bots.IsBot(new EntityHandle((uint)entIndex))
+        if (bots.IsBot(new EntityHandle((uint)entIndex))
             && botInventory.ForBot(entIndex, 0) is { } botOwned)
             return botOwned;
         return inventory.Of(entIndex) ?? new PlayerInventory(0);
@@ -279,7 +269,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         if (!ItemIsAllowed(item))
             return false;
 
-        if (_round?.State == RoundState.Stalemate && _stalemate is { } stalemate && stalemate.MeleeOnly)
+        if (_round.State == RoundState.Stalemate && _stalemate.MeleeOnly)
         {
             bool meleeOnlyAllowed = slot == TFLoadoutSlot.Melee
                                     || (cls == TFClass.Spy && slot is TFLoadoutSlot.Pda or TFLoadoutSlot.Pda2);

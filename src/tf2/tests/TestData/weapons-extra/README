@@ -104,8 +104,28 @@ CTFChargedSMG, tf_weapon_smg.cpp). Built on the SMG's block, the spread and
 brass the Carbine's shipped schema names. Extracted and trimmed exactly as
 TestData/weapons/README describes.
 
+tf_weapon_handgun_scout_primary: the Shortstop (items_working.tsv:220), the
+scout's four-pellet pistol whose alt-fire is the shove (CTFPistol_ScoutPrimary,
+tf_weapon_pistol.cpp), for the shove facts' press (TFWeaponBehaviour's
+HandgunScoutPrimary arm). Extracted and trimmed exactly as
+TestData/weapons/README describes.
+
 tf_weapon_shotgun_building_rescue: the Rescue Ranger (items_working.tsv:997),
 the engineer's shotgun whose shot is the repair bolt (TFWeaponKinds.Of's
 Projectile row, TFProjectileEffects' BuildingRepairBolt case over the
 arrow entity, TFArrow's BuildingHealingArrow arm). Extracted and trimmed
 exactly as TestData/weapons/README describes.
+
+tf_weapon_parachute: The B.A.S.E. Jumper's own row (items_working.tsv:312),
+the soldier's and demoman's equipped secondary whose shipped script is the
+fist-shaped melee block (TFWeaponKinds.Of's melee answer through WeaponType,
+the parachute pair riding the movement hook's AirJump check), for the works
+rows' kind and catalogue facts. Extracted and trimmed exactly as
+TestData/weapons/README describes.
+
+tf_weapon_cleaver: the Flying Guillotine and its Promo skin
+(items_working.tsv:222, :226), the scout's thrown cleaver held as the equipped
+item whose class is its own row (tf_weapon_cleaver, TF_WEAPON_CLEAVER), for the
+guillotine facts' kind and behaviour rows (TFWeaponKinds.Of's category arm over
+the secondary script throwing projectile_cleaver). Extracted and trimmed exactly
+as TestData/weapons/README describes.

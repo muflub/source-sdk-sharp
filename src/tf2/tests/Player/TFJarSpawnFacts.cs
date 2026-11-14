@@ -55,9 +55,8 @@ public sealed class TFJarSpawnFacts
         // refills leave the charge where it stands, unlike the plain fill of
         // AJarIsFullAtSpawn. Held to 0.25 by the denial, the refill arm would
         // otherwise slam it to the full the other facts hold.
-        var world = new JarWorld();
+        var world = new JarWorld(deniedBar: true);
         world.PrimeMeter(0.25f);
-        world.Weapons.Owners.Items[PlayerRig.Index] = DeniedBar();
 
         world.Resupply.Regenerate(PlayerRig.Player);
 
@@ -65,16 +64,10 @@ public sealed class TFJarSpawnFacts
     }
 
     /// <summary>The held item's denial, the hook's stock ordinal.</summary>
-    private static AttributeContainer DeniedBar()
-    {
-        var item = new AttributeContainer();
-        item.Set(AttributeValue.OfFloat(
-            new AttributeDefinition(906, "item_meter_resupply_denied", "item_meter_resupply_denied",
-                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
-                                    false, false, AttributeValueType.Default,
-                                    MergedKeys.Block("x")), 1f));
-        return item;
-    }
+    private static AttributeDefinition DeniedBar() =>
+        new(906, "item_meter_resupply_denied", "item_meter_resupply_denied",
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+            false, false, AttributeValueType.Default, MergedKeys.Block("x"));
 
     [Fact]
     public void ASpawnLeavesTheJarFullToo()
@@ -142,6 +135,7 @@ public sealed class TFJarSpawnFacts
 
         public readonly PlayerRig Rig = new PlayerRig().As(TFClass.Sniper);
         public readonly TFWeaponWorld Weapons = new(extras: true);
+        public readonly TFPlayerItems Items = new();
         public readonly RecordingEngine Engine;
         public readonly ScriptedEntityRegistry Registry;
         public readonly Arsenal Arsenal;
@@ -156,7 +150,7 @@ public sealed class TFJarSpawnFacts
         /// <summary>The clock, the commands' own.</summary>
         public float Now;
 
-        public JarWorld()
+        public JarWorld(bool deniedBar = false)
         {
             var created = new Queue<EntityHandle>([_weapon, _viewModel]);
             Engine = new RecordingEngine()
@@ -192,20 +186,34 @@ public sealed class TFJarSpawnFacts
             var inventory = new LocalInventory(new InventoryStore(new ModInfo(_ => null), schema, log),
                                                schema, new NoClients(), log);
             inventory.OnClientActive(PlayerRig.Index);
-            var jar = inventory.Grant(PlayerRig.Index, JarDefindex)
-                      ?? throw new InvalidOperationException("the shipped schema has no jar");
+            // The denial rides the jar instance itself: the grant's hand-out
+            // is the items table the refill's deny walk reads, so a held
+            // item_meter_resupply_denied reaches it only through the kit.
+            var jarDefinition = schema.Item(JarDefindex)
+                                ?? throw new InvalidOperationException("the shipped schema has no jar");
+            var jar = deniedBar
+                ? new ItemInstance(1, jarDefinition, jarDefinition.Quality,
+                                   [AttributeValue.OfFloat(DeniedBar(), 1f)])
+                : inventory.Grant(PlayerRig.Index, JarDefindex)
+                  ?? throw new InvalidOperationException("the shipped schema has no jar");
+            if (deniedBar)
+                inventory.Of(PlayerRig.Index)!.Add(jar);
             Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Sniper, TFLoadoutSlot.Secondary, jar.Id));
 
-            var loadout = new TFLoadoutProvider(inventory, schema, Rig.Carriers, new TFPlayerItems(),
-                                                Rig.Classes, catalog: Weapons.Catalog, carriers: Rig.Carriers);
+            var loadout = LoadoutDeps.Loadout(inventory, schema, classes: Rig.Carriers, items: Items,
+                                                table: Rig.Classes, catalog: Weapons.Catalog, carriers: Rig.Carriers,
+                                                players: Rig.Engine, precache: Rig.Engine, log: Rig.Log);
             Loadout = loadout;
             var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
             Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Engine, Arsenal),
                                             Rig.Engine, conditions, loadout, Rig.Engine,
-                                            Weapons.Owners, new AttributeHooks(),
+                                            Items, new AttributeHooks(),
                                             scripts: new TFWeaponScripts(new RecordingLog(),
                                                                          WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses())),
-                                            catalog: Weapons.Catalog, arsenal: Arsenal);
+                                            catalog: Weapons.Catalog, arsenal: Arsenal,
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: Engine);
         }
 
         private Queue<EntityHandle> Created { get; }

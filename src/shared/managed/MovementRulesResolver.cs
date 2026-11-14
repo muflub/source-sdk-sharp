@@ -255,6 +255,15 @@ public interface IMovementRules
     /// would otherwise use; echoing it is the default and stock Half-Life.
     /// </summary>
     float DuckSeconds(int playerIndex, float seconds) => seconds;
+
+    /// <summary>
+    /// The parachute's fall trim, asked between the walk's water check and its
+    /// gravity — stock TF's <c>CTFGameMovement::FullWalkMove</c>, which caps a
+    /// falling parachutist's z at the onfire or plain cap and dampens the xy
+    /// past its drag (tf_gamemovement.cpp:2626-2638, before StartGravity at
+    /// :2641). The velocity unchanged is the default and stock Half-Life.
+    /// </summary>
+    Vector ParachuteFallCap(int playerIndex, Vector velocity) => velocity;
 }
 
 /// <summary>
@@ -358,7 +367,8 @@ public sealed class MovementRulesResolver
                 (i, s) => _rules.DuckSeconds(i, s),
                 (i, b, f, s, u) => _rules.MovementCharge(i, b, f, s, u),
                 i => _rules.ChargeSlowEnd(i),
-                (i, h) => _rules.ChargeBump(i, h));
+                (i, h) => _rules.ChargeBump(i, h),
+                (i, v) => _rules.ParachuteFallCap(i, v));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

@@ -850,6 +850,31 @@ public sealed class TFDamageLayerTests
         Assert.Equal(0f, rig.Hit(MoveMath.FallDamage(640f), DamageType.Fall, attacker: EntityHandle.None));
     }
 
+    /// <summary>Stock's cancel arm (<c>tf_gamerules.cpp:13404-13407</c>):
+    /// <c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c>'s <c>cancel_falling_damage</c> walks
+    /// the player's whole attribute manager; a yes zeroes the computed blow.
+    /// Without the manager's answer the landing keeps its own 18.75, as the
+    /// plain fact beside it holds.</summary>
+    [Fact]
+    public void AFallerWhoseManagerCancelsFallingDamageLandsUnhurt()
+    {
+        var rig = new CombatRig(roll: 0.5f);
+        rig.Owners.Managers[CombatRig.Victim.EntryIndex] = ManagerCancelAnswer();
+
+        Assert.Equal(0f, rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None));
+    }
+
+    /// <summary>The player manager's answer, the way <c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c> reads it.</summary>
+    private static AttributeContainer ManagerCancelAnswer()
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(9141, "attr 9141", "cancel_falling_damage", AttributeDescriptionFormat.Additive,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), 1f));
+        return container;
+    }
+
     // ---- the records --------------------------------------------------------
 
     [Fact]
@@ -1405,7 +1430,7 @@ public sealed class TFDamageLayerTests
         rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
         rig.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
-        rig.Owners.Held[CombatRig.Victim.EntryIndex] = rig.VictimWeapon;   // the brace's active-item walk
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = rig.VictimWeapon;
         return rig;
     }
 
@@ -1420,7 +1445,7 @@ public sealed class TFDamageLayerTests
                                              AttackerAt = new Vector(100f, 0f, 0f) });
         rig.VictimState.PlayerClass = (int)TFClass.Sniper;
         rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
-        rig.ItemOn(CombatRig.Victim, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
+        rig.Owners.Managers[CombatRig.Victim.EntryIndex] = Worn(9103, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
 
         float dealt = rig.Hit(60f, DamageType.Bullet);
         rig.ShoveFlush.Tick(1f);
@@ -1441,7 +1466,7 @@ public sealed class TFDamageLayerTests
         var wrongClass = ShoveReady(new CombatRig { AttackerWeapon = "tf_weapon_scattergun",
                                                     AttackerAt = new Vector(100f, 0f, 0f) });
         wrongClass.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
-        wrongClass.ItemOn(CombatRig.Victim, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
+        wrongClass.Owners.Managers[CombatRig.Victim.EntryIndex] = Worn(9103, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
         float wrongDealt = wrongClass.Hit(60f, DamageType.Bullet);
         wrongClass.ShoveFlush.Tick(1f);
         Vector plain = ShovedImpulse(wrongClass, wrongDealt, 1f);
@@ -1450,7 +1475,7 @@ public sealed class TFDamageLayerTests
         var unaimed = ShoveReady(new CombatRig { AttackerWeapon = "tf_weapon_scattergun",
                                                  AttackerAt = new Vector(100f, 0f, 0f) });
         unaimed.VictimState.PlayerClass = (int)TFClass.Sniper;
-        unaimed.ItemOn(CombatRig.Victim, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
+        unaimed.Owners.Managers[CombatRig.Victim.EntryIndex] = Worn(9103, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
         float unaimedDealt = unaimed.Hit(60f, DamageType.Bullet);
         unaimed.ShoveFlush.Tick(1f);
         Vector plainAgain = ShovedImpulse(unaimed, unaimedDealt, 1f);
@@ -1975,6 +2000,36 @@ public sealed class TFDamageLayerTests
     // ---- the on-hit arms (tf_weaponbase.cpp:5142-5281) ----------------------
 
     /// <summary>
+    /// The shipped Ubersaw, item 37's <c>add_onhit_ubercharge</c> 0.25 through the real
+    /// definition on the medic's held item: five saw swings on the victim pay the
+    /// quarters — four to the full meter, the fifth held by the cap.
+    /// </summary>
+    [Fact]
+    public void The_shipped_ubersaws_hits_pay_a_quarter_of_the_meter_apiece()
+    {
+        var ubersaw = ShippedSchema().Item(37)
+            ?? throw new InvalidOperationException("the shipped schema has no item 37");
+        var rig = new CombatRig();
+        rig.AttackerState.PlayerClass = (int)TFClass.Medic;
+        rig.Owners.Items[CombatRig.Attacker.EntryIndex] = new AttributeContainer(ubersaw, AttributeProviderType.Weapon);
+
+        for (int hit = 0; hit < 5; hit++)
+            rig.Hit(20f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(
+            ["charge 4 0.25", "charge 4 0.5", "charge 4 0.75", "charge 4 1", "charge 4 1"],
+            rig.Mediguns.Sets);
+    }
+
+    /// <summary>The game's own schema, from the content dir the game runs (the shell facts' helper).</summary>
+    private static ItemSchema ShippedSchema()
+    {
+        string path = RepoLayout.Repo("bin", RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        return EconTestFiles.Schema(File.ReadAllText(path));
+    }
+
+    /// <summary>
     /// The medic's melee arm (:5259-5281): the medic's hit fills their own ÜberCharge
     /// meter from the held item's <c>add_onhit_ubercharge</c> — a half-second attribute
     /// onto an empty meter gives the level a half, asked of the medigun service's setter
@@ -2191,6 +2246,54 @@ public sealed class TFDamageLayerTests
         var rig = new CombatRig();
 
         Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.False(rig.Conditions.InCond(CombatRig.Attacker, TFCond.SpeedBoost));
+    }
+
+    /// <summary>
+    /// The melee enemy arm (tf_weaponbase_melee.cpp:675-683): a melee hit on an enemy-player
+    /// victim whose held item carries <c>speed_boost_on_hit_enemy</c> rides the attacker that
+    /// many seconds of SpeedBoost — stock passes the float whole as <c>AddCond</c>' duration.
+    /// </summary>
+    [Fact]
+    public void AMeleeHitOnAnEnemyBoostsForTheEnemySeconds()
+    {
+        var rig = new CombatRig();
+        rig.AttackerItem("speed_boost_on_hit_enemy", AttributeDescriptionFormat.Additive, 3f);
+
+        Assert.Equal(10f, rig.Hit(10f, TFDamageBits.Melee), 4);   // the rig's teams already differ
+
+        Assert.True(rig.Conditions.InCond(CombatRig.Attacker, TFCond.SpeedBoost));
+        Assert.Equal(3f, rig.Conditions.Of(CombatRig.Attacker.EntryIndex)!.Duration(TFCond.SpeedBoost), 4);
+    }
+
+    /// <summary>
+    /// The same-team half of stock's check (:646): a melee hit on a teammate takes the enemy
+    /// arm's boost from nobody — the ally twin (speed_buff_ally) is its own row.
+    /// </summary>
+    [Fact]
+    public void ASameTeamMeleeHitKeepsTheAttackerAtNormalSpeed()
+    {
+        var rig = new CombatRig();
+        rig.AttackerTeam = (int)TFTeam.Red;   // both players on red
+        rig.AttackerItem("speed_boost_on_hit_enemy", AttributeDescriptionFormat.Additive, 3f);
+
+        rig.Hit(10f, TFDamageBits.Melee);
+
+        Assert.False(rig.Conditions.InCond(CombatRig.Attacker, TFCond.SpeedBoost));
+    }
+
+    /// <summary>
+    /// The melee half (:646's enclosing method): a ranged hit on an enemy answers the enemy
+    /// arm's boost from nobody — the arm lives in the melee weapon's own frame.
+    /// </summary>
+    [Fact]
+    public void ARangedHitOnAnEnemyIgnoresTheEnemyArm()
+    {
+        var rig = new CombatRig();
+        rig.AttackerItem("speed_boost_on_hit_enemy", AttributeDescriptionFormat.Additive, 3f);
+
+        rig.Hit(10f, DamageType.Bullet);
 
         Assert.False(rig.Conditions.InCond(CombatRig.Attacker, TFCond.SpeedBoost));
     }
@@ -2559,7 +2662,50 @@ public sealed class TFDamageLayerTests
         Assert.Empty(plain.Mediguns.Sets);
     }
 
+    /// <summary>
+    /// The shipped Vita-Saw, item 173's <c>ubercharge_preserved_on_spawn_max</c> through
+    /// the real definition on the bearer's held item: the saw's melee hit on the enemy
+    /// counts the organ and asks the medigun to keep its 0.15 — the rig facts' ask,
+    /// from the item as shipped.
+    /// </summary>
+    [Fact]
+    public void The_shipped_vita_saws_melee_hit_banks_an_organ()
+    {
+        var vita = ShippedSchema().Item(173)
+            ?? throw new InvalidOperationException("the shipped schema has no item 173");
+        var rig = new CombatRig();
+        rig.Owners.Items[CombatRig.Attacker.EntryIndex] = new AttributeContainer(vita, AttributeProviderType.Weapon);
+
+        rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(1, rig.AttackerState.Decapitations);
+        Assert.Equal(["preserve 4 0.15"], rig.Mediguns.Sets);
+    }
+
     // ---- the thruster's landing (tf_player.cpp:8991-9038) -------------------
+
+    /// <summary>One worn item's word on the player's own manager, where stock's
+    /// player hooks walk.</summary>
+    private static AttributeContainer Worn(int defindex, string attributeClass, AttributeDescriptionFormat format, float value)
+    {
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(
+            defindex, attributeClass, attributeClass, format,
+            AttributeEffectType.Neutral, false, false, AttributeValueType.Default, MergedKeys.Block("w")), value));
+        return manager;
+    }
+
+    /// <summary>The Cozy Camper worn: a wearable, so its aiming_no_flinch reaches
+    /// the player's own manager (stock's CALL_ATTRIB_HOOK_INT on the player,
+    /// tf_player.cpp:3419), never the held rifle.</summary>
+    private static AttributeContainer CamperWorn()
+    {
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(
+            9102, "aiming no flinch", TFDamageLayer.NoFlinchAttribute, AttributeDescriptionFormat.Additive,
+            AttributeEffectType.Neutral, false, false, AttributeValueType.Default, MergedKeys.Block("n")), 1f));
+        return manager;
+    }
 
     /// <summary>Puts the pushback word on the victim's held item, as the
     /// loadout handed it out: a held weapon row, whose item the harness's
@@ -2656,5 +2802,108 @@ public sealed class TFDamageLayerTests
         Assert.False(rig.Conditions.InCond(CombatRig.Attacker, TFCond.Burning));     // :9031
         var flameOut = Assert.Single(rig.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
         Assert.Equal("TFPlayer.FlameOut", flameOut.Args[0]);                          // :9032
+    }
+
+    // ---- the flinch ---------------------------------------------------------
+
+    /// <summary>The rig with a punch already on the victim's view, to see what the hit keeps.</summary>
+    private static CombatRig Punched(CombatRig rig)
+    {
+        rig.Engine.Returns("Players.GetPunch", new Vector(1f, 3f, 4f));
+        return rig;
+    }
+
+    [Fact]
+    public void AHitFlinchesTheVictimsViewTwoDegreesAndPlaysTheChestFlinch()
+    {
+        // OnTakeDamage's tail (tf_player.cpp:9599-9621): any kinded hit with
+        // damage lands punches the view two degrees down through
+        // ApplyPunchImpulseX (:3430) — the pitch set, yaw and roll kept — and
+        // the chest flinch plays for the generic hitgroup (PlayFlinch
+        // :15084-15110, alive and undisguised).
+        var rig = Punched(new CombatRig());
+
+        rig.Hit(60f, DamageType.Bullet);
+
+        var punched = rig.Engine.Last("Players.SetPunch");
+        Assert.NotNull(punched);
+        Assert.Equal(new Vector(-TFDamageLayer.FlinchPunch, 3f, 4f), punched!.ArgAs<Vector>(1));
+        Assert.Contains(rig.Temps.Animations,
+                        a => a.PackedPlayer == TempEntWriter.PackEHandle(CombatRig.Victim)
+                             && a.AnimEvent == (int)SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchChest);
+    }
+
+    [Fact]
+    public void TheCampersAimedChargedRifleLeavesTheViewAlone()
+    {
+        // ApplyPunchImpulseX's no-flinch (tf_player.cpp:3418-3423): the sniper
+        // holding their aim through a fully charged sniper rifle whose item
+        // carries aiming_no_flinch — the Cozy Camper — keeps their view.
+        var held = new CombatRig();
+        held.VictimState.PlayerClass = (int)TFClass.Sniper;
+        held.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
+        held.VictimWeapon = "tf_weapon_sniperrifle";
+        held.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_sniperrifle";
+        held.Owners.Managers[CombatRig.Victim.EntryIndex] = CamperWorn();
+        held.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        held.Entities.WeaponEntity.State.BindLocal();
+        held.Entities.WeaponEntity.State.BehaviourMeter = held.Clock.Now - 4f;   // past the 150 cap
+        Punched(held);
+
+        held.Hit(60f, DamageType.Bullet);
+
+        Assert.DoesNotContain(held.Engine.Calls, c => c.Member == "Players.SetPunch");
+        Assert.Empty(held.Temps.Animations);
+    }
+
+    [Fact]
+    public void TheCamperNeedsTheChargeAndTheAttribute()
+    {
+        // Both gates of :3418-3423 failing: a charge short of the cap, and the
+        // full charge without the item — each leaves the punch on.
+        var uncharged = new CombatRig();
+        uncharged.VictimState.PlayerClass = (int)TFClass.Sniper;
+        uncharged.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
+        uncharged.VictimWeapon = "tf_weapon_sniperrifle";
+        uncharged.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_sniperrifle";
+        uncharged.Owners.Managers[CombatRig.Victim.EntryIndex] = CamperWorn();
+        uncharged.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        uncharged.Entities.WeaponEntity.State.BindLocal();
+        uncharged.Entities.WeaponEntity.State.BehaviourMeter = uncharged.Clock.Now - 1f;   // 50 of the cap
+        Punched(uncharged);
+
+        uncharged.Hit(60f, DamageType.Bullet);
+        Assert.NotNull(uncharged.Engine.Last("Players.SetPunch"));
+
+        uncharged.Entities.WeaponEntity.State.BehaviourMeter = uncharged.Clock.Now - 4f;
+        uncharged.Owners.Managers.Remove(CombatRig.Victim.EntryIndex);
+        uncharged.Engine.Clear();
+
+        uncharged.Hit(60f, DamageType.Bullet);
+        var plainPunch = uncharged.Engine.Last("Players.SetPunch");
+        Assert.NotNull(plainPunch);
+        Assert.Equal(new Vector(-TFDamageLayer.FlinchPunch, 3f, 4f), plainPunch!.ArgAs<Vector>(1));
+    }
+
+    [Fact]
+    public void TheAimingSniperSparesTheFarMinigun()
+    {
+        // The courtesy (:9603-9612): an aimed sniper hit by a minigun over 750
+        // units away does not flinch; inside it, they do.
+        var far = new CombatRig { AttackerWeapon = "tf_weapon_minigun", AttackerAt = new Vector(800f, 0f, 0f) };
+        far.VictimState.PlayerClass = (int)TFClass.Sniper;
+        far.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
+        Punched(far);
+
+        far.Hit(60f, DamageType.Bullet);
+        Assert.DoesNotContain(far.Engine.Calls, c => c.Member == "Players.SetPunch");
+
+        var near = new CombatRig { AttackerWeapon = "tf_weapon_minigun", AttackerAt = new Vector(100f, 0f, 0f) };
+        near.VictimState.PlayerClass = (int)TFClass.Sniper;
+        near.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
+        Punched(near);
+
+        near.Hit(60f, DamageType.Bullet);
+        Assert.NotNull(near.Engine.Last("Players.SetPunch"));
     }
 }

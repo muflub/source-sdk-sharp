@@ -115,6 +115,17 @@ public sealed class TFDeathDropsTests
             var container = Services(out _);
             container.AddInstance<ITFMapPlayers>(Map);
             container.AddInstance<ITFPickupNotices>(Notices);
+
+            // The kit's own dependencies, required on every spawn now: a bare
+            // owners table (the facts arm the death hook's owners, not the
+            // kit's), the attribute walk, the stats, the last-hit records, the
+            // carrier data and the class scripts.
+            container.AddInstance<ITFWeaponOwners>(new FakeOwners());
+            container.AddInstance(new AttributeHooks());
+            container.AddInstance<ITFPlayerStats>(new TFPlayerStats());
+            container.AddInstance(new TFDamageRecords());
+            container.AddInstance<ITFPlayerData>(new TFMovementFixtures.Players());
+
             Registry.Services = container;
 
             // The entity's own engine, as the kit records its throw on it.
@@ -123,6 +134,7 @@ public sealed class TFDeathDropsTests
                      .Returns("EntityPhysics.InitPhysics", false)
                      .Returns("Entities.GetHealth", 1)
                      .Returns("Files.GameFileSize", -1);
+            container.AddInstance(new TFClassTable(Log, KitEngine));
 
             Dead = Map.Add();
             Registry.KeyValue(Dead.Handle, EntityNames.Player, "targetname", "fixture_player");

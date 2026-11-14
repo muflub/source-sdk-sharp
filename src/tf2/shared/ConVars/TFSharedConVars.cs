@@ -41,6 +41,21 @@ public sealed class TFClampBackSpeedMinConVar : FloatConVar { }
 [ConVar("tf_max_charge_speed", "750", Flags = ConVarFlags.Notify | ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
 public sealed class TFMaxChargeSpeedConVar : FloatConVar { }
 
+// tf_gamemovement.cpp:54-56, the parachute's caps, read by TF's FullWalkMove
+// (:2628-2630): the burning and plain z caps and the xy drag. Stock's defaults
+// carry the trailing f, quoted here byte for byte.
+[ConVar("tf_parachute_maxspeed_xy", "300.0f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Max XY Speed while Parachute is deployed")]
+public sealed class TFParachuteMaxSpeedXYConVar : FloatConVar { }
+
+[ConVar("tf_parachute_maxspeed_z", "-100.0f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Max Z Speed while Parachute is deployed")]
+public sealed class TFParachuteMaxSpeedZConVar : FloatConVar { }
+
+[ConVar("tf_parachute_maxspeed_onfire_z", "-100.0f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Max Z Speed when on Fire and Parachute is deployed")]
+public sealed class TFParachuteMaxSpeedOnfireZConVar : FloatConVar { }
+
 [ConVar("tf_clamp_airducks", "1", Flags = ConVarFlags.Replicated)]
 public sealed class TFClampAirducksConVar : BoolConVar { }
 

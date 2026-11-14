@@ -46,6 +46,7 @@ public static class TFProjectileEntityNames
     public const string Jar = "tf_projectile_jar";
     public const string JarMilk = "tf_projectile_jar_milk";
     public const string JarGas = "tf_projectile_jar_gas";
+    public const string Cleaver = "tf_projectile_cleaver";
     public const string BallOfFire = "tf_projectile_balloffire";
     public const string BallOrnament = "tf_projectile_ball_ornament";
     public const string EnergyRing = "tf_projectile_energy_ring";
@@ -3204,6 +3205,240 @@ public sealed class TFJar : FlyingProjectile
         if (model is { } chosen)
             SetModel(chosen);
     }
+}
+
+/// <summary>
+/// The Flying Guillotine's cleaver (<c>CTFProjectile_Cleaver</c>,
+/// <c>tf_weapon_jar.cpp:980-1149</c>): the jar's pipebomb flight — the same
+/// arc, spin aside, under <see cref="TFProjectileDefs.PipebombGravity"/> —
+/// thrown at the ten-forward-parts-to-one-up tilt of
+/// <see cref="TFProjectileDefs.CleaverAimForward"/> and
+/// <see cref="TFProjectileDefs.CleaverAimUp"/>, at
+/// <see cref="TFProjectileDefs.CleaverSpeed"/>.
+///
+/// <para>
+/// The hit (<c>OnHit</c>, :993-1078) is the enemy player's alone: the
+/// invulnerable and the teammate are the miss, as is everything that is not
+/// a player at all. The hit bleeds its five seconds from the thrower
+/// (:1036) and lands the 50 (<c>GetDamage</c>, :242) as a
+/// <see cref="TFDamageCustom.Cleaver"/> slash, the thrown crit riding
+/// <c>DMG_CRITICAL</c> (:1049-1053) — both sounds to the world and again to
+/// the thrower (:1062-1073 folded to the one position broadcast) — and the
+/// miss thunks once on the world (:1083-1096). Both arms lie where they
+/// struck for <see cref="TFProjectileDefs.CleaverLingerSeconds"/>, the hit's
+/// invisible (<c>RemoveCleaver</c>'s NODRAW, :1143-1149), the miss's body
+/// showing.
+/// </para>
+///
+/// <para>
+/// The recharge (:1024-1032): a hit past
+/// <see cref="TFProjectileDefs.CleaverRechargeFlightTime"/> aloft hands the
+/// launcher <see cref="TFProjectileDefs.CleaverRechargeSeconds"/> of its
+/// wait back, the store's walk — never on the thrower's own wound
+/// (<c>pOwner != pPlayer</c>, :1028).
+/// </para>
+///
+/// <para>
+/// Not here (<c>docs/plames/tf2/deferred.tsv</c>, cleaver row): the truce
+/// arm (:1016-1020); the per-recipient sound split (:1062-1073); stock's
+/// <c>TF_DMG_CUSTOM_CLEAVER_CRIT</c> ladder arm (<c>tf_gamerules.cpp:6171
+/// </c>) — nothing in this SDK sets the custom, so the long-range mini-crit
+/// has no producer to port.
+/// </para>
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.Cleaver, ScriptedEntityKind.Projectile)]
+public sealed class TFCleaver : FlyingProjectile
+{
+    /// <summary>Skybox surface bit (<c>SURF_SKY</c>), the pipebomb's own sky trace's bit.</summary>
+    private const int CleaverSkySurface = 0x0004;
+
+    private readonly IEngineWorldQuery World;
+    private readonly IEngineDamage Damage;
+    private readonly DamageHitGroups HitGroups;
+    private readonly TFDamageScopes Scopes;
+    private readonly TFBleeds Bleeds;
+    private readonly IEnginePlayers Players;
+    private readonly ITFPlayerConditions Conditions;
+    private readonly IGameClock Clock;
+    private readonly IEngineSound Sound;
+    private readonly IEnginePrecache Precache;
+    private readonly IWeaponGiver Arsenal;
+
+    public TFCleaver(IEngineEntityPhysics physics, EntityMotion motion, IEngineWorldQuery world,
+                     IEngineDamage damage, DamageHitGroups hitGroups, TFDamageScopes scopes,
+                     TFBleeds bleeds, IEnginePlayers players, ITFPlayerConditions conditions,
+                     IGameClock clock, IEngineSound sound, IEnginePrecache precache,
+                     IWeaponGiver arsenal)
+        : base(physics, motion)
+    {
+        World = world;
+        Damage = damage;
+        HitGroups = hitGroups;
+        Scopes = scopes;
+        Bleeds = bleeds;
+        Players = players;
+        Conditions = conditions;
+        Clock = clock;
+        Sound = sound;
+        Precache = precache;
+        Arsenal = arsenal;
+    }
+
+    /// <summary>The jar's pipebomb arc, the flight shared with the jars' lob.</summary>
+    protected override float GravityScale => TFProjectileDefs.PipebombGravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.CleaverModel;
+
+    /// <summary>Stock's tumble, pitch 500 (<c>GetAngularImpulse</c>, <c>tf_weapon_jar.h:123</c>).</summary>
+    protected override Vector LaunchSpin => new(TFProjectileDefs.CleaverSpinPitch, 0f, 0f);
+
+    /// <summary>
+    /// The hit's body is NODRAW'd where it struck (<c>RemoveCleaver</c>);
+    /// the miss's (<c>Explode</c>) keeps its model, so the flag follows the
+    /// arm that ran.
+    /// </summary>
+    private bool _worldArm;
+
+    /// <summary>The world arm's body keeps its model; only the hit's is NODRAW'd.</summary>
+    protected override bool LingerHides => !_worldArm;
+
+    private float _createdAt;
+
+    /// <summary>The world thunk, once (<c>m_bSoundPlayed</c>, <c>tf_weapon_jar.cpp:984</c>).</summary>
+    private bool _soundPlayed;
+
+    /// <summary>What the client's trail mirror reads; the team the glow names.</summary>
+    [NetState] public TFCleaverNetState State = new();
+
+    public bool Critical { get; private set; }
+
+    public string WeaponName { get; private set; } = "";
+
+    /// <summary>The thrower's team, the shot's crit and the launcher's name, as the jar's <c>ArmedBy</c> writes its pair.</summary>
+    public void ArmedBy(bool critical, int ownerIndex, string weaponName)
+    {
+        Critical = critical;
+        WeaponName = weaponName;
+        State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
+        _createdAt = Clock.Now;
+    }
+
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+
+        // Both arms' sounds, precached at spawn as stock's Precache is
+        // (<c>tf_weapon_jar.cpp:963-970</c>).
+        Precache.PrecacheSound(TFProjectileDefs.CleaverImpactFleshSound);
+        Precache.PrecacheSound(TFProjectileDefs.CleaverImpactWorldSound);
+    }
+
+    protected override void Impact(EntityHandle hit)
+    {
+        // The touch rules are the pipebomb's own, worn by the SetPipebombMode
+        // the cleaver's Create called first (PipebombTouch,
+        // tf_weapon_jar.cpp:505-534): anything that is neither world nor
+        // player is flown through, and so is a dry teammate — the jar face's
+        // burning exception, the cleaver wearing the jar's projectile type
+        // (the base ctor's m_iProjectileType, :242).
+        if (hit != EntityHandle.None && !Entities.IsPlayer(hit))
+        {
+            KeepFlying(Entities.GetVelocity(Handle), GravityScale);
+            return;
+        }
+
+        if (hit != EntityHandle.None
+            && Players.GetTeam(hit) == OwnerTeam()
+            && !Conditions.InCond(hit, TFCond.Burning))
+        {
+            KeepFlying(Entities.GetVelocity(Handle), GravityScale);
+            return;
+        }
+
+        // Handle hitting skybox (PipebombTouch :536-552, the pipebomb's own
+        // trace): a cleaver that would stick in the sky is simply gone. The
+        // base's Spend removes what this declines to arm.
+        Vector velocity = Entities.GetVelocity(Handle);
+        if (velocity.LengthSquared > 0f)
+        {
+            Vector dir = velocity.Normalized;
+            Vector spot = Origin - dir * 32f;
+            SurfaceTraceResult sky = World.TraceLineSurface(spot, spot + dir * 64f, TraceMask.Solid, Handle);
+            if (sky.Fraction < 1f && (sky.SurfaceFlags & CleaverSkySurface) != 0)
+                return;
+        }
+
+        if (hit != EntityHandle.None && Woundable(hit))
+        {
+            HitPlayer(hit);
+            return;
+        }
+
+        Missed();
+    }
+
+    /// <summary>
+    /// <c>OnHit</c>'s wound (tf_weapon_jar.cpp:1024-1077): the flight's pay
+    /// back to the launcher, the five-second bleed from the thrower, and the
+    /// 50 as a cleaver slash — the crit bit set before the damage so the hit
+    /// itself carries it — under the impact sound.
+    /// </summary>
+    private void HitPlayer(EntityHandle victim)
+    {
+        // The flight's pay (OnHit :1024-1032): past half a second aloft, the
+        // launcher's wait is shorter by the constant — never on the thrower's
+        // own wound (:1028).
+        if (Clock.Now - _createdAt >= TFProjectileDefs.CleaverRechargeFlightTime
+            && victim != Shooter)
+            Arsenal.AdvanceCarriedMeter(Shooter, WeaponName, TFProjectileDefs.CleaverRechargeSeconds);
+
+        // "just do the bleed effect directly since the bleed attribute comes
+        // from the inflictor, which is the cleaver" (:1034-1036).
+        Bleeds.Of(victim.EntryIndex)?.Make(Clock.Now, Players.IsAlive(victim), Shooter,
+                                           TFWeaponId.Cleaver, WeaponName,
+                                           TFProjectileDefs.CleaverBleedSeconds);
+
+        // The love tap (:1038-1060): the 50, the cleaver custom, the crit bit
+        // set before the damage so the hit itself carries it.
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        using (Scopes.Push(TFDamageCustom.Cleaver, TFWeaponId.Cleaver, WeaponName))
+            Damage.TakeDamage(victim, Shooter, TFProjectileDefs.CleaverDamage,
+                              TFWeaponDamageTypes.Of(TFWeaponId.GrenadeCleaver)
+                              | (Critical ? TFDamageBits.Critical : 0));
+
+        Sound.EmitSoundAtPosition(TFProjectileDefs.CleaverImpactFleshSound, Origin);
+
+        // RemoveCleaver (:1143-1149): unseen where it struck, gone in two.
+        Linger(TFProjectileDefs.CleaverLingerSeconds);
+    }
+
+    /// <summary>
+    /// <c>Explode</code>'s miss (:1083-1096): the world thunk, once, and the
+    /// two-second lie with the body showing.
+    /// </summary>
+    private void Missed()
+    {
+        if (!_soundPlayed)
+        {
+            Sound.EmitSoundAtPosition(TFProjectileDefs.CleaverImpactWorldSound, Origin);
+            _soundPlayed = true;
+        }
+
+        _worldArm = true;
+        Linger(TFProjectileDefs.CleaverLingerSeconds);
+    }
+
+    /// <summary>
+    /// <c>OnHit</code>'s gates (:1009-1014): a player whose condition state
+    /// stands under no invulnerable pair. A player no state answers is bare,
+    /// as the jar's gate reads its null.
+    /// </summary>
+    private bool Woundable(EntityHandle victim)
+        => Conditions.Of(victim.EntryIndex) is not { } conds
+           || !(new TFConditionEffects().IsInvulnerable(conds.Bits)
+                 || conds.Has(TFCond.InvulnerableWearingoff));
+
+    private int OwnerTeam() => Entities.IsValid(Shooter) ? Players.GetTeam(Shooter) : 0;
 }
 
 /// <summary>

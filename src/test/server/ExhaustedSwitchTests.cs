@@ -196,7 +196,6 @@ public class ExhaustedSwitchTests
     public void AWeaponOutOfAmmoIsNoChoice()
     {
         var rig = Armed(0, weapons: TheSmgSet);
-        rig.Arsenal.CarryFor(Player).Ammo["357"] = 0;
         foreach (var owned in rig.Arsenal.CarryFor(Player).Weapons)
             owned.Clip = 0;
 
@@ -242,5 +241,27 @@ public class ExhaustedSwitchTests
         var rig = Armed(smgFlags: 0, behaviours: DryBehaviours(), pistolWeight: 3, weapons: TheSmgSet);
 
         Assert.Equal(EntityNames.WeaponCrowbar, EmptyTheSmgAndIdle(rig));
+    }
+
+    // =====================================================================
+    // The direct switch's deploy clause (Weapon_CanSwitchTo through
+    // Weapon_Switch, basecombatcharacter_shared.cpp:51): the slot key, the
+    // wheel and the named weapon all cross it.
+    // =====================================================================
+
+    [Fact]
+    public void AWeaponWhoseBehaviourWillNotDeployIsNotTakenByTheDirectSwitch()
+    {
+        var rig = Armed(0, behaviours: DryBehaviours(), weapons: TheSmgSet);
+
+        Assert.Equal(SwitchOutcome.Switched, rig.Arsenal.Switch(Player, EntityNames.WeaponSmg1));
+
+        // The control: a candidate whose behaviour answers is taken whole.
+        Assert.Equal(SwitchOutcome.Switched, rig.Arsenal.Switch(Player, EntityNames.WeaponCrowbar));
+
+        // The pistol's behaviour refuses the deploy: the direct switch refuses
+        // with it, and the hands keep the crowbar.
+        Assert.Equal(SwitchOutcome.CannotDeploy, rig.Arsenal.Switch(Player, EntityNames.WeaponPistol));
+        Assert.Equal(EntityNames.WeaponCrowbar, rig.Arsenal.Holdings(Player).Single(h => h.Active).ClassName);
     }
 }

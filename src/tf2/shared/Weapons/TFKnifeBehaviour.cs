@@ -9,6 +9,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 using TF2.Shared.Combat;
+using TF2.Shared.Player;
 
 namespace TF2.Shared;
 
@@ -136,7 +137,11 @@ public interface ITFSpyState
 /// <summary>
 /// The knife's links in the chain (Stage 2.12), beside the melee behaviour it
 /// runs under (no subclass of <see cref="TFMeleeBehaviour"/>: hooks are the
-/// sanctioned extension):
+/// sanctioned extension). The shared half: the identity each side's hook
+/// carries — the row, the band and the knife test — over the side's own
+/// dependencies (<see cref="TF2.Server.Weapons.TFKnifeServerHook"/> through
+/// the spy slice, <see cref="TF2.Client.Weapons.TFKnifeClientHook"/> through
+/// the predicted carrier).
 ///
 /// <para>
 /// — THE BACKSTAB: the swing names a victim through
@@ -161,75 +166,18 @@ public interface ITFSpyState
 /// tf_weapon_knife.cpp:224, 263).
 /// </para>
 /// </summary>
-[SideService(Side.Server)]
-[SideService(Side.Client)]
-public sealed class TFKnifeHook(ITFSpyState? spies = null) : ITFWeaponHook
+public abstract class TFKnifeHook : ITFWeaponHook
 {
     /// <summary>The knife's row (<c>TF_WEAPON_KNIFE</c>'s script).</summary>
     public const string KnifeScript = "tf_weapon_knife";
 
-    /// <summary>Stage 2.12's band, after the component source and the commands.</summary>
+    /// <summary>Stage 2.12's band, after the component source and the commands: the
+    /// server hook's stage (<see cref="TF2.Server.Weapons.TFKnifeServerHook"/>); the
+    /// client's replay takes the band's next (<see cref="TF2.Client.Weapons.TFKnifeClientHook"/>).</summary>
     public const int Order = 1_000_000 - 1_000 + 984;
 
-    public int HookOrder => Order;
+    public virtual int HookOrder => Order;
 
-    private static bool IsKnife(in TFWeaponHookContext weapon) =>
+    protected static bool IsKnife(in TFWeaponHookContext weapon) =>
         string.Equals(weapon.Type.Name, KnifeScript, StringComparison.Ordinal);
-
-    /// <summary>
-    /// The knife's crit is <c>IsBackstab()</c> (tf_weapon_knife.cpp:487-500):
-    /// answered whole, so no melee roll runs and the bucket is untouched.
-    /// Without a spy slice (a client replay) the answer is no: the backstab
-    /// is the server's damage (docs/divergences.md).
-    /// </summary>
-    public TFCritResult? CritAnswer(in TFWeaponHookContext weapon) =>
-        IsKnife(in weapon) ? new TFCritResult(spies is { } state && state.Smack(weapon.OwnerIndex)) : null;
-
-    public bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
-    {
-        if (!IsKnife(in weapon))
-            return true;
-
-        // The Spy-cicle's melted knife (tf_weapon_knife.cpp:521-529): CanDeploy recomputes the
-        // knife's existence from the melt's stamp and window (:523) and refuses while it is gone
-        // (:525-528), so a melted knife's press runs no attack at all — the melee chain skips the whole
-        // swing on a refused BeforeFire, as stock's Undeployed weapon stops before PrimaryAttack.
-        if (attack.Command.OwnerIndex > 0 && spies is { } state && !state.KnifeReady(attack.Command.OwnerIndex, attack.Now))
-            return false;
-
-        if (attack.Command.OwnerIndex > 0 && attack.EffectsLive && spies is { } swing)
-            swing.Swing(attack.Command.OwnerIndex, attack.Type.MeleeRange);
-        return true;
-    }
-
-    /// <summary>
-    /// The smack's half of the backstab: <see cref="TFMeleeBehaviour"/>'s
-    /// <c>ItemPostFrame</c> asks the chain for the hit's damage at the smack
-    /// time (and the roll asks at the swing), and a backstab answers zero so
-    /// the swing's own arm hits for nothing.
-    /// </summary>
-    public float ModifyDamage(in TFWeaponHookContext weapon, float damage) =>
-        IsKnife(in weapon) && weapon.OwnerIndex > 0 && spies is { } state && state.Smack(weapon.OwnerIndex)
-            ? 0f
-            : damage;
-
-    public void AfterFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
-    {
-        if (attack.Command.OwnerIndex <= 0 || spies is not { } state)
-            return;
-
-        state.RemoveInvisibility(attack.Command.OwnerIndex);
-
-        // The knife's tail (tf_weapon_knife.cpp:243-264): a successful backstab by a knife holding
-        // set_disguise_on_backstab disguises as the victim instead of the plain RemoveDisguise every
-        // other attack takes (stock's ShouldRemoveDisguiseOnPrimaryAttack: tf_weaponbase_gun.cpp:136,
-        // 210, tf_weapon_knife.cpp:224, 263). Stock's HasTheFlag half of the gate (:246) rides inside
-        // DisguiseOnKill, beside the slice's own ctf read.
-        if (IsKnife(in weapon) && state.Smack(attack.Command.OwnerIndex)
-            && state.ShouldDisguiseOnBackstab(attack.Command.OwnerIndex)
-            && state.DisguiseOnKill(attack.Command.OwnerIndex))
-            return;
-
-        state.RemoveDisguise(attack.Command.OwnerIndex);
-    }
 }

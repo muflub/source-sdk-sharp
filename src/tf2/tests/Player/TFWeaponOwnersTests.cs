@@ -42,7 +42,8 @@ public sealed class TFWeaponOwnersTests
         var rig = new PlayerRig().As(cls);
         var winners = new TFRoundWinners();
         var items = new TFPlayerItems();
-        return (rig, new TFServerWeaponOwners(rig.Carriers, winners, items, rig.Engine, new GroundDirectory(), new TFPlayerStats()), winners, items);
+        return (rig, new TFServerWeaponOwners(rig.Carriers, winners, items, rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog), winners, items);
     }
 
     [Fact]
@@ -50,7 +51,8 @@ public sealed class TFWeaponOwnersTests
     {
         var rig = new PlayerRig().As(TFClass.Scout);
         var directory = new GroundDirectory();
-        var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(), rig.Engine, directory, new TFPlayerStats());
+        var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(), rig.Engine, directory, new TFPlayerStats(),
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
 
         directory.Player.State.Flags = 0;
         Assert.True(owners.OffGround(PlayerRig.Index));
@@ -68,7 +70,8 @@ public sealed class TFWeaponOwnersTests
         var rig = new PlayerRig().As(TFClass.Sniper);
         var directory = new GroundDirectory();
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
-                                              rig.Engine, directory, new TFPlayerStats());
+                                              rig.Engine, directory, new TFPlayerStats(),
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
         var bow = new SsWeapon { Handle = new EntityHandle(0x0002_0000u | 9) };
         bow.State.BindLocal();
         directory.Weapon = bow;
@@ -110,7 +113,7 @@ public sealed class TFWeaponOwnersTests
         var medigun = new MeterMediguns { Charges = { [PlayerRig.Index] = meter } };
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
                                               rig.Engine, new GroundDirectory(), new TFPlayerStats(),
-                                              new LocatorOf(medigun));
+                                              medigun, rig.Schema, new PoollessGiver(), rig.Catalog);
         return (rig, owners, medigun);
     }
 
@@ -145,7 +148,8 @@ public sealed class TFWeaponOwnersTests
     {
         var rig = new PlayerRig().As(TFClass.Spy);
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
-                                              rig.Engine, new GroundDirectory(), new TFPlayerStats());
+                                              rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
         rig.State.CloakMeter = 100f;
 
         // The cloak arm (:5589-5612): the raw attribute off the hundred-point
@@ -159,7 +163,8 @@ public sealed class TFWeaponOwnersTests
     {
         var rig = new PlayerRig().As(TFClass.Soldier);
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
-                                              rig.Engine, new GroundDirectory(), new TFPlayerStats());
+                                              rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
 
         // Neither arm names the soldier (:5565, :5589): nothing moves, and the
         // false says so.
@@ -208,10 +213,11 @@ public sealed class TFWeaponOwnersTests
     public void The_item_is_the_one_the_loadout_handed_out()
     {
         var (rig, owners, _, items) = Server(TFClass.Scout);
-        var loadout = new TF2.Server.Econ.TFLoadoutProvider(new TF2.Server.Econ.LocalInventory(
+        var loadout = LoadoutDeps.Loadout(new TF2.Server.Econ.LocalInventory(
                 new TF2.Server.Econ.InventoryStore(new ModInfo(_ => null), rig.Schema, rig.Log), rig.Schema,
                 new NoClients(), rig.Log),
-            rig.Schema, rig.Carriers, items);
+            rig.Schema, classes: rig.Carriers, items: items, table: rig.Classes,
+            players: rig.Engine, precache: rig.Engine, log: rig.Log);
         Assert.Null(owners.ItemOf(PlayerRig.Index, "tf_weapon_scattergun"));
 
         _ = loadout.Weapons(PlayerRig.Player);
@@ -433,7 +439,8 @@ public sealed class TFWeaponOwnersTests
         var rig = new PlayerRig().As(TFClass.Scout);
         _ = rig.Loadout.Weapons(PlayerRig.Player);
         var serverOwners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), rig.Items,
-                                                    rig.Engine, new GroundDirectory(), new TFPlayerStats());
+                                                    rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                                    new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
         var serverItem = serverOwners.ItemOf(PlayerRig.Index, "tf_weapon_scattergun");
         Assert.NotNull(serverItem);
 
@@ -465,7 +472,8 @@ public sealed class TFWeaponOwnersTests
         var rig = new PlayerRig().As(TFClass.Sniper);
         _ = rig.Loadout.Weapons(PlayerRig.Player);
         var serverOwners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), rig.Items,
-                                                    rig.Engine, new GroundDirectory(), new TFPlayerStats());
+                                                    rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                                    new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
         var serverItem = serverOwners.ItemOf(PlayerRig.Index, "tf_weapon_sniperrifle");
         Assert.NotNull(serverItem);
         Assert.Equal("10 0 -10", new AttributeHooks().String(null, "min_viewmodel_offset", serverItem));
@@ -628,7 +636,8 @@ public sealed class TFWeaponOwnersTests
             { Handle = PlayerRig.Player };
         player.State.BindLocal();
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
-                                              rig.Engine, new OnePlayer(player), new TFPlayerStats());
+                                              rig.Engine, new OnePlayer(player), new TFPlayerStats(),
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
 
         player.State.WaterLevel = GameMovement.WlEyes;
         Assert.True(owners.EyesUnderwater(PlayerRig.Index));
@@ -663,15 +672,11 @@ public sealed class TFWeaponOwnersTests
     [Fact]
     public void The_server_scan_registers_the_carriers_owners()
     {
-        var c = new ServiceContainer();
-        var engine = new RecordingEngine();
-        c.AddInstance<IEnginePlayers>(engine);
-        c.AddInstance<IEntityDirectory>(new TF2.Tests.Combat.NoEntities());
-        // The schema the owners' shield walk reads, as the server's composition holds it.
-        c.AddInstance<IEngineFiles>(new EconTestFiles().With(ItemSchema.FilePath,
-                                                             EconTestFiles.Fixture("items_game.trimmed.txt")));
-        c.AddInstance<ILog>(new RecordingLog());
-        SideServices.Register(c, Side.Server, typeof(TFServerWeaponOwners).Assembly.GetTypes());
+        // The owners' required closure now reaches the medigun, the healing,
+        // the resupply and the round machine, so the container is the
+        // composition's: the same scan over the same assembly, plus the
+        // neighbours no owners fact composes.
+        var c = TF2.Tests.Weapons.TFWeaponCompositionTests.Server();
 
         Assert.IsType<TFServerWeaponOwners>(c.Resolve(typeof(ITFWeaponOwners)));
     }
@@ -808,7 +813,8 @@ public sealed class TFWeaponOwnersTests
         var rig = new PlayerRig().As(TFClass.Scout);
         var stats = new TFPlayerStats();
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
-                                              rig.Engine, new GroundDirectory(), stats);
+                                              rig.Engine, new GroundDirectory(), stats,
+                                              new MeterMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
 
         Assert.Equal((0, 0), owners.RangedCritDamageOf(PlayerRig.Index));   // nothing booked yet
 
@@ -844,20 +850,5 @@ public sealed class TFWeaponOwnersTests
         public void PreserveCharge(int ownerIndex, float amount) { }
         public int HealingTargetIndex(int ownerIndex) => -1;
         public bool IsReleasing(int ownerIndex) => false;
-    }
-
-    /// <summary>The one link the drain resolves the medigun through.</summary>
-    private sealed class LocatorOf(ITFMedigunWeapons mediguns) : IServiceLocator
-    {
-        public object? Resolve(Type serviceType)
-            => serviceType == typeof(ITFMedigunWeapons) ? mediguns : null;
-
-        public object? ResolveNamed(string name) => null;
-
-        public bool IsRegistered(Type serviceType) => serviceType == typeof(ITFMedigunWeapons);
-
-        public IReadOnlyCollection<Type> ServiceTypes => [typeof(ITFMedigunWeapons)];
-
-        public IReadOnlyCollection<string> Names => [];
     }
 }

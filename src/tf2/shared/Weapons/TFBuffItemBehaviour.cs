@@ -60,7 +60,7 @@ public sealed class TFBuffItemBehaviour(TFWeaponParts parts, AttributeHooks? att
     public override void PrimaryAttack(in WeaponAttackContext attack)
     {
         int owner = attack.Command.OwnerIndex;
-        if (owner <= 0 || Parts.PlayerData?.Predicted(owner) is not { } state)
+        if (owner <= 0 || Parts.PlayerData.Predicted(owner) is not { } state)
             return;
 
         if (state.RageMeter < TFRageMeter.FullMeter)

@@ -280,11 +280,10 @@ public sealed class TFWeaponSlotForecastTests
         {
             var player = new LocalPlayer(new Engine());
             player.State.BindLocal();
-            ulong carried = (1ul << weapons.IndexOf("tf_weapon_shotgun_pyro"))
-                          | (1ul << weapons.IndexOf("tf_weapon_flamethrower"))
-                          | (1ul << weapons.IndexOf("tf_weapon_fireaxe"));
-            player.State.CarriedWeapons = (uint)carried;
-            player.State.CarriedWeaponsHigh = (uint)(carried >> 32);
+            // The whole 128-bit mask: the shipped rows run past bit 63.
+            player.State.CarriedMask = ((UInt128)1 << weapons.IndexOf("tf_weapon_shotgun_pyro"))
+                                     | ((UInt128)1 << weapons.IndexOf("tf_weapon_flamethrower"))
+                                     | ((UInt128)1 << weapons.IndexOf("tf_weapon_fireaxe"));
             return new HeldCarry(LocalPlayer, player);
         });
 

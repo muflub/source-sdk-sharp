@@ -43,8 +43,18 @@ public sealed class TFDrinkTests
         rig.Engine.Returns("Entities.GetClassName", "player"); // the hurt checks name the plain player
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine,
                                                 new ListHooks<ITFConditionHook>(new TFPlayerConditionEffectArms(rig.Engine, rig.Carriers)));
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                 new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
         var stack = new TFStunStack(rig.Carriers, players, rig.Engine);
         rig.Extra.Add(stack);
         rig.As(TFClass.Scout);
@@ -54,7 +64,13 @@ public sealed class TFDrinkTests
             owners.Items[PlayerRig.Index] = item;
 
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, owners, new AttributeHooks(),
-                                            new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers),
+                                            new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers,
+                                                new TF2.Server.Voice.TFConceptSpeech(new TF2.Tests.Entities.FakeConceptRules(), rig.Carriers,
+                                                    new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
+                                                    new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()),
+                                                    rig.Engine, new TF2.Tests.Entities.FakeRandom()),
+                                                owners, new AttributeHooks(),
+                                                new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files())),
                                             rig.Engine, rig.Engine, rig.Engine, new NoEntities(), arsenal: arsenal);
         return (rig, lunchbox, conditions, stack);
     }
@@ -140,8 +156,18 @@ public sealed class TFDrinkTests
 
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine,
                                                 new ListHooks<ITFConditionHook>(new TFPlayerConditionEffectArms(rig.Engine, rig.Carriers)));
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                 new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
 
         // The voice of the press: the rules answer the taunt concept, as the
         // shipped talker file does for the scout's held drink.
@@ -152,7 +178,9 @@ public sealed class TFDrinkTests
                                                          new TF2.Tests.Entities.FakeRandom());
 
         var arsenal = CarriedDrink();
-        var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice);
+        var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice,
+                                        new NoTFWeaponOwners(), new AttributeHooks(),
+                                        TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage());
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, new FakeOwners(), new AttributeHooks(),
                                             taunts, rig.Engine, rig.Engine, rig.Engine, new NoEntities(), arsenal: arsenal);
 
@@ -199,8 +227,18 @@ public sealed class TFDrinkTests
 
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine,
                                                 new ListHooks<ITFConditionHook>(new TFPlayerConditionEffectArms(rig.Engine, rig.Carriers)));
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                 new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
 
         var rules = new TF2.Tests.Entities.FakeConceptRules
         {
@@ -215,7 +253,8 @@ public sealed class TFDrinkTests
                                                          new TF2.Tests.Entities.FakeRandom());
 
         var arsenal = CarriedDrink();
-        var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice);
+        var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice,
+                                        new NoTFWeaponOwners(), new AttributeHooks(), gestureless);
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, new FakeOwners(), new AttributeHooks(),
                                             taunts, rig.Engine, rig.Engine, rig.Engine, new NoEntities(), arsenal: arsenal);
 

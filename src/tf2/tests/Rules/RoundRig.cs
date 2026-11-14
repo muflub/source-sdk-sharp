@@ -415,6 +415,22 @@ internal sealed class FixedVeto : ITimerExpiryVeto
 }
 
 /// <summary>
+/// The stats seam with no rows: every read answers nothing, which through the
+/// stable sort keeps stock's insertion order and leaves the swap pass without
+/// a delta to reduce — what the base machine does when the player resource is
+/// there but holds nobody.
+/// </summary>
+internal sealed class NoScores : TF2.Server.Player.ITFPlayerStats
+{
+    public void Increment(EntityHandle player, TFStat stat, int amount = 1) { }
+    public int Round(int playerIndex, TFStat stat) => 0;
+    public int Accumulated(int playerIndex, TFStat stat) => 0;
+    public int RoundScore(int playerIndex) => 0;
+    public int Score(int playerIndex) => 0;
+    public void ResetPlayer(EntityHandle player) { }
+}
+
+/// <summary>
 /// The round machine over fakes of every seam, a TF2 mode active, the clock
 /// at 100 s. <see cref="Step"/> moves the clock and runs one think.
 /// </summary>
@@ -447,15 +463,19 @@ internal sealed class RoundRig
         Scores = new TFTeamScores(table ?? new TF2.Server.Entities.TeamResource());
         Roster = new FakeRoster(Clock);
         Slot.Current = Mode;
-        Objectives = objectives;
         Balance = new TeamBalance(Settings, Roster, Announcer, Timers, Clock, Log, classes);
         // The auto scramble's dedicated-server gate: a dedicated box, as the
         // arm presumes; a listen-server fact flips it before the win.
         Engine = RecordingEngine.Default().Returns("Host.IsDedicatedServer", true);
+        // The machine takes every seam required; a caller that names none
+        // gets each seam's empty arm, as the side's registrations hold one.
+        var heldObjectives = objectives ?? new TF2.Server.Entities.ObjectiveEntities(new TF2.Tests.Ctf.EmptyDirectory());
+        Objectives = heldObjectives;
         Flow = new TeamRoundFlow(Settings, Roster, Announcer, World, End, Slot, Scores, Timers, Balance, Clock, Log,
                                  new RandomSeeds(seed), Engine,
                                  new ListHooks<ITeamRoundListener>(Listener), new ListHooks<ITimerExpiryVeto>(Veto),
-                                 carriers, WinPanel, level, objectives, stats);
+                                 carriers ?? new TF2.Server.Player.TFPlayerCarriers(), WinPanel, level ?? new FakeLevel(),
+                                 heldObjectives, stats ?? new NoScores());
     }
 
     /// <summary>Moves the clock by <paramref name="seconds"/> and thinks once.</summary>

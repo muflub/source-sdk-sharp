@@ -58,12 +58,14 @@ public static class TFJump
     /// </summary>
     /// <param name="activeWeapon">The active weapon's item, the ON_OTHER root
     /// of the dash count; null for none, as stock's null <c>pTFActiveWeapon</c>.</param>
-    /// <param name="attribs">The side's attribute walk, the player's own manager
-    /// as its root; null for none, every hook then unset.</param>
-    /// <param name="playerAttributes"><c>m_AttributeManager</c>.</param>
+    /// <param name="attribs">The side's attribute walk, injected through its
+    /// side's registration (the <see cref="AttributeHooks"/> seam answers on both
+    /// sides), the player's own manager as its root.</param>
+    /// <param name="playerAttributes"><c>m_AttributeManager</c>; null for none,
+    /// as stock's manager-less arm.</param>
     public static bool CanAirDash(TFClass playerClass, in TFCondMask conditions, int airDash, int dashCount,
-                                  IAttributeProvider? activeWeapon = null, AttributeHooks? attribs = null,
-                                  IAttributeProvider? playerAttributes = null)
+                                  IAttributeProvider? activeWeapon, AttributeHooks attribs,
+                                  IAttributeProvider? playerAttributes)
     {
         if (conditions.Has(TFCond.HalloweenKart))
             return false;
@@ -77,13 +79,12 @@ public static class TFJump
         if (conditions.Has(TFCond.SodapopperHype))
             return airDash < HypeDashes;
 
-        if (attribs is not null)
-            dashCount = attribs.Int(dashCount, AirDashCountAttrib, activeWeapon);
+        dashCount = attribs.Int(dashCount, AirDashCountAttrib, activeWeapon);
 
         if (airDash >= dashCount)
             return false;
 
-        return attribs?.Int(0, DoubleJumpDisabledAttrib, playerAttributes) != 1;
+        return attribs.Int(0, DoubleJumpDisabledAttrib, playerAttributes) != 1;
     }
 
     /// <summary>
@@ -95,14 +96,14 @@ public static class TFJump
     /// (deferred.tsv).
     /// </summary>
     public static float AirDash(TFClass playerClass, in TFCondMask conditions, int airDash, int dashCount,
-                                IAttributeProvider? activeWeapon = null, AttributeHooks? attribs = null,
-                                IAttributeProvider? playerAttributes = null)
+                                IAttributeProvider? activeWeapon, AttributeHooks attribs,
+                                IAttributeProvider? playerAttributes)
     {
         if (!CanAirDash(playerClass, in conditions, airDash, dashCount, activeWeapon, attribs, playerAttributes))
             return 0f;
 
-        float jumpMod = attribs?.Float(1f, JumpHeightAttrib, playerAttributes) ?? 1f;
-        jumpMod = attribs?.Float(jumpMod, JumpHeightFromWeaponAttrib, activeWeapon) ?? jumpMod;
+        float jumpMod = attribs.Float(1f, JumpHeightAttrib, playerAttributes);
+        jumpMod = attribs.Float(jumpMod, JumpHeightFromWeaponAttrib, activeWeapon);
         return DashSpeed * jumpMod;
     }
 }

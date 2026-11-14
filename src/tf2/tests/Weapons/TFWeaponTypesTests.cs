@@ -47,12 +47,13 @@ public sealed class TFWeaponTypesTests
         // the katana and the jars, none named by a class script's weaponN; their own facts
         // stand them up). The engineer's rescue shotgun seeds the same way.
         // The energy family joins them as the equipped unlocks their rows: the bison,
-        // the mangler, the pomson — and the scout's hype pair the same way.
+        // the mangler, the pomson — and the scout's hype pair and the Shortstop the same way.
         Assert.Equal(
             WeaponFixtures.Names().Append("tf_weapon_flaregun").Append("tf_weapon_crossbow")
                 .Append("tf_weapon_robot_arm").Append("tf_weapon_laser_pointer").Append("tf_weapon_lunchbox").Append("tf_weapon_lunchbox_drink")
                 .Append("tf_weapon_buff_item").Append(TFWeaponTypes.Katana)
                 .Append("tf_weapon_rocketlauncher_airstrike")
+                .Append("tf_weapon_handgun_scout_primary")
                 .Append("tf_weapon_flaregun_revenge")
                 .Append("tf_weapon_sniperrifle_decap").Append("tf_weapon_sniperrifle_classic")
                 .Append("tf_weapon_jar").Append("tf_weapon_jar_gas").Append("tf_weapon_jar_milk")
@@ -62,6 +63,7 @@ public sealed class TFWeaponTypesTests
                 .Append("tf_weapon_raygun").Append("tf_weapon_particle_cannon")
                 .Append("tf_weapon_drg_pomson")
                 .Append("tf_weapon_soda_popper").Append("tf_weapon_pep_brawler_blaster")
+                .Append("tf_weapon_cleaver")
                 .Append("tf_weapon_rocketpack")
                 .Append("tf_weapon_mechanical_arm")
                 .Append("tf_weapon_charged_smg")
@@ -169,6 +171,23 @@ public sealed class TFWeaponTypesTests
         Assert.Equal("tf2.shotgun", brawler.Behaviour);
         Assert.Equal(6, popper.ClipSize);
         Assert.Equal(10, popper.Pellets);
+    }
+
+    /// <summary>
+    /// The Flying Guillotine and its Promo skin (items_working.tsv:222, :226): the
+    /// scout's thrown cleaver, held as the equipped item whose class is its own
+    /// row. The kind answers through the script's own shape — a secondary that
+    /// throws <c>projectile_cleaver</c> (stock's <c>TF_WEAPON_CLEAVER</c>, the
+    /// cleaver entity behind the bounce-and-return); the row and the behaviour
+    /// key compose over the extras script like the hype pair above.
+    /// </summary>
+    [Fact]
+    public void The_flying_guillotine_runs_the_projectile_of_its_cleaver_script()
+    {
+        var script = WeaponFixtures.ParseExtra("tf_weapon_cleaver");
+
+        Assert.Equal(TFWeaponKind.Projectile, TFWeaponKinds.Of(script));
+        Assert.Equal("tf2.projectile", ExtrasRows()["tf_weapon_cleaver"].Behaviour);
     }
 
     /// <summary>The composed rows over the shipped scripts plus the extras (weapons-extra/README).</summary>

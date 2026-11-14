@@ -414,7 +414,7 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         // tf_player_shared.cpp:14483-14486), this gun the active weapon the
         // check names at both ends of the count.
         if (IsManmelter(script)
-            && Parts.PlayerData?.Predicted(attack.Command.OwnerIndex) is { } bank)
+            && Parts.PlayerData.Predicted(attack.Command.OwnerIndex) is { } bank)
         {
             bank.RevengeCrits = Math.Max(0, bank.RevengeCrits - 1);
             if (bank.RevengeCrits == 0)
@@ -565,7 +565,7 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
         if (Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
             return false;
 
-        if (Parts.PlayerData?.Predicted(attack.Command.OwnerIndex) is not { } state
+        if (Parts.PlayerData.Predicted(attack.Command.OwnerIndex) is not { } state
             || state.RageMeter < TFRageMeter.FullMeter)
             return false;
 
@@ -835,14 +835,14 @@ public class TFMedigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
             // The replayed half — the target pick stock runs on both sides
             // (tf_weapon_medigun.cpp:1214) — every pass, before the charge:
             // a pass that wrote no beam would stand judged against the
-            // server's word. The server's arm answers null and runs the whole
-            // frame in its own.
-            Parts.MedigunPrediction?.Frame(in attack, script, held);
+            // server's word. The server's own answer holds no replay: the
+            // whole frame is its arm's.
+            Parts.MedigunPrediction.Frame(in attack, script, held);
 
             if (attack.EffectsLive)
                 Parts.Effects.Heal(in attack, script, held);
-            else if (Parts.PlayerData is { } data)
-                PredictCharge(in attack, data);
+            else
+                PredictCharge(in attack, Parts.PlayerData);
         }
 
         // The tail's stamp, every command the gun answers: the server's arm
@@ -887,7 +887,7 @@ public class TFMedigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
             // The setup triple reads the same gate the server's build does
             // (tf_weapon_medigun.cpp:1347-1350); the crawl and the healers'
             // share stay the server's word, corrected at every decode.
-            float setup = Parts.RoundSetup is { InSetupWithRoundTimer: true } ? 3f : 1f;
+            float setup = Parts.RoundSetup.InSetupWithRoundTimer ? 3f : 1f;
             weapon.BehaviourMeter = Math.Min(1f, weapon.BehaviourMeter + dt / Parts.MedigunChargeRate * setup);
         }
     }

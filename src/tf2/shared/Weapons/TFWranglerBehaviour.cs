@@ -64,9 +64,9 @@ public sealed class TFWranglerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour
     {
         // The veto is the whole attack (the stock override fires no bullet):
         // the shells are the sentry's, on the sentry's beat.
-        if (attack.EffectsLive && Parts.SentryWrangle is { } sentry)
+        if (attack.EffectsLive)
         {
-            sentry.Fire(attack.Command.OwnerIndex);
+            Parts.SentryWrangle.Fire(attack.Command.OwnerIndex);
             SendAnim(in attack, WeaponAnim.Reload);   // ACT_ITEM1_VM_RELOAD, the held trigger's spin (:212)
         }
 
@@ -75,16 +75,16 @@ public sealed class TFWranglerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour
 
     public override void SecondaryAttack(in WeaponAttackContext attack)
     {
-        if (attack.EffectsLive && Parts.SentryWrangle is { } sentry)
-            sentry.FireRockets(attack.Command.OwnerIndex);
+        if (attack.EffectsLive)
+            Parts.SentryWrangle.FireRockets(attack.Command.OwnerIndex);
     }
 
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
         // UpdateLaserDot, one ask per command whether or not anything is held
         // (tf_weapon_laser_pointer.cpp:154): the dot follows the view.
-        if (attack.EffectsLive && Parts.SentryWrangle is { } sentry)
-            sentry.Aim(attack.Command.OwnerIndex);
+        if (attack.EffectsLive)
+            Parts.SentryWrangle.Aim(attack.Command.OwnerIndex);
 
         base.ItemPostFrame(attack);
     }
@@ -93,6 +93,6 @@ public sealed class TFWranglerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour
     {
         // As the builder's: outside a command, the owner is the weapon
         // state's — the deploy dressed it — stock's GetOwner().
-        Parts.SentryWrangle?.Release(attack.Weapon.OwnerIndex);
+        Parts.SentryWrangle.Release(attack.Weapon.OwnerIndex);
     }
 }

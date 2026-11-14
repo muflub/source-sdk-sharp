@@ -3,6 +3,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server.Econ;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Econ;
@@ -24,9 +25,22 @@ public sealed class TFPlayerResupplyTests
     {
         var rig = new PlayerRig().As(cls);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        return (rig, new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine),
+        return (rig, new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                           rig.Items, new AttributeHooks(),
+                                           scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                           catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                           hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                           deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                           clock: rig.Engine),
                 conditions);
     }
+
+    /// <summary>An arsenal an empty rig walks: its carries stay unmade, so a
+    /// clip reset or an effect-bar fill from the kit lands nowhere the facts
+    /// read — what the old absent arsenal did.</summary>
+    private static Arsenal LockerlessArsenal(PlayerRig rig) =>
+        new(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+            new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine, new DamageHitGroups());
 
     private static int HealthSet(PlayerRig rig) => rig.Engine.AllOf("Entities.SetHealth").Last().ArgAs<int>(1);
 
@@ -52,8 +66,31 @@ public sealed class TFPlayerResupplyTests
     [Fact]
     public void Regenerate_fills_to_the_max_the_kit_gives()
     {
-        // InitClass's SetHealth( GetMaxHealth() ): a Gunslinger's engineer spawns full at 150.
-        var resupply = OwnedResupply(out PlayerRig rig, managers: true);
+        // InitClass's SetHealth( GetMaxHealth() ): the kit's own grant is the
+        // manager the maximum walks (a new kit's grants replacing the old), so
+        // a buffing primary — the scout's scattergun carrying add_maxhealth
+        // 50 — spawns full at 175, not the class's 125.
+        var rig = new PlayerRig().As(TFClass.Scout);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var inventory = new LocalInventory(new InventoryStore(new ModInfo(_ => null), rig.Schema, rig.Log),
+                                           rig.Schema, new TFWeaponOwnersTests.NoClients(), rig.Log);
+        inventory.OnClientActive(PlayerRig.Index);
+        var scattergun = rig.Schema.BaseItem(TFClass.Scout, TFLoadoutSlot.Primary)!;
+        var buffed = new ItemInstance(1, scattergun, scattergun.Quality, [AttributeValue.OfFloat(Buff(), 50f)]);
+        inventory.Of(PlayerRig.Index)!.Add(buffed);
+        Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Scout, TFLoadoutSlot.Primary, buffed.Id),
+                    "the buffing scattergun is equipped over the base one");
+        var loadout = LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: rig.Items,
+                                          table: rig.Classes, catalog: rig.Catalog, carriers: rig.Carriers,
+                                          hooks: new AttributeHooks(), players: rig.Engine,
+                                          precache: rig.Engine, log: rig.Log);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
 
         resupply.Regenerate(PlayerRig.Player);
 
@@ -102,15 +139,18 @@ public sealed class TFPlayerResupplyTests
         // would otherwise refill slowly from the drained bucket.
         var rig = new PlayerRig().As(TFClass.Scout);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 100);
-        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_shotgun_primary"] =
-            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) };
-        owners.Managers[PlayerRig.Index] = Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5011);
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_shotgun_primary"] =
+            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) });
+        rig.Items.SetManager(PlayerRig.Index, Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5011));
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
         Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));
 
@@ -133,15 +173,18 @@ public sealed class TFPlayerResupplyTests
         // percentage of the same rate (:14343-14352).
         var rig = new PlayerRig().As(TFClass.Scout);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 100);
-        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_shotgun_primary"] =
-            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) };
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_shotgun_primary"] =
+            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) });
 
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
 
         // The deploy's first ask: the full cost at once — 125 down to 105 —
@@ -170,17 +213,20 @@ public sealed class TFPlayerResupplyTests
         // percentage of the same two.
         var rig = new PlayerRig().As(TFClass.Scout);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 100);
-        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_shotgun_primary"] =
-            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) };
-        owners.Managers[PlayerRig.Index] =
-            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5011);
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_shotgun_primary"] =
+            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) });
+        rig.Items.SetManager(PlayerRig.Index,
+            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5011));
 
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
 
         Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));   // the deploy's cost
@@ -221,14 +267,17 @@ public sealed class TFPlayerResupplyTests
     {
         var rig = new PlayerRig().As(TFClass.HeavyWeapons);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_fists");
         rig.Engine.Returns("Clock.Now", 10f);
         rig.Engine.Returns("Entities.GetHealth", 300);
-        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_fists"] =
-            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5010) };
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_fists"] =
+            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5010) });
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
                                             clock: rig.Engine);
 
         // The held first glove: the deploy's twenty at once, then two a second
@@ -242,8 +291,8 @@ public sealed class TFPlayerResupplyTests
 
         // tf2_equip heavyweapons melee with the other draining glove — the
         // item behind the melee name changes defindex — then kill and respawn.
-        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_fists"] =
-            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5012) };
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_fists"] =
+            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5012) });
         rig.Engine.Returns("Clock.Now", 112f);
         resupply.OnSpawning(PlayerRig.Player, 112f);
 
@@ -262,20 +311,24 @@ public sealed class TFPlayerResupplyTests
     {
         rig = new PlayerRig().As(TFClass.Scout);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
         var hooks = new AttributeHooks();
         if (managers)
-            owners.Managers[PlayerRig.Index] = Arm("add_maxhealth", 50f, AttributeDescriptionFormat.Additive, 5001);
+            rig.Items.SetManager(PlayerRig.Index, Arm("add_maxhealth", 50f, AttributeDescriptionFormat.Additive, 5001));
         if (nonbuffed)
-            owners.Managers[PlayerRig.Index] = Arm("add_maxhealth_nonbuffed", 10f, AttributeDescriptionFormat.Additive, 5002);
+            rig.Items.SetManager(PlayerRig.Index, Arm("add_maxhealth_nonbuffed", 10f, AttributeDescriptionFormat.Additive, 5002));
         if (healing > 0f)
         {
             rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_scattergun");
-            owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_scattergun"] =
-                Arm("mult_healing_received", healing, AttributeDescriptionFormat.Percentage, 5003) };
+            rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_scattergun"] =
+                Arm("mult_healing_received", healing, AttributeDescriptionFormat.Percentage, 5003) });
         }
         return new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                    conditions, rig.Loadout, rig.Engine, owners, hooks);
+                                    conditions, rig.Loadout, rig.Engine, rig.Items, hooks,
+                                    scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                    catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                    hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                    deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                    clock: rig.Engine);
     }
 
     private static IAttributeProvider Arm(string name, float value, AttributeDescriptionFormat format, int defindex)
@@ -287,6 +340,12 @@ public sealed class TFPlayerResupplyTests
                                     AttributeValueType.Default, MergedKeys.Block("x")), value));
         return container;
     }
+
+    /// <summary>The kit's <c>add_maxhealth</c> grant: the additive format, so
+    /// the walk adds it to the class maximum.</summary>
+    private static AttributeDefinition Buff() =>
+        new(5001, "attr 5001", "add_maxhealth", AttributeDescriptionFormat.Additive,
+            AttributeEffectType.Neutral, false, false, AttributeValueType.Default, MergedKeys.Block("x"));
 
     [Fact]
     public void A_classless_player_has_no_max_and_takes_nothing()
@@ -358,12 +417,15 @@ public sealed class TFPlayerResupplyTests
     {
         var rig = new PlayerRig().As(TFClass.Scout);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
-
         // scout.txt AmmoMax "tf_ammo_secondary" "36" → ×2.
-        owners.Managers[PlayerRig.Index] = SecondaryManager();
+        rig.Items.SetManager(PlayerRig.Index, SecondaryManager());
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks());
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
 
         Assert.Equal(72, resupply.MaxAmmo(PlayerRig.Player, TFAmmo.Secondary));
 
@@ -403,10 +465,14 @@ public sealed class TFPlayerResupplyTests
         // Eureka Effect's half-weight packs. A non-metal grant weighs full.
         var rig = new PlayerRig().As(TFClass.Engineer);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = Arm("mult_metal_pickup", 0.5f, AttributeDescriptionFormat.Percentage, 5021);
+        rig.Items.SetManager(PlayerRig.Index, Arm("mult_metal_pickup", 0.5f, AttributeDescriptionFormat.Percentage, 5021));
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks());
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
         rig.Engine.Returns("Players.GiveAmmo", 50);
 
         Assert.Equal(50, resupply.GiveAmmo(PlayerRig.Player, 100, TFAmmo.Metal));
@@ -425,19 +491,23 @@ public sealed class TFPlayerResupplyTests
         // stock hook answers the player themselves — the held item's manager.
         var rig = new PlayerRig().As(TFClass.HeavyWeapons);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var owners = new TF2.Tests.Weapons.FakeOwners();
-        owners.Held[PlayerRig.Index] = "tf_weapon_shotgun_hwg";
-        owners.Items[PlayerRig.Index] = Arm("grenades1_resupply_denied", 1f,
-                                            AttributeDescriptionFormat.Additive, 5031);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_hwg");
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_shotgun_hwg"] =
+            Arm("grenades1_resupply_denied", 1f, AttributeDescriptionFormat.Additive, 5031) });
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks());
+                                            conditions, rig.Loadout, rig.Engine, rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog, arsenal: LockerlessArsenal(rig),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
         rig.Engine.Returns("Players.GiveAmmo", 50);
 
         Assert.Equal(0, resupply.GiveAmmo(PlayerRig.Player, 1, TFAmmo.Grenades1));
         Assert.Equal(0, rig.Engine.CountOf("Players.GiveAmmo"));
 
         // Without the denial the same grant pays the pool.
-        owners.Items.Remove(PlayerRig.Index);
+        rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider>());
         Assert.Equal(50, resupply.GiveAmmo(PlayerRig.Player, 1, TFAmmo.Grenades1));
         Assert.Equal(1, rig.Engine.AllOf("Players.GiveAmmo").Last().ArgAs<int>(1));
     }
@@ -592,9 +662,12 @@ public sealed class TFPlayerResupplyTests
             var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
             Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Rig.Engine, Arsenal),
                                             Rig.Engine, conditions, Rig.Loadout, Rig.Engine,
-                                            Weapons.Owners, new AttributeHooks(),
+                                            new TFPlayerItems(), new AttributeHooks(),
                                             scripts: new TFWeaponScripts(new RecordingLog(), WeaponFixtures.ShippedWithClasses()),
-                                            catalog: Weapons.Catalog, arsenal: Arsenal);
+                                            catalog: Weapons.Catalog, arsenal: Arsenal,
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: Engine);
         }
 
         /// <summary>The rocket's clip, as the carry holds it.</summary>

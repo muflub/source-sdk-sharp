@@ -23,6 +23,12 @@ public sealed class TFPlayerSpawnsTests
 {
     private static readonly EntityHandle Weapon = new(0x0004_0060u);
 
+    /// <summary>An arsenal over the fact's own seams: with no give, the kit's
+    /// clip reset and bar fills land on an empty carry and do nothing — what
+    /// the old absent arsenal did.</summary>
+    private static Arsenal LockerArsenal(RecordingLog log, RecordingEngine engine, IEntityDirectory directory) =>
+        new(log, engine, engine, engine, engine, engine, engine, engine, engine, directory, engine, new DamageHitGroups());
+
     private sealed class Rig
     {
         public readonly PlayerRig Player = new();
@@ -33,7 +39,6 @@ public sealed class TFPlayerSpawnsTests
         public readonly TFBlastJumpState Jump;
         public readonly Observers Observers;
         public readonly ConVarRegistry ConVars;
-        public readonly TF2.Tests.Weapons.FakeOwners Owners = new();
         public readonly TFPlayerResupply Resupply;
 
         public Rig()
@@ -55,7 +60,14 @@ public sealed class TFPlayerSpawnsTests
             Player.Extra.Add(Class);
             Player.Join();
             Resupply = new TFPlayerResupply(Player.Carriers, Player.Classes, engine, engine, Conditions,
-                                            Player.Loadout, engine, Owners, new TF2.Shared.Econ.AttributeHooks());
+                                            Player.Loadout, engine, Player.Items, new TF2.Shared.Econ.AttributeHooks(),
+                                            scripts: new TFWeaponScripts(Player.Log, Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: Player.Catalog,
+                                            arsenal: new Arsenal(Player.Log, engine, engine, engine, engine, engine, engine, engine, engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), engine, new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: engine);
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
                                         directory, Observers, new Carried(Weapon), Resupply,
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), Player.Log);
@@ -259,7 +271,7 @@ public sealed class TFPlayerSpawnsTests
     public void The_spawn_health_is_the_kits_max_health()
     {
         var rig = new Rig();
-        rig.Owners.Managers[PlayerRig.Index] = Arm("add_maxhealth", -55f, AttributeDescriptionFormat.Additive, 356);
+        rig.Player.Items.SetManager(PlayerRig.Index, Arm("add_maxhealth", -55f, AttributeDescriptionFormat.Additive, 356));
         rig.Class.Desired = TFClass.Spy;
 
         rig.Spawn();
@@ -342,7 +354,13 @@ public sealed class TFPlayerSpawnsTests
                                         registry, observers, new Carried(EntityHandle.None),
                                         new TFPlayerResupply(carriers, new PlayerRig().Classes, engine, engine,
                                                              new TFPlayerConditions(carriers, engine),
-                                                             new PlayerRig().Loadout, engine),
+                                                             new PlayerRig().Loadout, engine,
+                                                             new PlayerRig().Items, new AttributeHooks(),
+                                                             scripts: new TFWeaponScripts(log, Weapons.WeaponFixtures.ShippedWithClasses()),
+                                                             catalog: new PlayerRig().Catalog, arsenal: LockerArsenal(log, engine, registry),
+                                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                                             clock: engine),
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), log);
 
         spawns.OnSpawned(PlayerRig.Player, 1f);

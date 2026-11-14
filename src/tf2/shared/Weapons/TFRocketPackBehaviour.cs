@@ -207,7 +207,7 @@ public sealed class TFRocketPackBehaviour(TFWeaponParts parts, AttributeHooks? a
         Vector popped = PopVelocity(attack.Arms.Carrier?.Velocity ?? Vector.Zero);
         if (attack.Arms.Carrier is { } carrier)
             carrier.Velocity = popped;
-        Parts.PlayerData?.ThrusterLaunch(owner, popped); // ApplyAbsVelocityImpulse (:502)
+        Parts.PlayerData.ThrusterLaunch(owner, popped); // ApplyAbsVelocityImpulse (:502)
 
         if (Parts.Owners.ConditionsOf(owner) is { } conditions)
             conditions.Add(TFCond.ParachuteActive); // (:503)
@@ -251,7 +251,7 @@ public sealed class TFRocketPackBehaviour(TFWeaponParts parts, AttributeHooks? a
         // so the flight force is the whole velocity (:477).
         if (attack.Arms.Carrier is { } carrier)
             carrier.Velocity = force;
-        Parts.PlayerData?.ThrusterLaunch(owner, force); // SetAbsVelocity + ApplyAbsVelocityImpulse (:465-477)
+        Parts.PlayerData.ThrusterLaunch(owner, force); // SetAbsVelocity + ApplyAbsVelocityImpulse (:465-477)
 
         // charge -= cost, the meter's own clamp (:547 over the 0..100 clamp).
         weapon.ItemMeter = Math.Max(0f, weapon.ItemMeter - ChargeCost);

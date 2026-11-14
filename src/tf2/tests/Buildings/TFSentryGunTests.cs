@@ -6,6 +6,8 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using TF2.Server;
 using TF2.Server.Buildings;
+using TF2.Server.Player;
+using TF2.Shared.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using Xunit;
@@ -973,5 +975,68 @@ public class TFSentryGunTests
         var empty = rig.Engine.Last("Sound.EntityEmitSound");
         Assert.NotNull(empty);
         Assert.Equal(TFSentryGun.EmptySoundName, empty!.Value.ArgAs<string>(1));
+    }
+
+    /// <summary>The sentry-death pay the Justice's item carries, one defindex a fact.</summary>
+    private static int _defindex = 4242;
+
+    /// <summary>The builder's player-data carrier, the purse the pay lands in.</summary>
+    private static void AttachCarrier(BuildingsRig rig, EntityHandle player)
+    {
+        var carrierHandle = rig.NewHandle();
+        rig.Engine.Returns("Entities.Create", carrierHandle)
+                  .ReturnsEachCall("Entities.GetIndex", () => player.EntryIndex);
+        rig.Engine.WhenCalled("Entities.Spawn",
+                              c => rig.Registry.Spawn(c.ArgAs<EntityHandle>(0), TFEntityNames.PlayerData));
+        new TFPlayerCarrier(rig.Engine, rig.Registry, rig.Carriers, rig.Log).Attach(player);
+    }
+
+    private static TF2.Shared.Econ.IAttributeProvider PayingItem()
+    {
+        var item = new TF2.Shared.Econ.AttributeContainer(null, TF2.Shared.Econ.AttributeProviderType.Generic);
+        item.Set(TF2.Shared.Econ.AttributeValue.OfFloat(
+            new TF2.Shared.Econ.AttributeDefinition(_defindex++, "attr " + _defindex, "sentry_killed_revenge",
+                                                    TF2.Shared.Econ.AttributeDescriptionFormat.Additive,
+                                                    TF2.Shared.Econ.AttributeEffectType.Neutral,
+                                                    false, false, TF2.Shared.Econ.AttributeValueType.Default,
+                                                    TF2.Shared.Econ.MergedKeys.Block("x")), 1f));
+        return item;
+    }
+
+    /// <summary>
+    /// <c>CObjectSentrygun::Killed</c>'s tail (tf_obj_sentrygun.cpp:2055-2064):
+    /// the death pays the builder's Justice holder <c>Kills * 2 + Assists</c>,
+    /// through the real kill (<see cref="BuildingsRig.Hit"/>'s death call).
+    /// </summary>
+    [Fact]
+    public void TheDeathPaysTheBuildersJusticeForItsKills()
+    {
+        var (rig, sentry, builder) = AWorkingSentry();
+        AttachCarrier(rig, builder);
+        rig.Owners.ByName[builder.EntryIndex] = new()
+        {
+            [TF2.Server.Player.TFRevengeCrits.ShotgunScript] = PayingItem(),
+        };
+        sentry.IncrementKills();
+        sentry.IncrementKills();
+        sentry.IncrementAssists();
+        Assert.Equal(0, rig.Revenge.Of(builder.EntryIndex));   // the grant is the death's, not the kills'
+
+        BuildingsRig.Hit(sentry, EntityHandle.None, 5000f, DamageType.Bullet);
+
+        Assert.Equal(5, rig.Revenge.Of(builder.EntryIndex));   // 2 kills * 2 + 1 assist
+    }
+
+    /// <summary>The pay is the held Justice's: no <c>sentry_killed_revenge</c> item, no grant.</summary>
+    [Fact]
+    public void TheDeathPaysNothingWithoutTheJusticesItem()
+    {
+        var (rig, sentry, builder) = AWorkingSentry();
+        AttachCarrier(rig, builder);
+        sentry.IncrementKills();
+
+        BuildingsRig.Hit(sentry, EntityHandle.None, 5000f, DamageType.Bullet);
+
+        Assert.Equal(0, rig.Revenge.Of(builder.EntryIndex));
     }
 }

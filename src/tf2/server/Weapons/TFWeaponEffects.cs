@@ -32,6 +32,13 @@ public interface ITFFlameEffects
     bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script);
 }
 
+/// <summary>The Shortstop's shove (<c>CTFPistol_ScoutPrimary::Push</c>). One owner, <c>As = [typeof(ITFShoveEffects)]</c>.</summary>
+public interface ITFShoveEffects
+{
+    /// <inheritdoc cref="ITFWeaponEffects.Shove"/>
+    void Shove(in WeaponAttackContext attack, TFWeaponScript script);
+}
+
 /// <summary>Stage 2.9's arm: the medigun's beam. One owner, <c>As = [typeof(ITFHealEffects)]</c>.</summary>
 public interface ITFHealEffects
 {
@@ -146,77 +153,83 @@ public interface ITFLunchboxEffects
 /// The server's <see cref="ITFWeaponEffects"/>: one owner for the shared
 /// behaviours' effect calls, which hands each to the stage that owns that
 /// effect, so the projectile, flame, medigun and scope lanes each register an
-/// owner of their own seam without touching this file. A seam nobody owns
-/// does nothing, as <see cref="NoTFWeaponEffects"/> does for the whole set:
-/// the shot is spent and nothing appears.
+/// owner of their own seam without touching this file. Every seam is a
+/// required dependency: the composition holds an owner for each (the boot
+/// audit named all thirteen live), and a registration missing one fails at
+/// ServiceActivator instead of spending the shot on nothing.
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFWeaponEffects)])]
-public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, ITFFlameEffects? flames = null,
-                                    ITFHealEffects? heal = null, ITFZoomEffects? zoom = null,
-                                    ITFClassSkillEffects? skills = null, ITFItemSwitchEffects? itemSwitch = null,
-                                    ITFMeleeEffects? melee = null, ITFMinigunEffects? minigun = null,
-                                    ITFTracerEffects? tracer = null, ITFLunchboxEffects? lunchbox = null,
-                                    ITFBuffEffects? buffs = null,
-                                    TFConceptSpeech? speech = null) : ITFWeaponEffects
+public sealed class TFWeaponEffects(ITFProjectileEffects projectiles, ITFFlameEffects flames,
+                                    ITFHealEffects heal, ITFZoomEffects zoom,
+                                    ITFClassSkillEffects skills, ITFItemSwitchEffects itemSwitch,
+                                    ITFMeleeEffects melee, ITFMinigunEffects minigun,
+                                    ITFTracerEffects tracer, ITFLunchboxEffects lunchbox,
+                                    ITFBuffEffects buffs, ITFShoveEffects shove,
+                                    TFConceptSpeech speech) : ITFWeaponEffects
 {
-    private readonly TFConceptSpeech? _speech = speech;
+    private readonly TFConceptSpeech _speech = speech;
+
+    private readonly ITFShoveEffects _shove = shove;
 
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge)
-        => projectiles?.Projectile(in attack, script, shot, charge);
+        => projectiles.Projectile(in attack, script, shot, charge);
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script)
-        => projectiles?.Detonate(in attack, script);
+        => projectiles.Detonate(in attack, script);
+
+    public void Shove(in WeaponAttackContext attack, TFWeaponScript script)
+        => _shove.Shove(in attack, script);
 
     public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
-        => projectiles?.ShockAttack(in attack, script);
+        => projectiles.ShockAttack(in attack, script);
 
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot)
-        => flames?.Flames(in attack, script, shot);
+        => flames.Flames(in attack, script, shot);
 
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script)
-        => flames?.AirBlast(in attack, script);
+        => flames.AirBlast(in attack, script);
 
     public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
-        => flames?.ExtinguishBeam(in attack, script) ?? false;
+        => flames.ExtinguishBeam(in attack, script);
 
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held)
-        => heal?.Heal(in attack, script, held);
+        => heal.Heal(in attack, script, held);
 
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed)
-        => zoom?.Zoom(in attack, script, zoomed);
+        => zoom.Zoom(in attack, script, zoomed);
 
     public void Tracer(in WeaponAttackContext attack, TFWeaponScript script)
-        => tracer?.Tracer(in attack, script);
+        => tracer.Tracer(in attack, script);
 
     public bool ClassSpecialSkill(in WeaponAttackContext attack)
-        => skills?.DoSpecialSkill(attack.Command.OwnerIndex) ?? false;
+        => skills.DoSpecialSkill(attack.Command.OwnerIndex);
 
     public void EndClassSpecialSkill(in WeaponAttackContext attack)
-        => skills?.EndSpecialSkill(attack.Command.OwnerIndex);
+        => skills.EndSpecialSkill(attack.Command.OwnerIndex);
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script)
-        => itemSwitch?.SelectLast(in attack, script);
+        => itemSwitch.SelectLast(in attack, script);
 
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
-        => melee?.Melee(in attack, script, shot, in trace);
+        => melee.Melee(in attack, script, shot, in trace);
 
     public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange)
-        => melee?.MeleeSwingStarted(in attack, swingRange);
+        => melee.MeleeSwingStarted(in attack, swingRange);
 
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical)
-        => minigun?.AttackEnemyProjectiles(in attack, projectiles, critical);
+        => minigun.AttackEnemyProjectiles(in attack, projectiles, critical);
 
     public void RingOfFire(in WeaponAttackContext attack, int damage)
-        => minigun?.RingOfFire(in attack, damage);
+        => minigun.RingOfFire(in attack, damage);
 
     public void Rearmed(in WeaponAttackContext attack)
-        => minigun?.Rearmed(in attack);
+        => minigun.Rearmed(in attack);
 
     public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script)
-        => lunchbox?.LunchboxEat(in attack, script);
+        => lunchbox.LunchboxEat(in attack, script);
 
     public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode)
-        => lunchbox?.LunchboxDrop(in attack, script, mode);
+        => lunchbox.LunchboxDrop(in attack, script, mode);
 
     /// <summary>The scene clock's window and the firing gate's (tf_player.cpp:20158-20183).</summary>
     public const float SpeechWindow = 5f;
@@ -234,7 +247,7 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
     public void SpeakWeaponFire(in WeaponAttackContext attack, string concept)
     {
         int owner = attack.Command.OwnerIndex;
-        if (owner <= 0 || _speech is null)
+        if (owner <= 0)
             return;
 
         if (concept.Length == 0)
@@ -266,7 +279,7 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
     public void FiringSpeech(in WeaponAttackContext attack)
     {
         int owner = attack.Command.OwnerIndex;
-        if (owner <= 0 || _speech is null)
+        if (owner <= 0)
             return;
 
         if (_firingGate.TryGetValue(owner, out float next) && next >= attack.Now)
@@ -278,10 +291,10 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
     }
 
     public void DeployBuff(in WeaponAttackContext attack, int buffType)
-        => buffs?.DeployBuff(attack.Command.OwnerIndex, buffType);
+        => buffs.DeployBuff(attack.Command.OwnerIndex, buffType);
 
     public void BlowBuffHorn(in WeaponAttackContext attack, int buffType)
-        => buffs?.BlowBuffHorn(attack.Command.OwnerIndex, buffType);
+        => buffs.BlowBuffHorn(attack.Command.OwnerIndex, buffType);
 
     /// <summary>
     /// The raise, then the battle cry (<c>RaiseFlag</c>'s order :242-252):
@@ -292,11 +305,11 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
     public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType)
     {
         int owner = attack.Command.OwnerIndex;
-        buffs?.RaiseBuffBanner(owner, buffType);
-        if (owner > 0 && _speech is { })
+        buffs.RaiseBuffBanner(owner, buffType);
+        if (owner > 0)
             _speech.Speak(owner, TFConceptSpeech.PlayerBattlecry);
     }
 
     public void UseRage(in WeaponAttackContext attack, int buffType)
-        => buffs?.UseRage(attack.Command.OwnerIndex, buffType);
+        => buffs.UseRage(attack.Command.OwnerIndex, buffType);
 }

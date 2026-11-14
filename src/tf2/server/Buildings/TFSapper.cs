@@ -54,10 +54,10 @@ namespace TF2.Server.Buildings;
 public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                              IEngineEntityRender render, IEngineDamage damage, TFDamageScopes scopes,
                              ITFAmmoPurse purse, ObjSapperAmountConVar sapperAmount,
-                             TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                             ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                             ITFRevengeCrits? crits = null, IEngineSound? sound = null,
-                             IUniformRandom? rng = null)
+                             TFPlayerCarriers carriers, TFConceptSpeech speech,
+                             ITFWeaponOwners owners, AttributeHooks hooks,
+                             ITFRevengeCrits crits, IEngineSound sound,
+                             IUniformRandom rng)
     : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits)
 {
     public const string MapClass = "obj_attachment_sapper";
@@ -76,8 +76,8 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
     private readonly IEngineDamage _damage = damage;
     private readonly TFDamageScopes _scopes = scopes;
     private readonly ObjSapperAmountConVar _sapperAmount = sapperAmount;
-    private readonly IEngineSound? _sound = sound;
-    private readonly IUniformRandom? _rng = rng;
+    private readonly IEngineSound _sound = sound;
+    private readonly IUniformRandom _rng = rng;
 
     [SaveField] private EntityHandle _builtOn;
     [SaveField] private float _accumulator, _lastThinkTime;
@@ -122,16 +122,15 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
         // item's sapper_voice_pak == 1 (tf_weapon_builder.cpp:584-589), and the machine
         // picked at placement (:751-771: outer coin 0 asks the inner — inner 0 the PW
         // line, else the plain one; outer 1 the hacking line) speaks to its owner only
-        // (WheatleyEmitSound). A side with no sound seam says nothing, stock's muted box.
-        if (_sound is { } say && Owners is { } holders && Hooks is { } pak
-            && Builder != EntityHandle.None
-            && pak.Float(0f, "sapper_voice_pak", holders.ActiveItemOf(Entities.GetIndex(Builder))) == 1f)
+        // (WheatleyEmitSound).
+        if (Builder != EntityHandle.None
+            && Hooks.Float(0f, "sapper_voice_pak", Owners.ActiveItemOf(Entities.GetIndex(Builder))) == 1f)
         {
-            int outer = _rng?.RandomInt(0, 1) ?? 0;
+            int outer = _rng.RandomInt(0, 1);
             string line = outer != 0
                 ? "PSap.Hacking"
-                : (_rng?.RandomInt(0, 3) ?? 0) == 0 ? "PSap.AttachedPW" : "PSap.Attached";
-            say.EntityEmitSound(Builder, line);
+                : _rng.RandomInt(0, 3) == 0 ? "PSap.AttachedPW" : "PSap.Attached";
+            _sound.EntityEmitSound(Builder, line);
         }
     }
 

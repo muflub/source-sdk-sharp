@@ -79,7 +79,10 @@ public class RagdollDissolveTests
 
         body.OnThink();
 
-        Assert.True(body.Gone);
+        // The one think a body books is its dissolve's end, and it takes the
+        // body with it. Read off the registry's removal route, the road a
+        // owned entity's Remove takes.
+        Assert.Equal(1, registry.Removal.FreeNow());
     }
 
     [Theory]

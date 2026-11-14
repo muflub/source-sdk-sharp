@@ -1,0 +1,26 @@
+WeaponData
+{
+	"printname"			"#TF_Weapon_Cleaver"
+	"BuiltRightHanded"		"0"
+	"weight"			"4"
+	"ITEM_FLAG_NOITEMPICKUP" 	"1"
+	"WeaponType"		"secondary"
+	"Damage"			"65"
+	"Range"				"320"
+	"TimeFireDelay"			"1.5"
+	"TimeIdle"			"5.0"
+	"HasTeamSkins_Viewmodel"			"1"
+	"ProjectileType"		"projectile_cleaver"
+	"ProjectileSpeed"		"900"
+	"primary_ammo"			"None"
+	"secondary_ammo"		"None"
+	clip_size			"-1"
+	default_clip			"1"
+	"bucket"			"1"
+	"bucket_position"		"0"
+	SoundData
+	{
+		"melee_hit"			"Weapon_Bat.HitFlesh"
+		"melee_hit_world"	"Weapon_Bat.HitWorld"
+	}
+}

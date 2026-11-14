@@ -115,8 +115,87 @@ public sealed class TF2ClientPredictionTests
             List<client::TF2.Shared.ITFWeaponHook> hooks =
                 [new client::TF2.Shared.TFAttributeWeaponHook(new ClientHooks()), new client::TF2.Shared.TFCritBoostHook()];
             hooks.AddRange(extraHooks);
-            return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits(), owners);
+            return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits(), owners ?? NoOwners,
+                NoEffects(), new client::TF2.Client.Buildings.TFClientBuilderPlacement(), new NoCarrierData(),
+                Setup, ChargeRate, Spread, NoAutoReload(), Burstammo, SilentMedigun(),
+                new client::TF2.Client.Buildings.TFClientSapperState(),
+                new client::TF2.Client.Buildings.TFClientSentryWrangle(),
+                new client::TF2.Client.Player.TFClientRevengeCrits());
         }
+
+        // The arms these facts' guns never reach, as the client's own silent
+        // answers hold them: the effects the replay's EventsLive gate keeps
+        // off, the seams the server's side of the split owns, and a carrier
+        // table with nobody in it.
+        private static client::TF2.Shared.ITFWeaponEffects NoEffects() => new client::TF2.Shared.NoTFWeaponEffects();
+
+        private static client::TF2.Shared.ITFMedigunPrediction SilentMedigun() => new SilentMedigunPrediction();
+
+        private sealed class SilentMedigunPrediction : client::TF2.Shared.ITFMedigunPrediction
+        {
+            public void Frame(in client::SourceSharp.Shared.WeaponAttackContext attack,
+                              client::TF2.Shared.TFWeaponScript script, bool held) { }
+        }
+
+        private sealed class NoCarrierData : client::TF2.Shared.Player.ITFPlayerData
+        {
+            public client::TF2.Shared.Player.TFPlayerNetState? Predicted(int playerIndex) => null;
+
+            public client::TF2.Shared.Player.TFPlayerNetState? Networked(int playerIndex) => null;
+        }
+
+        /// <summary>No client entities: the owners' standalones walks find nobody.</summary>
+        private sealed class EmptyStandalones : client::SourceSharp.Client.IClientStandalones
+        {
+            public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live() => [];
+
+            public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+        }
+
+        /// <summary>The owners over nobody: the classless answers, as the real
+        /// client's side service stands when no carrier has arrived.</summary>
+        private static readonly client::TF2.Client.Player.TFClientWeaponOwners NoOwners =
+            new(new NoCarrierData(), new EmptyStandalones());
+
+        private static client::TF2.Shared.ITFAutoReload NoAutoReload() => new NobodyWantsAutoReload();
+
+        private sealed class NobodyWantsAutoReload : client::TF2.Shared.ITFAutoReload
+        {
+            public bool Wants(int ownerIndex) => false;
+        }
+
+        private sealed class NoRoundSetup : client::TF2.Shared.Rules.ITFRoundSetup
+        {
+            public bool InSetupWithRoundTimer => false;
+        }
+
+        private static readonly client::TF2.Shared.Rules.ITFRoundSetup Setup = new NoRoundSetup();
+
+        // The convars at their declared defaults, as the client's composition publishes them.
+        private static client::TF2.Shared.WeaponMedigunChargeRateConVar BoundCharge()
+        {
+            var convar = new client::TF2.Shared.WeaponMedigunChargeRateConVar();
+            convar.Bind(-1, "weapon_medigun_charge_rate", "40");
+            return convar;
+        }
+
+        private static client::TF2.Shared.TFUseFixedWeaponspreadsConVar BoundSpread()
+        {
+            var convar = new client::TF2.Shared.TFUseFixedWeaponspreadsConVar();
+            convar.Bind(-1, "tf_use_fixed_weaponspreads", "0");
+            return convar;
+        }
+
+        private static client::TF2.Shared.TFFlameThrowerBurstammoConVar BoundBurstammo()
+        {
+            var convar = new client::TF2.Shared.TFFlameThrowerBurstammoConVar();
+            convar.Bind(-1, "tf_flamethrower_burstammo", "20");
+            return convar;
+        }
+
+        private static readonly client::TF2.Shared.WeaponMedigunChargeRateConVar ChargeRate = BoundCharge();
+        private static readonly client::TF2.Shared.TFUseFixedWeaponspreadsConVar Spread = BoundSpread();
+        private static readonly client::TF2.Shared.TFFlameThrowerBurstammoConVar Burstammo = BoundBurstammo();
 
         public ClientBehaviours Behaviours(ClientParts parts)
             => new(() => [new ClientWeaponBehaviours(parts)], Log);
@@ -556,9 +635,7 @@ public sealed class TF2ClientPredictionTests
 
         /// <summary>The rules reading (and writing) the predicted working copy.</summary>
         public ClientRules Rules()
-            => new ClientContainer()
-                .AddInstance(TFMovementFixtures.Client())
-                .AddInstance<ClientData>(Prediction)
+            => TFMovementFixtures.ClientServices(Prediction)
                 .Create<ClientRules>();
     }
 

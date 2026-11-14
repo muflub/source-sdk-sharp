@@ -38,7 +38,17 @@ public sealed class TFPlayerResourceTests
         rig.Engine.Returns("Players.GetObserverMode", ObserverMode.None);
         var stats = new TFPlayerStats();
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            new TFPlayerConditions(rig.Carriers, rig.Engine), rig.Loadout, rig.Engine);
+                                            new TFPlayerConditions(rig.Carriers, rig.Engine), rig.Loadout, rig.Engine,
+                                            rig.Items, new TF2.Shared.Econ.AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
         var state = new TFPlayerResourceNetState();
         state.BindLocal();
         return (rig, stats, new TFPlayerResourceRows(rig.Carriers, resupply, stats, rig.Engine, new Waves(), dominations, rounds), state);

@@ -63,35 +63,47 @@ public sealed class TFMovementRules : IMovementRules
 {
     private readonly TFClassTable _classes;
     private readonly ITFPlayerData _players;
-    private readonly TFScoutAirDashCountConVar? _dashCount;
-    private readonly TFSpyMaxCloakedSpeedConVar? _cloakedCap;
-    private readonly ITFWeaponOwners? _owners;
-    private readonly AttributeHooks? _hooks;
-    private readonly TFClampBackSpeedConVar? _backSpeed;
-    private readonly TFClampBackSpeedMinConVar? _backSpeedMin;
-    private readonly Rules.ITFRoundStateView? _rounds;
-    private readonly TFPlayerMovementRestartFreezeConVar? _restartFreeze;
-    private readonly TFMovementAircurrentFrictionMultConVar? _airCurrentFriction;
-    private readonly TFMovementLostFootingRestickConVar? _lostFootingRestick;
-    private readonly TFMovementLostFootingFrictionConVar? _lostFootingFriction;
-    private readonly TFMaxChargeSpeedConVar? _chargeSpeed;
-    private readonly Anim.ITFAnimWeapons? _weapons;
-    private readonly IEngineEntities? _entities;
+    private readonly TFScoutAirDashCountConVar _dashCount;
+    private readonly TFSpyMaxCloakedSpeedConVar _cloakedCap;
+    private readonly ITFWeaponOwners _owners;
+    private readonly AttributeHooks _hooks;
+    private readonly TFClampBackSpeedConVar _backSpeed;
+    private readonly TFClampBackSpeedMinConVar _backSpeedMin;
+    private readonly Rules.ITFRoundStateView _rounds;
+    private readonly TFPlayerMovementRestartFreezeConVar _restartFreeze;
+    private readonly TFMovementAircurrentFrictionMultConVar _airCurrentFriction;
+    private readonly TFMovementLostFootingRestickConVar _lostFootingRestick;
+    private readonly TFMovementLostFootingFrictionConVar _lostFootingFriction;
+    private readonly TFMaxChargeSpeedConVar _chargeSpeed;
+    private readonly Anim.ITFAnimWeapons _weapons;
+    private readonly IEngineEntities _entities;
+    private readonly TFParachuteMaxSpeedXYConVar _parachuteXY;
+    private readonly TFParachuteMaxSpeedZConVar _parachuteZ;
+    private readonly TFParachuteMaxSpeedOnfireZConVar _parachuteOnfireZ;
 
+    /// <summary>
+    /// Every dependency is injected: both sides' registrations hold each one
+    /// (the convars through the registry's publish, the seams through their
+    /// <see cref="SideServiceAttribute"/>), so a missing one fails the
+    /// composition by name instead of answering a default.
+    /// </summary>
     public TFMovementRules(TFClassTable classes, ITFPlayerData players,
-                           TFScoutAirDashCountConVar? dashCount = null,
-                           TFSpyMaxCloakedSpeedConVar? cloakedCap = null,
-                           ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                           TFClampBackSpeedConVar? backSpeed = null,
-                           TFClampBackSpeedMinConVar? backSpeedMin = null,
-                           Rules.ITFRoundStateView? rounds = null,
-                           TFPlayerMovementRestartFreezeConVar? restartFreeze = null,
-                           TFMovementAircurrentFrictionMultConVar? airCurrentFriction = null,
-                           TFMovementLostFootingRestickConVar? lostFootingRestick = null,
-                           TFMovementLostFootingFrictionConVar? lostFootingFriction = null,
-                           TFMaxChargeSpeedConVar? chargeSpeed = null,
-                           Anim.ITFAnimWeapons? weapons = null,
-                           IEngineEntities? entities = null)
+                           TFScoutAirDashCountConVar dashCount,
+                           TFSpyMaxCloakedSpeedConVar cloakedCap,
+                           ITFWeaponOwners owners, AttributeHooks hooks,
+                           TFClampBackSpeedConVar backSpeed,
+                           TFClampBackSpeedMinConVar backSpeedMin,
+                           Rules.ITFRoundStateView rounds,
+                           TFPlayerMovementRestartFreezeConVar restartFreeze,
+                           TFMovementAircurrentFrictionMultConVar airCurrentFriction,
+                           TFMovementLostFootingRestickConVar lostFootingRestick,
+                           TFMovementLostFootingFrictionConVar lostFootingFriction,
+                           TFMaxChargeSpeedConVar chargeSpeed,
+                           Anim.ITFAnimWeapons weapons,
+                           IEngineEntities entities,
+                           TFParachuteMaxSpeedXYConVar parachuteXY,
+                           TFParachuteMaxSpeedZConVar parachuteZ,
+                           TFParachuteMaxSpeedOnfireZConVar parachuteOnfireZ)
     {
         _classes = classes;
         _players = players;
@@ -109,25 +121,37 @@ public sealed class TFMovementRules : IMovementRules
         _chargeSpeed = chargeSpeed;
         _weapons = weapons;
         _entities = entities;
+        _parachuteXY = parachuteXY;
+        _parachuteZ = parachuteZ;
+        _parachuteOnfireZ = parachuteOnfireZ;
     }
 
-    /// <summary><c>tf_max_charge_speed</c> (default 750, tf_gamemovement.cpp:52).</summary>
-    private float ChargeSpeed => _chargeSpeed?.Value ?? 750f;
+    /// <summary><c>tf_max_charge_speed</c> (tf_gamemovement.cpp:52; the declaration carries the default).</summary>
+    private float ChargeSpeed => _chargeSpeed.Value;
 
-    /// <summary><c>tf_scout_air_dash_count</c> (default 1).</summary>
-    private int DashCount => _dashCount?.Value ?? 1;
+    /// <summary><c>tf_parachute_maxspeed_xy</c> (tf_gamemovement.cpp:54).</summary>
+    private float ParachuteXY => _parachuteXY.Value;
 
-    /// <summary><c>tf_spy_max_cloaked_speed</c> (default 999).</summary>
-    private float CloakedCap => _cloakedCap?.Value ?? 999f;
+    /// <summary><c>tf_parachute_maxspeed_z</c> (:55).</summary>
+    private float ParachuteZ => _parachuteZ.Value;
 
-    /// <summary><c>tf_clamp_back_speed</c> (default 0.9, tf_gamemovement.cpp:47).</summary>
-    private float BackSpeedFraction => _backSpeed?.Value ?? 0.9f;
+    /// <summary><c>tf_parachute_maxspeed_onfire_z</c> (:56).</summary>
+    private float ParachuteOnfireZ => _parachuteOnfireZ.Value;
 
-    /// <summary><c>tf_clamp_back_speed_min</c> (default 100, tf_gamemovement.cpp:48).</summary>
-    private float BackSpeedMin => _backSpeedMin?.Value ?? 100f;
+    /// <summary><c>tf_scout_air_dash_count</c>.</summary>
+    private int DashCount => _dashCount.Value;
 
-    /// <summary><c>tf_player_movement_restart_freeze</c> (default on).</summary>
-    private bool RestartFreeze => _restartFreeze?.Value ?? true;
+    /// <summary><c>tf_spy_max_cloaked_speed</c>.</summary>
+    private float CloakedCap => _cloakedCap.Value;
+
+    /// <summary><c>tf_clamp_back_speed</c> (tf_gamemovement.cpp:47).</summary>
+    private float BackSpeedFraction => _backSpeed.Value;
+
+    /// <summary><c>tf_clamp_back_speed_min</c> (tf_gamemovement.cpp:48).</summary>
+    private float BackSpeedMin => _backSpeedMin.Value;
+
+    /// <summary><c>tf_player_movement_restart_freeze</c>.</summary>
+    private bool RestartFreeze => _restartFreeze.Value;
 
     public MovementParams? Constants => TFViewVectors.Params;
 
@@ -146,7 +170,7 @@ public sealed class TFMovementRules : IMovementRules
     /// (tf_gamemovement.cpp:1210) before anything is pushed.
     /// </summary>
     public float JumpScale(in JumpRequest request)
-        => _owners is not null && !_owners.OwnerCanJump(request.PlayerIndex) ? 0f : 1f;
+        => !_owners.OwnerCanJump(request.PlayerIndex) ? 0f : 1f;
 
     public float FrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial)
         => friction;
@@ -165,19 +189,18 @@ public sealed class TFMovementRules : IMovementRules
         // state from the resource's word. Stock's debug, ready-status and
         // competitive re-arms of the flag and the match-countdown,
         // CYOA-PDA and observer arms of CanPlayerMove are not here.
-        if (_rounds?.State == Rules.RoundState.Preround && RestartFreeze)
+        if (_rounds.State == Rules.RoundState.Preround && RestartFreeze)
             return 1f;
 
         // The player's own attribute manager roots the speed hooks
-        // (CALL_ATTRIB_HOOK_FLOAT on the player): null on a side that holds
-        // none, both arms then the value unchanged. Outside a blast jump the
+        // (CALL_ATTRIB_HOOK_FLOAT on the player). Outside a blast jump the
         // walk's answer is the whole answer; the Mantreads' arm beside it
         // scales the same call (below), so both bindings feed the rules the
         // same call the same way.
         if (!state.InCond(TFCond.Blastjumping))
             return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
-                                        _hooks, _owners?.ManagerOf(playerIndex),
-                                        PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
+                                        _hooks, _owners.ManagerOf(playerIndex),
+                                        PeerInputs, playerIndex, _owners.ActiveItemOf(playerIndex));
 
         // The Mantreads' air control (tf_gamemovement.cpp:2081-2094): the blast
         // jump's condition alone gates the scale — stock asks it inside
@@ -188,9 +211,9 @@ public sealed class TFMovementRules : IMovementRules
         // scale is stock's CALL_ATTRIB_HOOK_FLOAT_ON_OTHER over the player: the
         // manager is the root, as for the speed hooks above.
         float speed = TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
-                                           _hooks, _owners?.ManagerOf(playerIndex),
-                                           PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
-        return _hooks?.Float(speed, "mod_air_control_blast_jump", _owners?.ManagerOf(playerIndex)) ?? speed;
+                                           _hooks, _owners.ManagerOf(playerIndex),
+                                           PeerInputs, playerIndex, _owners.ActiveItemOf(playerIndex));
+        return _hooks.Float(speed, "mod_air_control_blast_jump", _owners.ManagerOf(playerIndex));
     }
 
     /// <summary>
@@ -205,14 +228,14 @@ public sealed class TFMovementRules : IMovementRules
 
         // The worn shield (tf_player_shared.cpp:11005): the shared's
         // IsShieldEquipped, the speed walk's shield-toll gate.
-        if (_owners?.ShieldEquipped(playerIndex) == true)
+        if (_owners.ShieldEquipped(playerIndex))
             inputs = inputs with { ShieldEquipped = true };
 
         // THE BFB'S HYPE SPEED (tf_player_shared.cpp:11080-11086): the scout
         // owning the Baby Face's Blaster runs at the meter's scale — stock's
         // Weapon_OwnsThisID(TF_WEAPON_PEP_BRAWLER_BLASTER) gate and class arm,
         // the remap the input carries (1 without the item, the walk's no-op).
-        if (inputs.Class == TFClass.Scout && _owners?.ItemOf(playerIndex, TFHype.BrawlerScript) is not null)
+        if (inputs.Class == TFClass.Scout && _owners.ItemOf(playerIndex, TFHype.BrawlerScript) is not null)
             inputs = inputs with { HypeSpeedScale = TFHype.SpeedScale(state.HypeMeter) };
 
         // THE SHOVEL'S HELD SPEED (CTFShovel::GetSpeedMod, tf_weapon_shovel.cpp:123-143):
@@ -222,10 +245,9 @@ public sealed class TFMovementRules : IMovementRules
         // boost and leaves the walk at one. The tiers ride the owner's health ratio
         // (tf_weapon_shovel.cpp:132-142), the held id opens TFMaxSpeed's multiply
         // arm exactly as stock's GetActiveTFWeapon gate does (:10956-10959).
-        if (_owners is { } own && _hooks is { } hooks && _weapons is not null && _entities is not null
-            && _weapons.ActiveWeapon(playerIndex)?.Id == TFWeaponId.Shovel
-            && own.ActiveItemOf(playerIndex) is { } held
-            && hooks.Int(0, "set_weapon_mode", held) == ShovelSpeedBoostMode)
+        if (_weapons.ActiveWeapon(playerIndex)?.Id == TFWeaponId.Shovel
+            && _owners.ActiveItemOf(playerIndex) is { } held
+            && _hooks.Int(0, "set_weapon_mode", held) == ShovelSpeedBoostMode)
         {
             float maxHealth = _classes[state.Class()].MaxHealth;
             float health = _entities.GetHealth(new EntityHandle((uint)playerIndex));
@@ -237,8 +259,8 @@ public sealed class TFMovementRules : IMovementRules
         }
 
         if (inputs.Class != TFClass.Demoman
-            || _owners?.ItemOf(playerIndex, TFSwordHook.SwordScript) is not { } sword
-            || (_hooks?.Int(0, "decapitate_type", sword) ?? 0) == 0)
+            || _owners.ItemOf(playerIndex, TFSwordHook.SwordScript) is not { } sword
+            || _hooks.Int(0, "decapitate_type", sword) == 0)
             return inputs;
 
         return inputs with { SwordSpeedMod = 1f + MathF.Min(TFSwordHook.MaxHeads, state.Decapitations)
@@ -258,8 +280,8 @@ public sealed class TFMovementRules : IMovementRules
             return null;
 
         return new TFPeerInput(playerIndex, Inputs(playerIndex, state),
-                               _hooks, _owners?.ManagerOf(playerIndex),
-                               _owners?.ActiveItemOf(playerIndex));
+                               _hooks, _owners.ManagerOf(playerIndex),
+                               _owners.ActiveItemOf(playerIndex));
     }
 
     public float AirJump(in JumpRequest request)
@@ -267,35 +289,47 @@ public sealed class TFMovementRules : IMovementRules
         // The drawn bow holds the dash with the jump: stock's gate is the same
         // CanJump, asked before the air-dash branch (tf_gamemovement.cpp:1210,
         // the dash at :1240 comes after it).
-        if (_owners is not null && !_owners.OwnerCanJump(request.PlayerIndex))
+        if (!_owners.OwnerCanJump(request.PlayerIndex))
             return 0f;
 
         if (_players.Predicted(request.PlayerIndex) is not { } state)
             return 0f;
 
-        // The B.A.S.E. Jumper's toggle (tf_gamemovement.cpp:1132-1150): the airborne
-        // jump press flips TF_COND_PARACHUTE_ACTIVE when the player answers
-        // parachute_attribute — stock's CALL_ATTRIB_HOOK_INT_ON_OTHER over the
-        // player (:1135), so the manager is the root, as for the blast-jump scale
-        // above. Deployed comes off (:1139), none goes on (:1141), in the
-        // predicted state's own words (:1143); the dash behind it runs as before.
-        if (_owners is { } own
-            && (_hooks?.Int(0, "parachute_attribute", own.ManagerOf(request.PlayerIndex)) ?? 0) != 0)
+        // The B.A.S.E. Jumper's toggle (tf_gamemovement.cpp:1132-1154): the airborne
+        // jump press puts BOTH conditions on when the player answers parachute_attribute
+        // (:1150-1151) — stock's CALL_ATTRIB_HOOK_INT_ON_OTHER over the player (:1135),
+        // so the manager is the root, as for the blast-jump scale above; the same root
+        // answers the disabled attr (:1146-1147). A second press takes ACTIVE off and
+        // keeps DEPLOYED (:1139-1141), and while the deployed record stands a further
+        // press does not reopen: tf_parachute_deploy_toggle_allowed ships off (:58), so
+        // the record alone gates the reopen (:1148) — it is the landing's remover
+        // (tf_player_shared.cpp:3131, held by TFWeaponBehaviour) that clears the pair
+        // for the next airborne window. Stock's !bOnGround (:1145) holds by this call's
+        // own frame: AirJump answers only an airborne press. In the predicted state's
+        // own words (:1143); the dash behind it runs as before.
+        var chuteManager = _owners.ManagerOf(request.PlayerIndex);
+        if (_hooks.Int(0, "parachute_attribute", chuteManager) != 0)
         {
             var bits = state.Conditions();
             if (bits.Has(TFCond.ParachuteActive))
-                bits.Clear(TFCond.ParachuteActive);          // :1139
-            else
-                bits.Set(TFCond.ParachuteActive);            // :1141
-            state.SetConditions(in bits);                     // :1143
+            {
+                bits.Clear(TFCond.ParachuteActive);                            // :1139-1141
+            }
+            else if (_hooks.Int(0, "parachute_disabled", chuteManager) == 0   // :1146-1147
+                     && !bits.Has(TFCond.ParachuteDeployed))                   // :1148
+            {
+                bits.Set(TFCond.ParachuteActive);                              // :1150
+                bits.Set(TFCond.ParachuteDeployed);                            // :1151
+            }
+            state.SetConditions(in bits);                                       // :1143
         }
 
         // The no-dash attribute walks the player's own manager, the dash count
         // and the weapon jump height the active weapon's item (the ON_OTHER
-        // roots); null on a side that holds none, every hook then unset.
+        // roots).
         float dash = TFJump.AirDash(state.Class(), state.Conditions(), state.AirDash, DashCount,
-                                    _owners?.ActiveItemOf(request.PlayerIndex),
-                                    _hooks, _owners?.ManagerOf(request.PlayerIndex));
+                                    _owners.ActiveItemOf(request.PlayerIndex),
+                                    _hooks, _owners.ManagerOf(request.PlayerIndex));
         if (dash > 0f)
         {
             state.AirDash++;
@@ -305,8 +339,8 @@ public sealed class TFMovementRules : IMovementRules
             // hype_resets_on_jump is the hype the dash pays, through the
             // setter's refusal and clamp; stock's TeamFortress_SetSpeed is
             // the derived speed's own re-ask.
-            int toll = _hooks?.Int(0, TFHype.JumpResetAttribute,
-                                   _owners?.ActiveItemOf(request.PlayerIndex)) ?? 0;
+            int toll = _hooks.Int(0, TFHype.JumpResetAttribute,
+                                  _owners.ActiveItemOf(request.PlayerIndex));
             if (toll != 0)
                 TFHype.Lose(state, toll);
         }
@@ -325,6 +359,42 @@ public sealed class TFMovementRules : IMovementRules
             state.ScattergunJump = false;
             state.WeaponKnockback = false;
         }
+    }
+
+    /// <summary>
+    /// The parachute's fall trim (<c>CTFGameMovement::FullWalkMove</c>,
+    /// tf_gamemovement.cpp:2626-2638): while the parachute stands and the
+    /// player falls, z clamps against the burning cap under fire else the
+    /// plain one (:2628), and the xy is dampened rather than clamped — past
+    /// the drag the surplus eases by a third less ten (:2634-2635), each axis
+    /// then clamped to that widened bound (:2637-2638).
+    /// </summary>
+    public Vector ParachuteFallCap(int playerIndex, Vector velocity)
+    {
+        // The gate: parachute out and falling (:2626).
+        if (_players.Predicted(playerIndex) is not { } state
+            || !state.Conditions().Has(TFCond.ParachuteActive)
+            || velocity.Z >= 0f)
+            return velocity;
+
+        // The z's Max against the cap (:2628), the burning one under fire.
+        float cap = state.Conditions().Has(TFCond.Burning) ? ParachuteOnfireZ : ParachuteZ;
+        float z = MathF.Max(velocity.Z, cap);
+
+        // The xy damp (:2630-2638): the reduction bites only past the drag,
+        // and each axis then clamps to its own widened bound.
+        float drag = ParachuteXY;
+        float speedX = MathF.Abs(velocity.X);
+        float speedY = MathF.Abs(velocity.Y);
+        float reductionX = speedX > drag ? (speedX - drag) / 3f - 10f : 0f;
+        float reductionY = speedY > drag ? (speedY - drag) / 3f - 10f : 0f;
+
+        return new Vector(ClampAxis(velocity.X, drag + reductionX),
+                          ClampAxis(velocity.Y, drag + reductionY),
+                          z);
+
+        // Valve's Clamp(value, -bound, bound) at :2637-2638.
+        static float ClampAxis(float value, float bound) => MathF.Min(MathF.Max(value, -bound), bound);
     }
 
     public float EyeHeight(int playerIndex, float standing)
@@ -376,7 +446,7 @@ public sealed class TFMovementRules : IMovementRules
         bool inAir = false;
 
         if (airCurrent)
-            airFriction *= _airCurrentFriction?.Value ?? 0.75f;   // :2394
+            airFriction *= _airCurrentFriction.Value;             // :2394
 
         if (lostFooting)
         {
@@ -392,8 +462,8 @@ public sealed class TFMovementRules : IMovementRules
             else
             {
                 Vector across = velocity - planeNormal * along;   // :2407
-                if (across.Length >= (_lostFootingRestick?.Value ?? 50f))
-                    groundFriction *= _lostFootingFriction?.Value ?? 0.1f;   // :2410
+                if (across.Length >= _lostFootingRestick.Value)
+                    groundFriction *= _lostFootingFriction.Value;            // :2410
                 else
                     ClearCond(state, TFCond.LostFooting);         // :2415
             }

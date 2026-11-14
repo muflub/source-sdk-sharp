@@ -51,7 +51,12 @@ public sealed class TFWeaponGestures(TFWeaponScripts scripts) : IWeaponGestureRu
                 => PlayerAnimEvent.AttackPost,
             WeaponGestureTrigger.SustainedFire when kind == TFWeaponKind.Flamethrower
                 => PlayerAnimEvent.AttackPrimary,
+            // The secondary's player anim, where a weapon's secondary is an
+            // attack of its own: the flamethrower's blast and the Shortstop's
+            // shove (PLAYERANIMEVENT_ATTACK_SECONDARY,
+            // tf_weapon_pistol.cpp:106). No other gun's secondary asks one.
             WeaponGestureTrigger.Secondary when kind == TFWeaponKind.Flamethrower
+                || id == TFWeaponId.HandgunScoutPrimary
                 => PlayerAnimEvent.AttackSecondary,
             WeaponGestureTrigger.ReloadStart => PlayerAnimEvent.Reload,
             WeaponGestureTrigger.ReloadShell when TFWeaponKinds.ReloadsSingly(id) => PlayerAnimEvent.ReloadLoop,

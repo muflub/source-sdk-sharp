@@ -71,7 +71,7 @@ public class TFScattergunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         if (owner <= 0
             || Parts.Owners.ConditionsOf(owner) is not { } conditions
             || conditions.Has(TFCond.SodapopperHype)                       // IsHypeBuffed, :487
-            || Parts.PlayerData?.Predicted(owner) is not { } state
+            || Parts.PlayerData.Predicted(owner) is not { } state
             || state.HypeMeter < TFHype.FullMeter)                         // :490
             return;
 
@@ -109,7 +109,7 @@ public class TFScattergunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
 
         // The latch is the carrier's predicted bit: without it a held trigger
         // shoves every shot of the airtime, where stock shoves once (:331).
-        if (Parts.PlayerData?.Predicted(owner) is not { ScattergunJump: false } state)
+        if (Parts.PlayerData.Predicted(owner) is not { ScattergunJump: false } state)
             return;
 
         // The shove needs the view: the command's own aim, the same pair the
@@ -125,7 +125,7 @@ public class TFScattergunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         // The real half: the server's SetAbsVelocity, the ground flag with it,
         // and the movement stun. The client's replay answers the default
         // nothing; the state above is its prediction's whole half.
-        Parts.PlayerData?.ScattergunKnock(owner, shoved);
+        Parts.PlayerData.ScattergunKnock(owner, shoved);
     }
 
     /// <summary>

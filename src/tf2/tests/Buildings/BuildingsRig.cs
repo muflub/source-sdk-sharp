@@ -119,6 +119,9 @@ internal sealed partial class BuildingsRig
     /// <summary>The voice over those fakes; the buildables' speech field.</summary>
     public readonly TFConceptSpeech Speech;
 
+    /// <summary>The revenge purse the sentry's death pays (the composite's count).</summary>
+    public TFRevengeCrits Revenge { get; private set; } = null!;
+
     /// <summary>The gib the teleporter last threw, so a bread fact can name it.</summary>
     public EntityHandle LastGib;
 
@@ -156,6 +159,9 @@ internal sealed partial class BuildingsRig
         // player table (TFPlayerHealing.TickHealedPerSecond); the fake's
         // players have no user ids to give.
         Engine.Returns("Players.GetHandle", EntityHandle.None)
+              // The healing's active-weapon attribute walk names the hands; the
+              // dispenser's patients hold nothing here.
+              .Returns("Players.GetActiveWeapon", string.Empty)
               .Returns("Players.GetUserId", 0)
               // The voice's alive gate (SpeakIfAllowed's) reads the builder.
               .Returns("Players.IsAlive", true);
@@ -267,6 +273,14 @@ internal sealed partial class BuildingsRig
                                      Services.Resolve<IEnginePlayers>()!, TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(),
                                      Engine, Random);
         Services.AddInstance(Speech);
+        // The sapper-crit bucket the buildings' removal cascade pays; a fact
+        // replaces it with a recording double the way the sapper facts do.
+        Services.AddInstance<ITFRevengeCrits>(new TFSapperRevengeCrits(HealingConditions,
+            Services.Resolve<IEnginePlayers>()!, Owners, Hooks));
+        // The sentry-death purse the Justice's pay lands in (the sentry's own
+        // dependency, the composite's read/write half over these carriers).
+        Revenge = new TFRevengeCrits(Carriers, Owners, Hooks);
+        Services.AddInstance(Revenge);
 
         Registry.Services = Services;
         // The buildables themselves take the purse now (the wrench's metal),
@@ -294,7 +308,9 @@ internal sealed partial class BuildingsRig
         HealingConditions = new TFHealingConditions();
         Healing = new TFPlayerHealing(Engine, Engine, HealingConditions, HealingResupply,
                                       Convars.Declared<TFMaxHealthBoostConVar>(), Convars.Declared<TFBoostDrainTimeConVar>(),
-                                      Convars.Declared<TFInvulnTimeConVar>(), Clock);
+                                      Convars.Declared<TFInvulnTimeConVar>(), Clock,
+                                      new TFHealingStats(), new TFDamageRecords(), new TFHealingEvents(),
+                                      new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(), Hooks);
         Services.AddInstance(HealingConditions);
         // The condition arm of the send (the teleporter's speed boost) joins
         // the same accumulator the dispenser's heal arm feeds.

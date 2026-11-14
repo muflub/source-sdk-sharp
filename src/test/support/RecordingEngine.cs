@@ -935,7 +935,16 @@ public sealed class RecordingEngine :
     // Players
     void IEnginePlayers.SetPunch(EntityHandle player, Vector punch, Vector velocity) => RecordVoid("Players.SetPunch", player, punch, velocity);
     void IEnginePlayers.BreakInterpolation(EntityHandle player) => RecordVoid("Players.BreakInterpolation", player);
-    Vector IEnginePlayers.GetPunch(EntityHandle player) => Vector.Zero;
+    Vector IEnginePlayers.GetPunch(EntityHandle player)
+    {
+        // The view's rest punch, answered even unstubbed -- the read has a
+        // stock zero the way Clock.Now does -- but a stub's punch wins.
+        if (!_answers.TryGetValue("Players.GetPunch", out var answer))
+            return Vector.Zero;
+        if (answer is Func<object?> each)
+            answer = each();
+        return answer is Vector punch ? punch : Vector.Zero;
+    }
     void IEnginePlayers.AddScore(EntityHandle player, int points, bool allowNegative) => RecordVoid("Players.AddScore", player, points, allowNegative);
     void IEnginePlayers.PlaceAtSpawn(EntityHandle player, Vector origin, Vector angles) => RecordVoid("Players.PlaceAtSpawn", player, origin, angles);
     bool IEnginePlayers.DeployLastWeapon(EntityHandle player) => Record<bool>("Players.DeployLastWeapon", player);

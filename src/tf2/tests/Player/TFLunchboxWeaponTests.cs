@@ -36,12 +36,28 @@ public sealed class TFLunchboxWeaponTests
 
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), rig.Items, rig.Engine,
-                                              new NoEntities(), new TFPlayerStats());
+                                              new NoEntities(), new TFPlayerStats(),
+                                              new Combat.RigMediguns(), rig.Schema, new PoollessGiver(), rig.Catalog);
         var hooks = new AttributeHooks();
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions,
-                                            rig.Loadout, rig.Engine, owners, hooks);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
-        var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers);
+                                            rig.Loadout, rig.Engine, rig.Items, hooks,
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                 new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
+        var taunts = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers,
+                                        new TF2.Server.Voice.TFConceptSpeech(new TF2.Tests.Entities.FakeConceptRules(), rig.Carriers,
+                                                                             new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
+                                                                             new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()),
+                                                                             rig.Engine, new TF2.Tests.Entities.FakeRandom()),
+                                        owners, hooks,
+                                        new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()));
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, owners, hooks, taunts,
                                             rig.Engine, rig.Engine, rig.Engine,
                                             items is null ? new NoEntities() : items.Registry);

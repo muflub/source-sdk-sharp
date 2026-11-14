@@ -296,35 +296,80 @@ public class PlayerDeathTests
         Assert.Equal(1, RespawnsAfterTheDelay(new ThrowingGate()));
     }
 
-    // ---- Corpses.Keep -------------------------------------------------------
+    // ---- the replace --------------------------------------------------------
+    // Stock's m_hRagdoll rule (tf_player.cpp:15659-15666): the next death is
+    // what retires the last one's body. There is no lifetime on the server —
+    // the visible bound is the client's fade — so these are the only server
+    // removals short of the cap and a round reset.
 
     [Fact]
-    public void A_kept_body_outlives_its_lifetime()
+    public void The_next_death_removes_the_players_earlier_body()
     {
         var engine = Dying();
-        var body = Ragdoll(engine, Body);
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(body));
+        var corpses = new Corpses(new RecordingLog(), engine, engine,
+                                  new Bodies(Ragdoll(engine, Body), Ragdoll(engine, SecondBody)));
+
+        Assert.Equal(Body, corpses.Make(Player));
+
+        engine.Returns("Entities.Create", SecondBody);
+        Assert.Equal(SecondBody, corpses.Make(Player));
+
+        bool removed = engine.Calls.Any(c => c.Member == "Entities.Remove" && Equals(c.Arg(0), Body));
+        Assert.True(removed, "the new death takes the body the last one left");
+    }
+
+    [Fact]
+    public void A_player_dying_twice_is_holding_one_body()
+    {
+        var engine = Dying();
+        var corpses = new Corpses(new RecordingLog(), engine, engine,
+                                  new Bodies(Ragdoll(engine, Body), Ragdoll(engine, SecondBody)));
+
+        Assert.Equal(Body, corpses.Make(Player));
+
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(Player);
+
+        Assert.Equal(1, corpses.Count);
+    }
+
+    [Fact]
+    public void The_replace_leaves_an_already_gone_body_to_the_forget()
+    {
+        var engine = Dying();
+        var corpses = new Corpses(new RecordingLog(), engine, engine,
+                                  new Bodies(Ragdoll(engine, Body), Ragdoll(engine, SecondBody)));
+
+        Assert.Equal(Body, corpses.Make(Player));
+
+        // The first body's entity went (a round reset, a level change) between
+        // the deaths: the replace has nothing to remove, and the cap's forget
+        // is what drops the handle.
+        engine.Returns("Entities.IsValid", false);
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(Player);
+
+        bool removed = engine.Calls.Any(c => c.Member == "Entities.Remove" && Equals(c.Arg(0), Body));
+        Assert.False(removed, "an already-gone body is not removed again");
+        Assert.Equal(1, corpses.Count);
+    }
+
+    [Fact]
+    public void A_kept_body_is_out_of_the_replace()
+    {
+        var engine = Dying();
+        var corpses = new Corpses(new RecordingLog(), engine, engine,
+                                  new Bodies(Ragdoll(engine, Body), Ragdoll(engine, SecondBody)));
 
         Assert.Equal(Body, corpses.Make(Player));
         Assert.True(corpses.Keep(Body));
 
-        body.OnThink();   // the lifetime is up
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(Player);
 
-        Assert.False(body.Gone);
-    }
-
-    [Fact]
-    public void A_body_that_is_not_kept_still_goes_at_its_lifetime()
-    {
-        var engine = Dying();
-        var body = Ragdoll(engine, Body);
-        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(body));
-
-        Assert.Equal(Body, corpses.Make(Player));
-
-        body.OnThink();
-
-        Assert.True(body.Gone);
+        bool removed = engine.Calls.Any(c => c.Member == "Entities.Remove" && Equals(c.Arg(0), Body));
+        Assert.False(removed, "a kept body stands however often its player dies again");
+        Assert.Equal(1, corpses.Count);
     }
 
     [Theory]
@@ -356,23 +401,5 @@ public class PlayerDeathTests
         var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies());
 
         Assert.False(corpses.Keep(Body));
-    }
-
-    [Fact]
-    public void A_kept_body_stays_kept_across_a_hot_reload()
-    {
-        var engine = Dying();
-        var before = Ragdoll(engine, Body);
-        before.Kept = true;
-
-        var record = new SavedEntity(Body.Value, EntityNames.Hl2mpRagdoll, string.Empty);
-        before.SaveState(record);
-
-        var after = Ragdoll(engine, Body);
-        after.LoadState(record);
-
-        Assert.True(after.Kept);
-        after.OnThink();
-        Assert.False(after.Gone);
     }
 }

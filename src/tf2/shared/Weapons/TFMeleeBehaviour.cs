@@ -126,7 +126,7 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                 combo.BehaviourMode &= ~ComboCountMask;
 
             if (ComboOf(combo) == 2
-                && Parts.PlayerData?.Predicted(attack.Command.OwnerIndex) is { } grant)
+                && Parts.PlayerData.Predicted(attack.Command.OwnerIndex) is { } grant)
                 grant.NextMeleeCrit = (int)TFMeleeCrit.Crit;
         }
 
@@ -245,7 +245,7 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
         // The mini latch (tf_weaponbase_melee.cpp:208-215): the grant the
         // swing's end made, read after it — the smack's bit.
-        bool mini = (Parts.PlayerData?.Predicted(attack.Command.OwnerIndex)?.NextMeleeCrit
+        bool mini = (Parts.PlayerData.Predicted(attack.Command.OwnerIndex)?.NextMeleeCrit
                      ?? (int)TFMeleeCrit.NoCrit) == (int)TFMeleeCrit.MiniCrit;
 
         weapon.BehaviourMode = (weapon.BehaviourMode & ~(ModeSwinging | ModeSwingCrit | ModeSwingMini))
@@ -329,8 +329,8 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                 // The melee's sapper arm (tf_weaponbase_melee.cpp:469-494): a held
                 // weapon bearing set_dmg_apply_to_sapper lets the swing reach the
                 // sapper riding a friendly building, at the swing's own blow.
-                if (Parts.Hooks.DmgApplyToSapper(in context) && Parts.Sapper is { } state)
-                    state.MeleeSmack(attack.Command.OwnerIndex, trace.Range, damage);
+                if (Parts.Hooks.DmgApplyToSapper(in context))
+                    Parts.Sapper.MeleeSmack(attack.Command.OwnerIndex, trace.Range, damage);
 
                 // The crit rolls over the mini (:855-863): the full crit's bit,
                 // else the charge's mini-crit as DMG_RADIUS_MAX.
@@ -343,7 +343,7 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
             // The smack spent the grant (tf_weaponbase_melee.cpp:384), hit or
             // miss — the next swing rolls plain unless the charge ends again.
-            if (Parts.PlayerData?.Predicted(attack.Command.OwnerIndex) is { } spent)
+            if (Parts.PlayerData.Predicted(attack.Command.OwnerIndex) is { } spent)
                 spent.NextMeleeCrit = (int)TFMeleeCrit.NoCrit;
         }
 

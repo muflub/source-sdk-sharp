@@ -63,13 +63,15 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     public ClientSsRagdoll(IEngineEntityRender render, IEngineEffects effects, IGameClock clock,
                            IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls,
                            Ragdolls.IRagdollDissolves? dissolves = null, Ragdolls.IRagdollAsh? ash = null,
-                           Ragdolls.IIceRagdolls? ice = null, Sounds.IClientEntitySounds? sounds = null)
+                           Ragdolls.IIceRagdolls? ice = null, Sounds.IClientEntitySounds? sounds = null,
+                           Ragdolls.IRagdollFades? fades = null)
         : base(render)
     {
         _dissolves = dissolves;
         _ash = ash;
         _ice = ice;
         _sounds = sounds;
+        _fades = fades;
         _effects = effects;
         _clock = clock;
         _standalones = standalones;
@@ -85,6 +87,8 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     private readonly Ragdolls.IIceRagdolls? _ice;
 
     private readonly Sounds.IClientEntitySounds? _sounds;
+
+    private readonly Ragdolls.IRagdollFades? _fades;
 
     private readonly IGameClock _clock;
 
@@ -191,6 +195,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         _dissolves?.End(Handle);
         _ash?.End(Handle);
         _ice?.End(Handle);
+        _fades?.End(Handle);
 
         if (BurnStartTime > 0f)
             _effects.ParticleSystemStop(Handle);
@@ -227,6 +232,13 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         ArrivedIce();
         ArrivedGold();
         DressSkin();
+
+        // THE VISIBLE CLOCK, armed at the arrival as stock's CreateTFRagdoll
+        // arms it at the making (c_tf_player.cpp:863): the body fades
+        // cl_ragdoll_fade_time after it appeared, whatever later becomes of
+        // the server's entity. Begin keeps one entry per body, so the later
+        // updates this walk serves again are the same arm.
+        _fades?.Begin(Handle);
 
         if (IsRagdoll)
         {

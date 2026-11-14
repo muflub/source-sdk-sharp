@@ -508,7 +508,7 @@ public sealed class TFMedigunWeaponTests
         // Both asks carry the medic's world centre — stock's weapon centre, which
         // our server weapon has no entity for (docs/divergences.md).
         var rig = Standing();
-        rig.Owners.Managers[3] = HealerBonus(2f);
+        rig.Items.SetManager(3, HealerBonus(2f));
         rig.Centers[1] = new Vector(10f, 0f, 0f);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
@@ -528,7 +528,7 @@ public sealed class TFMedigunWeaponTests
     {
         // :1334's second ask: the medic's answer decides it, no bonus.
         var rig = Standing();
-        rig.Owners.Managers[3] = HealerBonus(2f);
+        rig.Items.SetManager(3, HealerBonus(2f));
         rig.Rooms.InRoom.Add(1);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
@@ -545,7 +545,7 @@ public sealed class TFMedigunWeaponTests
     {
         // :1333's first ask decides it — stock's || short-circuits and the medic is never asked.
         var rig = Standing();
-        rig.Owners.Managers[3] = HealerBonus(2f);
+        rig.Items.SetManager(3, HealerBonus(2f));
         rig.Rooms.InRoom.Add(3);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
@@ -564,7 +564,7 @@ public sealed class TFMedigunWeaponTests
         // tf_weapon_medigun.cpp:1332: the medic's own walk rides the build,
         // after the healer split and before the patient's bonus.
         var rig = Standing();
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_uberchargerate", 3f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_uberchargerate", 3f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -591,7 +591,7 @@ public sealed class TFMedigunWeaponTests
         var stock = Standing();
         var stockWeapon = stock.NewWeapon();
         var krig = Standing();
-        krig.Owners.Managers[1] = new AttributeContainer(kritz, AttributeProviderType.Weapon);
+        krig.Items.SetManager(1, new AttributeContainer(kritz, AttributeProviderType.Weapon));
         var kritzWeapon = krig.NewWeapon();
 
         for (int second = 0; second <= 10; second++)
@@ -629,7 +629,7 @@ public sealed class TFMedigunWeaponTests
         // :1327-1330's gate is the patient's own max health, read again per command.
         var rig = Standing();
         rig.Give(3, 100, 100);                           // full to the class max, under the buffed floor
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_overheal_uberchargerate", 2f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_overheal_uberchargerate", 2f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -644,7 +644,7 @@ public sealed class TFMedigunWeaponTests
     public void The_overheal_uberchargerate_refuses_while_the_patient_has_health_to_gain()
     {
         var rig = Standing();                            // the patient heals at 100 of 125
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_overheal_uberchargerate", 2f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_overheal_uberchargerate", 2f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -661,7 +661,7 @@ public sealed class TFMedigunWeaponTests
         // tf_weapon_medigun.cpp:1447-1448: add_uber_time on the medic's walk
         // lengthens the release, carried in an int as stock carries it.
         var rig = Standing();
-        rig.Owners.Managers[1] = AddedSeconds("add_uber_time", 8f);
+        rig.Items.SetManager(1, AddedSeconds("add_uber_time", 8f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -696,7 +696,7 @@ public sealed class TFMedigunWeaponTests
         // puts the bonus at 0.5*0.5+1, so the healer is skipped at health/max 1.3 (:538's gate).
         var rig = Standing();
         rig.Give(3, 130, 100);
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_overheal_amount", 0.5f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_overheal_amount", 0.5f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -713,7 +713,7 @@ public sealed class TFMedigunWeaponTests
         // same mod — the same skip at health/max 1.3, from the patient's side alone.
         var rig = Standing();
         rig.Give(3, 130, 100);
-        rig.Owners.Managers[3] = MeterRate("mult_patient_overheal_penalty", 0.5f);
+        rig.Items.SetManager(3, MeterRate("mult_patient_overheal_penalty", 0.5f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -730,8 +730,9 @@ public sealed class TFMedigunWeaponTests
         // held bat's percentage does what the manager's does (:2671 vs :2672).
         var rig = Standing();
         rig.Give(3, 130, 100);
-        rig.Owners.Held[3] = "tf_weapon_bat";
-        rig.Owners.Items[3] = MeterRate("mult_patient_overheal_penalty_active", 0.5f);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_bat");
+        rig.Items.Set(3, new Dictionary<string, IAttributeProvider> { ["tf_weapon_bat"] =
+            MeterRate("mult_patient_overheal_penalty_active", 0.5f) });
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1253,7 +1254,7 @@ public sealed class TFMedigunWeaponTests
         // tf_shareddefs.h:587-598): the g_MedigunEffects rows run to six (:49-57), so the pop
         // of a bullet-resist charge hands the typed bullet bubble, not the plain über.
         var rig = Standing();
-        rig.Owners.Managers[1] = ChargeHolder(3f);
+        rig.Items.SetManager(1, ChargeHolder(3f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1275,7 +1276,7 @@ public sealed class TFMedigunWeaponTests
         // (tf_weapon_medigun.cpp:52) for the release seconds
         // (tf_player_shared.cpp:8905, 9053-9074).
         var rig = Standing();
-        rig.Owners.Managers[1] = ChargeHolder(1f);
+        rig.Items.SetManager(1, ChargeHolder(1f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1296,7 +1297,7 @@ public sealed class TFMedigunWeaponTests
         // of the g_MedigunEffects row (tf_weapon_medigun.cpp:53), whose heal multiplier is the
         // ×3 the heal accumulation pays out (tf_player_shared.cpp:2487-2495).
         var rig = Standing();
-        rig.Owners.Managers[1] = ChargeHolder(2f);
+        rig.Items.SetManager(1, ChargeHolder(2f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1320,7 +1321,7 @@ public sealed class TFMedigunWeaponTests
                                               AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
                                               false, false, AttributeValueType.Default, MergedKeys.Block("seconds"));
         holder.Set(AttributeValue.OfFloat(seconds, 8f));
-        rig.Owners.Managers[1] = holder;
+        rig.Items.SetManager(1, holder);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1358,7 +1359,7 @@ public sealed class TFMedigunWeaponTests
         // and on the medic, the medic its provider — set_weapon_mode 3, MEDIGUN_RESIST
         // (tf_weapon_medigun.h:23-29).
         var rig = Standing();
-        rig.Owners.Managers[1] = ResistMode();
+        rig.Items.SetManager(1, ResistMode());
         var weapon = rig.NewWeapon();
         QueueFound(rig);
 
@@ -1377,7 +1378,7 @@ public sealed class TFMedigunWeaponTests
         // convar keeps the beam over the button release (:1563-1573).
         var rig = Standing();
         rig.Clients.ConVars[(1, "tf_medigun_autoheal")] = "1";
-        rig.Owners.Managers[1] = ResistMode();
+        rig.Items.SetManager(1, ResistMode());
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);      // the attach: the bullet pair
@@ -1422,7 +1423,7 @@ public sealed class TFMedigunWeaponTests
         // the plain release flag untouched, the deployed event riding every mode
         // (:1920-1929); a still-held button on a worn bubble answers nothing (:1822-1834).
         var rig = Standing();
-        rig.Owners.Managers[1] = ResistMode();
+        rig.Items.SetManager(1, ResistMode());
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1449,7 +1450,7 @@ public sealed class TFMedigunWeaponTests
         // The deny (:1839-1844) against the quarter-chunk floor (:803-813): under a
         // quarter the Vaccinator gives no bubble and fires nothing.
         var rig = Standing();
-        rig.Owners.Managers[1] = ResistMode();
+        rig.Items.SetManager(1, ResistMode());
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1483,7 +1484,7 @@ public sealed class TFMedigunWeaponTests
         // the new patient takes no part in the invulnerable row the release is not.
         var rig = Standing();
         rig.Give(2, 100, 100);
-        rig.Owners.Managers[1] = ChargeHolder(1f);
+        rig.Items.SetManager(1, ChargeHolder(1f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1509,7 +1510,7 @@ public sealed class TFMedigunWeaponTests
         // patient is mega-healed, the switched-from one wears it off at once.
         var rig = Standing();
         rig.Give(2, 100, 100);
-        rig.Owners.Managers[1] = ChargeHolder(2f);
+        rig.Items.SetManager(1, ChargeHolder(2f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1535,7 +1536,7 @@ public sealed class TFMedigunWeaponTests
         // release dies and its recalc turns the row off — the wear-off ends it, never the
         // fixed span the grant carried.
         var rig = Standing();
-        rig.Owners.Managers[1] = ChargeHolder(1f);
+        rig.Items.SetManager(1, ChargeHolder(1f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1560,7 +1561,7 @@ public sealed class TFMedigunWeaponTests
         // tf_weapon_medigun.cpp:441); IsReleasingCharge is release and not holstered, so the
         // unholster's report re-grants it with no new pop (:444-446).
         var rig = Standing();
-        rig.Owners.Managers[1] = ChargeHolder(1f);
+        rig.Items.SetManager(1, ChargeHolder(1f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -1618,7 +1619,7 @@ public sealed class TFMedigunWeaponTests
         var rig = Standing();
         var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
         weapon.SetChargeLevel(1, 0.8f);
-        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
         weapon.PreserveCharge(1, 0.6f);
 
         weapon.RemoveMedigun(1, now: 10f);
@@ -1638,7 +1639,7 @@ public sealed class TFMedigunWeaponTests
         var rig = Standing();
         var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround));
         weapon.SetChargeLevel(1, 0.8f);
-        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
         weapon.PreserveCharge(1, 0.6f);
 
         weapon.RemoveMedigun(1, now: 10f);
@@ -1659,7 +1660,7 @@ public sealed class TFMedigunWeaponTests
         var rig = Standing();
         var weapon = rig.NewWeapon(rounds: rounds);
         weapon.SetChargeLevel(1, 1f);
-        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
         weapon.PreserveCharge(1, 0.9f);
 
         weapon.RemoveMedigun(1, now: 10f);
@@ -1678,7 +1679,7 @@ public sealed class TFMedigunWeaponTests
         var rig = Standing();
         var weapon = rig.NewWeapon(rounds: rounds);
         weapon.SetChargeLevel(1, 1f);
-        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
         weapon.PreserveCharge(1, 0.9f);
 
         weapon.RemoveMedigun(1, now: 10f);
@@ -1694,7 +1695,7 @@ public sealed class TFMedigunWeaponTests
         var rig = Standing();
         var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
         weapon.SetChargeLevel(1, 1f);
-        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
         weapon.PreserveCharge(1, 0.9f);
 
         weapon.RemoveMedigun(1, now: 10f);
@@ -1715,7 +1716,7 @@ public sealed class TFMedigunWeaponTests
         var rig = Standing();
         var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
         weapon.SetChargeLevel(1, 1f);
-        rig.Owners.Managers[1] = PreserveHolder(0.3f);
+        rig.Items.SetManager(1, PreserveHolder(0.3f));
 
         weapon.PreserveCharge(1, 0.9f);
 

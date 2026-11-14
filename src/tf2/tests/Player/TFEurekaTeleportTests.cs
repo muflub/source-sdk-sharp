@@ -131,8 +131,18 @@ public sealed class TFEurekaTeleportTests
             });
 
             Conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
-            var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, Conditions, rig.Loadout, rig.Engine);
-            var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, Conditions, rig.Carriers);
+            var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, Conditions, rig.Loadout, rig.Engine,
+                                                rig.Items, new AttributeHooks(),
+                                                scripts: new TFWeaponScripts(rig.Log, WeaponFixtures.ShippedWithClasses()),
+                                                catalog: rig.Catalog,
+                                                arsenal: new Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                     rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                     new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                     new DamageHitGroups()),
+                                                hpMin: DeclaredConVars.Holding<TFMaxHealthDrainHpMinConVar>(null),
+                                                deployCost: DeclaredConVars.Holding<TFMaxHealthDrainDeployCostConVar>(null),
+                                                clock: rig.Engine);
+            var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, Conditions, rig.Carriers, rig.Items);
             var owners = new FakeOwners();
             if (teleportAttrib)
             {
@@ -142,7 +152,8 @@ public sealed class TFEurekaTeleportTests
 
             var voice = new TFConceptSpeech(Rules, rig.Carriers, Teams, rig.Engine,
                                             ObjectiveRig.ConceptSceneImage(), rig.Engine, new FakeRandom(), owners: owners);
-            var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice);
+            var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice,
+                                             owners, new AttributeHooks(), ObjectiveRig.ConceptSceneImage());
             Eureka = new TFEurekaTeleport(rig.Carriers, rig.Engine, rig.Engine, Teams, rig.Engine,
                                           new FakeEurekaBuildings(buildings), command,
                                           owners: owners, hooks: new AttributeHooks());

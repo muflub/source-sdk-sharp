@@ -47,8 +47,9 @@ public sealed class TFPlayerLoadoutTests
             stalemate = new TFStalemateConVars(melee, changeTime);
         }
 
-        return (rig, new TFLoadoutProvider(inventory, rig.Schema, rig.Carriers, items, rig.Classes, round, stalemate,
-            precache: precache), items);
+        return (rig, LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: items,
+            table: rig.Classes, round: round, stalemate: stalemate,
+            players: rig.Engine, precache: precache, log: rig.Log), items);
     }
 
     /// <summary>The round the loadout reads, fixed at one state.</summary>
@@ -245,8 +246,9 @@ public sealed class TFPlayerLoadoutTests
         var inventory = new LocalInventory(new InventoryStore(new ModInfo(_ => null), rig.Schema, rig.Log),
                                            rig.Schema, new TFWeaponOwnersTests.NoClients(), rig.Log);
         inventory.OnClientActive(PlayerRig.Index);
-        var loadout = new TFLoadoutProvider(inventory, rig.Schema, rig.Carriers, items, rig.Classes,
-                                            precache: rig.Engine);
+        var loadout = LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: items,
+                                            table: rig.Classes, players: rig.Engine, precache: rig.Engine,
+                                            log: rig.Log);
 
         ItemInstance? gloves = inventory.Grant(PlayerRig.Index, GlovesFixture);
         Assert.NotNull(gloves);
@@ -331,8 +333,9 @@ public sealed class TFPlayerLoadoutTests
             new InventoryStore(new ModInfo(_ => null), schema, rig.Log), schema,
             new TFWeaponOwnersTests.NoClients(), rig.Log);
         inventory.OnClientActive(PlayerRig.Index);
-        var loadout = new TFLoadoutProvider(inventory, schema, rig.Carriers, rig.Items, rig.Classes,
-                                             catalog: rig.Catalog, carriers: rig.Carriers, log: rig.Log);
+        var loadout = LoadoutDeps.Loadout(inventory, schema, classes: rig.Carriers, items: rig.Items,
+                                             table: rig.Classes, catalog: rig.Catalog, carriers: rig.Carriers,
+                                             players: rig.Engine, precache: rig.Engine, log: rig.Log);
         return (rig, inventory, loadout);
     }
 

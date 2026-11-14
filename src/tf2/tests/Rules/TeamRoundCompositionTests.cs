@@ -51,6 +51,16 @@ public sealed class TeamRoundCompositionTests
         services.AddInstance<ITFTeamScores>(new TFTeamScores(new TeamResource()));
         services.AddInstance<IRandomSeeds>(new RandomSeeds(1));   // the server registers one too (ServerModule)
 
+        // Every seam the machine now takes required, as the server's
+        // registrations hold it: the two hook chains by their registrar's
+        // AddHooks, the carrier, the panel, the level and the stats rows.
+        services.AddInstance<IHooks<ITeamRoundListener>>(new ListHooks<ITeamRoundListener>());
+        services.AddInstance<IHooks<ITimerExpiryVeto>>(new ListHooks<ITimerExpiryVeto>());
+        services.AddInstance(new TF2.Server.Player.TFPlayerCarriers());
+        services.AddInstance<ITFWinPanel>(new FakeWinPanel());
+        services.AddInstance<ILevelInfo>(new FakeLevel());
+        services.AddInstance<TF2.Server.Player.ITFPlayerStats>(new NoScores());
+
         // The core's half of the world, real.
         services.AddInstance(new GameModes(new SourceSharp.Abi.RecordingLog(), clock, services, convars.Declare<SvModeSwitchWarmupConVar>(), convars.Declare<MpWaitingForPlayersTimeConVar>()));
         services.AddInstance(registry.Directory);

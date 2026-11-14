@@ -202,6 +202,18 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
                        && attributes!.Int(0, "is_giger_counter", own.ActiveItemOf(scorer.EntryIndex)) > 0
                     ? "giger_counter" : "wrangler_kill";
                 break;
+            // THE FISH KILL'S NOTICE (CTFPlayer::OnTakeDamage's call,
+            // tf_player.cpp:9758): fish_notice, fish_notice__arm once the
+            // killing item carries fish_damage_override — stock's
+            // CALL_ATTRIB_HOOK_INT_ON_OTHER over the weapon that dealt the blow.
+            case TFDamageCustom.FishKill:
+                name = scorer != EntityHandle.None && entities.IsValid(scorer)
+                       && owners is { } fishOwn
+                       && attributes!.Int(0, "fish_damage_override",
+                                          fishOwn.ItemOf(scorer.EntryIndex, hitWeaponName)) > 0
+                    ? "fish_notice__arm" : "fish_notice";
+                id = hitWeapon;
+                break;
             default:
                 if (scorer != EntityHandle.None && inflictor != EntityHandle.None && inflictor == scorer)
                 {

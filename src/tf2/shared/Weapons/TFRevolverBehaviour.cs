@@ -57,9 +57,9 @@ public class TFRevolverBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         // Stock's bucket spend (:159-171), after the stamp: the revolver whose
         // held item collects the sapper's crits pays one stored crit for the
         // shot just fired — the gate and the clamp live in the bucket service.
-        // Server's seam; the replay asks nothing until the server composes it.
-        if (attack.Command.OwnerIndex > 0 && Parts.RevengeCrits is { } bucket)
-            bucket.SpendOnShot(attack.Command.OwnerIndex);
+        // The server's bucket pays; the client's own answer spends nothing.
+        if (attack.Command.OwnerIndex > 0)
+            Parts.RevengeCrits.SpendOnShot(attack.Command.OwnerIndex);
     }
 
     /// <summary>

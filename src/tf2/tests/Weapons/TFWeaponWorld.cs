@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server.Medigun;
 using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Econ;
@@ -86,6 +87,9 @@ internal sealed class RecordingEffects : ITFWeaponEffects
 {
     public readonly List<(string Weapon, ShotDamage Shot, float Charge)> Projectiles = new();
     public int Detonations;
+
+    /// <summary>The shove asks, the weapon's name and the presser: the Shortstop's facts read them.</summary>
+    public List<(string Weapon, int Owner)> Shoves = new();
     public readonly List<(string Weapon, ShotDamage Shot)> FlameTicks = new();
     public readonly List<string> AirBlasts = new();
     public readonly List<bool> Heals = new();
@@ -115,6 +119,7 @@ internal sealed class RecordingEffects : ITFWeaponEffects
 
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) => Projectiles.Add((script.Name, shot, charge));
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Detonations++;
+    public void Shove(in WeaponAttackContext attack, TFWeaponScript script) => Shoves.Add((script.Name, attack.Command.OwnerIndex));
 
     public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) => ShockAttacks.Add(script.Name);
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) => FlameTicks.Add((script.Name, shot));
@@ -236,6 +241,22 @@ internal sealed class FakeRoundSetup : TF2.Shared.Rules.ITFRoundSetup
     public bool InSetupWithRoundTimer { get; set; }
 }
 
+/// <summary>Nobody has asked for the idle top-up: the wish the world
+/// answers with until a fact hands its own.</summary>
+internal sealed class NobodyWantsAutoReload : ITFAutoReload
+{
+    public bool Wants(int ownerIndex) => false;
+}
+
+/// <summary>No stored crits: the bucket the world answers with until a
+/// fact hands its own.</summary>
+internal sealed class EmptyRevengeCrits : ITFRevengeCrits
+{
+    public void Grant(EntityHandle owner) { }
+
+    public void SpendOnShot(int ownerIndex) { }
+}
+
 /// <summary>
 /// One side's TF weapons over the shipped scripts and the core machine: the
 /// catalogue with the TF rows, the TF behaviours, the TF ammo, a fake carrier
@@ -249,6 +270,8 @@ internal sealed class TFWeaponWorld
     public FakeOwners Owners { get; } = new();
     public FakeRoundSetup Round { get; } = new();
     public FixedCritSettings Settings { get; } = new();
+    public WeaponMedigunChargeRateConVar ChargeRate { get; } = BindCharge("40");
+    public TFUseFixedWeaponspreadsConVar Spread { get; } = BindSpread("0");
     public RecordingArms Arms { get; } = new();
     public RecordingEffects Effects { get; } = new();
     public RecordingBuilderPlacement Builder { get; } = new();
@@ -261,6 +284,18 @@ internal sealed class TFWeaponWorld
     /// <summary>The airblast's ammunition convar, bound to its declared
     /// default; <see cref="SetBurstammo"/> turns it.</summary>
     public TFFlameThrowerBurstammoConVar Burstammo { get; } = Bind(BurstammoDefault);
+
+    /// <summary>The replayed medigun half the world's behaviours ask: the
+    /// server's silent answer, the replay facts handing their own.</summary>
+    public TFServerMedigunPrediction Medigun { get; } = new();
+
+    /// <summary>The idle top-up's wish: nobody's, until a fact hands its own
+    /// (<c>autoReload:</c>) — the declared default answer.</summary>
+    public NobodyWantsAutoReload AutoReload { get; } = new();
+
+    /// <summary>The stored-crit bucket: empty, until a fact hands its own
+    /// (<c>bucket:</c>) — the declared default answer.</summary>
+    public EmptyRevengeCrits Revenge { get; } = new();
 
     public TFWeaponParts Parts { get; }
     public WeaponCatalog Catalog { get; }
@@ -295,10 +330,10 @@ internal sealed class TFWeaponWorld
         var chain = TFWeaponHookChain.Of([new TFSwordHook(attributes), new TFAttributeWeaponHook(attributes),
                                           new TFCritBoostHook(), new TFKingReloadHook(), .. hooks]);
 
-        Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, effects ?? Effects, Builder, data,
-                                  Round, fixedSpread: fixedSpread, autoReload: autoReload,
-                                  flamethrowerBurstammo: Burstammo, sapper: Sapper, sentryWrangle: Wrangle,
-                                  revengeCrits: bucket);
+        Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, effects ?? Effects, Builder,
+                                  data ?? new FakePredictedData(), Round, ChargeRate, fixedSpread ?? Spread,
+                                  autoReload ?? AutoReload, Burstammo, Medigun, Sapper, Wrangle,
+                                  bucket ?? Revenge);
         Catalog = new WeaponCatalog(() => [types], Log);
         Behaviours = new WeaponBehaviours(() => [new TFWeaponBehaviours(Parts)], Log);
         Ammo = new AmmoCatalog(() => [new TFAmmoTypes()], Log);
@@ -316,6 +351,24 @@ internal sealed class TFWeaponWorld
     {
         var convar = new TFFlameThrowerBurstammoConVar();
         convar.Bind(-1, "tf_flamethrower_burstammo", value);
+        return convar;
+    }
+
+    /// <summary>The meter's build rate, bound to its declared default
+    /// (<c>tf_weapon_medigun.cpp:1272</c>'s 40) until a fact binds otherwise.</summary>
+    private static WeaponMedigunChargeRateConVar BindCharge(string value)
+    {
+        var convar = new WeaponMedigunChargeRateConVar();
+        convar.Bind(-1, "weapon_medigun_charge_rate", value);
+        return convar;
+    }
+
+    /// <summary>The fixed spread, bound to its declared default (the random
+    /// sample) until a fact hands a set one (<c>fixedSpread:</c>).</summary>
+    private static TFUseFixedWeaponspreadsConVar BindSpread(string value)
+    {
+        var convar = new TFUseFixedWeaponspreadsConVar();
+        convar.Bind(-1, "tf_use_fixed_weaponspreads", value);
         return convar;
     }
 

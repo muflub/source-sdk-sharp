@@ -117,13 +117,13 @@ public sealed class TFPlayerClassTests
     public void The_tf_block_runs_carrier_class_countdown_stun_override()
     {
         var rig = new PlayerRig();
-        var source = new TFPlayerComponents(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
+        var source = ComposedComponents.Source(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
                                             new TFPlayerConditions(rig.Carriers, rig.Engine),
                                             new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), rig.Engine,
                                             rig.Schema, new PoollessGiver(), rig.Engine, rig.Engine,
                                             rig.Engine, rig.Engine,
                                             new TF2.Shared.TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
-                                            new TF2.Server.Combat.TFDamageScopes());
+                                            new TF2.Server.Combat.TFDamageScopes(), rig.Engine);
 
         var block = source.Create(PlayerRig.Player).ToList();
 
@@ -137,10 +137,12 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFTauntThink>(c),
             c => Assert.IsType<TFTauntAttack>(c),
             c => Assert.IsType<TFEurekaTauntWatch>(c),
+            c => Assert.IsType<TFTauntHeal>(c),
             c => Assert.IsType<TFScattergunKnockback>(c),
             c => Assert.IsType<TFStunStack>(c),
             c => Assert.IsType<TFDonkVictims>(c),
             c => Assert.IsType<TFRespawnOverride>(c),
+            c => Assert.IsType<TFBuffRageTicker>(c),
             c => Assert.IsType<TFHypeDrain>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),
             c => Assert.IsType<TFAmmoPoolMirror>(c),

@@ -1198,3 +1198,8 @@ src/tf2/server/Projectiles/TFMechanicalArmOrb.cs	ports CTFProjectile_MechanicalA
 src/tf2/server/Player/TFRagdollTeam.cs	ports the ragdoll' team and class at death: the m_iTeam/m_iClass the corpse carries and the disguised arm (tf_player.cpp:15625-15626, 15870-15879)
 src/client/managed/Ragdolls/RagdollIce.cs	ports C_TFRagdoll's frozen hold — m_frozenTimer.Start(RandomFloat(9, 11)) and FrameAdvance's thaw (c_tf_player.cpp:741, :1007-1031)
 src/tf2/server/Player/TFFeignRagdoll.cs	ports the feign ragdoll's dress: the disguised team and class arm (tf_player.cpp:15795-15879)
+src/client/managed/Ragdolls/RagdollFades.cs	ports C_TFRagdoll's fade: the cl_ragdoll_fade_time death time, the 600/s alpha run and EndFadeOut's hide (c_tf_player.cpp:514, 863, 1512-1660)
+src/tf2/server/Player/TFShortstopShove.cs	ports CTFPistol_ScoutPrimary::Push, the Shortstops shove: the hull-sweep victim takes the generic pushback impulse and the point of damage (tf_weapon_pistol.cpp:119-197, tf_player.cpp:3369-3400)
+src/tf2/server/Entities/Ctf/FlagCarriers.cs	ports the carried-item arm of CTFPlayerShared::CanRecieveMedigunChargeEffect (tf_player_shared.cpp:8733-8734): the stolen-flag walk over ICaptureFlagAutoList that says who holds the intelligence
+src/tf2/server/Weapons/TFKnifeServerHook.cs	ports CTFKnife's server answers: the backstab swing and its tails (PrimaryAttack), the melt gates at CanDeploy and BeforeFire, and the whole-crit IsBackstab (tf_weapon_knife.cpp:180-280, 243-264, 487-500, 521-531)
+src/tf2/client/Weapons/TFKnifeClientHook.cs	ports CTFKnife::CanDeploy's replay half: the melted knife refused from the carrier's published pair (tf_weapon_knife.cpp:521-531)

@@ -44,7 +44,16 @@ public sealed class TFSwordHeadsTests
             Player.Join(VictimIndex);
             Conditions = new TFPlayerConditions(Player.Carriers, Player.Engine);
             Resupply = new TFPlayerResupply(Player.Carriers, Player.Classes, Player.Engine, Player.Engine,
-                                            Conditions, Player.Loadout, Player.Engine, Owners, Hooks);
+                                            Conditions, Player.Loadout, Player.Engine, Player.Items, Hooks,
+                                            scripts: new TFWeaponScripts(Player.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: Player.Catalog,
+                                            arsenal: new Arsenal(Player.Log, Player.Engine, Player.Engine, Player.Engine, Player.Engine,
+                                                                 Player.Engine, Player.Engine, Player.Engine, Player.Engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), Player.Engine,
+                                                                 new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: Player.Engine);
             Heads = new TFSwordHeads(Player.Carriers, Owners, Hooks, Records, Resupply,
                                      new FixedHealing(), Player.Engine);
         }
@@ -68,6 +77,8 @@ public sealed class TFSwordHeadsTests
         rig.Owners.Classes[PlayerRig.Index] = TFClass.Demoman;
         rig.Owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_sword"] =
             Arm("decapitate_type", 1f, AttributeDescriptionFormat.Additive, 6011) };
+        rig.Player.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { ["tf_weapon_sword"] =
+            Arm("decapitate_type", 1f, AttributeDescriptionFormat.Additive, 6011) });   // the resupply's own table
     }
 
     private static IAttributeProvider Arm(string name, float value, AttributeDescriptionFormat format, int defindex)
@@ -86,8 +97,8 @@ public sealed class TFSwordHeadsTests
         var rig = new Rig();
         Arms(rig);
         rig.VictimState.Decapitations = 2;
-        var movement = new TFMovementRules(TFMovementFixtures.Server(), new CarrierData(rig.Player.Carriers),
-                                           owners: rig.Owners, hooks: rig.Hooks);
+        var movement = TFMovementFixtures.Rules(new CarrierData(rig.Player.Carriers),
+                                                owners: rig.Owners, hooks: rig.Hooks);
         float plain = movement.MaxSpeedScale(PlayerRig.Index, 175f, ducking: false, groundMaterial: 0);
 
         SwordKill(rig);

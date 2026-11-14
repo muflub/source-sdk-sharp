@@ -171,7 +171,16 @@ public sealed class TFMedigunReplayFacts
             var parts = new ClientParts(scripts, ClientChain.Of(
                                             [new client::TF2.Shared.TFAttributeWeaponHook(new ClientHooks())]),
                                         new ClientBuckets(),
-                                        new NoRandomCrits(), playerData: data, medigunPrediction: prediction);
+                                        new NoRandomCrits(),
+                                        new client::TF2.Client.Player.TFClientWeaponOwners(data, pair),
+                                        new client::TF2.Shared.NoTFWeaponEffects(),
+                                        new client::TF2.Client.Buildings.TFClientBuilderPlacement(),
+                                        data,
+                                        Setup, BoundCharge(), BoundSpread(), Reload, BoundBurstammo(),
+                                        prediction,
+                                        new client::TF2.Client.Buildings.TFClientSapperState(),
+                                        new client::TF2.Client.Buildings.TFClientSentryWrangle(),
+                                        new client::TF2.Client.Player.TFClientRevengeCrits());
             var behaviours = new ClientBehaviours(() => [new ClientWeaponBehaviours(parts)], log);
 
             Arsenal = new ClientArsenal(log, pair, Engine, Engine, Engine,
@@ -186,6 +195,45 @@ public sealed class TFMedigunReplayFacts
     private sealed class NoRandomCrits : ClientCrits
     {
         public ClientCritSettings Current { get; } = new(RandomCrits: false);
+    }
+
+    /// <summary>No round-setup gate: the replay's charge builds at the plain
+    /// rate, as the null answer's 1x did.</summary>
+    private sealed class NoRoundSetup : client::TF2.Shared.Rules.ITFRoundSetup
+    {
+        public bool InSetupWithRoundTimer => false;
+    }
+
+    private static readonly client::TF2.Shared.Rules.ITFRoundSetup Setup = new NoRoundSetup();
+
+    /// <summary>Nobody has asked for the idle top-up.</summary>
+    private sealed class NoAutoReload : client::TF2.Shared.ITFAutoReload
+    {
+        public bool Wants(int ownerIndex) => false;
+    }
+
+    private static readonly client::TF2.Shared.ITFAutoReload Reload = new NoAutoReload();
+
+    // The convars at their declared defaults, as the client's composition publishes them.
+    private static client::TF2.Shared.WeaponMedigunChargeRateConVar BoundCharge()
+    {
+        var convar = new client::TF2.Shared.WeaponMedigunChargeRateConVar();
+        convar.Bind(-1, "weapon_medigun_charge_rate", "40");
+        return convar;
+    }
+
+    private static client::TF2.Shared.TFUseFixedWeaponspreadsConVar BoundSpread()
+    {
+        var convar = new client::TF2.Shared.TFUseFixedWeaponspreadsConVar();
+        convar.Bind(-1, "tf_use_fixed_weaponspreads", "0");
+        return convar;
+    }
+
+    private static client::TF2.Shared.TFFlameThrowerBurstammoConVar BoundBurstammo()
+    {
+        var convar = new client::TF2.Shared.TFFlameThrowerBurstammoConVar();
+        convar.Bind(-1, "tf_flamethrower_burstammo", "20");
+        return convar;
     }
 
     /// <summary>The shipped pack, served as the client's files.</summary>

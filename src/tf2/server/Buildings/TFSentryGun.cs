@@ -59,13 +59,13 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  IUniformRandom random, ITFAmmoPurse purse, TFBlastApplier blast,
                                  DamageInflictors inflictors, TFSentryGunDamageConVar sentryDamage,
                                  TFSentryGunMiniDamageConVar miniSentryDamage, IEngineSound sound,
-                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                                 ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                                 TFDamageScopes? scopes = null, ITFRevengeCrits? crits = null,
-                                 TFRevengeCrits? revenge = null)
+                                 TFPlayerCarriers carriers, TFConceptSpeech speech,
+                                 ITFWeaponOwners owners, AttributeHooks hooks,
+                                 TFDamageScopes scopes, ITFRevengeCrits crits,
+                                 TFRevengeCrits revenge)
     : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits)
 {
-    private readonly TFRevengeCrits? _revenge = revenge;
+    private readonly TFRevengeCrits _revenge = revenge;
 
     public const string MapClass = "obj_sentrygun";
 
@@ -304,9 +304,9 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     {
         base.OnKilled(attacker);
 
-        if (_revenge is null || Builder == EntityHandle.None
-            || Owners?.ItemOf(Builder.EntryIndex, TFRevengeCrits.ShotgunScript) is not { } shotgun
-            || Hooks?.Int(0, "sentry_killed_revenge", shotgun) != 1)
+        if (Builder == EntityHandle.None
+            || Owners.ItemOf(Builder.EntryIndex, TFRevengeCrits.ShotgunScript) is not { } shotgun
+            || Hooks.Int(0, "sentry_killed_revenge", shotgun) != 1)
             return;
 
         _revenge.Grant(Builder.EntryIndex, Kills * 2 + Assists);

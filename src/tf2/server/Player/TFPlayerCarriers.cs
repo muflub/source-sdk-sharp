@@ -135,9 +135,9 @@ public sealed class TFPlayerCarrier : IPlayerComponent
 /// the charge meter (21), the charge's end (22), the blast jump (25), the
 /// taunt think (26), the taunt attack (27), the taunt heal (28), the stun
 /// stack (30), the respawn override (40) and the buff's rage tick (42).
-/// Each is its own class; nothing here decides anything. The countdown takes
-/// the medigun lane's healing (2.9) to report the frame's healer count; a
-/// container without the lane passes none and the count is 2.3's none.
+/// Each is its own class; nothing here decides anything. Every dependency is
+/// required: the composition names the missing one, rather than an arm
+/// silently standing down.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirectory directory,
@@ -149,18 +149,18 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        IEnginePlayers enginePlayers, IEngineGameEvents events,
                                        IEngineWorldQuery world, IEngineDamage damage,
                                        TFWeaponScripts weaponScripts, TFDamageScopes damageScopes,
-                                       IEngineEnvironment? environment = null,
-                                       TFDamageLayer? damageLayer = null,
-                                       ITFPlayerHealing? healing = null,
-                                       ITFLunchboxEffects? lunchbox = null,
-                                       ITFBuffEffects? buffs = null,
-                                       ITFWeaponOwners? owners = null,
-                                       AttributeHooks? hooks = null,
-                                       TFDemomanChargeDrainTimeConVar? chargeDrain = null,
-                                       TFDemomanChargeRegenRateConVar? chargeRegen = null,
-                                       TFShieldCharge? shields = null,
-                                       TF2.Shared.TFDoubleDonkWindowConVar? donkWindow = null,
-                                       TFEurekaTeleport? eureka = null)
+                                       IEngineEnvironment environment,
+                                       TFDamageLayer damageLayer,
+                                       ITFPlayerHealing healing,
+                                       ITFLunchboxEffects lunchbox,
+                                       ITFBuffEffects buffs,
+                                       ITFWeaponOwners owners,
+                                       AttributeHooks hooks,
+                                       TFDemomanChargeDrainTimeConVar chargeDrain,
+                                       TFDemomanChargeRegenRateConVar chargeRegen,
+                                       TFShieldCharge shields,
+                                       TF2.Shared.TFDoubleDonkWindowConVar donkWindow,
+                                       TFEurekaTeleport eureka)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.Components;
@@ -175,17 +175,14 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFTauntThink(conditions, directory);
         yield return new TFTauntAttack(carriers, players, entities, world, damage, enginePlayers, networking, weaponScripts, damageScopes, directory, lunchbox,
-                                       owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks());
+                                       owners, hooks);
         yield return new TFEurekaTauntWatch(eureka, conditions);
-        if (healing is { } healLane)
-            yield return new TFTauntHeal(carriers, conditions, enginePlayers, entities, world,
-                                         owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks(), healLane);
+        yield return new TFTauntHeal(carriers, conditions, enginePlayers, entities, world, owners, hooks, healing);
         yield return new TFScattergunKnockback(carriers, entities, damageLayer);
         yield return new TFStunStack(carriers, players, clock);
         yield return new TFDonkVictims(carriers, clock, donkWindow);
         yield return new TFRespawnOverride(carriers, clock);
-        if (buffs is { } buffEffects)
-            yield return new TFBuffRageTicker(carriers, buffEffects, enginePlayers);
+        yield return new TFBuffRageTicker(carriers, buffs, enginePlayers);
         yield return new TFHypeDrain(carriers, conditions);
         yield return new TFPlayerAttributes(carriers, items, schema, clock);
         yield return new TFAmmoPoolMirror(entities, carriers, arsenal);

@@ -3,9 +3,11 @@ using SourceSharp.Server;
 using SourceSharp.Tests;
 
 using TF2.Server;
+using TF2.Server.Combat;
 using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Conditions;
 using TF2.Tests.Player;
 using TF2.Tests.Rules;
@@ -102,7 +104,10 @@ public sealed class TFPlayerHealingHealthBuffArmsTests
             Healing = new TFPlayerHealing(Player.Engine, Player.Engine, Conditions, Resupply,
                                           conVars.Declared<TFMaxHealthBoostConVar>(),
                                           conVars.Declared<TFBoostDrainTimeConVar>(),
-                                          conVars.Declared<TFInvulnTimeConVar>(), new FakeClock());
+                                          conVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
+                                          new TFHealingStats(), new TFDamageRecords(), new TFHealingEvents(),
+                                          new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(),
+                                          new AttributeHooks());
             chain.Add(Healing);   // stock's arms live on the shared class: here, on the healing
 
             Resupply.Maxes[PlayerRig.Index] = 150;

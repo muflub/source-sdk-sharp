@@ -562,6 +562,46 @@ public static class TFProjectileDefs
 
     /// <summary><c>TF_WEAPON_PEEJAR_EXPLODE_SOUND</c> (<c>tf_weapon_jar.h:35</c>), broadcast at the break.</summary>
     public const string JarExplodeSound = "Jar.Explode";
+
+    /// <summary>The cleaver's model (<c>TF_WEAPON_CLEAVER_MODEL</c>, <c>tf_weapon_jar.cpp:89</c>).</summary>
+    public const string CleaverModel = "models/workshop_partner/weapons/c_models/c_sd_cleaver/c_sd_cleaver.mdl";
+
+    /// <summary>The cleaver's impact sounds (<c>tf_weapon_jar.cpp:90-91</c>): flesh on the hit, world on the miss.</summary>
+    public const string CleaverImpactFleshSound = "Cleaver.ImpactFlesh";
+    public const string CleaverImpactWorldSound = "Cleaver.ImpactWorld";
+
+    /// <summary>
+    /// <c>CTFProjectile_Cleaver::GetDamage</c> (<c>tf_weapon_jar.cpp</c>, the
+    /// override's bare 50): the hit's wound before the layers.
+    /// </summary>
+    public const float CleaverDamage = 50f;
+
+    /// <summary>The cleaver's bleed (<c>OnHit</c>'s <c>MakeBleed(·, ·, 5.f)</c>): five seconds on the struck player.</summary>
+    public const float CleaverBleedSeconds = 5f;
+
+    /// <summary>
+    /// The cleaver's launch (<c>CTFCleaver::GetVelocityVector</c>,
+    /// <c>tf_weapon_jar.cpp:906-916</c>): ten forward parts to one up of the
+    /// sight basis, normalized, at the constant below — the jar's lob with
+    /// the tilt baked in and neither jitter nor sideways draw.
+    /// </summary>
+    public const float CleaverAimForward = 10f;
+    public const float CleaverAimUp = 1f;
+    public const float CleaverSpeed = 3000f;
+
+    /// <summary>The cleaver's spin (<c>GetAngularImpulse</c>'s pitch 500, <c>tf_weapon_jar.h:123</c>, swizzled as the pipes').</summary>
+    public const float CleaverSpinPitch = 500f;
+
+    /// <summary>
+    /// <c>FLIGHT_TIME_TO_REDUCE_COOLDOWN</c> (<c>tf_weapon_jar.cpp:989</c>):
+    /// past this aloft, the hit pays the launcher's recharge back —
+    /// <c>DecrementBarRegenTime(1.5f)</c> (:1030), the seconds below.
+    /// </summary>
+    public const float CleaverRechargeFlightTime = 0.5f;
+    public const float CleaverRechargeSeconds = 1.5f;
+
+    /// <summary>The world hit's lie (<c>Explode</c>'s <c>SUB_Remove</c> at +2, <c>tf_weapon_jar.cpp:1093</c>).</summary>
+    public const float CleaverLingerSeconds = 2f;
 }
 
 /// <summary>

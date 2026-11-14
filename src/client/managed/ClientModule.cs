@@ -1681,6 +1681,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<Ragdolls.IRagdollAsh>(ashing);
         _services.AddInstance<IClientFrameThink>(ashing);
 
+        // The body's fade (ClientSsRagdoll's fade arm, Ragdolls.RagdollFades)
+        // is TF2's alone, registered by that mod: HL2MP's bodies never fade.
+
         // The ice statue's hold (ClientSsRagdoll's ice arm): the thaw needs
         // the bodies and a roll, so it stands with them.
         if (_ragdolls is { } frozenBodies)
@@ -2225,6 +2228,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // it composes, because its own composition resolves it (a mod screen's
         // source asks for the loader, stage 3.2).
         _services.AddInstance<Vgui.IUiTextureSource>(_uiLoader);
+        // The key route's menu-layer leg (cs_key's): the same door the engine's
+        // vgui root knocks on when the menu layer holds the keyboard.
+        _services.AddInstance<IUiClientEvents>(_uiLoader);
         _services.AddInstance(new Vgui.UiCarryReload(_uiLoader));
         // A new map hides the viewport's screens, as stock's viewport hid its panels on game_newmap.
         var newMapUi = _uiLoader;
@@ -3371,6 +3377,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public bool GetKeepGround(int playerIndex) => _movementRules.Rules.KeepGround(playerIndex);
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
+
+    public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

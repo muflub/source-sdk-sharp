@@ -59,7 +59,7 @@ public sealed class TFStickbombFacts
         /// <summary>The body the swing meets: an enemy unless the fact says else.</summary>
         public int VictimTeam { get; set; } = (int)TFTeam.Blue;
 
-        public KaboomRig()
+        public KaboomRig(IEngineEntityRender? render = null, IEntityDirectory? directory = null)
         {
             Held.BindLocal();
             Engine.ReturnsEachCall("Players.GetHandle",
@@ -75,6 +75,7 @@ public sealed class TFStickbombFacts
             Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
             Engine.Returns("Entities.GetIndex", 1);
             Engine.Returns("Entities.IsValid", true);
+            Engine.Returns("Entities.GetHealth", 100);
             Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(0f, 0f, 65f));
             Engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f));
             Engine.ReturnsEachCall("Players.GetTeam",
@@ -88,8 +89,9 @@ public sealed class TFStickbombFacts
             Damage = new MeleeDamage(HitGroups);
             Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
                         Engine, Owners, new(), Health, Engine, Engine, Directory, Carriers);
-            Effects = new(Engine, Engine, Engine, Damage, HitGroups, Log, Owners,
-                          new TF2.Shared.Econ.AttributeHooks(), blast: Blast);
+            Effects = MeleeDeps.Effects(Engine, Damage, HitGroups, Log, owners: Owners,
+                                        blast: Blast, health: Health,
+                                        render: render, directory: directory);
         }
 
         /// <summary>One smack of the held stickbomb, the script's 55 unless the shot says else.</summary>
@@ -192,6 +194,46 @@ public sealed class TFStickbombFacts
         rig.Smack();
 
         Assert.Equal(150f, (float)Assert.Single(KaboomsOf(rig)).Args[2]!, 3);
+    }
+
+    /// <summary>
+    /// Stock's <c>SwitchBodyGroups</c> (:226-228, :294-309): the detonation
+    /// repaints the one attachment riding the swing owner's hands with the
+    /// exploded caber, once per deploy — the spent bit's gate (:224) gives
+    /// the plain second swing no second repaint.
+    /// </summary>
+    [Fact]
+    public void TheDetonationBreaksTheBodygroupsOnTheAttachment()
+    {
+        var attached = new SsViewmodelAttachment { Handle = new EntityHandle(0x0001_0000u | 9) };
+        attached.State.BindLocal();
+        attached.State.OwnerIndex = 3;   // the rig's command carries owner index 3
+        var rig = new KaboomRig(directory: new CaberDirectory(attached));
+
+        rig.Smack();
+
+        EngineCall painted = Assert.Single(rig.Engine.AllOf("EntityRender.SetModel"));
+        Assert.Equal(attached.Handle, (EntityHandle)painted.Args[0]!);
+        Assert.Equal(TFMeleeEffects.ExplodedCaber, painted.Args[1] as string);
+
+        rig.Smack();
+        Assert.Single(rig.Engine.AllOf("EntityRender.SetModel"));
+    }
+
+    /// <summary>A directory holding the one attachment riding the swing's owner.</summary>
+    private sealed class CaberDirectory : IEntityDirectory
+    {
+        private readonly SsViewmodelAttachment _attached;
+
+        public CaberDirectory(SsViewmodelAttachment attached) => _attached = attached;
+
+        ScriptedEntity? IEntityDirectory.Get(EntityHandle handle)
+            => handle == _attached.Handle ? _attached : null;
+        public ScriptedEntity? FindByName(string name) => null;
+        public IEnumerable<ScriptedEntity> OfClass(string className)
+            => className == EntityNames.SsViewmodelAttachment ? [_attached] : [];
+        public bool IsRegistered(string className) => className == EntityNames.SsViewmodelAttachment;
+        public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
     }
 
     /// <summary>An item carrying the named float attributes, as the rig's items read.</summary>

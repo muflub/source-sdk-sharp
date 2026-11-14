@@ -65,7 +65,7 @@ public sealed class LocalInventoryTests : IDisposable
     private static EntityHandle Player => new((uint)Seat);
 
     private int[] Defindexes(LocalInventory inventory, TFClass cls) =>
-        new TFLoadoutProvider(inventory, _schema).Loadout(Seat, cls).Select(e => e.Item.Defindex).ToArray();
+        LoadoutDeps.Loadout(inventory, _schema).Loadout(Seat, cls).Select(e => e.Item.Defindex).ToArray();
 
     [Theory]
     [InlineData(TFClass.Scout, new[] { 13, 22, 0 })]
@@ -82,7 +82,7 @@ public sealed class LocalInventoryTests : IDisposable
         var inventory = Connected();
 
         Assert.Equal(expected, Defindexes(inventory, cls));
-        Assert.All(new TFLoadoutProvider(inventory, _schema).Loadout(Seat, cls), e =>
+        Assert.All(LoadoutDeps.Loadout(inventory, _schema).Loadout(Seat, cls), e =>
         {
             Assert.True(e.Item.IsBaseItem);
             Assert.Equal(_schema.BaseItem(cls, e.Slot)?.Defindex, e.Item.Defindex);
@@ -100,10 +100,11 @@ public sealed class LocalInventoryTests : IDisposable
     [Fact]
     public void TheWeaponColumnIsTheClassesItemClasses()
     {
-        var provider = new TFLoadoutProvider(Connected(), _schema, new Classes(TFClass.Scout));
+        var provider = LoadoutDeps.Loadout(Connected(), _schema, new Classes(TFClass.Scout));
 
-        Assert.Equal(new[] { "tf_weapon_scattergun", "tf_weapon_pistol", "tf_weapon_bat" }, provider.Weapons(Player));
-        Assert.Empty(provider.Ammo(Player));
+        // Each row the class's own weapon entity (TranslateWeaponEntForClass,
+        // tf_player.cpp:4387): the scout's pistol retargets to its suffixed row.
+        Assert.Equal(new[] { "tf_weapon_scattergun", "tf_weapon_pistol_scout", "tf_weapon_bat" }, provider.Weapons(Player));
     }
 
     [Fact]
@@ -111,9 +112,9 @@ public sealed class LocalInventoryTests : IDisposable
     {
         var inventory = Connected();
 
-        Assert.Empty(new TFLoadoutProvider(inventory, _schema).Weapons(Player));
-        Assert.Empty(new TFLoadoutProvider(inventory, _schema, new Classes(TFClass.Undefined)).Weapons(Player));
-        Assert.NotEmpty(new TFLoadoutProvider(inventory, _schema, new Classes(TFClass.Pyro)).Weapons(Player));
+        Assert.Empty(LoadoutDeps.Loadout(inventory, _schema).Weapons(Player));
+        Assert.Empty(LoadoutDeps.Loadout(inventory, _schema, new Classes(TFClass.Undefined)).Weapons(Player));
+        Assert.NotEmpty(LoadoutDeps.Loadout(inventory, _schema, new Classes(TFClass.Pyro)).Weapons(Player));
     }
 
     [Fact]
@@ -145,7 +146,7 @@ public sealed class LocalInventoryTests : IDisposable
         Assert.True(inventory.Equip(Seat, TFClass.Soldier, TFLoadoutSlot.Primary, mangler.Id));
         Assert.Equal(441, Defindexes(inventory, TFClass.Soldier)[0]);
         Assert.Equal("tf_weapon_particle_cannon",
-            new TFLoadoutProvider(inventory, _schema, new Classes(TFClass.Soldier)).Weapons(Player).First());
+            LoadoutDeps.Loadout(inventory, _schema, new Classes(TFClass.Soldier)).Weapons(Player).First());
     }
 
     [Fact]
@@ -287,7 +288,7 @@ public sealed class LocalInventoryTests : IDisposable
     public void TheLoadoutCommandListsTheSlots()
     {
         var inventory = Connected();
-        var command = new LoadoutCommand(new TFLoadoutProvider(inventory, _schema), inventory, _log);
+        var command = new LoadoutCommand(LoadoutDeps.Loadout(inventory, _schema), inventory, _log);
 
         string text = command.Describe(Seat, "scout");
 

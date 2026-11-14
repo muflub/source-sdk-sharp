@@ -505,6 +505,33 @@ public sealed class ClientTFJarGas : TFProjectileTrail
 }
 
 /// <summary>
+/// The cleaver's mirror: stock's
+/// <c>C_TFProjectile_Cleaver::GetTrailParticleName</c>
+/// (<c>tf_weapon_jar.cpp:1155-1165</c>) — the leaking trail's glow pair, by
+/// team and nothing else. No crit glow: the pair is the whole wear.
+/// </summary>
+[ClientStandaloneEntity(TFCleaverNetState.ClassName)]
+public sealed class ClientTFCleaver : TFProjectileTrail
+{
+    public ClientTFCleaver(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFCleaverNetState.ClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFCleaverNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, false);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "peejar_trail_blu_glow"
+        : "peejar_trail_red_glow";
+
+    /// <summary>The trail is the whole wear; the Extra slot stays empty.</summary>
+    protected override string? CritName() => null;
+}
+
+/// <summary>
 /// The healing bolt's mirror: stock's
 /// <c>C_TFProjectile_HealingBolt::OnDataChanged</c>
 /// (<c>c_tf_projectile_arrow.cpp:194-210</c>) starts

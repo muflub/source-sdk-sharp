@@ -26,6 +26,9 @@ public sealed class TFDamageModifyRulesTests
 
     private static readonly TFDamageSettings Stock = TFDamageSettings.Defaults;
 
+    /// <summary>The side's econ walk, the holder every press hands in.</summary>
+    private static readonly AttributeHooks Hooks = new();
+
     private static float NoRandom(float min, float max) => throw new InvalidOperationException("the spread is disabled: nothing may roll");
 
     private static TFHit Hit(float damage = 10f, DamageType bits = Ranged, float? distance = 0f,
@@ -38,10 +41,10 @@ public sealed class TFDamageModifyRulesTests
                              bool directRocketHit = false, bool doubleDonk = false) =>
         new(damage, bits, custom, self, AttackerIsPlayer: true, weapon, distance, victim, attacker, item, sameClass,
             victimWaterLevel, deflectedRocket, victimEye, toVictim, attackerAirborne, victimAirborne,
-            directRocketHit, DoubleDonk: doubleDonk);
+            directRocketHit, VictimItem: null, AfterburnDuration: null, DoubleDonk: doubleDonk);
 
     private static float Damage(in TFHit hit, TFDamageSettings? settings = null) =>
-        TFDamageModifyRules.Apply(in hit, settings ?? Stock, NoRandom).Damage;
+        TFDamageModifyRules.Apply(in hit, settings ?? Stock, NoRandom, Hooks).Damage;
 
     // ---- the range curve (tf_damage_disablespread 1, its default) -------------
 
@@ -98,7 +101,7 @@ public sealed class TFDamageModifyRulesTests
         float Roll(float min, float max) { asked.Add((min, max)); return min; }
 
         var hit = Hit(distance: 0f);
-        float damage = TFDamageModifyRules.Apply(in hit, Stock with { DisableSpread = false }, Roll).Damage;
+        float damage = TFDamageModifyRules.Apply(in hit, Stock with { DisableSpread = false }, Roll, Hooks).Damage;
 
         // MAX(1, d) = 1: c = 1023/1024, band [c - 0.1, MIN(1, c + 0.1)].
         var (lo, hi) = Assert.Single(asked);
@@ -148,7 +151,7 @@ public sealed class TFDamageModifyRulesTests
     public void A_crit_is_three_times_the_damage_at_any_range(float distance)
     {
         // A full crit takes neither the near bonus nor the far penalty (:6535-6536).
-        var result = TFDamageModifyRules.Apply(Hit(bits: Ranged | TFDamageBits.Critical, distance: distance), Stock, NoRandom);
+        var result = TFDamageModifyRules.Apply(Hit(bits: Ranged | TFDamageBits.Critical, distance: distance), Stock, NoRandom, Hooks);
         Assert.Equal(30f, result.Damage, 4);
         Assert.Equal(TFCritType.Full, result.Crit);
     }
@@ -163,7 +166,7 @@ public sealed class TFDamageModifyRulesTests
         // spread reads the band's middle, so no variance rides on it.
         var result = TFDamageModifyRules.Apply(
             Hit(damage: 200f, bits: TFDamageBits.Melee | TFDamageBits.Critical, distance: null,
-                weapon: TFWeaponId.Knife, custom: TFDamageCustom.Backstab), Stock, NoRandom);
+                weapon: TFWeaponId.Knife, custom: TFDamageCustom.Backstab), Stock, NoRandom, Hooks);
 
         Assert.Equal(600f, result.Damage, 4);
         Assert.Equal(TFCritType.Full, result.Crit);
@@ -205,8 +208,8 @@ public sealed class TFDamageModifyRulesTests
     public void A_victims_jarate_mini_crits_with_the_near_bonus_and_no_falloff()
     {
         var jarate = TFCondMask.Of(TFCond.Urine);
-        var near = TFDamageModifyRules.Apply(Hit(distance: 0f, victim: jarate), Stock, NoRandom);
-        var far = TFDamageModifyRules.Apply(Hit(distance: 1024f, victim: jarate), Stock, NoRandom);
+        var near = TFDamageModifyRules.Apply(Hit(distance: 0f, victim: jarate), Stock, NoRandom, Hooks);
+        var far = TFDamageModifyRules.Apply(Hit(distance: 1024f, victim: jarate), Stock, NoRandom, Hooks);
 
         // 15 * 1.35 and 10 * 1.35: mini-crits keep the ramp-up, never the fall-off.
         Assert.Equal(20.25f, near.Damage, 4);
@@ -226,7 +229,7 @@ public sealed class TFDamageModifyRulesTests
     public void A_deflected_rockets_blast_mini_crits()
     {
         var result = TFDamageModifyRules.Apply(Hit(distance: 512f, weapon: TFWeaponId.Rocketlauncher,
-                                                  deflectedRocket: true), Stock, NoRandom);
+                                                  deflectedRocket: true), Stock, NoRandom, Hooks);
 
         // 10 x 1.35: the mini-crit multiplier, and DMG_CRITICAL on for the
         // see-crits (lambdaDoMinicrit).
@@ -238,7 +241,7 @@ public sealed class TFDamageModifyRulesTests
     [Fact]
     public void An_undeflected_rockets_blast_is_plain()
         => Assert.Equal(TFCritType.None, TFDamageModifyRules.Apply(
-            Hit(distance: 512f, weapon: TFWeaponId.Rocketlauncher), Stock, NoRandom).Crit);
+            Hit(distance: 512f, weapon: TFWeaponId.Rocketlauncher), Stock, NoRandom, Hooks).Crit);
 
     [Fact]
     public void The_double_donks_blast_mini_crits_at_its_entry_damage()
@@ -248,7 +251,7 @@ public sealed class TFDamageModifyRulesTests
         // entry, which the plain blast's no-distance-mod band would leave
         // untouched anyway. 50 x 1.35 over the ball's full wound.
         var result = TFDamageModifyRules.Apply(Hit(damage: 50f, bits: TFWeaponDamageTypes.Of(TFWeaponId.Cannon),
-                                                   weapon: TFWeaponId.Cannon, doubleDonk: true), Stock, NoRandom);
+                                                   weapon: TFWeaponId.Cannon, doubleDonk: true), Stock, NoRandom, Hooks);
 
         Assert.Equal(67.5f, result.Damage, 4);
         Assert.Equal(TFCritType.Mini, result.Crit);
@@ -259,14 +262,14 @@ public sealed class TFDamageModifyRulesTests
     public void A_cannon_blast_outside_the_donks_window_is_plain()
         => Assert.Equal(TFCritType.None, TFDamageModifyRules.Apply(
             Hit(damage: 50f, bits: TFWeaponDamageTypes.Of(TFWeaponId.Cannon), weapon: TFWeaponId.Cannon),
-            Stock, NoRandom).Crit);
+            Stock, NoRandom, Hooks).Crit);
 
     [Fact]
     public void A_full_crit_stays_a_full_crit_over_a_deflected_rocket()
     {
         var result = TFDamageModifyRules.Apply(Hit(bits: Ranged | TFDamageBits.Critical, distance: 512f,
                                                    weapon: TFWeaponId.Rocketlauncher, deflectedRocket: true),
-                                               Stock, NoRandom);
+                                               Stock, NoRandom, Hooks);
 
         // 10 x 3: the crit came first, so the mini-crit arm never runs.
         Assert.Equal(30f, result.Damage, 4);
@@ -277,7 +280,7 @@ public sealed class TFDamageModifyRulesTests
     public void Nobody_mini_crits_or_crits_himself_and_self_damage_takes_no_range()
     {
         var hit = Hit(bits: Ranged | TFDamageBits.Critical, distance: 0f, self: true, victim: TFCondMask.Of(TFCond.Urine));
-        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom, Hooks);
         Assert.Equal(10f, result.Damage, 4);
     }
 
@@ -294,7 +297,7 @@ public sealed class TFDamageModifyRulesTests
     public void The_battalions_backup_takes_the_crit_away_and_35_percent()
     {
         var result = TFDamageModifyRules.Apply(Hit(bits: Ranged | TFDamageBits.Critical, distance: 512f,
-                                                   victim: TFCondMask.Of(TFCond.Defensebuff)), Stock, NoRandom);
+                                                   victim: TFCondMask.Of(TFCond.Defensebuff)), Stock, NoRandom, Hooks);
         Assert.Equal(6.5f, result.Damage, 4);
         Assert.Equal(TFCritType.None, result.Crit);
         Assert.True((result.Bits & TFDamageBits.Critical) == 0);
@@ -681,7 +684,7 @@ public sealed class TFDamageModifyRulesTests
         // 1.35 on the plain 10 with DMG_CRITICAL beside it.
         var hit = Hit(bits: DamageType.Slash | TFDamageBits.RadiusMax, weapon: TFWeaponId.Sword);
 
-        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom, Hooks);
 
         Assert.Equal(TFCritType.Mini, result.Crit);
         Assert.True((result.Bits & TFDamageBits.Critical) != 0);
@@ -695,7 +698,7 @@ public sealed class TFDamageModifyRulesTests
         // DMG_RADIUS_MAX, no mini-crit, the plain 10.
         var hit = Hit(bits: DamageType.Slash, weapon: TFWeaponId.Sword);
 
-        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom, Hooks);
 
         Assert.Equal(TFCritType.None, result.Crit);
         Assert.Equal(10f, result.Damage, 4);
@@ -709,7 +712,7 @@ public sealed class TFDamageModifyRulesTests
         // deflected blast and the energy buff.
         var hit = Hit(bits: DamageType.Slash, custom: TFDamageCustom.PlasmaCharged);
 
-        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom, Hooks);
 
         Assert.Equal(TFCritType.Mini, result.Crit);
         Assert.True((result.Bits & TFDamageBits.Critical) != 0);
@@ -723,7 +726,7 @@ public sealed class TFDamageModifyRulesTests
         // plain shot carries TF_DMG_CUSTOM_PLASMA, which earns no mini-crit.
         var hit = Hit(bits: DamageType.Slash, custom: TFDamageCustom.Plasma);
 
-        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom, Hooks);
 
         Assert.Equal(TFCritType.None, result.Crit);
         Assert.Equal(10f, result.Damage, 4);

@@ -287,6 +287,13 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             float fallSpeed = TFFallDamage.FallSpeedOf(damage);
             damage = TFFallDamage.Damage(fallSpeed, maxHealth, fallDisableSpread.Value, random.RandomFloat);
 
+            // Stock's cancel arm (:13404-13407): CALL_ATTRIB_HOOK_INT_ON_OTHER's
+            // cancel_falling_damage over the player's whole attribute manager,
+            // the hook walking pPlayer; a yes zeroes the blow before the stomp
+            // and thruster arms below read it.
+            if (attributes.Int(0, "cancel_falling_damage", owners.ManagerOf(victimIndex)) != 0)
+                damage = 0f;
+
             // The boots' stomp (CTFPlayerShared::CanFallStomp, tf_player_shared.cpp:7909-7918;
             // the transfer over the ground entity at tf_player.cpp:8962-8979): a faller landing
             // on another player whose rocketpack cond or boots_falling_stomp answers — the
@@ -540,6 +547,14 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                     enginePlayers.GiveAmmo(hit.Attacker, refund, refundPool);
             }
         }
+        // THE FISH KILL'S CUSTOM (CTFPlayer::OnTakeDamage's fish block,
+        // tf_player.cpp:9743-9746): the bat's blow that leaves the victim dead
+        // names itself TF_DMG_CUSTOM_FISH_KILL, the kill feed's fish notice —
+        // the notice's own name the death walk reads off this record
+        // (TFDeathNotice, the arm'd variant its fish_damage_override).
+        if (weapon == TFWeaponId.BatFish && entities.GetHealth(hit.Victim) - result.Damage <= 0f)
+            result = result with { Custom = TFDamageCustom.FishKill };
+
         records.Note(victimIndex,
                      new TFHitRecord(attackerValid ? hit.Attacker : EntityHandle.None, result.Damage, result.Bits,
                                      result.Crit, result.Custom, weapon, weaponName, now),
@@ -950,6 +965,20 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                 conditions.Add(hit.Attacker, TFCond.SpeedBoost, boostSeconds);         // :5169
         }
 
+        // THE HOT HAND'S GRIP (CTFWeaponBaseMelee::ItemPostFrame, tf_weaponbase_melee.cpp:675-683):
+        // a melee hit that lands on an enemy player — the else of stock's same-team check, the
+        // trace's entity standing — puts the attacker on the held item's speed_boost_on_hit_enemy
+        // seconds of the carried speed boost, the float whole as AddCond's duration (:681).
+        // Stock's ally twin (:646-674) waits with its carriers (speed_buff_ally,
+        // add_give_health_to_teammate_on_hit) at docs/plans/tf2/deferred.tsv.
+        if (enemy && hit.Victim != EntityHandle.None                                       // :679's trace.m_pEnt
+            && ((DamageType)hit.DamageType & TFDamageBits.Melee) != 0)
+        {
+            float enemyBoost = attributes.Float(0f, "speed_boost_on_hit_enemy", weaponItem);   // :678
+            if (enemyBoost > 0f)                                                               // :679
+                conditions.Add(hit.Attacker, TFCond.SpeedBoost, enemyBoost);                   // :681
+        }
+
         // THE CARBINE'S BOOST (CTFChargedSMG::ApplyOnHitAttributes, tf_weapon_smg.cpp:178-196): while
         // the owner's buff is cold (:184), hits charge the SMG's own boost meter — the hit's surviving
         // damage times the held item's minicrit_boost_charge_rate (:186-189), capped at the meter's
@@ -1041,6 +1070,14 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             }
         }
 
+        // THE FLINCH (CTFPlayer::OnTakeDamage, tf_player.cpp:9599-9621, the
+        // tail after the on-hit walk): any hit whose bits name a kind punches
+        // the victim's view two degrees down, unless the aimed sniper's
+        // far-minigun courtesy holds (:9603-9612) or the punch is refused by
+        // their own ApplyPunchImpulseX (:3406-3434) — the Cozy Camper's
+        // no-flinch, the charged rifle's aim.
+        Flinch(in hit, victim, victimConds, bits, result.Damage, weapon, attackerIsPlayer);
+
         // THE CONNECTED DAMAGE (tf_player.cpp:9445-9468, after the hit stands):
         // a weapon whose item carries damage_all_connected deals the whole hit
         // again to everyone on the victim's heal graph — the medics healing
@@ -1130,6 +1167,82 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     private bool FullyCharged(EntityHandle attacker) =>
         directory.Get(enginePlayers.GetActiveWeaponEntity(attacker)) is SsWeapon { State: { } state }
         && TFSniperRifleBehaviour.Charge(state, clock.Now) >= TFSniperRifleBehaviour.DamageMax;
+
+    /// <summary>The flinch's punch, in degrees of pitch (tf_player.cpp:9617's literal 2).</summary>
+    public const float FlinchPunch = 2f;
+
+    /// <summary>The aimed sniper's distance from a minigun beyond which the hit does not
+    /// flinch — 750 squared (tf_player.cpp:9607-9608).</summary>
+    internal const float MinigunFlinchRangeSq = 750f * 750f;
+
+    /// <summary>The Cozy Camper's no-flinch attribute (tf_player.cpp:3419).</summary>
+    public const string NoFlinchAttribute = "aiming_no_flinch";
+
+    /// <summary>
+    /// The hit's flinch (<c>CTFPlayer::OnTakeDamage</c>, tf_player.cpp:9599-9621):
+    /// a hit with any kind of bit at all and damage that lands, unless the
+    /// sniper holding their aim stands over 750 units from a minigun
+    /// (:9603-9612). What survives asks the victim's own
+    /// <c>ApplyPunchImpulseX</c> (:3406-3434), whose no-flinch is the sniper
+    /// aiming through a fully charged sniper rifle whose item carries
+    /// <see cref="NoFlinchAttribute"/> — the punch lands when any of that
+    /// chain fails, the pitch set, the yaw and roll kept (:3430). The punch
+    /// that lands plays the region flinch (<c>PlayFlinch</c>, :15072-15113):
+    /// alive and undisguised, the event the hitgroup names.
+    /// </summary>
+    private void Flinch(in DamageContext hit, TFPlayerNetState victim, TFCondMask victimConds,
+                        DamageType bits, float damage, TFWeaponId weapon, bool attackerIsPlayer)
+    {
+        if (bits == DamageType.Generic || !(damage > 0f))
+            return;
+
+        bool flinch = true;
+        if (victim.Class() == TFClass.Sniper && victimConds.Has(TFCond.Aiming)
+            && attackerIsPlayer && weapon == TFWeaponId.Minigun)
+        {
+            float dx = entities.GetOrigin(hit.Attacker).X - entities.GetOrigin(hit.Victim).X;
+            float dy = entities.GetOrigin(hit.Attacker).Y - entities.GetOrigin(hit.Victim).Y;
+            float dz = entities.GetOrigin(hit.Attacker).Z - entities.GetOrigin(hit.Victim).Z;
+            if (dx * dx + dy * dy + dz * dz > MinigunFlinchRangeSq)                        // :9607-9608
+                flinch = false;
+        }
+
+        if (flinch && victim.Class() == TFClass.Sniper && victimConds.Has(TFCond.Aiming))
+        {
+            string heldName = enginePlayers.GetActiveWeapon(hit.Victim);
+            TFWeaponId held = heldName.Length > 0 && scripts.Get(heldName) is { } heldScript
+                ? heldScript.Id : TFWeaponId.None;
+            if (TFDamageModifyRules.IsSniperRifle(held) && FullyCharged(hit.Victim)
+                && attributes.Int(0, NoFlinchAttribute, owners.ManagerOf(hit.Victim.EntryIndex)) != 0)
+                flinch = false;                                                            // :3418-3423
+        }
+
+        if (!flinch)
+            return;
+
+        Vector punch = enginePlayers.GetPunch(hit.Victim);
+        Vector velocity = directory.Get(hit.Victim) is SsPlayer holder
+            ? holder.State.PunchAngleVel.AsVector() : default;
+        enginePlayers.SetPunch(hit.Victim, new Vector(-FlinchPunch, punch.Y, punch.Z), velocity);   // :3430
+
+        if (!enginePlayers.IsAlive(hit.Victim) || victimConds.Has(TFCond.Disguised))       // :15074, :15079
+            return;
+
+        SourceSharp.Shared.Anim.PlayerAnimEvent region = hit.HitGroup switch                                       // :15084-15110
+        {
+            HitGroup.Head => SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchHead,
+            HitGroup.LeftArm => SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchLeftArm,
+            HitGroup.RightArm => SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchRightArm,
+            HitGroup.LeftLeg => SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchLeftLeg,
+            HitGroup.RightLeg => SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchRightLeg,
+            _ => SourceSharp.Shared.Anim.PlayerAnimEvent.FlinchChest,
+        };
+
+        // The wire's copy, the eyes' PVS like every gesture (the owner survives
+        // the suppression, their client replays the event from the TE).
+        temps.PlayerAnimEvent(TeFilters.Pvs(entities.GetOrigin(hit.Victim)) with { IgnorePredictionCull = true },
+                              0f, TempEntWriter.PackEHandle(hit.Victim), (int)region, 0);
+    }
 
     /// <summary>
     /// The landing's two impact halves: the ring of living enemies thrown up
@@ -1257,14 +1370,14 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
 
         // The aim's brace on the shove (<c>CTFPlayer::ApplyAbsVelocityImpulse</c>,
         // tf_player.cpp:3339-3363): a sniper holding their aim takes every
-        // impulse through the held item's <c>mult_aiming_knockback_resistance</c>
-        // (:3344-3346), the whole shove landing scaled (:3363). The brace is the
-        // walk over the victim's own active item, as stock's hook walks the
-        // aiming player.
+        // impulse through its <c>mult_aiming_knockback_resistance</c>
+        // (:3344-3346), the whole shove landing scaled (:3363). Stock's hook
+        // walks the aiming player, so the brace reads the player's own manager:
+        // the Cozy Camper is worn, never the held rifle.
         float brace = 1f;
         if (players.Predicted(victimIndex) is { } steady && steady.Class() == TFClass.Sniper
             && conditions.InCond(victim, TFCond.Aiming))
-            brace = attributes.Float(brace, "mult_aiming_knockback_resistance", owners.ActiveItemOf(victimIndex));
+            brace = attributes.Float(brace, "mult_aiming_knockback_resistance", owners.ManagerOf(victimIndex));
 
         entities.ApplyVelocityImpulse(victim, shove * brace, clearGround: true);
         carriers.Part<TFStunStack>(victimIndex)?.Stun(victim, TFScattergunBehaviour.StunTime, 1f,

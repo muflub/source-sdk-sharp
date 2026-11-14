@@ -551,7 +551,8 @@ public readonly record struct MovementRules(
     Func<int, float, float> DuckSeconds,
     Func<int, int, float, float, float, MovementCharge?> Charge,
     Action<int> ChargeSlowEnd,
-    Action<int, EntityHandle> ChargeBump)
+    Action<int, EntityHandle> ChargeBump,
+    Func<int, Vector, Vector> ParachuteFallCap)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -575,7 +576,8 @@ public readonly record struct MovementRules(
         static (_, seconds) => seconds,
         static (_, _, _, _, _) => null,
         static _ => { },
-        static (_, _) => { });
+        static (_, _) => { },
+        static (_, v) => v);
 }
 
 /// <summary>
@@ -1590,7 +1592,12 @@ public sealed partial class GameMovement
     private void FullWalkMove()
     {
         if (!CheckWater())
+        {
+            // TF's parachute trim, between the water check and gravity
+            // (tf_gamemovement.cpp:2626-2638, before StartGravity at :2641).
+            _s.Velocity = Rules.ParachuteFallCap(_s.EntIndex, _s.Velocity);
             StartGravity();
+        }
 
         // Leaping out of the water: just update the counters.
         if (_s.WaterJumpTime != 0f)

@@ -101,13 +101,13 @@ public static class TFMaxAmmoHooks
 
     /// <summary>
     /// The class maximum run through the ammo's hook class over the player's
-    /// own attribute manager (<see cref="ITFWeaponOwners.ManagerOf"/>); an
-    /// unhooked row, or a player with no manager, keeps the class maximum.
+    /// own attribute manager; an unhooked row, or a player with no manager,
+    /// keeps the class maximum.
     /// </summary>
-    public static int Apply(AttributeHooks attributes, ITFWeaponOwners owners, int playerIndex,
+    public static int Apply(AttributeHooks attributes, IAttributeProvider? manager,
                             TFAmmo ammo, int classMax)
         => Of(ammo) is { } hook
-            ? attributes.Int(classMax, hook, owners.ManagerOf(playerIndex))
+            ? attributes.Int(classMax, hook, manager)
             : classMax;
 }
 
@@ -142,6 +142,6 @@ public sealed class TFAmmoCarryRule(TFClassTable classes, ITFWeaponOwners? owner
             return maxCarry;
 
         int classMax = tfAmmo == TFAmmo.Grenades3 ? 1 : classes[playerClass].MaxAmmo(tfAmmo);
-        return TFMaxAmmoHooks.Apply(_attributes, _owners, playerIndex, tfAmmo, classMax);
+        return TFMaxAmmoHooks.Apply(_attributes, _owners.ManagerOf(playerIndex), tfAmmo, classMax);
     }
 }

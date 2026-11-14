@@ -37,10 +37,10 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFClassSkillEffects)])]
 public sealed class TFClassSpecialSkill(ITFPlayerData players, IEnginePlayers enginePlayers,
-                                        ITFSpyState? spies = null, TFStickyTray? tray = null,
-                                        ITFBuildingPickup? pickup = null,
-                                        ITFWeaponOwners? owners = null,
-                                        ITFShieldCharge? shields = null)
+                                        ITFSpyState spies, TFStickyTray tray,
+                                        ITFBuildingPickup pickup,
+                                        ITFWeaponOwners owners,
+                                        ITFShieldCharge shields)
     : ITFClassSkillEffects
 {
     /// <summary>The pipebomb launcher's weapon row, the owned item the demoman arm asks for (the trimmed schema's <c>item_class</c>).</summary>
@@ -58,7 +58,7 @@ public sealed class TFClassSpecialSkill(ITFPlayerData players, IEnginePlayers en
             case (int)TFClass.Spy:
                 // The taunting and m_flStealthNextChangeTime gates are the
                 // watch's own (:12357-12367); the slice arms both.
-                return spies?.ActivateInvisibilityWatch(ownerIndex) ?? false;
+                return spies.ActivateInvisibilityWatch(ownerIndex);
 
             case (int)TFClass.Demoman:
                 // The pipebomb launcher's secondary from ANY weapon
@@ -66,16 +66,16 @@ public sealed class TFClassSpecialSkill(ITFPlayerData players, IEnginePlayers en
                 // launcher-less demoman's shield takes the press instead
                 // (:12363-12368, DoSpecialAction). The owned launcher is the
                 // item behind its weapon row; the shield arm is the charge.
-                if (owners?.ItemOf(ownerIndex, PipebombLauncherItem) is not null)
-                    tray?.DetonateAll(ownerIndex);
+                if (owners.ItemOf(ownerIndex, PipebombLauncherItem) is not null)
+                    tray.DetonateAll(ownerIndex);
                 else
-                    shields?.TryStart(ownerIndex);
+                    shields.TryStart(ownerIndex);
                 return true;
 
             case (int)TFClass.Engineer:
                 // TryToPickupBuilding (:12392-12397, the lift at
                 // tf_player_shared.cpp:12536).
-                return pickup?.TryPickup(enginePlayers.GetHandle(ownerIndex)) ?? false;
+                return pickup.TryPickup(enginePlayers.GetHandle(ownerIndex));
 
             default:
                 return false;
@@ -97,9 +97,9 @@ public sealed class TFClassSpecialSkill(ITFPlayerData players, IEnginePlayers en
         if ((TFClass)(players.Predicted(ownerIndex)?.PlayerClass ?? 0) != TFClass.Demoman)
             return;                                                        // :12394
 
-        if (owners?.ItemOf(ownerIndex, PipebombLauncherItem) is not null)
+        if (owners.ItemOf(ownerIndex, PipebombLauncherItem) is not null)
             return;                                                        // :12398-12399
 
-        shields?.EndSpecialAction(ownerIndex);                             // :12401-12404
+        shields.EndSpecialAction(ownerIndex);                              // :12401-12404
     }
 }

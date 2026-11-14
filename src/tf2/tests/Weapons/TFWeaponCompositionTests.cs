@@ -71,7 +71,7 @@ public sealed class TFWeaponCompositionTests
         public CClient.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
     }
 
-    private static ServiceContainer Server()
+    internal static ServiceContainer Server()
     {
         var c = new ServiceContainer();
         c.AddInstance<ILog>(new RecordingLog());
@@ -102,6 +102,9 @@ public sealed class TFWeaponCompositionTests
         // The melee blast (the Caber's kaboom) scopes its hits through the
         // inflictor stack, as ServerModule registers it for the game.
         c.AddInstance(new SourceSharp.Server.DamageInflictors());
+        // ServerModule registers the real lag compensation outside the scan;
+        // the shove takes it by constructor.
+        c.AddInstance<SourceSharp.Server.ILagCompensation>(new NoRewind());
         c.AddInstance<SourceSharp.Abi.IUniformRandom>(new TF2.Tests.Combat.BandRandom());
         c.AddInstance<SourceSharp.Abi.IGameClock>(engine);
         c.AddInstance<SourceSharp.Abi.IEngineEnvironment>(engine);
@@ -138,6 +141,10 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<SourceSharp.Server.IBotPlayers>(new NoBots());
         var convars = ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>());
         convars.RegisterAll(typeof(TFWeaponBehaviour).Assembly);
+        // The declared convars stand in the container as the game's publish
+        // does (ServerModule's PublishTo): the movement rules and the CTF
+        // settings read theirs as the leaves they are.
+        convars.PublishTo(c);
         c.AddInstance(convars);
         c.AddInstance(new TFMaxHealthBoostConVar());
         c.AddInstance(new TFBoostDrainTimeConVar());
@@ -164,9 +171,13 @@ public sealed class TFWeaponCompositionTests
         // arsenal; the game's ServerModule registers it, so it joins the
         // container over the same engine fake (the registry spawns nothing
         // and the directory answers none).
-        c.AddInstance(new SourceSharp.Server.Arsenal(new RecordingLog(), engine, engine, engine, engine,
-                                                      engine, engine, engine, engine, new TF2.Tests.Combat.NoEntities(),
-                                                      engine, new SourceSharp.Server.DamageHitGroups()));
+        var arsenal = new SourceSharp.Server.Arsenal(new RecordingLog(), engine, engine, engine, engine,
+                                                     engine, engine, engine, engine, new TF2.Tests.Combat.NoEntities(),
+                                                     engine, new SourceSharp.Server.DamageHitGroups());
+        c.AddInstance(arsenal);
+        // The owners' refire bank reads the giver by its seam, as ServerModule
+        // registers it (IWeaponGiver over the same instance).
+        c.AddInstance<SourceSharp.Server.IWeaponGiver>(arsenal);
         SideServices.Register(c, Side.Server, typeof(TFWeaponBehaviour).Assembly.GetTypes());
         // The disguise's dress (2.12) reads the econ triple; ServerModule
         // registers each over the scan, as the game's composition does.
@@ -179,15 +190,19 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<SourceSharp.Abi.IResponseRules>(new TF2.Tests.Entities.FakeConceptRules());
         c.AddInstance<SourceSharp.Server.ITeams>(new TF2.Tests.Entities.FakeConceptTeams());
         // The healing's CTF seam answers only the flag rules; the scan's real
-        // CtfRules sits on the round machine, which TeamRoundCompositionTests
-        // composes — here the seam takes the fake the medigun's facts hold,
-        // registered after the scan so it stands over the scan's claim.
-        c.AddInstance<ICtfRules>(new TF2.Tests.Medigun.TFHealingCtf());
+        // CtfRules stands behind the round-machine seams below, as the game's
+        // composition holds it — the composition fact holds the chain.
+
         // The engineer's lift (2.10) rides the skill's optional arm, and the
         // scan's round state wants the team roster, which no weapon fact
         // composes — the seam takes the fake, registered after the scan so it
         // stands over the scan's claim.
         c.AddInstance<TF2.Server.Rules.ITeamRoundState>(new TF2.Tests.Entities.FakeRoundState());
+        // The flag rules' remaining seams, for the composition fact below: the
+        // round machine's control half and the mode slot answer nothing here,
+        // and the CTF convars stand at their declared defaults.
+        c.AddInstance<TF2.Server.Rules.ITeamRoundControl>(new TF2.Tests.Entities.FakeRoundControl());
+        c.AddInstance<TF2.Server.Rules.IActiveTeamRoundMode>(new TF2.Tests.Rules.ModeSlot());
         // The buildings' purse, arms and spot refusals (2.10/2.11) read the
         // core's Arsenal and the level's trigger seams, which no weapon fact
         // composes — the seams take the fakes, registered after the scan so
@@ -201,6 +216,16 @@ public sealed class TFWeaponCompositionTests
         // own, so they join here too — the rig's records answer membership
         // alone, the way the drops read them.
         c.AddInstance<SourceSharp.Server.IPlayerDirectory>(new TF2.Tests.Spy.SpyRecords());
+        // The death notice is a ServerModule instance registration outside the
+        // scan (its AddInstance/Create pair), taken by constructor through the
+        // now-required notice parameter; it joins over the same engine fake.
+        c.AddInstance(new SourceSharp.Server.DeathNotice(engine, engine, engine,
+                                                         new SourceSharp.Server.DamageInflictors()));
+        // The corpses pair is the module's own Create-and-hold beside the scan
+        // (ServerModule's _corpses); the notice's body and the spy's ragdoll
+        // both read it, so it joins over the same engine fake and directory.
+        c.AddInstance(new SourceSharp.Server.Corpses(new RecordingLog(), engine, engine,
+                                                     new TF2.Tests.Combat.NoEntities()));
         return c;
     }
 
@@ -217,11 +242,28 @@ public sealed class TFWeaponCompositionTests
         Assert.Single(c.ResolveAll<IAmmoCarryRule>().OfType<TFAmmoCarryRule>());
         Assert.IsType<TFCritConVars>(c.Resolve(typeof(ITFCritSettings)));
         Assert.IsType<TF2.Server.Player.TFServerWeaponOwners>(((TFWeaponParts)c.Resolve(typeof(TFWeaponParts))!).Owners);
+        // The medigun's replay arm is the server's own answer: required, so a
+        // side without it fails the composition, not the first heal tick.
+        Assert.IsType<TF2.Server.Medigun.TFServerMedigunPrediction>(
+            ((TFWeaponParts)c.Resolve(typeof(TFWeaponParts))!).MedigunPrediction);
         // The PDA's trigger hands the owner back through the scan's real
         // switch over the core's arsenal: a seam with no owner on the side
         // would fail here, not on the trigger (3.5's first boot).
         Assert.IsType<TF2.Server.Weapons.TFPDAItemSwitch>(
             c.Resolve(typeof(TF2.Server.Weapons.ITFItemSwitchEffects)));
+    }
+
+    [Fact]
+    public void The_flag_rules_compose_over_the_scan_without_a_healing_cycle()
+    {
+        // The healing's flag-rule ask is the leaf seam (IFlagCarriers, over the
+        // entity directory): the medigun link the weapon owners carry made every
+        // constructor edge back to CtfRules a turn of the cycle CtfRules ->
+        // EngineCtfPlayers -> TFServerWeaponOwners -> TFMedigunWeapon ->
+        // TFPlayerHealing and back, which refused the mod's whole load at the
+        // boot. The scan's real rules stand behind the round machine's seams
+        // here, as the game's composition holds them.
+        Assert.IsType<CtfRules>(Server().Resolve(typeof(CtfRules)));
     }
 
     [Fact]
@@ -258,7 +300,7 @@ public sealed class TFWeaponCompositionTests
             h => Assert.IsType<TFKingReloadHook>(h),
             h => Assert.IsType<TFHealedReloadHook>(h),
             h => Assert.IsType<TF2.Server.Weapons.TFRevengeHook>(h),
-            h => Assert.IsType<TFKnifeHook>(h),
+            h => Assert.IsType<TF2.Server.Weapons.TFKnifeServerHook>(h),
             h => Assert.IsType<TFWrenchHook>(h));
     }
 
@@ -296,6 +338,13 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(cloakVars.Declared<CTF.TFSpyCloakRegenRateConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisTimeConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisUnstealthTimeConVar>());
+        // The weapons' three convars at their declared defaults, as the game
+        // client's publish leaves them (ClientModule's RegisterAll +
+        // PublishTo): the parts read them by constructor, so the composition
+        // holds them as the leaves they are.
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.WeaponMedigunChargeRateConVar>());
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFUseFixedWeaponspreadsConVar>());
+        c.AddInstance(DeclaredClientConVars.Fresh<CTF.TFFlameThrowerBurstammoConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
         // The item-carried names the client's rows read ride the schema over the
         // same file seam; join it after the scan, as the server helper does, so
@@ -316,9 +365,17 @@ public sealed class TFWeaponCompositionTests
         Assert.Equal(6, chain.All.Count);
         Assert.IsType<CTF.TFSwordHook>(chain.All[0]);
         Assert.IsType<CTF.TFKingReloadHook>(chain.All[3]);
-        Assert.IsType<CTF.TFKnifeHook>(chain.All[4]);
-        Assert.IsType<CTF.TFWrenchHook>(chain.All[5]);
+        Assert.IsType<CTF.TFWrenchHook>(chain.All[4]);
+        Assert.IsType<client::TF2.Client.Weapons.TFKnifeClientHook>(chain.All[5]);
         Assert.IsType<client::TF2.Client.Player.TFClientWeaponOwners>(((CTF.TFWeaponParts)c.Resolve(typeof(CTF.TFWeaponParts))!).Owners);
+        // The client's silent answers for the building and revenge seams: the
+        // sides that never see them hold the no-op arms, required like every
+        // other part, so the composition names a missing one.
+        var clientParts = (CTF.TFWeaponParts)c.Resolve(typeof(CTF.TFWeaponParts))!;
+        Assert.IsType<client::TF2.Client.Buildings.TFClientBuilderPlacement>(clientParts.Builder);
+        Assert.IsType<client::TF2.Client.Buildings.TFClientSapperState>(clientParts.Sapper);
+        Assert.IsType<client::TF2.Client.Buildings.TFClientSentryWrangle>(clientParts.SentryWrangle);
+        Assert.IsType<client::TF2.Client.Player.TFClientRevengeCrits>(clientParts.RevengeCrits);
     }
 
     /// <summary>
@@ -359,5 +416,34 @@ public sealed class TFWeaponCompositionTests
 
         Assert.IsType<client::TF2.Client.Weapons.TFWeaponSlotForecast>(
             c.Resolve(typeof(CAbi.IWeaponSlotForecast)));
+    }
+
+    /// <summary>
+    /// The corpse fade is TF2's (c_tf_player.cpp:513-516, :863; HL2MP's client
+    /// has none): the client assembly registers it as the fade the bodies ask,
+    /// and the frame walk finds it by its type.
+    /// </summary>
+    [Fact]
+    public void The_client_composes_the_corpse_fade()
+    {
+        var c = new CAbi.ServiceContainer();
+        c.AddInstance<ILog>(new CAbi.RecordingLog());
+        c.AddInstance<CAbi.IEngineEntityRender>(new CAbi.RecordingEngine());
+        c.AddInstance<CAbi.IGameClock>(new CAbi.RecordingEngine());
+        c.AddInstance(new CClient.Ragdolls.RagdollFadeTimeConVar());
+        CAbi.SideServices.Register(c, Side.Client, new[] { typeof(client::TF2.Client.Player.TFRagdollFades) });
+
+        var fade = Assert.IsType<client::TF2.Client.Player.TFRagdollFades>(
+            c.Resolve(typeof(CClient.Ragdolls.IRagdollFades)));
+        Assert.Contains(fade, c.ResolveAll<CClient.IClientFrameThink>());
+    }
+
+    private sealed class NoRewind : SourceSharp.Server.ILagCompensation
+    {
+        public bool IsCurrentlyDoingLagCompensation => false;
+        public void Start(EntityHandle player) { }
+        public void Start(EntityHandle player, in UserCmd cmd) { }
+        public void Finish(EntityHandle player) { }
+        public void NoteWeaponFired(EntityHandle player) { }
     }
 }

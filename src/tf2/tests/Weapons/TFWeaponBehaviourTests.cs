@@ -1250,6 +1250,36 @@ public sealed class TFWeaponBehaviourTests
         world.Run(w, vm, Attack, now: 14f, seed);
         Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
     }
+
+    /// <summary>
+    /// The machine's ground-contact tail (<c>GroundConditions</c>, stock's
+    /// <c>ConditionThink</c> parachute pair removal,
+    /// <c>tf_player_shared.cpp:3124-3131</c>) runs on the command frame: with
+    /// the owner airborne the pair stands (:907's gate), and once grounded the
+    /// next command's tail takes the pair off the carrier (:3130-3131) — the
+    /// live chute closing on landing, through the real press.
+    /// </summary>
+    [Fact]
+    public void LandingThroughTheMachineRemovesTheParachutePairFromTheCarrier()
+    {
+        var world = new TFWeaponWorld();
+        var conditions = world.Owners.Of(TFWeaponWorld.Owner);
+        conditions.Add(TFCond.ParachuteActive);
+        conditions.Add(TFCond.ParachuteDeployed);
+
+        // Airborne at the press: the gate keeps the pair (:907).
+        world.Owners.Airborne = true;
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.True(conditions.Has(TFCond.ParachuteActive));
+        Assert.True(conditions.Has(TFCond.ParachuteDeployed));
+
+        // Grounded on the next command: the pair goes with the landing.
+        world.Owners.Airborne = false;
+        world.Run(w, vm, Attack, now: 11f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.False(conditions.Has(TFCond.ParachuteActive));
+        Assert.False(conditions.Has(TFCond.ParachuteDeployed));
+    }
 }
 
 /// <summary>The TF gun timer: <c>CTFWeaponBaseGun::PrimaryAttack</c>'s curtime + delay.</summary>

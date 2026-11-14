@@ -256,6 +256,18 @@ public interface IWeaponBehaviour
     bool CanHolster(in WeaponAttackContext attack) => true;
 
     /// <summary>
+    /// Whether the weapon may come into the hands now — stock's
+    /// <c>CBaseCombatWeapon::CanDeploy</c>
+    /// (<c>shared/basecombatweapon_shared.h:230</c>, base true), asked of a
+    /// holstered candidate by the exhausted switch's same-weight handover
+    /// (<c>Weapon_CanSwitchTo</c>, <c>shared/multiplay_gamerules.cpp:550</c>
+    /// through <c>basecombatcharacter_shared.cpp:88</c>). The context is the
+    /// synthesized stand-in a holstered row answers with: its own words are
+    /// the row and the carrier, never the live pair.
+    /// </summary>
+    bool CanDeploy(in WeaponAttackContext attack) => true;
+
+    /// <summary>
     /// Asked as the weapon leaves the hands — a switch, a death, a strip, a
     /// disconnect — before its state is handed to the next weapon.
     /// </summary>

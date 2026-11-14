@@ -61,13 +61,13 @@ public static class TFAmmoPackRules
 [ScriptedEntity(MapClass, ScriptedEntityKind.Item)]
 public class AmmoPack(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                      ITFPlayerStats? stats = null)
+                      ITFPlayerStats stats)
     : TFPowerup(players, files, world, placed)
 {
     public const string MapClass = "item_ammopack_full";
 
     /// <summary><c>CGameStats::Event_PlayerAmmokitPickup</c> (:127).</summary>
-    protected readonly ITFPlayerStats? _stats = stats;
+    protected readonly ITFPlayerStats _stats = stats;
 
     public override PowerupSize Size => PowerupSize.Full;
 
@@ -86,7 +86,7 @@ public class AmmoPack(ITFMapPlayers players, IEngineFiles files, IEngineWorldQue
 
         notices.Sound(player, TFAmmoPackRules.PickupSound);
         notices.ItemPickupEvent(player, AmmoPackName);
-        _stats?.Increment(player, TFStat.Ammokits); // :127 — Event_PlayerAmmokitPickup
+        _stats.Increment(player, TFStat.Ammokits); // :127 — Event_PlayerAmmokitPickup
         return true;
     }
 }
@@ -95,7 +95,7 @@ public class AmmoPack(ITFMapPlayers players, IEngineFiles files, IEngineWorldQue
 [ScriptedEntity(SmallClass, ScriptedEntityKind.Item)]
 public sealed class AmmoPackSmall(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                 ITFPlayerStats? stats = null)
+                                 ITFPlayerStats stats)
     : AmmoPack(players, files, world, placed, notices, stats)
 {
     public const string SmallClass = "item_ammopack_small";
@@ -111,7 +111,7 @@ public sealed class AmmoPackSmall(ITFMapPlayers players, IEngineFiles files, IEn
 [ScriptedEntity(MediumClass, ScriptedEntityKind.Item)]
 public sealed class AmmoPackMedium(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                   ITFPlayerStats? stats = null)
+                                   ITFPlayerStats stats)
     : AmmoPack(players, files, world, placed, notices, stats)
 {
     public const string MediumClass = "item_ammopack_medium";
@@ -133,9 +133,9 @@ public sealed class AmmoPackMedium(ITFMapPlayers players, IEngineFiles files, IE
 [ScriptedEntity(MapClass, ScriptedEntityKind.Item)]
 public sealed class HealthAmmoKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                  ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
-                                  ITFPlayerStats? stats = null, TF2.Server.Combat.TFDamageRecords? records = null,
-                                  ITFPlayerData? disguises = null, TFClassTable? classes = null)
+                                  ITFWeaponOwners owners, AttributeHooks attributes,
+                                  ITFPlayerStats stats, TF2.Server.Combat.TFDamageRecords records,
+                                  ITFPlayerData disguises, TFClassTable classes)
     : HealthKit(players, files, world, placed, notices, owners, attributes, stats, records, disguises, classes)
 {
     public new const string MapClass = "item_healthammokit";

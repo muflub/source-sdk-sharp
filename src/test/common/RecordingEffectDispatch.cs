@@ -25,6 +25,12 @@ internal sealed class RecordingEffectDispatch : TempEntsDouble
 {
     public readonly List<DispatchedEffect> Effects = new();
 
+    /// <summary>The player anim events, as (packedPlayer, animEvent) — the flinch's gesture.</summary>
+    public readonly List<(int PackedPlayer, int AnimEvent)> Animations = new();
+
+    public override void PlayerAnimEvent(TeFilter filter, float delay, int packedPlayer, int animEvent, int data)
+        => Animations.Add((packedPlayer, animEvent));
+
     public override void DispatchEffect(TeFilter filter, float delay, string effectName, in TeEffectData data)
         => Effects.Add(new DispatchedEffect(filter, delay, effectName, data));
 }

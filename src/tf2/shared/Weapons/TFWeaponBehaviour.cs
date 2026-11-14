@@ -106,6 +106,29 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// <summary>The first <see cref="WeaponNetState.BehaviourMode"/> bit a kind may use for itself.</summary>
     protected const int ModeKindShift = 8;
 
+    /// <summary>
+    /// The Shortstop's shove waiting for its animation delay
+    /// (<c>m_flPushTime > -1</c>, tf_weapon_pistol.cpp:206): set by the
+    /// secondary, spent by <see cref="ItemPostFrame"/>' arm, cleared by the
+    /// holster as stock's <c>Holster</c> resets the time (:220).
+    /// </summary>
+    protected const int ModeShovePending = 1 << ModeKindShift;
+
+    /// <summary>The primary's refire under the shove (:109).</summary>
+    public const float ShovePrimaryRefire = 0.6f;
+
+    /// <summary>The secondary's refire (:110).</summary>
+    public const float ShoveRefire = 1.5f;
+
+    /// <summary>The anim's delay before the push lands (:111).</summary>
+    public const float ShoveDelay = 0.2f;
+
+    /// <summary>The wind-up and the impact, the two soundscript entries (:113, :181).</summary>
+    public const string ShoveSound = "Weapon_Hands.Push";
+
+    /// <summary><see cref="ShoveSound"/>'s hit.</summary>
+    public const string ShoveImpactSound = "Weapon_Hands.PushImpact";
+
     protected TFWeaponParts Parts { get; } = parts ?? throw new ArgumentNullException(nameof(parts));
 
     /// <summary>The item attribute reads the charge meter asks through; the composition's own, else the bare chain.</summary>
@@ -160,7 +183,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             int cap = _attributes.Int(0, "clipsize_increase_on_kill", context.Item);   // :596
             if (cap != 0)                                                              // :597
             {
-                int heads = Parts.PlayerData?.Predicted(ownerIndex)?.Decapitations ?? 0;   // :443's count
+                int heads = Parts.PlayerData.Predicted(ownerIndex)?.Decapitations ?? 0;   // :443's count
                 size += Math.Min(heads, cap);                                           // :599
             }
         }
@@ -343,7 +366,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             // The charge's grant, spent by this swing's helpers: the
             // EndClassSpecialSkill the melee swing ran before rolling
             // (tf_weaponbase_melee.cpp:201) wrote it.
-            MeleeCrit = Parts.PlayerData?.Predicted(owner)?.NextMeleeCrit ?? (int)TFMeleeCrit.NoCrit,
+            MeleeCrit = Parts.PlayerData.Predicted(owner)?.NextMeleeCrit ?? (int)TFMeleeCrit.NoCrit,
         }));
 
         var mode = script.Primary;
@@ -483,7 +506,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// </summary>
     public virtual PelletPattern? FixedPellets(in WeaponAttackContext attack)
     {
-        bool convar = Parts.FixedSpread is { } fixedSpread && fixedSpread.Value;
+        bool convar = Parts.FixedSpread.Value;
 
         if (ScriptOf(attack.Type) is not { } script)
             return null;
@@ -517,7 +540,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
         if ((buttons & ((int)InputButtons.Attack | (int)InputButtons.Attack2)) != 0)
             return false;
 
-        if (Parts.AutoReload is not { } autoReload || !autoReload.Wants(attack.Command.OwnerIndex))
+        if (!Parts.AutoReload.Wants(attack.Command.OwnerIndex))
             return false;
 
         if (ScriptOf(attack.Type) is { } script && Parts.Hooks.FiresFullClip(Context(in attack, script)))
@@ -689,6 +712,30 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             return;
         }
 
+        // THE SHORTSTOP'S SHOVE (CTFPistol_ScoutPrimary::SecondaryAttack,
+        // tf_weapon_pistol.cpp:94-114): the whole secondary, no shot spent —
+        // the alt attack's animation and player gesture, the two refires
+        // (:109-110) and the push itself deferred 0.2 s behind the animation
+        // (:111), the frame tail's arm below.
+        if (ScriptOf(attack.Type) is { Id: TFWeaponId.HandgunScoutPrimary } shortstop)
+        {
+            // CanAttack before the refire (tf_weapon_pistol.cpp:100-104).
+            var context = Context(in attack, shortstop);
+            if (!CanAttack(in attack, in context))
+                return;
+
+            var shove = attack.Weapon;
+            shove.BehaviourMode |= ModeShovePending;
+            shove.BehaviourTimeA = attack.Now + ShoveDelay;
+            shove.NextPrimaryAttack = attack.Now + ShovePrimaryRefire;
+            shove.NextSecondaryAttack = attack.Now + ShoveRefire;
+            SendAnim(in attack, WeaponAnim.AltAttack);
+            attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary);
+            if (attack.EffectsLive)
+                attack.Arms.Sound(ShoveSound);
+            return;
+        }
+
         GenericSecondary(in attack);
     }
 
@@ -774,6 +821,24 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     public virtual void ItemPostFrame(in WeaponAttackContext attack)
     {
         var weapon = attack.Weapon;
+
+        // The shove's landing (CTFPistol_ScoutPrimary::ItemPostFrame,
+        // tf_weapon_pistol.cpp:203-213): the pending push fires once its
+        // animation delay is past, then the latch clears — before the base's
+        // own frame, as stock's run of Push() precedes BaseClass.
+        // The bit is the kind's own, so only the Shortstop reads it: every
+        // other kind keeps its own state there (the bow's no-fire, the
+        // melee's swing, the minigun's spin).
+        if (ScriptOf(attack.Type) is { Id: TFWeaponId.HandgunScoutPrimary } shortstop
+            && (weapon.BehaviourMode & ModeShovePending) != 0
+            && attack.Now > weapon.BehaviourTimeA)
+        {
+            weapon.BehaviourMode &= ~ModeShovePending;
+            Parts.Effects.Shove(in attack, shortstop);
+            // SpeakWeaponFire's plain fire concept, met or missed
+            // (tf_weapon_pistol.cpp:190).
+            Parts.Effects.SpeakWeaponFire(in attack, "");
+        }
 
         // m_bInAttack2's clear on release (tf_weaponbase.cpp:2465-2468), and
         // the busy frame's arm (:2388-2396): a reload does not silence the
@@ -915,6 +980,22 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     }
 
     /// <summary>
+    /// The chain's <c>CanDeploy</c> — stock's per-class <c>CanDeploy</c>
+    /// overrides (<c>CTFKnife::CanDeploy</c>, tf_weapon_knife.cpp:521-531)
+    /// asked where <c>CBaseCombatWeapon::CanDeploy</c>'s callers ask the
+    /// weapon: the switch, on both sides. A row without a script is stock's
+    /// base true.
+    /// </summary>
+    public bool CanDeploy(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script)
+            return true;
+
+        var context = Context(in attack, script);
+        return Parts.Hooks.CanDeploy(in context, in attack);
+    }
+
+    /// <summary>
     /// <c>CTFShotgun_Revenge::Holster</c> (tf_weapon_shotgun.cpp:168-179): the
     /// Justice leaving the hands takes its boost with it — the condition out
     /// while the count stands, so the weapon drawn next swings plain until
@@ -922,11 +1003,16 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// </summary>
     public virtual void Holster(in WeaponAttackContext attack)
     {
+        // The Shortstop's holster resets the pending push with the time
+        // (CTFPistol_ScoutPrimary::Holster, tf_weapon_pistol.cpp:218-223).
+        if (ScriptOf(attack.Type) is { Id: TFWeaponId.HandgunScoutPrimary })
+            attack.Weapon.BehaviourMode &= ~ModeShovePending;
+
         if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.SentryRevenge)
             return;
 
         int owner = attack.Weapon.OwnerIndex;
-        if (Parts.PlayerData?.Predicted(owner)?.RevengeCrits > 0
+        if (Parts.PlayerData.Predicted(owner)?.RevengeCrits > 0
             && Parts.Owners.ConditionsOf(owner) is { } conditions)
             conditions.Remove(TFCond.Critboosted);
     }
@@ -942,7 +1028,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             return;
 
         int owner = attack.Weapon.OwnerIndex;
-        if (Parts.PlayerData?.Predicted(owner)?.RevengeCrits > 0
+        if (Parts.PlayerData.Predicted(owner)?.RevengeCrits > 0
             && Parts.Owners.ConditionsOf(owner) is { } conditions)
             conditions.Add(TFCond.Critboosted);
     }

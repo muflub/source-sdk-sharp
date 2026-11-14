@@ -594,6 +594,14 @@ public enum WeaponAnim
     /// retags the PULLBACK ask to it, tf_weapon_compound_bow.cpp:396-399).
     /// </summary>
     Charge = 21,
+
+    /// <summary>
+    /// ACT_SECONDARY_VM_ALTATTACK: the Shortstop's shove, whose viewmodel
+    /// swings the gun aside (<c>CTFPistol_ScoutPrimary::SecondaryAttack</c>,
+    /// tf_weapon_pistol.cpp:107) — an alt-fire pose of its own, not the
+    /// secondary attack the role table names.
+    /// </summary>
+    AltAttack = 22,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

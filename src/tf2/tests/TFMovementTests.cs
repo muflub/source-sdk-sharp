@@ -27,6 +27,173 @@ internal static class TFMovementFixtures
     public static client::TF2.Shared.TFClassTable Client()
         => new(new client::SourceSharp.Abi.RecordingLog(), new ClientFiles(TFClassTableTests.Files.Shipped()));
 
+    /// <summary>
+    /// Every convar the movement rules read, declared at stock's defaults in
+    /// one registry whose values round-trip (the named backend) — the holders
+    /// a composition or a fact hands the rules; a fact that moves one declares
+    /// its own registry the same way and hands that instead.
+    /// </summary>
+    public static ConVarRegistry ConVars()
+    {
+        var convars = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>()));
+        convars.RegisterTypes(
+        [
+            typeof(TFScoutAirDashCountConVar),
+            typeof(TFSpyMaxCloakedSpeedConVar),
+            typeof(TFClampBackSpeedConVar),
+            typeof(TFClampBackSpeedMinConVar),
+            typeof(TFPlayerMovementRestartFreezeConVar),
+            typeof(TFMovementAircurrentFrictionMultConVar),
+            typeof(TFMovementLostFootingRestickConVar),
+            typeof(TFMovementLostFootingFrictionConVar),
+            typeof(TFMaxChargeSpeedConVar),
+            typeof(TFParachuteMaxSpeedXYConVar),
+            typeof(TFParachuteMaxSpeedZConVar),
+            typeof(TFParachuteMaxSpeedOnfireZConVar),
+        ]);
+        return convars;
+    }
+
+    /// <summary>The client compilation's own copies of the same twelve.</summary>
+    public static client::SourceSharp.Abi.ConVarRegistry ClientConVars()
+    {
+        var convars = new client::SourceSharp.Abi.ConVarRegistry(new ClientClampVars());
+        convars.RegisterTypes(
+        [
+            typeof(client::TF2.Shared.TFScoutAirDashCountConVar),
+            typeof(client::TF2.Shared.TFSpyMaxCloakedSpeedConVar),
+            typeof(client::TF2.Shared.TFClampBackSpeedConVar),
+            typeof(client::TF2.Shared.TFClampBackSpeedMinConVar),
+            typeof(client::TF2.Shared.TFPlayerMovementRestartFreezeConVar),
+            typeof(client::TF2.Shared.TFMovementAircurrentFrictionMultConVar),
+            typeof(client::TF2.Shared.TFMovementLostFootingRestickConVar),
+            typeof(client::TF2.Shared.TFMovementLostFootingFrictionConVar),
+            typeof(client::TF2.Shared.TFMaxChargeSpeedConVar),
+            typeof(client::TF2.Shared.TFParachuteMaxSpeedXYConVar),
+            typeof(client::TF2.Shared.TFParachuteMaxSpeedZConVar),
+            typeof(client::TF2.Shared.TFParachuteMaxSpeedOnfireZConVar),
+        ]);
+        return convars;
+    }
+
+    /// <summary>The client's backend: declared defaults, settable values — the server rig's ClampBackend.</summary>
+    private sealed class ClientClampVars : client::SourceSharp.Abi.IConVarBackend
+    {
+        private readonly List<string> _names = [];
+        private readonly List<string> _values = [];
+
+        public int Register(string name, string defaultValue, string help, int flags, float? min, float? max)
+        {
+            _names.Add(name);
+            _values.Add(defaultValue);
+            return _names.Count - 1;
+        }
+
+        public void Set(int id, string value) => _values[id] = value;
+        public string Get(int id) => _values[id];
+        public string? ValueOf(string name) => _names.Contains(name) ? _values[_names.IndexOf(name)] : null;
+    }
+
+    /// <summary>A round state the rules read, fixed at construction.</summary>
+    public sealed class RoundAt(TF2.Shared.Rules.RoundState state) : TF2.Shared.Rules.ITFRoundStateView
+    {
+        public TF2.Shared.Rules.RoundState State { get; set; } = state;
+    }
+
+    /// <summary>The client compilation's round state, for its container.</summary>
+    private sealed class ClientRoundAt : client::TF2.Shared.Rules.ITFRoundStateView
+    {
+        public client::TF2.Shared.Rules.RoundState State { get; }
+            = client::TF2.Shared.Rules.RoundState.RoundRunning;
+    }
+
+    /// <summary>No weapon in hand: the anim seam's empty read, as the interface's summary allows.</summary>
+    public sealed class HoldsNothing : TF2.Shared.Anim.ITFAnimWeapons
+    {
+        public TF2.Shared.Anim.TFAnimWeapon? ActiveWeapon(int playerIndex) => null;
+        public TF2.Shared.Anim.TFAnimWeapon? DisguiseWeapon(int playerIndex) => null;
+    }
+
+    /// <summary>The same, client side.</summary>
+    private sealed class ClientHoldsNothing : client::TF2.Shared.Anim.ITFAnimWeapons
+    {
+        public client::TF2.Shared.Anim.TFAnimWeapon? ActiveWeapon(int playerIndex) => null;
+        public client::TF2.Shared.Anim.TFAnimWeapon? DisguiseWeapon(int playerIndex) => null;
+    }
+
+    /// <summary>
+    /// The server side's container over the rules: the class table and the
+    /// carriers under their contracts, every convar the rules read at its
+    /// default, the seams inert — each under the contract the constructor
+    /// names, as the server's registration holds them.
+    /// </summary>
+    public static ServiceContainer ServerServices(Players players, ConVarRegistry? convars = null)
+    {
+        var vars = convars ?? ConVars();
+        var services = new ServiceContainer();
+        vars.PublishTo(services);
+        return services
+            .AddInstance(Server())
+            .AddInstance<ITFPlayerData>(players)
+            .AddInstance<TF2.Shared.ITFWeaponOwners>(new TF2.Shared.NoTFWeaponOwners())
+            .AddInstance(new TF2.Shared.Econ.AttributeHooks())
+            .AddInstance<TF2.Shared.Rules.ITFRoundStateView>(new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning))
+            .AddInstance<TF2.Shared.Anim.ITFAnimWeapons>(new HoldsNothing())
+            .AddInstance<IEngineEntities>(new RecordingEngine());
+    }
+
+    /// <summary>The client composition's mirror: the client compilation's own types, the same shape.</summary>
+    public static client::SourceSharp.Abi.ServiceContainer ClientServices(ClientData players,
+        client::SourceSharp.Abi.ConVarRegistry? convars = null)
+    {
+        var vars = convars ?? ClientConVars();
+        var services = new client::SourceSharp.Abi.ServiceContainer();
+        vars.PublishTo(services);
+        return services
+            .AddInstance(Client())
+            .AddInstance<ClientData>(players)
+            .AddInstance<client::TF2.Shared.ITFWeaponOwners>(new client::TF2.Shared.NoTFWeaponOwners())
+            .AddInstance(new client::TF2.Shared.Econ.AttributeHooks())
+            .AddInstance<client::TF2.Shared.Rules.ITFRoundStateView>(new ClientRoundAt())
+            .AddInstance<client::TF2.Shared.Anim.ITFAnimWeapons>(new ClientHoldsNothing())
+            .AddInstance<client::SourceSharp.Abi.IEngineEntities>(new client::SourceSharp.Abi.RecordingEngine());
+    }
+
+    /// <summary>
+    /// The rules built directly, every constructor dependency handed in as the
+    /// sides' registrations hold them: the convars at stock's defaults
+    /// (<see cref="ConVars"/>, or the caller's registry when the fact moves
+    /// one), the seams the caller names else inert ones.
+    /// </summary>
+    public static TFMovementRules Rules(ITFPlayerData players,
+                                        ConVarRegistry? convars = null,
+                                        TF2.Shared.ITFWeaponOwners? owners = null,
+                                        TF2.Shared.Econ.AttributeHooks? hooks = null,
+                                        TF2.Shared.Rules.ITFRoundStateView? rounds = null,
+                                        TF2.Shared.Anim.ITFAnimWeapons? weapons = null,
+                                        IEngineEntities? entities = null)
+    {
+        var vars = convars ?? ConVars();
+        return new(Server(), players,
+                   vars.Declared<TFScoutAirDashCountConVar>(),
+                   vars.Declared<TFSpyMaxCloakedSpeedConVar>(),
+                   owners ?? new TF2.Shared.NoTFWeaponOwners(),
+                   hooks ?? new TF2.Shared.Econ.AttributeHooks(),
+                   vars.Declared<TFClampBackSpeedConVar>(),
+                   vars.Declared<TFClampBackSpeedMinConVar>(),
+                   rounds ?? new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning),
+                   vars.Declared<TFPlayerMovementRestartFreezeConVar>(),
+                   vars.Declared<TFMovementAircurrentFrictionMultConVar>(),
+                   vars.Declared<TFMovementLostFootingRestickConVar>(),
+                   vars.Declared<TFMovementLostFootingFrictionConVar>(),
+                   vars.Declared<TFMaxChargeSpeedConVar>(),
+                   weapons ?? new HoldsNothing(),
+                   entities ?? new RecordingEngine(),
+                   vars.Declared<TFParachuteMaxSpeedXYConVar>(),
+                   vars.Declared<TFParachuteMaxSpeedZConVar>(),
+                   vars.Declared<TFParachuteMaxSpeedOnfireZConVar>());
+    }
+
     private sealed class ClientFiles(TFClassTableTests.Files files) : ClientEngineFiles
     {
         public int GameFileSize(string path) => files.GameFileSize(path);
@@ -89,12 +256,13 @@ public sealed class TFMaxSpeedTests
                                float hypeScale = 1f)
         => TFMaxSpeed.Calculate(Classes, new TFMoveInputs(c, conditions, disguise, weapon, speedMod, stunFlags,
                                                           carrying, healTarget, HypeSpeedScale: hypeScale),
-                                cloakedCap, attribs, manager, peers, self);
+                                cloakedCap, attribs ?? Hooks, manager, peers ?? (_ => null), self, null);
 
-    /// <summary>A peer table over bare classes, the patient's side of the match.</summary>
+    /// <summary>A peer table over bare classes, the patient's side of the match,
+    /// over the walk's own empty hooks and no manager or held item.</summary>
     private static Func<int, TFPeerInput?> Peers(params (int Index, TFClass Class)[] edges)
         => index => edges.Where(e => e.Index == index)
-                         .Select(e => new TFPeerInput(e.Index, new TFMoveInputs(e.Class, default)))
+                         .Select(e => new TFPeerInput(e.Index, new TFMoveInputs(e.Class, default), Hooks, null, null))
                          .FirstOrDefault();
 
     /// <summary>A percentage attribute of the hook class, on a fresh manager as the player's own.</summary>
@@ -261,9 +429,9 @@ public sealed class TFMaxSpeedTests
         var playerManager = ManagerWith(TFMaxSpeed.ActiveSpeedAttrib, 1.3f);
 
         Assert.Equal(230f, TFMaxSpeed.Calculate(Classes, new TFMoveInputs(TFClass.HeavyWeapons, default), 999f,
-                                                Hooks, playerManager, null, -1, null));
+                                                Hooks, playerManager, _ => null, -1, null));
         Assert.Equal(299f, TFMaxSpeed.Calculate(Classes, new TFMoveInputs(TFClass.HeavyWeapons, default), 999f,
-                                                Hooks, null, null, -1, held));
+                                                Hooks, null, _ => null, -1, held));
     }
 
     // ---- the ÜberCharge's own speed (tf_player_shared.cpp:11043-11056) ------
@@ -279,7 +447,7 @@ public sealed class TFMaxSpeedTests
 
         Assert.Equal(320f * 1.1f, TFMaxSpeed.Calculate(Classes,
             new TFMoveInputs(TFClass.Medic, default, MedicCharge: 0.5f), 999f,
-            Hooks, null, null, -1, held));
+            Hooks, null, _ => null, -1, held));
     }
 
     [Fact]
@@ -291,9 +459,9 @@ public sealed class TFMaxSpeedTests
         var held = ManagerWith(TFMaxSpeed.ResourceLevelSpeedAttrib, 1.2f);
 
         Assert.Equal(320f, TFMaxSpeed.Calculate(Classes,
-            new TFMoveInputs(TFClass.Medic, default), 999f, Hooks, null, null, -1, held));
+            new TFMoveInputs(TFClass.Medic, default), 999f, Hooks, null, _ => null, -1, held));
         Assert.Equal(240f, TFMaxSpeed.Calculate(Classes,
-            new TFMoveInputs(TFClass.Soldier, default, MedicCharge: 1f), 999f, Hooks, null, null, -1, held));
+            new TFMoveInputs(TFClass.Soldier, default, MedicCharge: 1f), 999f, Hooks, null, _ => null, -1, held));
     }
 
     // ---- the carried speed boost (tf_player_shared.cpp:10919-10927) ----------
@@ -430,7 +598,8 @@ public sealed class TFMaxSpeedTests
         Assert.Equal(320f, Speed(TFClass.Medic, stunned, healTarget: 4, self: 3,
                                  peers: i => i == 4
                                      ? new TFPeerInput(4, new TFMoveInputs(TFClass.Scout, stunned,
-                                                                           StunFlags: TFStunFlags.LoserState))
+                                                                           StunFlags: TFStunFlags.LoserState),
+                                                       Hooks, null, null)
                                      : null));
     }
 
@@ -485,19 +654,19 @@ public sealed class TFJumpTests
     [Fact]
     public void A_scout_dashes_once_and_the_next_press_is_refused()
     {
-        Assert.Equal(268.3281573f, TFJump.AirDash(TFClass.Scout, default, airDash: 0, dashCount: 1));
-        Assert.Equal(0f, TFJump.AirDash(TFClass.Scout, default, airDash: 1, dashCount: 1));
+        Assert.Equal(268.3281573f, TFJump.AirDash(TFClass.Scout, default, airDash: 0, dashCount: 1, null, JumpHooks, null));
+        Assert.Equal(0f, TFJump.AirDash(TFClass.Scout, default, airDash: 1, dashCount: 1, null, JumpHooks, null));
     }
 
     [Fact]
     public void A_soldier_never_dashes()
-        => Assert.Equal(0f, TFJump.AirDash(TFClass.Soldier, default, airDash: 0, dashCount: 1));
+        => Assert.Equal(0f, TFJump.AirDash(TFClass.Soldier, default, airDash: 0, dashCount: 1, null, JumpHooks, null));
 
     [Fact]
     public void The_dash_count_convar_allows_more()
     {
-        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, airDash: 1, dashCount: 2));
-        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, airDash: 2, dashCount: 2));
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, airDash: 1, dashCount: 2, null, JumpHooks, null));
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, airDash: 2, dashCount: 2, null, JumpHooks, null));
     }
 
     [Fact]
@@ -505,15 +674,15 @@ public sealed class TFJumpTests
     {
         var hype = TFCondMask.Of(TFCond.SodapopperHype);
 
-        Assert.True(TFJump.CanAirDash(TFClass.Scout, hype, airDash: 4, dashCount: 1));
-        Assert.False(TFJump.CanAirDash(TFClass.Scout, hype, airDash: 5, dashCount: 1));
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, hype, airDash: 4, dashCount: 1, null, JumpHooks, null));
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, hype, airDash: 5, dashCount: 1, null, JumpHooks, null));
     }
 
     [Fact]
     public void The_halloween_conditions_override_the_class()
     {
-        Assert.True(TFJump.CanAirDash(TFClass.Soldier, TFCondMask.Of(TFCond.HalloweenSpeedBoost), 9, 1));
-        Assert.False(TFJump.CanAirDash(TFClass.Scout, TFCondMask.Of(TFCond.HalloweenKart), 0, 1));
+        Assert.True(TFJump.CanAirDash(TFClass.Soldier, TFCondMask.Of(TFCond.HalloweenSpeedBoost), 9, 1, null, JumpHooks, null));
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, TFCondMask.Of(TFCond.HalloweenKart), 0, 1, null, JumpHooks, null));
     }
 
     // ---- the no-dash attribute (tf_player_shared.cpp:12875-12878) ----------
@@ -534,19 +703,19 @@ public sealed class TFJumpTests
     {
         var manager = JumpManager(1);
 
-        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, 0, 1, attribs: JumpHooks));   // no manager, the hook unset
-        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 0, 1, attribs: JumpHooks, playerAttributes: manager));
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, 0, 1, null, JumpHooks, null));   // no manager, the hook unset
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 0, 1, null, JumpHooks, manager));
 
         // The dash answers 0: no velocity, the jump refused.
-        Assert.Equal(0f, TFJump.AirDash(TFClass.Scout, default, 0, 1, attribs: JumpHooks, playerAttributes: manager));
+        Assert.Equal(0f, TFJump.AirDash(TFClass.Scout, default, 0, 1, null, JumpHooks, manager));
     }
 
     [Fact]
     public void Only_a_one_disables_the_dash()
     {
         // Stock's `if ( 1 == iNoAirDash )`: any other value leaves the dash.
-        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, 0, 1, attribs: JumpHooks,
-                                      playerAttributes: JumpManager(2)));
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, 0, 1, null, JumpHooks,
+                                      JumpManager(2)));
     }
 
     // ---- the active weapon's dash count (tf_player_shared.cpp:12860-12864) ----
@@ -566,17 +735,17 @@ public sealed class TFJumpTests
         var weapon = WeaponAttrib(TFJump.AirDashCountAttrib, 1);
 
         // The convar alone spent: the weapon's count is still to come.
-        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 1, 1));
-        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, 1, 1, weapon, JumpHooks));
-        Assert.Equal(TFJump.DashSpeed, TFJump.AirDash(TFClass.Scout, default, 1, 1, weapon, JumpHooks));
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 1, 1, null, JumpHooks, null));
+        Assert.True(TFJump.CanAirDash(TFClass.Scout, default, 1, 1, weapon, JumpHooks, null));
+        Assert.Equal(TFJump.DashSpeed, TFJump.AirDash(TFClass.Scout, default, 1, 1, weapon, JumpHooks, null));
 
         // And the raised count is spent in turn.
-        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 2, 1, weapon, JumpHooks));
+        Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 2, 1, weapon, JumpHooks, null));
     }
 
     [Fact]
     public void Without_an_active_weapon_the_count_is_the_convars()
-        => Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 1, 1, attribs: JumpHooks));
+        => Assert.False(TFJump.CanAirDash(TFClass.Scout, default, 1, 1, null, JumpHooks, null));
 
     // ---- the jump-height attributes (tf_gamemovement.cpp:997-1005, 1023) ----
 
@@ -586,7 +755,7 @@ public sealed class TFJumpTests
         var manager = WeaponAttrib(TFJump.JumpHeightAttrib, 0.5f);
 
         Assert.Equal(TFJump.DashSpeed * 1.5f,
-                     TFJump.AirDash(TFClass.Scout, default, 0, 1, attribs: JumpHooks, playerAttributes: manager));
+                     TFJump.AirDash(TFClass.Scout, default, 0, 1, null, JumpHooks, manager));
     }
 
     [Fact]
@@ -596,7 +765,7 @@ public sealed class TFJumpTests
 
         // Stock's order: the passive walk, then the weapon's over its result.
         Assert.Equal(TFJump.DashSpeed * 1.5f,
-                     TFJump.AirDash(TFClass.Scout, default, 0, 1, weapon, JumpHooks));
+                     TFJump.AirDash(TFClass.Scout, default, 0, 1, weapon, JumpHooks, null));
         Assert.Equal(TFJump.DashSpeed * 2f,
                      TFJump.AirDash(TFClass.Scout, default, 0, 1, weapon, JumpHooks,
                                     WeaponAttrib(TFJump.JumpHeightAttrib, 0.5f)));
@@ -605,7 +774,7 @@ public sealed class TFJumpTests
     [Fact]
     public void A_refused_dash_has_no_height_to_scale()
         => Assert.Equal(0f, TFJump.AirDash(TFClass.Soldier, default, 0, 1,
-                                           WeaponAttrib(TFJump.JumpHeightAttrib, 1f), JumpHooks));
+                                           WeaponAttrib(TFJump.JumpHeightAttrib, 1f), JumpHooks, null));
 }
 
 /// <summary>
@@ -619,7 +788,7 @@ public sealed class TFMovementRulesTests
     private static (TFMovementRules Rules, TFMovementFixtures.Players Players) Make()
     {
         var players = new TFMovementFixtures.Players();
-        return (new TFMovementRules(TFMovementFixtures.Server(), players), players);
+        return (TFMovementFixtures.Rules(players), players);
     }
 
     [Fact]
@@ -803,11 +972,6 @@ public sealed class TFMovementRulesTests
     }
 
     /// <summary>The round state, frozen for the fact (<see cref="TF2.Shared.Rules.ITFRoundStateView"/>).</summary>
-    private sealed class RoundAt(TF2.Shared.Rules.RoundState state) : TF2.Shared.Rules.ITFRoundStateView
-    {
-        public TF2.Shared.Rules.RoundState State { get; set; } = state;
-    }
-
     /// <summary>
     /// The restart freeze (<c>tf_player_shared.cpp:10819</c>, :10847): while
     /// the round restarts — stock's <c>InRoundRestart</c>, the PREROUND state —
@@ -819,8 +983,7 @@ public sealed class TFMovementRulesTests
     {
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Scout);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround));
+        var rules = TFMovementFixtures.Rules(players, rounds: new TFMovementFixtures.RoundAt(TF2.Shared.Rules.RoundState.Preround));
 
         Assert.Equal(1f, rules.MaxSpeedScale(Index, 400f, false, 0));
     }
@@ -830,8 +993,7 @@ public sealed class TFMovementRulesTests
     {
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Scout);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        var rules = TFMovementFixtures.Rules(players, rounds: new TFMovementFixtures.RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
 
         Assert.Equal(400f, rules.MaxSpeedScale(Index, 320f, false, 0));
     }
@@ -842,11 +1004,9 @@ public sealed class TFMovementRulesTests
     {
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Scout);
-        var convars = new ConVarRegistry(new ClampBackend());
-        convars.RegisterTypes([typeof(TFPlayerMovementRestartFreezeConVar)]);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround),
-                                        restartFreeze: convars.Declared<TFPlayerMovementRestartFreezeConVar>());
+        var convars = TFMovementFixtures.ConVars();
+        var rules = TFMovementFixtures.Rules(players, convars: convars,
+                                  rounds: new TFMovementFixtures.RoundAt(TF2.Shared.Rules.RoundState.Preround));
 
         Assert.Equal(1f, rules.MaxSpeedScale(Index, 400f, false, 0));
 
@@ -897,11 +1057,8 @@ public sealed class TFMovementRulesTests
     {
         var players = new TFMovementFixtures.Players();
         players.Add(Index, TFClass.Scout);
-        var convars = new ConVarRegistry(new ClampBackend());
-        convars.RegisterTypes([typeof(TFClampBackSpeedConVar), typeof(TFClampBackSpeedMinConVar)]);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        backSpeed: convars.Declared<TFClampBackSpeedConVar>(),
-                                        backSpeedMin: convars.Declared<TFClampBackSpeedMinConVar>());
+        var convars = TFMovementFixtures.ConVars();
+        var rules = TFMovementFixtures.Rules(players, convars: convars);
 
         // The engine's read-back of the declared defaults, not a constant.
         Assert.Equal(new BackpedalLimit(0.9f, 100f), rules.BackpedalLimit(Index, 400f));
@@ -1174,8 +1331,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Scout);
         var items = new TFPlayerItems();
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        owners: new OwnersOf(items), hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: new OwnersOf(items), hooks: new AttributeHooks());
 
         Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
 
@@ -1199,8 +1355,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         var state = players.Add(Index, TFClass.Scout);
         var items = new TFPlayerItems();
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        owners: new OwnersOf(items), hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: new OwnersOf(items), hooks: new AttributeHooks());
         var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
 
         Assert.Equal(TFJump.DashSpeed, rules.AirJump(in request));
@@ -1233,7 +1388,7 @@ public sealed class TFMovementRulesTests
         {
             ByName = { [Index] = new() { [TFHype.BrawlerScript] = new AttributeContainer() } },
         };
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners);
+        var rules = TFMovementFixtures.Rules(players, owners: owners);
 
         state.HypeMeter = TFHype.FullMeter;
         Assert.Equal(400f * TFHype.SpeedScaleMax, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
@@ -1252,7 +1407,7 @@ public sealed class TFMovementRulesTests
         {
             ByName = { [Index] = new() { [TFHype.BrawlerScript] = new AttributeContainer() } },
         };
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners);
+        var rules = TFMovementFixtures.Rules(players, owners: owners);
 
         // A scout whose hype is banked but whose item is elsewhere: stock's
         // Weapon_OwnsThisID gate is the item's.
@@ -1303,8 +1458,8 @@ public sealed class TFMovementRulesTests
         var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(2f) };
         var engine = new RecordingEngine();
         engine.Returns("Entities.GetHealth", 200);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
-                                        hooks: new AttributeHooks(), weapons: new HeldShovel(), entities: engine);
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks(),
+                                  weapons: new HeldShovel(), entities: engine);
 
         // A full canteen: ratio 1, the plain soldier walk.
         Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
@@ -1329,8 +1484,8 @@ public sealed class TFMovementRulesTests
         var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(1f) };
         var engine = new RecordingEngine();
         engine.Returns("Entities.GetHealth", 40);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
-                                        hooks: new AttributeHooks(), weapons: new HeldShovel(), entities: engine);
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks(),
+                                  weapons: new HeldShovel(), entities: engine);
 
         Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
     }
@@ -1344,8 +1499,8 @@ public sealed class TFMovementRulesTests
         var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(2f) };
         var engine = new RecordingEngine();
         engine.Returns("Entities.GetHealth", 40);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
-                                        hooks: new AttributeHooks(), weapons: new HeldOther(), entities: engine);
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks(),
+                                  weapons: new HeldOther(), entities: engine);
 
         Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
     }
@@ -1357,8 +1512,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         var state = players.Add(Index, TFClass.Scout);
         var owners = new OwnersOf(new TFPlayerItems());
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
-                                        hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks());
         var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
         var weapon = new AttributeContainer();
         weapon.Set(AttributeValue.OfFloat(new AttributeDefinition(5006, "attr 5006", TFJump.AirDashCountAttrib,
@@ -1380,8 +1534,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         var state = players.Add(Index, TFClass.Scout);
         var owners = new OwnersOf(new TFPlayerItems());
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
-                                        hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks());
         var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
         var weapon = new AttributeContainer();
         weapon.Set(AttributeValue.OfFloat(new AttributeDefinition(5007, "attr 5007", TFHype.JumpResetAttribute,
@@ -1400,8 +1553,7 @@ public sealed class TFMovementRulesTests
         var buffedState = buffed.Add(Index, TFClass.Scout);
         buffedState.SetConditions(TFCondMask.Of(TFCond.SodapopperHype));
         buffedState.HypeMeter = 50f;
-        var buffedRules = new TFMovementRules(TFMovementFixtures.Server(), buffed, owners: owners,
-                                              hooks: new AttributeHooks());
+        var buffedRules = TFMovementFixtures.Rules(buffed, owners: owners, hooks: new AttributeHooks());
 
         Assert.Equal(TFJump.DashSpeed, buffedRules.AirJump(in request));
         Assert.Equal(50f, buffedState.HypeMeter);
@@ -1414,8 +1566,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Scout);
         var owners = new OwnersOf(new TFPlayerItems()) { MayJump = false };
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
-                                        hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks());
         var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
 
         // CheckJumpButton's head gate (tf_gamemovement.cpp:1210): nothing is
@@ -1442,8 +1593,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         var state = players.Add(Index, TFClass.Scout);
         var items = new TFPlayerItems();
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        owners: new OwnersOf(items), hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: new OwnersOf(items), hooks: new AttributeHooks());
 
         var manager = new AttributeContainer();
         manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5008, "attr 5008", "mod_air_control_blast_jump",
@@ -1476,8 +1626,7 @@ public sealed class TFMovementRulesTests
         var players = new TFMovementFixtures.Players();
         var state = players.Add(Index, TFClass.Scout);
         var items = new TFPlayerItems();
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
-                                        owners: new OwnersOf(items), hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: new OwnersOf(items), hooks: new AttributeHooks());
         var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
 
         // No attribute yet: the press dashes and leaves the chute alone.
@@ -1501,6 +1650,54 @@ public sealed class TFMovementRulesTests
         items.Forget(Index);
         rules.AirJump(in request);
         Assert.False(state.InCond(TFCond.ParachuteActive));
+    }
+
+    /// <summary>
+    /// The pair as stock's toggle sets it (tf_gamemovement.cpp:1139-1151): a first airborne press sets BOTH
+    /// TF_COND_PARACHUTE_ACTIVE and TF_COND_PARACHUTE_DEPLOYED, the second
+    /// takes the active one off and keeps the deployed record (:1139-1141,
+    /// nothing removes :1151 there), and while the record stands a further
+    /// press does not reopen — the toggle-allowed cvar ships off (:58), so
+    /// the record is the only gate (:1148). The landing's remover
+    /// (tf_player_shared.cpp:3131, ported in TFWeaponBehaviour) is what lets
+    /// the next airborne window deploy again.
+    /// </summary>
+    [Fact]
+    public void The_airborne_press_deploys_the_pair_and_the_record_holds_the_reopen()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var items = new TFPlayerItems();
+        var rules = TFMovementFixtures.Rules(players, owners: new OwnersOf(items), hooks: new AttributeHooks());
+        var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
+
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5009, "attr 5009", "parachute_attribute",
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 1));
+        items.SetManager(Index, manager);
+
+        // The first airborne press: the pair goes on together (:1150-1151).
+        rules.AirJump(in request);
+        Assert.True(state.InCond(TFCond.ParachuteActive));
+        Assert.True(state.InCond(TFCond.ParachuteDeployed));
+
+        // The second closes the active one; the record stays (:1139-1141).
+        rules.AirJump(in request);
+        Assert.False(state.InCond(TFCond.ParachuteActive));
+        Assert.True(state.InCond(TFCond.ParachuteDeployed));
+
+        // A third press cannot reopen while the record stands (:1148).
+        rules.AirJump(in request);
+        Assert.False(state.InCond(TFCond.ParachuteActive));
+
+        // The landing clears the pair (tf_player_shared.cpp:3131's remover):
+        // the next airborne window deploys again.
+        var fresh = default(TFCondMask);
+        state.SetConditions(in fresh);
+        rules.AirJump(in request);
+        Assert.True(state.InCond(TFCond.ParachuteActive));
+        Assert.True(state.InCond(TFCond.ParachuteDeployed));
     }
 
     /// <summary>The owners seam as the side's registry holds it: the manager grant, nothing else answerable here.</summary>
@@ -1659,15 +1856,10 @@ public sealed class TFMovementRulesTests
     public void Server_and_client_rules_agree_over_100_random_inputs()
     {
         var serverPlayers = new TFMovementFixtures.Players();
-        var server = new ServiceContainer()
-            .AddInstance(TFMovementFixtures.Server())
-            .AddInstance<ITFPlayerData>(serverPlayers)
-            .Create<TFMovementRules>();
+        var server = TFMovementFixtures.ServerServices(serverPlayers).Create<TFMovementRules>();
 
         var clientPlayers = new TFMovementFixtures.ClientPlayers();
-        var client = new client::SourceSharp.Abi.ServiceContainer()
-            .AddInstance(TFMovementFixtures.Client())
-            .AddInstance<ClientData>(clientPlayers)
+        var client = TFMovementFixtures.ClientServices(clientPlayers)
             .Create<client::TF2.Shared.Movement.TFMovementRules>();
 
         var s = serverPlayers.Add(Index, TFClass.Scout);
@@ -1809,7 +2001,7 @@ public sealed class TFMovementRulesTests
         owners.Managers[Index] = TollManager();
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Demoman);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners, hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks());
 
         Assert.Equal(0.8f * TFMovementFixtures.Server()[TFClass.Demoman].MaxSpeed,
                      rules.MaxSpeedScale(Index, 320f, false, 0), 4);
@@ -1822,9 +2014,74 @@ public sealed class TFMovementRulesTests
         owners.Managers[Index] = TollManager();
         var players = new TFMovementFixtures.Players();
         _ = players.Add(Index, TFClass.Demoman);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners, hooks: new AttributeHooks());
+        var rules = TFMovementFixtures.Rules(players, owners: owners, hooks: new AttributeHooks());
 
         Assert.Equal(TFMovementFixtures.Server()[TFClass.Demoman].MaxSpeed,
                      rules.MaxSpeedScale(Index, 320f, false, 0), 4);
+    }
+
+    /// <summary>
+    /// The B.A.S.E. Jumper's trim (<c>CTFGameMovement::FullWalkMove</c>,
+    /// tf_gamemovement.cpp:2626-2638): open, the chute caps a downward fall
+    /// at the z convar's ceiling; closed, the velocity stands as it is, and
+    /// so does one that is already under it.
+    /// </summary>
+    [Fact]
+    public void The_open_chute_caps_the_fall_and_the_closed_one_does_not()
+    {
+        var (rules, players) = Make();
+        var state = players.Add(Index, TFClass.Demoman);
+        var falling = new Vector(0f, 0f, -500f);
+
+        Assert.Equal(-500f, rules.ParachuteFallCap(Index, falling).Z, 3);
+
+        state.SetConditions(TFCondMask.Of(TFCond.ParachuteActive));
+        Assert.Equal(-100f, rules.ParachuteFallCap(Index, falling).Z, 3);
+
+        Assert.Equal(-20f, rules.ParachuteFallCap(Index, new Vector(0f, 0f, -20f)).Z, 3);
+        Assert.Equal(40f, rules.ParachuteFallCap(Index, new Vector(0f, 0f, 40f)).Z, 3);
+    }
+
+    /// <summary>
+    /// The chute's xy damp (:2630-2638): past the drag an axis is trimmed to
+    /// drag plus <c>(speed − drag) / 3 − 10</c> — the clamp keeps its sign;
+    /// inside the drag nothing moves.
+    /// </summary>
+    [Fact]
+    public void The_open_chute_damps_xy_past_the_drag()
+    {
+        var (rules, players) = Make();
+        players.Add(Index, TFClass.Demoman)
+               .SetConditions(TFCondMask.Of(TFCond.ParachuteActive));
+
+        Vector damped = rules.ParachuteFallCap(Index, new Vector(310f, 50f, -200f));
+        Assert.Equal(293.3333f, damped.X, 3);   // 300 + (310 − 300)/3 − 10
+        Assert.Equal(50f, damped.Y, 3);
+        Assert.Equal(-100f, damped.Z, 3);
+
+        Vector south = rules.ParachuteFallCap(Index, new Vector(-400f, -20f, -200f));
+        Assert.Equal(-323.3333f, south.X, 3);   // 400 is 100 past the drag
+        Assert.Equal(-20f, south.Y, 3);
+    }
+
+    /// <summary>
+    /// Burning parachutists take the on-fire ceiling (:2628): with
+    /// TF_COND_BURNING up too the z cap is the onfire holder's, else the
+    /// plain z holder's declared −100.
+    /// </summary>
+    [Fact]
+    public void The_burning_chute_takes_the_on_fire_ceiling()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Demoman);
+        var convars = TFMovementFixtures.ConVars();
+        convars.Declared<TFParachuteMaxSpeedOnfireZConVar>().SetValue(-50f);
+        var rules = TFMovementFixtures.Rules(players, convars: convars);
+
+        state.SetConditions(TFCondMask.Of(TFCond.ParachuteActive));
+        Assert.Equal(-100f, rules.ParachuteFallCap(Index, new Vector(0f, 0f, -500f)).Z, 3);
+
+        state.SetConditions(TFCondMask.Of([TFCond.ParachuteActive, TFCond.Burning]));
+        Assert.Equal(-50f, rules.ParachuteFallCap(Index, new Vector(0f, 0f, -500f)).Z, 3);
     }
 }

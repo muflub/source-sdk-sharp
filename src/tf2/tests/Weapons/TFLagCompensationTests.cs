@@ -62,8 +62,8 @@ public sealed class TFLagCompensatedSmackTests
         /// <summary>The smack, in the command sent at tick 105, as the module runs it.</summary>
         public void Smack(ILagCompensation? lag)
         {
-            var effects = new TFMeleeEffects(Melee.Engine, Melee.Engine, Melee.Engine, Melee.Damage, Melee.HitGroups,
-                                             Melee.Log, lagCompensation: lag);
+            var effects = MeleeDeps.Effects(Melee.Engine, Melee.Damage, Melee.HitGroups, Melee.Log,
+                                            owners: Melee.Owners, lag: lag);
             Swinger.Latency = 5 * LagWorld.Tick;
             var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = (int)InputButtons.Attack };
             using (Commands.Begin(MeleeRig.Owner, in cmd))

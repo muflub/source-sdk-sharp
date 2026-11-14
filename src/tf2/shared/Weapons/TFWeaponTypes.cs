@@ -200,6 +200,17 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // is their own row — no class script's weaponN names either.
             TFWeaponNames.Name(TFWeaponId.SodaPopper).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.PepBrawlerBlaster).ToLowerInvariant(),
+            // The Flying Guillotine and its Promo skin (items_working.tsv:222, :226):
+            // the scout's thrown cleaver, held as the equipped item whose class is
+            // its own row (tf_weapon_cleaver, stock's TF_WEAPON_CLEAVER) — no class
+            // script's weaponN names it either.
+            TFWeaponNames.Name(TFWeaponId.Cleaver).ToLowerInvariant(),
+            // The Shortstop (items_working.tsv:220): the scout's four-pellet
+            // unlock primary, held as the equipped item whose class is its own
+            // row (CTFPistol_ScoutPrimary, tf_weapon_handgun_scout_primary) —
+            // no class script's weaponN names it; the shove lives in
+            // TFWeaponBehaviour's alt-fire arm.
+            TFWeaponNames.Name(TFWeaponId.HandgunScoutPrimary).ToLowerInvariant(),
             // The Thermal Thruster: the soldier's backpack unlock, held as the
             // equipped item whose class is its own row
             // (items_working.tsv:329), no class script's weaponN names either.

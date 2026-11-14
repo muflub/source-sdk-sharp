@@ -52,7 +52,9 @@ public sealed class TFWearablesTests
                 new InventoryStore(new ModInfo(_ => null), Player.Schema, Player.Log),
                 Player.Schema, new NoSteam(), Player.Log);
             Inventory.OnClientActive(PlayerRig.Index);
-            Loadout = new TFLoadoutProvider(Inventory, Player.Schema, Player.Carriers, Player.Items, Player.Classes);
+            Loadout = LoadoutDeps.Loadout(Inventory, Player.Schema, classes: Player.Carriers, items: Player.Items,
+                                                table: Player.Classes, players: Player.Engine,
+                                                precache: Player.Engine, log: Player.Log);
 
             Wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine,
                                         Player.Engine, Player.Log, Skins, Player.Items);

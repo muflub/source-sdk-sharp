@@ -42,10 +42,11 @@ namespace TF2.Server.Weapons;
 public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers players,
                                    IEngineWorldQuery world, IEngineDamage damage,
                                    DamageHitGroups hitGroups, ILog log,
-                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                                   ILagCompensation? lagCompensation = null, TFDamageScopes? scopes = null,
-                                   ITFPlayerConditions? conditions = null, TFBlastApplier? blast = null,
-                                   ITFPlayerResupply? health = null) : ITFMeleeEffects
+                                   ITFWeaponOwners owners, AttributeHooks hooks,
+                                   ILagCompensation lagCompensation, TFDamageScopes scopes,
+                                   ITFPlayerConditions conditions, TFBlastApplier blast,
+                                   ITFPlayerResupply health,
+                                   IEngineEntityRender render, IEntityDirectory directory) : ITFMeleeEffects
 {
     /// <summary><c>tf_meleeattackforcescale</c>'s 80 (<c>tf_weaponbase_melee.cpp:50</c>).</summary>
     public const float ForceScale = 80f;
@@ -60,15 +61,19 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
     /// </summary>
     public const float ForcedLaughSeconds = TFTauntCommand.BaseTauntSceneSeconds + TFTauntCommand.TauntTailSeconds;
 
-    private readonly TFDamageScopes? _scopes = scopes;
+    private readonly TFDamageScopes _scopes = scopes;
 
-    private readonly TFBlastApplier? _blast = blast;
+    private readonly TFBlastApplier _blast = blast;
 
-    private readonly ITFWeaponOwners? _owners = owners;
+    private readonly ITFWeaponOwners _owners = owners;
 
-    private readonly AttributeHooks? _hooks = hooks;
+    private readonly AttributeHooks _hooks = hooks;
 
-    private readonly ITFPlayerResupply? _health = health;
+    private readonly ITFPlayerResupply _health = health;
+
+    private readonly IEngineEntityRender _render = render;
+
+    private readonly IEntityDirectory _directory = directory;
 
     /// <summary>Stock's <c>looseSwingRange</c> over <c>GetSwingRange</c> (<c>tf_weaponbase_melee.cpp:309</c>).</summary>
     public const float LooseSwingScale = 1.2f;
@@ -125,14 +130,14 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
 
         // Smack's lag compensation (:711-712, :788): the other players where
         // the swinger saw them for the swing's traces and its hit.
-        lagCompensation?.Start(owner);
+        lagCompensation.Start(owner);
         try
         {
             Smack(in attack, script, shot, in trace, owner);
         }
         finally
         {
-            lagCompensation?.Finish(owner);
+            lagCompensation.Finish(owner);
         }
     }
 
@@ -232,19 +237,18 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         // melee's own item (stock's CALL_ATTRIB_HOOK_FLOAT over the owner's
         // health fraction). The honourbound floor below rides the outcome, as
         // stock's katana override rides its base call.
-        if (entities.IsPlayer(owner) && _owners is { } halfHold && _hooks is { } halfWalk
-            && _health is { } supply)
+        if (entities.IsPlayer(owner))
         {
-            IAttributeProvider? halfItem = halfHold.ItemOf(attack.Command.OwnerIndex, script.Name);
-            strike = entities.GetHealth(owner) < supply.MaxHealth(owner) * 0.5f
-                ? halfWalk.Float(strike, "mult_dmg_bonus_while_half_dead", halfItem)
-                : halfWalk.Float(strike, "mult_dmg_penalty_while_half_alive", halfItem);
+            IAttributeProvider? halfItem = _owners.ItemOf(attack.Command.OwnerIndex, script.Name);
+            strike = entities.GetHealth(owner) < _health.MaxHealth(owner) * 0.5f
+                ? _hooks.Float(strike, "mult_dmg_bonus_while_half_dead", halfItem)
+                : _hooks.Float(strike, "mult_dmg_penalty_while_half_alive", halfItem);
         }
 
         if (string.Equals(script.Name, TFWeaponTypes.Katana, StringComparison.Ordinal)
-            && _owners is { } owners && _hooks is { } hooks && entities.IsPlayer(target)
-            && HonourBound(hooks, owners.ItemOf(attack.Command.OwnerIndex, script.Name))
-            && HonourBound(hooks, owners.ActiveItemOf(target.EntryIndex)))
+            && entities.IsPlayer(target)
+            && HonourBound(_hooks, _owners.ItemOf(attack.Command.OwnerIndex, script.Name))
+            && HonourBound(_hooks, _owners.ActiveItemOf(target.EntryIndex)))
         {
             strike = MathF.Max(strike, entities.GetHealth(target) * TFSwordHook.DuelHealthScale);
             type |= TFDamageBits.DontCountCritRate;
@@ -277,8 +281,8 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         // GetMeleeDamage, tf_weapon_sword.cpp:77-84): every sword hit is
         // TF_DMG_CUSTOM_DECAPITATION, so the kill record names the swing.
         IDisposable? custom = null;
-        if (script.Id == TFWeaponId.Sword && _scopes is { } scopes)
-            custom = scopes.Push(TFDamageCustom.Decapitation, script.Id, script.Name);
+        if (script.Id == TFWeaponId.Sword)
+            custom = _scopes.Push(TFDamageCustom.Decapitation, script.Id, script.Name);
         using (custom)
         using (hitGroups.Push(HitGroup.Generic, critical))
             damage.ApplyAt(target, owner, strike, type, force, end);
@@ -289,13 +293,12 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         // seconds (:652), the swinger 3.6 ("give the soldier a bit of additional time
         // to allow them to keep up better with faster classes", :653). The disguise
         // half of the same-team gate (:646) waits with the disguise reads.
-        if (conditions is { } conds && entities.IsPlayer(target)
+        if (entities.IsPlayer(target)
             && players.GetTeam(owner) == players.GetTeam(target)
-            && _owners is { } hold && _hooks is { } hk
-            && hk.Int(0, "speed_buff_ally", hold.ItemOf(attack.Command.OwnerIndex, script.Name)) > 0)
+            && _hooks.Int(0, "speed_buff_ally", _owners.ItemOf(attack.Command.OwnerIndex, script.Name)) > 0)
         {
-            conds.Add(target, TFCond.SpeedBoost, 2f);        // :652
-            conds.Add(owner, TFCond.SpeedBoost, 3.6f);       // :653
+            conditions.Add(target, TFCond.SpeedBoost, 2f);        // :652
+            conditions.Add(owner, TFCond.SpeedBoost, 3.6f);       // :653
         }
 
         // ConnectedHit is an enemy or the world (tf_weaponbase_melee.cpp:959-966): a
@@ -314,10 +317,10 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
             return;
 
         if (trace.ForcesLaugh && critical)
-            conditions?.Add(target, TFCond.Taunting, ForcedLaughSeconds);
+            conditions.Add(target, TFCond.Taunting, ForcedLaughSeconds);
 
         if (trace.TicklesSameWeapon && SameActiveItem(owner, target))
-            conditions?.Add(target, TFCond.Taunting, ForcedLaughSeconds);
+            conditions.Add(target, TFCond.Taunting, ForcedLaughSeconds);
     }
 
     /// <summary>
@@ -326,9 +329,6 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
     /// </summary>
     private bool SameActiveItem(EntityHandle owner, EntityHandle target)
     {
-        if (_owners is null)
-            return false;
-
         IAttributeProvider? mine = _owners.ActiveItemOf(entities.GetIndex(owner));
         IAttributeProvider? theirs = _owners.ActiveItemOf(entities.GetIndex(target));
         return mine is AttributeContainer { Item: { } myItem }
@@ -345,25 +345,37 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
     /// radius of 100 through <c>mult_explosion_radius</c>, the bits
     /// <c>DMG_BLAST | DMG_USEDISTANCEMOD | DMG_MELEE</c> carrying the swing's
     /// crit and the kill its <c>TF_DMG_CUSTOM_STICKBOMB_EXPLOSION</c>. The
-    /// TE_TFExplosion is the client broadcast stock wraps it in, and the
-    /// broken body group its <c>m_bBroken</c> — both the display's, which the
-    /// weapon row's models already are.
+    /// TE_TFExplosion is the client broadcast stock wraps it in; the broken
+    /// body group its <c>m_bBroken</c> is the swap below, ahead of the blast
+    /// as stock's <c>SwitchBodyGroups</c> is (:226-228) — the detonated
+    /// attachment wears the exploded caber until the next deploy's dress
+    /// answers the plain row model after the reset cleared the spent bit
+    /// (:276-283).
     /// </summary>
     private void Kaboom(in WeaponAttackContext attack, TFWeaponScript script, EntityHandle owner, bool critical)
     {
-        if (script.Id != TFWeaponId.Stickbomb || _blast is not { } blast
-            || TFMeleeBehaviour.Spent(attack.Weapon))
+        if (script.Id != TFWeaponId.Stickbomb || TFMeleeBehaviour.Spent(attack.Weapon))
             return;
 
         attack.Weapon.BehaviourMode |= TFMeleeBehaviour.ModeStickbombSpent;
 
-        IAttributeProvider? item = attack.Command.OwnerIndex > 0
-            ? _owners?.ItemOf(attack.Command.OwnerIndex, script.Name)
-            : null;
-        float damage = _hooks?.Float(TFStickbombDamage, "mult_dmg", item) ?? TFStickbombDamage;
-        float radius = _hooks?.Float(TFStickbombRadius, "mult_explosion_radius", item) ?? TFStickbombRadius;
+        // Stock's SwitchBodyGroups (:226-228, ahead of the blast): the one
+        // attachment riding this owner's hands wears the exploded caber for
+        // the rest of the deploy; the next deploy's dress answers the plain
+        // row model once the deploy's reset clears the spent bit (:276-283).
+        int swingOwner = attack.Command.OwnerIndex;
+        if (_directory.OfClass(EntityNames.SsViewmodelAttachment)
+                .OfType<SsViewmodelAttachment>()
+                .FirstOrDefault(a => a.State.OwnerIndex == swingOwner) is { } attached)
+            _render.SetModel(attached.Handle, ExplodedCaber);
 
-        blast.Apply(players.GetShootOrigin(owner),
+        IAttributeProvider? item = attack.Command.OwnerIndex > 0
+            ? _owners.ItemOf(attack.Command.OwnerIndex, script.Name)
+            : null;
+        float damage = _hooks.Float(TFStickbombDamage, "mult_dmg", item);
+        float radius = _hooks.Float(TFStickbombRadius, "mult_explosion_radius", item);
+
+        _blast.Apply(players.GetShootOrigin(owner),
                     TFBlast.Of(damage, radius, DamageType.Blast | TFDamageBits.UseDistanceMod | TFDamageBits.Melee),
                     owner, owner, ignored: EntityHandle.None, script.Id, script.Name, critical,
                     custom: TFDamageCustom.StickbombExplosion);
@@ -374,6 +386,9 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
 
     /// <summary>The kaboom's radius, stock's <c>flRadius = 100.f</c> (:266).</summary>
     public const float TFStickbombRadius = 100f;
+
+    /// <summary>Stock's <c>TF_WEAPON_STICKBOMB_BROKEN_MODEL</c> (<c>tf_weapon_bottle.h:98</c>).</summary>
+    public const string ExplodedCaber = "models/workshop/weapons/c_models/c_caber/c_caber_exploded.mdl";
 
     private bool HonourBound(AttributeHooks hooks, IAttributeProvider? item)
         => item is not null && hooks.Int(0, TFSwordHook.HonorBoundAttrib, item) != 0;

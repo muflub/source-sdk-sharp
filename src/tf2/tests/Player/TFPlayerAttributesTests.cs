@@ -167,9 +167,10 @@ public sealed class TFPlayerAttributesTests
             inventory.Of(PlayerRig.Index)!.Add(item);
             Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Scout, TFLoadoutSlot.Primary, item.Id));
 
-            var loadout = new TFLoadoutProvider(inventory, rig.Schema, rig.Carriers, rig.Items, rig.Classes,
-                                                 catalog: rig.Catalog, carriers: rig.Carriers,
-                                                 hooks: new AttributeHooks(), players: rig.Engine);
+            var loadout = LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: rig.Items,
+                                                 table: rig.Classes, catalog: rig.Catalog, carriers: rig.Carriers,
+                                                 hooks: new AttributeHooks(), players: rig.Engine,
+                                                 precache: rig.Engine, log: rig.Log);
             var hooks = new AttributeHooks();
 
             // The scattergun's row is active: the halving reaches the manager.

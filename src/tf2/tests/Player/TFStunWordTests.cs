@@ -23,8 +23,18 @@ public sealed class TFStunWordTests
     {
         var rig = new PlayerRig();
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new TF2.Shared.Econ.AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items);
         var stack = new TFStunStack(rig.Carriers, players, rig.Engine);
         rig.Extra.Add(stack);
         rig.Join();

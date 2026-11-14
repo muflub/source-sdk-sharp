@@ -42,6 +42,37 @@ internal sealed class SpyRandom : IUniformRandom
     public float RandomFloat(float min, float max) => 0.5f;
 }
 
+/// <summary>The rules slice the cloak gate reads: nothing carried, nothing
+/// won, no zone. Same shape as the announcer tests' FixedRules.</summary>
+internal sealed class SpyIdleRules : ICtfRules
+{
+    public bool OvertimeAllowedForCtf => true;
+    public void SetOvertimeAllowedForCtf(bool allowed) { }
+    public bool FlagsMayBeCapped => true;
+    public bool InWaitingForPlayers => false;
+    public bool InStalemate => false;
+    public bool CanFlagBeCaptured(EntityHandle player) => false;
+    public IEnumerable<ItemTeamFlag> Flags => [];
+    public ItemTeamFlag? CarriedBy(EntityHandle player) => null;
+    public bool CheckCapsPerRound() => false;
+    public bool PointInRespawnFlagZone(Vector point) => false;
+    public void Report(string kind, TFTeam team, int index) { }
+    public int FlagCaptures(TFTeam team) => 0;
+    public void RewardTeam(TFTeam team, bool asCapture, int score) { }
+    public void SetFlagCaptures(TFTeam team, int captures) { }
+}
+
+/// <summary>The swing's session in the one shape a spy-lane fact sees: a
+/// window that opens and closes around the trace, moving nobody.</summary>
+internal sealed class SpyIdleLag : ILagCompensation
+{
+    public void Start(EntityHandle player) { }
+    public void Start(EntityHandle player, in UserCmd cmd) { }
+    public void Finish(EntityHandle player) { }
+    public bool IsCurrentlyDoingLagCompensation => false;
+    public void NoteWeaponFired(EntityHandle player) { }
+}
+
 /// <summary>One hit the spy's slice dealt, with the scope and the crit flag open at the time.</summary>
 internal sealed record SpyHit(EntityHandle Victim, float Damage, TFDamageCustom Custom, TFWeaponId Weapon, bool Critical, Vector Position);
 
@@ -270,6 +301,11 @@ internal sealed class SpyRig
     public SpyRig(TFClass playerClass = TFClass.Spy, ICtfRules? ctf = null, ILagCompensation? lag = null,
                   bool withWeapon = true)
     {
+        // The slice now takes every seam required: the rig answers a fact's
+        // silence with the inert holder production would bind for these two.
+        ctf ??= new SpyIdleRules();
+        lag ??= new SpyIdleLag();
+
         Damage = new SpyDamage(Scopes, HitGroups);
         _states.Add(Spy.EntryIndex, playerClass);
         _states.Add(Victim.EntryIndex, TFClass.HeavyWeapons);

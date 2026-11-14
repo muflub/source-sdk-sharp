@@ -200,11 +200,11 @@ public sealed class BotInventoryTests
         var human = new LocalInventory(
             new InventoryStore(new ModInfo(_ => null), schema, Log()), schema, new TFWeaponOwnersTests.NoClients(), Log());
 
-        var open = new TFLoadoutProvider(human, schema, botInventory: source, bots: bots);
+        var open = LoadoutDeps.Loadout(human, schema, botInventory: source, bots: bots);
         Assert.Equal([TFLoadoutSlot.Primary, TFLoadoutSlot.Secondary, TFLoadoutSlot.Melee],
                      open.Loadout(Seat, TFClass.Soldier).Select(e => e.Slot));
 
-        var stalemate = new TFLoadoutProvider(human, schema,
+        var stalemate = LoadoutDeps.Loadout(human, schema,
             round: new FixedRound(RoundState.Stalemate), stalemate: new StalemateSettings(), botInventory: source, bots: bots);
         LoadoutItem melee = Assert.Single(stalemate.Loadout(Seat, TFClass.Soldier));
         Assert.Equal(TFLoadoutSlot.Melee, melee.Slot);
@@ -227,7 +227,7 @@ public sealed class BotInventoryTests
         Assert.NotNull(cow);
         Assert.True(human.Equip(Seat, TFClass.Soldier, TFLoadoutSlot.Primary, cow!.Id));
 
-        var provider = new TFLoadoutProvider(human, schema, botInventory: source, bots: bots);
+        var provider = LoadoutDeps.Loadout(human, schema, botInventory: source, bots: bots);
         LoadoutItem primary = Assert.Single(provider.Loadout(Seat, TFClass.Soldier), e => e.Slot == TFLoadoutSlot.Primary);
 
         Assert.Equal(441, primary.Item.Defindex); // the human's own equipped item, not the table's 18.

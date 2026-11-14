@@ -197,8 +197,9 @@ public abstract class FlyingProjectile : AnimatingEntity
 
         if (_lingerFor >= 0f)
         {
-            // Stopped where it is, unseen; gone when the time is up.
-            SetVisible(false);
+            // Stopped where it is, unseen where the subclass hides; gone when
+            // the time is up.
+            SetVisible(!LingerHides);
             _lingering = true;
             SetNextThink(_lingerFor);
             return;
@@ -232,6 +233,15 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// think, which keeps what follows the projectile alive that long.
     /// </summary>
     protected void Linger(float seconds) => _lingerFor = seconds;
+
+    /// <summary>
+    /// Whether the linger hides the body. Every projectile that lingers is
+    /// stock's <c>EF_NODRAW</c> and the answer stays yes -- the cleaver's
+    /// world arm is the exception, whose <c>Explode</c>
+    /// (<c>tf_weapon_jar.cpp:1083-1096</c>) books the removal think over a
+    /// body that keeps its model.
+    /// </summary>
+    protected virtual bool LingerHides => true;
 
     private bool _keepFlying;
     private Vector _keepVelocity;

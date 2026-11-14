@@ -110,14 +110,15 @@ internal sealed class MeleeRig
         Engine.ReturnsEachCall("Entities.GetOrigin",
                                () => Engine.Calls[^1].Args[0] is EntityHandle h && Origins.TryGetValue(h, out var o) ? o : default(Vector));
         Engine.Returns("Entities.IsValid", true);
+        Engine.Returns("Entities.GetHealth", 100);
         Engine.ReturnsEachCall("Entities.GetIndex",
                                () => Engine.Calls[^1].Args[0] is EntityHandle h && h == Victim ? 7 : 3);
         Engine.ReturnsEachCall("WorldQuery.TraceLine", () => Line);
         Engine.ReturnsEachCall("WorldQuery.TraceBox", () => Hull.Hit ? Hull with { End = HullEnd } : Hull);
 
         Damage = new MeleeDamage(HitGroups);
-        Effects = new TFMeleeEffects(Engine, Engine, Engine, Damage, HitGroups, Log, owners ?? Owners, hooks,
-                                     conditions: conditions ?? Conditions, health: health);
+        Effects = MeleeDeps.Effects(Engine, Damage, HitGroups, Log, owners: owners ?? Owners, hooks: hooks,
+                                    conditions: conditions ?? Conditions, health: health);
     }
 
     /// <summary>What the engine says the hit target is.</summary>

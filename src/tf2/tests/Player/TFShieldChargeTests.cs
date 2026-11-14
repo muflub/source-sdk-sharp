@@ -3,6 +3,8 @@ using SourceSharp.Server;
 
 using TF2.Server.Econ;
 using TF2.Server.Player;
+using TF2.Server.Projectiles;
+
 using TF2.Shared;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
@@ -72,13 +74,17 @@ public sealed class TFShieldChargeTests
             Shields = new(Player.Carriers, Directory, Player.Schema, Player.Engine, Player.Engine,
                           Player.Engine, Player.Engine, Player.Engine,
                           new ScreenEffects(Player.Engine, Player.Engine, Player.Engine, Player.Engine),
-                          Player.Log);
+                          Player.Log,
+                          new AttributeHooks(), new NoTFWeaponOwners(),
+                          new TFMovementFixtures.RoundAt(TF2.Shared.Rules.RoundState.RoundRunning),
+                          new TF2.Server.Combat.TFDamageScopes());
             var end = new TFShieldChargeEnd(Player.Carriers, Shields, null, Player.Engine);
             Meter = replayClock
                 ? new(Player.Carriers, Conditions, Player.Items, null, null, null, Player.Engine)
                 : new(Player.Carriers, Conditions, Player.Items, null, null, null);
             Player.Extra.AddRange([Ticker, wearables, end, Meter]);
-            Skill = new(Player.Carriers, Player.Engine, owners: null, shields: Shields);
+            Skill = new(Player.Carriers, Player.Engine, new IdleSkillSpies(), new TFStickyTray(),
+                        new IdleSkillPickup(), new NoTFWeaponOwners(), Shields);
 
             // The class first: the attach window's create is the carrier's, so
             // the player is in before the wearables' own factory stands.
@@ -175,7 +181,7 @@ public sealed class TFShieldChargeTests
         rig.Player.Engine.Returns("WorldQuery.TraceBox",
             new SurfaceTraceResult(true, 0.5f, default, default, new EntityHandle(0x0001_0009u), 0, 0));
 
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), rig.Player.Carriers);
+        var rules = TFMovementFixtures.Rules(rig.Player.Carriers);
 
         rules.ChargeBump(Index, PlayerRig.Player);
         Assert.Single(rig.Player.Engine.AllOf("Sound.EntityEmitSound"));
@@ -204,7 +210,7 @@ public sealed class TFShieldChargeTests
         // On impact: the movement's bump of a player, the end's duration zero.
         var hit = new ChargeRig();
         hit.Charging(30f);
-        var rules = new TFMovementRules(TFMovementFixtures.Server(), hit.Player.Carriers);
+        var rules = TFMovementFixtures.Rules(hit.Player.Carriers);
 
         rules.ChargeBump(Index, PlayerRig.Player);
 

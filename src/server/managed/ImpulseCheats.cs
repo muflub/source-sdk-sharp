@@ -88,6 +88,19 @@ public interface IWeaponGiver
         stamp = 0f;
         return false;
     }
+
+    /// <summary>
+    /// The player's carried weapon named by catalog row
+    /// <paramref name="className"/> has its charge moved
+    /// <paramref name="seconds"/> closer to full: the held row's fraction and
+    /// the holstered row's anchor alike, the pair
+    /// <see cref="CarriedMeterOf"/> answers. Stock's
+    /// <c>CTFWeaponBase::DecrementBarRegenTime</c>
+    /// (<c>tf_weaponbase.h:630</c>) is the same walk over the live weapon's
+    /// regen stamp. A giver with no carry, or a row that charges over no
+    /// seconds, answers nothing.
+    /// </summary>
+    void AdvanceCarriedMeter(EntityHandle player, string className, float seconds) { }
 }
 
 /// <summary>

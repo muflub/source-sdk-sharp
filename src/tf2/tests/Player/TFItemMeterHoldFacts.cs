@@ -272,15 +272,19 @@ public sealed class TFItemMeterHoldFacts
                         ?? throw new InvalidOperationException($"the shipped schema has no {defindex}");
             Assert.True(inventory.Equip(PlayerRig.Index, playerClass, TFLoadoutSlot.Secondary, held1.Id));
 
-            var loadout = new TFLoadoutProvider(inventory, schema, Rig.Carriers, new TFPlayerItems(),
-                                                Rig.Classes, catalog: Weapons.Catalog, carriers: Rig.Carriers);
+            var loadout = LoadoutDeps.Loadout(inventory, schema, classes: Rig.Carriers, items: new TFPlayerItems(),
+                                                table: Rig.Classes, catalog: Weapons.Catalog, carriers: Rig.Carriers,
+                                                players: Rig.Engine, precache: Rig.Engine, log: Rig.Log);
             var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
             Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Engine, Arsenal),
                                             Rig.Engine, conditions, loadout, Rig.Engine,
-                                            Weapons.Owners, new AttributeHooks(),
+                                            new TFPlayerItems(), new AttributeHooks(),
                                             scripts: new TFWeaponScripts(new RecordingLog(),
                                                                          WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses())),
-                                            catalog: Weapons.Catalog, arsenal: Arsenal);
+                                            catalog: Weapons.Catalog, arsenal: Arsenal,
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: Engine);
         }
 
         /// <summary>The shipped schema, the kit's items.</summary>

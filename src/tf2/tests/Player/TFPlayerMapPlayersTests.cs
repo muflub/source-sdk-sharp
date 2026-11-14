@@ -29,19 +29,40 @@ public sealed class TFPlayerMapPlayersTests
         rig.Engine.Returns("Entities.GetHealth", health);
         var hook = new Hook();
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook));
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers), hook);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items), hook);
     }
 
-    /// <summary>The same player for the cloak facts, with the owners seam the watch's hooks ride.</summary>
-    private static (PlayerRig Rig, TFPlayerMapPlayers Players, TFPlayerConditions Conditions) MakeCloak(
-        TFClass cls, Weapons.FakeOwners owners)
+    /// <summary>The same player for the cloak facts, with the items table the watch's hooks ride.</summary>
+    private static (PlayerRig Rig, TFPlayerMapPlayers Players, TFPlayerItems Items, TFPlayerConditions Conditions) MakeCloak(
+        TFClass cls, TFPlayerItems? items = null)
     {
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Entities.GetHealth", 100);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, owners), conditions);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine);
+        var table = items ?? rig.Items;
+        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, table), table, conditions);
     }
 
     [Fact]
@@ -127,7 +148,7 @@ public sealed class TFPlayerMapPlayersTests
     [Fact]
     public void The_spy_takes_cloak_and_a_moved_meter_is_the_answer()
     {
-        var (rig, players, _) = MakeCloak(TFClass.Spy, new Weapons.FakeOwners());
+        var (rig, players, _, _) = MakeCloak(TFClass.Spy);
 
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 40f));   // :9753 — a positive amount under the cap
         Assert.Equal(40f, rig.State.CloakMeter);                          // :9755
@@ -143,7 +164,7 @@ public sealed class TFPlayerMapPlayersTests
     public void A_non_spy_takes_no_cloak()
     {
         // :9727-9729 — Weapon_OwnsThisID(TF_WEAPON_INVIS): the watch is the spy's own item.
-        var (rig, players, _) = MakeCloak(TFClass.Soldier, new Weapons.FakeOwners());
+        var (rig, players, _, _) = MakeCloak(TFClass.Soldier);
 
         Assert.False(players.AddToSpyCloakMeter(PlayerRig.Player, 100f));
         Assert.Equal(0f, rig.State.CloakMeter);
@@ -153,9 +174,9 @@ public sealed class TFPlayerMapPlayersTests
     public void A_watch_that_refuses_regen_from_items_takes_no_cloak()
     {
         // :9733-9736 — mod_cloak_no_regen_from_items on the watch.
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("mod_cloak_no_regen_from_items", AttributeDescriptionFormat.Additive, 1f);
-        var (rig, players, _) = MakeCloak(TFClass.Spy, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("mod_cloak_no_regen_from_items", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Spy, items);
 
         Assert.False(players.AddToSpyCloakMeter(PlayerRig.Player, 50f));
         Assert.Equal(0f, rig.State.CloakMeter);
@@ -165,9 +186,9 @@ public sealed class TFPlayerMapPlayersTests
     public void A_watch_that_refuses_cloak_while_cloaked_takes_none_when_stealthed()
     {
         // :9740-9746 — NoCloakWhenCloaked and InCond(STEALTHED).
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("NoCloakWhenCloaked", AttributeDescriptionFormat.Additive, 1f);
-        var (rig, players, conditions) = MakeCloak(TFClass.Spy, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("NoCloakWhenCloaked", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, conditions) = MakeCloak(TFClass.Spy, items);
         conditions.Add(PlayerRig.Player, TFCond.Stealthed, 5f);
 
         Assert.False(players.AddToSpyCloakMeter(PlayerRig.Player, 50f));
@@ -182,7 +203,7 @@ public sealed class TFPlayerMapPlayersTests
     public void A_stealthed_watch_without_the_refusal_still_takes_cloak()
     {
         // :9743 — the refusal needs BOTH arms; a plain watch cloaks on regardless.
-        var (rig, players, conditions) = MakeCloak(TFClass.Spy, new Weapons.FakeOwners());
+        var (rig, players, _, conditions) = MakeCloak(TFClass.Spy);
         conditions.Add(PlayerRig.Player, TFCond.Stealthed, 5f);
 
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 50f));
@@ -194,9 +215,9 @@ public sealed class TFPlayerMapPlayersTests
     {
         // :9749 — CALL_ATTRIB_HOOK_FLOAT(pWpn, val, ReducedCloakFromAmmo):
         // a percentage of 0.5 leaves the pack's 40 arriving as 20.
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("ReducedCloakFromAmmo", AttributeDescriptionFormat.Percentage, 0.5f);
-        var (rig, players, _) = MakeCloak(TFClass.Spy, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("ReducedCloakFromAmmo", AttributeDescriptionFormat.Percentage, 0.5f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Spy, items);
 
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 40f));
         Assert.Equal(20f, rig.State.CloakMeter);
@@ -207,9 +228,9 @@ public sealed class TFPlayerMapPlayersTests
     [Fact]
     public void The_persuaders_wearer_takes_charge_from_a_pack()
     {
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f);
-        var (rig, players, _) = MakeCloak(TFClass.Demoman, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Demoman, items);
         rig.State.ChargeMeter = 30f;
 
         Assert.True(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f)); // :98-108 — the pack's half
@@ -219,9 +240,9 @@ public sealed class TFPlayerMapPlayersTests
     [Fact]
     public void A_full_charge_meter_takes_no_charge_from_a_pack()
     {
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f);
-        var (rig, players, _) = MakeCloak(TFClass.Demoman, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Demoman, items);
         rig.State.ChargeMeter = 100f;
 
         Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f)); // :101's gate
@@ -231,7 +252,7 @@ public sealed class TFPlayerMapPlayersTests
     [Fact]
     public void A_player_without_the_attribute_takes_no_charge()
     {
-        var (rig, players, _) = MakeCloak(TFClass.Demoman, new Weapons.FakeOwners());
+        var (rig, players, _, _) = MakeCloak(TFClass.Demoman);
         rig.State.ChargeMeter = 30f;
 
         Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f));

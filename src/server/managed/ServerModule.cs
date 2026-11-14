@@ -1991,6 +1991,47 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                          locator.Require<IGameClock>(), locator.Require<ILog>()));
         _services.AddFactory<IAdminStatus>(locator => locator.Require<ServerAdmins>());
 
+        // THE SERVER'S SKELETONS (plan physics_bones_native_zero step 1.2):
+        // posed in managed code from the engine's model cache, copied as bytes.
+        // A lifecycle participant (level shutdown drops every skeleton and
+        // image), so registered before the driver below.
+        _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
+                                         new StudioModels(_services.Require<IStudioMemory>()),
+                                         _services.Require<IGameClock>(), Log,
+                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
+        _services.AddInstance(_skeletons);
+        _arsenal.Attachments = _skeletons;
+
+        // THE LAG COMPENSATION (player_lagcompensation.cpp's CLagCompensationManager):
+        // a frame participant that records every player after the hierarchy's
+        // frame, and the rewind the arsenal's and the mods' attacks wrap their
+        // traces in. After the skeletons, whose animation it records and
+        // rewinds; the commands each player is running are the module's
+        // (OnStandalonePlayerCommand). Before the mod's services, whose scan
+        // materialises a [SideService] graph that reaches the weapon's required
+        // lag here — the medigun's composition, built at the mode check.
+        _services.AddInstance<IServerEntityPlacement>(ServerEntityPlacement.For(_engine, _services.Require<IEngineEntities>()));
+        _services.AddInstance(_currentCommands);
+        _services.AddInstance<ILagCompensationWorld>(
+            new EngineLagCompensationWorld(_services.Require<IEngineEnvironment>(), _services.Require<IEnginePlayers>(),
+                                           _services.Require<IEngineEntities>(), _services.Require<IEngineWorldQuery>(),
+                                           _services.Require<SvMinUpdateRateConVar>(), _services.Require<SvMaxUpdateRateConVar>(),
+                                           _services.Require<SvClientMinInterpRatioConVar>(), _services.Require<SvClientMaxInterpRatioConVar>(),
+                                           _services.Require<IClientInfo>(),
+                                           _engineServer, _services.Require<IServerEntityPlacement>(), _skeletons,
+                                           _playerMoves));
+        var lagCompensation = new LagCompensation(
+            _services.Require<ILagCompensationWorld>(),
+            new LagCompensationConVars(
+                _services.Require<SvUnlagConVar>(),
+                _services.Require<SvMaxUnlagConVar>(),
+                _services.Require<SvLagFlushBoneCacheConVar>(),
+                _services.Require<SvLagCompensationTeleportDistConVar>()),
+            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
+        _services.AddInstance(lagCompensation);
+        _services.AddInstance<ILagCompensation>(lagCompensation);
+        _arsenal.LagCompensation = lagCompensation;
+
         // The mod's services: every [SideService(Side.Server)] class and server
         // registrar in the loaded assemblies (mods.yaml lists them), registered
         // LAST so they can inject anything above and can never replace it, and
@@ -2096,44 +2137,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.AddInstance(_physicsFrame);
         }
 
-        // THE SERVER'S SKELETONS (plan physics_bones_native_zero step 1.2):
-        // posed in managed code from the engine's model cache, copied as bytes.
-        // A lifecycle participant (level shutdown drops every skeleton and
-        // image), so registered before the driver below.
-        _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
-                                         new StudioModels(_services.Require<IStudioMemory>()),
-                                         _services.Require<IGameClock>(), Log,
-                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
-        _services.AddInstance(_skeletons);
-        _arsenal.Attachments = _skeletons;
-
-        // THE LAG COMPENSATION (player_lagcompensation.cpp's CLagCompensationManager):
-        // a frame participant that records every player after the hierarchy's
-        // frame, and the rewind the arsenal's and the mods' attacks wrap their
-        // traces in. After the skeletons, whose animation it records and
-        // rewinds; the commands each player is running are the module's
-        // (OnStandalonePlayerCommand).
-        _services.AddInstance<IServerEntityPlacement>(ServerEntityPlacement.For(_engine, _services.Require<IEngineEntities>()));
-        _services.AddInstance(_currentCommands);
-        _services.AddInstance<ILagCompensationWorld>(
-            new EngineLagCompensationWorld(_services.Require<IEngineEnvironment>(), _services.Require<IEnginePlayers>(),
-                                           _services.Require<IEngineEntities>(), _services.Require<IEngineWorldQuery>(),
-                                           _services.Require<SvMinUpdateRateConVar>(), _services.Require<SvMaxUpdateRateConVar>(),
-                                           _services.Require<SvClientMinInterpRatioConVar>(), _services.Require<SvClientMaxInterpRatioConVar>(),
-                                           _services.Require<IClientInfo>(),
-                                           _engineServer, _services.Require<IServerEntityPlacement>(), _skeletons,
-                                           _playerMoves));
-        var lagCompensation = new LagCompensation(
-            _services.Require<ILagCompensationWorld>(),
-            new LagCompensationConVars(
-                _services.Require<SvUnlagConVar>(),
-                _services.Require<SvMaxUnlagConVar>(),
-                _services.Require<SvLagFlushBoneCacheConVar>(),
-                _services.Require<SvLagCompensationTeleportDistConVar>()),
-            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
-        _services.AddInstance(lagCompensation);
-        _services.AddInstance<ILagCompensation>(lagCompensation);
-        _arsenal.LagCompensation = lagCompensation;
+        // The registry's removal notify writes the composition's liveness
+        // mirror through the skeletons, posed above the mod scan.
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
         // The model descriptors are read from the same studio headers
@@ -3126,6 +3131,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         SwitchOutcome.NoSuchSlot      => "no weapon in that slot",
         SwitchOutcome.NoHistory       => "nothing was held before this",
         SwitchOutcome.CannotHolster   => "the weapon in the hands will not be put away (it is holding something, or its missile is flying)",
+        SwitchOutcome.CannotDeploy    => "the weapon will not come out yet (its behaviour refused the deploy)",
         _                             => outcome.ToString(),
     };
 
@@ -4469,6 +4475,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public bool GetKeepGround(int playerIndex) => _movementRules.Rules.KeepGround(playerIndex);
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
+
+    public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
 
     // The engine's InfoPanel table, through its own string-table interfaces. A
     // server whose container cannot be acquired still loads (the message of the

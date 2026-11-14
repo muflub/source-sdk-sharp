@@ -37,7 +37,13 @@ public class CorpseTests
 
 
     private static readonly EntityHandle Player = new(7u);
+    private static readonly EntityHandle SecondPlayer = new(8u);
+    private static readonly EntityHandle ThirdPlayer = new(9u);
+    private static readonly EntityHandle FourthPlayer = new(10u);
     private static readonly EntityHandle Body = new(99u);
+    private static readonly EntityHandle SecondBody = new(100u);
+    private static readonly EntityHandle ThirdBody = new(101u);
+    private static readonly EntityHandle FourthBody = new(102u);
 
     /// <summary>
     /// An engine double a corpse can be made against: it answers the four
@@ -128,16 +134,27 @@ public class CorpseTests
         public void End(EntityHandle body) { }
     }
 
+    /// <summary>The fade's receiving end: what bodies were armed, and when they went.</summary>
+    private sealed class Fades : client::SourceSharp.Client.Ragdolls.IRagdollFades
+    {
+        public readonly List<EntityHandle> Began = [], Ended = [];
+
+        public void Begin(EntityHandle body) => Began.Add(body);
+
+        public void End(EntityHandle body) => Ended.Add(body);
+    }
+
     /// <summary>A client body with somewhere for its decoded state to live.</summary>
     private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null,
                                           client::SourceSharp.Client.Sounds.IClientEntitySounds? sounds = null,
-                                          client::SourceSharp.Client.Ragdolls.IIceRagdolls? ice = null)
+                                          client::SourceSharp.Client.Ragdolls.IIceRagdolls? ice = null,
+                                          client::SourceSharp.Client.Ragdolls.IRagdollFades? fades = null)
     {
         // At the origin, matching the state's default -- see the note below.
         // Set on the engine rather than in each test, because every viewer test
         // reaches the placement check before anything it is actually about.
         var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine),
-                                       ice: ice, sounds: sounds);
+                                       ice: ice, sounds: sounds, fades: fades);
 
         // The registry does both of these in a game (ClientStandaloneRegistry
         // binds the engine at create, and the decode gives the state its
@@ -373,9 +390,9 @@ public class CorpseTests
     }
 
     /// <summary>
-    /// THE OLDEST BODY GOES WHEN THE CAP IS REACHED. A timer alone does not
-    /// bound this: a firefight can pile up far more bodies inside one lifetime
-    /// than a map has players.
+    /// THE OLDEST BODY GOES WHEN THE CAP IS REACHED. A cap and a replace bound
+    /// different things: four players' bodies under a cap of three, and the
+    /// oldest goes — no replace ever fires, every body its own player's.
     /// </summary>
     [Fact]
     public void TheOldestBodyIsRemovedWhenTheCapIsReached()
@@ -385,19 +402,28 @@ public class CorpseTests
 
         corpses.Limit = 3;
 
-        for (int i = 0; i < 3; i++)
-            corpses.Make(Player);
+        corpses.Make(Player);
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(SecondPlayer);
+        engine.Returns("Entities.Create", ThirdBody);
+        corpses.Make(ThirdPlayer);
 
         Assert.True(corpses.Count == 3, $"three bodies fit under a cap of three ({corpses.Count})");
 
         Assert.True(engine.CountOf("Entities.Remove") == 0,
             "and none of them was removed to make room, because there was room");
 
-        corpses.Make(Player);
+        engine.Returns("Entities.Create", FourthBody);
+        corpses.Make(FourthPlayer);
 
         Assert.True(engine.CountOf("Entities.Remove") == 1,
             $"the fourth removes exactly one body ({engine.CountOf("Entities.Remove")}) — the "
           + "oldest");
+
+        var removed = engine.Calls.Where(c => c.Member == "Entities.Remove").Single();
+
+        Assert.True(removed.ArgAs<EntityHandle>(0).Equals(Body),
+            $"and the one that goes is the oldest ({removed.ArgAs<EntityHandle>(0)}, wanted {Body})");
 
         Assert.True(corpses.Count == 3,
             $"and the count stays at the cap ({corpses.Count}) rather than growing");
@@ -415,7 +441,8 @@ public class CorpseTests
         var corpses = Service(engine, out _);
 
         corpses.Make(Player);
-        corpses.Make(Player);
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(SecondPlayer);
 
         Assert.True(corpses.Count == 2, $"two bodies stand ({corpses.Count})");
 
@@ -508,12 +535,14 @@ public class CorpseTests
     // ---------------------------------------------------------------------
 
     /// <summary>
-    /// A body is NOT SOLID, and arms its own removal. The first is what stops a
-    /// corpse becoming a wall in a doorway; the second is the only thing that
-    /// bounds how long one lasts.
+    /// A body is NOT SOLID, which is what stops a corpse becoming a wall in a
+    /// doorway. It books no lifetime think of its own: the one think a body
+    /// fires is its dissolve's end, and the visible bound is the client's
+    /// fade — the server's body goes when the next death replaces it or a
+    /// round reset sweeps it.
     /// </summary>
     [Fact]
-    public void ABodyIsNotSolidAndArmsItsOwnRemoval()
+    public void ABodyIsNotSolid()
     {
         var engine = Fake();
         var body = new SsRagdoll(engine);
@@ -526,36 +555,6 @@ public class CorpseTests
         Assert.True(call.ArgAs<bool>(1),
             "a body is not solid — a corpse in a doorway would otherwise block it, and one on "
           + "a stairway would be an invisible step");
-
-        Assert.True(body.ThinkArmed == SsRagdoll.Lifetime,
-            $"and it arms its removal for its lifetime ({body.ThinkArmed}s, wanted "
-          + $"{SsRagdoll.Lifetime}s). Nothing else cleans these up: this mod has neither "
-          + "stock's ragdoll manager nor a round restart");
-    }
-
-    /// <summary>
-    /// Its think removes it, which is the whole of what the timer buys.
-    ///
-    /// <para>
-    /// Read off the entity rather than off the engine double, because
-    /// <c>Remove</c> is a <c>ScriptedEntity</c> convenience that goes through
-    /// the STATIC engine — the same wall <c>PropPhysics.Gone</c> exists for.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void ABodyRemovesItselfWhenItsTimeIsUp()
-    {
-        var engine = Fake();
-        var body = new SsRagdoll(engine);
-        body.BindAreas(Areas(engine));
-
-        Assert.True(!body.Gone, "a fresh body is in the world");
-
-        body.OnThink();
-
-        Assert.True(body.Gone,
-            "and its think takes it out again. The client half's OnRemoved tears the ragdoll "
-          + "down on each viewer, so there is no second message to send");
     }
 
     // ---------------------------------------------------------------------
@@ -616,6 +615,32 @@ public class CorpseTests
         body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
 
         Assert.True(engine.Last("EntityRender.RagdollAddVelocity")!.Value.ArgAs<Vector>(1).Equals(velocity));
+    }
+
+    /// <summary>
+    /// THE VISIBLE CLOCK IS THE CLIENT'S: the arrival arms the fade and the
+    /// removal ends it, which is the whole of the client half's duty to a
+    /// server that never retires a body by time.
+    /// </summary>
+    [Fact]
+    public void TheViewerAsksForTheFadeAtEveryArrivalAndEndsItAtTheRemoval()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        var fades = new Fades();
+
+        var body = Viewer(engine, fades: fades);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(2, fades.Began.Count);
+        Assert.Empty(fades.Ended);
+
+        body.OnRemoved();
+
+        Assert.Single(fades.Ended);
     }
 
     /// <summary>

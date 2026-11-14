@@ -46,7 +46,10 @@ public sealed class TFDamageAliveRulesTests
     {
         var hit = new TFHitResult(damage, bits, crit, custom, bonus);
         TFHit input = new(damage, bits, custom, self, AttackerIsPlayer: true, TFWeaponId.Pistol,
-                          null, victimConds, default, weaponItem, VictimItem: held);
+                          null, victimConds, default, weaponItem, SameClass: false, VictimWaterLevel: 0,
+                          DeflectedProjectile: false, VictimEyeAngles: null, ToVictim: null,
+                          AttackerAirborne: false, VictimAirborne: false, DirectRocketHit: false,
+                          VictimItem: held, AfterburnDuration: null, DoubleDonk: false);
         return TFDamageAliveRules.Resist(hit, in input, new AttributeHooks(), victim, victimClass, 0.8f,
                                          medicOf: medicOf);
     }

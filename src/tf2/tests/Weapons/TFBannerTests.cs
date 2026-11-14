@@ -202,12 +202,18 @@ public sealed class TFBannerTests
                                           TFWeaponHookChain.Of([new TFAttributeWeaponHook(new AttributeHooks()),
                                                                 new TFCritBoostHook(), new TFKingReloadHook()]),
                                           new TFCritBuckets(), new FixedCritSettings(), Owners, effects,
-                                          playerData: Players);
+                                          new TF2.Tests.Weapons.RecordingBuilderPlacement(), Players,
+                                          new TF2.Tests.Weapons.FakeRoundSetup(), BoundCharge(), BoundSpread(),
+                                          new TF2.Tests.Weapons.NobodyWantsAutoReload(), BoundBurstammo(),
+                                          new TF2.Server.Medigun.TFServerMedigunPrediction(),
+                                          new TF2.Tests.Weapons.RecordingSapperState(),
+                                          new TF2.Tests.Weapons.RecordingSentryWrangle(),
+                                          new TF2.Tests.Weapons.EmptyRevengeCrits());
             return new TFBuffItemBehaviour(parts);
         }
 
         /// <summary>The dispatcher over the server's walk, as the side composes it.</summary>
-        public TFWeaponEffects Dispatcher() => new(buffs: new TFBuffDeployment(Players, Conditions, Engine, Engine));
+        public TFWeaponEffects Dispatcher() => OwnedEffects.Of(buffs: new TFBuffDeployment(Players, Conditions, Engine, Engine));
 
         public static WeaponAttackContext At(WeaponNetState weapon, float now) =>
             new(new WeaponType("tf_weapon_buff_item", 0.1f), weapon, default!, now, EffectsLive: true,
@@ -221,6 +227,28 @@ public sealed class TFBannerTests
         }
 
         private int TeamOf(EntityHandle h) => _teams.TryGetValue(h.EntryIndex, out int t) ? t : 0;
+
+        // The convars at their declared defaults, as the server's composition publishes them.
+        private static WeaponMedigunChargeRateConVar BoundCharge()
+        {
+            var convar = new WeaponMedigunChargeRateConVar();
+            convar.Bind(-1, "weapon_medigun_charge_rate", "40");
+            return convar;
+        }
+
+        private static TFUseFixedWeaponspreadsConVar BoundSpread()
+        {
+            var convar = new TFUseFixedWeaponspreadsConVar();
+            convar.Bind(-1, "tf_use_fixed_weaponspreads", "0");
+            return convar;
+        }
+
+        private static TFFlameThrowerBurstammoConVar BoundBurstammo()
+        {
+            var convar = new TFFlameThrowerBurstammoConVar();
+            convar.Bind(-1, "tf_flamethrower_burstammo", "20");
+            return convar;
+        }
 
         private Vector OriginOf(EntityHandle h) => _origins.TryGetValue(h.EntryIndex, out var o) ? o : Vector.Zero;
 
@@ -397,7 +425,7 @@ public sealed class TFBannerTests
         rig.Engine.Returns("GameEvents.EventFire", true);
         rig.Engine.Returns("Players.GetUserId", 103); // the owner's userid, as the server answers it (:247)
 
-        var dispatcher = new TFWeaponEffects(buffs: new TFBuffDeployment(
+        var dispatcher = OwnedEffects.Of(buffs: new TFBuffDeployment(
             rig.Players, rig.Conditions, rig.Engine, rig.Engine, sound: rig.Engine, events: rig.Engine));
         var behaviour = rig.Behaviour(dispatcher);
         behaviour.PrimaryAttack(BuffRig.At(BuffRig.Armed(), 10f));
@@ -443,6 +471,7 @@ public sealed class TFBannerTests
         public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge)
             => effects.Projectile(in attack, script, shot, charge);
         public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => effects.Detonate(in attack, script);
+        public void Shove(in WeaponAttackContext attack, TFWeaponScript script) => effects.Shove(in attack, script);
 
         public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
             => effects.ShockAttack(in attack, script);

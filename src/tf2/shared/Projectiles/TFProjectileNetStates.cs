@@ -135,6 +135,24 @@ public partial class TFJarNetState
 }
 
 /// <summary>
+/// <c>tf_projectile_cleaver</c>'s networked state. Stock's
+/// <c>DT_TFProjectile_Cleaver</c> is empty
+/// (<c>tf_weapon_jar.cpp:77-79</c>): the client's trail asks the team alone
+/// (<c>C_TFProjectile_Cleaver::GetTrailParticleName</c>,
+/// <c>tf_weapon_jar.cpp:1155-1165</c>), which rides the entity's own team
+/// netvar there and the row here.
+/// </summary>
+[StandaloneNetState(ClassName)]
+public partial class TFCleaverNetState
+{
+    /// <summary>The entity's classname.</summary>
+    public const string ClassName = "tf_projectile_cleaver";
+
+    /// <summary>The owner's team, unassigned until the launcher arms it.</summary>
+    public partial int TeamNumber { get; set; }
+}
+
+/// <summary>
 /// <c>tf_projectile_healing_bolt</c>'s networked state. Stock's
 /// <c>DT_TFProjectile_HealingBolt</c> is empty
 /// (<c>tf_projectile_arrow.cpp:74-75</c>): the client's trail asks the team

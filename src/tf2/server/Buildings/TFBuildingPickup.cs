@@ -63,11 +63,11 @@ public interface ITFBuildingPickup
 [Precache(PrecacheKind.Sound, RescueReceiveSound)]
 public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildings,
                                      IEngineEntities entities, IEngineWorldQuery world,
-                                     ITFBuilderPlacement? builder = null, ITeamRoundState? rounds = null,
-                                     TFPlayerCarriers? carriers = null, AttributeHooks? hooks = null,
-                                     ITFWeaponOwners? owners = null, ITFAmmoPurse? purse = null,
-                                     ITempEnts? temps = null, IEnginePrecache? precache = null,
-                                     IEngineSound? sound = null)
+                                     ITFBuilderPlacement builder, ITeamRoundState rounds,
+                                     TFPlayerCarriers carriers, AttributeHooks hooks,
+                                     ITFWeaponOwners owners, ITFAmmoPurse purse,
+                                     ITempEnts temps, IEnginePrecache precache,
+                                     IEngineSound sound)
     : ITFBuildingPickup, IPlayerDeathHook, IOrderedHook
 {
     /// <summary>A stage of its own in TF2's thousand.</summary>
@@ -184,7 +184,7 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
         // CTFPlayerSharedUtils::GetBuilderForObjectType and the Weapon_Switch
         // (tf_player_shared.cpp:12668-12677); the deploy's carried branch
         // (tf_weapon_builder.cpp:1003-1007) does the rest.
-        builder?.ArmBuilder(player.EntryIndex);
+        builder.ArmBuilder(player.EntryIndex);
         return true;
     }
 
@@ -220,8 +220,7 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
             return false;
 
         // RND_RUNNING, STALEMATE, BETWEEN_RNDS (:12473).
-        if (rounds is { } state
-            && state.State is not (RoundState.RoundRunning or RoundState.Stalemate or RoundState.BetweenRounds))
+        if (rounds.State is not (RoundState.RoundRunning or RoundState.Stalemate or RoundState.BetweenRounds))
             return false;
 
         // The reach (:12493-12511): the plain lift inside the 150; the held
@@ -239,7 +238,7 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
 
         // The far lift's metal (:12507-12508).
         return distSq < RescueMinRangeSq
-               || (purse?.Pools(player).GetValueOrDefault(TFAmmoNames.Name(TFAmmo.Metal)) ?? 0) >= rescue;
+               || purse.Pools(player).GetValueOrDefault(TFAmmoNames.Name(TFAmmo.Metal)) >= rescue;
     }
 
     /// <summary>
@@ -248,14 +247,14 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
     /// 0 when no rescue is out, else the metal the far lift costs.
     /// </summary>
     private int RescueCost(EntityHandle player)
-        => hooks is not null && owners?.ActiveItemOf(player.EntryIndex) is { } item
+        => owners.ActiveItemOf(player.EntryIndex) is { } item
             ? hooks.Int(0, RescueAttribute, item)
             : 0;
 
     /// <summary>The far lift's fare and tell (:12622-12646).</summary>
     private void RescueTell(EntityHandle player, TFBaseObject picked, int fare)
     {
-        purse?.TakeAmmo(player, fare, TFAmmoNames.Name(TFAmmo.Metal));
+        purse.TakeAmmo(player, fare, TFAmmoNames.Name(TFAmmo.Metal));
 
         bool red = (TFTeam)players.Team(player) != TFTeam.Blue;
 
@@ -264,9 +263,9 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
         {
             Origin = at,
             Start = at,
-            HitBox = precache!.ParticleSystemIndex(red ? RescueTeleportRed : RescueTeleportBlue),
+            HitBox = precache.ParticleSystemIndex(red ? RescueTeleportRed : RescueTeleportBlue),
         };
-        temps!.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in gone);
+        temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in gone);
 
         // The rail from the engineer; the complex dispatch's control point on
         // the building waits with that form, as the orb's trail does.
@@ -279,19 +278,19 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
         };
         temps.DispatchEffect(TeFilters.Pvs(from), 0f, "ParticleEffect", in beam);
 
-        sound?.EntityEmitSound(picked.Handle, RescueSendSound);
-        sound?.EntityEmitSound(player, RescueReceiveSound);
+        sound.EntityEmitSound(picked.Handle, RescueSendSound);
+        sound.EntityEmitSound(player, RescueReceiveSound);
     }
 
     /// <summary><c>CTFPlayerShared::IsLoser</c> (tf_player_shared.cpp:13673): the round is won and not by the player's team.</summary>
     private bool Loser(EntityHandle player)
-        => rounds is { } state && state.State == RoundState.TeamWin
-           && state.WinningTeam != (TFTeam)players.Team(player);
+        => rounds.State == RoundState.TeamWin
+           && rounds.WinningTeam != (TFTeam)players.Team(player);
 
     /// <summary>The loser-state or control stun of <c>CanPickupBuilding</c>: the carrier's
     /// words where it has them, the condition word alone otherwise.</summary>
     private bool Stunned(EntityHandle player)
-        => carriers?.Get(player.EntryIndex) is { } state
+        => carriers.Get(player.EntryIndex) is { } state
             ? state.StunIndex >= 0
               && state.InCond(TFCond.Stunned)
               && ((TFStunFlags)state.StunFlags & (TFStunFlags.Controls | TFStunFlags.LoserState)) != 0

@@ -40,7 +40,15 @@ public sealed class TFRestoreOnKillTests
             Player.Join(VictimIndex);
             Conditions = new TFPlayerConditions(Player.Carriers, Player.Engine);
             Resupply = new TFPlayerResupply(Player.Carriers, Player.Classes, Player.Engine, Player.Engine,
-                                            Conditions, Player.Loadout, Player.Engine, Owners, Hooks);
+                                            Conditions, Player.Loadout, Player.Engine, Player.Items, Hooks,
+                                            scripts: new TFWeaponScripts(Player.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: Player.Catalog,
+                                            arsenal: new Arsenal(Player.Log, Player.Engine, Player.Engine, Player.Engine, Player.Engine,
+                                                                 Player.Engine, Player.Engine, Player.Engine, Player.Engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), Player.Engine, new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: Player.Engine);
             Restore = new TFRestoreOnKill(Owners, Hooks, Records, Resupply, Player.Engine);
         }
 

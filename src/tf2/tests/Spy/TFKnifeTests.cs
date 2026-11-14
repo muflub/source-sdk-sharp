@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Econ;
@@ -117,7 +118,7 @@ public sealed class TFKnifeTests
     public void A_backstabs_smack_lands_nothing_the_kill_went_through_the_seam()
     {
         var rig = new SpyRig();
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
         // The swing: the backstab leaves through the seam. The smack: the
@@ -134,7 +135,7 @@ public sealed class TFKnifeTests
     {
         var rig = new SpyRig();
         rig.VictimAngles = new Vector(0f, 180f, 0f);
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
@@ -174,7 +175,7 @@ public sealed class TFKnifeTests
     {
         var rig = new SpyRig();
         rig.VictimAngles = new Vector(0f, 180f, 0f);
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
@@ -209,7 +210,7 @@ public sealed class TFKnifeTests
 
         // The knife's chance is scaled to zero (CalcIsAttackCriticalHelper
         // answers only IsBackstab): the same seed draws nothing.
-        var knifeWorld = new TFWeaponWorld(new TFKnifeHook());
+        var knifeWorld = new TFWeaponWorld(new TFKnifeServerHook(new MeltRecorder()));
         var (kw, kvm) = knifeWorld.Armed("tf_weapon_knife", clip: -1, reserve: 0);
         knifeWorld.Run(kw, kvm, Attack, now: 10f, seed: CritSeed);
         knifeWorld.Run(kw, kvm, 0, now: 10.115f);
@@ -226,7 +227,7 @@ public sealed class TFKnifeTests
         rig.State.CloakMeter = 100f;
         Assert.True(rig.Spies.ActivateInvisibilityWatch(SpyRig.Spy.EntryIndex));
 
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
         world.Run(w, vm, Attack, now: 10f, seed: 1);
 
@@ -240,7 +241,7 @@ public sealed class TFKnifeTests
     public void The_knife_links_touch_nothing_but_the_knife()
     {
         var rig = new SpyRig();
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
@@ -420,7 +421,7 @@ public sealed class TFKnifeTests
                                                                  false, false, AttributeValueType.Default,
                                                                  MergedKeys.Block("k")), 1f));
         rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
@@ -444,7 +445,7 @@ public sealed class TFKnifeTests
         rig.Slice.Tick(102.1f);                                           // the disguise complete before the swing
         Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));
 
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
         world.Run(w, vm, Attack, now: 10f, seed: 1);
 
@@ -459,7 +460,7 @@ public sealed class TFKnifeTests
     public void A_melted_knife_skips_the_swing_until_the_window_closes()
     {
         var rig = new SpyRig();
-        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var world = new TFWeaponWorld(new TFKnifeServerHook(rig.Spies));
         var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
 
         rig.Spies.MeltKnife(SpyRig.Spy.EntryIndex, now: 100f, seconds: 10f);   // ApplyOnInjuredAttributes :129-131

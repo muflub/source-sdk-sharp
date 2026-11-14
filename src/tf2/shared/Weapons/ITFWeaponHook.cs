@@ -140,6 +140,15 @@ public interface ITFWeaponHook : IOrderedHook
     /// <summary>Asked before a primary attack spends anything; false vetoes it.</summary>
     bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack) => true;
 
+    /// <summary>
+    /// Whether the weapon may come into the hands — the behaviour's
+    /// <c>CanDeploy</c> through the chain: stock's per-class
+    /// <c>CanDeploy</c> overrides (<c>CTFKnife::CanDeploy</c>,
+    /// tf_weapon_knife.cpp:521-531) asked where the base class asks its own.
+    /// Asked of a holstered candidate by the switch; any false vetoes.
+    /// </summary>
+    bool CanDeploy(in TFWeaponHookContext weapon, in WeaponAttackContext attack) => true;
+
     /// <summary>Told after a primary attack has fired.</summary>
     void AfterFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack) { }
 
@@ -845,6 +854,24 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
             }
         }
         return fire;
+    }
+
+    /// <summary>Every hook is asked, as <see cref="BeforeFire"/>; any false vetoes the deploy.</summary>
+    public bool CanDeploy(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
+    {
+        bool deploy = true;
+        foreach (var hook in All)
+        {
+            try
+            {
+                deploy &= hook.CanDeploy(in weapon, in attack);
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.CanDeploy), e);
+            }
+        }
+        return deploy;
     }
 
     public void AfterFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)

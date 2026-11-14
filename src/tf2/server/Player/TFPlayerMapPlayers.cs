@@ -32,9 +32,9 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers players, ITFPlayerClasses classes,
                                        ITFPlayerResupply resupply, ITFPlayerConditions conditions,
                                        TFPlayerCarriers carriers,
-                                       ITFWeaponOwners? owners = null, AttributeHooks? attributes = null) : ITFMapPlayers
+                                       TFPlayerItems items, AttributeHooks? attributes = null) : ITFMapPlayers
 {
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
+    private readonly TFPlayerItems _items = items;
     private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
 
     public bool IsAlive(EntityHandle player) => players.IsAlive(player);
@@ -92,7 +92,7 @@ public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers 
         if (carriers.Get(player.EntryIndex) is not { } state)
             return false; // the meter lives on the carrier; a player with none has none to move
 
-        var manager = _owners.ManagerOf(player.EntryIndex);
+        var manager = _items.ManagerOf(player.EntryIndex);
         if (_attributes.Int(0, "mod_cloak_no_regen_from_items", manager) != 0)
             return false; // :9733-9736 — the watch may refuse regen from items
 
@@ -121,7 +121,7 @@ public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers 
         if (carriers.Get(player.EntryIndex) is not { } state)
             return false; // the meter lives on the carrier; a player with none has none to move
 
-        if (_attributes.Int(0, "ammo_gives_charge", _owners.ManagerOf(player.EntryIndex)) == 0)
+        if (_attributes.Int(0, "ammo_gives_charge", _items.ManagerOf(player.EntryIndex)) == 0)
             return false; // :97's gate — no wearer's attribute, no charge
 
         float charge = state.ChargeMeter;

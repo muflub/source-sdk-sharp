@@ -39,20 +39,20 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable classes, IEnginePlayers players,
                                      IEngineEntities entities, ITFPlayerConditions conditions,
                                      TFLoadoutProvider loadout, IEngineGameEvents events,
-                                     ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
-                                     TFWeaponScripts? scripts = null, WeaponCatalog? catalog = null,
-                                     Arsenal? arsenal = null, TFMaxHealthDrainHpMinConVar? hpMin = null,
-                                     TFMaxHealthDrainDeployCostConVar? deployCost = null,
-                                     IGameClock? clock = null) : ITFPlayerResupply, IPlayerSpawnHook, IOrderedHook
+                                     TFPlayerItems items, AttributeHooks attributes,
+                                     TFWeaponScripts scripts, WeaponCatalog catalog,
+                                     Arsenal arsenal, TFMaxHealthDrainHpMinConVar hpMin,
+                                     TFMaxHealthDrainDeployCostConVar deployCost,
+                                     IGameClock clock) : ITFPlayerResupply, IPlayerSpawnHook, IOrderedHook
 {
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
-    private readonly TFWeaponScripts? _scripts = scripts;
-    private readonly WeaponCatalog? _catalog = catalog;
-    private readonly Arsenal? _arsenal = arsenal;
-    private readonly TFMaxHealthDrainHpMinConVar? _hpMin = hpMin;
-    private readonly TFMaxHealthDrainDeployCostConVar? _deployCost = deployCost;
-    private readonly IGameClock? _clock = clock;
+    private readonly TFPlayerItems _items = items;
+    private readonly AttributeHooks _attributes = attributes;
+    private readonly TFWeaponScripts _scripts = scripts;
+    private readonly WeaponCatalog _catalog = catalog;
+    private readonly Arsenal _arsenal = arsenal;
+    private readonly TFMaxHealthDrainHpMinConVar _hpMin = hpMin;
+    private readonly TFMaxHealthDrainDeployCostConVar _deployCost = deployCost;
+    private readonly IGameClock _clock = clock;
 
     /// <summary>The drain bookkeeping of one player, the five members of stock's
     /// <c>ResetMaxHealthDrain</c> (tf_player.cpp:14254-14261), held per index
@@ -97,9 +97,6 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     /// </summary>
     public void OnSpawned(EntityHandle player, float now)
     {
-        if (_arsenal is null)
-            return;
-
         foreach (var (name, _, _) in _arsenal.Holdings(player))
             FillEffectBar(player, name);
     }
@@ -192,9 +189,8 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     /// </summary>
     private void GiveDefaultAmmo(EntityHandle player, string weapon)
     {
-        if (_scripts?.Get(weapon) is not { } script
-            || _catalog?.For(weapon) is not { } type
-            || _arsenal is null
+        if (_scripts.Get(weapon) is not { } script
+            || _catalog.For(weapon) is not { } type
             || type.ClipSize <= 0)
             return;
 
@@ -204,7 +200,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         // TFAttributeWeaponHook): the item behind the named weapon, the
         // player's manager beside it.
         int index = entities.GetIndex(player);
-        IAttributeProvider? item = _owners.ItemOf(index, weapon);
+        IAttributeProvider? item = _items.Of(index, weapon);
 
         int clip = script.Base.DefaultClip1 <= 0 || _attributes.Int(0, "auto_fires_full_clip", item) != 0
             ? 0
@@ -226,7 +222,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     /// </summary>
     private void FillEffectBar(EntityHandle player, string weapon)
     {
-        if (_arsenal is null || _scripts?.Get(weapon) is not { } script)
+        if (_scripts.Get(weapon) is not { } script)
             return;
 
         if (TFItemMeter.EffectBarSeconds(script.Id) <= 0f)
@@ -238,7 +234,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         // and the regen leave the charge where it stands. The hook is the
         // stock ON_OTHER root, the item behind the named weapon.
         int deny = _attributes.Int(0, "item_meter_resupply_denied",
-                                   _owners.ItemOf(entities.GetIndex(player), weapon));
+                                   _items.Of(entities.GetIndex(player), weapon));
         if (deny > 0)
             return;
 
@@ -260,17 +256,17 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
             return 0;
 
         int index = entities.GetIndex(player);
-        int max = _attributes.Int(classes[cls].MaxHealth, "add_maxhealth", _owners.ManagerOf(index));
+        int max = _attributes.Int(classes[cls].MaxHealth, "add_maxhealth", _items.ManagerOf(index));
         // The demoman's heads (CTFPlayer::GetMaxHealthForBuffing,
         // tf_player.cpp:14276-14283): the owned sword's GetSwordHealthMod —
         // every collected head is +15 under the head cap, while the sword
         // decapitates at all (tf_weapon_sword.cpp:314-325).
         if (cls == TFClass.Demoman
-            && _owners.ItemOf(index, TFSwordHook.SwordScript) is { } sword
+            && _items.Of(index, TFSwordHook.SwordScript) is { } sword
             && _attributes.Int(0, "decapitate_type", sword) != 0)
             max += Math.Min(TFSwordHook.MaxHeads, carriers.Get(index)?.Decapitations ?? 0) * TFSwordHook.HealthPerHead;
         max = DrainMaxHealth(player, index, max);
-        max = _attributes.Int(max, "add_maxhealth_nonbuffed", _owners.ManagerOf(index));
+        max = _attributes.Int(max, "add_maxhealth_nonbuffed", _items.ManagerOf(index));
         return Math.Max(max, 1);
     }
 
@@ -294,12 +290,12 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     {
         int originalMax = iMax;
         DrainState state = DrainFor(index);
-        float now = _clock?.Now ?? 0f;
-        int floor = _hpMin?.Value ?? 100;
+        float now = _clock.Now;
+        int floor = _hpMin.Value;
 
         float rate = _attributes.Float(0f, "mod_maxhealth_drain_rate",
                                        players.GetActiveWeapon(player) is { Length: > 0 } weapon
-                                           ? _owners.ItemOf(index, weapon) : null);
+                                           ? _items.Of(index, weapon) : null);
 
         // Draining: the held Gloves are up (:14301-14359).
         if (rate > 0f)
@@ -307,7 +303,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
             int penalty = 0;
             if (state.Refilling)
             {
-                penalty = _deployCost?.Value ?? 20;
+                penalty = _deployCost.Value;
                 state.Refilling = false;
                 if (state.DrainAccumulator < 0f)
                     state.DrainAccumulator = Math.Abs(state.DrainAccumulator);
@@ -360,7 +356,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
 
             // Stock's plain CALL_ATTRIB_HOOK_FLOAT (:14379): the rate as it
             // still reaches the player's own manager.
-            float restoreRate = _attributes.Float(0f, "mod_maxhealth_drain_rate", _owners.ManagerOf(index));
+            float restoreRate = _attributes.Float(0f, "mod_maxhealth_drain_rate", _items.ManagerOf(index));
             if (restoreRate == 0f)
             {
                 ResetDrain(state);
@@ -387,7 +383,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
                 // The refill's cap (:14406-14410): the overheal ceiling at
                 // the stock default multiplier of one, else the nonbuffed
                 // attribute's maximum — the greater of the two.
-                int attrMax = _attributes.Int(originalMax, "add_maxhealth_nonbuffed", _owners.ManagerOf(index));
+                int attrMax = _attributes.Int(originalMax, "add_maxhealth_nonbuffed", _items.ManagerOf(index));
                 int cap = Math.Max(originalMax, attrMax);
                 entities.SetHealth(player, Math.Min(alive + restoreHealth, cap));
             }
@@ -439,7 +435,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         // item, whose owner is the wearer's manager.
         float toHeal = health;
         if (players.GetActiveWeapon(player) is { Length: > 0 } weapon
-            && _owners.ItemOf(entities.GetIndex(player), weapon) is { } item)
+            && _items.Of(entities.GetIndex(player), weapon) is { } item)
             toHeal = _attributes.Float(toHeal, "mult_healing_received", item);
 
         int current = entities.GetHealth(player);
@@ -469,7 +465,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         // TFAmmoCarryRule's answer: every class carries one Grenades3, and the
         // four hooked rows ride the player's own attribute manager.
         int classMax = ammo == TFAmmo.Grenades3 ? 1 : classes[cls].MaxAmmo(ammo);
-        return TFMaxAmmoHooks.Apply(_attributes, _owners, entities.GetIndex(player), ammo, classMax);
+        return TFMaxAmmoHooks.Apply(_attributes, _items.ManagerOf(entities.GetIndex(player)), ammo, classMax);
     }
 
     public int GiveAmmo(EntityHandle player, int count, TFAmmo ammo)
@@ -485,7 +481,7 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         // branch.
         if (ammo == TFAmmo.Metal)
             count = (int)(_attributes.Float(1f, "mult_metal_pickup",
-                                            _owners.ManagerOf(player.EntryIndex)) * count);
+                                            _items.ManagerOf(player.EntryIndex)) * count);
 
         // The grenades pools' denial (AddSecondaryAmmo, tf_player.cpp:14117-14136):
         // outside the resource-meter refill, a held item answering over zero on
@@ -497,13 +493,21 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
             // (grenades1..grenades3), the enum's four-on value minus the band.
             int deny = _attributes.Int(0,
                                        $"grenades{(int)ammo - (int)TFAmmo.Grenades1 + 1}_resupply_denied",
-                                       _owners.ActiveItemOf(player.EntryIndex));
+                                       ActiveItemOf(player.EntryIndex));
             if (deny > 0)
                 return 0;
         }
 
         // The core's pool clamps to the carry rule, which is the class's AmmoMax.
         return players.GiveAmmo(player, count, TFAmmoNames.Name(ammo));
+    }
+
+    /// <summary>The active weapon's item (<see cref="TF2.Shared.ITFWeaponOwners.ActiveItemOf"/>'s
+    /// read): the name the hands hold, the item behind it.</summary>
+    private IAttributeProvider? ActiveItemOf(int playerIndex)
+    {
+        string name = players.GetActiveWeapon(players.GetHandle(playerIndex));
+        return name.Length > 0 ? _items.Of(playerIndex, name) : null;
     }
 
     /// <summary>The player's class when they have one (Scout..Engineer, or Civilian), else null.</summary>

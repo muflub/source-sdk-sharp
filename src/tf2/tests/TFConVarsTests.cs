@@ -93,6 +93,12 @@ public sealed class TFConVarsTests
         // FCVAR_REPLICATED | FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY ); the shield
         // charge's speed, ChargeMove (:508, :513) and the speed walk read.
         { "tf_max_charge_speed", Movement, StockSide.Both },
+        // tf_gamemovement.cpp:54-56, the parachute trio TF's FullWalkMove reads
+        // (:2628-2630): defaults quoted byte for byte, the trailing f included,
+        // FCVAR_DEVELOPMENTONLY | FCVAR_REPLICATED, help text. Outside any #if.
+        { "tf_parachute_maxspeed_xy", Movement, StockSide.Both },
+        { "tf_parachute_maxspeed_z", Movement, StockSide.Both },
+        { "tf_parachute_maxspeed_onfire_z", Movement, StockSide.Both },
         // tf_weaponbase.cpp:277 ConVar tf_weapon_criticals( "tf_weapon_criticals", "1", FCVAR_REPLICATED | FCVAR_NOTIFY, "Whether or not random crits are enabled" );
         { "tf_weapon_criticals", WeaponBase, StockSide.Both },
         // tf_weaponbase.cpp:83 ConVar tf_weapon_criticals_nopred( "tf_weapon_criticals_nopred", "1.0", FCVAR_REPLICATED | FCVAR_CHEAT );

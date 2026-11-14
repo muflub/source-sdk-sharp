@@ -32,17 +32,18 @@ namespace TF2.Server.Player;
 /// <para>
 /// Dependency-light on purpose, as <see cref="TFPlayerCarriers"/> is: the
 /// weapon parts that take it are built when the core's weapon catalogue is
-/// first read, before the player composite is registered. The one late link
-/// is the locator, the pomson drain's road to the medigun — each service
-/// wants the other at construction, and the container refuses that cycle.
+/// first read, before the player composite is registered. The medigun is the
+/// one cross-link, the pomson drain's road — required here, and cycle-free
+/// because the medigun's own former owners link reads the items table
+/// directly (<see cref="TFMedigunWeapon"/>), leaving no path back here.
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFWeaponOwners)])]
 public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinners winners,
                                          TFPlayerItems items, IEnginePlayers players,
                                          IEntityDirectory directory, ITFPlayerStats stats,
-                                         IServiceLocator? locator = null, ItemSchema? schema = null,
-                                         IWeaponGiver? arsenal = null, WeaponCatalog? weapons = null) : ITFWeaponOwners
+                                         ITFMedigunWeapons mediguns, ItemSchema schema,
+                                         IWeaponGiver arsenal, WeaponCatalog weapons) : ITFWeaponOwners
 {
     public TFClass ClassOf(int playerIndex) => carriers.Get(playerIndex)?.Class() ?? TFClass.Undefined;
 
@@ -69,11 +70,11 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
     /// <c>IsShieldEquipped</c>'s walk (<c>GetEquippedDemoShield</c>,
     /// tf_player_shared.cpp:626-643): the demoshield item class over the
     /// player's worn wearables, the gate the speed walk's shield toll takes
-    /// (:11005). No wearables part or schema is no shield, as the null walk.
+    /// (:11005). No wearables part is no shield, as the null walk.
     /// </summary>
     public bool ShieldEquipped(int playerIndex)
     {
-        if (carriers.Part<TFWearables>(playerIndex) is not { } wearables || schema is null)
+        if (carriers.Part<TFWearables>(playerIndex) is not { } wearables)
             return false;
 
         foreach (EntityHandle wearable in wearables.Wearables)
@@ -130,14 +131,12 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
             return true;
         }
 
-        return arsenal is not null
-            && weapons is not null
-            && PackRow >= 0
+        return PackRow >= 0
             && arsenal.CarriedRefireOf(player, PackRow, out refire);
     }
 
     /// <summary>The thruster's catalog row, resolved once from the side's table; -1 before there is one.</summary>
-    private int PackRow => _packRow ??= weapons?.IndexOf(TFWeaponNames.Name(TFWeaponId.Rocketpack).ToLowerInvariant()) ?? -1;
+    private int PackRow => _packRow ??= weapons.IndexOf(TFWeaponNames.Name(TFWeaponId.Rocketpack).ToLowerInvariant());
 
     private int? _packRow;
 
@@ -173,12 +172,11 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
     /// takes a hundred times the fraction (the port's cloak meter's own unit,
     /// <see cref="TFPlayerNetState.CloakMeter"/>). The medic's meter stands only
     /// while the release is not running — stock's <c>!IsReleasingCharge()</c>
-    /// (:5572), the carrier's published release word. The medigun arrives
-    /// through the locator at the drain, the two services each needing the
-    /// other built and the container refusing the cycle at construction
-    /// (<see cref="TFMedigunWeapon"/>'s own owners link). Answers whether a
-    /// meter moved, stock's <c>bDidDrain</c> (:5555): the drain's telling
-    /// stands on it.
+    /// (:5572), the carrier's published release word. The medigun is the
+    /// constructor's own (<see cref="TFMedigunWeapon"/>, whose former owners
+    /// link reads the items table directly, leaving this cycle-free). Answers
+    /// whether a meter moved, stock's <c>bDidDrain</c> (:5555): the drain's
+    /// telling stands on it.
     /// </summary>
     public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
     {
@@ -186,7 +184,6 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
 
         if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
             && carriers.Get(playerIndex)?.ChargeReleasing != true
-            && locator?.Resolve<ITFMedigunWeapons>() is { } mediguns
             && mediguns.SubtractCharge(playerIndex, medicFraction))
         {
             drained = true;

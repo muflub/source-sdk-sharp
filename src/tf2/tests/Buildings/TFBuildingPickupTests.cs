@@ -4,11 +4,15 @@ using SourceSharp.Server;
 using TF2.Server.Buildings;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
+using TF2.Server.Projectiles;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
 using TF2.Shared.Conditions;
 using TF2.Shared.Player;
+
+using TF2.Tests.Player;
+using TF2.Tests.Weapons;
 
 using Xunit;
 
@@ -342,7 +346,9 @@ public class TFBuildingPickupTests
                   .Returns("Players.GetHandle", engineer);
         var states = new TFMovementFixtures.Players();
         states.Add(3, TFClass.Engineer);
-        var skill = new TFClassSpecialSkill(states, rig.Engine, pickup: rig.Pickup());
+        var skill = new TFClassSpecialSkill(states, rig.Engine, new IdleSkillSpies(),
+                                            new TFStickyTray(), pickup: rig.Pickup(),
+                                            new NoTFWeaponOwners(), new IdleSkillShields());
 
         Assert.True(skill.DoSpecialSkill(3));
 

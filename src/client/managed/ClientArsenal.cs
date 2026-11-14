@@ -386,6 +386,12 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // give's arithmetic for a weapon nothing has named yet.
     private readonly Dictionary<int, (int Special, float SpecialTime)> _specialByType = new();
 
+    // Stock's m_flHolsterAnimTime, the mirror's own copy of the server
+    // carry's HolsterUntil (tf_player_shared.cpp:11813): past on the first
+    // press away from an item that carries holster_anim_time, every press
+    // until then writes nothing; zero is no window (see MirrorDeploy).
+    private float _holsterUntil;
+
     private void MirrorDeploy(int typeIndex, float now)
     {
         // AlreadyHeld: the server's Take answers it without a write.
@@ -398,6 +404,44 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // The server refuses a dead player's switch (Arsenal.Refusal); the
         // mirror refuses with it, from the decoded word.
         if (_standalones.GetByIndex(_localIndex) is ClientSsPlayer { State.Alive: false })
+            return;
+
+        // Stock's holster window comes FIRST on both sides
+        // (tf_player_shared.cpp:11798-11826, whose first branch returns before
+        // BaseClass::Weapon_Switch ever asks anything of the candidate): the
+        // held item's holster_anim_time arms the window on the first press,
+        // every press inside it stands at nothing written, and the press the
+        // window expires on walks on without re-arming — the server's Take
+        // mirrors this shape, so the replayed command lands on the same bytes
+        // the server's run of it writes.
+        bool pendingOver = false;
+        if (_holsterUntil > 0f)
+        {
+            if (now < _holsterUntil)
+                return;                                 // Deferred on both sides (:11819-11821)
+            _holsterUntil = 0f;                         // the anim is over — the switch goes on (:11823-11826)
+            pendingOver = true;
+        }
+
+        if (!pendingOver && _weapons.ByIndex(_weapon.WeaponTypeId) is { } held)
+        {
+            float heldSeconds = _behaviours.For(held.Behaviour)?.HolsterSeconds(in held, _localIndex) ?? 0f;
+
+            if (heldSeconds > 0f)
+            {
+                _holsterUntil = now + heldSeconds;      // :11813's arm: the anim starts, the write waits (:11815)
+                return;
+            }
+        }
+
+        // Behind the window, stock's Weapon_CanSwitchTo deploy clause
+        // (Weapon_CanSwitchTo at basecombatcharacter_shared.cpp:88 through
+        // BaseClass::Weapon_Switch): the server's Take asks the candidate's
+        // behaviour CanDeploy only once the window has armed or let the press
+        // through; the mirror refuses with the same ask, so the replayed
+        // command stands where the server's run of it wrote — and refuses its
+        // stamp with it.
+        if (DeployRefused(in type, now))
             return;
 
         // The outgoing weapon keeps its special with it (StoreActiveClip); its
@@ -644,12 +688,15 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     /// <summary>
     /// The server's NextBestSlot (CMultiplayRules::GetNextBestWeapon) over the
     /// mirrored carry: neither the held weapon that will not switch from
-    /// empty (the script's NOAUTOSWITCHEMPTY) nor one its behaviour will not
-    /// put away; else the first other carried weapon of the same weight with
-    /// any ammo, or the heaviest with any. The carried set is the working
-    /// player's mask, the weights and flags the same scripts' rows the
-    /// server read, and a carried weapon's ammo its published clip and pool
-    /// — the words the server's carry settles into.
+    /// empty (the script's NOAUTOSWITCHEMPTY, its autoswitchfrom) nor one its
+    /// behaviour will not put away; else the first other carried weapon of
+    /// the same weight that passes the candidate gates — the script's
+    /// autoswitchto and, in the same-weight handover alone, the behaviour's
+    /// deploy (the server's <see cref="Arsenal.SwitchTo"/>) — or the heaviest
+    /// with any. The carried set is the working player's mask, the weights and
+    /// flags the same scripts' rows the server read, and a carried weapon's
+    /// ammo its published clip and pool — the words the server's carry
+    /// settles into.
     /// </summary>
     private int PickExhaustedSwitch()
     {
@@ -658,7 +705,8 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
             return -1;
 
         WeaponScript? currentScript = _scripts?.ReadScript(current.Name);
-        if (currentScript is not null && (currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0)
+        if (currentScript is not null && ((currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0 ||
+                                          !currentScript.AutoSwitchFrom))
             return -1;
 
         if (_behaviours.For(current.Behaviour) is { } behaviour
@@ -675,12 +723,16 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                 || _weapons.ByIndex(typeIndex) is not WeaponType check)
                 continue;
 
-            int weight = _scripts?.ReadScript(check.Name)?.Weight ?? 0;
+            WeaponScript? checkScript = _scripts?.ReadScript(check.Name);
+            if (checkScript is not null && !checkScript.AutoSwitchTo)
+                continue;
+
+            int weight = checkScript?.Weight ?? 0;
             bool hasAmmo = CarriedHasAmmo(typeIndex, in check);
 
             if (weight > -1 && weight == currentWeight)
             {
-                if (hasAmmo)
+                if (hasAmmo && CarriedSwitchTo(in check))
                     return typeIndex;
             }
             else if (weight > bestWeight && hasAmmo)
@@ -704,6 +756,32 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                        ((ClipSizeOf(in type) > 0 && ClipOf(typeIndex, FreshClip(type)) > 0)
                         || PoolOf(type.AmmoName, FreshReserve(in type)) > 0);
         return primary || (usesSecondary && PoolOf(type.SecondaryAmmoName, FreshSecondaryReserve(in type)) > 0);
+    }
+
+    /// <summary>
+    /// The server's <see cref="Arsenal.SwitchTo"/> over the mirrored carry:
+    /// the holstered candidate's behaviour refusing the deploy, asked with the
+    /// same synthesized stand-in — the row, an empty state, no effects, the
+    /// local player and the command's clock.
+    /// </summary>
+    private bool CarriedSwitchTo(in WeaponType type) => !DeployRefused(in type, _commandClock);
+
+    /// <summary>
+    /// The deploy clause of the server's <see cref="Arsenal.DeployRefused"/>
+    /// (stock's <c>Weapon_CanSwitchTo</c>, basecombatcharacter_shared.cpp:88):
+    /// the candidate's behaviour's <c>CanDeploy</c>, the same stand-in the
+    /// server asks the direct switch with, the local player in the command and
+    /// the replayed clock in the context's stead.
+    /// </summary>
+    private bool DeployRefused(in WeaponType candidate, float now)
+    {
+        if (_behaviours.For(candidate.Behaviour) is not { } behaviour)
+            return false;
+
+        var attack = new WeaponAttackContext(candidate, new WeaponNetState(), new ViewModelNetState(),
+                                             now, EffectsLive: false, new ClientWeaponArms(this),
+                                             new WeaponCommand(0, 0, _localIndex));
+        return !behaviour.CanDeploy(in attack);
     }
 
     /// <summary>

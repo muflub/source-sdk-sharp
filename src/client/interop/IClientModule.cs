@@ -185,6 +185,13 @@ public interface IClientModule
     /// </summary>
     float GetDuckSeconds(int playerIndex, float seconds) => seconds;
 
+    /// <summary>
+    /// The parachute's fall trim on the walk's first beat (the velocity
+    /// unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.ParachuteFallCap</c>.
+    /// </summary>
+    Vector GetParachuteFallCap(int playerIndex, Vector velocity) => velocity;
+
     //-------------------------------------------------------------------------
     // The standalone entity hierarchy, client side. Same shape as the server's,
     // asked at a different moment — see ClientStandaloneRegistry.

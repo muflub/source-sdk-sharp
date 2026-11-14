@@ -25,6 +25,13 @@ public interface ITFWeaponEffects
     void Detonate(in WeaponAttackContext attack, TFWeaponScript script);
 
     /// <summary>
+    /// The Shortstop's shove (<c>CTFPistol_ScoutPrimary::Push</c>,
+    /// <c>tf_weapon_pistol.cpp:119-197</c>): the enemy in front of the muzzle
+    /// takes the push and the point of damage.
+    /// </summary>
+    void Shove(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <summary>
     /// The Short Circuit's shock attack (<c>CTFMechanicalArm::SecondaryAttack</c>'s
     /// <c>ShockAttack</c> arm plus its spawn,
     /// <c>tf_weapon_mechanical_arm.cpp:246-287</c>): the orb out at the eye's
@@ -222,6 +229,8 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
 {
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) { }
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    public void Shove(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }

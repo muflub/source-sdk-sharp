@@ -426,4 +426,59 @@ public sealed class TFDeathNoticeTests
 
         Assert.Equal("giger_counter", FillGilded(rig)["weapon"]);
     }
+
+    // ---- the fish kill (TF_DMG_CUSTOM_FISH_KILL, tf_player.cpp:9738-9759) ----
+
+    /// <summary>The notice over the rig with the owners and the attribute walk
+    /// armed, the fish ask reading the killing item through them.</summary>
+    private static Dictionary<string, object> FillFish(CombatRig rig)
+    {
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
+                                       null, rig.Owners, new AttributeHooks());
+        var fields = new Fields();
+        notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
+                                         "tf_weapon_scattergun"), fields);
+        return fields.Set;
+    }
+
+    /// <summary>The Unarmed Combat's killing blow is TF_DMG_CUSTOM_FISH_KILL
+    /// and the fish notice (:9745, :9758), the fish the feed's weapon.</summary>
+    [Fact]
+    public void A_fish_kill_carries_the_fish_custom_and_the_fish_notice()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_bat_fish" };
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        rig.Hit(200f, DamageType.Club | TFDamageBits.Melee);
+
+        var f = FillFish(rig);
+        Assert.Equal("fish_notice", f["weapon"]);
+        Assert.Equal((int)TFDamageCustom.FishKill, (int)f["customkill"]);
+        Assert.Equal((int)TFWeaponId.BatFish, (int)f["weaponid"]);
+    }
+
+    /// <summary>The bat wearing fish_damage_override — the arm's fish — moves
+    /// the notice to fish_notice__arm (:9752-9755, the ON_OTHER walk over the
+    /// weapon that dealt the blow).</summary>
+    [Fact]
+    public void The_fish_override_moves_the_kill_notice_to_the_arm()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_bat_fish" };
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        rig.AttackerItem("fish_damage_override", AttributeDescriptionFormat.Additive, 1f);
+        rig.Hit(200f, DamageType.Club | TFDamageBits.Melee);
+
+        Assert.Equal("fish_notice__arm", FillFish(rig)["weapon"]);
+    }
+
+    /// <summary>A fish hit the victim survives carries no custom kind: stock's
+    /// arm waits for the health gone (:9743).</summary>
+    [Fact]
+    public void A_fish_hit_the_victim_survives_keeps_no_custom()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_bat_fish" };
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        rig.Hit(5f, DamageType.Club | TFDamageBits.Melee);
+
+        Assert.Equal((int)TFDamageCustom.None, (int)FillFish(rig)["customkill"]);
+    }
 }

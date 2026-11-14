@@ -49,9 +49,9 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking networking, IGameClock clock,
-                                   IEnginePlayers engine, TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                                   Voice.TFSceneImage? scenes = null)
+                                   IEnginePlayers engine, TFPlayerCarriers carriers, TFConceptSpeech speech,
+                                   ITFWeaponOwners owners, AttributeHooks hooks,
+                                   Voice.TFSceneImage scenes)
     : IClientCommandHook, IOrderedHook
 {
     /// <summary><c>taunt</c> / <c>weapon_taunt</c> (:7507).</summary>
@@ -122,17 +122,13 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
         // The speak the taunt is (tf_player.cpp:17858-17870): the matched
         // scene comes back with the yes (:17862's buffer); a failed speak
         // zeroes any pending one (:17874-17875).
-        string scene = "";
-        if (speech is { } voice)
+        if (!speech.Speak(player, concept, engine.GetActiveWeapon(player), out string scene))
         {
-            if (!voice.Speak(player, concept, engine.GetActiveWeapon(player), out scene))
-            {
-                Attack(player)?.Clear();
-                return false;
-            }
-
-            Attack(player)?.Arm(scene, clock.Now);
+            Attack(player)?.Clear();
+            return false;
         }
+
+        Attack(player)?.Arm(scene, clock.Now);
 
         // OnTauntSucceeded (:17732-17768): the duration with its tail, the
         // condition, and the next-start stamp at start + duration (:17744).
@@ -150,8 +146,8 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
     /// </summary>
     private float TauntDuration(EntityHandle player, string scene)
     {
-        float mod = hooks?.Float(1f, "mult_gesture_time", owners?.ManagerOf(player.EntryIndex)) ?? 1f;
-        float length = scenes?.SceneDuration(scene) ?? BaseTauntSceneSeconds;
+        float mod = hooks.Float(1f, "mult_gesture_time", owners.ManagerOf(player.EntryIndex));
+        float length = scenes.SceneDuration(scene);
         return (length + TauntTailSeconds) / mod;
     }
 

@@ -153,13 +153,22 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     private readonly TFBoostDrainTimeConVar boostDrainTime;
     private readonly TFInvulnTimeConVar invulnTime;
     private readonly IGameClock clock;
-    private readonly ITFPlayerStats? stats;
-    private readonly TFDamageRecords? records;
-    private readonly IEngineGameEvents? events;
-    private readonly ICtfRules? ctf;
-    private readonly ITFPlayerData? data;
-    private readonly ITFWeaponOwners? owners;
-    private readonly AttributeHooks? hooks;
+    private readonly ITFPlayerStats stats;
+    private readonly TFDamageRecords records;
+    private readonly IEngineGameEvents events;
+
+    // The flag rules, asked as the leaf under them: the medigun link the weapon
+    // owners took makes every constructor edge back to CtfRules a turn of the
+    // cycle CtfRules -> EngineCtfPlayers -> TFMovementRules ->
+    // TFServerWeaponOwners -> TFMedigunWeapon -> here, which the container
+    // refuses at the load. The refusal needs only who carries a flag, so the
+    // healing holds IFlagCarriers — the carried-flag ask cut free of the rules'
+    // company — and the rules' own seam stays with the services that can pay
+    // for it.
+    private readonly IFlagCarriers flagCarriers;
+    private readonly ITFPlayerData data;
+    private readonly TFPlayerItems items;
+    private readonly AttributeHooks hooks;
 
     private readonly Dictionary<int, PatientHealing> patients = new();
     private readonly Dictionary<int, float[]> chargeOffTimes = new();
@@ -169,10 +178,10 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                            ITFPlayerConditions conditions, ITFPlayerResupply resupply,
                            TFMaxHealthBoostConVar maxHealthBoost, TFBoostDrainTimeConVar boostDrainTime,
                            TFInvulnTimeConVar invulnTime, IGameClock clock,
-                           ITFPlayerStats? stats = null, TFDamageRecords? records = null,
-                           IEngineGameEvents? events = null,
-                           ICtfRules? ctf = null, ITFPlayerData? data = null,
-                           ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+                           ITFPlayerStats stats, TFDamageRecords records,
+                           IEngineGameEvents events,
+                           IFlagCarriers flagCarriers, ITFPlayerData data,
+                           TFPlayerItems items, AttributeHooks hooks)
     {
         this.players = players;
         this.entities = entities;
@@ -185,9 +194,9 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         this.stats = stats;
         this.records = records;
         this.events = events;
-        this.ctf = ctf;
+        this.flagCarriers = flagCarriers;
         this.data = data;
-        this.owners = owners;
+        this.items = items;
         this.hooks = hooks;
     }
 
@@ -358,10 +367,11 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// <summary>
     /// <c>CTFPlayer::CanRecieveMedigunChargeEffect</c> player arm: a player carrying the
     /// intelligence flag (theirs or stolen) receives no standard medigun charge effect.
-    /// With no CTF rules on the map there is no flag to carry. The MvM, passtime and
+    /// With no carriers seam held there is no flag to carry. The MvM, passtime and
     /// resist arms are deferred.
     /// </summary>
-    public bool CanReceiveMedigunChargeEffect(EntityHandle player) => ctf?.CarriedBy(player) is null;
+    public bool CanReceiveMedigunChargeEffect(EntityHandle player)
+        => flagCarriers.CarriedBy(player) is null;
 
     /// <summary><c>CTFPlayerShared::SetChargeEffect</c> (tf_player_shared.cpp:9017), one row of it.</summary>
     private void SetChargeEffect(EntityHandle player, ChargeRow row, bool on, EntityHandle provider,
@@ -423,7 +433,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     {
         if (provider == default)
             return UberDuration;
-        float added = hooks?.Float(0f, "add_uber_time", owners?.ManagerOf(provider.EntryIndex)) ?? 0f;
+        float added = hooks.Float(0f, "add_uber_time", items.ManagerOf(provider.EntryIndex));
         return TFMedigunBehaviour.ChargeReleaseRate + added + 1f;
     }
 
@@ -443,7 +453,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                 continue;    // stock's ToTFPlayer skip: a dispenser heals but is no medic
             Fire("player_invulned", e =>
             {
-                events!.EventSetInt(e, "userid", players.GetUserId(player));
+                events.EventSetInt(e, "userid", players.GetUserId(player));
                 events.EventSetInt(e, "medic_userid", players.GetUserId(players.GetHandle(healerIndex)));
             });
         }
@@ -521,14 +531,10 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                 // items say multiplies every healer's amount — mult_health_fromhealers
                 // is asked on the patient's own manager, its penalty on the active
                 // weapon (:2408), and the result rides both fraction arms (:2503, :2520).
-                float attribModScale = 1f;
-                if (hooks is { } walk && owners is { } holder)
-                {
-                    attribModScale = walk.Float(attribModScale, "mult_health_fromhealers",
-                                                holder.ManagerOf(patient.EntryIndex));   // :2406
-                    attribModScale = walk.Float(attribModScale, "mult_health_fromhealers_penalty_active",
-                                                holder.ActiveItemOf(patient.EntryIndex)); // :2410
-                }
+                float attribModScale = hooks.Float(1f, "mult_health_fromhealers",
+                                                    items.ManagerOf(patient.EntryIndex));   // :2406
+                attribModScale = hooks.Float(attribModScale, "mult_health_fromhealers_penalty_active",
+                                             ActiveItemOf(patient.EntryIndex));             // :2410
 
                 // Stock's heal multiplier for the mega-healed patient (tf_player_shared.cpp:2486-2495):
                 // the Quick-Fix charge triples what its healer banks toward the next heal.
@@ -548,8 +554,8 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                     // heal — asked on the healer's manager, and only for a player's heal,
                     // never the dispenser's.
                     float perHealerScale = 1f;
-                    if (curOverheal > 1f && !entry.DispenserHeal && hooks is { } over && owners is { } healerHolders)
-                        perHealerScale = over.Float(1f, "overheal_fill_rate", healerHolders.ManagerOf(index));
+                    if (curOverheal > 1f && !entry.DispenserHeal)
+                        perHealerScale = hooks.Float(1f, "overheal_fill_rate", items.ManagerOf(index));
 
                     // Stock's dispenser arm runs before the overheal check: the cloak
                     // refills even when the dispenser heals no health
@@ -568,8 +574,8 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                     // every medigun heal — asked on the patient's manager, like
                     // the two walks above. The dispenser arm takes its rate whole,
                     // which is what the ternary below keeps (:2503).
-                    if (!entry.DispenserHeal && hooks is { } heal && owners is { } patientHolder)
-                        scale = heal.Float(scale, "mult_healing_from_medics", patientHolder.ManagerOf(patient.EntryIndex));   // :2519
+                    if (!entry.DispenserHeal)
+                        scale = hooks.Float(scale, "mult_healing_from_medics", items.ManagerOf(patient.EntryIndex));   // :2519
 
                     // Dispensers heal at a constant rate, ignoring the out-of-combat
                     // scale (tf_player_shared.cpp:2497-2513); a medigun's heal is
@@ -672,7 +678,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
 
             Fire("player_extinguished", e =>
             {
-                events!.EventSetInt(e, "victim", patient.EntryIndex);
+                events.EventSetInt(e, "victim", patient.EntryIndex);
                 events.EventSetInt(e, "healer", healerIndex);
                 events.EventSetInt(e, "itemdefindex", ItemDefIndex(healerIndex));
             });
@@ -682,6 +688,14 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// <summary>Whether that entry index is a player, stock's <c>pHealer-&gt;IsPlayer()</c>.</summary>
     private bool IsPlayerEntity(int index) => index >= 0 && entities.IsPlayer(players.GetHandle(index));
 
+    /// <summary>The active weapon's item (<see cref="TF2.Shared.ITFWeaponOwners.ActiveItemOf"/>'s
+    /// read): the name the hands hold, the item behind it.</summary>
+    private IAttributeProvider? ActiveItemOf(int playerIndex)
+    {
+        string name = players.GetActiveWeapon(players.GetHandle(playerIndex));
+        return name.Length > 0 ? items.Of(playerIndex, name) : null;
+    }
+
     /// <summary>
     /// The named healer's active weapon's item definition index — stock's
     /// <c>GetActiveTFWeapon()-&gt;GetAttributeContainer()-&gt;GetItem()-&gt;
@@ -689,7 +703,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// weapon, and the unset index when the healer has no weapon item.
     /// </summary>
     private int ItemDefIndex(int healerIndex)
-        => owners?.ItemOf(healerIndex, players.GetActiveWeapon(players.GetHandle(healerIndex)))
+        => items.Of(healerIndex, players.GetActiveWeapon(players.GetHandle(healerIndex)))
            is AttributeContainer { Item: { } item } ? item.Defindex : InvalidItemDefIndex;
 
     /// <summary>
@@ -733,7 +747,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                 if (whole > 0)
                 {
                     entry.StatAccum -= whole;
-                    stats?.Increment(players.GetHandle(scorer), TFStat.Healing, whole);
+                    stats.Increment(players.GetHandle(scorer), TFStat.Healing, whole);
                 }
             }
             entry.HealedLastSecond += amount;
@@ -760,7 +774,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
             int patientUserId = players.GetUserId(patient);
             Fire("player_healed", e =>
             {
-                events!.EventSetInt(e, "priority", 1);    // HLTV event priority, not transmitted
+                events.EventSetInt(e, "priority", 1);    // HLTV event priority, not transmitted
                 events.EventSetInt(e, "patient", patientUserId);
                 events.EventSetInt(e, "healer", healerUserId);
                 events.EventSetInt(e, "amount", amount);
@@ -778,18 +792,16 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// </summary>
     private void AddToSpyCloakMeter(EntityHandle patient, float val)
     {
-        if (data?.Networked(patient.EntryIndex) is not { } carrier || carrier.Class() != TFClass.Spy)
+        if (data.Networked(patient.EntryIndex) is not { } carrier || carrier.Class() != TFClass.Spy)
             return;
         carrier.CloakMeter = Math.Clamp(carrier.CloakMeter + val, 0f, 100f);
     }
 
     private float TimeSinceLastDamage(int playerIndex, float now)
-        => records?.LastHit(playerIndex) is { } hit ? now - hit.Time : float.PositiveInfinity;
+        => records.LastHit(playerIndex) is { } hit ? now - hit.Time : float.PositiveInfinity;
 
     private void Fire(string name, Action<IntPtr> fill)
     {
-        if (events is null)
-            return;
         IntPtr e = events.EventCreate(name);
         if (e == IntPtr.Zero)
             return;

@@ -181,9 +181,11 @@ internal sealed partial class BuildingsRig
                                    Services.Resolve<TF2.Shared.Econ.AttributeHooks>()!);
     }
 
-    /// <summary>The real lift over the rig's fakes; a round state is handed in when a fact needs one.</summary>
+    /// <summary>The real lift over the rig's fakes; the lift's own seam holders,
+    /// the round the running one when a fact names none.</summary>
     public TFBuildingPickup Pickup(ITeamRoundState? rounds = null, ITFBuilderPlacement? builder = null)
-        => new(Players, Buildings(), Engine, Engine, builder ?? Placement(), rounds, Carriers,
+        => new(Players, Buildings(), Engine, Engine, builder ?? Placement(),
+               rounds ?? new TF2.Tests.Entities.FakeRoundState(), Carriers,
                Services.Resolve<TF2.Shared.Econ.AttributeHooks>()!, Owners, Purse, Effects, Engine, Engine);
 
     /// <summary>

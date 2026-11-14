@@ -2,13 +2,18 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
+using TF2.Server.Combat;
 using TF2.Server.Entities;
 using TF2.Server.Entities.Ctf;
 using TF2.Server.Entities.Items;
 using TF2.Server.Entities.Rooms;
+using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
+using TF2.Shared.Player;
 using TF2.Tests.Ctf;
+using TF2.Tests.Weapons;
 
 using ModeSlot = TF2.Tests.Rules.ModeSlot;
 
@@ -160,6 +165,10 @@ internal sealed class MapItemRig
     public readonly FakeNotices Notices = new();
     public readonly FakeClock Clock = new();
     public readonly FakeRoundState Round = new();
+    public readonly FakeOwners Owners;
+    public readonly TFPlayerStats Stats;
+    public readonly TFMovementFixtures.Players Data;
+    public readonly TFClassTable Classes;
     public readonly ServiceContainer Services;
 
     private RecordingTempEnts? _temps;
@@ -200,6 +209,23 @@ internal sealed class MapItemRig
         Services.AddInstance<ITeamRoundState>(Round);
         Services.AddInstance(new TFResupplyCooldowns());
         Services.AddInstance<ITempEnts>(Temps);
+
+        // The pickups' own dependencies, now required on every kit and pack:
+        // the owners the lunchbox arms ask, the attribute walk behind the
+        // heal, the stats the touches count, the last-hit records behind the
+        // assist arm, the carrier data behind the disguise arm and the class
+        // scripts behind the disguise maximum. A fact replaces any of them by
+        // registering over it before its first spawn.
+        Owners = new FakeOwners();
+        Services.AddInstance<ITFWeaponOwners>(Owners);
+        Services.AddInstance(new AttributeHooks());
+        Stats = new TFPlayerStats();
+        Services.AddInstance<ITFPlayerStats>(Stats);
+        Services.AddInstance(new TFDamageRecords());
+        Data = new TFMovementFixtures.Players();
+        Services.AddInstance<ITFPlayerData>(Data);
+        Classes = new TFClassTable(new RecordingLog(), Engine);
+        Services.AddInstance(Classes);
 
         // The respawn room lets a carried flag go through the CTF seams (2.5);
         // the CTF fakes stand under them where a map-item fact only needs the room.

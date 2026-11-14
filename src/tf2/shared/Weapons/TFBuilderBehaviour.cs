@@ -129,13 +129,12 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
             // sapper, the pair's second end behind it — and the ghost the
             // deploy walked goes with the placement
             // (StopPlacement's m_bPlacing arm, :1041-1055).
-            if (Parts.Sapper is { } sapper && sapper.PlaceSapper(attack.Command.OwnerIndex)
-                && Parts.Builder is { } placement)
-                placement.StopPlacement(attack.Command.OwnerIndex);
+            if (Parts.Sapper.PlaceSapper(attack.Command.OwnerIndex))
+                Parts.Builder.StopPlacement(attack.Command.OwnerIndex);
         }
-        else if (Parts.Builder is { } placement)
+        else
         {
-            placement.Place(attack.Command.OwnerIndex);
+            Parts.Builder.Place(attack.Command.OwnerIndex);
         }
 
         return false;
@@ -150,14 +149,14 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
         // stock's GetOwnerEntity(), not a default command's index 0.
         attack.Weapon.NextPrimaryAttack = attack.Now + DeployRefire;
 
-        if (attack.EffectsLive && Parts.Builder is { } placement)
+        if (attack.EffectsLive)
         {
             // The sapper's row places by attachment (the ghost over the enemy
             // building, tf_obj.cpp:663-679); the builders' by ground spot.
             if (attack.Type.Name == TFWeaponTypes.Sapper)
-                placement.StartAttachmentPlacement(attack.Weapon.OwnerIndex);
+                Parts.Builder.StartAttachmentPlacement(attack.Weapon.OwnerIndex);
             else
-                placement.StartPlacement(attack.Weapon.OwnerIndex);
+                Parts.Builder.StartPlacement(attack.Weapon.OwnerIndex);
         }
     }
 
@@ -175,16 +174,16 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
         weapon.BehaviourMode |= ModeInAttack2;
         weapon.NextSecondaryAttack = attack.Now + RotateRefire;
 
-        if (attack.EffectsLive && Parts.Builder is { } placement)
-            placement.Rotate(attack.Command.OwnerIndex);
+        if (attack.EffectsLive)
+            Parts.Builder.Rotate(attack.Command.OwnerIndex);
     }
 
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
         // UpdatePlacementState, one ask per command (tf_weapon_builder.cpp:535):
         // the blueprint follows the crosshair whether or not anything is held.
-        if (attack.EffectsLive && Parts.Builder is { } placement)
-            placement.UpdatePlacement(attack.Command.OwnerIndex);
+        if (attack.EffectsLive)
+            Parts.Builder.UpdatePlacement(attack.Command.OwnerIndex);
 
         base.ItemPostFrame(attack);
     }
@@ -192,7 +191,6 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
     public override void Holster(in WeaponAttackContext attack)
     {
         // As the deploy: outside a command, the owner is the weapon state's.
-        if (Parts.Builder is { } placement)
-            placement.StopPlacement(attack.Weapon.OwnerIndex);
+        Parts.Builder.StopPlacement(attack.Weapon.OwnerIndex);
     }
 }
