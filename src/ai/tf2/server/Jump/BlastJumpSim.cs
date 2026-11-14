@@ -226,6 +226,15 @@ public sealed class BlastJumpSim
     /// <summary>Rockets fired so far, and what the shooter's own blasts have handed the damage layer.</summary>
     public int Rockets => _fired;
 
+    /// <summary>The rockets that met a solid so far, in the order they did (lane G7b: where a second rocket went off).</summary>
+    public IReadOnlyList<JumpImpact> Impacts => _impacts;
+
+    /// <summary>
+    /// The commands after one that fires before the launcher fires again (lane G7b): the first command whose time, a tick on
+    /// from the firing command's, is past the refire.
+    /// </summary>
+    public int RefireCommands => (int)MathF.Ceiling(_launcher.RefireSeconds / _mover.TickSeconds - 1e-4f);
+
     public float BlastDamage => _blastDamage;
 
     /// <summary>The view the body was last commanded.</summary>

@@ -17,9 +17,11 @@ public enum JumpPlaceKind : byte
 /// A jump worth searching for: from the cell and place it would take off at
 /// to the cell and place it would land on, how much higher the landing is
 /// and how far off over the ground, and what the walk between them costs in
-/// units (null when there is no way on foot).
+/// units (null when there is no way on foot), and the families its search tries (lane G7b: a rise past one rocket's
+/// reach and within two's is searched for the two-rocket families alone: Double, then Wall, lane G7c).
 /// </summary>
-public readonly record struct JumpCandidate(int From, int To, Vector Takeoff, Vector Landing, JumpPlaceKind Kind, float Rise, float Distance, float? WalkCost);
+public readonly record struct JumpCandidate(int From, int To, Vector Takeoff, Vector Landing, JumpPlaceKind Kind, float Rise, float Distance, float? WalkCost,
+                                            JumpFamilies Families = JumpFamilies.Both);
 
 /// <summary>
 /// A jump found: from which cell to which (the cell the recipe's flight comes
@@ -29,7 +31,14 @@ public readonly record struct JumpCandidate(int From, int To, Vector Takeoff, Ve
 /// between the two takes (null when there is none).
 /// </summary>
 public readonly record struct JumpLink(int From, int To, JumpRecipe Recipe, JumpFamily Family, float Robustness, float Seconds, float AirSeconds, float Health,
-                                       float? WalkSeconds);
+                                       float? WalkSeconds)
+{
+    /// <summary>Whether a player showed it (lane G6b, <see cref="ShownJumpFit"/>), not the level's shape: the debug routes' and the tools' "origin". The cache holds none such.</summary>
+    public bool Shown { get; init; }
+
+    /// <summary>Whether a practice row gave it (lane G8, <see cref="JumpPractice"/>): the debug routes' and the tools' "origin" "practice". The cache holds none such.</summary>
+    public bool Practiced { get; init; }
+}
 
 /// <summary>
 /// What proposing looked through, for sizing its cost: the columns' edges, the
@@ -37,7 +46,11 @@ public readonly record struct JumpLink(int From, int To, JumpRecipe Recipe, Jump
 /// was asked (each a flood of the graph back from it, <see cref="GraphJumpWalk.Reaches"/>);
 /// and the takeoffs passed over because no player gets there (<see cref="JumpPlaces"/>' seeds).
 /// </summary>
-public readonly record struct JumpPlacesWork(int Edges, int Runs, int Landings, int Unplayed = 0);
+public readonly record struct JumpPlacesWork(int Edges, int Runs, int Landings, int Unplayed = 0)
+{
+    /// <summary>The proposals left out because they land in the place the pass was told to skip (<see cref="JumpSkip"/>, lane G6b).</summary>
+    public int Skipped { get; init; }
+}
 
 /// <summary>What the pass answered: what it proposed, the links the search found among them, the simulated flights it spent, and what proposing looked through.</summary>
 public sealed record JumpPlacesResult(IReadOnlyList<JumpCandidate> Candidates, IReadOnlyList<JumpLink> Links, int Flights, JumpPlacesWork Work);
@@ -133,7 +146,9 @@ public sealed record JumpPlacesSettings
 /// <item><b>Worth it.</b> The rise within
 /// <see cref="JumpPlacesSettings.ReachShare"/> of the simulator's
 /// (<see cref="JumpEnvelope"/>; the way out from the edge is followed that
-/// share of its range and no further); air over the takeoff up to the
+/// share of its range and no further), or past it and within that share of
+/// the rise and a second rocket's lift (<see cref="JumpEnvelope.Lift"/>), when
+/// the search asks for the two-rocket families alone (Double, lane G7b, then Wall, lane G7c); air over the takeoff up to the
 /// landing's height and a crouched body more; and no way there on foot, or
 /// one that costs over <see cref="JumpPlacesSettings.WalkFactor"/> times the
 /// straight line.</item>
@@ -179,6 +194,8 @@ public sealed class JumpPlaces
     private readonly IReadOnlyList<int>? _seeds;
     private bool[]? _played;
     private int _unplayed;
+    private readonly JumpSkip? _skip;
+    private int _skipped;
     private readonly Dictionary<(int From, int To), List<JumpCandidate>> _alternates = [];
 
     /// <param name="seeds">
@@ -188,8 +205,9 @@ public sealed class JumpPlaces
     /// brushes and cliffs round a TF2 map, the river a fall the graph takes no edge down to): a
     /// jump from there is on nobody's route.
     /// </param>
+    /// <param name="skip">A place no proposal may land in (lane G6b), or null for none.</param>
     public JumpPlaces(NavGraph graph, VoxelColumns columns, JumpSearch search, GraphJumpWalk walk, in JumpEnvelope envelope, JumpPlacesSettings settings,
-                      IReadOnlyList<int>? seeds = null)
+                      IReadOnlyList<int>? seeds = null, JumpSkip? skip = null)
     {
         _graph = graph;
         _columns = columns;
@@ -198,6 +216,7 @@ public sealed class JumpPlaces
         _envelope = envelope;
         _settings = settings;
         _seeds = seeds;
+        _skip = skip;
     }
 
     /// <summary>One column's edge: which way it faces (0 east, 1 north, 2 west, 3 south), the column across the run and along it, and its floor.</summary>
@@ -283,7 +302,7 @@ public sealed class JumpPlaces
     /// </summary>
     private JumpLink? Search(in JumpCandidate c, ref int flights)
     {
-        JumpSearchResult result = _search.Find(new JumpAsk(c.Takeoff, c.Landing, _settings.Tolerance));
+        JumpSearchResult result = _search.Find(new JumpAsk(c.Takeoff, c.Landing, _settings.Tolerance, c.Families));
         flights += result.Flights;
         if (result.Found is not { } found || found.Robustness < _search.Settings.Keep)
             return null;
@@ -309,6 +328,7 @@ public sealed class JumpPlaces
     private IReadOnlyList<JumpCandidate> ProposeNow(out JumpPlacesWork work)
     {
         _unplayed = 0;
+        _skipped = 0;
         int[] level = Levels();
         var rims = new List<Rim>();
         for (int y = 0; y < _columns.Depth; y++)
@@ -352,7 +372,7 @@ public sealed class JumpPlaces
             i = end + 1;
         }
 
-        work = new JumpPlacesWork(rims.Count, runs, landings, _unplayed);
+        work = new JumpPlacesWork(rims.Count, runs, landings, _unplayed) { Skipped = _skipped };
 
         // One a pair: the takeoff nearest where one was wanted (ground that stops short of the standoff is a wall close
         // behind the jump), then the longer run; the first found among equals. The next ones (up to PerPair in all, of
@@ -439,10 +459,13 @@ public sealed class JumpPlaces
 
         // Lower than the ledge by more than a body jumps: a jump up. Else it is ground about as high, and the way out to
         // it began over the edge's own drop: a gap.
+        // Past one rocket's reach and within two's (its rise and a second rocket's lift: lane G7b), only a second rocket in
+        // the air is asked of the search: at a floor under the flight, else at a wall beside it (lane G7c).
         float floor = _graph.Cell(ground[0].Cell).FloorZ, rise = rim.Floor - floor;
         bool up = rise > _settings.MinRise;
-        if (rise > _envelope.Rise * _settings.ReachShare)
+        if (rise > (_envelope.Rise + _envelope.Lift) * _settings.ReachShare)
             return false;
+        JumpFamilies families = rise > _envelope.Rise * _settings.ReachShare ? JumpFamilies.Double | JumpFamilies.Wall : JumpFamilies.Both;
 
         // Where on the stretch: a standoff out from the edge for a jump up, a little in from its own near end for a gap.
         float wanted = up ? _settings.Standoff : ground[0].Out + _settings.GapInset;
@@ -473,7 +496,14 @@ public sealed class JumpPlaces
         if (walk is { } cost && cost <= _settings.WalkFactor * straight)
             return true;
 
-        kept.Add(new Proposed(new JumpCandidate(from.Cell, landingCell.Index, takeoff, landing, up ? JumpPlaceKind.Up : JumpPlaceKind.Gap, rise, flat, walk),
+        // The place the pass was told to leave alone.
+        if (_skip is { } skip && skip.Covers(landing))
+        {
+            _skipped++;
+            return true;
+        }
+
+        kept.Add(new Proposed(new JumpCandidate(from.Cell, landingCell.Index, takeoff, landing, up ? JumpPlaceKind.Up : JumpPlaceKind.Gap, rise, flat, walk, families),
                               MathF.Abs(from.Out - wanted), run, level[from.Cell], level[landingCell.Index]));
         return true;
     }

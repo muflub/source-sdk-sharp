@@ -283,6 +283,217 @@ public static class TFAiTestMaps
         _ => 180,
     };
 
+    // ------------------------------------------------------------------ ss_ai_tf_double (lane G7b)
+
+    /// <summary>
+    /// The second rocket's course, stages S0 (the spawns) to S2 (the end): S1 is +192 over a 128 u gap north of S0 (one
+    /// rocket); S2 is east of S1 on one line (y 1032), +576 over it, past what one rocket rises, and the way to it passes over a
+    /// beam <see cref="DoubleBeamTop"/> high, 160 u past S1's edge, 192 long and 48 wide, ending 64 u short of S2. A
+    /// second rocket fired at the beam's top in the air lifts the body onto S2. The beam is narrower than the link pass's
+    /// shortest landing (64 u) across the line, so no jump is proposed onto it; a body that comes down on it is put back
+    /// on S1 (<see cref="DoubleBeamReset"/>). S0 is south of S1 and off that line, so a body put back on S0 from S2 by a
+    /// round's restart is never moved through the beam's reset (lane G7b: with S0 on the line it was, and the restart put
+    /// the bot on S1). Not on ss_ai_tf_course: S2 there would be over its 2,048 u room's ceiling.
+    /// </summary>
+    public static readonly CourseStage[] DoubleStages =
+    [
+        new(448f, 520f, 704f, 776f, CourseFloorZ + CoursePitDepth),
+        new(448f, 904f, 704f, 1160f, CourseFloorZ + CoursePitDepth + 192f),
+        new(1120f, 904f, 1376f, 1160f, CourseFloorZ + CoursePitDepth + 192f + 576f),
+    ];
+
+    /// <summary>The beam under the second jump's way: (west, south, east, north) and its top, 384 over S1.</summary>
+    public static readonly (float West, float South, float East, float North) DoubleBeam = (864f, 1008f, 1056f, 1056f);
+
+    public const float DoubleBeamTop = CourseFloorZ + CoursePitDepth + 192f + 384f;
+
+    /// <summary>How far over the beam's top its reset reaches: only a body standing on it, never one a rocket's blast passes over it.</summary>
+    public const float DoubleBeamReset = 2f;
+
+    /// <summary>The second course's resets: under the first jump and round S0 (back to S0) and under the second (back to S1), splitting the room's floor.</summary>
+    public static readonly (int Jump, float X0, float Y0, float X1, float Y1)[] DoubleResets =
+    [
+        (1, 16f, 16f, 2032f, 880f),
+        (2, 16f, 880f, 2032f, 2032f),
+    ];
+
+    /// <summary>
+    /// ss_ai_tf_double: the second rocket's course (lane G7b), as ss_ai_tf_course is the first's: a cabinet over each stage's
+    /// top, a control point on S1 and S2 (S2 needing S1) under a master no team wins, the spawns on S0, a reset under each
+    /// jump and one over the beam's top.
+    /// </summary>
+    public static VmfMap Double() => TwoRocketCourse(wall: false);
+
+    // ------------------------------------------------------------------ ss_ai_tf_wall (lane G7c)
+
+    /// <summary>
+    /// The wall jump's course, ss_ai_tf_double's stages with no beam: the way from S1 to S2 (+576, past one rocket's rise)
+    /// passes beside a wall south of the line, its face <see cref="WallAside"/> from it, from the room's floor to its ceiling
+    /// (no top to stand on), from S1's east edge to S2's west edge. A second rocket fired at it in the air lifts the body onto
+    /// S2; with no floor under the way, no other family makes the jump.
+    /// </summary>
+    public static readonly (float West, float South, float East, float North) WallSlab = (704f, 960f, 1120f, 1032f - WallAside);
+
+    /// <summary>How far the wall's face is from the line S1 to S2 (y 1032).</summary>
+    public const float WallAside = 40f;
+
+    public static VmfMap Wall() => TwoRocketCourse(wall: true);
+
+    /// <summary>ss_ai_tf_double (a beam under the second jump's way) or ss_ai_tf_wall (a wall beside it).</summary>
+    private static VmfMap TwoRocketCourse(bool wall)
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        AiTestMaps.Room(map, 0, "course", east: false, west: false, JumpCell);
+        for (int s = 0; s < DoubleStages.Length; s++)
+        {
+            CourseStage st = DoubleStages[s];
+            map.WorldSolids.Add(VmfMap.Box(new Point(st.West, st.South, CourseFloorZ), new Point(st.East, st.North, st.Top), Ledge));
+            Regenerate(map, new Point(st.West, st.South, st.Top), new Point(st.East, st.North, st.Top + CaptureHeight));
+            var destination = new VmfEntity { ClassName = "info_teleport_destination" };
+            destination.Set("targetname", $"stage{s}_start").Set("origin", (st.Centre + new Point(0, 0, 8)).ToString()).Set("angles", s == 0 ? "0 90 0" : "0 0 0");
+            map.Entities.Add(destination);
+            if (s == 0)
+                continue;
+
+            var point = new VmfEntity { ClassName = "team_control_point" };
+            string previous = s == 1 ? $"stage{s}" : $"stage{s - 1}";
+            point.Set("targetname", $"stage{s}").Set("origin", st.Centre.ToString()).Set("point_index", $"{s - 1}").Set("point_default_owner", "0")
+                 .Set("point_printname", $"Stage {s}").Set("spawnflags", "2").Set("team_previouspoint_2_0", previous).Set("team_previouspoint_3_0", previous);
+            map.Entities.Add(point);
+            var area = new VmfEntity { ClassName = "trigger_capture_area" };
+            area.Set("area_cap_point", $"stage{s}").Set("area_time_to_cap", "1").Set("team_cancap_2", "1").Set("team_cancap_3", "1")
+                .Set("team_numcap_2", "1").Set("team_numcap_3", "1");
+            area.Solids.Add(VmfMap.Box(new Point(st.West, st.South, st.Top), new Point(st.East, st.North, st.Top + CaptureHeight), "TOOLS/TOOLSTRIGGER"));
+            map.Entities.Add(area);
+        }
+
+        (float bw, float bs, float be, float bn) = DoubleBeam;
+        if (wall)
+        {
+            (float ww, float ws, float we, float wn) = WallSlab;
+            map.WorldSolids.Add(VmfMap.Box(new Point(ww, ws, CourseFloorZ), new Point(we, wn, CourseFloorZ + JumpCell - 2f * CourseFloorZ), Ledge));
+        }
+        else
+        {
+            map.WorldSolids.Add(VmfMap.Box(new Point(bw, bs, CourseFloorZ), new Point(be, bn, DoubleBeamTop), Ledge));
+        }
+
+        var master = new VmfEntity { ClassName = "team_control_point_master" };
+        master.Set("targetname", "course_master").Set("origin", "1024 1024 64").Set("cpm_restrict_team_cap_win", "1");
+        map.Entities.Add(master);
+
+        CourseStage first = DoubleStages[0];
+        foreach (float x in (float[])[512, 560, 608, 656])
+        {
+            TeamSpawn(map, new Point(x, first.South + 64, first.Top), Red, 90);
+            TeamSpawn(map, new Point(x, first.South + 128, first.Top), Blue, 90);
+        }
+
+        foreach ((int jump, float x0, float y0, float x1, float y1) in DoubleResets)
+            Reset(map, $"stage{jump - 1}_start", new Point(x0, y0, CourseFloorZ), new Point(x1, y1, DoubleResetTop(jump, x0, y0, x1, y1)));
+        if (!wall)
+            Reset(map, "stage1_start", new Point(bw, bs, DoubleBeamTop), new Point(be, bn, DoubleBeamTop + DoubleBeamReset));
+        return map;
+    }
+
+    /// <summary>The top of the second course's jump <paramref name="jump"/>'s reset: <see cref="ResetUnder"/> under the lowest top of its two stages and any stage over it.</summary>
+    public static float DoubleResetTop(int jump, float x0, float y0, float x1, float y1)
+    {
+        float lowest = MathF.Min(DoubleStages[jump - 1].Top, DoubleStages[jump].Top);
+        foreach (CourseStage st in DoubleStages)
+        {
+            if (Overlaps(st.West, st.South, st.East, st.North, x0, y0, x1, y1))
+                lowest = MathF.Min(lowest, st.Top);
+        }
+
+        return lowest - ResetUnder;
+    }
+
+    // ------------------------------------------------------------------ ss_ai_tf_ends (lane Ge)
+
+    /// <summary>One course's end on ss_ai_tf_ends: a block from the floor to <see cref="CourseStage.Top"/>, its capture area over the top, titled <paramref name="Title"/>.</summary>
+    public readonly record struct EndsCourse(string Title, CourseStage End);
+
+    /// <summary>
+    /// The three courses from the hub, each ending on a block's top whose capture area names a point that does not exist (its
+    /// title, as jump_academy2_rc9a's name their courses): an easy 150 u ledge to the east, a medium 250 u ledge to the north,
+    /// and a medium gap to the west, whose end is a 192 u platform 400 u across a gap from a near one the stairs climb
+    /// (<see cref="EndsGapNear"/>). Each top is a single rocket from the floor, and no more than TF2's safe drop (650² / 1,600 =
+    /// 264 u) over it, so a bot drops back to the hub: the navigation has no teleport links, which is how the real map's
+    /// courses are left.
+    /// </summary>
+    public static readonly EndsCourse[] EndsCourses =
+    [
+        new("Easy Ledge by lane Ge", new CourseStage(1536f, 256f, 1792f, 512f, FloorZ + 150f)),
+        new("Medium Ledge by lane Ge", new CourseStage(896f, 1536f, 1152f, 1792f, FloorZ + 250f)),
+        new("Medium Gap by lane Ge", new CourseStage(256f, 1424f, 512f, 1680f, FloorZ + 192f)),
+    ];
+
+    /// <summary>The gap course's near platform, which twelve 16 u steps climb from the south; its end is <see cref="EndsGap"/> u north of it.</summary>
+    public static readonly CourseStage EndsGapNear = new(256f, 768f, 512f, 1024f, FloorZ + 192f);
+
+    public const float EndsGap = 400f;
+
+    /// <summary>The hub: the spawns stand in it, and its cabinet's zone (team 0) is it, the floor to <see cref="CaptureHeight"/> over it.</summary>
+    public static readonly CourseStage EndsHub = new(896f, 128f, 1152f, 384f, FloorZ);
+
+    /// <summary>
+    /// ss_ai_tf_ends: a hub and three short courses, shaped as jump_academy2_rc9a is (lane Ge): every course's end a
+    /// <c>trigger_capture_area</c> whose <c>area_cap_point</c> names no entity, one real <c>team_control_point</c> at the hub,
+    /// locked and named by no area, under a master no team wins (it makes the level a control-point map, without which the tf2
+    /// mod runs no teams), and a cabinet's zone of team 0 at the hub. No resets: a fall lands on the hub's floor.
+    /// </summary>
+    public static VmfMap Ends()
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        AiTestMaps.Room(map, 0, "course", east: false, west: false, JumpCell);
+
+        foreach (EndsCourse course in EndsCourses)
+        {
+            CourseStage st = course.End;
+            map.WorldSolids.Add(VmfMap.Box(new Point(st.West, st.South, FloorZ), new Point(st.East, st.North, st.Top), Ledge));
+            var area = new VmfEntity { ClassName = "trigger_capture_area" };
+            area.Set("area_cap_point", course.Title).Set("area_time_to_cap", "2").Set("team_cancap_2", "1").Set("team_cancap_3", "1")
+                .Set("team_numcap_2", "1").Set("team_numcap_3", "1").Set("StartDisabled", "0");
+            area.Solids.Add(VmfMap.Box(new Point(st.West, st.South, st.Top), new Point(st.East, st.North, st.Top + CaptureHeight), "TOOLS/TOOLSTRIGGER"));
+            map.Entities.Add(area);
+        }
+
+        // The gap course's near platform and its stairs from the south.
+        CourseStage near = EndsGapNear;
+        for (int s = 1; s <= 12; s++)
+            map.WorldSolids.Add(VmfMap.Box(new Point(near.West, near.South - (13 - s) * 32, FloorZ), new Point(near.East, near.South, FloorZ + s * 16), Ledge));
+        map.WorldSolids.Add(VmfMap.Box(new Point(near.West, near.South, FloorZ), new Point(near.East, near.North, near.Top), Ledge));
+
+        // The hub: the one real point, locked, at its middle; the spawns; the cabinet.
+        Point hub = EndsHub.Centre;
+        var point = new VmfEntity { ClassName = "team_control_point" };
+        point.Set("origin", (hub + new Point(0, 0, 8)).ToString()).Set("point_index", "0").Set("point_default_owner", "0").Set("point_start_locked", "1")
+             .Set("point_printname", "Hub").Set("spawnflags", "15");
+        map.Entities.Add(point);
+        var master = new VmfEntity { ClassName = "team_control_point_master" };
+        master.Set("targetname", "ends_master").Set("origin", "1024 1024 64").Set("cpm_restrict_team_cap_win", "1");
+        map.Entities.Add(master);
+        foreach (float x in (float[])[944, 992, 1056, 1104])
+        {
+            TeamSpawn(map, new Point(x, EndsHub.South + 64, FloorZ), Red, 90);
+            TeamSpawn(map, new Point(x, EndsHub.South + 160, FloorZ), Blue, 90);
+        }
+
+        Regenerate(map, new Point(EndsHub.West, EndsHub.South, FloorZ), new Point(EndsHub.East, EndsHub.North, FloorZ + CaptureHeight));
+        return map;
+    }
+
+    private static void Reset(VmfMap map, string target, Point mins, Point maxs)
+    {
+        var reset = new VmfEntity { ClassName = "trigger_teleport" };
+        reset.Set("target", target).Set("spawnflags", "1");
+        reset.Solids.Add(VmfMap.Box(mins, maxs, "TOOLS/TOOLSTRIGGER"));
+        map.Entities.Add(reset);
+    }
+
     /// <summary>A resupply cabinet's zone for every team (TeamNum 0, as jump maps have them).</summary>
     private static void Regenerate(VmfMap map, Point mins, Point maxs)
     {

@@ -19,7 +19,7 @@ namespace SourceSharp.Ai.Tests.Experience;
 /// known and again only at a round's start; flushes come at a round's end,
 /// every minute and at the level's end; off, it opens nothing.
 /// </summary>
-public sealed class ExperienceServiceTests : IDisposable
+public sealed partial class ExperienceServiceTests : IDisposable
 {
     private const string Db = "/nowhere/experience.db";
     private static readonly byte[] Bsp = [1, 2, 3, 4, 5];
@@ -884,7 +884,9 @@ public sealed class ExperienceServiceTests : IDisposable
     /// feed the rest of the binding touches the slot (the session, for the level's world), the
     /// route's two reports, and the two ways a game's own result comes in: TF2's jumps hand it a
     /// link's try (lane G5e), and TF2's bots' tries of a way into the enemy's base (lane G4b), which
-    /// the feed posts on as it posts the rest.
+    /// the feed posts on as it posts the rest; and the jump watch (lane G6a), which hands it the
+    /// jumps players showed, asks whether it gathers and reads its counters and snapshot; and TF2's jumps read the
+    /// snapshot for the jumps players showed (lane G6b), to fit them as links.
     /// </summary>
     [Fact]
     public void WhatTheFeedReadsGoesOnlyToItsWorker()
@@ -895,8 +897,11 @@ public sealed class ExperienceServiceTests : IDisposable
         Assert.Equal([feed], posters);
         string[] ofTheFeed = [.. IlCallCensus.Calls(m => m.DeclaringType == typeof(ExperienceService), binding).Where(c => c.Caller != feed)
                                              .Select(c => $"{c.Caller}::{c.Callee}").Distinct().Order(StringComparer.Ordinal)];
-        Assert.Equal(["SourceSharp.Ai.Server.Senses.AiBotRoutes::Counters", "SourceSharp.Ai.Server.Senses.AiBotRoutes::Json", "SourceSharp.Ai.Server.Senses.ServerAiSession::get_Slot",
-                      "SourceSharp.Ai.TF2.Jump.TFJumps::NoteLink", "SourceSharp.Ai.TF2.Nav.TFExperienceOutcomes::NoteOutcome"], ofTheFeed);
+        string jumps = typeof(ShownJumpFeed).FullName!;
+        Assert.Equal([$"{jumps}::NoteShownJump", $"{jumps}::RecentShownJumps", $"{jumps}::ShownJumpVerdicts", $"{jumps}::get_FeedMicros", $"{jumps}::get_Gathering",
+                      $"{jumps}::get_ShownJumpsNoted", $"{jumps}::get_ShownJumpsUnjudged", $"{jumps}::get_Slot",
+                      "SourceSharp.Ai.Server.Senses.AiBotRoutes::Counters", "SourceSharp.Ai.Server.Senses.AiBotRoutes::Json", "SourceSharp.Ai.Server.Senses.ServerAiSession::get_Slot",
+                      "SourceSharp.Ai.TF2.Jump.TFJumps::NoteLink", "SourceSharp.Ai.TF2.Jump.TFJumps::get_Slot", "SourceSharp.Ai.TF2.Nav.TFExperienceOutcomes::NoteOutcome"], ofTheFeed);
     }
 
     [Fact]

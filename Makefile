@@ -255,7 +255,7 @@ help:
 	@echo "  make setup [VALVE_SDK=..]           build the farms and bin/ from the pristine Valve clone"
 	@echo "  make host-pack [HOST_ROOT=..]       build the host's SDK packages the TF2Descent mod restores from"
 	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range, ss_ai_tdm) in this tree"
-	@echo "  make ai-maps-tf                     build the TF2 AI's test maps (TF_LINKED_MAPS: ss_ai_tf_jump, ss_ai_tf_course) into the tf2 mod's maps"
+	@echo "  make ai-maps-tf                     build the TF2 AI's test maps (TF_LINKED_MAPS: ss_ai_tf_jump, ss_ai_tf_course, ss_ai_tf_double) into the tf2 mod's maps"
 	@echo "  make ai-nav                         build the AI's .nav3d of NAV_MAPS (dm_lockdown) in this tree, stamped"
 	@echo "  make ai-nav-tf [MAP=ctf_2fort]      build a TF2 map's .nav3d into the tf2 mod's maps (MAPTOOLS_DIR= another map-tools tree;"
 	@echo "                                      HULL=1 its .navhull instead, which a map too tall for a .nav3d needs)"
@@ -828,7 +828,7 @@ ai-maps:
 # src/mapgen (`tfaimaps`) into game/mod_tf2/maps/src/ai and linked into the
 # tf2 mod's maps/ with its .nav3d, as LINKED_MAPS are into the test mod's.
 # `make map MAP=<one of TF_LINKED_MAPS>`; `make ai-maps-tf` builds them all.
-TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course
+TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course ss_ai_tf_double ss_ai_tf_wall ss_ai_tf_ends
 TFAISRC        := game/mod_tf2/maps/src/ai
 TFMOD          := $(CURDIR)/bin/$(CONFIG)/mods/tf2
 

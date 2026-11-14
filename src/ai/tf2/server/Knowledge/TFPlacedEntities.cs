@@ -17,7 +17,8 @@ public interface ITFLevelEntities
 /// <summary>
 /// The placements a TF2 map makes that its bots know before playing (P6 step 5), read from the
 /// level's own entities as it comes up: the team spawns, the packs, the respawn rooms and the
-/// resupply cabinets, each with its team and, for a brush, its volume. A shipped TF2 map stores its
+/// resupply cabinets, each with its team and, for a brush, its volume; and the capture areas, each
+/// with the point it names, and the control points by name (lane Ge). A shipped TF2 map stores its
 /// entity lump LZMA-compressed, which the lump reader (<see cref="MapEntities.Read"/>) cannot
 /// read; the level's entities are the same placements, spawned from it.
 /// </summary>
@@ -69,6 +70,13 @@ public sealed class TFPlacedEntities(IEntityDirectory directory, IEngineEntities
 
         foreach (FuncRegenerate cabinet in directory.OfClass(FuncRegenerate.MapClass).OfType<FuncRegenerate>())
             all.Add(Brush(FuncRegenerate.MapClass, cabinet.Handle, cabinet.RegenerateVars.TeamNum));
+
+        // The capture areas with the point each names, and the points by name: an area whose point the level does not
+        // place is a course's end (TFCourseEnds, lane Ge).
+        foreach (TriggerAreaCapture area in directory.OfClass(TriggerAreaCapture.MapClass).OfType<TriggerAreaCapture>())
+            all.Add(Brush(TriggerAreaCapture.MapClass, area.Handle, 0) with { Keys = [new(TFCourseEnds.PointKey, area.AreaVars.CapPointName)] });
+        foreach (TeamControlPoint point in directory.OfClass(TeamControlPoint.MapClass).OfType<TeamControlPoint>())
+            all.Add(Point(TeamControlPoint.MapClass, point.Handle, 0) with { Name = entities.GetName(point.Handle) });
         return new MapEntities(all, null);
     }
 

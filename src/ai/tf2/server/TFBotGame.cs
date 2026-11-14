@@ -23,11 +23,14 @@ public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TF
 {
     private readonly AbilityTable _abilities = TFAbilities.Table();
 
+    private System.Collections.Immutable.ImmutableArray<TFCourseEnd> _ends = [];
+
     /// <summary>
     /// TF2's tree. A bot's decider has the feel layer's parts as the <c>ai_tf_feel_*</c> convars stand when it is added, for its
-    /// life, and reads the level's rocket jumps from the binding's book (plan_bots_teams_tf2_part_g G.5 step 6).
+    /// life, reads the level's rocket jumps from the binding's book (plan_bots_teams_tf2_part_g G.5 step 6), and knows the
+    /// level's course ends (lane Ge) as <see cref="Map"/> read them.
     /// </summary>
-    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read(), Jumps = jumps?.Book };
+    public IDecider Decider(BrainSetup setup) => new Trees.TFDecider(setup, Classes()) { Feel = feel.Read(), Jumps = jumps?.Book, CourseEnds = _ends };
 
     public AbilityTable Abilities => _abilities;
 
@@ -36,8 +39,16 @@ public sealed class TFBotGame(WeaponCatalog catalog, TFWeaponScripts scripts, TF
 
     public WeaponKnowledge Weapons() => TFKnowledge.Weapons(catalog, scripts.GetQuiet);
 
-    /// <summary>The map from the level's placed entities (<see cref="TFPlacedEntities"/>): a shipped TF2 map's lump is compressed, and the lump reader cannot read it.</summary>
-    public MapKnowledge Map(string mapName, MapEntities entities, WeaponKnowledge weapons) => TFMapKnowledge.Build(mapName, placed.Read(), weapons, _abilities, TFKnowledge.Bodies(Classes()));
+    /// <summary>
+    /// The map from the level's placed entities (<see cref="TFPlacedEntities"/>): a shipped TF2 map's lump is compressed, and the lump
+    /// reader cannot read it. The course ends among them (<see cref="TFCourseEnds"/>) are kept for the level's deciders.
+    /// </summary>
+    public MapKnowledge Map(string mapName, MapEntities entities, WeaponKnowledge weapons)
+    {
+        MapEntities level = placed.Read();
+        _ends = TFCourseEnds.Of(level);
+        return TFMapKnowledge.Build(mapName, level, weapons, _abilities, TFKnowledge.Bodies(Classes()));
+    }
 
     /// <summary>The classes as the class table has them now (the scripts load with the level).</summary>
     public System.Collections.Immutable.ImmutableArray<TFClassFacts> Classes()

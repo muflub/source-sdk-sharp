@@ -147,6 +147,34 @@ public sealed class SqliteExperienceStore : IExperienceStore
         }
     }
 
+    /// <summary>
+    /// The keys the file holds rows of (lane G8: the practice tool finds the mode a map was played in): every map row's
+    /// name, checksum and mode, in the order they were first written. None for a refused store or a failed read.
+    /// </summary>
+    public IReadOnlyList<ExperienceKey> Keys()
+    {
+        lock (_gate)
+        {
+            if (_connection is not { } db)
+                return [];
+            try
+            {
+                using SqliteTransaction transaction = db.BeginTransaction(deferred: true);
+                using var all = new Statement(db, transaction, "SELECT name, checksum, mode FROM map ORDER BY id");
+                using SqliteDataReader r = all.Read();
+                var keys = new List<ExperienceKey>();
+                while (r.Read())
+                    keys.Add(new ExperienceKey(r.GetString(0), r.GetString(1), r.GetString(2)));
+                return keys;
+            }
+            catch (SqliteException e)
+            {
+                Failed(e);
+                return [];
+            }
+        }
+    }
+
     public void Dispose()
     {
         lock (_gate)

@@ -109,6 +109,7 @@ public sealed partial class TFDecider : IDecider
         _aimRng = new AiRandom(setup.Seed ^ 0x5446_4149UL);
         StartFeel(setup.Seed);
         StartExperience(setup.Seed);
+        StartPrefire(setup.Seed);
         StartRoles(CtfRoleSplit);
         _launcher = KindNamed(SoldierLauncher);
         _shotgun = KindNamed(SoldierShotgun);
@@ -149,15 +150,20 @@ public sealed partial class TFDecider : IDecider
         _verdict = "";
         _hasGoal = false;
         Streak();
+        NotePrefireOutcome();
+        NoteTeammateDeaths();
 
         if (!_self.Alive)
         {
             _tree.Reset();
+            _prefire.End();
             DiedOnTry();
             _roaming = _defendPicked = _healing = false;
             _lastTarget = null;
             _jumpUntil = default;
             (_courseNeed, _courseNoWaySince) = (0f, -1);
+            if (_endsLastTick.Value > 0)
+                ForgetEnds();
             Trace.Begin(tick);
             Trace.End(default);
             Doing = new DoingRecord("dead", "", false, default, ActorId.None, "", 0f, 0f, 0f, 0f, 0f, 0f, tick);
@@ -184,6 +190,7 @@ public sealed partial class TFDecider : IDecider
         Engage();
         Errand();
         RocketJump();
+        Prefire();
         Hands();
         ReactAndSpeak();
         LookAtDanger();
@@ -194,7 +201,7 @@ public sealed partial class TFDecider : IDecider
         var reason = new DecisionReason(LeafId(), _root.Chosen?.LastScore ?? 0f, 0f, 0f);
         Trace.End(in reason);
         Tick expires = tick + IntentCommand.LifetimeTicks;
-        Doing = WithStreak(new DoingRecord(BranchName(), _leaf, _hasGoal, _goal, _target?.Id ?? ActorId.None, _verdict, 0f, 0f, 0f, 0f, 0f, 0f, expires));
+        Doing = WithPrefire(WithStreak(new DoingRecord(BranchName(), _leaf, _hasGoal, _goal, _target?.Id ?? ActorId.None, _verdict, 0f, 0f, 0f, 0f, 0f, 0f, expires)));
         return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason);
     }
 

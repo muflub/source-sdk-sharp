@@ -88,6 +88,34 @@ public class RocketJumpLinkPlanTests
         Assert.True(Flat(flown.Touch, flight.Touch) <= 24f, $"it came down at {flown.Touch}, the simulator from the start at {flight.Touch}");
     }
 
+    /// <summary>
+    /// Lane G7c: a bot begun near its start, standing or coming at it at a run, is placed on it, not where it first comes
+    /// within the placing's slack. In the game every two-rocket jump that failed on ss_ai_tf_double (17 of 17 over five
+    /// sessions) was launched 7 to 8 u past its start along the way (a bot standing 9.5 u past it walked back and stopped
+    /// 7.4 u past it), every one that landed within 4.2 u.
+    /// </summary>
+    [Theory]
+    [InlineData(90f, 240f)]
+    [InlineData(60f, 160f)]
+    [InlineData(40f, 120f)]
+    [InlineData(-9.5f, 0f)]
+    [InlineData(10f, 0f)]
+    [InlineData(-30f, 0f)]
+    public void ABotNearItsStartIsPlacedOnItNotAtTheSlacksEdge(float behind, float speed)
+    {
+        (JumpPlan plan, _) = Standing(runUp: false);
+        JumpStart start = plan.Recipe.Start();
+        float yaw = plan.Recipe.TravelYaw * (MathF.PI / 180f);
+        var way = new Vector(MathF.Cos(yaw), MathF.Sin(yaw), 0f);
+        var at = new Vector(start.Origin.X - way.X * behind, start.Origin.Y - way.Y * behind, VoxelMoveWorld.DistEpsilon);
+        var live = new JumpLive(JumpPlannerTests.Hall(), new JumpStart(at, way * speed, start.View, Ducked: false, OnGround: true), Normal);
+        live.Jump(live.Keep(plan).Id, plan.Goal);
+        JumpFlown flown = Assert.Single(live.Flown);
+        Assert.True(flown.Launched, $"the control: it launched ({flown.End})");
+        float past = (flown.Launch.Origin.X - start.Origin.X) * way.X + (flown.Launch.Origin.Y - start.Origin.Y) * way.Y;
+        Assert.True(MathF.Abs(past) <= RocketJumpProgram.PlaceSlack * 0.5f, $"launched {past:F1} u along the way from its start");
+    }
+
     [Fact]
     public void AStandingJumpBegunFarFromItsStartIsCalledOff()
     {

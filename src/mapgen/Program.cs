@@ -249,6 +249,18 @@ if (args.Length > 0 && args[0] == "tfaimaps")
     File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_course.vmf"), course.Write());
     File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_course.yaml"), AiTestMaps.Level("ss_ai_tf_course.vmf", ["course"]));
     Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_course.vmf")}: {course.Entities.Count} entities, {course.WorldSolids.Count} world brushes");
+    var twoRockets = TFAiTestMaps.Double();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_double.vmf"), twoRockets.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_double.yaml"), AiTestMaps.Level("ss_ai_tf_double.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_double.vmf")}: {twoRockets.Entities.Count} entities, {twoRockets.WorldSolids.Count} world brushes");
+    var wallJump = TFAiTestMaps.Wall();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_wall.vmf"), wallJump.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_wall.yaml"), AiTestMaps.Level("ss_ai_tf_wall.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_wall.vmf")}: {wallJump.Entities.Count} entities, {wallJump.WorldSolids.Count} world brushes");
+    var ends = TFAiTestMaps.Ends();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_ends.vmf"), ends.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_ends.yaml"), AiTestMaps.Level("ss_ai_tf_ends.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_ends.vmf")}: {ends.Entities.Count} entities, {ends.WorldSolids.Count} world brushes");
     return 0;
 }
 

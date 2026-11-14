@@ -140,6 +140,36 @@ public sealed class ExperienceView
     /// <summary>The learned movements that start in <paramref name="from"/>.</summary>
     public IReadOnlyList<ExperienceLink> LinksFrom(WorldBin from) => [.. _links.Where(l => l.Key.From == from)];
 
+    /// <summary>
+    /// The jumps players showed that this context's class can do (lane G6a, plan G.6): each count row with the snapshot's
+    /// exemplar of it decoded (null when the snapshot has none; of two, the one whose bytes sort first), in the order of
+    /// <see cref="Links"/>. Built on each call: a reader keeps what it needs.
+    /// </summary>
+    public IReadOnlyList<ExperienceShownJump> ShownJumps()
+    {
+        var exemplars = new Dictionary<(int Class, WorldBin From, WorldBin To, int Kind), LinkKey>();
+        foreach (ExperienceLink l in _links)
+        {
+            if (!ShownJumpLedger.IsExemplar(l.Key))
+                continue;
+            var at = (l.Key.Class, l.Key.From, l.Key.To, l.Key.Kind);
+            if (!exemplars.TryGetValue(at, out LinkKey kept) || l.Key.Recipe.Bytes.AsSpan().SequenceCompareTo(kept.Recipe.Bytes.AsSpan()) < 0)
+                exemplars[at] = l.Key;
+        }
+
+        var jumps = new List<ExperienceShownJump>();
+        foreach (ExperienceLink l in _links)
+        {
+            if (!ShownJumpLedger.IsCount(l.Key))
+                continue;
+            ShownJumpRecipe? exemplar = exemplars.TryGetValue((l.Key.Class, l.Key.From, l.Key.To, l.Key.Kind), out LinkKey e)
+                                        && ShownJumpRecipe.TryRead(e.Recipe, out ShownJumpRecipe? read) ? read : null;
+            jumps.Add(new ExperienceShownJump(l.Key, l.Stat, exemplar));
+        }
+
+        return jumps;
+    }
+
     /// <summary>Where death came from for one standing in <paramref name="victim"/>, the most kills first.</summary>
     public IReadOnlyList<ExperienceSightLine> Threats(WorldBin victim)
         => Lines(_sights.Where(s => s.Key.Victim == victim));

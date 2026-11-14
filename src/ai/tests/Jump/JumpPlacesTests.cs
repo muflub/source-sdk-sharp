@@ -109,15 +109,60 @@ public class JumpPlacesTests
     }
 
     [Fact]
+    public void ALandingInAPlaceThePassIsToldToSkipIsNotProposed()
+    {
+        float height = Height(0.3f);
+        VoxelColumns columns = Block(height);
+        NavGraph graph = GraphOf(columns);
+        GraphJumpWalk walk = GraphJumpWalk.Of(graph, RunSpeed);
+        JumpPlaces Told(JumpSkip? skip) => new(graph, columns, Search(columns, walk: walk), walk, Reach.Value, JumpPlacesSettings.Of(TFNavProfile.ModNumbers), skip: skip);
+        JumpCandidate c = Assert.Single(Told(null).Propose());
+
+        // Told to skip the block's top (any side's landing): no candidate, and the work says why.
+        var top = new JumpSkip(new Vector((BlockX + BlockSize / 2) * Voxel, (BlockY + BlockSize / 2) * Voxel, c.Landing.Z), BlockSize * Voxel * 0.75f);
+        IReadOnlyList<JumpCandidate> skipped = Told(top).Propose(out JumpPlacesWork work);
+        Assert.Empty(skipped);
+        Assert.True(work.Skipped > 0, $"skipped {work.Skipped}");
+        Assert.Empty(Told(top).Find().Links);
+
+        // Told to skip only where the first lands: another side's landing is proposed instead.
+        JumpCandidate other = Assert.Single(Told(new JumpSkip(c.Landing, 64f)).Propose());
+        Assert.NotEqual(c.To, other.To);
+
+        // The control: a place elsewhere (over the ground, or far over the ledge's top) leaves it be.
+        Assert.Equal(c, Assert.Single(Told(new JumpSkip(c.Takeoff, 64f)).Propose()));
+        Assert.Equal(c, Assert.Single(Told(new JumpSkip(c.Landing + new Vector(0f, 0f, 2f * JumpSkip.HeightSlack), 64f)).Propose()));
+    }
+
+    [Fact]
     public void ALedgeHigherThanTheJumpRisesIsNotProposed()
     {
-        float height = Height(1.2f);
+        // Past what two rockets rise (lane G7b): a single's rise and a second rocket's lift.
+        float height = Voxel * MathF.Round(1.2f * (Reach.Value.Rise + Reach.Value.Lift) / Voxel);
+        Assert.True(Reach.Value.Lift > 0f, "the control: a second rocket lifts");
         JumpPlacesResult result = Places(Block(height)).Find();
         Assert.Equal((0, 0, 0), (result.Candidates.Count, result.Links.Count, result.Flights));
         // The control: told the jump reaches twice as far as it does, the pass proposes it, and the search, which flies it, finds nothing.
         JumpPlacesResult fooled = Places(Block(height), s => s with { ReachShare = 2f, PerPair = 1 }).Find();
         Assert.Equal((1, 0), (fooled.Candidates.Count, fooled.Links.Count));
         Assert.InRange(fooled.Flights, 20, new JumpSearchSettings().MaxFlights);
+    }
+
+    [Fact]
+    public void ALedgePastOneRocketsRiseAndWithinTwosIsSearchedForTheTwoRocketFamiliesAlone()
+    {
+        var settings = JumpPlacesSettings.Of(TFNavProfile.ModNumbers);
+        float single = settings.ReachShare * Reach.Value.Rise, two = settings.ReachShare * (Reach.Value.Rise + Reach.Value.Lift);
+        float height = Voxel * MathF.Ceiling((single + 1f) / Voxel);
+        Assert.True(height > single && height < two, $"the control: {height} is past one rocket's {single} and within two's {two}");
+        JumpCandidate c = Assert.Single(Places(Block(height), s => s with { PerPair = 1 }).Propose());
+        Assert.Equal((JumpPlaceKind.Up, JumpFamilies.Double | JumpFamilies.Wall), (c.Kind, c.Families));
+
+        // Within one rocket's reach every single family is asked, as before.
+        Assert.Equal(JumpFamilies.Both, Assert.Single(Places(Block(Height(0.5f)), s => s with { PerPair = 1 }).Propose()).Families);
+
+        // The control: an envelope with no lift proposes nothing past one rocket's rise.
+        Assert.Empty(Places(Block(height), s => s with { PerPair = 1 }, reach: Reach.Value with { Lift = 0f }).Propose());
     }
 
     /// <summary>The block with a stair up its west side: a column a step, 16 units each, the top step level with the block.</summary>

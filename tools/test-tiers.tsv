@@ -102,6 +102,9 @@ fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.TheLevelsBlastLinksAreFoundOnAWor
 fact	ai	SourceSharp.Ai.Tests.Jump.JumpLinkCacheTests.TheSecondLoadReadsTheFileWhereTheFirstRanThePass	2.6	1
 fact	ai	SourceSharp.Ai.Tests.Jump.JumpPlacesTests.ACappedPassSearchesOnlyItsFirstCandidates	2.1	1
 fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.ASecondLoadOfTheLevelReadsItsLinksFromTheCacheBesideTheGraph	2.1	1
+fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.APlaceThePassIsToldToSkipGetsNoLink	2.4	1
+fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.ASkippedPassIsCachedUnderItsOwnKey	2.4	1
+fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.AnEmptySnapshotOrAnotherMapsIsNotRead	2.4	1
 gtest-binaries	native	dead_conditionals_test	6.2	1
 must-not-compile	native	client_slot_table_no_own_serial	5.8	1
 must-not-compile	native	slot_table_no_activelist	7.0	1

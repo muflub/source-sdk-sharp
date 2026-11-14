@@ -37,6 +37,9 @@ public sealed partial class TFDecider
     /// <summary>A jump is begun with at least this many rockets loaded: one for the jump, one to spare.</summary>
     public const int RocketJumpRockets = 2;
 
+    /// <summary>The rockets a link's jump is begun with loaded: its recipe's (two with a second rocket in the air, lane G7b) and the one to spare.</summary>
+    public static int RocketsFor(JumpPlan plan) => (plan ?? throw new ArgumentNullException(nameof(plan))).Recipe.Rockets + RocketJumpRockets - 1;
+
     /// <summary>The longest a jump begun is taken to be under way, whatever the bot's feet say.</summary>
     public const float RocketJumpMostSeconds = 9f;
 
@@ -77,11 +80,23 @@ public sealed partial class TFDecider
 
     /// <summary>
     /// The route's own jump: a blast link its follower says the bot stands at the start of, on its way to this decide's
-    /// goal (lane G5c-2b: the follower only says it; the tree begins it), whose blast leaves the bot over its health floor.
+    /// goal (lane G5c-2b: the follower only says it; the tree begins it), with its rockets and one to spare loaded
+    /// (<see cref="RocketsFor"/>: a second rocket in the air needs three, lane G7b) and whose blasts leave the bot over its
+    /// health floor. <paramref name="refused"/> says which of the two failed when one did.
     /// </summary>
-    private bool RouteLinkAdvised([NotNullWhen(true)] out JumpPlan? plan)
+    private bool RouteLinkAdvised([NotNullWhen(true)] out JumpPlan? plan, out JumpLinkRefusal refused)
     {
-        plan = Jumps!.RouteLink(_bot.Slot, _now, _goal) is { } link && _self.Health - link.Health >= RocketJumpHealthFloor ? link : null;
+        plan = null;
+        refused = JumpLinkRefusal.Health;
+        if (Jumps!.RouteLink(_bot.Slot, _now, _goal) is not { } link)
+            return false;
+        if (_self.Clip < RocketsFor(link))
+        {
+            refused = JumpLinkRefusal.Clip;
+            return false;
+        }
+
+        plan = _self.Health - link.Health >= RocketJumpHealthFloor ? link : null;
         return plan is not null;
     }
 

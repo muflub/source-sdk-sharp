@@ -22,13 +22,16 @@ public sealed record JumpLinkFile(IReadOnlyList<JumpLink> Links, int Candidates,
 /// Format (little-endian): magic <c>SSJLNK01</c>; revision; graph hash; cell count; the inputs key
 /// (length-prefixed UTF-8); candidates, flights, the pass's milliseconds; the link count, and each
 /// link: from, to, the recipe (takeoff, landing, run-up, pitch, yaw offset, shot delay, ducked), the
-/// family, robustness, seconds, air seconds, health, walk seconds (NaN for no walk).
+/// family, robustness, seconds, air seconds, health, walk seconds (NaN for no walk); then whether the
+/// recipe has a second rocket (revision 2, lane G7b: 1; revision 3, lane G7c: 2 for one fired at a wall),
+/// and when it has, its place, earliest and latest commands, pitch and yaw offset. A one-rocket link's
+/// numbers are the bits they were at revision 1.
 /// </remarks>
 /// <param name="revision">The format's and the pass's revision: <see cref="Revision"/>, another only in a fact.</param>
 public sealed class JumpLinkCache(int revision = JumpLinkCache.Revision)
 {
-    /// <summary>Raised whenever the pass or the file changes what a link is.</summary>
-    public const int Revision = 1;
+    /// <summary>Raised whenever the pass or the file changes what a link is: 2, a recipe's second rocket (lane G7b); 3, a second rocket at a wall (lane G7c).</summary>
+    public const int Revision = 3;
 
     private static ReadOnlySpan<byte> Magic => "SSJLNK01"u8;
 
@@ -38,9 +41,11 @@ public sealed class JumpLinkCache(int revision = JumpLinkCache.Revision)
     /// <summary>
     /// The key of the inputs the links come from besides the graph: the first 16 hex digits of the
     /// SHA-256 of the records' own text (every member, printed in the invariant culture), so any
-    /// change of a number refuses an older file.
+    /// change of a number refuses an older file. A place the pass was told to skip (lane G6b) is part of it only when
+    /// there is one, so a pass with none keeps the key it had.
     /// </summary>
-    public static string InputsKey(JumpLauncher launcher, in JumpPilotLimits limits, JumpSearchSettings search, JumpPlacesSettings places, IReadOnlyList<int> seeds)
+    public static string InputsKey(JumpLauncher launcher, in JumpPilotLimits limits, JumpSearchSettings search, JumpPlacesSettings places, IReadOnlyList<int> seeds,
+                                   JumpSkip? skip = null)
     {
         ArgumentNullException.ThrowIfNull(seeds);
         CultureInfo was = CultureInfo.CurrentCulture;
@@ -49,7 +54,7 @@ public sealed class JumpLinkCache(int revision = JumpLinkCache.Revision)
         {
             // A record prints its members in the thread's culture: the key must not change with the server's locale.
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-            text = $"{launcher}|{limits}|{search}|{places}|{string.Join(",", seeds)}";
+            text = $"{launcher}|{limits}|{search}|{places}|{string.Join(",", seeds)}" + (skip is { } s ? $"|skip {s}" : "");
         }
         finally
         {
@@ -110,6 +115,15 @@ public sealed class JumpLinkCache(int revision = JumpLinkCache.Revision)
             F32(l.AirSeconds);
             F32(l.Health);
             F32(l.WalkSeconds ?? float.NaN);
+            I32(l.Recipe.Second is not { } shot ? 0 : shot.Wall ? 2 : 1);
+            if (l.Recipe.Second is { } second)
+            {
+                Vec(second.Over);
+                I32(second.Earliest);
+                I32(second.Latest);
+                F32(second.Pitch);
+                F32(second.YawOffset);
+            }
         }
 
         return [.. w];
@@ -142,21 +156,32 @@ public sealed class JumpLinkCache(int revision = JumpLinkCache.Revision)
         int candidates = BinaryPrimitives.ReadInt32LittleEndian(stats), flights = BinaryPrimitives.ReadInt32LittleEndian(stats[4..]);
         double passMs = BinaryPrimitives.ReadDoubleLittleEndian(stats[8..]);
         int count = BinaryPrimitives.ReadInt32LittleEndian(stats[16..]);
-        const int LinkBytes = (2 * 4) + (6 * 4) + (3 * 4) + (3 * 4) + (5 * 4);
-        if (count < 0 || count > (bytes.Length - at) / LinkBytes || !Take(count * LinkBytes, out ReadOnlySpan<byte> body, bytes) || at != bytes.Length)
+        const int LinkBytes = (2 * 4) + (6 * 4) + (3 * 4) + (3 * 4) + (5 * 4) + 4, SecondBytes = (3 * 4) + (2 * 4) + (2 * 4);
+        if (count < 0 || count > (bytes.Length - at) / LinkBytes)
             return null;
         var links = new JumpLink[count];
         for (int i = 0; i < count; i++)
         {
-            ReadOnlySpan<byte> r = body.Slice(i * LinkBytes, LinkBytes);
-            int from = I(r, 0), to = I(r, 4);
-            if ((uint)from >= (uint)graph.CellCount || (uint)to >= (uint)graph.CellCount)
+            if (!Take(LinkBytes, out ReadOnlySpan<byte> r, bytes))
                 return null;
-            var recipe = new JumpRecipe(new Vector(F(r, 8), F(r, 12), F(r, 16)), new Vector(F(r, 20), F(r, 24), F(r, 28)), F(r, 32), F(r, 36), F(r, 40), I(r, 44), I(r, 48) != 0);
+            int from = I(r, 0), to = I(r, 4), hasSecond = I(r, 76);
+            if ((uint)from >= (uint)graph.CellCount || (uint)to >= (uint)graph.CellCount || (uint)hasSecond > 2u)
+                return null;
+            JumpSecondShot? second = null;
+            if (hasSecond > 0)
+            {
+                if (!Take(SecondBytes, out ReadOnlySpan<byte> t, bytes))
+                    return null;
+                second = new JumpSecondShot(new Vector(F(t, 0), F(t, 4), F(t, 8)), I(t, 12), I(t, 16), F(t, 20), F(t, 24)) { Wall = hasSecond == 2 };
+            }
+
+            var recipe = new JumpRecipe(new Vector(F(r, 8), F(r, 12), F(r, 16)), new Vector(F(r, 20), F(r, 24), F(r, 28)), F(r, 32), F(r, 36), F(r, 40), I(r, 44), I(r, 48) != 0, second);
             float walk = F(r, 72);
             links[i] = new JumpLink(from, to, recipe, (JumpFamily)I(r, 52), F(r, 56), F(r, 60), F(r, 64), F(r, 68), float.IsNaN(walk) ? null : walk);
         }
 
+        if (at != bytes.Length)
+            return null;
         return new JumpLinkFile(links, candidates, flights, passMs);
     }
 

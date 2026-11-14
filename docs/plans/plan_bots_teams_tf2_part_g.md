@@ -451,6 +451,27 @@ started: P6 step 8 (the TF2 bots page, new files), lengthening `bots-ctf`'s
   first item is allowed; the map-tools session confirmed it with the user and
   built a hull navigation file for it, `.navhull` (G.7).
 
+### Rulings (user, 2026-11-13)
+
+Asked four things on 2026-11-12 (G.15's "still to do"); two were ruled and
+two were sent back for a fuller account.
+
+- **Prefire may spend the rockets kept back for a jump** ("yes"). The clip
+  rule of `TFDecider.PrefireAllowed` (a bot that rocket jumps prefires only
+  with `RocketJumpRockets + 1` loaded) goes: one rocket loaded is enough.
+  Lane Gp2.
+- **Pogo, and a jump that takes the bot under its health floor:** "should be
+  a planned jump to a health pack near by for fast mobility". Read as: a
+  planned jump may leave the bot under `RocketJumpHealthFloor` (90) when it
+  lands near a health pack the bot believes is there, or a cabinet it may
+  use, and the bot takes the pack next; such jumps are for getting
+  somewhere fast, not only for reaching a height. A jump that lands
+  nowhere near health keeps the floor. A faster-firing launcher is not
+  asked for. Lane G9.
+- The rooms proposal (Q-R1 to Q-R4 in
+  `plan_bots_teams_tf2_part_g_rooms.md`) and whether the Course branch
+  stays on ordinary control-point maps: "explain more". Not ruled.
+
 ### Open questions, each with a recommendation (taken as recommended 2026-11-10; Q-G6's first item since allowed)
 
 | | question | recommendation |
@@ -725,6 +746,13 @@ Everything below is on local main; nothing is pushed.
 | G5e, a link's results, and chains | `cd030b14c` (6 commits) | each try of a link is written to its `link` row; a link under 30 % after five tries is left out at the next snapshot; a route's own link is not spaced from the jump before it, so two in a row work; the skip after a reload found and fixed |
 | G7a, a course of our own | `9be3e5946` (9 commits) | `ss_ai_tf_course` (seven stages, six jumps, the highest +350 u) and a Course branch of the tree; one Soldier finishes it from its spawn with no errand, 5 of 5 and 5 of 5 after a reload; it heals for a jump it cannot pay for |
 | G4b, the experience's other uses | `f55f7441c` (6 commits) | a bot checks the place its side keeps dying from; a defender holds where players held (fed from what players do); an attacker chooses its door into the flag room by what worked; an empty store changes nothing |
+| G6a, the store learns players' jumps | `c60c9008c` (4 commits) | a person's jump the navigation has no way for is seen command by command, judged off the game's thread and written as two `link` rows with no identity; nothing reads them yet |
+| G7b, a second rocket in the air | `810defc31` (12 commits) | a recipe may fire a second rocket at a floor the flight passes over; the search, the pass, the cache and the store carry it; `ss_ai_tf_double`, a course only it finishes; a teleport back from a ledge over the start is a reset |
+| Gp, prefire | `52a6bcbdb` (4 commits) | HL2MP's prefire is the core's (`src/ai/core/Brain/Prefire.cs`), its replays unchanged; a TF2 Soldier puts one rocket at the floor of the opening an enemy it lost is believed behind (`ai_tf_feel_prefire`); a rocket at a place the store says kills the side, after the feed says it just did again |
+| G6b, a bot flies a jump a player showed | `8363e9918` (5 commits) | each Soldier blast jump of the snapshot is fitted by the search (the person's shot only a hint) and joins the level's links after the shape links; kept by the bots' own tries; `ai_tf_links_skip` for the proof |
+| G7c, a wall jump | `eaa8efe55` (6 commits) | a Wall family: a jump up whose second rocket is fired at a wall beside the flight; cache revision 3, store recipe format 5; `ss_ai_tf_wall`, a course only it finishes; a link's start is walked onto to within 4 u; the second rocket's deadline shot is gone |
+| Ge, a course's ends, the friend line, the gate's step | `bed4d5221` (10 commits) | a capture area whose point the level does not place is a course's end (`TFCourseEnds`), reached for a life, easiest title first; `ss_ai_tf_ends`; `FriendLine` judges a teammate's body where the shot passes it, HL2MP's replays unchanged; `tools/tf2-gate --steps bots-jump` |
+| G8, the practice tool, a shown wall jump | `8547149f8` (7 commits) | `tools/ai-jump-practice` searches a level's weak and missing jumps offline and writes `link` rows of source Practice; the learn pass flies each in the level's simulator before it joins the links (`JumpPractice`); a shown jump past one rocket's rise is asked a wall jump too; `tools/ai-tf-jump`'s tries start in a running round |
 
 **The physics changed under the jump (F231, the TF2 port's lane).** A TF2
 player now carries TF2's hull (48 × 48 × 82, 62 ducked), not HL2's box, so a
@@ -1154,19 +1182,327 @@ waits on another class.
   snapshot (one a side, built with the routes, is the follow-up, as for the
   looks). A decider's list of finished tries grows for the session.
 
-**Still to do, in order:** a second rocket in the air (lane G7b, running
-since `f55f7441c`: the simulator's gap for two blasts first, then the
-recipe, pilot, search and links, a stage that needs it, and why a reset was
-not seen); learning jumps from players (G.6's first half, lane G6a, running
-since `f55f7441c`: see a player's jump the navigation has no way for and
-write its `link` row; the fit and the link joining the routes are the lane
-after, once G7b's search has landed); the recording format 8 → 9, after the
-user's ruling on the rooms proposal, since a room change would be a record
-of its own (what each lane said a faithful replay needs is in the
-coordinator's notes); the course's ends on the real jump map read from its
-capture areas; the jump map's rooms, when approved; wall jumps and pogo;
-the gate's `bots-jump` step; the prefire lift. The rows of G.4 that need an
-Engineer, a Sniper, a Spy or a class pick wait for the main plan's P7.
+**G6a, the store learns players' jumps** (`c60c9008c`, 2026-11-12; the
+gate at that tip: `make check` rc=0, 14 legs; the ledge 3 of 3 and 3 of 3
+after a reload; three boots with kills and no fault lines):
+
+- **Seen.** `ShownJumpFeed` (the generic server, hook order First + 915)
+  hands every command of a person, with the body as the command finds it
+  and the game's word on blasts (`IExperienceJumps`; TF2's reads
+  `SsPlayer.State` and `TFBlastJumpState`, no engine call but one at a
+  landing), to a pure tracker, `JumpWatch`. A bot is never watched. HL2MP
+  registers no `IExperienceJumps`, so nothing is watched there. With the
+  store off, learning off or no round being played: one check a command.
+- **Kept for judging:** 0.4 to 6 s in the air, begun by the player's own
+  doing (a jump press in the 3 commands before, or its own blast), landing
+  dry and walking and not on a player. **Thrown away, each counted:** short,
+  long, a fall, pushed (hurt or blasted by another), kicked (a leap in speed
+  in the air nothing of its own explains: an airblast, a shove), moved by
+  the game, died, wet, a ladder, on a player.
+- **Judged on the experience worker** (`ShownJumpJudge`): no cell within
+  24 u of the feet; the same cell or bin; one of the level's links already
+  goes there (landing within 1 bin, start within 3); a walk of no more than
+  2.5 times the straight line, or one that saves under 128 u; else learned,
+  as "no way" or "long walk". The plan's "no walk, jump or drop link to the
+  landing bin" was read as a route on the graph, not a direct edge.
+- **The rows** (source `Human`): a count row keyed by class, takeoff bin,
+  landing bin and kind (blast 0, sticky 16, double 17, crouch 18, plain 19)
+  with the one-byte recipe 4, each sighting a try and a success with its
+  seconds and health; and, the first time, an exemplar row (recipe format
+  3, counts zero): the two points, four velocities, the air commands, the
+  health and the player's commands from 0.5 s before the takeoff through
+  the landing, 7 bytes each (the server does get them:
+  `IPlayerCommandObserver`), at most about 3.1 KB. `LinkTrust` matches exact
+  keys, so it never reads a human row. The reader is
+  `ExperienceView.ShownJumps()`. A link row's recipe formats are now 1 (a
+  solver's), 2 (with a second rocket), 3 and 4.
+- **In the game** (debug, `ss_ai_tf_jump`, `5a9b0df1c`, a private store): a
+  bot standing in for a person (`ai_experience_jump_standin`, a cheat, off
+  by default) flew the level's link to the 250 u ledge three times: 3
+  learned with the level's links left out of the judging, the count row at
+  3 tries and 120 health, the exemplar 1,063 bytes with the takeoff and
+  landing within 8 u of the finder's own link; with the switch off nothing
+  was watched; judged against the level's links, 3 "known" and no row.
+- **Cost** (debug, ctf_2fort, thread CPU on the game's thread, `22deec1b1`):
+  1.0 to 1.25 µs a watched command (13 and 25 players watched); the
+  existing feed's cost unchanged.
+- **Left for the fit.** The row has no weapon, no health at takeoff and no
+  positions per tick. On ctf_2fort 52 of 147 watched landings had no cell
+  (crouch hops onto props and ledge edges) and learned jumps were rare (2
+  in 120 s of 24 bots). An airblast or a shove gives no hurt and no blast
+  state: it is caught only as a kick. An exemplar row is never touched
+  again, so it is forgotten after ten half-lives while its count row lives;
+  the next session's first sighting writes another.
+
+**G7b, a second rocket in the air** (`810defc31`, 2026-11-12; the gate at
+that tip, with G6a under it: `make check` rc=0, 14 legs; the ledge 3 of 3
+and 3 of 3 after a reload; `ss_ai_tf_course` 3 of 3 and 3 of 3;
+`ss_ai_tf_double` 3 of 3 and 3 of 3; three boots with kills and no fault
+lines):
+
+- **The simulator was measured first and needed no fix** (debug,
+  `0169cbc51`, a test build firing a second rocket on every stretch plan of
+  `ss_ai_tf_jump`): 14 of 14 landed with two rockets in the game and in the
+  simulator, the landing gap median 0.0 u and worst 6.2 u; the recorded
+  commands flown again through the simulator, 11 flights, 0.00 u.
+- **Where a second rocket pays.** Not over open floor: at the launcher's
+  0.8 s refire a jump up is 450 to 580 u over its floor, far outside the
+  121 u a self blast reaches, and off the takeoff floor it adds no range.
+  It pays **at a floor the flight passes over** (a beam, a ledge's top).
+  So a recipe's second shot (`JumpSecondShot`) is a place, not a time: the
+  pilot presses again once the launcher is ready and the body has come over
+  the place the found flight fired from, or at a deadline 12 commands
+  later, never from under that floor and only with the view within 3° of
+  straight down and behind.
+- **The search and the pass.** A `Double` family, run only when asked and
+  only when no single jump is worth keeping; the envelope gains a `Lift`
+  (what a blast 32 u over a floor adds: 247 u) and the pass proposes up to
+  0.9 × (580 + 247) = 744 u, anything past the single cut of 522 searched
+  for two rockets alone. The links' cache is revision 2; a two-rocket
+  recipe's store row is format 2 (70 bytes); a two-rocket link is begun
+  with three rockets loaded, and its health is both blasts (78 on the
+  course).
+- **Decision (the implementer's, 2026-11-12, on the lane's evidence): a
+  two-rocket jump is searched under a tighter error model than a single.**
+  Under the singles' (start ±16 u, view ±3°, trigger ±2 commands) no beam
+  layout of about 300 probed reached the 0.6 a link needs; the first shot's
+  pitch alone lost 18 of 40. A link is flown standing, placed within 8 u,
+  the trigger on the pilot's own command, so a two-rocket jump's first shot
+  is modelled at start ±8 u, view ±1°, trigger exact, and the program holds
+  that shot to 1° for every bot. In the game the jump then landed 10 of 14
+  times it was launched and not cut (debug, `0acf42c3c`); a fall is put
+  back, retried and written to the store. All 4 failures pressed the second
+  trigger at the deadline, the first blast never having carried the body
+  over the place: firing at the deadline never paid, and dropping it is a
+  follow-up.
+- **`ss_ai_tf_double`:** S0 at 656, S1 at 848 (+192 over a 128 u gap, one
+  rocket), S2 at 1,424 (+576), with a beam 48 u wide and 192 u long at
+  1,232 on the way, narrower than the pass's shortest landing and with a
+  reset over its top. A second map because `ss_ai_tf_course`'s room has no
+  height left over S6. The lane's runs (debug, `0acf42c3c`,
+  `tools/ai-tf-jump course --map ss_ai_tf_double --runs 5 --reload`): 5 of
+  5 and 5 of 5; landing gaps to the simulator 0.0 to 1.6 u.
+- **The reset.** G7a's "fall that ended Moved" was the tool's own
+  `mp_restartgame` moving the bot in the middle of a jump; the tool now
+  counts a move apart from a fall. A real case was new: a failed second
+  rocket comes down on the beam and is put back at S1 from above the
+  start, which the rule "fell below the start's floor" missed. A move to
+  the start is now a reset when the body fell below its floor or is still
+  moving where it was put (a teleport keeps the body's speed; a restart's
+  spawn is at rest). A test build whose second rocket never fired: 16
+  tries, 14 resets, the store row at 16 tries and 0 successes.
+- **Nothing else moved** (debug, `0acf42c3c` against `f55f7441c`):
+  `ss_ai_tf_jump`'s pass 11 links and 1,379 flights both, its thread CPU
+  within 2 %; ctf_2fort 49 candidates → 58 (9 two-rocket, none flown: no
+  standing start), the same 8 links, the pass about 1 % slower; ctf_2fort
+  560 s with 8 bots 5 captures, 11 pickups, 120 stuck reports (a sample).
+- **Corrections to earlier notes.** One rocket's limit is about 580 u of
+  rise, not +350: onto a ledge across the line singles land +400 at
+  robustness 0.85 to 0.90; the course's +400 failure was its own geometry.
+  G7a's table put S6 at 1,656; it is built at 1,606.
+- **Found outside the lane, not fixed** (`src/server`): at a round's
+  restart the bot's move back to its spawn touched a reset trigger on the
+  way and ended on S1, as if the game sweeps the body through triggers when
+  it moves it. Unproven; the map was changed to keep S0 off that line.
+
+**Gp, prefire** (`52a6bcbdb`, 2026-11-12; the gate at that tip: `make
+check` 14 legs, the ledge 3 of 3 and 3 of 3 after a reload, both courses 3
+of 3 each side, boots with 18, 18 and 26 kills and no fault lines).
+
+- **The lift.** `LineAsks` (the bot's one channel for asking the game about
+  a line), `PrefireBelief.Of` (seen within 2.5 s, heard within 1.5 s, or a
+  habit spot), `PrefireOpening` (the nearest place to the belief the sight
+  table says the bot sees) and `PrefireRun` (the state machine) name no
+  game. HL2MP calls them; its 27 replay facts pass with no recording
+  re-made, and halving the chance in the core turns four red.
+- **TF2's rules.** A launcher in hand; no enemy in sight; a target lost that
+  the core believes; the branch Fight, Defend, Guard or Search; no jump under
+  way; a rocket for it and, for a bot that rocket jumps, two kept back; the
+  place 320 to 1,500 u off, within 60 degrees of the view, the belief still
+  inside its seconds when the rocket lands; only down a line the game
+  answered clear; one rocket, then a wait of 2 s. The friend gate gets the
+  place level with the eye as its aim (see "found" below).
+- **The danger shot.** The kill feed names a teammate dead; the bot heard
+  the scream within 1 s or saw the teammate within 2 s; the place is in or
+  next to a bin the store has a killer place for: one chance in 8 s to fire
+  at that place's floor, also on the way to the flag.
+- **In the game** (debug, ctf_2fort, 8 bots, 560 s, store off, one run an
+  arm, so spread and not effect): on, 5 captures, 11 pickups, 133 stuck
+  reports; off, 4, 8, 102. On: 16 chances, 5 aims, 1 rocket, 0 hits; decides
+  refused by the clip rule 239, far 87, near 40, turn 34, old 25, blocked 3.
+  **The clip rule is what limits it**: whether prefire may spend the rockets
+  kept for a jump is the user's to rule. The danger shot on a seeded store
+  (480 s): 69 teammate deaths in the feed, 14 placed, 3 at a danger place, 1
+  chance, 0 rockets: it works and almost never fires between bots.
+- **Found, not fixed there.** `FriendLine` judges a teammate's body at the
+  shooter's eye height, so a shot aimed down can pass a teammate unjudged
+  (lane Ge has it). The kill feed's event carries no weapon. `tools/ai-mutations`
+  had 9 stale anchors at the base. The feel switches are seven now: a
+  faithful replay records them.
+
+**G6b, a bot flies a jump a player showed** (`8363e9918`, 2026-11-12; the
+gate at that tip, both lanes stacked: `make check` 14 legs, the ledge 3 of
+3 and 3 of 3, both courses 3 of 3 each side, a show-then-learn run on a
+fresh store 5 of 5 by the learned link, boots with 19, 16 and 26 kills and
+no fault lines).
+
+- **Where it enters.** `TFJumps` reads the experience's snapshot each frame;
+  a new one of the level's map, once the shape links are published, starts a
+  learn pass on a task (`JumpLearning`, `ShownJumpFit`).
+- **How.** Each Soldier blast jump, most seen first, is an ask of the jump
+  search from the exemplar's takeoff to its landing; the person's shot is a
+  `JumpHint` whose 3 x 3 neighbourhood is flown before the grids and kept
+  only as a grid's find is. The bot never flies the person's numbers.
+  Verdicts: Fitted, Kept, Few, Capped (12 a pass), NoCell, Same, Known,
+  NoStand, NoRecipe (under 0.6), Rests, Twin.
+- **Where it lives.** After the shape links in the same published set, so a
+  shape link's index never moves; marked `JumpLink.Shown`; not cached (each
+  jump is searched once a level); its tries are ordinary `Solver` rows, so
+  `LinkTrust` shuts a bad one.
+- **In the game** (debug, `ss_ai_tf_jump`): with the pass told to skip the
+  250 u ledge (`ai_tf_links_skip`, its own cache key) and a store from a
+  session that showed the jump, 10 of 10 tries reached the ledge by the
+  learned link, the landing 0.9 u (worst 2.6) from the simulator's. Empty
+  store: no link, 0 of 3. Switch off: all three shown jumps Known, none
+  learned. A learned link whose plan was spoiled (a test build) failed 8
+  tries and the next session left it out.
+- **Cost.** 139 and 160 flights, about 120 ms of a worker's CPU a jump,
+  once a level; the publish 2 us under the lock; the shape pass unchanged.
+- **Open.** A round restart's tries reach the snapshot one round late. The
+  practice tool is designed, not built (lane G8 has it). The slow first try
+  is the tools', see G7c below.
+
+**G7c, a wall jump** (`eaa8efe55`, 2026-11-12; the gate at that tip: `make
+check` 14 legs, the ledge 3 of 3 each side of a reload, `ss_ai_tf_course` 3
+of 3 each side, `ss_ai_tf_double` and `ss_ai_tf_wall` 5 runs each side with
+rc 0, a show-then-learn run 5 of 5 by the learned link, three boots with no
+fault line).
+
+- **What a wall gives.** In the simulator a first shot at a wall adds little
+  over the Up family (711 u against 677 at 64 u from the wall), so no
+  first-shot family was built. A second rocket at a wall beside the flight
+  lifts an Up jump's apex from 580 u to 980, 920, 830 and 733 u with the wall
+  32, 48, 64 and 96 u off the line; with no wall the best is 530.
+- **The family.** `JumpFamily.Wall`: the Double's recipe with
+  `JumpSecondShot.Wall` set and the same pilot rule. The pass asks
+  `Double | Wall` for a rise past 0.9 of one rocket's; the search tries the
+  floor double first. Grid: 144 cells, at most `WallMaxFlights` 480. Two
+  blasts' health (71 to 87), three rockets loaded. Cache `Revision` 3, store
+  recipe format 5 (3 and 4 are a person's rows).
+- **Why doubles failed.** Every failed two-rocket jump of lanes G7b, G6b and
+  G7c (17 of 17) launched 7.0 to 8.0 u past its start: the placing stopped at
+  the 8 u slack's edge. `RocketJumpProgram.PlaceNear` (4 u) walks the body
+  nearer before it stops; after it, doubles 10 of 10 first try. The second
+  trigger's deadline shot was not the cause; it is gone anyway
+  (`JumpPilot.SecondNow` fires only as the body comes over its place).
+- **The slow first try** is not the jump code and not the map change: the
+  preround freeze (about 560 ticks), TF2's waiting-for-players restart in the
+  middle of a try, and the bot carrying the flag between `mp_restartgame` and
+  the try. The tools should wait for the round; not done.
+- **Pogo: designed, not built.** One blast straight down 32 u over a floor
+  while falling adds 630 to 680 u/s for 45 to 50 damage; a chain needs about
+  0.81 to 0.85 s of air against the 0.8 s refire, and the tree's health floor
+  of 90 leaves one extra blast. It needs a faster refire or a health budget
+  under the floor for a planned link: a ruling, not a search.
+- **Open.** `ShownJumpFit` does not ask the Wall family. The pass's
+  two-rocket cut still uses the beam's lift (744 u), though a wall lifts
+  more. `FindTwo` keeps a refined hit's second view as the first.
+
+**Ge, a course's ends, the friend line, the gate's step** (`bed4d5221`,
+2026-11-12, stacked on G7c with one commit joining them; the gate at that
+tip: `make check` 14 legs, `tools/tf2-gate --steps bots-jump` PASS with the
+ledge, `ss_ai_tf_course`, `ss_ai_tf_double`, `ss_ai_tf_wall` and
+`ss_ai_tf_ends` each 5 of 5 before a reload and 5 of 5 after, three boots
+with no fault line).
+
+- **Ends.** `jump_academy2_rc9a` has 19 `trigger_capture_area`s whose
+  `area_cap_point` is a course's title and names no entity, and one locked
+  point at the hub. `TFCourseEnds.Of` reads such areas from the level's
+  placements; a level with one is a course of ends and its points are none.
+  The bot takes the easiest end by its title's word (basic, easy, medium,
+  hard, expert), then the nearest; an end is reached when the body's box
+  overlaps its volume, remembered for a life (a death, or a respawn by a
+  round's restart); no way for 20 s sets an end aside for 60 s. A level with
+  no end runs the code it ran. `/ai/course` says it per bot.
+- **Proof.** `ss_ai_tf_ends`: a hub and three courses (a 150 u ledge, a
+  250 u ledge, stairs and a 400 u gap). 5 of 5 each side of a reload, the
+  three ends in 1,553 to 2,427 ticks; with the ends handed as none, 0 of 2
+  and the bot never left the floor.
+- **The friend line.** `FriendLine.AngleToBody` takes the body's point
+  nearest the shot's line, not the point at the shooter's eye height, and a
+  crouched teammate's lower top when the caller gives one. HL2MP is on the
+  new rule and its 27 replay facts pass with no recording re-made. Gp's
+  level-point work-round is gone. On ctf_2fort (8 bots, 560 s, one run) fire
+  held for a teammate went from 23 of 1,436 shots to 100 of 2,110
+  (`/ai/friendgate`, new). One mutation is told apart by no fact: handing
+  every aim level with the eye.
+- **The gate.** `tools/tf2-gate --steps bots-jump`, named only: it runs
+  `tools/ai-tf-jump` on its own port for each of the five maps and needs 4
+  of 5 each side of the reload, read from the run's JSON (the tool's exit
+  code does not check the ledge's reload side). `tools/tf2-gate` is the TF2
+  port session's; the edit is named in its commits.
+- **What the real map still needs.** Its navigation and its teleports as
+  links (every course is entered and left through a `trigger_teleport`), a
+  route distance for "nearest", the techniques most rooms want, and ports of
+  `trigger_catapult`, `func_nogrenades` and `filter_tf_class`. One area has
+  `team_cancap_2 0`, which the rule does not read.
+
+**G8, the practice tool and a shown wall jump** (`8547149f8`, 2026-11-12;
+the gate at that tip: `make check` 14 legs, `tools/tf2-gate --steps
+bots-jump` PASS with the five maps each 5 of 5 before a reload and after,
+a show-then-learn run 5 of 5 by the learned link, the practice tool's dry
+run on that run's store rc 0, three boots with no fault line).
+
+- **The tool.** `tools/ai-jump-practice <map> [--db] [--below 0.8]
+  [--dry-run]` (the replay program's `practice` verb): no game. It opens the
+  store (never makes one), runs the shape pass, the game's `ShownJumpFit`
+  and `LinkTrust` over the snapshot, and re-searches the shown jumps judged
+  NoRecipe or Rests, the links the bots gave up or under `--below`, and the
+  pass's candidates with no link, with `JumpPracticeTool.Rich` (grids of
+  12 by 5 and 9 by 7 against the game's 5 by 3 and 4 by 3, 40 trials, up to
+  3,200 flights). It writes a row only when the game's own reader would
+  take it. A write while a game has the store open is held by facts.
+- **The reader.** `JumpPractice`, in the learn pass, before the shown jumps'
+  fit: each Soldier blast row of source Practice is read back
+  (`TFLinkExperience.TryRecipe`), flown unperturbed (it must make its
+  landing and rest on a cell), then 40 perturbed trials (0.6 to keep; 20
+  trials put a 0.775 recipe at 0.6 on ctf_2fort). Verdicts: Taken, Unread,
+  Spoiled, Rests, NotBetter (a level link the bots have not given up costs
+  no more), Twin, Capped (12 a pass). Taken links join after the shape
+  links and before the shown ones; a shown jump a practice link already
+  makes is `Practiced`, not searched. It is in the learn pass, not the
+  shape pass, because the shape pass starts before a snapshot exists and
+  its cache holds no store. With no practice rows the pass is the one of
+  before.
+- **What it gained.** At 0.8 no jump of `ss_ai_tf_course` or ctf_2fort is
+  improved: ctf_2fort's 0.6 link's practice recipe costs more than the
+  level's own link to the same landing, and `ss_ai_tf_course`'s one
+  unlinked candidate is an 832 u gap with no recipe. At a named 0.95 the
+  course's 0.9 link onto the top was found again at 0.975 (2.07 s against
+  2.145 s planned), taken by the game and flown 5 of 5; the control store
+  copied before the tool's run has no practice link.
+- **A shown wall jump.** `ShownJumpFit` asks `Both | Double | Wall` past 0.9
+  of one rocket's rise. On `ss_ai_tf_wall`, with `ai_tf_links_skip` over
+  S2's landing: shown 3 times, fitted as a Wall link (robustness 0.7, 369
+  flights), 5 of 5 by it; an empty store, 0 of 5. No new recipe byte.
+- **The tools' first try.** `tools/ai-tf-jump links` and `trust` wait for
+  `RoundRunning` and hold the bot with an errand to its own place between
+  tries: the first try 555 ticks → 336, the restart's two `Moved` ends gone.
+  Steady tries read about 45 ticks longer (they start standing now).
+- **A replay needs** the snapshot's practice rows, as it needs the shown
+  jumps' rows.
+
+**Still to do, in order:** the recording format 8 → 9, after the user's
+ruling on the rooms proposal, since a room change would be a record of its
+own (what each lane said a faithful replay needs is in the coordinator's
+notes); the jump map's rooms, its navigation and its teleports, when
+approved; whether the Course branch stays on ordinary control-point maps.
+The rows of G.4 that need an Engineer, a Sniper, a Spy or a class pick wait
+for the main plan's P7.
+
+**Ruled 2026-11-13 and started** (G.11): prefire may spend the jump's
+rockets (lane Gp2), and a planned jump may go under the health floor when
+it lands by a health pack, pogo with it (lane G9).
 
 **Ownership, from 2026-11-11.** The TF2 AI session has not run since 07:18
 that day. G.9's serialised files have no second session to be serialised

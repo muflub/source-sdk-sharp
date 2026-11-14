@@ -156,7 +156,8 @@ public sealed class TFBindingTests
         var classes = new global::TF2.Shared.TFClassTable(new NoLog(), DispatchProxy.Create<IEngineFiles, ServerNav.AiNavBuildTests.Files>());
         TFFeelGlanceConVar glance = DeclaredConVars.Fresh<TFFeelGlanceConVar>();
         var feel = new TFFeelSwitchConVars(DeclaredConVars.Fresh<TFFeelCarrierConVar>(), DeclaredConVars.Fresh<TFFeelSearchConVar>(), DeclaredConVars.Fresh<TFFeelAimConVar>(),
-                                           DeclaredConVars.Fresh<TFFeelRetreatConVar>(), DeclaredConVars.Fresh<TFFeelFriendGateConVar>(), glance);
+                                           DeclaredConVars.Fresh<TFFeelRetreatConVar>(), DeclaredConVars.Fresh<TFFeelFriendGateConVar>(), glance,
+                                           DeclaredConVars.Fresh<TFFeelPrefireConVar>());
         var game = new TFBotGame(WeaponCatalog.Stock(), null!, classes, null!, null!, feel);
         var duel = new Trees.Duel(Trees.Duel.Preset("normal"));
         var setup = new BrainSetup(new ActorId(1, 1), 7UL, duel.Memory, duel.Params, 0.015f);

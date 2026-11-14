@@ -60,6 +60,8 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     private ExperienceLinkKeys? _routesTriedLinks;
     private readonly HoldTracker _holdTracker = new();
     private readonly List<HeldSpot> _held = new();
+    private ShownJumpJudge? _judge;
+    private readonly Func<double>? _clock = ThreadCpuClock.Micros();
 
     /// <summary>After the session built the level's world (First + 450), which holds <see cref="Slot"/>.</summary>
     public int LifecycleOrder => ModStages.First + 460;
@@ -165,6 +167,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         _routesTriedLinks = null;
         _holdTracker.Clear();
         _held.Clear();
+        _judge = null;
         _path = null;
         _map = _mode = "";
         _checksum = null;
@@ -179,6 +182,17 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     {
         if (_path is null)
             return;
+        double start = _clock?.Invoke() ?? 0d;
+        Think();
+        if (_clock is not null)
+            FeedMicros += _clock() - start;
+    }
+
+    /// <summary>The thread CPU the feed's frames took on the game's thread while on, microseconds (<c>ai.experience.feed.us</c>, lane G6a).</summary>
+    public double FeedMicros { get; private set; }
+
+    private void Think()
+    {
         if (_worker.TakeLoaded() is { } fresh)
             Take(fresh);
         PublishRoutes();
@@ -197,7 +211,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             _mode = mode;
             _roundOver = game.RoundOver;
             if (mode.Length > 0)
-                _worker.Open(_path, _map, mode, _checksum, _bsp, halfLife.Value);
+                _worker.Open(_path!, _map, mode, _checksum, _bsp, halfLife.Value);
         }
 
         if (_mode.Length == 0)
@@ -380,6 +394,45 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     /// <summary>Outcomes handed to the worker since the server started (<c>ai.experience.outcomes.noted</c>).</summary>
     public int OutcomesNoted { get; private set; }
 
+    /// <summary>
+    /// A jump a player showed (lane G6a, <see cref="ShownJumpFeed"/>): handed to the worker with the player's class and the
+    /// level's judge, to be judged there against the graph and, with <paramref name="withLinks"/>, the game's links
+    /// (<see cref="IExperienceLinks"/>), and written when the level has no way for it. Handed while hits and deaths are
+    /// (<see cref="Gathering"/>) and only with a graph to judge it on; answers whether it was. The game's thread.
+    /// </summary>
+    public bool NoteShownJump(EntityHandle player, ShownJumpRecipe jump, bool withLinks)
+    {
+        if (!Gathering)
+            return false;
+        (int role, int cls) = game.Of(player);
+        if (role == 0)
+            return false;
+        if (nav.Current?.Nav.Graph is not { } graph)
+        {
+            ShownJumpsUnjudged++;
+            return false;
+        }
+
+        if (!ReferenceEquals(_judge?.Graph, graph))
+            _judge = ShownJumpJudge.Of(graph);
+        if (!_worker.ShownJump(jump, cls, _judge, withLinks ? links?.Keys : null, ServerAiSession.TickSeconds))
+            return false;
+        ShownJumpsNoted++;
+        return true;
+    }
+
+    /// <summary>Jumps players showed handed to the worker since the server started (<c>ai.experience.jumps.noted</c>).</summary>
+    public int ShownJumpsNoted { get; private set; }
+
+    /// <summary>Jumps players showed on a level with no graph to judge them on (<c>ai.experience.jumps.unjudged</c>).</summary>
+    public int ShownJumpsUnjudged { get; private set; }
+
+    /// <summary>The jumps players showed that the worker judged <paramref name="verdict"/> since it was made.</summary>
+    public long ShownJumpVerdicts(ShownJumpVerdict verdict) => _worker.ShownJumps(verdict);
+
+    /// <summary>The last jumps the worker judged, oldest first.</summary>
+    public IReadOnlyList<ShownJumpSeen> RecentShownJumps() => _worker.RecentShownJumps();
+
     public void OnPlayerHurt(in PlayerHurt hurt)
     {
         if (!Gathering || hurt.Taken <= 0 || Party(hurt.Player, entities.GetOrigin(hurt.Player)) is not { } victim)
@@ -402,7 +455,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     }
 
     /// <summary>Whether hits and deaths are handed over now: on, learning, a key open and a round being played.</summary>
-    private bool Gathering => _path is not null && _mode.Length > 0 && learn.Value && !_roundOver;
+    public bool Gathering => _path is not null && _mode.Length > 0 && learn.Value && !_roundOver;
 
     /// <summary>One side of a hit: a player on a side, where it stands; null for the world, a thing or a spectator.</summary>
     private CombatSample? Party(EntityHandle who) => IsPlayer(who) ? Party(who, entities.GetOrigin(who)) : null;
@@ -487,6 +540,11 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         };
     }
 
+    /// <summary>The worker's jump verdicts (lane G6a), each with its comma.</summary>
+    private string JumpVerdicts()
+        => string.Concat(Enum.GetValues<ShownJumpVerdict>().Select(v => string.Create(CultureInfo.InvariantCulture,
+            $"\"ai.experience.jumps.{v.ToString().ToLowerInvariant()}\":{_worker.ShownJumps(v)},")));
+
     /// <summary>The feed's part of <c>/ai/counters</c>, with its comma.</summary>
     public string Counters()
         => string.Create(CultureInfo.InvariantCulture,
@@ -495,5 +553,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             + $"\"ai.experience.refusals\":{Refusals},\"ai.experience.dropped\":{_worker.Dropped},\"ai.experience.faults\":{_worker.Faults},\"ai.experience.main_thread_work\":{_worker.RanOnOwner},"
             + $"\"ai.experience.snapshot.rows\":{Slot.Current.Rows},\"ai.experience.routes.sides\":{_routeSlot.Current.Roles.Count},\"ai.experience.routes.cells\":{_routeSlot.Current.Costed},"
             + $"\"ai.experience.routes.bytes\":{_routeSlot.Current.Bytes},\"ai.experience.routes.us\":{_routeSlot.Current.BuildMicros:F0},\"ai.experience.routes.builds\":{RouteBuilds},\"ai.experience.routes.faults\":{RouteFaults},"
+            + $"\"ai.experience.feed.us\":{FeedMicros:F0},\"ai.experience.jumps.noted\":{ShownJumpsNoted},\"ai.experience.jumps.unjudged\":{ShownJumpsUnjudged},"
+            + $"{JumpVerdicts()}"
             + $"\"ai.experience.links.noted\":{LinksNoted},\"ai.experience.spots.noted\":{SpotsNoted},\"ai.experience.outcomes.noted\":{OutcomesNoted},\"ai.experience.routes.links_shut\":{_routeSlot.Current.LinksShut?.Count ?? 0},");
 }

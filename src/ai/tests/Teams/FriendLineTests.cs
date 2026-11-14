@@ -16,10 +16,10 @@ public sealed class FriendLineTests
     private static readonly AiVector AimEast = new(600f, 0f, 48f);
 
     /// <summary>The bot at the origin looking along <paramref name="yaw"/>, with one actor of <paramref name="team"/> in sight at <paramref name="at"/>.</summary>
-    private static PerceivedView View(AiVector at, int team = Mine, float yaw = 0f, float selfZ = 0f)
+    private static PerceivedView View(AiVector at, int team = Mine, float yaw = 0f, float selfZ = 0f, float pitch = 0f)
     {
         var v = new PerceivedView(4);
-        v.Reset(Bot, new Tick(1), new SelfState(new AiVector(0f, 0f, selfZ), default, new AiAngles(0f, yaw, 0f), 100, 0, -1, 0, 0, SelfFlags.Alive, Team: Mine));
+        v.Reset(Bot, new Tick(1), new SelfState(new AiVector(0f, 0f, selfZ), default, new AiAngles(pitch, yaw, 0f), 100, 0, -1, 0, 0, SelfFlags.Alive, Team: Mine));
         v.AddSighted(new ActorFacts(Mate, at, default, -1, ActorActivity.None, 1f, team));
         return v;
     }
@@ -68,6 +68,43 @@ public sealed class FriendLineTests
         var down = new AiVector(600f, 0f, 400f + Eye);
         Assert.False(Blocked(View(new AiVector(300f, 0f, 0f), selfZ: 400f), down));
         Assert.True(FriendLine.Blocked(View(new AiVector(300f, 0f, 0f), selfZ: 400f), Eye, down, 2048f, 0f, bodyTop: 400f + Eye), "the control: a body that tall is on the line");
+    }
+
+    /// <summary>The pitch of a view turned down at the floor 400 u out from an eye 64 u up.</summary>
+    private static readonly float DownAtTheFloor = MathF.Atan2(Eye, 400f) * 180f / MathF.PI;
+
+    /// <summary>
+    /// Lane Ge: a rocket at the floor 400 u out, the view turned down at it, leaves the eye 64 u up and is at 32 u halfway,
+    /// through a teammate standing there; judged at the eye's height the line was 9 degrees over the body's point and clear.
+    /// </summary>
+    [Fact]
+    public void ARocketAtTheFloorPastATeammateStandingBetweenIsHeld()
+        => Assert.True(Blocked(View(new AiVector(200f, 0f, 0f), pitch: DownAtTheFloor), new AiVector(400f, 0f, 0f)));
+
+    /// <summary>Beyond the aim point the line does not reach a teammate; the blast does, as before.</summary>
+    [Fact]
+    public void ARocketAtTheFloorBeforeATeammateBeyondItIsHeldByTheBlastAlone()
+    {
+        PerceivedView beyond = View(new AiVector(480f, 0f, 0f), pitch: DownAtTheFloor);
+        Assert.False(Blocked(beyond, new AiVector(400f, 0f, 0f)), "the control: with no blast the line alone is clear");
+        Assert.True(Blocked(beyond, new AiVector(400f, 0f, 0f), blast: 150f));
+    }
+
+    /// <summary>A level line over a teammate standing 128 u lower, halfway: its top is 128 u under the line.</summary>
+    [Fact]
+    public void ALevelLineOverALowerTeammatesHeadIsNotHeld()
+        => Assert.False(Blocked(View(new AiVector(300f, 0f, -128f)), new AiVector(600f, 0f, Eye)));
+
+    /// <summary>A level line at the eye over a teammate crouched 100 u out, its top 24 u under the line; standing there it is on the line.</summary>
+    [Fact]
+    public void ALevelLineOverACrouchedTeammatesHeadIsNotHeldAndOverAStandingOneItIs()
+    {
+        var aim = new AiVector(600f, 0f, Eye);
+        PerceivedView crouched = View(new AiVector(100f, 0f, 0f));
+        crouched.Reset(Bot, new Tick(1), crouched.Self);
+        crouched.AddSighted(new ActorFacts(Mate, new AiVector(100f, 0f, 0f), default, -1, ActorActivity.Crouched, 1f, Mine));
+        Assert.False(FriendLine.Blocked(crouched, Eye, aim, 2048f, 0f, Eye, crouchTop: 40f));
+        Assert.True(FriendLine.Blocked(View(new AiVector(100f, 0f, 0f)), Eye, aim, 2048f, 0f, Eye, crouchTop: 40f));
     }
 
     [Fact]

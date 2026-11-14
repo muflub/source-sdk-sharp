@@ -10,6 +10,34 @@ public enum JumpFamily : byte
 
     /// <summary>Along the way: from a run, the rocket behind.</summary>
     Forward = 1,
+
+    /// <summary>Up, with a second rocket in the air (lane G7b): fired at a floor the flight passes over once the launcher is ready again.</summary>
+    Double = 2,
+
+    /// <summary>Up, with a second rocket in the air fired at a wall beside the flight once the launcher is ready again (lane G7c): a wall jump.</summary>
+    Wall = 3,
+}
+
+/// <summary>
+/// A blast jump's second rocket, fired in the air (lane G7b): at a floor the flight passes over (or a wall beside it, lane
+/// G7c) once the launcher is
+/// ready again, so its blast lifts the body a second time. The pilot fires it as the body comes over the place it was
+/// fired from in the flight the search found, no sooner than the launcher is ready and no later than its latest: a place,
+/// not a time, so a first blast a little off still meets the floor where the search found it.
+/// </summary>
+/// <param name="Over">Where the body was over the ground when the found flight's second rocket left, and the floor's height there: the rocket is fired once the body is past it along the way, and never from under it.</param>
+/// <param name="Earliest">Commands from the first trigger's first command before which it is never fired: the launcher's refire.</param>
+/// <param name="Latest">Commands from the first trigger's first command after which it is never fired: a body that has not come over <paramref name="Over"/> by then fires nothing (lane G7c).</param>
+/// <param name="Pitch">The view's pitch when it leaves, degrees, down positive.</param>
+/// <param name="YawOffset">The view's yaw when it leaves, against the direction of travel, degrees.</param>
+public readonly record struct JumpSecondShot(Vector Over, int Earliest, int Latest, float Pitch, float YawOffset)
+{
+    /// <summary>
+    /// Whether the rocket is fired at a wall beside the flight (lane G7c), not at a floor under it: the pilot fires it by the
+    /// same rule (<see cref="Over"/>'s height is then where the found flight's rocket met the wall); the store keeps such a
+    /// recipe under a format of its own.
+    /// </summary>
+    public bool Wall { get; init; }
 }
 
 /// <summary>
@@ -28,8 +56,16 @@ public enum JumpFamily : byte
 /// <param name="YawOffset">The view's yaw when the rocket leaves, against the direction of travel, degrees: 180 looks back the way it came.</param>
 /// <param name="ShotDelay">Commands from the jump's command to the trigger's: 0 the same command, negative the trigger first.</param>
 /// <param name="Ducked">Whether the jump is crouched: the duck is taken with the jump and held to the landing.</param>
-public readonly record struct JumpRecipe(Vector Takeoff, Vector Landing, float RunUp, float Pitch, float YawOffset, int ShotDelay, bool Ducked)
+/// <param name="Second">A second rocket fired in the air (lane G7b), or none: a one-rocket recipe is what it was before it.</param>
+public readonly record struct JumpRecipe(Vector Takeoff, Vector Landing, float RunUp, float Pitch, float YawOffset, int ShotDelay, bool Ducked,
+                                         JumpSecondShot? Second = null)
 {
+    /// <summary>The rockets the recipe fires: one, or two with a second shot.</summary>
+    public int Rockets => Second is null ? 1 : 2;
+
+    /// <summary>The view the second rocket leaves along, or the first's when there is none.</summary>
+    public Vector SecondView => Second is { } s ? new Vector(s.Pitch, JumpPilot.WrapDegrees(TravelYaw + s.YawOffset), 0f) : ShotView;
+
     /// <summary>The direction of travel over the ground, degrees; 0 when the landing is straight over the takeoff.</summary>
     public float TravelYaw
     {

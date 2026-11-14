@@ -237,6 +237,72 @@ public sealed class SqliteExperienceStoreTests : ExperienceStoreContract, IDispo
         Assert.Equal(8d, store.Load(Key, HalfLife).Cells[HereCell].Seconds);
     }
 
+    /// <summary>A practice row as the practice tool writes it (lane G8): Here to There, source Practice, its recipe's bytes.</summary>
+    private static readonly LinkKey PracticeRow = new(3, Here, There, 1, LinkSource.Practice, new LinkRecipe([1, 2, 3]));
+
+    [Fact]
+    public void AToolsPracticeRowsWrittenWhileAGameHasTheFileOpenAndIsReadingItAreLoadedByTheGame()
+    {
+        // Lane G8: the practice tool writes while a game has the store open. The game's store, its round written; a read of
+        // the game under way (a deferred transaction that has read: WAL keeps its snapshot); the tool's own store merges.
+        string path = NewPath();
+        using SqliteExperienceStore game = SqliteExperienceStore.Open(path);
+        Assert.True(game.Merge(Key, Rounds(1), HalfLife));
+        using (SqliteConnection reading = SqliteFile.Open(path))
+        {
+            using SqliteTransaction read = reading.BeginTransaction(deferred: true);
+            using SqliteCommand count = reading.CreateCommand();
+            count.Transaction = read;
+            count.CommandText = "SELECT COUNT(*) FROM link";
+            Assert.Equal(0L, (long)count.ExecuteScalar()!);
+            using (SqliteExperienceStore tool = SqliteExperienceStore.Open(path))
+                Assert.True(tool.Merge(Key, Delta(d => d.Add(PracticeRow, new LinkStat(40d, 36d, 80d, 2000d))), HalfLife));
+
+            // The read under way still sees its own snapshot.
+            Assert.Equal(0L, (long)count.ExecuteScalar()!);
+        }
+
+        MapExperience loaded = game.Load(Key, HalfLife);
+        Assert.Equal(new LinkStat(40d, 36d, 80d, 2000d), loaded.Links[PracticeRow]);
+        Assert.Equal(1, loaded.Rounds);
+        Assert.Null(game.Refusal);
+        Assert.Equal(0, game.BusyFailures);
+    }
+
+    [Fact]
+    public async Task AToolsMergeWaitsForAGamesWriteToEndRatherThanFailing()
+    {
+        // The game's worker holds the write lock a moment (a round's flush): the tool's merge waits within the busy timeout.
+        string path = NewPath();
+        using SqliteExperienceStore game = SqliteExperienceStore.Open(path);
+        Assert.True(game.Merge(Key, Rounds(1), HalfLife));
+        using SqliteConnection holder = SqliteFile.Open(path);
+        SqliteFile.Scalar(holder, "BEGIN IMMEDIATE");
+        Task release = Task.Run(async () =>
+        {
+            await Task.Delay(300);
+            SqliteFile.Scalar(holder, "COMMIT");
+        });
+        using SqliteExperienceStore tool = SqliteExperienceStore.Open(path);
+        Assert.True(tool.Merge(Key, Delta(d => d.Add(PracticeRow, new LinkStat(40d, 36d, 80d, 2000d))), HalfLife));
+        await release;
+        Assert.Equal(0, tool.BusyFailures);
+        Assert.Equal(36d, game.Load(Key, HalfLife).Links[PracticeRow].Successes);
+    }
+
+    [Fact]
+    public void TheKeysAreEveryMapAndModeTheFileHoldsInTheOrderWritten()
+    {
+        string path = NewPath();
+        using SqliteExperienceStore store = SqliteExperienceStore.Open(path);
+        Assert.Empty(store.Keys());
+        var other = new ExperienceKey("ctf_other", "def456", "ctf");
+        store.Merge(Key, Rounds(1), HalfLife);
+        store.Merge(other, Rounds(1), HalfLife);
+        store.Merge(Key with { Mode = "koth" }, Rounds(1), HalfLife);
+        Assert.Equal([Key, other, Key with { Mode = "koth" }], store.Keys());
+    }
+
     [Fact]
     public void AMergeThatFailsHalfWayLeavesNothingBehind()
     {

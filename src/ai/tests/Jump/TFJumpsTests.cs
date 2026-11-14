@@ -10,6 +10,7 @@ using SourceSharp.Ai.TF2.Trees;
 using SourceSharp.MapFormats.Nav;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
+using TF2.Shared;
 using Xunit;
 using static SourceSharp.Ai.Tests.Jump.JumpRig;
 
@@ -80,19 +81,24 @@ public class TFJumpsTests
         return new LoadedNav(JumpRecording.Map, NavFile.Of(reader, "maps/" + JumpRecording.Map + ".nav3d"), derived, null!, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData("bsp"u8)), Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)), false, 0d);
     }
 
-    private sealed record Rig(TFJumps Jumps, Navigation Nav, Log Log);
+    private sealed record Rig(TFJumps Jumps, Navigation Nav, Log Log)
+    {
+        /// <summary>The experience's slot the service reads its snapshots from, when a fact gave it one.</summary>
+        public ExperienceSlot? Snapshots { get; init; }
+    }
 
-    private static Rig Service(bool script = true, ITFLevelEntities? placed = null, string? cache = null)
+    private static Rig Service(bool script = true, ITFLevelEntities? placed = null, string? cache = null, string? skip = null, ExperienceSlot? snapshots = null)
     {
         var log = new Log();
         var nav = new Navigation { CacheDirectory = cache };
-        return new Rig(new TFJumps(Sims(), new global::TF2.Shared.TFWeaponScripts(log, new LauncherScript(script)), Classes(), nav, log, placed), nav, log);
+        return new Rig(new TFJumps(Sims(), new global::TF2.Shared.TFWeaponScripts(log, new LauncherScript(script)), Classes(), nav, log, placed,
+                                   skip: DeclaredConVars.Holding<TFLinksSkipConVar>(skip), snapshots: snapshots), nav, log);
     }
 
     /// <summary>The service with the level's navigation set and its desk open.</summary>
-    private static Rig Opened(ITFLevelEntities? placed = null, string? cache = null, LoadedNav? level = null)
+    private static Rig Opened(ITFLevelEntities? placed = null, string? cache = null, LoadedNav? level = null, string? skip = null, ExperienceSlot? snapshots = null)
     {
-        Rig rig = Service(placed: placed, cache: cache);
+        Rig rig = Service(placed: placed, cache: cache, skip: skip, snapshots: snapshots);
         rig.Nav.Current = level ?? Level();
         rig.Jumps.OnPreThink(TickSeconds);
         Assert.False(rig.Jumps.Desk.IsOpen, "the desk opened in the frame the navigation was set: its free space was read on the game's thread");
@@ -261,6 +267,200 @@ public class TFJumpsTests
             if (Directory.Exists(dir))
                 Directory.Delete(dir, recursive: true);
         }
+    }
+
+    /// <summary>The 250 u ledge's top (TFAiTestMaps.LedgeTop(1)), and <c>ai_tf_links_skip</c> naming it (lane G6b).</summary>
+    private static readonly AiVector Ledge250 = new(1028f, 1150f, 266f);
+
+    private const string SkipLedge250 = "1028 1150 266 200";
+
+    /// <summary>The links of <paramref name="set"/> that land on the 250 u ledge's top.</summary>
+    private static int OntoLedge250(JumpLinkSet set)
+        => set.Jumps.Count(j => MathF.Abs(j.Recipe.Landing.Z - Ledge250.Z) <= 24f && MathF.Abs(j.Recipe.Landing.X - Ledge250.X) <= 160f
+                                && MathF.Abs(j.Recipe.Landing.Y - Ledge250.Y) <= 160f);
+
+    [JumpMapFact]
+    public void APlaceThePassIsToldToSkipGetsNoLink()
+    {
+        Rig plain = Opened();
+        LinksDone(plain.Jumps);
+        Assert.True(OntoLedge250(plain.Jumps.LinkSet!) > 0, $"the control: no link onto the 250 u ledge in {plain.Jumps.Json()}");
+
+        Rig told = Opened(skip: SkipLedge250);
+        LinksDone(told.Jumps);
+        Assert.Equal(0, OntoLedge250(told.Jumps.LinkSet!));
+        Assert.True(told.Jumps.LinkSet!.Links.Count > 0, "the rest of the level keeps its links");
+        using var json = System.Text.Json.JsonDocument.Parse(told.Jumps.Json());
+        Assert.Equal("1028 1150 266 200", json.RootElement.GetProperty("links.skip").GetString());
+    }
+
+    [JumpMapFact]
+    public void ASkippedPassIsCachedUnderItsOwnKey()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "g6b-tfjumps-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            LoadedNav level = Level();
+            Rig first = Opened(cache: dir, level: level);
+            LinksDone(first.Jumps);
+            Assert.False(first.Jumps.LinkOutcome!.FromCache);
+
+            // The file of a pass with no skip does not answer for one told to skip: the pass runs, and its file replaces it.
+            Rig told = Opened(cache: dir, level: level, skip: SkipLedge250);
+            LinksDone(told.Jumps);
+            Assert.False(told.Jumps.LinkOutcome!.FromCache, told.Jumps.Json());
+            Assert.Equal(0, OntoLedge250(told.Jumps.LinkSet!));
+
+            Rig again = Opened(cache: dir, level: level, skip: SkipLedge250);
+            LinksDone(again.Jumps);
+            Assert.True(again.Jumps.LinkOutcome!.FromCache, again.Jumps.Json());
+            Assert.Equal(told.Jumps.LinkSet!.Links.Hash, again.Jumps.LinkSet!.Links.Hash);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A snapshot of the jump map holding one Soldier's rocket jump onto the 250 u ledge from the ground east of it, from
+    /// standing, the shot looking down and back the way it went two commands after the jump, seen <paramref name="seen"/>
+    /// times (lane G6b), and a cell row besides; of <paramref name="map"/>.
+    /// </summary>
+    private static MapExperience ShownOnto250(double seen = 1d, string map = JumpRecording.Map, bool jump = true)
+    {
+        var takeoff = new AiVector(1330f, 1150f, 16f);
+        var landing = new AiVector(1110f, 1150f, 266f);
+        var trace = System.Collections.Immutable.ImmutableArray.CreateBuilder<ShownJumpCommand>(4);
+        for (int i = 0; i < 4; i++)
+        {
+            byte buttons = (byte)(ShownJumpCommand.Duck | (i == 0 ? ShownJumpCommand.Jump : 0) | (i == 2 ? ShownJumpCommand.Attack : 0));
+            trace.Add(new ShownJumpCommand(buttons, 65f, 0f, 0f, 0f));
+        }
+
+        var shown = new ShownJumpRecipe(ShownJumpKind.Blast, ShownJumpFlags.JumpPressed | ShownJumpFlags.OwnBlast | ShownJumpFlags.ShotSeen, takeoff, landing,
+                                        default, default, default, default, 105, 40, 0, 0, 2, 3, trace.MoveToImmutable());
+        var rows = new ExperienceDelta();
+        rows.Add(new CellKey(new ExperienceContext(0, 2, (int)TFClass.Soldier), WorldBin.Of(takeoff), ExperienceSource.Human), new CellStat(10d, 0d, 0d, 0d, 0d));
+        if (jump)
+        {
+            rows.Add(shown.CountKey((int)TFClass.Soldier), new LinkStat(seen, seen, seen * 1.6d, seen * 40d));
+            rows.Add(shown.ExemplarKey((int)TFClass.Soldier), default);
+        }
+
+        return new MapExperience(new ExperienceKey(map, "0123456789abcdef", "ctf"), 3, rows);
+    }
+
+    /// <summary>The level opened with <paramref name="snapshot"/> in its experience, its shape links found, and a frame for the learn pass to start in.</summary>
+    private static Rig Learning(MapExperience snapshot, string? skip = SkipLedge250)
+    {
+        var slot = new ExperienceSlot { Current = snapshot };
+        Rig rig = Opened(skip: skip, snapshots: slot);
+        LinksDone(rig.Jumps);
+        Assert.NotNull(rig.Jumps.LinkSet);
+        rig.Jumps.OnPreThink(TickSeconds);
+        return rig with { Snapshots = slot };
+    }
+
+    /// <summary>Waits for the learn pass to have ended.</summary>
+    private static void LearnDone(TFJumps jumps)
+    {
+        Task work = jumps.LearnWork ?? throw new Xunit.Sdk.XunitException($"no learn pass was started: {jumps.Json()}");
+        Assert.True(((IAsyncResult)work).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(300)), "the learn pass did not end in five minutes");
+    }
+
+    [JumpMapFact]
+    public void AJumpAPlayerShowedWhereThePassWasToldToSkipJoinsTheLinks()
+    {
+        Rig rig = Learning(ShownOnto250());
+        JumpLinkSet shape = rig.Jumps.LinkOutcome!.Set;
+        Assert.Equal(0, OntoLedge250(shape));
+        LearnDone(rig.Jumps);
+        JumpLinkSet set = rig.Jumps.LinkSet!;
+        Assert.Equal(shape.Links.Count + 1, set.Links.Count);
+        Assert.Equal(shape.Jumps, set.Jumps.Take(shape.Jumps.Count));
+        JumpLink learned = set.JumpOf(set.Links.Count - 1);
+        Assert.True(learned.Shown && learned.Robustness >= new JumpSearchSettings().Keep, $"{learned}");
+        Assert.Equal(1, OntoLedge250(set));
+
+        // Published as the shape pass's are: the slot, the Soldiers' searches and the book, its plan flown from its start.
+        Assert.Same(set.Links, rig.Jumps.LinkSlot.Links);
+        Assert.Same(set, rig.Jumps.Published.Set);
+        JumpPlan plan = rig.Jumps.Book.LinkPlans()[set.Links.Count - 1];
+        Assert.Equal(learned.Recipe, plan.Recipe);
+        Assert.True(plan.StartsStanding && plan.Apex > 0f);
+        using var json = System.Text.Json.JsonDocument.Parse(rig.Jumps.Json());
+        Assert.Equal((1, 1, 1), (json.RootElement.GetProperty("links.learned").GetInt32(), json.RootElement.GetProperty("links.learn.fitted").GetInt32(),
+                                 json.RootElement.GetProperty("links.learn.publishes").GetInt32()));
+        Assert.Equal("shown", json.RootElement.GetProperty("links.list")[set.Links.Count - 1].GetProperty("origin").GetString());
+        Assert.Equal("shape", json.RootElement.GetProperty("links.list")[0].GetProperty("origin").GetString());
+    }
+
+    [JumpMapFact]
+    public void ASnapshotWithNothingNewPublishesNothing()
+    {
+        Rig rig = Learning(ShownOnto250());
+        LearnDone(rig.Jumps);
+        JumpLinkSet grown = rig.Jumps.LinkSet!;
+        Assert.NotSame(rig.Jumps.LinkOutcome!.Set, grown);
+
+        // The next round's snapshot: the same jump, seen again. Read, and searched no more.
+        rig.Snapshots!.Current = ShownOnto250(seen: 2d);
+        rig.Jumps.OnPreThink(TickSeconds);
+        LearnDone(rig.Jumps);
+        Assert.Same(grown, rig.Jumps.LinkSet);
+        Assert.Null(rig.Jumps.LearnOutcome!.Set);
+        Assert.Equal(0, rig.Jumps.LearnOutcome.Flights);
+        using var json = System.Text.Json.JsonDocument.Parse(rig.Jumps.Json());
+        Assert.Equal((2, 1), (json.RootElement.GetProperty("links.learn.passes").GetInt32(), json.RootElement.GetProperty("links.learn.publishes").GetInt32()));
+    }
+
+    [JumpMapFact]
+    public void ALearnedLinkWhoseJumpFadesLeavesTheShapePasssOwnLinks()
+    {
+        Rig rig = Learning(ShownOnto250());
+        LearnDone(rig.Jumps);
+        Assert.NotSame(rig.Jumps.LinkOutcome!.Set, rig.Jumps.LinkSet);
+
+        // Rounds later: seen under the floor, and no bot has landed its link.
+        rig.Snapshots!.Current = ShownOnto250(seen: new ShownJumpFitSettings().MinSightings * 0.5d);
+        rig.Jumps.OnPreThink(TickSeconds);
+        LearnDone(rig.Jumps);
+        Assert.Equal(ShownFitVerdict.Few, Assert.Single(rig.Jumps.LearnOutcome!.Fits.Fits).Verdict);
+        Assert.Same(rig.Jumps.LinkOutcome.Set, rig.Jumps.LinkSet);
+        Assert.Same(rig.Jumps.LinkOutcome.Set, rig.Jumps.Published.Set);
+        Assert.Equal(rig.Jumps.LinkOutcome.Set.Links.Count, rig.Jumps.Book.LinkPlans().Length);
+    }
+
+    [JumpMapFact]
+    public void WithNoJumpShownTheLinksAreTheShapePasssOwn()
+    {
+        Rig rig = Learning(ShownOnto250(jump: false));
+        LearnDone(rig.Jumps);
+        Assert.Same(rig.Jumps.LinkOutcome!.Set, rig.Jumps.LinkSet);
+        Assert.Same(rig.Jumps.LinkSet, rig.Jumps.Published.Set);
+        Assert.Equal(0, OntoLedge250(rig.Jumps.LinkSet!));
+    }
+
+    [JumpMapFact]
+    public void AJumpTheShapePassAlsoFoundGivesOneLinkNotTwo()
+    {
+        Rig rig = Learning(ShownOnto250(), skip: null);
+        LearnDone(rig.Jumps);
+        Assert.True(OntoLedge250(rig.Jumps.LinkOutcome!.Set) > 0, "the control: the shape pass has a link onto the ledge");
+        Assert.Same(rig.Jumps.LinkOutcome.Set, rig.Jumps.LinkSet);
+        Assert.Equal(ShownFitVerdict.Known, Assert.Single(rig.Jumps.LearnOutcome!.Fits.Fits).Verdict);
+    }
+
+    [JumpMapFact]
+    public void AnEmptySnapshotOrAnotherMapsIsNotRead()
+    {
+        Rig empty = Learning(MapExperience.Empty);
+        Assert.Null(empty.Jumps.LearnWork);
+        Rig other = Learning(ShownOnto250(map: "ctf_2fort"));
+        Assert.Null(other.Jumps.LearnWork);
+        Assert.Same(other.Jumps.LinkOutcome!.Set, other.Jumps.LinkSet);
     }
 
     [JumpMapFact]

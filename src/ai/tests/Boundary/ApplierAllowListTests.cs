@@ -124,6 +124,8 @@ public class ApplierAllowListTests
         "PlayerDeath::get_Origin",
         // ExperienceService: the process's command line, for the launcher's -toolgame alone: a tool's game opens no default experience file.
         "ILocalCommandLine::get_Args",
+        // ShownJumpFeed (lane G6a): a player's slot, arithmetic on its handle, to join its commands into a flight.
+        "EntityHandle::get_EntryIndex",
         // VoxelMoveWorld (SourceSharp.Ai.Nav, from TF2's jumps): the movement's world over the voxels, a trace it answers and the slide's dot product.
         "MoveTrace::Clear", "Vector::Dot",
     ];

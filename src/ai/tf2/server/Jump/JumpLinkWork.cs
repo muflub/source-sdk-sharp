@@ -15,9 +15,10 @@ public sealed record JumpLinkOutcome(JumpLinkSet Set, bool FromCache, double Cpu
 /// </summary>
 /// <param name="path">The cache file beside the graph's, or null for none.</param>
 /// <param name="cpu">The thread's CPU clock in microseconds, or null for none.</param>
+/// <param name="skip">A place the pass proposes no landing in (lane G6b), or null for none; <paramref name="inputsKey"/> must hold it.</param>
 public sealed class JumpLinkWork(NavGraph graph, VoxelColumns columns, BlastJumpSim sim, BlastJumpSim openAir, JumpPilotLimits limits, JumpSearchSettings search,
                                  JumpPlacesSettings places, IReadOnlyList<int> seeds, NavLinkCosts costs, JumpLinkCache cache, string? path, string inputsKey,
-                                 Func<double>? cpu)
+                                 Func<double>? cpu, JumpSkip? skip = null)
 {
     public NavGraph Graph => graph;
 
@@ -33,7 +34,7 @@ public sealed class JumpLinkWork(NavGraph graph, VoxelColumns columns, BlastJump
 
         JumpEnvelope reach = JumpEnvelope.Measure(new JumpFlier(openAir, limits), search);
         GraphJumpWalk walk = GraphJumpWalk.Of(graph, limits.RunSpeed);
-        var pass = new JumpPlaces(graph, columns, new JumpSearch(new JumpFlier(sim, limits), walk, search), walk, reach, places, seeds);
+        var pass = new JumpPlaces(graph, columns, new JumpSearch(new JumpFlier(sim, limits), walk, search), walk, reach, places, seeds, skip);
         JumpPlacesResult found = pass.Find(cancel);
         cancel.ThrowIfCancellationRequested();
         double passMs = Ms(start);

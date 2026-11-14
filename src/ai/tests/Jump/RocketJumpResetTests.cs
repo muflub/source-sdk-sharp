@@ -56,6 +56,32 @@ public sealed class RocketJumpResetTests
         Assert.Equal(JumpEnd.Moved, Assert.Single(flown).End);
     }
 
+    /// <summary>
+    /// Lane G7b, live on ss_ai_tf_double: a second rocket not fired, the body came down on the beam under the way, and the
+    /// beam's reset put it back at S1, the jump's start, from over the start's floor: the jump ended moved, and the store
+    /// heard nothing of the failed try. A teleport keeps the body's speed; a round's restart puts it on a spawn at rest.
+    /// </summary>
+    [Fact]
+    public void ABodyPutBackAtTheStartFromALedgeOverItStillMovingEndsTheJumpAsAReset()
+    {
+        var (run, flown, start, body) = Begun();
+        Assert.False(run.Step(body with { Origin = new AiVector(start.X - 20f, start.Y, start.Z + 190f) }).Over);
+        Assert.False(run.Step(body with { Origin = new AiVector(start.X - 20f, start.Y, start.Z + 384f) }).Over);
+        Assert.True(run.Step(body with { Origin = new AiVector(start.X + 200f, start.Y, start.Z + 8f), Velocity = new AiVector(150f, 0f, -40f) }).Over);
+        Assert.Equal(JumpEnd.Reset, Assert.Single(flown).End);
+    }
+
+    [Fact]
+    public void ABodyPutOnTheStartAtRestFromOverItIsMoved()
+    {
+        // A round's restart catching the bot in the air over its jump's start, its spawn near the start: at rest there, moved.
+        var (run, flown, start, body) = Begun();
+        Assert.False(run.Step(body with { Origin = new AiVector(start.X - 20f, start.Y, start.Z + 190f) }).Over);
+        Assert.False(run.Step(body with { Origin = new AiVector(start.X - 20f, start.Y, start.Z + 384f) }).Over);
+        Assert.True(run.Step(body with { Origin = new AiVector(start.X + 200f, start.Y, start.Z + 1f), Velocity = AiVector.Zero }).Over);
+        Assert.Equal(JumpEnd.Moved, Assert.Single(flown).End);
+    }
+
     [Fact]
     public void AResetIsAFailedTryOfItsLinkWhereAMoveIsNone()
     {

@@ -642,6 +642,41 @@ public class RocketJumpProgramTests
     }
 
     [Fact]
+    public void ADoublesFirstShotIsHeldToTheTightestViewWhateverTheHand()
+    {
+        JumpLive live = Bot(Slow);
+        MotionParams motion = MotionEnvelope.Clamp(Slow);
+        JumpPlan doubled = live.Keep(Plan with { Recipe = Plan.Recipe with { Second = new JumpSecondShot(Plan.Recipe.Takeoff, 54, 70, 89f, 180f) } });
+        var run = Assert.IsType<RocketJumpProgram.Run>(live.Program.Begin(doubled.Id, new AbilityBody(default, default, default, true), motion, TickSeconds));
+        Assert.Equal(RocketJumpProgram.TightDegrees, run.ToleranceDegrees);
+
+        // The control: the same hand's single shot is held to its own, looser one.
+        JumpPlan single = live.Keep(Plan);
+        var plain = Assert.IsType<RocketJumpProgram.Run>(live.Program.Begin(single.Id, new AbilityBody(default, default, default, true), motion, TickSeconds));
+        Assert.True(plain.ToleranceDegrees > RocketJumpProgram.TightDegrees, $"the control: a slow hand's single shot is held to {plain.ToleranceDegrees}");
+    }
+
+    [Fact]
+    public void AProgramFliesARecipesSecondRocketAndSaysWhenItsTriggerWasPressed()
+    {
+        // The plan's own jump with a second shot whose place is its takeoff: pressed once the launcher is ready and the view
+        // has come round to it, in the air, by the latest a few commands before the plan comes down.
+        int air = (int)(Plan.AirSeconds / TickSeconds), earliest = (int)MathF.Ceiling(RocketRefire / TickSeconds), latest = air - 4;
+        Assert.True(latest > earliest + 4, $"the control: the plan is in the air past the launcher's refire: {air} commands");
+        JumpPlan doubled = Plan with { Recipe = Plan.Recipe with { Second = new JumpSecondShot(Plan.Recipe.Takeoff with { Z = 0f }, earliest, latest, 89f, 180f) } };
+        JumpLive live = Bot(Normal);
+        Fly(live, doubled);
+        JumpFlown flown = Assert.Single(live.Flown);
+        Assert.InRange(flown.SecondAfterShot, earliest, latest);
+        Assert.Equal(2, live.Simulator.Rockets);
+
+        // The control: the plan without one fires one rocket and says none was pressed.
+        JumpLive single = Bot(Normal);
+        Fly(single);
+        Assert.Equal((-1, 1), (Assert.Single(single.Flown).SecondAfterShot, single.Simulator.Rockets));
+    }
+
+    [Fact]
     public void ThePilotLooksToTheShotUntilTheTriggerIsLetGoThenTheWayItGoes()
     {
         var recipe = new JumpRecipe(new Vector(0f, 0f, 0f), new Vector(1000f, 0f, 0f), 160f, 40f, 180f, 2, true);

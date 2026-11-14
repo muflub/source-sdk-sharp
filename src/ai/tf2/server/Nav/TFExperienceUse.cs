@@ -25,6 +25,7 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// named places (each team's spawn and its flag's home) as a bot's flow field takes it with the field and
 /// without, how long each is to walk and whether they differ. Worked on a task, never on the game's thread:
 /// the first ask starts it, a later one reads it.</item>
+/// <item><c>/ai/prefire</c>: each bot's rockets at where an enemy it lost is believed (lane Gp), and their sums.</item>
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
@@ -39,6 +40,8 @@ public sealed class TFExperienceUse(AiBots bots, TFRouteWeights weights, Experie
     public const float DefaultWeight = 0.8f;
 
     public const string UseRoute = "/ai/experience/use", RoutesRoute = "/ai/experience/routes", FamiliesRoute = "/ai/experience/families";
+
+    public const string PrefireRoute = "/ai/prefire";
 
     private int _botsVersion = -1;
     private int _objectivesVersion = -1;
@@ -83,11 +86,13 @@ public sealed class TFExperienceUse(AiBots bots, TFRouteWeights weights, Experie
         new("GET", UseRoute, "what TF2's bots make of the experience store: each bot's route weight (Cunning / 10), its learned looks (decides on a learned yaw, those whose view already faced it, periods) its danger checks (bins with a danger place entered, checks drawn, decides on a check) its learned holds (picked, decides holding one), and the ways into each side's enemy flag room (each door's draws, tries and scores' sum), and the routes published with the snapshot (sides, cells costed, build cpu)"),
         new("GET", RoutesRoute, "for each team with a field of where its players died, the route between each two named places (each team's spawn and flag's home) with the field and without, in walked units and seconds at 240 u/s, at ?cunning=N (8 if not asked); the first ask starts the work on a task, later asks read it (?again=1 starts it over)"),
         new("GET", FamiliesRoute, "the ways into each flag's room as a bot finds them (RouteFamilies over the level's graph, from each flag's home): each door's bin and point, the room's cells, and the thread CPU the search took; the first ask starts the work on a task, later asks read it (?again=1 starts it over)"),
+        new("GET", PrefireRoute, "TF2's bots' rockets at where an enemy they lost is believed to be (lane Gp): per bot and summed, the chances drawn, those taken (aims), the rockets that went, presses given up, holds for a teammate, and in a rocket's flight and half a second after it an enemy hurt, the bot hurt by itself or the world, a kill; the decides refused by rule (near, far, old, turn, clip, blocked); and the danger shot's: teammates the kill feed named dead, those placed by a scream heard or a sight, those placed where the store has a killer place, and the shot's chances, aims, rockets and hits"),
     ];
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
         => path == RoutesRoute ? new DebugRouteReply(200, RoutesJson(query))
             : path == FamiliesRoute ? new DebugRouteReply(200, FamiliesJson(query))
+            : path == PrefireRoute ? new DebugRouteReply(200, PrefireJson())
             : new DebugRouteReply(200, UseJson());
 
     /// <summary>The doors of each flag's room, found on a task as a decider finds them, with what the search cost in thread CPU.</summary>
@@ -207,6 +212,50 @@ public sealed class TFExperienceUse(AiBots bots, TFRouteWeights weights, Experie
                 }).ToArray(),
             },
             bots = rows,
+        });
+    }
+
+    /// <summary>What one bot's decider counted of its prefires, read under its brain's lock.</summary>
+    private readonly record struct PrefireUse(int Chances, int Aims, int Rockets, int GiveUps, int HeldFriend, int Hits, int SelfHurt, int Kills, int[] Refused,
+                                              int Deaths, int Placed, int AtDanger, int DangerChances, int DangerAims, int DangerRockets, int DangerHits);
+
+    private static PrefireUse Prefires(TFDecider d)
+        => new(d.PrefireChances, d.PrefireAims, d.PrefireRockets, d.PrefireGiveUps, d.PrefireHeldFriend, d.PrefireHits, d.PrefireSelfHurt, d.PrefireKills, d.PrefireRefused.ToArray(),
+               d.TeammateDeaths, d.DeathsPlaced, d.DeathsAtDanger, d.DangerChances, d.DangerAims, d.DangerRockets, d.DangerHits);
+
+    private string PrefireJson()
+    {
+        string[] reasons = Enum.GetNames<TFPrefireRefusal>();
+        var rows = new List<object>();
+        var sum = new int[15];
+        var refused = new int[reasons.Length];
+        int unread = 0;
+        foreach (AiBot b in bots.Bots)
+        {
+            bool read = ai.Session.TryReadBrain(b.Id.Slot, br => br.Decider is TFDecider d ? Prefires(d) : default, out PrefireUse u);
+            unread += read && u.Refused is not null ? 0 : 1;
+            int[] r = u.Refused ?? new int[reasons.Length];
+            int[] v = [u.Chances, u.Aims, u.Rockets, u.GiveUps, u.HeldFriend, u.Hits, u.SelfHurt, u.Kills, u.Deaths, u.Placed, u.AtDanger, u.DangerChances, u.DangerAims,
+                       u.DangerRockets, u.DangerHits];
+            for (int i = 0; i < v.Length; i++)
+                sum[i] += v[i];
+            for (int i = 0; i < refused.Length && i < r.Length; i++)
+                refused[i] += r[i];
+            rows.Add(new
+            {
+                slot = b.Id.Slot, name = b.Name, chances = u.Chances, aims = u.Aims, rockets = u.Rockets, give_ups = u.GiveUps, held_friend = u.HeldFriend,
+                hits = u.Hits, self_hurt = u.SelfHurt, kills = u.Kills, teammate_deaths = u.Deaths, deaths_placed = u.Placed, deaths_at_danger = u.AtDanger,
+                danger_chances = u.DangerChances, danger_aims = u.DangerAims, danger_rockets = u.DangerRockets, danger_hits = u.DangerHits,
+                refused = reasons.Select((n, i) => new { reason = n.ToLowerInvariant(), decides = i < r.Length ? r[i] : 0 }).ToArray(),
+            });
+        }
+
+        return AiJson.Write(new
+        {
+            chances = sum[0], aims = sum[1], rockets = sum[2], give_ups = sum[3], held_friend = sum[4], hits = sum[5], self_hurt = sum[6], kills = sum[7],
+            teammate_deaths = sum[8], deaths_placed = sum[9], deaths_at_danger = sum[10], danger_chances = sum[11], danger_aims = sum[12], danger_rockets = sum[13],
+            danger_hits = sum[14],
+            refused = reasons.Select((n, i) => new { reason = n.ToLowerInvariant(), decides = refused[i] }).ToArray(), bots_unread = unread, bots = rows,
         });
     }
 

@@ -57,4 +57,94 @@ public sealed partial class TFDecider
         _look = new LookIntent(LookKind.CornerCheck, _dangerLook.At, ActorId.None, AimPoint.Body, 0f, 0);
         DangerLookDecides++;
     }
+
+    // ------------------------------------------------------------------ the danger shot (lane Gp)
+
+    /// <summary>A teammate's death is placed by its scream heard this near in time to the kill feed, or by the teammate seen this lately.</summary>
+    public const float DeathHeardSeconds = 1f, DeathSeenSeconds = 2f;
+
+    /// <summary>A rocket at the place a teammate was just killed from is worth this long after the kill feed said so.</summary>
+    public const float DangerShotSeconds = 8f;
+
+    private readonly bool[] _deadBefore = new bool[64];
+    private bool _dangerPending;
+    private AiVector _dangerAt;
+    private Tick _dangerDeathAt;
+
+    /// <summary>Teammates the kill feed said died, those whose place the bot knew (heard or seen), and those whose place the store has a killer place for.</summary>
+    public int TeammateDeaths { get; private set; }
+
+    public int DeathsPlaced { get; private set; }
+
+    public int DeathsAtDanger { get; private set; }
+
+    /// <summary>
+    /// Every decide: a teammate the kill feed has just marked dead is a death of this round, placed where its scream was heard
+    /// (within <see cref="DeathHeardSeconds"/>, with the hearing's own error) or where the bot last saw it (within
+    /// <see cref="DeathSeenSeconds"/>); never where the game says it died. A placed death in a bin the store says its side
+    /// keeps dying in (<see cref="ExperienceDangers"/>, the bin or one next to it) makes the place the deaths come from a
+    /// danger shot's for <see cref="DangerShotSeconds"/>.
+    /// </summary>
+    private void NoteTeammateDeaths()
+    {
+        Blackboard board = _memory.Board;
+        int n = Math.Min(board.Slots, _deadBefore.Length);
+        for (int s = 0; s < n; s++)
+        {
+            KnownActor a = board.Actor(s);
+            bool dead = a.Known && a.Dead && _memory.IsFriend(a) && a.Id != _bot;
+            bool fresh = dead && !_deadBefore[s];
+            _deadBefore[s] = dead;
+            if (!fresh)
+                continue;
+            TeammateDeaths++;
+            if (!DeathPlace(a, out AiVector where))
+                continue;
+            DeathsPlaced++;
+            if (DangerFor(where) is not { } place)
+                continue;
+            DeathsAtDanger++;
+            (_dangerPending, _dangerAt, _dangerDeathAt) = (true, place.At, _now);
+        }
+
+        if (_dangerPending && (_now - _dangerDeathAt) * _tick > DangerShotSeconds)
+            _dangerPending = false;
+    }
+
+    private bool DeathPlace(KnownActor a, out AiVector where)
+    {
+        where = default;
+        if (a.EverHeard && a.LastHeardKind == SoundKind.Death && (_now - a.LastHeardTick) * _tick <= DeathHeardSeconds)
+            where = a.LastHeardPos;
+        else if (a.EverSeen && (_now - a.LastSeenTick) * _tick <= DeathSeenSeconds)
+            where = a.LastSeenPos;
+        else
+            return false;
+        return true;
+    }
+
+    /// <summary>The store's killer place for deaths at <paramref name="where"/>'s bin or one next to it (the most deaths), or none.</summary>
+    private DangerPlace? DangerFor(AiVector where)
+    {
+        MapExperience snapshot = _memory.World.Experience;
+        if (snapshot.Sights.Count == 0)
+            return null;
+        if (_dangers is null || !ReferenceEquals(_dangers.Snapshot, snapshot) || _dangers.Role != _self.Team)
+            _dangers = ExperienceDangers.Of(snapshot, _self.Team);
+        WorldBin bin = WorldBin.Of(where);
+        DangerPlace? best = null;
+        for (int dz = -1; dz <= 1; dz++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (_dangers.At(new WorldBin(bin.X + dx, bin.Y + dy, bin.Z + dz)) is { } p && (best is null || p.Deaths > best.Value.Deaths))
+                        best = p;
+                }
+            }
+        }
+
+        return best;
+    }
 }

@@ -80,6 +80,33 @@ public sealed class TFLinkJumpRuleTests
     }
 
     [Fact]
+    public void ALinkWithASecondRocketIsBegunOnlyWithBothRocketsAndOneToSpareLoaded()
+    {
+        // Link 0's plan with a second rocket in the air (lane G7b): three rockets loaded, not two.
+        (TFField Field, JumpBook Book) DoubleStanding()
+        {
+            var (g, ids) = Grids.Parse("..... .....");
+            NavLinks links = NavLinks.Build(g, [new NavLink(ids[4, 0], ids[6, 0], NavLinkKind.Blast, 1f, TFJumpAdvice.Cost, 1f, 0)], new NavLinkCosts { RunSpeed = 240f });
+            var book = new JumpBook(new JumpBookSettings());
+            JumpPlan plan = TFJumpAdvice.Plan(id: NavLinks.Argument(0)) with { StartsStanding = true };
+            book.SetLinks(links, [plan with { Recipe = plan.Recipe with { Second = new JumpSecondShot(plan.Recipe.Takeoff, 54, 70, 89f, 180f) } }]);
+            var f = new TFField(tune: p => p with { GlanceRate = 0f }, jumps: book);
+            book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, true));
+            return (f, book);
+        }
+
+        var (two, twoBook) = DoubleStanding();
+        Assert.False(two.BeginsJump(two.Step(Still(clip: TFDecider.RocketJumpRockets), TFField.Ctf())));
+        Assert.Equal(1L, twoBook.LinkRefusals(JumpLinkRefusal.Clip));
+        var (three, _) = DoubleStanding();
+        Assert.True(three.BeginsJump(three.Step(Still(clip: TFDecider.RocketJumpRockets + 1), TFField.Ctf())));
+
+        // The control: a one-rocket link is begun with two.
+        var (single, _) = Standing();
+        Assert.True(single.BeginsJump(single.Step(Still(clip: TFDecider.RocketJumpRockets), TFField.Ctf())));
+    }
+
+    [Fact]
     public void AClassThatIsNoSoldierBeginsNoLinkJump()
     {
         var (f, _) = Standing();

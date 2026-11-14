@@ -37,6 +37,36 @@ public sealed class TFFriendGateTests
         Assert.Equal((1, 0, 0), (f.Decider.HeldFireFriend, f.Decider.Shots, f.Decider.FeetShots));
     }
 
+    /// <summary>
+    /// Lane Ge: a rocket at the feet of a target 400 u away, the view turned down at them, goes down through a teammate
+    /// standing halfway, under the eye's height.
+    /// </summary>
+    [Fact]
+    public void ARocketAtTheFeetPastATeammateStandingBetweenIsHeld()
+    {
+        SelfState down = TFField.Self(Mid) with { Eye = new AiAngles(MathF.Atan2(64f, 400f) * 180f / MathF.PI, 0f, 0f) };
+        TFField f = Field();
+        IntentCommand i = f.StepDrawn(down, TFField.Ctf(), Them(400f), Friend(200f));
+        Assert.Equal((ActionKind.None, 1, 0), (i.Action.Kind, f.Decider.HeldFireFriend, f.Decider.FeetShots));
+        // The control: with nobody between, the same decide fires at the feet.
+        TFField g = Field();
+        IntentCommand j = g.StepDrawn(down, TFField.Ctf(), Them(400f));
+        Assert.Equal((ActionKind.Fire, 1), (j.Action.Kind, g.Decider.FeetShots));
+    }
+
+    /// <summary>Lane Ge: the shotgun's line at a body 300 u away passes 18 u over a teammate crouched 60 u out, as its client draws it; standing, it is on the line.</summary>
+    [Fact]
+    public void AShotgunsLineOverACrouchedTeammatesHeadFiresAndThroughAStandingOneItHolds()
+    {
+        ActorFacts crouched = Friend(60f) with { Activity = ActorActivity.Crouched };
+        TFField f = Field();
+        IntentCommand i = f.StepDrawn(TFField.Self(Mid, weapon: TFField.Shotgun, clip: 6), TFField.Ctf(), Them(300f), crouched);
+        Assert.Equal((ActionKind.Fire, 0), (i.Action.Kind, f.Decider.HeldFireFriend));
+        TFField g = Field();
+        IntentCommand j = g.StepDrawn(TFField.Self(Mid, weapon: TFField.Shotgun, clip: 6), TFField.Ctf(), Them(300f), Friend(60f));
+        Assert.Equal((ActionKind.None, 1), (j.Action.Kind, g.Decider.HeldFireFriend));
+    }
+
     [Fact]
     public void WithTheTeammateAsideItFires()
     {

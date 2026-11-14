@@ -154,13 +154,10 @@ public sealed partial class Hl2mpDecider : IDecider
     private float _ambushWalkSeconds = AmbushWalkSeconds;
     private readonly ulong _campSeed;
 
-    // A prefire (§5.4).
-    private readonly AiRandom _prefireRng;
-    private int _lineAsk, _askAnswered;
-    private AiVector _lineAt, _lineFrom, _prefireSpot;
-    private bool _lineClear, _prefiring, _prefireAiming;
-    private bool _triedFallback;
-    private Tick _prefireUntil, _prefireNext;
+    // A prefire (§5.4): the core's, and the one line channel it shares with the alt fire and the frags.
+    private readonly LineAsks _lines = new();
+    private readonly PrefireRun _prefire;
+    private readonly PrefireOpening _opening;
     private string _prefireState = "";
 
     // The weapons the bot found empty in its hands (the HUD shows them so), by
@@ -269,22 +266,23 @@ public sealed partial class Hl2mpDecider : IDecider
     /// approach to their usual corner, a bot believes it knows where they are well
     /// enough to fire there; and how sure it must still be.
     /// </summary>
-    public const float PrefireSeenSeconds = 2.5f, PrefireHeardSeconds = 1.5f, PrefireConfidence = 0.5f, PrefireHabitConfidence = 0.25f;
+    public const float PrefireSeenSeconds = PrefireBelief.SeenSeconds, PrefireHeardSeconds = PrefireBelief.HeardSeconds,
+                       PrefireConfidence = PrefireBelief.Confidence, PrefireHabitConfidence = PrefireBelief.HabitConfidence;
 
     /// <summary>The place must be within this of the way the view points: a human turn, about 0.2 s of a flick.</summary>
     public const float PrefireTurnDeg = 60f;
 
     /// <summary>How long between one chance of a prefire and the next: a person sprays, then checks.</summary>
-    public const float PrefireCheckSeconds = 2f;
+    public const float PrefireCheckSeconds = PrefireRun.CheckSeconds;
 
     /// <summary>The share of a clip it keeps: not a nearly empty gun.</summary>
     public const float PrefireClipShare = 0.25f;
 
     /// <summary>A line's answer stands while the bot has moved less than this, and it fires at nothing nearer.</summary>
-    public const float PrefireLineMoved = 48f, PrefireNearest = 96f;
+    public const float PrefireLineMoved = PrefireRun.LineMoved, PrefireNearest = 96f;
 
     /// <summary>How far along the graph from what it believes it looks for an opening it can see.</summary>
-    public const int PrefireOpeningCells = 512;
+    public const int PrefireOpeningCells = PrefireOpening.Cells;
 
     /// <summary>
     /// The height a place is looked at and fired at: where a standing person's shoulders would be
@@ -348,7 +346,8 @@ public sealed partial class Hl2mpDecider : IDecider
         _tick = setup.TickSeconds;
         _rng = new AiRandom(setup.Seed ^ 0x5452_4545UL);
         _routeRng = new AiRandom(setup.Seed ^ 0x524F_5554UL);
-        _prefireRng = new AiRandom(setup.Seed ^ 0x5052_4546UL);
+        _prefire = new PrefireRun(new AiRandom(setup.Seed ^ 0x5052_4546UL), _lines);
+        _opening = new PrefireOpening(_graph?.CellCount ?? 0);
         _aimHeight = new AimHeightHold(new AiRandom(setup.Seed ^ 0x4149_4D48UL));
         _altRng = new AiRandom(setup.Seed ^ 0x414C_5446UL);
         _fragRng = new AiRandom(setup.Seed ^ 0x4652_4147UL);
@@ -405,7 +404,7 @@ public sealed partial class Hl2mpDecider : IDecider
             _approachOf = ActorId.None;
             _goalHeld = _walkingToGoal = _wasSighted = false;
             _heldFor = _lastTarget = null;
-            EndPrefire();
+            _prefire.End();
             _crouching = false;
             Trace.Begin(tick);
             Trace.End(default);
@@ -451,7 +450,7 @@ public sealed partial class Hl2mpDecider : IDecider
         Doing = new DoingRecord(branch, _leaf, _hasGoal, _goal, _target?.Id ?? ActorId.None, _verdict, _window.PEmpty, _window.PReloading,
                                 _window.SecondsLeft, _window.ArriveSeconds, _scoreboardTerm, _ammoTerm, expires,
                                 _grudgeTerm, _preAiming, _habitKnown ? _habitSpot : default, _momentSeq, _momentKind, _momentOther,
-                                _lineAsk, _lineAt, _prefireState, _prefireAiming ? _prefireSpot : default, streak.Name,
+                                _lines.Ask, _lines.At, _prefireState, _prefire.Aiming ? _prefire.Spot : default, streak.Name,
                                 streak.AimErrorDeg, streak.ReactionMs, streak.RecognizeSeconds, _altState);
         return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason, _say);
     }
@@ -625,92 +624,36 @@ public sealed partial class Hl2mpDecider : IDecider
     private void Prefire()
     {
         _prefireState = "";
-        if (_view.SightedCount > 0 || _target is null || _targetSighted || !PrefireLeaf || !PrefireHands())
-        {
-            EndPrefire();
+        if (!_prefire.Gate(_view.SightedCount == 0 && _target is not null && !_targetSighted && PrefireLeaf && PrefireHands(), _now, _tick))
             return;
-        }
 
-        if (_prefiring && _now >= _prefireUntil)
+        if (!_prefire.Aiming)
         {
-            EndPrefire();
-            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
-            return;
-        }
-
-        if (!_prefireAiming)
-        {
-            if (_now < _prefireNext || !PrefireBelief(out AiVector believed, out AiVector fallback))
+            if (_now < _prefire.Next || !PrefireBelieves(out AiVector believed, out AiVector fallback))
                 return;
-            AiVector spot = Opening(believed) + new AiVector(0f, 0f, PlaceHeight);
+            AiVector spot = _opening.Find(_graph, _memory.World.Sight, _self.Origin, believed) + new AiVector(0f, 0f, PlaceHeight);
             if (!PrefireInReach(spot))
                 return;
             // One chance, then it waits to check again.
-            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
-            if (_prefireRng.NextFloat() >= _p.PrefireChance * _p.PrefireThrift)
+            if (!_prefire.Draw(_now, _tick, _p.PrefireChance * _p.PrefireThrift, spot, fallback + new AiVector(0f, 0f, PlaceHeight)))
                 return;
-            _prefireSpot = spot;
-            _prefireFallback = fallback + new AiVector(0f, 0f, PlaceHeight);
-            _triedFallback = false;
-            _lineClear = false;
-            _prefireAiming = true;
         }
 
-        if (!PrefireInReach(_prefireSpot))
+        if (!PrefireInReach(_prefire.Spot))
         {
-            EndPrefire();
+            _prefire.End();
             return;
         }
 
         // The view goes there at once, as a person's does; the hands follow when the line is known.
-        _look = new LookIntent(LookKind.CornerCheck, _prefireSpot, _target.Id, AimPoint.Body, 0f, 0);
+        _look = new LookIntent(LookKind.CornerCheck, _prefire.Spot, _target!.Id, AimPoint.Body, 0f, 0);
         _prefireState = "aiming";
-        (int ask, AiVector point, bool clear) = _memory.LastLine;
-        if (ask == _lineAsk && ask != _askAnswered && _lineAsk > 0)
-        {
-            _askAnswered = ask;
-            _lineClear = clear && point.DistanceTo(_prefireSpot) < 1f && _self.Origin.DistanceTo(_lineFrom) < PrefireLineMoved;
-            if (!_lineClear && !_prefiring)
-            {
-                if (_triedFallback || _prefireFallback.DistanceTo(_prefireSpot) < 1f || !PrefireInReach(_prefireFallback))
-                {
-                    EndPrefire();
-                    return;
-                }
-
-                // Behind what it can see: the place it last saw them is the opening.
-                _triedFallback = true;
-                _prefireSpot = _prefireFallback;
-            }
-            else if (!_lineClear)
-            {
-                EndPrefire();
-                return;
-            }
-        }
-
-        // Each decide it looks again: it moves, and a door may shut.
-        if (_lineAsk == _askAnswered || _lineAt.DistanceTo(_prefireSpot) >= 1f)
-        {
-            _lineAsk++;
-            _lineAt = _prefireSpot;
-            _lineFrom = _self.Origin;
-        }
-
-        if (!_lineClear)
+        bool fallbackInReach = PrefireInReach(_prefire.Fallback);
+        if (_prefire.Line(_memory.LastLine, _now, _self.Origin, fallbackInReach, (int)(_p.PrefireBurstSeconds / _tick)) != PrefireStep.Firing)
             return;
-        if (!_prefiring)
-        {
-            _prefiring = true;
-            _prefireUntil = _now + Math.Max(1, (int)(_p.PrefireBurstSeconds / _tick));
-            Prefires++;
-        }
-
         _prefireState = "firing";
         _action = new ActionIntent(ActionKind.Fire, _use.Style, 0, 0);
     }
-
-    private AiVector _prefireFallback;
 
     // ---------------------------------------------------------------- alt fire (§5.4)
 
@@ -789,9 +732,8 @@ public sealed partial class Hl2mpDecider : IDecider
         _altLineClear = alt.Kind != AltFireKind.Lob;
         if (why == AltFireReason.Corner)
         {
-            _altCorner = _prefireSpot;
-            EndPrefire();
-            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
+            _altCorner = _prefire.Spot;
+            _prefire.EndAndWait(_now, _tick);
         }
 
         AltGoOn(in alt);
@@ -822,8 +764,8 @@ public sealed partial class Hl2mpDecider : IDecider
                 others++;
         }
 
-        bool corner = !_targetSighted && _prefiring && _lineClear;
-        float distance = corner ? _self.Origin.DistanceTo(_prefireSpot) : _targetDist;
+        bool corner = !_targetSighted && _prefire.Firing && _prefire.LineClear;
+        float distance = corner ? _self.Origin.DistanceTo(_prefire.Spot) : _targetDist;
         return new AltFireSituation(_targetSighted, distance, _targetPos.Z - _self.Origin.Z, closing, across, (_now - _stillSince) * _tick, others, visible, corner, false);
     }
 
@@ -910,11 +852,10 @@ public sealed partial class Hl2mpDecider : IDecider
     private bool AltLineClear(AiVector point, out bool refused)
     {
         refused = false;
-        (int ask, AiVector asked, bool clear) = _memory.LastLine;
-        if (ask == _lineAsk && ask != _askAnswered && _lineAsk > 0)
+        (int Ask, AiVector Point, bool Clear) last = _memory.LastLine;
+        if (_lines.TryAnswer(last))
         {
-            _askAnswered = ask;
-            _altLineClear = clear && asked.DistanceTo(point) < AltLineNear && _self.Origin.DistanceTo(_lineFrom) < PrefireLineMoved;
+            _altLineClear = last.Clear && last.Point.DistanceTo(point) < AltLineNear && _self.Origin.DistanceTo(_lines.From) < PrefireLineMoved;
             if (!_altLineClear)
             {
                 refused = true;
@@ -923,16 +864,10 @@ public sealed partial class Hl2mpDecider : IDecider
         }
 
         // Each decide it looks again, as a prefire does; a place it has moved far from starts over.
-        bool moved = _lineAt.DistanceTo(point) >= AltLineNear;
+        bool moved = _lines.At.DistanceTo(point) >= AltLineNear;
         if (moved)
             _altLineClear = false;
-        if (_lineAsk == _askAnswered || moved)
-        {
-            _lineAsk++;
-            _lineAt = point;
-            _lineFrom = _self.Origin;
-        }
-
+        _lines.Reask(point, _self.Origin, moved);
         return _altLineClear;
     }
 
@@ -1099,7 +1034,7 @@ public sealed partial class Hl2mpDecider : IDecider
 
     private bool FragBegins()
     {
-        if (_target is null || _altGoing || _now < _fragNext || _self.Grenades <= 0 || _use.Melee || _prefiring)
+        if (_target is null || _altGoing || _now < _fragNext || _self.Grenades <= 0 || _use.Melee || _prefire.Firing)
             return false;
         int kind = FragKindHeld(out AltFireFacts frag);
         if (kind < 0 || kind == _self.ActiveWeapon)
@@ -1126,7 +1061,7 @@ public sealed partial class Hl2mpDecider : IDecider
         _fragState = FragState.Looking;
         _fragAt = _now;
         _altLineClear = false;
-        EndPrefire();
+        _prefire.End();
         return true;
     }
 
@@ -1147,10 +1082,10 @@ public sealed partial class Hl2mpDecider : IDecider
         place = _targetPos;
         if (!_targetSighted)
         {
-            if (PrefireBelief(out AiVector believed, out _))
+            if (PrefireBelieves(out AiVector believed, out _))
             {
                 corner = true;
-                place = Opening(believed);
+                place = _opening.Find(_graph, _memory.World.Sight, _self.Origin, believed);
             }
             else if (_habitKnown)
             {
@@ -1332,12 +1267,7 @@ public sealed partial class Hl2mpDecider : IDecider
     private bool _crouchFit;
 
     /// <summary>Bursts begun, for the facts.</summary>
-    public int Prefires { get; private set; }
-
-    private void EndPrefire()
-    {
-        _prefiring = _prefireAiming = _lineClear = false;
-    }
+    public int Prefires => _prefire.Begun;
 
     /// <summary>The fight-like leaves a prefire belongs to: hunting, chasing, holding a place, and a fight just out of sight.</summary>
     private bool PrefireLeaf => _leaf is "hunt" or "chase" or "ambush" or "hold range";
@@ -1355,33 +1285,8 @@ public sealed partial class Hl2mpDecider : IDecider
     /// of, just heard, or at the corner its habit says, on an approach Cunning chose
     /// to pre-aim. <paramref name="at"/> is where it believes, <paramref name="last"/> the last place it had any evidence of.
     /// </summary>
-    private bool PrefireBelief(out AiVector at, out AiVector last)
-    {
-        KnownActor a = _target!;
-        at = last = default;
-        float seen = a.EverSeen ? (_now - a.LastSeenTick) * _tick : float.MaxValue;
-        float heard = a.EverHeard ? (_now - a.LastHeardTick) * _tick : float.MaxValue;
-        if (a.Confidence >= PrefireConfidence && seen <= PrefireSeenSeconds)
-        {
-            at = a.BelievedAt(_graph);
-            last = a.LastSeenPos;
-        }
-        else if (a.Confidence >= PrefireConfidence && heard <= PrefireHeardSeconds)
-        {
-            at = a.LastHeardPos;
-            last = a.LastHeardPos;
-        }
-        else if (_preAiming && a.Confidence >= PrefireHabitConfidence)
-        {
-            at = last = _habitSpot;
-        }
-        else
-        {
-            return false;
-        }
-
-        return true;
-    }
+    private bool PrefireBelieves(out AiVector at, out AiVector last)
+        => PrefireBelief.Of(_target!, _now, _tick, _graph, _preAiming ? _habitSpot : null, out at, out last, out _, out _);
 
     /// <summary>In weapon range, not at its own feet, and within a human turn of where it looks.</summary>
     private bool PrefireInReach(AiVector spot)
@@ -1392,46 +1297,7 @@ public sealed partial class Hl2mpDecider : IDecider
             return false;
         AiVector to = (spot - eye).Normalised();
         float cos = VisionMath.Forward(_self.Eye).Dot(to);
-        return _prefiring || cos >= MathF.Cos(PrefireTurnDeg * (MathF.PI / 180f));
-    }
-
-    /// <summary>
-    /// The nearest place to <paramref name="believed"/> along the graph that the
-    /// map's sight table says the bot can see: what someone gone round a corner is
-    /// behind. With no table, the place itself; the line's answer has the last word.
-    /// </summary>
-    private AiVector Opening(AiVector believed)
-    {
-        ICellSight? sight = _memory.World.Sight;
-        if (_graph is null || sight is null)
-            return believed;
-        CellId from = _graph.FindCell(_self.Origin + new AiVector(0f, 0f, 1f)), start = _graph.FindCell(believed + new AiVector(0f, 0f, 1f));
-        if (!from.IsValid || !start.IsValid)
-            return believed;
-        if (++_coverStamp == int.MaxValue)
-        {
-            Array.Clear(_coverSeen);
-            _coverStamp = 1;
-        }
-
-        int head = 0, tail = 0;
-        _coverQueue[tail++] = start.Index;
-        _coverSeen[start.Index] = _coverStamp;
-        while (head < tail && head < PrefireOpeningCells)
-        {
-            int c = _coverQueue[head++];
-            if (sight.Visible(from.Index, c))
-                return _graph.Cell(c).Centre;
-            foreach (NavEdge e in _graph.EdgesFrom(c))
-            {
-                if (_coverSeen[e.To] == _coverStamp || tail >= _coverQueue.Length)
-                    continue;
-                _coverSeen[e.To] = _coverStamp;
-                _coverQueue[tail++] = e.To;
-            }
-        }
-
-        return believed;
+        return _prefire.Firing || cos >= MathF.Cos(PrefireTurnDeg * (MathF.PI / 180f));
     }
 
     /// <summary>

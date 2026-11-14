@@ -66,6 +66,12 @@ public sealed record JumpFlown(JumpPlan Planned, JumpRecipe Recipe, JumpStart La
 
     /// <summary>The leap in the body's velocity the pilot felt as the blast: up and along the way for a blast under it, level or down for one beside or over it.</summary>
     public Vector Leap { get; init; }
+
+    /// <summary>
+    /// For a recipe with a second rocket (lane G7b): the command, counted from the first trigger's first, on which its
+    /// trigger was pressed, or -1 when it never was (the view was not there in its time, or the jump ended first).
+    /// </summary>
+    public int SecondAfterShot { get; init; } = -1;
 }
 
 /// <summary>
@@ -157,8 +163,8 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         return (int)MathF.Ceiling((motion.ReactionMs / 1000f + flick + correction) / tickSeconds) + TurnSlackCommands;
     }
 
-    /// <summary>The looks the program asks of the motion: the shot's, then the way it goes.</summary>
-    public const int ShotLook = 1, WayLook = 2;
+    /// <summary>The looks the program asks of the motion: the shot's, then the way it goes; the second shot's between them for a recipe with one.</summary>
+    public const int ShotLook = 1, WayLook = 2, SecondLook = 3;
 
     /// <summary>Jumps begun, and one-shots that named no plan the book holds; of the jumps begun, those of a link's plan.</summary>
     public long Begun => Interlocked.Read(ref _begun);
@@ -172,6 +178,13 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
     /// <summary>How near the recipe's start a plan that starts standing is placed before it is flown, and how slowly the body must be moving.</summary>
     public const float PlaceSlack = 8f, StillSpeed = 20f;
 
+    /// <summary>
+    /// How near the start a placing walks the body before it lets it stop (lane G7c): half the slack, so a body that slides on
+    /// when it stops walking still stops inside it, and one begun just outside it is not placed at its edge (in the game every
+    /// two-rocket jump that failed was launched 7 to 8 u past its start).
+    /// </summary>
+    public const float PlaceNear = PlaceSlack * 0.5f;
+
     /// <summary>How far from the recipe's start a plan that starts standing may be begun: the follower holds a bot within 48 u of it.</summary>
     public const float PlaceReach = 96f;
 
@@ -182,10 +195,11 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
     public const float MovedUnits = 256f;
 
     /// <summary>
-    /// A move of the game's is a reset when the body had fallen more than <see cref="ResetDrop"/> under the start's floor and
-    /// was put within <see cref="ResetReach"/> of the start, flat, and <see cref="ResetDrop"/> of its height (a jump map's
-    /// teleport back puts a player at the jump's start; a round's restart puts it on a spawn, and a body still over the start's
-    /// floor fell nowhere).
+    /// A move of the game's is a reset when the body was put within <see cref="ResetReach"/> of the start, flat, and
+    /// <see cref="ResetDrop"/> of its height (a jump map's teleport back puts a player at the jump's start), having fallen
+    /// more than <see cref="ResetDrop"/> under the start's floor, or still moving at <see cref="StillSpeed"/> or more where it
+    /// was put (lane G7b: a teleport keeps the body's speed, so one that put it back from a ledge over the start, the beam a
+    /// second rocket is fired at, is a reset too). A round's restart puts the body on a spawn at rest: moved.
     /// </summary>
     public const float ResetReach = 384f, ResetDrop = 64f;
 
@@ -233,7 +247,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         private float? _stoodAt;
         private int _roundBy, _likelyBy;
         private bool _placed, _aimedStanding;
-        private int _feltAfterShot = -1;
+        private int _feltAfterShot = -1, _secondAfterShot = -1;
         private Vector _leap;
         private Vector? _lastOrigin;
 
@@ -243,7 +257,8 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             _plan = plan;
             _limits = limits;
             _motion = motion;
-            _tolerance = Tolerance(motion);
+            // A Double's first shot is held to the tightest view whatever the hand: its second rocket's floor is met only on the flight the search found (lane G7b).
+            _tolerance = plan.Recipe.Second is null ? Tolerance(motion) : TightDegrees;
             _flew = flew;
             _recipe = plan.Recipe;
         }
@@ -268,7 +283,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             Vector? last = _lastOrigin;
             _lastOrigin = b.Origin;
             if (last is { } was && (b.Origin - was).Length > MovedUnits)
-                return Finish(PutBack(was, b.Origin) ? JumpEnd.Reset : JumpEnd.Moved, b.Origin);
+                return Finish(PutBack(was, b.Origin, b.Velocity) ? JumpEnd.Reset : JumpEnd.Moved, b.Origin);
             if (!_launched)
             {
                 if (Approach(b, shot) is { } command)
@@ -281,6 +296,8 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             JumpPilotStep step = JumpPilot.Step(_recipe, _pilot, b, _limits);
             if (step.Next.Felt && !_pilot.Felt)
                 (_feltAfterShot, _leap) = (_pilot.Count - Math.Max(0, _recipe.ShotDelay), b.Velocity - _pilot.LastVelocity);
+            if (step.Next.Second > 0 && _pilot.Second == 0)
+                _secondAfterShot = step.Next.Second - 1 - Math.Max(0, _recipe.ShotDelay);
             _pilot = step.Next;
             if (step.Next.Phase == JumpPhase.Landed)
                 return Finish(step.Next.Airborne && Flew ? JumpEnd.Landed : JumpEnd.Fizzled, b.Origin);
@@ -290,10 +307,13 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
                 _top = MathF.Max(_top, b.Origin.Z);
             }
 
-            // The view stays asked onto the shot's line until the pilot has let the trigger go, then back to the way it goes.
+            // The view stays asked onto the shot's line until the pilot has let the trigger go, then onto the second shot's
+            // for a recipe with one, then back to the way it goes.
             Vector looks = JumpPilot.LooksTo(_recipe, step.Next with { Count = step.Next.Count - 1 });
-            bool atShot = looks.X == shot.X && looks.Y == shot.Y;
-            return new AbilityCommand(new AiAngles(looks.X, looks.Y, 0f), atShot ? ShotLook : WayLook, new AiVector(step.Wish.X, step.Wish.Y, 0f), step.Command.Buttons);
+            Vector second = _recipe.SecondView;
+            int look = looks.X == shot.X && looks.Y == shot.Y ? ShotLook
+                : _recipe.Second is not null && looks.X == second.X && looks.Y == second.Y ? SecondLook : WayLook;
+            return new AbilityCommand(new AiAngles(looks.X, looks.Y, 0f), look, new AiVector(step.Wish.X, step.Wish.Y, 0f), step.Command.Buttons);
         }
 
         /// <summary>Whether what the body has done since the launch is a flight on a blast: see <see cref="FlownShare"/>.</summary>
@@ -378,7 +398,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
 
         /// <summary>
         /// A plan that starts standing (a link's): the body walked onto the recipe's start, slower as it nears it, until it
-        /// is within <see cref="PlaceSlack"/> and moving under <see cref="StillSpeed"/>, its view turning to the shot's line
+        /// is within <see cref="PlaceNear"/> and moving under <see cref="StillSpeed"/>, its view turning to the shot's line
         /// meanwhile; null once it is placed. Off the ground, or begun further than <see cref="PlaceReach"/> from the start,
         /// the jump is called off (astray); so is a placing that takes the approach's whole time.
         /// </summary>
@@ -394,7 +414,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
                 return Finish(JumpEnd.ViewLate, b.Origin);
             float speed = MathF.Sqrt(b.Velocity.X * b.Velocity.X + b.Velocity.Y * b.Velocity.Y);
             AiVector wish = default;
-            if (far > PlaceSlack)
+            if (far > PlaceNear)
             {
                 // A wish's length is the speed it asks for (the movement holds it to the class's own).
                 float want = Math.Clamp(far * PlaceGain, PlaceSpeedMin, _limits.RunSpeed);
@@ -409,12 +429,15 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             return new AbilityCommand(new AiAngles(shot.X, shot.Y, 0f), ShotLook, wish, 0);
         }
 
-        /// <summary>Whether the game's move from <paramref name="was"/> to <paramref name="now"/> put a fallen body back at the jump's start (<see cref="JumpEnd.Reset"/>).</summary>
-        private bool PutBack(Vector was, Vector now)
+        /// <summary>
+        /// Whether the game's move from <paramref name="was"/> to <paramref name="now"/>, the body moving at
+        /// <paramref name="velocity"/> after it, put the body back at the jump's start (<see cref="JumpEnd.Reset"/>).
+        /// </summary>
+        private bool PutBack(Vector was, Vector now, Vector velocity)
         {
             Vector start = _recipe.Start().Origin;
             float flat = MathF.Sqrt((now.X - start.X) * (now.X - start.X) + (now.Y - start.Y) * (now.Y - start.Y));
-            return was.Z < start.Z - ResetDrop && MathF.Abs(now.Z - start.Z) <= ResetDrop && flat <= ResetReach;
+            return (was.Z < start.Z - ResetDrop || velocity.Length >= StillSpeed) && MathF.Abs(now.Z - start.Z) <= ResetDrop && flat <= ResetReach;
         }
 
         private AbilityCommand Finish(JumpEnd end, Vector at)
@@ -425,6 +448,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
                 _flew(new JumpFlown(_plan, _recipe, _launch, _launched, _slid, _approach - (_launched ? 1 : 0), _air, _pilot.Felt, at, end, _limits.TickSeconds)
                 {
                     Rise = _launched ? _top - _launch.Origin.Z : 0f, Stood = _stood, FeltAfterShot = _feltAfterShot, Leap = _leap,
+                    SecondAfterShot = _secondAfterShot,
                 });
             }
 

@@ -182,14 +182,14 @@ public sealed partial class TFDecider
         plan = null;
         if (!MayRocketJump)
             return false;
-        Jump.JumpLinkRefusal why = JumpRefusalNow;
+        Jump.JumpLinkRefusal why = JumpRefusalNow, refused = Jump.JumpLinkRefusal.Health;
         bool linkMay = LinkMayBegin(why);
-        if (linkMay && RouteLinkAdvised(out plan))
+        if (linkMay && RouteLinkAdvised(out plan, out refused))
             return true;
         if (why == Jump.JumpLinkRefusal.None && JumpAdvised(out plan))
             return true;
         // A wait at a link's start is counted with its reason (the book counts it only when the route has one here).
-        Jumps!.LinkRefused(_bot.Slot, _now, _goal, linkMay ? Jump.JumpLinkRefusal.Health : why);
+        Jumps!.LinkRefused(_bot.Slot, _now, _goal, linkMay ? refused : why);
         return false;
     }
 }

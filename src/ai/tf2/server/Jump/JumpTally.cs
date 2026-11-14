@@ -17,7 +17,7 @@ public readonly record struct JumpTallyCounts(long Ended, long LandedNear, long 
 /// it came down, and, once a worker has flown the same recipe from the same launch in the
 /// simulator, where the simulator comes down and after how long in the air.
 /// </summary>
-public sealed record JumpTallied(int Serial, JumpFlown Flown, float OffPlan, Vector? SimTouch = null, float SimAirSeconds = 0f, bool SimFlew = false)
+public sealed record JumpTallied(int Serial, JumpFlown Flown, float OffPlan, Vector? SimTouch = null, float SimAirSeconds = 0f, bool SimFlew = false, int SimRockets = 0)
 {
     /// <summary>How far the game's landing is from the simulator's for the same recipe and launch, or null before it is known or for a jump that did not land.</summary>
     public float? Gap => SimTouch is { } sim && Flown.End == JumpEnd.Landed ? JumpTally.Flat(Flown.Touch, sim) : null;
@@ -85,7 +85,7 @@ public sealed class JumpTally
             int at = _last.FindIndex(j => j.Serial == serial);
             if (at < 0)
                 return;
-            _last[at] = _last[at] with { SimTouch = sim.Touch, SimAirSeconds = sim.AirSeconds, SimFlew = sim.Flew };
+            _last[at] = _last[at] with { SimTouch = sim.Touch, SimAirSeconds = sim.AirSeconds, SimFlew = sim.Flew, SimRockets = sim.Rockets };
             _predicted++;
         }
     }
@@ -123,11 +123,11 @@ public sealed class JumpTally
                 $"{{\"serial\":{j.Serial},\"plan\":{f.Planned.Id},\"end\":\"{f.End}\",\"launched\":{(f.Launched ? "true" : "false")},\"felt\":{(f.Felt ? "true" : "false")},"
                 + $"\"slid\":{f.Slid:F1},\"approach_seconds\":{f.ApproachCommands * f.TickSeconds:F3},\"stood_seconds\":{f.Stood * f.TickSeconds:F3},"
                 + $"\"air_seconds\":{f.AirCommands * f.TickSeconds:F3},\"rise\":{f.Rise:F1},\"plan_apex\":{f.Planned.Apex:F1},"
-                + $"\"felt_after_shot\":{f.FeltAfterShot},\"leap\":{P(f.Leap)},"
+                + $"\"felt_after_shot\":{f.FeltAfterShot},\"leap\":{P(f.Leap)},\"rockets\":{f.Recipe.Rockets},\"second_after_shot\":{f.SecondAfterShot},"
                 + $"\"takeoff\":{P(f.Recipe.Takeoff)},\"landing\":{P(f.Recipe.Landing)},\"touch\":{P(f.Touch)},\"plan_touch\":{P(f.Planned.Touch)},\"off_plan\":{j.OffPlan:F1},"
                 + $"\"plan_seconds\":{f.Planned.Seconds:F3},\"plan_air_seconds\":{f.Planned.AirSeconds:F3},\"plan_walk_seconds\":{f.Planned.WalkSeconds:F3},\"plan_health\":{f.Planned.Health:F1},"
                 + $"\"pitch\":{f.Recipe.Pitch:F1},\"yaw_offset\":{f.Recipe.YawOffset:F1},\"shot_delay\":{f.Recipe.ShotDelay},\"run_up\":{f.Recipe.RunUp:F0},"
-                + $"\"sim_touch\":{(j.SimTouch is { } s ? P(s) : "null")},\"sim_air_seconds\":{j.SimAirSeconds:F3},\"sim_flew\":{(j.SimFlew ? "true" : "false")},"
+                + $"\"sim_touch\":{(j.SimTouch is { } s ? P(s) : "null")},\"sim_air_seconds\":{j.SimAirSeconds:F3},\"sim_flew\":{(j.SimFlew ? "true" : "false")},\"sim_rockets\":{j.SimRockets},"
                 + $"\"gap\":{(j.Gap is { } gap ? gap.ToString("F1", CultureInfo.InvariantCulture) : "null")}}}");
         }
 

@@ -14,6 +14,9 @@ public sealed record ExperienceStatus(ExperienceKey Key, string Path, bool Memor
     public double SecondsSinceFlush => LastFlushStamp == 0 ? -1d : Stopwatch.GetElapsedTime(LastFlushStamp).TotalSeconds;
 }
 
+/// <summary>A jump a player showed as the worker judged it (lane G6a): what, by which class, from and to which bins, its seconds in the air and health, and the verdict.</summary>
+public readonly record struct ShownJumpSeen(ShownJumpKind Kind, int Class, WorldBin From, WorldBin To, double Seconds, int Health, ShownJumpVerdict Verdict);
+
 /// <summary>
 /// The off-thread half of the experience feed (plan_bots_teams_tf2 Part G,
 /// G.3): one worker thread of its own (an <see cref="AiWorkerPool"/> of one,
@@ -51,12 +54,16 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
     private string? _refusal;
     private double _halfLife = ExperienceDecay.DefaultHalfLife;
     private long _flushStamp;
+    private readonly ShownJumpLedger _ledger = new();
+    private readonly List<(LinkKey Key, LinkStat Stat)> _jumpRows = new();
 
     // Handed between the threads.
     private volatile MapExperience? _loaded;
     private volatile ExperienceStatus? _status;
     private int _owner = -1;
     private long _frames, _events, _flushes, _rowsMerged, _mergeFailures, _loads, _dropped, _onOwner;
+    private readonly long[] _verdicts = new long[(int)ShownJumpVerdict.NoWay + 1];
+    private readonly Queue<ShownJumpSeen> _seen = new();
 
     /// <summary>Whether the worker thread runs.</summary>
     public bool Running => _pool.Running;
@@ -116,6 +123,8 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
             _kept = null;
             _key = new ExperienceKey(map, checksum ?? (bsp is null ? "" : Convert.ToHexStringLower(SHA256.HashData(bsp))[..16]), mode);
             _halfLife = halfLife;
+            // Another key's exemplars are not this key's (lane G6a): the load below seeds this one's.
+            _ledger.Clear();
             if (_store is null || _path != path)
             {
                 _store?.Dispose();
@@ -164,6 +173,50 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
             _accumulator.Link(key, stat);
             Interlocked.Increment(ref _events);
         });
+
+    /// <summary>
+    /// A jump a player showed (lane G6a), made as <paramref name="cls"/>: judged here, off the game's thread, by
+    /// <paramref name="judge"/> against the level's graph and <paramref name="links"/> (null for none), and when the level
+    /// has no way for it, its count row and (the first time) its exemplar row are added (<see cref="ShownJumpLedger"/>).
+    /// <paramref name="judge"/> is the worker's alone from here on.
+    /// </summary>
+    public bool ShownJump(ShownJumpRecipe jump, int cls, ShownJumpJudge judge, ExperienceLinkKeys? links, double tickSeconds)
+        => Post(() =>
+        {
+            ShownJumpVerdict verdict = judge.Judge(jump, cls, links);
+            Interlocked.Increment(ref _verdicts[(int)verdict]);
+            Interlocked.Increment(ref _events);
+            Seen(new ShownJumpSeen(jump.Kind, cls, jump.From, jump.To, jump.AirCommands * tickSeconds, jump.HealthCost, verdict));
+            if (!ShownJumpJudge.Learned(verdict))
+                return;
+            _jumpRows.Clear();
+            _ledger.Rows(jump, cls, tickSeconds, _jumpRows);
+            foreach ((LinkKey key, LinkStat stat) in _jumpRows)
+                _accumulator.Link(key, stat);
+        });
+
+    /// <summary>The jumps players showed that were judged <paramref name="verdict"/> since the worker was made.</summary>
+    public long ShownJumps(ShownJumpVerdict verdict) => Interlocked.Read(ref _verdicts[(int)verdict]);
+
+    /// <summary>The last <see cref="SeenKept"/> jumps judged, oldest first: what each was and what the judge made of it.</summary>
+    public IReadOnlyList<ShownJumpSeen> RecentShownJumps()
+    {
+        lock (_seen)
+            return [.. _seen];
+    }
+
+    /// <summary>The jumps judged that <see cref="RecentShownJumps"/> keeps.</summary>
+    public const int SeenKept = 16;
+
+    private void Seen(ShownJumpSeen seen)
+    {
+        lock (_seen)
+        {
+            _seen.Enqueue(seen);
+            while (_seen.Count > SeenKept)
+                _seen.Dequeue();
+        }
+    }
 
     /// <summary>A place held, or set up (lane G4b): its row's context, kind, place and yaw, and what it added.</summary>
     public bool Spot(ExperienceContext context, int kind, AiVector at, float yaw, SpotStat stat)
@@ -264,7 +317,9 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
     {
         if (_store is null || !_key.IsValid)
             return;
-        _loaded = _store.Load(_key, _halfLife);
+        MapExperience loaded = _store.Load(_key, _halfLife);
+        _ledger.Seed(loaded);
+        _loaded = loaded;
         Interlocked.Increment(ref _loads);
         FellBack();
         Say();

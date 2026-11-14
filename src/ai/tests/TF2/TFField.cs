@@ -36,7 +36,8 @@ public sealed class TFField
 
     public TFField(int slot = 2, ulong seed = 7, string preset = "hard", bool graph = true, int floorLength = Length, Func<DecisionParams, DecisionParams>? tune = null,
                    TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null, int[]? mates = null,
-                   SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null, TeamZone[]? zones = null, ItemSpawn[]? packs = null, NavGraph? floor = null)
+                   SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null, TeamZone[]? zones = null, ItemSpawn[]? packs = null, NavGraph? floor = null,
+                   ICellSight? sight = null, ImmutableArray<TFCourseEnd> ends = default)
     {
         Bot = new ActorId(slot, 1);
         profile ??= SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
@@ -53,12 +54,12 @@ public sealed class TFField
                                    TFAbilities.Table(),
                                    teamZones: [new TeamZone(Blue, ZoneKind.RespawnRoom, new AiVector(3968f, 0f, -16f), new AiVector(4096f, 512f, 200f)), .. zones ?? []]);
         Graph = floor ?? (graph ? Floor(floorLength) : null);
-        Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, Graph, 0.015f, id => id.ToString()), new HabitStore());
+        Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, Graph, 0.015f, id => id.ToString(), sight), new HabitStore());
         // The scoreboard's rows of the bot's teammates (red, as Self draws the bot).
         foreach (int mate in mates ?? [])
             Memory.Apply(AiEvent.ActorTeam(Bot, new Tick(1), new ActorId(mate, 1), Red, 0));
         Decider = new TFDecider(new BrainSetup(Bot, seed, Memory, Params, 0.015f),
-                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps };
+                                TFKnowledge.Classes(c => (300f, c == TFClass.Soldier ? 200 : 125))) { Feel = feel ?? TFFeelSwitches.All, Jumps = jumps, CourseEnds = ends };
         Brain = new Brain(Bot, seed, Memory, Params, Decider);
     }
 

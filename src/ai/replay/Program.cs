@@ -211,6 +211,10 @@ if (args.Length >= 1 && args[0] == "navrooms")
 if (args.Length >= 1 && args[0] == "jumps")
     return JumpPlacesTool.Run(args[1..], Console.Out, Console.Error);
 
+//   practice <map.nav3d> <map.bsp> <soldier.txt> <db|default> <out.json> <build> <commit> [mode|-] [below] [skip|-] [write|dry] [half-life]   the bots' practice (tools/ai-jump-practice)
+if (args.Length >= 1 && args[0] == "practice")
+    return JumpPracticeTool.Run(args[1..], Console.Out, Console.Error);
+
 if (args.Length >= 4 && args[0] == "verify")
 {
     string vNav = args[1], vBsp = args[2], vRec = args[3];

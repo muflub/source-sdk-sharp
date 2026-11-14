@@ -88,6 +88,98 @@ public sealed class TFLinkExperienceTests
     }
 
     [Fact]
+    public void ALinkRowsRecipeFormatsAreFiveDifferentBytes()
+    {
+        // A solver's one-rocket, two-rocket and wall-jump recipes and a shown jump's exemplar and count rows: a reader tells a
+        // row's recipe by its first byte whatever its source, so no two share one.
+        byte[] formats = [TFLinkExperience.RecipeFormat, TFLinkExperience.SecondRecipeFormat, TFLinkExperience.WallRecipeFormat, ShownJumpRecipe.Format, ShownJumpRecipe.CountFormat];
+        Assert.Equal(5, formats.Distinct().Count());
+    }
+
+    [Fact]
+    public void AWallJumpsRecipeIsFormatFiveAndOtherwiseADoublesBytes()
+    {
+        var shot = new JumpSecondShot(new Vector(7.25f, 8.5f, 380.125f), 54, 78, 58f, -90f);
+        JumpRecipe floor = LinkPlan.Recipe with { Second = shot }, wall = LinkPlan.Recipe with { Second = shot with { Wall = true } };
+        byte[] two = [.. TFLinkExperience.RecipeOf(floor).Bytes], walled = [.. TFLinkExperience.RecipeOf(wall).Bytes];
+        Assert.Equal((TFLinkExperience.SecondRecipeFormat, TFLinkExperience.WallRecipeFormat), (two[0], walled[0]));
+        Assert.Equal(two[1..], walled[1..]);
+        Assert.NotEqual(TFLinkExperience.KeyOf(floor), TFLinkExperience.KeyOf(wall));
+    }
+
+    [Fact]
+    public void AOneRocketRecipesBytesAreFormatOnesAndASecondRocketsAreFormatTwos()
+    {
+        // Format 1: the byte, nine floats, an int and the duck: what a one-rocket row has always been keyed by.
+        JumpRecipe recipe = LinkPlan.Recipe;
+        byte[] one = [.. TFLinkExperience.RecipeOf(recipe).Bytes];
+        Assert.Equal((1 + 9 * 4 + 4 + 1, TFLinkExperience.RecipeFormat), (one.Length, one[0]));
+        Assert.Equal(recipe.Pitch, BitConverter.ToSingle(one, 1 + 7 * 4));
+
+        // Format 2: the same, then the second shot's place, earliest and latest, pitch and yaw offset.
+        var second = new JumpSecondShot(new Vector(11.5f, 22.25f, 380f), 54, 78, 89f, 175f);
+        byte[] two = [.. TFLinkExperience.RecipeOf(recipe with { Second = second }).Bytes];
+        Assert.Equal((one.Length + 5 * 4 + 2 * 4, TFLinkExperience.SecondRecipeFormat), (two.Length, two[0]));
+        Assert.Equal(one[1..], two[1..one.Length]);
+        Assert.Equal((11.5f, 22.25f, 380f), (BitConverter.ToSingle(two, one.Length), BitConverter.ToSingle(two, one.Length + 4), BitConverter.ToSingle(two, one.Length + 8)));
+        Assert.Equal((54, 78), (BitConverter.ToInt32(two, one.Length + 12), BitConverter.ToInt32(two, one.Length + 16)));
+        Assert.Equal((89f, 175f), (BitConverter.ToSingle(two, one.Length + 20), BitConverter.ToSingle(two, one.Length + 24)));
+        Assert.NotEqual(TFLinkExperience.KeyOf(recipe), TFLinkExperience.KeyOf(recipe with { Second = second }));
+        Assert.NotEqual(TFLinkExperience.KeyOf(recipe with { Second = second }), TFLinkExperience.KeyOf(recipe with { Second = second with { Latest = 79 } }));
+    }
+
+    [Fact]
+    public void EachSolverFormatIsReadBackAsTheRecipeItWasWrittenFrom()
+    {
+        // Lane G8: a practice row's recipe is read back to be flown. One, two and wall rockets, each the recipe it was.
+        var shot = new JumpSecondShot(new Vector(7.25f, 8.5f, 380.125f), 54, 78, 58f, -90f);
+        foreach (JumpRecipe recipe in (JumpRecipe[])[LinkPlan.Recipe, LinkPlan.Recipe with { Second = shot }, LinkPlan.Recipe with { Second = shot with { Wall = true } }])
+        {
+            Assert.True(TFLinkExperience.TryRecipe(TFLinkExperience.RecipeOf(recipe), out JumpRecipe read));
+            Assert.Equal(recipe, read);
+        }
+    }
+
+    [Fact]
+    public void BytesNoSolverWroteAreNoRecipe()
+    {
+        byte[] one = [.. TFLinkExperience.RecipeOf(LinkPlan.Recipe).Bytes];
+        Assert.True(TFLinkExperience.TryRecipe(new LinkRecipe([.. one]), out _));
+
+        // A person's exemplar and count rows, a cut-short row, a long one, a duck byte of 2, and a pitch that is no number.
+        Assert.False(TFLinkExperience.TryRecipe(ShownJumpRecipe.CountRecipe, out _));
+        Assert.False(TFLinkExperience.TryRecipe(new LinkRecipe([ShownJumpRecipe.Format, .. one[1..]]), out _));
+        Assert.False(TFLinkExperience.TryRecipe(new LinkRecipe([.. one[..^1]]), out _));
+        Assert.False(TFLinkExperience.TryRecipe(new LinkRecipe([.. one, 0]), out _));
+        Assert.False(TFLinkExperience.TryRecipe(new LinkRecipe([.. one[..^1], 2]), out _));
+        byte[] nan = [.. one];
+        BitConverter.GetBytes(float.NaN).CopyTo(nan, 1 + 7 * 4);
+        Assert.False(TFLinkExperience.TryRecipe(new LinkRecipe([.. nan]), out _));
+        Assert.False(TFLinkExperience.TryRecipe(LinkRecipe.None, out _));
+    }
+
+    [Fact]
+    public void APracticeRowIsTheSolversRowOfAnotherSource()
+    {
+        JumpRecipe recipe = LinkPlan.Recipe;
+        LinkKey practice = TFLinkExperience.PracticeKeyOf(recipe);
+        Assert.Equal(LinkSource.Practice, practice.Source);
+        Assert.Equal(TFLinkExperience.KeyOf(recipe) with { Source = LinkSource.Practice }, practice);
+        Assert.NotEqual(TFLinkExperience.KeyOf(recipe), practice);
+    }
+
+    [Fact]
+    public void AFamilyIsReadFromTheRecipesOwnNumbers()
+    {
+        var shot = new JumpSecondShot(new Vector(7.25f, 8.5f, 380.125f), 54, 78, 58f, -90f);
+        JumpRecipe r = LinkPlan.Recipe;
+        Assert.Equal(JumpFamily.Up, TFLinkExperience.FamilyOf(r with { RunUp = 0f }));
+        Assert.Equal(JumpFamily.Forward, TFLinkExperience.FamilyOf(r with { RunUp = 160f }));
+        Assert.Equal(JumpFamily.Double, TFLinkExperience.FamilyOf(r with { RunUp = 0f, Second = shot }));
+        Assert.Equal(JumpFamily.Wall, TFLinkExperience.FamilyOf(r with { RunUp = 0f, Second = shot with { Wall = true } }));
+    }
+
+    [Fact]
     public void ASetsKeysAreItsLinksRecipesIndexForIndexAndMadeOnceASet()
     {
         var (g, ids) = Grids.Parse("..... ..... .....");

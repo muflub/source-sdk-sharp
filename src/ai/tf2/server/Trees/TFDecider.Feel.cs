@@ -10,12 +10,12 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// special (<see cref="Carrier"/>), a sound is not gone to (<see cref="Search"/>), the aim's error
 /// is a new draw at each decide (<see cref="Aim"/>), health is gone for under 40 % by everyone
 /// (<see cref="Retreat"/>), a teammate in the way holds no fire (<see cref="FriendGate"/>), and
-/// the bot does not glance off its way (<see cref="Glance"/>).
+/// the bot does not glance off its way (<see cref="Glance"/>), and it fires at nothing it has not seen (<see cref="Prefire"/>).
 /// </summary>
-public readonly record struct TFFeelSwitches(bool Carrier, bool Search, bool Aim, bool Retreat, bool FriendGate, bool Glance)
+public readonly record struct TFFeelSwitches(bool Carrier, bool Search, bool Aim, bool Retreat, bool FriendGate, bool Glance, bool Prefire = true)
 {
     /// <summary>Every part on: the layer as it is.</summary>
-    public static TFFeelSwitches All => new(true, true, true, true, true, true);
+    public static TFFeelSwitches All => new(true, true, true, true, true, true, true);
 }
 
 /// <summary>
@@ -204,12 +204,24 @@ public sealed partial class TFDecider
         if (!Feel.FriendGate || _action.Kind != ActionKind.Fire || !TeamRule.IsGameTeam(_self.Team))
             return;
         float blast = _memory.FriendlyFireOn && Splash(out _) ? SelfBlastUnits : 0f;
-        if (!FriendLine.Blocked(_view, OwnEye.Z - _self.Origin.Z, _look.Kind == LookKind.Actor ? _look.Point : null, FireReach, blast,
-                                TFKnowledge.AimHeight(AimPoint.Head, TFClass.Undefined).Standing))
+        // A shot goes at its aim point: a target's (a rocket at its feet goes at the floor beside them) or a prefire's place on the
+        // floor. The line judges a teammate's body where the shot passes it (lane Ge), up to a crouched top for one drawn crouched,
+        // so a rocket going down past a teammate standing between is held, and one over a crouched teammate's head is not.
+        AiVector? aim = _prefireFiring || _look.Kind == LookKind.Actor ? _look.Point : null;
+        StanceHeight body = TFKnowledge.AimHeight(AimPoint.Head, TFClass.Undefined);
+        if (!FriendLine.Blocked(_view, OwnEye.Z - _self.Origin.Z, aim, FireReach, blast, body.Standing, body.Crouched))
             return;
         _action = ActionIntent.None;
         _verdict = "held fire (teammate)";
         HeldFireFriend++;
+        if (_prefireFiring)
+        {
+            // A prefire counts no shot: it counts the hold.
+            PrefireHeldFriend++;
+            _prefireFiring = false;
+            return;
+        }
+
         Shots--;
         if (_look.Aim == AimPoint.Feet)
             FeetShots--;

@@ -59,6 +59,53 @@ public sealed class JumpLinkCacheTests : IDisposable
         Assert.Equal((7, 1234, 456.5), (back.Candidates, back.Flights, back.PassMs));
     }
 
+    /// <summary>A link whose recipe has a second rocket (lane G7b).</summary>
+    private static JumpLink Doubled(int from, int to)
+        => Link(from, to, null) with
+        {
+            Recipe = Link(from, to, null).Recipe with { Second = new JumpSecondShot(new Vector(7.25f, 8.5f, 380.125f), 54, 78, 89f, 180f) }, Family = JumpFamily.Double,
+        };
+
+    [Fact]
+    public void AFileReadsBackALinksSecondRocketAndTheOneRocketLinksBesideIt()
+    {
+        NavGraph graph = Yard.Value.Graph;
+        var file = new JumpLinkFile([Link(1, 2, 3.25f), Doubled(3, 4), Link(5, 9, null)], 7, 1234, 456.5);
+        var cache = new JumpLinkCache();
+        JumpLinkFile? back = cache.Decode(cache.Encode(graph, "k", file), graph, "k");
+        Assert.NotNull(back);
+        Assert.Equal(file.Links, back.Links);
+        Assert.Equal(new JumpSecondShot(new Vector(7.25f, 8.5f, 380.125f), 54, 78, 89f, 180f), back.Links[1].Recipe.Second);
+        Assert.Null(back.Links[0].Recipe.Second);
+    }
+
+    [Fact]
+    public void AOneRocketLinksNumbersAreTheBitsTheyWereAndTheRevisionIsRaised()
+    {
+        // A one-rocket link's record is revision 1's, then a zero: whether a second rocket follows.
+        NavGraph graph = Yard.Value.Graph;
+        byte[] one = new JumpLinkCache().Encode(graph, "k", new JumpLinkFile([Link(1, 2, 3.25f)], 1, 10, 1d));
+        byte[] none = new JumpLinkCache().Encode(graph, "k", new JumpLinkFile([], 1, 10, 1d));
+        const int Revision1Link = 76;
+        Assert.Equal(none.Length + Revision1Link + 4, one.Length);
+        Assert.Equal(0, BitConverter.ToInt32(one, one.Length - 4));
+        Assert.Equal(BitConverter.SingleToInt32Bits(35f), BitConverter.ToInt32(one, none.Length + 36));
+        Assert.Equal(3, JumpLinkCache.Revision);
+    }
+
+    [Fact]
+    public void AFileReadsBackWhetherASecondRocketIsFiredAtAWall()
+    {
+        // Lane G7c: a wall jump's second shot is a double's numbers and a flag; a file that lost the flag would fly it as a floor's.
+        NavGraph graph = Yard.Value.Graph;
+        JumpLink floor = Doubled(3, 4), wall = floor with { Recipe = floor.Recipe with { Second = floor.Recipe.Second!.Value with { Wall = true } }, Family = JumpFamily.Wall };
+        var cache = new JumpLinkCache();
+        JumpLinkFile? back = cache.Decode(cache.Encode(graph, "k", new JumpLinkFile([floor, wall], 2, 10, 1d)), graph, "k");
+        Assert.NotNull(back);
+        Assert.Equal((false, true), (back.Links[0].Recipe.Second!.Value.Wall, back.Links[1].Recipe.Second!.Value.Wall));
+        Assert.Equal((JumpFamily.Double, JumpFamily.Wall), (back.Links[0].Family, back.Links[1].Family));
+    }
+
     [Fact]
     public void AFileOfAnotherRevisionGraphOrInputsIsRefused()
     {
@@ -89,6 +136,36 @@ public sealed class JumpLinkCacheTests : IDisposable
         Assert.NotEqual(key, JumpLinkCache.InputsKey(launcher, Limits(), new JumpSearchSettings { Up = new JumpSearchSettings().Up with { PitchStep = 5f } }, places, [1, 2]));
         Assert.NotEqual(key, JumpLinkCache.InputsKey(launcher, Limits(), new JumpSearchSettings(), places with { PerPair = 2 }, [1, 2]));
         Assert.NotEqual(key, JumpLinkCache.InputsKey(launcher, Limits(), new JumpSearchSettings(), places, [1, 3]));
+    }
+
+    [Fact]
+    public void APlaceToSkipIsPartOfTheInputsKeyOnlyWhenThereIsOne()
+    {
+        JumpLauncher launcher = JumpLauncher.Rocket(RocketDamage, RocketRefire);
+        JumpPlacesSettings places = JumpPlacesSettings.Of(TFNavProfile.ModNumbers);
+        var search = new JumpSearchSettings();
+        string key = JumpLinkCache.InputsKey(launcher, Limits(), search, places, [1, 2]);
+
+        // With none the key is the records' text alone, as before lane G6b: no older file is refused for it.
+        System.Globalization.CultureInfo was = System.Globalization.CultureInfo.CurrentCulture;
+        string text;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            text = $"{launcher}|{Limits()}|{search}|{places}|1,2";
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = was;
+        }
+
+        Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)))[..16], key);
+        Assert.Equal(key, JumpLinkCache.InputsKey(launcher, Limits(), search, places, [1, 2], skip: null));
+
+        var skip = new JumpSkip(new Vector(1028f, 1150f, 266f), 200f);
+        string skipped = JumpLinkCache.InputsKey(launcher, Limits(), search, places, [1, 2], skip);
+        Assert.NotEqual(key, skipped);
+        Assert.NotEqual(skipped, JumpLinkCache.InputsKey(launcher, Limits(), search, places, [1, 2], skip with { Radius = 100f }));
     }
 
     [Fact]

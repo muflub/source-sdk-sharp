@@ -22,11 +22,13 @@ public readonly record struct JumpBody(Vector Origin, Vector Velocity, Vector Vi
 /// <summary>
 /// What a pilot carries from one command to the next, the caller holding it:
 /// the phase, the commands sent since the launch began, whether the body has
-/// been off the ground since, whether its own blast has been felt, and the
-/// speed it had a command ago (a blast is felt as a leap in it).
+/// been off the ground since, whether its own blast has been felt, the
+/// speed it had a command ago (a blast is felt as a leap in it), and, for a
+/// recipe with a second rocket, the count of the command its trigger was
+/// pressed on and one more (0 while it has not been).
 /// <c>default</c> is a jump not yet begun.
 /// </summary>
-public readonly record struct JumpPilotState(JumpPhase Phase, int Count, bool Airborne, bool Felt, Vector LastVelocity);
+public readonly record struct JumpPilotState(JumpPhase Phase, int Count, bool Airborne, bool Felt, Vector LastVelocity, int Second = 0);
 
 /// <summary>
 /// The numbers a pilot flies by, none of them a simulator's: how fast it may
@@ -84,6 +86,13 @@ public readonly record struct JumpPilotStep(JumpCommand Command, JumpPilotState 
 /// takes its speed nearest that. So it turns its path, brakes over the landing
 /// and holds there while it falls. The moves are whatever, in the view's
 /// frame, make that wish: the view itself turns back to the way it goes.</item>
+/// <item><b>A second rocket</b> (a recipe's <see cref="JumpRecipe.Second"/>, lane G7b). Once the first
+/// trigger is let go the view turns to the second shot's; the trigger is pressed again, in the air, no
+/// sooner than <see cref="JumpSecondShot.Earliest"/> commands after the first and no later than
+/// <see cref="JumpSecondShot.Latest"/>, once the body has come over <see cref="JumpSecondShot.Over"/>
+/// along the way; only with the view within <see cref="SecondAimDegrees"/> of the shot's and the body
+/// over the floor it is fired at. A body not over the place or a view not there by then fires nothing:
+/// the flight goes on as a single jump. Then the view turns back to the way it goes.</item>
 /// <item><b>Landed.</b> Nothing held, the view turning level.</item>
 /// </list>
 /// </summary>
@@ -100,6 +109,9 @@ public static class JumpPilot
 
     /// <summary>Commands the trigger is held for.</summary>
     public const int TriggerCommands = 2;
+
+    /// <summary>How near the second shot's view the view must be for it to be fired, degrees: what a search's trials put a view off by.</summary>
+    public const float SecondAimDegrees = 3f;
 
     /// <summary>A leap in speed over one command that is the body's own blast, units a second.</summary>
     public const float BlastFeltSpeed = 100f;
@@ -148,15 +160,21 @@ public static class JumpPilot
 
     /// <summary>
     /// Where the view of a pilot in <paramref name="state"/> is turning to: the shot's until the
-    /// trigger has been let go, then the way it goes. A caller that turns the view by a motion of
-    /// its own (a live bot's) hands that motion this, where <see cref="Step"/>'s own command has
+    /// trigger has been let go, then the second shot's until its trigger has been let go or its time
+    /// has passed (a recipe with one), then the way it goes. A caller that turns the view by a motion
+    /// of its own (a live bot's) hands that motion this, where <see cref="Step"/>'s own command has
     /// one command's turn toward it.
     /// </summary>
     public static Vector LooksTo(in JumpRecipe recipe, in JumpPilotState state)
     {
-        bool shot = state.Phase == JumpPhase.Approach
-                    || (state.Phase == JumpPhase.Launch && state.Count < Math.Max(0, recipe.ShotDelay) + TriggerCommands);
-        return shot ? recipe.ShotView : new Vector(0f, recipe.TravelYaw, 0f);
+        int shotAt = Math.Max(0, recipe.ShotDelay);
+        bool shot = state.Phase == JumpPhase.Approach || (state.Phase == JumpPhase.Launch && state.Count < shotAt + TriggerCommands);
+        if (shot)
+            return recipe.ShotView;
+        if (recipe.Second is { } second && state.Phase == JumpPhase.Launch
+            && (state.Second == 0 ? state.Count <= shotAt + second.Latest : state.Count < state.Second - 1 + TriggerCommands))
+            return recipe.SecondView;
+        return new Vector(0f, recipe.TravelYaw, 0f);
     }
 
     /// <summary>One command: see the class.</summary>
@@ -200,6 +218,12 @@ public static class JumpPilot
         bool felt = next.Felt || (n > 0 && n != jumpAt + 1 && (body.Velocity - state.LastVelocity).Length > BlastFeltSpeed);
         int buttons = (n == jumpAt ? InJump : 0) | (recipe.Ducked && n >= jumpAt ? InDuck : 0)
                       | (n >= shotAt && n < shotAt + TriggerCommands ? InAttack : 0);
+        int second = next.Second;
+        if (recipe.Second is { } s && second == 0 && SecondNow(recipe, s, n - shotAt, airborne, body, way))
+            second = n + 1;
+        if (second > 0 && n < second - 1 + TriggerCommands)
+            buttons |= InAttack;
+        next = next with { Second = second };
         Vector look = Turn(body.View, LooksTo(recipe, next), turn);
         Vector wish = Vector.Zero;
         if (body.OnGround && n <= jumpAt)
@@ -213,6 +237,20 @@ public static class JumpPilot
         }
 
         return Answer(look, wish, buttons, next with { Count = n + 1, Airborne = airborne, Felt = felt });
+    }
+
+    /// <summary>
+    /// Whether the second rocket is fired on the command <paramref name="sinceShot"/> commands after the first trigger's:
+    /// in the air, the launcher ready and its time not past, over its floor, the body come over its place, the view there.
+    /// A body that has not come over the place by <see cref="JumpSecondShot.Latest"/> fires nothing (lane G7c: in the game a
+    /// second rocket fired there wherever the body was never made the jump).
+    /// </summary>
+    private static bool SecondNow(in JumpRecipe recipe, in JumpSecondShot s, int sinceShot, bool airborne, in JumpBody body, Vector way)
+    {
+        if (!airborne || sinceShot < s.Earliest || sinceShot > s.Latest || body.Origin.Z <= s.Over.Z)
+            return false;
+        float before = (s.Over.X - body.Origin.X) * way.X + (s.Over.Y - body.Origin.Y) * way.Y;
+        return before <= 0f && ViewGap(body.View, recipe.SecondView) <= SecondAimDegrees;
     }
 
     /// <summary>The command whose view is <paramref name="view"/> and whose moves, in that view's frame, are <paramref name="wish"/>.</summary>
