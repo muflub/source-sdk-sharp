@@ -319,7 +319,11 @@ public sealed class SkillCurves
                                   HoldDrive: Optional("holdDrive", "discipline", 1f, 1f), EscortDrive: Optional("escortDrive", "teamwork", 1f, 1f),
                                   SurviveDrive: Optional("surviveDrive", "nerve", 1f, 1f), ScoreNoise: Optional("scoreNoise", "discipline", 0f, 0f),
                                   DodgeChance: Optional("dodgeChance", "agility", 0.05f, 0.95f), DodgeLateMs: Optional("dodgeLateMs", "agility", 500f, 0f),
-                                  VoiceEverySeconds: Optional("voiceEverySeconds", "teamwork", 45f, 8f));
+                                  VoiceEverySeconds: Optional("voiceEverySeconds", "teamwork", 45f, 8f),
+                                  DangerLookChance: Optional("dangerLookChance", "alertness", 0.2f, 0.95f),
+                                  DangerLookSeconds: Optional("dangerLookSeconds", "alertness", 0.5f, 1.4f),
+                                  SpotTrust: Optional("spotTrust", "discipline", 0.1f, 0.95f),
+                                  FamilyTrust: Optional("familyTrust", "cunning", 0.1f, 0.95f));
     }
 }
 
@@ -387,7 +391,16 @@ public readonly record struct DecisionParams(
     // the way of, and how long after its reaction it starts to. And the least time between two voice lines (G.2.4).
     float DodgeChance = 0.5f,
     float DodgeLateMs = 250f,
-    float VoiceEverySeconds = 26.5f);
+    float VoiceEverySeconds = 26.5f,
+    // What the experience store's danger places make of a look (G.4, lane G4b; Alertness): the chance a bot coming into
+    // the spot where its side keeps dying checks the place death came from, and how long it looks.
+    float DangerLookChance = 0.575f,
+    float DangerLookSeconds = 0.95f,
+    // How readily a defender holds where its side's players held (G.4's spots, lane G4b; Discipline).
+    float SpotTrust = 0.525f,
+    // How readily an attacker takes the way into the enemy's base that its draw over what worked chose (G.4's outcomes,
+    // lane G4b; Cunning).
+    float FamilyTrust = 0.525f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

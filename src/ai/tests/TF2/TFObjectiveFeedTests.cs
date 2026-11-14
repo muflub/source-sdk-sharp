@@ -57,4 +57,27 @@ public sealed class TFObjectiveFeedTests
         Assert.Equal(ObjectiveKind.Hold, TFObjectiveFeed.KindOf(TFObjectiveKind.KothPoint));
         Assert.Equal(ObjectiveKind.Push, TFObjectiveFeed.KindOf(TFObjectiveKind.Cart));
     }
+
+    private static readonly TFObjective Point = new(50, TFObjectiveKind.ControlPoint, TFTeam.Unassigned, TFTeam.Unassigned, TFObjectiveState.Open,
+                                                    new Vector(10, 20, 30), 0f, CarrierIndex: 0, UnlockIn: 0f, TimerLeft: 0f);
+
+    [Fact]
+    public void AControlPointsTeamsThatMayActAreTheTeamsTheRulesLetCaptureItNow()
+    {
+        // The rules let red alone take it (blue holds the point before, say): only red's bit.
+        Objective point = TFObjectiveFeed.Build([Point], 1, false, _ => null, id => id == 50 ? 1 << 2 : null).All[0];
+        Assert.Equal((ObjectiveKind.Capture, 1 << 2), (point.Kind, point.MayAct));
+        // No team may (each needs a point it does not hold): none.
+        Assert.Equal(0, TFObjectiveFeed.Build([Point], 1, false, _ => null, _ => 0).All[0].MayAct);
+        // Without the rules' answer, the feed's own: an unowned open point stands for both teams.
+        Assert.Equal((1 << 2) | (1 << 3), TFObjectiveFeed.Build([Point], 1, false, _ => null).All[0].MayAct);
+    }
+
+    [Fact]
+    public void TheRulesAnswerNothingForAFlagOrAZone()
+    {
+        ObjectiveKnowledge built = TFObjectiveFeed.Build([RedFlag, BlueZone], 12, false, id => id == 41 ? new AiVector(-500, 50, 8) : null, _ => 0);
+        Assert.Equal(1 << 3, built.All[0].MayAct);
+        Assert.Equal((1 << 2) | (1 << 3), built.All[1].MayAct);
+    }
 }

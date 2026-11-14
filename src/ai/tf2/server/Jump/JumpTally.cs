@@ -10,7 +10,7 @@ namespace SourceSharp.Ai.TF2.Jump;
 /// not where the plan aimed it (live, on a teammate standing in the shot's line), where the rest felt none at all.
 /// </summary>
 public readonly record struct JumpTallyCounts(long Ended, long LandedNear, long LandedShort, long LandedElsewhere, long ViewLate, long Astray, long Fizzled, long Died,
-                                              long TimedOut, long Predicted, long FizzledFelt = 0);
+                                              long TimedOut, long Predicted, long FizzledFelt = 0, long Moved = 0, long Reset = 0);
 
 /// <summary>
 /// One jump in the tally: what the bot did (<see cref="JumpFlown"/>), how far from the plan's touch
@@ -97,7 +97,8 @@ public sealed class JumpTally
             lock (_gate)
             {
                 return new JumpTallyCounts(_ends.Sum(), _near, _short, _elsewhere, _ends[(int)JumpEnd.ViewLate], _ends[(int)JumpEnd.Astray], _ends[(int)JumpEnd.Fizzled],
-                                           _ends[(int)JumpEnd.Died], _ends[(int)JumpEnd.TimedOut], _predicted, _fizzledFelt);
+                                           _ends[(int)JumpEnd.Died], _ends[(int)JumpEnd.TimedOut], _predicted, _fizzledFelt, _ends[(int)JumpEnd.Moved],
+                                           _ends[(int)JumpEnd.Reset]);
             }
         }
     }

@@ -28,6 +28,22 @@ public class JumpBookLinkTests
 
     private static NavLinkStep At(NavLinks links, bool atStart = true, AiVector? objective = null) => new(0, links.Hash, objective ?? Goal, atStart);
 
+    /// <summary>Lane G5e: a decide that begins no link is counted by its reason only where the bot stands at a link's start for that decide.</summary>
+    [Fact]
+    public void ARefusalIsCountedOnlyAtALinksStart()
+    {
+        var (book, links, _) = Book();
+        book.LinkRefused(Slot, new Tick(100), Goal, JumpLinkRefusal.Spacing);
+        Assert.Equal(0, book.LinkRefusals(JumpLinkRefusal.Spacing));
+        book.NoteRoute(Slot, new Tick(90), At(links, atStart: false));
+        book.LinkRefused(Slot, new Tick(100), Goal, JumpLinkRefusal.Spacing);
+        Assert.Equal(0, book.LinkRefusals(JumpLinkRefusal.Spacing));
+        book.NoteRoute(Slot, new Tick(95), At(links));
+        book.LinkRefused(Slot, new Tick(100), Goal, JumpLinkRefusal.Spacing);
+        book.LinkRefused(Slot, new Tick(106), Goal, JumpLinkRefusal.Reloading);
+        Assert.Equal((1L, 1L, 0L), (book.LinkRefusals(JumpLinkRefusal.Spacing), book.LinkRefusals(JumpLinkRefusal.Reloading), book.RouteCounts.Advised));
+    }
+
     [Fact]
     public void ALinksNumberAnswersTheLinksPlan()
     {

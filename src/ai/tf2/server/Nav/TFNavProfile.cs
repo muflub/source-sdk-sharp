@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Ai.Server.Experience;
 using SourceSharp.Ai.Server.Nav;
 using SourceSharp.Ai.TF2.Jump;
 using SourceSharp.Ai.TF2.Knowledge;
@@ -27,13 +28,16 @@ namespace SourceSharp.Ai.TF2.Nav;
 /// from the level's entities when the map's lump is compressed (<see cref="TFPlacedEntities"/>).</item>
 /// <item>The Soldier blast jumps (lane G5c-2b): its searches take the level's blast links
 /// (<see cref="TFBlastLinks"/>), each that costs no more health than it has over the floor a jump
-/// leaves it at (<see cref="TFDecider.RocketJumpHealthFloor"/>).</item>
+/// leaves it at (<see cref="TFDecider.RocketJumpHealthFloor"/>), and none the bots' own tries say fail (lane G5e).</item>
+/// <item>Where its team's players died (lane G4a): a bot's searches weigh its team's field of the
+/// experience's routes (<see cref="ExperienceRouteSlot"/>) by its Cunning (<see cref="TFRouteWeights"/>).</item>
 /// </list>
 /// A player's reach is read from its own carrier, and its health from its own entity: the profile is
 /// asked for the bot itself.
 /// </summary>
 [SideService(Side.Server, As = [typeof(INavProfile)])]
-public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, IEngineEntities entities, TFBlastLinks links) : INavProfile
+public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, IEngineEntities entities, TFBlastLinks links,
+                                  ExperienceRouteSlot? routes = null, TFRouteWeights? weights = null) : INavProfile
 {
     /// <summary>The derivation's numbers, worked from the mod's movement constants.</summary>
     public static NavNumbers ModNumbers
@@ -72,10 +76,30 @@ public sealed class TFNavProfile(ITFActorFacts actors, ITFLevelEntities placed, 
 
     /// <summary>
     /// A player with the blast reach takes the level's links (none while they are being found), spending on one no more
-    /// than its health over the jump's floor as it stands now (<see cref="LinkHealthOf"/>); anyone else none.
+    /// than its health over the jump's floor as it stands now (<see cref="LinkHealthOf"/>), and none of those the
+    /// experience's snapshot leaves out (lane G5e: the routes' <see cref="ExperienceRoutes.LinksShut"/>, when it is over
+    /// this set); anyone else none.
     /// </summary>
     public NavLinkAllowance LinksFor(EntityHandle player)
-        => (Reach(player) & JumpReach.Blast) != 0 && links.Set is { } set ? new NavLinkAllowance(set.Links, LinkHealthOf(entities.GetHealth(player))) : default;
+    {
+        if ((Reach(player) & JumpReach.Blast) == 0 || links.Set is not { } set)
+            return default;
+        NavLinkMask? shut = routes?.Current.LinksShut is { } mask && mask.IsOver(set.Links) ? mask : null;
+        return new NavLinkAllowance(set.Links, LinkHealthOf(entities.GetHealth(player)), shut);
+    }
+
+    /// <summary>
+    /// A player's team's field of where its players died (TF2's experience role is the team's number: no field for any
+    /// other team), and its own weight (its Cunning, as a bot of ours): none with no field (no store, no death) or no
+    /// weight (not our bot, Cunning 0). The team is the navigation's, as the team's solids are chosen by.
+    /// </summary>
+    public NavHazardAllowance HazardFor(EntityHandle player, int team)
+    {
+        if (routes is null || weights is null)
+            return default;
+        float weight = weights.Of(player.EntryIndex);
+        return weight > 0f && routes.Current.For(team) is { } hazard ? new NavHazardAllowance(hazard, weight) : default;
+    }
 
     /// <summary>The health a bot of <paramref name="health"/> may spend on a link: what it has over the floor a jump must leave it at, none under it.</summary>
     public static float LinkHealthOf(int health) => MathF.Max(0f, health - TFDecider.RocketJumpHealthFloor);

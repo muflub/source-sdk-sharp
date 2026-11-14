@@ -52,6 +52,16 @@ public sealed class FlowField
     /// <summary>The links the last build could take (null: none, or the agent has none of their reaches).</summary>
     public NavLinks? Links { get; private set; }
 
+    /// <summary>The hazard the last build weighed its steps by (null: none, another graph's, or an agent of weight 0).</summary>
+    public NavCellHazard? Hazard { get; private set; }
+
+    /// <summary>
+    /// The least health a link costs that the last build left out for the agent's health alone, of the links into a cell
+    /// it settled (a link on a way to the objective), or +∞ when none was (lane G7a). A field with no route from the
+    /// bot's cell and a finite value here has one once the agent may spend that much (<see cref="NavObstacleState.LinkHealth"/>).
+    /// </summary>
+    public float HealthShort { get; private set; } = float.PositiveInfinity;
+
     /// <summary>Whether <paramref name="a"/> beats <paramref name="b"/> as a next cell at equal cost.</summary>
     private static bool Nearer(NavGraph graph, int a, int b, AiVector target)
     {
@@ -68,7 +78,9 @@ public sealed class FlowField
     /// <see cref="NavObstacleState.Links"/> are steps too, for an agent with a reach
     /// they need, each where <see cref="NavLinks.Admits"/> lets it and not in
     /// <paramref name="avoidedLinks"/> (a link refused or failed, for a while): an agent
-    /// with none of their reaches builds the field it would with no links.
+    /// with none of their reaches builds the field it would with no links. With
+    /// <see cref="NavObstacleState.Hazard"/> and a weight over 0, a step into a cell costs its own cost
+    /// times one and the cell's <see cref="NavCellHazard.Scale"/>; without, the field is the one before it.
     /// </summary>
     /// <para>
     /// With <paramref name="from"/> (the cell the bot stands in) the search
@@ -103,6 +115,11 @@ public sealed class FlowField
         if (links is not null || Links is not null)
             Array.Fill(_link, -1);
         Links = links;
+        // A hazard of another graph, or an agent that minds none of it, is no hazard: the field is the one before it.
+        NavCellHazard? hazard = obstacles.Hazard is { } h && obstacles.HazardWeight > 0f && h.IsOver(graph) ? h : null;
+        float weight = obstacles.HazardWeight;
+        Hazard = hazard;
+        HealthShort = float.PositiveInfinity;
         _open.Clear();
         Objective = objective;
         Class = cls;
@@ -136,11 +153,13 @@ public sealed class FlowField
             if (cell != objective.Index && obstacles.CellBlocked(cell))
                 continue;
             float extra = obstacles.CellExtra(cell);
+            // A deadly cell makes each step into it dearer by a share of the step (a cost, never a wall).
+            float scale = hazard is null ? 0f : hazard.Scale(cell, weight);
             foreach (NavEdge e in graph.EdgesTo(cell))
             {
                 if (!graph.Admits(e, cls, obstacles))
                     continue;
-                float c = _cost[cell] + e.Cost + extra;
+                float c = scale == 0f ? _cost[cell] + e.Cost + extra : _cost[cell] + (e.Cost * (1f + scale)) + extra;
                 if (c < _cost[e.From] || (c == _cost[e.From] && Nearer(graph, cell, _next[e.From], target)))
                 {
                     bool improved = c < _cost[e.From];
@@ -165,8 +184,15 @@ public sealed class FlowField
     {
         foreach (int index in links.To(cell))
         {
-            if ((avoidedLinks is not null && avoidedLinks.Contains(index)) || !links.Admits(graph, index, cls, obstacles))
+            if (avoidedLinks is not null && avoidedLinks.Contains(index))
                 continue;
+            if (!links.Admits(graph, index, cls, obstacles))
+            {
+                if (links[index].Health < HealthShort && links.ShortOfHealth(graph, index, cls, obstacles))
+                    HealthShort = links[index].Health;
+                continue;
+            }
+
             int from = links[index].From;
             float c = _cost[cell] + links.CostOf(index) + extra;
             if (c < _cost[from] || (c == _cost[from] && Nearer(graph, cell, _next[from], target)))

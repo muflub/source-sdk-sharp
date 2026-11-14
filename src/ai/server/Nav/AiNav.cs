@@ -125,8 +125,10 @@ public sealed class AiNav(IEngineFiles files, IModInfo mod, IEngineEntities enti
             return null;
         state.Reach = profile.Reach(player);
         NavLinkAllowance links = profile.LinksFor(player);
-        (state.Links, state.LinkHealth) = (links.Links, links.Health);
-        state.TeamCells = _teamBlockers.For(players.GetTeam(player));
+        (state.Links, state.LinkHealth, state.LinksShut) = (links.Links, links.Health, links.Shut);
+        int team = players.GetTeam(player);
+        (state.Hazard, state.HazardWeight) = profile.HazardFor(player, team);
+        state.TeamCells = _teamBlockers.For(team);
         return state;
     }
 

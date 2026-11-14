@@ -42,7 +42,7 @@ public sealed partial class TFDecider
     /// aim's error keeps the aim's stream), so a replay of the same views draws the same and one
     /// part's luck moves no other's. The constructor's, once.
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_aimHeight), nameof(_aimWander), nameof(_glance), nameof(_streaks), nameof(_thingRng))]
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_aimHeight), nameof(_aimWander), nameof(_glance), nameof(_streaks), nameof(_thingRng), nameof(_learnedLook))]
     private void StartFeel(ulong seed)
     {
         _aimHeight = new AimHeightHold(new AiRandom(seed ^ 0x5446_4148UL));
@@ -51,6 +51,7 @@ public sealed partial class TFDecider
         _streaks = new Streaks(new AiRandom(seed ^ 0x5446_484FUL));
         _scoreSeed = seed ^ 0x5446_5343UL;
         _thingRng = new AiRandom(seed ^ 0x5446_5448UL);
+        _learnedLook = new LearnedLook(new AiRandom(seed ^ 0x5446_4C4BUL));
     }
 
     /// <summary>

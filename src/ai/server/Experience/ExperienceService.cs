@@ -30,7 +30,8 @@ namespace SourceSharp.Ai.Server.Experience;
 public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, IEnginePlayers players, IEngineEntities entities, IBotPlayers botPlayers,
                                       ActorDirectory directory, IEngineFrame frame, IEngineFiles files, ILog log, AiExperienceDbConVar db,
                                       AiExperienceHalfLifeConVar halfLife, AiExperienceLearnConVar learn, ILocalCommandLine commandLine,
-                                      IExperienceStores? stores = null)
+                                      IExperienceStores? stores = null, ExperienceRouteSlot? routeSlot = null, IExperienceLinks? links = null,
+                                      IExperienceHolds? holds = null)
     : IGameLifecycle, IFrameLifecycle, IPlayerHurtHook, IPlayerDeathHook, IOrderedHook, IDisposable
 {
     /// <summary>Players are sampled every this many ticks: about ten times a second.</summary>
@@ -52,6 +53,13 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     private double _sinceFlush;
     private bool _roundOver;
     private string? _saidRefusal;
+    private readonly ExperienceRouteSlot _routeSlot = routeSlot ?? new ExperienceRouteSlot();
+    private MapExperience? _pending;
+    private Task<ExperienceRoutes>? _routeWork;
+    private NavGraph? _routesTriedOn;
+    private ExperienceLinkKeys? _routesTriedLinks;
+    private readonly HoldTracker _holdTracker = new();
+    private readonly List<HeldSpot> _held = new();
 
     /// <summary>After the session built the level's world (First + 450), which holds <see cref="Slot"/>.</summary>
     public int LifecycleOrder => ModStages.First + 460;
@@ -64,6 +72,21 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
 
     /// <summary>Where the brains read the map's experience: the session puts it in the level's world. Empty while off and until the first load lands.</summary>
     public ExperienceSlot Slot { get; } = new();
+
+    /// <summary>
+    /// Where the routes the snapshot makes of the level's graph are published (lane G4a): set with the snapshot
+    /// they were built from, so the brains never read a snapshot before its routes.
+    /// </summary>
+    public ExperienceRouteSlot Routes => _routeSlot;
+
+    /// <summary>Routes published since the server started (<c>ai.experience.routes.builds</c>).</summary>
+    public int RouteBuilds { get; private set; }
+
+    /// <summary>Route builds that threw (<c>ai.experience.routes.faults</c>): their snapshot is published with no routes.</summary>
+    public int RouteFaults { get; private set; }
+
+    /// <summary>The routes' work under way, or null: a fact waits on it.</summary>
+    internal Task? RouteWork => _routeWork;
 
     /// <summary>The worker, for the counters and the facts.</summary>
     public ExperienceWorker Worker => _worker;
@@ -122,9 +145,26 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
     private void Leave()
     {
         if (_worker.Running)
+        {
+            // A hold under way when the level ends was held: it goes with the last flush.
+            if (Gathering)
+            {
+                _holdTracker.EndAll(_held);
+                HandHolds();
+            }
+
             _worker.Close(halfLife.Value);
+        }
+
         Say();
         Slot.Current = MapExperience.Empty;
+        _routeSlot.Current = ExperienceRoutes.None;
+        _pending = null;
+        _routeWork = null;
+        _routesTriedOn = null;
+        _routesTriedLinks = null;
+        _holdTracker.Clear();
+        _held.Clear();
         _path = null;
         _map = _mode = "";
         _checksum = null;
@@ -140,11 +180,8 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         if (_path is null)
             return;
         if (_worker.TakeLoaded() is { } fresh)
-        {
-            Slot.Current = fresh;
-            log.Msg(string.Create(CultureInfo.InvariantCulture,
-                $"[SourceSharp/Ai] experience: {fresh.Key.Map} {fresh.Key.Mode}: {fresh.Rows} rows over {fresh.Rounds} rounds (hash {fresh.ContentHash:x16})\n"));
-        }
+            Take(fresh);
+        PublishRoutes();
 
         Say();
         int tick = frame.TickCount();
@@ -172,7 +209,12 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             if (!over)
                 _worker.RoundStart(halfLife.Value);
             else if (learn.Value)
+            {
+                // A hold under way when the round ends was held: it is handed over with the round.
+                _holdTracker.EndAll(_held);
+                HandHolds();
                 _worker.RoundEnd(game.WinningRole, halfLife.Value);
+            }
         }
 
         // Only a round being played is gathered: not the freeze before it, not the winners' time after.
@@ -187,6 +229,72 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         }
     }
 
+    /// <summary>
+    /// A snapshot the worker loaded: with no graph it goes to the brains at once with no routes; else its
+    /// routes are built on a task (never on the game's thread) and the two published together when it is done.
+    /// </summary>
+    private void Take(MapExperience fresh)
+    {
+        if (nav.Current?.Nav.Graph is not { } graph)
+        {
+            Publish(fresh);
+            return;
+        }
+
+        _pending = fresh;
+        _routesTriedOn = graph;
+        ExperienceLinkKeys? keys = _routesTriedLinks = links?.Keys;
+        _routeWork = Task.Run(() => ExperienceRoutes.Build(fresh, graph, ThreadCpuClock.Micros(), keys));
+    }
+
+    /// <summary>
+    /// The routes' task done: its snapshot (if it waited for them) and the routes go to the brains, on the game's
+    /// thread. A graph that arrives after the snapshot (a navigation built in the server) has the snapshot's
+    /// routes built again over it, and so do the game's links when they arrive or change (lane G5e: a level's
+    /// links are found on a worker after its snapshot is loaded).
+    /// </summary>
+    private void PublishRoutes()
+    {
+        if (_routeWork is { IsCompleted: true } work)
+        {
+            ExperienceRoutes routes = ExperienceRoutes.None;
+            if (work.IsCompletedSuccessfully)
+                routes = work.Result;
+            else
+            {
+                RouteFaults++;
+                log.Warning($"[SourceSharp/Ai] experience: the routes were not built ({work.Exception?.GetBaseException().Message}); the bots route as with none\n");
+            }
+
+            MapExperience? snapshot = _pending;
+            (_pending, _routeWork) = (null, null);
+            if (snapshot is not null)
+                Publish(snapshot);
+            _routeSlot.Current = routes;
+            RouteBuilds++;
+            log.Msg(string.Create(CultureInfo.InvariantCulture,
+                $"[SourceSharp/Ai] experience: routes for {routes.Roles.Count} side(s), {routes.Costed} cells costed, {routes.Bytes / 1024} KiB, "
+                + $"{routes.LinksShut?.Count ?? 0} of {routes.LinkKeys?.Count ?? 0} links left out, built in {routes.BuildMicros / 1000d:F1} ms of a worker\n"));
+            return;
+        }
+
+        ExperienceLinkKeys? keys = links?.Keys;
+        if (_routeWork is null && nav.Current?.Nav.Graph is { } graph && (!ReferenceEquals(_routesTriedOn, graph) || !ReferenceEquals(_routesTriedLinks, keys))
+            && !Slot.Current.IsEmpty)
+        {
+            MapExperience current = Slot.Current;
+            (_routesTriedOn, _routesTriedLinks) = (graph, keys);
+            _routeWork = Task.Run(() => ExperienceRoutes.Build(current, graph, ThreadCpuClock.Micros(), keys));
+        }
+    }
+
+    private void Publish(MapExperience fresh)
+    {
+        Slot.Current = fresh;
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] experience: {fresh.Key.Map} {fresh.Key.Mode}: {fresh.Rows} rows over {fresh.Rounds} rounds (hash {fresh.ContentHash:x16})\n"));
+    }
+
     /// <summary>Every living player's place, view and context, handed to the worker.</summary>
     private void Sample(double seconds)
     {
@@ -194,19 +302,83 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
         int stage = game.Stage;
         var samples = new ActorSample[_living.Count];
         int n = 0;
+        _holdTracker.BeginFrame();
         foreach (SensedActor actor in _living)
         {
             (int role, int cls) = game.Of(actor.Player);
             if (role == 0)
                 continue;
             Vector at = entities.GetOrigin(actor.Player), view = entities.GetEyeAngles(actor.Player);
-            samples[n++] = new ActorSample(new AiVector(at.X, at.Y, at.Z), view.Y, view.X, new ExperienceContext(stage, role, cls), Alive: true, botPlayers.IsBot(actor.Player));
+            samples[n] = new ActorSample(new AiVector(at.X, at.Y, at.Z), view.Y, view.X, new ExperienceContext(stage, role, cls), Alive: true, botPlayers.IsBot(actor.Player));
+            if (holds is not null)
+                _holdTracker.Sample(entities.GetIndex(actor.Player), samples[n].Place, samples[n].Yaw, samples[n].Context, samples[n].Bot, seconds, _held);
+            n++;
         }
 
         if (n < samples.Length)
             Array.Resize(ref samples, n);
         _worker.Frame(samples, seconds);
+        _holdTracker.EndFrame(_held);
+        HandHolds();
     }
+
+    /// <summary>
+    /// The holds that ended (lane G4b, <see cref="HoldTracker"/>) near their side's own objective, as the game says
+    /// (<see cref="IExperienceHolds"/>), handed to the worker as <c>spot</c> rows of the game's hold kind, each count at the
+    /// feed's weight for who held it (a bot a quarter), so bots do not teach each other one corner. The game's thread.
+    /// </summary>
+    private void HandHolds()
+    {
+        if (holds is not null)
+        {
+            foreach (HeldSpot h in _held)
+            {
+                if (!holds.NearOwn(h.Context.Role, h.At))
+                    continue;
+                double w = ExperienceAccumulator.Weight(h.Bot);
+                if (_worker.Spot(h.Context, holds.HoldKind, h.At, h.Yaw, new SpotStat(w, h.Seconds * w, h.Kills * w, h.Deaths * w)))
+                    SpotsNoted++;
+            }
+        }
+
+        _held.Clear();
+    }
+
+    /// <summary>Holds near a side's own objective handed to the worker since the server started (<c>ai.experience.spots.noted</c>).</summary>
+    public int SpotsNoted { get; private set; }
+
+    /// <summary>
+    /// A try of a link a bot of the game made (lane G5e, plan G.5 step 7): its row, and what it added (a try, and a success
+    /// with its seconds and health). Handed to the worker while hits and deaths are (<see cref="Gathering"/>); a bot's own
+    /// tries count in full. Answers whether it was handed over. The game's thread.
+    /// </summary>
+    public bool NoteLink(LinkKey key, LinkStat stat)
+    {
+        if (!Gathering || !_worker.Link(key, stat))
+            return false;
+        LinksNoted++;
+        return true;
+    }
+
+    /// <summary>Link tries handed to the worker since the server started (<c>ai.experience.links.noted</c>).</summary>
+    public int LinksNoted { get; private set; }
+
+    /// <summary>
+    /// What came of a choice a bot of the game made (lane G4b, plan G.4's outcomes: a way into the enemy's base): one try
+    /// with its score in [0, 1], under the bot's side and class and the stage now, of the game's <paramref name="kind"/> and
+    /// <paramref name="choice"/>. In full, a bot's own result (plan G.3). Handed over while hits and deaths are
+    /// (<see cref="Gathering"/>); answers whether it was. The game's thread.
+    /// </summary>
+    public bool NoteOutcome(int role, int cls, int kind, long choice, double score)
+    {
+        if (!Gathering || role == 0 || !_worker.Outcome(new OutcomeKey(new ExperienceContext(game.Stage, role, cls), kind, choice), new OutcomeStat(1d, Math.Clamp(score, 0d, 1d))))
+            return false;
+        OutcomesNoted++;
+        return true;
+    }
+
+    /// <summary>Outcomes handed to the worker since the server started (<c>ai.experience.outcomes.noted</c>).</summary>
+    public int OutcomesNoted { get; private set; }
 
     public void OnPlayerHurt(in PlayerHurt hurt)
     {
@@ -221,6 +393,12 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             return;
         CombatSample? killer = death.Attacker != death.Player ? Party(death.Attacker) : null;
         _worker.Kill(victim, killer, killer is null ? 0 : game.WeaponClass(death.Attacker));
+        if (holds is null)
+            return;
+        if (killer is not null)
+            _holdTracker.Kill(entities.GetIndex(death.Attacker));
+        _holdTracker.Died(entities.GetIndex(death.Player), _held);
+        HandHolds();
     }
 
     /// <summary>Whether hits and deaths are handed over now: on, learning, a key open and a round being played.</summary>
@@ -282,10 +460,31 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             rounds = rows.Rounds,
             rows = new { cell_stat = rows.Cells, sight_line = rows.Sights, look = rows.Looks, spot = rows.Spots, link = rows.Links, outcome = rows.Outcomes, round = rows.RoundRows },
             snapshot = new { rows = snapshot.Rows, rounds = snapshot.Rounds, hash = snapshot.ContentHash.ToString("x16", CultureInfo.InvariantCulture) },
+            routes = RoutesJson(),
             flushes = _worker.Flushes,
             last_flush_seconds_ago = status?.SecondsSinceFlush ?? -1d,
             refusal = status?.Refusal ?? "",
         });
+    }
+
+    /// <summary>The published routes: their snapshot's hash, each side's costed cells, the bytes and the build's CPU time.</summary>
+    private object RoutesJson()
+    {
+        ExperienceRoutes r = _routeSlot.Current;
+        return new
+        {
+            snapshot = r.Of.ContentHash.ToString("x16", CultureInfo.InvariantCulture),
+            graph_cells = r.Graph?.CellCount ?? 0,
+            sides = r.Roles.Select(role => new { role, cells = r.For(role)!.Costed }).ToArray(),
+            cells = r.Costed,
+            bytes = r.Bytes,
+            build_us = Math.Round(r.BuildMicros, 1),
+            links = r.LinkKeys?.Count ?? 0,
+            links_shut = r.LinksShut?.Count ?? 0,
+            shut = r.LinksShut is { } mask ? Enumerable.Range(0, r.LinkKeys!.Count).Where(mask.Shut).ToArray() : [],
+            builds = RouteBuilds,
+            pending = _routeWork is not null,
+        };
     }
 
     /// <summary>The feed's part of <c>/ai/counters</c>, with its comma.</summary>
@@ -294,5 +493,7 @@ public sealed class ExperienceService(IExperienceGame game, IAiNavigation nav, I
             $"\"ai.experience.on\":{(_path is null ? 0 : 1)},\"ai.experience.memory_only\":{(_worker.Status is { MemoryOnly: true } ? 1 : 0)},\"ai.experience.frames\":{_worker.Frames},\"ai.experience.events\":{_worker.Events},"
             + $"\"ai.experience.flushes\":{_worker.Flushes},\"ai.experience.rows.merged\":{_worker.RowsMerged},\"ai.experience.loads\":{_worker.Loads},\"ai.experience.merge_failures\":{_worker.MergeFailures},"
             + $"\"ai.experience.refusals\":{Refusals},\"ai.experience.dropped\":{_worker.Dropped},\"ai.experience.faults\":{_worker.Faults},\"ai.experience.main_thread_work\":{_worker.RanOnOwner},"
-            + $"\"ai.experience.snapshot.rows\":{Slot.Current.Rows},");
+            + $"\"ai.experience.snapshot.rows\":{Slot.Current.Rows},\"ai.experience.routes.sides\":{_routeSlot.Current.Roles.Count},\"ai.experience.routes.cells\":{_routeSlot.Current.Costed},"
+            + $"\"ai.experience.routes.bytes\":{_routeSlot.Current.Bytes},\"ai.experience.routes.us\":{_routeSlot.Current.BuildMicros:F0},\"ai.experience.routes.builds\":{RouteBuilds},\"ai.experience.routes.faults\":{RouteFaults},"
+            + $"\"ai.experience.links.noted\":{LinksNoted},\"ai.experience.spots.noted\":{SpotsNoted},\"ai.experience.outcomes.noted\":{OutcomesNoted},\"ai.experience.routes.links_shut\":{_routeSlot.Current.LinksShut?.Count ?? 0},");
 }

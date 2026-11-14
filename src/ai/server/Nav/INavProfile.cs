@@ -35,7 +35,20 @@ public interface INavProfile
     /// them, which every HL2MP player is.
     /// </summary>
     NavLinkAllowance LinksFor(EntityHandle player) => default;
+
+    /// <summary>
+    /// How deadly each cell is for <paramref name="player"/>'s side, <paramref name="team"/> (the engine's team, as its
+    /// team's solids are chosen by), from what players did on the level (lane G4a), and how much it minds that: none
+    /// for a game that keeps no experience, which every HL2MP player is.
+    /// </summary>
+    NavHazardAllowance HazardFor(EntityHandle player, int team) => default;
 }
 
-/// <summary>The links a player's searches may take, null for none, and the health it may spend on one (<see cref="NavObstacleState.LinkHealth"/>).</summary>
-public readonly record struct NavLinkAllowance(NavLinks? Links, float Health);
+/// <summary>A side's hazard over the level's cells, null for none, and how much a player minds it (<see cref="NavObstacleState.HazardWeight"/>).</summary>
+public readonly record struct NavHazardAllowance(NavCellHazard? Hazard, float Weight);
+
+/// <summary>
+/// The links a player's searches may take, null for none, the health it may spend on one (<see cref="NavObstacleState.LinkHealth"/>),
+/// and the links of them the experience leaves out (<see cref="NavObstacleState.LinksShut"/>, lane G5e), null for none.
+/// </summary>
+public readonly record struct NavLinkAllowance(NavLinks? Links, float Health, NavLinkMask? Shut = null);

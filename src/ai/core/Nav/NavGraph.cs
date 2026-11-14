@@ -531,6 +531,40 @@ public sealed class NavObstacleState
 
     private NavLinks? _links;
 
+    /// <summary>
+    /// The links of <see cref="Links"/> the experience leaves out (lane G5e: links the bots' own tries say fail), or null for
+    /// none: a search takes no shut link. A mask of another set shuts nothing. A <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public NavLinkMask? LinksShut
+    {
+        get => _live is not null ? _live.LinksShut : _linksShut;
+        set => _linksShut = value;
+    }
+
+    private NavLinkMask? _linksShut;
+
+    /// <summary>
+    /// How deadly each cell is for this state's owner's side (lane G4a: what players did there), or
+    /// null for none: a search makes a step into a cell dearer by <see cref="NavCellHazard.Scale"/> at
+    /// <see cref="HazardWeight"/>. A <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public NavCellHazard? Hazard
+    {
+        get => _live is not null ? _live.Hazard : _hazard;
+        set => _hazard = value;
+    }
+
+    private NavCellHazard? _hazard;
+
+    /// <summary>How much this state's owner minds <see cref="Hazard"/> (a bot's Cunning): 0, the default, minds none of it. A <see cref="Shoved"/> copy follows its original's.</summary>
+    public float HazardWeight
+    {
+        get => _live is not null ? _live.HazardWeight : _hazardWeight;
+        set => _hazardWeight = value;
+    }
+
+    private float _hazardWeight;
+
     /// <summary>Says a player can get through <paramref name="obstacle"/> by walking into it: a prop that moves when pushed.</summary>
     public void SetShovable(int obstacle) => (_shovable ??= new bool[_blocking.Length])[obstacle] = true;
 
@@ -562,6 +596,9 @@ public sealed class NavObstacleState
         Reach = other.Reach;
         LinkHealth = other.LinkHealth;
         Links = other.Links;
+        LinksShut = other.LinksShut;
+        Hazard = other.Hazard;
+        HazardWeight = other.HazardWeight;
         TeamCells = other.TeamCells;
         _cells = other.Cells;
     }
@@ -569,7 +606,7 @@ public sealed class NavObstacleState
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {
-        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, LinkHealth = LinkHealth, Links = Links, TeamCells = TeamCells };
+        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, LinkHealth = LinkHealth, Links = Links, LinksShut = LinksShut, Hazard = Hazard, HazardWeight = HazardWeight, TeamCells = TeamCells };
         _blocking.CopyTo(copy._blocking, 0);
         copy._shovable = _shovable;
         copy._cells = Cells;

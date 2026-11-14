@@ -334,6 +334,8 @@ public sealed class NavFollower
             {
                 _linkAvoidLeft = old._linkAvoidLeft;
                 _avoidedLinks.UnionWith(old._avoidedLinks);
+                _healthAvoided.UnionWith(old._healthAvoided);
+                _healthNeed = old._healthNeed;
                 _rebuildCarried = true;
             }
 
@@ -368,8 +370,11 @@ public sealed class NavFollower
         if (_linkAvoidLeft > 0 && --_linkAvoidLeft == 0)
         {
             _avoidedLinks.Clear();
+            _healthAvoided.Clear();
             Rebuild();
         }
+
+        HealthBack();
 
         At = Locate(origin);
         _corners.Clear();
@@ -438,9 +443,13 @@ public sealed class NavFollower
             Rebuild();
         }
 
+        // No way for want of health that the health now covers (a cabinet): built again (lane G7a).
+        if (!float.IsFinite(_field.CostAt(At.Index)) && _field.HealthShort <= _obstacles.LinkHealth)
+            Rebuild();
         if (!float.IsFinite(_field.CostAt(At.Index)))
         {
             state = FollowState.NoRoute;
+            LinkStep = NoWayStep();
             return BackToAField(origin);
         }
 
@@ -645,6 +654,7 @@ public sealed class NavFollower
         JumpReach needs = (now?.Reaches ?? JumpReach.None) | (_linksSeen?.Reaches ?? JumpReach.None);
         _linksSeen = now;
         _avoidedLinks.Clear();
+        _healthAvoided.Clear();
         _linkAvoidLeft = 0;
         _linkPhase = LinkPhase.None;
         if ((_obstacles.Reach & needs) != 0 && _builds > 0)
@@ -670,7 +680,7 @@ public sealed class NavFollower
         NavLinks links = _field.Links!;
         if (!links.Admits(_graph, link, Class, _obstacles))
         {
-            AvoidLink(link);
+            AvoidLink(link, links.ShortOfHealth(_graph, link, Class, _obstacles));
             return MoveIntent.Hold;
         }
 
@@ -696,14 +706,72 @@ public sealed class NavFollower
         return MoveIntent.Hold;
     }
 
-    /// <summary>A link refused, failed or out of the bot's reach: left out for <see cref="LinkAvoidMoves"/>, and the field built again so the route goes round.</summary>
-    private void AvoidLink(int link)
+    /// <summary>
+    /// A link refused, failed or out of the bot's reach: left out for <see cref="LinkAvoidMoves"/>, and the field built again
+    /// so the route goes round. One out of reach for the health alone (<paramref name="forHealth"/>) is let back sooner, as
+    /// soon as the health covers it (<see cref="HealthBack"/>: a cabinet), and is what the bot needs (<see cref="NoWayStep"/>).
+    /// </summary>
+    private void AvoidLink(int link, bool forHealth = false)
     {
         _linkPhase = LinkPhase.None;
         _link = -1;
         _avoidedLinks.Add(link);
         _linkAvoidLeft = LinkAvoidMoves;
+        if (forHealth && _field.Links is { } links && (uint)link < (uint)links.Count)
+        {
+            _healthAvoided.Add(link);
+            _healthNeed = MathF.Min(_healthNeed, links[link].Health);
+        }
+
         Rebuild();
+    }
+
+    // The links left out for the health alone (a subset of _avoidedLinks), and the least of their costs.
+    private readonly HashSet<int> _healthAvoided = new();
+    private float _healthNeed = float.PositiveInfinity;
+
+    /// <summary>
+    /// The links left out for want of health that the health now covers are let back, and the field built again (lane G7a):
+    /// a bot refilled by a cabinet goes on at once, not after <see cref="LinkAvoidMoves"/>.
+    /// </summary>
+    private void HealthBack()
+    {
+        if (_healthAvoided.Count == 0)
+        {
+            _healthNeed = float.PositiveInfinity;
+            return;
+        }
+
+        if (_obstacles.LinkHealth < _healthNeed || _field.Links is not { } links)
+            return;
+        _healthNeed = float.PositiveInfinity;
+        foreach (int link in _healthAvoided.ToArray())
+        {
+            float cost = (uint)link < (uint)links.Count ? links[link].Health : 0f;
+            if (cost <= _obstacles.LinkHealth)
+            {
+                _healthAvoided.Remove(link);
+                _avoidedLinks.Remove(link);
+            }
+            else
+            {
+                _healthNeed = MathF.Min(_healthNeed, cost);
+            }
+        }
+
+        if (_avoidedLinks.Count == 0)
+            _linkAvoidLeft = 0;
+        Rebuild();
+    }
+
+    /// <summary>
+    /// What the bot is told when its route finds no way (lane G7a): no link, no way, and the least health a link costs that
+    /// its route left out for the health alone (the follower's own, or the field's), 0 when none.
+    /// </summary>
+    private NavLinkStep NoWayStep()
+    {
+        float need = _healthAvoided.Count > 0 ? MathF.Min(_healthNeed, _field.HealthShort) : _field.HealthShort;
+        return new NavLinkStep(-1, _field.Links?.Hash ?? 0UL, Target, false) { NoWay = true, Need = float.IsFinite(need) ? need : 0f };
     }
 
     /// <summary>

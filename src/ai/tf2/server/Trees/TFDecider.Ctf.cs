@@ -156,20 +156,30 @@ public sealed partial class TFDecider
     {
         if (_enemyFlag is not { } flag)
             return false;
-        GoTo(flag.Position, MoveSpeed.Run);
+        GoTo(FetchGoal(flag), MoveSpeed.Run);
         _verdict = flag.State == ObjectiveState.Dropped ? "their flag is down" : "for their flag";
         return true;
     }
 
-    /// <summary>Near the flag, a spot within <see cref="DefendRadius"/> of it drawn anew every <see cref="DefendSpotSeconds"/>.</summary>
+    /// <summary>
+    /// Near the flag: every <see cref="DefendSpotSeconds"/> a spot drawn anew, one where its side's players held
+    /// (<see cref="PickLearnedHold"/>) or, as before, a point within <see cref="DefendRadius"/> of the flag. Holding a learned
+    /// spot it faces the way they faced there.
+    /// </summary>
     private bool GoDefend()
     {
         if (_ownFlag is not { } flag)
             return false;
-        if (!_defendPicked || _now >= _defendUntil || _defendSpot.DistanceTo(flag.Position) > DefendRadius * 1.5f)
+        float limit = _defendLearned ? HoldReach * 1.5f : DefendRadius * 1.5f;
+        if (!_defendPicked || _now >= _defendUntil || _defendSpot.DistanceTo(flag.Position) > limit)
         {
-            float a = _rng.NextFloat() * MathF.Tau, r = DefendRadius * MathF.Sqrt(_rng.NextFloat());
-            _defendSpot = flag.Position + new AiVector(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f);
+            if (!PickLearnedHold(flag.Position))
+            {
+                float a = _rng.NextFloat() * MathF.Tau, r = DefendRadius * MathF.Sqrt(_rng.NextFloat());
+                _defendSpot = flag.Position + new AiVector(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f);
+                _defendLearned = false;
+            }
+
             _defendUntil = _now + (int)(DefendSpotSeconds / _tick);
             _defendPicked = true;
         }
@@ -179,6 +189,8 @@ public sealed partial class TFDecider
             _hasGoal = true;
             _goal = _defendSpot;
             _verdict = "holding at our flag";
+            if (_defendLearned)
+                FaceHeldYaw();
             return true;
         }
 

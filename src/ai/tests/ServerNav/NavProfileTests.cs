@@ -113,6 +113,75 @@ public sealed class NavProfileTests : IDisposable
         }
     }
 
+    /// <summary>A snapshot's routes over a row of cells, with deaths of <paramref name="role"/>'s players in its first bin.</summary>
+    private static ExperienceRoutes DeathsOf(int role)
+    {
+        var (g, _) = SourceSharp.Ai.Tests.Nav.Grids.Parse("....");
+        var rows = new ExperienceDelta();
+        rows.Add(new CellKey(new ExperienceContext(0, role, 3), new WorldBin(0, 0, 0), ExperienceSource.Human), new CellStat(10d, 1d, 0d, 0d, 0d));
+        return ExperienceRoutes.Build(new MapExperience(new ExperienceKey("m", "0123456789abcdef", "ctf"), 1, rows), g);
+    }
+
+    /// <summary>TF2's profile with the experience's routes and the bots' weights.</summary>
+    private static (TFNavProfile Profile, SourceSharp.Ai.Server.Experience.ExperienceRouteSlot Routes, TFRouteWeights Weights) Minding()
+    {
+        var routes = new SourceSharp.Ai.Server.Experience.ExperienceRouteSlot();
+        var weights = new TFRouteWeights();
+        return (new TFNavProfile(new FactsOf(TFClass.Soldier), null!, null!, new SourceSharp.Ai.TF2.Jump.TFBlastLinks(), routes, weights), routes, weights);
+    }
+
+    /// <summary>Lane G4a: a bot's searches weigh its own team's field of where players died, by its Cunning; none without a field or a weight.</summary>
+    [Fact]
+    public void ABotsSearchesMindItsTeamsFieldByItsCunning()
+    {
+        var (profile, routes, weights) = Minding();
+        Assert.Equal(default, profile.HazardFor(Player, (int)TFTeam.Red));
+        ExperienceRoutes red = DeathsOf((int)TFTeam.Red);
+        routes.Current = red;
+        // Not a bot of ours yet: no weight, no hazard.
+        Assert.Equal(default, profile.HazardFor(Player, (int)TFTeam.Red));
+        var table = new float[Player.EntryIndex + 1];
+        table[Player.EntryIndex] = 0.6f;
+        weights.Set(table);
+        NavHazardAllowance allowance = profile.HazardFor(Player, (int)TFTeam.Red);
+        Assert.Same(red.For((int)TFTeam.Red), allowance.Hazard);
+        Assert.Equal(0.6f, allowance.Weight);
+    }
+
+    [Fact]
+    public void ABotDoesNotMindTheOtherTeamsDeaths()
+    {
+        var (profile, routes, weights) = Minding();
+        routes.Current = DeathsOf((int)TFTeam.Red);
+        var table = new float[Player.EntryIndex + 1];
+        table[Player.EntryIndex] = 1f;
+        weights.Set(table);
+        Assert.Equal(default, profile.HazardFor(Player, (int)TFTeam.Blue));
+        // The control: as red, the same player minds it.
+        Assert.NotEqual(default, profile.HazardFor(Player, (int)TFTeam.Red));
+    }
+
+    [Fact]
+    public void TheWeightsTableHoldsEachBotsCunningBySlotAndNothingElse()
+    {
+        Assert.True(SkillPresets.TryGet("expert", out SkillProfile? expert));
+        Assert.True(SkillPresets.TryGet("easy", out SkillProfile? easy));
+        float[] table = TFRouteWeights.Table([new SourceSharp.Ai.Server.AiBot(new ActorId(3, 1), "a", expert!), new SourceSharp.Ai.Server.AiBot(new ActorId(5, 1), "b", easy!),
+                                              new SourceSharp.Ai.Server.AiBot(new ActorId(99, 1), "far", expert!)], 8);
+        Assert.Equal([0f, 0f, 0f, 0.6f, 0f, 0.1f, 0f, 0f], table);
+    }
+
+    [Theory]
+    [InlineData("easy", 0.1f)]
+    [InlineData("normal", 0.3f)]
+    [InlineData("hard", 0.5f)]
+    [InlineData("expert", 0.6f)]
+    public void ARouteWeightIsCunningOverTheCap(string preset, float weight)
+    {
+        Assert.True(SkillPresets.TryGet(preset, out SkillProfile? p));
+        Assert.Equal(weight, TFRouteWeights.WeightOf(p!), 5);
+    }
+
     private static SourceSharp.Ai.TF2.Jump.JumpLinkSet Links()
     {
         var (g, ids) = SourceSharp.Ai.Tests.Nav.Grids.Parse("..... .....");
@@ -133,6 +202,36 @@ public sealed class NavProfileTests : IDisposable
         NavLinkAllowance allowance = profile.LinksFor(Player);
         Assert.Same(set.Links, allowance.Links);
         Assert.Equal(150f - SourceSharp.Ai.TF2.Trees.TFDecider.RocketJumpHealthFloor, allowance.Health);
+    }
+
+    /// <summary>Lane G5e: a Soldier's searches leave out the links the snapshot's rows shut, when the mask is the published set's.</summary>
+    [Fact]
+    public void ASoldiersSearchesLeaveOutTheLinksTheSnapshotShuts()
+    {
+        var facts = new FactsOf(TFClass.Soldier);
+        IEngineEntities entities = SourceSharp.Ai.Tests.Senses.FakeEngine.Of<IEngineEntities>((m, _) => m.Name == nameof(IEngineEntities.GetHealth)
+            ? 200 : throw SourceSharp.Ai.Tests.Senses.FakeEngine.Unasked(m));
+        var published = new SourceSharp.Ai.TF2.Jump.TFBlastLinks();
+        var routes = new SourceSharp.Ai.Server.Experience.ExperienceRouteSlot();
+        var profile = new TFNavProfile(facts, null!, entities, published, routes);
+        SourceSharp.Ai.TF2.Jump.JumpLinkSet set = Links();
+        published.Set = set;
+        ExperienceLinkKeys keys = SourceSharp.Ai.TF2.Jump.TFLinkExperience.KeysOf(set);
+        var key = new ExperienceKey("m", "c", "ctf");
+        var store = new MemoryExperienceStore();
+        var failing = new ExperienceDelta();
+        failing.Add(keys[0], new LinkStat(6d, 0d, 0d, 0d));
+        store.Merge(key, failing, 20d);
+        var (graph, _) = SourceSharp.Ai.Tests.Nav.Grids.Parse("...");
+        Assert.Null(profile.LinksFor(Player).Shut);
+        routes.Current = ExperienceRoutes.Build(store.Load(key, 20d), graph, null, keys);
+        NavLinkMask shut = profile.LinksFor(Player).Shut!;
+        Assert.True(shut.Shut(0));
+        // The same links found again are the same set by their hash, and the mask holds; another set's is no mask.
+        published.Set = Links();
+        Assert.True(profile.LinksFor(Player).Shut!.Shut(0));
+        published.Set = SourceSharp.Ai.TF2.Jump.JumpLinkSet.Of(SourceSharp.Ai.Tests.Nav.Grids.Parse("...... .....").Graph, [], new NavLinkCosts { RunSpeed = 240f });
+        Assert.Null(profile.LinksFor(Player).Shut);
     }
 
     [Fact]

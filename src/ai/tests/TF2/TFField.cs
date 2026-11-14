@@ -36,7 +36,7 @@ public sealed class TFField
 
     public TFField(int slot = 2, ulong seed = 7, string preset = "hard", bool graph = true, int floorLength = Length, Func<DecisionParams, DecisionParams>? tune = null,
                    TFFeelSwitches? feel = null, SkillProfile? profile = null, SkillCurves? curves = null, int[]? mates = null,
-                   SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null)
+                   SourceSharp.Ai.TF2.Jump.IJumpAdvisor? jumps = null, TeamZone[]? zones = null, ItemSpawn[]? packs = null, NavGraph? floor = null)
     {
         Bot = new ActorId(slot, 1);
         profile ??= SkillPresets.TryGet(preset, out SkillProfile? p) ? p! : throw new ArgumentException(preset);
@@ -44,15 +44,15 @@ public sealed class TFField
         Params = (curves ?? Skills.Curves.Game()).For(profile);
         if (tune is not null)
             Params = tune(Params);
-        ItemSpawn[] items =
+        ItemSpawn[] items = packs ??
         [
             new ItemSpawn(0, "item_healthkit_medium", ItemKind.HealthMedium, new AiVector(512f, 64f, 0f), 10f),
             new ItemSpawn(1, "item_healthkit_medium", ItemKind.HealthMedium, new AiVector(3584f, 64f, 0f), 10f),
         ];
         var map = new MapKnowledge("tf_field", [.. items], [], Weapons, [new TeamSpawn(Red, RedSpawn), new TeamSpawn(Blue, BlueSpawn)],
                                    TFAbilities.Table(),
-                                   teamZones: [new TeamZone(Blue, ZoneKind.RespawnRoom, new AiVector(3968f, 0f, -16f), new AiVector(4096f, 512f, 200f))]);
-        Graph = graph ? Floor(floorLength) : null;
+                                   teamZones: [new TeamZone(Blue, ZoneKind.RespawnRoom, new AiVector(3968f, 0f, -16f), new AiVector(4096f, 512f, 200f)), .. zones ?? []]);
+        Graph = floor ?? (graph ? Floor(floorLength) : null);
         Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, Graph, 0.015f, id => id.ToString()), new HabitStore());
         // The scoreboard's rows of the bot's teammates (red, as Self draws the bot).
         foreach (int mate in mates ?? [])

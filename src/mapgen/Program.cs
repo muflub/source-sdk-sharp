@@ -245,6 +245,10 @@ if (args.Length > 0 && args[0] == "tfaimaps")
     File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_jump.vmf"), jump.Write());
     File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_jump.yaml"), AiTestMaps.Level("ss_ai_tf_jump.vmf", ["course"]));
     Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_jump.vmf")}: {jump.Entities.Count} entities, {jump.WorldSolids.Count} world brushes");
+    var course = TFAiTestMaps.Course();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_course.vmf"), course.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_course.yaml"), AiTestMaps.Level("ss_ai_tf_course.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_course.vmf")}: {course.Entities.Count} entities, {course.WorldSolids.Count} world brushes");
     return 0;
 }
 

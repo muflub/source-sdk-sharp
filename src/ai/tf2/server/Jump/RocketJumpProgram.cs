@@ -24,6 +24,18 @@ public enum JumpEnd : byte
 
     /// <summary>The ability's commands ran out first.</summary>
     TimedOut,
+
+    /// <summary>
+    /// The game moved the body further in one command than any jump carries it (<see cref="RocketJumpProgram.MovedUnits"/>):
+    /// a round's restart put it on its spawn, or a teleport. What it came down on says nothing of the jump.
+    /// </summary>
+    Moved,
+
+    /// <summary>
+    /// The game put the body, fallen under where the jump started, back at the start (lane G7a): a jump map's reset, a
+    /// <c>trigger_teleport</c> under the jump. The jump fell short: a failed try of it.
+    /// </summary>
+    Reset,
 }
 
 /// <summary>
@@ -163,6 +175,20 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
     /// <summary>How far from the recipe's start a plan that starts standing may be begun: the follower holds a bot within 48 u of it.</summary>
     public const float PlaceReach = 96f;
 
+    /// <summary>
+    /// A body further than this from where it was the command before was moved by the game, not by its jump: the fastest a
+    /// body goes is the engine's 3,500 u/s cap, 52.5 u a command at 66 a second.
+    /// </summary>
+    public const float MovedUnits = 256f;
+
+    /// <summary>
+    /// A move of the game's is a reset when the body had fallen more than <see cref="ResetDrop"/> under the start's floor and
+    /// was put within <see cref="ResetReach"/> of the start, flat, and <see cref="ResetDrop"/> of its height (a jump map's
+    /// teleport back puts a player at the jump's start; a round's restart puts it on a spawn, and a body still over the start's
+    /// floor fell nowhere).
+    /// </summary>
+    public const float ResetReach = 384f, ResetDrop = 64f;
+
     /// <summary>The speed a body is walked onto the recipe's start at, per unit it has still to go, and the least: over the floor's friction to the end.</summary>
     public const float PlaceGain = 4f, PlaceSpeedMin = 60f;
 
@@ -209,6 +235,7 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
         private bool _placed, _aimedStanding;
         private int _feltAfterShot = -1;
         private Vector _leap;
+        private Vector? _lastOrigin;
 
         internal Run(JumpPlan plan, in JumpPilotLimits limits, in MotionParams motion, Action<JumpFlown> flew, int approachMost)
         {
@@ -238,6 +265,10 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             var b = new JumpBody(new Vector(body.Origin.X, body.Origin.Y, body.Origin.Z), new Vector(body.Velocity.X, body.Velocity.Y, body.Velocity.Z),
                                  new Vector(body.View.Pitch, body.View.Yaw, 0f), body.OnGround);
             Vector shot = _recipe.ShotView;
+            Vector? last = _lastOrigin;
+            _lastOrigin = b.Origin;
+            if (last is { } was && (b.Origin - was).Length > MovedUnits)
+                return Finish(PutBack(was, b.Origin) ? JumpEnd.Reset : JumpEnd.Moved, b.Origin);
             if (!_launched)
             {
                 if (Approach(b, shot) is { } command)
@@ -376,6 +407,14 @@ public sealed class RocketJumpProgram(JumpBook book, TFClassTable classes, Actio
             }
 
             return new AbilityCommand(new AiAngles(shot.X, shot.Y, 0f), ShotLook, wish, 0);
+        }
+
+        /// <summary>Whether the game's move from <paramref name="was"/> to <paramref name="now"/> put a fallen body back at the jump's start (<see cref="JumpEnd.Reset"/>).</summary>
+        private bool PutBack(Vector was, Vector now)
+        {
+            Vector start = _recipe.Start().Origin;
+            float flat = MathF.Sqrt((now.X - start.X) * (now.X - start.X) + (now.Y - start.Y) * (now.Y - start.Y));
+            return was.Z < start.Z - ResetDrop && MathF.Abs(now.Z - start.Z) <= ResetDrop && flat <= ResetReach;
         }
 
         private AbilityCommand Finish(JumpEnd end, Vector at)

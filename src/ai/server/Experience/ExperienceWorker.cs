@@ -157,6 +157,30 @@ public sealed class ExperienceWorker(IExperienceStores? stores) : IDisposable
             Interlocked.Increment(ref _events);
         });
 
+    /// <summary>A try of a link (lane G5e): its row and what it added.</summary>
+    public bool Link(LinkKey key, LinkStat stat)
+        => Post(() =>
+        {
+            _accumulator.Link(key, stat);
+            Interlocked.Increment(ref _events);
+        });
+
+    /// <summary>A place held, or set up (lane G4b): its row's context, kind, place and yaw, and what it added.</summary>
+    public bool Spot(ExperienceContext context, int kind, AiVector at, float yaw, SpotStat stat)
+        => Post(() =>
+        {
+            _accumulator.Spot(context, kind, at, yaw, stat);
+            Interlocked.Increment(ref _events);
+        });
+
+    /// <summary>A choice's result (lane G4b): its row and what it added.</summary>
+    public bool Outcome(OutcomeKey key, OutcomeStat stat)
+        => Post(() =>
+        {
+            _accumulator.Outcome(key, stat);
+            Interlocked.Increment(ref _events);
+        });
+
     /// <summary>A round ended: its row is added and everything gathered is written.</summary>
     public bool RoundEnd(int winningRole, double halfLife)
         => Post(() =>

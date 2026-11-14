@@ -241,7 +241,11 @@ public class JumpPilotTests
         var flying = new JumpPilotState(JumpPhase.Launch, 30, Airborne: true, Felt: true, new Vector(200f, 30f, 112f));
         var ground = new JumpBody(recipe.Start().Origin, Vector.Zero, recipe.Start().View, OnGround: true);
         float moved = 0f;
-        for (int warm = 0; warm < 2; warm++)
+
+        // A warm-up, then the quietest of three windows: a command that allocates does so in every window, and a
+        // loaded box's tiering (a hot method compiled again mid-measure) lands in one.
+        long allocated = long.MaxValue;
+        for (int window = -1; window < 3; window++)
         {
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 2000; i++)
@@ -251,10 +255,11 @@ public class JumpPilotTests
                 moved += JumpPilot.Step(recipe, flying with { Phase = JumpPhase.Landed }, body, limits).Command.View.X;
             }
 
-            if (warm == 1)
-                Assert.Equal(0L, GC.GetAllocatedBytesForCurrentThread() - before);
+            if (window >= 0)
+                allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
+        Assert.Equal(0L, allocated);
         Assert.True(moved > 1000f, "the control: the commands steered and turned");
     }
 

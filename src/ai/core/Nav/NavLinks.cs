@@ -35,6 +35,19 @@ public readonly record struct NavLinkStep(int Link, ulong Links, AiVector Object
     public static NavLinkStep None => default;
 
     public bool IsLink => Links != 0UL && Link >= 0;
+
+    /// <summary>
+    /// The route to <see cref="Objective"/> finds no way from where the bot stands (lane G7a): <see cref="Link"/> is -1.
+    /// With <see cref="Need"/> over 0 the way is a link the bot's health does not cover now.
+    /// </summary>
+    public bool NoWay { get; init; }
+
+    /// <summary>
+    /// With <see cref="NoWay"/>: the least health a link costs that the route left out for the health alone (the
+    /// agent may spend no more than <see cref="NavObstacleState.LinkHealth"/>), 0 when no link's health is the reason.
+    /// What the bot has to have over its floor before that way is open again.
+    /// </summary>
+    public float Need { get; init; }
 }
 
 /// <summary>
@@ -203,19 +216,30 @@ public sealed class NavLinks
     /// Whether an agent of <paramref name="cls"/> whose state is <paramref name="obstacles"/> may
     /// take link <paramref name="index"/>: it has the link's reach, the health the link costs is
     /// no more than it may spend (<see cref="NavObstacleState.LinkHealth"/>), both cells admit its
-    /// body, and the cell it reaches is not blocked.
+    /// body, the cell it reaches is not blocked, and the experience has not shut it (<see cref="NavObstacleState.LinksShut"/>).
     /// </summary>
     public bool Admits(NavGraph graph, int index, ClearanceClass cls, NavObstacleState obstacles)
+        => AdmitsBarHealth(graph, index, cls, obstacles) && _links[index].Health <= obstacles.LinkHealth;
+
+    /// <summary>
+    /// <see cref="Admits"/>' rule but its health: whether link <paramref name="index"/> would be the agent's to take with
+    /// the health to pay for it (lane G7a: what a field or a follower left out for the health alone, which a cabinet gives back).
+    /// </summary>
+    public bool AdmitsBarHealth(NavGraph graph, int index, ClearanceClass cls, NavObstacleState obstacles)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(obstacles);
         NavLink l = _links[index];
         JumpReach needs = ReachFor(l.Kind);
         return (obstacles.Reach & needs) == needs
-               && l.Health <= obstacles.LinkHealth
                && graph.Cell(l.From).Admits(cls) && graph.Cell(l.To).Admits(cls)
-               && !obstacles.CellBlocked(l.To);
+               && !obstacles.CellBlocked(l.To)
+               && !(obstacles.LinksShut is { } shut && shut.IsOver(this) && shut.Shut(index));
     }
+
+    /// <summary>Whether the agent's health alone keeps it off link <paramref name="index"/>: every other part of <see cref="Admits"/> lets it.</summary>
+    public bool ShortOfHealth(NavGraph graph, int index, ClearanceClass cls, NavObstacleState obstacles)
+        => _links[index].Health > obstacles.LinkHealth && AdmitsBarHealth(graph, index, cls, obstacles);
 
     private static (int[] Order, int[] Start) Csr(int cells, NavLink[] links, Func<NavLink, int> key)
     {
@@ -267,6 +291,52 @@ public sealed class NavLinks
 
         return h;
     }
+}
+
+/// <summary>
+/// The links of one set that are left out of every search (lane G5e: what the bots' own tries say of them, read from
+/// a snapshot of the experience): immutable, stamped with the set's <see cref="NavLinks.Hash"/>, so a mask of another
+/// set leaves nothing out (<see cref="NavLinks.Admits"/> asks <see cref="IsOver"/> first).
+/// </summary>
+public sealed class NavLinkMask
+{
+    private readonly bool[] _shut;
+
+    private NavLinkMask(ulong links, bool[] shut)
+    {
+        Links = links;
+        _shut = shut;
+        foreach (bool s in shut)
+            Count += s ? 1 : 0;
+    }
+
+    /// <summary>The mask over <paramref name="links"/> that shuts the links of <paramref name="shut"/> (indices into the set).</summary>
+    public static NavLinkMask Of(NavLinks links, IEnumerable<int> shut)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(shut);
+        var bits = new bool[links.Count];
+        foreach (int i in shut)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(i);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(i, links.Count);
+            bits[i] = true;
+        }
+
+        return new NavLinkMask(links.Hash, bits);
+    }
+
+    /// <summary>The hash of the set the mask is over.</summary>
+    public ulong Links { get; }
+
+    /// <summary>How many links it shuts.</summary>
+    public int Count { get; }
+
+    /// <summary>Whether the mask is over <paramref name="links"/>.</summary>
+    public bool IsOver(NavLinks links) => links is not null && links.Hash == Links && links.Count == _shut.Length;
+
+    /// <summary>Whether link <paramref name="index"/> is left out.</summary>
+    public bool Shut(int index) => (uint)index < (uint)_shut.Length && _shut[index];
 }
 
 /// <summary>

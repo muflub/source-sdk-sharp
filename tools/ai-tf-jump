@@ -6,6 +6,8 @@
   tools/ai-tf-jump record [--seconds 300] [--config debug] [--keep]
   tools/ai-tf-jump sim [--config debug|release]   the simulator against the recording: its gaps and its speed
   tools/ai-tf-jump links [--tries 10] [--others] [--reload] [--think-log] [--config debug] [--out FILE.json] [--keep]
+  tools/ai-tf-jump trust --db FILE.db [--tries 10] [--config debug] [--out FILE.json]
+  tools/ai-tf-jump course [--runs 5] [--reload] [--db FILE.db] [--config debug] [--out FILE.json] [--think-log]
   tools/ai-tf-jump --self-test
 
 Starts a headless tf2 game on the map (tools/ai-scenario's Game: its own
@@ -86,12 +88,46 @@ there (on the ledge's floor, within `ARRIVE_FLAT` of the place), how long it too
 the jumps it began and how each ended, whether it got there by a link (a landed
 jump whose plan is a link's, `/ai/jumps` `plan` at `LINK_ARGUMENT_BASE` or over),
 and the landing's gap to the simulator's flight of the same recipe from the same
-launch (`gap`) and to the link's own touch (`off_plan`). Fizzles with a blast
+launch (`gap`) and to the link's own touch (`off_plan`). A jump the game ended as
+`Moved` (a round's restart put the bot on its spawn in mid-flight, lane G5e) is no
+landing. Fizzles with a blast
 felt one or two commands after the trigger are counted apart (the mod's rocket on
 a teammate: none here, there is one bot). Then, with --others, each other landing
 of a link with no walk to it once; with --reload, the level is loaded again in
 the same process (`changelevel`), the links come from the cache, and --tries more.
+With --out FILE.json the run's console lines go beside it (FILE.console.log).
 The game's own link counters (`ai.jump.link.*`) are printed with the summary.
+
+`trust` (lane G5e) proves that a link's tries reach the experience store and that a
+link the tries say fails is left out. The game runs with a private store (`--db`, a
+file that must not exist yet: the rows are this run's). The ledge is tried --tries
+times (phase A), the round is restarted (`mp_restartgame 1`: the round's end flushes
+the tries, its start loads the snapshot again), the tool waits for the routes the
+new snapshot makes (`/ai/experience` routes.builds) and the ledge is tried --tries
+times more (phase B). It prints each phase's tries as `links` does, the links the
+snapshot left out (`/ai/experience` routes.shut), whether phase B began any of them
+(it must not), and, after the game, the store's `link` rows read from the file
+(class, bins, tries, successes, mean seconds and health). On a normal build every
+link lands and none is left out; to see one left out, a test build spoils a link's
+recipe (the run's evidence says how).
+
+`course` (lane G7a) runs the jump course, ss_ai_tf_course (TFAiTestMaps.Course: seven
+stages S0..S6 over a pit, each reached from the one before only by a blast jump, a
+control point on each after the first, a cabinet in a bay off each, a reset teleport under
+each jump). One red Soldier is added and sent nowhere: no errand, its health not held, its
+own tree's Course branch takes it. Each of --runs runs (5) starts with `mp_restartgame 1`
+(the course's points go back to nobody's, the bot to its spawn on S0) and watches the bot,
+by server ticks, until it stands on the last stage or RUN_TICKS go by. Per run, per stage:
+the tick it first stood on the stage's top (from the run's start); per jump (J1..J6, the
+level's links by their takeoff and landing stages): the tries begun (`/ai/jumps` `last`,
+a plan at LINK_ARGUMENT_BASE or over) and how each ended, the falls (a Reset or Moved end,
+or the bot's feet more than FALL_UNITS under the stage it took off from), and the bot's
+health as it left the stage's top (the dev API's `/entity`); the times it stood in a
+stage's cabinet bay; the decides it ran another branch than Course before the end. With
+--reload, the level is loaded again in the same process (`changelevel`, links from the
+cache) and --runs more. With --db FILE.db (a new file) the game keeps a private store and
+its `link` rows are printed after. A run finishes when the bot stands on S6; the tool
+fails unless 4 of 5 (80 %) of the runs before the reload and after it finish.
 
 `sim` runs the simulator's facts (BlastJumpDifferentialTests and
 BlastJumpSpeedTests) and prints the numbers they write under
@@ -262,6 +298,10 @@ def self_test():
     far = link_try([lj(LINK_ARGUMENT_BASE + 3, "Landed", off=1400.0), lj(LINK_ARGUMENT_BASE + 3, "Landed")], LEDGE_250, 100, 400)
     assert far["ends"] == ["LandedElsewhere", "Landed"] and far["gaps"] == [0.5], far
     assert link_try([lj(LINK_ARGUMENT_BASE, "Fizzled", felt=1)], LEDGE_250, 0, None)["fizzled_felt_early"] == 1
+    # A round's restart in mid-flight: the game ends the jump as Moved (lane G5e), which is no landing and no link's.
+    moved = link_try([lj(LINK_ARGUMENT_BASE + 3, "Moved", off=1415.0), lj(LINK_ARGUMENT_BASE + 3, "Landed")], LEDGE_250, 100, 400)
+    assert moved["ends"] == ["Moved", "Landed"] and moved["by_link"] and link_summary([moved])["first_jump_landed"] == 0, moved
+    assert unpack_bin(4611688217487343636) == (20, 17, 0), unpack_bin(4611688217487343636)
     assert arrived((0, 1028.0, 1150.0, 266.0), LEDGE_250) and not arrived((0, 1028.0, 1150.0, 16.0), LEDGE_250)
     s = link_summary([far, t])
     assert (s["tries"], s["arrived"], s["by_link"], s["first_jump_landed"]) == (2, 2, 2, 1), s
@@ -342,6 +382,25 @@ def self_test():
     assert len(kept) == 2 + 2 * 335 and all(struct.unpack_from("<i", p, 0)[0] == 2 for _, p in kept[2:]), len(kept)
     assert {struct.unpack_from("<i", p, 8)[0] for _, p in kept[2:]} == set(range(200, 535))
     assert trim(session, 1)[1] == windows and trim(session, 3) == (session[:10] + rec(REC_HEADER, b"h") + rec(REC_BOT_ADDED, b"b"), [])
+    # The course (lane G7a): a stage stood on, a bay, and the jumps a list of links makes of it.
+    assert stage_of(192, 304, 656) == 0 and stage_of(1232, 1664, 1606) == 6 and stage_of(192, 304, 700) is None and stage_of(400, 300, 656) is None
+    assert in_bay(1808, 464, 956) == 3 and stage_of(1808, 464, 956) == 3 and in_bay(1616, 464, 956) is None
+    lst = [{"takeoff": [296, 376, 656], "landing": [488, 376, 756]}, {"takeoff": [1528, 472, 956], "landing": [1048, 472, 956]},
+           {"takeoff": [1048, 472, 956], "landing": [1528, 472, 956]}]
+    assert link_jumps(lst) == {0: 1, 2: 3}, link_jumps(lst)
+    # A run: S0, off S0 up (health 200), on S1; off S1 and fallen (a reset), back on S1 with 150, the bay, up to S2 ... S6.
+    run = [(10, 192, 304, 656, 200, "Soldier: Course"), (20, 380, 370, 700, 200, "Soldier: Course"), (40, 576, 368, 756, 172, "Soldier: Course"),
+           (50, 760, 400, 600, 172, "Soldier: Course"), (60, 576, 368, 756, 150, "Soldier: Course"), (70, 576, 144, 756, 150, "Soldier: Roam"),
+           (80, 576, 368, 756, 200, "Soldier: Course"), (90, 760, 400, 800, 200, "Soldier: Course"), (100, 960, 464, 956, 166, "Soldier: Course"),
+           (110, 1232, 1664, 1606, 166, "Soldier: Course")]
+    jl = [lj(LINK_ARGUMENT_BASE + 0, "Landed"), lj(LINK_ARGUMENT_BASE + 2, "Reset", off=500.0), lj(LINK_ARGUMENT_BASE + 2, "Landed"), lj(5, "Landed")]
+    got = course_run(run, jl, {0: 1, 2: 2}, 5)
+    assert got["finished"] and got["reached"] == {"0": 5, "1": 35, "2": 95, "6": 105}, got["reached"]
+    assert got["takeoff_health"]["1"] == [200] and got["takeoff_health"]["2"] == [200], got["takeoff_health"]
+    assert got["falls"]["2"] == 1 and got["falls"]["1"] == 0, got["falls"]
+    assert got["tries"]["1"] == {"Landed": 1} and got["tries"]["2"] == {"Reset": 1, "Landed": 1}, got["tries"]
+    assert got["bays"] == {"1": 1} and got["other_branch_samples"] == 1, got
+    assert not course_run(run[:4], [], {}, 5)["finished"]
     print("ai-tf-jump self-test: ok")
 
 
@@ -624,6 +683,10 @@ def links_mode(config, tries, others, reload, out, keep, think_log=False):
             result["reload_summary"] = print_links("ledge 250 after the reload", result["reload"], jumps_of(game))
         result["counters"] = {k: v for k, v in (game.json("/ai/counters") or {}).items() if k.startswith("ai.") and isinstance(v, (int, float))}
     finally:
+        # This run's console lines beside its numbers: what the game said (think lines with --think-log) as it played.
+        if out:
+            with open(os.path.splitext(out)[0] + ".console.log", "w") as f:
+                f.write("\n".join(game.lines()) + "\n")
         game.stop(keep)
     if out:
         with open(out, "w") as f:
@@ -632,12 +695,294 @@ def links_mode(config, tries, others, reload, out, keep, think_log=False):
     return 0 if s.get("by_link", 0) >= 8 * tries // 10 else 1
 
 
-def start_game(config):
+def store_links(db):
+    """The experience file's link rows: (class, from bin, to bin, kind, source, tries, successes, seconds, health cost). An unreadable file is a failure."""
+    import sqlite3
+    with sqlite3.connect("file:%s?mode=ro" % db, uri=True) as c:
+        return [tuple(r) for r in c.execute("SELECT class, from_bin, to_bin, kind, source, tries, successes, seconds, health_cost FROM link ORDER BY from_bin, to_bin")]
+
+
+def unpack_bin(packed):
+    """WorldBin.Unpack: 21 bits a coordinate, biased by 2^20; a bin is 64 u square and 72 u tall. PURE."""
+    mask, bias = (1 << 21) - 1, 1 << 20
+    return ((packed & mask) - bias, ((packed >> 21) & mask) - bias, ((packed >> 42) & mask) - bias)
+
+
+def experience_routes(game):
+    return (game.json("/ai/experience") or {}).get("routes") or {}
+
+
+def trust_mode(config, tries, db, out):
+    if not db:
+        raise SystemExit("ai-tf-jump: trust needs --db FILE.db (a private store)")
+    db = os.path.abspath(db)
+    if os.path.exists(db):
+        raise SystemExit("ai-tf-jump: %s exists: the rows must be this run's" % db)
+    game = start_game(config, extra="+ai_experience_db %s" % db)
+    result = {"map": MAP, "config": config, "db": db, "commit": subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()}
+    try:
+        slot = add_jumper(game)
+        game.cmd("ai_aim_tough %d 200" % slot)
+        wait_links(game)
+        exp = game.json("/ai/experience") or {}
+        if exp.get("state") not in ("on", "memory"):
+            raise SystemExit("ai-tf-jump: the store is not on: %s" % exp)
+        result["a"] = [run_try(game, slot, LEDGE_250) for _ in range(tries)]
+        result["a_summary"] = print_links("phase A", result["a"], jumps_of(game))
+        builds = experience_routes(game).get("builds", 0)
+        game.cmd("mp_restartgame 1")
+        deadline = time.time() + 120
+        while time.time() < deadline and experience_routes(game).get("builds", 0) <= builds:
+            time.sleep(1.0)
+        routes = experience_routes(game)
+        if routes.get("builds", 0) <= builds:
+            raise SystemExit("ai-tf-jump: no routes were built after the restart: %s" % routes)
+        result["routes_after_restart"] = routes
+        print("after the restart: %s of %s links left out %s; rows %s" % (routes.get("links_shut"), routes.get("links"), routes.get("shut"), (game.json("/ai/experience") or {}).get("rows")))
+        time.sleep(5.0)
+        result["b"] = [run_try(game, slot, LEDGE_250) for _ in range(tries)]
+        result["b_summary"] = print_links("phase B", result["b"], jumps_of(game))
+        shut = set(routes.get("shut") or [])
+        result["b_shut_begun"] = sum(1 for t in result["b"] for i in t["link_ids"] if i in shut)
+        print("phase B began a link the snapshot left out %d times" % result["b_shut_begun"])
+        result["counters"] = {k: v for k, v in (game.json("/ai/counters") or {}).items() if k.startswith("ai.experience.") and isinstance(v, (int, float))}
+    finally:
+        if out:
+            with open(os.path.splitext(out)[0] + ".console.log", "w") as f:
+                f.write("\n".join(game.lines()) + "\n")
+        game.stop(False)
+    rows = store_links(db)
+    result["rows"] = rows
+    print("link rows in %s: %d" % (db, len(rows)))
+    for r in rows:
+        print("  class %d bin %s -> bin %s kind %d source %d: tries %.2f successes %.2f mean seconds %.2f mean health %.1f" % (
+            r[0], unpack_bin(r[1]), unpack_bin(r[2]), r[3], r[4], r[5], r[6], r[7] / r[6] if r[6] else 0.0, r[8] / r[6] if r[6] else 0.0))
+    if out:
+        with open(out, "w") as f:
+            json.dump(result, f, indent=1)
+    return 0 if rows and result.get("b_shut_begun", 1) == 0 else 1
+
+
+# The course mode (lane G7a): ss_ai_tf_course's stages as TFAiTestMaps.CourseStages has them (west, south, east, north,
+# top), each stage's cabinet bay (west, south; 128 square), how far under a stage's top the feet are fallen, and how long
+# a run may take.
+COURSE_MAP = "ss_ai_tf_course"
+COURSE_STAGES = [(64, 176, 320, 432, 656), (448, 208, 704, 528, 756), (832, 336, 1088, 592, 956), (1488, 336, 1744, 592, 956),
+                 (1488, 720, 1744, 976, 1256), (1488, 1536, 1744, 1792, 1256), (1104, 1536, 1360, 1792, 1606)]
+COURSE_BAYS = [None, (512, 80), (896, 592), (1744, 400), (1744, 784), (1744, 1600), None]
+BAY_SIZE = 128
+FALL_UNITS = 100.0
+RUN_TICKS = 12000
+
+
+def stage_of(x, y, z, slack=2.0):
+    """The stage whose top (or bay) the feet at (x, y, z) stand on, or None. PURE."""
+    for i, (w, s, e, n, top) in enumerate(COURSE_STAGES):
+        if abs(z - top) > slack:
+            continue
+        if w <= x <= e and s <= y <= n:
+            return i
+        bay = COURSE_BAYS[i]
+        if bay and bay[0] <= x <= bay[0] + BAY_SIZE and bay[1] <= y <= bay[1] + BAY_SIZE:
+            return i
+    return None
+
+
+def in_bay(x, y, z):
+    """The stage whose cabinet bay the feet at (x, y, z) stand in, or None. PURE."""
+    for i, bay in enumerate(COURSE_BAYS):
+        top = COURSE_STAGES[i][4]
+        if bay and abs(z - top) <= 2.0 and bay[0] <= x <= bay[0] + BAY_SIZE and bay[1] <= y <= bay[1] + BAY_SIZE:
+            return i
+    return None
+
+
+def link_jumps(links_list):
+    """The course's jump each of the level's links is ({link index: jump number 1..6}), by its takeoff's and landing's
+    stages: a link from stage k to k+1 is jump k+1; any other (a gap back the other way) is none. PURE."""
+    out = {}
+    for i, l in enumerate(links_list):
+        a = stage_of(*l["takeoff"], slack=24.0)
+        b = stage_of(*l["landing"], slack=24.0)
+        if a is not None and b == a + 1:
+            out[i] = b
+    return out
+
+
+def course_run(samples, jumps, link_jump, start_tick):
+    """One run's table from its samples [(tick, x, y, z, health, branch)] in tick order and the jumps that ended in it
+    (/ai/jumps `last` entries): per stage the ticks from the run's start to the first sample standing on its top; per jump
+    its tries (by end), its falls and the health as the bot left the takeoff stage's top; the bay visits; the decides
+    under another branch; finished when the last stage was reached. PURE: the self-test holds it."""
+    last = len(COURSE_STAGES) - 1
+    reached = {}
+    takeoffs = {j: [] for j in range(1, last + 1)}
+    falls = {j: 0 for j in range(1, last + 1)}
+    tries = {j: {} for j in range(1, last + 1)}
+    bays = {}
+    other = 0
+    on, in_bay_now = None, None
+    for i, (t, x, y, z, health, branch) in enumerate(samples):
+        st = stage_of(x, y, z)
+        if st is not None and st not in reached:
+            reached[st] = t - start_tick
+        if branch and not branch.endswith("Course") and last not in reached:
+            other += 1
+        bay = in_bay(x, y, z)
+        if bay is not None and bay != in_bay_now:
+            bays[bay] = bays.get(bay, 0) + 1
+        in_bay_now = bay
+        if st is not None:
+            on = (st, health)
+        elif on is not None and on[0] < last:
+            top = COURSE_STAGES[on[0]][4]
+            if z > top + 16.0:
+                takeoffs[on[0] + 1].append(on[1])
+                on = None
+            elif z < top - FALL_UNITS:
+                falls[on[0] + 1] += 1
+                on = None
+    for j in jumps:
+        jump = link_jump.get(j["plan"] - LINK_ARGUMENT_BASE) if j["plan"] >= LINK_ARGUMENT_BASE else None
+        if jump is None:
+            continue
+        end = j["end"] if j["end"] != "Landed" or j.get("off_plan", 0.0) <= NEAR_UNITS else "LandedElsewhere"
+        tries[jump][end] = tries[jump].get(end, 0) + 1
+        if end in ("Reset", "Moved"):
+            falls[jump] = max(falls[jump], sum(1 for k in jumps if link_jump.get(k["plan"] - LINK_ARGUMENT_BASE) == jump and k["end"] in ("Reset", "Moved")))
+    return {"finished": last in reached, "reached": {str(k): v for k, v in sorted(reached.items())},
+            "tries": {str(k): v for k, v in tries.items()}, "falls": {str(k): v for k, v in falls.items()},
+            "takeoff_health": {str(k): v for k, v in takeoffs.items()}, "bays": {str(k): v for k, v in sorted(bays.items())}, "other_branch_samples": other}
+
+
+def bot_health(game, slot):
+    """The bot's health from the dev API's entity read, or None."""
+    try:
+        got = game.json("/entity?index=%d" % slot)
+    except (ValueError, OSError):
+        return None
+    return got.get("health") if isinstance(got, dict) else None
+
+
+def course_watch(game, slot, link_jump):
+    """One run: the round restarted, then the bot watched until it stands on the last stage or RUN_TICKS go by."""
+    before = jumps_of(game) or {}
+    game.cmd("mp_restartgame 1")
+    asked = game.tick()
+    # The restart puts the bot on its spawn on S0 a second on: the run starts at the first sample there after it.
+    start = None
+    deadline = time.time() + 120
+    while time.time() < deadline and start is None:
+        world = lower(game.json("/ai/world"))
+        s = bot_sample(world, slot)
+        if s is not None and s[0] > asked + 66 and stage_of(s[1], s[2], s[3]) == 0:
+            start = s[0]
+        time.sleep(0.1)
+    if start is None:
+        raise SystemExit("ai-tf-jump: the bot was not on its spawn after the restart")
+    seen = {j["serial"] for j in before.get("last", [])}
+    samples = []
+    last = len(COURSE_STAGES) - 1
+    while True:
+        world = lower(game.json("/ai/world"))
+        s = bot_sample(world, slot)
+        if s is not None:
+            going = next((b.get("going") or {} for b in world.get("bots") or [] if b.get("slot") == slot), {})
+            samples.append((s[0], s[1], s[2], s[3], bot_health(game, slot), going.get("branch") or ""))
+            if stage_of(s[1], s[2], s[3]) == last:
+                break
+        if world.get("tick", start) - start > RUN_TICKS:
+            break
+        time.sleep(0.1)
+    time.sleep(1.5)
+    after = jumps_of(game) or {}
+    found = [j for j in after.get("last", []) if j["serial"] not in seen]
+    out = course_run(samples, found, link_jump, start)
+    out["start_tick"] = start
+    out["jumps"] = [{k: j.get(k) for k in ("serial", "plan", "end", "launched", "takeoff", "touch", "plan_touch", "off_plan", "rise", "plan_health")} for j in found]
+    out["game"] = {k: after.get(k, 0) - before.get(k, 0) for k in after if k.startswith("ai.jump.") and isinstance(after.get(k), (int, float))
+                   and after.get(k, 0) != before.get(k, 0)}
+    out["track"] = [[t, round(x, 1), round(y, 1), round(z, 1), h] for t, x, y, z, h, _ in samples[::5]]
+    return out
+
+
+def print_course(name, runs):
+    done = sum(1 for r in runs if r["finished"])
+    print("%s: %d of %d runs finished" % (name, done, len(runs)), flush=True)
+    for i, r in enumerate(runs):
+        print("  run %d: %s; stages reached at ticks %s" % (i + 1, "finished" if r["finished"] else "NOT finished", r["reached"]))
+        for j in sorted(r["tries"], key=int):
+            print("    J%s: tries %s, falls %d, health at takeoff %s" % (j, r["tries"][j] or "{}", r["falls"][j], r["takeoff_health"][j]))
+        print("    bays %s; samples under another branch %d; game %s" % (r["bays"], r["other_branch_samples"],
+                                                                         " ".join("%s=%s" % (k, v) for k, v in sorted(r["game"].items()))))
+    return done
+
+
+def course_mode(config, runs, reload, db, out, think_log=False):
+    if db:
+        db = os.path.abspath(db)
+        if os.path.exists(db):
+            raise SystemExit("ai-tf-jump: %s exists: the rows must be this run's" % db)
+    extra = "+mp_waitingforplayers_time 0" + (" +ai_experience_db %s" % db if db else "")
+    game = start_game(config, extra=extra, map_name=COURSE_MAP)
+    result = {"map": COURSE_MAP, "config": config, "db": db,
+              "commit": subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()}
+    ok = True
+    try:
+        if think_log:
+            game.cmd("ai_think_log 1")
+        slot = add_jumper(game)
+        jumps = wait_links(game)
+        link_jump = link_jumps(jumps.get("links.list", []))
+        result["links"] = {"n": jumps["links"], "state": jumps["links.state"], "course_jumps": sorted(set(link_jump.values()))}
+        print("links: %d (%s); the course's jumps among them: %s" % (jumps["links"], jumps["links.state"], result["links"]["course_jumps"]), flush=True)
+        result["runs"] = [course_watch(game, slot, link_jump) for _ in range(runs)]
+        ok &= print_course("course", result["runs"]) * 5 >= 4 * runs
+        if reload:
+            game.cmd("changelevel %s" % COURSE_MAP)
+            time.sleep(10.0)
+            deadline = time.time() + 120
+            while time.time() < deadline:
+                bots = [b for b in lower(game.json("/ai/world")).get("bots") or [] if b.get("name") == "Jumper" and b.get("truth")]
+                if bots:
+                    slot = bots[0]["slot"]
+                    break
+                time.sleep(1.0)
+            else:
+                slot = add_jumper(game)
+            if think_log:
+                game.cmd("ai_think_log 1")
+            again = wait_links(game)
+            link_jump = link_jumps(again.get("links.list", []))
+            result["reload_links"] = {"n": again["links"], "state": again["links.state"], "from_cache": again.get("links.from_cache")}
+            print("reload: %d links, %s" % (again["links"], again["links.state"]), flush=True)
+            result["reload_runs"] = [course_watch(game, slot, link_jump) for _ in range(runs)]
+            ok &= print_course("course after the reload", result["reload_runs"]) * 5 >= 4 * runs
+        result["counters"] = {k: v for k, v in (game.json("/ai/counters") or {}).items() if k.startswith("ai.") and isinstance(v, (int, float))}
+    finally:
+        if out:
+            with open(os.path.splitext(out)[0] + ".console.log", "w") as f:
+                f.write("\n".join(game.lines()) + "\n")
+        game.stop(False)
+    if db:
+        rows = store_links(db)
+        result["rows"] = rows
+        print("link rows in %s: %d" % (db, len(rows)))
+        for r in rows:
+            print("  class %d bin %s -> bin %s kind %d source %d: tries %.2f successes %.2f mean seconds %.2f mean health %.1f" % (
+                r[0], unpack_bin(r[1]), unpack_bin(r[2]), r[3], r[4], r[5], r[6], r[7] / r[6] if r[6] else 0.0, r[8] / r[6] if r[6] else 0.0))
+    if out:
+        with open(out, "w") as f:
+            json.dump(result, f, indent=1)
+    return 0 if ok else 1
+
+
+def start_game(config, extra="", map_name=MAP):
     """A headless tf2 game on the map, up; a missing map is a failure."""
-    nav = os.path.join(ROOT, "bin", config, "mods", "tf2", "maps", MAP + ".nav3d")
+    nav = os.path.join(ROOT, "bin", config, "mods", "tf2", "maps", map_name + ".nav3d")
     if not os.path.exists(nav):
-        raise SystemExit("ai-tf-jump: no %s: `make map MAP=%s` builds it" % (nav, MAP))
-    game = ai_scenario.Game(MAP, config, mod="tf2")
+        raise SystemExit("ai-tf-jump: no %s: `make map MAP=%s` builds it" % (nav, map_name))
+    game = ai_scenario.Game(map_name, config, extra=extra, mod="tf2")
     game.start()
     return game
 
@@ -850,7 +1195,7 @@ def main(argv):
         self_test()
         return 0
     p = argparse.ArgumentParser(prog="ai-tf-jump")
-    p.add_argument("what", choices=["measure", "read", "record", "sim", "links"])
+    p.add_argument("what", choices=["measure", "read", "record", "sim", "links", "trust", "course"])
     p.add_argument("file", nargs="?")
     p.add_argument("--seconds", type=float)
     p.add_argument("--config", default="debug")
@@ -861,7 +1206,13 @@ def main(argv):
     p.add_argument("--others", action="store_true")
     p.add_argument("--reload", action="store_true")
     p.add_argument("--think-log", action="store_true")
+    p.add_argument("--db")
+    p.add_argument("--runs", type=int, default=5)
     a = p.parse_args(argv)
+    if a.what == "course":
+        return course_mode(a.config, a.runs, a.reload, a.db, a.out, a.think_log)
+    if a.what == "trust":
+        return trust_mode(a.config, a.tries, a.db, a.out)
     if a.what == "links":
         return links_mode(a.config, a.tries, a.others, a.reload, a.out, a.keep, a.think_log)
     if a.what == "read":

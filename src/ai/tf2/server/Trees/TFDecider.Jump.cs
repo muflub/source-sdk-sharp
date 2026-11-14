@@ -18,6 +18,16 @@ namespace SourceSharp.Ai.TF2.Trees;
 /// the health left after its blast stays over the floor: one ability one-shot that carries the
 /// plan's number to the program that flies it (<see cref="RocketJumpProgram"/>).
 /// </para>
+///
+/// <para>
+/// A link the bot's route takes (lane G5e) is begun under the same rule but two of its parts: it is not
+/// spaced from the jump before it (<see cref="RocketJumpEverySeconds"/> was made for a bot bouncing down a
+/// corridor, and it made a chain of links wait out its follower's hold at the second, and the first link
+/// after a stretch jump too), and a glance does not hold it back (the program stands the bot at the start
+/// and turns the view itself). What keeps a chain from jumping the bot to death is the health: each link
+/// is begun only with the health after its own blast over the floor, checked as the bot stands at it,
+/// and a search takes a link only while it has that health to spend (<c>TFNavProfile.LinksFor</c>).
+/// </para>
 /// </summary>
 public sealed partial class TFDecider
 {
@@ -40,27 +50,49 @@ public sealed partial class TFDecider
     /// Whether a rocket jump may be asked about now: everything but the route's say. The health is
     /// the floor's here; what the jump itself costs is known with its plan.
     /// </summary>
-    private bool JumpAllowed
-        => _class == TFClass.Soldier && _rocketJumpRow >= 0 && Jumps is not null && HoldingLauncher && _self.Clip >= RocketJumpRockets && _now >= _nextJumpAt
-           && (_self.Flags & (SelfFlags.Grounded | SelfFlags.Reloading)) == SelfFlags.Grounded && !_targetSighted && !Carrying
-           && _self.Health >= RocketJumpHealthFloor && _hasGoal && _move.Kind == MoveKind.Follow && !_glance.Holding(_now);
+    private bool JumpAllowed => MayRocketJump && JumpRefusalNow == JumpLinkRefusal.None;
+
+    /// <summary>Whether this bot rocket jumps at all: a Soldier with the ability and a book of jumps.</summary>
+    private bool MayRocketJump => _class == TFClass.Soldier && _rocketJumpRow >= 0 && Jumps is not null;
+
+    /// <summary>The first part of <see cref="JumpAllowed"/>'s rule that fails now, or none.</summary>
+    private JumpLinkRefusal JumpRefusalNow
+        => !HoldingLauncher ? JumpLinkRefusal.Launcher
+           : _self.Clip < RocketJumpRockets ? JumpLinkRefusal.Clip
+           : (_self.Flags & SelfFlags.Reloading) != 0 ? JumpLinkRefusal.Reloading
+           : (_self.Flags & SelfFlags.Grounded) == 0 ? JumpLinkRefusal.Airborne
+           : _targetSighted ? JumpLinkRefusal.Sighted
+           : Carrying ? JumpLinkRefusal.Carrying
+           : _self.Health < RocketJumpHealthFloor ? JumpLinkRefusal.Health
+           : !_hasGoal || _move.Kind != MoveKind.Follow ? JumpLinkRefusal.NoGoal
+           : _glance.Holding(_now) ? JumpLinkRefusal.Glance
+           : _now < _nextJumpAt ? JumpLinkRefusal.Spacing
+           : JumpLinkRefusal.None;
 
     /// <summary>
-    /// The jump the book advises, or false. First the route's own: a blast link its follower says the bot stands at the
-    /// start of, on its way to this decide's goal (lane G5c-2b: the follower only says it; the tree begins it, under
-    /// <see cref="JumpAllowed"/>'s rule like any jump). Then the stretch ahead: false when the bot is not moving along a
-    /// way or nothing is known for the stretch (it is asked about, for the next time). Either way false when the jump's
-    /// blast would take the bot under its health floor.
+    /// Whether a link the route takes may be begun, refused for <paramref name="why"/> (<see cref="JumpRefusalNow"/>): every
+    /// part of the rule but the spacing and a glance (lane G5e).
+    /// </summary>
+    private static bool LinkMayBegin(JumpLinkRefusal why) => why is JumpLinkRefusal.None or JumpLinkRefusal.Spacing or JumpLinkRefusal.Glance;
+
+    /// <summary>
+    /// The route's own jump: a blast link its follower says the bot stands at the start of, on its way to this decide's
+    /// goal (lane G5c-2b: the follower only says it; the tree begins it), whose blast leaves the bot over its health floor.
+    /// </summary>
+    private bool RouteLinkAdvised([NotNullWhen(true)] out JumpPlan? plan)
+    {
+        plan = Jumps!.RouteLink(_bot.Slot, _now, _goal) is { } link && _self.Health - link.Health >= RocketJumpHealthFloor ? link : null;
+        return plan is not null;
+    }
+
+    /// <summary>
+    /// The jump the book advises for the stretch ahead, or false: false when the bot is not moving along a way or nothing
+    /// is known for the stretch (it is asked about, for the next time), or when the jump's blast would take the bot under
+    /// its health floor.
     /// </summary>
     private bool JumpAdvised([NotNullWhen(true)] out JumpPlan? plan)
     {
         plan = null;
-        if (Jumps!.RouteLink(_bot.Slot, _now, _goal) is { } link && _self.Health - link.Health >= RocketJumpHealthFloor)
-        {
-            plan = link;
-            return true;
-        }
-
         var way = new AiVector(_self.Velocity.X, _self.Velocity.Y, 0f);
         if (way.Length < RocketJumpSpeed)
             return false;

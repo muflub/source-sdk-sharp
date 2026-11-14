@@ -171,14 +171,25 @@ public sealed partial class TFDecider
     }
 
     /// <summary>
-    /// Whether a rocket jump pays now, and which (<see cref="RocketJump"/>'s rule): the tree allows
-    /// one (<see cref="JumpAllowed"/>) and the level's book of jumps has one for the stretch ahead
-    /// that the bot's health covers (<see cref="JumpAdvised"/>). The book's jumps are the ones the
-    /// simulator says beat the walk; nothing is flown or searched for here.
+    /// Whether a rocket jump pays now, and which (<see cref="RocketJump"/>'s rule): the link the route takes, which
+    /// the bot stands at the start of, under the rule but its spacing and a glance (<see cref="LinkMayBegin"/>,
+    /// <see cref="RouteLinkAdvised"/>); else, when the tree allows one (<see cref="JumpAllowed"/>), the jump the
+    /// level's book has for the stretch ahead that the bot's health covers (<see cref="JumpAdvised"/>). The book's
+    /// jumps are the ones the simulator says beat the walk; nothing is flown or searched for here.
     /// </summary>
     private bool JumpPays([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jump.JumpPlan? plan)
     {
         plan = null;
-        return JumpAllowed && JumpAdvised(out plan);
+        if (!MayRocketJump)
+            return false;
+        Jump.JumpLinkRefusal why = JumpRefusalNow;
+        bool linkMay = LinkMayBegin(why);
+        if (linkMay && RouteLinkAdvised(out plan))
+            return true;
+        if (why == Jump.JumpLinkRefusal.None && JumpAdvised(out plan))
+            return true;
+        // A wait at a link's start is counted with its reason (the book counts it only when the route has one here).
+        Jumps!.LinkRefused(_bot.Slot, _now, _goal, linkMay ? Jump.JumpLinkRefusal.Health : why);
+        return false;
     }
 }

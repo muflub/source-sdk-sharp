@@ -114,6 +114,184 @@ public static class TFAiTestMaps
         return map;
     }
 
+    // ------------------------------------------------------------------ ss_ai_tf_course (lane G7a)
+
+    /// <summary>One stage of the course: a platform's top, from <see cref="West"/>/<see cref="South"/> to <see cref="East"/>/<see cref="North"/>, at <see cref="Top"/>.</summary>
+    public readonly record struct CourseStage(float West, float South, float East, float North, float Top)
+    {
+        public Point Centre => new((West + East) / 2f, (South + North) / 2f, Top);
+    }
+
+    /// <summary>The course's pit floor: every stage is over <see cref="CoursePitDepth"/> above it.</summary>
+    public const float CourseFloorZ = 16f, CoursePitDepth = 640f;
+
+    /// <summary>The side of the bay a stage's cabinet stands in.</summary>
+    public const float BaySize = 128f;
+
+    /// <summary>
+    /// The stages S0 (the spawns) to S6 (the end), in the course's order: a U, east along the south, north, then west.
+    /// Each jump is the next stage's rise and gap from the one before: +100 over 128, +200 over 128, a 400 u gap
+    /// level, +300 over 128, a 560 u gap level, +350 over 128 (the last: at +400 the pass finds no jump). S1 is 320 u
+    /// across and the first three stages step north (S0's middle 64 u south of S1's, S1's 96 u south of S2's): the line
+    /// out from S2's edge crosses S1 and misses S0, so no jump skips a stage (at one line the pass found S0 to S2), and
+    /// each takeoff is 64 u in from its platform's side.
+    /// </summary>
+    public static readonly CourseStage[] CourseStages =
+    [
+        new(64f, 176f, 320f, 432f, CourseFloorZ + CoursePitDepth),
+        new(448f, 208f, 704f, 528f, CourseFloorZ + CoursePitDepth + 100f),
+        new(832f, 336f, 1088f, 592f, CourseFloorZ + CoursePitDepth + 300f),
+        new(1488f, 336f, 1744f, 592f, CourseFloorZ + CoursePitDepth + 300f),
+        new(1488f, 720f, 1744f, 976f, CourseFloorZ + CoursePitDepth + 600f),
+        new(1488f, 1536f, 1744f, 1792f, CourseFloorZ + CoursePitDepth + 600f),
+        new(1104f, 1536f, 1360f, 1792f, CourseFloorZ + CoursePitDepth + 950f),
+    ];
+
+    /// <summary>
+    /// Where each stage's cabinet bay is: a <see cref="BaySize"/> square on the platform's side away from the line the
+    /// course takes over it (none for S0 and the end, whose cabinets take the whole top). A bot walking from its landing to
+    /// its next takeoff passes it by: it goes in for health. Each bay is off the lines out from the stages' edges, so it
+    /// gives the link pass no way round a stage.
+    /// </summary>
+    public static readonly (float West, float South)?[] CourseBays =
+    [
+        null,
+        (512f, 80f),
+        (896f, 592f),
+        (1744f, 400f),
+        (1744f, 784f),
+        (1744f, 1600f),
+        null,
+    ];
+
+    /// <summary>
+    /// The teleport regions under the course, one a jump, which split the room's floor plan between them: a fall in one
+    /// puts the body back on the jump's takeoff stage. (x0, y0, x1, y1) boxes; the fourth jump's is two.
+    /// </summary>
+    public static readonly (int Jump, float X0, float Y0, float X1, float Y1)[] CourseResets =
+    [
+        (1, 16f, 16f, 576f, 1300f),
+        (2, 576f, 16f, 1000f, 1300f),
+        (3, 1000f, 16f, 2032f, 656f),
+        (4, 1000f, 656f, 2032f, 1040f),
+        (4, 1000f, 1040f, 1424f, 1300f),
+        (5, 1424f, 1040f, 2032f, 2032f),
+        (6, 16f, 1300f, 1424f, 2032f),
+    ];
+
+    /// <summary>A reset's volume ends this far under the lowest top over its region, so nobody standing on a stage is in one.</summary>
+    public const float ResetUnder = 128f;
+
+    /// <summary>A stage's capture area rises this far over its top.</summary>
+    public const float CaptureHeight = 128f;
+
+    /// <summary>
+    /// ss_ai_tf_course: a rocket-jump course of seven stages over a pit, each stage reached from the one before only by a
+    /// blast jump (plan_bots_teams_tf2_part_g G.7, lane G7a). What a jump map has round it: the spawns and a cabinet on
+    /// the first stage; a cabinet in a bay on each stage after; a control point on each stage after the first, each
+    /// needing the one before, its capture area over the stage, under a master that lets no team win, so the course
+    /// stays done; and a reset under each jump, a teleport back to its takeoff stage. The master makes it a control-point
+    /// map, without which the tf2 mod runs no teams; there is no flag.
+    /// </summary>
+    public static VmfMap Course()
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        AiTestMaps.Room(map, 0, "course", east: false, west: false, JumpCell);
+
+        for (int s = 0; s < CourseStages.Length; s++)
+        {
+            CourseStage st = CourseStages[s];
+            map.WorldSolids.Add(VmfMap.Box(new Point(st.West, st.South, CourseFloorZ), new Point(st.East, st.North, st.Top), Ledge));
+            if (CourseBays[s] is { } bay)
+            {
+                map.WorldSolids.Add(VmfMap.Box(new Point(bay.West, bay.South, CourseFloorZ), new Point(bay.West + BaySize, bay.South + BaySize, st.Top), Ledge));
+                Regenerate(map, new Point(bay.West, bay.South, st.Top), new Point(bay.West + BaySize, bay.South + BaySize, st.Top + CaptureHeight));
+            }
+            else
+            {
+                Regenerate(map, new Point(st.West, st.South, st.Top), new Point(st.East, st.North, st.Top + CaptureHeight));
+            }
+
+            var destination = new VmfEntity { ClassName = "info_teleport_destination" };
+            destination.Set("targetname", $"stage{s}_start").Set("origin", (st.Centre + new Point(0, 0, 8)).ToString()).Set("angles", $"0 {CourseYaw(s)} 0");
+            map.Entities.Add(destination);
+            if (s == 0)
+                continue;
+
+            var point = new VmfEntity { ClassName = "team_control_point" };
+            string previous = s == 1 ? $"stage{s}" : $"stage{s - 1}";
+            point.Set("targetname", $"stage{s}").Set("origin", st.Centre.ToString()).Set("point_index", $"{s - 1}").Set("point_default_owner", "0")
+                 .Set("point_printname", $"Stage {s}").Set("spawnflags", "2").Set("team_previouspoint_2_0", previous).Set("team_previouspoint_3_0", previous);
+            map.Entities.Add(point);
+            var area = new VmfEntity { ClassName = "trigger_capture_area" };
+            area.Set("area_cap_point", $"stage{s}").Set("area_time_to_cap", "1").Set("team_cancap_2", "1").Set("team_cancap_3", "1")
+                .Set("team_numcap_2", "1").Set("team_numcap_3", "1");
+            area.Solids.Add(VmfMap.Box(new Point(st.West, st.South, st.Top), new Point(st.East, st.North, st.Top + CaptureHeight), "TOOLS/TOOLSTRIGGER"));
+            map.Entities.Add(area);
+        }
+
+        var master = new VmfEntity { ClassName = "team_control_point_master" };
+        master.Set("targetname", "course_master").Set("origin", "1024 1024 64").Set("cpm_restrict_team_cap_win", "1");
+        map.Entities.Add(master);
+
+        // The spawns: four of each team on the first stage, facing the first jump.
+        CourseStage first = CourseStages[0];
+        foreach (float y in (float[])[224, 272, 320, 368])
+        {
+            TeamSpawn(map, new Point(first.West + 64, y, first.Top), Red, 0);
+            TeamSpawn(map, new Point(first.West + 128, y, first.Top), Blue, 0);
+        }
+
+        foreach ((int jump, float x0, float y0, float x1, float y1) in CourseResets)
+        {
+            var reset = new VmfEntity { ClassName = "trigger_teleport" };
+            reset.Set("target", $"stage{jump - 1}_start").Set("spawnflags", "1");
+            reset.Solids.Add(VmfMap.Box(new Point(x0, y0, CourseFloorZ), new Point(x1, y1, ResetTop(jump, x0, y0, x1, y1)), "TOOLS/TOOLSTRIGGER"));
+            map.Entities.Add(reset);
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// The top of jump <paramref name="jump"/>'s reset over (<paramref name="x0"/>, <paramref name="y0"/>)-(<paramref name="x1"/>,
+    /// <paramref name="y1"/>): <see cref="ResetUnder"/> under the lowest of its two stages' tops and any stage's over it.
+    /// </summary>
+    public static float ResetTop(int jump, float x0, float y0, float x1, float y1)
+    {
+        float lowest = MathF.Min(CourseStages[jump - 1].Top, CourseStages[jump].Top);
+        for (int s = 0; s < CourseStages.Length; s++)
+        {
+            CourseStage st = CourseStages[s];
+            if (Overlaps(st.West, st.South, st.East, st.North, x0, y0, x1, y1)
+                || (CourseBays[s] is { } bay && Overlaps(bay.West, bay.South, bay.West + BaySize, bay.South + BaySize, x0, y0, x1, y1)))
+                lowest = MathF.Min(lowest, st.Top);
+        }
+
+        return lowest - ResetUnder;
+    }
+
+    private static bool Overlaps(float ax0, float ay0, float ax1, float ay1, float bx0, float by0, float bx1, float by1)
+        => ax0 < bx1 && bx0 < ax1 && ay0 < by1 && by0 < ay1;
+
+    /// <summary>The way stage <paramref name="s"/>'s jump goes on (its destination faces it): east, then north, then west at the last.</summary>
+    public static int CourseYaw(int s) => s switch
+    {
+        <= 2 => 0,
+        3 or 4 => 90,
+        _ => 180,
+    };
+
+    /// <summary>A resupply cabinet's zone for every team (TeamNum 0, as jump maps have them).</summary>
+    private static void Regenerate(VmfMap map, Point mins, Point maxs)
+    {
+        var zone = new VmfEntity { ClassName = "func_regenerate" };
+        zone.Set("TeamNum", "0");
+        zone.Solids.Add(VmfMap.Box(mins, maxs, "TOOLS/TOOLSTRIGGER"));
+        map.Entities.Add(zone);
+    }
+
     /// <summary>A CTF flag with ctf_2fort's keys.</summary>
     private static void Flag(VmfMap map, Point at, int team, string name)
     {

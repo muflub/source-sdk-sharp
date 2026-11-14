@@ -86,6 +86,131 @@ public sealed class TFLinkJumpRuleTests
         Assert.False(f.BeginsJump(f.Step(TFField.Self(At, playerClass: TFClass.Scout), TFField.Ctf())));
     }
 
+    // ------------------------------------------------------------------ chains and the jump before (lane G5e)
+
+    /// <summary>Two links on the way, 0 and 1, each with a plan whose blast costs <see cref="TFJumpAdvice.Cost"/>.</summary>
+    private static (JumpBook Book, NavLinks Links) Chain()
+    {
+        var (g, ids) = Grids.Parse("..... ..... .....");
+        NavLinks links = NavLinks.Build(g, [new NavLink(ids[4, 0], ids[6, 0], NavLinkKind.Blast, 1f, TFJumpAdvice.Cost, 1f, 0), new NavLink(ids[10, 0], ids[12, 0], NavLinkKind.Blast, 1f, TFJumpAdvice.Cost, 1f, 1)],
+                                         new NavLinkCosts { RunSpeed = 240f });
+        var book = new JumpBook(new JumpBookSettings());
+        book.SetLinks(links, [TFJumpAdvice.Plan(id: NavLinks.Argument(0)) with { StartsStanding = true }, TFJumpAdvice.Plan(id: NavLinks.Argument(1)) with { StartsStanding = true }]);
+        return (book, links);
+    }
+
+    /// <summary>The book's route links, and one stretch's plan for the first stretch asked about: a jump on the way before a link.</summary>
+    private sealed class BookAndStretch(JumpBook book) : IJumpAdvisor
+    {
+        private JumpPlan? _stretch = TFJumpAdvice.Plan();
+
+        public JumpPlan? Advise(in JumpStretchAsk ask)
+        {
+            JumpPlan? plan = _stretch;
+            _stretch = null;
+            return plan;
+        }
+
+        public JumpPlan? RouteLink(int slot, Tick tick, AiVector goal) => book.RouteLink(slot, tick, goal);
+
+        public void LinkRefused(int slot, Tick tick, AiVector goal, JumpLinkRefusal why) => book.LinkRefused(slot, tick, goal, why);
+    }
+
+    /// <summary>Decides standing still until a jump begun has let the bot go: its approach's hold over, the bot on the ground.</summary>
+    private static void Down(TFField f, int health = 200)
+    {
+        for (int i = 0; i * DecideSchedule.Period * 0.015f <= TFDecider.RocketJumpBusySeconds + 0.1f; i++)
+            Assert.False(f.BeginsJump(f.Step(Still(health: health), TFField.Ctf())), "no jump while the last has the bot");
+    }
+
+    /// <summary>The bot took link 0 and came down by link 1's start, which its follower says it stands at: well inside the jumps' spacing.</summary>
+    private static (TFField Field, JumpBook Book, int First) AtTheSecondLink(int health = 200)
+    {
+        var (book, links) = Chain();
+        var f = new TFField(tune: p => p with { GlanceRate = 0f }, jumps: book);
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, true));
+        Assert.True(f.BeginsJump(f.Step(Still(), TFField.Ctf())), "the control: the first link is begun");
+        int first = f.Tick;
+        // On the link the follower says nothing; down by the second, it says the bot stands at its start.
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), NavLinkStep.None);
+        Down(f, health);
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(1, links.Hash, TFField.BlueFlag, true));
+        return (f, book, first);
+    }
+
+    [Fact]
+    public void TheSecondLinkOfAChainIsBegunWithoutWaitingTheJumpsSpacing()
+    {
+        var (f, _, first) = AtTheSecondLink();
+        IntentCommand second = f.Step(Still(), TFField.Ctf());
+        Assert.True((f.Tick - first) * 0.015f < TFDecider.RocketJumpEverySeconds, "the control: inside the jumps' spacing");
+        Assert.True(f.BeginsJump(second), "the second link is begun at its start");
+        Assert.Equal(1, NavLinks.LinkOf(AbilityCall.Argument(second.Action.WeaponSlot)));
+        Assert.Equal(2, f.Decider.RocketJumps);
+    }
+
+    [Fact]
+    public void ASecondLinkWhoseBlastWouldTakeTheBotUnderItsFloorIsRefused()
+    {
+        int health = (int)(Floor + TFJumpAdvice.Cost) - 1;
+        var (f, book, _) = AtTheSecondLink(health);
+        Assert.False(f.BeginsJump(f.Step(Still(health: health), TFField.Ctf())));
+        Assert.Equal(1L, book.LinkRefusals(JumpLinkRefusal.Health));
+        // The control: with the health for it, the same second link is begun.
+        var (enough, _, _) = AtTheSecondLink((int)(Floor + TFJumpAdvice.Cost));
+        Assert.True(enough.BeginsJump(enough.Step(Still(health: (int)(Floor + TFJumpAdvice.Cost)), TFField.Ctf())));
+    }
+
+    /// <summary>
+    /// The skip after a reload (lane G5e): the bot's own stretch jump on its way from its spawn set the jumps' spacing, and
+    /// at the link's start the tree refused the link for it until the follower's wait ran out. A link the route takes is
+    /// not spaced from the jump before it.
+    /// </summary>
+    [Fact]
+    public void AStretchJumpJustBeforeDoesNotHoldALinkBackAtItsStart()
+    {
+        var (book, links) = Chain();
+        var f = new TFField(tune: p => p with { GlanceRate = 0f }, jumps: new BookAndStretch(book));
+        Assert.True(f.BeginsJump(f.Step(TFField.Self(At, velocity: new AiVector(240f, 0f, 0f)), TFField.Ctf())), "the control: a stretch jump on the way");
+        Assert.False(f.Decider.LastJump!.StartsStanding);
+        Down(f);
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, true));
+        Assert.True(f.BeginsJump(f.Step(Still(), TFField.Ctf())));
+        Assert.Equal((2, true), (f.Decider.RocketJumps, f.Decider.LastJump!.StartsStanding));
+        Assert.Equal(0L, book.LinkRefusals(JumpLinkRefusal.Spacing));
+    }
+
+    [Fact]
+    public void AGlanceDoesNotHoldALinkBackAtItsStart()
+    {
+        var (book, links) = Chain();
+        var f = new TFField(tune: p => p with { GlanceRate = 1000f }, jumps: book);
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, false));
+        f.Step(Still(), TFField.Ctf());
+        Assert.Equal(1, f.Decider.Glances);
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, true));
+        Assert.True(f.BeginsJump(f.Step(Still(), TFField.Ctf())));
+    }
+
+    [Fact]
+    public void AStretchJumpStillWaitsTheSpacingAfterALink()
+    {
+        var (book, links) = Chain();
+        var advisor = new BookAndStretch(book);
+        var f = new TFField(tune: p => p with { GlanceRate = 0f }, jumps: advisor);
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), new NavLinkStep(0, links.Hash, TFField.BlueFlag, true));
+        Assert.True(f.BeginsJump(f.Step(Still(), TFField.Ctf())));
+        int first = f.Tick;
+        book.NoteRoute(f.Bot.Slot, new Tick(f.Tick), NavLinkStep.None);
+        Down(f);
+        Assert.False(f.BeginsJump(f.Step(TFField.Self(At, velocity: new AiVector(240f, 0f, 0f)), TFField.Ctf())), "a stretch inside the spacing");
+        Assert.Equal(1, f.Decider.RocketJumps);
+        // The control: once the spacing is over, the same stretch is jumped.
+        while ((f.Tick + DecideSchedule.Period - first) * 0.015f < TFDecider.RocketJumpEverySeconds)
+            f.Step(Still(), TFField.Ctf());
+        Assert.True(f.BeginsJump(f.Step(TFField.Self(At, velocity: new AiVector(240f, 0f, 0f)), TFField.Ctf())));
+    }
+
     [Fact]
     public void AnErrandIsTheTreesGoalWithNobodyInSight()
     {

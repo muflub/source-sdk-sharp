@@ -3,6 +3,7 @@ using System.Text;
 using Debug.Api.Server.Interfaces;
 using SourceSharp.Abi;
 using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Experience;
 using SourceSharp.Ai.Server.Nav;
 using SourceSharp.Ai.Server.Senses;
 using SourceSharp.Ai.TF2.Knowledge;
@@ -95,8 +96,9 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
 
     /// <param name="placed">The level's placed entities, whose team spawns seed the link pass; null for none (the pass then proposes anywhere).</param>
     /// <param name="published">Where the links are published for the Soldiers' searches (<see cref="TFBlastLinks"/>); null: a holder of its own.</param>
+    /// <param name="experience">Where each try of a link is written (lane G5e, <see cref="TFLinkExperience.StatOf"/>); null: nowhere.</param>
     public TFJumps(BlastJumpSims sims, TFWeaponScripts scripts, TFClassTable classes, IAiNavigation nav, ILog log, ITFLevelEntities? placed = null,
-                   TFBlastLinks? published = null)
+                   TFBlastLinks? published = null, ExperienceService? experience = null)
     {
         _sims = sims;
         _scripts = scripts;
@@ -105,8 +107,33 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
         _log = log;
         _placed = placed;
         _published = published ?? new TFBlastLinks();
+        _experience = experience;
         _desk = new JumpDesk(new JumpBook(new JumpBookSettings()), new JumpTally(), ThreadCpuClock.Micros()) { Cue = Cue };
-        _program = new RocketJumpProgram(_desk.Book, classes, _desk.Flew);
+        _program = new RocketJumpProgram(_desk.Book, classes, Flew);
+    }
+
+    private readonly ExperienceService? _experience;
+    private long _linkTries, _linkSuccesses, _linkUntried, _linkUnwritten;
+
+    /// <summary>
+    /// A jump a bot made, from the applier on the game's thread: tallied and flown again (the desk), and a link's try written to
+    /// the experience (<see cref="TFLinkExperience.StatOf"/>) while the feed gathers.
+    /// </summary>
+    private void Flew(JumpFlown flown)
+    {
+        _desk.Flew(flown);
+        if (NavLinks.LinkOf(flown.Planned.Id) < 0)
+            return;
+        if (TFLinkExperience.StatOf(flown) is not { } stat)
+        {
+            _linkUntried++;
+            return;
+        }
+
+        _linkTries++;
+        _linkSuccesses += stat.Successes > 0d ? 1 : 0;
+        if (_experience?.NoteLink(TFLinkExperience.KeyOf(flown.Planned.Recipe), stat) != true)
+            _linkUnwritten++;
     }
 
     /// <summary>The read of the navigation's free space under way, or null: a fact waits on it.</summary>
@@ -334,7 +361,7 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             $"{{\"state\":{AiJson.Quote(_state)},\"map\":{AiJson.Quote(_level?.Map ?? "")},\"nav_sha256\":{AiJson.Quote(_level?.NavSha256 ?? "")},"
             + $"\"ai.jump.begun\":{_program.Begun},\"ai.jump.unknown\":{_program.Unknown},\"ai.jump.ended\":{t.Ended},"
             + $"\"ai.jump.landed.near\":{t.LandedNear},\"ai.jump.landed.short\":{t.LandedShort},\"ai.jump.landed.elsewhere\":{t.LandedElsewhere},"
-            + $"\"ai.jump.called_off.view\":{t.ViewLate},\"ai.jump.called_off.astray\":{t.Astray},\"ai.jump.fizzled\":{t.Fizzled},\"ai.jump.fizzled.felt\":{t.FizzledFelt},\"ai.jump.died\":{t.Died},\"ai.jump.timed_out\":{t.TimedOut},"
+            + $"\"ai.jump.called_off.view\":{t.ViewLate},\"ai.jump.called_off.astray\":{t.Astray},\"ai.jump.fizzled\":{t.Fizzled},\"ai.jump.fizzled.felt\":{t.FizzledFelt},\"ai.jump.died\":{t.Died},\"ai.jump.timed_out\":{t.TimedOut},\"ai.jump.moved\":{t.Moved},\"ai.jump.reset\":{t.Reset},"
             + $"\"ai.jump.predicted\":{t.Predicted},\"ai.jump.book.advised\":{b.Advised},\"ai.jump.book.asked\":{b.Asked},\"ai.jump.book.dropped\":{b.Dropped},"
             + $"\"ai.jump.book.planned\":{b.Planned},\"ai.jump.book.refused\":{b.Refused},\"ai.jump.book.plans\":{b.Plans},\"ai.jump.book.waiting\":{b.Waiting},");
         foreach (JumpRefusal why in Enum.GetValues<JumpRefusal>())
@@ -349,7 +376,15 @@ public sealed class TFJumps : IFrameLifecycle, IGameLifecycle, IDebugRouteProvid
             + $"\"links.state\":{AiJson.Quote(_linkState)},\"links\":{(_linkOutcome is { } lo ? lo.Set.Links.Count : 0)},\"links.from_cache\":{(_linkOutcome?.FromCache == true ? "true" : "false")},"
             + $"\"links.cpu.ms\":{_linkOutcome?.CpuMs ?? 0d:F1},\"links.pass.ms\":{_linkOutcome?.PassMs ?? 0d:F1},\"links.candidates\":{_linkOutcome?.Candidates ?? 0},\"links.flights\":{_linkOutcome?.Flights ?? 0},\"links.seeds\":{_linkSeeds},"
             + $"\"ai.jump.link.begun\":{_program.LinksBegun},\"ai.jump.link.reported\":{_desk.Book.RouteCounts.Notes},\"ai.jump.link.advised\":{_desk.Book.RouteCounts.Advised},"
-            + $"\"links.list\":{LinksJson()},"
+            + $"\"ai.jump.link.tries\":{_linkTries},\"ai.jump.link.successes\":{_linkSuccesses},\"ai.jump.link.untried\":{_linkUntried},\"ai.jump.link.unwritten\":{_linkUnwritten},");
+        foreach (JumpLinkRefusal why in Enum.GetValues<JumpLinkRefusal>())
+        {
+            if (why != JumpLinkRefusal.None)
+                json.Append(CultureInfo.InvariantCulture, $"\"ai.jump.link.refused.{why.ToString().ToLowerInvariant()}\":{_desk.Book.LinkRefusals(why)},");
+        }
+
+        json.Append(CultureInfo.InvariantCulture,
+            $"\"links.list\":{LinksJson()},"
             + $"\"near_units\":{JumpTally.NearUnits:F0},\"last\":{_desk.Tally.LastJson()},\"plans\":[");
         JumpPlan[] plans = _desk.Book.Plans();
         for (int i = 0; i < plans.Length; i++)

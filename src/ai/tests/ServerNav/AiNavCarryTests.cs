@@ -66,6 +66,49 @@ public sealed class AiNavCarryTests : IDisposable
         public NavLinkAllowance Links { get; set; }
 
         public NavLinkAllowance LinksFor(EntityHandle player) => Links;
+
+        /// <summary>The hazard every player minds and how much, as the fact sets it.</summary>
+        public NavHazardAllowance Hazard { get; set; }
+
+        public NavHazardAllowance HazardFor(EntityHandle player, int team)
+        {
+            AskedTeam = team;
+            return Hazard;
+        }
+
+        /// <summary>The team the navigation last asked a hazard for.</summary>
+        public int AskedTeam { get; private set; }
+    }
+
+    /// <summary>The hazard and the weight the game's profile gives a player ride on its obstacles, as they stand when asked (lane G4a).</summary>
+    [Fact]
+    public void APlayersObstaclesCarryTheHazardAndTheWeightTheGamesProfileGivesIt()
+    {
+        var profile = new Profile(null, JumpReach.None);
+        NavService nav = Nav(profile);
+        ((IGameLifecycle)nav).OnLevelCarried("course");
+        NavGraph graph = nav.Current!.Nav.Graph;
+        var hazard = new NavCellHazard(graph, new float[graph.CellCount]);
+        var player = new EntityHandle(0x0001_0002u);
+        _teams[player] = 3;
+        Assert.Equal((null, 0f), (nav.ObstaclesFor(player)!.Hazard, nav.ObstaclesFor(player)!.HazardWeight));
+        // The profile is asked for the player's team as the engine has it.
+        Assert.Equal(3, profile.AskedTeam);
+        profile.Hazard = new NavHazardAllowance(hazard, 0.8f);
+        NavObstacleState state = nav.ObstaclesFor(player)!;
+        Assert.Same(hazard, state.Hazard);
+        Assert.Equal(0.8f, state.HazardWeight);
+        profile.Hazard = default;
+        Assert.Null(nav.ObstaclesFor(player)!.Hazard);
+    }
+
+    [Fact]
+    public void HL2MPsProfileGivesNoHazard()
+    {
+        NavService nav = Nav();
+        ((IGameLifecycle)nav).OnLevelCarried("course");
+        NavObstacleState state = nav.ObstaclesFor(new EntityHandle(0x0001_0002u))!;
+        Assert.Equal((null, 0f), (state.Hazard, state.HazardWeight));
     }
 
     /// <summary>The links and the health the game's profile gives a player ride on its obstacles, as they stand when asked (lane G5c-2b).</summary>
@@ -84,6 +127,13 @@ public sealed class AiNavCarryTests : IDisposable
         Assert.Equal(61f, state.LinkHealth);
         profile.Links = new NavLinkAllowance(links, 12f);
         Assert.Equal(12f, nav.ObstaclesFor(player)!.LinkHealth);
+        // Lane G5e: and the links the experience leaves out.
+        Assert.Null(state.LinksShut);
+        NavLinkMask shut = NavLinkMask.Of(links, []);
+        profile.Links = new NavLinkAllowance(links, 12f, shut);
+        Assert.Same(shut, nav.ObstaclesFor(player)!.LinksShut);
+        profile.Links = new NavLinkAllowance(links, 12f);
+        Assert.Null(nav.ObstaclesFor(player)!.LinksShut);
     }
 
     [Fact]

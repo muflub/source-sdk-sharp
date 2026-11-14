@@ -19,12 +19,64 @@ public interface IJumpAdvisor
     /// </summary>
     JumpPlan? RouteLink(int slot, Tick tick, AiVector goal) => null;
 
+    /// <summary>
+    /// What the follower of the bot in <paramref name="slot"/> last said, before <paramref name="tick"/>, of its route to
+    /// <paramref name="goal"/> (lane G7a): the newest such report (a link next, or no way and what it needs), or null when
+    /// none of the reports kept is of a route to that goal. A report of a route to another goal (the driver's "as near as it
+    /// can get") does not hide one before it.
+    /// </summary>
+    NavLinkStep? RouteSaid(int slot, Tick tick, AiVector goal) => null;
+
     /// <summary>A place the bot in <paramref name="slot"/> is sent to by hand (<c>ai_tf_errand</c>, for proving jumps), or false.</summary>
     bool Errand(int slot, out AiVector goal)
     {
         goal = default;
         return false;
     }
+
+    /// <summary>
+    /// The tree did not begin a link this decide, for <paramref name="why"/>: counted only when the bot's route has one it stands at
+    /// the start of for this decide (what <see cref="RouteLink"/> would answer), so a count is a wait at a takeoff and its reason.
+    /// </summary>
+    void LinkRefused(int slot, Tick tick, AiVector goal, JumpLinkRefusal why)
+    {
+    }
+}
+
+/// <summary>Why the tree did not begin the link its bot stands at the start of (the first of its rule's parts that failed).</summary>
+public enum JumpLinkRefusal : byte
+{
+    None = 0,
+
+    /// <summary>Another weapon in hand.</summary>
+    Launcher,
+
+    /// <summary>Under <c>RocketJumpRockets</c> loaded.</summary>
+    Clip,
+
+    /// <summary>The launcher being reloaded.</summary>
+    Reloading,
+
+    /// <summary>Not on the ground.</summary>
+    Airborne,
+
+    /// <summary>An enemy in sight.</summary>
+    Sighted,
+
+    /// <summary>Carrying the flag.</summary>
+    Carrying,
+
+    /// <summary>Its health, or its health after the link's blast, under the floor.</summary>
+    Health,
+
+    /// <summary>No goal, or not following a way to it.</summary>
+    NoGoal,
+
+    /// <summary>In the middle of a glance.</summary>
+    Glance,
+
+    /// <summary>The jumps' spacing: another jump was begun less than <c>RocketJumpEverySeconds</c> ago.</summary>
+    Spacing,
 }
 
 /// <summary>The book's numbers.</summary>
@@ -308,18 +360,49 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
 
     public JumpPlan? RouteLink(int slot, Tick tick, AiVector goal)
     {
+        lock (_gate)
+        {
+            if (RouteLinkLocked(slot, tick, goal) is not { } plan)
+                return null;
+            _routeAdvised++;
+            return plan;
+        }
+    }
+
+    public void LinkRefused(int slot, Tick tick, AiVector goal, JumpLinkRefusal why)
+    {
+        lock (_gate)
+        {
+            if (RouteLinkLocked(slot, tick, goal) is not null)
+                _linkRefusals[(int)why]++;
+        }
+    }
+
+    public NavLinkStep? RouteSaid(int slot, Tick tick, AiVector goal)
+    {
         if ((uint)slot >= RouteSlots)
             return null;
         lock (_gate)
-        {
-            if (_routes[slot] is not { } r || _links is not { } links || _linkPlans is not { } plans || r.Before(tick) is not { } step)
-                return null;
-            if (!step.IsLink || !step.AtStart || step.Links != links.Hash || (uint)step.Link >= (uint)plans.Length
-                || step.Objective.DistanceTo(goal) > settings.GoalSame)
-                return null;
-            _routeAdvised++;
-            return plans[step.Link];
-        }
+            return _routes[slot]?.Before(tick, goal, settings.GoalSame);
+    }
+
+    private JumpPlan? RouteLinkLocked(int slot, Tick tick, AiVector goal)
+    {
+        if ((uint)slot >= RouteSlots || _routes[slot] is not { } r || _links is not { } links || _linkPlans is not { } plans || r.Before(tick) is not { } step)
+            return null;
+        if (!step.IsLink || !step.AtStart || step.Links != links.Hash || (uint)step.Link >= (uint)plans.Length
+            || step.Objective.DistanceTo(goal) > settings.GoalSame)
+            return null;
+        return plans[step.Link];
+    }
+
+    private readonly long[] _linkRefusals = new long[Enum.GetValues<JumpLinkRefusal>().Length];
+
+    /// <summary>Decides at a link's start that did not begin it, for <paramref name="why"/>.</summary>
+    public long LinkRefusals(JumpLinkRefusal why)
+    {
+        lock (_gate)
+            return _linkRefusals[(int)why];
     }
 
     /// <summary>Sends the bot in <paramref name="slot"/> to <paramref name="goal"/> by hand, or (null) calls it off.</summary>
@@ -377,6 +460,19 @@ public sealed class JumpBook(JumpBookSettings settings) : IJumpAdvisor
             _ring[_next] = (stamp, step);
             _next = (_next + 1) % RouteKept;
             Count = Math.Min(Count + 1, RouteKept);
+        }
+
+        /// <summary>The newest report stamped before <paramref name="tick"/> of a route to within <paramref name="same"/> of <paramref name="goal"/>, or null.</summary>
+        public NavLinkStep? Before(Tick tick, AiVector goal, float same)
+        {
+            for (int i = 1; i <= Count; i++)
+            {
+                (Tick stamp, NavLinkStep step) = _ring[(_next + RouteKept - i) % RouteKept];
+                if (stamp.Value < tick.Value && (step.IsLink || step.NoWay) && step.Objective.DistanceTo(goal) <= same)
+                    return step;
+            }
+
+            return null;
         }
 
         /// <summary>The newest report stamped before <paramref name="tick"/>, or null.</summary>

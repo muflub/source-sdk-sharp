@@ -721,6 +721,10 @@ Everything below is on local main; nothing is pushed.
 | G5d, the fizzles | `065ad9fac` (2 commits) | the cause is the mod's rocket, not the AI; the jump's record and tally say when a blast was felt |
 | G5c-2a, blast links | `49a67813c` (10 commits) | jumps as links beside the graph, found on a worker, cached, searched under a reach and a health gate; no bot has the reach |
 | G5c-2b, the Soldier takes a link | `35075b8db` (12 commits) | the flow field, the follower and the tree learn the links; the 250 u ledge by a link in 10 of 10 tries; only the Soldier has the reach |
+| G4a, the experience's first two uses | `082d91263` (6 commits) | a route costs more where the bot's team died, by its Cunning; a bot with nothing to look at looks where its team looked; an empty store changes nothing |
+| G5e, a link's results, and chains | `cd030b14c` (6 commits) | each try of a link is written to its `link` row; a link under 30 % after five tries is left out at the next snapshot; a route's own link is not spaced from the jump before it, so two in a row work; the skip after a reload found and fixed |
+| G7a, a course of our own | `9be3e5946` (9 commits) | `ss_ai_tf_course` (seven stages, six jumps, the highest +350 u) and a Course branch of the tree; one Soldier finishes it from its spawn with no errand, 5 of 5 and 5 of 5 after a reload; it heals for a jump it cannot pay for |
+| G4b, the experience's other uses | `f55f7441c` (6 commits) | a bot checks the place its side keeps dying from; a defender holds where players held (fed from what players do); an attacker chooses its door into the flag room by what worked; an empty store changes nothing |
 
 **The physics changed under the jump (F231, the TF2 port's lane).** A TF2
 player now carries TF2's hull (48 × 48 × 82, 62 ducked), not HL2's box, so a
@@ -941,15 +945,228 @@ The recording format is 8 (`a108dbc72`: a header flags byte and a bot's home
 point, for Descent), so this part's TF2 replay step is 9. `AiEventKind` ends
 at 61.
 
-**Still to do, in order:** G4, the first two uses of the experience (a
-route's cost through bins where players die, in the flow field since that is
-where a bot's route is searched, and looking where players look; lane G4a,
-running since `35075b8db`), then its other rows; G.5's step 7 (a link's
-tries and successes in the store); the recording format 8 → 9, after the
+**G4a, the experience's first two uses** (G.4's rows "route cost" and
+"looks"; 2026-11-12).
+
+- **Route cost.** One field a team (`NavCellHazard`, 4 bytes a cell): a
+  cell's value is its bin's deaths per second present × 20 s. Built on a
+  task when a snapshot is loaded (`ExperienceRoutes.Build`) and published
+  with the snapshot, never before it (`ExperienceRouteSlot`). It rides on a
+  player's obstacle state as the links do (`INavProfile.HazardFor`), and
+  `FlowField` costs a step into a cell at its own cost × (1 + min(3, weight
+  × hazard)): a cost, never a wall, at most four times the walk. The weight
+  is the bot's Cunning over 10. On the facts' two-route graph the choice
+  flips at weight 0.375: Cunning 4 and up go round.
+- **G.4's text was out of date:** it put the field on `NavPathfinder`. A
+  bot's route is the follower's flow field, so the field is there.
+- **Looks.** `LearnedLook`: in periods of 0.6 to 1.5 s drawn from the bot's
+  seed, a bot on its way with a goal, nobody in sight, no jump under way and
+  no glance held looks along its bin's most looked-along yaw (at least 2
+  counted seconds, a share of 0.3, within 100° of its way), with a chance
+  from its glance rate (Easy about 0.3, Hard 0.65). The view moves through
+  the motion layer. Alertness reaches a TF2 tree only as the glance rate; a
+  curve of its own is a follow-up.
+- **With no experience nothing changes:** an empty store, a weight of 0 or
+  another graph's field gives the field of before, cell for cell, and no
+  look intent; HL2MP keeps no store.
+- **What it costs** (debug, ctf_2fort, 162,712 cells, thread CPU of the
+  build task, at `a3b0e1257`, the lane's tip): 20 to 35 ms a snapshot, 1.3 MB
+  for both teams.
+- **What it is worth so far: little, as expected from two bot runs.** With
+  a private store filled by a 560 s and a 420 s run of 12 bots (about 62 bot
+  deaths; a bot counts a quarter), a Cunning 8 bot's walk from the red spawn
+  to the blue flag goes from 51.96 s to 52.76 s; the most any of the 12
+  spawn-and-flag routes changes is 1.2 s. Over the 420 s run, 3,815 decides
+  looked along a learned yaw.
+- **ctf_2fort, 560 s, debug, store empty, one run each (a sample):** 4v4 4
+  captures and 114 stuck reports (before: 5 and 119); 6v6 4 and 156 (before:
+  3 and 4, 270 and 141).
+- **Follow-ups.** Each decider builds its own table of looks when the
+  snapshot changes (one a team, built with the routes, would be better);
+  `ITFObjectives`' capture zones sit at the origin and a flag's row is where
+  the flag is now, so the route tool measures between spawns and flag homes.
+
+**G5e, a link's results, and chains** (G.5's step 7 and what G5c-2b left
+open; 2026-11-12).
+
+- **A try.** A link's jump whose rocket went. Landed within 64 u of the
+  link's touch: a try and a success, with its seconds and the recipe's
+  health. Any other end after the launch: a failed try. Nothing is added for
+  a jump called off before the launch, for a fizzle felt 0 to 2 commands
+  after the trigger (the mod's rocket going off on a teammate), or for a
+  body the game moved over 256 u in one command (`JumpEnd.Moved`: a round's
+  restart in mid-flight, which the tool had counted as a landing).
+- **The row.** The Soldier's class, the bins of the recipe's start and
+  landing, kind Blast, source `Solver` (who found the link; the tries are
+  always a bot's), and the recipe's numbers as 42 bytes (format 1), so a
+  link found again with another recipe starts a row of its own and G.6 has a
+  recipe to fit. The key comes from the recipe, not from cells.
+- **Leaving a link out.** `LinkTrust`: five or more tries and under 30 % of
+  them successes, in the snapshot's decayed rows. The mask (`NavLinkMask`,
+  stamped with the link set's hash) is built with G4a's routes on the same
+  task and published with the snapshot; it rides on
+  `NavObstacleState.LinksShut` and `NavLinks.Admits` refuses a shut link, so
+  the field, the pathfinder and the follower all leave it out. With an
+  empty store the field is today's, cell for cell.
+- **Chains.** A link the route takes is begun under every part of the jump
+  rule but the 6 s spacing and a held glance; a stretch jump keeps the whole
+  rule. What stops a chain jumping a bot to death is the health, checked per
+  link as the bot stands at it (at least 90 after the blast).
+- **The skip after a reload** was the spacing too: after a `changelevel`
+  the bot is not frozen, rocket-jumps out of its spawn by its own tree, and
+  the spacing from that jump (and a glance) held back the link it then
+  reached until the follower's 66-tick wait ran out. In the first level the
+  bot is frozen until try 1, so only a reload showed it.
+- **Measured** (debug, `tools/ai-tf-jump`, the lane's tip `4882cf044` or as
+  said): the 250 u ledge by its link in 10 of 10 tries, and 10 of 10 after
+  the reload, whose first try took 291 ticks (before: 1,409); two links in a
+  row to the same ledge in 12 of 12 tries, median 570 ticks. With a private
+  store a run wrote one `link` row at 9 tries and 9 successes. With one
+  link's shot spoiled in a test build it fizzled 13 times, the next
+  snapshot left out 1 of 11 links, and in 12 more tries the bot began it
+  zero times.
+- **ctf_2fort, 560 s, debug, store empty, one run each (a sample):** 4v4 5
+  captures and 115 stuck reports (before: 4 and 114); 6v6 4 and 153
+  (before: 4 and 156).
+- **The brief was wrong about a place that needs three links:** the place
+  at (1624 1240 366) is reached by one link; the old 1,680 ticks was a
+  detour forced by refusals.
+- **Open.** In 6v6 a link fizzled three times with the blast felt 11 to 18
+  commands after the trigger; those count against the link and are not
+  explained. A decide at a link's start is refused while the launcher
+  reloads after the jump before (15 and 6 decides in the two runs; no wait
+  ran out because of it). Counters: `/ai/jumps` `ai.jump.link.refused.*`,
+  `ai.jump.link.tries`, `successes`, `unwritten`.
+
+**G7a, a course of our own** (G.7's "the course as objectives", "failing"
+and "health and ammo", on our own map; 2026-11-12).
+
+- **The map.** `ss_ai_tf_course`, generated (`TFAiTestMaps`), one 2,048 u
+  room: seven 256 u stages on pillars over a pit, laid as a U, tops at z
+  656, 756, 956, 956, 1256, 1256 and 1606. Six jumps: rises of 100, 200,
+  300 and 350 u over a 128 u gap, and two level gaps of 400 and 560 u. Each
+  stage has a cabinet's zone (team 0, in a bay off the walking line on the
+  middle stages), a control point that needs the one before, and a
+  `trigger_teleport` under its jump back to the takeoff stage. The pit is
+  640 u under the first stage, past the pass's cut, so no link leaves it.
+- **+350 is the single rocket's limit.** At +400 the pass proposes the jump
+  and the search finds no recipe that lands in 60 % of its trials. The
+  pass's reach is the simulator's envelope × 0.9 (rise 522 u, line out 936
+  u), not G.5's 600 and 400.
+- **The pass went on only four rounds from the spawns** (`MaxRounds` 4), so
+  a course's fifth stage had no link. It is 32 now, and a pass still stops
+  at the first round that plays no new cell; `ss_ai_tf_jump` (11 links) and
+  ctf_2fort (8) come out the same, field for field. The course: 8 links
+  found for the 6 it needs (the two gaps also back the other way), 1.14 s
+  of thread CPU, debug.
+- **What tells a bot it is a course:** control points and no flag, read
+  from the HUD feed. `TFObjectiveFeed` now gives a point's teams that may
+  act as the teams the rules let capture it now
+  (`IControlPointRules.TeamMayCapturePoint`, the padlock). The `Course`
+  branch (`TFDecider.Course.cs`, weight 0.5, under a fight) runs for a bot
+  that rocket jumps; its goal is the nearest point its team may take now,
+  and the links and the jump rule do the rest. **It therefore also runs on
+  any control-point map**, where it sends a Soldier to the nearest point
+  it may capture: the main plan's control-point phase should take it over
+  or rename it.
+- **Health.** A field now says the least health of a link it left out for
+  the bot's health alone (`FlowField.HealthShort`), the follower reports
+  "no way, and what it needs" (`NavLinkStep.NoWay`, `Need`), and lets a
+  link it dropped for health back in as soon as the health covers it. The
+  branch then waits in a cabinet's zone (its team's or team 0) or walks to
+  the nearest zone or pack on its own floor. A route with no way for any
+  other reason for 20 s: the bot says it cannot go on and leaves the course
+  for 60 s.
+- **A fall** leaves the goal where it was. A body the game puts back at the
+  jump's start ends the jump as `JumpEnd.Reset`, a failed try in the store.
+  **The one fall seen in the game ended `Moved` instead; the cause is not
+  found** (lane G7b has it).
+- **Measured** (debug, `tools/ai-tf-jump course --runs 5 --reload`, one
+  Soldier, no errand, at `9c4d1289c`, the lane's tip): 5 of 5 finished in
+  2,218 to 2,351 ticks, and 5 of 5 after a `changelevel` in 2,210 to 2,414.
+  Every jump landed first try in all ten runs but one fall. Health at the
+  takeoffs of a typical run: 200, 173, 140, 200 (after a bay), 160, 200.
+  A private store got 6 `link` rows, every try a success.
+- **Controls** (same build): the 250 u ledge 5 of 5 and 5 of 5 after a
+  reload; ctf_2fort 560 s, 8 bots, one run: 5 captures, 14 pickups, 92
+  stuck reports (before: 5, 12, 115).
+- **The gate's `bots-jump` step** should run `tools/ai-tf-jump course
+  --runs 5 --reload` on a built `ss_ai_tf_course`; it exits 1 unless 4 of 5
+  finish before and after the reload.
+- **What `jump_academy2_rc9a` needs beyond this** (from an entity dump in
+  a scratch file, not a committed tool: a lead): its 19
+  `trigger_capture_area` name points that do not exist, and it has one
+  `team_control_point`, at the hub, so the feed shows one point where the
+  map has 19 course ends; the ends would be read from the capture areas'
+  volumes. Its 29 cabinets have team 0 or none, which the tree's own heal
+  rule (`HealPlace`) skips and the Course branch accepts.
+
+**G4b, the experience's other uses** (G.4's rows "danger places", "spots"
+and "outcomes"; 2026-11-12). Every TF2 bot is a Soldier, so nothing here
+waits on another class.
+
+- **Danger places.** `ExperienceDangers`, once a snapshot from a side's
+  sight lines: a bin's danger place is the killer place (a 3×3×3
+  neighbourhood of bins) with at least 2 counted deaths and 0.4 of the
+  area's, at least 256 u away. A bot with no target, a goal, no jump under
+  way and no sound being looked into draws once on entering such a bin
+  (not the same place again within 8 s) and holds a corner-check look on
+  it: how often and how long by Alertness (`dangerLookChance` 0.2 to 0.95,
+  `dangerLookSeconds` 0.5 to 1.4). It comes before the glance and the
+  learned look.
+- **The shot was not built.** The plan's "fires at a place its team died to
+  before it sees who is there": the tree knows of a teammate's death only
+  from the kill feed in its memory and knows where only if it saw the
+  teammate lately.
+- **Spots.** Fed on the game's thread by `HoldTracker`: a hold is a player
+  staying within 128 u for at least 4 s (cut at 30 s), with the kills made
+  and the death taken while holding, kept only near the side's own
+  objective (`IExperienceHolds`; TF2: within 1,200 u of its flag's home or
+  a point it owns), written as `spot` rows of kind Hold at the feed's
+  weight (a bot a quarter). A defender re-picking its spot takes a learned
+  one within 1,024 u of its flag at its `spotTrust` chance (Discipline,
+  0.1 to 0.95), drawn by seconds × (1 + kills) / (1 + deaths), and faces
+  the yaw held there.
+- **Outcomes.** A route family is a door of the enemy flag's room
+  (`RouteFamilies`: a search back from the flag bounded at 1,200 u walked;
+  3 doors a flag room on ctf_2fort). A try is an attacker's run at the flag
+  at home: 1 for a pickup, 0.5 for a death within 512 u of the flag, 0.25
+  for a death past a door, 0 before any; written in full as `outcome` rows.
+  With rows for its side a bot draws a door once a run at its `familyTrust`
+  chance (Cunning) by seeded Thompson sampling, goes to the door, then to
+  the flag: one more field build a run, none a decide.
+- **With an empty store every intent is the one of before**, decide by
+  decide, in the facts. Each use draws from a stream of its own.
+- **In the game** (debug, ctf_2fort, 480 s, 12 bots, private store,
+  `/ai/experience/use`, at `6dfaf78e4`, the lane's tip): with hand-written
+  sight rows added to a store two runs had filled, 200 danger checks, 82
+  learned-hold picks and 14 door draws over 39 runs. **Bot-only play makes
+  almost no danger place** (0 after 108 kills, 2 for one side after 242):
+  the thresholds want the same death from the same place, which is what
+  people do. The "failed door is drawn less" effect in the game was 2 of 6
+  draws against 4 of 8: no evidence either way; the facts hold it (the
+  door that worked is drawn 27 to 30 times in 30).
+- **ctf_2fort, 560 s, debug, store off, one run each (a sample):** 4v4 5
+  captures, 12 pickups, 167 stuck reports (before: 5, 12, 115); 6v6 3, 9
+  and 156 (before: 4, 16, 153). With the store off none of the three acts.
+- **Left.** A `sight_line` row counts 1 whoever died, so bots dying to bots
+  teach the danger table in full. Each decider builds its own tables once a
+  snapshot (one a side, built with the routes, is the follow-up, as for the
+  looks). A decider's list of finished tries grows for the session.
+
+**Still to do, in order:** a second rocket in the air (lane G7b, running
+since `f55f7441c`: the simulator's gap for two blasts first, then the
+recipe, pilot, search and links, a stage that needs it, and why a reset was
+not seen); learning jumps from players (G.6's first half, lane G6a, running
+since `f55f7441c`: see a player's jump the navigation has no way for and
+write its `link` row; the fit and the link joining the routes are the lane
+after, once G7b's search has landed); the recording format 8 → 9, after the
 user's ruling on the rooms proposal, since a room change would be a record
-of its own, with the links' hash and arrival, each bot's link step and each
-link jump's outcome as recorded facts; G6; the jump map's rooms, when
-approved; the prefire lift.
+of its own (what each lane said a faithful replay needs is in the
+coordinator's notes); the course's ends on the real jump map read from its
+capture areas; the jump map's rooms, when approved; wall jumps and pogo;
+the gate's `bots-jump` step; the prefire lift. The rows of G.4 that need an
+Engineer, a Sniper, a Spy or a class pick wait for the main plan's P7.
 
 **Ownership, from 2026-11-11.** The TF2 AI session has not run since 07:18
 that day. G.9's serialised files have no second session to be serialised

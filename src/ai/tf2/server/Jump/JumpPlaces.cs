@@ -81,8 +81,12 @@ public sealed record JumpPlacesSettings
     /// <summary>The most candidates searched, in the proposals' order; 0 searches every one.</summary>
     public int MaxCandidates { get; init; }
 
-    /// <summary>The most rounds a pass with seeds goes on from where its links land (<see cref="JumpPlaces.Find"/>).</summary>
-    public int MaxRounds { get; init; } = 4;
+    /// <summary>
+    /// The most rounds a pass with seeds goes on from where its links land (<see cref="JumpPlaces.Find"/>): a jump course
+    /// of N stages, each reached only from the one before, needs N (lane G7a: at 4, ss_ai_tf_course's last two stages had
+    /// no link). A pass stops sooner at the first round that plays no cell no round had.
+    /// </summary>
+    public int MaxRounds { get; init; } = 32;
 
     /// <summary>
     /// How many takeoffs of a pair of level stretches are searched, best first, until one gives a

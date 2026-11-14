@@ -108,6 +108,7 @@ public sealed partial class TFDecider : IDecider
         _rng = new AiRandom(setup.Seed ^ 0x5446_5452UL);
         _aimRng = new AiRandom(setup.Seed ^ 0x5446_4149UL);
         StartFeel(setup.Seed);
+        StartExperience(setup.Seed);
         StartRoles(CtfRoleSplit);
         _launcher = KindNamed(SoldierLauncher);
         _shotgun = KindNamed(SoldierShotgun);
@@ -152,9 +153,11 @@ public sealed partial class TFDecider : IDecider
         if (!_self.Alive)
         {
             _tree.Reset();
+            DiedOnTry();
             _roaming = _defendPicked = _healing = false;
             _lastTarget = null;
             _jumpUntil = default;
+            (_courseNeed, _courseNoWaySince) = (0f, -1);
             Trace.Begin(tick);
             Trace.End(default);
             Doing = new DoingRecord("dead", "", false, default, ActorId.None, "", 0f, 0f, 0f, 0f, 0f, 0f, tick);
@@ -172,16 +175,20 @@ public sealed partial class TFDecider : IDecider
         }
 
         ReadObjectives();
+        ReadCourse();
         ChooseTarget();
         _interrupted = NoteInterrupts();
         SeeThings();
         _tree.Decide(this, _run, tick);
+        FollowTry();
         Engage();
         Errand();
         RocketJump();
         Hands();
         ReactAndSpeak();
+        LookAtDanger();
         Glance();
+        LookWhereTheyLook();
         FriendGate();
 
         var reason = new DecisionReason(LeafId(), _root.Chosen?.LastScore ?? 0f, 0f, 0f);
@@ -245,6 +252,7 @@ public sealed partial class TFDecider : IDecider
             new BtScored<TFDecider>(Fetch, d => d.Weigh(Fetch, d.FetchUtility()), Act("fetch", d => d.GoFetch()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Defend, d => d.Weigh(Defend, d.DefendUtility()), Act("defend", d => d.GoDefend()), new BtCommit(3f, 0.1f)),
             new BtScored<TFDecider>(Search, d => d.Weigh(Search, d.SearchUtility()), Act("search", d => d.GoSearch()), new BtCommit(2f, 0.1f)),
+            new BtScored<TFDecider>(Course, d => d.Weigh(Course, d.CourseUtility()), Act("course", d => d.GoCourse()), new BtCommit(2f, 0.1f)),
             new BtScored<TFDecider>(Roam, d => d.Weigh(Roam, 0.1f), Act("roam", d => d.GoRoam()), new BtCommit(1f, 0.05f)))
         {
             Interrupt = d => d._interrupted,

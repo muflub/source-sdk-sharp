@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using TF2.Server.Entities;
 using TF2.Server.Entities.Ctf;
 using TF2.Server.Objectives;
 using TF2.Server.Rules;
@@ -14,10 +15,12 @@ namespace SourceSharp.Ai.TF2.Knowledge;
 /// carts) in the core's kinds and the game's team numbers, with the round's setup. Rebuilt only when
 /// the feed's version or the setup changes, so every bot of a tick reads the same object. A capture
 /// zone is a brush: its place is the middle of its volume, where a carrier walks to, not the
-/// brush entity's origin (often the world's).
+/// brush entity's origin (often the world's). A control point's teams that may act are the teams the
+/// rules let capture it now (lane G7a): not its holder, and only once the points it needs are the team's
+/// and it is not locked, as the HUD draws the padlock (<see cref="IControlPointRules.TeamMayCapturePoint"/>).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFObjectiveFeed(ITFObjectives feed, ITFRoundFacts round, IEntityDirectory directory, IEngineEntities entities)
+public sealed class TFObjectiveFeed(ITFObjectives feed, ITFRoundFacts round, IEntityDirectory directory, IEngineEntities entities, IControlPointRules rules)
 {
     private ObjectiveKnowledge? _current;
     private int _version = -1;
@@ -32,7 +35,7 @@ public sealed class TFObjectiveFeed(ITFObjectives feed, ITFRoundFacts round, IEn
             bool setup = round.InSetup;
             if (_current is null || version != _version || setup != _setup)
             {
-                _current = Build(feed.All, version, setup, ZoneCentre);
+                _current = Build(feed.All, version, setup, ZoneCentre, MayCapture);
                 (_version, _setup) = (version, setup);
             }
 
@@ -54,12 +57,33 @@ public sealed class TFObjectiveFeed(ITFObjectives feed, ITFRoundFacts round, IEn
         return null;
     }
 
+    /// <summary>The teams the rules let capture control point <paramref name="id"/> now, as bits; null for an id that is no point.</summary>
+    private int? MayCapture(int id)
+    {
+        foreach (TeamControlPoint point in directory.OfClass(TeamControlPoint.MapClass).OfType<TeamControlPoint>())
+        {
+            if (point.Handle.EntryIndex != id)
+                continue;
+            int bits = 0;
+            foreach (TFTeam team in (TFTeam[])[TFTeam.Red, TFTeam.Blue])
+            {
+                if (point.Owner != (int)team && rules.TeamMayCapturePoint((int)team, point.PointIndex))
+                    bits |= 1 << (int)team;
+            }
+
+            return bits;
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// The core's objectives for the feed's <paramref name="all"/>: each record one objective of
     /// the same id, in the same order; a capture zone at <paramref name="zoneCentre"/>'s place when
-    /// it knows one.
+    /// it knows one; a control point's teams that may act from <paramref name="mayCapture"/> when it
+    /// answers for it (the teams that may capture it now), else the feed's.
     /// </summary>
-    public static ObjectiveKnowledge Build(ReadOnlySpan<TFObjective> all, int version, bool setup, Func<int, AiVector?> zoneCentre)
+    public static ObjectiveKnowledge Build(ReadOnlySpan<TFObjective> all, int version, bool setup, Func<int, AiVector?> zoneCentre, Func<int, int?>? mayCapture = null)
     {
         var objectives = ImmutableArray.CreateBuilder<Objective>(all.Length);
         foreach (ref readonly TFObjective o in all)
@@ -67,7 +91,8 @@ public sealed class TFObjectiveFeed(ITFObjectives feed, ITFRoundFacts round, IEn
             AiVector at = new(o.Position.X, o.Position.Y, o.Position.Z);
             if (o.Kind == TFObjectiveKind.CaptureZone && zoneCentre(o.Id) is { } centre)
                 at = centre;
-            objectives.Add(new Objective(o.Id, KindOf(o.Kind), (int)o.Owner, MayActOf(o.MayAct), StateOf(o.State), at,
+            int mayAct = o.Kind == TFObjectiveKind.ControlPoint && mayCapture?.Invoke(o.Id) is { } capture ? capture : MayActOf(o.MayAct);
+            objectives.Add(new Objective(o.Id, KindOf(o.Kind), (int)o.Owner, mayAct, StateOf(o.State), at,
                                          o.Progress, o.CarrierIndex, o.UnlockIn, o.TimerLeft, setup));
         }
 
