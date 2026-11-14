@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The TF2 AI's bots page (plan_bots_teams_tf2 P6 step 8) of the core's
+    create-server window, on the SourceSharp UI toolkit, with the game-neutral
+    custom bot rows and editor of SourceSharp.Ai.Ui — the toolkit, the data
+    contract and that UI assembly only, never the AI core, the engine or Abi
+    (the assembly rule UiAssemblyRulesTests holds over every UI assembly). The
+    data arrives through SourceSharp.Ai.Client.Interface; the adapters that
+    answer it live in src/ai/client and src/ai/tf2/client. Listed in
+    mods.yaml's client_ui for the tf2 mod, and discovered by the preview, lint
+    and UI tests through tools/ui-preview-assemblies.txt, which draws it under
+    the tf2 mod (its theme, fonts and language file).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\client\ui\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+    <ProjectReference Include="..\..\interface\SourceSharp.Ai.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\ui\SourceSharp.Ai.Ui.csproj" />
+  </ItemGroup>
+</Project>

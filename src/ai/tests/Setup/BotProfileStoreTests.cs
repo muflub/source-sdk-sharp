@@ -4,11 +4,11 @@ using System.Collections.Immutable;
 using System.Text;
 using Xunit;
 
-using BotProfileStore = client::SourceSharp.Ai.Hl2mp.Client.Profiles.BotProfileStore;
+using BotProfileStore = client::SourceSharp.Ai.Client.Profiles.BotProfileStore;
 using IFwdBaseFileSystem = client::SourceSharp.Abi.IFwdBaseFileSystem;
 using IModInfo = client::SourceSharp.Abi.IModInfo;
-using IProfileDisk = client::SourceSharp.Ai.Hl2mp.Client.Profiles.IProfileDisk;
-using ModProfileDisk = client::SourceSharp.Ai.Hl2mp.Client.Profiles.ModProfileDisk;
+using IProfileDisk = client::SourceSharp.Ai.Client.Profiles.IProfileDisk;
+using ModProfileDisk = client::SourceSharp.Ai.Client.Profiles.ModProfileDisk;
 
 namespace SourceSharp.Ai.Tests.Setup;
 

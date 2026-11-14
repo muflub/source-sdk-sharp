@@ -90,8 +90,11 @@ public sealed class DescentRoomsVerbTests
         Assert.All(rooms, r => Assert.Contains($"\"{r.Name}\": {{", json));
     }
 
+    /// <summary>One depth of each library the catalogue makes: a normal depth, the two camp depths and the three boss kits.</summary>
+    public static TheoryData<int> DistinctLibraries => [1, 5, 6, 10, 11, 15];
+
     [Theory]
-    [MemberData(nameof(AllDepths))]
+    [MemberData(nameof(DistinctLibraries))]
     public void Every_depths_library_lints_clean(int depth)
     {
         var rooms = DescentRooms.Rooms(depth, 0);

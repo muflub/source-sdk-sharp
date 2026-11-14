@@ -1,10 +1,11 @@
+using SourceSharp.Ai.Ui;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 
 namespace SourceSharp.Ai.Hl2mp.Ui;
 
 /// <summary>The bots page's state for samples, recording what it was asked.</summary>
-public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
+public sealed class FakeCreateServer : IBotSetupSource, IBotSetupActions
 {
     public int MaxPlayers { get; set; } = 8;
 
@@ -90,7 +91,7 @@ public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
     {
         if (!s.Has<IUiWindowStore>())
             s.Add<IUiWindowStore>(store ?? new MemoryWindowStore());
-        return s.Add<ICreateServerSource>(this).Add<ICreateServerActions>(this);
+        return s.Add<IBotSetupSource>(this).Add<IBotSetupActions>(this);
     }
 }
 

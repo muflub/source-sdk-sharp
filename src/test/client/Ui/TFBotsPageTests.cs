@@ -17,7 +17,7 @@ public class TFBotsPageTests
     private static readonly UiFontLibrary Fonts = new();
 
     /// <summary>TF2's language files and the core's #SS_UI_ strings: what TF2's UI answers from in game, the test mod's file left out.</summary>
-    private static UiLanguageFile Tf2Chain()
+    private static UiLanguageFile TF2Chain()
     {
         string dir = RepoLayout.Repo("game", "mod_tf2", "resource");
         string[] files = Directory.GetFiles(dir, "*_english.txt");
@@ -46,14 +46,14 @@ public class TFBotsPageTests
     [Fact]
     public void TF2s_file_holds_every_word_its_bots_page_shows()
     {
-        var missing = Unlocalised("createserver-tfbotspage", Tf2Chain());
+        var missing = Unlocalised("createserver-tfbotspage", TF2Chain());
         Assert.True(missing.Count == 0, string.Join("\n", missing));
     }
 
     [Fact]
     public void TF2s_file_holds_every_word_the_bot_editor_shows()
     {
-        var missing = Unlocalised("boteditor", Tf2Chain());
+        var missing = Unlocalised("boteditor", TF2Chain());
         Assert.True(missing.Count == 0, string.Join("\n", missing));
     }
 
@@ -73,7 +73,7 @@ public class TFBotsPageTests
     [Fact]
     public void TF2s_file_holds_every_parameter_word()
     {
-        var tf2 = Tf2Chain();
+        var tf2 = TF2Chain();
         var test = UiLanguageFile.Load(RepoLayout.Repo("game", "mod_test", "resource", "test_english.txt"));
         string[] parameters = [.. File.ReadAllLines(RepoLayout.Repo("game", "mod_test", "resource", "test_english.txt"), System.Text.Encoding.Unicode)
             .Select(l => l.Trim())

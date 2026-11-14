@@ -1,7 +1,7 @@
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 
-namespace SourceSharp.Ai.Hl2mp.Ui;
+namespace SourceSharp.Ai.Ui;
 
 /// <summary>
 /// The custom bot editor (plan_hl2mp_ai §3.5): the pool's limits in sight —

@@ -3,14 +3,16 @@ extern alias client;
 using System.Reflection;
 using Xunit;
 
-using BotEditorModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.BotEditorModel;
-using BotProfileStore = client::SourceSharp.Ai.Hl2mp.Client.Profiles.BotProfileStore;
-using ClientSkillCurves = client::SourceSharp.Ai.Hl2mp.Client.Setup.ClientSkillCurves;
-using CustomBot = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBot;
-using CustomBots = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBots;
-using SkillDerived = client::SourceSharp.Ai.Hl2mp.Client.Setup.SkillDerived;
+using BotEditorModel = client::SourceSharp.Ai.Client.Setup.BotEditorModel;
+using BotProfileStore = client::SourceSharp.Ai.Client.Profiles.BotProfileStore;
+using ClientSkillCurves = client::SourceSharp.Ai.Client.Setup.ClientSkillCurves;
+using CustomBot = client::SourceSharp.Ai.Client.Setup.CustomBot;
+using CustomBots = client::SourceSharp.Ai.Client.Setup.CustomBots;
+using SkillDerived = client::SourceSharp.Ai.Client.Setup.SkillDerived;
 using IEngineFiles = client::SourceSharp.Abi.IEngineFiles;
-using SourceSharp.Ai.Hl2mp.Ui;
+using ClTdmTeamsConVar = client::SourceSharp.Client.Vgui.ClTdmTeamsConVar;
+using Hl2mpBotSetup = client::SourceSharp.Ai.Hl2mp.Client.Hl2mpBotSetup;
+using SourceSharp.Ai.Ui;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
@@ -26,7 +28,7 @@ public class BotEditorModelTests
     public class GameFiles : DispatchProxy
     {
         protected override object? Invoke(MethodInfo? method, object?[]? args)
-            => method?.Name == "ReadGameFile" && (string)args![0]! == ClientSkillCurves.Path
+            => method?.Name == "ReadGameFile" && (string)args![0]! == Hl2mpBotSetup.CurvesPath
                 ? File.ReadAllText(SourceSharp.Tests.RepoLayout.Repo("game", "mod_test", "scripts", "ai", "hl2mp_skills.json"))
                 : null;
     }
@@ -43,7 +45,7 @@ public class BotEditorModelTests
 
     internal static BotEditorModel Editor(CustomBots customs, BotProfileStoreTests.MemoryDisk? disk = null)
         => new(new BotProfileStore(disk ?? new BotProfileStoreTests.MemoryDisk()), customs,
-               new ClientSkillCurves(DispatchProxy.Create<IEngineFiles, GameFiles>()), new Clock());
+               new ClientSkillCurves(DispatchProxy.Create<IEngineFiles, GameFiles>(), new Hl2mpBotSetup(DeclaredClientConVars.Fresh<ClTdmTeamsConVar>())), new Clock());
 
     private readonly CustomBots _customs = new();
     private readonly BotProfileStoreTests.MemoryDisk _disk = new();

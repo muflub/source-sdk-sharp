@@ -10,5 +10,5 @@ public class ByNameConVarReadCensusTests
 {
     [Fact]
     public void TheBotsReadNoConVarByName()
-        => Assert.Empty(ByNameConVarReads.Callers(typeof(client::SourceSharp.Ai.Hl2mp.Client.Setup.CreateServerModel).Assembly));
+        => Assert.Empty(ByNameConVarReads.Callers(typeof(client::SourceSharp.Ai.Client.Setup.CreateServerModel).Assembly));
 }

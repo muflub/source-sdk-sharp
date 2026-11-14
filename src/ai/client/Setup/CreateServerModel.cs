@@ -1,9 +1,9 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Vgui;
-using SourceSharp.Ai.Hl2mp.Ui;
+using SourceSharp.Ai.Ui;
 using SourceSharp.Shared;
 
-namespace SourceSharp.Ai.Hl2mp.Client.Setup;
+namespace SourceSharp.Ai.Client.Setup;
 
 /// <summary><c>ai_bot_reroll_on_map</c>: the server declares it; the page reads what is archived.</summary>
 [EngineConVar(CreateServerModel.RerollConVar)]
@@ -17,9 +17,9 @@ public sealed class AiBotRerollOnMapConVar : BoolConVar { }
 /// server reads the roster at the level's start; the server judges every
 /// bot again.
 /// </summary>
-[SideService(Side.Client, As = [typeof(ICreateServerSource), typeof(ICreateServerActions)])]
-public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapConVar reroll, CustomBots customs, BotEditorModel editor, ClTdmTeamsConVar teamCount)
-    : ICreateServerSource, ICreateServerActions
+[SideService(Side.Client, As = [typeof(IBotSetupSource), typeof(IBotSetupActions)])]
+public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapConVar reroll, CustomBots customs, BotEditorModel editor, IBotSetupGame game)
+    : IBotSetupSource, IBotSetupActions
 {
     public const int PlayersMin = 2;
 
@@ -101,7 +101,7 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
     /// <summary>The most teams a mode plays (2 to 5).</summary>
     public const int MostTeams = 4;
 
-    public int Teams => Math.Clamp(teamCount.Value, 2, MostTeams);
+    public int Teams => Math.Clamp(game.Teams, 2, MostTeams);
 
     /// <summary>The bots on the team at <paramref name="index"/>: as asked, within what the teams before it left; the last team the rest.</summary>
     public int BotsOn(int index)
@@ -114,7 +114,7 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
         return index == Teams - 1 ? left : Math.Min(_perTeam[index], left);
     }
 
-    public string TeamToken(int index) => $"#Ai_CreateServer_Team{index + CombineTeam}";
+    public string TeamToken(int index) => game.TeamToken(index);
 
     /// <summary>Picking starts the bots spread evenly over the teams, the first teams taking the odd ones.</summary>
     public void SetTeamsPicked(bool on)
@@ -126,6 +126,28 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
         }
 
         TeamsPicked = on;
+    }
+
+    /// <summary>
+    /// Whether the picked teams are more than one bot apart (the most on a team less the
+    /// fewest): a split a game that keeps its teams within one refuses unless told otherwise
+    /// (<see cref="IBotSetupGame.UnevenTeamsLine"/>). Never while each bot joins the smaller team.
+    /// </summary>
+    public bool Uneven
+    {
+        get
+        {
+            if (!TeamsPicked)
+                return false;
+            int most = int.MinValue, fewest = int.MaxValue;
+            for (int t = 0; t < Teams; t++)
+            {
+                most = Math.Max(most, BotsOn(t));
+                fewest = Math.Min(fewest, BotsOn(t));
+            }
+
+            return most - fewest > 1;
+        }
     }
 
     public void SetBotsOn(int index, int count)
@@ -170,8 +192,8 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
             customs.RemoveAt(i);
     }
 
-    /// <summary>The Combine team's number (hl2mp_gamerules.h's TEAM_COMBINE): the first; the others follow it.</summary>
-    public const int CombineTeam = 2;
+    /// <summary>The first playing team's number (HL2MP's Combine, TF2's RED); the others follow it.</summary>
+    public const int FirstTeam = 2;
 
     /// <summary>The team the <paramref name="bot"/>th preset bot joins when the teams are picked.</summary>
     private int TeamOfBot(int bot)
@@ -180,7 +202,7 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
         {
             upTo += BotsOn(t);
             if (bot < upTo)
-                return CombineTeam + t;
+                return FirstTeam + t;
         }
 
         return RosterTeam.Auto;
@@ -205,6 +227,8 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
         {
             // The server's roster is this page's now (§3.5): the last server's wanted bots go first, even with no bot here.
             lines.Add("ai_bot_kick all");
+            if (Uneven && game.UnevenTeamsLine.Length > 0)
+                lines.Add(game.UnevenTeamsLine);
             lines.Add($"ai_bot_roster \"{RosterSpecText()}\"");
             lines.Add($"{RerollConVar} {(NewBotsEachMap ? 1 : 0)}");
         }

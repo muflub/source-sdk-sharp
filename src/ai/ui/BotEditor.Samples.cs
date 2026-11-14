@@ -1,7 +1,7 @@
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 
-namespace SourceSharp.Ai.Hl2mp.Ui;
+namespace SourceSharp.Ai.Ui;
 
 /// <summary>The bot editor's state for samples: a profile, its revisions, what can be loaded, recording what it was asked.</summary>
 public sealed class FakeBotEditor : IBotEditorSource, IBotEditorActions

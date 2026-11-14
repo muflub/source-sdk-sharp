@@ -46,7 +46,11 @@
     <ProjectReference Include="..\..\ai\server\SourceSharp.Ai.Server.csproj" />
     <ProjectReference Include="..\..\ai\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
     <ProjectReference Include="..\..\ai\hl2mp\client\SourceSharp.Ai.Hl2mp.Client.csproj" Aliases="client" />
-    <ProjectReference Include="..\..\ai\hl2mp\interface\SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\ai\client\SourceSharp.Ai.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\ai\tf2\client\SourceSharp.Ai.TF2.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\ai\interface\SourceSharp.Ai.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\ai\ui\SourceSharp.Ai.Ui.csproj" />
+    <ProjectReference Include="..\..\ai\tf2\ui\SourceSharp.Ai.TF2.Ui.csproj" />
     <ProjectReference Include="..\..\ai\hl2mp\ui\SourceSharp.Ai.Hl2mp.Ui.csproj" />
     <ProjectReference Include="..\..\launcher\SourceSharp.Launcher.csproj" />
     <ProjectReference Include="..\..\host\managed\SourceSharp.Bootstrap.csproj" />

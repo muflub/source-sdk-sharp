@@ -1,4 +1,4 @@
-namespace SourceSharp.Ai.Hl2mp.Client.Setup;
+namespace SourceSharp.Ai.Client.Setup;
 
 /// <summary>The screens' copy for the ten skills and Teamwork (game/mod_test/resource/test_english.txt), in the pool's order.</summary>
 public static class SkillTokens

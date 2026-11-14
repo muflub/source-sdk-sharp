@@ -54,9 +54,10 @@ mods:
     assemblies:
       server: [SourceSharp.Server, SourceSharp.Ai.Server, SourceSharp.Ai.Hl2mp]
       # Bot setup when creating a server (plan_hl2mp_ai §3.5): the profile
-      # store and the commands, and the create-server and bot-editor screens.
-      client: [SourceSharp.Client, SourceSharp.Ai.Hl2mp.Client]
-      client_ui: [SourceSharp.Ai.Hl2mp.Ui]
+      # store and the commands (game-neutral, plan_bots_teams_tf2 C.2) and
+      # HL2MP's teams, and the create-server and bot-editor screens.
+      client: [SourceSharp.Client, SourceSharp.Ai.Client, SourceSharp.Ai.Hl2mp.Client]
+      client_ui: [SourceSharp.Ai.Ui, SourceSharp.Ai.Hl2mp.Ui]
   # Stock TF2 logic ported to SourceSharp, on TF2's content.
   tf2:
     title: TF2
@@ -78,11 +79,13 @@ mods:
     # TF2's AI binding (plan_bots_teams_tf2 C.2) over the generic server
     # binding before it, as the test mod lists HL2MP's. SourceSharp.Ai.Store
     # is the bots' experience database (Part G, G.3): TF2's bots keep one,
-    # HL2MP's do not, so only this list names it.
+    # HL2MP's do not, so only this list names it. Its client side is bot
+    # setup (P6 step 8): the game-neutral profile store and models, TF2's
+    # teams, classes and names, the bots page and the editor.
     assemblies:
       server: [SourceSharp.Server, TF2.Server, SourceSharp.Ai.Store, SourceSharp.Ai.Server, SourceSharp.Ai.TF2]
-      client: [SourceSharp.Client, TF2.Client]
-      client_ui: [TF2.Client.Ui]
+      client: [SourceSharp.Client, TF2.Client, SourceSharp.Ai.Client, SourceSharp.Ai.TF2.Client]
+      client_ui: [TF2.Client.Ui, SourceSharp.Ai.Ui, SourceSharp.Ai.TF2.Ui]
   # TF2Descent builds on the TF2 mod: its assemblies load after TF2's.
   tf2_descent:
     title: TF2Descent

@@ -1,15 +1,13 @@
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Ui;
+using SourceSharp.Ai.Ui;
 using SourceSharp.Shared;
 
-namespace SourceSharp.Ai.Hl2mp.Client.Setup;
+namespace SourceSharp.Ai.Client.Setup;
 
-/// <summary>The skill curves on the client, read from the game's file through the engine's file seam, or none.</summary>
+/// <summary>The skill curves on the client, read from the game's file (<see cref="IBotSetupGame.SkillCurvesPath"/>) through the engine's file seam, or none.</summary>
 [SideService(Side.Client)]
-public sealed class ClientSkillCurves(IEngineFiles files)
+public sealed class ClientSkillCurves(IEngineFiles files, IBotSetupGame game)
 {
-    public const string Path = "scripts/ai/hl2mp_skills.json";
-
     private SkillCurves? _curves;
     private bool _read;
 
@@ -23,7 +21,7 @@ public sealed class ClientSkillCurves(IEngineFiles files)
             _read = true;
             try
             {
-                _curves = files.ReadGameFile(Path) is { } json ? SkillCurves.Parse(json) : null;
+                _curves = files.ReadGameFile(game.SkillCurvesPath) is { } json ? SkillCurves.Parse(json) : null;
             }
             catch (Exception e) when (e is System.Text.Json.JsonException or InvalidDataException or KeyNotFoundException or InvalidOperationException)
             {

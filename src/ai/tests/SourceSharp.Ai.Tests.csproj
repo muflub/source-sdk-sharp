@@ -34,8 +34,10 @@
          interop and interface too, so its copies are named under the client
          alias and the unqualified names stay the server's (as in
          src/test/managed). -->
+    <ProjectReference Include="..\client\SourceSharp.Ai.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\hl2mp\client\SourceSharp.Ai.Hl2mp.Client.csproj" Aliases="client" />
-    <ProjectReference Include="..\hl2mp\interface\SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
+    <ProjectReference Include="..\tf2\client\SourceSharp.Ai.TF2.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\interface\SourceSharp.Ai.Client.Interface.csproj" />
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />

@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Client.Profiles;
-using SourceSharp.Ai.Hl2mp.Ui;
+using SourceSharp.Ai.Client.Profiles;
+using SourceSharp.Ai.Ui;
 
-namespace SourceSharp.Ai.Hl2mp.Client.Setup;
+namespace SourceSharp.Ai.Client.Setup;
 
 /// <summary>
 /// The custom bot editor's state (plan_hl2mp_ai §3.5): the bot being edited

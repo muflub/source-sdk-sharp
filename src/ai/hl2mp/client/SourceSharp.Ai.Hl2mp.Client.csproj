@@ -1,20 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     The HL2MP AI binding's client side (docs/plans/plan_hl2mp_ai.md §3.5,
-    Phase 5c): bot setup when creating a server. It keeps the player's custom
-    bot profiles under the mod's game dir and turns the create-server
-    screen's choices into console commands; the server judges every profile
-    again (ai_bot_add, ai_bot_roster). A mod assembly, listed in mods.yaml's
-    test mod, under the mod and static-state analyzers (Directory.Build.props).
-    It answers the screens' interfaces (SourceSharp.Ai.Hl2mp.Client.Interface)
-    with [SideService] adapters; the screens live in SourceSharp.Ai.Hl2mp.Ui.
+    Phase 5c): what bot setup asks of HL2MP (IBotSetupGame: the teams
+    mp_tdm_teams plays and HL2MP's skill curves) and the binding's presence
+    line. The setup itself is the game-neutral SourceSharp.Ai.Client, listed
+    before this in mods.yaml's test mod; the screens live in
+    SourceSharp.Ai.Ui and SourceSharp.Ai.Hl2mp.Ui. A mod assembly, under the
+    mod and static-state analyzers (Directory.Build.props).
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
-    <ProjectReference Include="..\interface\SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\SourceSharp.Ai.Client.csproj" />
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\..\client\managed\SourceSharp.Client.csproj" />
   </ItemGroup>

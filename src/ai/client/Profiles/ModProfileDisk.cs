@@ -1,6 +1,6 @@
 using SourceSharp.Abi;
 
-namespace SourceSharp.Ai.Hl2mp.Client.Profiles;
+namespace SourceSharp.Ai.Client.Profiles;
 
 /// <summary>
 /// The profiles on the mod's own disk. The bytes go through the engine's

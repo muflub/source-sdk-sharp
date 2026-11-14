@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using SourceSharp.Abi;
 
-namespace SourceSharp.Ai.Hl2mp.Client.Profiles;
+namespace SourceSharp.Ai.Client.Profiles;
 
 /// <summary>Where the profiles live: their file names and their bytes.</summary>
 public interface IProfileDisk

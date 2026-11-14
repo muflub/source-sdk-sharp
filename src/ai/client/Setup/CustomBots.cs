@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using SourceSharp.Abi;
 
-namespace SourceSharp.Ai.Hl2mp.Client.Setup;
+namespace SourceSharp.Ai.Client.Setup;
 
 /// <summary>
 /// One custom bot on the create-server list: its skills (named for the bot,

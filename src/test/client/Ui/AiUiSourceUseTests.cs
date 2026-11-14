@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using SourceSharp.Ai.Hl2mp.Ui;
+using SourceSharp.Ai.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.UiPreview;
 
@@ -11,16 +12,19 @@ namespace SourceSharp.Tests.Ui;
 /// <summary>
 /// <see cref="UiSourceUseTests"/>' two facts over the HL2MP AI's bot-setup
 /// screens (plan_hl2mp_ai §3.5): a screen takes only the sources and actions
-/// of SourceSharp.Ai.Hl2mp.Client.Interface it reads, and every member of
+/// of SourceSharp.Ai.Client.Interface it reads, and every member of
 /// every one is read by some screen or panel. Discovered through the
 /// preview's list, so this sees exactly what ui-preview draws.
 /// </summary>
 public class AiUiSourceUseTests
 {
-    private static readonly Assembly Screens =
-        PreviewRun.ScreenAssemblies().Single(a => a.GetName().Name == "SourceSharp.Ai.Hl2mp.Ui");
+    /// <summary>Every AI screen assembly the preview draws: the game-neutral editor's and each game's bots page's.</summary>
+    private static readonly Assembly[] Screens =
+        [.. PreviewRun.ScreenAssemblies().Where(a => a.GetName().Name!.StartsWith("SourceSharp.Ai.", StringComparison.Ordinal))];
 
-    private static readonly Assembly Contract = typeof(ICreateServerSource).Assembly;
+    private static Assembly Named(string name) => Screens.Single(a => a.GetName().Name == name);
+
+    private static readonly Assembly Contract = typeof(IBotSetupSource).Assembly;
 
     private static bool IsPanel(Type t)
     {
@@ -33,7 +37,7 @@ public class AiUiSourceUseTests
     private static bool IsAiSource(Type t) => t.IsInterface && t.Assembly == Contract;
 
     private static List<Type> UiTypes()
-        => Screens.GetTypes().Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || typeof(CreateServerPage).IsAssignableFrom(t) || IsPanel(t)))
+        => Screens.SelectMany(a => a.GetTypes()).Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || typeof(CreateServerPage).IsAssignableFrom(t) || IsPanel(t)))
                   .ToList();
 
     [Fact]
@@ -44,6 +48,7 @@ public class AiUiSourceUseTests
         Assert.Contains(typeof(CustomBotList), types);
         Assert.Contains(typeof(BotEditor), types);
         Assert.Contains(typeof(SkillRowPanel), types);
+        Assert.Contains(typeof(SourceSharp.Ai.TF2.Ui.TFBotsPage), types);
         Assert.True(types.Count(t => t.GetConstructors().SelectMany(c => c.GetParameters()).Any(p => IsAiSource(p.ParameterType))) >= 5);
     }
 
@@ -57,8 +62,11 @@ public class AiUiSourceUseTests
     [Fact]
     public void The_ai_bots_are_a_page_of_the_cores_create_server_window_and_no_ai_screen_takes_its_name()
     {
-        Assert.Equal([typeof(BotsPage)], CreateServerPages.Discover(Screens));
-        var screens = Screens.GetTypes().Where(t => !t.IsAbstract && typeof(UiScreen).IsAssignableFrom(t)).ToList();
+        // Each mod's client_ui (game/mods.yaml) holds one bots page: the game-neutral editor's
+        // assembly has none, so HL2MP's window and TF2's each show their own.
+        Assert.Equal([typeof(BotsPage)], CreateServerPages.Discover(Named("SourceSharp.Ai.Ui"), Named("SourceSharp.Ai.Hl2mp.Ui")));
+        Assert.Equal([typeof(SourceSharp.Ai.TF2.Ui.TFBotsPage)], CreateServerPages.Discover(Named("SourceSharp.Ai.Ui"), Named("SourceSharp.Ai.TF2.Ui")));
+        var screens = Screens.SelectMany(a => a.GetTypes()).Where(t => !t.IsAbstract && typeof(UiScreen).IsAssignableFrom(t)).ToList();
         Assert.NotEmpty(screens);   // the control: the editor is a screen of the assembly
         foreach (Type t in screens)
         {
@@ -98,7 +106,7 @@ public class AiUiSourceUseTests
     {
         var calls = UiTypes().SelectMany(UiSourceUseTests.Calls).ToHashSet();
         var sources = Contract.GetTypes().Where(IsAiSource).ToList();
-        Assert.Contains(typeof(ICreateServerActions), sources);
+        Assert.Contains(typeof(IBotSetupActions), sources);
 
         var unread = sources.SelectMany(s => s.GetMethods().Where(m => !calls.Contains(m)).Select(m => $"{s.Name}.{m.Name}")).ToList();
         Assert.True(unread.Count == 0, "no screen or panel reads:\n" + string.Join("\n", unread));

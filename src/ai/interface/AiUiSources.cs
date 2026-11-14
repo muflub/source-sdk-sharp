@@ -1,11 +1,13 @@
-namespace SourceSharp.Ai.Hl2mp.Ui;
+namespace SourceSharp.Ai.Ui;
 
 // THE DATA THE BOT-SETUP SCREENS READ, AND WHAT THEY ASK FOR
-// (docs/plans/plan_hl2mp_ai.md §3.5, Phase 5c). The same contract as
+// (docs/plans/plan_hl2mp_ai.md §3.5, Phase 5c; game-neutral since
+// plan_bots_teams_tf2 C.2). The same contract as
 // src/client/interface/Ui/UiSources.cs: a screen never sees the engine, the
 // AI core or the disk; index-and-count shapes, so reading them each frame
 // allocates nothing; one interface per concern. The answers live in
-// SourceSharp.Ai.Hl2mp.Client (the profile store, the pool, the commands);
+// SourceSharp.Ai.Client (the profile store, the pool, the commands), with
+// each game's teams from its binding's client;
 // the samples answer them with fixed data.
 
 /// <summary>One custom bot on the create-server list: its name ("" when the server is to draw one), its spend, and its style.</summary>
@@ -21,7 +23,7 @@ public readonly record struct CustomBotRow(
 /// the player count, and hands the page the count): the preset bots and the
 /// custom ones.
 /// </summary>
-public interface ICreateServerSource
+public interface IBotSetupSource
 {
     /// <summary>The player count the page last had from the window.</summary>
     int MaxPlayers { get; }
@@ -58,10 +60,10 @@ public interface ICreateServerSource
     /// </summary>
     bool TeamsPicked { get; }
 
-    /// <summary>How many teams play (<c>mp_tdm_teams</c>, 2 to 4; user 2026-11-08), numbered from 2.</summary>
+    /// <summary>How many teams play, numbered from 2: HL2MP's <c>mp_tdm_teams</c> (2 to 4; user 2026-11-08), TF2's two.</summary>
     int Teams { get; }
 
-    /// <summary>The preset bots on the team at <paramref name="index"/> (0 the Combine, team 2) when picked; they add up to <see cref="BotCount"/>.</summary>
+    /// <summary>The preset bots on the team at <paramref name="index"/> (0 is team 2: HL2MP's Combine, TF2's RED) when picked; they add up to <see cref="BotCount"/>.</summary>
     int BotsOn(int index);
 
     /// <summary>The team at <paramref name="index"/>'s name (#Ai_CreateServer_Team2 ...).</summary>
@@ -72,7 +74,7 @@ public interface ICreateServerSource
 }
 
 /// <summary>What the bots page asks for.</summary>
-public interface ICreateServerActions
+public interface IBotSetupActions
 {
     /// <summary>The window's player count, which bounds the bots.</summary>
     void SetMaxPlayers(int count);
@@ -98,6 +100,37 @@ public interface ICreateServerActions
 
     /// <summary>The console lines Start runs for the bots, after the server's size and before the map (the roster).</summary>
     void BeforeMap(List<string> lines);
+}
+
+/// <summary>
+/// The classes a game's bots play, for its bots page (plan_bots_teams_tf2 C.4): only
+/// classes a bot can play now are listed (TF2's Soldier alone until P7 brings the other
+/// eight's brains), so the page never offers one that does not play, and the one every
+/// preset bot plays is lit.
+/// </summary>
+public interface IBotClassSource
+{
+    int ClassCount { get; }
+
+    /// <summary>Class <paramref name="i"/>'s name (TF2's <c>#TF_Class_Name_Soldier</c> ...).</summary>
+    string ClassToken(int i);
+
+    /// <summary>The class the page's bots play, an index below <see cref="ClassCount"/>.</summary>
+    int ChosenClass { get; }
+}
+
+/// <summary>
+/// The names the server draws for a bot that has none of its own, from the game's own
+/// pool (TF2's <c>scripts/ai/tf2_bot_names.json</c>): a few drawn as the server draws
+/// them, at the page's difficulty, so the page can show what its bots will be called.
+/// </summary>
+public interface IBotNamePoolSource
+{
+    /// <summary>How many example names there are (none when the game's pool cannot be read).</summary>
+    int ExampleCount { get; }
+
+    /// <summary>Example <paramref name="i"/> (ui.Data).</summary>
+    string Example(int i);
 }
 
 /// <summary>One skill row of the editor.</summary>

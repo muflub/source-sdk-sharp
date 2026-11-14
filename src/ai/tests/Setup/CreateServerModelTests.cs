@@ -3,13 +3,14 @@ extern alias client;
 using System.Reflection;
 using Xunit;
 
-using CreateServerModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.CreateServerModel;
-using CustomBot = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBot;
-using CustomBots = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBots;
+using CreateServerModel = client::SourceSharp.Ai.Client.Setup.CreateServerModel;
+using CustomBot = client::SourceSharp.Ai.Client.Setup.CustomBot;
+using CustomBots = client::SourceSharp.Ai.Client.Setup.CustomBots;
 using IFwdEngineClient = client::SourceSharp.Abi.IFwdEngineClient;
-using BotEditorModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.BotEditorModel;
-using AiBotRerollOnMapConVar = client::SourceSharp.Ai.Hl2mp.Client.Setup.AiBotRerollOnMapConVar;
+using BotEditorModel = client::SourceSharp.Ai.Client.Setup.BotEditorModel;
+using AiBotRerollOnMapConVar = client::SourceSharp.Ai.Client.Setup.AiBotRerollOnMapConVar;
 using ClTdmTeamsConVar = client::SourceSharp.Client.Vgui.ClTdmTeamsConVar;
+using Hl2mpBotSetup = client::SourceSharp.Ai.Hl2mp.Client.Hl2mpBotSetup;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
@@ -46,7 +47,7 @@ public class CreateServerModelTests
 
     public CreateServerModelTests()
     {
-        _model = new CreateServerModel(_engine, _reroll, _customs, BotEditorModelTests.Editor(_customs), _teams);
+        _model = new CreateServerModel(_engine, _reroll, _customs, BotEditorModelTests.Editor(_customs), new Hl2mpBotSetup(_teams));
     }
 
     private List<string> Sent => ((Lines)(object)_engine).Sent;
@@ -248,5 +249,16 @@ public class CreateServerModelTests
         _model.SetTeamsPicked(true);
         Assert.DoesNotContain("team=4", _model.RosterSpecText(), StringComparison.Ordinal);
         Assert.Equal(2, _model.Teams);
+    }
+
+    /// <summary>HL2MP's team deathmatch lets an uneven split stand at its default (mp_teams_unbalance_limit 0), so its page writes no unbalance line.</summary>
+    [Fact]
+    public void AnUnevenHl2mpSplitWritesNoUnbalanceLine()
+    {
+        _model.SetBotCount(6);
+        _model.SetTeamsPicked(true);
+        _model.SetBotsOn(0, 5);
+        Assert.True(_model.Uneven);   // the stimulus reaches the subject
+        Assert.DoesNotContain(BeforeMap(), l => l.StartsWith("mp_teams_unbalance_limit", StringComparison.Ordinal));
     }
 }
