@@ -1359,6 +1359,14 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                 _owner._fx?.MeleeSwing(in _owner._shot, in type);
         }
 
+        // The swing's own reach and its two sounds ride to the fx, so the
+        // impact hears which sound fits what it stopped on.
+        public void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound)
+        {
+            if (_owner._hasEye)
+                _owner._fx?.MeleeSwing(in _owner._shot, in type, range, hitWorldSound, hitPlayerSound);
+        }
+
         // A shot's muzzle flash and brass: the viewmodel they ride is this
         // replay's own hands, and the predicted-fx is the same door the sound
         // and the bullets go through.

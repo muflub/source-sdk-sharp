@@ -105,6 +105,9 @@ public sealed class TeamDeathmatchMode : IGameMode, IModeSetup, IModeTeardown, I
     /// <summary>Stock's teamplay: a team line reaches the speaker's teammates, and teammates are a side.</summary>
     public bool Teamplay => true;
 
+    /// <summary>Teammates walk through each other (user ruling 2026-11-02, plan A.7; a divergence from stock HL2DM).</summary>
+    public bool TeammatesPass => true;
+
     public IJoinTeamPolicy? JoinPolicy => _join;
 
     public IScoring? Scoring => _scoring;

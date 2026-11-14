@@ -320,6 +320,32 @@ public sealed class ClientAdminTests : IDisposable
         Assert.False(_radial.Showing);
     }
 
+    [Fact]
+    public void An_unavailable_item_shows_why_and_cannot_be_chosen()
+    {
+        _admin.Open();
+        Menu(new AdminMenuLine(0, "bots:add:easy", "Easy", Stay: true, Unavailable: "Bots need navigation"), new AdminMenuLine(0, "restart", "#Restart"));
+
+        Assert.Equal("Easy", _radial.Item(0).Label);
+        Assert.Equal("Bots need navigation", _radial.Item(0).Detail);
+        Assert.False(_radial.Item(0).Enabled);
+        Assert.True(_radial.Item(1).Enabled);
+    }
+
+    [Fact]
+    public void Clicking_an_unavailable_item_sends_nothing()
+    {
+        _admin.Open();
+        _sent.Clear();
+        Menu(new AdminMenuLine(0, "bots:add:easy", "Easy", Stay: true, Unavailable: "Bots need navigation"), new AdminMenuLine(0, "restart", "#Restart"));
+
+        _radial.Choose(0);
+        _radial.Hover(0);
+        _radial.Release(_admin);
+
+        Assert.Empty(_sent);
+    }
+
     /// <summary>
     /// The server's Teams folder (user 2026-11-08, "make sure to add vote and admin
     /// menus for teams"), three deep: Teams, a player by name, a team to move them

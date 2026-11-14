@@ -13,7 +13,7 @@ public sealed class DebugWorld(
     Func<IEnumerable<(EntityHandle A, EntityHandle B)>>? touchingPairs = null,
     Func<EntityHandle, bool?>? asleep = null, Func<EntityHandle, int?>? groundIndex = null,
     Func<int>? tick = null, Func<IEnginePlayerMovement>? movement = null,
-    Func<EntityHandle, int>? physicsKind = null) : IDebugWorld
+    Func<EntityHandle, int>? physicsKind = null, Func<IEngineEntityRender>? render = null) : IDebugWorld
 {
     private readonly IEngineEntities _entities = entities ?? throw new ArgumentNullException(nameof(entities));
     private readonly IEngineDamage _damage = damage ?? throw new ArgumentNullException(nameof(damage));
@@ -38,7 +38,8 @@ public sealed class DebugWorld(
                asleep, groundIndex, tick,
                // Resolved when first asked: a test container that never points
                // a view need not register it.
-               () => services.Require<IEnginePlayerMovement>(), physicsKind);
+               () => services.Require<IEnginePlayerMovement>(), physicsKind,
+               () => services.Require<IEngineEntityRender>());
 
     private static EntityHandle H(uint value) => new(value);
 
@@ -69,6 +70,9 @@ public sealed class DebugWorld(
     public DebugVec3 GetVelocity(uint entity) => V(_entities.GetVelocity(H(entity)));
 
     public string GetName(uint entity) => _entities.GetName(H(entity));
+
+    public string GetModelName(uint entity)
+        => (render ?? throw new InvalidOperationException("no entity render area was given"))().GetModelName(H(entity));
 
     public int GetSolidType(uint entity) => (int)_entities.GetSolidType(H(entity));
 

@@ -48,6 +48,22 @@ public class PredictedWeaponFxTests
     private readonly RecordingEngine _world = Fake();
     private readonly PredictWeaponsConVar _predict = new();
 
+    /// <summary>The client's own entity directory: the index a trace stopped
+    /// on maps to the managed entity there, which is what answers the swing's
+    /// player-or-world question (the entity slot's IsPlayer is server-side
+    /// only).</summary>
+    private sealed class PlayerDirectory : IClientStandalones
+    {
+        public readonly Dictionary<int, ClientStandaloneEntity> Players = new();
+
+        public IReadOnlyList<ClientStandaloneEntity> Live() => [.. Players.Values];
+
+        public ClientStandaloneEntity? GetByIndex(int entityIndex)
+            => Players.TryGetValue(entityIndex, out ClientStandaloneEntity? entity) ? entity : null;
+    }
+
+    private readonly PlayerDirectory _directory = new();
+
     public PredictedWeaponFxTests()
     {
         _predict.NotifyChanged("1", "0");
@@ -62,7 +78,7 @@ public class PredictedWeaponFxTests
     // The same fake answers the render, the entities and the particle seam the
     // muzzle flash and the brass ask for; the facts that do not start anything
     // never set them.
-    private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, _world, _world, _world,
+    private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, _world, _world, _world, _directory,
                                           AmmoCatalog.Stock(), _predict, _view);
 
     private sealed class FakeView : SourceSharp.Client.Input.IClientInputEngine
@@ -228,6 +244,62 @@ public class PredictedWeaponFxTests
         Assert.Equal(("Impact", (int)DamageType.Club, Wall), (name, data.DamageType, data.Origin));
         var trace = _world.Calls.Single(c => c.Member == "WorldQuery.ClientTraceLine");
         Assert.Equal(Eye + new Vector(Row(EntityNames.WeaponCrowbar).MeleeRange, 0f, 0f), trace.ArgAs<Vector>(1));
+    }
+
+    /// <summary>
+    /// Stock's OnSwingHit sound pair: the swing traces its own range, and a
+    /// hit that is not a player hears the world's sound beside its impact.
+    /// </summary>
+    [Fact]
+    public void A_swings_hit_on_the_world_hears_the_world_sound_once()
+    {
+        _world.Returns("WorldQuery.ClientClipRayToEntities",
+                       new ClientTraceResult(true, 0.5f, new Vector(64f, 0f, 64f), new Vector(-1f, 0f, 0f),
+                                             0, 7, Tile, 0));
+
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+
+        var (name, data) = Assert.Single(_dispatch.Ran);
+        Assert.Equal(("Impact", 7), (name, data.EntIndex));
+        Assert.Equal((Player, "Melee.World"), Assert.Single(_sounds.Emitted));
+    }
+
+    /// <summary>The pair's other half: a swing that stops on a player hears the flesh sound.</summary>
+    [Fact]
+    public void A_swings_hit_on_a_player_hears_the_player_sound()
+    {
+        _directory.Players[2] = new ClientSsPlayer(_world);
+        _world.Returns("WorldQuery.ClientClipRayToEntities",
+                       new ClientTraceResult(true, 0.3f, new Vector(12f, 0f, 64f), Vector.Zero, 0, 2, 0, 0));
+
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+
+        Assert.Equal((Player, "Melee.Flesh"), Assert.Single(_sounds.Emitted));
+    }
+
+    /// <summary>A swing into nothing: no impact dispatched, no sound heard.</summary>
+    [Fact]
+    public void A_swings_miss_is_quiet()
+    {
+        _world.Returns("WorldQuery.ClientTraceLine",
+                       new ClientTraceResult(false, 1f, Wall, Vector.Zero, 0, -1, 0, 0))
+              .Returns("WorldQuery.ClientClipRayToEntities",
+                       new ClientTraceResult(false, 1f, Wall, Vector.Zero, 0, -1, -1, 0));
+
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+
+        Assert.Empty(_dispatch.Ran);
+        Assert.Empty(_sounds.Emitted);
+    }
+
+    /// <summary>The overload traces its own range, not the row's melee range.</summary>
+    [Fact]
+    public void A_swings_reach_is_the_range_it_was_handed()
+    {
+        Fx().MeleeSwing(Shot(), Row(EntityNames.WeaponCrowbar), 42f, "Melee.World", "Melee.Flesh");
+
+        var trace = _world.Calls.Single(c => c.Member == "WorldQuery.ClientTraceLine");
+        Assert.Equal(Eye + new Vector(42f, 0f, 0f), trace.ArgAs<Vector>(1));
     }
 
     [Fact]

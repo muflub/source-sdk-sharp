@@ -36,7 +36,11 @@
 #                  the 5 s sv_mode_switch_warmup), the round reaches PREROUND
 #                  under it, sv_mode pl starts the round again, and the bare
 #                  command answers active: 'pl'
-#   10 teardown    both games exit; the server's /proc/<pid>/task count is
+#   10 rejoin      the joiner scores, leaves and rejoins in the same match
+#                  and gets its score back (RejoinScores, plan_bots_teams_tf2
+#                  A.6); after an mp_restartgame (a new match) and after a
+#                  level reload its rejoin starts from nothing
+#   11 teardown    both games exit; the server's /proc/<pid>/task count is
 #                  recorded after the join and before the exit
 #
 # A listen server plus one joining client is used instead of a dedicated
@@ -120,7 +124,7 @@ TEAM_RED, TEAM_BLU = 2, 3
 NOT_WRITTEN = ()
 
 STEP_ORDER = ("join", "teams", "classes", "weapon", "combat", "heal", "respawn",
-              "ctf", "changelevel", "payload", "mode", "koth", "cp5", "teardown")
+              "ctf", "changelevel", "payload", "mode", "koth", "cp5", "rejoin", "teardown")
 # Every step the gate now holds (the Makefile's word on `make tf2-gate`):
 # the lanes wrote the last six (ctf, changelevel, payload, mode at 4.2,
 # then koth, then cp5 -- a step after `mode` fits the default run every time: the
@@ -4936,6 +4940,194 @@ def step_cp5(run, state):
     return "PASS", numbers
 
 
+# ---------------------------------------------------------------------------
+# rejoin: a departed player's score comes back in the same match only
+# (plan_bots_teams_tf2 A.6; the core's RejoinScores, TF2's stats through its
+# IRejoinScoreHook, and TF2's game restart through the core's match-reset
+# chain). TF2's half of live-gate's rejoin-score.
+# ---------------------------------------------------------------------------
+REJOIN_RESTORED = "[SourceSharp/Rejoin] restored"
+REJOIN_FORGOT_RESTART = "[SourceSharp/Rejoin] match restart: forgot"
+# Either clear's line, at the new level: the mode's own reset at the level's
+# start (TF2's ResetScores, "match restart") runs before the core's map-change
+# clear, which then finds the table empty and says nothing.
+REJOIN_FORGOT_ANY = "departed player score(s)"
+REJOIN_KILL = 500   # more than any class's health and overheal
+
+
+def score_rows(tf_fields, core_fields):
+    """{slot: (total score, frags, deaths)}: TF's scoreboard number off the
+    tf_player_manager's TotalScore.N, the core's frags and deaths off the
+    player_manager's Score.N / Deaths.N. A slot either resource names is a
+    row; a number it does not carry reads 0. PURE, so --self-test drives it."""
+    rows = {}
+
+    def put(fields, kinds):
+        for name, value in (fields or {}).items():
+            kind, _, slot = name.partition(".")
+            if kind not in kinds or not slot.isdigit():
+                continue
+            try:
+                number = int(float(value))
+            except (TypeError, ValueError):
+                continue
+            row = rows.setdefault(int(slot), [0, 0, 0])
+            row[kinds[kind]] = number
+
+    put(tf_fields, {"TotalScore": 0})
+    put(core_fields, {"Score": 1, "Deaths": 2})
+    return {slot: tuple(row) for slot, row in rows.items()}
+
+
+def rejoin_row(run, slot):
+    """Player `slot`'s (total score, frags, deaths), or None when either
+    resource is missing (an unreadable row is a failure, never a zero)."""
+    tf = run.srv.ents("tf_player_manager")
+    core = run.srv.ents("player_manager")
+    if not tf or not core:
+        return None
+    rows = score_rows(run.srv.fields(tf[0]["index"]), run.srv.fields(core[0]["index"]))
+    return rows.get(slot, (0, 0, 0))
+
+
+def console_count(run, needle):
+    return sum(1 for line in run.team_lines() if needle in line)
+
+
+def step_rejoin(run, state):
+    """The joiner (player 2) kills the host through the dev API's damage
+    route, so its row reads a frag and a TF score. Asserted:
+      * it disconnects and connects again: its row reads what it left with,
+        and the server says it restored it;
+      * it disconnects, the host restarts the game (mp_restartgame 1, a new
+        match: the server says it forgot the departure), and it connects:
+        its row reads nothing and nothing was restored;
+      * it plays and scores again, disconnects, the level is loaded again
+        (THE SECOND MAP LOAD; the server says it forgot the departure at the
+        new level, the mode's level-start reset or the map change's own),
+        and it connects: nothing again.
+    The positive arm first, so the two zeros are not a restore that never
+    works."""
+    numbers = {}
+    run.srv.cmd("sv_cheats 1")
+
+    def players():
+        return run.player_indices()
+
+    def play():
+        """Both on teams as soldiers, alive: the host red, the joiner blue."""
+        run.srv.cmd("cmd jointeam red")
+        run.client.api.cmd("cmd jointeam blue")
+        time.sleep(1.0)
+        run.srv.cmd("cmd joinclass soldier")
+        run.client.api.cmd("cmd joinclass soldier")
+        return wait_pump(run, "rejoin: both players alive on their teams",
+                         lambda: run.is_alive(run.p1) and run.is_alive(run.p2), 60.0, 0.5)
+
+    def score():
+        """The joiner kills the host; its row once the kill is on it."""
+        before = rejoin_row(run, run.p2) or (0, 0, 0)
+        run.srv.get("hurt", "#%d" % run.p1, REJOIN_KILL, "", "", "#%d" % run.p2)
+        return wait_pump(run, "rejoin: the joiner's kill on its row",
+                         lambda: (lambda r: r if r and r[0] > before[0] and r[1] > before[1] else None)(
+                             rejoin_row(run, run.p2)), 10.0, 0.5)
+
+    def leave():
+        run.client.api.cmd("disconnect")
+        return wait_pump(run, "rejoin: the joiner gone", lambda: len(players()) == 1, 30.0, 0.5)
+
+    def come_back(what):
+        run.client.api.cmd("connect 127.0.0.1:%d" % run.port)
+        back = wait_pump(run, "rejoin: the joiner %s" % what, lambda: len(players()) == 2, 90.0, 1.0)
+        if not back:
+            return None
+        run.p2 = next(i for i in players() if i != run.p1)
+        # Its row is written at its activation: give the resource a beat.
+        run.srv.wait_ticks(66)
+        return run.p2
+
+    if not play():
+        numbers["detail"] = "the two never stood alive on their teams (p1 %s, p2 %s)" % (
+            run.is_alive(run.p1), run.is_alive(run.p2))
+        return "FAIL", numbers
+    left_with = score()
+    numbers["left_with"] = left_with
+    if not left_with:
+        numbers["row_now"] = rejoin_row(run, run.p2)
+        numbers["detail"] = "the joiner's kill never reached its row (total score, frags, deaths)"
+        return "FAIL", numbers
+
+    # The same match: it comes back with what it left with.
+    restored0 = console_count(run, REJOIN_RESTORED)
+    if not leave():
+        numbers["detail"] = "the joiner never left"
+        return "FAIL", numbers
+    if come_back("rejoined") is None:
+        numbers["detail"] = "the joiner never came back"
+        return "FAIL", numbers
+    back = wait_pump(run, "rejoin: the score back on its row",
+                     lambda: rejoin_row(run, run.p2) == left_with or None, 15.0, 0.5)
+    numbers["rejoined_with"] = rejoin_row(run, run.p2)
+    numbers["restored_lines"] = console_count(run, REJOIN_RESTORED) - restored0
+    if not back or numbers["restored_lines"] != 1:
+        numbers["detail"] = "the rejoin did not bring the score back, or the server did not say so once"
+        return "FAIL", numbers
+
+    # A game restart is a new match: away over it, back to nothing.
+    restored1 = console_count(run, REJOIN_RESTORED)
+    forgot0 = console_count(run, REJOIN_FORGOT_RESTART)
+    if not leave():
+        numbers["detail"] = "the joiner never left before the restart"
+        return "FAIL", numbers
+    run.srv.cmd("mp_restartgame 1")
+    forgot = wait_pump(run, "rejoin: the restart forgetting the departure",
+                       lambda: console_count(run, REJOIN_FORGOT_RESTART) > forgot0, 20.0, 0.5)
+    numbers["restart_forgot"] = bool(forgot)
+    if come_back("rejoined after the restart") is None:
+        numbers["detail"] = "the joiner never came back after the restart"
+        return "FAIL", numbers
+    numbers["after_restart"] = rejoin_row(run, run.p2)
+    numbers["after_restart_restored"] = console_count(run, REJOIN_RESTORED) - restored1
+    if not forgot or numbers["after_restart"] != (0, 0, 0) or numbers["after_restart_restored"] != 0:
+        numbers["detail"] = "after mp_restartgame the rejoin was not a fresh start"
+        return "FAIL", numbers
+
+    # A new level is a new match too: score again, away over a reload, nothing.
+    if not play():
+        numbers["detail"] = "after the restart the two never stood alive on their teams again"
+        return "FAIL", numbers
+    again = score()
+    numbers["left_with_again"] = again
+    if not again:
+        numbers["detail"] = "the second kill never reached the joiner's row"
+        return "FAIL", numbers
+    restored2 = console_count(run, REJOIN_RESTORED)
+    forgot1 = console_count(run, REJOIN_FORGOT_ANY)
+    paints = run.read_console_since_launch().count(PAINT_NEEDLE)
+    if not leave():
+        numbers["detail"] = "the joiner never left before the reload"
+        return "FAIL", numbers
+    run.srv.cmd("changelevel %s" % MAP)
+    reloaded = wait_pump(run, "rejoin: the host painting %s again" % MAP,
+                         lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints, 180.0, 1.0)
+    numbers["reloaded"] = bool(reloaded)
+    if not reloaded:
+        numbers["detail"] = "the level never loaded again"
+        return "FAIL", numbers
+    end_the_wait_when_armed(run)
+    numbers["map_forgot"] = console_count(run, REJOIN_FORGOT_ANY) > forgot1
+    if come_back("rejoined after the reload") is None:
+        numbers["detail"] = "the joiner never came back after the reload"
+        return "FAIL", numbers
+    numbers["after_reload"] = rejoin_row(run, run.p2)
+    numbers["after_reload_restored"] = console_count(run, REJOIN_RESTORED) - restored2
+    ok = (numbers["map_forgot"] and numbers["after_reload"] == (0, 0, 0)
+          and numbers["after_reload_restored"] == 0)
+    if not ok:
+        numbers["detail"] = "after the level reload the rejoin was not a fresh start"
+    return ("PASS" if ok else "FAIL"), numbers
+
+
 def step_teardown(run, state):
     numbers = {}
     numbers["server_threads_after_join"] = state.get("threads_after_join")
@@ -4971,7 +5163,7 @@ LIVE_STEPS = {"join": step_join, "teams": step_teams, "classes": step_classes,
               "combat": step_combat, "heal": step_heal, "respawn": step_respawn, "ctf": step_ctf,
               "changelevel": step_changelevel, "payload": step_payload,
               "mode": step_mode, "koth": step_koth, "cp5": step_cp5,
-              "teardown": step_teardown}
+              "rejoin": step_rejoin, "teardown": step_teardown}
 
 
 def joiner_died_during_heal(step, alive_before, alive_after):
@@ -5092,6 +5284,11 @@ def self_test():
     check(not speed_within(None, 2.0, 400.0), "an unmeasured speed NEVER passes")
     check(not speed_within(800.0, 0.0, 400.0), "a zero-length window never passes")
 
+    rows = score_rows({"TotalScore.2": "3", "TotalScore.1": "0", "Team.2": "3"},
+                      {"Score.2": "1", "Deaths.2": "4", "Score.x": "9", "Deaths.1": "bad"})
+    check(rows.get(2) == (3, 1, 4), "a rejoin row is TF's total, the core's frags and deaths (%s)" % (rows.get(2),))
+    check(rows.get(1) == (0, 0, 0), "a number the resource does not carry reads 0, not a guess")
+    check(score_rows({}, {}) == {}, "no fields, no rows")
     check(teams_distinct(2, 3), "2 and 3 are the red/blu pair")
     check(not teams_distinct(2, 2), "two players on one team is NOT a pair")
     check(not teams_distinct(0, 3), "unassigned is not a team")

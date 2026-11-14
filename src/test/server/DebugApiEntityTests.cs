@@ -20,6 +20,7 @@ public class DebugApiEntityTests
         crate.SolidType = 6;
         crate.SolidFlags = 4;
         crate.PhysicsKind = 2;
+        crate.Model = "models/props_junk/wood_crate001a.mdl";
         var player = world.Add(0x20001u, 1, "player");
         player.Ground = -1;
         return (DebugApiServer.ForTest(TestDebugHooks.Server(world: world)), world);
@@ -40,6 +41,15 @@ public class DebugApiEntityTests
         Assert.Equal(0x10028u, e.GetProperty("handle").GetUInt32());
         Assert.Equal(5.0, e.GetProperty("speed").GetDouble(), 3);
         Assert.Equal(3.0, e.GetProperty("velocity")[0].GetDouble(), 3);
+    }
+
+    // The live gate's team steps tell a body's team by its model (plan_bots_teams_tf2 A.8).
+    [Fact]
+    public void An_entity_answers_its_model()
+    {
+        var (server, _) = Serve();
+        using var _s = server;
+        Assert.Equal("models/props_junk/wood_crate001a.mdl", Read(server, "/entity?index=40").GetProperty("model").GetString());
     }
 
     // stock-ab's solidity census pairs these with stock's ab_movetypes rows

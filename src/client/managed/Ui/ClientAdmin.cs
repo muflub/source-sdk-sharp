@@ -229,6 +229,12 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
         while (at < lines.Count && lines[at].Depth == depth)
         {
             var line = lines[at++];
+            if (line.Id.Length > 0 && line.Unavailable.Length > 0)
+            {
+                // The server cannot take it now: shown with why, and nothing to send.
+                entries.Add(new RadialEntry(line.Label, Detail: line.Unavailable, Enabled: false));
+                continue;
+            }
             if (line.Id.Length > 0)
             {
                 string id = line.Id;

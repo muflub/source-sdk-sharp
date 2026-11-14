@@ -45,6 +45,9 @@ public interface IDebugWorld
     /// <summary>Its targetname, or "" for none.</summary>
     string GetName(uint entity);
 
+    /// <summary>Its model's name (<c>models/....mdl</c>, a brush model's <c>*N</c>), or "" for none.</summary>
+    string GetModelName(uint entity);
+
     /// <summary>Its solid type (SOLID_NONE 0, SOLID_BSP 1, SOLID_BBOX 2, SOLID_OBB 3, SOLID_VPHYSICS 6).</summary>
     int GetSolidType(uint entity);
 

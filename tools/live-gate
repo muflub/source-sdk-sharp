@@ -9878,6 +9878,338 @@ def step_ss_ai_hearing(g):
     g.api.cmd("ai_think 1")
 
 
+#=============================================================================
+# TEAM DEATHMATCH (plan_bots_teams_tf2 A.5, A.6, A.7, A.8, B.8, B.9).
+#
+# Four steps: tdm-round (the mode's scoring and frag limit), tdm-chat
+# (say_team reaches the speaker's side alone), tdm-bots (the bots play as
+# teams, and the swap, walk-through and re-team arms) and rejoin-score (a
+# departed player's score comes back). They are TDM_STEPS, outside the
+# registry, until a run records their budget rows (see TDM_STEPS).
+#
+# The gate's server is -maxplayers 4, so "two teams of two" is the gate's
+# player and a bot against two bots, with ai_bot_reserve_slots 0 for the step.
+#=============================================================================
+
+TDM_COMBINE, TDM_REBELS = 2, 3
+TDM_TEAM_NAMES = {TDM_COMBINE: "Combine", TDM_REBELS: "Rebels"}
+TDM_MAP = "ss_ai_tdm"
+TDM_SPAWN_CLASS = {TDM_COMBINE: "info_player_combine", TDM_REBELS: "info_player_rebel"}
+TDM_BOTS = [("Ally", TDM_COMBINE), ("Foe1", TDM_REBELS), ("Foe2", TDM_REBELS)]
+TDM_FRAGLIMIT = 10
+TDM_KILL = 500          # more than anyone's health and armour (FRAG_KILL's)
+# ss_ai_tdm (tools/ai-scenario's tdm scenario): rooms 512 on a side, the mid
+# room (512..1024, 512..1024) open, its floor at 16; the bases west and east.
+TDM_MID_Y = 768.0
+# HostSay's chat log line: '"name<userid><networkid><team>" say_team "text"'.
+TDM_CHAT_LINE = re.compile(r'^"[^"]*<\d+><[^>]*><([^>]*)>" (say|say_team) "')
+
+
+def parse_team_board(fields):
+    """({team: score}, {slot: (score, deaths, team)}) from the player
+    resource's fields, a connected slot being one with a userid. PURE."""
+    teams, rows = {}, {}
+    for name, value in fields.items():
+        kind, _, n = name.partition(".")
+        if not n.isdigit():
+            continue
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if kind == "TeamScore":
+            teams[int(n)] = number
+        elif kind in ("Score", "Deaths", "Team", "UserId"):
+            rows.setdefault(int(n), {})[kind] = number
+    return teams, {slot: (r.get("Score", 0), r.get("Deaths", 0), r.get("Team", 0))
+                   for slot, r in rows.items() if r.get("UserId", 0) > 0}
+
+
+def team_scores(board):
+    """The two teams' scores of a team_board, by name, for a message."""
+    return {TDM_TEAM_NAMES[t]: (board or ({},))[0].get(t, 0) for t in (TDM_COMBINE, TDM_REBELS)}
+
+
+def team_board(g):
+    """parse_team_board of the server's player_manager, or None without one."""
+    managers = g.api.ents("player_manager")
+    if not managers:
+        return None
+    return parse_team_board(g.api.fields(managers[0]["index"]))
+
+
+def in_level(g, slot):
+    """Whether player `slot` has an entity in the level."""
+    return any(p["index"] == slot for p in g.api.ents(g.scen["playerClass"]))
+
+
+def alive(g, slot):
+    return g.api.fields(slot).get("Alive") == "true"
+
+
+def respawn_local(g, slot, seconds=20.0):
+    """The gate's own player back alive: a dead player comes back on a button."""
+    def pressed():
+        if alive(g, slot):
+            return True
+        g.api.cmd("+jump")
+        time.sleep(0.3)
+        g.api.cmd("-jump")
+        return alive(g, slot) or None
+    return g.api.wait_for(pressed, seconds, 1.0)
+
+
+def tdm_setup(g, bots, friendly_fire=0):
+    """Team deathmatch on the level now loaded: mp_teamplay 1 (so a level
+    change stays team deathmatch, TeamplayModeSelector), sv_mode tdm, the
+    gate's player on the Combine and `bots` added each on its team. The round
+    is then restarted (a second sv_mode tdm), so the scores start from zero
+    with everyone on their side: a bot added with a team can first land on the
+    other one and lose a point to the switch. Returns ({name: slot}, the
+    player's slot), or None after a failed check."""
+    g.cheats()
+    for line in ("mp_friendlyfire %d" % friendly_fire, "mp_teamplay 1", "mp_fraglimit 0",
+                 "cs_sv_fraglimit 0", "ai_bot_reserve_slots 0", "sv_mode tdm"):
+        g.api.cmd(line)
+    human = g.api.player(g.scen["playerClass"])["index"]
+    g.api.cmd("jointeam %d" % TDM_COMBINE)
+    for name, team in bots:
+        g.api.cmd("ai_bot_add %s normal team=%d" % (name, team))
+
+    def placed():
+        slots = {b["name"]: b["slot"] for b in ai_bots(g)}
+        board = team_board(g)
+        if board is None or any(n not in slots for n, _ in bots):
+            return None
+        rows = board[1]
+        if rows.get(human, (0, 0, 0))[2] != TDM_COMBINE:
+            return None
+        if any(rows.get(slots[n], (0, 0, 0))[2] != t for n, t in bots):
+            return None
+        return slots
+    slots = g.api.wait_for(placed, 30.0, 0.5)
+    g.check(bool(slots), "team deathmatch: the gate's player on the Combine and %s on their teams (rows %s)"
+            % (", ".join("%s on %s" % (n, TDM_TEAM_NAMES[t]) for n, t in bots), (team_board(g) or ({}, {}))[1]))
+    if not slots:
+        return None
+    respawn_local(g, human)
+    g.api.cmd("sv_mode tdm")
+    zeroed = g.api.wait_for(lambda: (lambda b: b and all(v == 0 for v in b[0].values()) or None)(team_board(g)), 10.0)
+    g.check(bool(zeroed), "the round restarted with every team at zero (%s)" % team_scores(team_board(g)))
+    return slots, human
+
+
+def tdm_home(g, chattime="10"):
+    """Back to the scenario: the bots kicked, the knobs as the gate keeps
+    them, and the scenario's map loaded again (a level of the core's rules,
+    mp_teamplay 0), with the gate's player in it."""
+    for line in ("ai_bot_kick all", "ai_bot_reserve_slots 1", "ai_think 1", "mp_teamplay 0",
+                 "mp_friendlyfire 0", "mp_fraglimit 0", "mp_teammates_collide 0", 'nextlevel ""',
+                 "mp_chattime %s" % chattime):
+        g.api.cmd(line)
+    g.api.cmd("map %s" % g.scen["map"])
+    back = g.api.wait_map(g.scen["entities"], 180.0)
+    player = back and g.api.wait_for(lambda: g.api.player(g.scen["playerClass"]), 90.0)
+    g.check(bool(back) and bool(player), "back on %s under the core's rules, the player rejoined" % g.scen["map"])
+    if player:
+        join_motd(g, player["index"])
+
+
+def step_tdm_chat(g):
+    """say_team reaches the speaker's teammates and not the other team
+    (plan_bots_teams_tf2 A.5; B.9's "stop being listened to at the swap").
+
+    sv_mode tdm, the gate's player on the Combine with a bot (Ally), a bot
+    (Foe) on the Rebels, the bots standing (ai_think 0, so they say nothing of
+    their own). Each line is a bot's, through ai_bot_say and the say path a
+    player's chat takes; heard is the gate's client's received SayText2 count
+    and its chat line drawn. Asserted, each line first seen in the server's
+    chat log (the stimulus reached the say path):
+      * Ally's say_team reaches the gate's player: one SayText2, the line drawn;
+      * Foe's say_team does not: no SayText2, nothing drawn;
+      * Foe's say does (the control: the Rebels' lines can reach the player);
+      * after the player switches to the Rebels, Foe's say_team reaches them and
+        Ally's does not.
+    """
+    if ai_counters(g) is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    try:
+        got = tdm_setup(g, [("Ally", TDM_COMBINE), ("Foe", TDM_REBELS)])
+        if not got:
+            return
+        _slots, human = got
+        g.api.cmd("ai_think 0")
+        g.api.wait_for(lambda: g.api.get("client", str(human), "status").get("side") or None, 30.0)
+
+        def heard():
+            return g.api.get("client", str(human), "status").get("userMessages", {}).get("SayText2", 0)
+
+        def drawn(text):
+            return any(text in d.get("text", "") for d in g.api.get("client", str(human), "ui").get("draws", [])
+                       if d.get("kind") == "Text")
+
+        def owed(lines):
+            """How many of the server's chat log lines `lines` the gate's
+            player is owed: every say, and a say_team from its own team. The
+            bots' own callouts (their brains still decide) are lines like any."""
+            board = team_board(g)
+            mine = TDM_TEAM_NAMES.get(board[1].get(human, (0, 0, 0))[2]) if board else None
+            n = 0
+            for line in lines:
+                m = TDM_CHAT_LINE.match(line)
+                if m and (m.group(2) == "say" or m.group(1) == mine):
+                    n += 1
+            return n
+
+        marker = "tdm%d" % (int(time.time()) % 100000)
+
+        def bot_says(name, to, text, reaches, why):
+            verb = "say_team" if to == "team" else "say"
+            chat_before = len(g.console_lines('>" say'))
+            before, logged = heard(), g.count_console('%s "%s"' % (verb, text))
+            g.api.cmd("ai_bot_say %s %s %s" % (name, to, text))
+            said = g.api.wait_for(lambda: g.count_console('%s "%s"' % (verb, text)) > logged or None, 5.0)
+            line = g.last_console_line('%s "%s"' % (verb, text)) or ""
+            g.check(bool(said) and line.startswith('"%s<' % name),
+                    "%s's %s line reached the say path: %s" % (name, verb, line.strip()))
+            if reaches:
+                seen = g.api.wait_for(lambda: drawn(text) or None, 10.0)
+            else:
+                g.api.wait_ticks(132)
+                seen = drawn(text)
+            got, lines = heard() - before, g.console_lines('>" say')[chat_before:]
+            want = owed(lines)
+            mine = owed([line]) if said else 0
+            g.check(bool(seen) == reaches and mine == (1 if reaches else 0) and got == want,
+                    "%s: the gate's player %s it (drawn %s; %d SayText2 for the %d chat line(s) it is owed, this one %s)"
+                    % (why, "receives and draws" if reaches else "neither receives nor draws", bool(seen), got, want,
+                       "among them" if mine else "not"))
+
+        bot_says("Ally", "team", marker + "a", True, "a teammate's say_team")
+        bot_says("Foe", "team", marker + "b", False, "the other team's say_team")
+        bot_says("Foe", "all", marker + "c", True, "the other team's say (the control)")
+
+        g.api.cmd("jointeam %d" % TDM_REBELS)
+        moved = g.api.wait_for(lambda: (lambda b: b and b[1].get(human, (0, 0, 0))[2] == TDM_REBELS or None)(team_board(g)), 10.0)
+        g.check(bool(moved), "the gate's player switched to the Rebels")
+        bot_says("Foe", "team", marker + "d", True, "after the switch, the new teammate's say_team")
+        bot_says("Ally", "team", marker + "e", False, "after the switch, the old teammate's say_team")
+    finally:
+        # The level loaded again, as the scenario has it: the mode's restarts
+        # cleaned the map up, and the census the next step reads is the map's.
+        tdm_home(g)
+
+
+def step_rejoin_score(g):
+    """A departed player's score comes back when they rejoin, in the same
+    match only (plan_bots_teams_tf2 A.6; RejoinScores). HL2DM's half: TF2's is
+    tools/tf2-gate's.
+
+    A second client joins; it kills the gate's player (the dev API's damage
+    route with it as the attacker), so its row reads one frag. Asserted:
+      * it disconnects and connects again: its row reads the frag and the death
+        count it left with, and the server says it restored them;
+      * it disconnects again, the level is loaded again (a new match, the
+        SECOND MAP LOAD; the server says it forgot the departure), and it
+        connects: its row reads nothing, and nothing was restored.
+    """
+    if g.no_second_client:
+        g.skip("--no-second-client was given")
+    scen, server = g.scen, g.api
+    port = getattr(g, "server_port", None)
+    if not port:
+        g.check(False, "the gate could not tell which UDP port its own server bound")
+        return
+    sitting = server.ents(scen["playerClass"])
+    if len(sitting) != 1:
+        g.check(False, "the server holds %d players before the second client; this step starts from one" % len(sitting))
+        return
+    first = sitting[0]["index"]
+
+    tmpdir = os.path.join(g.scratch, "client2")
+    log = os.path.join(g.scratch, "live-gate-client2.log")
+    client, _ = launch_with_free_port(client_launch, log, tmpdir)
+    if client is None:
+        g.note(keep_log(log, SECONDCLIENT_KEPT_LOG))
+        g.check(False, "a second instance never opened a dev API socket")
+        return
+    failures_before = len(g.failures)
+
+    def connect(what):
+        client.api.cmd("connect 127.0.0.1:%d" % port)
+        if not server.wait_for(lambda: len(server.ents(scen["playerClass"])) >= 2, 90.0, 1.0):
+            g.check(False, "the second client never %s -- %s" % (what, join_state(
+                server, client.api, len(server.ents(scen["playerClass"])), log, port)))
+            return None
+        slot = next(p["index"] for p in server.ents(scen["playerClass"]) if p["index"] != first)
+        # Its row is written once it is in the game (the restore is at its activation).
+        server.wait_for(lambda: alive(g, slot) or None, 60.0)
+        g.api.wait_ticks(20)
+        return slot
+
+    def disconnect():
+        client.api.cmd("disconnect")
+        return server.wait_for(lambda: len(server.ents(scen["playerClass"])) == 1, 30.0)
+
+    def row(slot):
+        board = frag_board(g) or {}
+        return board.get(slot)
+
+    try:
+        for api in (server, client.api):
+            api.convar("net_usesocketsforloopback", 1)
+        time.sleep(1.0)
+        second = connect("joined")
+        if second is None:
+            return
+        server.get("hurt", "#%d" % first, FRAG_KILL, "", "", "#%d" % second)
+        scored = server.wait_for(lambda: (row(second) or (0, 0))[0] == 1 or None, 5.0)
+        left_with = row(second)
+        g.check(bool(scored), "the second client's kill of the gate's player is its frag (row %s)" % (left_with,))
+        respawn_local(g, first)
+
+        restored_before = g.count_console("[SourceSharp/Rejoin] restored")
+        g.check(bool(disconnect()), "the second client left")
+        second = connect("rejoined")
+        if second is None:
+            return
+        back = server.wait_for(lambda: row(second) == left_with or None, 10.0)
+        g.check(bool(back) and left_with is not None and left_with[0] > 0,
+                "it rejoined with the score it left with: %s, as before %s" % (row(second), left_with))
+        g.check(g.count_console("[SourceSharp/Rejoin] restored") == restored_before + 1,
+                "and the server said it restored it (%s)" % g.last_console_line("[SourceSharp/Rejoin] restored"))
+
+        # A new match forgets it: away over a level load, and back to nothing.
+        restored_before = g.count_console("[SourceSharp/Rejoin] restored")
+        forgot_before = g.count_console("[SourceSharp/Rejoin] map change: forgot")
+        g.check(bool(disconnect()), "the second client left again")
+        server.cmd("map %s" % scen["map"])
+        reloaded = server.wait_map(scen["entities"], 180.0)
+        rejoined = reloaded and server.wait_for(lambda: server.player(scen["playerClass"]), 90.0)
+        g.check(bool(rejoined), "the level loaded again (a new match) and the gate's player rejoined it")
+        if not rejoined:
+            return
+        join_motd(g, rejoined["index"])
+        g.check(g.count_console("[SourceSharp/Rejoin] map change: forgot") > forgot_before,
+                "the server forgot the departure at the new level (%s)" % g.last_console_line("[SourceSharp/Rejoin] map change"))
+        second = connect("rejoined after the new level")
+        if second is None:
+            return
+        g.check(row(second) == (0, 0) and g.count_console("[SourceSharp/Rejoin] restored") == restored_before,
+                "a rejoin after a new match starts from nothing: %s, nothing restored" % (row(second),))
+        disconnect()
+    finally:
+        try:
+            client.api.cmd("disconnect")
+        except ApiError:
+            pass
+        if len(g.failures) > failures_before:
+            g.note(keep_log(log, SECONDCLIENT_KEPT_LOG))
+        client.kill()
+        server.wait_for(lambda: len(server.ents(scen["playerClass"])) == 1, 30.0)
+
+
 STEPS = [
     ("join",          "join",                                        step_join),
     ("move",          "move",                                        step_move),
@@ -10028,7 +10360,31 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
              "phys-convert", "render-plan-sandbox", "ai-nav", "ai-reload", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
              "map-change", "sigterm-shutdown", "shutdown"]
 
-BY_ID = {step[0]: step for step in ALL_STEPS}
+# The team deathmatch steps (plan_bots_teams_tf2 A.5, A.6, B.8, B.9), written
+# and each run by hand against a game of its own, but not yet in a gate run: a
+# stage joins EXTRA_STEPS and RUN_ORDER (after ss-ai-hearing) together with its
+# crossing-budget row, which tools/gate-budget requires and only a run records
+# (`tools/live-gate --steps tdm-chat,rejoin-score --passes 3
+# --record --budget <scratch copy>`, then carry the two rows). Until then
+# --steps runs one when it is named, after the gate's own steps.
+TDM_STEPS = [
+    ("tdm-chat", "a bot's say_team reaches its teammates and not the other team, before and after the player "
+                 "switches (not in §5; plan_bots_teams_tf2 A.5, B.9)", step_tdm_chat),
+    ("rejoin-score", "a second client leaves and rejoins with its score, and a new level forgets it "
+                     "(not in §5; plan_bots_teams_tf2 A.6)", step_rejoin_score),
+]
+TDM_ORDER = [step[0] for step in TDM_STEPS]
+
+BY_ID = {step[0]: step for step in ALL_STEPS + TDM_STEPS}
+
+
+def steps_order(wanted):
+    """The run order `--steps` names, and the names that are no step: `join`
+    first (every step needs it), the gate's own named steps in RUN_ORDER, then
+    the named TDM_STEPS in theirs. PURE."""
+    unknown = [s for s in wanted if s not in RUN_ORDER and s not in TDM_ORDER]
+    order = [s for s in RUN_ORDER if s == "join" or s in wanted] + [s for s in TDM_ORDER if s in wanted]
+    return order, unknown
 
 
 #=============================================================================
@@ -10922,6 +11278,23 @@ def self_test():
     ok(len(numbers_in("nothing here")) == 0,
        "and a value that is not a vector yields nothing rather than a zero, "
        "which would read as the world origin")
+
+    #-- the team deathmatch steps: outside the registry, run when named -------
+    ok(not set(TDM_ORDER) & {s[0] for s in ALL_STEPS},
+       "no team deathmatch step is in the registry: gate-budget would want its row")
+    ok(all(BY_ID[s][0] == s for s in TDM_ORDER), "and each is found by its id")
+    ok(steps_order(["tdm-chat"]) == (["join", "tdm-chat"], []),
+       "--steps tdm-chat runs join, then the step")
+    ok(steps_order(["rejoin-score", "shutdown", "tdm-chat"]) == (["join", "shutdown", "tdm-chat", "rejoin-score"], []),
+       "the gate's named steps first in RUN_ORDER, then the team steps in theirs")
+    ok(steps_order(["tdm-nope"])[1] == ["tdm-nope"], "a name that is no step is refused")
+    ok(steps_order([s for s in RUN_ORDER])[0] == RUN_ORDER, "and a list of the gate's own steps is still RUN_ORDER")
+    teams, rows = parse_team_board({"TeamScore.2": "10", "TeamScore.3": "1", "Score.1": "5", "Deaths.1": "1",
+                                    "Team.1": "2", "UserId.1": "2", "Score.5": "7", "Team.5": "3", "UserId.5": "0"})
+    ok(teams == {2: 10, 3: 1} and rows == {1: (5, 1, 2)},
+       "the player resource's teams and connected rows; a slot with no userid is nobody")
+    m = TDM_CHAT_LINE.match('"Ally<3><BOT><Combine>" say_team "tdm1a"')
+    ok(m is not None and m.groups() == ("Combine", "say_team"), "HostSay's chat log line gives its team and verb")
 
     #-- the registry ---------------------------------------------------------
     ok(len(STEPS) == 16, "sixteen steps, as §5 lists")
@@ -12419,12 +12792,11 @@ def main(argv=None):
     order = RUN_ORDER
     if args.steps:
         wanted = [s for s in args.steps.split(",") if s]
-        unknown = [s for s in wanted if s not in RUN_ORDER]
+        order, unknown = steps_order(wanted)
         if unknown or not wanted:
             print("live-gate: --steps names no step of this gate: %s (have: %s)"
-                  % (" ".join(unknown) or "(none)", " ".join(RUN_ORDER)), file=sys.stderr)
+                  % (" ".join(unknown) or "(none)", " ".join(RUN_ORDER + TDM_ORDER)), file=sys.stderr)
             return 64
-        order = [s for s in RUN_ORDER if s == "join" or s in wanted]
 
     state = {"verdicts": {}, "failures": [], "skip_failures": []}
     rc = 70   # an exception escaping _run is a failure, never a pass
@@ -12689,6 +13061,11 @@ def _run(args, order, state):
         marks = " ".join(v.upper() for v in got) if got else "NOT RUN"
         print("  %-14s %-46s %s" % (step_id, title, marks))
     print("  %-14s %s" % ("hltv/replay", COVERAGE_HLTV))
+    named = [step for step in TDM_STEPS if step[0] in verdicts]
+    if named:
+        print("\nAND THE TEAM DEATHMATCH STEPS, run by name (TDM_STEPS: no budget row yet)")
+        for step_id, title, _func in named:
+            print("  %-14s %-46s %s" % (step_id, title, " ".join(v.upper() for v in verdicts[step_id])))
 
     times = report.get("times", [])
     if times:

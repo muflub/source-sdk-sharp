@@ -54,6 +54,18 @@ public interface IGameMode
     bool Teamplay => false;
 
     /// <summary>
+    /// Whether two players on the same team walk through each other (plan
+    /// A.7, ruled 2026-11-02): under true, the player-movement collision test
+    /// skips a teammate on both sides (<see cref="TeammatesPassRule"/> and the
+    /// client's prediction, which reads <c>mp_teammates_pass</c>), unless
+    /// <c>mp_teammates_collide</c> says teammates collide. Only movement:
+    /// bullets, blast and physics still hit a teammate. The core's answer is
+    /// stock HL2MP's (<c>CHL2MPRules::ShouldCollide</c> has no team test):
+    /// everyone blocks.
+    /// </summary>
+    bool TeammatesPass => false;
+
+    /// <summary>
     /// The join rule of the active mode, asked by <see cref="Teams.Join"/> BEFORE
     /// the registered <see cref="IJoinTeamPolicy"/> owner — the same order
     /// <see cref="Spawns"/> keeps with the selector chain. Null leaves the join

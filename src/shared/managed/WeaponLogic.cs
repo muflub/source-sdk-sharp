@@ -111,6 +111,16 @@ public interface IWeaponArms
     void MeleeSwing(in WeaponType type);
 
     /// <summary>
+    /// One melee swing tracing <paramref name="range"/> from the eye and,
+    /// where it stops, the sound matching what it stopped on:
+    /// <paramref name="hitPlayerSound"/> for a player,
+    /// <paramref name="hitWorldSound"/> otherwise. The default swings the
+    /// plain arm above, for arms that never heard the sounds' names.
+    /// </summary>
+    void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound)
+        => MeleeSwing(in type);
+
+    /// <summary>
     /// Whether a swing now would meet something: CBaseHL2MPBludgeonWeapon::
     /// Swing's aim, the ray and then the hull for a near miss. Asked on every
     /// pass, the replay's too, because it picks the animation (a hit's

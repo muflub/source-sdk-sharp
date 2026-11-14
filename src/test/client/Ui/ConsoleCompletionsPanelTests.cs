@@ -13,15 +13,27 @@ public class ConsoleCompletionsPanelTests
     {
         public readonly List<int> Taken = [];
 
-        public int CompletionCount => count;
+        /// <summary>What the list holds now; taking a row may shrink it, as the real source's rebuild does.</summary>
+        public int Count { get; set; } = count;
 
-        public ConsoleCompletion Completion(int i) => new($"cvar_{i}", "1", "", false);
+        /// <summary>The count a take leaves (the real source rebuilds the list from the line it wrote).</summary>
+        public int CountAfterTake { get; init; } = count;
+
+        public int CompletionCount => Count;
+
+        // Past the end throws, as the real source's list does.
+        public ConsoleCompletion Completion(int i)
+            => i < Count ? new($"cvar_{i}", "1", "", false) : throw new ArgumentOutOfRangeException(nameof(i));
 
         public int SelectedCompletion { get; set; }
 
         public void Submit() { }
 
-        public void TakeCompletion(int i) => Taken.Add(i);
+        public void TakeCompletion(int i)
+        {
+            Taken.Add(i);
+            Count = CountAfterTake;
+        }
     }
 
     private sealed class Rig
@@ -83,6 +95,24 @@ public class ConsoleCompletionsPanelTests
         var rig = new Rig(source);
         rig.Click("cvar_9");
         Assert.Equal([9], source.Taken);
+    }
+
+    /// <summary>
+    /// A take rebuilds the real list (MenuSources' TakeCompletion), and the panel
+    /// took it from inside the loop that was drawing the rows: the next row read
+    /// past the shrunk list's end and the console threw IndexOutOfRange (user's
+    /// report, 2026-11-08). The take waits until the rows are drawn.
+    /// </summary>
+    [Fact]
+    public void A_click_that_shrinks_the_list_draws_no_row_past_its_end()
+    {
+        var source = new Source(4) { CountAfterTake = 1 };
+        var rig = new Rig(source);
+
+        rig.Click("cvar_0");
+
+        Assert.Equal([0], source.Taken);
+        Assert.Equal(1, source.CompletionCount);
     }
 
     [Fact]

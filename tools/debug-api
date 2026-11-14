@@ -60,7 +60,7 @@
 #   tools/debug-api route /ai/counters [k=v ...]   GET a route a mod adds (/routes lists them)
 #   tools/debug-api route-post /ai/replay/load path=X   the same, as a POST
 #   tools/debug-api mockups ['{"op":"list"}']   the UI's live mock-ups (the Mockups tab's Live view)
-#   tools/debug-api ent index=40          one entity (or handle=H, name=N): velocity,
+#   tools/debug-api ent index=40          one entity (or handle=H, name=N): model, velocity,
 #                                     speed, asleep, ground
 #
 # What each C# type networks, and what one entity's bytes actually say. This is

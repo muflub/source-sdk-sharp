@@ -158,6 +158,35 @@ public class TeamDeathmatchTests
     }
 
     [Fact]
+    public void TeammatesWalkThroughEachOtherUnderTdm()
+    {
+        var rig = new Rig().Tdm();
+
+        Assert.True(rig.Modes.Active!.TeammatesPass, "team deathmatch lets teammates pass (plan A.7)");
+    }
+
+    /// <summary>The core's collide rule over the live tdm mode: a teammate's player-movement trace passes.</summary>
+    private static bool MovementHits(Rig rig, EntityHandle mover, EntityHandle other)
+    {
+        var rule = new TeammatesPassRule(rig.Modes, rig.ConVars.Declared<MpTeammatesCollideConVar>(),
+                                         rig.ConVars.Declared<MpTeammatesPassConVar>(), rig.Host);
+        return rule.ShouldCollide(mover, other, (CollisionGroup)EngineCollisionGroup.PlayerMovement, 0x201400B);
+    }
+
+    [Fact]
+    public void UnderTdmTheCollideRulePassesATeammate()
+        => Assert.False(MovementHits(new Rig().Tdm(), CombineA, CombineB));
+
+    [Fact]
+    public void UnderTdmTheCollideRuleStillStopsAnEnemy()
+        => Assert.True(MovementHits(new Rig().Tdm(), CombineA, RebelA));
+
+    /// <summary>Deathmatch (no mode switch) keeps the same teammates solid.</summary>
+    [Fact]
+    public void UnderDeathmatchTheCollideRuleStopsATeammate()
+        => Assert.True(MovementHits(new Rig(), CombineA, CombineB));
+
+    [Fact]
     public void TheModeIsTdmAndPlaysWithTeams()
     {
         var rig = new Rig().Tdm();

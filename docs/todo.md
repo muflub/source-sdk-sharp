@@ -43,6 +43,25 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## ModImageTests races another leg for bin/debug/bin/linux64 (2026-11-09)
+
+`ModImageTests.The_image_carries_the_mod_its_resolved_settings_and_the_core_and_nothing_mounted`
+failed once in a landing's `make test` (managed-server leg, 1 of 9765, at the F172 landing over
+`de4f2a056`) with `tar: ./bin/linux64: file changed as we read it`; the rerun passed. Its
+`PlantedGame` symlinks into the real `bin/debug`, and `tools/mod-image --dry-run` tars through the
+links with `tar -ch` (tools/mod-image:74), so a leg that writes `bin/debug/bin/linux64` while it runs
+fails it. Which leg writes there was not found. **Next:** find the writer, or plant a copy of
+`bin/linux64` (or a listing) instead of a link to the live directory.
+
+## The server has no single-recipient sound emit (2026-11-09)
+
+Stock plays several sounds to one player over a `CSingleUserRecipientFilter`; our server's
+sound area has no such filter, so each goes to everyone in earshot instead:
+`HealthKit.cs:118-119` (the pickup sound), `TFAnnouncer.cs:100` (the touching-enemy-cap
+notice) and `TFPlayerHealing.cs:427` (the medigun charge on/off sounds, stock :9078-9079).
+**Next:** a generic recipient argument on the server's entity emit (a forwarder row, as the
+other emits), then the three callers.
+
 ## The daily gate's rope and overlay flake follows knock-loose (2026-11-08)
 
 `rope-settle` and `debug-overlay` came back FLAKY (2 of 3) in the daily gate. Lanes F143 and

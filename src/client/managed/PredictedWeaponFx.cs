@@ -46,6 +46,18 @@ public interface IPredictedWeaponFx
     /// <summary>A swing's trace and, when it lands, its impact.</summary>
     void MeleeSwing(in PredictedShot shot, in WeaponType type);
 
+    /// <summary>
+    /// A swing's trace over <paramref name="range"/> and its impact and, where
+    /// it stops, the sound matching what it stopped on:
+    /// <paramref name="hitPlayerSound"/> for a player,
+    /// <paramref name="hitWorldSound"/> otherwise. Nothing heard on a miss.
+    /// The default keeps the plain arm above, for a recording fx that never
+    /// heard the sounds' names.
+    /// </summary>
+    void MeleeSwing(in PredictedShot shot, in WeaponType type, float range, string hitWorldSound,
+                    string hitPlayerSound)
+        => MeleeSwing(in shot, in type);
+
     /// <summary>The .357's "disorient the player": the view angles knocked up to a degree each way.</summary>
     void DisorientView()
     {
@@ -105,6 +117,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     private readonly IEngineWorldQuery _world;
     private readonly IEngineEntityRender _render;
     private readonly IEngineEntities _entities;
+    private readonly IClientStandalones _standalones;
     private readonly AmmoCatalog _ammo;
     private readonly PredictWeaponsConVar _predictWeapons;
     private readonly Client.Input.IClientInputEngine _view;
@@ -123,6 +136,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     public PredictedWeaponFx(IClientEntitySounds sounds, IClientEffectDispatch effects, IEngineEffects particles,
                              IEngineWorldQuery world,
                              IEngineEntityRender render, IEngineEntities entities,
+                             IClientStandalones standalones,
                              AmmoCatalog ammo, PredictWeaponsConVar predictWeapons, Client.Input.IClientInputEngine view)
     {
         _view = view;
@@ -132,6 +146,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         _world = world;
         _render = render;
         _entities = entities;
+        _standalones = standalones;
         _ammo = ammo;
         _predictWeapons = predictWeapons;
     }
@@ -189,6 +204,26 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
             return;
 
         ImpactAlong(shot, Angles.Vectors(shot.ViewAngles).Forward, type.MeleeRange, DamageType.Club);
+    }
+
+    public void MeleeSwing(in PredictedShot shot, in WeaponType type, float range, string hitWorldSound,
+                           string hitPlayerSound)
+    {
+        if (!_predictWeapons.Value)
+            return;
+
+        ClientTraceResult hit = ImpactAlong(shot, Angles.Vectors(shot.ViewAngles).Forward, range, DamageType.Club);
+        if (!hit.Hit)
+            return;
+
+        // What the swing stopped on, by the trace's own index: a player gets
+        // the flesh sound, anything else the world's (stock's OnSwingHit). The
+        // player's own directory answers the question here — the entity slot's
+        // IsPlayer is filled only on the server's side, so it would answer
+        // false everywhere on this one.
+        Sound(in shot, hit.EntityIndex > 0 && _standalones.GetByIndex(hit.EntityIndex) is Standalone.ClientSsPlayer
+                      ? hitPlayerSound
+                      : hitWorldSound);
     }
 
     /// <summary>
@@ -270,8 +305,8 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     /// is not there or not solid.
     /// </para>
     /// </summary>
-    private void ImpactAlong(in PredictedShot shot, Vector dir, float range, DamageType damageType,
-                             AmmoType? round = null)
+    private ClientTraceResult ImpactAlong(in PredictedShot shot, Vector dir, float range, DamageType damageType,
+                                          AmmoType? round = null)
     {
         Vector end = shot.Eye + dir * range;
         ClientTraceResult tr = _world.ClientTraceLine(shot.Eye, end, TraceMask.Shot,
@@ -283,15 +318,15 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
             tr = entity;
 
         if (!tr.Hit)
-            return;
+            return default;
 
         // A round that ends under water splashes where it went in, and marks
         // nothing below (HandleShotImpactingWater).
         if (round is { } ammo && (_world.PointContents(tr.End) & Liquid) != 0 && SplashInto(shot, end, in ammo))
-            return;
+            return tr;
 
         if ((tr.SurfaceFlags & SurfSky) != 0)
-            return;
+            return tr;
 
         var data = new EffectData
         {
@@ -305,6 +340,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         };
 
         _effects.Dispatch("Impact", in data);
+        return tr;
     }
 
     /// <summary>

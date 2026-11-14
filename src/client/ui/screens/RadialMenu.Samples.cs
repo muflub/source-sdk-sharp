@@ -54,6 +54,13 @@ internal static class RadialMenuSamples
     private static UiScreen Vote(UiSampleServices s) => Build(s, new FakeRadialMenu("Call a vote",
         new("Kick a player", "Wait 2:14", false), new("Change the map", null, true)));
 
+    [UiSample("adding a bot, no navigation")]
+    private static UiScreen NoNavigation(UiSampleServices s) => Build(s, new FakeRadialMenu("Add a bot",
+        new("Easy", "Bots need navigation: maps/dm_lockdown.nav3d is missing (make map MAP=dm_lockdown builds it)", false),
+        new("Normal", "Bots need navigation: maps/dm_lockdown.nav3d is missing (make map MAP=dm_lockdown builds it)", false),
+        new("Hard", "Bots need navigation: maps/dm_lockdown.nav3d is missing (make map MAP=dm_lockdown builds it)", false),
+        new("Expert", "Bots need navigation: maps/dm_lockdown.nav3d is missing (make map MAP=dm_lockdown builds it)", false)));
+
     [UiSample("few choices")]
     private static UiScreen Few(UiSampleServices s) => Build(s, new FakeRadialMenu("Admin",
         new("Map", null, true), new("Game mode", null, true), new("Bots", null, true)));

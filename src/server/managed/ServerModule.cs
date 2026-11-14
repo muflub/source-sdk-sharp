@@ -1875,6 +1875,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // before the proxy is composed.
         _players.AttachModes(modes);
 
+        // Teammates walk through each other in a mode that says so (plan
+        // A.7): the core's collide rule on the trace filter's chain, and the
+        // frame participant that publishes its answer to the clients.
+        _services.AddInstance(_services.Create<TeammatesPassRule>());
+
         // And the say relay gets it too: say_team asks the active mode whether
         // it plays with teams before it sends the line to teammates.
         say.AttachModes(modes);
