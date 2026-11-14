@@ -94,6 +94,13 @@ fact	ai	SourceSharp.Ai.Tests.ServerNav.NavBuildDeterminismTests.TheServersBuildA
 fact	ai	SourceSharp.Ai.Tests.ServerNav.NavBuildDeterminismTests.TheServersBuildAtFourThreadsIsTheFileMakeMapWrote	10.0	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.AiNavBuildTests.AFinishedBuildIsTheLevelsNavigationAtTheNextFrame	6.0	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.AiNavBuildTests.ABuildIsDerivedByTheGamesProfile	8.0	1
+fact	ai	SourceSharp.Ai.Tests.Jump.JumpLinkSetTests.EachJumpIsALinkNamedByItsPlace	4.7	1
+fact	ai	SourceSharp.Ai.Tests.Jump.JumpPlacesMapTests.TheReplayToolsPassFindsWhatTheFactsPassFinds	3.7	1
+fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.TheLevelsTeamSpawnsSeedThePass	3.5	1
+fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.TheLevelsBlastLinksAreFoundOnAWorkerAndPublished	3.3	1
+fact	ai	SourceSharp.Ai.Tests.Jump.JumpLinkCacheTests.TheSecondLoadReadsTheFileWhereTheFirstRanThePass	2.6	1
+fact	ai	SourceSharp.Ai.Tests.Jump.JumpPlacesTests.ACappedPassSearchesOnlyItsFirstCandidates	2.1	1
+fact	ai	SourceSharp.Ai.Tests.Jump.TFJumpsTests.ASecondLoadOfTheLevelReadsItsLinksFromTheCacheBesideTheGraph	2.1	1
 gtest-binaries	native	dead_conditionals_test	6.2	1
 must-not-compile	native	client_slot_table_no_own_serial	5.8	1
 must-not-compile	native	slot_table_no_activelist	7.0	1

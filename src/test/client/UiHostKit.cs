@@ -34,7 +34,8 @@ internal static class UiHostKit
     }
 
     public static UiHost Build(UiFidelityTests.RecordingSurface surface, UiScreen[] hudScreens, UiScreen[]? menuScreens = null,
-                               UiMenus? menus = null, RecordingEngine? engine = null, ILog? log = null, HostnameConVar? hostname = null)
+                               UiMenus? menus = null, RecordingEngine? engine = null, ILog? log = null, HostnameConVar? hostname = null,
+                               UiWindows? windows = null)
     {
         var fonts = new UiFontLibrary();
         var backend = new VguiBackend(surface, fonts, new UiFontFiles([]));
@@ -48,7 +49,8 @@ internal static class UiHostKit
         var player = new LocalPlayerUi(engine, new NoArsenal(), hud);
         var scores = new ScoreboardUi(new NoStandalones(), engine, new DefaultForwarders.NoEngineClient(), new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()), hostname ?? DeclaredConVars.Holding<HostnameConVar>("test server"), engine);
         menus ??= new UiMenus(scores, new TeamMenuUi(scores, engine, new DefaultForwarders.NoEngineClient(), new RecordingLog()), new MotdUi(), new ConsoleUi(new DefaultForwarders.NoEngineClient()));
-        var windows = new UiWindows(new MemoryWindowStore());
+        // The menu layer's windows: a fact whose windowed screens were built over its own passes them.
+        windows ??= new UiWindows(new MemoryWindowStore());
         var theme = SourceSharpTheme.Create();
         return new UiHost(log ?? new RecordingLog(), engine,
                           new UiLayer(hudScreens, new UiContext(theme, backend, localiser, []), backend),

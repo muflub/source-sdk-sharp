@@ -62,10 +62,64 @@ public sealed class TFKillFeedSourceTests
         return time;
     }
 
-    private static (Feed Feed, Clock Clock) Rig(Time? time = null)
+    private static (Feed Feed, Clock Clock) Rig(Time? time = null, params client::SourceSharp.Client.Vgui.IKillFeedKillerNames[] namers)
     {
         var clock = new Clock();
-        return (new Feed(clock, new Players(), time ?? HeldTime()), clock);
+        return (new Feed(clock, new Players(), time ?? HeldTime(), new Namers(namers)), clock);
+    }
+
+    /// <summary>The killer-name chain as the client composes it: the members given, in order.</summary>
+    private sealed class Namers(client::SourceSharp.Client.Vgui.IKillFeedKillerNames[] all)
+        : client::SourceSharp.Abi.IHooks<client::SourceSharp.Client.Vgui.IKillFeedKillerNames>
+    {
+        public IReadOnlyList<client::SourceSharp.Client.Vgui.IKillFeedKillerNames> All => all;
+
+        public void Each(string what, Action<client::SourceSharp.Client.Vgui.IKillFeedKillerNames> call)
+        {
+            foreach (var n in all)
+                call(n);
+        }
+    }
+
+    /// <summary>A mod naming what killed a player when no player did (Descent's robots).</summary>
+    private sealed class Namer(string name, int team) : client::SourceSharp.Client.Vgui.IKillFeedKillerNames
+    {
+        public int Asked { get; private set; }
+
+        public bool TryName(in Death death, out string killer, out int killerTeam)
+        {
+            Asked++;
+            (killer, killerTeam) = (name, team);
+            return true;
+        }
+    }
+
+    [Fact]
+    public void A_world_death_with_no_namer_is_a_suicide_as_stock_draws_it()
+    {
+        var (f, _) = Rig();
+        f.Add(new Death(3, 0, "world", false));
+        var l = f.Line(0);
+        Assert.Equal((true, "", "Alyx"), (l.Suicide, l.Killer, l.Victim));
+    }
+
+    [Fact]
+    public void A_death_by_no_player_is_drawn_as_a_kill_by_the_name_a_mod_gives()
+    {
+        var (f, _) = Rig(null, new Namer("Soldier Robot", 3));
+        f.Add(new Death(3, 0, "tf_projectile_rocket", false));
+        var l = f.Line(0);
+        Assert.Equal(("Soldier Robot", 3, "Alyx", false, "d_tf_projectile_rocket"),
+                     (l.Killer, l.KillerTeam, l.Victim, l.Suicide, l.Icon));
+    }
+
+    [Fact]
+    public void A_self_kill_is_not_put_to_a_namer()
+    {
+        var namer = new Namer("Soldier Robot", 3);
+        var (f, _) = Rig(null, namer);
+        f.Add(new Death(3, 3, "rocketlauncher", false));
+        Assert.Equal((0, true), (namer.Asked, f.Line(0).Suicide));
     }
 
     [Fact]

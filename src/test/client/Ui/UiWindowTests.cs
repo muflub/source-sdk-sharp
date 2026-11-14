@@ -195,6 +195,70 @@ public class UiWindowTests
         Assert.True(layer.IsOpen("a"));
     }
 
+    /// <summary>
+    /// A closed window is no longer the top: the open one under it is, so the
+    /// next Esc (the widget's, and the host's top-window arm, UiHost.ToggleMenu)
+    /// closes that one instead of finding a closed window on top and passing
+    /// the press on to the pause menu (plan_descent_logic L8). Before the fix
+    /// the closed "b" stayed on top.
+    /// </summary>
+    [Fact]
+    public void Closing_the_top_window_makes_the_open_one_under_it_the_top()
+    {
+        var windows = new UiWindows(new MemoryWindowStore());
+        var a = new Win(windows, "a", Spec);
+        var b = new Win(windows, "b", Spec);
+        var layer = new UiLayer([a, b], Context(), new SvgBackend(new SvgBackendTests.FixedMetrics()), windows);
+        layer.Open("a");
+        layer.Open("b");
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 1);
+        Assert.Equal("b", windows.Top);
+
+        layer.Close("b");
+
+        Assert.Equal("a", windows.Top);
+    }
+
+    [Fact]
+    public void Esc_closes_one_window_a_press_until_none_is_open()
+    {
+        var windows = new UiWindows(new MemoryWindowStore());
+        var a = new Win(windows, "a", Spec);
+        var b = new Win(windows, "b", Spec);
+        var layer = new UiLayer([a, b], Context(), new SvgBackend(new SvgBackendTests.FixedMetrics()), windows);
+        layer.Open("a");
+        layer.Open("b");
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 1);
+
+        layer.Input(new UiInputEvent(UiInputKind.Key, 0, 0, (int)UiKey.Escape, '\0', 0));
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 2);
+        Assert.Equal((false, true), (layer.IsOpen("b"), layer.IsOpen("a")));
+
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 3);   // no press, no close
+        Assert.True(layer.IsOpen("a"));
+
+        layer.Input(new UiInputEvent(UiInputKind.Key, 0, 0, (int)UiKey.Escape, '\0', 0));
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 4);
+        Assert.False(layer.IsOpen("a"));
+    }
+
+    [Fact]
+    public void A_closed_window_reopened_comes_up_on_top_again()
+    {
+        var windows = new UiWindows(new MemoryWindowStore());
+        var a = new Win(windows, "a", Spec);
+        var b = new Win(windows, "b", Spec);
+        var layer = new UiLayer([a, b], Context(), new SvgBackend(new SvgBackendTests.FixedMetrics()), windows);
+        layer.Open("a");
+        layer.Open("b");
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 1);
+        layer.Close("b");
+
+        layer.Open("b");
+
+        Assert.Equal("b", windows.Top);
+    }
+
     [Fact]
     public void The_close_button_closes_its_window()
     {

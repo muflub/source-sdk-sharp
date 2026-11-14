@@ -2188,8 +2188,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // A mod's death-notice decode (stage 3.1's TF kill feed): the hooks
         // resolve lazily, so the empty chain when no mod listens costs nothing.
         _services.AddFactory<IHooks<Vgui.IKillFeedListener>>(locator => new Hooks<Vgui.IKillFeedListener>(locator, Log));
+        // A mod's names for a killer that is no player (a monster, a robot):
+        // asked by every feed before it calls such a death a suicide.
+        _services.AddFactory<IHooks<Vgui.IKillFeedKillerNames>>(locator => new Hooks<Vgui.IKillFeedKillerNames>(locator, Log));
         var kills = new Vgui.KillFeed(_clock, Log, killPlayers, _services.Require<Vgui.HudDeathNoticeTimeConVar>(),
-                                      _services.Require<IHooks<Vgui.IKillFeedListener>>());
+                                      _services.Require<IHooks<Vgui.IKillFeedListener>>(),
+                                      _services.Require<IHooks<Vgui.IKillFeedKillerNames>>());
         kills.Subscribe(_services.Require<PlayerDeathEvent>());
         _services.AddInstance(kills);
         _services.AddInstance<SourceSharp.Client.Ui.IKillFeedSource>(kills);

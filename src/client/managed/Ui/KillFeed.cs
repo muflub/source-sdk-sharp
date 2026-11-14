@@ -42,6 +42,56 @@ public interface IKillFeedListener
 }
 
 /// <summary>
+/// What killed a player when no player did: a mod's monster, robot or trap,
+/// which <c>player_death</c> cannot name (its <c>attacker</c> is a user id, 0
+/// for anything that is not a player). The kill feeds ask the chain for a
+/// death whose attacker is no player and is not the victim, before they call
+/// it a suicide; the first member that answers names the killer, and the
+/// line is drawn as a kill by that name. With no member answering, the death
+/// reads as stock's: a suicide. Implemented by a <c>[SideService]</c> mod
+/// class; order among several is <see cref="IOrderedHook"/>'s.
+/// </summary>
+public interface IKillFeedKillerNames
+{
+    /// <summary>The killer of <paramref name="death"/>, when no player killed: its name and team; false when this member does not know.</summary>
+    bool TryName(in PlayerDeathArgs death, out string name, out int team);
+}
+
+/// <summary>
+/// The first answer of the <see cref="IKillFeedKillerNames"/> chain, for a
+/// death no player is credited with: what the core feed and a mod's feed ask
+/// alike, so they agree. A member that throws is skipped.
+/// </summary>
+public static class KillFeedKillers
+{
+    /// <summary>
+    /// The named killer of a death whose attacker is no player (<paramref name="hasKiller"/> false)
+    /// and not the victim; false for every other death, and when no member answers.
+    /// </summary>
+    public static bool TryName(IHooks<IKillFeedKillerNames>? names, in PlayerDeathArgs death, bool hasKiller,
+                               out string name, out int team)
+    {
+        (name, team) = ("", 0);
+        if (hasKiller || names is null || death.AttackerUserId == death.UserId)
+            return false;
+        foreach (var member in names.All)
+        {
+            try
+            {
+                if (member.TryName(in death, out name, out team) && name.Length > 0)
+                    return true;
+            }
+            catch (Exception)
+            {
+                // A broken member names nobody; the next is asked.
+            }
+        }
+        (name, team) = ("", 0);
+        return false;
+    }
+}
+
+/// <summary>
 /// THE KILL FEED'S QUEUE (stock CHudDeathNotice, hl2mp/hud_deathnotice.cpp):
 /// each player_death becomes a line, the oldest dropped past
 /// <see cref="MaxLines"/> (stock MaxDeathNotices 4), each kept
@@ -60,13 +110,14 @@ public sealed class KillFeed : IKillFeedSource
     private readonly IKillFeedPlayers _players;
     private readonly HudDeathNoticeTimeConVar? _time;
     private readonly IHooks<IKillFeedListener>? _listeners;
+    private readonly IHooks<IKillFeedKillerNames>? _killerNames;
     private readonly KillFeedLine[] _lines = new KillFeedLine[MaxLines];
     private readonly float[] _expires = new float[MaxLines];
     private int _count;
 
     public KillFeed(IGameClock clock, ILog log, IKillFeedPlayers players, HudDeathNoticeTimeConVar? time = null,
-                    IHooks<IKillFeedListener>? listeners = null)
-        => (_clock, _log, _players, _time, _listeners) = (clock, log, players, time, listeners);
+                    IHooks<IKillFeedListener>? listeners = null, IHooks<IKillFeedKillerNames>? killerNames = null)
+        => (_clock, _log, _players, _time, _listeners, _killerNames) = (clock, log, players, time, listeners, killerNames);
 
     /// <summary>The lines as of now: reading the count retires the expired ones first.</summary>
     public int LineCount
@@ -98,6 +149,11 @@ public sealed class KillFeed : IKillFeedSource
             (killer, killerTeam, killerLocal) = ("", 0, false);
         if (!hasVictim)
             (victim, victimTeam, victimLocal) = ("", 0, false);
+
+        // A killer that is no player, named by a mod (IKillFeedKillerNames):
+        // the line is a kill by that name, not stock's suicide.
+        if (KillFeedKillers.TryName(_killerNames, in death, hasKiller, out string named, out int namedTeam))
+            (killer, killerTeam, hasKiller) = (named, namedTeam, true);
 
         // Stock: iSuicide = ( !killer || killer == victim ), on entity indices.
         bool suicide = !hasKiller || death.AttackerUserId == death.UserId;

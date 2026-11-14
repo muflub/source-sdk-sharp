@@ -13,6 +13,7 @@ public sealed class TFUiRegistrar : ISideServiceRegistrar
     {
         registry.AddHooks<ITFLoadoutReplyHook>();
         registry.AddHooks<ITFHudNotifyHook>();
+        registry.AddHooks<TF2.Shared.Combat.ITFKillerNameHook>();
         registry.Add<TFVoiceMenus, TFVoiceMenus>();
     }
 }

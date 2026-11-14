@@ -419,6 +419,55 @@ public class UiMenuHostTests
         Assert.False(host.Menu.IsOpen("mainmenu"));             // and the next hid it
     }
 
+    /// <summary>A windowed screen over the host's windows.</summary>
+    private sealed class HostWin(UiWindows windows, string id) : UiScreen, IUiWindowed
+    {
+        public override string Name => id;
+
+        public string WindowId => id;
+
+        public override void Describe(ref UiFrame ui)
+        {
+            using (ui.Window(windows, id, "#SS_UI_Console_Title", new UiWindowSpec(600, 400, 300, 200, 1000, 800, 500)))
+                ui.Rect(Tone.SurfaceRaised, Size.Fill, Size.Fill);
+        }
+    }
+
+    /// <summary>
+    /// Two windows up: each Escape closes one, the top first, and only once none
+    /// is open does the next open the pause menu (plan_descent_logic L8). The
+    /// host decides the press, so the layer does not get it as well: before, the
+    /// press the host closed the top window with reached the layer's next frame
+    /// too, where the window under it took it as its own Esc and closed.
+    /// </summary>
+    [Fact]
+    public void Escape_closes_one_window_a_press_then_opens_the_pause_menu()
+    {
+        var surface = new UiFidelityTests.RecordingSurface();
+        var m = UiHostKit.Build(surface, []).Menus;
+        var windows = new UiWindows(new MemoryWindowStore());
+        var fake = new FakeMainMenu();
+        UiScreen[] menus = [new MainMenu(fake, fake, new BuildStampPanel(new FakeBuildStamp())),
+                            new HostWin(windows, "a"), new HostWin(windows, "b")];
+        float seconds = 3;
+        var engine = TestServices.Fake().ReturnsEachCall("Clock.Now", () => seconds += 1);
+        var host = UiHostKit.Build(surface, [], menus, m, engine, windows: windows);
+        host.Open("a");
+        host.Open("b");
+        host.Paint(1, 1920, 1080);
+
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        host.Paint(1, 1920, 1080);
+        Assert.Equal((false, true, false), (host.Menu.IsOpen("b"), host.Menu.IsOpen("a"), host.Menu.IsOpen("mainmenu")));
+
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        host.Paint(1, 1920, 1080);
+        Assert.Equal((false, false), (host.Menu.IsOpen("a"), host.Menu.IsOpen("mainmenu")));
+
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.True(host.Menu.IsOpen("mainmenu"));
+    }
+
     /// <summary>With a screen up, Escape closes that first; the pause menu opens
     /// only once nothing else wants the keyboard (two presses, one behaviour each).</summary>
     [Fact]
