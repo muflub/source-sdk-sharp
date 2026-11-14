@@ -20,6 +20,29 @@ public static class HallShape
         var rng = new RoomSeed(seed, "hall");
         yield return Build("hall_we", kit, theme, rng, [CellFace.West, CellFace.East]);
         yield return Build("hall_wen", kit, theme, rng, [CellFace.West, CellFace.East, CellFace.North]);
+        yield return Build("hall_ne", kit, theme, rng, [CellFace.North, CellFace.East]);
+        yield return Ring("hall_nesw", kit, theme, rng);
+    }
+
+    /// <summary>
+    /// The four-door hall: no wall is free for a mezzanine, so a catwalk ring
+    /// (B2) runs round above the doors and stepping pillars (S2) cross the
+    /// middle, the floor route round them.
+    /// </summary>
+    private static Room Ring(string name, RoomKit kit, RoomTheme theme, RoomSeed rng)
+    {
+        float m = kit.Cell / 2f, f = kit.Sill;
+        var b = new RoomBuilder(name, kit, theme).WithHeight(Height).WithDoors(ShapeParts.Four)
+            .WithEntry(new RoomEntry([], Weight: 2, Jump: true))
+            .WithMapLabel("Hall")
+            .CatwalkRing(depth: 96, t: 0.25f + rng.Fraction() / 2)
+            .SteppingPillars(m - 216, m + 96, Compass.East, JumpTier.S2, count: 3)
+            .WithMarker(MarkerKind.PackSpawn, new Point(m, m - 192, f), radius: 96)
+            .WithMarker(MarkerKind.PackSpawn, new Point(m - 256, m - 256, f), radius: 64);
+        foreach (float x in (float[])[m - 256, m + 256])
+            foreach (float y in (float[])[m - 256, m + 256])
+                b.WithLamp(new Point(x, y, f + 448), HallLamp);
+        return b.Build();
     }
 
     private static Room Build(string name, RoomKit kit, RoomTheme theme, RoomSeed rng, CellFace[] doors)

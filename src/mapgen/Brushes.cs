@@ -366,6 +366,66 @@ public sealed class Brush
     }
 
     /// <summary>
+    /// An upright prism over a convex footprint: <paramref name="footprint"/>
+    /// is its corners on the floor plan, counter-clockwise from above, from
+    /// <paramref name="z0"/> to <paramref name="z1"/>. A diagonal cut across a
+    /// room's corner is a triangle; a rounded corner, a fan of them.
+    /// </summary>
+    public static Brush Column(IReadOnlyList<(float X, float Y)> footprint, float z0, float z1, Surface surface, Surface? top = null)
+    {
+        if (footprint.Count < 3)
+            throw new ArgumentException("a column's footprint has three corners at least", nameof(footprint));
+        if (z1 <= z0)
+            throw new ArgumentException($"a column from {z0} to {z1} has no height");
+        double area = 0;
+        for (int i = 0; i < footprint.Count; i++)
+        {
+            var (ax, ay) = footprint[i];
+            var (bx, by) = footprint[(i + 1) % footprint.Count];
+            area += (double)ax * by - (double)bx * ay;
+        }
+
+        if (area <= 0)
+            throw new ArgumentException("a column's footprint is wound clockwise or has no area; give it counter-clockwise from above", nameof(footprint));
+        Point[] ring = [.. footprint.Select(p => new Point(p.X, p.Y, 0))];
+        var faces = new List<BrushFace>
+        {
+            new([.. ring.Select(p => p with { Z = z1 })], top ?? surface),
+            new([.. ring.Reverse().Select(p => p with { Z = z0 })], surface),
+        };
+        for (int i = 0; i < ring.Length; i++)
+        {
+            Point a = ring[i], b = ring[(i + 1) % ring.Length];
+            faces.Add(new([a with { Z = z0 }, b with { Z = z0 }, b with { Z = z1 }, a with { Z = z1 }], surface));
+        }
+
+        return new(faces, surface);
+    }
+
+    /// <summary>
+    /// A spike: an n-sided pyramid whose base is the circle of
+    /// <paramref name="radius"/> at <paramref name="zBase"/> and whose tip is
+    /// at <paramref name="zTip"/> over the centre (below the base for a
+    /// stalactite, above it for a stalagmite).
+    /// </summary>
+    public static Brush Spike(float centreX, float centreY, float radius, int sides, float zTip, float zBase, Surface surface)
+    {
+        if (sides < 3 || zTip == zBase)
+            throw new ArgumentException("a spike has three sides at least and a height");
+        Point[] ring = [.. Enumerable.Range(0, sides).Select(i => Corner(centreX, centreY, radius, 360f * i / sides, zBase))];
+        Point tip = new(MathF.Round(centreX), MathF.Round(centreY), zTip);
+        bool down = zTip < zBase;
+        var faces = new List<BrushFace> { new(down ? ring : [.. ring.Reverse()], surface) };
+        for (int i = 0; i < sides; i++)
+        {
+            Point a = ring[i], b = ring[(i + 1) % sides];
+            faces.Add(new(down ? [b, a, tip] : [a, b, tip], surface));
+        }
+
+        return new(faces, surface);
+    }
+
+    /// <summary>
     /// A round wall: <paramref name="sides"/> segments between the circles of
     /// <paramref name="inner"/> and <paramref name="outer"/> radius, each a
     /// four-sided prism sharing its corners with the next, so the ring is

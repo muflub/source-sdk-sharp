@@ -246,7 +246,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
 help:
@@ -263,7 +263,8 @@ help:
 	@echo "  make dedicated [DEDICATED_MOD=tf2_descent] [HOSTED=1]   a dedicated server (unhosted unless HOSTED=1)"
 	@echo "  make join ADDR=host:port [JOIN_MOD=tf2_descent]         a client joining a server"
 	@echo "  make town                            generate and compile tf2_descent_town into the tf2_descent mod"
-	@echo "  make descent-rooms                   write, pack, link and preview the Descent room library (MAPTOOLS_DIR=...)"
+	@echo "  make descent-rooms [DEPTH=n]         write and pack depth n's Descent room library (MAPTOOLS_DIR=...)"
+	@echo "  make descent-level DEPTH=n SEED=s    lay out, link and preview a Descent level from it"
 	@echo "  make mod-image [CONFIG=release] [MOD_IMAGE=ref]      build (never push) the hosted mod image"
 	@echo "  make local-hosted                    the tf2_descent mod against the host's local service"
 	@echo "  make debug      build with symbols kept in the binaries"
@@ -692,14 +693,19 @@ ai-nav-tf:
 	$(call require-setup,$(CONFIG))
 	@tools/ai-nav-build $(if $(filter command line environment,$(origin MAP)),$(MAP),$(TF_NAV_MAPS)) --mod tf2 --config $(CONFIG) $(NAV_TREE)
 
-# The Descent room library (plan_descent_mine_levels.md task A13): MapGen's
-# `descent-rooms` writes the library VMF, its library.json and a sample level
-# per depth into bin/<config>/descent-rooms (per-tree build output, never
-# committed); `ssmap room` packs it, `ssmap link` links each sample level, and
-# `ssmap preview` draws it three times, with where a Heavy, a Scout and a
-# Soldier can go. The samples link without -mod-entities, so their spawn
-# points are info_player_starts the movement report walks from (with them the
-# mod reads the spawns from the .nav3d and the report reaches nothing). The map tools are $(MAPTOOLS_DIR) (the plan's kit needs a
+# The Descent room libraries (plan_descent_mine_levels.md tasks A13, E2):
+# `make descent-rooms DEPTH=n` has MapGen's `descent-rooms` write depth n's
+# library (the grey catalogue on the normal kit, or a boss depth's row on its
+# own kit) and its library.json into bin/<config>/descent-rooms/dNN (per-tree
+# build output, never committed), and `ssmap room` packs it.
+# `make descent-level DEPTH=n SEED=s` lays a level of depth n out of that
+# library with the rules' generator (MapGen `descent-level`; a pool that cannot
+# make the level prints the generator's reason), links it as the host does
+# (-mod-entities) into dNN/maps/tf2_descent-n-ss.bsp, links it again without
+# -mod-entities for the preview (its arrival is then an info_player_start the
+# movement report walks from; with them the mod reads the spawns from the
+# .nav3d and the report reaches nothing), and previews that with where a
+# Heavy can go. The map tools are $(MAPTOOLS_DIR) (the plan's kit needs a
 # checkout whose doors stand on the floor at any height, e.g.
 # MAPTOOLS_DIR=../mt-descent-rooms); a built bin/Release/ssmap.dll there is run
 # directly, else $(SSMAP).
@@ -715,7 +721,11 @@ ai-nav-tf:
 # missing materials and models must be 0.
 DESCENT_DIR    := $(CURDIR)/bin/$(CONFIG)/descent-rooms
 DESCENT_SEED   ?= 0
-DESCENT_DEPTHS ?= 1
+DEPTH          ?= 1
+SEED           ?= 1
+DESCENT_D      := $(DESCENT_DIR)/d$(shell printf %02d $(DEPTH))
+DESCENT_LIB    := descent_d$(shell printf %02d $(DEPTH))
+DESCENT_LEVEL  := tf2_descent-$(DEPTH)-s$(SEED)
 DESCENT_VIEW   := $(CURDIR)/bin/$(CONFIG)/descent-game
 DESCENT_GAME   ?= $(DESCENT_VIEW)/tf2_descent
 SSMAP_DESCENT  ?= $(if $(wildcard $(MAPTOOLS_DIR)/bin/Release/ssmap.dll),$(DOTNET) $(MAPTOOLS_DIR)/bin/Release/ssmap.dll,$(SSMAP))
@@ -730,29 +740,31 @@ descent-view:
 	@for c in hl2 platform; do ln -sfn ../content/$$c $(DESCENT_VIEW)/$$c; done
 descent-rooms: descent-view
 	@test -d "$(MAPTOOLS_DIR)" || { echo "error: no map tools at $(MAPTOOLS_DIR) (MAPTOOLS_DIR)"; exit 1; }
-	@test -d "$(DESCENT_GAME)" || { echo "error: no game content at $(DESCENT_GAME) (DESCENT_GAME)"; exit 1; }
-	@mkdir -p $(DESCENT_DIR)/maps
-	@$(DOTNET) run --project $(MAPGEN) -- descent-rooms $(DESCENT_DIR) --seed $(DESCENT_SEED) --depths $(DESCENT_DEPTHS)
-	@echo "==> ssmap room descent_demo"
-	@set -o pipefail; $(SSMAP_DESCENT) room $(DESCENT_DIR)/descent_demo.vmf -game "$(DESCENT_GAME)" -out $(DESCENT_DIR)/descent_demo.roompack 2>&1 \
-	    | grep -v 'mounted nothing' > $(DESCENT_DIR)/room.log || { tail -20 $(DESCENT_DIR)/room.log; exit 1; }
-	@grep 'compiled\|wrote' $(DESCENT_DIR)/room.log
-	@for d in $$(echo $(DESCENT_DEPTHS) | tr ',' ' '); do \
-	    level=descent_demo_d$$(printf %02d $$d); \
-	    echo "==> ssmap link $$level"; \
-	    $(SSMAP_DESCENT) link $(DESCENT_DIR)/$$level.yaml -rooms $(DESCENT_DIR)/descent_demo.roompack \
-	        -out $(DESCENT_DIR)/maps/$$level.bsp > $(DESCENT_DIR)/$$level.link.log 2>&1 || { tail -20 $(DESCENT_DIR)/$$level.link.log; exit 1; }; \
-	    for class in heavy scout soldier; do \
-	        echo "==> ssmap preview $$level -movement $$class"; \
-	        $(SSMAP_DESCENT) preview $(DESCENT_DIR)/maps/$$level.bsp -game "$(DESCENT_GAME)" -movement $$class \
-	            -out $(DESCENT_DIR)/$$level-preview-$$class > $(DESCENT_DIR)/$$level.preview-$$class.log 2>&1 \
-	            || { tail -20 $(DESCENT_DIR)/$$level.preview-$$class.log; exit 1; }; \
-	        $(DESCENT_CONTENT_CHECK) $(DESCENT_DIR)/$$level.preview-$$class.log || { \
-	            echo "error: $$level names a material or model $(DESCENT_GAME) does not hold:"; \
-	            grep 'missing' $(DESCENT_DIR)/$$level.preview-$$class.log; exit 1; }; \
-	    done; \
-	done
-	@echo "==> $(DESCENT_DIR): open each *-preview-*/sheet.png"
+	@mkdir -p $(DESCENT_D)/maps
+	@$(DOTNET) run --project $(MAPGEN) -- descent-rooms $(DESCENT_D) --seed $(DESCENT_SEED) --depth $(DEPTH)
+	@echo "==> ssmap room $(DESCENT_LIB)"
+	@set -o pipefail; $(SSMAP_DESCENT) room $(DESCENT_D)/$(DESCENT_LIB).vmf -game "$(DESCENT_GAME)" -out $(DESCENT_D)/$(DESCENT_LIB).roompack 2>&1 \
+	    | grep -v 'mounted nothing' > $(DESCENT_D)/room.log || { tail -20 $(DESCENT_D)/room.log; exit 1; }
+	@grep 'wrote' $(DESCENT_D)/room.log
+descent-level: descent-view
+	@test -f $(DESCENT_D)/$(DESCENT_LIB).roompack || { echo "error: no $(DESCENT_LIB).roompack: make descent-rooms DEPTH=$(DEPTH) first"; exit 1; }
+	@mkdir -p $(DESCENT_D)/maps
+	@$(DOTNET) run --project $(MAPGEN) -- descent-level $(DESCENT_D) $(DEPTH) $(SEED) $(DESCENT_D)/$(DESCENT_LEVEL).yaml
+	@echo "==> ssmap link $(DESCENT_LEVEL) -mod-entities"
+	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack -mod-entities \
+	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp > $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
+	@grep 'map entities' $(DESCENT_D)/$(DESCENT_LEVEL).link.log
+	@echo "==> ssmap link $(DESCENT_LEVEL) for the preview"
+	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack \
+	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp > $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@echo "==> ssmap preview $(DESCENT_LEVEL) -movement heavy"
+	@$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -movement heavy \
+	    -out $(DESCENT_D)/$(DESCENT_LEVEL)-preview > $(DESCENT_D)/$(DESCENT_LEVEL).preview.log 2>&1 \
+	    || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
+	@$(DESCENT_CONTENT_CHECK) $(DESCENT_D)/$(DESCENT_LEVEL).preview.log || { \
+	    echo "error: $(DESCENT_LEVEL) names a material or model $(DESCENT_GAME) does not hold:"; \
+	    grep 'missing' $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
+	@echo "==> $(DESCENT_D)/$(DESCENT_LEVEL)-preview/sheet.png"
 
 # The AI's own test maps (plan_hl2mp_ai §6.6): room libraries and their
 # levels, generated by src/mapgen (`aimaps`) into game/mod_test/maps/src/ai,

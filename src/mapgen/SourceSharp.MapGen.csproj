@@ -10,5 +10,8 @@
          mod actually implements rather than a list kept by hand. -->
     <ProjectReference Include="..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\server\managed\SourceSharp.Server.csproj" />
+    <!-- The Descent rules: the room-name codec every library room is named by,
+         and the level layout generator `descent-level` lays a level out with. -->
+    <ProjectReference Include="..\tf2_descent\rules\TF2.Descent.Rules.csproj" />
   </ItemGroup>
 </Project>

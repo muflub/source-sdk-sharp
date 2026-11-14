@@ -248,25 +248,25 @@ if (args.Length > 0 && args[0] == "tfaimaps")
     return 0;
 }
 
-// "descent-rooms" writes the Descent room library (plan_descent_mine_levels.md
-// task A13) into the directory given: the VMF, its library.json and a sample
-// level per depth, which `make descent-rooms` packs with ssmap room and links.
+// "descent-rooms" writes one depth's Descent room library (plan_descent_mine_levels.md
+// task A13, E2) into the directory given: the VMF on the depth's kit and its
+// library.json, which `make descent-rooms` packs with ssmap room.
 if (args.Length > 0 && args[0] == "descent-rooms")
 {
     if (args.Length < 2)
     {
-        Console.Error.WriteLine("usage: MapGen descent-rooms <dir> [--seed N] [--depths 1,2,...]");
+        Console.Error.WriteLine("usage: MapGen descent-rooms <dir> [--seed N] [--depth D]");
         return 2;
     }
 
     ulong seed = 0;
-    int[] depths = [1];
+    int depth = 1;
     for (int i = 2; i + 1 < args.Length; i += 2)
     {
         if (args[i] == "--seed")
             seed = ulong.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
-        else if (args[i] == "--depths")
-            depths = [.. args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(d => int.Parse(d, System.Globalization.CultureInfo.InvariantCulture))];
+        else if (args[i] == "--depth")
+            depth = int.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
         else
         {
             Console.Error.WriteLine($"descent-rooms: unknown option {args[i]}");
@@ -276,15 +276,68 @@ if (args.Length > 0 && args[0] == "descent-rooms")
 
     try
     {
-        foreach (string file in SourceSharp.MapGen.Descent.DescentRooms.Write(args[1], seed, depths))
+        foreach (string file in SourceSharp.MapGen.Descent.DescentRooms.Write(args[1], depth, seed))
             Console.WriteLine(file);
     }
-    catch (InvalidOperationException e)
+    catch (Exception e) when (e is InvalidOperationException or ArgumentOutOfRangeException)
     {
         Console.Error.WriteLine($"descent-rooms: {e.Message}");
         return 1;
     }
 
+    return 0;
+}
+
+// "descent-level" lays a Descent level out from a library's library.json with
+// the rules module's generator and writes its level file for `ssmap link`
+// (`make descent-level`). A pool that cannot make the level is the
+// generator's reason and exit 1.
+if (args.Length > 0 && args[0] == "descent-level")
+{
+    if (args.Length < 4
+        || !int.TryParse(args[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int levelDepth)
+        || !ulong.TryParse(args[3], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong levelSeed))
+    {
+        Console.Error.WriteLine("usage: MapGen descent-level <librarydir> <depth> <seed> [<out.yaml>]");
+        return 2;
+    }
+
+    string levelOut = args.Length > 4 ? args[4]
+        : Path.Combine(args[1], string.Create(System.Globalization.CultureInfo.InvariantCulture, $"tf2_descent-{levelDepth}-s{levelSeed}.yaml"));
+    try
+    {
+        var (error, report) = SourceSharp.MapGen.Descent.DescentLevel.Generate(args[1], levelDepth, levelSeed, levelOut);
+        if (error is not null)
+        {
+            Console.Error.WriteLine($"descent-level: depth {levelDepth}, seed {levelSeed}: {error}");
+            return 1;
+        }
+
+        Console.WriteLine(levelOut);
+        foreach (string line in SourceSharp.MapGen.Descent.DescentLevel.Comments(levelDepth, levelSeed, report!))
+            Console.WriteLine("  " + line);
+    }
+    catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException)
+    {
+        Console.Error.WriteLine($"descent-level: {e.Message}");
+        return 1;
+    }
+
+    return 0;
+}
+
+// "descent-materials" writes the Descent themes' own materials (the door
+// plugs) under <moddir>/materials; game/mod_tf2_descent holds them committed.
+if (args.Length > 0 && args[0] == "descent-materials")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen descent-materials <moddir>");
+        return 2;
+    }
+
+    foreach (string file in SourceSharp.MapGen.Descent.DescentRooms.WriteMaterials(args[1]))
+        Console.WriteLine(file);
     return 0;
 }
 

@@ -28,7 +28,9 @@ public static class PitShape
             .Terrace(new Rect(176, 688, 816, 848)).Terrace(new Rect(176, 176, 816, 336)).Terrace(new Rect(176, 336, 336, 688))
             .StairsUp(new Rect(624, 560, 768, 688), Compass.North, Depth)
             .StairsUp(new Rect(624, 336, 768, 464), Compass.South, Depth);
-        a.Pillars([(432, 480), (560, 576)], rng);
+        // One pillar in the pit's middle, a giant's width from every terrace and stair: two left a
+        // pocket by the north-west terraces a player dropped into and could not leave.
+        a.Pillars([(480, 512)], rng);
         a.LampsAlong(Parts.DoorPoint(kit, CellFace.East, 0), new Point(400, m, kit.Sill), 288, above, lamp)
             .LampAt(320, 768, above, lamp).LampAt(320, 256, above, lamp).LampAt(700, 768, above, lamp).LampAt(700, 256, above, lamp).LampAt(256, m, above, lamp)
             .Mark(MarkerKind.PackSpawn, 400, 784, above: Depth).Mark(MarkerKind.PackSpawn, 400, 240, above: Depth).Pack(880, 760)

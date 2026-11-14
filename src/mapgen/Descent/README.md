@@ -11,12 +11,19 @@ public static IEnumerable<Room> Variants(RoomKit kit, RoomTheme theme, ulong see
 
 and it joins the catalogue as a `RoomShape("family", MyShape.Variants)` in
 `RoomCatalogue`. `Shapes/DriftShape.cs` and `Shapes/HallShape.cs` are the two
-worked examples; copy one.
+worked examples; copy one. The rest of `Shapes/` is Phase 1's grey
+placeholders, one family a file, for a real shape to replace in place.
 
 ## Rules a family keeps
 
-- **Name every room `<family>_<variant>`** (`hall_we`). The catalogue refuses
-  anything else, and the names must be stable for a seed.
+- **Name every room `<family>_<variant>`** (`hall_we`), the variant lower-case
+  letters and digits. The catalogue refuses anything else, and the names must
+  be stable for a seed. It then renames the room by the rules module's codec
+  (`TF2.Descent.Rules.Layout.RoomName`, plan E8) from the room's own facts:
+  `hall_we-ew-h-j.s2.b1` is its doors, its height class (`room_height` up to
+  256 low, 512 chamber, 1024 hall, above that shaft), `j` when its entry says
+  jump, and a flag per tier whose feature (below) it holds
+  (`LayoutNames`). Never type the suffix.
 - **Vary only through `RoomSeed`** (`new RoomSeed(seed, "family")`: `Int`,
   `Fraction`, `Chance`, `Pick`). Never `System.Random`, never the clock. The
   same seed writes the same bytes; a fact checks it.
@@ -41,21 +48,31 @@ var b = new RoomBuilder("hall_we", kit, theme)
     .WithEntry(new RoomEntry(["junction"], Weight: 2, MinDepth: 1, MaxDepth: 9, Jump: true));
 ```
 
-- **The kit** (`RoomKit.Normal`: cell 1024, door 256 by 192, wall 32) is
-  shared by every room of a level. Doors stand on the floor (z = 32,
-  room-local) centred on their wall; the shell, door plugs, jambs and lintels
-  are written for you. Room-local coordinates: the cell is `[0, 1024]` in x and
-  y, `[0, height]` in z; east is +x, north is +y; the floor's top is
-  `b.Floor` (32), the ceiling's underside `b.CeilingUnderside`, the interior
-  square `b.InteriorLow` to `b.InteriorHigh`.
+- **The kit** (`RoomKit.Normal`: cell 1024, door 208 by 192, wall 16,
+  navigation voxel 16) is shared by every room of a level. It is cut to its
+  door frame model (`RoomKit.For`, `FrameModel`): the wall is one voxel, and
+  each room's 16-deep frame fills its half of the doorway; the opening is
+  the frame's outer width and its height under the head. Write every size from the kit, never as a number:
+  the boss kits (2048, 3072, 4096) have walls of 16 and 32. Doors stand on
+  the floor (z = the wall's depth, room-local) centred on their wall; the
+  shell, door plugs, jambs and lintels are written for you. Room-local
+  coordinates: the cell is `[0, cell]` in x and y, `[0, height]` in z; east
+  is +x, north is +y; the floor's top is `b.Floor`, the ceiling's underside
+  `b.CeilingUnderside`, the interior square `b.InteriorLow` to
+  `b.InteriorHigh`. Heights and marker heights are whole navigation voxels
+  above the cell's floor: the tools stand a marker in the voxel its height
+  falls in.
 - **Height classes** (§3.1): low 192 to 256 (drifts, crawls), chamber 512,
   hall 1024 (the rocket room), shaft 1536 to 2048 (the sticky tier).
-- **Door frames and caps** are automatic: every door gets a timber
-  `func_brush` lining its half of the opening, kept by the link only where
-  the socket is joined (`DoorFrame`, 224 by 172 clear), and a wall panel 2
-  in front of the plug kept only where it is capped (a capped plug is a tool
-  texture and would show the sky). Neither casts vrad shadows. Each costs an
-  entity per placed socket. `WithoutDoorFrames()` is for test fixtures only.
+- **Door frames and caps** are automatic: every door gets the kit's frame
+  model and sill planks (as many as cover the wall's depth) as non-solid
+  `prop_static`s lining its half of the doorway, the floor let down 2 under
+  the plug (`RoomBuilder.DoorwayDip`, short of the cell face) so the planks
+  have the room's air to stand in and the doorway's floor is never the void, kept by the link only where the socket is joined (`room_needs
+  joined_<wall>`), which cost no entity; and a wall panel `func_brush` 2 in
+  front of the plug kept only where it is capped (a plug's face cannot be
+  lit: `RoomBuilder.CapThickness`), one entity per capped socket. Neither
+  casts shadows. `WithoutDoorFrames()` is for test fixtures only.
 - **Brushes**: `WithBox(mins, maxs, surface?)` for a box in the theme's block
   surface, `WithBrush` / `WithBrushes` for anything from `Brush`:
   `Brush.Wedge` (a ramp rising toward a `Compass` heading), `Brush.Stairs`,
@@ -116,7 +133,7 @@ Each rule is measured from the brushes and markers, on 16-unit columns:
 | `jump_clear_air` | a room whose entry says `jump` without 576 of clear air over half its reachable floor and a straight 768 run |
 | `ledge_pays` | a ledge higher than T1 that no T1 route reaches and that has no reward marker on it |
 | `inside_cell` | a brush or entity outside the cell |
-| `frame_clear` | a door with no frame, or a frame in a giant's 92 by 156 |
+| `frame_clear` | a door without one frame and one sill prop kept where it is joined, a solid frame, or a kit whose frame leaves less than a giant's 92 by 156 |
 
 ## Testing and looking
 
@@ -124,9 +141,12 @@ Each rule is measured from the brushes and markers, on 16-unit columns:
   fact that its rooms lint clean (`RoomLint.Check`) at a few seeds, and one
   per thing the family promises.
 - `make managed-test FILTER='FullyQualifiedName~Descent'`.
-- `make descent-rooms MAPTOOLS_DIR=<map tools checkout>` writes the library
-  VMF, `library.json` and a sample level per depth into
-  `bin/<config>/descent-rooms/`, packs it with `ssmap room`, links the sample
-  level and previews it (`-movement heavy`, `scout`, `soldier`). Open the
-  preview sheets (`.../preview-<class>/sheet.png`) and look before you ship a
-  family.
+- `make descent-rooms DEPTH=n MAPTOOLS_DIR=<map tools checkout>` writes depth
+  n's library (`DescentRooms`: the `RoomCatalogue.Grey` families on the normal
+  kit, or a boss depth's `RoomCatalogue.Boss` row on its own kit) and its
+  `library.json` into `bin/<config>/descent-rooms/dNN/` and packs it with
+  `ssmap room`, reading the mod's own game directory.
+- `make descent-level DEPTH=n SEED=s` lays a level out of it with the rules'
+  generator (`MapGen descent-level`), links it as the host does and again for
+  the preview, and previews it with `-movement heavy`. Open
+  `dNN/tf2_descent-n-ss-preview/sheet.png` and look before you ship a family.

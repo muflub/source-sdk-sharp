@@ -7,11 +7,9 @@
     from the host repo's `make pack` output, never from nuget.org: the package is
     the contract between the two repos (plan_host_sdk §2.5). HOST_ROOT names a
     checkout other than the sibling one; `make host-pack` builds the packages.
+    HostRoot and HostPackageDir are the repo's (Directory.Build.props).
   -->
   <PropertyGroup>
-    <HostRoot Condition="'$(HostRoot)' == '' and '$(HOST_ROOT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(HOST_ROOT)'))</HostRoot>
-    <HostRoot Condition="'$(HostRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-sharp-host/'))</HostRoot>
-    <HostPackageDir>$(HostRoot)bin/nupkg</HostPackageDir>
     <!-- The SDK's package version is its wire version (host 594b2b1): 2.x speaks
          sourcesharp.*.v1, and the host's Booting refuses any other major. The
          rules-module contract versions on its own. -->

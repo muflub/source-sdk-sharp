@@ -51,7 +51,7 @@ public sealed class DescentRoomLibraryTests
         var keys = Keys(InfoRoom(lib.Build(), "hall"));
 
         Assert.Equal(lib.Corner(1).ToString(), keys["origin"]);
-        Assert.Equal(("1024", "256", "192", "32"), (keys["cell_size"], keys["door_width"], keys["door_height"], keys["wall_depth"]));
+        Assert.Equal(("1024", "208", "192", "16"), (keys["cell_size"], keys["door_width"], keys["door_height"], keys["wall_depth"]));
         Assert.False(keys.ContainsKey("room_height"));
         Assert.False(keys.ContainsKey("room_role"));
     }
@@ -148,9 +148,15 @@ public sealed class DescentRoomLibraryTests
     }
 
     [Fact]
-    public void A_normal_library_leaves_the_navigation_voxel_at_the_tools_default()
+    public void A_normal_library_on_the_tools_default_voxel_leaves_it_unwritten()
     {
         Assert.DoesNotContain(Library().Build().World, kv => kv.Key == "nav_voxel_size");
+    }
+
+    [Fact]
+    public void A_library_on_the_tools_default_voxel_leaves_it_unwritten()
+    {
+        Assert.DoesNotContain(new RoomLibrary(RoomKit.Boss2048).Build().World, kv => kv.Key == "nav_voxel_size");
     }
 
     [Fact]

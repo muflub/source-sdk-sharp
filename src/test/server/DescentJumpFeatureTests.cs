@@ -11,13 +11,13 @@ namespace SourceSharp.Tests;
 public sealed class DescentJumpFeatureTests
 {
     private static readonly RoomKit Kit = RoomKit.Normal;
-    private const float Floor = 32;
+    private static readonly float Floor = Kit.Sill;
 
     private static RoomBuilder Hall(int height = 1024) =>
         new RoomBuilder("h", Kit, RoomTheme.Grey).WithHeight(height).WithDoors(CellFace.West);
 
     private static float Top(Room room, float x, float y) =>
-        room.World.Select(b => b.Column(x, y)).Where(c => c is not null && c.Value.Low >= Floor - 1 && c.Value.High < room.Height - 32)
+        room.World.Select(b => b.Column(x, y)).Where(c => c is not null && c.Value.Low >= Floor - 1 && c.Value.High < room.Height - Kit.WallDepth)
             .Max(c => c!.Value.High) - Floor;
 
     private static int Tier(JumpTier tier, float t = 0.5f) => JumpTable.Of(tier).Ledge(t);
@@ -115,5 +115,23 @@ public sealed class DescentJumpFeatureTests
     public void A_feature_in_front_of_a_door_is_refused()
     {
         Assert.Throws<ArgumentException>(() => Hall().CrateSteps(40, 480, Compass.East).Build());
+    }
+
+    [Fact]
+    public void A_ledge_on_a_32_voxel_kit_stands_on_a_whole_voxel()
+    {
+        RoomKit big = RoomKit.Boss4096;
+        Room room = new RoomBuilder("r", big, RoomTheme.Grey).WithHeight(1280).WithDoors(CellFace.West)
+            .RocketShelf(CellFace.North, 1800, 2200, t: 0.4f).SteppingPillars(1500, 1500, Compass.East, JumpTier.S2).Build();
+
+        Assert.All(room.Markers, m => Assert.Equal(0, (m.At.Z - big.Sill) % big.NavVoxel));
+    }
+
+    [Fact]
+    public void A_triple_jumps_pillars_cannot_stand_on_a_32_voxel_kit()
+    {
+        var b = new RoomBuilder("r", RoomKit.Boss4096, RoomTheme.Grey).WithHeight(1280).WithDoors(CellFace.West);
+
+        Assert.Throws<InvalidOperationException>(() => b.SteppingPillars(1500, 1500, Compass.East, JumpTier.S3));
     }
 }

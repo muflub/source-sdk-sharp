@@ -121,7 +121,7 @@ public static class CavernShape
     /// <summary>A rock spire whose top is a ledge of <paramref name="tier"/>, with a container on it and no other way up.</summary>
     private static void Spire(RoomBuilder b, float x, float y, float radius, JumpTier tier, RoomSeed rng)
     {
-        int h = JumpTable.Of(tier).Ledge(rng.Fraction());
+        int h = JumpTable.Of(tier).Ledge(rng.Fraction(), b.Kit.NavVoxel);
         if (b.Floor + JumpTierSpec.ClearAbove(h) > b.CeilingUnderside)
             throw new ArgumentException($"a spire at {h} needs clear air to {JumpTierSpec.ClearAbove(h)} above the floor");
         b.Holds(tier);

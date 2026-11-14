@@ -73,6 +73,22 @@
   </PropertyGroup>
 
   <!--
+    The host's local feed, HOST_ROOT/bin/nupkg (`make host-pack`), for the
+    same reason as map-tools' above: SourceSharp.MapGen references
+    TF2.Descent.Rules (the Descent levels are laid out by the rules' own
+    generator and named by its codec), so every project that references MapGen
+    restores SourceSharp.Host.Contracts as a transitive dependency and searches
+    only its own sources. The versions and the check that names the fix stay in
+    src/tf2_descent/Directory.Build.props.
+  -->
+  <PropertyGroup>
+    <HostRoot Condition="'$(HostRoot)' == '' and '$(HOST_ROOT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(HOST_ROOT)'))</HostRoot>
+    <HostRoot Condition="'$(HostRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-sharp-host/'))</HostRoot>
+    <HostPackageDir>$(HostRoot)bin/nupkg</HostPackageDir>
+    <RestoreAdditionalProjectSources Condition="Exists('$(HostPackageDir)')">$(RestoreAdditionalProjectSources);$(HostPackageDir)</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <!--
     THIS REPO'S ANALYZERS (src/analyzers): rules the build enforces, each over
     the projects named in its list. One analyzer assembly; the roles a project
     is under reach it as SourceSharpAnalyzerRoles (CompilerVisibleProperty).

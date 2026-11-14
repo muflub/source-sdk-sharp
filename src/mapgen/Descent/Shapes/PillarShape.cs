@@ -31,7 +31,7 @@ public static class PillarShape
         a.LampsAlong(Parts.DoorPoint(kit, CellFace.East, 0), new Point(hall.X0 + 96, m, kit.Sill), 288, above, lamp)
             .LampAt(528, 320, above, lamp).LampAt(528, 704, above, lamp)
             .Mark(MarkerKind.Container, hall.X0 + 64, m, above: 32)
-            .Pack(288, 352).Pack(288, 672).Pack(528, m)
+            .Pack(528, 304).Pack(528, 720).Pack(528, m)
             .Mark(MarkerKind.Barrel, c - 112, hall.Y0 + 48);
         yield return a.Build();
 

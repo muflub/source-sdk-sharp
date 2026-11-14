@@ -14,7 +14,8 @@ namespace SourceSharp.MapGen.Descent;
 /// Positions are room-local. A feature against a wall is placed by the
 /// wall, a range <c>from</c> to <c>to</c> along it (y for the east and west
 /// walls, x for the north and south ones) and a depth out from the wall's
-/// inner face; heights are above the floor's top.
+/// inner face (the room's body, <see cref="RoomBuilder.Body"/>); heights are
+/// above the floor's top.
 /// </remarks>
 public static class JumpFeatures
 {
@@ -30,7 +31,7 @@ public static class JumpFeatures
     /// </summary>
     public static RoomBuilder CrateSteps(this RoomBuilder b, float x, float y, Compass toward, int steps = 2, int size = 64, float t = 1f)
     {
-        int rise = JumpTable.Of(JumpTier.T1).Ledge(t);
+        int rise = JumpTable.Of(JumpTier.T1).Ledge(t, b.Kit.NavVoxel);
         ClearAir(b, rise * steps, "crate steps");
         for (int i = 0; i < steps; i++)
         {
@@ -51,8 +52,9 @@ public static class JumpFeatures
     /// </summary>
     public static RoomBuilder Mezzanine(this RoomBuilder b, CellFace wall, float from, float to, int depth = 192, float t = 0.5f)
     {
-        int h = JumpTable.Of(JumpTier.S2).Ledge(t);
+        int h = JumpTable.Of(JumpTier.S2).Ledge(t, b.Kit.NavVoxel);
         ClearAir(b, h, "a mezzanine");
+        b.Holds(JumpTier.S2);
         int steps = h / 16;
         float run = steps * 32;
         b.WithBrush(WallBox(b, wall, from, to, 0, depth, 0, h, b.Theme.Block));
@@ -73,8 +75,9 @@ public static class JumpFeatures
     {
         if (tier is not (JumpTier.S2 or JumpTier.S3))
             throw new ArgumentOutOfRangeException(nameof(tier), tier, "stepping pillars are S2 or S3");
-        int top = JumpTable.Of(tier).Ledge(t), first = JumpTable.Of(JumpTier.S2).Ledge(t);
+        int top = JumpTable.Of(tier).Ledge(t, b.Kit.NavVoxel), first = JumpTable.Of(JumpTier.S2).Ledge(t, b.Kit.NavVoxel);
         ClearAir(b, top, "stepping pillars");
+        b.Holds(tier);
         float pitch = 2 * radius + JumpTable.Of(JumpTier.T1).Gap(0.75f);
         Point at = default;
         for (int i = 0; i < count; i++)
@@ -104,6 +107,7 @@ public static class JumpFeatures
             throw new ArgumentOutOfRangeException(nameof(tier), tier, "a chasm leap is S2 or S3");
         int h = 2 * JumpTable.Of(JumpTier.T1).LedgeMax, gap = JumpTable.Of(tier).Gap(t);
         ClearAir(b, h, "a chasm leap");
+        b.Holds(tier);
         int steps = h / 16;
         if (deck % steps != 0)
             throw new ArgumentException($"a chasm deck of {deck} does not take {steps} whole treads");
@@ -135,14 +139,15 @@ public static class JumpFeatures
     /// </summary>
     public static RoomBuilder CatwalkRing(this RoomBuilder b, int depth = 96, float t = 0.5f, MarkerKind reward = MarkerKind.Container)
     {
-        int h = JumpTable.Of(JumpTier.B2).Ledge(t);
+        int h = JumpTable.Of(JumpTier.B2).Ledge(t, b.Kit.NavVoxel);
         ClearAir(b, h, "a catwalk ring");
-        float lo = b.InteriorLow, hi = b.InteriorHigh;
-        b.WithBrush(WallBox(b, CellFace.East, lo, hi, 0, depth, h - Slab, h, b.Theme.Block));
-        b.WithBrush(WallBox(b, CellFace.West, lo, hi, 0, depth, h - Slab, h, b.Theme.Block));
-        b.WithBrush(WallBox(b, CellFace.North, lo + depth, hi - depth, 0, depth, h - Slab, h, b.Theme.Block));
-        b.WithBrush(WallBox(b, CellFace.South, lo + depth, hi - depth, 0, depth, h - Slab, h, b.Theme.Block));
-        return b.WithMarker(reward, new(hi - depth / 2f, hi - depth / 2f, b.Floor + h));
+        b.Holds(JumpTier.B2);
+        Rect r = b.Body;
+        b.WithBrush(WallBox(b, CellFace.East, r.Y0, r.Y1, 0, depth, h - Slab, h, b.Theme.Block));
+        b.WithBrush(WallBox(b, CellFace.West, r.Y0, r.Y1, 0, depth, h - Slab, h, b.Theme.Block));
+        b.WithBrush(WallBox(b, CellFace.North, r.X0 + depth, r.X1 - depth, 0, depth, h - Slab, h, b.Theme.Block));
+        b.WithBrush(WallBox(b, CellFace.South, r.X0 + depth, r.X1 - depth, 0, depth, h - Slab, h, b.Theme.Block));
+        return b.WithMarker(reward, new(r.X1 - depth / 2f, r.Y1 - depth / 2f, b.Floor + h));
     }
 
     /// <summary>
@@ -154,9 +159,10 @@ public static class JumpFeatures
     /// </summary>
     public static RoomBuilder ChimneyLedges(this RoomBuilder b, CellFace low, CellFace high, float span = 256, int depth = 128, float t = 0.5f)
     {
-        float m = b.Kit.Cell / 2f;
-        Ledge(b, JumpTier.B2, low, m - span / 2, m + span / 2, depth, t, MarkerKind.Shrine, "a chimney ledge");
-        return Ledge(b, JumpTier.B3, high, m - span / 2, m + span / 2, depth, t, MarkerKind.Container, "a chimney ledge");
+        Rect r = b.Body;
+        float ml = low is CellFace.East or CellFace.West ? r.CentreY : r.CentreX, mh = high is CellFace.East or CellFace.West ? r.CentreY : r.CentreX;
+        Ledge(b, JumpTier.B2, low, ml - span / 2, ml + span / 2, depth, t, MarkerKind.Shrine, "a chimney ledge");
+        return Ledge(b, JumpTier.B3, high, mh - span / 2, mh + span / 2, depth, t, MarkerKind.Container, "a chimney ledge");
     }
 
     /// <summary>
@@ -167,12 +173,27 @@ public static class JumpFeatures
                                           MarkerKind reward = MarkerKind.Container)
         => Ledge(b, JumpTier.B3, wall, from, to, depth, t, reward, "a roof gallery");
 
+    /// <summary>
+    /// A ledge of <paramref name="tier"/> (B1 to B3) on <paramref name="wall"/>
+    /// from <paramref name="from"/> to <paramref name="to"/>, with
+    /// <paramref name="reward"/> on it and no other way up: a high alcove, a
+    /// rocket shelf, a roof gallery.
+    /// </summary>
+    public static RoomBuilder Shelf(this RoomBuilder b, JumpTier tier, CellFace wall, float from, float to, int depth = 128, float t = 0.5f,
+                                    MarkerKind reward = MarkerKind.Container)
+    {
+        if (tier < JumpTier.B1)
+            throw new ArgumentOutOfRangeException(nameof(tier), tier, "a shelf is a blast tier (B1 to B3); a Scout's spot is a mezzanine or pillars");
+        return Ledge(b, tier, wall, from, to, depth, t, reward, "a shelf");
+    }
+
     //-------------------------------------------------------------------------
 
     private static RoomBuilder Ledge(RoomBuilder b, JumpTier tier, CellFace wall, float from, float to, int depth, float t, MarkerKind reward, string what)
     {
-        int h = JumpTable.Of(tier).Ledge(t);
+        int h = JumpTable.Of(tier).Ledge(t, b.Kit.NavVoxel);
         ClearAir(b, h, what);
+        b.Holds(tier);
         b.WithBrush(WallBox(b, wall, from, to, 0, depth, h - Slab, h, b.Theme.Block));
         var (mins, maxs) = WallBounds(b, wall, from, to, 0, depth, h, h);
         return b.WithMarker(reward, new((mins.X + maxs.X) / 2, (mins.Y + maxs.Y) / 2, b.Floor + h));
@@ -196,15 +217,16 @@ public static class JumpFeatures
 
     internal static (Point Mins, Point Maxs) WallBounds(RoomBuilder b, CellFace wall, float from, float to, float out0, float out1, float z0, float z1)
     {
-        float lo = b.InteriorLow, hi = b.InteriorHigh, f = b.Floor;
+        Rect r = b.Body;
+        float f = b.Floor;
         if (to <= from)
             throw new ArgumentException($"a feature on the {wall} wall runs from {from} to {to}");
         return wall switch
         {
-            CellFace.East => (new(hi - out1, from, f + z0), new(hi - out0, to, f + z1)),
-            CellFace.West => (new(lo + out0, from, f + z0), new(lo + out1, to, f + z1)),
-            CellFace.North => (new(from, hi - out1, f + z0), new(to, hi - out0, f + z1)),
-            _ => (new(from, lo + out0, f + z0), new(to, lo + out1, f + z1)),
+            CellFace.East => (new(r.X1 - out1, from, f + z0), new(r.X1 - out0, to, f + z1)),
+            CellFace.West => (new(r.X0 + out0, from, f + z0), new(r.X0 + out1, to, f + z1)),
+            CellFace.North => (new(from, r.Y1 - out1, f + z0), new(to, r.Y1 - out0, f + z1)),
+            _ => (new(from, r.Y0 + out0, f + z0), new(to, r.Y0 + out1, f + z1)),
         };
     }
 

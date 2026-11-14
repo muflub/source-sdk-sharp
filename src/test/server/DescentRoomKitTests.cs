@@ -8,20 +8,34 @@ namespace SourceSharp.Tests;
 public sealed class DescentRoomKitTests
 {
     [Fact]
-    public void The_normal_kit_is_the_plans_1024_cell_with_a_256_by_192_door_and_a_32_wall()
+    public void The_normal_kit_is_a_1024_cell_cut_to_its_frame_a_208_by_192_door_a_16_wall_and_a_16_voxel()
     {
-        Assert.Equal(new RoomKit("normal", 1024, 256, 192, 32), RoomKit.Normal);
+        RoomKit kit = RoomKit.Normal;
+
+        Assert.Equal((1024, 208, 192, 16, 16), (kit.Cell, kit.DoorWidth, kit.DoorHeight, kit.WallDepth, kit.NavVoxel));
     }
 
     [Theory]
-    [InlineData("boss2048", 2048)]
-    [InlineData("boss3072", 3072)]
-    [InlineData("boss4096", 4096)]
-    public void A_boss_kit_keeps_the_normal_door_and_wall_on_its_larger_cell(string name, int cell)
+    [InlineData("boss2048", 2048, 16)]
+    [InlineData("boss3072", 3072, 32)]
+    [InlineData("boss4096", 4096, 32)]
+    public void A_boss_kit_keeps_the_frames_door_on_its_larger_cell_with_a_wall_of_one_voxel(string name, int cell, int voxel)
     {
         RoomKit kit = new[] { RoomKit.Boss2048, RoomKit.Boss3072, RoomKit.Boss4096 }.Single(k => k.Name == name);
 
-        Assert.Equal((cell, 256, 192, 32), (kit.Cell, kit.DoorWidth, kit.DoorHeight, kit.WallDepth));
+        Assert.Equal((cell, 208, 192, voxel, voxel), (kit.Cell, kit.DoorWidth, kit.DoorHeight, kit.WallDepth, kit.NavVoxel));
+    }
+
+    [Theory]
+    [InlineData("normal")]
+    [InlineData("boss2048")]
+    [InlineData("boss3072")]
+    [InlineData("boss4096")]
+    public void Every_kits_floor_is_a_whole_number_of_navigation_voxels(string name)
+    {
+        RoomKit kit = new[] { RoomKit.Normal, RoomKit.Boss2048, RoomKit.Boss3072, RoomKit.Boss4096 }.Single(k => k.Name == name);
+
+        Assert.Equal(0, kit.Sill % kit.NavVoxel);
     }
 
     [Theory]
@@ -54,7 +68,7 @@ public sealed class DescentRoomKitTests
     {
         Assert.False(RoomKit.Normal.ToolsAccept);
         Assert.True(RoomKit.Normal.WithFullHeightDoors().ToolsAccept);
-        Assert.Equal(960, RoomKit.Normal.WithFullHeightDoors().DoorHeight);
+        Assert.Equal(RoomKit.Normal.Interior, RoomKit.Normal.WithFullHeightDoors().DoorHeight);
     }
 
     [Theory]

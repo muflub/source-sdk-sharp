@@ -109,7 +109,7 @@ public sealed class RoomLibrary
     {
         // Each brush is moved to its cell with its textures anchored at the
         // cell's corner, so a room's faces are textured the same in any cell.
-        foreach (Brush brush in room.World)
+        foreach (Brush brush in room.World.Concat(room.Water))
             map.WorldSolids.Add(brush.Offset(corner).ToVmf(corner));
 
         foreach (RoomEntity entity in room.Entities)

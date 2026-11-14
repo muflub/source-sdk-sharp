@@ -61,14 +61,14 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
     /// <summary>A giant robot's height: the lowest a doorway may be.</summary>
     public const int GiantHeight = 156;
 
-    /// <summary>The frame every socket of this kit is lined with (task A15).</summary>
-    public DoorFrame Frame { get; init; } = DoorFrame.Timber;
+    /// <summary>The frame model every socket of this kit is lined with (task A15), whose size the door is cut to.</summary>
+    public FrameModel Frame { get; init; } = FrameModel.FarmDoorframe;
 
-    /// <summary>The walkable width left through a framed doorway.</summary>
-    public int ClearWidth => DoorWidth - 2 * Frame.Post;
+    /// <summary>The width a player sees between the frame's posts, inside the opening.</summary>
+    public float ClearWidth => Math.Min(DoorWidth, Frame.InnerWidth);
 
-    /// <summary>The walkable height left through a framed doorway, from the sill's top to the head's underside.</summary>
-    public int ClearHeight => DoorHeight - Frame.Head - Frame.Sill;
+    /// <summary>The height a player sees under the frame's head, inside the opening.</summary>
+    public float ClearHeight => Math.Min(DoorHeight, Frame.InnerHeight);
 
     /// <summary>map-tools' default <c>nav_voxel_size</c>.</summary>
     public const int DefaultNavVoxel = 16;
@@ -76,17 +76,62 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
     /// <summary>The most voxels map-tools' navigation takes along one cell.</summary>
     public const int MaxNavVoxelsPerCell = 128;
 
-    /// <summary>Normal levels (§3.1, E1): 1024 cell, a 256 by 192 door, a 32 wall.</summary>
-    public static RoomKit Normal { get; } = new("normal", 1024, 256, 192, 32);
+    /// <summary>
+    /// The kit a frame model makes on a cell (task A15, the user's request of
+    /// 2026-11-10): the doorway is two walls deep and no deeper than the frame,
+    /// so the wall is half the frame's depth; the opening is the frame's outer
+    /// width (socket furniture may reach out of its cell only into the doorway,
+    /// and the posts then cover the doorway's sides) and the frame's height
+    /// rounded down to the navigation voxel, which the head still covers.
+    /// </summary>
+    /// <remarks>
+    /// The floor's top is the wall's depth (the door's sill is the floor), and
+    /// the tools' navigation stands a marker in the voxel its height falls in,
+    /// so the wall is a whole number of voxels: at 16 or 32 a floor 8 up puts
+    /// every marker in a voxel the floor blocks (ssmap room refuses each one).
+    /// The wall is therefore one voxel (16 on the normal kit and level 5's,
+    /// whose frame then lines exactly its half), and at
+    /// 32 its frames line only the room side of each half
+    /// (<see cref="FrameLining"/>: a prop wholly inside the plug is in no leaf
+    /// of the room's compile, which drops it).
+    /// </remarks>
+    /// <exception cref="ArgumentException">The frame cannot make a kit: an odd depth, or no voxel height its head covers.</exception>
+    public static RoomKit For(string name, int cell, FrameModel frame, int navVoxel = DefaultNavVoxel)
+    {
+        if (frame.Depth % 2 != 0)
+            throw new ArgumentException($"frame {frame.Model} is {frame.Depth} deep; a doorway is two whole walls deep");
+        int height = (int)(frame.Height / navVoxel) * navVoxel;
+        if (height < frame.InnerHeight)
+            throw new ArgumentException($"frame {frame.Model}: no multiple of {navVoxel} between its opening's {frame.InnerHeight} and its top's {frame.Height}");
+        int wall = (frame.Depth / 2 + navVoxel - 1) / navVoxel * navVoxel;
+        return new RoomKit(name, cell, frame.Width, height, wall, navVoxel) { Frame = frame };
+    }
+
+    /// <summary>
+    /// How deep a frame lines its room's half of a doorway, from the cell face
+    /// (<see cref="RoomBuilder"/> stands it against the face, proud into the
+    /// room when the wall is thinner than the frame): the whole half (the
+    /// wall's depth) unless the wall is deeper than the frame.
+    /// </summary>
+    public int FrameLining => Math.Min(WallDepth, Frame.Depth);
+
+    /// <summary>
+    /// Normal levels (§3.1, E1): a 1024 cell, the door of the grey frame, a
+    /// 16-unit voxel and so a wall of 16, which the 16-deep frame lines
+    /// exactly (each room's frame fills its half of the doorway). An 8-unit
+    /// voxel (wall 8) packed a 19-room library into 100 MB in 26 s; this kit
+    /// packs the same rooms smaller and faster (plan §1.3).
+    /// </summary>
+    public static RoomKit Normal { get; } = For("normal", 1024, FrameModel.FarmDoorframe);
 
     /// <summary>Level 5's arena kit (§3.2).</summary>
-    public static RoomKit Boss2048 { get; } = new("boss2048", 2048, 256, 192, 32);
+    public static RoomKit Boss2048 { get; } = For("boss2048", 2048, FrameModel.FarmDoorframe);
 
     /// <summary>Level 15's arena kit (§3.2).</summary>
-    public static RoomKit Boss3072 { get; } = new("boss3072", 3072, 256, 192, 32, NavVoxel: 32);
+    public static RoomKit Boss3072 { get; } = For("boss3072", 3072, FrameModel.FarmDoorframe, navVoxel: 32);
 
     /// <summary>Level 10's arena kit, for the Tank's track (§3.2, M14).</summary>
-    public static RoomKit Boss4096 { get; } = new("boss4096", 4096, 256, 192, 32, NavVoxel: 32);
+    public static RoomKit Boss4096 { get; } = For("boss4096", 4096, FrameModel.FarmDoorframe, navVoxel: 32);
 
     /// <summary>The door opening's low edge along its wall, cell-local.</summary>
     public int DoorLow => (Cell - DoorWidth) / 2;
@@ -136,53 +181,86 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
 }
 
 /// <summary>
-/// A door frame (task A15): the timber that lines a socket's opening, so a
-/// joined doorway has sides, a sill and a head. The link removes a joined
+/// A door frame model (task A15): a shipped prop that lines a socket's opening,
+/// so a joined doorway has sides and a head. The link removes a joined
 /// socket's plug, and the faces that touched it were never compiled, so
 /// without a frame a doorway draws as a gap at its edges.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Each room lines its own half of the doorway, the wall's depth in from the
-/// cell face, and stands <see cref="Reveal"/> proud of its wall into the
-/// room so it reads as a frame. The frame is a <c>func_brush</c> with
-/// <c>room_needs joined_&lt;wall&gt;</c>: the link keeps it only where the
-/// socket is joined, so a capped socket stays a plain wall, and both rooms of
-/// a joint keep theirs. Socket furniture (<c>room_socket</c>) cannot do this:
-/// the link keeps only one side's furniture at a joint, and a brush entity
-/// may not leave its cell, so one room's frame could line only its half.
-/// A <c>prop_static</c> may reach into the neighbour's doorway, but no TF2
-/// model is a closed frame the doorway's depth deep. World or
-/// <c>func_detail</c> brushes cannot: they compile into the room's world,
-/// where the plug is solid and their faces in it are culled like the walls'.
+/// The frame is socket furniture: a non-solid <c>prop_static</c> with
+/// <c>room_socket &lt;wall&gt;</c>, centred on the cell face, whose hull
+/// reaches out of its cell only into the doorway beyond its socket. The link
+/// keeps one room's at a joint and drops it at a cap, and a static prop costs
+/// no entity, so a doorway costs nothing. The kit is cut to the frame
+/// (<see cref="RoomKit.For"/>): the doorway is the frame's depth, its sides
+/// behind the posts, its head behind the frame's head.
 /// </para>
 /// <para>
-/// Cost: one entity and one brush model per framed socket of each placed
-/// room, so two per joint: a 6 by 6 level of 60 joints spends 120 of its
-/// 1,536 entities on frames.
+/// The numbers are the model's mesh bounds from the asset database
+/// (<c>model_view</c>) and its posts and head measured off its front view
+/// (<c>/home/lodle/assetdb/models/.../front.png</c>, 1.67 pixels a unit).
+/// The model's depth is along its x axis, its width along y.
 /// </para>
 /// </remarks>
-/// <param name="Post">The side posts' thickness across the opening.</param>
-/// <param name="Head">The head beam's depth below the lintel.</param>
-/// <param name="Sill">The sill plate's height on the floor.</param>
-/// <param name="Reveal">How far the frame stands proud of the wall into the room.</param>
-/// <param name="MinLight">
-/// The frame's <c>_minlight</c>. The faces inside the opening are inside the
-/// plug when the room is compiled, so the bake leaves them black; this is the
-/// floor vrad lifts them to (as a fraction of full light; map-tools' vrad
-/// reads the key as stock's does).
-/// </param>
-/// <param name="Cap">
-/// The thickness of the cap panel a door gets for when its socket is capped:
-/// the plug stays and is a tool texture, so a capped doorway would show the
-/// sky. The panel stands this far in front of the plug, in the wall's
-/// surface (world-aligned, so it reads as the wall), kept by the link only
-/// where the socket is capped (<c>room_needs !joined_&lt;wall&gt;</c>).
-/// </param>
-public sealed record DoorFrame(int Post, int Head, int Sill, int Reveal, float MinLight, int Cap = 2)
+/// <param name="Model">The model path.</param>
+/// <param name="MinX">The mesh's back face along its depth axis.</param>
+/// <param name="MaxX">The mesh's front face along its depth axis.</param>
+/// <param name="Width">The mesh's outer width, centred on the origin.</param>
+/// <param name="Bottom">The mesh's lowest point above its origin (the feet of the posts).</param>
+/// <param name="Top">The mesh's highest point above its origin.</param>
+/// <param name="Post">A post's width across the opening.</param>
+/// <param name="Head">The head's depth below the top.</param>
+public sealed record FrameModel(string Model, float MinX, float MaxX, int Width, float Bottom, float Top, float Post, float Head)
 {
-    /// <summary>16 posts and head, a 4 sill, 8 proud: a 256 by 192 door leaves 224 by 172.</summary>
-    public static DoorFrame Timber { get; } = new(Post: 16, Head: 16, Sill: 4, Reveal: 8, MinLight: 0.25f);
+    /// <summary>
+    /// TF2's <c>props_farm/doorframe002d</c>: a square timber frame 16 deep,
+    /// 208 by 192, posts and head about 8 and 9, no sill, so each half of a
+    /// joined doorway's floor is covered by TF2's
+    /// <c>props_gameplay/door_grate003_floorplate</c> (10 by 192, 3.2 above the
+    /// floor, sunk 7.6 below it; no <c>prop_data</c>, which a static prop may
+    /// not have: the room compile deletes a breakable model's static prop).
+    /// </summary>
+    public static FrameModel FarmDoorframe { get; } =
+        new("models/props_farm/doorframe002d.mdl", MinX: -4, MaxX: 12, Width: 208, Bottom: -0.7375796f, Top: 191.26289f, Post: 8, Head: 9)
+        {
+            Sill = new SillModel("models/props_gameplay/door_grate003_floorplate.mdl", MinX: -5.0185714f, MaxX: 4.9881549f, Width: 192f, Floor: 0f),
+        };
+
+    /// <summary>
+    /// What covers the doorway's floor when the frame has no sill of its own:
+    /// the doorway's floor is the floor under the two plugs, whose faces the
+    /// room compile culled, so a joined doorway's floor draws as a strip of the
+    /// void (the preview shows sky through it from either side). Null for a
+    /// frame with its own sill.
+    /// </summary>
+    public SillModel? Sill { get; init; }
+
+    /// <summary>The frame's depth, which the doorway is.</summary>
+    public int Depth => (int)Math.Round(MaxX - MinX);
+
+    /// <summary>The frame's height from the feet of its posts to its top.</summary>
+    public float Height => Top - Bottom;
+
+    /// <summary>The width between the posts.</summary>
+    public float InnerWidth => Width - 2 * Post;
+
+    /// <summary>The height under the head, from the feet of the posts.</summary>
+    public float InnerHeight => Height - Head;
+
+    /// <summary>The middle of the mesh along its depth axis, which stands on the cell face.</summary>
+    public float CentreX => (MinX + MaxX) / 2;
+}
+
+/// <summary>A flat prop laid across a doorway's floor (<see cref="FrameModel.Sill"/>), its depth along x and its width along y.</summary>
+/// <param name="Floor">The height in the model's frame that stands on the floor's top.</param>
+public sealed record SillModel(string Model, float MinX, float MaxX, float Width, float Floor)
+{
+    /// <summary>The plank's depth across the doorway.</summary>
+    public float Depth => MaxX - MinX;
+
+    /// <summary>The middle of the mesh along its depth axis.</summary>
+    public float CentreX => (MinX + MaxX) / 2;
 }
 
 /// <summary>
@@ -194,8 +272,39 @@ public sealed record DoorFrame(int Post, int Head, int Sill, int Reveal, float M
 /// </summary>
 public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Surface Block, Surface Plug, Surface Trigger)
 {
-    /// <summary>The door frames' timber (<see cref="DoorFrame"/>).</summary>
-    public Surface Frame { get; init; } = MineShaft.Beam;
+    /// <summary>The frame model the theme's doorways are lined with, which a depth's kit is cut to (<see cref="RoomKit.For"/>).</summary>
+    public FrameModel DoorFrame { get; init; } = FrameModel.FarmDoorframe;
+
+    /// <summary>The folder under <c>materials/</c> the Descent rooms' own materials live in.</summary>
+    public const string MaterialFolder = "descent";
+
+    /// <summary>
+    /// The theme's door plug material: the wall's base texture with
+    /// <c>%compileTrigger</c> and nothing else. The trigger flag is what the
+    /// link finds a plug by (it strips a joined socket's plug faces); leaving
+    /// out <c>%compileNonsolid</c> keeps the plug solid, so a room's compile is
+    /// sealed. It draws the wall's texture, but unlit (see
+    /// <see cref="RoomBuilder.CapThickness"/>), so a capped socket's plug is
+    /// still covered by the cap panel.
+    /// </summary>
+    public static Surface PlugOf(string name, Surface wall) => new($"{MaterialFolder}/{name}_plug", wall.Scale);
+
+    /// <summary>
+    /// The <c>.vmt</c> text of a plug material over <paramref name="baseTexture"/>
+    /// (each theme's wall material's own base texture has its name, as the asset
+    /// database records for <c>dev/graygrid</c> and <c>nature/rockwall012</c>).
+    /// </summary>
+    public static string PlugVmt(string baseTexture) =>
+        $"\"LightmappedGeneric\"\n{{\n\t\"$basetexture\" \"{baseTexture}\"\n\t\"%compileTrigger\" \"1\"\n}}\n";
+
+    /// <summary>The materials the theme names that ship with the mod, as paths under <c>materials/</c> and their text.</summary>
+    public IReadOnlyList<(string Path, string Text)> OwnMaterials =>
+        Plug.Material.StartsWith(MaterialFolder + "/", StringComparison.Ordinal)
+            ? [(Plug.Material + ".vmt", PlugVmt(Wall.Material))]
+            : [];
+
+    /// <summary>Every theme the generators draw rooms in.</summary>
+    public static IReadOnlyList<RoomTheme> All => [Grey, Mine];
 
     /// <summary>
     /// The town's TF2 mining set, every entry already proven present in TF2's
@@ -209,9 +318,8 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
         Wall: "nature/rockwall012",
         Ceiling: "nature/rockwall012",
         Block: MineShaft.Beam,
-        // The pipeline finds a plug by its trigger surfaces; tools/toolstrigger
-        // is what the AI test libraries already link with (AiTestMaps).
-        Plug: "TOOLS/TOOLSTRIGGER",
+        // The pipeline finds a plug by its trigger surfaces (PlugOf).
+        Plug: PlugOf("mine", "nature/rockwall012"),
         Trigger: "TOOLS/TOOLSTRIGGER");
 
     /// <summary>
@@ -226,9 +334,7 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
         Wall: new("dev/graygrid", 1f),
         Ceiling: new("dev/graygrid", 1f),
         Block: new("dev/dev_measuregeneric01", 1f),
-        Plug: "TOOLS/TOOLSTRIGGER",
+        Plug: PlugOf("grey", new("dev/graygrid", 1f)),
         Trigger: "TOOLS/TOOLSTRIGGER")
-    {
-        Frame = new("dev/dev_measuregeneric01", 1f),
-    };
+;
 }

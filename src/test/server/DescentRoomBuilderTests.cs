@@ -11,7 +11,8 @@ namespace SourceSharp.Tests;
 /// </summary>
 public sealed class DescentRoomBuilderTests
 {
-    private static readonly RoomKit Kit = RoomKit.Normal;
+    /// <summary>A kit of whole 32s (every coordinate the flood fill below walks is one): the plan's first door and wall.</summary>
+    private static readonly RoomKit Kit = new("wide", 1024, 256, 192, 32);
     // Every material distinct, so a fact can tell a ceiling from a wall by it.
     private static readonly RoomTheme Theme = new("t/floor", "t/wall", "t/ceiling", "t/block", "t/plug", "t/trigger");
 
@@ -133,9 +134,10 @@ public sealed class DescentRoomBuilderTests
     }
 
     [Fact]
-    public void A_drift_is_six_brushes()
+    public void A_drift_is_its_slabs_walls_and_plugs_and_the_floor_round_its_two_doorway_dips()
     {
-        Assert.Equal(6, Drift().World.Count);
+        // The ceiling, two side walls and two plugs; the floor's base and the five pieces of its top round the two dips.
+        Assert.Equal(11, Drift().World.Count);
     }
 
     public static TheoryData<string> Shapes => ["drift", "bend", "tee", "cross", "stub", "hall", "chamber"];
@@ -213,7 +215,7 @@ public sealed class DescentRoomBuilderTests
         Room room = New().WithDoors(CellFace.East).Build();
 
         Assert.Equal(RoomRole.None, room.Role);
-        Assert.All(room.Entities, e => Assert.Equal("func_brush", e.ClassName));
+        Assert.All(room.Entities, e => Assert.Contains(e.ClassName, (string[])["func_brush", "prop_static"]));
     }
 
     [Fact]
@@ -235,38 +237,36 @@ public sealed class DescentRoomBuilderTests
            && a.Mins.Z < b.Maxs.Z && b.Mins.Z < a.Maxs.Z;
 
     /// <summary>
-    /// A flood fill on a 32-unit lattice (every coordinate of the normal kit's
-    /// rooms is a multiple of 32, which the fill asserts) from the cell's centre
-    /// just above the floor: a room leaks when the fill reaches a voxel outside
-    /// its box.
+    /// A flood fill over the boxes' own lattice (the cells between every
+    /// coordinate any box has, so a 2-unit slit is as visible as a room) from
+    /// the cell's centre just above the floor: a room leaks when the fill
+    /// reaches a cell outside its box.
     /// </summary>
     private static (bool Leaked, int Reached) Flood(IReadOnlyList<Brush> boxes, int cell, int height)
     {
-        const int s = 32;
-        foreach (Brush b in boxes)
-            foreach (float v in (float[])[b.Mins.X, b.Mins.Y, b.Mins.Z, b.Maxs.X, b.Maxs.Y, b.Maxs.Z])
-                Assert.True(v % s == 0, $"{v} is off the fill's lattice");
-
-        int nx = cell / s, nz = height / s;
+        float[] Axis(Func<Brush, float> lo, Func<Brush, float> hi, int max) =>
+            [.. boxes.SelectMany(b => new[] { lo(b), hi(b) }).Append(0).Append(max).Where(v => v >= 0 && v <= max).Distinct().Order()];
+        float[] xs = Axis(b => b.Mins.X, b => b.Maxs.X, cell), ys = Axis(b => b.Mins.Y, b => b.Maxs.Y, cell), zs = Axis(b => b.Mins.Z, b => b.Maxs.Z, height);
+        int nx = xs.Length - 1, ny = ys.Length - 1, nz = zs.Length - 1;
         bool Solid(int x, int y, int z)
         {
-            float px = x * s + s / 2f, py = y * s + s / 2f, pz = z * s + s / 2f;
+            float px = (xs[x] + xs[x + 1]) / 2, py = (ys[y] + ys[y + 1]) / 2, pz = (zs[z] + zs[z + 1]) / 2;
             return boxes.Any(b => px > b.Mins.X && px < b.Maxs.X && py > b.Mins.Y && py < b.Maxs.Y && pz > b.Mins.Z && pz < b.Maxs.Z);
         }
 
-        var seen = new HashSet<(int, int, int)>();
-        var queue = new Queue<(int X, int Y, int Z)>();
-        queue.Enqueue((nx / 2, nx / 2, 1));
-        seen.Add((nx / 2, nx / 2, 1));
+        int Index(float[] axis, float v) => Array.FindLastIndex(axis, a => a <= v);
+        var start = (Index(xs, cell / 2f), Index(ys, cell / 2f), Index(zs, zs[1] + 1));
+        var seen = new HashSet<(int, int, int)> { start };
+        var queue = new Queue<(int X, int Y, int Z)>([start]);
         while (queue.Count > 0)
         {
             var (x, y, z) = queue.Dequeue();
-            if (x < 0 || y < 0 || z < 0 || x >= nx || y >= nx || z >= nz)
+            if (x < 0 || y < 0 || z < 0 || x >= nx || y >= ny || z >= nz)
                 return (true, seen.Count);
             foreach (var (dx, dy, dz) in ((int, int, int)[])[(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)])
             {
                 var next = (x + dx, y + dy, z + dz);
-                bool outside = next.Item1 < 0 || next.Item2 < 0 || next.Item3 < 0 || next.Item1 >= nx || next.Item2 >= nx || next.Item3 >= nz;
+                bool outside = next.Item1 < 0 || next.Item2 < 0 || next.Item3 < 0 || next.Item1 >= nx || next.Item2 >= ny || next.Item3 >= nz;
                 if (seen.Contains(next) || (!outside && Solid(next.Item1, next.Item2, next.Item3)))
                     continue;
                 seen.Add(next);

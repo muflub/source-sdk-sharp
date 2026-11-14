@@ -52,7 +52,9 @@ public static class ChasmShape
         var sq = new Rect(112, 112, c - t, c - t);
         var d = New("chasm_d", kit, theme, Parts.NE).WithOutline(sq).WithBody(sq)
             .Chamfers(sq, 128, Corner.SouthEast)
-            .ChasmLeap(352, 144, Compass.North, 208, JumpTier.S2, t: rng.Fraction())
+            // From the south wall, so the far deck stops a player's width and more short of the north
+            // wall (from 144 it could leave a strip by the corner too narrow to walk out of).
+            .ChasmLeap(352, 112, Compass.North, 208, JumpTier.S2, t: rng.Fraction())
             .RocketShelf(CellFace.South, 560, 816, depth: 128, t: rng.Fraction());
         Lamps(d, sq);
         d.Pack(640, 320).Pack(704, 720).Pack(880, 880)
