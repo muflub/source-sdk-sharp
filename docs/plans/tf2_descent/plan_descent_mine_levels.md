@@ -1,6 +1,6 @@
 # plan_descent_mine_levels.md: the fifteen levels of the Descent mine shaft
 
-Status: reviewed and committed 2026-11-10. Not started.
+Status: reviewed and committed 2026-11-10. Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), waiting on the user's checkpoint.
 
 This plan designs the fifteen dungeon levels of TF2 Descent as one mine shaft
 under the town: what each level looks and plays like, the room shapes they are
@@ -40,7 +40,139 @@ nothing more.
 | M12 | The shaft ties into the town (section 8). |
 | M13 | The mod may mount any Half-Life 2 content. Levels may use HL2 caves, antlion hives, canals and sewers as well as TF2's. |
 | M14 | The level 10 Tank fight lasts a good 10 to 20 minutes. |
+| M16 | Levels are larger than M11 said (asked "is 3x3 too small?", then "increase by 50 %" on the larger sizes offered, then "try this and adjust if needed"). Rooms per level: 18 at level 1, 21 at 2, 27 at 3, 4 and 6, 32 at 7, 37 at 8, 9 and 11, 44 at 12, 51 at 13 and 14, on grids from 5x5 to 8x8. Boss levels keep their fixed rows. These are working numbers to adjust after play. |
+| M17 | Every map an agent makes is reviewed from its preview sheets, with feedback, before it counts as done. |
 | M15 | The plan moves to `docs/plans/tf2_descent/` with `plan_tf2_rpg.md` beside it, and is committed. |
+| M18 | Limit dead-end hallways. A tunnel may end, but never in a hallway: a branch ends in a room worth the walk (a chamber, a hall, a treasure room, a shrine stub), and each depth caps how many dead ends a level has. |
+| M19 | A level grows to its room budget (M16) in any shape, the way mine tunnels run, inside a bounding box, not on a fixed grid. Keep the room limit; let the outline be free. |
+| M20 | Every tunnel ends in a room, and no door is capped: a door the layout does not join is never placed. |
+| M21 | The chance of each kind of room adapts to what the level already holds: a kind or family short of its share is drawn more, one past it less, a family beside itself less. The same seed still makes the same level. |
+| M22 | A room need not fill its cell. Only the doors are fixed; outlines vary, from variant to variant and from family to family. |
+| M23 | Door frames are static props lining each room's half of a joined doorway, and the kit is cut to the frame. |
+| M24 | Multi-cell rooms and fixed door slots are being added to the map tools. The Descent side adopts them after Act I: footprints in the layout, 2x2 and 3x3 caverns and arenas, and the boss levels off their oversized kits. |
+
+### 1.3 Measured in Phase 0 (2026-11-10)
+
+**Jumps.** From the map tools' movement simulator on its calibration branch
+(`claude/blast-reach`, 9ffb401), which agrees with a TF2 game log on 34 of 35
+lanes. Probe and outputs: `.scratch/p0-jump/` (untracked).
+
+| Jump | Height | Gap or carry | Source |
+|---|---|---|---|
+| Any class, jump / crouch-jump | 50 / 72 | Heavy 210 / 228, Soldier 216 / 236, Demoman 246 / 268, Scout 328 / 360 | simulated; the Soldier's ledges match the game log |
+| Scout, double jump | 97, crouched 119 | 604 | simulated with stock's dash speed (268.33) |
+| Scout, triple jump | 144, crouched 166 | 878 | simulated; the simulator has no third jump of its own |
+| Rocket jump, standing, no crouch | 308 | 0 | game log |
+| Rocket jump, standing, crouched | 509 | 0 | game log |
+| Rocket jump, running, crouched | 483 to 501 | 788 to 811 | simulated flight, computed push |
+| Rocket jump, best height / best carry | 568 / 375 | 567 / 1,093 | simulated flight, computed push |
+| One sticky, crouch-jump | 780 to 1,028 | 1,230 to 1,600 | computed; no Demoman game log |
+
+Not measured: chained and wall rocket jumps, the Gunboats and Rocket Jumper,
+air-strafing. The simulator's own Scout double jump uses the ground jump's
+speed and is 15 % too high; that is a report for the map-tools session.
+
+**The kit.** Commit 064d762ff (`src/mapgen/Descent/`), measured with the
+tools at 9d600ed on a loaded box, so times are about twice noisy.
+
+- **The tools refuse the plan's door.** At 9d600ed a door is centred up the
+  cell face and must stand on the floor, which forces `door_height` to
+  `cell - 2 x wall` (960 on a 1024 cell) and so allows no room lower than its
+  cell. A two-line change puts the sill on the floor at any door height. It
+  is committed on a local branch of our own clone
+  (`../mt-descent-rooms`, `descent/floor-sill`, 2b3bd46) and everything in
+  this plan is built with that clone. Ten of the tools' 2,390 room facts fail
+  under it: three test the old rule itself, seven use test kits whose doors
+  hang in mid-wall. Upstream needs it as a proper option; that is task H4.
+- **Navigation allows 128 voxels along a cell.** The boss kits use a 32-unit
+  voxel (`nav_voxel_size`); the normal kit keeps 16.
+- **Cost.** A six-room normal library packs in 4 to 12 seconds into 17 MB;
+  a 2x3 level links in about 2 seconds to a 1.9 MB map of 41 brushes and 12
+  entities. A 3072 arena room packs in 5 to 9 seconds (9.9 MB), a 4096 one in
+  5 to 10 seconds (15 MB), with no refusal. Most of a pack is the door light
+  data. So 480 rooms is on the order of minutes and about 1.5 GB of packs.
+- **Brightness figure.** `index.json`, `checks.lighting.mean`: the mean
+  linear luminance over every luxel of the map. Halving a hall's two lamps
+  moved the level from 1.41 to 0.97 and that hall's camera from 0.39 to 0.20,
+  while a room not joined to it stayed at 0.09.
+- **Doorways draw as gaps.** The sides, sill and head of a joined doorway
+  have no faces. Each door needs a frame placed in the socket (task A15).
+- **A corridor in a cell.** One plus-shaped shell: a middle square and an arm
+  to each door. The rest of the cell is outside the seal and costs no faces
+  or lightmap. A drift is 6 brushes.
+
+**Doorways (Phase 1).** Nothing free covers a joined doorway's missing
+faces: socket furniture keeps one side only, world and detail brushes inside
+the plug are culled, and no shipped prop is a frame of the right depth. Each
+room lines its half of a joined doorway with a timber `func_brush` kept only
+where the door is joined (`room_needs joined_<wall>`). That is one entity per
+joined door per room, about 110 on a 51-room level, inside the budget of
+1,536. A capped door shows the plug's tool texture, so the plug gets a
+material that looks like the wall. A way to frame a door at no entity cost
+is task H6.
+
+**The layout (Phase 2).** Over 10,000 seeds at each depth with a synthetic
+77-room catalogue: no depth failed to lay out and no jump minimum fell back.
+Level 1 is 70 % low connectors and 33 % jump rooms; level 9 is 36 % jump
+rooms; every level from 3 down has loops on every seed.
+
+**The asset database.** Permanent copy at `~/assetdb` (4.8 GB):
+TF2 (31,035 materials, 4,571 models, 250 maps) and the SDK Base `hl2` folder
+(5,107 materials, 1,882 models). Full Half-Life 2 (Steam app 220) is not
+installed on this machine, so M13's extra content waits on that install and
+a `gameinfo.txt` mount.
+
+### 1.3a Measured in Phase 3, Act I (2026-11-10)
+
+Act I's four levels on the free-form layouts (M19) with the real shapes and
+the dressing, branch `descent-mine-plan`, map tools at
+`../mt-descent-rooms` (`descent/floor-sill`), debug build, three seeds a
+depth. Logs and the review of every sheet: `.scratch/p3-merge/` (untracked).
+
+**Libraries.** 65 rooms a depth at levels 1 to 4 (19 families). Dressed,
+linted and packed by `make descent-rooms` in about two and a half minutes a
+depth with its three levels; the packs are 250 MB (level 1) to 390 MB
+(level 2).
+
+**Levels.** Generated in under a second; each links in about 3 seconds and
+previews in about 10. 18 to 27 rooms on a free-form outline.
+
+| Level | Map entities (of 1,536) | Brushes (of 8,192) |
+|---|---|---|
+| 1 | 117 to 143 | 689 to 752 |
+| 2 | 95 to 97 | 1,175 to 1,249 |
+| 3 | 167 to 171 | 1,603 to 1,757 |
+| 4 | 163 to 166 | 1,597 to 1,635 |
+
+**Brightness** (`make descent-brightness`, `checks.lighting.mean`, three
+seeds, level 1 scaled to 100):
+
+| Level | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| Mean (seeds 1, 2, 3) | 0.2417 (0.228, 0.253, 0.245) | 0.1876 (0.180, 0.189, 0.194) | 0.1511 (0.155, 0.144, 0.155) | 0.1349 (0.137, 0.133, 0.134) |
+| Scaled | 100 | 77.6 | 62.5 | 55.8 |
+| Target (section 6) | 100 | 85 | 70 | 60 |
+| Most clipped | 0.0136 | 0.0175 | 0.0177 | 0.0012 |
+
+Levels 2 to 4 sit 4 to 8 points under their targets, each step down at least
+6 points: pushing levels 2 and 3 higher put their clipping over 0.02 (floods
+over low drifts, lanterns by walls). Level 3's map entities fell from 315 to
+329 a level to 167 to 171 when its lanterns went from a ring round every room
+to pools.
+
+Level 1's way in is the level's brightest view on all three seeds: the
+spawn view from the cage, 0.173 (the preview's per-view mean), against 0.146
+for the brightest other room; the shaft's sun does not reach the cage, its
+work floods do.
+
+**Reach.** `make descent-reach` reads every island (`tools/descent-islands`):
+a Heavy reaches every room's floor on all twelve levels, with no trap and no
+stuck spawn; the islands are the jump ledges (6 to 84 a level).
+
+**The real catalogue.** 200 seeds a depth at every normal depth: no
+generator error, no jump fallback, no hallway dead end, no dead-end
+fallback, no capped or wasted door, the room budget exact, and every family
+the mix counts a fewest of present.
 
 ### 1.2 Defaults I chose (overrule by editing this table)
 
@@ -52,6 +184,8 @@ nothing more.
 | E4 | R19's 60 % jump-room share | Held per act (levels 1-5, 6-10, 11-15), not per level, so level 1 can be hallways and level 9 can be low crypts. |
 | E5 | Ladders | Not climbable. Stock TF2 has no ladder movement, so ladders are dressing and every descent is a ramp, stair, drop or lift. |
 | E6 | Brightness target | The mean lightmap brightness of a level, as `ssmap preview` reports it, falls strictly from each level to the next (section 6). |
+| E8 | Doors in the layout | The host's `RoomInfo` carries no doors, so a room's doors, height class and jump tiers ride in its name, `<family>_<variant>-<doors>-<height>[-<flags>]` (`gallery_b-nesw-h-j`), by one codec in the rules module (`TF2.Descent.Rules.Layout.RoomName`). The host contract change (G1) stays the cleaner follow-up. |
+| E9 | Jump-spot minimums | Two Scout spots and two blast spots on a normal level, except level 1 (one Scout spot, no blast spot) and level 9 (one of each), so level 1 is hallways and level 9 low crypts. |
 | E7 | Asset choice | Every material and model a level uses is a row in the asset database, recorded in a per-level palette file that a test checks. |
 
 ## 2. What exists today
@@ -164,12 +298,19 @@ merged to the map tools' GitHub main at 9d600ed):
 
 ### 3.1 Normal levels
 
+As built (`RoomKit.Normal`, `RoomKit.For`; M22, M23). The kit is cut to its
+door frame: the opening is the frame's outer width and its height rounded
+down to the navigation voxel, and the wall is half the frame's depth, so
+each room's frame lines exactly its half of a joined doorway.
+
 | Setting | Value | Why |
 |---|---|---|
 | `cell_size` | 1024 | R19's room: a rocket jump needs about 512 of clear air and a 768 run. |
-| `door_width`, `door_height` | 256, 192 | A giant robot at scale 1.9 is 92 wide and 156 tall (R16). A wide door also lets more light and sight through, which the one-doorway light rule needs. |
-| `wall_depth` | 32 | |
-| Navigation voxel | 16 | The tools' default; every height below is a multiple of it. |
+| Door opening | 208 by 192 | TF2's `props_farm/doorframe002d`, the only framed doorway found that leaves a giant (92 by 156, R16) room under a 256 drift. |
+| `wall_depth` | 16 | Half the frame's 16-unit depth rounded up to the voxel; a wall of 8 packed a library into twice the space and time. |
+| Navigation voxel | 16 (32 on the boss kits) | The tools allow 128 voxels along a cell. Every height and every marker height is a whole number of voxels. |
+| Doorway floor | let down 2 under the plug, sill planks over it | `props_gameplay/door_grate003_floorplate` covers the joined doorway's floor, whose faces the room compile culls. |
+| Rooms | any outline inside the cell (M22) | Only the doors are fixed; a room is the union of rectangles, cut on the diagonal or rounded, with necks to its doors. |
 
 Room heights come in four classes:
 
@@ -177,8 +318,8 @@ Room heights come in four classes:
 |---|---|---|
 | Low | 192 to 256 | Drifts, crawls, crypt passages. No jumping. |
 | Chamber | 512 | Ordinary rooms. Scout tiers fit; a rocket jump touches the roof. |
-| Hall | 1024 | The standard jump room. |
-| Shaft | 1536 to 2048 | Ore passes, caverns, the lift shaft. Sticky-jump height. |
+| Hall | 1024 | The standard jump room: rocket tiers B1 and B2. |
+| Shaft | 1536 to 2048 | Ore passes, caverns, the lift shaft. The sticky tier B3. |
 
 ### 3.2 Boss levels
 
@@ -188,31 +329,34 @@ for level 15, and 4096 for level 10, whose Tank needs a long track (M14). The fe
 that same kit by the same shape generators, so they are larger and grander
 than a normal level's. Section 7 has the arenas.
 
-Open areas wider than one cell would need the map tools' dropped multi-cell
-rooms (their D30). This plan does not ask for them.
+Open areas wider than one cell need multi-cell rooms, which the map tools
+are adding with fixed door slots (M24). The Descent side adopts them after
+Act I: footprints in the layout, 2x2 and 3x3 caverns and arenas, and the
+boss levels moved off their oversized kits.
 
 ## 4. Jump space
 
 ### 4.1 Tiers
 
-The heights and gaps below are worked from the constants in section 2. They
-are estimates until Phase 0 measures them with the movement simulator; the
-room generators take them from one table, so a measured number changes every
-room at once.
+Measured in Phase 0 (section 1.3). A ledge or gap sits inside what its class
+clears with a margin, and above what the class below it can reach. The room
+generators take these from one table.
 
-| Tier | Who reaches it | Ledge height | Gap |
-|---|---|---|---|
-| T0 | Everyone, walking | up to 18 (a step) | none |
-| T1 | Everyone, crouch-jump | up to 64 | up to 160 |
-| S2 | Scout, double jump | 96 to 112 | 256 to 448 |
-| S3 | Scout, triple jump (Atomizer or an `air_dash_count` item) | 136 to 152 | 480 to 640 |
-| B1 | Soldier or Demoman, an easy blast jump | 256 to 320 | 512 |
-| B2 | A good rocket jump, a sticky jump | 448 to 512 | 768 |
-| B3 | A double sticky or a chained jump | 768 and up | over 1024 |
+| Tier | Who reaches it | Ledge height | Gap | Limit it is set against |
+|---|---|---|---|---|
+| T0 | Everyone, walking | up to 18 (a step) | none | |
+| T1 | Everyone, crouch-jump | up to 64 | up to 160 | A crouch-jump reaches 72; a Heavy's best gap is 210. |
+| S2 | Scout, double jump | 88 to 104 | 400 to 512 | Others stop at 72. The Scout reaches 97 plain, 119 crouched, and 604 across. |
+| S3 | Scout, triple jump (Atomizer or an `air_dash_count` item) | 136 to 144 | 704 to 768 | A double jump stops at 119 and 636. A triple reaches 144 plain, 166 crouched, 878 across. |
+| B1 | Soldier, a rocket jump without crouching; any sticky | 192 to 256 | up to 448 | Above the triple jump's 166; an uncrouched rocket jump peaks near 308. |
+| B2 | Soldier, a crouched rocket jump | 320 to 448 | up to 640 | An uncrouched one stops at 309; a crouched one reaches 509. |
+| B3 | Demoman, a sticky jump | 640 to 768 | up to 1024 | A rocket's best case is 568; a sticky set off late still peaks at 780. |
 
 A ledge at height h needs clear air to h + 114 (the hull plus a margin). A
-blast-jump room needs 512 of clear air over half its floor and a straight
-run of 768 (R19's placeholder).
+rocket-jump room needs 576 of clear air over half its floor (the crouched
+jump's 509 plus the ducked hull), which replaces R19's placeholder of 512,
+and a straight run of 768. A sticky spot needs 1,104 of clear air, so it
+lives in shaft rooms only.
 
 ### 4.2 Rules
 
@@ -234,63 +378,75 @@ The shape generators build these into rooms:
 | Feature | Tier | What it is |
 |---|---|---|
 | Crate steps | T1 | Stacked crates or carts up to a low deck. |
-| Mezzanine | S2 | A deck at 104 along one wall; stairs at the far end for everyone else. |
-| Stepping pillars | S2, S3 | Pillar tops at 104 and 144 across a pit; the floor route goes round. |
-| Chasm leap | S2, S3 | A gap of 384 or 512 with a bridge further along. |
-| Rocket shelf | B1 | A shelf at 288 with a container marker; no other way up. |
-| Catwalk ring | B2 | A catwalk at 448 round a hall, reached by a lift or stair two rooms on, or directly by a jump. |
-| Chimney | B2, B3 | A shaft room with ledges at 320, 640 and 960. |
-| Roof gallery | B3 | A ledge near the roof of a shaft room, for stickies. |
+| Mezzanine | S2 | A deck at 96 along one wall; stairs at the far end for everyone else. |
+| Stepping pillars | S2, S3 | Pillar tops at 96 and 140 across a pit; the floor route goes round. |
+| Chasm leap | S2, S3 | A gap of 448 or 736 with a bridge further along. |
+| Rocket shelf | B1 | A shelf at 224 with a container marker; no other way up. |
+| Catwalk ring | B2 | A catwalk at 384 round a hall, reached by a lift or stair two rooms on, or directly by a jump. |
+| Chimney | B2, B3 | A shaft room with ledges at 384 and 704. |
+| Roof gallery | B3 | A ledge at 768 in a shaft room, for stickies. |
 
 ## 5. Room shapes
 
-One generator per shape family. Each takes the kit, a seed and a theme, and
-writes several variants (different pillar counts, deck sides, pit positions),
-so a library holds about 32 rooms from about 20 families. A room's doors are
-listed as the walls it opens on.
+One generator per shape family, each its own file in `src/mapgen/Descent/Shapes/`
+(`RoomCatalogue.Mine`, `RoomCatalogue.Boss`). Each takes the kit, a seed and a
+theme and writes several variants that differ in outline as well as in doors
+(M22: a fact refuses two variants of one outline). A depth's library holds
+every family whose depth range holds the depth: 65 rooms from 19 families at
+levels 1 to 4. A room's doors are the walls it opens on; every chamber, hall
+and shaft family has a one-door variant, so a tunnel can end in it (M18, M20).
+`RoomFamilies` (rules) is the one list of family names and tags that the
+depth table, the layout's test catalogue and these generators are held to.
 
-**Connectors (low):**
+**Connectors (low, 256), tagged `corridor` or `junction`:**
 
-| Shape | Doors | Notes |
+| Shape | Variants and doors | As built |
 |---|---|---|
-| Drift | 2, opposite | A straight hallway. Width 256 to 384. |
-| Bend | 2, adjacent | |
-| Tee | 3 | |
-| Cross | 4 | |
-| Dogleg | 2, opposite | Breaks the sight line. |
-| Stub | 1 | A dead end with a treasure or shrine marker. |
-| Wide drift | 2 | A double-track rail hallway with a centre row of posts. |
+| Drift | 3, opposite | A plain bore 256 to 320 wide; one with a loading bay; one swelling into a cut chamber with corner posts. |
+| Bend | 3, adjacent | |
+| Tee | 3, three doors | |
+| Cross | 3, four doors | |
+| Dogleg | 3, opposite | Breaks the sight line. |
+| Stub | 3, one door | Tagged `shrine`, each ending at a shrine marker (M18: a dead end worth the walk). |
+| Wide drift | 3, opposite | 448 to 512 wide, a centre row of posts between two tracks; a loading bay; a raised walk. |
 
 **Chambers (512):**
 
-| Shape | Doors | Notes |
+| Shape | Variants and doors | As built |
 |---|---|---|
-| Pillar room | 2 to 4 | Cover for the ground game. |
-| Split level | 2 to 3 | A mezzanine (S2). |
-| Pit room | 2 to 4 | A sunken centre 128 deep with ramps; stepping pillars. |
-| Store | 1 to 2 | Crate maze; crate steps. |
-| Yard | 3 to 4 | Rails, carts and a turntable in levels 1 to 5. |
+| Pillar room | 5: one to four doors | Round pillars, square piers, an L round three pillars, an octagon with a ring, a cross. |
+| Split level | 4: one to three | A mezzanine (S2) with stairs. |
+| Pit room | 4: one to four | Terraces 128 up round a pit, stairs down, stepping pillars (S2). |
+| Store | 3: one or two | A crate maze, crate steps, a deck. |
+| Yard | 4: one to four | Rails on the floor, carts. |
+| Pool | 4: one to four | From level 8 (§7): water in a basin walled by walkways, stepping pillars. |
 
 **Halls and shafts (1024 and up):**
 
-| Shape | Doors | Notes |
+| Shape | Variants and doors | As built |
 |---|---|---|
-| Stope | 2 to 3 | Terraces at 128, 256 and 384 up one side. |
-| Gallery | 2 to 4 | A catwalk ring (B2) and a rocket shelf. |
-| Chasm | 2 | A gap across the room; a bridge and a chasm leap. |
-| Chimney | 1 to 2 | Shaft height; ledges up the walls. |
-| Cavern | 2 to 4 | Displacement floor and walls; stalactites; a high alcove. |
-| Pool | 2 to 4 | Water through water sockets, levels 8, 12, 14. |
+| Stope | 4: one to three | Terraces at 128, 256 and 384 up one side; a rocket shelf (B1). |
+| Gallery | 4: one to four | A catwalk ring (B2) and a rocket shelf. |
+| Chasm | 4: one or two (one at a corner) | A gap across the room; a bridge and a chasm leap (S2, S3). |
+| Chimney | 3: one or two, 1536 to 1792 | Ledges up the walls (B2, B3). |
+| Cavern | 4: one to four, one a shaft | From level 6: rounded corners, rock walls that bulge up to 96 over head height, a roof hanging in lumps, step-high mounds, stalactites, a high alcove (B2) or spires (B2, B3). |
+
+**Low combat rooms (256):**
+
+| Shape | Variants and doors | As built |
+|---|---|---|
+| Crypt | 4: one, two opposite, two at a corner, four | From level 6 (levels 9 and 14 ask for them): a niched passage, an L, a cross-vault with tombs, an ossuary with a shrine on a dais. Not a hallway. |
 
 **Role rooms:**
 
-| Shape | Role | Notes |
+| Shape | Role | As built |
 |---|---|---|
-| Arrival | `room_role up` | The way in, in the act's style (section 8). |
-| Exit | `room_role down` | The way down, in the act's style. |
+| Arrival | `room_role up`, tag `start` | Level 1: the foot of the town's 192 shaft, open to the sky, the cage at its foot. Levels 2 to 5: a cage station. 7 to 10: a rubble ramp. 12 to 15: under a chute. One door, two opposite, two at a corner; the party faces the first door. |
+| Exit | `room_role down`, tag `stairs` | Levels 1 to 4: a cage; 5: the collapsed floor; 6 to 9: a ramp; 11 to 14: a chute. |
+| Treasure | tag `treasure` | 3 one-door vaults: a cut vault, a round vault behind a turn, a dais up crate steps. |
 | Camp | `room_role up` | Levels 6 and 11 only (M10). |
 | Antechamber | none | Boss levels: the room before the arena. |
-| Arena | `boss_arena` | One per boss level, unique (section 7). |
+| Arena | `boss_arena` | One per boss kit (§7); level 15's has one door, since it is the bottom. |
 
 Every combat room declares markers as `info_poi` points, which cost no
 entity: robot pack spawns, and the furniture markers of R24 (shrine,
@@ -343,14 +499,14 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | | 1. The Collar | 2. Haulage | 3. Timber Stopes | 4. The Mill |
 |---|---|---|---|---|
 | Idea | The pit bottom, just under the town. New, painted, signed. | The rail level. Long straight tunnels and loading bays. | Older workings held up by timber. | Ore crushing. Machines, hoppers, dust. |
-| Grid | 3x3 | 3x4 | 4x4 | 4x4 |
+| Rooms, outline | 18, grown free-form inside 15 by 15 cells (M19) | 21, free-form | 27, free-form | 27, free-form |
 | Shapes | Drifts, bends, tees; two chambers; one store | Wide drifts, yards, a first stope | Stopes, split levels, pit rooms | Galleries, a chimney, stores |
 | Height | Low and chamber | Chamber, one hall | Hall | Hall, one shaft |
 | Jumps | Crate steps, one mezzanine | Carts as steps, a rocket shelf | Terraces, stepping pillars | Catwalk ring, chimney |
-| Walls | `concrete/concretewall011`, `metal/wall027`, `coalmines/red_wall1_middle` | `pl_barnblitz/metalroof_panels001`, `nature/rockwall012` | `nature/rockwall013`, `wood/wood_wall006` | `metal/wall026`, `coalmines/rockwall012` |
-| Floor | `concrete/concretefloor003` | `nature/gravelground001`, `metal/metaltrack001` | `coalmines/dirtground004` | `metal/metalgrate011a`, `nature/gravelcoal001` |
-| Props | `props_mining/support_wall001a`, `props_2fort/miningcrate001`, `props_trainyard/handrail128` | `props_mining/track_straight_256`, `props_vehicles/mining_cart_supplies001`, `props_trainyard/cart_base_separate` | `props_mining/tunnel_truss01`, `props_coalmines/wood_support_256`, `props_farm/wooden_barrel` | `props_mining/generator01`, `props_mining/factory_pipe003`, `props_mining/crane001_small` |
-| Lamps | `props_mining/industrial_ceiling_lamp`, close together | `props_mining/industrial_ceiling_lamp02`, `props_lights/flood_light_left001` | `props_2fort/lantern001`, `props_lights/hangingbulb` | `props_hydro/construction_light`, few and yellow |
+| Walls (as built, `Themes/ActOne.cs`, `palettes/dNN.tsv`) | `concrete/computerwall003c` (a red painted band low), cream `metal/wall029` decks | `metal/wall016d` over `nature/rockwall013` below 192, `metal/ibeam001b` sets | `nature/rockwall012` under `wood/wood_wall006` lagging, `wood/wood_beam03` sets and posts | `metal/wall021` over machine-green `metal/metalpanel01` below 192, `metal/imetal002` decks, `props/hazardstrip001a` bands |
+| Floor | `concrete/concretefloor002b` | `nature/gravelground001` with track on every door's axis | `coalmines/dirtground004` | `nature/gravelcoal001` (black coal) |
+| Props | lockers, switchgear, signs, powder crates, cement sacks, cable drums, white pipes | sheets, hand trucks, rope drums, signs, cable conduits, ore carts on sidings, service pipes | lagging, barrels, crates, woodpiles | welders, switchgear, hazard drums, ducts, generators in large rooms only, triple pipes |
+| Lamps | `props_mining/industrial_ceiling_lamp` every 256, bulkheads up tall walls; work floods at the shaft foot | `props_lights/flood_light_left001` as spots, side bays dark | `props_2fort/lantern001` in 3 to 5 pools a room, hung from sets or on crates, hung on walls where dark | `props_gameplay/security_fence_light01` sodium, one cold white flood per large room |
 | Light | 100: warm white, daylight down the shaft | 85: white with shadowed side bays | 70: lantern pools | 60: sodium yellow, dusty fog |
 | Way down | Cage | Cage | Cage | Cage |
 
@@ -361,7 +517,7 @@ at yet; Phase 3 onward opens each one's preview before using it.
   the arena's dressing and cover are seeded.
 - The arena: a round blasted chamber about 1900 across and 1024 high, the
   mine's explosives store. Stone pillars for cover from his cannonballs. A
-  ring ledge at 104 (Scout) and shelves at 288 (blast jump) give ways out of
+  ring ledge at 96 (Scout) and shelves at 224 (blast jump) give ways out of
   his reach. Powder barrels on barrel markers.
 - Light 52: red warning lamps, one white work light over the centre.
 - The way down: his death blast collapses the floor of the lift shaft. The
@@ -372,7 +528,7 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | | 6. The Breakthrough | 7. Dripstone | 8. Sunken Galleries | 9. The Buried Chapel |
 |---|---|---|---|---|
 | Idea | The miners broke into a natural cave and left. Half timber, half rock. | Pure cave. Tall chambers, stalactites, a waterfall. | The flooded level. Planks over murky water. | The cave opens into crypts older than the town. |
-| Grid | 4x4 | 4x5 | 5x5 | 5x5 |
+| Rooms, outline | 27, free-form (M19) | 32, free-form | 37, free-form | 37, free-form |
 | Shapes | Camp, drifts into caverns, a chasm | Caverns, chimneys, chasms | Pools, pit rooms, drifts with water | Low crypt drifts, stubs, two tall naves |
 | Height | Chamber and hall | Hall and shaft: the most vertical level | Chamber and hall | Low; the deliberate ground-game level |
 | Jumps | Chasm leap, rubble steps | Every tier; roof galleries | Stepping pillars over water | Few: nave ledges only |
@@ -390,8 +546,8 @@ town, opened by the level 5 kill.
 
 - The level: arrival, antechamber, arena.
 - The arena: a cavern about 3900 across and 1280 high that Gray Mann's
-  robots have bored up into. Catwalks at 448 over the track let blast
-  jumpers bomb the Tank from above; rock steps at 104 and 144 serve the
+  robots have bored up into. Catwalks at 384 over the track let blast
+  jumpers bomb the Tank from above; rock steps at 96 and 140 serve the
   Scout. `props_mvm/mine_elevator` and
   `props_medieval/tank_entrance_rottenburg` dress the robots' end.
 - The track, sized for a 10 to 20 minute fight (M14): a spiral of about
@@ -417,7 +573,7 @@ town, opened by the level 5 kill.
 | | 11. Robot Works | 12. The Sump | 13. Brimstone | 14. The Rot |
 |---|---|---|---|---|
 | Idea | Gray Mann's factory, abandoned and failing. | The works' waste level. Pipes, toxic slime channels, corrosion. | The diggings broke into the underworld. Lava and black rock. | Hell's cesspit. Organic, wet, almost no light. |
-| Grid | 5x5 | 5x6 | 6x6 | 6x6 |
+| Rooms, outline | 37, free-form (M19) | 44, free-form | 51, free-form | 51, free-form |
 | Shapes | Camp, galleries, yards, wide drifts | Pools, pit rooms, chimneys | Chasms over lava, caverns, stopes | Caverns, pools, doglegs; no straight drift |
 | Height | Hall | Chamber and hall | Hall and shaft | Mixed; low crawls between tall caverns |
 | Jumps | Catwalk rings, rocket shelves | Stepping pillars over slime, pipe tops | Chasm leaps over lava, chimneys | Roof galleries, pillars in slime |
@@ -435,8 +591,8 @@ Level 11's arrival is the second camp (M10), opened by the level 10 kill.
 - The level: arrival by the slime slide, a short antechamber, the arena.
 - The arena: a black slime lake about 2900 across under a roof lost in the
   dark, with a stone platform in the middle and islands round it. He is a
-  melee boss, so height is safety: pillar tops at 104 and 144 for the Scout,
-  ledges at 288 and 448 for blast jumpers. Sections of the platform are
+  melee boss, so height is safety: pillar tops at 96 and 140 for the Scout,
+  ledges at 224 and 384 for blast jumpers. Sections of the platform are
   separate brush entities so the encounter can break them away between
   phases, leaving islands; shallow slime is a hazard volume the encounter
   can switch on in stages.
@@ -561,7 +717,7 @@ level.
 | # | Task | Today |
 |---|---|---|
 | A1 | A shared class of shaft, cage, lining, lantern and sun values, used by the town generator and the room generators | Values are private constants in `TF2DescentTown.cs` |
-| A2 | A room-library writer: cells with gaps, `info_room` and its keys, door plugs, `room_height`, `room_role`, water sockets, the library's sun, fog and tone map in the gaps, the skybox room | `Vmf.cs` writes boxes, panes and entities only |
+| A2 | (First pass done, 064d762ff.) A room-library writer: cells with gaps, `info_room` and its keys, door plugs, `room_height`, `room_role`, water sockets, the library's sun, fog and tone map in the gaps, the skybox room | `Vmf.cs` writes boxes, panes and entities only |
 | A3 | A displacement writer for cave floors and walls | `Vmf.cs` has none |
 | A4 | Non-box brushes: ramps, wedges, round pillars and chamber walls | Boxes and panes only |
 | A5 | The jump-tier table as data, read by every shape generator | New |
@@ -574,6 +730,7 @@ level.
 | A12 | `library.json` written beside each library: tags, weight, depths, `jump`, `low`, markers, doors | New |
 | A13 | A `descent-rooms` verb in `src/mapgen/Program.cs` and a `make descent-rooms` target that writes the fifteen libraries and packs them with `ssmap room` | `make town` is the pattern |
 | A14 | Level 1's sky shaft and skybox room matching the town | New |
+| A15 | A door frame in every socket (socket furniture), so a joined doorway has sides, a sill and a head | New; found in Phase 0 |
 
 ### B. Checks on the rooms (`src/test`, this repo)
 
@@ -595,6 +752,40 @@ level.
 | C3 | Boss levels: the fixed row of arrival, antechamber, arena | New |
 | C4 | Facts over 10,000 seeds per depth | New |
 | C5 | Which depths the town may send a party to: 1 to 5, Camp 6 after the level 5 kill, Camp 11 after the level 10 kill | New; R6 allowed any reached depth |
+
+### Status of A, B and C (2026-11-10, after Act I's integration)
+
+What the branch `descent-mine-plan` holds against each task, checked by its
+facts and the three gates. "Not done" is what is left.
+
+| # | Done | Not done |
+|---|---|---|
+| A1 | `MineShaft`: shaft, cage, lining, lantern, sun and sky, used by the town and the level 1 way in. | |
+| A2 | `RoomLibrary`: cells with gaps, `info_room`, plugs, `room_height`, roles, water, the library's sun, fog and tone map. | The tone map controller is written as key values, which the game's controller ignores (it takes inputs), and the maps are lit LDR, where it does nothing: inert until an HDR compile and a `logic_auto` that fires its inputs. |
+| A3 | Displacement floors, walls and (new) roofs (`Brush.DisplacedBox`, `DisplacedWall`, `DisplacedUnder`). | |
+| A4 | Wedges, stairs, prisms, ring walls, convex columns, chamfers and rounded corners. | |
+| A5 | `JumpTable`, read by every jump feature. | |
+| A6 | Every family of section 5, with a one-door variant of every chamber, hall and shaft; the crypt (new). | Act II and III dressing of them. |
+| A7 | Ways in and down by act, the two camps, antechambers. | |
+| A8 | Placeholder arenas on the boss kits (level 15's of one door). | The Phase 6 arenas, the Bore's track, the breakaway platform. |
+| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`). | Depths 5 to 15 are the grey. |
+| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off. | Handrails on ledges and decks (they stand in the air a ledge's jump needs, which the dressing keeps clear); a door frame per theme (no TF2 frame of a 16 depth fits the kit but the farm frame; a surround is the way). |
+| A11 | `info_poi` markers of every kind, map labels and markers. | |
+| A12 | `library.json` with tags, weights, depths, jump, low, markers, doors, height, focus and a preview camera. | |
+| A13 | `make descent-rooms` and `make descent-level`. | |
+| A14 | Level 1's sky shaft under the town's sun and sky; work floods at its foot. | The sun still cannot reach the cage down 192 of shaft. |
+| A15 | Door frames as static props lining each half of a joined doorway, sill planks, cap panels (M23). | |
+| B1 | Lint facts per rule, plus a giant's reach of every pack spawn. | |
+| B2 | `DescentPaletteTests` against the database at `~/assetdb`. | |
+| B3 | `DescentMineShaftTests` holds the town to `MineShaft`; level 1's way in is built from the same class. | No fact reads level 1's library for the same values. |
+| B4 | `make descent-brightness`. | Depths 5 to 15 (still grey). |
+| B5 | `make descent-reach`, reading every island (`tools/descent-islands`) and accepting a trap only inside the exit's volume. | The per-class report (Scout, Soldier, Demoman floor) of Phase 7. |
+| B6 | `make descent-budget`, with the fog and tone map controllers checked against the library. | |
+| C1 | `LevelLayout`: free-form growth to the room budget (M19), no hallway dead ends (M18), a room at every tunnel's end and no capped door (M20), the adaptive mix (M21). | |
+| C2 | `DepthTable`, with the mix of section 7 per depth. | |
+| C3 | The boss levels' rows. | |
+| C4 | 10,000 seeds a depth on the synthetic catalogue; 200 seeds a depth on the real one with no shortfall of any kind. | |
+| C5 | `TownDescents`. | The host and picker wiring (G6, E1). |
 
 ### D. The game server (`src/tf2_descent/server`, this repo)
 
@@ -654,7 +845,10 @@ Requests to that session; this plan changes nothing there.
 |---|---|---|
 | H1 | Blast-jump reach in the movement simulator | On the branch `claude/blast-reach` |
 | H2 | Scout double and triple jumps in the simulator | To be confirmed |
-| H3 | A full HL2 import into the asset database | TF2 and SDK Base only |
+| H3 | A full HL2 import into the asset database | TF2 and SDK Base only; needs HL2 installed |
+| H4 | A door that stands on the floor at any height, as an option of the kit | A local two-line change in our clone (section 1.3) |
+| H5 | The Scout's air dash at stock's speed in the simulator | 15 % too high |
+| H6 | Faces for a joined doorway's sides, sill and head, or socket furniture kept on both sides | Each joined door costs two `func_brush` entities today |
 
 ### Order
 

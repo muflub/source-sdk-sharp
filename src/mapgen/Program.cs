@@ -248,6 +248,46 @@ if (args.Length > 0 && args[0] == "tfaimaps")
     return 0;
 }
 
+// "descent-rooms" writes the Descent room library (plan_descent_mine_levels.md
+// task A13) into the directory given: the VMF, its library.json and a sample
+// level per depth, which `make descent-rooms` packs with ssmap room and links.
+if (args.Length > 0 && args[0] == "descent-rooms")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen descent-rooms <dir> [--seed N] [--depths 1,2,...]");
+        return 2;
+    }
+
+    ulong seed = 0;
+    int[] depths = [1];
+    for (int i = 2; i + 1 < args.Length; i += 2)
+    {
+        if (args[i] == "--seed")
+            seed = ulong.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+        else if (args[i] == "--depths")
+            depths = [.. args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(d => int.Parse(d, System.Globalization.CultureInfo.InvariantCulture))];
+        else
+        {
+            Console.Error.WriteLine($"descent-rooms: unknown option {args[i]}");
+            return 2;
+        }
+    }
+
+    try
+    {
+        foreach (string file in SourceSharp.MapGen.Descent.DescentRooms.Write(args[1], seed, depths))
+            Console.WriteLine(file);
+    }
+    catch (InvalidOperationException e)
+    {
+        Console.Error.WriteLine($"descent-rooms: {e.Message}");
+        return 1;
+    }
+
+    return 0;
+}
+
 // "stockmap" writes the copy of a compiled ss_sandbox that stock hl2mp loads:
 // the SourceSharp-only classnames renamed (StockMap.Renames), nothing else
 // changed. tools/stock-ab makes it on every run, from the tree's own .bsp.

@@ -28,6 +28,9 @@ public sealed class VmfSide
     public required string Material { get; set; }
     public required string UAxis { get; init; }
     public required string VAxis { get; init; }
+
+    /// <summary>The face's displacement, written under it, or null for a flat face.</summary>
+    public VmfDisplacement? Displacement { get; set; }
 }
 
 /// <summary>A convex brush: the intersection of its faces' half-spaces.</summary>
@@ -275,6 +278,7 @@ public sealed class VmfMap
             text.Append($"{tab}\t\t\"rotation\" \"0\"\n");
             text.Append($"{tab}\t\t\"lightmapscale\" \"16\"\n");
             text.Append($"{tab}\t\t\"smoothing_groups\" \"0\"\n");
+            side.Displacement?.Write(text, tab + "\t\t");
             text.Append($"{tab}\t}}\n");
         }
 

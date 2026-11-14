@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using SourceSharp.Host.Contracts;
+using TF2.Descent.Rules.Layout;
 
 namespace TF2.Descent.Rules;
 
@@ -91,10 +92,30 @@ public sealed class TF2DescentRules : IGameRules
         : t.OfferA.Count - t.OfferB.Count > t.FreeSlotsB ? new TradeResult(false, "no_capacity_b")
         : new TradeResult(true);
 
+    private readonly LevelLayout _layout = new();
+
+    /// <summary>
+    /// The level for a layout key: <see cref="LevelLayout"/>'s when the depth's rooms are named
+    /// in the layout codec (<see cref="RoomName"/>, E8), else the three-room row a library of
+    /// free names (the host's fake libraries) has always had. A pool that mixes the two, or one
+    /// the generator cannot make a level from, throws naming why.
+    /// </summary>
     public LevelPlan GenerateLayout(LayoutKey key)
     {
         var rooms = key.Rooms.Where(r => key.Depth >= r.MinDepth && key.Depth <= r.MaxDepth).ToList();
         if (rooms.Count == 0) rooms = [.. key.Rooms];
+        if (rooms.Any(r => RoomName.TryParse(r.Name, out _, out _)))
+        {
+            var level = _layout.Generate(key.Depth, key.Seed, key.Rooms);
+            return level.Plan ?? throw new InvalidOperationException(
+                $"no layout of library '{key.Library}' at depth {key.Depth}, seed {key.Seed}: {level.Error}");
+        }
+        return Row(key, rooms);
+    }
+
+    /// <summary>The placeholder layout: arrival, one room, exit, in a row.</summary>
+    private static LevelPlan Row(LayoutKey key, List<RoomInfo> rooms)
+    {
         var up = rooms.FirstOrDefault(r => r.Tags.Contains("start"))?.Name ?? rooms[0].Name;
         var down = rooms.FirstOrDefault(r => r.Tags.Contains("stairs"))?.Name ?? rooms[^1].Name;
         var placements = new List<Placement> { new(up, 0, 0, 0, "up") };
