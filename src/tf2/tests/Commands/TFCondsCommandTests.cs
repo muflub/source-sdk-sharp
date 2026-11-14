@@ -161,6 +161,40 @@ public sealed class TFCondsCommandTests
         Assert.Contains("charge 0.5", _log.Lines.Single(l => !l.Warning).Text);
     }
 
+    private sealed class SoldierState : ITFPlayerData
+    {
+        private readonly TFPlayerNetState _state = Build();
+
+        private static TFPlayerNetState Build()
+        {
+            var state = new TFPlayerNetState();
+            state.BindLocal();
+            state.PlayerClass = (int)TFClass.Soldier;
+            state.RageMeter = 87f;          // the buff meter the fills and the drain move
+            state.ChargeMeter = 42f;        // the shield's meter, which a soldier never writes
+            return state;
+        }
+
+        public TFPlayerNetState? Predicted(int playerIndex) => _state;
+        public TFPlayerNetState? Networked(int playerIndex) => _state;
+    }
+
+    /// <summary>
+    /// The soldier's half of the charge column: the Buff Banner's deploy gate
+    /// reads <see cref="TFPlayerNetState.RageMeter"/>, and the shield's
+    /// <see cref="TFPlayerNetState.ChargeMeter"/> stands only for the demoman's
+    /// bash — so the soldier line answers the rage meter where the old shape
+    /// printed the never-written shield meter's zero. The 42 under the 87
+    /// shows which of the two fields the column takes.
+    /// </summary>
+    [Fact]
+    public void The_soldier_line_reads_the_charge_column_from_the_rage_meter()
+    {
+        Command(Engine(), new SoldierState()).RunLine("3");
+
+        Assert.Contains("charge 87", _log.Lines.Single(l => !l.Warning).Text);
+    }
+
     private sealed class NoCarriers : ITFPlayerData
     {
         public TFPlayerNetState? Predicted(int playerIndex) => null;

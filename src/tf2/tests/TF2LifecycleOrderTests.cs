@@ -55,8 +55,14 @@ public sealed class TF2LifecycleOrderTests
     [Fact]
     public void No_server_hook_chain_has_two_members_at_one_order()
     {
+        // Every server assembly the tf2 mod loads (game/mods.yaml's tf2 row):
+        // the AI binding joins TF2's chains in the same container, so a tie
+        // between an AI member and a TF2 one throws at the first call
+        // (2026-11-10: CombatTap and TFStickyTray on IPlayerDeathHook, every
+        // death in TF2).
         var ties = ChainTies(
-            [typeof(SourceSharp.Server.PlayerComposites).Assembly, typeof(TF2.Server.TFClassTableLoader).Assembly],
+            [typeof(SourceSharp.Server.PlayerComposites).Assembly, typeof(TF2.Server.TFClassTableLoader).Assembly,
+             typeof(SourceSharp.Ai.Server.Senses.CombatTap).Assembly, typeof(SourceSharp.Ai.TF2.TFAiService).Assembly],
             typeof(IHooks<>), typeof(IOrderedHook),
             t => t.GetCustomAttributes(typeof(SideServiceAttribute), false).Length > 0, floor: 5);
         Assert.True(ties.Count == 0, string.Join("\n", ties));

@@ -115,11 +115,11 @@ public sealed class EngineTFPickupNotices(IUserMessageSender messages, IEngineGa
         });
 
     /// <summary>
-    /// Stock plays it to the player alone (<c>CSingleUserRecipientFilter</c>);
-    /// the sound area has no single-recipient filter, so the player's
-    /// neighbours hear it too (docs/divergences.md).
+    /// Stock plays it to the player alone (<c>CSingleUserRecipientFilter</c>,
+    /// entity_healthkit.cpp:140-141): the single-player emit gives the touch to
+    /// the picker and to nobody else.
     /// </summary>
-    public void Sound(EntityHandle player, string sound1) => sound.EntityEmitSound(player, sound1);
+    public void Sound(EntityHandle player, string sound1) => sound.EmitSoundToPlayer(player, player, sound1);
 
     /// <summary><c>INVALID_ITEM_DEF_INDEX</c> (econ_item_constants.h), as the event's short.</summary>
     private const int ItemDefIndexInvalid = 65535;

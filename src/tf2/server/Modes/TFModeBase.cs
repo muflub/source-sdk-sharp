@@ -124,6 +124,9 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
 
     public IMapCleanupFilter? Cleanup => _services.Cleanup;
 
+    /// <summary>The menus' view: TF2's limits and the entity this mode's map must hold (<see cref="TFModeSettings"/>).</summary>
+    public IModeSettings Settings => TFModeSettings.For(Id);
+
     /// <summary>Stock <c>CTFGameRules::Activate</c>'s game-type flags.</summary>
     public virtual void SetupRound(float now) => _services.Flags.SetGameType(GameType);
 

@@ -35,7 +35,8 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
                                   IClientStandalones standalones, ITFPlayerData data,
                                   TFClientPlayerResources resources, IPlayerNames names,
                                   WeaponCatalog catalog, TFClassTable classes,
-                                  ITFWeaponOwners owners, AttributeHooks attributes) : ITFTargetId
+                                  ITFWeaponOwners owners, AttributeHooks attributes,
+                                  IGameClock clock) : ITFTargetId
 {
     /// <summary>MAX_TRACE_LENGTH, as UpdateIDTarget traces.</summary>
     private const float MaxTrace = 56756f;
@@ -55,6 +56,7 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
 
     private bool _resolved;
     private int _viewId;
+    private float _now;
     private float _ox, _oy, _oz, _fx, _fy, _fz;
 
     private bool _present;
@@ -72,7 +74,11 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
     public TFTargetIdLine Line => Resolve() ? _line : default;
 
     /// <summary>
-    /// The frame's ray, resolved once per view. Stock's UpdateID names
+    /// The frame's ray: re-evaluated on every tick, as stock's ShouldDraw
+    /// re-scans every frame (tf_hud_target_id.cpp:540-593 — the answer
+    /// follows whoever the crosshair now rests on, camera motion or not);
+    /// within one tick the screen's repeated property reads share one
+    /// resolution, held by the unchanged view and clock time. Stock's UpdateID names
     /// nothing for a plain enemy (the printFormatString arm,
     /// tf_hud_target_id.cpp:806-816, answers only the validity gate's teams
     /// and a spy/medic/heavy local — a scout aiming at an enemy draws
@@ -82,12 +88,13 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
     private bool Resolve()
     {
         var now = view.View();
-        if (_resolved && now.Id == _viewId && now.Origin.X == _ox && now.Origin.Y == _oy && now.Origin.Z == _oz
-            && now.Forward.X == _fx && now.Forward.Y == _fy && now.Forward.Z == _fz)
+        if (_resolved && clock.Now == _now && now.Id == _viewId && now.Origin.X == _ox && now.Origin.Y == _oy
+            && now.Origin.Z == _oz && now.Forward.X == _fx && now.Forward.Y == _fy && now.Forward.Z == _fz)
             return _present;
 
         (_viewId, _ox, _oy, _oz, _fx, _fy, _fz) = (now.Id, now.Origin.X, now.Origin.Y, now.Origin.Z,
                                                    now.Forward.X, now.Forward.Y, now.Forward.Z);
+        _now = clock.Now;
         _resolved = true;
         _present = false;
         _name = "";

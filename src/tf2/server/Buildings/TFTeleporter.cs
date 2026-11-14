@@ -95,8 +95,9 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
                                  IEnginePlayers enginePlayers, TFTeleporterFovStartConVar fovStart,
                                  TFTeleporterFovTimeConVar fovTime,
                                  TFPlayerCarriers carriers, TFConceptSpeech speech,
-                                 ITFRevengeCrits crits, ServerBodygroups bodygroups)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups)
+                                 ITFRevengeCrits crits, ServerBodygroups bodygroups,
+                                 IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     public const string MapClass = "obj_teleporter";
 

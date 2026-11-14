@@ -964,9 +964,8 @@ public class TFSentryGunTests
         Assert.NotNull(scale);
         Assert.Equal(TFBaseObject.MiniSentryScale, scale!.Value.ArgAs<float>(1));   // MINI_SENTRY_SCALE
 
-        var skin = rig.Engine.Last("EntityRender.SetSkin");
-        Assert.NotNull(skin);
-        Assert.Equal(2, skin!.Value.ArgAs<int>(1));                                 // the rig's builder stands red
+        var skins = (RecordingServerSkins)rig.Registry.Services!.Resolve(typeof(IServerSkins))!;
+        Assert.Equal(2, skins.Set[^1].Skin);                          // mini's re-dress after placement: the rig's builder stands red
 
         // A blu builder's mini wears the third skin (:1472).
         var blu = new BuildingsRig();
@@ -977,9 +976,26 @@ public class TFSentryGunTests
         blu.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 500;
         blu.Builder().Build(bluBuilder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
 
-        var bluSkin = blu.Engine.Last("EntityRender.SetSkin");
-        Assert.NotNull(bluSkin);
-        Assert.Equal(3, bluSkin!.Value.ArgAs<int>(1));
+        var bluSkins = (RecordingServerSkins)blu.Registry.Services!.Resolve(typeof(IServerSkins))!;
+        Assert.Equal(3, bluSkins.Set[^1].Skin);                       // and blu wears the third (:1472)
+    }
+
+    [Theory]
+    [InlineData(TFTeam.Red, 0)]
+    [InlineData(TFTeam.Blue, 1)]
+    public void ThePlacedSentryWearsItsBuildersTeamSkin(TFTeam team, int skin)
+    {
+        // StartPlacement's tail (tf_obj.cpp:901-902): red's first skin, blu's
+        // second, through the builder's real Build path.
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = rig.AddBuilder(team);
+        rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 500;
+        rig.Builder().Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
+
+        var skins = (RecordingServerSkins)rig.Registry.Services!.Resolve(typeof(IServerSkins))!;
+        Assert.NotEmpty(skins.Set);                                   // placement's own write, the team's colour
+        Assert.Equal(skin, skins.Set[^1].Skin);
     }
 
     [Fact]

@@ -52,8 +52,9 @@ public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  ITFPlayerHealing healing, TFPlayerCarriers carriers,
                                  TFConceptSpeech speech, ITFWeaponOwners owners,
                                  AttributeHooks hooks,
-                                 TFDamageScopes scopes, ITFRevengeCrits crits, ServerBodygroups bodygroups)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups)
+                                 TFDamageScopes scopes, ITFRevengeCrits crits, ServerBodygroups bodygroups,
+                                 IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     public const string MapClass = "obj_dispenser";
 

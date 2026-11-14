@@ -130,8 +130,7 @@ public interface ITFPlayerHealing
 
 /// <summary>
 /// The server's <see cref="ITFPlayerHealing"/>. The stock arms that have no
-/// server here — the disguised player's fake health, the
-/// Quick-Fix no-decay arm, the healing debuff reduction, the rune of vampirism,
+/// server here — the rune of vampirism,
 /// the rage buffers, the exploit arm of the charge expiry and the charge kick
 /// for AoE heals (that last one only fires for an overheal bonus of 1, which no
 /// standard medigun entry has) — are the rows in docs/plans/tf2/deferred.tsv.
@@ -144,6 +143,9 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
 
     /// <summary>Stock's <c>INVALID_ITEM_DEF_INDEX</c> (shareddefs.h).</summary>
     public const int InvalidItemDefIndex = 65535;
+
+    /// <summary><c>MEDIGUN_QUICKFIX</c>, the Quick-Fix's <c>set_weapon_mode</c> row (tf_weapon_medigun.h:23-29).</summary>
+    internal const int QuickFixWeaponMode = 2;
 
     private readonly IEnginePlayers players;
     private readonly IEngineEntities entities;
@@ -170,6 +172,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     private readonly TFPlayerItems items;
     private readonly AttributeHooks hooks;
     private readonly IEngineSound sound;
+    private readonly TFClassTable classes;
 
     private readonly Dictionary<int, PatientHealing> patients = new();
     private readonly Dictionary<int, float[]> chargeOffTimes = new();
@@ -188,7 +191,8 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                            ITFPlayerStats stats, TFDamageRecords records,
                            IEngineGameEvents events,
                            IFlagCarriers flagCarriers, ITFPlayerData data,
-                           TFPlayerItems items, AttributeHooks hooks, IEngineSound sound)
+                           TFPlayerItems items, AttributeHooks hooks, IEngineSound sound,
+                           TFClassTable classes)
     {
         this.players = players;
         this.entities = entities;
@@ -206,6 +210,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         this.items = items;
         this.hooks = hooks;
         this.sound = sound;
+        this.classes = classes;
     }
 
     public int HookOrder => TFMedigunOrders.Healing;
@@ -289,7 +294,8 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     {
         if (cond != TFCond.HealthBuff || !patients.TryGetValue(player.EntryIndex, out var state))
             return;
-        state.HealFraction = 0f;
+        state.HealFraction = 0f;               // :1580-1581 stock zeroes both fractions on every add
+        state.DisguiseFraction = 0f;
         state.HealedPerSecondTimer = clock.Now + 1f;
     }
 
@@ -297,13 +303,15 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// <c>OnConditionRemoved(TF_COND_HEALTH_BUFF)</c> GAME_DLL half: the last
     /// healer leaving leaves no carry-over behind — the next attach (or the item
     /// overheal's drain, which shares the fraction) starts clean.
-    /// <c>m_flDisguiseHealFraction</c> has no port (the disguised healing is a
-    /// deferred row).
+    /// <c>m_flDisguiseHealFraction</c> goes with it (:1937-1938).
     /// </summary>
     public void OnRemoved(EntityHandle player, TFCond cond)
     {
         if (cond == TFCond.HealthBuff && patients.TryGetValue(player.EntryIndex, out var state))
+        {
             state.HealFraction = 0f;
+            state.DisguiseFraction = 0f;
+        }
     }
 
     // ---- the charge effects: the g_MedigunEffects rows a released medigun grants ------------
@@ -424,7 +432,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
             }
             conditions.Add(player, row.Condition, ChargeSeconds(provider), provider);
             SendNewInvulnGameEvent(player);
-            sound.EntityEmitSound(player, row.ChargeOnSound);           // :9078-9079 stock's CSingleUserRecipientFilter; the sound area has no single-recipient emit, so neighbours hear it too (as HealthKit.Sound, docs/divergences.md)
+            sound.EmitSoundToPlayer(player, player, row.ChargeOnSound);  // :9078-9079 stock's CSingleUserRecipientFilter: the single-player emit gives it to the healed player alone
             flags[slot] = true;                                         // m_bChargeSoundEffectsOn (:9081)
             chargeOffSounded[player.EntryIndex] = false;                // m_bChargeOffSounded (:9080)
             return;
@@ -439,7 +447,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         if (offTimes[slot] == 0f && !chargeOffSounded.GetValueOrDefault(player.EntryIndex))   // :9091-9098, once per grant cycle
         {
             sound.EntityStopSound(player, row.ChargeOffSound);          // :9094 no duplicate Off sounds
-            sound.EntityEmitSound(player, row.ChargeOffSound);
+            sound.EmitSoundToPlayer(player, player, row.ChargeOffSound); // :9095 the Off wave, stock's same single-user filter
             chargeOffSounded[player.EntryIndex] = true;
         }
 
@@ -573,6 +581,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     {
         patients.TryGetValue(patient.EntryIndex, out var state);
         bool decayHealth = true;
+        bool decayDisguiseHealth = true;     // :2394-2395 both flags start up
 
         if (state is not null && state.Healers.Count > 0 && conditions.InCond(patient, TFCond.HealthBuff))
         {
@@ -601,6 +610,17 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                 // standard player the buffing max IS the class max, so both arms answer health/max.
                 float curOverheal = (float)prevHealth / max;
 
+                // Stock's disguise overheal (:2422): a disguised patient reads the fake health against
+                // the disguise class's own max; with no disguise class behind the state (a max of 0)
+                // the ratio falls back to the real one.
+                float curDisguiseOverheal = curOverheal;
+                if (conditions.InCond(patient, TFCond.Disguised) && data.Networked(patient.EntryIndex) is { } disguiseState)
+                {
+                    int disguiseMax = DisguiseMaxHealth(disguiseState, patient);
+                    if (disguiseMax != 0)
+                        curDisguiseOverheal = (float)disguiseState.DisguiseHealth / disguiseMax;
+                }
+
                 float totalAmount = 0f;
                 List<(int Index, HealerEntry Entry)> healing = new(state.Healers.Count);
                 foreach (var (index, entry) in state.Healers)
@@ -619,29 +639,55 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                     if (entry.DispenserHeal)
                         AddToSpyCloakMeter(patient, frametime * entry.Amount);
 
-                    // Stock skips a healer whose overheal bonus is reached: that healer heals
-                    // nothing, and (the Quick-Fix no-decay arm aside) leaves the drain on.
+                    // Stock's two per-healer flags (:2436-2456): the heal goes to the real
+                    // health unless the overheal bonus is reached, and to the disguise's fake
+                    // health while the patient is disguised and still under that fake health's
+                    // own bonus.
+                    bool healDisguise = conditions.InCond(patient, TFCond.Disguised);
+                    bool healActual = true;
                     if (curOverheal >= entry.OverhealBonus)
+                        healActual = false;
+                    if (healDisguise && curDisguiseOverheal >= entry.OverhealBonus)
+                        healDisguise = false;
+
+                    // The Quick-Fix holds the overheal up even when neither arm heals
+                    // (:2458-2470); any other gun skips the healer and leaves both drains on.
+                    if (!healActual && !healDisguise)
+                    {
+                        if (hooks.Int(0, "set_weapon_mode", items.ManagerOf(index)) == QuickFixWeaponMode)
+                        {
+                            decayHealth = false;
+                            decayDisguiseHealth = false;
+                        }
                         continue;
-                    decayHealth = false;
+                    }
+
+                    if (healActual)
+                        decayHealth = false;             // :2476-2479 being healed by a medigun, no decay
+                    if (healDisguise)
+                        decayDisguiseHealth = false;     // :2481-2484 the same for the fake health
 
                     // Stock's per-healer walk (:2519): the patient's own
                     // mult_healing_from_medics rides the out-of-combat scale for
-                    // every medigun heal — asked on the patient's manager, like
-                    // the two walks above. The dispenser arm takes its rate whole,
-                    // which is what the ternary below keeps (:2503).
-                    if (!entry.DispenserHeal)
+                    // every medigun heal that goes to the real health — asked on the
+                    // patient's manager, like the two walks above. The dispenser arm
+                    // takes its rate whole, which is what the ternary below keeps (:2503).
+                    if (!entry.DispenserHeal && healActual)
                         scale = hooks.Float(scale, "mult_healing_from_medics", items.ManagerOf(patient.EntryIndex));   // :2519
 
                     // Dispensers heal at a constant rate, ignoring the out-of-combat
                     // scale (tf_player_shared.cpp:2497-2513); a medigun's heal is
                     // scaled (:2514-2526). The attribute scale rides both arms
                     // (:2503, :2520); the per-healer overheal scale rides the medigun
-                    // arm alone (:2520).
+                    // arm alone (:2520); the fake health rides its own fraction beside
+                    // the real one (:2509-2512, :2522-2525).
                     float fraction = frametime * entry.Amount * attribModScale
                                    * (entry.DispenserHeal ? 1f : scale * perHealerScale);
-                    state.HealFraction += fraction;
-                    if (entry.DispenserHeal)
+                    if (healActual)
+                        state.HealFraction += fraction;
+                    if (healDisguise)
+                        state.DisguiseFraction += fraction;
+                    if (entry.DispenserHeal && healActual)
                     {
                         // track how much this healer has actually done so far, capped at
                         // what still fits under the buff max (:2506-2507)
@@ -653,16 +699,38 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                     healing.Add((index, entry));
                 }
 
+                // Stock's healing debuff (:2537-2540): while the patient carries it — the afterburn
+                // leaves one behind (:6653) — the accumulated fraction is scaled by
+                // 1 − PYRO_AFTERBURN_HEALING_REDUCTION before any of it becomes health.
+                if (conditions.InCond(patient, TFCond.HealingDebuff))
+                    state.HealFraction *= 1f - TFConditionEffects.AfterburnHealingReduction;
+
+                // Stock pays both fractions on one gate (:2542-2554): either whole amount
+                // spends its own fraction, and each subtracts only what it pays.
                 int healthToAdd = (int)state.HealFraction;
+                int disguiseHealthToAdd = (int)state.DisguiseFraction;
                 int taken = 0;
-                if (healthToAdd > 0)
+                if (healthToAdd > 0 || disguiseHealthToAdd > 0)
                 {
-                    state.HealFraction -= healthToAdd;
-                    int boostMax = MaxBuffedHealth(patient);
-                    healthToAdd = Math.Clamp(healthToAdd, 0, boostMax - prevHealth);
-                    taken = healthToAdd > 0 ? resupply.TakeHealth(patient, healthToAdd, ignoreMaxHealth: true) : 0;
-                    if (taken > 0 && totalAmount > 0f)
-                        ReportHealing(patient, state, healing, totalAmount, taken, prevHealth, boostMax, now);
+                    if (healthToAdd > 0)
+                        state.HealFraction -= healthToAdd;
+                    if (disguiseHealthToAdd > 0)
+                        state.DisguiseFraction -= disguiseHealthToAdd;
+
+                    // The separate cap for disguised health (:2558-2563): the fake health fills
+                    // toward the disguise class's buffed max, never past it.
+                    if (conditions.InCond(patient, TFCond.Disguised) && data.Networked(patient.EntryIndex) is { } carrier)
+                        carrier.DisguiseHealth += Math.Clamp(disguiseHealthToAdd, 0,
+                                                              DisguiseMaxBuffedHealth(carrier, patient) - carrier.DisguiseHealth);
+
+                    if (healthToAdd > 0)
+                    {
+                        int boostMax = MaxBuffedHealth(patient);
+                        healthToAdd = Math.Clamp(healthToAdd, 0, boostMax - prevHealth);
+                        taken = healthToAdd > 0 ? resupply.TakeHealth(patient, healthToAdd, ignoreMaxHealth: true) : 0;
+                        if (taken > 0 && totalAmount > 0f)
+                            ReportHealing(patient, state, healing, totalAmount, taken, prevHealth, boostMax, now);
+                    }
                 }
 
                 int healthAfter = prevHealth + taken;
@@ -702,6 +770,30 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         else if (health <= maxHealth && state is not null && state.BestDecayMult != -1f)
         {
             state.BestDecayMult = -1f;
+        }
+
+        // The disguise's own drain (:2737-2757): fake health over the disguise class's max rides
+        // the same drain time — the multiplier scales the rate after the divide (:2746), where
+        // the real-health arm divides by it (:2712) — and subtracts m_iDisguiseHealth itself.
+        if (decayDisguiseHealth && conditions.InCond(patient, TFCond.Disguised)
+            && data.Networked(patient.EntryIndex) is { } disguise)
+        {
+            int disguiseMax = DisguiseMaxHealth(disguise, patient);
+            if (disguise.DisguiseHealth > disguiseMax)
+            {
+                // Same state as the real drain: the banked multiplier is one field in stock
+                // (m_flBestOverhealDecayMult), read by both arms (:2743-2744).
+                state ??= patients[patient.EntryIndex] = new PatientHealing();
+                float mult = state.BestDecayMult == -1f ? 1f : state.BestDecayMult;
+                float disguiseBoost = DisguiseMaxBuffedHealth(disguise, patient, ignoreHealthOverMax: true) - disguiseMax;
+                state.DisguiseFraction += frametime * (disguiseBoost / boostDrainTime.Value) * mult;   // :2746
+                int drain = (int)state.DisguiseFraction;
+                if (drain > 0)
+                {
+                    state.DisguiseFraction -= drain;
+                    disguise.DisguiseHealth -= drain;    // :2755 the fake health moves directly
+                }
+            }
         }
     }
 
@@ -775,6 +867,31 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
             return 0;
         int roundDown = (int)(max * maxHealthBoost.Value / 5f) * 5;
         return ignoreHealthOverMax ? roundDown : Math.Max(roundDown, Math.Max(max, entities.GetHealth(patient)));
+    }
+
+    /// <summary>
+    /// <c>CTFPlayerShared::GetDisguiseMaxHealth</c> (:8358-8369): the disguise class's script
+    /// maximum; a class with no data answers the patient's own maximum, as stock's
+    /// <c>m_pOuter-&gt;GetMaxHealth()</c> arm.
+    /// </summary>
+    private int DisguiseMaxHealth(TFPlayerNetState carrier, EntityHandle patient)
+    {
+        int max = classes[(TFClass)carrier.DisguiseClass].MaxHealth;
+        return max > 0 ? max : resupply.MaxHealth(patient);
+    }
+
+    /// <summary>
+    /// <c>CTFPlayerShared::GetDisguiseMaxBuffedHealth</c> (:2296): the disguise class's max times
+    /// <c>tf_max_health_boost</c>, floored to a multiple of five, and — unless
+    /// <c>ignoreHealthOverMax</c> — never below the disguise's own max or fake health
+    /// (:2317-2325). Like <see cref="MaxBuffedHealth"/> this answers the convar's boost alone;
+    /// the healer loop of the <c>GAME_DLL</c> arm (:2300-2311) is the same deferred extension.
+    /// </summary>
+    private int DisguiseMaxBuffedHealth(TFPlayerNetState carrier, EntityHandle patient, bool ignoreHealthOverMax = false)
+    {
+        int max = DisguiseMaxHealth(carrier, patient);
+        int roundDown = (int)(max * maxHealthBoost.Value / 5f) * 5;
+        return ignoreHealthOverMax ? roundDown : Math.Max(roundDown, Math.Max(max, carrier.DisguiseHealth));
     }
 
     /// <summary>
@@ -891,6 +1008,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     {
         public readonly Dictionary<int, HealerEntry> Healers = new();
         public float HealFraction;
+        public float DisguiseFraction;    // m_flDisguiseHealFraction (:2543), the fake health's own carry
         public float BestDecayMult = -1f;
         public float HealedPerSecondTimer;
     }

@@ -364,7 +364,8 @@ internal sealed partial class BuildingsRig
                                       Convars.Declared<TFMaxHealthBoostConVar>(), Convars.Declared<TFBoostDrainTimeConVar>(),
                                       Convars.Declared<TFInvulnTimeConVar>(), Clock,
                                       new TFHealingStats(), new TFDamageRecords(), new TFHealingEvents(),
-                                      new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(), Hooks, Engine);
+                                      new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(), Hooks, Engine,
+                                      TFMovementFixtures.Server());
         Services.AddInstance(HealingConditions);
         // The condition arm of the send (the teleporter's speed boost) joins
         // the same accumulator the dispenser's heal arm feeds.
@@ -459,10 +460,37 @@ internal sealed partial class BuildingsRig
         });
         Engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
         {
-            Vector end = (Engine.Last("WorldQuery.TraceLine") ?? default).ArgAs<Vector>(1);
-            return BlockedEnds.Contains(end)
-                ? new TraceResult(true, 1f, end, Vector.Zero, EntityHandle.None)
-                : default;
+            EngineCall call = Engine.Last("WorldQuery.TraceLine") ?? default;
+            Vector start = call.ArgAs<Vector>(0);
+            Vector end = call.ArgAs<Vector>(1);
+            if (BlockedEnds.Contains(end))
+                return new TraceResult(true, 1f, end, Vector.Zero, EntityHandle.None);
+
+            // Brushes-only traces see the map's solids, not the standing
+            // buildings; the solid mask is what names the struck entity.
+            if (call.ArgAs<TraceMask>(3) != TraceMask.Solid)
+                return default;
+
+            EntityHandle struck = NearestStruck(start, end, Vector.Zero);
+            if (struck == EntityHandle.None)
+                return default;
+
+            Vector at = Centers.TryGetValue(struck, out Vector centre) ? centre : end;
+            return new TraceResult(true, FractionAlong(start, end, at), at, Vector.Zero, struck);
+        });
+        Engine.ReturnsEachCall("WorldQuery.TraceHull", () =>
+        {
+            EngineCall call = Engine.Last("WorldQuery.TraceHull") ?? default;
+            Vector start = call.ArgAs<Vector>(0);
+            Vector end = call.ArgAs<Vector>(1);
+            Vector mins = call.ArgAs<Vector>(2);
+            Vector maxs = call.ArgAs<Vector>(3);
+            Vector pad = new(Math.Max(-mins.X, maxs.X), Math.Max(-mins.Y, maxs.Y), Math.Max(-mins.Z, maxs.Z));
+
+            EntityHandle struck = NearestStruck(start, end, pad);
+            return struck == EntityHandle.None
+                ? default
+                : new HullResult(true, false, struck);
         });
         // The unknown entity is a standing player — the hull the projectile
         // rig answers, and the shape a box retest reads.
@@ -473,6 +501,61 @@ internal sealed partial class BuildingsRig
                 ? hull
                 : (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, TFViewVectors.Params.HullMax.Z));
         });
+    }
+
+    /// <summary>
+    /// The nearest registered entity whose box stands in the swept corridor
+    /// — the handle a line (zero pad) or hull (its own mins/maxs) answers.
+    /// A sapper answers for nothing: it rides its building, and the building
+    /// is what the trace names.
+    /// </summary>
+    private EntityHandle NearestStruck(Vector start, Vector end, Vector pad)
+    {
+        // The corridor: the segment's box, widened by the hull's half-widths.
+        Vector lo = new(Math.Min(start.X, end.X) - Math.Abs(pad.X),
+                        Math.Min(start.Y, end.Y) - Math.Abs(pad.Y),
+                        Math.Min(start.Z, end.Z) - Math.Abs(pad.Z));
+        Vector hi = new(Math.Max(start.X, end.X) + Math.Abs(pad.X),
+                        Math.Max(start.Y, end.Y) + Math.Abs(pad.Y),
+                        Math.Max(start.Z, end.Z) + Math.Abs(pad.Z));
+
+        // The standing shell's half-extents, the GetBounds default's shape.
+        Vector half = new(24f, 24f, TFViewVectors.Params.HullMax.Z);
+        Vector span = end - start;
+        float lengthSquared = span.LengthSquared;
+
+        EntityHandle bestHandle = EntityHandle.None;
+        float bestAlong = float.MaxValue;
+        foreach ((EntityHandle handle, Vector centre) in Centers)
+        {
+            if (Registry.Get(handle) is TFSapper)
+                continue;
+
+            if (centre.X + half.X < lo.X || centre.X - half.X > hi.X
+                || centre.Y + half.Y < lo.Y || centre.Y - half.Y > hi.Y
+                || centre.Z + half.Z < lo.Z || centre.Z - half.Z > hi.Z)
+                continue;
+
+            float along = lengthSquared > 0f ? (centre - start).Dot(span) / lengthSquared : 0f;
+            if (along >= bestAlong)
+                continue;
+
+            bestHandle = handle;
+            bestAlong = along;
+        }
+
+        return bestHandle;
+    }
+
+    /// <summary>Where along the segment the point lies, the seam's fraction.</summary>
+    private static float FractionAlong(Vector start, Vector end, Vector point)
+    {
+        Vector span = end - start;
+        float lengthSquared = span.LengthSquared;
+        if (lengthSquared < 1f)
+            return 0f;
+
+        return Math.Clamp((point - start).Dot(span) / lengthSquared, 0f, 1f);
     }
 
     /// <summary>A builder on the team asked, ready to place.</summary>

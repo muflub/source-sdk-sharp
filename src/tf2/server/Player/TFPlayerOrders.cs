@@ -171,4 +171,10 @@ public static class TFPlayerOrders
 
     /// <summary>A death on TF's scoreboard: the victim's death, the attacker's kill (<see cref="TFKillStats"/>), on +109.</summary>
     public const int KillStats = Band + 109;
+
+    /// <summary>
+    /// The owner's death fizzles a launcher's stickies (<see cref="TF2.Server.Projectiles.TFStickyTray"/>):
+    /// its own place on the death walk, after the scoreboard's, on +149.
+    /// </summary>
+    public const int StickyTray = Band + 149;
 }

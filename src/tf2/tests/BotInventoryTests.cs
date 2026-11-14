@@ -54,7 +54,7 @@ public sealed class BotInventoryTests
     private static List<((TFClass Class, TFLoadoutSlot Slot) Key, int Defindex)> Draws(PlayerInventory inventory) =>
         inventory.Equipped.Select(pair => (pair.Key, inventory.Item(pair.Value)!.Defindex)).ToList();
 
-    private sealed class TestBots(bool isBot) : IBotPlayers
+    private sealed class TestBots(bool isBot, params BotPlayer[] bots) : IBotPlayers
     {
         public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
@@ -66,8 +66,10 @@ public sealed class BotInventoryTests
 
         public bool Kick(EntityHandle bot, string reason) => false;
 
-        public IReadOnlyList<BotPlayer> Bots { get; } = [];
+        public IReadOnlyList<BotPlayer> Bots { get; } = bots;
     }
+
+    private static BotPlayer Bot(int seat, string name) => new(new EntityHandle((uint)seat), seat, name);
 
     /// <summary>The round the loadout reads, fixed at one state (the harness of TFPlayerLoadoutTests).</summary>
     private sealed class FixedRound(RoundState state) : ITeamRoundState
@@ -110,6 +112,31 @@ public sealed class BotInventoryTests
             Assert.True(statuses.TryGetValue(item!.Defindex, out string? status));
             Assert.Equal("works", status);
         }
+    }
+
+    /// <summary>
+    /// A works item that bars its holder from the intelligence (the Rocket Jumper's
+    /// cannot_pick_up_intelligence) is never a bot's, over 200 seeds: live on ctf_2fort every bot
+    /// drew it and none could take the flag it stood on.
+    /// </summary>
+    [Fact]
+    public void NoBotIsGivenAnItemThatBarsItFromTheObjective()
+    {
+        EconTestFiles files = CraftedTable(
+            "22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t",
+            // The fixture schema has no Rocket Jumper (237): another of its items carries the Jumper's attribute classes here.
+            "23\tTF_WEAPON_PISTOL_SCOUT\ttf_weapon_pistol\tsecondary\tscout\t\tmult_dmg;no_self_blast_dmg;cannot_pick_up_intelligence\tworks\t");
+        var schema = EconTestFiles.TrimmedSchema();
+        BotInventory source = Source(files, schema);
+        var drawn = new HashSet<int>();
+        for (ulong seed = 0; seed < 200; seed++)
+        {
+            foreach (((TFClass Class, TFLoadoutSlot Slot) key, int defindex) in Draws(source.ForBot(Seat, seed)!))
+                drawn.Add(defindex);
+        }
+
+        // What is drawn, not what the loadout would answer for it: the schema's class check stands behind the draw.
+        Assert.Equal([22], drawn);
     }
 
     /// <summary>
@@ -165,6 +192,45 @@ public sealed class BotInventoryTests
         Assert.Equal(2, seen.Count);
     }
 
+    /// <summary>
+    /// Through the loadout provider each bot draws by its own name: eight bots with the roster's
+    /// names draw both of a slot's two works items. Live every TF2 bot was seeded 0 and all shared
+    /// one loadout.
+    /// </summary>
+    [Fact]
+    public void BotsWithDifferentNamesDrawDifferentLoadouts()
+    {
+        EconTestFiles files = CraftedTable(
+            "22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t",
+            "23\tTF_WEAPON_PISTOL_SCOUT\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t");
+        var schema = EconTestFiles.TrimmedSchema();
+        string[] names = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel"];
+        var bots = new TestBots(true, [.. names.Select((name, i) => Bot(i + 1, name))]);
+        var source = new BotInventory(schema, files, bots, Log());
+        var human = new LocalInventory(
+            new InventoryStore(new ModInfo(_ => null), schema, Log()), schema, new TFWeaponOwnersTests.NoClients(), Log());
+        var provider = LoadoutDeps.Loadout(human, schema, botInventory: source, bots: bots);
+
+        var drawn = new HashSet<int>();
+        for (int seat = 1; seat <= names.Length; seat++)
+            drawn.Add(Assert.Single(provider.Loadout(seat, TFClass.Scout), e => e.Slot == TFLoadoutSlot.Secondary).Item.Defindex);
+
+        Assert.Equal([22, 23], drawn.Order());
+    }
+
+    /// <summary>A bot's draw follows its name, not the seat it was given: the same roster replays the same items.</summary>
+    [Fact]
+    public void ABotsDrawFollowsItsNameNotItsSeat()
+    {
+        EconTestFiles files = ShippedTable();
+        var schema = EconTestFiles.TrimmedSchema();
+        var first = new BotInventory(schema, files, new TestBots(true, Bot(3, "Delta")), Log());
+        var second = new BotInventory(schema, files, new TestBots(true, Bot(9, "Delta")), Log());
+
+        Assert.Equal(BotInventory.SeedOfName("Delta"), first.SeedOf(3));
+        Assert.Equal(Draws(first.ForBot(3)!), Draws(second.ForBot(9)!));
+    }
+
     /// <summary>A class and slot whose rows are all partial or missing answers the stock item, owning nothing.</summary>
     [Fact]
     public void AnEmptyWorksSetFallsBackToTheStockItem()
@@ -191,7 +257,7 @@ public sealed class BotInventoryTests
     public void ItemIsAllowedStillRefusesForABot()
     {
         EconTestFiles files = CraftedTable(
-            "18\tTF_WEAPON_ROCKETLAUNCHER\ttf_weapon_rocketlauncher\tprimary\tsoldier\t\t\tworks\t",
+            "22\tTF_WEAPON_PISTOL\ttf_weapon_pistol\tsecondary\tscout\t\t\tworks\t",
             "10\tTF_WEAPON_SHOTGUN_SOLDIER\ttf_weapon_shotgun\tsecondary\tsoldier\t\t\tworks\t",
             "6\tTF_WEAPON_SHOVEL\ttf_weapon_shovel\tmelee\tsoldier\t\t\tworks\t");
         var schema = EconTestFiles.TrimmedSchema();

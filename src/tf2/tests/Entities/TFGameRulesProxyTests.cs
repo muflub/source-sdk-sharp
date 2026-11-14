@@ -212,4 +212,138 @@ public sealed class TFGameRulesProxyTests
         Assert.Equal("tf_gamerules", rig.Registry.Directory.NameOf(handle));
         Assert.Contains("tf_gamerules up", log.Text);
     }
+
+    // ---- the VO trio (InputPlayVO/Rred/Blue, tf_gamerules.cpp:1809-1840) ----------
+
+    [Fact]
+    public void The_PlayVO_input_broadcasts_the_line_to_every_team()
+    {
+        // Stock's filter-255 arm (:1838): BroadcastSound to everyone, which the
+        // seam answers as the event's Unassigned team field.
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+
+        rig.Registry.Input(proxy.Handle, "PlayVO", "vo/mvm_mid_hattip", 0f, EntityHandle.None);
+
+        Assert.Contains("broadcast Unassigned vo/mvm_mid_hattip", rig.Announcer.Said);
+    }
+
+    [Fact]
+    public void The_team_VOs_broadcast_to_their_own_teams()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+
+        rig.Registry.Input(proxy.Handle, "PlayVORed", "vo/red_go", 0f, EntityHandle.None);
+        rig.Registry.Input(proxy.Handle, "PlayVOBlue", "vo/blu_go", 0f, EntityHandle.None);
+
+        Assert.Contains("broadcast Red vo/red_go", rig.Announcer.Said);
+        Assert.Contains("broadcast Blue vo/blu_go", rig.Announcer.Said);
+    }
+
+    [Fact]
+    public void An_empty_VO_parameter_emits_nothing()
+    {
+        // Stock guards on the string pointer (:1812, :1824, :1836): with no
+        // name in the parameter, no sound fires.
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+
+        rig.Registry.Input(proxy.Handle, "PlayVO", string.Empty, 0f, EntityHandle.None);
+        rig.Registry.Input(proxy.Handle, "PlayVORed", string.Empty, 0f, EntityHandle.None);
+        rig.Registry.Input(proxy.Handle, "PlayVOBlue", string.Empty, 0f, EntityHandle.None);
+
+        Assert.Empty(rig.Announcer.Said);
+    }
+
+    // ---- the convar and flag setters (:1867-1881, :1856-1862) ----------------------
+
+    [Fact]
+    public void The_SetRoundRespawnFreezeEnabled_input_writes_the_convar()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+        Assert.True(rig.RestartFreeze.Value); // the declared default stands
+
+        rig.Registry.Input(proxy.Handle, "SetRoundRespawnFreezeEnabled", string.Empty, 0f, EntityHandle.None);
+        Assert.False(rig.RestartFreeze.Value);
+
+        rig.Registry.Input(proxy.Handle, "SetRoundRespawnFreezeEnabled", string.Empty, 1f, EntityHandle.None);
+        Assert.True(rig.RestartFreeze.Value);
+    }
+
+    [Fact]
+    public void The_SetMapForcedTruce_input_sets_the_rules_flag()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+
+        rig.Registry.Input(proxy.Handle, "SetMapForcedTruceDuringBossFight", string.Empty, 1f, EntityHandle.None);
+        Assert.True(rig.Ctf.MapForcedTruceDuringBossFight);
+
+        rig.Registry.Input(proxy.Handle, "SetMapForcedTruceDuringBossFight", string.Empty, 0f, EntityHandle.None);
+        Assert.False(rig.Ctf.MapForcedTruceDuringBossFight);
+    }
+
+    [Fact]
+    public void The_SetCustomUpgradesFile_input_stores_the_named_file()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+
+        rig.Registry.Input(proxy.Handle, "SetCustomUpgradesFile", "items/custom_upgrades.txt", 0f, EntityHandle.None);
+
+        Assert.Equal("items/custom_upgrades.txt", rig.Ctf.CustomUpgradesFile);
+    }
+
+    // ---- the remaining keyfields (Activate, tf_gamerules.cpp:1896-1906) ------------
+
+    [Fact]
+    public void The_hud_type_key_is_pushed_when_the_map_names_one()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass, ("hud_type", "4"));
+        Assert.Equal(0, rig.Ctf.HudType); // TF_HUDTYPE_UNDEFINED stands until Activate
+
+        proxy.OnServerActivate();
+
+        Assert.Equal(4, rig.Ctf.HudType);
+    }
+
+    [Fact]
+    public void Activate_keeps_the_named_hud_type_when_the_map_key_is_absent()
+    {
+        // Stock gates the push on the type being named (:1896-1899).
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+        rig.Ctf.SetHudType(7);
+
+        proxy.OnServerActivate();
+
+        Assert.Equal(7, rig.Ctf.HudType);
+    }
+
+    [Fact]
+    public void Activate_pushes_the_holiday_lights_default_on()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass);
+        rig.Ctf.SetHolidayLightsAllowed(false);
+
+        proxy.OnServerActivate();
+
+        Assert.True(rig.Ctf.HolidayLightsAllowed); // the ctor default, stock :1644
+    }
+
+    [Fact]
+    public void The_ropes_holiday_lights_key_turns_the_lights_off()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass,
+                                                 ("ropes_holiday_lights_allowed", "0"));
+
+        proxy.OnServerActivate();
+
+        Assert.False(rig.Ctf.HolidayLightsAllowed);
+    }
 }

@@ -34,6 +34,8 @@ public class TeamVotesAdminTests
         Assert.Equal("ctf", GameVoteOptions.ModeLabel("ctf"));
     }
 
+    private static readonly IReadOnlyList<SettingSpec> TeamDeathmatchRows = CoreModeSpecs.TeamDeathmatch().Settings;
+
     private static readonly Func<string, string?> Current = c => c switch
     {
         "mp_tdm_teams" => "2",
@@ -45,10 +47,10 @@ public class TeamVotesAdminTests
     [Fact]
     public void TheTeamCountIsAVoteSettingThatRunsItsConvar()
     {
-        var options = GameVoteOptions.Of([], [], null, false, false, false, GameVoteOptions.CoreSettings(), Current);
+        var options = GameVoteOptions.Of([], [], null, false, false, false, TeamDeathmatchRows, Current);
 
-        Assert.Equal("mp_tdm_teams 4", VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=4"])!.Command);
-        Assert.Equal("mp_teams_unbalance_limit 1", VoteOptionWords.Find(options, ["setting", "mp_teams_unbalance_limit=1"])!.Command);
+        Assert.Equal("ss_setting mp_tdm_teams 4", VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=4"])!.Command);
+        Assert.Equal("ss_setting cs_sv_teams_unbalance_limit 1", VoteOptionWords.Find(options, ["setting", "cs_sv_teams_unbalance_limit=1"])!.Command);
         Assert.Null(VoteOptionWords.Find(options, ["setting", "mp_tdm_teams=2"]));
     }
 
@@ -56,8 +58,8 @@ public class TeamVotesAdminTests
     [Fact]
     public void TeammatesCollideIsOfferedOnlyWhereTheGameHasIt()
     {
-        var without = GameVoteOptions.Of([], [], null, false, false, false, GameVoteOptions.CoreSettings(), Current);
-        var with = GameVoteOptions.Of([], [], null, false, false, false, GameVoteOptions.CoreSettings(),
+        var without = GameVoteOptions.Of([], [], null, false, false, false, TeamDeathmatchRows, Current);
+        var with = GameVoteOptions.Of([], [], null, false, false, false, TeamDeathmatchRows,
                                       c => c == "mp_teammates_collide" ? "0" : Current(c));
 
         Assert.DoesNotContain(without, o => o.Id.StartsWith("mp_teammates_collide", StringComparison.Ordinal));

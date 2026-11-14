@@ -107,7 +107,7 @@ public sealed class TFPlayerHealingHealthBuffArmsTests
                                           conVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
                                           new TFHealingStats(), new TFDamageRecords(), new TFHealingEvents(),
                                           new TFHealingCtf(), new TFHealingPlayerData(), new TFPlayerItems(),
-                                          new AttributeHooks(), Player.Engine);
+                                          new AttributeHooks(), Player.Engine, TFMovementFixtures.Server());
             chain.Add(Healing);   // stock's arms live on the shared class: here, on the healing
 
             Resupply.Maxes[PlayerRig.Index] = 150;

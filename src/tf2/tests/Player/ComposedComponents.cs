@@ -90,6 +90,7 @@ internal static class ComposedComponents
         services.AddInstance<IResponseRules>(new SourceSharp.Server.ResponseRules(log, new IdleFiles(), new FixedRandom()));
         services.AddInstance<SourceSharp.Server.IBotPlayers>(TF2.Tests.LoadoutDeps.NoBots());
         services.AddInstance<IUniformRandom>(new FixedRandom());
+        services.AddInstance<IServerSkins>(new RecordingServerSkins());
         services.AddInstance(new SourceSharp.Server.DamageInflictors());
         services.AddInstance<ITempEnts>(new SourceSharp.Server.TempEnts(log, new TempEntRegistry(log), engine));
         services.AddInstance(new SourceSharp.Server.DamageHitGroups());
@@ -102,6 +103,9 @@ internal static class ComposedComponents
         // places anything here, the empty chain, as the server module's
         // factory answers when no mod registers a placement.
         services.AddInstance<IHooks<ISpawnPlacement>>(new TF2.Tests.Rules.ListHooks<ISpawnPlacement>());
+        // The core's new-match chain the round machine raises at a game restart
+        // (plan_bots_teams_tf2 A.6); nobody listens here.
+        services.AddInstance<IHooks<SourceSharp.Server.IMatchResetHook>>(new TF2.Tests.Rules.ListHooks<SourceSharp.Server.IMatchResetHook>());
         services.AddInstance<IMapCleanup>(new NoCleanup());
         services.AddInstance(new EntityDirectory(log));
         services.AddInstance(new GameModes(log, clock, services,

@@ -181,7 +181,7 @@ public sealed class TFMedigunReplayFacts
                                         data,
                                         Setup, BoundCharge(), BoundSpread(), Reload, BoundBurstammo(),
                                         prediction,
-                                        new client::TF2.Client.Buildings.TFClientSapperState(),
+                                        new client::TF2.Client.Buildings.TFClientSapperState(Engine, pair, resources),
                                         new client::TF2.Client.Buildings.TFClientSentryWrangle(),
                                         new client::TF2.Client.Player.TFClientRevengeCrits());
             var behaviours = new ClientBehaviours(() => [new ClientWeaponBehaviours(parts)], log);

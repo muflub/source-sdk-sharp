@@ -2732,6 +2732,14 @@ internal sealed unsafe partial class EngineSound
         _sounds.Target?.EntityEmitSoundToTeam(team, entity, soundName);
     }
 
+    /// <summary>The pickup touch and the charge sounds: the route's <see cref="IServerSoundRoute.EntityEmitSoundToPlayer"/>.</summary>
+    public void EmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable = true)
+    {
+        if (soundName.Length == 0) return;
+
+        _sounds.Target?.EntityEmitSoundToPlayer(player, entity, soundName, reliable);
+    }
+
     /// <summary>A noise with no entity to come from.</summary>
     public void EmitSoundAtPosition(string soundName, Vector origin)
     {

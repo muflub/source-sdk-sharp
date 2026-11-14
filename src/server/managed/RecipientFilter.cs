@@ -244,6 +244,19 @@ public sealed class SoundRecipients(IServerSoundEmitterEngine engine, ISoundList
         return filter.MakeReliable();
     }
 
+    /// <summary>
+    /// <c>CSingleUserRecipientFilter( pPlayer )</c> (recipientfilter.h): the one slot
+    /// the player names, nobody else — the single-recipient arm of the server's sound
+    /// emits (the health kit's touch, the medigun's charge sounds). An invalid slot
+    /// adds nobody. The caller decides reliability with <see cref="RecipientFilter.MakeReliable"/>.
+    /// </summary>
+    public RecipientFilter Player(int playerIndex)
+    {
+        var filter = Empty();
+        filter.Add(playerIndex);
+        return filter;
+    }
+
     private RecipientFilter Multicast(bool usePas, Vector origin)
     {
         var filter = Empty();

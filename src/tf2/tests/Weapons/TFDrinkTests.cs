@@ -80,7 +80,7 @@ public sealed class TFDrinkTests
                                             DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
                                             arsenal ?? CarriedDrink(),
                                             rules ?? new TF2.Tests.Medigun.TFHealingCtf(),
-                                            rounds ?? new TF2.Tests.Entities.FakeRoundState());
+                                            rounds ?? new TF2.Tests.Entities.FakeRoundState(), new RecordingServerSkins());
         return (rig, lunchbox, conditions, stack);
     }
 
@@ -258,7 +258,7 @@ public sealed class TFDrinkTests
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, new FakeOwners(), new AttributeHooks(),
                                             taunts, rig.Engine, rig.Engine, rig.Engine, new NoEntities(),
                                             DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(), arsenal,
-                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState());
+                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState(), new RecordingServerSkins());
 
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
         var attack = new TFTauntAttack(rig.Carriers, players, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
@@ -343,7 +343,7 @@ public sealed class TFDrinkTests
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, new FakeOwners(), new AttributeHooks(),
                                             taunts, rig.Engine, rig.Engine, rig.Engine, new NoEntities(),
                                             DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(), arsenal,
-                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState());
+                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState(), new RecordingServerSkins());
 
         var scripts = new TFWeaponScripts(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.Shipped()));
         var attack = new TFTauntAttack(rig.Carriers, players, rig.Engine, rig.Engine, rig.Engine, rig.Engine,

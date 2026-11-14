@@ -1746,6 +1746,8 @@ internal sealed unsafe partial class EngineSound
     public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
 
     public void EmitSoundToTeam(int team, EntityHandle entity, string soundName) { }
+
+    public void EmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable = true) { }
 }
 
 internal sealed unsafe partial class EngineVisibility

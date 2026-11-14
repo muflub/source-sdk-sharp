@@ -766,4 +766,24 @@ public sealed class HealthKitTests
         Assert.False(kit.IsRespawning);
         Assert.Empty(rig.Notices.Said);
     }
+
+    /// <summary>
+    /// Stock plays the pickup touch over <c>CSingleUserRecipientFilter</c>
+    /// (entity_healthkit.cpp:140-141): the notices' Sound reaches the seam's
+    /// single-player arm with the picker in both handle slots and the
+    /// filter's reliable keep. Nothing else hears it.
+    /// </summary>
+    [Fact]
+    public void The_pickup_touch_sound_goes_to_the_picker_alone()
+    {
+        var engine = new RecordingEngine();
+        var notices = new EngineTFPickupNotices(engine, engine, engine, engine, engine);
+        var picker = new EntityHandle(3u | (1u << 16));
+
+        notices.Sound(picker, HealthKit.PickupSound);
+
+        var emit = Assert.Single(engine.AllOf("Sound.EmitSoundToPlayer"));
+        Assert.Equal((picker, picker, "HealthKit.Touch", true),
+                     (emit.ArgAs<EntityHandle>(0), emit.ArgAs<EntityHandle>(1), emit.ArgAs<string>(2), emit.ArgAs<bool>(3)));
+    }
 }

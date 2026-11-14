@@ -17,6 +17,8 @@ public sealed class ServerSoundRouteTests : IDisposable
         public void EntityEmitSound(EntityHandle entity, string soundName) => Calls.Add($"Emit {entity.Value:x} {soundName}");
         public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) => Calls.Add($"EmitAs {entity.Value:x} {soundName} {volume} {pitch}");
         public void EntityEmitSoundToTeam(int team, EntityHandle entity, string soundName) => Calls.Add($"Team {team} {entity.Value:x} {soundName}");
+        public void EntityEmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable)
+            => Calls.Add($"Player {entity.Value:x} {soundName} {(reliable ? "reliable" : "unreliable")}");
         public void EntityStopSound(EntityHandle entity, string soundName) => Calls.Add($"Stop {entity.Value:x} {soundName}");
         public void EmitSoundAtPosition(string soundName, Vector origin) => Calls.Add($"AtPosition {soundName} {origin}");
         public bool EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume)

@@ -153,6 +153,9 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         // over, it would hold the win check (frag and time limits off) for
         // most of the new map. A fresh level is a fresh round.
         _warmupEndsAt = null;
+        // A setting that waits for the next level goes before the pick, so
+        // the new level's mode starts with it.
+        _services.Resolve<ModeSettingWrites>()?.ApplyLevel();
         Pick(mapName);
     }
 
@@ -283,6 +286,8 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         // A mode's setup prepares its world; a broken one is logged and the
         // round still starts — the rule every other dispatch applies to a
         // participant that throws.
+        // A setting that waits for the next round goes before the round's setup.
+        _services.Resolve<ModeSettingWrites>()?.ApplyRound();
         try
         {
             mode.Setup?.SetupRound(_clock.Now);

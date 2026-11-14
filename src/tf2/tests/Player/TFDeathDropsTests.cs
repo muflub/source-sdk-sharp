@@ -197,7 +197,7 @@ public sealed class TFDeathDropsTests
         public PlayerDeath Death => new(Dead.Handle, 3, EntityHandle.None, DiedAt, EntityHandle.None);
 
         /// <summary>A pack built by hand on its own recording engine, already spawned.</summary>
-        public (TFAmmoPack Pack, RecordingEngine Engine) BuildPack(float clock)
+        public (TFAmmoPack Pack, RecordingEngine Engine, RecordingServerSkins Skins) BuildPack(float clock)
         {
             var engine = Mock();
             engine.Returns("Clock.Now", clock)
@@ -207,13 +207,14 @@ public sealed class TFDeathDropsTests
                   .Returns("Entities.GetVelocity", default(Vector))
                   .Returns("Entities.GetAngularVelocity", default(Vector))
                   .Returns("EntityPhysics.InitPhysics", false);
+            var skins = new RecordingServerSkins();
             var pack = new TFAmmoPack(Map, Notices, ConVars.Declared<TFWeaponRagdollVelocityMinConVar>(),
                                       ConVars.Declared<TFWeaponRagdollVelocityMaxConVar>(),
                                       ConVars.Declared<TFWeaponRagdollMaxSpeedConVar>(),
                                       ConVars.Declared<TFObjGibVelocityMinConVar>(),
                                       ConVars.Declared<TFObjGibVelocityMaxConVar>(),
-                                      ConVars.Declared<TFObjGibMaxSpeedConVar>(), Seeds, engine, Stats,
-                                      Container.Resolve<ServerBodygroups>()!);
+                                      ConVars.Declared<TFObjGibMaxSpeedConVar>(), Seeds, Stats,
+                                      Container.Resolve<ServerBodygroups>()!, skins);
             pack.BindEngine(engine);
             pack.BindAreas(TestServices.Areas(engine));
             pack.RegisteredKind = ScriptedEntityKind.Prop;
@@ -223,11 +224,11 @@ public sealed class TFDeathDropsTests
             // its Now (ScriptedEntity.GameTime => Owner?.Now).
             pack.Owner = OwnerFor(clock);
             pack.OnSpawn();
-            return (pack, engine);
+            return (pack, engine, skins);
         }
 
         /// <summary>A dropped weapon built by hand on its own recording engine, already spawned.</summary>
-        public (TFDroppedWeapon Dropped, RecordingEngine Engine) BuildDropped(float clock)
+        public (TFDroppedWeapon Dropped, RecordingEngine Engine, RecordingServerSkins Skins) BuildDropped(float clock)
         {
             var engine = Mock();
             engine.Returns("Clock.Now", clock)
@@ -236,13 +237,14 @@ public sealed class TFDeathDropsTests
                   .Returns("Entities.GetVelocity", default(Vector))
                   .Returns("Entities.GetAngularVelocity", default(Vector))
                   .Returns("EntityPhysics.InitPhysics", false);
-            var dropped = new TFDroppedWeapon(ConVars.Declared<TFDroppedWeaponLifetimeConVar>(), Seeds, engine);
+            var skins = new RecordingServerSkins();
+            var dropped = new TFDroppedWeapon(ConVars.Declared<TFDroppedWeaponLifetimeConVar>(), Seeds, skins);
             dropped.BindEngine(engine);
             dropped.BindAreas(TestServices.Areas(engine));
             dropped.RegisteredKind = ScriptedEntityKind.Prop;
             dropped.Owner = OwnerFor(clock);
             dropped.OnSpawn();
-            return (dropped, engine);
+            return (dropped, engine, skins);
         }
 
         /// <summary>A registry whose container answers <c>Now</c> as the pack's clock.</summary>
@@ -281,10 +283,12 @@ public sealed class TFDeathDropsTests
     {
         public readonly List<TFAmmoPack> Packs = new();
         public readonly Dictionary<TFAmmoPack, RecordingEngine> Engines = new();
+        public readonly Dictionary<TFAmmoPack, RecordingServerSkins> PackSkins = new();
         public readonly List<TFDroppedWeapon> Dropped = new();
         public readonly Dictionary<TFDroppedWeapon, RecordingEngine> DroppedEngines = new();
-        public Func<float, (TFAmmoPack Pack, RecordingEngine Engine)>? Build;
-        public Func<float, (TFDroppedWeapon Dropped, RecordingEngine Engine)>? BuildDropped;
+        public readonly Dictionary<TFDroppedWeapon, RecordingServerSkins> DroppedSkins = new();
+        public Func<float, (TFAmmoPack Pack, RecordingEngine Engine, RecordingServerSkins Skins)>? Build;
+        public Func<float, (TFDroppedWeapon Dropped, RecordingEngine Engine, RecordingServerSkins Skins)>? BuildDropped;
 
         /// <summary>
         /// The registry's view of a spawned kit: the death's health pack is
@@ -307,10 +311,11 @@ public sealed class TFDeathDropsTests
 
         public TFAmmoPack Seed(EntityHandle owner, float clock)
         {
-            var (pack, engine) = Build!.Invoke(clock);
+            var (pack, engine, skins) = Build!.Invoke(clock);
             pack.Init(owner, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
             Packs.Add(pack);
             Engines[pack] = engine;
+            PackSkins[pack] = skins;
             _known[_nextSeed++] = pack;
             return pack;
         }
@@ -318,10 +323,11 @@ public sealed class TFDeathDropsTests
         /// <summary>A dropped weapon the dedupe and cap will see, hand-inited.</summary>
         public TFDroppedWeapon SeedDropped(EntityHandle owner, string weapon, float clock)
         {
-            var (dropped, engine) = BuildDropped!.Invoke(clock);
+            var (dropped, engine, skins) = BuildDropped!.Invoke(clock);
             dropped.Init(owner, weapon, 4, 12);
             Dropped.Add(dropped);
             DroppedEngines[dropped] = engine;
+            DroppedSkins[dropped] = skins;
             _known[_nextSeed++] = dropped;
             return dropped;
         }
@@ -333,9 +339,10 @@ public sealed class TFDeathDropsTests
 
             if (ClassOf?.Invoke(handle) == TFDroppedWeapon.Class)
             {
-                var (dropped, droppedEngine) = BuildDropped!.Invoke(NextClock);
+                var (dropped, droppedEngine, droppedSkins) = BuildDropped!.Invoke(NextClock);
                 Dropped.Add(dropped);
                 DroppedEngines[dropped] = droppedEngine;
+                DroppedSkins[dropped] = droppedSkins;
                 _known[handle.Value] = dropped;
                 return dropped;
             }
@@ -349,10 +356,11 @@ public sealed class TFDeathDropsTests
                 return kitEntity;
             }
 
-            var (pack, engine) = Build!.Invoke(NextClock);
+            var (pack, engine, skins) = Build!.Invoke(NextClock);
             _known[handle.Value] = pack;
             Packs.Add(pack);
             Engines[pack] = engine;
+            PackSkins[pack] = skins;
             return pack;
         }
 
@@ -716,7 +724,9 @@ public sealed class TFDeathDropsTests
 
         var pack = Assert.Single(rig.Packs.Packs);
         Assert.Equal(1, pack.Skin);
-        Assert.Equal(1, rig.Packs.Engines[pack].Last("EntityRender.SetSkin").ArgAs<int>(1));
+        var packSkins = rig.Packs.PackSkins[pack];
+        Assert.Single(packSkins.Set);                              // the dress's skin reaches the seam once
+        Assert.Equal(1, packSkins.Set[^1].Skin);                   // TF_TEAM_BLUE
     }
 
     //------------------------------------------------------------------
@@ -765,8 +775,10 @@ public sealed class TFDeathDropsTests
 
         var dropped = Assert.Single(rig.Packs.Dropped);
         Assert.Equal(1, dropped.Skin);
-        // The skin rides the entity's own render, as the pack's does its own.
-        Assert.Equal(1, rig.Packs.DroppedEngines[dropped].Last("EntityRender.SetSkin").ArgAs<int>(1));
+        // The skin rides the entity's own seam, as the pack's does its own.
+        var droppedSkins = rig.Packs.DroppedSkins[dropped];
+        Assert.Single(droppedSkins.Set);                             // one write, this weapon's
+        Assert.Equal(1, droppedSkins.Set[^1].Skin);                  // TF_TEAM_BLUE
     }
 
     [Fact]
@@ -885,7 +897,7 @@ public sealed class TFDeathDropsTests
     public void The_pack_wears_the_medium_model_and_is_scheduled_to_think_and_die()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
 
         Assert.Equal(TFAmmoPack.Model, engine.Last("EntityRender.SetModel").ArgAs<string>(1)); // :46, :81
         // The Debris group (tf_ammo_pack.cpp:184) is born with the solver
@@ -905,7 +917,7 @@ public sealed class TFDeathDropsTests
     public void The_init_throws_it_off_the_corpse_within_the_ragdoll_band()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, skins) = rig.BuildPack(10f);
 
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   30, 12, 200, skin: 7);
@@ -922,12 +934,12 @@ public sealed class TFDeathDropsTests
         Assert.Equal(50f, spin.Y, 3); // :175 — 0.5 of the [0,100] yaw band
         Assert.Equal(900, engine.Last("Entities.SetHealth").ArgAs<int>(1)); // :186
         Assert.Equal(7, pack.Skin);                                          // :181
-        Assert.Equal(7, engine.Last("EntityRender.SetSkin").ArgAs<int>(1));
+        Assert.Equal(7, skins.Set[^1].Skin);                                 // the skin rides the seam
 
         // The cap (tf_weapon_ragdoll_maxspeed, :164-169): a carry big enough
         // to blow past maxspeed must leave the throw AT maxspeed — without
         // the cap this carry lands at 450+ and goes red.
-        var (fast, fastEngine) = rig.BuildPack(10f);
+        var (fast, fastEngine, _) = rig.BuildPack(10f);
         fastEngine.Returns("Entities.GetVelocity", new Vector(0f, 0f, 450f));
         fast.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
         Assert.True(fastEngine.Last("Entities.SetVelocity").ArgAs<Vector>(1).Length <= 300.01f,
@@ -938,7 +950,7 @@ public sealed class TFDeathDropsTests
         // sit at 125 and go red here.
         rig.ConVars.Declared<TFWeaponRagdollVelocityMinConVar>().Bind(-1, "tf_weapon_ragdoll_velocity_min", "200");
         rig.ConVars.Declared<TFWeaponRagdollVelocityMaxConVar>().Bind(-1, "tf_weapon_ragdoll_velocity_max", "210");
-        var (moved, movedEngine) = rig.BuildPack(10f);
+        var (moved, movedEngine, _) = rig.BuildPack(10f);
         moved.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
         Assert.Equal(205f, movedEngine.Last("Entities.SetVelocity").ArgAs<Vector>(1).Length, 3);
     }
@@ -954,7 +966,7 @@ public sealed class TFDeathDropsTests
     {
         var rig = new Rig();
         rig.Container.AddInstance<IBoneModels>(new PackHdrModels(groups: 2));
-        var (pack, _) = rig.BuildPack(10f);
+        var (pack, _, _) = rig.BuildPack(10f);
 
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
 
@@ -974,7 +986,7 @@ public sealed class TFDeathDropsTests
     {
         var rig = new Rig();
         rig.Container.AddInstance<IBoneModels>(new PackHdrModels(groups: 1));
-        var (pack, _) = rig.BuildPack(10f);
+        var (pack, _, _) = rig.BuildPack(10f);
 
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier, 5, 5, 5);
 
@@ -1013,7 +1025,7 @@ public sealed class TFDeathDropsTests
         var owner = rig.Dead;
         owner.Player.MaxAmmo[TFAmmo.Primary] = 80;
         owner.Player.MaxAmmo[TFAmmo.Secondary] = 40;
-        var (pack, _) = rig.BuildPack(10f);
+        var (pack, _, _) = rig.BuildPack(10f);
         pack.Init(owner.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5);
 
@@ -1035,7 +1047,7 @@ public sealed class TFDeathDropsTests
         var rig = new Rig();
         var (corpse, player) = rig.Map.Add();
         player.Alive = false; // :285
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5);
 
@@ -1049,7 +1061,7 @@ public sealed class TFDeathDropsTests
     public void A_prop_rolling_over_the_pack_takes_nothing()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         engine.Returns("Entities.IsPlayer", false); // :282
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5);
@@ -1071,7 +1083,7 @@ public sealed class TFDeathDropsTests
         player.MaxAmmo[TFAmmo.Primary] = 80;
         player.MaxAmmo[TFAmmo.Secondary] = 40;
         player.MaxAmmo[TFAmmo.Metal] = 200;
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   30, 12, 200, default, default);
 
@@ -1096,7 +1108,7 @@ public sealed class TFDeathDropsTests
         player.MaxAmmo[TFAmmo.Primary] = 80;
         player.MaxAmmo[TFAmmo.Secondary] = 40;
         player.MaxAmmo[TFAmmo.Metal] = 200;
-        var (pack, _) = rig.BuildPack(10f);
+        var (pack, _, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   30, 12, 200);
 
@@ -1110,7 +1122,7 @@ public sealed class TFDeathDropsTests
     {
         var rig = new Rig();
         var (toucher, _) = rig.Map.Add(); // every MaxAmmo default-zero: nothing fits
-        var (pack, _) = rig.BuildPack(10f);
+        var (pack, _, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5);
 
@@ -1129,7 +1141,7 @@ public sealed class TFDeathDropsTests
         var (toucher, player) = rig.Map.Add(TFTeam.Red, TFClass.Engineer);
         player.MaxAmmo[TFAmmo.Primary] = 80;
         player.MaxAmmo[TFAmmo.Grenades1] = 32;
-        var (pack, _) = rig.BuildPack(10f);
+        var (pack, _, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5);
 
@@ -1146,7 +1158,7 @@ public sealed class TFDeathDropsTests
         // and the pack stands on the ground.
         var rig = new Rig();
         var (toucher, _) = rig.Map.Add(); // every MaxAmmo default-zero: nothing fits
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 10, default, default);
 
@@ -1164,7 +1176,7 @@ public sealed class TFDeathDropsTests
         // left standing goes with the spy, event and all.
         var rig = new Rig();
         var (toucher, player) = rig.Map.Add(TFTeam.Red, TFClass.Spy); // every MaxAmmo default-zero: no ammo fits
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 10, default, default);
 
@@ -1183,7 +1195,7 @@ public sealed class TFDeathDropsTests
         var rig = new Rig();
         var (toucher, player) = rig.Map.Add();
         player.MaxAmmo[TFAmmo.Primary] = 80;
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5, empty: true);
         Assert.True(pack.EmptyPack);
@@ -1205,7 +1217,7 @@ public sealed class TFDeathDropsTests
     public void The_holiday_pack_touching_the_world_keeps_only_its_z_velocity()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         engine.Returns("Entities.GetVelocity", new Vector(100f, -50f, 30f));
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5, packType: AmmoPackType.Halloween);
@@ -1216,7 +1228,7 @@ public sealed class TFDeathDropsTests
 
         // The guard's other half (:275): a normal pack's velocity rides
         // through untouched — one SetVelocity, the Init throw, nothing added.
-        var (plain, plainEngine) = rig.BuildPack(10f);
+        var (plain, plainEngine, _) = rig.BuildPack(10f);
         plain.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                    5, 5, 5);
         plain.OnTouch(new EntityHandle(0u));
@@ -1239,7 +1251,7 @@ public sealed class TFDeathDropsTests
         var rig = new Rig();
         var owner = rig.Dead;
         owner.Player.Conditions.Add(stealth);
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(owner.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5, empty: true);
         pack.OnThink(); // landed (:265-269): stealth answers here, not the flight gate
@@ -1265,7 +1277,7 @@ public sealed class TFDeathDropsTests
         var rig = new Rig();
         var (owner, _) = rig.Map.Add(TFTeam.Red, TFClass.HeavyWeapons); // the lunchbox is the heavy's (:145)
         var (toucher, player) = rig.Map.Add(TFTeam.Red, toucherClass);
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(owner, (int)TFWeaponId.Lunchbox, TFClass.HeavyWeapons,
                   5, 5, 5);
         Assert.True(pack.HealthInstead);
@@ -1287,7 +1299,7 @@ public sealed class TFDeathDropsTests
         var rig = new Rig();
         var (owner, _) = rig.Map.Add(TFTeam.Red, TFClass.HeavyWeapons);
         var (toucher, player) = rig.Map.Add();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(owner, (int)TFWeaponId.Lunchbox, TFClass.HeavyWeapons,
                   5, 5, 5);
 
@@ -1302,12 +1314,12 @@ public sealed class TFDeathDropsTests
     public void Thirty_seconds_out_the_pack_removes_itself()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
 
         pack.OnThink("DieContext"); // SUB_Remove (:71)
         Assert.Contains("Entities.Remove", engine.Calls.Select(c => c.Member));
 
-        var (other, otherEngine) = rig.BuildPack(10f);
+        var (other, otherEngine, _) = rig.BuildPack(10f);
         other.OnThink("SomethingElse"); // a context the schedule does not know leaves it alone
         Assert.DoesNotContain("Entities.Remove", otherEngine.Calls.Select(c => c.Member));
     }
@@ -1760,7 +1772,7 @@ public sealed class TFDeathDropsTests
     public void AHalloweenPackWearsTheHalloweenModelAtTheSpawnReturn()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5, packType: AmmoPackType.Halloween);
 
@@ -1780,7 +1792,7 @@ public sealed class TFDeathDropsTests
     public void APackWithNoChosenModelWearsTheMediumBox()
     {
         var rig = new Rig();
-        var (_, engine) = rig.BuildPack(10f);   // built and spawned as-is
+        var (_, engine, _) = rig.BuildPack(10f);   // built and spawned as-is
 
         Assert.Equal(TFAmmoPack.Model, engine.Last("EntityRender.SetModel").ArgAs<string>(1));
     }
@@ -1796,7 +1808,7 @@ public sealed class TFDeathDropsTests
     public void TheModelTheMakerNamedWinsOverTheTypeFallback()
     {
         var rig = new Rig();
-        var (pack, engine) = rig.BuildPack(10f);
+        var (pack, engine, _) = rig.BuildPack(10f);
         pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
                   5, 5, 5, packType: AmmoPackType.Christmas);   // a fallback to lose to
         pack.ChooseModel("models/chosen.mdl");

@@ -78,10 +78,16 @@ public sealed class TFCondsCommand(ILog log, SourceSharp.Shared.SvCheatsConVar c
     /// <see cref="TFPlayerNetState.MedicCharge"/> (0..1, what
     /// <c>SetChargeLevel</c> publishes and the Uberslice's kill moves), so it
     /// keeps its decimals where the shield's meter (<see cref="TFPlayerNetState.ChargeMeter"/>,
-    /// 0..100) prints whole. An empty carrier answers zero.
+    /// 0..100) prints whole. The soldier's buff meter
+    /// (<see cref="TFPlayerNetState.RageMeter"/>, the buff press's gate the
+    /// hits fill) prints whole too, its ChargeMeter standing unused. An empty
+    /// carrier answers zero.
     /// </summary>
     private static string ChargeColumn(TFPlayerNetState? state)
-        => state is { } s && s.PlayerClass == (int)TFClass.Medic
-            ? s.MedicCharge.ToString("0.##", CultureInfo.InvariantCulture)
-            : (state?.ChargeMeter ?? 0f).ToString("F0", CultureInfo.InvariantCulture);
+        => state switch
+        {
+            { PlayerClass: (int)TFClass.Medic } medic => medic.MedicCharge.ToString("0.##", CultureInfo.InvariantCulture),
+            { PlayerClass: (int)TFClass.Soldier } soldier => soldier.RageMeter.ToString("F0", CultureInfo.InvariantCulture), // :13830's drain meter; the ChargeMeter stands only for the demoman's bash
+            var carrier => (carrier?.ChargeMeter ?? 0f).ToString("F0", CultureInfo.InvariantCulture),
+        };
 }

@@ -196,7 +196,7 @@ public interface IAdminMenu
 /// <summary>The game's: its maps and modes, its players and the mods' additions.</summary>
 public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console, IEnginePlayers players, IEngineHost host, IEngineEnvironment environment,
                                      IConnectedClients clients, PlayerNames names, IEngineEntities entities, ServiceContainer services,
-                                     MapCycleFileConVar mapCycle) : IAdminMenu
+                                     MapCycleFileConVar mapCycle, GameModeCatalog catalog, ModeSettingWrites writes) : IAdminMenu
 {
     public IReadOnlyList<AdminNode> Build(int slot)
     {
@@ -205,8 +205,7 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
             AdminNode.Folder("#SS_UI_Admin_Map", Maps()),
             AdminNode.Folder("#SS_UI_Admin_Mode", Modes()),
             AdminNode.Folder("#SS_UI_Admin_Kick", Kicks(slot)),
-            AdminNode.Folder("#SS_UI_Vote_Settings", Settings(GameVoteOptions.SettingsOf(services), console.FindConVarValue,
-                                                              command => console.ExecuteServerCommand(command + "\n"))),
+            AdminNode.Folder("#SS_UI_Vote_Settings", Settings(catalog.Active?.Settings ?? [], writes.Current, writes.Write)),
             new("#SS_UI_Admin_Restart", "restart", () => console.ExecuteServerCommand("mp_restartgame 1\n")),
         };
         foreach (var provider in services.ResolveAll<IAdminMenuProvider>())
@@ -215,15 +214,18 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
     }
 
     /// <summary>
-    /// The game's settings, as the vote menu has them and with no vote: a folder for each
-    /// the game has, of the values it does not hold now. Not the vote's convars: those say
-    /// what players may call, and an admin needs no call.
+    /// The playing mode's settings with no vote: a folder for each the game has,
+    /// of the values it does not hold now, every row the mode lists (an admin's
+    /// alone and the unvotable too). Each choice is written through
+    /// <paramref name="write"/>, which honours when the row applies and answers
+    /// why a write is refused.
     /// </summary>
-    public static List<AdminNode> Settings(IEnumerable<VoteSetting> settings, Func<string, string?> current, Action<string> run)
+    public static List<AdminNode> Settings(IEnumerable<SettingSpec> settings, Func<string, string?> current, Func<string, string, string?> write)
         => GameVoteOptions.Of([], [], null, false, false, false, settings, current)
                           .GroupBy(o => o.Id[..o.Id.IndexOf('=')])
-                          .Select(g => AdminNode.Folder("#SS_UI_Vote_Setting_" + g.Key,
-                                                        [.. g.Select(o => new AdminNode(o.Label, "setting:" + o.Id, () => run(o.Command)))]))
+                          .Select(g => AdminNode.Folder(CoreModeSpecs.SettingToken(g.Key),
+                                                        [.. g.Select(o => AdminNode.Refusable(o.Label, "setting:" + o.Id,
+                                                                                              () => write(g.Key, o.Id[(o.Id.IndexOf('=') + 1)..])))]))
                           .ToList();
 
     private List<AdminNode> Maps()

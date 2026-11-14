@@ -251,7 +251,7 @@ public sealed class TFBannerTests
                                             new NoTFWeaponOwners(), new AttributeHooks(),
                                             TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage());
             _buffs = new TFBuffDeployment(Players, Conditions, Engine, Engine, Engine, taunts, holder.Carriers,
-                                          voice, Engine, Engine);
+                                          voice, Engine, Engine, holder.Log);
             return _buffs;
         }
 

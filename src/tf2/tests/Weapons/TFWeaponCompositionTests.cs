@@ -118,6 +118,7 @@ public sealed class TFWeaponCompositionTests
         // the shove takes it by constructor.
         c.AddInstance<SourceSharp.Server.ILagCompensation>(new NoRewind());
         c.AddInstance<SourceSharp.Abi.IUniformRandom>(new TF2.Tests.Combat.BandRandom());
+        c.AddInstance<IServerSkins>(new RecordingServerSkins());
         c.AddInstance<SourceSharp.Abi.IGameClock>(engine);
         c.AddInstance<SourceSharp.Abi.IEngineEnvironment>(engine);
         c.AddInstance(new TF2.Shared.TFSpyCloakConsumeRateConVar());

@@ -56,6 +56,10 @@ internal sealed class MedigunRig
     public readonly TFPlayerItems Items = new();
     public readonly FakeRoundSetup Setup = new();
 
+    /// <summary>The shipped class scripts behind GetDisguiseMaxHealth (:8358-8369), the
+    /// same fixture the health-kit and movement facts stand on.</summary>
+    public readonly TFClassTable Classes = TFMovementFixtures.Server();
+
     /// <summary>Players this rig says are dead; everyone the rig <see cref="Give"/>s is alive by default.</summary>
     public readonly HashSet<int> Dead = new();
     /// <summary>Player teams by entry index; unlisted players are on team 0 (and so on the medic's team).</summary>
@@ -91,7 +95,7 @@ internal sealed class MedigunRig
         Healing = new TFPlayerHealing(Engine, Engine, Conditions, Resupply,
                                       ConVars.Declared<TFMaxHealthBoostConVar>(), ConVars.Declared<TFBoostDrainTimeConVar>(),
                                       ConVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
-                                      Stats, Records, Events, Ctf, Data, Items, Hooks, Engine);
+                                      Stats, Records, Events, Ctf, Data, Items, Hooks, Engine, Classes);
     }
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon
@@ -321,6 +325,14 @@ internal sealed class TFHealingCtf : ICtfRules, IFlagCarriers
 
     public bool OvertimeAllowedForCtf => true;
     public void SetOvertimeAllowedForCtf(bool allowed) { }
+    public int HudType => 0;
+    public void SetHudType(int hudType) { }
+    public bool HolidayLightsAllowed => true;
+    public void SetHolidayLightsAllowed(bool allowed) { }
+    public bool MapForcedTruceDuringBossFight => false;
+    public void SetMapForcedTruceDuringBossFight(bool forced) { }
+    public string CustomUpgradesFile => string.Empty;
+    public void SetCustomUpgradesFile(string file) { }
     public bool FlagsMayBeCapped => true;
     public bool InWaitingForPlayers => false;
     public bool InStalemate => false;

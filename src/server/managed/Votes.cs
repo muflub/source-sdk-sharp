@@ -38,61 +38,27 @@ public interface IVoteOptions
     IReadOnlyList<VoteOption> Build();
 }
 
-/// <summary>A game setting players may vote on: its convar and the values on offer, each with what the menu calls it.</summary>
-public sealed record VoteSetting(string ConVar, params (string Value, string Label)[] Values);
-
-/// <summary>A mod's settings to vote on, in place of the core's: a mod knows which of them mean anything in its game.</summary>
-public interface IVoteSettingSource
-{
-    IReadOnlyList<VoteSetting> VoteSettings { get; }
-}
-
-/// <summary>The maps of the map cycle, the modes registered but the one on, a restart, the game's settings; each by its convar.</summary>
-public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, ServiceContainer services,
+/// <summary>The maps of the map cycle, the modes registered but the one on, a restart, the playing mode's settings; each by its convar.</summary>
+public sealed class GameVoteOptions(IEngineFiles files, GameModes modes, GameModeCatalog catalog, ModeSettingWrites writes,
                                     MapCycleFileConVar mapCycle, VoteIssueChangeLevelAllowedConVar changeLevel,
                                     VoteIssueModeAllowedConVar mode, VoteIssueRestartGameAllowedConVar restart,
                                     VoteIssueSettingsAllowedConVar settings,
                                     VoteIssueScrambleTeamsAllowedConVar? scramble = null) : IVoteOptions
 {
     public IReadOnlyList<VoteOption> Build()
-    {
-        var modes = services.Resolve<GameModes>();
-        return Of(Intermission.ReadCycle(files, mapCycle.Value),
-                  modes is null ? [] : [.. modes.Registered.Select(m => m.Id)], modes?.ActiveId,
-                  changeLevel.Value, mode.Value, restart.Value,
-                  settings.Value ? SettingsOf(services) : [], console.FindConVarValue,
-                  allowScramble: scramble?.Value == true && modes?.Active is ITeamScramble);
-    }
-
-    /// <summary>This game's settings: its mods' if any list them, else the core's.</summary>
-    public static IEnumerable<VoteSetting> SettingsOf(ServiceContainer services)
-    {
-        var mods = services.ResolveAll<IVoteSettingSource>();
-        return mods.Count > 0 ? mods.SelectMany(m => m.VoteSettings) : CoreSettings();
-    }
+        => Of(Intermission.ReadCycle(files, mapCycle.Value),
+              [.. modes.Registered.Select(m => m.Id)], modes.ActiveId,
+              changeLevel.Value, mode.Value, restart.Value,
+              settings.Value ? Votable(catalog.Active) : [], writes.Current,
+              allowScramble: scramble?.Value == true && modes.Active is ITeamScramble);
 
     /// <summary>
-    /// What every deathmatch has, and team deathmatch's own: its team count,
-    /// whether teammates collide and its unbalance limit. The team rows are
-    /// offered whatever mode plays (the list goes to a player once a level, and
-    /// a mode can switch mid-level); a convar this game does not declare is
-    /// no choice (<see cref="Of"/>).
+    /// The settings players may vote on: the playing mode's rows marked votable
+    /// and not the admin's alone. Another mode's rows are no choice: deathmatch
+    /// offers no team count (a switch sends the list again).
     /// </summary>
-    public static VoteSetting[] CoreSettings() =>
-    [
-        FriendlyFire(),
-        TimeLimit(),
-        new("mp_fraglimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "10"), ("20", "20"), ("30", "30"), ("50", "50")),
-        .. TeamSettings(),
-    ];
-
-    /// <summary>Team deathmatch's settings (votes and the admin menu's Settings folder).</summary>
-    public static VoteSetting[] TeamSettings() =>
-    [
-        new("mp_tdm_teams", ("2", "2"), ("3", "3"), ("4", "4")),
-        new("mp_teammates_collide", ("0", "#SS_UI_Vote_Off"), ("1", "#SS_UI_Vote_On")),
-        new("mp_teams_unbalance_limit", ("0", "#SS_UI_Vote_Off"), ("1", "1"), ("2", "2")),
-    ];
+    public static IEnumerable<SettingSpec> Votable(ModeSpec? mode)
+        => mode?.Settings.Where(s => s.Votable && !s.AdminOnly) ?? [];
 
     /// <summary>
     /// What the menus call a mode: the core's two by name (the core's
@@ -106,13 +72,8 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
         _ => id,
     };
 
-    public static VoteSetting FriendlyFire() => new("mp_friendlyfire", ("0", "#SS_UI_Vote_Off"), ("1", "#SS_UI_Vote_On"));
-
-    public static VoteSetting TimeLimit()
-        => new("mp_timelimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "#SS_UI_Vote_Min10"), ("20", "#SS_UI_Vote_Min20"), ("30", "#SS_UI_Vote_Min30"), ("60", "#SS_UI_Vote_Min60"));
-
     public static List<VoteOption> Of(IEnumerable<string> maps, IEnumerable<string> modes, string? activeMode, bool allowMaps, bool allowModes, bool allowRestart,
-                                      IEnumerable<VoteSetting>? settings = null, Func<string, string?>? current = null,
+                                      IEnumerable<SettingSpec>? settings = null, Func<string, string?>? current = null,
                                       bool allowScramble = false)
     {
         var options = new List<VoteOption>();
@@ -127,19 +88,15 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
         foreach (var setting in settings ?? [])
         {
             // A convar this game does not have is no choice, nor the value it holds now.
-            if (current?.Invoke(setting.ConVar) is not { } now)
+            if (current?.Invoke(setting.Key) is not { } now)
                 continue;
-            foreach (var (value, label) in setting.Values)
-                if (!SameValue(now, value))
-                    options.Add(new VoteOption(VoteKind.Setting, $"{setting.ConVar}={value}", label, $"{setting.ConVar} {value}"));
+            foreach (var choice in setting.Choices)
+                if (!ModeSettingWrites.SameValue(now, choice.Value))
+                    options.Add(new VoteOption(VoteKind.Setting, $"{setting.Key}={choice.Value}", choice.Label,
+                                               $"{ModeSettingCommand.Name} {setting.Key} {choice.Value}"));
         }
         return options;
     }
-
-    // Convars read back as they were written: "20" and "20.0" are one time limit.
-    private static bool SameValue(string a, string b)
-        => float.TryParse(a, System.Globalization.CultureInfo.InvariantCulture, out float x)
-           && float.TryParse(b, System.Globalization.CultureInfo.InvariantCulture, out float y) ? x == y : a == b;
 }
 
 /// <summary>A call's words to the option it names: only what the server's own list holds, so a command is never the client's.</summary>

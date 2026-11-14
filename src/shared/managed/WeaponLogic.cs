@@ -982,19 +982,28 @@ public sealed class WeaponLogic
             if (effectsLive)
                 _arms.Launch(in type, type.Projectile, type.LaunchSpeed, type.Thrown);
         }
-        else if (effectsLive)
+        else
         {
-            // The row's floored count, scaled once per attack as stock scales
-            // nBulletsPerShot before the loop (tf_fx_shared.cpp:305, :307); the
-            // volley is then the scaled count per shot owed, as stock's loop
-            // bound is. The ask rides beside BulletSpread's and FixedPellets'
-            // on the same call — all three are the shot's own shape.
-            int pellets = behaviour?.ModifyPellets(Context(in type, w, vm, now, effectsLive, command),
-                                                   Math.Max(1, type.Pellets)) ?? Math.Max(1, type.Pellets);
-            _arms.FireBullets(in type, shots * pellets,
-                              behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive, command)) ?? type.Spread,
-                              shot,
-                              behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));
+            // The cone's ask carries the streak behind the shot — stock's
+            // m_iConsecutiveShots++, counted inside FireBullet itself
+            // (tf_weaponbase_gun.cpp:355), not behind an effects gate. It is
+            // predicted state, so every prediction pass of the command counts
+            // it, live and replayed alike, and the acked slot holds the same
+            // number the server's run wrote for the same command. The shot's
+            // shape itself stays the live run's arms.
+            float spread = behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive, command)) ?? type.Spread;
+            if (effectsLive)
+            {
+                // The row's floored count, scaled once per attack as stock scales
+                // nBulletsPerShot before the loop (tf_fx_shared.cpp:305, :307); the
+                // volley is then the scaled count per shot owed, as stock's loop
+                // bound is. The ask rides beside FixedPellets' on the same call —
+                // both are the shot's own shape.
+                int pellets = behaviour?.ModifyPellets(Context(in type, w, vm, now, effectsLive, command),
+                                                       Math.Max(1, type.Pellets)) ?? Math.Max(1, type.Pellets);
+                _arms.FireBullets(in type, shots * pellets, spread, shot,
+                                  behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));
+            }
         }
 
         // After the shot, which read the punch as it stood; on a replay too: the

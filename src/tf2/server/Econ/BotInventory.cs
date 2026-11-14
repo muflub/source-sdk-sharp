@@ -46,6 +46,41 @@ public sealed class BotInventory(ItemSchema schema, IEngineFiles files, IBotPlay
     /// the same answer <see cref="LocalInventory.Of"/> gives a client with no
     /// inventory, and the stock kit stands.
     /// </summary>
+    public PlayerInventory? ForBot(int entIndex) => ForBot(entIndex, SeedOf(entIndex));
+
+    /// <summary>
+    /// The seed of the bot at <paramref name="entIndex"/>: a hash of its name, which the roster gives
+    /// it by its slot, so bots draw different loadouts and a replay of the same roster draws the
+    /// same ones; a player the bots do not list is seeded by its index.
+    /// </summary>
+    public ulong SeedOf(int entIndex)
+    {
+        foreach (BotPlayer bot in bots.Bots)
+        {
+            if (bot.EntIndex == entIndex)
+                return SeedOfName(bot.Name);
+        }
+
+        return (ulong)entIndex;
+    }
+
+    /// <summary>A bot name's seed: FNV-1a over its characters, the same on every run and machine (no string.GetHashCode).</summary>
+    public static ulong SeedOfName(string name)
+    {
+        unchecked
+        {
+            ulong hash = 14_695_981_039_346_656_037UL;
+            foreach (char c in name)
+            {
+                hash ^= c;
+                hash *= 1_099_511_628_211UL;
+            }
+
+            return hash;
+        }
+    }
+
+    /// <summary>The bot at <paramref name="entIndex"/>'s inventory drawn by <paramref name="seed"/> (<see cref="ForBot(int)"/> seeds it by the bot's name).</summary>
     public PlayerInventory? ForBot(int entIndex, ulong seed)
     {
         if (!_tried)
@@ -54,8 +89,6 @@ public sealed class BotInventory(ItemSchema schema, IEngineFiles files, IBotPlay
             _tried = true;
         }
 
-        // The seed is the roster's SeedIndex later (the AI binding); until it
-        // supplies one the provider passes 0 for every bot.
         var inventory = new PlayerInventory(0);
         ulong id = 1;
         for (var cls = TFClass.Scout; cls < TFClass.Civilian; cls++)
@@ -109,6 +142,11 @@ public sealed class BotInventory(ItemSchema schema, IEngineFiles files, IBotPlay
             string[] cols = line.Split('\t');
             if (cols.Length < 8 || cols[0] == "defindex" || cols[7] != "works")
                 continue;
+            // An item that bars its holder from the objective is no bot's (plan_bots_teams_tf2 P6):
+            // live, every bot drew the Rocket Jumper (cannot_pick_up_intelligence, no damage), and
+            // on ctf_2fort bots stood on the enemy's intelligence and could not take it.
+            if (BarsTheObjective(cols[6]))
+                continue;
             if (!int.TryParse(cols[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int defindex))
                 continue;
             int slotIndex = TFItemStrings.ClassSlotIndex(cols[3]);
@@ -129,6 +167,13 @@ public sealed class BotInventory(ItemSchema schema, IEngineFiles files, IBotPlay
             }
         }
     }
+
+    /// <summary>The attribute class that bars a holder from taking the intelligence (CTFPlayer::IsAllowedToPickUpFlag).</summary>
+    public const string NoIntelligence = "cannot_pick_up_intelligence";
+
+    /// <summary>Whether a row's attribute classes (the table's semicolon list) bar its holder from the objective.</summary>
+    public static bool BarsTheObjective(string attributes)
+        => attributes.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Contains(NoIntelligence, StringComparer.Ordinal);
 
     /// <summary>
     /// The draw: a hash of the seed with the class and slot, mixed enough

@@ -2042,6 +2042,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<IModeSettingsProvider>>(locator => new Hooks<IModeSettingsProvider>(locator, locator.Require<ILog>()));
         _services.Add<IMapEntityClasses, BspEntityClasses>();
         _services.Add<GameModeCatalog>();
+        // The one validated path a setting is changed by (votes, the admin menu, ss_setting).
+        _services.Add<ModeSettingWrites>();
 
         // Voting and its console verbs: a core service, the mods' words before it.
         _services.Add<IVoteOptions, GameVoteOptions>();

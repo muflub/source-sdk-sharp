@@ -48,6 +48,14 @@ internal sealed class SpyIdleRules : ICtfRules
 {
     public bool OvertimeAllowedForCtf => true;
     public void SetOvertimeAllowedForCtf(bool allowed) { }
+    public int HudType => 0;
+    public void SetHudType(int hudType) { }
+    public bool HolidayLightsAllowed => true;
+    public void SetHolidayLightsAllowed(bool allowed) { }
+    public bool MapForcedTruceDuringBossFight => false;
+    public void SetMapForcedTruceDuringBossFight(bool forced) { }
+    public string CustomUpgradesFile => string.Empty;
+    public void SetCustomUpgradesFile(string file) { }
     public bool FlagsMayBeCapped => true;
     public bool InWaitingForPlayers => false;
     public bool InStalemate => false;

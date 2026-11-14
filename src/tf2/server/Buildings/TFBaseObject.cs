@@ -82,7 +82,8 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                                    ITFAmmoPurse purse, TFPlayerCarriers carriers,
                                    TFConceptSpeech speech, ITFWeaponOwners owners,
                                    AttributeHooks hooks, TFDamageScopes scopes,
-                                   ITFRevengeCrits crits, ServerBodygroups bodygroups) : ScriptedEntity
+                                   ITFRevengeCrits crits, ServerBodygroups bodygroups,
+                                   IServerSkins skins) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -132,6 +133,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary>Where the build animation's sequence is asked and played.</summary>
     protected readonly IEngineEntityRender Render = render;
+
+    /// <summary>The server's own skin write, so the chosen skin reaches the client.</summary>
+    protected readonly IServerSkins Skins = skins;
 
     /// <summary>Where the wrench's metal comes from and goes (<c>CTFPlayer</c>'s ammo pool).</summary>
     protected readonly ITFAmmoPurse Purse = purse;
@@ -268,7 +272,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             Render.SetModelScale(Handle, MiniSentryScale);
 
         if (Type != TFObjectType.Dispenser)
-            Render.SetSkin(Handle, Team == (int)TFTeam.Red ? 2 : 3);
+            Skins.SetSkin(Handle, Team == (int)TFTeam.Red ? 2 : 3);
     }
 
     /// <summary><c>GetLevel</c>: the upgrade level, 1 until the wrench raises it.</summary>
@@ -530,14 +534,18 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary>
     /// <c>CBaseObject::StartPlacement</c>: the builder's, and on the builder's
-    /// team. (The build box and the NOT_SOLID switch ride with the placement
-    /// trace, which is the click-to-place's to own — deferred.)
+    /// team, wearing that team's skin (tf_obj.cpp:901-902; a mini's
+    /// <see cref="MakeMiniBuilding"/> re-dresses it after). (The build box and
+    /// the NOT_SOLID switch ride with the placement trace, which is the
+    /// click-to-place's to own — deferred.)
     /// </summary>
     public void StartPlacement(EntityHandle builder)
     {
         _builder = builder;
         _team = Players.Team(builder);
+        State.Team = (byte)_team;   // the client's friendly-building arm reads the team off the wire
         SetPlacing(true);
+        Skins.SetSkin(Handle, _team == (int)TFTeam.Red ? 0 : 1);
     }
 
     /// <summary>

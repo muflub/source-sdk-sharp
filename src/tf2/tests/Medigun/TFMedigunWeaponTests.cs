@@ -706,6 +706,29 @@ public sealed class TFMedigunWeaponTests
         Assert.Empty(rig.Resupply.Takes);                          // 1.3 >= the shrunk bonus: this healer is skipped
     }
 
+    /// <summary>
+    /// <c>CWeaponMedigun::GetOverHealDecayMult</c> (:2708): the attach carries the medic's
+    /// walked multiplier onto the heal, and once the beam drops and the patient sits over
+    /// max alone, the drain divides by it (tf_player_shared.cpp:2709-2711).
+    /// </summary>
+    [Fact]
+    public void The_medics_mult_medigun_overheal_decay_attribute_rides_the_drain_after_the_beam()
+    {
+        // max 150: the boost room is (int)(150 × 1.5 / 5) × 5 − 150 = 75; tf_boost_drain_time 15.
+        var rig = Standing();
+        rig.Give(3, 160, 150);
+        rig.Items.SetManager(1, AddedSeconds("mult_medigun_overheal_decay", 1f));   // additive → walked to multiplier 2
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);               // attach: the Heal entry carries the walked multiplier
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // healer up: the walk banks the multiplier (:2531)
+        Command(rig, weapon, held: false, now: 11f);              // letting go drops the target
+        rig.Healing.TickPatient(H(3), now: 11f, frametime: 1f);   // drain: 75/(15 × 2) = 2.5/s → one second drains 2
+
+        Assert.Equal(158, rig.Health(3));       // multiplier 1 drains 5/s: the same second drains 5 → health 155
+    }
+
     [Fact]
     public void The_patients_penalty_shrinks_the_bonus_too()
     {

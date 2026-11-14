@@ -37,7 +37,7 @@ public sealed class TFDroppedWeaponTests
         public int Draws => _at;
     }
 
-    private static (TFDroppedWeapon Weapon, RecordingEngine Engine, RecordingEngine Clock, LoopSeeds Seeds) Dropped(float clock = 10f, string? lifetime = null)
+    private static (TFDroppedWeapon Weapon, RecordingEngine Engine, RecordingEngine Clock, LoopSeeds Seeds, RecordingServerSkins Skins) Dropped(float clock = 10f, string? lifetime = null)
     {
         var engine = Mock();
         engine.Returns("Clock.Now", clock)
@@ -53,7 +53,8 @@ public sealed class TFDroppedWeaponTests
             convars.Declared<TFDroppedWeaponLifetimeConVar>().Bind(-1, "tf_dropped_weapon_lifetime", lifetime);
 
         var seeds = new LoopSeeds();
-        var dropped = new TFDroppedWeapon(convars.Declared<TFDroppedWeaponLifetimeConVar>(), seeds, engine);
+        var skins = new RecordingServerSkins();
+        var dropped = new TFDroppedWeapon(convars.Declared<TFDroppedWeaponLifetimeConVar>(), seeds, skins);
         dropped.BindEngine(engine);
         dropped.BindAreas(Areas(engine));
         dropped.RegisteredKind = ScriptedEntityKind.Prop;
@@ -62,7 +63,7 @@ public sealed class TFDroppedWeaponTests
         clockEngine.Returns("Clock.Now", clock);
         dropped.Owner = new ScriptedEntityRegistry(TestEngines.Server()) { Services = services };
 
-        return (dropped, engine, clockEngine, seeds);
+        return (dropped, engine, clockEngine, seeds, skins);
     }
 
     private static EntityHandle Whose => new(0x0001_0001u);
@@ -70,7 +71,7 @@ public sealed class TFDroppedWeaponTests
     [Fact]
     public void The_lie_is_debris_with_the_lifetime_s_removal_booked()
     {
-        var (dropped, engine, _, _) = Dropped();
+        var (dropped, engine, _, _, _) = Dropped();
 
         dropped.OnSpawn();
 
@@ -84,7 +85,7 @@ public sealed class TFDroppedWeaponTests
     [Fact]
     public void The_lifetime_is_the_convar_read_live()
     {
-        var (moved, _, _, _) = Dropped(lifetime: "7");
+        var (moved, _, _, _, _) = Dropped(lifetime: "7");
         moved.OnSpawn();
 
         Assert.Equal(7f, moved.NextThinkDelay("RemoveThink"), 3);
@@ -93,7 +94,7 @@ public sealed class TFDroppedWeaponTests
     [Fact]
     public void The_init_carries_the_clip_the_reserve_the_charge_and_the_skin()
     {
-        var (dropped, engine, _, _) = Dropped();
+        var (dropped, engine, _, _, skins) = Dropped();
         dropped.OnSpawn();
 
         dropped.Init(Whose, "tf_weapon_rocketlauncher", clip: 6, ammo: 24, chargeLevel: 0.5f, skin: 1);
@@ -104,14 +105,14 @@ public sealed class TFDroppedWeaponTests
         Assert.Equal(24, dropped.Ammo);
         Assert.Equal(0.5f, dropped.ChargeLevel);
         Assert.Equal(1, dropped.Skin);
-        Assert.Equal(1, engine.Last("EntityRender.SetSkin").ArgAs<int>(1));
+        Assert.Equal(1, skins.Set[^1].Skin); // the skin reaches the server seam
         Assert.Equal(25f, engine.Last("EntityPhysics.SetMass").ArgAs<float>(1), 3); // :561
     }
 
     [Fact]
     public void A_death_tumble_leaves_at_the_planned_band_and_spin()
     {
-        var (dropped, engine, _, seeds) = Dropped();
+        var (dropped, engine, _, seeds, _) = Dropped();
         dropped.OnSpawn();
 
         dropped.Init(Whose, "tf_weapon_rocketlauncher", 6, 24);
@@ -126,7 +127,7 @@ public sealed class TFDroppedWeaponTests
     [Fact]
     public void A_discard_hurls_it_along_the_thrower_s_view()
     {
-        var (dropped, engine, _, _) = Dropped();
+        var (dropped, engine, _, _, _) = Dropped();
         dropped.OnSpawn();
 
         dropped.Init(Whose, "tf_weapon_rocketlauncher", 6, 24, thrown: true); // :538-545
@@ -140,7 +141,7 @@ public sealed class TFDroppedWeaponTests
     [Fact]
     public void A_charged_lie_degrades_a_hundredth_a_tenth_and_rebooks()
     {
-        var (dropped, _, clock, _) = Dropped();
+        var (dropped, _, clock, _, _) = Dropped();
         dropped.OnSpawn();
         dropped.Init(Whose, "tf_weapon_medigun", 40, 0, chargeLevel: 0.5f); // :598-601
 
@@ -155,7 +156,7 @@ public sealed class TFDroppedWeaponTests
     [Fact]
     public void The_pool_at_zero_stops_the_degrade()
     {
-        var (dropped, _, clock, _) = Dropped();
+        var (dropped, _, clock, _, _) = Dropped();
         dropped.OnSpawn();
         dropped.Init(Whose, "tf_weapon_medigun", 40, 0, chargeLevel: 0.02f);
 

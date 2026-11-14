@@ -307,6 +307,39 @@ public interface ICtfRules
     /// (tf_gamerules.cpp:1904).</summary>
     void SetOvertimeAllowedForCtf(bool allowed);
 
+    /// <summary>Stock's <c>m_nHudType</c> read by the rules (ctor default
+    /// <c>TF_HUDTYPE_UNDEFINED</c>, tf_gamerules.cpp:1642): the hud type a map
+    /// named on its <c>tf_gamerules</c>, pushed when named
+    /// (<c>Activate</c>, :1896-1899).</summary>
+    int HudType { get; }
+
+    /// <summary>Stock's <c>CTFGameRules::SetHUDType</c>, the gated push.</summary>
+    void SetHudType(int hudType);
+
+    /// <summary>Stock's <c>m_bRopesHolidayLightsAllowed</c> (ctor-on,
+    /// :1644): whether the ropes' holiday lights may hang; pushed always
+    /// (:1906).</summary>
+    bool HolidayLightsAllowed { get; }
+
+    /// <summary>Stock's <c>SetRopesHolidayLightsAllowed</c>, the always push.</summary>
+    void SetHolidayLightsAllowed(bool allowed);
+
+    /// <summary>Stock's <c>m_bMapForcedTruceDuringBossFight</c>
+    /// (<c>SetMapForcedTruceDuringBossFight</c>, :1875-1881 read through the
+    /// proxy): the truce a boss-fight map forces during its fight.</summary>
+    bool MapForcedTruceDuringBossFight { get; }
+
+    /// <summary>Stock's <c>SetMapForcedTruceDuringBossFight</c>.</summary>
+    void SetMapForcedTruceDuringBossFight(bool forced);
+
+    /// <summary>Stock's <c>m_hCustomUpgradesFile</c>'s word
+    /// (<c>SetCustomUpgradesFile</c>, :1856-1862 read through the proxy): the
+    /// upgrades file the map names for its Mann-vs-machine-style store.</summary>
+    string CustomUpgradesFile { get; }
+
+    /// <summary>Stock's <c>SetCustomUpgradesFile</c>.</summary>
+    void SetCustomUpgradesFile(string file);
+
     /// <summary><c>FlagsMayBeCapped</c> (L3659): outside the win and the pre-round.</summary>
     bool FlagsMayBeCapped { get; }
 
@@ -355,6 +388,10 @@ public sealed class CtfRules(ITeamRoundState round, ITeamRoundControl control, I
     : ICtfRules, IGameLifecycle
 {
     private bool _overtimeAllowedForCtf = true;
+    private int _hudType;
+    private bool _holidayLightsAllowed = true;
+    private bool _mapForcedTruceDuringBossFight;
+    private string _customUpgradesFile = string.Empty;
 
     int IGameLifecycle.LifecycleOrder => CtfOrders.RulesState;
 
@@ -364,11 +401,31 @@ public sealed class CtfRules(ITeamRoundState round, ITeamRoundControl control, I
         // CWorld::Spawn (world.cpp:608-616) — the flags a map's own
         // tf_gamerules then re-set at its Activate.
         _overtimeAllowedForCtf = true;
+        _hudType = 0;                                  // TF_HUDTYPE_UNDEFINED, stock ctor :1642
+        _holidayLightsAllowed = true;                  // stock ctor :1644
+        _mapForcedTruceDuringBossFight = false;
+        _customUpgradesFile = string.Empty;
     }
 
     public bool OvertimeAllowedForCtf => _overtimeAllowedForCtf;
 
     public void SetOvertimeAllowedForCtf(bool allowed) => _overtimeAllowedForCtf = allowed;
+
+    public int HudType => _hudType;
+
+    public void SetHudType(int hudType) => _hudType = hudType;
+
+    public bool HolidayLightsAllowed => _holidayLightsAllowed;
+
+    public void SetHolidayLightsAllowed(bool allowed) => _holidayLightsAllowed = allowed;
+
+    public bool MapForcedTruceDuringBossFight => _mapForcedTruceDuringBossFight;
+
+    public void SetMapForcedTruceDuringBossFight(bool forced) => _mapForcedTruceDuringBossFight = forced;
+
+    public string CustomUpgradesFile => _customUpgradesFile;
+
+    public void SetCustomUpgradesFile(string file) => _customUpgradesFile = file;
 
     public bool FlagsMayBeCapped => round.State is not (RoundState.TeamWin or RoundState.Preround);
 

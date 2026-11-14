@@ -40,4 +40,15 @@ public partial class TFObjectNetState
     /// have something to read when they land.
     /// </summary>
     public partial bool Mini { get; set; }
+
+    /// <summary>
+    /// <c>GetTeamNumber</c> (baseobject_shared.cpp's <c>StartPlacement</c>: the
+    /// building wears its builder's team, and the placement's own arm reads it
+    /// back). The client's friendly-building arm (<c>CTFWrench::Smack</c>'s
+    /// <c>OnFriendlyBuildingHit</c> test, tf_weapon_wrench.cpp:180) is what
+    /// needs it on the wire: the replay asks the struck building's team of
+    /// this word, so the swing's predicted mode bit lands the same way the
+    /// server's does.
+    /// </summary>
+    public partial byte Team { get; set; }
 }

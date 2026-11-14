@@ -167,6 +167,52 @@ public sealed class ServerSoundsTests
     }
 
     //-------------------------------------------------------------------------
+    // To one player
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// Stock's CSingleUserRecipientFilter arms (entity_healthkit.cpp:140-141,
+    /// tf_player_shared.cpp:9078-9079): exactly the one player hears the sound
+    /// from the entity's index — the other connected slot does not, and the
+    /// PAS neither narrows nor widens the list. The stock arm keeps the
+    /// filter's reliable default.
+    /// </summary>
+    [Fact]
+    public void ASinglePlayerEmitIsReliableToExactlyThatPlayersSlot()
+    {
+        _entities.Returns("Entities.GetIndex", 3);   // the caller passes the player in both slots, so both read slot 3
+
+        Sounds().EntityEmitSoundToPlayer(new EntityHandle(3u | (1u << 16)), Door, "Doors.Move1");
+
+        var emit = Assert.Single(_engine.Emits);
+        Assert.Equal(("3", true, 3, "doors/move1.wav"),
+                     (emit.Recipients, emit.Reliable, emit.EntIndex, emit.Sample));
+    }
+
+    /// <summary>Stock's unreliable single-user arm: the same one-player list without the reliable flag.</summary>
+    [Fact]
+    public void AnUnreliableSinglePlayerEmitKeepsTheListButNotTheReliability()
+    {
+        _entities.Returns("Entities.GetIndex", 2);
+
+        Sounds().EntityEmitSoundToPlayer(new EntityHandle(2u | (1u << 16)), Door, "Doors.Move1", reliable: false);
+
+        var emit = Assert.Single(_engine.Emits);
+        Assert.Equal(("2", false, 2, "doors/move1.wav"),
+                     (emit.Recipients, emit.Reliable, emit.EntIndex, emit.Sample));
+    }
+
+    /// <summary>A player whose slot holds nothing (past the maximum of 8) is no recipient.</summary>
+    [Fact]
+    public void ASinglePlayerEmitForAnEmptySlotPlaysNothing()
+    {
+        Sounds().EntityEmitSoundToPlayer(new EntityHandle(64u | (1u << 16)), Door, "Doors.Move1");   // the fixture answers slot 64
+
+        Assert.Empty(_engine.Emits);
+        Assert.Empty(_warnings);   // an empty slot is not the unresolved-entity warning
+    }
+
+    //-------------------------------------------------------------------------
     // From a point
     //-------------------------------------------------------------------------
 

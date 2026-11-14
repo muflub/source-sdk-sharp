@@ -265,8 +265,13 @@ public static class TFDamageModifyRules
                 crit = TFCritType.Mini;
             // The Cow Mangler's charged shot (:6165-6170): a hit carrying
             // TF_DMG_CUSTOM_PLASMA_CHARGED mini-crits, between the deflected
-            // blast and the energy buff as stock orders the ladder.
+            // blast and the cleaver as stock orders the ladder.
             else if (custom == TFDamageCustom.PlasmaCharged)
+                crit = TFCritType.Mini;
+            // The cleaver's long-range hit (:6171-6175): a hit carrying
+            // TF_DMG_CUSTOM_CLEAVER_CRIT mini-crits, between the charged
+            // plasma and the energy buff as stock orders the ladder.
+            else if (custom == TFDamageCustom.CleaverCrit)
                 crit = TFCritType.Mini;
             else if (hit.AttackerIsPlayer && attacker.Has(TFCond.EnergyBuff))
                 crit = TFCritType.Mini;

@@ -132,7 +132,8 @@ public sealed class TFKnifeMirrorFacts
                                         data,
                                         Setup, BoundCharge(), BoundSpread(), Reload, BoundBurstammo(),
                                         new SilentMedigun(),
-                                        new client::TF2.Client.Buildings.TFClientSapperState(),
+                                        new client::TF2.Client.Buildings.TFClientSapperState(
+                                            Engine, pair, new client::TF2.Client.Player.TFClientPlayerResources()),
                                         new client::TF2.Client.Buildings.TFClientSentryWrangle(),
                                         new client::TF2.Client.Player.TFClientRevengeCrits());
 

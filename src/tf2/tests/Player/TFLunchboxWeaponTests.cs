@@ -27,7 +27,7 @@ public sealed class TFLunchboxWeaponTests
 {
     private const string Lunchbox = "tf_weapon_lunchbox";
 
-    private static (PlayerRig Rig, TFLunchboxWeapon Lunchbox, TFPlayerConditions Conditions, TFPlayerResupply Resupply)
+    private static (PlayerRig Rig, TFLunchboxWeapon Lunchbox, TFPlayerConditions Conditions, TFPlayerResupply Resupply, RecordingServerSkins Skins)
         Rig(TFClass cls, AttributeContainer? item = null, MapItemRig? items = null)
     {
         var rig = new PlayerRig();
@@ -60,19 +60,20 @@ public sealed class TFLunchboxWeaponTests
                                         owners, hooks,
                                         new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files()));
         IEntityDirectory entities = items is null ? new NoEntities() : items.Registry;
+        var skins = new RecordingServerSkins();
         var lunchbox = new TFLunchboxWeapon(players, resupply, rig.Carriers, owners, hooks, taunts,
                                             rig.Engine, rig.Engine, rig.Engine, entities,
                                             DeclaredConVars.Fresh<TFScoutEnergydrinkConsumeRateConVar>(),
                                             new Arsenal(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine,
                                                         rig.Engine, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
                                                         entities, rig.Engine, new DamageHitGroups()),
-                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState());
+                                            new TF2.Tests.Medigun.TFHealingCtf(), new TF2.Tests.Entities.FakeRoundState(), skins);
 
         if (item is not null)
             rig.Items.Set(PlayerRig.Index, new Dictionary<string, IAttributeProvider> { [Lunchbox] = item });
         rig.Items.SetManager(PlayerRig.Index, new AttributeContainer());
 
-        return (rig, lunchbox, conditions, resupply);
+        return (rig, lunchbox, conditions, resupply, skins);
     }
 
     private static AttributeContainer Item(float mode, int defindex) => Item(TFLunchboxBehaviour.ModeAttribute, mode, defindex);
@@ -90,7 +91,7 @@ public sealed class TFLunchboxWeaponTests
     [Fact]
     public void ThePlainBiteHealsSeventyFive()
     {
-        var (rig, lunchbox, _, _) = Rig(TFClass.HeavyWeapons);
+        var (rig, lunchbox, _, _, _) = Rig(TFClass.HeavyWeapons);
         rig.Engine.Returns("Entities.GetHealth", 150);
 
         lunchbox.Bite(PlayerRig.Index);
@@ -103,7 +104,7 @@ public sealed class TFLunchboxWeaponTests
     [Fact]
     public void TheDalokohsBiteHealsAQuarterPastTheCeiling()
     {
-        var (rig, lunchbox, _, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeFishcake, 910));
+        var (rig, lunchbox, _, _, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeFishcake, 910));
         rig.Engine.Returns("Entities.GetHealth", 280);
 
         lunchbox.Bite(PlayerRig.Index);
@@ -116,7 +117,7 @@ public sealed class TFLunchboxWeaponTests
     [Fact]
     public void TheDalokohsBiteRaisesTheHealthCeilingForThirtySeconds()
     {
-        var (rig, lunchbox, _, resupply) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeChocolateBar, 911));
+        var (rig, lunchbox, _, resupply, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeChocolateBar, 911));
 
         lunchbox.Bite(PlayerRig.Index);
 
@@ -131,7 +132,7 @@ public sealed class TFLunchboxWeaponTests
     [Fact]
     public void TheSteakBitePaysInMinicritsAndTheMeleeLock()
     {
-        var (rig, lunchbox, _, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeAddsMinicrits, 912));
+        var (rig, lunchbox, _, _, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeAddsMinicrits, 912));
         rig.Engine.Returns("Entities.GetHealth", 100);
 
         lunchbox.Bite(PlayerRig.Index);
@@ -145,7 +146,7 @@ public sealed class TFLunchboxWeaponTests
     [Fact]
     public void TheAmmoBiteTopsThePrimaryPoolByAQuarterOfItsCarry()
     {
-        var (rig, lunchbox, _, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeAddsAmmo, 913));
+        var (rig, lunchbox, _, _, _) = Rig(TFClass.HeavyWeapons, Item(TFLunchboxBehaviour.ModeAddsAmmo, 913));
 
         lunchbox.Bite(PlayerRig.Index);
 
@@ -158,7 +159,7 @@ public sealed class TFLunchboxWeaponTests
     [Fact]
     public void TheEatIsTheTauntAsk()
     {
-        var (rig, lunchbox, _, _) = Rig(TFClass.HeavyWeapons);
+        var (rig, lunchbox, _, _, _) = Rig(TFClass.HeavyWeapons);
         rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
@@ -181,11 +182,11 @@ public sealed class TFLunchboxWeaponTests
     /// registry stands in as the weapon's directory — the plate it creates is
     /// a real <see cref="HealthKit"/> there, spawned before the throw names it.
     /// </summary>
-    private static (PlayerRig Rig, MapItemRig Items, TFLunchboxWeapon Lunchbox) DropRig(TFClass cls = TFClass.HeavyWeapons)
+    private static (PlayerRig Rig, MapItemRig Items, TFLunchboxWeapon Lunchbox, RecordingServerSkins Skins) DropRig(TFClass cls = TFClass.HeavyWeapons)
     {
         var items = new MapItemRig();
-        var (rig, lunchbox, _, _) = Rig(cls, items: items);
-        return (rig, items, lunchbox);
+        var (rig, lunchbox, _, _, skins) = Rig(cls, items: items);
+        return (rig, items, lunchbox, skins);
     }
 
     /// <summary>The attack of one secondary press, the shape the behaviour hands on.</summary>
@@ -214,7 +215,7 @@ public sealed class TFLunchboxWeaponTests
         // little down (:216), wearing the mode's plate (:249-275) — the
         // teams' skin on the plates that carry one (:266-274) — flung at
         // :278's 500 down that line, levelled (:281) and boxed (:282).
-        var (rig, items, lunchbox) = DropRig();
+        var (rig, items, lunchbox, skins) = DropRig();
         var kit = SpawnKit(items, className);
         rig.Engine.Returns("Entities.Create", kit.Handle);
         rig.Engine.Returns("Entities.GetEyePosition", new Vector(100f, 200f, 64f));
@@ -229,10 +230,9 @@ public sealed class TFLunchboxWeaponTests
         Assert.Contains("Entities.Spawn", rig.Engine.Calls.Select(c => c.Member));
 
         Assert.Equal(plate, rig.Engine.Last("EntityRender.SetModel")!.Value.ArgAs<string>(1));
-        var skin = rig.Engine.Last("EntityRender.SetSkin");
-        Assert.Equal(skinned, skin is not null);
-        if (skin is not null)
-            Assert.Equal(0, skin.Value.ArgAs<int>(1)); // red's skin
+        Assert.Equal(skinned, skins.Set.Count > 0);
+        if (skinned)
+            Assert.Equal(0, skins.Set[^1].Skin); // red's skin
 
         var kitFlight = items.Engine.Last("Entities.SetVelocity")!.Value;
         Assert.Equal(kit.Handle, kitFlight.ArgAs<EntityHandle>(0));
@@ -252,7 +252,7 @@ public sealed class TFLunchboxWeaponTests
     public void A_blue_throwers_plate_wears_blue()
     {
         // :266's skin — the team's index on the plates that carry one.
-        var (rig, items, lunchbox) = DropRig();
+        var (rig, items, lunchbox, skins) = DropRig();
         rig.Engine.Returns("Players.GetTeam", (int)TFTeam.Blue);
         var kit = SpawnKit(items, HealthKitMedium.MediumClass);
         rig.Engine.Returns("Entities.Create", kit.Handle);
@@ -262,7 +262,7 @@ public sealed class TFLunchboxWeaponTests
         var attack = Attack();
         lunchbox.LunchboxDrop(in attack, null!, TFLunchboxBehaviour.ModeStandardRobo);
 
-        Assert.Equal(1, rig.Engine.Last("EntityRender.SetSkin")!.Value.ArgAs<int>(1));
+        Assert.Equal(1, skins.Set[^1].Skin); // blu's second skin (:266)
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public sealed class TFLunchboxWeaponTests
     {
         // :209-212 — m_hThrownPowerup removed before the next throw: the one
         // thrown kit out there bearing the owner goes, the new plate stands.
-        var (rig, items, lunchbox) = DropRig();
+        var (rig, items, lunchbox, skins) = DropRig();
         var first = SpawnKit(items, HealthKitMedium.MediumClass);
         rig.Engine.Returns("Entities.Create", first.Handle);
         rig.Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));

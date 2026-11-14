@@ -39,7 +39,8 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
                                      IEnginePlayers enginePlayers, IEngineEntities entities,
                                      IGameClock clock, TFTauntCommand taunts,
                                      TFPlayerCarriers carriers, TFConceptSpeech speech,
-                                     IEngineSound sound, IEngineGameEvents events) : ITFBuffEffects
+                                     IEngineSound sound, IEngineGameEvents events,
+                                     ILog log) : ITFBuffEffects
 {
     public void DeployBuff(int ownerIndex, int buffType)
     {
@@ -49,11 +50,15 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
 
         TFCond cond = TFRageMeter.BuffCond(buffType);
         if (cond == TFCond.Invalid)
+        {
+            log.Msg($"[TF2/Buff] {ownerIndex} type {buffType}: no cond\n");
             return; // :14004's answer for a type with no condition.
+        }
 
         int team = enginePlayers.GetTeam(owner);
         Vector centre = entities.GetOrigin(owner);
         float reachSquared = TFRageMeter.BuffRadius * TFRageMeter.BuffRadius;
+        int buffed = 0;
 
         for (int index = 1; index < TFPlayerResourceNetState.Slots; index++)
         {
@@ -78,7 +83,10 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
                 continue;
 
             conditions.Add(player, cond, TFRageMeter.BuffDurationSeconds, owner);
+            buffed++;
         }
+
+        log.Msg($"[TF2/Buff] {ownerIndex} type {buffType}: {buffed} buffed\n");
     }
 
     /// <summary>

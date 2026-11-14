@@ -226,6 +226,40 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     }
 
     /// <summary>
+    /// Stock's <c>CSingleUserRecipientFilter</c> arms (a filter holding the one
+    /// player around an <c>EmitSound( user, entindex(), pszSound )</c> — item_healthkit.cpp's
+    /// pickup touch, tf_player_shared.cpp's charge on/off): exactly that player hears
+    /// the entity's sound from its index, wherever they stand — the PAS does not
+    /// widen it either way. Reliable unless the caller's stock arm resets it.
+    /// </summary>
+    public void EntityEmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName,
+                                         bool reliable = true)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(entity))
+        {
+            SayUnresolved(entity, soundName);
+            return;
+        }
+
+        int index = SoundSourceIndex(entity);
+        RecipientFilter filter = reliable
+            ? _emitter.Recipients.Player(_entities.GetIndex(player)).MakeReliable()
+            : _emitter.Recipients.Player(_entities.GetIndex(player));
+        if (filter.Count == 0)
+            return;
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(entity) : null,
+            WarnOnDirectWaveReference = true,
+        });
+    }
+
+    /// <summary>
     /// <c>CBaseCombatWeapon::WeaponSound</c>'s server arm for a weapon in an
     /// owner's hands: the PAS of the owner, narrowed by the script's level,
     /// under the prediction rules (<c>filter.UsePredictionRules()</c>) -- the

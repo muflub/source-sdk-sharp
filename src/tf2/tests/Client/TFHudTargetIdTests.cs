@@ -9,6 +9,7 @@ using Xunit;
 
 using Adapter = client::TF2.Client.Ui.TFHudTargetId;
 using Carrier = client::TF2.Shared.Player.TFPlayerNetState;
+using Clock = client::SourceSharp.Abi.IGameClock;
 using PlayerData = client::TF2.Shared.Player.ITFPlayerData;
 using ClientViews = client::TF2.Shared.Player.TFPlayerNetStateViews;
 using CondMask = client::TF2.Shared.Conditions.TFCondMask;
@@ -60,6 +61,7 @@ public sealed class TFHudTargetIdTests
         public readonly Directory Stands = new();
         public readonly Roster Names = new((Local, "Gordon"), (Target, "Alyx"), (3, "Barney"));
         public readonly ViewSource View = new();
+        public readonly TickClock Clock = new();
         public readonly Catalog Catalog;
         public readonly client::TF2.Shared.TFClassTable Classes;
         public readonly Adapter Source;
@@ -82,7 +84,7 @@ public sealed class TFHudTargetIdTests
 
             Owners = new ClientOwners();
             Source = new Adapter(Engine, Engine, View, Stands, Carriers, Resources, Names, Catalog, classes,
-                                 Owners, new client::TF2.Shared.Econ.AttributeHooks());
+                                 Owners, new client::TF2.Shared.Econ.AttributeHooks(), Clock);
             Classes = classes;
         }
 
@@ -285,6 +287,14 @@ public sealed class TFHudTargetIdTests
         }
     }
 
+    /// <summary>The clock the panel re-resolves on each tick, as stock's ShouldDraw
+    /// re-scans every frame (:540-593). A fact advances it to walk ticks; reads
+    /// inside one tick share the tick's resolution.</summary>
+    private sealed class TickClock : Clock
+    {
+        public float Now { get; set; } = 1f;
+    }
+
     [Fact]
     public void A_teammate_aimed_shows_name_health_and_team()
     {
@@ -300,6 +310,28 @@ public sealed class TFHudTargetIdTests
         Assert.Equal(80, rig.Source.Health);
         Assert.Equal(125, rig.Source.MaxHealth);
         Assert.Equal(LineKind.None, rig.Source.Line.Kind);
+    }
+
+    /// <summary>A player who arrives while the camera stands still becomes the
+    /// target on the next tick: stock's ShouldDraw re-scans every frame
+    /// (tf_hud_target_id.cpp:540-593), so the panel follows the crosshair
+    /// without needing camera motion.</summary>
+    [Fact]
+    public void A_player_who_arrives_while_the_camera_is_still_shows_on_the_next_tick()
+    {
+        var rig = new Rig();
+        rig.ArriveResources();
+        rig.TargetCarrier(TFClassId.Soldier);
+        rig.LocalCarrier(TFClassId.Scout);
+        rig.WallBetween();
+
+        Assert.False(rig.Source.Present);
+
+        rig.RayHits(Target);
+        rig.Clock.Now += 0.016f;
+
+        Assert.True(rig.Source.Present);
+        Assert.Equal("Alyx", rig.Source.Name);
     }
 
     [Fact]

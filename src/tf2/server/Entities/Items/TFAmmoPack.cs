@@ -44,8 +44,9 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
                                TFWeaponRagdollMaxSpeedConVar ragdollMaxSpeed,
                                TFObjGibVelocityMinConVar gibVelocityMin, TFObjGibVelocityMaxConVar gibVelocityMax,
                                TFObjGibMaxSpeedConVar gibMaxSpeed,
-                               IUniformRandom random, IEngineEntityRender render,
-                               ITFPlayerStats stats, ServerBodygroups bodygroups) : ScriptedEntity
+                               IUniformRandom random,
+                               ITFPlayerStats stats, ServerBodygroups bodygroups,
+                               IServerSkins skins) : ScriptedEntity
 {
     public const string Class = "tf_ammo_pack";
 
@@ -292,7 +293,7 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         // SetInitialVelocity (:179) feeds the respawn system — deferred with it.
 
         _skin = skin; // :181, m_nSkin
-        render.SetSkin(Handle, skin);
+        skins.SetSkin(Handle, skin);
 
         Health = 900; // :186, "so that trains can destroy it"
 
@@ -456,7 +457,7 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         // SetInitialVelocity (:2307) feeds the respawn system — deferred with it.
 
         _skin = skin; // :2309, m_nSkin: the building's team
-        render.SetSkin(Handle, skin);
+        skins.SetSkin(Handle, skin);
 
         Health = 900; // :2314, "so that trains can destroy it"
         _objGib = true; // :2315, m_bObjGib

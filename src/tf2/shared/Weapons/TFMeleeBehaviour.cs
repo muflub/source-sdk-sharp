@@ -55,6 +55,18 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     public const int ModeSwingMini = 4 << ModeKindShift;
 
     /// <summary>
+    /// The swing landed on a friendly building (<c>CTFWrench::Smack</c>'s
+    /// building arm, tf_weapon_wrench.cpp:180-193): the hit rode
+    /// <c>OnFriendlyBuildingHit</c> at the swing, so the smack's plain melee
+    /// must not run over the same swing again. Which of the two building
+    /// sounds plays is not a mode bit: the smack asks the sapper seam's
+    /// <see cref="TF2.Shared.ITFSapperState.TakeWrenchSound"/>, the one word
+    /// both sides agree on. The wrench's hook sets it, the smack reads it and
+    /// clears it.
+    /// </summary>
+    public const int ModeBuildingStruck = 32 << ModeKindShift;
+
+    /// <summary>
     /// The Gunslinger's punch combo, the count the smacks keep in these two
     /// mode bits (<c>CTFRobotArm</c>'s <c>m_iComboCount</c>,
     /// tf_weapon_wrench.cpp:498-518): the enemy players the last swings hit,
@@ -339,6 +351,21 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                                        Parts.Hooks.HitSelfOnMiss(in context),
                                        Parts.Hooks.CritForcesVictimToLaugh(in context),
                                        Parts.Hooks.TickleEnemiesWieldingSameWeapon(in context));
+
+            // Stock's CTFWrench::Smack (:180-198): a swing that landed on
+            // a friendly building had its hit inside OnFriendlyBuildingHit
+            // and skips BaseClass::Smack, playing that arm's own sound;
+            // the usual melee hit runs only over a swing that didn't. One
+            // bit carries the skip both sides predict; the sound's name is
+            // the server's, handed out once through the seam. The wrench's
+            // hook rode the bit at the swing. Like the swing bits above it,
+            // the bit is predicted state: every run of this command spends
+            // it, so its lifetime is one command on both sides. What the
+            // skip unlocks is effects, and they stay below with the live
+            // run.
+            bool buildingStruck = (weapon.BehaviourMode & ModeBuildingStruck) != 0;
+            weapon.BehaviourMode &= ~ModeBuildingStruck;
+
             if (attack.EffectsLive)
             {
                 // The melee's sapper arm (tf_weaponbase_melee.cpp:469-494): a held
@@ -347,13 +374,21 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                 if (Parts.Hooks.DmgApplyToSapper(in context))
                     Parts.Sapper.MeleeSmack(attack.Command.OwnerIndex, trace.Range, damage);
 
-                // The crit rolls over the mini (:855-863): the full crit's bit,
-                // else the charge's mini-crit as DMG_RADIUS_MAX.
-                Parts.Effects.Melee(in attack, script,
-                                    crit ? Critical(damage)
-                                         : mini ? new ShotDamage(damage, Mini: true)
-                                                : new ShotDamage(damage),
-                                    in trace);
+                if (buildingStruck)
+                {
+                    if (Parts.Sapper.TakeWrenchSound(attack.Command.OwnerIndex) is { } sound)
+                        attack.Arms.Sound(sound);
+                }
+                else
+                {
+                    // The crit rolls over the mini (:855-863): the full crit's bit,
+                    // else the charge's mini-crit as DMG_RADIUS_MAX.
+                    Parts.Effects.Melee(in attack, script,
+                                        crit ? Critical(damage)
+                                             : mini ? new ShotDamage(damage, Mini: true)
+                                                    : new ShotDamage(damage),
+                                        in trace);
+                }
             }
 
             // The smack spent the grant (tf_weaponbase_melee.cpp:384), hit or

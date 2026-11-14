@@ -2801,8 +2801,11 @@ public sealed class TFFlareTray
 /// fizzle (:479-486) — fizzles the whole tray.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFStickyTray(TFPlayerCarriers carriers) : IPlayerDeathHook
+public sealed class TFStickyTray(TFPlayerCarriers carriers) : IPlayerDeathHook, IOrderedHook
 {
+    /// <summary>Its own place on the death walk (<see cref="TFPlayerOrders.StickyTray"/>).</summary>
+    public int HookOrder => TFPlayerOrders.StickyTray;
+
     private readonly Dictionary<int, List<TFStickybomb>> _trays = new();
 
     private readonly TFPlayerCarriers _carriers = carriers;

@@ -22,6 +22,16 @@ public partial class TFGameRulesProxyVars
     /// it stands, a flag away from home holds the round timers (:14022). The
     /// proxy ctor's default is on (:1643).</summary>
     [VarName("ctf_overtime")] public bool OvertimeAllowedForCtf { get; set; } = true;
+
+    /// <summary>Stock's <c>m_nHudType</c> (:1642): the <c>hud_type</c> keyfield
+    /// (<c>FIELD_INTEGER</c>, :1590), ctor-defaulted <c>TF_HUDTYPE_UNDEFINED</c>
+    /// (0, tf_shareddefs.h:306). Activate pushes it only when named (:1896-1899).</summary>
+    [VarName("hud_type")] public int HudType { get; set; }
+
+    /// <summary>Stock's <c>m_bRopesHolidayLightsAllowed</c> (:1644): the
+    /// <c>ropes_holiday_lights_allowed</c> keyfield (:1596), ctor-defaulted on;
+    /// Activate pushes it always (:1906).</summary>
+    [VarName("ropes_holiday_lights_allowed")] public bool HolidayLightsAllowed { get; set; } = true;
 }
 
 /// <summary>
@@ -38,20 +48,30 @@ public partial class TFGameRulesProxyVars
 /// (stock's <c>CTeamplayRoundBasedRulesProxy</c> base,
 /// teamplayroundbased_gamerules.cpp:175-185, into <see cref="ITeamRoundControl"/>).
 /// Stock's proxy also sends the rules'
-/// data table to the clients (<c>DT_TFGameRulesProxy</c>, L1557-1582) and
-/// keeps the rest of its datadesc (VO, the remaining keyfields)
-/// for later ports — see the deferred table; the goal-string inputs are here
+/// data table to the clients (<c>DT_TFGameRulesProxy</c>, L1557-1582); the rest
+/// of the datadesc lands here as maps fire it (.scratch counts, deferred.tsv):
+/// the goal-string inputs are here
 /// (<see cref="OnSetRedTeamGoalString"/>, through <see cref="ITeamResource"/>),
 /// and so the role pair (<see cref="OnSetRedTeamRole"/>, through
 /// <see cref="ITFTeamRoles"/>). The <c>ctf_overtime</c>
 /// keyfield is read: Activate pushes it to the rules
 /// (<see cref="ICtfRules.SetOvertimeAllowedForCtf"/>, L1904), as stock's
-/// does.
+/// does. The VO trio lands as measured on stock maps of the played modes
+/// (.scratch counts, 2026-11-10): <c>PlayVO</c> broadcasts to every team, the
+/// named-team pair to its own (<see cref="IRoundAnnouncer.Broadcast"/>, stock's
+/// <c>BroadcastSound</c> arms :1809-1840), <c>SetRoundRespawnFreezeEnabled</c>
+/// writes the replicated convar (:1867-1870), and the two small setters
+/// (<c>SetMapForcedTruceDuringBossFight</c>, <c>SetCustomUpgradesFile</c>,
+/// :1875-1881, :1856-1862) store through <see cref="ICtfRules"/>.
+/// <c>HandleMapEvent</c> and the observer keyfield stay deferred: no stock map
+/// of the played modes fires them (counted 2026-11-10), and both are gated on
+/// modes and an observer surface this build does not carry.
 /// </summary>
 [ScriptedEntity(TFGameRulesProxy.MapClass)]
 public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves waves, IEngineEntityRender render,
                                      ICtfRules ctf, ITeamRoundControl rounds, IFlagCarrierEffects effects,
-                                     ITeamResource teamsTable, ITFTeamRoles roles)
+                                     ITeamResource teamsTable, ITFTeamRoles roles,
+                                     IRoundAnnouncer announcer, TFPlayerMovementRestartFreezeConVar restartFreeze)
     : ScriptedEntity
 {
     public const string MapClass = "tf_gamerules";
@@ -63,11 +83,18 @@ public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves wav
     public override void OnSpawn() => render.SetTransmitAlways(Handle, true);
 
     /// <summary>
-    /// Stock <c>CTFGameRulesProxy::Activate</c>'s rules push (L1904): the
-    /// map's <c>ctf_overtime</c>, ctor-defaulted on (L1643) when the key is
-    /// absent.
+    /// Stock <c>CTFGameRulesProxy::Activate</c>'s rules pushes: the hud type,
+    /// gated on it being named (L1896-1899), then <c>ctf_overtime</c> (L1904)
+    /// and the holiday lights (L1906) always — each ctor-defaulted (:1642-1644)
+    /// when the map's key is absent.
     /// </summary>
-    public override void OnServerActivate() => ctf.SetOvertimeAllowedForCtf(Vars.OvertimeAllowedForCtf);
+    public override void OnServerActivate()
+    {
+        if (Vars.HudType != 0)
+            ctf.SetHudType(Vars.HudType);
+        ctf.SetOvertimeAllowedForCtf(Vars.OvertimeAllowedForCtf);
+        ctf.SetHolidayLightsAllowed(Vars.HolidayLightsAllowed);
+    }
 
     /// <summary>Stock <c>InputSetStalemateOnTimelimit</c> (teamplayroundbased_gamerules.cpp:175-185).</summary>
     [ScriptedEvent] private void OnSetStalemateOnTimelimit(float enabled)
@@ -128,6 +155,44 @@ public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves wav
     /// <summary>Stock <c>InputSetBlueTeamRole</c> (L1606, handler L1797-1804): the blue mirror.</summary>
     [ScriptedEvent] private void OnSetBlueTeamRole(float role)
         => roles.SetRole(TFTeam.Blue, (TFTeamRole)(int)role);
+
+    /// <summary>Stock <c>InputPlayVO</c> (:1833-1840): the VO line to every team
+    /// (<c>BroadcastSound</c>'s filter-255 arm; the seam's Unassigned is everyone),
+    /// stock's pointer guard on the string.</summary>
+    [ScriptedEvent] private void OnPlayVO(string sound)
+    {
+        if (!string.IsNullOrEmpty(sound))
+            announcer.Broadcast(TFTeam.Unassigned, sound);
+    }
+
+    /// <summary>Stock <c>InputPlayVORed</c> (:1809-1816): the line for RED only.</summary>
+    [ScriptedEvent] private void OnPlayVORed(string sound)
+    {
+        if (!string.IsNullOrEmpty(sound))
+            announcer.Broadcast(TFTeam.Red, sound);
+    }
+
+    /// <summary>Stock <c>InputPlayVOBlue</c> (:1821-1828): the BLUE mirror.</summary>
+    [ScriptedEvent] private void OnPlayVOBlue(string sound)
+    {
+        if (!string.IsNullOrEmpty(sound))
+            announcer.Broadcast(TFTeam.Blue, sound);
+    }
+
+    /// <summary>Stock <c>InputSetRoundRespawnFreezeEnabled</c> (:1867-1870): the
+    /// input's bool writes the replicated <c>tf_player_movement_restart_freeze</c>.</summary>
+    [ScriptedEvent] private void OnSetRoundRespawnFreezeEnabled(float enabled)
+        => restartFreeze.SetValue(enabled != 0);
+
+    /// <summary>Stock <c>InputSetMapForcedTruceDuringBossFight</c> (:1875-1881):
+    /// gated on the rules standing, the input's bool forces the boss fight's truce.</summary>
+    [ScriptedEvent] private void OnSetMapForcedTruceDuringBossFight(float enabled)
+        => ctf.SetMapForcedTruceDuringBossFight(enabled != 0);
+
+    /// <summary>Stock <c>InputSetCustomUpgradesFile</c> (:1856-1862): gated on the
+    /// rules standing, the rules remember the map's upgrades file.</summary>
+    [ScriptedEvent] private void OnSetCustomUpgradesFile(string file)
+        => ctf.SetCustomUpgradesFile(file);
 }
 
 /// <summary>

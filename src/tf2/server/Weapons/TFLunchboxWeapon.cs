@@ -42,7 +42,8 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
                                      IEngineEntityRender render, IEntityDirectory directory,
                                      TFScoutEnergydrinkConsumeRateConVar convar,
                                      Arsenal arsenal, ICtfRules rules,
-                                     ITeamRoundState rounds) : ITFLunchboxEffects
+                                     ITeamRoundState rounds,
+                                     IServerSkins skins) : ITFLunchboxEffects
 {
     /// <summary>The Dalokos buff, thirty seconds of it (:387, :392).</summary>
     public const float MaxHealthBuff = 50f;
@@ -227,7 +228,7 @@ public sealed class TFLunchboxWeapon(ITFMapPlayers players, ITFPlayerResupply re
         // throw, docs/plans/tf2/deferred.tsv).
         render.SetModel(created, ThrownModel(mode)); // :247-275
         if (HasThrownSkin(mode))
-            render.SetSkin(created, players.Team(player) == (int)TFTeam.Red ? 0 : 1); // :266 et al
+            skins.SetSkin(created, players.Team(player) == (int)TFTeam.Red ? 0 : 1); // :266 et al
 
         kit.DropSingleInstance(launch, player, ThrownOwnerWait); // :284
 

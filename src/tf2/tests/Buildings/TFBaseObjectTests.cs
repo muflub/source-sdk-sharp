@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Tests;
 using TF2.Server.Buildings;
 using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
@@ -25,8 +26,8 @@ public sealed class TestBuilding : TFBaseObject
                         IEngineEntityRender render, ITFAmmoPurse purse, TFPlayerCarriers carriers,
                         TF2.Server.Voice.TFConceptSpeech speech, ITFWeaponOwners owners,
                         AttributeHooks hooks, TFDamageScopes scopes, ITFRevengeCrits crits,
-                        ServerBodygroups bodygroups)
-        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups) { }
+                        ServerBodygroups bodygroups, IServerSkins skins)
+        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins) { }
 
     public override TFObjectType Type => TFObjectType.Sentrygun;
 }
@@ -393,12 +394,9 @@ public class TFBaseObjectTests
         Assert.Equal("pieces/gib0.mdl", LastModelFor(rig, packs[0].Handle).ArgAs<string>(1));
         Assert.Equal("pieces/gib1.mdl", LastModelFor(rig, packs[1].Handle).ArgAs<string>(1));
 
+        var skins = (RecordingServerSkins)rig.Registry.Services!.Resolve(typeof(IServerSkins))!;
         foreach (TFAmmoPack pack in packs)
-        {
-            EngineCall skin = rig.Engine.AllOf("EntityRender.SetSkin")
-                                        .Last(c => c.ArgAs<EntityHandle>(0) == pack.Handle);
-            Assert.Equal(1, skin.ArgAs<int>(1));   // blu (TF_TEAM_BLUE) dresses skin 1 (:2309)
-        }
+            Assert.Equal(1, skins.Set.Last(s => s.Entity == pack.Handle).Skin);   // blu (TF_TEAM_BLUE) dresses skin 1 (:2309)
 
         // The red arm: the helper's default builder is red, skin 0.
         var (redRig, redBuilding, _) = ABuildingUnderConstruction();
@@ -408,9 +406,8 @@ public class TFBaseObjectTests
 
         redBuilding.OnKilled(redRig.NewHandle());
 
-        EngineCall redSkin = redRig.Engine.AllOf("EntityRender.SetSkin")
-                                          .Last(c => c.ArgAs<EntityHandle>(0) == redPacks[0].Handle);
-        Assert.Equal(0, redSkin.ArgAs<int>(1));   // red dresses skin 0 (:2309)
+        var redSkins = (RecordingServerSkins)redRig.Registry.Services!.Resolve(typeof(IServerSkins))!;
+        Assert.Equal(0, redSkins.Set.Last(s => s.Entity == redPacks[0].Handle).Skin);   // red dresses skin 0 (:2309)
     }
 
     /// <summary>

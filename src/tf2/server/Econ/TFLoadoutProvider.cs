@@ -247,11 +247,10 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
     /// <summary>Whose inventory the loadout reads: the bot's seeded items for a bot, the local inventory for everyone else.</summary>
     private PlayerInventory OwnedFor(int entIndex)
     {
-        // The bot's seed is the roster's SeedIndex later (stage F2x); until the AI binding supplies
-        // one, the provider passes 0 for every bot. The draw is pure, so 0 already replays the same
-        // items for the same class and slot.
+        // A bot's draw is seeded by its name (BotInventory.SeedOf), so bots' loadouts differ and the
+        // same roster replays the same items.
         if (bots.IsBot(new EntityHandle((uint)entIndex))
-            && botInventory.ForBot(entIndex, 0) is { } botOwned)
+            && botInventory.ForBot(entIndex) is { } botOwned)
             return botOwned;
         return inventory.Of(entIndex) ?? new PlayerInventory(0);
     }

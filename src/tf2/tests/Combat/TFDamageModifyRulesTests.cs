@@ -733,6 +733,21 @@ public sealed class TFDamageModifyRulesTests
     }
 
     [Fact]
+    public void A_long_range_cleaver_hit_mini_crits()
+    {
+        // The Flying Guillotine's cleaver (:6171-6175): a hit carrying
+        // TF_DMG_CUSTOM_CLEAVER_CRIT mini-crits, the arm sitting between the
+        // charged plasma and the energy buff as stock orders the ladder.
+        var hit = Hit(bits: DamageType.Slash, custom: TFDamageCustom.CleaverCrit);
+
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom, Hooks);
+
+        Assert.Equal(TFCritType.Mini, result.Crit);
+        Assert.True((result.Bits & TFDamageBits.Critical) != 0);
+        Assert.Equal(13.5f, result.Damage, 4);
+    }
+
+    [Fact]
     public void Crits_become_minicrits_demotes_a_full_crit_to_a_mini()
     {
         var hooks = new AttributeHooks();

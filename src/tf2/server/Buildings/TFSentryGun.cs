@@ -62,8 +62,9 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  TFPlayerCarriers carriers, TFConceptSpeech speech,
                                  ITFWeaponOwners owners, AttributeHooks hooks,
                                  TFDamageScopes scopes, ITFRevengeCrits crits,
-                                 TFRevengeCrits revenge, ServerBodygroups bodygroups)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups)
+                                 TFRevengeCrits revenge, ServerBodygroups bodygroups,
+                                 IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     private readonly TFRevengeCrits _revenge = revenge;
 

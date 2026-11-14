@@ -608,7 +608,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             return;
         var patient = players.GetHandle(patientIndex);
         healing.Heal(patient, ownerHandle, mode.Damage, now,
-                     OverHealBonus(owner, patientIndex), ITFPlayerHealing.StandardOverhealDecayMult);
+                     OverHealBonus(owner, patientIndex), OverHealDecayMult(owner));
         healing.RecalculateChargeEffects(patient, now);
 
         // The Vaccinator's attach (:1032-1037): the small resist pair lands on patient and
@@ -646,6 +646,20 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             bonus = bonus * mod + 1f;
 
         return Math.Max(bonus, 1f);          // :2683-2687 safety net
+    }
+
+    /// <summary>
+    /// <c>CWeaponMedigun::GetOverHealDecayMult</c> (:2708): the drain multiplier this heal
+    /// carries — <c>mult_medigun_overheal_decay</c> walks the medic's items (:2711), and half
+    /// the owner's <c>overheal_expert</c> rides on top (:2712, hooked on the owner at :2726).
+    /// The patient keeps the lowest of its healers' multipliers, which is what the overheal
+    /// drain divides by (<c>m_flBestOverhealDecayMult</c>, tf_player_shared.cpp:2531).
+    /// </summary>
+    private float OverHealDecayMult(int owner)
+    {
+        float mult = hooks.Float(1f, "mult_medigun_overheal_decay", items.ManagerOf(owner));     // :2711
+        float expert = hooks.Float(0f, "overheal_expert", items.ManagerOf(owner));               // :2726
+        return Math.Max(mult, mult + expert / 2f);                                               // :2712
     }
 
     /// <summary>

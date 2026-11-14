@@ -57,8 +57,9 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
                              TFPlayerCarriers carriers, TFConceptSpeech speech,
                              ITFWeaponOwners owners, AttributeHooks hooks,
                              ITFRevengeCrits crits, IEngineSound sound,
-                             IUniformRandom rng, ServerBodygroups bodygroups)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups)
+                             IUniformRandom rng, ServerBodygroups bodygroups,
+                             IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     public const string MapClass = "obj_attachment_sapper";
 

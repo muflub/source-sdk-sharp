@@ -119,7 +119,8 @@ public sealed class TF2ClientPredictionTests
             return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits(), owners ?? NoOwners,
                 NoEffects(), new client::TF2.Client.Buildings.TFClientBuilderPlacement(), new NoCarrierData(),
                 Setup, ChargeRate, Spread, NoAutoReload(), Burstammo, SilentMedigun(),
-                new client::TF2.Client.Buildings.TFClientSapperState(),
+                new client::TF2.Client.Buildings.TFClientSapperState(Engine, new EmptyStandalones(),
+                                                                      new client::TF2.Client.Player.TFClientPlayerResources()),
                 new client::TF2.Client.Buildings.TFClientSentryWrangle(),
                 new client::TF2.Client.Player.TFClientRevengeCrits());
         }

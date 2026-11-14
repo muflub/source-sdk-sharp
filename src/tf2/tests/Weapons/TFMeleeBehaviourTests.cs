@@ -501,6 +501,53 @@ public sealed class TFMeleeBehaviourTests
         Assert.Equal(BatCrit, vm.Sequence);
     }
 
+    /// <summary>The wrench's strike bit as its own seam answers: the sapper's
+    /// state the hook and the smack share, one instance for both roles.</summary>
+    private static TFWeaponWorld WrenchWorld(out RecordingSapperState sapper)
+    {
+        sapper = new RecordingSapperState();
+        return new TFWeaponWorld(sapper, new TFWrenchHook(sapper));
+    }
+
+    /// <summary>
+    /// The strike bit is predicted state like the swing bits: the replay of the
+    /// swing command writes it too, so the acked slot and the server's arrival
+    /// carry the same mode word for the same command. Stock runs the swing's
+    /// trace on both sides (tf_weapon_wrench.cpp:145-199), and the counter-side
+    /// miss this holds off is the between-run gap on the mode word.
+    /// </summary>
+    [Fact]
+    public void The_building_strike_bit_survives_the_replay_of_its_swing_command()
+    {
+        var world = WrenchWorld(out _);
+        var (live, liveVm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+        world.Run(live, liveVm, Attack, now: 10f, seed: NoCrit);
+        Assert.NotEqual(0, live.BehaviourMode & TFMeleeBehaviour.ModeBuildingStruck);
+
+        // The same command again, from the same basis, replayed: the mode word
+        // the server's run wrote, the replay owes it too.
+        var (replay, replayVm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+        world.Run(replay, replayVm, Attack, now: 10f, seed: NoCrit, live: false);
+        Assert.Equal(live.BehaviourMode, replay.BehaviourMode);
+    }
+
+    /// <summary>The bit's lifetime is one command on both sides: the smack
+    /// spends it on the replayed run too, its one-command span standing so the
+    /// compare never finds the bit on one side and not the other.</summary>
+    [Fact]
+    public void The_building_strike_bit_is_spent_by_a_replayed_smack()
+    {
+        var world = WrenchWorld(out _);
+        var (w, vm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        Assert.NotEqual(0, w.BehaviourMode & TFMeleeBehaviour.ModeBuildingStruck);
+
+        // The smack, replayed: the swing bits and the strike bit go together.
+        world.Run(w, vm, 0, now: 10.5f, live: false);
+        Assert.Equal(0, w.BehaviourMode & TFMeleeBehaviour.ModeBuildingStruck);
+    }
+
     /// <summary>An item holding one named attribute, as the schema's wearables do.</summary>
     private static IAttributeProvider ItemWith(string hook, AttributeDescriptionFormat format, float value)
     {

@@ -122,6 +122,38 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(5, w.Clip);
     }
 
+    /// <summary>
+    /// Stock's <c>m_iConsecutiveShots++</c> rides <c>FireBullet</c> itself
+    /// (<c>tf_weaponbase_gun.cpp:355</c>), not an effect gate: every prediction
+    /// pass — the live one and the replays behind it — counts its shot once, so
+    /// the acked slot holds the streak the server's run of the same command
+    /// counted. A replay that skipped the cone's ask also skipped the streak
+    /// behind it, and the meter stood one press behind the arrival (the
+    /// BehaviourMeterB=2|3 miss). The melee answer beside it matches stock's
+    /// swing, which reaches neither: a swing is not a <c>FireBullet</c> shot.
+    /// </summary>
+    [Fact]
+    public void The_shot_streak_counts_on_a_replayed_run_like_the_live_one()
+    {
+        var world = new TFWeaponWorld();
+        var (live, liveVm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        world.Run(live, liveVm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.Equal(1f, live.BehaviourMeterB, 4);
+
+        var (replay, replayVm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        world.Run(replay, replayVm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000), live: false);
+        Assert.Equal(live.BehaviourMeterB, replay.BehaviourMeterB, 4);
+
+        // The swing's answer beside it: neither run of a melee press reaches
+        // the streak, both sides alike — stock counts only FireBullet shots.
+        var (swing, swingVm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+        world.Run(swing, swingVm, Attack, now: 10f);
+        Assert.Equal(0f, swing.BehaviourMeterB, 4);
+        var (swingReplay, swingReplayVm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+        world.Run(swingReplay, swingReplayVm, Attack, now: 10f, live: false);
+        Assert.Equal(0f, swingReplay.BehaviourMeterB, 4);
+    }
+
     private static AttributeContainer PercentageItem(int defIndex, string hook, float value)
     {
         var item = new AttributeContainer();

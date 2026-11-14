@@ -201,7 +201,9 @@ internal sealed class RecordingBuilderPlacement : ITFBuilderPlacement
     { Asked.Add($"order {player} {type} {mode}"); return true; }
 }
 
-/// <summary>What the sapper's use was asked, for the trigger's fact.</summary>
+/// <summary>What the sapper's use was asked, for the trigger's fact. The
+/// wrench's hand-out keeps the server's shape: the last smack's outcome is
+/// stored and named once, so the smack's sound ask reads one answer.</summary>
 internal sealed class RecordingSapperState : ITFSapperState
 {
     public readonly List<string> Asked = new();
@@ -210,12 +212,31 @@ internal sealed class RecordingSapperState : ITFSapperState
     /// <summary>What the next place answers; a fact turns it for the refused arm.</summary>
     public bool Places { get; set; } = true;
 
+    private WrenchSmackResult _lastSmack;
+
     public bool PlaceSapper(int ownerIndex) { Asked.Add($"sapper {ownerIndex}"); return Places; }
 
     public bool FindSappable(int ownerIndex, out EntityHandle building, out Vector point)
     { Asked.Add($"findsappable {ownerIndex}"); building = EntityHandle.None; point = Vector.Zero; return false; }
 
-    public bool WrenchSmack(int ownerIndex, float range) { Asked.Add($"wrench {ownerIndex} {range}"); return true; }
+    public WrenchSmackResult WrenchSmack(int ownerIndex, float range)
+    {
+        Asked.Add($"wrench {ownerIndex} {range}");
+        _lastSmack = WrenchSmackResult.Useful;
+        return WrenchSmackResult.Useful;
+    }
+
+    public string? TakeWrenchSound(int ownerIndex)
+    {
+        WrenchSmackResult met = _lastSmack;
+        _lastSmack = WrenchSmackResult.None;
+        return met switch
+        {
+            WrenchSmackResult.Useful => TFWrenchHook.SuccessSound,
+            WrenchSmackResult.Futile => TFWrenchHook.FailureSound,
+            _ => null,
+        };
+    }
 
     public bool MeleeSmack(int ownerIndex, float range, float amount)
     { Melecs.Add((ownerIndex, range, amount)); return true; }
@@ -318,16 +339,23 @@ internal sealed class TFWeaponWorld
     public AmmoCatalog Ammo { get; }
     public WeaponLogic Machine { get; }
 
-    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, null, null, null, hooks) { }
+    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(fixedSpread: null, hooks: hooks) { }
+
+    /// <summary>A world whose parts carry one sapper seam — the same instance
+    /// the wrench's hook holds, as the side's registration hands one service
+    /// to both roles.</summary>
+    public TFWeaponWorld(ITFSapperState sapper, params ITFWeaponHook[] hooks)
+        : this(null, null, null, null, null, null, sapper, hooks) { }
 
     /// <summary>A world over the extras set too (<see cref="WeaponFixtures.WithExtras"/>): the facts whose
     /// weapon lives in TestData/weapons-extra.</summary>
     public TFWeaponWorld(bool extras)
-        : this(null, null, null, extras ? WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()) : null,
-               null, null, Array.Empty<ITFWeaponHook>()) { }
+        : this(files: extras ? WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()) : null,
+               hooks: Array.Empty<ITFWeaponHook>()) { }
 
     /// <summary>A world whose parts carry a predicted-data fake (the client's replay arm).</summary>
-    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, null, null, null, hooks) { }
+    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks)
+        : this(data: data, fixedSpread: null, hooks: hooks) { }
 
     /// <summary>A world whose parts carry a bound convar (the fixed spread's
     /// facts), or whose parts speak through a given effects — the real beam's
@@ -336,7 +364,7 @@ internal sealed class TFWeaponWorld
     public TFWeaponWorld(FakePredictedData? data = null, TFUseFixedWeaponspreadsConVar? fixedSpread = null,
                          ITFAutoReload? autoReload = null, TFClassTableTests.Files? files = null,
                          ITFRevengeCrits? bucket = null, ITFWeaponEffects? effects = null,
-                         params ITFWeaponHook[] hooks)
+                         ITFSapperState? sapper = null, params ITFWeaponHook[] hooks)
     {
         var shipped = files ?? WeaponFixtures.ShippedWithClasses();
         var scripts = new TFWeaponScripts(Log, shipped);
@@ -350,7 +378,7 @@ internal sealed class TFWeaponWorld
 
         Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, effects ?? Effects, Builder,
                                   predicted, Round, ChargeRate, fixedSpread ?? Spread,
-                                  autoReload ?? AutoReload, Burstammo, Medigun, Sapper, Wrangle,
+                                  autoReload ?? AutoReload, Burstammo, Medigun, sapper ?? Sapper, Wrangle,
                                   bucket ?? Revenge);
         Catalog = new WeaponCatalog(() => [types], Log);
         Behaviours = new WeaponBehaviours(() => [new TFWeaponBehaviours(Parts)], Log);
