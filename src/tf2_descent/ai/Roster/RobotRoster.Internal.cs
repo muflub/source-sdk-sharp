@@ -56,22 +56,31 @@ public sealed partial class RobotRoster
             w.Write(_boss[i]);
             w.Write(_homeRoom[i]);
             w.Write(_homeMarker[i]);
+            Write(w, _post[i]);
+            w.Write(_postYaw[i]);
             w.Write((byte)_state[i]);
             w.Write(_room[i]);
             Write(w, _position[i]);
             w.Write(_yaw[i]);
             w.Write(_life[i]);
-            w.Write(_statuses[i].Active.Length);
-            foreach (var s in _statuses[i].Active)
+            var statuses = Statuses(i);
+            w.Write(statuses.Active.Length);
+            foreach (var s in statuses.Active)
             {
                 w.Write(s.Id);
                 w.Write(s.Stacks);
                 w.Write(s.EndTick);
                 w.Write(s.NextDamageTick);
+                w.Write(SlotsOf(i)[_book.RowOf(s.Id)].Applier);
             }
             w.Write(_statusDue[i]);
             w.Write(_speedFactor[i]);
+            w.Write(_damageTaken[i]);
             w.Write(_stunned[i]);
+            w.Write(_tauntSeat[i]);
+            w.Write(_tauntUntil[i]);
+            w.Write(_weakenPct[i]);
+            w.Write(_weakenUntil[i]);
             w.Write(_clip[i]);
             w.Write(_body[i]);
             w.Write(_bodySerial[i]);

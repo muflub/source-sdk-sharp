@@ -107,11 +107,20 @@ public sealed class SkillBinders
     /// <summary>
     /// A debuff's conditions on one target: a player takes the TF condition
     /// of each word (<see cref="SkillConditions.OnPlayer"/>), anything else
-    /// the horde's status sink. Each word's answer is logged.
+    /// the horde's status sink; and its stats (Maggots!' <c>damage_all_pct</c>)
+    /// on anything but a player, through the sink's <see cref="IRobotStatusSink.Weaken"/>.
+    /// Each answer is logged.
     /// </summary>
     public void Afflict(SkillCast cast, ResolvedEffect effect, EntityHandle target)
     {
         double seconds = effect.Params.TryGetValue("duration", out var d) ? d : 0;
+        if (effect.Stats.Count > 0 && !_world.IsPlayer(target))
+        {
+            var weakened = _robots.Weaken(target, effect.Stats, seconds, cast.Hero, cast.SkillId, effect.Target ?? "enemies");
+            string stats = string.Join(", ", effect.Stats.Select(st => string.Create(CultureInfo.InvariantCulture, $"{st.Stat} {st.Amount:+0.##;-0.##}")));
+            _log.Msg(Line(cast, string.Create(CultureInfo.InvariantCulture, $"{stats} on #{target.EntryIndex} for {seconds:0.##}s: {weakened}")));
+        }
+
         foreach (string condition in effect.Conditions)
         {
             string answer;
@@ -269,7 +278,8 @@ public sealed class HitscanBinder(SkillBinders shared) : ISkillBinder
 /// <c>area_burst</c>: blasts of the rules' damage and <c>radius</c> through
 /// TF2's blast applier, the caster spared: at the hero (target
 /// <c>enemies</c>), or at the point the aim marks (target <c>point</c>), in
-/// <c>count</c> shells spread round <c>area</c>, each after <c>delay</c>.
+/// <c>count</c> shells spread round <c>area</c>, each after <c>delay</c>. Its
+/// conditions (Stomp's <c>knock_up</c>) go on each enemy within the radius.
 /// </summary>
 public sealed class AreaBurstBinder(SkillBinders shared) : ISkillBinder
 {
@@ -319,6 +329,11 @@ public sealed class AreaBurstBinder(SkillBinders shared) : ISkillBinder
         shared.World.Blast(at, damage, radius, cast.Hero, cast.WeaponName);
         shared.Log.Msg(SkillBinders.Line(cast, string.Create(CultureInfo.InvariantCulture,
             $"burst at ({at.X:0},{at.Y:0},{at.Z:0}) damage {damage:0.##} radius {radius:0.#}")));
+
+        // The burst's conditions (Stomp's knock_up) on the enemies it reached.
+        if (effect.Conditions.Count > 0)
+            foreach (var target in shared.EnemiesAround(cast.Hero, at, radius))
+                shared.Afflict(cast, effect with { Target = "enemies" }, target);
     }
 }
 

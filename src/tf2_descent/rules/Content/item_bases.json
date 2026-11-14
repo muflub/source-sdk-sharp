@@ -49,12 +49,12 @@
   { "id": "medal", "name": "Campaign Medal", "kind": "armour", "slot": "amulet", "level": 1, "implicits": [{ "stat": "max_mana", "amount": 5 }], "durability": 40, "dropWeight": 5, "value": 14 },
   { "id": "service_medal", "name": "Service Medal", "kind": "armour", "slot": "amulet", "level": 15, "requires": [{ "attribute": "smarts", "min": 15 }], "implicits": [{ "stat": "max_mana", "amount": 10 }], "durability": 40, "dropWeight": 3, "value": 36 },
 
-  { "id": "health_small", "name": "Sandvich Bite", "kind": "potion", "tfItem": "The Sandvich", "slot": "belt", "level": 1, "restore": 25, "next": "health_medium", "value": 5 },
-  { "id": "health_medium", "name": "Half Sandvich", "kind": "potion", "tfItem": "The Sandvich", "slot": "belt", "level": 1, "restore": 50, "next": "health_large", "value": 15 },
-  { "id": "health_large", "name": "Sandvich", "kind": "potion", "tfItem": "The Sandvich", "slot": "belt", "level": 1, "restore": 100, "value": 45 },
-  { "id": "mana_small", "name": "Bonk! Shot", "kind": "potion", "tfItem": "Bonk! Atomic Punch", "slot": "belt", "level": 1, "restore": 25, "next": "mana_medium", "value": 5 },
-  { "id": "mana_medium", "name": "Bonk! Can", "kind": "potion", "tfItem": "Bonk! Atomic Punch", "slot": "belt", "level": 1, "restore": 50, "next": "mana_large", "value": 15 },
-  { "id": "mana_large", "name": "Bonk! Six-Pack", "kind": "potion", "tfItem": "Bonk! Atomic Punch", "slot": "belt", "level": 1, "restore": 100, "value": 45 },
+  { "id": "health_small", "name": "Sandvich Bite", "kind": "potion", "tfItem": "The Sandvich", "slot": "belt", "level": 1, "stack": 4, "restore": 25, "next": "health_medium", "value": 5 },
+  { "id": "health_medium", "name": "Half Sandvich", "kind": "potion", "tfItem": "The Sandvich", "slot": "belt", "level": 1, "stack": 4, "restore": 50, "next": "health_large", "value": 15 },
+  { "id": "health_large", "name": "Sandvich", "kind": "potion", "tfItem": "The Sandvich", "slot": "belt", "level": 1, "stack": 4, "restore": 100, "value": 45 },
+  { "id": "mana_small", "name": "Bonk! Shot", "kind": "potion", "tfItem": "Bonk! Atomic Punch", "slot": "belt", "level": 1, "stack": 4, "restore": 25, "next": "mana_medium", "value": 5 },
+  { "id": "mana_medium", "name": "Bonk! Can", "kind": "potion", "tfItem": "Bonk! Atomic Punch", "slot": "belt", "level": 1, "stack": 4, "restore": 50, "next": "mana_large", "value": 15 },
+  { "id": "mana_large", "name": "Bonk! Six-Pack", "kind": "potion", "tfItem": "Bonk! Atomic Punch", "slot": "belt", "level": 1, "stack": 4, "restore": 100, "value": 45 },
 
   { "id": "scrap", "name": "Scrap Metal", "kind": "metal", "slot": "none", "level": 1, "metal": 1, "stack": 100, "value": 3 },
   { "id": "reclaimed", "name": "Reclaimed Metal", "kind": "metal", "slot": "none", "level": 1, "metal": 3, "stack": 100, "value": 9 },
@@ -62,6 +62,11 @@
 
   { "id": "dossier", "name": "Dossier", "kind": "consumable", "slot": "none", "level": 1, "stack": 10, "value": 40 },
   { "id": "repair_kit", "name": "Repair Kit", "kind": "consumable", "slot": "none", "level": 1, "value": 30 },
+  { "id": "town_portal", "name": "Teleporter Blueprint", "kind": "consumable", "slot": "none", "level": 1, "stack": 10, "value": 25 },
+  { "id": "tome_fireball", "name": "Tome of Fireball", "kind": "consumable", "slot": "none", "level": 1, "value": 60 },
+  { "id": "tome_lightning_ball", "name": "Tome of Lightning Ball", "kind": "consumable", "slot": "none", "level": 1, "value": 60 },
+  { "id": "tome_pumpkin_mirv", "name": "Tome of Pumpkin MIRV", "kind": "consumable", "slot": "none", "level": 1, "value": 60 },
+  { "id": "tome_blast_jump", "name": "Tome of Blast Jump", "kind": "consumable", "slot": "none", "level": 1, "value": 60 },
 
   { "id": "crate_rocket_launcher", "name": "Sealed Crate: Rocket Launchers", "kind": "crate", "slot": "none", "level": 1, "contains": ["rocket_launcher", "liberty_launcher", "direct_hit", "black_box"], "value": 0 },
   { "id": "crate_shotgun", "name": "Sealed Crate: Shotguns", "kind": "crate", "slot": "none", "level": 1, "contains": ["shotgun", "reserve_shooter"], "value": 0 },

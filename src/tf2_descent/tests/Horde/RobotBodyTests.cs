@@ -158,9 +158,9 @@ public sealed class RobotBodyTests
         // The blob holds the engine's own block first; the body's fields follow it.
         var body = RobotNetState.NetLayout;
         var weapon = RobotWeaponNetState.NetLayout;
-        Assert.Equal(12, body.Fields.Count);
-        Assert.Equal(48, body.Fields.Sum(f => f.Bytes));   // a word a field
-        Assert.Equal(516, body.Size);
+        Assert.Equal(14, body.Fields.Count);
+        Assert.Equal(56, body.Fields.Sum(f => f.Bytes));   // a word a field
+        Assert.Equal(520, body.Size);
         Assert.Equal(4, weapon.Fields.Sum(f => f.Bytes));
     }
 }

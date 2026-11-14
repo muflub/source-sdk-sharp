@@ -15,22 +15,29 @@ namespace TF2.Descent.Ai.Brains;
 /// </summary>
 public sealed class HordeDeciders
 {
-    private readonly HordeLevel _level;
-    private readonly Dictionary<int, Func<BrainSetup, HordeLevel, IDecider>> _families;
+    private readonly HordeRoutes _routes;
+    private readonly Dictionary<int, Func<BrainSetup, HordeRoutes, IDecider>> _families;
 
-    public HordeDeciders(HordeLevel level, Dictionary<int, Func<BrainSetup, HordeLevel, IDecider>> families)
+    public HordeDeciders(HordeRoutes routes, Dictionary<int, Func<BrainSetup, HordeRoutes, IDecider>> families)
     {
-        _level = level;
+        _routes = routes;
         _families = families;
     }
 
-    /// <summary>The level's deciders: <see cref="HuntDecider"/> for every family until one is registered.</summary>
-    public static HordeDeciders For(HordeLevel level) => new(level, new Dictionary<int, Func<BrainSetup, HordeLevel, IDecider>>());
+    /// <summary>
+    /// The level's deciders: <see cref="HuntDecider"/> for every family until one is registered,
+    /// each walking by <paramref name="paths"/> once the level's graph is ready (none: the room
+    /// route always).
+    /// </summary>
+    public static HordeDeciders For(HordeLevel level, IHordePaths? paths = null) =>
+        new(new HordeRoutes(level, paths), new Dictionary<int, Func<BrainSetup, HordeRoutes, IDecider>>());
 
-    public HordeLevel Level => _level;
+    public HordeLevel Level => _routes.Level;
+
+    public HordeRoutes Routes => _routes;
 
     /// <summary>Makes <paramref name="family"/>'s robots decide with <paramref name="make"/> (a later package's family decider).</summary>
-    public void Register(int family, Func<BrainSetup, HordeLevel, IDecider> make)
+    public void Register(int family, Func<BrainSetup, HordeRoutes, IDecider> make)
     {
         ArgumentNullException.ThrowIfNull(make);
         _families[family] = make;
@@ -41,7 +48,7 @@ public sealed class HordeDeciders
 
     /// <summary>The decider for <paramref name="family"/>.</summary>
     public IDecider ForFamily(int family, BrainSetup setup) =>
-        _families.TryGetValue(family, out var make) ? make(setup, _level) : new HuntDecider(setup, _level);
+        _families.TryGetValue(family, out var make) ? make(setup, _routes) : new HuntDecider(setup, _routes.NewRoute(setup.Bot.Slot));
 
     /// <summary>
     /// A brain's decider before its family is known: at its first decide it

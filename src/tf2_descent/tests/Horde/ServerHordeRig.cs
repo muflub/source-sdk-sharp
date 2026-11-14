@@ -67,6 +67,30 @@ internal sealed class RigSpawner(ScriptedEntityRegistry registry) : IHordeSpawne
     }
 }
 
+/// <summary>A hero's knockback resistance and downed state for the door shove, by seat, as a fact sets them.</summary>
+internal sealed class RigShoveTraits : TF2.Descent.Server.Horde.Doors.IHeroShoveTraits
+{
+    public Dictionary<int, (double KnockbackResist, bool Exempt)> Seats { get; } = [];
+
+    public (double KnockbackResist, bool Exempt) Of(int seat) => Seats.GetValueOrDefault(seat);
+}
+
+/// <summary>The party a fact rolls the roster for.</summary>
+internal sealed class FixedParty(int size) : TF2.Descent.Server.Horde.Director.IHordeParty
+{
+    public int Size { get; set; } = size;
+
+    public int PartySize() => Size;
+}
+
+/// <summary>The skill whose hit is in flight, as a fact sets it (none by default).</summary>
+internal sealed class RigSkillHits : TF2.Descent.Server.Skills.ISkillHits
+{
+    public string? Skill { get; set; }
+
+    public string? Current() => Skill;
+}
+
 /// <summary>Counts every hit handed on.</summary>
 internal sealed class RigHits : IRobotHitSink
 {
@@ -168,6 +192,9 @@ internal sealed class ServerHordeRig
         services.AddInstance<ISightWorld>(SightWorld);
         services.AddInstance<IHordeHeroes>(Heroes);
         services.AddInstance(brains?.Invoke(this) ?? new IdleBrains());
+        services.AddInstance<TF2.Descent.Server.Skills.ISkillHits>(SkillHits);
+        Shove = new TF2.Descent.Server.Horde.Doors.DoorShove(Motion, Heroes, Engine, Traits, new RigRules());
+        services.AddInstance(Shove);
         Registry.Services = services;
 
         if (begin)
@@ -186,6 +213,9 @@ internal sealed class ServerHordeRig
     public HordeParking Parking { get; } = new();
     public RigHits Hits { get; } = new();
 
+    /// <summary>The skill hit in flight the bodies read (<see cref="RigSkillHits.Skill"/>).</summary>
+    public RigSkillHits SkillHits { get; } = new();
+
     /// <summary>The hit chain's members, in order: <see cref="Hits"/> first; a fact may add more.</summary>
     public List<IRobotHitSink> HitMembers { get; } = [];
     public RigSightWorld SightWorld { get; } = new();
@@ -197,6 +227,12 @@ internal sealed class ServerHordeRig
     public RigActors Actors { get; } = new();
 
     public RobotMotion Motion { get; }
+
+    /// <summary>The door shove the controller runs after the motion (HO11).</summary>
+    public TF2.Descent.Server.Horde.Doors.DoorShove Shove { get; }
+
+    /// <summary>What the shove reads of each hero: no resistance and none downed, unless a fact says.</summary>
+    public RigShoveTraits Traits { get; } = new();
 
     public HordeController Controller { get; } = null!;
     public long Now { get; set; } = 1000;
@@ -211,11 +247,11 @@ internal sealed class ServerHordeRig
             Controller.Tick(++Now);
     }
 
-    /// <summary>A robot of <paramref name="template"/> at scale <paramref name="scale"/> in room 0, lent a body by hand.</summary>
-    public (RobotId Id, RobotBody Body) Lent(string template, double scale = 1.0)
+    /// <summary>A robot of <paramref name="template"/> at scale <paramref name="scale"/> with <paramref name="affixes"/> in room 0, lent a body by hand.</summary>
+    public (RobotId Id, RobotBody Body) Lent(string template, double scale = 1.0, params string[] affixes)
     {
         var at = Centre(0);
-        var id = Controller.SpawnByHand(template, scale, at, 90f, 42, Now, out string why);
+        var id = Controller.SpawnByHand(template, scale, at, 90f, 42, Now, out string why, affixes);
         if (!id.IsValid || Roster.Body(id.Index) == 0)
             throw new InvalidOperationException(why);
         return (id, Bodies.Body(Roster.Body(id.Index)));

@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using SourceSharp.Ai;
-using TF2.Descent.Ai.Level;
 
 namespace TF2.Descent.Ai.Brains;
 
@@ -16,14 +15,16 @@ namespace TF2.Descent.Ai.Brains;
 /// <list type="number">
 /// <item><b>Chase.</b> A hero in sight: the nearest. Closer than its family's range
 /// times its <c>preferredRangeScale</c> (Aggression: lower closes in), it stands and
-/// faces the hero; farther, it runs to the hero along the room route, facing it.</item>
+/// faces the hero; farther, it runs to the hero along its route (<see cref="HordeRoute"/>: the
+/// level graph's path, or the room route), facing it.</item>
 /// <item><b>Last known.</b> Sight lost: it runs to where it last saw the hero, then
 /// searches there for <c>searchSeconds</c> (Tenacity), facing the place.</item>
 /// <item><b>Investigate.</b> A sound it heard (or a hit from out of sight, towards the
-/// hit's direction at its family's range): it walks there and searches as long.</item>
-/// <item><b>Home.</b> Nothing to hunt: it walks back to its post, the place it stood
-/// at its first decide (where its body was lent: its marker, for a robot woken in
-/// its room), and holds there.</item>
+/// hit's direction at its family's range, or a pack-mate hurt or killed, where the mate
+/// was): it walks there and searches as long.</item>
+/// <item><b>Home.</b> Nothing to hunt: it walks back to its post (<see cref="BrainSetup.Home"/>:
+/// its roster marker; the place it stood at its first decide for a robot with none, one
+/// spawned by hand), and holds there.</item>
 /// </list>
 ///
 /// A lost contact outranks a sound. Each contact, sound or hit is searched once:
@@ -74,10 +75,11 @@ public sealed class HuntDecider : IDecider
         Contact,
         Sound,
         Hit,
+        Ally,
     }
 
     private readonly BrainSetup _setup;
-    private readonly HordeLevel _level;
+    private readonly HordeRoute _route;
 
     private bool _started;
     private AiVector _post;
@@ -86,14 +88,17 @@ public sealed class HuntDecider : IDecider
     private Tick _goalStamp;
     private bool _searching;
     private Tick _searchUntil;
-    private Tick _searchedContact, _searchedSound, _searchedHit;
+    private Tick _searchedContact, _searchedSound, _searchedHit, _searchedAlly;
     private DoingRecord _doing;
 
-    public HuntDecider(BrainSetup setup, HordeLevel level)
+    public HuntDecider(BrainSetup setup, HordeRoute route)
     {
         _setup = setup;
-        _level = level;
+        _route = route;
     }
+
+    /// <summary>The way this brain walks to its goals: the level graph's paths, or the room route.</summary>
+    public HordeRoute Route => _route;
 
     public BtTrace Trace { get; } = new();
 
@@ -117,7 +122,7 @@ public sealed class HuntDecider : IDecider
         if (!_started)
         {
             _started = true;
-            _post = self;
+            _post = _setup.Home ?? self;
         }
 
         DecisionParams p = _setup.Params;
@@ -131,9 +136,10 @@ public sealed class HuntDecider : IDecider
             // What it heard before this is the fight it now sees.
             _searchedSound = tick;
             _searchedHit = tick;
+            _searchedAlly = tick;
             var look = new LookIntent(LookKind.Actor, seen.Origin, seen.Id, AimPoint.Body, 0f, 0);
             return self.DistanceTo(seen.Origin) > engage
-                ? End(tick, seq, Node.Chase, RoomRoute.Follow(_level, self, seen.Origin, MoveSpeed.Run), look, seen.Origin, seen.Id)
+                ? End(tick, seq, Node.Chase, _route.Follow(tick, view.Self, self, seen.Origin, MoveSpeed.Run), look, seen.Origin, seen.Id)
                 : End(tick, seq, Node.Engage, MoveIntent.Hold, look, seen.Origin, seen.Id);
         }
 
@@ -152,7 +158,7 @@ public sealed class HuntDecider : IDecider
             if (!_searching && self.DistanceTo(_goalAt) > ArriveUnits)
             {
                 var toward = new LookIntent(LookKind.Point, _goalAt, ActorId.None, AimPoint.Body, 0f, 0);
-                return End(tick, seq, going, RoomRoute.Follow(_level, self, _goalAt, _goal == GoalKind.Contact ? MoveSpeed.Run : MoveSpeed.Walk),
+                return End(tick, seq, going, _route.Follow(tick, view.Self, self, _goalAt, _goal == GoalKind.Contact ? MoveSpeed.Run : MoveSpeed.Walk),
                            toward, _goalAt, lost);
             }
 
@@ -173,7 +179,7 @@ public sealed class HuntDecider : IDecider
 
         // 4.-5. Home, then hold there.
         if (self.DistanceTo(_post) > ArriveUnits)
-            return End(tick, seq, Node.Home, RoomRoute.Follow(_level, self, _post, MoveSpeed.Walk), LookIntent.AlongPath, _post, ActorId.None);
+            return End(tick, seq, Node.Home, _route.Follow(tick, view.Self, self, _post, MoveSpeed.Walk), LookIntent.AlongPath, _post, ActorId.None);
         return End(tick, seq, Node.Hold, MoveIntent.Hold, LookIntent.AlongPath, _post, ActorId.None);
     }
 
@@ -194,6 +200,7 @@ public sealed class HuntDecider : IDecider
             case GoalKind.Contact: _searchedContact = _goalStamp; break;
             case GoalKind.Sound: _searchedSound = _goalStamp; break;
             case GoalKind.Hit: _searchedHit = _goalStamp; break;
+            case GoalKind.Ally: _searchedAlly = _goalStamp; break;
         }
 
         _goal = GoalKind.None;
@@ -206,6 +213,9 @@ public sealed class HuntDecider : IDecider
         float bestD = float.MaxValue;
         foreach (ref readonly ActorFacts f in view.Sighted)
         {
+            // A pack-mate in the view is the pack's board, not a quarry (HordeView).
+            if (!HordeView.IsHero(f))
+                continue;
             float d = self.DistanceTo(f.Origin);
             if (d < bestD)
                 (best, bestD) = (f, d);
@@ -233,7 +243,7 @@ public sealed class HuntDecider : IDecider
         return who.IsValid;
     }
 
-    /// <summary>The newest sound or hit not yet searched: a hit is looked for at the family's range along its direction.</summary>
+    /// <summary>The newest sound, hit or hurt pack-mate not yet searched: a hit is looked for at the family's range along its direction, a mate where it was.</summary>
     private bool Unsearched(Blackboard board, Tick tick, AiVector self, float engage, out GoalKind kind, out AiVector at, out Tick stamp)
     {
         kind = GoalKind.None;
@@ -245,6 +255,14 @@ public sealed class HuntDecider : IDecider
         Tick hit = board.LastDamageTick;
         if (hit > _searchedHit && hit.Value > 0 && (kind == GoalKind.None || hit > stamp))
             (kind, at, stamp) = (GoalKind.Hit, self + board.LastDamageDir.Normalised() * engage, hit);
+
+        // A pack-mate hurt or killed (B.3's AllyDamaged, AllyDied): it goes to where the mate was.
+        BotMemory memory = _setup.Memory;
+        var (allyAt, allyTick) = memory.LastAllyDied.When > memory.LastAllyHurt.When
+            ? (memory.LastAllyDied.Where, memory.LastAllyDied.When)
+            : (memory.LastAllyHurt.Where, memory.LastAllyHurt.When);
+        if (allyTick > _searchedAlly && allyTick.Value > 0 && (kind == GoalKind.None || allyTick > stamp))
+            (kind, at, stamp) = (GoalKind.Ally, allyAt, allyTick);
 
         return kind != GoalKind.None;
     }

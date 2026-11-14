@@ -64,6 +64,7 @@ public sealed class ItemLedger(
     public Task<DropResult> BossDrop(BossDrop boss) => Current.BossDrop(boss);
     public Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position) =>
         Current.PotionDrop(hero, potionBase, killSeq, depth, position);
+    public Task<DropResult> ContainerDrop(ContainerDrop drop) => Current.ContainerDrop(drop);
     public Task<LedgerResult> Claim(string hero, long floorId) => Current.Claim(hero, floorId);
     public Task<LedgerResult> CollectAustralium(string hero, long amount) => Current.CollectAustralium(hero, amount);
     public Task<LedgerResult> Drop(string hero, int slot, Vector position) => Current.Drop(hero, slot, position);
@@ -88,5 +89,10 @@ public sealed class ItemLedger(
     public Task<LedgerResult> Give(string hero, string baseId, int rarity, int itemLevel) => Current.Give(hero, baseId, rarity, itemLevel);
     public Task<bool> RecordDeath(string hero, Vector position) => Current.RecordDeath(hero, position);
     public Task<LootAnswer> LootCorpse(string hero) => Current.LootCorpse(hero);
+    public Task<LedgerResult> Consume(string hero, int slot) => Current.Consume(hero, slot);
+    public Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events) => Current.Wear(hero, events);
+    public Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how) => Current.RepairWorn(hero, equipSlot, how);
+    public Task<LedgerResult> SetDurability(string hero, string equipSlot, int durability, int maxDurability) =>
+        Current.SetDurability(hero, equipSlot, durability, maxDurability);
     public void Forget(string hero) => Current.Forget(hero);
 }

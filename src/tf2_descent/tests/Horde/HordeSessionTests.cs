@@ -24,6 +24,20 @@ internal sealed class IdleBrains : IHordeBrainHost
     public void End() { }
 }
 
+/// <summary>An action sink that counts the actions handed to it and does nothing (the facts that are not about attacks).</summary>
+internal sealed class CountingActions : IRobotActionSink
+{
+    public long Actions { get; private set; }
+
+    public void Begin(HordeController horde, long now) { }
+
+    public void Tick(long now) { }
+
+    public void Act(int body, in ActionIntent action) => Actions++;
+
+    public void End() { }
+}
+
 /// <summary>Every order and hold the session hands the motion.</summary>
 internal sealed class RecordingMotion : IRobotMotion
 {
@@ -79,8 +93,8 @@ public sealed class HordeSessionTests
 
             var t = DeclaredConVars.Holding<HordeAiThreadsConVar>(threads.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-            session = new HordeSession(motion, new RobotActionTally(), r.SightWorld, r.Heroes, new RigRules(), clock, new NoLandings(), workers,
-                                       sync, t, DeclaredConVars.Fresh<HordeAiRecordConVar>(), new RigMod(Path.GetTempPath()), r.Log);
+            session = new HordeSession(motion, new CountingActions(), r.SightWorld, r.Heroes, new RigRules(), clock, new NoLandings(), workers,
+                                       sync, t, DeclaredConVars.Fresh<HordeAiRecordConVar>(), new RigMod(Path.GetTempPath()), r.Log, new RigAttackWorld());
             return session;
         });
         clock.Rig = rig;
@@ -128,7 +142,8 @@ public sealed class HordeSessionTests
         rig.Heroes.Put(rig.Level, Centre(0) + At(0, 220));   // in front: the body faces +Y
         rig.Tick(30);
         Assert.Equal(body.Lease.Actor, session.Brains!.BrainAt(body.Index));
-        Assert.Contains(motion.Orders, o => o.Body == body.Index && o.Look.Kind == LookKind.Actor && o.Look.Actor == session.Brains.HeroSlots.ActorOf(1));
+        // The soldier's family looks at the point it leads the hero to (HO6), naming the hero it aims at.
+        Assert.Contains(motion.Orders, o => o.Body == body.Index && o.Look.Kind is LookKind.Actor or LookKind.Point && o.Look.Actor == session.Brains.HeroSlots.ActorOf(1));
         Assert.Contains(motion.Holds, h => h == body.Index);   // the hold given when its brain was added
     }
 

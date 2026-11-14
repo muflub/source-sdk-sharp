@@ -12,7 +12,7 @@ namespace TF2.Descent.Tests.Skills;
 /// <summary>The skill verbs a hero's client sends (HE6), and the skill bar's message.</summary>
 public sealed class SkillCommandTests
 {
-    private static SkillClientCommands Commands(SkillRig rig) => new(rig.Runtime, rig.Heroes.Heroes, rig.Heroes.Engine);
+    private static SkillClientCommands Commands(SkillRig rig) => new(rig.Runtime, rig.Heroes.Heroes, rig.Heroes.Engine, rig.Told);
 
     [Fact]
     public void Learn_assign_and_cast_press_and_release_reach_the_runtime()

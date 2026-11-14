@@ -249,7 +249,8 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 return await Reloaded(predicted, null);
             }
             default:
-                // stack, equip, unequip, to_belt, from_belt, drink, give, australium: no host call carries them.
+                // stack, equip, unequip, to_belt, from_belt, drink, give, australium, and HE8/HE9's consume,
+                // wear, repair_worn, field_repair_worn, set_durability: no host call carries them.
                 return Unsupported;
         }
     }
@@ -320,6 +321,10 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
 
     /// <summary>Refused: a potion is no item to the host's <c>KillRoll</c>, and no host call mints one.</summary>
     public override Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position) =>
+        Task.FromResult(DropResult.Refused(LedgerRefusals.HostUnsupported));
+
+    /// <summary>Refused: the host's rules have no container roll, and no host call mints a container's drop.</summary>
+    public override Task<DropResult> ContainerDrop(ContainerDrop drop) =>
         Task.FromResult(DropResult.Refused(LedgerRefusals.HostUnsupported));
 
     public override async Task<DropResult> BossDrop(BossDrop boss)

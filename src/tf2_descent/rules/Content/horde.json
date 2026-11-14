@@ -9,5 +9,22 @@
   "patrolDwellSeconds": 4,
   "alertMemorySeconds": 30,
   "arriveRadius": 24,
-  "doorQueue": { "backoff": 64, "spacing": 48 }
+  "doorQueue": { "backoff": 64, "spacing": 48 },
+  "director": {
+    "postGap": 8,
+    "postRings": 3,
+    "doorMargin": 4,
+    "stepHeight": 18,
+    "floorBoundSizes": ["giant", "boss"],
+    "refitAttempts": 8
+  },
+  "shove": {
+    "halfDepth": 40,
+    "reach": 160,
+    "dwellSeconds": 0.5,
+    "lowDiscipline": 3,
+    "cooldownSeconds": 1.0,
+    "speed": 450,
+    "lift": 160
+  }
 }

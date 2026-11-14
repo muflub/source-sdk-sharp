@@ -146,7 +146,7 @@ public sealed class PackTests
         Assert.True(immune > 1000);
     }
 
-    private static DescentContent Planted(params (string Table, Action<JsonNode> Mutate)[] changes)
+    internal static DescentContent Planted(params (string Table, Action<JsonNode> Mutate)[] changes)
     {
         var source = new MemoryContentSource(new EmbeddedContentSource(typeof(TF2DescentRules).Assembly), ContentTables.Names());
         foreach (var (table, mutate) in changes)

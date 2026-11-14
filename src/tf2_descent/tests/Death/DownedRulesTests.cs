@@ -273,6 +273,75 @@ public sealed class DownedRulesTests
     }
 
     [Fact]
+    public void A_member_who_joins_is_up_and_counts_as_standing()
+    {
+        var p = Step(Party("a"), new Ev.Joined("b"), 0).Party;
+
+        var step = Step(p, new Ev.LethalDamage("a"), 1);
+
+        Assert.Equal(Standing.Up, step.Party.Member("b").Standing);
+        Assert.Equal([new Out.Downed("a", 201)], step.Outcomes.ToArray());
+    }
+
+    [Fact]
+    public void A_member_who_joins_again_keeps_its_downs()
+    {
+        var p = Step(WithADown(), new Ev.Tick(), 200).Party;   // a bled out
+        p = Step(p, new Ev.Joined("a"), 201).Party;
+
+        Assert.Equal(1, p.Member("a").DownsThisLevel);
+        Assert.Equal(2, p.Members.Length);
+    }
+
+    [Fact]
+    public void A_dead_member_who_respawns_stands_up_with_its_downs_kept()
+    {
+        var p = Step(WithADown(), new Ev.Tick(), 200).Party;
+
+        var step = Step(p, new Ev.Respawned("a"), 300);
+
+        Assert.Equal(Standing.Up, step.Party.Member("a").Standing);
+        Assert.Equal(1, step.Party.Member("a").DownsThisLevel);
+        Assert.Empty(step.Outcomes);
+    }
+
+    [Fact]
+    public void A_member_who_is_not_dead_cannot_respawn()
+    {
+        var step = Step(WithADown(), new Ev.Respawned("a"), 1);
+
+        Assert.Equal(Standing.Down, step.Party.Member("a").Standing);
+        Assert.Equal([new Out.Refused(DownedRefusal.NotDead)], step.Outcomes.ToArray());
+    }
+
+    [Fact]
+    public void A_kill_the_machine_did_not_decide_kills_a_downed_hero_outright()
+    {
+        var step = Step(WithADown(), new Ev.Killed("a"), 5);
+
+        Assert.Equal(Standing.Dead, step.Party.Member("a").Standing);
+        Assert.Equal([new Out.Died("a", DeathCause.Outright)], step.Outcomes.ToArray());
+    }
+
+    [Fact]
+    public void An_outright_kill_of_the_last_one_up_takes_the_downed_with_him()
+    {
+        var step = Step(WithADown(), new Ev.Killed("b"), 5);
+
+        Assert.Equal([new Out.Died("b", DeathCause.Outright), new Out.Died("a", DeathCause.PartyFell)], step.Outcomes.ToArray());
+    }
+
+    [Fact]
+    public void A_dead_member_is_not_killed_again()
+    {
+        var p = Step(WithADown(), new Ev.Killed("a"), 5).Party;
+
+        var step = Step(p, new Ev.Killed("a"), 6);
+
+        Assert.Equal([new Out.Refused(DownedRefusal.AlreadyDead)], step.Outcomes.ToArray());
+    }
+
+    [Fact]
     public void Time_does_not_run_back()
     {
         var p = Step(Party("a", "b"), new Ev.Tick(), 100).Party;

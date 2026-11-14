@@ -98,6 +98,28 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         return new DropResult(true, null, [Place(new FloorItem(NextId(), item, hero, position))]);
     }
 
+    /// <summary>
+    /// A container's roll for its hero: an item of the rules' tier from the depth's loot table, or a
+    /// potion of the rules' base, at the depth's item level, from the rules' own seed for this hero
+    /// and container, on the floor for him; nothing when the rules gave neither.
+    /// </summary>
+    public override async Task<DropResult> ContainerDrop(ContainerDrop drop)
+    {
+        if (drop.Tier < 0 && drop.Potion is null)
+            return DropResult.Nothing;
+        if (drop.Potion is { } potion && !Rules.Content.ItemBases.Contains(potion))
+            return DropResult.Refused(LedgerRefusals.UnknownBase);
+        if (await Ensure(drop.Hero) is not { } h)
+            return DropResult.Refused(LedgerRefusals.NoHero);
+        var row = Rules.LevelTable(drop.Depth);
+        var ctx = drop.Tier >= 0
+            ? new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, row.ItemLevel, drop.Tier, row.LootTable, "container")
+            : new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, drop.Depth, row.ItemLevel, 0,
+                Rules.Content.ItemSettings.ForcedBasePrefix + drop.Potion, "container");
+        var item = Rules.ItemRules.Roller.Roll(ctx, drop.Seed);
+        return new DropResult(true, null, [Place(new FloorItem(NextId(), item, drop.Hero, drop.Position))]);
+    }
+
     public override async Task<DropResult> BossDrop(BossDrop boss)
     {
         var placed = new List<FloorItem>();

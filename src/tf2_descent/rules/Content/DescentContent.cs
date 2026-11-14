@@ -60,6 +60,9 @@ public sealed class DescentContent
     public Table<StatusRow> Status => Get<Table<StatusRow>>(ContentTables.Status);
     public HordeSettings Horde => Get<HordeSettings>(ContentTables.Horde);
 
+    /// <summary>What each skill condition word does to a robot (HO8).</summary>
+    public Table<RobotConditionRow> RobotConditions => Get<Table<RobotConditionRow>>(ContentTables.RobotConditions);
+
     /// <summary>The four damage types, in file order; look one up by id with the table's indexer or TryGet.</summary>
     public Table<DamageTypeRow> DamageTypes => Get<Table<DamageTypeRow>>(ContentTables.DamageTypes);
 
@@ -169,6 +172,11 @@ public sealed class DescentContent
 
     /// <summary>Each class's starting backpack and belt (HE0).</summary>
     public Table<StartingKitRow> StartingKits => Get<Table<StartingKitRow>>(StartingKitTable.TableName);
+
+    /// <summary>The belt's cooldown, what each potion restores, scrolls and tomes (HE8).</summary>
+    public ConsumableSettings Consumables => Get<ConsumableSettings>(ConsumableTable.TableName);
+    /// <summary>Every robot attack's numbers and the projectile cap (HO7).</summary>
+    public RobotAttackSettings RobotAttacks => Get<RobotAttackSettings>(RobotAttackTable.TableName);
 
     /// <summary>The shipped content; throws <see cref="ContentLoadException"/> naming every error if it does not load.</summary>
     public static DescentContent Shipped() => new ContentLoader().Load(new EmbeddedContentSource()).OrThrow();

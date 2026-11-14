@@ -45,7 +45,8 @@ public sealed class RosterTests
     [Fact]
     public void Each_room_with_markers_holds_the_pack_the_rules_roll_for_it()
     {
-        var level = HordeLevel.Create(9, 5, [RowRoom(0, 2), RowRoom(1, 0), RowRoom(2, 3)], [RowDoor(0), RowDoor(1)]);
+        // The kit's 208-unit doors, so every robot of the depth fits and leaves (HO9's fit refuses nothing).
+        var level = HordeLevel.Create(9, 5, [RowRoom(0, 2), RowRoom(1, 0), RowRoom(2, 3)], [RowDoor(0) with { Width = 208 }, RowDoor(1) with { Width = 208 }]);
         var roster = Rolled(level, 3);
 
         var p0 = TheRules.Packs.RollPack(9, 0, 5, 3, 2);
@@ -60,7 +61,8 @@ public sealed class RosterTests
             var r = p2.Robots[k];
             Assert.Equal((r.Template, r.Scale, r.Stats.Life, r.Temperament.Style), (roster.Template(i), roster.Scale(i), roster.Life(i), roster.Temperament(i).Style));
             Assert.Equal(r.Affixes, roster.Affixes(i));
-            Assert.Equal(level.Rooms[2].Markers[r.Marker].Position, roster.Position(i));
+            Assert.Equal(roster.Post(i), roster.Position(i));   // each starts at its own post round its marker (HO9)
+            Assert.Equal(level.Rooms[2].Markers[r.Marker].Position.Z, roster.Post(i).Z);
             Assert.Equal(r.Index % 3, roster.HomeMarker(i));
         }
     }

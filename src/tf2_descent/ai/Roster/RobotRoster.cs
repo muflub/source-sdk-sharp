@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using SourceSharp.Ai;
 using TF2.Descent.Ai.Bodies;
+using TF2.Descent.Ai.Director;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.Furniture;
@@ -26,8 +27,10 @@ public sealed record RosterRoll(int Robots, int Packs, ImmutableArray<DroppedPac
 /// <summary>
 /// Every robot of a level as data (plan_descent_logic L1, 3.2, 3.3): struct-of-arrays at a fixed
 /// capacity (horde.json), allocated once by <see cref="Create"/>. A level's robots are rolled
-/// once by <see cref="Load"/>; after it, nothing here allocates except a status change, which
-/// the rules make as new immutable values.
+/// once by <see cref="Load"/>; after it, nothing here allocates: a robot's statuses are a run
+/// of <see cref="StatusSlot"/>s (one a status.json row) that <see cref="StatusBook"/> applies
+/// and ticks in place. Only the readers that hand out a status value (<see cref="Statuses"/>,
+/// <see cref="BodyState"/>) allocate it.
 ///
 /// <para>
 /// A row holds identity (index, serial, template, seed, pack, level), what Rules rolled (scale,
@@ -55,6 +58,8 @@ public sealed partial class RobotRoster
     private readonly bool[] _boss;
     private readonly int[] _homeRoom;
     private readonly int[] _homeMarker;
+    private readonly AiVector[] _post;      // the row's own place round its home marker (HO9), and its facing there
+    private readonly float[] _postYaw;
 
     // Live.
     private readonly RobotState[] _state;
@@ -62,10 +67,19 @@ public sealed partial class RobotRoster
     private readonly AiVector[] _position;
     private readonly float[] _yaw;
     private readonly double[] _life;
-    private readonly RobotStatuses[] _statuses;
+    private readonly StatusBook _book;
+    private readonly int _slotsPerRow;      // the book's rows
+    private readonly StatusSlot[] _slots;   // _slotsPerRow a robot
+    private readonly StatusDue[] _due;      // one tick's damage, for the far path
+    private long _statusStamp;              // the order statuses were applied in, across the roster
     private readonly long[] _statusDue;     // the next tick a status ends or deals damage; long.MaxValue for none
     private readonly float[] _speedFactor;  // status slow, kept from the last status change
+    private readonly float[] _damageTaken;  // status damage-taken multiplier (marked), kept from the last status change
     private readonly bool[] _stunned;
+    private readonly int[] _tauntSeat;      // the hero a taunt makes the robot target; -1 for none
+    private readonly long[] _tauntUntil;
+    private readonly double[] _weakenPct;   // a debuff on what the robot deals, in percent
+    private readonly long[] _weakenUntil;
     private readonly int[] _clip;
     private readonly int[] _body;
     private readonly int[] _bodySerial;
@@ -99,9 +113,12 @@ public sealed partial class RobotRoster
     private bool[] _roomAwake = [];
     private long[] _roomLastNear = [];
 
+    private readonly SpawnDirector _director;
+
     private RobotRoster(TF2DescentRules rules, double ticksPerSecond, int capacity)
     {
         _rules = rules;
+        _director = new SpawnDirector(rules);
         _ticksPerSecond = ticksPerSecond;
         _serial = new int[capacity];
         _template = new string[capacity];
@@ -115,15 +132,25 @@ public sealed partial class RobotRoster
         _boss = new bool[capacity];
         _homeRoom = new int[capacity];
         _homeMarker = new int[capacity];
+        _post = new AiVector[capacity];
+        _postYaw = new float[capacity];
         _state = new RobotState[capacity];
         _room = new int[capacity];
         _position = new AiVector[capacity];
         _yaw = new float[capacity];
         _life = new double[capacity];
-        _statuses = new RobotStatuses[capacity];
+        _book = rules.StatusBook;
+        _slotsPerRow = _book.Count;
+        _slots = new StatusSlot[capacity * _slotsPerRow];
+        _due = new StatusDue[_slotsPerRow];
         _statusDue = new long[capacity];
         _speedFactor = new float[capacity];
+        _damageTaken = new float[capacity];
         _stunned = new bool[capacity];
+        _tauntSeat = new int[capacity];
+        _tauntUntil = new long[capacity];
+        _weakenPct = new double[capacity];
+        _weakenUntil = new long[capacity];
         _clip = new int[capacity];
         _body = new int[capacity];
         _bodySerial = new int[capacity];
@@ -172,17 +199,25 @@ public sealed partial class RobotRoster
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// Rolls the level's robots (plan_descent_logic 3.3), once at level load, deterministic in
-    /// (level seed, depth, party size, the level's rooms and markers). The boss, if the level
-    /// has one, is row 0 and its own pack. Then rooms in id order: a room with pack markers gets
-    /// <see cref="PackRules.RollPack"/>'s pack, its robots standing at the markers in turn.
-    /// <b>Capacity:</b> a pack that does not fit whole is dropped whole, and later packs that do
-    /// fit are still taken; every drop is in the result and its summary. Every row starts
-    /// asleep, at full life, with no statuses, a full clip, no body and calm memory. Each loaded
-    /// row's serial moves on, so an id from an earlier load is stale.
+    /// Rolls the level's robots (plan_descent_logic 3.3), once at level load: the spawn
+    /// director's plan for (level seed, depth, party size, the level's rooms, markers,
+    /// clearances and doors) (<see cref="SpawnDirector.Plan"/>), put on the roster by
+    /// <see cref="Load(LevelPlan, HordeLevel)"/>.
     /// </summary>
-    public RosterRoll Load(HordeLevel level, int partySize)
+    public RosterRoll Load(HordeLevel level, int partySize) => Load(_director.Plan(level, partySize), level);
+
+    /// <summary>
+    /// Puts the spawn director's <paramref name="plan"/> for <paramref name="level"/> on the
+    /// roster, pack by pack in its order (the boss's first), each robot at its own post facing its
+    /// marker's way. The plan decides; this only writes rows. Every row starts asleep, at full
+    /// life, with no statuses, a full clip, no body and calm memory. Each loaded row's serial moves
+    /// on, so an id from an earlier load is stale. The packs the plan dropped for want of room are
+    /// the result's.
+    /// </summary>
+    public RosterRoll Load(LevelPlan plan, HordeLevel level)
     {
+        if (plan.Robots > Capacity)
+            throw new ArgumentException($"the plan holds {plan.Robots} robots; the roster {Capacity}", nameof(plan));
         Level = level;
         Array.Fill(_state, RobotState.Empty);
         Count = 0;
@@ -190,42 +225,23 @@ public sealed partial class RobotRoster
         _roomAwake = new bool[level.RoomCount];
         _roomLastNear = new long[level.RoomCount];
         Array.Fill(_roomLastNear, long.MinValue);
-        var dropped = ImmutableArray.CreateBuilder<DroppedPack>();
-        int monsterLevel = _rules.Robots.MonsterLevel(level.Depth);
 
-        if (level.Boss is { } boss)
+        foreach (var pack in plan.Packs)
         {
-            var t = _rules.Robots.Template(boss.Template);
-            if (!t.Boss) throw new ArgumentException($"'{boss.Template}' is not a boss template", nameof(level));
-            ulong seed = Seeded.From(level.Seed, "boss", level.Depth, boss.Template).NextULong();
-            double scale = RobotRules.RollScale(t, seed, 0);
-            var stats = _rules.Robots.Stats(t, scale, monsterLevel, [], partySize);
-            var temperament = _rules.Temperaments.Roll(seed, 0, t, scale);
-            if (Capacity < 1) dropped.Add(new DroppedPack(boss.ArenaRoom, 1));
-            else
-            {
-                int p = BeginPack(boss.ArenaRoom, seed);
-                Put(p, t.Id, Seeded.From(seed, "robot", 0).NextULong(), monsterLevel, scale, stats, temperament, [], true,
-                    boss.ArenaRoom, -1, boss.Spot);
-            }
-        }
-
-        foreach (var room in level.Rooms)
-        {
-            if (room.Markers.IsEmpty) continue;
-            var pack = _rules.Packs.RollPack(level.Seed, room.Id, level.Depth, partySize, room.Markers.Length);
-            if (pack.Robots.IsEmpty) continue;
-            if (Count + pack.Robots.Length > Capacity)
-            {
-                dropped.Add(new DroppedPack(room.Id, pack.Robots.Length));
-                continue;
-            }
-            int p = BeginPack(room.Id, pack.Seed);
+            int p = BeginPack(pack.Room, pack.Seed);
             foreach (var r in pack.Robots)
-                Put(p, r.Template, Seeded.From(pack.Seed, "robot", r.Index).NextULong(), r.Stats.Level, r.Scale, r.Stats, r.Temperament,
-                    r.Affixes, false, room.Id, r.Marker, room.Markers[r.Marker]);
+                Put(p, r.Roll.Template, r.Seed, r.Roll.Stats.Level, r.Roll.Scale, r.Roll.Stats, r.Roll.Temperament, r.Roll.Affixes, r.Boss,
+                    r.Room, r.Marker, new PackMarker(r.Post, r.Yaw));
         }
-        return new RosterRoll(Count, PackCount, dropped.ToImmutable());
+        return new RosterRoll(Count, PackCount, plan.Dropped);
+    }
+
+    /// <summary>The roster's rows as the director's plan names them (<see cref="LevelPlan.Rows"/>), so a roster can be checked against its replay.</summary>
+    public IEnumerable<RosterRow> Rows()
+    {
+        for (int i = 0; i < Count; i++)
+            yield return new RosterRow(_pack[i], _homeRoom[i], _homeMarker[i], _template[i], _scale[i], _affixes[i], _temperament[i].Style,
+                _stats[i].Life, _post[i], _postYaw[i], _boss[i], _seed[i]);
     }
 
     private int BeginPack(int room, ulong seed)
@@ -260,15 +276,18 @@ public sealed partial class RobotRoster
         _boss[i] = boss;
         _homeRoom[i] = room;
         _homeMarker[i] = marker;
+        _post[i] = at.Position;
+        _postYaw[i] = at.Yaw;
         _state[i] = RobotState.Asleep;
         _room[i] = room;
         _position[i] = at.Position;
         _yaw[i] = at.Yaw;
         _life[i] = stats.Life;
-        _statuses[i] = RobotStatuses.None;
-        _statusDue[i] = long.MaxValue;
-        _speedFactor[i] = 1;
-        _stunned[i] = false;
+        ClearStatusRow(i);
+        _tauntSeat[i] = -1;
+        _tauntUntil[i] = 0;
+        _weakenPct[i] = 0;
+        _weakenUntil[i] = 0;
         _clip[i] = -1;
         _body[i] = 0;
         _bodySerial[i] = 0;
@@ -311,11 +330,28 @@ public sealed partial class RobotRoster
     /// <summary>The index of the home room marker the robot was rolled at; -1 for the boss, who stands at its own spot.</summary>
     public int HomeMarker(int i) => _homeMarker[Row(i)];
 
+    /// <summary>
+    /// The robot's post (plan_descent_logic HO9): its own place round its home marker, where it
+    /// was rolled to stand, apart from its pack-mates; the boss's spot for the boss; where a dev
+    /// command put it for one of those. Its home for the brains and the far simulation.
+    /// </summary>
+    public AiVector Post(int i) => _post[Row(i)];
+
+    /// <summary>The way the robot faces at its post: its marker's.</summary>
+    public float PostYaw(int i) => _postYaw[Row(i)];
+
     public int Room(int i) => _room[Row(i)];
     public AiVector Position(int i) => _position[Row(i)];
     public float Yaw(int i) => _yaw[Row(i)];
     public double Life(int i) => _life[Row(i)];
-    public RobotStatuses Statuses(int i) => _statuses[Row(i)];
+    /// <summary>The robot's statuses as the rules' value, in the order they were applied. Allocates: a reader's, not the tick's.</summary>
+    public RobotStatuses Statuses(int i) => _book.View(SlotsOf(Row(i)));
+
+    /// <summary>A bit a status the robot carries, by status.json row (the body's networked flags).</summary>
+    public int StatusBits(int i) => StatusBook.Bits(SlotsOf(Row(i)));
+
+    /// <summary>The robot's slot of status.json row <paramref name="row"/>: its stacks, end, next damage tick and applier.</summary>
+    public StatusSlot StatusSlot(int i, int row) => SlotsOf(Row(i))[row];
     public int Clip(int i) => _clip[Row(i)];
 
     /// <summary>The body the robot holds, 0 for none.</summary>
@@ -337,6 +373,24 @@ public sealed partial class RobotRoster
     public float SpeedFactor(int i) => _speedFactor[Row(i)];
 
     public bool Stunned(int i) => _stunned[Row(i)];
+
+    /// <summary>The status multiplier on damage the robot takes (marked), as of its last status change.</summary>
+    public float DamageTakenFactor(int i) => _damageTaken[Row(i)];
+
+    /// <summary>The next tick one of the robot's statuses ends or deals damage; <see cref="long.MaxValue"/> with none.</summary>
+    public long StatusDue(int i) => _statusDue[Row(i)];
+
+    /// <summary>The hero seat a taunt makes the robot target at <paramref name="now"/>; -1 for none.</summary>
+    public int TauntSeat(int i, long now) => _tauntUntil[Row(i)] > now ? _tauntSeat[i] : -1;
+
+    /// <summary>The tick the robot's taunt ends (0 for none).</summary>
+    public long TauntUntil(int i) => _tauntUntil[Row(i)];
+
+    /// <summary>The debuff on what the robot deals at <paramref name="now"/>, in percent (0 for none).</summary>
+    public double WeakenPct(int i, long now) => _weakenUntil[Row(i)] > now ? _weakenPct[i] : 0;
+
+    /// <summary>The tick the robot's debuff on what it deals ends (0 for none).</summary>
+    public long WeakenUntil(int i) => _weakenUntil[Row(i)];
 
     /// <summary>The last tick a hero was within the wake distance of the robot or could see it (<see cref="long.MinValue"/> for never).</summary>
     public long LastNear(int i) => _lastNear[Row(i)];
@@ -428,54 +482,103 @@ public sealed partial class RobotRoster
         _life[i] = Math.Max(0, _life[i] - amount);
         if (_life[i] > 0) return false;
         _state[i] = RobotState.Dead;
+        ClearStatusRow(i);
         return true;
     }
 
-    /// <summary>Applies status <paramref name="id"/> at <paramref name="now"/> through <see cref="StatusRules.Apply"/>, against the robot's immunity.</summary>
+    /// <summary>Applies status <paramref name="id"/> at <paramref name="now"/> for its own duration, by no hero (<see cref="ApplyStatus(int, int, long, double, int)"/>).</summary>
     public StatusApplied ApplyStatus(int i, string id, long now)
     {
+        int row = _book.RowOf(id);
+        if (row < 0) throw new ArgumentException($"'{id}' is not a status", nameof(id));
+        return ApplyStatus(i, row, now, 0, 0);
+    }
+
+    /// <summary>
+    /// Applies status.json row <paramref name="row"/> at <paramref name="now"/> for
+    /// <paramref name="seconds"/> (the row's duration when 0) by hero seat
+    /// <paramref name="applier"/> (0 for none), through <see cref="StatusBook.Apply"/>, against the
+    /// robot's immunity. A dead robot takes nothing (answers Immune).
+    /// </summary>
+    public StatusApplied ApplyStatus(int i, int row, long now, double seconds, int applier)
+    {
         Row(i);
-        var (after, what) = _rules.Statuses.Apply(_statuses[i], id, now, _ticksPerSecond, _stats[i].Immunity);
-        _statuses[i] = after;
+        if (_state[i] is RobotState.Dead or RobotState.Empty) return StatusApplied.Immune;
+        var what = _book.Apply(SlotsOf(i), row, now, _ticksPerSecond, _stats[i].Immunity, seconds, applier, ++_statusStamp);
         Refresh(i, now);
         return what;
     }
 
     /// <summary>
-    /// Runs the robot's statuses up to <paramref name="now"/> (<see cref="StatusRules.Tick"/>):
-    /// their damage, through the robot's resistance, and their ends. Does nothing, and asks
-    /// the rules nothing, before the next tick one of them is due. Returns the damage dealt.
+    /// Runs the robot's statuses up to <paramref name="now"/> (<see cref="StatusBook.Tick"/>) and
+    /// writes the damage each owes, before resistance, into <paramref name="due"/> (one entry a
+    /// damaging status: <see cref="StatusBook.Count"/> at most), without taking any life: the
+    /// caller deals it (a body's hit path). Does nothing, and asks the rules nothing, before the
+    /// next tick one is due. Answers how many entries it wrote.
+    /// </summary>
+    public int RunStatuses(int i, long now, Span<StatusDue> due)
+    {
+        Row(i);
+        if (now < _statusDue[i] || _state[i] is RobotState.Dead or RobotState.Empty) return 0;
+        int n = _book.Tick(SlotsOf(i), now, _ticksPerSecond, due);
+        Refresh(i, now);
+        return n;
+    }
+
+    /// <summary>
+    /// The far path (3.5): runs the robot's statuses up to <paramref name="now"/> and takes the
+    /// damage they owe from its life here, each through the robot's resistance and the
+    /// damage-taken multiplier in force before the tick (a mark). Does nothing before the next
+    /// tick one is due. Returns the damage dealt.
     /// </summary>
     public double TickStatuses(int i, long now)
     {
         Row(i);
         if (now < _statusDue[i] || _state[i] is RobotState.Dead or RobotState.Empty) return 0;
-        var tick = _rules.Statuses.Tick(_statuses[i], now, _ticksPerSecond);
+        double mark = _book.DamageTakenMultiplier(SlotsOf(i), now);
+        int n = RunStatuses(i, now, _due);
         double dealt = 0;
-        foreach (var d in tick.Damage)
-            dealt += RobotRules.DamageTaken(_stats[i], d.DamageType, d.Amount);
-        _statuses[i] = tick.After;
-        Refresh(i, now);
+        for (int k = 0; k < n; k++)
+            dealt += RobotRules.DamageTaken(_stats[i], _book.Row(_due[k].Row).DamageType!, _due[k].Amount) * mark;
         if (dealt > 0) Hurt(i, dealt);
         return dealt;
     }
 
+    /// <summary>A taunt (a hero's threat skill): the robot targets hero seat <paramref name="seat"/> until <paramref name="until"/>.</summary>
+    public void Taunt(int i, int seat, long until)
+    {
+        Row(i);
+        _tauntSeat[i] = seat;
+        _tauntUntil[i] = until;
+        _targetSeat[i] = seat;
+        _alert[i] = AlertLevel.Alerted;
+    }
+
+    /// <summary>A debuff on what the robot deals: <see cref="RobotConditionRules.Weaken"/> against the one in force.</summary>
+    public void Weaken(int i, double pct, long until, long now)
+    {
+        Row(i);
+        (_weakenPct[i], _weakenUntil[i]) = RobotConditionRules.Weaken(_weakenPct[i], _weakenUntil[i], pct, until, now);
+    }
+
+    private Span<StatusSlot> SlotsOf(int i) => _slots.AsSpan(i * _slotsPerRow, _slotsPerRow);
+
+    private void ClearStatusRow(int i)
+    {
+        SlotsOf(i).Clear();
+        _statusDue[i] = long.MaxValue;
+        _speedFactor[i] = 1;
+        _damageTaken[i] = 1;
+        _stunned[i] = false;
+    }
+
     private void Refresh(int i, long now)
     {
-        var s = _statuses[i];
-        if (s.Active.IsEmpty)
-        {
-            _statusDue[i] = long.MaxValue;
-            _speedFactor[i] = 1;
-            _stunned[i] = false;
-            return;
-        }
-        long due = long.MaxValue;
-        foreach (var a in s.Active)
-            due = Math.Min(due, Math.Min(a.EndTick, a.NextDamageTick));
-        _statusDue[i] = due;
-        _speedFactor[i] = (float)_rules.Statuses.SpeedMultiplier(s, now);
-        _stunned[i] = _rules.Statuses.Stunned(s, now);
+        var slots = SlotsOf(i);
+        _statusDue[i] = _book.NextDue(slots);
+        _speedFactor[i] = (float)_book.SpeedMultiplier(slots, now);
+        _damageTaken[i] = (float)_book.DamageTakenMultiplier(slots, now);
+        _stunned[i] = _book.Stunned(slots, now);
     }
 
     private int Row(int i)

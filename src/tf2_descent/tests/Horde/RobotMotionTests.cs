@@ -152,11 +152,19 @@ public sealed class RobotMotionTests
         }
 
         Pack().Tick(200);
-        var rig = Pack();
-        rig.Tick();
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        rig.Tick(60);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // A steady allocation shows for every pack; a one-off (the runtime re-jitting a hot method while the box is
+        // loaded) for one: the quietest of three fresh packs is what separating costs.
+        long allocated = long.MaxValue;
+        MotionRig rig = null!;
+        for (int pack = 0; pack < 3 && allocated != 0; pack++)
+        {
+            rig = Pack();
+            rig.Tick();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            rig.Tick(60);
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
 
         Assert.True(rig.Motion.Stepper!.StepsRun > 48 * 30, $"the pack hardly moved: {rig.Motion.Stepper.StepsRun} steps");
         Assert.Equal(0, allocated);
@@ -571,11 +579,10 @@ public sealed class RobotMotionTests
         SpinUntil(() => blocking.Waiting > 0);
         var held = rig.At(1);
         long holdsBefore = rig.Motion.Holds;
-        var watch = Stopwatch.StartNew();
         rig.Tick(30);
-        watch.Stop();
 
-        Assert.True(watch.ElapsedMilliseconds < 500, $"30 ticks took {watch.ElapsedMilliseconds} ms over a stalled worker");
+        // A gate, never a clock: the step is still held when the thirty ticks are done, so none of them waited for it.
+        Assert.True(blocking.Waiting > 0, "the main thread waited: the held step had left by the thirtieth tick");
         Assert.Equal(held, rig.At(1));
         Assert.True(rig.Motion.Holds - holdsBefore >= 29, $"held {rig.Motion.Holds - holdsBefore} ticks");
 
@@ -648,19 +655,16 @@ public sealed class RobotMotionTests
         Assert.Equal(0, allocated);
     }
 
-    private static void TickAndSettle(MotionRig rig, WorkerMotionStepper worker)
-    {
-        long ran = worker.StepsRun;
-        rig.Tick();
-        SpinUntil(() => worker.StepsRun > ran);
-    }
+    /// <summary>A tick, then until the worker has run what it was handed (<see cref="VoxelStepperTests.Settle"/>: a hand-over the worker's lock refused is ticked again).</summary>
+    private static void TickAndSettle(MotionRig rig, WorkerMotionStepper worker) => VoxelStepperTests.Settle(rig, worker);
 
     private static void SpinUntil(Func<bool> done)
     {
         var watch = Stopwatch.StartNew();
         while (!done())
         {
-            if (watch.ElapsedMilliseconds > 5000)
+            // A cap against a hang, not a pace: on a loaded box a pool thread can wait seconds for a core.
+            if (watch.ElapsedMilliseconds > 60_000)
                 throw new TimeoutException("the worker never finished");
             Thread.Sleep(1);
         }

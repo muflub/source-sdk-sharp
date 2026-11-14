@@ -129,6 +129,15 @@ public sealed record BlastHit(string Explosive, string Target, string DamageType
 /// <summary>A chain: the explosives that went off, in order, and every hit.</summary>
 public sealed record Detonation(ImmutableArray<string> Exploded, ImmutableArray<BlastHit> Hits);
 
+/// <summary>An explosive standing on the level: the damage it has left to take before it goes off, and whether it has.</summary>
+public sealed record ExplosiveState(string Marker, string Kind, double Health, bool Exploded = false);
+
+/// <summary>A hit on an explosive: the explosive after it, and whether this hit set it off.</summary>
+public sealed record ExplosiveHit(ExplosiveState After, bool SetOff);
+
+/// <summary>One explosive of a chain and when it goes off, in seconds after the first.</summary>
+public sealed record ChainStep(string Marker, double After);
+
 /// <summary>
 /// Pumpkin bombs and barrels (plan_tf2_rpg 2l): an area burst of the row's damage type to
 /// heroes and robots alike, full at the centre and falling linearly to the row's edge share
@@ -140,6 +149,50 @@ public sealed class ExplosiveRules
     private readonly DescentContent _content;
 
     public ExplosiveRules(DescentContent content) => _content = content;
+
+    /// <summary>An explosive of <paramref name="kind"/> as it stands at load: its row's health, not gone off.</summary>
+    public ExplosiveState New(string marker, string kind) => new(marker, kind, _content.Furniture.Explosive(kind).Health);
+
+    /// <summary>
+    /// <paramref name="damage"/> on an explosive: its health falls by it, and at 0 or below it goes off.
+    /// One that has gone off takes nothing more and is not set off again.
+    /// </summary>
+    public ExplosiveHit Hit(ExplosiveState state, double damage)
+    {
+        if (state.Exploded || !(damage > 0))
+            return new ExplosiveHit(state, false);
+        double health = state.Health - damage;
+        bool off = health <= 0;
+        return new ExplosiveHit(state with { Health = Math.Max(0, health), Exploded = off }, off);
+    }
+
+    /// <summary>
+    /// When each explosive of <paramref name="first"/>'s chain goes off: the order
+    /// <see cref="Detonate"/> gives, each one its setter-off's row's <see cref="ExplosiveRow.ChainDelay"/>
+    /// after the one that set it off (the first at 0).
+    /// </summary>
+    public ImmutableArray<ChainStep> Schedule(string first, IReadOnlyList<ExplosiveAt> explosives)
+    {
+        var byId = explosives.ToDictionary(e => e.Marker, StringComparer.Ordinal);
+        if (!byId.ContainsKey(first)) throw new ArgumentException($"'{first}' is not a standing explosive", nameof(first));
+        var at = new Dictionary<string, double>(StringComparer.Ordinal) { [first] = 0 };
+        var queue = new Queue<string>([first]);
+        var steps = ImmutableArray.CreateBuilder<ChainStep>();
+        while (queue.Count > 0)
+        {
+            var e = byId[queue.Dequeue()];
+            var row = _content.Furniture.Explosive(e.Kind);
+            steps.Add(new ChainStep(e.Marker, at[e.Marker]));
+            foreach (var next in explosives
+                         .Where(o => !at.ContainsKey(o.Marker) && e.At.DistanceTo(o.At) <= row.ChainRadius)
+                         .OrderBy(o => e.At.DistanceTo(o.At)).ThenBy(o => o.Marker, StringComparer.Ordinal))
+            {
+                at[next.Marker] = at[e.Marker] + row.ChainDelay;
+                queue.Enqueue(next.Marker);
+            }
+        }
+        return steps.ToImmutable();
+    }
 
     /// <summary>The damage <paramref name="kind"/> does at <paramref name="distance"/> from its centre.</summary>
     public double DamageAt(string kind, double distance)
@@ -188,6 +241,28 @@ public sealed class ExplosiveRules
 // Traps
 //-----------------------------------------------------------------------------
 
+/// <summary>Where a trap is in its cycle.</summary>
+public enum TrapPhase
+{
+    /// <summary>Waiting for a body to step in.</summary>
+    Armed,
+
+    /// <summary>Stepped on: its tell given, it fires when its fuse runs (<see cref="TrapState.Until"/>).</summary>
+    Tripped,
+
+    /// <summary>Fired: armed again at <see cref="TrapState.Until"/>.</summary>
+    Rearming,
+
+    /// <summary>Fired and never re-arms.</summary>
+    Spent,
+}
+
+/// <summary>A trap on the level: its marker, its row, its phase and the time (seconds) its phase ends.</summary>
+public sealed record TrapState(string Marker, string Trap, TrapPhase Phase, double Until);
+
+/// <summary>A trap's clock: the trap after it, and what fired (null when nothing did).</summary>
+public sealed record TrapTick(TrapState After, TrapFire? Fired);
+
 /// <summary>A trap going off: its damage type and damage, its radius, and the tell that warned of it.</summary>
 public sealed record TrapFire(string Trap, string DamageType, double Damage, double Radius, TrapTell Tell);
 
@@ -201,6 +276,48 @@ public sealed class TrapRules
     private readonly DescentContent _content;
 
     public TrapRules(DescentContent content) => _content = content;
+
+    /// <summary>A trap as it stands at load: armed.</summary>
+    public TrapState New(string marker, string trap)
+    {
+        _ = _content.Furniture.Trap(trap);
+        return new TrapState(marker, trap, TrapPhase.Armed, 0);
+    }
+
+    /// <summary>
+    /// A body steps into the trap's trigger area at <paramref name="now"/> (seconds). An armed trap
+    /// trips: its tell is given and it fires <see cref="TrapRow.Fuse"/> later (<see cref="TrapState.Until"/>).
+    /// A robot trips only a trap whose row says so. A tripped, spent or re-arming trap does nothing.
+    /// </summary>
+    public TrapState Trip(TrapState state, double now, bool robot)
+    {
+        var row = _content.Furniture.Trap(state.Trap);
+        if (state.Phase != TrapPhase.Armed || (robot && !row.Robots))
+            return state;
+        return state with { Phase = TrapPhase.Tripped, Until = now + row.Fuse };
+    }
+
+    /// <summary>
+    /// The clock at <paramref name="now"/>: a tripped trap whose fuse has run fires
+    /// (<see cref="TrapTick.Fired"/>) and re-arms <see cref="TrapRow.Rearm"/> later, or is spent for
+    /// good with no re-arm; a re-arming one whose time has come is armed again.
+    /// </summary>
+    public TrapTick Tick(TrapState state, double now)
+    {
+        var row = _content.Furniture.Trap(state.Trap);
+        switch (state.Phase)
+        {
+            case TrapPhase.Tripped when now >= state.Until:
+                var after = row.Rearm > 0
+                    ? state with { Phase = TrapPhase.Rearming, Until = now + row.Rearm }
+                    : state with { Phase = TrapPhase.Spent, Until = 0 };
+                return new TrapTick(after, Fire(state.Trap));
+            case TrapPhase.Rearming when now >= state.Until:
+                return new TrapTick(state with { Phase = TrapPhase.Armed, Until = 0 }, null);
+            default:
+                return new TrapTick(state, null);
+        }
+    }
 
     public TrapFire Fire(string trap)
     {

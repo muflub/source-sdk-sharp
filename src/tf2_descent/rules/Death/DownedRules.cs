@@ -72,6 +72,18 @@ public abstract record DownedEvent
 
     /// <summary>The party is on a new level: the downs counted on the last one are forgotten.</summary>
     public sealed record LevelChanged : DownedEvent;
+
+    /// <summary><paramref name="Member"/> joins the party, up and in the instance; one already in it has <see cref="Arrived"/>.</summary>
+    public sealed record Joined(string Member) : DownedEvent;
+
+    /// <summary><paramref name="Member"/>, dead, stands again (a respawn): up, keeping the downs counted on the level.</summary>
+    public sealed record Respawned(string Member) : DownedEvent;
+
+    /// <summary>
+    /// <paramref name="Member"/> died by a road the downed state did not decide (a suicide, a kill the
+    /// game made outright): dead whatever its standing, and the party falls if nobody is left up.
+    /// </summary>
+    public sealed record Killed(string Member) : DownedEvent;
 }
 
 /// <summary>What a step decided, for the server to carry out and the client to show.</summary>
@@ -109,6 +121,8 @@ public enum DeathCause
     PartyFell,
     /// <summary>Left the instance while down.</summary>
     LeftWhileDown,
+    /// <summary>Died by a road the downed state did not decide (<see cref="DownedEvent.Killed"/>).</summary>
+    Outright,
 }
 
 public enum ReviveBreak
@@ -129,6 +143,10 @@ public enum DownedRefusal
     TargetTaken,
     NotReviving,
     NotInInstance,
+    /// <summary>A respawn of a member who is not dead.</summary>
+    NotDead,
+    /// <summary>A kill of a member already dead.</summary>
+    AlreadyDead,
 }
 
 /// <summary>A step: the party after it and what it decided.</summary>
@@ -186,6 +204,11 @@ public sealed class DownedRules
             DownedEvent.Arrived a => party.With(party.Member(a.Member) with { InInstance = true }),
             DownedEvent.Left l => Leave(party, l.Member, outcomes),
             DownedEvent.LevelChanged => party with { Members = [.. party.Members.Select(m => m with { DownsThisLevel = 0 })] },
+            DownedEvent.Joined j => party.Members.Any(m => m.Id == j.Member)
+                ? party.With(party.Member(j.Member) with { InInstance = true })
+                : party with { Members = party.Members.Add(new DownedMember(j.Member)) },
+            DownedEvent.Respawned r => Respawn(party, r.Member, outcomes),
+            DownedEvent.Killed k => KillOutright(party, k.Member, outcomes),
             _ => throw new ArgumentOutOfRangeException(nameof(e), e, "not a downed event"),
         };
         return new DownedStep(party, outcomes.ToImmutable());
@@ -288,6 +311,31 @@ public sealed class DownedRules
         party = party.With(m with { InInstance = false });
         if (m.Standing == Standing.Down)
             party = Kill(party, id, DeathCause.LeftWhileDown, outcomes);
+        return Fall(party, outcomes);
+    }
+
+    /// <summary>A dead member stands again, its downs on the level kept; any other is refused.</summary>
+    private static DownedParty Respawn(DownedParty party, string id, ImmutableArray<DownedOutcome>.Builder outcomes)
+    {
+        var m = party.Member(id);
+        if (m.Standing != Standing.Dead)
+        {
+            outcomes.Add(new DownedOutcome.Refused(DownedRefusal.NotDead));
+            return party;
+        }
+        return party.With(m with { Standing = Standing.Up, InInstance = true, BleedOutTick = 0, GraceUntilTick = 0 });
+    }
+
+    /// <summary>A death the machine did not decide: the member is dead whatever it was, and the party falls with nobody up.</summary>
+    private static DownedParty KillOutright(DownedParty party, string id, ImmutableArray<DownedOutcome>.Builder outcomes)
+    {
+        if (party.Member(id).Standing == Standing.Dead)
+        {
+            outcomes.Add(new DownedOutcome.Refused(DownedRefusal.AlreadyDead));
+            return party;
+        }
+        party = Interrupt(party, id, ReviveBreak.ReviverDown, outcomes);
+        party = Kill(party, id, DeathCause.Outright, outcomes);
         return Fall(party, outcomes);
     }
 

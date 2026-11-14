@@ -26,6 +26,9 @@ public sealed record DurabilitySettings(
     int LevelOffset,
     int MinLoss)
 {
+    /// <summary>The gear warning's line (the HUD's, UI2): an item at or below this percent of its maximum is low.</summary>
+    public int WarnPercent { get; init; } = 25;
+
     /// <summary>Uses per point of a family; 0 for a family the table does not name (a load error).</summary>
     public int UsesPerPoint(string family) => Families.FirstOrDefault(f => f.Family == family)?.UsesPerPoint ?? 0;
 }
@@ -41,6 +44,7 @@ public sealed class DurabilityTable : SingleTable<DurabilitySettings>
         var wear = f.Obj("wear");
         var repair = f.Obj("repair");
         var field = f.Obj("fieldRepair");
+        var warning = f.Obj("warning");
         var families = new List<FamilyWear>();
         foreach (var e in wear.Array("families"))
         {
@@ -50,7 +54,9 @@ public sealed class DurabilityTable : SingleTable<DurabilitySettings>
         }
         var s = new DurabilitySettings(families, wear.Int("armourHitsPerPoint"), wear.Str("rateStat"), wear.Str("indestructibleStat"),
             repair.Num("base"), repair.Num("perPoint"), repair.Num("perItemLevel"),
-            field.Str("recipe"), field.Str("kit"), field.Int("levelOffset"), field.Int("minLoss"));
+            field.Str("recipe"), field.Str("kit"), field.Int("levelOffset"), field.Int("minLoss"))
+        { WarnPercent = warning.Int("pct") };
+        warning.End();
         wear.End();
         repair.End();
         field.End();
@@ -79,10 +85,26 @@ public sealed class DurabilityTable : SingleTable<DurabilitySettings>
         ContentChecks.Range(errors, t, null, "repair.perItemLevel", s.RepairPerItemLevel, 0, 1e3);
         ContentChecks.Range(errors, t, null, "fieldRepair.levelOffset", s.LevelOffset, 0, 1000);
         ContentChecks.Range(errors, t, null, "fieldRepair.minLoss", s.MinLoss, 1, 1000);
+        ContentChecks.Range(errors, t, null, "warning.pct", s.WarnPercent, 1, 99);
         if (ContentChecks.Reference<ItemBaseRow>(content, errors, t, null, "fieldRepair.kit", s.Kit, ItemTables.Bases)
             && content.ItemBases[s.Kit].Kind != ItemKinds.Consumable)
             errors.Add(t, null, ContentRule.DanglingReference, $"'fieldRepair.kit' names '{s.Kit}', which is not a consumable");
     }
+}
+
+/// <summary>How worn an item is, as the gear warning shows it (HE9, UI2).</summary>
+public enum WearLevel
+{
+    /// <summary>Not gear: it does not wear.</summary>
+    None,
+    /// <summary>Above the warning line (or indestructible).</summary>
+    Ok,
+    /// <summary>At or below the warning line, not yet broken.</summary>
+    Low,
+    /// <summary>Durability 0: it grants nothing, and a weapon fires as its Stock base.</summary>
+    Broken,
+    /// <summary>Maximum durability 0 (L7 as amended): it cannot be equipped and grants nothing.</summary>
+    Unusable,
 }
 
 /// <summary>What wear did: the item after, the points it lost, and whether it broke now (1 to 0).</summary>
@@ -133,6 +155,19 @@ public sealed class Durability
             ItemKinds.Armour => S.ArmourHitsPerPoint,
             _ => 0,
         };
+    }
+
+    /// <summary>
+    /// The item's wear level: unusable at maximum 0, broken at 0, low at or below the
+    /// warning line's percent of its maximum, else ok; an indestructible item is never low.
+    /// </summary>
+    public WearLevel Level(ItemInstance item)
+    {
+        if (!_content.ItemBases[item.BaseId].IsGear) return WearLevel.None;
+        if (item.MaxDurability <= 0) return WearLevel.Unusable;
+        if (item.Durability <= 0) return WearLevel.Broken;
+        if (IsIndestructible(item)) return WearLevel.Ok;
+        return (long)item.Durability * 100 <= (long)item.MaxDurability * S.WarnPercent ? WearLevel.Low : WearLevel.Ok;
     }
 
     /// <summary>A weapon fired, swung or used <paramref name="uses"/> times. Armour does not wear by use.</summary>

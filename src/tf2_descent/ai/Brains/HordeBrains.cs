@@ -79,6 +79,8 @@ public sealed class HordeBrains : IHordeSightSink
     private readonly HeroSlots _heroes;
     private readonly HordeVision _vision;
     private readonly IHordeBodyPoses _poses;
+    private readonly IHordeBodyAim? _aim;
+    private readonly IHordePaths? _paths;
     private readonly float _tickSeconds;
     private readonly Body[] _body;
     private readonly Hero[] _hero = new Hero[HordeSlots.Heroes];
@@ -86,10 +88,13 @@ public sealed class HordeBrains : IHordeSightSink
     private readonly HeroTarget[] _targets = new HeroTarget[HordeSlots.Heroes];
     private long _now;
     private readonly int[] _added;
+    private readonly int[] _mates = new int[HordeView.PackMates];
+    private readonly float[] _mateDistance = new float[HordeView.PackMates];
     private int _addedCount;
 
     public HordeBrains(AiSession session, RobotRoster roster, BodyPool pool, HordeLevel level, TF2DescentRules rules, HordeSkillMap map,
-                       SkillCurves curves, HeroSlots heroes, HordeVision vision, IHordeBodyPoses poses, float tickSeconds, Body[] bodies, BodyEye[] eyes)
+                       SkillCurves curves, HeroSlots heroes, HordeVision vision, IHordeBodyPoses poses, float tickSeconds, Body[] bodies, BodyEye[] eyes,
+                       IHordeBodyAim? aim = null, IHordePaths? paths = null)
     {
         _session = session;
         _roster = roster;
@@ -101,6 +106,8 @@ public sealed class HordeBrains : IHordeSightSink
         _heroes = heroes;
         _vision = vision;
         _poses = poses;
+        _aim = aim;
+        _paths = paths;
         _tickSeconds = tickSeconds;
         _body = bodies;
         _eyes = eyes;
@@ -110,11 +117,15 @@ public sealed class HordeBrains : IHordeSightSink
     /// <summary>
     /// The level's brains: a session over <paramref name="transport"/>, its inputs and
     /// intents to <paramref name="sink"/> (a recorder, or nothing), deciding with
-    /// <paramref name="deciders"/>' families, over the embedded curves.
+    /// <paramref name="deciders"/>' families, over the embedded curves; the bodies'
+    /// guns through <paramref name="aim"/> (none: each view's look is its facing, its
+    /// line of fire untraced; see <see cref="HordeView"/>); the level graph's epoch into each view
+    /// from <paramref name="paths"/> (none: 0, every robot walks the room route), which should be
+    /// the paths <paramref name="deciders"/> plan with.
     /// </summary>
     public static HordeBrains For(RobotRoster roster, BodyPool pool, HordeLevel level, TF2DescentRules rules, IHordeBodyPoses poses,
                                   IAiTransport transport, IAiRecordSink sink, HordeDeciders deciders, double ticksPerSecond,
-                                  int sightBudget = HordeVision.DefaultBudget)
+                                  int sightBudget = HordeVision.DefaultBudget, IHordeBodyAim? aim = null, IHordePaths? paths = null)
     {
         ArgumentNullException.ThrowIfNull(pool);
         if (pool.LastBody > HordeSlots.LastBody)
@@ -131,10 +142,10 @@ public sealed class HordeBrains : IHordeSightSink
         var bodies = new Body[pool.LastBody + 1];
         return new HordeBrains(session, roster, pool, level, rules, HordeSkillMap.For(rules.Temperaments.Skills), curves,
                                new HeroSlots((long)Math.Ceiling(HeroAwaySeconds * ticksPerSecond)), HordeVision.For(pool.LastBody, sightBudget),
-                               poses, tick, bodies, new BodyEye[pool.LastBody + 1]);
+                               poses, tick, bodies, new BodyEye[pool.LastBody + 1], aim, paths);
     }
 
-    /// <summary>What the brains remember over: no map knowledge, no nav graph (HO4's fallback routes by rooms), the tick.</summary>
+    /// <summary>What the brains remember over: no map knowledge, no nav graph for the core (a decider asks <see cref="IHordePaths"/>, or the room route), the tick.</summary>
     public static MemoryWorld World(float tickSeconds) =>
         new(MapKnowledge.Empty(new WeaponKnowledge([])), null, tickSeconds, id => id.ToString());
 
@@ -142,9 +153,15 @@ public sealed class HordeBrains : IHordeSightSink
     public static AiRecordedWorld RecordedWorld(float tickSeconds) =>
         new(MapKnowledge.Empty(new WeaponKnowledge([])), tickSeconds, HordeSkillMap.CurvesJson(), 0);
 
-    /// <summary>A recording's header for a level.</summary>
+    /// <summary>
+    /// A recording's header for a level: the session runs with its team layer off
+    /// (<see cref="AiSession.TeamCallouts"/> false, format 8's <see cref="AiRecordingHeader.TeamLayerOff"/>),
+    /// so a replay does too. It names no nav graph: the level's graph becomes ready after the
+    /// recording begins, and each view names the graph it was published under
+    /// (<see cref="HordeView.NavEpoch"/>).
+    /// </summary>
     public static AiRecordingHeader Header(HordeLevel level) =>
-        new(level.Seed, $"tf2_descent-{level.Depth}-s{level.Seed}", 0, 0, HordeSlots.Slots, HordeSlots.Sighted);
+        new(level.Seed, $"tf2_descent-{level.Depth}-s{level.Seed}", 0, 0, HordeSlots.Slots, HordeSlots.Sighted, AiRecordingHeader.TeamLayerOff);
 
     public AiSession Session => _session;
 
@@ -167,6 +184,12 @@ public sealed class HordeBrains : IHordeSightSink
     public long Actions { get; private set; }
     public long EventsDiscarded { get; private set; }
     public long SoundsHeard { get; private set; }
+
+    /// <summary>AllyDamaged and AllyDied events told to pack-mates.</summary>
+    public long AlliesTold { get; private set; }
+
+    /// <summary>Arrived events told to brains (<see cref="Arrived"/>).</summary>
+    public long ArrivalsTold { get; private set; }
     public long Stuck { get; private set; }
     public long Publishes { get; private set; }
 
@@ -347,9 +370,10 @@ public sealed class HordeBrains : IHordeSightSink
             RecognizeTicks = VisionParams.Ticks(VisionCurves.RecognizeAt(Level(profile, "alertness")), _tickSeconds),
             LostTicks = VisionParams.Ticks(VisionCurves.LostSightSeconds, _tickSeconds),
             Hearing = HordeSkillMap.Extra(_curves, profile, "hearingScale"),
+            NavClass = (int)HordeHulls.ClassOf(scale),
         };
         _vision.ForgetBody(b);
-        _session.AddBot(actor, _roster.Seed(row), levels);
+        _session.AddBot(actor, _roster.Seed(row), levels, home: HomeOf(row));
         BrainsAdded++;
 
         var tick = new Tick((int)now);
@@ -362,6 +386,13 @@ public sealed class HordeBrains : IHordeSightSink
             Push(b, AiEvent.SoundHeard(actor, tick, SoundKind.Unknown, carried.LastKnownPosition, loudness, target, -1));
         }
     }
+
+    /// <summary>
+    /// A robot's home (format 8's home point, <see cref="BrainSetup.Home"/>): its roster post, the
+    /// place of its own the spawn director rolled round its pack's marker; the boss's spot for the
+    /// boss; where a dev command put it for a robot put down by hand.
+    /// </summary>
+    public AiVector? HomeOf(int row) => _roster.Post(row);
 
     private void Remove(int b)
     {
@@ -469,8 +500,11 @@ public sealed class HordeBrains : IHordeSightSink
     /// <summary>
     /// A hit on a robot (the hit sink): <c>Damaged</c> for its brain, from the
     /// hero in <paramref name="attackerSeat"/> (-1 none), towards where that hero
-    /// stands; and to each pack-mate's brain its pain or death, heard as a sound
-    /// where it stands (B.3's AllyDamaged / AllyDied).
+    /// stands; to each pack-mate's brain in earshot B.3's <c>AllyDamaged</c> or
+    /// <c>AllyDied</c> (the ally, where it stands, the damage, the hero); and to the
+    /// brain of a robot of another pack in earshot its pain or death, heard as a
+    /// sound where it stands. Earshot is the walk from the hit within the pain's or
+    /// the death's reach times the hearer's hearing.
     /// </summary>
     public void Hit(long now, RobotId robot, int attackerSeat, float taken, bool killed, AiVector at)
     {
@@ -481,6 +515,8 @@ public sealed class HordeBrains : IHordeSightSink
         ActorId attacker = attackerSeat > 0 ? _heroes.ActorOf(attackerSeat) : ActorId.None;
         int pack = _roster.Pack(robot.Index);
         int room = _level.RoomAt(at);
+        int hurtBody = _roster.Body(robot.Index);
+        ActorId ally = hurtBody > 0 && hurtBody < _body.Length ? _body[hurtBody].Brain : ActorId.None;
         for (int b = 1; b < _body.Length; b++)
         {
             ref readonly Body s = ref _body[b];
@@ -497,11 +533,32 @@ public sealed class HordeBrains : IHordeSightSink
                 continue;
             }
 
-            if (room < 0 || _roster.Pack(s.Row) != pack)
+            if (room < 0 || !Reaches(b, room, at, killed ? DeathReach : PainReach, out float loudness))
                 continue;
-            if (Reaches(b, room, at, killed ? DeathReach : PainReach, out float loudness))
+            if (_roster.Pack(s.Row) == pack)
+            {
+                Push(b, killed ? AiEvent.AllyDied(s.Brain, tick, ally, at, attacker) : AiEvent.AllyDamaged(s.Brain, tick, ally, at, taken, attacker));
+                AlliesTold++;
+            }
+            else
+            {
                 Push(b, AiEvent.SoundHeard(s.Brain, tick, killed ? SoundKind.Death : SoundKind.Pain, at, loudness, ActorId.None, -1));
+            }
         }
+    }
+
+    /// <summary>
+    /// The motion's word that body <paramref name="body"/> reached its order's last corner at
+    /// <paramref name="at"/>: an <c>Arrived</c> for its brain (the core's applier feedback). A body
+    /// with no brain is told nothing.
+    /// </summary>
+    public void Arrived(long now, int body, AiVector at)
+    {
+        _now = now;
+        if ((uint)body >= (uint)_body.Length || !_body[body].Brain.IsValid)
+            return;
+        Push(body, AiEvent.Arrived(_body[body].Brain, new Tick((int)now), at));
+        ArrivalsTold++;
     }
 
     /// <summary>A hero died: each brain that held sight of it saw it fall (the kill feed's line, as the core knows it).</summary>
@@ -546,6 +603,7 @@ public sealed class HordeBrains : IHordeSightSink
             }
         }
 
+        int epoch = _paths?.Epoch ?? 0;
         AiSnapshot snap = _session.Snapshots.BeginWrite(tick);
         for (int b = 1; b < _body.Length; b++)
         {
@@ -555,9 +613,24 @@ public sealed class HordeBrains : IHordeSightSink
             AiVector at = _poses.Position(b);
             AiVector velocity = (at - s.LastPos) * (1f / _tickSeconds);
             s.LastPos = at;
+            s.Velocity = velocity;
+        }
+
+        for (int b = 1; b < _body.Length; b++)
+        {
+            ref readonly Body s = ref _body[b];
+            if (!s.Brain.IsValid)
+                continue;
+            AiVector at = s.LastPos;
             int row = s.Row;
-            var self = new SelfState(at, velocity, new AiAngles(0f, _poses.Yaw(b), 0f), (int)Math.Ceiling(_roster.Life(row)), 0, s.Family,
-                                     _roster.Clip(row), 0, SelfFlags.Alive | SelfFlags.Grounded, Team: RobotTeam, Class: s.Class);
+            AiAngles eye = _aim is { } aim ? aim.Aim(b) : new AiAngles(0f, _poses.Yaw(b), 0f);
+            int line = _aim is { } fire && DecideSchedule.IsDecideTick(tick, b)
+                ? (int)MathF.Min(HordeView.FireLineReach, MathF.Max(0f, fire.LineOfFire(b, HordeView.FireLineReach)))
+                : HordeView.NotTraced;
+            var stats = _roster.Stats(row);
+            var self = new SelfState(at, s.Velocity, eye, (int)Math.Ceiling(_roster.Life(row)), (int)Math.Ceiling(stats.Life), s.Family,
+                                     _roster.Clip(row), line, SelfFlags.Alive | SelfFlags.Grounded, AltAmmo: epoch, Grenades: s.NavClass,
+                                     Team: RobotTeam, Class: s.Class);
             PerceivedView view = snap.Add(s.Brain, self);
             for (int h = 0; h < _hero.Length; h++)
             {
@@ -565,9 +638,55 @@ public sealed class HordeBrains : IHordeSightSink
                 if (hero.Present && _vision.Holds(b, h))
                     view.AddSighted(new ActorFacts(hero.Actor, hero.Feet, hero.Velocity, -1, ActorActivity.None, _vision.Fraction(b, h), Team: HeroTeam));
             }
+
+            AddMates(b, view);
         }
 
         return snap;
+    }
+
+    /// <summary>
+    /// The pack-mates of body <paramref name="b"/>'s robot that hold bodies, the nearest
+    /// <see cref="HordeView.PackMates"/>, nearest first (a tie to the lower body), each
+    /// with its family and its life's share (<see cref="HordeView.Mate"/>).
+    /// </summary>
+    private void AddMates(int b, PerceivedView view)
+    {
+        ref readonly Body me = ref _body[b];
+        int pack = _roster.Pack(me.Row);
+        int n = 0;
+        for (int c = 1; c < _body.Length; c++)
+        {
+            ref readonly Body o = ref _body[c];
+            if (c == b || !o.Brain.IsValid || _roster.Pack(o.Row) != pack)
+                continue;
+            float d = me.LastPos.DistanceTo(o.LastPos);
+            int k = n < _mates.Length ? n++ : _mates.Length;
+            if (k == _mates.Length)
+            {
+                if (d >= _mateDistance[k - 1])
+                    continue;
+                k--;
+            }
+
+            while (k > 0 && _mateDistance[k - 1] > d)
+            {
+                _mates[k] = _mates[k - 1];
+                _mateDistance[k] = _mateDistance[k - 1];
+                k--;
+            }
+
+            _mates[k] = c;
+            _mateDistance[k] = d;
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            ref readonly Body o = ref _body[_mates[i]];
+            double most = _roster.Stats(o.Row).Life;
+            double share = most > 0 ? _roster.Life(o.Row) / most : 0;
+            view.AddSighted(new ActorFacts(o.Brain, o.LastPos, o.Velocity, HordeView.Mate(o.Family, share), ActorActivity.None, 1f, Team: RobotTeam));
+        }
     }
 
     /// <summary>The core's publish of <paramref name="snap"/>: each brain whose decide tick it is gets a step, with the events told to it since its last.</summary>
@@ -701,12 +820,16 @@ public sealed class HordeBrains : IHordeSightSink
         public int Family;
         public int Class;
         public AiVector LastPos;
+        public AiVector Velocity;
         public float EyeHeight;
         public float Range;
         public float CosHalfCone;
         public int RecognizeTicks;
         public int LostTicks;
         public float Hearing;
+
+        /// <summary>The clearance class the robot plans by (<see cref="HordeHulls.ClassOf"/> of its scale).</summary>
+        public int NavClass;
         public int Pending;
         public ActorId AppliedActor;
         public int AppliedSeq;

@@ -11,8 +11,11 @@ namespace TF2.Descent.Server.Horde;
 /// the Descent damage type they map to, the life the rules took
 /// (<see cref="TF2.Descent.Rules.Robots.RobotRules.DamageTaken"/>: resistance
 /// and immunity), the life left, whether it killed, and where it landed: the
-/// hit group the trace stopped on, the point, and the force the blast or
-/// bullet carried (the push stock gives a player, sized by the body's bounds).
+/// hit group the trace stopped on, the point, the force the blast or bullet
+/// carried (the push stock gives a player, sized by the body's bounds), and
+/// whether the robot is immune to the hit's type (it took nothing: IMMUNE).
+/// <see cref="Dealt"/> is a status tick's own amount for a status's damage tick,
+/// and <see cref="DamageType"/> a skill's declared type for a skill's hit.
 /// </summary>
 public readonly record struct RobotHit(
     RobotId Robot,
@@ -26,7 +29,8 @@ public readonly record struct RobotHit(
     bool Killed,
     HitGroup HitGroup,
     Vector Position,
-    Vector Force);
+    Vector Force,
+    bool Immune = false);
 
 /// <summary>
 /// THE SEAM WHERE A ROBOT'S HITS ARE HANDED ON: once a hit on a lent, living

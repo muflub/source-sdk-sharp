@@ -102,7 +102,9 @@ public sealed class SpellRulesTests
     {
         var errors = Errors(Planted(ContentTables.Spells, t => Row(t, "fireball")["id"] = "stomp"));
 
-        var e = Assert.Single(errors);
+        // The rename also leaves fireball's tome naming a spell that is gone (consumables.json, HE8).
+        Assert.Contains(errors, e => e.Table == TF2.Descent.Rules.Items.ConsumableTable.TableName && e.Rule == ContentRule.DanglingReference);
+        var e = Assert.Single(errors, e => e.Table == ContentTables.Spells);
         Assert.Equal((ContentRule.NameCollision, "stomp"), (e.Rule, e.Row));
     }
 

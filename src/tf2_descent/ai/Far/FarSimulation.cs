@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using SourceSharp.Ai;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
@@ -119,7 +120,7 @@ public sealed class FarSimulation
         else
         {
             goalRoom = roster.HomeRoom(i);
-            goal = markers.IsEmpty ? roster.PositionRef(i) : markers[patrol % markers.Length].Position;
+            goal = markers.IsEmpty ? roster.PositionRef(i) : PatrolGoal(roster, i, markers, patrol);
             activity = room != goalRoom ? FarActivity.Return : markers.Length > 1 ? FarActivity.Patrol : FarActivity.Hold;
         }
 
@@ -159,6 +160,19 @@ public sealed class FarSimulation
             patrol = (patrol + 1) % markers.Length;
             dwell = 0;
         }
+    }
+
+    /// <summary>
+    /// Where a robot patrolling its home room stands at marker <paramref name="patrol"/>: its
+    /// post (HO9) carried from its home marker to that one, so the pack keeps the places the
+    /// director gave it at every marker and stands at its posts at home. A robot with no home
+    /// marker (a dev command's) goes to the marker itself.
+    /// </summary>
+    private static AiVector PatrolGoal(RobotRoster roster, int i, ImmutableArray<PackMarker> markers, int patrol)
+    {
+        var marker = markers[patrol % markers.Length].Position;
+        int home = roster.HomeMarker(i);
+        return home < 0 || home >= markers.Length ? marker : roster.Post(i) + (marker - markers[home].Position);
     }
 
     /// <summary>Walks <paramref name="at"/> up to <paramref name="step"/> towards <paramref name="to"/>, facing the way it goes. Returns whether it got there.</summary>

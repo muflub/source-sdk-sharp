@@ -142,10 +142,17 @@ public sealed class TransferTests
                         };
                         break;
                     case 4 when !embodied:
-                        // Far: statuses keep ticking on the row, and the model follows the same rules.
+                        // Far: statuses keep ticking on the row, and the model follows the same rules: each
+                        // damage tick through the resistance and the mark in force before the tick (HO8),
+                        // and a death drops every status.
                         var tick = TheRules.Statuses.Tick(model.Statuses, now, Tps);
-                        double dealt = tick.Damage.Sum(d => RobotRules.DamageTaken(stats, d.DamageType, d.Amount));
-                        model = model with { Statuses = tick.After, Life = dealt > 0 ? Math.Max(0, model.Life - dealt) : model.Life };
+                        double mark = TheRules.Statuses.DamageTakenMultiplier(model.Statuses, now);
+                        double dealt = 0;
+                        foreach (var row in TheRules.Content.Status.Rows)   // a status's ticks together, in table order, as the roster sums them
+                            if (tick.Damage.Where(d => d.Status == row.Id).Sum(d => d.Amount) is > 0 and var owed)
+                                dealt += RobotRules.DamageTaken(stats, row.DamageType!, owed) * mark;
+                        double life = dealt > 0 ? Math.Max(0, model.Life - dealt) : model.Life;
+                        model = model with { Statuses = life > 0 ? tick.After : RobotStatuses.None, Life = life };
                         roster.TickStatuses(i, now);
                         Assert.Equal(Describe(model), Describe(roster.BodyState(i)));
                         farTicks++;

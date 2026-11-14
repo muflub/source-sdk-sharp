@@ -90,6 +90,7 @@ fact	managed-client	SourceSharp.Tests.Ui.UiGlyphCoverageTests.Every_drawn_charac
 fact	managed-client	SourceSharp.Tests.Ui.UiGoldenTests.The_pixels_are_their_golden	12.0	13
 fact	managed-client	SourceSharp.Tests.Ui.UiGoldenTests.The_svg_is_its_golden	3.3	13
 fact	managed-client	SourceSharp.Tests.Ui.UiKeyCaptureTests.The_generator_writes_key_accessors_that_compile	4.1	1
+fact	tf2_descent	TF2.Descent.Tests.Horde.SpawnDirectorFullSweepTests.Ten_thousand_seeds_at_every_depth_and_party_break_no_rule	42.0	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.NavBuildDeterminismTests.TheServersBuildAtOneThreadIsTheFileMakeMapWrote	36.0	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.NavBuildDeterminismTests.TheServersBuildAtFourThreadsIsTheFileMakeMapWrote	10.0	1
 fact	ai	SourceSharp.Ai.Tests.ServerNav.AiNavBuildTests.AFinishedBuildIsTheLevelsNavigationAtTheNextFrame	6.0	1

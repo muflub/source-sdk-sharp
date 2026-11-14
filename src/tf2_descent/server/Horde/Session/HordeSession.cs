@@ -5,6 +5,7 @@ using SourceSharp.Ai;
 using SourceSharp.Server;
 
 using TF2.Descent.Ai.Brains;
+using TF2.Descent.Ai.Families;
 using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Roster;
 using TF2.Descent.Ai.Senses;
@@ -35,11 +36,12 @@ namespace TF2.Descent.Server.Horde.Session;
 /// graph's doors (HO4's ruling, in its hand-back).
 /// </para>
 /// </summary>
-[SideService(Side.Server, As = [typeof(IHordeBrainHost), typeof(IHordeActors)])]
+[SideService(Side.Server, As = [typeof(IHordeBrainHost), typeof(IHordeActors), typeof(IRobotTaunts)])]
 public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, ISightWorld sightWorld, IHordeHeroes heroes,
                                  IHordeRules rules, IHordeClock clock, IHeroLandings landings, HordeWorkers workers,
-                                 HordeAiSyncConVar sync, HordeAiThreadsConVar threads, HordeAiRecordConVar record, IModInfo mod, ILog log)
-    : IHordeBrainHost, IHordeActors
+                                 HordeAiSyncConVar sync, HordeAiThreadsConVar threads, HordeAiRecordConVar record, IModInfo mod, ILog log,
+                                 Attacks.IRobotAttackWorld fireLines)
+    : IHordeBrainHost, IHordeActors, IRobotTaunts
 {
     /// <summary>Sounds the taps may queue between two ticks; one more is counted and the gate fails (B.3: never dropped silently).</summary>
     public const int SoundCapacity = 256;
@@ -99,6 +101,9 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
 
     public long RobotHits { get; private set; }
 
+    /// <summary>Taunts told to brains (<see cref="Taunted"/>).</summary>
+    public long Taunts { get; private set; }
+
     /// <summary>Ticks called again at a tick already stepped (nothing done).</summary>
     public long RepeatedTicks { get; private set; }
 
@@ -137,9 +142,10 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             sink = recorder;
         }
 
-        _adapters = new Adapters(horde.Bodies!, motion, actions, sightWorld, _heroPlayer);
+        _adapters = new Adapters(horde.Bodies!, motion, actions, sightWorld, _heroPlayer, fireLines);
         _brains = HordeBrains.For(horde.Roster!, horde.Pool!, horde.Level!, rules.Rules, _adapters, transport, sink,
-                                  HordeDeciders.For(horde.Level!), clock.TicksPerSecond);
+                                  HordeFamilies.Deciders(horde.Level!, rules.Rules), clock.TicksPerSecond, aim: _adapters);
+        actions.Begin(horde, now);
         _brains.Session.CpuClock = HordeThreadClock.Micros;
         _queued = 0;
         _farCount = 0;
@@ -181,6 +187,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             }
         }
 
+        actions.Tick(now);
         brains.Apply(now, a);
         brains.Sync(now, a);
         if (!brains.Added.IsEmpty)
@@ -231,6 +238,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
 
         int discarded = Inline ? 0 : workers.Stop();
         brains.End();
+        actions.End();
         var c = brains.Session.Counters;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[TF2Descent/Horde] AI session {Levels} ended: workers joined ({discarded} queued steps discarded), {brains.BrainsAdded} brains added, {brains.BrainsRemoved} removed, "
@@ -262,6 +270,20 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         RobotHits++;
         int seat = SeatOf(hit.Attacker.EntryIndex);
         brains.Hit(clock.Tick, hit.Robot, seat > 0 ? seat : -1, (float)hit.Taken, hit.Killed, bodies.Body(hit.Body).Position);
+    }
+
+    /// <summary>
+    /// A taunt (a hero's threat skill, HO8): the robot's brain is told hero <paramref name="seat"/>
+    /// attacked it, a Damaged of nothing with the hero as its source, so it turns on him and
+    /// carries him as its target. The core has no taunt event yet (B.3's
+    /// <c>Taunted { robot, by, until }</c>); this is the event the brain already answers.
+    /// </summary>
+    public void Taunted(RobotId robot, int body, int seat)
+    {
+        if (_brains is not { } brains || _horde?.Bodies is not { } bodies || seat <= 0)
+            return;
+        Taunts++;
+        brains.Hit(clock.Tick, robot, seat, 0f, false, bodies.Body(body).Position);
     }
 
     /// <summary>A hero died (the death hook): told to the robots that held sight of it.</summary>
@@ -298,7 +320,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             + $"events in {c.EventsIn} processed {c.EventsProcessed} waiting {b.EventsWaiting} discarded {b.EventsDiscarded} dropped {c.EventsDropped}; "
             + $"steps run {c.StepsRun} skipped {c.StepsSkipped} faulted {c.StepsFaulted} in flight {c.InFlight} (most {c.InFlightMax}), brain cpu {c.BrainCpuMicrosMean:0.0} us a decide; "
             + $"sight traces {v.Traces} (last tick {v.TracesThisTick}, most {v.MostTraces} of {v.Budget}, candidates {v.CandidatesThisTick}, unserved {v.UnservedThisTick}, longest wait {v.LongestWait} ticks), gained {v.Gains} lost {v.Losses}; "
-            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}; hits {RobotHits}, hero deaths {HeroDeaths}, stuck {b.Stuck}; "
+            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}; "
             + $"hero slots {HeroSlotsLine(b)}{(SoundsOverflowed > 0 || FarOverflowed > 0 || c.EventsDropped > 0 ? "; EVENTS LOST" : "")}");
     }
 
@@ -362,10 +384,21 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
 
     private readonly record struct Queued(SoundKind Kind, AiVector At, float Reach, int Owner);
 
-    /// <summary>The brains' seams over this level's bodies, the motion, the action sink and the engine's sight.</summary>
-    private sealed class Adapters(RobotBodies bodies, IRobotMotion motion, IRobotActionSink actions, ISightWorld world, EntityHandle[] heroPlayer)
-        : IHordeBodyPoses, IHordeOrders, IHordeLines
+    /// <summary>The brains' seams over this level's bodies, the motion, the action sink, the engine's sight and the guns' lines.</summary>
+    private sealed class Adapters(RobotBodies bodies, IRobotMotion motion, IRobotActionSink actions, ISightWorld world, EntityHandle[] heroPlayer,
+                                  Attacks.IRobotAttackWorld fireLines)
+        : IHordeBodyPoses, IHordeOrders, IHordeLines, IHordeBodyAim
     {
+        public AiAngles Aim(int body) => Attacks.RobotAim.Angles(bodies.Body(body));
+
+        public float LineOfFire(int body, float reach)
+        {
+            var b = bodies.Body(body);
+            Vector eye = Attacks.RobotAim.Eye(b);
+            var line = fireLines.Line(eye, eye + Attacks.RobotAim.Forward(b) * reach, b.Handle);
+            return line.Hit ? line.Fraction * reach : reach;
+        }
+
         public AiVector Position(int body) => bodies.Body(body).Position;
 
         public float Yaw(int body) => bodies.Body(body).Yaw;

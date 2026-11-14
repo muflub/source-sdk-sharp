@@ -184,6 +184,19 @@ public sealed class HostedLedgerFacts : LedgerFacts
     }
 
     [Fact]
+    public async Task A_container_drop_is_refused_as_not_supported_by_the_host()
+    {
+        await _ledger.Load(A);
+        _host.Calls.Clear();
+
+        var drop = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 9, 1, null, 1, default));
+
+        Assert.Equal(LedgerRefusals.HostUnsupported, drop.Refusal);
+        Assert.Empty(_host.Calls);
+        Assert.Empty(_ledger.Floor);
+    }
+
+    [Fact]
     public async Task A_salvage_reads_back_every_output_the_host_made()
     {
         await _ledger.Load(A);

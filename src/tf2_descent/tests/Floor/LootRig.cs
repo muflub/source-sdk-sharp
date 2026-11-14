@@ -8,6 +8,7 @@ using TF2.Descent.Rules;
 using TF2.Descent.Rules.Items;
 using TF2.Descent.Server;
 using TF2.Descent.Server.Items;
+using TF2.Descent.Server.Level;
 using TF2.Descent.Server.Loot;
 using TF2.Descent.Server.Mode;
 using TF2.Descent.Shared;
@@ -42,7 +43,7 @@ internal sealed class RigLootSpawner(ScriptedEntityRegistry registry) : ILootSpa
 }
 
 /// <summary>Rooms by X: room <c>floor(x / 512)</c>, each awake unless a fact puts it to sleep.</summary>
-internal sealed class RigRooms : ILootRooms
+internal sealed class RigRooms : IRoomActivity
 {
     public HashSet<int> Asleep { get; } = [];
 

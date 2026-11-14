@@ -1,0 +1,9 @@
+[
+  { "id": "stun", "status": "stun" },
+  { "id": "emp_stun", "status": "stun" },
+  { "id": "slowed", "status": "slow" },
+  { "id": "mini_crit_marked", "status": "marked" },
+  { "id": "burn", "status": "burn" },
+  { "id": "bleed", "status": "bleed" },
+  { "id": "knock_up", "knockUp": 450 }
+]

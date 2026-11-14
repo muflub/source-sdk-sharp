@@ -81,9 +81,9 @@ public sealed class InlineMotionStepper(IMotionStep step, int capacity, ThreadCp
 /// main thread does without this tick rather than wait, and the bodies hold.
 ///
 /// <para>
-/// The step's world must be safe to read off the main thread (a voxel world;
-/// never the engine's). Until Descent may load one (HO3's ruling, proposal in
-/// the hand-back) this stepper runs in facts only.
+/// The step's world must be safe to read off the main thread: the level's voxel
+/// columns (<see cref="VoxelMotionWorld"/>), never the engine's. The horde's nav
+/// hands the motion one once the level's voxels are ready (<c>HordeNav</c>).
 /// </para>
 /// </summary>
 public sealed class WorkerMotionStepper : IMotionStepper, IThreadPoolWorkItem
@@ -123,6 +123,9 @@ public sealed class WorkerMotionStepper : IMotionStepper, IThreadPoolWorkItem
 
     /// <summary>Submits refused because the worker held the lock.</summary>
     public long Contended { get; private set; }
+
+    /// <summary>Whether a set handed over is still being run (or waits to be).</summary>
+    public bool Busy => Volatile.Read(ref _busy);
 
     /// <summary>Finished sets dropped as more than a tick old.</summary>
     public long Stale { get; private set; }

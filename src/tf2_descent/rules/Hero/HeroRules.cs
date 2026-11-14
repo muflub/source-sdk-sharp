@@ -276,6 +276,15 @@ public sealed class HeroRules
         if (ranks + sheet.SkillPoints != skillEarned)
             return AuditResult.Fail("skill_points",
                 $"{ranks} ranks + {sheet.SkillPoints} unspent is not the {skillEarned} earned by level {sheet.Level}");
+
+        // Spell ranks are read from tomes (R27): a known spell, never past its cap.
+        foreach (var (spell, rank) in sheet.SpellRanks)
+        {
+            if (!_content.Spells.TryGet(spell, out var def))
+                return AuditResult.Fail("spell_unknown", $"'{spell}' is not a spell");
+            if (rank < 0 || rank > def.MaxRank)
+                return AuditResult.Fail("spell_rank", $"{spell} rank {rank} is outside 0..{def.MaxRank}");
+        }
         return AuditBar(sheet);
     }
 

@@ -71,6 +71,15 @@ public partial class RobotNetState
     public partial byte Flags { get; set; }
 
     public partial byte Statuses { get; set; }
+
+    /// <summary>
+    /// The attack gesture the client lays over the gait (HO7): a sequence played on an
+    /// animation layer from its start each time <see cref="GestureSerial"/> changes; -1 is none
+    /// (the layer off).
+    /// </summary>
+    public partial short Gesture { get; set; }
+
+    public partial byte GestureSerial { get; set; }
 }
 
 /// <summary>

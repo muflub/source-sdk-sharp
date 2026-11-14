@@ -21,6 +21,7 @@ public sealed class ItemRules
         Views = new ItemViews(content, Roller);
         Equipment = new Equipment(content, heroes, Roller);
         Durability = new Durability(content, Roller);
+        Belt = new BeltRules(content);
     }
 
     public ItemRoller Roller { get; }
@@ -30,6 +31,9 @@ public sealed class ItemRules
 
     /// <summary>Wear by use and by hit (RU8).</summary>
     public Durability Durability { get; }
+
+    /// <summary>The potion belt: what a drink restores and the cooldown it starts (HE8).</summary>
+    public BeltRules Belt { get; }
 
     /// <summary>The rarity names in tier order (D5): <c>IGameRules.Tiers</c>.</summary>
     public IReadOnlyList<string> Tiers => [.. _content.Rarities.Rows.Select(r => r.Name)];

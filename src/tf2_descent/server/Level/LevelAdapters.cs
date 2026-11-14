@@ -43,7 +43,7 @@ public static class LevelAdapters
         var rooms = level.Rooms.Select(r => new HordeRoom(r.Id, Ai(r.Min), Ai(r.Max),
             [.. level.In(r.Id).Where(m => m.Kind == LevelMarkerKind.PackSpawn).Select(m => new PackMarker(Ai(m.Position), m.Yaw))]));
         var doors = level.Doors.GroupBy(d => (d.RoomA, d.RoomB)).Select(g => g.MinBy(d => d.Id)!).OrderBy(d => d.Id)
-            .Select(d => new HordeDoor(d.RoomA, d.RoomB, Ai(d.Position), Ai(d.Normal), d.Width));
+            .Select(d => new HordeDoor(d.RoomA, d.RoomB, Ai(d.Position), Ai(d.Normal), d.Width, d.Height));
         HordeBoss? boss = null;
         if (bossTemplate is not null && level.BossArena is int arena)
         {

@@ -25,7 +25,7 @@
         "partyWide": true, "lasts": "level", "stats": [ { "stat": "mana_regen_pct", "amount": -50 } ], "refill": false, "revealMap": false, "spellRanks": 0 }
     ]
   },
-  "dispenser": { "charge": 600, "healPerSecond": 20, "ammoPerSecond": 40, "chargePerHealth": 1, "chargePerAmmo": 0.5 },
+  "dispenser": { "charge": 600, "healPerSecond": 20, "ammoPerSecond": 40, "chargePerHealth": 1, "chargePerAmmo": 0.5, "radius": 64 },
   "containers": {
     "lootTable": "container",
     "lockedPct": 20,
@@ -37,13 +37,13 @@
     ]
   },
   "explosives": [
-    { "id": "barrel", "weight": 70, "damageType": "blast", "damage": 110, "radius": 146, "edgePct": 50, "chainRadius": 180 },
-    { "id": "pumpkin_bomb", "weight": 30, "damageType": "blast", "damage": 150, "radius": 160, "edgePct": 50, "chainRadius": 200 }
+    { "id": "barrel", "weight": 70, "damageType": "blast", "damage": 110, "radius": 146, "edgePct": 50, "chainRadius": 180, "health": 40, "chainDelay": 0.25 },
+    { "id": "pumpkin_bomb", "weight": 30, "damageType": "blast", "damage": 150, "radius": 160, "edgePct": 50, "chainRadius": 200, "health": 1, "chainDelay": 0.2 }
   ],
   "traps": [
-    { "id": "dart", "weight": 30, "damageType": "bullet", "damage": 25, "radius": 0, "tell": { "kind": "sound", "token": "click" } },
-    { "id": "flame_jet", "weight": 25, "damageType": "fire", "damage": 40, "radius": 0, "tell": { "kind": "visual", "token": "scorch_marks" } },
-    { "id": "charge", "weight": 20, "damageType": "blast", "damage": 90, "radius": 120, "tell": { "kind": "sound", "token": "beeping" } },
-    { "id": "tesla_coil", "weight": 25, "damageType": "shock", "damage": 35, "radius": 96, "tell": { "kind": "visual", "token": "sparks" } }
+    { "id": "dart", "weight": 30, "damageType": "bullet", "damage": 25, "radius": 0, "trigger": 32, "fuse": 0.4, "rearm": 3, "robots": true, "tell": { "kind": "sound", "token": "click" } },
+    { "id": "flame_jet", "weight": 25, "damageType": "fire", "damage": 40, "radius": 0, "trigger": 32, "fuse": 0.6, "rearm": 4, "robots": true, "tell": { "kind": "visual", "token": "scorch_marks" } },
+    { "id": "charge", "weight": 20, "damageType": "blast", "damage": 90, "radius": 120, "trigger": 40, "fuse": 1.0, "rearm": 0, "robots": true, "tell": { "kind": "sound", "token": "beeping" } },
+    { "id": "tesla_coil", "weight": 25, "damageType": "shock", "damage": 35, "radius": 96, "trigger": 48, "fuse": 0.5, "rearm": 5, "robots": true, "tell": { "kind": "visual", "token": "sparks" } }
   ]
 }

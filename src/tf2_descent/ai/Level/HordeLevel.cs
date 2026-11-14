@@ -3,8 +3,28 @@ using SourceSharp.Ai;
 
 namespace TF2.Descent.Ai.Level;
 
-/// <summary>A <c>descent_spawn_pack</c> marker: where a robot of the room's pack stands, and the way it faces (degrees).</summary>
-public readonly record struct PackMarker(AiVector Position, float Yaw);
+/// <summary>
+/// The room a marker has round it (plan_tf2_rpg 5d, plan_descent_logic HO9): how far a robot
+/// standing on it can reach west (−x), east (+x), south (−y) and north (+y) before a wall, a
+/// prop or anything else solid, above a step, and how far up to the ceiling. The server
+/// measures it at level ready (a level ships none); a robot whose scaled hull it holds can
+/// stand there.
+/// </summary>
+public readonly record struct MarkerClearance(float West, float East, float South, float North, float Height)
+{
+    /// <summary>The nearest wall, whichever side it is on.</summary>
+    public float Narrowest => MathF.Min(MathF.Min(West, East), MathF.Min(South, North));
+
+    /// <summary>Whether a box <paramref name="half"/> wide each way and <paramref name="height"/> tall stands here.</summary>
+    public bool Holds(float half, float height) => Narrowest >= half && Height >= height;
+}
+
+/// <summary>
+/// A <c>descent_spawn_pack</c> marker: where a robot of the room's pack stands, the way it faces
+/// (degrees), and the room it has round it, when measured (none: unmeasured, which holds
+/// anything, and the director counts it).
+/// </summary>
+public readonly record struct PackMarker(AiVector Position, float Yaw, MarkerClearance? Clearance = null);
 
 /// <summary>
 /// A room as the horde sees it: its id (its index in the level), its bounds, and its pack
@@ -17,10 +37,11 @@ public sealed record HordeRoom(int Id, AiVector Min, AiVector Max, ImmutableArra
 }
 
 /// <summary>
-/// A door between two rooms: its centre, its normal (unit length, pointing from
-/// <see cref="RoomA"/> into <see cref="RoomB"/>) and its width.
+/// A door between two rooms: its centre (the middle of its sill), its normal (unit length,
+/// pointing from <see cref="RoomA"/> into <see cref="RoomB"/>), its width and its height
+/// (unbounded when the level does not say).
 /// </summary>
-public sealed record HordeDoor(int RoomA, int RoomB, AiVector Position, AiVector Normal, float Width)
+public sealed record HordeDoor(int RoomA, int RoomB, AiVector Position, AiVector Normal, float Width, float Height = float.PositiveInfinity)
 {
     /// <summary>The room on the far side from <paramref name="room"/>.</summary>
     public int Other(int room) => room == RoomA ? RoomB : RoomA;
@@ -214,5 +235,18 @@ public sealed class HordeLevel
         var roomDoors = new int[n][];
         for (int i = 0; i < n; i++) roomDoors[i] = [.. perRoom[i]];
         return new HordeLevel(seed, depth, r, d, boss, hops, next, doorOf, roomDoors, path);
+    }
+
+    /// <summary>
+    /// This level with each pack marker's clearance as <paramref name="clearance"/> answers it
+    /// (room id, marker index, the marker; null leaves it unmeasured); everything else the same.
+    /// </summary>
+    public HordeLevel WithClearances(Func<int, int, PackMarker, MarkerClearance?> clearance)
+    {
+        var rooms = Rooms.Select(room => room with
+        {
+            Markers = [.. room.Markers.Select((m, k) => m with { Clearance = clearance(room.Id, k, m) })],
+        });
+        return Create(Seed, Depth, rooms, Doors, Boss);
     }
 }

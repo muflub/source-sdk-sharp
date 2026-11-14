@@ -1,0 +1,21 @@
+{
+  "belt": { "cooldown": 3, "restoreStat": "potion_restore_pct", "cooldownStat": "potion_cooldown_pct", "refuseAtFull": true, "refill": true },
+  "potions": [
+    { "base": "health_small", "restores": "life" },
+    { "base": "health_medium", "restores": "life" },
+    { "base": "health_large", "restores": "life" },
+    { "base": "mana_small", "restores": "mana" },
+    { "base": "mana_medium", "restores": "mana" },
+    { "base": "mana_large", "restores": "mana" }
+  ],
+  "scrolls": [
+    { "base": "dossier", "use": "identify" },
+    { "base": "town_portal", "use": "town_portal" }
+  ],
+  "tomes": [
+    { "base": "tome_fireball", "spell": "fireball" },
+    { "base": "tome_lightning_ball", "spell": "lightning_ball" },
+    { "base": "tome_pumpkin_mirv", "spell": "pumpkin_mirv" },
+    { "base": "tome_blast_jump", "spell": "blast_jump" }
+  ]
+}

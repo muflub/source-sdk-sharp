@@ -31,6 +31,10 @@ public sealed class ClientRobot(IEngineEntityRender render, ClientRobotPoses pos
     private readonly float[] _now = new float[Poses];
     private float _scale = -1f;
     private int _serial = -1, _sequence = -1;
+    private int _gesture = -1, _gestureSerial = -1;
+
+    /// <summary>The animation layer an attack gesture plays on.</summary>
+    public const int GestureLayer = 0;
 
     /// <summary>Updates decoded since the entity was made.</summary>
     public int Updates { get; private set; }
@@ -63,6 +67,14 @@ public sealed class ClientRobot(IEngineEntityRender render, ClientRobotPoses pos
             _serial = State.SequenceSerial;
             if (_sequence >= 0)
                 Render.PlaySequence(Handle, _sequence, 1f, true);
+        }
+
+        // The attack gesture (HO7): laid over the gait on a layer of its own, from its start; -1 takes it off.
+        if (State.Gesture != _gesture || State.GestureSerial != _gestureSerial)
+        {
+            _gesture = State.Gesture;
+            _gestureSerial = State.GestureSerial;
+            Render.SetAnimLayer(Handle, GestureLayer, _gesture >= 0 ? _gesture : -1, 1f, 1f, 0, true);
         }
 
         if (_pose[0] == -2)

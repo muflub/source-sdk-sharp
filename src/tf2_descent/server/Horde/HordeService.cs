@@ -9,8 +9,10 @@ namespace TF2.Descent.Server.Horde;
 /// The horde's life with the level (plan_descent_logic HO2). At level ready,
 /// when the Descent mode plays and the map is a level
 /// (<see cref="DescentLevelName"/>: a generated <c>tf2_descent-&lt;depth&gt;-s&lt;seed&gt;</c>,
-/// never the town), it asks the level source for the level, makes the one
-/// controller, has it roll the roster and make the pool, and logs the census.
+/// never the town), it asks the level source for the level, measures each pack
+/// marker's clearance (HO9), asks the party present (D11), makes the one
+/// controller, has it roll the roster through the spawn director and make the
+/// pool, and logs the census.
 /// Every server tick it runs the controller's tick (timed while the timer is
 /// on). At level shutdown, while the entities still exist, the controller
 /// drops what it owns and the parking table is cleared; the engine removes the
@@ -18,7 +20,8 @@ namespace TF2.Descent.Server.Horde;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HordeService(IDescentModeState mode, IHordeLevelSource levels, IHordeSpawner spawner, IHordeClock clock,
-                                 HordeParking parking, HordeCensus census, HordeTickTimer timer, ILog log)
+                                 HordeParking parking, HordeCensus census, HordeTickTimer timer, ILog log,
+                                 Director.IMarkerClearances clearances, Director.IHordeParty party)
     : IGameLifecycle, IFrameLifecycle
 {
     public const int Order = ModStages.First + 500;
@@ -54,6 +57,12 @@ public sealed class HordeService(IDescentModeState mode, IHordeLevelSource level
             return;
         }
 
+        // The spawn director plans from each marker's clearance, which no level ships: measure it now (HO9).
+        level = clearances.Measure(level);
+        int partySize = party.PartySize();
+        var (markers, inSolid) = clearances.Last;
+        log.Msg($"[TF2Descent/Horde] {mapName}: measured {markers} pack markers ({inSolid} in solid); the roster is rolled for a party of {partySize}\n");
+
         int map = spawner.Edicts();
         var controller = spawner.Controller();
         if (controller is null)
@@ -64,7 +73,7 @@ public sealed class HordeService(IDescentModeState mode, IHordeLevelSource level
 
         ControllersMade++;
         Current = controller;
-        if (!controller.Begin(level, clock.TicksPerSecond, partySize: 1, clock.Tick))
+        if (!controller.Begin(level, clock.TicksPerSecond, partySize, clock.Tick))
         {
             Drop();
             return;

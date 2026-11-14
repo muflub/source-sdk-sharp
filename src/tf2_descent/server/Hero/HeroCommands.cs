@@ -61,8 +61,14 @@ public sealed class HeroCommandGate(SvCheatsConVar cheats, Heroes heroes, ILog l
             $"[TF2Descent/Hero] {slot} {s.Name}: {s.ClassId} level {s.Level} xp {s.Xp} points {s.AttributePoints} skill points {s.SkillPoints} " +
             $"hardcore {(s.Hardcore ? 1 : 0)} | {attributes} | life max {st.MaxLife:0.#} mana {hero.Mana:0.##}/{st.MaxMana:0.#} " +
             $"regen {st.ManaRegenPerSecond:0.###}/s speed {st.MoveSpeed:0.#} armour {st.Armour:0.#} crit {st.CritChance:0.###} " +
-            $"| net mana {hero.State?.Mana} level {hero.State?.Level} | bestiary {Bestiary(s)}\n");
+            $"| net mana {hero.State?.Mana} level {hero.State?.Level} | spells {Spells(s)} | bestiary {Bestiary(s)}\n");
     }
+
+    /// <summary>The sheet's spell ranks read from tomes (<c>fireball 2</c>), or <c>none</c>.</summary>
+    public static string Spells(TF2.Descent.Rules.Hero.HeroSheet sheet) =>
+        sheet.SpellRanks.IsEmpty
+            ? "none"
+            : string.Join(" ", sheet.SpellRanks.Select(b => string.Create(CultureInfo.InvariantCulture, $"{b.Key} {b.Value}")));
 
     /// <summary>The sheet's kills by template (<c>runt_scout 2 soldier 1</c>), or <c>none</c>.</summary>
     public static string Bestiary(TF2.Descent.Rules.Hero.HeroSheet sheet) =>

@@ -161,6 +161,7 @@ public sealed class HeroComponent : IPlayerComponent
 
         Entity = EntityHandle.None;
         State = null;
+        Downed = false;
         PlayerIndex = -1;
         Player = EntityHandle.None;
     }
@@ -219,6 +220,37 @@ public sealed class HeroComponent : IPlayerComponent
         if (result.Ok)
             Recompute();
         return result;
+    }
+
+    /// <summary>
+    /// The hero is down (R26, WO6): on the ground, bleeding out. Set by the
+    /// downed state (<c>HeroDowned</c>) and read by everything a downed
+    /// hero may not do (skills, the belt, scrolls, his weapons).
+    /// </summary>
+    public bool Downed { get; private set; }
+
+    /// <summary>The downed state onto the hero and the wire: down from <paramref name="startTick"/> to <paramref name="endTick"/>, or up (both 0).</summary>
+    public void ShowDowned(bool down, int startTick, int endTick)
+    {
+        Downed = down;
+        if (State is not { } state)
+            return;
+        state.Downed = down;
+        state.DownedStartTick = down ? startTick : 0;
+        state.DownedEndTick = down ? endTick : 0;
+        if (!down)
+            ShowRevive(0, 0, 0);
+    }
+
+    /// <summary>Who is reviving the hero (a player index, 0 for nobody) and the ticks the revive began and completes at.</summary>
+    public void ShowRevive(int reviverIndex, int startTick, int endTick)
+    {
+        if (State is not { } state)
+            return;
+        bool on = reviverIndex > 0;
+        state.ReviverIndex = (byte)Math.Clamp(on ? reviverIndex : 0, 0, 127);
+        state.ReviveStartTick = on ? startTick : 0;
+        state.ReviveEndTick = on ? endTick : 0;
     }
 
     /// <summary>The stats again, now: a contribution changed (an item equipped, a skill bought).</summary>

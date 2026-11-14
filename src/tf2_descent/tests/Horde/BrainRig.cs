@@ -45,6 +45,23 @@ internal sealed class FakeOrders : IHordeOrders
     public void Act(int body, in ActionIntent action) => Acts.Add((body, action));
 }
 
+/// <summary>The bodies' guns: each looks along its facing, level, and its line of fire runs its whole reach, unless a fact says otherwise; counts every line traced.</summary>
+internal sealed class FakeAim(FakePoses poses) : IHordeBodyAim
+{
+    public Func<int, AiAngles>? Look { get; set; }
+    public Func<int, float, float> Line { get; set; } = (_, reach) => reach;
+    /// <summary>Lines traced, by body (an array, so the rig's allocation facts count only the horde's own).</summary>
+    public int[] Traced { get; } = new int[64];
+
+    public AiAngles Aim(int body) => Look?.Invoke(body) ?? new AiAngles(0f, poses.Yaw(body), 0f);
+
+    public float LineOfFire(int body, float reach)
+    {
+        Traced[body]++;
+        return Line(body, reach);
+    }
+}
+
 /// <summary>Lines and the PVS, clear unless a fact says otherwise; counts every line.</summary>
 internal sealed class FakeLines : IHordeLines
 {
@@ -72,16 +89,20 @@ internal sealed class BrainRig
     public const double Tps = 1 / 0.015;
 
     public BrainRig(HordeLevel? level = null, IAiTransport? transport = null, IAiRecordSink? sink = null,
-                    Action<HordeDeciders>? register = null, int budget = HordeVision.DefaultBudget)
+                    Action<HordeDeciders>? register = null, int budget = HordeVision.DefaultBudget, IHordePaths? paths = null)
     {
         Level = level ?? Row(4, markers: 0);
         Roster = RobotRoster.Create(TheRules, Tps);
         Roster.Load(Level, 1);
         Pool = BodyPool.For(TheRules.Content.Horde);
-        Deciders = HordeDeciders.For(Level);
+        Deciders = HordeDeciders.For(Level, paths);
         register?.Invoke(Deciders);
-        Brains = HordeBrains.For(Roster, Pool, Level, TheRules, Poses, transport ?? new InlineTransport(), sink ?? new NoRecording(), Deciders, Tps, budget);
+        Aim = new FakeAim(Poses);
+        Brains = HordeBrains.For(Roster, Pool, Level, TheRules, Poses, transport ?? new InlineTransport(), sink ?? new NoRecording(), Deciders, Tps, budget, Aim,
+                                 paths);
     }
+
+    public FakeAim Aim { get; }
 
     public HordeLevel Level { get; }
     public RobotRoster Roster { get; }
@@ -101,11 +122,11 @@ internal sealed class BrainRig
     /// <summary>Whether <see cref="Tick"/> slides the bodies along their orders.</summary>
     public bool Slide { get; set; } = true;
 
-    /// <summary>A far robot of <paramref name="template"/> at <paramref name="at"/> in its room.</summary>
-    public RobotId Robot(AiVector at, string template = "soldier", ulong seed = 42)
+    /// <summary>A far robot of <paramref name="template"/> at <paramref name="at"/> in its room: a pack of its own, or the newest pack's with <paramref name="joinLastPack"/>.</summary>
+    public RobotId Robot(AiVector at, string template = "soldier", ulong seed = 42, bool joinLastPack = false)
     {
         int room = Level.RoomAt(at);
-        var id = Roster.Add(template, 1.0, room, new PackMarker(at, 0f), seed);
+        var id = Roster.Add(template, 1.0, room, new PackMarker(at, 0f), seed, joinLastPack: joinLastPack);
         Assert.True(id.IsValid, "the roster is full");
         return id;
     }

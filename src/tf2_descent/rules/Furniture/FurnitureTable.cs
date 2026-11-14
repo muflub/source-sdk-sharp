@@ -52,8 +52,12 @@ public sealed record ShrineEffect(
     bool RevealMap,
     int SpellRanks) : IContentRow;
 
-/// <summary>A Dispenser's finite charge and its rates; health and ammo each cost charge by the point.</summary>
-public sealed record DispenserSettings(double Charge, double HealPerSecond, double AmmoPerSecond, double ChargePerHealth, double ChargePerAmmo);
+/// <summary>
+/// A Dispenser's finite charge and its rates; health and ammo each cost charge by the point.
+/// <see cref="Radius"/> is how near a hero stands to draw from it (stock's dispenser radius, 64).
+/// </summary>
+public sealed record DispenserSettings(double Charge, double HealPerSecond, double AmmoPerSecond, double ChargePerHealth, double ChargePerAmmo,
+    double Radius);
 
 public sealed record ContainerKind(string Id, double Weight);
 
@@ -63,15 +67,23 @@ public sealed record ContainerSettings(string LootTable, double LockedPct, doubl
 /// <summary>
 /// A barrel or a pumpkin bomb: full damage at its centre falling linearly to
 /// <see cref="EdgePct"/> of it at <see cref="Radius"/>, nothing beyond; any other explosive
-/// within <see cref="ChainRadius"/> goes off too.
+/// within <see cref="ChainRadius"/> goes off too, <see cref="ChainDelay"/> seconds after it.
+/// It goes off when the damage it has taken reaches <see cref="Health"/>.
 /// </summary>
-public sealed record ExplosiveRow(string Id, double Weight, string DamageType, double Damage, double Radius, double EdgePct, double ChainRadius) : IContentRow;
+public sealed record ExplosiveRow(string Id, double Weight, string DamageType, double Damage, double Radius, double EdgePct, double ChainRadius,
+    double Health, double ChainDelay) : IContentRow;
 
 /// <summary>A trap's tell: something a careful player sees or hears before it fires (2l).</summary>
 public sealed record TrapTell(string Kind, string Token);
 
-/// <summary>A trap: its damage type and damage, its radius (0: only what trips it), and its tell.</summary>
-public sealed record TrapRow(string Id, double Weight, string DamageType, double Damage, double Radius, TrapTell Tell) : IContentRow;
+/// <summary>
+/// A trap: its damage type and damage, its radius (0: only what stands in its trigger area), and
+/// its tell. A body that walks within <see cref="Trigger"/> units of it trips it (a robot only when
+/// <see cref="Robots"/>); the tell is given then, and it fires <see cref="Fuse"/> seconds later.
+/// It is armed again <see cref="Rearm"/> seconds after it fires; 0 never.
+/// </summary>
+public sealed record TrapRow(string Id, double Weight, string DamageType, double Damage, double Radius, TrapTell Tell,
+    double Trigger, double Fuse, double Rearm, bool Robots) : IContentRow;
 
 /// <summary>
 /// furniture.json (plan_tf2_rpg 2l, R24; plan_descent_logic RU11): the markers and their
@@ -125,7 +137,8 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
         shrines.End();
 
         var d = f.Obj("dispenser");
-        var dispenser = new DispenserSettings(d.Num("charge"), d.Num("healPerSecond"), d.Num("ammoPerSecond"), d.Num("chargePerHealth"), d.Num("chargePerAmmo"));
+        var dispenser = new DispenserSettings(d.Num("charge"), d.Num("healPerSecond"), d.Num("ammoPerSecond"), d.Num("chargePerHealth"), d.Num("chargePerAmmo"),
+            d.Num("radius"));
         d.End();
 
         var c = f.Obj("containers");
@@ -142,7 +155,8 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
         var explosives = f.Array("explosives").Select(e =>
         {
             var x = new JsonFields(e, f.Table, "explosives", f.Errors);
-            var r = new ExplosiveRow(x.Str("id"), x.Num("weight"), x.Str("damageType"), x.Num("damage"), x.Num("radius"), x.Num("edgePct"), x.Num("chainRadius"));
+            var r = new ExplosiveRow(x.Str("id"), x.Num("weight"), x.Str("damageType"), x.Num("damage"), x.Num("radius"), x.Num("edgePct"), x.Num("chainRadius"),
+                x.Num("health"), x.Num("chainDelay"));
             x.End();
             return r;
         }).ToList();
@@ -152,7 +166,7 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
             var t = new JsonFields(e, f.Table, "traps", f.Errors);
             var tell = t.Obj("tell");
             var r = new TrapRow(t.Str("id"), t.Num("weight"), t.Str("damageType"), t.Num("damage"), t.Num("radius"),
-                new TrapTell(tell.Str("kind"), tell.Str("token")));
+                new TrapTell(tell.Str("kind"), tell.Str("token")), t.Num("trigger"), t.Num("fuse"), t.Num("rearm"), t.Bool("robots"));
             tell.End();
             t.End();
             return r;
@@ -213,6 +227,7 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
         ContentChecks.Range(errors, t, "dispenser", "ammoPerSecond", d.AmmoPerSecond, 0, 1e4);
         ContentChecks.Range(errors, t, "dispenser", "chargePerHealth", d.ChargePerHealth, 1e-6, 1e4);
         ContentChecks.Range(errors, t, "dispenser", "chargePerAmmo", d.ChargePerAmmo, 1e-6, 1e4);
+        ContentChecks.Range(errors, t, "dispenser", "radius", d.Radius, 1, 1024);
 
         ContentChecks.Range(errors, t, "containers", "lockedPct", s.Containers.LockedPct, 0, 100);
         ContentChecks.Range(errors, t, "containers", "trappedPct", s.Containers.TrappedPct, 0, 100);
@@ -229,6 +244,12 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
             ContentChecks.Range(errors, t, x.Id, "radius", x.Radius, 1, 4096);
             ContentChecks.Range(errors, t, x.Id, "edgePct", x.EdgePct, 0, 100);
             ContentChecks.Range(errors, t, x.Id, "chainRadius", x.ChainRadius, 0, 4096);
+            ContentChecks.Range(errors, t, x.Id, "health", x.Health, 1, 1e5);
+            ContentChecks.Range(errors, t, x.Id, "chainDelay", x.ChainDelay, 0, 10);
+            // The chain is the only way one explosive sets off another: one its blast reaches
+            // must be one its chain reaches, or the blast's damage would set it off by another rule.
+            if (x.ChainRadius < x.Radius)
+                errors.Add(t, x.Id, ContentRule.OutOfRange, $"chainRadius {x.ChainRadius} is less than radius {x.Radius}: a blast would reach an explosive its chain does not");
         }
         Weighted(errors, "explosives", s.Explosives.Select(x => x.Weight));
 
@@ -239,6 +260,9 @@ public sealed class FurnitureTable : SingleTable<FurnitureSettings>
             DamageType(content, errors, x.Id, x.DamageType);
             ContentChecks.Range(errors, t, x.Id, "damage", x.Damage, 0, 1e5);
             ContentChecks.Range(errors, t, x.Id, "radius", x.Radius, 0, 4096);
+            ContentChecks.Range(errors, t, x.Id, "trigger", x.Trigger, 1, 1024);
+            ContentChecks.Range(errors, t, x.Id, "fuse", x.Fuse, 0, 10);
+            ContentChecks.Range(errors, t, x.Id, "rearm", x.Rearm, 0, 3600);
             if (x.Tell.Kind is not ("sound" or "visual"))
                 errors.Add(t, x.Id, ContentRule.OutOfRange, $"a tell is a sound or a visual, not '{x.Tell.Kind}'");
             if (string.IsNullOrEmpty(x.Tell.Token))

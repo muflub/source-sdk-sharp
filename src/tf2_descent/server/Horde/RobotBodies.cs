@@ -7,6 +7,7 @@ using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
 using TF2.Descent.Rules;
 using TF2.Descent.Rules.Robots;
+using TF2.Descent.Server.Skills;
 using TF2.Descent.Shared;
 
 namespace TF2.Descent.Server.Horde;
@@ -28,10 +29,16 @@ public sealed class RobotBodies : IRobotBodies
     private readonly HordeParking _parking;
     private readonly IRobotHitSink _hits;
     private readonly IEngineEntityRender _render;
+    private readonly ISkillHits _skillHits;
     private readonly Dictionary<(string Model, string Sequence), int> _sequences = new();
 
+    // A status's damage tick in flight (BeginStatusTick): the body it is for, its amount and type.
+    private int _tickBody;
+    private double _tickAmount;
+    private string _tickType = "";
+
     public RobotBodies(RobotBody[] bodies, RobotRoster roster, HordeLevel level, TF2DescentRules rules, HordeParking parking,
-                       IRobotHitSink hits, IEngineEntityRender render)
+                       IRobotHitSink hits, IEngineEntityRender render, ISkillHits skillHits)
     {
         _bodies = bodies;
         _roster = roster;
@@ -40,6 +47,7 @@ public sealed class RobotBodies : IRobotBodies
         _parking = parking;
         _hits = hits;
         _render = render;
+        _skillHits = skillHits;
     }
 
     /// <summary>The highest body index.</summary>
@@ -81,7 +89,7 @@ public sealed class RobotBodies : IRobotBodies
         string model = RobotLooks.BodyModel(t);
 
         body.Lend(lease, robot, model, (float)_roster.Scale(i), start.Position, start.Yaw, start.Life, stats.Life,
-                  TemplateId(t.Id), (byte)Math.Clamp(_roster.MonsterLevel(i), 0, 255), flags, StatusBits(start.Statuses));
+                  TemplateId(t.Id), (byte)Math.Clamp(_roster.MonsterLevel(i), 0, 255), flags, (byte)_roster.StatusBits(i));
         body.Play(Sequence(body, model, RobotLooks.IdleSequence(t)), running: false);
         body.Weapon?.Show(RobotLooks.WeaponModel(t));
         _parking.Unpark(body.Handle);
@@ -119,22 +127,36 @@ public sealed class RobotBodies : IRobotBodies
             int i = body.Robot.Index;
             int room = _level.RoomAt(body.Position);
             _roster.SetPose(i, room >= 0 ? room : _roster.Room(i), body.Position, body.Yaw);
-            body.SetStatuses(StatusBits(_roster.Statuses(i)));
+            body.SetStatuses((byte)_roster.StatusBits(i));
         }
     }
 
     /// <summary>
     /// A hit on <paramref name="body"/> (its <see cref="RobotBody.OnDamagedAt"/>,
     /// after TF's modify rules). A parked body, or one whose robot is dead,
-    /// takes nothing and hands nothing on. Otherwise the rules take the robot's
-    /// life (<see cref="RobotRules.DamageTaken"/>: its resistance to the hit's
-    /// damage type, nothing for the type it is immune to), the hit is handed
-    /// on (<see cref="IRobotHitSink"/>) whatever it took, and the answer is the
-    /// engine health that leaves the body at the robot's life rounded up: all
-    /// of it when the hit killed, so the shell runs the death.
+    /// takes nothing and hands nothing on. Otherwise:
+    /// <list type="bullet">
+    /// <item>THE TYPE is the hit's: a skill's hit (<see cref="ISkillHits.Current"/>)
+    /// is its declared type (<see cref="TF2.Descent.Rules.Skills.SkillRules.DamageTypeOf"/>:
+    /// EMP Charge is shock whatever its energy ball's bits say), a status's
+    /// damage tick (<see cref="BeginStatusTick"/>) the status's, anything else
+    /// its bits' (<see cref="RobotDamageKinds.Of"/>).</item>
+    /// <item>THE LIFE the rules take: its resistance to that type
+    /// (<see cref="RobotRules.DamageTaken"/>), times its statuses' damage-taken
+    /// multiplier (a mark); nothing at all for the type it is immune to, which is
+    /// an IMMUNE hit (<see cref="RobotHit.Immune"/>). A status's tick is its
+    /// amount, not what TF's layer made of the hit carrying it.</item>
+    /// <item>The hit is handed on (<see cref="IRobotHitSink"/>) whatever it took,
+    /// an immune one too, so the brain still hears who attacked it.</item>
+    /// </list>
+    /// The answer is the engine health that leaves the body at the robot's life
+    /// rounded up: none for an immune hit, all of it when the hit killed, so the
+    /// shell runs the death.
     /// </summary>
     public int Hit(RobotBody body, EntityHandle attacker, float damage, DamageType bits, Vector position, Vector force, HitGroup group)
     {
+        bool statusTick = _tickBody != 0 && _tickBody == body.Index;
+        _tickBody = 0;
         if (body.Parked || !_roster.IsLive(body.Robot))
             return 0;
 
@@ -142,9 +164,16 @@ public sealed class RobotBodies : IRobotBodies
         if (_roster.State(i) != RobotState.Embodied)
             return 0;
 
-        string type = RobotDamageKinds.Of(bits);
+        // Robots are one team, as TF2's are: a robot's attack hurts the heroes and, by its own blast, itself
+        // (L12: hurt and pushed as a player is, and a player is not hurt or pushed by a teammate's rocket).
+        if (!statusTick && attacker != body.Handle && IsBody(attacker))
+            return 0;
+
+        string type = statusTick ? _tickType : TypeOf(bits);
+        double dealt = statusTick ? _tickAmount : damage;
         var stats = _roster.Stats(i);
-        double taken = RobotRules.DamageTaken(stats, type, damage);
+        bool immune = stats.Immunity == type && dealt > 0;
+        double taken = immune ? 0 : RobotRules.DamageTaken(stats, type, dealt) * _roster.DamageTakenFactor(i);
         bool killed = _roster.Hurt(i, taken);
         double life = _roster.Life(i);
         int healthAfter = killed ? 0 : Math.Max(1, (int)Math.Ceiling(life));
@@ -154,9 +183,53 @@ public sealed class RobotBodies : IRobotBodies
         if (killed)
             body.Died();
 
-        _hits.OnRobotHit(new RobotHit(body.Robot, body.Index, attacker, damage, bits, type, taken, life, killed, group, position, force));
+        _hits.OnRobotHit(new RobotHit(body.Robot, body.Index, attacker, (float)dealt, bits, type, taken, life, killed, group, position, force,
+                                      immune));
         return answer;
     }
+
+    /// <summary>True when <paramref name="entity"/> is one of the pool's bodies, lent or parked (a rocket outlives its robot's lease).</summary>
+    private bool IsBody(EntityHandle entity)
+    {
+        if (entity == EntityHandle.None)
+            return false;
+        for (int b = 1; b < _bodies.Length; b++)
+        {
+            if (_bodies[b].Handle == entity)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The next hit on body <paramref name="body"/> is a status's damage tick of
+    /// <paramref name="amount"/> (before resistance) of <paramref name="type"/>:
+    /// <see cref="Hit"/> takes these in place of what the engine hands it. The
+    /// caller then deals the hit through the engine, so every hook a hit has
+    /// runs for it, and calls <see cref="EndStatusTick"/>.
+    /// </summary>
+    public void BeginStatusTick(int body, double amount, string type)
+    {
+        _tickBody = body;
+        _tickAmount = amount;
+        _tickType = type;
+    }
+
+    /// <summary>
+    /// The status tick is dealt: the next hit is a plain one. Answers whether the tick was still
+    /// waiting, which is to say the engine never handed the hit to the body.
+    /// </summary>
+    public bool EndStatusTick()
+    {
+        bool waiting = _tickBody != 0;
+        _tickBody = 0;
+        return waiting;
+    }
+
+    /// <summary>A hit's damage type: the skill's declared one while a skill's hit is in flight, else its bits'.</summary>
+    private string TypeOf(DamageType bits) =>
+        _skillHits.Current() is { } skill && _rules.Skills.DamageTypeOf(skill) is { } declared ? declared : RobotDamageKinds.Of(bits);
 
     private void ParkBody(RobotBody body)
     {
@@ -187,20 +260,5 @@ public sealed class RobotBodies : IRobotBodies
             if (rows[r].Id == id)
                 return (byte)Math.Min(r + 1, 255);
         return 0;
-    }
-
-    /// <summary>A bit per status.json row the robot carries, in table order.</summary>
-    private byte StatusBits(RobotStatuses statuses)
-    {
-        if (statuses.Active.IsEmpty)
-            return 0;
-
-        var rows = _rules.Content.Status.Rows;
-        int bits = 0;
-        foreach (var a in statuses.Active)
-            for (int r = 0; r < rows.Count && r < 8; r++)
-                if (rows[r].Id == a.Id)
-                    bits |= 1 << r;
-        return (byte)bits;
     }
 }

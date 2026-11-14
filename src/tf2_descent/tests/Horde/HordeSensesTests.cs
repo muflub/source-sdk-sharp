@@ -114,17 +114,73 @@ public sealed class HordeSensesTests
     }
 
     [Fact]
-    public void A_pack_mate_in_earshot_hears_the_pain_and_a_stranger_does_not()
+    public void A_pack_mate_in_earshot_is_told_its_ally_died_and_by_whom_and_hears_no_sound()
     {
         var (rig, log, hit, mate, stranger) = Pack();
         int body = rig.Roster.Body(hit.Index);
+        var hitActor = rig.Brains.BrainAt(body);
         rig.Brains.Hit(rig.Now, hit, 4, 30f, killed: true, rig.Poses.Position(body));
         var mateActor = rig.Brains.BrainAt(rig.Roster.Body(mate.Index));
         var strangerActor = rig.Brains.BrainAt(rig.Roster.Body(stranger.Index));
-        var heard = Assert.Single(log.Events, e => e.Kind == AiEventKind.SoundHeard && e.Bot == mateActor);
+        var died = Assert.Single(log.Events, e => e.Kind == AiEventKind.AllyDied && e.Bot == mateActor);
+        Assert.Equal(hitActor, died.Other);
+        Assert.Equal(rig.Brains.HeroSlots.ActorOf(4), died.Killer);
+        Assert.Equal(rig.Poses.Position(body), died.Position);
+        Assert.DoesNotContain(log.Events, e => e.Bot == mateActor && e.Kind == AiEventKind.SoundHeard);
+        Assert.DoesNotContain(log.Events, e => e.Bot == strangerActor && e.Kind is AiEventKind.AllyDied or AiEventKind.AllyDamaged or AiEventKind.Damaged);
+    }
+
+    [Fact]
+    public void A_pack_mate_in_earshot_is_told_its_ally_was_hurt_how_much_and_by_whom()
+    {
+        var (rig, log, hit, mate, _) = Pack();
+        int body = rig.Roster.Body(hit.Index);
+        rig.Brains.Hit(rig.Now, hit, 4, 30f, killed: false, rig.Poses.Position(body));
+        var mateActor = rig.Brains.BrainAt(rig.Roster.Body(mate.Index));
+        var hurt = Assert.Single(log.Events, e => e.Kind == AiEventKind.AllyDamaged && e.Bot == mateActor);
+        Assert.Equal(rig.Brains.BrainAt(body), hurt.Other);
+        Assert.Equal(rig.Brains.HeroSlots.ActorOf(4), hurt.Killer);
+        Assert.Equal(30f, hurt.Amount);
+        Assert.Equal(1, rig.Brains.AlliesTold);
+    }
+
+    [Fact]
+    public void A_robot_of_another_pack_in_earshot_hears_the_death_as_a_sound_and_one_out_of_it_hears_nothing()
+    {
+        var (rig, log, hit, _, stranger) = Pack();
+        int body = rig.Roster.Body(hit.Index), other = rig.Roster.Body(stranger.Index);
+        var strangerActor = rig.Brains.BrainAt(other);
+        var at = rig.Poses.Position(body);
+
+        rig.Poses.Set(other, at + At(150, 0), 0f);
+        rig.Brains.Hit(rig.Now, hit, 4, 30f, killed: true, at);
+        var heard = Assert.Single(log.Events, e => e.Kind == AiEventKind.SoundHeard && e.Bot == strangerActor);
         Assert.Equal((int)SoundKind.Death, heard.Code);
-        Assert.Equal(rig.Poses.Position(body), heard.Position);
-        Assert.DoesNotContain(log.Events, e => e.Bot == strangerActor && e.Kind is AiEventKind.SoundHeard or AiEventKind.Damaged);
+        Assert.Equal(at, heard.Position);
+
+        log.Events.Clear();
+        rig.Poses.Set(other, Centre(3) + At(400, 0), 0f);
+        rig.Brains.Hit(rig.Now, hit, 4, 30f, killed: true, at);
+        Assert.DoesNotContain(log.Events, e => e.Bot == strangerActor);
+    }
+
+    [Fact]
+    public void A_robot_with_nothing_to_hunt_goes_to_where_a_pack_mate_was_hurt()
+    {
+        var (rig, _, hit, mate, _) = Pack();
+        int body = rig.Roster.Body(hit.Index), mateBody = rig.Roster.Body(mate.Index);
+        rig.Slide = false;
+        var at = rig.Poses.Position(body) + At(0, 260);
+        rig.Poses.Set(body, at, 0f);
+        rig.Tick(2 * DecideSchedule.Period);
+        Assert.False(rig.Orders.Now.TryGetValue(mateBody, out var before) && before.Move.Kind == MoveKind.Follow, "the control: the mate was already walking");
+
+        rig.Brains.Hit(rig.Now, hit, -1, 30f, killed: false, at);
+        rig.Tick(2 * DecideSchedule.Period);
+
+        Assert.True(rig.Orders.Now.TryGetValue(mateBody, out var order), "the mate stayed where it was");
+        Assert.Equal(MoveKind.Follow, order.Move.Kind);
+        Assert.Equal(at, order.Move.Corner(order.Move.CornerCount - 1));
     }
 
     [Fact]

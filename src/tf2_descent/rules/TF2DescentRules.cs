@@ -52,7 +52,10 @@ public sealed class TF2DescentRules : IGameRules
         Temperaments = new TemperamentRules(Content, Robots);
         Packs = new PackRules(Content, Robots, Temperaments);
         Statuses = new StatusRules(Content);
+        StatusBook = new StatusBook(Content);
+        Conditions = new RobotConditionRules(Content);
         BlastPush = new BlastPushRules(Content);
+        Attacks = new RobotAttackRules(Content);
         Skills = new SkillRules(Content, Heroes);
         Casting = new CastRules(Skills);
         Spells = new SpellRules(Content, Skills, Casting);
@@ -122,8 +125,17 @@ public sealed class TF2DescentRules : IGameRules
     /// <summary>Robot status effects (RU7, E9).</summary>
     public StatusRules Statuses { get; }
 
+    /// <summary>The same status rules over a robot's fixed slots, allocating nothing (HO8: the roster's).</summary>
+    public StatusBook StatusBook { get; }
+
+    /// <summary>What a skill's condition words do to robots, and which robots a target word is for (HO8).</summary>
+    public RobotConditionRules Conditions { get; }
+
     /// <summary>The push a blast gives a robot (RU7, L12).</summary>
     public BlastPushRules BlastPush { get; }
+
+    /// <summary>A robot's attack in numbers and a medic's heal (HO6, HO7).</summary>
+    public RobotAttackRules Attacks { get; }
     /// <summary>The items' rules (RU3): the roll, the codec, the views, equipment.</summary>
     public ItemRules ItemRules { get; }
 

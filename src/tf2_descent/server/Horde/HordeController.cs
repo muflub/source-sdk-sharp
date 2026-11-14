@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Ai;
 
 using TF2.Descent.Ai.Bodies;
+using TF2.Descent.Ai.Director;
 using TF2.Descent.Ai.Embodiment;
 using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Level;
@@ -22,7 +23,7 @@ namespace TF2.Descent.Server.Horde;
 ///
 /// <para>
 /// <b>The tick</b>, on the game thread, every server tick: the bodies'
-/// motion steps (HO3); at <see cref="DecideHz"/> the bodies' places go to the roster, the
+/// motion steps (HO3), then the door shove reads its reports (HO11); at <see cref="DecideHz"/> the bodies' places go to the roster, the
 /// heroes are gathered, and the embodiment rules observe, decide and are
 /// applied; at horde.json's far rate (2 Hz) the far simulation ticks. Every
 /// call the later session package (HO4) moves to the AI workers is in
@@ -32,7 +33,8 @@ namespace TF2.Descent.Server.Horde;
 [ScriptedEntity(EntityClass, ScriptedEntityKind.Logical)]
 public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, HordeParking parking, IHooks<IRobotHitSink> hits,
                                     IEngineEntityRender render, ISightWorld sightWorld, IHordeHeroes heroes, RobotMotion motion,
-                                    IHordeActors actors, ILog log, Session.IHordeBrainHost brains) : ScriptedEntity
+                                    IHordeActors actors, ILog log, Session.IHordeBrainHost brains,
+                                    Skills.ISkillHits skillHits, Doors.DoorShove shove) : ScriptedEntity
 {
     public const string EntityClass = "tf2_descent_horde";
 
@@ -61,6 +63,12 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     public RobotRoster? Roster { get; private set; }
 
     public RosterRoll? Roll { get; private set; }
+
+    /// <summary>The spawn director's plan the roster was loaded from (HO9).</summary>
+    public LevelPlan? Plan { get; private set; }
+
+    /// <summary>The party the roster was rolled for: the one present at level ready (D11).</summary>
+    public int PartySize { get; private set; }
 
     public BodyPool? Pool { get; private set; }
 
@@ -105,7 +113,9 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         Settings = settings;
         Level = level;
         Roster = RobotRoster.Create(r, ticksPerSecond);
-        Roll = Roster.Load(level, partySize);
+        PartySize = partySize;
+        Plan = new SpawnDirector(r).Plan(level, partySize);
+        Roll = Roster.Load(Plan, level);
         Pool = BodyPool.For(settings);
 
         var bodies = new RobotBody[Pool.LastBody + 1];
@@ -132,7 +142,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
             weapons[b] = weapon;
         }
 
-        Bodies = new RobotBodies(bodies, Roster, level, r, parking, new RobotHitChain(hits), render);
+        Bodies = new RobotBodies(bodies, Roster, level, r, parking, new RobotHitChain(hits), render, skillHits);
         for (int b = 1; b <= Pool.LastBody; b++)
             bodies[b].Join(Bodies, b, weapons[b]);
         Bodies.ParkAll();
@@ -168,6 +178,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         StepCycle(now);
         brains.Tick(now);
         motion.Tick(now);
+        shove.Tick(this, now);   // the door shove reads the motion's Blocked reports (HO11)
 
         bool decide = now >= _nextDecide, far = now >= _nextFar;
         if (!decide && !far)
@@ -205,6 +216,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         Level = null;
         Roster = null;
         Roll = null;
+        Plan = null;
         Pool = null;
         Bodies = null;
         Sight = null;
@@ -278,9 +290,12 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     /// <summary>
     /// A new robot of <paramref name="template"/> on the roster at
     /// <paramref name="at"/>, in the room holding it (the nearest room when
-    /// none does), lent a body at once.
+    /// none does), lent a body at once, with the champion
+    /// <paramref name="affixes"/> given (none by default); with
+    /// <paramref name="joinLastPack"/> in the newest pack rather than a pack of its own.
     /// </summary>
-    public RobotId SpawnByHand(string template, double? scale, AiVector at, float yaw, ulong seed, long now, out string why)
+    public RobotId SpawnByHand(string template, double? scale, AiVector at, float yaw, ulong seed, long now, out string why,
+                               IReadOnlyList<string>? affixes = null, bool joinLastPack = false)
     {
         if (!Begun)
         {
@@ -294,8 +309,24 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
             return RobotId.None;
         }
 
+        foreach (string affix in affixes ?? [])
+            if (!rules.Rules.Content.Champions.Contains(affix))
+            {
+                why = $"'{affix}' is not a champion affix";
+                return RobotId.None;
+            }
+
         int room = NearestRoom(at);
-        var id = Roster!.Add(template, scale, room, new PackMarker(at, yaw), seed);
+        RobotId id;
+        try
+        {
+            id = Roster!.Add(template, scale, room, new PackMarker(at, yaw), seed, affixes: affixes, joinLastPack: joinLastPack);
+        }
+        catch (ArgumentException e)
+        {
+            why = e.Message;   // two immunities: the rules refuse the robot
+            return RobotId.None;
+        }
         if (!id.IsValid)
         {
             why = "the roster is full";

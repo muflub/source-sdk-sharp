@@ -257,7 +257,8 @@ public sealed class InventoryTests
 
         Assert.Equal(4, hero.Belt.Count);
         Assert.Equal(InventoryRefusals.NoSuchSlot, Inv.ToBelt(hero, NoStash, 4, 4).Refusal);
-        Assert.Equal(InventoryRefusals.Occupied, Inv.ToBelt(hero, NoStash, 4, 0).Refusal);
+        // The same potion on an occupied slot merges into its stack (HE8); another kind is refused (BeltRulesTests).
+        Assert.Equal(2, Inv.ToBelt(hero, NoStash, 4, 0).Hero.Belt[0].Item.Count);
         Assert.Equal(InventoryRefusals.NotAPotion, Inv.ToBelt(Inv.FromBelt(hero, NoStash, Sheet(), 0).Hero, NoStash, 5, 0).Refusal);
     }
 

@@ -64,28 +64,33 @@ public sealed class TravelService(
     /// the depth picked for a descent from the town (0: <see cref="DefaultDepth"/>);
     /// a level's way down always leads to the next depth.
     /// </summary>
-    public void Request(int entIndex, TravelDirection direction, int depth = 0)
+    /// <remarks>
+    /// The task answers what the host said, or null when nothing was asked of it (unhosted, no
+    /// boot or player yet, a closed depth, a request already out). The town portal's route
+    /// (WO4) waits on it to know whether its trip started; every other caller leaves it.
+    /// </remarks>
+    public Task<TravelAnswer?> Request(int entIndex, TravelDirection direction, int depth = 0)
     {
         if (host.Mode != HostingMode.Hosted)
         {
             log.Msg("[TF2Descent] travel asked for with no host (unhosted): nothing happens\n");
-            return;
+            return Task.FromResult<TravelAnswer?>(null);
         }
 
         if (host.Boot is not { } boot || players.ByEntity(entIndex) is not { } player)
-            return;
+            return Task.FromResult<TravelAnswer?>(null);
 
         int picked = depth > 0 ? depth : DefaultDepth;
         if (direction == TravelDirection.Down && IsHub(boot) && !MayPick(player, picked))
         {
             messages.Notice(entIndex, DepthClosedToken, picked.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            return;
+            return Task.FromResult<TravelAnswer?>(null);
         }
 
         if (!_asking.Add(entIndex))
-            return;
+            return Task.FromResult<TravelAnswer?>(null);
 
-        _ = Ask(entIndex, player.SteamId, direction, boot, picked);
+        return Ask(entIndex, player.SteamId, direction, boot, picked);
     }
 
     private static bool IsHub(BootInfo boot) => string.Equals(boot.InstanceKind, "hub", StringComparison.Ordinal);
@@ -94,7 +99,7 @@ public sealed class TravelService(
     private bool MayPick(PlayerService.Entry player, int depth)
         => TownDescents.Destinations(Math.Max(player.ReachedDepth, 0), bossKills.Depths(player.CharacterId)).Contains(depth);
 
-    private async Task Ask(int entIndex, string steamId, TravelDirection direction, BootInfo boot, int depth)
+    private async Task<TravelAnswer?> Ask(int entIndex, string steamId, TravelDirection direction, BootInfo boot, int depth)
     {
         try
         {
@@ -112,10 +117,12 @@ public sealed class TravelService(
                     messages.Notice(entIndex, RefusedToken, answer.Reason);
                     break;
             }
+            return answer;
         }
         catch (Exception e)
         {
             log.Warning($"[TF2Descent] travel for {steamId} failed: {e.Message}\n");
+            return null;
         }
         finally
         {

@@ -32,6 +32,7 @@ public static class ContentTables
     public const string Skills = "skills";
     public const string Spells = "spells";
     public const string Horde = "horde";
+    public const string RobotConditions = "robot_conditions";
 
     public static IReadOnlyList<ContentTable> All() =>
     [
@@ -58,6 +59,9 @@ public static class ContentTables
         new HordeTable(),
         new Loot.LootTable(), new Loot.ExperienceTable(),
         new Items.StartingKitTable(),
+        new Items.ConsumableTable(),
+        new RobotConditionTable(),
+        new RobotAttackTable(),
     ];
 
     /// <summary>The names of <see cref="All"/>, in order.</summary>

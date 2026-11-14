@@ -20,6 +20,8 @@
     <ProjectReference Include="..\rules\TF2.Descent.Rules.csproj" />
     <!-- The horde's engine-free half (plan_descent_logic HO1): the level as the horde sees it, the roster, the embodiment rules, the far simulation. -->
     <ProjectReference Include="..\ai\TF2.Descent.Ai.csproj" />
+    <!-- The AI's service-free navigation (plan_descent_logic 3.7, 4.7): the .nav3d graph, the voxel columns and VoxelMoveWorld. Never Ai.Server or Ai.TF2, whose services the loader would register. -->
+    <ProjectReference Include="..\..\ai\nav\SourceSharp.Ai.Nav.csproj" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <!-- The generator writes the other half of each [ScriptVars] class (the
          transition entity's keys), as it does for SourceSharp.Server. -->

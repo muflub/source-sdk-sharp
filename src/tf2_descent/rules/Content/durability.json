@@ -25,5 +25,6 @@
     "indestructibleStat": "indestructible"
   },
   "repair": { "base": 5, "perPoint": 2, "perItemLevel": 0.05 },
-  "fieldRepair": { "recipe": "field_repair", "kit": "repair_kit", "levelOffset": 9, "minLoss": 1 }
+  "fieldRepair": { "recipe": "field_repair", "kit": "repair_kit", "levelOffset": 9, "minLoss": 1 },
+  "warning": { "pct": 25 }
 }

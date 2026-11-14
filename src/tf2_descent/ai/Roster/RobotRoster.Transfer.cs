@@ -9,7 +9,7 @@ public sealed partial class RobotRoster
     public RobotBodyState BodyState(int i)
     {
         Row(i);
-        return new RobotBodyState(_room[i], _position[i], _yaw[i], _life[i], _statuses[i], _clip[i], Carried(i));
+        return new RobotBodyState(_room[i], _position[i], _yaw[i], _life[i], Statuses(i), _clip[i], Carried(i));
     }
 
     /// <summary>
@@ -47,7 +47,7 @@ public sealed partial class RobotRoster
         _position[i] = end.Position;
         _yaw[i] = end.Yaw;
         _life[i] = end.Life;
-        _statuses[i] = end.Statuses;
+        _statusStamp = _book.Load(SlotsOf(i), end.Statuses, _statusStamp + 1);
         Refresh(i, now);
         _clip[i] = end.Clip;
         _targetSeat[i] = end.Carried.TargetSeat;

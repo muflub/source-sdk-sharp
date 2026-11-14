@@ -16,7 +16,8 @@ namespace TF2.Descent.Server.Horde;
 /// </summary>
 [ConCommand("tf2_descent_horde", Flags = ConVarFlags.Cheat,
             Help = "tf2_descent_horde [robot]: the horde's roster, pool and census; with a robot row, that robot and its body")]
-public sealed class HordeCommand(HordeService horde, HordeCensus census, RobotHitTally hits, Session.HordeSession ai, IHordeClock clock, ILog log)
+public sealed class HordeCommand(HordeService horde, HordeCensus census, RobotHitTally hits, Session.HordeSession ai, Attacks.RobotAttacks attacks,
+                                  IHordeClock clock, ILog log)
 {
     public void Execute(int robot = -1)
     {
@@ -66,6 +67,8 @@ public sealed class HordeCommand(HordeService horde, HordeCensus census, RobotHi
         log.Msg(sb.Append('\n').ToString());
         log.Msg($"[TF2Descent/Horde] {census.Line(c)}\n");
         log.Msg($"[TF2Descent/Horde] {ai.Line()}\n");
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[TF2Descent/Horde] attacks: asked {attacks.TotalAsked}, fired {attacks.TotalFired}, projectiles alive {attacks.Flying} (most {attacks.MostFlying}), healed {attacks.Healed:0.#} (tf2_descent_horde_attacks: by family)\n"));
         for (int r = 0; r < c.Level!.RoomCount; r++)
             log.Msg($"[TF2Descent/Horde]   room {r}: {(roster.RoomAwake(r) ? "awake" : "asleep")}, {c.Level.Rooms[r].Markers.Length} markers\n");
     }
@@ -193,15 +196,18 @@ public sealed class HordeTimeCommand(HordeTickTimer timer, HordeService horde, I
 }
 
 /// <summary>
-/// <c>tf2_descent_spawn_robot &lt;template&gt; [scale]</c>: a new robot on the
-/// roster where the player's crosshair meets the world, lent a body at once.
+/// <c>tf2_descent_spawn_robot &lt;template&gt; [scale] [affix] [join]</c>: a new robot on the
+/// roster where the player's crosshair meets the world, lent a body at once; with
+/// an affix, a champion of that champions.json affix (<c>fireproof</c>: immune to fire;
+/// <c>-</c> for none); with join 1 it joins the newest pack (a pack built by hand: a
+/// medic and its patient).
 /// </summary>
 [ConCommand("tf2_descent_spawn_robot", Flags = ConVarFlags.Cheat,
-            Help = "tf2_descent_spawn_robot <template> [scale]: put a robot on the roster at the crosshair and lend it a body")]
+            Help = "tf2_descent_spawn_robot <template> [scale] [affix] [join]: put a robot on the roster at the crosshair and lend it a body; scale 0 rolls it; an affix makes it a champion (- for none); join 1 puts it in the newest pack (the last robot spawned's)")]
 public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEnginePlayers players, IEngineEntities entities,
                                       IEngineWorldQuery world, ILog log)
 {
-    public void Execute(string template, float scale = 0f)
+    public void Execute(string template, float scale = 0f, string affix = "", int join = 0)
     {
         if (horde.Current is not { Begun: true } c)
         {
@@ -226,7 +232,8 @@ public sealed class SpawnRobotCommand(HordeService horde, IHordeClock clock, IEn
         var feet = HordeVectors.ToAi(down.End);
 
         ulong seed = (ulong)clock.Tick * 0x9E3779B97F4A7C15UL;
-        var id = c.SpawnByHand(template, scale > 0f ? scale : null, feet, ang.Y + 180f, seed, clock.Tick, out string why);
+        var id = c.SpawnByHand(template, scale > 0f ? scale : null, feet, ang.Y + 180f, seed, clock.Tick, out string why,
+                               affix.Length > 0 && affix != "-" ? [affix] : null, joinLastPack: join != 0);
         log.Msg(id.IsValid
             ? $"[TF2Descent/Horde] spawn_robot: {id}: {why}; {HordeLines.Robot(c, id.Index)}\n"
             : $"[TF2Descent/Horde] spawn_robot: {why}\n");

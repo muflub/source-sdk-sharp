@@ -20,7 +20,7 @@ public sealed class EmbodimentTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void A_room_two_rooms_from_a_hero_wakes_and_its_robots_take_bodies_at_their_markers()
+    public void A_room_two_rooms_from_a_hero_wakes_and_its_robots_take_bodies_at_their_posts()
     {
         var rig = new HordeRig(Row(8));
         rig.HeroIn(0);
@@ -32,7 +32,7 @@ public sealed class EmbodimentTests
         Assert.NotEmpty(room2);
         Assert.All(room2, i => Assert.Contains(i, rig.Promoted()));
         Assert.All(rig.Of(HordeOrderKind.Promote).Where(o => room2.Contains(o.Robot.Index)),
-            o => Assert.Equal(rig.Level.Rooms[2].Markers[rig.Roster.HomeMarker(o.Robot.Index)].Position, o.Position));
+            o => Assert.Equal(rig.Roster.Post(o.Robot.Index), o.Position));
     }
 
     [Fact]

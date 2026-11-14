@@ -3,15 +3,16 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-11, late.** On main at `7ef3fecbf`: CR1, CR3 to CR6, CR8
-to CR10; every rules package but RU14 (its retune and model are held on
-`descent-ru-d` for a ruling); HE0 to HE7 with the class gate; HO0 to HO5,
-joined, and HO10; WO1, WO2, WO7; UI1 and UI2 (UI1's item-view cache went to
-UI3). Ruled and not built: CR2. Running: HO8 (`descent-ho8`), HO6 with HO7
-(`descent-ho7`), HE8 with HE9 (`descent-he8`), UI3 (`descent-ui3`), WO3
-(`descent-wo3`). Not started: CR7, CR11, HE10, HO9, HO11 to HO13, WO4 to
-WO6, WO8, WO9, UI4 to UI7. Section 4.7 says what each landed package gave
-and found.
+**Status, 2026-11-12.** On main at `f5b423323`: 56 of the 66 packages. CR1,
+CR3 to CR6, CR8 to CR10; every rules package but RU14 (its retune and model
+are held on `descent-ru-d` for a ruling); HE0 to HE9 with the class gate;
+HO0 to HO11; WO1 to WO7; UI1 to UI3 and UI5 to UI7. Ruled and not built:
+CR2. Running: HO12 (`descent-ho12`), WO8 with UI4 (`descent-wo8`), HE10
+(`descent-he10`), WO9 (`descent-wo9`), and a polish lane for what playing
+the landed packages turned up (`descent-polish1`). Not started: HO13 (after
+HO12), CR7, CR11. Section 4.7 says what each landed package gave and found.
+Each part of section 5's "first blood" milestone has been seen live in an
+unhosted game; the whole run has not yet been played through in one sitting.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -708,6 +709,118 @@ Seams by name, for the packages that build on them; then what did not hold.
   The cast bar needs the charge's length on the wire. A party of two reaches
   one row into TF2's chat.
 
+**Landed 2026-11-11 night to 2026-11-12 (`7ef3fecbf` to `a04ae8d77`).**
+- HE8 and HE9: `HeroBelt` and the client verb `tf2_descent_belt <1-4>`
+  (numpad keys), `HeroConsumables` (`tf2_descent_use`), `ITownPortal` (its
+  stand-in refuses until WO4), `HeroWear` batched to one ledger write a
+  point lost, `IItemLedger.Consume` / `Wear` / `RepairWorn`, the owner-only
+  messages `TF2.Descent:belt` and `TF2.Descent:gear_wear`, and on the client
+  `IBeltState` and `IGearWearState`, which the HUD's belt and gear warning now
+  read. Content: `consumables.json`. Potions are instant, stack four to a
+  slot, share one 3 s cooldown and refill from the backpack; a drink at a
+  full pool is refused; the gear warning starts at 25 %. Found: pending wear
+  is lost when a death moves the items to the corpse.
+- HO8: a skill's hit is its declared damage type; an immune hit takes
+  nothing and tells its attacker `#Descent_Robot_Immune`, once a second;
+  `RobotStatusEffects` (the status sink over the roster: stun, slow,
+  knock-up, mark, burn and bleed as hits by the hero who applied them, a
+  debuff's stats, a taunt), `RobotAttackerLevel`, the content table
+  `robot_conditions.json`, `StatusBook`. Found: `on_direct_hit` and
+  `on_knock_airborne` are never raised by the skills runtime; a taunt is told
+  to a brain as a hit of 0. Not done from the plan's HO8 row: the push clamp
+  for bullets and melee, the impact sound, the hit-group ruling, stock's
+  on-hit walk for a boss victim.
+- HO7 and HO6: `RobotAttacks` (the action sink: melee, hitscan, projectiles,
+  flame, the medic's heal; interval, windup, clip), the content table
+  `robot_attacks.json`, the deciders in `src/tf2_descent/ai/Families` (the
+  rusher, the rocket soldier, the medic) registered by `HordeFamilies`, and
+  a view that carries the pack, the gun's look and the line of fire. **Robot
+  projectiles are capped at 32 by count, not pooled**: TF's rockets and
+  pipes delete themselves, so section 2's "nothing created in play" does not
+  hold for them; the worst census seen was 165 of 537. Release, 48 fighting
+  bodies: the horde tick is 1.42 ms mean, 1.74 ms p95. Found: a robot's kill
+  reads "suicided" in the kill feed (a TF2 seam, with WO6); the other
+  families still only hunt (HO12); the medic's heal has no beam.
+- Two rules of the join: a weakened robot deals that much less (the hands
+  read the debuff from the row), and **a robot's attack hurts the heroes and
+  itself, never another robot** (L12 read as "like a player": a player is not
+  hurt or pushed by a teammate's rocket; with every blast hurting every
+  robot a mixed horde killed 37 of its own in a minute).
+- UI3: the client embeds the rules' own content JSON (linked, byte-equal,
+  with a fingerprint both sides check), because Rules may reference nothing
+  but Host.Contracts and the client may not reference Rules.
+  `OwnerItemSender` and the client caches `IItemViews`, `IHeroSheetNumbers`,
+  `IHeroSkillRanks`; the client verbs `tf2_descent_spend`,
+  `tf2_descent_item_equip` / `_unequip` / `_move` / `_drop`; the skill bar's
+  message carries the charge's length. Not there: a control to drop or move
+  an item, a control to assign a skill to a slot; a refusal's notice is
+  hidden under an open window.
+- WO3: `FurnitureService` over the rules' `Furnish` (the level's seed),
+  `tf2_descent_furniture` in a pool of at most 32, `IRoomActivity` (lifted
+  from the loot floor's seam), `IItemLedger.ContainerDrop`,
+  `IFurnitureHazardHook` (nothing implements it), `IFurnitureNear` on the
+  client. A marker is filled by its kind's chance: depth 1 seed 1 has 11
+  pieces on 17 markers and no dispenser. A shrine lasts the level. TF2 ships
+  no explosive barrel: a Badlands barrel stands in.
+- Hosted play refuses: equip, belt, consume, wear and repair writes, floor
+  Australium, potion drops, container drops (row X6).
+
+**Landed 2026-11-12 (`a04ae8d77` to `f5b423323`).**
+- HO9: `SpawnDirector.Plan` (`src/tf2_descent/ai/Director`) decides a
+  level's roster; `RobotRoster.Load(LevelPlan, HordeLevel)` only writes rows.
+  Every robot has its own post (`RobotRoster.Post`, `PostYaw`), which is its
+  home for the brains and the far simulation. Marker clearances are measured
+  on the server at level ready (`IMarkerClearances`); the party is the
+  clients connected then (`IHordeParty`). `tf2_descent_director` prints the
+  roster's digest beside a replay's. Found: the tables allow immune
+  champions from depth 2 where the design says depth 11.
+- HO11: `DoorShove` over `DoorShoveRules`; numbers in `horde.json`. **3.9's
+  trigger never fires in play**: a brain halts its robot at fighting range,
+  so the motion never reports a hero as its blocker. A robot within melee
+  reach of a hero standing in a doorway shoves him instead.
+- The horde's navigation: `HordeNav` derives the level's graph and voxel
+  columns from its `.nav3d` on a thread of its own at level ready (depth 1
+  seed 1: 26,013 cells, 142 ms, ready 59 ticks in), probes the bsp's static
+  props into it, and hands it to the brains; `IHordePaths` (paths computed
+  in the decider from recorded inputs, the graph's epoch in the view, at
+  most two searches a tick); `VoxelMotionWorld` puts the worker stepper over
+  `VoxelMoveWorld`, with the accept sweep and the separation still on the
+  main thread. Release, 48 fighting bodies, thread CPU: the horde tick is
+  909 to 1,057 us p95 on the worker against 2,038 to 2,239 us inline. **The
+  1.5 ms target is met.** The session records `TeamLayerOff`, gives a brain
+  its home, and tells `Arrived`, `AllyDamaged`, `AllyDied` and `HeroDowned`.
+  Found: hulls of scale 1.6 and up cannot reach three of the level's 18
+  rooms (the one-step stairs limit); the graph is derived each load, because
+  the cache lives in `Ai.Server`.
+- WO6, WO5, UI7: `DownedDamage` (a lethal hit with another hero up leaves
+  him down at 1 life; alone, or as the last one up, he dies), a 20 s window
+  that shortens 5 s a later down to a floor of 5 s, revive by holding use
+  within 96 units for 3 s to 30 % life, `tf2_descent_corpse` (a gravestone
+  holding everything; only its owner recovers it; a second death merges onto
+  it), `IItemLedger.Corpse`, `ICorpseState`, `IHeroDownedListener`, the live
+  `DownedSource`. A death costs no XP and no durability (D21). The kill
+  feed names a robot through TF2's new `ITFKillerNames` and the client's
+  `IKillFeedKillerNames`: the mod answers a localisation token.
+- WO4: `TownPortals` (`ITownPortal`), `tf2_descent_teleporter`,
+  `IPortalParty`, `IPortalRecords`, `IHostAnchors`. **Unhosted, the return
+  loads the level anew** (one process holds one map): the robots, the loot
+  and the furniture start over, and the player is told. Hosted returns to
+  the live instance through the SDK's anchor; proven over a fake link only.
+  Ask of the map session: an `info_target` named `tf2_descent_portal` in the
+  town.
+- UI5 and UI6: `AutomapService` (a hero's own map, a room sent to its owner
+  when he first stands in it; `IAutomapReveal`, which the sight shrine now
+  calls), the client's `AutomapRoomCache`, the key M; `RobotViewSender`
+  (what a hero may know of a robot goes to him alone: life at 15 kills of
+  its template, resistances and affixes at 30, style at 60; a hidden part
+  has no bytes), `IDescentRobotBars`, IMMUNE over the robot.
+- Found by playing the stack, and given to the polish lane: a hero who dies
+  alone respawns unarmed at the arrival point among the robots that killed
+  him; an unarmed hero's view shows a stray sprite; recovered items come
+  back unequipped; the corner minimap covers TF2's kill feed; a refusal's
+  notice is hidden under an open window. `god` does nothing through the
+  debug route, so a proof keeps its hero alive by level and refill.
+
 **For every lane.** A wall-clock bound in a fact fails on a loaded box: the
 horde's stall fact failed three landings at 255 to 440 ms against 250 and
 now holds the decide at a gate instead. Two lanes that each register a
@@ -826,7 +939,11 @@ Nothing here is done by a lane of this plan.
    sends attribute lists; giants for the classes with no giant model
    (Engineer, Medic, Sniper, Spy): scale the ordinary model or drop them;
    whether C, I and K may take three of TF2's binds; Australium split at
-   the drop instead of on collection.
+   the drop instead of on collection; whether one robot's blast should hurt
+   another robot (it does not, since `a04ae8d77`'s stack); what an unarmed
+   hero fights with after a death (the polish lane proposes the class's
+   stock melee as a fallback that is no item); M for the automap takes a
+   fourth TF2 bind; whether CR7 and CR11 (core packages) should start.
 9. **Robot traces pass robots** (the team rule above) for every trace a body
    makes, attacks included: a robot's rocket or bullet will not stop on
    another robot, as a teammate's does not in TF2. L12 (a robot is hurt by

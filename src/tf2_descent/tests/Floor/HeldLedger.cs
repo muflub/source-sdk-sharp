@@ -60,6 +60,7 @@ internal sealed class HeldLedger
                     o.KillDrops.Add((kill, held));
                     return held.Task;
                 case nameof(IItemLedger.PotionDrop):
+                case nameof(IItemLedger.ContainerDrop):
                 case nameof(IItemLedger.BossDrop):
                     return Task.FromResult(DropResult.Nothing);
                 default:

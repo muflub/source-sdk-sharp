@@ -16,12 +16,12 @@ namespace TF2.Descent.Server.Skills;
 /// down (1) or came up (0). The client's key actions send both edges, so a
 /// charge is held between them.</item>
 /// <item><c>tf2_descent_learn &lt;skill&gt;</c>: buy a rank with a skill point.</item>
-/// <item><c>tf2_descent_assign &lt;slot 1-6&gt; &lt;skill|none&gt;</c>: put a learned cast skill in a slot.</item>
+/// <item><c>tf2_descent_assign &lt;slot 1-6&gt; &lt;skill|none&gt;</c>: put a learned cast skill in a slot; a refusal is told to the hero.</item>
 /// </list>
 /// Each is claimed for a hero only; anything else passes on.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class SkillClientCommands(SkillRuntime runtime, Heroes heroes, IEngineEntities entities)
+public sealed class SkillClientCommands(SkillRuntime runtime, Heroes heroes, IEngineEntities entities, ISkillChannel channel)
     : IClientCommandHook, IOrderedHook
 {
     public const string Cast = "tf2_descent_cast";
@@ -53,7 +53,10 @@ public sealed class SkillClientCommands(SkillRuntime runtime, Heroes heroes, IEn
                 runtime.Buy(index, args[0]);
                 return true;
             case AssignVerb when args.Length >= 2 && Int(args[0]) is int slot:
-                runtime.Assign(index, slot, args[1]);
+                // The buy tells its own refusal; an assign's is told here, so the screen's
+                // action shows the server's reason (plan_descent_logic UI3).
+                if (runtime.Assign(index, slot, args[1]) is { } refused)
+                    channel.Tell(index, $"Cannot assign slot {slot}: {refused}");
                 return true;
         }
 

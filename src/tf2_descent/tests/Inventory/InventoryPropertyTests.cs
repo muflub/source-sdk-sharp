@@ -102,7 +102,13 @@ public sealed class InventoryPropertyTests
                 Note(w, "unequip", Inv.Unequip(w.Hero, w.Stash, w.Sheet, Pick(r, w.Hero.Equipped.Keys.ToList())));
                 break;
             case 6:
-                if (r.Below(2) == 0 && backpack.Count > 0) Note(w, "belt", Inv.ToBelt(w.Hero, w.Stash, Pick(r, backpack), r.Below(4)));
+                if (r.Below(2) == 0 && backpack.Count > 0)
+                {
+                    // A potion merged whole onto the same potion's belt slot leaves, its units kept there (HE8), as a stack does.
+                    var result = Inv.ToBelt(w.Hero, w.Stash, Pick(r, backpack), r.Below(4));
+                    Note(w, "belt", result);
+                    foreach (var h in result.Left) w.Merged.Add(h.Id);
+                }
                 else if (w.Hero.Belt.Count > 0) Note(w, "unbelt", Inv.FromBelt(w.Hero, w.Stash, w.Sheet, Pick(r, w.Hero.Belt.Keys.ToList())));
                 break;
             case 7:

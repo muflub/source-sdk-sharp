@@ -11,7 +11,7 @@ namespace TF2.Descent.Tests.Skills;
 /// </summary>
 public sealed class SkillSlotStoreTests
 {
-    private static SkillClientCommands Commands(SkillRig rig) => new(rig.Runtime, rig.Heroes.Heroes, rig.Heroes.Engine);
+    private static SkillClientCommands Commands(SkillRig rig) => new(rig.Runtime, rig.Heroes.Heroes, rig.Heroes.Engine, rig.Told);
 
     /// <summary>A level 3 hero who has learned Patriot Missile and put it in slot 2 with the client's verb.</summary>
     private static SkillRig Slotted()

@@ -21,8 +21,8 @@ public static class HordeSlots
     /// <summary>Hero actors a session holds at once.</summary>
     public const int Heroes = 4;
 
-    /// <summary>Heroes a robot can hold sight of at once: all of them.</summary>
-    public const int Sighted = Heroes;
+    /// <summary>Actors a robot's view holds at once: every hero it may see, and its nearest pack-mates (<see cref="HordeView"/>).</summary>
+    public const int Sighted = Heroes + HordeView.PackMates;
 
     public static bool IsHero(int slot) => slot >= FirstHero && slot < FirstHero + Heroes;
 }

@@ -85,22 +85,11 @@ public sealed class TFHeroWeapons(ITFWeaponOwners owners, IEnginePlayers players
 /// <summary>
 /// The level of whatever hurt a hero, which armour is measured against
 /// (Appendix C.2: <c>armour / (armour + 50 + 10 x attackerLevel)</c>).
-/// SINGLE-OWNER: until robots exist (track HO) every attacker is level 1
-/// (<see cref="FlatAttackerLevel"/>); the horde replaces this registration
-/// with one that answers a robot body's level from its roster row.
+/// SINGLE-OWNER: the horde's (<c>Horde.RobotAttackerLevel</c>, HO8), which
+/// answers a robot body's level from its roster row and 1 for anything else.
 /// </summary>
 public interface IAttackerLevel
 {
     /// <summary>The level of <paramref name="attacker"/> (a robot body, a trap, the world).</summary>
     int LevelOf(EntityHandle attacker);
-}
-
-/// <summary>Every attacker is level 1: there are no robots yet.</summary>
-[SideService(Side.Server, As = [typeof(IAttackerLevel)])]
-public sealed class FlatAttackerLevel : IAttackerLevel
-{
-    /// <summary>The one level every attacker has.</summary>
-    public const int Level = 1;
-
-    public int LevelOf(EntityHandle attacker) => Level;
 }

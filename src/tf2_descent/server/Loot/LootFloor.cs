@@ -7,6 +7,7 @@ using SourceSharp.Shared;
 
 using TF2.Descent.Rules.Inventory;
 using TF2.Descent.Server.Items;
+using TF2.Descent.Server.Level;
 using TF2.Descent.Server.Mode;
 using TF2.Descent.Shared;
 
@@ -145,7 +146,7 @@ public enum TakeOutcome
 /// </list>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, ILootRooms rooms, IItemLedger ledger, ILootParty party,
+public sealed class LootFloor(IDescentModeState mode, ILootSpawner spawner, IRoomActivity rooms, IItemLedger ledger, ILootParty party,
                               IEngineEntities entities, IUserMessageSender sender, ClientMessages messages, ILog log)
     : IGameLifecycle, IFrameLifecycle, IClientLifecycle
 {

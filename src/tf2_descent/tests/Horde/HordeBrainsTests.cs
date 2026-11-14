@@ -86,6 +86,40 @@ internal sealed class StallDecider(BrainSetup setup, int stallAtDecide, StallGat
 /// </summary>
 public sealed class HordeBrainsTests
 {
+    /// <summary>
+    /// A brain's home is its roster post (record format 8's home point,
+    /// <see cref="BrainSetup.Home"/>): the place of its own the spawn director rolled round its
+    /// pack's marker, not the marker and not where its first view put it. A robot lent away from
+    /// its post (the far simulation walked it) walks back to the post when it has nothing to hunt.
+    /// </summary>
+    [Fact]
+    public void A_robot_lent_away_from_its_post_walks_home_to_its_own_post()
+    {
+        var rig = new BrainRig(Row(4, markers: 2));
+        int row = -1;
+        for (int i = 0; i < rig.Roster.Count && row < 0; i++)
+        {
+            int m = rig.Roster.HomeMarker(i);
+            if (m >= 0 && rig.Roster.Post(i) != rig.Level.Rooms[rig.Roster.HomeRoom(i)].Markers[m].Position)
+                row = i;
+        }
+
+        Assert.True(row >= 0, "the control: no robot was rolled a post apart from its pack's marker");
+        var id = rig.Roster.Id(row);
+        var post = rig.Roster.Post(row);
+        rig.Roster.WakeRoom(rig.Roster.HomeRoom(row));
+        int body = rig.Lend(id);
+        var away = post + new AiVector(0f, 300f, 0f);
+        rig.Poses.Set(body, away, 0f);
+        rig.Slide = false;
+
+        rig.Tick(3 * DecideSchedule.Period);
+
+        Assert.True(rig.Orders.Now.TryGetValue(body, out var order), "the robot holds where it was put: no walk home");
+        Assert.Equal(MoveKind.Follow, order.Move.Kind);
+        Assert.Equal(post, order.Move.Corner(order.Move.CornerCount - 1));
+    }
+
     [Fact]
     public void A_brain_is_added_when_a_body_is_lent_and_removed_when_it_is_returned()
     {
@@ -359,11 +393,19 @@ public sealed class HordeBrainsTests
 
         for (int i = 0; i < 600; i++)
             Step();
-        ours = core = 0;
         long appliedBefore = rig.Brains.IntentsApplied;
-        for (int i = 0; i < 1000; i++)
-            Step();
+        // A steady allocation shows in every window; a one-off (the runtime re-jitting a hot method while the box is
+        // loaded) shows in one: the quietest of three windows is what a tick costs.
+        long quietest = long.MaxValue;
+        for (int window = 0; window < 3 && quietest != 0; window++)
+        {
+            ours = core = 0;
+            for (int i = 0; i < 1000; i++)
+                Step();
+            quietest = Math.Min(quietest, ours);
+        }
 
+        ours = quietest;
         Assert.Equal(12, rig.Brains.Session.BotCount);
         Assert.True(rig.Brains.Publishes >= 1600 && rig.Brains.Vision.Traces > 0 && rig.Brains.SoundsHeard > 0, "the control: the senses and publishes ran");
         Assert.True(rig.Brains.IntentsApplied > appliedBefore, "the control: intents were applied while measured");

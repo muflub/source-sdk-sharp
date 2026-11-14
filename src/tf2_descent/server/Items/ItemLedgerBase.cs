@@ -94,6 +94,8 @@ public abstract class ItemLedgerBase : IItemLedger
 
     public abstract Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position);
 
+    public abstract Task<DropResult> ContainerDrop(ContainerDrop drop);
+
     public abstract Task<bool> RecordDeath(string hero, Vector position);
 
     public abstract Task<LootAnswer> LootCorpse(string hero);
@@ -377,6 +379,76 @@ public abstract class ItemLedgerBase : IItemLedger
 
     public Task<LedgerResult> OpenCrate(string hero, int slot) =>
         Transform(hero, new Op("crate", slot), [slot], (h, inputs) => Rules.OpenCrate(inputs[0], TownContext(h, "crate"), RollSeed("crate")));
+
+    //-------------------------------------------------------------------------
+    // HE8 and HE9: consumables, wear, repairs of what is worn
+    //-------------------------------------------------------------------------
+
+    public Task<LedgerResult> Consume(string hero, int slot) =>
+        Rule(hero, new Op("consume", slot), h => Inv.Consume(h.Inventory, h.Stash, slot));
+
+    public Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events) => Serial(hero, async () =>
+    {
+        if (await Ensure(hero) is not { } h)
+            return LedgerResult.Refused(LedgerRefusals.NoHero);
+        var inventory = h.Inventory;
+        var durability = Rules.ItemRules.Durability;
+        foreach (var e in events)
+        {
+            if (e.Uses < 0 || e.Hits < 0)
+                return LedgerResult.Refused(InventoryRefusals.Refused, h);
+            if (inventory.Equipped.FirstOrDefault(p => p.Value.Id == e.ItemId) is { Value: { } worn } at)
+            {
+                var item = durability.Hit(durability.Use(worn.Item, e.Uses).Item, e.Hits).Item;
+                inventory = inventory with { Equipped = inventory.Equipped.SetItem(at.Key, worn with { Item = item }) };
+            }
+            else if (inventory.Backpack.FirstOrDefault(p => p.Value.Id == e.ItemId) is { Value: { } carried } bp)
+            {
+                // Taken off before the write: its wear still counts where it is now.
+                var item = durability.Hit(durability.Use(carried.Item, e.Uses).Item, e.Hits).Item;
+                inventory = inventory with { Backpack = inventory.Backpack.SetItem(bp.Key, carried with { Item = item }) };
+            }
+        }
+        return await Settle(new Op("wear"), h, new InventoryResult(inventory, h.Stash, [], null));
+    });
+
+    public Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how) => Serial(hero, async () =>
+    {
+        if (await Ensure(hero) is not { } h)
+            return LedgerResult.Refused(LedgerRefusals.NoHero);
+        if (!h.Inventory.Equipped.TryGetValue(equipSlot, out var held))
+            return LedgerResult.Refused(InventoryRefusals.NoItem, h);
+        ItemInstance repaired;
+        long cost = 0;
+        if (how == WornRepair.Field)
+        {
+            var field = Rules.Repairs.Field(held.Item, h.Sheet.Level, RollSeed("field_repair"));
+            if (!field.Ok)
+                return LedgerResult.Refused(field.Refusal!, h);
+            repaired = field.Item!;
+        }
+        else
+        {
+            if (Rules.Repairs.Refusal(held.Item) is { } refusal)
+                return LedgerResult.Refused(refusal, h);
+            cost = how == WornRepair.Town ? Rules.Repairs.Price(held.Item) : 0;
+            if (h.Inventory.Australium < cost)
+                return LedgerResult.Refused(InventoryRefusals.NotEnoughAustralium, h);
+            repaired = TF2.Descent.Rules.Economy.Repairs.Restore(held.Item);
+        }
+        var result = Inv.ReplaceEquipped(h.Inventory, h.Stash, equipSlot, repaired);
+        return await Settle(new Op(how == WornRepair.Field ? "field_repair_worn" : "repair_worn", Text: equipSlot, Id: held.Id), h, result, cost: cost);
+    });
+
+    public Task<LedgerResult> SetDurability(string hero, string equipSlot, int durability, int maxDurability) =>
+        Rule(hero, new Op("set_durability", Text: equipSlot), h =>
+        {
+            if (!h.Inventory.Equipped.TryGetValue(equipSlot, out var held))
+                return new InventoryResult(h.Inventory, h.Stash, [], InventoryRefusals.NoItem);
+            int max = Math.Max(0, maxDurability);
+            return Inv.ReplaceEquipped(h.Inventory, h.Stash, equipSlot,
+                held.Item with { MaxDurability = max, Durability = Math.Clamp(durability, 0, max), WearUses = 0 });
+        });
 
     //-------------------------------------------------------------------------
     // The dev mint

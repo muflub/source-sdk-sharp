@@ -27,30 +27,30 @@ public interface IHordeBrainHost
 }
 
 /// <summary>
+/// A taunt told to a robot's brain (HO8's status sink, a hero's threat skill): the session's
+/// answer is a Damaged of nothing with the hero as its source.
+/// </summary>
+public interface IRobotTaunts
+{
+    void Taunted(TF2.Descent.Ai.Roster.RobotId robot, int body, int seat);
+}
+
+/// <summary>
 /// THE SEAM WHERE A ROBOT'S ACTIONS GO (plan_descent_logic 3.8, HO7): once per
 /// intent that carries one, the action its brain chose for the body (fire,
-/// melee, an ability). Attacks are HO7's; until it lands the default counts
-/// and drops them.
+/// melee, an ability), on the game thread. The session hands it the level's
+/// controller at <see cref="Begin"/>, a <see cref="Tick"/> each server tick
+/// before the tick's intents (windups land, beams heal, projectiles are
+/// counted there), and <see cref="End"/> when the level goes. The horde's
+/// answer is <c>Attacks.RobotAttacks</c>.
 /// </summary>
 public interface IRobotActionSink
 {
+    void Begin(HordeController horde, long now);
+
+    void Tick(long now);
+
     void Act(int body, in ActionIntent action);
-}
 
-/// <summary>The action sink until HO7: counts each kind and does nothing.</summary>
-[SideService(Side.Server, As = [typeof(IRobotActionSink)])]
-public sealed class RobotActionTally : IRobotActionSink
-{
-    private readonly long[] _byKind = new long[8];
-
-    public long Actions { get; private set; }
-
-    public long Of(ActionKind kind) => (uint)kind < (uint)_byKind.Length ? _byKind[(int)kind] : 0;
-
-    public void Act(int body, in ActionIntent action)
-    {
-        Actions++;
-        if ((uint)action.Kind < (uint)_byKind.Length)
-            _byKind[(int)action.Kind]++;
-    }
+    void End();
 }

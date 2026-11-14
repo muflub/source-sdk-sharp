@@ -1,0 +1,24 @@
+{
+  "projectileCap": 32,
+  "heal": { "perSecond": 24, "range": 450, "holdSeconds": 0.3 },
+  "attacks": [
+    { "id": "melee", "kind": "melee", "intervalSeconds": 0.8, "windupSeconds": 0.2, "damageShare": 1, "clip": 0, "reloadSeconds": 0,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 18, "coneDegrees": 0, "projectile": "", "speed": 0 },
+    { "id": "scattergun", "kind": "hitscan", "intervalSeconds": 0.625, "windupSeconds": 0, "damageShare": 1, "clip": 6, "reloadSeconds": 3,
+      "pellets": 10, "spreadDegrees": 5, "rangeUnits": 2048, "hullUnits": 0, "coneDegrees": 0, "projectile": "", "speed": 0 },
+    { "id": "shotgun", "kind": "hitscan", "intervalSeconds": 0.625, "windupSeconds": 0, "damageShare": 1, "clip": 6, "reloadSeconds": 3,
+      "pellets": 10, "spreadDegrees": 4, "rangeUnits": 2048, "hullUnits": 0, "coneDegrees": 0, "projectile": "", "speed": 0 },
+    { "id": "minigun", "kind": "hitscan", "intervalSeconds": 0.1, "windupSeconds": 0, "damageShare": 0.25, "clip": 0, "reloadSeconds": 0,
+      "pellets": 4, "spreadDegrees": 4, "rangeUnits": 2048, "hullUnits": 0, "coneDegrees": 0, "projectile": "", "speed": 0 },
+    { "id": "syringe_gun", "kind": "hitscan", "intervalSeconds": 0.25, "windupSeconds": 0, "damageShare": 0.34, "clip": 40, "reloadSeconds": 1.6,
+      "pellets": 1, "spreadDegrees": 2, "rangeUnits": 1200, "hullUnits": 0, "coneDegrees": 0, "projectile": "", "speed": 0 },
+    { "id": "sniper_rifle", "kind": "hitscan", "intervalSeconds": 1.5, "windupSeconds": 0.5, "damageShare": 1, "clip": 0, "reloadSeconds": 0,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 8192, "hullUnits": 0, "coneDegrees": 0, "projectile": "", "speed": 0 },
+    { "id": "rocket_launcher", "kind": "projectile", "intervalSeconds": 0.8, "windupSeconds": 0, "damageShare": 1, "clip": 4, "reloadSeconds": 3.2,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 0, "coneDegrees": 0, "projectile": "tf_projectile_rocket", "speed": 1100 },
+    { "id": "grenade_launcher", "kind": "projectile", "intervalSeconds": 0.6, "windupSeconds": 0, "damageShare": 1, "clip": 4, "reloadSeconds": 2.4,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 0, "coneDegrees": 0, "projectile": "tf_projectile_pipe", "speed": 1200 },
+    { "id": "flamethrower", "kind": "flame", "intervalSeconds": 0.1, "windupSeconds": 0, "damageShare": 0.1, "clip": 0, "reloadSeconds": 0,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 300, "hullUnits": 0, "coneDegrees": 15, "projectile": "", "speed": 0 }
+  ]
+}

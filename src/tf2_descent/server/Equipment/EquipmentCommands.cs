@@ -10,11 +10,12 @@ namespace TF2.Descent.Server.Gear;
 
 /// <summary>What the equipment commands print: a hero's gear slot by slot, and an operation's answer.</summary>
 [SideService(Side.Server)]
-public sealed class GearReport(HeroEquipment equipment)
+public sealed class GearReport(HeroEquipment equipment, HeroWear wear)
 {
     /// <summary>
     /// Every equipment slot of the hero, in inventory.json's order: the item (its ledger id,
-    /// base, rarity and item level), its state and why, the TF item and attributes handed to
+    /// base, rarity and item level, its durability as the ledger holds it with the progress
+    /// toward the next point, and the wear not yet written, <see cref="HeroWear"/>), its state and why, the TF item and attributes handed to
     /// TF2 for a weapon, and what it contributes to the sheet (a state other than Active
     /// counting for nothing).
     /// </summary>
@@ -39,6 +40,8 @@ public sealed class GearReport(HeroEquipment equipment)
             sb.Append(c, $"  {slot.Id}: #{held.Id} {item.BaseId} {rarity} ilvl {item.ItemLevel} dur {item.Durability}/{item.MaxDurability} " +
                          $"{state.State}{(state.Reason == TF2.Descent.Rules.Items.InactiveReason.None ? "" : " (" + state.Reason + ")")}" +
                          $"{(state.FiresAsStock ? " fires as Stock" : "")}\n");
+            var (uses, hits) = wear.Pending(gear.Hero, held.Id);
+            sb.Append(c, $"    wear: {item.WearUses / 100.0:0.##} toward the next point, pending {uses} uses {hits} hits\n");
 
             if (equipment.TFItemOf(gear, slot.Id) is { } tf)
             {

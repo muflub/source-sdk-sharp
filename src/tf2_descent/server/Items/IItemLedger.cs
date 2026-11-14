@@ -101,6 +101,33 @@ public sealed record KillDrop(string Hero, int Tier, uint KillSeq, string Robot,
 public sealed record BossDrop(IReadOnlyList<string> Heroes, uint KillSeq, string Robot, int Depth, Vector Position);
 
 /// <summary>
+/// The wear one item took since the last write (HE9): <paramref name="Uses"/> times fired or
+/// swung (a weapon) and <paramref name="Hits"/> hits taken (armour), by the ledger's id.
+/// </summary>
+public sealed record WearEvents(long ItemId, int Uses, int Hits);
+
+/// <summary>A repair of a worn item (HE9): the Engineer's (priced, or waived by a dev command) or the field's (Diablo 1's steps).</summary>
+public enum WornRepair
+{
+    /// <summary>The Engineer's: to the maximum, the maximum untouched, for its price in Australium.</summary>
+    Town,
+    /// <summary>The Engineer's, the price waived (the dev command's <c>town_free</c>).</summary>
+    TownUncharged,
+    /// <summary>The field's: Diablo 1's steps at the hero's level, each lowering the maximum (L7 as amended).</summary>
+    Field,
+}
+
+/// <summary>
+/// A container's roll for one hero (plan_tf2_rpg 2l, R4: each player in the room gets a roll of
+/// their own), as the rules decided it (<c>LootRules.Container</c>): an item of
+/// <paramref name="Tier"/> (-1 for none) or a potion of base <paramref name="Potion"/>, rolled
+/// from <paramref name="Seed"/> (the rules' per-hero seed of the container,
+/// <c>LootRequest.Seed</c>) at the depth's item level, on the floor at
+/// <paramref name="Position"/> for that hero alone.
+/// </summary>
+public sealed record ContainerDrop(string Hero, string Container, ulong Seed, int Tier, string? Potion, int Depth, Vector Position);
+
+/// <summary>
 /// The ledger's refusals that are not the rules' own (the rules' are
 /// <see cref="InventoryRefusals"/>, <c>CraftRefusals</c>, <c>RepairRefusals</c>).
 /// </summary>
@@ -172,6 +199,13 @@ public interface IItemLedger
     /// </summary>
     Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position);
 
+    /// <summary>
+    /// A container's item or potion for its hero (WO3), rolled as the rules said and put on the
+    /// floor for him. Hosted it is refused (<see cref="LedgerRefusals.HostUnsupported"/>): the
+    /// host's <c>IGameRules</c> has no container roll and no call mints a container's drop.
+    /// </summary>
+    Task<DropResult> ContainerDrop(ContainerDrop drop);
+
     /// <summary>Picks a floor item up into the first free backpack slot; refused when full or another hero's.</summary>
     Task<LedgerResult> Claim(string hero, long floorId);
 
@@ -240,6 +274,26 @@ public interface IItemLedger
 
     /// <summary>The hero's own corpse back onto them, as many as fit (hosted, <c>IHostLink.LootCorpse</c>).</summary>
     Task<LootAnswer> LootCorpse(string hero);
+
+    //-------------------------------------------------------------------------
+    // HE8 and HE9: consumables used, gear worn and repaired where it is worn
+    //-------------------------------------------------------------------------
+
+    /// <summary>Uses one of the stack in a backpack slot (a scroll read, a tome learnt); the last one leaves. Hosted: no host call carries it.</summary>
+    Task<LedgerResult> Consume(string hero, int slot);
+
+    /// <summary>
+    /// The wear gear took (HE9), applied by the rules' <c>Durability</c> to each item where it
+    /// is now, one write for all of them; an item no longer held is skipped. Hosted: no host
+    /// call carries it.
+    /// </summary>
+    Task<LedgerResult> Wear(string hero, IReadOnlyList<WearEvents> events);
+
+    /// <summary>Repairs the item worn in an equipment slot (HE9, L7); the rules' refusal comes back as is. Hosted: no host call carries it.</summary>
+    Task<LedgerResult> RepairWorn(string hero, string equipSlot, WornRepair how);
+
+    /// <summary>A dev mutation (<c>tf2_descent_wear</c>): the worn item's durability and maximum set as given, its wear progress cleared.</summary>
+    Task<LedgerResult> SetDurability(string hero, string equipSlot, int durability, int maxDurability);
 
     /// <summary>Drops a hero from the ledger's memory (hosted: the cache, when the player leaves; unhosted: nothing, the process keeps them).</summary>
     void Forget(string hero);

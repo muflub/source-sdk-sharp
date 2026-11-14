@@ -7,6 +7,7 @@ using TF2.Descent.Rules.Bestiary;
 using TF2.Descent.Server;
 using TF2.Descent.Server.Hero;
 using TF2.Descent.Server.Horde;
+using TF2.Descent.Server.Horde.Director;
 using TF2.Descent.Server.Mode;
 using TF2.Descent.Tests.Horde;
 
@@ -106,7 +107,8 @@ public sealed class ExperienceCommandsTests
     {
         var rig = new ServerHordeRig(begin: false);
         var horde = new HordeService(new Mode(), new Levels(), rig.Spawner, new Clock(), rig.Parking,
-                                     new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log);
+                                     new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log,
+                                     new MarkerClearances(rig.World, new RigRules()), new FixedParty(1));
         horde.OnLevelReady("tf2_descent-1-s1");
         Assert.True(horde.Current!.Begun);
         var told = new Told();

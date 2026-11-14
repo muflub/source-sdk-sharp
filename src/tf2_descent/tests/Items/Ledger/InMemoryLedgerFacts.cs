@@ -215,6 +215,56 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
     }
 
     [Fact]
+    public async Task A_containers_item_lies_on_the_floor_for_its_hero_at_the_rules_tier_and_replays()
+    {
+        await _ledger.Load(A);
+
+        var drop = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 12345, 2, null, 1, new Vector(4, 5, 6)));
+
+        Assert.True(drop.Ok, drop.Refusal);
+        var item = Assert.Single(drop.Items);
+        Assert.Equal((A, new Vector(4, 5, 6), 2), (item.ForHero, item.Position, item.Item.Rarity));
+        Assert.Contains(_ledger.Floor, f => f.Id == item.Id);
+        Assert.True(R.Replays(R.ItemRules.Codec.ToRolled(item.Item)), "a container's item does not replay");
+    }
+
+    [Fact]
+    public async Task A_containers_roll_is_the_same_item_from_the_same_seed()
+    {
+        await _ledger.Load(A);
+
+        var one = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 777, 1, null, 1, default));
+        var two = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 777, 1, null, 1, default));
+        var other = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 778, 1, null, 1, default));
+
+        string Bytes(DropResult d) => Convert.ToHexString(R.ItemRules.Codec.ToRolled(d.Items[0].Item).Instance);
+        Assert.Equal(Bytes(one), Bytes(two));
+        Assert.NotEqual(Bytes(one), Bytes(other));
+    }
+
+    [Fact]
+    public async Task A_containers_potion_lies_on_the_floor_for_its_hero()
+    {
+        await _ledger.Load(A);
+
+        var drop = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 9, -1, "mana_small", 1, default));
+
+        Assert.Equal("mana_small", Assert.Single(drop.Items).Item.BaseId);
+    }
+
+    [Fact]
+    public async Task A_container_roll_of_nothing_puts_nothing_on_the_floor()
+    {
+        await _ledger.Load(A);
+
+        var drop = await _ledger.ContainerDrop(new ContainerDrop(A, "m7", 9, -1, null, 1, default));
+
+        Assert.True(drop.Ok);
+        Assert.Empty(drop.Items);
+        Assert.Empty(_ledger.Floor);
+    }
+
+    [Fact]
     public async Task A_potion_of_an_unknown_base_is_refused()
     {
         await _ledger.Load(A);

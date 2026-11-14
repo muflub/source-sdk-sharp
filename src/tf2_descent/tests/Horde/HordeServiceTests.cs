@@ -3,6 +3,7 @@ using SourceSharp.Ai;
 using SourceSharp.Tests;
 using TF2.Descent.Ai.Level;
 using TF2.Descent.Server.Horde;
+using TF2.Descent.Server.Horde.Director;
 using TF2.Descent.Server.Mode;
 using Xunit;
 using static TF2.Descent.Tests.Horde.HordeFixtures;
@@ -45,12 +46,14 @@ public sealed class HordeServiceTests
             Rig = new ServerHordeRig(begin: false);
             Levels = new Levels(level ?? Row(3));
             Census = new HordeCensus(Rig.Spawner, Rig.Parking, Rig.Log);
-            Service = new HordeService(new Mode(active), Levels, Rig.Spawner, Clock, Rig.Parking, Census, new HordeTickTimer(), Rig.Log);
+            Service = new HordeService(new Mode(active), Levels, Rig.Spawner, Clock, Rig.Parking, Census, new HordeTickTimer(), Rig.Log,
+                new MarkerClearances(Rig.World, new RigRules()), Party);
         }
 
         public ServerHordeRig Rig { get; }
         public Levels Levels { get; }
         public Clock Clock { get; } = new();
+        public FixedParty Party { get; } = new(1);
         public HordeCensus Census { get; }
         public HordeService Service { get; }
     }

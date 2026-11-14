@@ -96,6 +96,7 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
         render.SetTransmitFullCheck(Handle, true);
         SetVisible(false);
         SetSolidity(SolidType.None, SolidFlags.None);
+        State.Gesture = -1;
     }
 
     /// <summary>Joins the body to its pool, its index and its weapon, once, when the pool is made.</summary>
@@ -143,7 +144,15 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
         State.MoveY = 0f;
         State.BodyPitch = 0f;
         State.BodyYaw = 0f;
+        State.Gesture = -1;
         SetLife(life, lifeMax);
+    }
+
+    /// <summary>Lays <paramref name="sequence"/> over the gait on the clients from its start (an attack, HO7); -1 takes it off.</summary>
+    internal void Gesture(int sequence)
+    {
+        State.Gesture = (short)Math.Max(-1, sequence);
+        State.GestureSerial++;
     }
 
     /// <summary>Back into the pool: not drawn, not solid, no robot.</summary>
@@ -207,6 +216,16 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
     }
 
     internal void SetStatuses(byte statuses) => State.Statuses = statuses;
+
+    /// <summary>Healed to <paramref name="life"/> of <paramref name="lifeMax"/> (a medic's beam, HO6): the engine health and the health bar follow the roster's life.</summary>
+    internal void Healed(double life, double lifeMax)
+    {
+        if (Parked || _health <= 0)
+            return;
+        _health = Math.Max(1, (int)Math.Ceiling(life));
+        Health = _health;
+        SetLife(life, lifeMax);
+    }
 
     /// <summary>The engine health after a hit the body answered: the shell subtracts the answer itself.</summary>
     internal void Took(int answered) => _health = Math.Max(0, _health - answered);

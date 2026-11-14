@@ -209,6 +209,15 @@ internal sealed class SkillRig
             Threats.Add((robot, seconds, skillId));
             return Answer;
         }
+
+        public List<(EntityHandle Robot, IReadOnlyList<TF2.Descent.Rules.Content.StatAmount> Stats, double Seconds, string Skill, string Target)> Weakened { get; } = [];
+
+        public RobotStatusAnswer Weaken(EntityHandle robot, IReadOnlyList<TF2.Descent.Rules.Content.StatAmount> stats, double seconds,
+                                        EntityHandle hero, string skillId, string target)
+        {
+            Weakened.Add((robot, stats, seconds, skillId, target));
+            return Answer;
+        }
     }
 
     private sealed class ModeOn : IDescentModeState

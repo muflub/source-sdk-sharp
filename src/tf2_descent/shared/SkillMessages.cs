@@ -20,14 +20,15 @@ public interface ISkillBarHook
 /// <param name="ChargeSlot">The slot whose key is held on a charge skill (1..<see cref="SkillBar.Slots"/>), 0 for none.</param>
 /// <param name="ChargeStartTick">The server tick the charge began; 0 with no charge.</param>
 /// <param name="ToggledMask">Bit <c>n - 1</c> set while slot <c>n</c>'s toggle is on.</param>
+/// <param name="ChargeTicks">The server ticks a full charge of the charging skill takes, as the skills runtime resolves it; 0 with no charge.</param>
 public sealed record SkillBarView(IReadOnlyList<string> Skills, IReadOnlyList<int> ReadyTicks, int ChargeSlot,
-                                  int ChargeStartTick, int ToggledMask);
+                                  int ChargeStartTick, int ToggledMask, int ChargeTicks = 0);
 
 /// <summary>
 /// The skill bar on the wire: sent to the hero's own client when it changes
 /// (a slot assigned, a cast, a charge begun or ended, a toggle switched).
-/// One message of at most 6 x 24 characters of ids and 6 ticks, under the
-/// engine's 255 bytes.
+/// One message of at most 6 x 24 characters of ids, 6 ticks and the charge's
+/// length, under the engine's 255 bytes.
 /// </summary>
 public partial struct SkillBar
 {
@@ -50,6 +51,9 @@ public partial struct SkillBar
 
     public partial byte ToggledMask { get; set; }
 
+    /// <summary>The server ticks the charging skill's full charge takes (its last stage); 0 with no charge.</summary>
+    public partial int ChargeTicks { get; set; }
+
     /// <summary>The bar as the client reads it: missing slots empty, missing ticks ready.</summary>
     public SkillBarView View()
     {
@@ -62,7 +66,7 @@ public partial struct SkillBar
             ready[i] = ReadyTicks is { } r && i < r.Length ? r[i] : 0;
         }
 
-        return new SkillBarView(skills, ready, ChargeSlot, ChargeStartTick, ToggledMask);
+        return new SkillBarView(skills, ready, ChargeSlot, ChargeStartTick, ToggledMask, ChargeTicks);
     }
 }
 

@@ -697,12 +697,29 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
             ChargeSlot = (byte)(caster.Charging?.Slot ?? 0),
             ChargeStartTick = caster.Charging?.StartTick ?? 0,
             ToggledMask = (byte)toggled,
+            ChargeTicks = ChargeTicksOf(caster),
         };
-        string key = $"{bar.Skills}|{string.Join(',', ready)}|{bar.ChargeSlot}|{bar.ChargeStartTick}|{bar.ToggledMask}";
+        string key = $"{bar.Skills}|{string.Join(',', ready)}|{bar.ChargeSlot}|{bar.ChargeStartTick}|{bar.ToggledMask}|{bar.ChargeTicks}";
         if (key == caster.SentBar)
             return;
         caster.SentBar = key;
         channel.Bar(caster.PlayerIndex, bar);
+    }
+
+    /// <summary>
+    /// The server ticks the charge held by <paramref name="caster"/> takes to its last
+    /// stage: the resolved charge's time, in ticks as <see cref="StagesReached"/> counts
+    /// them (so the client's meter fills exactly when the last stage is reached); 0 with
+    /// no charge.
+    /// </summary>
+    public int ChargeTicksOf(SkillCaster caster)
+    {
+        if (caster.Charging is not { } charge || heroes.Of(caster.PlayerIndex) is not { Sheet: { } sheet, Stats: { } stats })
+            return 0;
+        var resolved = rules.Skills.Resolve(sheet, stats, SkillBonuses.None, charge.SkillId);
+        return resolved.Effects.FirstOrDefault(e => e.Primitive == Primitive.Charge) is { } effect
+            ? binders.Ticks(effect["time"])
+            : 0;
     }
 
     private static string Line(int playerIndex, string what) =>

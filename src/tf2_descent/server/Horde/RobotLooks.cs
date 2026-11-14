@@ -43,6 +43,15 @@ public static class RobotDamageKinds
         : (bits & DamageType.Blast) != 0 ? Blast
         : (bits & (DamageType.Shock | DamageType.EnergyBeam)) != 0 ? Shock
         : Bullet;
+
+    /// <summary>The engine bits a hit of Descent damage <paramref name="type"/> is dealt with (a status's tick): <see cref="Of"/> reads them back as the type.</summary>
+    public static DamageType BitsOf(string type) => type switch
+    {
+        Fire => DamageType.Burn,
+        Blast => DamageType.Blast,
+        Shock => DamageType.Shock,
+        _ => DamageType.Bullet,
+    };
 }
 
 /// <summary>

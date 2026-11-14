@@ -235,14 +235,25 @@ public sealed class InventoryRules
         return Done(hero with { Backpack = hero.Backpack.Add(to, item), Equipped = hero.Equipped.Remove(slot) }, stash);
     }
 
-    /// <summary>Puts a potion from the backpack on an empty belt slot.</summary>
+    /// <summary>
+    /// Puts a potion from the backpack on a belt slot: an empty one, or one holding the same
+    /// potion with room, where it merges up to the base's stack size (what does not fit stays
+    /// in the backpack; merged whole, its id leaves and its units stay on the belt).
+    /// </summary>
     public InventoryResult ToBelt(HeroInventory hero, StashState stash, int from, int index)
     {
         if (!hero.Backpack.TryGetValue(from, out var item)) return Refuse(hero, stash, InventoryRefusals.NoItem);
         if (index < 0 || index >= S.BeltSlots) return Refuse(hero, stash, InventoryRefusals.NoSuchSlot);
         if (_content.ItemBases[item.Item.BaseId].Slot != S.BeltAccepts) return Refuse(hero, stash, InventoryRefusals.NotAPotion);
-        if (hero.Belt.ContainsKey(index)) return Refuse(hero, stash, InventoryRefusals.Occupied);
-        return Done(hero with { Backpack = hero.Backpack.Remove(from), Belt = hero.Belt.Add(index, item) }, stash);
+        if (!hero.Belt.TryGetValue(index, out var there))
+            return Done(hero with { Backpack = hero.Backpack.Remove(from), Belt = hero.Belt.Add(index, item) }, stash);
+        int room = _content.ItemBases[there.Item.BaseId].Stack - there.Item.Count;
+        if (there.Item.BaseId != item.Item.BaseId || room <= 0) return Refuse(hero, stash, InventoryRefusals.Occupied);
+        int moved = Math.Min(room, item.Item.Count);
+        var belt = hero.Belt.SetItem(index, there with { Item = there.Item with { Count = there.Item.Count + moved } });
+        if (moved < item.Item.Count)
+            return Done(hero with { Backpack = hero.Backpack.SetItem(from, item with { Item = item.Item with { Count = item.Item.Count - moved } }), Belt = belt }, stash);
+        return Done(hero with { Backpack = hero.Backpack.Remove(from), Belt = belt }, stash, item);
     }
 
     /// <summary>Takes a potion off the belt into the first free backpack slot.</summary>
@@ -254,11 +265,44 @@ public sealed class InventoryRules
         return Done(hero with { Backpack = hero.Backpack.Add(to, item), Belt = hero.Belt.Remove(index) }, stash);
     }
 
-    /// <summary>Drinks the potion on a belt slot: it leaves (HE8 applies what it restores).</summary>
-    public InventoryResult Drink(HeroInventory hero, StashState stash, int index) =>
-        hero.Belt.TryGetValue(index, out var item)
-            ? Done(hero with { Belt = hero.Belt.Remove(index) }, stash, item)
-            : Refuse(hero, stash, InventoryRefusals.NoItem);
+    /// <summary>
+    /// Drinks one potion from a belt slot's stack (HE8 applies what it restores): the stack
+    /// loses one, and the last one leaves. A slot the drink empties refills, with the
+    /// consumables' <c>refill</c>, from the lowest backpack slot holding the same potion,
+    /// below capacity or not.
+    /// </summary>
+    public InventoryResult Drink(HeroInventory hero, StashState stash, int index)
+    {
+        if (!hero.Belt.TryGetValue(index, out var item)) return Refuse(hero, stash, InventoryRefusals.NoItem);
+        if (item.Item.Count > 1)
+            return Done(hero with { Belt = hero.Belt.SetItem(index, item with { Item = item.Item with { Count = item.Item.Count - 1 } }) }, stash);
+        var after = hero with { Belt = hero.Belt.Remove(index) };
+        if (_content.Consumables.Refill
+            && hero.Backpack.FirstOrDefault(p => p.Value.Item.BaseId == item.Item.BaseId) is { Value: { } refill } at)
+            after = after with { Backpack = after.Backpack.Remove(at.Key), Belt = after.Belt.Add(index, refill) };
+        return Done(after, stash, item);
+    }
+
+    /// <summary>Uses one of the stack in a backpack slot (a scroll read, a tome learnt): the stack loses one, and the last one leaves.</summary>
+    public InventoryResult Consume(HeroInventory hero, StashState stash, int slot)
+    {
+        if (!hero.Backpack.TryGetValue(slot, out var item)) return Refuse(hero, stash, InventoryRefusals.NoItem);
+        if (item.Item.Count > 1)
+            return Done(hero with { Backpack = hero.Backpack.SetItem(slot, item with { Item = item.Item with { Count = item.Item.Count - 1 } }) }, stash);
+        return Done(hero with { Backpack = hero.Backpack.Remove(slot) }, stash, item);
+    }
+
+    /// <summary>
+    /// Replaces the item in an equipment slot with its changed self, same id (wear, a repair
+    /// of what is worn): only the mutable half may change (durability, maximum, wear progress).
+    /// </summary>
+    public InventoryResult ReplaceEquipped(HeroInventory hero, StashState stash, string slot, ItemInstance changed)
+    {
+        if (!hero.Equipped.TryGetValue(slot, out var held)) return Refuse(hero, stash, InventoryRefusals.NoItem);
+        if (changed with { Durability = held.Item.Durability, MaxDurability = held.Item.MaxDurability, WearUses = held.Item.WearUses } != held.Item)
+            return Refuse(hero, stash, InventoryRefusals.Refused);
+        return Done(hero with { Equipped = hero.Equipped.SetItem(slot, held with { Item = changed }) }, stash);
+    }
 
     //-------------------------------------------------------------------------
     // The stash

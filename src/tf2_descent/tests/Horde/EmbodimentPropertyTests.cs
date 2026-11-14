@@ -89,13 +89,20 @@ public sealed class EmbodimentPropertyTests
         Assert.True(rig.Pool.FreePoolBodies < rig.Pool.PoolBodies);
 
         int asked = rig.Sight.Asked;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int k = 0; k < 1000; k++)
+        // A steady allocation shows in every window; a one-off (the runtime re-jitting a hot method while the box is
+        // loaded) shows in one: the quietest of three windows is what a tick costs.
+        long allocated = long.MaxValue;
+        for (int window = 0; window < 3 && allocated != 0; window++)
         {
-            rig.Now++;
-            rig.Decide();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int k = 0; k < 1000; k++)
+            {
+                rig.Now++;
+                rig.Decide();
+            }
+
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
         }
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.True(rig.Sight.Asked - asked >= 10_000, $"the decisions asked sight {rig.Sight.Asked - asked} times");
         Assert.Equal(0, allocated);

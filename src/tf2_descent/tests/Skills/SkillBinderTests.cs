@@ -242,4 +242,41 @@ public sealed class SkillBinderTests
             rig.Binders.Afflict(cast, effect, Robot);
         Assert.Equal([("emp_stun", "enemy_minions"), ("slowed", "enemy_bosses")], rig.Robots.Applied.Select(a => (a.Condition, a.Target)));
     }
+
+    [Fact]
+    public void A_debuffs_stats_go_to_the_robot_sink_for_a_non_player_and_not_for_a_player()
+    {
+        var rig = new SkillRig();
+        rig.Join(level: 2);
+        var enemy = new EntityHandle(0x0001_0000u | 9);
+        rig.World.Team[enemy] = (int)TFTeam.Blue;
+        rig.World.Origins[Robot] = new Vector(100, 0, 0);
+        rig.World.Origins[enemy] = new Vector(0, 100, 0);
+        rig.World.Hurtable.AddRange([Robot, enemy]);
+        var debuff = Effect(Primitive.Debuff, "enemies", new Dictionary<string, double> { ["duration"] = 4, ["radius"] = 600 },
+                            stats: [new StatAmount("damage_all_pct", -30)]);
+
+        rig.Binders.Of(Primitive.Debuff)!.Fire(Caster(rig), Cast(rig, "maggots", [debuff]), debuff);
+
+        var weakened = Assert.Single(rig.Robots.Weakened);
+        Assert.Equal((Robot, 4.0, "maggots", "enemies"), (weakened.Robot, weakened.Seconds, weakened.Skill, weakened.Target));
+        Assert.Equal(-30, Assert.Single(weakened.Stats).Amount);
+        Assert.Contains("damage_all_pct -30 on #77 for 4s", rig.Heroes.Log.Text);
+    }
+
+    [Fact]
+    public void A_bursts_conditions_go_on_each_robot_within_its_radius()
+    {
+        var rig = new SkillRig();
+        rig.Join(level: 2);
+        var far = new EntityHandle(0x0004_0000u | 78);
+        rig.World.Origins[Robot] = new Vector(50, 0, 0);
+        rig.World.Origins[far] = new Vector(5000, 0, 0);
+        rig.World.Hurtable.AddRange([Robot, far]);
+        var burst = Effect(Primitive.AreaBurst, "enemies", new Dictionary<string, double> { ["damage"] = 30, ["radius"] = 120 }, ["knock_up"]);
+
+        rig.Binders.Of(Primitive.AreaBurst)!.Fire(Caster(rig), Cast(rig, "stomp", [burst]), burst);
+
+        Assert.Equal([(Robot, "knock_up", "stomp", "enemies")], rig.Robots.Applied.Select(a => (a.Robot, a.Condition, a.Skill, a.Target)));
+    }
 }

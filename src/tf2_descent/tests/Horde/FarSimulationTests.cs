@@ -232,6 +232,21 @@ public sealed class FarSimulationTests
     //-------------------------------------------------------------------------
 
     [Fact]
+    public void A_calm_far_pack_on_one_marker_holds_each_robot_at_its_own_post()
+    {
+        // One marker: nothing to patrol, so each robot holds at home, which is its post (HO9), not the marker.
+        var level = HordeLevel.Create(11, 4, Enumerable.Range(0, 6).Select(i => RowRoom(i, i == 5 ? 1 : 0)), Enumerable.Range(0, 5).Select(RowDoor));
+        var far = new Far(level, 4);
+        far.WakeAll();
+        int[] pack = far.Pack(0);
+        for (int t = 0; t < 20; t++) far.Tick();
+
+        Assert.True(pack.Length >= 4);
+        Assert.All(pack, i => Assert.Equal(far.Roster.Post(i), far.Roster.Position(i)));
+        Assert.Equal(pack.Length, pack.Select(i => far.Roster.Position(i)).Distinct().Count());
+    }
+
+    [Fact]
     public void A_calm_far_robot_patrols_its_rooms_markers_and_waits_at_each()
     {
         var far = new Far(PackAtTheEnd());
@@ -318,9 +333,15 @@ public sealed class FarSimulationTests
         for (int t = 0; t < 50; t++) far.Tick();
         var before = RosterTests.Digest(far.Roster);
 
-        long bytes = GC.GetAllocatedBytesForCurrentThread();
-        for (int t = 0; t < 1000; t++) far.Tick();
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - bytes;
+        // A steady allocation shows in every window; a one-off (the runtime re-jitting a hot method while the box is
+        // loaded) shows in one: the quietest of three windows is what a tick costs.
+        long allocated = long.MaxValue;
+        for (int window = 0; window < 3 && allocated != 0; window++)
+        {
+            long bytes = GC.GetAllocatedBytesForCurrentThread();
+            for (int t = 0; t < 1000; t++) far.Tick();
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - bytes);
+        }
 
         Assert.NotEqual(before, RosterTests.Digest(far.Roster));   // the ticks did work
         Assert.Equal(0, allocated);

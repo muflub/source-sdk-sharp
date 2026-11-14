@@ -1,6 +1,8 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
+using TF2.Descent.Rules.Content;
+
 namespace TF2.Descent.Server.Skills;
 
 /// <summary>What a status or threat on a robot came to.</summary>
@@ -8,10 +10,12 @@ public enum RobotStatusAnswer
 {
     /// <summary>The robot carries it now.</summary>
     Applied,
-    /// <summary>The target is no robot the horde knows.</summary>
+    /// <summary>The target is no robot the horde knows, or one the effect's target word excludes.</summary>
     NotARobot,
-    /// <summary>Robots carry no status effects in this build: the horde has not implemented the sink (track HO).</summary>
+    /// <summary>Nothing the robot can carry: no horde this level, or a word (a stat) that does nothing to a robot.</summary>
     NotAvailable,
+    /// <summary>The robot is immune to the status's damage type (a fire-immune robot does not burn).</summary>
+    Immune,
 }
 
 /// <summary>
@@ -23,10 +27,8 @@ public enum RobotStatusAnswer
 /// heroes (E9); robots do not carry them.
 ///
 /// <para>
-/// SINGLE-OWNER: one registration. Until the horde exists (HO1, HO3) the
-/// registered sink is <see cref="NoRobotStatus"/>, which answers
-/// <see cref="RobotStatusAnswer.NotAvailable"/> to everything; the horde
-/// replaces it with one over its roster.
+/// SINGLE-OWNER: one registration, the horde's over its roster
+/// (<c>Horde.RobotStatusEffects</c>, HO8).
 /// </para>
 /// </summary>
 public interface IRobotStatusSink
@@ -45,16 +47,13 @@ public interface IRobotStatusSink
 
     /// <summary><paramref name="robot"/> targets <paramref name="hero"/> for <paramref name="seconds"/> (a taunt).</summary>
     RobotStatusAnswer Threaten(EntityHandle robot, EntityHandle hero, double seconds, string skillId);
-}
 
-/// <summary>The sink while robots do not exist: nothing is available.</summary>
-[SideService(Side.Server, As = [typeof(IRobotStatusSink)])]
-public sealed class NoRobotStatus : IRobotStatusSink
-{
-    public RobotStatusAnswer Apply(EntityHandle robot, string condition, double seconds, EntityHandle hero, string skillId,
-                                   string target) =>
-        RobotStatusAnswer.NotAvailable;
-
-    public RobotStatusAnswer Threaten(EntityHandle robot, EntityHandle hero, double seconds, string skillId) =>
-        RobotStatusAnswer.NotAvailable;
+    /// <summary>
+    /// A debuff's <paramref name="stats"/> on <paramref name="robot"/> for <paramref name="seconds"/>
+    /// (Maggots!' <c>damage_all_pct</c>: what the robot deals), from the
+    /// <paramref name="hero"/>'s skill <paramref name="skillId"/>, for the robots
+    /// <paramref name="target"/> names.
+    /// </summary>
+    RobotStatusAnswer Weaken(EntityHandle robot, IReadOnlyList<StatAmount> stats, double seconds, EntityHandle hero, string skillId,
+                             string target);
 }
