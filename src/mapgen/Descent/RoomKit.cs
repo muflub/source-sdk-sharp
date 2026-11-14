@@ -278,6 +278,21 @@ public sealed record BrushFrame(Surface Post, Surface Head, int PostWidth, int H
     /// <summary>How far into the room the threshold's planks run.</summary>
     public int CrossingDepth { get; init; } = 72;
 
+    /// <summary>Triangular haunches this big under the head at both inner corners, so the opening reads as an arch (a rock arch, a carved stone arch), or 0.</summary>
+    public int Fillet { get; init; }
+
+    /// <summary>A keystone over the head's middle, standing this high above it on the wall (a carved arch), or 0.</summary>
+    public int Keystone { get; init; }
+
+    /// <summary>A plinth this high at each post's foot, as wide as the post and its flange (a carved arch), or 0.</summary>
+    public int Plinth { get; init; }
+
+    /// <summary>
+    /// A broken set (level 6's wrecked workings): the head cracked in two, its second half sagging this
+    /// far at the break and the cap gone past that post; 0 for a whole frame.
+    /// </summary>
+    public int Sag { get; init; }
+
     /// <summary>The light the frame's faces in the doorway get at least.</summary>
     public const string MinLight = "0.35";
 }

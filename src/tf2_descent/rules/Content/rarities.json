@@ -1,0 +1,27 @@
+[
+  {
+    "id": "stock", "name": "Stock", "affixes": { "min": 0, "max": 0 }, "identified": true, "curses": false,
+    "unusual": false, "unusualBase": 0, "unique": false, "indestructible": false, "craftable": true,
+    "value": 1, "repair": 1, "salvage": 1, "upgradeCost": 9
+  },
+  {
+    "id": "vintage", "name": "Vintage", "affixes": { "min": 1, "max": 2 }, "identified": false, "curses": true,
+    "unusual": false, "unusualBase": 0.02, "unique": false, "indestructible": false, "craftable": true,
+    "value": 2, "repair": 1.5, "salvage": 3, "upgradeCost": 27
+  },
+  {
+    "id": "strange", "name": "Strange", "affixes": { "min": 3, "max": 4 }, "identified": false, "curses": true,
+    "unusual": false, "unusualBase": 0.08, "unique": false, "indestructible": false, "craftable": true,
+    "value": 4, "repair": 2, "salvage": 6, "upgradeCost": 0
+  },
+  {
+    "id": "unusual", "name": "Unusual", "affixes": { "min": 5, "max": 6 }, "identified": false, "curses": true,
+    "unusual": true, "unusualBase": 0, "unique": false, "indestructible": false, "craftable": false,
+    "value": 10, "repair": 3, "salvage": 12, "upgradeCost": 0
+  },
+  {
+    "id": "australium", "name": "Australium", "affixes": { "min": 0, "max": 0 }, "identified": false, "curses": false,
+    "unusual": false, "unusualBase": 0, "unique": true, "indestructible": true, "craftable": false,
+    "value": 20, "repair": 4, "salvage": 20, "upgradeCost": 0
+  }
+]

@@ -1,9 +1,20 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using SourceSharp.Host.Contracts;
+using TF2.Descent.Rules.Content;
+using TF2.Descent.Rules.Bestiary;
+using TF2.Descent.Rules.Death;
+using TF2.Descent.Rules.Furniture;
+using TF2.Descent.Rules.Robots;
+using TF2.Descent.Rules.Economy;
+using TF2.Descent.Rules.Hero;
+using TF2.Descent.Rules.Inventory;
+using TF2.Descent.Rules.Items;
 using TF2.Descent.Rules.Layout;
+using TF2.Descent.Rules.Sheets;
+using TF2.Descent.Rules.Skills;
+using TF2.Descent.Rules.Spells;
 
 namespace TF2.Descent.Rules;
 
@@ -21,18 +32,120 @@ namespace TF2.Descent.Rules;
 /// </summary>
 public sealed class TF2DescentRules : IGameRules
 {
-    // Instance members, not statics: TF2Descent holds no static state (SS0010).
-    public IReadOnlyList<string> TierNames { get; } = ["Stock", "Vintage", "Strange", "Unusual", "Australium"];
-    private readonly string[] _bases = ["scattergun", "rocket_launcher", "minigun", "wrench", "sniper_rifle", "knife", "medigun", "flamethrower"];
+    /// <summary>
+    /// The one constructor, the one the host calls (Activator) and the server's registry
+    /// fills: it loads the content shipped in this assembly, and throws naming every
+    /// error when that content does not load.
+    /// </summary>
+    public TF2DescentRules()
+    {
+        Content = DescentContent.Shipped();
+        Heroes = new HeroRules(Content);
+        SheetCodec = new SheetCodec(Heroes);
+        Evidence = new EvidenceCodec();
+        Checkpoints = new CheckpointRules(Heroes, SheetCodec, Evidence);
+        Deaths = new DeathRules(Content);
+        Downed = new DownedRules(Content);
+        Bestiary = new BestiaryRules(Content);
+        Furniture = new FurnitureRules(Content);
+        Robots = new RobotRules(Content);
+        Temperaments = new TemperamentRules(Content, Robots);
+        Packs = new PackRules(Content, Robots, Temperaments);
+        Statuses = new StatusRules(Content);
+        BlastPush = new BlastPushRules(Content);
+        Skills = new SkillRules(Content, Heroes);
+        Casting = new CastRules(Skills);
+        Spells = new SpellRules(Content, Skills, Casting);
+        ItemRules = new ItemRules(Content, Heroes);
+        Repairs = new Repairs(Content, ItemRules.Codec);
+        Pricing = new Pricing(Content, ItemRules.Roller);
+        Crafting = new Crafting(Content, ItemRules.Roller, ItemRules.Codec, Repairs, Pricing);
+        Inventory = new InventoryRules(Content, ItemRules);
+        Trades = new Trades(Inventory);
+        Vendors = new Vendors(Content, ItemRules.Roller, ItemRules.Codec);
+    }
+
+    /// <summary>Tomes, scrolls and casting spells (RU6, R27).</summary>
+    public SpellRules Spells { get; }
+
+    /// <summary>The skill tree's rules: buying ranks, bonus ranks, resolving a skill, its contributions (RU6).</summary>
+    public SkillRules Skills { get; }
+
+    /// <summary>Casting: mana, cooldowns, toggles, Orders (RU6).</summary>
+    public CastRules Casting { get; }
+
+    /// <summary>The content tables these rules read (RU1). Built here, held by this instance (SS0010).</summary>
+    public DescentContent Content { get; }
+
+    /// <summary>The hero sheet's rules over that content (RU2).</summary>
+    public HeroRules Heroes { get; }
+
+    /// <summary>The sheet's bytes, schema 2 (RU13); schema 1 still decodes.</summary>
+    public SheetCodec SheetCodec { get; }
+
+    /// <summary>The checkpoint evidence's bytes (RU13).</summary>
+    public EvidenceCodec Evidence { get; }
+
+    /// <summary>What a checkpoint must satisfy (RU13).</summary>
+    public CheckpointRules Checkpoints { get; }
+
+    /// <summary>What a death drops, who loots the corpse, the Lost &amp; Found and hardcore (RU10).</summary>
+    public DeathRules Deaths { get; }
+
+    /// <summary>The party's downed state and revives (RU10, R26).</summary>
+    public DownedRules Downed { get; }
+
+    /// <summary>What a hero's kills of a robot template let it see (RU12, L6).</summary>
+    public BestiaryRules Bestiary { get; }
+
+    /// <summary>Shrines, containers, the Dispenser, explosives and traps, and where they stand (RU11).</summary>
+    public FurnitureRules Furniture { get; }
+
+    /// <summary>Robot templates, scale, stat curves, champion affixes, resistances (RU7).</summary>
+    public RobotRules Robots { get; }
+
+    /// <summary>The temperament point-buy (RU7, B.11).</summary>
+    public TemperamentRules Temperaments { get; }
+
+    /// <summary>The roster roll: one pack's robots (RU7).</summary>
+    public PackRules Packs { get; }
+
+    /// <summary>Robot status effects (RU7, E9).</summary>
+    public StatusRules Statuses { get; }
+
+    /// <summary>The push a blast gives a robot (RU7, L12).</summary>
+    public BlastPushRules BlastPush { get; }
+    /// <summary>The items' rules (RU3): the roll, the codec, the views, equipment.</summary>
+    public ItemRules ItemRules { get; }
+
+    /// <summary>The Engineer's repair and the Repair Kit (RU8).</summary>
+    public Repairs Repairs { get; }
+
+    /// <summary>Item values, the identify fee and crate prices (RU9).</summary>
+    public Pricing Pricing { get; }
+
+    /// <summary>Recipes, salvage, identify and crates (RU9).</summary>
+    public Crafting Crafting { get; }
+
+    /// <summary>The backpack, equipment, belt, stash and vendors' buy, sell and buy-back (RU5).</summary>
+    public InventoryRules Inventory { get; }
+
+    /// <summary>The two-phase trade (RU5).</summary>
+    public Trades Trades { get; }
+
+    /// <summary>Vendor stock (RU5).</summary>
+    public Vendors Vendors { get; }
+
+    /// <summary>The content's SHA-256, for the game and the host to log side by side.</summary>
+    public string ContentHash => Content.Hash;
 
     /// <summary>Added to every kill roll's hash: two modules with different salts replay differently.</summary>
     public ulong Salt { get; init; }
-    public int Backpack { get; init; } = 20;
-    public int Stash { get; init; } = 50;
 
-    public IReadOnlyList<string> Tiers => TierNames;
-    public ISheetCodec Sheets { get; } = new SheetCodec();
-    public IItemCodec Items { get; } = new ItemCodec();
+    /// <summary>The rarity names, in tier order (rarities.json).</summary>
+    public IReadOnlyList<string> Tiers => ItemRules.Tiers;
+    public ISheetCodec Sheets => SheetCodec;
+    public IItemCodec Items => ItemRules.Codec;
 
     public static ulong Hash(params object[] parts)
     {
@@ -40,21 +153,11 @@ public sealed class TF2DescentRules : IGameRules
         return BinaryPrimitives.ReadUInt64LittleEndian(bytes);
     }
 
-    public RolledItem RollItem(ItemRollContext ctx, ulong seed)
-    {
-        var h = Hash("item", seed, ctx.CharacterClass, ctx.CharacterLevel, ctx.Depth, ctx.ItemLevel, ctx.Tier, ctx.LootTable);
-        var baseType = _bases[(int)(h % (ulong)_bases.Length)];
-        var identified = ctx.Tier < 2; // Strange and above drop unidentified (D22)
-        var item = new RolledItem(seed, baseType, ctx.Tier, ctx.ItemLevel, 1, identified, [], ItemCodec.Schema, ctx.Tier, ctx);
-        return item with { Instance = ItemCodec.Encode(item) };
-    }
+    /// <summary>One item for a context (RU3): <see cref="ItemRoller.Roll"/>, in schema 2 bytes.</summary>
+    public RolledItem RollItem(ItemRollContext ctx, ulong seed) => ItemRules.Roll(ctx, seed);
 
-    public bool Replays(RolledItem item)
-    {
-        var again = RollItem(item.Context, item.Seed);
-        return again.BaseType == item.BaseType && again.Rarity == item.Rarity && again.ItemLevel == item.ItemLevel
-               && again.Tier == item.Tier && again.Count == item.Count;
-    }
+    /// <summary>True when the item is what its context, seed and history give (RU3); a schema 1 item by its own formula.</summary>
+    public bool Replays(RolledItem item) => ItemRules.Replays(item);
 
     /// <summary>Two kills in three drop; tiers by the hash: 60 % Stock, 20 % Vintage, 10 % Strange, 10 % Unusual.</summary>
     public KillRoll KillRoll(ulong instanceSeed, uint killSeq, string robotTemplate, int depth, int partySize)
@@ -69,28 +172,21 @@ public sealed class TF2DescentRules : IGameRules
     public IReadOnlyList<RolledItem> BossDrops(ItemRollContext ctx, string robotTemplate, ulong seed) =>
         [RollItem(ctx with { Tier = 2, Source = "boss:" + robotTemplate }, seed), RollItem(ctx with { Tier = 3, Source = "boss:" + robotTemplate }, seed + 1)];
 
-    public int BackpackSlots(CharacterSheet sheet) => Backpack;
-    public int StashSlots(IReadOnlyList<CharacterSheet> living) => Stash;
+    /// <summary>Backpack capacity, derived from the sheet's skill ranks and never stored (RU5, R13, D4).</summary>
+    public int BackpackSlots(CharacterSheet sheet) => Inventory.BackpackSlots(SheetCodec.Read(sheet));
 
+    /// <summary>Stash capacity: the highest storage rank among the account's living characters (RU5, D4).</summary>
+    public int StashSlots(IReadOnlyList<CharacterSheet> living) => Inventory.StashSlots(living.Select(SheetCodec.Read));
+
+    /// <summary>A level 1 hero of the class at its class starts (schema 2). An unknown class throws, naming the nine.</summary>
     public CharacterSheet NewCharacter(string className, string name, bool hardcore) =>
-        SheetCodec.Write(new Sheet(className, name, 1, 0, 0, hardcore, false));
+        SheetCodec.Write(Heroes.New(className, name) with { Hardcore = hardcore });
 
-    public ValidationResult ValidateCheckpoint(CharacterSheet before, CharacterSheet after, CheckpointEvidence evidence)
-    {
-        var a = SheetCodec.Read(before);
-        var b = SheetCodec.Read(after);
-        if (b.ClassName != a.ClassName) return ValidationResult.Fail("class_changed");
-        if (b.Level < a.Level) return ValidationResult.Fail("level_decreased");
-        if (b.Xp < a.Xp) return ValidationResult.Fail("xp_decreased");
-        if (b.Level - a.Level > 5) return ValidationResult.Fail("level_jump");
-        if (a.Fallen && !b.Fallen) return ValidationResult.Fail("unfallen");
-        return ValidationResult.Pass;
-    }
+    public ValidationResult ValidateCheckpoint(CharacterSheet before, CharacterSheet after, CheckpointEvidence evidence) =>
+        Checkpoints.Validate(before, after, evidence);
 
-    public TradeResult ApplyTrade(TradeState t) =>
-        t.OfferB.Count - t.OfferA.Count > t.FreeSlotsA ? new TradeResult(false, "no_capacity_a")
-        : t.OfferA.Count - t.OfferB.Count > t.FreeSlotsB ? new TradeResult(false, "no_capacity_b")
-        : new TradeResult(true);
+    /// <summary>The host's last check of a confirmed trade (RU5, <see cref="Trades.Apply"/>).</summary>
+    public TradeResult ApplyTrade(TradeState t) => Trades.Apply(t);
 
     private readonly LevelLayout _layout = new();
 
@@ -126,70 +222,43 @@ public sealed class TF2DescentRules : IGameRules
         return new LevelPlan(1, placements.Count, placements, up, down);
     }
 
-    public LevelRow LevelTable(int depth) => new(depth, Math.Max(1, depth * 5), $"depth{depth}", depth * 3);
+    /// <summary>
+    /// The host's level row for a depth, from levels.json (RU7): its item level, loot table and
+    /// monster level. A depth past the deepest row reads the deepest; one below 1 reads depth 1.
+    /// </summary>
+    public LevelRow LevelTable(int depth)
+    {
+        var row = Robots.Depth(depth);
+        return new LevelRow(depth, row.ItemLevel, row.LootTable, row.MonsterLevel);
+    }
 
-    public IReadOnlyList<RolledItem> VendorStock(string vendor, ulong seed) =>
-        Enumerable.Range(0, 6).Select(i => RollItem(new ItemRollContext("any", 1, 0, 5, i % 2, "vendor:" + vendor, "vendor"), seed + (ulong)i)).ToList();
+    /// <summary>A vendor's stock for one seed (RU5); "saxton@12@soldier" names the buyer's level and class (<see cref="Vendors"/>).</summary>
+    public IReadOnlyList<RolledItem> VendorStock(string vendor, ulong seed) => Vendors.Stock(vendor, seed);
 
+    /// <summary>
+    /// A buy, a sell or the vendor value, in Australium (RU9, <see cref="Pricing"/>). A schema 1
+    /// item keeps the first rules' price: 10 · (rarity + 1) · item level · count, a quarter to sell.
+    /// </summary>
     public long Price(RolledItem item, PriceKind kind)
     {
+        if (item.SchemaVersion == ItemCodec.Schema) return Pricing.Price(ItemRules.Codec.Instance(item), kind);
         var buy = 10L * (item.Rarity + 1) * Math.Max(1, item.ItemLevel) * item.Count;
         return kind switch { PriceKind.Buy => buy, PriceKind.Sell => buy / 4, _ => buy / 2 };
     }
 
-    public ItemChange OpenCrate(RolledItem crate, ItemRollContext ctx, ulong seed) =>
-        new([0], [Re(RollItem(ctx with { Tier = Math.Min(3, crate.Rarity + 1), Source = "crate" }, seed) with { Identified = false })], 0);
+    /// <summary>A sealed crate opened on the published odds (RU9, D23).</summary>
+    public ItemChange OpenCrate(RolledItem crate, ItemRollContext ctx, ulong seed) => Crafting.OpenCrate(crate, ctx, seed);
 
+    /// <summary>A recipe at the Engineer's bench, the Repair Kit or a Dossier (RU8, RU9, D24).</summary>
     public ItemChange Craft(string recipe, IReadOnlyList<RolledItem> inputs, ItemRollContext ctx, ulong seed) =>
-        recipe != "combine3" ? new([], [], 0, "unknown_recipe")
-        : inputs.Count != 3 ? new([], [], 0, "needs_three")
-        : new([0, 1, 2], [RollItem(ctx with { Tier = Math.Min(3, inputs.Max(i => i.Rarity) + 1), Source = "craft" }, seed)], 5);
+        Crafting.Craft(recipe, inputs, ctx, seed);
 
-    public ItemChange Identify(RolledItem item, ulong seed) =>
-        item.Identified ? new([], [], 0, "already_identified") : new([0], [Re(item with { Identified = true })], 2);
+    /// <summary>The Spy identifies for a fee scaled by item level (RU9, D22); identifying never rolls again.</summary>
+    public ItemChange Identify(RolledItem item, ulong seed) => Crafting.Identify(item, seed);
 
-    public ItemChange Repair(RolledItem item) => new([0], [item], 1);
+    /// <summary>The Engineer's repair (RU8): durability to its maximum, never the maximum, priced.</summary>
+    public ItemChange Repair(RolledItem item) => Repairs.Repair(item);
 
-    public ItemChange Salvage(RolledItem item, ItemRollContext ctx, ulong seed) =>
-        new([0], [Re(RollItem(ctx with { Tier = 0, Source = "salvage" }, seed) with { BaseType = "metal", Count = item.Rarity + 1 })], 0);
-
-    /// <summary>An item changed with `with` carries its old bytes until it is encoded again.</summary>
-    static RolledItem Re(RolledItem i) => i with { Instance = ItemCodec.Encode(i) };
-
-    public sealed record Sheet(string ClassName, string Name, int Level, long Xp, int ReachedDepth, bool Hardcore, bool Fallen);
-
-    public sealed class SheetCodec : ISheetCodec
-    {
-        public const int Schema = 1;
-        public int SchemaVersion => Schema;
-        public static CharacterSheet Write(Sheet s) => new(JsonSerializer.SerializeToUtf8Bytes(s), Schema);
-        public static Sheet Read(CharacterSheet s) => JsonSerializer.Deserialize<Sheet>(s.Data) ?? throw new InvalidDataException("empty sheet");
-        public SheetSummary Summarize(CharacterSheet sheet)
-        {
-            var s = Read(sheet);
-            return new SheetSummary(s.ClassName, s.Name, s.Level, s.Xp, s.ReachedDepth, s.Hardcore, s.Fallen);
-        }
-        public string ToJson(CharacterSheet sheet) => Encoding.UTF8.GetString(sheet.Data);
-        public CharacterSheet FromJson(string json) => Write(JsonSerializer.Deserialize<Sheet>(json) ?? throw new InvalidDataException("empty sheet"));
-    }
-
-    public sealed class ItemCodec : IItemCodec
-    {
-        public const int Schema = 1;
-        public int SchemaVersion => Schema;
-
-        sealed record Wire(ulong Seed, string BaseType, int Rarity, int ItemLevel, int Count, bool Identified, int Tier, ItemRollContext Context);
-
-        public static byte[] Encode(RolledItem i) =>
-            JsonSerializer.SerializeToUtf8Bytes(new Wire(i.Seed, i.BaseType, i.Rarity, i.ItemLevel, i.Count, i.Identified, i.Tier, i.Context));
-
-        public RolledItem Decode(byte[] instance, int schemaVersion)
-        {
-            var w = JsonSerializer.Deserialize<Wire>(instance) ?? throw new InvalidDataException("empty item");
-            return new RolledItem(w.Seed, w.BaseType, w.Rarity, w.ItemLevel, w.Count, w.Identified, instance, schemaVersion, w.Tier, w.Context);
-        }
-
-        public string ToJson(RolledItem item) => Encoding.UTF8.GetString(Encode(item));
-        public RolledItem FromJson(string json) => Decode(Encoding.UTF8.GetBytes(json), Schema);
-    }
+    /// <summary>Gear to metal by rarity and item level (RU9, D24).</summary>
+    public ItemChange Salvage(RolledItem item, ItemRollContext ctx, ulong seed) => Crafting.Salvage(item, ctx, seed);
 }

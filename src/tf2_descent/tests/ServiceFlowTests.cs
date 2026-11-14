@@ -53,9 +53,9 @@ public sealed partial class ServiceFlowTests
         public Task<bool> Leave(string steamId, string peer) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
         public void ReplyExec(string commandId, string output) => Calls.Add($"reply {commandId} {output}");
         public TravelAnswer TravelAnswer { get; set; } = new(TravelState.Started, TimeSpan.Zero, "");
-        public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot)
+        public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth)
         {
-            Calls.Add($"travel {steamId} {direction} {boot.InstanceKind}");
+            Calls.Add($"travel {steamId} {direction} {boot.InstanceKind} {depth}");
             return Task.FromResult(TravelAnswer);
         }
         public TicketAnswer TicketAnswer { get; set; } = new(TicketOutcome.Ok);
@@ -250,10 +250,10 @@ public sealed partial class ServiceFlowTests
     // PlayerService
     //-------------------------------------------------------------------------
 
-    private static (World W, PlayerService Players, FakeClients Clients, RecordingEngine Net) Players(string kind = "hub", bool booted = true)
+    private static (World W, PlayerService Players, FakeClients Clients, RecordingEngine Net) Players(string kind = "hub", bool booted = true, int levelDepth = 3)
     {
         var w = Host(HostingMode.Hosted);
-        w.Link.BootAnswers.Enqueue(booted ? HostResult<BootInfo>.Success(Boot(kind, kind == "hub" ? 0 : 3)) : Refused<BootInfo>(HostError.Unreachable));
+        w.Link.BootAnswers.Enqueue(booted ? HostResult<BootInfo>.Success(Boot(kind, kind == "hub" ? 0 : levelDepth)) : Refused<BootInfo>(HostError.Unreachable));
         w.Host.OnPostInit();
         if (booted)
             w.Host.OnLevelInit("tf2_descent_town");
@@ -581,20 +581,220 @@ public sealed partial class ServiceFlowTests
     // TravelService (the mine cage, the shaft, a level's stairs)
     //-------------------------------------------------------------------------
 
-    private static (World W, TravelService Travel, RecordingEngine Net) Travel(HostingMode mode = HostingMode.Hosted)
+    /// <summary>The boss depths a character has killed, as a fact sets them; records whom it was asked about.</summary>
+    private sealed class Kills(params int[] depths) : IBossKills
     {
-        var (w, players, clients, net) = Players();
+        public List<string> Asked { get; } = new();
+
+        public IReadOnlyCollection<int> Depths(string characterId)
+        {
+            Asked.Add(characterId);
+            return depths;
+        }
+    }
+
+    /// <param name="reached">The depth the joining character has reached (the join's answer).</param>
+    /// <param name="kind">The instance: the town ("hub") or a level at <paramref name="levelDepth"/>.</param>
+    private static (World W, TravelService Travel, RecordingEngine Net) Travel(
+        HostingMode mode = HostingMode.Hosted, int reached = 0, Kills? kills = null, string kind = "hub", int levelDepth = 3)
+    {
+        var (w, players, clients, net) = Players(kind, levelDepth: levelDepth);
+        w.Link.JoinAnswer = w.Link.JoinAnswer with { ReachedDepth = reached };
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         players.OnClientActive(3);
         net.Calls.ToList();   // the join's instance message is already recorded; facts look past it
         if (mode != HostingMode.Hosted)
             w.Link.ModeIs = mode;
         var host = w.Host;
-        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), w.Log), net);
+        return (w, new TravelService(w.Link, host, players, new ClientMessages(net), kills ?? new Kills(), w.Log), net);
     }
 
-    private static int Notices(RecordingEngine net) =>
-        net.Calls.Count(c => c.Member == "UserMessages.Send" && (string?)c.Arg(0) == "TF2.Descent:notice");
+    private static int Notices(RecordingEngine net) => NoticesSent(net).Count;
+
+    /// <summary>Each notice sent, as the client reads it: its text (or token) and its argument.</summary>
+    private static List<(string Text, string Arg)> NoticesSent(RecordingEngine net) =>
+        net.Calls.Where(c => c.Member == "UserMessages.Send" && (string?)c.Arg(0) == "TF2.Descent:notice")
+            .Select(c =>
+            {
+                var reader = new UserMessageReader((byte[])c.Arg(4)!);
+                var notice = Notice.Read(ref reader);
+                return (notice.Text, notice.Arg);
+            })
+            .ToList();
+
+    private static bool AskedTheHost(World w) => w.Link.Calls.Any(c => c.StartsWith("travel", StringComparison.Ordinal));
+
+    [Fact]
+    public void A_descent_from_the_town_asks_the_host_for_the_picked_depth()
+        => Assert.Equal((TravelCall.RequestDescent, 3), HostLink.Route(TravelDirection.Down, Boot("hub"), 3));
+
+    [Fact]
+    public void Down_from_a_level_still_asks_stairs_down_to_the_next_depth_whatever_depth_was_named()
+        => Assert.Equal((TravelCall.StairsDown, 4), HostLink.Route(TravelDirection.Down, Boot("level", 3), 9));
+
+    [Fact]
+    public void Up_asks_the_town_portal()
+        => Assert.Equal(TravelCall.TownPortal, HostLink.Route(TravelDirection.Up, Boot("level", 3), 0).Call);
+
+    [Fact]
+    public void A_picked_depth_the_player_has_reached_reaches_the_host_call()
+    {
+        var (w, travel, _) = Travel(reached: 3);
+
+        travel.Request(3, TravelDirection.Down, 3);
+
+        Assert.Contains("travel 76561197960287930 Down hub 3", w.Link.Calls);
+    }
+
+    [Fact]
+    public void A_descent_from_the_town_with_no_depth_picked_goes_to_level_1()
+    {
+        var (w, travel, _) = Travel(reached: 4);
+
+        travel.Request(3, TravelDirection.Down);
+
+        Assert.Contains("travel 76561197960287930 Down hub 1", w.Link.Calls);
+    }
+
+    [Fact]
+    public void A_depth_the_player_may_not_pick_is_refused_with_a_notice_and_no_host_call()
+    {
+        var (w, travel, net) = Travel(reached: 2);
+
+        travel.Request(3, TravelDirection.Down, 4);
+
+        Assert.False(AskedTheHost(w));
+        Assert.Equal([(TravelService.DepthClosedToken, "4")], NoticesSent(net));
+    }
+
+    [Theory]
+    [InlineData(new int[0], 6, false)]
+    [InlineData(new[] { 5 }, 6, true)]
+    [InlineData(new[] { 5 }, 11, false)]
+    [InlineData(new[] { 5, 10 }, 11, true)]
+    public void The_camps_are_offered_once_their_bosses_are_dead(int[] killed, int camp, bool offered)
+    {
+        var kills = new Kills(killed);
+        var (w, travel, _) = Travel(reached: 5, kills: kills);
+
+        travel.Request(3, TravelDirection.Down, camp);
+
+        Assert.Equal(offered, AskedTheHost(w));
+        Assert.Equal(["c-1"], kills.Asked);   // the requesting player's own character
+    }
+
+    [Fact]
+    public void Until_a_boss_kill_is_recorded_no_character_has_one()
+        => Assert.Empty(new NoBossKills().Depths("c-1"));
+
+    [Fact]
+    public void Down_from_a_level_is_not_held_to_the_towns_depths()
+    {
+        var (w, travel, _) = Travel(reached: 0, kind: "level");
+
+        travel.Request(3, TravelDirection.Down, 7);
+
+        Assert.True(AskedTheHost(w));
+    }
+
+    //-------------------------------------------------------------------------
+    // The travel notices (mine plan D9): a token per way down, and the
+    // waiting and refused answers' own.
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void Each_way_down_has_its_own_token()
+    {
+        var ways = Enum.GetValues<WayDown>();
+        Assert.True(ways.Length >= 12, $"{ways.Length}");   // the stimulus: every way the plan names
+        Assert.Equal(ways.Length, ways.Select(WaysDown.Token).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Theory]
+    [InlineData(1, WayDown.Cage)]
+    [InlineData(4, WayDown.Cage)]
+    [InlineData(5, WayDown.CollapsedFloor)]
+    [InlineData(6, WayDown.RubbleRamp)]
+    [InlineData(7, WayDown.RopeStair)]
+    [InlineData(8, WayDown.DrainedSump)]
+    [InlineData(9, WayDown.CryptFloor)]
+    [InlineData(10, WayDown.BoreHole)]
+    [InlineData(11, WayDown.WasteChute)]
+    [InlineData(12, WayDown.SumpDive)]
+    [InlineData(13, WayDown.Fissure)]
+    [InlineData(14, WayDown.SlimeSlide)]
+    [InlineData(15, WayDown.Deeper)]
+    public void Each_level_goes_down_the_way_the_mine_plan_names(int depth, WayDown way)
+        => Assert.Equal(way, WaysDown.FromLevel(depth));
+
+    [Theory]
+    [InlineData(1, WayDown.Cage)]
+    [InlineData(5, WayDown.Cage)]
+    [InlineData(6, WayDown.Hoist)]
+    [InlineData(11, WayDown.Hoist)]
+    public void The_town_sends_a_party_down_by_the_cage_and_to_a_camp_by_the_hoist(int depth, WayDown way)
+        => Assert.Equal(way, WaysDown.FromTown(depth));
+
+    [Fact]
+    public void A_descent_from_the_town_to_a_camp_tells_of_the_hoist()
+    {
+        var (_, travel, net) = Travel(reached: 5, kills: new Kills(5));
+
+        travel.Request(3, TravelDirection.Down, 6);
+
+        Assert.Equal([("#Descent_Travel_Hoist", "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void A_descent_from_a_level_tells_of_that_levels_way_down()
+    {
+        var (_, travel, net) = Travel(kind: "level", levelDepth: 8);
+
+        travel.Request(3, TravelDirection.Down);
+
+        Assert.Equal([("#Descent_Travel_DrainedSump", "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void Going_up_tells_of_the_way_back_to_town()
+    {
+        var (_, travel, net) = Travel(kind: "level");
+
+        travel.Request(3, TravelDirection.Up);
+
+        Assert.Equal([(TravelService.UpToken, "")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void A_wait_tells_the_player_the_seconds_until_the_level_is_ready()
+    {
+        var (w, travel, net) = Travel();
+        w.Link.TravelAnswer = new TravelAnswer(TravelState.Waiting, TimeSpan.FromSeconds(3.2), "");
+
+        travel.Request(3, TravelDirection.Down);
+
+        Assert.Equal([(TravelService.WaitingToken, "4")], NoticesSent(net));
+    }
+
+    [Fact]
+    public void A_refusal_tells_the_player_the_hosts_reason()
+    {
+        var (w, travel, net) = Travel();
+        w.Link.TravelAnswer = new TravelAnswer(TravelState.Refused, TimeSpan.Zero, "no_capacity: the cluster is full");
+
+        travel.Request(3, TravelDirection.Down);
+
+        Assert.Equal([(TravelService.RefusedToken, "no_capacity: the cluster is full")], NoticesSent(net));
+    }
+
+    [Theory]
+    [InlineData("tf2_descent-1", 1)]
+    [InlineData("tf2_descent-3-0123456789abcdef", 3)]
+    [InlineData("tf2_descent_town", 0)]
+    [InlineData("", 0)]
+    [InlineData("tf2_descent-x", 0)]
+    public void A_transitions_map_names_the_depth_it_leads_to(string map, int depth)
+        => Assert.Equal(depth, LevelTransition.DepthOf(map));
 
     [Fact]
     public void A_transition_asks_the_service_for_the_activating_player_and_tells_them()
@@ -603,7 +803,7 @@ public sealed partial class ServiceFlowTests
 
         travel.Request(3, TravelDirection.Down);
 
-        Assert.Contains("travel 76561197960287930 Down hub", w.Link.Calls);
+        Assert.Contains("travel 76561197960287930 Down hub 1", w.Link.Calls);
         Assert.Equal(1, Notices(net));
     }
 
@@ -782,7 +982,7 @@ public sealed partial class ServiceFlowTests
         new TravelCommand(travel).RunLine(line, refused.Add);
 
         Assert.Equal(!runs, refused.Count == 1);
-        Assert.Equal(runs, w.Link.Calls.Contains("travel 76561197960287930 Up hub"));
+        Assert.Equal(runs, w.Link.Calls.Contains("travel 76561197960287930 Up hub 1"));
     }
 
     [Fact]
@@ -801,6 +1001,17 @@ public sealed partial class ServiceFlowTests
 
         new TravelCommand(travel).RunLine("3 down");
 
-        Assert.Contains("travel 76561197960287930 Down hub", w.Link.Calls);
+        Assert.Contains("travel 76561197960287930 Down hub 1", w.Link.Calls);
+    }
+
+    [Fact]
+    public void The_travel_command_takes_a_picked_depth()
+    {
+        var (w, travel, _) = Travel(reached: 3);
+        w.Link.Calls.Clear();
+
+        new TravelCommand(travel).RunLine("3 down 3");
+
+        Assert.Equal(["travel 76561197960287930 Down hub 3"], w.Link.Calls);
     }
 }

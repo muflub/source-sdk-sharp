@@ -97,7 +97,9 @@ var b = new RoomBuilder("gallery_b", kit, theme)
   model (or the theme's own frame of brushes, `RoomTheme.FrameBrushes`: one
   non-solid `func_brush` per socket kept only where it is joined, posts and
   a head lining the doorway with a flange, a cap or a stripe round it and,
-  at level 2, planks across the threshold; one map entity per joined socket)
+  at level 2, planks across the threshold; Act II's add haunches in the top
+  corners (`Fillet`, an arch), a keystone and plinths (level 9) or a head
+  cracked and sagging (`Sag`, level 6's broken set); one map entity per joined socket)
   and sill planks (as many as cover the wall's depth) as non-solid
   `prop_static`s lining its half of the doorway, the floor let down 2 under
   the plug (`RoomBuilder.DoorwayDip`, short of the cell face) so the planks
@@ -143,7 +145,8 @@ its row, and the level file writes `+` in its other cells
 the whole footprint and every socket (`Room.Sockets`, `PlugBox`,
 `DoorInside`, `SocketName`). Families: `hall` (2x2, levels 2 to 4: a
 loading dock, a plinth yard, a gallery over the doors), `grotto` (2x2 and
-3x3 caverns, 6 on), `flood` (2x2 flooded gallery, 8 on), `arena` (level
+3x3 caverns, 6 on: rounded corners, rough rock along the walls between the
+sockets, a roof hanging in lumps, stalactites), `flood` (2x2 flooded gallery, 8 on), `arena` (level
 5's 2x2, 10's 3x3, 15's 4x4).
 
 ## Jump features (`JumpFeatures`, plan §4.3)
@@ -186,8 +189,15 @@ south). A feature refuses a ledge without 114 of clear air above it.
 
 - **A depth's theme** (`RoomTheme.ForDepth`, `DescentRooms.ThemeFor`):
   Act I's four in `Themes/ActOne.cs` (surfaces, door frame, lamp kinds,
-  props by role, fog, tone map, wetness, sun and sky, the way in's theme);
-  depths 5 to 15 are `RoomTheme.Grey` until their acts are themed. Every
+  props by role, fog, tone map, wetness, sun and sky, the way in's theme),
+  Act II's four in `Themes/ActTwo.cs` (levels 6 to 9: the Breakthrough,
+  Dripstone, the Sunken Galleries, the Buried Chapel); depths 5 and 10 to 15
+  are `RoomTheme.Grey` until their acts are themed. A theme may name its
+  own water (`Water`, a `water` shader material: the pools' and flooded
+  galleries'), water standing on its rooms' floors (`Standing`: a depth,
+  kept clear of every door, in some families or all), and a larger room's
+  wall drawn larger (`LargeWall`: a 2048 wall at a cell's scale tiles into
+  bricks). Every
   asset a theme names is a row of `Themes/palettes/dNN.tsv` and of the asset
   database (`DescentPaletteTests`); add the row when you add the asset.
 - **A shape draws in the theme's surfaces and nothing else.** It may place
@@ -227,7 +237,19 @@ south). A feature refuses a ledge without 114 of clear air above it.
   tall walls; `CoolFill` spreads dim cold light under the roof; `Hazard`
   stripes only door heads and deck edges; `RoofBeams` span halls and shafts.
   `Companions` group clutter; `FloorShare` keeps a machine out of a room too
-  small for it. `Pendants` hang a lamp on a cord of stacked cable in a grid
+  small for it. A jump room's floor takes clutter as any room's does (user
+  ruling M28, 2026-11-10), but not within `RoomDresser.TakeOff` (128) of a
+  ledge only a jump reaches (`JumpAirRefuses`), and a dressing brush may
+  stand in its rocket air only while the room keeps §4.1's clear air
+  (`RoomLint.CheckJumpClearAir`, which the dress lint reads). `Pilasters.Cap`
+  joins neighbouring pilasters with a wall plate into sets lining the wall,
+  and wall clutter stands first in the bays between them; a larger room's
+  lamp pools stand along its walls (`WallPools`). `SetFrame.Broken` lets
+  some sets fall in (a post left, level 6); `PropSet.Hanging` hangs pieces
+  upside down from a tall room's roof (stalactites, level 7), their tips two
+  players' heights over the floor and over a jump room's rocket air. A lamp standing on the floor (a lamp
+  post, a brazier) may not wall floor off, and clutter set beside it keeps a
+  player's width from it or stands flush (a pump 30 from a post walled a trap). `Pendants` hang a lamp on a cord of stacked cable in a grid
   over a hall's body, its bottom above a jump room's rocket air, and are the
   cover pass's choice where a larger room's middle is still dark. A larger
   room's set pieces (`Dressing/RoomDresser.Halls.cs`): a `Centrepiece` on its
@@ -245,8 +267,9 @@ south). A feature refuses a ledge without 114 of clear air above it.
   focus; `descent-level` turns it with the room. The preview's own spawn
   views are cut to one (`tools/descent-preview-spawns` keeps the arrival).
 - **The gates** (`tools/descent-gate`, `make descent-brightness`,
-  `descent-reach`, `descent-budget`, `DESCENT_DEPTHS=1,2,3,4
-  DESCENT_SEEDS=1,2,3`): brightness falls strictly from depth to depth with
+  `descent-reach`, `descent-budget`, `DESCENT_DEPTHS=1,2,3,4,6,7,8,9
+  DESCENT_SEEDS=1,2,3`; level 5's boss row stays out of the brightness order
+  until its arena is themed): brightness falls strictly from depth to depth with
   nothing clipped, in the level's lightmap and in every room's view (its
   rendered pixels under 2 % white), a Heavy reaches every room's floor,
   entities and brushes stay in budget. The preview gets a camera on one

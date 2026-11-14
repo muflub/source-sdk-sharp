@@ -94,25 +94,36 @@ public static class CavernShape
     /// </summary>
     private static void Rock(RoomBuilder b, Rect r, RoomSeed rng, float inset, params CellFace[] walls)
     {
-        float phase = rng.Fraction() * 6.283f, top = b.CeilingUnderside;
-        float Relief(float u, float v) => MathF.Round(Bulge * MathF.Sin(MathF.PI * u)
-            * (0.5f + 0.3f * MathF.Sin(9 * u + 5 * v + phase) + 0.2f * MathF.Sin(17 * u - 11 * v + 2 * phase))
-            * (0.33f + 0.67f * MathF.Min(1, v * 4)));
+        float phase = rng.Fraction() * 6.283f;
         foreach (CellFace wall in walls)
         {
             // Inset from the rectangle's corners, which are rounded.
             float lo = (wall is CellFace.North or CellFace.South ? r.X0 : r.Y0) + inset, hi = (wall is CellFace.North or CellFace.South ? r.X1 : r.Y1) - inset;
-            if (hi - lo < 128)
-                continue;
-            Brush slab = wall switch
-            {
-                CellFace.North => Brush.DisplacedWall(new(lo, r.Y1 - 32, b.Floor), new(hi, r.Y1, top), Compass.South, 3, Relief, b.Theme.Wall),
-                CellFace.South => Brush.DisplacedWall(new(lo, r.Y0, b.Floor), new(hi, r.Y0 + 32, top), Compass.North, 3, Relief, b.Theme.Wall),
-                CellFace.East => Brush.DisplacedWall(new(r.X1 - 32, lo, b.Floor), new(r.X1, hi, top), Compass.West, 3, Relief, b.Theme.Wall),
-                _ => Brush.DisplacedWall(new(r.X0, lo, b.Floor), new(r.X0 + 32, hi, top), Compass.East, 3, Relief, b.Theme.Wall),
-            };
-            b.WithBrush(slab);
+            RockRun(b, r, wall, lo, hi, phase);
         }
+    }
+
+    /// <summary>
+    /// Rough rock along the <paramref name="wall"/> side of <paramref name="r"/> from <paramref name="lo"/>
+    /// to <paramref name="hi"/> along it (a grotto's walls between its sockets): a slab whose face is
+    /// pushed into the room by up to <see cref="Bulge"/> over a player's head and a third at the floor.
+    /// </summary>
+    public static void RockRun(RoomBuilder b, Rect r, CellFace wall, float lo, float hi, float phase)
+    {
+        if (hi - lo < 128)
+            return;
+        float top = b.CeilingUnderside;
+        float Relief(float u, float v) => MathF.Round(Bulge * MathF.Sin(MathF.PI * u)
+            * (0.5f + 0.3f * MathF.Sin(9 * u + 5 * v + phase) + 0.2f * MathF.Sin(17 * u - 11 * v + 2 * phase))
+            * (0.33f + 0.67f * MathF.Min(1, v * 4)));
+        Brush slab = wall switch
+        {
+            CellFace.North => Brush.DisplacedWall(new(lo, r.Y1 - 32, b.Floor), new(hi, r.Y1, top), Compass.South, 3, Relief, b.Theme.Wall),
+            CellFace.South => Brush.DisplacedWall(new(lo, r.Y0, b.Floor), new(hi, r.Y0 + 32, top), Compass.North, 3, Relief, b.Theme.Wall),
+            CellFace.East => Brush.DisplacedWall(new(r.X1 - 32, lo, b.Floor), new(r.X1, hi, top), Compass.West, 3, Relief, b.Theme.Wall),
+            _ => Brush.DisplacedWall(new(r.X0, lo, b.Floor), new(r.X0 + 32, hi, top), Compass.East, 3, Relief, b.Theme.Wall),
+        };
+        b.WithBrush(slab);
     }
 
     /// <summary>
@@ -128,7 +139,7 @@ public static class CavernShape
     }
 
     /// <summary>An uneven roof over <paramref name="r"/>: a slab under the ceiling whose underside hangs down in lumps by up to <paramref name="drop"/>.</summary>
-    private static void Roof(RoomBuilder b, Rect r, RoomSeed rng, float drop)
+    public static void Roof(RoomBuilder b, Rect r, RoomSeed rng, float drop)
     {
         float phase = rng.Fraction() * 6.283f, top = b.CeilingUnderside;
         b.WithBrush(Brush.DisplacedUnder(new(r.X0, r.Y0, top - 16), new(r.X1, r.Y1, top), 3,
@@ -136,7 +147,7 @@ public static class CavernShape
     }
 
     /// <summary>Stalactites from the roof over <paramref name="r"/>, high enough to clear the jump air.</summary>
-    private static void Stalactites(RoomBuilder b, Rect r, RoomSeed rng, int count)
+    public static void Stalactites(RoomBuilder b, Rect r, RoomSeed rng, int count)
     {
         var inner = r.Grow(-160);
         for (int i = 0; i < count; i++)

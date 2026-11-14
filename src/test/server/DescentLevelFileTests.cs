@@ -198,6 +198,19 @@ public sealed class DescentLevelFileTests(DescentLibraries libs) : IClassFixture
     }
 
     [Fact]
+    public void A_larger_room_keeps_its_camera_when_the_level_has_more_families_than_the_cap()
+    {
+        // Brief p4: level 3 seed 3 lost its great hall's camera to the cap of twelve.
+        var rooms = RoomCatalogue.Rooms(RoomCatalogue.Mine, RoomKit.Normal, RoomTheme.Grey, 0);
+        var single = rooms.Where(r => r.Cells == 1).GroupBy(r => RoomName.Parse(r.Name).Family).Select(g => g.First().Name).ToArray();
+        string hall = rooms.First(r => r.Cells > 1).Name;
+        var plan = new LevelPlan(2, single.Length + 2, [.. single.Select((n, i) => new Placement(n, 0, i, 0, "")), new Placement(hall, 0, single.Length, 0, "")], "", "");
+
+        Assert.True(single.Length >= DescentLevel.MaxCameras);
+        Assert.Contains(DescentLevel.Cameras(plan, CameraManifest()), c => c.EndsWith(" " + hall, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_manifest_entry_without_weight_or_depths_takes_the_hosts_defaults()
     {
         var (_, infos) = DescentLevel.ReadManifest("{\"library\":\"l\",\"rooms\":{\"a_x-e-l\":{\"tags\":[\"start\"]}}}");

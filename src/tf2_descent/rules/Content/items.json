@@ -1,0 +1,15 @@
+{
+  "maxItemLevel": 30,
+  "rollScale": 10000,
+  "forcedBasePrefix": "base:",
+  "dropKinds": ["weapon", "armour"],
+  "itemLocalStats": ["wear_rate_pct", "indestructible"],
+  "power": { "affixShare": 0.6 },
+  "curses": { "chance": 0.05, "chancePerDepth": 0.02, "chanceMax": 0.4, "maxCount": 2, "secondChance": 0.25 },
+  "sources": [
+    { "prefix": "vendor", "identified": true, "promote": false, "curses": false },
+    { "prefix": "craft", "identified": true, "promote": false, "curses": false },
+    { "prefix": "crate", "identified": false, "promote": false, "curses": true },
+    { "prefix": "salvage", "identified": true, "promote": false, "curses": false }
+  ]
+}

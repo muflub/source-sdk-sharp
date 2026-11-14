@@ -33,8 +33,15 @@ public static partial class RoomDresser
         private void HeadframeOverFocus()
         {
             Point f = room.Focus;
-            if (room.Cells < 2 || f.Z <= sill + RoomLint.Step)
+            if (room.Cells < 2)
                 return;
+            // A jump hall's focus is on its floor: the frame stands over the body's middle instead, in the
+            // rocket air, if the room keeps its clear air with it (brief p4: level 3's halls had none).
+            bool overFloor = f.Z <= sill + RoomLint.Step;
+            if (overFloor && !room.Entry.Jump)
+                return;
+            if (overFloor)
+                f = new Point(room.Body.CentreX, room.Body.CentreY, sill);
             float ceil = room.Height - kit.WallDepth, top = Math.Min(ceil - 48, sill + 448), girt = (f.Z + top) / 2;
             const float leg = 24, beam = 24;
             float r = HeadframeReach;
@@ -43,7 +50,7 @@ public static partial class RoomDresser
                 foreach (float sy in (float[])[-1, 1])
                 {
                     float x = f.X + sx * r, y = f.Y + sy * r;
-                    if (solids.FloorBelow(x, y, f.Z) is not { } under)
+                    if (solids.FloorBelow(x, y, overFloor ? f.Z + 1 : f.Z) is not { } under)
                         return;
                     pieces.Add(new Box(new(x - leg / 2, y - leg / 2, under), new(x + leg / 2, y + leg / 2, top)));
                 }
@@ -57,11 +64,40 @@ public static partial class RoomDresser
             }
 
             // All or nothing: a frame missing a leg reads as broken.
-            if (pieces.Any(p => !StructureFits(p, solid: true)))
+            if (pieces.Any(p => overFloor ? !FitsInJumpAir(p) : !StructureFits(p, solid: true)))
                 return;
+            if (overFloor)
+            {
+                Room framed = room with { World = [.. room.World, .. brushes, .. pieces.Select(p => Brush.Box(p.Mins, p.Maxs, theme.TrimOrBlock))] };
+                if (RoomLint.CheckJumpClearAir(framed, new RoomColumns(framed)).Any())
+                    return;
+            }
             foreach (Box p in pieces)
                 AddStructure(p);
             solids = new RoomSolids(room, brushes);
+        }
+
+        /// <summary>
+        /// <see cref="StructureFits"/> for a set piece standing in a jump room's rocket air (its room is
+        /// then held to the plan's clear air as a whole, §4.2): the doors, the markers, the air of a ledge
+        /// only a jump reaches, the cell, the giant's lane, what stands there already.
+        /// </summary>
+        private bool FitsInJumpAir(Box box)
+        {
+            float c = room.Extent;
+            if (box.Mins.X < 0 || box.Mins.Y < 0 || box.Maxs.X > c || box.Maxs.Y > c || box.Maxs.Z > room.Height)
+                return false;
+            if (doors.Any(d => d.DistanceTo(box) < DoorClear))
+                return false;
+            if (markers.Any(m => box.Mins.Z < m.Z + RoomLint.HullHeight && box.Maxs.Z > m.Z - 1 && box.LevelDistanceTo(m.X, m.Y) < MarkerClear))
+                return false;
+            if (InJumpLedgeAir(box))
+                return false;
+            if (box.Mins.Z < sill + FloorPlan.GiantHeight && plan.Covered(box).Any(lane.Contains))
+                return false;
+            if (placed.Any(p => p.Role != Role.Set && p.Box.Overlaps(box)))
+                return false;
+            return !solids.Blocked(box.Mins, box.Maxs);
         }
 
         /// <summary>

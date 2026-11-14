@@ -64,6 +64,12 @@ public static class DressLint
         var doors = built.Sockets.Select(s => (Name: built.SocketName(s.Face, s.Offset), Box: Box.DoorOpening(kit, s.Face, s.Offset, built.Cells))).ToArray();
         var markers = built.Entities.Where(e => e.ClassName == "info_poi" && e.Origin is not null).Select(e => (Type: e.Key("poi_type"), At: e.Origin!.Value)).ToArray();
         void Add(string rule, string message) => findings.Add(new LintFinding(rule, dressed.Name, message));
+        // Whether the dressed room's brushes keep a jump room's clear air (RoomLint's own measure).
+        var keepsAir = new Lazy<bool>(() =>
+        {
+            Room walls = built with { World = dressed.World };
+            return !RoomLint.CheckJumpClearAir(walls, new RoomColumns(walls)).Any();
+        });
 
         foreach (Piece p in pieces)
         {
@@ -83,7 +89,9 @@ public static class DressLint
             bool centre = p.Role == RoomDresser.Role.Centre;
             if (!skin && air.FirstOrDefault(a => a.Overlaps(p.Box) && (!centre || a.Mins.Z > sill + JumpTable.CriticalPathReach)) is { } hit && hit != default)
                 Add(JumpAir, $"{p.What} stands in the {FloorPlan.LedgeAir} of air over the surface at {hit.Mins.Z - sill} above the floor near ({hit.Centre.X} {hit.Centre.Y})");
-            else if (!flat && RoomDresser.JumpAirRefuses(built, plan, p.Box))
+            else if (!flat && RoomDresser.JumpAirRefuses(built, plan, p.Box) && !(p.Entity is null && keepsAir.Value))
+                // A set piece of brushes (a hall's headframe) may stand there only while the room keeps the
+                // plan's clear air measured from its brushes (§4.2, brief p4); a prop never.
                 Add(JumpAir, $"{p.What} stands on the open floor of a jump room below {JumpTable.RocketClearAir}");
             float c = built.Extent;
             if (p.Box.Mins.X < 0 || p.Box.Mins.Y < 0 || p.Box.Mins.Z < 0 || p.Box.Maxs.X > c || p.Box.Maxs.Y > c || p.Box.Maxs.Z > built.Height)

@@ -29,26 +29,40 @@
 			// The generated levels, found by their plain name (tf2_descent-<d>-<h>).
 			game				|gameinfo_path|pool
 
-			// The TF2 mod's own files (TF2Descent builds on it), then the core game's.
+			// The TF2 mod's own files: TF2Descent builds on it.
 			game				|gameinfo_path|../tf2
+
+			// Then exactly the TF2 mod's chain behind its own directory
+			// (game/mod_tf2/gameinfo.txt), in its order: TF2's four archive
+			// directory packs (scripts, materials, models, sounds and
+			// particles), the loose TF2 directory (the item schema
+			// scripts/items/items_game.txt is only there), the core game, and
+			// the HL2 packs. Without the loose directory TF2's item schema is
+			// on no GAME path and a hero has no TF kit. The core game stays
+			// behind TF2's content, as in the TF2 mod: before it, its HL2
+			// scripts (soundscapes_manifest.txt, HudLayout.res) would answer
+			// for TF2's.
+			game				|gameinfo_path|../../content/tf/tf2_misc_dir.vpk
+			game				|gameinfo_path|../../content/tf/tf2_textures_dir.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_misc_dir.vpk
+			game				|gameinfo_path|../../content/tf/tf2_sound_vo_english_dir.vpk
+			game				|gameinfo_path|../../content/tf
 			game				|gameinfo_path|../test
 
-			// TF2: TF2Descent's look.
-			game				|gameinfo_path|../../content/tf/tf2_textures.vpk
-			game				|gameinfo_path|../../content/tf/tf2_misc.vpk
-			game				|gameinfo_path|../../content/tf/tf2_sound_misc.vpk
-
-			// The engine's base content, wherever the engine is installed.
-			game+mod			|all_source_engine_paths|hl2mp/hl2mp_english.vpk
-			game+mod			|all_source_engine_paths|hl2mp/hl2mp_pak.vpk
-			game				|all_source_engine_paths|hl2_complete/hl2_complete_textures.vpk
-			game				|all_source_engine_paths|hl2_complete/hl2_complete_misc.vpk
+			// The engine's base content, wherever the engine is installed: the
+			// TF2 mod's four HL2 packs, then HL2's complete content behind
+			// them (the TF2 mod's file wins where both have one), which the
+			// mine levels may use (plan_descent_mine_levels M13). No HL2MP:
+			// TF2Descent runs TF2's game, and HL2MP's packs on the MOD path
+			// would answer the mod's own lookups.
 			game				|all_source_engine_paths|hl2/hl2_textures.vpk
+			game				|all_source_engine_paths|hl2/hl2_sound_vo_english.vpk
+			game				|all_source_engine_paths|hl2/hl2_sound_misc.vpk
 			game				|all_source_engine_paths|hl2/hl2_misc.vpk
+			game				|all_source_engine_paths|hl2_complete/hl2_complete_misc.vpk
 			platform			|all_source_engine_paths|platform/platform_misc.vpk
-			game				|all_source_engine_paths|hl2mp
-			game				|all_source_engine_paths|hl2_complete
 			game				|all_source_engine_paths|hl2
+			game				|all_source_engine_paths|hl2_complete
 			platform			|all_source_engine_paths|platform
 
 			game+download		|gameinfo_path|download

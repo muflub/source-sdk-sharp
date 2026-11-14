@@ -134,12 +134,45 @@ public static class BigShapes
             for (int i = 0; i < n; i++)
                 g.Pillar(i * c + c / 2 + (variant == "c" ? -160 : 160), c / 2 + 96, 56, 10);
             g.Shelf(JumpTier.B2, CellFace.West, c - 300, c + 300, depth: 160, t: rng.Fraction());
+            // A cave, not a box (brief p4): its corners rounded, rough rock along its walls between the
+            // sockets and the shelf, a roof hanging in lumps and a few stalactites.
+            var inner = new Rect(t, t, e - t, e - t);
+            foreach (Corner corner in (Corner[])[Corner.SouthWest, Corner.SouthEast, Corner.NorthEast, Corner.NorthWest])
+                g.WithBrushes(g.RoundCorner(inner, corner, 224, 4));
+            float phase = rng.Fraction() * 6.283f;
+            foreach (CellFace wall in (CellFace[])[CellFace.North, CellFace.South, CellFace.East, CellFace.West])
+                foreach (var (lo, hi) in RockSpans(kit, n, wall == CellFace.West ? [(c - 332, c + 332)] : []))
+                    CavernShape.RockRun(g, inner, wall, lo, hi, phase + (int)wall);
+            float roof = Math.Min(e - 2 * t - 256, 1792);
+            CavernShape.Roof(g, Rect.Around(e / 2, e / 2, roof, roof), rng, 192);
+            CavernShape.Stalactites(g, Rect.Around(e / 2, e / 2, roof, roof), rng, 4 + 2 * n);
             // Low enough that a lamp reaches the floor of the corners (the lint's lit rule, read over the whole room).
             Lamps(g, 448, 512);
             // Off the mounds, a cell's half from each wall's middle.
             Markers(g, 4, [(c / 2, e / 2), (e - c / 2, e / 2), (e / 2, c / 2), (e / 2, e - c / 2)]);
             yield return g.Build();
         }
+    }
+
+    /// <summary>
+    /// The spans along one wall of an <paramref name="n"/> by <paramref name="n"/> room that rough rock may
+    /// cover: past its rounded corners, a door's approach clear either side of every socket, and clear of
+    /// <paramref name="keep"/> (a shelf against that wall).
+    /// </summary>
+    private static IEnumerable<(float Lo, float Hi)> RockSpans(RoomKit kit, int n, (float Lo, float Hi)[] keep)
+    {
+        float c = kit.Cell, t = kit.WallDepth, gap = RoomBuilder.DoorApproach + 32;
+        var holes = Enumerable.Range(0, n).Select(k => (Lo: k * c + kit.DoorLow - gap, Hi: k * c + kit.DoorHigh + gap)).Concat(keep).OrderBy(h => h.Lo).ToArray();
+        float at = t + 240;
+        foreach (var (lo, hi) in holes)
+        {
+            if (lo - at >= 128)
+                yield return (at, lo);
+            at = Math.Max(at, hi);
+        }
+
+        if (n * c - t - 240 - at >= 128)
+            yield return (at, n * c - t - 240);
     }
 
     public static IEnumerable<Room> Flood(RoomKit kit, RoomTheme theme, ulong seed)
@@ -151,7 +184,7 @@ public static class BigShapes
                 .WithEntry(new RoomEntry([], MinDepth: 8, MaxDepth: 14)).WithMapLabel("Flooded gallery");
             // Wading water over the floor between the walls' walks (a Heavy wades it), round a dry island.
             var basin = new Rect(c - 640, c - 640, c + 640, c + 640);
-            f.WithWater(basin, f.Floor, f.Floor + PoolShape.Water, PoolShape.WaterMaterial);
+            f.WithWater(basin, f.Floor, f.Floor + PoolShape.Water, theme.Water ?? PoolShape.WaterMaterial);
             f.Block(new Rect(c - island, c - 136, c + 136, c + island), 48);
             f.SteppingPillars(c - 520, c + 420, Compass.East, JumpTier.S2, count: 3);
             Lamps(f, height == 512 ? 384 : 448, 512);

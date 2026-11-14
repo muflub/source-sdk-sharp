@@ -572,6 +572,12 @@ public sealed class RoomBuilder
         };
     }
 
+    /// <summary>
+    /// The wall surface of the room's shell: a larger room's own (<see cref="RoomTheme.LargeWall"/>, a
+    /// great hall's rock drawn larger, brief p4) or the theme's wall.
+    /// </summary>
+    private Surface ShellWall => cells > 1 && theme.LargeWall is { } large ? large : theme.Wall;
+
     private void Validate()
     {
         if (height < kit.LeastHeight)
@@ -655,15 +661,15 @@ public sealed class RoomBuilder
                 if (!sockets.Contains((face, k)))
                     continue;
                 float lo = kit.DoorLow + k * c, hi = kit.DoorHigh + k * c;
-                world.Add(Face(face, e - t, e, a, lo, z0, z1, theme.Wall));
+                world.Add(Face(face, e - t, e, a, lo, z0, z1, ShellWall));
                 if (kit.Head < z1)
-                    world.Add(Face(face, e - t, e, lo, hi, kit.Head, z1, theme.Wall));
+                    world.Add(Face(face, e - t, e, lo, hi, kit.Head, z1, ShellWall));
                 var plug = PlugBox(face, k);
                 world.Add(new RoomBox(plug.Mins, plug.Maxs, theme.Plug));
                 a = hi;
             }
 
-            world.Add(Face(face, e - t, e, a, end, z0, z1, theme.Wall));
+            world.Add(Face(face, e - t, e, a, end, z0, z1, ShellWall));
         }
 
         Band(world, z0, z1);
@@ -732,7 +738,7 @@ public sealed class RoomBuilder
         for (int k = world.Count - 1; k >= 0; k--)
         {
             RoomBox w = world[k];
-            if (w.Surface != theme.Wall || w.Mins.Z != z0 || w.Maxs.Z <= cut)
+            if (w.Surface != ShellWall || w.Mins.Z != z0 || w.Maxs.Z <= cut)
                 continue;
             world[k] = w with { Mins = w.Mins with { Z = cut } };
             world.Add(new RoomBox(w.Mins, w.Maxs with { Z = cut }, low));
@@ -753,11 +759,11 @@ public sealed class RoomBuilder
         for (int k = world.Count - 1; k >= 0; k--)
         {
             RoomBox w = world[k];
-            if (w.Surface != theme.Wall || w.Mins.Z != z0 || w.Maxs.Z < b + kit.NavVoxel)
+            if (w.Surface != ShellWall || w.Mins.Z != z0 || w.Maxs.Z < b + kit.NavVoxel)
                 continue;
             world[k] = w with { Maxs = w.Maxs with { Z = a } };
             world.Add(new RoomBox(w.Mins with { Z = a }, w.Maxs with { Z = b }, seam.Surface));
-            world.Add(new RoomBox(w.Mins with { Z = b }, w.Maxs, theme.Wall));
+            world.Add(new RoomBox(w.Mins with { Z = b }, w.Maxs, ShellWall));
         }
     }
 
@@ -960,12 +966,43 @@ public sealed class RoomBuilder
     private RoomEntity BrushFramePiece(BrushFrame fr, CellFace face, int offset)
     {
         float e = Extent, wall = e - kit.WallDepth, inner = wall - fr.Proud, lo = kit.DoorLow, hi = kit.DoorHigh, sill = kit.Sill, head = kit.Head;
+        float mid = (lo + hi) / 2;
         var boxes = new List<RoomBox>
         {
             Face(face, inner, e, lo, lo + fr.PostWidth, sill, head, fr.Post, offset),
             Face(face, inner, e, hi - fr.PostWidth, hi, sill, head, fr.Post, offset),
-            Face(face, inner, e, lo + fr.PostWidth, hi - fr.PostWidth, head - fr.HeadDepth, head, fr.Head, offset),
         };
+        var extra = new List<Brush>();
+        if (fr.Sag > 0)
+        {
+            // Cracked in the middle: the first half where it was, the second let down at the break.
+            boxes.Add(Face(face, inner, e, lo + fr.PostWidth, mid, head - fr.HeadDepth, head, fr.Head, offset));
+            boxes.Add(Face(face, inner, e, mid + 4, hi - fr.PostWidth, head - fr.HeadDepth - fr.Sag, head - fr.Sag, fr.Head, offset));
+        }
+        else
+            boxes.Add(Face(face, inner, e, lo + fr.PostWidth, hi - fr.PostWidth, head - fr.HeadDepth, head, fr.Head, offset));
+        if (fr.Fillet > 0)
+        {
+            // A haunch in each top corner of the opening, under the head: the opening reads as an arch.
+            float z1 = head - fr.HeadDepth, a0 = lo + fr.PostWidth, a1 = hi - fr.PostWidth, k = fr.Fillet;
+            extra.Add(FacePrism(face, inner, e, [(a0, z1), (a0, z1 - k), (a0 + k, z1)], fr.Post, offset));
+            extra.Add(FacePrism(face, inner, e, [(a1, z1), (a1 - k, z1), (a1, z1 - k)], fr.Post, offset));
+        }
+
+        if (fr.Plinth > 0)
+        {
+            // A base under each post, a hand wider on the room's side and out over the flange.
+            float w = Math.Max(fr.Flange, 8);
+            boxes.Add(Face(face, inner - 4, e, lo - w, lo + fr.PostWidth + 4, sill, sill + fr.Plinth, fr.Post, offset));
+            boxes.Add(Face(face, inner - 4, e, hi - fr.PostWidth - 4, hi + w, sill, sill + fr.Plinth, fr.Post, offset));
+        }
+
+        if (fr.Keystone > 0)
+        {
+            // On the wall over the head's middle, proud of the flange, up past it.
+            float top = Math.Min(head + Math.Max(fr.Flange, 8) + fr.Keystone, height - kit.WallDepth);
+            boxes.Add(Face(face, wall - Math.Max(fr.FlangeDepth, 8) - 4, wall, mid - 20, mid + 20, head, top, fr.HeadFace ?? fr.Head, offset));
+        }
         if (fr.Flange > 0)
         {
             float out0 = wall - fr.FlangeDepth, w = fr.Flange;
@@ -975,7 +1012,8 @@ public sealed class RoomBuilder
         }
 
         if (fr.CapOverhang > 0)
-            boxes.Add(Face(face, inner, wall, lo - fr.CapOverhang, hi + fr.CapOverhang, head, head + fr.HeadDepth, fr.HeadFace ?? fr.Head, offset));
+            // A broken set's cap is gone past the sagging half's post.
+            boxes.Add(Face(face, inner, wall, lo - fr.CapOverhang, fr.Sag > 0 ? mid : hi + fr.CapOverhang, head, head + fr.HeadDepth, fr.HeadFace ?? fr.Head, offset));
         if (fr.Crossing is { } planks)
             // Three boards across the threshold, a hand apart, a unit and a half high: the floor of a level crossing.
             for (int k = 0; k < 3; k++)
@@ -987,7 +1025,31 @@ public sealed class RoomBuilder
         return new RoomEntity("func_brush", null,
             [new("room_needs", "joined_" + SocketName(face, offset)), new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"),
              new("disableshadows", "1"), new("_minlight", BrushFrame.MinLight)],
-            [], [.. boxes.Select(b => b.ToBrush())]);
+            [], [.. boxes.Select(b => b.ToBrush()), .. extra]);
+    }
+
+    /// <summary>
+    /// A prism of the convex <paramref name="profile"/> (across the opening, up) drawn in the plane of the
+    /// wall on <paramref name="face"/>, from <paramref name="out0"/> to <paramref name="out1"/> through it,
+    /// as <see cref="Face"/> places a box.
+    /// </summary>
+    private Brush FacePrism(CellFace face, float out0, float out1, IReadOnlyList<(float Across, float Up)> profile, Surface material, int offset = 0)
+    {
+        float c = Extent, shift = offset * kit.Cell;
+        double area = 0;
+        for (int i = 0; i < profile.Count; i++)
+            area += profile[i].Across * profile[(i + 1) % profile.Count].Up - profile[(i + 1) % profile.Count].Across * profile[i].Up;
+        var ring = area > 0 ? profile : [.. profile.Reverse()];
+        // Built as a column over the profile (x across, y up) from z = out0 to out1, then each point carried to the wall's frame.
+        Brush local = Brush.Column([.. ring.Select(p => (p.Across + shift, p.Up))], out0, out1, material);
+        return face switch
+        {
+            CellFace.East => local.Transformed(p => new(p.Z, p.X, p.Y), mirror: false),
+            CellFace.West => local.Transformed(p => new(c - p.Z, p.X, p.Y), mirror: true),
+            CellFace.North => local.Transformed(p => new(p.X, p.Z, p.Y), mirror: true),
+            CellFace.South => local.Transformed(p => new(p.X, c - p.Z, p.Y), mirror: false),
+            _ => throw new ArgumentOutOfRangeException(nameof(face), face, "a cell has four faces"),
+        };
     }
 
     /// <summary>
@@ -1054,7 +1116,7 @@ public sealed class RoomBuilder
     private RoomEntity Cap(CellFace face, int offset = 0)
     {
         float c = Extent, t = kit.WallDepth;
-        Brush panel = Face(face, c - t - CapThickness, c - t, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, theme.Wall, offset).ToBrush();
+        Brush panel = Face(face, c - t - CapThickness, c - t, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, ShellWall, offset).ToBrush();
         return new RoomEntity("func_brush", null,
             [new("room_needs", "!joined_" + SocketName(face, offset)), new("Solidity", "2"), new("vrad_brush_cast_shadows", "0")],
             [], [panel]);

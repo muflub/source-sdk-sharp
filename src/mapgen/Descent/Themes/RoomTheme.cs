@@ -27,6 +27,19 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
     /// <summary>The surface of a tall wall's lower band, up to <see cref="WallBand"/> above the floor, or null for one surface floor to roof.</summary>
     public Surface? WallLow { get; init; }
 
+    /// <summary>
+    /// The wall of a room larger than one cell (a great hall), or null for <see cref="Wall"/>: the same
+    /// rock drawn larger, since a 2048-long flat wall repeats a cell's tile into a brick pattern
+    /// (brief p4, level 3's halls).
+    /// </summary>
+    public Surface? LargeWall { get; init; }
+
+    /// <summary>The water of the depth's pools and flooded rooms (a <c>water</c> shader material), or null for the shapes' default (<see cref="Shapes.PoolShape.WaterMaterial"/>).</summary>
+    public string? Water { get; init; }
+
+    /// <summary>Water standing on the floor of the depth's rooms (a flooded level's floors, a cave's pools), or null for none.</summary>
+    public StandingWater? Standing { get; init; }
+
     /// <summary>The lower band's height above the floor; only walls twice as tall take the band.</summary>
     public int WallBand { get; init; } = 256;
 
@@ -170,6 +183,8 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
         };
         if (WallLow is { } low)
             map.Add((low.Material, to.WallLow ?? to.Wall));
+        if (LargeWall is { } large && large.Material != Wall.Material)
+            map.Add((large.Material, to.LargeWall ?? to.Wall));
         Brush Map(Brush b)
         {
             // One pass over the faces, so a material two roles share maps once.
@@ -242,6 +257,18 @@ public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Sur
         >= 1 and <= 4 => Themes.ActOne.All[depth - 1],
         _ => Grey,
     };
+}
+
+/// <summary>
+/// Water standing on a room's floor (brief p4: level 8 is flooded; level 7's caves hold pools):
+/// <paramref name="Depth"/> deep over the open floor of the room's body, kept <paramref name="FromDoors"/>
+/// from every door's opening so no water touches a socket's plug, in the rooms of
+/// <paramref name="Families"/> only (null: every room but the ways in and down).
+/// </summary>
+public sealed record StandingWater(int Depth, int FromDoors, IReadOnlySet<string>? Families)
+{
+    /// <summary>How far in from the room's body the water stops: 0 floods the floor, more leaves a pool in the middle.</summary>
+    public int Inset { get; init; }
 }
 
 /// <summary>A band of <paramref name="Surface"/> through a wall from <paramref name="From"/> to <paramref name="To"/> above the floor.</summary>

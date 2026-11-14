@@ -99,6 +99,74 @@ public sealed class DescentHallDressingTests(DescentLibraries libs) : IClassFixt
     }
 
     [Fact]
+    public void The_timber_levels_jump_hall_raises_a_headframe_over_its_middle()
+    {
+        // Brief p4: level 3's jump halls (no plinth) stood empty; the frame stands over the body's middle.
+        Room hall = Hall(3, "hall_a");
+        Rect b = hall.Body;
+        var legs = hall.World.Where(w => w.Material == ActOne.TimberStopes.TrimOrBlock.Material && w.Mins.Z == hall.Kit.Sill && w.Maxs.Z - w.Mins.Z > 256
+                                         && Math.Abs(Math.Abs((w.Mins.X + w.Maxs.X) / 2 - b.CentreX) - 232) < 1 && Math.Abs(Math.Abs((w.Mins.Y + w.Maxs.Y) / 2 - b.CentreY) - 232) < 1);
+
+        Assert.Equal(4, legs.Count());
+    }
+
+    [Fact]
+    public void The_timber_levels_jump_hall_keeps_its_clear_air_with_its_headframe()
+    {
+        Room hall = Hall(3, "hall_a");
+
+        Assert.Empty(RoomLint.CheckJumpClearAir(hall, new RoomColumns(hall)));
+    }
+
+    [Fact]
+    public void A_jump_hall_with_its_headframe_eating_its_clear_air_is_refused()
+    {
+        var (built, dressed, theme) = libs.Dressed(3, 0).First(r => r.Built.Name.StartsWith("hall_a-", StringComparison.Ordinal));
+        // A slab over most of the floor at head height: the room no longer has 576 of clear air over half its floor.
+        Room bad = dressed with { World = [.. dressed.World, Brush.Box(new Point(160, 160, 300), new Point(1880, 1500, 324), theme.TrimOrBlock)] };
+
+        Assert.Contains(DressLint.Check(built, bad, theme), f => f.Rule == DressLint.JumpAir);
+    }
+
+    [Fact]
+    public void The_timber_levels_jump_hall_stands_lanterns_in_pools_along_its_walls()
+    {
+        Room hall = Hall(3, "hall_a");
+
+        Assert.True(hall.Entities.Count(e => e.Key("model") == ActOne.Lantern.Model) >= 4);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void A_jump_halls_open_floor_takes_clutter(int depth)
+    {
+        // User ruling 2026-11-10: a jump room's floor need not be kept clear, but for its ledges' take-off patches.
+        Assert.NotEmpty(Role(Hall(depth, "hall_a"), RoomDresser.Role.Floor));
+    }
+
+    [Fact]
+    public void The_timber_levels_great_hall_draws_its_rock_larger_than_a_cells()
+    {
+        Room hall = Hall(3, "hall_a");
+
+        // The shell's walls run whole sides: the west wall's piece from the south-west corner is the large rock.
+        Brush west = hall.World.Single(w => w.IsBox && w.Mins.X == 0 && w.Mins.Y == 0 && w.Mins.Z == hall.Kit.Sill && w.Maxs.X == hall.Kit.WallDepth);
+
+        Assert.Equal(ActOne.TimberStopes.LargeWall, west.Surface);
+    }
+
+    [Fact]
+    public void The_timber_levels_tall_walls_are_lined_with_sets_capped_by_a_plate()
+    {
+        Room hall = Hall(3, "hall_a");
+        float plate = hall.Kit.Sill + ActOne.TimberStopes.Pilasters!.Cap;
+
+        Assert.Contains(hall.World, w => w.Material == ActOne.TimberStopes.TrimOrBlock.Material && w.Mins.Z == plate);
+    }
+
+    [Fact]
     public void A_dressing_brush_on_a_larger_rooms_internal_cell_face_is_refused()
     {
         var (built, dressed, theme) = libs.Dressed(2, 0).First(r => r.Built.Cells > 1);

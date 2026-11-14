@@ -312,12 +312,17 @@ public static class ActOne
             WallSpacing = 320,
             Corner = [Barrel, HalfCrate],
             CornerChance = 0.7f,
-            Floor = [WoodPile],
+            // Stacks of sawn lagging and, in a room with the floor for one, an ore heap (brief p4: the halls were bare).
+            Floor = [WoodPile, OreHeap],
             FloorDensity = 1.5f,
             Sets = new SetFrame(Spacing: 192, Post: 16, Cap: 24),
             Companions = [PowderCrate, OilDrum],
         },
-        Pilasters = new Pilasters(Spacing: 288, Width: 24, Depth: 24),
+        // Posts up the tall walls joined by a plate at 320 into timber sets lining the wall, lagging in
+        // the bays between them (brief p4: the great halls read as flat brick).
+        Pilasters = new Pilasters(Spacing: 288, Width: 24, Depth: 24) { Cap = 320 },
+        // A great hall's rock drawn at twice the scale: a 2048 wall at a cell's scale tiles into bricks.
+        LargeWall = new("nature/rockwall012", 0.5f),
         Bands = new TrimBands(Skirting: 12, DadoHeight: 128, Dado: 12, Beam: 32, Belt: 24),
         Fog = new Fog("40 42 48", 1024, 6144, 0.4f),
         ToneMap = new ToneMap(1f, 0.5f, 2.5f, 0.3f),

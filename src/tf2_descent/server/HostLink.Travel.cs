@@ -12,25 +12,45 @@ public enum TravelDirection { Down, Up, Corpse }
 /// <summary>What a travel request came to, for the game thread.</summary>
 public sealed record TravelAnswer(TravelState State, TimeSpan Eta, string Reason);
 
+/// <summary>The SDK's travel call a request makes (spec §7).</summary>
+public enum TravelCall { RequestDescent, StairsDown, TownPortal, ReturnToCorpse }
+
 public sealed partial class HostLink
 {
     /// <summary>
-    /// Spec §7, travel, for the player <paramref name="steamId"/>: from the hub,
-    /// down is RequestDescent to depth 1; on a level, down is StairsDown to the
-    /// next depth, and up is the town portal (the SDK has no stairs up). The
-    /// party is the player's own, made solo if they have none. Started means a
-    /// PrepareHop follows.
+    /// Which call a request makes, and to what depth: from the hub, down is
+    /// RequestDescent to <paramref name="depth"/> (the picked one, which the
+    /// caller has checked); on a level, down is StairsDown to the next depth
+    /// whatever <paramref name="depth"/> says, and up is the town portal (the
+    /// SDK has no stairs up).
     /// </summary>
-    public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot) => Call(async sdk =>
+    internal static (TravelCall Call, int Depth) Route(TravelDirection direction, BootInfo boot, int depth)
+    {
+        bool hub = string.Equals(boot.InstanceKind, "hub", StringComparison.Ordinal);
+        return direction switch
+        {
+            TravelDirection.Corpse => (TravelCall.ReturnToCorpse, 0),
+            TravelDirection.Up => (TravelCall.TownPortal, 0),
+            _ => hub ? (TravelCall.RequestDescent, depth) : (TravelCall.StairsDown, boot.Depth + 1),
+        };
+    }
+
+    /// <summary>
+    /// Spec §7, travel, for the player <paramref name="steamId"/>, as
+    /// <see cref="Route"/> says: <paramref name="depth"/> is the depth picked
+    /// for a descent from the hub. The party is the player's own, made solo if
+    /// they have none. Started means a PrepareHop follows.
+    /// </summary>
+    public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth) => Call(async sdk =>
     {
         if (!_held.TryGetValue(steamId, out var held) || !held.Lease.IsHeld)
             return new TravelAnswer(TravelState.Refused, TimeSpan.Zero, "no character held here");
 
         var lease = held.Lease;
-        bool hub = string.Equals(boot.InstanceKind, "hub", StringComparison.Ordinal);
+        var (call, to) = Route(direction, boot, depth);
 
         HostResult<TravelOutcome> outcome;
-        if (direction == TravelDirection.Corpse)
+        if (call == TravelCall.ReturnToCorpse)
         {
             // D-H16: the character goes alone back to the level they died on —
             // the running instance while it runs, else a fresh instance of the
@@ -43,7 +63,7 @@ public sealed partial class HostLink
             outcome = await sdk.Travel.ReturnToCorpse(lease);
             #pragma warning restore CS0618
         }
-        else if (direction == TravelDirection.Up)
+        else if (call == TravelCall.TownPortal)
         {
             outcome = await sdk.Travel.TownPortal(lease);
         }
@@ -55,9 +75,9 @@ public sealed partial class HostLink
             if (!party.Ok)
                 return new TravelAnswer(TravelState.Refused, TimeSpan.Zero, $"{party.Refusal!.Error}: {party.Refusal.Reason}");
 
-            outcome = hub
-                ? await sdk.Travel.RequestDescent(lease, party.Value.Id, 1)
-                : await sdk.Travel.StairsDown(lease, party.Value.Id, boot.Depth + 1);
+            outcome = call == TravelCall.RequestDescent
+                ? await sdk.Travel.RequestDescent(lease, party.Value.Id, to)
+                : await sdk.Travel.StairsDown(lease, party.Value.Id, to);
         }
 
         return outcome.Ok

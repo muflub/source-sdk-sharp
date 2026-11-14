@@ -95,12 +95,28 @@ public sealed class DescentDressLintTests
         Assert.Contains(DressLint.JumpAir, Rules(built, With(built, Prop(Crate, new(392, 100, deck - Crate.Mins.Z)))));
     }
 
-    [Fact]
-    public void Jump_air_refuses_a_crate_on_a_jump_rooms_open_floor()
-    {
-        Room built = Chamber(new RoomEntry([], Jump: true));
+    /// <summary>A jump room with a rocket shelf's ledge: a block 224 up beside the floor's middle.</summary>
+    private static Room JumpChamber() =>
+        new RoomBuilder("c_a", Kit, Theme).WithHeight(1024).WithDoors(CellFace.West, CellFace.East)
+            .WithEntry(new RoomEntry([], Jump: true))
+            .WithBox(new(M + 128, M - 296, Floor), new(M + 224, M - 200, Floor + 224))
+            .WithMarker(MarkerKind.PackSpawn, new(M, M + 256, Floor), radius: 64).Build();
 
-        Assert.Contains(DressLint.JumpAir, Rules(built, With(built, CrateAt(M - 200, M - 200))));
+    [Fact]
+    public void Jump_air_refuses_a_crate_on_a_jump_ledges_take_off_patch()
+    {
+        Room built = JumpChamber();
+
+        Assert.Contains(DressLint.JumpAir, Rules(built, With(built, CrateAt(M + 40, M - 248))));
+    }
+
+    [Fact]
+    public void Jump_air_lets_a_crate_stand_on_a_jump_rooms_floor_away_from_its_ledges()
+    {
+        // User ruling 2026-11-10 (M28): a jump room's floor need not be kept totally clear.
+        Room built = JumpChamber();
+
+        Assert.DoesNotContain(DressLint.JumpAir, Rules(built, With(built, CrateAt(M - 200, M + 100))));
     }
 
     [Fact]

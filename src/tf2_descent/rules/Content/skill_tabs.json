@@ -1,0 +1,6 @@
+[
+  { "id": "ordnance", "class": "soldier", "name": "Ordnance", "attribute": "aim", "attributeByDamageType": { "shock": "smarts" } },
+  { "id": "airborne", "class": "soldier", "name": "Airborne", "attribute": "brawn" },
+  { "id": "command", "class": "soldier", "name": "Command", "attribute": "smarts" },
+  { "id": "mercenary", "class": "mercenary", "name": "Mercenary" }
+]

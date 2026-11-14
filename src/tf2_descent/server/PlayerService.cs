@@ -19,8 +19,10 @@ public sealed class PlayerService(
 {
     /// <summary>A joined player: who they are to the engine and to the service.
     /// <paramref name="Name"/> is the character's name as the join answered it —
-    /// what the party is told when this player dies (plan_descent_death §4 M2.3).</summary>
-    public sealed record Entry(int EntIndex, string SteamId, string Peer, string CharacterId, string? Name = null);
+    /// what the party is told when this player dies (plan_descent_death §4 M2.3).
+    /// <paramref name="ReachedDepth"/> is the deepest level the character had
+    /// reached when the join answered: what the town's cage may offer them.</summary>
+    public sealed record Entry(int EntIndex, string SteamId, string Peer, string CharacterId, string? Name = null, int ReachedDepth = 0);
 
     private readonly Dictionary<int, Entry> _byEntity = new();
 
@@ -116,7 +118,7 @@ public sealed class PlayerService(
             return;
         }
 
-        _byEntity[entIndex] = new Entry(entIndex, steamId, peer, outcome.CharacterId!, outcome.Name);
+        _byEntity[entIndex] = new Entry(entIndex, steamId, peer, outcome.CharacterId!, outcome.Name, outcome.ReachedDepth);
         link.Players(_byEntity.Count);
         messages.Instance(entIndex, boot.InstanceKind, boot.Depth);
         log.Msg($"[TF2Descent] {steamId} ({outcome.ClientAddr ?? "address unknown"}) joined as {outcome.Name} ({outcome.ClassName}), reached depth {outcome.ReachedDepth}\n");
@@ -244,7 +246,7 @@ public sealed class PlayerService(
             return;
         }
 
-        _byEntity[entry.EntIndex] = entry with { CharacterId = outcome.CharacterId! };
+        _byEntity[entry.EntIndex] = entry with { CharacterId = outcome.CharacterId!, ReachedDepth = outcome.ReachedDepth };
         link.Players(_byEntity.Count);
         messages.Notice(entry.EntIndex, "Reconnected: your character is held here again.");
         log.Msg($"[TF2Descent] {entry.SteamId} re-leased\n");

@@ -52,7 +52,7 @@ public static class AssetDb
         db.Open();
         foreach (ThemeAsset a in assets)
         {
-            if (a.Kind == "material")
+            if (a.Kind is "material" or "water")
             {
                 using var q = db.CreateCommand();
                 q.CommandText = "SELECT m.usage, t.width FROM materials m JOIN games g ON g.id = m.game_id LEFT JOIN textures t ON t.id = m.texture_id WHERE g.name = 'tf' AND m.path = $p";
@@ -64,8 +64,10 @@ public static class AssetDb
                     continue;
                 }
 
-                if (r.GetString(0) != "brush")
-                    problems.Add($"{a.Role} {a.Asset}: its usage is {r.GetString(0)}, not brush");
+                // A water volume's material is a water shader's; every other face's a brush material.
+                string usage = a.Kind == "water" ? "water" : "brush";
+                if (r.GetString(0) != usage)
+                    problems.Add($"{a.Role} {a.Asset}: its usage is {r.GetString(0)}, not {usage}");
                 if (scales.TryGetValue(a.Role, out float scale) && !r.IsDBNull(1))
                 {
                     float repeat = r.GetInt32(1) * scale;
@@ -115,6 +117,8 @@ public sealed class DescentPaletteTests
 {
     public static TheoryData<int> ActOne => [1, 2, 3, 4];
 
+    public static TheoryData<int> Themed => [1, 2, 3, 4];
+
     private static string PalettePath(int depth) =>
         RepoLayout.Repo("src", "mapgen", "Descent", "Themes", "palettes", ThemeAssets.PaletteFile(depth));
 
@@ -145,13 +149,15 @@ public sealed class DescentPaletteTests
             scales[prefix + "block"] = t.Block.Scale;
             if (t.Trim is { } trim)
                 scales[prefix + "trim"] = trim.Scale;
+            if (t.LargeWall is { } large)
+                scales[prefix + "large-wall"] = large.Scale;
         }
 
         return scales;
     }
 
     [Theory]
-    [MemberData(nameof(ActOne))]
+    [MemberData(nameof(Themed))]
     public void Every_asset_a_theme_names_is_a_row_of_its_palette(int depth)
     {
         var palette = Palette(depth).ToHashSet();
@@ -160,7 +166,7 @@ public sealed class DescentPaletteTests
     }
 
     [Theory]
-    [MemberData(nameof(ActOne))]
+    [MemberData(nameof(Themed))]
     public void A_palette_names_nothing_its_theme_does_not(int depth)
     {
         var named = Named(depth).ToHashSet();
@@ -169,7 +175,7 @@ public sealed class DescentPaletteTests
     }
 
     [AssetDbTheory]
-    [MemberData(nameof(ActOne))]
+    [MemberData(nameof(Themed))]
     public void Every_asset_a_theme_names_is_in_the_asset_database_with_its_usage(int depth)
     {
         RoomTheme theme = DescentRooms.ThemeFor(depth);
@@ -184,6 +190,22 @@ public sealed class DescentPaletteTests
         var misspelt = ThemeAssets.Of(theme with { Wall = new("concrete/computerwal003c", 0.5f) });
 
         Assert.Contains(AssetDb.Problems(misspelt, Scales(theme)), p => p.Contains("computerwal003c: no such TF2 material", StringComparison.Ordinal));
+    }
+
+    [AssetDbFact]
+    public void A_water_material_named_as_a_brush_material_is_refused()
+    {
+        var water = new ThemeAsset("swamp/water/water_murky", "material", "wall");
+
+        Assert.Contains(AssetDb.Problems([water], new Dictionary<string, float>()), p => p.Contains("usage is water, not brush", StringComparison.Ordinal));
+    }
+
+    [AssetDbFact]
+    public void A_brush_material_named_as_water_is_refused()
+    {
+        var water = new ThemeAsset("nature/rockwall003", "water", "water");
+
+        Assert.Contains(AssetDb.Problems([water], new Dictionary<string, float>()), p => p.Contains("usage is brush, not water", StringComparison.Ordinal));
     }
 
     [AssetDbFact]

@@ -1,6 +1,6 @@
 # plan_descent_mine_levels.md: the fifteen levels of the Descent mine shaft
 
-Status: reviewed and committed 2026-11-10. Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint.
+Status: reviewed and committed 2026-11-10. Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint; Phase 4 (Act II, levels 6 to 9) built and reviewed from its sheets in three rounds and two more on levels 8 and 9 (brief p4, section 1.3c), with the three Act I leftovers of that brief.
 
 This plan designs the fifteen dungeon levels of TF2 Descent as one mine shaft
 under the town: what each level looks and plays like, the room shapes they are
@@ -52,6 +52,7 @@ nothing more.
 | M24 | Multi-cell rooms and fixed door slots are being added to the map tools. The Descent side adopts them after Act I: footprints in the layout, 2x2 and 3x3 caverns and arenas, and the boss levels off their oversized kits. |
 | M25 | (2026-11-10, the coordinator's brief p3b for the user) Map tools #149 is adopted: `maptools.lock` at 7cdfe4d (SourceSharp.MapFormats 1.0.5, MapTools 1.0.2), the kit asks for `door_sill floor`, and multi-cell rooms join the levels: a footprint in the room name, 2x2 halls from level 2, 2x2 and 3x3 grottos from 6, 2x2 flooded galleries from 8, at most one at 2-4, two at 6-9, three at 11-14 (`DepthTable.BigRoomsAt`). Door slots are adopted in the tools' kit but not yet used by Descent (section 3.2). |
 | M27 | (2026-11-10, the coordinator's brief p3c for the user) Act I's third review: the 2x2 halls become set pieces (a loading dock, a plinth yard, a gallery over the doors) dressed by their theme (track through level 2's yard, a timber headframe at 3, machines and an overhead crane at 2 and 4); tall rooms hang lamps on long cords; one door frame per theme (level 1 the farm frame, 2 a steel channel with planks across its thresholds, 3 a timber set, 4 a heavy steel frame with the stripe on its head); the boss arenas move to the 1024 kit as 2x2, 3x3 and 4x4 rooms that open only where their row joins them, and the oversized kits go. |
+| M28 | (user, 2026-11-10, relayed by the coordinator during brief p4) "dont need to keep floor totally clear for rocket jumping": in any room with jump spots the dresser may put ordinary clutter on the floor (crates, carts, machines, heaps, not only low pieces). Kept clear only what a jump physically needs: the take-off patch under or beside each ledge (about 128 across, `RoomDresser.TakeOff`), each ledge's landing floor and the air between them, and the giant's lane door to door. A jump room's brushes still keep §4.1's clear air, measured by `RoomLint.CheckJumpClearAir`. Applies to Acts I and II. |
 | M26 | (2026-11-10, same brief) Act I's second review: level 1's way in is the Collar's concrete with the town's rock as one band; level 1 hangs boards, a clock and signs on its walls; level 2's track is one line through the tunnels and yards, meeting at the cell faces, with curves and buffer stops, and concrete stairs and square piers; level 3 is broken by a grey seam, paler timber, a darker floor and a cool fill; level 4 keeps one hazard stripe at door heads and deck edges, under paler sodium. |
 
 ### 1.3 Measured in Phase 0 (2026-11-10)
@@ -218,6 +219,96 @@ pillars by 192 for the Tank) is four legs of 2,464, then a fifth of about
 spiral still fits; at section 7's 30 units a second the moving time is
 about six minutes instead of five, or the legs run 1,800 with the stations
 nearer the corners.
+
+### 1.3c Measured in Act II's first pass (brief p4, 2026-11-10)
+
+Branch `descent-mine-plan`, map tools 7cdfe4d, debug, three seeds a depth, eight depths built at
+once on a box loaded to 40-65 (`.scratch/p4-build.sh`; review log `.scratch/p4-REVIEW.md`, three
+rounds and two more on levels 8 and 9).
+
+**Libraries** (dress and lint, then pack; loaded box): level 6 358 s / 248 s, 975 MB; 7 158 s /
+370 s, 954 MB; 8 513 to 1,715 s / 348 to 438 s, 1,279 MB; 9 531 to 1,657 s / 306 to 359 s, 1,154 MB (the longer under load 60) (79 to 86 rooms each). Act
+II's packs are about twice Act I's: the grottos (2x2, 3x3) and the standing water.
+
+**Levels**: link 8 to 30 s; maps of 17 to 37 MB.
+
+| Level | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|
+| Map entities (of 1,536) | 298-370 | 764-816 | 421-496 | 395-503 |
+| Brushes (of 8,192) | 1,343-1,413 | 1,663-1,796 | 2,420-2,523 | 2,710-2,884 |
+
+Level 7 spends most on light: a string of caged bulbs every 288 along every wall and a cold fill
+every 512, each a `light`.
+
+**Brightness** (`make descent-brightness`, now depths 1-4 and 6-9; level 5's boss row is left
+out until its arena is themed):
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Mean (seeds 1, 2, 3) | 0.2162 | 0.1880 | 0.1710 | 0.1314 | 0.0858 (0.088, 0.086, 0.083) | 0.0782 (0.079, 0.078, 0.078) | 0.0716 (0.069, 0.074, 0.072) | 0.0564 (0.063, 0.047, 0.059) |
+| Scaled | 100 | 86.9 | 79.1 | 60.8 | 39.7 | 36.2 | 33.1 | 26.1 |
+| Target (section 6) | 100 | 85 | 70 | 60 | 42 | 35 | 30 | 25 |
+| Most clipped | 0.0065 | 0.0091 | 0.0131 | 0.0004 | 0.0013 | 0.0000 | 0.0003 | 0.0000 |
+
+Every room view under 2 % white. Level 3 rose from 75.6 to 79.1 with its great halls' lantern
+pools (brief p4, Part A); levels 1, 2 and 4 are where they were.
+
+**Reach** and **budget**: ok at all 24 levels. The reach gate and the preview's movement have no
+water (`PlayerMoveSim`, `Reachability`): a Heavy walks a pool's or a flooded room's floor as dry
+ground, which the 12 to 48 of water Act II stands is in game too (wading, never swimming); deeper
+water would need the simulator to swim. The preview draws a water surface as a flat translucent
+sheet of its material's fog colour and draws no map fog, so Act II's water reads black on the
+sheets and its fog is checked only by the budget gate's controller check.
+
+**The map tools' cubemap fix-up** (7cdfe4d) throws on a material with `$envmap` in a room with no
+`env_cubemap` when a side has no winding (`CubemapFixups.FindClosestCubemap` answers sample 0 of
+none): `cp_manor/wood_floor01` stopped level 6's pack. Every Act II material was read from the
+VPKs for `$envmap` (`.scratch/p4-vmt.py`).
+
+### 1.3d Seen in the game (brief p5, 2026-11-11)
+
+Levels 1-4, 6-9 (seed 1) and the grey 5, 10, 15 loaded in a tf2_descent
+listen server (debug, 6ab691c1d), `make descent-install` linking each into the
+mod's `pool/maps`, and shot from the preview's own cameras at fov 90
+(`.scratch/p5-shots/`, 196 shots). Two linker behaviours the preview hides
+broke every level in game, and are worked round here until the map tools fix
+them (H7, H8):
+
+- **Turned rooms drawn from behind** (H7): `ssmap link` writes each face's
+  side flag inverted in every room the layout turns; the engine culls by it,
+  so most of a turned room's walls showed the sky or black. Level 1: 1,063 of
+  3,312 faces, all in turned rooms. `tools/descent-face-sides` sets the flag
+  from the face's node after each link.
+- **Joined doorways shut** (H8): the link keeps a joined socket's plug faces,
+  flagged nodraw, and the engine draws them. The plug material is now
+  `$no_draw`.
+
+Brightness, mean Rec.709 luma of the sRGB pixels over each camera's 4:3
+frame, the same measure on the preview's own tile beside it (the preview's
+`checks.lighting.mean`, a lightmap mean, in the first row):
+
+| Level | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| Preview lightmap mean | 0.2008 | 0.1776 | 0.1787 | 0.1336 | 0.0882 | 0.0786 | 0.0688 | 0.0630 |
+| Preview tiles | 0.340 | 0.234 | 0.180 | 0.121 | 0.104 | 0.075 | 0.056 | 0.043 |
+| Game | 0.362 | 0.251 | 0.206 | 0.131 | 0.119 | 0.098 | 0.091 | 0.062 |
+| Game with the flashlight | | | | | 0.128 | 0.124 | 0.109 | 0.077 |
+| Game, level 1 = 100 | 100 | 69 | 57 | 36 | 33 | 27 | 25 | 17 |
+
+The game is 6 to 15 % brighter than the preview in Act I and 14 to 62 % in
+Act II, probably the fog lifting the blacks and the water drawn as a surface
+(the preview draws it black); not measured apart.
+Fog works (the controller reaches the client; level 6 measured start 384,
+end 2304, density 0.5). The maps are lit LDR (no HDR lump), so the tone map
+controller does nothing. The flashlight (`impulse 100` with
+`cs_sv_allow_flashlight 1`) lights a small pool. Brush frames (levels 2-9)
+take lightmaps three to five times their walls' (level 9's stone trim 0.176
+against 0.034 on the same material in the world), so arches read pale in game
+as in the preview: every frame `func_brush` carries `_minlight 0.35`
+(`BrushFrame.MinLight`, for its faces inside the doorway, which were in the
+plug when the room was lit), a floor far above a dark level's walls; not
+changed here (a look decision: a per-depth floor, or the doorway faces split
+off). Every joined doorway's let-down floor under the plug is lit black (H9).
 
 ### 1.2 Defaults I chose (overrule by editing this table)
 
@@ -584,11 +675,11 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | Shapes | Camp, drifts into caverns, a chasm | Caverns, chimneys, chasms | Pools, pit rooms, drifts with water | Low crypt drifts, stubs, two tall naves |
 | Height | Chamber and hall | Hall and shaft: the most vertical level | Chamber and hall | Low; the deliberate ground-game level |
 | Jumps | Chasm leap, rubble steps | Every tier; roof galleries | Stepping pillars over water | Few: nave ledges only |
-| Walls | `nature/rockwall006`, `coalmines/blendgroundtowall_coalmines` | `nature/rockwall001_island`, `nature/blendrockgroundwallisland_interior` | `nature/rockwall006a`, `swamp/nature/karst_rock001` | `medieval/stonewall001a`, `medieval/stonetrim001a`, `cp_manor/wood_wall002_burnt` |
-| Floor | `nature/blendrockground004` | `nature/dirtfloor005b` | `nature/blendgroundtomud001`; water `water/water_well` | `koth_viaduct_event/viaduct_cobblestone001` |
-| Props | `props_mining/rock003`, `props_coalmines/boulder_pile1`, `props_mining/wooden_barrier01` | `props_island/stalagtites_large`, `props_island/stalagtites_med`, `props_mvm/cave_waterfall` | `props_swamp/karst_rock_01`, `props_island/island_drainage_pipe`, `props_coalmines/wood_debris2` | `props_viaduct_event/coffin_simple_closed`, `props_manor/gravestone_07`, `props_halloween/cobweb_01` |
-| Lamps | `props_2fort/lantern001`, far apart; some `lantern001_off` | `props_mining/tracklights_4` along a rope line | `props_swamp/lamp_post001`, light off the water | `props_manor/wall_candelabra_01`, `props_halloween/candle_cluster` |
-| Light | 42: cold grey with warm lantern pools | 35: blue-grey | 30: dim green | 25: candle orange in black |
+| Walls (as built, `Themes/ActTwo.cs`, `palettes/d06-d09.tsv`) | `nature/rockwall003` over a pale `winter/rockwall014` band, burnt `cp_manor/wood_beam03_burnt` sets (some fallen in), `cp_manor/wood_floor01` decks | pale `nature/blendrockgroundwallisland_interior02` limestone over wet `nature/cliffface002a` at the foot, `nature/blendrockgroundwallisland` ledges and spires | mossy `nature/rockwall006a` over a green `swamp/concrete/swampcrete001` lining, `swamp/wood/swampwall015` plank decks, rusted `swamp/metal/swampmetal001` | `medieval/stonewall001a` over a burnt `cp_manor/wood_wall002_burnt` wainscot, `medieval/stonetrim001a` columns, bands and tombs, `medieval/cobblestone002` vault |
+| Floor | `nature/blendgroundtogravel007` (dark rubble) | `nature/dirtfloor005b`; pools of `water/water_well` standing in the caves | `swamp/nature/blendswampmudtodirt001` under 16 of standing `swamp/water/water_murky` | `koth_viaduct_event/viaduct_cobblestone001` |
+| Props | boulders and rubble, broken boards, `wooden_barrier01`, level 4's fuse boxes and hazard drums left behind, dead lanterns on the walls, a collapse heaped in a grotto | flowstone columns and stalagmite bosses (`props_mining/rock001`, `rock002`), rock spills, `props_island/stalagtites_med` and `_small` hung from the roofs | hand pumps, drain grates, karst rocks, a rowing boat, open drums, rope | upright coffins, headstones, monuments, laid coffins, cobwebs, a statue or gargoyle on a nave's focus, burnt-down candles |
+| Lamps | `props_2fort/lantern001` in 2 or 3 pools a room, far apart; `props_hydro/construction_light` work lamps hung on cables in tall rooms; a cold grey fill | `props_c17/light_cagelight02_on` strung along the walls, hung under the roof and on cables where the walls' string leaves the middle dark; a cold blue fill | `props_swamp/lamp_post001` by the walls, `light_industrialbell01_on` over the middles and the tall galleries' water; a green fill off the water | `props_manor/wall_candelabra_01` on the walls, `chandelier_01` under the vault and on chains in the naves, a `props_medieval/brazier` in each large room; no fill |
+| Light (target) | 42: cold grey with warm lantern pools | 35: blue-white | 30: dim green | 25: candle orange in black |
 | Way down | Rubble ramp into the cave | Rope-line stair down a shaft | A sump: a drained shaft with a stair | A broken crypt floor |
 
 Level 6's arrival is a camp (M10): a lit, dressed room with a hoist to the
@@ -817,20 +908,20 @@ facts and the three gates. "Not done" is what is left.
 | A3 | Displacement floors, walls and (new) roofs (`Brush.DisplacedBox`, `DisplacedWall`, `DisplacedUnder`). | |
 | A4 | Wedges, stairs, prisms, ring walls, convex columns, chamfers and rounded corners. | |
 | A5 | `JumpTable`, read by every jump feature. | |
-| A6 | Every family of section 5, with a one-door variant of every chamber, hall and shaft; the crypt (new). | Act II and III dressing of them. |
+| A6 | Every family of section 5, with a one-door variant of every chamber, hall and shaft; the crypt (new); grottos with rounded corners, rough rock along the walls between their sockets, a lumpy roof and stalactites (brief p4). | Act III dressing of them; caverns c and d keep flat walls where their doors leave no span for rock. |
 | A7 | Ways in and down by act, the two camps, antechambers. | |
 | A8 | Placeholder arenas as 2x2, 3x3 and 4x4 rooms on the normal kit with only their row's sockets (M27); the oversized kits gone. | The Phase 6 arenas, the Bore's track, the breakaway platform. |
-| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`), after the third review (M27): a door frame per theme (the farm model at 1, brush frames at 2 to 4), pendants, the halls' set pieces. | Depths 5 to 15 are the grey. |
-| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, pendants on cords in tall rooms, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off; larger rooms dressed whole (M27) with their set pieces (a centrepiece on the plinth, a headframe, an overhead crane, a pipe run at height, track through level 2's yard kept per joined socket). | Handrails on ledges and decks (they stand in the air a ledge's jump needs, which the dressing keeps clear); a large jump hall's open floor stays bare (its rocket air). |
+| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`), after the third review (M27): a door frame per theme (the farm model at 1, brush frames at 2 to 4), pendants, the halls' set pieces. Act II's four (`Themes/ActTwo.cs`, `palettes/d06-d09.tsv`, brief p4): their own surfaces, lamps, light colour, fog, water and door frames (a broken timber set, a rock arch, a rusted steel flood door, a carved stone arch). | Depths 5 and 10 to 15 are the grey. |
+| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, pendants on cords in tall rooms, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off; larger rooms dressed whole (M27) with their set pieces (a centrepiece on the plinth, a headframe, an overhead crane, a pipe run at height, track through level 2's yard kept per joined socket); a jump room's floor dressed but for 128 round each jump ledge (M28); posts lining a great hall's walls under a plate, lagging in the bays; lamp pools round a larger room's walls; Act II's standing water, roof-hung stalactites, broken sets. | Handrails on ledges and decks (they stand in the air a ledge's jump needs). |
 | A11 | `info_poi` markers of every kind, map labels and markers. | |
 | A12 | `library.json` with tags, weights, depths, jump, low, markers, doors, height, focus and a preview camera. | |
 | A13 | `make descent-rooms` and `make descent-level`. | |
 | A14 | Level 1's sky shaft under the town's sun and sky; work floods at its foot. | The sun still cannot reach the cage down 192 of shaft. |
-| A15 | Door frames lining each half of a joined doorway (the farm model as a static prop, or a theme's brush frame as one non-solid `func_brush` per joined socket), sill planks, cap panels (M23, M27); level 2's frames lay planks across the threshold. | |
+| A15 | Door frames lining each half of a joined doorway (the farm model as a static prop, or a theme's brush frame as one non-solid `func_brush` per joined socket), sill planks, cap panels (M23, M27); level 2's frames lay planks across the threshold; Act II's (brief p4) a broken timber set with a cracked sagging head (6), a natural rock arch with haunched corners (7), a rusted steel flood-door frame with steel on its sill (8), a carved stone arch on plinths with a keystone (9). | |
 | B1 | Lint facts per rule, plus a giant's reach of every pack spawn; the room lint and the dress lint read a larger room's whole footprint and every socket (M27). | |
-| B2 | `DescentPaletteTests` against the database at `~/assetdb`. | |
+| B2 | `DescentPaletteTests` against the database at `~/assetdb`, at depths 1-4 and 6-9, a water material held to the `water` usage. | |
 | B3 | `DescentMineShaftTests` holds the town to `MineShaft`; level 1's way in is built from the same class. | No fact reads level 1's library for the same values. |
-| B4 | `make descent-brightness`, with every room's view under 2 % white (M27: level 1's shaft foot was white while the level's share passed). | Depths 5 to 15 (still grey). |
+| B4 | `make descent-brightness`, with every room's view under 2 % white (M27: level 1's shaft foot was white while the level's share passed). | Depths 5 and 10 to 15 (still grey); the gate's default depths are 1-4 and 6-9. |
 | B5 | `make descent-reach`, reading every island (`tools/descent-islands`) and accepting a trap only inside the exit's volume. | The per-class report (Scout, Soldier, Demoman floor) of Phase 7. |
 | B6 | `make descent-budget`, with the fog and tone map controllers checked against the library. | |
 | C1 | `LevelLayout`: free-form growth to the room budget (M19), no hallway dead ends (M18), a room at every tunnel's end and no capped door (M20), the adaptive mix (M21); rooms larger than one cell (M25, `DepthTable.BigRoomsAt`), laid off a fill room and counted once; chosen sockets in the name codec. | A larger room on the critical path of a normal level (they stand on branches); door slots. |
@@ -901,6 +992,9 @@ Requests to that session; this plan changes nothing there.
 | H4 | A door that stands on the floor at any height, as an option of the kit | Done: `door_sill floor`, map tools 7cdfe4d (section 1.3) |
 | H5 | The Scout's air dash at stock's speed in the simulator | 15 % too high |
 | H6 | Faces for a joined doorway's sides, sill and head, or socket furniture kept on both sides | Each joined door costs two `func_brush` entities today |
+| H7 | `ssmap link` writes a turned room's face side flags inverted against their nodes; the engine culls by them | Found in game (brief p5, section 1.3d) at 7cdfe4d and 3551fa8; `tools/descent-face-sides` rewrites them after each link |
+| H8 | `ssmap link` keeps a joined socket's plug faces (nodraw-flagged); the engine draws any world face | Found in game (brief p5); the plug material is `$no_draw` |
+| H9 | A joined doorway's let-down floor under the plug keeps the black lightmap of the room's own compile | Found in game (brief p5): a black strip across every doorway; relight or drop the dip |
 
 ### Order
 

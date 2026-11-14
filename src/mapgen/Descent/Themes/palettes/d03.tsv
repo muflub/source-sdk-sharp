@@ -32,3 +32,5 @@ props_lights/hangingbulb	static	pendant	a bare bulb strung on a cable down a tal
 props_island/gantry_support_cable_128	static	pendant-cord	the cable the bulb hangs from, stacked to the roof; no collision; 14 maps
 props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable; 6 maps
 props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable; 5 maps
+nature/rockwall012	material	large-wall	the same red rock at 0.5 on a great hall's 2048 walls, which at 0.25 tile into a brick pattern (brief p4)
+props_mining/rock004	static	floor-prop	an ore heap on the floor of a room with the floor for it (a great hall), beside the lagging stacks (brief p4)

@@ -1,0 +1,11 @@
+{
+  "tierLevels": [1, 6, 12, 18, 24, 30],
+  "maxRank": { "action": 5, "upgrade": 5, "toggle": 5, "capstone": 1 },
+  "sharedClass": "mercenary",
+  "sharedMaxRank": 7,
+  "bonusRankCap": 3,
+  "damage": { "perHeroLevel": 0.04, "attributeDivisor": 50 },
+  "manaCostStat": "mana_cost_pct",
+  "orders": { "durationStat": "order_duration_pct", "radiusStat": "order_radius_pct", "cooldownStat": "order_cooldown_pct" },
+  "spells": { "maxRank": 5, "scrollStack": 10, "attribute": "smarts" }
+}

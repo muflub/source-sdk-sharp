@@ -91,7 +91,7 @@ public static class PoolShape
         b.WithOutline(body).WithBody(body);
         foreach (Rect walk in Rects.Subtract(body, [basin, .. channels]))
             b.Block(walk, Walk, b.Theme.Wall);
-        b.WithWater(basin, b.Floor, b.Floor + Water, WaterMaterial);
+        b.WithWater(basin, b.Floor, b.Floor + Water, b.Theme.Water ?? WaterMaterial);
         // Steps out of the water in the basin's south-west corner.
         b.StairsUp(new Rect(basin.X0, basin.Y0, basin.X0 + 96, basin.Y0 + 64), Compass.South, Walk);
 

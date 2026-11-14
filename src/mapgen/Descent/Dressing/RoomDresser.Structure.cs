@@ -228,17 +228,56 @@ public static partial class RoomDresser
                 var (start, span) = Extent(stretch);
                 if (span < ps.Spacing)
                     continue;
-                int count = (int)(span / ps.Spacing);
-                float first = start + (span - (count - 1) * ps.Spacing) / 2;
-                for (int k = 0; k < count; k++)
+                var stood = new List<float>();
+                var s0 = stretch[0];
+                bool Stand(float a)
                 {
-                    float a = first + k * ps.Spacing;
-                    var s0 = stretch[0];
                     if (!FlatAt(s0, a, sill + 64) || !FlatAt(s0, a, (sill + top) / 2) || !FlatAt(s0, a, top - 24))
-                        continue;
+                        return false;
                     Box box = OnWall(s0, a - ps.Width / 2f, a + ps.Width / 2f, sill, top, ps.Depth);
-                    if (StructureFits(box, solid: true))
-                        AddStructure(box);
+                    // A larger room's routes between its sockets run along its walls; a post a hand deep
+                    // there takes nothing from a floor twenty giants wide, so its lane does not refuse it.
+                    if (!StructureFits(box, solid: room.Cells == 1 || ps.Depth > 24))
+                        return false;
+                    // A set lining the wall keeps off the edges of decks, stairs and ledges, whose way up a
+                    // post beside them would narrow (a deck cut off at level 3's chasm).
+                    if (ps.Cap > 0 && NearRaised(box, LedgeClear))
+                        return false;
+                    AddStructure(box);
+                    stood.Add(a);
+                    return true;
+                }
+
+                if (ps.Cap > 0)
+                {
+                    // Sets lining a wall (a plate joins them): a post wherever one fits a pitch on from the
+                    // last, from the stretch's end, so the bays between doors and ledges fill (brief p4).
+                    for (float a = start + ps.Width / 2f + 1; a <= start + span - ps.Width / 2f - 1; a += RoomLint.Grid)
+                        if ((stood.Count == 0 || a - stood[^1] >= ps.Spacing) && Stand(a))
+                            continue;
+                }
+                else
+                {
+                    int count = (int)(span / ps.Spacing);
+                    float first = start + (span - (count - 1) * ps.Spacing) / 2;
+                    for (int k = 0; k < count; k++)
+                        Stand(first + k * ps.Spacing);
+                }
+
+                float pitch = ps.Cap > 0 ? 1.5f * ps.Spacing : ps.Spacing;
+                // A wall plate between two neighbouring posts makes them a set lining the wall (level 3's
+                // halls, brief p4), and the bay under it is where a wall prop stands, clear of both posts.
+                for (int k = 0; k + 1 < stood.Count; k++)
+                {
+                    if (stood[k + 1] - stood[k] > pitch + 1)
+                        continue;
+                    float b0 = stood[k] + ps.Width / 2f, b1 = stood[k + 1] - ps.Width / 2f;
+                    bays.Add((s0, (b0 + b1) / 2, b1 - b0));
+                    if (ps.Cap <= 0 || sill + ps.Cap + ps.CapDepth > top - 32)
+                        continue;
+                    Box plate = OnWall(s0, b0, b1, sill + ps.Cap, sill + ps.Cap + ps.CapDepth, ps.Depth);
+                    if (StructureFits(plate, solid: true))
+                        AddStructure(plate);
                 }
             }
 
@@ -326,6 +365,12 @@ public static partial class RoomDresser
         /// </summary>
         private void PoolLamps(LampKind kind, (int Least, int Most) pools)
         {
+            if (room.Cells > 1)
+            {
+                WallPools(kind, pools.Most * room.Cells);
+                return;
+            }
+
             var route = routes.SelectMany(r => r).Distinct().ToList();
             if (route.Count == 0)
                 return;
@@ -341,6 +386,32 @@ public static partial class RoomDresser
                 if (HangFromSet(kind, p) || StandNear(kind, p))
                     placedPools++;
             }
+        }
+
+        /// <summary>
+        /// A larger room's pools (brief p4: a great hall's routes cross its open floor, far from any
+        /// wall, so level 3's halls had no lantern): <paramref name="want"/> lamps on their stands round
+        /// its walls, evenly round its body's middle, so its floor lies in pools along the walls.
+        /// </summary>
+        private void WallPools(LampKind kind, int want)
+        {
+            if (kind.Stand is not { } stand)
+                return;
+            Point mid = new(room.Body.CentreX, room.Body.CentreY, sill);
+            var sites = WallSites(32).OrderBy(s => Math.Atan2(s.Face.Y - mid.Y, s.Face.X - mid.X)).ThenBy(s => s.Face.X).ThenBy(s => s.Face.Y).ToList();
+            if (sites.Count == 0 || want <= 0)
+                return;
+            float apart = sites.Count * RoomLint.Grid / (want * 1.5f);
+            int span = Math.Max(1, sites.Count / want);
+            for (int j = 0; j < want; j++)
+                for (int k = 0; k < span; k++)
+                {
+                    WallSite s = sites[(j * span + k) % sites.Count];
+                    if (lamps.Any(q => Level(q, s.Face) < apart))
+                        continue;
+                    if (TryLamp(OnStand(kind, stand, s.Face, s.Dx, s.Dy, sill)))
+                        break;
+                }
         }
 
         /// <summary>A lamp hung under the cap of a set within reach of <paramref name="p"/>, beside one of its posts.</summary>

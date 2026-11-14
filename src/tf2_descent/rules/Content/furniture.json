@@ -1,0 +1,49 @@
+{
+  "markers": [
+    { "poi": "descent_mark_shrine", "kind": "shrine", "perRoom": 1, "fillPct": 60 },
+    { "poi": "descent_mark_container", "kind": "container", "perRoom": 3, "fillPct": 70 },
+    { "poi": "descent_mark_dispenser", "kind": "dispenser", "perRoom": 1, "fillPct": 50 },
+    { "poi": "descent_mark_barrel", "kind": "explosive", "perRoom": 4, "fillPct": 75 },
+    { "poi": "descent_mark_trap", "kind": "trap", "perRoom": 2, "fillPct": 60 }
+  ],
+  "shrines": {
+    "badCapPct": 15,
+    "effects": [
+      { "id": "fury", "nature": "good", "weight": 25, "name": "#TF2Descent_Shrine_Fury", "message": "#TF2Descent_Shrine_Fury_Msg",
+        "partyWide": false, "lasts": "level", "stats": [ { "stat": "damage_all_pct", "amount": 25 } ], "refill": false, "revealMap": false, "spellRanks": 0 },
+      { "id": "plenty", "nature": "good", "weight": 20, "name": "#TF2Descent_Shrine_Plenty", "message": "#TF2Descent_Shrine_Plenty_Msg",
+        "partyWide": false, "lasts": "instant", "stats": [], "refill": true, "revealMap": false, "spellRanks": 0 },
+      { "id": "sight", "nature": "good", "weight": 15, "name": "#TF2Descent_Shrine_Sight", "message": "#TF2Descent_Shrine_Sight_Msg",
+        "partyWide": true, "lasts": "instant", "stats": [], "refill": false, "revealMap": true, "spellRanks": 0 },
+      { "id": "lore", "nature": "good", "weight": 15, "name": "#TF2Descent_Shrine_Lore", "message": "#TF2Descent_Shrine_Lore_Msg",
+        "partyWide": false, "lasts": "level", "stats": [], "refill": false, "revealMap": false, "spellRanks": 1 },
+      { "id": "bargain", "nature": "trade", "weight": 15, "name": "#TF2Descent_Shrine_Bargain", "message": "#TF2Descent_Shrine_Bargain_Msg",
+        "partyWide": false, "lasts": "level", "stats": [ { "stat": "brawn", "amount": 5 }, { "stat": "smarts", "amount": -5 } ], "refill": false, "revealMap": false, "spellRanks": 0 },
+      { "id": "frailty", "nature": "bad", "weight": 6, "name": "#TF2Descent_Shrine_Frailty", "message": "#TF2Descent_Shrine_Frailty_Msg",
+        "partyWide": false, "lasts": "level", "stats": [ { "stat": "max_life_pct", "amount": -15 } ], "refill": false, "revealMap": false, "spellRanks": 0 },
+      { "id": "drought", "nature": "bad", "weight": 4, "name": "#TF2Descent_Shrine_Drought", "message": "#TF2Descent_Shrine_Drought_Msg",
+        "partyWide": true, "lasts": "level", "stats": [ { "stat": "mana_regen_pct", "amount": -50 } ], "refill": false, "revealMap": false, "spellRanks": 0 }
+    ]
+  },
+  "dispenser": { "charge": 600, "healPerSecond": 20, "ammoPerSecond": 40, "chargePerHealth": 1, "chargePerAmmo": 0.5 },
+  "containers": {
+    "lootTable": "container",
+    "lockedPct": 20,
+    "trappedPct": 15,
+    "kinds": [
+      { "id": "supply_crate", "weight": 50 },
+      { "id": "locker", "weight": 30 },
+      { "id": "sarcophagus", "weight": 20 }
+    ]
+  },
+  "explosives": [
+    { "id": "barrel", "weight": 70, "damageType": "blast", "damage": 110, "radius": 146, "edgePct": 50, "chainRadius": 180 },
+    { "id": "pumpkin_bomb", "weight": 30, "damageType": "blast", "damage": 150, "radius": 160, "edgePct": 50, "chainRadius": 200 }
+  ],
+  "traps": [
+    { "id": "dart", "weight": 30, "damageType": "bullet", "damage": 25, "radius": 0, "tell": { "kind": "sound", "token": "click" } },
+    { "id": "flame_jet", "weight": 25, "damageType": "fire", "damage": 40, "radius": 0, "tell": { "kind": "visual", "token": "scorch_marks" } },
+    { "id": "charge", "weight": 20, "damageType": "blast", "damage": 90, "radius": 120, "tell": { "kind": "sound", "token": "beeping" } },
+    { "id": "tesla_coil", "weight": 25, "damageType": "shock", "damage": 35, "radius": 96, "tell": { "kind": "visual", "token": "sparks" } }
+  ]
+}

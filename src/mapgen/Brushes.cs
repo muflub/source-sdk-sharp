@@ -524,6 +524,14 @@ public sealed class Brush
         return new((float)Math.Round(cx + r * Math.Cos(a)), (float)Math.Round(cy + r * Math.Sin(a)), z);
     }
 
+    /// <summary>
+    /// The brush with every vertex carried by <paramref name="map"/> (an axis permutation or mirror,
+    /// for a shape built in a local frame); <paramref name="mirror"/> when the map turns space inside
+    /// out, so each face is wound back to counter-clockwise from outside. No displacement survives it.
+    /// </summary>
+    public Brush Transformed(Func<Point, Point> map, bool mirror) =>
+        new([.. Faces.Select(f => new BrushFace(mirror ? [.. f.Polygon.Select(map).Reverse()] : [.. f.Polygon.Select(map)], f.Surface))], Surface);
+
     /// <summary>Turns faces built in a local frame rising east (+x) to <paramref name="toward"/> and moves them to <paramref name="mins"/>.</summary>
     private static Brush Turned(BrushFace[] faces, Compass toward, float lx, float ly, Point mins, Surface surface)
     {

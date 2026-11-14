@@ -7,8 +7,9 @@ namespace TF2.Descent.Server;
 [SideService(Side.Server)]
 public sealed class ClientMessages(IUserMessageSender messages)
 {
-    public void Notice(int entIndex, string text)
-        => messages.Send(new Shared.Notice { Text = text }, entIndex);
+    /// <summary>A line on the player's HUD: plain text, or a <c>#Token</c> whose <c>%s1</c> the client fills with <paramref name="arg"/>.</summary>
+    public void Notice(int entIndex, string text, string arg = "")
+        => messages.Send(new Shared.Notice { Text = text, Arg = arg }, entIndex);
 
     /// <summary>
     /// Tells clients the next level's map and its download URL; false when it

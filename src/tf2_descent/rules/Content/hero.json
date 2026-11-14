@@ -1,0 +1,38 @@
+{
+  "levelCap": 30,
+  "attributePointsPerLevel": 5,
+  "skillPointsPerLevel": 1,
+  "levelUpRefill": true,
+  "xp": { "scale": 100, "exponent": 2.2 },
+  "armour": { "stat": "armour", "constant": 50, "perAttackerLevel": 10 },
+  "life": { "stat": "max_life", "percentStat": "max_life_pct" },
+  "mana": { "stat": "max_mana", "percentStat": "max_mana_pct" },
+  "speed": { "stat": "move_speed", "percentStat": "move_speed_pct" },
+  "crit": { "stat": "crit_chance_pct", "base": 0, "min": 0, "max": 100 },
+  "knockbackResist": { "stat": "knockback_resist_pct", "base": 0, "min": 0, "max": 100 },
+  "spread": { "stat": "spread_pct", "base": 0, "min": -90, "max": 300 },
+  "damageAll": "damage_all_pct",
+  "damageKinds": [
+    { "id": "melee", "stat": "damage_melee_pct" },
+    { "id": "blast", "stat": "damage_blast_pct" },
+    { "id": "bullet", "stat": "damage_bullet_pct" },
+    { "id": "projectile", "stat": "damage_projectile_pct" },
+    { "id": "action", "stat": "damage_action_pct" }
+  ],
+  "resistAll": "resist_all_pct",
+  "resistCap": 75,
+  "resistFloor": -100,
+  "resistances": [
+    { "id": "fire", "stat": "resist_fire_pct" },
+    { "id": "blast", "stat": "resist_blast_pct" },
+    { "id": "bullet", "stat": "resist_bullet_pct" },
+    { "id": "shock", "stat": "resist_shock_pct" }
+  ],
+  "sustain": {
+    "lifeRegen": { "stat": "life_regen_pct", "base": 0, "cap": 3, "flatStat": "life_regen_hp" },
+    "lifeLeech": { "stat": "life_leech_pct", "base": 0, "cap": 15 },
+    "manaRegen": { "stat": "mana_regen_rate_pct", "bonusStat": "mana_regen_pct", "base": 1, "cap": 5 },
+    "manaLeech": { "stat": "mana_leech_pct", "base": 0, "cap": 5 }
+  },
+  "respec": { "price": 500, "growth": 2 }
+}

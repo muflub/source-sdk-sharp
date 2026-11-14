@@ -121,7 +121,11 @@ public sealed record LampKind(PropModel Fixture, LampMount Mount, Lamp Light, in
 /// <param name="Post">A post's square section.</param>
 /// <param name="Cap">The cap's depth below the ceiling.</param>
 /// <param name="MaxWidth">The widest corridor that takes sets; wider rooms are chambers and halls.</param>
-public sealed record SetFrame(int Spacing, int Post, int Cap, int MaxWidth = 448);
+public sealed record SetFrame(int Spacing, int Post, int Cap, int MaxWidth = 448)
+{
+    /// <summary>The chance a set has fallen in: its cap and one post gone, the other post left standing (level 6's wrecked workings).</summary>
+    public float Broken { get; init; }
+}
 
 /// <summary>
 /// The props a theme places, by role (task A9): against walls, on open
@@ -191,8 +195,15 @@ public sealed record PropSet
     /// <summary>A second run of <see cref="CeilingRun"/> along one wall of a tall room, its underside this high above the floor (0: none).</summary>
     public int WallRunHeight { get; init; }
 
+    /// <summary>Pieces hung from the roof of a tall room upside down (stalactites), each mesh symmetric about its origin.</summary>
+    public IReadOnlyList<PropModel> Hanging { get; init; } = [];
+
+    /// <summary>One hanging piece per this much of a tall room's floor, on a grid.</summary>
+    public int HangingSpacing { get; init; } = 384;
+
     /// <summary>The most of a room's walked floor one open-floor prop may cover: a big machine stands only in a big room.</summary>
     public float FloorShare { get; init; } = 0.06f;
+
 
     /// <summary>No props.</summary>
     public static PropSet None { get; } = new();
@@ -201,7 +212,7 @@ public sealed record PropSet
     public IEnumerable<PropModel> Models =>
         Wall.Concat(Floor).Concat(Corner).Concat(CeilingRun is { } c ? [c] : []).Concat(Rail is { } r ? [r] : [])
             .Concat(RailEnds).Concat(Siding is { } s ? [s] : []).Concat(Companions)
-            .Concat(RailBend is { } b ? [b] : []).Concat(RailStop is { } t ? [t] : []).Concat(Hung.Select(h => h.Model)).Concat(Centrepiece);
+            .Concat(RailBend is { } b ? [b] : []).Concat(RailStop is { } t ? [t] : []).Concat(Hung.Select(h => h.Model)).Concat(Centrepiece).Concat(Hanging);
 }
 
 /// <summary>
@@ -233,7 +244,14 @@ public sealed record TrimBands(int Skirting, int DadoHeight, int Dado, int Beam,
 /// trim: <see cref="Width"/> along the wall, <see cref="Depth"/> off it, on
 /// walls of rooms at least <see cref="MinHeight"/> high.
 /// </summary>
-public sealed record Pilasters(int Spacing, int Width, int Depth, int MinHeight = 768);
+public sealed record Pilasters(int Spacing, int Width, int Depth, int MinHeight = 768)
+{
+    /// <summary>The height of a wall plate joining two neighbouring pilasters into a set lining the wall (0: none).</summary>
+    public int Cap { get; init; }
+
+    /// <summary>The wall plate's depth.</summary>
+    public int CapDepth { get; init; } = 24;
+}
 
 /// <summary>
 /// A work lamp each large room gets (its walked floor at least

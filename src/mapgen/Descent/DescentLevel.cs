@@ -219,7 +219,8 @@ public static class DescentLevel
 
     /// <summary>
     /// The preview's per-room cameras (<c>ssmap preview -camera</c>), one per
-    /// family the level places, at most <see cref="MaxCameras"/>: the room's
+    /// family the level places, at most <see cref="MaxCameras"/>, a larger room's
+    /// first (the level's set piece is never the one the cap cuts): the room's
     /// own corner camera from <c>library.json</c> (<see cref="PreviewCamera"/>,
     /// at a player's eye in a corner of its body looking across it at its
     /// focus), turned with the room; for a manifest without one, at a
@@ -236,7 +237,10 @@ public static class DescentLevel
         var rooms = doc.RootElement.GetProperty("rooms");
         var cameras = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (Placement p in plan.Placements.OrderBy(p => p.Row).ThenBy(p => p.Column))
+        // A larger room (a great hall, a grotto) first, so the cap never cuts the level's set piece
+        // (brief p4: level 3 seed 3 lost its hall's camera to the cap).
+        static bool Larger(Placement p) => RoomName.TryParse(p.Room, out var s, out _) && s!.IsMultiCell;
+        foreach (Placement p in plan.Placements.OrderByDescending(Larger).ThenBy(p => p.Row).ThenBy(p => p.Column))
         {
             if (!rooms.TryGetProperty(p.Room, out JsonElement room) || !RoomName.TryParse(p.Room, out var shape, out _) || !seen.Add(shape!.Family))
                 continue;

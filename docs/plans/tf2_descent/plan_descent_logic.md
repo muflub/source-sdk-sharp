@@ -3,9 +3,12 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-11.** On main at `d6e9ebec9`: CR1, CR3, CR4, CR6 and
-CR5's server half (item source, standing attributes, kit refresh). Ruled and
-not built: CR2. Not started: CR7, CR8, CR9 and every other track.
+**Status, 2026-11-11, night.** On main at `ff7ce14ae`: CR1, CR3 to CR6,
+CR8 to CR10; every rules package but RU4 and RU14 (RU0 to RU3, RU5 to
+RU13); HE1 (the mode, the TF content mount); WO7. Measured and written up:
+HO0 (section 3.11). Ruled and not built: CR2. Running: RU4 then RU14
+(`descent-ru-d`), HE0 (`descent-he0`), HE2 (`descent-he2`), HO1
+(`descent-ho1`). Not started: CR7, CR11 and the rest.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -30,10 +33,13 @@ their row, so the two plans do not both assign them.
 | L4 | The descent is a mine shaft. | Replaces D14's catacombs and the church stairs. The town entrance is the mine cage; acts and themes are the mine plan's. |
 | L5 | The XP bar is at the top of the HUD. | UI2. |
 | L6 | Killing more of a robot type reveals more of its stats. | Appendix D row 13 (bestiary) is in v1 (RU12, UI6). |
-| L7 | Repair follows Diablo 1. | Replaces D21's repair. Town repair by the Engineer is lossless and costs Australium. Field repair (the Repair Kit) restores `level + rand(level)` durability a step and lowers maximum durability by `max(maxDur / (level + 9), 1)` a step, until current reaches maximum. A field repair that takes maximum durability to 0 destroys the item, as in Diablo 1. That last clause contradicts D21's "never destroyed by wear" only for this deliberate act; strike it at review to floor at 1 instead. |
+| L7 | Repair follows Diablo 1. | Replaces D21's repair. Town repair by the Engineer is lossless and costs Australium. Field repair (the Repair Kit) restores `level + rand(level)` durability a step and lowers maximum durability by `max(maxDur / (level + 9), 1)` a step, until current reaches maximum. **Amended 2026-11-11:** a field repair never destroys an item. One that takes maximum durability to 0 leaves the item **unusable**: it cannot be equipped and grants nothing, and it can still be stashed, sold, salvaged and traded. Whether anything restores maximum durability is not ruled; nothing does until it is. |
 | L8 | Escape closes the open Descent screens before it opens the main menu. | UI1. |
-| L9 | Enemies push back if a door is blocked. | Read as: robots shove a hero who stands in a doorway, so a door cannot be held against a horde (HO11). The other reading, robots stepping back out of a doorway they block, was offered and not chosen; say so if it was meant. |
+| L9 | Enemies push back if a door is blocked. | Robots shove a hero who stands in a doorway, so a door cannot be held against a horde (HO11). **Confirmed 2026-11-11** over the other reading (robots stepping back out of a doorway they block), which is left to ordinary steering. |
 | L10 | The Town Portal is an Engineer teleporter. | Replaces D16's Eureka Effect charge. One entity serves this and the death plan's M3 teleporter (WO4). |
+| L11 | **(2026-11-11)** A player's equipped items and their attributes are sent to every client, on the player's own networked state: all players see what the others have equipped. | Replaces CR9's owner-only entity. The owner's client predicts from it; every other client can show it (inspect, party frames). An equipped item's rolled attributes are therefore not secret. An unidentified item cannot be equipped (D22), so nothing hidden is exposed. |
+| L12 | **(2026-11-11)** A robot is hurt by its own blast, is pushed by blasts as a player is, and can rocket jump and grenade jump as a player can. | Replaces the kept divergence (CR10). The body's motion takes the blast push stock gives a player (HO3, HO8); Soldier and Demoman robots may blast jump as a decision (HO6, HO12). |
+| L13 | **(2026-11-11)** Subagent lanes of this plan run on Opus 5.5. | Section 6. |
 
 ### 0.2 What the tree has that `plan_tf2_rpg.md` did not know
 
@@ -78,7 +84,7 @@ Source in brackets. Lanes re-measure at their own base before relying on one.
 | E2 | Roster size | at most 256 robots a level |
 | E3 | Content tables | JSON embedded in `TF2.Descent.Rules` as resources, so the host and the game read the same bytes |
 | E4 | Per-hero state on the wire | scalars on a per-hero networked entity; item views by reliable user message, one item a message |
-| E5 | Robot locomotion | off the main thread, `GameMovement` against nav voxels. HO0 measures the fidelity; the fallback is main-thread hull traces |
+| E5 | Robot locomotion | **Replaced by HO0's measurement (3.11, row 8):** the movement step and the route stay on the AI workers against nav voxels; the main thread accepts each body's move with one hull trace from its last accepted position, and refuses or clips a move into a prop, a body or a hero |
 | E6 | Robot gibs and death | a temp entity, no ragdoll entity |
 | E7 | Bestiary thresholds | 1 kill shows the count, 15 the life numbers, 30 resistances and immunities, 60 the temperament style. Kept per character in the sheet |
 | E8 | Play without the host | an in-memory item ledger behind the same seam as the hosted one, so every live proof below runs `-unhosted` (HE0) |
@@ -275,10 +281,11 @@ body is lent to another robot. Heroes are actors in the snapshot, not brains.
   measured debug cost that is about 0.5 CPU-seconds a second across the
   workers. Main-thread work per tick is sense, publish and apply. HO0 sets
   the budget; the target is 1.5 ms a tick at 48 bodies, release build.
-- **Drive steps, not brains, are the pool's main cost** since `0b9817e34`
-  (the Memory owner's measurement: 116 to 158 µs a step, 66 steps a second
-  a bot, 12 bots). The horde does not use that driver as it stands (3.7);
-  HO0 reads `tools/ai-cost live` before the pool is sized.
+- **The main thread's cost is the engine writes, not the brains** (HO0,
+  3.11 rows 7 and 10): 12 to 15 µs a body a tick in release for origin,
+  angles and net state; 3.5 µs of worker CPU a decide for a trivial decider;
+  24 to 41 µs a tick to publish 49 brains. The player-bot driver's 116 to
+  158 µs a step (the Memory owner's number) is not the horde's path.
 - **The src/ai tree is the TF2 AI sessions'.** CR3 and CR4 were agreed with
   the coordinator and the Memory owner on 2026-11-10 and come as this
   plan's own lane; each commit's sha goes to both as it lands.
@@ -291,13 +298,25 @@ thread writes the result to the body (origin, angles, sequence, pose
 parameters). Knock-ups, blast pushes and falls are impulses on the same
 state, so *Stomp* and *Juggle Doctrine* work on robots.
 
-What the voxels do not know (doors, props, heroes, other robots) is handled
-by steering separation and nav obstacle flags. HO0 measures how far a
-voxel-moved body sits from where an engine hull trace would put it; if that
-shows, E5 falls back to main-thread hull traces for embodied robots.
+The voxels know floors and walls and nothing else: no prop, no door plug,
+no hero, no other body. HO0 walked a body seven rooms that way: it stood on
+the floor to within about a unit, and it was inside a prop on 3 to 8 % of
+its grounded ticks. So the main thread accepts every move: one hull trace a
+body a tick from the last accepted position to the worker's position (about
+0.6 µs a trace in release), and a move into a prop, a body or a hero is
+clipped. Steering separation still does the avoiding; the trace is what
+makes a mistake impossible to see.
 
-Scale (R16): the body's hull and hitboxes follow its model scale
-(`ServerSkeletons.SetModelScale`). HO0 proves that at 0.6, 1.0 and 1.75.
+Scale (R16): hitboxes follow the model's scale by themselves. The hull does
+not: the body sets its bounds to the scaled hull itself
+(`Entities.SetBounds`), as HO0 did at 0.6, 1.0 and 1.75.
+
+Animation is the client's. The entity block networks origin, angles, model,
+skin and bounds, and no sequence, cycle, scale or pose parameter: the body's
+own net state carries scale, sequence, a restart serial and the pose
+parameters (36 bytes in the spike), and the client plays them. The server
+cannot pose a skeleton today (CR11), so until it can a hit is tested against
+the unposed hitboxes.
 
 ### 3.8 Fighting
 
@@ -342,8 +361,43 @@ a Heavy. Low-Discipline robots shove at once; the numbers are data.
 - **Live, two map loads in one process:** a level of 150 robots and one hero;
   the entity count never exceeds map + 512; no robot appears or vanishes in
   the hero's view (asserted from the client's entity list against the hero's
-  view each tick of a scripted walk); the thread count returns to baseline
+  view each tick of a scripted walk, reading dormancy: a parked body stays
+  in a client's list as dormant once it has been seen); the thread count returns to baseline
   after each level shutdown; main-thread horde time is inside HO0's budget.
+
+### 3.11 What HO0 measured (2026-11-11)
+
+A throwaway body on a generated level (depth 1, seed 1), one hero on a
+headless listen server. The box was heavily loaded throughout, so the times
+are thread CPU, taken twice (a stopwatch and the thread clock, which agreed).
+The spike's code is on branch `descent-ho0-spike` and does not land.
+
+| # | Asked | Ruling | Measured | What it means |
+|---|---|---|---|---|
+| 1 | Model and scale | works | The robot Soldier draws at 0.6, 1.0 and 1.75. Line traces find the head, chest, arm and leg where the scaled model has them, and miss two units outside the scaled hull. A player hull stops at 38.4, 48.0 and 66.0 from the body's centre | The hull is set by the body (3.7); hitboxes follow by themselves |
+| 2 | Animation | works on the client; **port** on the server | Sequence, scale and poses reach the client only through the body's own net state. Every pose-parameter call answers nothing on the server | CR11. Poses step at the update rate (about 20 a second) unless the client eases them |
+| 3 | TF damage | works | Direct rocket 107, splash 61 to 95 by distance, a crit-boosted rocket 270 with the hurt hook saying crit. The blast's push is sized from each body's bounds (540 direct; 1,000, the cap, on the runt). A shotgun's push is 19,193 and a shovel's 24,000 | HO8 clamps the bullet and melee push before motion takes it, picks a robot impact sound, and rules on the hit group |
+| 4 | A weapon | works, one more edict | Its own entity, parented on the server and bone-merged on the client; it sits in the hand at all three scales | As section 2 budgets. The wearable entity is not reused for a non-player owner |
+| 5 | Parking | works | A parked body is hit by no trace. 49 parked and never seen cost nothing measurable a frame. Once seen, a client keeps them as dormant | HO2 measures the client's cost of dormant bodies (about 1.3 ms a frame at 49 in release on a listen server, not attributed) before the pool grows |
+| 6 | Edicts | works | 29 at load; 127 with 49 bodies and 49 weapons; 127 before, during and after 1,000 park-and-lend cycles | 98 edicts, as budgeted |
+| 7 | Moving 48 bodies | measured | Release: 585 to 748 µs a tick mean for 49 bodies (p95 804 to 958), 698 with 49 weapons moved too. Debug: 1,695 mean | The 1.5 ms target holds and is tight: writes take about half. Write a sequence only when it changes |
+| 8 | Off-thread motion | **mixed** | Vertical error zero at the 5th and 95th percentile, about a unit at worst. Inside a prop on 6.3 %, 3.1 % and 7.8 % of grounded ticks at scale 1.0, 0.6 and 1.75. A movement step costs 8 to 12 µs off-thread; route following 42 to 60 µs, with 11 to 27 ms spikes when it rebuilds. Three of six doors stuck once and recovered; the exit cage was never left | E5 as rewritten (0.4). Route rebuilds never run on the main thread. Props and door plugs belong in the nav (Y2) |
+| 9 | Clearance by scale | works for the runt; giants are restricted | 26,013 cells: the standing class reaches 18 of 18 rooms, the runt 18 of 18, the giant 15 of 18. The giant fits every door and no stair step | HO9 places a giant only where its floor reaches the doors |
+| 10 | The brain at pool size | works | Release, 49 pooled brains with a trivial decider: 24 µs mean to publish (p95 37), 3.5 µs of worker CPU a decide. 64 brains: 41 µs | Negligible beside the writes; real trees add their own |
+| 11 | Assets | listed | Models for all nine classes; giant models for scout, soldier, pyro, demoman and heavy, and the sentry buster; none for a giant engineer, medic, sniper or spy. Robot footsteps, 2,635 voice lines and 1,406 giant ones, impact sounds, gib sets for five classes | RU7's giant medic has no giant model: it uses the ordinary one scaled, or goes |
+
+**The pool stays at 48 and a boss.** In release the 1.5 ms target divides
+as: writes 0.6 to 0.75 ms, the accepting traces 0.03, publish 0.04, and
+about 0.6 ms left for senses and the applier, which HO0 did not measure.
+Sixty-four bodies fit the edicts and about 1.0 ms of writes; the pool grows
+only after HO2 has the client's dormant cost and HO5 the senses'.
+
+Traps the spike hit, for every lane that boots a generated level: copy the
+level's three files into `bin/<config>/mods/tf2_descent/pool/maps/` (the
+`make descent-install` links make the setup check call them stale); a
+service that names `ITransmitRule` in `As = [...]` is refused as registered
+twice, so register it plain; the hero spawns at the origin; the console log
+keeps earlier boots' lines.
 
 ---
 
@@ -369,7 +423,9 @@ the responsibility.
 | CR6 | **Spawn a TF projectile from mod code.** `TFProjectileEffects.Born` is private. A public, injected spawner taking class, owner, origin, direction, damage and crit. | core (TF2) | `src/tf2/server/Projectiles` | a rocket spawned with damage 37 by a non-player owner does 37 at point blank before falloff |
 | CR7 | **Lag compensation for opted-in entities.** After the slice; LAN play does not need it. | core | `src/server/managed/LagCompensation.cs` | a shot at a moving opted-in entity from a client with 100 ms of latency hits where the client saw it |
 | CR8 | **`tf2_descent` loads TF2's UI.** `game/mods.yaml`: `client_ui: [TF2.Client.Ui]` on the `tf2_descent` row, if a boot shows the hero needs it. **Narrowed 2026-11-10:** the Descent UI assembly cannot be listed until UI1, because the UI loader throws on a screen whose constructor it cannot fill and no `IDescent*` source has an implementation; the AI assembly does not exist until HO1. Each joins the row in the package that makes it loadable. | core | `game/mods.yaml` | a boot of `tf2_descent` with zero `EXCEPTION IN` and TF2's HUD drawn; `tf2` and `test` rows unchanged |
-| CR9 | **Attributes on the owner's client** (CR5's client half, from its design note). The client builds its attribute manager from item definition indexes only (`src/tf2/client/Player/TFClientWeaponOwners.cs`), so an item's own attributes, the runtime list and a mod's standing attributes never reach it, and every predicted quantity that reads one (move speed, fire rate, reload, deploy, clip, spread, melee reach) is corrected by the server each time. Build: one owner-only networked entity a player holding the providers in the server's order (kind, weapon row, a run of attribute index and value), written when a manager is built and when a runtime or standing attribute changes; the client applies it on top of what it builds today. One edict a hero. Needed before items roll anything but damage, health and resistances. | core (TF2) | `src/tf2/server/Player`, `src/tf2/shared`, `src/tf2/client/Player` | joined, a launcher with `mult_postfiredelay` 0.8 and a standing `mult_player_movespeed` 1.1: the client's predicted refire and speed equal the server's over 100 shots and 10 s of running; a second client receives no attribute row |
+| CR9 | **Attributes on the owner's client** (CR5's client half, from its design note). The client builds its attribute manager from item definition indexes only (`src/tf2/client/Player/TFClientWeaponOwners.cs`), so an item's own attributes, the runtime list and a mod's standing attributes never reach it, and every predicted quantity that reads one (move speed, fire rate, reload, deploy, clip, spread, melee reach) is corrected by the server each time. Build (**L11**): on the player's own networked state, sent to every client, the providers in the server's order (kind, weapon row, a run of attribute index and value), written when a manager is built and when a runtime or standing attribute changes; every client builds that player's manager from it. Measure the player state's size first: it shares one 2,048-byte row with the 128-row weapon array. If the lists do not fit, report the sizes before choosing a second always-sent entity. Needed before items roll anything but damage, health and resistances. | core (TF2) | `src/tf2/server/Player`, `src/tf2/shared`, `src/tf2/client/Player` | joined, a launcher with `mult_postfiredelay` 0.8 and a standing `mult_player_movespeed` 1.1: the owner's predicted refire and speed equal the server's over 100 shots and 10 s of running; a second client reads the same item and attribute values for that player |
+| CR11 | **Pose parameters on the server.** `IEngineEntityRender`'s pose-parameter calls reach only the client's skeletons; on the server Lookup, Set and Count answer nothing (HO0 row 2; a sentry's aim pose is a no-op there for the same reason). Port the server half into `ServerSkeletons` as `ClientSkeletons` has it, managed, with no engine change, so a posed body's hitboxes are where the client draws them. | core | `src/server/managed/ServerSkeletons.cs`, the entity render binding | a body posed with `body_pitch` −45 on the server has its head hitbox where the pose puts it (a line trace hits before, misses after, at the unposed place); a sentry's aim pose moves its hitboxes; the client's posing is unchanged |
+| CR10 | **A non-player's own blast hurts it (L12).** Stock's second sweep hits any attacker; the port keeps a gate for a non-player owner (`TFBlastApplier`, a row in `docs/divergences.md`, a pinning fact). Open the gate as stock, rework the rig facts that model their shooter as a non-player (29 went red when a lane tried it), delete the divergence row and the pin. | core (TF2) | `src/tf2/server/Projectiles/TFBlastApplier.cs`, the rig facts | a non-player owner standing on its own rocket takes stock's self-damage; a player's self-damage numbers are unchanged; the divergence row is gone |
 
 What CR1, CR5 and CR6 gave, by name (all on main):
 
@@ -385,7 +441,35 @@ What CR1, CR5 and CR6 gave, by name (all on main):
 | routes by body size | `NavNumbers.ExtraHulls` (up to six `NavHull`), giving `ClearanceClass.Hull2` to `Hull7` on each cell | `src/ai/server/Nav/NavNumbers.cs`, `src/ai/core/Nav/NavGraph.cs` |
 | a cheap brain | a memory makes a predictor only for an enemy it has lost or heard: 48,792 bytes a brain at 54 slots, from 2,518,448 | `src/ai/core/Memory/BotMemory.cs` |
 
+| attributes on every client | nothing to call: an item's own attributes, a runtime attribute and a standing source all reach every client on the player's own state (1,764 of its 2,048 bytes; at most 16 providers and 32 values a player, a truncation counted and logged) | `src/tf2/shared/Econ/TFAttributeWire.cs` |
+| a body thrown by a blast | a body that runs the damage rules is handed, in `OnDamagedAt`, the push stock gives a player, sized from the body's own bounds | `src/tf2/server/Projectiles/TFBlastApplier.cs` |
+| rules content | a table is a JSON file in `src/tf2_descent/rules/Content`, a table class, and one line appended to `ContentTables.All()`; `DescentContent` holds them and their hash | `src/tf2_descent/rules/Content` |
+| a hero on paper | `HeroSheet`, `HeroRules`, `HeroStats`; gear and skills feed it as `Contribution`s, and an inactive or broken source counts for nothing | `src/tf2_descent/rules/Hero` |
+| a checkpoint the host can refuse | `SheetCodec` (schema 2), `CheckpointRules`, the evidence `{"xp":N,"kills":{template:count}}` | `src/tf2_descent/rules/Sheets` |
+| the weapon vocabulary | `content.DamageTypes` (fire, blast, bullet, shock), `content.Families` (18), `content.TryGetFamilyOfItemClass` | `src/tf2_descent/rules/Content/WeaponTables.cs` |
+| travel | `IHostLink.Travel(steamId, direction, boot, depth)`, `IBossKills` (answers none until the sheet's boss kills are wired), `WaysDown`, `LevelNames` | `src/tf2_descent/server`, `client` |
+
 What they found that later packages must hold to:
+
+- **A checkpoint with no evidence earns nothing** (RU13). HE5 sends the
+  evidence with every checkpoint once kills pay XP, or the host refuses the
+  sheet. The host's own admin edit of a character can no longer raise XP or
+  level (section 7, X4). XP a kill is worth is not bounded yet: RU7's
+  templates give the bound.
+- **The content hash is logged by nobody.** The host contract has no member
+  for it (X5); the game's line belongs to HE2.
+- **The rules hand-parse their JSON.** Source-generated System.Text.Json
+  emits a static field, which the no-statics analyzer refuses here.
+- **A travel notice can name a different way down from the one the map
+  built.** `WaysDown` follows the mine plan's table per level; the map
+  generator picks a coarser exit shape per seed. One of the two gives way,
+  with the map session (Y1).
+- **`HudNotices` asks the container for the localiser each time it draws**,
+  because the UI registers it after the mod is composed and replaces it on a
+  reload. It is the one place in the mod that looks a service up.
+- **Worn items' static attributes still do not reach a client while a
+  player has nothing rolled** (CR9 keeps the lists empty in plain TF2).
+  Sending the walk always would close it; not ruled.
 
 - **A hull wider than the game's own cannot climb stairs** (CR3's lane,
   `src/ai/tests/ServerNav/NavExtraHullStairTests.cs`). The derivation raises
@@ -412,8 +496,14 @@ What they found that later packages must hold to:
   contact, and the energy ball, ring and arrow ask the player seam and come
   out teamless (HO7).
 - **A non-player owner takes no damage from its own blast** (a row in
-  `docs/divergences.md`). That suits robots; a design that wants a robot hurt
-  by its own rocket reopens it.
+  `docs/divergences.md`). L12 overturns it: CR10 opens the gate. The push is
+  the horde's: a body's `OnDamagedAt` is handed the blast's force, and HO8
+  gives it to the robot's motion as stock gives it to a player
+  (`CTFPlayer::ApplyPushFromDamage` in the Valve clone is the reference), so
+  a robot is thrown by a rocket, juggled by a hero and lifted by its own.
+  A Soldier or Demoman robot's blast jump is a decision of its family (HO6,
+  HO12) over the jump recipes the TF2 AI already measures
+  (`src/ai/tf2/server/Jump`).
 - **`Refresh` does not clamp** ammo or health when the new kit lowers a
   maximum, and does not fill a new weapon's effect bars. HE4 does both.
 - **TF2's loadout menu and equip commands read `LocalInventory` directly**,
@@ -441,7 +531,7 @@ adds to it.
 | RU5 | **Inventory, stash, vendor, trade.** Pure state transitions; capacity derived from skill ranks; withdraw-only overflow. | 2d | the count-in equals count-out property over 10k random sequences |
 | RU6 | **Skills and spells.** `SkillDef`, the effect primitives as descriptors the server binds (projectile, hitscan, area burst, aura, buff, summon, dash, heal, passive, charge, toggle with drain, triggered passive, threat), the Soldier tree and the Mercenary tab as data, tomes and scrolls. | 2e, Appendix A, R27 | facts generated from the JSON, so a skill added without facts fails the build |
 | RU7 | **Robots on paper.** Templates, scale and its stat curve, resistances and immunities, champion affixes, packs by depth, party scaling, the temperament roll, **status effects (E9)**. | 2f, B.11, R25 | a status effect's damage, duration and stacking, one fact each |
-| RU8 | **Wear and repair (L7).** Wear per use and per hit; broken contributes nothing; `Repair(item)` is the Engineer's, lossless, priced; the Repair Kit is the recipe `field_repair` through `Craft`, which already carries the hero's level and a seed, with Diablo 1's steps. | 2h, L7 | a field repair's durability gained and maximum lost per step match the formula for levels 1, 15 and 30; the Engineer's repair never lowers maximum; a kit on an item at maximum is refused and not consumed; the destroy-at-zero clause, one fact |
+| RU8 | **Wear and repair (L7).** Wear per use and per hit; broken contributes nothing; `Repair(item)` is the Engineer's, lossless, priced; the Repair Kit is the recipe `field_repair` through `Craft`, which already carries the hero's level and a seed, with Diablo 1's steps. | 2h, L7 | a field repair's durability gained and maximum lost per step match the formula for levels 1, 15 and 30; the Engineer's repair never lowers maximum; a kit on an item at maximum is refused and not consumed; a field repair that takes maximum durability to 0 leaves the item unusable and never removes it: it grants nothing, cannot be equipped, and can be stashed, sold and salvaged |
 | RU9 | **Identify, gambling, crafting.** | 2i, 2j, 2k | as specified |
 | RU10 | **Death and downed.** | 2g, R26 | as specified |
 | RU11 | **Furniture.** Shrines, dispensers, containers, barrels, traps, placed from the seed at the room's markers. | 2l | as specified |
@@ -469,7 +559,7 @@ adds to it.
 
 | # | Package | Kind | Depends | Builds | Gate |
 |---|---|---|---|---|---|
-| HO0 | **Measure before building.** A throwaway body on a generated level: robot model (`models/bots/...` from the TF2 mount) at scales 0.6, 1.0, 1.75; hull and hitboxes follow; sequences and pose parameters; hit by a TF rocket; cost of 48 bodies moved each tick; voxel-moved position against an engine hull trace; edicts before and after. | engine | none | nothing kept | a table in this file: each capability ruled works, port, or generic slot; the per-tick budget; the pool size (E1); E5 confirmed or replaced |
+| HO0 | **Measure before building. Done 2026-11-11: section 3.11.** A throwaway body on a generated level: robot model (`models/bots/...` from the TF2 mount) at scales 0.6, 1.0, 1.75; hull and hitboxes follow; sequences and pose parameters; hit by a TF rocket; cost of 48 bodies moved each tick; voxel-moved position against an engine hull trace; edicts before and after. | engine | none | nothing kept | a table in this file: each capability ruled works, port, or generic slot; the per-tick budget; the pool size (E1); E5 confirmed or replaced |
 | HO1 | **Roster, embodiment rules, far simulation.** Section 3.3 to 3.5, engine-free. | pure | RU7 | `src/tf2_descent/ai` | 3.10's pure and structure gates |
 | HO2 | **The controller, the body and the pool.** `tf2_descent_horde`, `tf2_descent_robot` with its net state and client entity, the pool, parking, the census. | engine | HO0, HO1, CR1 | `src/tf2_descent/server/Horde`, `shared/RobotNetState.cs`, `client/Robots` | 49 bodies at load, parked ones never transmitted; lend and return 1,000 times with the edict count flat; second map load |
 | HO3 | **Moving a body.** Section 3.7. | engine | HO2, CR3 | `src/tf2_descent/ai/Move`, `server/Horde/HordeApplier.cs` | a body walks a three-room route through doors; a giant refuses a door it cannot fit; a knock-up lands |
@@ -548,6 +638,7 @@ wave 5   HO13, the other eight classes (RPG plan Phase 12), balance and soak (Ph
 
 `CLAUDE.md` governs. What bites here in particular:
 
+- A subagent lane runs on Opus 5.5 (L13).
 - A dedicated worktree, cut from the named base, `make setup` first. Check
   the base (`git log --oneline -1`) before the first edit.
 - One commit a step, each with its fact. A fact that cannot fail is not
@@ -580,7 +671,8 @@ Nothing here is done by a lane of this plan.
 | X1 | host | `KillRoll(instanceSeed, killSeq, robotTemplate, depth, partySize)` has no player and no magic-find input. R4 rolls items once per eligible player, and *Scavenger* raises drop chance. Until answered, RU4 rolls once per (kill, player) by advancing `killSeq` per roll, and *Scavenger* affects Australium found only through the split. |
 | X2 | host | `RoomInfo` carries no door sockets (already noted in the mine plan). |
 | X3 | host | Field repair fits `Craft("field_repair", ...)` as the contract stands; confirm the host has no fixed recipe list that would refuse it. |
-| X4 | host | What `CheckpointEvidence` may carry, and its size limit, for RU13. |
+| X4 | host | RU13 made an empty `CheckpointEvidence` earn nothing, so the host's admin edit of a character (which passes none) can no longer raise XP or level. Either the admin path passes evidence, or the contract tells a checkpoint from an edit. The evidence is at most 16 KiB. |
+| X5 | host | No `IGameRules` member reports the rules' content hash; the host can log it only by reaching into the concrete type. |
 | Y1 | map session | What a linked level ships that the server can read at load: rooms and their bounds, door links, marker positions. Whether the server should rebuild the layout from Rules (`GenerateLayout` needs the library's room list) or read a sidecar. WO1 waits on this. |
 | Y2 | map session | Door portals as data (position, normal, width) for the far simulation's queue points and the door shove. |
 | Y3 | AI coordinator | CR3 and CR4: agree the shape before a lane touches `src/ai/core`. |
@@ -589,7 +681,9 @@ Nothing here is done by a lane of this plan.
 
 ## 8. Open
 
-1. **L7's destroy-at-zero clause** and **L9's reading**: both flagged in 0.1.
+1. **Whether anything restores an item's maximum durability** (L7 as
+   amended): nothing does today, so an item a field repair has made unusable
+   stays so.
 2. **What CR1 left for the horde** (landed 2026-11-11; the opt-in is
    `ScriptedEntity.RunsDamageRules`, the hooks `IEntityHurtHook` and
    `IEntityDeathHook`). HO8 must: keep the body's engine health in step with

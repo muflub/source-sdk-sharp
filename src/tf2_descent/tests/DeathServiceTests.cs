@@ -50,9 +50,9 @@ public sealed class DeathServiceTests
         public Task<bool> Checkpoint(string steamId) { Calls.Add("checkpoint " + steamId); return Task.FromResult(true); }
         public Task<bool> Leave(string steamId, string peer) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
         public void ReplyExec(string commandId, string output) => Calls.Add($"reply {commandId} {output}");
-        public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot)
+        public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth)
         {
-            Calls.Add($"travel {steamId} {direction} {boot.InstanceKind}");
+            Calls.Add($"travel {steamId} {direction} {boot.InstanceKind} {depth}");
             return Task.FromResult(new TravelAnswer(TravelState.Started, TimeSpan.Zero, ""));
         }
         public Task<TicketAnswer> SubmitTicket(string steamId, string nonce, byte[] ticket) => Task.FromResult(new TicketAnswer(TicketOutcome.Ok));

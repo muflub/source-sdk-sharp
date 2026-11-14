@@ -78,7 +78,11 @@ public sealed class FloorPlan
             if (!floor[k])
                 clear[k] = 0;
         Raised = [.. Columns.Surfaces().Where(s => s.Z > sill + RoomLint.Step)];
+        JumpLedges = [.. Raised.Where(s => s.Z > sill + JumpTable.CriticalPathReach)];
     }
+
+    /// <summary>The raised surfaces above the critical path's reach (T1): the ledges only a jump reaches.</summary>
+    public IReadOnlyList<RoomColumns.Surface> JumpLedges { get; }
 
     /// <summary>The room's solids.</summary>
     public RoomSolids Solids { get; }

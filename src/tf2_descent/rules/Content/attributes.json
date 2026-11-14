@@ -1,0 +1,37 @@
+[
+  {
+    "id": "brawn",
+    "name": "Brawn",
+    "perPoint": [
+      { "stat": "damage_melee_pct", "amount": 1.0 },
+      { "stat": "damage_blast_pct", "amount": 0.5 },
+      { "stat": "knockback_resist_pct", "amount": 0.5 }
+    ]
+  },
+  {
+    "id": "smarts",
+    "name": "Smarts",
+    "perPoint": [
+      { "stat": "damage_action_pct", "amount": 1.0 },
+      { "stat": "mana_regen_pct", "amount": 0.5 }
+    ]
+  },
+  {
+    "id": "aim",
+    "name": "Aim",
+    "perPoint": [
+      { "stat": "damage_bullet_pct", "amount": 1.0 },
+      { "stat": "damage_projectile_pct", "amount": 1.0 },
+      { "stat": "crit_chance_pct", "amount": 0.1 },
+      { "stat": "spread_pct", "amount": -0.3 },
+      { "stat": "armour", "amount": 0.2 }
+    ]
+  },
+  {
+    "id": "grit",
+    "name": "Grit",
+    "perPoint": [
+      { "stat": "resist_all_pct", "amount": 0.2 }
+    ]
+  }
+]

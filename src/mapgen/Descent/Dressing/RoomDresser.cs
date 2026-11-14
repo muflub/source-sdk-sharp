@@ -87,6 +87,7 @@ public static partial class RoomDresser
         Fill,
         Cord,
         Centre,
+        Hanging,
     }
 
     /// <summary>The yaw of a level direction.</summary>
@@ -123,6 +124,9 @@ public static partial class RoomDresser
         private readonly List<(Box Box, Role Role)> placed = [];
         private readonly List<Point> lamps = [];
         private readonly List<(Box Cap, Box Post0, Box Post1, bool AlongX)> setFrames = [];
+
+        /// <summary>The bays between neighbouring pilasters: the stretch's first site, the bay's middle along the wall, its width.</summary>
+        private readonly List<(WallSite Site, float Mid, float Width)> bays = [];
         private readonly Box[] ledgeAir;
         private RoomSolids solids;
         private HashSet<(int, int)> lane = [];
@@ -180,8 +184,11 @@ public static partial class RoomDresser
                 WallClutter(props);
             if (props.Hung.Count > 0)
                 HungClutter(props);
-            if (props.Floor.Count > 0 && !room.Entry.Jump)
-                FloorClutter(props);
+            if (props.Hanging.Count > 0)
+                HangingClutter(props);
+            // A jump room's floor too, clear of its ledges' take-off patches (user ruling 2026-11-10).
+            if (props.Floor.Count > 0)
+                FloorClutter(props, props.Floor);
             // Last, so the bands run behind and round what stands on the walls, never through it.
             if (theme.Bands is { } bands)
                 Bands(bands);
@@ -189,7 +196,8 @@ public static partial class RoomDresser
                 HazardStripes(hazard);
 
             var keep = theme.Lamps is null ? room.Entities : room.Entities.Where(e => e.ClassName is not ("light" or "light_spot")).ToList();
-            return Unblock(room with { World = [.. room.World, .. brushes], Entities = [.. keep, .. added] });
+            var water = theme.Standing is { } standing ? StandingWater(standing) : [];
+            return Unblock(room with { World = [.. room.World, .. brushes], Entities = [.. keep, .. added], Water = [.. room.Water, .. water] });
         }
 
         /// <summary>The most props the unblocking pass takes out of one room.</summary>
@@ -291,7 +299,8 @@ public static partial class RoomDresser
                         return true;
                 }
 
-            return placed.Any(p => p.Role is not (Role.Set or Role.Rail or Role.CeilingRun or Role.Lamp)
+            // A lamp standing on the floor (a lamp post, a brazier, a lantern's crate) walls a gap in as any piece does.
+            return placed.Any(p => (p.Role is not (Role.Set or Role.Rail or Role.CeilingRun or Role.Lamp) || p.Role == Role.Lamp && p.Box.Mins.Z <= sill + 1)
                                    && p.Box.Mins.Z < box.Maxs.Z && p.Box.Maxs.Z > box.Mins.Z
                                    && p.Box.DistanceTo(box) is var d && d > Flush && d < SliverClear);
         }
@@ -386,10 +395,16 @@ public static partial class RoomDresser
                     return false;
             }
 
-            foreach (Box b in pieces)
+            // A set fallen in (level 6): one post left standing, its cap and the other post gone.
+            if (frame.Broken > 0 && rng.Chance(frame.Broken))
             {
-                AddBrush(b, trim);
+                AddBrush(pieces[rng.Chance(0.5f) ? 0 : 1], trim);
+                solids = new RoomSolids(room, brushes);
+                return true;
             }
+
+            foreach (Box b in pieces)
+                AddBrush(b, trim);
 
             setFrames.Add((pieces[2], pieces[0], pieces[1], alongX));
 
@@ -602,6 +617,9 @@ public static partial class RoomDresser
                 return false;
             bool onFloor = site.Kind.Mount == LampMount.Floor && site.Stand is null && !site.Hung;
             if (!Fits(site.Box, solid: f.Solid && f.Static, floorStanding: onFloor, Role.Lamp, touching: site.Stand is not null || site.Hung))
+                return false;
+            // A lamp standing on the floor (a brazier, a lamp post) is clutter a giant walks round: it may not wall floor off.
+            if (onFloor && f.Solid && f.Static && (CutsOff(site.Box) || LeavesSliver(site.Box)))
                 return false;
             if (site.Stand is { } stand && (!Fits(stand.Box, solid: stand.Model.Solid, floorStanding: true, Role.Lamp) || CutsOff(stand.Box)))
                 return false;
@@ -897,6 +915,28 @@ public static partial class RoomDresser
             float perimeter = sites.Count * RoomLint.Grid;
             int want = (int)(perimeter / props.WallSpacing);
             var chosen = new List<Point>();
+            // A bay between two pilasters first, the piece in its middle (brief p4: pilasters every 288
+            // left a sliver beside any piece set down at random, so tall rooms stood bare).
+            foreach (var (s0, mid, width) in bays)
+            {
+                if (chosen.Count >= want)
+                    break;
+                Point face = s0.Dx != 0 ? s0.Face with { Y = mid } : s0.Face with { X = mid };
+                if (chosen.Any(q => Level(q, face) < props.WallSpacing / 2f))
+                    continue;
+                PropModel m = rng.Pick(props.Wall);
+                int yaw = Yaw(-s0.Dx, -s0.Dy) - m.Front;
+                var (mins, maxs) = m.Turned(yaw);
+                if ((s0.Dx != 0 ? maxs.Y - mins.Y : maxs.X - mins.X) > width - 2 * 56)
+                    continue;
+                // Centred on the bay: the mesh's middle across the wall on the bay's middle.
+                float off = s0.Dx != 0 ? (mins.Y + maxs.Y) / 2 : (mins.X + maxs.X) / 2;
+                Point origin = Out(face with { Z = sill - m.Mins.Z }, s0.Dx, s0.Dy, m.Back + 1);
+                origin = s0.Dx != 0 ? origin with { Y = mid - off } : origin with { X = mid - off };
+                if (TryProp(m, origin, yaw, Role.Wall, floorStanding: true, wallDx: s0.Dx, wallDy: s0.Dy))
+                    chosen.Add(face);
+            }
+
             foreach (var s in sites)
             {
                 if (chosen.Count >= want)
@@ -949,7 +989,7 @@ public static partial class RoomDresser
             }
         }
 
-        private void FloorClutter(PropSet props)
+        private void FloorClutter(PropSet props, IReadOnlyList<PropModel> models)
         {
             var open = new List<(int I, int J)>();
             int floorColumns = 0;
@@ -969,7 +1009,7 @@ public static partial class RoomDresser
                 return;
             int want = (int)(props.FloorDensity * area / 1e6f + rng.Fraction());
             // A machine no larger than its share of the room's floor: a generator in a hall, not a chamber.
-            var fitting = props.Floor.Where(f => (f.Maxs.X - f.Mins.X) * (f.Maxs.Y - f.Mins.Y) <= props.FloorShare * area).ToArray();
+            var fitting = models.Where(f => (f.Maxs.X - f.Mins.X) * (f.Maxs.Y - f.Mins.Y) <= props.FloorShare * area).ToArray();
             if (fitting.Length == 0)
                 return;
             for (int tries = 0; tries < want * 6 && want > 0 && open.Count > 0; tries++)
@@ -1014,10 +1054,10 @@ public static partial class RoomDresser
         }
 
         /// <param name="needs">The link's <c>room_needs</c> condition the prop is kept under (a static prop, casting no shadow), or null.</param>
-        private void AddProp(PropModel m, Point origin, int yaw, Role role, bool shadows, string? needs = null)
+        private void AddProp(PropModel m, Point origin, int yaw, Role role, bool shadows, string? needs = null, int roll = 0)
         {
             int y = ((yaw % 360) + 360) % 360;
-            string angles = string.Create(CultureInfo.InvariantCulture, $"0 {y} 0");
+            string angles = string.Create(CultureInfo.InvariantCulture, $"0 {y} {roll}");
             if (m.Static)
             {
                 var keys = new List<KeyValuePair<string, string>>
@@ -1077,12 +1117,25 @@ public static partial class RoomDresser
     }
 
     /// <summary>
-    /// Whether <paramref name="box"/> stands in a jump room's rocket air: the
-    /// room's entry says jump, the box reaches below the floor plus
-    /// <see cref="JumpTable.RocketClearAir"/>, and some floor column it covers
-    /// is more than six columns (96) from a wall.
+    /// How far, level, clutter keeps from a jump ledge (a surface above the critical path's reach) in a
+    /// jump room: the take-off patch under or beside it, and the air between it and the ledge (user
+    /// ruling 2026-11-10: "dont need to keep floor totally clear for rocket jumping").
     /// </summary>
-    public static bool JumpAirRefuses(Room room, FloorPlan plan, Box box) =>
-        room.Entry.Jump && box.Mins.Z < room.Kit.Sill + JumpTable.RocketClearAir
-                        && plan.Covered(box).Any(c => plan.IsFloor(c.Item1, c.Item2) && plan.WallDistance(c.Item1, c.Item2, 6) > 6);
+    public const int TakeOff = 128;
+
+    /// <summary>
+    /// Whether <paramref name="box"/> stands where a jump in a jump room needs the air: the room's entry
+    /// says jump, the box reaches below the floor plus <see cref="JumpTable.RocketClearAir"/>, it covers
+    /// open floor (more than six columns, 96, from a wall), and it stands within <see cref="TakeOff"/>
+    /// of a ledge only a jump reaches. The rest of a jump room's floor takes clutter as any room's does
+    /// (user ruling 2026-11-10); the ledges' own air is <see cref="FloorPlan.LedgeAir"/>'s, and a jump
+    /// room's brushes still keep the plan's clear air (<see cref="RoomLint.CheckJumpClearAir"/>).
+    /// </summary>
+    public static bool JumpAirRefuses(Room room, FloorPlan plan, Box box)
+    {
+        float sill = room.Kit.Sill, grid = RoomLint.Grid;
+        return room.Entry.Jump && box.Mins.Z < sill + JumpTable.RocketClearAir
+               && plan.Covered(box).Any(c => plan.IsFloor(c.Item1, c.Item2) && plan.WallDistance(c.Item1, c.Item2, 6) > 6)
+               && plan.JumpLedges.Any(s => box.LevelDistanceTo(s.I * grid + grid / 2, s.J * grid + grid / 2) < TakeOff);
+    }
 }

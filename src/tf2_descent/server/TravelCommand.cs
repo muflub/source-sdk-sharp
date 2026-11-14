@@ -11,11 +11,11 @@ namespace TF2.Descent.Server;
 /// logic_level_transition: TravelService.Request.
 /// </summary>
 [ConCommand("tf2_descent_travel",
-            Help = "tf2_descent_travel <player slot> <down|up>: travel as a level transition would.")]
+            Help = "tf2_descent_travel <player slot> <down|up> [depth]: travel as a level transition would; from the town, down goes to depth (default 1) if the player may pick it.")]
 public sealed class TravelCommand(TravelService travel)
 {
-    public void Execute([ArgRange(1, int.MaxValue)] int slot, Way way)
-        => travel.Request(slot, way == Way.Up ? TravelDirection.Up : TravelDirection.Down);
+    public void Execute([ArgRange(1, int.MaxValue)] int slot, Way way, [ArgRange(0, short.MaxValue)] int depth = 0)
+        => travel.Request(slot, way == Way.Up ? TravelDirection.Up : TravelDirection.Down, depth);
 
     /// <summary>What a level transition can do; a corpse's travel is the death flow's, not a line's.</summary>
     public enum Way

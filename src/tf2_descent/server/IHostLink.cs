@@ -29,7 +29,8 @@ public interface IHostLink : IDisposable
 
     void ReplyExec(string commandId, string output);
 
-    Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot);
+    /// <summary>Spec §7's travel; <paramref name="depth"/> is the depth picked for a descent from the hub, and is not read otherwise.</summary>
+    Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth);
 
     /// <summary>The client's fresh ticket for the player's pending Reauth; Stale when none is pending under that nonce.</summary>
     Task<TicketAnswer> SubmitTicket(string steamId, string nonce, byte[] ticket);

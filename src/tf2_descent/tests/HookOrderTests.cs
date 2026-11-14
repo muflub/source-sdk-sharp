@@ -80,6 +80,46 @@ public sealed partial class HookOrderTests
         AssertDistinct(typeof(LevelHop).Assembly, Side.Server, hooks);
     }
 
+    /// <summary>
+    /// The mode's chain members join chains the core and TF2 fill too (the
+    /// mode selectors, the damage rules, TF2's inventory gates, the client
+    /// lifecycle): each Descent member's order must be one no TF2 or core
+    /// implementation of the same chain holds, and after TF2's band
+    /// (999,000-999,999).
+    /// </summary>
+    [Fact]
+    public void Mode_chain_members_have_orders_of_their_own_beside_TF2s_and_the_cores()
+    {
+        // TF2 registers no inventory gate of its own: only a further mod does.
+        (Type Chain, bool Shared)[] chains =
+        [
+            (typeof(IGameModeSelector), true), (typeof(IDamageRule), true),
+            (typeof(TF2.Server.Econ.ITFLocalInventoryGate), false), (typeof(IClientLifecycle), true),
+        ];
+        var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
+        Assembly[] others = [typeof(TF2.Server.Modes.TFGameModeSelector).Assembly, typeof(GameModes).Assembly];
+
+        var clashes = new List<string>();
+        foreach (var (chain, shared) in chains)
+        {
+            var mine = Implementations(descent, Side.Server, chain);
+            var theirs = others.SelectMany(a => Implementations(a, Side.Server, chain)).ToArray();
+
+            // The stimulus: Descent has a member in each chain, and TF2 or the core does too where they share it.
+            Assert.True(mine.Length > 0, $"no Descent member of {chain.Name}");
+            Assert.True(!shared || theirs.Length > 0, $"no TF2 or core member of {chain.Name}");
+
+            foreach (var (name, order) in mine)
+            {
+                if (order < ModStages.First)
+                    clashes.Add($"{chain.Name}: {name} at {order}, inside TF2's band or the core's");
+                clashes.AddRange(theirs.Where(t => t.Order == order).Select(t => $"{chain.Name} order {order}: {name}, {t.Name}"));
+            }
+        }
+
+        Assert.Empty(clashes);
+    }
+
     [Fact]
     public void Client_hook_implementations_have_distinct_orders()
     {

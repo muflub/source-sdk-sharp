@@ -1,0 +1,22 @@
+[
+  {
+    "id": "saxtons_launcher", "name": "Saxton's Australium Launcher", "base": "rocket_launcher", "level": 20, "weight": 1,
+    "affixes": [
+      { "affix": "devastating", "roll": 1 },
+      { "affix": "frenzied", "roll": 1 },
+      { "affix": "explosive", "roll": 1 },
+      { "affix": "of_reloading", "roll": 1 },
+      { "affix": "of_precision", "roll": 0.75 }
+    ],
+    "effect": "burning_flames"
+  },
+  {
+    "id": "gray_manns_spade", "name": "Gray Mann's Spade", "base": "shovel", "level": 20, "weight": 1,
+    "affixes": [
+      { "affix": "devastating", "roll": 0.9 },
+      { "affix": "vampiric", "roll": 1 },
+      { "affix": "of_brawn", "roll": 1 },
+      { "affix": "of_precision", "roll": 1 }
+    ]
+  }
+]

@@ -37,7 +37,27 @@ public sealed class LevelTransition(TravelService travel) : ScriptedEntity
             : TravelDirection.Down;
 
         OnTransition.Fire();
-        travel.Request(Entities.GetIndex(input.Activator), direction);
+        travel.Request(Entities.GetIndex(input.Activator), direction, DepthOf(Vars.Map));
+    }
+
+    /// <summary>
+    /// The depth a transition's <c>map</c> names, <c>tf2_descent-&lt;depth&gt;</c>
+    /// (the town's cage names <c>tf2_descent-1</c>), or 0 when it names none.
+    /// Read only for a descent from the town; a level's way down always leads
+    /// to the next depth.
+    /// </summary>
+    public static int DepthOf(string map)
+    {
+        const string prefix = "tf2_descent-";
+        if (!map.StartsWith(prefix, StringComparison.Ordinal))
+            return 0;
+
+        ReadOnlySpan<char> rest = map.AsSpan(prefix.Length);
+        int dash = rest.IndexOf('-');
+        return int.TryParse(dash < 0 ? rest : rest[..dash], System.Globalization.NumberStyles.None,
+                            System.Globalization.CultureInfo.InvariantCulture, out int depth)
+            ? depth
+            : 0;
     }
 }
 

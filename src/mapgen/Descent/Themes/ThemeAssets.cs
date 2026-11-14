@@ -27,6 +27,8 @@ public static class ThemeAssets
             yield return new(trim.Material, "material", prefix + "trim");
         if (theme.WallLow is { } low)
             yield return new(low.Material, "material", prefix + "wall-low");
+        if (theme.LargeWall is { } large)
+            yield return new(large.Material, "material", prefix + "large-wall");
         if (theme.Bands?.Surface is { } band)
             yield return new(band.Material, "material", prefix + "band");
         if (theme.WallSeam is { } seam)
@@ -91,6 +93,10 @@ public static class ThemeAssets
             yield return Model(m, prefix + "companion");
         foreach (PropModel m in p.Centrepiece)
             yield return Model(m, prefix + "centrepiece");
+        foreach (PropModel m in p.Hanging)
+            yield return Model(m, prefix + "hanging");
+        if (theme.Water is { } water)
+            yield return new(water, "water", prefix + "water");
         if (theme.Gantry?.Hook is { } hook)
             yield return Model(hook, prefix + "gantry-hook");
         if (theme.Gantry?.Cable is { } cable)
