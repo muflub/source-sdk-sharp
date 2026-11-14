@@ -1,0 +1,26 @@
+WeaponData
+{
+	"printname"		"#TF_Weapon_DragonsFury"
+	"BuiltRightHanded"		"0"
+	"weight"		"4"
+	"WeaponType"		"primary"
+	"ITEM_FLAG_NOITEMPICKUP" 	"1"
+	"Damage"		"25"
+	"Range"		"8192"
+	"BulletsPerShot"		"1"
+	"PunchAngle"		"2.0"
+	"Spread"		"0.0"
+	"TimeFireDelay"		"0.5"
+	"has_team_skins_model"	"1"
+	"primary_ammo"		"TF_AMMO_PRIMARY"
+	"secondary_ammo"		"None"
+	clip_size		"-1"
+	bucket		"0"
+	bucket_position		"0"
+	SoundData
+	{
+		"single_shot"		"Weapon_DragonsFury.Single"
+		"burst"		"Weapon_DragonsFury.SingleCrit"
+		"empty"		"Weapon_DragonsFury.ClipEmpty"
+	}
+}

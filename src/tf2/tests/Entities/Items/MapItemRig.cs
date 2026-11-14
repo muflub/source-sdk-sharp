@@ -29,6 +29,10 @@ internal sealed class FakeMapPlayer
     public int Regenerated { get; set; }
     public List<float> Burns { get; } = new();
     public float CloakMeter { get; set; }
+    public float ChargeMeter { get; set; }
+
+    /// <summary>The wearer of <c>ammo_gives_charge</c>, as the seam's own gate holds it; the attr facts are the seam's.</summary>
+    public bool WearsCharge { get; set; }
 }
 
 /// <summary>The players by handle, as <see cref="ITFMapPlayers"/> answers them; health and ammo capped at the maximum as stock's TakeHealth and GiveAmmo cap.</summary>
@@ -106,6 +110,18 @@ internal sealed class FakeMapPlayers : ITFMapPlayers
             return false;
         bool moved = amount > 0f && p.CloakMeter < 100f;
         p.CloakMeter = Math.Clamp(p.CloakMeter + amount, 0f, 100f);
+        return moved;
+    }
+
+    /// <summary>The seam's answer: the attr gate is the wearer's <see cref="FakeMapPlayer.WearsCharge"/>, whose facts are the seam's (TFPlayerMapPlayersTests); this carries the meter.</summary>
+    public bool AddToDemoChargeMeterFromAmmo(EntityHandle player, float packRatio)
+    {
+        var p = P(player);
+        if (!p.WearsCharge)
+            return false;
+
+        bool moved = p.ChargeMeter < 100f;
+        p.ChargeMeter = Math.Clamp(p.ChargeMeter + packRatio * 100f, 0f, 100f);
         return moved;
     }
 }

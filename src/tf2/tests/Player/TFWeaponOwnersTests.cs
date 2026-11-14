@@ -602,6 +602,10 @@ public sealed class TFWeaponOwnersTests
         var engine = new RecordingEngine();
         c.AddInstance<IEnginePlayers>(engine);
         c.AddInstance<IEntityDirectory>(new TF2.Tests.Combat.NoEntities());
+        // The schema the owners' shield walk reads, as the server's composition holds it.
+        c.AddInstance<IEngineFiles>(new EconTestFiles().With(ItemSchema.FilePath,
+                                                             EconTestFiles.Fixture("items_game.trimmed.txt")));
+        c.AddInstance<ILog>(new RecordingLog());
         SideServices.Register(c, Side.Server, typeof(TFServerWeaponOwners).Assembly.GetTypes());
 
         Assert.IsType<TFServerWeaponOwners>(c.Resolve(typeof(ITFWeaponOwners)));

@@ -384,7 +384,20 @@ public enum WallProbe
 /// which the machine's stock shot asks for. A shot a behaviour decides leaves
 /// it false and is dealt as it says.
 /// </param>
-public readonly record struct ShotDamage(float Damage, bool Critical = false, bool WeaponScriptDamage = false);
+/// <param name="Mini">
+/// The swing is the charge's mini-crit (<c>m_bMiniCrit</c>): the melee smack
+/// flags <c>DMG_RADIUS_MAX</c> for it (tf_weaponbase_melee.cpp:860-863).
+/// </param>
+/// <param name="PenetratePlayers">
+/// Whether the round, after its first victim, carries on along the same ray
+/// through every further player it meets (stock's penetrating shots,
+/// <c>CTFPlayer::FireBullets</c>' <c>TF_DMG_CUSTOM_PENETRATE_ALL_PLAYERS</c> arm,
+/// tf_player_shared.cpp:10303-10330): each takes the same damage, and a wall
+/// ends the way. The victim rules — hitgroups, the damage layer — run per
+/// pierced player as they do for the first.
+/// </param>
+public readonly record struct ShotDamage(float Damage, bool Critical = false, bool WeaponScriptDamage = false,
+                                         bool Mini = false, bool PenetratePlayers = false);
 
 /// <summary>
 /// How an animation KIND becomes a sequence index on the model in hand.
@@ -850,6 +863,27 @@ public sealed class WeaponLogic
 
         int shots = ShotsOwed(w.NextPrimaryAttack, now, interval);
 
+        // What one shot of the pool costs (the behaviour's GetAmmoPerShot,
+        // tf_weaponbase_gun.cpp:458-471). A pool holding less than the price
+        // fires nothing: stock's metal arm clicks at the fire rate and stamps
+        // no other clock (:123-131) — the check stands where the round would
+        // be spent, after CanAttack and before the roll.
+        int perShot = 1;
+        if (clipSize <= 0 && type.AmmoName.Length > 0 && behaviour is not null)
+        {
+            perShot = Math.Max(1, behaviour.PrimaryAmmoPerShot(in type, command.OwnerIndex, 1));
+            if (w.Reserve < perShot)
+            {
+                if (effectsLive)
+                    _arms.Sound(type.EmptySound);
+
+                w.NextPrimaryAttack = now + interval;
+                return;
+            }
+
+            shots = Math.Min(shots, w.Reserve / perShot);
+        }
+
         w.NextPrimaryAttack = NextAttackAfter(w.NextPrimaryAttack, now, interval);
         w.TimeWeaponIdle = now + IdleSettle;
 
@@ -863,8 +897,10 @@ public sealed class WeaponLogic
         }
         else if (type.AmmoName.Length > 0)
         {
-            shots = Math.Min(shots, w.Reserve);
-            w.Reserve -= shots;
+            if (perShot == 1)
+                shots = Math.Min(shots, w.Reserve);
+
+            w.Reserve -= shots * perShot;
         }
         else
         {

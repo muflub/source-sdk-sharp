@@ -158,6 +158,31 @@ public interface IWeaponBehaviour
     int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex) => clipSize;
 
     /// <summary>
+    /// The rounds ONE shot of the pool burns when the row has no clip: stock's
+    /// <c>CTFWeaponBaseGun::GetAmmoPerShot</c> (<c>shared/tf/tf_weaponbase_gun.cpp:458-471</c>),
+    /// whose item attribute can price a shot above the one round every
+    /// clipless weapon otherwise spends. Asked with the row's own answer;
+    /// return it for a weapon that pays a round a shot. A weapon whose pool
+    /// holds less than the answer fires nothing (the machine clicks it, at
+    /// <c>tf_weaponbase_gun.cpp:123-131</c>). <paramref name="ownerIndex"/>
+    /// is the player whose trigger is held, as in <see cref="ModifyFireInterval"/>.
+    /// </summary>
+    int PrimaryAmmoPerShot(in WeaponType type, int ownerIndex, int perShot) => perShot;
+
+    /// <summary>
+    /// The ammo pool this owner's primary draws on and its clips reload from,
+    /// where the row's own is not the answer: stock points
+    /// <c>m_iPrimaryAmmoType</c> at <c>TF_AMMO_METAL</c> at spawn
+    /// (<c>shared/basecombatweapon_shared.cpp:269-276</c>), so the engineer's
+    /// metal is what the gun spends and what every pool read sees. Null for
+    /// the row's own. The pool is the authority the server's books settle
+    /// against — the machine only ever sees the mirrored number — so the
+    /// answer must come from the row and this owner index alone, as
+    /// <see cref="ModifyFireInterval"/>'s does.
+    /// </summary>
+    string? PrimaryAmmoPool(in WeaponType type, int ownerIndex) => null;
+
+    /// <summary>
     /// The seconds a reload takes, before a behaviour has an opinion on it:
     /// the machine's reload animation's duration, asked at the moments the
     /// machine sets a reload's clock. Stock's TF weapons run every such clock

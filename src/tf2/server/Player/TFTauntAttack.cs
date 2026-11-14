@@ -49,6 +49,12 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     /// <summary>The pyro hadouken's scene, whose attack lands 2.1 s in (:17982-17986).</summary>
     public const string PyroHadoukenScene = "scenes/player/pyro/low/taunt02.vcd";
 
+    /// <summary>The plain pyro taunt's scene head, the Phlogistinator's rage
+    /// arm's gate (<c>StringHasPrefix(szResponse, "scenes/player/pyro/low/
+    /// taunt01")</c>, tf_player.cpp:17901): the special taunts' taunt02 and
+    /// later scenes do not light it.</summary>
+    public const string PyroRageScenePrefix = "scenes/player/pyro/low/taunt01";
+
     /// <summary>The heavy high noon's scene, 1.8 s in (:18020-18024).</summary>
     public const string HeavyHighNoonScene = "scenes/player/heavy/low/taunt03_v1.vcd";
 
@@ -106,6 +112,11 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     private EntityHandle _player = EntityHandle.None;
     private readonly ITFLunchboxEffects? _lunchbox = lunchbox;
 
+    /// <summary>The scene the standing taunt spoke, whose head the phlog's
+    /// rage arm gates on; empty with no taunt (<c>szResponse</c>'s life, the
+    /// next speak's overwrite).</summary>
+    public string Scene { get; private set; } = "";
+
     public void Attach(EntityHandle player)
     {
         _player = player;
@@ -159,10 +170,12 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
                 Arm(Attack.SpyFencingSlashA, 1.8f, now);
                 break;
         }
+
+        Scene = scene;
     }
 
-    /// <summary>The pending attack, dropped: stock's zeroing before the keying (:17874-17875).</summary>
-    public void Clear() => (_attack, _fireAt) = (Attack.None, 0f);
+    /// <summary>The pending attack, dropped: stock's zeroing before the keying (:17874-17875), the scene with it.</summary>
+    public void Clear() => (_attack, _fireAt, Scene) = (Attack.None, 0f, "");
 
     /// <summary>
     /// PostThink's window (:2691-2695): a set time past <paramref name="now"/>

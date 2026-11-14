@@ -26,3 +26,35 @@ Extracted and trimmed exactly as TestData/weapons/README describes.
 tf_weapon_laser_pointer: the Wrangler, for the row, kind and behaviour facts
 (TFWeaponKinds.Of's LaserPointer case, TFWranglerBehaviour's vetoed triggers).
 Extracted and trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_katana: the Half-Zatoichi (items_working.tsv:357), the demoman's and
+soldier's honourbound duel melee (CTFKatana, tf_weapon_sword.h). Extracted and
+trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_raygun, tf_weapon_drg_pomson, tf_weapon_particle_cannon: the energy
+family — the bison's and the pomson's rings, the Cow Mangler's charged ball —
+for the energy behaviour's facts (TFWeaponKind's Energy case, the ring and ball
+entities, the tank that spends and refills in whole shots).
+
+tf_weapon_rocketlauncher_airstrike: the soldier's Air Strike, for the airstrike
+facts' kind, press and kill rows (TFWeaponKinds.Of's Projectile case, the
+blast-jump fire-rate and the clip grown on a kill).
+Extracted and trimmed exactly as TestData/weapons/README describes.
+tf_weapon_flaregun_revenge: the Manmelter, for the vacuum's behaviour and
+effects facts (TFWeaponKinds.Of's FlaregunRevenge id, the press and the frame
+tail over TFFlareGun_Revenge). Extracted and trimmed exactly as
+TestData/weapons/README describes.
+tf_weapon_sniperrifle_classic: the Classic, for the release-fire rifle's row,
+kind and shot facts (TFWeaponKinds.Of's SniperRifleClassic case,
+TFSniperRifleClassicBehaviour's press and release). Extracted and trimmed
+exactly as TestData/weapons/README describes.
+
+tf_weapon_sniperrifle_decap: the Bazaar Bargain's row (items_working.tsv:133),
+the decapitation rifle whose charge rate the token count scales
+(TFSniperRifleBehaviour's decap arm, CTFSniperRifleDecap's
+SniperRifleChargeRateMod). Extracted and trimmed exactly as
+
+tf_weapon_sentry_revenge: the Frontier Justice (items 141, 1004), the engineer's
+revenge-crit shotgun, for the hook facts' id-69 guard (TFRevengeHook's shot
+bookends, CTFShotgun_Revenge). Extracted and trimmed exactly as
+TestData/weapons/README describes.

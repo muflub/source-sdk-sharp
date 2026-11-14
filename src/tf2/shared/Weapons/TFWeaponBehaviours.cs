@@ -16,19 +16,26 @@ public sealed class TFWeaponBehaviours(TFWeaponParts parts) : IWeaponBehaviourSo
     /// <summary>The behaviour that runs a kind.</summary>
     public IWeaponBehaviour For(TFWeaponKind kind) => kind switch
     {
-        TFWeaponKind.Gun or TFWeaponKind.Shotgun => new TFWeaponBehaviour(parts),
+        // The shotgun kind's own arms are the scattergun's (CTFScatterGun is
+        // the family's behaviour; the plain shotguns answer the same class
+        // with no knockback row to read).
+        TFWeaponKind.Gun => new TFWeaponBehaviour(parts),
+        TFWeaponKind.Shotgun => new TFScattergunBehaviour(parts),
         TFWeaponKind.Melee => new TFMeleeBehaviour(parts),
         TFWeaponKind.Minigun => new TFMinigunBehaviour(parts),
         TFWeaponKind.SniperRifle => new TFSniperRifleBehaviour(parts),
+        TFWeaponKind.SniperRifleClassic => new TFSniperRifleClassicBehaviour(parts),
         TFWeaponKind.Revolver => new TFRevolverBehaviour(parts),
         TFWeaponKind.Projectile => new TFProjectileBehaviour(parts),
         TFWeaponKind.Bow => new TFBowBehaviour(parts),
         TFWeaponKind.Flamethrower => new TFFlamethrowerBehaviour(parts),
+        TFWeaponKind.FlameBall => new TFFlameBallBehaviour(parts),
         TFWeaponKind.Medigun => new TFMedigunBehaviour(parts),
         TFWeaponKind.Lunchbox => new TFLunchboxBehaviour(parts),
         TFWeaponKind.Pda => new TFPDABehaviour(parts),
         TFWeaponKind.Builder => new TFBuilderBehaviour(parts),
         TFWeaponKind.BuffItem => new TFBuffItemBehaviour(parts),
+        TFWeaponKind.Energy => new TFEnergyBehaviour(parts),
         TFWeaponKind.Inert => new TFInertBehaviour(parts),
         TFWeaponKind.LaserPointer => new TFWranglerBehaviour(parts),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),

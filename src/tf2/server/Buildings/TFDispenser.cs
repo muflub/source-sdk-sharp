@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
 using TF2.Server.Player;
@@ -50,8 +51,9 @@ public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  IEngineEntityRender render, IEngineWorldQuery world, ITFAmmoPurse purse,
                                  ITFPlayerHealing healing, TFPlayerCarriers? carriers = null,
                                  TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
-                                 AttributeHooks? hooks = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks)
+                                 AttributeHooks? hooks = null,
+                                 TFDamageScopes? scopes = null, ITFRevengeCrits? crits = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits)
 {
     public const string MapClass = "obj_dispenser";
 

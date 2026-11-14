@@ -104,6 +104,39 @@ public sealed class TFItemMeterTests
     }
 
     [Fact]
+    public void TheWrapAssassinsBarChargesOverItsTenSeconds()
+    {
+        // The giftwrap bat's override (tf_weapon_bat.h:91): no item, the
+        // base alone — five seconds is half the bar.
+        var weapon = new WeaponNetState();
+        weapon.BindLocal();
+
+        TFItemMeter.Tick(weapon, 5f, new AttributeHooks(), new FakeOwners(), Owner,
+                         "tf_weapon_bat_giftwrap", TFWeaponId.BatGiftwrap);
+
+        Assert.Equal(0.5f, TFItemMeter.MeterOf(weapon));
+    }
+
+    [Fact]
+    public void TheEffectBarsRechargeAttrStretchesTheBar()
+    {
+        // GetEffectBarRechargeTime's percentage (tf_weaponbase.h:629): the
+        // attr doubles the base, ten seconds becomes twenty.
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(902, TFItemMeter.EffectBarRechargeAttribute,
+            TFItemMeter.EffectBarRechargeAttribute, AttributeDescriptionFormat.Percentage,
+            AttributeEffectType.Neutral, false, false, AttributeValueType.Default,
+            MergedKeys.Block("x")), 2f));
+        var weapon = new WeaponNetState();
+        weapon.BindLocal();
+
+        TFItemMeter.Tick(weapon, 1f, new AttributeHooks(), OwnersWith(item), Owner,
+                         WeaponName, TFWeaponId.BatGiftwrap);
+
+        Assert.Equal(0.05f, TFItemMeter.MeterOf(weapon), 4);
+    }
+
+    [Fact]
     public void TheBarIsNetworkedWithinTheTier()
     {
         var layout = StandaloneNetStates.Of(typeof(WeaponNetState));

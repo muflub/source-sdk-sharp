@@ -251,6 +251,28 @@ internal sealed class ProjectileRig
     /// <summary>The wounds the combat layer has stood on record, for the uber's age scale.</summary>
     public TFDamageRecords Records { get; } = new();
 
+    /// <summary>
+    /// An energy ring with its areas bound, over the owners and hooks fakes:
+    /// what the energy facts build with their own hands.
+    /// </summary>
+    public TFProjectileEnergyRing Ring()
+    {
+        var ring = new TFProjectileEnergyRing(Engine, Motion, Engine, Scopes, HitGroups, Owners, Hooks, Engine, Engine);
+        ring.BindAreas(TestServices.Areas(Engine));
+        return BindStates(ring);
+    }
+
+    /// <summary>The shakes the ball's impact sent, beside the ring's own sink.</summary>
+    public BallShakeRecorder Screen { get; } = new();
+
+    /// <summary>An energy ball with its areas bound, over the blast, owners and hooks fakes.</summary>
+    public TFProjectileEnergyBall Ball()
+    {
+        var ball = new TFProjectileEnergyBall(Engine, Motion, Blast, Owners, Hooks, Engine, Temps, Engine, Screen);
+        ball.BindAreas(TestServices.Areas(Engine));
+        return BindStates(ball);
+    }
+
     /// <summary>The shooter's medigun, as the uber charge asks it.</summary>
     public MedigunSpies Mediguns { get; } = new();
 
@@ -269,6 +291,7 @@ internal sealed class ProjectileRig
         public void Holster(int ownerIndex, float now) { }
         public void Unholster(int ownerIndex, float now) { }
         public void RemoveMedigun(int ownerIndex, float now) { }
+        public void PreserveCharge(int ownerIndex, float amount) { }
         public float ChargeLevel(int ownerIndex) => Level;
         public void SetChargeLevel(int ownerIndex, float level)
         {
@@ -394,6 +417,12 @@ internal sealed class ProjectileRig
         public bool OffGround(int playerIndex) => false;
         public bool EyesUnderwater(int playerIndex) => false;
         public bool DuckingOf(int playerIndex) => Ducking;
+
+        /// <summary>The pomson's drains, recorded as (whose, medic fraction, spy fraction).</summary>
+        public List<(int Player, float Medic, float Spy)> Drains { get; } = new();
+
+        public void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction) =>
+            Drains.Add((playerIndex, medicFraction, spyFraction));
     }
 
     /// <summary>
@@ -2569,5 +2598,240 @@ public class TFBowTiredAimFacts
         Assert.True(wild.Y != 0f || wild.Z != 0f);
         Assert.NotEqual(plain.X, wild.X, 3);
         Assert.NotEqual(plain.Z, wild.Z, 3);
+    }
+}
+
+/// <summary>The ball's charged-shot shake, recorded whole for the facts.</summary>
+internal sealed class BallShakeRecorder : IScreenEffects
+{
+    public readonly List<(Vector Origin, float Amplitude, float Frequency, float Duration, float Radius)> Shakes = [];
+
+    public void Shake(Vector origin, float amplitude, float frequency, float duration, float radius,
+                      ShakeCommand command = ShakeCommand.Start, bool airShake = false)
+        => Shakes.Add((origin, amplitude, frequency, duration, radius));
+
+    public void Fade(EntityHandle player, int r, int g, int b, int a, float duration, float holdTime, FadeFlags flags) { }
+}
+
+/// <summary>
+/// <see cref="TFProjectileEnergyBall"/>: stock's <c>Explode</c>
+/// (<c>tf_projectile_energy_ball.cpp:259-337</c>) as the blast it is — the
+/// touched victim scored first at distance zero, the charged shot's shake
+/// (:289-292), the oriented explosion particle (:281-286, :342-352), the hit's
+/// bits and plasma custom (:365-390) — the shake only for the charged ball.
+/// </summary>
+public sealed class TFProjectileEnergyBallFacts
+{
+    private static TFProjectileEnergyBall Arm(ProjectileRig rig, bool charged, bool critical = false)
+    {
+        var ball = rig.Ball();
+        // The blast's push arm and the explosion's index ask these every
+        // impact; a fact's own Returns after the arm turns the answer.
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(0f, 0f, 64f));
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        ball.ArmedBy(100f, TFWeaponId.Raygun, "tf_weapon_raygun", critical, charged, 1);
+        return ball;
+    }
+
+    [Fact]
+    public void APlainBallBlastsTheTouchedVictimForItsFullShot()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The blast's direct victim (:306-325): scored at distance zero, so
+        // the shot lands whole — the old shape had no splash arm at all.
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.Equal(100f, hit!.ArgAs<float>(2), 3);
+    }
+
+    [Fact]
+    public void APlainShotCarriesTheBlastBitsWithoutIgnite()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // GetDamageType (:365-382): blast, half falloff and the distance mod
+        // always; ignite is the charged ball's only extra bit.
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.Equal(DamageType.Blast | TFDamageBits.HalfFalloff | TFDamageBits.UseDistanceMod,
+                     hit!.ArgAs<DamageType>(3));
+    }
+
+    [Fact]
+    public void ACriticalPlainShotAddsTheCritBit()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false, critical: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The plain crit (:375): the crit bit rides the shot's own crit.
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.True(hit!.ArgAs<DamageType>(3).HasFlag(TFDamageBits.Critical),
+            "a plain crit ball carries DMG_CRITICAL");
+    }
+
+    [Fact]
+    public void AChargedShotIgnitesInsteadOfCarryingTheCritBit()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: true, critical: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The charged bits (:368-373): ignite on, the crit bit never — the
+        // charge's mini-crit comes through the ladder instead.
+        var bits = rig.Engine.Last("Damage.TakeDamageAnswered")!.ArgAs<DamageType>(3);
+        Assert.True(bits.HasFlag(TFDamageBits.Ignite), "the charged ball ignites");
+        Assert.False(bits.HasFlag(TFDamageBits.Critical),
+            "the charged shot answers with no crit bit even when the shot was crit");
+    }
+
+    [Fact]
+    public void TheChargedBallShakesTheScreenOnceAtItsCentre()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: true);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(4f, -8f, 32f));
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // UTIL_ScreenShake (:289-292): the charged ball's alone, with stock's
+        // five numbers at the ball's world-space centre.
+        Assert.Single(rig.Screen.Shakes);
+        var shake = rig.Screen.Shakes[0];
+        Assert.Equal(new Vector(4f, -8f, 32f), shake.Origin);
+        Assert.Equal((25f, 150f, 1f, 750f), (shake.Amplitude, shake.Frequency, shake.Duration, shake.Radius));
+    }
+
+    [Fact]
+    public void APlainBallSendsNoShake()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Empty(rig.Screen.Shakes);
+    }
+
+    [Fact]
+    public void ThePlainBallNamesTheNormalCoreAndDispatches()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The oriented explosion (:281-286, :342-352): always dispatched, the
+        // core named by the charge, a red owner leaving the suffix off.
+        Assert.Equal("drg_cow_explosioncore_normal",
+                     rig.Engine.Last("Precache.ParticleSystemIndex")!.ArgAs<string>(0));
+        Assert.Contains(rig.Temps.Effects, e => e.Name == "ParticleEffect");
+    }
+
+    [Fact]
+    public void TheChargedCoreIsNamedForTheCharge()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        var ball = Arm(rig, charged: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal("drg_cow_explosioncore_charged",
+                     rig.Engine.Last("Precache.ParticleSystemIndex")!.ArgAs<string>(0));
+    }
+
+    [Fact]
+    public void ABlueOwnersParticleTakesTheBlueSuffix()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        rig.Engine.Returns("Players.GetTeam", 3);   // TF_TEAM_BLUE
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal("drg_cow_explosioncore_normal_blue",
+                     rig.Engine.Last("Precache.ParticleSystemIndex")!.ArgAs<string>(0));
+    }
+
+    [Fact]
+    public void ThePlainHitRidesThePlasmaScope()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        TFDamageCustom seen = TFDamageCustom.None;
+        rig.Engine.WhenCalled("Damage.TakeDamageAnswered",
+                              call =>
+                              {
+                                  if (rig.Scopes.TryCurrent(out var custom, out var weapon, out var name))
+                                      seen = custom;
+                              });
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // GetDamageCustom (:387-390): the plain ball's hit carries
+        // TF_DMG_CUSTOM_PLASMA beside it, so the building's plasma arm reads it.
+        Assert.Equal(TFDamageCustom.Plasma, seen);
+    }
+
+    [Fact]
+    public void TheChargedHitRidesTheChargedPlasmaScope()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        TFDamageCustom seen = TFDamageCustom.None;
+        rig.Engine.WhenCalled("Damage.TakeDamageAnswered",
+                              call =>
+                              {
+                                  if (rig.Scopes.TryCurrent(out var custom, out var weapon, out var name))
+                                      seen = custom;
+                              });
+        var ball = Arm(rig, charged: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(TFDamageCustom.PlasmaCharged, seen);
+    }
+
+    [Fact]
+    public void TheRingHitRidesThePlasmaScopeToo()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        TFDamageCustom seen = TFDamageCustom.None;
+        rig.Engine.WhenCalled("Damage.TakeDamage",
+                              call =>
+                              {
+                                  if (rig.Scopes.TryCurrent(out var custom, out var weapon, out var name))
+                                      seen = custom;
+                              });
+        var ring = rig.Ring();
+        ring.ArmedBy(60f, TFWeaponId.DrgPomson, "tf_weapon_drg_pomson", false, 1);
+
+        ring.OnTouch(ProjectileRig.Victim);
+
+        // Stock's ring answers TF_DMG_CUSTOM_PLASMA for every hit
+        // (tf_projectile_energy_ring.cpp:267), so the building reads its
+        // plasma arm off a pomson or bison hit as well.
+        Assert.Equal(TFDamageCustom.Plasma, seen);
     }
 }

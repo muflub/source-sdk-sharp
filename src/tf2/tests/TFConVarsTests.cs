@@ -86,6 +86,10 @@ public sealed class TFConVarsTests
         { "tf_movement_aircurrent_aircontrol_mult", Movement, StockSide.Both },
         { "tf_movement_lost_footing_restick", Movement, StockSide.Both },
         { "tf_movement_lost_footing_friction", Movement, StockSide.Both },
+        // tf_gamemovement.cpp:52 ConVar tf_max_charge_speed( ..., FCVAR_NOTIFY |
+        // FCVAR_REPLICATED | FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY ); the shield
+        // charge's speed, ChargeMove (:508, :513) and the speed walk read.
+        { "tf_max_charge_speed", Movement, StockSide.Both },
         // tf_weaponbase.cpp:277 ConVar tf_weapon_criticals( "tf_weapon_criticals", "1", FCVAR_REPLICATED | FCVAR_NOTIFY, "Whether or not random crits are enabled" );
         { "tf_weapon_criticals", WeaponBase, StockSide.Both },
         // tf_weaponbase.cpp:83 ConVar tf_weapon_criticals_nopred( "tf_weapon_criticals_nopred", "1.0", FCVAR_REPLICATED | FCVAR_CHEAT );
@@ -191,6 +195,10 @@ public sealed class TFConVarsTests
         { "tf_max_health_boost", PlayerShared, StockSide.Both },
         { "tf_invuln_time", PlayerShared, StockSide.Both },
         { "tf_boost_drain_time", PlayerShared, StockSide.Server },
+        // the demoman shield's meter: tf_player_shared.cpp:176-177 (shared), the
+        // refill and the seconds a full charge lasts (UpdateChargeMeter).
+        { "tf_demoman_charge_regen_rate", PlayerShared, StockSide.Both },
+        { "tf_demoman_charge_drain_time", PlayerShared, StockSide.Both },
         // tf_weapon_medigun.cpp:76, outside any #if: the meter's build, read by the
         // server's charge arm and the client's predicted replay alike.
         { "weapon_medigun_charge_rate", Medigun, StockSide.Both },

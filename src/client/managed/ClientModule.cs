@@ -1668,6 +1668,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _services.AddInstance<Ragdolls.IRagdollDissolves>(dissolves);
             _services.AddInstance<IClientFrameThink>(dissolves);
         }
+
+        // The ashing corpse's half-second (ClientSsRagdoll's ash arm): the
+        // hide needs no bodies' plumbing, only the render, the effects and
+        // the clock, so it stands whether or not the ragdolls did.
+        var ashing = new Ragdolls.RagdollAsh(_services.Require<IEngineEntityRender>(),
+            _services.Require<IEngineEffects>(), _services.Require<IGameClock>());
+        _services.AddInstance<Ragdolls.IRagdollAsh>(ashing);
+        _services.AddInstance<IClientFrameThink>(ashing);
         _services.AddInstance<IClientImpactSparks>(_sparks);
         // fx_water.cpp's routines (lane c5-particles): the splashes and the
         // ripple, behind the watersplash / gunshotsplash / waterripple effects.
@@ -3321,6 +3329,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => _movementRules.Rules.Taunt(playerIndex, frameTime, forwardMove);
 
+    public MovementCharge? GetMovementCharge(int playerIndex, int buttons, float forwardMove, float sideMove, float upMove) => _movementRules.Rules.Charge(playerIndex, buttons, forwardMove, sideMove, upMove);
+
     public CategorizePositionRules? GetCategorizePosition(int playerIndex) => _movementRules.Rules.Categorize(playerIndex);
 
     public FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => _movementRules.Rules.Footing(playerIndex, velocity, planeNormal);
@@ -3328,6 +3338,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public void GetEnemyBlasted(int playerIndex) => _movementRules.Rules.EnemyBlasted(playerIndex);
 
     public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
+
+    public void GetChargeSlowEnd(int playerIndex) => _movementRules.Rules.ChargeSlowEnd(playerIndex);
+
+    public void GetChargeBump(int playerIndex, EntityHandle hit) => _movementRules.Rules.ChargeBump(playerIndex, hit);
 
     public bool GetClampXY(int playerIndex) => _movementRules.Rules.ClampXY(playerIndex);
 

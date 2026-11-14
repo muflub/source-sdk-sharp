@@ -14,6 +14,7 @@ public sealed class TFSniperRifleBehaviourTests
     private const int Attack = (int)InputButtons.Attack;
     private const int Attack2 = (int)InputButtons.Attack2;
     private const string Rifle = "tf_weapon_sniperrifle";
+    private const string DecapRifle = "tf_weapon_sniperrifle_decap";
     private const float Tick = 0.015f;
 
     private static (TFWeaponWorld World, WeaponNetState W, ViewModelNetState Vm) Sniper(int reserve = 25)
@@ -401,6 +402,61 @@ public sealed class TFSniperRifleBehaviourTests
         Assert.Equal(2 * stock, clamped, 1);
     }
 
+    // ---- the decapitation rifle's rate (SniperRifleChargeRateMod :1742-1745) ----
+
+    /// <summary>The Bazaar Bargain's rifle over the extras set, the owner holding <paramref name="heads"/> banked.</summary>
+    private static (TFWeaponWorld World, WeaponNetState W, ViewModelNetState Vm) Bazaar(int heads)
+    {
+        var world = new TFWeaponWorld(extras: true);
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Sniper;
+        world.Owners.Decapitations = heads;
+        world.Owners.Of(TFWeaponWorld.Owner);
+        var (w, vm) = world.Armed(DecapRifle, clip: -1, reserve: 25);
+        return (world, w, vm);
+    }
+
+    [Fact]
+    public void A_tokenless_bazaar_charges_at_half_the_rate()
+    {
+        // The term counts from two: .25 * (0 - 2) of the base rate off, so the
+        // tokenless rifle accrues at half stock over the same hold, the
+        // charge still over the 50 floor the damage reads.
+        var (bare, bw, bvm) = Sniper();
+        float stock = ChargedShot(bare, bw, bvm, 12.4f);
+
+        var (none, nw, nvm) = Bazaar(0);
+        float half = ChargedShot(none, nw, nvm, 12.4f);
+
+        Assert.Equal(stock / 2, half, 1);
+    }
+
+    [Fact]
+    public void A_bazaar_token_past_two_is_a_quarter_of_the_rate_more()
+    {
+        // .25 * (4 - 2) of the base rate on: two banked heads, 1.5x stock.
+        var (bare, bw, bvm) = Sniper();
+        float stock = ChargedShot(bare, bw, bvm, 11.6f);
+
+        var (two, tw, tvm) = Bazaar(4);
+        float more = ChargedShot(two, tw, tvm, 11.6f);
+
+        Assert.Equal(stock * 1.5f, more, 1);
+    }
+
+    [Fact]
+    public void The_token_count_stops_at_the_sixth_head()
+    {
+        // MAX_HEAD_BONUS 6 (tf_weapon_sniperrifle.cpp:1737): the ninth head
+        // charges no faster than the sixth.
+        var (six, sw, svm) = Bazaar(6);
+        float capped = ChargedShot(six, sw, svm, 11.6f);
+
+        var (nine, nw, nvm) = Bazaar(9);
+        float past = ChargedShot(nine, nw, nvm, 11.6f);
+
+        Assert.Equal(capped, past, 1);
+    }
+
     [Fact]
     public void The_decay_runs_on_the_modified_rates_ledger()
     {
@@ -462,6 +518,39 @@ public sealed class TFSniperRifleBehaviourTests
         var (bare, bw, bvm) = ItemSniper(null);
 
         Assert.Equal(TFSniperRifleBehaviour.DamageMax, ChargedShot(bare, bw, bvm, 13.5f), 1);
+    }
+
+    // ---- the charged shot's pierce (GetPenetrateType :758-769) --------------
+
+    /// <summary>The charged shot as the record the server's arms carry, not just its damage.</summary>
+    private static ShotDamage ChargedShotRecord(TFWeaponWorld world, WeaponNetState w, ViewModelNetState vm, float until)
+    {
+        world.Run(w, vm, Attack2, 10f);
+        float t = Hold(world, w, vm, 0, 10.015f, until);
+        world.Run(w, vm, Attack, t, TFWeaponWorld.GunSeed(200, 10000));
+        return Assert.Single(world.Arms.Bullets).Shot;
+    }
+
+    [Fact]
+    public void A_full_charge_with_the_pierce_attribute_is_a_penetrating_shot()
+    {
+        // GetPenetrateType (tf_weapon_sniperrifle.cpp:758-769): the item's
+        // flag turns the fully charged shot into the piercing kind.
+        var (piercing, pw, pvm) = ItemSniper(FlagItem(9126, "sniper_penetrate_players_when_charged"));
+
+        Assert.True(ChargedShotRecord(piercing, pw, pvm, 13.5f).PenetratePlayers);
+    }
+
+    [Fact]
+    public void A_part_charge_and_the_bare_rifle_carries_no_pierce()
+    {
+        var (piercing, pw, pvm) = ItemSniper(FlagItem(9127, "sniper_penetrate_players_when_charged"));
+
+        Assert.False(ChargedShotRecord(piercing, pw, pvm, 11.8f).PenetratePlayers);
+
+        var (bare, bw, bvm) = ItemSniper(null);
+
+        Assert.False(ChargedShotRecord(bare, bw, bvm, 13.5f).PenetratePlayers);
     }
 
     /// <summary>TF_WEAPON_SNIPERRIFLE_UNCHARGE_PER_SEC (tf_weapon_sniperrifle.cpp:39).</summary>

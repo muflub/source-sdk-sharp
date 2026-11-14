@@ -50,6 +50,20 @@ public interface ITFWeaponHook : IOrderedHook
     /// <summary>The full clip (<c>GetMaxClip1</c>'s <c>mult_clipsize</c>).</summary>
     int ModifyClip(in TFWeaponHookContext weapon, int clip) => clip;
 
+    /// <summary>
+    /// The rounds one pool shot burns (<c>GetAmmoPerShot</c>'s
+    /// <c>mod_ammo_per_shot</c>, <c>tf_weaponbase_gun.cpp:464-467</c>), asked
+    /// with the script's count.
+    /// </summary>
+    int PrimaryAmmoPerShot(in TFWeaponHookContext weapon, int perShot) => perShot;
+
+    /// <summary>
+    /// The pool the primary draws on, where the script's is not the answer
+    /// (<c>mod_use_metal_ammo_type</c>, <c>basecombatweapon_shared.cpp:269-276</c>).
+    /// Null for the script's own.
+    /// </summary>
+    string? PrimaryAmmoPool(in TFWeaponHookContext weapon) => null;
+
     /// <summary>The seconds between shots (<c>ApplyFireDelay</c>'s <c>mult_postfiredelay</c>).</summary>
     float ModifyInterval(in TFWeaponHookContext weapon, float interval) => interval;
 
@@ -204,6 +218,40 @@ public interface ITFWeaponHook : IOrderedHook
     bool HitSelfOnMiss(in TFWeaponHookContext weapon) => false;
 
     /// <summary>
+    /// Whether a crit from the item lands with nothing behind it
+    /// (<c>crit_does_no_damage</c>, <c>CTFWeaponBaseMelee::GetMeleeDamage</c>,
+    /// <c>tf_weaponbase_melee.cpp:989-1002</c>): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> over zero; set, a crit hit's damage is the
+    /// zero the Holiday Punch's laugh is paid in.
+    /// </summary>
+    bool CritDoesNoDamage(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the item's crits force the victim to laugh
+    /// (<c>crit_forces_victim_to_laugh</c>, the melee's forced-laugh arm,
+    /// <c>tf_weaponbase_melee.cpp:884-901</c>): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> gate over zero.
+    /// </summary>
+    bool CritForcesVictimToLaugh(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the item tickles same-weaponed enemies into laughing
+    /// (<c>tickle_enemies_wielding_same_weapon</c>, the tickle arm,
+    /// <c>tf_weaponbase_melee.cpp:903-927</c>): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> gate over zero; no crit asks it.
+    /// </summary>
+    bool TickleEnemiesWieldingSameWeapon(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// The seconds the held fists' silent mark-for-death rides
+    /// (<c>self_mark_for_death</c>, <c>CTFWeaponBaseMelee::ItemPreFrame</c>,
+    /// <c>tf_weaponbase_melee.cpp:354-368</c>, and the same ask in
+    /// <c>Holster</c> :153-158): stock's <c>CALL_ATTRIB_HOOK_INT</c> starts
+    /// from zero, so an item without the attribute marks nobody.
+    /// </summary>
+    int SelfMarkForDeath(in TFWeaponHookContext weapon, int seconds) => seconds;
+
+    /// <summary>
     /// Whether the load leaves whole (<c>auto_fires_full_clip</c>,
     /// <c>CTFWeaponBase::AutoFiresFullClip</c>, tf_weaponbase.cpp:1871-1876):
     /// such a weapon reloads by its own arm and never the idle top-up.
@@ -235,6 +283,46 @@ public interface ITFWeaponHook : IOrderedHook
     /// effect for its beam.
     /// </summary>
     bool FiresTracer(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the fully charged shot pierces every player along its path
+    /// (<c>sniper_penetrate_players_when_charged</c>,
+    /// <c>CTFSniperRifle::GetPenetrateType</c>, tf_weapon_sniperrifle.cpp:758-769).
+    /// Only the attribute: the charged test is the caller's, as stock's
+    /// <c>IsFullyCharged</c> gate is the rifle's own.
+    /// </summary>
+    bool PenetratesPlayersWhenCharged(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// The rounds one energy shot costs (<c>GetEnergyShotCost</c>,
+    /// tf_weapon_raygun.h:52-63): the base's five through the item's
+    /// <c>energy_weapon_no_drain</c> — set, the shot costs nothing and the
+    /// meter never checks it.
+    /// </summary>
+    float EnergyShotCost(in TFWeaponHookContext weapon, float cost) => cost;
+
+    /// <summary>
+    /// The whole shots the tank holds (<c>Energy_GetMaxEnergy</c>'s count,
+    /// <c>tf_weaponbase.cpp:6357-6367</c>) through the item's
+    /// <c>mult_clipsize_upgrade</c>, truncated into the count stock casts it
+    /// into.
+    /// </summary>
+    int ModifyEnergyShots(in TFWeaponHookContext weapon, int shots) => shots;
+
+    /// <summary>
+    /// Whether the ring pierces to a second body
+    /// (<c>energy_weapon_penetration</c>, <c>ShouldPenetrate</c>,
+    /// tf_weapon_raygun.cpp:359-370); it decides the ring's hit between the
+    /// penetrating twenty and the single-hit sixty.
+    /// </summary>
+    bool EnergyPenetrates(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether the meter stands with no second purse
+    /// (<c>energy_weapon_no_ammo</c>): set, the recharge tops the shots up
+    /// from nothing and the reserve stays out of it.
+    /// </summary>
+    bool EnergyNoAmmo(in TFWeaponHookContext weapon) => false;
 }
 
 /// <summary>
@@ -271,6 +359,32 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         foreach (var hook in All)
             clip = Guard(hook, nameof(ITFWeaponHook.ModifyClip), clip, weapon, static (h, w, v) => h.ModifyClip(in w, v));
         return clip;
+    }
+
+    /// <summary>The first hook naming a pool wins; none leaves the script's own.</summary>
+    public string? PrimaryAmmoPool(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.PrimaryAmmoPool(in weapon) is { } pool)
+                    return pool;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.PrimaryAmmoPool), e);
+            }
+        }
+
+        return null;
+    }
+
+    public int PrimaryAmmoPerShot(in TFWeaponHookContext weapon, int perShot)
+    {
+        foreach (var hook in All)
+            perShot = Guard(hook, nameof(ITFWeaponHook.PrimaryAmmoPerShot), perShot, weapon, static (h, w, v) => h.PrimaryAmmoPerShot(in w, v));
+        return perShot;
     }
 
     public float ModifyInterval(in TFWeaponHookContext weapon, float interval)
@@ -435,6 +549,81 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         return false;
     }
 
+    /// <summary>Any hook bearing the attribute zeroes a crit's damage.</summary>
+    public bool CritDoesNoDamage(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.CritDoesNoDamage(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.CritDoesNoDamage), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook bearing the attribute turns the forced laugh on.</summary>
+    public bool CritForcesVictimToLaugh(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.CritForcesVictimToLaugh(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.CritForcesVictimToLaugh), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook bearing the attribute turns the tickle arm on.</summary>
+    public bool TickleEnemiesWieldingSameWeapon(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.TickleEnemiesWieldingSameWeapon(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.TickleEnemiesWieldingSameWeapon), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The seconds ride the hook that carries the mark.</summary>
+    public int SelfMarkForDeath(in TFWeaponHookContext weapon, int seconds)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                seconds = hook.SelfMarkForDeath(in weapon, seconds);
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.SelfMarkForDeath), e);
+            }
+        }
+
+        return seconds;
+    }
+
     /// <summary>Any hook loading the weapon whole turns the question yes.</summary>
     public bool FiresFullClip(in TFWeaponHookContext weapon)
     {
@@ -511,6 +700,25 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         return false;
     }
 
+    /// <summary>Any hook whose item pierces the charged shot turns the question yes.</summary>
+    public bool PenetratesPlayersWhenCharged(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.PenetratesPlayersWhenCharged(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.PenetratesPlayersWhenCharged), e);
+            }
+        }
+
+        return false;
+    }
+
     public TFCritOwner CritPolicy(in TFWeaponHookContext weapon, TFCritOwner policy)
     {
         foreach (var hook in All)
@@ -568,6 +776,56 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
                 Report(hook, nameof(ITFWeaponHook.AfterFire), e);
             }
         }
+    }
+
+    public float EnergyShotCost(in TFWeaponHookContext weapon, float cost)
+    {
+        foreach (var hook in All)
+            cost = Guard(hook, nameof(ITFWeaponHook.EnergyShotCost), cost, weapon, static (h, w, v) => h.EnergyShotCost(in w, v));
+        return cost;
+    }
+
+    public int ModifyEnergyShots(in TFWeaponHookContext weapon, int shots)
+    {
+        foreach (var hook in All)
+            shots = Guard(hook, nameof(ITFWeaponHook.ModifyEnergyShots), shots, weapon, static (h, w, v) => h.ModifyEnergyShots(in w, v));
+        return shots;
+    }
+
+    public bool EnergyPenetrates(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.EnergyPenetrates(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.EnergyPenetrates), e);
+            }
+        }
+
+        return false;
+    }
+
+    public bool EnergyNoAmmo(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.EnergyNoAmmo(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.EnergyNoAmmo), e);
+            }
+        }
+
+        return false;
     }
 
     private T Guard<T>(ITFWeaponHook hook, string what, T value, in TFWeaponHookContext weapon,

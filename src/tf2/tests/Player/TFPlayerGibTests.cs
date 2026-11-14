@@ -233,4 +233,227 @@ public sealed class TFPlayerGibTests
 
         hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), EntityHandle.None));
     }
+
+    // ---- the ash the killing weapon asks (ragdolls_become_ash) --------------
+
+    /// <summary>ragdolls_become_ash (the Shooting Star), stock's ON_OTHER hook
+    /// beside the gib answer's own (tf_player.cpp:12723-12727, :15629): the
+    /// killing player's item walked at the death hook marks the body ash.</summary>
+    [Fact]
+    public void A_kill_from_an_ashing_weapon_marks_the_body_ash()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30665, "star ash", "ragdolls_become_ash",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("a")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ash);
+        Assert.False(body.State.Gib);   // a bullet at positive health: the plain body's own answer
+    }
+
+    [Fact]
+    public void A_kill_from_a_plain_weapon_leaves_no_ash()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Ash);
+    }
+
+    // ---- the gold the Golden Wrench asks (set_turn_to_gold) ----------------
+
+    /// <summary>set_turn_to_gold (the Golden Wrench), stock's ON_OTHER hook over
+    /// the killer's weapon at the death (tf_player.cpp:12717-12721, :15627): the
+    /// killing player's item walked at the death hook gilds the body.</summary>
+    [Fact]
+    public void A_kill_from_the_golden_wrench_gilds_the_body()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 65f, DamageType.Club, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.Wrench, "tf_weapon_wrench", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30666, "wrench gold", "set_turn_to_gold",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("g")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gold);
+        Assert.False(body.State.Ash);   // the gild and the ash are independent arms
+    }
+
+    [Fact]
+    public void A_kill_from_a_plain_wrench_leaves_no_gold()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 65f, DamageType.Club, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.Wrench, "tf_weapon_wrench", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Gold);
+    }
+
+    // ---- the hard hit the Classic asks (crit_on_hard_hit) -------------------
+
+    [Fact]
+    public void A_hard_hit_from_a_crit_on_hard_hit_weapon_gibs_without_a_blast()
+    {
+        // The gate skip (tf_player.cpp:10950-10956): with the attribute the
+        // bullet need not be a blast for the past-threshold health to gib.
+        Assert.True(TFPlayerGibRule.ShouldGib(1, DamageType.Bullet, TFCritType.None,
+                                              TFDamageCustom.None, -12, critOnHardHit: true));
+    }
+
+    [Fact]
+    public void A_soft_hit_from_a_crit_on_hard_hit_weapon_still_leaves_a_body()
+    {
+        // Above -10 neither remaining arm holds, attribute or not (:10963).
+        Assert.False(TFPlayerGibRule.ShouldGib(1, DamageType.Bullet, TFCritType.None,
+                                               TFDamageCustom.None, 3, critOnHardHit: true));
+    }
+
+    /// <summary>crit_on_hard_hit (the Classic), stock's ON_OTHER hook over the
+    /// killing weapon (tf_player.cpp:10948-10949) — the walk also the ragdoll's
+    /// m_bCritOnHardHit (:15630), the client's red mist.</summary>
+    [Fact]
+    public void A_kill_from_a_hard_hit_weapon_marks_the_body_and_its_flag()
+    {
+        var attacker = new EntityHandle(0x0001_0005u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.SniperrifleClassic,
+                                        "tf_weapon_sniperrifle_classic", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -12);                      // past the gib threshold
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(1098, "classic hard hit", "crit_on_hard_hit",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gib);
+        Assert.True(body.State.CritOnHardHit);
+    }
+
+    [Fact]
+    public void A_kill_from_a_plain_weapon_leaves_the_hard_hit_flag_unset()
+    {
+        var attacker = new EntityHandle(0x0001_0005u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.SniperrifleClassic,
+                                        "tf_weapon_sniperrifle_classic", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Gib);
+        Assert.False(body.State.CritOnHardHit);
+    }
+
+    // ---- the ice the Spy-cicle asks (freeze_backstab_victim) -----------------
+
+    /// <summary>freeze_backstab_victim (the Spy-cicle), stock's other backstab arm
+    /// in the death walk (tf_player.cpp:12697-12704): only a hit carrying the backstab's
+    /// custom kind asks the killing weapon, and its item's attribute marks the body
+    /// ice — the flag the client's frost arm reads at creation (c_tf_player.cpp:736-742).</summary>
+    [Fact]
+    public void A_backstab_from_a_freezing_weapon_marks_the_body_ice()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.Backstab, TFWeaponId.Knife, "tf_weapon_knife", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30070, "spy-cicle freeze", "freeze_backstab_victim",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("f")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ice);
+    }
+
+    [Fact]
+    public void A_plain_hit_from_a_freezing_weapon_leaves_a_normal_body()
+    {
+        // The gate before the walk (tf_player.cpp:12697): only the backstab's custom
+        // kind asks the killing weapon, so the same item freezes nothing here.
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.Knife, "tf_weapon_knife", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30070, "spy-cicle freeze", "freeze_backstab_victim",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("f")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Ice);
+    }
 }

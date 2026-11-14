@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Shared;
 
 using TF2.Server.Buildings;
 using TF2.Server.Medigun;
@@ -88,6 +89,7 @@ namespace TF2.Server.Combat;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
+[Precache(PrecacheKind.ParticleSystem, TFProjectileDefs.JarRifleImpactEffect)]
 public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                   IEntityDirectory directory, TFWeaponScripts scripts, TFClassTable classes,
                                   ITFWeaponOwners owners, ITFPlayerResupply resupply, AttributeHooks attributes,
@@ -102,7 +104,9 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                   ITFPlayerStats stats, DamageInflictors inflictors, TFSentryDamages sentryDamages,
                                   TFStealthDamageReductionConVar stealth, ITFPlayerConditions conditions,
                                   IEngineSound sound, IEngineGameEvents events, ITFMedigunWeapons mediguns,
-                                  IEngineDamage hurt, ITFPlayerHealing healing)
+                                  IEngineDamage hurt, ITFPlayerHealing healing,
+                                  ITempEnts temps, IEnginePrecache precache,
+                                  IEngineNetworking networking, ITFSpyState? spies = null)
     : IDamageModifier, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -122,6 +126,31 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     private const int NoItemDefIndex = -1;
     /// <summary>The milk's payback: <c>info.GetDamage() * 0.6f</c> (<c>tf_weaponbase.cpp:5176</c>).</summary>
     public const float MilkHealFraction = 0.6f;
+
+    /// <summary><c>SCATTERGUN_KNOCKBACK_MIN_DMG</c> (<c>tf_weapon_shotgun.cpp:40</c>).</summary>
+    public const float ScattergunKnockbackMinDamage = 30f;
+
+    /// <summary><c>SCATTERGUN_KNOCKBACK_MIN_RANGE_SQ</c>, 400x400 (<c>tf_weapon_shotgun.cpp:41</c>).</summary>
+    public const float ScattergunKnockbackMaxRangeSq = 160_000f;
+
+    /// <summary>The shove's force scale, stock's fixed <c>flKnockbackMult</c>
+    /// (<c>tf_weapon_shotgun.cpp:396</c>; the <c>scattergun_knockback_mult</c>
+    /// override is carried by no row).</summary>
+    public const float ScattergunKnockbackForceScale = 3f;
+
+    /// <summary>The Fan O'War's mark attribute (<c>mark_for_death</c>,
+    /// tf_weaponbase.cpp:5471).</summary>
+    public const string MarkForDeathAttribute = "mark_for_death";
+
+    /// <summary><c>tf_dev_marked_for_death_lifetime</c>'s default, the mark's
+    /// seconds (tf_weaponbase.cpp:5049; the development-only convar's default
+    /// is the constant, the miniboss half waits with that mode).</summary>
+    public const float MarkForDeathLifetime = 15f;
+
+    /// <summary>Each attacker's marked victim, stock's
+    /// <c>m_pMarkedForDeathTarget</c> per player: the earlier mark loses its
+    /// condition when a new one lands (:5479-5482).</summary>
+    private readonly Dictionary<EntityHandle, EntityHandle> _markedForDeath = [];
 
     public int HookOrder => Order;
 
@@ -173,8 +202,12 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             // club bit (tf_weaponbase_melee.cpp:817), and the consume arm reads
             // the melee flag off the info (tf_gamerules.cpp:6103), so the
             // caller's Melee bit rides on with the crit flag while the weapon
-            // table's own bits answer the rest.
-            bits = (bits & (TFDamageBits.Critical | TFDamageBits.Melee)) | TFWeaponDamageTypes.Of(weapon);
+            // table's own bits answer the rest. The charge's mini-crit rides
+            // too: the swing's DMG_RADIUS_MAX (tf_weaponbase_melee.cpp:860-863),
+            // the modify rules' sword/bottle/wrench arm's marker
+            // (tf_gamerules.cpp:6152).
+            bits = (bits & (TFDamageBits.Critical | TFDamageBits.Melee | TFDamageBits.RadiusMax))
+                 | TFWeaponDamageTypes.Of(weapon);
 
             // CTFSniperRifle::GetDamageType (tf_weapon_sniperrifle.cpp:907-917):
             // the rifle strips DMG_USE_HITLOCATIONS unless its owner is
@@ -203,6 +236,15 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                 bits |= TFDamageBits.UseHitLocations;
             }
         }
+
+        // THE REVENGE SHOT'S TAG (CTFShotgun_Revenge::GetCustomDamageType,
+        // tf_weapon_shotgun.cpp:200-209): the owner's unspent window names the
+        // hit while the Justice is the gun that dealt it — and the shot that
+        // spends the last crit is tagged too, the decrement waiting for the
+        // attack's tail (:143-145).
+        if (!fromScope && weapon == TFWeaponId.SentryRevenge
+            && players.Predicted(hit.Attacker.EntryIndex)?.RevengeCrits > 0)
+            custom = TFDamageCustom.ShotgunRevengeCrit;
 
         // CTFPlayer::TraceAttack's headshot: hit locations are the zoomed sniper rifles'.
         if (attackerIsPlayer && TFDamageModifyRules.IsSniperRifle(weapon) && attackerConds.Has(TFCond.Zoomed)
@@ -236,6 +278,44 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                          random.RandomFloat);
             if (!(damage > 0f))
                 return 0f;
+        }
+
+        // THE BODYSHOT MODIFIER (tf_player.cpp:8377-8384): a hit that was not
+        // the location arm's headshot — any hitlocation head on a living
+        // body is one, the Classic's bodyshots included — scales by the
+        // attacker's HELD weapon's bodyshot_damage_modify, the held weapon and
+        // not the hitting one (stock walks GetActiveTFWeapon here). Placed
+        // after the fall: a fall carries no hitlocations, stock's arm skips
+        // it, and here the fall's answer stands unmodified instead.
+        bool headshot = attackerIsPlayer && (bits & TFDamageBits.UseHitLocations) != 0
+                     && hit.HitGroup == HitGroup.Head && !victimConds.Has(TFCond.Invulnerable);
+        if (attackerIsPlayer && !headshot)
+            damage = attributes.Float(damage, "bodyshot_damage_modify",
+                                      owners.ActiveItemOf(hit.Attacker.EntryIndex));
+
+        // THE SENTRY'S MARK (CTFPlayer::ModifyDamageInfo,
+        // tf_player_shared.cpp:10185-10204): an engineer whose HELD weapon
+        // carries mult_dmg_bullet_vs_sentry_target over one hits for more
+        // while the victim is who the builder's own sentry aims at — stock's
+        // GetObjectOfType(OBJ_SENTRYGUN) walk, here the directory's live
+        // sentries. Stock scales inside FireBullets, per trace, before the
+        // modify rules read the number; the product commutes with them.
+        if (attackerIsPlayer && attackerPlayer is { } marker && marker.Class() == TFClass.Engineer)
+        {
+            float sentryMark = attributes.Float(1f, "mult_dmg_bullet_vs_sentry_target",
+                                                owners.ActiveItemOf(hit.Attacker.EntryIndex));
+            if (sentryMark > 1f)
+            {
+                foreach (ScriptedEntity candidate in directory.OfClass(TFSentryGun.MapClass))
+                {
+                    if (candidate is TFSentryGun { IsDead: false } sentry
+                        && sentry.Builder == hit.Attacker && sentry.Target == hit.Victim)
+                    {
+                        damage *= sentryMark;
+                        break;
+                    }
+                }
+            }
         }
 
         float? distance = attackerValid && !self
@@ -337,6 +417,39 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
 
         float now = clock.Now;
         bool enemy = attackerIsPlayer && !self && enginePlayers.GetTeam(hit.Attacker) != enginePlayers.GetTeam(hit.Victim);
+
+        // THE AMMO REFUND (CTFWeaponBase::ApplyOnHitAttributes's first arm,
+        // tf_weaponbase.cpp:5059-5079, called at tf_gamerules.cpp:6876 once
+        // the damage is final): the hitting item's add_onhit_addammo is the
+        // percentage of the hit's damage the weapon owes its shooter, paid
+        // into the pool the weapon's primary draws on — the metal, for the
+        // item that names one. Stock banks the share on the weapon's
+        // m_iAmmoToAdd and pays it at the NEXT shot's spend
+        // (tf_weaponbase_gun.cpp:389-395); here the grant lands on the hit,
+        // the pool the next refusal reads. A disguised spy that is not
+        // stealthed pays nothing: stock's IsSpy check, so a refund's tick
+        // cannot betray one (:5068-5076).
+        if (enemy && weaponItem is { } refundItem)
+        {
+            int refundPct = attributes.Int(0, "add_onhit_addammo", refundItem);
+            if (refundPct > 0)
+            {
+                float refundShare = refundPct / 100f;   // :5066
+                if (victim.Class() == TFClass.Spy && victimConds.Has(TFCond.Disguised)
+                    && victim.DisguiseTeam != enginePlayers.GetTeam(hit.Victim)
+                    && !victimConds.Has(TFCond.Stealthed) && !victimConds.Has(TFCond.StealthedBlink))
+                {
+                    refundShare = 0f;   // :5075
+                }
+
+                int refund = (int)(refundShare * result.Damage);   // :5078's truncation
+                string refundPool = attributes.Int(0, "mod_use_metal_ammo_type", refundItem) != 0
+                    ? TFAmmoNames.Name(TFAmmo.Metal)
+                    : scripts.Get(weaponName)?.Base.Ammo1 ?? "";
+                if (refund > 0 && refundPool.Length > 0)
+                    enginePlayers.GiveAmmo(hit.Attacker, refund, refundPool);
+            }
+        }
         records.Note(victimIndex,
                      new TFHitRecord(attackerValid ? hit.Attacker : EntityHandle.None, result.Damage, result.Bits,
                                      result.Crit, result.Custom, weapon, weaponName, now),
@@ -364,6 +477,34 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             && !victimConds.Has(TFCond.FireImmune))
             afterburns.Of(victimIndex)?.Ignite(now, hit.Attacker, weapon, weaponName);
 
+        // THE SPY-CICLE (tf_weaponbase.cpp:5528-5547, tf_weapon_knife.cpp:118-157): fire reaching a
+        // player answers through the knife held in hand — stock calls the held weapon's
+        // ApplyOnInjuredAttributes when its owner is hurt (tf_player.cpp:9504-9507), and the base's half
+        // runs first (:5528-5546): the item's become_fireproof_on_hit_by_fire makes the holder fire-immune
+        // for the fixed second (:5536), burns the flame off if one was on (:5538-5542), and raises the
+        // afterburn immunity for the attribute's seconds (:5544). The knife's own half (:122-131) then
+        // melts the knife for its seconds — stock's CanDeploy (:521-531) refuses its swings until the
+        // window closes. Both walks stand where the burn gate does (:5534, :124).
+        if ((result.Bits & DamageType.Burn) != 0 || (result.Bits & TFDamageBits.Ignite) != 0)
+        {
+            var heldItem = owners.ActiveItemOf(victimIndex);                                    // :9504
+            int fireproof = attributes.Int(0, "become_fireproof_on_hit_by_fire", heldItem);    // :5533
+            if (fireproof > 0)                                                                 // :5534
+            {
+                conditions.Add(hit.Victim, TFCond.FireImmune, 1f, hit.Attacker);               // :5536
+                if (victimConds.Has(TFCond.Burning))                                           // :5538
+                {
+                    sound.EntityEmitSound(hit.Victim, "TFPlayer.FlameOut");                    // :5540
+                    conditions.Remove(hit.Victim, TFCond.Burning);                             // :5541
+                }
+                conditions.Add(hit.Victim, TFCond.AfterburnImmune, fireproof, hit.Attacker);   // :5544
+            }
+
+            float meltSeconds = attributes.Float(0f, "melts_in_fire", heldItem);               // :123
+            if (meltSeconds > 0f)
+                spies?.MeltKnife(victimIndex, now, meltSeconds);                               // :126-131
+        }
+
         // THE BLEED (tf_player.cpp:10577-10585, :10665-10667): a hit whose
         // weapon carries bleeding_duration bleeds the victim, unless the hit
         // is itself a bleed tick or the attacker's own blast (the
@@ -376,6 +517,38 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             if (bleedingTime > 0f)
                 bleeds.Of(victimIndex)?.Make(now, enginePlayers.IsAlive(hit.Victim), hit.Attacker,
                                              weapon, weaponName, bleedingTime);
+        }
+
+        // THE JARATE (tf_player.cpp:10676-10730): a sniper rifle's hit — its
+        // shooter zoomed, or the Classic's, which charges unzoomed — whose
+        // shot had begun charging (GetJarateTime's m_flChargedDamage arm,
+        // tf_weapon_sniperrifle.cpp:1215-1223) jars: the item's
+        // jarate_duration is the seconds at full charge and the charge itself
+        // remapped 50..150 onto 2..it (GetJarateTimeInternal :1228-1240 — the
+        // meter is still the shot's, cleared only when PrimaryAttack
+        // returns). A second or more of it, on a victim neither invulnerable,
+        // phasing nor intercepting (:10685), takes the splash and the urine.
+        // The splash lands on the victim's origin: the trace's end never
+        // reaches this layer (docs/divergences.md).
+        if (attackerIsPlayer && TFDamageModifyRules.IsSniperRifle(weapon)
+            && (attackerConds.Has(TFCond.Zoomed) || weapon == TFWeaponId.SniperrifleClassic)
+            && directory.Get(enginePlayers.GetActiveWeaponEntity(hit.Attacker)) is SsWeapon { State: { } rifle })
+        {
+            float jarate = TFSniperRifleBehaviour.Jarate(rifle, now,
+                attributes.Float(0f, "jarate_duration", owners.ItemOf(hit.Attacker.EntryIndex, weaponName)));
+            if (jarate >= 1f && !victimConds.Has(TFCond.Invulnerable)
+                && !victimConds.Has(TFCond.Phase) && !victimConds.Has(TFCond.PasstimeInterception))
+            {
+                Vector at = entities.GetOrigin(hit.Victim);
+                TeEffectData splat = new()
+                {
+                    Scale = 1f,
+                    HitBox = precache.ParticleSystemIndex(TFProjectileDefs.JarRifleImpactEffect),
+                    Origin = at,
+                };
+                temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in splat);
+                conditions.Add(hit.Victim, TFCond.Urine, jarate);
+            }
         }
 
         // THE SPY'S CLOAK (tf_gamerules.cpp:6802-6813): a Spy attacker with an
@@ -421,6 +594,69 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             float slowMajor = attributes.Float(0f, "mult_onhit_enemyspeed_major", weaponItem);
             if (slowMajor != 0f)
                 carriers.Part<TFStunStack>(victimIndex)?.Stun(hit.Victim, slowMajor, 0.4f, TFStunFlags.Movement, hit.Attacker);
+        }
+
+        // MARK FOR DEATH ON HIT (tf_weaponbase.cpp:5469-5488, the next arm of
+        // the same walk): the Fan O'War's hit marks the victim
+        // TF_COND_MARKEDFORDEATH for tf_dev_marked_for_death_lifetime 15 s
+        // (the miniboss half waits with that mode), the attacker the
+        // condition's provider — and the attacker's earlier mark loses its
+        // cond first, the one-target bookkeeping stock itself calls
+        // imperfect (:5474-5478): conditions carry no owner, so the
+        // per-attacker target lives in the layer's dictionary, stock's
+        // m_pMarkedForDeathTarget.
+        if (attackerIsPlayer
+            && attributes.Int(0, MarkForDeathAttribute, weaponItem) != 0)
+        {
+            if (_markedForDeath.TryGetValue(hit.Attacker, out EntityHandle previous)
+                && previous != hit.Victim
+                && entities.IsValid(previous))
+                conditions.Remove(previous, TFCond.Markedfordeath);
+
+            conditions.Add(hit.Victim, TFCond.Markedfordeath, MarkForDeathLifetime, hit.Attacker);
+            _markedForDeath[hit.Attacker] = hit.Victim;
+        }
+
+        // THE SCATTERGUN'S SHOVE (CTFScatterGun::ApplyPostHitEffects,
+        // tf_weapon_shotgun.cpp:369-409, called from the tail of the victim's
+        // OnTakeDamage, tf_player.cpp:9695-9698): the Force-a-Nature's hit
+        // hurls the victim away from the attacker's centres, the force the
+        // AirBurstDamageForce of their hull, the damage and 3x, reversed and
+        // lifted a jump's worth, through the generic pushback (:3369-3400) —
+        // the ground floor the flag answers, the impulse that strips it, and
+        // the knocked-into-air condition — then the 0.3 s forward-only
+        // movement stun and the once-per-airtime latch. The generic body's
+        // truce and rune arms and the vulnerability scales wait with the
+        // airblast's (TFFlameEffects' note); the spunup immunity needs the
+        // heavy's attr, carried by no row yet.
+        if (!fromScope && attackerIsPlayer && weaponName.Length > 0
+            && scripts.Get(weaponName) is { } shoveScript
+            && TFWeaponKinds.Of(shoveScript) == TFWeaponKind.Shotgun
+            && attributes.Int(0, TFScattergunBehaviour.KnockbackAttribute,
+                              owners.ItemOf(hit.Attacker.EntryIndex, weaponName)) != 0
+            && players.Predicted(victimIndex) is not { WeaponKnockback: true }
+            && !victimConds.Has(TFCond.Megaheal) && !victimConds.Has(TFCond.ImmuneToPushback)
+            && result.Damage > ScattergunKnockbackMinDamage
+            && distance is { } shoveDistance && shoveDistance * shoveDistance < ScattergunKnockbackMaxRangeSq)
+        {
+            Vector shoveDirection = (entities.GetWorldSpaceCenter(hit.Attacker)
+                                   - entities.GetWorldSpaceCenter(hit.Victim)).Normalized;
+            (Vector shoveMins, Vector shoveMaxs) = entities.GetBounds(hit.Victim);
+            Vector shove = shoveDirection * -TFRadiusDamage.DamageForce(shoveMaxs - shoveMins, result.Damage,
+                                                                       ScattergunKnockbackForceScale)
+                         + new Vector(0f, 0f, TFAirBlastDefs.JumpMinSpeed);
+
+            if (networking.EntityGetState(hit.Victim, out _).HasFlag(EntityState.OnGround)
+                && shove.Z < TFAirBlastDefs.JumpMinSpeed)
+                shove = new Vector(shove.X, shove.Y, TFAirBlastDefs.JumpMinSpeed);
+
+            if (players.Predicted(victimIndex) is { } shovedState)
+                shovedState.WeaponKnockback = true;
+
+            conditions.Add(hit.Victim, TFCond.KnockedIntoAir);
+            entities.ApplyVelocityImpulse(hit.Victim, shove, clearGround: true);
+            carriers.Part<TFStunStack>(victimIndex)?.Stun(hit.Victim, TFScattergunBehaviour.StunTime, 1f,
+                TFStunFlags.Movement | TFStunFlags.MovementForwardOnly, hit.Attacker);
         }
 
         // THE GAME STATS (Event_PlayerDamage, tf_gamestats.cpp:1033-1089,
@@ -471,6 +707,46 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                           attributes.Int(0, TFRageMeter.BuffTypeAttribute, buffItem));
         }
 
+        // THE PYRO'S RAGE, the burn arm of the same block (tf_player.cpp:9730
+        // -9735): a hit whose type carries DMG_BURN or DMG_PLASMA — the
+        // afterburn tick's <see cref="TFBurn.TickDamageType"/> — fills the
+        // pyro attacker's meter by the same shape, the divisor
+        // <see cref="TFRageMeter.BurnDamageDivisor"/>. The flag is the buff
+        // table's pyro rage alone (<c>g_RageBuffTypes</c>,
+        // tf_shareddefs.h:2767), read off the flamethrower the attacker owns —
+        // stock's Weapon_OwnsThisID(TF_WEAPON_FLAMETHROWER), :8745 — not the
+        // scoped hit's weapon, which an afterburn tick does not name.
+        if (attackerIsPlayer && !self && result.Damage > 0f && attackerPlayer is { } burner
+            && burner.Class() == TFClass.Pyro
+            && ((DamageType)hit.DamageType & (DamageType.Burn | DamageType.Plasma)) != 0)
+        {
+            var flameItem = owners.ItemOf(hit.Attacker.EntryIndex,
+                                          TFWeaponNames.Name(TFWeaponId.Flamethrower).ToLowerInvariant());
+            TFRageMeter.GainOnBurnDamage(burner, result.Damage,
+                                         attributes.Float(1f, TFRageMeter.GivingScaleAttribute, flameItem),
+                                         attributes.Int(0, TFRageMeter.BuffTypeAttribute, flameItem));
+        }
+
+        // THE SCOUT'S HYPE (CTFGameRules::ApplyOnDamageAliveModifyRules,
+        // tf_gamerules.cpp:7526-7532, inside the attacker-but-not-self block
+        // :7490): a hit the Soda Popper's hype_on_damage arms fills the
+        // attacker's meter from the damage dealt — the 1..200 remap onto
+        // 1..50, held at 100. The setter's buffed refusal and clamp are
+        // TFHype's (SetScoutHypeMeter, tf_player_shared.cpp:14124-14141).
+        if (attackerIsPlayer && !self && attackerPlayer is { } scout
+            && attributes.Int(0, TFHype.GainAttribute, weaponItem) != 0)
+            TFHype.GainOnDamage(scout, result.Damage);
+
+        // THE BFB'S TAKEN TOLL (stock tf_player.cpp:9762-9774, OnTakeDamage's
+        // tail): a scout hit loses hype by the held Baby Face's Blaster's
+        // lose_hype_on_take_damage over the damage taken, through the same
+        // setter. Stock's root is the player's own walk; the held weapon's
+        // item is the askable root here, the stand-in the burn-victim arm
+        // makes too.
+        int hypeTaken = attributes.Int(0, TFHype.TakenDamageAttribute, owners.ActiveItemOf(victimIndex));
+        if (victim.Class() == TFClass.Scout && hypeTaken != 0)
+            TFHype.Lose(victim, hypeTaken * result.Damage);
+
         // THE ON-HIT HEALTH (stock tf_weaponbase.cpp:5142-5257): one accumulator in stock's
         // order. The held item's add_onhit_addhealth opens it (:5144), scaled down by how much
         // of the dealt damage survived into the modified hit (:5148) and floored at three when
@@ -519,6 +795,30 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             }
         }
 
+        // THE PERSUADER'S METER (stock tf_weaponbase.cpp:5152-5162, in
+        // ApplyOnHitAttributes between the heal and the speed): the held item's
+        // charge_meter_on_hit fraction onto the demoman's charge, the hook the
+        // weapon's own walk — the item, its providers and the wearer's manager.
+        // The rune arm's 0.2 (:5157-5160) waits for the powerup mode, as the
+        // regen's does; the meter's ceiling is the field's 0..100.
+        if (attackerIsPlayer && attackerPlayer is { } charger)
+        {
+            float chargeRefill = attributes.Float(0f, "charge_meter_on_hit", weaponItem);   // :5154
+            if (chargeRefill > 0f)
+                charger.ChargeMeter = Math.Clamp(charger.ChargeMeter + chargeRefill * 100f, 0f, 100f);   // :5161
+        }
+
+        // SPEED ON HIT (tf_weaponbase.cpp:5164-5170): the held item's
+        // speed_boost_on_hit is the seconds the attacker rides the carried
+        // speed boost — stock's AddCond takes the attribute whole as the
+        // duration, no provider. The walk's arm (TFMaxSpeed) spends it.
+        if (attackerIsPlayer)
+        {
+            int boostSeconds = attributes.Int(0, "speed_boost_on_hit", weaponItem);   // :5165-5166
+            if (boostSeconds != 0)                                                     // :5167
+                conditions.Add(hit.Attacker, TFCond.SpeedBoost, boostSeconds);         // :5169
+        }
+
         // THE UBERSAW'S CHARGE (stock tf_weaponbase.cpp:5259-5281): a medic's hit fills the
         // medic's own ÜberCharge meter from the held item's add_onhit_ubercharge, a float the
         // hook walks over the held weapon's attribute manager — providers and the wearer's
@@ -536,6 +836,34 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                 mediguns.SetChargeLevel(hit.Attacker.EntryIndex, mediguns.ChargeLevel(hit.Attacker.EntryIndex) + bonus);
         }
 
+        // THE VITA-SAW'S ORGANS (CTFBonesaw::DoMeleeDamage, tf_weapon_bonesaw.cpp:81-118):
+        // a melee hit on an enemy player counts the bearer one more organ and tells the
+        // medigun to keep that many charges' worth through the next spawn — the count
+        // times VITASAW_CHARGE_PER_HIT, capped inside the medigun by the owner-walked
+        // ubercharge_preserved_on_spawn_max (:797, the same attribute that gated this
+        // arm on the weapon). Stock's truce gate (:83) has no carrier in this mod, and
+        // the add_head_on_hit twin (:93-99) is the Eyelander's row.
+        if (attackerIsPlayer && attackerPlayer is { } sawBearer
+            && ((DamageType)hit.DamageType & TFDamageBits.Melee) != 0
+            && enemy)
+        {
+            float preserve = attributes.Float(0f, TFMedigunWeapon.VitaSawPreserveAttrib, weaponItem);
+            if (preserve > 0f)
+            {
+                sawBearer.Decapitations += 1;   // :105's SetDecapitations(GetDecapitations() + 1)
+                mediguns.PreserveCharge(hit.Attacker.EntryIndex, sawBearer.Decapitations * TFMedigunWeapon.VitaSawChargePerHit);
+            }
+        }
+
+        // THE BFB'S BOOST (stock tf_weaponbase.cpp:5299-5308, the next arm of
+        // the same on-hit walk): a hit the Baby Face's Blaster's
+        // boost_on_damage arms pays the attacker's hype — the damage floored
+        // at tf_scout_hype_pep_min_damage 5 over tf_scout_hype_pep_mod 1,
+        // held at the pep max 99 — through the setter under TFHype.
+        if (attackerIsPlayer && attackerPlayer is { } brawler
+            && attributes.Int(0, TFHype.BoostAttribute, weaponItem) != 0)
+            TFHype.GainBoostOnDamage(brawler, result.Damage);
+
         // THE KILL HEAL (stock tf_player.cpp:11545-11564, inside OnKilledOther_Effects, which
         // Event_KilledOther reaches once the victim is dead): the held item's heal_on_kill heals
         // the killer — MIN of the attribute and the headroom between the killer's health and the
@@ -543,8 +871,10 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // with the signed amount, the killer's edict and the held item's defindex (:11552-11563).
         // Stock's death is detected by the engine at the kill itself; here the kill is the same
         // before-minus-final arithmetic the spun-up gate uses, since the seam runs before the hit
-        // is applied. The spy's cloak-on-kill (:11513-11521), the restore-to-percentage arm
-        // (:11527-11543) and the speed boost (:11567 onward) wait on their lanes' carriers.
+        // is applied. The spy's cloak-on-kill (:11513-11521) and the speed boost
+        // (:11567-11572) ride the spy slice (TFSpyComponent.Swing, where the knife's kill
+        // lands); the restore-to-percentage arm (:11527-11543) waits on the heal lane's
+        // carrier (docs/plans/tf2/deferred.tsv).
         if (attackerIsPlayer && !self)
         {
             int healOnKill = attributes.Int(0, "heal_on_kill", weaponItem);          // :11545
@@ -568,7 +898,63 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             }
         }
 
+        // THE CONNECTED DAMAGE (tf_player.cpp:9445-9468, after the hit stands):
+        // a weapon whose item carries damage_all_connected deals the whole hit
+        // again to everyone on the victim's heal graph — the medics healing
+        // them and the patient they themselves heal, the closure
+        // <c>CTFPlayer::AddConnectedPlayers</c> (tf_player.cpp:10044-10067)
+        // walks — each through the full pipeline; the pass's guard keeps it
+        // from passing itself on (:9457's gs_pRecursivePlayerCheck).
+        int connected = attributes.Int(0, DamageAllConnected, weaponItem);
+        if (connected > 0 && attackerIsPlayer && !self && !_passingOn)
+        {
+            _passingOn = true;
+            try
+            {
+                List<int> seen = [];
+                CollectConnected(seen, victimIndex);
+                foreach (int index in seen)
+                {
+                    if (index == victimIndex)
+                        continue;
+
+                    EntityHandle other = enginePlayers.GetHandle(index);
+                    if (other != EntityHandle.None)
+                        hurt.TakeDamage(other, hit.Attacker, result.Damage, (DamageType)hit.DamageType);
+                }
+            }
+            finally
+            {
+                _passingOn = false;
+            }
+        }
+
         return result.Damage;
+    }
+
+    /// <summary>The connected hit's item attribute (<c>damage_all_connected</c>).</summary>
+    public const string DamageAllConnected = "damage_all_connected";
+
+    /// <summary>The pass's guard, stock's gs_pRecursivePlayerCheck (:9457) on the layer.</summary>
+    private bool _passingOn;
+
+    /// <summary>
+    /// <c>CTFPlayer::AddConnectedPlayers</c> (tf_player.cpp:10044-10067): the
+    /// player, then their own beam's patient and every healer keeping them up,
+    /// each once — the dedup is stock's <c>vecPlayers.Find</c> (:10049).
+    /// </summary>
+    private void CollectConnected(List<int> seen, int index)
+    {
+        if (seen.Contains(index))
+            return;
+
+        seen.Add(index);
+
+        if (players.Predicted(index) is { } linked && linked.HealTargetIndex > 0)
+            CollectConnected(seen, linked.HealTargetIndex);
+
+        foreach (int healer in healing.HealerIndexes(index))
+            CollectConnected(seen, healer);
     }
 
     private int WaterLevel(EntityHandle player) => directory.Get(player) is SsPlayer p ? p.State.WaterLevel : 0;

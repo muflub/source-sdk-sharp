@@ -9,8 +9,12 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
+using TF2.Server.Combat;
+using TF2.Server.Player;
+
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Server.Weapons;
@@ -37,10 +41,28 @@ namespace TF2.Server.Weapons;
 public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers players,
                                    IEngineWorldQuery world, IEngineDamage damage,
                                    DamageHitGroups hitGroups, ILog log,
-                                   ILagCompensation? lagCompensation = null) : ITFMeleeEffects
+                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
+                                   ILagCompensation? lagCompensation = null, TFDamageScopes? scopes = null,
+                                   ITFPlayerConditions? conditions = null) : ITFMeleeEffects
 {
     /// <summary><c>tf_meleeattackforcescale</c>'s 80 (<c>tf_weaponbase_melee.cpp:50</c>).</summary>
     public const float ForceScale = 80f;
+
+    /// <summary>
+    /// The forced laugh's window: the base taunt scene and its tail
+    /// (<see cref="TFTauntCommand.BaseTauntSceneSeconds"/> plus
+    /// <see cref="TFTauntCommand.TauntTailSeconds"/>) — stock's
+    /// <c>Taunt(TAUNT_MISC_ITEM, MP_CONCEPT_TAUNT_LAUGH)</c> rides the
+    /// scene's length, this side's fallback the taunt command documents
+    /// stands in until the gesture's own sequence length arrives.
+    /// </summary>
+    public const float ForcedLaughSeconds = TFTauntCommand.BaseTauntSceneSeconds + TFTauntCommand.TauntTailSeconds;
+
+    private readonly TFDamageScopes? _scopes = scopes;
+
+    private readonly ITFWeaponOwners? _owners = owners;
+
+    private readonly AttributeHooks? _hooks = hooks;
 
     /// <summary>Stock's <c>looseSwingRange</c> over <c>GetSwingRange</c> (<c>tf_weaponbase_melee.cpp:309</c>).</summary>
     public const float LooseSwingScale = 1.2f;
@@ -172,19 +194,103 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         // scale (:867-874), nothing when the damage is under a point.
         DamageType type = TFDamageBits.Melee | DamageType.NeverGib | DamageType.Club;
 
+        // The charge's mini-crit (tf_weaponbase_melee.cpp:860-863): the swing's
+        // mini latch rides the type as DMG_RADIUS_MAX, the modify rules'
+        // sword/bottle/wrench arm's marker — under the roll's own crit, as
+        // stock's else-if.
+        if (shot.Mini && !shot.Critical)
+            type |= TFDamageBits.RadiusMax;
+
         // crit_from_behind (tf_weaponbase_melee.cpp:819-833): the victim
         // facing along the way we came — the unit from us to them against
         // their eye forward over cos 45 — crits the hit.
         bool critical = shot.Critical
                      || (trace.CritFromBehind && FacingAway(owner, target));
 
-        Vector force = MathF.Abs(shot.Damage) >= 1f
-            ? DamageForceRules.MeleeForce(forward, shot.Damage, scale: ForceScale / shot.Damage)
+        // The honourbound duel (CTFKatana::GetMeleeDamage,
+        // tf_weapon_sword.cpp:548-571): an honourbound katana meeting a
+        // victim whose own held weapon is honourbound too strikes for no
+        // less than thrice the victim's health, and the blow stays out of
+        // their crit-rate accounting (DMG_DONT_COUNT_DAMAGE_TOWARDS_CRIT_RATE,
+        // tf_shareddefs.h:1171).
+        float strike = shot.Damage;
+        if (string.Equals(script.Name, TFWeaponTypes.Katana, StringComparison.Ordinal)
+            && _owners is { } owners && _hooks is { } hooks && entities.IsPlayer(target)
+            && HonourBound(hooks, owners.ItemOf(attack.Command.OwnerIndex, script.Name))
+            && HonourBound(hooks, owners.ActiveItemOf(target.EntryIndex)))
+        {
+            strike = MathF.Max(strike, entities.GetHealth(target) * TFSwordHook.DuelHealthScale);
+            type |= TFDamageBits.DontCountCritRate;
+        }
+
+        Vector force = MathF.Abs(strike) >= 1f
+            ? DamageForceRules.MeleeForce(forward, strike, scale: ForceScale / strike)
             : default;
 
+        // The Gunslinger's count (CTFRobotArm::Smack, tf_weapon_wrench.cpp:502-518):
+        // an enemy player hit counts toward the third's big swing and stamps the
+        // clock the grant's timeout reads; a world hit or a teammate resets. The
+        // third hit's count folds back to none, its swing already gone.
+        if (TFMeleeBehaviour.IsRobotArm(in script))
+        {
+            int counted = entities.IsPlayer(target) && players.GetTeam(target) != players.GetTeam(owner)
+                ? TFMeleeBehaviour.ComboOf(attack.Weapon) + 1
+                : 0;
+            if (counted == 3)
+                counted = 0;
+
+            if (counted > 0)
+                attack.Weapon.BehaviourTimeB = attack.Now;
+            attack.Weapon.BehaviourMode = (attack.Weapon.BehaviourMode & ~TFMeleeBehaviour.ComboCountMask)
+                                        | (counted << (TFMeleeBehaviour.ComboCountShift));
+        }
+
+
+        // The decapitators' damage custom (CTFDecapitationMeleeWeaponBase::
+        // GetMeleeDamage, tf_weapon_sword.cpp:77-84): every sword hit is
+        // TF_DMG_CUSTOM_DECAPITATION, so the kill record names the swing.
+        IDisposable? custom = null;
+        if (script.Id == TFWeaponId.Sword && _scopes is { } scopes)
+            custom = scopes.Push(TFDamageCustom.Decapitation, script.Id, script.Name);
+        using (custom)
         using (hitGroups.Push(HitGroup.Generic, critical))
-            damage.ApplyAt(target, owner, shot.Damage, type, force, end);
+            damage.ApplyAt(target, owner, strike, type, force, end);
+
+        // The Holiday Punch's two laugh arms, stock's non-truce block after the
+        // hit (tf_weaponbase_melee.cpp:882-927). Both need a living player on
+        // the other team; the forced laugh additionally rides the swing's crit
+        // (:886), the tickle compares the two players' active items
+        // (:911-919). Stock's truce gate and its CanBeForcedToLaugh stun checks
+        // wait with the other condition reads on the deferred list.
+        if (!attack.EffectsLive || !entities.IsPlayer(target) || !players.IsAlive(target)
+            || players.GetTeam(owner) == players.GetTeam(target))
+            return;
+
+        if (trace.ForcesLaugh && critical)
+            conditions?.Add(target, TFCond.Taunting, ForcedLaughSeconds);
+
+        if (trace.TicklesSameWeapon && SameActiveItem(owner, target))
+            conditions?.Add(target, TFCond.Taunting, ForcedLaughSeconds);
     }
+
+    /// <summary>
+    /// The tickle's match (:911-919): both players' active weapons, both items,
+    /// equal defindexes — null on either side answers no.
+    /// </summary>
+    private bool SameActiveItem(EntityHandle owner, EntityHandle target)
+    {
+        if (_owners is null)
+            return false;
+
+        IAttributeProvider? mine = _owners.ActiveItemOf(entities.GetIndex(owner));
+        IAttributeProvider? theirs = _owners.ActiveItemOf(entities.GetIndex(target));
+        return mine is AttributeContainer { Item: { } myItem }
+            && theirs is AttributeContainer { Item: { } theirItem }
+            && myItem.Defindex == theirItem.Defindex;
+    }
+
+    private bool HonourBound(AttributeHooks hooks, IAttributeProvider? item)
+        => item is not null && hooks.Int(0, TFSwordHook.HonorBoundAttrib, item) != 0;
 
     /// <summary><c>crit_from_behind</c>'s dot, over the origins and the victim's eye angles (:823-829).</summary>
     private bool FacingAway(EntityHandle owner, EntityHandle victim)

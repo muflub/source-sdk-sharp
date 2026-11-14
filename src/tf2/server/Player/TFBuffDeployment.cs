@@ -10,6 +10,7 @@ using SourceSharp.Server;
 
 using SourceSharp.Shared;
 
+using TF2.Server.Voice;
 using TF2.Server.Weapons;
 
 using TF2.Shared;
@@ -36,6 +37,8 @@ namespace TF2.Server.Player;
 [SideService(Side.Server, As = [typeof(ITFBuffEffects)])]
 public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions conditions,
                                      IEnginePlayers enginePlayers, IEngineEntities entities,
+                                     IGameClock? clock = null, TFTauntCommand? taunts = null,
+                                     TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
                                      IEngineSound? sound = null, IEngineGameEvents? events = null) : ITFBuffEffects
 {
     public void DeployBuff(int ownerIndex, int buffType)
@@ -131,4 +134,65 @@ public sealed class TFBuffDeployment(ITFPlayerData players, ITFPlayerConditions 
 
         sound?.EntityEmitSound(owner, "Weapon_BuffBanner.Flag"); // :251
     }
+
+    /// <summary>
+    /// The rage press (<c>CTFFlameThrower::UseRage</c> through
+    /// <c>SecondaryAttack</c>'s buff arm, <c>tf_weapon_flamethrower.cpp:1196
+    /// -1200</c>): the taunt, asked whole (<c>pPlayer->Taunt</c> :1136 — the
+    /// speak, the condition, the timed attacks; the behaviour's meter gate and
+    /// the press's clock stand behind this), and then the taunt arm itself
+    /// (<c>OnTauntSucceeded</c>'s pyro branch, tf_player.cpp:17897-17921): the
+    /// taunt the ask raised — the condition is the ask's own, checked false
+    /// before it — whose scene is the plain taunt's
+    /// (<see cref="TFTauntAttack.PyroRageScenePrefix"/>, :17901's prefix), on a
+    /// pyro, lights <see cref="TFRageMeter.PyroRageBuffType"/>:
+    /// </summary>
+    /// <remarks>
+    /// The drain's stamp is <c>ActivateRageBuff</c> through
+    /// <c>SetupRageBuffTimer</c> (tf_player_shared.cpp:13794, :13743-13747) —
+    /// the first pulse at once, the rest on the player's
+    /// <see cref="TFBuffRageTicker"/>. The slot's <c>mod_buff_duration</c>
+    /// (:13768) has no carrier yet, the ten pulses as stocked; the taunt
+    /// shields are the arm's own (:17917-17918), and the battlecry is
+    /// <c>ActivateRageBuff</c>'s case 5 (:13784).
+    /// </remarks>
+    public void UseRage(int ownerIndex, int buffType)
+    {
+        if (taunts is null || carriers is null || clock is null)
+            return; // a side without the taunt half has no rage to press.
+
+        EntityHandle owner = ownerIndex > 0 ? enginePlayers.GetHandle(ownerIndex) : EntityHandle.None;
+        if (owner == EntityHandle.None || buffType <= 0)
+            return;
+
+        var before = players.Networked(ownerIndex);
+        if (before is null || before.InCond(TFCond.Taunting))
+            return; // IsAllowedToTaunt's standing taunt (:682): the ask below must be the raiser.
+
+        taunts.Handle(owner, TFTauntCommand.Command, default);
+
+        var state = players.Networked(ownerIndex);
+        if (state is null || !state.InCond(TFCond.Taunting))
+            return; // :1137's arm — the taunt did not take, no drain.
+
+        string scene = carriers.Part<TFTauntAttack>(ownerIndex)?.Scene ?? "";
+        if (!scene.StartsWith(TFTauntAttack.PyroRageScenePrefix, StringComparison.OrdinalIgnoreCase))
+            return; // :17901's scene gate — the special taunts do not light it.
+
+        state.RageDraining = true;                                     // :13794
+        state.RageBuffType = buffType;                                 // :13743
+        state.RageBuffPulsesLeft = TFRageMeter.BuffPulses;             // :13744
+        state.RageBuffNextPulseTime = clock.Now + TFBuffItemBehaviour.PulseInterval; // :13745
+
+        speech?.Speak(ownerIndex, TFConceptSpeech.PlayerBattlecry);    // :13784's case 5
+        DeployBuff(ownerIndex, buffType);                              // :13747's first pulse
+
+        // The taunt's shields (:17917-17918): invulnerability and mega-heal
+        // while the pose stands, the 2.6 s of the arm.
+        conditions.Add(owner, TFCond.InvulnerableUserBuff, PyroRageShieldSeconds, owner);
+        conditions.Add(owner, TFCond.Megaheal, PyroRageShieldSeconds, owner);
+    }
+
+    /// <summary>The taunt shields' run (<c>tf_player.cpp:17917-17918</c>).</summary>
+    public const float PyroRageShieldSeconds = 2.6f;
 }

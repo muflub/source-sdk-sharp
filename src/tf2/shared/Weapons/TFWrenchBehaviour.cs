@@ -91,7 +91,8 @@ public sealed class TFWrenchHook(ITFSapperState? sappers = null) : ITFWeaponHook
     public int HookOrder => Order;
 
     private static bool IsWrench(in TFWeaponHookContext weapon) =>
-        string.Equals(weapon.Type.Name, WrenchScript, StringComparison.Ordinal);
+        string.Equals(weapon.Type.Name, WrenchScript, StringComparison.Ordinal)
+        || TFMeleeBehaviour.IsRobotArmName(weapon.Type.Name);
 
     public bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
     {

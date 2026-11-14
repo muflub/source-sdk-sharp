@@ -17,6 +17,7 @@ using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 using TF2.Shared.Projectiles;
+using TF2.Server.Buildings;
 using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
@@ -43,6 +44,9 @@ public static class TFProjectileEntityNames
     public const string Flare = "tf_projectile_flare";
     public const string Jar = "tf_projectile_jar";
     public const string JarMilk = "tf_projectile_jar_milk";
+    public const string BallOfFire = "tf_projectile_balloffire";
+    public const string EnergyRing = "tf_projectile_energy_ring";
+    public const string EnergyBall = "tf_projectile_energy_ball";
 }
 
 /// <summary>
@@ -1323,6 +1327,388 @@ public sealed class TFArrow : FlyingProjectile
 }
 
 /// <summary>
+/// The bison's ring (<c>CTFProjectile_EnergyRing</c>,
+/// <c>shared/tf/tf_projectile_energy_ring.cpp</c>): the energy shot's flat
+/// flight at the ring's hundred-twenty (the ball's kin below). Its first touch
+/// lands the shot the behaviour rolled — the penetrating twenty or the
+/// single-hit sixty through the hook — carrying the plasma custom
+/// (<c>GetDamageCustom</c>, :267), which the buildings' own plasma-resistance
+/// arm (<c>tf_obj.cpp:1896-1899</c>) reads at the half-tenth scale.
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.EnergyRing, ScriptedEntityKind.Projectile)]
+public sealed class TFProjectileEnergyRing : FlyingProjectile
+{
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly IEngineDamage Damage;
+    private readonly ITFWeaponOwners Owners;
+    private readonly AttributeHooks Hooks;
+    private readonly IEnginePlayers Players;
+    private readonly IGameClock Clock;
+
+    public TFProjectileEnergyRing(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
+                                  TFDamageScopes scopes, DamageHitGroups hitGroups,
+                                  ITFWeaponOwners owners, AttributeHooks hooks,
+                                  IEnginePlayers players, IGameClock clock)
+        : base(physics, motion)
+    {
+        Players = players;
+        Clock = clock;
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+        Owners = owners;
+        Hooks = hooks;
+    }
+
+    /// <summary><c>tf_bison_tick_time</c> (tf_projectile_energy_ring.cpp:67).</summary>
+    public const float BisonTickTime = 0.025f;
+
+    /// <summary>The box's one unit, and one more, so a ring on the face counts as inside.</summary>
+    private const float PassMargin = 2f;
+
+    protected override float GravityScale => TFProjectileDefs.EnergyGravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.EnergyModel;
+
+    /// <summary>
+    /// <c>CTFBaseProjectile::Spawn</c>'s two-unit box: a box sweeps the body's
+    /// hull where a ray would find its hitboxes, and how many of the piercing
+    /// ring's hits land rides on where it enters.
+    /// </summary>
+    protected override Vector HullExtent => new(1f, 1f, 1f);
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+    public bool Critical { get; private set; }
+
+    /// <summary>The shot the launcher dealt: its rolled hit, its crit flag, whose it is.</summary>
+    public float ShotDamage { get; private set; }
+
+    private int _ownerIndex;
+
+    /// <summary><c>m_flLastHitTime</c>: one clock across every target, as stock's is.</summary>
+    private float _lastHit = float.NegativeInfinity;
+
+    /// <summary>The player a piercing ring is inside: the think's hits, until it comes out.</summary>
+    private EntityHandle _passing;
+
+    /// <summary>Arms the ring with the behaviour's rolled shot.</summary>
+    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, int ownerIndex)
+    {
+        ShotDamage = damage;
+        Weapon = weapon;
+        WeaponName = weaponName;
+        Critical = critical;
+        _ownerIndex = ownerIndex;
+    }
+
+    /// <summary>
+    /// The item's airblast refusal: <c>energy_weapon_no_deflect</c> on the
+    /// owner's item. Stock's own header answers false for every ring
+    /// (<c>tf_projectile_energy_ring.h:57</c>), so the ring is spared either
+    /// way — the attribute is the schema's half of the same rule.
+    /// </summary>
+    public bool RefusesDeflect() =>
+        Hooks.Int(0, "energy_weapon_no_deflect", Owners.ItemOf(_ownerIndex, WeaponName)) != 0;
+
+    protected override void Impact(EntityHandle hit)
+    {
+        if (hit == EntityHandle.None)
+            return;
+
+        // ShouldPenetrate (tf_projectile_energy_ring.cpp:290): the ring flies
+        // on through a player. The trace would find the same body again from
+        // inside it, so the flight passes players until the think sees it out.
+        IAttributeProvider? shooterItem = Owners.ItemOf(_ownerIndex, WeaponName);
+        if (Entities.IsPlayer(hit) && Hooks.Int(0, "energy_weapon_penetration", shooterItem) != 0)
+        {
+            if (Players.GetTeam(hit) != Players.GetTeam(Attribution))
+                HitPassing(hit, shooterItem);
+            _passing = hit;
+            Motion.PassCharacters(Handle, true);
+            SetNextThink(0f);
+            KeepFlying(Motion.IncomingVelocityOf(Handle), GravityScale);
+            return;
+        }
+
+        Hurt(hit, shooterItem);
+    }
+
+    /// <summary>
+    /// Stock's <c>Touch</c> runs every tick the ring overlaps a player: the
+    /// passing ring's next hits, gated on <see cref="BisonTickTime"/>
+    /// (:260), and the flight's players back on once it is out of the body.
+    /// </summary>
+    public override void OnThink()
+    {
+        base.OnThink();
+        if (_passing == EntityHandle.None)
+            return;
+
+        // The bounds come as offsets from the body's origin. The sweep stops the
+        // box touching the hull's face, a unit outside it: without the margin
+        // the think calls that out, the sweep hits the face again, and the ring
+        // never moves on.
+        var (mins, maxs) = Entities.GetBounds(_passing);
+        Vector at = Origin - Entities.GetOrigin(_passing);
+        if (!Entities.IsValid(_passing)
+            || at.X < mins.X - PassMargin || at.Y < mins.Y - PassMargin || at.Z < mins.Z - PassMargin
+            || at.X > maxs.X + PassMargin || at.Y > maxs.Y + PassMargin || at.Z > maxs.Z + PassMargin)
+        {
+            _passing = EntityHandle.None;
+            Motion.PassCharacters(Handle, false);
+            return;
+        }
+
+        if (Players.GetTeam(_passing) != Players.GetTeam(Attribution))
+            HitPassing(_passing, Owners.ItemOf(_ownerIndex, WeaponName));
+        SetNextThink(0f);
+    }
+
+    private void HitPassing(EntityHandle hit, IAttributeProvider? item)
+    {
+        float now = Clock.Now;
+        if (now - _lastHit < BisonTickTime)
+            return;
+        _lastHit = now;
+        Hurt(hit, item);
+    }
+
+    private void Hurt(EntityHandle hit, IAttributeProvider? item)
+    {
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        // Stock's ring answers TF_DMG_CUSTOM_PLASMA for every hit
+        // (tf_projectile_energy_ring.cpp:267): the custom rides the scope so
+        // the building's plasma-resistance arm reads it.
+        using (Scopes.Push(TFDamageCustom.Plasma, Weapon, WeaponName))
+            Damage.TakeDamage(hit, Attribution, ShotDamage, TFWeaponDamageTypes.Of(Weapon));
+
+        DrainVictim(hit, item);
+    }
+
+    /// <summary>
+    /// The pomson's two on-hit drains (<c>ApplyPostHitEffects</c>,
+    /// <c>tf_weaponbase.cpp:5553-5613</c>): the firing item's
+    /// <c>subtract_victim_medigun_charge_onhit</c> and
+    /// <c>subtract_victim_cloak_on_hit</c> over zero, each scaled after 512 Hu
+    /// to 1536 Hu (:5576-5580 — full drain nearer, none by 1536) and handed to
+    /// <see cref="ITFWeaponOwners.DrainOnHitMeters"/> for the victim's class.
+    /// Stock drains once per shot, guarded by the last-victim timer (:5562);
+    /// this entity's one touch is spent in the base's <c>Spend</c>, which
+    /// carries the same once-per-shot. Zero attributes answer the no-op, as
+    /// stock's arms only run on a positive (:5569, :5593).
+    /// </summary>
+    private void DrainVictim(EntityHandle hit, IAttributeProvider? item)
+    {
+        int medicCharge = Hooks.Int(0, "subtract_victim_medigun_charge_onhit", item);
+        int cloak = Hooks.Int(0, "subtract_victim_cloak_on_hit", item);
+        if (medicCharge <= 0 && cloak <= 0)
+            return;
+
+        // Stock's distance scale on the squared eye-to-victim (:5576-5579);
+        // RemapValClamped clamps both ends, so the >512 guard needs no twin.
+        Vector to = Entities.GetOrigin(hit) - Entities.GetOrigin(Attribution);
+        float scale = TFDamageModifyRules.RemapValClamped(to.X * to.X + to.Y * to.Y + to.Z * to.Z,
+                                                          512f * 512f, 1536f * 1536f, 1f, 0f);
+
+        Owners.DrainOnHitMeters(Entities.GetIndex(hit),
+                                medicCharge > 0 ? medicCharge / 100f * scale : 0f,
+                                cloak > 0 ? cloak / 100f * scale : 0f);
+    }
+}
+
+/// <summary>
+/// The mangler's ball (<c>CTFProjectile_EnergyBall</c>,
+/// <c>game/server/tf/tf_projectile_energy_ball.cpp</c>): the charged shot's flat
+/// flight, the ball carrying the stored hit — the script's damage through the
+/// hook chain — to its first touch, where it explodes as stock's
+/// <c>Explode</c> (:259-337): the oriented explosion particle whose name the
+/// charge and the team pick (:281-286, :342-352), the charged ball's screen
+/// shake (:289-292), and the rocket-shaped radius blast whose self pass runs
+/// at 1.33 times the rocket-jump radius when the shot was charged (:306-325,
+/// :323). The hit's bits and custom are the ball's own (<c>GetDamageType</c>
+/// :365-382, <c>GetDamageCustom</c> :387-390): the charged ball ignites and
+/// answers the charged plasma custom beside no crit bit; the plain one carries
+/// the crit bit when its shot rolled one, and the plain plasma custom.
+///
+/// <para>
+/// Not here (docs/plans/tf2/deferred.tsv): the impact sound's attacker-loud
+/// split (<c>ImpactSound</c>, :165-189), the combat-sound insert (:296) and
+/// the rocket base's stun pair (<c>CheckForStunOnImpact</c>, called at :314).
+/// </para>
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.EnergyBall, ScriptedEntityKind.Projectile)]
+public sealed class TFProjectileEnergyBall : FlyingProjectile
+{
+    private readonly TFBlastApplier Blast;
+    private readonly ITFWeaponOwners Owners;
+    private readonly AttributeHooks Hooks;
+    private readonly IEnginePlayers Players;
+    private readonly ITempEnts Temps;
+    private readonly IEnginePrecache Precache;
+    private readonly IScreenEffects Screen;
+
+    public TFProjectileEnergyBall(IEngineEntityPhysics physics, EntityMotion motion, TFBlastApplier blastApplier,
+                                  ITFWeaponOwners owners, AttributeHooks attributes, IEnginePlayers players,
+                                  ITempEnts temps, IEnginePrecache precache, IScreenEffects screen)
+        : base(physics, motion)
+    {
+        Blast = blastApplier;
+        Owners = owners;
+        Hooks = attributes;
+        Players = players;
+        Temps = temps;
+        Precache = precache;
+        Screen = screen;
+    }
+
+    protected override float GravityScale => TFProjectileDefs.EnergyGravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.EnergyModel;
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+    public bool Critical { get; private set; }
+
+    /// <summary>The stored shot the launcher dealt.</summary>
+    public float ShotDamage { get; private set; }
+
+    /// <summary>The held button's charge rode the shot (<c>m_bChargedShot</c>, tf_projectile_energy_ball.h:56).</summary>
+    public bool Charged { get; private set; }
+
+    private int _ownerIndex;
+
+    /// <summary>Arms the ball with the launcher's stored hit and whether the shot was charged.</summary>
+    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, bool charged, int ownerIndex)
+    {
+        ShotDamage = damage;
+        Weapon = weapon;
+        WeaponName = weaponName;
+        Critical = critical;
+        Charged = charged;
+        _ownerIndex = ownerIndex;
+    }
+
+    /// <summary>
+    /// The item's airblast refusal: <c>energy_weapon_no_deflect</c> on the
+    /// owner's item. Stock's header answers the deflectable true for every ball
+    /// (<c>tf_projectile_energy_ball.h:53</c>); the attribute is how an item
+    /// carries the ring's refusal onto the deflectable kind.
+    /// </summary>
+    public bool RefusesDeflect() =>
+        Hooks.Int(0, "energy_weapon_no_deflect", Owners.ItemOf(_ownerIndex, WeaponName)) != 0;
+
+    /// <summary>
+    /// The deflection: the steered flight along the deflected line, then the
+    /// ownership the stock <c>Deflected</c> carries
+    /// (<c>tf_projectile_energy_ball.cpp:216-241</c>) — the deflector as
+    /// owner, their active weapon as launcher, the crit under their boost.
+    /// </summary>
+    public void DeflectBy(EntityHandle deflector, Vector velocity, bool deflectorCritBoosted, string launcherName)
+    {
+        Steer(velocity, GravityScale);
+        Retarget(deflector);
+        _ownerIndex = Entities.GetIndex(deflector);
+        WeaponName = launcherName;
+        if (deflectorCritBoosted)
+            Critical = true;
+    }
+
+    protected override void Impact(EntityHandle hit)
+    {
+        if (hit == EntityHandle.None)
+            return;
+
+        // Explode (:259-337): the touched enemy is saved first (:268) and the
+        // blast scores it at distance zero; the explosion particle and — the
+        // charged ball's alone — the screen shake (:289-292) go out at the
+        // ball's own origin and centre before anything is dealt. The item's
+        // building refusal is not stock's: the attribute has no reader.
+        Vector at = Origin;
+
+        ExplodeParticle(at);
+
+        if (Charged)
+            Screen.Shake(Entities.GetWorldSpaceCenter(Handle), 25.0f, 150.0f, 1.0f, 750f);
+
+        // The blast (:306-325): the radius under the launcher's
+        // mult_explosion_radius as the rocket's reads it, the touched victim
+        // scored first, and the attacker's own pass at the rocket-jump radius
+        // — 1.33 times it charged (:323). The hit carries the ball's own
+        // bits and plasma custom (:365-390).
+        IAttributeProvider? item = Owners.ItemOf(_ownerIndex, WeaponName);
+        float radius = Hooks.Float(TFProjectileDefs.RocketRadius, "mult_explosion_radius", item);
+        Blast.Apply(at, TFBlast.Of(ShotDamage, radius, BlastBits()), Attribution, Handle,
+                    ignored: Handle, Weapon, WeaponName, Charged ? false : Critical, hit,
+                    TFProjectileDefs.RocketRadiusForRocketJumps * (Charged ? 1.33f : 1f), ShotDamage,
+                    Charged ? TFDamageCustom.PlasmaCharged : TFDamageCustom.Plasma);
+
+        DrainVictim(hit, item);
+    }
+
+    /// <summary>
+    /// The hit's bits (<c>GetDamageType</c>, :365-382): blast with the half
+    /// falloff and the distance mod always; the charged ball ignites instead
+    /// of carrying the crit bit, the plain one takes the crit bit with its
+    /// shot. The plain blast matches the launcher's row in
+    /// <see cref="TFWeaponDamageTypes"/>.
+    /// </summary>
+    private DamageType BlastBits()
+    {
+        DamageType bits = DamageType.Blast | TFDamageBits.HalfFalloff | TFDamageBits.UseDistanceMod;
+        if (Charged)
+            bits |= TFDamageBits.Ignite;
+        else if (Critical)
+            bits |= TFDamageBits.Critical;
+        return bits;
+    }
+
+    /// <summary>
+    /// The oriented explosion particle (:281-286, :342-352): the charge picks
+    /// the core name, the owner's team the blue suffix — the same dispatch
+    /// shape the rocket's stun shockwave keeps.
+    /// </summary>
+    private void ExplodeParticle(Vector at)
+    {
+        string name = Charged ? "drg_cow_explosioncore_charged" : "drg_cow_explosioncore_normal";
+        if (Players.GetTeam(Players.GetHandle(_ownerIndex)) != (int)TFTeam.Red)
+            name += "_blue";
+
+        TeEffectData effect = new()
+        {
+            Scale = 1f,
+            HitBox = Precache.ParticleSystemIndex(name),
+            Origin = at,
+            Start = at,
+        };
+        Temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in effect);
+    }
+
+    /// <summary>
+    /// The pomson's two on-hit drains on the ball's touch too, the same arms
+    /// as the ring's <see cref="TFProjectileEnergyRing"/> — stock's
+    /// <c>ApplyPostHitEffects</c> is called by the firing weapon for either
+    /// energy projectile (<c>tf_weaponbase.cpp:5553-5613</c>).
+    /// </summary>
+    private void DrainVictim(EntityHandle hit, IAttributeProvider? item)
+    {
+        int medicCharge = Hooks.Int(0, "subtract_victim_medigun_charge_onhit", item);
+        int cloak = Hooks.Int(0, "subtract_victim_cloak_on_hit", item);
+        if (medicCharge <= 0 && cloak <= 0)
+            return;
+
+        Vector to = Entities.GetOrigin(hit) - Entities.GetOrigin(Attribution);
+        float scale = TFDamageModifyRules.RemapValClamped(to.X * to.X + to.Y * to.Y + to.Z * to.Z,
+                                                          512f * 512f, 1536f * 1536f, 1f, 0f);
+
+        Owners.DrainOnHitMeters(Entities.GetIndex(hit),
+                                medicCharge > 0 ? medicCharge / 100f * scale : 0f,
+                                cloak > 0 ? cloak / 100f * scale : 0f);
+    }
+}
+
+/// <summary>
 /// The medic's healing bolt (<c>CTFProjectile_HealingBolt</c>,
 /// <c>game/server/tf/tf_projectile_arrow.cpp:1186</c>, the arrow's flight
 /// under the crossbow's fixed charge): the syringe's model at three times
@@ -1496,6 +1882,161 @@ public sealed class TFHealingBolt : FlyingProjectile
 
         // And the cond, a tenth plus a tenth (:1286).
         Conditions.Add(victim, TFCond.HealthOverhealed, 1.2f);
+    }
+}
+
+/// <summary>
+/// The Dragon's Fury's ball (<c>CTFProjectile_BallOfFire</c>,
+/// <c>tf_projectile_dragons_fury.cpp:43</c>): an invisible trigger-bounded
+/// sphere at the empty model (<c>:61, 167</c>), flying flat at
+/// <see cref="TFProjectileDefs.BallSpeed"/> (<c>:83-84</c>), and on its combat
+/// touch the burn arm (:262-431): a teammate player only lights the Sniper's
+/// held bow (:241-260); an enemy takes the shot with the ignite bit
+/// (<c>:297</c>), three times over on a victim already burning
+/// (<c>:337-340</c>), and every non-player combat target takes the bonus by
+/// default (:358-360); then the launcher's meter refill gets its once-per-ball
+/// boost while the bar still runs (:226-237, :296-310). The burn it leaves is
+/// the stock pair's — half as long on a pyro (:344-348). Not here
+/// (docs/plans/tf2/deferred.tsv): the distance-limit and lifetime thinks
+/// (<c>:92-103</c>, the caps riding <see cref="TFProjectileDefs.BallDistance"/>
+/// and <see cref="TFProjectileDefs.BallLifetime"/> until the flight seam
+/// carries them), the alive and visibility tests (:286-290), the forward
+/// hitbox trace of the bonus test (:330-333), and the impact sounds.
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.BallOfFire, ScriptedEntityKind.Projectile)]
+public sealed class TFBallOfFire : FlyingProjectile
+{
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly IEngineDamage Damage;
+    private readonly IEnginePlayers Players;
+    private readonly ITFWeaponOwners Owners;
+    private readonly ITFPlayerConditions Conditions;
+    private readonly IEntityDirectory Directory;
+
+    private readonly HashSet<int> _hits = new();
+    private bool _refunded;
+
+    public TFBallOfFire(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
+                        TFDamageScopes scopes, DamageHitGroups hitGroups, IEnginePlayers players,
+                        ITFWeaponOwners owners, ITFPlayerConditions conditions,
+                        IEntityDirectory directory)
+        : base(physics, motion)
+    {
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+        Players = players;
+        Owners = owners;
+        Conditions = conditions;
+        Directory = directory;
+    }
+
+    protected override float GravityScale => 0f;                       // MOVETYPE_FLY (:73)
+
+    protected override string ProjectileModel => TFProjectileDefs.BallModel;
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+    public bool Critical { get; private set; }
+
+    /// <summary>The shot the launcher dealt, under the item's hook (:86-88).</summary>
+    public float ShotDamage { get; private set; } = TFProjectileDefs.BallBaseDamage;
+
+    /// <summary>The launcher's deal: what the shot is worth, whose it is, and its crit.</summary>
+    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, int ownerIndex)
+    {
+        ShotDamage = damage;
+        Weapon = weapon;
+        WeaponName = weaponName;
+        Critical = critical;
+    }
+
+    /// <summary>
+    /// The combat touch (<c>Burn</c> :262-431): the hit-list dedup (:277-281),
+    /// the team split, the bonus weighing before the ignite (<c>:350</c>'s own
+    /// order), the hurt with the ignite bit and the Fury customs (:297, :340),
+    /// the burn cond, and the launcher's once-per-ball refund behind the hurt
+    /// (:364). The shooter's own entity is skipped (:189-192).
+    /// </summary>
+    protected override void Impact(EntityHandle hit)
+    {
+        if (hit == EntityHandle.None || hit == Shooter)
+            return;
+
+        if (!_hits.Add(hit.EntryIndex))
+            return;
+
+        // InSameTeam's two arms (:268-275): the teammate player only lights a
+        // bow, and nothing refunds from a friendly touch.
+        if (Entities.IsPlayer(hit) && Players.GetTeam(hit) == Players.GetTeam(Attribution))
+        {
+            LightTeammatesBow(hit);
+            return;
+        }
+
+        // The bonus: burning on the player arm (:337-338), always on the
+        // non-player one (:358-359). The forward hitbox trace of the player's
+        // second half waits with the flight seam.
+        bool bonus = !Entities.IsPlayer(hit) || Conditions.InCond(hit, TFCond.Burning);
+        float damage = ShotDamage * (bonus ? TFProjectileDefs.BallBurnBonus : 1f);
+
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        using (Scopes.Push(bonus ? TFDamageCustom.DragonsFuryBonusBurning : TFDamageCustom.DragonsFuryIgnite,
+                           Weapon, WeaponName))
+            Damage.TakeDamage(hit, Attribution, damage,
+                              TFWeaponDamageTypes.Of(Weapon) | TFDamageBits.Ignite);
+
+        if (Entities.IsPlayer(hit))
+        {
+            // Burn(...) at the convar's seconds, half on a pyro (:342-351).
+            float burn = Owners.ClassOf(hit.EntryIndex) == TFClass.Pyro
+                ? TFProjectileDefs.BallBurnDuration * 0.5f
+                : TFProjectileDefs.BallBurnDuration;
+            Conditions.Add(hit, TFCond.Burning, burn, Attribution);
+        }
+
+        RefundLauncher();
+    }
+
+    /// <summary>
+    /// <c>OnCollideWithTeammate</c> (:241-260): the Sniper's held bow lights,
+    /// once per projectile through the same hit list — the dedup above already
+    /// booked the entry. The flag rides the carried weapon's state, the flame
+    /// tick's own bow arm's door.
+    /// </summary>
+    private void LightTeammatesBow(EntityHandle victim)
+    {
+        if (Owners.ClassOf(victim.EntryIndex) != TFClass.Sniper)
+            return;
+
+        if (TFWeaponNames.IdOf(Players.GetActiveWeapon(victim)) != TFWeaponId.CompoundBow)
+            return;
+
+        if (Directory.Get(Players.GetActiveWeaponEntity(victim)) is SsWeapon { State: { } state })
+            state.ArrowAlight = true;
+    }
+
+    /// <summary>
+    /// The launcher's refund (:226-237, :296-302): once for the whole ball, and
+    /// only while the bar still runs — a full meter answers nothing, stock's
+    /// first gate (:298-299). The boost rides the launcher's own predicted
+    /// state, the same door the bow-light arm writes.
+    /// </summary>
+    private void RefundLauncher()
+    {
+        if (_refunded)
+            return;
+
+        if (Directory.Get(Players.GetActiveWeaponEntity(Shooter)) is not SsWeapon { State: { } state })
+            return;
+
+        _refunded = true;
+
+        if (state.ItemMeter >= 1f)
+            return;
+
+        state.FlameBallChargeScale = TFItemMeter.HitRechargeBoost;
     }
 }
 

@@ -1,9 +1,11 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using TF2.Server.Buildings;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 using Xunit;
 
@@ -21,8 +23,8 @@ public sealed class TestBuilding : TFBaseObject
     public TestBuilding(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                         IEngineEntityRender render, ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
                         TF2.Server.Voice.TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
-                        AttributeHooks? hooks = null)
-        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks) { }
+                        AttributeHooks? hooks = null, ITFRevengeCrits? crits = null)
+        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks, crits: crits) { }
 
     public override TFObjectType Type => TFObjectType.Sentrygun;
 }
@@ -132,6 +134,33 @@ public class TFBaseObjectTests
         Assert.False(building.IsBuilding);
         Assert.Equal(150, building.Health);
         Assert.Contains("built Sentrygun 0", rig.Announcer.Said);
+    }
+
+    /// <summary>The builder's manager holding one named attribute, as the hooks' walk reads it.</summary>
+    private static void Arms(BuildingsRig rig, EntityHandle builder, string attribute, float value)
+    {
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(6060, "attr 6060", attribute, AttributeDescriptionFormat.Additive,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        rig.Owners.Managers[builder.EntryIndex] = manager;
+    }
+
+    [Fact]
+    public void TheBuildersSentryBuildRateAttrClimbsFaster()
+    {
+        var (rig, building, builder) = ABuildingUnderConstruction();
+        Arms(rig, builder, "sentry_build_rate_multiplier", 1f);   // GetObjectBuildSpeedMultiplier's +1
+
+        rig.Clock.Now += 5f;   // half the sentry's ten seconds, at twice the rate
+        building.OnThink();
+
+        // The multiplier ask (tf_obj.cpp:2208) rides every construction tick,
+        // so half the clock is the whole build where the plain sentry (the
+        // fact above) sits at half health still building.
+        Assert.True(building.IsBuilt);
+        Assert.Equal(150, building.Health);
     }
 
     [Fact]
@@ -369,4 +398,79 @@ public class TFBaseObjectTests
                      .Where(c => c.ArgAs<EntityHandle>(0) == building.Handle)
                      .Last()
                      .ArgAs<string>(1);
+}
+
+/// <summary>
+/// The plasma arms of <c>CBaseObject::OnTakeDamage</c> (tf_obj.cpp:1896-1908):
+/// a hit whose scope carries TF_DMG_CUSTOM_PLASMA keeps only a fifth of its
+/// blow on the building, and the charged shot's TF_DMG_CUSTOM_PLASMA_CHARGED
+/// also holds the building off for PLASMA_DISABLE_TIME (:126). The custom
+/// rides the blast's scope beside the hit, as the sapper's wrench-fix gate
+/// reads its own.
+/// </summary>
+public sealed class TFBuildingPlasmaFacts
+{
+    private static (BuildingsRig Rig, TFSentryGun Sentry) ABuiltSentry()
+    {
+        var rig = new BuildingsRig();
+        var builder = rig.AddBuilder();
+        var sentry = rig.Spawn<TFSentryGun>(TFSentryGun.MapClass);
+        sentry.StartPlacement(builder);
+        rig.Clock.Now = 100f;
+        sentry.StartBuilding();
+        return (rig, sentry);
+    }
+
+    [Fact]
+    public void APlasmaHitKeepsOnlyAFifthOfItsBlowOnTheBuilding()
+    {
+        var (rig, sentry) = ABuiltSentry();
+        var scopes = rig.Services.Resolve<TFDamageScopes>()!;
+
+        // :1896-1899: twenty under the plasma arm lands as four.
+        using (scopes.Push(TFDamageCustom.Plasma, TFWeaponId.Raygun, "tf_weapon_raygun"))
+        {
+            Assert.Equal(4, BuildingsRig.Hit(sentry, EntityHandle.None, 20f, DamageType.Bullet));
+        }
+    }
+
+    [Fact]
+    public void WithoutAPlasmaScopeTheBlowStandsWhole()
+    {
+        var (rig, sentry) = ABuiltSentry();
+
+        // The control: nothing on the scope, no scale — the plain twenty.
+        Assert.Equal(20, BuildingsRig.Hit(sentry, EntityHandle.None, 20f, DamageType.Bullet));
+    }
+
+    [Fact]
+    public void AChargedPlasmaBlowHoldsTheBuildingOffForItsWindow()
+    {
+        var (rig, sentry) = ABuiltSentry();
+        var scopes = rig.Services.Resolve<TFDamageScopes>()!;
+
+        using (scopes.Push(TFDamageCustom.PlasmaCharged, TFWeaponId.Raygun, "tf_weapon_raygun"))
+            BuildingsRig.Hit(sentry, EntityHandle.None, 20f, DamageType.Bullet);
+
+        // PLASMA_DISABLE_TIME is 4 (:126): still off inside the window...
+        rig.Clock.Now = 103.5f;
+        Assert.True(sentry.IsPlasmaDisabled);
+        // ...and back on at its close.
+        rig.Clock.Now = 104f;
+        Assert.False(sentry.IsPlasmaDisabled);
+    }
+
+    [Fact]
+    public void APlainPlasmaHitDoesNotDisableTheBuilding()
+    {
+        var (rig, sentry) = ABuiltSentry();
+        var scopes = rig.Services.Resolve<TFDamageScopes>()!;
+
+        // The charged-only gate (:1903): the plain plasma custom scales the
+        // blow but leaves the building working.
+        using (scopes.Push(TFDamageCustom.Plasma, TFWeaponId.Raygun, "tf_weapon_raygun"))
+            BuildingsRig.Hit(sentry, EntityHandle.None, 20f, DamageType.Bullet);
+
+        Assert.False(sentry.IsPlasmaDisabled);
+    }
 }

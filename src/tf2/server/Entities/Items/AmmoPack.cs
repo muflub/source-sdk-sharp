@@ -29,8 +29,8 @@ public static class TFAmmoPackRules
 
     /// <summary>
     /// Gives a pack of <paramref name="ratio"/>; true when anything was
-    /// taken. The spy's knife meter and the demoman's
-    /// <c>ammo_gives_charge</c> are not ported (docs/plans/tf2/deferred.tsv).
+    /// taken. The spy's knife meter is not ported
+    /// (docs/plans/tf2/deferred.tsv).
     /// </summary>
     public static bool Give(ITFMapPlayers players, EntityHandle player, float ratio)
     {
@@ -42,6 +42,9 @@ public static class TFAmmoPackRules
         // :86-89 — a spy riding by gets cloak by the pack's own fraction, and
         // a cloak that moved is a pack taken even from a fully stocked player.
         success |= players.AddToSpyCloakMeter(player, 100f * ratio);
+
+        // :96-110 — and the Persuader's wearer charge by the same fraction.
+        success |= players.AddToDemoChargeMeterFromAmmo(player, ratio);
 
         if (players.ClassOf(player) == TFClass.Engineer)
             success |= GiveShare(players, player, TFAmmo.Grenades1, ratio);

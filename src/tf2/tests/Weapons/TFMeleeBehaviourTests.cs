@@ -3,6 +3,7 @@ using SourceSharp.Shared;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 using Xunit;
 
@@ -229,6 +230,98 @@ public sealed class TFMeleeBehaviourTests
         Assert.False(Assert.Single(world.Effects.Swings).Trace.SelfOnMiss);
     }
 
+    [Fact]
+    public void A_silent_crit_item_zeroes_the_crit_smacks_damage()
+    {
+        // crit_does_no_damage (tf_weaponbase_melee.cpp:989-1002): with the held
+        // item's one, a crit smack carries no damage — stock zeroes it inside
+        // GetMeleeDamage right after the mult_dmg scale (:987).
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("crit_does_no_damage", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: Crit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.Equal(new ShotDamage(0f, true), Assert.Single(world.Effects.Swings).Shot);
+    }
+
+    [Fact]
+    public void A_silent_crit_item_leaves_a_plain_smack_at_the_rows_damage()
+    {
+        // The arm gates on the crit (:993): a plain swing of the same item
+        // keeps the row's damage.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("crit_does_no_damage", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.Equal(new ShotDamage(35f), Assert.Single(world.Effects.Swings).Shot);
+    }
+
+    [Fact]
+    public void A_laughing_item_puts_the_laugh_on_the_trace()
+    {
+        // crit_forces_victim_to_laugh (tf_weaponbase_melee.cpp:884-885): the
+        // held item's one makes the smack ask the forced-laugh arm; the crit
+        // gate itself waits at the hit (:886).
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("crit_forces_victim_to_laugh", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.True(Assert.Single(world.Effects.Swings).Trace.ForcesLaugh);
+    }
+
+    [Fact]
+    public void A_tickling_item_puts_the_tickle_on_the_trace()
+    {
+        // tickle_enemies_wielding_same_weapon (:903-905): the held item's one
+        // asks the arm for every hit; no crit gate is stock's (:909).
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("tickle_enemies_wielding_same_weapon", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.True(Assert.Single(world.Effects.Swings).Trace.TicklesSameWeapon);
+    }
+
+    [Fact]
+    public void The_held_fists_restamp_the_silent_mark_each_command()
+    {
+        // self_mark_for_death (tf_weaponbase_melee.cpp:354-365): the held
+        // fists' seconds ride onto the owner with every command, refreshed on
+        // the ask.
+        var world = new TFWeaponWorld();
+        world.Owners.Of(TFWeaponWorld.Owner);
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("self_mark_for_death", AttributeDescriptionFormat.Additive, 3f);
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.True(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.MarkedfordeathSilent));
+        Assert.Equal(3f, world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Duration(TFCond.MarkedfordeathSilent), 4);
+    }
+
+    [Fact]
+    public void Fists_without_the_mark_attribute_leave_the_owner_unmarked()
+    {
+        // Stock starts the hook at zero (:356): no attribute, no mark.
+        var world = new TFWeaponWorld();
+        world.Owners.Of(TFWeaponWorld.Owner);
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.False(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.MarkedfordeathSilent));
+    }
+
     // The c_heavy_arms table (HeavyArmsSequences): the fists' cells and the
     // scout's plain melee pair, as the shipped mdl tags them.
     private const int FistsLeft = 4;
@@ -311,5 +404,66 @@ public sealed class TFMeleeBehaviourTests
                                     AttributeEffectType.Neutral, false, false,
                                     AttributeValueType.Default, MergedKeys.Block("x")), value));
         return container;
+    }
+
+    // ---- the Gunslinger's combo (CTFRobotArm::PrimaryAttack) ----------------
+
+    private const string Arm = "tf_weapon_robot_arm";
+
+    /// <summary>A world over the extras, whose owner carries a predicted state the grant lands in.</summary>
+    private static (TFWeaponWorld World, TFPlayerNetState Carrier) ArmWorld()
+    {
+        var carrier = new TFPlayerNetState();
+        carrier.BindLocal();
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = carrier },
+                                      files: WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()));
+        return (world, carrier);
+    }
+
+    [Fact]
+    public void The_gunslingers_third_swing_grants_the_melee_crit()
+    {
+        var (world, carrier) = ArmWorld();
+        var (w, vm) = world.Armed(Arm, clip: -1, reserve: 0);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;   // two smacks landed
+        w.BehaviourTimeB = 9.6f;                                  // the last, inside its second
+
+        world.Behaviour(Arm).BeforePrimaryAttack(world.Attack(w, vm, 10f, seed: NoCrit));
+
+        // SetNextMeleeCrit(MELEE_CRIT) (tf_weapon_wrench.cpp:479-482): the
+        // grant the swing's own roll spends, the count itself untouched —
+        // the smack's hit is still to fold it.
+        Assert.Equal((int)TFMeleeCrit.Crit, carrier.NextMeleeCrit);
+        Assert.Equal(2, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    [Fact]
+    public void A_combo_past_its_second_is_no_combo()
+    {
+        var (world, carrier) = ArmWorld();
+        var (w, vm) = world.Armed(Arm, clip: -1, reserve: 0);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;
+        w.BehaviourTimeB = 8f;                                    // two seconds gone
+
+        world.Behaviour(Arm).BeforePrimaryAttack(world.Attack(w, vm, 10f, seed: NoCrit));
+
+        // The timeout's reset (tf_weapon_wrench.cpp:474-477) ahead of the
+        // grant's ask: the swing rolls plain, the count back to none.
+        Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
+        Assert.Equal(0, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    [Fact]
+    public void A_plain_melee_swing_never_touches_the_combo()
+    {
+        var (world, carrier) = ArmWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;
+        w.BehaviourTimeB = 8f;
+
+        world.Behaviour(Bat).BeforePrimaryAttack(world.Attack(w, vm, 10f, seed: NoCrit));
+
+        Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
+        Assert.Equal(2, TFMeleeBehaviour.ComboOf(w));
     }
 }

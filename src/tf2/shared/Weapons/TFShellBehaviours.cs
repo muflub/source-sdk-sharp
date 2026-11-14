@@ -48,7 +48,21 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     /// <summary>The flare gun's mode attribute (<c>GetFlareGunType</c>, tf_weapon_flaregun.h:63's <c>CALL_ATTRIB_HOOK_INT</c>).</summary>
     public const string FlareModeAttribute = "set_weapon_mode";
 
+    /// <summary>The energy weapon's empty pool (<c>energy_weapon_no_ammo</c>): the shot spends nothing.</summary>
+    public const string NoAmmoAttribute = "energy_weapon_no_ammo";
+
+    /// <summary>
+    /// The vacuum's half-second, both of stock's clocks: the press's refire
+    /// (<c>CTFFlareGun_Revenge::SecondaryAttack</c>, tf_weapon_flaregun.cpp:515)
+    /// and the span between extinguishes (<c>m_fLastExtinguishTime</c>'s gate,
+    /// :522).
+    /// </summary>
+    public const float ManmelterRefire = 0.5f;
+
     private static bool Charges(TFWeaponScript script) => script.Id == TFWeaponId.Pipebomblauncher;
+
+    /// <summary>The Manmelter, stock's <c>CTFFlareGun_Revenge</c> over the shell's id split.</summary>
+    private static bool IsManmelter(TFWeaponScript script) => script.Id == TFWeaponId.FlaregunRevenge;
 
     /// <summary>
     /// The jars: the stock <c>CTFJar</c> family's pair whose shot is the meter
@@ -66,8 +80,18 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     /// </summary>
     public override void SecondaryAttack(in WeaponAttackContext attack)
     {
-        if (ScriptOf(attack.Type) is { } script && Charges(script))
-            return;
+        if (ScriptOf(attack.Type) is { } script)
+        {
+            if (Charges(script))
+                return;
+
+            // The Manmelter's press is the frame tail's below — stock's
+            // CTFFlareGun_Revenge::SecondaryAttack is the charge's start and
+            // stamp alone (:495-516), which the arm under the held trigger
+            // carries; no class skill stands behind the pyro's secondary.
+            if (IsManmelter(script))
+                return;
+        }
 
         base.SecondaryAttack(in attack);
     }
@@ -142,6 +166,8 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
                 if ((weapon.LastButtons & (int)InputButtons.Attack2) != 0 && attack.EffectsLive)
                     Parts.Effects.Detonate(in attack, script);
             }
+            else if (IsManmelter(script))
+                ManmelterFrame(in attack, script);
             else if (FlareModeOf(in attack, script) == FlareDetonate
                      && (weapon.LastButtons & (int)InputButtons.Attack2) != 0 && attack.EffectsLive)
             {
@@ -160,6 +186,37 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     private int FlareModeOf(in WeaponAttackContext attack, TFWeaponScript script) =>
         (int)_attributes.Float(0f, FlareModeAttribute, Context(in attack, script).Item);
 
+    /// <summary>
+    /// The Manmelter's frames (CTFFlareGun::ItemPostFrame :252-267 over
+    /// CTFFlareGun_Revenge::ChargePostFrame, tf_weapon_flaregun.cpp:518-582):
+    /// trigger up, <c>StopCharge</c>; held, the charge starts once under the
+    /// re-entry gate the press keeps (:497, :515 — <see
+    /// cref="WeaponNetState.BehaviourTimeA"/>, stock's m_flChargeBeginTime),
+    /// and the vacuum asks past the last extinguish by the half-second — the
+    /// stamp lands on an extinguish alone (:547's m_fLastExtinguishTime,
+    /// <see cref="WeaponNetState.BehaviourTimeB"/>), so a held beam with
+    /// nobody to save re-asks each command, stock's frame gate too.
+    /// </summary>
+    private void ManmelterFrame(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        var weapon = attack.Weapon;
+
+        if ((weapon.LastButtons & (int)InputButtons.Attack2) == 0)
+        {
+            weapon.BehaviourTimeA = 0f;
+            return;
+        }
+
+        if (weapon.BehaviourTimeA == 0f)
+            weapon.BehaviourTimeA = attack.Now;
+        if (weapon.NextSecondaryAttack <= attack.Now)
+            weapon.NextSecondaryAttack = attack.Now + ManmelterRefire;
+
+        if (attack.Now > weapon.BehaviourTimeB + ManmelterRefire && attack.EffectsLive
+            && Parts.Effects.ExtinguishBeam(in attack, script))
+            weapon.BehaviourTimeB = attack.Now;
+    }
+
     private void Launch(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context)
     {
         var weapon = attack.Weapon;
@@ -169,17 +226,24 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         weapon.BehaviourMeter = 0f;
 
         int cost = Math.Max(1, script.Primary.AmmoPerShot);
-        if (ModifyClipSize(attack.Type, attack.Type.ClipSize, attack.Command.OwnerIndex) > 0)
+
+        // The energy weapon's pool is none (the Manmelter's
+        // energy_weapon_no_ammo): the shot spends nothing, the clip standing
+        // where the deploy put it for the machine's empty gate.
+        if (_attributes.Int(0, NoAmmoAttribute, context.Item) == 0)
         {
-            if (weapon.Clip < cost)
-                return;
-            weapon.Clip -= cost;
-        }
-        else
-        {
-            if (weapon.Reserve < cost)
-                return;
-            weapon.Reserve -= cost;
+            if (ModifyClipSize(attack.Type, attack.Type.ClipSize, attack.Command.OwnerIndex) > 0)
+            {
+                if (weapon.Clip < cost)
+                    return;
+                weapon.Clip -= cost;
+            }
+            else
+            {
+                if (weapon.Reserve < cost)
+                    return;
+                weapon.Reserve -= cost;
+            }
         }
 
         // The jar's second purse empties with the round: the bar restart
@@ -208,6 +272,20 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         // name's no-op, as stock's is.
         if (attack.EffectsLive && ShouldDoMuzzleFlash && script.MuzzleFlashParticleEffect.Length > 0)
             attack.Arms.MuzzleFlash(attack.Type, script.MuzzleFlashParticleEffect);
+
+        // The Manmelter's shot spends a banked crit
+        // (CTFFlareGun_Revenge::PrimaryAttack, tf_weapon_flaregun.cpp:486-492):
+        // one off, floored at zero, and the condition with it — the setter's
+        // sync (CTFPlayerShared::SetRevengeCrits,
+        // tf_player_shared.cpp:14483-14486), this gun the active weapon the
+        // check names at both ends of the count.
+        if (IsManmelter(script)
+            && Parts.PlayerData?.Predicted(attack.Command.OwnerIndex) is { } bank)
+        {
+            bank.RevengeCrits = Math.Max(0, bank.RevengeCrits - 1);
+            if (bank.RevengeCrits == 0)
+                Parts.Owners.ConditionsOf(attack.Command.OwnerIndex)?.Remove(TFCond.Critboosted);
+        }
     }
 }
 
@@ -318,13 +396,51 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
         }
 
         if ((attack.Weapon.LastButtons & (int)InputButtons.Attack2) != 0
-            && ScriptOf(attack.Type) is { } script && AirBlast(in attack, script))
-            return;
+            && ScriptOf(attack.Type) is { } script)
+        {
+            // SecondaryAttack's buff arm (:1196-1200): a set_buff_type item's
+            // secondary is the rage, not the blast — the Phlogistinator's, the
+            // attribute the airblast's CanAirBlast (:353-363) silences beside.
+            int buffType = _attributes.Int(0, TFRageMeter.BuffTypeAttribute,
+                                           Parts.Owners.ItemOf(attack.Command.OwnerIndex, attack.Type.Name));
+            if (buffType != 0 ? RagePress(in attack, buffType) : AirBlast(in attack, script))
+                return;
+        }
 
         base.ItemPostFrame(in attack);
     }
 
-    private bool AirBlast(in WeaponAttackContext attack, TFWeaponScript script)
+    /// <summary>The rage press's hold (<c>UseRage</c>'s :1140 server stamp;
+    /// the client's :1143 is unconditional, and the predicted field is the
+    /// client's shape).</summary>
+    public const float RageRefire = 1f;
+
+    /// <summary>
+    /// The rage press, <c>UseRage</c> (:1120-1147) behind
+    /// <c>SecondaryAttack</c>'s shared gates: the refused re-press (:1164) and
+    /// the eyes under the water (:1175) consume nothing, the meter short of
+    /// full is <c>IsRageFull</c>'s no (:1122), and a full one asks the taunt
+    /// whose arm lights the rage — the effects' <see cref="ITFWeaponEffects.UseRage"/>.
+    /// </summary>
+    private bool RagePress(in WeaponAttackContext attack, int buffType)
+    {
+        var weapon = attack.Weapon;
+        if (weapon.NextSecondaryAttack > attack.Now)
+            return false;
+
+        if (Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
+            return false;
+
+        if (Parts.PlayerData?.Predicted(attack.Command.OwnerIndex) is not { } state
+            || state.RageMeter < TFRageMeter.FullMeter)
+            return false;
+
+        weapon.NextSecondaryAttack = attack.Now + RageRefire;
+        Parts.Effects.UseRage(in attack, buffType);
+        return true;
+    }
+
+    protected bool AirBlast(in WeaponAttackContext attack, TFWeaponScript script)
     {
         var weapon = attack.Weapon;
         if (weapon.NextSecondaryAttack > attack.Now)
@@ -428,6 +544,129 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
         weapon.TimeWeaponIdle = attack.Now + FlameFireDelay;
         Parts.Hooks.AfterFire(in context, in attack);
         return false;
+    }
+}
+
+/// <summary>
+/// The Dragon's Fury's shell (<c>CTFWeaponFlameBall : CTFFlameThrower</c>,
+/// <c>tf_weapon_dragons_fury.h:27</c>): the held fire is one ball on the full
+/// charge meter and no clip — <c>HasFullCharge</c> gates the attack ahead of
+/// the ammunition count and <c>CanAttack</c>
+/// (<c>tf_weapon_dragons_fury.cpp:91-99</c>), the ball spends one round off
+/// the reserve, and the meter resets with the shot (:125-126). The blast is
+/// the flamethrower's, asked through the same full-pressure gate and leaving
+/// the refill on the penalty (:196-234). Stock sets no refire clock of its own
+/// (:260): the refill pace of the meter is the fire rate, not a clip's cadence.
+/// </summary>
+public class TFFlameBallBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
+{
+    /// <summary>The empty-click pause of the underwater refusal (<c>:266</c>).</summary>
+    public const float UnderwaterPause = 0.2f;
+
+    /// <summary>
+    /// <c>HasFullCharge</c> (<c>:236-243</c>): the carried meter at full.
+    /// </summary>
+    public static bool HasFullCharge(WeaponNetState weapon) => weapon.ItemMeter >= 1f;
+
+    /// <summary>
+    /// The held fire (<c>PrimaryAttack</c> :83-132 through
+    /// <c>FireProjectile</c> :134-194), gated in stock's own order — the
+    /// underwater refusal of <c>ItemPostFrame</c> :262-268 ahead of the meter
+    /// (:91), the ammo count (:94-96) and <c>CanAttack</c> (:98). A fired ball
+    /// spends one round off the reserve (the clipless <c>RemoveProjectileAmmo</c>),
+    /// plays its single or crit sound off the crit the launcher carries
+    /// (:180, :184), asks the server entity of
+    /// <see cref="ITFWeaponEffects.Projectile"/> and hands the meter back to
+    /// zero (:125-126). No next-fire clock is set: the refill pace of the meter
+    /// is the fire rate, stock's gate at :260 leaving it there.
+    /// </summary>
+    public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script)
+            return true;
+
+        var weapon = attack.Weapon;
+
+        // "This weapon doesn't fire underwater" (:262-268): the empty click
+        // and the quarter-second pause, before the meter is even asked.
+        if (Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
+        {
+            PlaySound(in attack, script, WeaponScriptSound.Empty);
+            weapon.NextPrimaryAttack = attack.Now + UnderwaterPause;
+            return false;
+        }
+
+        if (!HasFullCharge(weapon) || weapon.Reserve <= 0)
+            return false;
+
+        var context = Context(in attack, script);
+        if (!CanAttack(in attack, in context) || !Parts.Hooks.BeforeFire(in context, in attack))
+            return false;
+
+        int cost = Math.Max(1, script.Primary.AmmoPerShot);
+        if (weapon.Reserve < cost)
+            return false;
+        weapon.Reserve -= cost;
+
+        var shot = ModifyShot(in attack, default);
+
+        SendAnim(in attack, WeaponAnim.Primary);
+        PlaySound(in attack, script, shot.Critical ? WeaponScriptSound.Burst : WeaponScriptSound.Single);
+        if (attack.EffectsLive)
+            Parts.Effects.Projectile(in attack, script, shot, charge: 0f);
+
+        TFItemMeter.Use(weapon);
+        Parts.Hooks.AfterFire(in context, in attack);
+        return false;
+    }
+
+    /// <summary>
+    /// The charged blast (<c>SecondaryAttack</c> :196-234): full pressure first
+    /// (:199), then the blast of <c>BaseClass::SecondaryAttack</c> (:220) — the
+    /// flame's own, whose cost reads the burst ammo through the item's
+    /// <c>mult_airblast_cost</c> (:212-214), checked and spent as one number
+    /// (:217-218) — and behind its success the penalty on the refill and the
+    /// meter back to zero (:228-229). Stock's caller gates the whole arm on
+    /// <c>CanAttack</c> (:254); ours asks here. The machine's Attack2 arm
+    /// already holds the blast to its refire clock, the flame's clocks stamped
+    /// here as <c>FireAirBlast</c> stamps them.
+    /// </summary>
+    public override void SecondaryAttack(in WeaponAttackContext attack)
+    {
+        var weapon = attack.Weapon;
+        if (!HasFullCharge(weapon) || weapon.NextSecondaryAttack > attack.Now)
+            return;
+
+        if (ScriptOf(attack.Type) is not { } script)
+            return;
+
+        // Stock's caller gate on CanAttack (:254), ours at the item's own arm.
+        if (!CanAttack(in attack, Context(in attack, script)))
+            return;
+
+        if (Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
+            return;
+
+        // The one scaled number of the blast (:212-218): the check and the
+        // spend see the same figure through the item's hook.
+        int ammo = Parts.Hooks.ModifyAirBlastCost(Context(in attack, script), Parts.FlamethrowerBurstammo);
+        if (weapon.Reserve < ammo)
+            return;
+        weapon.Reserve -= ammo;
+
+        // The flame's blast (:220's BaseClass::SecondaryAttack), the state and
+        // the refires its own arm carries (:978, :1044-1045).
+        attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary);
+        if (attack.EffectsLive)
+            Parts.Effects.AirBlast(in attack, script);
+
+        weapon.NextSecondaryAttack = attack.Now + TFFlamethrowerBehaviour.AirBlastRefire;
+        weapon.NextPrimaryAttack = attack.Now + TFFlamethrowerBehaviour.AirBlastPrimaryRefire;
+
+        // Stock's DF leaves the refill on the penalty (:228), and the blast
+        // spends the charge it was asked with (:229's SetItemChargeMeter(0)).
+        weapon.FlameBallChargeScale = TFItemMeter.RechargePenalty;
+        TFItemMeter.Use(weapon);
     }
 }
 

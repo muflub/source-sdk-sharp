@@ -6,6 +6,9 @@ using SourceSharp.Tests;
 using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
+
+using TF2.Tests.Projectiles;
 
 using Xunit;
 
@@ -82,7 +85,13 @@ internal sealed class MeleeRig
     /// <summary>The contact the hull answers, when it hits.</summary>
     public Vector HullEnd { get; set; } = new(44f, 3f, 62f);
 
-    public MeleeRig()
+    /// <summary>The held items the tickle's defindex pair reads (slots 3 and 7).</summary>
+    public FakeOwners Owners { get; } = new();
+
+    /// <summary>The conditions the laugh arms add, recorded whole.</summary>
+    public FakeConditions Conditions { get; } = new();
+
+    public MeleeRig(ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
     {
         Engine.ReturnsEachCall("Players.GetHandle",
                                () => Engine.Calls[^1].Args[0] is int slot && Slots.TryGetValue(slot, out var h) ? h : Owner);
@@ -98,11 +107,14 @@ internal sealed class MeleeRig
         Engine.ReturnsEachCall("Entities.GetOrigin",
                                () => Engine.Calls[^1].Args[0] is EntityHandle h && Origins.TryGetValue(h, out var o) ? o : default(Vector));
         Engine.Returns("Entities.IsValid", true);
+        Engine.ReturnsEachCall("Entities.GetIndex",
+                               () => Engine.Calls[^1].Args[0] is EntityHandle h && h == Victim ? 7 : 3);
         Engine.ReturnsEachCall("WorldQuery.TraceLine", () => Line);
         Engine.ReturnsEachCall("WorldQuery.TraceBox", () => Hull.Hit ? Hull with { End = HullEnd } : Hull);
 
         Damage = new MeleeDamage(HitGroups);
-        Effects = new TFMeleeEffects(Engine, Engine, Engine, Damage, HitGroups, Log);
+        Effects = new TFMeleeEffects(Engine, Engine, Engine, Damage, HitGroups, Log, owners ?? Owners, hooks,
+                                     conditions: Conditions);
     }
 
     /// <summary>What the engine says the hit target is.</summary>
@@ -121,9 +133,11 @@ internal sealed class MeleeRig
 
     public void SwingStarted(float range = TFWeaponTypes.SwingRange) => Effects.MeleeSwingStarted(Attack(AttackArms), range);
 
-    public void Melee(ShotDamage? shot = null, float? range = null, float? hull = null, bool behind = false, bool self = false) =>
+    public void Melee(ShotDamage? shot = null, float? range = null, float? hull = null, bool behind = false, bool self = false,
+                      bool laugh = false, bool tickle = false) =>
         Effects.Melee(Attack(AttackArms), WeaponFixtures.Parse("tf_weapon_bat"), shot ?? new ShotDamage(35f),
-                      new SwingTrace(range ?? TFWeaponTypes.SwingRange, hull ?? TFMeleeBehaviour.SwingHull, behind, self));
+                      new SwingTrace(range ?? TFWeaponTypes.SwingRange, hull ?? TFMeleeBehaviour.SwingHull, behind, self,
+                                     laugh, tickle));
 
     /// <summary>The melee attack: the bat's row, its owner, the live run.</summary>
     public static WeaponAttackContext Attack(IWeaponArms arms) => new(
@@ -483,5 +497,296 @@ public sealed class TFMeleeCritFromBehindTests
         var rig = VictimAt(yaw: 0f, behind: false);
 
         Assert.False(Assert.Single(rig.Damage.Hits).Critical);
+    }
+}
+
+/// <summary>
+/// The honourbound duel (<c>CTFKatana::GetMeleeDamage</c>,
+/// tf_weapon_sword.cpp:548-571): the katana against a victim whose own held
+/// weapon is honourbound floors the blow at thrice the victim's health and
+/// marks it DMG_DONT_COUNT_DAMAGE_TOWARDS_CRIT_RATE.
+/// </summary>
+public sealed class TFKatanaDuelTests
+{
+    /// <summary>An item wearing the honourbound mark.</summary>
+    private static IAttributeProvider HonourBound()
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(513, "attr honorbound", TFSwordHook.HonorBoundAttrib,
+                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                    false, false, AttributeValueType.Default, MergedKeys.Block("x")), 1f));
+        return container;
+    }
+
+    /// <summary>An item wearing nothing.</summary>
+    private static IAttributeProvider Plain() => new AttributeContainer(null, AttributeProviderType.Generic);
+
+    /// <summary>A katana duellist: the swinger (slot 3, the attack's owner) honourbound
+    /// when <paramref name="attacker"/>, the victim (slot 4) holding an
+    /// honourbound weapon when <paramref name="victim"/>.</summary>
+    private static MeleeRig Duel(bool attacker = true, bool victim = true)
+    {
+        var owners = new FakeOwners();
+        owners.ByName[3] = new() { [TFWeaponTypes.Katana] = attacker ? HonourBound() : Plain() };
+        owners.ByName[4] = new() { [TFWeaponTypes.Katana] = HonourBound() };
+        owners.Held[4] = victim ? TFWeaponTypes.Katana : "tf_weapon_bat";
+        var rig = new MeleeRig(owners, new AttributeHooks())
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+        rig.EnemyAt(40);
+        // The duelling victim's health, the blow's floor's base.
+        rig.Engine.Returns("Entities.GetHealth", 30);
+        return rig;
+    }
+
+    private static MeleeHit Swing(MeleeRig rig, float damage = 35f)
+    {
+        rig.Effects.Melee(MeleeRig.Attack(rig.AttackArms), WeaponFixtures.ParseExtra(TFWeaponTypes.Katana),
+                          new ShotDamage(damage),
+                          new SwingTrace(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull, false));
+        return Assert.Single(rig.Damage.Hits);
+    }
+
+    [Fact]
+    public void TheDuelStrikesForNoLessThanThriceTheVictimsHealth()
+    {
+        // 3 * 30 past the 35 swing: the floor is the blow.
+        var hit = Swing(Duel());
+
+        Assert.Equal(90f, hit.Damage, 4);
+        Assert.True((hit.Type & TFDamageBits.DontCountCritRate) != 0);
+    }
+
+    [Fact]
+    public void TheDuelHoldsWhenTheHealthFloorIsUnderTheSwing()
+    {
+        // 3 * 20 under the 65 the swing carries: the swing is the blow, the
+        // crit-rate mark still ours.
+        var rig = Duel();
+        rig.Engine.Returns("Entities.GetHealth", 20);
+        var hit = Swing(rig, damage: 65f);
+
+        Assert.Equal(65f, hit.Damage, 4);
+        Assert.True((hit.Type & TFDamageBits.DontCountCritRate) != 0);
+    }
+
+    [Fact]
+    public void TheDuelNeedsTheVictimsHeldHonourbound()
+    {
+        var hit = Swing(Duel(victim: false));
+
+        Assert.Equal(35f, hit.Damage, 4);
+        Assert.True((hit.Type & TFDamageBits.DontCountCritRate) == 0);
+    }
+
+    [Fact]
+    public void TheDuelNeedsTheAttackersHonourbound()
+    {
+        var hit = Swing(Duel(attacker: false));
+
+        Assert.Equal(35f, hit.Damage, 4);
+        Assert.True((hit.Type & TFDamageBits.DontCountCritRate) == 0);
+    }
+
+    // ---- the Gunslinger's count (CTFRobotArm::Smack) ------------------------
+
+    /// <summary>A bound weapon state for the count the smacks keep.</summary>
+    private static WeaponNetState Arm()
+    {
+        var w = new WeaponNetState();
+        w.BindLocal();
+        return w;
+    }
+
+    /// <summary>The arm's attack at <paramref name="now"/>, its weapon state the caller's.</summary>
+    private static WeaponAttackContext ArmAttack(WeaponNetState weapon, float now) => new(
+        new WeaponType { Name = TFWeaponTypes.WrenchArm, MeleeRange = TFWeaponTypes.SwingRange, MeleeDamage = 65f },
+        weapon, default!, now, true, new RecordingArms(), new WeaponCommand(1, 5, 3));
+
+    private static readonly SwingTrace ArmSmackTrace =
+        new(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull, false);
+
+    /// <summary>The arm's smack against a staged hull, the victim player or not.</summary>
+    private MeleeRig ArmRig(bool player, bool enemy = true)
+    {
+        var rig = new MeleeRig { Hull = MeleeRig.HullOn(MeleeRig.Victim), TargetIsPlayer = player };
+        rig.EnemyAt(45f);
+        if (!enemy)
+            rig.Teams[MeleeRig.Victim] = (int)TFTeam.Red;
+        return rig;
+    }
+
+    private void Smack(MeleeRig rig, WeaponNetState weapon, float now) =>
+        rig.Effects.Melee(ArmAttack(weapon, now), WeaponFixtures.ParseExtra(TFWeaponTypes.WrenchArm),
+                          new ShotDamage(65f), ArmSmackTrace);
+
+    [Fact]
+    public void A_gunslinger_smack_into_an_enemy_counts_toward_the_third()
+    {
+        var w = Arm();
+        var rig = ArmRig(player: true);
+
+        Smack(rig, w, now: 10f);
+        Assert.Equal(1, TFMeleeBehaviour.ComboOf(w));
+        Assert.Equal(10f, w.BehaviourTimeB, 4);   // the clock the grant's timeout reads
+
+        Smack(rig, w, now: 10.5f);
+        Assert.Equal(2, TFMeleeBehaviour.ComboOf(w));
+
+        // The third hit is the big one and folds back to none
+        // (tf_weapon_wrench.cpp:508-513), its swing already gone.
+        Smack(rig, w, now: 11f);
+        Assert.Equal(0, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    [Fact]
+    public void A_smack_into_the_world_or_a_teammate_resets_the_count()
+    {
+        var w = Arm();
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;
+
+        var world = ArmRig(player: false);
+        Smack(world, w, now: 10f);
+        Assert.Equal(0, TFMeleeBehaviour.ComboOf(w));
+        Assert.Equal(0f, w.BehaviourTimeB, 4);    // no count, no clock
+
+        var mate = ArmRig(player: true, enemy: false);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;
+        Smack(mate, w, now: 10f);
+        Assert.Equal(0, TFMeleeBehaviour.ComboOf(w));
+    }
+}
+
+/// <summary>
+/// The Holiday Punch's two laugh arms after the hit (stock's non-truce block,
+/// <c>tf_weaponbase_melee.cpp:882-927</c>): the crit's forced laugh and the
+/// tickle by equal active-item defindexes, each only over a living enemy player.
+/// </summary>
+public sealed class TFMeleeHolidayPunchTests
+{
+    /// <summary>The fist pair the tickle compares: the schema's 15 and 23.</summary>
+    private const string Schema = """
+        "items_game"
+        {
+            "qualities"
+            {
+                "unique"
+                {
+                    "value"	"6"
+                }
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "15"
+                {
+                    "name"	"holidays"
+                    "item_class"	"tf_weapon_fists"
+                    "item_quality"	"unique"
+                    "used_by_classes"
+                    {
+                        "heavy"	"1"
+                    }
+                }
+                "23"
+                {
+                    "name"	"matching"
+                    "item_class"	"tf_weapon_fists"
+                    "item_quality"	"unique"
+                    "used_by_classes"
+                    {
+                        "heavy"	"1"
+                    }
+                }
+            }
+        }
+        """;
+
+    private static AttributeContainer Item(int defindex) =>
+        new(SchemaParser.Parse(Schema).Items[defindex]);
+
+    /// <summary>The swing's hull stop on the enemy player in slot 7, live.</summary>
+    private static MeleeRig EnemyRig()
+    {
+        var rig = new MeleeRig { Hull = MeleeRig.HullOn(MeleeRig.Victim), TargetIsPlayer = true };
+        rig.EnemyAt(44f);
+        return rig;
+    }
+
+    [Fact]
+    public void A_laughing_crit_makes_the_enemy_victim_laugh()
+    {
+        // crit_forces_victim_to_laugh (:884-901): the held item's one with the
+        // hit a crit: stock's Taunt answers the laughing condition, over the
+        // side's fallback scene window.
+        var rig = EnemyRig();
+
+        rig.Melee(new ShotDamage(35f, true), laugh: true);
+
+        var added = Assert.Single(rig.Conditions.Added);
+        Assert.Equal((MeleeRig.Victim, TFCond.Taunting), (added.Player, added.Cond));
+        Assert.Equal(3f, added.Duration, 4);
+    }
+
+    [Fact]
+    public void A_laughing_hit_on_a_same_team_victim_leaves_them_alone()
+    {
+        // The team gate (:890): same team, no laugh — the rig's default pair
+        // are both red.
+        var rig = new MeleeRig { Hull = MeleeRig.HullOn(MeleeRig.Victim), TargetIsPlayer = true };
+
+        rig.Melee(new ShotDamage(35f, true), laugh: true);
+
+        Assert.Empty(rig.Conditions.Added);
+    }
+
+    [Fact]
+    public void The_laugh_needs_the_hits_crit_bit()
+    {
+        // The arm is the crit's (:886): a plain blow with the attribute set
+        // leaves the victim's face alone.
+        var rig = EnemyRig();
+
+        rig.Melee(new ShotDamage(35f), laugh: true);
+
+        Assert.Empty(rig.Conditions.Added);
+    }
+
+    [Fact]
+    public void A_plain_tickle_on_the_same_item_makes_the_enemy_victim_laugh()
+    {
+        // tickle_enemies_wielding_same_weapon (:903-927): both players' active
+        // items, equal defindexes, the blow no crit.
+        var rig = EnemyRig();
+        rig.Owners.Held[3] = "tf_weapon_bat";
+        rig.Owners.Held[7] = "tf_weapon_bat";
+        rig.Owners.Items[3] = Item(15);
+        rig.Owners.Items[7] = Item(15);
+
+        rig.Melee(new ShotDamage(35f), tickle: true);
+
+        var added = Assert.Single(rig.Conditions.Added);
+        Assert.Equal((MeleeRig.Victim, TFCond.Taunting), (added.Player, added.Cond));
+        Assert.Equal(3f, added.Duration, 4);
+    }
+
+    [Fact]
+    public void A_plain_tickle_on_different_items_leaves_them_alone()
+    {
+        // The match is of defindexes (:919): 15 against 23 answers no laugh.
+        var rig = EnemyRig();
+        rig.Owners.Held[3] = "tf_weapon_bat";
+        rig.Owners.Held[7] = "tf_weapon_bat";
+        rig.Owners.Items[3] = Item(15);
+        rig.Owners.Items[7] = Item(23);
+
+        rig.Melee(new ShotDamage(35f), tickle: true);
+
+        Assert.Empty(rig.Conditions.Added);
     }
 }

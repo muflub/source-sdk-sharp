@@ -257,6 +257,7 @@ public sealed class TFDroppedWeaponPickupTests
         public void Holster(int ownerIndex, float now) { }
         public void Unholster(int ownerIndex, float now) { }
         public void RemoveMedigun(int ownerIndex, float now) { }
+        public void PreserveCharge(int ownerIndex, float amount) { }
         public int HealingTargetIndex(int ownerIndex) => -1;
         public bool IsReleasing(int ownerIndex) => false;
     }

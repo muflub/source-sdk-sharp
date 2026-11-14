@@ -151,6 +151,48 @@ public sealed class AmmoPackTests
         Assert.DoesNotContain("sound AmmoPack.Touch", rig.Notices.Said);
     }
 
+    [Fact]
+    public void A_persuader_at_full_ammo_still_takes_the_pack_for_its_charge()
+    {
+        // entity_ammopack.cpp:96-110 — ammo_gives_charge makes a full pack
+        // taken: the ammo arms fit nothing, the charge moves by the pack's
+        // own fraction, and the pickup sounds and the event go as if the
+        // ammo had arrived.
+        var rig = new MapItemRig();
+        var pack = rig.Spawn<AmmoPack>(AmmoPackMedium.MediumClass);
+        var p = Soldier(rig, out var player, TFClass.Demoman);
+        foreach (var (ammo, max) in p.MaxAmmo)
+            p.Ammo[ammo] = max;
+        p.WearsCharge = true;
+        p.ChargeMeter = 40f;
+
+        rig.Touch(pack, player);
+
+        Assert.Equal(90f, p.ChargeMeter); // 100 * the medium's 0.5
+        Assert.True(pack.IsRespawning);
+        Assert.Equal(["sound AmmoPack.Touch", "item_pickup ammopack_medium"], rig.Notices.Said);
+    }
+
+    [Fact]
+    public void A_full_charge_meter_leaves_the_persuaders_pack_to_the_ammo()
+    {
+        // :101 — a full meter takes no charge; a stocked player without cloak
+        // or room leaves the pack untouched.
+        var rig = new MapItemRig();
+        var pack = rig.Spawn<AmmoPack>(AmmoPack.MapClass);
+        var p = Soldier(rig, out var player, TFClass.Demoman);
+        foreach (var (ammo, max) in p.MaxAmmo)
+            p.Ammo[ammo] = max;
+        p.WearsCharge = true;
+        p.ChargeMeter = 100f;
+
+        rig.Touch(pack, player);
+
+        Assert.False(pack.IsRespawning);
+        Assert.Equal(100f, p.ChargeMeter);
+        Assert.Empty(rig.Notices.Said);
+    }
+
     // The gamestats calls: Event_PlayerAmmokitPickup at entity_ammopack.cpp:127
     // and entity_healthkit.cpp:295 — a pack taken counts one, and the
     // health-ammo kit counts the side that actually announced the pickup.

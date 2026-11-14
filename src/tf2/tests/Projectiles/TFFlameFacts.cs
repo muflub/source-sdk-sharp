@@ -75,6 +75,9 @@ internal sealed class FlameRig
     /// <summary>The carrier registry the old arm's stun asks, and the typed convars over it.</summary>
     public TFPlayerCarriers Carriers { get; } = new();
 
+    /// <summary>The burn registry the vacuum's burner read asks; its slices attach by hand.</summary>
+    public TFAfterburns Afterburns { get; }
+
     /// <summary>The players the stun stack's condition asks read.</summary>
     public readonly FakeMapPlayers StunPlayers = new();
 
@@ -125,12 +128,14 @@ internal sealed class FlameRig
     {
         Damage = new ScopedDamage(Scopes);
         Convars.RegisterAll(typeof(TF2.Server.Medigun.TFPlayerHealing).Assembly);
+        Afterburns = new TFAfterburns(Carriers, Conditions, Engine, Engine, Damage, Directory, Scopes,
+                                      new CombatRig.HealingSpy(), Owners, new TF2.Shared.Econ.AttributeHooks(), Carriers);
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
                                      Convars.Declared<TFAirBlastCrayConVar>(),
                                      Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                      Convars.Declared<TFPushbackScaleConVar>(),
                                      Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers,
-                                     Hooks, Health, Engine);
+                                     Hooks, Health, Engine, afterburns: Afterburns);
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);

@@ -62,6 +62,17 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
     /// </summary>
     public const string Drink = "tf_weapon_lunchbox_drink";
 
+    /// <summary>
+    /// The Half-Zatoichi's entity class (<c>LINK_ENTITY_TO_CLASS(
+    /// tf_weapon_katana, CTFKatana )</c>, tf_weapon_sword.cpp:50): the
+    /// soldier's and demoman's honourbound duel melee. Like the drink, the
+    /// class has no id of its own — <c>CTFKatana</c> overrides no
+    /// <c>GetWeaponID</c>, inheriting the decap base's <c>TF_WEAPON_SWORD</c>
+    /// (tf_weapon_sword.h:45) — so the katana carries the sword kind; only
+    /// the script name and the row are its own.
+    /// </summary>
+    public const string Katana = "tf_weapon_katana";
+
     private readonly TFWeaponScripts _scripts;
     private readonly TFClassTable _classes;
     private readonly ItemSchema _schema;
@@ -97,6 +108,14 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // reads this table, so the item-carried weapons seed here as they
             // land — the catalogue cannot learn them from the class scripts.
             TFWeaponNames.Name(TFWeaponId.Flaregun).ToLowerInvariant(),
+            // The Manmelter: the pyro's vacuum, the flare gun's revenge shell
+            // (CTFFlareGun_Revenge) — the same equipped-item row the flare gun
+            // is, its behaviour the projectile's behind the beam.
+            TFWeaponNames.Name(TFWeaponId.FlaregunRevenge).ToLowerInvariant(),
+            // The Frontier Justice: the engineer's revenge shotgun
+            // (CTFShotgun_Revenge), the shotgun shell's revenge row — the same
+            // equipped-item seed the Manmelter is, its bookends the hands'.
+            TFWeaponNames.Name(TFWeaponId.SentryRevenge).ToLowerInvariant(),
             // The Crusader's Crossbow: the medic's unlock, held only as an
             // equipped item — no class script's weaponN names it either, and
             // its behaviour is the projectile's, so it seeds beside the
@@ -124,10 +143,45 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // item whose triggers drive the sentry (tf_weapon_laser_pointer,
             // the item's own row).
             TFWeaponNames.Name(TFWeaponId.LaserPointer).ToLowerInvariant(),
+            // The sniper's unlock rifles the same way: the Bazaar Bargain and
+            // the Classic are equipped items whose classes are their own
+            // entities (tf_weapon_sniperrifle_decap, tf_weapon_sniperrifle_
+            // classic — items_working.tsv:133, :309), no class script's
+            // weaponN names either.
+            TFWeaponNames.Name(TFWeaponId.SniperrifleDecap).ToLowerInvariant(),
+            TFWeaponNames.Name(TFWeaponId.SniperrifleClassic).ToLowerInvariant(),
             // The scout's energy drink, the lunchbox family's own script name:
             // Bonk! and cousins are equipped items, no class script's weaponN
             // names them either, so the drink seeds beside its plate.
             Drink,
+            // The decapitating melee (the Eyelander and its skins, items_working
+            // rows 132, 172, 266, 327, 404, 482, 1082): the demoman holds it as
+            // an equipped item over the bottle, no class script's weaponN.
+            TFWeaponNames.Name(TFWeaponId.Sword).ToLowerInvariant(),
+            // The Dragon's Fury: the pyro's unlock, held as the equipped item
+            // whose class is the entity stock binds the weapon to
+            // (tf_weapon_dragons_fury.cpp:42) — the item's own row, whose id
+            // answer rides the GetWeaponID override (tf_weapon_dragons_fury.h:45)
+            // rather than the misspelt g_aWeaponNames spelling, so the entity
+            // name is the seed, not the id's Name() key.
+            "tf_weapon_rocketlauncher_fireball",
+            // The Half-Zatoichi (items_working.tsv:357) the same way: the
+            // soldier's and demoman's unlock, held as the loadout item whose
+            // class is the katana's own row.
+            Katana,
+            // The energy family: the soldier's bison and Cow Mangler and the
+            // engineer's pomson, held as equipped unlocks whose entity classes
+            // are their own rows (items_working.tsv:441, :442, :588). No class
+            // script's weaponN names them, so they seed beside the jars.
+            TFWeaponNames.Name(TFWeaponId.Raygun).ToLowerInvariant(),
+            TFWeaponNames.Name(TFWeaponId.ParticleCannon).ToLowerInvariant(),
+            TFWeaponNames.Name(TFWeaponId.DrgPomson).ToLowerInvariant(),
+            // The Air Strike: the soldier's airdrop primary
+            // (items_working.tsv:315), held as the equipped item whose script
+            // is its own row — stock's GetWeaponId knows no id for it
+            // (tf_shareddefs.cpp:1206-1217), so it seeds by its script
+            // spelling, the way the sapper and the Gunslinger do.
+            "tf_weapon_rocketlauncher_airstrike",
         };
 
         for (var c = TFClass.Scout; c < TFClass.CountAll; c++)

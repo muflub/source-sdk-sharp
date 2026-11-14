@@ -93,6 +93,9 @@ public sealed class TFWeaponCompositionTests
         // The owners' ground answer reads the player entities through the directory.
         c.AddInstance<IEntityDirectory>(new TF2.Tests.Combat.NoEntities());
         c.AddInstance<IEngineDamage>(engine);
+        // The shield charge's bash shakes the screen through the engine seam.
+        c.AddInstance<SourceSharp.Server.IScreenEffects>(
+            new SourceSharp.Server.ScreenEffects(engine, engine, engine, engine));
         // ITFPlayerData and ITFPlayerConditions come from TFPlayerCarriers and
         // TFPlayerConditions, the scan's own registrations.
         c.AddInstance(new SourceSharp.Server.DamageHitGroups());
@@ -196,7 +199,7 @@ public sealed class TFWeaponCompositionTests
         var c = Server();
 
         var types = Assert.Single(c.ResolveAll<IWeaponTypeSource>().OfType<TFWeaponTypes>());
-        Assert.Equal(33, types.Rows().Count());
+        Assert.Equal(34, types.Rows().Count());
         var behaviours = Assert.Single(c.ResolveAll<IWeaponBehaviourSource>().OfType<TFWeaponBehaviours>());
         Assert.Equal(Enum.GetValues<TFWeaponKind>().Length, behaviours.Behaviours().Count());
         Assert.Single(c.ResolveAll<IAmmoTypeSource>().OfType<TFAmmoTypes>());
@@ -238,6 +241,7 @@ public sealed class TFWeaponCompositionTests
         var chain = (TFWeaponHookChain)Server().Resolve(typeof(TFWeaponHookChain))!;
 
         Assert.Collection(chain.All,
+            h => Assert.IsType<TFSwordHook>(h),
             h => Assert.IsType<TFAttributeWeaponHook>(h),
             h => Assert.IsType<TFCritBoostHook>(h),
             h => Assert.IsType<TFKingReloadHook>(h),
@@ -297,10 +301,11 @@ public sealed class TFWeaponCompositionTests
         Assert.Equal(Server().ResolveAll<IWeaponTypeSource>().OfType<TFWeaponTypes>().Single().Names(), types.Names());
         Assert.Single(c.ResolveAll<CShared.IWeaponBehaviourSource>().OfType<CTF.TFWeaponBehaviours>());
         var chain = (CTF.TFWeaponHookChain)c.Resolve(typeof(CTF.TFWeaponHookChain))!;
-        Assert.Equal(5, chain.All.Count);
-        Assert.IsType<CTF.TFKingReloadHook>(chain.All[2]);
-        Assert.IsType<CTF.TFKnifeHook>(chain.All[3]);
-        Assert.IsType<CTF.TFWrenchHook>(chain.All[4]);
+        Assert.Equal(6, chain.All.Count);
+        Assert.IsType<CTF.TFSwordHook>(chain.All[0]);
+        Assert.IsType<CTF.TFKingReloadHook>(chain.All[3]);
+        Assert.IsType<CTF.TFKnifeHook>(chain.All[4]);
+        Assert.IsType<CTF.TFWrenchHook>(chain.All[5]);
         Assert.IsType<client::TF2.Client.Player.TFClientWeaponOwners>(((CTF.TFWeaponParts)c.Resolve(typeof(CTF.TFWeaponParts))!).Owners);
     }
 

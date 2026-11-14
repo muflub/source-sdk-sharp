@@ -233,8 +233,8 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     /// maximum, then <c>add_maxhealth</c> and <c>add_maxhealth_nonbuffed</c>,
     /// both the player's own walk, floored at one. The active weapon's
     /// <c>GetMaxHealthMod</c> is zero for every weapon this SDK declares
-    /// (tf_weaponbase.h:492, no overrides) and the sword's decapitations and
-    /// the runes have no counters yet (docs/plans/tf2/deferred.tsv).
+    /// (tf_weaponbase.h:492, no overrides) and the runes have no counters yet
+    /// (docs/plans/tf2/deferred.tsv).
     /// </summary>
     public int MaxHealth(EntityHandle player)
     {
@@ -243,6 +243,14 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
 
         int index = entities.GetIndex(player);
         int max = _attributes.Int(classes[cls].MaxHealth, "add_maxhealth", _owners.ManagerOf(index));
+        // The demoman's heads (CTFPlayer::GetMaxHealthForBuffing,
+        // tf_player.cpp:14276-14283): the owned sword's GetSwordHealthMod —
+        // every collected head is +15 under the head cap, while the sword
+        // decapitates at all (tf_weapon_sword.cpp:314-325).
+        if (cls == TFClass.Demoman
+            && _owners.ItemOf(index, TFSwordHook.SwordScript) is { } sword
+            && _attributes.Int(0, "decapitate_type", sword) != 0)
+            max += Math.Min(TFSwordHook.MaxHeads, carriers.Get(index)?.Decapitations ?? 0) * TFSwordHook.HealthPerHead;
         max = DrainMaxHealth(player, index, max);
         max = _attributes.Int(max, "add_maxhealth_nonbuffed", _owners.ManagerOf(index));
         return Math.Max(max, 1);

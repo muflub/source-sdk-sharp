@@ -141,7 +141,7 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
         return false;
     }
 
-    public void Deploy(in WeaponAttackContext attack)
+    public override void Deploy(in WeaponAttackContext attack)
     {
         // Deploy's own 0.35 (tf_weapon_builder.cpp:173), past the machine's
         // deploy time, and the blueprint born as the builder comes out (:172).
@@ -189,7 +189,7 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
         base.ItemPostFrame(attack);
     }
 
-    public void Holster(in WeaponAttackContext attack)
+    public override void Holster(in WeaponAttackContext attack)
     {
         // As the deploy: outside a command, the owner is the weapon state's.
         if (Parts.Builder is { } placement)

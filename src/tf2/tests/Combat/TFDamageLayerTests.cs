@@ -81,6 +81,18 @@ public sealed class TFDamageLayerTests
     }
 
     [Fact]
+    public void A_flares_touch_never_takes_the_range()
+    {
+        // g_aWeaponDamageTypes: the flare gun is DMG_BULLET | DMG_IGNITE, no
+        // DMG_USEDISTANCEMOD (tf_shareddefs.cpp:775), so the band never leaves
+        // the middle and the touch is the shot as dealt, the scope's weapon
+        // overriding the attacker's held one as the touch's own scope does.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_flaregun" };
+        using (rig.Scopes.Push(TFDamageCustom.BurningFlare, TFWeaponId.Flaregun, "tf_weapon_flaregun"))
+            Assert.Equal(30f, rig.Hit(30f, TFWeaponDamageTypes.Of(TFWeaponId.Flaregun)), 4);
+    }
+
+    [Fact]
     public void A_shotguns_point_blank_takes_the_near_bonus_not_the_damp()
     {
         // g_aWeaponDamageTypes: the scattergun is DMG_BUCKSHOT |
@@ -367,6 +379,39 @@ public sealed class TFDamageLayerTests
     }
 
     [Fact]
+    public void A_body_shot_takes_the_heldweapons_bodyshot_modifier()
+    {
+        // OnTakeDamage's tail (tf_player.cpp:8377-8384): a non-headshot scales
+        // by the attacker's HELD weapon's bodyshot_damage_modify — x2 here.
+        var rig = Sniper(zoomed: true);
+        rig.AttackerItem("bodyshot_damage_modify", AttributeDescriptionFormat.Percentage, 2f);
+        rig.Owners.Held[CombatRig.Attacker.EntryIndex] = "tf_weapon_sniperrifle";
+
+        Assert.Equal(300f, rig.Hit(150f, DamageType.Bullet, HitGroup.Chest), 3);
+    }
+
+    [Fact]
+    public void A_headshot_escapes_the_bodyshot_modifier()
+    {
+        // bIsHeadshot's own arm: the location head takes the headshot path's
+        // scales, not the bodyshot's — the x3 alone on a plain 150.
+        var rig = Sniper(zoomed: true);
+        rig.AttackerItem("bodyshot_damage_modify", AttributeDescriptionFormat.Percentage, 2f);
+        rig.Owners.Held[CombatRig.Attacker.EntryIndex] = "tf_weapon_sniperrifle";
+
+        Assert.Equal(450f, rig.Hit(150f, DamageType.Bullet, HitGroup.Head), 3);
+    }
+
+    [Fact]
+    public void A_body_shot_without_the_attribute_or_a_held_weapon_stands_()
+    {
+        var rig = Sniper(zoomed: true);
+        rig.AttackerItem("bodyshot_damage_modify", AttributeDescriptionFormat.Percentage, 2f);
+
+        Assert.Equal(150f, rig.Hit(150f, DamageType.Bullet, HitGroup.Stomach), 3);
+    }
+
+    [Fact]
     public void An_unzoomed_rifle_and_any_other_weapon_have_no_hit_locations()
     {
         Assert.Equal(50f, Sniper(zoomed: false).Hit(50f, DamageType.Bullet, HitGroup.Head), 3);
@@ -508,6 +553,97 @@ public sealed class TFDamageLayerTests
         Assert.Equal(TFDamageCustom.Headshot, rig.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Custom);
     }
 
+    // ---- the jarate ---------------------------------------------------------
+
+    /// <summary>The rig's zoomed sniper with a begun charge and the sleeper's seconds.</summary>
+    private static CombatRig ChargedSniper(float chargeSeconds, float jarateSeconds)
+    {
+        var rig = Sniper(zoomed: true);
+        rig.AttackerItem("jarate_duration", AttributeDescriptionFormat.Additive, jarateSeconds);
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+        rig.Entities.WeaponEntity.State.BehaviourMeter = rig.Clock.Now - chargeSeconds;
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        return rig;
+    }
+
+    [Fact]
+    public void A_charged_zoomed_rifles_hit_jars_the_victim_and_splashes_the_impact()
+    {
+        // GetJarateTime over OnTakeDamage's jarate arm (tf_player.cpp:10676-10690):
+        // half a charge remapped onto 2..jarate_duration is the least, 2 s, and
+        // the peejar impact lands where the victim stands.
+        var rig = ChargedSniper(chargeSeconds: 1f, jarateSeconds: 8f);
+
+        rig.Hit(75f, DamageType.Bullet, HitGroup.Chest);
+
+        var conds = rig.Conditions.Of(CombatRig.Victim.EntryIndex)!;
+        Assert.True(conds.Has(TFCond.Urine));
+        Assert.Equal(TFSniperRifleBehaviour.JarateMinimum, conds.Duration(TFCond.Urine), 3);
+        var splat = Assert.Single(rig.Temps.Effects);
+        Assert.Equal("ParticleEffect", splat.Name);
+        Assert.Equal(7, splat.Data.HitBox);
+    }
+
+    [Fact]
+    public void The_jarate_last_to_the_items_seconds_at_the_full_charge()
+    {
+        // RemapValClamped's ceiling: the 150 cap lands on jarate_duration itself.
+        var rig = ChargedSniper(chargeSeconds: 3.5f, jarateSeconds: 8f);
+
+        rig.Hit(150f, DamageType.Bullet, HitGroup.Chest);
+
+        Assert.Equal(8f, rig.Conditions.Of(CombatRig.Victim.EntryIndex)!.Duration(TFCond.Urine), 3);
+    }
+
+    [Fact]
+    public void An_unzoomed_rifle_jars_nobody_until_it_is_the_classic()
+    {
+        // OnTakeDamage :10680: the Classic is jarating with no zoom up; the
+        // plain rifle needs IsZoomed.
+        var plain = ChargedSniper(chargeSeconds: 1f, jarateSeconds: 8f);
+        plain.AttackerState.SetConditions(default);
+        plain.Hit(75f, DamageType.Bullet, HitGroup.Chest);
+
+        var classic = ChargedSniper(chargeSeconds: 1f, jarateSeconds: 8f);
+        using (classic.Scopes.Push(TFDamageCustom.None, TFWeaponId.SniperrifleClassic,
+                                   "tf_weapon_sniperrifle_classic"))
+            classic.Hit(75f, DamageType.Bullet, HitGroup.Chest);
+
+        Assert.False(plain.Conditions.Of(CombatRig.Victim.EntryIndex)!.Has(TFCond.Urine));
+        Assert.Empty(plain.Temps.Effects);
+        Assert.True(classic.Conditions.Of(CombatRig.Victim.EntryIndex)!.Has(TFCond.Urine));
+        Assert.Single(classic.Temps.Effects);
+    }
+
+    [Fact]
+    public void A_rifle_that_never_began_a_charge_jars_nobody()
+    {
+        // GetJarateTime :1217: no m_flChargedDamage, no urine.
+        var rig = Sniper(zoomed: true);
+        rig.AttackerItem("jarate_duration", AttributeDescriptionFormat.Additive, 8f);
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+
+        rig.Hit(50f, DamageType.Bullet, HitGroup.Chest);
+
+        Assert.False(rig.Conditions.Of(CombatRig.Victim.EntryIndex)!.Has(TFCond.Urine));
+        Assert.Empty(rig.Temps.Effects);
+    }
+
+    [Fact]
+    public void An_invulnerable_victim_is_never_jarated()
+    {
+        // OnTakeDamage :10685: the übered, phasing or intercepting victim stays dry.
+        var rig = ChargedSniper(chargeSeconds: 1f, jarateSeconds: 8f);
+        rig.Conditions.Add(CombatRig.Victim, TFCond.Invulnerable);
+
+        rig.Hit(75f, DamageType.Bullet, HitGroup.Chest);
+
+        Assert.False(rig.Conditions.Of(CombatRig.Victim.EntryIndex)!.Has(TFCond.Urine));
+        Assert.Empty(rig.Temps.Effects);
+    }
+
     [Fact]
     public void Sniper_crit_no_scope_crits_a_headshot_before_the_zoom_is_a_quarter_second_old()
     {
@@ -645,6 +781,22 @@ public sealed class TFDamageLayerTests
 
         Assert.False(set.Has(TFCond.HealingDebuff));
         Assert.True(set.Has(TFCond.Burning));
+    }
+
+    /// <summary>
+    /// The Dragon's Fury's ball burns for its own seconds (Burn's flBurningTime,
+    /// tf_projectile_dragons_fury.cpp:342-351). With no rate the fire went out on the next
+    /// think, so a second ball found nobody burning and never earned its triple.
+    /// </summary>
+    [Fact]
+    public void The_balls_fire_has_its_own_seconds()
+    {
+        var burn = new TFBurn();
+
+        burn.Ignite(1f, true, TFClass.HeavyWeapons, default, CombatRig.Attacker, TFWeaponId.FlameBall,
+                    "tf_weapon_rocketlauncher_fireball");
+
+        Assert.Equal(TFProjectileDefs.BallBurnDuration, burn.AfterburnDuration, 3);
     }
 
     [Fact]
@@ -934,6 +1086,170 @@ public sealed class TFDamageLayerTests
         Assert.Equal(3f, stuns.ActiveStun!.Duration, 4);
         Assert.Equal(255f * Math.Clamp(0.4f, 0f, 1f), stuns.ActiveStun.Amount, 3);
         Assert.Equal(TFStunFlags.Movement, stuns.ActiveStun.Flags);
+    }
+
+    // ---- the scattergun's shove (set_scattergun_has_knockback, tf_weapon_shotgun.cpp:369-409) ----
+
+    [Fact]
+    public void The_force_a_natures_hit_hurls_the_victim_back_and_stuns_their_feet()
+    {
+        // 60 damage from 100 units out — inside the 400 (:41) and over the 30
+        // (:40): the hull's AirBurstDamageForce at 3x reversed along the
+        // centres (:399-400), a jump of lift (:401), the generic pushback's
+        // ground floor and flag strip (:3388, :3396), the knocked-into-air
+        // cond (:3397), the 0.3 s forward-only stun and the latch (:405-406).
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(100f, 0f, 0f) };
+        TFStunStack stuns = rig.AttachStun(CombatRig.Victim);
+        rig.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        // A plain bullet: no distance mod, no spread — the damage the rules
+        // deal is the one the force scales.
+        float dealt = rig.Hit(60f, DamageType.Bullet);
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Assert.Equal(CombatRig.Victim, pushed!.ArgAs<EntityHandle>(0));
+        Vector impulse = pushed.ArgAs<Vector>(1);
+        Assert.Equal(-TFRadiusDamage.DamageForce(new Vector(32f, 32f, 72f), dealt,
+                                                 TFDamageLayer.ScattergunKnockbackForceScale), impulse.X, 3f);
+        Assert.Equal(TFAirBlastDefs.JumpMinSpeed, impulse.Z, 3f);
+        Assert.True(pushed.ArgAs<bool>(2));
+        Assert.True(rig.Conditions.InCond(CombatRig.Victim, TFCond.KnockedIntoAir));
+        Assert.True(rig.VictimState.WeaponKnockback);
+        Assert.NotNull(stuns.ActiveStun);
+        Assert.Equal(TFScattergunBehaviour.StunTime, stuns.ActiveStun!.Duration, 4);
+        Assert.Equal(TFStunFlags.Movement | TFStunFlags.MovementForwardOnly, stuns.ActiveStun.Flags);
+        Assert.Equal(CombatRig.Attacker, stuns.ActiveStun.Attacker);
+    }
+
+    [Fact]
+    public void A_plain_scatterguns_hit_or_one_past_the_range_shoves_nothing()
+    {
+        var plain = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(100f, 0f, 0f) };
+        TFStunStack plainStuns = plain.AttachStun(CombatRig.Victim);
+        plain.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        plain.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        plain.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        plain.Hit(60f, Ranged);
+
+        Assert.DoesNotContain(plain.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+        Assert.False(plain.VictimState.WeaponKnockback);
+        Assert.Null(plainStuns.ActiveStun);
+
+        var far = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(500f, 0f, 0f) };
+        TFStunStack farStuns = far.AttachStun(CombatRig.Victim);
+        far.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        far.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        far.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        far.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        far.Hit(60f, Ranged);
+
+        Assert.DoesNotContain(far.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+        Assert.Null(farStuns.ActiveStun);
+    }
+
+    [Fact]
+    public void A_megahealed_victim_or_a_shoved_one_keeps_their_place()
+    {
+        // The generic pushback's immunity (:3372's IsImmuneToPushback, its
+        // megaheal and immune arms) and the once-per-airtime latch (:383).
+        var healed = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(100f, 0f, 0f) };
+        TFStunStack healedStuns = healed.AttachStun(CombatRig.Victim);
+        healed.VictimState.SetConditions(TFCondMask.Of(TFCond.Megaheal));
+        healed.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        healed.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        healed.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        healed.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        healed.Hit(60f, Ranged);
+
+        Assert.DoesNotContain(healed.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+        Assert.Null(healedStuns.ActiveStun);
+
+        var latched = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(100f, 0f, 0f) };
+        TFStunStack latchedStuns = latched.AttachStun(CombatRig.Victim);
+        latched.VictimState.WeaponKnockback = true;
+        latched.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        latched.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        latched.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        latched.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        latched.Hit(60f, Ranged);
+
+        Assert.DoesNotContain(latched.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+        Assert.Null(latchedStuns.ActiveStun);
+    }
+
+    [Fact]
+    public void A_soda_poppers_hit_pays_the_scouts_hype()
+    {
+        // The gamerules arm (tf_gamerules.cpp:7526-7532): the dealt damage
+        // remapped 1..200 onto 1..50 over the meter, held at 100 — this hit's
+        // damage lands past the 200 ceiling, so the gain is the whole 50.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_soda_popper" };
+        rig.AttackerItem("hype_on_damage", AttributeDescriptionFormat.Additive, 1f);
+        rig.AttackerState.HypeMeter = 40f;
+
+        float dealt = rig.Hit(300f, Ranged);
+
+        Assert.True(dealt >= TFHype.DamageCeiling);
+        Assert.Equal(TFHype.FullMeter - 10f, rig.AttackerState.HypeMeter);
+    }
+
+    [Fact]
+    public void A_buffed_or_unarmed_scouts_hype_stays_put()
+    {
+        // SetScoutHypeMeter's IsHypeBuffed out (tf_player_shared.cpp:14126)
+        // and the no-attr hit: neither moves the meter.
+        var buffed = new CombatRig { AttackerWeapon = "tf_weapon_soda_popper" };
+        buffed.AttackerItem("hype_on_damage", AttributeDescriptionFormat.Additive, 1f);
+        buffed.AttackerState.HypeMeter = 40f;
+        buffed.AttackerState.SetConditions(TFCondMask.Of(TFCond.SodapopperHype));
+
+        buffed.Hit(300f, Ranged);
+
+        Assert.Equal(40f, buffed.AttackerState.HypeMeter);
+
+        var plain = new CombatRig { AttackerWeapon = "tf_weapon_soda_popper" };
+        plain.AttackerState.HypeMeter = 40f;
+
+        plain.Hit(300f, Ranged);
+
+        Assert.Equal(40f, plain.AttackerState.HypeMeter);
+    }
+
+    [Fact]
+    public void A_baby_faces_hit_pays_the_boost_and_the_taken_toll()
+    {
+        // The on-hit walk's next arm (tf_weaponbase.cpp:5299-5308): the
+        // damage over the pep floor, held at the pep max 99 — this hit's
+        // damage is past it, so the meter lands on the cap.
+        var boost = new CombatRig { AttackerWeapon = "tf_weapon_pep_brawler_blaster" };
+        boost.AttackerItem("boost_on_damage", AttributeDescriptionFormat.Additive, 1f);
+        boost.AttackerState.HypeMeter = 40f;
+
+        float dealt = boost.Hit(300f, Ranged);
+
+        Assert.True(dealt >= TFHype.PepMinDamage);
+        Assert.Equal(TFHype.PepMax, boost.AttackerState.HypeMeter);
+
+        // The taken hit's toll (tf_player.cpp:9762-9774): the scout hit loses
+        // the held BFB's value over the damage taken.
+        var toll = new CombatRig { AttackerWeapon = "tf_weapon_pistol" };
+        var bfb = toll.AttackerItem("lose_hype_on_take_damage", AttributeDescriptionFormat.Additive, 2f);
+        toll.Owners.Items[CombatRig.Victim.EntryIndex] = bfb;
+        toll.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_pep_brawler_blaster";
+        toll.VictimState.HypeMeter = 50f;
+
+        float taken = toll.Hit(100f, Ranged);
+
+        // the setter's clamp floors the toll's negative at zero (:14129).
+        Assert.Equal(Math.Clamp(50f - 2f * taken, 0f, TFHype.FullMeter), toll.VictimState.HypeMeter);
     }
 
     // ---- invulnerability ----------------------------------------------------
@@ -1387,6 +1703,32 @@ public sealed class TFDamageLayerTests
     }
 
     /// <summary>
+    /// The mark arm (:5469-5488): the Fan O'War's hit gives the victim
+    /// TF_COND_MARKEDFORDEATH for the dev lifetime's 15 s, the attacker the
+    /// condition's provider; a plain bat's hit marks nothing.
+    /// </summary>
+    [Fact]
+    public void AFanOWarHitMarksTheVictimForDeath()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_bat" };
+        rig.AttackerItem("mark_for_death", AttributeDescriptionFormat.Additive, 1f);
+
+        rig.Hit(20f, Ranged);
+
+        var conds = rig.Conditions.Of(CombatRig.Victim.EntryIndex);
+        Assert.NotNull(conds);
+        Assert.True(conds!.Has(TFCond.Markedfordeath));
+        Assert.Equal(TFDamageLayer.MarkForDeathLifetime, conds.Duration(TFCond.Markedfordeath), 4);
+        Assert.Equal(CombatRig.Attacker, conds.Provider(TFCond.Markedfordeath));
+
+        var plain = new CombatRig { AttackerWeapon = "tf_weapon_bat" };
+
+        plain.Hit(20f, Ranged);
+
+        Assert.False(plain.Conditions.InCond(CombatRig.Victim, TFCond.Markedfordeath));
+    }
+
+    /// <summary>
     /// Milk's payback (:5176): a hit on a milked victim pays the attacker sixty percent of
     /// the hit on top of the attribute — no attribute, twelve on twenty, same TakeHealth.
     /// </summary>
@@ -1418,6 +1760,40 @@ public sealed class TFDamageLayerTests
 
         Assert.Equal(0, rig.Resupply.HealthAnswer);
         Assert.Empty(rig.Resupply.Takes);
+    }
+
+    // ---- the speed boost on hit (tf_weaponbase.cpp:5164-5170) --------------
+
+    /// <summary>
+    /// The speed-on-hit arm (:5164-5170): a hit whose held item carries
+    /// <c>speed_boost_on_hit</c> puts its owner's feet on the carried speed
+    /// boost for the attribute's seconds — the number is the duration stock's
+    /// <c>AddCond</c> rides (:10919 consumes it through the walk's arm).
+    /// </summary>
+    [Fact]
+    public void AHittingItemBoostsItsOwnersFeet()
+    {
+        var rig = new CombatRig();
+        rig.AttackerItem("speed_boost_on_hit", AttributeDescriptionFormat.Additive, 3f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.True(rig.Conditions.InCond(CombatRig.Attacker, TFCond.SpeedBoost));
+        Assert.Equal(3f, rig.Conditions.Of(CombatRig.Attacker.EntryIndex)!.Duration(TFCond.SpeedBoost), 4);
+    }
+
+    /// <summary>
+    /// The plain item: no attribute, no boost — the arm belongs to the
+    /// attribute alone.
+    /// </summary>
+    [Fact]
+    public void APlainItemLeavesTheAttackerAtNormalSpeed()
+    {
+        var rig = new CombatRig();
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.False(rig.Conditions.InCond(CombatRig.Attacker, TFCond.SpeedBoost));
     }
 
     // ---- the kill heal (tf_player.cpp:11545-11564) ---------------------------
@@ -1510,6 +1886,88 @@ public sealed class TFDamageLayerTests
         Assert.Empty(rig.Resupply.Takes);
     }
 
+    // ---- the connected damage (tf_player.cpp:9445-9468) ---------------------
+
+    /// <summary>Handles by index, as the server's space lays them out.</summary>
+    private static EntityHandle HandleOf(int index) => new(0x0001_0000u | (uint)index);
+
+    /// <summary>The rig answering <c>Players.GetHandle</c> by the index asked.</summary>
+    private static void AnswerHandles(CombatRig rig)
+        => rig.Engine.ReturnsEachCall("Players.GetHandle", () =>
+            rig.Engine.Last("Players.GetHandle") is { } call && call.ArgAs<int>(0) is int index && index > 0
+                ? HandleOf(index)
+                : EntityHandle.None);
+
+    /// <summary>
+    /// The Third Degree's arm (<c>damage_all_connected</c>, the Third Degree's row):
+    /// the hit stands on the victim and is dealt again, whole, to the medic
+    /// healing them — <c>AddConnectedPlayers</c>' first link (tf_player.cpp:10052-10064).
+    /// </summary>
+    [Fact]
+    public void A_connected_hit_reaches_the_victims_healer()
+    {
+        var rig = new CombatRig();
+        AnswerHandles(rig);
+        rig.Healing.Healers[CombatRig.Victim.EntryIndex] = [CombatRig.Third.EntryIndex];
+        rig.AttackerItem(TFDamageLayer.DamageAllConnected, AttributeDescriptionFormat.Additive, 1f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        var pass = Assert.Single(rig.Damage.Hits);
+        Assert.Equal((HandleOf(CombatRig.Third.EntryIndex), CombatRig.Attacker, 20f, Ranged),
+                     (pass.Victim, pass.Attacker, pass.Damage, pass.Type));
+    }
+
+    /// <summary>
+    /// The closure is transitive (:10054-10065): the healer's own beam's
+    /// patient and the healer's healer ride too, each once — the mutual pair
+    /// answers once, stock's <c>vecPlayers.Find</c> dedup (:10049).
+    /// </summary>
+    [Fact]
+    public void The_connected_pass_walks_the_whole_heal_graph_once()
+    {
+        var rig = new CombatRig();
+        AnswerHandles(rig);
+        var medic = rig.Players.Add(CombatRig.Third.EntryIndex, TFClass.Medic);
+        medic.HealTargetIndex = 6;                                   // the medic's beam is on patient 6
+        rig.Healing.Healers[CombatRig.Victim.EntryIndex] = [CombatRig.Third.EntryIndex];
+        rig.Healing.Healers[CombatRig.Third.EntryIndex] = [7];       // and a healer behind the medic
+        rig.AttackerItem(TFDamageLayer.DamageAllConnected, AttributeDescriptionFormat.Additive, 1f);
+
+        rig.Hit(20f, Ranged);
+
+        Assert.Equal([HandleOf(CombatRig.Third.EntryIndex), HandleOf(6), HandleOf(7)],
+                     rig.Damage.Hits.Select(h => h.Victim).ToList());
+    }
+
+    [Fact]
+    public void A_connected_graphs_cycle_hits_each_player_once()
+    {
+        var rig = new CombatRig();
+        AnswerHandles(rig);
+        var medic = rig.Players.Add(CombatRig.Third.EntryIndex, TFClass.Medic);
+        medic.HealTargetIndex = CombatRig.Victim.EntryIndex;         // the beam back on the victim: the cycle
+        rig.Healing.Healers[CombatRig.Victim.EntryIndex] = [CombatRig.Third.EntryIndex];
+        rig.AttackerItem(TFDamageLayer.DamageAllConnected, AttributeDescriptionFormat.Additive, 1f);
+
+        rig.Hit(20f, Ranged);
+
+        Assert.Equal([HandleOf(CombatRig.Third.EntryIndex)],
+                     rig.Damage.Hits.Select(h => h.Victim).ToList());
+    }
+
+    [Fact]
+    public void A_hit_without_the_attribute_is_dealt_once()
+    {
+        var rig = new CombatRig();
+        AnswerHandles(rig);
+        rig.Healing.Healers[CombatRig.Victim.EntryIndex] = [CombatRig.Third.EntryIndex];
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
     // ---- the spy's cloak on hit (tf_gamerules.cpp:6802-6813) ---------------
 
     [Fact]
@@ -1548,5 +2006,103 @@ public sealed class TFDamageLayerTests
         rig.Hit(10f, Ranged);
 
         Assert.Equal(100f, rig.AttackerState.CloakMeter, 4); // :9755 — clamp to 0..100
+    }
+
+    /// <summary>
+    /// The Persuader's arm (stock tf_weaponbase.cpp:5152-5162): a hit whose held
+    /// item carries <c>charge_meter_on_hit</c> pays that fraction of the charge
+    /// meter — twenty points on a half refill — to the attacker's own.
+    /// </summary>
+    [Fact]
+    public void The_charge_on_hit_fills_the_demoman_meter()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.ChargeMeter = 30f;
+        rig.AttackerItem("charge_meter_on_hit", AttributeDescriptionFormat.Additive, 0.2f);
+
+        rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(50f, rig.AttackerState.ChargeMeter, 4);
+    }
+
+    [Fact]
+    public void The_charge_on_hit_caps_the_meter_at_one_hundred()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.ChargeMeter = 95f;
+        rig.AttackerItem("charge_meter_on_hit", AttributeDescriptionFormat.Additive, 0.5f);
+
+        rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(100f, rig.AttackerState.ChargeMeter, 4);
+    }
+
+    [Fact]
+    public void A_hit_with_no_charge_attribute_moves_no_meter()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.ChargeMeter = 30f;
+
+        rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(30f, rig.AttackerState.ChargeMeter, 4);
+    }
+
+    // ---- the Vita-Saw's organs (tf_weapon_bonesaw.cpp:81-118) --------------
+
+    /// <summary>
+    /// A melee hit on an enemy player from a bearer of
+    /// <c>ubercharge_preserved_on_spawn_max</c> counts one more organ and tells
+    /// the medigun to keep the count's charge through the next spawn — one hit,
+    /// one organ, 0.15 of a charge (:105-110), the cap asked inside the medigun.
+    /// </summary>
+    [Fact]
+    public void AVitaSawHitKeepsTheOrgansWorthOfCharge()
+    {
+        var rig = new CombatRig();
+        rig.AttackerItem("ubercharge_preserved_on_spawn_max", AttributeDescriptionFormat.Additive, 0.5f);
+
+        rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(1, rig.AttackerState.Decapitations);
+        Assert.Equal("preserve 4 0.15", Assert.Single(rig.Mediguns.Sets));
+    }
+
+    /// <summary>
+    /// The second organ stacks: the count is the carrier's, so the next hit asks
+    /// for two organs' worth (:90's GetDecapitations() + 1).
+    /// </summary>
+    [Fact]
+    public void TheOrgansCountStacksAcrossHits()
+    {
+        var rig = new CombatRig();
+        rig.AttackerItem("ubercharge_preserved_on_spawn_max", AttributeDescriptionFormat.Additive, 0.5f);
+        rig.AttackerState.Decapitations = 1;
+
+        rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(2, rig.AttackerState.Decapitations);
+        Assert.Equal("preserve 4 0.3", Assert.Single(rig.Mediguns.Sets));
+    }
+
+    /// <summary>
+    /// A ranged hit keeps nothing: the arm is the bonesaw's melee damage
+    /// (:85's IsPlayer gate rides the swing), and the same holds for a plain
+    /// bonesaw — no attribute, no organ, no ask.
+    /// </summary>
+    [Fact]
+    public void AHitWithoutTheArmKeepsNothing()
+    {
+        var ranged = new CombatRig();
+        ranged.AttackerItem("ubercharge_preserved_on_spawn_max", AttributeDescriptionFormat.Additive, 0.5f);
+        ranged.Hit(10f, Ranged);
+
+        var plain = new CombatRig();
+        plain.Hit(10f, TFDamageBits.Melee | DamageType.Club);
+
+        Assert.Equal(0, ranged.AttackerState.Decapitations);
+        Assert.Empty(ranged.Mediguns.Sets);
+        Assert.Equal(0, plain.AttackerState.Decapitations);
+        Assert.Empty(plain.Mediguns.Sets);
     }
 }

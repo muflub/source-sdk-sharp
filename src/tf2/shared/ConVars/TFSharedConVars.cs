@@ -36,6 +36,11 @@ public sealed class TFClampBackSpeedConVar : FloatConVar { }
 [ConVar("tf_clamp_back_speed_min", "100", Flags = ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
 public sealed class TFClampBackSpeedMinConVar : FloatConVar { }
 
+// tf_gamemovement.cpp:52, the shield charge's speed, read by ChargeMove
+// (:508, :513) and TeamFortress_CalculateMaxSpeed (tf_player_shared.cpp:10972).
+[ConVar("tf_max_charge_speed", "750", Flags = ConVarFlags.Notify | ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
+public sealed class TFMaxChargeSpeedConVar : FloatConVar { }
+
 [ConVar("tf_clamp_airducks", "1", Flags = ConVarFlags.Replicated)]
 public sealed class TFClampAirducksConVar : BoolConVar { }
 
@@ -57,6 +62,18 @@ public sealed class TFMovementLostFootingRestickConVar : FloatConVar { }
 [ConVar("tf_movement_lost_footing_friction", "0.1", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat,
         Help = "Ground friction for players who have lost their footing")]
 public sealed class TFMovementLostFootingFrictionConVar : FloatConVar { }
+
+// ---- shared/tf/tf_player_shared.cpp -----------------------------------------
+
+// tf_player_shared.cpp:176-177, the charge meter's refill and spend: the
+// regen per second off the meter and the seconds a full meter drains across
+// (UpdateChargeMeter, :6025-6028 and :6040-6053, both sides' ConditionThink).
+
+[ConVar("tf_demoman_charge_regen_rate", "8.3", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated)]
+public sealed class TFDemomanChargeRegenRateConVar : FloatConVar { }
+
+[ConVar("tf_demoman_charge_drain_time", "1.5", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated)]
+public sealed class TFDemomanChargeDrainTimeConVar : FloatConVar { }
 
 // ---- shared/tf/tf_fx_shared.cpp ---------------------------------------------
 

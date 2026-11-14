@@ -58,6 +58,8 @@ internal sealed class MedigunRig
     /// <summary>Eye positions and world centers by entry index; unlisted players sit at the origin.</summary>
     public readonly Dictionary<int, Vector> Eyes = new();
     public readonly Dictionary<int, Vector> Centers = new();
+    /// <summary>Origins by entry index, for the radius asks; unlisted players sit at the origin.</summary>
+    public readonly Dictionary<int, Vector> Origins = new();
     /// <summary>The traces the world answers, in order; an exhausted queue answers a miss.</summary>
     public readonly List<TraceResult> TraceQueue = new();
 
@@ -76,6 +78,7 @@ internal sealed class MedigunRig
         Engine.ReturnsEachCall("Entities.GetEyePosition", () => Eyes.TryGetValue(A<EntityHandle>(0).EntryIndex, out var v) ? v : Vector.Zero);
         Engine.Returns("Entities.GetEyeAngles", Vector.Zero);
         Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter", () => Centers.TryGetValue(A<EntityHandle>(0).EntryIndex, out var v) ? v : Vector.Zero);
+        Engine.ReturnsEachCall("Entities.GetOrigin", () => Origins.TryGetValue(A<EntityHandle>(0).EntryIndex, out var v) ? v : Vector.Zero);
         Engine.ReturnsEachCall("WorldQuery.TraceLine", () => NextTrace());
         Engine.Returns("Players.GetActiveWeapon", "tf_weapon_medigun");
         Engine.WhenCalled("Entities.SetHealth", c => healths[c.ArgAs<EntityHandle>(0).EntryIndex] = c.ArgAs<int>(1));
@@ -87,10 +90,10 @@ internal sealed class MedigunRig
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon
     /// reports its release to the healing, which holds the answer the recalc reads.</summary>
-    public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null)
+    public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null, TF2.Shared.Rules.ITFRoundStateView? rounds = null)
         => new(Engine, Engine, Engine, Healing, Conditions, Resupply, ConVars.Declared<TFInvulnTimeConVar>(),
                ConVars.Declared<WeaponMedigunChargeRateConVar>(), Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup,
-               ConVars.Declared<TFMedigunLagCompConVar>(), lag);
+               ConVars.Declared<TFMedigunLagCompConVar>(), lag, rounds);
 
     public void QueueHit(EntityHandle hit) => TraceQueue.Add(new TraceResult(true, 1f, default, default, hit));
     public void QueueMiss() => TraceQueue.Add(new TraceResult(false, 1f, default, default, default));

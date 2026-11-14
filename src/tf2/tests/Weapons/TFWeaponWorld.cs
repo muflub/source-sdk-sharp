@@ -64,6 +64,21 @@ internal sealed class RecordingArms : IWeaponArms
     public int NextBestSwitches;
 
     public bool SwitchToNextBest() { NextBestSwitches++; return true; }
+
+    /// <summary>The carrier whose velocity a shove rewrites; null keeps the seam's none.</summary>
+    public PlayerNetState? Carrier { get; set; }
+
+    /// <summary>The aim a behaviour's shove reads; false keeps the seam's nothing.</summary>
+    public bool AimAnswers { get; set; }
+    public Vector AimEye { get; set; }
+    public Vector AimForward { get; set; } = new(1f, 0f, 0f);
+
+    bool IWeaponArms.Aim(out Vector eye, out Vector forward)
+    {
+        eye = AimEye;
+        forward = AimForward;
+        return AimAnswers;
+    }
 }
 
 /// <summary>Records what the TF effects were asked to do.</summary>
@@ -101,6 +116,13 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Detonations++;
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) => FlameTicks.Add((script.Name, shot));
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) => AirBlasts.Add(script.Name);
+    public readonly List<string> ExtinguishBeams = new();
+
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        ExtinguishBeams.Add(script.Name);
+        return true;
+    }
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) => Heals.Add(held);
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) => Zooms.Add(zoomed);
     public bool ClassSpecialSkill(in WeaponAttackContext attack)
@@ -108,6 +130,10 @@ internal sealed class RecordingEffects : ITFWeaponEffects
         ClassSkills.Add(attack.Command.OwnerIndex);
         return true;
     }
+
+    public void EndClassSpecialSkill(in WeaponAttackContext attack) => ClassSkillEnds.Add(attack.Command.OwnerIndex);
+
+    public readonly List<int> ClassSkillEnds = new();
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) => SelectLasts.Add(script.Name);
     public readonly List<float> SwingStarts = new();
@@ -135,6 +161,10 @@ internal sealed class RecordingEffects : ITFWeaponEffects
 
     public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) => Horns.Add((attack.Command.OwnerIndex, buffType));
     public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) => Raises.Add((attack.Command.OwnerIndex, buffType));
+
+    public readonly List<(int Owner, int BuffType)> Rages = new();
+
+    public void UseRage(in WeaponAttackContext attack, int buffType) => Rages.Add((attack.Command.OwnerIndex, buffType));
 }
 
 /// <summary>What the builder's placement was asked, for the builder's facts.</summary>
@@ -235,31 +265,33 @@ internal sealed class TFWeaponWorld
     public AmmoCatalog Ammo { get; }
     public WeaponLogic Machine { get; }
 
-    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, null, hooks) { }
+    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, null, null, hooks) { }
 
     /// <summary>A world over the extras set too (<see cref="WeaponFixtures.WithExtras"/>): the facts whose
     /// weapon lives in TestData/weapons-extra.</summary>
     public TFWeaponWorld(bool extras)
         : this(null, null, null, extras ? WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()) : null,
-               Array.Empty<ITFWeaponHook>()) { }
+               null, Array.Empty<ITFWeaponHook>()) { }
 
     /// <summary>A world whose parts carry a predicted-data fake (the client's replay arm).</summary>
-    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, null, hooks) { }
+    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, null, null, hooks) { }
 
     /// <summary>A world whose parts carry a bound convar (the fixed spread's facts).</summary>
     public TFWeaponWorld(FakePredictedData? data = null, TFUseFixedWeaponspreadsConVar? fixedSpread = null,
                          ITFAutoReload? autoReload = null, TFClassTableTests.Files? files = null,
-                         params ITFWeaponHook[] hooks)
+                         ITFRevengeCrits? bucket = null, params ITFWeaponHook[] hooks)
     {
         var shipped = files ?? WeaponFixtures.ShippedWithClasses();
         var scripts = new TFWeaponScripts(Log, shipped);
         var types = new TFWeaponTypes(scripts, new TFClassTable(Log, shipped), new ItemSchema(shipped, Log));
-        var chain = TFWeaponHookChain.Of([new TFAttributeWeaponHook(new AttributeHooks()), new TFCritBoostHook(),
-                                          new TFKingReloadHook(), .. hooks]);
+        var attributes = new AttributeHooks();
+        var chain = TFWeaponHookChain.Of([new TFSwordHook(attributes), new TFAttributeWeaponHook(attributes),
+                                          new TFCritBoostHook(), new TFKingReloadHook(), .. hooks]);
 
         Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, Effects, Builder, data,
                                   Round, fixedSpread: fixedSpread, autoReload: autoReload,
-                                  flamethrowerBurstammo: Burstammo, sapper: Sapper, sentryWrangle: Wrangle);
+                                  flamethrowerBurstammo: Burstammo, sapper: Sapper, sentryWrangle: Wrangle,
+                                  revengeCrits: bucket);
         Catalog = new WeaponCatalog(() => [types], Log);
         Behaviours = new WeaponBehaviours(() => [new TFWeaponBehaviours(Parts)], Log);
         Ammo = new AmmoCatalog(() => [new TFAmmoTypes()], Log);

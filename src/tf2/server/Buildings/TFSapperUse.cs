@@ -13,6 +13,7 @@ using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -64,6 +65,8 @@ namespace TF2.Server.Buildings;
 public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                 IEngineWorldQuery world, ITFBuildings buildings, IEngineDamage damage,
                                 TFDamageScopes scopes, ITFObjectSpawner spawner, ILog log,
+                                TFConstructionBuildRateConVar? constructionRate = null,
+                                ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
                                 ITFBuilderArms? arms = null, ILagCompensation? lagCompensation = null) : ITFSapperState
 {
     /// <summary>The player's <c>m_flFieldOfView</c> (player.cpp:5108).</summary>
@@ -227,7 +230,16 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
                 return true;
             }
 
-            return hit.Building.WrenchHit(player);
+            // The whack's value (CTFWrench::GetConstructionValue,
+            // tf_weapon_wrench.cpp:334-339): the build-rate convar, times the
+            // swung wrench's mult_construction_value — the active weapon at
+            // the smack is the melee.
+            float constructionValue = constructionRate?.Value ?? 1f;
+            if (hooks is not null && owners is not null)
+                constructionValue = hooks.Float(constructionValue, "mult_construction_value",
+                                                owners.ActiveItemOf(player.EntryIndex));
+
+            return hit.Building.WrenchHit(player, constructionValue);
         }
         finally
         {

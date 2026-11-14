@@ -735,6 +735,7 @@ src/tf2/shared/Weapons/TFWeaponKind.cs	ports m_bReloadsSingly's constructor valu
 src/tf2/shared/Weapons/CritBucket.cs	ports CBaseCombatWeapon::AddToCritBucket, IsAllowedToWithdrawFromCritBucket and RemoveFromCritBucket (basecombatweapon_shared.cpp) and RemapValClamped (mathlib.h)
 src/tf2/shared/Weapons/TFCritRoll.cs	ports CTFWeaponBase::CalcIsAttackCritical, CalcIsAttackCriticalHelperNoCrits, CalcIsAttackCriticalHelper and CanFireRandomCriticalShot (tf_weaponbase.cpp) and CTFWeaponBaseMelee's two helpers (tf_weaponbase_melee.cpp)
 src/tf2/shared/Weapons/TFWeaponBehaviour.cs	ports CTFWeaponBase/CTFWeaponBaseGun's shot damage and crit call (GetProjectileDamage, CalcIsAttackCritical's use), ReloadSingly's no-animation timers, IncrementAmmo and the reload interrupt (tf_weaponbase.cpp, tf_weaponbase_gun.cpp)
+src/tf2/shared/Weapons/TFEnergyBehaviour.cs	ports the energy family's shot economy: Energy_GetMaxEnergy and the mult_clipsize_upgrade cast, GetEnergyShotCost and Energy_Drain, GetDamage's penetrating twenty (tf_weaponbase.cpp, tf_weapon_raygun.h, tf_weapon_raygun.cpp) and the Cow Mangler's charge: CTFParticleCannon::SecondaryAttack's stamp, ItemPostFrame's release and force-release at TF_PARTICLE_MAX_CHARGE_TIME (tf_weapon_particle_cannon.cpp, tf_weapon_particle_cannon.h)
 src/tf2/shared/Weapons/TFWeaponHooks.cs	ports the CALL_ATTRIB_HOOK calls of GetMaxClip1, ApplyFireDelay, GetProjectileDamage and the crit helpers (tf_weaponbase.cpp, tf_weaponbase_gun.cpp) and IsCritBoosted's use (tf_player_shared.cpp)
 src/tf2/shared/Weapons/TFMeleeBehaviour.cs	ports CTFWeaponBaseMelee::PrimaryAttack, Swing, PlaySwingSound, GetSmackTime and ItemPostFrame's smack (tf_weaponbase_melee.cpp)
 src/tf2/shared/Weapons/TFMinigunBehaviour.cs	ports CTFMinigun::SharedAttack, WindUp, WindDown, WeaponIdle, HandleFireOnEmpty, GetProjectileDamage and GetWeaponSpread (tf_weapon_minigun.cpp)
@@ -1172,3 +1173,18 @@ src/tf2/client/Player/TFClientItemMeters.cs	receives the published meter pair th
 src/tf2/server/Player/TFPlayerItemRegen.cs	ports CTFPlayer::RegenThink item arm (tf_player.cpp:1831-1901), the add_health_regen walk, the peace scale and the whole-point heal, as the per-player regen slice
 src/tf2/server/Buildings/TFSentryWrangle.cs	ports the eye-trace dot and the triggers of CTFLaserPointer (tf_weapon_laser_pointer.cpp)
 src/tf2/shared/Weapons/TFWranglerBehaviour.cs	ports CTFLaserPointer's held triggers (tf_weapon_laser_pointer.cpp)
+src/tf2/server/Player/TFShieldCharge.cs	ports CTFWearableDemoShield::CanCharge/DoSpecialAction/DoCharge (tf_wearable_weapons.cpp:60-134) and CTFPlayerShared::UpdateChargeMeter (tf_player_shared.cpp:6017-6065), with GetEquippedDemoShield (tf_player_shared.cpp:626) as the wearable walk
+src/tf2/server/Player/TFSwordHeads.cs	ports CTFSword::OnDecapitation through the decapiting sword's player_death listener (tf_weapon_sword.cpp:330-412) and CanDecapitate's decapitate_type gate
+src/client/managed/Ragdolls/RagdollAsh.cs	ports the ash-burning body of C_TFRagdoll (c_tf_player.cpp)
+src/tf2/server/Player/TFChargeRefills.cs	ports CTFPlayer::Event_KilledOther's demoman arm, the kill_refills_meter paid onto the charge meter (tf_player.cpp:11258-11275)
+src/tf2/server/Player/TFRestoreOnKill.cs	ports CTFPlayer::Event_KilledOther's restore arm, the killing weapon's restore_health_on_kill (tf_player.cpp:11509-11543)
+src/tf2/shared/Player/TFRevengeCrits.cs	ports CTFFlareGun_Revenge revenge crit purse (tf_weapon_flaregun.cpp)
+src/tf2/server/Player/TFTauntHeal.cs	ports the Amputator's area heal: CTFPlayerShared::OnAddTaunting's enables_aoe_heal arm, Heal_Radius and PulseMedicRadiusHeal, OnRemoveTaunting's stop (tf_player_shared.cpp:3994-4011, 4050, 14239-14273, 14278-14382)
+src/tf2/shared/Weapons/TFSniperRifleClassicBehaviour.cs	ports CTFSniperRifleClassic::ItemPostFrame/WeaponReset and its HandleZooms split (tf_weapon_sniperrifle.cpp:1764-2076, :1835-1856)
+src/tf2/server/Player/TFDecapitations.cs	ports CTFSniperRifleDecap::OnPlayerKill's banked head (tf_weapon_sniperrifle.cpp:1722-1733)
+src/tf2/server/Combat/TFSapperRevengeCrits.cs	ports CTFPlayerShared::SetRevengeCrits clamp + TF_COND_CRITBOOSTED toggle (tf_player_shared.cpp:14472-14488), CBaseObject::UpdateOnRemove sapper arm (tf_obj.cpp:269-283), CTFRevolver::PrimaryAttack bucket spend (tf_weapon_revolver.cpp:159-171)
+src/tf2/shared/Weapons/TFScattergunBehaviour.cs	ports CTFScatterGun::FireBullet's knockback head and CTFScatterGun::HasKnockback's gate (tf_weapon_shotgun.cpp:317-364, :433-441)
+src/tf2/server/Player/TFScattergunJump.cs	ports the server half of CTFScatterGun::FireBullet's shove, the SetAbsVelocity, ground strip and StunPlayer (tf_weapon_shotgun.cpp:335-359)
+src/tf2/shared/Player/TFHype.cs	ports CTFPlayerShared::SetScoutHypeMeter and the gamerules hype gain (tf_player_shared.cpp:14124-14141, tf_gamerules.cpp:7526-7532)
+src/tf2/server/Player/TFRevengeCrits.cs	ports CTFPlayerShared::SetRevengeCritts clamp and cond tail with CTFShotgun_Revenge::SentryKilled (tf_player_shared.cpp:14472-14488, tf_weapon_shotgun.cpp:151-163)
+src/tf2/server/Weapons/TFRevengeHook.cs	ports CTFShotgun_Revenge::PrimaryAttack spend tail and GetCustomDamageType revenge gate (tf_weapon_shotgun.cpp:132-146, 200-209)

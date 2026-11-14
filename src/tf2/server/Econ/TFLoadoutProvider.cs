@@ -90,7 +90,13 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         var granted = new List<(string Weapon, AttributeContainer Container)>();
         foreach (var entry in Loadout(player.EntryIndex, cls))
         {
-            if (TFItemStrings.IsWearableSlot((int)entry.Slot) || entry.Item.Definition.ItemClass is not { Length: > 0 } itemClass)
+            // The wearables are the spawn's own entities (the wearable arm
+            // below); a wearable class in a weapon slot — the demoshield's
+            // secondary — is worn, never wielded, so no weapon row stands in
+            // for it (the class lookup's CTFWearable, tf_player.cpp:4619-4621).
+            if (TFItemStrings.IsWearableSlot((int)entry.Slot)
+                || TFItemStrings.IsWearableClass(entry.Item.Definition.ItemClass)
+                || entry.Item.Definition.ItemClass is not { Length: > 0 } itemClass)
                 continue;
 
             string weapon = table is null ? itemClass : TFItemClassTranslation.Translate(itemClass, table[cls]);

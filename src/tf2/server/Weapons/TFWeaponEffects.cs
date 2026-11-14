@@ -24,6 +24,9 @@ public interface ITFFlameEffects
 
     /// <inheritdoc cref="ITFWeaponEffects.AirBlast"/>
     void AirBlast(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <inheritdoc cref="ITFWeaponEffects.ExtinguishBeam"/>
+    bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script);
 }
 
 /// <summary>Stage 2.9's arm: the medigun's beam. One owner, <c>As = [typeof(ITFHealEffects)]</c>.</summary>
@@ -73,6 +76,9 @@ public interface ITFClassSkillEffects
 {
     /// <inheritdoc cref="ITFWeaponEffects.ClassSpecialSkill"/>
     bool DoSpecialSkill(int ownerIndex);
+
+    /// <inheritdoc cref="ITFWeaponEffects.EndClassSpecialSkill"/>
+    void EndSpecialSkill(int ownerIndex);
 }
 
 /// <summary>
@@ -90,6 +96,9 @@ public interface ITFBuffEffects
 
     /// <inheritdoc cref="ITFWeaponEffects.RaiseBuffBanner"/>
     void RaiseBuffBanner(int ownerIndex, int buffType);
+
+    /// <inheritdoc cref="ITFWeaponEffects.UseRage"/>
+    void UseRage(int ownerIndex, int buffType);
 }
 
 /// <summary>Stage 2.3's arm: the minigun's projectile sweep and ring of fire. One owner, <c>As = [typeof(ITFMinigunEffects)]</c>.</summary>
@@ -161,6 +170,9 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script)
         => flames?.AirBlast(in attack, script);
 
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
+        => flames?.ExtinguishBeam(in attack, script) ?? false;
+
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held)
         => heal?.Heal(in attack, script, held);
 
@@ -172,6 +184,9 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
 
     public bool ClassSpecialSkill(in WeaponAttackContext attack)
         => skills?.DoSpecialSkill(attack.Command.OwnerIndex) ?? false;
+
+    public void EndClassSpecialSkill(in WeaponAttackContext attack)
+        => skills?.EndSpecialSkill(attack.Command.OwnerIndex);
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script)
         => itemSwitch?.SelectLast(in attack, script);
@@ -275,4 +290,7 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
         if (owner > 0 && _speech is { })
             _speech.Speak(owner, TFConceptSpeech.PlayerBattlecry);
     }
+
+    public void UseRage(in WeaponAttackContext attack, int buffType)
+        => buffs?.UseRage(attack.Command.OwnerIndex, buffType);
 }

@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
@@ -58,9 +59,13 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  DamageInflictors inflictors, TFSentryGunDamageConVar sentryDamage,
                                  TFSentryGunMiniDamageConVar miniSentryDamage, IEngineSound sound,
                                  TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                                 ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks)
+                                 ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
+                                 TFDamageScopes? scopes = null, ITFRevengeCrits? crits = null,
+                                 TFRevengeCrits? revenge = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits)
 {
+    private readonly TFRevengeCrits? _revenge = revenge;
+
     public const string MapClass = "obj_sentrygun";
 
     /// <summary><c>SENTRY_THINK_DELAY</c>.</summary>
@@ -285,6 +290,26 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     protected override void OnDestroyed() => StopThinking(SentryThink);
 
     protected override void OnCarried() => StopThinking(SentryThink);
+
+    /// <summary>
+    /// <c>CObjectSentrygun::Killed</c>'s tail (tf_obj_sentrygun.cpp:2055-2064):
+    /// the owner's shotgun is told the death — the revenge loader's
+    /// <c>SentryKilled</c> pays its <c>Kills * 2 + Assists</c> when the owned
+    /// gun carries <c>sentry_killed_revenge</c>, stock's
+    /// <c>Weapon_OwnsThisID(TF_WEAPON_SENTRY_REVENGE)</c> walk, here the
+    /// loadout item behind the script.
+    /// </summary>
+    public override void OnKilled(EntityHandle attacker)
+    {
+        base.OnKilled(attacker);
+
+        if (_revenge is null || Builder == EntityHandle.None
+            || Owners?.ItemOf(Builder.EntryIndex, TFRevengeCrits.ShotgunScript) is not { } shotgun
+            || Hooks?.Int(0, "sentry_killed_revenge", shotgun) != 1)
+            return;
+
+        _revenge.Grant(Builder.EntryIndex, Kills * 2 + Assists);
+    }
 
     /// <summary>
     /// <c>CObjectSentrygun::StartUpgrading</c>'s ammo arms

@@ -134,8 +134,46 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
                                       Parts.Owners.ManagerOf(ownerIndex));
     }
 
-    public virtual int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex) =>
-        ScriptOf(in type) is { } script ? Parts.Hooks.ModifyClip(ContextFor(in type, script, ownerIndex), clipSize) : clipSize;
+    public virtual int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex)
+    {
+        if (ScriptOf(in type) is not { } script)
+            return clipSize;
+
+        var context = ContextFor(in type, script, ownerIndex);
+        int size = Parts.Hooks.ModifyClip(context, clipSize);
+
+        // The blast arm of <c>CTFWeaponBase::GetMaxClip1</c>
+        // (<c>tf_weaponbase.cpp:588-611</c>): a launcher-family weapon whose
+        // item answers <c>clipsize_increase_on_kill</c> grows its MAX clip by
+        // one per head the owner's count holds, up to the cap
+        // (<c>Min(GetDecapitations(), iClipSizeOnKills)</c>, :599) — and the
+        // return at :611 is what a reload fills to. The clip gate is stock's
+        // <c>flClip >= 0</c> pair (:572/:578): a clipless row keeps its −1
+        // blob. The heads are the owner's shared count (the carrier's
+        // <see cref="TF2.Shared.Player.TFPlayerNetState.Decapitations"/>), the
+        // same one the kill bumps.
+        if (size >= 0 && ownerIndex > 0 && TFWeaponKinds.Of(script) == TFWeaponKind.Projectile)
+        {
+            int cap = _attributes.Int(0, "clipsize_increase_on_kill", context.Item);   // :596
+            if (cap != 0)                                                              // :597
+            {
+                int heads = Parts.PlayerData?.Predicted(ownerIndex)?.Decapitations ?? 0;   // :443's count
+                size += Math.Min(heads, cap);                                           // :599
+            }
+        }
+
+        return size;
+    }
+
+    /// <summary><c>GetAmmoPerShot</c> over the script's count, the hooks priced.</summary>
+    public virtual int PrimaryAmmoPerShot(in WeaponType type, int ownerIndex, int perShot) =>
+        ScriptOf(in type) is { } script
+            ? Parts.Hooks.PrimaryAmmoPerShot(ContextFor(in type, script, ownerIndex), Math.Max(1, script.Primary.AmmoPerShot))
+            : perShot;
+
+    /// <summary>The hooks' pool, else none — the row's own is the machine's default.</summary>
+    public virtual string? PrimaryAmmoPool(in WeaponType type, int ownerIndex) =>
+        ScriptOf(in type) is { } script ? Parts.Hooks.PrimaryAmmoPool(ContextFor(in type, script, ownerIndex)) : null;
 
     public virtual float ModifyFireInterval(in WeaponType type, float interval, int ownerIndex) =>
         ScriptOf(in type) is { } script ? Parts.Hooks.ModifyInterval(ContextFor(in type, script, ownerIndex), interval) : interval;
@@ -265,6 +303,10 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             RangedDamage = roundStats?.Total ?? 0,
             RandomCritDamage = roundStats?.RandomCrit ?? 0,
             StatsMeasured = roundStats is not null,
+            // The charge's grant, spent by this swing's helpers: the
+            // EndClassSpecialSkill the melee swing ran before rolling
+            // (tf_weaponbase_melee.cpp:201) wrote it.
+            MeleeCrit = Parts.PlayerData?.Predicted(owner)?.NextMeleeCrit ?? (int)TFMeleeCrit.NoCrit,
         }));
 
         var mode = script.Primary;
@@ -599,7 +641,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// on a live run and a replay's.
     /// </summary>
     private bool ReloadsSinglyFor(in WeaponAttackContext attack, TFWeaponScript script) =>
-        TFWeaponKinds.ReloadsSingly(script.Id) && !Parts.Hooks.ReloadsWithWholeClip(Context(in attack, script));
+        TFWeaponKinds.ReloadsSingly(script) && !Parts.Hooks.ReloadsWithWholeClip(Context(in attack, script));
 
     /// <summary>
     /// One of the reload's script clocks through the chain — stock's
@@ -715,6 +757,39 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     {
         if (owner > 0 && Parts.Owners.ConditionsOf(owner) is { } conditions && conditions.Has(TFCond.Aiming))
             conditions.Remove(TFCond.Aiming);
+    }
+
+    /// <summary>
+    /// <c>CTFShotgun_Revenge::Holster</c> (tf_weapon_shotgun.cpp:168-179): the
+    /// Justice leaving the hands takes its boost with it — the condition out
+    /// while the count stands, so the weapon drawn next swings plain until
+    /// its own deploy. GAME_DLL's arm, on the server's switch alone.
+    /// </summary>
+    public virtual void Holster(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.SentryRevenge)
+            return;
+
+        int owner = attack.Weapon.OwnerIndex;
+        if (Parts.PlayerData?.Predicted(owner)?.RevengeCrits > 0
+            && Parts.Owners.ConditionsOf(owner) is { } conditions)
+            conditions.Remove(TFCond.Critboosted);
+    }
+
+    /// <summary>
+    /// <c>CTFShotgun_Revenge::Deploy</c> (:184-192): the count the grant lit
+    /// while another weapon was in the hands wears its boost again the moment
+    /// the Justice is drawn.
+    /// </summary>
+    public virtual void Deploy(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.SentryRevenge)
+            return;
+
+        int owner = attack.Weapon.OwnerIndex;
+        if (Parts.PlayerData?.Predicted(owner)?.RevengeCrits > 0
+            && Parts.Owners.ConditionsOf(owner) is { } conditions)
+            conditions.Add(TFCond.Critboosted);
     }
 
     // The carried item's definition index, as stock's OnFireEvent takes it

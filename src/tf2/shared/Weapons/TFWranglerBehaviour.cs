@@ -89,7 +89,7 @@ public sealed class TFWranglerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour
         base.ItemPostFrame(attack);
     }
 
-    public void Holster(in WeaponAttackContext attack)
+    public override void Holster(in WeaponAttackContext attack)
     {
         // As the builder's: outside a command, the owner is the weapon
         // state's — the deploy dressed it — stock's GetOwner().

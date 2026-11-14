@@ -25,6 +25,8 @@ namespace TF2.Shared.Movement;
 /// (<c>PreventBunnyJumping</c>'s 1.2).</item>
 /// <item><see cref="MovementStun"/>: the stun's rewrite of the command,
 /// deciding from the carrier's stun mirror.</item>
+/// <item><see cref="TFMovementRules.MovementCharge"/>: the shield charge's
+/// rewrite of the command, from the carrier's condition word.</item>
 /// </list>
 ///
 /// <para>
@@ -72,6 +74,7 @@ public sealed class TFMovementRules : IMovementRules
     private readonly TFMovementAircurrentFrictionMultConVar? _airCurrentFriction;
     private readonly TFMovementLostFootingRestickConVar? _lostFootingRestick;
     private readonly TFMovementLostFootingFrictionConVar? _lostFootingFriction;
+    private readonly TFMaxChargeSpeedConVar? _chargeSpeed;
 
     public TFMovementRules(TFClassTable classes, ITFPlayerData players,
                            TFScoutAirDashCountConVar? dashCount = null,
@@ -83,7 +86,8 @@ public sealed class TFMovementRules : IMovementRules
                            TFPlayerMovementRestartFreezeConVar? restartFreeze = null,
                            TFMovementAircurrentFrictionMultConVar? airCurrentFriction = null,
                            TFMovementLostFootingRestickConVar? lostFootingRestick = null,
-                           TFMovementLostFootingFrictionConVar? lostFootingFriction = null)
+                           TFMovementLostFootingFrictionConVar? lostFootingFriction = null,
+                           TFMaxChargeSpeedConVar? chargeSpeed = null)
     {
         _classes = classes;
         _players = players;
@@ -98,7 +102,11 @@ public sealed class TFMovementRules : IMovementRules
         _airCurrentFriction = airCurrentFriction;
         _lostFootingRestick = lostFootingRestick;
         _lostFootingFriction = lostFootingFriction;
+        _chargeSpeed = chargeSpeed;
     }
+
+    /// <summary><c>tf_max_charge_speed</c> (default 750, tf_gamemovement.cpp:52).</summary>
+    private float ChargeSpeed => _chargeSpeed?.Value ?? 750f;
 
     /// <summary><c>tf_scout_air_dash_count</c> (default 1).</summary>
     private int DashCount => _dashCount?.Value ?? 1;
@@ -157,9 +165,33 @@ public sealed class TFMovementRules : IMovementRules
         // The player's own attribute manager roots the speed hooks
         // (CALL_ATTRIB_HOOK_FLOAT on the player): null on a side that holds
         // none, both arms then the value unchanged.
-        return TFMaxSpeed.Calculate(_classes, TFMoveInputs.Of(state), CloakedCap,
+        return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
                                     _hooks, _owners?.ManagerOf(playerIndex),
                                     PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
+    }
+
+    /// <summary>
+    /// The carrier's inputs with the sword's speed over them
+    /// (<c>GetSwordSpeedMod</c>, tf_weapon_sword.cpp:295-309): the demoman's
+    /// owned sword, decapitating, at <see cref="TFSwordHook.MaxHeads"/> heads
+    /// or fewer — 1 otherwise, the input's default.
+    /// </summary>
+    private TFMoveInputs Inputs(int playerIndex, TFPlayerNetState state)
+    {
+        var inputs = TFMoveInputs.Of(state);
+
+        // The worn shield (tf_player_shared.cpp:11005): the shared's
+        // IsShieldEquipped, the speed walk's shield-toll gate.
+        if (_owners?.ShieldEquipped(playerIndex) == true)
+            inputs = inputs with { ShieldEquipped = true };
+
+        if (inputs.Class != TFClass.Demoman
+            || _owners?.ItemOf(playerIndex, TFSwordHook.SwordScript) is not { } sword
+            || (_hooks?.Int(0, "decapitate_type", sword) ?? 0) == 0)
+            return inputs;
+
+        return inputs with { SwordSpeedMod = 1f + MathF.Min(TFSwordHook.MaxHeads, state.Decapitations)
+                                                       * TFSwordHook.SpeedPerHead };
     }
 
     /// <summary>
@@ -174,7 +206,7 @@ public sealed class TFMovementRules : IMovementRules
         if ((_players.Predicted(playerIndex) ?? _players.Networked(playerIndex)) is not { } state)
             return null;
 
-        return new TFPeerInput(playerIndex, TFMoveInputs.Of(state),
+        return new TFPeerInput(playerIndex, Inputs(playerIndex, state),
                                _hooks, _owners?.ManagerOf(playerIndex),
                                _owners?.ActiveItemOf(playerIndex));
     }
@@ -197,14 +229,34 @@ public sealed class TFMovementRules : IMovementRules
                                     _owners?.ActiveItemOf(request.PlayerIndex),
                                     _hooks, _owners?.ManagerOf(request.PlayerIndex));
         if (dash > 0f)
+        {
             state.AirDash++;
+
+            // THE BFB'S DASH TOLL (CTFGameMovement::AirDash's hype loss,
+            // tf_gamemovement.cpp:1007-1016): the held item's
+            // hype_resets_on_jump is the hype the dash pays, through the
+            // setter's refusal and clamp; stock's TeamFortress_SetSpeed is
+            // the derived speed's own re-ask.
+            int toll = _hooks?.Int(0, TFHype.JumpResetAttribute,
+                                   _owners?.ActiveItemOf(request.PlayerIndex)) ?? 0;
+            if (toll != 0)
+                TFHype.Lose(state, toll);
+        }
         return dash;
     }
 
     public void Grounded(int playerIndex)
     {
-        if (_players.Predicted(playerIndex) is { AirDash: not 0 } state)
-            state.AirDash = 0;
+        // The landing resets ride the dash's (:2956-2958): the scattergun
+        // shove's latch and the gun-knock bit go with it, so the next airtime
+        // shoves again.
+        if (_players.Predicted(playerIndex) is { } state)
+        {
+            if (state.AirDash != 0)
+                state.AirDash = 0;
+            state.ScattergunJump = false;
+            state.WeaponKnockback = false;
+        }
     }
 
     public float EyeHeight(int playerIndex, float standing)
@@ -296,6 +348,26 @@ public sealed class TFMovementRules : IMovementRules
     /// its blast latch with the command that could claim it.
     /// </summary>
     public void EndCommand(int playerIndex) => _players.EndCommand(playerIndex);
+
+    /// <summary>
+    /// The charge end the command's slow walk names (tf_gamemovement.cpp:
+    /// 240-245): the loop read the speed against the 300 floor; the end is
+    /// the carrier's <c>EndCharge</c>, whose own gates stand behind it.
+    /// </summary>
+    public void ChargeSlowEnd(int playerIndex) => _players.EndCharge(playerIndex);
+
+    /// <summary>
+    /// The charge end the blocked step names (tf_gamemovement.cpp:1925-1929):
+    /// <c>ToTFPlayer</c> over the hit first — the world and every non-player
+    /// the trace stopped on ends nothing — then the same <c>EndCharge</c>.
+    /// </summary>
+    public void ChargeBump(int playerIndex, EntityHandle hit)
+    {
+        if (!_players.IsPlayerEntity(hit))
+            return;
+
+        _players.EndCharge(playerIndex);
+    }
 
     /// <summary>The words-level condition clear the restick is.</summary>
     private static void ClearCond(TFPlayerNetState state, TFCond cond)
@@ -484,6 +556,34 @@ public sealed class TFMovementRules : IMovementRules
         }
 
         return answered ? new MovementStun(newButtons, f, s, u) : null;
+    }
+
+    /// <summary>
+    /// <c>CTFGameMovement::ChargeMove</c> (tf_gamemovement.cpp:484-532), the
+    /// charging demoman's command: the max speed and the forward move both
+    /// <c>tf_max_charge_speed</c> (:508, :513), the side and up moves zeroed
+    /// (:514-515), and the buttons held to the charge's own attack2 — or
+    /// nothing, plus an attack the command's old buttons carry (:510-529),
+    /// which is the held swing landing mid-charge. Asked from the carrier's
+    /// predicted state, so the server's run and every replay decide alike.
+    ///
+    /// <para>
+    /// The Quick-Fix medic's healing arm (:488-506) waits for the medigun's
+    /// heal-target read (the medic lane's row, docs/plans/tf2/deferred.tsv): a
+    /// medic riding a patient's charge is not this build's question.
+    /// </para>
+    /// </summary>
+    public MovementCharge? MovementCharge(int playerIndex, int buttons,
+                                          float forwardMove, float sideMove, float upMove)
+    {
+        if (_players.Predicted(playerIndex) is not { } state || !state.InCond(TFCond.ShieldCharge))
+            return null;
+
+        int rewritten = (buttons & GameMovement.InAttack2) != 0 ? GameMovement.InAttack2 : 0;   // :516-524
+        if ((buttons & GameMovement.InAttack) != 0)                                             // :526-529
+            rewritten |= GameMovement.InAttack;
+
+        return new MovementCharge(ChargeSpeed, rewritten, ChargeSpeed, 0f, 0f);
     }
 
     /// <summary>

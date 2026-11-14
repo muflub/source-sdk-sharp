@@ -94,8 +94,9 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
                                  ITempEnts temps, IEngineSound sound, IScreenEffects screen,
                                  IEnginePlayers enginePlayers, TFTeleporterFovStartConVar fovStart,
                                  TFTeleporterFovTimeConVar fovTime,
-                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks)
+                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
+                                 ITFRevengeCrits? crits = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits)
 {
     public const string MapClass = "obj_teleporter";
 

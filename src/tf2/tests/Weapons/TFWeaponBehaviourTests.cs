@@ -836,6 +836,8 @@ public sealed class TFWeaponBehaviourTests
     {
         public int NumHealers(int patientIndex) => count;
 
+        public IEnumerable<int> HealerIndexes(int patientIndex) => [];
+
         public void Heal(EntityHandle patient, EntityHandle healer, float healRate, float now,
                          float overhealBonus = ITFPlayerHealing.StandardOverhealBonus,
                          float decayMult = ITFPlayerHealing.StandardOverhealDecayMult,

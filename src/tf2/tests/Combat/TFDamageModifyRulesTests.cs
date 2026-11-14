@@ -650,6 +650,87 @@ public sealed class TFDamageModifyRulesTests
         Assert.Equal(10f, result.Damage, 4);
     }
 
+    // ---- the charged swing's mini-crit (:6152-6158) --------------------------
+
+    [Fact]
+    public void A_swords_radius_max_blow_after_a_charge_mini_crits()
+    {
+        // The first sword, bottle or wrench blow the charge's end granted
+        // carries DMG_RADIUS_MAX (:6152-6158): the ladder's mini-crit, the
+        // 1.35 on the plain 10 with DMG_CRITICAL beside it.
+        var hit = Hit(bits: DamageType.Slash | TFDamageBits.RadiusMax, weapon: TFWeaponId.Sword);
+
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+
+        Assert.Equal(TFCritType.Mini, result.Crit);
+        Assert.True((result.Bits & TFDamageBits.Critical) != 0);
+        Assert.Equal(13.5f, result.Damage, 4);
+    }
+
+    [Fact]
+    public void A_blow_without_the_radius_max_bit_is_no_charge_mini_crit()
+    {
+        // The control: the same sword, the grant not riding the hit — no
+        // DMG_RADIUS_MAX, no mini-crit, the plain 10.
+        var hit = Hit(bits: DamageType.Slash, weapon: TFWeaponId.Sword);
+
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+
+        Assert.Equal(TFCritType.None, result.Crit);
+        Assert.Equal(10f, result.Damage, 4);
+    }
+
+    [Fact]
+    public void A_charged_plasma_hit_mini_crits()
+    {
+        // The Cow Mangler's charged shot (tf_gamerules.cpp:6165-6170): the
+        // TF_DMG_CUSTOM_PLASMA_CHARGED arm of the ladder sits between the
+        // deflected blast and the energy buff.
+        var hit = Hit(bits: DamageType.Slash, custom: TFDamageCustom.PlasmaCharged);
+
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+
+        Assert.Equal(TFCritType.Mini, result.Crit);
+        Assert.True((result.Bits & TFDamageBits.Critical) != 0);
+        Assert.Equal(13.5f, result.Damage, 4);
+    }
+
+    [Fact]
+    public void A_plain_plasma_hit_does_not_mini_crit()
+    {
+        // The control (:6165 matches only the charged custom): the ball's
+        // plain shot carries TF_DMG_CUSTOM_PLASMA, which earns no mini-crit.
+        var hit = Hit(bits: DamageType.Slash, custom: TFDamageCustom.Plasma);
+
+        var result = TFDamageModifyRules.Apply(in hit, Stock, NoRandom);
+
+        Assert.Equal(TFCritType.None, result.Crit);
+        Assert.Equal(10f, result.Damage, 4);
+    }
+
+    [Fact]
+    public void Crits_become_minicrits_demotes_a_full_crit_to_a_mini()
+    {
+        var hooks = new AttributeHooks();
+
+        // With the attribute (tf_gamerules.cpp:6764-6777): the crit's bonus
+        // is the mini one (10 + 0.35 * 10) and the kind reads Mini; the
+        // Critical bit stays on (the clear is only to shut up the lambda's
+        // assert, which re-or's it).
+        var demoted = Hit(bits: DamageType.Slash | TFDamageBits.Critical,
+                          item: Item(63, "crits_become_minicrits", 1f));
+        var withHook = TFDamageModifyRules.Apply(in demoted, Stock, NoRandom, hooks);
+        Assert.Equal(13.5f, withHook.Damage, 4);
+        Assert.Equal(TFCritType.Mini, withHook.Crit);
+        Assert.True((withHook.Bits & TFDamageBits.Critical) != 0);
+
+        // Without it the full triple stands: 10 * 3.
+        var plain = Hit(bits: DamageType.Slash | TFDamageBits.Critical);
+        var withoutHook = TFDamageModifyRules.Apply(in plain, Stock, NoRandom, hooks);
+        Assert.Equal(30f, withoutHook.Damage, 4);
+        Assert.Equal(TFCritType.Full, withoutHook.Crit);
+    }
+
     /// <summary>A weapon item carrying one attribute, the walk's root.</summary>
     private static IAttributeProvider Item(int defindex, string hook, float value)
     {

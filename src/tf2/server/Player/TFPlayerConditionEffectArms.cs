@@ -48,9 +48,20 @@ public sealed class TFPlayerConditionEffectArms(IEngineSound sound, TFPlayerCarr
     /// and its <c>TF_COND_HEALING_DEBUFF</c> clear is a condition-only arm
     /// (<see cref="TFConditionArms"/>); what is left is the disguise pair and
     /// the phase's slow-down below.
+    /// The charge's removal is
+    /// <c>OnRemoveShieldCharge</c> (tf_player_shared.cpp:6195-6204), riding
+    /// every removal and expiry as stock's dispatch does
+    /// (:2015-2017): the meter zeroes. Its phase effects and
+    /// <c>TeamFortress_SetSpeed</c> wait in the deferred rows — the speed is
+    /// this build's per-command <c>TFMaxSpeed</c> ask already, the phases
+    /// have no carrier to clear — as do <c>m_bPostShieldCharge</c> and the
+    /// end time, whose reader is the unported critboost think.
     /// </summary>
     public void OnRemoved(EntityHandle player, TFCond cond)
     {
+        if (cond == TFCond.ShieldCharge && carriers?.Get(player.EntryIndex) is { } state)
+            state.ChargeMeter = 0f;                                           // :6203
+
         // OnRemovePhase (:3551-3577): once the phase is gone, the damage it
         // dodded pays in a five-second slow, scaled by what was dodded
         // (:3566-3572). The tally is still readable here — the removal

@@ -15,6 +15,7 @@ using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 using TF2.Tests.Entities.Items;
 using TF2.Tests.Medigun;
@@ -48,6 +49,7 @@ namespace TF2.Tests.Player;
 public sealed class TFDeathDropsTests
 {
     private const string Rocket = "tf_weapon_rocketlauncher";
+    private const string AirStrike = "tf_weapon_rocketlauncher_airstrike";
     private const string Fists = "tf_weapon_fists";
     private const string Shotgun = "tf_weapon_shotgun_soldier";
     private const string Scattergun = "tf_weapon_scattergun";
@@ -130,7 +132,7 @@ public sealed class TFDeathDropsTests
             ConVars = ConVarRegistry.For(UnattachedConsole());
             ConVars.RegisterAll(typeof(TFAmmoPack).Assembly);
 
-            var files = WeaponFixtures.ShippedWithClasses();
+            var files = WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses());
             // The scan's DontDrop arm only bites if the non-droppable row is
             // the heaviest it sees (:13049-13050 must beat the weight max):
             // fists ship at weight 1, under the rocket's 3, so this rig's
@@ -159,9 +161,10 @@ public sealed class TFDeathDropsTests
         }
 
         public TFDeathDrops Hook(AttributeHooks? hooks = null, ITFWeaponOwners? owners = null,
-                                 ITFPlayerConditions? conditions = null, TFDamageRecords? hitRecords = null)
+                                 ITFPlayerConditions? conditions = null, TFDamageRecords? hitRecords = null,
+                                 ITFPlayerData? playerData = null)
             => new(Log, Arsenal, Scripts, Map, Packs, Roster, World, Engine, Medigun, hooks, owners, Seeds,
-                   conditions, hitRecords);
+                   conditions, hitRecords, playerData);
 
         public PlayerDeath Death => new(Dead.Handle, 3, EntityHandle.None, DiedAt, EntityHandle.None);
 
@@ -364,6 +367,7 @@ public sealed class TFDeathDropsTests
         public void Holster(int ownerIndex, float now) { }
         public void Unholster(int ownerIndex, float now) { }
         public void RemoveMedigun(int ownerIndex, float now) { }
+        public void PreserveCharge(int ownerIndex, float amount) { }
         public int HealingTargetIndex(int ownerIndex) => -1;
         public bool IsReleasing(int ownerIndex) => false;
     }
@@ -1268,6 +1272,131 @@ public sealed class TFDeathDropsTests
            .OnPlayerDied(rig.Death with { Attacker = attacker });
 
         Assert.Empty(conditions.Added);
+    }
+
+    // ---- the killer's heads grown on kills (clipsize_increase_on_kill) --------
+
+    /// <summary>A held item carrying the kill-cap as its <c>clipsize_increase_on_kill</c> answer.</summary>
+    private static AttributeContainer ClipGrowItem(float cap)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30052, "clip grow", "clipsize_increase_on_kill",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), cap));
+        return item;
+    }
+
+    /// <summary>
+    /// Stock's <c>OnPlayerKill</c> increment
+    /// (<c>tf_weapon_rocketlauncher.cpp:419-424</c>): the killer's shared head
+    /// count becomes its own pile plus one — the held launcher's shape is the
+    /// blast gate, and the clip itself is grown at the read side
+    /// (<c>tf_weaponbase.cpp:594-600</c>), not here.
+    /// </summary>
+    [Fact]
+    public void A_kill_adds_one_head_to_the_killer()
+    {
+        var rig = new Rig();
+        var attacker = rig.Map.Add().Handle;   // the killer, holding the launcher
+        rig.Registry.KeyValue(attacker, EntityNames.Player, "targetname", "clip_grow_fixture");
+        rig.Give(attacker, AirStrike);
+        var owners = new FakeOwners();
+        owners.Held[attacker.EntryIndex] = AirStrike;
+        owners.Items[attacker.EntryIndex] = ClipGrowItem(2f);
+        var heads = new HeadsStates();
+        heads.ByIndex[attacker.EntryIndex] = HeadsState();
+        int before = rig.Arsenal.Holdings(attacker).First(h => h.ClassName == AirStrike).Clip;
+
+        rig.Hook(new AttributeHooks(), owners, playerData: heads)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(1, heads.ByIndex[attacker.EntryIndex]!.Decapitations);   // own none, victim none, one more
+        Assert.Equal(before, rig.Arsenal.Holdings(attacker).First(h => h.ClassName == AirStrike).Clip);
+    }
+
+    /// <summary>Stock's override is the Air Strike's: a plain launcher's kill
+    /// must not hand a demoman's swords their heads.</summary>
+    [Fact]
+    public void Another_launchers_kill_counts_no_head()
+    {
+        var rig = new Rig();
+        var attacker = rig.Map.Add().Handle;
+        rig.Registry.KeyValue(attacker, EntityNames.Player, "targetname", "no_head_fixture");
+        rig.Give(attacker, Rocket);
+        var owners = new FakeOwners();
+        owners.Held[attacker.EntryIndex] = Rocket;
+        var heads = new HeadsStates();
+        heads.ByIndex[attacker.EntryIndex] = HeadsState();
+
+        rig.Hook(new AttributeHooks(), owners, playerData: heads)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(0, heads.ByIndex[attacker.EntryIndex]!.Decapitations);
+    }
+
+    /// <summary>The pile half of stock's walk (:420-423): the kill carries the
+    /// victim's heads across, so two plus their own none plus one is three.</summary>
+    [Fact]
+    public void The_kill_carries_the_victims_heads_into_the_killers_pile()
+    {
+        var rig = new Rig();
+        var attacker = rig.Map.Add().Handle;
+        rig.Registry.KeyValue(attacker, EntityNames.Player, "targetname", "clip_pile_fixture");
+        rig.Give(attacker, AirStrike);
+        var owners = new FakeOwners();
+        owners.Held[attacker.EntryIndex] = AirStrike;
+        owners.Items[attacker.EntryIndex] = ClipGrowItem(2f);
+        var heads = new HeadsStates();
+        heads.ByIndex[attacker.EntryIndex] = HeadsState();
+        heads.ByIndex[rig.Death.Player.EntryIndex] = HeadsState(2);
+
+        rig.Hook(new AttributeHooks(), owners, playerData: heads)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(3, heads.ByIndex[attacker.EntryIndex]!.Decapitations);   // their own none, the victim's two, one more
+    }
+
+    /// <summary>Stock bumps the count before it asks the attribute hook
+    /// (:419-424 before :426): a kill by the launcher counts even when the
+    /// item carries no cap, and the blob clip the kill found stands.</summary>
+    [Fact]
+    public void A_kill_without_the_attribute_still_counts_the_head()
+    {
+        var rig = new Rig();
+        var attacker = rig.Map.Add().Handle;
+        rig.Registry.KeyValue(attacker, EntityNames.Player, "targetname", "clip_plain_fixture");
+        rig.Give(attacker, AirStrike);
+        var owners = new FakeOwners();
+        owners.Held[attacker.EntryIndex] = AirStrike;
+        owners.Items[attacker.EntryIndex] = new AttributeContainer();
+        var heads = new HeadsStates();
+        heads.ByIndex[attacker.EntryIndex] = HeadsState();
+        int before = rig.Arsenal.Holdings(attacker).First(h => h.ClassName == AirStrike).Clip;
+
+        rig.Hook(new AttributeHooks(), owners, playerData: heads)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(1, heads.ByIndex[attacker.EntryIndex]!.Decapitations);
+        Assert.Equal(before, rig.Arsenal.Holdings(attacker).First(h => h.ClassName == AirStrike).Clip);
+    }
+
+    /// <summary>The per-index carrier states the kill bump reads and writes.</summary>
+    private sealed class HeadsStates : ITFPlayerData
+    {
+        public readonly Dictionary<int, TFPlayerNetState> ByIndex = new();
+
+        public TFPlayerNetState? Predicted(int playerIndex) => ByIndex.GetValueOrDefault(playerIndex);
+        public TFPlayerNetState? Networked(int playerIndex) => ByIndex.GetValueOrDefault(playerIndex);
+    }
+
+    /// <summary>A locally bound carrier state: the hook's writes land.</summary>
+    private static TFPlayerNetState HeadsState(int count = 0)
+    {
+        var state = new TFPlayerNetState();
+        state.BindLocal();
+        state.Decapitations = count;
+        return state;
     }
 
     private sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class

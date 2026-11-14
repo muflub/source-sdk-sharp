@@ -240,6 +240,15 @@ public sealed class TFSharedDefsTests
     }
 
     [Fact]
+    public void GetWeaponId_answers_the_katana_the_sword_its_base_inherits()
+    {
+        // CTFKatana overrides no GetWeaponID: the decap base's
+        // TF_WEAPON_SWORD answers for it (tf_weapon_sword.h:45).
+        Assert.Equal(TFWeaponId.Sword, TFWeaponNames.IdOf(TFWeaponTypes.Katana));
+        Assert.Equal(TFWeaponId.Sword, TFWeaponNames.IdOf("TF_WEAPON_KATANA"));
+    }
+
+    [Fact]
     public void GetWeaponId_keeps_stocks_FLAME_BALL_misspelling()
     {
         Assert.Equal(TFWeaponId.FlameBall, TFWeaponNames.IdOf("TF_WEPON_FLAME_BALL"));

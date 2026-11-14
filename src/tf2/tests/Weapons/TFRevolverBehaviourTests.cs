@@ -106,6 +106,34 @@ public sealed class TFRevolverBehaviourTests
         Assert.Equal(0f, w.BehaviourKeptTime, 4);
     }
 
+    /// <summary>Stock's bucket spend (<c>tf_weapon_revolver.cpp:159-171</c>): the shot
+    /// just fired asks the bucket service for one stored crit, at the holder's index —
+    /// the gate and clamp of the spend live in the service, not the behaviour.</summary>
+    [Fact]
+    public void A_fired_shot_spends_one_stored_crit()
+    {
+        var bucket = new RecordingBucket();
+        var world = new TFWeaponWorld(bucket: bucket);
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f, seed: seed);
+
+        Assert.Single(world.Arms.Bullets);   // the shot fired
+        Assert.Equal(TFWeaponWorld.Owner, Assert.Single(bucket.Spent));
+    }
+
+    /// <summary>The bucket as the facts see it: what the shots spent, nothing else.</summary>
+    private sealed class RecordingBucket : ITFRevengeCrits
+    {
+        public readonly List<int> Spent = new();
+
+        public void Grant(EntityHandle owner) { }
+
+        public void SpendOnShot(int ownerIndex) => Spent.Add(ownerIndex);
+    }
+
     [Fact]
     public void The_revolver_runs_a_behaviour_of_its_own()
     {

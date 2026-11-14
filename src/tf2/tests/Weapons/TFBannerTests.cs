@@ -398,7 +398,7 @@ public sealed class TFBannerTests
         rig.Engine.Returns("Players.GetUserId", 103); // the owner's userid, as the server answers it (:247)
 
         var dispatcher = new TFWeaponEffects(buffs: new TFBuffDeployment(
-            rig.Players, rig.Conditions, rig.Engine, rig.Engine, rig.Engine, rig.Engine));
+            rig.Players, rig.Conditions, rig.Engine, rig.Engine, sound: rig.Engine, events: rig.Engine));
         var behaviour = rig.Behaviour(dispatcher);
         behaviour.PrimaryAttack(BuffRig.At(BuffRig.Armed(), 10f));
 
@@ -446,10 +446,13 @@ public sealed class TFBannerTests
         public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot)
             => effects.Flames(in attack, script, shot);
         public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) => effects.AirBlast(in attack, script);
+        public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
+            => effects.ExtinguishBeam(in attack, script);
         public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) => effects.Heal(in attack, script, held);
         public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) => effects.Zoom(in attack, script, zoomed);
         public void Tracer(in WeaponAttackContext attack, TFWeaponScript script) => effects.Tracer(in attack, script);
         public bool ClassSpecialSkill(in WeaponAttackContext attack) => effects.ClassSpecialSkill(in attack);
+        public void EndClassSpecialSkill(in WeaponAttackContext attack) => effects.EndClassSpecialSkill(in attack);
         public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) => effects.SelectLast(in attack, script);
         public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
             => effects.Melee(in attack, script, shot, in trace);
@@ -478,6 +481,8 @@ public sealed class TFBannerTests
             effects.RaiseBuffBanner(in attack, buffType);
             rig.Dispatcher().RaiseBuffBanner(in attack, buffType);
         }
+
+        public void UseRage(in WeaponAttackContext attack, int buffType) { }
     }
 
     /// <summary>The walk of the deploy, recording each pulse ask beside handing it over.</summary>
@@ -494,6 +499,8 @@ public sealed class TFBannerTests
         public void BlowBuffHorn(int ownerIndex, int buffType) => _walk.BlowBuffHorn(ownerIndex, buffType);
 
         public void RaiseBuffBanner(int ownerIndex, int buffType) => _walk.RaiseBuffBanner(ownerIndex, buffType);
+
+        public void UseRage(int ownerIndex, int buffType) => _walk.UseRage(ownerIndex, buffType);
     }
 
     /// <summary>

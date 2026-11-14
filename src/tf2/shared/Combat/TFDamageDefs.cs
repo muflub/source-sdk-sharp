@@ -39,6 +39,12 @@ public static class TFDamageBits
 
     /// <summary><c>DMG_MELEE</c> (<c>DMG_BLAST_SURFACE</c>).</summary>
     public const DamageType Melee = DamageType.BlastSurface;
+
+    /// <summary>
+    /// <c>DMG_DONT_COUNT_DAMAGE_TOWARDS_CRIT_RATE</c> (<c>DMG_DISSOLVE</c>):
+    /// the hit stays out of the victim's crit-rate accounting.
+    /// </summary>
+    public const DamageType DontCountCritRate = DamageType.Dissolve;
 }
 
 /// <summary>

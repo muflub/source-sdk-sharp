@@ -55,6 +55,7 @@ public readonly record struct TFCritShot(
 /// <param name="RangedDamage">The owner's round's <c>TFSTAT_DAMAGE_RANGED</c> — the server's measure's total (<c>tf_gamestats.cpp:1075</c>); read only on the side that has the round's stats.</param>
 /// <param name="RandomCritDamage">The owner's round's <c>TFSTAT_DAMAGE_RANGED_CRIT_RANDOM</c>, the crit share of <paramref name="RangedDamage"/> (<c>tf_gamestats.cpp:1086</c>).</param>
 /// <param name="StatsMeasured">Whether the round's two numbers came with the policy at all — true only on the server side, whose <c>CanFireRandomCriticalShot</c> measures and sets; false and the roll compares the stored value alone, as stock's client arm does.</param>
+/// <param name="MeleeCrit">The charge's grant (<c>m_iNextMeleeCrit</c>) this swing spends: the end's ladder, read by the melee helpers (<c>tf_weaponbase_melee.cpp:1100-1105</c>).</param>
 public readonly record struct TFCritOwner(
     bool CritBoosted = false,
     bool WinsCrits = false,
@@ -64,10 +65,11 @@ public readonly record struct TFCritOwner(
     float ObservedCritChance = 0f,
     int RangedDamage = 0,
     int RandomCritDamage = 0,
-    bool StatsMeasured = false)
+    bool StatsMeasured = false,
+    int MeleeCrit = (int)TFMeleeCrit.NoCrit)
 {
     /// <summary>A plain owner: no boost, multipliers of 1, allowed to crit, no round stats read. <c>new()</c> is this, never all-zero.</summary>
-    public TFCritOwner() : this(false, false, 1f, 1f, true, 0f, 0, 0, false) { }
+    public TFCritOwner() : this(false, false, 1f, 1f, true, 0f, 0, 0, false, (int)TFMeleeCrit.NoCrit) { }
 }
 
 /// <summary>
@@ -110,7 +112,8 @@ public readonly record struct TFCritResult(bool Critical, bool Random = false, i
 ///
 /// <para>
 /// Not ported: the training, PvE and creep-wave bot arms (no bots yet), the
-/// demo charge's <c>GetNextMeleeCrit</c>, and the debug convars
+/// swing's <c>m_bCurrentAttackIsDuringDemoCharge</c> latch (its reader is the
+/// kill-refill's achievement arm), and the debug convars
 /// (<c>tf_weapon_criticals_force_random</c>, <c>_anticheat</c>, <c>_debug</c>,
 /// <c>_DEBUG</c> builds only).
 /// </para>
@@ -153,6 +156,11 @@ public sealed class TFCritRoll
         // Melee: tf_weapon_criticals_melee 2 rolls whatever tf_weapon_criticals says.
         if (shot.Melee && settings.MeleeCrits > 1)
             return MeleeHelper(in shot, in owner, in settings, bucket, ref clocks);
+
+        // The charge's grant (tf_weaponbase_melee.cpp:1053-1058): even with the
+        // random crits off, the swing that ended the charge rolls its full crit.
+        if (shot.Melee && owner.MeleeCrit == (int)TFMeleeCrit.Crit)
+            return new TFCritResult(true);
 
         // "Support critboosted even in no crit mode."
         return new TFCritResult(owner.CritBoosted);
@@ -300,6 +308,12 @@ public sealed class TFCritRoll
             return new TFCritResult(false);
 
         if (owner.CritBoosted)
+            return new TFCritResult(true);
+
+        // The charge's grant (tf_weaponbase_melee.cpp:1100-1105): the swing
+        // that ended the charge rolls its full crit here, before the bucket —
+        // the mini-crit grant rides the mode bit to the smack instead.
+        if (owner.MeleeCrit == (int)TFMeleeCrit.Crit)
             return new TFCritResult(true);
 
         float critChance = TFDamage.CritChanceMelee * owner.CritMult * owner.ChanceScale;

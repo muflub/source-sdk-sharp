@@ -9,6 +9,7 @@ using TF2.Server.Medigun;
 using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Server.Player;
@@ -28,6 +29,7 @@ public sealed class TFPlayerCarrier : IPlayerComponent
     private readonly ILog _log;
 
     private EntityHandle _carrier = EntityHandle.None;
+    private EntityHandle _player = EntityHandle.None;
     private int _index = -1;
 
     public TFPlayerCarrier(IEngineEntities entities, IEntityDirectory directory, TFPlayerCarriers carriers, ILog log)
@@ -44,6 +46,9 @@ public sealed class TFPlayerCarrier : IPlayerComponent
     /// <summary>The carrier entity, or <see cref="EntityHandle.None"/> before the attach and after the detach.</summary>
     public EntityHandle Carrier => _carrier;
 
+    /// <summary>The player the carrier is bound to, from the attach on.</summary>
+    public EntityHandle Player => _player;
+
     /// <summary>The carrier's state, or null when it has none.</summary>
     public TFPlayerNetState? State { get; private set; }
 
@@ -57,6 +62,7 @@ public sealed class TFPlayerCarrier : IPlayerComponent
 
     public void Attach(EntityHandle player)
     {
+        _player = player;
         _carrier = _entities.Create(TFEntityNames.PlayerData);
         if (_carrier == EntityHandle.None)
         {
@@ -119,13 +125,15 @@ public sealed class TFPlayerCarrier : IPlayerComponent
         if (_carrier != EntityHandle.None && _entities.IsValid(_carrier))
             _entities.Remove(_carrier);
         _carrier = EntityHandle.None;
+        _player = EntityHandle.None;
     }
 }
 
 /// <summary>
 /// TF2's per-player components (Stage 2.3's <c>TFPlayerComponents</c>), in
 /// their order: the carrier (0), the class (10), the condition countdown (20),
-/// the blast jump (25), the taunt think (26), the taunt attack (27), the stun
+/// the charge meter (21), the charge's end (22), the blast jump (25), the
+/// taunt think (26), the taunt attack (27), the taunt heal (28), the stun
 /// stack (30), the respawn override (40) and the buff's rage tick (42).
 /// Each is its own class; nothing here decides anything. The countdown takes
 /// the medigun lane's healing (2.9) to report the frame's healer count; a
@@ -143,7 +151,12 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        TFWeaponScripts weaponScripts, TFDamageScopes damageScopes,
                                        ITFPlayerHealing? healing = null,
                                        ITFLunchboxEffects? lunchbox = null,
-                                       ITFBuffEffects? buffs = null)
+                                       ITFBuffEffects? buffs = null,
+                                       ITFWeaponOwners? owners = null,
+                                       AttributeHooks? hooks = null,
+                                       TFDemomanChargeDrainTimeConVar? chargeDrain = null,
+                                       TFDemomanChargeRegenRateConVar? chargeRegen = null,
+                                       TFShieldCharge? shields = null)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.Components;
@@ -153,9 +166,15 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFPlayerCarrier(entities, directory, carriers, log);
         yield return new TFPlayerClass(carriers, items);
         yield return new TFPlayerConditionTicker(carriers, conditions, networking, healing);
+        yield return new TFShieldChargeMeter(carriers, conditions, items, hooks, chargeDrain, chargeRegen);
+        yield return new TFShieldChargeEnd(carriers, shields, hooks, clock);
         yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFTauntThink(conditions, directory);
         yield return new TFTauntAttack(carriers, players, entities, world, damage, enginePlayers, networking, weaponScripts, damageScopes, directory, lunchbox);
+        if (healing is { } healLane)
+            yield return new TFTauntHeal(carriers, conditions, enginePlayers, entities, world,
+                                         owners ?? new NoTFWeaponOwners(), hooks ?? new AttributeHooks(), healLane);
+        yield return new TFScattergunKnockback(carriers, entities);
         yield return new TFStunStack(carriers, players, clock);
         yield return new TFRespawnOverride(carriers, clock);
         if (buffs is { } buffEffects)
@@ -212,6 +231,28 @@ public sealed class TFPlayerCarriers : ITFPlayerData, ITFPlayerClasses
 
     /// <inheritdoc cref="ITFPlayerData.EndCommand"/>
     public void EndCommand(int playerIndex) => Part<TFBlastJumpState>(playerIndex)?.EndCommand();
+
+    /// <inheritdoc cref="ITFPlayerData.EndCharge"/>
+    public void EndCharge(int playerIndex) => Part<TFShieldChargeEnd>(playerIndex)?.EndCharge();
+
+    /// <inheritdoc cref="ITFPlayerData.ScattergunKnock"/>
+    public void ScattergunKnock(int playerIndex, Vector velocity)
+        => Part<TFScattergunKnockback>(playerIndex)?.Knock(velocity);
+
+    /// <inheritdoc cref="ITFPlayerData.IsPlayerEntity"/>
+    public bool IsPlayerEntity(EntityHandle entity)
+    {
+        if (entity == EntityHandle.None)
+            return false;
+
+        foreach (TFPlayerCarrier carrier in _byIndex.Values)
+        {
+            if (carrier.Player == entity)
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>The player's condition set (the carrier's), or null when the player has no carrier.</summary>
     public TFConditions? ConditionsOf(int playerIndex) => LiveCarrier(playerIndex)?.Conditions;

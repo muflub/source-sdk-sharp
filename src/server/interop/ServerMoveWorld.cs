@@ -100,6 +100,7 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
             GroundVelocity = new Vector(blob.GroundVelocityX, blob.GroundVelocityY, blob.GroundVelocityZ),
             HasEntity = blob.HasEntity != 0,
             HitWorld = blob.HitWorld != 0,
+            HitEntity = hit,
         };
     }
 

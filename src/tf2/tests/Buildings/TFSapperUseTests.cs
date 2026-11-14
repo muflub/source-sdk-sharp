@@ -3,6 +3,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server;
 using TF2.Server.Buildings;
 using TF2.Server.Combat;
 using TF2.Shared;
@@ -34,9 +35,28 @@ public sealed class TFSapperUseTests
     /// <summary>The reach the wrench hook asks the seam with: <c>CTFWrench::Smack</c>'s 70 (tf_weapon_wrench.cpp:165).</summary>
     private const float Swing = TFWrenchHook.SmackRange;
 
-    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null, ITFBuilderArms? arms = null) =>
+    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null, ITFBuilderArms? arms = null,
+                                   TFConstructionBuildRateConVar? constructionRate = null,
+                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null) =>
         new(rig.Players, rig.Engine, rig.Engine, rig.Engine, rig.Buildings(), rig.Engine,
-            rig.Scopes, rig.Spawner, rig.Log, arms, lagCompensation: lag);
+            rig.Scopes, rig.Spawner, rig.Log, constructionRate: constructionRate, owners: owners, hooks: hooks,
+            arms: arms, lagCompensation: lag);
+
+    /// <summary>The whack's convar as the rig's registry declared it.</summary>
+    private static TFConstructionBuildRateConVar ConstructionRate(BuildingsRig rig) =>
+        rig.Convars.Declared<TFConstructionBuildRateConVar>();
+
+    /// <summary>An item carrying one float attribute, as the wrench's own would.</summary>
+    private static AttributeContainer Item(int defIndex, string hook, float value)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(defIndex, "attr " + defIndex, hook,
+                                                                AttributeDescriptionFormat.Percentage,
+                                                                AttributeEffectType.Positive, false, false,
+                                                                AttributeValueType.Default,
+                                                                MergedKeys.Block("x")), value));
+        return item;
+    }
 
     /// <summary>The arms the place hands the weapon back through, as a recording.</summary>
     private sealed class RecordingArms : ITFBuilderArms
@@ -117,6 +137,45 @@ public sealed class TFSapperUseTests
         var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
         rig.Centers[sentry.Handle] = new Vector(60f, 0f, 64f);   // the building sits on the swing line
         return (rig, sapper, sentry, engineer);
+    }
+
+    /// <summary>
+    /// A sentry still building, its centre on its engineer's swing line: the
+    /// build started at the clock's 100 and no tick has run yet.
+    /// </summary>
+    private static (BuildingsRig Rig, TFSentryGun Sentry, EntityHandle Engineer) ABuildingSentry()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
+        var sentry = rig.Spawn<TFSentryGun>(TFSentryGun.MapClass);
+        sentry.StartPlacement(engineer);
+        rig.Clock.Now = 100f;
+        sentry.StartBuilding();
+        rig.Centers[sentry.Handle] = new Vector(60f, 0f, 64f);
+        StubEngine(rig, engineer);
+        return (rig, sentry, engineer);
+    }
+
+    /// <summary>A built sentry wounded to half, its centre on its engineer's swing line.</summary>
+    private static (BuildingsRig Rig, TFSentryGun Sentry, EntityHandle Engineer) AWoundedSentry()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));
+        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        BuildingsRig.Hit(sentry, enemy, 100f, DamageType.Bullet);   // 150 → 50
+        StubEngine(rig, engineer);
+        rig.Purse.Pockets[MetalName] = 200;
+        return (rig, sentry, engineer);
+    }
+
+    /// <summary>The engineer's hands on the swung wrench, carrying <paramref name="item"/>.</summary>
+    private static void Holds(BuildingsRig rig, EntityHandle engineer, AttributeContainer item)
+    {
+        rig.Owners.Held[engineer.EntryIndex] = TFWrenchHook.WrenchScript;
+        rig.Owners.ByName[engineer.EntryIndex] = new() { [TFWrenchHook.WrenchScript] = item };
     }
 
     /// <summary>One engineer's pair, built, both ends where the placement facts put them.</summary>
@@ -486,6 +545,83 @@ public sealed class TFSapperUseTests
         Assert.Equal(150, sentry.Health);
         Assert.Equal(190, rig.Purse.Pockets[MetalName]);
         Assert.Empty(rig.Engine.AllOf("Damage.TakeDamage"));   // no sapper rode: no blow
+    }
+
+    [Fact]
+    public void The_whack_hurries_the_build_while_it_stands()
+    {
+        var (rig, sentry, engineer) = ABuildingSentry();
+
+        // OnConstructionHit (tf_obj.cpp:2154-2175) takes the whack;
+        // GetConstructionMultiplier's 1 + tf_construction_build_rate_multiplier
+        // (:2183, :2200) rides the next tick's slice.
+        Assert.True(Use(rig, constructionRate: ConstructionRate(rig)).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.False(sentry.IsBuilt);
+
+        rig.Clock.Now = 100.5f;
+        sentry.OnThink();
+
+        // The half second under the whack builds at 2.5: (150 - 1) * 0.125
+        // pays 18 health where a plain half second pays 7.
+        Assert.Equal(19, sentry.Health);
+
+        rig.Clock.Now = 109.5f;
+        sentry.OnThink();
+
+        // The accrual keeps the boost's share after the window: 0.125 + 9/10
+        // finishes a tenth early, where the plain clock stands at 0.95.
+        Assert.True(sentry.IsBuilt);
+    }
+
+    [Fact]
+    public void The_whacks_boost_expires_with_its_second()
+    {
+        var (rig, sentry, engineer) = ABuildingSentry();
+
+        Assert.True(Use(rig, constructionRate: ConstructionRate(rig)).WrenchSmack(engineer.EntryIndex, Swing));
+
+        rig.Clock.Now = 100.5f;
+        sentry.OnThink();
+        Assert.Equal(19, sentry.Health);
+
+        // The window's edge was curtime + 1 (tf_obj.cpp:2160): past 101 the
+        // entry is pruned on the walk (:2191) and the next second is plain —
+        // 0.125 + 1/10, not the lingering 2.5's 0.375.
+        rig.Clock.Now = 101.5f;
+        sentry.OnThink();
+        Assert.Equal(34, sentry.Health);
+    }
+
+    [Fact]
+    public void The_whacks_value_is_the_convar_times_the_wrenchs_attribute()
+    {
+        var (rig, sentry, engineer) = ABuildingSentry();
+        Holds(rig, engineer, Item(30061, "mult_construction_value", 2f));
+
+        // GetConstructionValue (tf_weapon_wrench.cpp:334-339): the convar's
+        // 1.5 times the swung wrench's mult_construction_value.
+        Assert.True(Use(rig, constructionRate: ConstructionRate(rig), owners: rig.Owners, hooks: rig.Hooks)
+                      .WrenchSmack(engineer.EntryIndex, Swing));
+
+        rig.Clock.Now = 100.5f;
+        sentry.OnThink();
+
+        // 1 + 3 over the half second: (150 - 1) * 0.2 pays 29 health.
+        Assert.Equal(30, sentry.Health);
+    }
+
+    [Fact]
+    public void The_swung_wrenchs_repair_attribute_scales_the_repair()
+    {
+        var (rig, sentry, engineer) = AWoundedSentry();
+        Holds(rig, engineer, Item(30062, "mult_repair_value", 0.5f));
+
+        Assert.True(Use(rig, owners: rig.Owners, hooks: rig.Hooks).WrenchSmack(engineer.EntryIndex, Swing));
+
+        // GetRepairAmount's arm (tf_weapon_wrench.cpp:344-349): 100 * 0.5,
+        // then the metal ratio's ceil — 17 metal carries the 51 it buys.
+        Assert.Equal(101, sentry.Health);
+        Assert.Equal(183, rig.Purse.Pockets[MetalName]);
     }
 
     [Fact]

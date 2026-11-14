@@ -119,12 +119,14 @@ public class CorpseTests
     }
 
     /// <summary>A client body with somewhere for its decoded state to live.</summary>
-    private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null)
+    private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null,
+                                          client::SourceSharp.Client.Sounds.IClientEntitySounds? sounds = null)
     {
         // At the origin, matching the state's default -- see the note below.
         // Set on the engine rather than in each test, because every viewer test
         // reaches the placement check before anything it is actually about.
-        var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine));
+        var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine),
+                                       sounds: sounds);
 
         // The registry does both of these in a game (ClientStandaloneRegistry
         // binds the engine at create, and the decode gives the state its
@@ -636,6 +638,158 @@ public class CorpseTests
     }
 
     /// <summary>
+    /// Stock's ash arrival (c_tf_player.cpp:941-945): a body whose update
+    /// carries the networked ash — and no gib — stamps its half-second clock
+    /// with the client's now and starts the ash particle, in the corpse slot.
+    /// </summary>
+    [Fact]
+    public void ABodyThatArrivesAshingStampsItsHalfSecondAndStartsTheAshParticle()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ash = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(100f, body.AshStartTime);
+
+        var start = engine.Last("Effects.ParticleSystemStartSlot")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == FlameRules.AshCorpse,
+            $"the ash particle is stock's '{FlameRules.AshCorpse}', not '{start.ArgAs<string>(1)}'");
+        Assert.Equal(client::SourceSharp.Client.Ragdolls.RagdollAsh.CorpseSlot, start.ArgAs<int>(2));
+    }
+
+    [Fact]
+    public void AnAshingBodyAshesOnceHoweverManyUpdatesArrive()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ash = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStartSlot"));
+    }
+
+    /// <summary>The gib arm of the same gate (c_tf_player.cpp:941): a body in
+    /// pieces draws the gib, not the ash.</summary>
+    [Fact]
+    public void AGibbedBodyLeavesNoAsh()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ash = true;
+        body.State.Gib = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(0f, body.AshStartTime);
+        Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
+    }
+
+    // ---- the Classic's red mist (crit_on_hard_hit) ---------------------------
+
+    /// <summary>
+    /// The mist arm (c_tf_player.cpp:1120-1123): a gibbed body from a
+    /// hard-hit-critting weapon raises <c>tfc_sniper_mist</c> in the slot beside
+    /// the ash's, once.
+    /// </summary>
+    [Fact]
+    public void AGibbedBodyFromAHardHitWeaponRaisesTheMist()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+
+        var body = Viewer(engine);
+        body.State.Gib = true;
+        body.State.CritOnHardHit = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var start = engine.Last("Effects.ParticleSystemStartSlot")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == client::SourceSharp.Client.Standalone.ClientSsRagdoll.CritMistParticle,
+            $"the mist is stock's 'tfc_sniper_mist', not '{start.ArgAs<string>(1)}'");
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.CritMistSlot, start.ArgAs<int>(2));
+        Assert.True(body.CritMistShown);
+    }
+
+    [Fact]
+    public void TheMistGoesUpOnceHoweverManyUpdatesArrive()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+
+        var body = Viewer(engine);
+        body.State.Gib = true;
+        body.State.CritOnHardHit = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStartSlot"));
+    }
+
+    [Fact]
+    public void AWholeBodyAndAPlainGibRaiseNoMist()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var plain = Viewer(engine);
+        plain.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var unflagged = Viewer(engine);
+        unflagged.State.Gib = true;
+        unflagged.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
+        Assert.False(plain.CritMistShown);
+        Assert.False(unflagged.CritMistShown);
+    }
+
+    [Fact]
+    public void TheMistLeavesWithTheBody()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+
+        var body = Viewer(engine);
+        body.State.Gib = true;
+        body.State.CritOnHardHit = true;
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        body.OnRemoved();
+
+        var stop = engine.Last("Effects.ParticleSystemStopSlot")!.Value;
+
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.CritMistSlot, stop.ArgAs<int>(1));
+    }
+
+    /// <summary>
     /// A BLUE player's corpse wears the blue skin — stock's
     /// <c>C_TFRagdoll::CreateTFRagdoll</c> maps the stamped team to the model
     /// skin at creation (c_tf_player.cpp:712-719): skin 0 for red, skin 1
@@ -990,6 +1144,70 @@ public class CorpseTests
 
         Assert.True(body.IsRagdoll,
             "and the moment the model is there, the body collapses");
+    }
+
+    // ---- the ice the Spy-cicle leaves (freeze_backstab_victim) --------------
+
+    /// <summary>Records what the body asked its sounds to play.</summary>
+    private sealed class RecordingSounds : client::SourceSharp.Client.Sounds.IClientEntitySounds
+    {
+        public List<string> Sounds { get; } = [];
+
+        public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null) => Sounds.Add(soundName);
+        public void StopFrom(EntityHandle entity, string soundName) { }
+    }
+
+    /// <summary>Stock's ice arrival (c_tf_player.cpp:736-742): a body whose update
+    /// carries the frozen mark plays the turn-to-ice sound and raises stock's dry-ice
+    /// frost over itself, once however many updates arrive, in a slot of its own so
+    /// the burn's plain system and the ash's keep theirs.</summary>
+    [Fact]
+    public void ABodyThatArrivesFrozenPlaysTheIceSoundAndRaisesTheFrost()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(body.IceShown);
+
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.IceSound, Assert.Single(sounds.Sounds));
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStartSlot"));
+
+        var start = engine.Last("Effects.ParticleSystemStartSlot")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == client::SourceSharp.Client.Standalone.ClientSsRagdoll.IceParticle,
+            $"the frost is stock's 'xms_icicle_impact_dryice', not '{start.ArgAs<string>(1)}'");
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.IceSlot, start.ArgAs<int>(2));
+    }
+
+    /// <summary>The same gate's other half: an ordinary death (no ice mark) plays
+    /// nothing and raises nothing beside its plain collapse.</summary>
+    [Fact]
+    public void AnOrdinaryBodyHasNoIceAtAll()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.False(body.IceShown);
+        Assert.Empty(sounds.Sounds);
+        Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
     }
 }
 

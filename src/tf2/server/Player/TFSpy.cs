@@ -79,8 +79,14 @@ public sealed class TFSpyComponent(
     // tf_weapon_invis.cpp's m_flStealthNextChangeTime, the toggle's cooldown.
     private float _stealthNextChangeTime;
 
-    // The swing just made backstabbed, until the next one.
+    // The swing just made backstabbed, until the next one; the victim it named
+    // (stock's m_hBackstabVictim, read by DisguiseOnKill).
     private bool _backstabbed;
+    private EntityHandle _backstabVictim = EntityHandle.None;
+
+    // The Spy-cicle's melt (stock's m_flKnifeMeltTimestamp, m_flKnifeRegenerateDuration :523).
+    private float _knifeMeltStamp;
+    private float _knifeMeltWindow;
 
     public int Order => 0;
 
@@ -499,6 +505,9 @@ public sealed class TFSpyComponent(
 
     // ---- the backstab ------------------------------------------------------
 
+    /// <summary>The swing's box, as the plain melee's (<c>vecSwingMinsBase</c>).</summary>
+    private const float SwingHull = 18f;
+
     /// <summary>
     /// The swing: stock's trace (<c>CBaseHLBludgeonWeapon</c>'s line at the
     /// melee range, as the core arm's) and, when it names a living enemy
@@ -512,6 +521,8 @@ public sealed class TFSpyComponent(
     public bool Swing(float range)
     {
         _backstabbed = false;
+        _backstabVictim = EntityHandle.None;   // stock's m_hBackstabVictim, rewriten with each swing
+        _backstabVictim = EntityHandle.None;
 
         // The knife's session (tf_weapon_knife.cpp:192, :225): the swing's
         // trace and the behind-and-facing check see the other players where
@@ -522,7 +533,18 @@ public sealed class TFSpyComponent(
             Vector from = enginePlayers.GetShootOrigin(_player);
             var aim = Angles.Vectors(entities.GetEyeAngles(_player));
 
-            var trace = world.TraceLine(from, from + aim.Forward * range, TraceMask.Shot, _player);
+            // DoSwingTraceInternal (tf_weaponbase_melee.cpp:392-): the line, then the
+            // 18-unit box, both at MASK_SOLID. A line at the shot mask finds only
+            // hitboxes, and a body standing at arm's length often has none on it.
+            Vector to = from + aim.Forward * range;
+            TraceResult trace = world.TraceLine(from, to, TraceMask.Solid, _player);
+            if (!trace.Hit)
+            {
+                var half = new Vector(SwingHull, SwingHull, SwingHull);
+                SurfaceTraceResult box = world.TraceBox(from, to, half * -1f, half, TraceMask.Solid, _player);
+                trace = new TraceResult(box.Hit, box.Fraction, box.End, box.Normal, box.Entity);
+            }
+
             if (!trace.Hit || !entities.IsPlayer(trace.Entity))
                 return false;
 
@@ -547,6 +569,7 @@ public sealed class TFSpyComponent(
                 && victimForward.Dot(ownerForward) > -0.3f)
             {
                 _backstabbed = true;
+                _backstabVictim = trace.Entity;   // stock's m_hBackstabVictim = hHit (tf_weapon_knife.cpp:210)
 
                 // Razorback's block (stock's CTFPlayer::CheckBlockBackstab, tf_player.cpp:10072-10116,
                 // applied at tf_gamerules.cpp:6827): the victim's first item holding
@@ -588,6 +611,30 @@ public sealed class TFSpyComponent(
                         heal.TakeHealth(_player, gained, ignoreMaxHealth: true);
                 }
 
+                // The kill arms (stock's CTFPlayer::OnKilledOther_Effects, tf_player.cpp:11509-11572),
+                // fired once the victim is down: the spy's cloak-on-kill (:11513-11521) puts the held
+                // item's add_cloak_on_kill straight on the cloak meter — forced, so the regen hooks
+                // are skipped, clamped to 0..100 as AddToSpyCloakMeter does (tf_player_shared.cpp:9731,
+                // :9753-9755) — and the weapon's speed_boost_on_kill rides TF_COND_SPEED_BOOST for
+                // the attribute's seconds (:11567-11572). Stock's restore-to-percentage arm
+                // (:11527-11543) is the heal lane's and stays deferred (docs/plans/tf2/deferred.tsv).
+                if (!enginePlayers.IsAlive(trace.Entity))
+                {
+                    var killItem = owners.ItemOf(_index, TFKnifeHook.KnifeScript);
+
+                    int cloakOnKill = hooks.Int(0, "add_cloak_on_kill", killItem);       // :11516
+                    if (cloakOnKill > 0                                                   // :11517
+                        && _players.Predicted(_index) is { } cloak
+                        && (TFClass)cloak.PlayerClass == TFClass.Spy)                     // :11513
+                    {
+                        cloak.CloakMeter = Math.Clamp(cloak.CloakMeter + cloakOnKill, 0f, 100f);   // :9755
+                    }
+
+                    int boostSeconds = hooks.Int(0, "speed_boost_on_kill", killItem);     // :11568
+                    if (boostSeconds != 0)                                                 // :11569
+                        conditions.Add(_player, TFCond.SpeedBoost, boostSeconds, _player); // :11571
+                }
+
                 return true;
             }
 
@@ -601,6 +648,63 @@ public sealed class TFSpyComponent(
 
     /// <summary>Whether the swing just made backstabbed: its smack lands nothing.</summary>
     public bool Backstabbed => _backstabbed;
+
+    /// <summary><c>CTFKnife::ShouldDisguiseOnBackstab</c>
+    /// (<c>tf_weapon_knife.cpp:335-343</c>): the knife's own item answers
+    /// <c>set_disguise_on_backstab</c> one, stock's hook over the weapon's item
+    /// container (:338-339).</summary>
+    public bool ShouldDisguiseOnBackstab() =>
+        hooks.Int(0, "set_disguise_on_backstab", owners.ItemOf(_index, TFKnifeHook.KnifeScript)) == 1;
+
+    /// <summary>
+    /// <c>CTFKnife::DisguiseOnKill</c> (<c>tf_weapon_knife.cpp:315-330</c>),
+    /// the think stock schedules on the successful backstab (:243-259): no
+    /// victim answers no disguise (:318-319), and with one the spy wears his
+    /// team and class (:325-328, stock's quick-disguise half of :328 — the
+    /// managed <see cref="Disguise"/> picks the quick time of its own). The
+    /// dead victim is stock's <c>bSuccessfulBackstab</c> (:243), stock's
+    /// <c>CanDisguise</c> gate (:322) runs inside <see cref="Disguise"/>, and
+    /// stock's flag half (:246, an intelligence but the pass-time ball on the
+    /// spy refuses) rides beside the slice's own <see cref="CanGoInvisible"/>
+    /// read. The think's 0.2 s delay applies at the press here, as the hit's
+    /// does (docs/plans/tf2/deferred.tsv); the bot half of :249-255 waits on
+    /// the MvM mode with the rest of its kind.
+    /// </summary>
+    public bool DisguiseOnKill(float now)
+    {
+        if (_backstabVictim == EntityHandle.None || enginePlayers.IsAlive(_backstabVictim))
+            return false;
+
+        if (ctf?.CarriedBy(_player) is { } flag && flag.Type != TFFlagType.PlayerDestruction)
+            return false;
+
+        if (_players.Networked(_backstabVictim.EntryIndex) is not { } victim)
+            return false;
+
+        return Disguise(now, (TFClass)victim.PlayerClass,
+                        (TFTeam)enginePlayers.GetTeam(_backstabVictim));
+    }
+
+    /// <summary><c>CTFKnife::CanDeploy</c> (<c>tf_weapon_knife.cpp:521-531</c>): the knife exists once
+    /// <c>now - m_flKnifeMeltTimestamp &gt; m_flKnifeRegenerateDuration</c> (:523), and a missing one
+    /// refuses the deploy (:525-528); the stamp's zero initial is stock's fresh <c>m_bKnifeExists</c>
+    /// (:77), whose formula holds with a zero stamp and window.</summary>
+    public bool KnifeReady(float now) => now - _knifeMeltStamp > _knifeMeltWindow;
+
+    /// <summary><c>CTFKnife::ApplyOnInjuredAttributes</c> (<c>tf_weapon_knife.cpp:118-157</c>):
+    /// burned or ignited with the knife in hand, the holder's item answering
+    /// <c>melts_in_fire</c> melts the knife for its seconds (:129-131) — only while it exists (:126) —
+    /// the melt sound with it (:136); stock's forced switch to the sapper (:142-153) waits with the
+    /// building lanes.</summary>
+    public void MeltKnife(float now, float seconds)
+    {
+        if (!KnifeReady(now))
+            return;
+
+        _knifeMeltStamp = now;
+        _knifeMeltWindow = seconds;
+        sound.EntityEmitSound(_player, "Icicle.Melt");
+    }
 
     /// <summary>Stock's z-flattened normalize; a zero vector stays zero.</summary>
     private static Vector Flat(Vector v)
@@ -694,6 +798,14 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     public bool Swing(int ownerIndex, float range) => Of(ownerIndex)?.Swing(range) ?? false;
 
     public bool Smack(int ownerIndex) => Of(ownerIndex)?.Backstabbed ?? false;
+
+    public bool ShouldDisguiseOnBackstab(int ownerIndex) => Of(ownerIndex)?.ShouldDisguiseOnBackstab() ?? false;
+
+    public bool DisguiseOnKill(int ownerIndex) => Of(ownerIndex)?.DisguiseOnKill(clock.Now) ?? false;
+
+    public bool KnifeReady(int ownerIndex, float now) => Of(ownerIndex)?.KnifeReady(now) ?? true;
+
+    public void MeltKnife(int ownerIndex, float now, float seconds) => Of(ownerIndex)?.MeltKnife(now, seconds);
 
     public void RemoveDisguise(int playerIndex) => Of(playerIndex)?.RemoveDisguise();
 

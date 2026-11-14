@@ -1,3 +1,5 @@
+using SourceSharp.Abi;
+
 using TF2.Shared.Conditions;
 
 namespace TF2.Shared.Player;
@@ -47,6 +49,36 @@ public interface ITFPlayerData
     /// as stock's GAME_DLL arm.
     /// </summary>
     void EndCommand(int playerIndex) { }
+
+    /// <summary>
+    /// <c>CTFPlayerShared::EndCharge</c> (tf_player_shared.cpp:6070-6095),
+    /// the charge's end behind the walk's two asks: in the charge, and under
+    /// 90 meter, the shield's bash, the next swing's crit and the duration
+    /// zero that removes the condition on the next condition think. Server
+    /// side: the whole body is stock's <c>GAME_DLL</c>; the client's answer is
+    /// the default nothing.
+    /// </summary>
+    void EndCharge(int playerIndex) { }
+
+    /// <summary>
+    /// Whether the entity is one of the mod's players: the bump arm's
+    /// <c>ToTFPlayer</c> over a blocked walk's trace hit
+    /// (tf_gamemovement.cpp:1925) — the world and every non-player standing
+    /// ends no charge. The server's carriers answer from the entity's kind;
+    /// the client inherits the default no, its half of the arm being stock's
+    /// server-only one.
+    /// </summary>
+    bool IsPlayerEntity(EntityHandle entity) => false;
+
+    /// <summary>
+    /// The Force-a-Nature's shove, its real half (<c>CTFScatterGun::FireBullet</c>'s
+    /// <c>SetAbsVelocity</c> and <c>StunPlayer</c>, tf_weapon_shotgun.cpp:353, :335):
+    /// <paramref name="velocity"/> becomes the player's own, the ground flag and
+    /// entity go with it, and the 0.3 s forward-only movement stun lands. The
+    /// server's carriers answer; the client's replay inherits the default
+    /// nothing, the predicted velocity above being its whole half.
+    /// </summary>
+    void ScattergunKnock(int playerIndex, Vector velocity) { }
 }
 
 /// <summary>Typed views over <see cref="TFPlayerNetState"/>'s words.</summary>

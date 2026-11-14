@@ -5,6 +5,7 @@ using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 
+using TF2.Tests.Combat;
 using TF2.Tests.Weapons;
 
 using Xunit;
@@ -41,6 +42,21 @@ public sealed class TFKnifeTests
 
         // The swing remembers, until the next one.
         Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
+    }
+
+    /// <summary>The line misses (a body at arm's length, no hitbox on it): the
+    /// 18-unit box finds the body and the backstab still lands
+    /// (DoSwingTraceInternal, tf_weaponbase_melee.cpp:392-).</summary>
+    [Fact]
+    public void A_swing_whose_line_misses_finds_the_body_with_the_box()
+    {
+        var rig = new SpyRig { TraceHits = false };
+        rig.Engine.ReturnsEachCall("WorldQuery.TraceBox",
+            () => new SurfaceTraceResult(true, 0.5f, default, default, SpyRig.Victim, 0, 0));
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+
+        Assert.Equal(TFDamageCustom.Backstab, Assert.Single(rig.Damage.Hits).Custom);
     }
 
     /// <summary>Razorback's one block (stock's <c>CTFPlayer::CheckBlockBackstab</c>,
@@ -308,5 +324,198 @@ public sealed class TFKnifeTests
         Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
 
         Assert.Empty(rig.Resupply.Takes);
+    }
+
+    /// <summary>Big Earner's cloak-on-kill (stock's OnKilledOther_Effects,
+    /// tf_player.cpp:11513-11521): with <c>add_cloak_on_kill</c> on the knife,
+    /// a kill puts the attribute straight on the spy's cloak meter — forced,
+    /// so it lands even where the regen would not, and here onto a meter
+    /// parked at 30.</summary>
+    [Fact]
+    public void A_big_earner_kill_fills_the_cloak_meter()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;                                    // stock's kill is the dead victim
+        rig.State.CloakMeter = 30f;
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30070, "attr 30070", "add_cloak_on_kill",
+                                                                 AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                 false, false, AttributeValueType.Default,
+                                                                 MergedKeys.Block("k")), 25f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+
+        Assert.Equal(55f, rig.State.CloakMeter, 4);                 // 30 + the attribute's 25
+    }
+
+    /// <summary>The clamp of the fill (tf_player_shared.cpp:9755): the meter
+    /// tops out at a hundred, however much the attribute carries.</summary>
+    [Fact]
+    public void The_cloak_fill_caps_at_a_hundred()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;
+        rig.State.CloakMeter = 90f;
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30070, "attr 30070", "add_cloak_on_kill",
+                                                                 AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                 false, false, AttributeValueType.Default,
+                                                                 MergedKeys.Block("k")), 25f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+
+        rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+
+        Assert.Equal(100f, rig.State.CloakMeter, 4);
+    }
+
+    /// <summary>Big Earner's speed boost (tf_player.cpp:11567-11572): the
+    /// weapon's <c>speed_boost_on_kill</c> rides TF_COND_SPEED_BOOST for the
+    /// attribute's seconds.</summary>
+    [Fact]
+    public void A_big_earner_kill_adds_the_speed_boost()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30071, "attr 30071", "speed_boost_on_kill",
+                                                                 AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                 false, false, AttributeValueType.Default,
+                                                                 MergedKeys.Block("k")), 3f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.SpeedBoost));
+        Assert.Equal(3f, rig.Conditions.Of(SpyRig.Spy.EntryIndex)!.Duration(TFCond.SpeedBoost), 4);
+    }
+
+    /// <summary>Both gates (:11517, :11569): with neither attribute on the
+    /// knife, the kill moves no meter and adds no cond.</summary>
+    [Fact]
+    public void Without_the_kill_attributes_a_kill_adds_nothing()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;
+        rig.State.CloakMeter = 30f;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));   // no Items entry at all
+
+        Assert.Equal(30f, rig.State.CloakMeter, 4);
+        Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.SpeedBoost));
+    }
+
+    /// <summary>Your Eternal Reward's disguise (stock's knife tail,
+    /// tf_weapon_knife.cpp:243-264 and <c>DisguiseOnKill</c> :315-330): a kill
+    /// backstab with the knife holding <c>set_disguise_on_backstab</c> wears
+    /// the victim's team and class in place of the plain remove-disguise.</summary>
+    [Fact]
+    public void A_reward_backstab_disguises_as_the_victim()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;                                    // stock's bSuccessfulBackstab (:243)
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30072, "attr 30072", "set_disguise_on_backstab",
+                                                                 AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                 false, false, AttributeValueType.Default,
+                                                                 MergedKeys.Block("k")), 1f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: 1);
+
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguising));   // :328 runs the disguise
+        rig.Slice.Tick(102.1f);                                              // the think completes
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));
+        Assert.Equal((int)TFClass.HeavyWeapons, rig.State.DisguiseClass);    // the victim's class (:326)
+        Assert.Equal((int)TFTeam.Blue, rig.State.DisguiseTeam);              // and team (:325)
+    }
+
+    /// <summary>The other half of stock's branch (:246, :263): the same kill
+    /// backstab without the attribute takes the plain remove-disguise — here
+    /// the removal of a disguise worn before the swing.</summary>
+    [Fact]
+    public void A_plain_knife_kill_backstab_removes_the_disguise_instead()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;
+        Assert.True(rig.Slice.Disguise(100f, TFClass.HeavyWeapons, TFTeam.Blue));
+        rig.Slice.Tick(102.1f);                                           // the disguise complete before the swing
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));
+
+        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
+        world.Run(w, vm, Attack, now: 10f, seed: 1);
+
+        Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));   // the else arm's RemoveDisguise (:263)
+    }
+
+    /// <summary>The Spy-cicle's melted knife (<c>tf_weapon_knife.cpp:521-531</c>):
+    /// <c>CanDeploy</c> recomputes the knife from the melt's stamp and window, so a
+    /// melted one swings nothing at all until the window closes (:523) — then the
+    /// next press answers whole.</summary>
+    [Fact]
+    public void A_melted_knife_skips_the_swing_until_the_window_closes()
+    {
+        var rig = new SpyRig();
+        var world = new TFWeaponWorld(new TFKnifeHook(rig.Spies));
+        var (w, vm) = world.Armed("tf_weapon_knife", clip: -1, reserve: 0);
+
+        rig.Spies.MeltKnife(SpyRig.Spy.EntryIndex, now: 100f, seconds: 10f);   // ApplyOnInjuredAttributes :129-131
+
+        Assert.False(rig.Spies.KnifeReady(SpyRig.Spy.EntryIndex, now: 105f));   // inside the window (:523)
+        Assert.True(rig.Spies.KnifeReady(SpyRig.Spy.EntryIndex, now: 110.5f));  // past it (:523)
+
+        world.Run(w, vm, Attack, now: 105f, seed: 1);               // the melted press runs no attack (:525-528)
+        world.Run(w, vm, 0, now: 105.05f);
+        Assert.Empty(world.Effects.Swings);
+        Assert.Empty(rig.Damage.Hits);
+    }
+
+    /// <summary>The Spy-cicle's other half (<c>tf_weaponbase.cpp:5528-5547</c>):
+    /// burned or ignited with the Spy-cicle in hand, the holder turns fireproof for
+    /// the fixed second (:5536), burns the flame off (:5538-5542), and carries the
+    /// afterburn immunity for the item's seconds (:5544). The mark of the melt rides
+    /// the same gate (:124).</summary>
+    [Fact]
+    public void A_burnt_spy_cicle_holder_turns_fireproof_and_burns_the_flame_off()
+    {
+        var rig = new CombatRig();
+        rig.AttackerWeapon = "tf_weapon_flamethrower";                   // the hit's ignite bit (:5534's gate)
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_knife"; // the knife held in hand (:9504)
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30073, "attr 30073", "become_fireproof_on_hit_by_fire",
+                                                                 AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                 false, false, AttributeValueType.Default,
+                                                                 MergedKeys.Block("s")), 3f));
+        rig.Owners.Items[CombatRig.Victim.EntryIndex] = knife;
+        rig.Conditions.Add(CombatRig.Victim, TFCond.Burning);             // the flame was on at the hit (:5538)
+
+        rig.Hit(5f, DamageType.Burn, HitGroup.Chest);
+
+        var conds = rig.Conditions.Of(CombatRig.Victim.EntryIndex)!;
+        Assert.True(conds.Has(TFCond.FireImmune));
+        Assert.Equal(1f, conds.Duration(TFCond.FireImmune), 3);           // stock's fixed second (:5536)
+        Assert.False(conds.Has(TFCond.Burning));                          // the flame-out (:5541)
+        Assert.Equal(3f, conds.Duration(TFCond.AfterburnImmune), 3);      // the item's seconds (:5544)
+    }
+
+    /// <summary>The same burn without the attribute: none of the three marks lands.</summary>
+    [Fact]
+    public void A_burnt_plain_knife_holder_keeps_the_flame()
+    {
+        var rig = new CombatRig();
+        rig.AttackerWeapon = "tf_weapon_flamethrower";
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_knife";
+        rig.Owners.Items[CombatRig.Victim.EntryIndex] = new AttributeContainer();   // the plain knife, no hooks
+        rig.Conditions.Add(CombatRig.Victim, TFCond.Burning);
+
+        rig.Hit(5f, DamageType.Burn, HitGroup.Chest);
+
+        var conds = rig.Conditions.Of(CombatRig.Victim.EntryIndex)!;
+        Assert.False(conds.Has(TFCond.FireImmune));
+        Assert.False(conds.Has(TFCond.AfterburnImmune));
+        Assert.True(conds.Has(TFCond.Burning));                                     // the igniting arm's own burn stands
     }
 }

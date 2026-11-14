@@ -1325,6 +1325,19 @@
 			"drop_sound"		"ui/item_metal_weapon_drop.wav"
 			"particle_suffix"		"wrench"
 		}
+		"weapon_targe"
+		{
+			"enabled"		"1"
+			"item_class"		"tf_wearable_demoshield"
+			"item_slot"		"secondary"
+			"item_quality"		"unique"
+			"anim_slot"		"FORCE_NOT_USED"
+			"model_player"	"models/weapons/c_models/c_targe/c_targe.mdl"
+			"used_by_classes"
+			{
+				"demoman"	"1"
+			}
+		}
 	}
 	"items"
 	{
@@ -2073,6 +2086,11 @@
 			"item_quality"	"unique"
 			"model_player"	"models/workshop/weapons/c_models/c_gloves/c_gloves.mdl"
 			"model_world"	"models/workshop/weapons/c_models/c_gloves/c_gloves_wearable.mdl"
+		}
+		"131"
+		{
+			"name"	"TF_UNIQUE_ACHIEVEMENT_SHIELD"
+			"prefab"	"weapon_targe"
 		}
 	}
 	"attributes"

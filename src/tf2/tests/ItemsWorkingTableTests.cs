@@ -160,6 +160,26 @@ public sealed class ItemsWorkingTableTests
         Assert.Equal(expected, rows.Length - 1);
     }
 
+    /// <summary>
+    /// The two TTG Watch rows (297, 1205) are works: their only attribute is
+    /// <c>cannot_trade</c>, which stock game code never reads (grep empty over
+    /// shared/tf, server/tf and client/tf, checked at the lane's base), so it
+    /// is economy/display text — nothing for the game to run. The kind
+    /// <c>tf_weapon_invis</c> already answers through the no-attack arm and the
+    /// watch's cloak toggle lives on the player's predicted carrier.
+    /// </summary>
+    [Fact]
+    public void TheTTGWatchRowsAreWorksBecauseCannotTradeIsDisplayText()
+    {
+        foreach (string[] row in TableRows()[1..])
+        {
+            if (row[0] is not ("297" or "1205"))
+                continue;
+            Assert.Equal("cannot_trade", row[6]);
+            Assert.Equal("works", row[7]);
+        }
+    }
+
     /// <summary>Every row's status is one of works, partial, missing or unknown.</summary>
     [Fact]
     public void EveryRowsStatusIsOneOfTheFour()

@@ -63,7 +63,7 @@ public sealed class TFLagCompensatedSmackTests
         public void Smack(ILagCompensation? lag)
         {
             var effects = new TFMeleeEffects(Melee.Engine, Melee.Engine, Melee.Engine, Melee.Damage, Melee.HitGroups,
-                                             Melee.Log, lag);
+                                             Melee.Log, lagCompensation: lag);
             Swinger.Latency = 5 * LagWorld.Tick;
             var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = (int)InputButtons.Attack };
             using (Commands.Begin(MeleeRig.Owner, in cmd))
@@ -125,6 +125,7 @@ public sealed class TFLagCompensationTargetsTests
         public void Holster(int ownerIndex, float now) { }
         public void Unholster(int ownerIndex, float now) { }
         public void RemoveMedigun(int ownerIndex, float now) { }
+        public void PreserveCharge(int ownerIndex, float amount) { }
         public float ChargeLevel(int ownerIndex) => 0f;
         public void SetChargeLevel(int ownerIndex, float level) { }
         public int HealingTargetIndex(int ownerIndex) => patient;

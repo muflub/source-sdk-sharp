@@ -4,6 +4,7 @@ using SourceSharp.Server;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using TF2.Tests.Projectiles;
@@ -76,10 +77,38 @@ public class TFClassSpecialSkillFacts
         var sticky = rig.Sticky();
         sticky.OnThink(); // arms it, the pre-arm think's first tick
         rig.Tray.Register(3, sticky);
-        var skill = new TFClassSpecialSkill(states, rig.Engine, tray: rig.Tray);
+        var skill = new TFClassSpecialSkill(states, rig.Engine, tray: rig.Tray,
+                                            owners: new LauncherOwners());
 
         Assert.Equal(1, rig.Tray.Count(3));
         Assert.True(skill.DoSpecialSkill(3));
         Assert.Equal(0, rig.Tray.Count(3));
+    }
+
+    /// <summary>
+    /// The demoman whose launcher the arm's gate sees
+    /// (<c>Weapon_OwnsThisID</c>, tf_player_shared.cpp:12372-12379): the
+    /// owned item is the tray arm's, so the press detonates as ever.
+    /// </summary>
+    private sealed class LauncherOwners : ITFWeaponOwners
+    {
+        public TFClass ClassOf(int playerIndex) => TFClass.Demoman;
+
+        public TFConditions? ConditionsOf(int playerIndex) => null;
+
+        public float CritMult(int playerIndex) => 1f;
+
+        public bool WinsCrits(int playerIndex) => false;
+
+        public IAttributeProvider? ItemOf(int playerIndex, string weaponName)
+            => weaponName == "tf_weapon_pipebomblauncher" ? new AttributeContainer() : null;
+
+        public IAttributeProvider? ManagerOf(int playerIndex) => null;
+
+        public bool OffGround(int playerIndex) => false;
+
+        public bool EyesUnderwater(int playerIndex) => false;
+
+        public bool DuckingOf(int playerIndex) => false;
     }
 }

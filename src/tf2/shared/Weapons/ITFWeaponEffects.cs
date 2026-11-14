@@ -30,6 +30,14 @@ public interface ITFWeaponEffects
     /// <summary>The flamethrower's airblast: the deflect, the push and the extinguish.</summary>
     void AirBlast(in WeaponAttackContext attack, TFWeaponScript script);
 
+    /// <summary>
+    /// The Manmelter's vacuum (the secondary's beam): the reached burning
+    /// teammate put out, the revenge crit banked and the heal paid. Answers
+    /// whether a burn went out — the beam's clock stamps on one alone
+    /// (<c>m_fLastExtinguishTime</c>, <c>tf_weapon_flaregun.cpp:547</c>).
+    /// </summary>
+    bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script);
+
     /// <summary>The medigun's beam this command: held or let go.</summary>
     void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held);
 
@@ -52,6 +60,14 @@ public interface ITFWeaponEffects
     /// sticky detonation. Answers whether one ran.
     /// </summary>
     bool ClassSpecialSkill(in WeaponAttackContext attack);
+
+    /// <summary>
+    /// <c>CTFPlayer::EndClassSpecialSkill</c>
+    /// (<c>tf_player_shared.cpp:12389-12416</c>): the class's special wound
+    /// back — the melee swing's ask (<c>tf_weaponbase_melee.cpp:201</c>),
+    /// the charged demoman's shield grant before the swing's crit helpers.
+    /// </summary>
+    void EndClassSpecialSkill(in WeaponAttackContext attack);
 
     /// <summary>
     /// The PDA's trigger: the owner goes back to the item held before this
@@ -166,6 +182,17 @@ public interface ITFWeaponEffects
     /// (:251), and the battle cry rides the voice lane (:252).
     /// </summary>
     void RaiseBuffBanner(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The rage press (<c>CTFFlameThrower::UseRage</c> through
+    /// <c>SecondaryAttack</c>'s buff arm, <c>tf_weapon_flamethrower.cpp:1196
+    /// -1200</c>): the taunt whose <c>OnTauntSucceeded</c> arm — a pyro with
+    /// this very weapon out, the meter the burn arms filled and the plain
+    /// taunt's scene — lights the rage (<c>tf_player.cpp:17897-17921</c>,
+    /// <c>ActivateRageBuff</c>, tf_player_shared.cpp:13753). The press's own
+    /// gates are the behaviour's; this is the ask.
+    /// </summary>
+    void UseRage(in WeaponAttackContext attack, int buffType);
 }
 
 /// <summary>
@@ -174,9 +201,13 @@ public interface ITFWeaponEffects
 /// <c>DoSwingTraceInternal</c> reads them off the weapon
 /// (<c>tf_weaponbase_melee.cpp:392-425</c>) — whether the hit asks the
 /// <c>crit_from_behind</c> arm (:819-833) and whether a clean miss hurts its
-/// own owner, the <c>hit_self_on_miss</c> arm (:755-763).
+/// own owner, the <c>hit_self_on_miss</c> arm (:755-763), whether the held item
+/// asks the forced laugh (<c>crit_forces_victim_to_laugh</c>, :884-901, the
+/// crit gate itself at the hit), and whether it tickles same-weaponed enemies
+/// (<c>tickle_enemies_wielding_same_weapon</c>, :903-927).
 /// </summary>
-public readonly record struct SwingTrace(float Range, float Hull, bool CritFromBehind, bool SelfOnMiss = false);
+public readonly record struct SwingTrace(float Range, float Hull, bool CritFromBehind, bool SelfOnMiss = false,
+                                         bool ForcesLaugh = false, bool TicklesSameWeapon = false);
 
 /// <summary>No effects: what a side without Stage 2's arms does (the shot is spent and nothing appears).</summary>
 public sealed class NoTFWeaponEffects : ITFWeaponEffects
@@ -185,10 +216,13 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script) => false;
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) { }
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) { }
     public void Tracer(in WeaponAttackContext attack, TFWeaponScript script) { }
     public bool ClassSpecialSkill(in WeaponAttackContext attack) => false;
+    public void EndClassSpecialSkill(in WeaponAttackContext attack) { }
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }
 
@@ -204,4 +238,6 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
     public void DeployBuff(in WeaponAttackContext attack, int buffType) { }
     public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) { }
     public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) { }
+
+    public void UseRage(in WeaponAttackContext attack, int buffType) { }
 }

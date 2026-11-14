@@ -640,7 +640,7 @@ public sealed class TF2ClientPredictionTests
         // The rules read and write one source on each side: ITFPlayerData.
         string rules = Read("src", "tf2", "shared", "Movement", "TFMovementRules.cs");
         Assert.Contains("if (_players.Predicted(playerIndex) is not { } state || state.Class() == TFClass.Undefined)", rules, StringComparison.Ordinal);
-        Assert.Contains("return TFMaxSpeed.Calculate(_classes, TFMoveInputs.Of(state), CloakedCap,", rules, StringComparison.Ordinal);
+        Assert.Contains("return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,", rules, StringComparison.Ordinal);
         Assert.Contains("if (_players.Predicted(request.PlayerIndex) is not { } state)", rules, StringComparison.Ordinal);
         Assert.Contains("state.AirDash++;", rules, StringComparison.Ordinal);
 
@@ -655,7 +655,8 @@ public sealed class TF2ClientPredictionTests
         Assert.Contains("StunFlags: state.StunIndex >= 0 && state.InCond(TFCond.Stunned)", maxSpeed, StringComparison.Ordinal);
         Assert.Contains("(TFStunFlags)state.StunFlags", maxSpeed, StringComparison.Ordinal);
         Assert.Contains("CarryingObject: state.CarryingObject,", maxSpeed, StringComparison.Ordinal);
-        Assert.Contains("HealTargetIndex: state.HealTargetIndex);", maxSpeed, StringComparison.Ordinal);
+        Assert.Contains("HealTargetIndex: state.HealTargetIndex,", maxSpeed, StringComparison.Ordinal);
+        Assert.Contains("MedicCharge: state.MedicCharge);", maxSpeed, StringComparison.Ordinal);
 
         // Both sides' bindings answer the same two questions about the carrier.
         string carrier = Read("src", "tf2", "shared", "Player", "TFPlayerData.cs");

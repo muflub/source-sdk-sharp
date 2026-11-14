@@ -23,7 +23,7 @@ public sealed class TFPlayerConditionEffectArmsTests
     {
         var rig = new PlayerRig();
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine,
-                                                new ListHooks<ITFConditionHook>(new TFPlayerConditionEffectArms(rig.Engine)));
+                                                new ListHooks<ITFConditionHook>(new TFPlayerConditionEffectArms(rig.Engine, rig.Carriers)));
         rig.Join();
         return (rig, conditions);
     }

@@ -42,6 +42,7 @@ public sealed class TFMedigunTickerTests
                          bool dispenserHeal = false, int scorer = -1)
             => throw new InvalidOperationException();
         public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => throw new InvalidOperationException();
+        public System.Collections.Generic.IEnumerable<int> HealerIndexes(int patientIndex) => [];
         public void RecalculateChargeEffects(EntityHandle player, float now) => throw new InvalidOperationException();
         public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) => throw new InvalidOperationException();
         public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => throw new InvalidOperationException();

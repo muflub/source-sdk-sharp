@@ -6,6 +6,7 @@ using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using Xunit;
@@ -79,6 +80,19 @@ public sealed class TFDeathNoticeTests
         var f = Fill(rig, CombatRig.Attacker);
 
         Assert.Equal(("sniperrifle", (int)TFDamageCustom.Headshot), ((string)f["weapon"], (int)f["customkill"]));
+    }
+
+    /// <summary>The recorder's death (tf_gamerules.cpp:12333-12336): a kill carrying
+    /// the sapper-recorder kind is named for its recorder, the kind the sapper's
+    /// drain stamps when the builder's item degenerates.</summary>
+    [Fact]
+    public void A_recorder_death_names_the_recorder()
+    {
+        var rig = new CombatRig();
+        using (rig.Scopes.Push(TFDamageCustom.SapperRecorderDeath, TFWeaponId.None, ""))
+            rig.Hit(20f, DamageType.Crush);
+
+        Assert.Equal("recorder", Fill(rig, CombatRig.Attacker)["weapon"]);
     }
 
     [Fact]
@@ -267,5 +281,71 @@ public sealed class TFDeathNoticeTests
         rig.Hit(6f, DamageType.Bullet);
 
         Assert.False((bool)Fill(rig, CombatRig.Attacker)["rocket_jump"]);
+    }
+
+    // ---- the silent killer (set_silent_killer, tf_weaponbase.cpp:6184-6192) ----
+
+    /// <summary>Builds the notice over the rig with the owners and the hook walk
+    /// armed, as <see cref="Fill"/> does but with the two walks the silent-kill
+    /// ask needs (tf_gamerules.cpp:12833-12839).</summary>
+    private static Dictionary<string, object> FillSilent(CombatRig rig)
+    {
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
+                                       null, rig.Owners, new AttributeHooks());
+        var fields = new Fields();
+        notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
+                                         "tf_weapon_knife"), fields);
+        return fields.Set;
+    }
+
+    /// <summary>IsSilentKiller: the scorer's active weapon holding set_silent_killer
+    /// one, with the backstab's custom kind on the kill, makes the notice silent
+    /// (tf_gamerules.cpp:12833-12839, the item walk tf_weaponbase.cpp:6188).</summary>
+    [Fact]
+    public void A_backstab_by_a_silent_knife_leaves_the_notice_silent()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_knife" };
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_knife");
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30062, "silent killer", "set_silent_killer",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("s")), 1f));
+        rig.Owners.Items[CombatRig.Attacker.EntryIndex] = item;
+        using (rig.Scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, "tf_weapon_knife"))
+            rig.Hit(25f, DamageType.Slash);
+
+        Assert.True((bool)FillSilent(rig)["silent_kill"]);
+    }
+
+    /// <summary>A silent knife that does not carry the attribute (the plain knife)
+    /// keeps the notice: the walk answers no without the item (:6188).</summary>
+    [Fact]
+    public void A_backstab_by_a_plain_knife_keeps_the_notice_loud()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_knife" };
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_knife");
+        using (rig.Scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, "tf_weapon_knife"))
+            rig.Hit(25f, DamageType.Slash);
+
+        Assert.False((bool)FillSilent(rig)["silent_kill"]);
+    }
+
+    /// <summary>The gate before the walk (:12833): a non-backstab kill stays
+    /// audible however silent the killer's knife is.</summary>
+    [Fact]
+    public void A_plain_hit_by_a_silent_knife_keeps_the_notice_loud()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_knife" };
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_knife");
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30062, "silent killer", "set_silent_killer",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("s")), 1f));
+        rig.Owners.Items[CombatRig.Attacker.EntryIndex] = item;
+        rig.Hit(25f, DamageType.Slash);
+
+        Assert.False((bool)FillSilent(rig)["silent_kill"]);
     }
 }

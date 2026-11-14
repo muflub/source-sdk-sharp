@@ -40,16 +40,25 @@ public sealed class TFWeaponTypesTests
     {
         var names = WeaponFixtures.Types().Names();
 
-        // Every fixture is one: the 30 class weapons, the bow, builder, sapper —
+        // Every fixture is one: the 30 class weapons, the sword, the bow,
+        // builder, sapper —
         // and the seeded item-carried weapons (the flare gun, the crossbow, the
-        // Gunslinger's arm, the Wrangler, the lunchbox and its drink, the soldier's buff item
-        // and the jars, none named by a class script's weaponN; their own facts
+        // Gunslinger's arm, the Wrangler, the lunchbox and its drink, the soldier's buff item,
+        // the katana and the jars, none named by a class script's weaponN; their own facts
         // stand them up).
+        // The energy family joins them as the equipped unlocks their rows: the bison,
+        // the mangler, the pomson.
         Assert.Equal(
             WeaponFixtures.Names().Append("tf_weapon_flaregun").Append("tf_weapon_crossbow")
                 .Append("tf_weapon_robot_arm").Append("tf_weapon_laser_pointer").Append("tf_weapon_lunchbox").Append("tf_weapon_lunchbox_drink")
-                .Append("tf_weapon_buff_item")
+                .Append("tf_weapon_buff_item").Append(TFWeaponTypes.Katana)
+                .Append("tf_weapon_rocketlauncher_airstrike")
+                .Append("tf_weapon_flaregun_revenge")
+                .Append("tf_weapon_sniperrifle_decap").Append("tf_weapon_sniperrifle_classic")
                 .Append("tf_weapon_jar").Append("tf_weapon_jar_milk")
+                .Append("tf_weapon_rocketlauncher_fireball")
+                .Append("tf_weapon_raygun").Append("tf_weapon_particle_cannon")
+                .Append("tf_weapon_drg_pomson")
                 .Order(StringComparer.Ordinal).ToArray(),
             names);
         Assert.Contains("tf_weapon_minigun", names);
@@ -62,7 +71,7 @@ public sealed class TFWeaponTypesTests
     {
         var rows = WeaponFixtures.Types().Rows().ToArray();
 
-        Assert.Equal(33, rows.Length);
+        Assert.Equal(34, rows.Length);
         Assert.Equal(WeaponFixtures.Names().ToArray(), rows.Select(r => r.Name).ToArray());
     }
 
@@ -202,6 +211,21 @@ public sealed class TFWeaponTypesTests
         Assert.Equal("TF_AMMO_PRIMARY", row.AmmoName);
         Assert.Equal(1, row.ClipSize);
         Assert.Equal(0.23f, row.Interval);
+    }
+
+    [Fact]
+    public void The_katana_is_a_row_the_kit_stands_up()
+    {
+        // The Half-Zatoichi (items_working.tsv:357), the soldier's and
+        // demoman's unlock held as an equipped item: the row is what the
+        // kit's spawn gate stands the entity on, the flare gun's rule. The
+        // katana overrides no GetWeaponID, so the decap base's sword id stands
+        // (tf_weapon_sword.h:45) and the row runs the plain melee over it.
+        Assert.True(ExtrasRows().TryGetValue(TFWeaponTypes.Katana, out WeaponType row), "no katana row");
+
+        Assert.Equal("tf2.melee", row.Behaviour);
+        Assert.Equal(65f, row.MeleeDamage, 4);
+        Assert.Equal(0.8f, row.Interval, 4);
     }
 
     [Fact]
@@ -477,7 +501,7 @@ public sealed class TFWeaponTypesTests
         var serverCatalog = new WeaponCatalog(() => [server], log);
         var clientCatalog = new C.WeaponCatalog(() => [clientTypes], log);
 
-        Assert.Equal(WeaponTypes.All.Length + 33, serverCatalog.Count);
+        Assert.Equal(WeaponTypes.All.Length + 34, serverCatalog.Count);
         Assert.Equal(serverCatalog.Count, clientCatalog.Count);
         for (int i = 0; i < serverCatalog.Count; i++)
         {

@@ -8,11 +8,13 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Buildings;
+using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
@@ -72,7 +74,8 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                                    IEnginePrecache precache, IEngineEntityRender render,
                                    ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
                                    TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
-                                   AttributeHooks? hooks = null) : ScriptedEntity
+                                   AttributeHooks? hooks = null, TFDamageScopes? scopes = null,
+                                   ITFRevengeCrits? crits = null) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -108,6 +111,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary><c>BASE_OBJECT_THINK_DELAY</c>: the base think's period.</summary>
     public const float BaseObjectThinkDelay = 0.1f;
 
+    /// <summary><c>PLASMA_DISABLE_TIME</c> (tf_obj.cpp:126): the charged ball's hold-off seconds.</summary>
+    public const float PlasmaDisableTime = 4f;
+
     /// <summary>The players the object reads and feeds.</summary>
     protected readonly ITFMapPlayers Players = players;
 
@@ -132,6 +138,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary>The attribute hooks a held item is asked through (<see cref="OnDamaged"/>).</summary>
     protected readonly AttributeHooks? Hooks = hooks;
 
+    /// <summary>The damage scopes the plasma-resistance arm reads at the hit (<see cref="OnDamaged"/>).</summary>
+    protected readonly TFDamageScopes? Scopes = scopes;
+
+    /// <summary>The sapper's crit bucket (<see cref="ITFRevengeCrits"/>): the removal cascade pays it (<see cref="RemoveAttachedSapper"/>).</summary>
+    protected readonly ITFRevengeCrits? Crits = crits;
+
     [SaveField] private EntityHandle _builder;
     [SaveField] private int _team;
     [SaveField] private int _mode;
@@ -149,6 +161,13 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private bool _carryDeploy;
     [SaveField] private int _healthOnPickup;
     [SaveField] private float _buildRate = 1f;
+    [SaveField] private float _constructedFraction;
+    [SaveField] private float _constructedTime = -1f;
+
+    /// <summary>The whacks still standing (<c>m_ConstructorList</c>, tf_obj.cpp:2143): one
+    /// entry per builder, its value and expiry. Transient — a save/load inside
+    /// the hit's second loses a boost stock would keep.</summary>
+    private readonly List<(int Player, float Value, float Expire)> _constructors = new();
     [SaveField] private int _desiredBuildRotations;
     [SaveField] private int _level = 1;
     [SaveField] private int _upgradeMetal;
@@ -350,7 +369,13 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             return;
 
         if (FindByHandle<TFSapper>(_sapper) is { IsDead: false } sapper)
+        {
+            // Stock's sapper-crit arm (tf_obj.cpp:269-283): the building that goes while a
+            // sapper rides pays the sapper's owner one stored crit, before the riding
+            // sapper is taken down itself.
+            Crits?.Grant(sapper.Builder);
             sapper.DestroyObject();
+        }
 
         _sapper = EntityHandle.None;
     }
@@ -521,6 +546,8 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         _building = true;
         _built = false;
         _constructedHealth = 0;
+        _constructedFraction = 0f;
+        _constructedTime = -1f;
         _buildRate = MathF.Max(1f, buildRate);
 
         // The builder's line (tf_obj.cpp:1339, :1349): the redeploy's own
@@ -606,23 +633,35 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// stands (tf_obj.cpp:1532 → :2124, <c>SetHealth(m_flHealth + flHealth)</c>)
     /// — wounds and all, never a rewrite from the clock — and at full time
     /// the object goes active. The slice is the max minus the start spread
-    /// over the total time; the whole part paid so far is remembered so a
-    /// wound between ticks is not paid for twice.
+    /// over the total time, scaled by <see cref="ConstructionMultiplier"/>:
+    /// the build's covered fraction <see cref="_constructedFraction"/> accrues
+    /// per tick, so a whack's boost that expires between ticks keeps the
+    /// share it paid (stock's <c>m_flConstructionTimeLeft</c> decrement
+    /// integrates the same way, :2102-2109). The whole part paid so far is
+    /// remembered so a wound between ticks is not paid for twice.
     /// </summary>
     private void Construct()
     {
-        TFObjectInfo? info = TFObjectInfo.Of(Type);
-        float buildTime = (info?.BuildTime ?? 0f) / _buildRate;
-        float flPercentBuilt = buildTime > 0f ? (GameTime - _builtStartTime) / buildTime : 1f;
+        float buildTime = TFObjectInfo.Of(Type)?.BuildTime ?? 0f;
+        if (buildTime <= 0f)
+        {
+            FinishedBuilding();
+            return;
+        }
 
-        if (flPercentBuilt >= 1f)
+        float now = GameTime;
+        float elapsed = now - (_constructedTime < 0f ? _builtStartTime : _constructedTime);
+        _constructedTime = now;
+        _constructedFraction += elapsed * ConstructionMultiplier() / buildTime;
+
+        if (_constructedFraction >= 1f)
         {
             FinishedBuilding();
             return;
         }
 
         int constructed = (int)(((double)MaxHealthForCurrentLevel - ConstructionStartHealthForBuilding)
-                                * ((GameTime - _builtStartTime) / buildTime));
+                                * _constructedFraction);
         int slice = constructed - _constructedHealth;
         if (slice > 0)
         {
@@ -633,6 +672,73 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                                        : MaxHealthForCurrentLevel;
             Health = Math.Min(ceiling, Health + slice);
         }
+    }
+
+    /// <summary>
+    /// <c>CBaseObject::GetConstructionMultiplier</c> (tf_obj.cpp:2178-2212):
+    /// the placement's build rate plus every unexpired whack's value — each
+    /// builder's <see cref="OnConstructionHit"/> entry stands for the second
+    /// after its swing, expired ones pruned on the walk as stock's is — plus
+    /// the builder's own build-rate arm (<c>GetObjectBuildSpeedMultiplier</c>,
+    /// asked at :2208 every multiplier read).
+    /// </summary>
+    private float ConstructionMultiplier()
+    {
+        float now = GameTime;
+        float boost = 0f;
+        for (int i = _constructors.Count - 1; i >= 0; i--)
+        {
+            if (_constructors[i].Expire < now)
+                _constructors.RemoveAt(i);
+            else
+                boost += _constructors[i].Value;
+        }
+
+        return _buildRate + boost + BuildRateBonus();
+    }
+
+    /// <summary>
+    /// <c>CTFPlayer::GetObjectBuildSpeedMultiplier</c>'s attribute arm
+    /// (tf_player.cpp:8237-8260): the builder's build-rate attribute over
+    /// the whole player, as stock's <c>CALL_ATTRIB_HOOK_FLOAT</c> walk is —
+    /// <c>sentry_build_rate_multiplier</c> for the sentry, the teleporter's
+    /// spelling for the dispenser too (:8254, stock's own shared name). The
+    /// switch's other half, the carried redeploy's 2 and 3, is
+    /// <see cref="_buildRate"/>'s: <see cref="StartRedeploy"/> passes them
+    /// where the first build passes nothing, on the same 1 the field starts
+    /// at — so here only the attribute is added, fresh at every ask.
+    /// </summary>
+    private float BuildRateBonus()
+    {
+        if (Hooks is null || Owners is null || Builder == EntityHandle.None)
+            return 0f;
+
+        string attribute = Type switch
+        {
+            TFObjectType.Sentrygun => "sentry_build_rate_multiplier",
+            TFObjectType.Teleporter or TFObjectType.Dispenser => "teleporter_build_rate_multiplier",
+            _ => "",
+        };
+
+        return attribute.Length > 0
+            ? Hooks.Float(0f, attribute, Owners.ManagerOf(Builder.EntryIndex))
+            : 0f;
+    }
+
+    /// <summary>The whack's window (tf_obj.cpp:2160: <c>curtime + 1.0</c>).</summary>
+    public const float ConstructionHitWindow = 1f;
+
+    /// <summary>
+    /// <c>CBaseObject::OnConstructionHit</c> (tf_obj.cpp:2154-2175) without
+    /// the particle: the builder's entry is inserted or refreshed to the
+    /// window's edge carrying <paramref name="value"/>, the swing's
+    /// <c>GetConstructionValue</c>.
+    /// </summary>
+    private void OnConstructionHit(EntityHandle player, float value)
+    {
+        int index = player.EntryIndex;
+        _constructors.RemoveAll(entry => entry.Player == index);
+        _constructors.Add((index, value, GameTime + ConstructionHitWindow));
     }
 
     /// <summary>
@@ -672,16 +778,20 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <c>CBaseObject::InputWrenchHit</c> (tf_obj.cpp:2746-2802) without the
     /// sapper arm — that lives with the swing (<see cref="TFSapperUse"/>),
     /// which lands the blow on the attached leech. A standing object takes
-    /// <see cref="OnWrenchHit"/>; one still building answers stock's
-    /// <c>OnConstructionHit</c> instead, which is not this milestone's.
+    /// <see cref="OnWrenchHit"/>; one still building takes the whack instead
+    /// (:2785-2789), whose <paramref name="constructionValue"/> — the swing's
+    /// <c>GetConstructionValue</c> — hurries the build for the window.
     /// </summary>
-    public bool WrenchHit(EntityHandle player)
+    public bool WrenchHit(EntityHandle player, float constructionValue = 0f)
     {
         if (_dead || _placing || _carried)
             return false;
 
         if (_building && !_built)
-            return false;
+        {
+            OnConstructionHit(player, constructionValue);
+            return true;
+        }
 
         return OnWrenchHit(player);
     }
@@ -708,7 +818,17 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// </summary>
     private int RepairFrom(EntityHandle player)
     {
-        int repairAmount = Math.Min((int)WrenchRepairAmount, MaxHealthForCurrentLevel - Health);
+        // CTFWrench::GetRepairAmount's own arm (tf_weapon_wrench.cpp:344-349):
+        // the hundred, times the swung wrench's mult_repair_value. Stock's
+        // second arm — the same attribute on the slot-one weapon
+        // (CALL_ATTRIB_HOOK_FLOAT_ON_OTHER, :351-360) — has no slot view on
+        // the owners seam, and no shipped primary carries the attribute;
+        // recorded with the row.
+        float repair = WrenchRepairAmount;
+        if (Hooks is not null && Owners is not null)
+            repair = Hooks.Float(repair, "mult_repair_value", Owners.ActiveItemOf(player.EntryIndex));
+
+        int repairAmount = Math.Min((int)repair, MaxHealthForCurrentLevel - Health);
         if (repairAmount <= 0)
             return 0;
 
@@ -899,6 +1019,19 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // muzzle reaches this too; the sapper's blow names no player at all).
         if (attacker != EntityHandle.None && Entities.IsPlayer(attacker) && Players.Team(attacker) == _team)
             return 0;
+
+        // Plasma resistance (tf_obj.cpp:1896-1908): against a plasma hit the
+        // building keeps a fifth of the blow, and the charged ball's hit also
+        // holds the building off for PLASMA_DISABLE_TIME seconds. The custom
+        // rides the blast's scope beside the hit, as the sapper's wrench-fix
+        // gate reads it.
+        if (Scopes is { } scopes && scopes.TryCurrent(out var plasma, out _, out _))
+        {
+            if (plasma is TFDamageCustom.Plasma or TFDamageCustom.PlasmaCharged)
+                damage *= 0.2f;
+            if (plasma == TFDamageCustom.PlasmaCharged)
+                SetPlasmaDisabled(PlasmaDisableTime);
+        }
 
         // mult_dmg_vs_buildings on the attacker's held weapon, stock's
         // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER behind the weapon-caused gate

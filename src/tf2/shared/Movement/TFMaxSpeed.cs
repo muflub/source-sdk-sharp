@@ -25,6 +25,9 @@ namespace TF2.Shared.Movement;
 /// <param name="HealTargetIndex"><c>m_hHealTarget</c>: the medic's patient, as an entity index; -1 for none
 /// (the medic's match reads it). Only the medigun publishes one, so a set
 /// target is stock's active-medigun check.</param>
+/// <param name="SwordSpeedMod">The demoman's owned sword's
+/// <c>GetSwordSpeedMod</c> (tf_weapon_sword.cpp:295-309) — the heads' speed,
+/// applied even out of hand; 1 without the sword or the heads.</param>
 public readonly record struct TFMoveInputs(
     TFClass Class,
     TFCondMask Conditions,
@@ -33,7 +36,21 @@ public readonly record struct TFMoveInputs(
     float WeaponSpeedMod = 1f,
     TFStunFlags StunFlags = TFStunFlags.None,
     bool CarryingObject = false,
-    int HealTargetIndex = -1)
+    int HealTargetIndex = -1,
+    float SwordSpeedMod = 1f,
+
+    /// <summary>The demoman's shield is among the worn wearables — the speed
+    /// walk's `IsShieldEquipped` gate (tf_player_shared.cpp:11005, the
+    /// equip walk of :6117-6120 and :626-643).</summary>
+    bool ShieldEquipped = false,
+
+    /// <summary>The medic's owned medigun's ÜberCharge, 0..1 — stock's
+    /// <c>Weapon_OwnsThisID(TF_WEAPON_MEDIGUN)-&gt;GetChargeLevel()</c>
+    /// (:11050-11053), carried on the player since the one-weapon entity
+    /// reuses its state on a switch. The resource-level speed arm reads it;
+    /// the zero default is a full remap to one, no bonus, the same answer
+    /// stock's empty meter gives.</summary>
+    float MedicCharge = 0f)
 {
     /// <summary>The inputs a carrier's state holds. The weapon inputs wait for the weapons lane (1.9).</summary>
     public static TFMoveInputs Of(TFPlayerNetState state)
@@ -45,7 +62,8 @@ public readonly record struct TFMoveInputs(
                    ? (TFStunFlags)state.StunFlags
                    : TFStunFlags.None,
                CarryingObject: state.CarryingObject,
-               HealTargetIndex: state.HealTargetIndex);
+               HealTargetIndex: state.HealTargetIndex,
+               MedicCharge: state.MedicCharge);
 }
 
 /// <summary>
@@ -77,9 +95,8 @@ public sealed record TFPeerInput(int Index, TFMoveInputs Inputs,
 /// <item>times the active weapon's speed mod (:10956-10960).</item>
 /// </list>
 /// Not ported (docs/plans/tf2/deferred.tsv): the observer arm, the MvM
-/// mini-boss exception, <c>TF_COND_SPEED_BOOST</c> (GAME_DLL only in stock, so
-/// stock's own client mispredicts it), the team-win bonus, the sword/shield
-/// charge, the Quick-Fix's charge arm, the
+/// mini-boss exception, the team-win bonus, the Quick-Fix's
+/// charge arm, the
 /// bonesaw heads, heavy's <c>TF_COND_ENERGY_BUFF</c>, the hype meter and the
 /// runes.
 /// </summary>
@@ -94,6 +111,10 @@ public static class TFMaxSpeed
     /// <summary>Everyone else's aiming cap, the sniper's scope (:10909).</summary>
     public const float Aiming = 80f;
 
+    /// <summary><c>tf_whip_speed_increase</c>'s default, the speed boost's cap
+    /// (<c>tf_player_shared.cpp:119</c>, read at :10925).</summary>
+    public const float WhipSpeedIncrease = 105f;
+
     /// <summary><c>mult_player_aiming_movespeed</c>, the aiming cap's hook (:10913).</summary>
     public const string AimSpeedAttrib = "mult_player_aiming_movespeed";
 
@@ -102,6 +123,15 @@ public static class TFMaxSpeed
 
     /// <summary><c>mult_player_movespeed_active</c>, the held weapon item's hook on the active weapon (:11059).</summary>
     public const string ActiveSpeedAttrib = "mult_player_movespeed_active";
+
+    /// <summary><c>mult_player_movespeed_resource_level</c>, the active item's hook whose scale is the ÜberCharge (:11044).</summary>
+    public const string ResourceLevelSpeedAttrib = "mult_player_movespeed_resource_level";
+
+    /// <summary><c>mult_player_movespeed_shieldrequired</c>, the shield wearer's hook (:11007).</summary>
+    public const string ShieldRequiredSpeedAttrib = "mult_player_movespeed_shieldrequired";
+
+    /// <summary><c>tf_max_charge_speed</c>'s default, the shield charge's speed (tf_gamemovement.cpp:52, read at tf_player_shared.cpp:10972).</summary>
+    public const float MaxChargeSpeed = 750f;
 
     /// <summary>The player's maximum speed.</summary>
     /// <param name="spyMaxCloakedSpeed"><c>tf_spy_max_cloaked_speed</c>.</param>
@@ -166,11 +196,30 @@ public static class TFMaxSpeed
             maxfbspeed = MathF.Min(maxfbspeed, aimMax);
         }
 
+        // The carried speed boost (tf_player_shared.cpp:10919-10927): the
+        // lesser of 40 percent of the speed and tf_whip_speed_increase, its
+        // default 105 (:119) — only over a speed that moves at all, so a
+        // stationed player keeps standing.
+        if (conditions.Has(TFCond.SpeedBoost) && maxfbspeed > 0f)
+            maxfbspeed += MathF.Min(maxfbspeed * 0.4f, WhipSpeedIncrease);
+
         if (inputs.Conditions.Has(TFCond.Stealthed) && maxfbspeed > spyMaxCloakedSpeed)
             maxfbspeed = spyMaxCloakedSpeed;
 
         if (inputs.ActiveWeapon != TFWeaponId.None)
             maxfbspeed *= inputs.WeaponSpeedMod;
+
+        // The demoman's heads (tf_player_shared.cpp:10962-10968): the owned
+        // sword's GetSwordSpeedMod, +8% a head under the cap, out of hand too
+        // — the input the movement rules compute, 1 without the sword.
+        maxfbspeed *= inputs.SwordSpeedMod;
+
+        // The charge (tf_player_shared.cpp:10970-10973): a charging demoman
+        // moves at tf_max_charge_speed outright — the assignment stock makes
+        // inside the demoman gate, before the carry toll and the item hooks.
+        // Stock's bIgnoreSpecialAbility rider is the MvM giant's to lift.
+        if (playerClass == TFClass.Demoman && conditions.Has(TFCond.ShieldCharge))
+            maxfbspeed = MaxChargeSpeed;
 
         // Not a Halloween bomb head: stock's bAllowSlowing (:10875), the gate
         // the carried building and the stun share.
@@ -195,6 +244,12 @@ public static class TFMaxSpeed
         // own mod as stock's order runs.)
         maxfbspeed = attribs?.Float(maxfbspeed, MoveSpeedAttrib, playerAttributes) ?? maxfbspeed;
 
+        // The shield wearer's toll (:11005-11008): while the demoman wears the
+        // shield, the boots' mult_player_movespeed_shieldrequired — stock's
+        // player-rooted hook, the same walk the line above takes.
+        if (inputs.ShieldEquipped)
+            maxfbspeed = attribs?.Float(maxfbspeed, ShieldRequiredSpeedAttrib, playerAttributes) ?? maxfbspeed;
+
         // The medic matches a faster patient (tf_player_shared.cpp:11029-11045,
         // after the hook as stock's order runs): the patient runs the same
         // walk, arms and all. Only the medigun publishes a target, so the
@@ -208,6 +263,18 @@ public static class TFMaxSpeed
                                                         target.Attribs, target.Manager, peers,
                                                         target.Index, inFlight, target.ActiveItem));
             }
+        }
+
+        // The ÜberCharge's own speed (:11043-11056): the held weapon's
+        // mult_player_movespeed_resource_level — the Overdose's — scaling by
+        // the owned medigun's charge remapped 0..1 onto 1..mod. Stock asks the
+        // medic's Weapon_OwnsThisID(TF_WEAPON_MEDIGUN); ours is the carrier's
+        // mirror, and the class gate is stock's medic arm.
+        if (playerClass == TFClass.Medic && attribs is not null && activeItem is not null)
+        {
+            float levelMod = attribs.Float(1f, ResourceLevelSpeedAttrib, activeItem);
+            if (levelMod != 1f)
+                maxfbspeed *= CritBucket.RemapValClamped(inputs.MedicCharge, 0f, 1f, 1f, levelMod);
         }
 
         // mult_player_movespeed_active (:11058-11063): the held weapon's item,

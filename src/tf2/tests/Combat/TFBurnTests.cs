@@ -188,4 +188,13 @@ public sealed class TFBurnTests
         Assert.Equal(20, ticks.Count);
         Assert.All(ticks, t => Assert.Equal(2 * TFCombatDefs.BurningDamage, t.Damage, 4));
     }
+
+    [Theory]
+    [InlineData(TFWeaponId.FlaregunRevenge, 7.5f)]
+    [InlineData(TFWeaponId.ParticleCannon, 6f)]
+    [InlineData(TFWeaponId.JarGas, 10f)]
+    public void The_weapon_that_lights_a_victim_names_its_burn(TFWeaponId weapon, float seconds)
+    {
+        Assert.Equal(seconds, TFBurn.AfterburnRateOnHit(weapon));
+    }
 }

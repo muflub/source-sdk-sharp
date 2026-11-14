@@ -85,6 +85,30 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
         // is the fallback when the script says none.
         float scriptSpeed = mode.ProjectileSpeed;
 
+        // The Dragon's Fury's ball, keyed by the weapon id: stock's
+        // FireProjectile spawns its entity directly, not by the script's
+        // ProjectileType (<c>tf_weapon_dragons_fury.cpp:161</c>), so the
+        // shipped script's spelling cannot break the launch here.
+        if (script.Id == TFWeaponId.FlameBall)
+        {
+            // FireProjectile's muzzle (:152-159): forward 3, right 7, up −9,
+            // the right flipped for the mirrored view — that mirror waits
+            // with the view-flip seam, as the pipes'.
+            if (Born(TFProjectileEntityNames.BallOfFire, owner, forward, right, up,
+                     TFProjectileDefs.BallMuzzleForward, TFProjectileDefs.BallMuzzleRight,
+                     TFProjectileDefs.BallMuzzleUp) is not TFBallOfFire ball)
+                return;
+
+            // The ball's worth is tf_fireball_damage through the launcher's mult_dmg
+            // (tf_projectile_dragons_fury.cpp:86-88), not the script's number.
+            float ballDamage = attributes.Float(TFProjectileDefs.BallBaseDamage, "mult_dmg",
+                                                owners.ItemOf(attack.Command.OwnerIndex, script.Name));
+            ball.ArmedBy(ballDamage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
+            ball.FiredBy(owner, forward * TFProjectileDefs.BallSpeed);
+            log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.BallOfFire} created by {owner}\n");
+            return;
+        }
+
         switch (mode.Projectile)
         {
             case TFProjectile.Rocket:
@@ -315,6 +339,58 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Flare} created by {owner}"
                           + $" at {speed:F0} u/s\n");
+                    break;
+                }
+
+            case TFProjectile.EnergyRing:
+                {
+                    // FireEnergyBall's ring arm (tf_weaponbase_gun.cpp:551-599):
+                    // the same muzzle offset, the ring's own 1200
+                    // (GetProjectileSpeed, tf_weapon_raygun.cpp:214-217), flying
+                    // flat (:222-225), no model of its own — the ring flies as
+                    // its particle colour. The shot's damage and crit flag are
+                    // the behaviour's rolled pair: the ring's hit answers
+                    // ShouldPenetrate inside GetDamage, and a crit rides.
+                    float muzzleUp = owners.DuckingOf(attack.Command.OwnerIndex)
+                        ? TFProjectileDefs.EnergyMuzzleUpDucked
+                        : TFProjectileDefs.EnergyMuzzleUp;
+                    if (Born(TFProjectileEntityNames.EnergyRing, owner, forward, right, up,
+                             TFProjectileDefs.EnergyMuzzleForward, TFProjectileDefs.EnergyMuzzleRight,
+                             muzzleUp) is not TFProjectileEnergyRing ring)
+                        return;
+
+                    float ringSpeed = Speed(scriptSpeed, TFProjectileDefs.EnergyRingSpeed);
+                    ring.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
+                    ring.FiredBy(owner, forward * ringSpeed);
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.EnergyRing} created by {owner}"
+                          + $" at {ringSpeed:F0} u/s\n");
+                    break;
+                }
+
+            case TFProjectile.EnergyBall:
+                {
+                    // The ball arm (:583-595): the same muzzle, the mangler's
+                    // own 1100 (tf_weapon_particle_cannon.cpp:72-75) flying flat
+                    // (:80-83); its damage is the stored shot, the charge the
+                    // held button banked riding beside it to the spawn.
+                    float ballMuzzleUp = owners.DuckingOf(attack.Command.OwnerIndex)
+                        ? TFProjectileDefs.EnergyMuzzleUpDucked
+                        : TFProjectileDefs.EnergyMuzzleUp;
+                    if (Born(TFProjectileEntityNames.EnergyBall, owner, forward, right, up,
+                             TFProjectileDefs.EnergyMuzzleForward, TFProjectileDefs.EnergyMuzzleRight,
+                             ballMuzzleUp) is not TFProjectileEnergyBall ball)
+                        return;
+
+                    float ballSpeed = Speed(scriptSpeed, TFProjectileDefs.EnergyBallSpeed);
+
+                    // The charge the held button banked rides on to the ball's
+                    // touch: seconds above zero make the shot charged
+                    // (CTFParticleCannon::GetChargedShot, m_bChargedShot).
+                    ball.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, charge > 0f,
+                                 attack.Command.OwnerIndex);
+                    ball.FiredBy(owner, forward * ballSpeed);
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.EnergyBall} created by {owner}"
+                          + $" at {ballSpeed:F0} u/s\n");
                     break;
                 }
 

@@ -747,4 +747,81 @@ public sealed class TFShellBehaviourTests
             Assert.IsAssignableFrom<TFWeaponBehaviour>(world.Behaviour(name));
         Assert.DoesNotContain(world.Log.Warnings(), l => l.Contains("behaviour", StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>A world whose owner carries a set_buff_type item and a predicted
+    /// carrier whose meter is set: the Phlogistinator's press shape.</summary>
+    private static (TFWeaponWorld World, WeaponNetState Weapon, ViewModelNetState ViewModel, TFPlayerNetState Carrier)
+        RageWorld(float meter)
+    {
+        var data = new FakePredictedData();
+        var carrier = new TFPlayerNetState();
+        carrier.BindLocal();
+        carrier.RageMeter = meter;
+        data.Carrier = carrier;
+        var world = new TFWeaponWorld(data);
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith(TFRageMeter.BuffTypeAttribute, AttributeDescriptionFormat.Additive,
+                                                           TFRageMeter.PyroRageBuffType);
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+        return (world, w, vm, carrier);
+    }
+
+    [Fact]
+    public void A_full_meters_secondary_is_the_rage_press_not_the_blast()
+    {
+        // SecondaryAttack's buff arm (tf_weapon_flamethrower.cpp:1196-1200):
+        // the set_buff_type item's secondary asks the rage, the blast stands
+        // down, and the press holds the trigger a second (:1140).
+        var (world, w, vm, _) = RageWorld(TFRageMeter.FullMeter);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Equal([(TFWeaponWorld.Owner, (int)TFRageMeter.PyroRageBuffType)], world.Effects.Rages);
+        Assert.Empty(world.Effects.AirBlasts);
+        Assert.Equal(200, w.Reserve);
+        Assert.Equal(11f, w.NextSecondaryAttack, 4);
+    }
+
+    [Fact]
+    public void A_meter_short_of_full_leaves_the_press_unspent()
+    {
+        // IsRageFull's no (tf_weapon_flamethrower.cpp:1122): no ask, no hold —
+        // and no blast either, the buff arm having taken the press.
+        var (world, w, vm, _) = RageWorld(TFRageMeter.FullMeter - 1f);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Empty(world.Effects.Rages);
+        Assert.Empty(world.Effects.AirBlasts);
+        Assert.Equal(0f, w.NextSecondaryAttack, 4);
+    }
+
+    [Fact]
+    public void A_rage_repress_inside_the_second_is_refused()
+    {
+        // UseRage's refused re-press (tf_weapon_flamethrower.cpp:1164).
+        var (world, w, vm, _) = RageWorld(TFRageMeter.FullMeter);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+        world.Run(w, vm, Attack2, 10.5f, NoCrit);
+
+        Assert.Single(world.Effects.Rages);
+
+        world.Run(w, vm, Attack2, 11f, NoCrit);
+
+        Assert.Equal(2, world.Effects.Rages.Count);
+    }
+
+    [Fact]
+    public void A_rage_press_with_the_eyes_under_water_is_refused()
+    {
+        // SecondaryAttack's water return (tf_weapon_flamethrower.cpp:1175),
+        // shared with the blast.
+        var (world, w, vm, _) = RageWorld(TFRageMeter.FullMeter);
+        world.Owners.Underwater = true;
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Empty(world.Effects.Rages);
+        Assert.Equal(0f, w.NextSecondaryAttack, 4);
+    }
 }

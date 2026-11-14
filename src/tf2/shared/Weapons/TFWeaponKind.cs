@@ -21,6 +21,12 @@ public enum TFWeaponKind
     Minigun,
     SniperRifle,
     /// <summary>
+    /// The Classic (<c>CTFSniperRifleClassic</c>, tf_weapon_sniperrifle.cpp:1764):
+    /// the sniper rifle that charges on the press and fires on the release
+    /// (<see cref="TFSniperRifleClassicBehaviour"/>).
+    /// </summary>
+    SniperRifleClassic,
+    /// <summary>
     /// The spy's revolver (<c>CTFRevolver</c>): the gun with the accuracy
     /// clock — <c>PrimaryAttack</c> stamps it and <c>GetWeaponCrosshairScale</c>
     /// blooms the crosshair off its age under the item's <c>set_weapon_mode</c>
@@ -37,6 +43,13 @@ public enum TFWeaponKind
     /// </summary>
     Bow,
     Flamethrower,
+    /// <summary>
+    /// The Dragon's Fury (<c>CTFWeaponFlameBall : CTFFlameThrower</c>,
+    /// tf_weapon_dragons_fury.h:27): the held fire is a ball on the full
+    /// charge meter and the blast is the flamethrower's, gated and scaled by
+    /// the meter's own recharge (<see cref="TFFlameBallBehaviour"/>).
+    /// </summary>
+    FlameBall,
     Medigun,
     /// <summary>
     /// The lunchbox family (<c>CTFLunchBox</c>): the primary taunt-eats and the
@@ -62,6 +75,13 @@ public enum TFWeaponKind
     /// <c>tf_player_shared.cpp:13753-13796</c>).
     /// </summary>
     BuffItem,
+    /// <summary>
+    /// The energy-weapon family (<c>CTFRaygun</c> and kin): no ammo pool —
+    /// energy in whole shots (<c>Energy_GetMaxEnergy</c>,
+    /// <c>tf_weaponbase.cpp:6357-6416</c>), spent per shot and recharged on the
+    /// weapon-idle ticks. The bison, the pomson and the Cow Mangler.
+    /// </summary>
+    Energy,
     /// <summary>A weapon with no attack of its own (the invis watch).</summary>
     Inert,
     /// <summary>
@@ -82,16 +102,19 @@ public static class TFWeaponKinds
         TFWeaponKind.Shotgun => "tf2.shotgun",
         TFWeaponKind.Minigun => "tf2.minigun",
         TFWeaponKind.SniperRifle => "tf2.sniperrifle",
+        TFWeaponKind.SniperRifleClassic => "tf2.sniperrifle_classic",
         TFWeaponKind.Revolver => "tf2.revolver",
         TFWeaponKind.Melee => "tf2.melee",
         TFWeaponKind.Projectile => "tf2.projectile",
         TFWeaponKind.Bow => "tf2.bow",
         TFWeaponKind.Flamethrower => "tf2.flamethrower",
+        TFWeaponKind.FlameBall => "tf2.flameball",
         TFWeaponKind.Medigun => "tf2.medigun",
         TFWeaponKind.Lunchbox => "tf2.lunchbox",
         TFWeaponKind.Pda => "tf2.pda",
         TFWeaponKind.Builder => "tf2.builder",
         TFWeaponKind.BuffItem => "tf2.buff",
+        TFWeaponKind.Energy => "tf2.energy",
         TFWeaponKind.Inert => "tf2.inert",
         TFWeaponKind.LaserPointer => "tf2.laserpointer",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
@@ -117,7 +140,15 @@ public static class TFWeaponKinds
             case TFWeaponId.Minigun:
                 return TFWeaponKind.Minigun;
             case TFWeaponId.Sniperrifle:
+            // The Bazaar Bargain: the decapitation rifle, the base charge arm
+            // with the head count's rate (CTFSniperRifleDecap's
+            // SniperRifleChargeRateMod, tf_weapon_sniperrifle.cpp:1742-1745).
+            case TFWeaponId.SniperrifleDecap:
                 return TFWeaponKind.SniperRifle;
+            // The Classic: the release-fire rifle of its own class
+            // (CTFSniperRifleClassic, tf_weapon_sniperrifle.cpp:1764).
+            case TFWeaponId.SniperrifleClassic:
+                return TFWeaponKind.SniperRifleClassic;
             case TFWeaponId.Revolver:
                 return TFWeaponKind.Revolver;
             case TFWeaponId.Rocketlauncher:
@@ -128,6 +159,9 @@ public static class TFWeaponKinds
             case TFWeaponId.Pipebomblauncher:
             case TFWeaponId.SyringegunMedic:
             case TFWeaponId.Flaregun:
+            // The Manmelter: CTFFlareGun_Revenge : CTFFlareGun
+            // (tf_weapon_flaregun.h), the vacuum riding the flare gun's shell.
+            case TFWeaponId.FlaregunRevenge:
             // The jars (CTFJar : CTFWeaponBaseGun, tf_weapon_jar.h:41): a
             // grenade lobbed at the meter, the milk its second face.
             case TFWeaponId.Jar:
@@ -141,6 +175,10 @@ public static class TFWeaponKinds
                 return TFWeaponKind.Bow;
             case TFWeaponId.Flamethrower:
                 return TFWeaponKind.Flamethrower;
+            // The Dragon's Fury: the flame's shell behind the meter gates
+            // (CTFWeaponFlameBall : CTFFlameThrower, tf_weapon_dragons_fury.h:27).
+            case TFWeaponId.FlameBall:
+                return TFWeaponKind.FlameBall;
             case TFWeaponId.Medigun:
                 return TFWeaponKind.Medigun;
             case TFWeaponId.Builder:
@@ -155,6 +193,15 @@ public static class TFWeaponKinds
             // the pointer's own.
             case TFWeaponId.LaserPointer:
                 return TFWeaponKind.LaserPointer;
+            // The energy family: the raygun (the bison's ring) and its pomson
+            // subclass (CTFDRGPomson : CTFRaygun, tf_weapon_raygun.h:84), and
+            // the Cow Mangler's charged ball (CTFParticleCannon,
+            // tf_weapon_particle_cannon.cpp). Energy, not the ammo pool:
+            // UsesPrimaryAmmo is false (tf_weaponbase.cpp:640).
+            case TFWeaponId.Raygun:
+            case TFWeaponId.DrgPomson:
+            case TFWeaponId.ParticleCannon:
+                return TFWeaponKind.Energy;
         }
 
         return script.Category switch
@@ -162,6 +209,15 @@ public static class TFWeaponKinds
             TFWeaponCategory.Melee => TFWeaponKind.Melee,
             TFWeaponCategory.Primary or TFWeaponCategory.Secondary
                 when script.Primary.Projectile == TFProjectile.Bullet => TFWeaponKind.Gun,
+            // Stock's GetWeaponId answers TF_WEAPON_NONE for a script name
+            // outside g_aWeaponNames (tf_shareddefs.cpp:1211-1217) and the
+            // weapon still fires what its script declares: a bullet gun the
+            // arm above, a launcher (its ProjectileType names the shot, as
+            // the Air Strike's projectile_rocket does for the soldier's
+            // airdrop primary, whose class inherits the rocket launcher —
+            // CTFRocketLauncher_AirStrike : CTFRocketLauncher,
+            // tf_weapon_rocketlauncher.h:109) the projectile shell.
+            TFWeaponCategory.Primary or TFWeaponCategory.Secondary => TFWeaponKind.Projectile,
             // The builder family's weapon type: the sapper's script, whose id
             // is none — the family's shell carries its place (the sapper seam).
             TFWeaponCategory.Building => TFWeaponKind.Builder,
@@ -184,4 +240,19 @@ public static class TFWeaponKinds
         or TFWeaponId.Rocketlauncher or TFWeaponId.RocketlauncherDirecthit
         or TFWeaponId.Grenadelauncher or TFWeaponId.Pipebomblauncher
         or TFWeaponId.Crossbow;
+
+    /// <summary>
+    /// The same answer for a script whose id is none: stock decides it by the
+    /// C++ class, and a class outside <c>g_aWeaponNames</c> still inherits its
+    /// base's flag — the Air Strike's <c>CTFRocketLauncher_AirStrike</c> takes
+    /// the rocket launcher's <c>m_bReloadsSingly = true</c> with its class
+    /// (<c>tf_weapon_rocketlauncher.h:109</c> over the ctor's :159). Here the
+    /// class shows through the script's shape: a none-id mode that fires
+    /// rockets is the launcher family, and reloads one round at a time. A
+    /// none-id bullet gun keeps the base's whole-clip answer (the sapper's
+    /// shell, whose melee-class base never sets the flag).
+    /// </summary>
+    public static bool ReloadsSingly(TFWeaponScript script) =>
+        ReloadsSingly(script.Id)
+        || script.Id == TFWeaponId.None && script.Primary.Projectile == TFProjectile.Rocket;
 }

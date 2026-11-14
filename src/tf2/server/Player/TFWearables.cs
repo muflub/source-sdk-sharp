@@ -57,10 +57,13 @@ public static class TFWearableOrders
 /// </summary>
 public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entities, IEntityDirectory directory,
                                 IEnginePrecache precache, IEngineEntityRender render, ILog log,
-                                IServerSkins? skins = null)
+                                IServerSkins? skins = null, TFPlayerItems? items = null)
     : IPlayerComponent
 {
     private readonly List<EntityHandle> _wearables = [];
+
+    /// <summary>The worn items provided to the player's manager; stopped on the strip.</summary>
+    private readonly List<AttributeContainer> _provided = [];
 
     private int _index = -1;
 
@@ -200,6 +203,17 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             // The item rides its entity (stock's CEconEntity::m_Item), so the
             // ON_OTHER arms against the wearable find its attributes.
             entity.Item = Econ.TFLoadoutProvider.Attributes(entry.Item);
+
+            // Stock's ReapplyProvision (econ_entity.cpp:285-308): an equipped
+            // item provides to its owner's own attribute manager, so a
+            // player-level hook — the charge meter's regen, the kill's
+            // refill — reads the worn items with the weapons'. The strip
+            // stops each provide, as stock's StopProvidingTo does.
+            if (items?.ManagerOf(_index) is AttributeContainer manager)
+            {
+                entity.Item.ProvideTo(manager);
+                _provided.Add(entity.Item);
+            }
         }
     }
 
@@ -210,6 +224,10 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             if (entities.IsValid(wearable))
                 entities.Remove(wearable);
         _wearables.Clear();
+        if (items?.ManagerOf(_index) is AttributeContainer manager)
+            foreach (var item in _provided)
+                item.StopProvidingTo(manager);
+        _provided.Clear();
         _hidden = false;
     }
 }
@@ -223,13 +241,13 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
 public sealed class TFWearableComponents(TFPlayerCarriers carriers, IEngineEntities entities,
                                          IEntityDirectory directory, IEnginePrecache precache,
                                          IEngineEntityRender render, ILog log,
-                                         IServerSkins? skins = null)
+                                         IServerSkins? skins = null, TFPlayerItems? items = null)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFWearableOrders.Components;
 
     public IEnumerable<IPlayerComponent> Create(EntityHandle player)
-        => [new TFWearables(carriers, entities, directory, precache, render, log, skins)];
+        => [new TFWearables(carriers, entities, directory, precache, render, log, skins, items)];
 }
 
 /// <summary>
@@ -277,7 +295,11 @@ public sealed class TFWearableSpawns(TFPlayerCarriers carriers, TFLoadoutProvide
         var items = new List<LoadoutItem>();
         foreach (var entry in loadout.Loadout(index, cls))
         {
-            if (TFItemStrings.IsWearableSlot((int)entry.Slot))
+            // The wearable slot's items, and the wearable classes whatever
+            // the slot — the demoshield's secondary (the class lookup's
+            // CTFWearable, tf_player.cpp:4619-4621).
+            if (TFItemStrings.IsWearableSlot((int)entry.Slot)
+                || TFItemStrings.IsWearableClass(entry.Item.Definition.ItemClass))
                 items.Add(entry);
         }
 

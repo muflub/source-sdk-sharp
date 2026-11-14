@@ -249,7 +249,8 @@ internal sealed class SpyRig
                                                      : Arg() is int k && k == Other.EntryIndex ? Other
                                                      : EntityHandle.None)
               .Returns("Entities.GetHealth", 100)
-              .ReturnsEachCall("WorldQuery.TraceLine", () => new TraceResult(TraceHits, 1f, TraceEnd, default, Victim));
+              .ReturnsEachCall("WorldQuery.TraceLine", () => new TraceResult(TraceHits, 1f, TraceEnd, default, Victim))
+              .Returns("WorldQuery.TraceBox", default(SurfaceTraceResult));
 
         ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         ConVars.RegisterAll(typeof(TFSpy).Assembly);

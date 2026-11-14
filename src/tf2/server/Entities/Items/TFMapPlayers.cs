@@ -88,4 +88,13 @@ public interface ITFMapPlayers
     /// positive amount under the cap).
     /// </summary>
     bool AddToSpyCloakMeter(EntityHandle player, float amount);
+
+    /// <summary>
+    /// The demoman's half of the same touch (<c>entity_ammopack.cpp:96-110</c>,
+    /// <c>tf_ammo_pack.cpp:378</c>): a wearer of <c>ammo_gives_charge</c> under a
+    /// full meter takes <c>100 * pack ratio</c> of charge, and a meter that
+    /// moved counts the pack as taken. The attribute is the player-level walk,
+    /// the worn items with the weapons.
+    /// </summary>
+    bool AddToDemoChargeMeterFromAmmo(EntityHandle player, float packRatio);
 }

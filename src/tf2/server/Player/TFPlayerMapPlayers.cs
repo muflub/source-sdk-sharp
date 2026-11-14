@@ -107,4 +107,28 @@ public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers 
         state.CloakMeter = Math.Clamp(state.CloakMeter + amount, 0f, 100f); // :9755
         return result;
     }
+
+    /// <summary>
+    /// <c>entity_ammopack.cpp:96-110</c>: the Persuader's
+    /// <c>ammo_gives_charge</c> on the player's own walk — the worn items with
+    /// the weapons — pays <c>100 * pack ratio</c> of charge under a full meter,
+    /// and the moved meter is the pack taken. The powerup mode's 0.2
+    /// (:103-106) waits for that mode, as the regen's does; the meter's
+    /// ceiling is the field's 0..100.
+    /// </summary>
+    public bool AddToDemoChargeMeterFromAmmo(EntityHandle player, float packRatio)
+    {
+        if (carriers.Get(player.EntryIndex) is not { } state)
+            return false; // the meter lives on the carrier; a player with none has none to move
+
+        if (_attributes.Int(0, "ammo_gives_charge", _owners.ManagerOf(player.EntryIndex)) == 0)
+            return false; // :97's gate — no wearer's attribute, no charge
+
+        float charge = state.ChargeMeter;
+        if (charge >= 100f)
+            return false; // :101's gate — a full meter takes none
+
+        state.ChargeMeter = Math.Clamp(charge + packRatio * 100f, 0f, 100f); // :107
+        return true;
+    }
 }

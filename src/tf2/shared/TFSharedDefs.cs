@@ -44,6 +44,14 @@ public enum TFClass
     Random = 12,
 }
 
+/// <summary>The melee crit ladder the demo charge arms (<c>MELEE_NOCRIT</c> and friends, tf_player_shared.h:49-54).</summary>
+public enum TFMeleeCrit
+{
+    NoCrit = 0,
+    MiniCrit = 1,
+    Crit = 2,
+}
+
 /// <summary><c>ETFCond</c>: the condition ids, <c>Invalid</c> (-1) to <c>Last</c>.</summary>
 public enum TFCond
 {
@@ -513,6 +521,21 @@ public static class TFWeaponNames
         // (tf_weapon_lunchbox.h:56, CTFLunchBox_Drink deriving from it).
         if (string.Equals(name, TFWeaponTypes.Drink, StringComparison.OrdinalIgnoreCase))
             return TFWeaponId.Lunchbox;
+
+        // The Dragon's Fury: stock binds the entity class at LINK_ENTITY_TO_CLASS
+        // (tf_weapon_dragons_fury.cpp:42) and answers the id through the class's
+        // own GetWeaponID override (tf_weapon_dragons_fury.h:45), so the script's
+        // spelling resolves here while the g_aWeaponNames entry keeps stock's
+        // misspelt TF_WEPON_FLAME_BALL above.
+        if (string.Equals(name, "tf_weapon_rocketlauncher_fireball", StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.FlameBall;
+
+        // The katana the same way (the Half-Zatoichi): stock's CTFKatana
+        // overrides no GetWeaponID, so the whole family answers the decap
+        // base's TF_WEAPON_SWORD (tf_weapon_sword.h:45, the class at :118-140;
+        // tf_weapon_sword.cpp:50 links tf_weapon_katana to it).
+        if (string.Equals(name, TFWeaponTypes.Katana, StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.Sword;
 
         for (var id = TFWeaponId.None; id < TFWeaponId.Count; id++)
         {

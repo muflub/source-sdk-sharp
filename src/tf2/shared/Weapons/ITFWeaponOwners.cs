@@ -115,6 +115,36 @@ public interface ITFWeaponOwners
     /// every other answer is yes.
     /// </summary>
     bool OwnerCanJump(int playerIndex) => true;
+
+    /// <summary>
+    /// Whether the demoman's shield is among the worn wearables — stock's
+    /// <c>CTFPlayerShared::IsShieldEquipped</c>
+    /// (tf_player_shared.cpp:6117-6120), the <c>GetEquippedDemoShield</c> walk
+    /// (:626-643) the speed walk's shield toll gates on (:11005). The side
+    /// without wearables answers no, and the toll with it.
+    /// </summary>
+    bool ShieldEquipped(int playerIndex) => false;
+
+    /// <summary>
+    /// The pomson's on-hit drains (<c>tf_weaponbase.cpp:5568</c>, :5592): the
+    /// firing item's percentages, already scaled to the hit's distance by the
+    /// caller, taken off the victim — the medic loses that fraction of theirÜberCharge
+    /// meter (0..1, held as the held medigun's charge), the spy the same
+    /// fraction of the hundred-point cloak meter. Zero amounts change nothing;
+    /// the no-carrier answer is the no-op, as stock's arms only run for a
+    /// classed victim.
+    /// </summary>
+    void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction) { }
+
+    /// <summary>
+    /// The player's banked decapitations — stock's
+    /// <c>m_Shared.GetDecapitations()</c> (<c>CTFSniperRifleDecap::GetCount</c>,
+    /// tf_weapon_sniperrifle.cpp:1750-1759), which the Bazaar Bargain's charge
+    /// rate scales by (<c>SniperRifleChargeRateMod</c>, :1742-1745). The
+    /// carrier's <see cref="TFPlayerNetState.Decapitations"/> answers on both
+    /// sides; 0 when this side keeps no carrier.
+    /// </summary>
+    int DecapitationsOf(int playerIndex) => 0;
 }
 
 /// <summary>The answer when no carrier is composed: a classless player, as <see cref="ITFWeaponOwners"/> says.</summary>

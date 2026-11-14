@@ -31,6 +31,12 @@ public sealed class TFWeaponEffectsTests
 
         public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) => Calls.Add($"airblast {script.Name}");
 
+        public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
+        {
+            Calls.Add($"extinguish {script.Name}");
+            return true;
+        }
+
         public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) => Calls.Add($"heal {script.Name} {held}");
 
         public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) => Calls.Add($"zoom {script.Name} {zoomed}");

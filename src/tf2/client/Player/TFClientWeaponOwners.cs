@@ -107,6 +107,10 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     // copy the snapshot decoded, so the refusal matches the server's frame.
     public float NoAttackExpire(int playerIndex) => State(playerIndex)?.NoAttackExpire ?? 0f;
 
+    // Sent, not predicted (the arrival's word): the death hook's count, as the
+    // replay's charge rate reads the snapshot's.
+    public int DecapitationsOf(int playerIndex) => State(playerIndex)?.Decapitations ?? 0;
+
     public bool WinsCrits(int playerIndex)
         => resources?.Live is { } live
            && playerIndex is > 0 and < TFPlayerResourceNetState.Slots
@@ -178,6 +182,25 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
            || TFWeaponNames.IdOf(name) != TFWeaponId.CompoundBow
            || arsenal.ActiveWeaponState is not { } state
            || !TFBowBehaviour.Drawn(state);
+
+    /// <summary>
+    /// The pomson's ring hit on the predicted copy (<c>tf_weaponbase.cpp:5568</c>,
+    /// :5592): the local medic'sÜberCharge rides the held medigun's charge word,
+    /// the spy's cloak the carrier's hundred-point meter. Nobody else's meters
+    /// are predicted, so nobody else is drained here — the server's decoded
+    /// words carry theirs.
+    /// </summary>
+    public void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+    {
+        if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
+            && arsenal?.TryGetActive(out _, out _, out _) == true
+            && arsenal.ActiveWeaponState is { } weapon)
+            weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - medicFraction);
+
+        if (spyFraction > 0f && ClassOf(playerIndex) == TFClass.Spy
+            && data.Predicted(playerIndex) is { } state)
+            state.CloakMeter = Math.Max(0f, state.CloakMeter - spyFraction * 100f);
+    }
 
     private TFPlayerNetState? State(int playerIndex) => data.Predicted(playerIndex) ?? data.Networked(playerIndex);
 }

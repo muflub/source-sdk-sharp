@@ -40,7 +40,8 @@ public static class TFItemMeter
     /// <summary>
     /// The recharge the effect-bar weapons answer in stock's own override
     /// (<c>InternalGetEffectBarRechargeTime</c>): the jar's 20.1 s
-    /// (<c>tf_weapon_jar.h:59</c>) and the cleaver's 5.1 (<c>:120</c>) — the
+    /// (<c>tf_weapon_jar.h:59</c>), the cleaver's 5.1 (<c>:120</c>) and the
+    /// Wrap Assassin's ball bat's 10 (<c>tf_weapon_bat.h:91</c>) — the
     /// seconds a weapon charges by when its item names no
     /// <see cref="ChargeRateAttribute"/>, which the jars' never do.
     /// </summary>
@@ -48,11 +49,30 @@ public static class TFItemMeter
     {
         TFWeaponId.Jar or TFWeaponId.JarMilk => 20.1f,
         TFWeaponId.Cleaver => 5.1f,
+        TFWeaponId.BatGiftwrap => 10f,
         _ => 0f,
     };
 
+    /// <summary>
+    /// The effect bar's percentage stretch (<c>effectbar_recharge_rate</c>,
+    /// <c>CTFWeaponBase::GetEffectBarRechargeTime</c>,
+    /// tf_weaponbase.h:629): the attr rides the override's base, the gate
+    /// <c>HasEffectBarRegeneration</c> reads the base alone (:628).
+    /// </summary>
+    public const string EffectBarRechargeAttribute = "effectbar_recharge_rate";
+
     /// <summary>The carried bar, 0..1.</summary>
     public static float MeterOf(WeaponNetState weapon) => weapon.ItemMeter;
+
+    /// <summary>
+    /// The effect-bar family's charge seconds: the override's base under the
+    /// percentage attr, <c>GetEffectBarRechargeTime</c>'s whole body
+    /// (tf_weaponbase.h:629). A weapon whose id answers no base has no bar,
+    /// the gate's <c>HasEffectBarRegeneration</c> reading the base alone
+    /// (:628).
+    /// </summary>
+    public static float EffectBarRecharge(AttributeHooks hooks, IAttributeProvider? item, TFWeaponId id)
+        => EffectBarSeconds(id) * hooks.Float(1f, EffectBarRechargeAttribute, item);
 
     /// <summary>An empty bar refuses the use; anything charged on it is spendable.</summary>
     public static bool CanUse(WeaponNetState weapon) => weapon.ItemMeter > 0f;
@@ -88,13 +108,40 @@ public static class TFItemMeter
         // <see cref="EffectBarSeconds"/>) — the jar's bar, no attribute.
         float seconds = hooks.Float(0f, ChargeRateAttribute, item)
             * hooks.Float(1f, ChargeRateModAttribute, item);
-        return seconds > 0f ? seconds : EffectBarSeconds(weaponId);
+        return seconds > 0f ? seconds : EffectBarRecharge(hooks, item, weaponId);
     }
 
     /// <summary>
+    /// The item's own multiplier when it has set none — stock's ctor answers
+    /// 1 (<c>tf_weapon_dragons_fury.cpp:62</c>), and our zero field says the
+    /// same thing the stock default does for every metered item.
+    /// </summary>
+    public const float RechargeNormal = 1f;
+
+    /// <summary>
+    /// The penalty a blast puts on the refill
+    /// (<c>tf_fireball_airblast_recharge_penalty</c>'s default,
+    /// <c>tf_weapon_dragons_fury.cpp:57, 228</c>).
+    /// </summary>
+    public const float RechargePenalty = 0.5f;
+
+    /// <summary>
+    /// The boost a hit on the launcher puts on the refill
+    /// (<c>tf_fireball_hit_recharge_boost</c>'s default,
+    /// <c>tf_weapon_dragons_fury.cpp:58, 302</c>).
+    /// </summary>
+    public const float HitRechargeBoost = 1.5f;
+
+    /// <summary>
     /// Fill the bar over the item's charge seconds, the mod stretching them
-    /// (stock's <c>flMeterChargeRate * flMeterChargeMult</c>, <c>:7881-7884</c>),
-    /// held at full as stock holds 100 (<c>:7891-7899</c>). No rate, no meter:
+    /// (stock's <c>flMeterChargeRate * flMeterChargeMult</c>, <c>:7881-7884</c>)
+    /// and the weapon's multiplier under them (<c>:7901</c>'s
+    /// <c>GetMeterMultiplier()</c>), held at full as stock holds 100
+    /// (<c>:7891-7899</c>). The fill crossing the bar to full hands the
+    /// multiplier back to normal — stock's interval-crossing ask
+    /// (<c>:7854-7863</c>) lands on the Dragon's Fury as its meter's one
+    /// interval, and <c>OnResourceMeterFilled</c> resets the scale to 1
+    /// (<c>tf_weapon_dragons_fury.cpp:280-287</c>). No rate, no meter:
     /// the item does not recharge on the tick (stock's <c>continue</c>, <c>:7886-7887</c>).
     /// </summary>
     public static void Tick(WeaponNetState weapon, float dt, AttributeHooks hooks,
@@ -104,10 +151,18 @@ public static class TFItemMeter
         float seconds = ChargeSeconds(hooks, owners, playerIndex, weaponName, weaponId);
 
         if (seconds <= 0f)
-            seconds = EffectBarSeconds(weaponId);
+            seconds = EffectBarRecharge(hooks, owners.ItemOf(playerIndex, weaponName), weaponId);
         if (seconds <= 0f)
             return;                                   // stock's skip (:7886-7887)
 
-        weapon.ItemMeter = Math.Min(1f, weapon.ItemMeter + dt / seconds);
+        float scale = weapon.FlameBallChargeScale > 0f ? weapon.FlameBallChargeScale : RechargeNormal;
+        float before = weapon.ItemMeter;
+        weapon.ItemMeter = Math.Min(1f, before + dt * scale / seconds);
+
+        // The crossing of the interval — ours is the one to full, the meter's
+        // whole bar being its charge interval for this family — answers
+        // OnResourceMeterFilled (:7860-7862), which resets the scale (:282).
+        if (before < 1f && weapon.ItemMeter >= 1f)
+            weapon.FlameBallChargeScale = RechargeNormal;
     }
 }

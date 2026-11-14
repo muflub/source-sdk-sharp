@@ -120,6 +120,19 @@ public interface IMovementRules
     BackpedalLimit? BackpedalLimit(int playerIndex, float maxSpeed) => null;
 
     /// <summary>
+    /// The shield charge's rewrite of the command about to be walked: the max
+    /// speed, the buttons and the three moves the charge walks at — stock
+    /// TF2's <c>CTFGameMovement::ChargeMove</c>, which hands a charging
+    /// demoman's command <c>tf_max_charge_speed</c> and holds its buttons to
+    /// the charge's own attack2 (tf_gamemovement.cpp:484-532, called by
+    /// ProcessMovement at :314, its return ignored — before the stun's at
+    /// :317). Null — no rewrite — is the default and stock Half-Life: nobody
+    /// is charging, the command walks as sent.
+    /// </summary>
+    MovementCharge? MovementCharge(int playerIndex, int buttons,
+                                   float forwardMove, float sideMove, float upMove) => null;
+
+    /// <summary>
     /// The stun's rewrite of the command about to be walked: the buttons and
     /// the three moves the mod's stun logic leaves behind — stock TF2's
     /// <c>CTFGameMovement::StunMove</c>, which seizes the controls of a
@@ -197,6 +210,24 @@ public interface IMovementRules
     /// after <c>FinishMove</c>). Nothing by default.
     /// </summary>
     void EndCommand(int playerIndex) { }
+
+    /// <summary>
+    /// The charge end the command's slow walk names: the command walked under
+    /// the charge's 300 floor, which stock's PlayerMove tail reads off the
+    /// velocity and answers with <c>CTFPlayerShared::EndCharge</c>
+    /// (tf_gamemovement.cpp:240-245) — no ground check, the walk's own
+    /// verdict. Server side only, as the end's arms are; nothing by default.
+    /// </summary>
+    void ChargeSlowEnd(int playerIndex) { }
+
+    /// <summary>
+    /// The charge end the blocked step names: the walk's trace stopped on
+    /// <paramref name="hit"/>, and a player among the stops ends the charge
+    /// into them (tf_gamemovement.cpp:1925-1929, <c>ToTFPlayer</c> over the
+    /// hit — the world and every non-player standing does not). Server side
+    /// only; nothing by default.
+    /// </summary>
+    void ChargeBump(int playerIndex, EntityHandle hit) { }
 
     /// <summary>
     /// The walk's xy trim: right after Accelerating, the walked xy is scaled
@@ -324,7 +355,10 @@ public sealed class MovementRulesResolver
                 i => _rules.EndCommand(i),
                 i => _rules.ClampXY(i),
                 i => _rules.KeepGround(i),
-                (i, s) => _rules.DuckSeconds(i, s));
+                (i, s) => _rules.DuckSeconds(i, s),
+                (i, b, f, s, u) => _rules.MovementCharge(i, b, f, s, u),
+                i => _rules.ChargeSlowEnd(i),
+                (i, h) => _rules.ChargeBump(i, h));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

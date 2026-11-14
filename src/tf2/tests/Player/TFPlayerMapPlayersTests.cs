@@ -201,4 +201,40 @@ public sealed class TFPlayerMapPlayersTests
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 40f));
         Assert.Equal(20f, rig.State.CloakMeter);
     }
+
+    // ---- the demoman's charge from ammo (entity_ammopack.cpp:96-110) ----
+
+    [Fact]
+    public void The_persuaders_wearer_takes_charge_from_a_pack()
+    {
+        var owners = new Weapons.FakeOwners();
+        owners.Managers[PlayerRig.Index] = ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f);
+        var (rig, players, _) = MakeCloak(TFClass.Demoman, owners);
+        rig.State.ChargeMeter = 30f;
+
+        Assert.True(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f)); // :98-108 — the pack's half
+        Assert.Equal(80f, rig.State.ChargeMeter);
+    }
+
+    [Fact]
+    public void A_full_charge_meter_takes_no_charge_from_a_pack()
+    {
+        var owners = new Weapons.FakeOwners();
+        owners.Managers[PlayerRig.Index] = ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f);
+        var (rig, players, _) = MakeCloak(TFClass.Demoman, owners);
+        rig.State.ChargeMeter = 100f;
+
+        Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f)); // :101's gate
+        Assert.Equal(100f, rig.State.ChargeMeter);
+    }
+
+    [Fact]
+    public void A_player_without_the_attribute_takes_no_charge()
+    {
+        var (rig, players, _) = MakeCloak(TFClass.Demoman, new Weapons.FakeOwners());
+        rig.State.ChargeMeter = 30f;
+
+        Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f));
+        Assert.Equal(30f, rig.State.ChargeMeter);
+    }
 }

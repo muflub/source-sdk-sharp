@@ -37,6 +37,32 @@ public static class TFProjectileDefs
     /// <summary>The script's speed, or stock's when the script names none.</summary>
     public static float Speed(float scriptSpeed, float stock) => scriptSpeed > 0f ? scriptSpeed : stock;
 
+    /// <summary><c>tf_fireball_speed</c>'s default (<c>tf_projectile_dragons_fury.cpp:34</c>): the ball's straight flight.</summary>
+    public const float BallSpeed = 3000f;
+
+    /// <summary><c>tf_fireball_distance</c>'s default (<c>tf_projectile_dragons_fury.cpp:33</c>): the ball's reach.</summary>
+    public const float BallDistance = 500f;
+
+    /// <summary><c>tf_fireball_max_lifetime</c>'s default (<c>tf_projectile_dragons_fury.cpp:40</c>): the ball's life.</summary>
+    public const float BallLifetime = 0.5f;
+
+    /// <summary><c>tf_fireball_burn_duration</c>'s default (<c>tf_projectile_dragons_fury.cpp:36</c>): the burn the ball lights for.</summary>
+    public const float BallBurnDuration = 2f;
+
+    /// <summary><c>tf_fireball_burning_bonus</c>'s default (<c>tf_projectile_dragons_fury.cpp:39</c>): the bonus onto a burning victim's hit.</summary>
+    public const float BallBurnBonus = 3f;
+
+    /// <summary><c>tf_fireball_damage</c>'s default (<c>tf_projectile_dragons_fury.cpp:35</c>): the ball's shot behind the item's hook.</summary>
+    public const float BallBaseDamage = 25f;
+
+    /// <summary>The ball's model, empty by design (<c>tf_projectile_dragons_fury.cpp:61, 167</c>).</summary>
+    public const string BallModel = "models/empty.mdl";
+
+    /// <summary>The ball's muzzle (<c>tf_weapon_dragons_fury.cpp:152-159</c>): forward 3, right 7 (the mirrored view flips it), up −9.</summary>
+    public const float BallMuzzleForward = 3f;
+    public const float BallMuzzleRight = 7f;
+    public const float BallMuzzleUp = -9f;
+
     /// <summary><c>TF_GRENADE_JUMP_RADIUS</c> (<c>tf_weaponbase_grenadeproj.cpp:300</c>): the thrower's own pass.</summary>
     public const float GrenadeJumpRadius = 146f;
 
@@ -232,6 +258,27 @@ public static class TFProjectileDefs
     /// </summary>
     public const float SyringeSpread = 1.5f;
 
+    /// <summary>
+    /// The energy family's launch: rings at the bison's 1200 and balls at the
+    /// mangler's 1100 (<c>GetProjectileSpeed</c>, tf_weapon_raygun.cpp:214-217,
+    /// tf_weapon_particle_cannon.cpp:72-75), both flying flat
+    /// (<c>GetProjectileGravity</c>, :222-225, :80-83). Stock draws no model —
+    /// the ring and ball fly as their particle colours, so the flying entity's
+    /// own model is the empty one.
+    /// </summary>
+    public const float EnergyRingSpeed = 1200f;
+    public const float EnergyBallSpeed = 1100f;
+    public const float EnergyGravity = 0f;
+    public const string EnergyModel = "";
+
+    /// <summary>The energy shot's muzzle offset (<c>FireEnergyBall</c>'s <c>vecOffset</c>, tf_weaponbase_gun.cpp:557-561).</summary>
+    public const float EnergyMuzzleForward = 23.5f;
+    public const float EnergyMuzzleRight = -8f;
+    public const float EnergyMuzzleUp = -3f;
+
+    /// <summary>The energy shot's crouched muzzle height (:558-561).</summary>
+    public const float EnergyMuzzleUpDucked = 8f;
+
     /// <summary><c>CTFBaseRocket</c>'s model (<c>models/weapons/w_models/w_rocket.mdl</c>).</summary>
     public const string RocketModel = "models/weapons/w_models/w_rocket.mdl";
 
@@ -335,6 +382,9 @@ public static class TFProjectileDefs
 
     /// <summary>The jar's seconds on a victim: <c>JarExplode</c>'s <c>AddCond(·, 10.0f, ·)</c> (<c>tf_weapon_jar.cpp:479</c>).</summary>
     public const float JarDuration = 10f;
+
+    /// <summary>The sniper rifle's jarate splash (<c>TE_TFParticleEffect</c>'s "peejar_impact_small", tf_player.cpp:10689).</summary>
+    public const string JarRifleImpactEffect = "peejar_impact_small";
 
     /// <summary>The jar's spin: <c>GetAngularImpulse</c>'s roll about x (<c>tf_weapon_jar.h:66</c>).</summary>
     public const float JarSpinRoll = 300f;

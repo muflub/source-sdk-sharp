@@ -13,6 +13,7 @@ using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
 using TF2.Shared;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 namespace TF2.Server.Player;
 
@@ -39,7 +40,7 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
                                  IEngineEntityRender render, ITFMedigunWeapons medigun,
                                  AttributeHooks? hooks = null, ITFWeaponOwners? owners = null,
                                  IUniformRandom? random = null, ITFPlayerConditions? conditions = null,
-                                 TFDamageRecords? hitRecords = null)
+                                 TFDamageRecords? hitRecords = null, ITFPlayerData? carriers = null)
     : IPlayerDeathHook, IGameLifecycle, IOrderedHook
 {
     /// <summary>The drop's order in the player band.</summary>
@@ -70,6 +71,7 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         AddKillCritBoost(death);   // Event_KilledOther, asked of the recent damager (:11693)
         DropAmmoPack(death);       // :12161, in Event_Killed's own order
         DropHealthPack(death);     // :12307, the last of the three
+        GrowClipOnKill(death);     // GetMaxClip1's blast arm (:594-600), folded onto the kill
     }
 
     /// <summary>
@@ -242,6 +244,40 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
             small.DropSingleInstance(new Vector(250f * x / length, 250f * y / length, 250f / length),
                                      death.Player, throwerTouchDelay: 0f); // :13150-13151
         }
+    }
+
+    /// <summary>
+    /// The heads half of <c>CTFRocketLauncher_AirStrike::OnPlayerKill</c>
+    /// (<c>tf_weapon_rocketlauncher.cpp:411-432</c>): the killer's shared
+    /// head count becomes its own pile plus the victim's pile plus one
+    /// (<c>SetDecapitations</c>, :419-424), asked of the weapon's owner
+    /// through <see cref="ITFPlayerData"/> — the stock walk needs the hook
+    /// only after the bump, for the achievement (:426-431), so a kill with no
+    /// attribute still counts. The clip side reads the count back through
+    /// <see cref="TFWeaponBehaviour"/>' blast arm
+    /// (<c>tf_weaponbase.cpp:594-600</c>), stock's own read of the same
+    /// number. The count's reset at death sits with
+    /// <see cref="TFSwordHeads"/>' carrier walk.
+    /// </summary>
+    private const string AirStrikeClass = "tf_weapon_rocketlauncher_airstrike";
+
+    private void GrowClipOnKill(PlayerDeath death)
+    {
+        if (death.Attacker == EntityHandle.None)   // :416's weapon-owner guard
+            return;
+
+        if (carriers is not { } states)
+            return;
+
+        // Stock's override lives on the Air Strike's class alone: any other
+        // launcher's kill must leave the count the swords share alone.
+        if (arsenal.ActiveWeaponName(death.Attacker) != AirStrikeClass)
+            return;
+
+        if (states.Predicted(death.Attacker.EntryIndex) is not { } killer)   // :415's GetOwner
+            return;
+
+        killer.Decapitations += (states.Predicted(death.Player.EntryIndex)?.Decapitations ?? 0) + 1;   // :419-424
     }
 
     /// <summary>

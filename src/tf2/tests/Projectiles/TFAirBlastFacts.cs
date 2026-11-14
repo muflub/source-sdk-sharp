@@ -367,6 +367,33 @@ public class TFAirBlastFacts
     }
 
     [Fact]
+    public void The_targets_airblast_vulnerability_rides_the_cray_power()
+    {
+        // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER on the power (:1326): a target
+        // wearing 1.5 takes 1.5 × 600 = 900 along the aim, the reflection
+        // untouched at zero momentum.
+        var rig = new FlameRig();
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        InsideCone(rig);
+        Teams(rig, targetTeam: 3, blasterTeam: 2);
+        Centers(rig, targetCenter: new Vector(0f, 512f, 64f), blasterCenter: new Vector(0f, 0f, 64f));
+        // The target's whole walk (ON_OTHER): the Mantreads are a wearable, never held.
+        rig.Owners.Managers[FlameRig.Victim.EntryIndex] =
+            rig.AttributeItem("airblast_vulnerability_multiplier", AttributeDescriptionFormat.Percentage, 1.5f);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Vector impulse = pushed!.ArgAs<Vector>(1);
+        Assert.Equal(0f, impulse.X, 2f);
+        Assert.Equal(900f, impulse.Y, 2f);
+        Assert.Equal(0f, impulse.Z, 2f);
+    }
+
+    [Fact]
     public void The_cray_result_z_wears_tf_pushbackscalescale_vertical()
     {
         // The vertical scale lands once the ground work is done

@@ -624,6 +624,74 @@ public sealed class TFMedigunWeaponTests
         Assert.Equal(15f / 16f, weapon.ChargeLevel(1), 5);
     }
 
+    [Fact]
+    public void Without_a_penalty_the_heal_runs_up_to_the_cvars_bonus()
+    {
+        // :2667/:2673-2676 with no attribute on the walk: the bonus is the cvar's 1.5,
+        // so a patient at health/max 1.3 still heals — the headroom to the buffed cap pays out.
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // 24/s walked to scale 3, capped at the headroom
+
+        Assert.Contains("take 3 20 True", rig.Resupply.Takes);
+    }
+
+    [Fact]
+    public void The_medics_overheal_amount_shrinks_the_bonus_the_heal_runs_to()
+    {
+        // :2669: the healer's own walk rides the mod before the patient's — percentage 0.5
+        // puts the bonus at 0.5*0.5+1, so the healer is skipped at health/max 1.3 (:538's gate).
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        rig.Owners.Managers[1] = MeterRate("mult_medigun_overheal_amount", 0.5f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);
+
+        Assert.Empty(rig.Resupply.Takes);                          // 1.3 >= the shrunk bonus: this healer is skipped
+    }
+
+    [Fact]
+    public void The_patients_penalty_shrinks_the_bonus_too()
+    {
+        // :2671: CALL_ATTRIB_HOOK_FLOAT_ON_OTHER on the patient's manager walks the
+        // same mod — the same skip at health/max 1.3, from the patient's side alone.
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        rig.Owners.Managers[3] = MeterRate("mult_patient_overheal_penalty", 0.5f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);
+
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
+    [Fact]
+    public void The_active_weapons_penalty_shrinks_the_bonus_as_well()
+    {
+        // :2672: the walk closes on the patient's active TF weapon's item — the
+        // held bat's percentage does what the manager's does (:2671 vs :2672).
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        rig.Owners.Held[3] = "tf_weapon_bat";
+        rig.Owners.Items[3] = MeterRate("mult_patient_overheal_penalty_active", 0.5f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);
+
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
     /// <summary>An attribute manager holding one Percentage class, as the meter arms are declared.</summary>
     private static AttributeContainer MeterRate(string attributeClass, float value)
     {
@@ -1303,5 +1371,142 @@ public sealed class TFMedigunWeaponTests
         var manager = new AttributeContainer(null, AttributeProviderType.Generic);
         manager.Set(AttributeValue.OfFloat(def, chargeType));
         return manager;
+    }
+
+    // ---- the Vita-Saw's kept spawn charge (SetChargeLevelToPreserve, WeaponReset) -------------
+
+    /// <summary>The round state, frozen for the fact.</summary>
+    private sealed class RoundAt(TF2.Shared.Rules.RoundState state) : TF2.Shared.Rules.ITFRoundStateView
+    {
+        public TF2.Shared.Rules.RoundState State { get; set; } = state;
+    }
+
+    /// <summary>The ubercharge_preserved_on_spawn_max cap on the medic's own manager, as the wearer's walk reads it.</summary>
+    private static AttributeContainer PreserveHolder(float cap)
+    {
+        var def = new AttributeDefinition(30046, "preserved uber", "ubercharge_preserved_on_spawn_max",
+                                          AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("preserve"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, cap));
+        return manager;
+    }
+
+    /// <summary>
+    /// A death mid-round holds back the lesser of the meter and the preserved
+    /// cap for the next spawn (WeaponReset's round-running arm,
+    /// tf_weapon_medigun.cpp:291-295): a full meter with half a charge kept
+    /// comes back at half.
+    /// </summary>
+    [Fact]
+    public void A_death_midround_hands_the_capped_charge_to_the_next_spawn()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        weapon.SetChargeLevel(1, 0.8f);
+        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        weapon.PreserveCharge(1, 0.6f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        Assert.Equal(0f, weapon.ChargeLevel(1));       // the death takes the meter
+
+        weapon.Unholster(1, now: 11f);                 // the new life's first state
+        Assert.Equal(0.5f, weapon.ChargeLevel(1), 5);  // the keep, not the whole meter
+    }
+
+    /// <summary>
+    /// Outside a running round the reset zeroes the meter (:296-299): the same
+    /// death and respawn during the preround comes back empty, keep or no.
+    /// </summary>
+    [Fact]
+    public void A_death_outside_the_round_keeps_nothing()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround));
+        weapon.SetChargeLevel(1, 0.8f);
+        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        weapon.PreserveCharge(1, 0.6f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.Unholster(1, now: 11f);
+
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    /// <summary>
+    /// The keep spends once (PostSpawnThink's zero, tf_player.cpp:2114-2124):
+    /// the respawned state holds no preserve of its own, so a second death
+    /// without fresh organs hands over nothing.
+    /// </summary>
+    [Fact]
+    public void The_kept_charge_spends_on_the_first_spawn_alone()
+    {
+        var rounds = new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning);
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: rounds);
+        weapon.SetChargeLevel(1, 1f);
+        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.Unholster(1, now: 11f);
+        Assert.Equal(0.5f, weapon.ChargeLevel(1), 5);
+
+        weapon.RemoveMedigun(1, now: 12f);             // the second death, no new organs
+        weapon.Unholster(1, now: 13f);
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_keep_carried_into_a_new_rounds_setup_is_gone()
+    {
+        var rounds = new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning);
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: rounds);
+        weapon.SetChargeLevel(1, 1f);
+        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        rounds.State = TF2.Shared.Rules.RoundState.Preround;
+        weapon.Unholster(1, now: 11f);
+
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_keep_does_not_pass_to_the_next_player_on_the_slot()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        weapon.SetChargeLevel(1, 1f);
+        rig.Owners.Managers[1] = PreserveHolder(0.5f);
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.OnClientDisconnected(1);
+        weapon.Unholster(1, now: 11f);
+
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    /// <summary>
+    /// The cap is the owner-walked attribute (SetChargeLevelToPreserve,
+    /// tf_weapon_medigun.cpp:795-797): an ask past it clamps to the holder's
+    /// ubercharge_preserved_on_spawn_max.
+    /// </summary>
+    [Fact]
+    public void The_kept_charge_clamps_to_the_wearers_cap()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        weapon.SetChargeLevel(1, 1f);
+        rig.Owners.Managers[1] = PreserveHolder(0.3f);
+
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.Unholster(1, now: 11f);
+        Assert.Equal(0.3f, weapon.ChargeLevel(1), 5);
     }
 }

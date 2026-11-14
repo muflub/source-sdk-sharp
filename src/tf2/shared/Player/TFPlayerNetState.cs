@@ -123,6 +123,28 @@ public partial class TFPlayerNetState
     public partial int AirDash { get; set; }
 
     /// <summary>
+    /// <c>m_bScattergunJump</c> (tf_player_shared.h:1218, predicted at
+    /// tf_player_shared.cpp:481): the Force-a-Nature's own shove has lifted
+    /// this airtime, set by the gun's fire (<c>CTFScatterGun::FireBullet</c>,
+    /// tf_weapon_shotgun.cpp:333) and cleared with the air dash on landing
+    /// (<c>CTFGameMovement::SetGroundEntity</c>, tf_gamemovement.cpp:2957).
+    /// </summary>
+    [Predicted]
+    public partial bool ScattergunJump { get; set; }
+
+    /// <summary>
+    /// <c>m_iWeaponKnockbackID &gt; -1</c>, the airtime half the stock field
+    /// carries (tf_player_shared.h:1125): the player has already been shoved
+    /// by a gun's hit (<c>CTFScatterGun::ApplyPostHitEffects</c>' gate,
+    /// tf_weapon_shotgun.cpp:383) and waits on the ground to be shovable
+    /// again (cleared beside the dash, :2956). Stock's id names the shoving
+    /// user for the MvM quest counters; the shove once per airtime is the
+    /// player's part, so the bit stands in for the id here.
+    /// </summary>
+    [Predicted]
+    public partial bool WeaponKnockback { get; set; }
+
+    /// <summary>
     /// <c>m_hDisguiseTarget</c>: the player the disguise borrows its name
     /// from, as an entity index; -1 for none. Sent, not predicted, as
     /// stock's (SendPropEHandle, tf_player_shared.cpp:581, with no
@@ -190,6 +212,51 @@ public partial class TFPlayerNetState
     public partial float CritTime { get; set; }
 
     /// <summary>
+    /// <c>m_iDecapitations</c> (tf_player_shared.h:1157): the Eyelander's
+    /// collected heads. Sent, not predicted — the kill is the server's news
+    /// (CritMult's rule); the health and speed bonuses read it.
+    /// </summary>
+    public partial int Decapitations { get; set; }
+
+    /// <summary>
+    /// <c>m_flChargeMeter</c> (tf_player_shared.h:1102): the demoman shield's
+    /// charge, 0..100 — filled by <c>UpdateChargeMeter</c>'s regen
+    /// (tf_player_shared.cpp:6037-6064), spent by the charge
+    /// (<c>DoCharge</c> through <c>EndCharge</c>'s drain to the impact) and
+    /// the swing's <c>EndSpecialAction</c>. Predicted, as stock's
+    /// (<c>DEFINE_PRED_FIELD</c>, tf_player_shared.cpp:453): the meter's drain
+    /// and refill run in the shared think both sides mirror
+    /// (<c>ConditionThink</c>, :3118).
+    /// </summary>
+    [Predicted]
+    public partial float ChargeMeter { get; set; }
+
+    /// <summary>
+    /// <c>m_iNextMeleeCrit</c> (tf_player_shared.h:1169): the next melee
+    /// swing's granted crit — the charge end's <c>CalcChargeCrit</c> ladder
+    /// (:6125-6146), spent by the melee crit helpers
+    /// (tf_weaponbase_melee.cpp:1053-1058, 1100-1105) and cleared by
+    /// <c>RemoveMeleeCrit</c> 0.3 s later (:6221-6231). Sent, not predicted,
+    /// as stock's (SendPropInt :557, absent from the prediction table
+    /// :444-482): the grant is the server's news (CritMult's rule), the same
+    /// ride <see cref="Decapitations"/> takes.
+    /// </summary>
+    public partial int NextMeleeCrit { get; set; }
+
+    /// <summary>
+    /// <c>m_iRevengeCrits</c> (tf_player_shared.h:1167): the revenge window —
+    /// the Frontier Justice's crits the owner's sentry's death pays
+    /// (<c>CTFShotgun_Revenge::SentryKilled</c>, tf_weapon_shotgun.cpp:151-163),
+    /// spent one a shot, and the Manmelter's banked vengeance, clamped by
+    /// <c>CTFPlayerShared::SetRevengeCrits</c> (tf_player_shared.cpp:14474).
+    /// Sent, not predicted, as stock's (SendPropInt 7 unsigned bits,
+    /// tf_player_shared.cpp:559, absent from the prediction table :444-482):
+    /// the grant is the sentry's dying news (CritMult's rule), the same ride
+    /// <see cref="Decapitations"/> takes.
+    /// </summary>
+    public partial int RevengeCrits { get; set; }
+
+    /// <summary>
     /// <c>m_flBurnEffectStartTime</c>: when the burn's skin ramp started. Stock
     /// keeps it on the client only (C_TFPlayer, set as
     /// <c>TF_COND_BURNING</c> arrives, c_tf_player.cpp:7306); here the server
@@ -212,6 +279,19 @@ public partial class TFPlayerNetState
     /// DT_WeaponMedigun.</summary>
     [Predicted]
     public partial bool ChargeReleasing { get; set; }
+
+    /// <summary>
+    /// CWeaponMedigun's m_flChargeLevel, 0..1, mirrored to the player: the
+    /// hierarchy holds one weapon entity per player, so the holstered gun's
+    /// meter has no entity of its own to ride and the speed the level feeds —
+    /// the Overdose's <c>mult_player_movespeed_resource_level</c>
+    /// (tf_player_shared.cpp:11043-11056), asked while another gun is in hand —
+    /// reads it here, the way the release word and the patient above are
+    /// carried. Written by the medigun's publish, every think.
+    /// Sent, not predicted, on the <see cref="PipebombCount"/> row's showing:
+    /// the meter moves outside the command's tick.
+    /// </summary>
+    public partial float MedicCharge { get; set; }
 
     /// <summary>CWeaponMedigun's m_hHealTarget: the beam's patient, as an
     /// entity index; -1 for none.</summary>
@@ -236,6 +316,17 @@ public partial class TFPlayerNetState
     /// </summary>
     [Predicted]
     public partial bool RageDraining { get; set; }
+
+    /// <summary>
+    /// <c>m_flHypeMeter</c> (tf_player_shared.h:1099): the scout's hype, 0..100
+    /// — filled from damage dealt (<see cref="TFHype.GainOnDamage"/>, the Soda
+    /// Popper's <c>hype_on_damage</c> arm) and spent by the drink
+    /// (<c>UpdateEnergyDrinkMeter</c>, tf_player_shared.cpp:14071-14078).
+    /// Predicted and sent bounded 0..100, as stock's (<c>DEFINE_PRED_FIELD</c>
+    /// :452, <c>SendPropFloat</c> :570).
+    /// </summary>
+    [Predicted]
+    public partial float HypeMeter { get; set; }
 
     /// <summary>
     /// <c>m_iBuffTypeActive</c>: the deployed buff's type — stock's slot stamp

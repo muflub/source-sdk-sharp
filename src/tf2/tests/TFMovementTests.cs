@@ -181,6 +181,18 @@ public sealed class TFMaxSpeedTests
     public void No_class_answers_stocks_one()
         => Assert.Equal(1f, Speed(TFClass.Undefined));
 
+    [Fact]
+    public void A_charging_demoman_runs_at_the_charge_speed()
+    {
+        // tf_player_shared.cpp:10970-10973: the charge's assignment, past the
+        // sword's mod — a shield charge is 750 however the items would scale it.
+        var charging = TFCondMask.Of(TFCond.ShieldCharge);
+        Assert.Equal(TFMaxSpeed.MaxChargeSpeed, Speed(TFClass.Demoman, charging));
+        Assert.Equal(TFMaxSpeed.MaxChargeSpeed,
+                     Speed(TFClass.Demoman, charging, speedMod: 0.5f));   // the sword's mod under it
+        Assert.NotEqual(TFMaxSpeed.MaxChargeSpeed, Speed(TFClass.Soldier, charging));   // demoman's gate
+    }
+
     // ---- the attribute hooks (tf_player_shared.cpp:10913, 11002-11003) -----
 
     private static readonly AttributeHooks Hooks = new();
@@ -242,6 +254,69 @@ public sealed class TFMaxSpeedTests
                                                 Hooks, playerManager, null, -1, null));
         Assert.Equal(299f, TFMaxSpeed.Calculate(Classes, new TFMoveInputs(TFClass.HeavyWeapons, default), 999f,
                                                 Hooks, null, null, -1, held));
+    }
+
+    // ---- the ÜberCharge's own speed (tf_player_shared.cpp:11043-11056) ------
+
+    [Fact]
+    public void TheOverdoseSpeedsTheMedicByTheCharge()
+    {
+        // mult_player_movespeed_resource_level (tf_player_shared
+        // .cpp:11043-11056): the ACTIVE weapon's hook, the medic's owned
+        // medigun's charge remapped 0..1 onto 1..mod — the Overdose's 1.2 is
+        // half ridden at a half meter, on the medic's 320.
+        var held = ManagerWith(TFMaxSpeed.ResourceLevelSpeedAttrib, 1.2f);
+
+        Assert.Equal(320f * 1.1f, TFMaxSpeed.Calculate(Classes,
+            new TFMoveInputs(TFClass.Medic, default, MedicCharge: 0.5f), 999f,
+            Hooks, null, null, -1, held));
+    }
+
+    [Fact]
+    public void TheOverdoseNeedsTheMedicAndTheMeter()
+    {
+        // The class arm is stock's medic gate (:11048) and the meter the
+        // medigun's: an empty meter remaps to one, and a soldier holding the
+        // gun is no arm at all.
+        var held = ManagerWith(TFMaxSpeed.ResourceLevelSpeedAttrib, 1.2f);
+
+        Assert.Equal(320f, TFMaxSpeed.Calculate(Classes,
+            new TFMoveInputs(TFClass.Medic, default), 999f, Hooks, null, null, -1, held));
+        Assert.Equal(240f, TFMaxSpeed.Calculate(Classes,
+            new TFMoveInputs(TFClass.Soldier, default, MedicCharge: 1f), 999f, Hooks, null, null, -1, held));
+    }
+
+    // ---- the carried speed boost (tf_player_shared.cpp:10919-10927) ----------
+
+    [Fact]
+    public void The_speed_boost_adds_under_its_cap()
+    {
+        // :10925: the boost is the lesser of 40 percent and
+        // tf_whip_speed_increase (the convar's default 105) — the heavy's
+        // 230 takes its 92, under the cap.
+        Assert.Equal(322f, Speed(TFClass.HeavyWeapons, TFCondMask.Of(TFCond.SpeedBoost)), 4);
+    }
+
+    [Fact]
+    public void The_speed_boost_caps_at_the_whip_increase()
+    {
+        // The scout's 400: 40 percent is 160, past the cap, so the MIN holds
+        // the bonus at 105 (:10925).
+        Assert.Equal(505f, Speed(TFClass.Scout, TFCondMask.Of(TFCond.SpeedBoost)), 4);
+    }
+
+    [Fact]
+    public void The_speed_boost_leaves_a_stationed_player_standing()
+    {
+        // The maxfbspeed > 0 gate (:10923): a player meant to stand still —
+        // the dispenser disguise's zero — keeps it under the boost.
+        Assert.Equal(0f, Speed(TFClass.Scout, TFCondMask.Of([TFCond.DisguisedAsDispenser, TFCond.SpeedBoost])), 4);
+    }
+
+    [Fact]
+    public void No_boost_leaves_the_walk_as_it_came()
+    {
+        Assert.Equal(230f, Speed(TFClass.HeavyWeapons), 4);
     }
 
     // ---- the loser state's slow (tf_player_shared.cpp:10989-11000) ----------
@@ -1157,6 +1232,40 @@ public sealed class TFMovementRulesTests
         Assert.Equal(2, state.AirDash);
     }
 
+    /// <summary>The dash pays the BFB's hype toll; a buffed scout's writes are refused.</summary>
+    [Fact]
+    public void The_dash_pays_the_hype_the_bfb_prices()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var owners = new OwnersOf(new TFPlayerItems());
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
+                                        hooks: new AttributeHooks());
+        var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
+        var weapon = new AttributeContainer();
+        weapon.Set(AttributeValue.OfFloat(new AttributeDefinition(5007, "attr 5007", TFHype.JumpResetAttribute,
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 20));
+
+        state.HypeMeter = 50f;
+        owners.Active = weapon;
+
+        Assert.Equal(TFJump.DashSpeed, rules.AirJump(in request));
+        Assert.Equal(30f, state.HypeMeter);
+
+        // SetScoutHypeMeter's IsHypeBuffed out (tf_player_shared.cpp:14126):
+        // the buffed dash leaves the meter.
+        var buffed = new TFMovementFixtures.Players();
+        var buffedState = buffed.Add(Index, TFClass.Scout);
+        buffedState.SetConditions(TFCondMask.Of(TFCond.SodapopperHype));
+        buffedState.HypeMeter = 50f;
+        var buffedRules = new TFMovementRules(TFMovementFixtures.Server(), buffed, owners: owners,
+                                              hooks: new AttributeHooks());
+
+        Assert.Equal(TFJump.DashSpeed, buffedRules.AirJump(in request));
+        Assert.Equal(50f, buffedState.HypeMeter);
+    }
+
     /// <summary>The drawn bow holds the jump: the seam's refusal reaches both arms.</summary>
     [Fact]
     public void A_drawn_bow_holds_the_jump_and_the_dash()
@@ -1219,6 +1328,24 @@ public sealed class TFMovementRulesTests
         rules.Grounded(Index);
         Assert.Equal(0, state.AirDash);
         Assert.Equal(TFJump.DashSpeed, rules.AirJump(in request));
+    }
+
+    [Fact]
+    public void A_landing_clears_the_scatterguns_airtime_with_the_dash()
+    {
+        // SetGroundEntity's resets (tf_gamemovement.cpp:2956-2958): the dash's
+        // count and the shove's two latches ride the same landing.
+        var (rules, players) = Make();
+        var state = players.Add(Index, TFClass.Scout) ?? throw new InvalidOperationException("no state");
+
+        state.AirDash = 1;
+        state.ScattergunJump = true;
+        state.WeaponKnockback = true;
+        rules.Grounded(Index);
+
+        Assert.Equal(0, state.AirDash);
+        Assert.False(state.ScattergunJump);
+        Assert.False(state.WeaponKnockback);
     }
 
     [Fact]
@@ -1405,5 +1532,80 @@ public sealed class TFMovementRulesTests
         var (rules, _) = Make();
 
         Assert.Null(rules.MovementTaunt(Index, 1f / 60f, 300f));
+    }
+
+    //=========================================================================
+    // The charge's command (CTFGameMovement::ChargeMove,
+    // tf_gamemovement.cpp:484-532): the speed and the turn limit.
+    //=========================================================================
+
+    /// <summary>
+    /// The charge rides stock's numbers: the max speed and the forward move
+    /// both <c>tf_max_charge_speed</c>'s 750 (:508, :513), the side and up
+    /// moves zeroed (:514-515) — the charge's turn is the facing's, no strafe
+    /// or jump bends it — and the buttons held to the charge's own attack2
+    /// with the held swing's attack riding along (:516-529). Not charging, the
+    /// command walks as sent (:486's else).
+    /// </summary>
+    [Fact]
+    public void TheChargeHasStocksSpeedAndTurnLimit()
+    {
+        var (rules, players) = Make();
+        var state = players.Add(Index, TFClass.Demoman);
+        int buttons = GameMovement.InAttack2 | GameMovement.InJump | GameMovement.InAttack;
+
+        Assert.Null(rules.MovementCharge(Index, buttons, 300f, 100f, 50f));
+
+        state.SetConditions(TFCondMask.Of(TFCond.ShieldCharge));
+
+        Assert.Equal(new MovementCharge(TFMaxSpeed.MaxChargeSpeed,
+                                        GameMovement.InAttack2 | GameMovement.InAttack,
+                                        TFMaxSpeed.MaxChargeSpeed, 0f, 0f),
+                     rules.MovementCharge(Index, buttons, 300f, 100f, 50f));
+        Assert.Equal(new MovementCharge(TFMaxSpeed.MaxChargeSpeed, GameMovement.InAttack,
+                                        TFMaxSpeed.MaxChargeSpeed, 0f, 0f),
+                     rules.MovementCharge(Index, buttons & ~GameMovement.InAttack2, 300f, 100f, 50f));
+    }
+
+    /// <summary>The boots' toll as the player's own percentage, on a fresh manager.</summary>
+    private static AttributeContainer TollManager()
+    {
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5099, "attr 5099", TFMaxSpeed.ShieldRequiredSpeedAttrib,
+            AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 0.8f));
+        return manager;
+    }
+
+    /// <summary>
+    /// The shield wearer's toll (tf_player_shared.cpp:11005-11008): while the
+    /// demoman wears the shield, the boots'
+    /// <c>mult_player_movespeed_shieldrequired</c> scales the speed on the
+    /// player's own walk, right after <c>mult_player_movespeed</c>.
+    /// </summary>
+    [Fact]
+    public void The_shield_wearer_takes_the_boots_speed_toll()
+    {
+        var owners = new TF2.Tests.Weapons.FakeOwners { Shield = true };
+        owners.Managers[Index] = TollManager();
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Demoman);
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners, hooks: new AttributeHooks());
+
+        Assert.Equal(0.8f * TFMovementFixtures.Server()[TFClass.Demoman].MaxSpeed,
+                     rules.MaxSpeedScale(Index, 320f, false, 0), 4);
+    }
+
+    [Fact]
+    public void A_player_without_the_shield_takes_no_toll()
+    {
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        owners.Managers[Index] = TollManager();
+        var players = new TFMovementFixtures.Players();
+        _ = players.Add(Index, TFClass.Demoman);
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners, hooks: new AttributeHooks());
+
+        Assert.Equal(TFMovementFixtures.Server()[TFClass.Demoman].MaxSpeed,
+                     rules.MaxSpeedScale(Index, 320f, false, 0), 4);
     }
 }

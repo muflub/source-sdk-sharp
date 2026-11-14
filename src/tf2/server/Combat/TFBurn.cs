@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 
+using TF2.Server.Projectiles;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
@@ -105,6 +106,12 @@ public sealed class TFBurn
     /// <summary>The burn weapon's name, for the kill feed.</summary>
     public string WeaponName { get; private set; } = "";
 
+    /// <summary>The igniting axe's initial burn (<c>tf_weapon_fireaxe.cpp:34</c>).</summary>
+    public const float FireAxeIgniteBurn = 7.5f;
+
+    /// <summary>The Huo-Long ring's first burn (tf_weapon_minigun.cpp:692).</summary>
+    public const float RingOfFireBurn = 8f;
+
     /// <summary>
     /// <c>GetInitialAfterburnDuration</c>: the flamethrower's 3 s
     /// (<c>tf_weapon_flamethrower.cpp:62</c>), the bow's 7.5 s
@@ -121,12 +128,18 @@ public sealed class TFBurn
     /// <summary>
     /// <c>GetAfterburnRateOnHit</c>: the flamethrower's 0.4 s
     /// (<c>tf_weapon_flamethrower.cpp:54</c>), the flare gun's 7.5 s
-    /// (<c>tf_weapon_flaregun.cpp:65</c>); 0 for the rest (<c>tf_weaponbase.h:558</c>).
+    /// (<c>tf_weapon_flaregun.cpp:65</c>), the Dragon's Fury ball's burn; 0 for the rest
+    /// (<c>tf_weaponbase.h:558</c>).
     /// </summary>
     public static float AfterburnRateOnHit(TFWeaponId weapon) => weapon switch
     {
         TFWeaponId.Flamethrower => 0.4f,
-        TFWeaponId.Flaregun => 7.5f,
+        TFWeaponId.Flaregun or TFWeaponId.FlaregunRevenge => 7.5f,
+        TFWeaponId.ParticleCannon => 6f, // tf_particle_cannon_afterburn_rate (tf_weapon_particle_cannon.cpp:55)
+        TFWeaponId.JarGas => 10f,        // TF_GAS_AFTERBURN_RATE (tf_weapon_jar_gas.h:30)
+        // The ball burns for tf_fireball_burn_duration: stock hands it to Burn
+        // (tf_projectile_dragons_fury.cpp:342-351), and this slice has no such argument.
+        TFWeaponId.FlameBall => TFProjectileDefs.BallBurnDuration,
         _ => 0f,
     };
 
@@ -159,6 +172,17 @@ public sealed class TFBurn
             conditions.Set(TFCond.HealingDebuff);
             FlameBurnTime = now + TFCombatDefs.BurningFrequency;
             AfterburnDuration = InitialAfterburnDuration(weapon);
+
+            // CTFFireAxe::GetInitialAfterburnDuration (tf_weapon_fireaxe.cpp:29-36): an axe
+            // that sets fire with its hit starts the victim on seven and a half seconds.
+            if (weapon == TFWeaponId.Fireaxe && hooks is not null
+                && hooks.Int(0, "set_dmgtype_ignite", burnWeapon) != 0)
+                AfterburnDuration = FireAxeIgniteBurn;
+
+            // CTFMinigun::GetInitialAfterburnDuration (tf_weapon_minigun.cpp:686-695): the Huo-Long.
+            if (weapon == TFWeaponId.Minigun && hooks is not null
+                && hooks.Int(0, "ring_of_fire_while_aiming", burnWeapon) != 0)
+                AfterburnDuration = RingOfFireBurn;
         }
 
         bool immunity = immunePyro || conditions.Has(TFCond.AfterburnImmune);

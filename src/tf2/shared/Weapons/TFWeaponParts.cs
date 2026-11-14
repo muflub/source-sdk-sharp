@@ -17,6 +17,26 @@ public interface ITFAutoReload
 }
 
 /// <summary>
+/// The bucket of crits the spy's sapper kills store (<c>CTFPlayerShared::
+/// m_iRevengeCrits</c>): a building removed with its sapper riding pays the
+/// sapper's owner one stored crit (<c>CBaseObject::UpdateOnRemove</c>,
+/// <c>tf_obj.cpp:269-283</c>), and a revolver whose item collects them spends
+/// one per shot (<c>CTFRevolver::PrimaryAttack</c>,
+/// <c>tf_weapon_revolver.cpp:159-171</c>). Server-only: the client's replay
+/// asks nothing, its boost comes on the condition state.
+/// </summary>
+public interface ITFRevengeCrits
+{
+    /// <summary>The riding sapper's owner takes one crit (<c>tf_obj.cpp:269-283</c>).</summary>
+    void Grant(EntityHandle owner);
+
+    /// <summary>One stored crit off the bucket for the shot just fired, behind
+    /// the held item's <c>sapper_kills_collect_crits</c> == 1
+    /// (<c>tf_weapon_revolver.h:51</c>, consumed at :159).</summary>
+    void SpendOnShot(int ownerIndex);
+}
+
+/// <summary>
 /// What every TF weapon behaviour is built from, one set per side: the
 /// scripts, the hook chain, the crit roll with its buckets and convars, the
 /// owners (the carrier, when composed) and the effects the server performs.
@@ -42,7 +62,8 @@ public sealed class TFWeaponParts(
     TFFlameThrowerBurstammoConVar? flamethrowerBurstammo = null,
     ITFMedigunPrediction? medigunPrediction = null,
     ITFSapperState? sapper = null,
-    ITFSentryWrangle? sentryWrangle = null)
+    ITFSentryWrangle? sentryWrangle = null,
+    ITFRevengeCrits? revengeCrits = null)
 {
     public TFWeaponScripts Scripts { get; } = scripts ?? throw new ArgumentNullException(nameof(scripts));
 
@@ -116,4 +137,10 @@ public sealed class TFWeaponParts(
     /// — nothing until the server composes it (the replay asks nothing).
     /// </summary>
     public ITFSentryWrangle? SentryWrangle { get; } = sentryWrangle;
+
+    /// <summary>
+    /// The sapper's stored crits (<see cref="ITFRevengeCrits"/>) — nothing
+    /// until the server composes it (the replay asks nothing).
+    /// </summary>
+    public ITFRevengeCrits? RevengeCrits { get; } = revengeCrits;
 }

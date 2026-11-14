@@ -119,6 +119,18 @@ public static class TFItemStrings
     public static bool IsWearableSlot(int slot) =>
         slot is 7 or 8 or 9 or 10 or (>= 11 and <= 18);
 
+    /// <summary>
+    /// The item classes that wear as <c>CEconWearable</c>s however the slot:
+    /// stock hands every loadout item to <c>GiveNamedItem</c>'s class lookup
+    /// (tf_player.cpp:4619-4621), and the wearable classes there — the
+    /// demoshield's <c>tf_wearable_demoshield</c> (a <c>CTFWearable</c>,
+    /// tf_wearable_weapons.cpp) equips as one from the secondary. This build
+    /// spawns the one <c>tf_wearable</c> entity for every such class, so the
+    /// class prefix is the wearable test.
+    /// </summary>
+    public static bool IsWearableClass(string? itemClass) =>
+        itemClass is not null && itemClass.StartsWith("tf_wearable", StringComparison.OrdinalIgnoreCase);
+
     /// <summary><c>g_AttributeDescriptionFormats</c> (econ_item_schema.cpp:109-123).</summary>
     public static AttributeDescriptionFormat DescriptionFormat(string? word) => word?.ToLowerInvariant() switch
     {

@@ -431,6 +431,20 @@ public readonly record struct MovementTaunt(
     float MaxSpeed, float ForwardMove, float ClientMaxSpeed);
 
 /// <summary>
+/// The shield charge's rewrite of the command about to be walked: the four
+/// writes <c>CTFGameMovement::ChargeMove</c> leaves behind
+/// (<c>tf_gamemovement.cpp:484-532</c>) — the max speed and the forward move
+/// both <c>tf_max_charge_speed</c>, the side and up moves zeroed, and the
+/// buttons held to the charge's own attack2 (plus an attack the previous
+/// command's old-buttons carry, which is what lets the swing land mid-charge).
+/// Null — no rewrite — is the ordinary answer: nobody is charging, so the
+/// command walks as the client sent it. Asked where stock calls
+/// <c>ChargeMove</c> (<c>tf_gamemovement.cpp:314</c>), before the stun's.
+/// </summary>
+public readonly record struct MovementCharge(
+    float MaxSpeed, int Buttons, float ForwardMove, float SideMove, float UpMove);
+
+/// <summary>
 /// The ground-categorizing shape a mod's <c>CategorizePosition</c> runs
 /// instead of the base's (<c>CTFGameMovement::CategorizePosition</c>,
 /// tf_gamemovement.cpp:2334-2459, against
@@ -506,8 +520,11 @@ public readonly record struct FootingAnswer(
 /// overrides (null, the base's <c>CategorizePosition</c> body) and the
 /// footing answer behind it (null, no condition arm), the walk's xy trim to
 /// the max after Accelerating (false: keep everything Accelerate gave), the
-/// ground hold on a fully clear walk step (true: hold it), and the seconds a
-/// duck or unduck eases across (the passed constant back).
+/// ground hold on a fully clear walk step (true: hold it), the seconds a
+/// duck or unduck eases across (the passed constant back), the charge's
+/// rewrite of the command (null, stock Half-Life, walks as sent), the charge
+/// end the command's slow walk names, and the charge end the blocked step's
+/// player names.
 /// <see cref="Stock"/> is the identity, so
 /// a loop nobody hands rules to moves exactly like Half-Life: no jump is ever
 /// taken in the air, no walk is clamped for backing away, nobody is ever
@@ -531,7 +548,10 @@ public readonly record struct MovementRules(
     Action<int> EndCommand,
     Func<int, bool> ClampXY,
     Func<int, bool> KeepGround,
-    Func<int, float, float> DuckSeconds)
+    Func<int, float, float> DuckSeconds,
+    Func<int, int, float, float, float, MovementCharge?> Charge,
+    Action<int> ChargeSlowEnd,
+    Action<int, EntityHandle> ChargeBump)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -552,7 +572,10 @@ public readonly record struct MovementRules(
         static _ => { },
         static _ => false,
         static _ => true,
-        static (_, seconds) => seconds);
+        static (_, seconds) => seconds,
+        static (_, _, _, _, _) => null,
+        static _ => { },
+        static (_, _) => { });
 }
 
 /// <summary>
@@ -674,10 +697,12 @@ public sealed partial class GameMovement
     public const int FlOnTrain = 1 << 4;
     public const int FlFrozen = 1 << 6;
 
+    public const int InAttack = 1 << 0;
     public const int InJump = 1 << 1;
     public const int InDuck = 1 << 2;
     public const int InSpeed = 1 << 17;
     public const int InUse = 1 << 5;
+    public const int InAttack2 = 1 << 11;
 
     public const int MoveTypeNone = 0;
     public const int MoveTypeIsometric = 1;
@@ -932,6 +957,20 @@ public sealed partial class GameMovement
         // is exactly stock's consequence — its StunMove zeroes mv->m_nButtons
         // before PlayerMove and FinishMove records the zeroed pair (:546,
         // gamemovement.cpp:1305).
+        // The charge's rewrite, asked where stock calls ChargeMove
+        // (tf_gamemovement.cpp:314, return ignored, before the stun's at :317):
+        // the charging demoman's command walks at tf_max_charge_speed with the
+        // buttons held to the charge's own, exactly as the taunt's and stun's
+        // rewrites bracket the walk.
+        if (Rules.Charge(_s.EntIndex, _s.Buttons, _s.ForwardMove, _s.SideMove, _s.UpMove) is { } charge)
+        {
+            _s.MaxSpeed = charge.MaxSpeed;
+            _s.Buttons = charge.Buttons;
+            _s.ForwardMove = charge.ForwardMove;
+            _s.SideMove = charge.SideMove;
+            _s.UpMove = charge.UpMove;
+        }
+
         if (Rules.Stun(_s.EntIndex, _s.CurTime, _s.Buttons, _s.ForwardMove, _s.SideMove, _s.UpMove) is { } stun)
         {
             _s.Buttons = stun.Buttons;
@@ -1078,6 +1117,13 @@ public sealed partial class GameMovement
                 BogusMoveTypes++;
                 break;
         }
+
+        // CTFGameMovement::PlayerMove's tail (tf_gamemovement.cpp:240-245):
+        // the command's speed under the charge's 300 floor ends the charge —
+        // no ground check, the walk's own answer. Server side, as the end's
+        // arms all are; the client's EndCharge is the default nothing.
+        if (_s.IsServer && MoveVec.Length(_s.Velocity) < 300.0f)
+            Rules.ChargeSlowEnd(_s.EntIndex);
     }
 
     //=========================================================================
@@ -1751,6 +1797,15 @@ public sealed partial class GameMovement
                 StayOnGround();
             return;
         }
+
+        // CTFGameMovement::WalkMove's bump arm (tf_gamemovement.cpp:1925-1929),
+        // directly after the clear-step return as stock orders it: the step's
+        // trace stopped on a player and the charge ends into them — ToTFPlayer
+        // over the hit, the world and everything else standing. Server side, as
+        // the end's arms all are; the hit entity is the server trace's own
+        // (<see cref="MoveTrace.HitEntity"/>).
+        if (_s.IsServer)
+            Rules.ChargeBump(_s.EntIndex, pm.HitEntity);
 
         // Don't walk up stairs if not on ground.
         if (!oldGround && _s.WaterLevel == 0)

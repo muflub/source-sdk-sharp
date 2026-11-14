@@ -62,7 +62,8 @@ internal sealed class RigEntities : IEntityDirectory
         : null;
 
     public ScriptedEntity? FindByName(string name) => null;
-    public IEnumerable<ScriptedEntity> OfClass(string className) => [];
+    public IEnumerable<ScriptedEntity> OfClass(string className)
+        => Placed.Values.Where(e => e.ClassName == className);
     public bool IsRegistered(string className) => true;
     public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
 }
@@ -199,6 +200,9 @@ internal sealed class RigMediguns : ITFMedigunWeapons
     public void RemoveMedigun(int ownerIndex, float now) { }
     public int HealingTargetIndex(int ownerIndex) => -1;
     public bool IsReleasing(int ownerIndex) => false;
+
+    public void PreserveCharge(int ownerIndex, float amount)
+        => Sets.Add($"preserve {ownerIndex} {amount}");
 }
 
 internal sealed class CombatRig
@@ -221,6 +225,12 @@ internal sealed class CombatRig
             => throw new InvalidOperationException();
         public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => throw new InvalidOperationException();
         public int NumHealers(int patientIndex) => throw new InvalidOperationException();
+
+        /// <summary>Who heals whom, by patient index — the connected-damage arm's graph.</summary>
+        public readonly Dictionary<int, int[]> Healers = new();
+
+        public IEnumerable<int> HealerIndexes(int patientIndex)
+            => Healers.TryGetValue(patientIndex, out var healers) ? healers : [];
         public void RecalculateChargeEffects(EntityHandle player, float now) => throw new InvalidOperationException();
         public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) => throw new InvalidOperationException();
         public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => MaxBuffedAnswer;
@@ -270,6 +280,9 @@ internal sealed class CombatRig
     /// <summary>The meter the medic's on-hit charge arm lands on.</summary>
     public RigMediguns Mediguns { get; } = new();
 
+    /// <summary>The effects the layer's tempent arms dispatch, the sink the facts read.</summary>
+    public RecordingEffectDispatch Temps { get; } = new();
+
     /// <summary>The players the stun stack's condition asks read.</summary>
     public readonly FakeMapPlayers StunPlayers = new();
 
@@ -290,13 +303,18 @@ internal sealed class CombatRig
 
     /// <summary>Puts one float attribute on the attacker's item, as the loadout handed it out.</summary>
     public IAttributeProvider AttackerItem(string hook, AttributeDescriptionFormat format, float value)
+        => ItemOn(CombatRig.Attacker, hook, format, value);
+
+    /// <summary>The same, on whoever the fact names: the sentry-mark arm reads
+    /// the builder's held item, not the constant attacker's.</summary>
+    public IAttributeProvider ItemOn(EntityHandle who, string hook, AttributeDescriptionFormat format, float value)
     {
         var container = new AttributeContainer(null, AttributeProviderType.Generic);
         container.Set(AttributeValue.OfFloat(
             new AttributeDefinition(_nextDef++, "attr " + _nextDef, hook, format,
                                     AttributeEffectType.Neutral, false, false,
                                     AttributeValueType.Default, MergedKeys.Block("x")), value));
-        Owners.Items[CombatRig.Attacker.EntryIndex] = container;
+        Owners.Items[who.EntryIndex] = container;
         return container;
     }
 
@@ -351,7 +369,7 @@ internal sealed class CombatRig
                                   ConVars.Declared<TFWeaponMinicritsDistanceFalloffConVar>(),
                                   ConVars.Declared<TFFallDamageDisableSpreadConVar>(), ConVars.Declared<TFDebugDamageConVar>(), ZoomTimes, Log,
                                   Stats, Inflictors, SentryDamages, ConVars.Declared<TFStealthDamageReductionConVar>(),
-                                  Conditions, Engine, Engine, Mediguns, Damage, Healing);
+                                  Conditions, Engine, Engine, Mediguns, Damage, Healing, Temps, Engine, Engine);
         Rules = new TFDamageRules(Players, Engine, Scopes);
     }
 

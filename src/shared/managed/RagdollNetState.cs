@@ -160,6 +160,20 @@ public partial class RagdollNetState
     public partial bool Gib { get; set; }
 
     /// <summary>
+    /// Whether the killing blow's weapon raises the red mist over the pieces.
+    ///
+    /// <para>
+    /// Stock networks <c>m_bCritOnHardHit</c> on the ragdoll beside
+    /// <see cref="Gib"/> (tf_player.cpp:434, stamped from the killing weapon's
+    /// <c>crit_on_hard_hit</c> at :15630) and the client's gib plays
+    /// <c>tfc_sniper_mist</c> over it (c_tf_player.cpp:1120-1123) — the
+    /// Classic's body shot that went through someone. Set by the same death
+    /// walk that gibs (<see cref="TF2.Server.Player.TFPlayerGib"/>).
+    /// </para>
+    /// </summary>
+    public partial bool CritOnHardHit { get; set; }
+
+    /// <summary>
     /// The dead player's team, stamped by the server when the body is made.
     ///
     /// <para>
@@ -183,5 +197,57 @@ public partial class RagdollNetState
     /// parented to it, since the body is the one thing it ever dissolves here.
     /// </summary>
     public partial float DissolveStart { get; set; }
+
+    /// <summary>
+    /// Whether the body burns down to ash.
+    ///
+    /// <para>
+    /// Stock networks <c>m_bBecomeAsh</c> on <c>DT_TFRagdoll</c> exactly as it
+    /// does <see cref="Burning"/> (tf_player.cpp:426, :454), and the server
+    /// stamps it from the killing blow's <c>ragdolls_become_ash</c> in the
+    /// death walk (<c>pRagdoll-&gt;m_bBecomeAsh = bBecomeAsh</c>,
+    /// tf_player.cpp:12723-12727, :15629) — the Shooting Star's ask. The
+    /// CLIENT ragdoll acts on it at creation, the ash particle over the
+    /// <see cref="FlameRules.AshCorpse"/> body, and half a second later hides
+    /// it (c_tf_player.cpp:941-945, :1435-1465) — see
+    /// <c>RagdollAsh</c>. Sent, not predicted, like every death mark here.
+    /// </para>
+    /// </summary>
+    public partial bool Ash { get; set; }
+
+    /// <summary>
+    /// Whether the body is an ice statue.
+    ///
+    /// <para>
+    /// Stock networks <c>m_bIceRagdoll</c> on <c>DT_TFRagdoll</c> beside the
+    /// other death marks (tf_player.cpp:433, :462, :15628), and the server
+    /// stamps it from the killing weapon's <c>freeze_backstab_victim</c> when
+    /// the hit's custom kind is a backstab (<c>CALL_ATTRIB_HOOK_INT_ON_OTHER(
+    /// pKillerWeapon, iIceRagdoll, freeze_backstab_victim )</c>,
+    /// tf_player.cpp:12697-12704) — the Spy-cicle's ask. The CLIENT ragdoll
+    /// acts on it at creation: the turn-to-ice sound, the dry-ice frost
+    /// particle and the freeze timers (c_tf_player.cpp:736-742), and the ice
+    /// texture over the body (:972-976). Sent, not predicted, like every
+    /// death mark here.
+    /// </para>
+    /// </summary>
+    public partial bool Ice { get; set; }
+
+    /// <summary>
+    /// Whether the body is gilded — the golden statue the Golden Wrench leaves.
+    ///
+    /// <para>
+    /// Stock networks <c>m_bGoldRagdoll</c> on <c>DT_TFRagdoll</c> beside
+    /// <see cref="Ash"/> (tf_player.cpp:432, :461), stamped from the killing
+    /// weapon's <c>set_turn_to_gold</c> in the death walk
+    /// (<c>pRagdoll-&gt;m_bGoldRagdoll = bGoldRagdoll</c>, tf_player.cpp:12717-12721,
+    /// :15627). The client statue reads it three ways: the gold material
+    /// override over the body and its wearables
+    /// (<c>models/player/shared/gold_player.vmt</c>, c_tf_player.cpp:965),
+    /// the Saxxy.TurnGold call and fixed constraints (:730), and the skipped
+    /// death anim — a statue does not die again (:813).
+    /// </para>
+    /// </summary>
+    public partial bool Gold { get; set; }
 
 }

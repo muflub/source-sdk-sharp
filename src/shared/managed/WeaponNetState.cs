@@ -381,6 +381,22 @@ public partial class WeaponNetState
     public partial float ItemMeterTime { get; set; }
 
     /// <summary>
+    /// The multiplier a metered item's refill rides on — stock's
+    /// <c>m_flRechargeScale</c> (<c>tf_weapon_dragons_fury.h:75</c>, sent as a
+    /// plain float at <c>:33-35</c>, predicted with the weapon), which
+    /// <c>GetMeterMultiplier</c> answers into the charge fill
+    /// (<c>tf_player_shared.cpp:7901</c>). Zero means the item's own multiplier
+    /// is its class default of 1 (<c>tf_weapon_dragons_fury.cpp:62</c>): a
+    /// blast drops it to the penalty and a hit on the launcher boosts it
+    /// (<c>:57-58</c>), and the fill of the bar scales by the number. It stands
+    /// through deploys with the meter it scales, and the fill crossing the
+    /// meter to full hands it back to normal (stock's
+    /// <c>OnResourceMeterFilled</c>, <c>:280-287</c>).
+    /// </summary>
+    [Predicted]
+    public partial float FlameBallChargeScale { get; set; }
+
+    /// <summary>
     /// The server's deploy stamp: bumped by <c>Arsenal.Deploy</c>, and by the
     /// client's <c>MirrorDeploy</c> when a command's weaponselect answers for
     /// the same deploy, so a switch the client predicted carries the same

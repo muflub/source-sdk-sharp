@@ -125,4 +125,35 @@ public static class TFPlayerOrders
     /// regen's fill beside the spawn walk, on +101 past the taunt.
     /// </summary>
     public const int SpawnEffectBars = Band + 101;
+
+    /// <summary>
+    /// The heads the sword kill takes (<see cref="TFSwordHeads"/>): the
+    /// player-band death walk that reads the killing blow before the notice's
+    /// clear, on +102 past the effect bars.
+    /// </summary>
+    public const int SwordHeads = Band + 102;
+
+    /// <summary>
+    /// The kill that refills the charge meter (<see cref="TFChargeMeterRefills"/>):
+    /// the player-band death walk beside the heads, on +103.
+    /// </summary>
+    public const int ChargeRefills = Band + 103;
+
+    /// <summary>
+    /// The kill that restores the killer's health (<see cref="TFRestoreOnKill"/>):
+    /// the player-band death walk beside them, on +104.
+    /// </summary>
+    public const int RestoreOnKill = Band + 104;
+
+    /// <summary>
+    /// The head the decapitation rifle's kill banks (<see cref="TFDecapitations"/>):
+    /// the same record the sword's walk reads, one later on +105.
+    /// </summary>
+    public const int DecapHeads = Band + 105;
+
+    /// <summary>
+    /// The revenge window dying with its holder (<see cref="TFRevengeCrits"/>):
+    /// the player-band death walk beside them, on +106.
+    /// </summary>
+    public const int RevengeCritReset = Band + 106;
 }

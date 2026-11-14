@@ -62,10 +62,13 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     // §3.8), which re-checks restored handles against the side's own host.
     public ClientSsRagdoll(IEngineEntityRender render, IEngineEffects effects, IGameClock clock,
                            IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls,
-                           Ragdolls.IRagdollDissolves? dissolves = null)
+                           Ragdolls.IRagdollDissolves? dissolves = null, Ragdolls.IRagdollAsh? ash = null,
+                           Sounds.IClientEntitySounds? sounds = null)
         : base(render)
     {
         _dissolves = dissolves;
+        _ash = ash;
+        _sounds = sounds;
         _effects = effects;
         _clock = clock;
         _standalones = standalones;
@@ -75,6 +78,10 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     private readonly IEngineEffects _effects;
 
     private readonly Ragdolls.IRagdollDissolves? _dissolves;
+
+    private readonly Ragdolls.IRagdollAsh? _ash;
+
+    private readonly Sounds.IClientEntitySounds? _sounds;
 
     private readonly IGameClock _clock;
 
@@ -163,15 +170,35 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// </summary>
     [SaveField] public float BurnStartTime { get; private set; }
 
+    /// <summary>
+    /// When this body's ash began, on THIS side's clock, or 0 for none — the
+    /// ash arrival's <c>m_flTimeToDissolve</c> full, stamped by the client at
+    /// <see cref="ArrivedAsh"/> for a body that arrived with
+    /// <see cref="RagdollNetState.Ash"/> set and no gib. Like
+    /// <see cref="BurnStartTime"/> the clock crosses no wire, and a restored
+    /// corpse that forgot it would never hide.
+    /// </summary>
+    [SaveField] public float AshStartTime { get; private set; }
+
     public override void OnSpawn()
         => Log.Msg($"[SourceSharp/C# client] {ClassName} arrived\n");
 
     public override void OnRemoved()
     {
         _dissolves?.End(Handle);
+        _ash?.End(Handle);
 
         if (BurnStartTime > 0f)
             _effects.ParticleSystemStop(Handle);
+
+        if (AshStartTime > 0f)
+            _effects.ParticleSystemStopSlot(Handle, Ragdolls.RagdollAsh.CorpseSlot);
+
+        if (CritMistShown)
+            _effects.ParticleSystemStopSlot(Handle, CritMistSlot);
+
+        if (IceShown)
+            _effects.ParticleSystemStopSlot(Handle, IceSlot);
 
         Log.Msg($"[SourceSharp/C# client] {ClassName} gone\n");
     }
@@ -191,6 +218,9 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
         ArrivedBurning();
+        ArrivedAsh();
+        ArrivedCritMist();
+        ArrivedIce();
         DressSkin();
 
         if (IsRagdoll)
@@ -283,6 +313,92 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         if (!_effects.ParticleSystemStart(Handle, FlameRules.BurningCorpseParticle))
             Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
                         $"'{FlameRules.BurningCorpseParticle}'\n");
+    }
+
+    /// <summary>
+    /// Stock's ash arrival (c_tf_player.cpp:941-945): a body that came ashing —
+    /// and neither gibed nor dissolving — stamps its half-second clock with the
+    /// client's now and starts the ash particle, in a slot of its own so a
+    /// burning corpse keeps its flames. ONCE, on the same terms as the burn's.
+    /// Every update re-offers the hide to <see cref="RagdollAsh"/>, whose list
+    /// a hot reload empties while this clock survives on the body — the same
+    /// re-arm the dissolve's state-driven begin gets for free.
+    /// </summary>
+    private void ArrivedAsh()
+    {
+        if (!State.Ash || State.Gib)
+            return;
+
+        if (AshStartTime <= 0f)
+        {
+            AshStartTime = _clock.Now;
+
+            if (!_effects.ParticleSystemStartSlot(Handle, FlameRules.AshCorpse, Ragdolls.RagdollAsh.CorpseSlot))
+                Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                            $"'{FlameRules.AshCorpse}'\n");
+        }
+
+        _ash?.Begin(Handle, AshStartTime);
+    }
+
+    /// <summary>Stock's red mist (c_tf_player.cpp:1120-1123): the gibbed body of
+    /// a kill by a <c>crit_on_hard_hit</c> weapon — the Classic's — raises
+    /// <c>tfc_sniper_mist</c> over the pieces. Stock dispatches it once inside
+    /// <c>CreateTFGibs</c>, at the dying player's world centre; here the body
+    /// entity is the same place, carried in a slot of its own so the burn's
+    /// plain system and the ash's keep theirs. Once, on the flag's arrival —
+    /// a gib never ashes (<see cref="ArrivedAsh"/>), so the two never run
+    /// together.</summary>
+    public const string CritMistParticle = "tfc_sniper_mist";
+
+    /// <summary>The mist's slot, beside <see cref="RagdollAsh.CorpseSlot"/>'s 7.</summary>
+    public const int CritMistSlot = 8;
+
+    /// <summary>Whether this body's mist went up; the once-guard, kept across a
+    /// save like <see cref="AshStartTime"/>.</summary>
+    [SaveField] public bool CritMistShown { get; private set; }
+
+    private void ArrivedCritMist()
+    {
+        if (!State.Gib || !State.CritOnHardHit || CritMistShown)
+            return;
+
+        CritMistShown = true;
+
+        if (!_effects.ParticleSystemStartSlot(Handle, CritMistParticle, CritMistSlot))
+            Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                        $"'{CritMistParticle}'\n");
+    }
+
+    /// <summary>Stock's ice arrival (c_tf_player.cpp:736-742): a body frozen by a
+    /// Spy-cicle backstab — the killing weapon's <c>freeze_backstab_victim</c>,
+    /// read at <see cref="TFPlayerGib"/> — plays the turn-to-ice sound and raises
+    /// stock's dry-ice frost over itself. Once, on the flag's arrival. The freeze
+    /// timers stock starts beside the sound (:740-741) and the ice texture
+    /// override (:972-976) wait with the solver's frozen-constraint lane.</summary>
+    public const string IceSound = "Icicle.TurnToIce";
+
+    public const string IceParticle = "xms_icicle_impact_dryice";
+
+    /// <summary>The frost's slot, beside the mist's <see cref="CritMistSlot"/>.</summary>
+    public const int IceSlot = 9;
+
+    /// <summary>Whether this body's frost went up; the once-guard, kept across a
+    /// save like <see cref="CritMistShown"/>.</summary>
+    [SaveField] public bool IceShown { get; private set; }
+
+    private void ArrivedIce()
+    {
+        if (!State.Ice || IceShown)
+            return;
+
+        IceShown = true;
+
+        _sounds?.EmitFrom(Handle, IceSound);
+
+        if (!_effects.ParticleSystemStartSlot(Handle, IceParticle, IceSlot))
+            Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                        $"'{IceParticle}'\n");
     }
 
     /// <summary>

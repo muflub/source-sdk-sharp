@@ -76,6 +76,8 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     private readonly TFSpyCloakRegenRateConVar _cloakRegen;
     private readonly TFSpyInvisTimeConVar _invisTime;
     private readonly TFSpyInvisUnstealthTimeConVar _invisUnstealth;
+    private readonly TFDemomanChargeDrainTimeConVar? _chargeDrain;
+    private readonly TFDemomanChargeRegenRateConVar? _chargeRegen;
 
     private readonly TFPlayerNetState _working = new();
     private readonly PredictionRing _ring = new();
@@ -114,7 +116,9 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     public TFPlayerPrediction(ILog log, TFClientCarriers carriers, NetStateCatalog catalog,
                               IClientStandalones standalones, IEngineEnvironment environment,
                               TFSpyCloakConsumeRateConVar cloakConsume, TFSpyCloakRegenRateConVar cloakRegen,
-                              TFSpyInvisTimeConVar invisTime, TFSpyInvisUnstealthTimeConVar invisUnstealth)
+                              TFSpyInvisTimeConVar invisTime, TFSpyInvisUnstealthTimeConVar invisUnstealth,
+                              TFDemomanChargeDrainTimeConVar? chargeDrain = null,
+                              TFDemomanChargeRegenRateConVar? chargeRegen = null)
     {
         _log = log;
         _carriers = carriers;
@@ -125,6 +129,8 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         _cloakRegen = cloakRegen;
         _invisTime = invisTime;
         _invisUnstealth = invisUnstealth;
+        _chargeDrain = chargeDrain;
+        _chargeRegen = chargeRegen;
         _working.BindLocal();
     }
 
@@ -205,6 +211,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         float now = (_cloakAnchorTick + _cloakCommands) * Interval;
         _cloakCommands++;
         CloakTick(now);
+        ChargeTick(now);
 
         if (_scratch.Length > 0 && _working.CopyTo(_scratch) == _scratch.Length
             && _ring.SaveCommand(commandNumber, _scratch))
@@ -480,6 +487,39 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     }
 
     private void CloakClearStealth() => _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.Stealthed));
+
+    /// <summary>
+    /// The charge meter's tick, the client arm of <c>ConditionThink</c>'s
+    /// <c>UpdateChargeMeter</c> (tf_player_shared.cpp:3118 calling :6017): the
+    /// drain while the charge stands — the meter empty takes the condition
+    /// back, the server's removal's own words — and the refill capped at 100
+    /// while it does not, at least a point a second (:6052). The attrib hooks
+    /// ride the items, which the replay wears none of yet, as the cloak's
+    /// note above.
+    /// </summary>
+    private void ChargeTick(float now)
+    {
+        float dt = Interval;
+
+        if (_working.Class() != TFClass.Demoman)                          // :6019-6020
+            return;
+
+        if (_working.InCond(TFCond.ShieldCharge))                         // :6022
+        {
+            float drain = _chargeDrain?.Value ?? 1.5f;                    // tf_demoman_charge_drain_time
+            _working.ChargeMeter -= dt * (100f / drain);                  // :6027-6028
+            if (_working.ChargeMeter <= 0f)                               // :6029-6033
+            {
+                _working.ChargeMeter = 0f;
+                _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.ShieldCharge));
+            }
+        }
+        else if (_working.ChargeMeter < 100f)                             // :6037
+        {
+            float regen = MathF.Max(_chargeRegen?.Value ?? 8.3f, 1f);     // :6040-6052
+            _working.ChargeMeter = MathF.Min(100f, _working.ChargeMeter + dt * regen);  // :6053-6057
+        }
+    }
 
     /// <summary>
     /// The watch's cooldown is server component state and rides no packet, so

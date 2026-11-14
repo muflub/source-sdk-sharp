@@ -94,6 +94,24 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     /// <summary><c>GetProjectileDamage</c> before <c>mult_dmg</c>: the charge, never under the minimum.</summary>
     public static float DamageAt(float charge) => MathF.Max(charge, DamageMin);
 
+    /// <summary>The least a jarating shot's urine lasts, stock's <c>flMinJarateTime</c> (tf_weapon_sniperrifle.cpp:1234).</summary>
+    public const float JarateMinimum = 2f;
+
+    /// <summary>
+    /// <c>GetJarateTime</c> over <c>GetJarateTimeInternal</c>
+    /// (tf_weapon_sniperrifle.cpp:1215-1223, :1228-1240): no charge begun
+    /// (<c>m_flChargedDamage</c>, the meter), no urine; otherwise the charge
+    /// remapped <see cref="DamageMin"/>..<see cref="DamageMax"/> to
+    /// <see cref="JarateMinimum"/>..<paramref name="maxSeconds"/>, the item's
+    /// <c>jarate_duration</c>. The plain charge rate reads the charge, as the
+    /// hit-time read must without the shot's attack context; no jarating
+    /// rifle carries a charge-rate hook.
+    /// </summary>
+    public static float Jarate(WeaponNetState weapon, float now, float maxSeconds) =>
+        weapon.BehaviourMeter > 0f && maxSeconds > 0f
+            ? CritBucket.RemapValClamped(Charge(weapon, now), DamageMin, DamageMax, JarateMinimum, maxSeconds)
+            : 0f;
+
     /// <summary>
     /// The accrual's rate: the stock 50 through the hooks
     /// (<c>ApplyChargeSpeedModifications</c>, tf_weapon_sniperrifle.cpp:377-378,
@@ -103,7 +121,25 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     private float ChargeRate(in WeaponAttackContext attack) =>
         ScriptOf(attack.Type) is not { } script
             ? ChargePerSec
-            : Math.Clamp(Parts.Hooks.ModifyChargeRate(Context(in attack, script), ChargePerSec), 0f, 2f * ChargePerSec);
+            : Math.Clamp(Parts.Hooks.ModifyChargeRate(Context(in attack, script), ChargePerSec) + DecapRate(script, attack),
+                         0f, 2f * ChargePerSec);
+
+    /// <summary>The head count the decap bonus stops at, stock's <c>MAX_HEAD_BONUS</c> (tf_weapon_sniperrifle.cpp:1737).</summary>
+    public const int DecapHeadBonus = 6;
+
+    /// <summary>
+    /// <c>CTFSniperRifleDecap::SniperRifleChargeRateMod</c>
+    /// (tf_weapon_sniperrifle.cpp:1742-1745): a quarter of the base rate per
+    /// banked decapitation past two, the count <c>GetCount</c> reads off the
+    /// owner (:1750-1759) capped at <see cref="DecapHeadBonus"/>. Under two
+    /// heads the term is negative — the tokenless Bazaar charges slower — and
+    /// the accrual's clamp (:381-382) holds the total, as stock's does. The
+    /// accrual adds it after the attribute hooks, the order :377-379 keeps.
+    /// </summary>
+    private float DecapRate(TFWeaponScript script, in WeaponAttackContext attack) =>
+        script.Id != TFWeaponId.SniperrifleDecap
+            ? 0f
+            : 0.25f * (MathF.Min(Parts.Owners.DecapitationsOf(attack.Command.OwnerIndex), DecapHeadBonus) - 2f) * ChargePerSec;
 
     protected override float ShotBaseDamage(in WeaponAttackContext attack, TFWeaponScript script) =>
         DamageAt(Charge(attack.Weapon, attack.Now, ChargeRate(in attack)));
@@ -122,7 +158,16 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
             || Charge(attack.Weapon, attack.Now, ChargeRate(in attack)) < DamageMax)
             return result;
 
-        return result with { Damage = Parts.Hooks.ModifyFullChargeDamage(Context(in attack, script), result.Damage) };
+        var context = Context(in attack, script);
+        result = result with { Damage = Parts.Hooks.ModifyFullChargeDamage(context, result.Damage) };
+
+        // GetPenetrateType's arm (tf_weapon_sniperrifle.cpp:758-769): the
+        // full charge turns the shot into a TF_DMG_CUSTOM_PENETRATE_ALL_PLAYERS
+        // one when the item asks it.
+        if (Parts.Hooks.PenetratesPlayersWhenCharged(context))
+            result = result with { PenetratePlayers = true };
+
+        return result;
     }
 
     protected override TFCritOwner KindCritPolicy(in WeaponAttackContext attack, TFCritOwner policy) =>
@@ -130,7 +175,7 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
 
     protected override bool HoldsAiming(in WeaponAttackContext attack) => IsZoomed(in attack);
 
-    private bool IsZoomed(in WeaponAttackContext attack) =>
+    protected bool IsZoomed(in WeaponAttackContext attack) =>
         attack.Command.OwnerIndex > 0 && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } c && c.Has(TFCond.Zoomed);
 
     private bool IsAiming(in WeaponAttackContext attack) =>
@@ -196,18 +241,34 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
         if (ScriptOf(attack.Type) is { } script)
-        {
-            HandleZooms(in attack, script);
-            UpdateCharge(in attack);
-        }
+            RifleFrame(in attack, script);
 
         base.ItemPostFrame(in attack);
+    }
+
+    /// <summary>The rifle's own frame, which the Classic replaces whole.</summary>
+    protected virtual void RifleFrame(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        HandleZooms(in attack, script);
+        UpdateCharge(in attack);
     }
 
     /// <summary>The zoom is the rifle's own secondary (<c>CTFSniperRifle</c>'s attack2, tf_weapon_sniperrifle.cpp:479-490), not the class skill; <see cref="ItemPostFrame"/>'s zoom arm runs it.</summary>
     public override void SecondaryAttack(in WeaponAttackContext attack) { }
 
-    private void HandleZooms(in WeaponAttackContext attack, TFWeaponScript script)
+    protected void HandleZooms(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        HandleZoomTimers(in attack, script);
+        HandleZoomTrigger(in attack, script);
+    }
+
+    /// <summary>
+    /// The frame's timers: the jump's clear, the shot's unzoom and the rezoom
+    /// it arms (<c>CTFSniperRifle::HandleZooms</c>' :286-308, over the
+    /// ItemPostFrame jump arm :360-371). The Classic's own HandleZooms
+    /// (:1835-1856) runs none of these — its zoomed shot stays up.
+    /// </summary>
+    protected void HandleZoomTimers(in WeaponAttackContext attack, TFWeaponScript script)
     {
         var weapon = attack.Weapon;
         float now = attack.Now;
@@ -241,6 +302,14 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
             weapon.BehaviourTimeB = 0f;
             ZoomIn(in attack, script);
         }
+    }
+
+    /// <summary>The held secondary's toggle, the rezoom cancel and the jump refusal (:310-323, :479-490).</summary>
+    protected void HandleZoomTrigger(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        var weapon = attack.Weapon;
+        float now = attack.Now;
+        bool decaying = (weapon.BehaviourMode & ModeDecayClock) != 0;
 
         if ((weapon.LastButtons & (int)InputButtons.Attack2) != 0 && weapon.NextSecondaryAttack <= now)
         {
@@ -256,7 +325,7 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
                 weapon.NextPrimaryAttack = MathF.Max(weapon.NextPrimaryAttack, now + 0.1f);
                 weapon.NextSecondaryAttack = now + ZoomTime;
             }
-            else if (!offGround)
+            else if (attack.Command.OwnerIndex <= 0 || !Parts.Owners.OffGround(attack.Command.OwnerIndex))
             {
                 // Zoom refuses a zoom-in while jumping (tf_weapon_sniperrifle.cpp:479-490).
                 ZoomIn(in attack, script);
@@ -345,7 +414,7 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
             Parts.Effects.Zoom(in attack, script, zoomed: true);
     }
 
-    private void ZoomOut(in WeaponAttackContext attack, TFWeaponScript script)
+    protected void ZoomOut(in WeaponAttackContext attack, TFWeaponScript script)
     {
         var weapon = attack.Weapon;
 

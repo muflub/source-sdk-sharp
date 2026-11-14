@@ -441,7 +441,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             // Already owned: the duplicate is worth what a fresh one carries
             // (Weapon_EquipAmmoOnly), its default clip, in ammunition.
-            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, DefaultClipOf(in type, player), type.AmmoName) > 0;
+            bool tookPrimary = type.AmmoName.Length > 0
+                            && GiveAmmo(player, DefaultClipOf(in type, player), PrimaryPool(carry, in type)) > 0;
 
             // And its secondary charge, where the row brings one: the SLAM's
             // three, Weapon_EquipAmmoOnly's GetSecondaryAmmoCount.
@@ -465,10 +466,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         if (type.AmmoName.Length > 0)
         {
+            string pool = PrimaryPool(carry, in type);
             if (clipSize <= 0)
-                GiveAmmo(player, defaultClip, type.AmmoName);
+                GiveAmmo(player, defaultClip, pool);
             else if (defaultClip > clipSize)
-                GiveAmmo(player, defaultClip - clipSize, type.AmmoName);
+                GiveAmmo(player, defaultClip - clipSize, pool);
         }
 
         // A secondary pool with no clip in front of it is filled with the
@@ -1318,7 +1320,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_weapons.ByIndex(weapon.State.WeaponTypeId) is not WeaponType type)
             return;
 
-        weapon.State.Reserve = PoolOf(carry, type.AmmoName);
+        weapon.State.Reserve = PoolOf(carry, PrimaryPool(carry, in type));
         weapon.State.SecondaryReserve = PoolOf(carry, type.SecondaryAmmoName);
     }
 
@@ -1329,6 +1331,22 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         carry.Ammo.TryGetValue(ammoName, out int have);
         return have;
+    }
+
+    /// <summary>
+    /// The pool the row's primary draws on for this carrier: the behaviour's
+    /// answer where it has one (<see cref="IWeaponBehaviour.PrimaryAmmoPool"/>),
+    /// else the row's own. The ask is the whole of stock's spawn-time
+    /// <c>m_iPrimaryAmmoType</c> override — every pool read, spend and settle
+    /// below takes the name from here, so one answer moves the gun's food.
+    /// </summary>
+    private string PrimaryPool(Carry carry, in WeaponType type)
+    {
+        if (type.AmmoName.Length == 0)
+            return "";
+
+        return _behaviours.For(type.Behaviour)?.PrimaryAmmoPool(in type, _entities.GetIndex(carry.Player))
+            ?? type.AmmoName;
     }
 
     //-------------------------------------------------------------------------
@@ -1626,7 +1644,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return true;
 
         bool primary = usesPrimary &&
-                       ((ClipSizeOf(in type, carry.Player) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
+                       ((ClipSizeOf(in type, carry.Player) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(PrimaryPool(carry, in type)) > 0);
         return primary || (usesSecondary && carry.Ammo.GetValueOrDefault(type.SecondaryAmmoName) > 0);
     }
 
@@ -1635,7 +1653,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (spent == 0 || _weapons.ByIndex(typeIndex) is not WeaponType type)
             return;
 
-        string name = primary ? type.AmmoName : type.SecondaryAmmoName;
+        string name = primary ? PrimaryPool(carry, in type) : type.SecondaryAmmoName;
 
         if (name.Length == 0)
             return;
@@ -2505,7 +2523,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 return;
             }
 
-            Shoot(in type, pellets, spreadDegrees, shot.Damage, ammo.DamageType, shot.Critical, fixedPellets, in ammo);
+            Shoot(in type, pellets, spreadDegrees, shot.Damage, ammo.DamageType, shot.Critical, fixedPellets,
+                  in ammo, shot.PenetratePlayers);
         }
 
         /// <summary>
@@ -2532,7 +2551,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         private void Shoot(in WeaponType type, int pellets, float spreadDegrees, float damage, DamageType damageType,
-                           bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
+                           bool critical, PelletPattern? fixedPellets, in AmmoType ammo, bool penetrate = false)
         {
             // CHL2MP_Player::FireBullets (hl2mp_player.cpp:640-662): the other
             // players moved back to where this shooter saw them for every
@@ -2544,7 +2563,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             lag?.NoteWeaponFired(_carry.Player);
             try
             {
-                ShootPellets(in type, pellets, spreadDegrees, damage, damageType, critical, fixedPellets, in ammo);
+                ShootPellets(in type, pellets, spreadDegrees, damage, damageType, critical, fixedPellets,
+                             in ammo, penetrate);
             }
             finally
             {
@@ -2553,7 +2573,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         private void ShootPellets(in WeaponType type, int pellets, float spreadDegrees, float damage,
-                                  DamageType damageType, bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
+                                  DamageType damageType, bool critical, PelletPattern? fixedPellets, in AmmoType ammo,
+                                  bool penetrate = false)
         {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(WeaponKick.Aim(_arsenal._entities.GetEyeAngles(_carry.Player), Carrier));
@@ -2569,7 +2590,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 // otherwise.
                 Vector dir = ShotSpread.Direction(aim, spread, seed + i, _spread, fixedPellets, i).Normalized;
 
-                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo);
+                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo, penetrate);
             }
         }
 
@@ -2579,7 +2600,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// a glass func_breakable (HandleShotImpactingGlass).
         /// </summary>
         private void Round(Vector from, Vector dir, float distance, float damage, DamageType damageType, bool critical,
-                           in AmmoType ammo)
+                           in AmmoType ammo, bool penetrate = false)
         {
             var trace = _arsenal._world.TraceLineSurface(from, from + dir * distance,
                                                          TraceMask.Shot, _carry.Player);
@@ -2603,6 +2624,60 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                                trace.SurfaceProps, ammo.DamageType,
                                                trace.Entity);
 
+            Strike(in trace, from, dir, damage, damageType, critical, in ammo);
+
+            // FireBullets' glass rule: a round through the glass of a
+            // func_breakable carries on (the registry answers what was hit).
+            if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
+                && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
+                                             breakable.ClassName, breakable.SpawnFlags))
+                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo);
+
+            // The piercing tail (stock's penetrated walk's per-victim trace,
+            // tf_player_shared.cpp:10373-10402): past the player the round
+            // struck, every further player along the same ray takes the shot
+            // where it stands, until something that is not a player — a wall,
+            // the ray's end — stops it. Stock asks each victim through a
+            // trace that sees only it and the world's brushes; the ignored
+            // entity and the half-unit step past the last hull are this
+            // port's shape of the same question.
+            while (penetrate && _arsenal.IsStandalonePlayer(trace.Entity))
+            {
+                Vector beyond = trace.End + dir * PiercingStep;
+                var next = _arsenal._world.TraceLineSurface(beyond, from + dir * distance,
+                                                            TraceMask.Shot, trace.Entity);
+
+                if (!next.Hit)
+                    break;
+
+                Strike(in next, beyond, dir, damage, damageType, critical, in ammo);
+
+                if (!_arsenal.IsStandalonePlayer(next.Entity))
+                {
+                    // The wall the way ended on takes its mark, as the
+                    // unpenetrated round's would.
+                    if ((next.SurfaceFlags & SurfSky) == 0
+                        && (_arsenal._world.PointContents(next.End) & Liquid) == 0)
+                        _arsenal._effects.ImpactEffect(next.End - dir * ImpactBackoff, next.End,
+                                                       next.SurfaceProps, ammo.DamageType, next.Entity);
+                    break;
+                }
+
+                trace = next;
+            }
+        }
+
+        /// <summary>How far past a struck hull the piercing ray resumes, in units.</summary>
+        private const float PiercingStep = 0.5f;
+
+        /// <summary>
+        /// The struck victim's damage: the traced hit's rules — the entity's
+        /// own answer, else the damage call with the hitgroup riding beside it
+        /// — and the blood a player's wound sheds.
+        /// </summary>
+        private void Strike(in SurfaceTraceResult trace, Vector from, Vector dir, float damage, DamageType damageType,
+                            bool critical, in AmmoType ammo)
+        {
             // DispatchTraceAttack: an entity that answers the traced hit
             // itself (a pane of glass) takes it in place of the damage.
             if (_arsenal._directory.Get(trace.Entity) is ITraceAttacked attacked)
@@ -2626,13 +2701,6 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 if (_arsenal.IsStandalonePlayer(trace.Entity))
                     _arsenal._effects.BloodEffect(trace.End, dir, BloodColor.Red, damage);
             }
-
-            // FireBullets' glass rule: a round through the glass of a
-            // func_breakable carries on (the registry answers what was hit).
-            if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
-                && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
-                                             breakable.ClassName, breakable.SpawnFlags))
-                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo);
         }
 
         /// <summary>MAX_GLASS_PENETRATION_DEPTH: how far beyond the glass the way back in starts.</summary>

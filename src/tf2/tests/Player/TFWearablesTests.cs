@@ -55,7 +55,7 @@ public sealed class TFWearablesTests
             Loadout = new TFLoadoutProvider(Inventory, Player.Schema, Player.Carriers, Player.Items, Player.Classes);
 
             Wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine,
-                                        Player.Engine, Player.Log, Skins);
+                                        Player.Engine, Player.Log, Skins, Player.Items);
             Player.Extra.Add(Wearables);
             Spawns = new TFWearableSpawns(Player.Carriers, Loadout, Player.Engine, Player.Log);
         }
@@ -389,6 +389,37 @@ public sealed class TFWearablesTests
 
         Assert.Equal(0, rig.Wearables.Count);
         Assert.Equal(0, WearableCreates(rig));
+    }
+
+    /// <summary>
+    /// Stock's <c>CEconEntity::ReapplyProvision</c> (econ_entity.cpp:285-308):
+    /// the worn item's own container provides to the owner's attribute
+    /// manager, so a player-level hook — the charge meter's regen, the kill's
+    /// refill — reads the wearables with the weapons; the strip is stock's
+    /// <c>StopProvidingTo</c>, run as the wearable dies with its player
+    /// (<c>CEconWearable::UpdateOnRemove</c>, econ_wearable.cpp:196). The grant
+    /// goes first, as stock's <c>GiveDefaultItems</c> arms the weapons before
+    /// <c>ManageRegularWeapons</c> wears.
+    /// </summary>
+    [Fact]
+    public void The_worn_item_provides_to_the_players_manager_and_the_strip_stops_it()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Scout, Canteen);
+        rig.Player.Carriers.SetClass(PlayerRig.Index, TFClass.Scout);
+        // The kit grant: the player's manager enters here, as the weapons arm of the spawn.
+        rig.Loadout.Weapons(PlayerRig.Player).ToList();
+
+        rig.SpawnAs(TFClass.Scout);
+
+        var manager = Assert.IsType<AttributeContainer>(rig.Player.Items.ManagerOf(PlayerRig.Index));
+        static bool Wears(IAttributeProvider? p)
+            => p is AttributeContainer { Item: { } def } && def.Defindex == Canteen;
+        Assert.Contains(manager.Providers, Wears);
+
+        rig.Die();
+
+        Assert.DoesNotContain(manager.Providers, Wears);
     }
 
     /// <summary>

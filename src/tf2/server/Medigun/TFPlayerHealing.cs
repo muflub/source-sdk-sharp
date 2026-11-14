@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 using SourceSharp.Abi;
@@ -62,6 +63,13 @@ public interface ITFPlayerHealing
 
     /// <summary><c>GetNumHealers</c>: how many healers keep this patient topped up.</summary>
     int NumHealers(int patientIndex);
+
+    /// <summary>
+    /// The entity indexes of everyone healing this patient now — the walk
+    /// stock's <c>GetHealerByIndex</c> (tf_player_shared.cpp:8814) answers
+    /// per index, here in one ask.
+    /// </summary>
+    IEnumerable<int> HealerIndexes(int patientIndex);
 
     /// <summary>
     /// <c>RecalculateChargeEffects</c> (:8854): recompute every medigun charge effect —
@@ -242,6 +250,10 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     }
 
     public int NumHealers(int patientIndex) => patients.TryGetValue(patientIndex, out var state) ? state.Healers.Count : 0;
+
+    /// <summary>The healers' indexes as kept (<see cref="Heal"/>'s keys, the walk's own order).</summary>
+    public IEnumerable<int> HealerIndexes(int patientIndex)
+        => patients.TryGetValue(patientIndex, out var state) ? state.Healers.Keys : [];
 
     // ---- the HEALTH_BUFF condition arms (tf_player_shared.cpp:1578-1584, 1935-1939) --
 

@@ -40,11 +40,51 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
 
     public int HookOrder => Order;
 
-    public int ModifyClip(in TFWeaponHookContext weapon, int clip) =>
-        clip >= 0 ? attributes.Int(clip, "mult_clipsize", weapon.Item) : clip;
+    public int ModifyClip(in TFWeaponHookContext weapon, int clip)
+    {
+        // The base class's own arm first (GetMaxClip1,
+        // basecombatweapon_shared.cpp:367-370): the override IS the answer,
+        // the Widowmaker's minus one among them, and only a clip it leaves
+        // non-negative meets the multiplier (tf_weaponbase.cpp:571-575).
+        int over = attributes.Int(0, "mod_max_primary_clip_override", weapon.Item);
+        int resolved = over != 0 ? over : clip;
+        return resolved >= 0 ? attributes.Int(resolved, "mult_clipsize", weapon.Item) : resolved;
+    }
 
-    public float ModifyInterval(in TFWeaponHookContext weapon, float interval) =>
-        interval * attributes.Float(1f, "mult_postfiredelay", weapon.Item);
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetAmmoPerShot</c>'s attribute
+    /// (<c>tf_weaponbase_gun.cpp:464-467</c>): a positive count IS the price.
+    /// </summary>
+    public int PrimaryAmmoPerShot(in TFWeaponHookContext weapon, int perShot)
+    {
+        int priced = attributes.Int(0, "mod_ammo_per_shot", weapon.Item);
+        return priced > 0 ? priced : perShot;
+    }
+
+    /// <summary>
+    /// <c>m_iPrimaryAmmoType</c>'s spawn arm
+    /// (<c>basecombatweapon_shared.cpp:269-275</c>): the item's attribute
+    /// points the primary at the metal pool, any non-zero value.
+    /// </summary>
+    public string? PrimaryAmmoPool(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "mod_use_metal_ammo_type", weapon.Item) != 0 ? TFAmmoNames.Name(TFAmmo.Metal) : null;
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::PrimaryAttack</c>' clock: the script delay through
+    /// <c>ApplyFireDelay</c>' <c>mult_postfiredelay</c>
+    /// (<c>tf_weaponbase.cpp:1897-1898</c>), then the blast-jump pair
+    /// (<c>tf_weaponbase_gun.cpp:114-121</c>): the owner blasting off takes
+    /// <c>rocketjump_attackrate_bonus</c>, from the ground
+    /// <c>mul_nonrocketjump_attackrate</c>. Same gated style as
+    /// <see cref="ModifyDamage"/>' disguise arm.
+    /// </summary>
+    public float ModifyInterval(in TFWeaponHookContext weapon, float interval)
+    {
+        float delay = interval * attributes.Float(1f, "mult_postfiredelay", weapon.Item);   // :1897
+        return weapon.Conditions?.Has(TFCond.Blastjumping) == true                            // :114
+            ? attributes.Float(delay, "rocketjump_attackrate_bonus", weapon.Item)             // :116
+            : attributes.Float(delay, "mul_nonrocketjump_attackrate", weapon.Item);           // :120
+    }
 
     /// <summary>
     /// The fired shot's pellets (<c>tf_fx_shared.cpp:305</c>'s
@@ -140,6 +180,10 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     public float ModifyChargeRate(in TFWeaponHookContext weapon, float rate) =>
         attributes.Float(rate, "mult_sniper_charge_per_sec", weapon.Item);
 
+    /// <summary>The charged shot's pierce (tf_weapon_sniperrifle.cpp:762-764).</summary>
+    public bool PenetratesPlayersWhenCharged(in TFWeaponHookContext weapon) =>
+        weapon.Item is { } item && attributes.Int(0, "sniper_penetrate_players_when_charged", item) > 0;
+
     /// <summary>The fully charged shot's bonus (tf_weapon_sniperrifle.cpp:896-899).</summary>
     public float ModifyFullChargeDamage(in TFWeaponHookContext weapon, float damage) =>
         attributes.Float(damage, "sniper_full_charge_damage_bonus", weapon.Item);
@@ -189,6 +233,38 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     public bool HitSelfOnMiss(in TFWeaponHookContext weapon) =>
         attributes.Int(0, "hit_self_on_miss", weapon.Item) == 1;
 
+    /// <summary>
+    /// The Holiday Punch's silent crit (<c>tf_weaponbase_melee.cpp:989-1002</c>):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> of <c>crit_does_no_damage</c> over
+    /// zero; any non-zero zeroes a crit's damage.
+    /// </summary>
+    public bool CritDoesNoDamage(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "crit_does_no_damage", weapon.Item) > 0;
+
+    /// <summary>
+    /// The Holiday Punch's forced laugh (<c>tf_weaponbase_melee.cpp:884-901</c>):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> of
+    /// <c>crit_forces_victim_to_laugh</c> over zero.
+    /// </summary>
+    public bool CritForcesVictimToLaugh(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "crit_forces_victim_to_laugh", weapon.Item) > 0;
+
+    /// <summary>
+    /// The Holiday Punch's tickle (<c>tf_weaponbase_melee.cpp:903-927</c>):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> of
+    /// <c>tickle_enemies_wielding_same_weapon</c> over zero; no crit gate asks it.
+    /// </summary>
+    public bool TickleEnemiesWieldingSameWeapon(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "tickle_enemies_wielding_same_weapon", weapon.Item) > 0;
+
+    /// <summary>
+    /// The fists' silent mark (<c>tf_weaponbase_melee.cpp:354-368</c>): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> of <c>self_mark_for_death</c> starts from
+    /// zero, so the held item's seconds ride through.
+    /// </summary>
+    public int SelfMarkForDeath(in TFWeaponHookContext weapon, int seconds) =>
+        attributes.Int(seconds, "self_mark_for_death", weapon.Item);
+
     public TFCritOwner CritPolicy(in TFWeaponHookContext weapon, TFCritOwner policy) =>
         policy with { ChanceScale = policy.ChanceScale * attributes.Float(1f, "mult_crit_chance", weapon.Item) };
 
@@ -207,6 +283,42 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
                 * (weapon.SecondsSincePreviousDeploy > seconds
                        ? attributes.Float(1f, "mult_switch_from_wep_deploy_time", weapon.PreviousItem)
                        : 1f);
+
+    /// <summary>
+    /// The energy shot's cost (<c>GetEnergyShotCost</c>, tf_weapon_raygun.h:52-63):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> of <c>energy_weapon_no_drain</c> over
+    /// zero — any non-zero answers a cost of none, so the meter neither spends
+    /// nor checks against it. Without the attribute the five-round cost stands.
+    /// </summary>
+    public float EnergyShotCost(in TFWeaponHookContext weapon, float cost) =>
+        attributes.Int(0, "energy_weapon_no_drain", weapon.Item) > 0 ? 0f : cost;
+
+    /// <summary>
+    /// The tank's whole shots (<c>GetMaxEnergyShotCount</c>'s
+    /// <c>mult_clipsize_upgrade</c> over the count, tf_weapon_raygun.h): stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT</c> then the cast into the int member — the
+    /// product truncated, as <see cref="ModifyAirBlastCost"/> truncates.
+    /// </summary>
+    public int ModifyEnergyShots(in TFWeaponHookContext weapon, int shots) =>
+        (int)(shots * attributes.Float(1f, "mult_clipsize_upgrade", weapon.Item));
+
+    /// <summary>
+    /// Whether the ring pierces to a second body (<c>ShouldPenetrate</c>'s
+    /// <c>energy_weapon_penetration</c>, tf_weapon_raygun.cpp:359-370): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c> over zero reads the owner's item,
+    /// which the hook context's <see cref="TFWeaponHookContext.Item"/> is. Any
+    /// non-zero pierces at the light hit's twenty; none takes the sixty.
+    /// </summary>
+    public bool EnergyPenetrates(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "energy_weapon_penetration", weapon.Item) != 0;
+
+    /// <summary>
+    /// Whether the meter stands alone (<c>energy_weapon_no_ammo</c>): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> over zero; set, the weapon keeps no second
+    /// purse for the recharge to draw on.
+    /// </summary>
+    public bool EnergyNoAmmo(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "energy_weapon_no_ammo", weapon.Item) != 0;
 }
 
 /// <summary>
@@ -227,7 +339,10 @@ public sealed class TFCritBoostHook : ITFWeaponHook
     public int HookOrder => Order;
 
     public TFCritOwner CritPolicy(in TFWeaponHookContext weapon, TFCritOwner policy) =>
-        weapon.Conditions is { } conditions && _effects.IsCritBoosted(conditions.Bits, clientSide: !conditions.Authoritative)
+        weapon.Conditions is { } conditions
+        && (_effects.IsCritBoosted(conditions.Bits, clientSide: !conditions.Authoritative)
+            // The pyro's rage boosts only a primary (tf_player_shared.cpp:8078-8082).
+            || (conditions.Has(TFCond.CritboostedRageBuff) && weapon.Script.Category == TFWeaponCategory.Primary))
             ? policy with { CritBoosted = true }
             : policy;
 }

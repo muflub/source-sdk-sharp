@@ -241,6 +241,13 @@ public interface IServerModule
     MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => null;
 
     /// <summary>
+    /// The shield charge's rewrite of a walk's command (null, stock, rewrites
+    /// nothing). Runs on both sides; see <c>IMovementRules.MovementCharge</c>.
+    /// </summary>
+    MovementCharge? GetMovementCharge(int playerIndex, int buttons,
+                                      float forwardMove, float sideMove, float upMove) => null;
+
+    /// <summary>
     /// The ground-categorizing overrides of <c>CategorizePosition</c>
     /// (null, stock's body). Runs on both sides; see
     /// <c>IMovementRules.CategorizePosition</c>.
@@ -264,6 +271,18 @@ public interface IServerModule
     /// The end of one server-side command; see <c>IMovementRules.EndCommand</c>.
     /// </summary>
     void GetEndCommand(int playerIndex) { }
+
+    /// <summary>
+    /// The charge end the command's slow walk names. Server side only, as the
+    /// end's arms; see <c>IMovementRules.ChargeSlowEnd</c>.
+    /// </summary>
+    void GetChargeSlowEnd(int playerIndex) { }
+
+    /// <summary>
+    /// The charge end the blocked step's <paramref name="hit"/> names. Server
+    /// side only; see <c>IMovementRules.ChargeBump</c>.
+    /// </summary>
+    void GetChargeBump(int playerIndex, EntityHandle hit) { }
 
     /// <summary>
     /// The walk's xy trim to the max after Accelerating (false, stock HL2MP:

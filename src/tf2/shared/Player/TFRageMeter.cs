@@ -39,6 +39,17 @@ public static class TFRageMeter
     /// tf_player.cpp:9722).</summary>
     public const float DamageDivisor = 6f;
 
+    /// <summary>The burn arm's divisor, the damage a burning tick builds from
+    /// (stock's <c>3.0f</c>, tf_player.cpp:9733; the Mann-vs-machine 12 waits
+    /// with that mode).</summary>
+    public const float BurnDamageDivisor = 3f;
+
+    /// <summary>The pyro rage's slot in <c>g_RageBuffTypes</c>
+    /// (tf_shareddefs.h:2767, the Phlogistinator's <c>set_buff_type</c>): the
+    /// only flag <c>kRageBuffFlag_OnBurnDamageDealt</c> names, the crit-boost
+    /// rage <see cref="BuffCond"/> answers.</summary>
+    public const int PyroRageBuffType = 5;
+
     /// <summary>The pulses every buff type in <c>g_RageBuffTypes</c> carries
     /// (its third column, tf_shareddefs.h:2760-2769): the deploy drains the
     /// meter over this many one-second ticks.</summary>
@@ -113,5 +124,33 @@ public static class TFRageMeter
             return;
 
         player.RageMeter = Math.Min(FullMeter, player.RageMeter + scale * ((damage * givingScale) / DamageDivisor));
+    }
+
+    /// <summary>
+    /// The meter scale of a buff type that gains on burning, stock's
+    /// <c>g_RageBuffTypes</c> rows whose flag is
+    /// <c>kRageBuffFlag_OnBurnDamageDealt</c> (tf_shareddefs.h:2767): the pyro
+    /// rage alone, scale 1. Every other type answers none — the flag test of
+    /// <c>HandleRageGain</c>'s pyro arm, tf_player.cpp:8749.
+    /// </summary>
+    public static float BurnBuffScale(int buffType) => buffType == PyroRageBuffType ? 1f : 0f;
+
+    /// <summary>
+    /// Book a burning on the pyro's meter: the same shape as
+    /// <see cref="GainOnDamageDealt"/>, the burn arm's divisor over the
+    /// <see cref="BurnBuffScale"/> (tf_player.cpp:9730-9735 — the caller's
+    /// <c>DMG_BURN | DMG_PLASMA</c> test is the damage layer's). The drain
+    /// refuses and the cap holds as the dealt arm's do.
+    /// </summary>
+    public static void GainOnBurnDamage(TFPlayerNetState player, float damage, float givingScale, int buffType)
+    {
+        float scale = BurnBuffScale(buffType);
+        if (scale <= 0f)
+            return;
+
+        if (player.RageDraining)
+            return;
+
+        player.RageMeter = Math.Min(FullMeter, player.RageMeter + scale * ((damage * givingScale) / BurnDamageDivisor));
     }
 }

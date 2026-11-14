@@ -4425,6 +4425,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => _movementRules.Rules.Taunt(playerIndex, frameTime, forwardMove);
 
+    public MovementCharge? GetMovementCharge(int playerIndex, int buttons, float forwardMove, float sideMove, float upMove) => _movementRules.Rules.Charge(playerIndex, buttons, forwardMove, sideMove, upMove);
+
     public CategorizePositionRules? GetCategorizePosition(int playerIndex) => _movementRules.Rules.Categorize(playerIndex);
 
     public FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => _movementRules.Rules.Footing(playerIndex, velocity, planeNormal);
@@ -4432,6 +4434,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public void GetEnemyBlasted(int playerIndex) => _movementRules.Rules.EnemyBlasted(playerIndex);
 
     public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
+
+    public void GetChargeSlowEnd(int playerIndex) => _movementRules.Rules.ChargeSlowEnd(playerIndex);
+
+    public void GetChargeBump(int playerIndex, EntityHandle hit) => _movementRules.Rules.ChargeBump(playerIndex, hit);
 
     public bool GetClampXY(int playerIndex) => _movementRules.Rules.ClampXY(playerIndex);
 

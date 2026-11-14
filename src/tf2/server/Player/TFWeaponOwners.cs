@@ -36,7 +36,8 @@ namespace TF2.Server.Player;
 [SideService(Side.Server, As = [typeof(ITFWeaponOwners)])]
 public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinners winners,
                                          TFPlayerItems items, IEnginePlayers players,
-                                         IEntityDirectory directory, ITFPlayerStats stats) : ITFWeaponOwners
+                                         IEntityDirectory directory, ITFPlayerStats stats,
+                                         ItemSchema? schema = null) : ITFWeaponOwners
 {
     public TFClass ClassOf(int playerIndex) => carriers.Get(playerIndex)?.Class() ?? TFClass.Undefined;
 
@@ -58,6 +59,27 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
     }
 
     public IAttributeProvider? ManagerOf(int playerIndex) => items.ManagerOf(playerIndex);
+
+    /// <summary>
+    /// <c>IsShieldEquipped</c>'s walk (<c>GetEquippedDemoShield</c>,
+    /// tf_player_shared.cpp:626-643): the demoshield item class over the
+    /// player's worn wearables, the gate the speed walk's shield toll takes
+    /// (:11005). No wearables part or schema is no shield, as the null walk.
+    /// </summary>
+    public bool ShieldEquipped(int playerIndex)
+    {
+        if (carriers.Part<TFWearables>(playerIndex) is not { } wearables || schema is null)
+            return false;
+
+        foreach (EntityHandle wearable in wearables.Wearables)
+        {
+            if (directory.Get(wearable) is TFWearableEntity entity
+                && schema.Item(entity.State.ItemDefIndex)?.ItemClass == TFShieldCharge.ShieldItemClass)
+                return true;
+        }
+
+        return false;
+    }
 
     public bool OffGround(int playerIndex)
         => directory.Get(players.GetHandle(playerIndex)) is SsPlayer p
@@ -85,6 +107,9 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
 
     public float NoAttackExpire(int playerIndex) => carriers.Get(playerIndex)?.NoAttackExpire ?? 0f;
 
+    /// <summary>The carrier's banked decapitations, the death hook's count (<see cref="TFDecapitations"/>).</summary>
+    public int DecapitationsOf(int playerIndex) => carriers.Get(playerIndex)?.Decapitations ?? 0;
+
     /// <summary>
     /// The drawn bow holds the jump (<c>CTFCompoundBow::OwnerCanJump</c>,
     /// tf_weapon_compound_bow.cpp:657-660, asked by <c>CanJump</c> at
@@ -101,6 +126,27 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
         return TFWeaponNames.IdOf(players.GetActiveWeapon(player)) != TFWeaponId.CompoundBow
             || directory.Get(players.GetActiveWeaponEntity(player)) is not SsWeapon { State: { } state }
             || !TFBowBehaviour.Drawn(state);
+    }
+
+    /// <summary>
+    /// The pomson's ring hit (stock's <c>ApplyPostHitEffects</c>,
+    /// <c>tf_weaponbase.cpp:5568</c>, :5592): the medic'sÜberCharge rides their
+    /// held medigun's charge meter, the spy's cloak rides their own meter, and
+    /// the caller's scaled percentages come off each, clamped at zero — the
+    /// hundred-point cloak takes a hundred times the fraction (the port's
+    /// cloak meter's own unit, <see cref="TFPlayerNetState.CloakMeter"/>).
+    /// </summary>
+    public void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+    {
+        EntityHandle victim = players.GetHandle(playerIndex);
+
+        if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
+            && directory.Get(players.GetActiveWeaponEntity(victim)) is SsWeapon { State: { } weapon })
+            weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - medicFraction);
+
+        if (spyFraction > 0f && ClassOf(playerIndex) == TFClass.Spy
+            && carriers.Get(playerIndex) is { } state)
+            state.CloakMeter = Math.Max(0f, state.CloakMeter - spyFraction * 100f);
     }
 }
 

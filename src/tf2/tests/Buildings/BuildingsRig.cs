@@ -238,13 +238,13 @@ internal sealed partial class BuildingsRig
         Services.AddInstance(hitGroups);
         Services.AddInstance<ITFPlayerClasses>(classes);
         Services.AddInstance<ITFPlayerResupply>(resupply);
-        Services.AddInstance(new TF2.Shared.Econ.AttributeHooks());
+        Services.AddInstance(Hooks);
         // The carrier fake the blast and the teleporter's hooks read; a fact
         // arms Managers by the player index the subject reads back.
         Services.AddInstance<ITFWeaponOwners>(Owners);
         Services.AddInstance(new TFBlastApplier(Engine, Engine, Engine, Services.Resolve<TFDamageScopes>()!,
                                                 hitGroups, Services.Resolve<DamageInflictors>()!, classes, Log, Engine,
-                                                Owners, new TF2.Shared.Econ.AttributeHooks(),
+                                                Owners, Hooks,
                                                 resupply, Engine, Engine, Registry, Carriers));
 
         // The typed convars the subjects read, held by a backend of the rig's
@@ -314,6 +314,9 @@ internal sealed partial class BuildingsRig
     /// answers on GetIndex and hands the attributes with <see cref="AttributeItem"/>.
     /// </summary>
     public Weapons.FakeOwners Owners { get; } = new();
+
+    /// <summary>The econ hooks the side walks; the entities and the use layers share it.</summary>
+    public TF2.Shared.Econ.AttributeHooks Hooks { get; } = new();
 
     /// <summary>The temp entities, resolved after the engine it orders against.</summary>
     public BuildingTempEnts Effects => _effects ??= new(Engine);

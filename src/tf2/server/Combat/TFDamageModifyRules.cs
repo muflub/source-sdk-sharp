@@ -247,6 +247,12 @@ public static class TFDamageModifyRules
             if (effects.TakesMiniCrits(in victim)
                 || (hit.AttackerIsPlayer && effects.DealsMiniCrits(in attacker)))
                 crit = TFCritType.Mini;
+            // The first sword, bottle or wrench blow after a charge
+            // (:6152-6158): the melee hit's DMG_RADIUS_MAX is the charge's
+            // mini-crit, the swing the end's grant rode.
+            else if (hit.AttackerIsPlayer && (bits & TFDamageBits.RadiusMax) != 0
+                && hit.Weapon is TFWeaponId.Sword or TFWeaponId.Bottle or TFWeaponId.Wrench)
+                crit = TFCritType.Mini;
             // Reflected rockets and grenades (:6159-6164): the blast of a
             // projectile a deflection sent back mini-crits, between the buffed
             // attacker and the crit drink as stock orders the ladder. The
@@ -254,6 +260,11 @@ public static class TFDamageModifyRules
             // (tf_weapon_grenade_pipebomb.cpp:167-170), the non-remote
             // detonate modes — the pipe, never the sticky.
             else if (hit.DeflectedProjectile)
+                crit = TFCritType.Mini;
+            // The Cow Mangler's charged shot (:6165-6170): a hit carrying
+            // TF_DMG_CUSTOM_PLASMA_CHARGED mini-crits, between the deflected
+            // blast and the energy buff as stock orders the ladder.
+            else if (custom == TFDamageCustom.PlasmaCharged)
                 crit = TFCritType.Mini;
             else if (hit.AttackerIsPlayer && attacker.Has(TFCond.EnergyBuff))
                 crit = TFCritType.Mini;
@@ -370,7 +381,22 @@ public static class TFDamageModifyRules
             }
             else if (fullCrit)
             {
-                bonus = (TFDamage.CritMultiplier - 1f) * damage;
+                // crits_become_minicrits (:6764-6777): the held weapon's hook
+                // demotes the full crit to a mini one. Stock clears the
+                // Critical bit only to shut up the lambda's assert, which then
+                // re-or's it — net, the bit stays set and only the crit kind
+                // and the bonus change.
+                if (hooks is not null && hit.WeaponItem is not null
+                    && hooks.Int(0, "crits_become_minicrits", hit.WeaponItem) != 0)
+                {
+                    bonus = (TFDamage.MinicritMultiplier - 1f) * damage;
+                    bits |= TFDamageBits.Critical;
+                    crit = TFCritType.Mini;
+                }
+                else
+                {
+                    bonus = (TFDamage.CritMultiplier - 1f) * damage;
+                }
             }
 
             damage += bonus;

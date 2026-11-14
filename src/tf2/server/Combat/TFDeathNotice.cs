@@ -11,6 +11,7 @@ using SourceSharp.Server;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Combat;
 
@@ -64,7 +65,8 @@ namespace TF2.Server.Combat;
 [SideService(Side.Server)]
 public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entities, TFDamageRecords records,
                                   IGameClock clock, TFPlayerCarriers carriers, ILevelInfo level,
-                                  TFDominations? dominations = null)
+                                  TFDominations? dominations = null,
+                                  ITFWeaponOwners? owners = null, AttributeHooks? attributes = null)
     : IDeathNoticeHook, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -119,7 +121,15 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             custom = TFDamageCustom.Suicide;
         fields.SetInt("customkill", (int)custom);
         fields.SetInt("inflictor_entindex", death.Inflictor != EntityHandle.None ? entities.GetIndex(death.Inflictor) : -1);
-        fields.SetBool("silent_kill", false);
+        // A silent killer causes no death notices (tf_gamerules.cpp:12833-12839): the scorer's
+        // active weapon holding IsSilentKiller() — the item's set_silent_killer ==1,
+        // tf_weaponbase.cpp:6184-6192 — together with the backstab's custom kind makes this
+        // notice silent; everything else keeps silent_kill false.
+        bool silentKill = scorer != EntityHandle.None && entities.IsValid(scorer) && custom == TFDamageCustom.Backstab;
+        if (silentKill && owners is { } own && attributes is { } hook)
+            silentKill = hook.Int(0, "set_silent_killer",
+                                  own.ItemOf(scorer.EntryIndex, players.GetActiveWeapon(scorer))) == 1;   // :6188
+        fields.SetBool("silent_kill", silentKill);
         fields.SetInt("death_flags", dominations?.DeathFlags(victimIndex,
             scorer != EntityHandle.None ? entities.GetIndex(scorer) : -1,
             assister != EntityHandle.None ? entities.GetIndex(assister) : -1) ?? 0);
@@ -168,6 +178,9 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
                 break;
             case TFDamageCustom.Bleeding:
                 name = "tf_weapon_bleed_kill";
+                break;
+            case TFDamageCustom.SapperRecorderDeath:       // tf_gamerules.cpp:12333-12336
+                name = "recorder";
                 break;
             default:
                 if (scorer != EntityHandle.None && inflictor != EntityHandle.None && inflictor == scorer)

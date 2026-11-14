@@ -27,6 +27,9 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public bool ClassSpecialSkill(in WeaponAttackContext attack)
         => attack.Command.OwnerIndex > 0 && players.CloakActivate(attack.Command.OwnerIndex, attack.Now);
 
+    /// <summary>The end is the server's grant: the crit is networked state, the replay reads it as it lands.</summary>
+    public void EndClassSpecialSkill(in WeaponAttackContext attack) { }
+
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) { }
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
@@ -34,6 +37,9 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
 
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    /// <summary>The grant is the server's extinguish; the count is networked state, the replay reads it as it lands.</summary>
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script) => false;
 
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) { }
 
@@ -67,4 +73,6 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) { }
 
     public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) { }
+
+    public void UseRage(in WeaponAttackContext attack, int buffType) { }
 }
