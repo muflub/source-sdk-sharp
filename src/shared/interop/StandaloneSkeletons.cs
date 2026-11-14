@@ -38,6 +38,16 @@ public interface IStandaloneSkeletons
     /// handle that names no standalone entity.</summary>
     int LookupAttachment(EntityHandle entity, string name);
 
+    /// <summary>A bone name to its ZERO-based index, stock's <c>LookupBone</c>:
+    /// -1 for a name the model does not carry, and for a handle that names no
+    /// standalone entity.</summary>
+    int LookupBone(EntityHandle entity, string name);
+
+    /// <summary>The world position of a ZERO-based bone from the same bone
+    /// build <see cref="BoneMatrices"/> makes — the bone-to-world matrix's
+    /// origin: false when there is no skeleton or the index names no bone.</summary>
+    bool GetBonePosition(EntityHandle entity, int bone, out Vector origin);
+
     /// <summary>How many bones the skeleton holds right now (0 until something
     /// asked it to pose).</summary>
     int CachedBoneCount(EntityHandle entity);

@@ -52,6 +52,55 @@ public interface IWeaponGiver
     /// answers minus one for everything.
     /// </summary>
     int CarriedClipOf(EntityHandle player, int typeIndex) => -1;
+
+    /// <summary>
+    /// The catalog row of the player's <paramref name="slot"/>th carried
+    /// weapon. Minus one: nothing carried there. A giver with no carry answers
+    /// minus one for everything.
+    /// </summary>
+    int CarriedRowAt(EntityHandle player, int slot) => -1;
+
+    /// <summary>
+    /// The item meter the player's carried weapon of catalog row
+    /// <paramref name="typeIndex"/> holstered with, and the server second it
+    /// was that — the pair the next deploy's restore advances from, as stock's
+    /// per-slot charge rides the inventory (<c>CTFPlayerShared::
+    /// UpdateItemChargeMeters</c>, tf_player_shared.cpp:7870-7904). False: the
+    /// player carries no such weapon, or nothing ever metered it. A giver with
+    /// no carry answers false for everything.
+    /// </summary>
+    bool CarriedMeterOf(EntityHandle player, int typeIndex, out float meter, out float stamp)
+    {
+        meter = 0f;
+        stamp = 0f;
+        return false;
+    }
+
+    /// <summary>
+    /// The server second the player's carried weapon of catalog row
+    /// <paramref name="typeIndex"/> may next be used — the banked
+    /// <c>NextSecondaryAttack</c> the last holster left (the live word is the
+    /// held weapon entity's, the caller's own to read). False: the player
+    /// carries no such weapon. A giver with no carry answers false.
+    /// </summary>
+    bool CarriedRefireOf(EntityHandle player, int typeIndex, out float stamp)
+    {
+        stamp = 0f;
+        return false;
+    }
+
+    /// <summary>
+    /// The player's carried weapon named by catalog row
+    /// <paramref name="className"/> has its charge moved
+    /// <paramref name="seconds"/> closer to full: the held row's fraction and
+    /// the holstered row's anchor alike, the pair
+    /// <see cref="CarriedMeterOf"/> answers. Stock's
+    /// <c>CTFWeaponBase::DecrementBarRegenTime</c>
+    /// (<c>tf_weaponbase.h:630</c>) is the same walk over the live weapon's
+    /// regen stamp. A giver with no carry, or a row that charges over no
+    /// seconds, answers nothing.
+    /// </summary>
+    void AdvanceCarriedMeter(EntityHandle player, string className, float seconds) { }
 }
 
 /// <summary>

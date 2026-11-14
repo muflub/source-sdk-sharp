@@ -101,13 +101,13 @@ public static class TFMaxAmmoHooks
 
     /// <summary>
     /// The class maximum run through the ammo's hook class over the player's
-    /// own attribute manager (<see cref="ITFWeaponOwners.ManagerOf"/>); an
-    /// unhooked row, or a player with no manager, keeps the class maximum.
+    /// own attribute manager; an unhooked row, or a player with no manager,
+    /// keeps the class maximum.
     /// </summary>
-    public static int Apply(AttributeHooks attributes, ITFWeaponOwners owners, int playerIndex,
+    public static int Apply(AttributeHooks attributes, IAttributeProvider? manager,
                             TFAmmo ammo, int classMax)
         => Of(ammo) is { } hook
-            ? attributes.Int(classMax, hook, owners.ManagerOf(playerIndex))
+            ? attributes.Int(classMax, hook, manager)
             : classMax;
 }
 
@@ -121,14 +121,14 @@ public static class TFMaxAmmoHooks
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFAmmoCarryRule(TFClassTable classes, ITFWeaponOwners? owners = null,
-                                    AttributeHooks? attributes = null) : IAmmoCarryRule, IOrderedHook
+public sealed class TFAmmoCarryRule(TFClassTable classes, ITFWeaponOwners owners,
+                                    AttributeHooks attributes) : IAmmoCarryRule, IOrderedHook
 {
     /// <summary>The rule's order: TF2's layer, below the mods' range (see <see cref="TFClassTable.LoadOrder"/>).</summary>
     public const int Order = 1_000_000 - 1_000 + 20;
 
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly ITFWeaponOwners _owners = owners;
+    private readonly AttributeHooks _attributes = attributes;
 
     public int HookOrder => Order;
 
@@ -142,6 +142,6 @@ public sealed class TFAmmoCarryRule(TFClassTable classes, ITFWeaponOwners? owner
             return maxCarry;
 
         int classMax = tfAmmo == TFAmmo.Grenades3 ? 1 : classes[playerClass].MaxAmmo(tfAmmo);
-        return TFMaxAmmoHooks.Apply(_attributes, _owners, playerIndex, tfAmmo, classMax);
+        return TFMaxAmmoHooks.Apply(_attributes, _owners.ManagerOf(playerIndex), tfAmmo, classMax);
     }
 }

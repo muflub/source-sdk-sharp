@@ -10,6 +10,7 @@ using SourceSharp.Client;
 
 using TF2.Client.Player;
 using TF2.Shared;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
@@ -29,8 +30,11 @@ namespace TF2.Client.Ui;
 public sealed class TFHudLocalPlayer(IEngineHud screen, TFClientPlayerResources resources,
                                      ILocalArsenal arsenal, TFWeaponScripts scripts,
                                      TFClassTable classes, ILocalAmmoPools pools,
-                                     ITFWeaponOwners owners, AttributeHooks hooks) : ITFLocalPlayer
+                                     ITFWeaponOwners owners, AttributeHooks hooks,
+                                     ITFPlayerData data) : ITFLocalPlayer
 {
+    private readonly TFConditionEffects _effects = new();
+
     public string ClassName
     {
         get
@@ -77,6 +81,17 @@ public sealed class TFHudLocalPlayer(IEngineHud screen, TFClientPlayerResources 
     public int Reserve => arsenal.TryGetActive(out _, out _, out int reserve) ? reserve : 0;
 
     public int Team => Row is ({ } live, var index) ? live.State.Team[index] : 0;
+
+    /// <summary>The crit boost's gate (stock's <c>IsCritBoosted</c>,
+    /// tf_player_shared.cpp:8058-8069) over the local player's decoded
+    /// condition words — the same family the weapon glow wears (:7578-7584).
+    /// The client-side arm counts the demo charge, the <c>#ifdef CLIENT_DLL</c>
+    /// of :8061-8063.</summary>
+    public bool Boosted
+        => screen.LocalPlayerIndex is > 0
+           && data.Networked(screen.LocalPlayerIndex) is { } state
+           && _effects.IsCritBoosted(state.Conditions(), clientSide: true);
+
 
     /// <summary>The published metal pool — the local carrier's
     /// <c>TF_AMMO_METAL</c> row (the <see cref="ILocalAmmoPools"/> word),

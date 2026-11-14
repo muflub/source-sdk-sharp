@@ -46,6 +46,20 @@ public interface ITFMedigunWeapons
     /// <summary><c>SetChargeLevel</c>, stock's public meter setter.</summary>
     void SetChargeLevel(int ownerIndex, float level);
 
+    /// <summary>
+    /// <c>SubtractCharge</c> (tf_weapon_medigun.cpp:1067): the ask off the meter,
+    /// floored at zero; false with no medigun state to move — the pomson's
+    /// on-hit drain reads the answer as stock reads <c>bDidDrain</c>.
+    /// </summary>
+    bool SubtractCharge(int ownerIndex, float amount);
+
+    /// <summary>
+    /// <c>SetChargeLevelToPreserve</c> (tf_weapon_medigun.cpp:791): the spawn charge the
+    /// meter keeps through the next deploy, capped by the owner's
+    /// ubercharge_preserved_on_spawn_max (the Vita-Saw's organs).
+    /// </summary>
+    void PreserveCharge(int ownerIndex, float amount);
+
     /// <summary>The beam's patient, or -1 (<c>GetHealingTarget</c>).</summary>
     int HealingTargetIndex(int ownerIndex);
 
@@ -71,6 +85,15 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     private const float TargetCheckInterval = 1f;  // Maintain/FindNewTargetInSlot's gate
     private const float ThinkInterval = 0.2f;      // HealTargetThink's cadence
     private const float ClientTimeout = 5f;        // the watchdog's now − GetTimeBase bound
+    internal const int ResistWeaponMode = 3;       // MEDIGUN_RESIST (tf_weapon_medigun.h:23-29): the Vaccinator's set_weapon_mode row
+    internal const int ResistCount = 3;            // MEDIGUN_NUM_RESISTS (tf_weapon_medigun.h:31-37)
+    internal const int MedigunChargeBulletResist = 3;   // MEDIGUN_CHARGE_BULLET_RESIST (tf_shareddefs.h:593), GetResistType's base
+    internal const float ResistChunkSize = 0.25f;  // GetMinChargeAmount (:803-807): one quarter of the meter (weapon_medigun_resist_num_chunks defaults to 4, :78)
+    internal const float VaccinatorResistSeconds = 3f;   // weapon_vaccinator_resist_duration (:89)
+    internal const float VitaSawChargePerHit = 0.15f;  // VITASAW_CHARGE_PER_HIT (tf_weapon_bonesaw.cpp:19)
+
+    /// <summary>ubercharge_preserved_on_spawn_max, the Vita-Saw's kept-charge cap.</summary>
+    internal const string VitaSawPreserveAttrib = "ubercharge_preserved_on_spawn_max";
 
     private readonly IEnginePlayers players;
     private readonly IEngineEntities entities;
@@ -80,28 +103,36 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     private readonly ITFPlayerResupply resupply;
     private readonly TFInvulnTimeConVar invulnTime;
     private readonly WeaponMedigunChargeRateConVar medigunChargeRate;
-    private readonly ITFPlayerStats? stats;
-    private readonly IEngineGameEvents? events;
-    private readonly IConnectedClients? clients;
-    private readonly ITFPlayerData? data;
+    private readonly ITFPlayerStats stats;
+    private readonly IEngineGameEvents events;
+    private readonly IConnectedClients clients;
+    private readonly ITFPlayerData data;
     private readonly ITFRespawnRooms rooms;
     private readonly AttributeHooks hooks;
-    private readonly ITFWeaponOwners owners;
-    private readonly ITFRoundSetup? roundSetup;
-    private readonly TFMedigunLagCompConVar? lagGate;
-    private readonly ILagCompensation? lagCompensation;
+    private readonly TFPlayerItems items;
+    private readonly ITFRoundSetup roundSetup;
+    private readonly ITFRoundStateView rounds;
+    private readonly TFMedigunLagCompConVar lagGate;
+    private readonly ILagCompensation lagCompensation;
 
     private readonly Dictionary<int, MedicState> medics = new();
+
+    // The charge kept through a death, per owner: recorded as the medigun dies
+    // (RemoveMedigun), spent by the first state the respawn builds (State). Stock
+    // holds it on the weapon's m_flChargeLevelToPreserve and clamps at WeaponReset
+    // (:291-299), then zeroes the keep 100ms into the new life
+    // (tf_player.cpp:2114-2124) — one death's keep, spent once.
+    private readonly Dictionary<int, float> preserved = new();
 
     public TFMedigunWeapon(IEnginePlayers players, IEngineEntities entities, IEngineWorldQuery world,
                            ITFPlayerHealing healing, ITFPlayerConditions conditions, ITFPlayerResupply resupply,
                            TFInvulnTimeConVar invulnTime, WeaponMedigunChargeRateConVar medigunChargeRate,
                            ITFRespawnRooms rooms, AttributeHooks hooks,
-                           ITFWeaponOwners owners,
-                           ITFPlayerStats? stats = null, IEngineGameEvents? events = null,
-                           IConnectedClients? clients = null, ITFPlayerData? data = null,
-                           ITFRoundSetup? roundSetup = null, TFMedigunLagCompConVar? lagGate = null,
-                           ILagCompensation? lagCompensation = null)
+                           TFPlayerItems items,
+                           ITFPlayerStats stats, IEngineGameEvents events,
+                           IConnectedClients clients, ITFPlayerData data,
+                           ITFRoundSetup roundSetup, TFMedigunLagCompConVar lagGate,
+                           ILagCompensation lagCompensation, ITFRoundStateView rounds)
     {
         this.players = players;
         this.entities = entities;
@@ -113,7 +144,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         this.medigunChargeRate = medigunChargeRate;
         this.rooms = rooms;
         this.hooks = hooks;
-        this.owners = owners;
+        this.items = items;
         this.stats = stats;
         this.events = events;
         this.clients = clients;
@@ -121,6 +152,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         this.roundSetup = roundSetup;
         this.lagGate = lagGate;
         this.lagCompensation = lagCompensation;
+        this.rounds = rounds;
     }
 
     public int HookOrder => TFMedigunOrders.Weapon;
@@ -129,9 +161,17 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
 
     public int ClientLifecycleOrder => TFMedigunOrders.Weapon;
 
-    public void OnLevelShutdown() => medics.Clear();
+    public void OnLevelShutdown()
+    {
+        medics.Clear();
+        preserved.Clear();
+    }
 
-    public void OnClientDisconnected(int playerIndex) => medics.Remove(playerIndex);
+    public void OnClientDisconnected(int playerIndex)
+    {
+        medics.Remove(playerIndex);
+        preserved.Remove(playerIndex);
+    }
 
     // ---- the per-command beam: CWeaponMedigun::ItemPostFrame's attack arms -----------------
 
@@ -146,7 +186,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         var mode = script.Primary;
 
         // Stock reads the client's tf_medigun_autoheal per player and fails closed without it.
-        bool autoHeal = clients?.ClientConVar(owner, "tf_medigun_autoheal") == "1";
+        bool autoHeal = clients.ClientConVar(owner, "tf_medigun_autoheal") == "1";
         bool press = held && !state.Attack1Down;
         state.Attack1Down = held;
 
@@ -177,6 +217,16 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         if ((attack.Weapon.LastButtons & (int)WeaponButtons.Attack2) != 0)
             SecondaryAttack(owner, state, now);
 
+        // The Vaccinator's resist cycle rides the reload press edge (:1618-1628): one step
+        // per press, the down-flag let go when the button comes back up.
+        if ((attack.Weapon.LastButtons & (int)WeaponButtons.Reload) != 0 && !state.ReloadDown)
+        {
+            CycleResistType(owner, state, now);
+            state.ReloadDown = true;
+        }
+        else if ((attack.Weapon.LastButtons & (int)WeaponButtons.Reload) == 0 && state.ReloadDown)
+            state.ReloadDown = false;
+
         // The meter's networked state rides the weapon (stock networks
         // m_flChargeLevel on DT_WeaponMedigun): the level, and the clocks the
         // client's replay of the same meter runs on. It is current at the next
@@ -192,6 +242,80 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
 
         Publish(owner, state);
     }
+
+    // ---- the Vaccinator's resist cycle: CWeaponMedigun::CycleResistType ---------------------
+
+    /// <summary>
+    /// <c>CWeaponMedigun::CycleResistType</c> (:838-901): the Vaccinator's three resists in
+    /// bullet, blast, fire order, one step per reload press (:876-877). The attach's passive
+    /// comes off the patient and the medic when this medic — or nobody — put it on
+    /// (:855-871); the medic's own recalc runs either way (:883-886), and the new passive
+    /// pair lands on patient and medic only under a patient (:889-895).
+    /// </summary>
+    private void CycleResistType(int owner, MedicState state, float now)
+    {
+        var ownerHandle = players.GetHandle(owner);
+
+        // Resist medigun only (:841), and never mid-release (:844).
+        if (hooks.Int(0, "set_weapon_mode", items.ManagerOf(owner)) != ResistWeaponMode || state.Releasing)
+            return;
+
+        var oldPassive = SmallResistCond(ResistType(owner, state));
+        if (state.HealingTarget >= 0)
+            RemoveIfOwnOrNoProvider(players.GetHandle(state.HealingTarget), oldPassive, ownerHandle);   // :853-862
+        RemoveIfOwnOrNoProvider(ownerHandle, oldPassive, ownerHandle);                                   // :864-872
+
+        state.ResistIndex = (state.ResistIndex + 1) % ResistCount;                                       // :876-877
+
+        healing.RecalculateChargeEffects(ownerHandle, now);                                              // :883-886
+        if (state.HealingTarget >= 0)
+        {
+            var patient = players.GetHandle(state.HealingTarget);
+            healing.RecalculateChargeEffects(patient, now);                                              // :892
+            var passive = SmallResistCond(ResistType(owner, state));
+            conditions.Add(patient, passive, TFConditions.Permanent, ownerHandle);                      // :893
+            conditions.Add(ownerHandle, passive, TFConditions.Permanent, ownerHandle);                  // :894
+        }
+    }
+
+    /// <summary>
+    /// <c>GetConditionProvider</c>'s remove gate (:855-861, :867-871): the old passive comes
+    /// off only when this medic, or nobody, applied it; another medic's bubble stands.
+    /// </summary>
+    private void RemoveIfOwnOrNoProvider(EntityHandle player, TFCond cond, EntityHandle ownerHandle)
+    {
+        EntityHandle provider = conditions.Of(player.EntryIndex)?.Provider(cond) ?? default;
+        if (provider == ownerHandle || provider == default)
+            conditions.Remove(player, cond);
+    }
+
+    /// <summary>
+    /// <c>GetChargeType</c> (:818-832) and <c>GetResistType</c> (:906-914): the item's charge
+    /// row plus the cycles pressed, folded onto the three resists. A manager that names no
+    /// charge row answers the plain base, as stock's hook default does.
+    /// </summary>
+    private int ResistType(int owner, MedicState state)
+    {
+        int chargeType = hooks.Int(0, "set_charge_type", items.ManagerOf(owner)) + state.ResistIndex;   // :829
+        int resist = (chargeType - MedigunChargeBulletResist) % ResistCount;                               // :910-912
+        return resist < 0 ? resist + ResistCount : resist;
+    }
+
+    /// <summary><c>g_MedigunResistConditions</c>' passive half (:66-71): the attach's small resist.</summary>
+    private static TFCond SmallResistCond(int resistType) => resistType switch
+    {
+        1 => TFCond.MedigunSmallBlastResist,
+        2 => TFCond.MedigunSmallFireResist,
+        _ => TFCond.MedigunSmallBulletResist,
+    };
+
+    /// <summary><c>g_MedigunResistConditions</c>' deployed half (:66-71): the bubble's typed uber.</summary>
+    private static TFCond UberResistCond(int resistType) => resistType switch
+    {
+        1 => TFCond.MedigunUberBlastResist,
+        2 => TFCond.MedigunUberFireResist,
+        _ => TFCond.MedigunUberBulletResist,
+    };
 
     // ---- the charge, as stock's weapon keeps it on itself -----------------------------
 
@@ -213,6 +337,39 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     }
 
     /// <summary>
+    /// Stock's <c>SetChargeLevelToPreserve</c> (tf_weapon_medigun.cpp:791-798): the
+    /// Vita-Saw's organs ride here, the amount clamped by the owner-walked
+    /// ubercharge_preserved_on_spawn_max — stock's second walk of the same attribute,
+    /// ON_OTHER the owner, beside the weapon walk that gated the caller.
+    /// </summary>
+    public void PreserveCharge(int ownerIndex, float amount)
+    {
+        float cap = hooks.Float(0f, VitaSawPreserveAttrib, items.ManagerOf(ownerIndex));
+        State(ownerIndex).Preserve = MathF.Min(amount, cap);
+    }
+
+    /// <summary>
+    /// Stock's <c>CWeaponMedigun::SubtractCharge</c> (tf_weapon_medigun.cpp:1067-1071):
+    /// the ask, floored beneath zero, off the meter — the pomson's on-hit charge
+    /// drain is the caller (<c>ApplyPostHitEffects</c>, tf_weaponbase.cpp:5582,
+    /// whose own <c>IsReleasingCharge</c> gate stands there too). The deploy-state
+    /// arm's resist chunks and release stop ride the release clock's own
+    /// zero-crossing, which a refused drain never reaches; the meter's word on the
+    /// weapon entity waits for the next command the gun answers, the recorded
+    /// lag. No medigun state is stock's null <c>pMedigun</c> (:5571): nothing to
+    /// drain, the ask answered.
+    /// </summary>
+    public bool SubtractCharge(int ownerIndex, float amount)
+    {
+        if (!medics.TryGetValue(ownerIndex, out var state))
+            return false;
+
+        state.Charge = MathF.Max(0f, state.Charge - MathF.Max(0f, amount));
+        Publish(ownerIndex, state);
+        return true;
+    }
+
+    /// <summary>
     /// The medigun's state onto its owner's carrier — the release and the beam's
     /// patient (the charge LEVEL rides the weapon's own state, written in
     /// <see cref="Heal"/>: stock networks it on DT_WeaponMedigun). Every entry
@@ -220,10 +377,11 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     /// </summary>
     private void Publish(int ownerIndex, MedicState state)
     {
-        if (data?.Networked(ownerIndex) is not { } carrier)
+        if (data.Networked(ownerIndex) is not { } carrier)
             return;
         carrier.ChargeReleasing = state.Releasing;
         carrier.HealTargetIndex = state.HealingTarget;
+        carrier.MedicCharge = state.Charge;
     }
 
     /// <summary>
@@ -235,7 +393,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     {
         var state = State(ownerIndex);
         state.Holstered = false;
-        healing.NoteReleasing(ownerIndex, state.Releasing);   // IsReleasingCharge = releasing and not holstered
+        healing.NoteReleasing(ownerIndex, state.Releasing, state.ChargeType);   // IsReleasingCharge = releasing and not holstered
         if (state.Releasing)
             healing.RecalculateChargeEffects(players.GetHandle(ownerIndex), now);
         state.NextTargetCheckTime = now;
@@ -253,7 +411,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             return;
         RemoveHealingTarget(ownerIndex, state, now);
         state.Holstered = true;
-        healing.NoteReleasing(ownerIndex, false);              // IsReleasingCharge includes not-holstered
+        healing.NoteReleasing(ownerIndex, false, state.ChargeType);              // IsReleasingCharge includes not-holstered
         healing.RemoveChargeEffect(players.GetHandle(ownerIndex));
         Publish(ownerIndex, state);
     }
@@ -275,9 +433,15 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             healing.StopHealing(patient, players.GetHandle(ownerIndex), now);
         }
         state.Releasing = false;
-        healing.NoteReleasing(ownerIndex, false);
+        healing.NoteReleasing(ownerIndex, false, state.ChargeType);
         healing.RemoveChargeEffect(players.GetHandle(ownerIndex));
         Publish(ownerIndex, state);
+        // The Vita-Saw's keep (WeaponReset's round-running arm,
+        // tf_weapon_medigun.cpp:291-295): a death mid-round leaves the lesser of
+        // the meter and the preserved cap for the next spawn; outside a round
+        // stock's reset zeroes the meter outright, as a missing view does here.
+        if (rounds.State == RoundState.RoundRunning)
+            preserved[ownerIndex] = MathF.Min(state.Charge, state.Preserve);
         medics.Remove(ownerIndex);
     }
 
@@ -289,16 +453,16 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         // while tf_medigun_lagcomp is on, the target search sees the other
         // players where the medic saw them; stock reads the flag at both ends.
         EntityHandle shooter = players.GetHandle(owner);
-        if (lagGate?.Value ?? true)
-            lagCompensation?.Start(shooter);
+        if (lagGate.Value)
+            lagCompensation.Start(shooter);
         try
         {
             HealPrimary(owner, state, mode, now);
         }
         finally
         {
-            if (lagGate?.Value ?? true)
-                lagCompensation?.Finish(shooter);
+            if (lagGate.Value)
+                lagCompensation.Finish(shooter);
         }
     }
 
@@ -326,7 +490,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             // The setup round keeps the meter building: the crawl and the full-health
             // bonus arm only outside it (tf_weapon_medigun.cpp:1288, 1321 — stock's
             // !(InSetup() && GetActiveRoundTimer())).
-            bool buildBonus = roundSetup is not { InSetupWithRoundTimer: true };
+            bool buildBonus = !roundSetup.InSetupWithRoundTimer;
 
             var patient = players.GetHandle(state.HealingTarget);
             if (buildBonus && entities.GetHealth(patient) >= (int)(healing.MaxBuffedHealth(patient) * 0.95f))
@@ -339,8 +503,8 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             // after the healer split and before the patient's bonus, as stock orders
             // them (tf_weapon_medigun.cpp:1327-1332).
             if (buildBonus && entities.GetHealth(patient) >= resupply.MaxHealth(patient))
-                amount = hooks.Float(amount, "mult_medigun_overheal_uberchargerate", owners.ManagerOf(owner));
-            amount = hooks.Float(amount, "mult_medigun_uberchargerate", owners.ManagerOf(owner));
+                amount = hooks.Float(amount, "mult_medigun_overheal_uberchargerate", items.ManagerOf(owner));
+            amount = hooks.Float(amount, "mult_medigun_uberchargerate", items.ManagerOf(owner));
 
             // The bonus the patient gives the healer (:1329-1340): the hook rides the
             // patient's own manager, and stock asks the rooms for patient and medic in
@@ -356,13 +520,13 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
                 bool inRespawnRoom = rooms.PointInRespawnRoom(players.GetHandle(heldIndex), medicCenter, false)
                                   || rooms.PointInRespawnRoom(medic, medicCenter, false);
                 if (!inRespawnRoom)
-                    amount = hooks.Float(amount, "mult_uberchargerate_for_healer", owners.ManagerOf(heldIndex));
+                    amount = hooks.Float(amount, "mult_uberchargerate_for_healer", items.ManagerOf(heldIndex));
             }
 
             // The setup round's triple, the last word before the meter takes it
             // (tf_weapon_medigun.cpp:1347-1350). The quick-build x4 beside it is
             // MvM's IsQuickBuildTime, still on the ledger.
-            if (roundSetup is { InSetupWithRoundTimer: true })
+            if (roundSetup.InSetupWithRoundTimer)
                 amount *= 3f;
 
             state.Charge = Math.Min(1f, state.Charge + amount);
@@ -444,8 +608,58 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             return;
         var patient = players.GetHandle(patientIndex);
         healing.Heal(patient, ownerHandle, mode.Damage, now,
-                     ITFPlayerHealing.StandardOverhealBonus, ITFPlayerHealing.StandardOverhealDecayMult);
+                     OverHealBonus(owner, patientIndex), OverHealDecayMult(owner));
         healing.RecalculateChargeEffects(patient, now);
+
+        // The Vaccinator's attach (:1032-1037): the small resist pair lands on patient and
+        // medic with the beam, this medic its provider.
+        if (hooks.Int(0, "set_weapon_mode", items.ManagerOf(owner)) == ResistWeaponMode)
+        {
+            var passive = SmallResistCond(ResistType(owner, state));
+            conditions.Add(patient, passive, TFConditions.Permanent, ownerHandle);       // :1035
+            conditions.Add(ownerHandle, passive, TFConditions.Permanent, ownerHandle);    // :1036
+        }
+    }
+
+    /// <summary>
+    /// <c>CWeaponMedigun::GetOverHealBonus</c> (:2664-2703): bonuses additive,
+    /// penalties percentage — the cvar's base walked by the medic's own
+    /// <c>mult_medigun_overheal_amount</c>, then the patient's
+    /// <c>mult_patient_overheal_penalty</c> (:2671) and its active weapon's twin
+    /// (:2672); the mod rides the running value, as stock's one float does. The
+    /// upgrade and rune-carrier arms (:2689-2700) wait with the other reads on
+    /// the deferred list. Stock's base reads <c>tf_max_health_boost</c> live;
+    /// the seam holds it as the healing side's constant (docs/divergences.md),
+    /// so the no-attribute walk answers exactly that constant back.
+    /// </summary>
+    private float OverHealBonus(int owner, int patientIndex)
+    {
+        float bonus = ITFPlayerHealing.StandardOverhealBonus - 1f;          // :2667
+
+        float mod = hooks.Float(1f, "mult_medigun_overheal_amount", items.ManagerOf(owner));                                     // :2669
+        mod = hooks.Float(mod, "mult_patient_overheal_penalty", items.ManagerOf(patientIndex));                                   // :2671
+        mod = hooks.Float(mod, "mult_patient_overheal_penalty_active", ActiveItemOf(patientIndex));                              // :2672
+
+        if (mod >= 1f)                       // :2673-2676: bonuses add to the base
+            bonus += mod;
+        else if (bonus > 0f)                 // :2677-2681: penalties scale the base, the +1 rebuilds the floor
+            bonus = bonus * mod + 1f;
+
+        return Math.Max(bonus, 1f);          // :2683-2687 safety net
+    }
+
+    /// <summary>
+    /// <c>CWeaponMedigun::GetOverHealDecayMult</c> (:2708): the drain multiplier this heal
+    /// carries — <c>mult_medigun_overheal_decay</c> walks the medic's items (:2711), and half
+    /// the owner's <c>overheal_expert</c> rides on top (:2712, hooked on the owner at :2726).
+    /// The patient keeps the lowest of its healers' multipliers, which is what the overheal
+    /// drain divides by (<c>m_flBestOverhealDecayMult</c>, tf_player_shared.cpp:2531).
+    /// </summary>
+    private float OverHealDecayMult(int owner)
+    {
+        float mult = hooks.Float(1f, "mult_medigun_overheal_decay", items.ManagerOf(owner));     // :2711
+        float expert = hooks.Float(0f, "overheal_expert", items.ManagerOf(owner));               // :2726
+        return Math.Max(mult, mult + expert / 2f);                                               // :2712
     }
 
     /// <summary>
@@ -490,30 +704,77 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
 
     /// <summary>The target's <c>m_nDisguiseTeam</c>, or unassigned when it has no carrier.</summary>
     private int DisguiseTeamOf(EntityHandle target)
-        => data?.Networked(target.EntryIndex)?.DisguiseTeam ?? (int)TFTeam.Unassigned;
+        => data.Networked(target.EntryIndex)?.DisguiseTeam ?? (int)TFTeam.Unassigned;
 
     // ---- CWeaponMedigun::ItemPostFrame's secondary arm: the ÜberCharge release ------------------
 
     private void SecondaryAttack(int owner, MedicState state, float now)
     {
-        if (state.Charge < 1f || state.Releasing)
+        var ownerHandle = players.GetHandle(owner);
+        // Stock captures the patient whole (:1816-1820); without one the arms run solo.
+        EntityHandle patientHandle = state.HealingTarget >= 0 ? players.GetHandle(state.HealingTarget) : default;
+        int mode = hooks.Int(0, "set_weapon_mode", items.ManagerOf(owner));    // GetMedigunType (:781-785)
+
+        // The Vaccinator's early outs (:1822-1834): a bubble already on the medic — and on
+        // the patient too, when there is one — makes a held button answer nothing.
+        if (mode == ResistWeaponMode)
+        {
+            var bubble = UberResistCond(ResistType(owner, state));
+            if (conditions.InCond(ownerHandle, bubble)
+                && (patientHandle == default || conditions.InCond(patientHandle, bubble)))
+                return;
+        }
+
+        // The deny (:1839-1844): the plain gun wants the whole meter, the Vaccinator one
+        // quarter (GetMinChargeAmount :803-813), and never a second release while one runs.
+        float chunk = mode == ResistWeaponMode ? ResistChunkSize : 1f;
+        if (state.Charge < chunk || state.Releasing)
             return;
 
-        var ownerHandle = players.GetHandle(owner);
         // Stock gates the release on the owner's CanRecieveMedigunChargeEffect only
-        // (tf_weapon_medigun.cpp:1863): the patient may be NULL (:1822-1826), and the
-        // patient's own refusal lives inside their recalc (tf_player_shared.cpp:8899).
+        // (:1857): the patient may be NULL (:1822-1826), and the patient's own refusal
+        // lives inside their recalc (tf_player_shared.cpp:8899).
         if (!healing.CanReceiveMedigunChargeEffect(ownerHandle))
             return;
 
-        state.Releasing = true;
-        healing.NoteReleasing(owner, true);
+        if (mode == ResistWeaponMode)
+        {
+            // The bubble arm (:1979-1991): the typed uber goes straight onto the medic,
+            // then the patient, for the resist seconds plus the medic's add_uber_time;
+            // the meter pays one chunk at once and no drain runs. The plain arm's stat
+            // and recalc grants stand down (:1883, :1903-1915).
+            float seconds = hooks.Float(VaccinatorResistSeconds, "add_uber_time", items.ManagerOf(owner));
+            var bubble = UberResistCond(ResistType(owner, state));
+            conditions.Add(ownerHandle, bubble, seconds, ownerHandle);                   // :1986
+            state.Charge -= chunk;                                                       // :1987
+            if (patientHandle != default)
+                conditions.Add(patientHandle, bubble, seconds, ownerHandle);             // :1990
+        }
+        else
+        {
+            state.Releasing = true;
+            // Stock's GetChargeType (:818-832): the item's set_charge_type attribute names
+            // the charge effect — MEDIGUN_CHARGE_INVULN = 0 stays the plain über, rows 1-5
+            // (tf_shareddefs.h:587-598) name their g_MedigunEffects rows
+            // (tf_weapon_medigun.cpp:49-56).
+            state.ChargeType = hooks.Int(0, "set_charge_type", items.ManagerOf(owner));
+            healing.NoteReleasing(owner, true, state.ChargeType);
 
-        Fire("player_invulnerable", e => events!.EventSetInt(e, "userid", players.GetUserId(ownerHandle)));
-        stats?.Increment(ownerHandle, TFStat.Invulns, 1);
-        healing.RecalculateChargeEffects(ownerHandle, now);
-        if (state.HealingTarget >= 0)
-            healing.RecalculateChargeEffects(players.GetHandle(state.HealingTarget), now);
+            // The player_invulned event is the recalc's grant arm (SendNewInvulnGameEvent,
+            // TFPlayerHealing), not the pop's; Event_PlayerInvulnerable (:1897) is the stat above.
+            stats.Increment(ownerHandle, TFStat.Invulns, 1);
+
+            // The condition itself is nobody's to add here: stock's pop only recalculate the
+            // affected shares (:1903-1915), whose SetChargeEffect grants the row to the
+            // covered player — medic and patient alike — for the release rate plus the
+            // provider's add_uber_time, plus one (tf_player_shared.cpp:9053-9055, :9074).
+            // The release's length is the drain's, not this add's.
+            healing.RecalculateChargeEffects(ownerHandle, now);
+            if (state.HealingTarget >= 0)
+                healing.RecalculateChargeEffects(players.GetHandle(state.HealingTarget), now);
+        }
+
+        // The deployed event rides every mode's pop (:1920-1929).
         Fire("player_chargedeployed", e =>
         {
             events!.EventSetInt(e, "userid", players.GetUserId(ownerHandle));
@@ -552,7 +813,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             // TeamFortress_SetSpeed beside it (:968) is the movement layer's own per-move read.
             if (state.Healing && entities.IsPlayer(target))
             {
-                int patientClass = data?.Networked(state.HealingTarget)?.PlayerClass ?? 0;
+                int patientClass = data.Networked(state.HealingTarget)?.PlayerClass ?? 0;
                 if (patientClass != state.HealTargetClass)
                 {
                     state.HealTargetClass = patientClass;
@@ -567,7 +828,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             // The release's seconds ride the medic's walk, carried in an int as stock
             // carries it (tf_weapon_medigun.cpp:1447-1448) — the truncation is stock's.
             int releaseSeconds = (int)hooks.Float(TFMedigunBehaviour.ChargeReleaseRate, "add_uber_time",
-                                                  owners.ManagerOf(ownerIndex));
+                                                  items.ManagerOf(ownerIndex));
             float baseAmount = frametime / releaseSeconds;
             float amount = baseAmount;
             state.Detached.RemoveAll(d => now - d.Time > invulnTime.Value);
@@ -582,7 +843,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
                 // the release — wears its uber off.
                 state.Charge = 0f;
                 state.Releasing = false;
-                healing.NoteReleasing(ownerIndex, false);
+                healing.NoteReleasing(ownerIndex, false, state.ChargeType);
                 healing.RecalculateChargeEffects(ownerHandle, now);
                 if (state.HealingTarget >= 0)
                     healing.RecalculateChargeEffects(players.GetHandle(state.HealingTarget), now);
@@ -620,13 +881,31 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         return false;
     }
 
+    /// <summary>The active weapon's item (<see cref="TF2.Shared.ITFWeaponOwners.ActiveItemOf"/>'s read): the
+    /// name the engine holds, then the items table — the owners seam's shape without the seam, whose
+    /// ctor cycle with <see cref="TFServerWeaponOwners"/>' medigun link it leaves.</summary>
+    private IAttributeProvider? ActiveItemOf(int playerIndex)
+    {
+        string name = players.GetActiveWeapon(players.GetHandle(playerIndex));
+        return name.Length > 0 ? items.Of(playerIndex, name) : null;
+    }
+
     private MedicState State(int ownerIndex)
-        => medics.TryGetValue(ownerIndex, out var state) ? state : medics[ownerIndex] = new MedicState();
+    {
+        if (medics.TryGetValue(ownerIndex, out var state))
+            return state;
+        state = new MedicState();
+        // The kept charge spends once, on the first state the new life builds
+        // (stock's WeaponReset clamp, then PostSpawnThink's zero at
+        // tf_player.cpp:2114-2124).
+        // A keep carried into a new round's setup is stock's zero (:296-299).
+        if (preserved.Remove(ownerIndex, out float kept) && rounds.State == RoundState.RoundRunning)
+            state.Charge = Math.Clamp(kept, 0f, 1f);
+        return medics[ownerIndex] = state;
+    }
 
     private void Fire(string name, Action<IntPtr> fill)
     {
-        if (events is null)
-            return;
         IntPtr e = events.EventCreate(name);
         if (e == IntPtr.Zero)
             return;
@@ -637,7 +916,9 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     private sealed class MedicState
     {
         public float Charge;
+        public float Preserve;               // m_flChargeLevelToPreserve: the spawn keep (the Vita-Saw's organs)
         public bool Releasing;
+        public int ChargeType;              // the released medigun_charge_types row (GetChargeType at the pop)
         public bool Holstered;
         public int HealingTarget = -1;
         public bool Healing;
@@ -647,6 +928,8 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         public bool Attack1Down;
         public int LastHealingTarget = -1;   // stock's m_hLastHealingTarget: the patient the last detach left (:1726)
         public int HealTargetClass;          // stock's m_nHealTargetClass, the class the last think saved (ctor init 0, :313)
+        public int ResistIndex;              // m_nChargeResistType: the Vaccinator's cycles (GetChargeType :829)
+        public bool ReloadDown;              // m_bReloadDown: the reload press edge (ItemPostFrame :1618-1628)
         public readonly List<(int Target, float Time)> Detached = new();
     }
 }

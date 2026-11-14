@@ -57,7 +57,8 @@ public interface ITFPlayerStats
 
 /// <summary>The server's <see cref="ITFPlayerStats"/>, and <c>CalcPlayerScore</c> over them.</summary>
 [SideService(Side.Server, As = [typeof(ITFPlayerStats)])]
-public sealed class TFPlayerStats : ITFPlayerStats, ITeamRoundListener, IOrderedHook, IGameLifecycle, IClientLifecycle
+public sealed class TFPlayerStats : ITFPlayerStats, ITeamRoundListener, IOrderedHook, IGameLifecycle, IClientLifecycle,
+                                    IRejoinScoreHook
 {
     private const int Count = (int)TFStat.Total;
 
@@ -159,6 +160,23 @@ public sealed class TFPlayerStats : ITFPlayerStats, ITeamRoundListener, IOrdered
     void IGameLifecycle.OnLevelShutdown() => _byPlayer.Clear();
 
     void IClientLifecycle.OnClientDisconnected(int entIndex) => _byPlayer.Remove(entIndex);
+
+    /// <summary>
+    /// A leaving player's stats, kept by the core's <see cref="RejoinScores"/>
+    /// (plan_bots_teams_tf2 A.6): the score and every stat the scoreboard
+    /// shows come back when they rejoin the same match. Captured before this
+    /// class forgets the leaver (the core's client order runs first).
+    /// </summary>
+    object? IRejoinScoreHook.Capture(EntityHandle player)
+        => _byPlayer.TryGetValue(player.EntryIndex, out var stats)
+            ? ((int[])stats.Round.Clone(), (int[])stats.Accumulated.Clone())
+            : null;
+
+    void IRejoinScoreHook.Restore(EntityHandle player, object state)
+    {
+        if (state is (int[] round, int[] accumulated))
+            _byPlayer[player.EntryIndex] = ((int[])round.Clone(), (int[])accumulated.Clone());
+    }
 
     private (int[] Round, int[] Accumulated) Of(int playerIndex)
     {

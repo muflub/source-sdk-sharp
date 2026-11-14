@@ -69,11 +69,11 @@ public enum TFTeleporterState
 /// per-state sounds are deferred rows; the exit is reached at deck height
 /// because the models are deferred with it. The arrival's box sweeps for
 /// enemies but not for solid blockers — the abort arm needs solidity and
-/// collision-group reads our seams do not have. The direction arrow is
-/// narrowed: stock shows it with <c>SetBodygroup</c> (:1215-1241) and this
-/// tree has no bodygroup seam, and the yaw it sets is the
-/// <c>m_flYawToExit</c> SendPropFloat (:54), a client-visible word the
-/// buildings do not yet carry (the 2.14 row of deferred.tsv).
+/// collision-group reads our seams do not have. The direction arrow rides the
+/// body-parts read and the pose write: an entrance whose match is ready shows
+/// it, and the yaw onto that match goes onto the model's <c>direction</c> pose
+/// parameter (<c>ShowDirectionArrow</c>, tf_obj_teleporter.cpp:1215-1241, read
+/// client-side at c_obj_teleporter.cpp:312/:326).
 /// </para>
 /// </summary>
 [ScriptedEntity(TFTeleporter.MapClass, ScriptedEntityKind.Brush)]
@@ -94,8 +94,10 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
                                  ITempEnts temps, IEngineSound sound, IScreenEffects screen,
                                  IEnginePlayers enginePlayers, TFTeleporterFovStartConVar fovStart,
                                  TFTeleporterFovTimeConVar fovTime,
-                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
+                                 TFPlayerCarriers carriers, TFConceptSpeech speech,
+                                 ITFRevengeCrits crits, ServerBodygroups bodygroups,
+                                 IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     public const string MapClass = "obj_teleporter";
 
@@ -220,12 +222,50 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
     [SaveField] private EntityHandle _matchHandle;
     [SaveField] private int _timesUsed;
 
+    /// <summary>Stock's <c>m_bShowDirectionArrow</c>: the flip cache the arrow
+    /// turns over (<c>ShowDirectionArrow</c>, tf_obj_teleporter.cpp:1217).</summary>
+    [SaveField] private bool _showDirectionArrow;
+
+    // The arrow yaw's pose-param cache, re-derived when the model changes,
+    // as the sentry's AimPose re-looks its pair up (TFSentryGun.cs:720-739).
+    private string? _arrowModel;
+    private int _arrowParam = -1;
+
     // Stock sends from the touch callback itself (:639-648); this port's send
     // is think-driven, so the pad carries whether the booked rider is on it —
     // a walked-off rider waits out the grace on the pad's edge, unsent.
     private bool _onPad;
 
     public override TFObjectType Type => TFObjectType.Teleporter;
+
+    /// <summary>
+    /// Stock's <c>TeleporterTouch</c> is re-called every tick while the rider
+    /// stands on the pad (tf_obj_teleporter.cpp:639-648 re-reads the velocity
+    /// on every touch), so the pad must be asked every tick it holds somebody:
+    /// a rider that only arrived once, then waited out a jog past the pad's
+    /// edge, still has to ride when it comes back to a stop on it.
+    /// </summary>
+    public override bool TouchEveryTick => true;
+
+    /// <summary>
+    /// <c>CObjectTeleporter::GetUpgradeMetalRequired</c>
+    /// (tf_obj_teleporter.cpp:309-322): the table's price times the builder's
+    /// <c>mod_teleporter_cost</c> — the Eureka Effect's upgrades for half the
+    /// metal — the builder asked ON_OTHER over their own attributes, the
+    /// price asked whole at the pot's checks and the panel's fraction.
+    /// </summary>
+    public override int RequiredUpgradeMetal
+    {
+        get
+        {
+            int cost = base.RequiredUpgradeMetal;
+            if (Builder == EntityHandle.None)
+                return cost;
+
+            float mod = Hooks!.Float(1f, "mod_teleporter_cost", Owners!.ManagerOf(Builder.EntryIndex));
+            return mod != 1f ? (int)(cost * mod) : cost;
+        }
+    }
 
     /// <summary><c>m_eTeleporterState</c>. (<see cref="TFBaseObject.State"/>'s
     /// wire record hides behind it on the teleporter alone.)</summary>
@@ -321,18 +361,38 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
         if (IsDisabled || !MatchReady(match))
         {
             if (_state != TFTeleporterState.Idle)
+            {
                 GoIdle();
+                ShowDirectionArrow(false);        // stock :1056-1057, beside the revert to idle
+            }
+
             SetContextThink(TeleporterThink, TeleporterThinkDelay);
             return;
         }
 
         switch (_state)
         {
+            // The building arm of stock's BUILDING/UPGRADING case (:1078-1081):
+            // a construction in progress wears no arrow. The upgrade state is
+            // folded into Building by this enum's narrowing (:25-34), so one
+            // arm carries both halves of stock's pair.
+            case TFTeleporterState.Building:
+                ShowDirectionArrow(false);
+                break;
+
             case TFTeleporterState.Idle:
                 _state = TFTeleporterState.Ready;
+                if (ShowsArrow)
+                {
+                    ShowDirectionArrow(true);     // :1086-1094
+                }
                 break;
 
             case TFTeleporterState.Ready:
+                if (ShowsArrow)
+                {
+                    ShowDirectionArrow(true);     // :1098-1102
+                }
                 TrySend(match);
                 break;
 
@@ -358,6 +418,73 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
         }
 
         SetContextThink(TeleporterThink, TeleporterThinkDelay);
+    }
+
+    /// <summary>Stock's show guard (:1091, :1099): an entrance always wears the arrow;
+    /// an exit only under the owner's <c>bidirectional_teleport</c>.</summary>
+    private bool ShowsArrow
+        => Mode == 0
+           || _hooks.Int(0, "bidirectional_teleport", _owners.ManagerOf(Entities.GetIndex(Builder))) == 1;
+
+    /// <summary>
+    /// <c>ShowDirectionArrow</c> (tf_obj_teleporter.cpp:1215-1241): the arrow turns over
+    /// its flip cache — the body digit of the model's <c>teleporter_direction</c> group
+    /// (:1219-1222) — and when it comes on, the yaw to the match rides the model's
+    /// <c>direction</c> pose parameter, stock's flip-back and all
+    /// (<c>m_flYawToExit = anglemod(-angleToExit.y + 180)</c>, :1226-1238; the client
+    /// reads the parameter at c_obj_teleporter.cpp:312/:326). The yaw is the heading
+    /// onto the match, off this end's own facing.
+    /// </summary>
+    private void ShowDirectionArrow(bool bShow)
+    {
+        if (bShow == _showDirectionArrow)
+        {
+            return;
+        }
+
+        int iGroup = FindBodygroupByName("teleporter_direction");
+        if (iGroup >= 0)
+        {
+            SetBodygroup(iGroup, bShow ? 1 : 0);
+        }
+
+        _showDirectionArrow = bShow;
+
+        if (!bShow)
+        {
+            return;
+        }
+
+        TFTeleporter? match = Match;
+        if (match is null)
+        {
+            return;                                       // stock's Assert(pMatch) (:1230)
+        }
+
+        // VectorAngles of the vector onto the match, then off the end's own facing (:1232-1235).
+        Vector toExit = Entities.GetOrigin(match.Handle) - Entities.GetOrigin(Handle);
+        float yawToExit = MathF.Atan2(toExit.Y, toExit.X) * (180f / MathF.PI);
+        float poseYaw = AngleMod(-(yawToExit - Entities.GetAngles(Handle).Y) + 180f);
+
+        string model = Render.GetModelName(Handle);
+        if (model != _arrowModel)
+        {
+            _arrowModel = model;
+            _arrowParam = Render.LookupPoseParameter(Handle, "direction");
+        }
+
+        if (_arrowParam >= 0)
+        {
+            Render.SetPoseParameter(Handle, _arrowParam, poseYaw);
+        }
+    }
+
+    /// <summary><c>anglemod</c> (mathlib.h:370): a quarter-arc's worth of degrees, quantized
+    /// and wrapped to [0,360) — the scaling done in double so an axis angle stays exact.</summary>
+    private static float AngleMod(float degrees)
+    {
+        long q = ((long)(degrees * 65536.0 / 360.0)) & 65535;
+        return (float)(q * (360.0 / 65536.0));
     }
 
     /// <summary>

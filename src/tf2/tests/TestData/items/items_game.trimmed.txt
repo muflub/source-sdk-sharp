@@ -1325,6 +1325,19 @@
 			"drop_sound"		"ui/item_metal_weapon_drop.wav"
 			"particle_suffix"		"wrench"
 		}
+		"weapon_targe"
+		{
+			"enabled"		"1"
+			"item_class"		"tf_wearable_demoshield"
+			"item_slot"		"secondary"
+			"item_quality"		"unique"
+			"anim_slot"		"FORCE_NOT_USED"
+			"model_player"	"models/weapons/c_models/c_targe/c_targe.mdl"
+			"used_by_classes"
+			{
+				"demoman"	"1"
+			}
+		}
 	}
 	"items"
 	{
@@ -1853,6 +1866,26 @@
 			"prefab"	"weapon_invis"
 			"baseitem" "1"
 		}
+		"59"
+		{
+			"name"	"The Dead Ringer"
+			"first_sale_date"	"2010/09/30"
+			"prefab"	"weapon_invis"
+			"item_name"	"#TF_Unique_Achievement_FeignWatch"
+			"item_description"	"#TF_Unique_Achievement_FeignWatch_Desc"
+			"item_quality"	"unique"
+			"min_ilevel"	"5"
+			"max_ilevel"	"5"
+			"image_inventory"	"backpack/workshop/player/items/spy/feign_watcher/feign_watcher"
+			"model_player"	"models/weapons/v_models/v_watch_pocket_spy.mdl"
+			"attributes"
+			{
+				"set cloak is feign death"
+				{
+					"value"	"1"
+				}
+			}
+		}
 		"735"
 		{
 			"name"	"TF_WEAPON_BUILDER_SPY"
@@ -2065,9 +2098,54 @@
 			"mouse_pressed_sound"	"ui/item_heavy_gun_pickup.wav"
 			"drop_sound"		"ui/item_heavy_gun_drop.wav"
 		}
+		"1156"
+		{
+			"name"	"TF2 Tests Gloves Fixture"
+			"prefab"	"weapon_fists"
+			"enabled"	"1"
+			"item_quality"	"unique"
+			"model_player"	"models/workshop/weapons/c_models/c_gloves/c_gloves.mdl"
+			"model_world"	"models/workshop/weapons/c_models/c_gloves/c_gloves_wearable.mdl"
+		}
+		"131"
+		{
+			"name"	"TF_UNIQUE_ACHIEVEMENT_SHIELD"
+			"prefab"	"weapon_targe"
+		}
+		"594"
+		{
+			"name"	"The Phlogistinator"
+			"prefab"	"weapon_newflame"
+			"item_class"	"tf_weapon_flamethrower"
+			"item_name"	"#TF_Photon_Phaser"
+			"item_slot"	"primary"
+			"item_quality"	"unique"
+			"used_by_classes"
+			{
+				"pyro"	"1"
+			}
+			"attributes"
+			{
+				"set buff type"
+				{
+					"attribute_class"	"set_buff_type"
+					"value"	"5"
+				}
+			}
+		}
 	}
 	"attributes"
 	{
+		"33"
+		{
+			"name"	"set cloak is feign death"
+			"attribute_class"	"set_weapon_mode"
+			"description_string"	"#Attrib_CloakIsFeignDeath"
+			"description_format"	"value_is_additive"
+			"hidden"	"1"
+			"effect_type"	"neutral"
+			"stored_as_integer"	"0"
+		}
 		"15"
 		{
 			"name"	"crit mod disabled"
@@ -2084,6 +2162,16 @@
 			"name"	"lunchbox adds minicrits"
 			"attribute_class"	"set_weapon_mode"
 			"description_string"	"#Attrib_LunchboxAddsMinicrits"
+			"description_format"	"value_is_additive"
+			"hidden"	"1"
+			"effect_type"	"neutral"
+			"stored_as_integer"	"0"
+		}
+		"140"
+		{
+			"name"	"hidden maxhealth non buffed"
+			"attribute_class"	"add_maxhealth_nonbuffed"
+			"description_string"	"#Attrib_MaxHealthNonBuffed"
 			"description_format"	"value_is_additive"
 			"hidden"	"1"
 			"effect_type"	"neutral"
@@ -2313,6 +2401,16 @@
 			"hidden"	"0"
 			"effect_type"	"negative"
 			"stored_as_integer"	"0"
+		}
+		"870"
+		{
+			"name"	"set buff type"
+			"attribute_class"	"set_buff_type"
+			"description_string"	"#Attrib_SetBuffType"
+			"description_format"	"value_is_additive"
+			"hidden"	"1"
+			"effect_type"	"neutral"
+			"stored_as_integer"	"1"
 		}
 	}
 }

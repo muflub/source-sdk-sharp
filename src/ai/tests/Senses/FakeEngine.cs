@@ -1,8 +1,8 @@
 using System.Reflection;
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Senses;
 
@@ -77,6 +77,8 @@ public sealed class SenseWorld
     private sealed class Stances(SenseWorld world) : IPlayerStances
     {
         public bool Ducked(EntityHandle player) => world.By(player).Ducked;
+
+        public bool OnGround(EntityHandle player) => true;
     }
 
     public IPlayerStances Stance() => new Stances(this);

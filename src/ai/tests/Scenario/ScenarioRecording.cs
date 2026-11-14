@@ -19,6 +19,9 @@ internal sealed class ScenarioRecording
     /// <summary>Each published view by (tick, bot slot): the bot's sighted actors.</summary>
     public required Dictionary<(int Tick, int Slot), ActorFacts[]> Views { get; init; }
 
+    /// <summary>Each published view by (tick, bot slot): the bot's own state.</summary>
+    public Dictionary<(int Tick, int Slot), SelfState> Selves { get; init; } = [];
+
     public required List<AiEvent> Events { get; init; }
 
     /// <summary>Every intent a brain made, in order (§2.4).</summary>
@@ -39,6 +42,7 @@ internal sealed class ScenarioRecording
         AiRecordFormat.ReadFileHeader(f);
         AiRecordingHeader header = default;
         var views = new Dictionary<(int, int), ActorFacts[]>();
+        var selves = new Dictionary<(int, int), SelfState>();
         var events = new List<AiEvent>();
         var intents = new List<IntentCommand>();
         SnapshotRing? ring = null;
@@ -62,7 +66,10 @@ internal sealed class ScenarioRecording
                     for (int slot = 0; slot < s.Slots; slot++)
                     {
                         if (s.ViewFor(slot) is { } v)
+                        {
                             views[(s.Tick.Value, slot)] = v.Sighted.ToArray();
+                            selves[(s.Tick.Value, slot)] = v.Self;
+                        }
                     }
 
                     ring!.Publish(s);
@@ -72,6 +79,6 @@ internal sealed class ScenarioRecording
 
         if (!header.Map.StartsWith(map + "@" + sha[..12], StringComparison.Ordinal))
             throw new InvalidDataException($"{map}'s recording names {header.Map}, not {map}@{sha[..12]}");
-        return new ScenarioRecording { Header = header, Summary = summary, Views = views, Events = events, Intents = intents };
+        return new ScenarioRecording { Header = header, Summary = summary, Views = views, Selves = selves, Events = events, Intents = intents };
     }
 }

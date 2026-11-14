@@ -49,20 +49,29 @@ public sealed class TFWeaponScripts
     public static string ScriptName(string weaponName) => ScriptDirectory + weaponName.ToLowerInvariant();
 
     /// <summary>A weapon's script, read on first ask; null when it is missing or malformed.</summary>
-    public TFWeaponScript? Get(string weaponName)
+    public TFWeaponScript? Get(string weaponName) => Load(weaponName, quiet: false);
+
+    /// <summary>
+    /// The same read for a catalogue walk: a name the pack holds no script for
+    /// is an absent row, not a finding, so the misses stay silent. The read
+    /// itself is the same and its result lands in the same cache.
+    /// </summary>
+    public TFWeaponScript? GetQuiet(string weaponName) => Load(weaponName, quiet: true);
+
+    private TFWeaponScript? Load(string weaponName, bool quiet)
     {
         ArgumentException.ThrowIfNullOrEmpty(weaponName);
 
         if (!_byName.TryGetValue(weaponName, out var script))
         {
-            script = Read(weaponName);
+            script = Read(weaponName, quiet);
             _byName[weaponName] = script;
         }
 
         return script;
     }
 
-    private TFWeaponScript? Read(string weaponName)
+    private TFWeaponScript? Read(string weaponName, bool quiet)
     {
         _reader ??= new EncryptedKeyValues(_files, Encoding.ASCII.GetBytes(TFEncryption.Key));
         string name = ScriptName(weaponName);
@@ -74,19 +83,22 @@ public sealed class TFWeaponScripts
         }
         catch (FileNotFoundException e)
         {
-            _log.Warning($"[TF2/Weapons] {weaponName}: {e.Message}; the weapon has no script\n");
+            if (!quiet)
+                _log.Warning($"[TF2/Weapons] {weaponName}: {e.Message}; the weapon has no script\n");
             return null;
         }
         catch (KeyValuesTextException e)
         {
-            _log.Warning($"[TF2/Weapons] {name} is malformed: {e.Message}; the weapon has no script\n");
+            if (!quiet)
+                _log.Warning($"[TF2/Weapons] {name} is malformed: {e.Message}; the weapon has no script\n");
             return null;
         }
 
         // ReadEncryptedKVFile loads the document's first key (WeaponData).
         if (document.Children.Count == 0 || !document.Children[0].IsBlock)
         {
-            _log.Warning($"[TF2/Weapons] {name} holds no key block; the weapon has no script\n");
+            if (!quiet)
+                _log.Warning($"[TF2/Weapons] {name} holds no key block; the weapon has no script\n");
             return null;
         }
 

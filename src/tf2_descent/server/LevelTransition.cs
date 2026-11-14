@@ -9,10 +9,14 @@ namespace TF2.Descent.Server;
 /// the activating player along <c>direction</c>; <c>Enable</c> and
 /// <c>Disable</c> gate it; <c>OnTransition</c> fires when a request is made.
 /// <c>map</c> is the linker's record of where it leads: the service decides
-/// the actual destination.
+/// the actual destination. In the town a way down opens the depth picker
+/// instead (plan_descent_logic WO8, mine plan E1): the hero picks the depth,
+/// and the picker's choice travels. On a boss level the way down is closed while the boss
+/// stands (mine plan D6, HO13: <see cref="Horde.Boss.IBossExit"/>): a hero who asks is told why
+/// and nothing fires.
 /// </summary>
 [ScriptedEntity("logic_level_transition")]
-public sealed class LevelTransition(TravelService travel) : ScriptedEntity
+public sealed class LevelTransition(TravelService travel, Town.TownService town, Horde.Boss.IBossExit bossExit) : ScriptedEntity
 {
     public readonly Output OnTransition = new();
 
@@ -36,8 +40,34 @@ public sealed class LevelTransition(TravelService travel) : ScriptedEntity
             ? TravelDirection.Up
             : TravelDirection.Down;
 
+        int player = Entities.GetIndex(input.Activator);
+        if (direction == TravelDirection.Down && !town.InTown && !bossExit.MayLeave(player))
+            return;
+
         OnTransition.Fire();
-        travel.Request(Entities.GetIndex(input.Activator), direction);
+        if (direction == TravelDirection.Down && town.InTown && town.OpenDepth(player))
+            return;
+        travel.Request(player, direction, DepthOf(Vars.Map));
+    }
+
+    /// <summary>
+    /// The depth a transition's <c>map</c> names, <c>tf2_descent-&lt;depth&gt;</c>
+    /// (the town's cage names <c>tf2_descent-1</c>), or 0 when it names none.
+    /// Read only for a descent from the town; a level's way down always leads
+    /// to the next depth.
+    /// </summary>
+    public static int DepthOf(string map)
+    {
+        const string prefix = "tf2_descent-";
+        if (!map.StartsWith(prefix, StringComparison.Ordinal))
+            return 0;
+
+        ReadOnlySpan<char> rest = map.AsSpan(prefix.Length);
+        int dash = rest.IndexOf('-');
+        return int.TryParse(dash < 0 ? rest : rest[..dash], System.Globalization.NumberStyles.None,
+                            System.Globalization.CultureInfo.InvariantCulture, out int depth)
+            ? depth
+            : 0;
     }
 }
 

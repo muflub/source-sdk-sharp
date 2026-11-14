@@ -153,6 +153,9 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         // over, it would hold the win check (frag and time limits off) for
         // most of the new map. A fresh level is a fresh round.
         _warmupEndsAt = null;
+        // A setting that waits for the next level goes before the pick, so
+        // the new level's mode starts with it.
+        _services.Resolve<ModeSettingWrites>()?.ApplyLevel();
         Pick(mapName);
     }
 
@@ -181,6 +184,11 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
                 }
             }
         }
+
+        // The core's own pick after every mod's: team deathmatch under
+        // mp_teamplay 1 (TeamplayModeSelector), else the core's "null".
+        if (asked is null && _services.Resolve<TeamplayModeSelector>() is { } teamplay)
+            asked = teamplay.PickMode();
 
         AskedId = asked ??= NullModeId;   // the core's own answer, last
         _active = Find(asked);
@@ -278,6 +286,8 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         // A mode's setup prepares its world; a broken one is logged and the
         // round still starts — the rule every other dispatch applies to a
         // participant that throws.
+        // A setting that waits for the next round goes before the round's setup.
+        _services.Resolve<ModeSettingWrites>()?.ApplyRound();
         try
         {
             mode.Setup?.SetupRound(_clock.Now);
@@ -327,8 +337,27 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
 
         FlushRound(previous, next);
 
+        // The mode being left undoes what it did to the players (team
+        // deathmatch's teams), before the next one arranges its world. A
+        // switch to the mode already playing leaves nothing.
+        if (previous is IModeTeardown teardown && !ReferenceEquals(previous, next))
+        {
+            try
+            {
+                teardown.TeardownRound(next, now);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Modes] mode '{previous.Id}' teardown threw: {e}\n");
+            }
+        }
+
+        // A mode switch is a new match: no departed player's score is brought into it.
+        _services.Resolve<IHooks<IMatchResetHook>>()?.Raise("mode switch");
+
         _log.Msg($"[SourceSharp/Modes] switched to '{next.Id}'\n");
         Setup(next);
+        _services.Resolve<IHooks<IModeSwitchHook>>()?.Each(nameof(IModeSwitchHook.OnModeSwitched), hook => hook.OnModeSwitched(previous, next));
 
         float warmup = WarmupSeconds();
         _warmupEndsAt = warmup > 0f ? now + warmup : null;

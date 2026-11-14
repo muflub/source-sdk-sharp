@@ -46,8 +46,75 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     /// <summary>The swing in the air rolled a crit.</summary>
     public const int ModeSwingCrit = 2 << ModeKindShift;
 
+    /// <summary>
+    /// The swing in the air is the charge's mini-crit (<c>m_bMiniCrit</c>,
+    /// tf_weaponbase_melee.cpp:208-215): the grant was a mini-crit, so the
+    /// smack's hit flags <c>DMG_RADIUS_MAX</c> and the damage rules mini-crit
+    /// it — never overriding a roll the swing's own helpers made.
+    /// </summary>
+    public const int ModeSwingMini = 4 << ModeKindShift;
+
+    /// <summary>
+    /// The swing landed on a friendly building (<c>CTFWrench::Smack</c>'s
+    /// building arm, tf_weapon_wrench.cpp:180-193): the hit rode
+    /// <c>OnFriendlyBuildingHit</c> at the swing, so the smack's plain melee
+    /// must not run over the same swing again. Which of the two building
+    /// sounds plays is not a mode bit: the smack asks the sapper seam's
+    /// <see cref="TF2.Shared.ITFSapperState.TakeWrenchSound"/>, the one word
+    /// both sides agree on. The wrench's hook sets it, the smack reads it and
+    /// clears it.
+    /// </summary>
+    public const int ModeBuildingStruck = 32 << ModeKindShift;
+
+    /// <summary>
+    /// The Gunslinger's punch combo, the count the smacks keep in these two
+    /// mode bits (<c>CTFRobotArm</c>'s <c>m_iComboCount</c>,
+    /// tf_weapon_wrench.cpp:498-518): the enemy players the last swings hit,
+    /// zeroed by any swing that met anything else and by a combo older than
+    /// <see cref="ComboTimeout"/>. Its clock — the last counted hit — is
+    /// <see cref="WeaponNetState.BehaviourTimeB"/>, the melee's idle B; the
+    /// bits ride the mode word's clear at the deploy, where stock's member
+    /// survives one, the count a fresh arm starts again.
+    /// </summary>
+    public const int ComboCountMask = 0x18 << ModeKindShift;
+
+    /// <summary><c>ROBOARM_COMBO_TIMEOUT</c> (tf_weapon_wrench.cpp:32).</summary>
+    public const float ComboTimeout = 1f;
+
+    /// <summary>The count bits' low end, over the kind's own three.</summary>
+    public const int ComboCountShift = ModeKindShift + 3;
+
+    /// <summary>The count in the mode word, 0..2 once the third's own hit reset it.</summary>
+    public static int ComboOf(WeaponNetState weapon) => (weapon.BehaviourMode & ComboCountMask) >> ComboCountShift;
+
+    /// <summary>The Gunslinger's row, the wrench family's arm — stock's
+    /// <c>CTFRobotArm</c> under <c>CTFWrench</c> (tf_weapon_wrench.h:66), whose
+    /// id answer is the wrench's, so the row's name is the test.</summary>
+    public static bool IsRobotArm(in TFWeaponScript script) => IsRobotArmName(script.Name);
+
+    /// <summary>The row-name test over any spelling of it.</summary>
+    public static bool IsRobotArmName(string name) =>
+        string.Equals(name, TFWeaponTypes.WrenchArm, StringComparison.Ordinal);
+
     /// <summary><c>DoSwingTraceInternal</>'s swing box, 18 to each side (tf_weaponbase_melee.cpp:394-396).</summary>
     public const float SwingHull = 18f;
+
+    /// <summary>
+    /// The stickbomb has had its one kaboom (<c>CTFStickBomb::m_iDetonated</c>,
+    /// tf_weapon_bottle.cpp:208): the connected smack detonated it, and later
+    /// swings are plain melee until a deploy's <see cref="WeaponNetState.ResetBehaviourState"/>
+    /// clears the word as stock's <c>WeaponReset</c> does (:276-283).
+    /// </summary>
+    public const int ModeStickbombSpent = 8 << ModeKindShift;
+
+    /// <summary>Whether <paramref name="weapon"/>'s kaboom has gone.</summary>
+    public static bool Spent(WeaponNetState weapon) => (weapon.BehaviourMode & ModeStickbombSpent) != 0;
+
+    /// <summary>
+    /// The Wrap Assassin's post-throw lull (<c>tf_weapon_bat.cpp:276</c>): the
+    /// primary clock the throw arms, both triggers' next ask reading it.
+    /// </summary>
+    public const float GiftwrapRefire = 0.25f;
 
     protected override bool RollsAsMelee => true;
 
@@ -59,6 +126,26 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         var context = Context(in attack, script);
         if (!CanAttack(in attack, in context) || !Parts.Hooks.BeforeFire(in context, in attack))
             return false;
+
+        // CTFRobotArm::PrimaryAttack's two arms (tf_weapon_wrench.cpp:468-485),
+        // ahead of the roll: a combo older than its second is no combo, and
+        // the third swing grants the full melee crit the roll below spends —
+        // the count the smack's hit kept (<see cref="TF2.Server.Weapons.TFMeleeEffects"/>).
+        if (IsRobotArm(in script))
+        {
+            var combo = attack.Weapon;
+            if (attack.Now - combo.BehaviourTimeB > ComboTimeout)
+                combo.BehaviourMode &= ~ComboCountMask;
+
+            if (ComboOf(combo) == 2
+                && Parts.PlayerData.Predicted(attack.Command.OwnerIndex) is { } grant)
+                grant.NextMeleeCrit = (int)TFMeleeCrit.Crit;
+        }
+
+        // The swing ends the class's special first (tf_weaponbase_melee.cpp
+        // :201): the charged demoman's shield grants its crit for THIS swing's
+        // helpers, the roll below the first reader.
+        Parts.Effects.EndClassSpecialSkill(in attack);
 
         Swing(in attack, script, in context, secondary: false);
         Parts.Hooks.AfterFire(in context, in attack);
@@ -76,7 +163,21 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     /// </summary>
     public override void SecondaryAttack(in WeaponAttackContext attack)
     {
-        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.Fists)
+        if (ScriptOf(attack.Type) is not { } script)
+        {
+            base.SecondaryAttack(in attack);
+            return;
+        }
+
+        // The Wrap Assassin's ball (its own arm below) before the fist's
+        // second mitt: the bat's right click is never a class skill.
+        if (script.Id == TFWeaponId.BatGiftwrap)
+        {
+            GiftwrapBall(in attack, script);
+            return;
+        }
+
+        if (script.Id != TFWeaponId.Fists)
         {
             base.SecondaryAttack(in attack);
             return;
@@ -88,6 +189,50 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
         Swing(in attack, script, in context, secondary: true);
         Parts.Hooks.AfterFire(in context, in attack);
+    }
+
+    /// <summary>
+    /// The Wrap Assassin's ball (<c>CTFBat_Wood::SecondaryAttack</c>,
+    /// <c>tf_weapon_bat.cpp:255-287</c>): the PRIMARY clock gates the throw
+    /// (:264-265) — both triggers read it, the swing's 0.25 s tail is the
+    /// next ball's too (:276) — and the ball is the effect bar, the regen's
+    /// completion the count's one, spent with the throw. The crit rolls at
+    /// the throw (<c>CreateBall</c>'s <c>CalcIsAttackCritical</c>, :1089), the
+    /// third-person anim is the class's ATTACK_SECONDARY (:221-224) and the
+    /// viewmodel's the primary swing (:272); the ball itself is the effects'
+    /// ask, whose server arm is the <c>Projectile</c>'s BatGiftwrap key.
+    ///
+    /// <para>
+    /// Stock launches a <c>tf_scout_bat_launch_delay</c> (0.1 s) think later
+    /// (:274); ours throws at once — the wait is the swing's own frames, the
+    /// anim's. Not here: the spy's unstealth and <c>OnAttack</c> (:278-285) —
+    /// the bat never leaves the scout's hands, and the scout wears no cloak.
+    /// </para>
+    /// </summary>
+    private void GiftwrapBall(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        var weapon = attack.Weapon;
+        if (weapon.NextPrimaryAttack > attack.Now)
+            return;
+
+        if (!TFItemMeter.RegenFinished(weapon))
+            return;
+
+        var context = Context(in attack, script);
+        if (!CanAttack(in attack, in context))
+            return;
+
+        bool crit = RollCrit(in attack, script, in context);
+
+        weapon.NextPrimaryAttack = attack.Now + GiftwrapRefire;
+        weapon.NextSecondaryAttack = attack.Now + GiftwrapRefire;
+
+        SendAnim(in attack, WeaponAnim.Primary);
+        attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary);
+        if (attack.EffectsLive)
+            Parts.Effects.Projectile(in attack, script, new ShotDamage(script.Primary.Damage, Critical: crit), charge: 0f);
+
+        TFItemMeter.Use(weapon);
     }
 
     private void Swing(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context,
@@ -102,10 +247,21 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         weapon.TimeWeaponIdle = weapon.NextPrimaryAttack + script.Primary.TimeIdleEmpty;
 
         SendAnim(in attack, SwingAnim(script, crit, secondary));
+        // The third-person swing, hit or miss, at its start (Smash's
+        // DoAnimationEvent, tf_weaponbase_melee.cpp:348-351).
+        attack.Arms.SwingShown();
+        if (attack.EffectsLive && Parts.Hooks.HitSelfOnMiss(in context))
+            Parts.Effects.MeleeSwingStarted(in attack, Parts.Hooks.ModifyMeleeRange(in context, attack.Type.MeleeRange));
+
         PlaySound(in attack, script, crit ? WeaponScriptSound.Burst : WeaponScriptSound.MeleeMiss);
 
-        weapon.BehaviourMode = (weapon.BehaviourMode & ~(ModeSwinging | ModeSwingCrit))
-                             | ModeSwinging | (crit ? ModeSwingCrit : 0);
+        // The mini latch (tf_weaponbase_melee.cpp:208-215): the grant the
+        // swing's end made, read after it — the smack's bit.
+        bool mini = (Parts.PlayerData.Predicted(attack.Command.OwnerIndex)?.NextMeleeCrit
+                     ?? (int)TFMeleeCrit.NoCrit) == (int)TFMeleeCrit.MiniCrit;
+
+        weapon.BehaviourMode = (weapon.BehaviourMode & ~(ModeSwinging | ModeSwingCrit | ModeSwingMini))
+                             | ModeSwinging | (crit ? ModeSwingCrit : 0) | (mini ? ModeSwingMini : 0);
         weapon.BehaviourTimeA = attack.Now + script.Primary.SmackDelay;
     }
 
@@ -127,6 +283,41 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         return WeaponAnim.HitCenter;
     }
 
+    /// <summary>
+    /// <c>CTFWeaponBaseMelee::Holster</c> (<c>tf_weaponbase_melee.cpp:140-161</c>):
+    /// holstering the melee spends the charge's grant with it — the granted
+    /// crit was made for THIS hand's swings, and it goes when another weapon
+    /// takes the hands (:151's <c>SetNextMeleeCrit(MELEE_NOCRIT)</c>). The
+    /// clear asks the owner the deploy dressed, as every Holster arm here does.
+    /// </summary>
+    public override void Holster(in WeaponAttackContext attack)
+    {
+        if (Parts.PlayerData.Predicted(attack.Weapon.OwnerIndex) is { } spent)
+            spent.NextMeleeCrit = (int)TFMeleeCrit.NoCrit;
+
+        base.Holster(in attack);
+    }
+
+    /// <summary>
+    /// <c>ItemPreFrame</c> (<c>tf_weaponbase_melee.cpp:354-368</c>): the held
+    /// fists' <c>self_mark_for_death</c> seconds ride onto the owner every
+    /// command — stock's <c>AddCond(TF_COND_MARKEDFORDEATH_SILENT, iSelfMark)</c>
+    /// refreshed on each ask; <c>Holster</c>'s twin (:153-158) marks when the
+    /// fists go away, same number, same store. Hook semantics: the chain's
+    /// ask starts at zero like stock's <c>CALL_ATTRIB_HOOK_INT</c>.
+    /// </summary>
+    public override void ItemPreFrame(in WeaponAttackContext attack, int buttons)
+    {
+        if (attack.EffectsLive && attack.Command.OwnerIndex > 0 && ScriptOf(attack.Type) is { } script)
+        {
+            int seconds = Parts.Hooks.SelfMarkForDeath(Context(in attack, script), 0);
+            if (seconds != 0 && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } conditions)
+                conditions.Add(TFCond.MarkedfordeathSilent, seconds);
+        }
+
+        base.ItemPreFrame(in attack, buttons);
+    }
+
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
         var weapon = attack.Weapon;
@@ -134,18 +325,76 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
             && ScriptOf(attack.Type) is { } script)
         {
             bool crit = (weapon.BehaviourMode & ModeSwingCrit) != 0;
-            weapon.BehaviourMode &= ~(ModeSwinging | ModeSwingCrit);
+            bool mini = (weapon.BehaviourMode & ModeSwingMini) != 0;
+            weapon.BehaviourMode &= ~(ModeSwinging | ModeSwingCrit | ModeSwingMini);
 
             var context = Context(in attack, script);
             float damage = Parts.Hooks.ModifyDamage(in context, script.Primary.Damage);
+
+            // crit_does_no_damage (tf_weaponbase_melee.cpp:989-1002): with the
+            // held item's arm set, a crit blow lands with nothing behind it —
+            // stock's silent crit inside GetMeleeDamage, right after the
+            // mult_dmg scale (:987). The crit bit of the swing or its type is
+            // the gate; a mini's DMG_RADIUS_MAX is not DMG_CRITICAL, so the
+            // charge's mini keeps its damage.
+            if (crit && Parts.Hooks.CritDoesNoDamage(in context))
+                damage = 0f;
             // The swing DoSwingTraceInternal traces: the reach and the hull,
             // each through the chain (tf_weaponbase_melee.cpp:399, :420), and
-            // whether the hit asks the behind-crit arm (:819-820).
+            // whether the hit asks the behind-crit arm (:819-820) or a clean
+            // miss hurts its own owner (:755-763). The two laugh arms of the
+            // Holiday Punch ride along too (:884-927), their crit and item gates
+            // answered at the hit where stock asks them.
             var trace = new SwingTrace(Parts.Hooks.ModifyMeleeRange(in context, attack.Type.MeleeRange),
                                        Parts.Hooks.ModifyMeleeBounds(in context, SwingHull),
-                                       Parts.Hooks.CritFromBehind(in context));
+                                       Parts.Hooks.CritFromBehind(in context),
+                                       Parts.Hooks.HitSelfOnMiss(in context),
+                                       Parts.Hooks.CritForcesVictimToLaugh(in context),
+                                       Parts.Hooks.TickleEnemiesWieldingSameWeapon(in context));
+
+            // Stock's CTFWrench::Smack (:180-198): a swing that landed on
+            // a friendly building had its hit inside OnFriendlyBuildingHit
+            // and skips BaseClass::Smack, playing that arm's own sound;
+            // the usual melee hit runs only over a swing that didn't. One
+            // bit carries the skip both sides predict; the sound's name is
+            // the server's, handed out once through the seam. The wrench's
+            // hook rode the bit at the swing. Like the swing bits above it,
+            // the bit is predicted state: every run of this command spends
+            // it, so its lifetime is one command on both sides. What the
+            // skip unlocks is effects, and they stay below with the live
+            // run.
+            bool buildingStruck = (weapon.BehaviourMode & ModeBuildingStruck) != 0;
+            weapon.BehaviourMode &= ~ModeBuildingStruck;
+
             if (attack.EffectsLive)
-                Parts.Effects.Melee(in attack, script, crit ? Critical(damage) : new ShotDamage(damage), in trace);
+            {
+                // The melee's sapper arm (tf_weaponbase_melee.cpp:469-494): a held
+                // weapon bearing set_dmg_apply_to_sapper lets the swing reach the
+                // sapper riding a friendly building, at the swing's own blow.
+                if (Parts.Hooks.DmgApplyToSapper(in context))
+                    Parts.Sapper.MeleeSmack(attack.Command.OwnerIndex, trace.Range, damage);
+
+                if (buildingStruck)
+                {
+                    if (Parts.Sapper.TakeWrenchSound(attack.Command.OwnerIndex) is { } sound)
+                        attack.Arms.Sound(sound);
+                }
+                else
+                {
+                    // The crit rolls over the mini (:855-863): the full crit's bit,
+                    // else the charge's mini-crit as DMG_RADIUS_MAX.
+                    Parts.Effects.Melee(in attack, script,
+                                        crit ? Critical(damage)
+                                             : mini ? new ShotDamage(damage, Mini: true)
+                                                    : new ShotDamage(damage),
+                                        in trace);
+                }
+            }
+
+            // The smack spent the grant (tf_weaponbase_melee.cpp:384), hit or
+            // miss — the next swing rolls plain unless the charge ends again.
+            if (Parts.PlayerData.Predicted(attack.Command.OwnerIndex) is { } spent)
+                spent.NextMeleeCrit = (int)TFMeleeCrit.NoCrit;
         }
 
         base.ItemPostFrame(in attack);

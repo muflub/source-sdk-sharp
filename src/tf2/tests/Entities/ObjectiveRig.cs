@@ -225,6 +225,8 @@ internal sealed class ObjectiveRig
     public readonly TFTeamScores Scores;
     public readonly CtfRules Ctf;
     public readonly FakeCarrierEffects Effects = new();
+    public readonly TF2.Tests.Rules.FakeAnnouncer Announcer = new();
+    public readonly TFPlayerMovementRestartFreezeConVar RestartFreeze;
     public readonly TFPlayerCarriers Carriers = new();
     public readonly FakeConceptRules ConceptRules = new();
     public readonly FakeConceptTeams ConceptTeams = new();
@@ -273,6 +275,7 @@ internal sealed class ObjectiveRig
         Services.AddInstance<ITeamRoundState>(Round);
         Services.AddInstance<ITeamRoundControl>(Control);
         Services.AddInstance<ICapturePlayerRules>(PlayerRules);
+        Services.AddInstance<ITFTeamRoles>(new TFTeamRoles());
         Services.AddInstance<ITFPlayerObjectiveTimes>(ObjectiveTimes);
         Services.AddInstance<ITFPlayerStats>(Stats);
         Services.AddInstance<IEngineGameEvents>(GameEvents);
@@ -294,11 +297,17 @@ internal sealed class ObjectiveRig
         // seed source, and the registry builds nothing without them. The nag
         // convar is left unregistered — Get answers null, so it stays off.
         Services.AddInstance(new ConVarRegistry(new RigConVarBackend()).Declare<TFOvertimeNagConVar>());
+        // The gamerules proxy's own seams: the VO trio's broadcaster and the
+        // restart-freeze convar its SetRoundRespawnFreezeEnabled input writes.
+        Services.AddInstance<IRoundAnnouncer>(Announcer);
+        RestartFreeze = new ConVarRegistry(new RigConVarBackend()).Declare<TFPlayerMovementRestartFreezeConVar>();
+        Services.AddInstance(RestartFreeze);
         Services.AddInstance<IRandomSeeds>(new RandomSeeds(7));
         Services.AddInstance<IResponseRules>(ConceptRules);
         Services.AddInstance<ITeams>(ConceptTeams);
         Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
-            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!, Random);
+            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!, Random,
+            new LoadoutDeps.IdleRound(), new Tests.Weapons.FakeOwners(), new RecordingLog());
         Services.AddInstance(Speech);
         Registry.Services = Services;
     }
@@ -420,7 +429,7 @@ internal sealed class FakeConceptRules : IResponseRules
     public bool FindBestResponse(ResponseCriteriaSet criteria, out MatchedResponse response, IResponseFilter? filter = null)
     {
         Asked.Add((criteria.GetValue(criteria.Find("concept")), criteria.GetValue(criteria.Find("playerclass"))));
-        foreach (string key in new[] { "playerweapon", "minigunfiretime", "randomnum", "objtype" })
+        foreach (string key in new[] { "playerweapon", "minigunfiretime", "randomnum", "objtype", "item_name", "item_type_name" })
             Words.Add((key, criteria.GetValue(criteria.Find(key))));
 
         response = Match ? new MatchedResponse { Kind = Kind, Name = Name, Rule = "staged" } : new();

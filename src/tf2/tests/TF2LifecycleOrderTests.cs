@@ -55,8 +55,14 @@ public sealed class TF2LifecycleOrderTests
     [Fact]
     public void No_server_hook_chain_has_two_members_at_one_order()
     {
+        // Every server assembly the tf2 mod loads (game/mods.yaml's tf2 row):
+        // the AI binding joins TF2's chains in the same container, so a tie
+        // between an AI member and a TF2 one throws at the first call
+        // (2026-11-10: CombatTap and TFStickyTray on IPlayerDeathHook, every
+        // death in TF2).
         var ties = ChainTies(
-            [typeof(SourceSharp.Server.PlayerComposites).Assembly, typeof(TF2.Server.TFClassTableLoader).Assembly],
+            [typeof(SourceSharp.Server.PlayerComposites).Assembly, typeof(TF2.Server.TFClassTableLoader).Assembly,
+             typeof(SourceSharp.Ai.Server.Senses.CombatTap).Assembly, typeof(SourceSharp.Ai.TF2.TFAiService).Assembly],
             typeof(IHooks<>), typeof(IOrderedHook),
             t => t.GetCustomAttributes(typeof(SideServiceAttribute), false).Length > 0, floor: 5);
         Assert.True(ties.Count == 0, string.Join("\n", ties));
@@ -109,7 +115,9 @@ public sealed class TF2LifecycleOrderTests
 
         Assert.True(orders.Count >= 4, "only " + orders.Count + " hooks found: the scan is not reading the assemblies");
         Assert.All(orders, o => Assert.InRange(o.Order, 1_000_000 - 1_000, 1_000_000 - 1));
-        Assert.Equal(orders.Count, orders.Select(o => o.Order).Distinct().Count());
+        Assert.True(orders.Count == orders.Select(o => o.Order).Distinct().Count(),
+                    "tied orders: " + string.Join(", ", orders.GroupBy(o => o.Order).Where(g => g.Count() > 1)
+                        .Select(g => g.Key + ":" + string.Join("/", g.Select(o => o.Name)))));
     }
 
     /// <summary>

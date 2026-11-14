@@ -1,0 +1,12 @@
+[
+  { "id": "burn", "damageType": "fire", "damagePerSecond": 8, "tickSeconds": 0.5, "durationSeconds": 6, "stacking": "refresh", "maxStacks": 1,
+    "slowPct": 0, "damageTakenPct": 0, "stuns": false },
+  { "id": "bleed", "damageType": "bullet", "damagePerSecond": 8, "tickSeconds": 0.5, "durationSeconds": 5, "stacking": "stack", "maxStacks": 3,
+    "slowPct": 0, "damageTakenPct": 0, "stuns": false },
+  { "id": "stun", "damagePerSecond": 0, "tickSeconds": 0, "durationSeconds": 2, "stacking": "longest", "maxStacks": 1,
+    "slowPct": 100, "damageTakenPct": 0, "stuns": true },
+  { "id": "slow", "damagePerSecond": 0, "tickSeconds": 0, "durationSeconds": 3, "stacking": "refresh", "maxStacks": 1,
+    "slowPct": 40, "damageTakenPct": 0, "stuns": false },
+  { "id": "marked", "damagePerSecond": 0, "tickSeconds": 0, "durationSeconds": 7, "stacking": "refresh", "maxStacks": 1,
+    "slowPct": 0, "damageTakenPct": 35, "stuns": false }
+]

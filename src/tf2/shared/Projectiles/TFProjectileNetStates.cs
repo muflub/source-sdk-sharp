@@ -85,3 +85,87 @@ public partial class TFStickybombNetState
     /// <summary><c>m_bPulsed</c>: the arm think ran, the bomb may wear its pulse.</summary>
     public partial bool Pulsed { get; set; }
 }
+
+/// <summary>
+/// <c>tf_projectile_flare</c>'s networked state: the team and critical flag
+/// the client's trail reads (<c>GetFlareTrailParticleName</c>,
+/// <c>c_tf_projectile_flare.cpp:55-83</c>). The pair is the whole wire the
+/// flare's trail asks: stock's crit wears <c>flaregun_trail_crit_*</c> in the
+/// ONE system, no second glow beside it as the rocket's has.
+/// </summary>
+[StandaloneNetState(ClassName)]
+public partial class TFFlareNetState
+{
+    /// <summary>The entity's classname.</summary>
+    public const string ClassName = "tf_projectile_flare";
+
+    public partial bool Critical { get; set; }
+
+    /// <summary>The owner's team, unassigned until the launcher arms it.</summary>
+    public partial int TeamNumber { get; set; }
+}
+
+/// <summary>
+/// <c>tf_projectile_jar</c>'s networked state: the same pair the flare's
+/// trail reads, the jar's own (<c>c_tf_projectile_jar.cpp</c>'s
+/// <c>GetTrailParticleName</c> over the team). Both jar faces wear it — the
+/// milk is <c>tf_projectile_jar_milk</c>'s alias of the same table, its
+/// classname the one field apart the mirror's <see cref="ClassName"/> rows
+/// are written by. The Gas Passer's jar (<c>tf_projectile_jar_gas</c>) is the
+/// third face, under the same table.
+/// </summary>
+[StandaloneNetState(TFJarNetState.ClassName)]
+[StandaloneNetStateAlias(MilkClassName)]
+[StandaloneNetStateAlias(GasClassName)]
+public partial class TFJarNetState
+{
+    /// <summary>The entity's classname.</summary>
+    public const string ClassName = "tf_projectile_jar";
+
+    /// <summary>The milk, networked under the jar's table.</summary>
+    public const string MilkClassName = "tf_projectile_jar_milk";
+
+    /// <summary>The Gas Passer's jar, networked under the jar's table.</summary>
+    public const string GasClassName = "tf_projectile_jar_gas";
+
+    public partial bool Critical { get; set; }
+
+    /// <summary>The owner's team, unassigned until the launcher arms it.</summary>
+    public partial int TeamNumber { get; set; }
+}
+
+/// <summary>
+/// <c>tf_projectile_cleaver</c>'s networked state. Stock's
+/// <c>DT_TFProjectile_Cleaver</c> is empty
+/// (<c>tf_weapon_jar.cpp:77-79</c>): the client's trail asks the team alone
+/// (<c>C_TFProjectile_Cleaver::GetTrailParticleName</c>,
+/// <c>tf_weapon_jar.cpp:1155-1165</c>), which rides the entity's own team
+/// netvar there and the row here.
+/// </summary>
+[StandaloneNetState(ClassName)]
+public partial class TFCleaverNetState
+{
+    /// <summary>The entity's classname.</summary>
+    public const string ClassName = "tf_projectile_cleaver";
+
+    /// <summary>The owner's team, unassigned until the launcher arms it.</summary>
+    public partial int TeamNumber { get; set; }
+}
+
+/// <summary>
+/// <c>tf_projectile_healing_bolt</c>'s networked state. Stock's
+/// <c>DT_TFProjectile_HealingBolt</c> is empty
+/// (<c>tf_projectile_arrow.cpp:74-75</c>): the client's trail asks the team
+/// alone (<c>C_TFProjectile_HealingBolt::OnDataChanged</c>,
+/// <c>c_tf_projectile_arrow.cpp:194-210</c>), which rides the entity's own
+/// team netvar there and the row here.
+/// </summary>
+[StandaloneNetState(ClassName)]
+public partial class TFHealingBoltNetState
+{
+    /// <summary>The entity's classname.</summary>
+    public const string ClassName = "tf_projectile_healing_bolt";
+
+    /// <summary>The owner's team, unassigned until the launcher arms it.</summary>
+    public partial int TeamNumber { get; set; }
+}

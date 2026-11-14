@@ -17,6 +17,8 @@ public sealed class ServerSoundRouteTests : IDisposable
         public void EntityEmitSound(EntityHandle entity, string soundName) => Calls.Add($"Emit {entity.Value:x} {soundName}");
         public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) => Calls.Add($"EmitAs {entity.Value:x} {soundName} {volume} {pitch}");
         public void EntityEmitSoundToTeam(int team, EntityHandle entity, string soundName) => Calls.Add($"Team {team} {entity.Value:x} {soundName}");
+        public void EntityEmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable)
+            => Calls.Add($"Player {entity.Value:x} {soundName} {(reliable ? "reliable" : "unreliable")}");
         public void EntityStopSound(EntityHandle entity, string soundName) => Calls.Add($"Stop {entity.Value:x} {soundName}");
         public void EmitSoundAtPosition(string soundName, Vector origin) => Calls.Add($"AtPosition {soundName} {origin}");
         public bool EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume)
@@ -116,6 +118,23 @@ public sealed class ServerSoundRouteTests : IDisposable
         Sound(side).EmitSoundToTeam(2, Door, "CaptureFlag.TeamCaptured");
 
         Assert.Equal(["Team 2 10040 CaptureFlag.TeamCaptured"], route.Calls);
+    }
+
+    /// <summary>
+    /// The binding's single-player arm forwards to the route with the
+    /// reliability it was given, and an empty name still does not cross.
+    /// </summary>
+    [Fact]
+    public void APlayerEmitReachesTheRouteWithItsReliability()
+    {
+        var route = new Route();
+        EngineSide side = Server(route);
+
+        Sound(side).EmitSoundToPlayer(Door, Door, "HealthKit.Touch", reliable: true);
+        Sound(side).EmitSoundToPlayer(Door, Door, "Doors.Move1", reliable: false);
+        Sound(side).EmitSoundToPlayer(Door, Door, string.Empty, reliable: true);
+
+        Assert.Equal(["Player 10040 HealthKit.Touch reliable", "Player 10040 Doors.Move1 unreliable"], route.Calls);
     }
 
     [Fact]

@@ -693,6 +693,132 @@
     1.2,
     1.0
    ]
+  },
+  "calloutDelayMs": {
+   "skill": "alertness",
+   "direction": "down",
+   "note": "how long after a bot sees an enemy its callout reaches its teammates, ms (plan_bots_teams_tf2 B.4; never under the session's 26-tick floor)",
+   "levels": [
+    1200.0,
+    1120.0,
+    1040.0,
+    960.0,
+    880.0,
+    800.0,
+    720.0,
+    640.0,
+    560.0,
+    480.0,
+    400.0
+   ]
+  },
+  "leashUnits": {
+   "skill": "teamwork",
+   "direction": "down",
+   "note": "Stick (B.5): beyond this from the nearest teammate it knows of, a bot walks back toward them, units",
+   "levels": [
+    1500.0,
+    1380.0,
+    1260.0,
+    1140.0,
+    1020.0,
+    900.0,
+    780.0,
+    660.0,
+    540.0,
+    420.0,
+    300.0
+   ]
+  },
+  "calloutChance": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "the chance a newly sighted enemy is called out to the team (B.4)",
+   "levels": [
+    0.45,
+    0.49,
+    0.53,
+    0.57,
+    0.61,
+    0.65,
+    0.69,
+    0.73,
+    0.77,
+    0.81,
+    0.85
+   ]
+  },
+  "followSeconds": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "how long a teammate's order holds, and how late a bot comes to a rally (its shortfall from the top), seconds (B.5)",
+   "levels": [
+    5.0,
+    7.5,
+    10.0,
+    12.5,
+    15.0,
+    17.5,
+    20.0,
+    22.5,
+    25.0,
+    27.5,
+    30.0
+   ]
+  },
+  "teamCoverWeight": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "Cover (B.5): the weight of seeing a teammate's called fight from another angle",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "tradeWeight": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "Trade (B.5): the chance a teammate's death in sight is traded, one draw a death",
+   "levels": [
+    0.2,
+    0.27,
+    0.34,
+    0.41,
+    0.48,
+    0.55,
+    0.62,
+    0.69,
+    0.76,
+    0.83,
+    0.9
+   ]
+  },
+  "crossfireWeight": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "Crossfire (B.5): the chance the teammate behind on one way to a known enemy goes round by the other, one draw an enemy",
+   "levels": [
+    0.0,
+    0.08,
+    0.16,
+    0.24,
+    0.32,
+    0.4,
+    0.48,
+    0.56,
+    0.64,
+    0.72,
+    0.8
+   ]
   }
  },
  "styleNote": "A parameter that reads 'style' is read at a skill's height above the bot's own mean (SkillCurves.StyleLevel, \u00a710, ruling 2026-11-02), not its level, so a bot's favourite shows at any difficulty; the rest read the level itself, so difficulty still means skill."

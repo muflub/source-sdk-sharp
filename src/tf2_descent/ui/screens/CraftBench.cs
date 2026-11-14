@@ -5,19 +5,6 @@ using TF2.Descent.Client.Ui.Parts;
 namespace TF2.Descent.Client.Ui.Screens;
 
 /// <summary>
-/// What the bench is short of, per stack (view-model-built by the wiring; the
-/// plan's <see cref="IDescentCraft"/> carries no per-metal deficiency, only
-/// <c>CanCraft</c>). Optional: unwired, the bench just says "not enough
-/// metal" instead of naming the stacks.
-/// </summary>
-public interface IDescentCraftShortage
-{
-    int ScrapShort { get; }
-    int ReclaimedShort { get; }
-    int RefinedShort { get; }
-}
-
-/// <summary>
 /// The Engineer's crafting bench (plan §2.10, D24): the recipe list over the
 /// five stances the interface names (craft-by-base, reroll, upgrade rarity,
 /// combine potions, repair kit) on the left, the item under work in the
@@ -30,9 +17,12 @@ public sealed class CraftBench(
     UiWindows windows,
     IDescentCraft craft,
     IDescentCraftActions? actions = null,
-    IDescentCraftShortage? shortage = null) : UiScreen, IUiWindowed
+    IDescentCraftShortage? shortage = null,
+    IDescentTownStatus? status = null) : UiScreen, IUiWindowed
 {
     public override string Name => "craftbench";
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+    public override string? Panel => "descent_craftbench";
 
     public string WindowId => "craftbench";
 
@@ -58,6 +48,7 @@ public sealed class CraftBench(
 
     private readonly RarityChip _chip = new();
     private readonly ItemSlot _well = new();
+    private readonly TownStatusLine _statusLine = new();
 
     public override void Describe(ref UiFrame ui)
     {
@@ -261,6 +252,9 @@ public sealed class CraftBench(
             ui.Divider();
             // The output preview, straight from the source: "a random <base> at your level".
             ui.Text(craft.PreviewToken, Text.Body, Tone.TextMuted).Wrap(BenchDu - 48);
+            // UI4: the server's word on the last craft.
+            if (status is { } st)
+                ui.Sub("status", _statusLine, new TownStatusProps(st.StatusToken, st.StatusData, st.StatusError));
             using (ui.Row(Space.S, Align.Centre).Width(Size.Fill))
             {
                 ui.Flex();

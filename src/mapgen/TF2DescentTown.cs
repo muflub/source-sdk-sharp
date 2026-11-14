@@ -1,3 +1,5 @@
+using SourceSharp.MapGen.Descent;
+
 namespace SourceSharp.MapGen;
 
 /// <summary>
@@ -27,15 +29,15 @@ public sealed record TownPalette(
         Ground: "nature/ground_03",
         Street: "nature/gravelground001",
         Cliff: "nature/rockwall011",
-        Wall: "wood/wood_wall007",
-        Floor: "wood/wood_floor002",
-        Beam: "wood/wood_beam02",
+        Wall: MineShaft.Lining,
+        Floor: MineShaft.Floor,
+        Beam: MineShaft.Beam,
         Roof: "medieval/wood_shingles03",
-        Sky: "sky_badlands_01",
+        Sky: MineShaft.Sky,
         WaterTower: "models/props_mining/watertower.mdl",
         OreCart: "models/props_vehicles/mining_cart_supplies001.mdl",
         Track: "models/props_mining/track_straight_128.mdl",
-        Lantern: "models/props_2fort/lantern001.mdl",
+        Lantern: MineShaft.LanternModel,
         Wheel: "models/props_2fort/wagonwheel001.mdl",
         Barrel: "models/props_farm/wooden_barrel.mdl",
         Truss: "models/props_mining/wooden_truss01.mdl");
@@ -78,8 +80,11 @@ public sealed class TF2DescentTown(TownPalette palette)
     // The valley.
     private const float HalfX = 1536f, HalfY = 1024f, Height = 768f, Wall = 64f, Slab = 16f;
 
-    // The shaft: an opening in the ground at the east end, and how deep it goes.
-    private const float ShaftX = 1300f, ShaftHalf = 96f, ShaftDepth = 384f;
+    // The shaft: an opening in the ground at the east end (MineShaft's size), and how deep it goes.
+    private const float ShaftX = 1300f, ShaftHalf = MineShaft.Half, ShaftDepth = 384f;
+
+    // The cage beside it: MineShaft's square floor and height.
+    private const float CageSide = MineShaft.CageSize, CageHalf = MineShaft.CageSize / 2f, CageTop = MineShaft.CageHeight;
 
     public TF2DescentTown() : this(TownPalette.TF2Mining) { }
 
@@ -210,11 +215,11 @@ public sealed class TF2DescentTown(TownPalette palette)
         Add(map, new(sx1 + 48f, -144f, 160f), new(HalfX, 144f, 176f), palette.Roof);
 
         // The cage, on the open (west) side: a floor, bars on two sides, a roof.
-        float cx0 = sx0 - 128f, cx1 = sx0;
-        Add(map, new(cx0, -64f, 0f), new(cx1, 64f, 8f), palette.Floor);
-        Add(map, new(cx0, -72f, 8f), new(cx1, -64f, 112f), palette.Beam);
-        Add(map, new(cx0, 64f, 8f), new(cx1, 72f, 112f), palette.Beam);
-        Add(map, new(cx0, -72f, 112f), new(cx1, 72f, 120f), palette.Beam);
+        float cx0 = sx0 - CageSide, cx1 = sx0;
+        Add(map, new(cx0, -CageHalf, 0f), new(cx1, CageHalf, 8f), palette.Floor);
+        Add(map, new(cx0, -CageHalf - 8f, 8f), new(cx1, -CageHalf, CageTop - 8f), palette.Beam);
+        Add(map, new(cx0, CageHalf, 8f), new(cx1, CageHalf + 8f, CageTop - 8f), palette.Beam);
+        Add(map, new(cx0, -CageHalf - 8f, CageTop - 8f), new(cx1, CageHalf + 8f, CageTop), palette.Beam);
 
         // The button on the cage's south bar: pressed, it sends the player down.
         var button = new VmfEntity { ClassName = "func_button" }
@@ -223,7 +228,7 @@ public sealed class TF2DescentTown(TownPalette palette)
             .Set("wait", "3")
             .Set("speed", "5")
             .Wire("OnPressed", TransitionName, "Transition");
-        button.Solids.Add(VmfMap.Box(new(cx0 + 48f, -64f, 48f), new(cx0 + 80f, -56f, 72f), palette.Beam));
+        button.Solids.Add(VmfMap.Box(new(cx0 + 48f, -CageHalf, 48f), new(cx0 + 80f, -CageHalf + 8f, 72f), palette.Beam));
         map.Entities.Add(button);
 
         // Halfway down the shaft: whoever jumps is sent down before landing.
@@ -249,12 +254,13 @@ public sealed class TF2DescentTown(TownPalette palette)
 
     private void Light(VmfMap map)
     {
+        Sun sun = MineShaft.Sun;
         map.Entities.Add(new VmfEntity { ClassName = "light_environment" }
             .Set("origin", new Point(0f, 0f, Height - 64f).ToString())
-            .Set("angles", "-50 35 0")
-            .Set("pitch", "-50")
-            .Set("_light", "255 232 196 450")
-            .Set("_ambient", "126 138 160 70")
+            .Set("angles", sun.Angles)
+            .Set("pitch", sun.Pitch)
+            .Set("_light", sun.Light)
+            .Set("_ambient", sun.Ambient)
             .Set("_lightHDR", "-1 -1 -1 1")
             .Set("_ambientHDR", "-1 -1 -1 1"));
 
@@ -266,12 +272,7 @@ public sealed class TF2DescentTown(TownPalette palette)
 
     private void Lantern(VmfMap map, Point at)
     {
-        map.Entities.Add(new VmfEntity { ClassName = "light" }
-            .Set("origin", at.ToString())
-            .Set("_light", "255 196 120 120")
-            .Set("_lightHDR", "-1 -1 -1 1")
-            .Set("_fifty_percent_distance", "192")
-            .Set("_zero_percent_distance", "512"));
+        map.Entities.Add(MineShaft.Lantern.Entity(at));
         // prop_dynamic: the lantern model is not compiled with $staticprop.
         Prop(map, palette.Lantern, at + new Point(0f, 0f, -16f), 0f, "prop_dynamic");
     }

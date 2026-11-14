@@ -61,14 +61,14 @@ public sealed class ConVarGameTypeFlags(TFGameModeCpConVar cp, TFGameModeCtfConV
 [SideService(Side.Server)]
 public sealed class TFModeServices(TeamRoundFlow rounds, ITeamRespawnWaves waves, ITeamRoundRoster roster,
                                    ITFTeamScores scores, ITFGameTypeFlags flags, ILog log,
-                                   IHooks<ITFModeHook>? hooks = null)
+                                   IHooks<ITFModeHook> hooks)
 {
     public TeamRoundFlow Rounds => rounds;
     public TFRespawnPolicy Respawn { get; } = new(waves, roster);
     public TFTeamScoring Scoring { get; } = new(scores);
     public ITFGameTypeFlags Flags => flags;
     public ILog Log => log;
-    public IHooks<ITFModeHook>? Hooks => hooks;
+    public IHooks<ITFModeHook> Hooks => hooks;
 
     /// <summary>TF's preserve list for the round's <c>CleanUpMap</c> (stateless, the rules' own).</summary>
     public TFMapCleanupFilter Cleanup { get; } = new();
@@ -124,6 +124,9 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
 
     public IMapCleanupFilter? Cleanup => _services.Cleanup;
 
+    /// <summary>The menus' view: TF2's limits and the entity this mode's map must hold (<see cref="TFModeSettings"/>).</summary>
+    public IModeSettings Settings => TFModeSettings.For(Id);
+
     /// <summary>Stock <c>CTFGameRules::Activate</c>'s game-type flags.</summary>
     public virtual void SetupRound(float now) => _services.Flags.SetGameType(GameType);
 
@@ -133,7 +136,7 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
     public void OnRoundStart()
     {
         RoundStarting();
-        _services.Hooks?.Each(nameof(ITFModeHook.OnRoundStart), h => h.OnRoundStart(this));
+        _services.Hooks.Each(nameof(ITFModeHook.OnRoundStart), h => h.OnRoundStart(this));
     }
 
     /// <summary>The game type's part of <c>SetupOnRoundStart</c>.</summary>
@@ -163,10 +166,7 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
     /// <summary>Every hook's say on a win: one veto refuses it; a hook that throws is named and does not veto.</summary>
     public bool AllowWin(TFTeam team, WinReason reason)
     {
-        if (_services.Hooks is not { } hooks)
-            return true;
-
-        foreach (var hook in hooks.All)
+        foreach (var hook in _services.Hooks.All)
         {
             try
             {
@@ -190,10 +190,7 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
     {
         float time = ModifyRespawnWave(team, seconds);
 
-        if (_services.Hooks is not { } hooks)
-            return time;
-
-        foreach (var hook in hooks.All)
+        foreach (var hook in _services.Hooks.All)
         {
             try
             {
@@ -213,5 +210,5 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
 
     /// <summary>An objective moved: the objectives (2.4-2.6) report it, and every hook hears it.</summary>
     public void ReportObjective(TFObjectiveEvent objective)
-        => _services.Hooks?.Each(nameof(ITFModeHook.OnObjectiveEvent), h => h.OnObjectiveEvent(this, objective));
+        => _services.Hooks.Each(nameof(ITFModeHook.OnObjectiveEvent), h => h.OnObjectiveEvent(this, objective));
 }

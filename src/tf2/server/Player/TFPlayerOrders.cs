@@ -119,4 +119,69 @@ public static class TFPlayerOrders
     /// them, on +94 — the last free value in the band, after the spawn walks.
     /// </summary>
     public const int ResponsePrecache = Band + 94;
+
+    /// <summary>
+    /// The spawned kit's effect bars (<see cref="TFPlayerResupply"/>): the
+    /// regen's fill beside the spawn walk, on +101 past the taunt.
+    /// </summary>
+    public const int SpawnEffectBars = Band + 101;
+
+    /// <summary>
+    /// The heads the sword kill takes (<see cref="TFSwordHeads"/>): the
+    /// player-band death walk that reads the killing blow before the notice's
+    /// clear, on +102 past the effect bars.
+    /// </summary>
+    public const int SwordHeads = Band + 102;
+
+    /// <summary>
+    /// The kill that refills the charge meter (<see cref="TFChargeMeterRefills"/>):
+    /// the player-band death walk beside the heads, on +103.
+    /// </summary>
+    public const int ChargeRefills = Band + 103;
+
+    /// <summary>
+    /// The kill that restores the killer's health (<see cref="TFRestoreOnKill"/>):
+    /// the player-band death walk beside them, on +104.
+    /// </summary>
+    public const int RestoreOnKill = Band + 104;
+
+    /// <summary>
+    /// The head the decapitation rifle's kill banks (<see cref="TFDecapitations"/>):
+    /// the same record the sword's walk reads, one later on +105.
+    /// </summary>
+    public const int DecapHeads = Band + 105;
+
+    /// <summary>
+    /// The revenge window dying with its holder (<see cref="TFRevengeCrits"/>):
+    /// the player-band death walk beside them, on +106.
+    /// </summary>
+    public const int RevengeCritReset = Band + 106;
+
+    /// <summary>
+    /// The Eureka Effect's teleport (<see cref="TFEurekaTeleport"/>): the
+    /// command beside the taunt's, on +107.
+    /// </summary>
+    public const int EurekaTeleport = Band + 107;
+
+    /// <summary>
+    /// The team and class a death's body wears (<see cref="TFRagdollTeam"/>):
+    /// the death walk after the gib's, whose marks the same body carries, on +108.
+    /// </summary>
+    public const int RagdollTeam = Band + 108;
+
+    /// <summary>A death on TF's scoreboard: the victim's death, the attacker's kill (<see cref="TFKillStats"/>), on +109.</summary>
+    public const int KillStats = Band + 109;
+
+    /// <summary>
+    /// The runtime attribute list's sweep (<see cref="TFCustomAttributeLifetime"/>):
+    /// the spawn walk after the kit and the health are in (the spawn's own arm is +0), and
+    /// the death walk, on +87 — the band's hundred ends where the objectives' begins.
+    /// </summary>
+    public const int CustomAttributeLifetime = Band + 87;
+
+    /// <summary>
+    /// The owner's death fizzles a launcher's stickies (<see cref="TF2.Server.Projectiles.TFStickyTray"/>):
+    /// its own place on the death walk, after the scoreboard's, on +149.
+    /// </summary>
+    public const int StickyTray = Band + 149;
 }

@@ -4,8 +4,10 @@ using SourceSharp.Shared;
 using SourceSharp.Tests;
 
 using TF2.Server.Player;
+using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using Xunit;
@@ -22,6 +24,12 @@ public sealed class TFPlayerSpawnsTests
 {
     private static readonly EntityHandle Weapon = new(0x0004_0060u);
 
+    /// <summary>An arsenal over the fact's own seams: with no give, the kit's
+    /// clip reset and bar fills land on an empty carry and do nothing — what
+    /// the old absent arsenal did.</summary>
+    private static Arsenal LockerArsenal(RecordingLog log, RecordingEngine engine, IEntityDirectory directory) =>
+        new(log, engine, engine, engine, engine, engine, engine, engine, engine, directory, engine, new DamageHitGroups());
+
     private sealed class Rig
     {
         public readonly PlayerRig Player = new();
@@ -32,6 +40,8 @@ public sealed class TFPlayerSpawnsTests
         public readonly TFBlastJumpState Jump;
         public readonly Observers Observers;
         public readonly ConVarRegistry ConVars;
+        public readonly TFPlayerResupply Resupply;
+        public readonly LunchboxRecorder Lunchbox;
 
         public Rig()
         {
@@ -45,14 +55,24 @@ public sealed class TFPlayerSpawnsTests
             ConVars = convars;
             var directory = new NoPlayers();
             Observers = new Observers(Player.Log, directory, engine, engine, engine, engine, engine, engine, engine, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>());
-            Conditions = new TFPlayerConditions(Player.Carriers, engine);
+            Conditions = new TFPlayerConditions(Player.Carriers, engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), engine);
             Class = new TFPlayerClass(Player.Carriers, Player.Items);
             Jump = new TFBlastJumpState(Player.Carriers, Conditions, engine, directory, engine, engine);
             Player.Extra.Add(Jump);
             Player.Extra.Add(Class);
             Player.Join();
+            Resupply = new TFPlayerResupply(Player.Carriers, Player.Classes, engine, engine, Conditions,
+                                            Player.Loadout, engine, Player.Items, new TF2.Shared.Econ.AttributeHooks(),
+                                            scripts: new TFWeaponScripts(Player.Log, Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: Player.Catalog,
+                                            arsenal: new Arsenal(Player.Log, engine, engine, engine, engine, engine, engine, engine, engine,
+                                                                 new ScriptedEntityRegistry(TestEngines.Server()), engine, new DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
+            Lunchbox = new();
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
-                                        directory, Observers, new Carried(Weapon),
+                                        directory, Observers, new Carried(Weapon), Resupply, Lunchbox,
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), Player.Log);
         }
 
@@ -66,6 +86,23 @@ public sealed class TFPlayerSpawnsTests
     private sealed class Carried(EntityHandle weapon) : ITFCarriedWeapons
     {
         public EntityHandle WeaponOf(EntityHandle player) => weapon;
+    }
+
+    /// <summary>The lunchbox arm of the rig: records the weapon removals the
+    /// spawn's item strip asks for.</summary>
+    private sealed class LunchboxRecorder : ITFLunchboxEffects
+    {
+        public List<int> WeaponRemoved { get; } = [];
+
+        public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+        public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+
+        public void Bite(int playerIndex) { }
+
+        public void Drink(int playerIndex) { }
+
+        public void OnWeaponRemoved(int playerIndex) => WeaponRemoved.Add(playerIndex);
     }
 
     private sealed class NoPlayers : IEntityDirectory
@@ -159,6 +196,22 @@ public sealed class TFPlayerSpawnsTests
         Assert.Equal(1, rig.Player.Engine.CountOf("Players.RemoveAllItems"));
     }
 
+    /// <summary>The class switch's item strip removes the lunchbox's thrown
+    /// pack with the weapon (<c>CTFLunchBox::UpdateOnRemove</c>,
+    /// shared/tf/tf_weapon_lunchbox.cpp:100-112): the pack cannot be left out
+    /// under the old life and taken back under the new one.</summary>
+    [Fact]
+    public void The_class_switch_removes_the_lunchboxs_thrown_pack_with_the_weapon()
+    {
+        var rig = new Rig();
+        rig.Class.Desired = TFClass.Scout;
+
+        rig.Spawns.OnSpawning(PlayerRig.Player, 0f);
+
+        Assert.Contains("Players.RemoveAllItems", rig.Player.Engine.Calls.Select(c => c.Member));
+        Assert.Equal(new[] { PlayerRig.Index }, rig.Lunchbox.WeaponRemoved.ToArray());
+    }
+
     [Fact]
     public void Every_condition_goes_at_the_spawn()
     {
@@ -243,6 +296,35 @@ public sealed class TFPlayerSpawnsTests
         Assert.Equal(model, rig.Player.Engine.AllOf("EntityRender.SetModel").Single().ArgAs<string>(1));
     }
 
+    /// <summary>The spawn's health is the kit's maximum, not the class table's:
+    /// <c>InitClass</c> sets it after the items, so the items'
+    /// <c>add_maxhealth</c> counts (tf_player.cpp:4159-4162, the maximum
+    /// <c>GetMaxHealth</c> computes at :14241-14249). Conniver's Kunai's
+    /// <c>add_maxhealth</c> -55 (item 356) puts a spy's spawn at 70; the
+    /// class's 125 would sit above the new maximum and decay away as an
+    /// overheal does.</summary>
+    [Fact]
+    public void The_spawn_health_is_the_kits_max_health()
+    {
+        var rig = new Rig();
+        rig.Player.Items.SetManager(PlayerRig.Index, Arm("add_maxhealth", -55f, AttributeDescriptionFormat.Additive, 356));
+        rig.Class.Desired = TFClass.Spy;
+
+        rig.Spawn();
+
+        Assert.Equal(70, rig.Player.Engine.AllOf("Entities.SetHealth").Single().ArgAs<int>(1));
+    }
+
+    private static IAttributeProvider Arm(string name, float value, AttributeDescriptionFormat format, int defindex)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(defindex, $"attr {defindex}", name, format,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
+    }
+
     [Fact]
     public void The_kits_weapon_gets_a_fresh_crit_bucket()
     {
@@ -304,8 +386,18 @@ public sealed class TFPlayerSpawnsTests
         var observers = new Observers(log, registry, engine, engine, engine, engine, engine, engine, engine, convars.Declare<ForceCameraConVar>(), convars.Declare<AllowSpectatorsConVar>());
         var carriers = new TFPlayerCarriers();
         var spawns = new TFPlayerSpawns(carriers, new PlayerRig().Classes, engine, engine, engine,
-                                        new TFPlayerConditions(carriers, engine), new TFCritBuckets(),
+                                        new TFPlayerConditions(carriers, engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), engine), new TFCritBuckets(),
                                         registry, observers, new Carried(EntityHandle.None),
+                                        new TFPlayerResupply(carriers, new PlayerRig().Classes, engine, engine,
+                                                             new TFPlayerConditions(carriers, engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), engine),
+                                                             new PlayerRig().Loadout, engine,
+                                                             new PlayerRig().Items, new AttributeHooks(),
+                                                             scripts: new TFWeaponScripts(log, Weapons.WeaponFixtures.ShippedWithClasses()),
+                                                             catalog: new PlayerRig().Catalog, arsenal: LockerArsenal(log, engine, registry),
+                                                             hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                                             deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                                             clock: engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>()),
+                                        new LunchboxRecorder(),
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), log);
 
         spawns.OnSpawned(PlayerRig.Player, 1f);

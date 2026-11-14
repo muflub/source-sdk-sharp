@@ -2,12 +2,13 @@ using System.Reflection;
 using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp;
 using SourceSharp.Ai.Hl2mp.Chat;
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 using Xunit;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Chat;
 
@@ -48,7 +49,7 @@ public sealed class Hl2mpBotChatTests
     {
         public readonly List<BotPlayer> Made = new();
 
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             int index = Made.Count + 2;
             var player = new EntityHandle((uint)(0x0001_0000 + index));
@@ -70,7 +71,7 @@ public sealed class Hl2mpBotChatTests
         public int RunQueued(EntityHandle player) => 0;
     }
 
-    private sealed class Navigation : IHl2mpNavigation
+    private sealed class Navigation : IAiNavigation
     {
         public string? Refusal => null;
         public LoadedNav? Current => null;
@@ -218,7 +219,7 @@ public sealed class Hl2mpBotChatTests
         public readonly MapFacts Map = new();
         public readonly Eyes Eyes = new();
         public readonly MarkerSender Markers = new();
-        public readonly Hl2mpBots Bots;
+        public readonly AiBots Bots;
         public readonly Hl2mpBotChat Chat;
         public readonly HostSay Say;
         private readonly Ticking _frame;
@@ -228,7 +229,7 @@ public sealed class Hl2mpBotChatTests
             var entities = DispatchProxy.Create<IEngineEntities, Indexes>();
             IEngineFrame engineFrame = DispatchProxy.Create<IEngineFrame, Ticking>();
             _frame = (Ticking)(object)engineFrame;
-            Bots = new Hl2mpBots(Players, new Runner(), Any<IEnginePlayers>(), entities, WeaponCatalog.Stock(), engineFrame, new Navigation(), Any<IBotInventory>(), new Names(), new Tags(), Log);
+            Bots = new AiBots(Players, new Runner(), Any<IEnginePlayers>(), entities, WeaponCatalog.Stock(), engineFrame, new Navigation(), TestGames.Hl2mp(), Any<IBotInventory>(), new Names(), new Tags(), Log);
             Chat = null!;
             var chain = new ChatHookForwarder();
             Say = new HostSay(Log, Any<IEnginePlayers>(), entities, Any<IEntityDirectory>(), new Sender(), new Clients(), Any<IEngineGameEvents>(), Any<IEngineHost>(),
@@ -354,8 +355,8 @@ public sealed class Hl2mpBotChatTests
         var tones = new HashSet<string>(StringComparer.Ordinal);
         for (int seed = 1; seed <= 40; seed++)
         {
-            var bot = new Hl2mpBot(new ActorId(2, 7), "Bobby Anything", p!) { SeedIndex = seed };
-            BotTrait trait = BotNamer.Trait(p!, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpBots.NameSalt, seed));
+            var bot = new AiBot(new ActorId(2, 7), "Bobby Anything", p!) { SeedIndex = seed };
+            BotTrait trait = BotNamer.Trait(p!, AiRandom.SeedFor(AiBots.MatchSeed ^ AiBots.NameSalt, seed));
             ChatPersona persona = Hl2mpBotChat.PersonaOf(bot, words);
             Assert.Equal(words.ToneOf(p!, trait), persona.Tone);
             tones.Add(persona.Tone);

@@ -13,7 +13,8 @@ import type {
   SaveResult, ScriptedClass,
   ScriptedInstance, SpawnResult, Status,
 } from './types';
-import type { AiFlow, AiNav } from './map/aiNav';
+import type { AiFlow, AiNav, AiNavBuild } from './map/aiNav';
+import type { Match } from './ai/match';
 import type { AiBot, AiBotListing, AiReplayFrame, AiReplayStatus } from './ai/aiInspect';
 import type { AiWorld } from './ai/aiWorld';
 
@@ -71,11 +72,17 @@ const post = <T>(path: string, body: string): Promise<T> =>
 
 export const getStatus = (): Promise<Status> => get('/status');
 
+/** The match (plan_bots_teams_tf2 D.3): the mode, its settings, the vote on now and the next map, for the Match card. */
+export const getMatch = (): Promise<Match> => get('/match');
+
 /** Every player's live data in one call (plan_hl2mp_ai §7.1), for the AI tab's 3D view. */
 export const getAiWorld = (): Promise<AiWorld> => get('/ai/world');
 
 /** The AI's derived graph (plan_hl2mp_ai §7.1): served by the AI binding, a 404 or 409 body without it. */
 export const getAiNav = (): Promise<AiNav> => get('/ai/nav');
+
+/** The navigation build in flight (plan_bots_teams_tf2 E.3), and the level's refusal; always a 200. */
+export const getAiNavBuild = (): Promise<AiNavBuild> => get('/ai/nav/build');
 
 /** The AI's bots (plan_hl2mp_ai §7.2). */
 export const getAiBots = (): Promise<AiBotListing[]> => get('/ai/bots');

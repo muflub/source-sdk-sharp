@@ -769,6 +769,17 @@ public class FrameLifecycleTests
         // and Rules 300), so none of the five recorded participants moved.
         (typeof(GameModes), 250),
 
+        // plan A.7: the teammate-collision answer published to the clients
+        // (mp_teammates_pass), TWO HUNDRED SIXTY -- after the mode proxy at
+        // 250, so it mirrors the mode that frame settled on. In the spacing's
+        // gap; nobody recorded moved.
+        (typeof(TeammatesPassRule), 260),
+
+        // plan_bots_teams_tf2 D.2: the playing mode's id published to the
+        // clients (sv_mode_active), TWO HUNDRED SIXTY-FIVE -- after the mode
+        // proxy and beside the teammate-collision answer. In the gap; none moved.
+        (typeof(ModeCatalogPublisher), 265),
+
         // tf2 stage 0.7 (D9/D10): the per-player composite's tick, FOUR
         // HUNDRED FIFTY — after the death cycle at 400, because a component
         // reads the frame's death outcome rather than the other way round.

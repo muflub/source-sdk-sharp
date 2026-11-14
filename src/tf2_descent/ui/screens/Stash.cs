@@ -48,11 +48,16 @@ public sealed class Stash : UiScreen, IUiWindowed
     private readonly InspectModal? _inspectModal;
     private readonly IDescentInspectActions? _inspectBackpack, _inspectStash;
 
+    private readonly IDescentTownStatus? _status;
+    private readonly TownStatusLine _statusLine = new();
+
     public Stash(UiWindows windows, IDescentItemGridSource backpack, IDescentStash stash,
                  IDescentItemActions actions, ItemGrid grid,
                  IDescentItemHover? hover = null, ItemTooltip? tooltip = null,
-                 IDescentInspect? inspect = null, IDescentInspectActions? inspectActions = null)
+                 IDescentInspect? inspect = null, IDescentInspectActions? inspectActions = null,
+                 IDescentTownStatus? status = null)
     {
+        _status = status;
         _windows = windows;
         _backpack = backpack;
         _stash = stash;
@@ -91,6 +96,10 @@ public sealed class Stash : UiScreen, IUiWindowed
 
     public override string Name => "stash";
 
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_stash";
+
     public string WindowId => "stash";
 
     /// <summary>The grid's columns; the cell is <see cref="ItemSlot.SizeDu"/> wide.</summary>
@@ -124,6 +133,9 @@ public sealed class Stash : UiScreen, IUiWindowed
         {
             if (ui.Narrow)
             {
+                // Narrow, the two grids stack taller than the window: the status line goes first, where it is seen.
+                if (_status is { } top)
+                    ui.Sub("status", _statusLine, new TownStatusProps(top.StatusToken, top.StatusData, top.StatusError));
                 Side(ref ui, "#Descent_Stash_Backpack", _backpack, _useBackpack, _hoverBackpack, 0);
                 Side(ref ui, "#Descent_Stash_Stash", _stash, _useStash, _hoverStash, 1, _stash.StoragePlanRankShown);
             }
@@ -140,6 +152,10 @@ public sealed class Stash : UiScreen, IUiWindowed
             // owns its cells, so the popup hangs from the side the pointer
             // last reported from — while a sample that forces Hovering with
             // no pointer falls back to the stash side, the screen's subject.
+            // UI4: the server's word on the last deposit or withdrawal.
+            if (!ui.Narrow && _status is { } st)
+                ui.Sub("status", _statusLine, new TownStatusProps(st.StatusToken, st.StatusData, st.StatusError));
+
             if (_hover is { Hovering: true } && _tooltip is not null)
             {
                 using (ui.Overlay("tip").AnchorTo(_lastHoverSide == 0 ? _bpAnchor : _spAnchor,
@@ -148,7 +164,8 @@ public sealed class Stash : UiScreen, IUiWindowed
             }
 
             // The inspect modal last and modal (the Inventory's pattern).
-            if (_inspect is not null && _inspectModal is { } modal)
+            // Only while showing: a modal overlay takes every click even when empty (the Inventory's UI3 fix).
+            if (_inspect is { Showing: true } && _inspectModal is { } modal)
                 using (ui.Overlay("inspect", modal: true))
                     ui.Sub("inspect", modal);
         }

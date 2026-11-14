@@ -332,4 +332,102 @@ public sealed class TFCloakTests
         Assert.Equal(101f, rig.State.InvisChangeCompleteTime, 4);
         Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Stealthed));
     }
+
+    // ---- the motion cloak (item 60, Cloak and Dagger): set_weapon_mode 2,
+    // UpdateCloakMeter's movement arms, tf_player_shared.cpp:14153-14192 ----
+
+    /// <summary>The held watch's mode on the spy's manager, as the shipped
+    /// schema carries it (<c>AttributeValue.OfFloat</c> on a
+    /// <c>Default</c>-typed <c>set_weapon_mode</c>, read by
+    /// <see cref="AttributeHooks.Int"/>).</summary>
+    private static AttributeContainer WatchMode(float mode)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(6101, "attr 6101", "set_weapon_mode", AttributeDescriptionFormat.Additive,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), mode));
+        return container;
+    }
+
+    [Fact]
+    public void The_motion_cloak_drains_only_while_the_spy_moves()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 100f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);   // INVIS_MOTION_CLOAK
+        rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
+
+        // Moving at the class maximum: RemapVal answers 1, stock's extra half
+        // makes the drain 10/sec * 1.5 (:14171-14176).
+        float maxSpeed = rig.Classes[TFClass.Spy].MaxSpeed;
+        rig.Engine.Returns("Entities.GetVelocity", new Vector(maxSpeed, 0f, 0f));
+
+        rig.Slice.Tick(100f);
+        rig.Slice.Tick(101f);
+
+        Assert.Equal(85f, rig.State.CloakMeter, 4);
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Stealthed));
+    }
+
+    [Fact]
+    public void A_standing_motion_cloak_refills_to_its_cap()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 98.4f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);
+        rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
+
+        // Still (the rig's zero velocity): the refill rides the regen hook,
+        // 3.3/sec (:14158-14167).
+        rig.Slice.Tick(100f);
+        rig.Slice.Tick(101f);
+        Assert.Equal(100f, rig.State.CloakMeter, 4);    // 98.4 + 3.3 clamps to the cap (:14163-14166)
+
+        rig.Slice.Tick(102f);
+        Assert.Equal(100f, rig.State.CloakMeter, 4);    // the cap holds (:14163-14166)
+    }
+
+    [Fact]
+    public void The_motion_cloak_refill_waits_a_second_of_being_still()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 50f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);
+        rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
+
+        // The moving tick stamps the exposure (:14158, one second of grace).
+        float maxSpeed = rig.Classes[TFClass.Spy].MaxSpeed;
+        rig.Engine.Returns("Entities.GetVelocity", new Vector(maxSpeed, 0f, 0f));
+        rig.Slice.Tick(100f);
+
+        // Stilled at once the meter stands still, and after the second it
+        // regenerates (:14158-14168).
+        rig.Engine.Returns("Entities.GetVelocity", default(Vector));
+        rig.Slice.Tick(101f);
+        Assert.Equal(50f, rig.State.CloakMeter, 4);
+
+        rig.Slice.Tick(102f);
+        Assert.Equal(53.3f, rig.State.CloakMeter, 3);
+    }
+
+    [Fact]
+    public void An_empty_motion_cloak_clamps_at_zero_and_keeps_the_spy_stealthed()
+    {
+        var rig = new SpyRig();
+        rig.State.CloakMeter = 1f;
+        rig.Owners.Managers[SpyRig.Spy.EntryIndex] = WatchMode(2f);
+        rig.Conditions.Add(SpyRig.Spy, TFCond.Stealthed, provider: SpyRig.Spy);
+
+        float maxSpeed = rig.Classes[TFClass.Spy].MaxSpeed;
+        rig.Engine.Returns("Entities.GetVelocity", new Vector(maxSpeed, 0f, 0f));
+
+        rig.Slice.Tick(100f);
+        rig.Slice.Tick(101f);
+
+        // The motion arm clamps at zero and fades nothing: the empty meter
+        // leaves the spy stealthed, half-visible (:14177-14180, :14189-14192).
+        Assert.Equal(0f, rig.State.CloakMeter, 4);
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Stealthed));
+    }
 }

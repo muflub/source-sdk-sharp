@@ -6,6 +6,7 @@ using Xunit;
 
 using Engine = client::SourceSharp.Abi.RecordingEngine;
 using PlayerResources = client::TF2.Client.Player.TFClientPlayerResources;
+using PlayerResource = client::TF2.Client.Player.ClientTFPlayerResource;
 using Timer = client::TF2.Client.Entities.ClientTeamRoundTimer;
 using Timers = client::TF2.Client.Entities.TFClientRoundTimers;
 using TimerState = client::TF2.Shared.Rules.TeamRoundTimerNetState;
@@ -146,6 +147,11 @@ public sealed class RoundTimerWarningsTests
 
         public readonly ContestedSounds Sounds = new();
 
+        /// <summary>The gamerules' words the warnings' gates read through the
+        /// live <c>tf_player_manager</c>; a fact puts one on it as the registry
+        /// does when the entity arrives.</summary>
+        public readonly PlayerResources Resources = new();
+
         public readonly Warnings Announcer;
 
         public Rig()
@@ -158,7 +164,7 @@ public sealed class RoundTimerWarningsTests
             var hud = Engine.Default();
             hud.Returns("Hud.LocalPlayerIndex", 1);
 
-            Announcer = new Warnings(Timers, Clock, new PlayerResources(), hud, Sounds);
+            Announcer = new Warnings(Timers, Clock, Resources, hud, Sounds);
         }
 
         /// <summary>Writes onto the one timer state, snapshots and delivers it,
@@ -193,5 +199,61 @@ public sealed class RoundTimerWarningsTests
     private sealed class MoveClock : client::SourceSharp.Abi.IGameClock
     {
         public float Now { get; set; }
+    }
+
+    /// <summary>
+    /// In KOTH the other team's timer announces too (stock's KOTH arm of
+    /// <c>SendTimeWarning</c>, :768-771): a timer the HUD does not show still
+    /// plays its warning while the rules carry the KOTH word.
+    /// </summary>
+    [Fact]
+    public void In_koth_a_timer_the_hud_does_not_show_still_warns()
+    {
+        var rig = new Rig();
+
+        // The gamerules' KOTH word, riding the player resource as the other
+        // gamerules words do (stock's IsInKothMode, :768).
+        var resource = new PlayerResource(Engine.Default(), rig.Resources);
+        resource.State.BindLocal();
+        resource.State.KothMode = 1;
+        rig.Resources.Live = resource;
+
+        rig.Arrive(s =>
+        {
+            s.State = TimerState.StateNormal;
+            s.ShowInHud = false;      // the election names no timer at all
+            s.AutoCountdown = true;
+            s.TimerLength = 61;
+            s.TimerEndTime = 61f;
+        });
+        rig.Clock.Now = 0f;
+
+        rig.Think();
+        rig.Think();
+
+        Assert.Equal(["Announcer.RoundEnds60seconds"], rig.Names);
+    }
+
+    /// <summary>Outside KOTH the election alone decides (:763-766): a timer
+    /// the HUD does not show answers nothing.</summary>
+    [Fact]
+    public void Outside_koth_a_timer_the_hud_does_not_show_stays_silent()
+    {
+        var rig = new Rig();   // no live resource: the KOTH word answers nothing
+
+        rig.Arrive(s =>
+        {
+            s.State = TimerState.StateNormal;
+            s.ShowInHud = false;
+            s.AutoCountdown = true;
+            s.TimerLength = 61;
+            s.TimerEndTime = 61f;
+        });
+        rig.Clock.Now = 0f;
+
+        rig.Think();
+        rig.Think();
+
+        Assert.Empty(rig.Names);
     }
 }

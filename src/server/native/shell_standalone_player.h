@@ -33,6 +33,10 @@ public:
 
 	virtual bool IsPlayer() const OVERRIDE { return true; }
 
+	// The hull in the solver. The entity's own object stays NULL: the shadow bodies are its
+	// physics, and only the active one has collisions on.
+	virtual IPhysicsObject* CollisionRulesObject() const OVERRIDE { return m_pShadowActive; }
+
 	// The managed OnSpawn supplies the model and game state.
 	virtual void Spawn() OVERRIDE;
 

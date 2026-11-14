@@ -2,8 +2,10 @@ using System.Diagnostics;
 using System.Globalization;
 using SourceSharp.Abi;
 using SourceSharp.Server;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Senses;
+using SourceSharp.Ai.Server.Chat;
 
 namespace SourceSharp.Ai.Hl2mp.Chat;
 
@@ -204,11 +206,11 @@ public sealed class OllamaChatWriterFactory : IBotChatWriterFactory
 /// is missing or refuses prints one console line and the bots stay quiet,
 /// asking again every <see cref="RetrySeconds"/>.
 /// </summary>
-[SideService(Side.Server, As = [typeof(IPlayerChatHook), typeof(IDeathNoticeHook)])]
-public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory directory, IConnectedClients clients, IEngineEntities entities,
+[SideService(Side.Server, As = [typeof(IPlayerChatHook), typeof(IDeathNoticeHook), typeof(IBotChatReport)])]
+public sealed class Hl2mpBotChat(AiBots bots, HostSay say, IPlayerDirectory directory, IConnectedClients clients, IEngineEntities entities,
                                  IEngineFrame frame, IBotInventory inventory, IBotFightClock fights, IChatWordsSource wordsSource, IBotChatWriterFactory writers, ILog log,
                                  IChatConfig config, IEnginePlayers players, IChatHelpSource helpSource, IChatMapFacts mapFacts, IChatAskerEyes eyes, IPlayerMarkers markers)
-    : IPlayerChatHook, IDeathNoticeHook, IGameLifecycle, IFrameLifecycle, IChatWorld
+    : IPlayerChatHook, IDeathNoticeHook, IGameLifecycle, IFrameLifecycle, IChatWorld, IBotChatReport
 {
     /// <summary>How long the bots stay quiet before asking a server that did not answer again.</summary>
     public const float RetrySeconds = 30f;
@@ -238,7 +240,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
 
     public int FrameOrder => ModStages.First + 620;
 
-    private float Now => frame.TickCount() * Hl2mpAiSession.TickSeconds;
+    private float Now => frame.TickCount() * ServerAiSession.TickSeconds;
 
     public void OnLevelInitPostEntity(string mapName)
     {
@@ -319,7 +321,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
 
         _writer = writers.Create();
         _worker = new ChatWorker(_writer, new ChatOutputFilter(words), Counters);
-        _director = new ChatDirector(words, new ChatPromptBuilder(words), _worker, Counters, this, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ ChatSalt, 1));
+        _director = new ChatDirector(words, new ChatPromptBuilder(words), _worker, Counters, this, AiRandom.SeedFor(AiBots.MatchSeed ^ ChatSalt, 1));
         ApplySettings(_director);
         _director.Answers = BookFor(_director);
         _worker.Start(_director.Target);
@@ -337,7 +339,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
 
         if (mapFacts.Map is not { } map)
             return null;
-        return new ChatAnswerBook(help, map, new ChatPlaces(map, mapFacts.Graph), mapFacts.GoodWeapons, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ ChatSalt, 2));
+        return new ChatAnswerBook(help, map, new ChatPlaces(map, mapFacts.Graph), mapFacts.GoodWeapons, AiRandom.SeedFor(AiBots.MatchSeed ^ ChatSalt, 2));
     }
 
     private void ApplySettings(ChatDirector d)
@@ -362,7 +364,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
             }
         }
 
-        foreach (Hl2mpBot b in bots.Bots)
+        foreach (AiBot b in bots.Bots)
         {
             if (!d.Slots.Contains(b.Id.Slot))
                 d.Join(b.Id.Slot, PersonaOf(b, words));
@@ -374,10 +376,10 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
     /// The same seed as its name's (the roster's): most presets tie several skills, and the seed
     /// settles which, so a seed of its own gave "Bobby Never Quits" another trait's voice.
     /// </summary>
-    public static ChatPersona PersonaOf(in Hl2mpBot bot, ChatWords words)
+    public static ChatPersona PersonaOf(in AiBot bot, ChatWords words)
     {
         ArgumentNullException.ThrowIfNull(words);
-        BotTrait trait = BotNamer.Trait(bot.Skills, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpBots.NameSalt, bot.SeedIndex));
+        BotTrait trait = BotNamer.Trait(bot.Skills, AiRandom.SeedFor(AiBots.MatchSeed ^ AiBots.NameSalt, bot.SeedIndex));
         int space = bot.Name.IndexOf(' ', StringComparison.Ordinal);
         return new ChatPersona(bot.Name, space > 0 ? bot.Name[..space] : bot.Name, words.ToneOf(bot.Skills, trait));
     }
@@ -385,7 +387,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
     /// <summary>Twice a second, what a player's own screen shows: a new weapon in the bot's hands, and whether it leads the scoreboard.</summary>
     private void Scan(ChatDirector d, float now)
     {
-        foreach (Hl2mpBot b in bots.Bots)
+        foreach (AiBot b in bots.Bots)
         {
             EntityHandle p = bots.Applier.PlayerOf(b.Id);
             if (p == EntityHandle.None)
@@ -402,7 +404,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
             // A life's holdings go with it: picking the same weapon up in the next life is news again.
             was.IntersectWith(held);
             if (fights.LastHitTick(b.Id.Slot) is >= 0 and var hit)
-                d.Fighting(b.Id.Slot, hit * Hl2mpAiSession.TickSeconds);
+                d.Fighting(b.Id.Slot, hit * ServerAiSession.TickSeconds);
             ChatScore score = ScoreOf(b.Id.Slot);
             d.Ranked(b.Id.Slot, score.Rank, score.Frags, now);
         }
@@ -443,7 +445,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
         if (_director is not { } d)
             return;
         _hearers.Clear();
-        foreach (Hl2mpBot b in bots.Bots)
+        foreach (AiBot b in bots.Bots)
         {
             EntityHandle p = bots.Applier.PlayerOf(b.Id);
             if (p != EntityHandle.None && p != chat.Speaker && say.CanHear(p, chat.Speaker, chat.TeamOnly))
@@ -504,7 +506,7 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
     /// <inheritdoc />
     public void Say(int slot, string line)
     {
-        foreach (Hl2mpBot b in bots.Bots)
+        foreach (AiBot b in bots.Bots)
         {
             if (b.Id.Slot != slot)
                 continue;

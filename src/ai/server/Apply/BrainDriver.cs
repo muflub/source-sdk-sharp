@@ -1,0 +1,736 @@
+using SourceSharp.Abi;
+using SourceSharp.Ai.Server.Nav;
+
+namespace SourceSharp.Ai.Server;
+
+/// <summary>
+/// From a brain's intent to the commands of each tick between its decides
+/// (plan_hl2mp_ai §2.3's path stage): a goal to walk to becomes a nav
+/// follower's corners (rebuilt when the goal moves to another cell, at most
+/// every <see cref="RegoalTicks"/>), the brain's look and hands are kept as
+/// it said, and its one-shots keep their sequence so each is pressed once.
+/// The brain chose; this only carries it out, as a client's movement code
+/// carries out its player's keys.
+/// </summary>
+public sealed class BrainDriver
+{
+    /// <summary>A follower is rebuilt for a goal in another cell at most this often (0.5 s).</summary>
+    public const int RegoalTicks = 33;
+
+    private readonly Dictionary<int, Driven> _driven = new();
+
+    /// <summary>Where this driver's followers count their field builds, or null.</summary>
+    public NavBuildTally? Tally { get; set; }
+
+    /// <summary>This driver's counts, as the step that just ended left them: what a lane hands back.</summary>
+    public DriveCounters CountersOf(NavBuildTally tally)
+        => new(Breaks, BreaksGivenUp, Mounts, Climbs, Stucks, Yields, tally.Builds, tally.OnMain);
+
+    /// <summary>The follower carrying out the bot's goal now, or null: the brain has no goal to walk to.</summary>
+    public NavFollower? FollowerOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower : null;
+
+    public void Forget(int slot)
+    {
+        _driven.Remove(slot);
+        _scripted.Remove(slot);
+        _climbs.Remove(slot);
+        _progress.Remove(slot);
+        _body.Remove(slot);
+        _wedged.Remove(slot);
+        _stuckSaid.Remove(slot);
+        _giveWay.Forget(slot);
+        _unreachable.Remove(slot);
+        _breaking.Remove(slot);
+    }
+
+    /// <summary>
+    /// This tick's intent for a bot whose brain last said <paramref name="brain"/>:
+    /// the follower's move toward the brain's goal, or the brain's own move;
+    /// on a ladder, the climb's, whatever the brain said. A bot the game holds still
+    /// (<paramref name="frozen"/>, TF2's pre-round freeze) is not stuck: its stalls are not
+    /// watched, so it neither routes round nor hops at nothing.
+    /// </summary>
+    public IntentCommand Drive(in IntentCommand brain, AiVector origin, Tick tick, int seq, NavGraph? graph, NavObstacleState? obstacles,
+                               bool onLadder = false, AiAngles view = default, EntityHandle shooter = default, bool frozen = false)
+    {
+        int slot = brain.Bot.Slot;
+        MoveIntent move = brain.Move;
+        LookIntent look = brain.Look;
+        ActionIntent action = brain.Action;
+        Driven? d = null;
+        if (move.Kind is MoveKind.Follow or MoveKind.Retreat && move.CornerCount >= 1 && graph is not null && obstacles is not null)
+        {
+            move = Follow(slot, move, origin, tick, graph, obstacles, action);
+            _driven.TryGetValue(slot, out d);
+        }
+        else
+        {
+            _driven.Remove(slot);
+        }
+
+        if (graph is not null)
+            Ladder(slot, d, origin, view, tick, onLadder, graph, ref move, ref look, ref action);
+        if (d is not null && !onLadder && Break(slot, d, origin, tick, obstacles, shooter, ref move, ref look, ref action))
+        {
+            _progress.Remove(slot);
+            _body.Remove(slot);
+        }
+        else if (d is not null && !onLadder && d.Follower.InLink)
+        {
+            // At a link's start for the brain, or on the link: no give-way off the start, and no patience to run out
+            // (the follower's own wait ends the hold; the program has the commands in the air).
+            _progress.Remove(slot);
+            _body.Remove(slot);
+            _wedged.Remove(slot);
+        }
+        else if (d is not null && !onLadder)
+        {
+            _giveWay.Step(slot, d.Follower, origin, tick, Players, ref move);
+            if (_giveWay.Waiting || frozen)
+            {
+                _progress.Remove(slot);
+                _body.Remove(slot);
+            }
+            else
+            {
+                Watch(slot, d, origin, tick);
+                WatchBody(slot, d, origin, tick);
+                Wriggle(slot, origin, tick, ref move);
+            }
+        }
+        else
+        {
+            _progress.Remove(slot);
+            _body.Remove(slot);
+        }
+
+        return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason);
+    }
+
+    /// <summary>The shots asked for, for the counters: how many breakables a bot has gone at, and how many times it gave up on one.</summary>
+    public long Breaks { get; private set; }
+
+    public long BreaksGivenUp { get; private set; }
+
+    /// <summary>What a bot's hands ask of the breakable on its route; the side sets it.</summary>
+    public SourceSharp.Ai.Server.Nav.IBreakableAim? Breakables { get; set; }
+
+    /// <summary>A breakable this many route steps on is one to deal with, and a shot goes this far: a person shoots a crate from a little way off, on the move.</summary>
+    public const int BreakHops = 16;
+
+    public const float BreakRange = 256f;
+
+    /// <summary>It walks on, firing, until this near what it is shooting, then stands; near enough for a crowbar.</summary>
+    public const float BreakStand = 72f;
+
+    /// <summary>How long one breakable gets (5 s) before the bot goes round it.</summary>
+    public const int BreakPatienceTicks = 333;
+
+    private readonly Dictionary<int, (int Cell, int Since)> _breaking = new();
+
+    /// <summary>
+    /// A breakable on the route (§6.2, user report 2026-11-02: "bots should shoot
+    /// creates if blocking path"): carried out here as a door is, the hands kept for
+    /// it, unless the brain has someone in view (its look is on an actor) or a one-shot
+    /// to press. Only down a shot's clear line; then the bot goes on. Answers whether it is at it.
+    /// </summary>
+    private bool Break(int slot, Driven d, AiVector origin, Tick tick, NavObstacleState? obstacles, EntityHandle shooter,
+                       ref MoveIntent move, ref LookIntent look, ref ActionIntent action)
+    {
+        if (Breakables is not { } aim || obstacles?.Cells is not { } cells || look.Kind == LookKind.Actor || action.OneShotSeq != 0
+            || d.Follower.BreakableAhead(cells, BreakHops) is not (>= 0 and var cell)
+            || !aim.TryAim(cell, origin + new AiVector(0f, 0f, EyeHeight), shooter, out AiVector point)
+            || (point - origin).Length2D > BreakRange)
+        {
+            _breaking.Remove(slot);
+            return false;
+        }
+
+        if (!_breaking.TryGetValue(slot, out (int Cell, int Since) was))
+        {
+            _breaking[slot] = was = (cell, tick.Value);
+            Breaks++;
+        }
+
+        if (tick.Value - was.Since > BreakPatienceTicks)
+        {
+            // It does not break, or not for this gun: round it, as for anything else in the way.
+            _breaking.Remove(slot);
+            BreaksGivenUp++;
+            ReportStuck(slot, d, origin);
+            return false;
+        }
+
+        look = new LookIntent(LookKind.CornerCheck, point, ActorId.None, AimPoint.Body, 0f, 0);
+        action = new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0);
+        if ((point - origin).Length2D <= BreakStand)
+            move = MoveIntent.Hold;
+        return true;
+    }
+
+    private readonly Dictionary<int, Driven> _scripted = new();
+
+    /// <summary>
+    /// The ladder step for a follower that is not the driver's own (a
+    /// scripted walk's, <c>ai_bot_goto</c>): the same mount and climb.
+    /// </summary>
+    public void LadderFor(int slot, NavFollower follower, AiVector origin, AiAngles view, Tick tick, bool onLadder, NavGraph graph,
+                          ref MoveIntent move, ref LookIntent look, ref ActionIntent action)
+    {
+        if (!_scripted.TryGetValue(slot, out Driven? d) || d.Follower != follower)
+            _scripted[slot] = d = new Driven(follower, tick.Value);
+        Ladder(slot, d, origin, view, tick, onLadder, graph, ref move, ref look, ref action);
+        if (!onLadder)
+            _giveWay.Step(slot, follower, origin, tick, Players, ref move);
+    }
+
+    private readonly GiveWay _giveWay = new();
+
+    /// <summary>The living players and where they are, as of the senses' last tick: who a bot walks into. The side sets it.</summary>
+    public IReadOnlyList<NearbyPlayer> Players { get; set; } = [];
+
+    /// <summary>How many times a bot has given way to a player, for the counters.</summary>
+    public long Yields => _giveWay.Yields;
+
+    /// <summary>The +use a mount holds, every this many ticks until the bot is on (0.5 s), and for this many.</summary>
+    public const int MountEvery = 33, MountHold = 2;
+
+    /// <summary>
+    /// How near the pitch a climb wants the view must be before the bot mounts
+    /// and holds forward. Forward with the view off the ladder's axis near its
+    /// end is what gets a player off there (stock's sv_autoladderdismount; live,
+    /// dm_lockdown: on and off at the foot in one tick, every 33).
+    /// </summary>
+    public const float MountPitchSlack = 8f;
+
+    /// <summary>How long a mount waits for the view (2 s, an easy bot's turn), so a view that never gets there does not hold the bot off the ladder for good.</summary>
+    public const int SettleTicks = 132;
+
+    /// <summary>How many times a stalled bot asks +use to get off before it jumps off, as a player with no dismount in reach does.</summary>
+    public const int UsesBeforeJump = 2;
+
+    /// <summary>How far across the look point of a climb stays from the bot, so the view pitches along the ladder however far off the end's floor is.</summary>
+    public const float LookReach = 24f;
+
+    private readonly Dictionary<int, Climb> _climbs = new();
+
+    /// <summary>
+    /// A ladder on the route (a func_useableladder, climbed as a player climbs
+    /// it): at the foot (or the top) the bot looks past the far end and holds
+    /// +use to mount, then, on it, holds forward until the movement puts it off
+    /// at the dismount; the follower takes it from there. A door on the route
+    /// is walked into with +use held.
+    /// </summary>
+    private void Ladder(int slot, Driven? d, AiVector origin, AiAngles view, Tick tick, bool onLadder, NavGraph graph,
+                        ref MoveIntent move, ref LookIntent look, ref ActionIntent action)
+    {
+        if (onLadder)
+        {
+            OnTheLadder(slot, d, origin, view, tick, graph, ref move, ref look, ref action);
+            return;
+        }
+
+        // Come off, or a mount that did not take.
+        if (_climbs.TryGetValue(slot, out Climb? climb) && (climb.WasOn || (climb.Asked != climb.Started && tick.Value - climb.Asked > MountEvery * 2)))
+            _climbs.Remove(slot);
+        if (d is null || !d.Follower.NextCell.IsValid)
+            return;
+
+        // A door on the route: walked into, and +use held at it as a player
+        // opens one that does not open on a touch.
+        if (d.Follower.NextVia == NavEdgeType.Door)
+        {
+            AiVector door = graph.Cell(d.Follower.NextCell).Centre;
+            if (new AiVector(door.X - origin.X, door.Y - origin.Y, 0f).Length < 64f)
+            {
+                if (tick.Value - d.Mounted >= MountEvery)
+                    d.Mounted = tick.Value;
+                if (tick.Value - d.Mounted < MountHold && action.Kind == ActionKind.None)
+                    action = new ActionIntent(ActionKind.Use, FireStyle.Tap, 0, 0);
+            }
+
+            return;
+        }
+
+        if (d.Follower.NextVia != NavEdgeType.Ladder || !d.Follower.LadderEnd().IsValid)
+            return;
+
+        AiVector to = graph.Cell(d.Follower.LadderEnd()).Centre;
+        bool up = to.Z >= origin.Z;
+        // Facing the ladder, or +use does not take it (stock's LookingAtLadder):
+        // the far end's cell can be behind the bot when it has come past the
+        // ladder (live, dm_lockdown: +use refused at its foot for good).
+        AiVector way = Toward(origin, NearestLadder(origin) ?? to, new AiVector(1f, 0f, 0f));
+        AiVector point = LadderLook(origin, to, up, way);
+        look = new LookIntent(LookKind.Point, point, ActorId.None, AimPoint.Body, 0f, 0);
+        Mounts++;
+        if (climb is null || climb.To != to)
+            _climbs[slot] = climb = new Climb(to, up, tick.Value);
+
+        AiVector foot = graph.Cell(d.Follower.At).Centre;
+        if (new AiVector(foot.X - origin.X, foot.Y - origin.Y, 0f).Length >= 48f)
+            return;
+        // Standing to mount: a walk into the ladder's cone mounts it as well, and
+        // +use on the tick that mount lands is a +use on the ladder, which gets
+        // the bot off again (live, dm_lockdown: on and off at z 0 once a climb in
+        // two). The walk comes back if +use has not taken it by then.
+        if (tick.Value - climb.Started < SettleTicks * 2)
+            move = MoveIntent.Hold;
+
+        // Looking along the ladder first: forward, the moment the mount lands,
+        // gets a bot off again if it is still looking across it.
+        if (tick.Value - d.Mounted >= MountEvery && (Pitched(origin, view, point) || tick.Value - climb.Started >= SettleTicks))
+        {
+            d.Mounted = tick.Value;
+            climb.Asked = tick.Value;
+        }
+
+        if (tick.Value - d.Mounted < MountHold)
+            action = new ActionIntent(ActionKind.Use, FireStyle.Tap, 0, 0);
+    }
+
+    /// <summary>
+    /// On the ladder: the climb runs to its end whatever the goal has become,
+    /// since the brain's new goal is a new follower and the follower has no
+    /// cell mid-ladder (live, dm_lockdown: held at z 72 for ever, or at the top
+    /// pressing forward at a goal behind it). A bot put on one no route of its
+    /// climbs (a walk into its cone, a fall past it) asks to get off. Stalled,
+    /// by the end or by someone on it: +use, then a jump, as a player gets off.
+    /// </summary>
+    private void OnTheLadder(int slot, Driven? d, AiVector origin, AiAngles view, Tick tick, NavGraph graph,
+                             ref MoveIntent move, ref LookIntent look, ref ActionIntent action)
+    {
+        Climbs++;
+        if (!_climbs.TryGetValue(slot, out Climb? c))
+        {
+            bool routed = d is not null && d.Follower.NextVia == NavEdgeType.Ladder && d.Follower.LadderEnd().IsValid;
+            AiVector? to = routed ? graph.Cell(d!.Follower.LadderEnd()).Centre : null;
+            _climbs[slot] = c = new Climb(to, to is { } t && t.Z >= origin.Z, tick.Value);
+        }
+
+        if (!c.WasOn)
+        {
+            c.WasOn = true;
+            c.OnSince = tick.Value;
+            c.LastZ = origin.Z;
+            c.Stalled = c.To is null ? tick.Value - MountEvery : tick.Value;
+        }
+
+        if (action.Kind == ActionKind.Use)
+            action = ActionIntent.None;
+
+        if (c.To is { } end)
+        {
+            c.Facing = Toward(origin, end, c.Facing);
+            AiVector point = LadderLook(origin, end, c.Up, c.Facing);
+            look = new LookIntent(LookKind.Point, point, ActorId.None, AimPoint.Body, 0f, 0);
+            c.Settled = c.Settled || Pitched(origin, view, point) || tick.Value - c.OnSince >= SettleTicks;
+            if (!c.Settled)
+            {
+                move = MoveIntent.Hold;
+                c.Stalled = tick.Value;
+                return;
+            }
+
+            move = new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, c.Facing, false, 0);
+        }
+        else
+        {
+            move = MoveIntent.Hold;
+        }
+
+        if (MathF.Abs(origin.Z - c.LastZ) > 1f)
+        {
+            c.LastZ = origin.Z;
+            c.Stalled = tick.Value;
+            c.Asks = 0;
+            return;
+        }
+
+        int stalled = tick.Value - c.Stalled;
+        if (stalled < MountEvery)
+            return;
+        int phase = (stalled - MountEvery) % MountEvery;
+        if (phase == 0)
+            c.Asks++;
+        if (phase >= MountHold)
+            return;
+        if (c.Asks <= UsesBeforeJump)
+            action = new ActionIntent(ActionKind.Use, FireStyle.Tap, 0, 0);
+        else
+            move = new MoveIntent(MoveKind.Jump, MoveSpeed.Run, 0, default, default, default, default, default, false, 0);
+    }
+
+    /// <summary>How far across a ladder is looked at to mount it: stock finds one for +use within 64.</summary>
+    public const float LadderReach = 64f;
+
+    /// <summary>The map's func_useableladders, one point on each's line: what a bot looks at to mount one. The side sets it per level.</summary>
+    public IReadOnlyList<AiVector> Ladders { get; set; } = [];
+
+    private AiVector? NearestLadder(AiVector origin)
+    {
+        AiVector? best = null;
+        float bestFlat = LadderReach;
+        foreach (AiVector l in Ladders)
+        {
+            float flat = new AiVector(l.X - origin.X, l.Y - origin.Y, 0f).Length;
+            if (flat < bestFlat)
+            {
+                bestFlat = flat;
+                best = l;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>The flat way to <paramref name="to"/>, or <paramref name="otherwise"/> when the bot is over it.</summary>
+    private static AiVector Toward(AiVector origin, AiVector to, AiVector otherwise)
+    {
+        var flat = new AiVector(to.X - origin.X, to.Y - origin.Y, 0f);
+        return flat.Length2D > 4f ? flat.Normalised() : otherwise;
+    }
+
+    /// <summary>
+    /// A point past the ladder's far end, near across, so the view pitches up a
+    /// climb or down a descent for the whole of it. The way is the climb's from
+    /// its start: asked from where the bot is, a climb past its top floor (the
+    /// ladder goes on above it) would look down and climb back.
+    /// </summary>
+    private static AiVector LadderLook(AiVector origin, AiVector to, bool up, AiVector way)
+    {
+        return new AiVector(origin.X + way.X * LookReach, origin.Y + way.Y * LookReach, to.Z + (up ? 96f : -96f));
+    }
+
+    /// <summary>
+    /// Whether the view has reached the look at <paramref name="point"/>: its
+    /// pitch closely, and near enough its yaw that forward is forward (turning
+    /// past the far end's way with forward held, the bot pressed back and side
+    /// and went down the ladder and off it, live).
+    /// </summary>
+    private static bool Pitched(AiVector origin, AiAngles view, AiVector point)
+    {
+        AiAngles want = BotCommandApplier.AnglesTo(origin + new AiVector(0f, 0f, EyeHeight), point);
+        return MathF.Abs(want.Pitch - view.Pitch) <= MountPitchSlack && MathF.Abs(HumanMotion.AngleDelta(want.Yaw, view.Yaw)) <= MountYawSlack;
+    }
+
+    /// <summary>How near the yaw a climb wants the view must be before forward is held.</summary>
+    public const float MountYawSlack = 30f;
+
+    /// <summary>A standing player's eye over its feet (hull's view offset).</summary>
+    public const float EyeHeight = 64f;
+
+    /// <summary>Ticks spent mounting a ladder and climbing one, for the facts and the counters.</summary>
+    public long Mounts { get; private set; }
+
+    public long Climbs { get; private set; }
+
+    /// <summary>How long a goal may have no route before the bot goes as near as it can instead (0.5 s).</summary>
+    public const int NoRouteTicks = 33;
+
+    /// <summary>How long a bot may make no progress toward its goal before it acts (3 s).</summary>
+    public const int StuckTicks = 200;
+
+    /// <summary>How long a body may stand against something it is walking into before it acts (0.6 s).</summary>
+    public const int BodyBlockTicks = 40;
+
+    /// <summary>A body that has moved less than this has stopped.</summary>
+    public const float BodyBlockUnits = 8f;
+
+    private readonly Dictionary<int, (AiVector At, int Tick)> _body = new();
+    private readonly Dictionary<int, Wedge> _wedged = new();
+
+    /// <summary>Stopped again within this of the place it stopped, a bot is wedged there.</summary>
+    public const float WedgeUnits = 48f;
+
+    /// <summary>How long one try at getting out lasts (0.5 s).</summary>
+    public const int WriggleTicks = 33;
+
+    /// <summary>Each try goes this much round from the last: every way within eight tries.</summary>
+    public const float WriggleTurn = 135f;
+
+    private sealed class Wedge(AiVector at)
+    {
+        public AiVector At { get; } = at;
+        public int Tries { get; set; }
+        public int Until { get; set; } = int.MinValue;
+    }
+
+    /// <summary>How many times a bot of the brains has acted on being stuck, for the counters.</summary>
+    public long Stucks { get; private set; }
+
+    private readonly Dictionary<int, Progress> _progress = new();
+    private readonly Dictionary<int, string> _stuckSaid = new();
+
+    /// <summary>What a bot's last stuck spell did, once, for the log line; null when nothing has happened since it was last asked.</summary>
+    public string? TakeStuckLine(int slot)
+    {
+        if (!_stuckSaid.Remove(slot, out string? line))
+            return null;
+        return line;
+    }
+
+    /// <summary>
+    /// A bot of the brains making no progress toward its goal for
+    /// <see cref="StuckTicks"/>, whatever edge it is on, reports it to its
+    /// follower, as a scripted walk's does. Progress is the field's cost
+    /// falling; off the field, moving at all. A new goal's field is a new
+    /// measure of the cost and not a new patience: a hunt re-goaling every
+    /// half second stood at the walkway's wall for good.
+    /// </summary>
+    private void Watch(int slot, Driven d, AiVector origin, Tick tick)
+    {
+        if (d.State == FollowState.Arrived)
+        {
+            _progress.Remove(slot);
+            return;
+        }
+
+        float cost = d.Follower.CostLeft;
+        if (!_progress.TryGetValue(slot, out Progress? p))
+        {
+            _progress[slot] = new Progress(d.Follower, cost, origin, tick.Value);
+            return;
+        }
+
+        if (p.Follower != d.Follower)
+        {
+            p.Follower = d.Follower;
+            p.Best = cost;
+        }
+
+        bool progressed = float.IsFinite(cost)
+            ? cost < p.Best - 1f
+            : (origin - p.Anchor).Length > ProgressRadius;
+        if (progressed)
+        {
+            p.Best = cost;
+            p.Anchor = origin;
+            p.Tick = tick.Value;
+            return;
+        }
+
+        if (tick.Value - p.Tick <= StuckTicks)
+            return;
+        ReportStuck(slot, d, origin);
+        p.Best = float.PositiveInfinity;
+        p.Anchor = origin;
+        p.Tick = tick.Value;
+    }
+
+    /// <summary>
+    /// A body walking a plain floor that has stopped dead (under
+    /// <see cref="BodyBlockUnits"/> in <see cref="BodyBlockTicks"/>) is against
+    /// something the nav does not know: on dm_lockdown a heater, a cabinet or a
+    /// crate someone shoved. A person sees that at once; the cost-based patience
+    /// above is for a bot that moves and gets no nearer. A door, a ladder or a
+    /// jump on the way is waited for as its own code says.
+    /// </summary>
+    private void WatchBody(int slot, Driven d, AiVector origin, Tick tick)
+    {
+        if (d.State != FollowState.Moving || d.Follower.NextVia != NavEdgeType.Walk)
+        {
+            _body.Remove(slot);
+            return;
+        }
+
+        if (!_body.TryGetValue(slot, out (AiVector At, int Tick) b) || origin.DistanceTo(b.At) >= BodyBlockUnits)
+        {
+            _body[slot] = (origin, tick.Value);
+            return;
+        }
+
+        if (tick.Value - b.Tick < BodyBlockTicks)
+            return;
+        ReportStuck(slot, d, origin);
+        Blocked(slot, origin, tick);
+        if (_progress.TryGetValue(slot, out Progress? p))
+        {
+            p.Best = float.PositiveInfinity;
+            p.Anchor = origin;
+            p.Tick = tick.Value;
+        }
+
+        _body[slot] = (origin, tick.Value);
+    }
+
+    /// <summary>
+    /// The same place stopping the body again: a route round has not freed it,
+    /// so it is wedged (live, dm_lockdown: 77 s on top of two file cabinets, with
+    /// the field's way into the wall behind them). As a person would, it tries
+    /// each way in turn for a moment, whatever the route says, with a jump on
+    /// every other try.
+    /// </summary>
+    private void Blocked(int slot, AiVector origin, Tick tick)
+    {
+        if (!_wedged.TryGetValue(slot, out Wedge? w) || origin.DistanceTo(w.At) > WedgeUnits)
+        {
+            _wedged[slot] = new Wedge(origin);
+            return;
+        }
+
+        w.Tries++;
+        w.Until = tick.Value + WriggleTicks;
+    }
+
+    private void Wriggle(int slot, AiVector origin, Tick tick, ref MoveIntent move)
+    {
+        if (!_wedged.TryGetValue(slot, out Wedge? w))
+            return;
+        if (origin.DistanceTo(w.At) > WedgeUnits)
+        {
+            _wedged.Remove(slot);
+            return;
+        }
+
+        if (tick.Value >= w.Until)
+            return;
+        float angle = w.Tries * WriggleTurn * (MathF.PI / 180f);
+        var way = new AiVector(MathF.Cos(angle), MathF.Sin(angle), 0f);
+        move = w.Tries % 2 == 0
+            ? new MoveIntent(MoveKind.Jump, MoveSpeed.Run, 1, origin + way * 64f, default, default, default, default, false, 0)
+            : new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, way, false, 0);
+        _body.Remove(slot);
+    }
+
+    private void ReportStuck(int slot, Driven d, AiVector origin)
+    {
+        string where = System.FormattableString.Invariant($"({origin.X:F0} {origin.Y:F0} {origin.Z:F0})");
+        string next = d.Follower.NextStep();
+        int at = d.Follower.At.Index;
+        // Stuck in the objective's own cell: nothing more the route can do.
+        if (d.Follower.At == d.Follower.Objective)
+            _unreachable[slot] = d.Follower.Target;
+        bool round = d.Follower.ReportStuck(origin);
+        Stucks++;
+        _stuckSaid[slot] = $"is stuck at {where}, cell {at}, {d.State}, next {next}; "
+                           + (round ? $"routes round {d.Follower.Avoided.Count} cells" : "no way round: jumps at it");
+    }
+
+    /// <summary>How far a bot off the field must move from where it was to count as moving.</summary>
+    public const float ProgressRadius = 48f;
+
+    /// <summary>The route's next link for the bot's follower, as its last move found it (lane G5c-2b): what its brain is told.</summary>
+    public NavLinkStep LinkStepOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower.LinkStep : NavLinkStep.None;
+
+    private MoveIntent Follow(int slot, MoveIntent move, AiVector origin, Tick tick, NavGraph graph, NavObstacleState obstacles, ActionIntent action = default)
+    {
+        AiVector goal = move.Corner0;
+        CellId cell = graph.FindCell(goal + new AiVector(0f, 0f, 1f));
+        if (!cell.IsValid)
+        {
+            foreach (CellId near in NavPoints.CellsNear(graph, goal, ClearanceClass.Crouch))
+            {
+                cell = near;
+                break;
+            }
+        }
+
+        // No place for the goal (a flag left hanging in the air, a spot inside a wall): straight at
+        // it, as a player would try, and the last goal's follower let go, or the watch would go on
+        // reading the bot's place from it (live, ctf_2fort: a bot in its spawn reported stuck by
+        // where it had died).
+        if (!cell.IsValid)
+        {
+            _driven.Remove(slot);
+            return move;
+        }
+
+        bool have = _driven.TryGetValue(slot, out Driven? d);
+        // As near as it could get because the links it would take were left out for a while (refused or failed): when
+        // they are back, the goal itself is tried again (live, ss_ai_tf_jump: a bot stood beside the ledge for good).
+        if (!have || (d!.Follower.Objective != cell && d.Instead != cell && tick.Value - d.Built >= RegoalTicks)
+            || (d.Instead == cell && d.InsteadForLinks && d.Follower.AvoidedLinks.Count == 0))
+        {
+            var fresh = new NavFollower(graph, cell, goal, ClearanceClass.Crouch, obstacles) { Tally = Tally };
+            if (have)
+                fresh.GoOnFrom(d!.Follower);
+            d = new Driven(fresh, tick.Value);
+            _driven[slot] = d;
+        }
+
+        Driven driven = d!;
+        // The brain began the link the bot waits at: its one-shot names it (lane G5c-2b).
+        // A follower not waiting at that link pays it no heed (BeginLink), so an intent that goes on carrying the one-shot
+        // for a few ticks begins nothing more.
+        if (action.Kind == ActionKind.Ability && action.OneShotSeq != 0 && NavLinks.LinkOf(AbilityCall.Argument(action.WeaponSlot)) is >= 0 and var begun)
+            driven.Follower.BeginLink(begun);
+
+        MoveIntent next = driven.Follower.Next(origin, out FollowState state);
+
+        // A goal nothing reaches (behind glass, a shut gate): as near as it can
+        // get, not a stand at the first wall (live: 45 s at "NoRoute", jumping).
+        if (state == FollowState.NoRoute && driven.Follower.At.IsValid)
+        {
+            if (driven.NoRouteSince < 0)
+                driven.NoRouteSince = tick.Value;
+            else if (tick.Value - driven.NoRouteSince >= NoRouteTicks)
+            {
+                CellId near = graph.NearestReachable(driven.Follower.At, goal, ClearanceClass.Crouch, obstacles.Shoved());
+                var instead = new NavFollower(graph, near, graph.Cell(near).Centre, ClearanceClass.Crouch, obstacles) { Tally = Tally };
+                instead.GoOnFrom(driven.Follower);
+                driven = new Driven(instead, tick.Value) { Instead = cell, InsteadForLinks = instead.AvoidedLinks.Count > 0 };
+                _driven[slot] = driven;
+                _unreachable[slot] = goal;
+                next = instead.Next(origin, out state);
+            }
+        }
+
+        driven.State = state;
+        return state switch
+        {
+            FollowState.Arrived => MoveIntent.Hold,
+            FollowState.Moving => next with { Speed = move.Speed, Kind = next.Kind == MoveKind.Follow ? move.Kind : next.Kind, Direction = move.Direction },
+            // Off the graph or with no route: back to a cell that has one, or
+            // with none near, straight at the goal, as a player would try.
+            _ => next.CornerCount >= 1 ? next with { Speed = move.Speed } : move,
+        };
+    }
+
+    private readonly Dictionary<int, AiVector> _unreachable = new();
+
+    /// <summary>
+    /// A goal this bot has just found it cannot get to, once, for the brain to
+    /// hear (a pickup behind glass is no pickup for now): it stood 111 s going
+    /// "to heal" as near as it could get to one (live, dm_lockdown).
+    /// </summary>
+    public AiVector? TakeUnreachable(int slot) => _unreachable.Remove(slot, out AiVector goal) ? goal : null;
+
+    private sealed class Driven(NavFollower follower, int built)
+    {
+        public NavFollower Follower { get; } = follower;
+        public int Built { get; } = built;
+        public int Mounted { get; set; } = int.MinValue / 2;
+        public FollowState State { get; set; }
+        public int NoRouteSince { get; set; } = -1;
+        public CellId Instead { get; set; } = CellId.None;
+
+        /// <summary>Whether the goal was given up for a nearer one while links were left out of the route.</summary>
+        public bool InsteadForLinks { get; set; }
+    }
+
+    /// <summary>One bot's climb, from the mount to getting off; a null <see cref="To"/> is a ladder it means to get off.</summary>
+    private sealed class Climb(AiVector? to, bool up, int started)
+    {
+        public AiVector? To { get; } = to;
+        public bool Up { get; } = up;
+        public int Started { get; } = started;
+        public int Asked { get; set; } = started;
+        public bool WasOn { get; set; }
+        public int OnSince { get; set; }
+        public bool Settled { get; set; }
+        public AiVector Facing { get; set; } = new(1f, 0f, 0f);
+        public float LastZ { get; set; }
+        public int Stalled { get; set; }
+        public int Asks { get; set; }
+    }
+
+    /// <summary>A bot's progress toward its goal.</summary>
+    private sealed class Progress(NavFollower follower, float best, AiVector anchor, int tick)
+    {
+        public NavFollower Follower { get; set; } = follower;
+        public float Best { get; set; } = best;
+        public AiVector Anchor { get; set; } = anchor;
+        public int Tick { get; set; } = tick;
+    }
+}

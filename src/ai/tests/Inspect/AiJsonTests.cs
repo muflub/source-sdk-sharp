@@ -3,9 +3,9 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Inspect;
 
@@ -126,7 +126,8 @@ public sealed class AiJsonTests
     [Fact]
     public void NoAiRouteCallsTheSerializer()
     {
-        string[] callers = IlCallCensus.Callers(m => m.DeclaringType == typeof(JsonSerializer), typeof(AiJson).Assembly, typeof(BotInspectRecord).Assembly);
+        string[] callers = IlCallCensus.Callers(m => m.DeclaringType == typeof(JsonSerializer), typeof(AiJson).Assembly, typeof(SourceSharp.Ai.Hl2mp.Hl2mpBotGame).Assembly,
+                                                typeof(BotInspectRecord).Assembly);
         Assert.Empty(callers);
     }
 
@@ -152,7 +153,7 @@ public sealed class AiJsonTests
 
     private sealed class AiCopyContext() : AssemblyLoadContext("AiJsonUnload", isCollectible: true)
     {
-        private static readonly string[] Copied = ["SourceSharp.Ai", "SourceSharp.Ai.Hl2mp"];
+        private static readonly string[] Copied = ["SourceSharp.Ai", "SourceSharp.Ai.Server", "SourceSharp.Ai.Hl2mp"];
 
         protected override Assembly? Load(AssemblyName name)
         {
@@ -167,7 +168,7 @@ public sealed class AiJsonTests
     private static (WeakReference Weak, int Written) LoadAskAndUnload()
     {
         var context = new AiCopyContext();
-        Assembly binding = context.LoadFromAssemblyName(new AssemblyName("SourceSharp.Ai.Hl2mp"));
+        Assembly binding = context.LoadFromAssemblyName(typeof(AiJson).Assembly.GetName());
         Assembly core = context.LoadFromAssemblyName(new AssemblyName("SourceSharp.Ai"));
         Assert.NotSame(typeof(AiJson).Assembly, binding);
         Assert.Same(context, AssemblyLoadContext.GetLoadContext(core));

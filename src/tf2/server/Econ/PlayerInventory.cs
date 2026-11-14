@@ -34,6 +34,33 @@ public sealed class ItemInstance(ulong id, ItemDefinition definition, int qualit
     /// <summary>A stock item every player has without owning it (<c>GetBaseItemForClass</c>).</summary>
     public bool IsBaseItem => Id == InvalidItemId;
 
+    /// <summary>
+    /// Whether <paramref name="other"/> is this item as a kit sees it: the
+    /// same id, definition and quality carrying the same own attributes in
+    /// the same order. Stock's <c>ItemsMatch</c> asks the id and the
+    /// definition (tf_player.cpp:4361-4403); the attributes are asked too
+    /// because an instance here is its attributes — a source may answer a
+    /// new instance under an old id when an item is re-rolled.
+    /// </summary>
+    public bool SameAs(ItemInstance other)
+    {
+        if (ReferenceEquals(this, other))
+            return true;
+        if (Id != other.Id || Defindex != other.Defindex || Quality != other.Quality
+            || Attributes.Count != other.Attributes.Count)
+            return false;
+
+        for (int i = 0; i < Attributes.Count; i++)
+        {
+            AttributeValue mine = Attributes[i], theirs = other.Attributes[i];
+            if (mine.Definition.Defindex != theirs.Definition.Defindex || mine.Bits != theirs.Bits
+                || !string.Equals(mine.Text, theirs.Text, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>The base item for <paramref name="definition"/>: no id, the script quality, no own attributes.</summary>
     public static ItemInstance Base(ItemDefinition definition) => new(InvalidItemId, definition, definition.Quality, []);
 

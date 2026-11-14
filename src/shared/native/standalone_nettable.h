@@ -78,6 +78,13 @@ inline const StandaloneNetField_t* StandaloneNetFields(int* pOutCount)
 		{"m_nSolidFlags", STANDALONE_NET_INT, STANDALONE_SOLID_FLAGS_MAX_BITS},
 		{"m_nSkin", STANDALONE_NET_INT, STANDALONE_SKIN_BITS},
 		{"m_nBody", STANDALONE_NET_INT, STANDALONE_BODY_BITS},
+		// The collideable's box, unscaled like the other vectors: this is what
+		// a SOLID_BBOX clip stops on, and stock sends the pair too (stock's
+		// DT_CollisionProperty, collisionproperty.cpp). An entity whose head
+		// carries no box answers an empty AABB on the client, and the target
+		// ID's centre ray then passes through every teammate.
+		{"m_vecMins", STANDALONE_NET_VECTOR, 0},
+		{"m_vecMaxs", STANDALONE_NET_VECTOR, 0},
 	};
 
 	if (pOutCount)
@@ -102,6 +109,9 @@ enum
 	STANDALONE_NET_FIELD_SOLIDFLAGS,
 	STANDALONE_NET_FIELD_SKIN,
 	STANDALONE_NET_FIELD_BODY,
+	// The bounds pair, appended at the tail with their rows.
+	STANDALONE_NET_FIELD_MINS,
+	STANDALONE_NET_FIELD_MAXS,
 
 	STANDALONE_NET_FIELD_COUNT,
 };

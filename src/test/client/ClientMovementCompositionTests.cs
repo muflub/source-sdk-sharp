@@ -110,10 +110,35 @@ public sealed class ClientMovementCompositionTests
         if (standalonesIn)
             services.AddInstance<IClientStandalones>(new ClientStandaloneRegistry(services));
 
+        // The arsenal, when the module has registered it by now (it precedes
+        // the composition with the weapon services): the walk reaches it
+        // through the held-shovel arm's ITFAnimWeapons, whose registered
+        // TFClientAnimWeapons names it. As the module builds it, the same
+        // instance under its interface — not a second arsenal.
+        bool arsenalIn = Registration.Matches(source, open)
+            .Any(m => m.Index < create && m.Groups[1].Value == "ILocalArsenal");
+        if (arsenalIn)
+        {
+            // The clock forwards to the engine's own (module :1141, above the
+            // composition); the fake answers it beside the areas. The arsenal
+            // names it as its leaf.
+            services.AddInstance<IGameClock>(engine);
+            services.AddInstance<ILocalArsenal>(services.Create<ClientArsenal>());
+
+            // The weapon catalogue, as the module publishes it above the
+            // composition (module :1436): the held-shovel arm's
+            // TFClientAnimWeapons names it beside the arsenal. Its sources are
+            // asked lazily, so the walk only needs the instance itself.
+            int catalog = source.IndexOf("new WeaponCatalog(", open, StringComparison.Ordinal);
+            if (catalog >= 0 && catalog < create)
+                services.AddInstance(new WeaponCatalog(() => services.ResolveAll<IWeaponTypeSource>(), new RecordingLog()));
+        }
+
         // The convar publish, when the module has published by now (it precedes
         // the composition, in ComposeEngineAreas): the graph below names the mod's
         // convars by concrete type, so those are the instances the publish
-        // leaves — the spy cloak's four, through the real registry.
+        // leaves — the spy cloak's four and the movement rules' fourteen, through
+        // the real registry.
         int publish = source.IndexOf("_convars.PublishTo(_services)", StringComparison.Ordinal);
         if (publish >= 0 && publish < create)
         {
@@ -128,6 +153,25 @@ public sealed class ClientMovementCompositionTests
                 typeof(TF2.Shared.TFSpyCloakRegenRateConVar),
                 typeof(TF2.Shared.TFSpyInvisTimeConVar),
                 typeof(TF2.Shared.TFSpyInvisUnstealthTimeConVar),
+                typeof(TF2.Shared.TFScoutAirDashCountConVar),
+                typeof(TF2.Shared.TFSpyMaxCloakedSpeedConVar),
+                typeof(TF2.Shared.TFClampBackSpeedConVar),
+                typeof(TF2.Shared.TFClampBackSpeedMinConVar),
+                typeof(TF2.Shared.TFPlayerMovementRestartFreezeConVar),
+                typeof(TF2.Shared.TFMovementAircurrentFrictionMultConVar),
+                typeof(TF2.Shared.TFMovementLostFootingRestickConVar),
+                typeof(TF2.Shared.TFMovementLostFootingFrictionConVar),
+                typeof(TF2.Shared.TFMaxChargeSpeedConVar),
+                typeof(TF2.Shared.TFParachuteMaxSpeedXYConVar),
+                typeof(TF2.Shared.TFParachuteMaxSpeedZConVar),
+                typeof(TF2.Shared.TFParachuteMaxSpeedOnfireZConVar),
+                typeof(TF2.Shared.TFParachuteAirControlConVar),
+                typeof(TF2.Shared.TFClampAirducksConVar),
+                typeof(TF2.Shared.TFDemomanChargeFrametimeScalingConVar),
+                typeof(TF2.Shared.TFDemomanChargeDrainTimeConVar),
+                typeof(TF2.Shared.TFDemomanChargeRegenRateConVar),
+                typeof(TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),
+                typeof(TF2.Shared.TFScoutEnergydrinkRegenRateConVar),
             ]);
             convars.PublishTo(services);
         }

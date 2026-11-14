@@ -73,10 +73,11 @@ public sealed class TFAfterburn : IPlayerComponent
         _owners = owners;
         _hooks = hooks;
         _carriers = carriers;
+        Burn = new(hooks);
     }
 
-    /// <summary>The burn state.</summary>
-    public TFBurn Burn { get; } = new();
+    /// <summary>The burn state, over the component's hooks.</summary>
+    public TFBurn Burn { get; }
 
     public int Order => 0;
 
@@ -98,11 +99,12 @@ public sealed class TFAfterburn : IPlayerComponent
 
         TFCondMask before = state.Conditions();
         TFCondMask after = Burn.Ignite(now, _enginePlayers.IsAlive(_player), state.Class(), before,
-                                       attacker, weapon, weaponName, burningTime, _hooks,
+                                       attacker, weapon, weaponName,
                                        // The immune arm's walks, stock's three in its order
                                        // (tf_player_shared.cpp:6672-6720).
                                        ImmunitySources(state),
-                                       attacker != EntityHandle.None ? _owners.ItemOf(attacker.EntryIndex, weaponName) : null);
+                                       attacker != EntityHandle.None ? _owners.ItemOf(attacker.EntryIndex, weaponName) : null,
+                                       burningTime);
         foreach (TFCond cond in TFCondMask.Added(before, after))
             _conditions.Add(_player, cond,
                 // The debuff's time is the weapon's initial afterburn, taken
@@ -118,6 +120,12 @@ public sealed class TFAfterburn : IPlayerComponent
         // keeps the earlier start (OnRemoveBurning never zeroes it).
         if (!before.Has(TFCond.Burning) && after.Has(TFCond.Burning))
             state.BurnEffectStartTime = now;
+
+        // The burn's bookkeeping, networked for the attacker's rage mirror (the
+        // fields' story): whose fire, when it ticks, how long it burns.
+        state.BurnAttackerIndex = attacker == EntityHandle.None ? -1 : attacker.EntryIndex;
+        state.BurnNextTickTime = Burn.FlameBurnTime;
+        state.BurnDuration = Burn.AfterburnDuration;
 
         _wasBurning = after.Has(TFCond.Burning);
     }
@@ -157,6 +165,7 @@ public sealed class TFAfterburn : IPlayerComponent
             if (_wasBurning)
                 Burn.Extinguished();
             _wasBurning = false;
+            BurnStateCleared(state);
             return;
         }
 
@@ -164,7 +173,7 @@ public sealed class TFAfterburn : IPlayerComponent
         if (!_enginePlayers.IsAlive(_player))
             return;
 
-        var think = Burn.Think(now, frametime, state.Class(), conditions, WaterLevel(), _hooks,
+        var think = Burn.Think(now, frametime, state.Class(), conditions, WaterLevel(),
                                // The burn weapon's item, the tick arm's walk
                                // (tf_player_shared.cpp:2898); the attacker gone, none.
                                Burn.Attacker != EntityHandle.None
@@ -179,8 +188,14 @@ public sealed class TFAfterburn : IPlayerComponent
             _healing.Extinguished(_player);
             Burn.Extinguished();
             _wasBurning = false;
+            BurnStateCleared(state);
             return;
         }
+
+        // The clock and the fire left, every frame: the burn runs outside any
+        // command, and the attacker's mirror reads both (the fields' story).
+        state.BurnNextTickTime = Burn.FlameBurnTime;
+        state.BurnDuration = Burn.AfterburnDuration;
 
         if (think.TickDamage > 0f)
         {
@@ -201,6 +216,14 @@ public sealed class TFAfterburn : IPlayerComponent
 
     /// <summary><c>GetWaterLevel</c>: the player's movement state's, 0 for a player with none.</summary>
     private int WaterLevel() => _directory.Get(_player) is SsPlayer player ? player.State.WaterLevel : 0;
+
+    /// <summary>The networked burn bookkeeping, out: no fire, no tick, no time.</summary>
+    private static void BurnStateCleared(TFPlayerNetState state)
+    {
+        state.BurnAttackerIndex = -1;
+        state.BurnNextTickTime = 0f;
+        state.BurnDuration = 0f;
+    }
 }
 
 /// <summary>

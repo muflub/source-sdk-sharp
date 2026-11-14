@@ -12,7 +12,9 @@ namespace SourceSharp.Server.Interop;
 /// faults ALLOWS the player (never lock players out because managed code
 /// faulted), and a relationship that faults answers the stock rule.
 /// </summary>
-public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServerModule game) : IManagedClients
+public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServerModule game,
+                                          Func<int, EntityHandle> edictToHandle,
+                                          IHooks<ITransmitRule> transmitRules) : IManagedClients
 {
     private void Enter(CrossingOp op)
     {
@@ -75,6 +77,23 @@ public sealed unsafe class ClientsBinding(Crossings crossings, ILog log, IServer
     {
         Enter(CrossingOp.ServerTransmitAlwaysForClient);
         return game.Entities is { } entities ? entities.TransmitAlwaysForClient(a0) : -1;
+    }
+
+    /// <summary>
+    /// CheckTransmit's ask for a FULLCHECK edict's fate with one client: the
+    /// ITransmitRule chain's answer, 0 never / 1 always / 2 the PVS check.
+    /// The edict index goes through the composition's directory, so a rule
+    /// sees the handle every other seam does.
+    /// </summary>
+    public int ServerShouldTransmit(int a0, int a1)
+    {
+        Enter(CrossingOp.ServerShouldTransmit);
+        return TransmitRules.Combine(transmitRules.All, edictToHandle(a1), a0) switch
+        {
+            TransmitAnswer.Never => 0,
+            TransmitAnswer.Always => 1,
+            _ => 2,
+        };
     }
 
     public int OnClientNetMessage(int a0, byte* a1, void* a2, int a3)

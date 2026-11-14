@@ -33,6 +33,22 @@ public static class VendorSamples
         return s.Create<Vendor>();
     }
 
+    /// <summary>UI4: a buy the server refused, on the window's own status line.</summary>
+    [UiSample("hale-refused: not enough Australium")]
+    private static UiScreen HaleRefused(UiSampleServices s)
+    {
+        s.Add<IDescentTownStatus>(new FakeTownStatus("#Descent_Town_not_enough_australium", "", true));
+        return HaleStock(s);
+    }
+
+    /// <summary>UI4: the Engineer's repair done, on the status line.</summary>
+    [UiSample("engineer-repaired")]
+    private static UiScreen EngineerRepaired(UiSampleServices s)
+    {
+        s.Add<IDescentTownStatus>(new FakeTownStatus("#Descent_Town_Done_repair_all", "37", false));
+        return EngineerRepair(s);
+    }
+
     [UiSample("hale-stock")]
     private static UiScreen HaleStock(UiSampleServices s) => Build(s,
         new FakeWareVendor
@@ -442,4 +458,14 @@ public sealed class FakeVendorItemHover : IDescentItemHover
     public bool RequirementMet => true;
     public int CompareAffixCount => CompareHas ? AffixLineCount : 0;
     public DescentAffixLine CompareAffix(int i) => AffixLine(i);
+}
+
+/// <summary>A town window's status line, fixed (UI4).</summary>
+public sealed class FakeTownStatus(string token, string data, bool error) : IDescentTownStatus
+{
+    public string StatusToken => token;
+
+    public string StatusData => data;
+
+    public bool StatusError => error;
 }

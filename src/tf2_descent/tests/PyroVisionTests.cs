@@ -22,7 +22,7 @@ using PostProcessPlanner = client::SourceSharp.Client.Render.PostProcessPlanner;
 using PostProgramEffects = client::SourceSharp.Client.Render.PostProgramEffects;
 using PostProgramKind = client::SourceSharp.Client.Interop.PostProgramKind;
 using PostTexture = client::SourceSharp.Client.Interop.PostTexture;
-using PyroVision = TF2.Client.PyroVision;
+using PyroVision = client::TF2.Client.PyroVision;
 using RenderOp = client::SourceSharp.Client.Interop.RenderOp;
 using RenderOpKind = client::SourceSharp.Client.Interop.RenderOpKind;
 using RenderPlanBuilder = client::SourceSharp.Client.Render.RenderPlanBuilder;
@@ -110,8 +110,8 @@ public sealed class PyroVisionTests
         => DeclaredClientConVars.Holder<client::SourceSharp.Client.Render.PostProcessConVars>([.. t.ConVars.Select(kv => (kv.Key, kv.Value))]);
 
     /// <summary>The convars by name, as the engine answers them.</summary>
-    private static TF2.Client.PyroVisionConVars Convars(IReadOnlyDictionary<string, string> values)
-        => DeclaredClientConVars.Holder<TF2.Client.PyroVisionConVars>([.. values.Select(kv => (kv.Key, kv.Value))]);
+    private static client::TF2.Client.PyroVisionConVars Convars(IReadOnlyDictionary<string, string> values)
+        => DeclaredClientConVars.Holder<client::TF2.Client.PyroVisionConVars>([.. values.Select(kv => (kv.Key, kv.Value))]);
 
 
     private sealed class Hooks(params IPostProcessContributor[] hooks) : client::SourceSharp.Abi.IHooks<IPostProcessContributor>

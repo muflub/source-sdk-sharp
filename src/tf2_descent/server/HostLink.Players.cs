@@ -10,6 +10,8 @@ namespace TF2.Descent.Server;
 /// hosted with sv_lan 1 and no Steam, reports a LAN or invalid id. Everything
 /// about the player is keyed on it. <paramref name="ClientAddr"/> is the
 /// player's real address; the engine sees a per-player loopback one.
+/// <paramref name="Sheet"/> is the leased character's sheet as the host
+/// holds it (opaque to the host; the rules' <c>SheetCodec</c> reads it).
 /// </summary>
 public sealed record JoinOutcome(
     bool Joined,
@@ -19,7 +21,8 @@ public sealed record JoinOutcome(
     string? Name = null,
     int ReachedDepth = 0,
     string? SteamId = null,
-    string? ClientAddr = null);
+    string? ClientAddr = null,
+    SourceSharp.Host.Contracts.CharacterSheet? Sheet = null);
 
 public sealed partial class HostLink
 {
@@ -103,7 +106,8 @@ public sealed partial class HostLink
             }
 
             _held[steamId] = new Held(lease, reserve, peer);
-            return new JoinOutcome(true, null, character.Id, character.ClassName, character.Name, reached, steamId, clientAddr);
+            return new JoinOutcome(true, null, character.Id, character.ClassName, character.Name, reached, steamId, clientAddr,
+                                   SheetOf(lease.Character.Sheet));
         });
     }
 
@@ -121,32 +125,48 @@ public sealed partial class HostLink
             ? joined.SteamId
             : null;
 
+    /// <summary>The host's opaque sheet as the rules' contract names it.</summary>
+    internal static SourceSharp.Host.Contracts.CharacterSheet SheetOf(OpaquePayload sheet) => new(sheet.Data, (int)sheet.SchemaVersion);
+
+    /// <summary>The sheet to send, and its evidence: the game's when it gave one, else the lease's own sheet and none.</summary>
+    internal static (OpaquePayload Sheet, OpaquePayload? Evidence) Payloads(SheetCheckpoint? sheet, OpaquePayload leased) =>
+        sheet is null
+            ? (leased, null)
+            : (new OpaquePayload(sheet.Sheet.Data, (uint)sheet.Sheet.SchemaVersion),
+               new OpaquePayload(sheet.Evidence.Data, (uint)sheet.Evidence.SchemaVersion));
+
     /// <summary>
-    /// Spec §5: checkpoints the player's sheet. Until gameplay writes a sheet of
-    /// its own, the sheet is the one the lease holds, sent back unchanged.
+    /// Spec §5: checkpoints the player's sheet: the game's current one with
+    /// its evidence (HeroSheets), or, given none, the one the lease holds,
+    /// sent back unchanged.
     /// </summary>
-    public Task<bool> Checkpoint(string steamId) => Call(async _ =>
+    public Task<bool> Checkpoint(string steamId, SheetCheckpoint? sheet) => Call(async _ =>
     {
         if (!_held.TryGetValue(steamId, out var held) || !held.Lease.IsHeld)
             return false;
 
-        var result = await held.Lease.Checkpoint(held.Lease.Character.Sheet);
+        var (data, evidence) = Payloads(sheet, held.Lease.Character.Sheet);
+        var result = await held.Lease.Checkpoint(data, evidence);
         if (!result.Ok)
             _log.Warning($"[TF2Descent] checkpoint for {steamId} refused: {result.Refusal!.Error} ({result.Refusal.Reason})\n");
         return result.Ok;
     });
 
     /// <summary>
-    /// Spec §5, the leave: checkpoint, release (the last call), PlayerLeft. A
-    /// lease already released (a hop) or lost is not checkpointed again.
+    /// Spec §5, the leave: checkpoint (the game's last sheet, or the lease's
+    /// own given none), release (the last call), PlayerLeft. A lease already
+    /// released (a hop) or lost is not checkpointed again.
     /// </summary>
-    public Task<bool> Leave(string steamId, string peer) => Call(async sdk =>
+    public Task<bool> Leave(string steamId, string peer, SheetCheckpoint? sheet) => Call(async sdk =>
     {
         _reauths.Forget(steamId);
 
         if (_held.Remove(steamId, out var held) && held.Lease.IsHeld)
         {
-            await held.Lease.Checkpoint(held.Lease.Character.Sheet);
+            var (data, evidence) = Payloads(sheet, held.Lease.Character.Sheet);
+            var saved = await held.Lease.Checkpoint(data, evidence);
+            if (!saved.Ok)
+                _log.Warning($"[TF2Descent] the leave's checkpoint for {steamId} was refused: {saved.Refusal!.Error} ({saved.Refusal.Reason})\n");
             await held.Lease.Release();
         }
 

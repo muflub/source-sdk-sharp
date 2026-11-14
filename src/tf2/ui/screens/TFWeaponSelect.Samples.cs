@@ -14,6 +14,7 @@ public static class TFWeaponSelectSamples
     public static UiScreen Build(UiSampleServices s, FakeWeaponSelect? select = null)
     {
         s.Add<ITFWeaponSelect>(select ?? new FakeWeaponSelect());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         // The name fit's measurer, when the run's services carry none of
         // their own.
         if (!s.Has<IUiFontMetrics>())

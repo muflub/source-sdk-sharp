@@ -38,7 +38,7 @@ public sealed class ClientMessageTests
     private sealed class Seen : INoticeHook, IInstanceHook
     {
         public List<string> Calls { get; } = new();
-        public void OnNotice(string text) => Calls.Add("notice " + text);
+        public void OnNotice(string text, string arg) => Calls.Add(arg.Length == 0 ? "notice " + text : $"notice {text} [{arg}]");
         public void OnInstance(string kind, int depth) => Calls.Add($"instance {kind} {depth}");
     }
 
@@ -59,8 +59,8 @@ public sealed class ClientMessageTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void The_notice_layout_is_its_text()
-        => Assert.Equal([(byte)'h', (byte)'i', 0], Written(new Notice { Text = "hi" }));
+    public void The_notice_layout_is_its_text_then_its_argument()
+        => Assert.Equal([(byte)'h', (byte)'i', 0, (byte)'4', 0], Written(new Notice { Text = "hi", Arg = "4" }));
 
     [Fact]
     public void The_instance_layout_is_kind_then_a_short_depth()
@@ -89,6 +89,25 @@ public sealed class ClientMessageTests
         Dispatch(new NoticeMessage(new Hooks<INoticeHook>(seen)), Written(new Notice { Text = "the cage is being readied" }));
 
         Assert.Equal(["notice the cage is being readied"], seen.Calls);
+    }
+
+    [Fact]
+    public void A_token_notice_round_trips_with_its_argument()
+    {
+        var seen = new Seen();
+
+        Dispatch(new NoticeMessage(new Hooks<INoticeHook>(seen)), Written(new Notice { Text = "#Descent_Travel_Waiting", Arg = "12" }));
+
+        Assert.Equal(["notice #Descent_Travel_Waiting [12]"], seen.Calls);
+    }
+
+    [Fact]
+    public void A_long_notice_argument_is_cut_to_its_limit_and_the_message_fits()
+    {
+        var reader = Reader(Written(new Notice { Text = new string('x', 500), Arg = new string('y', 500) }));
+
+        Assert.Equal(Notice.MaxArg, Notice.Read(ref reader).Arg.Length);
+        Assert.False(reader.Overran);
     }
 
     [Fact]
@@ -170,18 +189,162 @@ public sealed class ClientMessageTests
         public float Now => 12f;
     }
 
+    /// <summary>
+    /// The client's container with the UI composed: it answers the mod's
+    /// language file as the UI host does (null for a token it lacks), and
+    /// nothing else.
+    /// </summary>
+    private sealed class Tokens(params (string Token, string Text)[] rows)
+        : client::SourceSharp.Client.Ui.IUiLocalisation, client::SourceSharp.Abi.IServiceLocator
+    {
+        public string? Find(string token) => rows.FirstOrDefault(r => r.Token == token).Text;
+
+        public object? Resolve(Type serviceType) => serviceType == typeof(client::SourceSharp.Client.Ui.IUiLocalisation) ? this : null;
+        public object? ResolveNamed(string name) => null;
+        public bool IsRegistered(Type serviceType) => Resolve(serviceType) is not null;
+        public IReadOnlyCollection<Type> ServiceTypes => [typeof(client::SourceSharp.Client.Ui.IUiLocalisation)];
+        public IReadOnlyCollection<string> Names => [];
+    }
+
+    /// <summary>The client's container before the UI is composed: no localiser.</summary>
+    private sealed class NoUi : client::SourceSharp.Abi.IServiceLocator
+    {
+        public object? Resolve(Type serviceType) => null;
+        public object? ResolveNamed(string name) => null;
+        public bool IsRegistered(Type serviceType) => false;
+        public IReadOnlyCollection<Type> ServiceTypes => [];
+        public IReadOnlyCollection<string> Names => [];
+    }
+
+    [Fact]
+    public void With_no_ui_composed_a_token_notice_draws_as_itself()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), new NoUi());
+
+        notices.OnNotice("#Descent_Travel_Cage", "");
+
+        Assert.Equal(["#Descent_Travel_Cage"], hud.Shown.Select(s => s.Text));
+    }
+
     [Fact]
     public void Notices_and_the_instance_line_go_to_their_own_hud_channels()
     {
         var hud = new Hud();
-        var notices = new HudNotices(hud, new Clock());
+        var notices = new HudNotices(hud, new Clock(), new Tokens());
 
-        notices.OnNotice("hello");
+        notices.OnNotice("hello", "");
         notices.OnInstance("hub", 0);
-        notices.OnInstance("level", 3);
+        notices.OnInstance("level", 99);
 
         Assert.Equal([HudNotices.NoticeChannel, HudNotices.InstanceChannel, HudNotices.InstanceChannel], hud.Shown.Select(s => s.Channel));
-        Assert.Equal(["hello", "Town", "Depth 3"], hud.Shown.Select(s => s.Text));
+        Assert.Equal(["hello", "Town", "Depth 99"], hud.Shown.Select(s => s.Text));
+    }
+
+    //-------------------------------------------------------------------------
+    // The level's name on arrival (mine plan E4).
+    //-------------------------------------------------------------------------
+
+    private static Tokens MineNames() => new(
+        ("#Descent_Depth_Act_1", "Act I: The Mann Co. Mine"),
+        ("#Descent_Depth_Level_3", "Timber Stopes"),
+        ("#Descent_Depth_Act_3", "Act III: Below"),
+        ("#Descent_Depth_Level_14", "The Rot"),
+        ("#Descent_Arrival_Depth", "Depth %s1: %s2"));
+
+    [Fact]
+    public void Arriving_at_a_level_shows_its_act_and_its_name()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), MineNames());
+
+        notices.OnInstance("level", 3);
+
+        Assert.Equal(["Act I: The Mann Co. Mine\nDepth 3: Timber Stopes"], hud.Shown.Select(s => s.Text));
+        Assert.Equal([HudNotices.InstanceChannel], hud.Shown.Select(s => s.Channel));
+    }
+
+    [Fact]
+    public void A_re_sent_instance_shows_the_name_no_more()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), MineNames());
+
+        notices.OnInstance("level", 3);
+        notices.OnInstance("level", 3);
+
+        Assert.Single(hud.Shown);
+    }
+
+    [Fact]
+    public void After_the_level_ends_the_next_arrival_is_shown_again()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), MineNames());
+        client::SourceSharp.Client.IClientLevelHook level = notices;
+
+        notices.OnInstance("level", 3);
+        level.OnLevelShutdown();
+        notices.OnInstance("level", 3);
+
+        Assert.Equal(2, hud.Shown.Count);
+    }
+
+    [Fact]
+    public void A_deeper_level_is_a_new_arrival_named_for_its_own_act()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), MineNames());
+
+        notices.OnInstance("level", 3);
+        notices.OnInstance("level", 14);
+
+        Assert.Equal("Act III: Below\nDepth 14: The Rot", hud.Shown[^1].Text);
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(5, 1)]
+    [InlineData(6, 2)]
+    [InlineData(10, 2)]
+    [InlineData(11, 3)]
+    [InlineData(15, 3)]
+    [InlineData(0, 0)]
+    [InlineData(16, 0)]
+    public void Five_levels_make_an_act(int depth, int act)
+        => Assert.Equal(act, LevelNames.ActOf(depth));
+
+    [Fact]
+    public void A_token_notice_is_drawn_from_the_language_file_with_its_argument()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), new Tokens(("#Descent_Travel_Waiting", "Ready in about %s1 s.")));
+
+        notices.OnNotice("#Descent_Travel_Waiting", "12");
+
+        Assert.Equal(["Ready in about 12 s."], hud.Shown.Select(s => s.Text));
+    }
+
+    [Fact]
+    public void A_token_the_language_file_lacks_is_drawn_as_itself()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), new Tokens());
+
+        notices.OnNotice("#Descent_Travel_Nowhere", "");
+
+        Assert.Equal(["#Descent_Travel_Nowhere"], hud.Shown.Select(s => s.Text));
+    }
+
+    [Fact]
+    public void A_plain_notice_is_never_looked_up_or_filled()
+    {
+        var hud = new Hud();
+        var notices = new HudNotices(hud, new Clock(), new Tokens(("hello %s1", "looked up")));
+
+        notices.OnNotice("hello %s1", "x");
+
+        Assert.Equal(["hello %s1"], hud.Shown.Select(s => s.Text));
     }
 
     private sealed class SeenReauth : IReauthHook

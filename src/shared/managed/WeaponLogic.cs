@@ -29,6 +29,15 @@ public interface IWeaponArms
     void Sound(string soundScript);
 
     /// <summary>
+    /// Plays a soundscript entry on the carrier with its script pitch
+    /// multiplied by <paramref name="pitchMultiplier"/> on top — stock's pull
+    /// sound carries the bow's own refire rate in the emit's pitch
+    /// (<c>tf_weapon_compound_bow.cpp:243-248</c>). The default keeps the
+    /// plain sound, so an arms that never heard of pitch behaves as it did.
+    /// </summary>
+    void Sound(string soundScript, float pitchMultiplier) => Sound(soundScript);
+
+    /// <summary>
     /// The carrier's state, whose punch a shot kicks: the server's player, the
     /// predicting client's working copy. Null where there is no carrier to kick.
     /// </summary>
@@ -111,6 +120,16 @@ public interface IWeaponArms
     void MeleeSwing(in WeaponType type);
 
     /// <summary>
+    /// One melee swing tracing <paramref name="range"/> from the eye and,
+    /// where it stops, the sound matching what it stopped on:
+    /// <paramref name="hitPlayerSound"/> for a player,
+    /// <paramref name="hitWorldSound"/> otherwise. The default swings the
+    /// plain arm above, for arms that never heard the sounds' names.
+    /// </summary>
+    void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound)
+        => MeleeSwing(in type);
+
+    /// <summary>
     /// Whether a swing now would meet something: CBaseHL2MPBludgeonWeapon::
     /// Swing's aim, the ray and then the hull for a near miss. Asked on every
     /// pass, the replay's too, because it picks the animation (a hit's
@@ -129,8 +148,8 @@ public interface IWeaponArms
     /// The weapon in the hands has nothing left to fire: stock's
     /// <c>SwitchToNextBestWeapon</c> for the carrier (CMultiplayRules::
     /// GetNextBestWeapon by weight). True when the hands will take another,
-    /// which happens once this command has run. The server's; the client's
-    /// replay never switches.
+    /// which happens once this command has run. Both sides answer it: the
+    /// server's arsenal and the client's replay pick the same next best.
     /// </summary>
     bool SwitchToNextBest() => false;
 
@@ -159,6 +178,24 @@ public interface IWeaponArms
     /// reason.
     /// </summary>
     void MeleeSwing(in WeaponType type, ShotDamage shot) => MeleeSwing(in type);
+
+    /// <summary>
+    /// A swing a behaviour runs through its own effects rather than
+    /// <see cref="MeleeSwing(in WeaponType, ShotDamage)"/>: the arsenal's tell
+    /// that the command swung, which the swing's gesture reads. Nothing happens
+    /// on a side with no gesture to send.
+    /// </summary>
+    void SwingShown() { }
+
+    /// <summary>
+    /// A behaviour's own gesture ask, for the moments no state delta shows: the
+    /// wind-up, the settle and the sustained fire's re-arm are the machine's
+    /// transitions, and the flamethrower's blast pays the primary pool, which
+    /// the alt-fire delta never sees. The command's asks are tallied and the
+    /// gesture chain reads them; nothing happens on a side with no gesture to
+    /// send.
+    /// </summary>
+    void GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger trigger) { }
 
     /// <summary>Sends what the weapon launches instead of a bullet.</summary>
     void Launch(in WeaponType type, string projectile, float speed, bool thrown);
@@ -366,7 +403,20 @@ public enum WallProbe
 /// which the machine's stock shot asks for. A shot a behaviour decides leaves
 /// it false and is dealt as it says.
 /// </param>
-public readonly record struct ShotDamage(float Damage, bool Critical = false, bool WeaponScriptDamage = false);
+/// <param name="Mini">
+/// The swing is the charge's mini-crit (<c>m_bMiniCrit</c>): the melee smack
+/// flags <c>DMG_RADIUS_MAX</c> for it (tf_weaponbase_melee.cpp:860-863).
+/// </param>
+/// <param name="PenetratePlayers">
+/// Whether the round, after its first victim, carries on along the same ray
+/// through every further player it meets (stock's penetrating shots,
+/// <c>CTFPlayer::FireBullets</c>' <c>TF_DMG_CUSTOM_PENETRATE_ALL_PLAYERS</c> arm,
+/// tf_player_shared.cpp:10303-10330): each takes the same damage, and a wall
+/// ends the way. The victim rules — hitgroups, the damage layer — run per
+/// pierced player as they do for the first.
+/// </param>
+public readonly record struct ShotDamage(float Damage, bool Critical = false, bool WeaponScriptDamage = false,
+                                         bool Mini = false, bool PenetratePlayers = false);
 
 /// <summary>
 /// How an animation KIND becomes a sequence index on the model in hand.
@@ -430,6 +480,7 @@ public static class WeaponAnimNames
         WeaponAnim.HitLeft      => [],
         WeaponAnim.HitRight     => [],
         WeaponAnim.Charge       => [],
+        WeaponAnim.AltAttack    => [],
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -473,6 +524,12 @@ public static class WeaponAnimNames
         // The bow's draw: already the role's own act, the table has no row to
         // add (tf_weapon_compound_bow.cpp:396-399 retags before the table).
         WeaponAnim.Charge       => new[] { "ACT_ITEM2_VM_CHARGE" },
+        // The bow's charged idles, the pair stock's retag alternates once the
+        // draw passes the tired window (tf_weapon_compound_bow.cpp:401-427).
+        WeaponAnim.IdleBow           => new[] { "ACT_ITEM2_VM_IDLE_2" },
+        WeaponAnim.IdleBowFull       => new[] { "ACT_ITEM2_VM_IDLE_3" },
+        WeaponAnim.IdleBowChargeFull => new[] { "ACT_ITEM2_VM_CHARGE_IDLE_3" },
+        WeaponAnim.AltAttack    => new[] { "ACT_SECONDARY_VM_ALTATTACK" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 
@@ -832,6 +889,29 @@ public sealed class WeaponLogic
 
         int shots = ShotsOwed(w.NextPrimaryAttack, now, interval);
 
+        // What one shot of the pool costs (the behaviour's GetAmmoPerShot,
+        // tf_weaponbase_gun.cpp:458-471). A pool holding less than the price
+        // fires nothing: stock's metal arm clicks at the fire rate and stamps
+        // no other clock (:123-131) — the check stands where the round would
+        // be spent, after CanAttack and before the roll.
+        int perShot = 1;
+        if (clipSize <= 0 && type.AmmoName.Length > 0 && behaviour is not null)
+        {
+            perShot = Math.Max(1, behaviour.PrimaryAmmoPerShot(in type, command.OwnerIndex, 1));
+            if (w.Reserve < perShot)
+            {
+                // A one-round price is the plain dry weapon's, and has no click here:
+                // HL2MP's RPG runs this arm too.
+                if (effectsLive && perShot > 1)
+                    _arms.Sound(type.EmptySound);
+
+                w.NextPrimaryAttack = now + interval;
+                return;
+            }
+
+            shots = Math.Min(shots, w.Reserve / perShot);
+        }
+
         w.NextPrimaryAttack = NextAttackAfter(w.NextPrimaryAttack, now, interval);
         w.TimeWeaponIdle = now + IdleSettle;
 
@@ -845,8 +925,10 @@ public sealed class WeaponLogic
         }
         else if (type.AmmoName.Length > 0)
         {
-            shots = Math.Min(shots, w.Reserve);
-            w.Reserve -= shots;
+            if (perShot == 1)
+                shots = Math.Min(shots, w.Reserve);
+
+            w.Reserve -= shots * perShot;
         }
         else
         {
@@ -900,19 +982,28 @@ public sealed class WeaponLogic
             if (effectsLive)
                 _arms.Launch(in type, type.Projectile, type.LaunchSpeed, type.Thrown);
         }
-        else if (effectsLive)
+        else
         {
-            // The row's floored count, scaled once per attack as stock scales
-            // nBulletsPerShot before the loop (tf_fx_shared.cpp:305, :307); the
-            // volley is then the scaled count per shot owed, as stock's loop
-            // bound is. The ask rides beside BulletSpread's and FixedPellets'
-            // on the same call — all three are the shot's own shape.
-            int pellets = behaviour?.ModifyPellets(Context(in type, w, vm, now, effectsLive, command),
-                                                   Math.Max(1, type.Pellets)) ?? Math.Max(1, type.Pellets);
-            _arms.FireBullets(in type, shots * pellets,
-                              behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive, command)) ?? type.Spread,
-                              shot,
-                              behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));
+            // The cone's ask carries the streak behind the shot — stock's
+            // m_iConsecutiveShots++, counted inside FireBullet itself
+            // (tf_weaponbase_gun.cpp:355), not behind an effects gate. It is
+            // predicted state, so every prediction pass of the command counts
+            // it, live and replayed alike, and the acked slot holds the same
+            // number the server's run wrote for the same command. The shot's
+            // shape itself stays the live run's arms.
+            float spread = behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive, command)) ?? type.Spread;
+            if (effectsLive)
+            {
+                // The row's floored count, scaled once per attack as stock scales
+                // nBulletsPerShot before the loop (tf_fx_shared.cpp:305, :307); the
+                // volley is then the scaled count per shot owed, as stock's loop
+                // bound is. The ask rides beside FixedPellets' on the same call —
+                // both are the shot's own shape.
+                int pellets = behaviour?.ModifyPellets(Context(in type, w, vm, now, effectsLive, command),
+                                                       Math.Max(1, type.Pellets)) ?? Math.Max(1, type.Pellets);
+                _arms.FireBullets(in type, shots * pellets, spread, shot,
+                                  behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));
+            }
         }
 
         // After the shot, which read the punch as it stood; on a replay too: the

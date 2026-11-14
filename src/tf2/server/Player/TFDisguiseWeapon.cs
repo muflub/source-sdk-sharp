@@ -77,6 +77,13 @@ public sealed class TFDisguiseWeapons(IEngineEntityRender render, IEntityDirecto
         }
     }
 
+    /// <summary>
+    /// The weapon row the player's carried weapon is dressed as, the one every client draws in
+    /// its hands while the disguise stands; null while nothing is dressed. A read for what a
+    /// client renders (the AI's view of a disguised spy, plan_bots_teams_tf2 C.3).
+    /// </summary>
+    public string? DressOf(int playerIndex) => _dressed.TryGetValue(playerIndex, out var dressed) ? dressed.Row : null;
+
     /// <summary>The weapon entity the player carries, the one whose model the disguise wears.</summary>
     private SsWeapon? CarriedWeapon(int playerIndex)
         => entities.OfClass(EntityNames.SsWeapon)

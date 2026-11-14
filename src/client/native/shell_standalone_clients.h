@@ -208,6 +208,7 @@ public:
 	void SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords) override;
 	void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) override;
 	void EntitySetModelOverride(uint32_t hEntity, const char* pModel) override;
+	void EntitySetMaterialOverride(uint32_t hEntity, const char* pMaterialName) override;
 
 private:
 	// Registers the tiers' ClientClasses and hands each its create function.

@@ -221,6 +221,139 @@ if (args.Length > 0 && args[0] == "aimaps")
     File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.vmf"), routes.Write());
     File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.yaml"), AiTestMaps.Level("ss_ai_routes.vmf", ["west", "middle", "east"]));
     Console.WriteLine($"{Path.Combine(args[1], "ss_ai_routes.vmf")}: {routes.Entities.Count} entities, {routes.WorldSolids.Count} world brushes");
+
+    var tdm = AiTestMaps.Tdm();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tdm.vmf"), tdm.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tdm.yaml"), AiTestMaps.TdmLevel("ss_ai_tdm.vmf"));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tdm.vmf")}: {tdm.Entities.Count} entities, {tdm.WorldSolids.Count} world brushes");
+    return 0;
+}
+
+// "tfaimaps" writes the TF2 AI's test maps (plan_bots_teams_tf2_part_g G.5)
+// into the directory given, as "aimaps" does the test mod's:
+// `make map MAP=ss_ai_tf_*` links them into the tf2 mod's maps.
+if (args.Length > 0 && args[0] == "tfaimaps")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen tfaimaps <dir>");
+        return 2;
+    }
+
+    Directory.CreateDirectory(args[1]);
+    var jump = TFAiTestMaps.Jump();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_jump.vmf"), jump.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_jump.yaml"), AiTestMaps.Level("ss_ai_tf_jump.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_jump.vmf")}: {jump.Entities.Count} entities, {jump.WorldSolids.Count} world brushes");
+    var course = TFAiTestMaps.Course();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_course.vmf"), course.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_course.yaml"), AiTestMaps.Level("ss_ai_tf_course.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_course.vmf")}: {course.Entities.Count} entities, {course.WorldSolids.Count} world brushes");
+    var twoRockets = TFAiTestMaps.Double();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_double.vmf"), twoRockets.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_double.yaml"), AiTestMaps.Level("ss_ai_tf_double.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_double.vmf")}: {twoRockets.Entities.Count} entities, {twoRockets.WorldSolids.Count} world brushes");
+    var wallJump = TFAiTestMaps.Wall();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_wall.vmf"), wallJump.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_wall.yaml"), AiTestMaps.Level("ss_ai_tf_wall.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_wall.vmf")}: {wallJump.Entities.Count} entities, {wallJump.WorldSolids.Count} world brushes");
+    var ends = TFAiTestMaps.Ends();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_ends.vmf"), ends.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tf_ends.yaml"), AiTestMaps.Level("ss_ai_tf_ends.vmf", ["course"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tf_ends.vmf")}: {ends.Entities.Count} entities, {ends.WorldSolids.Count} world brushes");
+    return 0;
+}
+
+// "descent-rooms" writes one depth's Descent room library (plan_descent_mine_levels.md
+// task A13, E2) into the directory given: the VMF on the depth's kit and its
+// library.json, which `make descent-rooms` packs with ssmap room.
+if (args.Length > 0 && args[0] == "descent-rooms")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen descent-rooms <dir> [--seed N] [--depth D]");
+        return 2;
+    }
+
+    ulong seed = 0;
+    int depth = 1;
+    for (int i = 2; i + 1 < args.Length; i += 2)
+    {
+        if (args[i] == "--seed")
+            seed = ulong.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+        else if (args[i] == "--depth")
+            depth = int.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+        else
+        {
+            Console.Error.WriteLine($"descent-rooms: unknown option {args[i]}");
+            return 2;
+        }
+    }
+
+    try
+    {
+        foreach (string file in SourceSharp.MapGen.Descent.DescentRooms.Write(args[1], depth, seed))
+            Console.WriteLine(file);
+    }
+    catch (Exception e) when (e is InvalidOperationException or ArgumentOutOfRangeException)
+    {
+        Console.Error.WriteLine($"descent-rooms: {e.Message}");
+        return 1;
+    }
+
+    return 0;
+}
+
+// "descent-level" lays a Descent level out from a library's library.json with
+// the rules module's generator and writes its level file for `ssmap link`
+// (`make descent-level`). A pool that cannot make the level is the
+// generator's reason and exit 1.
+if (args.Length > 0 && args[0] == "descent-level")
+{
+    if (args.Length < 4
+        || !int.TryParse(args[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int levelDepth)
+        || !ulong.TryParse(args[3], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong levelSeed))
+    {
+        Console.Error.WriteLine("usage: MapGen descent-level <librarydir> <depth> <seed> [<out.yaml>]");
+        return 2;
+    }
+
+    string levelOut = args.Length > 4 ? args[4]
+        : Path.Combine(args[1], string.Create(System.Globalization.CultureInfo.InvariantCulture, $"tf2_descent-{levelDepth}-s{levelSeed}.yaml"));
+    try
+    {
+        var (error, report) = SourceSharp.MapGen.Descent.DescentLevel.Generate(args[1], levelDepth, levelSeed, levelOut);
+        if (error is not null)
+        {
+            Console.Error.WriteLine($"descent-level: depth {levelDepth}, seed {levelSeed}: {error}");
+            return 1;
+        }
+
+        Console.WriteLine(levelOut);
+        foreach (string line in SourceSharp.MapGen.Descent.DescentLevel.Comments(levelDepth, levelSeed, report!))
+            Console.WriteLine("  " + line);
+    }
+    catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException)
+    {
+        Console.Error.WriteLine($"descent-level: {e.Message}");
+        return 1;
+    }
+
+    return 0;
+}
+
+// "descent-materials" writes the Descent themes' own materials (the door
+// plugs) under <moddir>/materials; game/mod_tf2_descent holds them committed.
+if (args.Length > 0 && args[0] == "descent-materials")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen descent-materials <moddir>");
+        return 2;
+    }
+
+    foreach (string file in SourceSharp.MapGen.Descent.DescentRooms.WriteMaterials(args[1]))
+        Console.WriteLine(file);
     return 0;
 }
 

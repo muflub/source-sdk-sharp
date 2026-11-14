@@ -51,6 +51,7 @@ public sealed partial class HookOrderTests
     private static int OrderOf(object service, Type hook) =>
         hook == typeof(IClientLifecycle) ? ((IClientLifecycle)service).ClientLifecycleOrder
         : hook == typeof(IGameLifecycle) ? ((IGameLifecycle)service).LifecycleOrder
+        : hook == typeof(IFrameLifecycle) ? ((IFrameLifecycle)service).FrameOrder
         : (service as IOrderedHook)?.HookOrder ?? 0;
 
     private static void AssertDistinct(Assembly assembly, Side side, IEnumerable<Type> hooks)
@@ -78,6 +79,67 @@ public sealed partial class HookOrderTests
 
         Assert.True(Implementations(typeof(LevelHop).Assembly, Side.Server, typeof(IClientLifecycle)).Length >= 2);
         AssertDistinct(typeof(LevelHop).Assembly, Side.Server, hooks);
+    }
+
+    /// <summary>
+    /// The mode's chain members join chains the core and TF2 fill too (the
+    /// mode selectors, the damage rules, TF2's inventory gates, the client
+    /// lifecycle): each Descent member's order must be one no TF2 or core
+    /// implementation of the same chain holds, and after TF2's band
+    /// (999,000-999,999).
+    /// </summary>
+    [Fact]
+    public void Mode_chain_members_have_orders_of_their_own_beside_TF2s_and_the_cores()
+    {
+        // TF2 registers no inventory gate of its own: only a further mod does.
+        (Type Chain, bool Shared)[] chains =
+        [
+            (typeof(IGameModeSelector), true), (typeof(IDamageRule), true),
+            (typeof(TF2.Server.Econ.ITFLocalInventoryGate), false), (typeof(IClientLifecycle), true),
+            (typeof(IPlayerComponentSource), true),
+            // WO1: the arrival spawns sit in the spawn chain beside TF2's team walk.
+            (typeof(ISpawnSelector), true), (typeof(IGameLifecycle), true),
+            // HE3's: the hero's numbers after TF2's layer, its sustain taps, its TF attributes and crits; HE1b's respawn.
+            (typeof(IDamageModifier), true), (typeof(IPlayerHurtHook), false), (typeof(IEntityHurtHook), false),
+            (typeof(TF2.Server.Player.ITFPlayerAttributeSource), false), (typeof(TF2.Shared.ITFWeaponHook), true),
+            (typeof(IFrameLifecycle), true),
+            // The hero's class is his sheet's: TF2 registers no class-change gate of its own.
+            (typeof(TF2.Server.Player.ITFClassChangeGate), false),
+            // HE5's kill seam hears a robot body's death from the core's entity death chain.
+            (typeof(IEntityDeathHook), false),
+            // HO2's parking and WO2's floor answer the transmit walk beside TF2's teammate glow.
+            (typeof(ITransmitRule), true),
+            // HO3b: robots pass robots, beside TF2's team collide rule in the trace filter's chain.
+            (typeof(IEntityCollideRule), true),
+            // WO6: the robot that killed a hero names him in TF2's death notice; TF2 registers no namer of its own.
+            (typeof(TF2.Server.Combat.ITFKillerNames), false),
+        ];
+        var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
+        Assembly[] others =
+        [
+            typeof(TF2.Server.Modes.TFGameModeSelector).Assembly, typeof(GameModes).Assembly,
+            typeof(TF2.Shared.TFCritRoll).Assembly,
+        ];
+
+        var clashes = new List<string>();
+        foreach (var (chain, shared) in chains)
+        {
+            var mine = Implementations(descent, Side.Server, chain);
+            var theirs = others.SelectMany(a => Implementations(a, Side.Server, chain)).ToArray();
+
+            // The stimulus: Descent has a member in each chain, and TF2 or the core does too where they share it.
+            Assert.True(mine.Length > 0, $"no Descent member of {chain.Name}");
+            Assert.True(!shared || theirs.Length > 0, $"no TF2 or core member of {chain.Name}");
+
+            foreach (var (name, order) in mine)
+            {
+                if (order < ModStages.First)
+                    clashes.Add($"{chain.Name}: {name} at {order}, inside TF2's band or the core's");
+                clashes.AddRange(theirs.Where(t => t.Order == order).Select(t => $"{chain.Name} order {order}: {name}, {t.Name}"));
+            }
+        }
+
+        Assert.Empty(clashes);
     }
 
     [Fact]

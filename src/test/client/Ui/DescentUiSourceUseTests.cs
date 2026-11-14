@@ -23,6 +23,10 @@ public class DescentUiSourceUseTests
     private static readonly Assembly Descent =
         PreviewRun.ScreenAssemblies().Single(a => a.GetName().Name == "TF2.Descent.Client.Ui");
 
+    /// <summary>The screens' contract (plan_descent_logic UI1): the IDescent* sources moved
+    /// out of the screen assembly into their own, TF2.Descent.Client.Interface.</summary>
+    private static readonly Assembly Contract = typeof(IDescentVitals).Assembly;
+
     private static readonly Type ScreenBase = typeof(UiScreen);
 
     private static bool IsPanel(Type t)
@@ -35,7 +39,7 @@ public class DescentUiSourceUseTests
 
     /// <summary>A descent data interface: the game's own namespace, an IDescent* name.</summary>
     private static bool IsDescentSource(Type t)
-        => t.IsInterface && t.Assembly == Descent && t.Namespace == "TF2.Descent.Client.Ui"
+        => t.IsInterface && t.Assembly == Contract && t.Namespace == "TF2.Descent.Client.Ui"
            && t.Name.StartsWith("IDescent", StringComparison.Ordinal);
 
     private static List<Type> UiTypes()
@@ -65,7 +69,7 @@ public class DescentUiSourceUseTests
     public void Every_member_of_every_descent_source_is_read_somewhere()
     {
         var calls = UiTypes().SelectMany(UiSourceUseTests.Calls).ToHashSet();
-        var sources = Descent.GetTypes().Where(IsDescentSource).ToList();
+        var sources = Contract.GetTypes().Where(IsDescentSource).ToList();
         Assert.Contains(typeof(IDescentVitals), sources);
 
         var unread = sources.SelectMany(s => s.GetMethods().Where(m => !calls.Contains(m)).Select(m => $"{s.Name}.{m.Name}")).ToList();

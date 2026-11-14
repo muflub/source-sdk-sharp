@@ -47,12 +47,12 @@ public sealed class DeathServiceTests
             Calls.Add($"join {peer} {engineSteamId} {boot.InstanceKind} {className}");
             return Task.FromResult(JoinAnswer with { SteamId = engineSteamId, ClientAddr = "198.51.100.9:27005" });
         }
-        public Task<bool> Checkpoint(string steamId) { Calls.Add("checkpoint " + steamId); return Task.FromResult(true); }
-        public Task<bool> Leave(string steamId, string peer) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
+        public Task<bool> Checkpoint(string steamId, SheetCheckpoint? sheet) { Calls.Add("checkpoint " + steamId); return Task.FromResult(true); }
+        public Task<bool> Leave(string steamId, string peer, SheetCheckpoint? sheet) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
         public void ReplyExec(string commandId, string output) => Calls.Add($"reply {commandId} {output}");
-        public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot)
+        public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth)
         {
-            Calls.Add($"travel {steamId} {direction} {boot.InstanceKind}");
+            Calls.Add($"travel {steamId} {direction} {boot.InstanceKind} {depth}");
             return Task.FromResult(new TravelAnswer(TravelState.Started, TimeSpan.Zero, ""));
         }
         public Task<TicketAnswer> SubmitTicket(string steamId, string nonce, byte[] ticket) => Task.FromResult(new TicketAnswer(TicketOutcome.Ok));
@@ -203,7 +203,8 @@ public sealed class DeathServiceTests
         var clients = new FakeClients();
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         var net = new RecordingEngine();
-        var players = new PlayerService(link, host, clients, new ClientMessages(net), new NeverScheduler(), log);
+        var players = new PlayerService(link, host, clients, new ClientMessages(net), new NeverScheduler(), log,
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), host, clients, log));
         if (mode == HostingMode.Hosted)
             players.OnClientActive(3);    // FakeLink's join is already complete
 
@@ -260,24 +261,25 @@ public sealed class DeathServiceTests
         var deaths = Deaths(w);
 
         Die(deaths);
-        w.Body.OnThink();     // the lifetime is up; a kept body does not care
 
-        Assert.False(w.Body.Gone);
+        // The body is out of the service's hands (the hook's Keep): no sweep
+        // and no later death ends it. There is no lifetime left to outlive —
+        // the server retires a body only by replace, cap or round reset.
+        Assert.Equal(0, w.Corpses.Count);
     }
 
     [Fact]
     public void An_unhosted_death_leaves_the_stock_cycle_untouched()
     {
-        // The same death with no hosting service: the body still goes at its
-        // lifetime, nothing is shown, nothing is recorded, and the gate says
-        // nothing. World()'s hosted arm is the positive control for each.
+        // The same death with no hosting service: nothing keeps the body, the
+        // screen stays up, nothing is recorded, and the gate says nothing.
+        // World()'s hosted arm is the positive control for each.
         var w = World(HostingMode.Unhosted);
         var deaths = Deaths(w);
 
         Die(deaths);
-        w.Body.OnThink();
 
-        Assert.True(w.Body.Gone);
+        Assert.Equal(1, w.Corpses.Count);
         Assert.Empty(w.Screen.Fades);
         Assert.Empty(Notices(w.Net));
         Assert.Empty(w.Link.Recorded);

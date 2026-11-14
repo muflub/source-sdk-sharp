@@ -1,0 +1,15 @@
+{
+  "drops": { "equipped": true, "backpack": true, "belt": true, "australium": true },
+  "corpse": { "lingerSeconds": 900, "lostAndFoundFeePct": 25 },
+  "downed": {
+    "windowSeconds": 20,
+    "shortenPerDownSeconds": 5,
+    "windowFloorSeconds": 5,
+    "reviveHoldSeconds": 3,
+    "reviveRange": 96,
+    "reviveLifePct": 30,
+    "graceSeconds": 2,
+    "respawnGraceSeconds": 6,
+    "respawnBlindSeconds": 60
+  }
+}

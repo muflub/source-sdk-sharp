@@ -301,7 +301,7 @@ public sealed unsafe class PlayerCommandRunnerTests : IDisposable
         var moves = new ServerPlayerMoves();
         var commands = ServerPlayerCommands.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api), moves,
                                                 new ServerMoveData(), new NoSounds(), null, TestSides.Movement(engine),
-                                                Frame, new NoPublish(), _env);
+                                                Frame, new NoPublish(), _env, TestServices.Fake());
         return (commands, moves);
     }
 
@@ -380,6 +380,59 @@ public sealed unsafe class PlayerCommandRunnerTests : IDisposable
         Assert.Equal(1, stages.FakeClientStage(Player, 0, 0, in cmd));
 
         Assert.Equal((1, 30f, ServerCommandRules.FixAngleNone), (s_viewCalls, s_viewYaw, s_viewFix));
+    }
+
+    /// <summary>
+    /// The charge clamp of the command is what the prepare keeps (stock's
+    /// SetupMove charge clamp, server/tf/tf_playermove.cpp:83-106): a mod's
+    /// answer replaces the command's yaw before anything reads it, so the
+    /// write-back (PlayerCommandView, SnapEyeAngles' answer here) and the move
+    /// state both carry the clamped angles, not the command's own.
+    /// </summary>
+    [Fact]
+    public void TheChargeClampOfTheCommandIsWhatThePrepareKeeps()
+    {
+        _root.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerCommandBegin),
+                   (nint)(delegate* unmanaged<void*, uint, void*, int>)&Begin);
+        _root.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerCommandView),
+                   (nint)(delegate* unmanaged<void*, uint, void*, int, void>)&View);
+        var side = TestSides.Create(Side.Server);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
+        (ServerPlayerCommands stages, ServerPlayerMoves moves) = Stack(new ServerModuleEngine(side));
+        stages.Rules = MovementRules.Stock with { ChargeYawCap = (_, yaw, _, _) => yaw > 45 ? 30 : yaw };
+        s_viewCalls = 0;
+        var cmd = new UserCmd { CommandNumber = 1, Yaw = 90f };
+
+        Assert.Equal(1, stages.Stage(Player, 0, 0, in cmd));
+
+        Assert.Equal(30f, moves.Find(Player)!.Move.ViewAngles.Y, 4);
+        Assert.Equal((1, 30f, ServerCommandRules.FixAngleNone), (s_viewCalls, s_viewYaw, s_viewFix));
+    }
+
+    /// <summary>
+    /// With no mod owning movement the prepared angles are the command's own:
+    /// the stock pack echoes the yaw it was handed, so the write-back and the
+    /// move state hold what the command sent.
+    /// </summary>
+    [Fact]
+    public void TheStockChargeYawPassesTheCommandsAngleThrough()
+    {
+        _root.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerCommandBegin),
+                   (nint)(delegate* unmanaged<void*, uint, void*, int>)&Begin);
+        _root.Live(MovementServer, nameof(ShimMovementServerFwd.PlayerCommandView),
+                   (nint)(delegate* unmanaged<void*, uint, void*, int, void>)&View);
+        var side = TestSides.Create(Side.Server);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
+        (ServerPlayerCommands stages, ServerPlayerMoves moves) = Stack(new ServerModuleEngine(side));
+        s_viewCalls = 0;
+        var cmd = new UserCmd { CommandNumber = 1, Yaw = 90f };
+
+        Assert.Equal(1, stages.Stage(Player, 0, 0, in cmd));
+
+        Assert.Equal(90f, moves.Find(Player)!.Move.ViewAngles.Y, 4);
+        Assert.Equal((1, 90f, ServerCommandRules.FixAngleNone), (s_viewCalls, s_viewYaw, s_viewFix));
     }
 
     [Fact]

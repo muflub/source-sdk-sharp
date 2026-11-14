@@ -6,6 +6,8 @@ using SourceSharp.Tests;
 using TF2.Server;
 using TF2.Server.Combat;
 using TF2.Server.Econ;
+using TF2.Server.Medigun;
+using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
@@ -43,11 +45,14 @@ internal sealed class ProjectileRig
     public TFDamageScopes Scopes { get; } = new();
     public DamageHitGroups HitGroups { get; } = new();
     public DamageInflictors Inflictors { get; } = new();
-    public TFStickyTray Tray { get; } = new();
+    public TFFlareTray FlareTray { get; } = new();
     public FixedClasses Classes { get; } = new();
 
     /// <summary>The carrier registry the rocket's stun arm asks.</summary>
     public TFPlayerCarriers Carriers { get; } = new();
+
+    /// <summary>The pipebomb tray, over the rig's carriers.</summary>
+    public TFStickyTray Tray { get; }
 
     /// <summary>The temp-entity sink the rocket's effects dispatch through.</summary>
     public RecordingEffectDispatch Temps { get; } = new();
@@ -73,7 +78,13 @@ internal sealed class ProjectileRig
 
     public TFBlastApplier Blast { get; }
     public TFProjectileEffects Effects { get; }
+
+    /// <summary>The one birth the weapons' launches and a caller's own spawn share.</summary>
+    public TFProjectileSpawner Spawner { get; }
     public DirectoryView Directory { get; } = new();
+
+    /// <summary>The directory the motion pass resolves its flyers through.</summary>
+    public EntityDirectory MotionDirectory { get; }
     public AttributeHooks Hooks { get; } = new();
     public FixedOwners Owners { get; } = new();
 
@@ -104,13 +115,16 @@ internal sealed class ProjectileRig
 
     public ProjectileRig(TFPreroundPushFromDamageEnableConVar? preroundPush = null)
     {
+        Tray = new(Carriers);
+
         var motionLog = new RecordingLog();
-        var motionDirectory = new EntityDirectory(motionLog);
+        var motionDirectory = MotionDirectory = new EntityDirectory(motionLog);
         Motion = new EntityMotion(motionLog, Engine, Engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
-                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers, preroundPush);
+                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers,
+                    preroundPush ?? DeclaredConVars.Fresh<TFPreroundPushFromDamageEnableConVar>());
         // The registered defaults for the convars the sticky's arm and
         // air-burst radius read, as the game would answer; a fact turns them.
         // The blow's force scales are held off.
@@ -120,7 +134,8 @@ internal sealed class ProjectileRig
         StickyVars.ForceFromBlast.Hold("0");
         StickyVars.ForceToMove.Hold("0");
         StickyVars.ForceSleepTime.Hold("0");
-        Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
+        Spawner = new(Engine, Directory, Log);
+        Effects = new(Engine, Spawner, Engine, Tray, FlareTray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
         Engine.Returns("Players.GetHandle", Player);
@@ -133,6 +148,7 @@ internal sealed class ProjectileRig
         // The deflection takes the deflector's active weapon (the airblast's
         // flamethrower); a fact's Returns turns it.
         Engine.Returns("Players.GetActiveWeapon", "tf_flamethrower");
+        Engine.Returns("Players.GetActiveWeaponEntity", EntityHandle.None);
         Engine.Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f));
         Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));
         // The firing basis at yaw 0 is mathlib's AngleVectors (Angles.RightUp):
@@ -146,6 +162,9 @@ internal sealed class ProjectileRig
         Engine.Returns("WorldQuery.TraceLine", new TraceResult(true, 1f, default, default, EntityHandle.None));
         Engine.Returns("Entities.IsPlayer", false);
         Engine.Returns("Entities.GetOrigin", default(Vector));
+        // Centred where it stands: the own pass reads its owner's centre, as
+        // the sweep reads a victim's; a fact's Returns moves it.
+        Engine.Returns("Entities.GetWorldSpaceCenter", default(Vector));
         // A point collision box; a fact's Returns decides the victim's bounds.
         Engine.Returns("Entities.GetBounds", (default(Vector), default(Vector)));
         Engine.Returns("Entities.IsValid", true);
@@ -173,12 +192,15 @@ internal sealed class ProjectileRig
     /// double. The clock stands at 10 (the sleep-time gate reads it) and the
     /// toucher has no parent unless a fact names one.
     /// </summary>
+    public PostSimulationQueue Queue { get; } = new();
+
+    /// <summary>A stickybomb, pinned through <see cref="Queue"/> unless the fact brings its own.</summary>
     public TFStickybomb Sticky(PostSimulationQueue? postSimulation = null)
     {
         Engine.Returns("Clock.Now", 10f)
               .Returns("Entities.GetParent", EntityHandle.None);
         var sticky = new TFStickybomb(Engine, Blast, Engine, StickyVars, Engine, Engine, Directory, Engine,
-                                      postSimulation);
+                                      postSimulation ?? Queue);
         sticky.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says
         sticky.BindAreas(TestServices.Areas(Engine));
         return BindStates(sticky);
@@ -187,15 +209,34 @@ internal sealed class ProjectileRig
     /// <summary>A rocket with its areas bound, launchable and touchable.</summary>
     public TFRocket Rocket()
     {
-        var rocket = new TFRocket(Engine, Motion, Blast, Owners, Engine, Hooks, Carriers, Temps, Engine);
+        var rocket = new TFRocket(Engine, Motion, Blast, Owners, Engine, Hooks, Carriers, Temps, Engine,
+                                  RocketConds);
         rocket.BindAreas(TestServices.Areas(Engine));
         return BindStates(rocket);
     }
 
+    /// <summary>The condition seam the rocket's radius asks, at its smallest:
+    /// the holder is in the blast jump or is not, as <see cref="BlastJumping"/> sets.</summary>
+    public sealed class RocketConditions : ITFPlayerConditions
+    {
+        public bool BlastJumping { get; set; }
+
+        public TFConditions? Of(int playerIndex) => null;
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent, EntityHandle provider = default)
+            => TFCondAdd.Refused;
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+        public bool InCond(EntityHandle player, TFCond cond) => BlastJumping && cond == TFCond.Blastjumping;
+    }
+
+    /// <summary>The condition answers the rocket's radius arm reads.</summary>
+    public RocketConditions RocketConds { get; } = new();
+
     /// <summary>A pipebomb with its areas bound.</summary>
     public TFPipebomb Pipebomb()
     {
-        var pipe = new TFPipebomb(Engine, Blast, Engine, Directory, Owners, Hooks, Engine, Skins, Engine, Engine);
+        var pipe = new TFPipebomb(Engine, Blast, Engine, Directory, Owners, Hooks, Engine, Skins, Engine, Engine,
+                                  Engine, Scopes, HitGroups, Carriers, Conditions);
         pipe.BindAreas(TestServices.Areas(Engine));
         return BindStates(pipe);
     }
@@ -211,10 +252,175 @@ internal sealed class ProjectileRig
     /// <summary>An arrow with its areas bound, launchable by the effects.</summary>
     public TFArrow Arrow()
     {
-        var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups);
+        var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups,
+                                Directory, Owners, Hooks, Engine, Temps, Engine);
         arrow.BindAreas(TestServices.Areas(Engine));
         return BindStates(arrow);
     }
+
+    /// <summary>A flare with its areas bound, over <see cref="Conditions"/>.</summary>
+    public TFFlare Flare()
+    {
+        var flare = new TFFlare(Engine, Motion, Engine, Scopes, HitGroups, Conditions, Engine,
+                                Blast, Hooks, Owners, FlareTray, Carriers, Engine, Random);
+        flare.BindAreas(TestServices.Areas(Engine));
+        return BindStates(flare);
+    }
+
+    /// <summary>A jar with its areas bound, over <see cref="Wet"/> and the temp sink.</summary>
+    public TFJar Jar()
+    {
+        var jar = new TFJar(Engine, Motion, Engine, Wet, Engine, Temps, Engine, Engine, Owners, Hooks, Directory);
+        jar.BindAreas(TestServices.Areas(Engine));
+        return BindStates(jar);
+    }
+
+    /// <summary>
+    /// A healing bolt with its areas bound, over the medigun, notice and
+    /// record fakes below: everything <see cref="TFHealingBoltFacts"/> reads.
+    /// </summary>
+    /// <summary>The heal-stat sink the bolt's booking pays.</summary>
+    public FakeStats Stats { get; } = new();
+
+    public TFHealingBolt Bolt()
+    {
+        var bolt = new TFHealingBolt(Engine, Motion, Engine, Scopes, HitGroups, Engine, Owners, Hooks,
+                                     Conditions, Mediguns, Health, Notices, Engine, Engine, Engine, Records, Stats);
+        bolt.BindAreas(TestServices.Areas(Engine));
+        return BindStates(bolt);
+    }
+
+    /// <summary>The wounds the combat layer has stood on record, for the uber's age scale.</summary>
+    public TFDamageRecords Records { get; } = new();
+
+    /// <summary>
+    /// An energy ring with its areas bound, over the owners and hooks fakes:
+    /// what the energy facts build with their own hands.
+    /// </summary>
+    public TFProjectileEnergyRing Ring()
+    {
+        var ring = new TFProjectileEnergyRing(Engine, Motion, Engine, Scopes, HitGroups, Owners, Hooks, Engine, Engine,
+                                              Temps, Engine, Engine);
+        ring.BindAreas(TestServices.Areas(Engine));
+        return BindStates(ring);
+    }
+
+    /// <summary>The shakes the ball's impact sent, beside the ring's own sink.</summary>
+    public BallShakeRecorder Screen { get; } = new();
+
+    /// <summary>An energy ball with its areas bound, over the blast, owners and hooks fakes.</summary>
+    public TFProjectileEnergyBall Ball()
+    {
+        var ball = new TFProjectileEnergyBall(Engine, Motion, Blast, Owners, Hooks, Engine, Temps, Engine, Screen,
+                                              Engine);
+        ball.BindAreas(TestServices.Areas(Engine));
+        return BindStates(ball);
+    }
+
+    /// <summary>The shooter's medigun, as the uber charge asks it.</summary>
+    public MedigunSpies Mediguns { get; } = new();
+
+    /// <summary>The pickup events, as the heal's two ask the HUD.</summary>
+    public NoticeSpies Notices { get; } = new();
+
+    /// <summary>The medigun seam at its smallest: a level and its writes.</summary>
+    public sealed class MedigunSpies : ITFMedigunWeapons
+    {
+        public float Level { get; set; }
+
+        /// <summary>Every <see cref="SetChargeLevel"/>, as (whose, what).</summary>
+        public List<(int Owner, float Level)> Writes { get; } = new();
+
+        public void TickMedic(int ownerIndex, float now, float frametime) { }
+        public void Holster(int ownerIndex, float now) { }
+        public void Unholster(int ownerIndex, float now) { }
+        public void RemoveMedigun(int ownerIndex, float now) { }
+        public void PreserveCharge(int ownerIndex, float amount) { }
+        public float ChargeLevel(int ownerIndex) => Level;
+        public void SetChargeLevel(int ownerIndex, float level)
+        {
+            Level = level;
+            Writes.Add((ownerIndex, level));
+        }
+
+        public int HealingTargetIndex(int ownerIndex) => -1;
+        public bool IsReleasing(int ownerIndex) => false;
+        public bool SubtractCharge(int ownerIndex, float amount) => false;
+    }
+
+    /// <summary>The notice seam at its smallest: the heal events, recorded.</summary>
+    public sealed class NoticeSpies : ITFPickupNotices
+    {
+        public List<(EntityHandle Patient, EntityHandle Healer, int Amount)> Healed { get; } = new();
+        public List<(EntityHandle Player, int Amount)> HealOnHit { get; } = new();
+        public List<(EntityHandle Healer, EntityHandle Healed, int Amount)> Crossbow { get; } = new();
+
+        public void ItemPickup(EntityHandle player, string className) { }
+        public void ItemPickupEvent(EntityHandle player, string item) { }
+        public void PlayerHealed(EntityHandle patient, EntityHandle healer, int amount) => Healed.Add((patient, healer, amount));
+        public void PlayerHealOnHit(EntityHandle player, int amount) => HealOnHit.Add((player, amount));
+        public void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount) => Crossbow.Add((healer, healed, amount));
+        public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker) { }
+        public void Sound(EntityHandle player, string sound) { }
+    }
+
+    /// <summary>
+    /// The condition seam the flare's burning-crit reads, at its smallest:
+    /// everybody burns or nobody does, as the fact sets <see cref="EveryoneBurns"/>.
+    /// </summary>
+    public sealed class FlareConditions : ITFPlayerConditions
+    {
+        public bool EveryoneBurns { get; set; }
+
+        /// <summary>Every cond add, for the facts that read one back.</summary>
+        public List<(EntityHandle Player, TFCond Cond, float Duration)> Added { get; } = new();
+
+        public TFConditions? Of(int playerIndex) => null;
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent, EntityHandle provider = default)
+        {
+            Added.Add((player, cond, duration));
+            return TFCondAdd.Refused;
+        }
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+        public bool InCond(EntityHandle player, TFCond cond) => EveryoneBurns && cond == TFCond.Burning;
+    }
+
+    /// <summary>The condition answers the flare's crit arm reads.</summary>
+    public FlareConditions Conditions { get; } = new();
+
+    /// <summary>
+    /// The wet seams the jar's splash writes, recorded: the conditions added
+    /// and removed, who burns, and the condition states the dry gates read.
+    /// </summary>
+    public sealed class JarConditions : ITFPlayerConditions
+    {
+        public readonly List<(EntityHandle Player, TFCond Cond, float Duration, EntityHandle Provider)> Added = new();
+        public readonly List<(EntityHandle Player, TFCond Cond)> Removed = new();
+        public readonly HashSet<EntityHandle> Burning = new();
+        public readonly Dictionary<int, TFConditions> States = new();
+
+        public TFConditions? Of(int playerIndex) => States.TryGetValue(playerIndex, out var state) ? state : null;
+
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent, EntityHandle provider = default)
+        {
+            Added.Add((player, cond, duration, provider));
+            return TFCondAdd.Added;
+        }
+
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false)
+        {
+            Removed.Add((player, cond));
+            return true;
+        }
+
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+
+        public bool InCond(EntityHandle player, TFCond cond) => cond == TFCond.Burning && Burning.Contains(player);
+    }
+
+    /// <summary>The wet seams the jar's splash asks.</summary>
+    public JarConditions Wet { get; } = new();
 
     /// <summary>
     /// The registry's bind, for an entity built by hand: its netstates get
@@ -245,15 +451,36 @@ internal sealed class ProjectileRig
         /// <summary>The crouch answer, for the rocket muzzle's folded offset.</summary>
         public bool Ducking { get; set; }
 
+        /// <summary>The held weapon, for the arms that read it off the victim.</summary>
+        public IAttributeProvider? Active { get; set; }
+
         public TFClass ClassOf(int playerIndex) => TFClass.Undefined;
-        public TFConditions? ConditionsOf(int playerIndex) => null;
+
+        /// <summary>The victim's conditions, for the drain telling's visible gate.</summary>
+        public TFConditions? Conditions { get; set; }
+
+        public TFConditions? ConditionsOf(int playerIndex) => Conditions;
+
         public float CritMult(int playerIndex) => 1f;
         public bool WinsCrits(int playerIndex) => false;
         public IAttributeProvider? ItemOf(int playerIndex, string weaponName) => Item;
+        public IAttributeProvider? ActiveItemOf(int playerIndex) => Active;
         public IAttributeProvider? ManagerOf(int playerIndex) => Manager;
         public bool OffGround(int playerIndex) => false;
         public bool EyesUnderwater(int playerIndex) => false;
         public bool DuckingOf(int playerIndex) => Ducking;
+
+        /// <summary>The pomson's drains, recorded as (whose, medic fraction, spy fraction).</summary>
+        public List<(int Player, float Medic, float Spy)> Drains { get; } = new();
+
+        /// <summary>Whether a meter stood under the last drain, as the real registry answers.</summary>
+        public bool MeterStood { get; set; } = true;
+
+        public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+        {
+            Drains.Add((playerIndex, medicFraction, spyFraction));
+            return MeterStood;
+        }
     }
 
     /// <summary>
@@ -266,13 +493,21 @@ internal sealed class ProjectileRig
         /// <summary>Every TakeHealth, as (who, what). The blast facts count and read these.</summary>
         public List<(SourceSharp.Abi.EntityHandle Who, int Amount)> HealthTaken { get; } = new();
 
+        /// <summary>The class ceiling the takes ride against; null answers unbounded.</summary>
+        public int? Ceiling { get; set; }
+
+        /// <summary>The <c>ignoreMaxHealth</c> flag of every take, in order.</summary>
+        public List<bool> Unbounded { get; } = new();
+
         public void Regenerate(SourceSharp.Abi.EntityHandle player, bool refillHealthAndAmmo = true) { }
         public int MaxHealth(SourceSharp.Abi.EntityHandle player) => 0;
 
         public int TakeHealth(SourceSharp.Abi.EntityHandle player, float health, bool ignoreMaxHealth = false)
         {
-            HealthTaken.Add((player, (int)health));
-            return (int)health;
+            Unbounded.Add(ignoreMaxHealth);
+            int taken = Ceiling is int ceiling ? Math.Min((int)health, ceiling) : (int)health;
+            HealthTaken.Add((player, taken));
+            return taken;
         }
 
         public int MaxAmmo(SourceSharp.Abi.EntityHandle player, TF2.Shared.TFAmmo ammo) => 0;
@@ -323,6 +558,7 @@ public class TFProjectileDefsFacts
         Assert.Equal(900f, TFProjectileDefs.StickySpeed(0f));
         Assert.Equal(2400f, TFProjectileDefs.StickySpeed(TFProjectileBehaviour.MaxChargeTime));
         Assert.Equal(1650f, TFProjectileDefs.StickySpeed(TFProjectileBehaviour.MaxChargeTime / 2f));
+        Assert.Equal(1650f, TFProjectileDefs.StickySpeed(TFProjectileBehaviour.MaxChargeTime, 8f));
     }
 
     [Fact]
@@ -362,6 +598,96 @@ public class TFBlastApplierFacts
         Assert.NotNull(hit);
         Assert.Equal(ProjectileRig.Victim, hit!.ArgAs<EntityHandle>(0));
         Assert.Equal(71.5f, hit.ArgAs<float>(2), 1f);
+    }
+
+    [Fact]
+    public void AnOwnerThatIsNoPlayerTakesItsOwnSweepAsDealt()
+    {
+        // With no own pass armed the owner is one of the sweep's victims
+        // (tf_gamerules.cpp:5638-5640). The self arms are a player's —
+        // CTFPlayer::OnTakeDamage's soldier 0.6 and the player block of
+        // ApplyOnDamageAliveModifyRules (:7115) — so an owner that is no
+        // player keeps the falloffed 71.5 whatever the class seam answers
+        // (the rig's is a soldier, off the ground: 42.9 for a player).
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Player);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 0f), default, EntityHandle.None));
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var hit = Assert.Single(rig.Engine.AllOf("Damage.TakeDamageAnswered"));
+        Assert.Equal(ProjectileRig.Player, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(71.5f, hit.ArgAs<float>(2), 1f);
+    }
+
+    /// <summary>A body that is no player, at 60 out on the push's own level
+    /// (the source's 1 less the push's 10 of lift), in a box of its own.</summary>
+    private static ProjectileRig BodyAtSixty(Vector mins, Vector maxs)
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, -9f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, -9f));
+        rig.Engine.Returns("Entities.GetBounds", (mins, maxs));
+        // Not a player, so stock scores it at the trace's end, 60 out.
+        rig.Engine.Returns("WorldQuery.TraceLine",
+                           new TraceResult(true, 1f, new Vector(60f, 0f, 1f), default, EntityHandle.None));
+        return rig;
+    }
+
+    [Fact]
+    public void ABodyThatRunsTheDamageRulesIsHandedTheBlastsPushWithTheHit()
+    {
+        // Stock's ApplyPushFromDamage (tf_player.cpp:10365): the push from
+        // someone else's blast is -DamageForce(WorldAlignSize, damage, 6)
+        // along the line from the blast's centre, 10 low, to the victim's.
+        // A body that is no player but runs the rules is handed that push as
+        // its hit's force, measured on ITS OWN box (40 x 40 x 60, not a
+        // player's 48 x 48 x 82), at the blast's centre:
+        // 71.5 * (48*48*82 / 40*40*60) * 6 = 844.3, away from the blast.
+        var rig = BodyAtSixty(new Vector(-20f, -20f, 0f), new Vector(20f, 20f, 60f));
+        rig.Directory.Holds(ProjectileRig.Victim, new TF2.Tests.Combat.OtherVictim());
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
+        var hit = Assert.Single(rig.Engine.AllOf("Damage.ApplyAt"));
+        Assert.Equal(ProjectileRig.Victim, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(71.5f, hit.ArgAs<float>(2), 0.1f);
+        Vector force = hit.ArgAs<Vector>(4);
+        Assert.Equal(844.3f, force.X, 0.5f);
+        Assert.Equal(0f, force.Y, 0.001f);
+        Assert.Equal(0f, force.Z, 0.001f);
+        Assert.Equal(new Vector(0f, 0f, 1f), hit.ArgAs<Vector>(5));
+    }
+
+    [Fact]
+    public void ABodyThatRunsTheDamageRulesIsHandedItsOwnBlastsSelfPush()
+    {
+        // The own pass (tf_gamerules.cpp:5661-5714) on an owner that is no
+        // player: 90 at 60 of the rocket-jump radius 121, half kept at the
+        // edge, is 67.69; the self arm's push (tf_player.cpp:10297) is
+        // -DamageForce(size, damage, 9) on its own 60 x 60 x 80 box:
+        // 67.69 * (48*48*82 / 60*60*80) * 9 = 399.6.
+        var rig = BodyAtSixty(new Vector(-30f, -30f, 0f), new Vector(30f, 30f, 80f));
+        rig.Directory.Holds(ProjectileRig.Player, new TF2.Tests.Combat.OtherVictim());
+        rig.Engine.FillsSphere();
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false,
+                        selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
+
+        var hit = Assert.Single(rig.Engine.AllOf("Damage.ApplyAt"));
+        Assert.Equal(ProjectileRig.Player, hit.ArgAs<EntityHandle>(0));
+        Assert.Equal(67.69f, hit.ArgAs<float>(2), 0.1f);
+        Assert.Equal(399.6f, hit.ArgAs<Vector>(4).X, 0.5f);
     }
 
     [Fact]
@@ -618,6 +944,21 @@ public class TFBlastApplierFacts
 
         Assert.Equal(90f, damage, 0.5f);
         Assert.Equal(damage * 5f, impulse.Z, 0.5f);
+    }
+
+    /// <summary>The grounded push in whole numbers: 90 damage at the soldier's
+    /// grounded scale of 5 (:10320-10335), exactly 450, and that sits below
+    /// TFRadiusDamage.MaxForce's cap of 1000 (:10336), so the cap never trims
+    /// a soldier's own jump launch.</summary>
+    [Fact]
+    public void TheGroundedSoldierPushIsFourHundredFiftyUnderTheCap()
+    {
+        (_, float damage, Vector impulse) = SelfBlast(EntityState.OnGround);
+
+        Assert.Equal(90f, damage, 0.5f);
+        Assert.Equal(450f, impulse.Z, 3f);
+        Assert.True(impulse.Z < TFRadiusDamage.MaxForce,
+                    $"grounded push {impulse.Z} must sit below the cap {TFRadiusDamage.MaxForce}");
     }
 
     /// <summary>The scale's FL_INWATER test; the push's own arm reads only the ground (:10265).</summary>
@@ -896,6 +1237,7 @@ public class TFGrenadePhysicsFacts
         rig.Engine.Returns("Entities.GetIndex", 0);
 
         sticky.OnTouch(new EntityHandle(0x0001_0000u)); // the world, entry 0
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -940,6 +1282,7 @@ public class TFGrenadePhysicsFacts
         rig.Engine.Returns("Entities.GetClassName", "prop_dynamic");
 
         sticky.OnTouch(new EntityHandle(0x0002_0000u | 42)); // a prop_dynamic
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -971,6 +1314,7 @@ public class TFGrenadePhysicsFacts
                         TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
 
         sticky.OnTouch(new EntityHandle(0x0001_0000u)); // the world: it sticks
+        rig.Queue.Run(); // the pin waits for the step's end
         Assert.Equal(1, rig.Engine.CountOf("EntityPhysics.EnableMotion"));
 
         var moved = sticky.OnDamagedAt(attacker, 10f, DamageType.Bullet, default,
@@ -984,6 +1328,7 @@ public class TFGrenadePhysicsFacts
 
         rig.Engine.Returns("Clock.Now", 11.5f);
         sticky.OnTouch(new EntityHandle(0x0001_0000u)); // past it: re-sticks
+        rig.Queue.Run(); // the re-pin waits for the step's end too
         var restuck = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(restuck);
         Assert.False(restuck!.ArgAs<bool>(1));
@@ -1037,6 +1382,7 @@ public class TFGrenadePhysicsFacts
         sticky.OnSpawn();
 
         sticky.OnTouch(new EntityHandle(0x0002_0000u | 42));
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1053,6 +1399,7 @@ public class TFGrenadePhysicsFacts
 
         sticky.OnThink(); // arms
         sticky.OnThink(); // the rest check: still not moving
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1093,6 +1440,7 @@ public class TFGrenadePhysicsFacts
 
         var ev = WorldCollision(sticky.Handle.Value, mySide: 1);
         sticky.OnVPhysicsCollision(in ev, 1);
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1134,6 +1482,7 @@ public class TFGrenadePhysicsFacts
 
         var ev = WorldCollision(sticky.Handle.Value, mySide: 0);
         sticky.OnVPhysicsCollision(in ev, 0);
+        rig.Queue.Run(); // the pin waits for the step's end
 
         var motion = rig.Engine.Last("EntityPhysics.EnableMotion");
         Assert.NotNull(motion);
@@ -1194,6 +1543,15 @@ public class TFStickyTrayFacts
         return sticky;
     }
 
+    /// <summary>
+    /// The blast's hits on the rig's victim. The thrower stands in the rig's
+    /// one place as well, so stock's own pass (<c>RadiusDamage</c>'s second
+    /// sweep, tf_gamerules.cpp:5661-5714) hits him beside them.
+    /// </summary>
+    private static EngineCall[] HitsOnVictim(ProjectileRig rig)
+        => rig.Engine.AllOf("Damage.TakeDamageAnswered")
+              .Where(c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Victim).ToArray();
+
     [Fact]
     public void TheNinthStickyDetonatesTheOldestEvenUnarmed()
     {
@@ -1228,7 +1586,7 @@ public class TFStickyTrayFacts
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
         // At the never-touched air-burst scale the radius is 146 * 0.85 =
         // 124.1, so 100 - 50 * 60/124.1 (a 90 sticky would land 68.24).
-        Assert.Equal(75.83f, EngineCallFacts.ArgAs<float>(rig.Engine.Last("Damage.TakeDamageAnswered"), 2), 2f);
+        Assert.Equal(75.83f, Assert.Single(HitsOnVictim(rig)).ArgAs<float>(2), 2f);
     }
 
     [Fact]
@@ -1261,7 +1619,7 @@ public class TFStickyTrayFacts
         rig.Tray.DetonateAll(3); // the later detonation
 
         Assert.Equal(0, rig.Tray.Count(3));
-        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Single(HitsOnVictim(rig));
     }
 
     [Fact]
@@ -1314,7 +1672,7 @@ public class TFStickyTrayFacts
 
         Assert.Equal(0, rig.Tray.Count(3));
         // The taken sticky did not blast retroactively: one blast, one removal.
-        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        Assert.Single(HitsOnVictim(rig));
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
     }
 
@@ -1655,8 +2013,27 @@ public class TFStickyDestroyFacts
         rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
         rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
         rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
-            rig.Engine.Calls[^1].Args[0] is EntityHandle h && (h == ProjectileRig.Victim || h == EnemyBomb)
-                ? 3 : 2);
+            // As the player seam answers: a bomb is no player and has no team.
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h
+                ? h == ProjectileRig.Victim ? 3 : h == ProjectileRig.Player ? 2 : -1
+                : -1);
+    }
+
+    [Fact]
+    public void TheSweepLeavesItsOwnTeamsBombsToBlast()
+    {
+        // The Quickiebomb and the Scottish Resistance: the sweep found the bomb
+        // that was sweeping, took it for an enemy's, and it fizzled without a blast.
+        var rig = new ProjectileRig();
+        Sees(rig);
+        var own = Detonator(rig);
+        var mine = new EntityHandle(0x0003_0000u | 11);
+        rig.Directory.Holds(mine, own);
+        rig.Engine.FillsSphere(mine);
+
+        own.DetonateStickies();
+
+        Assert.False(own.Fizzled);
     }
 
     [Fact]
@@ -1810,6 +2187,61 @@ public class TFProjectileEffectsFacts
         Assert.Equal(ProjectileRig.ProjectileHandle, spawned!.ArgAs<EntityHandle>(0));
     }
 
+    /// <summary>
+    /// A rocket carries the shot the hooks answered, not the script's number
+    /// (<c>SetDamage( GetProjectileDamage() )</c>, tf_weaponbase_gun.cpp:505-793, whose
+    /// first arm is <c>mult_dmg</c>, :909-910): every projectile gun with a damage
+    /// attribute fired at script damage until this was seen on a real enemy.
+    /// </summary>
+    [Fact]
+    public void A_rocket_carries_the_shot_the_hooks_answered()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rig.Directory.Instance = rocket;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_rocketlauncher"), new ShotDamage(112.5f), 0f);
+
+        Assert.Equal(112.5f, rocket.Damage, 0.01f);
+    }
+
+    /// <summary>
+    /// A rocket sweeps for the hull, not the hitboxes (tf_weaponbase_rocket.cpp:354-369). With
+    /// the shot mask it flew through a spy standing square in the crosshair: two clients, 0
+    /// damage from a launcher that did 105 to a heavy on the same spot.
+    /// </summary>
+    [Fact]
+    public void A_rockets_sweep_finds_a_players_hull()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+                  .Ignores("Entities.SetOrigin");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+        int moved = rig.Motion.RunFrame(0.015f);
+
+        Assert.Equal(1, moved);
+        Assert.Equal(TraceMask.Solid, rig.Engine.Last("WorldQuery.TraceLine")!.ArgAs<TraceMask>(2));
+    }
+
+    [Fact]
+    public void A_pipe_carries_the_shot_the_hooks_answered()
+    {
+        var rig = new ProjectileRig();
+        var pipe = rig.Pipebomb();
+        rig.Directory.Instance = pipe;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), new ShotDamage(72f), 0f);
+
+        Assert.Equal(72f, pipe.FullDamage, 0.01f);
+    }
+
     [Fact]
     public void TheRocketLauncherArmsItsRocketAtTheLaunchSpeed()
     {
@@ -1824,6 +2256,144 @@ public class TFProjectileEffectsFacts
         Assert.NotNull(velocity);
         Assert.Equal(TFProjectileDefs.Speed(script.Primary.ProjectileSpeed, TFProjectileDefs.RocketSpeed),
                      velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void ProjectileSpeedScalesTheLaunch()
+    {
+        // mult_projectile_speed on the launcher's item rides the launch
+        // speed before the specialist's remap (tf_weaponbase_rocket.cpp:274-275):
+        // the 0.5 halves the stock 1100 to 550.
+        var rig = new ProjectileRig();
+        var script = Script("tf_weapon_rocketlauncher");
+        rig.Directory.Instance = rig.Rocket();
+        rig.Owners.Item = rig.AttributeItem("mult_projectile_speed", AttributeDescriptionFormat.Percentage, 0.5f);
+
+        rig.Effects.Projectile(Attack(3), script, default, 0f);
+
+        var velocity = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(velocity);
+        Assert.Equal(550f, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    /// <summary>GetProjectileFireSetup's centre-fire arm (tf_weaponbase.cpp:5755-5760):
+    /// the launcher's item answering exactly 1 on centerfire_projectile drops the
+    /// lateral offset of the shot position, so the rocket is born on the sight line.</summary>
+    [Fact]
+    public void A_centerfiring_launcher_fires_the_rocket_from_the_centre()
+    {
+        var rig = new ProjectileRig();
+        rig.Directory.Instance = rig.Rocket();
+        rig.Owners.Item = rig.AttributeItem("centerfire_projectile", AttributeDescriptionFormat.Additive, 1f);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_rocketlauncher"), default, 0f);
+
+        var muzzle = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(0f, muzzle.Y, 0.5f);   // right is -Y at yaw 0; the offset is gone
+    }
+
+    /// <summary>Stock compares the answer with == exactly (tf_weaponbase.cpp:5757):
+    /// a two keeps the lateral offset.</summary>
+    [Fact]
+    public void An_answer_of_two_keeps_the_lateral_muzzle_offset()
+    {
+        var rig = new ProjectileRig();
+        rig.Directory.Instance = rig.Rocket();
+        rig.Owners.Item = rig.AttributeItem("centerfire_projectile", AttributeDescriptionFormat.Additive, 2f);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_rocketlauncher"), default, 0f);
+
+        var muzzle = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(-TFProjectileDefs.RocketMuzzleRight, muzzle.Y, 0.5f);
+    }
+
+    [Fact]
+    public void TheLochNLoadsPipeLeavesAtItsSpedUpLaunch()
+    {
+        // GetProjectileSpeed (tf_weapon_grenadelauncher.cpp:476-478): the
+        // stock 1200 under the launcher's mult_projectile_speed — the
+        // Loch-n-Load's 1.25 — before FirePipeBomb's range hook.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("mult_projectile_speed",
+                                            AttributeDescriptionFormat.Percentage, 1.25f);
+        rig.Directory.Instance = rig.Pipebomb();
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        var velocity = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(velocity);
+        Assert.Equal(1500f, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void TheLochNLoadsLauncherStampsThePipeWallShatter()
+    {
+        // FireProjectileInternal (tf_weapon_grenadelauncher.cpp:272-275): the
+        // launcher's set_detonate_mode AIR pokes m_bWallShatter; the plain
+        // launcher's pipe carries none.
+        var rig = new ProjectileRig();
+        var loch = rig.Pipebomb();
+        rig.Directory.Instance = loch;
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 2);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        Assert.True(loch.WallShatter);
+
+        var plainRig = new ProjectileRig();
+        var pipe = plainRig.Pipebomb();
+        plainRig.Directory.Instance = pipe;
+
+        plainRig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        Assert.False(pipe.WallShatter);
+    }
+
+    /// <summary>The launcher's script firing the cannonball, as the shipped <c>tf_weapon_cannonball</c> does (<c>projectile_cannonball</c>).</summary>
+    private static TFWeaponScript CannonballScript(TFWeaponScript script) => new()
+    {
+        Base = script.Base,
+        Primary = script.Primary with { Projectile = TFProjectile.Cannonball },
+    };
+
+    [Fact]
+    public void TheLooseCannonsShotIsTheCannonballPipe()
+    {
+        // Create's translation (tf_weapon_grenade_pipebomb.cpp:437-458): the
+        // cannonball projectile type rides the pipe entity with
+        // TF_GL_MODE_CANNONBALL stamped, the shell re-dressed in Spawn
+        // (:513-516).
+        var rig = new ProjectileRig();
+        var ball = rig.Pipebomb();
+        rig.Directory.Instance = ball;
+
+        rig.Effects.Projectile(Attack(3), CannonballScript(Script("tf_weapon_grenadelauncher")), default, 0f);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeCannonball, ball.PipebombMode);
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.CannonballModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void TheLooseCannonsChargedShotFusesAtTheWindowLeft()
+    {
+        // FireProjectileInternal's charged fuse
+        // (tf_weapon_grenadelauncher.cpp:277-287) over the launch: the window
+        // the item's grenade_launcher_mortar_mode names, less the seconds
+        // held — half a second of a 2 s window books 1.5, where the plain
+        // pipe's launch leaves the spawn's 2.
+        var rig = new ProjectileRig();
+        var ball = rig.Pipebomb();
+        rig.Directory.Instance = ball;
+        var thinks = new ThinkScheduler();
+        ball.BindThinks(thinks);
+        rig.Owners.Item = rig.AttributeItem(TFProjectileBehaviour.MortarModeAttribute,
+                                            AttributeDescriptionFormat.Additive, 2f);
+
+        rig.Effects.Projectile(Attack(3), CannonballScript(Script("tf_weapon_grenadelauncher")), default, 0.5f);
+
+        Assert.Equal(1.5f, Assert.Single(thinks.Bookings()).Time, 3);
     }
 
     [Fact]
@@ -2161,6 +2731,85 @@ public class TFProjectileEffectsFacts
     }
 
     [Fact]
+    public void TheQuickiebombsChargeRateStretchesTheSpeedRemap()
+    {
+        // GetProjectileSpeed (tf_weapon_pipebomblauncher.cpp:353-362) remaps
+        // over GetChargeMaxTime, the window the launcher's
+        // stickybomb_charge_rate hook bends: at twice the window a half
+        // charge reads the mid-remap 1650, not the stock window's top 2400.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem(TFProjectileBehaviour.ChargeRateAttribute,
+                                            AttributeDescriptionFormat.Percentage, 2f);
+        rig.Directory.Instance = rig.Sticky();
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 4f);
+
+        var velocity = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(velocity);
+        Assert.Equal(1650f, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void TheStickybombJumpersOverrideFiresThePracticeBomb()
+    {
+        // FireProjectile's override (tf_weaponbase_gun.cpp:260-268): the
+        // item's 14 is TF_PROJECTILE_PIPEBOMB_PRACTICE, so the launch rides
+        // the sticky arm with the practice mode stamped — Create's
+        // translation (:437-458), the shell and the damage-type arms read it.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem(TFProjectileEffects.OverrideProjectileAttribute,
+                                            AttributeDescriptionFormat.Additive, 14f);
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeRemoteDetonatePractice, sticky.PipebombMode);
+        var create = rig.Engine.Last("Entities.Create");
+        Assert.NotNull(create);
+        Assert.Equal(TFProjectileEntityNames.Stickybomb, create!.ArgAs<string>(0));
+
+        // Spawn's practice arm (tf_weapon_grenade_pipebomb.cpp:499-502): the
+        // stamp re-dresses the bomb w_stickybomb2.
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.StickyPracticeModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void TheScottishResistancesBombIsTheDefensiveShell()
+    {
+        // LaunchGrenade's DOT arm (tf_weapon_pipebomblauncher.cpp:305-309):
+        // set_detonate_mode 1 — the Scottish Resistance's — dresses the bomb
+        // w_stickybomb_d at the launch, beside the aimed detonate the
+        // secondary fire already runs.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 1);
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.StickyDefensiveModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void APlainStickyLauncherStampsTheRemoteMode()
+    {
+        // The untranslated birth: without the override the sticky is stock's
+        // remote-detonate bomb, the young-pipe damage type's bearer.
+        var rig = new ProjectileRig();
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeRemoteDetonate, sticky.PipebombMode);
+    }
+
+    [Fact]
     public void TheStickyLauncherSharesThePipesLobAndMuzzle()
     {
         // The sticky rides FirePipeBomb too: the pipes' vecOffset and the
@@ -2373,5 +3022,240 @@ public class TFBowTiredAimFacts
         Assert.True(wild.Y != 0f || wild.Z != 0f);
         Assert.NotEqual(plain.X, wild.X, 3);
         Assert.NotEqual(plain.Z, wild.Z, 3);
+    }
+}
+
+/// <summary>The ball's charged-shot shake, recorded whole for the facts.</summary>
+internal sealed class BallShakeRecorder : IScreenEffects
+{
+    public readonly List<(Vector Origin, float Amplitude, float Frequency, float Duration, float Radius)> Shakes = [];
+
+    public void Shake(Vector origin, float amplitude, float frequency, float duration, float radius,
+                      ShakeCommand command = ShakeCommand.Start, bool airShake = false)
+        => Shakes.Add((origin, amplitude, frequency, duration, radius));
+
+    public void Fade(EntityHandle player, int r, int g, int b, int a, float duration, float holdTime, FadeFlags flags) { }
+}
+
+/// <summary>
+/// <see cref="TFProjectileEnergyBall"/>: stock's <c>Explode</c>
+/// (<c>tf_projectile_energy_ball.cpp:259-337</c>) as the blast it is — the
+/// touched victim scored first at distance zero, the charged shot's shake
+/// (:289-292), the oriented explosion particle (:281-286, :342-352), the hit's
+/// bits and plasma custom (:365-390) — the shake only for the charged ball.
+/// </summary>
+public sealed class TFProjectileEnergyBallFacts
+{
+    private static TFProjectileEnergyBall Arm(ProjectileRig rig, bool charged, bool critical = false)
+    {
+        var ball = rig.Ball();
+        // The blast's push arm and the explosion's index ask these every
+        // impact; a fact's own Returns after the arm turns the answer.
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(0f, 0f, 64f));
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        ball.ArmedBy(100f, TFWeaponId.Raygun, "tf_weapon_raygun", critical, charged, 1);
+        return ball;
+    }
+
+    [Fact]
+    public void APlainBallBlastsTheTouchedVictimForItsFullShot()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The blast's direct victim (:306-325): scored at distance zero, so
+        // the shot lands whole — the old shape had no splash arm at all.
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.Equal(100f, hit!.ArgAs<float>(2), 3);
+    }
+
+    [Fact]
+    public void APlainShotCarriesTheBlastBitsWithoutIgnite()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // GetDamageType (:365-382): blast, half falloff and the distance mod
+        // always; ignite is the charged ball's only extra bit.
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.Equal(DamageType.Blast | TFDamageBits.HalfFalloff | TFDamageBits.UseDistanceMod,
+                     hit!.ArgAs<DamageType>(3));
+    }
+
+    [Fact]
+    public void ACriticalPlainShotAddsTheCritBit()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false, critical: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The plain crit (:375): the crit bit rides the shot's own crit.
+        var hit = rig.Engine.Last("Damage.TakeDamageAnswered");
+        Assert.True(hit!.ArgAs<DamageType>(3).HasFlag(TFDamageBits.Critical),
+            "a plain crit ball carries DMG_CRITICAL");
+    }
+
+    [Fact]
+    public void AChargedShotIgnitesInsteadOfCarryingTheCritBit()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: true, critical: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The charged bits (:368-373): ignite on, the crit bit never — the
+        // charge's mini-crit comes through the ladder instead.
+        var bits = rig.Engine.Last("Damage.TakeDamageAnswered")!.ArgAs<DamageType>(3);
+        Assert.True(bits.HasFlag(TFDamageBits.Ignite), "the charged ball ignites");
+        Assert.False(bits.HasFlag(TFDamageBits.Critical),
+            "the charged shot answers with no crit bit even when the shot was crit");
+    }
+
+    [Fact]
+    public void TheChargedBallShakesTheScreenOnceAtItsCentre()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: true);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(4f, -8f, 32f));
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // UTIL_ScreenShake (:289-292): the charged ball's alone, with stock's
+        // five numbers at the ball's world-space centre.
+        Assert.Single(rig.Screen.Shakes);
+        var shake = rig.Screen.Shakes[0];
+        Assert.Equal(new Vector(4f, -8f, 32f), shake.Origin);
+        Assert.Equal((25f, 150f, 1f, 750f), (shake.Amplitude, shake.Frequency, shake.Duration, shake.Radius));
+    }
+
+    [Fact]
+    public void APlainBallSendsNoShake()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Empty(rig.Screen.Shakes);
+    }
+
+    [Fact]
+    public void ThePlainBallNamesTheNormalCoreAndDispatches()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // The oriented explosion (:281-286, :342-352): always dispatched, the
+        // core named by the charge, a red owner leaving the suffix off.
+        Assert.Equal("drg_cow_explosioncore_normal",
+                     rig.Engine.Last("Precache.ParticleSystemIndex")!.ArgAs<string>(0));
+        Assert.Contains(rig.Temps.Effects, e => e.Name == "ParticleEffect");
+    }
+
+    [Fact]
+    public void TheChargedCoreIsNamedForTheCharge()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        var ball = Arm(rig, charged: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal("drg_cow_explosioncore_charged",
+                     rig.Engine.Last("Precache.ParticleSystemIndex")!.ArgAs<string>(0));
+    }
+
+    [Fact]
+    public void ABlueOwnersParticleTakesTheBlueSuffix()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 7);
+        rig.Engine.Returns("Players.GetTeam", 3);   // TF_TEAM_BLUE
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal("drg_cow_explosioncore_normal_blue",
+                     rig.Engine.Last("Precache.ParticleSystemIndex")!.ArgAs<string>(0));
+    }
+
+    [Fact]
+    public void ThePlainHitRidesThePlasmaScope()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        TFDamageCustom seen = TFDamageCustom.None;
+        rig.Engine.WhenCalled("Damage.TakeDamageAnswered",
+                              call =>
+                              {
+                                  if (rig.Scopes.TryCurrent(out var custom, out var weapon, out var name))
+                                      seen = custom;
+                              });
+        var ball = Arm(rig, charged: false);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        // GetDamageCustom (:387-390): the plain ball's hit carries
+        // TF_DMG_CUSTOM_PLASMA beside it, so the building's plasma arm reads it.
+        Assert.Equal(TFDamageCustom.Plasma, seen);
+    }
+
+    [Fact]
+    public void TheChargedHitRidesTheChargedPlasmaScope()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        TFDamageCustom seen = TFDamageCustom.None;
+        rig.Engine.WhenCalled("Damage.TakeDamageAnswered",
+                              call =>
+                              {
+                                  if (rig.Scopes.TryCurrent(out var custom, out var weapon, out var name))
+                                      seen = custom;
+                              });
+        var ball = Arm(rig, charged: true);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(TFDamageCustom.PlasmaCharged, seen);
+    }
+
+    [Fact]
+    public void TheRingHitRidesThePlasmaScopeToo()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.FillsSphere(ProjectileRig.Victim);
+        TFDamageCustom seen = TFDamageCustom.None;
+        rig.Engine.WhenCalled("Damage.TakeDamage",
+                              call =>
+                              {
+                                  if (rig.Scopes.TryCurrent(out var custom, out var weapon, out var name))
+                                      seen = custom;
+                              });
+        var ring = rig.Ring();
+        ring.ArmedBy(60f, TFWeaponId.DrgPomson, "tf_weapon_drg_pomson", false, 1);
+
+        ring.OnTouch(ProjectileRig.Victim);
+
+        // Stock's ring answers TF_DMG_CUSTOM_PLASMA for every hit
+        // (tf_projectile_energy_ring.cpp:267), so the building reads its
+        // plasma arm off a pomson or bison hit as well.
+        Assert.Equal(TFDamageCustom.Plasma, seen);
     }
 }

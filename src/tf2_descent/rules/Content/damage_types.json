@@ -1,0 +1,6 @@
+[
+  { "id": "fire", "name": "Fire", "resistStat": "resist_fire_pct" },
+  { "id": "blast", "name": "Blast", "resistStat": "resist_blast_pct" },
+  { "id": "bullet", "name": "Bullet", "resistStat": "resist_bullet_pct" },
+  { "id": "shock", "name": "Shock", "resistStat": "resist_shock_pct" }
+]

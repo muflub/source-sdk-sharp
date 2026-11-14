@@ -94,6 +94,59 @@ public interface IJoinTeamPolicy
 }
 
 /// <summary>
+/// A join rule's answer to <c>jointeam 0</c>, the auto-assign: implemented
+/// beside <see cref="IJoinTeamPolicy"/> by the ACTIVE MODE's rule
+/// (<see cref="IGameMode.JoinPolicy"/>), which <see cref="Teams.Join"/> asks
+/// before the stock refusal of team 0. A mode whose rule does not implement
+/// it keeps that refusal (HL2DM's deathmatch: <c>HandleCommand_JoinTeam</c>
+/// warns "invalid team index").
+/// </summary>
+public interface ITeamAutoAssign
+{
+    /// <summary>The playing team a request for team 0 lands <paramref name="player"/> on.</summary>
+    int AutoTeam(EntityHandle player);
+}
+
+/// <summary>
+/// The team a player was brought in for, before their first spawn: a bot
+/// added onto a team (<see cref="IBotPlayers.Add"/>'s <c>team</c>). A mode's
+/// spawn-time assignment (stock <c>PickDefaultSpawnTeam</c>) asks it before
+/// its auto-assign, so the player joins that team directly instead of
+/// landing on another and switching, which under teamplay is a suicide that
+/// costs a frag and a team point. The mode decides whether to honour it.
+/// </summary>
+public interface IWantedTeams
+{
+    /// <summary>The team <paramref name="player"/> was brought in for; 0 for none.</summary>
+    int WantedTeam(EntityHandle player);
+}
+
+/// <summary>
+/// How many playing teams the active mode plays with, implemented beside
+/// <see cref="IJoinTeamPolicy"/> by the active mode's rule: the joinable
+/// teams are Spectator (1) to <see cref="LastTeam"/>. A mode whose rule does
+/// not implement it keeps HL2MP's four teams (last team 3).
+/// </summary>
+public interface ITeamCount
+{
+    /// <summary>The highest team number a player may join.</summary>
+    int LastTeam { get; }
+}
+
+/// <summary>
+/// The rules' own team move: stock's <c>ChangeTeam</c> called by the game, not
+/// by the player's <c>jointeam</c> (<c>PickDefaultSpawnTeam</c>, a mode putting
+/// everyone back on Unassigned). No join rule is asked and nothing of the
+/// observer half runs: the store, the <c>player_team</c> event and the
+/// <see cref="ITeamChangeWatcher"/> chain, as any change.
+/// </summary>
+public interface ITeamAssignment
+{
+    /// <summary>Moves <paramref name="player"/> to <paramref name="team"/>; their current team is no change.</summary>
+    void Assign(EntityHandle player, int team);
+}
+
+/// <summary>
 /// Where a player spawns, as a hook: asked before the core's walk over the
 /// map's spawn-point classes (<see cref="ServerModule.SelectSpawnPoint"/>).
 ///
@@ -159,7 +212,7 @@ public interface ITeamChangeWatcher
 /// <see cref="Team"/>, which is the engine's own answer for any handle.
 /// </para>
 /// </summary>
-public sealed class Teams : ITeams
+public sealed class Teams : ITeams, ITeamAssignment
 {
     /// <summary>HL2MP's spectator team (TEAM_SPECTATOR).</summary>
     public const int TeamSpectator = Observers.TeamSpectator;
@@ -285,12 +338,24 @@ public sealed class Teams : ITeams
         }
 
         float now = _clock.Now;
+
+        // Team 0 under a mode whose rule auto-assigns (team deathmatch's
+        // smaller team, stock PickDefaultSpawnTeam): the request becomes the
+        // team it picks, and the join goes on as a join of that team. Every
+        // other mode keeps stock's refusal below.
+        if (requested == 0 && _modes?.Active?.JoinPolicy is ITeamAutoAssign auto)
+            requested = auto.AutoTeam(player);
+
         string arg = requested.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        // The joinable teams: HL2MP's, or the active mode's own count (team
+        // deathmatch with three or four teams).
+        int lastTeam = _modes?.Active?.JoinPolicy is ITeamCount count ? count.LastTeam : Observers.LastTeam;
 
         // An out-of-range number (team 0 included) is the observers' stock
         // warning: one refusal point, and Observers keeps it.
-        if (!Observers.IsValidTeamNumber(requested))
-            return _observers.JoinTeam(joiner, arg, now);
+        if (!Observers.IsValidTeamNumber(requested, lastTeam))
+            return _observers.JoinTeam(joiner, arg, now, lastTeam);
 
         // Team 1, stock's HandleCommand_JoinTeam(TEAM_SPECTATOR): the
         // mp_allowspectators gate, then ChangeTeam(TEAM_SPECTATOR) — the team
@@ -340,7 +405,7 @@ public sealed class Teams : ITeams
         // The observer half — stop watching, and come back if watching was
         // what this player was doing (stock's StopObserverMode and
         // STATE_ACTIVE before ChangeTeam) — then the team itself.
-        JoinTeamResult outcome = _observers.JoinTeam(joiner, arg, now);
+        JoinTeamResult outcome = _observers.JoinTeam(joiner, arg, now, lastTeam);
         ChangeTeam(player, requested);
         return outcome;
     }
@@ -369,6 +434,28 @@ public sealed class Teams : ITeams
 
         _log.Msg($"[SourceSharp/Teams] {player} joined team {team} (was {oldTeam})\n");
 
+        // The active mode's own arm, when its join rule watches: scoped to the
+        // round it plays, as the rule is (team deathmatch's switch kill,
+        // CHL2MP_Player::ChangeTeam's bKill), after the store so the death
+        // belongs to the new team. BEFORE the registered watchers, which is
+        // not stock's order: stock re-dresses the player for the new side
+        // first, and its body wore that side. Here the body is made in the
+        // model the player died in, and PlayerModels re-dresses them after
+        // (plan_bots_teams_tf2 A.8, ruled 2026-11-02: a body keeps the team
+        // colour its owner used to be on). Isolated, so a broken mode cannot
+        // fail a join that already happened.
+        if (_modes?.Active?.JoinPolicy is ITeamChangeWatcher modeWatcher)
+        {
+            try
+            {
+                modeWatcher.TeamChanged(player, oldTeam, team);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Teams] mode team-change arm {modeWatcher.GetType().FullName} threw: {e}\n");
+            }
+        }
+
         // The mods' arms on the change that has happened — stock's live
         // team-change kill (CTFPlayer::ChangeTeam's active-player arm,
         // tf_player.cpp:6687-6696) hangs on this seam — after the store so
@@ -377,6 +464,9 @@ public sealed class Teams : ITeams
         _watchers?.Each(nameof(ITeamChangeWatcher.TeamChanged),
                         watcher => watcher.TeamChanged(player, oldTeam, team));
     }
+
+    /// <inheritdoc/>
+    public void Assign(EntityHandle player, int team) => ChangeTeam(player, team);
 
     /// <summary>
     /// The active mode's spawn point, else the first one any registered

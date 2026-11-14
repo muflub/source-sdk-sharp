@@ -70,9 +70,11 @@ public class DescentHudTests
             int cast = Array.FindIndex(els, e => UiTestKit.NameOf(ctx, e) == "cast" && e.Kind == UiElementKind.Box);
             Assert.True(cast >= 0, "no cast bar");
             float s = ctx.Screen.Scale;
-            // The track: the widest thin box under the bar (the meter is 4 du tall).
+            // The track: the widest thin box under the bar (the meter is 4 du tall;
+            // snapped to whole pixels it can gain one: 3.4 px came out 4 at
+            // 1080x1920 once the XP bar left the column and moved its y).
             float track = Enumerable.Range(cast + 1, els.Length - cast - 1)
-                .Where(i => Under(els, i, cast) && els[i].Kind == UiElementKind.Box && els[i].Rect.H <= 4 * s + 0.5f)
+                .Where(i => Under(els, i, cast) && els[i].Kind == UiElementKind.Box && els[i].Rect.H <= 4 * s + 1f)
                 .Select(i => els[i].Rect.W).DefaultIfEmpty(0f).Max();
             Assert.True(track >= 0.8f * els[cast].Rect.W, $"track {track} px of a {els[cast].Rect.W} px bar");
         }

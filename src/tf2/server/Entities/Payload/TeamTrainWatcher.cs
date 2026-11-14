@@ -82,7 +82,7 @@ public sealed class TeamTrainWatcher(
     IEngineGameEvents gameEvents,
     TFEscortRecedeTimeConVar escortRecedeTime,
     TFEscortRecedeTimeOvertimeConVar escortRecedeTimeOvertime,
-    TFConceptSpeech? speech = null) : ScriptedEntity, ICaptureAreaWatcher, IPathTrackPassListener
+    TFConceptSpeech speech) : ScriptedEntity, ICaptureAreaWatcher, IPathTrackPassListener
 {
     public const string MapClass = "team_train_watcher";
 
@@ -201,7 +201,7 @@ public sealed class TeamTrainWatcher(
     private float _nextSpeakForwardConceptTime;
 
     /// <summary>The response rules the escort's lines are asked through.</summary>
-    private readonly TFConceptSpeech? Speech = speech;
+    private readonly TFConceptSpeech Speech = speech;
 
     /// <summary>m_iTrainSpeedLevel: which HUD speed pip the train's speed is (−1 stalled, 1..3).</summary>
     public int TrainSpeedLevel => _trainSpeedLevel;
@@ -939,12 +939,12 @@ public sealed class TeamTrainWatcher(
                 // (team_train_watcher.cpp:1162-1175)
                 if (_trainSpeedLevel == 0 && oldTrainSpeedLevel != 0)
                 {
-                    Speech?.SpeakAll(TFConceptSpeech.CartStop);
+                    Speech.SpeakAll(TFConceptSpeech.CartStop);
                     _nextSpeakForwardConceptTime = 0;
                 }
                 else if (_trainSpeedLevel < 0 && oldTrainSpeedLevel == 0)
                 {
-                    Speech?.SpeakAll(TFConceptSpeech.CartMovingBackward);
+                    Speech.SpeakAll(TFConceptSpeech.CartMovingBackward);
                     _nextSpeakForwardConceptTime = 0;
                 }
             }
@@ -959,7 +959,7 @@ public sealed class TeamTrainWatcher(
                     foreach (var entity in area.TouchingEntities)
                     {
                         if (engine.IsPlayer(entity))
-                            Speech?.Speak(entity, TFConceptSpeech.CartMovingForward);
+                            Speech.Speak(entity, TFConceptSpeech.CartMovingForward);
                     }
                 }
 

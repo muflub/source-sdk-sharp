@@ -36,7 +36,11 @@
 #                  the 5 s sv_mode_switch_warmup), the round reaches PREROUND
 #                  under it, sv_mode pl starts the round again, and the bare
 #                  command answers active: 'pl'
-#   10 teardown    both games exit; the server's /proc/<pid>/task count is
+#   10 rejoin      the joiner scores, leaves and rejoins in the same match
+#                  and gets its score back (RejoinScores, plan_bots_teams_tf2
+#                  A.6); after an mp_restartgame (a new match) and after a
+#                  level reload its rejoin starts from nothing
+#   11 teardown    both games exit; the server's /proc/<pid>/task count is
 #                  recorded after the join and before the exit
 #
 # A listen server plus one joining client is used instead of a dedicated
@@ -56,6 +60,7 @@
 #
 # NOT part of `make test`: it is a live gate. `make tf2-gate` runs it.
 import argparse
+import json
 import math
 import os
 import re
@@ -120,7 +125,7 @@ TEAM_RED, TEAM_BLU = 2, 3
 NOT_WRITTEN = ()
 
 STEP_ORDER = ("join", "teams", "classes", "weapon", "combat", "heal", "respawn",
-              "ctf", "changelevel", "payload", "mode", "koth", "cp5", "teardown")
+              "ctf", "changelevel", "payload", "mode", "koth", "cp5", "rejoin", "teardown")
 # Every step the gate now holds (the Makefile's word on `make tf2-gate`):
 # the lanes wrote the last six (ctf, changelevel, payload, mode at 4.2,
 # then koth, then cp5 -- a step after `mode` fits the default run every time: the
@@ -4936,6 +4941,194 @@ def step_cp5(run, state):
     return "PASS", numbers
 
 
+# ---------------------------------------------------------------------------
+# rejoin: a departed player's score comes back in the same match only
+# (plan_bots_teams_tf2 A.6; the core's RejoinScores, TF2's stats through its
+# IRejoinScoreHook, and TF2's game restart through the core's match-reset
+# chain). TF2's half of live-gate's rejoin-score.
+# ---------------------------------------------------------------------------
+REJOIN_RESTORED = "[SourceSharp/Rejoin] restored"
+REJOIN_FORGOT_RESTART = "[SourceSharp/Rejoin] match restart: forgot"
+# Either clear's line, at the new level: the mode's own reset at the level's
+# start (TF2's ResetScores, "match restart") runs before the core's map-change
+# clear, which then finds the table empty and says nothing.
+REJOIN_FORGOT_ANY = "departed player score(s)"
+REJOIN_KILL = 500   # more than any class's health and overheal
+
+
+def score_rows(tf_fields, core_fields):
+    """{slot: (total score, frags, deaths)}: TF's scoreboard number off the
+    tf_player_manager's TotalScore.N, the core's frags and deaths off the
+    player_manager's Score.N / Deaths.N. A slot either resource names is a
+    row; a number it does not carry reads 0. PURE, so --self-test drives it."""
+    rows = {}
+
+    def put(fields, kinds):
+        for name, value in (fields or {}).items():
+            kind, _, slot = name.partition(".")
+            if kind not in kinds or not slot.isdigit():
+                continue
+            try:
+                number = int(float(value))
+            except (TypeError, ValueError):
+                continue
+            row = rows.setdefault(int(slot), [0, 0, 0])
+            row[kinds[kind]] = number
+
+    put(tf_fields, {"TotalScore": 0})
+    put(core_fields, {"Score": 1, "Deaths": 2})
+    return {slot: tuple(row) for slot, row in rows.items()}
+
+
+def rejoin_row(run, slot):
+    """Player `slot`'s (total score, frags, deaths), or None when either
+    resource is missing (an unreadable row is a failure, never a zero)."""
+    tf = run.srv.ents("tf_player_manager")
+    core = run.srv.ents("player_manager")
+    if not tf or not core:
+        return None
+    rows = score_rows(run.srv.fields(tf[0]["index"]), run.srv.fields(core[0]["index"]))
+    return rows.get(slot, (0, 0, 0))
+
+
+def console_count(run, needle):
+    return sum(1 for line in run.team_lines() if needle in line)
+
+
+def step_rejoin(run, state):
+    """The joiner (player 2) kills the host through the dev API's damage
+    route, so its row reads a frag and a TF score. Asserted:
+      * it disconnects and connects again: its row reads what it left with,
+        and the server says it restored it;
+      * it disconnects, the host restarts the game (mp_restartgame 1, a new
+        match: the server says it forgot the departure), and it connects:
+        its row reads nothing and nothing was restored;
+      * it plays and scores again, disconnects, the level is loaded again
+        (THE SECOND MAP LOAD; the server says it forgot the departure at the
+        new level, the mode's level-start reset or the map change's own),
+        and it connects: nothing again.
+    The positive arm first, so the two zeros are not a restore that never
+    works."""
+    numbers = {}
+    run.srv.cmd("sv_cheats 1")
+
+    def players():
+        return run.player_indices()
+
+    def play():
+        """Both on teams as soldiers, alive: the host red, the joiner blue."""
+        run.srv.cmd("cmd jointeam red")
+        run.client.api.cmd("cmd jointeam blue")
+        time.sleep(1.0)
+        run.srv.cmd("cmd joinclass soldier")
+        run.client.api.cmd("cmd joinclass soldier")
+        return wait_pump(run, "rejoin: both players alive on their teams",
+                         lambda: run.is_alive(run.p1) and run.is_alive(run.p2), 60.0, 0.5)
+
+    def score():
+        """The joiner kills the host; its row once the kill is on it."""
+        before = rejoin_row(run, run.p2) or (0, 0, 0)
+        run.srv.get("hurt", "#%d" % run.p1, REJOIN_KILL, "", "", "#%d" % run.p2)
+        return wait_pump(run, "rejoin: the joiner's kill on its row",
+                         lambda: (lambda r: r if r and r[0] > before[0] and r[1] > before[1] else None)(
+                             rejoin_row(run, run.p2)), 10.0, 0.5)
+
+    def leave():
+        run.client.api.cmd("disconnect")
+        return wait_pump(run, "rejoin: the joiner gone", lambda: len(players()) == 1, 30.0, 0.5)
+
+    def come_back(what):
+        run.client.api.cmd("connect 127.0.0.1:%d" % run.port)
+        back = wait_pump(run, "rejoin: the joiner %s" % what, lambda: len(players()) == 2, 90.0, 1.0)
+        if not back:
+            return None
+        run.p2 = next(i for i in players() if i != run.p1)
+        # Its row is written at its activation: give the resource a beat.
+        run.srv.wait_ticks(66)
+        return run.p2
+
+    if not play():
+        numbers["detail"] = "the two never stood alive on their teams (p1 %s, p2 %s)" % (
+            run.is_alive(run.p1), run.is_alive(run.p2))
+        return "FAIL", numbers
+    left_with = score()
+    numbers["left_with"] = left_with
+    if not left_with:
+        numbers["row_now"] = rejoin_row(run, run.p2)
+        numbers["detail"] = "the joiner's kill never reached its row (total score, frags, deaths)"
+        return "FAIL", numbers
+
+    # The same match: it comes back with what it left with.
+    restored0 = console_count(run, REJOIN_RESTORED)
+    if not leave():
+        numbers["detail"] = "the joiner never left"
+        return "FAIL", numbers
+    if come_back("rejoined") is None:
+        numbers["detail"] = "the joiner never came back"
+        return "FAIL", numbers
+    back = wait_pump(run, "rejoin: the score back on its row",
+                     lambda: rejoin_row(run, run.p2) == left_with or None, 15.0, 0.5)
+    numbers["rejoined_with"] = rejoin_row(run, run.p2)
+    numbers["restored_lines"] = console_count(run, REJOIN_RESTORED) - restored0
+    if not back or numbers["restored_lines"] != 1:
+        numbers["detail"] = "the rejoin did not bring the score back, or the server did not say so once"
+        return "FAIL", numbers
+
+    # A game restart is a new match: away over it, back to nothing.
+    restored1 = console_count(run, REJOIN_RESTORED)
+    forgot0 = console_count(run, REJOIN_FORGOT_RESTART)
+    if not leave():
+        numbers["detail"] = "the joiner never left before the restart"
+        return "FAIL", numbers
+    run.srv.cmd("mp_restartgame 1")
+    forgot = wait_pump(run, "rejoin: the restart forgetting the departure",
+                       lambda: console_count(run, REJOIN_FORGOT_RESTART) > forgot0, 20.0, 0.5)
+    numbers["restart_forgot"] = bool(forgot)
+    if come_back("rejoined after the restart") is None:
+        numbers["detail"] = "the joiner never came back after the restart"
+        return "FAIL", numbers
+    numbers["after_restart"] = rejoin_row(run, run.p2)
+    numbers["after_restart_restored"] = console_count(run, REJOIN_RESTORED) - restored1
+    if not forgot or numbers["after_restart"] != (0, 0, 0) or numbers["after_restart_restored"] != 0:
+        numbers["detail"] = "after mp_restartgame the rejoin was not a fresh start"
+        return "FAIL", numbers
+
+    # A new level is a new match too: score again, away over a reload, nothing.
+    if not play():
+        numbers["detail"] = "after the restart the two never stood alive on their teams again"
+        return "FAIL", numbers
+    again = score()
+    numbers["left_with_again"] = again
+    if not again:
+        numbers["detail"] = "the second kill never reached the joiner's row"
+        return "FAIL", numbers
+    restored2 = console_count(run, REJOIN_RESTORED)
+    forgot1 = console_count(run, REJOIN_FORGOT_ANY)
+    paints = run.read_console_since_launch().count(PAINT_NEEDLE)
+    if not leave():
+        numbers["detail"] = "the joiner never left before the reload"
+        return "FAIL", numbers
+    run.srv.cmd("changelevel %s" % MAP)
+    reloaded = wait_pump(run, "rejoin: the host painting %s again" % MAP,
+                         lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints, 180.0, 1.0)
+    numbers["reloaded"] = bool(reloaded)
+    if not reloaded:
+        numbers["detail"] = "the level never loaded again"
+        return "FAIL", numbers
+    end_the_wait_when_armed(run)
+    numbers["map_forgot"] = console_count(run, REJOIN_FORGOT_ANY) > forgot1
+    if come_back("rejoined after the reload") is None:
+        numbers["detail"] = "the joiner never came back after the reload"
+        return "FAIL", numbers
+    numbers["after_reload"] = rejoin_row(run, run.p2)
+    numbers["after_reload_restored"] = console_count(run, REJOIN_RESTORED) - restored2
+    ok = (numbers["map_forgot"] and numbers["after_reload"] == (0, 0, 0)
+          and numbers["after_reload_restored"] == 0)
+    if not ok:
+        numbers["detail"] = "after the level reload the rejoin was not a fresh start"
+    return ("PASS" if ok else "FAIL"), numbers
+
+
 def step_teardown(run, state):
     numbers = {}
     numbers["server_threads_after_join"] = state.get("threads_after_join")
@@ -4966,12 +5159,252 @@ def step_teardown(run, state):
     return ("PASS" if ok else "FAIL"), numbers
 
 
+
+# ---------------------------------------------------------------------------
+# The bots (plan_bots_teams_tf2 C.8, P6 step 10): steps run BY NAME only, as
+# live-gate's TDM_STEPS are, outside STEP_ORDER and so outside `make tf2-gate`'s
+# default run until a run records their cost (`--steps join,bots-ctf`).
+# ---------------------------------------------------------------------------
+BOT_STEPS = ("bots-ctf", "bots-payload", "bots-jump")
+
+# Six a side, as C.8 asks. The window is the first capture's time with margin: MEASURED
+# 2026-11-11 (lane p6e at 6756c06e0, main's TF2 hull: four tools/ai-cost live runs of 12 bots and
+# two hand-runs of this step) the first capture came 165-209 s after the bots were added, a
+# clock that includes the waiting for players and the pre-round a freshly booted game plays. The
+# window is twice the slowest: 180 s missed the first capture in four of those six games.
+BOTS_CTF_BOTS = 12
+BOTS_CTF_SECONDS = 420.0
+# The AI's main-thread CPU a tick (/ai/counters' ai.main.cpu.us, the thread's own CPU time, not
+# the wall's: a busy box stretches the wall rows). MEASURED 2026-11-11 (lane p6e) with 12 bots on
+# ctf_2fort: per-run medians 328-519 us, the most of any 10 s sample 742 us (load1 up to 124).
+# The budget is twice that most: a step over it has a main-thread cost that has grown.
+BOTS_CTF_MAIN_CPU_US = 1500.0
+# The process's threads after the second load may differ from before the bots
+# by the engine's own comings and goings, never by the AI's pool (4 workers).
+BOTS_THREAD_SLACK = 2
+# The game's own capture line (ItemTeamFlag.Capture's log).
+CTF_CAPTURE_RE = re.compile(r"\[TF2/Ctf\] \S+ \((\w+)\) captured by player (\d+) \((\w+)\)")
+# The tree's per-tree TF2 navigation (`make ai-nav-tf MAP=ctf_2fort` builds it).
+TF_NAV = os.path.join(GAME_DIR, "mods", MOD, "maps", "%s.nav3d")
+# A managed exception or a refused acquisition anywhere in the step's lines
+# (live-gate's FAULTS): every kill threw one before CombatTap had its own hook
+# order, and a step that looked only for its capture would have passed.
+BOT_FAULTS = (re.compile(r"EXCEPTION IN "), re.compile(r'could not acquire "'))
+
+
+def ctf_captures(text):
+    """[(capturing team, player index)] for every capture line in the console's
+    text, in order. PURE: the self-test holds it."""
+    return [(m.group(3), int(m.group(2))) for m in CTF_CAPTURE_RE.finditer(text or "")]
+
+
+def bot_faults(text):
+    """The fault lines in the text (BOT_FAULTS). PURE."""
+    return [line for line in (text or "").splitlines() if any(rx.search(line) for rx in BOT_FAULTS)]
+
+
+def bots_ctf_verdict(captures, faults, threads_before, threads_after, slack=BOTS_THREAD_SLACK, main_cpu_us=0.0,
+                     budget_us=BOTS_CTF_MAIN_CPU_US):
+    """(ok, why) for the bots-ctf step's numbers. A thread count or a main-thread
+    cost it could not read is a failure, never a pass. PURE."""
+    if faults:
+        return False, "%d fault line(s), the first: %s" % (len(faults), faults[0][:200])
+    if not captures:
+        return False, "no capture in %d s of bots on %s" % (BOTS_CTF_SECONDS, MAP)
+    if not isinstance(main_cpu_us, (int, float)) or isinstance(main_cpu_us, bool):
+        return False, "the AI's main-thread cost could not be read (ai.main.cpu.us %r)" % (main_cpu_us,)
+    if main_cpu_us > budget_us:
+        return False, "the AI's main thread took %.0f us a tick, over the budget of %.0f" % (main_cpu_us, budget_us)
+    if threads_before is None or threads_after is None:
+        return False, "the server's thread count could not be read (%r, %r)" % (threads_before, threads_after)
+    if abs(threads_after - threads_before) > slack:
+        return False, "the server's threads went from %d to %d through the second load" % (threads_before, threads_after)
+    return True, ""
+
+
+def step_bots_ctf(run, state):
+    """P6 step 10, bots-ctf: twelve bots (six a side, Soldiers by their own
+    joinclass) on ctf_2fort for BOTS_CTF_SECONDS, with at least one capture by
+    bots alone; the AI's main-thread cost read from /ai/counters (ai.sense.us,
+    ai.publish.us, and ai.main.cpu.us held under BOTS_CTF_MAIN_CPU_US); then a changelevel to pl_badwater, THE SECOND MAP LOAD,
+    after which the server's thread count is back at its count before the
+    bots. Any managed exception or refused acquisition in the step's lines
+    fails it. pl_badwater has no TF2 nav at map-tools' lock (55bc945; its
+    play-space clip is eccb2c7), so the bots wait benched there: the load,
+    not their play, is what the second half measures."""
+    numbers = {}
+    nav = TF_NAV % MAP
+    numbers["nav"] = os.path.exists(nav)
+    if not numbers["nav"]:
+        numbers["detail"] = "no %s: `make ai-nav-tf MAP=%s` builds it" % (nav, MAP)
+        return "FAIL", numbers
+
+    on = current_server_map(run.read_console_since_launch())
+    if on != MAP:
+        run.srv.cmd("changelevel %s" % MAP)
+        back = wait_pump(run, "bots-ctf: back on %s" % MAP,
+                         lambda: current_server_map(run.read_console_since_launch()) == MAP or None, 180.0)
+        if not back:
+            numbers["detail"] = "the server never came back to %s (on %s)" % (MAP, on)
+            return "FAIL", numbers
+
+    threads_before = thread_count(run.server.pid)
+    numbers["threads_before"] = threads_before
+    run.mark()
+    players_before = len(run.srv.ents(PLAYER_CLASS))
+    for _ in range(BOTS_CTF_BOTS):
+        run.srv.cmd("ai_bot_add")
+    joined = wait_pump(run, "bots-ctf: %d bots in the game" % BOTS_CTF_BOTS,
+                       lambda: len(run.srv.ents(PLAYER_CLASS)) >= players_before + BOTS_CTF_BOTS or None, 120.0)
+    numbers["players"] = len(run.srv.ents(PLAYER_CLASS))
+    if not joined:
+        numbers["detail"] = "the bots never all joined (%d players)" % numbers["players"]
+        return "FAIL", numbers
+
+    started = time.time()
+    while time.time() - started < BOTS_CTF_SECONDS:
+        time.sleep(15.0)
+        if not run.srv.alive():
+            numbers["detail"] = "the server exited during the bots' play"
+            return "FAIL", numbers
+    counters = run.srv.get("route", "/ai/counters")
+    for key in ("ai.sense.us", "ai.publish.us", "ai.main.us", "ai.main.cpu.us", "ai.apply.ability.sequences", "ai.apply.ability.programs", "ai.apply.fire.feet", "bots"):
+        numbers[key] = counters.get(key)
+    played = run.read_console_since_mark()
+    captures = ctf_captures(played)
+    numbers["captures"] = len(captures)
+    numbers["captures_by"] = ",".join(sorted(set(team for team, _ in captures)))
+
+    paints_before = run.read_console_since_launch().count(PAINT_NEEDLE)
+    run.srv.cmd("changelevel %s" % BADWATER)
+    repainted = wait_pump(run, "bots-ctf: the second load, %s" % BADWATER,
+                          lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints_before or None, 180.0)
+    numbers["second_load"] = bool(repainted)
+    if not repainted:
+        numbers["detail"] = "the server never painted again after changelevel %s" % BADWATER
+        return "FAIL", numbers
+    time.sleep(10.0)
+    threads_after = thread_count(run.server.pid)
+    numbers["threads_after"] = threads_after
+    faults = bot_faults(run.read_console_since_mark())
+    numbers["faults"] = len(faults)
+    run.srv.cmd("ai_bot_kick all")
+    ok, why = bots_ctf_verdict(captures, faults, threads_before, threads_after, main_cpu_us=numbers.get("ai.main.cpu.us"))
+    if not ok:
+        numbers["detail"] = why
+        return "FAIL", numbers
+    return "PASS", numbers
+
+
+# The jump courses (plan_bots_teams_tf2_part_g G.7 "The gate", lane Ge): a Soldier bot alone on each of the TF2 AI's
+# jump maps, through tools/ai-tf-jump, each run across a second load of its map (--reload). Each row: the run's name,
+# its map, the tool's arguments, and the runs (or tries) each side of the reload must finish of the --runs (--tries) it
+# makes. MEASURED (debug, lane Ge at its tip, one run each; and the lanes before it at 52a6bcbdb): the ledge 3 of 3 each
+# side, the courses 3 of 3 and 5 of 5 each side, ss_ai_tf_ends 5 of 5 each side; ss_ai_tf_wall (lane G7c at its tip) 5
+# of 5 each side.
+BOTS_JUMP_TRIES = 5
+BOTS_JUMP_NEED = 4
+BOTS_JUMP_RUNS = (
+    ("ledge", "ss_ai_tf_jump", ["links", "--tries", str(BOTS_JUMP_TRIES), "--reload"]),
+    ("course", "ss_ai_tf_course", ["course", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
+    ("double", "ss_ai_tf_double", ["course", "--map", "ss_ai_tf_double", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
+    ("wall", "ss_ai_tf_wall", ["course", "--map", "ss_ai_tf_wall", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
+    ("ends", "ss_ai_tf_ends", ["course", "--map", "ss_ai_tf_ends", "--runs", str(BOTS_JUMP_TRIES), "--reload"]),
+)
+# A run of the tool, its games' loads and its tries together, is given this long before it is a failure.
+BOTS_JUMP_SECONDS = 2400.0
+# Its own games' port, apart from the gate's two (which take theirs from lg.launch_with_free_port).
+BOTS_JUMP_PORT = 27455
+
+
+def bots_jump_counts(result):
+    """(before, after) of a tool run's JSON: the ledge's tries that arrived by a link (`links`), or the course's runs
+    finished (`course`), each side of the reload; None for a side the JSON does not have. PURE."""
+    if not isinstance(result, dict):
+        return None, None
+    if "ledge_summary" in result or "reload_summary" in result:
+        before = (result.get("ledge_summary") or {}).get("by_link")
+        after = (result.get("reload_summary") or {}).get("by_link")
+        return before, after
+
+    def finished(runs):
+        return sum(1 for r in runs if r.get("finished")) if isinstance(runs, list) and runs else None
+
+    return finished(result.get("runs")), finished(result.get("reload_runs"))
+
+
+def bots_jump_verdict(name, rc, result, need=BOTS_JUMP_NEED):
+    """(ok, why) for one jump map's run: the tool's exit 0 and at least `need` before and after the reload, read from its
+    JSON. A missing JSON or side is a failure, never a pass. PURE."""
+    before, after = bots_jump_counts(result)
+    if before is None or after is None:
+        return False, "%s: the run's numbers could not be read (before %r, after %r, rc %r)" % (name, before, after, rc)
+    if before < need or after < need:
+        return False, "%s: %d and %d after the reload, under %d each" % (name, before, after, need)
+    if rc != 0:
+        return False, "%s: tools/ai-tf-jump exited %r" % (name, rc)
+    return True, ""
+
+
+def step_bots_jump(run, state):
+    """G.7's gate, bots-jump: one red Soldier bot alone on each jump map, each across a second load of its map: the 250 u
+    ledge of ss_ai_tf_jump by a link (`tools/ai-tf-jump links --tries 5 --reload`), the three courses (`course --runs 5
+    --reload`: ss_ai_tf_course, ss_ai_tf_double and the wall jump's ss_ai_tf_wall), and the course of ends (`course --map ss_ai_tf_ends`); each at least
+    4 of 5 before the reload and after it. The tool runs its own headless games on BOTS_JUMP_PORT, beside the gate's two
+    (which the step does not use); a map without its navigation fails, saying how to build it. The jump_academy2 arm of
+    G.7 waits for that map's navigation (the rooms proposal's ruling)."""
+    numbers = {}
+    failures = []
+    env = dict(os.environ, AI_SCENARIO_API_DIR=os.path.join(run.scratch, "jump-api"), AI_SCENARIO_TMPDIR=os.path.join(run.scratch, "jump-tmp"),
+               AI_SCENARIO_PORT=str(BOTS_JUMP_PORT))
+    for name, map_name, argv in BOTS_JUMP_RUNS:
+        nav = TF_NAV % map_name
+        if not os.path.exists(nav):
+            failures.append("%s: no %s: `make map MAP=%s` builds it" % (name, nav, map_name))
+            continue
+        out = os.path.join(run.scratch, "jump-%s.json" % name)
+        log = os.path.join(run.scratch, "jump-%s.log" % name)
+        run.say("== bots-jump: %s (%s), tools/ai-tf-jump %s" % (name, map_name, " ".join(argv)))
+        with open(log, "w") as f:
+            try:
+                rc = subprocess.call([os.path.join(ROOT, "tools", "ai-tf-jump")] + argv + ["--out", out], cwd=ROOT, env=env, stdout=f,
+                                     stderr=subprocess.STDOUT, timeout=BOTS_JUMP_SECONDS)
+            except subprocess.TimeoutExpired:
+                rc = "timeout"
+        try:
+            with open(out) as f:
+                result = json.load(f)
+        except (OSError, ValueError):
+            result = None
+        before, after = bots_jump_counts(result)
+        numbers["%s_before" % name], numbers["%s_after" % name], numbers["%s_rc" % name] = before, after, rc
+        ok, why = bots_jump_verdict(name, rc, result)
+        run.say("== bots-jump: %s %s and %s of %d, rc %r%s" % (name, before, after, BOTS_JUMP_TRIES, rc, "" if ok else ": " + why))
+        if not ok:
+            failures.append(why)
+    if failures:
+        numbers["detail"] = "; ".join(failures)
+        return "FAIL", numbers
+    return "PASS", numbers
+
+
+def step_bots_payload(run, state):
+    """P6 step 10, bots-payload: WAITS FOR P8, and fails saying so. A payload
+    bot needs the Payload subtree (push, block, guard: plan C.6, P8) and a nav
+    of pl_badwater, which map-tools' lock (55bc945) refuses ("16800 units tall");
+    the play-space clip that builds it is map-tools eccb2c7, not in the lock. A
+    step that measured anything now would measure Soldiers fetching a flag that
+    is not there. Written as a failure, never a skip: running it says what is
+    missing."""
+    return "FAIL", {"detail": "waits for P8 (the Payload subtree) and a pl_badwater nav (map-tools eccb2c7 in maptools.lock)"}
+
 LIVE_STEPS = {"join": step_join, "teams": step_teams, "classes": step_classes,
               "weapon": step_weapon,
               "combat": step_combat, "heal": step_heal, "respawn": step_respawn, "ctf": step_ctf,
               "changelevel": step_changelevel, "payload": step_payload,
               "mode": step_mode, "koth": step_koth, "cp5": step_cp5,
-              "teardown": step_teardown}
+              "rejoin": step_rejoin, "teardown": step_teardown,
+              "bots-ctf": step_bots_ctf, "bots-payload": step_bots_payload, "bots-jump": step_bots_jump}
 
 
 def joiner_died_during_heal(step, alive_before, alive_after):
@@ -4994,7 +5427,8 @@ def run_gate(selected):
           % (tip, len(selected), run.scratch), flush=True)
     print("== report: %s" % report.path, flush=True)
 
-    selected = [s for s in STEP_ORDER if s in selected]
+    # The bots' steps run after the ordered ones, and only when named.
+    selected = [s for s in STEP_ORDER if s in selected] + [s for s in BOT_STEPS if s in selected]
     state = {}
 
     if not run.launch():
@@ -5062,10 +5496,10 @@ def select_steps(spec):
     for token in spec.replace(" ", "").split(","):
         if not token:
             continue
-        if token in STEP_ORDER:
+        if token in STEP_ORDER or token in BOT_STEPS:
             wanted.append(token)
         else:
-            print("== unknown step %r (known: %s)" % (token, ",".join(STEP_ORDER)))
+            print("== unknown step %r (known: %s)" % (token, ",".join(STEP_ORDER + BOT_STEPS)))
             return None
     return wanted
 
@@ -5092,6 +5526,11 @@ def self_test():
     check(not speed_within(None, 2.0, 400.0), "an unmeasured speed NEVER passes")
     check(not speed_within(800.0, 0.0, 400.0), "a zero-length window never passes")
 
+    rows = score_rows({"TotalScore.2": "3", "TotalScore.1": "0", "Team.2": "3"},
+                      {"Score.2": "1", "Deaths.2": "4", "Score.x": "9", "Deaths.1": "bad"})
+    check(rows.get(2) == (3, 1, 4), "a rejoin row is TF's total, the core's frags and deaths (%s)" % (rows.get(2),))
+    check(rows.get(1) == (0, 0, 0), "a number the resource does not carry reads 0, not a guess")
+    check(score_rows({}, {}) == {}, "no fields, no rows")
     check(teams_distinct(2, 3), "2 and 3 are the red/blu pair")
     check(not teams_distinct(2, 2), "two players on one team is NOT a pair")
     check(not teams_distinct(0, 3), "unassigned is not a team")
@@ -5508,6 +5947,41 @@ def self_test():
                                  rest_seconds=0.6)
     check(not sunk and "rest" in why,
           "a player who never rests fails the settle, naming the rest")
+
+    # The bots' steps (P6 step 10): the capture lines, the faults, the verdict.
+    live = ("[TF2/Ctf] flag_red (Red) picked up by player 4 (Blue), was Home\n"
+            "[TF2/Ctf] flag_red (Red) captured by player 4 (Blue) at point 0: 1 capture(s)\n")
+    check(ctf_captures(live) == [("Blue", 4)], "a capture line is a capture by its team (%r)" % (ctf_captures(live),))
+    check(ctf_captures("[TF2/Ctf] flag_red (Red) picked up by player 4 (Blue), was Home") == [],
+          "a pickup is no capture")
+    exc = "[SourceSharp] ===== EXCEPTION IN IManagedClients.OnPlayerKilled (managed vtable) ====="
+    check(bot_faults("ok\n" + exc) == [exc], "an EXCEPTION IN line is a bot step's fault")
+    check(bots_ctf_verdict([("Blue", 4)], [], 77, 77, main_cpu_us=400.0)[0], "a capture, no fault, the threads back, in budget: a pass")
+    check(not bots_ctf_verdict([], [], 77, 77, main_cpu_us=400.0)[0], "no capture is a failure")
+    check(not bots_ctf_verdict([("Blue", 4)], [exc], 77, 77, main_cpu_us=400.0)[0], "a fault fails it whatever else holds")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 81, main_cpu_us=400.0)[0], "threads not back fail it")
+    check(not bots_ctf_verdict([("Blue", 4)], [], None, 77, main_cpu_us=400.0)[0], "an unread thread count never passes")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 77, main_cpu_us=None)[0], "an unread main-thread cost never passes")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 77, main_cpu_us=BOTS_CTF_MAIN_CPU_US + 1.0)[0], "over the main-thread budget fails it")
+    check(select_steps("join,bots-ctf") == ["join", "bots-ctf"], "a bots step runs when named")
+    check("bots-ctf" not in DEFAULT_STEPS and "bots-payload" not in DEFAULT_STEPS,
+          "the bots' steps are not in the default run until their cost is recorded")
+    # bots-jump (lane Ge): a side under 4 of 5, an unread side, or the tool's failure fails it.
+    links_ok = {"ledge_summary": {"by_link": 5}, "reload_summary": {"by_link": 4}}
+    course_ok = {"runs": [{"finished": True}] * 5, "reload_runs": [{"finished": True}] * 4 + [{"finished": False}]}
+    check(bots_jump_counts(links_ok) == (5, 4) and bots_jump_counts(course_ok) == (5, 4), "a run's sides are read from its JSON")
+    check(bots_jump_verdict("ledge", 0, links_ok)[0] and bots_jump_verdict("course", 0, course_ok)[0], "4 of 5 each side and rc 0: a pass")
+    check(not bots_jump_verdict("course", 0, dict(course_ok, reload_runs=[{"finished": True}] * 3 + [{"finished": False}] * 2))[0],
+          "3 of 5 after the reload fails it")
+    check(not bots_jump_verdict("ledge", 0, {"ledge_summary": {"by_link": 5}})[0], "a run with no reload side never passes")
+    check(not bots_jump_verdict("course", 0, None)[0], "an unread JSON never passes")
+    check(not bots_jump_verdict("course", 1, course_ok)[0] and not bots_jump_verdict("course", "timeout", course_ok)[0],
+          "the tool's failure or a timeout fails it")
+    check("bots-jump" not in DEFAULT_STEPS and select_steps("bots-jump") == ["bots-jump"], "bots-jump runs only when named")
+    check([m for _, m, _ in BOTS_JUMP_RUNS] == ["ss_ai_tf_jump", "ss_ai_tf_course", "ss_ai_tf_double", "ss_ai_tf_wall", "ss_ai_tf_ends"]
+          and all("--reload" in a for _, _, a in BOTS_JUMP_RUNS), "bots-jump runs the ledge, the three courses and the ends, each across a reload")
+    status, why = step_bots_payload(None, {})
+    check(status == "FAIL" and "P8" in why["detail"], "bots-payload says it waits for P8")
 
     checked = sum(1 for ok, _ in checks)
     failed = [why for ok, why in checks if not ok]

@@ -353,6 +353,16 @@ public struct MoveTrace
     /// <summary><c>trace_t::DidHitWorld</c>.</summary>
     public bool HitWorld;
 
+    /// <summary>
+    /// The entity the trace hit, filled by the side's world from the handle
+    /// the crossing already returns: stock's <c>trace.m_pEnt</c> reads it
+    /// names (ToTFPlayer over a blocked walk's trace,
+    /// tf_gamemovement.cpp:1925) where the loop's other reads are the flags
+    /// and the fraction. None when nothing was hit or the side keeps no
+    /// entity view; the asks that want it are the server's.
+    /// </summary>
+    public EntityHandle HitEntity;
+
     /// <summary>A trace that went the whole way and hit nothing.</summary>
     public static MoveTrace Clear(in Vector end) => new()
     {

@@ -88,6 +88,45 @@ public partial class TFPlayerNetState
     public partial int DisguiseTeam { get; set; }
 
     /// <summary>
+    /// <c>m_nDesiredDisguiseClass</c>: the class of the disguise now going on
+    /// (tf_player_shared.cpp:8246, where stock predicts it :465 and sends it
+    /// :512). Sent, not predicted, here: the ask is a console line the server
+    /// takes (<c>disguise</c>), outside the usercmd the replay reads, so the
+    /// write is the arrival's word (the <see cref="NoAttackExpire"/> rule)
+    /// and the completion — the field's reader — rides the same snapshot
+    /// into the replay's <c>DisguiseTick</c>.
+    /// </summary>
+    public partial int DesiredDisguiseClass { get; set; }
+
+    /// <summary>
+    /// <c>m_nDesiredDisguiseTeam</c>: the team of the disguise now going on
+    /// (tf_player_shared.cpp:8247, :466, :513). Sent, not predicted, as its
+    /// class above; <c>OnRemoveDisguising</c> :7218 sends it back undefined
+    /// with the disguising's end, on both sides.
+    /// </summary>
+    public partial int DesiredDisguiseTeam { get; set; }
+
+    /// <summary>
+    /// <c>m_flDisguiseCompleteTime</c>: when the disguising completes
+    /// (tf_player_shared.cpp:8268, a plain <c>DEFINE_FIELD</c> :474). Stock
+    /// sends it nowhere because its client runs the press and completes the
+    /// disguise locally; here the press is the server's, so the deadline
+    /// rides to the replay that honours it — sent, not predicted, the
+    /// arrival's word. Zero once a completion has run (:8343).
+    /// </summary>
+    public partial float DisguiseCompleteTime { get; set; }
+
+    /// <summary>
+    /// <c>m_nMaskClass</c>: the class whose mask a spy disguised as a spy
+    /// wears (tf_player_shared.cpp:8309, drawn at the completion). Sent, not
+    /// predicted, as the target above: the roll is the server's
+    /// <c>rand()</c>, no replay reproduces it, and the model that wears it is
+    /// the disguise-display lane (docs/plans/tf2/deferred.tsv) — stock's
+    /// readers are the masked skin and bodygroup, c_tf_player.cpp:7857, :9774.
+    /// </summary>
+    public partial int MaskClass { get; set; }
+
+    /// <summary>
     /// <c>m_flCloakMeter</c>: the spy's cloak charge, 0..100 (tf_player_shared.cpp:475,
     /// predicted; drained by <c>UpdateCloakMeter</c>:14165 and filled by
     /// <c>m_flCloakRegenRate</c>). The invisibility watch's activation gates on
@@ -118,9 +157,66 @@ public partial class TFPlayerNetState
     /// </summary>
     public partial float NoAttackExpire { get; set; }
 
+    /// <summary>
+    /// <c>m_bFeignDeathReady</c>: the Dead Ringer's armed-and-waiting bit
+    /// (tf_player_shared.h:1087, sent by SendPropBool :583 and predicted
+    /// :468). The watch's press arms it from a full meter and the feigned
+    /// death spends it (tf_weapon_invis.cpp:237-241, tf_player.cpp:9678);
+    /// the feign condition's own add takes it back (tf_player_shared.cpp:7188).
+    /// </summary>
+    [Predicted]
+    public partial bool FeignDeathReady { get; set; }
+
     /// <summary><c>m_iAirDash</c>: air dashes taken since the player last stood on ground.</summary>
     [Predicted]
     public partial int AirDash { get; set; }
+
+    /// <summary>
+    /// <c>m_nAirDucked</c> (tf_player_shared.h:543-544, :1114): how many ducks
+    /// this airtime has had, counted on each duck release in the air and
+    /// refused past <c>TF_AIRDUCKED_COUNT</c> (2, tf_gamemovement.cpp:90, the
+    /// one-duck-per-air-event arm of <c>DuckOverrides</c> :3219-3222). Reset
+    /// with the air dash and the ground touch (:1258, :2959) and on the self
+    /// blast's push (tf_player.cpp:10277-10278). Predicted as stock's: the
+    /// send rides <c>SendPropInt</c> 2-bit unsigned
+    /// (tf_player_shared.cpp:541) and the replay's word is
+    /// <c>DEFINE_PRED_FIELD</c> (:456).
+    /// </summary>
+    [Predicted]
+    public partial int AirDuckedCount { get; set; }
+
+    /// <summary>
+    /// <c>m_flDuckTimer</c> (tf_player_shared.h:545, :1115): when the next duck
+    /// is allowed after a release — a release stamps it at
+    /// <c>curtime + TF_TIME_TO_DUCK</c> (0.3, tf_gamemovement.cpp:89;
+    /// <c>OnUnDuck</c> :3293-3295) and <c>DuckOverrides</c> :3194-3197 hides
+    /// the duck button while it runs and the player is on the ground.
+    /// Predicted as stock's (<c>DEFINE_PRED_FIELD</c>, tf_player_shared.cpp:457).
+    /// </summary>
+    [Predicted]
+    public partial float DuckTimer { get; set; }
+
+    /// <summary>
+    /// <c>m_bScattergunJump</c> (tf_player_shared.h:1218, predicted at
+    /// tf_player_shared.cpp:481): the Force-a-Nature's own shove has lifted
+    /// this airtime, set by the gun's fire (<c>CTFScatterGun::FireBullet</c>,
+    /// tf_weapon_shotgun.cpp:333) and cleared with the air dash on landing
+    /// (<c>CTFGameMovement::SetGroundEntity</c>, tf_gamemovement.cpp:2957).
+    /// </summary>
+    [Predicted]
+    public partial bool ScattergunJump { get; set; }
+
+    /// <summary>
+    /// <c>m_iWeaponKnockbackID &gt; -1</c>, the airtime half the stock field
+    /// carries (tf_player_shared.h:1125): the player has already been shoved
+    /// by a gun's hit (<c>CTFScatterGun::ApplyPostHitEffects</c>' gate,
+    /// tf_weapon_shotgun.cpp:383) and waits on the ground to be shovable
+    /// again (cleared beside the dash, :2956). Stock's id names the shoving
+    /// user for the MvM quest counters; the shove once per airtime is the
+    /// player's part, so the bit stands in for the id here.
+    /// </summary>
+    [Predicted]
+    public partial bool WeaponKnockback { get; set; }
 
     /// <summary>
     /// <c>m_hDisguiseTarget</c>: the player the disguise borrows its name
@@ -190,6 +286,65 @@ public partial class TFPlayerNetState
     public partial float CritTime { get; set; }
 
     /// <summary>
+    /// <c>m_iDecapitations</c> (tf_player_shared.h:1157): the Eyelander's
+    /// collected heads. Sent, not predicted — the kill is the server's news
+    /// (CritMult's rule); the health and speed bonuses read it.
+    /// </summary>
+    public partial int Decapitations { get; set; }
+
+    /// <summary>
+    /// <c>m_flChargeMeter</c> (tf_player_shared.h:1102): the demoman shield's
+    /// charge, 0..100 — filled by <c>UpdateChargeMeter</c>'s regen
+    /// (tf_player_shared.cpp:6037-6064), spent by the charge
+    /// (<c>DoCharge</c> through <c>EndCharge</c>'s drain to the impact) and
+    /// the swing's <c>EndSpecialAction</c>. Predicted, as stock's
+    /// (<c>DEFINE_PRED_FIELD</c>, tf_player_shared.cpp:453): the meter's drain
+    /// and refill run in the shared think both sides mirror
+    /// (<c>ConditionThink</c>, :3118).
+    /// </summary>
+    [Predicted]
+    public partial float ChargeMeter { get; set; }
+
+    /// <summary>
+    /// <c>m_flEnergyDrinkMeter</c> (tf_player_shared.h:1098): the scout's
+    /// energy drink charge, 0..100, zero from the ctor (:887) — spent by the
+    /// drink's boost at the consume rate and regained toward full between
+    /// boosts at the regen rate
+    /// (<c>UpdateEnergyDrinkMeter</c>, tf_player_shared.cpp:14080-14119),
+    /// snapped full by <c>Regenerate</c> (tf_player.cpp:4097). Predicted, as
+    /// stock's (<c>DEFINE_PRED_FIELD</c> :451, sent too by
+    /// <c>SendPropFloat</c> :569): the meter's drain and refill run in the
+    /// shared think both sides mirror (<c>ConditionThink</c>, :3118).
+    /// </summary>
+    [Predicted]
+    public partial float EnergyDrinkMeter { get; set; }
+
+    /// <summary>
+    /// <c>m_iNextMeleeCrit</c> (tf_player_shared.h:1169): the next melee
+    /// swing's granted crit — the charge end's <c>CalcChargeCrit</c> ladder
+    /// (:6125-6146), spent by the melee crit helpers
+    /// (tf_weaponbase_melee.cpp:1053-1058, 1100-1105) and cleared by
+    /// <c>RemoveMeleeCrit</c> 0.3 s later (:6221-6231). Sent, not predicted,
+    /// as stock's (SendPropInt :557, absent from the prediction table
+    /// :444-482): the grant is the server's news (CritMult's rule), the same
+    /// ride <see cref="Decapitations"/> takes.
+    /// </summary>
+    public partial int NextMeleeCrit { get; set; }
+
+    /// <summary>
+    /// <c>m_iRevengeCrits</c> (tf_player_shared.h:1167): the revenge window —
+    /// the Frontier Justice's crits the owner's sentry's death pays
+    /// (<c>CTFShotgun_Revenge::SentryKilled</c>, tf_weapon_shotgun.cpp:151-163),
+    /// spent one a shot, and the Manmelter's banked vengeance, clamped by
+    /// <c>CTFPlayerShared::SetRevengeCrits</c> (tf_player_shared.cpp:14474).
+    /// Sent, not predicted, as stock's (SendPropInt 7 unsigned bits,
+    /// tf_player_shared.cpp:559, absent from the prediction table :444-482):
+    /// the grant is the sentry's dying news (CritMult's rule), the same ride
+    /// <see cref="Decapitations"/> takes.
+    /// </summary>
+    public partial int RevengeCrits { get; set; }
+
+    /// <summary>
     /// <c>m_flBurnEffectStartTime</c>: when the burn's skin ramp started. Stock
     /// keeps it on the client only (C_TFPlayer, set as
     /// <c>TF_COND_BURNING</c> arrives, c_tf_player.cpp:7306); here the server
@@ -213,10 +368,103 @@ public partial class TFPlayerNetState
     [Predicted]
     public partial bool ChargeReleasing { get; set; }
 
+    /// <summary>
+    /// CWeaponMedigun's m_flChargeLevel, 0..1, mirrored to the player: the
+    /// hierarchy holds one weapon entity per player, so the holstered gun's
+    /// meter has no entity of its own to ride and the speed the level feeds —
+    /// the Overdose's <c>mult_player_movespeed_resource_level</c>
+    /// (tf_player_shared.cpp:11043-11056), asked while another gun is in hand —
+    /// reads it here, the way the release word and the patient above are
+    /// carried. Written by the medigun's publish, every think.
+    /// Sent, not predicted, on the <see cref="PipebombCount"/> row's showing:
+    /// the meter moves outside the command's tick.
+    /// </summary>
+    public partial float MedicCharge { get; set; }
+
     /// <summary>CWeaponMedigun's m_hHealTarget: the beam's patient, as an
     /// entity index; -1 for none.</summary>
     [Predicted]
     public partial int HealTargetIndex { get; set; }
+
+    /// <summary>
+    /// The burn's attacker, as an entity index; -1 none. Stock keeps
+    /// <c>m_hBurnAttacker</c> server-side (<c>Burn</c>, tf_player_shared.cpp:6751),
+    /// but the burn tick's rage credits the attacker through the victim's
+    /// OnTakeDamage (tf_player.cpp:9730-9735) — news the attacker's client
+    /// cannot predict without knowing the fire is its own. Sent, not
+    /// predicted, with the clock and life below: the burn is the server's to
+    /// run (the <see cref="BurnEffectStartTime"/> rule).
+    /// </summary>
+    public partial int BurnAttackerIndex { get; set; }
+
+    /// <summary>
+    /// <c>m_flFlameBurnTime</c>: when the victim's next burn tick is due. Sent,
+    /// not predicted, with <see cref="BurnAttackerIndex"/>: the tick schedule is
+    /// the server's think (<c>ConditionGameRulesThink</c>,
+    /// tf_player_shared.cpp:2895), outside any command.
+    /// </summary>
+    public partial float BurnNextTickTime { get; set; }
+
+    /// <summary>
+    /// <c>m_flAfterburnDuration</c>: the seconds of fire the victim has left.
+    /// Sent, not predicted, with <see cref="BurnAttackerIndex"/> — the drain
+    /// runs in the server's think, outside any command.
+    /// </summary>
+    public partial float BurnDuration { get; set; }
+
+    /// <summary>
+    /// <c>m_flRageMeter</c>: the soldier's buff meter, 0..100 — predicted
+    /// (<c>tf_player_shared.cpp:448</c>) and sent bounded 0..100 (:517). It
+    /// builds from damage dealt (<see cref="TFRageMeter.GainOnDamageDealt"/>)
+    /// and the buff item's HUD bar is the meter over 100
+    /// (<c>CTFBuffItem::GetProgress</c>, tf_weapon_buff_item.cpp:444-451).
+    /// </summary>
+    [Predicted]
+    public partial float RageMeter { get; set; }
+
+    /// <summary>
+    /// <c>m_bRageDraining</c>: the buff deploy's drain is on — stock stamps it
+    /// at the deploy (<c>ActivateRageBuff</c>, tf_player_shared.cpp:13794) and
+    /// clears it as the meter empties (:13834); predicted (:449). While it is
+    /// on, gains are refused (<c>SetRageMeter</c>, :13875).
+    /// </summary>
+    [Predicted]
+    public partial bool RageDraining { get; set; }
+
+    /// <summary>
+    /// <c>m_flHypeMeter</c> (tf_player_shared.h:1099): the scout's hype, 0..100
+    /// — filled from damage dealt (<see cref="TFHype.GainOnDamage"/>, the Soda
+    /// Popper's <c>hype_on_damage</c> arm) and spent by the drink
+    /// (<c>UpdateEnergyDrinkMeter</c>, tf_player_shared.cpp:14071-14078).
+    /// Predicted and sent bounded 0..100, as stock's (<c>DEFINE_PRED_FIELD</c>
+    /// :452, <c>SendPropFloat</c> :570).
+    /// </summary>
+    [Predicted]
+    public partial float HypeMeter { get; set; }
+
+    /// <summary>
+    /// <c>m_iBuffTypeActive</c>: the deployed buff's type — stock's slot stamp
+    /// of <c>SetupRageBuffTimer</c> (tf_player_shared.cpp:13743), so every pulse
+    /// asks the buff the deploy was made with even after the held item changes.
+    /// Sent, not predicted: the server's deploy bookkeeping, news rather than a
+    /// misprediction (CritMult's rule).
+    /// </summary>
+    public partial int RageBuffType { get; set; }
+
+    /// <summary>
+    /// <c>m_iBuffPulseCount</c>: the pulses the deployed buff still owes —
+    /// stock stamps it the buff's pulse count at the deploy
+    /// (<c>SetupRageBuffTimer</c>, tf_player_shared.cpp:13744) and spends one per
+    /// pulse second (:13859). Sent, not predicted (CritMult's rule).
+    /// </summary>
+    public partial int RageBuffPulsesLeft { get; set; }
+
+    /// <summary>
+    /// <c>m_flNextBuffPulseTime</c>: when the deployed buff pulses next — the
+    /// deploy stamps it one second out (:13745) and each pulse advances it a
+    /// second (:13858). Sent, not predicted (CritMult's rule).
+    /// </summary>
+    public partial float RageBuffNextPulseTime { get; set; }
 
     /// <summary>
     /// How many weapon-catalogue rows <see cref="WeaponItemDefIndex"/> covers.
@@ -344,14 +592,34 @@ public partial class TFPlayerNetState
     /// </summary>
     [NetArray(AmmoSlots)] public partial NetArray<int> Ammo { get; }
 
-    /// <summary>How many rows <see cref="Clips"/> covers: the weapon catalog's
-    /// rows, which TF2's <see cref="TFWeaponTypes"/> names (the composition
-    /// fact's 33, the bow's the last; a row past this width is a weapon the
-    /// carrier cannot name — the fact tied to the count says so).</summary>
-    public const int ClipRows = 33;
+    /// <summary>How many weapons the carrier names: a player's kit, every class's
+    /// loadout plus its builder and PDAs, is well inside this. Keyed by what's carried
+    /// and not by catalog row, because the shipped schema's rows run far past what a
+    /// 2048-byte carrier could hold one word each for.</summary>
+    public const int CarriedSlots = 12;
+
+    /// <summary>The catalog row each carried slot holds, plus one; zero, an empty slot.
+    /// <see cref="Clips"/>, <see cref="ItemMeters"/> and <see cref="ItemMeterTimes"/>
+    /// read by the same slot.</summary>
+    [NetArray(CarriedSlots)] public partial NetArray<int> CarriedRows { get; }
+
+    /// <summary>The carried slot holding catalog row <paramref name="typeIndex"/>; minus one, none.</summary>
+    public int CarriedSlotOf(int typeIndex)
+    {
+        if (typeIndex < 0)
+            return -1;
+
+        for (int slot = 0; slot < CarriedRows.Length; slot++)
+        {
+            if (CarriedRows[slot] == typeIndex + 1)
+                return slot;
+        }
+
+        return -1;
+    }
 
     /// <summary>
-    /// The player's carried clips, by weapon-catalog row — the server's word on
+    /// The player's carried clips, by carried slot — the server's word on
     /// the stored clip of each weapon it carries (stock's <c>m_iClip1</c>, a
     /// field of every weapon entity's send table,
     /// <c>basecombatweapon_shared.cpp</c>, so a holstered weapon's clip reaches
@@ -361,13 +629,34 @@ public partial class TFPlayerNetState
     /// only the active weapon's last clip.
     ///
     /// <para>
-    /// Minus one is no clip: a row the player does not carry, a weapon without
+    /// Minus one is no clip: an empty slot, a weapon without
     /// one, or a carrier that has not spoken yet. Sent, not predicted, on the
     /// <see cref="Ammo"/> row's showing: the mirror runs no holstered-clip
     /// arithmetic between commands, the switch reads the arrival.
     /// </para>
     /// </summary>
-    [NetArray(ClipRows)] public partial NetArray<int> Clips { get; }
+    [NetArray(CarriedSlots)] public partial NetArray<int> Clips { get; }
+
+    /// <summary>
+    /// The player's held-aside item meters, by carried slot — the
+    /// server's word on the charge each carried weapon holstered with, and,
+    /// beside it in <see cref="ItemMeterTimes"/>, the server second that was:
+    /// the pair stock's per-slot charge rides the inventory with
+    /// (tf_player_shared.cpp:7870-7904), read once, at the switch whose
+    /// restore advances it. The hands' own meter is the blob's
+    /// (<see cref="SourceSharp.Shared.WeaponNetState.ItemMeter"/>), predicted
+    /// as it charges.
+    ///
+    /// <para>
+    /// Sent, not predicted, on the <see cref="Clips"/> row's showing: the
+    /// mirror runs no held-aside arithmetic between commands, the switch
+    /// reads the arrival — the restore's one advance is the deploy's own.
+    /// </para>
+    /// </summary>
+    [NetArray(CarriedSlots)] public partial NetArray<float> ItemMeters { get; }
+
+    /// <summary>The server second each <see cref="ItemMeters"/> row was; zero, a charge that has run since the world's own zero.</summary>
+    [NetArray(CarriedSlots)] public partial NetArray<float> ItemMeterTimes { get; }
 
     /// <summary>
     /// The sticky bombs this player has out — stock's pipebomb launcher's
@@ -382,4 +671,67 @@ public partial class TFPlayerNetState
     /// the <see cref="Ammo"/> rows' rule.
     /// </summary>
     public partial int PipebombCount { get; set; }
+
+    /// <summary>
+    /// When the Spy-cicle's knife melted — stock's
+    /// <c>m_flKnifeMeltTimestamp</c> (<c>tf_weapon_knife.cpp:39</c>), written
+    /// by the server's melt (<c>ApplyOnInjuredAttributes</c> through
+    /// <c>TF2.Server.Player</c>'s spy slice, the stamp <c>:126-129</c> keeps).
+    /// It rides the carrier as the clips do: the melted knife is refused at
+    /// the switch back (<c>CanDeploy</c>, <c>:521-531</c>) while holstered,
+    /// and the hierarchy's one weapon entity is whichever is in hand.
+    /// </summary>
+    public partial float KnifeMeltTimestamp { get; set; }
+
+    /// <summary>
+    /// How long that melt takes to regenerate — stock's
+    /// <c>m_flKnifeRegenerateDuration</c> (<c>tf_weapon_knife.cpp:40</c>), the
+    /// window <c>CanDeploy</c> holds the switch for (<c>:523</c>). Zero with a
+    /// zero stamp is stock's fresh <c>m_bKnifeExists</c> (<c>:77</c>): the
+    /// formula answers ready. Sent, not predicted, on the stamps' row's
+    /// showing: the client's replay runs no melt arithmetic, the switch reads
+    /// the arrival.
+    /// </summary>
+    public partial float KnifeRegenerateDuration { get; set; }
+
+    // The player's attribute walk, for every client (user ruling L11,
+    // 2026-11-11: all players see what the others have equipped): stock
+    // networks the player's m_AttributeManager (tf_player.h:647, sent at
+    // tf_player.cpp:831) and each item's own m_AttributeList on its item view;
+    // here the server's mirror (TF2.Server.Player.TFAttributeListMirror)
+    // writes the walk's order and every provider's own values in one run, and
+    // TFAttributeWire reads it back. Sent, not predicted: the server's word
+    // (CritMult's rule). Empty — AttributeProviderCount 0 — while no provider
+    // holds a value of its own: the client then builds the kit's items from
+    // WeaponItemDefIndex alone.
+
+    /// <summary>How many slots of <see cref="AttributeProviders"/> the walk fills; zero, the lists are empty.</summary>
+    public partial int AttributeProviderCount { get; set; }
+
+    /// <summary>Moves on every rewrite of the lists: the client's cache key.</summary>
+    public partial int AttributeSerial { get; set; }
+
+    /// <summary>The providers <see cref="AttributeProviders"/> holds at most (<c>TFAttributeWire.MaxProviders</c>).</summary>
+    public const int AttributeProviderSlots = 16;
+
+    /// <summary>The values <see cref="AttributeDefindex"/> and <see cref="AttributeBits"/> hold at most (<c>TFAttributeWire.MaxValues</c>).</summary>
+    public const int AttributeValueSlots = 32;
+
+    /// <summary>
+    /// Each provider of the walk, in its order: the player's own list, then
+    /// the manager's providers in <c>m_Providers</c>' order, then the kit's
+    /// items that do not provide. One word each, <c>TFAttributeWire</c>'s
+    /// packing: the item definition index, the weapon row, the provider type,
+    /// whether it provides, whether it is the player's own list.
+    /// </summary>
+    [NetArray(AttributeProviderSlots)] public partial NetArray<int> AttributeProviders { get; }
+
+    /// <summary>How many of the value rows, in order, each provider owns.</summary>
+    [NetArray(AttributeProviderSlots)] public partial NetArray<byte> AttributeProviderValues { get; }
+
+    /// <summary>Each value's attribute definition index.</summary>
+    [NetArray(AttributeValueSlots)] public partial NetArray<ushort> AttributeDefindex { get; }
+
+    /// <summary>Each value's 32 bits (<c>attribute_data_union_t</c>, a float's pattern or a stored integer).</summary>
+    [NetArray(AttributeValueSlots)] public partial NetArray<uint> AttributeBits { get; }
 }

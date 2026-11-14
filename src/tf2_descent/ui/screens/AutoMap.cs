@@ -20,6 +20,8 @@ namespace TF2.Descent.Client.Ui.Screens;
 public sealed class AutoMap : UiScreen, IUiWindowed
 {
     public override string Name => "automap";
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+    public override string? Panel => "descent_automap";
     public override UiLayerKind Layer => UiLayerKind.Menu;
     public string WindowId => "automap";
 
@@ -236,11 +238,4 @@ public sealed class AutoMap : UiScreen, IUiWindowed
         "#Descent_Map_MShrine", "#Descent_Map_MShrineUsed", "#Descent_Map_MLoot", "#Descent_Map_MLockedLoot",
         "#Descent_Map_MPortal", "#Descent_Map_MTrap", "#Descent_Map_MFountain",
     ];
-}
-
-/// <summary>The automap's viewer prefs: the caller's data says whether room
-/// labels start on (the screen owns the toggle after that).</summary>
-public interface IAutomapPrefs
-{
-    bool ShowLabelsByDefault { get; }
 }

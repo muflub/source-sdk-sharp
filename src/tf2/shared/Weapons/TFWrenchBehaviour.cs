@@ -46,10 +46,52 @@ public interface ITFSapperState
     /// The wrench's building hit (<c>CTFWrench::Smack</c> →
     /// <c>OnFriendlyBuildingHit</c> → <c>InputWrenchHit</c>,
     /// tf_weapon_wrench.cpp:145-199, tf_obj.cpp:2746-2802): the sapper on a
-    /// friendly building inside the swing takes <c>WRENCH_DMG_VS_SAPPER</c>.
-    /// Answers whether one was hit.
+    /// friendly building inside the swing takes <c>WRENCH_DMG_VS_SAPPER</c>,
+    /// and a bare one the repair, refill or upgrade metal. Answers what the
+    /// swing met: no friendly building, one the whack did no work on, or one
+    /// it did (<c>InputWrenchHit</c>'s answer).
     /// </summary>
-    bool WrenchSmack(int ownerIndex, float range);
+    WrenchSmackResult WrenchSmack(int ownerIndex, float range);
+
+    /// <summary>
+    /// The smack's building sound (<c>OnFriendlyBuildingHit</c>'s
+    /// <c>WeaponSound</c> arms, tf_weapon_wrench.cpp:130-139 and :180-193):
+    /// the script name the last wrench smack earned for this owner —
+    /// <see cref="TFWrenchHook.SuccessSound"/> for a whack that did its work,
+    /// <see cref="TFWrenchHook.FailureSound"/> for one that did none — handed
+    /// out once, and null when the swing met nothing. Stock keeps the sounds
+    /// on the server too: its <c>WeaponSound</c> runs under
+    /// <c>CDisablePredictionFiltering</c>, so every client hears the
+    /// server's one.
+    /// </summary>
+    string? TakeWrenchSound(int ownerIndex);
+
+    /// <summary>
+    /// The melee's sapper arm (<c>CTFWeaponBaseMelee::DoSwingTraceInternal</c>'s
+    /// <c>set_dmg_apply_to_sapper</c> pass, tf_weaponbase_melee.cpp:469-494):
+    /// the swing of a weapon bearing the attribute, over a friendly building
+    /// inside its reach, hurts the sapper that rides it with the swing's own
+    /// blow. Answers whether one was hit.
+    /// </summary>
+    bool MeleeSmack(int ownerIndex, float range, float amount);
+}
+
+/// <summary>
+/// What the wrench's swing met (<c>CTFWrench::Smack</c>,
+/// tf_weapon_wrench.cpp:180-198): no friendly building, so the plain melee
+/// runs; a friendly building the whack did no work on (SPECIAL2); or one it
+/// repaired, refilled or upgraded (SPECIAL1).
+/// </summary>
+public enum WrenchSmackResult
+{
+    /// <summary>No friendly building: stock's else arm, <c>BaseClass::Smack</c>.</summary>
+    None,
+
+    /// <summary>A friendly building that <c>InputWrenchHit</c> answered false for.</summary>
+    Futile,
+
+    /// <summary>A friendly building that <c>InputWrenchHit</c> answered true for.</summary>
+    Useful,
 }
 
 /// <summary>
@@ -58,16 +100,27 @@ public interface ITFSapperState
 /// (<c>CTFWrench::Smack</c>'s <c>OnFriendlyBuildingHit</c>,
 /// tf_weapon_wrench.cpp:145-199). Stock lands the hit at the smack 0.5 s
 /// after the swing; here it is asked at the swing itself, the knife's
-/// precedent (docs/divergences.md). A client replay without the seam asks
-/// nothing: the sapper's wound is the server's, and so is the building's
-/// repair, refill and upgrade metal that rides the same call.
+/// precedent (docs/divergences.md). The holder is required, each side's own:
+/// on a client replay the quiet one answers none — the sapper's wound is the
+/// server's, and so is the building's repair, refill and upgrade metal that
+/// rides the same call.
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFWrenchHook(ITFSapperState? sappers = null) : ITFWeaponHook
+public sealed class TFWrenchHook(ITFSapperState sappers) : ITFWeaponHook
 {
     /// <summary>The wrench's row (<c>TF_WEAPON_WRENCH</c>'s script).</summary>
     public const string WrenchScript = "tf_weapon_wrench";
+
+    /// <summary><c>OnFriendlyBuildingHit</c>'s SPECIAL1: the whack that did its
+    /// work (<c>Weapon_Wrench.HitBuilding_Success</c>, the script's
+    /// <c>special1</c>).</summary>
+    public const string SuccessSound = "Weapon_Wrench.HitBuilding_Success";
+
+    /// <summary><c>OnFriendlyBuildingHit</c>'s SPECIAL2: the whack that did
+    /// none (<c>Weapon_Wrench.HitBuilding_Failure</c>, the script's
+    /// <c>special2</c>).</summary>
+    public const string FailureSound = "Weapon_Wrench.HitBuilding_Failure";
 
     /// <summary>
     /// <c>CTFWrench::Smack</c>'s swing for the building hit
@@ -82,12 +135,31 @@ public sealed class TFWrenchHook(ITFSapperState? sappers = null) : ITFWeaponHook
     public int HookOrder => Order;
 
     private static bool IsWrench(in TFWeaponHookContext weapon) =>
-        string.Equals(weapon.Type.Name, WrenchScript, StringComparison.Ordinal);
+        string.Equals(weapon.Type.Name, WrenchScript, StringComparison.Ordinal)
+        || TFMeleeBehaviour.IsRobotArmName(weapon.Type.Name);
 
     public bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
     {
-        if (IsWrench(in weapon) && attack.Command.OwnerIndex > 0 && attack.EffectsLive && sappers is { } state)
-            state.WrenchSmack(attack.Command.OwnerIndex, SmackRange);
+        // The strike bit is predicted state like the swing bits the melee
+        // behaviour keeps beside it, so it rides every run of the command —
+        // live and replayed alike — and the replayed slot carries the word the
+        // server's run of the same command wrote. The whack's own outcome is
+        // still the live run's, spent at the smack through the seam's hand-out.
+        if (!IsWrench(in weapon) || attack.Command.OwnerIndex <= 0)
+            return true;
+
+        WrenchSmackResult met = sappers.WrenchSmack(attack.Command.OwnerIndex, SmackRange);
+
+        // OnFriendlyBuildingHit's skip rides one mode bit to the smack's frame,
+        // where the plain melee's skip lives (TFMeleeBehaviour.ItemPostFrame):
+        // a swing that struck a friendly building — useful or not — skips
+        // BaseClass::Smack; a swing that met none smacks as usual
+        // (tf_weapon_wrench.cpp:180-198). Each side sets the bit from its own
+        // trace of the same swing, so the predicted word agrees with the
+        // server's without the whack's outcome crossing on it: the sound the
+        // bit unlocks is the server's, asked by name at the smack.
+        int mode = attack.Weapon.BehaviourMode & ~TFMeleeBehaviour.ModeBuildingStruck;
+        attack.Weapon.BehaviourMode = met != WrenchSmackResult.None ? mode | TFMeleeBehaviour.ModeBuildingStruck : mode;
         return true;
     }
 }

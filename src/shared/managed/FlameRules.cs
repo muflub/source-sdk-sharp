@@ -103,6 +103,22 @@ public static class FlameRules
     /// </summary>
     public const string BurningCorpseParticle = "burningplayer_corpse";
 
+    /// <summary>
+    /// What an ashing corpse draws with — stock's
+    /// <c>ParticleProp()-&gt;Create( "drg_fiery_death", PATTACH_ABSORIGIN_FOLLOW )</c>
+    /// in <c>C_TFRagdoll::CreateTFRagdoll</c> (c_tf_player.cpp:941-945), started
+    /// by the client ragdoll whose networked ash arrived
+    /// (<see cref="RagdollNetState.Ash"/>) and stopped when the body is hidden.
+    /// </summary>
+    public const string AshCorpse = "drg_fiery_death";
+
+    /// <summary>
+    /// How long the ashing corpse stays drawn: stock's
+    /// <c>m_flTimeToDissolve = 0.5f</c> (c_tf_player.cpp:944), at which the
+    /// client's think hides the body and stops the particle (:1435-1448).
+    /// </summary>
+    public const float AshDissolveSeconds = 0.5f;
+
     /// <summary>Burning flesh: stock's sound for something alive.</summary>
     public const string BurningFleshSound = "General.BurningFlesh";
 

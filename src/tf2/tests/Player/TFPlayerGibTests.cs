@@ -8,6 +8,11 @@ using TF2.Server.Combat;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
+using TF2.Shared.Weapons;
+
+using TF2.Tests.Combat;
+using TF2.Tests.Weapons;
 
 using Xunit;
 using static SourceSharp.Tests.TestServices;
@@ -52,12 +57,15 @@ public sealed class TFPlayerGibTests
         public string? ValueOf(string name) => _names.Contains(name) ? _values[_names.IndexOf(name)] : null;
     }
 
-    private static TFPlayerGib Hook(ScriptedEntity? body, TFDamageRecords records, IEngineEntities entities,
-                                    out ConVarRegistry convars)
+    private static TFPlayerGib Hook(ScriptedEntity? body, TFDamageRecords records, RecordingEngine engine,
+                                    out ConVarRegistry convars,
+                                    AttributeHooks? hooks = null, ITFWeaponOwners? owners = null)
     {
         convars = new ConVarRegistry(new Backend());
         convars.RegisterTypes([typeof(TFPlayerGibConVar)]);
-        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, entities, new Directory(body));
+        // The engine doubles as the clock: RecordingEngine answers both seams.
+        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, engine, new Directory(body),
+                               engine, hooks ?? new AttributeHooks(), owners ?? new FakeOwners());
     }
 
     private static SsRagdoll Corpse()
@@ -158,6 +166,54 @@ public sealed class TFPlayerGibTests
         Assert.False(body.State.Gib);
     }
 
+    /// <summary>crit_kill_will_gib (the Apoco-Fists), stock's crit arm of
+    /// <c>CTFPlayer::ShouldGib</c> (tf_player.cpp:10936-10943): a crit kill from a
+    /// weapon holding the attribute gibs past the blast gate, the killing
+    /// player's item walked at the death hook (:10939-10940).</summary>
+    [Fact]
+    public void A_crit_from_a_fisted_weapon_gibs_past_the_blast_gate()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.Full,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_pistol", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);                       // above -10: the blast gate would refuse
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30047, "fist gib", "crit_kill_will_gib",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("g")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gib);                                    // :10941
+    }
+
+    /// <summary>The attribute half of the arm (:10939-10942): a crit bullet from
+    /// a plain weapon still falls through the blast gate (:10953).</summary>
+    [Fact]
+    public void A_crit_from_a_plain_weapon_still_falls_through_the_blast_gate()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.Full,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_pistol", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var owners = new FakeOwners();                                  // no item on the killing player
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Gib);
+    }
+
     [Fact]
     public void A_death_the_damage_layer_never_saw_leaves_the_body_whole()
     {
@@ -178,5 +234,340 @@ public sealed class TFPlayerGibTests
         var hook = Hook(null, new TFDamageRecords(), engine, out _);
 
         hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), EntityHandle.None));
+    }
+
+    // ---- the ash the killing weapon asks (ragdolls_become_ash) --------------
+
+    /// <summary>ragdolls_become_ash (the Shooting Star), stock's ON_OTHER hook
+    /// beside the gib answer's own (tf_player.cpp:12723-12727, :15629): the
+    /// killing player's item walked at the death hook marks the body ash.</summary>
+    [Fact]
+    public void A_kill_from_an_ashing_weapon_marks_the_body_ash()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30665, "star ash", "ragdolls_become_ash",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("a")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ash);
+        Assert.False(body.State.Gib);   // a bullet at positive health: the plain body's own answer
+    }
+
+    [Fact]
+    public void A_kill_from_a_plain_weapon_leaves_no_ash()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Ash);
+    }
+
+    /// <summary>The C.A.P.P.E.R's kill through the layer itself (the pistol's
+    /// <c>ragdolls_become_ash</c>): the damage layer records the blow the way
+    /// production does, and the death walk's ash arm reads that record — the
+    /// killing pistol's item, walked at the hit's attacker, marks the corpse
+    /// ash (tf_player.cpp:12723-12727, :15844-15849).</summary>
+    [Fact]
+    public void The_cappers_kill_through_the_layer_leaves_an_ash_corpse()
+    {
+        var body = Corpse();
+        var rig = new CombatRig();
+        rig.AttackerItem("ragdolls_become_ash", AttributeDescriptionFormat.Additive, 1);
+        rig.Hit(40f, DamageType.Bullet);            // the killing blow, recorded as production records it
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);   // above the gib threshold: the body itself stays whole
+        var hook = Hook(body, rig.Records, engine, out _, new AttributeHooks(), rig.Owners);
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ash);
+        Assert.False(body.State.Gib);
+    }
+
+    // ---- the gold the Golden Wrench asks (set_turn_to_gold) ----------------
+
+    /// <summary>set_turn_to_gold (the Golden Wrench), stock's ON_OTHER hook over
+    /// the killer's weapon at the death (tf_player.cpp:12717-12721, :15627): the
+    /// killing player's item walked at the death hook gilds the body.</summary>
+    [Fact]
+    public void A_kill_from_the_golden_wrench_gilds_the_body()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 65f, DamageType.Club, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.Wrench, "tf_weapon_wrench", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30666, "wrench gold", "set_turn_to_gold",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("g")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gold);
+        Assert.False(body.State.Ash);   // the gild and the ash are independent arms
+    }
+
+    [Fact]
+    public void A_kill_from_a_plain_wrench_leaves_no_gold()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 65f, DamageType.Club, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.Wrench, "tf_weapon_wrench", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Gold);
+    }
+
+    // ---- the dissolve the Neon Annihilator asks (ragdolls_plasma_effect) ----
+
+    /// <summary>ragdolls_plasma_effect (the Neon Annihilator), stock's second
+    /// stamp in the ragdoll's making (tf_player.cpp:15851-15859): the kill asks
+    /// a plasma corpse, which the client fades instead of gibbing it
+    /// (c_tf_player.cpp:1202-1210). The MiniBoss arm of that gate has no case
+    /// here — this mod has no minibosses.</summary>
+    [Fact]
+    public void A_kill_from_a_plasma_weapon_dissolves_the_body_and_leaves_no_gib()
+    {
+        var attacker = new EntityHandle(0x0001_0006u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Blast, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_breakable_sign", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -50);   // a blast this deep would gib on its own
+        engine.Returns("Clock.Now", 12f);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(813, "neon plasma", "ragdolls_plasma_effect",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("p")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.Equal(12f, body.State.DissolveStart);   // the fade starts at once
+        Assert.False(body.State.Gib);                  // the dissolve stands in its place (:1209)
+    }
+
+    /// <summary>Ash wins the fade away (the <c>!m_bBecomeAsh</c> of the plasma
+    /// gate, c_tf_player.cpp:1204), while the gib stays off all the same.</summary>
+    [Fact]
+    public void Ash_wins_the_plasma_fade_and_the_kill_still_leaves_no_gib()
+    {
+        var attacker = new EntityHandle(0x0001_0006u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Blast, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_breakable_sign", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -50);
+        engine.Returns("Clock.Now", 12f);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30665, "star ash", "ragdolls_become_ash",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("a")), 1f));
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(813, "neon plasma", "ragdolls_plasma_effect",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("p")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ash);
+        Assert.Equal(0f, body.State.DissolveStart);    // the ash keeps the fade (:1204)
+        Assert.False(body.State.Gib);                  // but the gib is off either way (:1209)
+    }
+
+    /// <summary>The plain kill's own answer beside the plasma arm: a blast past
+    /// the gib threshold gibs, and nothing fades.</summary>
+    [Fact]
+    public void A_plain_kill_gibs_the_deep_blast_and_dissolves_nothing()
+    {
+        var attacker = new EntityHandle(0x0001_0006u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Blast, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_breakable_sign", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -50);
+        engine.Returns("Clock.Now", 12f);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gib);
+        Assert.Equal(0f, body.State.DissolveStart);
+    }
+
+    // ---- the hard hit the Classic asks (crit_on_hard_hit) -------------------
+
+    [Fact]
+    public void A_hard_hit_from_a_crit_on_hard_hit_weapon_gibs_without_a_blast()
+    {
+        // The gate skip (tf_player.cpp:10950-10956): with the attribute the
+        // bullet need not be a blast for the past-threshold health to gib.
+        Assert.True(TFPlayerGibRule.ShouldGib(1, DamageType.Bullet, TFCritType.None,
+                                              TFDamageCustom.None, -12, critOnHardHit: true));
+    }
+
+    [Fact]
+    public void A_soft_hit_from_a_crit_on_hard_hit_weapon_still_leaves_a_body()
+    {
+        // Above -10 neither remaining arm holds, attribute or not (:10963).
+        Assert.False(TFPlayerGibRule.ShouldGib(1, DamageType.Bullet, TFCritType.None,
+                                               TFDamageCustom.None, 3, critOnHardHit: true));
+    }
+
+    /// <summary>crit_on_hard_hit (the Classic), stock's ON_OTHER hook over the
+    /// killing weapon (tf_player.cpp:10948-10949) — the walk also the ragdoll's
+    /// m_bCritOnHardHit (:15630), the client's red mist.</summary>
+    [Fact]
+    public void A_kill_from_a_hard_hit_weapon_marks_the_body_and_its_flag()
+    {
+        var attacker = new EntityHandle(0x0001_0005u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.SniperrifleClassic,
+                                        "tf_weapon_sniperrifle_classic", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -12);                      // past the gib threshold
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(1098, "classic hard hit", "crit_on_hard_hit",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gib);
+        Assert.True(body.State.CritOnHardHit);
+    }
+
+    [Fact]
+    public void A_kill_from_a_plain_weapon_leaves_the_hard_hit_flag_unset()
+    {
+        var attacker = new EntityHandle(0x0001_0005u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.SniperrifleClassic,
+                                        "tf_weapon_sniperrifle_classic", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Gib);
+        Assert.False(body.State.CritOnHardHit);
+    }
+
+    // ---- the ice the Spy-cicle asks (freeze_backstab_victim) -----------------
+
+    /// <summary>freeze_backstab_victim (the Spy-cicle), stock's other backstab arm
+    /// in the death walk (tf_player.cpp:12697-12704): only a hit carrying the backstab's
+    /// custom kind asks the killing weapon, and its item's attribute marks the body
+    /// ice — the flag the client's frost arm reads at creation (c_tf_player.cpp:736-742).</summary>
+    [Fact]
+    public void A_backstab_from_a_freezing_weapon_marks_the_body_ice()
+    {
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.Backstab, TFWeaponId.Knife, "tf_weapon_knife", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30070, "spy-cicle freeze", "freeze_backstab_victim",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("f")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ice);
+    }
+
+    [Fact]
+    public void A_plain_hit_from_a_freezing_weapon_leaves_a_normal_body()
+    {
+        // The gate before the walk (tf_player.cpp:12697): only the backstab's custom
+        // kind asks the killing weapon, so the same item freezes nothing here.
+        var attacker = new EntityHandle(0x0001_0004u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.Knife, "tf_weapon_knife", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30070, "spy-cicle freeze", "freeze_backstab_victim",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("f")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Ice);
     }
 }

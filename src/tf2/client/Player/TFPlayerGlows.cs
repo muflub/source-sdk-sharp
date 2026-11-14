@@ -48,7 +48,8 @@ public sealed class TFPlayerGlows(
 
     public void OnAdded(EntityHandle player, TFCond cond)
     {
-        if (cond != TFCond.TeamGlows)
+        // The carrier can name its conditions before the client knows its player.
+        if (cond != TFCond.TeamGlows || player == EntityHandle.None)
             return;
 
         // Stock's UpdateGlowEffect destroys its old slot before registering again

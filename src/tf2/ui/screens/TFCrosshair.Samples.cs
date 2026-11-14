@@ -16,7 +16,15 @@ public static class TFCrosshairSamples
     public static UiScreen Build(UiSampleServices s, FakeCrosshair? source = null)
     {
         s.Add<ITFCrosshair>(source ?? new FakeCrosshair());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         return s.Create<TFCrosshair>();
+    }
+
+    /// <summary>The layer's groups, unlocked: the hud stands down only for
+    /// the scoreboard's locked global group, which no sample shows.</summary>
+    private sealed class UnlockedGroups : ITFRenderGroups
+    {
+        public bool GlobalLocked => false;
     }
 
     // The plain arm: a weapon whose script draws, at the base scale.

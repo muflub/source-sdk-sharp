@@ -1,0 +1,310 @@
+[
+  {
+    "id": "patriot_missile", "name": "Patriot Missile", "class": "soldier", "tab": "ordnance", "tier": 1,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 4, "cooldown": 0,
+    "synergies": [ { "skill": "marksmanship", "perRank": 4, "scales": "damage_pct" } ],
+    "effect": [ { "primitive": "projectile", "target": "enemies", "damage": { "from": 20, "to": 60 }, "radius": 110 } ]
+  },
+  {
+    "id": "marksmanship", "name": "Marksmanship", "class": "soldier", "tab": "ordnance", "tier": 1,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "damage_weapon_pct", "amount": { "perRank": 3 } },
+      { "stat": "spread_pct", "amount": { "perRank": -4 } },
+      { "stat": "projectile_speed_pct", "amount": { "perRank": 3 } } ] } ]
+  },
+  {
+    "id": "salvo", "name": "Salvo", "class": "soldier", "tab": "ordnance", "tier": 2,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 0, "cooldown": 6,
+    "prerequisites": [ { "skill": "patriot_missile" } ],
+    "effect": [
+      { "primitive": "charge", "time": { "from": 1.2, "to": 2.0 }, "stages": { "from": 3, "to": 5 }, "misfireAfter": 1, "releaseTime": 0.6, "manaPerStage": 3 },
+      { "primitive": "projectile", "target": "enemies", "damage": { "from": 20, "to": 60 }, "radius": 110, "spreadDeg": 3 } ]
+  },
+  {
+    "id": "field_dressing", "name": "Field Dressing", "class": "soldier", "tab": "ordnance", "tier": 2,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "effect": [ { "primitive": "triggered", "trigger": "on_hit", "target": "self", "heal": { "from": 1, "to": 3 }, "maxTargets": 3, "perSecondCap": 10 } ]
+  },
+  {
+    "id": "emp_charge", "name": "EMP Charge", "class": "soldier", "tab": "ordnance", "tier": 3,
+    "kind": "action", "maxRank": 5, "damageType": "shock", "manaCost": 15, "cooldown": 8,
+    "prerequisites": [ { "skill": "patriot_missile" } ],
+    "effect": [
+      { "primitive": "charge", "time": 2 },
+      { "primitive": "projectile", "target": "enemies", "damage": { "from": 45, "to": 110 }, "radius": 110 },
+      { "primitive": "debuff", "target": "enemy_minions", "duration": { "from": 1, "to": 2 }, "conditions": [ "emp_stun" ] },
+      { "primitive": "debuff", "target": "enemy_bosses", "duration": { "from": 1, "to": 2 }, "conditions": [ "slowed" ] } ]
+  },
+  {
+    "id": "rocket_specialist", "name": "Rocket Specialist", "class": "soldier", "tab": "ordnance", "tier": 3,
+    "kind": "upgrade", "maxRank": 5, "scope": "rocket_launcher",
+    "prerequisites": [ { "skill": "marksmanship" } ],
+    "effect": [
+      { "primitive": "passive", "stats": [
+        { "stat": "reload_speed_pct", "amount": { "perRank": 5 } },
+        { "stat": "blast_radius_pct", "amount": { "perRank": 3 } },
+        { "stat": "projectile_speed_pct", "amount": { "perRank": 3 } },
+        { "stat": "clip_size", "amount": [ 0, 1, 1, 2, 2 ] } ] },
+      { "primitive": "triggered", "trigger": "on_direct_hit", "target": "enemies", "duration": [ 0, 0, 0, 0, 0.5 ], "conditions": [ "stun" ] } ]
+  },
+  {
+    "id": "rain_of_freedom", "name": "Rain of Freedom", "class": "soldier", "tab": "ordnance", "tier": 4,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 18, "cooldown": 12, "requires": "blast_jumping",
+    "prerequisites": [ { "skill": "salvo" } ],
+    "synergies": [ { "skill": "jump_training", "perRank": 0.5, "scales": "count" } ],
+    "effect": [ { "primitive": "projectile", "target": "enemies", "damage": { "from": 12, "to": 30 }, "count": { "from": 6, "to": 10 }, "duration": 1.5, "radius": 80 } ]
+  },
+  {
+    "id": "killer_instinct", "name": "Killer Instinct", "class": "soldier", "tab": "ordnance", "tier": 4,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "prerequisites": [ { "skill": "marksmanship" } ],
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "crit_chance_pct", "amount": { "perRank": 2 } },
+      { "stat": "crit_damage_pct", "amount": { "perRank": 5 } } ] } ]
+  },
+  {
+    "id": "fire_mission", "name": "Fire Mission", "class": "soldier", "tab": "ordnance", "tier": 5,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 30, "cooldown": 25,
+    "prerequisites": [ { "skill": "rain_of_freedom" } ],
+    "synergies": [ { "skill": "salvo", "perRank": 5, "scales": "damage_pct" } ],
+    "effect": [ { "primitive": "area_burst", "target": "point", "damage": { "from": 60, "to": 140 }, "radius": 110, "delay": 3, "count": 5, "area": 400 } ]
+  },
+  {
+    "id": "screamin_eagle", "name": "Screamin' Eagle", "class": "soldier", "tab": "ordnance", "tier": 6,
+    "kind": "capstone", "maxRank": 1, "damageType": "blast", "manaCost": 50, "cooldown": 90,
+    "prerequisites": [ { "skill": "fire_mission" }, { "skill": "killer_instinct" } ],
+    "effect": [ { "primitive": "buff", "target": "self", "duration": 8,
+      "conditions": [ "crit_boost", "no_ammo", "no_reload" ],
+      "stats": [ { "stat": "mana_cost_pct", "amount": -50 } ] } ]
+  },
+
+  {
+    "id": "jump_training", "name": "Jump Training", "class": "soldier", "tab": "airborne", "tier": 1,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "self_blast_damage_pct", "amount": { "perRank": -15 } },
+      { "stat": "jump_force_pct", "amount": { "perRank": 3 } } ] } ]
+  },
+  {
+    "id": "boot_camp", "name": "Boot Camp", "class": "soldier", "tab": "airborne", "tier": 1,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "move_speed_pct", "amount": { "perRank": 2 } },
+      { "stat": "deploy_speed_pct", "amount": { "perRank": 6 } } ] } ]
+  },
+  {
+    "id": "stomp", "name": "Stomp", "class": "soldier", "tab": "airborne", "tier": 2,
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "damageType": "blast",
+    "prerequisites": [ { "skill": "jump_training" } ],
+    "synergies": [ { "skill": "jump_training", "perRank": 8, "scales": "radius_pct" } ],
+    "effect": [
+      { "primitive": "triggered", "trigger": "blast_jump_landing", "target": "self", "conditions": [ "no_fall_damage" ] },
+      { "primitive": "area_burst", "trigger": "blast_jump_landing", "target": "enemies", "damage": { "from": 30, "to": 90 }, "radius": { "from": 120, "to": 240 }, "conditions": [ "knock_up" ] } ]
+  },
+  {
+    "id": "double_time", "name": "Double Time", "class": "soldier", "tab": "airborne", "tier": 2,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 6, "cooldown": 8,
+    "prerequisites": [ { "skill": "boot_camp" } ],
+    "effect": [ { "primitive": "buff", "target": "party", "radius": 300, "duration": 4,
+      "stats": [ { "stat": "move_speed_pct", "amount": { "from": 20, "to": 40 } } ] } ]
+  },
+  {
+    "id": "death_from_above", "name": "Death From Above", "class": "soldier", "tab": "airborne", "tier": 3,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "prerequisites": [ { "skill": "jump_training" } ],
+    "synergies": [
+      { "skill": "stomp", "perRank": 4, "scales": "potency_pct" },
+      { "skill": "trench_fighter", "perRank": 10, "scales": "bonusDamagePct" } ],
+    "effect": [
+      { "primitive": "triggered", "trigger": "blast_jumping", "target": "self",
+        "stats": [ { "stat": "damage_all_pct", "amount": { "from": 20, "to": 60 } } ] },
+      { "primitive": "triggered", "trigger": "on_kill_airborne", "target": "self", "manaRefund": 10 },
+      { "primitive": "triggered", "trigger": "on_melee_hit_airborne", "target": "enemies", "family": "melee",
+        "conditions": [ "melee_crit" ], "bonusDamagePct": 0 } ]
+  },
+  {
+    "id": "pain_tolerance", "name": "Pain Tolerance", "class": "soldier", "tab": "airborne", "tier": 3,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "prerequisites": [ { "skill": "boot_camp" } ],
+    "effect": [ { "primitive": "triggered", "trigger": "per_10pct_health_missing", "target": "self", "stats": [
+      { "stat": "damage_all_pct", "amount": { "from": 2, "to": 6 } },
+      { "stat": "move_speed_pct", "amount": { "from": 1, "to": 3 } } ] } ]
+  },
+  {
+    "id": "parachute", "name": "Parachute", "class": "soldier", "tab": "airborne", "tier": 4,
+    "kind": "toggle", "maxRank": 5,
+    "prerequisites": [ { "skill": "jump_training", "rank": 3 } ],
+    "effect": [ { "primitive": "toggle", "target": "self", "drain": { "from": 2, "to": 1 },
+      "conditions": [ "slow_fall", "air_control" ],
+      "stats": [ { "stat": "damage_all_pct", "amount": { "from": 5, "to": 25 } } ] } ]
+  },
+  {
+    "id": "trench_fighter", "name": "Trench Fighter", "class": "soldier", "tab": "airborne", "tier": 4,
+    "kind": "upgrade", "maxRank": 5, "scope": "melee",
+    "prerequisites": [ { "skill": "pain_tolerance" } ],
+    "effect": [
+      { "primitive": "passive", "stats": [
+        { "stat": "damage_weapon_pct", "amount": { "perRank": 8 } },
+        { "stat": "attack_speed_pct", "amount": { "perRank": 3 } } ] },
+      { "primitive": "triggered", "trigger": "on_melee_kill", "target": "self", "pctMaxLife": { "from": 2, "to": 6 } } ]
+  },
+  {
+    "id": "rocket_leap", "name": "Rocket Leap", "class": "soldier", "tab": "airborne", "tier": 5,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 12, "cooldown": { "from": 10, "to": 6 },
+    "prerequisites": [ { "skill": "stomp" } ],
+    "effect": [
+      { "primitive": "dash", "target": "self", "impulse": 800, "conditions": [ "blast_jumping" ] },
+      { "primitive": "area_burst", "target": "enemies", "damage": { "from": 25, "to": 70 }, "radius": 100 } ]
+  },
+  {
+    "id": "human_rocket", "name": "Human Rocket", "class": "soldier", "tab": "airborne", "tier": 6,
+    "kind": "capstone", "maxRank": 1, "damageType": "blast", "manaCost": 40, "cooldown": 45,
+    "prerequisites": [ { "skill": "rocket_leap" }, { "skill": "death_from_above" } ],
+    "synergies": [ { "skill": "rocket_leap", "perRank": 5, "scales": "damage_pct" } ],
+    "effect": [
+      { "primitive": "dash", "target": "point", "impulse": 800, "range": 1500, "conditions": [ "invulnerable", "blast_jumping" ] },
+      { "primitive": "area_burst", "trigger": "dash_landing", "target": "enemies", "damage": 200, "radius": 240 } ]
+  },
+
+  {
+    "id": "battle_orders", "name": "Battle Orders", "class": "soldier", "tab": "command", "tier": 1,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 20, "cooldown": 30, "tags": [ "order" ],
+    "synergies": [
+      { "skill": "dig_in", "perRank": 3, "scales": "potency_pct" },
+      { "skill": "forward_march", "perRank": 3, "scales": "potency_pct" } ],
+    "effect": [ { "primitive": "aura", "target": "party", "radius": 450, "duration": { "from": 8, "to": 12 },
+      "stats": [ { "stat": "damage_all_pct", "amount": { "from": 15, "to": 35 } } ] } ]
+  },
+  {
+    "id": "basic_training", "name": "Basic Training", "class": "soldier", "tab": "command", "tier": 1,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "max_life_pct", "amount": { "perRank": 3 } },
+      { "stat": "resist_all_pct", "amount": { "perRank": 2 } } ] } ]
+  },
+  {
+    "id": "dig_in", "name": "Dig In", "class": "soldier", "tab": "command", "tier": 2,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 20, "cooldown": 30, "tags": [ "order" ],
+    "prerequisites": [ { "skill": "basic_training" } ],
+    "synergies": [
+      { "skill": "battle_orders", "perRank": 3, "scales": "potency_pct" },
+      { "skill": "forward_march", "perRank": 3, "scales": "potency_pct" } ],
+    "effect": [ { "primitive": "aura", "target": "party", "radius": 450, "duration": { "from": 8, "to": 12 },
+      "conditions": [ "crit_immune" ],
+      "stats": [ { "stat": "damage_taken_pct", "amount": { "from": -15, "to": -35 } } ] } ]
+  },
+  {
+    "id": "maggots", "name": "Maggots!", "class": "soldier", "tab": "command", "tier": 2,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 8, "cooldown": 12,
+    "prerequisites": [ { "skill": "basic_training" } ],
+    "effect": [
+      { "primitive": "threat", "target": "enemies", "radius": 600, "duration": 4 },
+      { "primitive": "debuff", "target": "enemies", "radius": 600, "duration": 4,
+        "stats": [ { "stat": "damage_all_pct", "amount": { "from": -10, "to": -30 } } ] } ]
+  },
+  {
+    "id": "forward_march", "name": "Forward March", "class": "soldier", "tab": "command", "tier": 3,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 20, "cooldown": 30, "tags": [ "order" ],
+    "prerequisites": [ { "skill": "battle_orders" } ],
+    "synergies": [
+      { "skill": "battle_orders", "perRank": 3, "scales": "potency_pct" },
+      { "skill": "dig_in", "perRank": 3, "scales": "potency_pct" } ],
+    "effect": [
+      { "primitive": "aura", "target": "party", "radius": 450, "duration": { "from": 8, "to": 12 },
+        "stats": [ { "stat": "life_leech_pct", "amount": { "from": 10, "to": 30 } }, { "stat": "move_speed_pct", "amount": 15 } ] },
+      { "primitive": "passive", "stats": [ { "stat": "life_regen_hp", "amount": { "from": 1, "to": 3 } } ] } ]
+  },
+  {
+    "id": "art_of_war", "name": "Art of War", "class": "soldier", "tab": "command", "tier": 3,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "effect": [ { "primitive": "passive", "stats": [ { "stat": "damage_vs_elite_pct", "amount": { "perRank": 4 } } ] } ]
+  },
+  {
+    "id": "chain_of_command", "name": "Chain of Command", "class": "soldier", "tab": "command", "tier": 4,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "prerequisites": [ { "anyOf": [ "battle_orders", "dig_in", "forward_march" ], "count": 2 } ],
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "order_duration_pct", "amount": { "perRank": 10 } },
+      { "stat": "order_radius_pct", "amount": { "perRank": 8 } },
+      { "stat": "order_cooldown_pct", "amount": { "perRank": -4 } } ] } ]
+  },
+  {
+    "id": "rally_cry", "name": "Rally Cry", "class": "soldier", "tab": "command", "tier": 4,
+    "kind": "action", "maxRank": 5, "damageType": "blast", "manaCost": 22, "cooldown": 40,
+    "prerequisites": [ { "skill": "dig_in" } ],
+    "effect": [ { "primitive": "heal", "target": "party", "radius": 450, "pctMaxLife": { "from": 10, "to": 30 }, "duration": 4,
+      "conditions": [ "cleanse_burn", "cleanse_bleed", "cleanse_slow" ] } ]
+  },
+  {
+    "id": "juggle_doctrine", "name": "Juggle Doctrine", "class": "soldier", "tab": "command", "tier": 5,
+    "kind": "upgrade", "maxRank": 5, "scope": "all",
+    "prerequisites": [ { "skill": "art_of_war" } ],
+    "synergies": [ { "skill": "marksmanship", "perRank": 0.5, "scales": "duration" } ],
+    "effect": [ { "primitive": "triggered", "trigger": "on_knock_airborne", "target": "enemies",
+      "duration": { "from": 3, "to": 5 }, "conditions": [ "mini_crit_marked" ] } ]
+  },
+  {
+    "id": "supreme_commander", "name": "Supreme Commander", "class": "soldier", "tab": "command", "tier": 6,
+    "kind": "capstone", "maxRank": 1, "damageType": "blast", "manaCost": 60, "cooldown": 120,
+    "prerequisites": [ { "skill": "chain_of_command" }, { "skill": "forward_march" } ],
+    "effect": [
+      { "primitive": "buff", "target": "party", "duration": 10, "conditions": [ "issue_all_orders" ] },
+      { "primitive": "passive", "conditions": [ "orders_stack" ] } ]
+  },
+
+  {
+    "id": "deep_pockets", "name": "Deep Pockets", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 7, "scope": "all", "levelFloor": { "base": -3, "perRank": 4 },
+    "effect": [ { "primitive": "passive", "capacity": "backpack" } ]
+  },
+  {
+    "id": "storage_plan", "name": "Mann Co. Storage Plan", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "base": -4, "perRank": 5 },
+    "effect": [ { "primitive": "passive", "capacity": "stash" } ]
+  },
+  {
+    "id": "second_wind", "name": "Second Wind", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [
+      { "primitive": "passive", "stats": [ { "stat": "life_regen_pct", "amount": { "perRank": 0.3 } } ] },
+      { "primitive": "triggered", "trigger": "no_damage_taken", "target": "self", "delay": 5,
+        "stats": [ { "stat": "life_regen_pct", "amount": { "perRank": 0.3 } } ] } ]
+  },
+  {
+    "id": "leech", "name": "Leech", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [ { "stat": "life_leech_pct", "amount": { "perRank": 1 } } ] } ]
+  },
+  {
+    "id": "clear_head", "name": "Clear Head", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [ { "stat": "mana_regen_pct", "amount": { "perRank": 8 } } ] } ]
+  },
+  {
+    "id": "siphon", "name": "Siphon", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [ { "stat": "mana_leech_pct", "amount": { "perRank": 0.5 } } ] } ]
+  },
+  {
+    "id": "scavenger", "name": "Scavenger", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "item_drop_pct", "amount": { "perRank": 6 } },
+      { "stat": "australium_find_pct", "amount": { "perRank": 4 } } ] } ]
+  },
+  {
+    "id": "haggler", "name": "Haggler", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "price_buy_pct", "amount": { "perRank": -4 } },
+      { "stat": "price_sell_pct", "amount": { "perRank": 4 } } ] } ]
+  },
+  {
+    "id": "field_rations", "name": "Field Rations", "class": "mercenary", "tab": "mercenary",
+    "kind": "upgrade", "maxRank": 5, "scope": "all", "levelFloor": { "perRank": 3 },
+    "effect": [ { "primitive": "passive", "stats": [
+      { "stat": "potion_restore_pct", "amount": { "perRank": 8 } },
+      { "stat": "potion_cooldown_pct", "amount": { "perRank": -6 } } ] } ]
+  }
+]

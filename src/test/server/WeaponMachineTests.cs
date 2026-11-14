@@ -54,8 +54,9 @@ public class WeaponMachineTests
         // and the last deploy's stamp the switch-from arm asks
         // (WeaponNetState.LastDeployTime), the timed item's charge the HUD plate
         // reads (WeaponNetState.ItemMeter) and the clock it ages on
-        // (WeaponNetState.ItemMeterTime).
-        Assert.Equal(53, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        // (WeaponNetState.ItemMeterTime), and the Dragon's Fury's recharge
+        // scale on that refill (WeaponNetState.FlameBallChargeScale).
+        Assert.Equal(54, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 

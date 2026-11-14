@@ -120,6 +120,10 @@ public class SideAuditTests
         // birth: a disguise is drawn per viewer on the client, and the server
         // never changes the spy's model — its hitboxes stay the spy's.
         "EntitySetModelOverride",
+        // The named material the corpse is drawn in (gold, ice), client-only
+        // with the model override beside it: a statue's look is the viewer's,
+        // and the server's ragdoll is a physics body with no draw.
+        "EntitySetMaterialOverride",
         // The ammo table, client-only since the same plan: only the client
         // registers (ClientModule), and server.so keeps no table.
         "RegisterAmmoType",

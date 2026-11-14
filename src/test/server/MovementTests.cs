@@ -904,6 +904,59 @@ public class MovementTests
         Assert.Equal(2f, mine.Rules.Jump(default));
     }
 
+    /// <summary>
+    /// The loop asks the cap once per airborne command, where <c>AirAccelerate</c>
+    /// takes it: stock answers the constants' cap itself, so HL2MP's player caps
+    /// the air wish at the constants' 30 with nobody owning the question
+    /// (Movement's <c>GetAirSpeedCap</c>, asked since Phase 6).
+    /// </summary>
+    [Fact]
+    public void TheLoopAsksTheAirCapAndStockEchoesTheConstant()
+    {
+        int asked = 0;
+        var pressed = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with
+            {
+                AirSpeedCap = (i, c) => { asked++; return MovementRules.Stock.AirSpeedCap(i, c); },
+            },
+        };
+        MoveState airborne = Airborne(0);
+
+        Assert.True(pressed.ProcessMovement(airborne));
+
+        Assert.Equal(1, asked);
+        Assert.Equal(30f, MovementRules.Stock.AirSpeedCap(0, 30f));
+    }
+
+    /// <summary>
+    /// The loop asks the high-max-speed rewrite once per command, where stock
+    /// calls <c>HighMaxSpeedMove</c> (tf_gamemovement.cpp:326): a walking
+    /// command reaches the hook, and stock's identity keeps both moves as
+    /// sent — nobody owning the rewrite answers like Half-Life.
+    /// </summary>
+    [Fact]
+    public void TheLoopAsksTheHighSpeedRewriteAndStockKeepsBothMoves()
+    {
+        int asked = 0;
+        var pressed = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with
+            {
+                HighMaxSpeed = (i, f, s, m) => { asked++; return MovementRules.Stock.HighMaxSpeed(i, f, s, m); },
+            },
+        };
+        MoveState walking = BaselineState();
+        walking.ForwardMove = 450f;
+        walking.SideMove = 0f;
+        walking.MaxSpeed = 520f;
+
+        Assert.True(pressed.ProcessMovement(walking));
+
+        Assert.Equal(1, asked);
+        Assert.Null(MovementRules.Stock.HighMaxSpeed(0, 450f, 0f, 520f));
+    }
+
     //=========================================================================
     // The airborne jump decision (tf2 stage 1 core): a jump pressed in the air
     // is the rules' to grant, applied with CTFGameMovement::AirDash's
@@ -966,7 +1019,13 @@ public class MovementTests
         var carried = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
         MoveState dash = Airborne(GameMovement.InJump);
         MoveState control = Airborne(0);
-        control.Velocity = new Vector(200f, 0f, 274.75f);
+        // The flat wish's x is 200 times yaw 0's forward as MoveVec.Normalize
+        // makes it, not 200: Normalize is RSqrt, whose rsqrtss start differs
+        // in the last bit between CPUs (CI's runners read 199.99998, a Zen 5
+        // reads 200), so the control takes the same normalisation.
+        var flat = new Vector(1f, 0f, 0f);
+        MoveVec.Normalize(ref flat);
+        control.Velocity = new Vector(flat.X * 200f, 0f, 274.75f);
 
         Assert.True(dashing.ProcessMovement(dash));
         Assert.True(carried.ProcessMovement(control));
@@ -1687,6 +1746,111 @@ public class MovementTests
         Assert.True(s.Ducking);
         Assert.True((s.Flags & GameMovement.FlDucking) == 0, "still easing, not ducked yet");
         AssertBits(700f, s.DuckTime, "the timer counts down by the tick alone");
+    }
+
+    /// <summary>
+    /// TF's duck mask (stock's <c>DuckOverrides</c>, tf_gamemovement.cpp:3179-3223,
+    /// called at the top of TF's Duck :3392): the mask trims the duck button off
+    /// the command BEFORE the press edge is computed, so a refused press never
+    /// starts the duck at all — while the same command under an answer that
+    /// passes the button through takes the duck on its press edge.
+    /// </summary>
+    [Fact]
+    public void TheMaskedDuckButtonNeverStartsTheDuckWhereAPassedOneDoes()
+    {
+        // Refused arm: the mask drops IN_DUCK before the edges.
+        MoveState refused = DuckMaskedCommand(static (_, b, _, _, _, _, _) => b & ~GameMovement.InDuck);
+        Assert.False(refused.Ducking);
+        Assert.Equal(0f, refused.DuckTime);
+
+        // Passing arm (positive control): the identity answer ducks on the press.
+        MoveState passed = DuckMaskedCommand(static (_, b, _, _, _, _, _) => b);
+        Assert.True(passed.Ducking);
+        Assert.True(passed.DuckTime > 0f, "the press opened its easing window");
+    }
+
+    /// <summary>
+    /// One grounded command that presses the duck button (the old word up),
+    /// under one answer for the duck-button mask ask.
+    /// </summary>
+    private static MoveState DuckMaskedCommand(Func<int, int, bool, int, float, bool, bool, int> mask)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { DuckButtons = mask };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InDuck;
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The duck release's stamp (stock's <c>OnUnDuck</c> opening block,
+    /// tf_gamemovement.cpp:3293-3302): the command that lets go of the duck
+    /// button answers <see cref="MovementRules.DuckRelease"/> once, carrying
+    /// the loop's own clock and ground answer — on the ground under the feet,
+    /// airborne above them.
+    /// </summary>
+    [Fact]
+    public void TheDuckReleaseEdgeAnswersOnceWithTheLoopsClockAndGround()
+    {
+        var calls = new List<(int Index, float Time, bool Air)>();
+
+        var movement = new GameMovement(
+            new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) },
+            MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { DuckRelease = (i, t, a) => calls.Add((i, t, a)) };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.CurTime = 3.25f;
+        s.Buttons = 0;
+        s.OldButtons = GameMovement.InDuck;
+        s.Ducking = true;
+        movement.ProcessMovement(s);
+
+        Assert.Single(calls);
+        Assert.Equal(1, calls[0].Index);
+        Assert.Equal(3.25f, calls[0].Time);
+        Assert.False(calls[0].Air, "the grounded release names the ground");
+
+        // Airborne: no clear floor under the feet, and the stamp says air.
+        calls.Clear();
+        var air = new GameMovement(
+            new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => MoveTrace.Clear(en) },
+            MoveConstantDefaults.Stock);
+        air.Rules = MovementRules.Stock with { DuckRelease = (i, t, a) => calls.Add((i, t, a)) };
+        MoveState a = BaselineState();
+        a.HasGround = false;
+        a.CurTime = 3.25f;
+        a.Buttons = 0;
+        a.OldButtons = GameMovement.InDuck;
+        a.Ducking = true;
+        air.ProcessMovement(a);
+
+        Assert.Single(calls);
+        Assert.True(calls[0].Air, "the airborne release says so");
+    }
+
+    /// <summary>
+    /// Only the edge stamps: a command that holds the duck button down across
+    /// both words (pressed and held) releases nothing and answers nothing.
+    /// </summary>
+    [Fact]
+    public void APlainlyHeldDuckButtonDoesNotStampItsRelease()
+    {
+        var calls = 0;
+        var movement = new GameMovement(
+            new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) },
+            MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { DuckRelease = (_, _, _) => calls++ };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InDuck;
+        s.OldButtons = GameMovement.InDuck;
+        movement.ProcessMovement(s);
+
+        Assert.Equal(0, calls);
     }
 
     //=========================================================================

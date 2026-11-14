@@ -41,11 +41,12 @@ public sealed class FakeScoreboard : IScoreboardSource
     /// Two teams of <paramref name="perTeam"/>: frags and pings from a fixed
     /// sequence, player 0 local, every fifth a bot, every fourth dead.
     /// </summary>
-    public static FakeScoreboard Teams(int perTeam, int seed = 1, string server = "SourceSharp Deathmatch | dm_lockdown 24/7")
+    public static FakeScoreboard Teams(int perTeam, int seed = 1, string server = "SourceSharp Deathmatch | dm_lockdown 24/7",
+                                       int teamCount = 2)
     {
         var rng = new Random(seed);
         var players = new List<ScoreboardPlayer>();
-        for (int t = 0; t < 2; t++)
+        for (int t = 0; t < teamCount; t++)
         {
             for (int k = 0; k < perTeam; k++)
             {
@@ -54,7 +55,7 @@ public sealed class FakeScoreboard : IScoreboardSource
                 players.Add(new ScoreboardPlayer(
                     Index: i + 1,
                     Name: bot ? $"BOT {Names[i % Names.Count]}" : Names[i % Names.Count],
-                    Team: t == 0 ? 2 : 3,
+                    Team: t + 2,
                     Frags: rng.Next(0, 31),
                     Deaths: rng.Next(0, 19),
                     Ping: bot ? 0 : 18 + rng.Next(0, 160),
@@ -65,8 +66,9 @@ public sealed class FakeScoreboard : IScoreboardSource
         }
 
         int Score(int team) => players.Where(p => p.Team == team).Sum(p => p.Frags);
-        return new FakeScoreboard(server, "dm_lockdown", 16,
-            [new ScoreboardTeam(2, "Combine", Score(2)), new ScoreboardTeam(3, "Rebels", Score(3))],
+        string[] names = ["Combine", "Rebels", "Metro Police", "Resistance"];
+        return new FakeScoreboard(server, "dm_lockdown", Math.Max(16, perTeam * teamCount),
+            [.. Enumerable.Range(0, teamCount).Select(t => new ScoreboardTeam(t + 2, names[t], Score(t + 2)))],
             [.. players]);
     }
 
@@ -96,8 +98,11 @@ public sealed class FakeScoreboard : IScoreboardSource
 /// registered once per interface (<see cref="Register"/>).
 /// </summary>
 public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage,
-                                     IPlayerSuitPower
+                                     IPlayerSuitPower, IPlayerTeam
 {
+    public bool Teamplay { get; init; }
+    public int Team { get; init; }
+    public string TeamName { get; init; } = "";
     public float SuitPower { get; init; } = 100f;
     public int SuitDevices { get; init; }
     public bool Alive { get; init; } = true;
@@ -116,7 +121,8 @@ public sealed class FakeLocalPlayer : IPlayerLife, IPlayerHealth, IPlayerArmour,
 
     public UiSampleServices Register(UiSampleServices s)
         => s.Add<IPlayerLife>(this).Add<IPlayerHealth>(this).Add<IPlayerArmour>(this)
-            .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this).Add<IPlayerSuitPower>(this);
+            .Add<IPlayerWeapon>(this).Add<IPlayerAmmo>(this).Add<IPlayerDamage>(this).Add<IPlayerSuitPower>(this)
+            .Add<IPlayerTeam>(this);
 }
 
 /// <summary>

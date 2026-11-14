@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using SourceSharp.Ai.Hl2mp.Chat;
 using Xunit;
+using SourceSharp.Ai.Server.Chat;
 
 namespace SourceSharp.Ai.Tests.Chat;
 

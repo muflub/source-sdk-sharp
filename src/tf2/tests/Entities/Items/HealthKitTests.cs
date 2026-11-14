@@ -314,6 +314,83 @@ public sealed class HealthKitTests
     }
 
     [Fact]
+    public void The_thrower_waits_out_their_own_plate_and_nobody_else_does()
+    {
+        // tf_powerup.cpp:296-307 — the thrower arm of ItemCanBeTouchedByPlayer:
+        // inside the 0.3 s the thrower's touch is refused (the plate is still
+        // flying away from them), anyone else's is not, and once the wait has
+        // passed the owner takes it too.
+        var rig = new MapItemRig();
+        var (thrower, t) = rig.Players.Add(playerClass: TFClass.Soldier);
+        t.Health = 10;
+        var (mate, m) = rig.Players.Add(playerClass: TFClass.Soldier);
+        m.Health = 10;
+
+        var kit = rig.Spawn<HealthKit>(HealthKitMedium.MediumClass);
+        kit.DropSingleInstance(new Vector(100f, 0f, 0f), thrower, 0.3f); // :190-209
+
+        Assert.True(kit.ThrownSingleInstance);
+        Assert.Equal(thrower, kit.OwnerEntity);
+        var flight = rig.Engine.Last("Entities.SetVelocity")!.Value;
+        Assert.Equal(kit.Handle, flight.ArgAs<EntityHandle>(0));
+        Assert.Equal(new Vector(100f, 0f, 0f), flight.ArgAs<Vector>(1));
+
+        rig.Touch(kit, thrower);
+        Assert.Equal(10, t.Health); // inside the wait: refused
+
+        rig.Touch(kit, mate);
+        Assert.Equal(110, m.Health); // no wait on anyone else
+
+        var later = rig.Spawn<HealthKit>(HealthKitMedium.MediumClass);
+        later.DropSingleInstance(new Vector(100f, 0f, 0f), thrower, 0.3f);
+        rig.Clock.Now = 0.4f;
+        rig.Touch(later, thrower);
+        Assert.Equal(110, t.Health); // the wait has passed
+    }
+
+    [Fact]
+    public void A_taken_throw_is_gone_where_a_map_kit_comes_back()
+    {
+        // :203's SF_NORESPAWN — a thrown pack picked up removes itself
+        // (PickupItem's zero-delay arm) where the map's kit waits out its
+        // respawn; the removal is the mark the directory frees.
+        var rig = new MapItemRig();
+        var (player, p) = rig.Players.Add();
+        p.Health = 10;
+
+        var mapKit = rig.Spawn<HealthKit>(HealthKitMedium.MediumClass);
+        rig.Touch(mapKit, player);
+        Assert.True(mapKit.IsRespawning);
+
+        p.Health = 10;
+        var thrown = rig.Spawn<HealthKit>(HealthKitMedium.MediumClass);
+        thrown.DropSingleInstance(default, player, 0.3f);
+        rig.Clock.Now = 0.4f; // past the owner wait the throw sets
+        rig.Touch(thrown, player);
+        Assert.Equal(110, p.Health);
+        Assert.Equal(1, rig.Registry.Directory.FreeRemoved()); // the pack went; the map kit's respawn marked nothing
+    }
+
+    [Fact]
+    public void The_thrown_pack_removes_itself_after_half_a_minute()
+    {
+        // :208 — the PowerupRemoveThink DropSingleInstance schedules, half a
+        // minute on (TF_POWERUP_LIFETIME, tf_powerup.h:16); any other think
+        // leaves the pack alone.
+        var (rig, kit) = Spawn(HealthKitMedium.MediumClass);
+        var (player, _) = rig.Players.Add();
+        kit.DropSingleInstance(default, player, 0.3f);
+
+        Assert.Equal(TFPowerup.ThrownLifetime, kit.NextThinkDelay(TFPowerup.ThrownRemoveThink), 3);
+
+        kit.OnThink("SomethingElse");
+        Assert.Equal(0, rig.Registry.Directory.FreeRemoved());
+
+        kit.OnThink(TFPowerup.ThrownRemoveThink);
+        Assert.Equal(1, rig.Registry.Directory.FreeRemoved());
+    }
+
+    [Fact]
     public void A_healthy_heavy_without_a_lunchbox_leaves_the_kit()
     {
         // :75 — the arm's weapon half: no lunchbox, no grenade, no pickup.
@@ -688,5 +765,25 @@ public sealed class HealthKitTests
         Assert.Equal(30, carrier.DisguiseHealth);
         Assert.False(kit.IsRespawning);
         Assert.Empty(rig.Notices.Said);
+    }
+
+    /// <summary>
+    /// Stock plays the pickup touch over <c>CSingleUserRecipientFilter</c>
+    /// (entity_healthkit.cpp:140-141): the notices' Sound reaches the seam's
+    /// single-player arm with the picker in both handle slots and the
+    /// filter's reliable keep. Nothing else hears it.
+    /// </summary>
+    [Fact]
+    public void The_pickup_touch_sound_goes_to_the_picker_alone()
+    {
+        var engine = new RecordingEngine();
+        var notices = new EngineTFPickupNotices(engine, engine, engine, engine, engine);
+        var picker = new EntityHandle(3u | (1u << 16));
+
+        notices.Sound(picker, HealthKit.PickupSound);
+
+        var emit = Assert.Single(engine.AllOf("Sound.EmitSoundToPlayer"));
+        Assert.Equal((picker, picker, "HealthKit.Touch", true),
+                     (emit.ArgAs<EntityHandle>(0), emit.ArgAs<EntityHandle>(1), emit.ArgAs<string>(2), emit.ArgAs<bool>(3)));
     }
 }

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# The bots' practice (plan_bots_teams_tf2_part_g G.6, lane G8): offline, no game.
+#
+#   tools/ai-jump-practice <map> [--db FILE|default] [--mode MODE] [--below R] [--skip "x y z r"] [--dry-run]
+#                                [--half-life ROUNDS] [--config debug|release]
+#
+# Opens the experience store (--db, the game's default file ~/.local/share/sourcesharp/ai-experience.db otherwise; a
+# missing file is refused: the tool never makes one) for the map's key (the map, the first 16 hex of its bsp's SHA-256
+# as the game takes it, the mode the file holds it in: --mode when it holds two) and loads a snapshot at the half-life
+# (20 rounds, ai_experience_half_life's default). Derives the graph, the free space and the simulators as
+# `tools/ai-replay jumps` does and runs the shape pass with the game's settings (--skip as ai_tf_links_skip). Its work:
+# the shown jumps the game's fit judges NoRecipe or Rests, the shape links the bots gave up (LinkTrust) or whose
+# robustness is under --below (0.8), and the candidates the pass kept no link for. Each is searched with richer
+# settings (JumpPracticeTool.Rich), and each recipe the game's own reader takes (JumpPractice: flown in the level's
+# simulator with the game's trials) is written as a `link` row of source Practice, in one merge. The store is SQLite
+# in WAL with a busy timeout, so it may run while a game has the file open: the game reads the rows at its next
+# snapshot (a round's start). --dry-run writes nothing.
+#
+# The report is printed and written to bin/<config>/ai-replay/<map>-practice.json.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+dotnet="${DOTNET:-$HOME/.dotnet/dotnet}"
+[[ -n "${1:-}" && "$1" != -* ]] || { sed -n '2,23p' "$0"; exit 2; }
+map="$1"; shift
+config=debug; db=default; mode=-; below=0.8; skip=-; write=write; halflife=20
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --db) db="$2"; shift 2 ;;
+    --mode) mode="$2"; shift 2 ;;
+    --below) below="$2"; shift 2 ;;
+    --skip) skip="${2// /,}"; shift 2 ;;
+    --dry-run) write=dry; shift ;;
+    --half-life) halflife="$2"; shift 2 ;;
+    --config) config="$2"; shift 2 ;;
+    *) echo "ai-jump-practice: what is $1?" >&2; exit 2 ;;
+  esac
+done
+nav="$root/bin/$config/mods/tf2/maps/$map.nav3d"
+if [[ ! -f "$nav" && "$config" == release && -f "$root/bin/debug/mods/tf2/maps/$map.nav3d" ]]; then
+  nav="$root/bin/debug/mods/tf2/maps/$map.nav3d"; echo "ai-jump-practice: no release nav of $map: reading debug's, $nav"
+fi
+bsp=""
+for d in "$root/bin/$config/content/tf/maps" "$root/bin/$config/mods/tf2/maps" "$root/bin/debug/content/tf/maps" "$root/bin/debug/mods/tf2/maps"; do
+  [[ -z "$bsp" && -f "$d/$map.bsp" ]] && bsp="$d/$map.bsp"
+done
+[[ -f "$nav" ]] || { echo "ai-jump-practice: no $nav: build it with tools/ai-nav-build $map --mod tf2" >&2; exit 1; }
+[[ -n "$bsp" ]] || { echo "ai-jump-practice: no $map.bsp for tf2" >&2; exit 1; }
+[[ "$db" == default ]] || db="$(cd "$(dirname "$db")" && pwd)/$(basename "$db")"
+cfg=Debug; [[ "$config" == release ]] && cfg=Release
+"$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" practice "$nav" "$bsp" "$root/src/tf2/tests/TestData/playerclasses/soldier.txt" \
+  "$db" "$root/bin/$config/ai-replay/$map-practice.json" "$config" \
+  "$(git -C "$root" rev-parse --short HEAD)$([[ -n "$(git -C "$root" status --porcelain -- src tools)" ]] && echo +dirty)" "$mode" "$below" "$skip" "$write" "$halflife"

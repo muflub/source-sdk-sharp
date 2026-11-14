@@ -119,6 +119,13 @@ public sealed class TFSceneImage
     }
 
     /// <summary>
+    /// Whether the image carries the scene at all. The gesture-only scenes
+    /// (the scout's drink taunt, <c>taunt04_v1</c>) name no sound, so the
+    /// sounds alone cannot tell a stored scene from an absent one.
+    /// </summary>
+    public bool HasScene(string sceneFile) => Locate(sceneFile) is not null;
+
+    /// <summary>
     /// The engine's <c>FindSceneInImage</c> binary search, whose lower bound
     /// starts at entry 1, not 0 — the engine's own loop, kept.
     /// </summary>

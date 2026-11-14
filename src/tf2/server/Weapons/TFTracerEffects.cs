@@ -29,7 +29,7 @@ namespace TF2.Server.Weapons;
 [Precache(PrecacheKind.ParticleSystem, RailRed)]
 [Precache(PrecacheKind.ParticleSystem, DistortionTrail)]
 public sealed class TFTracerEffects(IEnginePlayers players, IEngineEntities entities, IEnginePrecache precache,
-                                    ITempEnts temps, ITFWeaponOwners owners, AttributeHooks? attributes = null)
+                                    ITempEnts temps, ITFWeaponOwners owners, AttributeHooks attributes)
     : ITFTracerEffects
 {
     /// <summary>The blue team's rail (:10119).</summary>
@@ -44,7 +44,7 @@ public sealed class TFTracerEffects(IEnginePlayers players, IEngineEntities enti
     /// <summary><c>RIFLE_CLASSIC</c> (<c>tf_weapon_sniperrifle.h:28</c>).</summary>
     public const int RifleClassic = 3;
 
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly AttributeHooks _attributes = attributes;
 
     public void Tracer(in WeaponAttackContext attack, TFWeaponScript script)
     {

@@ -54,6 +54,7 @@ using ClientViewmodelActivity = client::SourceSharp.Shared.ViewmodelActivity;
 using ClientViewModelNet = client::SourceSharp.Shared.ViewModelNetState;
 using Views = client::TF2.Shared.Player.TFPlayerNetStateViews;
 using ClientConditions = client::TF2.Shared.Conditions.TFConditions;
+using ClientCondWords = client::TF2.Shared.Conditions.ITFCondWords;
 using ClientItem = client::TF2.Shared.Econ.IAttributeProvider;
 using ClientOwners = client::TF2.Shared.ITFWeaponOwners;
 using ClientPlayerNet = client::SourceSharp.Shared.PlayerNetState;
@@ -115,20 +116,118 @@ public sealed class TF2ClientPredictionTests
             List<client::TF2.Shared.ITFWeaponHook> hooks =
                 [new client::TF2.Shared.TFAttributeWeaponHook(new ClientHooks()), new client::TF2.Shared.TFCritBoostHook()];
             hooks.AddRange(extraHooks);
-            return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits(), owners);
+            return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits(), owners ?? NoOwners,
+                NoEffects(), new client::TF2.Client.Buildings.TFClientBuilderPlacement(), new NoCarrierData(),
+                Setup, ChargeRate, Spread, NoAutoReload(), Burstammo, SilentMedigun(),
+                new client::TF2.Client.Buildings.TFClientSapperState(Engine, new EmptyStandalones(),
+                                                                      new client::TF2.Client.Player.TFClientPlayerResources()),
+                new client::TF2.Client.Buildings.TFClientSentryWrangle(),
+                new client::TF2.Client.Player.TFClientRevengeCrits());
         }
+
+        // The arms these facts' guns never reach, as the client's own silent
+        // answers hold them: the effects the replay's EventsLive gate keeps
+        // off, the seams the server's side of the split owns, and a carrier
+        // table with nobody in it.
+        private static client::TF2.Shared.ITFWeaponEffects NoEffects() => new client::TF2.Shared.NoTFWeaponEffects();
+
+        private static client::TF2.Shared.ITFMedigunPrediction SilentMedigun() => new SilentMedigunPrediction();
+
+        private sealed class SilentMedigunPrediction : client::TF2.Shared.ITFMedigunPrediction
+        {
+            public void Frame(in client::SourceSharp.Shared.WeaponAttackContext attack,
+                              client::TF2.Shared.TFWeaponScript script, bool held) { }
+        }
+
+        private sealed class NoCarrierData : client::TF2.Shared.Player.ITFPlayerData
+        {
+            public client::TF2.Shared.Player.TFPlayerNetState? Predicted(int playerIndex) => null;
+
+            public client::TF2.Shared.Player.TFPlayerNetState? Networked(int playerIndex) => null;
+        }
+
+        /// <summary>No client entities: the owners' standalones walks find nobody.</summary>
+        private sealed class EmptyStandalones : client::SourceSharp.Client.IClientStandalones
+        {
+            public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live() => [];
+
+            public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+        }
+
+        /// <summary>The owners over nobody: the classless answers, as the real
+        /// client's side service stands when no carrier has arrived.</summary>
+        private static readonly client::TF2.Client.Player.TFClientWeaponOwners NoOwners = Nobody();
+
+        /// <summary>The nobody rig's own env: the parsed schema and catalog the
+        /// real composition hands the owners, an empty arsenal, a hud with no
+        /// local player.</summary>
+        private static client::TF2.Client.Player.TFClientWeaponOwners Nobody()
+        {
+            var log = new ClientLog();
+            ClientFiles files = new Served(WeaponFixtures.ShippedWithClasses());
+            var schema = new ClientItemSchema(files, log);
+            var catalog = new ClientCatalog(() => [], log);
+            var hud = new ClientEngine();
+            hud.Returns("Hud.LocalPlayerIndex", 0);
+            return new(new NoCarrierData(), new EmptyStandalones(),
+                       new client::TF2.Client.Player.TFClientPlayerResources(),
+                       schema, catalog, new NoLocalArsenal(), hud);
+        }
+
+        /// <summary>No hands: every active-weapon ask goes unanswered.</summary>
+        private sealed class NoLocalArsenal : client::SourceSharp.Client.ILocalArsenal
+        {
+            public bool TryGetActive(out string name, out int clip, out int reserve)
+            {
+                name = "";
+                clip = 0;
+                reserve = 0;
+                return false;
+            }
+        }
+
+        private static client::TF2.Shared.ITFAutoReload NoAutoReload() => new NobodyWantsAutoReload();
+
+        private sealed class NobodyWantsAutoReload : client::TF2.Shared.ITFAutoReload
+        {
+            public bool Wants(int ownerIndex) => false;
+        }
+
+        private sealed class NoRoundSetup : client::TF2.Shared.Rules.ITFRoundSetup
+        {
+            public bool InSetupWithRoundTimer => false;
+        }
+
+        private static readonly client::TF2.Shared.Rules.ITFRoundSetup Setup = new NoRoundSetup();
+
+        // The convars at their declared defaults, as the client's composition publishes them.
+        private static client::TF2.Shared.WeaponMedigunChargeRateConVar BoundCharge()
+        {
+            var convar = new client::TF2.Shared.WeaponMedigunChargeRateConVar();
+            convar.Bind(-1, "weapon_medigun_charge_rate", "40");
+            return convar;
+        }
+
+        private static client::TF2.Shared.TFUseFixedWeaponspreadsConVar BoundSpread()
+        {
+            var convar = new client::TF2.Shared.TFUseFixedWeaponspreadsConVar();
+            convar.Bind(-1, "tf_use_fixed_weaponspreads", "0");
+            return convar;
+        }
+
+        private static client::TF2.Shared.TFFlameThrowerBurstammoConVar BoundBurstammo()
+        {
+            var convar = new client::TF2.Shared.TFFlameThrowerBurstammoConVar();
+            convar.Bind(-1, "tf_flamethrower_burstammo", "20");
+            return convar;
+        }
+
+        private static readonly client::TF2.Shared.WeaponMedigunChargeRateConVar ChargeRate = BoundCharge();
+        private static readonly client::TF2.Shared.TFUseFixedWeaponspreadsConVar Spread = BoundSpread();
+        private static readonly client::TF2.Shared.TFFlameThrowerBurstammoConVar Burstammo = BoundBurstammo();
 
         public ClientBehaviours Behaviours(ClientParts parts)
             => new(() => [new ClientWeaponBehaviours(parts)], Log);
-
-        /// <summary>The shipped pack, served as the client's files.</summary>
-        private sealed class Served(TFClassTableTests.Files files) : ClientFiles
-        {
-            public int GameFileSize(string path) => files.GameFileSize(path);
-            public string? ReadGameFile(string path) => files.ReadGameFile(path);
-            public byte[]? ReadGameFileBytes(string path) => files.ReadGameFileBytes(path);
-            public byte[]? ReadFileOnPath(string path, string pathId) => files.ReadFileOnPath(path, pathId);
-        }
 
         private sealed class NoRandomCrits : ClientCrits
         {
@@ -537,12 +636,25 @@ public sealed class TF2ClientPredictionTests
             Carrier.State.OwnerIndex = Local;
             Carrier.OnSpawn();
             var convars = PredictionDeps.SpyConVars();
+            convars.RegisterTypes(
+            [
+                typeof(client::TF2.Shared.TFDemomanChargeDrainTimeConVar),
+                typeof(client::TF2.Shared.TFDemomanChargeRegenRateConVar),
+                typeof(client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar),
+            ]);
+            var files = new Served(WeaponFixtures.ShippedWithClasses());
             Prediction = new ClientPrediction(Log, Carriers, ClientNetCatalog.Of(typeof(ClientPlayerData).Assembly, Log),
                                               new NoStandalones(), PredictionDeps.Engine(),
                                               convars.Declared<client::TF2.Shared.TFSpyCloakConsumeRateConVar>(),
                                               convars.Declared<client::TF2.Shared.TFSpyCloakRegenRateConVar>(),
                                               convars.Declared<client::TF2.Shared.TFSpyInvisTimeConVar>(),
-                                              convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>());
+                                              convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+                                              convars.Declared<client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar>(),
+                                              new ClientItemSchema(files, Log),
+                                              new ClientCatalog(() => [], Log));
         }
 
         /// <summary>The server's word arriving: the decoded state changes and counts a decode.</summary>
@@ -556,9 +668,7 @@ public sealed class TF2ClientPredictionTests
 
         /// <summary>The rules reading (and writing) the predicted working copy.</summary>
         public ClientRules Rules()
-            => new ClientContainer()
-                .AddInstance(TFMovementFixtures.Client())
-                .AddInstance<ClientData>(Prediction)
+            => TFMovementFixtures.ClientServices(Prediction)
                 .Create<ClientRules>();
     }
 
@@ -582,7 +692,7 @@ public sealed class TF2ClientPredictionTests
         frame.Arrive(c => Views.SetConditions(c.State, ClientCondMask.Of(ClientCond.Aiming)));
         frame.Prediction.ResetBasis(LocalPlayer, 11);
 
-        var (saves, holds, tolerated, mispredicts, _, _, _) = frame.Prediction.Counts;
+        var (saves, holds, tolerated, mispredicts, _, _, _, _) = frame.Prediction.Counts;
         Assert.Equal((1, 1, 0, 0), (saves, holds, tolerated, mispredicts));
         Assert.Equal(110f, rules.MaxSpeedScale(Local, 230f, false, 0));   // no correction: the client had it
     }
@@ -605,8 +715,12 @@ public sealed class TF2ClientPredictionTests
         frame.Arrive(c => c.State.AirDash = 1);
         frame.Prediction.ResetBasis(LocalPlayer, 11);
 
-        var (saves, holds, tolerated, mispredicts, _, _, _) = frame.Prediction.Counts;
-        Assert.Equal((1, 1, 0, 0), (saves, holds, tolerated, mispredicts));
+        var (saves, holds, tolerated, mispredicts, _, _, _, _) = frame.Prediction.Counts;
+
+        // The scout's drink refill (:14101) integrates every replay pass, and this
+        // rig's arrival is one-shot, so the acknowledged compare counts the meter
+        // word once against the earlier scratch — the dash's own words still hold.
+        Assert.Equal((1, 0, 0, 1), (saves, holds, tolerated, mispredicts));
         Assert.Equal(1, frame.Working.AirDash);
     }
 
@@ -623,7 +737,7 @@ public sealed class TF2ClientPredictionTests
         frame.Arrive(c => c.State.Ammo[1] = 20);
         frame.Prediction.ResetBasis(LocalPlayer, 11);
 
-        var (saves, holds, tolerated, mispredicts, _, _, _) = frame.Prediction.Counts;
+        var (saves, holds, tolerated, mispredicts, _, _, _, _) = frame.Prediction.Counts;
         Assert.Equal((1, 1, 0, 0), (saves, holds, tolerated, mispredicts));
         Assert.Equal(20, frame.Working.Ammo[1]);
     }
@@ -640,7 +754,7 @@ public sealed class TF2ClientPredictionTests
         // The rules read and write one source on each side: ITFPlayerData.
         string rules = Read("src", "tf2", "shared", "Movement", "TFMovementRules.cs");
         Assert.Contains("if (_players.Predicted(playerIndex) is not { } state || state.Class() == TFClass.Undefined)", rules, StringComparison.Ordinal);
-        Assert.Contains("return TFMaxSpeed.Calculate(_classes, TFMoveInputs.Of(state), CloakedCap,", rules, StringComparison.Ordinal);
+        Assert.Contains("return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,", rules, StringComparison.Ordinal);
         Assert.Contains("if (_players.Predicted(request.PlayerIndex) is not { } state)", rules, StringComparison.Ordinal);
         Assert.Contains("state.AirDash++;", rules, StringComparison.Ordinal);
 
@@ -655,7 +769,8 @@ public sealed class TF2ClientPredictionTests
         Assert.Contains("StunFlags: state.StunIndex >= 0 && state.InCond(TFCond.Stunned)", maxSpeed, StringComparison.Ordinal);
         Assert.Contains("(TFStunFlags)state.StunFlags", maxSpeed, StringComparison.Ordinal);
         Assert.Contains("CarryingObject: state.CarryingObject,", maxSpeed, StringComparison.Ordinal);
-        Assert.Contains("HealTargetIndex: state.HealTargetIndex);", maxSpeed, StringComparison.Ordinal);
+        Assert.Contains("HealTargetIndex: state.HealTargetIndex,", maxSpeed, StringComparison.Ordinal);
+        Assert.Contains("MedicCharge: state.MedicCharge);", maxSpeed, StringComparison.Ordinal);
 
         // Both sides' bindings answer the same two questions about the carrier.
         string carrier = Read("src", "tf2", "shared", "Player", "TFPlayerData.cs");
@@ -679,9 +794,29 @@ public sealed class TF2ClientPredictionTests
     //-------------------------------------------------------------------------
 
     /// <summary>What the zoom facts ask of the holder: one player's conditions, grounded.</summary>
+    /// <summary>The shipped pack, served as the client's files.</summary>
+    private sealed class Served(TFClassTableTests.Files files) : ClientFiles
+    {
+        public int GameFileSize(string path) => files.GameFileSize(path);
+        public string? ReadGameFile(string path) => files.ReadGameFile(path);
+        public byte[]? ReadGameFileBytes(string path) => files.ReadGameFileBytes(path);
+        public byte[]? ReadFileOnPath(string path, string pathId) => files.ReadFileOnPath(path, pathId);
+    }
+
     private sealed class ZoomOwners : ClientOwners
     {
-        public readonly ClientConditions Conditions = new(authoritative: true);
+        /// <summary>The client side's condition words, kept here: the aliased shared types are
+        /// their own identity, so the server-side holder does not fit them.</summary>
+        private sealed class CondWords : ClientCondWords
+        {
+            private ClientCondMask bits;
+
+            public ClientCondMask Read() => bits;
+
+            public void Write(in ClientCondMask bits) => this.bits = bits;
+        }
+
+        public readonly ClientConditions Conditions = new(authoritative: true, new CondWords());
 
         public ClientClass ClassOf(int playerIndex) => ClientClass.Sniper;
         public ClientConditions? ConditionsOf(int playerIndex) => Conditions;

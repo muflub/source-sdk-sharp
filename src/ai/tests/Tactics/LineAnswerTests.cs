@@ -1,6 +1,6 @@
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Ai.Tests.Senses;
 using Xunit;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Tactics;
 

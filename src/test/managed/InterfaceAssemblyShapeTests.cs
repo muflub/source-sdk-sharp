@@ -29,6 +29,9 @@ public class InterfaceAssemblyShapeTests
         "Debug.Api.Client.Interfaces",
         "SourceSharp.Client.Interface",
         "SourceSharp.Server.Interface",
+        // TF2Descent's screens' contract (plan_descent_logic UI1): the IDescent*
+        // sources, moved out of the screen assembly, hold data and nothing else.
+        "TF2.Descent.Client.Interface",
     };
 
     [Theory]

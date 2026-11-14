@@ -29,6 +29,9 @@ internal sealed class FakeOwners : ITFWeaponOwners
     /// <summary>Whether the one player is off the ground, for the jump-unzoom facts.</summary>
     public bool Airborne { get; set; }
 
+    /// <summary>The one player's banked decapitations, for the Bazaar's charge-rate facts.</summary>
+    public int Decapitations { get; set; }
+
     public TFClass ClassOf(int playerIndex) => Classes.TryGetValue(playerIndex, out var c) ? c : TFClass.Undefined;
 
     public TFConditions? ConditionsOf(int playerIndex) => Conditions.TryGetValue(playerIndex, out var c) ? c : null;
@@ -53,6 +56,8 @@ internal sealed class FakeOwners : ITFWeaponOwners
 
     public float NoAttackExpire(int playerIndex) => Expire;
 
+    public int DecapitationsOf(int playerIndex) => Decapitations;
+
     /// <summary>
     /// The round's ranged and random-crit damage the crit roll measures the
     /// observed rate from, as the server's stats would answer; null (the
@@ -65,11 +70,17 @@ internal sealed class FakeOwners : ITFWeaponOwners
     /// <summary>Whether the one player is crouched, for the rocket-muzzle facts.</summary>
     public bool Ducking { get; set; }
 
+    /// <summary>Whether the one player wears the demoman's shield, the speed walk's toll gate.</summary>
+    public bool Shield { get; set; }
+
+    public bool ShieldEquipped(int playerIndex) => Shield;
+
     /// <summary>The player's conditions, made authoritative on first ask.</summary>
     public TFConditions Of(int playerIndex)
     {
         if (!Conditions.TryGetValue(playerIndex, out var c))
-            Conditions[playerIndex] = c = new TFConditions(authoritative: true);
+            Conditions[playerIndex] = c = new TFConditions(authoritative: true,
+                                         new TFCondHolder());
         return c;
     }
 }

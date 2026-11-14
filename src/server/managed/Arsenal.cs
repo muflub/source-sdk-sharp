@@ -56,6 +56,26 @@ public enum SwitchOutcome
     /// which the physcannon answers no to while it holds something, the RPG while its missile flies.
     /// </summary>
     CannotHolster,
+
+    /// <summary>
+    /// The switch waits on the outgoing weapon's holster animation — stock's
+    /// <c>Weapon_Switch</c> gate on <c>holster_anim_time</c>
+    /// (<c>tf_player_shared.cpp:11798-11822</c>): the first ask starts the
+    /// anim, asks inside its window answer this, and the switch walks once the
+    /// window is past.
+    /// </summary>
+    Deferred,
+
+    /// <summary>
+    /// The incoming weapon's behaviour refused the deploy — stock's
+    /// <c>Weapon_CanSwitchTo</c>'s <c>CanDeploy</c> clause
+    /// (<c>basecombatcharacter_shared.cpp:88</c>), which every switch to a
+    /// weapon crosses (<c>Weapon_Switch</c>:51, <c>CTFPlayer::SelectItem</c>
+    /// tf_player_shared.cpp:11778): the melted Spy-cicle's
+    /// <c>CTFKnife::CanDeploy</c> (<c>tf_weapon_knife.cpp:521-531</c>) is the
+    /// shipped refuser.
+    /// </summary>
+    CannotDeploy,
 }
 
 /// <summary>
@@ -147,6 +167,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private readonly ViewmodelActivity _viewmodelActivity;
     private readonly ViewmodelModel _viewmodelModel;
     private readonly ViewmodelSkin _viewmodelSkin;
+    private readonly WorldModel _worldModel;
     private readonly WeaponBehaviours _behaviours;
 
     /// <summary>
@@ -184,8 +205,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    ViewmodelActivity? viewmodelActivity = null,
                    ViewmodelModel? viewmodelModel = null,
                    ViewmodelSkin? viewmodelSkin = null,
+                   WorldModel? worldModel = null,
                    IServerSkins? skins = null,
                    IHooks<IPlayerWeaponEventHook>? weaponEvents = null,
+                   SourceSharp.Shared.Anim.WeaponGestures? gestures = null,
                    IScreenEffects? screen = null)
     {
         _screen = screen;
@@ -223,7 +246,12 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // nothing, which is what a weapon with neither an item skin nor
         // HasTeamSkins_Viewmodel wears.
         _viewmodelSkin = viewmodelSkin ?? ViewmodelSkin.Stock();
+        // The carried weapon's model chain (IWorldModelRule); stock is the
+        // row's own.
+        _worldModel = worldModel ?? WorldModel.Stock();
         _skins = skins;
+        // The gesture chain: the modes' rules over the core's HL2MP default.
+        _gestures = gestures ?? SourceSharp.Shared.Anim.WeaponGestures.Stock();
     }
 
     /// <summary>
@@ -242,6 +270,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     public Action<EntityHandle, EntityHandle, Vector, float>? Launched { get; set; }
 
     private readonly IHooks<IPlayerWeaponEventHook>? _weaponEvents;
+
+    /// <summary>
+    /// Which player-animation event each weapon action shows: the modes'
+    /// rules, with the core's HL2MP tables behind them
+    /// (<see cref="SourceSharp.Shared.Anim.WeaponGestures"/>).
+    /// </summary>
+    private readonly SourceSharp.Shared.Anim.WeaponGestures _gestures;
 
     /// <summary>
     /// The side's temp entities, for the named client effects a weapon
@@ -296,6 +331,22 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // on stock's weapon entity and survive a switch.
         public int Special;
         public float SpecialTime;
+
+        // The item meter the weapon holstered with, and the server second that
+        // was (WeaponNetState.ItemMeter): the pair the next deploy's restore
+        // advances, the charge riding the inventory while the weapon waits, as
+        // stock's per-slot meter does (tf_player_shared.cpp:7870-7904). An
+        // unstamped time is the fresh give's: charging since the world's
+        // zero, as stock's first frame does.
+        public float Meter;
+        public float MeterTime;
+
+        // The refire clock the weapon holstered with (WeaponNetState
+        // .NextSecondaryAttack), banked as the clip is: the ground arm's gate
+        // reads the owned pack's while another weapon is out
+        // (tf_player_shared.cpp:3137-3140, whose m_flRefireTime rides the
+        // entity through the switch).
+        public float Refire;
     }
 
     internal sealed class Carry
@@ -317,6 +368,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // every slot after it shifts down, so a remembered index would quietly
         // start naming a different gun. -1 means nothing to go back to.
         public int LastTypeIndex = -1;
+
+        // Stock's m_flHolsterAnimTime, the holster anim's expiry
+        // (tf_player_shared.cpp:11813): past on the first ask to switch away
+        // from an item that carries holster_anim_time, until then every ask
+        // is Deferred. Zero or less is no anim (see Take).
+        public float HolsterUntil;
+
         public WeaponLogic Machine = null!;
         public ServerWeaponArms Arms = null!;
 
@@ -332,6 +390,32 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     }
 
     private readonly Dictionary<uint, Carry> _carries = new();
+
+    /// <summary>
+    /// The command's reserve window: while the machine's command is on the
+    /// floor (<see cref="OnPlayerCommand"/>'s run), a pool grant INSIDE it —
+    /// the damage arms' on-hit refund, <c>TFDamageLayer</c>'s
+    /// <c>GiveAmmo</c> — must not mirror into the reserve the coming settle
+    /// measures. The mirror writes the pool's word over the machine's, and
+    /// the pool does not hold the command's spend until the settle: the
+    /// shot's cost vanishes from the settle's delta, the reserve the client
+    /// decodes keeps a pool that never paid it — the Widowmaker's HUD a shot
+    /// high — and the grant lands twice. The window counts the mirrors it
+    /// stood down; the command's tail pays them back, once, from the pool
+    /// the settle made true.
+    /// </summary>
+    private bool _commandLive;
+
+    /// <summary>The mirrors the live command stood down; the tail's debt.</summary>
+    private int _commandMirrors;
+
+    /// <summary>
+    /// The live command's grants, saved for its tail: stock keeps an on-hit
+    /// refund in <c>m_iAmmoToAdd</c> (tf_weaponbase.cpp:5064-5078) and gives it
+    /// after the shot's ammo comes off (tf_weaponbase_gun.cpp:387-394), so a
+    /// full pool pays the shot before the refund meets the cap.
+    /// </summary>
+    private readonly List<(EntityHandle Player, int Count, string Ammo)> _commandGrants = new();
 
     /// <summary>
     /// Whether a handle is a hierarchy player — the only kind this serves.
@@ -417,7 +501,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             // Already owned: the duplicate is worth what a fresh one carries
             // (Weapon_EquipAmmoOnly), its default clip, in ammunition.
-            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, DefaultClipOf(in type, player), type.AmmoName) > 0;
+            bool tookPrimary = type.AmmoName.Length > 0
+                            && GiveAmmo(player, DefaultClipOf(in type, player), PrimaryPool(carry, in type)) > 0;
 
             // And its secondary charge, where the row brings one: the SLAM's
             // three, Weapon_EquipAmmoOnly's GetSecondaryAmmoCount.
@@ -441,10 +526,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         if (type.AmmoName.Length > 0)
         {
+            string pool = PrimaryPool(carry, in type);
             if (clipSize <= 0)
-                GiveAmmo(player, defaultClip, type.AmmoName);
+                GiveAmmo(player, defaultClip, pool);
             else if (defaultClip > clipSize)
-                GiveAmmo(player, defaultClip - clipSize, type.AmmoName);
+                GiveAmmo(player, defaultClip - clipSize, pool);
         }
 
         // A secondary pool with no clip in front of it is filled with the
@@ -478,6 +564,12 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             && carry.Ammo.TryGetValue(ammoName, out count);
     }
 
+    /// <inheritdoc cref="IWeaponGiver.CarriedRowAt"/>
+    public int CarriedRowAt(EntityHandle player, int slot) =>
+        _carries.TryGetValue(player.Value, out var carry) && slot >= 0 && slot < carry.Weapons.Count
+            ? carry.Weapons[slot].TypeIndex
+            : -1;
+
     /// <inheritdoc cref="IWeaponGiver.CarriedClipOf"/>
     public int CarriedClipOf(EntityHandle player, int typeIndex)
     {
@@ -507,10 +599,109 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         return -1;
     }
 
+    /// <inheritdoc cref="IWeaponGiver.CarriedMeterOf"/>
+    public bool CarriedMeterOf(EntityHandle player, int typeIndex, out float meter, out float stamp)
+    {
+        meter = 0f;
+        stamp = 0f;
+
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return false;
+
+        foreach (var owned in carry.Weapons)
+        {
+            if (owned.TypeIndex != typeIndex)
+                continue;
+
+            // The live pair is the hands' word while the weapon is held, the
+            // stored one the holster's, as the carried clip's is.
+            if (carry.ActiveSlot >= 0 && carry.ActiveSlot < carry.Weapons.Count
+                && carry.Weapons[carry.ActiveSlot].TypeIndex == typeIndex
+                && _directory.Get(carry.Weapon) is SsWeapon live)
+            {
+                meter = live.State.ItemMeter;
+                stamp = live.State.ItemMeterTime;
+                return true;
+            }
+
+            meter = owned.Meter;
+            stamp = owned.MeterTime;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc cref="IWeaponGiver.CarriedRefireOf"/>
+    public bool CarriedRefireOf(EntityHandle player, int typeIndex, out float stamp)
+    {
+        stamp = 0f;
+
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return false;
+
+        foreach (var owned in carry.Weapons)
+        {
+            if (owned.TypeIndex != typeIndex)
+                continue;
+
+            // The held weapon's clock is the live blob's, the holstered one
+            // the last holster's bank, as the carried meter's pair is.
+            if (carry.ActiveSlot >= 0 && carry.ActiveSlot < carry.Weapons.Count
+                && carry.Weapons[carry.ActiveSlot].TypeIndex == typeIndex
+                && _directory.Get(carry.Weapon) is SsWeapon live)
+            {
+                stamp = live.State.NextSecondaryAttack;
+                return true;
+            }
+
+            stamp = owned.Refire;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc cref="IWeaponGiver.AdvanceCarriedMeter"/>
+    public void AdvanceCarriedMeter(EntityHandle player, string className, float seconds)
+    {
+        if (seconds <= 0f || !_carries.TryGetValue(player.Value, out var carry))
+            return;
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            var owned = carry.Weapons[slot];
+            if (_weapons.ByIndex(owned.TypeIndex) is not WeaponType type
+                || !string.Equals(type.Name, className, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // The row's own charge seconds gate the walk, as the metre-less
+            // row has no charge to bring closer (the machine's own ask, the
+            // behaviour's <see cref="IWeaponBehaviour.ItemMeterSeconds"/>).
+            float chargeSeconds = _behaviours.For(type.Behaviour)?.ItemMeterSeconds(in type, _entities.GetIndex(carry.Player)) ?? 0f;
+            if (chargeSeconds <= 0f)
+                return;
+
+            if (slot == carry.ActiveSlot && _directory.Get(carry.Weapon) is SsWeapon live)
+            {
+                live.State.ItemMeter = Math.Min(1f, live.State.ItemMeter + seconds / chargeSeconds);
+                owned.Meter = live.State.ItemMeter;
+                return;
+            }
+
+            // The holstered row's charge is anchored, not counted: the reads
+            // subtract the stamp from now, so the seconds come off the stamp.
+            owned.MeterTime -= seconds;
+            return;
+        }
+    }
+
     /// <summary>
     /// Adds to a pool, honouring the player's carry limit for it
     /// (<see cref="MaxCarryOf"/>). Answers how much was actually taken, zero
-    /// for a full pool — which is what leaves the box on the floor.
+    /// for a full pool — which is what leaves the box on the floor. Inside a
+    /// weapon command the grant is saved for the command's tail and the answer
+    /// is the count asked (see <c>_commandGrants</c>).
     /// </summary>
     public int GiveAmmo(EntityHandle player, int count, string ammoName)
     {
@@ -525,6 +716,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         {
             _log.Warning($"[SourceSharp/Arsenal] no ammo row for '{ammoName}'\n");
             return 0;
+        }
+
+        // Inside a command the grant waits for the spend (see _commandGrants);
+        // the tail gives it, and the answer here is what was asked.
+        if (_commandLive)
+        {
+            _commandGrants.Add((player, count, ammoName));
+            return count;
         }
 
         var carry = CarryFor(player);
@@ -791,8 +990,55 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (slot == carry.ActiveSlot)
             return SwitchOutcome.AlreadyHeld;
 
-        if (ActiveBehaviour(carry, out var context) is { } behaviour && !behaviour.CanHolster(in context))
-            return SwitchOutcome.CannotHolster;
+        float now = _clock.Now;
+
+        // Stock's order on Weapon_Switch (tf_player_shared.cpp:11798-11826):
+        // the holster-animation gate FIRST — the window an anim started on the
+        // first ask holds every later ask at Deferred, whatever the candidate
+        // would answer; once the window passes the press walks on — here on
+        // the next ask rather than on stock's anim-over re-call. Stock's other
+        // halves of the first gate (m_bSwitchedClass, m_bRespawning,
+        // m_bRegenerating) are the class-change and respawn flows, whose asks
+        // Refusal turns away.
+        bool pendingOver = false;               // the armed window's own expiry completes its switch
+        if (carry.HolsterUntil > 0f)
+        {
+            if (now < carry.HolsterUntil)
+                return SwitchOutcome.Deferred;
+            carry.HolsterUntil = 0f;            // the anim is over — the switch goes on below (:11823-11826)
+            pendingOver = true;
+        }
+
+        if (ActiveBehaviour(carry, out var context) is { } behaviour)
+        {
+            if (!behaviour.CanHolster(in context))
+                return SwitchOutcome.CannotHolster;
+
+            // The anim's length rides on the outgoing weapon's item
+            // (holster_anim_time, :11804-11816); zero switches at once. A
+            // pending window that just expired is not re-armed: stock's anim-
+            // over walk goes through with the switch it was waiting for.
+            if (!pendingOver)
+            {
+                var heldType = context.Type;               // a plain local: CS8156 otherwise
+                float holsterSeconds = behaviour.HolsterSeconds(in heldType, _entities.GetIndex(carry.Player));
+                if (holsterSeconds > 0f)
+                {
+                    carry.HolsterUntil = now + holsterSeconds;    // :11813's curtime + flHolsterAnimTime
+                    return SwitchOutcome.Deferred;
+                }
+            }
+        }
+
+        // Stock's Weapon_CanSwitchTo deploy clause, behind the holster window
+        // exactly as BaseClass::Weapon_Switch is (:11836 — its
+        // Weapon_CanSwitchTo ask, basecombatcharacter_shared.cpp:88, runs only
+        // once the window has armed or let the press through, never before):
+        // the candidate's behaviour refusing the deploy refuses the switch on
+        // the press the window walked on.
+        if (_weapons.ByIndex(carry.Weapons[slot].TypeIndex) is WeaponType incoming
+            && DeployRefused(carry, in incoming, now))
+            return SwitchOutcome.CannotDeploy;
 
         Deploy(carry, slot);
         return SwitchOutcome.Switched;
@@ -870,6 +1116,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         weapon.State.Special = owned.Special;
         weapon.State.SpecialTime = owned.SpecialTime;
 
+        // The meter the item holstered with, grown by the seconds the hands
+        // have been away from it: stock charges every carried meter each
+        // frame, whichever weapon is out (tf_player_shared.cpp:7870-7904),
+        // and the holstered half of that lands here, on the pair
+        // StoreActiveClip banked. No meter on the row, nothing written: the
+        // behaviour's own words stand, as the client's mirror leaves them.
+        RestoreItemMeter(carry, owned, in type, weapon.State, now);
+
         // CWeaponFrag::Deploy: no redraw owed, no pin out, and a throw whose
         // sequence the switch cut short never goes off.
         weapon.State.Redraw = false;
@@ -885,17 +1139,22 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // protected SetModel — the same door Pickups dresses through — so what
         // a switch dresses is observable: the live bug this guards against was
         // precisely a viewmodel still wearing the OLD weapon's v_ model.
-        _render.SetModel(carry.Weapon, type.WorldModel);
-
-        // Stock's GetViewModel + UpdateAttachmentModels in one: the chain names
-        // what the viewmodel wears (the class's hands, for a TF item that
-        // attaches); when it named something OTHER than the row's own model,
-        // that own model rides the hands as the attachment (stock's
-        // C_ViewmodelAttachmentModel), created then and hidden again when the
-        // hands go away. When the chain named nothing, the viewmodel IS the
-        // row's own model and there is nothing to attach.
+        // Stock's GetViewModel + GetWorldModel + UpdateAttachmentModels in one:
+        // the viewmodel chain names what the viewmodel wears (the class's
+        // hands, for a TF item that attaches); when it named something OTHER
+        // than the row's own model, the weapon's own model rides the hands as
+        // the attachment (stock's C_ViewmodelAttachmentModel renders the outer
+        // entity's model — the world chain's answer), created then and hidden
+        // again when the hands go away. When the viewmodel chain named
+        // nothing, the viewmodel IS the row's own model and there is nothing
+        // to attach. And the world chain names what the weapon entity wears
+        // (stock's GetWorldModel): the holder's item, the row's own only when
+        // it names nothing.
         string? chosen = _viewmodelModel.Model(_entities.GetIndex(carry.Player), type);
         _render.SetModel(carry.ViewModel, chosen ?? type.ViewModel);
+
+        string? world = _worldModel.Model(_entities.GetIndex(carry.Player), type);
+        _render.SetModel(carry.Weapon, world ?? type.WorldModel);
 
         // Stock's CTFViewModel::GetSkin: the item's skin for the owner's team,
         // else HasTeamSkins_Viewmodel's RED 0 / BLU 1 — the chain's answer,
@@ -906,7 +1165,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         int? skin = _viewmodelSkin.Skin(_entities.GetIndex(carry.Player), type);
         if (skin is int dressed)
             viewModel.State.Skin = dressed;
-        bool attachmentShown = DressAttachment(carry, chosen, type.ViewModel, skin);
+        bool attachmentShown = DressAttachment(carry, chosen, world ?? type.ViewModel, skin);
         DressAttachedModels(carry, in type, attachmentShown, skin);
 
         _render.SetVisible(carry.Weapon, true);
@@ -966,7 +1225,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             behaviour.Holster(in context);
     }
 
-    /// <summary>Writes the active weapon's live clip back into its inventory slot.</summary>
+    /// <summary>Writes the active weapon's live clip, mode word and item meter back into its inventory slot.</summary>
     private void StoreActiveClip(Carry carry, SsWeapon weapon)
     {
         if (carry.ActiveSlot < 0 || carry.ActiveSlot >= carry.Weapons.Count)
@@ -979,6 +1238,84 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         owned.Special = weapon.State.Special;
         owned.SpecialTime = weapon.State.SpecialTime;
+        owned.Meter = weapon.State.ItemMeter;
+        owned.MeterTime = weapon.State.ItemMeterTime;
+        owned.Refire = weapon.State.NextSecondaryAttack;
+    }
+
+    /// <summary>
+    /// The deploy's half of the holstered charge: the banked pair advanced by
+    /// the behaviour's seconds to the now, exactly as the client's mirror
+    /// advances it (ClientArsenal, the same question
+    /// <see cref="IWeaponBehaviour.ItemMeterSeconds"/> answers), so the
+    /// replayed switch writes the bytes this wrote.
+    /// </summary>
+    private void RestoreItemMeter(Carry carry, Owned owned, in WeaponType type, WeaponNetState state, float now)
+    {
+        float seconds = _behaviours.For(type.Behaviour)?.ItemMeterSeconds(in type, _entities.GetIndex(carry.Player)) ?? 0f;
+
+        if (seconds <= 0f)
+            return;
+
+        state.ItemMeter = Math.Min(1f, owned.Meter + Math.Max(0f, now - owned.MeterTime) / seconds);
+        state.ItemMeterTime = now;
+    }
+
+    /// <summary>
+    /// The held-aside meters, once per command: each holstered row's charge is
+    /// where its banked pair plus the seconds since says it is, and a charge
+    /// that reached full with room on its count refills one, stock's regen
+    /// finish (<c>EffectBarRegenFinished</c>, tf_weaponbase.cpp:6567-6584) —
+    /// the charge restarting from now while the count still has room
+    /// (:6577-6584), standing at full where it has none, the finished bar
+    /// the count's own word there (<c>CheckEffectBarRegen</c>'s out,
+    /// :6549-6555). One per charge, whatever the room: stock's grant is a
+    /// single <c>GiveAmmo(1, ·)</c> (:6573). The active row is the machine's,
+    /// charging in its own tail; a row without a meter or an ammo to grant
+    /// charges nowhere and nothing.
+    /// </summary>
+    private void SettleItemMeters(Carry carry, float now)
+    {
+        int index = _entities.GetIndex(carry.Player);
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            if (slot == carry.ActiveSlot)
+                continue;
+
+            if (_weapons.ByIndex(carry.Weapons[slot].TypeIndex) is not WeaponType type
+                || _behaviours.For(type.Behaviour) is not { } behaviour
+                || type.AmmoName.Length == 0)
+                continue;
+
+            float seconds = behaviour.ItemMeterSeconds(in type, index);
+
+            if (seconds <= 0f
+                || Math.Min(1f, carry.Weapons[slot].Meter + Math.Max(0f, now - carry.Weapons[slot].MeterTime) / seconds) < 1f)
+                continue;
+
+            if (_ammo.For(type.AmmoName) is not AmmoType ammo)
+                continue;
+
+            carry.Ammo.TryGetValue(ammo.Name, out int have);
+            int room = Math.Max(0, MaxCarryOf(carry.Player, in ammo) - have);
+
+            if (room <= 0)
+                continue;
+
+            carry.Ammo[ammo.Name] = have + 1;
+
+            // Room still after the one: the charge restarts from now, as
+            // stock's does (:6584). Full now: the banked pair stands, its
+            // finished bar the one every read caps to.
+            if (room > 1)
+            {
+                carry.Weapons[slot].Meter = 0f;
+                carry.Weapons[slot].MeterTime = now;
+            }
+
+            RefreshReserves(carry);
+        }
     }
 
     /// <summary>
@@ -1159,13 +1496,22 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// </summary>
     private void RefreshReserves(Carry carry)
     {
+        // A command's floor: its settle has not carried the spend yet, so a
+        // mirror here would write a pool without it over the machine's word.
+        // Count the debt; the command's tail pays it.
+        if (_commandLive)
+        {
+            _commandMirrors++;
+            return;
+        }
+
         if (_directory.Get(carry.Weapon) is not SsWeapon weapon)
             return;
 
         if (_weapons.ByIndex(weapon.State.WeaponTypeId) is not WeaponType type)
             return;
 
-        weapon.State.Reserve = PoolOf(carry, type.AmmoName);
+        weapon.State.Reserve = PoolOf(carry, PrimaryPool(carry, in type));
         weapon.State.SecondaryReserve = PoolOf(carry, type.SecondaryAmmoName);
     }
 
@@ -1176,6 +1522,22 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         carry.Ammo.TryGetValue(ammoName, out int have);
         return have;
+    }
+
+    /// <summary>
+    /// The pool the row's primary draws on for this carrier: the behaviour's
+    /// answer where it has one (<see cref="IWeaponBehaviour.PrimaryAmmoPool"/>),
+    /// else the row's own. The ask is the whole of stock's spawn-time
+    /// <c>m_iPrimaryAmmoType</c> override — every pool read, spend and settle
+    /// below takes the name from here, so one answer moves the gun's food.
+    /// </summary>
+    private string PrimaryPool(Carry carry, in WeaponType type)
+    {
+        if (type.AmmoName.Length == 0)
+            return "";
+
+        return _behaviours.For(type.Behaviour)?.PrimaryAmmoPool(in type, _entities.GetIndex(carry.Player))
+            ?? type.AmmoName;
     }
 
     //-------------------------------------------------------------------------
@@ -1189,6 +1551,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// snapshot and the pool is the authority.
     /// </summary>
     public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, bool firstTime)
+        => OnPlayerCommand(player, in cmd, firstTime, _clock.Now);
+
+    /// <summary>
+    /// The same run on the command's own clock: stock's
+    /// <c>CPlayerMove::RunCommand</c> sets the clock a queued command runs on
+    /// to that player's tracked tick base times the tick interval before it
+    /// runs (player_command.cpp:336), so with a burst held to one frame each
+    /// command carries the next tick — which is how the predicting client
+    /// derives the same command's clock from its tick base too. The command's
+    /// claimed tick count is not that clock: the client may send one ahead.
+    /// </summary>
+    public void OnPlayerCommand(EntityHandle player, in UserCmd cmd, bool firstTime, float commandTime)
     {
         if (!_carries.TryGetValue(player.Value, out var carry) || carry.ActiveSlot < 0)
             return;
@@ -1230,15 +1604,29 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // IsPredictingWeapons(): the shooter's client plays this command's
         // weapon sounds and impacts itself, so the server's copies skip it.
         int index = _entities.GetIndex(player);
-        using (_prediction is not null && _prediction.PredictsWeapons(index)
-                   ? _prediction.Suppress(index)
-                   : default)
+        // The command's window: the machine's run and the settle. A pool grant
+        // inside it (the damage arms' refund) stands the reserve mirror down
+        // until the settle has carried the spend; the tail pays the debt.
+        _commandLive = true;
+        _commandMirrors = 0;
+        _commandGrants.Clear();
+        try
         {
-            // The command's seed and the pair's indices, as the client's replay
-            // of this command derives them (WeaponCommand.For), for a behaviour's roll.
-            carry.Machine.RunCommand(weapon.State, viewModel.State,
-                                     cmd.Buttons, _clock.Now, effectsLive: firstTime,
-                                     WeaponCommand.For(in cmd, carry.Weapon, player));
+            using (_prediction is not null && _prediction.PredictsWeapons(index)
+                       ? _prediction.Suppress(index)
+                       : default)
+            {
+                // The command's seed and the pair's indices, as the client's replay
+                // of this command derives them (WeaponCommand.For), for a behaviour's roll.
+                carry.Arms.ResetGestureAsks();
+                carry.Machine.RunCommand(weapon.State, viewModel.State,
+                                         cmd.Buttons, commandTime, effectsLive: firstTime,
+                                         WeaponCommand.For(in cmd, carry.Weapon, player));
+            }
+        }
+        finally
+        {
+            _commandLive = false;
         }
 
         if (firstTime && typeBefore == weapon.State.WeaponTypeId)
@@ -1250,6 +1638,23 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    before - weapon.State.Reserve);
         SettlePool(carry, weapon.State.WeaponTypeId, primary: false,
                    beforeSecondary - weapon.State.SecondaryReserve);
+
+        // The spend is in the pool and the command's grants with it: where the
+        // window stood mirrors down, the reserve mirrors the authority once,
+        // here — never where nothing stood, a command whose pool nobody
+        // touched (a rig's hand-seeded reserve stays the word it was given).
+        if (_commandMirrors > 0)
+            RefreshReserves(carry);
+
+        // The saved grants, now that the spend is in the pool.
+        foreach (var (who, count, ammoName) in _commandGrants)
+            GiveAmmo(who, count, ammoName);
+        _commandGrants.Clear();
+
+        // The held-aside meters charge on the command too, and a finished one
+        // grants, stock's walk over every slot each frame
+        // (tf_player_shared.cpp:7870-7904) with the regen's finish beside it.
+        SettleItemMeters(carry, commandTime);
 
         // The weapon asked to be put away for the next best (ReloadOrSwitchWeapons):
         // taken now the command is done with the state it ran on.
@@ -1280,15 +1685,43 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         bool shot = fired > 0 && !(reloadingBefore && w.InReload);
         bool reload = !reloadingBefore && w.InReload;
         string className = _weapons.ByIndex(type)?.Name ?? "";
-        // The attack gesture, once a command: a shot, a melee swing (hit or
-        // miss) or an alt-fire, each where its stock code calls
-        // SetAnimation( PLAYER_ATTACK1 ).
-        if ((shot && SourceSharp.Shared.Anim.PlayerAnimGestures.ShotShowsGesture(className))
-            || (swung && SourceSharp.Shared.Anim.PlayerAnimGestures.SwingShowsGesture(className))
-            || (secondary && SourceSharp.Shared.Anim.PlayerAnimGestures.SecondaryShowsGesture(className)))
-            Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.AttackPrimary, type);
-        if (reload && SourceSharp.Shared.Anim.PlayerAnimGestures.ReloadShowsGesture(className))
-            Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.Reload, type);
+        // The gestures, once a command each: the modes' rules name the event
+        // per action (the core's HL2MP tables behind them, where stock's code
+        // calls SetAnimation( PLAYER_ATTACK1 ) / ( PLAYER_RELOAD )). A shot
+        // outranks a swing and a swing an alt-fire, the order the asks happen
+        // in one command. A behaviour's own ask outranks the state deltas: it
+        // is the moment stock's code raised its event, where a delta infers
+        // one — the airblast pays the primary pool no secondary drop sees.
+        var asks = carry.Arms;
+        if (asks.GestureAsked(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp)
+            && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp, className) is { } windUpGesture)
+            Animate(player, windUpGesture, type);
+        else if (asks.GestureAsked(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary)
+                 && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary, className) is { } askSecondaryGesture)
+            Animate(player, askSecondaryGesture, type);
+        else if (shot && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Shot, className) is { } shotGesture)
+            Animate(player, shotGesture, type);
+        else if (swung && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Swing, className) is { } swingGesture)
+            Animate(player, swingGesture, type);
+        else if (secondary && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary, className) is { } secondaryGesture)
+            Animate(player, secondaryGesture, type);
+        else if (asks.GestureAsked(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown)
+                 && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown, className) is { } windDownGesture)
+            Animate(player, windDownGesture, type);
+        else if (asks.GestureAsked(SourceSharp.Shared.Anim.WeaponGestureTrigger.SustainedFire)
+                 && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.SustainedFire, className) is { } sustainedGesture)
+            Animate(player, sustainedGesture, type);
+
+        if (reload && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.ReloadStart, className) is { } reloadGesture)
+            Animate(player, reloadGesture, type);
+        // A shell-by-shell reload speaks per round and at its end, where stock's
+        // ReloadSingly does; a whole-clip reload said its piece at the start.
+        if (reloadingBefore && w.InReload && w.Clip > clipBefore
+            && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.ReloadShell, className) is { } shellGesture)
+            Animate(player, shellGesture, type);
+        if (reloadingBefore && !w.InReload
+            && _gestures.Gesture(SourceSharp.Shared.Anim.WeaponGestureTrigger.ReloadEnd, className) is { } endGesture)
+            Animate(player, endGesture, type);
 
         if (_weaponEvents is null || _weaponEvents.All.Count == 0)
             return;
@@ -1326,7 +1759,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private void Animate(EntityHandle player, SourceSharp.Shared.Anim.PlayerAnimEvent e, int weaponType)
     {
         ServerAnimEvent?.Invoke(player, e, weaponType);
-        Temps?.PlayerAnimEvent(TeFilters.Pvs(_players.GetShootOrigin(player)), 0f, TempEntWriter.PackEHandle(player), (int)e, weaponType);
+        // Stock's TE_PlayerAnimEvent takes the firing player out of the filter
+        // when they predict (tf_player.cpp:349): their client replays the
+        // event from its own shared code. This client predicts no body gesture
+        // — the event arrives only on the wire — so the owner must survive
+        // SuppressTE to see their own gesture, exactly once, like any other
+        // client's (EffectsServer.cpp keeps the host the same way).
+        TeFilter seen = TeFilters.Pvs(_players.GetShootOrigin(player)) with { IgnorePredictionCull = true };
+        Temps?.PlayerAnimEvent(seen, 0f, TempEntWriter.PackEHandle(player), (int)e, weaponType);
     }
 
     /// <summary>The server's copy of a player's animation state, told of an event; null tells nobody.</summary>
@@ -1393,7 +1833,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return -1;
 
         WeaponScript? currentScript = _scripts?.ReadScript(current.Name);
-        if (currentScript is not null && (currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0)
+        if (currentScript is not null && ((currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0 ||
+                                          !currentScript.AutoSwitchFrom))
             return -1;
 
         if (ActiveBehaviour(carry, out var context) is { } behaviour && !behaviour.CanHolster(in context))
@@ -1406,12 +1847,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (slot == carry.ActiveSlot || _weapons.ByIndex(carry.Weapons[slot].TypeIndex) is not WeaponType check)
                 continue;
 
-            int weight = _scripts?.ReadScript(check.Name)?.Weight ?? 0;
+            WeaponScript? checkScript = _scripts?.ReadScript(check.Name);
+            if (checkScript is not null && !checkScript.AutoSwitchTo)
+                continue;
+
+            int weight = checkScript?.Weight ?? 0;
             bool hasAmmo = HasAnyAmmo(carry, carry.Weapons[slot].Clip, in check);
 
             if (weight > -1 && weight == currentWeight)
             {
-                if (hasAmmo)
+                if (hasAmmo && SwitchTo(carry, in check))
                     return slot;
             }
             else if (weight > bestWeight && hasAmmo)
@@ -1424,6 +1869,37 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         return best;
     }
 
+    /// <summary>
+    /// CBaseCombatCharacter::Weapon_CanSwitchTo
+    /// (<c>shared/basecombatcharacter_shared.cpp:71</>) for a holstered
+    /// candidate, as the same-weight handover asks it
+    /// (<c>multiplay_gamerules.cpp:550</>) and the direct switch with it
+    /// (<see cref="Take"/>): the candidate's behaviour refusing
+    /// the deploy is the clause this port carries — the hands' holsterable
+    /// half is the entry gate, the ammo the pick's own, and the vehicle and
+    /// force-switch clauses no surface this side holds.
+    /// </summary>
+    private bool SwitchTo(Carry carry, in WeaponType candidate) => !DeployRefused(carry, in candidate, _clock.Now);
+
+    /// <summary>
+    /// The deploy clause of <c>Weapon_CanSwitchTo</c>
+    /// (<c>basecombatcharacter_shared.cpp:88</c>): the candidate's behaviour's
+    /// <c>CanDeploy</c>, asked with the stand-in whose words are the row, the
+    /// carrier and the switch's own clock — the melted knife's answer reads
+    /// the stamp against it (<c>tf_weapon_knife.cpp:523</c>). No behaviour, or
+    /// no row: stock's base true.
+    /// </summary>
+    private bool DeployRefused(Carry carry, in WeaponType candidate, float now)
+    {
+        if (_behaviours.For(candidate.Behaviour) is not { } behaviour)
+            return false;
+
+        var attack = new WeaponAttackContext(candidate, new WeaponNetState(), new ViewModelNetState(),
+                                             now, EffectsLive: false, carry.Arms,
+                                             new WeaponCommand(0, 0, _entities.GetIndex(carry.Player)));
+        return !behaviour.CanDeploy(in attack);
+    }
+
     /// <summary>CBaseCombatWeapon::HasAnyAmmo for a holstered weapon: its kept clip, or its pools.</summary>
     private bool HasAnyAmmo(Carry carry, int clip, in WeaponType type)
     {
@@ -1432,7 +1908,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return true;
 
         bool primary = usesPrimary &&
-                       ((ClipSizeOf(in type, carry.Player) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
+                       ((ClipSizeOf(in type, carry.Player) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(PrimaryPool(carry, in type)) > 0);
         return primary || (usesSecondary && carry.Ammo.GetValueOrDefault(type.SecondaryAmmoName) > 0);
     }
 
@@ -1441,7 +1917,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (spent == 0 || _weapons.ByIndex(typeIndex) is not WeaponType type)
             return;
 
-        string name = primary ? type.AmmoName : type.SecondaryAmmoName;
+        string name = primary ? PrimaryPool(carry, in type) : type.SecondaryAmmoName;
 
         if (name.Length == 0)
             return;
@@ -1488,24 +1964,22 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_directory.Get(carry.Player) is not SsPlayer player)
             return;
 
-        ulong carried = 0, empty = 0;
+        UInt128 carried = 0, empty = 0;
         for (int slot = 0; slot < carry.Weapons.Count; slot++)
         {
             int typeIndex = carry.Weapons[slot].TypeIndex;
             if (typeIndex < 0 || typeIndex >= PlayerNetState.WeaponMaskBits || _weapons.ByIndex(typeIndex) is not WeaponType type)
                 continue;
 
-            ulong bit = 1ul << typeIndex;
+            UInt128 bit = (UInt128)1 << typeIndex;
             carried |= bit;
             if (!CanBeSelected(carry, slot, in type))
                 empty |= bit;
         }
 
-        // The wire's words are 32-bit; the mask is the pair.
-        player.State.CarriedWeapons = (uint)carried;
-        player.State.CarriedWeaponsHigh = (uint)(carried >> 32);
-        player.State.EmptyWeapons = (uint)empty;
-        player.State.EmptyWeaponsHigh = (uint)(empty >> 32);
+        // The state owns the word split; the mask rides as one value.
+        player.State.CarriedMask = carried;
+        player.State.EmptyMask = empty;
 
         // m_iAmmo, by wire index.
         for (int i = 0; i < _ammo.Count && i + 1 < PlayerNetState.MaxAmmoSlots; i++)
@@ -1984,6 +2458,40 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
     }
 
+    /// <summary>
+    /// The item meter the named weapon's carrier holds, written wherever the
+    /// hands point and onto the owned row beside: the per-carrier bar on the
+    /// live blob (<see cref="WeaponNetState.ItemMeter"/>) for the reading,
+    /// the row's pair for the next deploy's restore, stamped now — as of
+    /// this moment the meter is this. The kit's give is the writer — stock's
+    /// spawn fills every pool to its maximum (tf_player.cpp:4246-4250), the
+    /// effect-bar count with them, and a count at the maximum is the regen's
+    /// finished state, the timer CheckEffectBarRegen holds at zero
+    /// (tf_weaponbase.cpp:6544-6562). Without it the first command past the
+    /// deploy reads an empty purse and the hands take the next best weapon.
+    /// </summary>
+    public void SetItemMeter(EntityHandle player, string className, float meter)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return;
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            var owned = carry.Weapons[slot];
+            if (_weapons.ByIndex(owned.TypeIndex) is not WeaponType type
+                || !string.Equals(type.Name, className, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            owned.Meter = Math.Clamp(meter, 0f, 1f);
+            owned.MeterTime = _clock.Now;
+
+            if (_directory.Get(carry.Weapon) is SsWeapon live)
+                live.State.ItemMeter = owned.Meter;
+
+            return;
+        }
+    }
+
     /// <summary>Test seam and readout: the carried ss_weapon and predicted_viewmodel, None each when there is none.</summary>
     public (EntityHandle Weapon, EntityHandle ViewModel) CarriedPair(EntityHandle player)
         => _carries.TryGetValue(player.Value, out var carry)
@@ -2153,6 +2661,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         public PlayerNetState? Carrier => (_arsenal._directory.Get(_carry.Player) as SsPlayer)?.State;
 
+        // The same pair the shot traces from: the shoot origin and the entity's
+        // own eye angles, the server's answer to the arms' aim ask
+        // (Angles.Forward over the reads, as ShootPellets builds its aim).
+        public bool Aim(out Vector eye, out Vector forward)
+        {
+            eye = _arsenal._players.GetShootOrigin(_carry.Player);
+            forward = Angles.Forward(_arsenal._entities.GetEyeAngles(_carry.Player));
+            return true;
+        }
+
         public void ChargedFlash() => _arsenal._screen?.Fade(_carry.Player, 255, 255, 255, 64, 0.1f, 0f, FadeFlags.In);
 
         // The state only mirrors the movement record, which the next command would write back.
@@ -2167,6 +2685,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         /// <summary>Melee swings run, hit or miss: the arsenal's tell that a command swung.</summary>
         internal int Swings { get; private set; }
+
+        // The behaviour-raised gesture asks of the command running: the
+        // wind-ups, settles, re-arms and blasts no state delta shows. Cleared
+        // before each run, read by the gesture chain after it.
+        private readonly HashSet<SourceSharp.Shared.Anim.WeaponGestureTrigger> _gestureAsks = [];
+
+        internal void GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger trigger) => _gestureAsks.Add(trigger);
+
+        internal bool GestureAsked(SourceSharp.Shared.Anim.WeaponGestureTrigger trigger) => _gestureAsks.Contains(trigger);
+
+        /// <summary>The command's asks start empty, whatever the last one raised.</summary>
+        internal void ResetGestureAsks() => _gestureAsks.Clear();
 
         // The pellets' stream, re-seeded per pellet (ShotSpread).
         private readonly SeededUniformStream _spread = new();
@@ -2187,6 +2717,23 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             if (_arsenal._weaponSounds is { } sounds)
                 sounds.Emit(_carry.Player, soundScript);
+            else
+                _arsenal._sound.EntityEmitSound(_carry.Player, soundScript);
+        }
+
+        /// <summary>
+        /// The same emit with the script's pitch scaled by the multiplier --
+        /// stock's bow pull carries its refire rate in the emit pitch
+        /// (tf_weapon_compound_bow.cpp:243-248). Without a predicted emitter
+        /// the plain arm stands, as the interface's default keeps it.
+        /// </summary>
+        public void Sound(string soundScript, float pitchMultiplier)
+        {
+            if (soundScript.Length == 0)
+                return;
+
+            if (_arsenal._weaponSounds is { } sounds)
+                sounds.Emit(_carry.Player, soundScript, pitchMultiplier);
             else
                 _arsenal._sound.EntityEmitSound(_carry.Player, soundScript);
         }
@@ -2240,8 +2787,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </para>
         ///
         /// <para>
-        /// AT <paramref name="shot"/>'S DAMAGE per bullet, its crit flag open
-        /// beside each damage call with the trace's hitgroup
+        /// AT <paramref name="shot"/>'S DAMAGE per bullet, banked per victim
+        /// over the fire and applied as ONE damage — the shot's multi-damage,
+        /// stock's <c>CDmgAccumulator</c> over <c>FX_FireBullets</c> and its
+        /// closing <c>ApplyMultiDamage</c> (<c>tf_fx_shared.cpp:388-396</c>) —
+        /// the crit flag and the last hitgroup open beside it
         /// (<see cref="DamageHitGroups"/>). The ammo row still names the damage
         /// type and the push; the blood is sized by the damage dealt. A shot
         /// that asks for the weapon script's damage (the machine's stock shot)
@@ -2267,7 +2817,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 return;
             }
 
-            Shoot(in type, pellets, spreadDegrees, shot.Damage, ammo.DamageType, shot.Critical, fixedPellets, in ammo);
+            Shoot(in type, pellets, spreadDegrees, shot.Damage, ammo.DamageType, shot.Critical, fixedPellets,
+                  in ammo, shot.PenetratePlayers);
         }
 
         /// <summary>
@@ -2294,7 +2845,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         private void Shoot(in WeaponType type, int pellets, float spreadDegrees, float damage, DamageType damageType,
-                           bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
+                           bool critical, PelletPattern? fixedPellets, in AmmoType ammo, bool penetrate = false)
         {
             // CHL2MP_Player::FireBullets (hl2mp_player.cpp:640-662): the other
             // players moved back to where this shooter saw them for every
@@ -2306,7 +2857,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             lag?.NoteWeaponFired(_carry.Player);
             try
             {
-                ShootPellets(in type, pellets, spreadDegrees, damage, damageType, critical, fixedPellets, in ammo);
+                ShootPellets(in type, pellets, spreadDegrees, damage, damageType, critical, fixedPellets,
+                             in ammo, penetrate);
             }
             finally
             {
@@ -2315,13 +2867,21 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         private void ShootPellets(in WeaponType type, int pellets, float spreadDegrees, float damage,
-                                  DamageType damageType, bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
+                                  DamageType damageType, bool critical, PelletPattern? fixedPellets, in AmmoType ammo,
+                                  bool penetrate = false)
         {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(WeaponKick.Aim(_arsenal._entities.GetEyeAngles(_carry.Player), Carrier));
 
             float spread = ShotSpread.SpreadOf(spreadDegrees);
             int seed = ShotSpread.FirstSeed(CommandRandomSeed);
+
+            // The shot's bank, per victim: stock's CDmgAccumulator over the fire
+            // (tf_fx_shared.cpp:294's GetDmgAccumulator, :389-391's Process) —
+            // every pellet's TraceAttack banks its share and the shot ends in
+            // ONE TakeDamage per victim, the damages and forces summed, the
+            // last position standing (:2536-2539).
+            var banked = new Dictionary<EntityHandle, BankedShot>();
 
             for (int i = 0; i < pellets; i++)
             {
@@ -2331,8 +2891,28 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 // otherwise.
                 Vector dir = ShotSpread.Direction(aim, spread, seed + i, _spread, fixedPellets, i).Normalized;
 
-                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo);
+                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo, penetrate, banked);
             }
+
+            // The shot's multi-damage, applied (:396's ApplyMultiDamage, one
+            // TakeDamage of the sum per victim): the crit flag and the hitgroup
+            // ride beside the call as each pellet's would have.
+            foreach ((EntityHandle victim, BankedShot shot) in banked)
+                using (_arsenal._prediction?.Lifted() ?? default)
+                using (_arsenal._hitGroups.Push(shot.HitGroup, critical))
+                    _arsenal._damage.ApplyAt(victim, _carry.Player, shot.Damage, shot.Type, shot.Force, shot.Position);
+        }
+
+        /// <summary>A banked victim's share of the shot: the accumulated
+        /// <c>CTakeDamageInfo</c> — the damages and forces summed, the type
+        /// ORed, the last hit's position and hitgroup standing.</summary>
+        private sealed class BankedShot
+        {
+            public float Damage;
+            public Vector Force;
+            public DamageType Type;
+            public Vector Position;
+            public HitGroup HitGroup;
         }
 
         /// <summary>
@@ -2341,7 +2921,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// a glass func_breakable (HandleShotImpactingGlass).
         /// </summary>
         private void Round(Vector from, Vector dir, float distance, float damage, DamageType damageType, bool critical,
-                           in AmmoType ammo)
+                           in AmmoType ammo, bool penetrate, Dictionary<EntityHandle, BankedShot> banked)
         {
             var trace = _arsenal._world.TraceLineSurface(from, from + dir * distance,
                                                          TraceMask.Shot, _carry.Player);
@@ -2365,6 +2945,60 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                                trace.SurfaceProps, ammo.DamageType,
                                                trace.Entity);
 
+            Strike(in trace, from, dir, damage, damageType, critical, in ammo, banked);
+
+            // FireBullets' glass rule: a round through the glass of a
+            // func_breakable carries on (the registry answers what was hit).
+            if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
+                && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
+                                             breakable.ClassName, breakable.SpawnFlags))
+                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo, banked);
+
+            // The piercing tail (stock's penetrated walk's per-victim trace,
+            // tf_player_shared.cpp:10373-10402): past the player the round
+            // struck, every further player along the same ray takes the shot
+            // where it stands, until something that is not a player — a wall,
+            // the ray's end — stops it. Stock asks each victim through a
+            // trace that sees only it and the world's brushes; the ignored
+            // entity and the half-unit step past the last hull are this
+            // port's shape of the same question.
+            while (penetrate && _arsenal.IsStandalonePlayer(trace.Entity))
+            {
+                Vector beyond = trace.End + dir * PiercingStep;
+                var next = _arsenal._world.TraceLineSurface(beyond, from + dir * distance,
+                                                            TraceMask.Shot, trace.Entity);
+
+                if (!next.Hit)
+                    break;
+
+                Strike(in next, beyond, dir, damage, damageType, critical, in ammo, banked);
+
+                if (!_arsenal.IsStandalonePlayer(next.Entity))
+                {
+                    // The wall the way ended on takes its mark, as the
+                    // unpenetrated round's would.
+                    if ((next.SurfaceFlags & SurfSky) == 0
+                        && (_arsenal._world.PointContents(next.End) & Liquid) == 0)
+                        _arsenal._effects.ImpactEffect(next.End - dir * ImpactBackoff, next.End,
+                                                       next.SurfaceProps, ammo.DamageType, next.Entity);
+                    break;
+                }
+
+                trace = next;
+            }
+        }
+
+        /// <summary>How far past a struck hull the piercing ray resumes, in units.</summary>
+        private const float PiercingStep = 0.5f;
+
+        /// <summary>
+        /// The struck victim's damage: the traced hit's rules — the entity's
+        /// own answer, else the damage call with the hitgroup riding beside it
+        /// — and the blood a player's wound sheds.
+        /// </summary>
+        private void Strike(in SurfaceTraceResult trace, Vector from, Vector dir, float damage, DamageType damageType,
+                            bool critical, in AmmoType ammo, Dictionary<EntityHandle, BankedShot> banked)
+        {
             // DispatchTraceAttack: an entity that answers the traced hit
             // itself (a pane of glass) takes it in place of the damage.
             if (_arsenal._directory.Get(trace.Entity) is ITraceAttacked attacked)
@@ -2373,28 +3007,24 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             }
             else if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
             {
-                // FireBullets' CalculateBulletDamageForce: the ammo's force
-                // along the shot, acting where it landed, so the victim's
-                // OnTakeDamage can push its physics object (A30). The
-                // trace's hitgroup rides beside the call (stock hands the
-                // trace itself to TraceAttack): see DamageHitGroups.
-                using (_arsenal._prediction?.Lifted() ?? default)
-                using (_arsenal._hitGroups.Push(trace.HitGroup, critical))
-                    _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
-                                             damage, damageType,
-                                             DamageForceRules.BulletForce(dir, ammo.DamageForce),
-                                             trace.End);
+                // The pellet's share banked onto its victim's multi-damage
+                // (CDmgAccumulator::AccumulateMultiDamage, and AddMultiDamage's
+                // own sums at takedamageinfo.cpp:242-248): the damages and
+                // forces add, the type ORs, the last hit's position stands.
+                // The whole shot is ONE TakeDamage per victim, applied when
+                // the fire ends (ShootPellets's flush) — stock's
+                // OnTakeDamage sees the blast, never a pellet.
+                if (!banked.TryGetValue(trace.Entity, out BankedShot? shot))
+                    banked[trace.Entity] = shot = new BankedShot();
+                shot.Damage += damage;
+                shot.Force += DamageForceRules.BulletForce(dir, ammo.DamageForce);
+                shot.Type |= damageType;
+                shot.Position = trace.End;
+                shot.HitGroup = trace.HitGroup;
 
                 if (_arsenal.IsStandalonePlayer(trace.Entity))
                     _arsenal._effects.BloodEffect(trace.End, dir, BloodColor.Red, damage);
             }
-
-            // FireBullets' glass rule: a round through the glass of a
-            // func_breakable carries on (the registry answers what was hit).
-            if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
-                && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
-                                             breakable.ClassName, breakable.SpawnFlags))
-                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo);
         }
 
         /// <summary>MAX_GLASS_PENETRATION_DEPTH: how far beyond the glass the way back in starts.</summary>
@@ -2408,7 +3038,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// solid (here, at no distance), or finds nothing, stops it.
         /// </summary>
         private void ThroughGlass(in SurfaceTraceResult trace, Vector dir, float distance, float damage,
-                                  DamageType damageType, bool critical, in AmmoType ammo)
+                                  DamageType damageType, bool critical, in AmmoType ammo,
+                                  Dictionary<EntityHandle, BankedShot> banked)
         {
             GlassImpact(trace.End, trace.Normal);
 
@@ -2421,7 +3052,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                            ammo.DamageType, back.Entity);
             GlassImpact(back.End, back.Normal);
 
-            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, critical, in ammo);
+            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, critical, in ammo, false, banked);
         }
 
         /// <summary>DispatchEffect( "GlassImpact" ): the shards, to the PAS of where they fly.</summary>
@@ -2636,6 +3267,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// <c>UTIL_ImpactTrace( DMG_CLUB )</c>, which every bludgeon's
         /// <c>ImpactEffect</c> ends in.
         /// </summary>
+        public void SwingShown() => Swings++;
+
         public void MeleeSwing(in WeaponType type) => MeleeSwing(in type, new ShotDamage(type.MeleeDamage));
 
         /// <summary>

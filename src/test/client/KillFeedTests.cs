@@ -204,4 +204,91 @@ public class KillFeedTests
         Assert.Single(listener.Heard);
         Assert.Equal(0, f.LineCount);
     }
+
+    /// <summary>A mod that knows what killed a player when no player did (a robot), and counts its asks.</summary>
+    private sealed class Namer(string name, int team, bool throws = false) : IKillFeedKillerNames
+    {
+        public int Asked { get; private set; }
+
+        public bool TryName(in PlayerDeathArgs death, out string killer, out int killerTeam)
+        {
+            Asked++;
+            if (throws)
+                throw new InvalidOperationException("a broken namer");
+            (killer, killerTeam) = (name, team);
+            return true;
+        }
+    }
+
+    private sealed class NameHooks(params IKillFeedKillerNames[] hooks) : IHooks<IKillFeedKillerNames>
+    {
+        public IReadOnlyList<IKillFeedKillerNames> All => hooks;
+
+        public void Each(string what, Action<IKillFeedKillerNames> call)
+        {
+            foreach (var h in hooks)
+                call(h);
+        }
+    }
+
+    private static (KillFeed Feed, RecordingLog Log) Named(params IKillFeedKillerNames[] namers)
+    {
+        var log = new RecordingLog();
+        return (new KillFeed(new Clock(), log, new Players(), null, null, new NameHooks(namers)), log);
+    }
+
+    [Fact]
+    public void A_death_by_no_player_is_a_kill_by_the_name_a_mod_gives()
+    {
+        var (f, _) = Named(new Namer("Soldier Robot", 3));
+        f.Add(new PlayerDeathArgs(3, 0, "tf_projectile_rocket", false));
+        var l = f.Line(0);
+        Assert.Equal(("Soldier Robot", 3, "Alyx", false), (l.Killer, l.KillerTeam, l.Victim, l.Suicide));
+    }
+
+    [Fact]
+    public void The_console_names_the_killer_a_mod_gives()
+    {
+        var (f, log) = Named(new Namer("Soldier Robot", 3));
+        f.Add(new PlayerDeathArgs(3, 0, "world", false));
+        Assert.Equal(["Soldier Robot killed Alyx with world.\n"], log.Lines.Select(l => l.Text));
+    }
+
+    [Fact]
+    public void A_self_kill_is_not_put_to_the_namers()
+    {
+        var namer = new Namer("Soldier Robot", 3);
+        var (f, log) = Named(namer);
+        f.Add(new PlayerDeathArgs(3, 3, "rocketlauncher", false));
+        Assert.Equal((0, true), (namer.Asked, f.Line(0).Suicide));
+        Assert.Equal(["Alyx suicided.\n"], log.Lines.Select(l => l.Text));
+    }
+
+    [Fact]
+    public void A_self_kill_of_a_player_the_feed_cannot_find_is_not_put_to_the_namers()
+    {
+        // User id 9 is gone from the player resource: no killer is found, but it is no killer of another.
+        var namer = new Namer("Soldier Robot", 3);
+        var (f, _) = Named(namer);
+        f.Add(new PlayerDeathArgs(9, 9, "rocketlauncher", false));
+        Assert.Equal((0, true), (namer.Asked, f.Line(0).Suicide));
+    }
+
+    [Fact]
+    public void A_kill_by_a_player_is_not_put_to_the_namers()
+    {
+        var namer = new Namer("Soldier Robot", 3);
+        var (f, _) = Named(namer);
+        f.Add(new PlayerDeathArgs(3, 2, "smg1", false));
+        Assert.Equal((0, "Gordon"), (namer.Asked, f.Line(0).Killer));
+    }
+
+    [Fact]
+    public void A_namer_that_throws_is_skipped_for_the_next()
+    {
+        var broken = new Namer("", 0, throws: true);
+        var (f, _) = Named(broken, new Namer("Heavy Robot", 3));
+        f.Add(new PlayerDeathArgs(3, 0, "world", false));
+        Assert.Equal((1, "Heavy Robot", false), (broken.Asked, f.Line(0).Killer, f.Line(0).Suicide));
+    }
 }

@@ -113,10 +113,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     void IFrameLifecycle.OnThink(float frameTime) => Think();
 
     private readonly RespawnDelayConVar _respawnDelay;
-    // Declared in ServerModule alongside the relationship rule, and reused here:
-    // "are they teammates" and "may teammates hurt each other" are two halves of
-    // one setting, so they must not drift apart into two ConVars.
-    private readonly FriendlyFireConVar _friendlyFire;
+    // Stock's mp_friendlyfire (gamevars_shared.cpp, default 0), the knob
+    // CTeamplayRules::FPlayerCanTakeDamage reads beside the relationship rule:
+    // "are they teammates" and "may teammates hurt each other" are two halves
+    // of one setting.
+    private readonly MpFriendlyFireConVar _friendlyFire;
     private readonly SpawnProtectConVar _spawnProtect;
     private readonly FragLimitConVar _fragLimit;
 
@@ -159,6 +160,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly IPlayerDirectory? _roster;
     private readonly IUserMessageSender? _messages;
     private readonly IEngineGameEvents? _events;
+    private readonly IHooks<IMatchResetHook>? _matchResets;
 
     /// <summary>
     /// The mode the proxy is answering for, or null — before any proxy,
@@ -181,8 +183,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                      IHooks<IPlayerSpawnHook>? spawnHooks = null,
                      IHooks<IKitGate>? kitGates = null,
                      IPlayerDirectory? roster = null, IUserMessageSender? messages = null,
-                     IEngineGameEvents? events = null)
+                     IEngineGameEvents? events = null, IHooks<IMatchResetHook>? matchResets = null)
     {
+        // Who forgets the match a restart ends (plan A.6: the departed
+        // players' scores). Null is a game with nobody listening.
+        _matchResets = matchResets;
         _spawnWeapon = spawnWeapon;
         // The mods' arms around the kit (tf2 stage 2.3). Null is the game
         // before them: the kit alone.
@@ -294,7 +299,8 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                 {
                     List<string> w = [.. provider.Weapons(player)];
                     List<(string, int)> a = [.. provider.Ammo(player)];
-                    if (w.Count > 0) bestWeapons = w;
+                    // An owner's empty answer is "no weapons" (IWeaponColumnOwner): the core's kit does not stand in.
+                    if (w.Count > 0 || provider is IWeaponColumnOwner owner && owner.OwnsWeapons(player)) bestWeapons = w;
                     if (a.Count > 0) bestAmmo = a;
                 }
                 catch (Exception e)
@@ -394,6 +400,27 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         => team >= FirstGameTeam && team == otherTeam;
 
     /// <summary>
+    /// What one credited kill is worth to the killer: stock's
+    /// <c>CTeamplayRules::IPointsForKill</c> (teamplay_gamerules.cpp:415-423),
+    /// -1 for killing a teammate and 1 otherwise. HL2MP's deathmatch has no
+    /// teammates (<c>PlayerRelationship</c> without teamplay), so only a mode
+    /// that plays with teams ever answers -1.
+    /// </summary>
+    public static int PointsForKill(bool teamplay, int attackerTeam, int victimTeam)
+        => teamplay && Teammates(attackerTeam, victimTeam) ? -1 : 1;
+
+    /// <summary><see cref="PointsForKill(bool, int, int)"/> for two userids, under the active mode.</summary>
+    private int PointsForKill(int attackerUserId, int victimUserId)
+    {
+        if (Mode is not { Teamplay: true })
+            return 1;
+
+        int attackerTeam = _players.GetTeam(_players.FindByUserId(attackerUserId));
+        int victimTeam = _players.GetTeam(_players.FindByUserId(victimUserId));
+        return PointsForKill(true, attackerTeam, victimTeam);
+    }
+
+    /// <summary>
     /// The mods' half of the damage question, reached ONLY where this class
     /// deferred (the two directions are argued on <see cref="IDamageRule"/>):
     /// first actual answer wins, a rule that throws is named and treated as a
@@ -430,13 +457,13 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// stage 2.7): the running damage through each in order, a throwing
     /// modifier named and skipped. No modifiers is the hit as dealt.
     /// </summary>
-    public float ModifyDamage(EntityHandle player, EntityHandle attacker, float damage, int damageType,
+    public float ModifyDamage(EntityHandle victim, EntityHandle attacker, float damage, int damageType,
                               HitGroup hitGroup = HitGroup.Generic)
     {
         if (_damageModifiers is not { } modifiers)
             return damage;
 
-        var hit = new DamageContext(player, attacker, damage, damageType, hitGroup,
+        var hit = new DamageContext(victim, attacker, damage, damageType, hitGroup,
                                     Critical: _hits?.Critical ?? false);
 
         float running = damage;
@@ -643,7 +670,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         _scoreboard.Add(death.UserId, 0, 1, death.IsCredited ? 0 : -1);
 
         if (death.IsCredited)
-            _scoreboard.Add(death.AttackerUserId, 1, 0, 1);
+            _scoreboard.Add(death.AttackerUserId, 1, 0, PointsForKill(death.AttackerUserId, death.UserId));
 
         // Resolved for the log, and because a rule wanting to act on either
         // player — as the round-end below does — has only a userid otherwise.
@@ -800,7 +827,31 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     /// delegation in <see cref="Think"/> is one-way, and a wrapper that came
     /// back through it would ask itself the question it was asked.
     /// </summary>
-    public void ThinkStock()
+    public void ThinkStock() => ThinkLimits(null);
+
+    /// <summary>
+    /// The core's frame pass for a mode that plays the deathmatch round with
+    /// a different frag-limit test: stock <c>CHL2MPRules::Think</c> under
+    /// teamplay (hl2mp_gamerules.cpp:323-331), where the limit is a TEAM's
+    /// score and no player's. The time limit and the <c>mp_restartgame</c>
+    /// walk are the core's own, as <see cref="Think"/> runs them for
+    /// deathmatch; <paramref name="leader"/> answers the score the frag limit
+    /// is held against, or null when nobody has one.
+    /// </summary>
+    public void ThinkRound(Func<FragLeader?> leader)
+    {
+        ThinkLimits(leader);
+
+        if (_roundOver)
+            return;
+
+        RestartThink();
+    }
+
+    /// <summary>Who leads, for the frag limit: a name for the log and their score.</summary>
+    public readonly record struct FragLeader(string Who, int Score);
+
+    private void ThinkLimits(Func<FragLeader?>? leader)
     {
 
         if (_roundOver)
@@ -825,10 +876,11 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 
         // Score rather than kills: it is the total the engine keeps on the
         // player and networks, so the round ends on the number the players are
-        // looking at rather than on a private one.
-        var (userId, score) = _scoreboard.Best();
+        // looking at rather than on a private one. A mode's leader (a team's
+        // score, under teamplay) replaces the player's.
+        FragLeader? best = leader is null ? BestPlayer() : leader();
 
-        if (userId == 0 || score < limit)
+        if (best is not { } top || top.Score < limit)
             return;
 
         // Latched before ending, not after: EndRound goes through the
@@ -836,10 +888,17 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         // ending the round twice would skip the map change.
         _roundOver = true;
 
-        _log.Msg($"[SourceSharp/Rules] frag limit reached: {Describe(userId)} " +
-                   $"on {score} of {limit} — ending round\n");
+        _log.Msg($"[SourceSharp/Rules] frag limit reached: {top.Who} " +
+                   $"on {top.Score} of {limit} — ending round\n");
 
         EndRound();
+    }
+
+    /// <summary>The scoreboard's best player, or null when nobody has scored.</summary>
+    private FragLeader? BestPlayer()
+    {
+        var (userId, score) = _scoreboard.Best();
+        return userId == 0 ? null : new FragLeader(Describe(userId), score);
     }
 
     //-------------------------------------------------------------------------
@@ -983,7 +1042,25 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         // which is the fresh round the respawn begins.
         ResetRound();
 
+        // And both teams' scores (stock's CTeam::ResetScores walk), which a
+        // mode that plays with teams keeps in its own IScoring: deathmatch's
+        // NullMode has none.
+        if (Mode?.Scoring is { } scoring)
+        {
+            try
+            {
+                scoring.ResetRound();
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] mode '{Mode.Id}' scoring reset threw: {e}\n");
+            }
+        }
+
         _restartGameTime = 0f;
+
+        // A restart is a new match: no departed player's score is brought into it.
+        _matchResets?.Raise("match restart");
 
         // Stock also clears m_flIntermissionEndTime here. There is nothing to
         // clear: this only runs from Think's walk, which returns before it
@@ -1040,13 +1117,13 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 }
 
 /// <summary>The convars the rules read, built by the container.</summary>
-public sealed class GameRulesConVars(RespawnDelayConVar respawnDelay, FriendlyFireConVar friendlyFire,
+public sealed class GameRulesConVars(RespawnDelayConVar respawnDelay, MpFriendlyFireConVar friendlyFire,
                                      SpawnProtectConVar spawnProtect, FragLimitConVar fragLimit,
                                      MpFragLimitConVar mpFragLimit, MpTimeLimitConVar mpTimeLimit,
                                      MpRestartGameConVar mpRestartGame)
 {
     public readonly RespawnDelayConVar RespawnDelay = respawnDelay;
-    public readonly FriendlyFireConVar FriendlyFire = friendlyFire;
+    public readonly MpFriendlyFireConVar FriendlyFire = friendlyFire;
     public readonly SpawnProtectConVar SpawnProtect = spawnProtect;
     public readonly FragLimitConVar FragLimit = fragLimit;
     public readonly MpFragLimitConVar MpFragLimit = mpFragLimit;

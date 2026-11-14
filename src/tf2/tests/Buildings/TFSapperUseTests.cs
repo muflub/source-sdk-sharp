@@ -3,10 +3,12 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server;
 using TF2.Server.Buildings;
 using TF2.Server.Combat;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 using TF2.Tests.Entities.Items;
 using TF2.Tests.Weapons;
 
@@ -33,9 +35,29 @@ public sealed class TFSapperUseTests
     /// <summary>The reach the wrench hook asks the seam with: <c>CTFWrench::Smack</c>'s 70 (tf_weapon_wrench.cpp:165).</summary>
     private const float Swing = TFWrenchHook.SmackRange;
 
-    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null, ITFBuilderArms? arms = null) =>
+    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null, ITFBuilderArms? arms = null,
+                                   TFConstructionBuildRateConVar? constructionRate = null,
+                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null) =>
         new(rig.Players, rig.Engine, rig.Engine, rig.Engine, rig.Buildings(), rig.Engine,
-            rig.Scopes, rig.Spawner, rig.Log, arms, lagCompensation: lag);
+            rig.Scopes, rig.Spawner, rig.Log,
+            constructionRate ?? rig.Convars.Declared<TFConstructionBuildRateConVar>(),
+            owners ?? rig.Owners, hooks ?? rig.Hooks, arms ?? new RecordingArms(), lag ?? new NoLag());
+
+    /// <summary>The whack's convar as the rig's registry declared it.</summary>
+    private static TFConstructionBuildRateConVar ConstructionRate(BuildingsRig rig) =>
+        rig.Convars.Declared<TFConstructionBuildRateConVar>();
+
+    /// <summary>An item carrying one float attribute, as the wrench's own would.</summary>
+    private static AttributeContainer Item(int defIndex, string hook, float value)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(defIndex, "attr " + defIndex, hook,
+                                                                AttributeDescriptionFormat.Percentage,
+                                                                AttributeEffectType.Positive, false, false,
+                                                                AttributeValueType.Default,
+                                                                MergedKeys.Block("x")), value));
+        return item;
+    }
 
     /// <summary>The arms the place hands the weapon back through, as a recording.</summary>
     private sealed class RecordingArms : ITFBuilderArms
@@ -47,6 +69,21 @@ public sealed class TFSapperUseTests
         public bool GiveWeapon(EntityHandle player, string className) { Asked.Add($"give {player} {className}"); return true; }
 
         public SwitchOutcome SwitchLast(EntityHandle player) { Asked.Add($"last {player}"); return default; }
+    }
+
+    /// <summary>A lag session that never records: the plain smacks, as the
+    /// composition's idle lag answers them.</summary>
+    private sealed class NoLag : ILagCompensation
+    {
+        public void Start(EntityHandle player) { }
+
+        public void Start(EntityHandle player, in UserCmd cmd) { }
+
+        public void Finish(EntityHandle player) { }
+
+        public bool IsCurrentlyDoingLagCompensation => false;
+
+        public void NoteWeaponFired(EntityHandle player) { }
     }
 
     /// <summary>
@@ -111,11 +148,50 @@ public sealed class TFSapperUseTests
 
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
 
-        TFSapper sapper = rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper).OfType<TFSapper>().Single();
+        TFSapper sapper = rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null).OfType<TFSapper>().Single();
         rig.Centers[sapper.Handle] = new Vector(40f, 0f, 64f);
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         rig.Centers[sentry.Handle] = new Vector(60f, 0f, 64f);   // the building sits on the swing line
         return (rig, sapper, sentry, engineer);
+    }
+
+    /// <summary>
+    /// A sentry still building, its centre on its engineer's swing line: the
+    /// build started at the clock's 100 and no tick has run yet.
+    /// </summary>
+    private static (BuildingsRig Rig, TFSentryGun Sentry, EntityHandle Engineer) ABuildingSentry()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
+        var sentry = rig.Spawn<TFSentryGun>(TFSentryGun.MapClass);
+        sentry.StartPlacement(engineer);
+        rig.Clock.Now = 100f;
+        sentry.StartBuilding();
+        rig.Centers[sentry.Handle] = new Vector(60f, 0f, 64f);
+        StubEngine(rig, engineer);
+        return (rig, sentry, engineer);
+    }
+
+    /// <summary>A built sentry wounded to half, its centre on its engineer's swing line.</summary>
+    private static (BuildingsRig Rig, TFSentryGun Sentry, EntityHandle Engineer) AWoundedSentry()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        BuildingsRig.Hit(sentry, enemy, 100f, DamageType.Bullet);   // 150 → 50
+        StubEngine(rig, engineer);
+        rig.Purse.Pockets[MetalName] = 200;
+        return (rig, sentry, engineer);
+    }
+
+    /// <summary>The engineer's hands on the swung wrench, carrying <paramref name="item"/>.</summary>
+    private static void Holds(BuildingsRig rig, EntityHandle engineer, AttributeContainer item)
+    {
+        rig.Owners.Held[engineer.EntryIndex] = TFWrenchHook.WrenchScript;
+        rig.Owners.ByName[engineer.EntryIndex] = new() { [TFWrenchHook.WrenchScript] = item };
     }
 
     /// <summary>One engineer's pair, built, both ends where the placement facts put them.</summary>
@@ -145,7 +221,7 @@ public sealed class TFSapperUseTests
 
     /// <summary>The sappers the placement left, by the building they ride.</summary>
     private static TFSapper SapperOn(BuildingsRig rig, TFBaseObject building) =>
-        rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper).OfType<TFSapper>()
+        rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null).OfType<TFSapper>()
            .Single(s => s.BuiltOn == building.Handle);
 
     //---------------------------------------------------------------------
@@ -158,7 +234,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         StubEngine(rig, builder, spy);
 
@@ -212,7 +288,7 @@ public sealed class TFSapperUseTests
         StubEngine(rig, builder, spy);
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -221,14 +297,14 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         StubEngine(rig, builder, spy);
 
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));   // one sapper a building
 
-        Assert.Single(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Single(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -241,7 +317,7 @@ public sealed class TFSapperUseTests
         StubEngine(rig, builder, spy);
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -257,7 +333,7 @@ public sealed class TFSapperUseTests
         StubEngine(rig, builder, behind, spy);
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -271,7 +347,7 @@ public sealed class TFSapperUseTests
         rig.BlockedEnds.Add(new Vector(100f, 0f, 32f));   // the eye's line stops short of the building
 
         Assert.False(Use(rig).PlaceSapper(spy.EntryIndex));
-        Assert.Empty(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Empty(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
     }
 
     [Fact]
@@ -281,14 +357,14 @@ public sealed class TFSapperUseTests
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
         EntityHandle farther = ABuilt(rig, TFTeam.Red, new Vector(150f, 0f, 32f));
-        var near = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun)
+        var near = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null)
                       .Single(b => RigVectors.Same(rig.Centers[b.Handle], new Vector(100f, 0f, 32f)));
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         StubEngine(rig, builder, farther, spy);
 
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
 
-        Assert.Single(rig.Buildings().OwnedBy(type: TFObjectType.AttachmentSapper));
+        Assert.Single(rig.Buildings().OwnedBy(null, TFObjectType.AttachmentSapper, null));
         Assert.Equal(near.Handle, SapperOn(rig, near).BuiltOn);
     }
 
@@ -365,12 +441,34 @@ public sealed class TFSapperUseTests
         Assert.Equal(TFSapper.SapperMaxHealth - TFSapperUse.WrenchDmgVsSapper, sapper.Health);
     }
 
+    /// <summary>
+    /// The second acceptance arm of <c>CObjectSapper::OnTakeDamage</c>
+    /// (tf_obj_sapper.cpp:562-610): past the wrench's fix, the sapper also
+    /// takes the blow of a held weapon bearing <c>set_dmg_apply_to_sapper</c>
+    /// — the Homewrecker's and the Maul's arm — and one without stays refused.
+    /// </summary>
+    [Fact]
+    public void A_sapper_takes_the_melee_blow_of_a_weapon_bearing_the_attribute()
+    {
+        var (rig, sapper, _, engineer) = ASappedBuilding();
+        rig.Owners.Held[0] = "tf_weapon_fireaxe";   // the Homewrecker's row
+        rig.Owners.Items[0] = rig.AttributeItem("set_dmg_apply_to_sapper",
+                                                AttributeDescriptionFormat.Additive, 1f);
+
+        Assert.Equal(35, BuildingsRig.Hit(sapper, engineer, 35f, DamageType.Club));
+        Assert.Equal(TFSapper.SapperMaxHealth - 35, sapper.Health);
+
+        // The plain arm stands beside it: no item, no blow lands.
+        var (plainRig, plainSapper, _, plainEngineer) = ASappedBuilding();
+        Assert.Equal(0, BuildingsRig.Hit(plainSapper, plainEngineer, 35f, DamageType.Club));
+    }
+
     [Fact]
     public void The_wrenchs_smack_hurts_the_sapper_on_a_friendly_building()
     {
         var (rig, sapper, _, engineer) = ASappedBuilding();
 
-        Assert.True(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
 
         var hit = Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));
         Assert.Equal(sapper.Handle, hit.ArgAs<EntityHandle>(0));
@@ -394,14 +492,14 @@ public sealed class TFSapperUseTests
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
         Assert.True(Use(rig).PlaceSapper(spy.EntryIndex));
 
-        TFDispenser dispenser = rig.Buildings().OwnedBy(type: TFObjectType.Dispenser).OfType<TFDispenser>().Single();
-        TFSentryGun sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        TFDispenser dispenser = rig.Buildings().OwnedBy(null, TFObjectType.Dispenser, null).OfType<TFDispenser>().Single();
+        TFSentryGun sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         TFSapper onDispenser = SapperOn(rig, dispenser);
         TFSapper onSentry = SapperOn(rig, sentry);
         rig.Centers[dispenser.Handle] = new Vector(40f, 0f, 64f);   // the nearer, on the swing line
         rig.Centers[sentry.Handle] = new Vector(60f, 0f, 64f);      // the farther, also on it
 
-        Assert.True(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
 
         // Stock's trace lands the blow on the nearest hit along the swing
         // (tf_weapon_wrench.cpp:170-186) — the dispenser's sapper at 40, not
@@ -416,7 +514,7 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle builder = ABuilt(rig, TFTeam.Blue, new Vector(100f, 0f, 32f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle spy = rig.AddBuilder(TFTeam.Red, TFClass.Spy);   // the red spy saps the blue sentry
         EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
         StubEngine(rig, builder, spy, engineer);
@@ -426,7 +524,7 @@ public sealed class TFSapperUseTests
 
         // The building is the engineer's enemy: OnFriendlyBuildingHit names
         // nothing.
-        Assert.False(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.None, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
         Assert.Empty(rig.Engine.AllOf("Damage.TakeDamage"));
     }
 
@@ -441,7 +539,7 @@ public sealed class TFSapperUseTests
 
         // The building is the engineer's enemy: OnFriendlyBuildingHit names
         // nothing, sapper or no.
-        Assert.False(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.None, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
         Assert.Empty(rig.Engine.AllOf("Damage.TakeDamage"));
     }
 
@@ -451,13 +549,13 @@ public sealed class TFSapperUseTests
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));   // on the swing line
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
         BuildingsRig.Hit(sentry, enemy, 30f, DamageType.Bullet);   // 150 → 120
         StubEngine(rig, engineer);
         rig.Purse.Pockets[MetalName] = 200;
 
-        Assert.True(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
 
         // OnWrenchHit's repair (tf_obj.cpp:2807-2822): 30 health for 10 metal.
         Assert.Equal(150, sentry.Health);
@@ -466,21 +564,144 @@ public sealed class TFSapperUseTests
     }
 
     [Fact]
+    public void The_whack_hurries_the_build_while_it_stands()
+    {
+        var (rig, sentry, engineer) = ABuildingSentry();
+
+        // OnConstructionHit (tf_obj.cpp:2154-2175) takes the whack;
+        // GetConstructionMultiplier's 1 + tf_construction_build_rate_multiplier
+        // (:2183, :2200) rides the next tick's slice.
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig, constructionRate: ConstructionRate(rig)).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.False(sentry.IsBuilt);
+
+        rig.Clock.Now = 100.5f;
+        sentry.OnThink();
+
+        // The half second under the whack builds at 2.5: (150 - 1) * 0.125
+        // pays 18 health where a plain half second pays 7.
+        Assert.Equal(19, sentry.Health);
+
+        rig.Clock.Now = 109.5f;
+        sentry.OnThink();
+
+        // The accrual keeps the boost's share after the window: 0.125 + 9/10
+        // finishes a tenth early, where the plain clock stands at 0.95.
+        Assert.True(sentry.IsBuilt);
+    }
+
+    [Fact]
+    public void The_whacks_boost_expires_with_its_second()
+    {
+        var (rig, sentry, engineer) = ABuildingSentry();
+
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig, constructionRate: ConstructionRate(rig)).WrenchSmack(engineer.EntryIndex, Swing));
+
+        rig.Clock.Now = 100.5f;
+        sentry.OnThink();
+        Assert.Equal(19, sentry.Health);
+
+        // The window's edge was curtime + 1 (tf_obj.cpp:2160): past 101 the
+        // entry is pruned on the walk (:2191) and the next second is plain —
+        // 0.125 + 1/10, not the lingering 2.5's 0.375.
+        rig.Clock.Now = 101.5f;
+        sentry.OnThink();
+        Assert.Equal(34, sentry.Health);
+    }
+
+    [Fact]
+    public void The_whacks_value_is_the_convar_times_the_wrenchs_attribute()
+    {
+        var (rig, sentry, engineer) = ABuildingSentry();
+        Holds(rig, engineer, Item(30061, "mult_construction_value", 2f));
+
+        // GetConstructionValue (tf_weapon_wrench.cpp:334-339): the convar's
+        // 1.5 times the swung wrench's mult_construction_value.
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig, constructionRate: ConstructionRate(rig), owners: rig.Owners, hooks: rig.Hooks)
+                      .WrenchSmack(engineer.EntryIndex, Swing));
+
+        rig.Clock.Now = 100.5f;
+        sentry.OnThink();
+
+        // 1 + 3 over the half second: (150 - 1) * 0.2 pays 29 health.
+        Assert.Equal(30, sentry.Health);
+    }
+
+    [Fact]
+    public void The_swung_wrenchs_repair_attribute_scales_the_repair()
+    {
+        var (rig, sentry, engineer) = AWoundedSentry();
+        Holds(rig, engineer, Item(30062, "mult_repair_value", 0.5f));
+
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig, owners: rig.Owners, hooks: rig.Hooks).WrenchSmack(engineer.EntryIndex, Swing));
+
+        // GetRepairAmount's arm (tf_weapon_wrench.cpp:344-349): 100 * 0.5,
+        // then the metal ratio's ceil — 17 metal carries the 51 it buys.
+        Assert.Equal(101, sentry.Health);
+        Assert.Equal(183, rig.Purse.Pockets[MetalName]);
+    }
+
+    [Fact]
     public void The_smack_pours_the_upgrade_metal_into_a_whole_one()
     {
         var rig = new BuildingsRig();
         rig.StubWorld();
         EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 0f, 64f));
-        var sentry = rig.Buildings().OwnedBy(type: TFObjectType.Sentrygun).OfType<TFSentryGun>().Single();
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
         StubEngine(rig, engineer);
         rig.Purse.Pockets[MetalName] = 200;
 
-        Assert.True(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
 
         // Whole and unsapped: the swing's metal goes onto the level's pot
         // (CheckUpgradeOnHit, tf_obj.cpp:2846-2914).
         Assert.Equal(25, sentry.UpgradeMetal);
         Assert.Equal(175, rig.Purse.Pockets[MetalName]);
+    }
+
+    /// <summary>
+    /// The engine's hull sweep, not the centre: the sentry stands beside the
+    /// swing's thin line — its centre past the hull's half-width, its solid
+    /// box inside it — and the hull stops on the building, so the whack
+    /// lands and the upgrade metal rises by the whack's value (stock's
+    /// UTIL_TraceHull, tf_weapon_wrench.cpp:174-177).
+    /// </summary>
+    [Fact]
+    public void The_whack_upgrades_the_sentry_the_swing_hull_stops_on()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(60f, 30f, 64f));   // beside the line, inside the hull
+        StubEngine(rig, engineer);
+        rig.Purse.Pockets[MetalName] = 200;
+
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
+
+        // CheckUpgradeOnHit (tf_obj.cpp:2846-2914): the whack's metal rides
+        // the building the hull stopped on.
+        Assert.Equal(25, sentry.UpgradeMetal);
+        Assert.Equal(175, rig.Purse.Pockets[MetalName]);
+    }
+
+    /// <summary>
+    /// Past the swing's reach the hull meets nothing: no building is named,
+    /// the whack lands nowhere and the metal stays in the purse.
+    /// </summary>
+    [Fact]
+    public void A_swing_past_the_sentry_hits_nothing()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle engineer = ABuilt(rig, TFTeam.Red, new Vector(140f, 0f, 64f));   // past the reach's end
+        StubEngine(rig, engineer);
+        rig.Purse.Pockets[MetalName] = 200;
+
+        Assert.Equal(WrenchSmackResult.None, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+
+        var sentry = rig.Buildings().OwnedBy(null, TFObjectType.Sentrygun, null).OfType<TFSentryGun>().Single();
+        Assert.Equal(0, sentry.UpgradeMetal);
+        Assert.Equal(200, rig.Purse.Pockets[MetalName]);
     }
 
     [Fact]
@@ -489,7 +710,7 @@ public sealed class TFSapperUseTests
         var (rig, sapper, sentry, engineer) = ASappedBuilding();
         rig.Centers[sentry.Handle] = new Vector(40f, 200f, 64f);   // beside the swing line, not on it
 
-        Assert.False(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.None, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
         Assert.Empty(rig.Engine.AllOf("Damage.TakeDamage"));
     }
 
@@ -502,7 +723,7 @@ public sealed class TFSapperUseTests
         rig.Centers[sentry.Handle] = new Vector(Swing + 2f, 0f, 64f);
         rig.BlockedEnds.Add(Eye + new Vector(Swing, 0f, 0f));
 
-        Assert.False(Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.None, Use(rig).WrenchSmack(engineer.EntryIndex, Swing));
         Assert.Empty(rig.Engine.AllOf("Damage.TakeDamage"));
     }
 
@@ -519,7 +740,7 @@ public sealed class TFSapperUseTests
         rig.Centers[entrance.Handle] = new Vector(40f, 0f, 64f);   // on the swing line
         rig.Centers[exit.Handle] = new Vector(500f, 300f, 64f);   // well beyond it
 
-        Assert.True(Use(rig).WrenchSmack(builder.EntryIndex, Swing));
+        Assert.Equal(WrenchSmackResult.Useful, Use(rig).WrenchSmack(builder.EntryIndex, Swing));
 
         var hits = rig.Engine.AllOf("Damage.TakeDamage").ToList();
         Assert.Equal(2, hits.Count);
@@ -578,7 +799,7 @@ public sealed class TFSapperUseTests
 
         var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = Attack };
         using (commands.Begin(engineer, in cmd))
-            Assert.True(Use(rig, lag).WrenchSmack(engineer.EntryIndex, Swing));
+            Assert.Equal(WrenchSmackResult.Useful, Use(rig, lag).WrenchSmack(engineer.EntryIndex, Swing));
 
         Assert.True(Assert.Single(inside));                 // the swing's trace runs inside the session
         Assert.Equal(At(105), Assert.Single(seen));         // the building pick sees the rewound world
@@ -617,7 +838,7 @@ public sealed class TFSapperUseTests
 
         var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = Attack };
         using (commands.Begin(engineer, in cmd))
-            Assert.True(Use(rig, null).WrenchSmack(engineer.EntryIndex, Swing));
+            Assert.Equal(WrenchSmackResult.Useful, Use(rig, null).WrenchSmack(engineer.EntryIndex, Swing));
 
         Assert.False(Assert.Single(inside));
         Assert.Equal(At(110), Assert.Single(seen));         // the trace saw the current spot
@@ -632,7 +853,13 @@ public sealed class TFSapperUseTests
     private sealed class RecordingSappers : ITFSapperState
     {
         public List<(int Owner, float Range)> Smacks { get; } = new();
+        public List<(int Owner, float Range, float Amount)> Melecs { get; } = new();
         public int Placements { get; private set; }
+
+        /// <summary>What the next wrench smack answers: true is the building's
+        /// own <c>WrenchHit</c> doing its work, false the swing landing on
+        /// nothing or on a building that needed nothing.</summary>
+        public WrenchSmackResult SmacksAnswer { get; set; } = WrenchSmackResult.Useful;
 
         public bool PlaceSapper(int ownerIndex)
         {
@@ -647,9 +874,25 @@ public sealed class TFSapperUseTests
             return false;
         }
 
-        public bool WrenchSmack(int ownerIndex, float range)
+        public WrenchSmackResult WrenchSmack(int ownerIndex, float range)
         {
             Smacks.Add((ownerIndex, range));
+            return SmacksAnswer;
+        }
+
+        /// <summary>The hand-out the server's seam shape: the last smack's
+        /// outcome named once — the sound is chosen from the answer the
+        /// swing's own ask gave, null when the swing met nothing.</summary>
+        public string? TakeWrenchSound(int ownerIndex) => SmacksAnswer switch
+        {
+            WrenchSmackResult.Useful => TFWrenchHook.SuccessSound,
+            WrenchSmackResult.Futile => TFWrenchHook.FailureSound,
+            _ => null,
+        };
+
+        public bool MeleeSmack(int ownerIndex, float range, float amount)
+        {
+            Melecs.Add((ownerIndex, range, amount));
             return true;
         }
     }
@@ -658,7 +901,7 @@ public sealed class TFSapperUseTests
     public void The_wrenchs_swing_asks_the_sapper_seam()
     {
         var sappers = new RecordingSappers();
-        var world = new TFWeaponWorld(new TFWrenchHook(sappers));
+        var world = new TFWeaponWorld(sappers, new TFWrenchHook(sappers));
         var (w, vm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
@@ -671,12 +914,119 @@ public sealed class TFSapperUseTests
     public void No_other_weapon_asks_the_sapper_seam()
     {
         var sappers = new RecordingSappers();
-        var world = new TFWeaponWorld(new TFWrenchHook(sappers));
+        var world = new TFWeaponWorld(sappers, new TFWrenchHook(sappers));
         var (w, vm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack, now: 10f, seed: 1);
 
         Assert.Empty(sappers.Smacks);
+    }
+
+    /// <summary>
+    /// Stock's <c>CTFWrench::Smack</c> (:180-193): when the swing lands on a
+    /// friendly building, <c>OnFriendlyBuildingHit</c> replaces the usual
+    /// smack — the building's hit plays the script's SPECIAL1 for a whack
+    /// that did its work, and the plain melee hit (its <c>HitWorld</c>
+    /// sound, its world decal) does not also run.
+    /// </summary>
+    [Fact]
+    public void The_building_hit_replaces_the_plain_smack()
+    {
+        var sappers = new RecordingSappers { SmacksAnswer = WrenchSmackResult.Useful };
+        var world = new TFWeaponWorld(sappers, new TFWrenchHook(sappers));
+        var (w, vm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        world.Run(w, vm, 0, now: 10.25f);   // the smack's own frame
+
+        Assert.Equal(new[] { "Weapon_Wrench.Miss", TFWrenchHook.SuccessSound }, world.Arms.Sounds);
+        Assert.Empty(world.Effects.Swings);   // the plain melee stays out of the building's way
+    }
+
+    /// <summary>
+    /// Stock's else (:194-198): a swing that met no friendly building smacks
+    /// as usual: the plain melee runs, and neither building sound plays.
+    /// </summary>
+    [Fact]
+    public void The_swing_that_meets_no_building_smacks_as_usual()
+    {
+        var sappers = new RecordingSappers { SmacksAnswer = WrenchSmackResult.None };
+        var world = new TFWeaponWorld(sappers, new TFWrenchHook(sappers));
+        var (w, vm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.Equal(new[] { "Weapon_Wrench.Miss" }, world.Arms.Sounds);
+        Assert.Single(world.Effects.Swings);   // BaseClass::Smack's own arm
+    }
+
+    /// <summary>
+    /// <c>OnFriendlyBuildingHit</c>'s failure arm (:130-139): a whack on a
+    /// friendly building that did no work plays SPECIAL2, and the plain melee
+    /// still stays out of the building's way.
+    /// </summary>
+    [Fact]
+    public void A_futile_whack_on_a_building_plays_the_failure_sound_alone()
+    {
+        var sappers = new RecordingSappers { SmacksAnswer = WrenchSmackResult.Futile };
+        var world = new TFWeaponWorld(sappers, new TFWrenchHook(sappers));
+        var (w, vm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.Equal(new[] { "Weapon_Wrench.Miss", TFWrenchHook.FailureSound }, world.Arms.Sounds);
+        Assert.Empty(world.Effects.Swings);
+    }
+
+    [Fact]
+    public void AMeleeWithDmgApplyToSapperHitsTheSapperOnAFriendlyBuilding()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("set_dmg_apply_to_sapper",
+                                                            AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        Assert.Empty(world.Sapper.Melecs);   // the ask rides the smack, like the swing's own hit
+
+        world.Run(w, vm, 0, now: 10.25f);
+
+        // The Homewrecker's and the Maul's swing (set_dmg_apply_to_sapper,
+        // tf_weaponbase_melee.cpp:469-494): the smack asks the seam for the
+        // sapper on the friendly building, at the swing's reach and blow.
+        Assert.Equal((TFWeaponWorld.Owner, TFWeaponTypes.SwingRange, 35f),
+                     Assert.Single(world.Sapper.Melecs));
+        Assert.Single(world.Effects.Swings);   // the swing's own hit stands beside it
+    }
+
+    [Fact]
+    public void AMeleeWithoutItHitsTheBuilding()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        world.Run(w, vm, 0, now: 10.25f);
+
+        // Without the attribute the swing runs its plain trace and nothing
+        // asks for the sapper.
+        Assert.Empty(world.Sapper.Melecs);
+        Assert.Single(world.Effects.Swings);
+    }
+
+    /// <summary>An item holding one named attribute, the melee tests' shape.</summary>
+    private static TF2.Shared.Econ.IAttributeProvider ItemWith(string hook, AttributeDescriptionFormat format,
+                                                               float value)
+    {
+        int defindex = 1;
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(defindex, "attr " + defindex, hook, format,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
     }
 
     [Fact]

@@ -111,7 +111,7 @@ public sealed class FuncNoBuild(ITFBuildings buildings, IEngineGameEvents events
         int denyTeam = Team;
 
         // destroy any objects touching when activated
-        foreach (TFBaseObject obj in buildings.OwnedBy().ToList())
+        foreach (TFBaseObject obj in buildings.OwnedBy(null, null, null).ToList())
         {
             if (denyTeam != 0 && denyTeam != obj.Team)
                 continue;

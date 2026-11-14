@@ -1,0 +1,54 @@
+{
+  "sizes": [
+    { "id": "runt", "scaleMin": 0.6, "scaleMax": 0.75 },
+    { "id": "ordinary", "scaleMin": 0.85, "scaleMax": 1.15 },
+    { "id": "giant", "scaleMin": 1.5, "scaleMax": 1.9 },
+    { "id": "boss", "scaleMin": 1.5, "scaleMax": 2.0 }
+  ],
+  "scaleCurve": {
+    "lifeExponent": 2,
+    "reachExponent": 1,
+    "speedExponent": -0.5,
+    "knockbackResistPerScale": 10,
+    "knockbackResistMax": 90,
+    "xpBudgetExponent": 1
+  },
+  "levelCurve": { "lifePerLevelPct": 12, "damagePerLevelPct": 6, "xpPerLevelPct": 10 },
+  "party": { "lifePerExtraMemberPct": 60, "packSizePerExtraMemberPct": 25, "maxMembers": 4 },
+  "resist": { "min": -50, "max": 75, "immune": 100 },
+  "flags": [
+    "always_crit", "hold_fire_until_full_reload", "always_fire_weapon", "auto_jump", "aggressive",
+    "spawn_with_full_charge", "parachute", "miniboss", "use_boss_health_bar"
+  ],
+  "temperament": {
+    "budgetPerScale": 40,
+    "budgetMax": 100,
+    "skillMax": 10,
+    "signatureCountMin": 2,
+    "signatureCountMax": 3,
+    "signatureLevelMin": 7,
+    "signatureLevelMax": 10,
+    "packRerolls": 16,
+    "skills": [
+      { "id": "aggression", "style": "Reckless" },
+      { "id": "accuracy", "style": "Deadeye" },
+      { "id": "cover", "style": "Skulking" },
+      { "id": "soloness", "style": "Lone" },
+      { "id": "alertness", "style": "Vigilant" },
+      { "id": "tenacity", "style": "Relentless" },
+      { "id": "discipline", "style": "Drilled" },
+      { "id": "agility", "style": "Twitchy" },
+      { "id": "cunning", "style": "Devious" },
+      { "id": "nerve", "style": "Fearless" }
+    ]
+  },
+  "push": {
+    "hullWidth": 48, "hullDepth": 48, "hullHeight": 82,
+    "forceCap": 1000,
+    "otherScale": 6,
+    "selfScale": 9,
+    "selfSoldierAirborneScale": 10,
+    "selfSoldierGroundedScale": 5,
+    "heavyOtherMult": 0.5
+  }
+}

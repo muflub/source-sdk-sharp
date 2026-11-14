@@ -45,11 +45,17 @@ public sealed class Duel
 
     /// <summary>A duel with its own bot and seed, and the level's choke points.</summary>
     public Duel(SkillProfile profile, ActorId bot, ulong seed, NavGraph? graph, ICellSight? sight, ChokeMap? chokes, params ItemSpawn[] items)
+        : this(profile, bot, seed, graph, sight, chokes, [], items)
+    {
+    }
+
+    /// <summary>A duel on a map with the teams' own spawns (plan_bots_teams_tf2 B.5).</summary>
+    public Duel(SkillProfile profile, ActorId bot, ulong seed, NavGraph? graph, ICellSight? sight, ChokeMap? chokes, TeamSpawn[] teamSpawns, ItemSpawn[] items)
     {
         _bot = bot;
         Params = SourceSharp.Ai.Tests.Skills.Curves.Game().For(profile);
         ItemSpawn[] all = items.Length > 0 ? items : [new ItemSpawn(0, "item_healthkit", ItemKind.Health, Kit, 30f)];
-        var map = new MapKnowledge("duel", [.. all], [], Weapons);
+        var map = new MapKnowledge("duel", [.. all], [], Weapons, [.. teamSpawns]);
         Memory = new BotMemory(bot, 33, MemoryParams.For(profile), new MemoryWorld(map, graph, 0.015f, id => id.ToString(), sight, new ChokeSlot(chokes)), new HabitStore());
         Decider = new Hl2mpDecider(new BrainSetup(bot, seed, Memory, Params, 0.015f));
         Brain = new Brain(bot, seed, Memory, Params, Decider);
@@ -96,6 +102,20 @@ public sealed class Duel
         _view.AddSighted(new ActorFacts(id, at, velocity, Smg1, activity, 1f));
         return Brain.Step(tick, _view, events);
     }
+
+    /// <summary>A step with each of <paramref name="sighted"/> in sight on its team (plan_bots_teams_tf2 B.2).</summary>
+    public IntentCommand StepTeams(SelfState self, (ActorId Id, AiVector At, int Team)[] sighted, params AiEvent[] events)
+    {
+        _tick += 6;
+        var tick = new Tick(_tick);
+        _view.Reset(_bot, tick, self);
+        foreach ((ActorId id, AiVector at, int team) in sighted)
+            _view.AddSighted(new ActorFacts(id, at, AiVector.Zero, Smg1, ActorActivity.None, 1f, team));
+        return Brain.Step(tick, _view, events);
+    }
+
+    /// <summary>Lets <paramref name="ticks"/> pass with no decide (a long wait, read only by what times itself).</summary>
+    public void Skip(int ticks) => _tick += ticks;
 
     public AiEvent[] SeeAt(ActorId who, AiVector at) => [AiEvent.SightGained(Bot, new Tick(_tick + 6), who, at, AiVector.Zero, 1f)];
 

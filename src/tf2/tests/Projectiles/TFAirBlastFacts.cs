@@ -5,6 +5,7 @@ using TF2.Server;
 using TF2.Server.Projectiles;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Tests.Weapons;
 
 using Xunit;
@@ -366,6 +367,33 @@ public class TFAirBlastFacts
     }
 
     [Fact]
+    public void The_targets_airblast_vulnerability_rides_the_cray_power()
+    {
+        // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER on the power (:1326): a target
+        // wearing 1.5 takes 1.5 × 600 = 900 along the aim, the reflection
+        // untouched at zero momentum.
+        var rig = new FlameRig();
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        InsideCone(rig);
+        Teams(rig, targetTeam: 3, blasterTeam: 2);
+        Centers(rig, targetCenter: new Vector(0f, 512f, 64f), blasterCenter: new Vector(0f, 0f, 64f));
+        // The target's whole walk (ON_OTHER): the Mantreads are a wearable, never held.
+        rig.Owners.Managers[FlameRig.Victim.EntryIndex] =
+            rig.AttributeItem("airblast_vulnerability_multiplier", AttributeDescriptionFormat.Percentage, 1.5f);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Vector impulse = pushed!.ArgAs<Vector>(1);
+        Assert.Equal(0f, impulse.X, 2f);
+        Assert.Equal(900f, impulse.Y, 2f);
+        Assert.Equal(0f, impulse.Z, 2f);
+    }
+
+    [Fact]
     public void The_cray_result_z_wears_tf_pushbackscalescale_vertical()
     {
         // The vertical scale lands once the ground work is done
@@ -541,6 +569,60 @@ public class TFAirBlastFacts
     }
 
     [Fact]
+    public void ExtinguishingATeammateRestoresHealthWhenSet()
+    {
+        // extinguish_restores_health (tf_weapon_flamethrower.cpp:1624-1643):
+        // the hook value heals the blaster, and player_healonhit names the
+        // amount, the healed edict and the firing item's defindex (-1 here,
+        // a bare hook item).
+        var rig = new FlameRig();
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        Teams(rig, targetTeam: 2, blasterTeam: 2); // the same team
+        rig.Conditions.Grant(FlameRig.Victim, TFCond.Burning);
+        rig.Engine.ReturnsEachCall("GameEvents.EventCreate", () => new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+        rig.Owners.Items[3] = rig.AttributeItem("extinguish_restores_health",
+                                                AttributeDescriptionFormat.Additive, 25f);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        var healed = Assert.Single(rig.Health.HealthTaken);
+        Assert.Equal(FlameRig.Player, healed.Who);
+        Assert.Equal(25, healed.Amount);
+
+        var created = rig.Engine.Last("GameEvents.EventCreate");
+        Assert.NotNull(created);
+        Assert.Equal("player_healonhit", created!.ArgAs<string>(0));
+        var sets = rig.Engine.Calls.Where(c => c.Member == "GameEvents.EventSetInt").ToList();
+        Assert.Equal(
+            new (string, int)[] { ("amount", 25), ("entindex", 1), ("weapon_def_index", -1) },
+            sets.Select(c => (c.ArgAs<string>(1), c.ArgAs<int>(2))).ToArray());
+        Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
+    }
+
+    [Fact]
+    public void AStockFlareRestoresNothing()
+    {
+        // Stock's answer: no item, no hooks — the extinguish lands, but with
+        // nothing healed and no player_healonhit fired (:1628's gate closes
+        // on an unset attribute).
+        var rig = new FlameRig();
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        Teams(rig, targetTeam: 2, blasterTeam: 2); // the same team
+        rig.Conditions.Grant(FlameRig.Victim, TFCond.Burning);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        Assert.Single(rig.Conditions.Removed);
+        Assert.Empty(rig.Health.HealthTaken);
+        Assert.Equal(0, rig.Engine.CountOf("GameEvents.EventCreate"));
+    }
+
+    [Fact]
     public void The_cray_convar_at_zero_pushes_the_old_way()
     {
         // tf_airblast_cray 0, the old arm (:1764-1830): the stun — the target
@@ -634,6 +716,31 @@ public class TFAirBlastFacts
         Vector impulse = pushed!.ArgAs<Vector>(1);
         Assert.Equal(922.5f, impulse.Y, 2f);
         Assert.Equal(TFAirBlastDefs.JumpMinSpeed, impulse.Z, 4f);
+    }
+
+    [Fact]
+    public void The_old_push_wears_the_targets_whole_walk()
+    {
+        // The generic impulse's own hook (tf_player.cpp:3384) over the player,
+        // so a wearable answers: 1.5 of the 922.5 along the aim, which a
+        // lookup through the held item could not see.
+        var rig = new FlameRig();
+        rig.Convars.Declared<TFAirBlastCrayConVar>().Bind(-1, "tf_airblast_cray", "0");
+        rig.AttachStun(FlameRig.Victim);
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        InsideCone(rig);
+        Teams(rig, targetTeam: 3, blasterTeam: 2);
+        Centers(rig, targetCenter: new Vector(0f, 512f, 64f), blasterCenter: new Vector(0f, 0f, 64f));
+        rig.Owners.Managers[FlameRig.Victim.EntryIndex] =
+            rig.AttributeItem("airblast_vulnerability_multiplier", AttributeDescriptionFormat.Percentage, 1.5f);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Assert.Equal(922.5f * 1.5f, pushed!.ArgAs<Vector>(1).Y, 2f);
     }
 
     [Fact]

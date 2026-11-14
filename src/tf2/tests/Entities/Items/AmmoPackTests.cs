@@ -137,6 +137,25 @@ public sealed class AmmoPackTests
     }
 
     [Fact]
+    public void AMeltedKnifeMakesAFullStockedSpyTakeThePack()
+    {
+        // entity_ammopack.cpp:91-94 — AddToSpyKnife(100 * ratio): nothing else fits —
+        // ammo full, cloak full — yet the melted Spy-cicle's moved stamp is a pack taken.
+        var rig = new MapItemRig();
+        var pack = rig.Spawn<AmmoPack>(AmmoPackMedium.MediumClass);
+        var p = Soldier(rig, out var player, TFClass.Spy);
+        foreach (var (ammo, max) in p.MaxAmmo)
+            p.Ammo[ammo] = max;
+        p.CloakMeter = 100f;
+        p.KnifeStamp = 100f; p.KnifeWindow = 10f;   // the burn layer's melt (tf_weapon_knife.cpp:129-131's pair)
+
+        rig.Touch(pack, player);
+
+        Assert.True(pack.IsRespawning);             // :94 — the moved stamp is the pack taken
+        Assert.Equal(97.5f, p.KnifeStamp, 4);       // the medium's half of the window's half: 50 * 0.005 * 10
+    }
+
+    [Fact]
     public void A_health_ammo_kit_heals_a_small_kits_share_and_gives_ammo()
     {
         var rig = new MapItemRig();
@@ -149,6 +168,48 @@ public sealed class AmmoPackTests
         Assert.Equal(140, p.Health);
         Assert.Equal(20, p.Ammo[TFAmmo.Metal]);
         Assert.DoesNotContain("sound AmmoPack.Touch", rig.Notices.Said);
+    }
+
+    [Fact]
+    public void A_persuader_at_full_ammo_still_takes_the_pack_for_its_charge()
+    {
+        // entity_ammopack.cpp:96-110 — ammo_gives_charge makes a full pack
+        // taken: the ammo arms fit nothing, the charge moves by the pack's
+        // own fraction, and the pickup sounds and the event go as if the
+        // ammo had arrived.
+        var rig = new MapItemRig();
+        var pack = rig.Spawn<AmmoPack>(AmmoPackMedium.MediumClass);
+        var p = Soldier(rig, out var player, TFClass.Demoman);
+        foreach (var (ammo, max) in p.MaxAmmo)
+            p.Ammo[ammo] = max;
+        p.WearsCharge = true;
+        p.ChargeMeter = 40f;
+
+        rig.Touch(pack, player);
+
+        Assert.Equal(90f, p.ChargeMeter); // 100 * the medium's 0.5
+        Assert.True(pack.IsRespawning);
+        Assert.Equal(["sound AmmoPack.Touch", "item_pickup ammopack_medium"], rig.Notices.Said);
+    }
+
+    [Fact]
+    public void A_full_charge_meter_leaves_the_persuaders_pack_to_the_ammo()
+    {
+        // :101 — a full meter takes no charge; a stocked player without cloak
+        // or room leaves the pack untouched.
+        var rig = new MapItemRig();
+        var pack = rig.Spawn<AmmoPack>(AmmoPack.MapClass);
+        var p = Soldier(rig, out var player, TFClass.Demoman);
+        foreach (var (ammo, max) in p.MaxAmmo)
+            p.Ammo[ammo] = max;
+        p.WearsCharge = true;
+        p.ChargeMeter = 100f;
+
+        rig.Touch(pack, player);
+
+        Assert.False(pack.IsRespawning);
+        Assert.Equal(100f, p.ChargeMeter);
+        Assert.Empty(rig.Notices.Said);
     }
 
     // The gamestats calls: Event_PlayerAmmokitPickup at entity_ammopack.cpp:127

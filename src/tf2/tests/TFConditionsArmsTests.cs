@@ -14,7 +14,8 @@ public sealed class TFConditionsArmsTests
 {
     private readonly TFConditionArms _arms = new();
 
-    private static TFConditions Server() => new(authoritative: true);
+    private static TFConditions Server() =>
+        new(authoritative: true, new TFCondHolder());
 
     [Fact]
     public void Uber_puts_out_the_fire_and_washes_off_the_debuffs()
@@ -64,7 +65,8 @@ public sealed class TFConditionsArmsTests
     [Fact]
     public void The_client_leaves_ubers_cleanup_to_the_server()
     {
-        var conditions = new TFConditions(authoritative: false);
+        var conditions = new TFConditions(authoritative: false,
+                         new TFCondHolder());
         conditions.Add(TFCond.Burning);
         conditions.Add(TFCond.Invulnerable);
 
@@ -77,7 +79,7 @@ public sealed class TFConditionsArmsTests
     {
         foreach (bool server in new[] { true, false })
         {
-            var conditions = new TFConditions(server);
+            var conditions = new TFConditions(server, new TFCondHolder());
             conditions.Add(TFCond.FeignDeath);
 
             TFCondMask removed = _arms.OnRemoved(conditions, TFCond.Stealthed);

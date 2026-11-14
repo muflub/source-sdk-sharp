@@ -1,0 +1,528 @@
+#!/usr/bin/env python3
+"""tools/descent-gate -- the Descent levels' gates (plan_descent_mine_levels.md B4-B6).
+
+    tools/descent-gate brightness [--depths 1,2,3,4,6,7,8,9] [--seeds 1,2,3] [--config debug] [--maptools DIR] [--no-build]
+    tools/descent-gate reach      [same options]
+    tools/descent-gate budget     [same options]
+    tools/descent-gate --self-test   check that every gate can fail
+
+Each gate builds the depths it is asked for (`make descent-rooms DEPTH=d`, then
+`make descent-level DEPTH=d SEED=s` per seed: generate, link as the host does,
+link for the preview, `ssmap preview -movement heavy`) and reads what the tools
+wrote into bin/<config>/descent-rooms/dNN. --no-build reads the last build.
+
+brightness  The per-depth mean of `checks.lighting.mean` over the seeds must
+            fall strictly from each depth to the next, and every seed's
+            `clipped_fraction` must stay under 0.02, and so must every room's
+            view (the spawn view and each room camera's rendered
+            `luminance.clipped_fraction`): a level's share can hide one room
+            washed white (the review of 0c79c6fc2: level 1's shaft foot).
+            Prints the table with the first depth scaled to 100 beside the
+            plan's target row (section 6).
+reach       Every room's floor is reached from the spawn by a Heavy (no
+            unreached island of nodes at floor height), no stuck spawn, and
+            no trap but the exit's own: a trap whose region stands inside the
+            level's down transition volume (the trigger_changelevel to the
+            depth below, read from the preview's BSP) is the way down a drop
+            hole leaves by, and is accepted by position. The preview lists
+            only its ten largest islands, so every island is read from
+            tools/descent-islands (the same analysis over the map tools'
+            assemblies), which must agree with the preview's island_count
+            and its listed ten; without it, a preview with more islands than
+            it lists fails. Reports, without gating, the floor only blast
+            jumps reach.
+budget      Each level's map entities stay inside the link's budget (1,536),
+            its brushes under 8,192, and its link log names no refusal. The
+            level the host links holds its library's fog controller with the
+            library's values (fogenable, colours, start, end, density), and
+            its tone map controller (the preview draws neither: this is the
+            one check they are there).
+
+A missing level, preview, log or field is a failure, never a pass. The
+depth list is the gate's scope: depths still grey are left out by not
+naming them, never by loosening a limit.
+"""
+import argparse
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
+
+# plan_descent_mine_levels.md section 6: level 1's mean is 100.
+TARGET = {1: 100, 2: 85, 3: 70, 4: 60, 5: 52, 6: 42, 7: 35, 8: 30, 9: 25,
+          10: 22, 11: 19, 12: 16, 13: 13, 14: 10, 15: 7}
+CLIPPED_MAX = 0.02
+VIEW_CLIPPED_MAX = 0.02  # a room's view: the share of its rendered pixels at white
+ENTITY_BUDGET = 1536
+BRUSH_LIMIT = 8192
+FLOOR_Z = 16         # the normal kit's sill (RoomKit.Normal: wall 16): the floor's top, room-local
+STEP = 18            # a node within a step of the floor stands on the floor
+HULL_HALF = 24       # half a player's hull: a trap's feet may stand this far outside a volume's side
+
+
+class Missing(Exception):
+    """An input the gate needs is not there. Never a pass."""
+
+
+def level_name(depth, seed):
+    return 'tf2_descent-%d-s%d' % (depth, seed)
+
+
+def depth_dir(config, depth):
+    return os.path.join(ROOT, 'bin', config, 'descent-rooms', 'd%02d' % depth)
+
+
+def read_index(config, depth, seed):
+    path = os.path.join(depth_dir(config, depth), level_name(depth, seed) + '-preview', 'index.json')
+    if not os.path.isfile(path):
+        raise Missing('no preview for depth %d seed %d (%s)' % (depth, seed, path))
+    # A preview older than its level file or its library is a stale one (a failed rebuild left it).
+    for older in (os.path.join(depth_dir(config, depth), level_name(depth, seed) + '.yaml'),
+                  os.path.join(depth_dir(config, depth), 'descent_d%02d.roompack' % depth)):
+        if not os.path.isfile(older):
+            raise Missing('no %s for depth %d seed %d' % (older, depth, seed))
+        if os.path.getmtime(path) < os.path.getmtime(older):
+            raise Missing('the preview of depth %d seed %d is older than %s: stale' % (depth, seed, older))
+    with open(path) as f:
+        return json.load(f)
+
+
+def read_text(path, what):
+    if not os.path.isfile(path):
+        raise Missing('no %s (%s)' % (what, path))
+    with open(path) as f:
+        return f.read()
+
+
+def field(d, *keys):
+    for k in keys:
+        if not isinstance(d, dict) or k not in d:
+            raise Missing('the preview has no %s' % '.'.join(keys))
+        d = d[k]
+    return d
+
+
+def build(depths, seeds, config, maptools):
+    for d in depths:
+        run(['make', '--no-print-directory', 'descent-rooms', 'DEPTH=%d' % d, 'CONFIG=' + config,
+             'MAPTOOLS_DIR=' + maptools], 'descent-rooms depth %d' % d)
+        for s in seeds:
+            run(['make', '--no-print-directory', 'descent-level', 'DEPTH=%d' % d, 'SEED=%d' % s,
+                 'CONFIG=' + config, 'MAPTOOLS_DIR=' + maptools], 'descent-level depth %d seed %d' % (d, s))
+
+
+def run(cmd, what):
+    log = tempfile.NamedTemporaryFile('w+', prefix='descent-gate-', suffix='.log', delete=False)
+    rc = subprocess.call(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    log.close()
+    if rc != 0:
+        with open(log.name) as f:
+            tail = f.read()[-2000:]
+        raise Missing('%s failed (exit %d, log %s):\n%s' % (what, rc, log.name, tail))
+    os.unlink(log.name)
+
+
+#-----------------------------------------------------------------------------
+# The decisions, on what was read (the self-test feeds them by hand).
+#-----------------------------------------------------------------------------
+
+def view_verdict(depth, seed, index):
+    """Every room view of a preview (the spawn view, the room cameras) under VIEW_CLIPPED_MAX white."""
+    failures, views = [], [c for c in field(index, 'cameras') if c.get('kind') in ('spawn', 'custom')]
+    if not views:
+        raise Missing('the preview of depth %d seed %d has no room view' % (depth, seed))
+    for c in views:
+        if 'luminance' not in c or 'clipped_fraction' not in c['luminance']:
+            raise Missing('depth %d seed %d: view %s has no luminance.clipped_fraction' % (depth, seed, c.get('id')))
+        if c['luminance']['clipped_fraction'] >= VIEW_CLIPPED_MAX:
+            failures.append('depth %d seed %d: view %s (%s) is %.4f white, not under %.2f' % (
+                depth, seed, c.get('id'), c.get('description', '')[:40], c['luminance']['clipped_fraction'], VIEW_CLIPPED_MAX))
+    return failures
+
+
+def brightness_verdict(results):
+    """results: {depth: [(seed, mean, clipped), ...]}. Returns (failures, table lines)."""
+    failures, lines = [], []
+    depths = sorted(results)
+    if not depths:
+        return ['no depth was measured'], lines
+    means = {}
+    for d in depths:
+        rows = results[d]
+        if not rows:
+            failures.append('depth %d: no seed was measured' % d)
+            continue
+        means[d] = sum(r[1] for r in rows) / len(rows)
+        for seed, _, clipped in rows:
+            if clipped >= CLIPPED_MAX:
+                failures.append('depth %d seed %d: clipped_fraction %.4f is not under %.2f' % (d, seed, clipped, CLIPPED_MAX))
+    if depths[0] not in means:
+        return failures, lines
+    base = means[depths[0]]
+    if base <= 0:
+        return ['depth %d: mean %.4f is not a brightness to scale by' % (depths[0], base)], lines
+    lines.append('%-6s %-9s %-24s %-7s %-7s %s' % ('depth', 'mean', 'seeds', 'scaled', 'target', 'clipped max'))
+    for d in [d for d in depths if d in means]:
+        rows = results[d]
+        scaled = 100 * means[d] / base
+        target = TARGET.get(d)
+        target_scaled = '' if target is None else str(round(target * 100 / TARGET[depths[0]]))
+        lines.append('%-6d %-9.4f %-24s %-7.1f %-7s %.4f' % (
+            d, means[d], ' '.join('%.3f' % r[1] for r in rows), scaled, target_scaled, max(r[2] for r in rows)))
+    measured = [d for d in depths if d in means]
+    for a, b in zip(measured, measured[1:]):
+        if not means[b] < means[a]:
+            failures.append('depth %d (%.4f) is not darker than depth %d (%.4f)' % (b, means[b], a, means[a]))
+    return failures, lines
+
+
+def in_volume(region, box):
+    """Whether a trap's region (feet positions) stands inside a volume's box, a hull's half outside its sides at most."""
+    lo, hi = box
+    return (all(region['min'][a] >= lo[a] - HULL_HALF and region['max'][a] <= hi[a] + HULL_HALF for a in (0, 1))
+            and region['min'][2] >= lo[2] - STEP and region['max'][2] <= hi[2])
+
+
+def reach_verdict(depth, seed, index, all_islands=None, exits=()):
+    """Returns (failures, report) for one level's preview index.
+
+    all_islands: every island (tools/descent-islands), or None when only the
+    preview's list is known. exits: the boxes ((min), (max)) of the level's
+    down transition volumes, inside which a trap is the way down.
+    """
+    m = field(index, 'checks', 'movement')
+    failures, report = [], []
+    for k in ('islands', 'island_count', 'traps', 'stuck_spawns', 'reached_by_team'):
+        if k not in m:
+            raise Missing('the preview of depth %d seed %d has no movement.%s' % (depth, seed, k))
+    if not m['reached_by_team']:
+        failures.append('depth %d seed %d: the spawn reaches nothing' % (depth, seed))
+    exit_traps = [t for t in m['traps'] if any(in_volume(t, box) for box in exits)]
+    other = [t for t in m['traps'] if t not in exit_traps]
+    if other:
+        failures.append('depth %d seed %d: %d trap(s) outside the exit\'s transition volume: %s' % (
+            depth, seed, len(other), json.dumps(other)[:300]))
+    if m['stuck_spawns']:
+        failures.append('depth %d seed %d: %d stuck spawn(s)' % (depth, seed, len(m['stuck_spawns'])))
+    islands = m['islands']
+    if all_islands is not None:
+        if len(all_islands) != m['island_count']:
+            raise Missing('depth %d seed %d: descent-islands found %d islands, the preview counts %d' % (
+                depth, seed, len(all_islands), m['island_count']))
+        if [strip(i) for i in all_islands[:len(islands)]] != [strip(i) for i in islands]:
+            raise Missing('depth %d seed %d: descent-islands\' largest islands are not the preview\'s' % (depth, seed))
+        islands = all_islands
+    elif m['island_count'] > len(islands):
+        failures.append('depth %d seed %d: the preview counts %d islands and lists %d; the rest are unread' % (
+            depth, seed, m['island_count'], len(islands)))
+    floor = [i for i in islands if i['min'][2] < FLOOR_Z + STEP]
+    for i in floor:
+        failures.append('depth %d seed %d: %d floor nodes near (%s) are not reached from the spawn' % (
+            depth, seed, i['nodes'], ' '.join(str(round(v)) for v in i['sample'])))
+    ledges = [i for i in islands if i['min'][2] >= FLOOR_Z + STEP]
+    blast = (m.get('airborne') or {}).get('explosive_only_nodes')
+    report.append('depth %d seed %d: %d nodes reached, %d ledge island(s) of %d nodes off the walk, %s blast-only nodes, %d exit trap(s)' % (
+        depth, seed, sum(m['reached_by_team'].values()), len(ledges), sum(i['nodes'] for i in ledges),
+        '?' if blast is None else blast, len(exit_traps)))
+    return failures, report
+
+
+def strip(island):
+    """An island as both lists spell it: its nodes and bounds."""
+    return (island['nodes'], [round(v, 2) for v in island['sample']], [round(v, 2) for v in island['min']], [round(v, 2) for v in island['max']])
+
+
+ISLANDS_PROJECT = os.path.join(ROOT, 'tools', 'descent-islands')
+ISLANDS_BIN = os.path.join(ROOT, 'bin', 'descent-islands', 'bin', 'Release', 'net10.0', 'descent-islands')
+DOTNET = os.path.expanduser('~/.dotnet/dotnet')
+
+
+def build_islands(maptools):
+    run([DOTNET, 'build', ISLANDS_PROJECT, '-c', 'Release', '-nologo', '-v', 'q', '-p:MapToolsDir=' + maptools], 'descent-islands build')
+
+
+def read_islands(config, depth, seed):
+    """Every island of a level's preview map, from tools/descent-islands."""
+    if not os.path.isfile(ISLANDS_BIN):
+        raise Missing('no %s: build tools/descent-islands (the gate does, given --maptools)' % ISLANDS_BIN)
+    bsp = os.path.join(depth_dir(config, depth), 'maps', level_name(depth, seed) + '-preview.bsp')
+    if not os.path.isfile(bsp):
+        raise Missing('no preview map for depth %d seed %d (%s)' % (depth, seed, bsp))
+    game = os.path.join(ROOT, 'bin', config, 'descent-game', 'tf2_descent')
+    out = subprocess.run([ISLANDS_BIN, bsp, '-game', game, '-movement', 'heavy'], cwd=ROOT, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise Missing('descent-islands failed on depth %d seed %d (exit %d): %s' % (depth, seed, out.returncode, out.stderr[-500:]))
+    return field(json.loads(out.stdout), 'islands')
+
+
+def read_exits(config, depth, seed):
+    """The boxes of a level's down transition volumes: each trigger_changelevel to the depth below, by its brush model's bounds."""
+    bsp = os.path.join(depth_dir(config, depth), 'maps', level_name(depth, seed) + '-preview.bsp')
+    if not os.path.isfile(bsp):
+        raise Missing('no preview map for depth %d seed %d (%s)' % (depth, seed, bsp))
+    with open(bsp, 'rb') as f:
+        data = f.read()
+
+    def lump(i):
+        off, length = struct.unpack_from('<ii', data, 8 + 16 * i)
+        return data[off:off + length]
+
+    entities, models = lump(0).decode('latin1'), lump(14)
+    below = 'tf2_descent-%d' % (depth + 1)
+    boxes = []
+    for block in re.finditer(r'\{[^{}]*\}', entities):
+        kv = dict(re.findall(r'"([^"]*)" "([^"]*)"', block.group(0)))
+        if kv.get('classname') == 'trigger_changelevel' and kv.get('map') == below and kv.get('model', '').startswith('*'):
+            v = struct.unpack_from('<6f', models, 48 * int(kv['model'][1:]))
+            boxes.append((v[0:3], v[3:6]))
+    return boxes
+
+
+LINK_ENTITIES = re.compile(r'map entities (\d+) / budget (\d+)')
+LINK_BRUSHES = re.compile(r'(\d+) brushes')
+LINK_REFUSAL = re.compile(r'refus|over budget|exceed|error', re.I)
+
+
+FOG_KEYS = ('fogenable', 'fogcolor', 'fogcolor2', 'fogstart', 'fogend', 'fogmaxdensity')
+
+
+def entities_of(text, classname):
+    """The key values of every entity of a class in an entity lump's or a VMF's text (a VMF's editor blocks left out)."""
+    found = []
+    text = re.sub(r'editor\s*\{[^{}]*\}', '', text)
+    for block in re.finditer(r'\{[^{}]*\}', text):
+        kv = dict(re.findall(r'"([^"]*)" "([^"]*)"', block.group(0)))
+        if kv.get('classname') == classname:
+            found.append(kv)
+    return found
+
+
+def mood_verdict(depth, seed, library_vmf, level_entities):
+    """The library's fog and tone map controllers, as the linked level holds them."""
+    failures = []
+    for cls, keys in (('env_fog_controller', FOG_KEYS), ('env_tonemap_controller', ())):
+        want, have = entities_of(library_vmf, cls), entities_of(level_entities, cls)
+        if len(want) > 1:
+            raise Missing('depth %d: the library holds %d %s, not one at most' % (depth, len(want), cls))
+        if len(have) != len(want):
+            failures.append('depth %d seed %d: the level holds %d %s, its library %d' % (depth, seed, len(have), cls, len(want)))
+            continue
+        if not want:
+            continue
+        for k in keys:
+            if want[0].get(k) != have[0].get(k):
+                failures.append('depth %d seed %d: %s %s is %r, the library says %r' % (depth, seed, cls, k, have[0].get(k), want[0].get(k)))
+    return failures
+
+
+def bsp_entities(path):
+    with open(path, 'rb') as f:
+        data = f.read()
+    off, length = struct.unpack_from('<ii', data, 8)
+    return data[off:off + length].decode('latin1')
+
+
+def budget_verdict(depth, seed, link_log):
+    failures, report = [], []
+    e = LINK_ENTITIES.search(link_log)
+    b = LINK_BRUSHES.search(link_log)
+    if not e:
+        raise Missing('depth %d seed %d: the link log names no map entities' % (depth, seed))
+    if not b:
+        raise Missing('depth %d seed %d: the link log names no brush count' % (depth, seed))
+    entities, budget, brushes = int(e.group(1)), int(e.group(2)), int(b.group(1))
+    if budget > ENTITY_BUDGET:
+        failures.append('depth %d seed %d: the link reports a budget of %d, more than %d' % (depth, seed, budget, ENTITY_BUDGET))
+    if entities > min(budget, ENTITY_BUDGET):
+        failures.append('depth %d seed %d: %d map entities, over the budget of %d' % (depth, seed, entities, min(budget, ENTITY_BUDGET)))
+    if brushes > BRUSH_LIMIT:
+        failures.append('depth %d seed %d: %d brushes, over %d' % (depth, seed, brushes, BRUSH_LIMIT))
+    for line in link_log.splitlines():
+        if LINK_REFUSAL.search(line):
+            failures.append('depth %d seed %d: the link says: %s' % (depth, seed, line.strip()))
+    report.append('depth %d seed %d: %d map entities of %d, %d brushes of %d' % (depth, seed, entities, budget, brushes, BRUSH_LIMIT))
+    return failures, report
+
+
+#-----------------------------------------------------------------------------
+
+def gate(name, depths, seeds, config):
+    failures, out = [], []
+    if name == 'brightness':
+        results, views = {}, []
+        for d in depths:
+            results[d] = []
+            for s in seeds:
+                idx = read_index(config, d, s)
+                results[d].append((s, float(field(idx, 'checks', 'lighting', 'mean')),
+                                   float(field(idx, 'checks', 'lighting', 'clipped_fraction'))))
+                views += view_verdict(d, s, idx)
+        failures, out = brightness_verdict(results)
+        failures += views
+    elif name == 'reach':
+        for d in depths:
+            for s in seeds:
+                f, r = reach_verdict(d, s, read_index(config, d, s), read_islands(config, d, s), read_exits(config, d, s))
+                failures += f
+                out += r
+    elif name == 'budget':
+        for d in depths:
+            for s in seeds:
+                for suffix in ('.link.log',):
+                    log = read_text(os.path.join(depth_dir(config, d), level_name(d, s) + suffix), 'link log')
+                    f, r = budget_verdict(d, s, log)
+                    failures += f
+                    out += r
+                bsp = os.path.join(depth_dir(config, d), 'maps', level_name(d, s) + '.bsp')
+                if not os.path.isfile(bsp):
+                    raise Missing('no level map for depth %d seed %d (%s)' % (d, s, bsp))
+                vmf = read_text(os.path.join(depth_dir(config, d), 'descent_d%02d.vmf' % d), 'library')
+                failures += mood_verdict(d, s, vmf, bsp_entities(bsp))
+    return failures, out
+
+
+def main(argv):
+    p = argparse.ArgumentParser(prog='tools/descent-gate')
+    p.add_argument('gate', choices=['brightness', 'reach', 'budget'])
+    p.add_argument('--depths', default='1,2,3,4,6,7,8,9')
+    p.add_argument('--seeds', default='1,2,3')
+    p.add_argument('--config', default=os.environ.get('CONFIG', 'debug'))
+    p.add_argument('--maptools', default=os.environ.get('MAPTOOLS_DIR', ''))
+    p.add_argument('--no-build', action='store_true')
+    a = p.parse_args(argv)
+    depths = [int(x) for x in a.depths.replace(' ', ',').split(',') if x]
+    seeds = [int(x) for x in a.seeds.replace(' ', ',').split(',') if x]
+    tip = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    print('descent-gate %s: depths %s, seeds %s, %s, at %s' % (a.gate, depths, seeds, a.config, tip))
+    try:
+        if not a.no_build:
+            if not a.maptools:
+                raise Missing('no map tools: give --maptools or MAPTOOLS_DIR')
+            build(depths, seeds, a.config, a.maptools)
+        if a.gate == 'reach' and a.maptools:
+            build_islands(a.maptools)
+        failures, out = gate(a.gate, depths, seeds, a.config)
+    except Missing as exc:
+        print('descent-gate %s: FAIL: %s' % (a.gate, exc))
+        return 1
+    for line in out:
+        print('  ' + line)
+    for f in failures:
+        print('FAIL: ' + f)
+    print('descent-gate %s: %s' % (a.gate, 'FAIL' if failures else 'ok'))
+    return 1 if failures else 0
+
+
+def self_test():
+    bad = []
+
+    def expect(cond, what):
+        if not cond:
+            bad.append(what)
+
+    falling = {1: [(1, 0.30, 0.001)], 2: [(1, 0.25, 0.001)], 3: [(1, 0.21, 0.001)]}
+    expect(not brightness_verdict(falling)[0], 'a falling series fails')
+    expect(brightness_verdict({1: [(1, 0.30, 0.001)], 2: [(1, 0.31, 0.001)]})[0], 'a brighter depth passes')
+    expect(brightness_verdict({1: [(1, 0.30, 0.001)], 2: [(1, 0.30, 0.001)]})[0], 'an equal depth passes')
+    expect(brightness_verdict({1: [(1, 0.30, 0.05)], 2: [(1, 0.20, 0.001)]})[0], 'a clipped level passes')
+    expect(brightness_verdict({})[0], 'no depth passes')
+    expect(brightness_verdict({1: [(1, 0.3, 0)], 2: []})[0], 'a depth with no seed passes')
+    lit = {'cameras': [{'id': 'spawn1', 'kind': 'spawn', 'luminance': {'clipped_fraction': 0.004}},
+                       {'id': 'cam1', 'kind': 'custom', 'luminance': {'clipped_fraction': 0.01}},
+                       {'id': 'overview', 'kind': 'overview'}]}
+    expect(not view_verdict(1, 1, lit), 'views under the limit fail')
+    white = json.loads(json.dumps(lit))
+    white['cameras'][0]['luminance']['clipped_fraction'] = 0.043
+    expect(view_verdict(1, 1, white), 'a washed-out spawn view passes')
+    try:
+        view_verdict(1, 1, {'cameras': [{'id': 'cam1', 'kind': 'custom'}]})
+        bad.append('a view without luminance reads')
+    except Missing:
+        pass
+    table = brightness_verdict(falling)[1]
+    expect(any(l.startswith('2 ') and ' 85 ' in l for l in table), 'the table lacks the target row')
+    try:
+        field({'checks': {'lighting': {}}}, 'checks', 'lighting', 'mean')
+        bad.append('a missing field reads')
+    except Missing:
+        pass
+
+    clean = {'checks': {'movement': {'islands': [{'nodes': 9, 'sample': [1, 2, 104], 'min': [0, 0, 104], 'max': [9, 9, 104]}],
+                                     'island_count': 1, 'traps': [], 'stuck_spawns': [], 'reached_by_team': {'0': 900},
+                                     'airborne': {'explosive_only_nodes': 4}}}}
+    expect(not reach_verdict(1, 1, clean)[0], 'a level with only a ledge island fails')
+    floor = json.loads(json.dumps(clean))
+    floor['checks']['movement']['islands'].append({'nodes': 40, 'sample': [5, 5, 16.03], 'min': [0, 0, 16.03], 'max': [9, 9, 16.03]})
+    floor['checks']['movement']['island_count'] = 2
+    expect(reach_verdict(1, 1, floor)[0], 'an unreached floor passes')
+    trap = json.loads(json.dumps(clean))
+    trap['checks']['movement']['traps'] = [{'nodes': 20, 'sample': [150, 150, 16], 'min': [120, 120, 16], 'max': [180, 180, 16]}]
+    expect(reach_verdict(1, 1, trap)[0], 'a trap passes')
+    hole = ((100, 100, 16), (200, 200, 144))
+    expect(not reach_verdict(1, 1, trap, exits=[hole])[0], 'a trap inside the exit\'s volume fails')
+    expect(reach_verdict(1, 1, trap, exits=[((400, 400, 16), (500, 500, 144))])[0], 'a trap outside the exit\'s volume passes')
+    expect(reach_verdict(1, 1, trap, exits=[((100, 100, 64), (200, 200, 144))])[0], 'a trap under the exit\'s volume passes')
+    many = json.loads(json.dumps(clean))
+    many['checks']['movement']['island_count'] = 11
+    expect(reach_verdict(1, 1, many)[0], 'unlisted islands pass without the full list')
+    listed = many['checks']['movement']['islands']
+    floor_late = listed + [{'nodes': 3, 'sample': [5, 5, 16.03], 'min': [0, 0, 16.03], 'max': [9, 9, 16.03]}] * 10
+    many['checks']['movement']['island_count'] = len(floor_late)
+    expect(reach_verdict(1, 1, many, all_islands=floor_late)[0], 'a floor island beyond the listed ten passes')
+    ledges_late = listed + [{'nodes': 3, 'sample': [5, 5, 240], 'min': [0, 0, 240], 'max': [9, 9, 240]}] * 10
+    expect(not reach_verdict(1, 1, many, all_islands=ledges_late)[0], 'ledge islands beyond the listed ten fail')
+    try:
+        reach_verdict(1, 1, many, all_islands=ledges_late[:-1])
+        bad.append('a full list that disagrees with the preview\'s count reads')
+    except Missing:
+        pass
+    stuck = json.loads(json.dumps(clean))
+    stuck['checks']['movement']['stuck_spawns'] = [{'at': [0, 0, 8]}]
+    expect(reach_verdict(1, 1, stuck)[0], 'a stuck spawn passes')
+    nothing = json.loads(json.dumps(clean))
+    nothing['checks']['movement']['reached_by_team'] = {}
+    expect(reach_verdict(1, 1, nothing)[0], 'a spawn that reaches nothing passes')
+    try:
+        reach_verdict(1, 1, {'checks': {'movement': {'islands': []}}})
+        bad.append('a movement report without traps reads')
+    except Missing:
+        pass
+
+    ok_log = ('ssmap link: map entities 86 / budget 1536 (reserve 512, cap 2048); 88 entities in the entity list\n'
+              'ssmap link: wrote x.bsp (18 rooms, 64 clusters, 154 brushes (73 folded away), 2 packed files)\n')
+    expect(not budget_verdict(1, 1, ok_log)[0], 'a level inside its budget fails')
+    expect(budget_verdict(1, 1, ok_log.replace('86 /', '1600 /'))[0], 'too many entities pass')
+    expect(budget_verdict(1, 1, ok_log.replace('154 brushes', '9000 brushes'))[0], 'too many brushes pass')
+    expect(budget_verdict(1, 1, ok_log + 'ssmap link: refused room x\n')[0], 'a refusal passes')
+    try:
+        budget_verdict(1, 1, 'ssmap link: wrote nothing\n')
+        bad.append('a log without counts reads')
+    except Missing:
+        pass
+
+    lib = '{\n"classname" "env_fog_controller"\n"fogenable" "1"\n"fogstart" "512"\n}\n{\n"classname" "env_tonemap_controller"\n}\n'
+    expect(not mood_verdict(1, 1, lib, lib), 'a level holding its library\'s fog fails')
+    expect(mood_verdict(1, 1, lib, lib.replace('"512"', '"900"')), 'a level whose fog starts elsewhere passes')
+    expect(mood_verdict(1, 1, lib, lib.replace('env_tonemap_controller', 'info_target')), 'a level without its tone map passes')
+    nofog = '{\n"classname" "env_tonemap_controller"\n}\n'
+    vmf = 'entity\n{\n\t"classname" "env_fog_controller"\n\t"fogenable" "1"\n\t"fogstart" "512"\n\teditor\n\t{\n\t\t"color" "0 0 0"\n\t}\n}\nentity\n{\n\t"classname" "env_tonemap_controller"\n}\n'
+    expect(not mood_verdict(1, 1, vmf, lib), 'a VMF library\'s fog, as the level holds it, fails')
+    expect(not mood_verdict(1, 1, nofog, nofog), 'a level with no fog, as its library, fails')
+    expect(mood_verdict(1, 1, nofog, lib), 'a level with a fog its library has not passes')
+
+    for b in bad:
+        print('descent-gate self-test: FAIL: ' + b)
+    print('descent-gate self-test: %s' % ('FAIL' if bad else 'ok'))
+    return 1 if bad else 0
+
+
+if __name__ == '__main__':
+    if '--self-test' in sys.argv[1:]:
+        sys.exit(self_test())
+    sys.exit(main(sys.argv[1:]))

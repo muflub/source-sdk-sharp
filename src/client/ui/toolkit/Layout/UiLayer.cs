@@ -331,6 +331,12 @@ public sealed class UiLayer : IUiLayer
             _openEpoch++;
         if (!open)
             _minimised[i] = false;
+        // A closed window leaves the top: the open one under it is the top
+        // now, so the next Esc closes that one (the widget's and the host's
+        // top-window arm) rather than finding a closed window on top and
+        // passing the press on to the pause menu. Open raises it again.
+        if (was && !open && _windows is not null && _screens[i] is IUiWindowed closed)
+            _windows.Lower(closed.WindowId);
         if (was && !open)
             Closed?.Invoke(name);
     }

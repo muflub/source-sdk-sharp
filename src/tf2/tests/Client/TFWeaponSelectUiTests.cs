@@ -77,13 +77,14 @@ public sealed class TFWeaponSelectUiTests
         // The player carries his loadout: one row per hud slot, the forecast's
         // own walk (Primary..Pda2) — the mask the client's weapon entities
         // would carry.
-        var forecast = new client::TF2.Client.Weapons.TFWeaponSlotForecast(schema, classes, carriers, weapons, screen, slots);
-        ulong carried = 0;
+        var forecast = new client::TF2.Client.Weapons.TFWeaponSlotForecast(schema, classes, carriers, weapons, screen, slots,
+                                                                           new NoStandalones());
+        UInt128 carried = 0;
         for (int slot = 0; slot < 6; slot++)
         {
             int type = forecast.TypeAt(slot);
             if (type >= 0)
-                carried |= 1ul << type;
+                carried |= (UInt128)1 << type;
         }
 
         var hud = new SelectionHud(new HeldPlayer(carried), new SilentActions(), slots, new FixedClock(), () => 0);
@@ -194,7 +195,7 @@ public sealed class TFWeaponSelectUiTests
     }
 
     /// <summary>The loadout carried: the mask the hud's slot reads walk.</summary>
-    private sealed class HeldPlayer(ulong carried) : SelectionPlayer
+    private sealed class HeldPlayer(UInt128 carried) : SelectionPlayer
     {
         public bool Exists => true;
 
@@ -202,9 +203,9 @@ public sealed class TFWeaponSelectUiTests
 
         public bool FrozenOrDead => false;
 
-        public ulong Carried => carried;
+        public UInt128 Carried => carried;
 
-        public ulong Empty => 0;
+        public UInt128 Empty => 0;
 
         public int Active => -1;
     }
@@ -257,6 +258,8 @@ public sealed class TFWeaponSelectUiTests
         public int MaxTotalAmmo => 0;
 
         public int Metal => 0;
+
+        public bool Boosted => false;
     }
 
     // --- the forecast rig's doubles, verbatim ---

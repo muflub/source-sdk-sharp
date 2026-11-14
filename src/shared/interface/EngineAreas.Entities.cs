@@ -270,6 +270,21 @@ public interface IEngineEntities
     int LookupAttachmentAny(EntityHandle entity, string attachmentName);
 
     /// <summary>
+    /// A bone NAME to its ZERO-based index, stock's own spelling: -1 for a name
+    /// the model does not carry. The server's managed skeletons answer it on the
+    /// same route <see cref="LookupAttachmentAny"/> walks, from the entity's
+    /// model header.
+    /// </summary>
+    int LookupBone(EntityHandle entity, string boneName);
+
+    /// <summary>
+    /// The world position of a ZERO-based bone from the skeleton's bone build —
+    /// stock's <c>GetBonePosition</c>: the bone-to-world matrix's origin. False
+    /// when the entity has no skeleton or the index names no bone.
+    /// </summary>
+    bool GetBonePosition(EntityHandle entity, int bone, out Vector origin);
+
+    /// <summary>
     /// THE SDK'S FIND-BY-NAME, which <see cref="FindEntityByName"/> is not: that
     /// one walks the shim's own vector and answers only the parallel hierarchy.
     /// Resolving a map's <c>parentname</c> has to reach both.
@@ -672,11 +687,28 @@ public interface IEngineEntityRender
     /// </summary>
     void SetModelOverride(EntityHandle entity, string model);
 
+    /// <summary>
+    /// A named material drawn over the entity's model for each draw, stock's
+    /// <c>m_MaterialOverride</c> around <c>C_TFRagdoll::InternalDrawModel</c>
+    /// (c_tf_player.cpp:1280-1295) — the golden and the ice statue's texture.
+    /// An empty name clears it, and so does a name no material answers.
+    /// </summary>
+    void SetMaterialOverride(EntityHandle entity, string material);
+
     /// <summary>m_nTextureFrameIndex left with CBaseEntity; env_texturetoggle asks.</summary>
     void SetTextureFrame(EntityHandle entity, int frame);
 
     /// <inheritdoc cref="EngineSide.EntitySetTransmitAlways"/>
     void SetTransmitAlways(EntityHandle entity, bool always);
+
+    /// <summary>
+    /// The per-client transmit rule's opt-in (the ITransmitRule chain, F06): in
+    /// the FULLCHECK state the engine's transmit walk asks the rule for this
+    /// entity's fate with each client instead of the PVS check; off returns it
+    /// to the ordinary check. See <see cref="SetTransmitAlways"/> for the
+    /// broadcast form.
+    /// </summary>
+    void SetTransmitFullCheck(EntityHandle entity, bool on);
 
     /// <summary>
     /// Stock's <c>CBaseEntity::DetectInSkybox</c>: raises <c>EFL_IN_SKYBOX</c>

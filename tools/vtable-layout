@@ -483,7 +483,7 @@ INTERFACES = [
         struct='ShimFrameVtbl',
         exposed=True,
         shim=True,
-        header='src/sourcesharp/game/server/ishim_frame.h',
+        header='src/server/native/ishim_frame.h',
         chain=['IShimFrame'],
         version='SourceSharpFrame001',
         summary='<c>IShimFrame</c>, the nineteen native steps a server frame '
@@ -501,7 +501,7 @@ INTERFACES = [
         struct='ShimLevelVtbl',
         exposed=True,
         shim=True,
-        header='src/sourcesharp/game/server/ishim_level.h',
+        header='src/server/native/ishim_level.h',
         chain=['IShimLevel'],
         version='SourceSharpLevel001',
         summary='<c>IShimLevel</c>, the twenty-two native steps a level load '
@@ -519,7 +519,7 @@ INTERFACES = [
         struct='ShimRootVtbl',
         exposed=True,
         shim=True,
-        header='src/sourcesharp/game/shared/ishim_root.h',
+        header='src/shared/native/ishim_root.h',
         chain=['IShimRoot'],
         version='SourceSharpRoot003',
         summary='<c>IShimRoot</c>, the one native object LoadSideV2 hands the '
@@ -532,7 +532,7 @@ INTERFACES = [
         struct='ShimConsoleVtbl',
         exposed=True,
         shim=True,
-        header='src/sourcesharp/game/shared/ishim_console.h',
+        header='src/shared/native/ishim_console.h',
         chain=['IShimConsole'],
         version='SourceSharpConsole001',
         summary='<c>IShimConsole</c>, the console: printing, ConCommand and ConVar '
@@ -546,7 +546,7 @@ INTERFACES = [
         struct='ParticleLibVtbl',
         exposed=True,
         shim=True,
-        header='src/sourcesharp/game/client/particles_lib/include/ss_particles/iparticlelib.h',
+        header='src/client/native/particles_lib/include/ss_particles/iparticlelib.h',
         chain=['ISSParticleLib'],
         version='SSParticleLib001',
         summary='<c>ISSParticleLib</c>, libss_particles.so\'s one export: particles.a\'s '
@@ -793,7 +793,7 @@ def shim_area_rows(path='docs/engineapi-areas.tsv'):
             struct='Shim%sVtbl' % name,
             exposed=True,
             shim=True,
-            header='src/sourcesharp/game/shared/ishim_areas.h',
+            header='src/shared/native/ishim_areas.h',
             chain=chain,
             version='SourceSharp%s001' % name,
             suppress=[s for c in chain for s in slots[c] if s in suppressed],
@@ -813,7 +813,7 @@ def shim_area_rows(path='docs/engineapi-areas.tsv'):
             struct='Shim%sVtbl' % name,
             exposed=True,
             shim=True,
-            header='src/sourcesharp/game/shared/ishim_areas.h',
+            header='src/shared/native/ishim_areas.h',
             chain=[i],
             version='SourceSharp%s001' % name,
             suppress=[s for s in slots[i] if s in suppressed],
@@ -830,7 +830,7 @@ def shim_area_rows(path='docs/engineapi-areas.tsv'):
             struct='Shim%sVtbl' % name,
             exposed=True,
             shim=True,
-            header='src/sourcesharp/game/shared/ishim_areas_client.h',
+            header='src/shared/native/ishim_areas_client.h',
             chain=[i],
             version='SourceSharp%s001' % name,
             suppress=[s for s in client_slots[i] if s in suppressed],
@@ -1592,6 +1592,17 @@ def read(relative):
     """A file's text, or None. A Valve header (src/...) is read from vendor/,
     which the modules build from, before the farm."""
     candidates = [os.path.join(ROOT, relative)]
+
+    # Our own native headers, run from the farm: the farm's src/ is the module
+    # map's old-layout view (tools/module-map.tsv), where src/<side>/native is
+    # mirrored at src/sourcesharp/game/<side>/ -- the same files, one link
+    # each. A shim row's header misses the direct path there and hits this.
+    mirrored = re.match(r'src/(server|client|shared)/native/(.+)', relative)
+
+    if mirrored:
+        candidates.append(os.path.join(ROOT, 'src/sourcesharp/game/%s/%s'
+                                       % (mirrored.group(1), mirrored.group(2))))
+
     if relative.startswith('src/') and READ_VENDOR[0]:
         candidates[:0] = [os.path.join(VENDOR, side, relative[len('src/'):])
                           for side in ('shared', 'client', 'server')]

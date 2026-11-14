@@ -29,7 +29,7 @@ public class TFEngyMenuFitTests
     }
 
     private static TFBuildMenu Screen(FakeTFBuildMenuSource source)
-        => new(source, new TFBuildTile(new NoArt()), new NoArt());
+        => new(source, new TFBuildTile(new NoArt()), new NoArt(), new FakeTFBuildMenuActions(), new UnlockedGroups());
 
     private static UiContext Drawn(UiScreen screen, ScreenInfo screenInfo)
     {

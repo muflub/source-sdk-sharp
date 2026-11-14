@@ -47,14 +47,22 @@ public sealed class TFKillFeedSource : ITFKillFeed, IKillFeedListener
 
     private readonly IGameClock _clock;
     private readonly IKillFeedPlayers _players;
-    private readonly HudDeathNoticeTimeConVar? _time;
+    private readonly HudDeathNoticeTimeConVar _time;
+    private readonly IHooks<IKillFeedKillerNames> _killerNames;
     private readonly TFKillFeedLine[] _lines = new TFKillFeedLine[MaxLines];
     private readonly float[] _expires = new float[MaxLines];
     private int _count;
     private float _seen;
 
-    public TFKillFeedSource(IGameClock clock, IKillFeedPlayers players, HudDeathNoticeTimeConVar? time = null)
-        => (_clock, _players, _time) = (clock, players, time);
+    /// <summary>
+    /// Every dependency is injected: the client's composition holds the clock
+    /// and the players resolver by their registrations and publishes the
+    /// declared convars as the game's registry does, so a missing one fails
+    /// the composition by name instead of answering a fallback default.
+    /// </summary>
+    public TFKillFeedSource(IGameClock clock, IKillFeedPlayers players, HudDeathNoticeTimeConVar time,
+                            IHooks<IKillFeedKillerNames> killerNames)
+        => (_clock, _players, _time, _killerNames) = (clock, players, time, killerNames);
 
     void IKillFeedListener.OnDeath(PlayerDeathArgs death) => Add(death);
 
@@ -72,7 +80,7 @@ public sealed class TFKillFeedSource : ITFKillFeed, IKillFeedListener
     /// <summary>One player_death (<c>FireGameEvent</c>'s player-death arm).</summary>
     public void Add(PlayerDeathArgs death)
     {
-        float display = _time?.Value ?? 6f;
+        float display = _time.Value;
         if (display == 0f)
             return;
 
@@ -82,6 +90,14 @@ public sealed class TFKillFeedSource : ITFKillFeed, IKillFeedListener
             (killer, killerTeam, killerLocal) = ("", 0, false);
         if (!hasVictim)
             (victim, victimTeam, victimLocal) = ("", 0, false);
+
+        // A killer that is no player, named by a mod (IKillFeedKillerNames,
+        // as the core feed asks): drawn as a kill by that name. Stock names
+        // its own monsters the same way, by their kind, where the event has
+        // no player killer (OnGameEvent's boss arms, tf_hud_deathnotice.cpp
+        // :1068-1118).
+        if (KillFeedKillers.TryName(_killerNames, in death, hasKiller, out string named, out int namedTeam))
+            (killer, killerTeam, hasKiller) = (named, namedTeam, true);
 
         // Stock: iSuicide = ( !killer || killer == victim ), on indices (:517).
         bool suicide = !hasKiller || death.AttackerUserId == death.UserId;

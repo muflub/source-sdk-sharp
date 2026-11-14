@@ -171,6 +171,10 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                 // TF_MINIGUN_SPINUP_TIME / flSpinUpTime, so a half-second wind-up
                 // ends its lift with the gun, not half-way through it.
                 attack.ViewModel.PlaybackRate = SpinUpTime / Math.Max(spinUp, 0.00001f);
+
+                // Stock's tail ask (tf_weapon_minigun.cpp:276): the spin-up's
+                // PLAYERANIMEVENT_ATTACK_PRE, after the clocks as there.
+                attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp);
                 break;
 
             case State.StartFiring:
@@ -315,7 +319,11 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         weapon.BehaviourMode = shot.Critical
             ? weapon.BehaviourMode | CritLatchMask
             : weapon.BehaviourMode & ~CritLatchMask;
-        float spread = TFWeaponTypes.SpreadDegrees(script.Primary.Spread * SpreadScale(SpinTime(weapon, attack.Now)));
+        // The item's cone scale rides the base sine before the spin ramps it
+        // (tf_weaponbase_gun.cpp:846-847, ahead of every other GetWeaponSpread
+        // arm); the hook answers the plain sine when the holder carries none.
+        float scaled = Parts.Hooks.ModifySpread(in context, script.Primary.Spread);
+        float spread = TFWeaponTypes.SpreadDegrees(scaled * SpreadScale(SpinTime(weapon, attack.Now)));
 
         SendAnim(in attack, WeaponAnim.Primary);
         if (attack.EffectsLive)
@@ -392,7 +400,10 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
             return;
 
         // WindDown: the settle pose first, before the state change
-        // (stock's ACT_MP_ATTACK_STAND_POSTFIRE, :855 before :865).
+        // (stock's ACT_MP_ATTACK_STAND_POSTFIRE, :855 before :865). Stock's
+        // PLAYERANIMEVENT_ATTACK_POST rides the same arm (:910, before the
+        // WindDown it names).
+        attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown);
         SendAnim(in attack, WeaponAnim.Postfire);
         SetState(in attack, State.Idle);
         ClearAiming(attack.Command.OwnerIndex);

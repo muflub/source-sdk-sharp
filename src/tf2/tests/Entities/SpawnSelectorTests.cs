@@ -34,7 +34,7 @@ public sealed class SpawnSelectorTests
     {
         var rig = new ObjectiveRig();
         var teams = new FakeTeams();
-        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, classes);
+        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, classes ?? new FakeClasses(), rig.Carriers, rig.Registry);
         return (rig, selector, teams);
     }
 

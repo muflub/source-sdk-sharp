@@ -40,7 +40,7 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFWeaponSelect(ITFWeaponSelect select, IUiTextureLibrary textures,
-                                   IUiFontMetrics fonts, ITFRenderGroups? groups = null) : UiScreen
+                                   IUiFontMetrics fonts, ITFRenderGroups groups) : UiScreen
 {
     private readonly string[] _takes = ["hud.weaponselection"];
 
@@ -51,7 +51,7 @@ public sealed class TFWeaponSelect(ITFWeaponSelect select, IUiTextureLibrary tex
     // Stock's hud elements stand down for the scoreboard's locked "global"
     // group (ITFRenderGroups): the layer skips a screen whose Visible is
     // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
-    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
+    public override bool Visible => base.Visible && groups.GlobalLocked != true;
 
     public override IReadOnlyList<string> Takes => _takes;
 

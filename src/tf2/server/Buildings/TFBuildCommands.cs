@@ -36,11 +36,11 @@ namespace TF2.Server.Buildings;
 [SideService(Side.Server)]
 public sealed class TFBuildCommand(ITFMapPlayers players, ITFBuildingPickup pickup,
                                    ITFBuilderPlacement placement, ILog log,
-                                   ITeamRoundState? round = null, ITFStalemateSettings? stalemate = null)
+                                   ITeamRoundState round, ITFStalemateSettings stalemate)
     : IClientCommandHook, IOrderedHook
 {
-    private readonly ITeamRoundState? _round = round;
-    private readonly ITFStalemateSettings? _stalemate = stalemate;
+    private readonly ITeamRoundState _round = round;
+    private readonly ITFStalemateSettings _stalemate = stalemate;
 
     public const string Verb = "build";
 
@@ -65,7 +65,7 @@ public sealed class TFBuildCommand(ITFMapPlayers players, ITFBuildingPickup pick
 
         // In a melee-only sudden death the order is refused outright
         // (tf_player.cpp:7598-7599).
-        if (_round?.State == RoundState.Stalemate && _stalemate?.MeleeOnly == true)
+        if (_round.State == RoundState.Stalemate && _stalemate.MeleeOnly)
         {
             log.Msg($"[TF2/Build] {player}: the sudden death is melee-only\n");
             return true;

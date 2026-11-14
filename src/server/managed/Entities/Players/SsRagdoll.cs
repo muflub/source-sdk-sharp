@@ -50,28 +50,6 @@ namespace SourceSharp.Server;
 public sealed class SsRagdoll : AnimatingEntity
 {
     /// <summary>
-    /// How long a body lasts before it is removed, in seconds.
-    ///
-    /// <para>
-    /// FINITE BECAUSE NOTHING ELSE WILL CLEAN THESE UP. Stock leans on
-    /// <c>g_RagdollLVManager</c> and a round restart to bound how many corpses
-    /// exist; this mod has neither, so a deathmatch with no limit accumulates
-    /// one edict and one client-side ragdoll solve per death for the length of
-    /// the map. The number is a pacing decision rather than an engine
-    /// constraint.
-    /// </para>
-    ///
-    /// <para>
-    /// A CONSTANT. It was a settable static property "so it could be tuned",
-    /// and nothing ever set it; a mutable static is process-wide state every
-    /// test shares, and the owner's rule (2026-09-29) is that managed state
-    /// comes from the container. If it ever needs tuning at runtime, the place
-    /// for that is a convar the ragdoll takes through its constructor.
-    /// </para>
-    /// </summary>
-    public const float Lifetime = 15f;
-
-    /// <summary>
     /// Solidity is not <c>Entities</c>' area, so it arrives by constructor —
     /// the base class's rule for every area whose subject is not always this
     /// entity.
@@ -84,76 +62,31 @@ public sealed class SsRagdoll : AnimatingEntity
     [NetState] public RagdollNetState State = new();
 
     /// <summary>
-    /// What the spawn armed the removal for, or -1 if nothing did.
-    ///
-    /// <para>
-    /// Exposed for tests for the reason <c>PropPhysics.ThinkArmed</c> gives:
-    /// <c>SetNextThink</c> is a <see cref="ScriptedEntity"/> convenience that
-    /// goes through the STATIC engine, so a test's double never sees it — and
-    /// a body that never armed its removal looks exactly like one that did.
-    /// </para>
-    /// <para>
-    /// <c>[SaveField]</c>: the value is written ONCE in <see cref="OnSpawn"/>,
-    /// which a hot reload does not run again, and the removal it records is
-    /// booked natively -- a rebuilt body that forgot it would read as one that
-    /// never armed its removal (OnSpawnFieldReloadTests).
-    /// </para>
+    /// NOT SOLID, and this is the line that keeps a corpse from being a
+    /// wall. An Item is solid so it can be walked into and collected, which
+    /// is exactly wrong here: a body left in a doorway would block it, and
+    /// a player who died on a stairway would leave an invisible step. The
+    /// client's ragdoll does its own collision against the world.
     /// </summary>
-    [SaveField] internal float ThinkArmed { get; private set; } = -1f;
+    public override void OnSpawn() => _physics.SetNotSolid(Handle, true);
 
     /// <summary>
-    /// Whether this body has taken itself out of the world. Exposed for the
-    /// same reason <see cref="ThinkArmed"/> is — <c>Remove</c> goes through the
-    /// static engine too, and <c>PropPhysics.Gone</c> exists for this exact
-    /// wall.
+    /// THE DISSOLVE'S END. The one think a body books is its dissolve's
+    /// (<see cref="Dissolve"/>), and it fires only there: stock's server
+    /// ragdoll has no lifetime of its own — it goes when the player's next
+    /// death replaces it (<c>CTFPlayer::CreateRagdollEntity</c>'s m_hRagdoll
+    /// destroy, tf_player.cpp:15659-15666) or a round reset sweeps it. The
+    /// visible bound is the client's fade (<c>cl_ragdoll_fade_time</c>), the
+    /// client half's to carry.
     /// </summary>
-    internal bool Gone { get; private set; }
-
-    public override void OnSpawn()
-    {
-        // NOT SOLID, and this is the line that keeps a corpse from being a
-        // wall. An Item is solid so it can be walked into and collected, which
-        // is exactly wrong here: a body left in a doorway would block it, and
-        // a player who died on a stairway would leave an invisible step. The
-        // client's ragdoll does its own collision against the world.
-        _physics.SetNotSolid(Handle, true);
-
-        ThinkArmed = Lifetime;
-        SetNextThink(Lifetime);
-    }
-
-    /// <summary>
-    /// The body's time is up.
-    ///
-    /// <para>
-    /// Removing the entity is the whole of it: the client half's
-    /// <c>OnRemoved</c> is what tears the ragdoll down on each viewer, so
-    /// there is no second message to send and no per-client bookkeeping here.
-    /// </para>
-    /// </summary>
-    public override void OnThink()
-    {
-        if (Kept)
-            return;
-
-        Gone = true;
-        Remove();
-    }
-
-    /// <summary>
-    /// Whether this body stays until the level ends (<see cref="Corpses.Keep"/>).
-    /// The lifetime's think still fires and does nothing. <c>[SaveField]</c>:
-    /// the think is booked natively and survives a hot reload, so a rebuilt
-    /// body that forgot it was kept would remove itself.
-    /// </summary>
-    [SaveField] internal bool Kept;
+    public override void OnThink() => Remove();
 
     /// <summary>Whether this body is dissolving: stock's GetEffectEntity, for what sweeps bodies.</summary>
     internal bool Dissolving => State.DissolveStart > 0f;
 
     /// <summary>
     /// CBaseAnimating::Dissolve( ENTITY_DISSOLVE_NORMAL ): from now it fades on every
-    /// client, and it is gone when that is done rather than when its lifetime is.
+    /// client, and it is gone when that is done — the one think this body books.
     /// </summary>
     internal void Dissolve()
     {

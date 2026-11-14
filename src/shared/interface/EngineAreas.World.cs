@@ -191,6 +191,17 @@ public interface IEngineSound
     /// </summary>
     void EmitSoundToTeam(int team, EntityHandle entity, string soundName);
 
+    /// <summary>
+    /// A sound from an entity heard by one player alone wherever they stand —
+    /// stock's <c>CSingleUserRecipientFilter</c> arms around
+    /// <c>EmitSound( user, entindex(), pszSound )</c> (entity_healthkit.cpp:140-141,
+    /// tf_player_shared.cpp:9078-9079): the kit's touch and the charge's on and
+    /// off sounds play for that player alone. Reliable unless the caller's stock
+    /// arm is the unreliable one. Nothing when the player's slot holds no player.
+    /// Server side only.
+    /// </summary>
+    void EmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable = true);
+
     /// <inheritdoc cref="EngineSide.EntityStopSound"/>
     void EntityStopSound(EntityHandle entity, string soundName);
 

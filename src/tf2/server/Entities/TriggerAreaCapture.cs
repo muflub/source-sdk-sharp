@@ -66,9 +66,9 @@ public class TriggerAreaCapture(
     ICapturePlayers players,
     IObjectiveEntities entities,
     IObjectiveEvents events,
-    ITFPlayerObjectiveTimes? objectiveTimes = null,
-    ITFPlayerStats? stats = null,
-    IEngineGameEvents? gameEvents = null) : TriggerVolume(clock)
+    ITFPlayerObjectiveTimes objectiveTimes,
+    ITFPlayerStats stats,
+    IEngineGameEvents gameEvents) : TriggerVolume(clock)
 {
     public const string MapClass = "trigger_capture_area";
 
@@ -359,7 +359,7 @@ public class TriggerAreaCapture(
                         numBlockablePlayers[team] += playerRules.CaptureValueForPlayer(entity);
 
                         // The blocker touched the objective (L369).
-                        objectiveTimes?.SetLastObjectiveTime(entity, Clock.Now);
+                        objectiveTimes.SetLastObjectiveTime(entity, Clock.Now);
                     }
                     continue;
                 }
@@ -372,7 +372,7 @@ public class TriggerAreaCapture(
                     numPlayers[team] += playerRules.CaptureValueForPlayer(entity);
 
                     // The capper touched the objective (L382).
-                    objectiveTimes?.SetLastObjectiveTime(entity, Clock.Now);
+                    objectiveTimes.SetLastObjectiveTime(entity, Clock.Now);
                 }
             }
         }
@@ -881,18 +881,15 @@ public class TriggerAreaCapture(
             // made of, lands here (CTFGameStats::Event_PlayerScoresEscortPoints,
             // tf_gamestats.cpp:1482-1485); the currency and heavy achievement
             // arms are deferred (docs/plans/tf2/deferred.tsv).
-            stats?.Increment(player, TFStat.Captures, points);
+            stats.Increment(player, TFStat.Captures, points);
 
             // The event is fired server-only (FireEvent(event, true), :328).
-            if (gameEvents is { } ge)
+            IntPtr ev = gameEvents.EventCreate("player_escort_score");
+            if (ev != IntPtr.Zero)
             {
-                IntPtr ev = ge.EventCreate("player_escort_score");
-                if (ev != IntPtr.Zero)
-                {
-                    ge.EventSetInt(ev, "player", player.EntryIndex);
-                    ge.EventSetInt(ev, "points", points);
-                    ge.EventFire(ev);
-                }
+                gameEvents.EventSetInt(ev, "player", player.EntryIndex);
+                gameEvents.EventSetInt(ev, "points", points);
+                gameEvents.EventFire(ev);
             }
         }
     }

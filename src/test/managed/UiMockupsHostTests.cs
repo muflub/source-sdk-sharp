@@ -29,7 +29,7 @@ public sealed class UiMockupsHostTests : IDisposable
         var ids = JsonDocument.Parse(reply.Body).RootElement.GetProperty("segments").EnumerateArray()
             .Select(s => s.GetProperty("id").GetString()).ToList();
         Assert.Contains("screen:scoreboard", ids);
-        Assert.Contains(ids, id => id!.StartsWith("panel:SourceSharp.Ai.Hl2mp.Ui.", StringComparison.Ordinal));
+        Assert.Contains(ids, id => id!.StartsWith("panel:SourceSharp.Ai.Ui.", StringComparison.Ordinal));
     }
 
     [Fact]

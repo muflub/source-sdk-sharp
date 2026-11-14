@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Vgui;
 using SourceSharp.Shared;
@@ -17,10 +18,20 @@ namespace TF2.Client.Ui;
 /// multiplay_gamerules.cpp reads from scripts/voicecommands.txt), as radial popups:
 /// the same key again closes, only a player spawned in a game gets one, it closes
 /// should they stop being, and a choice is the <c>voicemenu &lt;menu&gt; &lt;item&gt;</c> the server answers.
+/// While one is up a number key takes its line, the hud input layer's ask
+/// (<see cref="IHudMenuKeys"/>) — the entry the key names, gone if there is none.
 /// </summary>
 public sealed class TFVoiceMenus(RadialMenus radial, IEngineFiles files, IFwdEngineClient engine, ITFLocalPlayer player, IObserverSource observer)
+    : IHudMenuKeys, IOrderedHook
 {
     public const string File = "scripts/voicecommands.txt";
+
+    /// <summary>The hud walk's place, past the disguise menu's +233: a
+    /// voice menu up is not a PDA out, the order only names a tie.</summary>
+    public const int Order = 1_000_000 - 1_000 + 234;
+
+    /// <inheritdoc/>
+    public int HookOrder => Order;
 
     private string[][]? _menus;
 
@@ -51,6 +62,25 @@ public sealed class TFVoiceMenus(RadialMenus radial, IEngineFiles files, IFwdEng
 
     /// <summary>Letting go of the key that holds the menu up speaks what is under the pointer.</summary>
     public void Release(int menu) => radial.Release(menu);
+
+    /// <inheritdoc/>
+    /// <summary>A number key while one of the voice menus is up takes
+    /// that entry — the line speaks and the menu goes; no such entry and
+    /// the key is the weapon slot's again. Any other binding, or another
+    /// menu up, is not ours.</summary>
+    public bool Key(ClientKeyBinding binding)
+    {
+        if (binding is not (>= ClientKeyBinding.Slot1 and <= ClientKeyBinding.Slot9))
+            return false;
+        int entry = binding - ClientKeyBinding.Slot1;
+        bool ours = false;
+        for (int menu = 0; menu < 3 && !ours; menu++)
+            ours = radial.ShowingFor(menu) && entry < radial.ItemCount;
+        if (!ours)
+            return false;
+        radial.Choose(entry);
+        return true;
+    }
 
     private RadialPage Page(int menu, string[] labels)
         => new($"#TF_Voice_Menu_{(char)('A' + menu)}",

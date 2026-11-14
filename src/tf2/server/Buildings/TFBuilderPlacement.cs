@@ -69,7 +69,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
                                        ITFRespawnRooms rooms, ITFBuildings buildings,
                                        ITFObjectBuilder objects, ITFAmmoPurse purse,
                                        ITFObjectSpawner spawner, ITFSapperState sapper,
-                                       ITFBuilderArms? arms = null, ILog? log = null)
+                                       ITFBuilderArms arms, ILog log)
     : ITFBuilderPlacement
 {
     /// <summary><c>TF_OBJ_GROUND_CLEARANCE</c> (baseobject_shared.h:34): how far a corner verifies down.</summary>
@@ -149,22 +149,23 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
             TFBaseObject? blueprint = spawner.Spawn(order.Type, entities.GetOrigin(player), Vector.Zero);
             if (blueprint is null)
             {
-                log?.Warning($"[TF2/Build] the world refused to create the {TFObjectClassNames.Raw(order.Type)} blueprint\n");
+                log.Warning($"[TF2/Build] the world refused to create the {TFObjectClassNames.Raw(order.Type)} blueprint\n");
                 return;
             }
 
             blueprint.SetObjectMode(order.Mode);
+            objects.MakeMiniFor(player, blueprint);
             blueprint.StartPlacement(player);
             _placing[player] = new Placing { Blueprint = blueprint, Mode = order.Mode };
-            log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(order.Type)} mode {order.Mode} blueprint out for {player}\n");
+            log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(order.Type)} mode {order.Mode} blueprint out for {player}\n");
             return;
         }
 
-        if (buildings.OwnedBy(player).FirstOrDefault(b => b.IsCarried && !b.IsDead) is { } carried)
+        if (buildings.OwnedBy(player, null, null).FirstOrDefault(b => b.IsCarried && !b.IsDead) is { } carried)
         {
             carried.ResumePlacement(player);
             _placing[player] = new Placing { Blueprint = carried, Carried = true };
-            log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(carried.Type)} back out of the arms for {player}\n");
+            log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(carried.Type)} back out of the arms for {player}\n");
         }
     }
 
@@ -186,14 +187,14 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
         TFBaseObject? ghost = spawner.Spawn(TFObjectType.AttachmentSapper, entities.GetOrigin(player), Vector.Zero);
         if (ghost is null)
         {
-            log?.Warning($"[TF2/Build] the world refused to create the {TFObjectClassNames.Raw(TFObjectType.AttachmentSapper)} ghost\n");
+            log.Warning($"[TF2/Build] the world refused to create the {TFObjectClassNames.Raw(TFObjectType.AttachmentSapper)} ghost\n");
             return;
         }
 
         ghost.StartPlacement(player);
         _placing[player] = new Placing { Blueprint = ghost };
         WalkAttachmentPlacement(ownerIndex, ghost);
-        log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(TFObjectType.AttachmentSapper)} ghost out for {player}\n");
+        log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(TFObjectType.AttachmentSapper)} ghost out for {player}\n");
     }
 
     /// <summary>
@@ -269,7 +270,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
         {
             // Stock denies the place with a VO; the console line is what this
             // build has where the voice would be.
-            log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} spot refused at ({origin.X}, {origin.Y}, {origin.Z}): {refusal}\n");
+            log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} spot refused at ({origin.X}, {origin.Y}, {origin.Z}): {refusal}\n");
             return false;
         }
 
@@ -284,22 +285,23 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
         else
         {
             // StartedBuildingObject's pay: a short purse aborts (tf_obj.cpp:1330-1336).
-            int cost = TFObjectInfo.Of(blueprint.Type)!.Cost;
+            int cost = objects.CostFor(player, blueprint.Type);
             if (purse.TakeAmmo(player, cost, MetalName) < cost)
             {
-                log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} unpaid; the blueprint comes down\n");
+                log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} unpaid; the blueprint comes down\n");
                 blueprint.DestroyObject();
                 _placing.Remove(player);
                 return false;
             }
 
+            objects.MakeMiniFor(player, blueprint);
             blueprint.StartBuilding();
-            log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} placed at "
+            log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} placed at "
                      + $"({origin.X}, {origin.Y}, {origin.Z}) for {player}\n");
         }
 
         _placing.Remove(player);
-        arms?.SwitchLast(player);
+        arms.SwitchLast(player);
         return true;
     }
 
@@ -343,7 +345,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
     public bool ArmBuilder(int ownerIndex)
     {
         EntityHandle player = enginePlayers.GetHandle(ownerIndex);
-        if (player == EntityHandle.None || arms is null)
+        if (player == EntityHandle.None)
             return false;
 
         switch (arms.Switch(player, BuilderWeapon))
@@ -441,7 +443,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
 
         // Not on top of another building (:710-735): the 24-across window
         // around the spot, the placing ones (the blueprints) skipped.
-        foreach (TFBaseObject owned in buildings.OwnedBy(blueprint.Builder))
+        foreach (TFBaseObject owned in buildings.OwnedBy(blueprint.Builder, null, null))
         {
             if (owned == blueprint || owned.IsDead || owned.IsPlacing)
                 continue;

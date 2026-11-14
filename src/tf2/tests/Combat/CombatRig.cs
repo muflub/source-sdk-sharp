@@ -11,6 +11,7 @@ using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
+using TF2.Tests.Entities.Items;
 using TF2.Tests.Weapons;
 
 namespace TF2.Tests.Combat;
@@ -61,20 +62,25 @@ internal sealed class RigEntities : IEntityDirectory
         : null;
 
     public ScriptedEntity? FindByName(string name) => null;
-    public IEnumerable<ScriptedEntity> OfClass(string className) => [];
+    public IEnumerable<ScriptedEntity> OfClass(string className)
+        => Placed.Values.Where(e => e.ClassName == className);
     public bool IsRegistered(string className) => true;
     public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
 }
 
-/// <summary>The core's damage op, recording each hit with the TF scope open at the time.</summary>
-internal sealed class ScopedDamage(TFDamageScopes scopes) : IEngineDamage
+/// <summary>
+/// The core's damage op, recording each hit with the TF scope open at the
+/// time, and — when the rig hands it one — the hitgroups scope's crit flag,
+/// sampled while the damage call is still synchronous inside the push.
+/// </summary>
+internal sealed class ScopedDamage(TFDamageScopes scopes, DamageHitGroups? groups = null) : IEngineDamage
 {
-    public List<(EntityHandle Victim, EntityHandle Attacker, float Damage, DamageType Type, TFDamageCustom Custom, TFWeaponId Weapon)> Hits { get; } = new();
+    public List<(EntityHandle Victim, EntityHandle Attacker, float Damage, DamageType Type, TFDamageCustom Custom, TFWeaponId Weapon, bool Critical)> Hits { get; } = new();
 
     public void Apply(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType)
     {
         scopes.TryCurrent(out var custom, out var weapon, out _);
-        Hits.Add((victim, attacker, damage, damageType, custom, weapon));
+        Hits.Add((victim, attacker, damage, damageType, custom, weapon, groups?.Critical ?? false));
     }
 
     public void ApplyAt(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType, Vector force, Vector position)
@@ -139,12 +145,65 @@ internal sealed class RigResupply : ITFPlayerResupply
 {
     public int MaxHealthAnswer;
 
+    /// <summary>The player's health the heals land on; facts set the start.</summary>
+    public int HealthAnswer;
+
+    /// <summary>The heal asks, as "<c>take index amount ignoreMaxHealth</c>".</summary>
+    public readonly List<string> Takes = [];
+    /// <summary>Every TakeHealth, as (who, how much) — the on-hit heals read these.</summary>
+    public readonly List<(EntityHandle Who, float Amount)> HealthTaken = [];
+
     public int MaxHealth(EntityHandle player) => MaxHealthAnswer;
 
+    /// <summary>Adds health up to the answered max, as the real seam caps at its
+    /// item-inclusive max health (the class's plus <c>add_maxhealth</c>).</summary>
+    public int TakeHealth(EntityHandle player, float health, bool ignoreMaxHealth = false)
+    {
+        int healed = ignoreMaxHealth
+                         ? (int)health
+                         : Math.Min((int)health, Math.Max(0, MaxHealthAnswer - HealthAnswer));
+        HealthAnswer += healed;
+        Takes.Add($"take {player.EntryIndex} {(int)health} {ignoreMaxHealth}");
+        HealthTaken.Add((player, health));
+        return healed;
+    }
+
     public void Regenerate(EntityHandle player, bool refillHealthAndAmmo = true) => throw new InvalidOperationException();
-    public int TakeHealth(EntityHandle player, float health, bool ignoreMaxHealth = false) => throw new InvalidOperationException();
     public int MaxAmmo(EntityHandle player, TFAmmo ammo) => throw new InvalidOperationException();
     public int GiveAmmo(EntityHandle player, int count, TFAmmo ammo) => throw new InvalidOperationException();
+}
+
+/// <summary>
+/// The medigun meter as the layer's charge arm uses it: the setter clamps to the
+/// meter's bounds as <c>AddCharge</c> does, and records the ask so a fact can
+/// read back exactly what the hit put on. The beam arms have no callers here.
+/// </summary>
+internal sealed class RigMediguns : ITFMedigunWeapons
+{
+    private readonly Dictionary<int, float> _levels = [];
+
+    /// <summary>The set asks, as "<c>charge index level</c>".</summary>
+    public readonly List<string> Sets = [];
+
+    public float ChargeLevel(int ownerIndex) => _levels.TryGetValue(ownerIndex, out var level) ? level : 0f;
+
+    public void SetChargeLevel(int ownerIndex, float level)
+    {
+        float clamped = Math.Clamp(level, 0f, 1f);      // stock's AddCharge cap (tf_weapon_medigun.cpp:1061)
+        _levels[ownerIndex] = clamped;
+        Sets.Add($"charge {ownerIndex} {clamped}");
+    }
+
+    public void TickMedic(int ownerIndex, float now, float frametime) { }
+    public void Holster(int ownerIndex, float now) { }
+    public void Unholster(int ownerIndex, float now) { }
+    public void RemoveMedigun(int ownerIndex, float now) { }
+    public int HealingTargetIndex(int ownerIndex) => -1;
+    public bool IsReleasing(int ownerIndex) => false;
+    public bool SubtractCharge(int ownerIndex, float amount) => false;
+
+    public void PreserveCharge(int ownerIndex, float amount)
+        => Sets.Add($"preserve {ownerIndex} {amount}");
 }
 
 internal sealed class CombatRig
@@ -153,6 +212,9 @@ internal sealed class CombatRig
     internal sealed class HealingSpy : ITFPlayerHealing
     {
         public readonly List<EntityHandle> Patients = [];
+
+        /// <summary>The item-inclusive buffed max the kill heal's headroom is measured against.</summary>
+        public int MaxBuffedAnswer = 125;
 
         public void Extinguished(EntityHandle patient) => Patients.Add(patient);
 
@@ -164,9 +226,15 @@ internal sealed class CombatRig
             => throw new InvalidOperationException();
         public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => throw new InvalidOperationException();
         public int NumHealers(int patientIndex) => throw new InvalidOperationException();
+
+        /// <summary>Who heals whom, by patient index — the connected-damage arm's graph.</summary>
+        public readonly Dictionary<int, int[]> Healers = new();
+
+        public IEnumerable<int> HealerIndexes(int patientIndex)
+            => Healers.TryGetValue(patientIndex, out var healers) ? healers : [];
         public void RecalculateChargeEffects(EntityHandle player, float now) => throw new InvalidOperationException();
-        public void NoteReleasing(int playerIndex, bool releasing) => throw new InvalidOperationException();
-        public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => throw new InvalidOperationException();
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) => throw new InvalidOperationException();
+        public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => MaxBuffedAnswer;
         public bool CanReceiveMedigunChargeEffect(EntityHandle player) => throw new InvalidOperationException();
         public void RemoveChargeEffect(EntityHandle player) => throw new InvalidOperationException();
         public void TestAndExpireChargeEffect(EntityHandle player, float now) => throw new InvalidOperationException();
@@ -199,6 +267,9 @@ internal sealed class CombatRig
     public ConVarRegistry ConVars { get; }
     public TFDamageLayer Layer { get; }
     public TFDamageRules Rules { get; }
+
+    /// <summary>The victim's shove flush, the component the frame's tick runs.</summary>
+    public TFScattergunKnockback ShoveFlush { get; }
     public RecordingLog Log { get; } = new();
 
     /// <summary>The per-player parts the burn's immune arm walks the wearables from.</summary>
@@ -210,17 +281,44 @@ internal sealed class CombatRig
     /// <summary>The resupply the spun-up gate's max health is read from.</summary>
     public RigResupply Resupply { get; } = new();
 
+    /// <summary>The meter the medic's on-hit charge arm lands on.</summary>
+    public RigMediguns Mediguns { get; } = new();
+
+    /// <summary>The effects the layer's tempent arms dispatch, the sink the facts read.</summary>
+    public RecordingEffectDispatch Temps { get; } = new();
+
+    /// <summary>The players the stun stack's condition asks read.</summary>
+    public readonly FakeMapPlayers StunPlayers = new();
+
+    /// <summary>
+    /// The player's stun stack, attached: a fake map player under the handle
+    /// answers the condition words the stack asks, as the projectile rig's
+    /// attach does; the stack then answers the hit's stun.
+    /// </summary>
+    public TFStunStack AttachStun(EntityHandle player)
+    {
+        StunPlayers.All[player] = new FakeMapPlayer();
+        var stack = new TFStunStack(Carriers, StunPlayers, Clock);
+        stack.Attach(player);
+        return stack;
+    }
+
     private int _nextDef = 9000;
 
     /// <summary>Puts one float attribute on the attacker's item, as the loadout handed it out.</summary>
     public IAttributeProvider AttackerItem(string hook, AttributeDescriptionFormat format, float value)
+        => ItemOn(CombatRig.Attacker, hook, format, value);
+
+    /// <summary>The same, on whoever the fact names: the sentry-mark arm reads
+    /// the builder's held item, not the constant attacker's.</summary>
+    public IAttributeProvider ItemOn(EntityHandle who, string hook, AttributeDescriptionFormat format, float value)
     {
         var container = new AttributeContainer(null, AttributeProviderType.Generic);
         container.Set(AttributeValue.OfFloat(
             new AttributeDefinition(_nextDef++, "attr " + _nextDef, hook, format,
                                     AttributeEffectType.Neutral, false, false,
                                     AttributeValueType.Default, MergedKeys.Block("x")), value));
-        Owners.Items[CombatRig.Attacker.EntryIndex] = container;
+        Owners.Items[who.EntryIndex] = container;
         return container;
     }
 
@@ -239,7 +337,7 @@ internal sealed class CombatRig
     public TFPlayerNetState VictimState { get; }
     public TFPlayerNetState AttackerState { get; }
 
-    public CombatRig(float roll = 0.5f)
+    public CombatRig(float roll = 0.5f, ITFSpyState? spies = null)
     {
         Random = new BandRandom(roll);
         Damage = new ScopedDamage(Scopes);
@@ -248,6 +346,7 @@ internal sealed class CombatRig
         AttackerState = Players.Add(Attacker.EntryIndex, TFClass.Sniper);
 
         Engine.Returns("Entities.IsValid", true)
+              .Returns("Entities.GetHealth", 500)   // every hit reads the victim's prior health for the crit meter (tf_player.cpp:10770); ample so the kill cap stays off a fact's numbers unless it names its own
               .ReturnsEachCall("Entities.IsPlayer", () => Arg() is EntityHandle h && (h == Victim || h == Attacker || h == Third))
               .ReturnsEachCall("Entities.GetWorldSpaceCenter", () => Arg() is EntityHandle h && h == Attacker ? AttackerAt : default(Vector))
               .ReturnsEachCall("Entities.GetOrigin", () => Arg() is EntityHandle h && h == Attacker ? AttackerAt : default(Vector))
@@ -268,14 +367,20 @@ internal sealed class CombatRig
                                       Owners, new TF2.Shared.Econ.AttributeHooks(), Carriers);
         Bleeds = new TFBleeds(Players, Conditions, Engine, Engine, Damage, Scopes);
         Layer = new TFDamageLayer(Players, Engine, Engine, Entities, new TFWeaponScripts(Log, files), new TFClassTable(Log, files),
-                                  Owners, Resupply, new TF2.Shared.Econ.AttributeHooks(),
+                                  Owners, Resupply, new TF2.Shared.Econ.AttributeHooks(), Carriers,
                                   Random, Clock, Records, Scopes, Afterburns, Bleeds,
                                   ConVars.Declared<TFDamageRangeConVar>(), ConVars.Declared<TFDamageDisableSpreadConVar>(),
                                   ConVars.Declared<TFWeaponCriticalsDistanceFalloffConVar>(),
                                   ConVars.Declared<TFWeaponMinicritsDistanceFalloffConVar>(),
                                   ConVars.Declared<TFFallDamageDisableSpreadConVar>(), ConVars.Declared<TFDebugDamageConVar>(), ZoomTimes, Log,
-                                  Stats, Inflictors, SentryDamages, ConVars.Declared<TFStealthDamageReductionConVar>());
-        Rules = new TFDamageRules(Players, Engine, Scopes);
+                                  Stats, Inflictors, SentryDamages, ConVars.Declared<TFStealthDamageReductionConVar>(),
+                                  Conditions, Engine, Engine, Mediguns, Damage, Healing, Temps, Engine, Engine,
+                                  Engine, ConVars.Declared<TFRocketPackImpactPushMinConVar>(),
+                                  ConVars.Declared<TFRocketPackImpactPushMaxConVar>(),
+                                  spies ?? new TF2.Tests.Player.IdleSkillSpies());
+        Rules = new TFDamageRules(Players, Engine, Scopes, Carriers);
+        ShoveFlush = new TFScattergunKnockback(Carriers, Engine, Layer);
+        ShoveFlush.Attach(CombatRig.Victim);
     }
 
     private object? Arg() => Engine.Calls[^1].Args.Length > 0 ? Engine.Calls[^1].Args[0] : null;

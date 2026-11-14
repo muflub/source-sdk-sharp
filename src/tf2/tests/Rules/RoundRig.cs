@@ -407,11 +407,35 @@ internal sealed class RecordingListener : ITeamRoundListener
     public void OnRoundWon(TFTeam team, WinReason reason, float bonusSeconds) => Heard.Add($"won {team} {reason} {bonusSeconds}");
 }
 
+/// <summary>The core's new-match chain, heard: each reset's reason, in order.</summary>
+internal sealed class RecordingMatchResets : IMatchResetHook
+{
+    public readonly List<string> Heard = new();
+
+    public void OnMatchReset(string why) => Heard.Add(why);
+}
+
 internal sealed class FixedVeto : ITimerExpiryVeto
 {
     public bool Allows { get; set; } = true;
 
     public bool TimerMayExpire() => Allows;
+}
+
+/// <summary>
+/// The stats seam with no rows: every read answers nothing, which through the
+/// stable sort keeps stock's insertion order and leaves the swap pass without
+/// a delta to reduce — what the base machine does when the player resource is
+/// there but holds nobody.
+/// </summary>
+internal sealed class NoScores : TF2.Server.Player.ITFPlayerStats
+{
+    public void Increment(EntityHandle player, TFStat stat, int amount = 1) { }
+    public int Round(int playerIndex, TFStat stat) => 0;
+    public int Accumulated(int playerIndex, TFStat stat) => 0;
+    public int RoundScore(int playerIndex) => 0;
+    public int Score(int playerIndex) => 0;
+    public void ResetPlayer(EntityHandle player) { }
 }
 
 /// <summary>
@@ -433,6 +457,7 @@ internal sealed class RoundRig
     public readonly SourceSharp.Abi.RecordingLog Log = new();
     public readonly RecordingListener Listener = new();
     public readonly FixedVeto Veto = new();
+    public readonly RecordingMatchResets MatchResets = new();
     public readonly FakeWinPanel WinPanel = new();
     public readonly TeamBalance Balance;
     public readonly RecordingEngine Engine;
@@ -447,15 +472,20 @@ internal sealed class RoundRig
         Scores = new TFTeamScores(table ?? new TF2.Server.Entities.TeamResource());
         Roster = new FakeRoster(Clock);
         Slot.Current = Mode;
-        Objectives = objectives;
-        Balance = new TeamBalance(Settings, Roster, Announcer, Timers, Clock, Log, classes);
+        Balance = new TeamBalance(Settings, Roster, Announcer, Timers, Clock, Log,
+                                  classes ?? new TF2.Server.Player.TFPlayerCarriers());
         // The auto scramble's dedicated-server gate: a dedicated box, as the
         // arm presumes; a listen-server fact flips it before the win.
         Engine = RecordingEngine.Default().Returns("Host.IsDedicatedServer", true);
+        // The machine takes every seam required; a caller that names none
+        // gets each seam's empty arm, as the side's registrations hold one.
+        var heldObjectives = objectives ?? new TF2.Server.Entities.ObjectiveEntities(new TF2.Tests.Ctf.EmptyDirectory());
+        Objectives = heldObjectives;
         Flow = new TeamRoundFlow(Settings, Roster, Announcer, World, End, Slot, Scores, Timers, Balance, Clock, Log,
                                  new RandomSeeds(seed), Engine,
                                  new ListHooks<ITeamRoundListener>(Listener), new ListHooks<ITimerExpiryVeto>(Veto),
-                                 carriers, WinPanel, level, objectives, stats);
+                                 carriers ?? new TF2.Server.Player.TFPlayerCarriers(), WinPanel, level ?? new FakeLevel(),
+                                 heldObjectives, stats ?? new NoScores(), new ListHooks<IMatchResetHook>(MatchResets));
     }
 
     /// <summary>Moves the clock by <paramref name="seconds"/> and thinks once.</summary>

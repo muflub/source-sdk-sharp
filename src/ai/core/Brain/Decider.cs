@@ -1,7 +1,8 @@
 namespace SourceSharp.Ai;
 
 /// <summary>What a decider is made from: the bot, its seed, its memory and its skills' parameters (§10).</summary>
-public sealed record BrainSetup(ActorId Bot, ulong Seed, BotMemory Memory, DecisionParams Params, float TickSeconds);
+/// <summary>What a decider is built with: the bot, its seed, memory and parameters, the tick, and its home point (its post) when the game gave one.</summary>
+public sealed record BrainSetup(ActorId Bot, ulong Seed, BotMemory Memory, DecisionParams Params, float TickSeconds, AiVector? Home = null);
 
 /// <summary>
 /// What the brain is doing and planning (§7.2's third part), as of its last

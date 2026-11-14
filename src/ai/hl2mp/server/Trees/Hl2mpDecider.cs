@@ -57,7 +57,7 @@ public static class Hl2mpStyle
 /// carry out (§3): a goal to walk to, a point or an actor to look at, a
 /// button to hold or press.
 /// </summary>
-public sealed class Hl2mpDecider : IDecider
+public sealed partial class Hl2mpDecider : IDecider
 {
     /// <summary>HL2MP's run speed (hl2_normspeed), the push test's.</summary>
     public const float RunSpeed = 190f;
@@ -154,13 +154,10 @@ public sealed class Hl2mpDecider : IDecider
     private float _ambushWalkSeconds = AmbushWalkSeconds;
     private readonly ulong _campSeed;
 
-    // A prefire (§5.4).
-    private readonly AiRandom _prefireRng;
-    private int _lineAsk, _askAnswered;
-    private AiVector _lineAt, _lineFrom, _prefireSpot;
-    private bool _lineClear, _prefiring, _prefireAiming;
-    private bool _triedFallback;
-    private Tick _prefireUntil, _prefireNext;
+    // A prefire (§5.4): the core's, and the one line channel it shares with the alt fire and the frags.
+    private readonly LineAsks _lines = new();
+    private readonly PrefireRun _prefire;
+    private readonly PrefireOpening _opening;
     private string _prefireState = "";
 
     // The weapons the bot found empty in its hands (the HUD shows them so), by
@@ -183,7 +180,7 @@ public sealed class Hl2mpDecider : IDecider
     private int _momentSeq;
     private string _momentKind = "";
     private ActorId _momentOther;
-    private Tick _lastSpotMoment, _revengeSeen;
+    private Tick _lastSpotMoment, _revengeSeen, _friendlyFireSeen;
     private Tick _damageSeen, _goalHeldSince, _progressTick;
     private AiVector _heldGoal, _progressAt;
     private KnownActor? _heldFor, _lastTarget;
@@ -204,7 +201,7 @@ public sealed class Hl2mpDecider : IDecider
     public const float NoProgressSeconds = 1.5f;
 
     /// <summary>The priority the opponent the bot is already about has over a rival (§5.4).</summary>
-    public const float TargetStick = 1.25f;
+    public const float TargetStick = TargetScore.Stick;
 
     /// <summary>How long after losing sight a fight goes on as it was, before it becomes a chase (§5.4).</summary>
     public const float SightGraceSeconds = 0.75f;
@@ -269,22 +266,23 @@ public sealed class Hl2mpDecider : IDecider
     /// approach to their usual corner, a bot believes it knows where they are well
     /// enough to fire there; and how sure it must still be.
     /// </summary>
-    public const float PrefireSeenSeconds = 2.5f, PrefireHeardSeconds = 1.5f, PrefireConfidence = 0.5f, PrefireHabitConfidence = 0.25f;
+    public const float PrefireSeenSeconds = PrefireBelief.SeenSeconds, PrefireHeardSeconds = PrefireBelief.HeardSeconds,
+                       PrefireConfidence = PrefireBelief.Confidence, PrefireHabitConfidence = PrefireBelief.HabitConfidence;
 
     /// <summary>The place must be within this of the way the view points: a human turn, about 0.2 s of a flick.</summary>
     public const float PrefireTurnDeg = 60f;
 
     /// <summary>How long between one chance of a prefire and the next: a person sprays, then checks.</summary>
-    public const float PrefireCheckSeconds = 2f;
+    public const float PrefireCheckSeconds = PrefireRun.CheckSeconds;
 
     /// <summary>The share of a clip it keeps: not a nearly empty gun.</summary>
     public const float PrefireClipShare = 0.25f;
 
     /// <summary>A line's answer stands while the bot has moved less than this, and it fires at nothing nearer.</summary>
-    public const float PrefireLineMoved = 48f, PrefireNearest = 96f;
+    public const float PrefireLineMoved = PrefireRun.LineMoved, PrefireNearest = 96f;
 
     /// <summary>How far along the graph from what it believes it looks for an opening it can see.</summary>
-    public const int PrefireOpeningCells = 512;
+    public const int PrefireOpeningCells = PrefireOpening.Cells;
 
     /// <summary>
     /// The height a place is looked at and fired at: where a standing person's shoulders would be
@@ -293,7 +291,7 @@ public sealed class Hl2mpDecider : IDecider
     public const float PlaceHeight = Hl2mpAimHeights.ShoulderStanding;
 
     /// <summary>Kills by someone that make the grudge's whole weight (§5.5).</summary>
-    public const float GrudgeFull = 2f;
+    public const float GrudgeFull = TargetScore.GrudgeFull;
 
     /// <summary>A spot an opponent has been found camping this many times is a habit (§5.5).</summary>
     public const float HabitVisits = 2f;
@@ -348,17 +346,22 @@ public sealed class Hl2mpDecider : IDecider
         _tick = setup.TickSeconds;
         _rng = new AiRandom(setup.Seed ^ 0x5452_4545UL);
         _routeRng = new AiRandom(setup.Seed ^ 0x524F_5554UL);
-        _prefireRng = new AiRandom(setup.Seed ^ 0x5052_4546UL);
+        _prefire = new PrefireRun(new AiRandom(setup.Seed ^ 0x5052_4546UL), _lines);
+        _opening = new PrefireOpening(_graph?.CellCount ?? 0);
         _aimHeight = new AimHeightHold(new AiRandom(setup.Seed ^ 0x4149_4D48UL));
         _altRng = new AiRandom(setup.Seed ^ 0x414C_5446UL);
         _fragRng = new AiRandom(setup.Seed ^ 0x4652_4147UL);
         _crouchRng = new AiRandom(setup.Seed ^ 0x4455_434BUL);
-        _streakRng = new AiRandom(setup.Seed ^ 0x484F_5421UL);
+        _streaks = new Streaks(new AiRandom(setup.Seed ^ 0x484F_5421UL));
+        _calloutRng = new AiRandom(setup.Seed ^ 0x4341_4C4CUL);
+        _crossRng = new AiRandom(setup.Seed ^ 0x4352_5353UL);
         _campSeed = setup.Seed ^ 0x4341_4D50UL;
         Array.Fill(_watched, new AiVector(float.MaxValue, float.MaxValue, float.MaxValue));
         _coverSeen = new int[_graph?.CellCount ?? 0];
         Trace = new BtTrace();
         _run = new BtRun(_rng, Trace, _tick);
+        _aim = new AimWander(_rng);
+        _glance = new PathGlance(_rng);
         _root = Build();
         _tree = new BehaviorTree<Hl2mpDecider>(_root);
         _names = new string[_tree.Nodes.Length];
@@ -390,6 +393,7 @@ public sealed class Hl2mpDecider : IDecider
         _ammoTerm = 0f;
         _window = default;
         _hasGoal = false;
+        _say = SayIntent.Nothing;
         Streaks();
 
         if (!_self.Alive)
@@ -400,7 +404,7 @@ public sealed class Hl2mpDecider : IDecider
             _approachOf = ActorId.None;
             _goalHeld = _walkingToGoal = _wasSighted = false;
             _heldFor = _lastTarget = null;
-            EndPrefire();
+            _prefire.End();
             _crouching = false;
             Trace.Begin(tick);
             Trace.End(default);
@@ -410,16 +414,18 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         _ownHasFacts = _map.Weapons.TryGet(_self.ActiveWeapon, out _ownFacts);
+        NoteOwnSwap();
         NoteDry();
         _use = Hl2mpWeaponRanges.For(_ownHasFacts ? _ownFacts.Name : "");
         ChooseTarget();
         if (_target is null || _targetSighted)
             _approachOf = ActorId.None;   // an approach ends in sight, or with nobody to approach
         if (!_targetSighted)
-            _aimSighted = false;          // back in sight, the aim starts over
+            _aim.Lost();                  // back in sight, the aim starts over
 
         _interrupted = NoteInterrupts();
         _tree.Decide(this, _run, tick);
+        TeamRoles();
         HoldGoal();
         PreAim();
         if (_fragState == FragState.Idle)
@@ -433,17 +439,20 @@ public sealed class Hl2mpDecider : IDecider
         if (!_targetSighted && _hasGoal && _look.Kind == LookKind.Path)
             Glance();
         Overlays();
+        FriendGate();
+        Callout();
 
-        string branch = _root.Chosen?.Name ?? "none";
+        string branch = _teamRole.Length > 0 ? "Team" : _root.Chosen?.Name ?? "none";
         var reason = new DecisionReason(LeafId(), _root.Chosen is null ? 0f : Utility(_root.Chosen), _scoreboardTerm, _ammoTerm);
         Trace.End(in reason);
         Tick expires = tick + IntentCommand.LifetimeTicks;
+        (string Name, float AimErrorDeg, float ReactionMs, float RecognizeSeconds) streak = _streaks.Record(in _p);
         Doing = new DoingRecord(branch, _leaf, _hasGoal, _goal, _target?.Id ?? ActorId.None, _verdict, _window.PEmpty, _window.PReloading,
                                 _window.SecondsLeft, _window.ArriveSeconds, _scoreboardTerm, _ammoTerm, expires,
                                 _grudgeTerm, _preAiming, _habitKnown ? _habitSpot : default, _momentSeq, _momentKind, _momentOther,
-                                _lineAsk, _lineAt, _prefireState, _prefireAiming ? _prefireSpot : default, StreakName,
-                                _streak == 0 ? 0f : StreakNow.AimErrorDeg, _streak == 0 ? 0f : StreakNow.ReactionMs, _streak == 0 ? 0f : StreakNow.RecognizeSeconds, _altState);
-        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason);
+                                _lines.Ask, _lines.At, _prefireState, _prefire.Aiming ? _prefire.Spot : default, streak.Name,
+                                streak.AimErrorDeg, streak.ReactionMs, streak.RecognizeSeconds, _altState);
+        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason, _say);
     }
 
     private static float Utility(BtScored<Hl2mpDecider> n) => n.LastScore;
@@ -534,6 +543,13 @@ public sealed class Hl2mpDecider : IDecider
             Moment("revenge", who);
         }
 
+        (ActorId mate, Tick hitAt) = _memory.LastFriendlyFire;
+        if (mate.IsValid && hitAt != _friendlyFireSeen)
+        {
+            _friendlyFireSeen = hitAt;
+            Moment("friendly_fire", mate);
+        }
+
         bool gained = _targetSighted && !_wasSighted;
         if (gained && _preAim && _target is not null && HabitSpot(_target, out AiVector spot) && _targetPos.DistanceTo(spot) < SpotNear
             && (_lastSpotMoment.Value == 0 || (_now - _lastSpotMoment) * _tick >= MomentCooldownSeconds))
@@ -608,92 +624,36 @@ public sealed class Hl2mpDecider : IDecider
     private void Prefire()
     {
         _prefireState = "";
-        if (_view.SightedCount > 0 || _target is null || _targetSighted || !PrefireLeaf || !PrefireHands())
-        {
-            EndPrefire();
+        if (!_prefire.Gate(_view.SightedCount == 0 && _target is not null && !_targetSighted && PrefireLeaf && PrefireHands(), _now, _tick))
             return;
-        }
 
-        if (_prefiring && _now >= _prefireUntil)
+        if (!_prefire.Aiming)
         {
-            EndPrefire();
-            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
-            return;
-        }
-
-        if (!_prefireAiming)
-        {
-            if (_now < _prefireNext || !PrefireBelief(out AiVector believed, out AiVector fallback))
+            if (_now < _prefire.Next || !PrefireBelieves(out AiVector believed, out AiVector fallback))
                 return;
-            AiVector spot = Opening(believed) + new AiVector(0f, 0f, PlaceHeight);
+            AiVector spot = _opening.Find(_graph, _memory.World.Sight, _self.Origin, believed) + new AiVector(0f, 0f, PlaceHeight);
             if (!PrefireInReach(spot))
                 return;
             // One chance, then it waits to check again.
-            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
-            if (_prefireRng.NextFloat() >= _p.PrefireChance * _p.PrefireThrift)
+            if (!_prefire.Draw(_now, _tick, _p.PrefireChance * _p.PrefireThrift, spot, fallback + new AiVector(0f, 0f, PlaceHeight)))
                 return;
-            _prefireSpot = spot;
-            _prefireFallback = fallback + new AiVector(0f, 0f, PlaceHeight);
-            _triedFallback = false;
-            _lineClear = false;
-            _prefireAiming = true;
         }
 
-        if (!PrefireInReach(_prefireSpot))
+        if (!PrefireInReach(_prefire.Spot))
         {
-            EndPrefire();
+            _prefire.End();
             return;
         }
 
         // The view goes there at once, as a person's does; the hands follow when the line is known.
-        _look = new LookIntent(LookKind.CornerCheck, _prefireSpot, _target.Id, AimPoint.Body, 0f, 0);
+        _look = new LookIntent(LookKind.CornerCheck, _prefire.Spot, _target!.Id, AimPoint.Body, 0f, 0);
         _prefireState = "aiming";
-        (int ask, AiVector point, bool clear) = _memory.LastLine;
-        if (ask == _lineAsk && ask != _askAnswered && _lineAsk > 0)
-        {
-            _askAnswered = ask;
-            _lineClear = clear && point.DistanceTo(_prefireSpot) < 1f && _self.Origin.DistanceTo(_lineFrom) < PrefireLineMoved;
-            if (!_lineClear && !_prefiring)
-            {
-                if (_triedFallback || _prefireFallback.DistanceTo(_prefireSpot) < 1f || !PrefireInReach(_prefireFallback))
-                {
-                    EndPrefire();
-                    return;
-                }
-
-                // Behind what it can see: the place it last saw them is the opening.
-                _triedFallback = true;
-                _prefireSpot = _prefireFallback;
-            }
-            else if (!_lineClear)
-            {
-                EndPrefire();
-                return;
-            }
-        }
-
-        // Each decide it looks again: it moves, and a door may shut.
-        if (_lineAsk == _askAnswered || _lineAt.DistanceTo(_prefireSpot) >= 1f)
-        {
-            _lineAsk++;
-            _lineAt = _prefireSpot;
-            _lineFrom = _self.Origin;
-        }
-
-        if (!_lineClear)
+        bool fallbackInReach = PrefireInReach(_prefire.Fallback);
+        if (_prefire.Line(_memory.LastLine, _now, _self.Origin, fallbackInReach, (int)(_p.PrefireBurstSeconds / _tick)) != PrefireStep.Firing)
             return;
-        if (!_prefiring)
-        {
-            _prefiring = true;
-            _prefireUntil = _now + Math.Max(1, (int)(_p.PrefireBurstSeconds / _tick));
-            Prefires++;
-        }
-
         _prefireState = "firing";
         _action = new ActionIntent(ActionKind.Fire, _use.Style, 0, 0);
     }
-
-    private AiVector _prefireFallback;
 
     // ---------------------------------------------------------------- alt fire (§5.4)
 
@@ -772,9 +732,8 @@ public sealed class Hl2mpDecider : IDecider
         _altLineClear = alt.Kind != AltFireKind.Lob;
         if (why == AltFireReason.Corner)
         {
-            _altCorner = _prefireSpot;
-            EndPrefire();
-            _prefireNext = _now + (int)(PrefireCheckSeconds / _tick);
+            _altCorner = _prefire.Spot;
+            _prefire.EndAndWait(_now, _tick);
         }
 
         AltGoOn(in alt);
@@ -805,8 +764,8 @@ public sealed class Hl2mpDecider : IDecider
                 others++;
         }
 
-        bool corner = !_targetSighted && _prefiring && _lineClear;
-        float distance = corner ? _self.Origin.DistanceTo(_prefireSpot) : _targetDist;
+        bool corner = !_targetSighted && _prefire.Firing && _prefire.LineClear;
+        float distance = corner ? _self.Origin.DistanceTo(_prefire.Spot) : _targetDist;
         return new AltFireSituation(_targetSighted, distance, _targetPos.Z - _self.Origin.Z, closing, across, (_now - _stillSince) * _tick, others, visible, corner, false);
     }
 
@@ -879,7 +838,7 @@ public sealed class Hl2mpDecider : IDecider
             // The aim's own wander, as any shot has it (LookAtTarget drew it this decide).
             float size = MathF.Tan(AimErrorNow * (MathF.PI / 180f)) * _targetDist;
             AiVector to = new AiVector(at.X - _self.Origin.X, at.Y - _self.Origin.Y, 0f).Normalised();
-            at += new AiVector(-to.Y * size * _aimSmoothX, to.X * size * _aimSmoothX, size * _aimSmoothZ * AimErrorUpShare);
+            at += new AiVector(-to.Y * size * _aim.Across, to.X * size * _aim.Across, size * _aim.Up * AimWander.UpShare);
         }
 
         if (alt.Gravity <= 0f)
@@ -893,11 +852,10 @@ public sealed class Hl2mpDecider : IDecider
     private bool AltLineClear(AiVector point, out bool refused)
     {
         refused = false;
-        (int ask, AiVector asked, bool clear) = _memory.LastLine;
-        if (ask == _lineAsk && ask != _askAnswered && _lineAsk > 0)
+        (int Ask, AiVector Point, bool Clear) last = _memory.LastLine;
+        if (_lines.TryAnswer(last))
         {
-            _askAnswered = ask;
-            _altLineClear = clear && asked.DistanceTo(point) < AltLineNear && _self.Origin.DistanceTo(_lineFrom) < PrefireLineMoved;
+            _altLineClear = last.Clear && last.Point.DistanceTo(point) < AltLineNear && _self.Origin.DistanceTo(_lines.From) < PrefireLineMoved;
             if (!_altLineClear)
             {
                 refused = true;
@@ -906,16 +864,10 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         // Each decide it looks again, as a prefire does; a place it has moved far from starts over.
-        bool moved = _lineAt.DistanceTo(point) >= AltLineNear;
+        bool moved = _lines.At.DistanceTo(point) >= AltLineNear;
         if (moved)
             _altLineClear = false;
-        if (_lineAsk == _askAnswered || moved)
-        {
-            _lineAsk++;
-            _lineAt = point;
-            _lineFrom = _self.Origin;
-        }
-
+        _lines.Reask(point, _self.Origin, moved);
         return _altLineClear;
     }
 
@@ -1082,7 +1034,7 @@ public sealed class Hl2mpDecider : IDecider
 
     private bool FragBegins()
     {
-        if (_target is null || _altGoing || _now < _fragNext || _self.Grenades <= 0 || _use.Melee || _prefiring)
+        if (_target is null || _altGoing || _now < _fragNext || _self.Grenades <= 0 || _use.Melee || _prefire.Firing)
             return false;
         int kind = FragKindHeld(out AltFireFacts frag);
         if (kind < 0 || kind == _self.ActiveWeapon)
@@ -1109,7 +1061,7 @@ public sealed class Hl2mpDecider : IDecider
         _fragState = FragState.Looking;
         _fragAt = _now;
         _altLineClear = false;
-        EndPrefire();
+        _prefire.End();
         return true;
     }
 
@@ -1130,10 +1082,10 @@ public sealed class Hl2mpDecider : IDecider
         place = _targetPos;
         if (!_targetSighted)
         {
-            if (PrefireBelief(out AiVector believed, out _))
+            if (PrefireBelieves(out AiVector believed, out _))
             {
                 corner = true;
-                place = Opening(believed);
+                place = _opening.Find(_graph, _memory.World.Sight, _self.Origin, believed);
             }
             else if (_habitKnown)
             {
@@ -1201,111 +1153,33 @@ public sealed class Hl2mpDecider : IDecider
 
     // ---------------------------------------------------------------- streaks (§5.5)
 
-    /// <summary>The chance a kill starts one, two kills close together, and how close.</summary>
-    public const float StreakKillChance = 0.25f, StreakDoubleChance = 0.6f, StreakDoubleSeconds = 8f;
+    /// <summary>The core's numbers (<see cref="Ai.Streaks"/>), by the names the facts read them under.</summary>
+    public const float StreakKillChance = Ai.Streaks.KillChance, StreakDoubleChance = Ai.Streaks.DoubleChance, StreakDoubleSeconds = Ai.Streaks.DoubleSeconds;
 
-    /// <summary>How often one starts from nothing, a person's good minute, and how often that is looked at.</summary>
-    public const float StreakRandomPerMinute = 0.1f, StreakCheckSeconds = 10f;
+    public const float StreakRandomPerMinute = Ai.Streaks.RandomPerMinute, StreakCheckSeconds = Ai.Streaks.CheckSeconds;
 
-    /// <summary>A hot streak's length, and a rest after any streak before the next.</summary>
-    public const float HotMinSeconds = 8f, HotMaxSeconds = 20f, StreakRestSeconds = 45f;
+    public const float HotMinSeconds = Ai.Streaks.HotMinSeconds, HotMaxSeconds = Ai.Streaks.HotMaxSeconds, StreakRestSeconds = Ai.Streaks.RestSeconds;
 
-    /// <summary>The chance two deaths close together start a cold spell, how close, and its length.</summary>
-    public const float ColdChance = 0.5f, ColdDeathSeconds = 20f, ColdMinSeconds = 6f, ColdMaxSeconds = 12f;
+    public const float ColdChance = Ai.Streaks.ColdChance, ColdDeathSeconds = Ai.Streaks.ColdDeathSeconds, ColdMinSeconds = Ai.Streaks.ColdMinSeconds,
+                       ColdMaxSeconds = Ai.Streaks.ColdMaxSeconds, ColdWorthShowing = Ai.Streaks.ColdWorthShowing;
 
-    private readonly AiRandom _streakRng;
-    private int _streak, _streakAskSeen;
-    private Tick _streakUntil, _streakNext, _streakCheck, _killSeen, _deathSeen;
-
-    /// <summary>What the bot's streak makes of it now: only read with one on.</summary>
-    private StreakParams StreakNow => _streak > 0 ? _p.Hot : _p.Cold;
-
-    private string StreakName => _streak > 0 ? "hot" : _streak < 0 ? "cold" : "";
+    private readonly Streaks _streaks;
 
     /// <summary>The aim's error and lead now: a streak's, or its own.</summary>
-    private float AimErrorNow => _streak == 0 ? _p.AimErrorDeg : StreakNow.AimErrorDeg;
+    private float AimErrorNow => _streaks.AimErrorDeg(in _p);
 
-    private float LeadNow => _streak == 0 ? _p.LeadQuality : StreakNow.LeadQuality;
+    private float LeadNow => _streaks.LeadQuality(in _p);
 
     /// <summary>
-    /// A run of playing above or below itself (§5.5, ruling 2026-11-02: "some times bad bots
-    /// become great for a very short stint"). Mostly earned, by a kill or better two close
-    /// together, and now and then from nothing; a death ends a hot one, and two close together
-    /// can start a cold one. Own stream, every draw every time, so one bot's luck moves nothing
-    /// else. A bot a streak would not change (one at the cap) has none to show.
+    /// A run of playing above or below itself (§5.5): the core's <see cref="Ai.Streaks"/>, from its
+    /// own stream; one begun is a moment a player would recognise.
     /// </summary>
     private void Streaks()
     {
-        if (!_memory.StreaksOn)
-        {
-            _streak = 0;
-            return;
-        }
-
-        if (_streak != 0 && _now >= _streakUntil)
-            EndStreak();
-
-        (Tick lastDeath, Tick deathBefore) = _memory.OwnDeaths;
-        if (lastDeath != _deathSeen)
-        {
-            _deathSeen = lastDeath;
-            float u = _streakRng.NextFloat();
-            if (_streak > 0)
-                EndStreak();
-            if (u < ColdChance && deathBefore.Value != 0 && (lastDeath - deathBefore) * _tick <= ColdDeathSeconds && Rested && CanRunCold)
-                BeginStreak(-1);
-        }
-
-        (Tick lastKill, Tick killBefore) = _memory.OwnKills;
-        if (lastKill != _killSeen)
-        {
-            _killSeen = lastKill;
-            float u = _streakRng.NextFloat();
-            bool twice = killBefore.Value != 0 && (lastKill - killBefore) * _tick <= StreakDoubleSeconds;
-            if (u < (twice ? StreakDoubleChance : StreakKillChance) && Rested && CanRunHot)
-                BeginStreak(1);
-        }
-
-        // The first look a period in: no bot opens its game on a run.
-        if (_streakCheck.Value == 0)
-            _streakCheck = _now + (int)(StreakCheckSeconds / _tick);
-        if (_now >= _streakCheck)
-        {
-            _streakCheck = _now + (int)(StreakCheckSeconds / _tick);
-            float u = _streakRng.NextFloat();
-            if (u < StreakRandomPerMinute * StreakCheckSeconds / 60f && Rested && CanRunHot && _self.Alive)
-                BeginStreak(1);
-        }
-
-        (int asked, int code) = _memory.StreakAsked;
-        if (asked != _streakAskSeen)
-        {
-            _streakAskSeen = asked;
-            BeginStreak(code == AiEvent.StreakHot ? 1 : -1);
-        }
-    }
-
-    private bool Rested => _streak == 0 && _now >= _streakNext;
-
-    private bool CanRunHot => _p.Hot.AimErrorDeg != _p.AimErrorDeg;
-
-    /// <summary>A cold spell is a good bot's: under this much worse, a weak bot has none to show.</summary>
-    public const float ColdWorthShowing = 1.1f;
-
-    private bool CanRunCold => _p.Cold.AimErrorDeg > _p.AimErrorDeg * ColdWorthShowing;
-
-    private void BeginStreak(int kind)
-    {
-        float least = kind > 0 ? HotMinSeconds : ColdMinSeconds, most = kind > 0 ? HotMaxSeconds : ColdMaxSeconds;
-        _streak = kind;
-        _streakUntil = _now + (int)((least + (most - least) * _streakRng.NextFloat()) / _tick);
-        Moment(kind > 0 ? "hot" : "cold", ActorId.None);
-    }
-
-    private void EndStreak()
-    {
-        _streak = 0;
-        _streakNext = _now + (int)(StreakRestSeconds / _tick);
+        int begun = _streaks.Begun;
+        _streaks.Step(_now, _tick, _memory, in _p, _self.Alive);
+        for (; begun < _streaks.Begun; begun++)
+            Moment(_streaks.Kind > 0 ? "hot" : "cold", ActorId.None);
     }
 
     // ---------------------------------------------------------------- crouching (§5.4)
@@ -1393,12 +1267,7 @@ public sealed class Hl2mpDecider : IDecider
     private bool _crouchFit;
 
     /// <summary>Bursts begun, for the facts.</summary>
-    public int Prefires { get; private set; }
-
-    private void EndPrefire()
-    {
-        _prefiring = _prefireAiming = _lineClear = false;
-    }
+    public int Prefires => _prefire.Begun;
 
     /// <summary>The fight-like leaves a prefire belongs to: hunting, chasing, holding a place, and a fight just out of sight.</summary>
     private bool PrefireLeaf => _leaf is "hunt" or "chase" or "ambush" or "hold range";
@@ -1416,33 +1285,8 @@ public sealed class Hl2mpDecider : IDecider
     /// of, just heard, or at the corner its habit says, on an approach Cunning chose
     /// to pre-aim. <paramref name="at"/> is where it believes, <paramref name="last"/> the last place it had any evidence of.
     /// </summary>
-    private bool PrefireBelief(out AiVector at, out AiVector last)
-    {
-        KnownActor a = _target!;
-        at = last = default;
-        float seen = a.EverSeen ? (_now - a.LastSeenTick) * _tick : float.MaxValue;
-        float heard = a.EverHeard ? (_now - a.LastHeardTick) * _tick : float.MaxValue;
-        if (a.Confidence >= PrefireConfidence && seen <= PrefireSeenSeconds)
-        {
-            at = Where(a);
-            last = a.LastSeenPos;
-        }
-        else if (a.Confidence >= PrefireConfidence && heard <= PrefireHeardSeconds)
-        {
-            at = a.LastHeardPos;
-            last = a.LastHeardPos;
-        }
-        else if (_preAiming && a.Confidence >= PrefireHabitConfidence)
-        {
-            at = last = _habitSpot;
-        }
-        else
-        {
-            return false;
-        }
-
-        return true;
-    }
+    private bool PrefireBelieves(out AiVector at, out AiVector last)
+        => PrefireBelief.Of(_target!, _now, _tick, _graph, _preAiming ? _habitSpot : null, out at, out last, out _, out _);
 
     /// <summary>In weapon range, not at its own feet, and within a human turn of where it looks.</summary>
     private bool PrefireInReach(AiVector spot)
@@ -1453,46 +1297,7 @@ public sealed class Hl2mpDecider : IDecider
             return false;
         AiVector to = (spot - eye).Normalised();
         float cos = VisionMath.Forward(_self.Eye).Dot(to);
-        return _prefiring || cos >= MathF.Cos(PrefireTurnDeg * (MathF.PI / 180f));
-    }
-
-    /// <summary>
-    /// The nearest place to <paramref name="believed"/> along the graph that the
-    /// map's sight table says the bot can see: what someone gone round a corner is
-    /// behind. With no table, the place itself; the line's answer has the last word.
-    /// </summary>
-    private AiVector Opening(AiVector believed)
-    {
-        ICellSight? sight = _memory.World.Sight;
-        if (_graph is null || sight is null)
-            return believed;
-        CellId from = _graph.FindCell(_self.Origin + new AiVector(0f, 0f, 1f)), start = _graph.FindCell(believed + new AiVector(0f, 0f, 1f));
-        if (!from.IsValid || !start.IsValid)
-            return believed;
-        if (++_coverStamp == int.MaxValue)
-        {
-            Array.Clear(_coverSeen);
-            _coverStamp = 1;
-        }
-
-        int head = 0, tail = 0;
-        _coverQueue[tail++] = start.Index;
-        _coverSeen[start.Index] = _coverStamp;
-        while (head < tail && head < PrefireOpeningCells)
-        {
-            int c = _coverQueue[head++];
-            if (sight.Visible(from.Index, c))
-                return _graph.Cell(c).Centre;
-            foreach (NavEdge e in _graph.EdgesFrom(c))
-            {
-                if (_coverSeen[e.To] == _coverStamp || tail >= _coverQueue.Length)
-                    continue;
-                _coverSeen[e.To] = _coverStamp;
-                _coverQueue[tail++] = e.To;
-            }
-        }
-
-        return believed;
+        return _prefire.Firing || cos >= MathF.Cos(PrefireTurnDeg * (MathF.PI / 180f));
     }
 
     /// <summary>
@@ -1590,24 +1395,17 @@ public sealed class Hl2mpDecider : IDecider
         _targetSighted = false;
         _scoreboardTerm = 0f;
         _grudgeTerm = 0f;
-        float best = 0f, closest = CloseRange;
-        int rows = 0;
-        bool close = false;
+        var pick = new TargetPick(CloseRange);
         Blackboard board = _memory.Board;
+        // On a team, Headhunter ranks the enemy rows only (plan_bots_teams_tf2 B.5): a leader on its own team is no target.
+        int rows = TargetScore.Rows(_memory);
         for (int s = 0; s < board.Slots; s++)
         {
             KnownActor a = board.Actor(s);
-            if (a.Known && a.Rank > rows)
-                rows = a.Rank;
-        }
-
-        for (int s = 0; s < board.Slots; s++)
-        {
-            KnownActor a = board.Actor(s);
-            if (!a.Known || a.Dead)
+            if (!a.Known || a.Dead || _memory.IsFriend(a) || NotYetRecognised(a))
                 continue;
             bool sighted = _view.TryActor(a.Id, out ActorFacts f);
-            AiVector at = sighted ? f.Origin : Where(a);
+            AiVector at = sighted ? f.Origin : a.BelievedAt(_graph);
             float dist = _self.Origin.DistanceTo(at);
             if (!sighted)
             {
@@ -1615,23 +1413,12 @@ public sealed class Hl2mpDecider : IDecider
                     continue;
             }
 
-            float rankTerm = _p.RankBonus * RankBonus(a.Rank, rows);
-            float grudgeTerm = _p.GrudgeWeight * Math.Min(1f, a.GrudgeAt(_now, _tick) / GrudgeFull);
-            float proximity = 1f / (1f + dist / 768f);
-            float priority = (sighted ? 1f : 0.5f * a.Confidence) * (proximity * _p.EasyTargetDiscount + rankTerm + grudgeTerm);
-            if (ReferenceEquals(a, _lastTarget))
-                priority *= TargetStick;
+            float rankTerm = _p.RankBonus * TargetScore.RankBonus(TargetScore.RankOf(_memory, a), rows);
+            float grudgeTerm = TargetScore.Grudge(a, _now, _tick, _p.GrudgeWeight);
+            float priority = TargetScore.Priority(sighted, a.Confidence, dist, _p.EasyTargetDiscount, rankTerm, grudgeTerm, ReferenceEquals(a, _lastTarget));
             // Someone close in plain sight outranks everyone else, the nearest first.
-            bool closer = sighted && dist <= closest;
-            if (closer)
+            if (pick.Takes(sighted, dist, priority))
             {
-                closest = dist;
-                close = true;
-            }
-
-            if (closer || (!close && priority > best))
-            {
-                best = priority;
                 _target = a;
                 _targetSighted = sighted;
                 _targetPos = at;
@@ -1646,21 +1433,8 @@ public sealed class Hl2mpDecider : IDecider
         _lastTarget = _target;
     }
 
-    /// <summary>§5.4's rankBonus: rank 1 is 1, falling linearly to 0 at the bottom of the rows; no rank, nothing.</summary>
-    public static float RankBonus(int rank, int rows)
-    {
-        if (rank <= 0 || rows <= 1)
-            return rank == 1 ? 1f : 0f;
-        return Math.Clamp((rows - rank) / (float)(rows - 1), 0f, 1f);
-    }
-
-    /// <summary>Where a remembered opponent is believed: the belief's arg-max, else where it was last seen or heard.</summary>
-    private AiVector Where(KnownActor a)
-    {
-        if (a.Where is { Active: true } w && _graph is not null && w.ArgMax.IsValid)
-            return _graph.Cell(w.ArgMax).Centre;
-        return a.LastHeardTick > a.LastSeenTick ? a.LastHeardPos : a.LastSeenPos;
-    }
+    /// <summary>§5.4's rankBonus (<see cref="TargetScore.RankBonus"/>).</summary>
+    public static float RankBonus(int rank, int rows) => TargetScore.RankBonus(rank, rows);
 
     /// <summary>
     /// The opponent went out of sight a moment ago (§5.4): a corner flickers
@@ -1679,8 +1453,8 @@ public sealed class Hl2mpDecider : IDecider
 
     private float SurviveUtility()
     {
-        bool threatened = _targetSighted || (_now - _memory.Board.LastDamageTick) * _tick < 3f;
-        if (HealthShare < Math.Max(_p.RetreatHealthPct, _p.GiveUpHealth) && threatened)
+        bool threatened = RetreatRule.Threatened(_targetSighted, _now, _memory.Board.LastDamageTick, _tick);
+        if (RetreatRule.Retreats(HealthShare, in _p, threatened))
             return 0.95f;
         if (_self.Health < 40 && !_targetSighted && NearestItem(ItemKind.Health, out _, out _))
             return 0.6f;
@@ -1705,7 +1479,7 @@ public sealed class Hl2mpDecider : IDecider
     }
 
     private float SearchUtility()
-        => _memory.Board.TryBestInvestigation(_now, _tick, out Investigation i) && (_now - i.Tick) * _tick < _p.SearchSeconds ? 0.4f : 0f;
+        => SoundSearch.Worth(_memory.Board, _now, _tick, _p.SearchSeconds, out _) ? 0.4f : 0f;
 
     private float AmbushUtility()
     {
@@ -1988,12 +1762,10 @@ public sealed class Hl2mpDecider : IDecider
 
     private bool Search()
     {
-        if (!_memory.Board.TryBestInvestigation(_now, _tick, out Investigation i))
+        // Near it, or getting nowhere towards it, the sound is done with (SoundSearch).
+        if (!SoundSearch.Next(_memory.Board, _now, _tick, _self.Origin, LastInterrupt == "stuck", out AiVector at))
             return false;
-        // Near it, or getting nowhere towards it: a person gives up on a noise they cannot get to.
-        if (_self.Origin.DistanceTo(i.Position) < 96f || LastInterrupt == "stuck")
-            _memory.Board.Resolve(i.Position, 128f, i.Source);
-        GoTo(i.Position, MoveSpeed.Run, MoveKind.Follow);
+        GoTo(at, MoveSpeed.Run, MoveKind.Follow);
         return true;
     }
 
@@ -2327,7 +2099,7 @@ public sealed class Hl2mpDecider : IDecider
                 if (count < 2f || (uint)item >= (uint)_map.Items.Length || board.Items[item].Present == false)
                     continue;
                 AiVector p = _map.Items[item].Position;
-                if (_self.Origin.DistanceTo(p) < Where(a).DistanceTo(p))
+                if (_self.Origin.DistanceTo(p) < a.BelievedAt(_graph).DistanceTo(p))
                 {
                     at = p;
                     return true;
@@ -2410,33 +2182,19 @@ public sealed class Hl2mpDecider : IDecider
     }
 
     /// <summary>
-    /// A glance off the path while nobody is in sight (§3.4, by Alertness):
-    /// at <c>glanceRate</c> a second, the look turns 50-100° to a side for a
-    /// moment, as a player checks a doorway in passing.
+    /// A glance off the path while nobody is in sight (§3.4, by Alertness): the core's
+    /// <see cref="PathGlance"/>, from the tree's own stream.
     /// </summary>
     private void Glance()
     {
-        if (_now < _glanceUntil)
-        {
-            _look = new LookIntent(LookKind.Glance, _glanceAt, ActorId.None, AimPoint.Body, 0f, 0);
-            return;
-        }
-
-        if (_rng.NextFloat() >= _p.GlanceRate * DecideSchedule.Period * _tick)
-            return;
-        float yaw = MathF.Atan2(_goal.Y - _self.Origin.Y, _goal.X - _self.Origin.X);
-        float off = (50f + 50f * _rng.NextFloat()) * (MathF.PI / 180f) * (_rng.NextFloat() < 0.5f ? -1f : 1f);
-        _glanceAt = _self.Origin + new AiVector(MathF.Cos(yaw + off) * 256f, MathF.Sin(yaw + off) * 256f, 64f);
-        _glanceUntil = _now + (int)(0.4f / _tick);
-        Glances++;
-        _look = new LookIntent(LookKind.Glance, _glanceAt, ActorId.None, AimPoint.Body, 0f, 0);
+        if (_glance.Step(_now, _tick, _p.GlanceRate, _self.Origin, _goal, EyeHeight, out AiVector at))
+            _look = new LookIntent(LookKind.Glance, at, ActorId.None, AimPoint.Body, 0f, 0);
     }
 
-    private Tick _glanceUntil;
-    private AiVector _glanceAt;
+    private readonly PathGlance _glance;
 
     /// <summary>Glances taken, for the facts.</summary>
-    public int Glances { get; private set; }
+    public int Glances => _glance.Taken;
 
     /// <summary>
     /// A fight's sidestep (§3.4: aperiodic, by Agility): a side drawn anew
@@ -2465,99 +2223,26 @@ public sealed class Hl2mpDecider : IDecider
         _move = dir.Length < 0.05f ? MoveIntent.Hold : new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, dir.Normalised(), false, 0);
     }
 
-    /// <summary>How fast the aim's wander changes (§3.4.1's drift), seconds to fall to 1/e of its value.</summary>
-    public const float AimWanderSeconds = 0.7f;
-
-    /// <summary>The aim's error at first sight, on top of its settled size: 1.5 is 2.5 times the error (a first shot is usually worse than the fifth).</summary>
-    public const float AimSettleExtra = 1.5f;
-
-    /// <summary>How fast that extra error goes, seconds to fall to 1/e.</summary>
-    public const float AimSettleSeconds = 0.6f;
-
-    /// <summary>How smooth the wander's second filter makes it, seconds; its size stays nearly the same (a sixth smaller) at this.</summary>
-    public const float AimSmoothSeconds = 0.25f;
-
-    /// <summary>The aim's wander stops at this many of its standard deviations.</summary>
-    public const float AimWanderClip = 2.5f;
-
-    /// <summary>The aim's vertical error, as a share of its horizontal one: a body is taller than it is wide, and people misjudge across more than up.</summary>
-    public const float AimErrorUpShare = 0.6f;
-
-    private float _aimX, _aimZ, _aimSmoothX, _aimSmoothZ;
-    private ActorId _aimOf;
-    private Tick _aimSince;
-    private bool _aimSighted;
-
-    private float Gaussian()
-    {
-        // Both draws every time, so the stream does not depend on the value.
-        float u = Math.Max(_rng.NextFloat(), 1e-6f), v = _rng.NextFloat();
-        return MathF.Sqrt(-2f * MathF.Log(u)) * MathF.Cos(2f * MathF.PI * v);
-    }
+    // The aim's error: drawn at first sight, wandering from there (§3.4.1), from the tree's own stream.
+    private readonly AimWander _aim;
 
     /// <summary>
-    /// The aim's error as a share of <c>aimErrorDeg</c> (§3.4.1): drawn when the
-    /// target comes into sight, wandering slowly from there, not a new draw at
-    /// each decide; a person's crosshair drifts, it does not jump.
-    /// </summary>
-    private bool WanderAim()
-    {
-        bool fresh = _target!.Id != _aimOf || !_aimSighted;
-        _aimSighted = _targetSighted;
-        float a = Gaussian(), b = Gaussian();
-        if (fresh)
-        {
-            _aimOf = _target.Id;
-            _aimSince = _now;
-            _aimX = a;
-            _aimZ = b;
-        }
-        else
-        {
-            float rho = MathF.Exp(-DecideSchedule.Period * _tick / AimWanderSeconds);
-            float rest = MathF.Sqrt(1f - rho * rho);
-            _aimX = rho * _aimX + rest * a;
-            _aimZ = rho * _aimZ + rest * b;
-        }
-
-        _aimX = Math.Clamp(_aimX, -AimWanderClip, AimWanderClip);
-        _aimZ = Math.Clamp(_aimZ, -AimWanderClip, AimWanderClip);
-
-        // Smoothed once more, so the crosshair's drift has no 10 Hz steps in it: each
-        // would turn the view back and forth (yaw reversals, ai-replay metrics).
-        float keep = fresh ? 0f : MathF.Exp(-DecideSchedule.Period * _tick / AimSmoothSeconds);
-        _aimSmoothX = keep * _aimSmoothX + (1f - keep) * _aimX;
-        _aimSmoothZ = keep * _aimSmoothZ + (1f - keep) * _aimZ;
-        return fresh;
-    }
-
-    /// <summary>
-    /// The height the crosshair is held at now (§3.4.1, ruling 2026-11-03), world z. It starts a new
-    /// engagement where a standing person's shoulders would be, its default, and a body that is
-    /// not there, or leaves it, asks for a re-aim: <see cref="AimHeightHold"/>.
+    /// The height the crosshair is held at now (§3.4.1, ruling 2026-11-03), world z: the shoulders'
+    /// default and the re-aim a crouch or a jump asks for are <see cref="AimHeightHold.Hold"/>'s.
     /// </summary>
     private float HeldAimHeight(bool fresh, StanceHeight heights)
     {
         // A good hand keeps it a little higher, on a gun (Accuracy's aimRise).
         float rise = _use.Aim == AimPoint.Shoulder ? _p.AimRise : 0f;
-        float standing = _targetPos.Z + heights.Standing + rise;
-        if (!_targetSighted)
-            return standing;
-        if (fresh)
-            _aimHeight.Start(standing);
-        return _aimHeight.Step(_targetPos.Z + heights.At(_targetCrouched) + rise, ReAimSeconds, _p.FlickOvershootPct, _targetDist, DecideSchedule.Period * _tick);
+        return _aimHeight.Hold(fresh, _targetSighted, _targetPos.Z, heights, _targetCrouched, rise, ReAimSeconds, _p.FlickOvershootPct, _targetDist,
+                               DecideSchedule.Period * _tick);
     }
 
-    /// <summary>
-    /// How long a change of stance goes unanswered: seeing it, then reacting (a streak's own, §5.5), with
-    /// a person's least. A curve's 100 ms is for a reaction already braced for a shot, and a re-aim has
-    /// to be noticed first.
-    /// </summary>
-    private float ReAimSeconds
-        => MathF.Max(ReAimLeastSeconds, _streak == 0 ? _p.RecognizeSeconds + _p.ReactionMs / 1000f : StreakNow.RecognizeSeconds + StreakNow.ReactionMs / 1000f);
+    /// <summary>How long a change of stance goes unanswered (<see cref="AimHeightHold.ReAimSeconds"/>), by a streak's own recognition and reaction (§5.5).</summary>
+    private float ReAimSeconds => _streaks.ReAimSeconds(in _p);
 
     /// <summary>The soonest anyone's crosshair answers a change of stance.</summary>
-    public const float ReAimLeastSeconds = 0.25f;
+    public const float ReAimLeastSeconds = AimHeightHold.ReAimLeastSeconds;
 
     private readonly AimHeightHold _aimHeight;
 
@@ -2569,7 +2254,7 @@ public sealed class Hl2mpDecider : IDecider
         if (_target is null)
             return;
         // The aim's error by Accuracy: drawn now, used last.
-        bool fresh = WanderAim();
+        bool fresh = _aim.Step(_target.Id, _targetSighted, _now, _tick);
         // Across the body it follows them; its height it holds, and the body's jump or duck is no lead (§3.4.1).
         var chest = new AiVector(_targetPos.X, _targetPos.Y, HeldAimHeight(fresh, Hl2mpAimHeights.Of(_use.Aim)));
         float lead = 0f;
@@ -2594,11 +2279,7 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         // A point off the target by its wander, wider at first sight.
-        float seconds = (_now - _aimSince) * _tick;
-        float size = MathF.Tan(AimErrorNow * (MathF.PI / 180f)) * _targetDist * (1f + AimSettleExtra * MathF.Exp(-seconds / AimSettleSeconds));
-        float err = size * _aimSmoothX, errUp = size * _aimSmoothZ * AimErrorUpShare;
-        AiVector to = new AiVector(chest.X - _self.Origin.X, chest.Y - _self.Origin.Y, 0f).Normalised();
-        chest += new AiVector(-to.Y * err, to.X * err, errUp);
+        chest += _aim.Error(_self.Origin, chest, AimErrorNow, _targetDist, _now, _tick);
         _look = new LookIntent(LookKind.Actor, chest, _target.Id, _use.Aim, lead, 0);
         if (fire && _targetSighted && CanFire())
             _action = new ActionIntent(ActionKind.Fire, _use.Style, 0, 0);
@@ -2608,6 +2289,39 @@ public sealed class Hl2mpDecider : IDecider
 
     /// <summary>A frag in hand with someone inside its blast: nobody throws one at their own feet.</summary>
     private bool FragTooClose => _ownHasFacts && _ownFacts.Alt.Kind == AltFireKind.Underhand && _targetDist < _ownFacts.Alt.BlastRadius * Hl2mpAltFire.SafeShare;
+
+    /// <summary>Decides on which fire was held for a teammate in the way (plan_bots_teams_tf2 B.5), a jank part.</summary>
+    public int HeldFireFriend { get; private set; }
+
+    /// <summary>The eye height a shot's line is drawn from and a body's top is taken at.</summary>
+    private const float EyeHeight = 64f;
+
+    /// <summary>
+    /// Not shooting a teammate (plan_bots_teams_tf2 B.5): fire is held when the core's
+    /// <see cref="FriendLine"/> finds a sighted friend on the line to the aim point or on the
+    /// view's own line, or, with friendly fire on, inside the blast of a grenade or a ball the
+    /// bot is about to send.
+    /// </summary>
+    private void FriendGate()
+    {
+        if (_action.Kind is not (ActionKind.Fire or ActionKind.AltFire) || !TeamRule.IsGameTeam(_self.Team))
+            return;
+        bool aimed = _look.Kind is LookKind.Actor or LookKind.CornerCheck or LookKind.Point;
+        if (!FriendLine.Blocked(_view, EyeHeight, aimed ? _look.Point : null, HuntReach, FriendlyBlast(), EyeHeight))
+            return;
+        _action = ActionIntent.None;
+        HeldFireFriend++;
+        _verdict = "held fire (teammate)";
+    }
+
+    /// <summary>The blast a teammate must be clear of under friendly fire: the explosive about to go, else 0.</summary>
+    private float FriendlyBlast()
+    {
+        if (!_memory.FriendlyFireOn || !_ownHasFacts)
+            return 0f;
+        bool explosive = _action.Kind == ActionKind.AltFire || _ownFacts.Alt.Kind == AltFireKind.Underhand;
+        return explosive ? _ownFacts.Alt.BlastRadius : 0f;
+    }
 
     private bool CanFire()
     {

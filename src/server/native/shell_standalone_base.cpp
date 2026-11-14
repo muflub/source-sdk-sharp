@@ -636,7 +636,7 @@ void CStandaloneEntity::SetSolidity(SolidType_t nSolidType, int nSolidFlags)
 
 	// And tell vphysics, which caches whether two objects may touch. Stock's
 	// CBaseEntity::SetSolid calls CollisionRulesChanged for the same reason.
-	SourceSharpCollisionRulesChanged(m_pPhysics, CollisionRulesRecheck());
+	CollisionRulesChanged();
 }
 
 void CStandaloneEntity::SetCollisionGroup(int nGroup)
@@ -644,7 +644,12 @@ void CStandaloneEntity::SetCollisionGroup(int nGroup)
 	Block().Head.CollisionGroup = nGroup;
 	MarkBlockChanged(SS_BLOCK_HEAD_OFFSET(CollisionGroup));
 
-	SourceSharpCollisionRulesChanged(m_pPhysics, CollisionRulesRecheck());
+	CollisionRulesChanged();
+}
+
+void CStandaloneEntity::CollisionRulesChanged()
+{
+	SourceSharpCollisionRulesChanged(CollisionRulesObject(), CollisionRulesRecheck());
 }
 
 void CStandaloneEntity::SetModelIndex(int index)

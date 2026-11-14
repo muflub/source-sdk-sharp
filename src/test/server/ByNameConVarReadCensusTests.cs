@@ -10,10 +10,9 @@ public class ByNameConVarReadCensusTests
     public void TheServerReadsByNameOnlyWhatDataOrADebugRouteNames()
         => Assert.Equal(
             [
-                "SourceSharp.Server.AdminMenuBuilder",  // a mod's IVoteSettingSource rows
                 "SourceSharp.Server.DebugCommandRun",  // the dev API's capturing console, passing it on
                 "SourceSharp.Server.DebugConsoleHook", // the dev API's /convar, a typed name
-                "SourceSharp.Server.GameVoteOptions",   // a mod's IVoteSettingSource rows
+                "SourceSharp.Server.ModeSettingWrites", // the game-mode catalog's setting rows, data
             ],
             ByNameConVarReads.Callers(typeof(ServerModule).Assembly));
 }

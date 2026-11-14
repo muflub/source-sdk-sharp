@@ -204,4 +204,43 @@ public class LocalPickupHistoryTests
         Assert.Equal([(PickupHistory.Kind.Weapon, "smg1"), (PickupHistory.Kind.Ammo, "ammo_smg1")],
                      Rows(rig.History).Select(e => (e.Type, e.Icon)));
     }
+
+    /// <summary>
+    /// The history's walk over the carried bits sees a weapon the catalogue
+    /// lists past bit 63: the padded rows land "weapon_past64" on type index
+    /// 64, its bit rides the Extra word, and Think's mask walk must still add
+    /// its row — a reader that composes the words in a ulong loses that bit
+    /// and the pickup never shows.
+    /// </summary>
+    [Fact]
+    public void APickupPastBit64ReachesTheHistory()
+    {
+        // The core table's twelve rows come first; fifty-two fillers then
+        // land the target on index 64 exactly.
+        var padRows = new WeaponType[53];
+        for (int i = 0; i < padRows.Length; i++)
+            padRows[i] = new WeaponType(i == padRows.Length - 1 ? "weapon_past64" : $"wep_pad_{i}", Interval: 0.5f);
+        var padded = new WeaponCatalog(() => new IWeaponTypeSource[] { new PadRows(padRows) }, new RecordingLog());
+        Assert.Equal(64, padded.IndexOf("weapon_past64"));
+
+        var engine = Fake().Returns("Hud.LocalPlayerIndex", 1);
+        var player = new ClientSsPlayer(engine) { Handle = new EntityHandle(0x0001_0001u) };
+        player.State.BindLocal();
+        var clock = new Clock();
+        var history = new PickupHistory(clock, () => 5f);
+        var feed = new LocalPickupHistory(history, engine, new OnePlayer(player), padded, Ammo,
+                                          new WeaponScriptDatabase(new RecordingLog(), _ => null));
+
+        player.State.CarriedMask = (UInt128)1 << 64;
+        feed.Think();
+
+        var row = Assert.Single(Rows(history));
+        Assert.Equal((PickupHistory.Kind.Weapon, "past64"), (row.Type, row.Icon));
+    }
+
+    /// <summary>Padded catalogue rows, as WeaponCatalogTests builds them.</summary>
+    private sealed class PadRows(params WeaponType[] rows) : IWeaponTypeSource
+    {
+        public IEnumerable<WeaponType> Rows() => rows;
+    }
 }

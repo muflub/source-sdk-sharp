@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\rules\TF2.Descent.Rules.csproj" />
+    <ProjectReference Include="..\ai\TF2.Descent.Ai.csproj" />
     <ProjectReference Include="..\server\TF2.Descent.Server.csproj" />
     <!-- Aliased: the shared source compiles into both sides, so its types exist twice (plan_side_isolation §2.5). -->
     <ProjectReference Include="..\client\TF2.Descent.Client.csproj" Aliases="client" />
@@ -18,6 +19,9 @@
          project through TF2.Descent.Client too, and unaliased its copy of the
          shared source would collide with the server's (plan_side_isolation P7). -->
     <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
+    <!-- TF2's client too: its shared source (TF2.Shared's TFTeam, TFClass) is
+         compiled into TF2.Server as well, which the mode facts name. -->
+    <ProjectReference Include="..\..\tf2\client\TF2.Client.csproj" Aliases="client" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <!-- plan_shim_areas_split phase 3: each side compiles the shared interop, so the
          doubles are built per side and the client's interop is named under the
@@ -28,6 +32,9 @@
     <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />
   </ItemGroup>
   <ItemGroup>
+    <!-- So facts can read the mods' gameinfo files from this repository. -->
+    <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\..\test\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
   </ItemGroup>

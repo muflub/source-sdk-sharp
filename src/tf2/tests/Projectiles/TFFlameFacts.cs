@@ -75,6 +75,9 @@ internal sealed class FlameRig
     /// <summary>The carrier registry the old arm's stun asks, and the typed convars over it.</summary>
     public TFPlayerCarriers Carriers { get; } = new();
 
+    /// <summary>The burn registry the vacuum's burner read asks; its slices attach by hand.</summary>
+    public TFAfterburns Afterburns { get; }
+
     /// <summary>The players the stun stack's condition asks read.</summary>
     public readonly FakeMapPlayers StunPlayers = new();
 
@@ -90,6 +93,28 @@ internal sealed class FlameRig
         return stack;
     }
 
+    /// <summary>The resupply the extinguish heal lands through.</summary>
+    public ProjectileRig.Resupply Health { get; } = new();
+
+    /// <summary>The real hook walk the extinguish arms read through.</summary>
+    public TF2.Shared.Econ.AttributeHooks Hooks { get; } = new();
+
+    private int _nextDef = 5000;
+
+    /// <summary>A launcher item carrying one attribute, the shape the projectile rig's hook facts build.</summary>
+    public TF2.Shared.Econ.IAttributeProvider AttributeItem(string hook,
+                                                            TF2.Shared.Econ.AttributeDescriptionFormat format,
+                                                            float value)
+    {
+        var container = new TF2.Shared.Econ.AttributeContainer(null, TF2.Shared.Econ.AttributeProviderType.Generic);
+        container.Set(TF2.Shared.Econ.AttributeValue.OfFloat(
+            new TF2.Shared.Econ.AttributeDefinition(_nextDef++, "attr " + _nextDef, hook, format,
+                                                    TF2.Shared.Econ.AttributeEffectType.Neutral, false, false,
+                                                    TF2.Shared.Econ.AttributeValueType.Default,
+                                                    TF2.Shared.Econ.MergedKeys.Block("x")), value));
+        return container;
+    }
+
     public TFFlameEffects Effects { get; }
     public TFRocket Rocket { get; }
     public TFPipebomb Pipebomb { get; }
@@ -103,11 +128,15 @@ internal sealed class FlameRig
     {
         Damage = new ScopedDamage(Scopes);
         Convars.RegisterAll(typeof(TF2.Server.Medigun.TFPlayerHealing).Assembly);
+        Afterburns = new TFAfterburns(Carriers, Conditions, Engine, Engine, Damage, Directory, Scopes,
+                                      new CombatRig.HealingSpy(), Owners, new TF2.Shared.Econ.AttributeHooks(), Carriers);
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
                                      Convars.Declared<TFAirBlastCrayConVar>(),
                                      Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                      Convars.Declared<TFPushbackScaleConVar>(),
-                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers);
+                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers,
+                                     Hooks, Health, Engine, new TF2.Tests.Player.ComposedComponents.IdleLag(),
+                                     afterburns: Afterburns);
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);
@@ -117,9 +146,10 @@ internal sealed class FlameRig
                                        new ProjectileRig.FixedClasses(), Log,
                                        Engine, Owners, new TF2.Shared.Econ.AttributeHooks(),
                                        new ProjectileRig.Resupply(), Engine, Engine, new ProjectileRig.DirectoryView(),
-                                       Carriers);
+                                       Carriers, DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
         Rocket = new TFRocket(Engine, Motion, blast, Owners, Engine, new TF2.Shared.Econ.AttributeHooks(),
-                              new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine);
+                              new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine,
+                              new ProjectileRig.RocketConditions());
         Rocket.BindAreas(TestServices.Areas(Engine));
         Rocket.Handle = RocketHandle;
         // The trail writes need bound storage, as the registry gives.
@@ -127,7 +157,8 @@ internal sealed class FlameRig
                                                        new NetStateFields(new RecordingLog()));
 
         Pipebomb = new TFPipebomb(Engine, blast, Engine, Directory, Owners,
-                                  new TF2.Shared.Econ.AttributeHooks(), Engine, Skins, Engine, Engine);
+                                  new TF2.Shared.Econ.AttributeHooks(), Engine, Skins, Engine, Engine,
+                                  Engine, Scopes, HitGroups, Carriers, new ProjectileRig.FlareConditions());
         Pipebomb.BindAreas(TestServices.Areas(Engine));
         Pipebomb.Handle = PipebombHandle;
         Pipebomb.NetStates = NetStateBinding.AttachLocal(Pipebomb, Pipebomb.Handle,
@@ -139,7 +170,8 @@ internal sealed class FlameRig
         StickyVars.ForceFromBlast.Hold("0");
         StickyVars.ForceToMove.Hold("0");
         StickyVars.ForceSleepTime.Hold("0");
-        Stickybomb = new TFStickybomb(Engine, blast, Engine, StickyVars, Engine, Engine, Directory, Engine);
+        Stickybomb = new TFStickybomb(Engine, blast, Engine, StickyVars, Engine, Engine, Directory, Engine,
+                                      new PostSimulationQueue());
         Stickybomb.BindAreas(TestServices.Areas(Engine));
         Stickybomb.Handle = StickyHandle;
         Stickybomb.RegisteredKind = ScriptedEntityKind.Prop; // TakesDamage, as the registration says

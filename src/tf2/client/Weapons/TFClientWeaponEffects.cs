@@ -27,13 +27,27 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public bool ClassSpecialSkill(in WeaponAttackContext attack)
         => attack.Command.OwnerIndex > 0 && players.CloakActivate(attack.Command.OwnerIndex, attack.Now);
 
+    /// <summary>The end is the server's grant: the crit is networked state, the replay reads it as it lands.</summary>
+    public void EndClassSpecialSkill(in WeaponAttackContext attack) { }
+
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) { }
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
 
+    /// <summary>The shove is the server's trace and impulse; the replay arms nothing.</summary>
+    public void Shove(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    /// <summary>The orb is the server's spawn; the client's muzzle fizzle
+    /// (<c>dxhr_sniper_fizzle</c>, tf_weapon_mechanical_arm.cpp:294-299) waits
+    /// with the particle arm, as every client effect here does.</summary>
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) { }
+
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
 
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    /// <summary>The grant is the server's extinguish; the count is networked state, the replay reads it as it lands.</summary>
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script) => false;
 
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) { }
 
@@ -43,7 +57,18 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
 
-    public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }
+    /// <summary>The smack rides the arms: the swing's own reach and the script's
+    /// two hit sounds, the pair stock's <c>OnSwingHit</c> picks between
+    /// (<c>shared/tf/tf_weaponbase_melee.cpp:686-689</c>).</summary>
+    public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
+    {
+        var type = attack.Type;
+        attack.Arms.MeleeSwing(in type, trace.Range,
+                               script.Sound(WeaponScriptSound.MeleeHitWorld),
+                               script.Sound(WeaponScriptSound.MeleeHit));
+    }
+
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange) { }
 
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) { }
 
@@ -56,4 +81,15 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public void ClearWeaponFireScene(in WeaponAttackContext attack) { }
 
     public void FiringSpeech(in WeaponAttackContext attack) { }
+
+    public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+    public void DeployBuff(in WeaponAttackContext attack, int buffType) { }
+
+    public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) { }
+
+    public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) { }
+
+    public void UseRage(in WeaponAttackContext attack, int buffType) { }
 }

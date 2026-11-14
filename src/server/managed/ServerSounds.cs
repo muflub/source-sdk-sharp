@@ -226,6 +226,40 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     }
 
     /// <summary>
+    /// Stock's <c>CSingleUserRecipientFilter</c> arms (a filter holding the one
+    /// player around an <c>EmitSound( user, entindex(), pszSound )</c> — item_healthkit.cpp's
+    /// pickup touch, tf_player_shared.cpp's charge on/off): exactly that player hears
+    /// the entity's sound from its index, wherever they stand — the PAS does not
+    /// widen it either way. Reliable unless the caller's stock arm resets it.
+    /// </summary>
+    public void EntityEmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName,
+                                         bool reliable = true)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(entity))
+        {
+            SayUnresolved(entity, soundName);
+            return;
+        }
+
+        int index = SoundSourceIndex(entity);
+        RecipientFilter filter = reliable
+            ? _emitter.Recipients.Player(_entities.GetIndex(player)).MakeReliable()
+            : _emitter.Recipients.Player(_entities.GetIndex(player));
+        if (filter.Count == 0)
+            return;
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(entity) : null,
+            WarnOnDirectWaveReference = true,
+        });
+    }
+
+    /// <summary>
     /// <c>CBaseCombatWeapon::WeaponSound</c>'s server arm for a weapon in an
     /// owner's hands: the PAS of the owner, narrowed by the script's level,
     /// under the prediction rules (<c>filter.UsePredictionRules()</c>) -- the
@@ -254,6 +288,47 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
             SoundName = soundName,
             Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(owner) : null,
             WarnOnDirectWaveReference = true,
+        });
+    }
+
+    /// <summary>
+    /// The predicted emit with the script's pitch scaled by
+    /// <paramref name="pitchMultiplier"/> on top: stock's bow pull carries its
+    /// refire rate in the emit pitch (<c>tf_weapon_compound_bow.cpp:243-248</c>),
+    /// and the change-pitch flag is what makes the resolved script answer that
+    /// pitch instead of its own. A script with no pitch on it takes the norm as
+    /// its base.
+    /// </summary>
+    public void EmitPredicted(EntityHandle owner, string soundName, PredictionSuppression prediction,
+                              float pitchMultiplier)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(owner))
+        {
+            SayUnresolved(owner, soundName);
+            return;
+        }
+
+        // The script's own pitch, multiplied; the flag makes the handle arm
+        // use the caller's pitch over the script's (SoundEmitterCore's
+        // SND_CHANGE_PITCH read, SoundEmitterCore.cs:280-281).
+        int basePitch = _emitter.Parameters(soundName) is { Pitch: > 0 } parameters
+            ? parameters.Pitch
+            : SoundEmitterCore.PitchNorm;
+
+        int index = SoundSourceIndex(owner);
+        RecipientFilter filter = _emitter.Recipients.PasAttenuation(_entities.GetWorldSpaceCenter(owner), soundName);
+        prediction.UsePredictionRules(filter);
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(owner) : null,
+            WarnOnDirectWaveReference = true,
+            Pitch = (int)(basePitch * pitchMultiplier),
+            Flags = SoundEmitterCore.SndChangePitch,
         });
     }
 

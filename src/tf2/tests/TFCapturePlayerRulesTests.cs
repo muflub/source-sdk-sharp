@@ -67,7 +67,8 @@ public sealed class TFCapturePlayerRulesTests
         entity.State.SetClass(playerClass);
         entity.State.SetConditions(TFCondMask.Of(conds));
         owners ??= new FakeOwners();
-        return (new TFCapturePlayerRules(carriers, new Teams(), new AttributeHooks(), owners, capStyle), entity.State, owners);
+        return (new TFCapturePlayerRules(carriers, new Teams(), new AttributeHooks(), owners,
+                                         capStyle ?? DeclaredConVars.Fresh<MpCapStyleConVar>()), entity.State, owners);
     }
 
     /// <summary>A bound <c>mp_capstyle</c>, so a fact chooses the style instead of relying on the null default.</summary>
@@ -170,7 +171,8 @@ public sealed class TFCapturePlayerRulesTests
     [Fact]
     public void A_player_with_no_carrier_is_not_a_tf_player()
     {
-        var rules = new TFCapturePlayerRules(new TFPlayerCarriers(), new Teams(), new AttributeHooks(), new FakeOwners());
+        var rules = new TFCapturePlayerRules(new TFPlayerCarriers(), new Teams(), new AttributeHooks(), new FakeOwners(),
+                                             DeclaredConVars.Fresh<MpCapStyleConVar>());
 
         Assert.False(rules.PlayerMayCapturePoint(Player, 0));
         Assert.False(rules.PlayerMayBlockPoint(Player, 0));

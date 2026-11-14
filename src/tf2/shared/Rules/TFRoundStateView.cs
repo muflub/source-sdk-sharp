@@ -11,4 +11,10 @@ public interface ITFRoundStateView
 {
     /// <summary>The round machine's state.</summary>
     RoundState State { get; }
+
+    /// <summary>Stock's <c>GetWinningTeam</c>: the team that took the round,
+    /// read beside <see cref="State"/> — the server's gamerules word, the
+    /// client's resource row. Unassigned before a winner stands; the win
+    /// arm's gate is the state.</summary>
+    TFTeam Winner { get; }
 }

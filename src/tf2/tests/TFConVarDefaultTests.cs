@@ -65,6 +65,56 @@ public class TFConVarDefaultTests
     }
 
     /// <summary>
+    /// <c>mp_teams_unbalance_limit</c> is the core's (team deathmatch reads it,
+    /// off by default); TF's registration restores stock's 1
+    /// (teamplayroundbased_gamerules.cpp:219) for its round rules.
+    /// </summary>
+    [Fact]
+    public void TFsRegistrationDefaultsTheUnbalanceLimitToOne()
+    {
+        _ = typeof(TF2.Shared.TFTeamsUnbalanceLimitDefault).Assembly;
+
+        var registry = ConVarRegistry.For(TestServices.UnattachedConsole());
+        registry.RegisterAll(typeof(ServerModule).Assembly);
+
+        var convar = registry.Declared<TeamsUnbalanceLimitConVar>();
+
+        Assert.True(convar is not null, "the server walk declares mp_teams_unbalance_limit");
+        Assert.True(convar!.Value == 1,
+            $"under TF's registration mp_teams_unbalance_limit reads {convar.Value}, not stock's 1");
+    }
+
+    [Fact]
+    public void TheCoreAloneKeepsTheUnbalanceLimitOff()
+    {
+        // Team deathmatch's number (plan Q11): a registry that never walks
+        // TF2.Server binds the core's own 0.
+        var convar = Registered(typeof(TeamsUnbalanceLimitConVar)).Declared<TeamsUnbalanceLimitConVar>();
+
+        Assert.True(convar is not null, "the core declares mp_teams_unbalance_limit");
+        Assert.True(convar!.Value == 0, $"the core alone reads {convar.Value}, not its declared 0");
+    }
+
+    /// <summary>
+    /// The replicated pair's client half: the core client declares the name
+    /// with the core's 0, and TF's row (compiled into TF2.Client from the
+    /// shared convars) restores 1 there too, so both halves agree.
+    /// </summary>
+    [Fact]
+    public void TFsClientRegistrationAlsoDefaultsTheUnbalanceLimitToOne()
+    {
+        var core = DeclaredIn(typeof(client::SourceSharp.Client.ClientModule).Assembly,
+                              "ConVarAttribute", "mp_teams_unbalance_limit");
+        var game = DeclaredIn(typeof(client::TF2.Client.TFDefaultFovDefault).Assembly,
+                              "ConVarDefaultAttribute", "mp_teams_unbalance_limit");
+
+        Assert.True(core is not null && core.Value.Value == "0",
+            $"the core's client declares mp_teams_unbalance_limit '{core?.Value ?? "<missing>"}', not its 0");
+        Assert.True(game is not null && game.Value.Value == "1",
+            $"TF's client row redefaults mp_teams_unbalance_limit to '{game?.Value ?? "<missing>"}', not stock's 1");
+    }
+
+    /// <summary>
     /// Reads one declaration's attribute through <see cref="CustomAttributeData"/>:
     /// the alias gives the client's types their own nominal
     /// <c>ConVarAttribute</c>, so a typed

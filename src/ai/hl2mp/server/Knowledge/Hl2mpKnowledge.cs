@@ -1,8 +1,9 @@
 using System.Collections.Immutable;
 using SourceSharp.Abi;
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Hl2mp.Knowledge;
 
@@ -94,7 +95,7 @@ public static class WeaponKnowledgeBuilder
 /// crossbow, the RPG, the shotgun and the AR2 of ruling 2026-11-03). Nothing dynamic.
 /// </summary>
 [SideService(Side.Server, As = [typeof(Chat.IChatMapFacts)])]
-public sealed class SessionMapFacts(Senses.Hl2mpAiSession ai, IHl2mpNavigation nav) : Chat.IChatMapFacts
+public sealed class SessionMapFacts(ServerAiSession ai, IAiNavigation nav) : Chat.IChatMapFacts
 {
     /// <summary>The rank from which a weapon is one a bot keeps vague about.</summary>
     public const int GoodRank = 6;
@@ -138,7 +139,7 @@ public static class MapKnowledgeBuilder
     /// <summary>
     /// Every weapon and item the lump places, in lump order, with the game's
     /// respawn rule for it (a weapon <paramref name="weaponRespawn"/>, an item
-    /// <paramref name="itemRespawn"/>, a charger none), and the deathmatch spawns.
+    /// <paramref name="itemRespawn"/>, a charger none), the deathmatch spawns and the teams' own.
     /// </summary>
     public static MapKnowledge Build(string map, MapEntities lump, WeaponCatalog weapons, WeaponKnowledge weaponFacts,
                                      float weaponRespawn, float itemRespawn)
@@ -153,6 +154,14 @@ public static class MapKnowledgeBuilder
             items.Add(new ItemSpawn(items.Count, e.ClassName, kind, e.Origin, respawn, kind == ItemKind.Weapon ? weapons.IndexOf(e.ClassName) : -1));
         }
 
-        return new MapKnowledge(map, items.ToImmutable(), [.. lump.Spawns.Select(s => s.Origin)], weaponFacts);
+        return new MapKnowledge(map, items.ToImmutable(), [.. lump.Spawns.Select(s => s.Origin)], weaponFacts, TeamSpawns(lump), bodies: Bodies());
     }
+
+    /// <summary>HL2MP has one body: everybody runs at <see cref="Trees.Hl2mpDecider.RunSpeed"/> (hl2_normspeed, hl2mp_player.cpp).</summary>
+    public static BodyKnowledge Bodies() => BodyKnowledge.Same(new BodyFacts(Trees.Hl2mpDecider.RunSpeed));
+
+    /// <summary>The teams' own spawns (plan_bots_teams_tf2 B.5): HL2MP's Combine spawns are team 2's, the Rebels' team 3's, in lump order.</summary>
+    public static ImmutableArray<TeamSpawn> TeamSpawns(MapEntities lump)
+        => [.. lump.All.Where(e => e.ClassName is "info_player_combine" or "info_player_rebel")
+                       .Select(e => new TeamSpawn(e.ClassName == "info_player_combine" ? 2 : 3, e.Origin))];
 }

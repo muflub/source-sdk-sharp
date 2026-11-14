@@ -25,11 +25,35 @@ public class ServerAdminsTests
     {
         public int Builds { get; private set; }
 
+        /// <summary>What the refusable item answers when taken: null is done.</summary>
+        public string? Refusal { get; set; }
+
+        public int Attempts { get; private set; }
+
         public IReadOnlyList<AdminNode> Build(int slot)
         {
             Builds++;
-            return [AdminNode.Folder("#Folder", [new AdminNode("Leaf", "do:it", ran)])];
+            return
+            [
+                AdminNode.Folder("#Folder", [new AdminNode("Leaf", "do:it", ran)]),
+                new AdminNode("Shut", "shut:it", ran, Unavailable: "the level cannot take it"),
+                AdminNode.Refusable("Try", "try:it", () =>
+                {
+                    Attempts++;
+                    return Refusal;
+                }),
+            ];
         }
+    }
+
+    /// <summary>The refusals told to players, by slot.</summary>
+    private sealed class Notices : IPlayerNotices
+    {
+        public readonly List<(int Slot, string Line)> Told = [];
+
+        public int CommandIssuer() => 0;
+
+        public void Refused(int slot, string line) => Told.Add((slot, line));
     }
 
     private float _now = 100f;
@@ -38,6 +62,7 @@ public class ServerAdminsTests
     private readonly ECDsa _key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly Dictionary<string, string> _list = [];
     private readonly RecordingLog _log = new();
+    private readonly Notices _notices = new();
     private readonly Menu _menu;
 
     public ServerAdminsTests()
@@ -47,7 +72,7 @@ public class ServerAdminsTests
     }
 
     private ServerAdmins Admins(bool dedicated = false)
-        => new(new AdminGate(() => _now, () => _list, a => a == Here, AdminGate.SecureNonce), dedicated, _sender, _menu, _log);
+        => new(new AdminGate(() => _now, () => _list, a => a == Here, AdminGate.SecureNonce), dedicated, _sender, _menu, _notices, _log);
 
     private static void From(ServerAdmins admins, int slot, byte[] payload)
         => Assert.True(admins.OnClientMessage(slot, AdminWire.Key, payload));
@@ -193,6 +218,111 @@ public class ServerAdminsTests
         From(admins, Player, AdminWire.WriteRun("do:it"));
         Assert.Equal(1, _ran);
         Assert.Equal(builds + 1, _menu.Builds);
+    }
+
+    [Fact]
+    public void An_unavailable_item_runs_nothing_and_tells_that_admin_why()
+    {
+        var admins = Admins();
+        From(admins, Host, AdminWire.WriteRun("shut:it"));
+
+        Assert.Equal(0, _ran);
+        Assert.Equal((Host, "Admin: shut:it refused: the level cannot take it"), Assert.Single(_notices.Told));
+    }
+
+    [Fact]
+    public void An_item_refused_when_taken_tells_that_admin_why()
+    {
+        var admins = Admins();
+        _menu.Refusal = "no room";
+        From(admins, Host, AdminWire.WriteRun("try:it"));
+
+        Assert.Equal(1, _menu.Attempts);
+        Assert.Equal((Host, "Admin: try:it refused: no room"), Assert.Single(_notices.Told));
+    }
+
+    [Fact]
+    public void An_item_done_when_taken_tells_nobody_anything()
+    {
+        var admins = Admins();
+        From(admins, Host, AdminWire.WriteRun("try:it"));
+
+        Assert.Equal(1, _menu.Attempts);
+        Assert.Empty(_notices.Told);
+    }
+
+    private sealed class UserIds(int id) : IConnectedClients
+    {
+        public float? AvgLatency(int entIndex) => null;
+        public ulong SteamId64(int entIndex) => 0;
+        public string? Address(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+        public int UserId(int entIndex) => id;
+        public void Kick(int entIndex, string reason) { }
+        public void ClientCommand(int entIndex, string command) { }
+        public void Reconnect(int entIndex) { }
+    }
+
+    private ServerAdmins NamedAdmins()
+    {
+        var names = new PlayerNames(TestServices.Fake());
+        names.PutInServer(Player, "Mallory");
+        names.PutInServer(Host, "Gordon");
+        return new(new AdminGate(() => _now, () => _list, a => a == Here, AdminGate.SecureNonce), false, _sender, _menu, _notices, _log,
+                   names, new UserIds(42));
+    }
+
+    [Fact]
+    public void A_refused_non_admin_is_logged_by_name_slot_and_user_id()
+    {
+        From(NamedAdmins(), Player, AdminWire.WriteRun("do:it"));
+
+        Assert.Contains(_log.Lines, l => l.Warning && l.Text == "[SourceSharp/Admin] Mallory (slot 3, user id 42) is no admin and asked for do:it: refused\n");
+    }
+
+    [Fact]
+    public void An_admins_action_is_logged_by_name()
+    {
+        From(NamedAdmins(), Host, AdminWire.WriteRun("do:it"));
+
+        Assert.Contains(_log.Lines, l => !l.Warning && l.Text == "[SourceSharp/Admin] admin Gordon (slot 1, user id 42) ran do:it\n");
+    }
+
+    [Fact]
+    public void Someone_who_is_no_admin_is_told_so_when_they_ask_for_an_item()
+    {
+        var admins = Admins();
+        From(admins, Player, AdminWire.WriteRun("do:it"));
+
+        Assert.Equal((Player, "Admin: do:it refused: you are not an admin on this server"), Assert.Single(_notices.Told));
+    }
+
+    [Fact]
+    public void An_item_gone_from_the_menu_is_told_to_the_admin_who_asked()
+    {
+        var admins = Admins();
+        From(admins, Host, AdminWire.WriteRun("gone:now"));
+
+        Assert.Equal((Host, "Admin: gone:now refused: it is not on the menu now"), Assert.Single(_notices.Told));
+    }
+
+    [Fact]
+    public void An_unavailable_item_s_reason_goes_out_with_the_menu()
+    {
+        var admins = Admins();
+        From(admins, Host, AdminWire.WriteOpen());
+
+        var text = string.Concat(_sender.Sent.Where(s => s.Key == UserMessageKey.Of(typeof(AdminMenuPieceMessage)))
+                                             .Select(s => System.Text.Encoding.UTF8.GetString(PieceText(s.Bytes))));
+        var shut = Assert.Single(AdminMenuText.Read(text), l => l.Id == "shut:it");
+        Assert.Equal("the level cannot take it", shut.Unavailable);
+        Assert.Equal("", Assert.Single(AdminMenuText.Read(text), l => l.Id == "do:it").Unavailable);
+    }
+
+    private static byte[] PieceText(byte[] bytes)
+    {
+        var reader = new UserMessageReader(bytes);
+        return AdminMenuPiece.Read(ref reader).Text;
     }
 
     [Theory]

@@ -37,6 +37,7 @@ The rules that make every screen previewable, reloadable and cheap:
   `IPlayerLife`, `IPlayerHealth`, `IPlayerArmour`, `IPlayerWeapon`,
   `IPlayerAmmo`, `IPlayerDamage`, `ICentrePrintSource`, `IMapTextSource`,
   `IKeyHintSource`, `IChatSource`, `IBuildStampSource`, `ITeamMenuSource`,
+  `IPlayerTeam` (the team line's: team play, the local team and its name),
   `IScoreboardSource` (whole: the scoreboard reads all of it). Sub-panels
   come in by constructor too (`Hud(IPlayerLife life, VitalsPanel vitals, ...)`);
   `TProps` is only for what the parent decides per call (a team index, a
@@ -154,7 +155,7 @@ are du too.
 | token | values |
 |---|---|
 | `Space` | `None 0, XS 4, S 8, M 12, L 16, XL 24, XXL 32, Huge 48` (du) |
-| `Tone` | `Surface, SurfaceRaised, Line, Text, TextMuted, Accent, Positive, Warning, Danger, TeamA, TeamB, Scrim, OnAccent` |
+| `Tone` | `Surface, SurfaceRaised, Line, Text, TextMuted, Accent, Positive, Warning, Danger, TeamA, TeamB, TeamC, TeamD, Scrim, OnAccent` |
 | `Text` (type roles) | `Display, Title, Heading, Body, Label, Number, Caption, Code` (Code: IBM Plex Mono, for console text and convar names) |
 | `Radius` | `None, S 2, M 4, L 8` |
 | `Elevation` | `Flat, Raised, Overlay` |
@@ -162,8 +163,9 @@ are du too.
 
 Upper-case roles: Title, Heading and Label set their copy in capitals
 (`ui.Text`); game data (`ui.Data`) keeps its case in every role. Team colours:
-`UiTeams.ToneOf(teamNumber)` (2 Combine is TeamA, 3 Rebels TeamB, anything
-else no team colour).
+`UiTeams.ToneOf(teamNumber)` (2 Combine is TeamA, 3 Rebels TeamB, team
+deathmatch's 4 Metro Police TeamC and 5 Resistance TeamD, anything else no
+team colour).
 
 The default theme, `SourceSharpTheme`: translucent dark panels over the world,
 the Source HUD's amber as the accent, warm white text, IBM Plex Sans
@@ -367,7 +369,7 @@ follows. A form's working copy does not carry; it reloads from its bindings.
 | `contrast` | text under 4.5:1 (3:1 at 24 du+) against what is behind it, over each world still | put it on a `Panel`; `Tone.Text` |
 | `alignment` | free-placed edges within 3 du but not equal | the same anchor and inset |
 | `overlap` | siblings on top of each other | move one, or `.Layered()` the intended one |
-| `budget` | more than 4 type roles or 6 tones on a screen | merge roles; use `TextMuted` instead of a new colour |
+| `budget` | more than 4 type roles or 6 tones on a screen (the team colours count as one) | merge roles; use `TextMuted` instead of a new colour |
 | `target` | a click target under 32 du | a `Button`, or a bigger box |
 | `localise` | literal copy, or a `#Token` the language files lack | an `#SS_UI_` token in `src/client/ui/resource/sourcesharp_ui_english.txt` (the core's, embedded in the toolkit), a mod's own in its `resource/*_english.txt`; `ui.Data` for names |
 | `raw` | each `Raw.*` | a token, or a new token in the theme |

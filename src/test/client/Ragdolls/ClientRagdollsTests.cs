@@ -214,6 +214,21 @@ public class ClientRagdollsTests
         Assert.Equal((objects, RagdollRefusal.None, 1), (rig.Fake.Objects.Count, refusal, rig.Poses.Asked));
     }
 
+    /// <summary>The statue ask (the gilded body's fixed constraints,
+    /// c_tf_player.cpp:733) reaches the build: every element heavy and every
+    /// joint fixed, stock's ragdoll statue.</summary>
+    [Fact]
+    public void AStatueAskBuildsTheBodyRigid()
+    {
+        Rig rig = Make();
+
+        Assert.True(rig.Ragdolls.Become(Owner, Vector.Zero, -1, out _, fixedConstraints: true));
+
+        Assert.All(rig.Fake.Objects.Values, o => Assert.Equal(1000f, o.Mass));
+        Assert.All(rig.Fake.Constraints.Values, c => Assert.True(c.Fixed));
+        Assert.NotEmpty(rig.Fake.Constraints);
+    }
+
     [Fact]
     public void WithNoEnvironmentNothingIsBuilt()
     {

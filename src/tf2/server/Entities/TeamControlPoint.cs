@@ -49,7 +49,8 @@ public sealed class TeamControlPoint(
     IEngineEntityRender render,
     IGameClock clock,
     TFWinPanelCappers panelCappers,
-    TFConceptSpeech speech) : ScriptedEntity
+    TFConceptSpeech speech,
+    IServerSkins skins) : ScriptedEntity
 {
     public const string MapClass = "team_control_point";
 
@@ -445,7 +446,7 @@ public sealed class TeamControlPoint(
         // Update visuals.
         if (data.Model.Length > 0)
             SetModel(data.Model);
-        render.SetSkin(Handle, _team == (int)TFTeam.Unassigned ? 2 : _team - 2);
+        skins.SetSkin(Handle, _team == (int)TFTeam.Unassigned ? 2 : _team - 2);
         PlaySequence("idle");
 
         // We add 1 to the index because we consider the default "no points capped" as 0.

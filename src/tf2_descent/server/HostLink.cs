@@ -15,7 +15,7 @@ public enum HostingMode { Hosted, Unhosted }
 /// state (a lease, a reserve) ever leaves the SDK thread: the game names
 /// players by SteamID.
 /// </summary>
-[SideService(Side.Server, As = [typeof(IHostLink)])]
+[SideService(Side.Server, As = [typeof(IHostLink), typeof(IHostAnchors)])]
 public sealed partial class HostLink : IHostLink
 {
     /// <summary>The flag that runs the server without a service, for local testing only (decision 6.1).</summary>

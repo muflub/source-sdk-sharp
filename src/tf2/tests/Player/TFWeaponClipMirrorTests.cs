@@ -28,8 +28,10 @@ public class TFWeaponClipMirrorTests
         mirror.Attach(PlayerRig.Player);
         mirror.Tick(10f);
 
-        Assert.Equal(5, rig.State.Clips[Row]);
-        Assert.Equal(-1, rig.State.Clips[Row + 1]);
+        Assert.Equal(Row + 1, rig.State.CarriedRows[0]);
+        Assert.Equal(5, rig.State.Clips[0]);
+        Assert.Equal(0, rig.State.CarriedRows[1]);
+        Assert.Equal(-1, rig.State.Clips[1]);
     }
 
     [Fact]
@@ -44,7 +46,25 @@ public class TFWeaponClipMirrorTests
         clips.Drop();
         mirror.Tick(11f);
 
-        Assert.Equal(-1, rig.State.Clips[Row]);
+        Assert.Equal(0, rig.State.CarriedRows[0]);
+        Assert.Equal(-1, rig.State.Clips[0]);
+    }
+
+    /// <summary>
+    /// The shipped catalog runs far past the carrier's slots (the jar was row 33
+    /// on 2fort, one past a width keyed by row): a weapon's row never limits it.
+    /// </summary>
+    [Fact]
+    public void A_row_far_past_the_carriers_slots_is_still_carried()
+    {
+        var rig = new PlayerRig().Join();
+        var mirror = new TFWeaponClipMirror(rig.Engine, rig.Carriers, new Holding(clip: 5, row: 120));
+
+        mirror.Attach(PlayerRig.Player);
+        mirror.Tick(10f);
+
+        Assert.Equal(0, rig.State.CarriedSlotOf(120));
+        Assert.Equal(5, rig.State.Clips[0]);
     }
 
     [Fact]
@@ -64,17 +84,19 @@ public class TFWeaponClipMirrorTests
     private const int Row = 2;
 
     /// <summary>An arsenal whose carried clip is the answer, until dropped.</summary>
-    private sealed class Holding(int clip) : IWeaponGiver
+    private sealed class Holding(int clip, int row = Row) : IWeaponGiver
     {
         private bool _held = true;
 
         public void Drop() => _held = false;
+
+        public int CarriedRowAt(EntityHandle player, int slot) => _held && slot == 0 ? row : -1;
 
         public bool GiveWeapon(EntityHandle player, string className) => false;
 
         public int GiveAmmo(EntityHandle player, int count, string ammoName) => 0;
 
         public int CarriedClipOf(EntityHandle player, int typeIndex)
-            => _held && typeIndex == Row ? clip : -1;
+            => _held && typeIndex == row ? clip : -1;
     }
 }

@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -22,6 +23,7 @@ public sealed class TFMedigunWeaponTests
     private static readonly TFWeaponScript Medigun = WeaponFixtures.Parse("tf_weapon_medigun");
     private const int Attack1 = (int)WeaponButtons.Attack;
     private const int Attack2 = (int)WeaponButtons.Attack2;
+    private const int Reload = (int)WeaponButtons.Reload;
 
     private static EntityHandle H(int index) => MedigunRig.HandleFor(index);
 
@@ -507,7 +509,7 @@ public sealed class TFMedigunWeaponTests
         // Both asks carry the medic's world centre — stock's weapon centre, which
         // our server weapon has no entity for (docs/divergences.md).
         var rig = Standing();
-        rig.Owners.Managers[3] = HealerBonus(2f);
+        rig.Items.SetManager(3, HealerBonus(2f));
         rig.Centers[1] = new Vector(10f, 0f, 0f);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
@@ -527,7 +529,7 @@ public sealed class TFMedigunWeaponTests
     {
         // :1334's second ask: the medic's answer decides it, no bonus.
         var rig = Standing();
-        rig.Owners.Managers[3] = HealerBonus(2f);
+        rig.Items.SetManager(3, HealerBonus(2f));
         rig.Rooms.InRoom.Add(1);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
@@ -544,7 +546,7 @@ public sealed class TFMedigunWeaponTests
     {
         // :1333's first ask decides it — stock's || short-circuits and the medic is never asked.
         var rig = Standing();
-        rig.Owners.Managers[3] = HealerBonus(2f);
+        rig.Items.SetManager(3, HealerBonus(2f));
         rig.Rooms.InRoom.Add(3);
         var weapon = rig.NewWeapon();
         QueueFound(rig);
@@ -563,7 +565,7 @@ public sealed class TFMedigunWeaponTests
         // tf_weapon_medigun.cpp:1332: the medic's own walk rides the build,
         // after the healer split and before the patient's bonus.
         var rig = Standing();
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_uberchargerate", 3f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_uberchargerate", 3f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -574,13 +576,61 @@ public sealed class TFMedigunWeaponTests
         Assert.Equal(3f / 40f, weapon.ChargeLevel(1), 5);
     }
 
+    /// <summary>
+    /// The same start, the same hurt patient (100 of 125, past the crawl floor, short of
+    /// the full-health bonus's own mult) and ten seconds of held beam: the plain gun
+    /// answers 10 of 40, and the shipped Kritzkrieg — item 35's
+    /// <c>mult_medigun_uberchargerate</c> 1.25 through the real definition, on the
+    /// medic's manager as the loadout carries it — one and a quarter of that.
+    /// </summary>
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void The_shipped_kritzkriegs_meter_builds_stock_times_one_point_two_five()
+    {
+        var kritz = ShippedSchema().Item(35)
+            ?? throw new InvalidOperationException("the shipped schema has no item 35");
+
+        var stock = Standing();
+        var stockWeapon = stock.NewWeapon();
+        var krig = Standing();
+        krig.Items.SetManager(1, new AttributeContainer(kritz, AttributeProviderType.Weapon));
+        var kritzWeapon = krig.NewWeapon();
+
+        for (int second = 0; second <= 10; second++)
+        {
+            if (second == 0)
+            {
+                QueueFound(stock);
+                QueueFound(krig);
+            }
+            else
+            {
+                QueueKept(stock);
+                QueueKept(krig);
+            }
+            Command(stock, stockWeapon, held: true, now: 10f + second);
+            Command(krig, kritzWeapon, held: true, now: 10f + second);
+        }
+
+        Assert.Equal(0.25f, stockWeapon.ChargeLevel(1), 5);
+        Assert.Equal(0.3125f, kritzWeapon.ChargeLevel(1), 5);
+        Assert.Equal(1.25f, kritzWeapon.ChargeLevel(1) / stockWeapon.ChargeLevel(1), 3);
+    }
+
+    /// <summary>The game's own schema, from the content dir the game runs (the shell facts' helper).</summary>
+    private static ItemSchema ShippedSchema()
+    {
+        string path = global::SourceSharp.Tests.RepoLayout.Repo("bin", global::SourceSharp.Tests.RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        return EconTestFiles.Schema(File.ReadAllText(path));
+    }
+
     [Fact]
     public void The_overheal_uberchargerate_applies_when_the_patient_is_at_full_health()
     {
         // :1327-1330's gate is the patient's own max health, read again per command.
         var rig = Standing();
         rig.Give(3, 100, 100);                           // full to the class max, under the buffed floor
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_overheal_uberchargerate", 2f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_overheal_uberchargerate", 2f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -595,7 +645,7 @@ public sealed class TFMedigunWeaponTests
     public void The_overheal_uberchargerate_refuses_while_the_patient_has_health_to_gain()
     {
         var rig = Standing();                            // the patient heals at 100 of 125
-        rig.Owners.Managers[1] = MeterRate("mult_medigun_overheal_uberchargerate", 2f);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_overheal_uberchargerate", 2f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -612,7 +662,7 @@ public sealed class TFMedigunWeaponTests
         // tf_weapon_medigun.cpp:1447-1448: add_uber_time on the medic's walk
         // lengthens the release, carried in an int as stock carries it.
         var rig = Standing();
-        rig.Owners.Managers[1] = AddedSeconds("add_uber_time", 8f);
+        rig.Items.SetManager(1, AddedSeconds("add_uber_time", 8f));
         var weapon = rig.NewWeapon();
         QueueFound(rig);
         Command(rig, weapon, held: true, now: 10f);
@@ -622,6 +672,98 @@ public sealed class TFMedigunWeaponTests
         weapon.TickMedic(1, now: 11.5f, frametime: 1f);   // one second of 8+8: 1/16 of the meter
 
         Assert.Equal(15f / 16f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void Without_a_penalty_the_heal_runs_up_to_the_cvars_bonus()
+    {
+        // :2667/:2673-2676 with no attribute on the walk: the bonus is the cvar's 1.5,
+        // so a patient at health/max 1.3 still heals — the headroom to the buffed cap pays out.
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // 24/s walked to scale 3, capped at the headroom
+
+        Assert.Contains("take 3 20 True", rig.Resupply.Takes);
+    }
+
+    [Fact]
+    public void The_medics_overheal_amount_shrinks_the_bonus_the_heal_runs_to()
+    {
+        // :2669: the healer's own walk rides the mod before the patient's — percentage 0.5
+        // puts the bonus at 0.5*0.5+1, so the healer is skipped at health/max 1.3 (:538's gate).
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        rig.Items.SetManager(1, MeterRate("mult_medigun_overheal_amount", 0.5f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);
+
+        Assert.Empty(rig.Resupply.Takes);                          // 1.3 >= the shrunk bonus: this healer is skipped
+    }
+
+    /// <summary>
+    /// <c>CWeaponMedigun::GetOverHealDecayMult</c> (:2708): the attach carries the medic's
+    /// walked multiplier onto the heal, and once the beam drops and the patient sits over
+    /// max alone, the drain divides by it (tf_player_shared.cpp:2709-2711).
+    /// </summary>
+    [Fact]
+    public void The_medics_mult_medigun_overheal_decay_attribute_rides_the_drain_after_the_beam()
+    {
+        // max 150: the boost room is (int)(150 × 1.5 / 5) × 5 − 150 = 75; tf_boost_drain_time 15.
+        var rig = Standing();
+        rig.Give(3, 160, 150);
+        rig.Items.SetManager(1, AddedSeconds("mult_medigun_overheal_decay", 1f));   // additive → walked to multiplier 2
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);               // attach: the Heal entry carries the walked multiplier
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // healer up: the walk banks the multiplier (:2531)
+        Command(rig, weapon, held: false, now: 11f);              // letting go drops the target
+        rig.Healing.TickPatient(H(3), now: 11f, frametime: 1f);   // drain: 75/(15 × 2) = 2.5/s → one second drains 2
+
+        Assert.Equal(158, rig.Health(3));       // multiplier 1 drains 5/s: the same second drains 5 → health 155
+    }
+
+    [Fact]
+    public void The_patients_penalty_shrinks_the_bonus_too()
+    {
+        // :2671: CALL_ATTRIB_HOOK_FLOAT_ON_OTHER on the patient's manager walks the
+        // same mod — the same skip at health/max 1.3, from the patient's side alone.
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        rig.Items.SetManager(3, MeterRate("mult_patient_overheal_penalty", 0.5f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);
+
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
+    [Fact]
+    public void The_active_weapons_penalty_shrinks_the_bonus_as_well()
+    {
+        // :2672: the walk closes on the patient's active TF weapon's item — the
+        // held bat's percentage does what the manager's does (:2671 vs :2672).
+        var rig = Standing();
+        rig.Give(3, 130, 100);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_bat");
+        rig.Items.Set(3, new Dictionary<string, IAttributeProvider> { ["tf_weapon_bat"] =
+            MeterRate("mult_patient_overheal_penalty_active", 0.5f) });
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);
+
+        Assert.Empty(rig.Resupply.Takes);
     }
 
     /// <summary>An attribute manager holding one Percentage class, as the meter arms are declared.</summary>
@@ -716,6 +858,45 @@ public sealed class TFMedigunWeaponTests
         Assert.Equal(2, weapon.HealingTargetIndex(1));
         Assert.Contains("remove 3 HealthBuff", rig.Conditions.Calls);
         Assert.Contains("add 2 HealthBuff d-1 p1", rig.Conditions.Calls);
+    }
+
+    // ---- the on-hit drain (CWeaponMedigun::SubtractCharge, tf_weapon_medigun.cpp:1067) --------------
+
+    [Fact]
+    public void The_pomson_s_drain_leaves_the_meter_at_its_floor()
+    {
+        // The ask off the meter, floored at zero (SubtractCharge's Max and
+        // SubtractChargeAndUpdateDeployState's :1472); no release runs, so the
+        // deploy-state arm has nothing to stop.
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+        weapon.SetChargeLevel(1, 0.8f);
+
+        Assert.True(weapon.SubtractCharge(1, 0.3f));
+        Assert.Equal(0.5f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_drain_past_the_meter_stops_at_zero_and_answers()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+        weapon.SetChargeLevel(1, 0.1f);
+
+        Assert.True(weapon.SubtractCharge(1, 0.3f));
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_medic_with_no_medigun_state_is_no_drain()
+    {
+        // Stock's null pMedigun (tf_weaponbase.cpp:5571): no state, no meter,
+        // the false the caller's bDidDrain reads.
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+
+        Assert.False(weapon.SubtractCharge(2, 0.3f));
+        Assert.Equal(0f, weapon.ChargeLevel(2), 5);
     }
 
     // ---- the ÜberCharge ---------------------------------------------------------------
@@ -1086,5 +1267,487 @@ public sealed class TFMedigunWeaponTests
         weapon.TickMedic(1, now: 12f, frametime: 0.02f);     // the first think: change, but a fresh beam
 
         Assert.Equal(2, weapon.HealingTargetIndex(1));       // stock's equality arm: no Lower here
+    }
+
+    // ---- charge types: Kritzkrieg critboost, Quick-Fix megaheal ----------------------------
+
+    [Fact]
+    public void AResistChargeTypeWithNoRowPopsThePlainCharge()
+    {
+        // The Vaccinator's set_charge_type is a resist row (MEDIGUN_CHARGE_BULLET_RESIST = 3,
+        // tf_shareddefs.h:587-598): the g_MedigunEffects rows run to six (:49-57), so the pop
+        // of a bullet-resist charge hands the typed bullet bubble, not the plain über.
+        var rig = Standing();
+        rig.Items.SetManager(1, ChargeHolder(3f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.MedigunUberBulletResist));
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunUberBulletResist));
+    }
+
+    [Fact]
+    public void AKritzkriegPopCritBoostsTheTarget()
+    {
+        // tf_weapon_medigun.cpp:818-832 reads the item's charge type through the
+        // set_charge_type hook (MEDIGUN_CHARGE_CRITICALBOOST = 1, tf_shareddefs.h:587-598);
+        // the pop then hands medic and patient the crit boost of the g_MedigunEffects row
+        // (tf_weapon_medigun.cpp:52) for the release seconds
+        // (tf_player_shared.cpp:8905, 9053-9074).
+        var rig = Standing();
+        rig.Items.SetManager(1, ChargeHolder(1f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Critboosted));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+        Assert.DoesNotContain("add 3 Invulnerable d9 p1", rig.Conditions.Calls);
+    }
+
+    [Fact]
+    public void AQuickFixPopMegaHealsTheTarget()
+    {
+        // MEDIGUN_CHARGE_MEGAHEAL = 2 on the set_charge_type hook: the pop gives the mega heal
+        // of the g_MedigunEffects row (tf_weapon_medigun.cpp:53), whose heal multiplier is the
+        // ×3 the heal accumulation pays out (tf_player_shared.cpp:2487-2495).
+        var rig = Standing();
+        rig.Items.SetManager(1, ChargeHolder(2f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Megaheal));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Megaheal));
+    }
+
+    [Fact]
+    public void AddUberTimeExtendsTheCharge()
+    {
+        // tf_player_shared.cpp:9053-9055: the charge's seconds are the release rate plus the
+        // add_uber_time attribute, plus the stock's one; the crit boost rides that length.
+        var rig = Standing();
+        var holder = ChargeHolder(1f);
+        var seconds = new AttributeDefinition(30046, "added seconds", "add_uber_time",
+                                              AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                              false, false, AttributeValueType.Default, MergedKeys.Block("seconds"));
+        holder.Set(AttributeValue.OfFloat(seconds, 8f));
+        rig.Items.SetManager(1, holder);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.Contains("add 1 Critboosted d17 p1", rig.Conditions.Calls);
+        Assert.Contains("add 3 Critboosted d17 p1", rig.Conditions.Calls);
+    }
+
+    [Fact]
+    public void AStockMedigunStillPopsInvulnerability()
+    {
+        // The stock medigun's charge type is MEDIGUN_CHARGE_INVULN = 0 (tf_shareddefs.h:590):
+        // without a set_charge_type attribute the pop goes on giving the plain über.
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(rig.Conditions.Holds(1, TFCond.Invulnerable));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
+    }
+
+    // ---- the Vaccinator: the attach pair, the reload cycle, the typed bubble ------------------
+
+    [Fact]
+    public void AVaccinatorAttachPutsItsSmallBulletResistOnPatientAndMedic()
+    {
+        // The resist gun's attach (:1032-1037): the small bullet resist lands on the patient
+        // and on the medic, the medic its provider — set_weapon_mode 3, MEDIGUN_RESIST
+        // (tf_weapon_medigun.h:23-29).
+        var rig = Standing();
+        rig.Items.SetManager(1, ResistMode());
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+
+        Command(rig, weapon, held: true, now: 10f);
+
+        Assert.Contains("add 3 MedigunSmallBulletResist d-1 p1", rig.Conditions.Calls);
+        Assert.Contains("add 1 MedigunSmallBulletResist d-1 p1", rig.Conditions.Calls);
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+    }
+
+    [Fact]
+    public void AVaccinatorReloadStepsBulletToBlastThenFireAndWrapsBack()
+    {
+        // One step per reload press (:838-901): bullet, blast, fire, wrap; the old pair
+        // comes off patient and medic before the new one lands (:853-872). The autoheal
+        // convar keeps the beam over the button release (:1563-1573).
+        var rig = Standing();
+        rig.Clients.ConVars[(1, "tf_medigun_autoheal")] = "1";
+        rig.Items.SetManager(1, ResistMode());
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);      // the attach: the bullet pair
+
+        Command(rig, weapon, held: false, now: 10.5f, extraButtons: Reload);      // the press edge: step
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBlastResist));
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+        Assert.Contains("remove 3 MedigunSmallBulletResist", rig.Conditions.Calls);
+
+        Command(rig, weapon, held: false, now: 10.6f);                            // the release: the arm re-arms
+        Command(rig, weapon, held: false, now: 10.7f, extraButtons: Reload);
+        Assert.True(rig.Conditions.Holds(1, TFCond.MedigunSmallFireResist));
+
+        Command(rig, weapon, held: false, now: 10.8f);
+        Command(rig, weapon, held: false, now: 10.9f, extraButtons: Reload);      // the third step wraps
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunSmallFireResist));
+    }
+
+    [Fact]
+    public void APlainGunIgnoresTheReloadResistStep()
+    {
+        // CycleResistType refuses outside the resist mode (:841): a reload press on a
+        // gun that is not the Vaccinator hands nobody a resist.
+        var rig = Standing();
+        rig.Clients.ConVars[(1, "tf_medigun_autoheal")] = "1";
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        Command(rig, weapon, held: false, now: 10.5f, extraButtons: Reload);
+
+        Assert.DoesNotContain("add 3 MedigunSmallBulletResist d-1 p1", rig.Conditions.Calls);
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+    }
+
+    [Fact]
+    public void AVaccinatorPopsTheBulletBubbleAtQuarterChargeOnBoth()
+    {
+        // The resist pop (:1979-1991): one quarter of the meter (GetMinChargeAmount
+        // :803-813), the typed bubble three seconds on medic then patient (:1986, :1990),
+        // the plain release flag untouched, the deployed event riding every mode
+        // (:1920-1929); a still-held button on a worn bubble answers nothing (:1822-1834).
+        var rig = Standing();
+        rig.Items.SetManager(1, ResistMode());
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 0.5f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.Contains("add 1 MedigunUberBulletResist d3 p1", rig.Conditions.Calls);
+        Assert.Contains("add 3 MedigunUberBulletResist d3 p1", rig.Conditions.Calls);
+        Assert.Equal(0.2625f, weapon.ChargeLevel(1), 5);               // the heal banks its 0.0125 (:1327), the chunk pays its 0.25 (:1987)
+        Assert.False(weapon.IsReleasing(1));                           // the resist arm sets no release (:1883)
+        Assert.Contains("event=player_chargedeployed targetid=103 userid=101", rig.Events.Fired);   // the medic 1, the patient 3 (:1920-1929)
+
+        Command(rig, weapon, held: true, now: 10.6f, extraButtons: Attack2);       // held on: the early out
+        Assert.Equal(0.265f, weapon.ChargeLevel(1), 5);                // the heal bank for the tenth of a second; no second chunk, no second bubble
+        Assert.Equal(2, rig.Conditions.Calls.FindAll(c => c.Contains("MedigunUberBulletResist")).Count);
+        Assert.Single(rig.Events.Fired);                               // the early out returns before the fire (:1822-1834)
+        Assert.Equal(2, rig.Conditions.Calls.FindAll(c => c.Contains("MedigunUberBulletResist")).Count);
+    }
+
+    [Fact]
+    public void AVaccinatorUnderOneChunkRefusesThePop()
+    {
+        // The deny (:1839-1844) against the quarter-chunk floor (:803-813): under a
+        // quarter the Vaccinator gives no bubble and fires nothing.
+        var rig = Standing();
+        rig.Items.SetManager(1, ResistMode());
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 0.2f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunUberBulletResist));
+        Assert.Equal(0.2125f, weapon.ChargeLevel(1), 5);      // only the heal's own bank; the refused pop pays nothing
+        Assert.Empty(rig.Events.Fired);
+    }
+
+    /// <summary>The Vaccinator's manager: <c>set_weapon_mode</c> 3, MEDIGUN_RESIST
+    /// (tf_weapon_medigun.h:23-29), as the item hands it out.</summary>
+    private static AttributeContainer ResistMode()
+    {
+        var def = new AttributeDefinition(30047, "weapon mode", "set_weapon_mode",
+                                          AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("mode"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, 3f));
+        return manager;
+    }
+
+    [Fact]
+    public void AKritzkriegMedicWhoSwitchesPatientCritBoostsTheNewOneAlone()
+    {
+        // The grant is the recalc every heal change re-runs (tf_player_shared.cpp:8808, 8844):
+        // a patient taken under a still-releasing Kritzkrieg takes the crit boost and the
+        // one let go wears it off — nobody is handed the pop's condition a second time, and
+        // the new patient takes no part in the invulnerable row the release is not.
+        var rig = Standing();
+        rig.Give(2, 100, 100);
+        rig.Items.SetManager(1, ChargeHolder(1f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);   // the pop, on patient 3
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+
+        Command(rig, weapon, held: false, now: 11f);          // the beam drops; the release drains on
+        rig.QueueHit(H(2));
+        rig.QueueHit(H(2));
+        Command(rig, weapon, held: true, now: 11.5f);         // the beam lands on patient 2
+
+        Assert.True(rig.Conditions.Holds(2, TFCond.Critboosted));
+        Assert.False(rig.Conditions.Holds(2, TFCond.Invulnerable));
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 11.6f);
+        Assert.False(rig.Conditions.Holds(3, TFCond.Critboosted));
+    }
+
+    [Fact]
+    public void AQuickFixMedicWhoSwitchesPatientMegaHealsTheNewOneAlone()
+    {
+        // The mega-heal row of the same recalc (tf_player_shared.cpp:8906): the switched-to
+        // patient is mega-healed, the switched-from one wears it off at once.
+        var rig = Standing();
+        rig.Give(2, 100, 100);
+        rig.Items.SetManager(1, ChargeHolder(2f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+        Assert.True(rig.Conditions.Holds(3, TFCond.Megaheal));
+
+        Command(rig, weapon, held: false, now: 11f);
+        rig.QueueHit(H(2));
+        rig.QueueHit(H(2));
+        Command(rig, weapon, held: true, now: 11.5f);
+
+        Assert.True(rig.Conditions.Holds(2, TFCond.Megaheal));
+        Assert.False(rig.Conditions.Holds(2, TFCond.Invulnerable));
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 11.6f);
+        Assert.False(rig.Conditions.Holds(3, TFCond.Megaheal));
+    }
+
+    [Fact]
+    public void TheCritBoostWearsOffWhenTheReleaseDrainsEmptyNotAtThePopSeconds()
+    {
+        // SubtractChargeAndUpdateDeployState (tf_weapon_medigun.cpp:1472): at empty the
+        // release dies and its recalc turns the row off — the wear-off ends it, never the
+        // fixed span the grant carried.
+        var rig = Standing();
+        rig.Items.SetManager(1, ChargeHolder(1f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+
+        weapon.TickMedic(1, now: 20f, frametime: 9f);    // 9 seconds at the 8-second release: empty
+
+        Assert.False(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));   // pending, not yet expired
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 20.1f);
+        Assert.False(rig.Conditions.Holds(3, TFCond.Critboosted));
+        rig.Healing.TestAndExpireChargeEffect(H(1), now: 20.1f);
+        Assert.False(rig.Conditions.Holds(1, TFCond.Critboosted));
+    }
+
+    [Fact]
+    public void AReleaseHolsteredMidDrainWearsOffAndReturnsOnUnholster()
+    {
+        // Holster takes the owner's own effect at once (RecalcEffectOnTarget pOwner, true,
+        // tf_weapon_medigun.cpp:441); IsReleasingCharge is release and not holstered, so the
+        // unholster's report re-grants it with no new pop (:444-446).
+        var rig = Standing();
+        rig.Items.SetManager(1, ChargeHolder(1f));
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+        Assert.True(rig.Conditions.Holds(1, TFCond.Critboosted));
+
+        weapon.Holster(1, now: 11f);
+        Assert.False(rig.Conditions.Holds(1, TFCond.Critboosted));
+
+        weapon.Unholster(1, now: 11.5f);
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Critboosted));
+    }
+
+    /// <summary>An attribute manager holding the set_charge_type lookup the item definitions carry.</summary>
+    private static AttributeContainer ChargeHolder(float chargeType)
+    {
+        var def = new AttributeDefinition(30045, "charge type", "set_charge_type",
+                                          AttributeDescriptionFormat.FromLookupTable, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("charge"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, chargeType));
+        return manager;
+    }
+
+    // ---- the Vita-Saw's kept spawn charge (SetChargeLevelToPreserve, WeaponReset) -------------
+
+    /// <summary>The round state, frozen for the fact.</summary>
+    private sealed class RoundAt(TF2.Shared.Rules.RoundState state) : TF2.Shared.Rules.ITFRoundStateView
+    {
+        public TF2.Shared.Rules.RoundState State { get; set; } = state;
+
+        public TFTeam Winner => TFTeam.Unassigned;
+    }
+
+    /// <summary>The ubercharge_preserved_on_spawn_max cap on the medic's own manager, as the wearer's walk reads it.</summary>
+    private static AttributeContainer PreserveHolder(float cap)
+    {
+        var def = new AttributeDefinition(30046, "preserved uber", "ubercharge_preserved_on_spawn_max",
+                                          AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("preserve"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, cap));
+        return manager;
+    }
+
+    /// <summary>
+    /// A death mid-round holds back the lesser of the meter and the preserved
+    /// cap for the next spawn (WeaponReset's round-running arm,
+    /// tf_weapon_medigun.cpp:291-295): a full meter with half a charge kept
+    /// comes back at half.
+    /// </summary>
+    [Fact]
+    public void A_death_midround_hands_the_capped_charge_to_the_next_spawn()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        weapon.SetChargeLevel(1, 0.8f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
+        weapon.PreserveCharge(1, 0.6f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        Assert.Equal(0f, weapon.ChargeLevel(1));       // the death takes the meter
+
+        weapon.Unholster(1, now: 11f);                 // the new life's first state
+        Assert.Equal(0.5f, weapon.ChargeLevel(1), 5);  // the keep, not the whole meter
+    }
+
+    /// <summary>
+    /// Outside a running round the reset zeroes the meter (:296-299): the same
+    /// death and respawn during the preround comes back empty, keep or no.
+    /// </summary>
+    [Fact]
+    public void A_death_outside_the_round_keeps_nothing()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.Preround));
+        weapon.SetChargeLevel(1, 0.8f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
+        weapon.PreserveCharge(1, 0.6f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.Unholster(1, now: 11f);
+
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    /// <summary>
+    /// The keep spends once (PostSpawnThink's zero, tf_player.cpp:2114-2124):
+    /// the respawned state holds no preserve of its own, so a second death
+    /// without fresh organs hands over nothing.
+    /// </summary>
+    [Fact]
+    public void The_kept_charge_spends_on_the_first_spawn_alone()
+    {
+        var rounds = new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning);
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: rounds);
+        weapon.SetChargeLevel(1, 1f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.Unholster(1, now: 11f);
+        Assert.Equal(0.5f, weapon.ChargeLevel(1), 5);
+
+        weapon.RemoveMedigun(1, now: 12f);             // the second death, no new organs
+        weapon.Unholster(1, now: 13f);
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_keep_carried_into_a_new_rounds_setup_is_gone()
+    {
+        var rounds = new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning);
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: rounds);
+        weapon.SetChargeLevel(1, 1f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        rounds.State = TF2.Shared.Rules.RoundState.Preround;
+        weapon.Unholster(1, now: 11f);
+
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_keep_does_not_pass_to_the_next_player_on_the_slot()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        weapon.SetChargeLevel(1, 1f);
+        rig.Items.SetManager(1, PreserveHolder(0.5f));
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.OnClientDisconnected(1);
+        weapon.Unholster(1, now: 11f);
+
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    /// <summary>
+    /// The cap is the owner-walked attribute (SetChargeLevelToPreserve,
+    /// tf_weapon_medigun.cpp:795-797): an ask past it clamps to the holder's
+    /// ubercharge_preserved_on_spawn_max.
+    /// </summary>
+    [Fact]
+    public void The_kept_charge_clamps_to_the_wearers_cap()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon(rounds: new RoundAt(TF2.Shared.Rules.RoundState.RoundRunning));
+        weapon.SetChargeLevel(1, 1f);
+        rig.Items.SetManager(1, PreserveHolder(0.3f));
+
+        weapon.PreserveCharge(1, 0.9f);
+
+        weapon.RemoveMedigun(1, now: 10f);
+        weapon.Unholster(1, now: 11f);
+        Assert.Equal(0.3f, weapon.ChargeLevel(1), 5);
     }
 }

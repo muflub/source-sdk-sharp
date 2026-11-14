@@ -30,9 +30,15 @@ namespace TF2.Server.Player;
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFPlayerConditions)])]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one
+/// (the condition hooks through the registrar's hook chain, the game events
+/// through the engine's own registration), so a missing one fails the
+/// composition by name instead of answering a default.
+/// </summary>
 public sealed class TFPlayerConditions(TFPlayerCarriers carriers, IEnginePlayers players,
-                                       IHooks<ITFConditionHook>? hooks = null,
-                                       IEngineGameEvents? events = null) : ITFPlayerConditions
+                                       IHooks<ITFConditionHook> hooks,
+                                       IEngineGameEvents events) : ITFPlayerConditions
 {
     private readonly TFConditionArms _arms = new();
 
@@ -130,10 +136,10 @@ public sealed class TFPlayerConditions(TFPlayerCarriers carriers, IEnginePlayers
     }
 
     private void Added(EntityHandle player, TFCond cond)
-        => hooks?.Each(nameof(ITFConditionHook.OnAdded), h => h.OnAdded(player, cond));
+        => hooks.Each(nameof(ITFConditionHook.OnAdded), h => h.OnAdded(player, cond));
 
     private void Removed(EntityHandle player, TFCond cond)
-        => hooks?.Each(nameof(ITFConditionHook.OnRemoved), h => h.OnRemoved(player, cond));
+        => hooks.Each(nameof(ITFConditionHook.OnRemoved), h => h.OnRemoved(player, cond));
 
     private void Removed(EntityHandle player, in TFCondMask conds)
     {
@@ -153,7 +159,7 @@ public sealed class TFPlayerConditions(TFPlayerCarriers carriers, IEnginePlayers
     /// </summary>
     private void FirePrevented(EntityHandle player, TFCond cond, int amount, EntityHandle preventor)
     {
-        if (events is null || amount <= 0)
+        if (amount <= 0)
             return;
 
         IntPtr e = events.EventCreate("damage_prevented");

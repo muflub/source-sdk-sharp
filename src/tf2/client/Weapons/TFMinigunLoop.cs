@@ -12,6 +12,7 @@ using SourceSharp.Client.WeaponEffects;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Client.Weapons;
 
@@ -48,9 +49,13 @@ namespace TF2.Client.Weapons;
 [SideService(Side.Client)]
 public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundController sounds,
                                   IEngineSound engineSound, IEngineEffects effects,
-                                  IEngineEntityRender render, IWeaponViewModelBearer bearers)
+                                  IEngineEntityRender render, IWeaponViewModelBearer bearers,
+                                  ITFWeaponOwners owners, AttributeHooks attributes)
     : IWeaponDrawEffect, IWeaponBoneSpin
 {
+    /// <summary>The holder of the spin-sound gate, stock's <c>HasSpinSounds</c> hook (<c>tf_weapon_minigun.h:94</c>).</summary>
+    public const string SpinSoundsHook = "minigun_no_spin_sounds";
+
     /// <summary>CHAN_STATIC, and ATTN_NORM as a sound level (ATTN_TO_SNDLVL).</summary>
     public const int ChannelStatic = 6, SoundLevelNorm = 75;
 
@@ -72,15 +77,23 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
     /// <summary>
     /// The loop the state asks for (:1395-1431): the wind-down over the idle
     /// arm while the barrel still turns (:1387-1394), and nothing once its
-    /// velocity reaches zero (:1403-1406).
+    /// velocity reaches zero (:1403-1406). Under the spin-sound hook the spin
+    /// gets no spin sound (:1424-1427) and the idle keeps the stop-firing loop
+    /// (<c>special2</c>) on once firing ended, past the barrel's landing on
+    /// zero (:1388-1393's keep, the loop <c>PlayStopFiringSound</c> :1498-1513
+    /// starts at the firing-to-spinning/idle edge).
     /// </summary>
-    public static WeaponScriptSound? CategoryOf(TFMinigunBehaviour.State state, bool crit, float velocity = 0f) => state switch
+    public static WeaponScriptSound? CategoryOf(TFMinigunBehaviour.State state, bool crit, float velocity = 0f,
+                                                bool hasSpinSounds = true, bool stopFired = false) => state switch
     {
         TFMinigunBehaviour.State.StartFiring => WeaponScriptSound.Special1,
         TFMinigunBehaviour.State.Firing => crit ? WeaponScriptSound.Burst : WeaponScriptSound.Double,
-        TFMinigunBehaviour.State.Spinning => WeaponScriptSound.Special3,
+        TFMinigunBehaviour.State.Spinning => hasSpinSounds ? WeaponScriptSound.Special3
+                                              : stopFired ? WeaponScriptSound.Special2 : null,
         TFMinigunBehaviour.State.DryFire => WeaponScriptSound.Empty,
-        TFMinigunBehaviour.State.Idle => velocity > 0f ? WeaponScriptSound.Special2 : null,
+        TFMinigunBehaviour.State.Idle => hasSpinSounds
+            ? velocity > 0f ? WeaponScriptSound.Special2 : null
+            : stopFired ? WeaponScriptSound.Special2 : null,
         _ => null,
     };
 
@@ -96,6 +109,12 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
         public bool BrassRunning;
         public int MuzzleAttachment;              // stock's m_iMuzzleAttachment, re-looked while <= 0 (:1255)
         public int BrassAttachment = -1;           // stock's m_iEjectBrassAttachment, cached once (:1223)
+
+        /// <summary>Stock's <c>m_iPrevMinigunState</c> (:1144): the frame's head asks it for the firing-to-rest edge.</summary>
+        public TFMinigunBehaviour.State PrevState;
+
+        /// <summary>Stock's stop-firing latch under the hook (<c>PlayStopFiringSound</c> :1498): once firing ended the stop loop holds.</summary>
+        public bool StopFired;
     }
 
     private readonly Dictionary<EntityHandle, Gun> _guns = [];
@@ -125,6 +144,16 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
 
         TFMinigunBehaviour.State state = TFMinigunBehaviour.StateOf(context.State);
 
+        // OnDataChanged's tail (:1134-1144): the firing-to-rest edge asks the
+        // holder for its spin sounds; a hooked gun starts its stop-firing loop
+        // there, and the keep arms of WeaponSoundUpdate hold it across the
+        // wind-down and the idle.
+        bool hasSpinSounds = HasSpinSounds(context.Owner);
+        if (!hasSpinSounds && gun.PrevState == TFMinigunBehaviour.State.Firing
+            && (state == TFMinigunBehaviour.State.Spinning || state == TFMinigunBehaviour.State.Idle))
+            gun.StopFired = true;
+        gun.PrevState = state;
+
         // OnDataChanged's head (:1124-1132): the brass and the muzzle ride the
         // firing state ahead of its sound. Stock reads the state from the wire
         // on the data-change event; the frame's Think reads the same bits the
@@ -134,7 +163,8 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
         HandleBrassEffect(gun, weapon, bearer, state);
         HandleMuzzleEffect(gun, weapon, bearer, state);
 
-        WeaponScriptSound? category = CategoryOf(state, TFMinigunBehaviour.CritLatched(context.State), gun.Velocity);
+        WeaponScriptSound? category = CategoryOf(state, TFMinigunBehaviour.CritLatched(context.State), gun.Velocity,
+                                                 hasSpinSounds, gun.StopFired);
         string name = category is { } kind ? scripts.Get(WeaponName)?.Sound(kind) ?? "" : "";
         bool changed = gun.Name != name;
 
@@ -182,6 +212,10 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
     /// </summary>
     public (string BoneName, float AngleRadians)? TryGetBoneSpin(EntityHandle weapon) =>
         _guns.TryGetValue(weapon, out Gun? gun) ? ("barrel", gun.Angle) : null;
+
+    /// <summary>Stock's <c>HasSpinSounds</c> (<c>tf_weapon_minigun.h:94</c>): the hook's 1 leaves the gun without spin sounds.</summary>
+    private bool HasSpinSounds(int owner) =>
+        attributes.Int(0, SpinSoundsHook, owners.ItemOf(owner, WeaponName)) != 1;
 
     /// <summary>The step toward the target, stopping exactly on it (:1110).</summary>
     private static float Approach(float value, float target, float step) =>

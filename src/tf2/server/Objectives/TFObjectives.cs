@@ -97,7 +97,7 @@ public static class TFObjectivesOrders
 /// cart or a picked-up flag is already on the record this frame.
 /// </remarks>
 [SideService(Side.Server, As = [typeof(ITFObjectives)])]
-public sealed class TFObjectives(IHooks<ITFObjectiveSource>? hooks = null) : ITFObjectives, IFrameLifecycle
+public sealed class TFObjectives(IHooks<ITFObjectiveSource> hooks) : ITFObjectives, IFrameLifecycle
 {
     /// <summary>The feed's order in TF2's objectives band.</summary>
     public const int Order = TFObjectivesOrders.Feed;
@@ -105,7 +105,7 @@ public sealed class TFObjectives(IHooks<ITFObjectiveSource>? hooks = null) : ITF
     /// <summary>The team slots: one per team ordinal below <see cref="TFTeam.Count"/>.</summary>
     private const int TeamSlots = (int)TFTeam.Count;
 
-    private readonly IHooks<ITFObjectiveSource>? _hooks = hooks;
+    private readonly IHooks<ITFObjectiveSource> _hooks = hooks;
 
     private readonly List<TFObjective> _scratch = [];
     private Action<ITFObjectiveSource>? _collect;
@@ -138,7 +138,7 @@ public sealed class TFObjectives(IHooks<ITFObjectiveSource>? hooks = null) : ITF
     public void Refresh()
     {
         _scratch.Clear();
-        _hooks?.Each("Collect", _collect ??= source => source.Collect(_scratch));
+        _hooks.Each("Collect", _collect ??= source => source.Collect(_scratch));
 
         TFObjective[] previous = _records;
 

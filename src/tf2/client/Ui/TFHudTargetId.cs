@@ -14,6 +14,7 @@ using SourceSharp.Shared;
 
 using TF2.Client.Player;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Client.Ui;
@@ -33,7 +34,9 @@ namespace TF2.Client.Ui;
 public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IPixelVisSlots view,
                                   IClientStandalones standalones, ITFPlayerData data,
                                   TFClientPlayerResources resources, IPlayerNames names,
-                                  WeaponCatalog catalog, TFClassTable classes) : ITFTargetId
+                                  WeaponCatalog catalog, TFClassTable classes,
+                                  ITFWeaponOwners owners, AttributeHooks attributes,
+                                  IGameClock clock) : ITFTargetId
 {
     /// <summary>MAX_TRACE_LENGTH, as UpdateIDTarget traces.</summary>
     private const float MaxTrace = 56756f;
@@ -44,8 +47,16 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
     /// <summary>item_shop_medigun's classname — the hand whose charge the data string reads.</summary>
     private const string MedigunName = "tf_weapon_medigun";
 
+    /// <summary>tf_weapon_bonesaw's classname — the medic's melee row, whose
+    /// item carries see_enemy_health (the Solemn Vow's).</summary>
+    private const string BoneSawName = "tf_weapon_bonesaw";
+
+    /// <summary>see_enemy_health, the Solemn Vow's enemy-health arm.</summary>
+    private const string SeeEnemyHealthAttrib = "see_enemy_health";
+
     private bool _resolved;
     private int _viewId;
+    private float _now;
     private float _ox, _oy, _oz, _fx, _fy, _fz;
 
     private bool _present;
@@ -63,7 +74,11 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
     public TFTargetIdLine Line => Resolve() ? _line : default;
 
     /// <summary>
-    /// The frame's ray, resolved once per view. Stock's UpdateID names
+    /// The frame's ray: re-evaluated on every tick, as stock's ShouldDraw
+    /// re-scans every frame (tf_hud_target_id.cpp:540-593 — the answer
+    /// follows whoever the crosshair now rests on, camera motion or not);
+    /// within one tick the screen's repeated property reads share one
+    /// resolution, held by the unchanged view and clock time. Stock's UpdateID names
     /// nothing for a plain enemy (the printFormatString arm,
     /// tf_hud_target_id.cpp:806-816, answers only the validity gate's teams
     /// and a spy/medic/heavy local — a scout aiming at an enemy draws
@@ -73,12 +88,13 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
     private bool Resolve()
     {
         var now = view.View();
-        if (_resolved && now.Id == _viewId && now.Origin.X == _ox && now.Origin.Y == _oy && now.Origin.Z == _oz
-            && now.Forward.X == _fx && now.Forward.Y == _fy && now.Forward.Z == _fz)
+        if (_resolved && clock.Now == _now && now.Id == _viewId && now.Origin.X == _ox && now.Origin.Y == _oy
+            && now.Origin.Z == _oz && now.Forward.X == _fx && now.Forward.Y == _fy && now.Forward.Z == _fz)
             return _present;
 
         (_viewId, _ox, _oy, _oz, _fx, _fy, _fz) = (now.Id, now.Origin.X, now.Origin.Y, now.Origin.Z,
                                                    now.Forward.X, now.Forward.Y, now.Forward.Z);
+        _now = clock.Now;
         _resolved = true;
         _present = false;
         _name = "";
@@ -140,7 +156,15 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
         bool realSame = realTeam == localRealTeam;
         bool same = displayedSame || realSame || displayedTeam == localRealTeam;
         bool localSpy = (TFClass)localClass == TFClass.Spy;
-        if (!(spectator || realSame || displayedSame || localSpy))
+        // The see_enemy_health arm (:407-424, the validity disjunct at :455):
+        // the local player's worn melee's attribute — the Solemn Vow's — makes
+        // a plain enemy a target, the row read off the carrier's own loadout,
+        // hand or no. Stock's stealth guard is this gate's IsStealthed return
+        // above; hide_enemy_health's spy suppression and the MvM arms are
+        // docs/plans/tf2/deferred.tsv's.
+        bool seesEnemyHealth = attributes.Float(0f, SeeEnemyHealthAttrib,
+                                                owners.ItemOf(local, BoneSawName)) > 0f;
+        if (!(spectator || realSame || displayedSame || localSpy || seesEnemyHealth))
             return false;
 
         // The content gate (:806-810): the name and the health cross.
@@ -152,7 +176,10 @@ public sealed class TFHudTargetId(IEngineHud screen, IEngineWorldQuery world, IP
 
         _team = disguised && !realSame ? state.DisguiseTeam : realTeam;
         _maxHealth = MaxHealthOf(hit.EntityIndex);
-        _showsHealth = showName && _maxHealth > 0;
+        // The health cross's own gate (ShouldHealthBarBeVisible,
+        // tf_hud_target_id.cpp:78-112): the content arms and the wearer of
+        // see_enemy_health, whose enemy reads the bar with the panel.
+        _showsHealth = (showName || seesEnemyHealth) && _maxHealth > 0;
         _health = Math.Max(0, target.State.Health);
 
         // The disguised enemy's row (tf_hud_target_id.cpp:785-794, :822-827):

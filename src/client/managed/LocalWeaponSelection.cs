@@ -23,13 +23,9 @@ public sealed class LocalWeaponSelection(IEngineHud screen, IClientStandalones s
 
     public bool FrozenOrDead => Local is not { } p || !p.State.Alive || (p.State.Flags & GameMovement.FlFrozen) != 0;
 
-    public ulong Carried => Local is { } p
-        ? (ulong)p.State.CarriedWeapons | ((ulong)p.State.CarriedWeaponsHigh << 32)
-        : 0ul;
+    public UInt128 Carried => Local is { } p ? p.State.CarriedMask : default;
 
-    public ulong Empty => Local is { } p
-        ? (ulong)p.State.EmptyWeapons | ((ulong)p.State.EmptyWeaponsHigh << 32)
-        : 0ul;
+    public UInt128 Empty => Local is { } p ? p.State.EmptyMask : default;
 
     public int Active => arsenal.TryGetActive(out string name, out _, out _) ? weapons.IndexOf(name) : -1;
 

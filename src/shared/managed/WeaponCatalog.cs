@@ -214,6 +214,18 @@ public sealed class WeaponCatalog
             }
         }
 
+        // The wire reaches a row only through its bit in the carried/empty
+        // masks (PlayerNetState.WeaponMaskBits bits, PlayerNetState.cs:531):
+        // rows past the mask's width network as nothing, and the client's slot
+        // keys stop finding them (TFWeaponSlotForecast caps the walk at the mask's
+        // width). Say it once per side, naming the first row the bits cannot
+        // carry, so a widening catalogue is visible instead of silently
+        // unreachable. Built runs once per side, so this line is one per side.
+        if (rows.Count > PlayerNetState.WeaponMaskBits)
+            _log?.Warning($"[SourceSharp] the weapon catalogue has {rows.Count} rows past its "
+                          + $"{PlayerNetState.WeaponMaskBits}-bit carried mask; "
+                          + $"'{rows[PlayerNetState.WeaponMaskBits].Name}' is the first without a bit\n");
+
         return new Built(rows.ToImmutable(), byName);
     }
 

@@ -8,11 +8,13 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -47,9 +49,12 @@ namespace TF2.Server.Buildings;
 [ScriptedEntity(TFDispenser.MapClass, ScriptedEntityKind.Item)]
 public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                                  IEngineEntityRender render, IEngineWorldQuery world, ITFAmmoPurse purse,
-                                 ITFPlayerHealing healing, TFPlayerCarriers? carriers = null,
-                                 TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
+                                 ITFPlayerHealing healing, TFPlayerCarriers carriers,
+                                 TFConceptSpeech speech, ITFWeaponOwners owners,
+                                 AttributeHooks hooks,
+                                 TFDamageScopes scopes, ITFRevengeCrits crits, ServerBodygroups bodygroups,
+                                 IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     public const string MapClass = "obj_dispenser";
 
@@ -235,7 +240,13 @@ public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announ
 
         foreach (EntityHandle player in Serviced())
         {
-            gave |= Give(player, TFAmmo.Primary);
+            // Stock's DispenseAmmo reads no_primary_ammo_from_dispensers on the
+            // receiver's ACTIVE weapon (tf_obj_dispenser.cpp:527, gate at :533):
+            // set, the primary give is skipped while the secondary and the
+            // metal still run.
+            bool givePrimary = Hooks.Int(0, "no_primary_ammo_from_dispensers", Owners.ActiveItemOf(Entities.GetIndex(player))) == 0;
+            if (givePrimary)
+                gave |= Give(player, TFAmmo.Primary);
             gave |= Give(player, TFAmmo.Secondary);
             gave |= GiveMetal(player);
         }

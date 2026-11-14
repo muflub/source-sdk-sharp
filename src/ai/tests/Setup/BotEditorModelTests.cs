@@ -3,14 +3,16 @@ extern alias client;
 using System.Reflection;
 using Xunit;
 
-using BotEditorModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.BotEditorModel;
-using BotProfileStore = client::SourceSharp.Ai.Hl2mp.Client.Profiles.BotProfileStore;
-using ClientSkillCurves = client::SourceSharp.Ai.Hl2mp.Client.Setup.ClientSkillCurves;
-using CustomBot = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBot;
-using CustomBots = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBots;
-using SkillDerived = client::SourceSharp.Ai.Hl2mp.Client.Setup.SkillDerived;
+using BotEditorModel = client::SourceSharp.Ai.Client.Setup.BotEditorModel;
+using BotProfileStore = client::SourceSharp.Ai.Client.Profiles.BotProfileStore;
+using ClientSkillCurves = client::SourceSharp.Ai.Client.Setup.ClientSkillCurves;
+using CustomBot = client::SourceSharp.Ai.Client.Setup.CustomBot;
+using CustomBots = client::SourceSharp.Ai.Client.Setup.CustomBots;
+using SkillDerived = client::SourceSharp.Ai.Client.Setup.SkillDerived;
 using IEngineFiles = client::SourceSharp.Abi.IEngineFiles;
-using SourceSharp.Ai.Hl2mp.Ui;
+using ClTdmTeamsConVar = client::SourceSharp.Client.Vgui.ClTdmTeamsConVar;
+using Hl2mpBotSetup = client::SourceSharp.Ai.Hl2mp.Client.Hl2mpBotSetup;
+using SourceSharp.Ai.Ui;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
@@ -26,7 +28,7 @@ public class BotEditorModelTests
     public class GameFiles : DispatchProxy
     {
         protected override object? Invoke(MethodInfo? method, object?[]? args)
-            => method?.Name == "ReadGameFile" && (string)args![0]! == ClientSkillCurves.Path
+            => method?.Name == "ReadGameFile" && (string)args![0]! == Hl2mpBotSetup.CurvesPath
                 ? File.ReadAllText(SourceSharp.Tests.RepoLayout.Repo("game", "mod_test", "scripts", "ai", "hl2mp_skills.json"))
                 : null;
     }
@@ -43,7 +45,7 @@ public class BotEditorModelTests
 
     internal static BotEditorModel Editor(CustomBots customs, BotProfileStoreTests.MemoryDisk? disk = null)
         => new(new BotProfileStore(disk ?? new BotProfileStoreTests.MemoryDisk()), customs,
-               new ClientSkillCurves(DispatchProxy.Create<IEngineFiles, GameFiles>()), new Clock());
+               new ClientSkillCurves(DispatchProxy.Create<IEngineFiles, GameFiles>(), new Hl2mpBotSetup(DeclaredClientConVars.Fresh<ClTdmTeamsConVar>())), new Clock());
 
     private readonly CustomBots _customs = new();
     private readonly BotProfileStoreTests.MemoryDisk _disk = new();
@@ -60,7 +62,27 @@ public class BotEditorModelTests
     public void ANewBotStartsAtMediumUnnamed()
     {
         _editor.Begin(-1);
-        Assert.Equal(("4,4,4,3,3,3,4,3,4,3", 25, ""), (Levels(), _editor.PointsLeft, _editor.ProfileName));
+        Assert.Equal(("4,4,4,3,3,3,4,3,4,3,3", 22, ""), (Levels(), _editor.PointsLeft, _editor.ProfileName));
+    }
+
+    /// <summary>The eleventh row is Teamwork (plan_bots_teams_tf2 B.7), with what its level makes of the team parameters.</summary>
+    [Fact]
+    public void TheEleventhRowIsTeamworkWithTheTeamParameters()
+    {
+        _editor.Begin(-1);
+        BotSkillRow row = _editor.Skill(10);
+        Assert.Equal(("#Ai_Skill_Teamwork", 3), (row.NameToken, row.Level));
+        Assert.Equal(["CalloutChance", "CrossfireWeight", "FollowSeconds", "LeashUnits", "TeamCoverWeight", "TradeWeight"], row.Parameters.Select(p => p.Key));
+        Assert.Contains(row.Parameters, p => p.Key == "LeashUnits" && p.Value == Skills.Curves.Game()["leashUnits"].At(3));
+    }
+
+    /// <summary>A bot made before teams opens with the Teamwork it played at (its even share), which then costs points like any skill.</summary>
+    [Fact]
+    public void ABotMadeBeforeTeamsOpensWithTheTeamworkItPlayedAt()
+    {
+        _customs.Add(new CustomBot(new SkillProfile("Deadeye", StandardSkills.Ten, [8, 7, 6, 6, 6, 6, 1, 1, 2, 2]), []));
+        _editor.Begin(0);
+        Assert.Equal((4, 11), (_editor.Skill(10).Level, _editor.PointsLeft));
     }
 
     [Fact]
@@ -76,7 +98,7 @@ public class BotEditorModelTests
         _editor.Redo();
         _editor.Redo();
         // Medium's levels with edits 1..9 applied (+1 on the even skills, -1 on the odd), the tenth undone.
-        Assert.Equal("5,3,5,2,4,2,5,2,5,3", Levels());
+        Assert.Equal("5,3,5,2,4,2,5,2,5,3,3", Levels());
     }
 
     [Fact]
@@ -97,10 +119,9 @@ public class BotEditorModelTests
         _editor.Stage(0, 6);
         _editor.Stage(1, 6);
         _editor.Stage(2, 6);
-        _editor.Stage(3, 5);
-        _editor.Stage(4, 2);
+        _editor.Stage(3, 4);
         Assert.Equal(0, _editor.PointsLeft);
-        Assert.All(Enumerable.Range(0, 10), i => Assert.False(_editor.Skill(i).CanRaise));
+        Assert.All(Enumerable.Range(0, 11), i => Assert.False(_editor.Skill(i).CanRaise));
     }
 
     [Fact]
@@ -118,8 +139,7 @@ public class BotEditorModelTests
         _editor.Stage(0, 6);
         _editor.Stage(1, 6);
         _editor.Stage(2, 6);
-        _editor.Stage(3, 5);
-        _editor.Stage(4, 1);
+        _editor.Stage(3, 3);
         _editor.Stage(5, 5);
         Assert.Equal((1, "#Ai_Status_Refused"), (_editor.PointsLeft, _editor.StatusToken));
         Assert.Contains("spends 64 of a 60-point pool", _editor.StatusData, StringComparison.Ordinal);
@@ -142,7 +162,7 @@ public class BotEditorModelTests
         _editor.SaveAs();
         Assert.Equal(("Deadeye", false, 1), (_editor.ProfileName, _editor.Unsaved, _editor.RevisionCount));
         Assert.True(new BotProfileStore(_disk).Load("Deadeye", out BotProfileDocument? doc).Accepted);
-        Assert.Equal(("8,4,4,3,3,3,4,3,4,3", "saved as Deadeye"), (string.Join(",", doc!.Profile.Levels), doc.Revisions[0].Note));
+        Assert.Equal(("8,4,4,3,3,3,4,3,4,3,3", "saved as Deadeye"), (string.Join(",", doc!.Profile.Levels), doc.Revisions[0].Note));
     }
 
     [Theory]
@@ -163,7 +183,7 @@ public class BotEditorModelTests
     [Fact]
     public void SaveAsRefusesAnotherSavedProfilesName()
     {
-        new BotProfileStore(_disk).Save(new SkillProfile("Sniper", StandardSkills.Ten, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]), []);
+        new BotProfileStore(_disk).Save(new SkillProfile("Sniper", StandardSkills.Eleven, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), []);
         _editor.Begin(-1);
         _editor.SetNameDraft("sniper");
         Assert.Equal("#Ai_Name_Taken", _editor.NameRefusalToken);
@@ -201,9 +221,10 @@ public class BotEditorModelTests
         _editor.Begin(-1);
         _editor.ShowPanel(BotEditorPanel.Load);
         _editor.Load(3);
-        Assert.Equal(("8,7,6,6,6,6,7,5,5,4", 0, ""), (Levels(), _editor.PointsLeft, _editor.ProfileName));
+        // Expert spends the whole pool: its Teamwork is what is left, none.
+        Assert.Equal(("8,7,6,6,6,6,7,5,5,4,0", 0, ""), (Levels(), _editor.PointsLeft, _editor.ProfileName));
         _editor.Undo();
-        Assert.Equal("4,4,4,3,3,3,4,3,4,3", Levels());
+        Assert.Equal("4,4,4,3,3,3,4,3,4,3,3", Levels());
     }
 
     [Fact]
@@ -215,7 +236,7 @@ public class BotEditorModelTests
         _editor.Stage(0, 3);
         _editor.Save();
         _editor.Restore(1);
-        Assert.Equal(("4,4,4,3,3,3,4,3,4,3", 3, 3, "restored #1"),
+        Assert.Equal(("4,4,4,3,3,3,4,3,4,3,3", 3, 3, "restored #1"),
                      (Levels(), _editor.RevisionCount, _editor.Revision(0).Number, _editor.Revision(0).Note));
         Assert.True(new BotProfileStore(_disk).Load("Deadeye", out BotProfileDocument? doc).Accepted);
         Assert.Equal(3, doc!.Revisions.Length);
@@ -240,7 +261,7 @@ public class BotEditorModelTests
         _editor.Stage(0, 2);
         _editor.Done();
         CustomBot bot = Assert.Single(_customs.All);
-        Assert.Equal(("", 37), (bot.Profile.Name, bot.Profile.Spent));
+        Assert.Equal(("", 40), (bot.Profile.Name, bot.Profile.Spent));
     }
 
     [Fact]
@@ -250,7 +271,8 @@ public class BotEditorModelTests
         _editor.Begin(0);
         _editor.Stage(9, 3);
         _editor.Done();
-        Assert.Equal(("Deadeye", 48), (Assert.Single(_customs.All).Profile.Name, _customs[0].Profile.Spent));
+        // 45 spent, Teamwork 4 (its even share) given, 3 more: 52.
+        Assert.Equal(("Deadeye", 52), (Assert.Single(_customs.All).Profile.Name, _customs[0].Profile.Spent));
     }
 
     [Fact]
@@ -275,7 +297,7 @@ public class BotEditorModelTests
             SourceSharp.Tests.RepoLayout.Repo("game", "mod_test", "resource", "test_english.txt")));
         var labels = System.Text.RegularExpressions.Regex.Matches(file, "\"Ai_Param_(\\w+)\"\\t+\"([^\"]*)\"")
             .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
-        var keys = SkillPresets.Names.SelectMany(n => SkillPresets.TryGet(n, out SkillProfile? p) ? SkillDerived.Parameters(p!, Skills.Curves.Game()) : [])
+        var keys = SkillPresets.Names.SelectMany(n => SkillPresets.TryGet(n, out SkillProfile? p) ? SkillDerived.Parameters(StandardSkills.WithTeamwork(p!), Skills.Curves.Game()) : [])
             .SelectMany(row => row).Select(p => p.Key).Distinct().ToList();
         Assert.True(keys.Count >= 20, $"the rows show {keys.Count} parameters");
         var missing = keys.Where(k => !labels.TryGetValue(k, out string? text) || !text.Contains("%s1", StringComparison.Ordinal)).ToList();

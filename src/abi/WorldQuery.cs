@@ -594,6 +594,23 @@ public enum WeaponAnim
     /// retags the PULLBACK ask to it, tf_weapon_compound_bow.cpp:396-399).
     /// </summary>
     Charge = 21,
+
+    /// <summary>
+    /// ACT_SECONDARY_VM_ALTATTACK: the Shortstop's shove, whose viewmodel
+    /// swings the gun aside (<c>CTFPistol_ScoutPrimary::SecondaryAttack</c>,
+    /// tf_weapon_pistol.cpp:107) — an alt-fire pose of its own, not the
+    /// secondary attack the role table names.
+    /// </summary>
+    AltAttack = 22,
+
+    /// <summary>ACT_ITEM2_VM_IDLE_2: the bow's held idle inside the charge window (<c>SendWeaponAnim</c>, tf_weapon_compound_bow.cpp:425).</summary>
+    IdleBow = 23,
+
+    /// <summary>ACT_ITEM2_VM_IDLE_3: the bow's tired idle once the pair settles (<c>SendWeaponAnim</c> :415).</summary>
+    IdleBowFull = 24,
+
+    /// <summary>ACT_ITEM2_VM_CHARGE_IDLE_3: the tired idle's first entry, the pair's alternation (:419).</summary>
+    IdleBowChargeFull = 25,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

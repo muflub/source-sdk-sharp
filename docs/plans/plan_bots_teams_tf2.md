@@ -36,13 +36,18 @@ phases, because TF2 bots on community maps need both.
 - **Part C** TF2: class-based bots and its game modes.
 - **Part D** The game-mode config model, votes and the admin menu.
 - **Part E** The server builds a `.nav3d` on map change.
+- **Part G** Human feel, learning from players (a SQLite experience
+  store), and blast jumps up to jump maps:
+  `docs/plans/plan_bots_teams_tf2_part_g.md` (phases G0-G8, file ownership
+  in its G.9).
 - **§6** Phases, gates. **§7** Risks and effort. **§8** Decisions: rulings
   (dated) and open questions with recommendations. **§9** What could not
   be verified.
 
 Rules that bind every part (from `docs/plans/plan_hl2mp_ai.md` §12.1,
 carried in §8.1): the bot does only what a player can do and sees only what
-a player can see; its one output is a usercmd; memory in memory only; off
+a player can see; its one output is a usercmd; memory in memory only (TF2's map and mode counts excepted,
+Part G, §8.1 2026-11-10); off
 the main thread, more than one worker allowed, never the game thread; 100 %
 managed plus generated forwarder rows; `.nav3d` from map-tools, no stock
 nav mesh and no NextBot port (vocabulary only); human motion; no human
@@ -1581,6 +1586,55 @@ This plan's own rulings (2026-11-02, through the coordinator):
   progress and push as a team"**: C.6.1, with the generic half in B.5
   (Regroup and Push as team roles) and its progress source in the objective
   feed (F13/F14 prework).
+- **2026-11-08: "pick up the ai plan and implement hl2mp team play and bots
+  for it"**, "also support 2/3/4 teams", "make sure to add vote and admin
+  menus for teams": P0-P2 with `mp_tdm_teams` 2-4 (landed 003beaff2 to
+  de4f2a056).
+- **2026-11-09: "fix the small bugs and do P3 and P5"**: the team work's
+  leftover gaps, Part D and the C.2 lift (landed 4123db4d6, 2ed7d55e6,
+  7f008f462 and 2df94caf9).
+- **2026-11-10, P6 nav (relayed by the coordinator): "those maps are tall but
+  the playable area shouldnt be that tall"** and **"should also be able to
+  cull the nav generation by only the areas the player can actually get
+  to"**: a TF map's nav keeps to the space its spawns join (map-tools
+  `claude/nav-tf-maps`: the grid clipped to it, every voxel outside it
+  never built, `-playspace off` for the old build); no bigger voxel and no
+  format change (docs/plans/tf2_ai/F02_report.md §3).
+- **2026-11-10: "you can move the map tools hash forwards", "we should bump
+  map tools version if required"**: `maptools.lock` moved to 55bc945 with
+  SourceSharp.MapFormats 1.0.3 (map-tools #145, #146). With nav-on-load
+  (P4), Q10's "on by default" narrowed: the server builds a missing nav
+  only for a game whose binding registers an `INavBuildPolicy`. HL2MP
+  registers one. TF2 registers none until P6 builds TF maps in-process with
+  their own mounts and options, so a TF2 level with no nav refuses a bot add
+  with the reason. E.4's `ai_nav_build <map>` is `ai_nav_prebuild`, because
+  the convar owns the name.
+- **2026-11-10, Part G (relayed by session source-sdk-sharp-4f, which
+  wrote Part G): "for tf2 ai it makes sense to have a sqlitedb to record
+  map and mode info into to improve bot responses"**: Part G's experience
+  store (G.3). It overturns "memory in memory only, never on disk" for TF2
+  map and mode data only. Per-opponent habits stay in memory, and no player
+  identity is stored.
+- **2026-11-10, Part G (same session): "i want the solider ai to be able
+  to rocket jump by identifying good places to do it and how to do it and
+  be able to complete the rocket jump map"**: Part G's G.5-G.7 (a jump
+  controller, a simulator, blast edges, jumps learned from players, jump
+  maps in three tiers).
+- **2026-11-10, Part G (same session): "Ok to push and continue"**: Part G
+  starts. Its open questions are taken as recommended, except new
+  map-tools work (Q-G6), which is asked again at G7.
+- **2026-11-11, P6 finished (lane p6e; the user, 2026-11-10: "finish off the P6
+  left overs")**: a bot held still by TF2's pre-round freeze (the HUD's round state
+  and the replicated restart freeze) reports no stall and does not hop; a drop two
+  columns on is taken over the edge; a goal with no place drops the last goal's
+  follower; who defends is `TFDecider.CtfRoleSplit` over the team's scoreboard rows
+  (a third, the last slots; it was every third slot, which gave one 4v4 team three
+  defenders and the other none); `tools/tf2-gate` bots-ctf plays 420 s and holds
+  `ai.main.cpu.us` under 1,500 us. With main's TF2 hull (27a9e0202), which ended the
+  bridge-roof and ceiling wedges (bots were in solid after rocket jumps), ten minutes
+  of ctf_2fort (`tools/ai-cost live`) captured 5, 3 and 4 times at 6v6 and 4, 4
+  and 4 at 4v4, with 136-259 stuck reports a 6v6 run against 364-420 on main
+  0ea7e4ec0.
 
 ### 8.2 The questions asked, all answered as recommended
 

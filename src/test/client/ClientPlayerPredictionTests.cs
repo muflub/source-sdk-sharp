@@ -89,6 +89,7 @@ public class ClientPlayerPredictionTests
 
         public float ForwardMove;
         public int Buttons;
+        public int Impulse;
 
         public bool TryGetUserCmd(int commandNumber, out UserCmd cmd)
         {
@@ -101,6 +102,7 @@ public class ClientPlayerPredictionTests
             cmd.TickCount = commandNumber;
             cmd.ForwardMove = ForwardMove;
             cmd.Buttons = Buttons;
+            cmd.Impulse = Impulse;
             return true;
         }
 
@@ -598,6 +600,168 @@ public class ClientPlayerPredictionTests
 
         Assert.Equal(1, bench.Prediction.Mispredicts);
         Assert.Equal(0, bench.Prediction.Rebuilt);
+    }
+
+    /// <summary>
+    /// The deploy with no command behind it: the console's <c>use</c> press and
+    /// the kit's give run between two client commands, so no weaponselect rides
+    /// a command to mirror and the player's held and carried words arrive moved
+    /// while the acked slot holds the old pair. The weapon lane already adopts
+    /// that moment through its deploy stamp (<see cref="ClientArsenal"/>.<c>DeployedOutOfBand</c>);
+    /// the player lane adopts with it — stock re-seeds the whole predicted state
+    /// from the fresh arrival (InitPredictable, c_baseentity.cpp:4578-4583).
+    /// Judged without the stamp arm, these same moved words are the miss the
+    /// live boot logged on <c>cmd use tf_weapon_wrench</c>.
+    /// </summary>
+    [Fact]
+    public void ADeployWithNoCommandBehindItAdoptsTheMovedHeldWords()
+    {
+        var bench = Build(11);
+
+        // The pair the arsenal finds for the local player: the decoded weapon
+        // and viewmodel entities the replay's basis reset runs on.
+        var weapon = new ClientSsWeapon(bench.Engine) { Handle = new EntityHandle(0x0100_0041u) };
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = LocalPlayer;
+        weapon.State.WeaponTypeId = 1;
+        var viewModel = new ClientSsViewModel(bench.Engine, bench.Engine) { Handle = new EntityHandle(0x0100_0042u) };
+        viewModel.State.BindLocal();
+        viewModel.State.OwnerIndex = LocalPlayer;
+        bench.Standalones.Entities.Add(weapon);
+        bench.Standalones.Entities.Add(viewModel);
+
+        var catalog = NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog());
+        var arsenal = new ClientArsenal(bench.Log, bench.Standalones, bench.Engine, bench.Engine,
+                                        bench.Engine, catalog);
+        bench.Prediction = new ClientPlayerPrediction(bench.Log, bench.Standalones, bench.Engine,
+                                                      bench.Replay, bench.Runner, arsenal,
+                                                      new PredictionErrorRing(), catalog,
+                                                      new ListHooks(), new Playback(), new SmoothClock(1f),
+                                                      ConVarOf(new ClSmoothConVar(), "1"),
+                                                      ConVarOf(new ClSmoothTimeConVar(), "0.1"));
+
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        // The server's word: the deploy that ran between the command and its
+        // acknowledgement moved the held and carried words and bumped the
+        // weapon's stamp; the slot was predicted under the old pair.
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.HeldWeapon = 5;
+        bench.Player.State.CarriedWeapons = 0x0000_00FF;
+        bench.Packet();
+        weapon.State.DeployEpoch = weapon.State.DeployEpoch + 1;
+        weapon.OnDataChanged(default, DataUpdateType.DataTableChanged);
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the deploying arrival is adopted, not judged ({bench.Prediction.Mispredicts} " +
+                    $"on {bench.Prediction.LastMissFields})");
+        Assert.Equal(1, bench.Prediction.Rebuilt);
+    }
+
+    /// <summary>
+    /// The give-all impulse (101) is answered in the server's run of the command
+    /// that carries it: every row is given and the arsenal's selection sweep moves
+    /// the carried and empty words with no weaponselect riding the command to
+    /// mirror, so the acked slot holds the pair from before the give while the
+    /// arrival carries the pair after it. The impulse itself names the command the
+    /// server answered inside, and that acked slot is adopted the way the deploy's
+    /// is — the words are the server's to write, and the next decode's basis
+    /// carries them for every command after.
+    /// </summary>
+    [Fact]
+    public void AGiveThatRidesTheAckedCommandAdoptsTheMovedCarryWords()
+    {
+        var bench = Build(11);
+        bench.Replay.Impulse = 101;
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the impulse command ran");
+
+        // The server's word for the give: the carried and empty masks the
+        // selection sweep republished inside the command, the deploy stamp
+        // untouched — a give deploys nothing.
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.CarriedWeapons = 0x0000_0FFF;
+        bench.Player.State.EmptyWeapons = 0x0000_000F;
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the giving arrival is adopted, not judged ({bench.Prediction.Mispredicts} " +
+                    $"on {bench.Prediction.LastMissFields})");
+        Assert.Equal(1, bench.Prediction.Rebuilt);
+    }
+
+    /// <summary>
+    /// The console's <c>cmd use tf_weapon_shotgun_primary</c> with the shot
+    /// pressed a beat after it, the shape the live boot logged: the deploy runs
+    /// between two client commands and its ack republishes the held and carried
+    /// quartet, but the deploy's stamp was already spent on an earlier ack — so
+    /// by the time the shot's slot is judged both sides' stamps match and the
+    /// whole stamped-stamp arm says nothing, while the slot stands stale by
+    /// exactly the deploy's words (the boot's <c>EmptyWeaponsHigh=6368|14560</c>
+    /// pair: the predicted slot lacks the deployed weapon's empty-bit, the
+    /// arrival carries it). The held move itself with no weaponselect riding
+    /// the command names the moment — the same out-of-band hand-out the stamped
+    /// arm answers — and the slot is adopted with it.
+    /// </summary>
+    [Fact]
+    public void AHeldMoveWithNoWeaponSelectBehindItIsAdoptedByTheDeployArm()
+    {
+        var bench = Build(11);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        // The shot's ack: the deploy that ran between the commands republished
+        // the held and carried quartet, stamps equal (the bump was consumed by
+        // the earlier ack's arrival), and the saved slot holds the old words.
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.HeldWeapon = 5;             // the console's `use` deployed the next item
+        bench.Player.State.CarriedWeapons = 0x0000_00FF;
+        bench.Player.State.EmptyWeaponsHigh = 14560;   // the boot's arrival word, the deployed slot's bit in
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the deploying arrival is adopted, not judged ({bench.Prediction.Mispredicts} " +
+                    $"on {bench.Prediction.LastMissFields})");
+        Assert.Equal(1, bench.Prediction.Rebuilt);
+    }
+
+    /// <summary>
+    /// The same boot shape one command later, which is what the live boot really
+    /// showed: the deploy's own ack (and its stamp spend) is already behind the
+    /// judged command when the shot's ack is compared, the held word has caught
+    /// up on both sides, and only the carried quartet still stands behind —
+    /// the boot's <c>EmptyWeaponsHigh=6368|14560</c> pair on the shot command's
+    /// ack with the stamps equal. A held-word test alone would miss this lag;
+    /// the arm answers for the whole quartet the deploy republished, so the
+    /// shot's slot is adopted too.
+    /// </summary>
+    [Fact]
+    public void ACarriedQuartetMoveWithEqualStampsAndNoSelectIsAdoptedByTheDeployArm()
+    {
+        var bench = Build(11);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        // The shot's ack one beat after the deploy's own: held matches on both
+        // sides by now; only the empty word stands behind with the deployed
+        // weapon's bit, exactly the boot's standing pair.
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.EmptyWeaponsHigh = 14560;   // the boot's arrival word, the deployed slot's bit in
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the deploying arrival is adopted, not judged ({bench.Prediction.Mispredicts} " +
+                    $"on {bench.Prediction.LastMissFields})");
+        Assert.Equal(1, bench.Prediction.Rebuilt);
     }
 
     /// <summary>
@@ -1630,6 +1794,34 @@ public class ClientPlayerPredictionTests
         bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
         Assert.Equal(0f, bench.Replay.LastViewOffset.X);
         Assert.Equal(new Vector(96f, 128f, 16f), bench.Replay.LastOrigin);
+    }
+
+    /// <summary>
+    /// A new map owes the eye nothing. Stock's C_BasePlayer is made again per
+    /// map, so its m_vecPredictionError never outlives the level; ours lives on
+    /// the service, and the clock restarts. An error noted at 50 s on the last
+    /// map, read at 5 s on this one, scaled the offset by 1 - (5 - 50) / 0.1:
+    /// the daily gate's eye stood 1,600 units off after knock-loose's walk into
+    /// its crate and crept back at ~35 u/s, out of sight of the ropes.
+    /// </summary>
+    [Fact]
+    public void ANewLevelDropsTheEaseTheLastLevelOwed()
+    {
+        var clock = new SmoothClock(50f);
+        var bench = BuildSmooth(clock, ringCommands: [11]);
+
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-32f, bench.Replay.LastViewOffset.X);
+
+        bench.Prediction.LevelInit();
+        clock.Now = 5f;
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.Equal(0f, bench.Replay.LastViewOffset.X);
     }
 
     /// <summary>

@@ -277,8 +277,16 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         Inputs++;
         var e = new UiInputEvent((UiInputKind)kind, x, y, code, (char)character, delta);
         // The console's Tab completes: it does not walk the window's focus to a button.
-        if (!(e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Tab && Windows.Top == ConsoleScreen
-              && _menu.IsOpen(ConsoleScreen) && !_menu.IsHeld(ConsoleScreen)))
+        bool consoleTab = e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Tab && Windows.Top == ConsoleScreen
+                          && _menu.IsOpen(ConsoleScreen) && !_menu.IsHeld(ConsoleScreen);
+        // An Escape the host spends closing a window (ToggleMenu, below) is not the
+        // layer's too: the window under the closed one would take the same press as
+        // its own Esc next frame and close as well (plan_descent_logic L8: one press,
+        // one window). The chat's input line keeps its own Escape.
+        bool hostEscape = e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Escape
+                          && !(_menus.Chat is not null && _menu.IsOpen("chatinput"))
+                          && Windows.Top is { } topWindow && _menu.IsOpen(topWindow);
+        if (!consoleTab && !hostEscape)
             _menu.Input(e);
 
         // The chat's input line has the keyboard while it is open (stock messagemode).

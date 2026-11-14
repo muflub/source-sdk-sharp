@@ -114,7 +114,7 @@ public sealed class TFAnimLayerTests
 
         public Rig(TFClassTable classes, bool hl2Only = false, TFAnimHookChain? hooks = null)
         {
-            Layer = new TFAnimLayer(classes, Data, Weapons, hooks);
+            Layer = new TFAnimLayer(classes, Data, Weapons, hooks ?? TFAnimHookChain.Of());
             State = new MultiplayerAnimState(Target, AnimStateParams.Hl2Defaults(),
                 new AnimStateLayerChain(hl2Only
                     ? [new Hl2PostureLayer(Target)]
@@ -217,7 +217,8 @@ public sealed class TFAnimLayerTests
         Assert.Contains(services, a => a.Side == Side.Server);
         Assert.Contains(services, a => a.Side == Side.Client);
         Assert.True(typeof(IAnimStateLayer).IsAssignableFrom(typeof(TFAnimLayer)));
-        Assert.Equal(310, new TFAnimLayer(TFMovementFixtures.Server(), new FakePlayerData(), new FakeWeapons()).LayerOrder);
+        Assert.Equal(310, new TFAnimLayer(TFMovementFixtures.Server(), new FakePlayerData(), new FakeWeapons(),
+                                          TFAnimHookChain.Of()).LayerOrder);
         Assert.True(310 < Hl2PostureLayer.LayerOrderDefault,
             "it answers before the HL2 layer (Hl2PostureLayer.LayerOrderDefault = " + Hl2PostureLayer.LayerOrderDefault + ")");
     }

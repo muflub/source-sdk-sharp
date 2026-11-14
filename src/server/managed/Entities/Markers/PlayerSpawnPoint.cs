@@ -16,9 +16,17 @@ namespace SourceSharp.Server;
 /// The spawn points are the ones that pay for themselves. Pickups already hunt
 /// for info_player_deathmatch by classname through the engine's entity list;
 /// owning the class means the managed side has them without asking.
+///
+/// <para>
+/// HL2MP's two team spawn classes are the same point (stock declares both as
+/// <c>CPointEntity</c>, hl2mp_player.cpp:46-47): team deathmatch walks the
+/// spawning player's team's class first (<see cref="TeamSpawnSelector"/>).
+/// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.InfoPlayerDeathmatch)]
 [ScriptedEntity(EntityNames.InfoPlayerStart)]
+[ScriptedEntity(EntityNames.InfoPlayerCombine)]
+[ScriptedEntity(EntityNames.InfoPlayerRebel)]
 public sealed class PlayerSpawnPoint : ScriptedEntity
 {
     /// <summary>

@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 
+using TF2.Shared;
 using TF2.Shared.Rules;
 
 namespace TF2.Server.Rules;
@@ -21,4 +22,8 @@ namespace TF2.Server.Rules;
 public sealed class TFServerRoundStateView(ITeamRoundState rounds) : ITFRoundStateView
 {
     public RoundState State => rounds.State;
+
+    /// <summary>The round machine's winner, <see cref="ITFRoundStateView.Winner"/>:
+    /// Unassigned until a team takes the round — the arm's state gate is the caller's.</summary>
+    public TFTeam Winner => rounds.WinningTeam;
 }

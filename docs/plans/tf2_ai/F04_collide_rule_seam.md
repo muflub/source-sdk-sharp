@@ -46,3 +46,16 @@ judgement across the interop, prediction and the ledger: not a lane.
   keeps every existing `TraceFilterRulesTests` fact green.
 - A live boot of the test mod and of tf2 with no rule registered:
   `MISPREDICTION` count unchanged against the previous tip's boot.
+
+## Status (2026-11-08)
+
+The server half landed as lane F153 (`1e2a3b410`..`83e59a36d`): `IEntityCollideRule`,
+asked by `TraceFilterRules.ShouldHitEntity` with the trace's own collision group
+(stock's `m_collisionGroup`, util_shared.cpp:305), and the `seams.tsv` row.
+
+The client half has nothing to attach to yet. The client's movement traces go
+through the native `CTraceFilterSimple` in `src/shared/native/trace_filter_library.cpp`,
+whose `ShouldHitEntity` answers false for every entity, so client prediction
+already passes through every player and entity (docs/todo.md:420). F05 therefore
+registers its rule on the server only. Giving the client a filter that hits
+entities is its own stage, and the collide rule joins it then.

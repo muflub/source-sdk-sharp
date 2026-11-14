@@ -41,6 +41,13 @@ public interface ITFPickupNotices
     void PlayerHealOnHit(EntityHandle player, int amount);
 
     /// <summary>
+    /// The <c>crossbow_heal</c> game event (<c>tf_projectile_arrow.cpp:1266-1273</c>):
+    /// <c>healer</c> the shooter's userid, <c>target</c> the healed one's,
+    /// <c>amount</c> the heal ask.
+    /// </summary>
+    void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount);
+
+    /// <summary>
     /// The <c>player_stealsandvich</c> game event: the health pack's own
     /// (tf_ammo_pack.cpp:332-341). <c>target</c> is the picker's userid;
     /// <c>owner</c> is the owner's, and only when the pack's owner is a
@@ -87,6 +94,14 @@ public sealed class EngineTFPickupNotices(IUserMessageSender messages, IEngineGa
             events.EventSetInt(e, "weapon_def_index", ItemDefIndexInvalid);
         });
 
+    public void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount)
+        => Fire("crossbow_heal", e =>
+        {
+            events.EventSetInt(e, "healer", players.GetUserId(healer));
+            events.EventSetInt(e, "target", players.GetUserId(healed));
+            events.EventSetInt(e, "amount", amount);
+        });
+
     public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker)
         => Fire("player_stealsandvich", e =>
         {
@@ -100,11 +115,11 @@ public sealed class EngineTFPickupNotices(IUserMessageSender messages, IEngineGa
         });
 
     /// <summary>
-    /// Stock plays it to the player alone (<c>CSingleUserRecipientFilter</c>);
-    /// the sound area has no single-recipient filter, so the player's
-    /// neighbours hear it too (docs/divergences.md).
+    /// Stock plays it to the player alone (<c>CSingleUserRecipientFilter</c>,
+    /// entity_healthkit.cpp:140-141): the single-player emit gives the touch to
+    /// the picker and to nobody else.
     /// </summary>
-    public void Sound(EntityHandle player, string sound1) => sound.EntityEmitSound(player, sound1);
+    public void Sound(EntityHandle player, string sound1) => sound.EmitSoundToPlayer(player, player, sound1);
 
     /// <summary><c>INVALID_ITEM_DEF_INDEX</c> (econ_item_constants.h), as the event's short.</summary>
     private const int ItemDefIndexInvalid = 65535;
@@ -128,9 +143,9 @@ public sealed class EngineTFPickupNotices(IUserMessageSender messages, IEngineGa
 [ScriptedEntity(MapClass, ScriptedEntityKind.Item)]
 public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                       ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
-                       ITFPlayerStats? stats = null, TFDamageRecords? records = null,
-                       ITFPlayerData? disguises = null, TFClassTable? classes = null)
+                       ITFWeaponOwners owners, AttributeHooks attributes,
+                       ITFPlayerStats stats, TFDamageRecords records,
+                       ITFPlayerData disguises, TFClassTable classes)
     : TFPowerup(players, files, world, placed)
 {
     public const string MapClass = "item_healthkit_full";
@@ -141,20 +156,20 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
     /// <summary>What a kit's touch announces.</summary>
     protected readonly ITFPickupNotices Notices = notices;
 
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly ITFWeaponOwners _owners = owners;
+    private readonly AttributeHooks _attributes = attributes;
     /// <summary><c>CGameStats::Event_PlayerHealthkitPickup</c> (:180); the derived kits count their own stat.</summary>
-    protected readonly ITFPlayerStats? _stats = stats;
+    protected readonly ITFPlayerStats _stats = stats;
 
     /// <summary>The last-hit seam behind stock's <c>GetLastEntityDamaged</c> arm (:148).</summary>
-    private readonly TFDamageRecords? _records = records;
+    private readonly TFDamageRecords _records = records;
 
     /// <summary>The carrier behind the disguise arm's fake health — stock's
     /// <c>m_iDisguiseHealth</c>, read at :117 and written at :127.</summary>
-    private readonly ITFPlayerData? _disguises = disguises;
+    private readonly ITFPlayerData _disguises = disguises;
 
     /// <summary>The class scripts behind <c>GetDisguiseMaxHealth</c> (:8358-8369).</summary>
-    private readonly TFClassTable? _classes = classes;
+    private readonly TFClassTable _classes = classes;
 
     /// <summary><c>m_hOwnerEntity</c>: who threw this kit. The lunchbox throw
     /// writes it (<c>SetOwnerEntity</c>, deferred with the weapon —
@@ -175,6 +190,66 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
 
     /// <summary>Whether this kit came from a lunchbox throw rather than the map.</summary>
     public bool ThrownSingleInstance => _thrownSingleInstance;
+
+    /// <summary>
+    /// <c>m_flThrowerTouchTime</c>: the owner cannot take their own throw
+    /// back until it has passed (tf_powerup.cpp:205, the −1 start the
+    /// constructor gives it).
+    /// </summary>
+    [SaveField] private float _throwerTouchTime = -1f;
+
+    /// <summary>
+    /// <c>CTFPowerup::DropSingleInstance</c> (tf_powerup.cpp:190-209): the
+    /// lunchbox's thrown pack — thrown by <paramref name="thrower"/> at
+    /// <paramref name="launchVelocity"/>, untouchable by them for
+    /// <paramref name="throwerTouchDelay"/>, gone after
+    /// <see cref="TFPowerup.ThrownLifetime"/>.
+    ///
+    /// <para>
+    /// Stock also flips the flight mode and solid flag and asks the physics
+    /// to wake when at rest; this kit's spawn-built trigger already carries
+    /// both, and the rest wake changes nothing a pickup reads — recorded in
+    /// docs/plans/tf2/deferred.tsv with the throw.
+    /// </para>
+    /// </summary>
+    public void DropSingleInstance(Vector launchVelocity, EntityHandle thrower, float throwerTouchDelay)
+    {
+        Entities.SetVelocity(Handle, launchVelocity); // :192, the flight itself
+        SetThrownSingleInstance(); // :202
+        SetOwner(thrower); // :204
+        _throwerTouchTime = GameTime + throwerTouchDelay; // :205
+        SetContextThink(TFPowerup.ThrownRemoveThink, TFPowerup.ThrownLifetime); // :208
+    }
+
+    /// <summary>
+    /// <c>CTFPowerup::ItemCanBeTouchedByPlayer</c>'s thrower arm
+    /// (tf_powerup.cpp:296-307): the owner waits out their own throw.
+    /// </summary>
+    protected override bool ValidTouch(EntityHandle player)
+    {
+        if (player == OwnerEntity && _throwerTouchTime > 0f && GameTime < _throwerTouchTime)
+            return false;
+
+        return base.ValidTouch(player);
+    }
+
+    /// <summary>
+    /// <c>SF_NORESPAWN</c> rides the throw (tf_powerup.cpp:203): a thrown
+    /// pack picked up is gone, not back in ten seconds.
+    /// </summary>
+    protected override float RespawnDelay => ThrownSingleInstance ? 0f : base.RespawnDelay;
+
+    /// <summary>The thrown pack's removal think (tf_powerup.cpp:208) beside the rest wake.</summary>
+    public override void OnThink(string context)
+    {
+        if (context == TFPowerup.ThrownRemoveThink)
+        {
+            Remove();
+            return;
+        }
+
+        base.OnThink(context);
+    }
 
     public override PowerupSize Size => PowerupSize.Full;
 
@@ -241,7 +316,7 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
             // :129 is bSuccess only, no bPerformPickup: a full-health spy
             // takes the kit for the fake health alone — no sound, no event,
             // no stat — until the arm below also fires.
-            if (Players.InCond(player, TFCond.Disguised) && _disguises?.Predicted(player.EntryIndex) is { } carrier)
+            if (Players.InCond(player, TFCond.Disguised) && _disguises.Predicted(player.EntryIndex) is { } carrier)
             {
                 float flDisguiseHealth = carrier.DisguiseHealth; // :117
                 float flDisguiseMaxHealth = DisguiseMaxHealth(carrier, player); // :118, :8358-8369
@@ -281,16 +356,16 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
                 EntityHandle owner = OwnerEntity;
                 if (owner != EntityHandle.None && owner != player
                     && Players.Team(owner) == Players.Team(player)
-                    && _records?.LastHit(player.EntryIndex)?.Attacker != player)
+                    && _records.LastHit(player.EntryIndex)?.Attacker != player)
                 {
-                    _stats?.Increment(owner, TFStat.BonusPoints, 10); // :150 — Event_PlayerAwardBonusPoints
+                    _stats.Increment(owner, TFStat.BonusPoints, 10); // :150 — Event_PlayerAwardBonusPoints
                     if (given is >= 0 and <= 1000) // the bogus-value refusal, tf_gamestats.cpp:755-763
-                        _stats?.Increment(owner, TFStat.HealingAssist, given); // :151 — Event_PlayerHealedOtherAssist
+                        _stats.Increment(owner, TFStat.HealingAssist, given); // :151 — Event_PlayerHealedOtherAssist
                 }
 
                 HealthKitPickupEffects(player, given); // :178
 
-                _stats?.Increment(player, TFStat.Healthkits); // :180 — Event_PlayerHealthkitPickup
+                _stats.Increment(player, TFStat.Healthkits); // :180 — Event_PlayerHealthkitPickup
             }
             else if (!ThrownSingleInstance)
             {
@@ -329,7 +404,7 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
     /// </summary>
     private int DisguiseMaxHealth(TFPlayerNetState carrier, EntityHandle player)
     {
-        int max = _classes is null ? 0 : _classes[(TFClass)carrier.DisguiseClass].MaxHealth;
+        int max = _classes[(TFClass)carrier.DisguiseClass].MaxHealth;
         return max > 0 ? max : Players.MaxHealth(player);
     }
 
@@ -363,9 +438,9 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
 [ScriptedEntity(SmallClass, ScriptedEntityKind.Item)]
 public sealed class HealthKitSmall(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                   ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
-                                   ITFPlayerStats? stats = null, TFDamageRecords? records = null,
-                                   ITFPlayerData? disguises = null, TFClassTable? classes = null)
+                                   ITFWeaponOwners owners, AttributeHooks attributes,
+                                   ITFPlayerStats stats, TFDamageRecords records,
+                                   ITFPlayerData disguises, TFClassTable classes)
     : HealthKit(players, files, world, placed, notices, owners, attributes, stats, records, disguises, classes)
 {
     public const string SmallClass = "item_healthkit_small";
@@ -383,9 +458,9 @@ public sealed class HealthKitSmall(ITFMapPlayers players, IEngineFiles files, IE
 [ScriptedEntity(MediumClass, ScriptedEntityKind.Item)]
 public sealed class HealthKitMedium(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                    ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
-                                    ITFPlayerStats? stats = null, TFDamageRecords? records = null,
-                                    ITFPlayerData? disguises = null, TFClassTable? classes = null)
+                                    ITFWeaponOwners owners, AttributeHooks attributes,
+                                    ITFPlayerStats stats, TFDamageRecords records,
+                                    ITFPlayerData disguises, TFClassTable classes)
     : HealthKit(players, files, world, placed, notices, owners, attributes, stats, records, disguises, classes)
 {
     public const string MediumClass = "item_healthkit_medium";

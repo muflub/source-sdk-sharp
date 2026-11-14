@@ -133,7 +133,9 @@ public static class EntityNames
     public const string InfoLandmark            = "info_landmark";
     public const string InfoMassCenter          = "info_mass_center";
     public const string InfoNull                = "info_null";
+    public const string InfoPlayerCombine       = "info_player_combine";
     public const string InfoPlayerDeathmatch    = "info_player_deathmatch";
+    public const string InfoPlayerRebel         = "info_player_rebel";
     public const string InfoPlayerStart         = "info_player_start";
     public const string InfoTarget              = "info_target";
     public const string InfoTeleportDestination = "info_teleport_destination";

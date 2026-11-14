@@ -62,10 +62,16 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     // §3.8), which re-checks restored handles against the side's own host.
     public ClientSsRagdoll(IEngineEntityRender render, IEngineEffects effects, IGameClock clock,
                            IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls,
-                           Ragdolls.IRagdollDissolves? dissolves = null)
+                           Ragdolls.IRagdollDissolves? dissolves = null, Ragdolls.IRagdollAsh? ash = null,
+                           Ragdolls.IIceRagdolls? ice = null, Sounds.IClientEntitySounds? sounds = null,
+                           Ragdolls.IRagdollFades? fades = null)
         : base(render)
     {
         _dissolves = dissolves;
+        _ash = ash;
+        _ice = ice;
+        _sounds = sounds;
+        _fades = fades;
         _effects = effects;
         _clock = clock;
         _standalones = standalones;
@@ -75,6 +81,14 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     private readonly IEngineEffects _effects;
 
     private readonly Ragdolls.IRagdollDissolves? _dissolves;
+
+    private readonly Ragdolls.IRagdollAsh? _ash;
+
+    private readonly Ragdolls.IIceRagdolls? _ice;
+
+    private readonly Sounds.IClientEntitySounds? _sounds;
+
+    private readonly Ragdolls.IRagdollFades? _fades;
 
     private readonly IGameClock _clock;
 
@@ -163,15 +177,37 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// </summary>
     [SaveField] public float BurnStartTime { get; private set; }
 
+    /// <summary>
+    /// When this body's ash began, on THIS side's clock, or 0 for none — the
+    /// ash arrival's <c>m_flTimeToDissolve</c> full, stamped by the client at
+    /// <see cref="ArrivedAsh"/> for a body that arrived with
+    /// <see cref="RagdollNetState.Ash"/> set and no gib. Like
+    /// <see cref="BurnStartTime"/> the clock crosses no wire, and a restored
+    /// corpse that forgot it would never hide.
+    /// </summary>
+    [SaveField] public float AshStartTime { get; private set; }
+
     public override void OnSpawn()
         => Log.Msg($"[SourceSharp/C# client] {ClassName} arrived\n");
 
     public override void OnRemoved()
     {
         _dissolves?.End(Handle);
+        _ash?.End(Handle);
+        _ice?.End(Handle);
+        _fades?.End(Handle);
 
         if (BurnStartTime > 0f)
             _effects.ParticleSystemStop(Handle);
+
+        if (AshStartTime > 0f)
+            _effects.ParticleSystemStopSlot(Handle, Ragdolls.RagdollAsh.CorpseSlot);
+
+        if (CritMistShown)
+            _effects.ParticleSystemStopSlot(Handle, CritMistSlot);
+
+        if (IceShown)
+            _effects.ParticleSystemStopSlot(Handle, IceSlot);
 
         Log.Msg($"[SourceSharp/C# client] {ClassName} gone\n");
     }
@@ -191,7 +227,18 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
         ArrivedBurning();
+        ArrivedAsh();
+        ArrivedCritMist();
+        ArrivedIce();
+        ArrivedGold();
         DressSkin();
+
+        // THE VISIBLE CLOCK, armed at the arrival as stock's CreateTFRagdoll
+        // arms it at the making (c_tf_player.cpp:863): the body fades
+        // cl_ragdoll_fade_time after it appeared, whatever later becomes of
+        // the server's entity. Begin keeps one entry per body, so the later
+        // updates this walk serves again are the same arm.
+        _fades?.Begin(Handle);
 
         if (IsRagdoll)
         {
@@ -209,7 +256,12 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         // A refusal is an ordinary answer and not an error: BecomeRagdoll says
         // no for a model with no jointed body in its .phy, which is most
         // models and would be a bug in what got spawned rather than here.
-        IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _);
+        // A gilded or frozen body is the exception stock builds too
+        // (m_bFixedConstraints, c_tf_player.cpp:733 and :859): every joint
+        // fixed, a statue and not a collapse -- the ice until its thaw
+        // (RagdollIce), the gold for good.
+        IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _,
+                                     fixedConstraints: State.Gold || State.Ice);
 
         if (IsRagdoll && !State.Velocity.Equals(Vector.Zero))
             _ragdolls.AddVelocity(Handle, State.Velocity);
@@ -254,9 +306,21 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// skin 0 for red, skin 1 otherwise — from the team the server stamped on
     /// it (<see cref="RagdollNetState.Team"/>). Without it every corpse draws
     /// in the model's skin 0 and a BLU death leaves a RED body.
+    ///
+    /// <para>
+    /// ONLY A TF BODY, the one a class was stamped on
+    /// (<see cref="RagdollNetState.Class"/>, TF2's death walk alone writes it).
+    /// HL2MP's <c>C_HL2MPRagdoll</c> sets no skin, so its body wears its
+    /// model's own, as the living player did: the TF rule turned an Unassigned
+    /// or Rebel corpse to skin 1, a body that no longer looked like the player
+    /// who died in it (plan_bots_teams_tf2 A.8).
+    /// </para>
     /// </summary>
     private void DressSkin()
     {
+        if (State.Class == 0)
+            return;
+
         int skin = State.Team == TeamRed ? 0 : 1;
 
         if (skin == _shownSkin)
@@ -283,6 +347,134 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         if (!_effects.ParticleSystemStart(Handle, FlameRules.BurningCorpseParticle))
             Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
                         $"'{FlameRules.BurningCorpseParticle}'\n");
+    }
+
+    /// <summary>
+    /// Stock's ash arrival (c_tf_player.cpp:941-945): a body that came ashing —
+    /// and neither gibed nor dissolving — stamps its half-second clock with the
+    /// client's now and starts the ash particle, in a slot of its own so a
+    /// burning corpse keeps its flames. ONCE, on the same terms as the burn's.
+    /// Every update re-offers the hide to <see cref="RagdollAsh"/>, whose list
+    /// a hot reload empties while this clock survives on the body — the same
+    /// re-arm the dissolve's state-driven begin gets for free.
+    /// </summary>
+    private void ArrivedAsh()
+    {
+        if (!State.Ash || State.Gib)
+            return;
+
+        if (AshStartTime <= 0f)
+        {
+            AshStartTime = _clock.Now;
+
+            if (!_effects.ParticleSystemStartSlot(Handle, FlameRules.AshCorpse, Ragdolls.RagdollAsh.CorpseSlot))
+                Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                            $"'{FlameRules.AshCorpse}'\n");
+        }
+
+        _ash?.Begin(Handle, AshStartTime);
+    }
+
+    /// <summary>Stock's red mist (c_tf_player.cpp:1120-1123): the gibbed body of
+    /// a kill by a <c>crit_on_hard_hit</c> weapon — the Classic's — raises
+    /// <c>tfc_sniper_mist</c> over the pieces. Stock dispatches it once inside
+    /// <c>CreateTFGibs</c>, at the dying player's world centre; here the body
+    /// entity is the same place, carried in a slot of its own so the burn's
+    /// plain system and the ash's keep theirs. Once, on the flag's arrival —
+    /// a gib never ashes (<see cref="ArrivedAsh"/>), so the two never run
+    /// together.</summary>
+    public const string CritMistParticle = "tfc_sniper_mist";
+
+    /// <summary>The mist's slot, beside <see cref="RagdollAsh.CorpseSlot"/>'s 7.</summary>
+    public const int CritMistSlot = 8;
+
+    /// <summary>Whether this body's mist went up; the once-guard, kept across a
+    /// save like <see cref="AshStartTime"/>.</summary>
+    [SaveField] public bool CritMistShown { get; private set; }
+
+    private void ArrivedCritMist()
+    {
+        if (!State.Gib || !State.CritOnHardHit || CritMistShown)
+            return;
+
+        CritMistShown = true;
+
+        if (!_effects.ParticleSystemStartSlot(Handle, CritMistParticle, CritMistSlot))
+            Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                        $"'{CritMistParticle}'\n");
+    }
+
+    /// <summary>Stock's ice arrival (c_tf_player.cpp:736-742): a body frozen by a
+    /// Spy-cicle backstab — the killing weapon's <c>freeze_backstab_victim</c>,
+    /// read at <see cref="TFPlayerGib"/> — plays the turn-to-ice sound, raises
+    /// stock's dry-ice frost over itself, and starts the frozen hold
+    /// (<see cref="RagdollIce"/>, stock's m_frozenTimer at :741). Once, on the
+    /// flag's arrival. The ice texture is <see cref="IceMaterial"/>; the statue
+    /// itself is the collapse's shape, fixed like the gold's (:859 backs the
+    /// midair arm) until <see cref="RagdollIce"/> thaws it.</summary>
+    public const string IceSound = "Icicle.TurnToIce";
+
+    public const string IceParticle = "xms_icicle_impact_dryice";
+
+    /// <summary>Stock's ice texture, "we've been turned into an ice statue!"
+    /// (c_tf_player.cpp:974-975). Held for the whole statue, thaw included —
+    /// stock's single override outlives the frozen hold, and the statue thaws
+    /// into a ragdoll of the same material (:1007-1025).</summary>
+    public const string IceMaterial = "models/player/shared/ice_player";
+
+    /// <summary>The frost's slot, beside the mist's <see cref="CritMistSlot"/>.</summary>
+    public const int IceSlot = 9;
+
+    /// <summary>Whether this body's frost went up; the once-guard, kept across a
+    /// save like <see cref="CritMistShown"/>.</summary>
+    [SaveField] public bool IceShown { get; private set; }
+
+    private void ArrivedIce()
+    {
+        if (!State.Ice || IceShown)
+            return;
+
+        IceShown = true;
+
+        _sounds?.EmitFrom(Handle, IceSound);
+
+        Render.SetMaterialOverride(Handle, IceMaterial);
+        _ice?.Begin(Handle, _clock.Now);
+
+        if (!_effects.ParticleSystemStartSlot(Handle, IceParticle, IceSlot))
+            Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                        $"'{IceParticle}'\n");
+    }
+
+    /// <summary>Stock's gold arrival (c_tf_player.cpp:730-734): a body the Golden
+    /// Wrench left — the killing weapon's <c>set_turn_to_gold</c>, read at
+    /// <see cref="TFPlayerGib"/> — plays the turn-to-gold call and is built for
+    /// the rest of the death as a statue. Once, on the flag's arrival; the
+    /// statue itself is the collapse's shape, decided at
+    /// <see cref="OnDataChanged"/>'s become. The gold material override over the
+    /// body itself (:965-969) is <see cref="GoldMaterial"/>; stock's second arm,
+    /// the same override pushed onto the followed wearables (:983-994), has no
+    /// bodies to dress here — this tree's wearables die with their player
+    /// (TFWearables' death arm), so nothing follows the corpse.</summary>
+    public const string GoldSound = "Saxxy.TurnGold";
+
+    /// <summary>Stock's gold texture, "we've been turned into a golden corpse!"
+    /// (c_tf_player.cpp:967-968).</summary>
+    public const string GoldMaterial = "models/player/shared/gold_player";
+
+    /// <summary>Whether this body's gilding was announced; the once-guard, kept
+    /// across a save like <see cref="IceShown"/>.</summary>
+    [SaveField] public bool GoldShown { get; private set; }
+
+    private void ArrivedGold()
+    {
+        if (!State.Gold || GoldShown)
+            return;
+
+        GoldShown = true;
+
+        _sounds?.EmitFrom(Handle, GoldSound);
+        Render.SetMaterialOverride(Handle, GoldMaterial);
     }
 
     /// <summary>

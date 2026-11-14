@@ -70,10 +70,25 @@ public sealed class TFLoadoutServerTests : IDisposable
         return inventory;
     }
 
-    private TFLoadoutServer Server(LocalInventory inventory) => new(inventory, _schema, _sent, _log);
+    /// <summary>TF2's own game: no gate, the local inventory open.</summary>
+    private TFLocalInventoryAccess Open => new(new Rules.ListHooks<ITFLocalInventoryGate>(), _log);
+
+    /// <summary>A further mod's game: one gate closes every player's local inventory.</summary>
+    private TFLocalInventoryAccess Closed => new(new Rules.ListHooks<ITFLocalInventoryGate>(new ClosedGate()), _log);
+
+    private sealed class ClosedGate : ITFLocalInventoryGate
+    {
+        public bool IsOpen(int entIndex, out string reason)
+        {
+            reason = "the mod's items are the kit";
+            return false;
+        }
+    }
+
+    private TFLoadoutServer Server(LocalInventory inventory) => new(inventory, _schema, _sent, _log, Open);
 
     private TFEquipCommand Command(LocalInventory inventory) =>
-        new(inventory, _schema, Server(inventory), _log);
+        new(inventory, _schema, Server(inventory), _log, Open);
 
     /// <summary>The reply the server would send the connected player.</summary>
     private LoadoutReply ReplyOf(TFLoadoutServer server, LocalInventory inventory, TFClass cls)
@@ -166,6 +181,32 @@ public sealed class TFLoadoutServerTests : IDisposable
         Assert.Empty(_sent.Sent);
     }
 
+    [Fact]
+    public void AClosedLoadoutsAskIsClaimedAndAnswersNothing()
+    {
+        var inventory = Connected();
+        var server = new TFLoadoutServer(inventory, _schema, _sent, _log, Closed);
+
+        Assert.True(server.OnClientMessage(Seat, LoadoutAsk.Key, [(byte)TFClass.Soldier]));
+
+        Assert.Empty(_sent.Sent);
+        Assert.Contains(_log.Lines, l => l.Text.Contains("loadout is closed: the mod's items are the kit"));
+    }
+
+    [Fact]
+    public void AClosedLoadoutRefusesTheEquipAndKeepsTheInventory()
+    {
+        var inventory = Connected();
+        inventory.Grant(Seat, 441);
+        var closed = Closed;
+        var command = new TFEquipCommand(inventory, _schema, new TFLoadoutServer(inventory, _schema, _sent, _log, closed), _log, closed);
+
+        Assert.True(command.Handle(Player, "tf2_equip", ["soldier", "primary", "441"]));
+
+        Assert.Equal(18, inventory.Of(Seat)!.ItemInLoadout(TFClass.Soldier, TFLoadoutSlot.Primary, _schema)!.Defindex);
+        Assert.Empty(_sent.Sent);
+    }
+
     // ---- tf2_equip ----
 
     [Fact]
@@ -239,6 +280,72 @@ public sealed class TFLoadoutServerTests : IDisposable
 
         Assert.Empty(inventory.Of(Seat)!.Equipped);
         Assert.Empty(_sent.Sent);
+    }
+
+    /// <summary>A schema of one hat: the head word the parse folds to misc
+    /// (<c>CTFItemDefinition::BInitFromKV</c>, tf_item_schema.cpp:946-949), so
+    /// the item's stored slot is misc for every class that wears it.</summary>
+    private const string HatSchema = """
+        "items_game"
+        {
+            "qualities"
+            {
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "117"
+                {
+                    "name"         "TF_SNIPER_HAT"
+                    "item_class"   "tf_wearable"
+                    "item_name"    "#TF_SniperHat"
+                    "item_slot"    "head"
+                    "item_quality" "normal"
+                    "min_ilevel"   "1"
+                    "max_ilevel"   "1"
+                    "used_by_classes"
+                    {
+                        "sniper"    "1"
+                    }
+                }
+            }
+        }
+        """;
+
+    /// <summary>An inventory over <see cref="HatSchema"/> with the hat granted, and that schema.</summary>
+    private (ItemSchema Schema, LocalInventory Inventory, ItemInstance Hat) HatUp()
+    {
+        var schema = EconTestFiles.Schema(HatSchema);
+        _clients.SteamIds[Seat] = Steam;
+        var inventory = new LocalInventory(
+            new InventoryStore(new ModInfo(key => key == ModInfo.Keys.GameDir ? _gameDir : null), schema, _log),
+            schema, _clients, _log);
+        inventory.OnClientActive(Seat);
+        return (schema, inventory, inventory.Grant(Seat, 117)!);
+    }
+
+    private TFEquipCommand HatCommand(ItemSchema schema, LocalInventory inventory) =>
+        new(inventory, schema, new TFLoadoutServer(inventory, schema, _sent, _log, Open), _log, Open);
+
+    /// <summary>
+    /// The screen's head tab: the hat sits in the misc slot the parse folded
+    /// it into, and the head word must reach that same slot, not the empty
+    /// head one the word table also answers.
+    /// </summary>
+    [Fact]
+    public void TheHeadWordEquipsTheHat()
+    {
+        var (schema, inventory, hat) = HatUp();
+        var command = HatCommand(schema, inventory);
+
+        Assert.True(command.Handle(Player, "tf2_equip", ["sniper", "head", "117"]));
+
+        var worn = inventory.Of(Seat)!.ItemInLoadout(TFClass.Sniper, TFLoadoutSlot.Misc, schema);
+        Assert.NotNull(worn);
+        Assert.Equal(hat.Defindex, worn.Defindex);
+        Assert.Single(_sent.Sent);
     }
 
     [Fact]

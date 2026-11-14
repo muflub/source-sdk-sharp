@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getAiBot, getAiBots, getAiReplayBot, loadAiReplay } from '../api';
 import { usePoll } from '../hooks/usePoll';
 import { AiWorldPanel } from '../ai/AiWorldPanel';
+import { MatchCard } from '../ai/MatchCard';
 import { ammoBar, type AiActor, type AiBot, type AiBotListing, type AiDoing, type AiReplayFrame, type AiReplayStatus } from '../ai/aiInspect';
 
 function AmmoBar({ actor }: { actor: AiActor }): ReactNode {
@@ -138,6 +139,7 @@ export function AiTab({ visible }: { visible: boolean }): ReactNode {
 
   return (
     <div className="ai-tab">
+      <MatchCard visible={visible} />
       <nav className="ai-bots">
         {bots.length === 0 ? <span className="muted">no bots</span> : bots.map(b => (
           <button key={b.name} type="button" aria-pressed={b.slot === slot} disabled={b.state === 'benched'}

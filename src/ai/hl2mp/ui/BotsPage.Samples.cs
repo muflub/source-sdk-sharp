@@ -1,10 +1,11 @@
+using SourceSharp.Ai.Ui;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 
 namespace SourceSharp.Ai.Hl2mp.Ui;
 
 /// <summary>The bots page's state for samples, recording what it was asked.</summary>
-public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
+public sealed class FakeCreateServer : IBotSetupSource, IBotSetupActions
 {
     public int MaxPlayers { get; set; } = 8;
 
@@ -58,6 +59,20 @@ public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
 
     public void SetNewBotsEachMap(bool on) => NewBotsEachMap = on;
 
+    public bool TeamsPicked { get; set; }
+
+    public int Teams { get; set; } = 2;
+
+    public int[] PerTeam { get; set; } = [];
+
+    public int BotsOn(int index) => index < PerTeam.Length ? PerTeam[index] : 0;
+
+    public string TeamToken(int index) => $"#Ai_CreateServer_Team{index + 2}";
+
+    public void SetTeamsPicked(bool on) => TeamsPicked = on;
+
+    public void SetBotsOn(int index, int count) => Asked.Add($"team {index} {count}");
+
     public void BeforeMap(List<string> lines)
     {
         Asked.Add("before map");
@@ -76,7 +91,7 @@ public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
     {
         if (!s.Has<IUiWindowStore>())
             s.Add<IUiWindowStore>(store ?? new MemoryWindowStore());
-        return s.Add<ICreateServerSource>(this).Add<ICreateServerActions>(this);
+        return s.Add<IBotSetupSource>(this).Add<IBotSetupActions>(this);
     }
 }
 
@@ -104,6 +119,16 @@ internal static class BotsPageSamples
     [UiSample("full server, hard")]
     private static UiScreen Full(UiSampleServices s)
         => Page(s, new FakeCreateServer { BotCount = 12, Difficulty = 2, Customs = FakeCreateServer.Three() }, maxPlayers: 16);
+
+    /// <summary>The teams picked (plan_bots_teams_tf2 B.6): 1 Combine and 3 Rebels.</summary>
+    [UiSample("teams picked")]
+    private static UiScreen TeamsPicked(UiSampleServices s)
+        => Page(s, new FakeCreateServer { BotCount = 4, TeamsPicked = true, PerTeam = [1, 3] });
+
+    /// <summary>Four teams picked (user 2026-11-08: 2/3/4 teams): 2, 2, 1 and 2 of seven.</summary>
+    [UiSample("four teams picked")]
+    private static UiScreen FourTeams(UiSampleServices s)
+        => Page(s, new FakeCreateServer { BotCount = 7, TeamsPicked = true, Teams = 4, PerTeam = [2, 2, 1, 2] }, maxPlayers: 12);
 
     [UiSample("resized to its minimum")]
     private static UiScreen Minimum(UiSampleServices s)

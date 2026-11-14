@@ -34,6 +34,14 @@ public static class StashSamples
         return s.Create<Stash>();
     }
 
+    /// <summary>UI4: a deposit done, on the window's own status line.</summary>
+    [UiSample("stored, on the status line")]
+    private static UiScreen Stored(UiSampleServices s)
+    {
+        s.Add<IDescentTownStatus>(new FakeTownStatus("#Descent_Town_Done_stash_in", "Rocket Launcher", false));
+        return Build(s, new FakeStashBag(), new FakeStashLocker(), new FakeStashActions());
+    }
+
     [UiSample("two grids populated")]
     private static UiScreen Both(UiSampleServices s)
         => Build(s, new FakeStashBag(), new FakeStashLocker(), new FakeStashActions());

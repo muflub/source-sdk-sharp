@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 using Xunit;
 
@@ -106,6 +107,34 @@ public sealed class TFRevolverBehaviourTests
         Assert.Equal(0f, w.BehaviourKeptTime, 4);
     }
 
+    /// <summary>Stock's bucket spend (<c>tf_weapon_revolver.cpp:159-171</c>): the shot
+    /// just fired asks the bucket service for one stored crit, at the holder's index —
+    /// the gate and clamp of the spend live in the service, not the behaviour.</summary>
+    [Fact]
+    public void A_fired_shot_spends_one_stored_crit()
+    {
+        var bucket = new RecordingBucket();
+        var world = new TFWeaponWorld(bucket: bucket);
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f, seed: seed);
+
+        Assert.Single(world.Arms.Bullets);   // the shot fired
+        Assert.Equal(TFWeaponWorld.Owner, Assert.Single(bucket.Spent));
+    }
+
+    /// <summary>The bucket as the facts see it: what the shots spent, nothing else.</summary>
+    private sealed class RecordingBucket : ITFRevengeCrits
+    {
+        public readonly List<int> Spent = new();
+
+        public void Grant(EntityHandle owner) { }
+
+        public void SpendOnShot(int ownerIndex) => Spent.Add(ownerIndex);
+    }
+
     [Fact]
     public void The_revolver_runs_a_behaviour_of_its_own()
     {
@@ -113,5 +142,80 @@ public sealed class TFRevolverBehaviourTests
         // behaviour, not the plain gun's.
         var world = new TFWeaponWorld();
         Assert.IsType<TFRevolverBehaviour>(world.Behaviour(Revolver));
+    }
+
+    /// <summary>The Ambassador's item: set_weapon_mode 1, stock's CanHeadshot
+    /// (tf_weapon_revolver.h:49), as the damage layer's facts dress it.</summary>
+    private static AttributeContainer HeadshotItem(int defIndex)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(defIndex, "mode " + defIndex, "set_weapon_mode",
+                                                                AttributeDescriptionFormat.Additive,
+                                                                AttributeEffectType.Neutral, false, false,
+                                                                AttributeValueType.Default,
+                                                                MergedKeys.Block("m")), 1f));
+        return item;
+    }
+
+    /// <summary>The plain revolver's cone, fired once by a gun without the headshot mode.</summary>
+    private static float PlainCone()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+        world.Run(w, vm, Attack, now: 10f, seed: GunSeed);
+        return Assert.Single(world.Arms.Bullets).Spread;
+    }
+
+    private const int GunSeed = 200;
+
+    [Fact]
+    public void A_shot_past_the_second_is_dead_accurate()
+    {
+        // GetWeaponSpread's headshot arm (tf_weapon_revolver.cpp:187-201):
+        // 1.1 s after the stamp the remap's clamped low end zeroes the cone.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = HeadshotItem(9120);
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+
+        world.Run(w, vm, Attack, now: 10f, seed: GunSeed);      // the stamp
+        world.Run(w, vm, Attack, now: 11.1f, seed: GunSeed);    // 1.1 s on the clock
+
+        Assert.Equal(2, world.Arms.Bullets.Count);
+        Assert.Equal(0f, world.Arms.Bullets[^1].Spread, 4);
+    }
+
+    [Fact]
+    public void A_shot_within_the_half_second_keeps_the_script_cone()
+    {
+        // The same remap's clamped high end (:195, the 0.5 pair end): the
+        // full cone the row was dressed with, the plain gun's.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = HeadshotItem(9121);
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+
+        world.Run(w, vm, Attack, now: 10f, seed: GunSeed);
+        world.Run(w, vm, Attack, now: 10.5f, seed: GunSeed);   // the gun's 0.5 refire, the age the pair ends at
+
+        Assert.Equal(2, world.Arms.Bullets.Count);
+        Assert.Equal(PlainCone(), world.Arms.Bullets[^1].Spread, 4);
+    }
+
+    [Fact]
+    public void The_plain_revolver_never_tightens_on_the_clock()
+    {
+        // Without set_weapon_mode 1 the spread arm never runs (:191): the
+        // shot a second on is the same cone as the rapid one.
+        var world = new TFWeaponWorld();
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Spy;
+        var (w, vm) = world.Armed(Revolver, clip: 6, reserve: 24);
+
+        world.Run(w, vm, Attack, now: 10f, seed: GunSeed);
+        world.Run(w, vm, Attack, now: 11.1f, seed: GunSeed);
+
+        Assert.Equal(2, world.Arms.Bullets.Count);
+        Assert.Equal(PlainCone(), world.Arms.Bullets[^1].Spread, 4);
     }
 }

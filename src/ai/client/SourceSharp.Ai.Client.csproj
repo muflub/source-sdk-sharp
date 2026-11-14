@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Bot setup's client side, the same in every game (plan_bots_teams_tf2 C.2,
+    lifted from SourceSharp.Ai.Hl2mp.Client): the player's custom bot profiles
+    under the mod's game dir, the custom bot editor's model, and the
+    create-server page's model that turns its choices into the roster line the
+    server judges again (ai_bot_roster). A binding's own client answers
+    IBotSetupGame (its teams and its skill curves' file) and lists this
+    assembly before its own in mods.yaml. It answers the screens' contract
+    (SourceSharp.Ai.Client.Interface) with [SideService] adapters; the editor
+    screen lives in SourceSharp.Ai.Ui, each game's bots page in its own UI
+    assembly. A mod assembly, under the mod and static-state analyzers
+    (Directory.Build.props).
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\interface\SourceSharp.Ai.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" />
+  </ItemGroup>
+</Project>

@@ -44,6 +44,14 @@ public enum TFClass
     Random = 12,
 }
 
+/// <summary>The melee crit ladder the demo charge arms (<c>MELEE_NOCRIT</c> and friends, tf_player_shared.h:49-54).</summary>
+public enum TFMeleeCrit
+{
+    NoCrit = 0,
+    MiniCrit = 1,
+    Crit = 2,
+}
+
 /// <summary><c>ETFCond</c>: the condition ids, <c>Invalid</c> (-1) to <c>Last</c>.</summary>
 public enum TFCond
 {
@@ -324,6 +332,23 @@ public enum TFLoadoutSlot
     Count = 19,
 }
 
+/// <summary>
+/// The two per-team contents bits, <c>CONTENTS_REDTEAM</c> /
+/// <c>CONTENTS_BLUETEAM</c> (tf_shareddefs.h:61-62): bspflags.h:46-47's
+/// <c>CONTENTS_TEAM1</c> 0x800 and <c>CONTENTS_TEAM2</c> 0x1000, "used to
+/// differentiate collisions between players and objects on different teams".
+/// The candidate's own team's bit is what <c>CTFPlayer::ShouldCollide</c>
+/// demands of a movement mask (tf_player.cpp:10167-10173); the other team's is
+/// what <c>CTFGameMovement::PlayerSolidMask</c> adds to the mover's
+/// (tf_gamemovement.cpp:271-281) — together, teammates pass through enemies
+/// do not.
+/// </summary>
+public static class TFContents
+{
+    public const int RedTeam = 0x800;
+    public const int BlueTeam = 0x1000;
+}
+
 /// <summary>The ten <c>TF_DAMAGE_*</c> defines of tf_shareddefs.h.</summary>
 public static class TFDamage
 {
@@ -506,6 +531,33 @@ public static class TFWeaponNames
     {
         if (string.IsNullOrEmpty(name))
             return TFWeaponId.None;
+
+        // The energy drink has no enum entry of its own (g_aWeaponNames has
+        // none): stock's CTFLunchBox::GetWeaponID answers TF_WEAPON_LUNCHBOX
+        // for the whole family, the inherited arm included
+        // (tf_weapon_lunchbox.h:56, CTFLunchBox_Drink deriving from it).
+        if (string.Equals(name, TFWeaponTypes.Drink, StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.Lunchbox;
+
+        // The Gunslinger: CTFRobotArm derives from CTFWrench and inherits its
+        // GetWeaponID (tf_weapon_wrench.h:66); its script's WeaponType is item2.
+        if (string.Equals(name, TFWeaponTypes.WrenchArm, StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.Wrench;
+
+        // The Dragon's Fury: stock binds the entity class at LINK_ENTITY_TO_CLASS
+        // (tf_weapon_dragons_fury.cpp:42) and answers the id through the class's
+        // own GetWeaponID override (tf_weapon_dragons_fury.h:45), so the script's
+        // spelling resolves here while the g_aWeaponNames entry keeps stock's
+        // misspelt TF_WEPON_FLAME_BALL above.
+        if (string.Equals(name, "tf_weapon_rocketlauncher_fireball", StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.FlameBall;
+
+        // The katana the same way (the Half-Zatoichi): stock's CTFKatana
+        // overrides no GetWeaponID, so the whole family answers the decap
+        // base's TF_WEAPON_SWORD (tf_weapon_sword.h:45, the class at :118-140;
+        // tf_weapon_sword.cpp:50 links tf_weapon_katana to it).
+        if (string.Equals(name, TFWeaponTypes.Katana, StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.Sword;
 
         for (var id = TFWeaponId.None; id < TFWeaponId.Count; id++)
         {

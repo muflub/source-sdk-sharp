@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The TF2 server binding of the AI core (plan_bots_teams_tf2 C.2): TF2's
+    answers to the generic server binding, SourceSharp.Ai.Server, through
+    IBotGame (the knowledge, the view as a TF2 client renders it, the
+    objective feed). A mod assembly, listed in mods.yaml's tf2 mod after
+    TF2.Server and SourceSharp.Ai.Server, under the mod analyzers
+    (SS0010-SS0013: the core reached only by injection) and the static-state
+    one (Directory.Build.props).
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\server\SourceSharp.Ai.Server.csproj" />
+    <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\..\nav\SourceSharp.Ai.Nav.csproj" />
+    <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\..\server\managed\SourceSharp.Server.csproj" />
+    <ProjectReference Include="..\..\..\tf2\server\TF2.Server.csproj" />
+  </ItemGroup>
+</Project>

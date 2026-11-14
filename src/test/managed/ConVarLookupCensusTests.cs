@@ -52,7 +52,8 @@ public class ConVarLookupCensusTests
         string[] callers = IlCallCensus.Callers(
             m => m.DeclaringType?.FullName == "SourceSharp.Abi.ConVarRegistry" && m.Name == "get_All",
             typeof(ServerModule).Assembly, typeof(client::SourceSharp.Client.ClientModule).Assembly,
-            typeof(ServerGameDll).Assembly, typeof(SourceSharp.Ai.Hl2mp.Senses.Hl2mpAiSession).Assembly);
+            typeof(ServerGameDll).Assembly, typeof(SourceSharp.Ai.Server.Senses.ServerAiSession).Assembly,
+            typeof(SourceSharp.Ai.Hl2mp.Hl2mpAiService).Assembly);
 
         Assert.Equal(Roots.Concat(Waived).Order(StringComparer.Ordinal), callers);
     }

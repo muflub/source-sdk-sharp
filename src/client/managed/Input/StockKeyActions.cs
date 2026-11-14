@@ -222,3 +222,8 @@ public sealed class CallVoteKey;
 
 [KeyAction("adminmenu", "#SS_UI_Admin_Title", Section = "#Valve_Miscellaneous_Title", Order = 446, Keys = ["F4"], Radial = true)]
 public sealed class AdminMenuKey;
+
+// Not stock HL2MP's (its kb_act.lst has no team row: HL2DM has no team menu):
+// TF2's changeteam (tf_viewport.cpp:127) on CS's key for its team menu, for team play.
+[KeyAction("changeteam", "#Valve_Change_Team", Section = "#Valve_Miscellaneous_Title", Order = 447, Keys = ["m"])]
+public sealed class ChangeTeamKey;

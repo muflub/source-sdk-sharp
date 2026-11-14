@@ -2,6 +2,7 @@ using System.Reflection;
 using SourceSharp.Ai.Hl2mp;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server;
 
 namespace SourceSharp.Ai.Tests.Boundary;
 
@@ -22,8 +23,10 @@ public class ApplierAllowListTests
     private static readonly string[] Allowed =
     [
         // AiAdminMenu: the bots' place in the admin menu, data whose actions are the roster's own.
-        "AdminNode::.ctor", "AdminNode::Folder",
-        // Hl2mpBots and the commands: the core's bots, and the log.
+        "AdminNode::.ctor", "AdminNode::Folder", "AdminNode::Refusable",
+        // AiBotAddCommand: the player who typed a refused add hears why (plan_bots_teams_tf2 D.4).
+        "IPlayerNotices::CommandIssuer", "IPlayerNotices::Refused",
+        // AiBots and the commands: the core's bots, and the log.
         "BotPlayer::get_EntIndex", "BotPlayer::get_Name", "BotPlayer::get_Player",
         "EntityHandle::get_None", "EntityHandle::op_Equality", "EntityHandle::op_Inequality",
         "IBotPlayers::Add", "IBotPlayers::Kick", "IBotPlayers::get_Bots",
@@ -38,6 +41,8 @@ public class ApplierAllowListTests
         // The tick a bot's command runs on.
         "IEngineFrame::TickCount",
         "ILog::Msg", "ILog::Warning",
+        // HookedBotClientCommand (plan_bots_teams_tf2 C.3): an ability row's word through the mods' command chain, a player's route to a game's verb.
+        "IHooks`1::get_All", "IClientCommandHook::Handle",
         // The applier: the human path (§3.2) and the command's angles.
         "IPlayerCommandRunner::Queue", "IPlayerCommandRunner::RunQueued",
         // EngineBotSelf: where recoil has its own crosshair.
@@ -45,11 +50,11 @@ public class ApplierAllowListTests
         "UserCmd::set_Pitch", "UserCmd::set_Roll", "UserCmd::set_Yaw",
         // CommandTap: every player's command's view angles, read into the recording (§3.4.4).
         "UserCmd::get_Pitch", "UserCmd::get_Roll", "UserCmd::get_Yaw",
-        // Hl2mpNavNumbers: the movement code's step, jump and fall numbers (Phase 2).
+        // NavNumbers: the movement code's step, jump and fall numbers (Phase 2).
         "Movement::get_Current",
-        // Hl2mpNav: the level's files through the file seam, the cache under the game dir (Phase 2 step 3).
+        // AiNav: the level's files through the file seam, the cache under the game dir (Phase 2 step 3).
         "IEngineFiles::ReadGameFileBytes", "IModInfo::get_GameDir",
-        // GameFileBotNames: the name pools' data file; Hl2mpBots: a bot's skill label beside its name (user rulings 2026-11-01).
+        // GameFileBotNames: the name pools' data file; AiBots: a bot's skill label beside its name (user rulings 2026-11-01).
         "IEngineFiles::ReadGameFile", "IScoreboardTags::Set",
         // EngineObstacleEyes: an obstacle's entity, found by name or class and place, alive, where and how turned.
         "IEngineEntities::FindAllByClassname", "IEngineEntities::FindByName", "IEngineEntities::GetAngles",
@@ -59,14 +64,20 @@ public class ApplierAllowListTests
         // ai_nav_probe: the ground under a point, by hand.
         "ITraceQueries::Line", "TraceAnswer::get_End", "TraceAnswer::get_Hit",
         "IEngineEntities::GetIndex", "Vector::.ctor",
-        // ActorDirectory: the living players by slot, a human's actor from its handle (Phase 4 step 1).
+        // EngineRenderedTeams (plan_bots_teams_tf2 B.2): whether the active mode plays teams, and the HUD's team scores.
+        "GameModes::get_Active", "IGameMode::get_Teamplay", "IGameMode::get_Scoring", "IScoring::TeamScore",
+        // AiModeSwitch (plan_bots_teams_tf2 D.2): the modes a switch left and took, by id, in its log line.
+        "IGameMode::get_Id",
+        // EngineRosterTeams (B.6): a bot's jointeam through the team service, the route a player's takes; who is a bot.
+        "ITeams::Join", "IBotPlayers::IsBot",
+                // ActorDirectory: the living players by slot, a human's actor from its handle (Phase 4 step 1).
         "IEngineEnvironment::get_Globals", "IEnginePlayers::GetTeam", "IEngineEntityRender::GetModelName", "Globals::get_IsAvailable", "Globals::get_MaxClients", "IEnginePlayers::GetHandle",
         "EntityHandle::get_Value",
         // VisionPass (§4.1): other players' origin, eye, velocity and the bot's view; the engine's PVS; the sight lines.
         "IEngineEntities::GetVelocity", "IEnginePlayers::BoxInPvs",
         // SnapshotBuilder: the weapon model a client sees in another's hands (§4.3); EngineBotHud: the bot's own HUD.
         "IEnginePlayers::GetActiveWeapon", "IEngineEntities::GetHealth", "IEngineEntities::GetArmor",
-        "Arsenal::PoolOf", "WeaponCatalog::get_All", "WeaponCatalog::For", "WeaponType::get_AmmoName", "IPlayerStances::Ducked", "WeaponType::get_SecondaryAmmoName",
+        "Arsenal::PoolOf", "WeaponCatalog::get_All", "WeaponCatalog::For", "WeaponType::get_AmmoName", "IPlayerStances::Ducked", "IPlayerStances::OnGround", "WeaponType::get_SecondaryAmmoName",
         // WeaponKnowledgeBuilder.AltOf (§5.4): what a second trigger is, from its row and the classes it launches.
         "SecondaryFire::get_AmmoCost", "SecondaryFire::get_FromClip", "SecondaryFire::get_LaunchSpeed", "SecondaryFire::get_Pellets", "SecondaryFire::get_Projectile",
         "GrenadeAr2Vars::.ctor", "GrenadeAr2Vars::get_Magnitude", "GrenadeAr2Vars::get_Radius", "EnergyBallVars::.ctor", "EnergyBallVars::get_Damage",
@@ -81,7 +92,7 @@ public class ApplierAllowListTests
         // CombatTap (Phase 4 step 4): a hit and a death as the hooks tell them; the scoreboard's kills and deaths (the player resource's).
         "PlayerHurt::get_Attacker", "PlayerHurt::get_HealthLeft", "PlayerHurt::get_Player", "PlayerHurt::get_Taken",
         "PlayerDeath::get_Attacker", "PlayerDeath::get_Player", "IPlayerDirectory::get_All", "PlayerRecord::get_Deaths", "PlayerRecord::get_Kills",
-        // Hl2mpAiSession (§5.0): the respawn convars, the reload animation on the view model, the weapon table's projectile and behaviour; an opponent's user id.
+        // ServerAiSession (§5.0): the respawn convars, the reload animation on the view model, the weapon table's projectile and behaviour; an opponent's user id.
         "ConVar`1::get_Value", "ModelDescriptors::ForModel", "ModelDescriptor::LookupSequenceByActivity",
         "ModelDescriptor::SequenceDuration", "WeaponType::get_ViewModel", "WeaponType::get_Behaviour", "WeaponType::get_Projectile",
         "WeaponType::get_LaunchSpeed", "WeaponType::get_ClipSize", "WeaponType::get_Interval", "WeaponType::get_Name",
@@ -107,6 +118,16 @@ public class ApplierAllowListTests
         // NavObstacleField: the solid entities' place, size and solidity, on the main thread (ruling 2026-11-02).
         "IEngineEntities::GetBounds", "IEngineEntities::GetSolidFlags", "IEngineEntities::GetSolidType", "IEngineEntities::GetSpawnFlags",
         "Angles::Vectors", "Basis::get_Forward", "Basis::get_Right", "Basis::get_Up", "Vector::op_Addition", "Vector::op_Multiply", "Vector::op_Subtraction",
+        // ai_nav_prebuild all (plan_bots_teams_tf2 E.4): the map cycle's maps, read as the intermission reads them.
+        "Intermission::ReadCycle",
+        // ExperienceService (Part G, G.3): where a player died, as the death hook says it, for the experience store's death and sight-line rows.
+        "PlayerDeath::get_Origin",
+        // ExperienceService: the process's command line, for the launcher's -toolgame alone: a tool's game opens no default experience file.
+        "ILocalCommandLine::get_Args",
+        // ShownJumpFeed (lane G6a): a player's slot, arithmetic on its handle, to join its commands into a flight.
+        "EntityHandle::get_EntryIndex",
+        // VoxelMoveWorld (SourceSharp.Ai.Nav, from TF2's jumps): the movement's world over the voxels, a trace it answers and the slide's dot product.
+        "MoveTrace::Clear", "Vector::Dot",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>
@@ -117,14 +138,16 @@ public class ApplierAllowListTests
         "IEngineEntities::SetOrigin", "IEngineEntities::SetAngles", "IEngineEntities::SetVelocity", "IEngineEntities::Teleport",
     ];
 
-    private static readonly Assembly Binding = typeof(BotCommandApplier).Assembly;
+    /// <summary>The binding: the generic server half (plan_bots_teams_tf2 C.2), its service-free navigation (SourceSharp.Ai.Nav) and HL2MP's over it.</summary>
+    private static readonly Assembly[] Binding = [typeof(BotCommandApplier).Assembly, typeof(SourceSharp.Ai.Server.Nav.NavFollower).Assembly, typeof(Hl2mpBotGame).Assembly];
 
     private static bool IsCore(MethodBase m)
     {
         string name = m.DeclaringType?.Assembly.GetName().Name ?? "";
-        // The core is this repo's: map-tools' reader (SourceSharp.MapFormats) is a package the binding reads files with.
+        // The core is this repo's: map-tools' reader (SourceSharp.MapFormats) is a package the binding reads files with,
+        // and its builder (SourceSharp.MapTools, plan_bots_teams_tf2 E.2) one it builds a map's navigation with.
         return name.StartsWith("SourceSharp.", StringComparison.Ordinal) && !name.StartsWith("SourceSharp.Ai", StringComparison.Ordinal)
-               && name != "SourceSharp.MapFormats";
+               && name is not "SourceSharp.MapFormats" and not "SourceSharp.MapTools";
     }
 
     private static string[] CoreCalls()

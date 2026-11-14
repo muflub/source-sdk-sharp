@@ -1491,6 +1491,16 @@ internal sealed unsafe partial class EngineEntityRender
         _networkServerArea.EntitySetTransmitAlways(entity.Value, always ? 1 : 0);
     }
 
+    /// <summary>
+    /// The ITransmitRule chain's opt-in, the IShimNetworkServer
+    /// EntitySetTransmitFullCheck slot: in the FULLCHECK state the transmit walk
+    /// asks the chain per client instead of the PVS check.
+    /// </summary>
+    public void SetTransmitFullCheck(EntityHandle entity, bool on)
+    {
+        _networkServerArea.EntitySetTransmitFullCheck(entity.Value, on ? 1 : 0);
+    }
+
     /// <summary>Whether a brush is drawn.</summary>
     public void SetVisible(EntityHandle entity, bool visible)
     {
@@ -1512,6 +1522,7 @@ internal sealed unsafe partial class EngineEntityRender
     public void SetViewModel(EntityHandle entity, bool enable) { }
     public void SetSkin(EntityHandle entity, int skin) { }
     public void SetModelOverride(EntityHandle entity, string model) { }
+    public void SetMaterialOverride(EntityHandle entity, string material) { }
     private partial bool EngineIsDormant(EntityHandle entity) => false;
 }
 
@@ -1801,13 +1812,17 @@ internal sealed unsafe partial class EngineNetworking
         var state = (EntityState)_entitiesServerArea.EntityGetState(entity.Value, &move);
         moveType = (MoveType)move;
 
-        // A player's move type and ground are the managed record's
-        // (plan_server_native_v2 T4g).
+        // A player's move type is the managed record's
+        // (plan_server_native_v2 T4g). Its ground is the live flag the engine
+        // side answers at the ask — stock reads the victim's own flags at the
+        // blast (tf_player.cpp:10266-10273), and a record published inside the
+        // Move stage still carries the ground the last command found while the
+        // player rides the arc above it, which read an airborne soldier as
+        // standing and gave the blast the grounded scale.
         if ((state & EntityState.Player) != 0 && _playerMoves.Target is { } moves
-            && moves.PlayerState(entity, out MoveType playerMoveType, out bool onGround))
+            && moves.PlayerState(entity, out MoveType playerMoveType, out _))
         {
             moveType = playerMoveType;
-            state = onGround ? state | EntityState.OnGround : state & ~EntityState.OnGround;
         }
 
         return state;
@@ -2719,6 +2734,14 @@ internal sealed unsafe partial class EngineSound
         if (soundName.Length == 0) return;
 
         _sounds.Target?.EntityEmitSoundToTeam(team, entity, soundName);
+    }
+
+    /// <summary>The pickup touch and the charge sounds: the route's <see cref="IServerSoundRoute.EntityEmitSoundToPlayer"/>.</summary>
+    public void EmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable = true)
+    {
+        if (soundName.Length == 0) return;
+
+        _sounds.Target?.EntityEmitSoundToPlayer(player, entity, soundName, reliable);
     }
 
     /// <summary>A noise with no entity to come from.</summary>

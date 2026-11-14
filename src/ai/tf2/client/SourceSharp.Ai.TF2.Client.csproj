@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The TF2 AI binding's client side (plan_bots_teams_tf2 C.2, P6 step 8):
+    what bot setup asks of TF2 (IBotSetupGame: RED and BLU, TF2's skill curves
+    and bot names), the classes TF2's bots play (IBotClassSource), and the
+    binding's presence line. The setup itself is the game-neutral
+    SourceSharp.Ai.Client, listed before this in mods.yaml's tf2 mod; the
+    bots page lives in SourceSharp.Ai.TF2.Ui, the editor in SourceSharp.Ai.Ui.
+    A mod assembly, under the mod and static-state analyzers
+    (Directory.Build.props).
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\..\client\SourceSharp.Ai.Client.csproj" />
+    <ProjectReference Include="..\..\interface\SourceSharp.Ai.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\..\client\managed\SourceSharp.Client.csproj" />
+  </ItemGroup>
+</Project>

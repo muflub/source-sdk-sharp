@@ -153,4 +153,12 @@ public partial class TFPlayerResourceNetState
     /// carry it.
     /// </summary>
     public partial float MapResetTime { get; set; }
+
+    /// <summary>Stock's <c>m_bPlayingKoth</c> read through
+    /// <c>CTFGameRules::IsInKothMode</c>: the KOTH round whose both teams'
+    /// timers announce to every client whatever the HUD shows
+    /// (teamplay_round_timer.cpp:768-771), answered by the timer warning's
+    /// gate beside the HUD election.
+    /// </summary>
+    public partial byte KothMode { get; set; }
 }

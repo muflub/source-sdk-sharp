@@ -106,22 +106,15 @@ public sealed class AllowSpectatorsConVar : BoolConVar
 }
 
 /// <summary>
-/// Stock's replicated friendly-fire flag.
+/// Stock's replicated friendly-fire flag, and the one the rules read:
+/// <see cref="GameRules"/> refuses a hit between teammates while it is 0
+/// (<c>CTeamplayRules::FPlayerCanTakeDamage</c>). Its default is stock's 0
+/// (plan_bots_teams_tf2 Q1); a deathmatch has no teammates, so it only bites
+/// under a mode that plays with teams.
 ///
 /// <para>
-/// <b>This is NOT the setting this mod's rules read.</b> That is
-/// <see cref="FriendlyFireConVar"/> — <c>cs_sv_friendly_fire</c> — which
-/// <see cref="GameRules"/> holds alongside the "are they teammates" rule
-/// because the two are halves of one decision. The two names are one letter
-/// apart in meaning and worlds apart in effect, so it is worth being blunt:
-/// setting <c>mp_friendlyfire</c> on this server changes nothing, and it
-/// changed nothing before this class existed either.
-/// </para>
-///
-/// <para>
-/// It is declared anyway because <c>FCVAR_REPLICATED</c> is a contract between
-/// two DLLs and the client still declares it from
-/// <c>gamevars_shared.cpp</c>. Its stock help text is kept WORD FOR WORD rather
+/// <c>FCVAR_REPLICATED</c> is a contract between two DLLs and the client
+/// still declares it from <c>gamevars_shared.cpp</c>. Its stock help text is kept WORD FOR WORD rather
 /// than annotated, because <c>GameVarsTests</c> holds every string here against
 /// that .cpp — a help string improved on this side would be a difference
 /// between the two declarations of one replicated ConVar, which is the thing

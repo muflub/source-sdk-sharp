@@ -46,6 +46,12 @@ public static class CtfOrders
 
     /// <summary><see cref="FlagCarrierEffects"/>' per-level reset (stock's rules ctor's <c>SetCTFCaptureBonusTime(-1)</c>, tf_gamerules.cpp:3338).</summary>
     public const int CaptureBonusTime = Band + 6;
+
+    /// <summary><see cref="FlagEquipDrop"/>: the reactive drop after the kit's gives.</summary>
+    public const int WeaponEquipDrop = Band + 7;
+
+    /// <summary><see cref="Rules.TFGlowTransmit"/>: the teammate glow's force-transmit.</summary>
+    public const int GlowTransmit = Band + 8;
 }
 
 /// <summary>
@@ -109,7 +115,7 @@ public interface ICtfPlayers
 [SideService(Side.Server, As = [typeof(ICtfPlayers)])]
 public sealed class EngineCtfPlayers(IEngineEntities entities, IEnginePlayers players, IEngineEntityRender render,
                                      ITFPlayerData carriers, AttributeHooks attributes, IGameClock clock,
-                                     IMovementRules? movement = null, ITFWeaponOwners? owners = null) : ICtfPlayers
+                                     IMovementRules movement, ITFWeaponOwners owners) : ICtfPlayers
 {
     public bool IsPlayer(EntityHandle entity) => entities.IsValid(entity) && entities.IsPlayer(entity);
 
@@ -130,7 +136,7 @@ public sealed class EngineCtfPlayers(IEngineEntities entities, IEnginePlayers pl
     public TFCondMask Conditions(EntityHandle player) => carriers.Networked(Index(player))?.Conditions() ?? default;
 
     public bool AllowedToPickUpFlag(EntityHandle player)
-        => attributes.Int(0, "cannot_pick_up_intelligence", owners?.ManagerOf(Index(player))) == 0;
+        => attributes.Int(0, "cannot_pick_up_intelligence", owners.ManagerOf(Index(player))) == 0;
 
     public float PercentInvisible(EntityHandle player)
         => carriers.Networked(Index(player)) is { } state ? TFInvisibility.Percent(state, clock.Now) : 0f;
@@ -145,7 +151,7 @@ public sealed class EngineCtfPlayers(IEngineEntities entities, IEnginePlayers pl
     /// own answer is asked with nothing to scale.
     /// </summary>
     public float MaxSpeed(EntityHandle player)
-        => movement?.MaxSpeedScale(Index(player), 0f, ducking: false, groundMaterial: 0) ?? 0f;
+        => movement.MaxSpeedScale(Index(player), 0f, ducking: false, groundMaterial: 0);
 }
 
 /// <summary>The convars the flag reads, as one seam a fact sets.</summary>
@@ -265,6 +271,23 @@ public interface IFlagCarrierEffects
 }
 
 /// <summary>
+/// The carried-flag ask of <see cref="ICtfRules"/>, alone: the flag a player
+/// holds, or none. Its one taker is the medigun healing's charge refusal —
+/// <c>CTFPlayerShared::CanRecieveMedigunChargeEffect</c>'s carried-item arm
+/// (tf_player_shared.cpp:8733-8734) — and the full rules seam drags the round
+/// machine and the players along behind it, a constructor edge that closed the
+/// medigun's composition into a cycle the container refuses (the boot's
+/// ServiceResolutionException). This seam is the leaf under that edge: the
+/// game's is <see cref="FlagCarriers"/>, over the entity directory the rules'
+/// own <c>CarriedBy</c> walks.
+/// </summary>
+public interface IFlagCarriers
+{
+    /// <summary><see cref="ICtfRules.CarriedBy"/>: the flag this player carries, or null.</summary>
+    ItemTeamFlag? CarriedBy(EntityHandle player);
+}
+
+/// <summary>
 /// The CTFGameRules members the flag, the zones and the CTF mode call
 /// (tf_gamerules.cpp): whether flags may be capped now, whether a team may
 /// capture, the caps-per-round win, and the flags themselves (stock's
@@ -283,6 +306,39 @@ public interface ICtfRules
     /// (tf_gamerules.h:1006), the proxy's Activate push
     /// (tf_gamerules.cpp:1904).</summary>
     void SetOvertimeAllowedForCtf(bool allowed);
+
+    /// <summary>Stock's <c>m_nHudType</c> read by the rules (ctor default
+    /// <c>TF_HUDTYPE_UNDEFINED</c>, tf_gamerules.cpp:1642): the hud type a map
+    /// named on its <c>tf_gamerules</c>, pushed when named
+    /// (<c>Activate</c>, :1896-1899).</summary>
+    int HudType { get; }
+
+    /// <summary>Stock's <c>CTFGameRules::SetHUDType</c>, the gated push.</summary>
+    void SetHudType(int hudType);
+
+    /// <summary>Stock's <c>m_bRopesHolidayLightsAllowed</c> (ctor-on,
+    /// :1644): whether the ropes' holiday lights may hang; pushed always
+    /// (:1906).</summary>
+    bool HolidayLightsAllowed { get; }
+
+    /// <summary>Stock's <c>SetRopesHolidayLightsAllowed</c>, the always push.</summary>
+    void SetHolidayLightsAllowed(bool allowed);
+
+    /// <summary>Stock's <c>m_bMapForcedTruceDuringBossFight</c>
+    /// (<c>SetMapForcedTruceDuringBossFight</c>, :1875-1881 read through the
+    /// proxy): the truce a boss-fight map forces during its fight.</summary>
+    bool MapForcedTruceDuringBossFight { get; }
+
+    /// <summary>Stock's <c>SetMapForcedTruceDuringBossFight</c>.</summary>
+    void SetMapForcedTruceDuringBossFight(bool forced);
+
+    /// <summary>Stock's <c>m_hCustomUpgradesFile</c>'s word
+    /// (<c>SetCustomUpgradesFile</c>, :1856-1862 read through the proxy): the
+    /// upgrades file the map names for its Mann-vs-machine-style store.</summary>
+    string CustomUpgradesFile { get; }
+
+    /// <summary>Stock's <c>SetCustomUpgradesFile</c>.</summary>
+    void SetCustomUpgradesFile(string file);
 
     /// <summary><c>FlagsMayBeCapped</c> (L3659): outside the win and the pre-round.</summary>
     bool FlagsMayBeCapped { get; }
@@ -332,6 +388,10 @@ public sealed class CtfRules(ITeamRoundState round, ITeamRoundControl control, I
     : ICtfRules, IGameLifecycle
 {
     private bool _overtimeAllowedForCtf = true;
+    private int _hudType;
+    private bool _holidayLightsAllowed = true;
+    private bool _mapForcedTruceDuringBossFight;
+    private string _customUpgradesFile = string.Empty;
 
     int IGameLifecycle.LifecycleOrder => CtfOrders.RulesState;
 
@@ -341,11 +401,31 @@ public sealed class CtfRules(ITeamRoundState round, ITeamRoundControl control, I
         // CWorld::Spawn (world.cpp:608-616) — the flags a map's own
         // tf_gamerules then re-set at its Activate.
         _overtimeAllowedForCtf = true;
+        _hudType = 0;                                  // TF_HUDTYPE_UNDEFINED, stock ctor :1642
+        _holidayLightsAllowed = true;                  // stock ctor :1644
+        _mapForcedTruceDuringBossFight = false;
+        _customUpgradesFile = string.Empty;
     }
 
     public bool OvertimeAllowedForCtf => _overtimeAllowedForCtf;
 
     public void SetOvertimeAllowedForCtf(bool allowed) => _overtimeAllowedForCtf = allowed;
+
+    public int HudType => _hudType;
+
+    public void SetHudType(int hudType) => _hudType = hudType;
+
+    public bool HolidayLightsAllowed => _holidayLightsAllowed;
+
+    public void SetHolidayLightsAllowed(bool allowed) => _holidayLightsAllowed = allowed;
+
+    public bool MapForcedTruceDuringBossFight => _mapForcedTruceDuringBossFight;
+
+    public void SetMapForcedTruceDuringBossFight(bool forced) => _mapForcedTruceDuringBossFight = forced;
+
+    public string CustomUpgradesFile => _customUpgradesFile;
+
+    public void SetCustomUpgradesFile(string file) => _customUpgradesFile = file;
 
     public bool FlagsMayBeCapped => round.State is not (RoundState.TeamWin or RoundState.Preround);
 

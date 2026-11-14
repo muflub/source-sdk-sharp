@@ -10,7 +10,7 @@ public class VoteVotersTests
     private const int Unassigned = 0, Spectator = 1, Red = 2, Blue = 3;
 
     private static int Count(params (int Team, bool Bot)[] players)
-        => VoteController.CountVoters(players, allowSpectators: false, botsCount: false, onlyTeam: Unassigned);
+        => VoteController.CountVoters(players, allowSpectators: false, onlyTeam: Unassigned);
 
     /// <summary>Every deathmatch player is unassigned: counting none passed any vote on the caller's yes alone.</summary>
     [Fact]
@@ -29,10 +29,10 @@ public class VoteVotersTests
     public void A_spectator_counts_only_if_the_server_allows()
     {
         Assert.Equal(1, Count((Red, false), (Spectator, false)));
-        Assert.Equal(2, VoteController.CountVoters([(Red, false), (Spectator, false)], allowSpectators: true, botsCount: false, onlyTeam: Unassigned));
+        Assert.Equal(2, VoteController.CountVoters([(Red, false), (Spectator, false)], allowSpectators: true, onlyTeam: Unassigned));
     }
 
     [Fact]
     public void A_team_vote_counts_that_team_alone()
-        => Assert.Equal(1, VoteController.CountVoters([(Red, false), (Blue, false)], false, false, onlyTeam: Blue));
+        => Assert.Equal(1, VoteController.CountVoters([(Red, false), (Blue, false)], false, onlyTeam: Blue));
 }

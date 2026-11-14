@@ -19,8 +19,8 @@ namespace TF2.Server.Combat;
 /// A building hurts its own builder and the enemy, never its builder's
 /// teammates; a player's teammate takes nothing from them while
 /// <c>mp_friendlyfire</c> is 0, and one's own damage always lands (a rocket
-/// jump). The core's own friendly-fire knob is its <c>cs_sv_friendly_fire</c>;
-/// TF reads stock's. The truce arm waits for a truce.
+/// jump). The core reads the same <c>mp_friendlyfire</c> for its own
+/// teammate guard. The truce arm waits for a truce.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFTeamDamageRule(MpFriendlyFireConVar friendlyFire, IEnginePlayers players, IEngineEntities entities,

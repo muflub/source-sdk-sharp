@@ -1,3 +1,4 @@
+using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
@@ -30,7 +31,10 @@ public class VoteOptionsTests
         => Assert.Equal(ids, string.Join(',', GameVoteOptions.Of(["dm_a", "dm_b"], ["arena", "duel"], "duel", maps, modes, restart).Select(o => o.Id)));
 
     private static List<VoteOption> Settings(Func<string, string?> current)
-        => GameVoteOptions.Of([], [], null, false, false, false, GameVoteOptions.CoreSettings(), current);
+        => GameVoteOptions.Of([], [], null, false, false, false, Rows, current);
+
+    /// <summary>Friendly fire and the two limits, as team deathmatch lists them.</summary>
+    private static readonly SettingSpec[] Rows = [CoreModeSpecs.FriendlyFire(), CoreModeSpecs.TimeLimit(), CoreModeSpecs.FragLimit()];
 
     private static readonly Func<string, string?> Stock = c => c switch { "mp_friendlyfire" => "0", "mp_timelimit" => "30", "mp_fraglimit" => "0", _ => null };
 
@@ -64,8 +68,8 @@ public class VoteOptionsTests
     public void A_setting_runs_its_convar_with_its_value()
     {
         var options = Settings(Stock);
-        Assert.Equal("mp_friendlyfire 1", VoteOptionWords.Find(options, ["setting", "mp_friendlyfire=1"])!.Command);
-        Assert.Equal("mp_timelimit 60", VoteOptionWords.Find(options, ["setting", "mp_timelimit=60"])!.Command);
+        Assert.Equal("ss_setting mp_friendlyfire 1", VoteOptionWords.Find(options, ["setting", "mp_friendlyfire=1"])!.Command);
+        Assert.Equal("ss_setting mp_timelimit 60", VoteOptionWords.Find(options, ["setting", "mp_timelimit=60"])!.Command);
     }
 
     /// <summary>The list is the whole of what can be set: not another convar, not another value.</summary>
@@ -80,7 +84,11 @@ public class VoteOptionsTests
         => Assert.Null(VoteOptionWords.Find(Settings(Stock), ["setting", id]));
 
     private static List<AdminNode> AdminSettings(List<string> ran)
-        => AdminMenuBuilder.Settings(GameVoteOptions.CoreSettings(), Stock, ran.Add);
+        => AdminMenuBuilder.Settings(Rows, Stock, (key, value) =>
+        {
+            ran.Add($"{key} {value}");
+            return null;
+        });
 
     [Fact]
     public void The_admin_menu_has_a_folder_for_each_setting_the_game_has()
@@ -91,7 +99,7 @@ public class VoteOptionsTests
     public void An_admin_s_choice_runs_with_no_vote()
     {
         var ran = new List<string>();
-        AdminNode.Find(AdminSettings(ran), "setting:mp_timelimit=20")!.Run!();
+        Assert.Null(AdminNode.Find(AdminSettings(ran), "setting:mp_timelimit=20")!.Take());
         Assert.Equal(["mp_timelimit 20"], ran);
     }
 

@@ -22,7 +22,8 @@ public class TFClassMenuTests
 {
     private static TFClassMenu Screen(FakeTFClassMenuSource source, FakeTFClassMenuActions? actions = null,
                                       IUiKeyBindingStore? keys = null)
-        => new(source, new TFClassTile(new NoArt()), new NoArt(), actions ?? new FakeTFClassMenuActions(), keys);
+        => new(source, new TFClassTile(new NoArt()), new NoArt(), actions ?? new FakeTFClassMenuActions(),
+               keys ?? new UnboundKeys());
 
     /// <summary>The library that misses everything: the layout facts read
     /// the fallback tiles, not the VPK portraits (the art arms are

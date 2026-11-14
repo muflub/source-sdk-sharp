@@ -243,11 +243,12 @@ public class ModsConfigTests
         var config = ModsConfig.Load(RepoLayout.Repo("game", "mods.yaml"));
         var mod = config.Select(null);
         Assert.Equal("test", mod.Id);
-        // HL2MP's AI binding is a mod assembly beside the core (plan_hl2mp_ai §1.3).
-        Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Hl2mp"], mod.ServerAssemblies);
+        // HL2MP's AI binding is a mod assembly beside the core (plan_hl2mp_ai §1.3),
+        // after the generic server binding it builds on (plan_bots_teams_tf2 C.2).
+        Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Server", "SourceSharp.Ai.Hl2mp"], mod.ServerAssemblies);
         // Its client side and screens: bot setup when creating a server (§3.5).
-        Assert.Equal(["SourceSharp.Client", "SourceSharp.Ai.Hl2mp.Client"], mod.ClientAssemblies);
-        Assert.Equal(["SourceSharp.Ai.Hl2mp.Ui"], mod.ClientUiAssemblies);
+        Assert.Equal(["SourceSharp.Client", "SourceSharp.Ai.Client", "SourceSharp.Ai.Hl2mp.Client"], mod.ClientAssemblies);
+        Assert.Equal(["SourceSharp.Ai.Ui", "SourceSharp.Ai.Hl2mp.Ui"], mod.ClientUiAssemblies);
     }
 
     [Theory]
@@ -388,9 +389,10 @@ public class ModsConfigTests
         // launch skips the intro video (EveryRepositoryModsClientSkipsTheIntroVideo).
         Assert.Equal(["-novid"], test.Client.Args);
         Assert.Empty(test.Client.Env);
-        // The second deliberate change: the HL2MP AI binding (plan_hl2mp_ai §1.3).
-        Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Hl2mp"], test.ServerAssemblies);
-        Assert.Equal(["SourceSharp.Client", "SourceSharp.Ai.Hl2mp.Client"], test.ClientAssemblies);
+        // The second deliberate change: the HL2MP AI binding (plan_hl2mp_ai §1.3),
+        // over the generic server binding (plan_bots_teams_tf2 C.2).
+        Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Server", "SourceSharp.Ai.Hl2mp"], test.ServerAssemblies);
+        Assert.Equal(["SourceSharp.Client", "SourceSharp.Ai.Client", "SourceSharp.Ai.Hl2mp.Client"], test.ClientAssemblies);
         Assert.Equal(Full(System.IO.Path.Combine(dir, "mods/test/bin/managed")), test.ManagedDir);
     }
 
@@ -416,8 +418,11 @@ public class ModsConfigTests
 
         Assert.Equal("TF2", tf2.Title);
         Assert.Equal("game/mod_tf2", tf2.Content);
-        Assert.Equal(["SourceSharp.Server", "TF2.Server"], tf2.ServerAssemblies);
-        Assert.Equal(["SourceSharp.Client", "TF2.Client"], tf2.ClientAssemblies);
+        // TF2's AI binding over the generic server binding (plan_bots_teams_tf2 C.2), with the bots' experience database (Part G, G.3).
+        Assert.Equal(["SourceSharp.Server", "TF2.Server", "SourceSharp.Ai.Store", "SourceSharp.Ai.Server", "SourceSharp.Ai.TF2"], tf2.ServerAssemblies);
+        // Its bot setup (P6 step 8): the game-neutral client and TF2's, the bots page and the editor.
+        Assert.Equal(["SourceSharp.Client", "TF2.Client", "SourceSharp.Ai.Client", "SourceSharp.Ai.TF2.Client"], tf2.ClientAssemblies);
+        Assert.Equal(["TF2.Client.Ui", "SourceSharp.Ai.Ui", "SourceSharp.Ai.TF2.Ui"], tf2.ClientUiAssemblies);
         Assert.True(File.Exists(RepoLayout.Repo("game", "mod_tf2", "gameinfo.txt")));
     }
 

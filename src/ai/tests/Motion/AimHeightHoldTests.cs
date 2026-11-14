@@ -31,6 +31,61 @@ public sealed class AimHeightHoldTests
         return float.PositiveInfinity;
     }
 
+    private static readonly StanceHeight Heights = new(Standing, Crouched);
+
+    private static float Hold(AimHeightHold h, bool fresh, bool sighted, bool crouched, float feetZ = 0f, float rise = 0f)
+        => h.Hold(fresh, sighted, feetZ, Heights, crouched, rise, Reaction, 0f, Range, Dt);
+
+    [Fact]
+    public void ABodyOutOfSightIsAimedAtWhereItWouldStandAndNothingIsHeld()
+    {
+        AimHeightHold h = Settled();
+        Assert.Equal(100f + Standing + 2f, Hold(h, fresh: false, sighted: false, crouched: true, feetZ: 100f, rise: 2f));
+        Assert.Equal((Standing, AimHeightPhase.Settled), (h.Height, h.Phase));
+    }
+
+    [Fact]
+    public void ANewEngagementStartsWhereTheBodyWouldStandThoughItIsCrouched()
+    {
+        var h = new AimHeightHold(new AiRandom(5));
+        float first = Hold(h, fresh: true, sighted: true, crouched: true, feetZ: 100f);
+        Assert.Equal((100f + Standing, AimHeightPhase.Reacting), (first, h.Phase));
+    }
+
+    [Fact]
+    public void AHeldCrouchIsReAimedAfterTheReaction()
+    {
+        var h = new AimHeightHold(new AiRandom(5));
+        Hold(h, fresh: true, sighted: true, crouched: false);
+        float seconds = float.PositiveInfinity;
+        for (int t = 1; t < 400 && float.IsInfinity(seconds); t++)
+        {
+            if (Hold(h, fresh: false, sighted: true, crouched: true) < Standing - 1f)
+                seconds = t * Dt;
+        }
+
+        Assert.InRange(seconds, Reaction, Reaction + 0.1f);
+        for (int t = 0; t < 200; t++)
+            Hold(h, fresh: false, sighted: true, crouched: true);
+        Assert.Equal(Crouched, h.Height, 0.5f);
+    }
+
+    [Fact]
+    public void TheAimersRiseIsAddedInBothStances()
+    {
+        var h = new AimHeightHold(new AiRandom(5));
+        Assert.Equal(Standing + 3f, Hold(h, fresh: true, sighted: true, crouched: false, rise: 3f));
+        for (int t = 0; t < 400; t++)
+            Hold(h, fresh: false, sighted: true, crouched: true, rise: 3f);
+        Assert.Equal(Crouched + 3f, h.Height, 0.5f);
+    }
+
+    [Theory]
+    [InlineData(0.05f, 100f, AimHeightHold.ReAimLeastSeconds)]
+    [InlineData(0.2f, 250f, 0.45f)]
+    public void AReAimWaitsForRecognitionAndReactionAndNeverLessThanAPersonsLeast(float recognize, float reactionMs, float expected)
+        => Assert.Equal(expected, AimHeightHold.ReAimSeconds(recognize, reactionMs), 5);
+
     [Fact]
     public void ACrouchIsNotFollowedForAReaction()
     {

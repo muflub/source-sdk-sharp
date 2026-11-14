@@ -14,7 +14,14 @@
     host-sdk-rev-every-drop); bump MapFormatsVersion with the lock.
   -->
   <PropertyGroup>
-    <MapFormatsVersion>1.0.2</MapFormatsVersion>
+    <MapFormatsVersion>1.0.7</MapFormatsVersion>
+    <!--
+      SourceSharp.MapTools, map-tools' compile passes, from the same feed: the
+      server builds a map's .nav3d in its own process when the map has none
+      (plan_bots_teams_tf2 Part E). It depends on MapFormats at the version
+      above and on SourceSharp.RoomContracts; bump it with the lock too.
+    -->
+    <MapToolsVersion>1.0.5</MapToolsVersion>
   </PropertyGroup>
 
   <!--
@@ -25,5 +32,7 @@
           Condition="'@(PackageReference->WithMetadataValue('Identity','SourceSharp.MapFormats'))' != ''">
     <Error Condition="!Exists('$(MapFormatsPackageDir)/SourceSharp.MapFormats.$(MapFormatsVersion).nupkg')"
            Text="SourceSharp.MapFormats $(MapFormatsVersion) is not in $(MapFormatsPackageDir): run `make setup` (it checks MAPTOOLS_DIR against maptools.lock), then `make mapformats-pack` in a checkout at the lock." />
+    <Error Condition="'@(PackageReference->WithMetadataValue('Identity','SourceSharp.MapTools'))' != '' and !Exists('$(MapFormatsPackageDir)/SourceSharp.MapTools.$(MapToolsVersion).nupkg')"
+           Text="SourceSharp.MapTools $(MapToolsVersion) is not in $(MapFormatsPackageDir): run `make setup` (it checks MAPTOOLS_DIR against maptools.lock), then `make mapformats-pack` in a checkout at the lock." />
   </Target>
 </Project>

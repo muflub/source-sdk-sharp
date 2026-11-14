@@ -12,6 +12,12 @@ public enum SelfFlags : byte
     InWater = 1 << 4,
     Reloading = 1 << 5,
     Observer = 1 << 6,
+
+    /// <summary>
+    /// The game holds the body still: keys move it nowhere. A player knows it from the HUD (TF2's
+    /// pre-round countdown) and from walking into nothing; a bot that is held is not stuck.
+    /// </summary>
+    Frozen = 1 << 7,
 }
 
 /// <summary>
@@ -19,7 +25,10 @@ public enum SelfFlags : byte
 /// and the ammo of the weapon in its hands. <see cref="ActiveWeapon"/> is the
 /// binding's weapon-kind index. <see cref="AltAmmo"/> is what the HUD shows of the second trigger's
 /// pool for that weapon (the SMG's grenades, the AR2's balls), <see cref="Grenades"/> what its weapon list
-/// shows of the frags it carries.
+/// shows of the frags it carries. <see cref="Team"/> is the team its own HUD shows it on: the binding's
+/// number, 0 when the mode plays no teams (plan_bots_teams_tf2 B.2). <see cref="Class"/>, <see cref="Conditions"/>
+/// and <see cref="Metal"/> are what a class-based game's HUD shows of the bot (plan_bots_teams_tf2 C.2): its
+/// class (the binding's number, 0 for a game without classes), the conditions it is in, and its metal.
 /// </summary>
 public readonly record struct SelfState(
     AiVector Origin,
@@ -32,9 +41,30 @@ public readonly record struct SelfState(
     int Reserve,
     SelfFlags Flags,
     int AltAmmo = 0,
-    int Grenades = 0)
+    int Grenades = 0,
+    int Team = 0,
+    int Class = 0,
+    ActorConditions Conditions = ActorConditions.None,
+    int Metal = 0)
 {
     public bool Alive => (Flags & SelfFlags.Alive) != 0;
+}
+
+/// <summary>
+/// The conditions a client renders on a player (plan_bots_teams_tf2 C.2), its
+/// own or another's: on fire, stunned, invulnerable, disguised, cloaked, taunting.
+/// A game without them leaves <see cref="None"/>.
+/// </summary>
+[Flags]
+public enum ActorConditions : byte
+{
+    None = 0,
+    Burning = 1 << 0,
+    Stunned = 1 << 1,
+    Invulnerable = 1 << 2,
+    Disguised = 1 << 3,
+    Cloaked = 1 << 4,
+    Taunting = 1 << 5,
 }
 
 /// <summary>What a client renders of another actor's animation.</summary>
@@ -51,7 +81,11 @@ public enum ActorActivity : byte
 /// Another actor as a client at the bot's eyes would draw it. There is no
 /// health, clip or reserve field, on purpose: a client is never sent them, so
 /// the type cannot carry them (§4.3; ActorFactsShapeTests holds the member
-/// list).
+/// list). <see cref="Team"/> is the team a client at the bot's eyes would render it on (plan_bots_teams_tf2
+/// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams. <see cref="Class"/>
+/// is the class a client renders it as (a disguise's; 0 for a game without classes), <see cref="Conditions"/>
+/// the conditions drawn on it, and <see cref="NameSlot"/> the slot of the player whose name its target ID
+/// shows when that is not its own (a disguise's borrowed name, 0 for its own: plan_bots_teams_tf2 C.3).
 /// </summary>
 public readonly record struct ActorFacts(
     ActorId Id,
@@ -59,7 +93,42 @@ public readonly record struct ActorFacts(
     AiVector Velocity,
     int WeaponSeen,
     ActorActivity Activity,
-    float VisibleFraction);
+    float VisibleFraction,
+    int Team = 0,
+    int Class = 0,
+    ActorConditions Conditions = ActorConditions.None,
+    int NameSlot = 0);
+
+/// <summary>What a sighted thing that is not a player is (plan_bots_teams_tf2 C.3).</summary>
+public enum ThingKind : byte
+{
+    None = 0,
+
+    /// <summary>Something fired, in flight or lying where it landed: a rocket, a grenade, a sticky, an arrow, a flare.</summary>
+    Projectile,
+
+    /// <summary>Something built and standing: a sentry, a dispenser, a teleporter.</summary>
+    Building,
+}
+
+/// <summary>
+/// A thing that is not a player, as a client at the bot's eyes would draw it (plan_bots_teams_tf2
+/// C.3, P6 step 3): what it is, where, how fast, whose team it is drawn in and whose it is. A
+/// building's <see cref="Level"/> is its model's; its <see cref="Health"/> is what that client's
+/// target ID shows, -1 when it shows none (stock shows a building's health only to its own team
+/// and to a Spy). <see cref="Type"/> is the binding's own number for the kind of projectile or
+/// building; <see cref="Id"/> the binding's id for the thing, the same while it lasts.
+/// </summary>
+public readonly record struct ThingFacts(
+    int Id,
+    ThingKind Kind,
+    int Type,
+    AiVector Origin,
+    AiVector Velocity,
+    int Team,
+    int OwnerSlot = 0,
+    int Level = 0,
+    int Health = -1);
 
 /// <summary>
 /// One bot's perception at one tick: its own state, and the actors it holds
@@ -72,12 +141,18 @@ public readonly record struct ActorFacts(
 /// </summary>
 public sealed class PerceivedView
 {
-    private readonly ActorFacts[] _sighted;
+    /// <summary>How many things a view holds unless told otherwise.</summary>
+    public const int DefaultThingCapacity = 32;
 
-    public PerceivedView(int capacity)
+    private readonly ActorFacts[] _sighted;
+    private readonly ThingFacts[] _things;
+
+    public PerceivedView(int capacity, int thingCapacity = DefaultThingCapacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        ArgumentOutOfRangeException.ThrowIfNegative(thingCapacity);
         _sighted = new ActorFacts[capacity];
+        _things = new ThingFacts[thingCapacity];
     }
 
     public ActorId Bot { get; private set; }
@@ -92,6 +167,22 @@ public sealed class PerceivedView
     /// <summary>The sighted actors, in the order the builder added them.</summary>
     public ReadOnlySpan<ActorFacts> Sighted => _sighted.AsSpan(0, SightedCount);
 
+    /// <summary>How many things that are not players the bot holds sight of (plan_bots_teams_tf2 C.3).</summary>
+    public int ThingCount { get; private set; }
+
+    /// <summary>The sighted things, in the order the builder added them.</summary>
+    public ReadOnlySpan<ThingFacts> Things => _things.AsSpan(0, ThingCount);
+
+    /// <summary>How many things the view can hold.</summary>
+    public int ThingCapacity => _things.Length;
+
+    /// <summary>
+    /// The map's objectives as every player's HUD shows them this tick (plan_bots_teams_tf2 C.6):
+    /// the binding's published knowledge, the same object for every bot until it changes; null for a
+    /// game that publishes none.
+    /// </summary>
+    public ObjectiveKnowledge? Objectives { get; private set; }
+
     /// <summary>Starts this view over for <paramref name="bot"/> at <paramref name="tick"/>.</summary>
     public void Reset(ActorId bot, Tick tick, in SelfState self)
     {
@@ -99,10 +190,20 @@ public sealed class PerceivedView
         Tick = tick;
         Self = self;
         SightedCount = 0;
+        ThingCount = 0;
+        Objectives = null;
     }
 
     /// <summary>The self's second-trigger pool and frags, read after the view (format 5's tail, <see cref="AiRecordFormat"/>).</summary>
     internal void SetAltAmmo(int altAmmo, int grenades) => Self = Self with { AltAmmo = altAmmo, Grenades = grenades };
+
+    /// <summary>The self's team and each sighted actor's, read after the view (format 6's tail); a missing one stays 0.</summary>
+    internal void SetTeams(int self, ReadOnlySpan<int> sighted)
+    {
+        Self = Self with { Team = self };
+        for (int i = 0; i < SightedCount && i < sighted.Length; i++)
+            _sighted[i] = _sighted[i] with { Team = sighted[i] };
+    }
 
     /// <summary>Makes this view a copy of <paramref name="other"/> (a step's own copy, so the ring can move on, §2.7).</summary>
     public void CopyFrom(PerceivedView other)
@@ -110,10 +211,29 @@ public sealed class PerceivedView
         ArgumentNullException.ThrowIfNull(other);
         if (other.SightedCount > _sighted.Length)
             throw new InvalidOperationException($"the view holds {_sighted.Length} sighted actors at most, the copied one {other.SightedCount}");
+        if (other.ThingCount > _things.Length)
+            throw new InvalidOperationException($"the view holds {_things.Length} things at most, the copied one {other.ThingCount}");
         Reset(other.Bot, other.Tick, other.Self);
         other.Sighted.CopyTo(_sighted);
         SightedCount = other.SightedCount;
+        other.Things.CopyTo(_things);
+        ThingCount = other.ThingCount;
+        Objectives = other.Objectives;
     }
+
+    /// <summary>Adds a thing the bot has sight of this tick; false, and nothing added, when the view is full.</summary>
+    public bool AddThing(in ThingFacts facts)
+    {
+        if (facts.Kind == ThingKind.None)
+            throw new ArgumentException("a sighted thing needs a kind", nameof(facts));
+        if (ThingCount == _things.Length)
+            return false;
+        _things[ThingCount++] = facts;
+        return true;
+    }
+
+    /// <summary>The objectives the HUD shows this tick (<see cref="Objectives"/>).</summary>
+    public void SetObjectives(ObjectiveKnowledge? objectives) => Objectives = objectives;
 
     /// <summary>Adds an actor the bot has sight of this tick.</summary>
     public void AddSighted(in ActorFacts facts)

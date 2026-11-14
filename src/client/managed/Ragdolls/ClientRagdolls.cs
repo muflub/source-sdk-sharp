@@ -117,8 +117,20 @@ public interface IClientRagdolls
     /// The entity becomes a jointed body: <c>C_StandaloneEntity::BecomeRagdoll</c>,
     /// and stock's <c>CreateRagdoll</c>. True when it is one (including when it
     /// already was).
+    ///
+    /// <para><paramref name="fixedConstraints"/> is stock's
+    /// <c>bFixedConstraints</c>: every joint a fixed constraint instead of a
+    /// hinge and every element at a thousand mass — the gilded statue, whose
+    /// death the client skips (c_tf_player.cpp:733, :813).</para>
     /// </summary>
-    bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal);
+    bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false);
+
+    /// <summary>
+    /// The statue's joints free and the body falls: stock's thaw, the frozen
+    /// hold's end (c_tf_player.cpp:1011-1025) rebuilding the body from where
+    /// the solver has it. False with no body to thaw.
+    /// </summary>
+    bool Thaw(EntityHandle owner);
 
     /// <summary>Where <paramref name="owner"/>'s body's first element is, as the physics has it; false with no body.</summary>
     bool TryRoot(EntityHandle owner, out Vector position);
@@ -226,7 +238,7 @@ public sealed class ClientRagdolls(
         return false;
     }
 
-    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal)
+    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false)
     {
         refusal = RagdollRefusal.None;
 
@@ -272,6 +284,7 @@ public sealed class ClientRagdolls(
             ForceBoneIndex = forceBone,
             CurrentBones = bones,
             JointFrictionScale = 1f,
+            FixedConstraints = fixedConstraints,
         };
 
         // CRagdoll::Init. No RagdollApplyAnimationAsVelocity: this hierarchy
@@ -312,6 +325,29 @@ public sealed class ClientRagdolls(
         StepPose(body);
         tails.SetRagdoll(owner, true);
         return true;
+    }
+
+    /// <inheritdoc cref="IClientRagdolls.Thaw"/>
+    public bool Thaw(EntityHandle owner)
+    {
+        // NO BODY, NO THAW: the frozen hold's expiry on a body the solver
+        // refused (or that left) is nothing to rebuild.
+        if (!_bodies.ContainsKey(owner))
+            return false;
+
+        if (vphysics.Environment() == 0)
+            return false;
+
+        // Stock's thaw asks the entity's bones as it stands — for us the
+        // solver's own, held frozen by the fixed constraints — and builds the
+        // body again from them. WHERE THE HINGES DIFFER FROM STOCK'S is
+        // written on the ice arm: stock's first body arrives at the thaw and
+        // is fixed (c_tf_player.cpp:1021); ours has stood fixed since the
+        // freeze, so the thaw's work is the unfixing, and the statue
+        // crumples where stock's topples stiff.
+        Destroy(owner);
+
+        return Become(owner, Vector.Zero, -1, out _, fixedConstraints: false);
     }
 
     private uint NextSerial()
@@ -741,11 +777,13 @@ public sealed class NoClientRagdolls : IClientRagdolls
         return false;
     }
 
-    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal)
+    public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false)
     {
         refusal = RagdollRefusal.NoEnvironment;
         return false;
     }
+
+    public bool Thaw(EntityHandle owner) => false;
 
     public bool IsRagdoll(EntityHandle owner) => false;
 

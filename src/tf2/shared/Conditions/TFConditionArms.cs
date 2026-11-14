@@ -50,6 +50,24 @@ public sealed class TFConditionArms
                 }
 
                 break;
+
+            // OnAddShieldCharge (:6151-6166), the GAME_DLL half: at the
+            // charge's start the server removes each name of
+            // g_aDebuffConditions — burning, urine, bleeding, mad milk and
+            // gas (tf_shareddefs.cpp:276-284), the walk over the array as
+            // stock's is. The visible-enemies snapshot and the phase effects
+            // keep their deferred rows.
+            case TFCond.ShieldCharge:
+                if (conditions.Authoritative)
+                {
+                    RemoveIfActive(conditions, TFCond.Burning, ref removed);
+                    RemoveIfActive(conditions, TFCond.Urine, ref removed);
+                    RemoveIfActive(conditions, TFCond.Bleeding, ref removed);
+                    RemoveIfActive(conditions, TFCond.MadMilk, ref removed);
+                    RemoveIfActive(conditions, TFCond.Gas, ref removed);
+                }
+
+                break;
         }
 
         return removed;

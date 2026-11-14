@@ -74,9 +74,9 @@ public class FormatTests
     public void AnotherFormatVersionIsRefusedByNumber()
     {
         byte[] rec = Recordings.Make(_ => { });
-        rec[8] = 6;
+        rec[8] = 9;
         var e = Assert.Throws<InvalidDataException>(() => Recordings.Replay(rec));
-        Assert.Contains("format 6", e.Message, StringComparison.Ordinal);
+        Assert.Contains("format 9", e.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -89,10 +89,13 @@ public class FormatTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
     public void AnOlderFormatFileStillReads(byte version)
     {
         byte[] rec = Recordings.Make(s => s.AddBot(new ActorId(2, 1), 1, []));
-        Assert.Equal(5, rec[8]);
+        Assert.Equal(8, rec[8]);
         rec[8] = version;
         Assert.Equal(0, Recordings.Replay(rec).RecordedIntentCount);
     }
@@ -126,7 +129,8 @@ public class FormatTests
         ring.Publish(s);
         byte[] whole = Encode(w => AiRecordFormat.Write(w, s));
         var ring2 = new SnapshotRing(8, 8, 4);
-        AiSnapshot back = AiRecordFormat.ReadSnapshot(Reader(whole[..^8]), ring2);
+        // Format 5's pool and frags (8 bytes) and format 6's team (1 byte, no one sighted): cut both.
+        AiSnapshot back = AiRecordFormat.ReadSnapshot(Reader(whole[..^9]), ring2);
         Assert.Equal(0, back.ViewFor(2)!.Self.AltAmmo);
     }
 

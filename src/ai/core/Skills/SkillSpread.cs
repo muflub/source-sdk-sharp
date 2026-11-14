@@ -44,8 +44,7 @@ public static class SkillSpread
         var random = new AiRandom(seed);
         Repair(levels, floor);
 
-        int first = random.NextInt(levels.Length);
-        int second = (first + 1 + random.NextInt(levels.Length - 1)) % levels.Length;
+        (int first, int second) = Favourites(mean, random);
         int lift = Math.Min(cap, (int)MathF.Ceiling(total / (float)levels.Length) + Standout);
         int moves = Moves(total);
         for (int m = 0; m < moves; m++)
@@ -59,6 +58,21 @@ public static class SkillSpread
         }
 
         return new SkillProfile(name ?? mean.Name, mean.Skills, [.. levels]);
+    }
+
+    /// <summary>
+    /// The two favourites, the walk's first two draws. Teamwork is never one (plan_bots_teams_tf2
+    /// B.7): it is the last row when a profile has it, and the draw is over the rows before it.
+    /// </summary>
+    public static (int First, int Second) Favourites(SkillProfile mean, AiRandom random)
+    {
+        ArgumentNullException.ThrowIfNull(mean);
+        ArgumentNullException.ThrowIfNull(random);
+        int n = mean.Levels.Length;
+        int pickable = mean.IndexOf(StandardSkills.Teamwork.Key) == n - 1 ? n - 1 : n;
+        int first = random.NextInt(pickable);
+        int second = (first + 1 + random.NextInt(pickable - 1)) % pickable;
+        return (first, second);
     }
 
     /// <summary>A custom allocation may hold a skill under the floor: the highest skills pay it up.</summary>

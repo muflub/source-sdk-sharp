@@ -21,8 +21,15 @@ namespace TF2.Tests.Player;
 /// </summary>
 public sealed class TFPlayerLoadoutTests
 {
+    /// <summary>The fixture unlock (item 1156 of the trimmed schema): a heavy melee with both models.</summary>
+    private const int GlovesFixture = 1156;
+
+    private const string GlovesPlayerModel = "models/workshop/weapons/c_models/c_gloves/c_gloves.mdl";
+
+    private const string GlovesWorldModel = "models/workshop/weapons/c_models/c_gloves/c_gloves_wearable.mdl";
+
     private static (PlayerRig Rig, TFLoadoutProvider Loadout, TFPlayerItems Items) Make(TFClass cls,
-        ITeamRoundState? round = null, bool meleeOnly = false)
+        ITeamRoundState? round = null, bool meleeOnly = false, SourceSharp.Abi.IEnginePrecache? precache = null)
     {
         var rig = new PlayerRig().As(cls);
         var items = new TFPlayerItems();
@@ -40,7 +47,9 @@ public sealed class TFPlayerLoadoutTests
             stalemate = new TFStalemateConVars(melee, changeTime);
         }
 
-        return (rig, new TFLoadoutProvider(inventory, rig.Schema, rig.Carriers, items, rig.Classes, round, stalemate), items);
+        return (rig, LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: items,
+            table: rig.Classes, round: round, stalemate: stalemate,
+            players: rig.Engine, precache: precache, log: rig.Log), items);
     }
 
     /// <summary>The round the loadout reads, fixed at one state.</summary>
@@ -220,5 +229,194 @@ public sealed class TFPlayerLoadoutTests
         var (_, loadout, _) = Make(TFClass.Soldier, new FixedRound(RoundState.Stalemate));
 
         Assert.Equal(3, loadout.Weapons(PlayerRig.Player).Count());
+    }
+
+    /// <summary>
+    /// The models an equipped unlock wears are precached as its grant lands,
+    /// the wearable's arm (CEconWearable::Spawn precaches its display model):
+    /// the world rule's answers, so a kit swap to an unlock the level has not
+    /// seen is a model, not a missing-precache error.
+    /// </summary>
+    [Fact]
+    public void A_granted_unlock_has_its_models_precached_with_the_kit()
+    {
+        var rig = new PlayerRig().As(TFClass.HeavyWeapons);
+        rig.Engine.Returns("Precache.PrecacheModel", 42);
+        var items = new TFPlayerItems();
+        var inventory = new LocalInventory(new InventoryStore(new ModInfo(_ => null), rig.Schema, rig.Log),
+                                           rig.Schema, new TFWeaponOwnersTests.NoClients(), rig.Log);
+        inventory.OnClientActive(PlayerRig.Index);
+        var loadout = LoadoutDeps.Loadout(inventory, rig.Schema, classes: rig.Carriers, items: items,
+                                            table: rig.Classes, players: rig.Engine, precache: rig.Engine,
+                                            log: rig.Log);
+
+        ItemInstance? gloves = inventory.Grant(PlayerRig.Index, GlovesFixture);
+        Assert.NotNull(gloves);
+        Assert.True(inventory.Equip(PlayerRig.Index, TFClass.HeavyWeapons, TFLoadoutSlot.Melee, gloves.Id),
+                    "the gloves are equipped in the melee slot");
+
+        Assert.Contains("tf_weapon_fists", loadout.Weapons(PlayerRig.Player));
+
+        var precached = rig.Engine.AllOf("Precache.PrecacheModel").Select(c => c.ArgAs<string>(0)).ToList();
+        Assert.True(precached.Contains(GlovesPlayerModel) && precached.Contains(GlovesWorldModel),
+            $"the kit precaches the item's models, not {string.Join(", ", precached)}");
+    }
+
+    // ---- an equipped class the catalogue has no row for --------------------
+
+    /// <summary>The scout's kit: the two launch weapons as base items, and an unlock whose class is a plain hat.</summary>
+    private const string ScoutSchema = """
+        "items_game"
+        {
+            "qualities"
+            {
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "17"
+                {
+                    "name"         "TF_WEAPON_PISTOL"
+                    "item_class"   "tf_weapon_pistol"
+                    "item_name"    "#TF_Weapon_Pistol"
+                    "item_slot"    "secondary"
+                    "item_quality" "normal"
+                    "baseitem"     "1"
+                    "min_ilevel"   "1"
+                    "max_ilevel"   "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+                "19"
+                {
+                    "name"         "TF_WEAPON_SCATTERGUN"
+                    "item_class"   "tf_weapon_scattergun"
+                    "item_name"    "#TF_Weapon_Scattergun"
+                    "item_slot"    "primary"
+                    "item_quality" "normal"
+                    "baseitem"     "1"
+                    "min_ilevel"   "1"
+                    "max_ilevel"   "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+                "812"
+                {
+                    "name"         "TF_HAT_GUILLOTINE"
+                    "item_class"   "hat"
+                    "item_name"    "#TF_Item_Guillotine"
+                    "item_slot"    "secondary"
+                    "item_quality" "normal"
+                    "min_ilevel"   "1"
+                    "max_ilevel"   "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+            }
+        }
+        """;
+
+    /// <summary>The rig's kit over <see cref="ScoutSchema"/>, with the inventory joined and the catalogue wired.</summary>
+    private static (PlayerRig Rig, LocalInventory Inventory, TFLoadoutProvider Loadout) ScoutKit()
+    {
+        var rig = new PlayerRig().As(TFClass.Scout);
+        var schema = EconTestFiles.Schema(ScoutSchema);
+        var inventory = new LocalInventory(
+            new InventoryStore(new ModInfo(_ => null), schema, rig.Log), schema,
+            new TFWeaponOwnersTests.NoClients(), rig.Log);
+        inventory.OnClientActive(PlayerRig.Index);
+        var loadout = LoadoutDeps.Loadout(inventory, schema, classes: rig.Carriers, items: rig.Items,
+                                             table: rig.Classes, catalog: rig.Catalog, carriers: rig.Carriers,
+                                             players: rig.Engine, precache: rig.Engine, log: rig.Log);
+        return (rig, inventory, loadout);
+    }
+
+    [Fact]
+    public void AnEquippedItemWithNoRowFallsBackToTheBaseItem()
+    {
+        // The shipped game's unlock case (the Flying Guillotine): the class is
+        // no weapon row, so the slot must not network empty. The kit wears
+        // the slot's base item instead — the scout's pistol — said once with
+        // a line naming the swap, and the client finds the same row.
+        var (rig, inventory, loadout) = ScoutKit();
+        var unlock = inventory.Grant(PlayerRig.Index, 812);
+        Assert.NotNull(unlock);
+        Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Scout, TFLoadoutSlot.Secondary, unlock!.Id));
+
+        Assert.Equal(["tf_weapon_scattergun", "tf_weapon_pistol_scout"], loadout.Weapons(PlayerRig.Player));
+        Assert.Single(rig.Log.Lines, l => l.Warning && l.Text.Contains("hat"));
+
+        // The defindex the client rebuilds its item from rides the base item,
+        // on the pistol's own row (+1: the array's zero stays no item).
+        var state = rig.Carriers.Get(PlayerRig.Index)!;
+        Assert.Equal(18, state.WeaponItemDefIndex[rig.Catalog.IndexOf("tf_weapon_pistol_scout")]);
+    }
+
+    [Fact]
+    public void ARowBackedUnlockIsNotReplaced()
+    {
+        // The control: an equipped item whose class has a row keeps its own
+        // name on the wire — the base item's row does not push it out.
+        var (rig, inventory, loadout) = ScoutKit();
+        var unlock = inventory.Grant(PlayerRig.Index, 19);
+        Assert.NotNull(unlock);
+        Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Scout, TFLoadoutSlot.Primary, unlock!.Id));
+
+        Assert.Equal(["tf_weapon_scattergun", "tf_weapon_pistol_scout"], loadout.Weapons(PlayerRig.Player));
+        Assert.DoesNotContain(rig.Log.Lines, l => l.Warning);
+    }
+
+    // ---- the soldier's B.A.S.E. Jumper (items_working.tsv:312) -------------
+
+    /// <summary>The shipped schema's B.A.S.E. Jumper, the soldier's backpack secondary.</summary>
+    private const int ParachuteDefindex = 1101;
+
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
+    public void TheEquippedParachuteAnswersItsAttributeOnThePlayersManager()
+    {
+        // The shipped game's backpack case: the soldier equips the B.A.S.E.
+        // Jumper (defindex 1101, item_class tf_weapon_parachute), and its one
+        // attribute parachute_attribute must reach the player's own manager —
+        // stock's ToggleParachute reads it there through CALL_ATTRIB_HOOK_
+        // INT_ON_OTHER (tf_gamemovement.cpp:1117-1155). Without a catalogue
+        // row for the class the kit hands the slot back to its base item
+        // (TFLoadoutProvider.Weapons) and the attribute never arrives.
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        var weapons = new TFWeaponWorld(extras: true);
+
+        // The shipped schema, as the live game ships it: defindex 1101 with
+        // parachute_attribute 1 (its attributes block) on the soldier.
+        string path = RepoLayout.Repo("bin", RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        var schema = EconTestFiles.Schema(File.ReadAllText(path), rig.Log);
+
+        var inventory = new LocalInventory(
+            new InventoryStore(new ModInfo(_ => null), schema, rig.Log), schema,
+            new TFWeaponOwnersTests.NoClients(), rig.Log);
+        inventory.OnClientActive(PlayerRig.Index);
+        var loadout = LoadoutDeps.Loadout(inventory, schema, classes: rig.Carriers, items: rig.Items,
+                                             table: rig.Classes, catalog: weapons.Catalog, carriers: rig.Carriers,
+                                             players: rig.Engine, precache: rig.Engine, log: rig.Log);
+
+        var chute = inventory.Grant(PlayerRig.Index, ParachuteDefindex);
+        Assert.NotNull(chute);
+        Assert.True(inventory.Equip(PlayerRig.Index, TFClass.Soldier, TFLoadoutSlot.Secondary, chute!.Id),
+                    "the soldier equips the B.A.S.E. Jumper in the secondary");
+
+        Assert.Contains("tf_weapon_parachute", loadout.Weapons(PlayerRig.Player));
+
+        // The grant's equip provides the item's attributes to the manager, as
+        // stock's ReapplyProvision does (econ_entity.cpp:304); the hook on the
+        // player finds the parachute's answer. Red without the catalogue row:
+        // the fallback keeps the slot's base shotgun and the walk answers 0.
+        Assert.NotEqual(0, new AttributeHooks().Int(0, "parachute_attribute", rig.Items.ManagerOf(PlayerRig.Index)));
     }
 }

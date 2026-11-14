@@ -14,6 +14,7 @@ using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -53,8 +54,12 @@ namespace TF2.Server.Buildings;
 public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                              IEngineEntityRender render, IEngineDamage damage, TFDamageScopes scopes,
                              ITFAmmoPurse purse, ObjSapperAmountConVar sapperAmount,
-                             TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
+                             TFPlayerCarriers carriers, TFConceptSpeech speech,
+                             ITFWeaponOwners owners, AttributeHooks hooks,
+                             ITFRevengeCrits crits, IEngineSound sound,
+                             IUniformRandom rng, ServerBodygroups bodygroups,
+                             IServerSkins skins)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks, scopes, crits, bodygroups, skins)
 {
     public const string MapClass = "obj_attachment_sapper";
 
@@ -72,6 +77,8 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
     private readonly IEngineDamage _damage = damage;
     private readonly TFDamageScopes _scopes = scopes;
     private readonly ObjSapperAmountConVar _sapperAmount = sapperAmount;
+    private readonly IEngineSound _sound = sound;
+    private readonly IUniformRandom _rng = rng;
 
     [SaveField] private EntityHandle _builtOn;
     [SaveField] private float _accumulator, _lastThinkTime;
@@ -111,6 +118,21 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
         _accumulator = 0f;
         _lastThinkTime = GameTime;
         SetContextThink(SapperThinkContext, ThinkDelay);
+
+        // Stock's Wheatley VO for the pak sapper: IsWheatleySapper is the held builder
+        // item's sapper_voice_pak == 1 (tf_weapon_builder.cpp:584-589), and the machine
+        // picked at placement (:751-771: outer coin 0 asks the inner — inner 0 the PW
+        // line, else the plain one; outer 1 the hacking line) speaks to its owner only
+        // (WheatleyEmitSound).
+        if (Builder != EntityHandle.None
+            && Hooks.Float(0f, "sapper_voice_pak", Owners.ActiveItemOf(Entities.GetIndex(Builder))) == 1f)
+        {
+            int outer = _rng.RandomInt(0, 1);
+            string line = outer != 0
+                ? "PSap.Hacking"
+                : _rng.RandomInt(0, 3) == 0 ? "PSap.AttachedPW" : "PSap.Attached";
+            _sound.EntityEmitSound(Builder, line);
+        }
     }
 
     /// <summary>
@@ -142,12 +164,33 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
             return;
         }
 
-        _accumulator += (GameTime - _lastThinkTime) * _sapperAmount.Value;
+        // Stock's drain (tf_obj_sapper.cpp:493-495): the rate over the time since the
+        // last think, then the builder's held item scales it — the ON_OTHER walk of
+        // mult_sapper_damage on pBuilder (:495).
+        float drain = (GameTime - _lastThinkTime) * _sapperAmount.Value;
+        if (Owners is { } holders && Hooks is { } attr && Builder != EntityHandle.None)
+            drain = attr.Float(drain, "mult_sapper_damage", holders.ActiveItemOf(Entities.GetIndex(Builder)));
+
+        _accumulator += drain;
         int hurt = (int)_accumulator;
         _accumulator -= hurt;
 
         if (hurt > 0)
-            _damage.TakeDamage(parent.Handle, Handle, hurt, DamageType.Crush);
+        {
+            // Stock stamps the recorder's death kind when the builder's item carries
+            // sapper_degenerates_buildings (:515-519, the GetReversesBuildingConstructionSpeed
+            // walk at :780-786); the kill feed reads that kind as "recorder"
+            // (tf_gamerules.cpp:12333-12336). The scope carries the kind to the hit record.
+            if (ReversesBuildingConstructionSpeed() != 0f)
+            {
+                using (_scopes.Push(TFDamageCustom.SapperRecorderDeath, TFWeaponId.None, ""))
+                    _damage.TakeDamage(parent.Handle, Handle, hurt, DamageType.Crush);
+            }
+            else
+            {
+                _damage.TakeDamage(parent.Handle, Handle, hurt, DamageType.Crush);
+            }
+        }
 
         _lastThinkTime = GameTime;
         SetContextThink(SapperThinkContext, ThinkDelay);
@@ -164,14 +207,43 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
     }
 
     /// <summary>
-    /// <c>CObjectSapper::OnTakeDamage</c>'s gate: nothing lands on a sapper
-    /// but the wrench's fix (<c>TF_DMG_WRENCH_FIX</c>). Stock's
-    /// <c>set_dmg_apply_to_sapper</c> attribute arm is a deferred row.
+    /// <c>CObjectSapper::GetReversesBuildingConstructionSpeed</c>
+    /// (tf_obj_sapper.cpp:780-786): the builder's held item's
+    /// <c>sapper_degenerates_buildings</c> — the speed the riding building
+    /// unwinds its upgrade by, and the recorder stamp's gate.
+    /// </summary>
+    public float ReversesBuildingConstructionSpeed()
+        => Owners is { } holders && Hooks is { } hooks && Builder != EntityHandle.None
+               ? hooks.Float(0f, "sapper_degenerates_buildings",
+                             holders.ActiveItemOf(Entities.GetIndex(Builder)))
+               : 0f;
+
+    /// <summary>
+    /// <c>CObjectSapper::OnTakeDamage</c>'s gate (tf_obj_sapper.cpp:562-575):
+    /// the wrench's fix (<c>TF_DMG_WRENCH_FIX</c>) always lands; anything else
+    /// lands only from the weapon bearing <c>set_dmg_apply_to_sapper</c> — the
+    /// Homewrecker's and the Maul's arm — asked of the hit's own launcher item
+    /// off the scope, the held item only where the scope carries none, the way
+    /// <c>mult_dmg_vs_buildings</c> is.
     /// </summary>
     public override int OnDamaged(EntityHandle attacker, float damage, DamageType damageType)
     {
-        if (!_scopes.TryCurrent(out TFDamageCustom custom, out _, out _) || custom != TFDamageCustom.WrenchFix)
+        bool wrenchFix = _scopes.TryCurrent(out TFDamageCustom custom, out _, out _)
+                      && custom == TFDamageCustom.WrenchFix;
+
+        // The attribute arm of stock's gate: the making weapon's
+        // set_dmg_apply_to_sapper over zero (info.GetWeapon(),
+        // tf_obj_sapper.cpp:568-571) — the scope's launcher where the blast
+        // carries one, the held item beside a hitscan's instant touch.
+        if (!wrenchFix
+            && !(attacker != EntityHandle.None && Hooks is { } attr && Owners is { } holders
+                 && attr.Int(0, "set_dmg_apply_to_sapper",
+                             _scopes.TryLauncher(out var launcher)
+                                 ? launcher
+                                 : holders.ActiveItemOf(Entities.GetIndex(attacker))) != 0))
+        {
             return 0;
+        }
 
         return base.OnDamaged(attacker, damage, damageType);
     }

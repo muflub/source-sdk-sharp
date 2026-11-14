@@ -1,0 +1,2108 @@
+{
+  "mod": "tf2_descent",
+  "library": "descent_d01",
+  "rooms": {
+    "drift_a-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "drift_b-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        528,
+        732,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        29
+      ]
+    },
+    "drift_c-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "bend_a-ne-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "bend_b-ne-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "bend_c-ne-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 256,
+      "focus": [
+        656,
+        656,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        301
+      ]
+    },
+    "tee_a-new-l": {
+      "tags": [
+        "junction"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "tee_b-new-l": {
+      "tags": [
+        "junction"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "tee_c-new-l": {
+      "tags": [
+        "junction"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "cross_a-nesw-l": {
+      "tags": [
+        "junction"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "cross_b-nesw-l": {
+      "tags": [
+        "junction"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "cross_c-nesw-l": {
+      "tags": [
+        "junction"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "dogleg_a-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        596,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        318,
+        676,
+        80,
+        338
+      ]
+    },
+    "dogleg_b-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        688,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        25
+      ]
+    },
+    "dogleg_c-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "stub_a-e-l": {
+      "tags": [
+        "corridor",
+        "shrine"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 256,
+      "focus": [
+        480,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        896,
+        512,
+        80,
+        180
+      ]
+    },
+    "stub_b-e-l": {
+      "tags": [
+        "corridor",
+        "shrine"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        772,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        896,
+        512,
+        80,
+        146
+      ]
+    },
+    "stub_c-e-l": {
+      "tags": [
+        "corridor",
+        "shrine"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 256,
+      "focus": [
+        424,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        896,
+        512,
+        80,
+        180
+      ]
+    },
+    "widedrift_a-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "widedrift_b-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "widedrift_c-ew-l": {
+      "tags": [
+        "corridor"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": true,
+      "markers": [
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 256,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "pillar_a-e-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        592,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        896,
+        512,
+        80,
+        180
+      ]
+    },
+    "pillar_b-ew-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_dispenser",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        128,
+        512,
+        80,
+        0
+      ]
+    },
+    "pillar_c-ne-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        592,
+        592,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        401,
+        401,
+        80,
+        45
+      ]
+    },
+    "pillar_d-new-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "pillar_e-nesw-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        270
+      ]
+    },
+    "split_a-e-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        592,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        846,
+        312,
+        80,
+        142
+      ]
+    },
+    "split_b-ew-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_dispenser",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        520,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        896,
+        272,
+        80,
+        147
+      ]
+    },
+    "split_c-ne-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        584,
+        408,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        331,
+        518,
+        80,
+        337
+      ]
+    },
+    "split_d-esw-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "south"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        424,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        305,
+        265,
+        80,
+        38
+      ]
+    },
+    "pit_a-e-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        592,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        378,
+        354,
+        80,
+        36
+      ]
+    },
+    "pit_b-ew-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        291,
+        374,
+        80,
+        32
+      ]
+    },
+    "pit_c-ne-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        584,
+        584,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        512,
+        896,
+        80,
+        283
+      ]
+    },
+    "pit_d-nesw-c-s2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        704,
+        320,
+        80,
+        135
+      ]
+    },
+    "store_a-e-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        592,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        341,
+        684,
+        80,
+        326
+      ]
+    },
+    "store_b-ew-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        841,
+        704,
+        80,
+        210
+      ]
+    },
+    "store_c-ne-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        584,
+        584,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        851,
+        317,
+        80,
+        135
+      ]
+    },
+    "yard_a-e-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_dispenser",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        584,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        833,
+        321,
+        80,
+        143
+      ]
+    },
+    "yard_b-new-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        584,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        190,
+        322,
+        80,
+        39
+      ]
+    },
+    "yard_c-nesw-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        208,
+        208,
+        80,
+        45
+      ]
+    },
+    "yard_d-ne-c": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_dispenser",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        584,
+        584,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        862,
+        306,
+        80,
+        135
+      ]
+    },
+    "stope_a-e-h-j.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 1024,
+      "focus": [
+        584,
+        520,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        347,
+        332,
+        80,
+        38
+      ]
+    },
+    "stope_b-ew-h-j.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        584,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        190,
+        322,
+        80,
+        39
+      ]
+    },
+    "stope_c-esw-h-j.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "south"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        440,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        190,
+        178,
+        80,
+        39
+      ]
+    },
+    "stope_d-ne-h-j.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_dispenser",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 1024,
+      "focus": [
+        584,
+        584,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        839,
+        329,
+        80,
+        135
+      ]
+    },
+    "gallery_a-e-h-j.b1.b2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 1024,
+      "focus": [
+        592,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        352,
+        335,
+        80,
+        36
+      ]
+    },
+    "gallery_b-ew-h-j.b1.b2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_dispenser",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        195,
+        724,
+        80,
+        326
+      ]
+    },
+    "gallery_c-new-h-j.b1.b2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        560,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        848,
+        266,
+        80,
+        139
+      ]
+    },
+    "gallery_d-nesw-h-j.b1.b2": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west",
+        "north",
+        "south"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        265,
+        265,
+        80,
+        45
+      ]
+    },
+    "chasm_a-e-h-j.s2.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 1024,
+      "focus": [
+        584,
+        520,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        347,
+        332,
+        80,
+        38
+      ]
+    },
+    "chasm_b-ew-h-j.s2.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        520,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        209,
+        324,
+        80,
+        33
+      ]
+    },
+    "chasm_c-ew-h-j.s3": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 1024,
+      "focus": [
+        512,
+        520,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        182,
+        733,
+        80,
+        327
+      ]
+    },
+    "chasm_d-ne-h-j.s2.b1": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_dispenser",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 1024,
+      "focus": [
+        560,
+        560,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        839,
+        281,
+        80,
+        135
+      ]
+    },
+    "chimney_a-e-s-j.b1.b2.b3": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 1792,
+      "focus": [
+        608,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        371,
+        697,
+        80,
+        322
+      ]
+    },
+    "chimney_b-ew-s-j.b1.b2.b3": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_shrine",
+        "descent_mark_trap",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 1536,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        798,
+        357,
+        80,
+        152
+      ]
+    },
+    "chimney_c-ne-s-j.b2.b3": {
+      "tags": [],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": true,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_mark_dispenser",
+        "descent_mark_shrine",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 1536,
+      "focus": [
+        512,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        702,
+        702,
+        80,
+        225
+      ]
+    },
+    "treasure_a-e-c": {
+      "tags": [
+        "treasure"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        496,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        352,
+        688,
+        80,
+        309
+      ]
+    },
+    "treasure_b-e-c": {
+      "tags": [
+        "treasure"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        704,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        656,
+        848,
+        80,
+        225
+      ]
+    },
+    "treasure_c-e-c": {
+      "tags": [
+        "treasure"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        15
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "descent_mark_barrel",
+        "descent_mark_container",
+        "descent_spawn_pack"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        592,
+        512,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        896,
+        512,
+        80,
+        180
+      ]
+    },
+    "arrival_shafta-e-h": {
+      "tags": [
+        "start"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        1
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "spawn"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 768,
+      "focus": [
+        608,
+        864,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        736,
+        272,
+        80,
+        102
+      ]
+    },
+    "arrival_shaftb-ew-h": {
+      "tags": [
+        "start"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        1
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "spawn"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 768,
+      "focus": [
+        512,
+        864,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        311,
+        332,
+        80,
+        69
+      ]
+    },
+    "arrival_shaftc-ne-h": {
+      "tags": [
+        "start"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        1
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "spawn"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 768,
+      "focus": [
+        112,
+        480,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        736,
+        272,
+        80,
+        162
+      ]
+    },
+    "exit_cagea-e-c": {
+      "tags": [
+        "stairs"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        4
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "spawn"
+      ],
+      "doors": [
+        "east"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        480,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        689,
+        644,
+        80,
+        223
+      ]
+    },
+    "exit_cageb-ew-c": {
+      "tags": [
+        "stairs"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        4
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "spawn"
+      ],
+      "doors": [
+        "east",
+        "west"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        480,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        347,
+        634,
+        80,
+        317
+      ]
+    },
+    "exit_cagec-ne-c": {
+      "tags": [
+        "stairs"
+      ],
+      "weight": 1,
+      "depths": [
+        1,
+        4
+      ],
+      "jump": false,
+      "low": false,
+      "markers": [
+        "spawn"
+      ],
+      "doors": [
+        "east",
+        "north"
+      ],
+      "height": 512,
+      "focus": [
+        512,
+        480,
+        16
+      ],
+      "cell": 1024,
+      "camera": [
+        358,
+        337,
+        80,
+        43
+      ]
+    }
+  }
+}

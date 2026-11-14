@@ -360,8 +360,9 @@ public partial class WeaponNetState
     /// the carrier's weapon blob and stands the same way — clear it on every
     /// deploy would refuse the item after a plain weapon switch, where stock's
     /// slot meter has charged on. The one float covers the one weapon the
-    /// carrier holds; the behaviour that owns it is the item's lane, and the
-    /// refill rule lives with it (the TF2 assembly's TFItemMeter).
+    /// carrier holds; the behaviour that owns it is the item's lane, the held
+    /// refill is the machine tail's tick and the holstered one the deploy
+    /// pair's (the TF2 assembly's TFItemMeter, the arsenal's settle).
     /// </summary>
     [Predicted]
     public partial float ItemMeter { get; set; }
@@ -378,6 +379,22 @@ public partial class WeaponNetState
     /// </summary>
     [Predicted(0.001f)]
     public partial float ItemMeterTime { get; set; }
+
+    /// <summary>
+    /// The multiplier a metered item's refill rides on — stock's
+    /// <c>m_flRechargeScale</c> (<c>tf_weapon_dragons_fury.h:75</c>, sent as a
+    /// plain float at <c>:33-35</c>, predicted with the weapon), which
+    /// <c>GetMeterMultiplier</c> answers into the charge fill
+    /// (<c>tf_player_shared.cpp:7901</c>). Zero means the item's own multiplier
+    /// is its class default of 1 (<c>tf_weapon_dragons_fury.cpp:62</c>): a
+    /// blast drops it to the penalty and a hit on the launcher boosts it
+    /// (<c>:57-58</c>), and the fill of the bar scales by the number. It stands
+    /// through deploys with the meter it scales, and the fill crossing the
+    /// meter to full hands it back to normal (stock's
+    /// <c>OnResourceMeterFilled</c>, <c>:280-287</c>).
+    /// </summary>
+    [Predicted]
+    public partial float FlameBallChargeScale { get; set; }
 
     /// <summary>
     /// The server's deploy stamp: bumped by <c>Arsenal.Deploy</c>, and by the

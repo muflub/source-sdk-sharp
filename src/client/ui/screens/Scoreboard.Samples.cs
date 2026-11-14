@@ -14,6 +14,14 @@ internal static class ScoreboardSamples
     [UiSample("empty server")]
     private static UiScreen Empty(UiSampleServices s) => s.Add<IScoreboardSource>(FakeScoreboard.Empty()).Create<Scoreboard>();
 
+    [UiSample("team deathmatch, three teams")]
+    private static UiScreen ThreeTeams(UiSampleServices s)
+        => s.Add<IScoreboardSource>(FakeScoreboard.Teams(4, seed: 3, teamCount: 3)).Create<Scoreboard>();
+
+    [UiSample("team deathmatch, four teams of four")]
+    private static UiScreen FourTeams(UiSampleServices s)
+        => s.Add<IScoreboardSource>(FakeScoreboard.Teams(4, seed: 5, teamCount: 4)).Create<Scoreboard>();
+
     [UiSample("full server, 16 players")]
     private static UiScreen Full(UiSampleServices s) => s.Add<IScoreboardSource>(FakeScoreboard.Teams(8, seed: 7)).Create<Scoreboard>();
 }

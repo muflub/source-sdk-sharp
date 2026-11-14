@@ -195,4 +195,42 @@ public sealed class TFVoiceMenusTests
     public void The_commands_are_declared(string name)
         => Assert.Contains(typeof(TFVoiceMenus).Assembly.GetTypes(), t =>
             t.GetCustomAttributes(typeof(client::SourceSharp.Abi.ConCommandAttribute), false).Cast<client::SourceSharp.Abi.ConCommandAttribute>().Any(c => c.Name == name));
+
+    /// <summary>A number key while the menu is up takes that entry — the
+    /// hud input layer's ask, the walk's (<see cref="client::SourceSharp.Client.Vgui.IHudMenuKeys"/>).</summary>
+    [Fact]
+    public void A_number_key_takes_its_entry_and_closes()
+    {
+        var menus = Menus();
+        Assert.False(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot1));   // no menu up
+        menus.Open(0);
+        Assert.True(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot2));
+        Assert.Equal(["voicemenu 0 1"], _lines);
+        Assert.False(_radial.Showing);
+    }
+
+    [Fact]
+    public void A_number_beyond_the_menu_s_entries_is_the_weapon_slot_s_again()
+    {
+        var menus = Menus();
+        menus.Open(1);                                        // one entry only
+        Assert.False(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot2));
+        Assert.Empty(_lines);
+        Assert.True(_radial.Showing);
+        Assert.True(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot1));
+        Assert.Equal(["voicemenu 1 0"], _lines);
+    }
+
+    [Fact]
+    public void Every_number_takes_the_menu_s_own_line_in_order()
+    {
+        var menus = Menus();
+        menus.Open(0);
+        Assert.True(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot1));
+        menus.Open(0);
+        Assert.False(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot10));  // not a number
+        Assert.False(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Attack));
+        Assert.True(menus.Key(client::SourceSharp.Client.Interop.ClientKeyBinding.Slot2));
+        Assert.Equal(["voicemenu 0 0", "voicemenu 0 1"], _lines);
+    }
 }

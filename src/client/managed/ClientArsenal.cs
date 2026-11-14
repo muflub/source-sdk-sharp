@@ -117,11 +117,28 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // spawn give's arithmetic stands in.
     private readonly ILocalWeaponClips? _localWeaponClips;
 
+    // The local player's held-aside item meters, as a side published them —
+    // the pair each carried weapon holstered with, what the switch's restore
+    // advances. Null in a composition without a publisher: the meter the
+    // hands' last deploy left stands, as the server's own row-word does.
+    private readonly ILocalItemMeters? _localItemMeters;
+
     // The viewmodel's skin chain, the server's twin: the mirror dresses the
     // same skin the server's deploy wrote, so the compare judges the switch
     // instead of mispredicting the byte for a round trip. Null in a
     // composition without a chain: no opinion, nothing written.
     private readonly ViewmodelSkin? _viewmodelSkin;
+
+    // The scripts both sides gate the held weapon's selectability on (the
+    // GAME-path files): the replay's empty-bit write reads the row's
+    // SelectOnEmpty flag exactly as the server's PublishSelection does. Null
+    // in a composition without one: the ammo arms alone answer, which is what
+    // a script-less row says anyway.
+    private readonly WeaponScriptDatabase? _scripts;
+
+    // The compare's own record keeper, the player ring's twin: the misprediction
+    // line's values read through it.
+    private readonly PredictionErrorRing _errorRing;
 
     public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
                          IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
@@ -132,16 +149,21 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                          ILocalWeaponWatcher? localWeapons = null,
                          ILocalAmmoPools? localAmmoPools = null,
                          ILocalWeaponClips? localWeaponClips = null,
-                         ViewmodelSkin? viewmodelSkin = null)
+                         ILocalItemMeters? localItemMeters = null,
+                         ViewmodelSkin? viewmodelSkin = null,
+                         WeaponScriptDatabase? scripts = null)
     {
         _localWeapons = localWeapons;
         _localAmmoPools = localAmmoPools;
         _localWeaponClips = localWeaponClips;
+        _localItemMeters = localItemMeters;
         _viewmodelSkin = viewmodelSkin;
+        _scripts = scripts;
         _fx = fx;
         _log = log;
         _world = world;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _errorRing = new PredictionErrorRing(catalog: _catalog);
         _standalones = standalones;
         _render = render;
         _clock = clock;
@@ -240,6 +262,13 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
                             commandTime, effectsLive: firstTime,
                             WeaponCommand.For(in cmd, _localWeapon.Handle, player));
+
+        // The exhausted hands' switch the ask picked: taken once the machine's
+        // run is done with the state, the server's own order (its command tail
+        // takes the pending switch after the run, then Take deploys).
+        TakeExhaustedSwitch(commandTime);
+
+        SyncHeldEmpty();
 
         SaveCommand(cmd.CommandNumber);
         RememberCarry();
@@ -352,10 +381,16 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     //-------------------------------------------------------------------------
 
     // The carry's bookkeeping, as the client can hold it: the stored special
-    // per catalog type. The pools and the carried clips are not here — the
-    // published per player's words, or the spawn give's arithmetic for a
-    // weapon nothing has named yet.
+    // per catalog type. The pools, the carried clips and the held-aside
+    // meters are not here — the published per player's words, or the spawn
+    // give's arithmetic for a weapon nothing has named yet.
     private readonly Dictionary<int, (int Special, float SpecialTime)> _specialByType = new();
+
+    // Stock's m_flHolsterAnimTime, the mirror's own copy of the server
+    // carry's HolsterUntil (tf_player_shared.cpp:11813): past on the first
+    // press away from an item that carries holster_anim_time, every press
+    // until then writes nothing; zero is no window (see MirrorDeploy).
+    private float _holsterUntil;
 
     private void MirrorDeploy(int typeIndex, float now)
     {
@@ -369,6 +404,44 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // The server refuses a dead player's switch (Arsenal.Refusal); the
         // mirror refuses with it, from the decoded word.
         if (_standalones.GetByIndex(_localIndex) is ClientSsPlayer { State.Alive: false })
+            return;
+
+        // Stock's holster window comes FIRST on both sides
+        // (tf_player_shared.cpp:11798-11826, whose first branch returns before
+        // BaseClass::Weapon_Switch ever asks anything of the candidate): the
+        // held item's holster_anim_time arms the window on the first press,
+        // every press inside it stands at nothing written, and the press the
+        // window expires on walks on without re-arming — the server's Take
+        // mirrors this shape, so the replayed command lands on the same bytes
+        // the server's run of it writes.
+        bool pendingOver = false;
+        if (_holsterUntil > 0f)
+        {
+            if (now < _holsterUntil)
+                return;                                 // Deferred on both sides (:11819-11821)
+            _holsterUntil = 0f;                         // the anim is over — the switch goes on (:11823-11826)
+            pendingOver = true;
+        }
+
+        if (!pendingOver && _weapons.ByIndex(_weapon.WeaponTypeId) is { } held)
+        {
+            float heldSeconds = _behaviours.For(held.Behaviour)?.HolsterSeconds(in held, _localIndex) ?? 0f;
+
+            if (heldSeconds > 0f)
+            {
+                _holsterUntil = now + heldSeconds;      // :11813's arm: the anim starts, the write waits (:11815)
+                return;
+            }
+        }
+
+        // Behind the window, stock's Weapon_CanSwitchTo deploy clause
+        // (Weapon_CanSwitchTo at basecombatcharacter_shared.cpp:88 through
+        // BaseClass::Weapon_Switch): the server's Take asks the candidate's
+        // behaviour CanDeploy only once the window has armed or let the press
+        // through; the mirror refuses with the same ask, so the replayed
+        // command stands where the server's run of it wrote — and refuses its
+        // stamp with it.
+        if (DeployRefused(in type, now))
             return;
 
         // The outgoing weapon keeps its special with it (StoreActiveClip); its
@@ -389,6 +462,19 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         _weapon.OwnerIndex = _localIndex;
         _weapon.WeaponTypeId = typeIndex;
+
+        // The held word of the server's Deploy (Arsenal.ShowHeld), on the same
+        // command: stock predicts the active weapon on the client too
+        // (DEFINE_PRED_FIELD m_hActiveWeapon, c_basecombatcharacter.cpp:194)
+        // through the shared Weapon_Switch's write, so a replay that left the
+        // working copy's held word alone mispredicted every switch by exactly
+        // that byte. The catalog index plus one, the server's ShowHeld spelling
+        // — cmd.WeaponSelect already carries that number. Past the AlreadyHeld,
+        // unknown-type and dead refusals above, which are the server's Take
+        // refusing the ShowHeld too.
+        if (WorkingPlayer is { } working)
+            working.HeldWeapon = typeIndex + 1;
+
         _weapon.Clip = type.ClipSize > 0
             ? ClipOf(typeIndex, FreshClip(type))
             : -1;
@@ -405,6 +491,14 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         _weapon.LastDeployTime = now;
         _weapon.LastButtons = 0;
         (_weapon.Special, _weapon.SpecialTime) = _specialByType.GetValueOrDefault(typeIndex);
+
+        // The meter, as the server's deploy restores it: the published pair
+        // advanced by the behaviour's seconds to this command's time, the
+        // server's own arithmetic on the server's own word (Arsenal
+        // RestoreItemMeter, the pair ILocalItemMeters publishes). No
+        // publisher, or a row the behaviour meters not: what stands stands,
+        // and the server wrote nothing to overturn it.
+        RestoreItemMeter(typeIndex, in type, now);
         _weapon.Redraw = false;
         _weapon.DrawbackFinished = false;
         _weapon.AnimEvent = 0;
@@ -437,6 +531,31 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private static int FreshClip(WeaponType type)
         => type.DefaultClip > 0 ? Math.Min(type.DefaultClip, type.ClipSize)
                                 : type.ClipSize;
+
+    /// <summary>
+    /// The switch's meter, the server deploy's own arithmetic on the server's
+    /// own word: the published pair (what the weapon holstered with, and the
+    /// server second that was) advanced by the behaviour's seconds to this
+    /// command's time, the same expression server-side
+    /// (Arsenal.RestoreItemMeter), so the replayed bytes are the judged ones.
+    /// No publisher, or a row no behaviour meters: nothing written, what
+    /// stands stands — the server's restore wrote nothing either.
+    /// </summary>
+    private void RestoreItemMeter(int typeIndex, in WeaponType type, float now)
+    {
+        if (_behaviours.For(type.Behaviour) is not { } behaviour)
+            return;
+
+        float seconds = behaviour.ItemMeterSeconds(in type, _localIndex);
+
+        if (seconds <= 0f
+            || _localItemMeters is null
+            || !_localItemMeters.MeterOf(typeIndex, out float meter, out float stamp))
+            return;
+
+        _weapon.ItemMeter = Math.Min(1f, meter + Math.Max(0f, now - stamp) / seconds);
+        _weapon.ItemMeterTime = now;
+    }
 
     // The switch's clip: the published carried clip (the server's own word, the
     // resupply's rewrite included) where the side names one; the fresh give
@@ -487,6 +606,183 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         => _behaviours.For(type.Behaviour) is { } behaviour
             ? behaviour.ModifyClipSize(in type, type.ClipSize, _localIndex)
             : type.ClipSize;
+
+    /// <summary>
+    /// The emptied held weapon's selectability bit, written into the player's
+    /// working copy on the command whose press spent the last round: the
+    /// server's frame recomputes both masks after every command
+    /// (Arsenal.PublishSelection) and the ack for the spend carries that word,
+    /// so the replayed command must carry it too — the ring slot the ack is
+    /// judged against is the working copy saved here. The held weapon's own
+    /// Reserve words mirror the pools the server's answer reads
+    /// (RefreshReserves), and the machine spent them identically this command.
+    /// </summary>
+    private void SyncHeldEmpty()
+    {
+        if (WorkingPlayer is not { } working)
+            return;
+
+        int held = _weapon.WeaponTypeId;
+        if (held < 0 || held >= PlayerNetState.WeaponMaskBits
+            || _weapons.ByIndex(held) is not { } type)
+            return;
+
+        UInt128 bit = (UInt128)1 << held;
+        working.EmptyMask = HeldSelectable(in type) ? working.EmptyMask & ~bit : working.EmptyMask | bit;
+    }
+
+    /// <summary>
+    /// The server's CanBeSelected for the held slot (Arsenal.cs:1854-1863):
+    /// the row's SelectOnEmpty flag first, else a round in the clip or in the
+    /// pools; a row naming no pools is always selectable. The held weapon's
+    /// Reserve is the mirror of its primary pool and SecondaryReserve of its
+    /// secondary's, so this side answers from the same numbers the server's
+    /// PublishSelection reads.
+    /// </summary>
+    private bool HeldSelectable(in WeaponType type)
+    {
+        if (_scripts?.ReadScript(type.Name) is { } script
+            && (script.Flags & WeaponItemFlags.SelectOnEmpty) != 0)
+            return true;
+
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary &&
+                       ((ClipSizeOf(in type) > 0 && _weapon.Clip > 0) || _weapon.Reserve > 0);
+        return primary || (usesSecondary && _weapon.SecondaryReserve > 0);
+    }
+
+    //-------------------------------------------------------------------------
+    // The exhausted hands' switch, the client's half of
+    // ReloadOrSwitchWeapons: the arms' ask inside the machine's run picks
+    // here, and the walk takes the pick once the run has finished with the
+    // state — the server's own order (machine, then TakePendingSwitch).
+    //-------------------------------------------------------------------------
+
+    // The type the ask picked, to deploy after the machine's run; -1 none.
+    private int _pendingExhaustedSwitch = -1;
+
+    /// <summary>
+    /// The arms' SwitchToNextBest, the server Arsenal arms' twin: pick the
+    /// next best carried weapon and hold it for the walk after the run.
+    /// </summary>
+    internal bool AskExhaustedSwitch()
+    {
+        _pendingExhaustedSwitch = PickExhaustedSwitch();
+        return _pendingExhaustedSwitch >= 0;
+    }
+
+    /// <summary>The pick the ask held, once, after the machine's run.</summary>
+    private void TakeExhaustedSwitch(float now)
+    {
+        if (_pendingExhaustedSwitch < 0)
+            return;
+
+        int typeIndex = _pendingExhaustedSwitch;
+        _pendingExhaustedSwitch = -1;
+        MirrorDeploy(typeIndex, now);
+    }
+
+    /// <summary>
+    /// The server's NextBestSlot (CMultiplayRules::GetNextBestWeapon) over the
+    /// mirrored carry: neither the held weapon that will not switch from
+    /// empty (the script's NOAUTOSWITCHEMPTY, its autoswitchfrom) nor one its
+    /// behaviour will not put away; else the first other carried weapon of
+    /// the same weight that passes the candidate gates — the script's
+    /// autoswitchto and, in the same-weight handover alone, the behaviour's
+    /// deploy (the server's <see cref="Arsenal.SwitchTo"/>) — or the heaviest
+    /// with any. The carried set is the working player's mask, the weights and
+    /// flags the same scripts' rows the server read, and a carried weapon's
+    /// ammo its published clip and pool — the words the server's carry
+    /// settles into.
+    /// </summary>
+    private int PickExhaustedSwitch()
+    {
+        if (_weapon.WeaponTypeId < 0 || _weapons.ByIndex(_weapon.WeaponTypeId) is not WeaponType current
+            || WorkingPlayer is not { } working)
+            return -1;
+
+        WeaponScript? currentScript = _scripts?.ReadScript(current.Name);
+        if (currentScript is not null && ((currentScript.Flags & WeaponItemFlags.NoAutoSwitchEmpty) != 0 ||
+                                          !currentScript.AutoSwitchFrom))
+            return -1;
+
+        if (_behaviours.For(current.Behaviour) is { } behaviour
+            && !behaviour.CanHolster(new WeaponAttackContext(current, _weapon, _viewModel, _commandClock,
+                                                             EffectsLive: false, new ClientWeaponArms(this), default)))
+            return -1;
+
+        int currentWeight = currentScript?.Weight ?? 0;
+        int best = -1, bestWeight = -1;
+        for (int typeIndex = 0; typeIndex < PlayerNetState.WeaponMaskBits; typeIndex++)
+        {
+            if (typeIndex == _weapon.WeaponTypeId
+                || (working.CarriedMask & (UInt128)1 << typeIndex) == 0
+                || _weapons.ByIndex(typeIndex) is not WeaponType check)
+                continue;
+
+            WeaponScript? checkScript = _scripts?.ReadScript(check.Name);
+            if (checkScript is not null && !checkScript.AutoSwitchTo)
+                continue;
+
+            int weight = checkScript?.Weight ?? 0;
+            bool hasAmmo = CarriedHasAmmo(typeIndex, in check);
+
+            if (weight > -1 && weight == currentWeight)
+            {
+                if (hasAmmo && CarriedSwitchTo(in check))
+                    return typeIndex;
+            }
+            else if (weight > bestWeight && hasAmmo)
+            {
+                bestWeight = weight;
+                best = typeIndex;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>The server's HasAnyAmmo for a carried weapon: its clip, or its pools.</summary>
+    private bool CarriedHasAmmo(int typeIndex, in WeaponType type)
+    {
+        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        if (!usesPrimary && !usesSecondary)
+            return true;
+
+        bool primary = usesPrimary &&
+                       ((ClipSizeOf(in type) > 0 && ClipOf(typeIndex, FreshClip(type)) > 0)
+                        || PoolOf(type.AmmoName, FreshReserve(in type)) > 0);
+        return primary || (usesSecondary && PoolOf(type.SecondaryAmmoName, FreshSecondaryReserve(in type)) > 0);
+    }
+
+    /// <summary>
+    /// The server's <see cref="Arsenal.SwitchTo"/> over the mirrored carry:
+    /// the holstered candidate's behaviour refusing the deploy, asked with the
+    /// same synthesized stand-in — the row, an empty state, no effects, the
+    /// local player and the command's clock.
+    /// </summary>
+    private bool CarriedSwitchTo(in WeaponType type) => !DeployRefused(in type, _commandClock);
+
+    /// <summary>
+    /// The deploy clause of the server's <see cref="Arsenal.DeployRefused"/>
+    /// (stock's <c>Weapon_CanSwitchTo</c>, basecombatcharacter_shared.cpp:88):
+    /// the candidate's behaviour's <c>CanDeploy</c>, the same stand-in the
+    /// server asks the direct switch with, the local player in the command and
+    /// the replayed clock in the context's stead.
+    /// </summary>
+    private bool DeployRefused(in WeaponType candidate, float now)
+    {
+        if (_behaviours.For(candidate.Behaviour) is not { } behaviour)
+            return false;
+
+        var attack = new WeaponAttackContext(candidate, new WeaponNetState(), new ViewModelNetState(),
+                                             now, EffectsLive: false, new ClientWeaponArms(this),
+                                             new WeaponCommand(0, 0, _localIndex));
+        return !behaviour.CanDeploy(in attack);
+    }
 
     /// <summary>
     /// The server's DeployDelayOf, replayed with the local index: the row's
@@ -548,7 +844,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     /// signature of a (re)deploy that ran between the two client commands,
     /// which no weaponselect could have been mirrored against.
     /// </summary>
-    private bool DeployedOutOfBand(int acknowledged)
+    public bool DeployedOutOfBand(int acknowledged)
     {
         ReadOnlySpan<byte> slot = _weaponRing.CommandBytes(acknowledged);
 
@@ -596,6 +892,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         ClearWitnessedPoke(ring, acknowledged, className);
 
+        // THE VALUES, as the player compare's line carries them: the two
+        // sides' readings of every standing field, on the same line.
+        var record = _errorRing.Observe(NetSchema.TypeIdOf(className), acknowledged, judged, arrived,
+                                        DateTime.UtcNow);
+
         int standing = PredictionJudge.Judge(_catalog, NetSchema.TypeIdOf(className),
             judged, arrived, out string fields, out _);
 
@@ -619,6 +920,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         {
             _log.Msg($"[SourceSharp] weapon prediction: MISPREDICTION on '{className}' at command " +
                     $"{acknowledged} — {standing} byte(s) stand: {fields}" +
+                    (record is null ? "" : $" [{ClientPlayerPrediction.StandingValues(record)}]") +
                     (_mispredicts == QuietAfter
                         ? " (quiet from here; the tally keeps counting)"
                         : "") + "\n");
@@ -997,6 +1299,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         public void Sound(string soundScript) => _owner._fx?.Sound(in _owner._shot, soundScript);
 
+        public void Sound(string soundScript, float pitchMultiplier)
+            => _owner._fx?.Sound(in _owner._shot, soundScript, pitchMultiplier);
+
         public void ClientSound(string soundScript) => Sound(soundScript);
 
         public PlayerNetState? Carrier => _owner.WorkingPlayer;
@@ -1057,6 +1362,14 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                 _owner._fx?.MeleeSwing(in _owner._shot, in type);
         }
 
+        // The swing's own reach and its two sounds ride to the fx, so the
+        // impact hears which sound fits what it stopped on.
+        public void MeleeSwing(in WeaponType type, float range, string hitWorldSound, string hitPlayerSound)
+        {
+            if (_owner._hasEye)
+                _owner._fx?.MeleeSwing(in _owner._shot, in type, range, hitWorldSound, hitPlayerSound);
+        }
+
         // A shot's muzzle flash and brass: the viewmodel they ride is this
         // replay's own hands, and the predicted-fx is the same door the sound
         // and the bullets go through.
@@ -1106,6 +1419,18 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
             return _owner._render.SequenceDuration(_owner._localViewModel.Handle, sequence);
         }
+
+        // The exhausted hands' switch, asked inside the machine's run exactly
+        // where the server's arms are (WeaponLogic.SwitchIfExhausted): the
+        // pick is the server's NextBestSlot rule over the mirrored carry, and
+        // the walk itself is TakePendingSwitch's, after the machine's run has
+        // finished with the state it ran on. Stock predicts the switch too —
+        // the shared ItemPostFrame chain runs on the client's prediction
+        // (baseplayer_shared.cpp:228) and m_hActiveWeapon is a predicted
+        // field (c_basecombatcharacter.cpp:194) — so a replay that left the
+        // ask unanswered mispredicted the held word by that byte on every
+        // empty-gun wind-down.
+        public bool SwitchToNextBest() => _owner.AskExhaustedSwitch();
     }
 }
 

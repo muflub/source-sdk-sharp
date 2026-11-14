@@ -55,6 +55,7 @@ public:
 	int32_t EntityPayloadAgreement(uint32_t hEntity, int32_t* pOutWords, int32_t* pOutFirstBadWord) override;
 	void* EntityGetEngineBlock(uint32_t hEntity, int32_t* pOutSize) override;
 	void EntitySetTransmitAlways(uint32_t hEntity, int32_t bAlways) override;
+	void EntitySetTransmitFullCheck(uint32_t hEntity, int32_t bOn) override;
 
 private:
 	CServerEntityResolver& m_Entities;

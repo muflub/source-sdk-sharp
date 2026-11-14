@@ -1,0 +1,357 @@
+{
+ "map": "ss_ai_tdm",
+ "source_sha256": "0d4d8ab11cff526114c2c55ada2ee61569a6c77999aae59e26611857546c55a8",
+ "scenes": [
+  {
+   "name": "clear",
+   "from": 338,
+   "to": 522
+  },
+  {
+   "name": "in line 1",
+   "from": 523,
+   "to": 631
+  },
+  {
+   "name": "in line 2",
+   "from": 632,
+   "to": 741
+  },
+  {
+   "name": "in line 3",
+   "from": 742,
+   "to": 851
+  },
+  {
+   "name": "in line 4",
+   "from": 852,
+   "to": 961
+  },
+  {
+   "name": "crossing",
+   "from": 962,
+   "to": 1133
+  },
+  {
+   "name": "crossing back",
+   "from": 1134,
+   "to": 1295
+  },
+  {
+   "name": "callouts",
+   "from": 1297,
+   "to": 1377
+  },
+  {
+   "name": "spotted 1",
+   "from": 1378,
+   "to": 1483
+  },
+  {
+   "name": "gone 1",
+   "from": 1484,
+   "to": 1656
+  },
+  {
+   "name": "spotted 2",
+   "from": 1657,
+   "to": 1762
+  },
+  {
+   "name": "gone 2",
+   "from": 1763,
+   "to": 1934
+  },
+  {
+   "name": "spotted 3",
+   "from": 1936,
+   "to": 2040
+  },
+  {
+   "name": "gone 3",
+   "from": 2042,
+   "to": 2213
+  },
+  {
+   "name": "spotted 4",
+   "from": 2214,
+   "to": 2319
+  },
+  {
+   "name": "gone 4",
+   "from": 2320,
+   "to": 2491
+  },
+  {
+   "name": "trade sight 1",
+   "from": 2510,
+   "to": 2594
+  },
+  {
+   "name": "trade 1",
+   "from": 2596,
+   "to": 2699
+  },
+  {
+   "name": "trade sight 2",
+   "from": 2857,
+   "to": 2941
+  },
+  {
+   "name": "trade 2",
+   "from": 2942,
+   "to": 3045
+  },
+  {
+   "name": "trade sight 3",
+   "from": 3168,
+   "to": 3253
+  },
+  {
+   "name": "trade 3",
+   "from": 3255,
+   "to": 3357
+  },
+  {
+   "name": "trade sight 4",
+   "from": 3514,
+   "to": 3598
+  },
+  {
+   "name": "trade 4",
+   "from": 3599,
+   "to": 3702
+  },
+  {
+   "name": "trade sight 5",
+   "from": 3859,
+   "to": 3943
+  },
+  {
+   "name": "trade 5",
+   "from": 3944,
+   "to": 4047
+  },
+  {
+   "name": "trade sight 6",
+   "from": 4205,
+   "to": 4290
+  },
+  {
+   "name": "trade 6",
+   "from": 4292,
+   "to": 4395
+  },
+  {
+   "name": "trade sight 7",
+   "from": 4516,
+   "to": 4600
+  },
+  {
+   "name": "trade 7",
+   "from": 4602,
+   "to": 4704
+  },
+  {
+   "name": "trade sight 8",
+   "from": 4863,
+   "to": 4947
+  },
+  {
+   "name": "trade 8",
+   "from": 4948,
+   "to": 5051
+  },
+  {
+   "name": "trade sight 9",
+   "from": 5207,
+   "to": 5293
+  },
+  {
+   "name": "trade 9",
+   "from": 5294,
+   "to": 5397
+  },
+  {
+   "name": "trade sight 10",
+   "from": 5554,
+   "to": 5638
+  },
+  {
+   "name": "trade 10",
+   "from": 5639,
+   "to": 5742
+  }
+ ],
+ "shooter": 2,
+ "mate": 3,
+ "foe": 4,
+ "foe2": 5,
+ "teams": {
+  "2": 2,
+  "3": 2,
+  "4": 3,
+  "5": 3
+ },
+ "trades": [
+  {
+   "scene": "trade 1",
+   "watcher": 2,
+   "victim": 3
+  },
+  {
+   "scene": "trade 2",
+   "watcher": 3,
+   "victim": 2
+  },
+  {
+   "scene": "trade 3",
+   "watcher": 2,
+   "victim": 3
+  },
+  {
+   "scene": "trade 4",
+   "watcher": 3,
+   "victim": 2
+  },
+  {
+   "scene": "trade 5",
+   "watcher": 2,
+   "victim": 3
+  },
+  {
+   "scene": "trade 6",
+   "watcher": 3,
+   "victim": 2
+  },
+  {
+   "scene": "trade 7",
+   "watcher": 2,
+   "victim": 3
+  },
+  {
+   "scene": "trade 8",
+   "watcher": 3,
+   "victim": 2
+  },
+  {
+   "scene": "trade 9",
+   "watcher": 2,
+   "victim": 3
+  },
+  {
+   "scene": "trade 10",
+   "watcher": 3,
+   "victim": 2
+  }
+ ],
+ "counters": {
+  "tick": 5742,
+  "ai.sense.us": 150.1,
+  "ai.sense.us.max": 1136.5,
+  "ai.publish.us": 16.1,
+  "ai.sense.ticks": 300,
+  "ai.sense.traces": 10,
+  "ai.sense.traces.total": 111886,
+  "ai.brain.us": 895.7,
+  "ai.brain.us.max": 18837.0,
+  "ai.brain.cpu.us": 895.4,
+  "ai.brain.steps": 3738,
+  "ai.follow.builds": 0,
+  "ai.follow.builds.main": 0,
+  "ai.drive.steps": 0,
+  "ai.drive.main": 0,
+  "ai.drive.late": 0,
+  "ai.drive.repeats": 0,
+  "ai.drive.refused": 0,
+  "ai.drive.faults": 0,
+  "ai.drive.us": 0.0,
+  "ai.drive.us.max": 0.0,
+  "bots": 4,
+  "ai.apply.us": 39.0,
+  "ai.run.us": 121.2,
+  "ai.bots.added": 4,
+  "ai.bots.adopted": 0,
+  "ai.punch.peak_cdeg": 0,
+  "ai.streaks.hot": 0,
+  "ai.streaks.cold": 0,
+  "ai.breaks": 0,
+  "ai.breakables": 0,
+  "ai.breaks.given_up": 0,
+  "ai.bots.models": "models/combine_soldier.mdl|models/police.mdl|models/humans/group03/male_03.mdl|models/humans/group03/female_03.mdl",
+  "ai.obstacles.us": 0.7,
+  "ai.obstacles.bodies": 0,
+  "ai.obstacles.moved": 0,
+  "ai.obstacles.learned": 0,
+  "ai.obstacles.published": 0,
+  "ai.obstacles.blocked": 0,
+  "ai.obstacles.costly": 0,
+  "ai.refused.stale": 0,
+  "ai.refused.unknown": 0,
+  "ai.refused.expired": 2,
+  "ai.main.us": 205.2,
+  "ai.sense.cpu.us": 147.1,
+  "ai.main.cpu.us": 201.9,
+  "ai.pool.cpu.us": 16116.3,
+  "ai.sync": 0,
+  "ai.pool.threads": 4,
+  "ai.pool.alive": 4,
+  "ai.pool.os_threads": 4,
+  "ai.pool.us": 16161.7,
+  "ai.pool.ran": 3738,
+  "ai.pool.faults": 0,
+  "ai.steps.skipped": 0,
+  "ai.steps.faulted": 0,
+  "ai.steps.held": 0,
+  "ai.steps.inflight": 0,
+  "ai.steps.inflight.max": 2,
+  "process.threads": 77,
+  "ai.budget.on": 0,
+  "ai.budget.target.us": 16667,
+  "ai.budget.nonbot.us": 1912,
+  "ai.budget.allowance.us": 13611,
+  "ai.budget.used.us": 333.4,
+  "ai.budget.used.us.p99": 624,
+  "ai.budget.used.us.max": 759,
+  "ai.budget.deferrals": 0,
+  "ai.budget.sense.deferrals": 0,
+  "ai.budget.forced": 0,
+  "ai.budget.frames": 5093,
+  "ai.budget.frames.over": 0,
+  "ai.budget.frames.late": 12,
+  "ai.frame.us.p50": 16728,
+  "ai.frame.us.p99": 16990,
+  "ai.frame.us.max": 17313,
+  "ai.chat.questions": 0,
+  "ai.chat.answers.model": 0,
+  "ai.chat.answers.template": 0,
+  "ai.chat.answers.unverified": 0,
+  "ai.chat.answers.dropped": 0,
+  "ai.chat.shrugs": 0,
+  "ai.chat.marks": 0,
+  "ai.chat.triggers": 0,
+  "ai.chat.chance_missed": 0,
+  "ai.chat.limit.interval": 0,
+  "ai.chat.limit.cooldown": 0,
+  "ai.chat.limit.fight": 0,
+  "ai.chat.limit.reply": 0,
+  "ai.chat.limit.paused": 0,
+  "ai.chat.limit.queue": 0,
+  "ai.chat.requests": 0,
+  "ai.chat.answered": 0,
+  "ai.chat.said": 0,
+  "ai.chat.replies": 0,
+  "ai.chat.latency.ms": 0.0,
+  "ai.chat.latency.ms.max": 0.0,
+  "ai.chat.timeouts": 0,
+  "ai.chat.server_down": 0,
+  "ai.chat.refused": 0,
+  "ai.chat.rate_limited": 0,
+  "ai.chat.stale": 0,
+  "ai.chat.main.us": 0.0,
+  "ai.chat.main.us.max": 0.0,
+  "nav.map": "ss_ai_tdm",
+  "nav.cells": 7164,
+  "nav.refusal": null
+ }
+}

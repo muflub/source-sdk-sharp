@@ -32,7 +32,7 @@ namespace TF2.Server.Entities.Items;
 /// </para>
 /// </summary>
 [ScriptedEntity(Class, ScriptedEntityKind.Prop)]
-public sealed class TFDroppedWeapon(TFDroppedWeaponLifetimeConVar lifetime, IUniformRandom random, IEngineEntityRender render)
+public sealed class TFDroppedWeapon(TFDroppedWeaponLifetimeConVar lifetime, IUniformRandom random, IServerSkins skins)
     : ScriptedEntity
 {
     public const string Class = "tf_dropped_weapon";
@@ -134,7 +134,7 @@ public sealed class TFDroppedWeapon(TFDroppedWeaponLifetimeConVar lifetime, IUni
         Entities.SetAngularVelocity(Handle, new Vector(0f, random.RandomFloat(0f, 100f), 0f)); // :562
 
         _skin = skin; // :566
-        render.SetSkin(Handle, skin);
+        skins.SetSkin(Handle, skin);
 
         _clip = clip;    // :568
         _ammo = ammo;    // :569

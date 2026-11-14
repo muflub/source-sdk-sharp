@@ -1,0 +1,248 @@
+{
+ "map": "ss_ai_tf_jump",
+ "source_sha256": "a77c62aa32ed19fd25e4597cf3d20c7518a196848df692e856a0f62e51a14552",
+ "game_commit": "05b4ddbffda996ba948b9386c0eafad96cdd2997",
+ "config": "debug",
+ "seconds": 300.0,
+ "slot": 2,
+ "bot": "Jumper medium team=2, health held at 200 (ai_aim_tough)",
+ "tick_seconds": 0.015,
+ "sequences": 13,
+ "flights": [
+  {
+   "air": 2.27,
+   "along": 238.8,
+   "walked": 543.6,
+   "peak": 463.1
+  },
+  {
+   "air": 2.27,
+   "along": 243.8,
+   "walked": 543.6,
+   "peak": 462.8
+  },
+  {
+   "air": 2.28,
+   "along": 220.9,
+   "walked": 547.2,
+   "peak": 455.9
+  },
+  {
+   "air": 2.37,
+   "along": 243.2,
+   "walked": 568.8,
+   "peak": 455.3
+  },
+  {
+   "air": 2.35,
+   "along": 276.3,
+   "walked": 565.2,
+   "peak": 462.2
+  },
+  {
+   "air": 2.35,
+   "along": 252.1,
+   "walked": 565.2,
+   "peak": 462.2
+  },
+  {
+   "air": 2.34,
+   "along": 306.3,
+   "walked": 561.6,
+   "peak": 449.2
+  },
+  {
+   "air": 2.23,
+   "along": 193.2,
+   "walked": 536.4,
+   "peak": 456.4
+  },
+  {
+   "air": 2.35,
+   "along": 280.9,
+   "walked": 565.2,
+   "peak": 461.3
+  },
+  {
+   "air": 2.35,
+   "along": 259.5,
+   "walked": 565.2,
+   "peak": 462.7
+  },
+  {
+   "air": 2.25,
+   "along": 155.1,
+   "walked": 540.0,
+   "peak": 462.9
+  },
+  {
+   "air": 2.37,
+   "along": 190.5,
+   "walked": 568.8,
+   "peak": 462.6
+  },
+  {
+   "air": 2.32,
+   "along": 289.4,
+   "walked": 558.0,
+   "peak": 459.7
+  }
+ ],
+ "kept": "the bot's usercmds and frames, 100 ticks before each flight to 34 after",
+ "windows": [
+  [
+   505,
+   785
+  ],
+  [
+   2562,
+   2842
+  ],
+  [
+   4317,
+   4596
+  ],
+  [
+   6001,
+   6280
+  ],
+  [
+   7627,
+   7907
+  ],
+  [
+   8647,
+   8927
+  ],
+  [
+   10386,
+   10664
+  ],
+  [
+   12042,
+   12321
+  ],
+  [
+   13681,
+   13961
+  ],
+  [
+   14683,
+   14963
+  ],
+  [
+   16449,
+   16729
+  ],
+  [
+   18104,
+   18384
+  ],
+  [
+   19743,
+   20023
+  ]
+ ],
+ "session_bytes": 6188062,
+ "session_sha256": "b17bae7e84e0ab2ede5e0f211c702efba6041c822594ceb56eb0292e4f0fb803",
+ "counters": {
+  "tick": 20404,
+  "ai.sense.us": 269.1,
+  "ai.sense.us.max": 5652.8,
+  "ai.publish.us": 15.3,
+  "ai.sense.ticks": 300,
+  "ai.sense.traces": 0,
+  "ai.sense.traces.total": 23871,
+  "ai.brain.us": 61.8,
+  "ai.brain.us.max": 8492.7,
+  "ai.brain.cpu.us": 55.5,
+  "ai.brain.steps": 3370,
+  "ai.follow.builds": 44,
+  "ai.follow.builds.main": 0,
+  "ai.drive.steps": 19760,
+  "ai.drive.main": 0,
+  "ai.drive.late": 581,
+  "ai.drive.repeats": 581,
+  "ai.drive.refused": 0,
+  "ai.drive.faults": 0,
+  "ai.drive.us": 163.7,
+  "ai.drive.us.max": 69337.7,
+  "bots": 1,
+  "ai.apply.us": 336.2,
+  "ai.apply.ability.commands": 0,
+  "ai.apply.ability.sequences": 13,
+  "ai.apply.fire.feet": 0,
+  "ai.run.us": 322.3,
+  "ai.bots.added": 1,
+  "ai.bots.adopted": 0,
+  "ai.punch.peak_cdeg": 200,
+  "ai.streaks.hot": 0,
+  "ai.streaks.cold": 0,
+  "ai.breaks": 0,
+  "ai.breakables": 0,
+  "ai.breaks.given_up": 0,
+  "ai.bots.models": "models/player/soldier.mdl",
+  "ai.obstacles.us": 1.6,
+  "ai.obstacles.bodies": 0,
+  "ai.obstacles.moved": 0,
+  "ai.obstacles.learned": 0,
+  "ai.obstacles.published": 0,
+  "ai.obstacles.blocked": 0,
+  "ai.obstacles.costly": 0,
+  "ai.refused.stale": 0,
+  "ai.refused.unknown": 0,
+  "ai.refused.expired": 0,
+  "ai.main.us": 620.6,
+  "ai.sense.cpu.us": 111.7,
+  "ai.main.cpu.us": 238.7,
+  "ai.pool.cpu.us": 3814.5,
+  "ai.sync": 0,
+  "ai.pool.threads": 4,
+  "ai.pool.alive": 4,
+  "ai.pool.os_threads": 4,
+  "ai.pool.us": 3893.0,
+  "ai.pool.ran": 23131,
+  "ai.pool.faults": 0,
+  "ai.steps.skipped": 0,
+  "ai.steps.faulted": 0,
+  "ai.steps.held": 0,
+  "ai.steps.inflight": 1,
+  "ai.steps.inflight.max": 1,
+  "process.threads": 77,
+  "ai.budget.on": 0,
+  "ai.budget.target.us": 16667,
+  "ai.budget.nonbot.us": 5517,
+  "ai.budget.allowance.us": 1954,
+  "ai.budget.used.us": 574.9,
+  "ai.budget.used.us.p99": 1089,
+  "ai.budget.used.us.max": 1543,
+  "ai.budget.deferrals": 0,
+  "ai.budget.sense.deferrals": 0,
+  "ai.budget.forced": 0,
+  "ai.budget.frames": 18018,
+  "ai.budget.frames.over": 0,
+  "ai.budget.frames.late": 1232,
+  "ai.frame.us.p50": 16762,
+  "ai.frame.us.p99": 22883,
+  "ai.frame.us.max": 31130,
+  "ai.experience.on": 0,
+  "ai.experience.memory_only": 0,
+  "ai.experience.frames": 0,
+  "ai.experience.events": 0,
+  "ai.experience.flushes": 0,
+  "ai.experience.rows.merged": 0,
+  "ai.experience.loads": 0,
+  "ai.experience.merge_failures": 0,
+  "ai.experience.refusals": 0,
+  "ai.experience.dropped": 0,
+  "ai.experience.faults": 0,
+  "ai.experience.main_thread_work": 0,
+  "ai.experience.snapshot.rows": 0,
+  "nav.building": 0,
+  "nav.build.percent": -1,
+  "nav.version": 1,
+  "nav.map": "ss_ai_tf_jump",
+  "nav.cells": 15679,
+  "nav.refusal": null
+ }
+}

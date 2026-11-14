@@ -26,10 +26,19 @@ public sealed class TFWeaponEffectsTests
 
         public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Calls.Add($"detonate {script.Name}");
 
+        public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
+            => Calls.Add($"shockattack {script.Name}");
+
         public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot)
             => Calls.Add($"flames {script.Name} {shot.Damage} {shot.Critical}");
 
         public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) => Calls.Add($"airblast {script.Name}");
+
+        public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
+        {
+            Calls.Add($"extinguish {script.Name}");
+            return true;
+        }
 
         public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) => Calls.Add($"heal {script.Name} {held}");
 
@@ -44,7 +53,7 @@ public sealed class TFWeaponEffectsTests
     public void A_projectile_and_a_detonation_reach_the_projectile_seam()
     {
         var seams = new Seams();
-        var effects = new TFWeaponEffects(projectiles: seams);
+        var effects = OwnedEffects.Of(projectiles: seams);
         var launcher = WeaponFixtures.Parse("tf_weapon_pipebomblauncher");
 
         effects.Projectile(in Attack, launcher, new ShotDamage(120f, Critical: true), 2.5f);
@@ -57,7 +66,7 @@ public sealed class TFWeaponEffectsTests
     public void Flames_heal_and_zoom_each_reach_their_own_seam()
     {
         var seams = new Seams();
-        var effects = new TFWeaponEffects(flames: seams, heal: seams, zoom: seams);
+        var effects = OwnedEffects.Of(flames: seams, heal: seams, zoom: seams);
 
         effects.Flames(in Attack, WeaponFixtures.Parse("tf_weapon_flamethrower"), new ShotDamage(6.8f));
         effects.Heal(in Attack, WeaponFixtures.Parse("tf_weapon_medigun"), held: true);
@@ -71,7 +80,7 @@ public sealed class TFWeaponEffectsTests
     public void The_PDAs_item_switch_reaches_the_item_switch_seam()
     {
         var seams = new Seams();
-        var effects = new TFWeaponEffects(itemSwitch: seams);
+        var effects = OwnedEffects.Of(itemSwitch: seams);
 
         effects.SelectLast(in Attack, WeaponFixtures.Parse("tf_weapon_pda_spy"));
 
@@ -82,7 +91,7 @@ public sealed class TFWeaponEffectsTests
     public void A_seam_nobody_owns_does_nothing()
     {
         var seams = new Seams();
-        var effects = new TFWeaponEffects(heal: seams);   // only the medigun's seam is owned
+        var effects = OwnedEffects.Of(heal: seams);   // only the medigun's seam hears; the rest are silent stands
         var rifle = WeaponFixtures.Parse("tf_weapon_sniperrifle");
 
         effects.Projectile(in Attack, rifle, new ShotDamage(1f), 0f);
@@ -120,7 +129,7 @@ public sealed class TFWeaponEffectsTests
     public void The_plain_fire_ask_waits_for_the_scene_and_the_clear_lets_it_in()
     {
         var rig = SpeechRig(out EntityHandle speaker);
-        var effects = new TFWeaponEffects(speech: rig.Speech);
+        var effects = OwnedEffects.Of(speech: rig.Speech);
 
         effects.SpeakWeaponFire(At(10f), "");
         Assert.Equal("TLK_FIREWEAPON", rig.ConceptRules.Asked[0].Concept);
@@ -147,7 +156,7 @@ public sealed class TFWeaponEffectsTests
     public void A_named_concept_ignores_the_scene_clock()
     {
         var rig = SpeechRig(out _);
-        var effects = new TFWeaponEffects(speech: rig.Speech);
+        var effects = OwnedEffects.Of(speech: rig.Speech);
 
         effects.SpeakWeaponFire(At(10f), "TLK_WINDMINIGUN");
         effects.SpeakWeaponFire(At(10.1f), "TLK_WINDMINIGUN");
@@ -166,7 +175,7 @@ public sealed class TFWeaponEffectsTests
     public void The_firing_concept_speaks_once_across_its_five_seconds()
     {
         var rig = SpeechRig(out _);
-        var effects = new TFWeaponEffects(speech: rig.Speech);
+        var effects = OwnedEffects.Of(speech: rig.Speech);
 
         effects.FiringSpeech(At(10f));
         Assert.Single(rig.ConceptRules.Asked);
@@ -195,7 +204,7 @@ public sealed class TFWeaponEffectsTests
     {
         var rig = SpeechRig(out _);
         rig.Random.Next = 80;
-        var effects = new TFWeaponEffects(speech: rig.Speech);
+        var effects = OwnedEffects.Of(speech: rig.Speech);
 
         var weaponState = new WeaponNetState();
         weaponState.BindLocal();

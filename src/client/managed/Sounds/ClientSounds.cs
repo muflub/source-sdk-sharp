@@ -25,6 +25,17 @@ public interface IClientEntitySounds
     void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null);
 
     /// <summary>
+    /// An <see cref="EmitFrom(EntityHandle,string,Vector?)"/> with the script's pitch scaled by
+    /// <paramref name="pitchMultiplier"/> on top: the bow's pull sound carries its refire rate
+    /// there (<c>tf_weapon_compound_bow.cpp:243-248</c>). The default keeps the plain emit, so an
+    /// ear without pitch behaves as it did.
+    /// </summary>
+    void EmitFrom(EntityHandle entity, string soundName, Vector? origin, float pitchMultiplier)
+    {
+        EmitFrom(entity, soundName, origin);
+    }
+
+    /// <summary>
     /// <c>C_BaseEntity::StopSound( soundname )</c>: the script's waves stopped
     /// on <paramref name="entity"/>'s index and the script's channel.
     /// </summary>
@@ -117,6 +128,34 @@ public sealed class ClientSounds(IEngineEntities entities)
             index = SoundEmitterCore.SoundFromWorld;
 
         emitter.Emit(emitter.LocalPlayer(), index, soundName, origin);
+    }
+
+    /// <inheritdoc/>
+    public void EmitFrom(EntityHandle entity, string soundName, Vector? origin, float pitchMultiplier)
+    {
+        if (_emitter is not { } emitter || string.IsNullOrEmpty(soundName))
+            return;
+
+        // SOUND_FROM_WORLD when the handle does not resolve, as the plain emit's.
+        int index = entities.GetIndex(entity);
+        if (index < 0)
+            index = SoundEmitterCore.SoundFromWorld;
+
+        // The script's pitch times the multiplier rides the change-pitch flag, so
+        // the resolved script answers it in place of its own. No pitch on the
+        // script leaves the norm as the base.
+        int basePitch = emitter.Parameters(soundName) is { Pitch: > 0 } parameters
+            ? parameters.Pitch
+            : SoundEmitterCore.PitchNorm;
+
+        emitter.Emit(emitter.LocalPlayer(), index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = origin,
+            WarnOnDirectWaveReference = true,
+            Pitch = (int)(basePitch * pitchMultiplier),
+            Flags = SoundEmitterCore.SndChangePitch,
+        });
     }
 
     /// <inheritdoc/>

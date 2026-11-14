@@ -53,6 +53,9 @@ public class NullMode : IGameMode
     /// <summary>The core's machine itself — the same object, by reference.</summary>
     public virtual IRoundFlow Rounds => _core;
 
+    /// <summary>Deathmatch's limits, on any map (<see cref="CoreModeSpecs.Deathmatch"/>).</summary>
+    public virtual IModeSettings? Settings => ModeSettings.Of(CoreModeSpecs.Deathmatch());
+
     /// <summary>The core rules this mode fronts, for subclasses and the dev view.</summary>
     protected GameRules Core => _core;
 

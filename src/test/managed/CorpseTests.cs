@@ -37,7 +37,13 @@ public class CorpseTests
 
 
     private static readonly EntityHandle Player = new(7u);
+    private static readonly EntityHandle SecondPlayer = new(8u);
+    private static readonly EntityHandle ThirdPlayer = new(9u);
+    private static readonly EntityHandle FourthPlayer = new(10u);
     private static readonly EntityHandle Body = new(99u);
+    private static readonly EntityHandle SecondBody = new(100u);
+    private static readonly EntityHandle ThirdBody = new(101u);
+    private static readonly EntityHandle FourthBody = new(102u);
 
     /// <summary>
     /// An engine double a corpse can be made against: it answers the four
@@ -118,13 +124,37 @@ public class CorpseTests
             => _byIndex.TryGetValue(entityIndex, out var e) ? e : null;
     }
 
+    /// <summary>The ice hold's receiving end: what bodies were frozen, when.</summary>
+    private sealed class Holds : client::SourceSharp.Client.Ragdolls.IIceRagdolls
+    {
+        public readonly List<(EntityHandle Body, float At)> Began = [];
+
+        public void Begin(EntityHandle body, float now) => Began.Add((body, now));
+
+        public void End(EntityHandle body) { }
+    }
+
+    /// <summary>The fade's receiving end: what bodies were armed, and when they went.</summary>
+    private sealed class Fades : client::SourceSharp.Client.Ragdolls.IRagdollFades
+    {
+        public readonly List<EntityHandle> Began = [], Ended = [];
+
+        public void Begin(EntityHandle body) => Began.Add(body);
+
+        public void End(EntityHandle body) => Ended.Add(body);
+    }
+
     /// <summary>A client body with somewhere for its decoded state to live.</summary>
-    private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null)
+    private static ClientSsRagdoll Viewer(client::SourceSharp.Abi.RecordingEngine engine, Viewers? others = null,
+                                          client::SourceSharp.Client.Sounds.IClientEntitySounds? sounds = null,
+                                          client::SourceSharp.Client.Ragdolls.IIceRagdolls? ice = null,
+                                          client::SourceSharp.Client.Ragdolls.IRagdollFades? fades = null)
     {
         // At the origin, matching the state's default -- see the note below.
         // Set on the engine rather than in each test, because every viewer test
         // reaches the placement check before anything it is actually about.
-        var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine));
+        var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine),
+                                       ice: ice, sounds: sounds, fades: fades);
 
         // The registry does both of these in a game (ClientStandaloneRegistry
         // binds the engine at create, and the decode gives the state its
@@ -360,9 +390,9 @@ public class CorpseTests
     }
 
     /// <summary>
-    /// THE OLDEST BODY GOES WHEN THE CAP IS REACHED. A timer alone does not
-    /// bound this: a firefight can pile up far more bodies inside one lifetime
-    /// than a map has players.
+    /// THE OLDEST BODY GOES WHEN THE CAP IS REACHED. A cap and a replace bound
+    /// different things: four players' bodies under a cap of three, and the
+    /// oldest goes — no replace ever fires, every body its own player's.
     /// </summary>
     [Fact]
     public void TheOldestBodyIsRemovedWhenTheCapIsReached()
@@ -372,19 +402,28 @@ public class CorpseTests
 
         corpses.Limit = 3;
 
-        for (int i = 0; i < 3; i++)
-            corpses.Make(Player);
+        corpses.Make(Player);
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(SecondPlayer);
+        engine.Returns("Entities.Create", ThirdBody);
+        corpses.Make(ThirdPlayer);
 
         Assert.True(corpses.Count == 3, $"three bodies fit under a cap of three ({corpses.Count})");
 
         Assert.True(engine.CountOf("Entities.Remove") == 0,
             "and none of them was removed to make room, because there was room");
 
-        corpses.Make(Player);
+        engine.Returns("Entities.Create", FourthBody);
+        corpses.Make(FourthPlayer);
 
         Assert.True(engine.CountOf("Entities.Remove") == 1,
             $"the fourth removes exactly one body ({engine.CountOf("Entities.Remove")}) — the "
           + "oldest");
+
+        var removed = engine.Calls.Where(c => c.Member == "Entities.Remove").Single();
+
+        Assert.True(removed.ArgAs<EntityHandle>(0).Equals(Body),
+            $"and the one that goes is the oldest ({removed.ArgAs<EntityHandle>(0)}, wanted {Body})");
 
         Assert.True(corpses.Count == 3,
             $"and the count stays at the cap ({corpses.Count}) rather than growing");
@@ -402,7 +441,8 @@ public class CorpseTests
         var corpses = Service(engine, out _);
 
         corpses.Make(Player);
-        corpses.Make(Player);
+        engine.Returns("Entities.Create", SecondBody);
+        corpses.Make(SecondPlayer);
 
         Assert.True(corpses.Count == 2, $"two bodies stand ({corpses.Count})");
 
@@ -495,12 +535,14 @@ public class CorpseTests
     // ---------------------------------------------------------------------
 
     /// <summary>
-    /// A body is NOT SOLID, and arms its own removal. The first is what stops a
-    /// corpse becoming a wall in a doorway; the second is the only thing that
-    /// bounds how long one lasts.
+    /// A body is NOT SOLID, which is what stops a corpse becoming a wall in a
+    /// doorway. It books no lifetime think of its own: the one think a body
+    /// fires is its dissolve's end, and the visible bound is the client's
+    /// fade — the server's body goes when the next death replaces it or a
+    /// round reset sweeps it.
     /// </summary>
     [Fact]
-    public void ABodyIsNotSolidAndArmsItsOwnRemoval()
+    public void ABodyIsNotSolid()
     {
         var engine = Fake();
         var body = new SsRagdoll(engine);
@@ -513,36 +555,6 @@ public class CorpseTests
         Assert.True(call.ArgAs<bool>(1),
             "a body is not solid — a corpse in a doorway would otherwise block it, and one on "
           + "a stairway would be an invisible step");
-
-        Assert.True(body.ThinkArmed == SsRagdoll.Lifetime,
-            $"and it arms its removal for its lifetime ({body.ThinkArmed}s, wanted "
-          + $"{SsRagdoll.Lifetime}s). Nothing else cleans these up: this mod has neither "
-          + "stock's ragdoll manager nor a round restart");
-    }
-
-    /// <summary>
-    /// Its think removes it, which is the whole of what the timer buys.
-    ///
-    /// <para>
-    /// Read off the entity rather than off the engine double, because
-    /// <c>Remove</c> is a <c>ScriptedEntity</c> convenience that goes through
-    /// the STATIC engine — the same wall <c>PropPhysics.Gone</c> exists for.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void ABodyRemovesItselfWhenItsTimeIsUp()
-    {
-        var engine = Fake();
-        var body = new SsRagdoll(engine);
-        body.BindAreas(Areas(engine));
-
-        Assert.True(!body.Gone, "a fresh body is in the world");
-
-        body.OnThink();
-
-        Assert.True(body.Gone,
-            "and its think takes it out again. The client half's OnRemoved tears the ragdoll "
-          + "down on each viewer, so there is no second message to send");
     }
 
     // ---------------------------------------------------------------------
@@ -606,6 +618,32 @@ public class CorpseTests
     }
 
     /// <summary>
+    /// THE VISIBLE CLOCK IS THE CLIENT'S: the arrival arms the fade and the
+    /// removal ends it, which is the whole of the client half's duty to a
+    /// server that never retires a body by time.
+    /// </summary>
+    [Fact]
+    public void TheViewerAsksForTheFadeAtEveryArrivalAndEndsItAtTheRemoval()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        var fades = new Fades();
+
+        var body = Viewer(engine, fades: fades);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(2, fades.Began.Count);
+        Assert.Empty(fades.Ended);
+
+        body.OnRemoved();
+
+        Assert.Single(fades.Ended);
+    }
+
+    /// <summary>
     /// Stock's burn arrival (c_tf_player.cpp:928-932): a body whose update
     /// carries the networked burning stamps ITS OWN clock with the client's
     /// now and starts the corpse's particle. The clock crosses no wire — the
@@ -636,6 +674,158 @@ public class CorpseTests
     }
 
     /// <summary>
+    /// Stock's ash arrival (c_tf_player.cpp:941-945): a body whose update
+    /// carries the networked ash — and no gib — stamps its half-second clock
+    /// with the client's now and starts the ash particle, in the corpse slot.
+    /// </summary>
+    [Fact]
+    public void ABodyThatArrivesAshingStampsItsHalfSecondAndStartsTheAshParticle()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ash = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(100f, body.AshStartTime);
+
+        var start = engine.Last("Effects.ParticleSystemStartSlot")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == FlameRules.AshCorpse,
+            $"the ash particle is stock's '{FlameRules.AshCorpse}', not '{start.ArgAs<string>(1)}'");
+        Assert.Equal(client::SourceSharp.Client.Ragdolls.RagdollAsh.CorpseSlot, start.ArgAs<int>(2));
+    }
+
+    [Fact]
+    public void AnAshingBodyAshesOnceHoweverManyUpdatesArrive()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ash = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStartSlot"));
+    }
+
+    /// <summary>The gib arm of the same gate (c_tf_player.cpp:941): a body in
+    /// pieces draws the gib, not the ash.</summary>
+    [Fact]
+    public void AGibbedBodyLeavesNoAsh()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ash = true;
+        body.State.Gib = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(0f, body.AshStartTime);
+        Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
+    }
+
+    // ---- the Classic's red mist (crit_on_hard_hit) ---------------------------
+
+    /// <summary>
+    /// The mist arm (c_tf_player.cpp:1120-1123): a gibbed body from a
+    /// hard-hit-critting weapon raises <c>tfc_sniper_mist</c> in the slot beside
+    /// the ash's, once.
+    /// </summary>
+    [Fact]
+    public void AGibbedBodyFromAHardHitWeaponRaisesTheMist()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+
+        var body = Viewer(engine);
+        body.State.Gib = true;
+        body.State.CritOnHardHit = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var start = engine.Last("Effects.ParticleSystemStartSlot")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == client::SourceSharp.Client.Standalone.ClientSsRagdoll.CritMistParticle,
+            $"the mist is stock's 'tfc_sniper_mist', not '{start.ArgAs<string>(1)}'");
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.CritMistSlot, start.ArgAs<int>(2));
+        Assert.True(body.CritMistShown);
+    }
+
+    [Fact]
+    public void TheMistGoesUpOnceHoweverManyUpdatesArrive()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+
+        var body = Viewer(engine);
+        body.State.Gib = true;
+        body.State.CritOnHardHit = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStartSlot"));
+    }
+
+    [Fact]
+    public void AWholeBodyAndAPlainGibRaiseNoMist()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var plain = Viewer(engine);
+        plain.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var unflagged = Viewer(engine);
+        unflagged.State.Gib = true;
+        unflagged.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
+        Assert.False(plain.CritMistShown);
+        Assert.False(unflagged.CritMistShown);
+    }
+
+    [Fact]
+    public void TheMistLeavesWithTheBody()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+
+        var body = Viewer(engine);
+        body.State.Gib = true;
+        body.State.CritOnHardHit = true;
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        body.OnRemoved();
+
+        var stop = engine.Last("Effects.ParticleSystemStopSlot")!.Value;
+
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.CritMistSlot, stop.ArgAs<int>(1));
+    }
+
+    /// <summary>
     /// A BLUE player's corpse wears the blue skin — stock's
     /// <c>C_TFRagdoll::CreateTFRagdoll</c> maps the stamped team to the model
     /// skin at creation (c_tf_player.cpp:712-719): skin 0 for red, skin 1
@@ -651,6 +841,7 @@ public class CorpseTests
 
         var body = Viewer(engine);
         body.State.Team = 3; // stock's TF_TEAM_BLUE
+        body.State.Class = 3; // a TF body: TF2's death walk stamps the class
 
         body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
 
@@ -672,6 +863,7 @@ public class CorpseTests
 
         var body = Viewer(engine);
         body.State.Team = 2; // stock's TF_TEAM_RED
+        body.State.Class = 3; // a TF body: TF2's death walk stamps the class
 
         body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
 
@@ -990,6 +1182,250 @@ public class CorpseTests
 
         Assert.True(body.IsRagdoll,
             "and the moment the model is there, the body collapses");
+    }
+
+    // ---- the ice the Spy-cicle leaves (freeze_backstab_victim) --------------
+
+    /// <summary>Records what the body asked its sounds to play.</summary>
+    private sealed class RecordingSounds : client::SourceSharp.Client.Sounds.IClientEntitySounds
+    {
+        public List<string> Sounds { get; } = [];
+
+        public void EmitFrom(EntityHandle entity, string soundName, Vector? origin = null) => Sounds.Add(soundName);
+        public void StopFrom(EntityHandle entity, string soundName) { }
+    }
+
+    /// <summary>Stock's ice arrival (c_tf_player.cpp:736-742): a body whose update
+    /// carries the frozen mark plays the turn-to-ice sound and raises stock's dry-ice
+    /// frost over itself, once however many updates arrive, in a slot of its own so
+    /// the burn's plain system and the ash's keep theirs.</summary>
+    [Fact]
+    public void ABodyThatArrivesFrozenPlaysTheIceSoundAndRaisesTheFrost()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(body.IceShown);
+
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.IceSound, Assert.Single(sounds.Sounds));
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStartSlot"));
+
+        var start = engine.Last("Effects.ParticleSystemStartSlot")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == client::SourceSharp.Client.Standalone.ClientSsRagdoll.IceParticle,
+            $"the frost is stock's 'xms_icicle_impact_dryice', not '{start.ArgAs<string>(1)}'");
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.IceSlot, start.ArgAs<int>(2));
+    }
+
+    /// <summary>The same gate's other half: an ordinary death (no ice mark) plays
+    /// nothing and raises nothing beside its plain collapse.</summary>
+    [Fact]
+    public void AnOrdinaryBodyHasNoIceAtAll()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.False(body.IceShown);
+        Assert.Empty(sounds.Sounds);
+        Assert.Null(engine.Last("Effects.ParticleSystemStartSlot"));
+    }
+
+    // ---- the gold the Golden Wrench leaves (set_turn_to_gold) ---------------
+
+    /// <summary>Stock's gold arrival (c_tf_player.cpp:730-734): a body the Golden
+    /// Wrench left plays the turn-to-gold call — once, however many updates
+    /// arrive, like the ice sound's.</summary>
+    [Fact]
+    public void AGildedBodyPlaysTheTurnToGoldCallOnce()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+        body.State.Gold = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(body.GoldShown);
+
+        Assert.Equal(client::SourceSharp.Client.Standalone.ClientSsRagdoll.GoldSound, Assert.Single(sounds.Sounds));
+    }
+
+    /// <summary>And the statue itself (m_bFixedConstraints' arm, :733): the gilded
+    /// body's collapse is ASKED FOR RIGID — every joint a fixed constraint, the
+    /// death anim stock skips (:813) having no hinge to play through.</summary>
+    [Fact]
+    public void AGildedBodyIsAskedForRigid()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Gold = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(engine.Last("EntityRender.BecomeRagdoll")!.Value.ArgAs<bool>(3),
+            "the gilded body's collapse carries the fixed-constraint tell");
+    }
+
+    /// <summary>The plain body beside it: no call, and a loose collapse with
+    /// hinges — stock's statue facts are the gold mark's alone.</summary>
+    [Fact]
+    public void APlainBodyIsNeitherGoldenNorRigid()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        var sounds = new RecordingSounds();
+
+        var body = Viewer(engine, sounds: sounds);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.False(body.GoldShown);
+        Assert.Empty(sounds.Sounds);
+        Assert.False(engine.Last("EntityRender.BecomeRagdoll")!.Value.ArgAs<bool>(3),
+            "a plain collapse keeps its hinges");
+    }
+
+    /// <summary>Stock's gold texture (c_tf_player.cpp:965-969): the gilded body
+    /// asks the render for the named material over its model, the statue's
+    /// golden skin, at the same arrival that plays the call.</summary>
+    [Fact]
+    public void AGildedBodyIsDrawnInTheGoldMaterial()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Gold = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var gilding = engine.Last("EntityRender.SetMaterialOverride")!.Value;
+
+        Assert.True(gilding.ArgAs<string>(1) == ClientSsRagdoll.GoldMaterial,
+            $"the gilded body draws in '{ClientSsRagdoll.GoldMaterial}', not "
+          + $"'{gilding.ArgAs<string>(1)}'");
+        Assert.Equal(body.Handle, gilding.ArgAs<EntityHandle>(0));
+    }
+
+    /// <summary>And the plain body beside it is drawn in nothing: no override
+    /// crosses to the render at all.</summary>
+    [Fact]
+    public void APlainBodyAsksForNoMaterial()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Null(engine.Last("EntityRender.SetMaterialOverride"));
+    }
+
+    /// <summary>Stock's ice texture (c_tf_player.cpp:972-976): the frozen body
+    /// draws in the ice material from the same arrival that plays its sound —
+    /// and keeps it for the whole statue, the thaw included, stock's single
+    /// override never being lifted while the body lives.</summary>
+    [Fact]
+    public void AFrozenBodyIsDrawnInTheIceMaterial()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("EntityRender.ParticleSystemStartSlot", true);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var icing = engine.Last("EntityRender.SetMaterialOverride")!.Value;
+
+        Assert.True(icing.ArgAs<string>(1) == ClientSsRagdoll.IceMaterial,
+            $"the frozen body draws in '{ClientSsRagdoll.IceMaterial}', not "
+          + $"'{icing.ArgAs<string>(1)}'");
+        Assert.True(engine.Calls.Count(c => c.Member == "EntityRender.SetMaterialOverride") == 1,
+            "once, however many updates arrive: the override is the arrival's, not per frame");
+    }
+
+    /// <summary>The frozen body's collapse is asked for rigid too, so the statue
+    /// stands while it holds. Stock sets m_bFixedConstraints in the gold arm only
+    /// (c_tf_player.cpp:730-734) and holds the ice statue as a frozen death
+    /// animation (:1007-1030); a rigid ragdoll is this port's stand-in for that
+    /// held pose.</summary>
+    [Fact]
+    public void AFrozenBodyIsAskedForRigid()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("EntityRender.ParticleSystemStartSlot", true);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(engine.Last("EntityRender.BecomeRagdoll")!.Value.ArgAs<bool>(3),
+            "the frozen body's collapse carries the fixed-constraint tell");
+    }
+
+    /// <summary>And the arrival starts the hold (stock's m_frozenTimer.Start,
+    /// :741): the freeze names the body once, at the game's clock, however many
+    /// updates arrive — the thaw's other half is the frame walk's.</summary>
+    [Fact]
+    public void AFrozenBodysArrivalStartsTheHoldOnce()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("EntityRender.ParticleSystemStartSlot", true);
+        engine.Returns("Effects.ParticleSystemStartSlot", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var holds = new Holds();
+        var body = Viewer(engine, ice: holds);
+        body.State.Ice = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        (EntityHandle frozen, float at) = Assert.Single(holds.Began);
+        Assert.Equal(body.Handle, frozen);
+        Assert.Equal(100f, at);
     }
 }
 

@@ -2,13 +2,18 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
+using TF2.Server.Combat;
 using TF2.Server.Entities;
 using TF2.Server.Entities.Ctf;
 using TF2.Server.Entities.Items;
 using TF2.Server.Entities.Rooms;
+using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
+using TF2.Shared.Player;
 using TF2.Tests.Ctf;
+using TF2.Tests.Weapons;
 
 using ModeSlot = TF2.Tests.Rules.ModeSlot;
 
@@ -29,6 +34,15 @@ internal sealed class FakeMapPlayer
     public int Regenerated { get; set; }
     public List<float> Burns { get; } = new();
     public float CloakMeter { get; set; }
+    public float ChargeMeter { get; set; }
+
+    /// <summary>The Spy-cicle's melt pair (<see cref="FakeMapPlayers.AddToSpyKnife"/>):
+    /// the stamp and window a fact stamps the way the burn layer melts.</summary>
+    public float KnifeStamp { get; set; }
+    public float KnifeWindow { get; set; }
+
+    /// <summary>The wearer of <c>ammo_gives_charge</c>, as the seam's own gate holds it; the attr facts are the seam's.</summary>
+    public bool WearsCharge { get; set; }
 }
 
 /// <summary>The players by handle, as <see cref="ITFMapPlayers"/> answers them; health and ammo capped at the maximum as stock's TakeHealth and GiveAmmo cap.</summary>
@@ -108,6 +122,33 @@ internal sealed class FakeMapPlayers : ITFMapPlayers
         p.CloakMeter = Math.Clamp(p.CloakMeter + amount, 0f, 100f);
         return moved;
     }
+
+    /// <summary>
+    /// <c>AddToSpyKnife</c> as the seam answers it (<c>entity_ammopack.cpp:91-94</c>):
+    /// the existing knife takes nothing, a melted one (the fact's stamp and window)
+    /// has its stamp pulled earlier by half the pack's share of the window. The
+    /// melt's own facts are the seam's (TFPlayerMapPlayersTests); this carries the pair.
+    /// </summary>
+    public bool AddToSpyKnife(EntityHandle player, float amount)
+    {
+        var p = P(player);
+        if (p.KnifeWindow <= 0f)
+            return false; // :163-164 — the exists gate
+        p.KnifeStamp -= amount * 0.005f * p.KnifeWindow; // :166-167
+        return true;                                      // :168
+    }
+
+    /// <summary>The seam's answer: the attr gate is the wearer's <see cref="FakeMapPlayer.WearsCharge"/>, whose facts are the seam's (TFPlayerMapPlayersTests); this carries the meter.</summary>
+    public bool AddToDemoChargeMeterFromAmmo(EntityHandle player, float packRatio)
+    {
+        var p = P(player);
+        if (!p.WearsCharge)
+            return false;
+
+        bool moved = p.ChargeMeter < 100f;
+        p.ChargeMeter = Math.Clamp(p.ChargeMeter + packRatio * 100f, 0f, 100f);
+        return moved;
+    }
 }
 
 /// <summary>What the pickups announced, in order.</summary>
@@ -119,6 +160,7 @@ internal sealed class FakeNotices : ITFPickupNotices
     public void ItemPickupEvent(EntityHandle player, string item) => Said.Add($"item_pickup {item}");
     public void PlayerHealed(EntityHandle patient, EntityHandle healer, int amount) => Said.Add($"player_healed {amount} by {healer}");
     public void PlayerHealOnHit(EntityHandle player, int amount) => Said.Add($"player_healonhit {amount}");
+    public void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount) => Said.Add($"crossbow_heal {healer}->{healed} {amount}");
     public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker) => Said.Add($"player_stealsandvich {owner}->{picker}");
     public void Sound(EntityHandle player, string sound) => Said.Add($"sound {sound}");
 }
@@ -144,6 +186,10 @@ internal sealed class MapItemRig
     public readonly FakeNotices Notices = new();
     public readonly FakeClock Clock = new();
     public readonly FakeRoundState Round = new();
+    public readonly FakeOwners Owners;
+    public readonly TFPlayerStats Stats;
+    public readonly TFMovementFixtures.Players Data;
+    public readonly TFClassTable Classes;
     public readonly ServiceContainer Services;
 
     private RecordingTempEnts? _temps;
@@ -184,6 +230,23 @@ internal sealed class MapItemRig
         Services.AddInstance<ITeamRoundState>(Round);
         Services.AddInstance(new TFResupplyCooldowns());
         Services.AddInstance<ITempEnts>(Temps);
+
+        // The pickups' own dependencies, now required on every kit and pack:
+        // the owners the lunchbox arms ask, the attribute walk behind the
+        // heal, the stats the touches count, the last-hit records behind the
+        // assist arm, the carrier data behind the disguise arm and the class
+        // scripts behind the disguise maximum. A fact replaces any of them by
+        // registering over it before its first spawn.
+        Owners = new FakeOwners();
+        Services.AddInstance<ITFWeaponOwners>(Owners);
+        Services.AddInstance(new AttributeHooks());
+        Stats = new TFPlayerStats();
+        Services.AddInstance<ITFPlayerStats>(Stats);
+        Services.AddInstance(new TFDamageRecords());
+        Data = new TFMovementFixtures.Players();
+        Services.AddInstance<ITFPlayerData>(Data);
+        Classes = new TFClassTable(new RecordingLog(), Engine);
+        Services.AddInstance(Classes);
 
         // The respawn room lets a carried flag go through the CTF seams (2.5);
         // the CTF fakes stand under them where a map-item fact only needs the room.

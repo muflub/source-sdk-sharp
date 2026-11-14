@@ -22,6 +22,27 @@ export interface AiNav {
   error?: string;
 }
 
+/** /ai/nav/build's answer (plan_bots_teams_tf2 E.3): the navigation build in flight, and the level's refusal. */
+export interface AiNavBuild {
+  building: boolean;
+  map?: string;
+  phase?: string;
+  percent?: number;
+  seconds?: number;
+  threads?: number;
+  queued?: number;
+  /** Whether the build is the level's own: its bots wait for it. */
+  forLevel?: boolean;
+  refusal: string | null;
+}
+
+/** The map tab's note for a build: what it builds, how far and how long; null when none runs. */
+export function navBuildNote(build: AiNavBuild): string | null {
+  if (!build.building) return null;
+  const wait = build.forLevel ? ', bots join when it is built' : '';
+  return `AI nav: building ${build.map ?? '?'} ${build.percent ?? 0} % (${Math.round(build.seconds ?? 0)} s, ${build.phase ?? 'building'})${wait}`;
+}
+
 /** /ai/flow's answer. */
 export interface AiFlow {
   objective: number;

@@ -18,7 +18,7 @@ namespace TF2.Tests.Weapons;
 /// </summary>
 internal static class WeaponFixtures
 {
-    /// <summary>The 33 fixture names: the class scripts' weapons, the compound bow, the builder and the sapper.</summary>
+    /// <summary>The 34 fixture names: the class scripts' weapons, the sword, the compound bow, the builder and the sapper.</summary>
     public static IEnumerable<string> Names() =>
         Directory.GetFiles(RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons"), "tf_weapon_*.txt")
             .Select(p => Path.GetFileNameWithoutExtension(p))
@@ -30,6 +30,15 @@ internal static class WeaponFixtures
     public static TFWeaponScript Parse(string weaponName)
     {
         var document = KeyValuesText.Parse(Text(weaponName));
+        Assert.NotEmpty(document.Children);
+        return TFWeaponScriptParser.Parse(document.Children[0], weaponName);
+    }
+
+    /// <summary>The same read over the extras set (weapons-extra), for the facts whose weapon lives there.</summary>
+    public static TFWeaponScript ParseExtra(string weaponName)
+    {
+        string text = File.ReadAllText(RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons-extra", weaponName + ".txt"));
+        var document = KeyValuesText.Parse(text);
         Assert.NotEmpty(document.Children);
         return TFWeaponScriptParser.Parse(document.Children[0], weaponName);
     }

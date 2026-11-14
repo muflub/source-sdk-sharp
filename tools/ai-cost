@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""What the bots' brains cost, live, and a recording to time them over offline.
+
+  tools/ai-cost live   <map> [--mod tf2] [--bots 12] [--seconds 240] [--label NAME] [--config debug]
+  tools/ai-cost record <map> [--mod tf2] [--bots 12] [--seconds 240] [--out FILE.airec] [--config debug]
+
+Both start a headless game on the map (tools/ai-scenario's Game: its own
+instance, temp dir, dev-API directory and port, from AI_SCENARIO_API_DIR,
+AI_SCENARIO_TMPDIR and AI_SCENARIO_PORT) and add the bots with `ai_bot_add`.
+The game is killed by its PID at the end.
+
+`live` waits 40 s, then reads /ai/counters every 10 s for --seconds and
+prints each counter's median, least, most and rise over the window, with the
+box's load beside them (a busy box stretches the wall-time rows: read
+ai.brain.cpu.us and ai.main.cpu.us, the threads' CPU time). The rows that
+matter: ai.brain.cpu.us (a decide, on the thread that ran it), ai.brain.us
+(its wall time), ai.pool.cpu.us (the workers' busy microseconds a second),
+ai.steps.inflight.max (decides handed over and not yet back), ai.main.cpu.us
+and ai.apply.us (the main thread's share a tick). The console's `is stuck at`
+lines go to bin/<config>/ai-cost/stuck-<label>.txt, and their count is printed
+with how many were a bot's repeat within 400 ticks of its last.
+
+`record` starts `ai_record` BEFORE the bots are added, so a replay's brains are
+born as the game's were, plays --seconds, stops, and writes the recording to
+bin/<config>/ai-cost/<map>-<bots>bots.airec (build output: never in git).
+Time it part by part with
+
+  tools/ai-replay cost <map> <recording.airec> --mod tf2 [--bodies tf2|-]
+
+The map's nav is per-tree build output (`make ai-nav-tf MAP=<map>`, or the test
+mod's `make map MAP=<map>`): a game without it has bots that only stand.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import os
+import statistics
+import subprocess
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+_loader = importlib.machinery.SourceFileLoader("ai_scenario", os.path.join(ROOT, "tools", "ai-scenario"))
+_spec = importlib.util.spec_from_loader("ai_scenario", _loader)
+ai_scenario = importlib.util.module_from_spec(_spec)
+_loader.exec_module(ai_scenario)
+
+WARM_UP_S = 40
+SAMPLE_S = 10
+REPEAT_TICKS = 400
+
+
+def start(args):
+    game = ai_scenario.Game(args.map, args.config, extra="+maxplayers %d" % max(16, args.bots + 2), mod=None if args.mod == "test" else args.mod)
+    game.start()
+    return game
+
+
+def tip():
+    sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    dirty = subprocess.run(["git", "-C", ROOT, "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True).stdout.strip()
+    return sha + (" +dirty" if dirty else "")
+
+
+def repeats(stuck):
+    """How many of the stuck lines are a bot's again within REPEAT_TICKS of its last. PURE."""
+    last, again = {}, 0
+    for line in stuck:
+        try:
+            bot = line.split(" bot ", 1)[1].split(" ", 1)[0]
+            tick = int(line.rsplit("tick ", 1)[1].split()[0])
+        except (IndexError, ValueError):
+            continue
+        if bot in last and tick - last[bot] < REPEAT_TICKS:
+            again += 1
+        last[bot] = tick
+    return again
+
+
+def live(args):
+    out_dir = os.path.join(ROOT, "bin", args.config, "ai-cost")
+    os.makedirs(out_dir, exist_ok=True)
+    game = start(args)
+    rows, loads = [], []
+    try:
+        for _ in range(args.bots):
+            game.cmd("ai_bot_add")
+        time.sleep(WARM_UP_S)
+        deadline = time.time() + args.seconds
+        while time.time() < deadline:
+            counters = game.json("/ai/counters")
+            rows.append({k: v for k, v in counters.items() if k.startswith("ai.") or k in ("bots", "tick")})
+            loads.append(os.getloadavg()[0])
+            time.sleep(SAMPLE_S)
+        lines = game.lines()
+    finally:
+        game.stop(False)
+    if not rows:
+        raise SystemExit("ai-cost: no sample of /ai/counters")
+    print("ai-cost live %s: %s/%s, %d bots, %d samples over %d ticks, %s, load1 median %.1f (%.1f to %.1f)" % (
+        args.label, args.mod, args.map, args.bots, len(rows), rows[-1]["tick"] - rows[0]["tick"], tip(),
+        statistics.median(loads), min(loads), max(loads)))
+    for key in [k for k in rows[0] if isinstance(rows[0][k], (int, float))]:
+        vals = [r[key] for r in rows if isinstance(r.get(key), (int, float))]
+        if vals and max(vals) != 0:
+            print("  %-30s median %-11.1f min %-11.1f max %-11.1f rise %.1f" % (key, statistics.median(vals), min(vals), max(vals), vals[-1] - vals[0]))
+    stuck = [l for l in lines if "is stuck at" in l]
+    stuck_file = os.path.join(out_dir, "stuck-%s.txt" % args.label)
+    with open(stuck_file, "w") as f:
+        f.write("\n".join(stuck) + ("\n" if stuck else ""))
+    print("  captures %d, stuck reports %d (%d a bot's repeat within %d ticks; %s), fault lines %d" % (
+        sum("captured by player" in l for l in lines), len(stuck), repeats(stuck), REPEAT_TICKS, os.path.relpath(stuck_file, ROOT),
+        sum("EXCEPTION IN" in l for l in lines)))
+    return 0
+
+
+def record(args):
+    out = os.path.abspath(args.out) if args.out else os.path.join(ROOT, "bin", args.config, "ai-cost", "%s-%dbots.airec" % (args.map, args.bots))
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    game = start(args)
+    try:
+        game.cmd("ai_record start %s %s" % (out, args.map))
+        time.sleep(0.5)
+        for _ in range(args.bots):
+            game.cmd("ai_bot_add")
+        time.sleep(args.seconds)
+        game.cmd("ai_record stop")
+        time.sleep(2)
+        lines = game.lines()
+    finally:
+        game.stop(False)
+    if not os.path.exists(out) or os.path.getsize(out) == 0:
+        raise SystemExit("ai-cost: the game wrote no recording to %s" % out)
+    said = [l.strip() for l in lines if "ai_record:" in l]
+    print("ai-cost record: %s, %d bytes, %s/%s, %d bots, %s" % (os.path.relpath(out, ROOT), os.path.getsize(out), args.mod, args.map, args.bots, tip()))
+    for line in said:
+        print("  " + line)
+    print("  time it: tools/ai-replay cost %s %s --mod %s%s" % (args.map, os.path.relpath(out, ROOT), args.mod, " --bodies tf2" if args.mod == "tf2" else ""))
+    return 0
+
+
+def main(argv):
+    p = argparse.ArgumentParser(prog="ai-cost", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("verb", choices=["live", "record"])
+    p.add_argument("map")
+    p.add_argument("--mod", default="tf2")
+    p.add_argument("--bots", type=int, default=12)
+    p.add_argument("--seconds", type=float, default=240)
+    p.add_argument("--label", default="run")
+    p.add_argument("--out", default="")
+    p.add_argument("--config", default="debug")
+    args = p.parse_args(argv)
+    return live(args) if args.verb == "live" else record(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

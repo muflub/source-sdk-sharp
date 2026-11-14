@@ -1,6 +1,6 @@
 using System.Text.Json;
-using SourceSharp.Ai.Hl2mp.Senses;
 using Xunit;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Inspect;
 

@@ -80,6 +80,7 @@ public unsafe interface IManagedClients
     int OnClientSettingsChanged(int a0);
     int ServerTransmitAlwaysForClient(int a0);
     int ServerAreaPortalVisibility(void* a0, float a1, void* a2, int a3);
+    int ServerShouldTransmit(int a0, int a1);
 }
 
 [ManagedVtable(typeof(ManagedEventsTable))]

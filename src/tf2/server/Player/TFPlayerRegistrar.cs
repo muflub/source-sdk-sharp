@@ -6,5 +6,10 @@ namespace TF2.Server.Player;
 [SideService(Side.Server)]
 public sealed class TFPlayerRegistrar : ISideServiceRegistrar
 {
-    public void Register(ISideServiceRegistry registry) => registry.AddHooks<ITFConditionHook>();
+    public void Register(ISideServiceRegistry registry)
+    {
+        registry.AddHooks<ITFConditionHook>();
+        registry.AddHooks<ITFWeaponEquipHook>();
+        registry.AddHooks<ITFPlayerAttributeSource>();
+    }
 }

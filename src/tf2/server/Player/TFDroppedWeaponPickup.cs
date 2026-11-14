@@ -68,7 +68,7 @@ public sealed class TFDroppedWeaponPickup(
     Arsenal arsenal, ITFMapPlayers players, IEngineEntities entities, IEngineEntityRender render,
     IEngineWorldQuery world, IEntityDirectory directory, IGameClock clock, ITFMedigunWeapons medigun,
     TFWeaponScripts scripts, ItemSchema schema, TFClassTable classes,
-    ITFRespawnRooms? rooms = null, ITeamRoundState? rounds = null)
+    ITFRespawnRooms rooms, ITeamRoundState rounds, IHooks<ITFWeaponEquipHook> equipHooks)
     : ITFDroppedWeaponPickup
 {
     /// <summary><c>TF_WEAPON_PICKUP_RANGE</c> (tf_shareddefs.h:2697): 150.</summary>
@@ -111,7 +111,14 @@ public sealed class TFDroppedWeaponPickup(
         // The mark: our registry's removal is synchronous, so a weapon this
         // frame has not yet removed cannot exist to be re-picked (:22798).
 
-        return Swap(player, dropped);
+        bool swapped = Swap(player, dropped);
+
+        // Stock's arm runs inside Weapon_Equip, so the pickup's closing equip
+        // ends by asking the chain (tf_player.cpp:20590-20598).
+        if (swapped)
+            equipHooks.Each(nameof(ITFWeaponEquipHook.OnEquipped), h => h.OnEquipped(player));
+
+        return swapped;
     }
 
     public bool CanPickup(EntityHandle player, TFDroppedWeapon weapon)
@@ -229,7 +236,7 @@ public sealed class TFDroppedWeaponPickup(
         // false — and the room is the one place the floor stays clear. The
         // origin is the player's (:22728-30 stock computes the ammo-pack
         // pose; the placement is the death drop's deferred row 126's).
-        if (rooms?.InRespawnRoom(player, sameTeamOnly: false) != true)
+        if (!rooms.InRespawnRoom(player, sameTeamOnly: false))
         {
             TFDroppedWeapon.CleanUp(directory, player, heldName);
 
@@ -336,8 +343,8 @@ public sealed class TFDroppedWeaponPickup(
 
     /// <summary><c>CTFPlayerShared::IsLoser</c> (:13673): the round won and not by the player's team.</summary>
     private bool Loser(EntityHandle player)
-        => rounds is { } state && state.State == RoundState.TeamWin
-           && state.WinningTeam != (TFTeam)players.Team(player);
+        => rounds.State == RoundState.TeamWin
+           && rounds.WinningTeam != (TFTeam)players.Team(player);
 }
 
 /// <summary>

@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Stops MSBuild's walk up to the repo's Directory.Build.props: this tool
+    builds against the map tools' assemblies, not the game, and none of the
+    repo's analyzers, warning rules or output layout apply to it. Output and
+    intermediates go to bin/descent-islands/ (per-tree build output,
+    git-ignored), not beside the sources.
+  -->
+  <PropertyGroup>
+    <DescentIslandsBuildRoot>$(MSBuildThisFileDirectory)../../bin/descent-islands/</DescentIslandsBuildRoot>
+    <BaseIntermediateOutputPath>$(DescentIslandsBuildRoot)obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(DescentIslandsBuildRoot)bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

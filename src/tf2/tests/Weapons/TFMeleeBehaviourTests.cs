@@ -1,10 +1,21 @@
+extern alias client;
+
 using SourceSharp.Abi;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Anim;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 using Xunit;
+
+using ClientAbi = client::SourceSharp.Abi;
+using ClientCarriers = client::TF2.Client.Player.TFClientCarriers;
+using ClientEffects = client::TF2.Client.Weapons.TFClientWeaponEffects;
+using ClientLog = client::SourceSharp.Abi.RecordingLog;
+using ClientPrediction = client::TF2.Client.Player.TFPlayerPrediction;
+using ClientData = client::TF2.Client.Player.ClientTFPlayerData;
 
 namespace TF2.Tests.Weapons;
 
@@ -17,6 +28,21 @@ public sealed class TFMeleeBehaviourTests
 
     private static int NoCrit => TFWeaponWorld.MeleeSeed(1500, 10000);
     private static int Crit => TFWeaponWorld.MeleeSeed(0, 1500);
+
+    [Fact]
+    public void A_swing_shows_its_gesture_once_at_the_swing_and_not_again_at_the_smack()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+        Assert.Equal(0, world.Arms.SwingsShown);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        Assert.Equal(1, world.Arms.SwingsShown);
+
+        world.Run(w, vm, 0, now: 10.215f);
+        Assert.Single(world.Effects.Swings);
+        Assert.Equal(1, world.Arms.SwingsShown);
+    }
 
     [Fact]
     public void A_swing_hits_a_smack_delay_later_at_the_scripts_damage()
@@ -38,6 +64,103 @@ public sealed class TFMeleeBehaviourTests
         Assert.Equal((Bat, new ShotDamage(35f), new SwingTrace(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull, false)),
                      Assert.Single(world.Effects.Swings));
         Assert.Equal(0, w.BehaviourMode & TFMeleeBehaviour.ModeSwinging);
+    }
+
+    /// <summary>Stock's <c>OnSwingHit</c> pair on the client: the smack rides the
+    /// client's effects service into the arms, carrying the swing's reach and the
+    /// script's two hit sounds (the pair <see cref="TFMeleeBehaviour"/> hands
+    /// <c>Parts.Effects.Melee</c> under <c>EffectsLive</c>, as its facts above show).</summary>
+    [Fact]
+    public void The_smack_hands_the_arms_the_reach_and_the_scripts_two_hit_sounds()
+    {
+        var arms = new ClientSwingArms();
+        var attack = new client::SourceSharp.Shared.WeaponAttackContext(
+            new client::SourceSharp.Shared.WeaponType
+            {
+                Name = Bat,
+                MeleeRange = TFWeaponTypes.SwingRange,
+                MeleeDamage = 35f,
+            },
+            default!, default!, 1f, true, arms, new client::SourceSharp.Shared.WeaponCommand(1, 5, 3));
+        var script = new client::TF2.Shared.TFWeaponScripts(new ClientLog(), new ClientFiles()).Get(Bat);
+
+        Assert.NotNull(script);
+        ClientEffects().Melee(in attack, script!, new client::SourceSharp.Shared.ShotDamage(35f),
+                              new client::TF2.Shared.SwingTrace(TFWeaponTypes.SwingRange, TFMeleeBehaviour.SwingHull,
+                                                                false));
+
+        Assert.Equal((Bat, TFWeaponTypes.SwingRange, "Weapon_Bat.HitWorld", "Weapon_Bat.HitFlesh"),
+                     Assert.Single(arms.ArmSwings));
+    }
+
+    /// <summary>The client's arms as a recorder of the swung-over call; its
+    /// other members, like the replay's, do nothing.</summary>
+    private sealed class ClientSwingArms : client::SourceSharp.Shared.IWeaponArms
+    {
+        public readonly List<(string Weapon, float Range, string HitWorldSound, string HitPlayerSound)> ArmSwings =
+            new();
+
+        public void Sound(string soundScript) { }
+        public void FireBullets(in client::SourceSharp.Shared.WeaponType type, int pellets, float spreadDegrees) { }
+        public void MeleeSwing(in client::SourceSharp.Shared.WeaponType type) { }
+        public void Launch(in client::SourceSharp.Shared.WeaponType type, string projectile, float speed,
+                           bool thrown) { }
+        public int LookupSequence(WeaponAnim anim) => -1;
+        public float AnimDuration(WeaponAnim anim) => 0f;
+
+        public void MeleeSwing(in client::SourceSharp.Shared.WeaponType type, float range,
+                               string hitWorldSound, string hitPlayerSound) =>
+            ArmSwings.Add((type.Name, range, hitWorldSound, hitPlayerSound));
+    }
+
+    /// <summary>The client's effects service over its own prediction, the way
+    /// the client's composition builds it (the <c>PredictionDeps</c> doubles).</summary>
+    private static ClientEffects ClientEffects()
+    {
+        var log = new ClientLog();
+        var files = new ClientFiles();
+        var convars = PredictionDeps.SpyConVars();
+        var schema = new client::TF2.Shared.Econ.ItemSchema(files, log);
+        var catalog = new client::SourceSharp.Shared.WeaponCatalog(
+            () => [new client::TF2.Shared.TFWeaponTypes(
+                       new client::TF2.Shared.TFWeaponScripts(log, files),
+                       new client::TF2.Shared.TFClassTable(log, files), schema)],
+            log);
+        return new ClientEffects(new ClientPrediction(
+            log, new ClientCarriers(), ClientAbi.NetStateCatalog.Of(typeof(ClientData).Assembly, log),
+            new NoClientEntities(), PredictionDeps.Engine(),
+            convars.Declared<client::TF2.Shared.TFSpyCloakConsumeRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFSpyCloakRegenRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFSpyInvisTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFSpyInvisUnstealthTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFDemomanChargeDrainTimeConVar>(),
+            convars.Declared<client::TF2.Shared.TFDemomanChargeRegenRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFScoutEnergydrinkConsumeRateConVar>(),
+            convars.Declared<client::TF2.Shared.TFScoutEnergydrinkRegenRateConVar>(),
+            schema, catalog));
+    }
+
+    /// <summary>No client entities at all: the arms call needs none.</summary>
+    private sealed class NoClientEntities : client::SourceSharp.Client.IClientStandalones
+    {
+        public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live() => [];
+        public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+    }
+
+    /// <summary>The shipped scripts and the trimmed schema, served as the client's
+    /// file seam (the pack the client really has at boot).</summary>
+    private sealed class ClientFiles : ClientAbi.IEngineFiles
+    {
+        private readonly TFClassTableTests.Files _files = WeaponFixtures.ShippedWithClasses();
+
+        public ClientFiles() =>
+            _files.Bytes[client::TF2.Shared.Econ.ItemSchema.FilePath] =
+                System.Text.Encoding.UTF8.GetBytes(EconTestFiles.Fixture("items_game.trimmed.txt"));
+
+        public int GameFileSize(string path) => _files.GameFileSize(path);
+        public string? ReadGameFile(string path) => _files.ReadGameFile(path);
+        public byte[]? ReadGameFileBytes(string path) => _files.ReadGameFileBytes(path);
+        public byte[]? ReadFileOnPath(string path, string pathId) => _files.ReadFileOnPath(path, pathId);
     }
 
     [Fact]
@@ -170,6 +293,142 @@ public sealed class TFMeleeBehaviourTests
         Assert.True(Assert.Single(world.Effects.Swings).Trace.CritFromBehind);
     }
 
+    [Fact]
+    public void A_hit_self_on_miss_item_asks_the_arm_at_the_smack()
+    {
+        // hit_self_on_miss == 1 (tf_weaponbase_melee.cpp:759): the held item's
+        // one turns the miss tax on, and the smack carries the flag.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("hit_self_on_miss", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.True(Assert.Single(world.Effects.Swings).Trace.SelfOnMiss);
+    }
+
+    [Fact]
+    public void A_hit_self_on_miss_item_notes_the_reach_at_the_swing_start()
+    {
+        // Stock's Swing notes the potential victims before the smack
+        // (tf_weaponbase_melee.cpp:305-319), over the swing's own range.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("hit_self_on_miss", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.Equal(TFWeaponTypes.SwingRange, Assert.Single(world.Effects.SwingStarts));
+    }
+
+    [Fact]
+    public void A_hit_self_on_miss_two_does_not_ask_the_arm()
+    {
+        // Stock's gate is equality with one (:759), not mere nonzero: a two
+        // leaves the miss tax off.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("hit_self_on_miss", AttributeDescriptionFormat.Additive, 2f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.False(Assert.Single(world.Effects.Swings).Trace.SelfOnMiss);
+    }
+
+    [Fact]
+    public void A_silent_crit_item_zeroes_the_crit_smacks_damage()
+    {
+        // crit_does_no_damage (tf_weaponbase_melee.cpp:989-1002): with the held
+        // item's one, a crit smack carries no damage — stock zeroes it inside
+        // GetMeleeDamage right after the mult_dmg scale (:987).
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("crit_does_no_damage", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: Crit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.Equal(new ShotDamage(0f, true), Assert.Single(world.Effects.Swings).Shot);
+    }
+
+    [Fact]
+    public void A_silent_crit_item_leaves_a_plain_smack_at_the_rows_damage()
+    {
+        // The arm gates on the crit (:993): a plain swing of the same item
+        // keeps the row's damage.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("crit_does_no_damage", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.Equal(new ShotDamage(35f), Assert.Single(world.Effects.Swings).Shot);
+    }
+
+    [Fact]
+    public void A_laughing_item_puts_the_laugh_on_the_trace()
+    {
+        // crit_forces_victim_to_laugh (tf_weaponbase_melee.cpp:884-885): the
+        // held item's one makes the smack ask the forced-laugh arm; the crit
+        // gate itself waits at the hit (:886).
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("crit_forces_victim_to_laugh", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.True(Assert.Single(world.Effects.Swings).Trace.ForcesLaugh);
+    }
+
+    [Fact]
+    public void A_tickling_item_puts_the_tickle_on_the_trace()
+    {
+        // tickle_enemies_wielding_same_weapon (:903-905): the held item's one
+        // asks the arm for every hit; no crit gate is stock's (:909).
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("tickle_enemies_wielding_same_weapon", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.True(Assert.Single(world.Effects.Swings).Trace.TicklesSameWeapon);
+    }
+
+    [Fact]
+    public void The_held_fists_restamp_the_silent_mark_each_command()
+    {
+        // self_mark_for_death (tf_weaponbase_melee.cpp:354-365): the held
+        // fists' seconds ride onto the owner with every command, refreshed on
+        // the ask.
+        var world = new TFWeaponWorld();
+        world.Owners.Of(TFWeaponWorld.Owner);
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("self_mark_for_death", AttributeDescriptionFormat.Additive, 3f);
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.True(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.MarkedfordeathSilent));
+        Assert.Equal(3f, world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Duration(TFCond.MarkedfordeathSilent), 4);
+    }
+
+    [Fact]
+    public void Fists_without_the_mark_attribute_leave_the_owner_unmarked()
+    {
+        // Stock starts the hook at zero (:356): no attribute, no mark.
+        var world = new TFWeaponWorld();
+        world.Owners.Of(TFWeaponWorld.Owner);
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.False(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.MarkedfordeathSilent));
+    }
+
     // The c_heavy_arms table (HeavyArmsSequences): the fists' cells and the
     // scout's plain melee pair, as the shipped mdl tags them.
     private const int FistsLeft = 4;
@@ -242,6 +501,53 @@ public sealed class TFMeleeBehaviourTests
         Assert.Equal(BatCrit, vm.Sequence);
     }
 
+    /// <summary>The wrench's strike bit as its own seam answers: the sapper's
+    /// state the hook and the smack share, one instance for both roles.</summary>
+    private static TFWeaponWorld WrenchWorld(out RecordingSapperState sapper)
+    {
+        sapper = new RecordingSapperState();
+        return new TFWeaponWorld(sapper, new TFWrenchHook(sapper));
+    }
+
+    /// <summary>
+    /// The strike bit is predicted state like the swing bits: the replay of the
+    /// swing command writes it too, so the acked slot and the server's arrival
+    /// carry the same mode word for the same command. Stock runs the swing's
+    /// trace on both sides (tf_weapon_wrench.cpp:145-199), and the counter-side
+    /// miss this holds off is the between-run gap on the mode word.
+    /// </summary>
+    [Fact]
+    public void The_building_strike_bit_survives_the_replay_of_its_swing_command()
+    {
+        var world = WrenchWorld(out _);
+        var (live, liveVm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+        world.Run(live, liveVm, Attack, now: 10f, seed: NoCrit);
+        Assert.NotEqual(0, live.BehaviourMode & TFMeleeBehaviour.ModeBuildingStruck);
+
+        // The same command again, from the same basis, replayed: the mode word
+        // the server's run wrote, the replay owes it too.
+        var (replay, replayVm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+        world.Run(replay, replayVm, Attack, now: 10f, seed: NoCrit, live: false);
+        Assert.Equal(live.BehaviourMode, replay.BehaviourMode);
+    }
+
+    /// <summary>The bit's lifetime is one command on both sides: the smack
+    /// spends it on the replayed run too, its one-command span standing so the
+    /// compare never finds the bit on one side and not the other.</summary>
+    [Fact]
+    public void The_building_strike_bit_is_spent_by_a_replayed_smack()
+    {
+        var world = WrenchWorld(out _);
+        var (w, vm) = world.Armed("tf_weapon_wrench", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        Assert.NotEqual(0, w.BehaviourMode & TFMeleeBehaviour.ModeBuildingStruck);
+
+        // The smack, replayed: the swing bits and the strike bit go together.
+        world.Run(w, vm, 0, now: 10.5f, live: false);
+        Assert.Equal(0, w.BehaviourMode & TFMeleeBehaviour.ModeBuildingStruck);
+    }
+
     /// <summary>An item holding one named attribute, as the schema's wearables do.</summary>
     private static IAttributeProvider ItemWith(string hook, AttributeDescriptionFormat format, float value)
     {
@@ -252,5 +558,172 @@ public sealed class TFMeleeBehaviourTests
                                     AttributeEffectType.Neutral, false, false,
                                     AttributeValueType.Default, MergedKeys.Block("x")), value));
         return container;
+    }
+
+    // ---- the Gunslinger's combo (CTFRobotArm::PrimaryAttack) ----------------
+
+    private const string Arm = "tf_weapon_robot_arm";
+
+    /// <summary>A world over the extras, whose owner carries a predicted state the grant lands in.</summary>
+    private static (TFWeaponWorld World, TFPlayerNetState Carrier) ArmWorld()
+    {
+        var carrier = new TFPlayerNetState();
+        carrier.BindLocal();
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = carrier },
+                                      files: WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()));
+        return (world, carrier);
+    }
+
+    [Fact]
+    public void The_gunslingers_third_swing_grants_the_melee_crit()
+    {
+        var (world, carrier) = ArmWorld();
+        var (w, vm) = world.Armed(Arm, clip: -1, reserve: 0);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;   // two smacks landed
+        w.BehaviourTimeB = 9.6f;                                  // the last, inside its second
+
+        world.Behaviour(Arm).BeforePrimaryAttack(world.Attack(w, vm, 10f, seed: NoCrit));
+
+        // SetNextMeleeCrit(MELEE_CRIT) (tf_weapon_wrench.cpp:479-482): the
+        // grant the swing's own roll spends, the count itself untouched —
+        // the smack's hit is still to fold it.
+        Assert.Equal((int)TFMeleeCrit.Crit, carrier.NextMeleeCrit);
+        Assert.Equal(2, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    [Fact]
+    public void A_combo_past_its_second_is_no_combo()
+    {
+        var (world, carrier) = ArmWorld();
+        var (w, vm) = world.Armed(Arm, clip: -1, reserve: 0);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;
+        w.BehaviourTimeB = 8f;                                    // two seconds gone
+
+        world.Behaviour(Arm).BeforePrimaryAttack(world.Attack(w, vm, 10f, seed: NoCrit));
+
+        // The timeout's reset (tf_weapon_wrench.cpp:474-477) ahead of the
+        // grant's ask: the swing rolls plain, the count back to none.
+        Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
+        Assert.Equal(0, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    [Fact]
+    public void A_plain_melee_swing_never_touches_the_combo()
+    {
+        var (world, carrier) = ArmWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+        w.BehaviourMode = 2 << TFMeleeBehaviour.ComboCountShift;
+        w.BehaviourTimeB = 8f;
+
+        world.Behaviour(Bat).BeforePrimaryAttack(world.Attack(w, vm, 10f, seed: NoCrit));
+
+        Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
+        Assert.Equal(2, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    private const string Wrap = "tf_weapon_bat_giftwrap";
+
+    // tf_weapon_bat.cpp:255-287 CTFBat_Wood::SecondaryAttack, the Wrap
+    // Assassin's ball throw through it.
+    [Fact]
+    public void A_charged_alt_fire_throws_the_ball_and_empties_the_bar()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 1f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+
+        var throw1 = Assert.Single(world.Effects.Projectiles);
+        Assert.Equal(Wrap, throw1.Weapon);
+        Assert.Equal(new ShotDamage(35f), throw1.Shot);
+        Assert.Equal(0f, w.ItemMeter, 4);
+        // :276-277 both clocks, the primary gate the next press reads.
+        Assert.Equal(10.25f, w.NextPrimaryAttack, 4);
+        Assert.Equal(10.25f, w.NextSecondaryAttack, 4);
+        // :272 the launch anim; the swing pose, ACT_VM_PRIMARYATTACK.
+        Assert.Equal(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary,
+                     Assert.Single(world.Arms.Gestures));
+    }
+
+    [Fact]
+    public void A_crit_roll_flags_the_ball_at_the_throw()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 1f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: Crit);
+
+        // tf_weapon_bat.cpp:1089 CalcIsAttackCritical at CreateBall.
+        Assert.Equal(new ShotDamage(35f, true), Assert.Single(world.Effects.Projectiles).Shot);
+    }
+
+    [Fact]
+    public void An_empty_bar_refuses_the_throw()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 0f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+
+        Assert.Empty(world.Effects.Projectiles);
+        Assert.Equal(0f, w.ItemMeter, 4);
+    }
+
+    [Fact]
+    public void A_primary_clock_in_the_future_refuses_the_throw()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 1f;
+        w.NextPrimaryAttack = 20f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+
+        // :264-265 the bat throws no ball while its swing is still owed.
+        Assert.Empty(world.Effects.Projectiles);
+        Assert.Equal(1f, w.ItemMeter, 4);
+    }
+
+    // ---- the holster's clear of the granted crit (Holster, :140-161) -------
+
+    /// <summary>A world whose owner carries the charge's grant, and no
+    /// second one to hide behind: what the holster's clear must spend.</summary>
+    private static (TFWeaponWorld World, TFPlayerNetState Carrier) GrantWorld()
+    {
+        var carrier = new TFPlayerNetState();
+        carrier.BindLocal();
+        carrier.NextMeleeCrit = (int)TFMeleeCrit.Crit;
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = carrier });
+        return (world, carrier);
+    }
+
+    [Fact]
+    public void Holstering_the_melee_throws_the_granted_crit_away()
+    {
+        var (world, carrier) = GrantWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        // The switch away from the melee runs its Holster on the server
+        // (Arsenal's Holster of the outgoing weapon); the grant the charge
+        // made does not ride into the next weapon's hands (:151).
+        world.Behaviour(Bat).Holster(world.Attack(w, vm, now: 10f));
+
+        Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
+    }
+
+    [Fact]
+    public void Holstering_a_plain_gun_leaves_the_grant_alone()
+    {
+        var (world, carrier) = GrantWorld();
+        var (w, vm) = world.Armed("tf_weapon_pistol", clip: -1, reserve: 0);
+
+        // The clear is the melee's own Holster: a switch between two non-melee
+        // rows spends nothing of the grant waiting for the next swing.
+        world.Behaviour("tf_weapon_pistol").Holster(world.Attack(w, vm, now: 10f));
+
+        Assert.Equal((int)TFMeleeCrit.Crit, carrier.NextMeleeCrit);
     }
 }

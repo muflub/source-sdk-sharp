@@ -83,11 +83,14 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     private readonly IGameClock _clock;
     private readonly ILog _log;
     private readonly IEngineHost _host;
-    private readonly IHooks<ITeamRoundListener>? _listeners;
-    private readonly IHooks<ITimerExpiryVeto>? _vetoes;
-    private readonly ITFWinPanel? _winPanel;
-    private readonly ILevelInfo? _level;
-    private readonly TF2.Server.Entities.IObjectiveEntities? _objectives;
+    private readonly IHooks<ITeamRoundListener> _listeners;
+    private readonly IHooks<ITimerExpiryVeto> _vetoes;
+    // The core's new-match chain (plan_bots_teams_tf2 A.6), told when the
+    // player arm of ResetScores runs: the departed players' scores go too.
+    private readonly IHooks<IMatchResetHook> _matchResets;
+    private readonly ITFWinPanel _winPanel;
+    private readonly ILevelInfo _level;
+    private readonly TF2.Server.Entities.IObjectiveEntities _objectives;
 
     // The convar hooks the machine answers (stock's MPTimeLimitCallback and
     // WinlimitChanged): the machine is a side-wide singleton, so the
@@ -97,13 +100,13 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
 
     // The dead players' respawn overrides (the volumes' pair, read through
     // their carrier parts): the wave's hold and the override's own release.
-    private readonly TF2.Server.Player.TFPlayerCarriers? _overrides;
+    private readonly TF2.Server.Player.TFPlayerCarriers _overrides;
 
     // The scramble's player scores (CTFPlayerResource::GetTotalScore reads
     // them; without them stock's sort keeps its order and the swap pass is
     // skipped), and the auto-assign coin's stream (the same arm TFTeams
     // takes, seeded once).
-    private readonly TF2.Server.Player.ITFPlayerStats? _stats;
+    private readonly TF2.Server.Player.ITFPlayerStats _stats;
     private readonly Random _random;
 
     private const int Teams = (int)TFTeam.Count;
@@ -162,15 +165,19 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     private int _currentMiniRoundMask;
     private readonly RoundHistory _history = new();
 
+    /// <summary>
+    /// Every dependency is injected: both sides' registrations hold each one
+    /// (the hook chains through their registrar, the seams through their
+    /// <see cref="SideServiceAttribute"/>), so a missing one fails the
+    /// composition by name instead of answering a fallback.
+    /// </summary>
     public TeamRoundFlow(ITeamRoundSettings settings, ITeamRoundRoster roster, IRoundAnnouncer announcer,
                          IRoundWorld world, IGameEnd end, IActiveTeamRoundMode mode, ITFTeamScores scores,
                          IRoundTimers timers, TeamBalance balance, IGameClock clock, ILog log, IRandomSeeds seeds,
-                         IEngineHost host,
-                         IHooks<ITeamRoundListener>? listeners = null, IHooks<ITimerExpiryVeto>? vetoes = null,
-                         TF2.Server.Player.TFPlayerCarriers? carriers = null, ITFWinPanel? winPanel = null,
-                         ILevelInfo? level = null,
-                         TF2.Server.Entities.IObjectiveEntities? objectives = null,
-                         TF2.Server.Player.ITFPlayerStats? stats = null)
+                         IEngineHost host, IHooks<ITeamRoundListener> listeners, IHooks<ITimerExpiryVeto> vetoes,
+                         TF2.Server.Player.TFPlayerCarriers carriers, ITFWinPanel winPanel, ILevelInfo level,
+                         TF2.Server.Entities.IObjectiveEntities objectives, TF2.Server.Player.ITFPlayerStats stats,
+                         IHooks<IMatchResetHook> matchResets)
     {
         _settings = settings;
         _roster = roster;
@@ -191,6 +198,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
         _level = level;
         _objectives = objectives;
         _stats = stats;
+        _matchResets = matchResets;
         _random = new Random(seeds.Next());
 
         // The constructor tells no listener: the listeners are resolved from
@@ -218,10 +226,10 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     /// <summary>
     /// Stock's <c>CTFGameRules::IsValveMap</c> (<c>tf_gamerules.cpp:16641-16652</c>):
     /// the current map against <c>s_ValveMaps</c>. The base class's fallback
-    /// (<c>teamplayroundbased_gamerules.h:340</c>) answers false, and a
-    /// machine built without the level seam answers it.
+    /// (<c>teamplayroundbased_gamerules.h:340</c>) answers false, as does a
+    /// level that names no map.
     /// </summary>
-    private bool IsValveMap => _level?.Map is { } map && TFValveMaps.IsValveMap(map);
+    private bool IsValveMap => _level.Map is { } map && TFValveMaps.IsValveMap(map);
 
     //-------------------------------------------------------------------------
     // The reads (ITeamRoundState, IRoundTimerHost).
@@ -416,7 +424,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
         // The listeners hear the move before the state's entry runs, so a
         // state left at once (RESTART -> PREROUND) is heard in order.
         if (_notify)
-            _listeners?.Each(nameof(ITeamRoundListener.OnStateChanged), l => l.OnStateChanged(from, next));
+            _listeners.Each(nameof(ITeamRoundListener.OnStateChanged), l => l.OnStateChanged(from, next));
 
         switch (next)
         {
@@ -593,7 +601,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
 
         // State_Enter_TEAM_WIN's SendWinPanelInfo( IsGameOver() )
         // (tf_gamerules.cpp:1879, 13599).
-        _winPanel?.Send(new TFWinPanelData(
+        _winPanel.Send(new TFWinPanelData(
             GameOver: IsGameOver,
             WinningTeam: _winningTeam,
             Reason: _winReason,
@@ -837,11 +845,13 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     ///
     /// <para>
     /// The duel exclusion (:16141-16145) and the player-resource score sums
-    /// need the player resource: with no stats service the sort keeps stock's
-    /// unsorted order (its <c>pPR</c>-null arm, :16165-16166 skips the swap
-    /// pass too). The <c>mp_teams_unbalance_limit</c> drop around the swap
-    /// (:16185, :16204) is stock's: our roster's <c>ChangeTeam</c> is a raw
-    /// join that never consults it, so the temporary zero changes nothing.
+    /// need the player resource: stock's <c>pPR</c>-null arm (:16165-16166)
+    /// keeps the insertion order and skips the swap pass too; here the stats
+    /// service always answers, so the sort always runs — a table that answers
+    /// nothing keeps stock's none-order through the stable sort. The
+    /// <c>mp_teams_unbalance_limit</c> drop around the swap (:16185, :16204)
+    /// is stock's: our roster's <c>ChangeTeam</c> is a raw join that never
+    /// consults it, so the temporary zero changes nothing.
     /// </para>
     /// </summary>
     private void HandleScrambleTeams()
@@ -850,8 +860,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
 
         // Sort by player score, highest first (ScramblePlayersSort,
         // tf_gamerules.cpp:14133-14150, over CTFPlayerResource::GetTotalScore).
-        if (_stats is { } stats)
-            players = players.OrderByDescending(p => stats.Score(_roster.EntIndex(p))).ToList();
+        players = players.OrderByDescending(p => _stats.Score(_roster.EntIndex(p))).ToList();
 
         // Everyone to Spectator to clear the teams, back to front so a
         // removal would not skip (there is none here; FOR_EACH_VEC_BACK, :16134).
@@ -867,15 +876,15 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
             _roster.ChangeTeam(player, AutoAssignTeam());
         }
 
-        // The swap pass, only with more than two players and a score table
-        // (the CTFPlayerResource-null arm skips it, :16165-16166).
-        if (_stats is { } table && players.Count > 2)
+        // The swap pass, only with more than two players (stock's arm needs a
+        // score table too, :16165-16166; here the stats service always answers).
+        if (players.Count > 2)
         {
-            var (red, blue) = TeamScoreSums(players, table);
+            var (red, blue) = TeamScoreSums(players, _stats);
             var delta = Math.Abs(red - blue);
             if (delta > 1)
             {
-                for (var pass = 0; pass < 8 && SwapToBalanceTeams(players, ref delta, table); pass++)
+                for (var pass = 0; pass < 8 && SwapToBalanceTeams(players, ref delta, _stats); pass++)
                 {
                 }
             }
@@ -1043,7 +1052,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
 
         // CTFGameRules::SetWinningTeam's crit boost lasts GetBonusRoundTime( bFinal ) + 1.
         float bonus = BonusRoundTime() + 1;
-        _listeners?.Each(nameof(ITeamRoundListener.OnRoundWon), l => l.OnRoundWon(team, reason, bonus));
+        _listeners.Each(nameof(ITeamRoundListener.OnRoundWon), l => l.OnRoundWon(team, reason, bonus));
 
         // Auto scramble teams? The base win's tail, which the TF override
         // reaches after its own body (tf_gamerules.cpp:9687).
@@ -1186,10 +1195,10 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     /// </summary>
     private bool CanChangelevelBecauseOfTimeLimit()
     {
-        if (_forceMapReset || _objectives is not { } objectives)
+        if (_forceMapReset)
             return true;
 
-        var master = objectives.Master;
+        var master = _objectives.Master;
         if (master is not { } known || !known.PlayingMiniRounds || !known.ShouldPlayAllControlPointRounds)
             return true;
 
@@ -1242,19 +1251,16 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     /// </summary>
     public bool TimerMayExpire()
     {
-        if (_vetoes is not null)
+        foreach (var veto in _vetoes.All)
         {
-            foreach (var veto in _vetoes.All)
+            try
             {
-                try
-                {
-                    if (!veto.TimerMayExpire())
-                        return false;
-                }
-                catch (Exception e)
-                {
-                    _log.Warning($"[TF2/Rounds] timer veto {veto.GetType().FullName} threw: {e.Message}\n");
-                }
+                if (!veto.TimerMayExpire())
+                    return false;
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[TF2/Rounds] timer veto {veto.GetType().FullName} threw: {e.Message}\n");
             }
         }
 
@@ -1643,14 +1649,15 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
             // clears the accumulated stats through CTF_GameStats — our
             // ITFPlayerStats' rows — and the TF build fires the game event
             // for it.
-            if (_stats is { } stats)
-            {
-                foreach (TFTeam held in new[] { TFTeam.Unassigned, TFTeam.Spectator, TFTeam.Red, TFTeam.Blue })
-                    foreach (var player in _roster.Players(held))
-                        stats.ResetPlayer(player);
-            }
+            foreach (TFTeam held in new[] { TFTeam.Unassigned, TFTeam.Spectator, TFTeam.Red, TFTeam.Blue })
+                foreach (var player in _roster.Players(held))
+                    _stats.ResetPlayer(player);
 
             _announcer.ScorestatsAccumulatedReset();
+
+            // Every player's score is zero: a new match, so the core forgets
+            // the departed players' scores too (ours; stock keeps none).
+            _matchResets.Raise("match restart");
         }
 
         if (_resetRoundsPlayed)
@@ -1731,7 +1738,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     /// </summary>
     public void SetRoundOverlayDetails()
     {
-        if (_objectives?.Master is not { } master || !master.PlayingMiniRounds
+        if (_objectives.Master is not { } master || !master.PlayingMiniRounds
             || master.CurrentRound is not { } round)
             return;
 
@@ -1767,7 +1774,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
             return;
 
         bool play = mode.InKothMode;
-        if (!play && _objectives?.Master is { } master && !master.ShouldScorePerCapture
+        if (!play && _objectives.Master is { } master && !master.ShouldScorePerCapture
             && !master.WouldNewCPOwnerWinGame(point, (int)cappingTeam))
             play = true;
 
@@ -1900,7 +1907,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
         // respawn override has run out is forced back in at once — the wave
         // gate above never lets them out early, and the hold beside the
         // minimum respawn time keeps them out until its release moment.
-        if (_state != RoundState.Preround && _overrides is not null)
+        if (_state != RoundState.Preround)
         {
             for (var team = TFTeam.Red; team <= TFTeam.Blue; team++)
             {
@@ -1949,7 +1956,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
                     // PREROUND, a player whose override has not run out is held
                     // back from the wave even past their minimum respawn time.
                     if (_state != RoundState.Preround
-                        && _overrides?.Part<TF2.Server.Player.TFRespawnOverride>(player.EntryIndex) is { HasOverride: true } held
+                        && _overrides.Part<TF2.Server.Player.TFRespawnOverride>(player.EntryIndex) is { HasOverride: true } held
                         && Now < held.ReleaseAt)
                         continue;
 
@@ -1960,7 +1967,7 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
                     // the instant spawn their next class choice spends
                     // (:2661-2666, spent by tf_player.cpp:7032).
                     if (_state != RoundState.Preround
-                        && _overrides?.Part<TF2.Server.Player.TFPlayerClass>(player.EntryIndex) is { MenuOpen: true } menu)
+                        && _overrides.Part<TF2.Server.Player.TFPlayerClass>(player.EntryIndex) is { MenuOpen: true } menu)
                     {
                         menu.AllowInstantSpawn = true;
                         continue;

@@ -38,6 +38,17 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
     private readonly string[] _takes = ["hud.vitals", "hud.ammo", "chat", "hud.minimap"];
     public override IReadOnlyList<string> Takes => _takes;
 
+    /// <summary>The player status corner (the class portrait and the health
+    /// cross) as an element a mod's HUD may take (<see cref="UiScreen.Takes"/>),
+    /// as this screen takes the core HUD's vitals: TF2Descent's life orb
+    /// stands in its place.</summary>
+    public const string PlayerStatusElement = "tf.playerstatus";
+
+    /// <summary>The team status across the top centre (the match backdrop and the
+    /// teams' player chips) as an element a mod's HUD may take: TF2Descent's
+    /// XP bar stands there (plan_descent_logic L5). The clock is not part of it.</summary>
+    public const string TeamStatusElement = "tf.teamstatus";
+
     public override void Describe(ref UiFrame ui)
     {
         // The corners ride over each other by intent (stock's panels overlap
@@ -50,8 +61,9 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
         // (0, r120, 250x120): the whole screen, and the art inside it sits
         // at its stock coordinates (the panel's AtRes children). The
         // corners ride over each other by intent, so the canvas is .Layered().
-        ui.Sub("player status", health).At(UiAnchor.BottomLeft)
-            .Size(Size.Percent(100), Size.Percent(100)).Layered().Key("player corner");
+        if (!ui.Taken(PlayerStatusElement))
+            ui.Sub("player status", health).At(UiAnchor.BottomLeft)
+                .Size(Size.Percent(100), Size.Percent(100)).Layered().Key("player corner");
 
         // Stock hangs the item-effect meters over the ammo corner. The
         // invis watch rides the base meter row (huditemeffectmeter.res:
@@ -146,7 +158,7 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
         // art (z1) and the two teams' player chips. Full-screen canvas, the
         // chips at their c- bases; drawn before the clock so the value
         // (TimePanelValue z3) keeps the art under it.
-        if (teams.Visible)
+        if (teams.Visible && !ui.Taken(TeamStatusElement))
             ui.Sub("team status", teams).Size(Size.Percent(100), Size.Percent(100)).Layered();
 
         // Top-centre under the team status, stock's CHudTeamGoal
@@ -289,6 +301,19 @@ public sealed class HealthPanel(ITFLocalPlayer player, IUiTextureLibrary texture
     private static readonly UiColor TanDark = new(117, 107, 94, 255);
     private static readonly UiColor DeathWarning = new(255, 0, 0, 255);
 
+    // The crit boost's glow, stock's team pair critgun_weaponmodel_red/blu
+    // (tf_player_shared.cpp:7578-7584): the HUD portrait wears the same
+    // team glow the weapon does, as a tint over the class image.
+    private static readonly UiColor BoostRed = new(255, 0, 0, 255);
+    private static readonly UiColor BoostBlue = new(0, 146, 255, 255);
+
+    /// <summary>The portrait's ink: the team glow over the class image when
+    /// the local rides a crit boost, plain when not — the pair behind the
+    /// glow's particle names, the HUD's stand-in for stock's model-panel
+    /// render (tf_hud_playerstatus.cpp:391-401).</summary>
+    private static UiPaint BoostInk(bool boosted, int team)
+        => boosted ? UiPaint.FromGame(team == 3 ? BoostBlue : BoostRed) : default;
+
     public override void Describe(ref UiFrame ui)
     {
         bool hasClass = player.ClassName.Length > 0;
@@ -316,7 +341,7 @@ public sealed class HealthPanel(ITFLocalPlayer player, IUiTextureLibrary texture
             Art(ref ui, "class bg clipped", ClassBgClipped(player.Team), classBgClipped.Left, classBgClipped.Bottom,
                 classBgClipped.Wide, classBgClipped.Tall);
             Art(ref ui, "portrait", Portrait(player.ClassName, player.Team), portrait.Left, portrait.Bottom,
-                portrait.Wide, portrait.Tall);
+                portrait.Wide, portrait.Tall, BoostInk(player.Boosted, player.Team));
         }
 
         if (dead)

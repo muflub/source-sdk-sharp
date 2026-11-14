@@ -148,19 +148,22 @@ public sealed class Hud : UiScreen
 
 /// <summary>
 /// Health and suit, bottom left: two <see cref="HudMeter"/>s side by side, the
-/// <see cref="AuxPowerPanel"/> above them while it shows.
+/// <see cref="AuxPowerPanel"/> above them while it shows, and under team play
+/// the <see cref="TeamLinePanel"/> in its place while it does not.
 /// </summary>
 public sealed class VitalsPanel : UiPanel
 {
     private readonly IPlayerHealth _healthSource;
     private readonly IPlayerArmour _armourSource;
     private readonly AuxPowerPanel _aux;
+    private readonly TeamLinePanel _team;
 
-    public VitalsPanel(IPlayerHealth health, IPlayerArmour armour, AuxPowerPanel aux)
+    public VitalsPanel(IPlayerHealth health, IPlayerArmour armour, AuxPowerPanel aux, TeamLinePanel team)
     {
         _healthSource = health;
         _armourSource = armour;
         _aux = aux;
+        _team = team;
     }
 
     private readonly HudMeter _health = new();
@@ -180,6 +183,7 @@ public sealed class VitalsPanel : UiPanel
         {
             ui.Slot("hud.bottom-left", Space.S);
             ui.Sub("aux", _aux);
+            ui.Sub("team", _team);
             using (ui.Row(Space.M, Align.End))
             {
                 ui.Sub("health", _health, new HudMeterProps("#SS_UI_Health", UiShape.Cross, h.Health, h.MaxHealth, h.MaxHealth / 4, Tone.Accent));
@@ -248,6 +252,44 @@ public sealed class AuxPowerPanel : UiPanel
                 ui.Label("#SS_UI_Oxygen", tone);
             if ((devices & Flashlight) != 0)
                 ui.Label("#SS_UI_Flashlight", tone);
+        }
+    }
+}
+
+/// <summary>
+/// The local player's team under team play (stock HL2MP's CTeamPlayHud,
+/// hl2mp_hud_team.cpp): "TEAM" and the team's name in its colour, above the
+/// vitals. Stock shows it only under team play and while alive, and fades it
+/// out while the suit's aux power is below full, whose bar takes its place
+/// (FadeOutTeamLine / FadeInTeamLine). Under deathmatch it draws nothing.
+/// </summary>
+public sealed class TeamLinePanel : UiPanel
+{
+    private readonly IPlayerTeam _team;
+    private readonly IPlayerSuitPower _suit;
+
+    public TeamLinePanel(IPlayerTeam team, IPlayerSuitPower suit)
+    {
+        _team = team;
+        _suit = suit;
+    }
+
+    /// <summary>Whether the line is wanted now: team play, on a playing team, the aux power full.</summary>
+    public static bool Wanted(bool teamplay, int team, float suitPower) => teamplay && team >= 2 && suitPower >= 100f;
+
+    public override void Describe(ref UiFrame ui)
+    {
+        int team = _team.Team;
+        float shown = ui.Animate("fade", Wanted(_team.Teamplay, team, _suit.SuitPower) ? 1f : 0f, Motion.Standard);
+        if (shown <= 0.001f || team < 2)
+            return;
+
+        // One line, as stock's "Team %s1".
+        using (ui.Panel(gap: Space.XS).Pad(Space.M, Space.S).Opacity(shown).Name("team line"))
+        using (ui.Row(Space.S, Align.Centre))
+        {
+            ui.Label("#SS_UI_Team");
+            ui.Data(_team.TeamName, Text.Body, UiTeams.ToneOf(team, Tone.Text));
         }
     }
 }

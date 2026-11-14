@@ -1,7 +1,7 @@
 using System.Globalization;
 using SourceSharp.Ai;
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Ai.Replay;
+using SourceSharp.Ai.Server.Nav;
 
 // tools/ai-replay's entry point (plan_hl2mp_ai §7.3):
 //   nav  <map.nav3d> <map.bsp> <out.png> [pixels-per-unit]
@@ -195,20 +195,40 @@ if (args.Length >= 1 && args[0] == "chat-truth")
 if (args.Length >= 1 && args[0] == "chat-eval")
     return ChatEval.Run(args[1..]);
 
+//   cost <hl2mp|tf2> <map.nav3d> <map.bsp> <recording.airec> [bodies=-] [passes=2]   where a decide's CPU time goes
+if (args.Length >= 1 && args[0] == "cost")
+    return CostTool.Run(args[1..], Console.Out, Console.Error);
+
+//   navsize <hl2mp|tf2> <map.nav3d|map.navhull> <map.bsp> [stop=cache]   what a navigation costs a server to load
+if (args.Length >= 1 && args[0] == "navsize")
+    return NavSizeTool.Run(args[1..], Console.Out, Console.Error);
+
+//   navrooms <hl2mp|tf2> <map.navhull> <map.bsp> rooms [largest] | derive <region> [stop=cache] [no-sight]   the map's regions of free space, and what one costs to derive
+if (args.Length >= 1 && args[0] == "navrooms")
+    return NavRoomsTool.Run(args[1..], Console.Out, Console.Error);
+
+//   jumps <map.nav3d> <map.bsp> <soldier.txt> <out.json> <build> <commit> [candidate-limit]   TF2's blast-jump place finder on the map, measured
+if (args.Length >= 1 && args[0] == "jumps")
+    return JumpPlacesTool.Run(args[1..], Console.Out, Console.Error);
+
+//   practice <map.nav3d> <map.bsp> <soldier.txt> <db|default> <out.json> <build> <commit> [mode|-] [below] [skip|-] [write|dry] [half-life]   the bots' practice (tools/ai-jump-practice)
+if (args.Length >= 1 && args[0] == "practice")
+    return JumpPracticeTool.Run(args[1..], Console.Out, Console.Error);
+
 if (args.Length >= 4 && args[0] == "verify")
 {
     string vNav = args[1], vBsp = args[2], vRec = args[3];
     int[] counts = (args.Length > 4 ? args[4] : "0,1,2,4").Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
     string vMap = Path.GetFileNameWithoutExtension(vNav);
     NavLoadResult v = NavLoader.Load(vMap, p => p.EndsWith(".nav3d", StringComparison.Ordinal) ? File.ReadAllBytes(vNav)
-                                               : File.Exists(vBsp) ? File.ReadAllBytes(vBsp) : null, null);
+                                               : p.EndsWith(".bsp", StringComparison.Ordinal) && File.Exists(vBsp) ? File.ReadAllBytes(vBsp) : null, null);
     if (v.Nav is not { } vn)
     {
         Console.Error.WriteLine($"ai-replay: {v.Refusal}");
         return 1;
     }
 
-    NavSight vSight = NavSight.Build(vn.Nav.Graph, new Nav3dVoxelSpace(vn.Reader));
+    NavSight vSight = NavSight.Build(vn.Nav.Graph, vn.File.Space);
     byte[] bytes = File.ReadAllBytes(vRec);
     int differ = 0;
     foreach (int threads in counts)

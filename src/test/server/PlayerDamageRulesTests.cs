@@ -32,12 +32,14 @@ public class PlayerDamageRulesTests
     }
 
     /// <summary>The real rules over doubles: every player on <paramref name="team"/>, friendly fire as given.</summary>
-    internal static GameRules Rules(int team, string friendlyFire = "1", IDamageRule? rule = null,
+    internal static GameRules Rules(int team, string? friendlyFire = "1", IDamageRule? rule = null,
                                     DamageHitGroups? hits = null)
     {
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
-        convars.Declared<FriendlyFireConVar>().Bind(-1, "cs_sv_friendly_fire", friendlyFire);
+        // Null leaves mp_friendlyfire at its declared default.
+        if (friendlyFire is not null)
+            convars.Declared<MpFriendlyFireConVar>().Bind(-1, "mp_friendlyfire", friendlyFire);
 
         var host = Fake().Returns("Host.ActiveSide", Side.Server);
         var players = Fake().Ignores("Players.FindByUserId", "Players.GetUserId", "Players.GiveItem", "Players.GiveAmmo")
@@ -85,6 +87,34 @@ public class PlayerDamageRulesTests
 
         Assert.True(rules.CanTakeDamage(Victim, Attacker, 10f, (int)DamageType.Bullet, 0f) == Decision.No,
             "two players on the same game team are teammates: friendly fire off refuses the hit");
+    }
+
+    [Fact]
+    public void MpFriendlyFireAtItsDefaultRefusesTeammates()
+    {
+        var rules = Rules(team: 2, friendlyFire: null);
+
+        Assert.True(rules.CanTakeDamage(Victim, Attacker, 10f, (int)DamageType.Bullet, 0f) == Decision.No,
+            "the rules read stock's mp_friendlyfire, whose default is 0 (plan Q1): two teammates "
+          + "cannot hurt each other until it is set");
+    }
+
+    [Fact]
+    public void MpFriendlyFireOneLetsTeammatesHurtEachOther()
+    {
+        var rules = Rules(team: 2, friendlyFire: "1");
+
+        Assert.True(rules.CanTakeDamage(Victim, Attacker, 10f, (int)DamageType.Bullet, 0f) == Decision.UseStockRule,
+            "mp_friendlyfire 1: a teammate's hit is left to the stock rule, which lets it land");
+    }
+
+    [Fact]
+    public void SelfDamageIsNeverRefusedAsFriendlyFire()
+    {
+        var rules = Rules(team: 2, friendlyFire: "0");
+
+        Assert.True(rules.CanTakeDamage(Victim, Victim, 10f, (int)DamageType.Blast, 0f) == Decision.UseStockRule,
+            "your own grenade is not friendly fire: with mp_friendlyfire 0 and a team, self damage still lands");
     }
 
     [Fact]

@@ -106,6 +106,163 @@ public sealed class TFPlayerHealingTests
     }
 
     [Fact]
+    public void A_mega_healed_patient_takes_three_times_the_scaled_heal()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 80, 200);                   // buffed max 300: room for the tripled payout
+        rig.Conditions.Add(H(3), TFCond.Megaheal);   // the Quick-Fix charge's own condition
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 100f, frametime: 1f);     // scale 3 × megaheal 3: pays out 216
+
+        Assert.Contains("take 3 216 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 72 True", rig.Resupply.Takes);   // without the condition the same tick pays 72
+    }
+
+    [Fact]
+    public void The_patients_mult_healing_from_medics_multiplies_the_medigun_heal()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 80, 200);
+        rig.NoteDamage(3, time: 10f);                     // recent: scale starts at 1
+        rig.Items.SetManager(3, HealScale("mult_healing_from_medics", 2f));   // :2519 — asked on the patient's own manager
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 walked to 3: pays out 72
+
+        Assert.Contains("take 3 72 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // :2519 — without the attribute the same tick pays 24
+    }
+
+    [Fact]
+    public void The_healers_overheal_fill_rate_rides_the_heal_past_the_class_max()
+    {
+        // tf_player_shared.cpp:2429-2434, :2520: once the patient stands past their class
+        // max, the healer's own overheal_fill_rate walks onto their heal — asked on the
+        // healer's manager, and only for a player's heal. Past the max the payout lands in
+        // the boost room above it (:2506-2507), so the attribute's tripple of the
+        // accumulate is what fills it.
+        var rig = new MedigunRig();
+        rig.Give(3, 110, 100);                     // past the class max: the walk runs
+        rig.NoteDamage(3, time: 10f);              // recent: scale starts at 1
+        rig.Items.SetManager(1, HealScale("overheal_fill_rate", 2f));   // healer's manager, not the patient's
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // 24 walked to 72, the room to the boost max takes 40
+
+        Assert.Contains("take 3 40 True", rig.Resupply.Takes);     // the boost-max room, filled by the walked heal
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // without the attribute the same tick pays 24
+    }
+
+    /// <summary>An attribute manager holding one Additive class, the shape the
+    /// heal-scale facts declare (<c>AddedSeconds</c>, <c>TFMedigunWeaponTests</c>).</summary>
+    private static AttributeContainer HealScale(string attributeClass, float value)
+    {
+        var def = new AttributeDefinition(30045, "heal scale", attributeClass,
+                                          AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("healscale"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, value));
+        return manager;
+    }
+
+    [Fact]
+    public void The_held_mult_health_fromhealers_multiplies_what_healers_give()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.NoteDamage(3, time: 10f);                     // recent: scale 1
+        rig.Items.SetManager(3, HealScale("mult_health_fromhealers", 0.5f));   // :2406 — asked on the patient's own manager
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 × attribute scale 1.5
+
+        Assert.Contains("take 3 36 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // :2403-2411 — without the attribute the same tick pays 24
+    }
+
+    [Fact]
+    public void The_penalty_on_the_held_weapon_is_asked_next_and_multiplies_the_heal_too()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.NoteDamage(3, time: 10f);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_pistol");
+        rig.Items.Set(3, new Dictionary<string, IAttributeProvider> { ["tf_weapon_pistol"] =
+            HealScale("mult_health_fromhealers_penalty_active", 0.25f) });   // :2410 — asked on the active weapon
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 × attribute scale 1.25
+
+        Assert.Contains("take 3 30 True", rig.Resupply.Takes);   // :2503/:2520 — the penalty rides the healer fraction
+    }
+
+    /// <summary>
+    /// The healing debuff (tf_player_shared.cpp:2537-2540): while the patient rides it —
+    /// the Pyro's afterburn leaves one behind (:6653) — the tick's accumulated fraction is
+    /// scaled by <c>1 − PYRO_AFTERBURN_HEALING_REDUCTION</c> before it becomes health.
+    /// </summary>
+    [Fact]
+    public void A_patient_under_the_healing_debuff_takes_eighty_percent_of_the_same_heal()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.NoteDamage(3, time: 10f);                           // recent: scale 1
+        rig.Conditions.Add(H(3), TFCond.HealingDebuff);         // the afterburn's leftover
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // fraction 24 × 0.8 = 19.2 → pays out 19
+
+        Assert.Contains("take 3 19 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // the same tick without the debuff pays 24 (:2537)
+    }
+
+    /// <summary>
+    /// The overheal drain divided by the healer's decay multiplier (tf_player_shared.cpp:2709-2711):
+    /// half the multiplier doubles the drain per second, so a lower multiplier drains faster.
+    /// </summary>
+    [Fact]
+    public void A_healer_with_a_lower_decay_multiplier_drains_the_overheal_faster()
+    {
+        // max 150: the boost room is (int)(150 × 1.5 / 5) × 5 − 150 = 75; tf_boost_drain_time 15.
+        var rig = new MedigunRig();
+        rig.Give(3, 160, 150);
+        rig.Healing.Heal(H(3), H(1), 0f, 10f, ITFPlayerHealing.StandardOverhealBonus, decayMult: 0.5f);
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);      // healer up: the walk banks the multiplier (:2531)
+        rig.Healing.StopHealing(H(3), H(1), now: 11f);
+
+        rig.Healing.TickPatient(H(3), now: 11f, frametime: 0.5f);    // drain 75/(15 × 0.5) = 10/s → half a second drains 5
+
+        Assert.Equal(155, rig.Health(3));       // multiplier 1 would drain only 5/s → health 158 after the half second
+    }
+
+    /// <summary>
+    /// The best-multiplier reset (tf_player_shared.cpp:2730-2733): with no healer left and
+    /// the health drained back to max, the banked multiplier returns to −1, so the next
+    /// overheal drains at multiplier 1 again.
+    /// </summary>
+    [Fact]
+    public void The_banked_decay_multiplier_resets_once_the_drain_brings_the_patient_back_to_max()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 160, 150);
+        rig.Healing.Heal(H(3), H(1), 0f, 10f, ITFPlayerHealing.StandardOverhealBonus, decayMult: 0.5f);
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);      // the walk banks 0.5; the healer keeps the drain off
+        rig.Healing.StopHealing(H(3), H(1), now: 11f);
+
+        rig.Healing.TickPatient(H(3), now: 11f, frametime: 0.5f);    // 10/s under the banked 0.5
+        Assert.Equal(155, rig.Health(3));
+        rig.Healing.TickPatient(H(3), now: 11.5f, frametime: 0.5f);
+        Assert.Equal(150, rig.Health(3));                             // exactly the class max
+        rig.Healing.TickPatient(H(3), now: 12f, frametime: 0.5f);    // at max: the else-if clears the banked multiplier
+
+        rig.Give(3, 153, 150);                                        // an item puts them over max again, with no healer
+        rig.Healing.TickPatient(H(3), now: 12.5f, frametime: 0.4f);   // multiplier 1 again: 75/15 = 5/s × 0.4 drains 2
+
+        Assert.Equal(151, rig.Health(3));       // still banked at 0.5 the half-scaled tick would drain 4: health 149
+    }
+
+    [Fact]
     public void The_heal_stops_at_the_buffed_max()
     {
         var rig = new MedigunRig();
@@ -174,6 +331,79 @@ public sealed class TFPlayerHealingTests
         rig.Healing.TickPatient(H(3), now: 11f, frametime: 0.05f);
         Assert.Contains("remove 3 HealthOverhealed", rig.Conditions.Calls);
         Assert.False(rig.Conditions.Holds(3, TFCond.HealthOverhealed));
+    }
+
+    /// <summary>
+    /// The Quick-Fix no-decay arm (tf_player_shared.cpp:2458-2470): a healer whose active
+    /// medigun is a Quick-Fix keeps a patient already at the overheal bonus up, even though
+    /// the heal itself is skipped at the cap; the plain gun leaves the drain on (:2475-2479
+    /// leaves bDecayHealth set when it heals nobody).
+    /// </summary>
+    [Fact]
+    public void A_quick_fix_healer_keeps_a_capped_patient_up_and_a_plain_one_drains_them()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 450, 300);                       // heavy at exactly the bonus: 450 = 1.5 × 300
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);       // plain healer: skipped at the cap, drain runs — (450 − 300)/15 = 10/s
+        Assert.Equal(440, rig.Health(3));
+
+        rig.Items.SetManager(1, HealScale("set_weapon_mode", 2f));    // MEDIGUN_QUICKFIX on the healer's manager (:2464-2465)
+        rig.Healing.TickPatient(H(3), now: 11f, frametime: 1f);       // the Quick-Fix holds the overheal up (:2463)
+
+        Assert.Equal(440, rig.Health(3));            // :2467-2468 — without the arm this second tick would drain to 430
+    }
+
+    /// <summary>
+    /// The disguised Spy's fake health (tf_player_shared.cpp:2436-2456, :2542-2563): at the
+    /// overheal cap the real-health arm is skipped, and the healer's whole fraction lands on
+    /// <c>m_iDisguiseHealth</c>, capped to the disguise class's buffed max.
+    /// </summary>
+    [Fact]
+    public void The_medigun_heal_of_a_disguised_spy_lands_on_the_fake_health_not_the_real_one()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 450, 300);                       // the spy's own health sits at the bonus: its arm is skipped (:2446)
+        rig.NoteDamage(3, time: 10f);                // recent hit: scale 1
+        rig.Conditions.Add(H(3), TFCond.Disguised);
+        var spy = new TFPlayerNetState();
+        spy.BindLocal();
+        spy.PlayerClass = (int)TFClass.Spy;
+        spy.DisguiseClass = (int)TFClass.Soldier;    // shipped script: soldier max 200
+        spy.DisguiseHealth = 50;
+        rig.Data.States[3] = spy;
+
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);       // disguise fraction 24 pays onto the fake health
+
+        Assert.Equal(74, spy.DisguiseHealth);                         // 50 + 24, under the soldier's buffed 300
+        Assert.Equal(440, rig.Health(3));                             // the real overheal drains on: bHealActual was false (:2476)
+        Assert.Empty(rig.Resupply.Takes);                             // :2516-2521 — the skipped arm asks nothing of TakeHealth
+    }
+
+    /// <summary>
+    /// The disguise's own drain (tf_player_shared.cpp:2737-2757): fake health over the disguise
+    /// class's max rides the same drain time after the beam stops, the decay multiplier scaling
+    /// the rate after the divide (:2746).
+    /// </summary>
+    [Fact]
+    public void The_disguises_fake_overheal_drains_back_once_the_beam_stops()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 300, 300);                       // the spy's own health at max: its drain stands down
+        rig.Conditions.Add(H(3), TFCond.Disguised);
+        var spy = new TFPlayerNetState();
+        spy.BindLocal();
+        spy.PlayerClass = (int)TFClass.Spy;
+        spy.DisguiseClass = (int)TFClass.Soldier;    // shipped script: soldier max 200
+        spy.DisguiseHealth = 250;                    // 50 over the disguise's own max
+        rig.Data.States[3] = spy;
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 0.5f);     // (300 − 200)/15 ≈ 6.67/s × 0.5 → whole-drain 3
+
+        Assert.Equal(247, spy.DisguiseHealth);       // :2749-2756
+        Assert.Equal(300, rig.Health(3));             // the real health is at max: untouched
     }
 
     // ---- the stat and the second-window event ------------------------------------
@@ -332,6 +562,80 @@ public sealed class TFPlayerHealingTests
         Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
     }
 
+    // ---- the per-charge on/off sounds (tf_player_shared.cpp:9060-9099) --------------
+
+    [Fact]
+    public void The_grant_emits_the_on_sound_once_to_the_patient_alone()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);      // the grant, tf_player_shared.cpp:9078-9079
+
+        Assert.Single(rig.Engine.AllOf("Sound.EmitSoundToPlayer"),
+                      c => (string)c.Args[2]! == "TFPlayer.InvulnerableOn"
+                        && (EntityHandle)c.Args[0]! == H(3)              // CSingleUserRecipientFilter: the patient only
+                        && (EntityHandle)c.Args[1]! == H(3)              // stock emits from the player's own index (:9078)
+                        && (bool)c.Args[3]! == true);                    // the stock arm keeps the filter's reliable default
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10.5f);    // already held: the equal-state arm re-emits nothing (:9038)
+
+        Assert.Single(rig.Engine.AllOf("Sound.EmitSoundToPlayer"),
+                      c => (string)c.Args[2]! == "TFPlayer.InvulnerableOn");
+    }
+
+    [Fact]
+    public void The_wear_off_stops_the_on_sound_once_and_puts_the_off_sound_once()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true);
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);
+        rig.Healing.NoteReleasing(1, false);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10.5f);   // wear-off, tf_player_shared.cpp:9085-9098
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn"
+                        && (EntityHandle)c.Args[0]! == H(3));     // the on sound stopped first (:9087)
+        Assert.Single(rig.Engine.AllOf("Sound.EmitSoundToPlayer"),
+                      c => (string)c.Args[2]! == "TFPlayer.InvulnerableOff"
+                        && (EntityHandle)c.Args[0]! == H(3)              // the off wave reaches the patient alone (:9095)
+                        && (bool)c.Args[3]! == true);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10.7f);   // the pending expiry early-returns (:9112 arm)
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn");
+        Assert.Single(rig.Engine.AllOf("Sound.EmitSoundToPlayer"),
+                      c => (string)c.Args[2]! == "TFPlayer.InvulnerableOff");
+    }
+
+    [Fact]
+    public void An_instant_remove_leaves_the_on_sound_to_be_stopped_once_on_the_next_expire_tick()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true);
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);      // the grant puts the on sound on
+        rig.Healing.RemoveChargeEffect(H(3));                      // instant loss: stock's RecalcEffectOnTarget(target, true)
+
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 10.1f);   // stock's else-if (:8980-8987) stops it, once
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn"
+                        && (EntityHandle)c.Args[0]! == H(3));
+
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 10.2f);
+
+        Assert.Single(rig.Engine.AllOf("Sound.EntityStopSound"),
+                      c => (string)c.Args[1]! == "TFPlayer.InvulnerableOn");
+    }
+
     [Fact]
     public void A_flag_carrier_receives_no_charge_effect()
     {
@@ -345,6 +649,24 @@ public sealed class TFPlayerHealingTests
 
         Assert.False(rig.Conditions.Holds(3, TFCond.Invulnerable));
         Assert.DoesNotContain("add 3 Invulnerable d9 p1", rig.Conditions.Calls);
+    }
+
+    [Fact]
+    public void A_flag_carrier_keeps_a_crit_boost_but_receives_no_invulnerability()
+    {
+        // The refusal after the recalc's loop clears only the invulnerable row
+        // (tf_player_shared.cpp:8899-8902): a covered carrier keeps every other
+        // charge effect their healer is providing.
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true, chargeType: 1);   // the Kritzkrieg
+        rig.Ctf.Carriers.Add(3);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);
+
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+        Assert.False(rig.Conditions.Holds(3, TFCond.Invulnerable));
     }
 
     [Fact]
@@ -578,8 +900,8 @@ public sealed class TFPlayerHealingTests
         var rig = new MedigunRig();
         rig.Give(3, 100, 125);
         rig.Give(1, 100, 125);
-        rig.Owners.Items[1] = new AttributeContainer(new ItemSchema(files, log).Item(13),
-                                                     AttributeProviderType.Generic);
+        rig.Items.Set(1, new Dictionary<string, IAttributeProvider> { ["tf_weapon_medigun"] =
+            new AttributeContainer(new ItemSchema(files, log).Item(13), AttributeProviderType.Generic) });
         rig.Healing.Heal(H(3), H(1), 24f, 10f);
 
         rig.Healing.Extinguished(H(3));

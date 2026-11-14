@@ -129,4 +129,63 @@ public class ClientArsenalClockTests
         Assert.Equal(commandClock + deploy, switched.TimeWeaponIdle, 4);
         Assert.True(switched.Clip == -1, $"the crowbar spends no ammunition, not {switched.Clip}");
     }
+
+    /// <summary>
+    /// The held word rides its command: stock's client predicts the active
+    /// weapon too (<c>DEFINE_PRED_FIELD m_hActiveWeapon</c>,
+    /// c_basecombatcharacter.cpp:194, written through the shared
+    /// <c>Weapon_Switch</c>), so the replay answers the command's weaponselect
+    /// with the same write the server's <c>Arsenal.ShowHeld</c> wrote — into
+    /// the player's working copy, the one object the ring saves. Without it
+    /// every switch mispredicted by exactly the held byte: the boot showed
+    /// <c>MISPREDICTION ... HeldWeapon</c> for each press.
+    /// </summary>
+    [Fact]
+    public void TheReplayedSwitchWritesTheHeldWordIntoTheWorkingCopy()
+    {
+        var engine = Fake();
+        engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
+        engine.Returns("Clock.Now", 5000f);
+        engine.Returns("EntityRender.LookupSequenceByActivity", 0);   // the draw resolves
+
+        var catalog = WeaponCatalog.Stock();
+        int pistol = catalog.IndexOf(EntityNames.WeaponPistol);
+        int crowbar = catalog.IndexOf(EntityNames.WeaponCrowbar);
+
+        var weapon = new ClientSsWeapon(engine) { Handle = new EntityHandle(0x0100_0041u) };
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = LocalPlayer;
+        weapon.State.WeaponTypeId = pistol;
+        weapon.State.Clip = 12;
+
+        var viewModel = new ClientSsViewModel(engine, engine) { Handle = new EntityHandle(0x0100_0042u) };
+        viewModel.State.BindLocal();
+        viewModel.State.OwnerIndex = LocalPlayer;
+
+        var pair = new Pair();
+        pair.Directory.Bind(weapon.Handle, -1, weapon);
+        pair.Directory.Bind(viewModel.Handle, -1, viewModel);
+
+        var arsenal = new ClientArsenal(new RecordingLog(), pair, engine, engine, engine,
+                                        NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
+
+        // ClientModule's hand-over: the same object the movement's replay runs
+        // on, and the one the ring save carries. It starts on the kit's deploy
+        // — the server's ShowHeld word from the spawn give, decoded.
+        var working = new PlayerNetState();
+        working.BindLocal();
+        working.HeldWeapon = pistol + 1;
+        arsenal.WorkingPlayer = working;
+
+        var player = new EntityHandle(0x0001_0000u | LocalPlayer);
+        Assert.Equal(pistol + 1, working.HeldWeapon);
+
+        var basis = new UserCmd { CommandNumber = 10 };
+        arsenal.OnPlayerCommand(player, in basis, 2, false);
+
+        var cmd = new UserCmd { CommandNumber = 11, WeaponSelect = crowbar + 1 };
+        arsenal.OnPlayerCommand(player, in cmd, 1, true, commandTime: 10f);
+
+        Assert.Equal(crowbar + 1, working.HeldWeapon);
+    }
 }

@@ -1,5 +1,5 @@
 using SkiaSharp;
-using SourceSharp.Ai.Hl2mp.Nav;
+using SourceSharp.Ai.Server.Nav;
 
 namespace SourceSharp.Ai.Replay;
 
@@ -32,6 +32,7 @@ public static class NavPng
         NavEdgeType.Drop => new SKColor(166, 102, 230),
         NavEdgeType.Ladder => new SKColor(77, 230, 230),
         NavEdgeType.Door => new SKColor(242, 242, 242),
+        NavEdgeType.DoubleJump => new SKColor(242, 220, 51),
         _ => new SKColor(128, 128, 128),
     };
 

@@ -1,0 +1,19 @@
+Descent_Portal_NotHere	A teleporter can only be built in the mine.
+Descent_Portal_InTown	You are in town already: a teleporter is built down in the mine.
+Descent_Portal_NoHero	You have no hero to build a teleporter for.
+Descent_Portal_Dead	The dead build no teleporters.
+Descent_Portal_NoRoom	No room for a teleporter here: face open floor.
+Descent_Portal_NoFloor	A teleporter needs solid floor in front of you.
+Descent_Portal_TooSteep	The floor here is too steep for a teleporter.
+Descent_Portal_NotBuilt	The teleporter could not be built.
+Descent_Portal_Opened	Teleporter built. Stand on it to go back to town.
+Descent_Portal_Moved	Your old teleporter was taken down.
+Descent_Portal_Spent	That teleporter has been used: it is gone.
+Descent_Portal_Gone	That teleporter is gone.
+Descent_Portal_NotYours	That teleporter is not yours.
+Descent_Portal_Busy	The teleporter is already sending someone.
+Descent_Portal_NoPad	There is no teleporter of yours here.
+Descent_Portal_Refused	The teleporter failed: %s1
+Descent_Portal_Back	The teleporter sends you back down the mine...
+Descent_Portal_Arrived	You arrive in town on your teleporter's exit.
+Descent_Portal_Anew	This level was made anew from its map: its robots, loot and traps start over.

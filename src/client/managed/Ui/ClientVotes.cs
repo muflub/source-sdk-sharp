@@ -28,6 +28,8 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     private readonly List<byte> _optionBytes = [];
     private List<AdminMenuLine> _options = [];
     private string _settingTitle = "", _settingValue = "";
+    private string _refusalReason = "";
+    private IReadOnlyList<string> _ballot = [];
 
     private VotePhase Phase => (VotePhase)_state.Phase;
 
@@ -44,6 +46,9 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         VoteKind.Map => "#SS_UI_Vote_MapTitle",
         VoteKind.Mode => "#SS_UI_Vote_ModeTitle",
         VoteKind.Restart => "#SS_UI_Vote_RestartTitle",
+        VoteKind.Scramble => "#SS_UI_Vote_ScrambleTitle",
+        VoteKind.NextMap => "#SS_UI_Vote_NextMapTitle",
+        VoteKind.Extend => "#SS_UI_Vote_ExtendTitle",
         VoteKind.Setting => _settingTitle,
         _ => "#SS_UI_Vote_KickTitle",
     };
@@ -54,8 +59,22 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     {
         VoteKind.Kick => NameOf(_state.Target),
         VoteKind.Setting => _settingValue,
+        VoteKind.Mode => LabelOf(VoteKind.Mode, _state.Detail ?? ""),
         _ => _state.Detail ?? "",
     };
+
+    /// <summary>
+    /// What the server's list calls the choice <paramref name="id"/> of <paramref name="kind"/>
+    /// (a mode's readable name, "#SS_UI_Mode_TeamDeathmatch" for tdm), or the id itself
+    /// when the list does not have it.
+    /// </summary>
+    private string LabelOf(VoteKind kind, string id)
+    {
+        foreach (var option in _options)
+            if (option.Depth == (int)kind && option.Id == id && option.Label.Length > 0)
+                return option.Label;
+        return id;
+    }
 
     public string Caller => NameOf(_state.Caller);
 
@@ -78,8 +97,18 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         VoteRefusal.BadTarget => "#SS_UI_Vote_Refused_BadTarget",
         VoteRefusal.Immune => "#SS_UI_Vote_Refused_Immune",
         VoteRefusal.Disabled => "#SS_UI_Vote_Refused_Disabled",
+        VoteRefusal.NotNow => "#SS_UI_Vote_Refused_NotNow",
+        VoteRefusal.FailedLately => "#SS_UI_Vote_Refused_FailedLately",
+        VoteRefusal.TooFewVoters => "#SS_UI_Vote_Refused_TooFewVoters",
         _ => null,
     } : null;
+
+    public string RefusalReason => Refusal is null ? "" : _refusalReason;
+
+    public IReadOnlyList<string> Options => _ballot;
+
+    public int CountOf(int option)
+        => option >= 1 && _state.Counts is { } counts && option <= counts.Length ? counts[option - 1] : 0;
 
     /// <summary>Seconds until this player may call another vote; 0 now.</summary>
     public float CooldownLeft => MathF.Max(0f, _cooldownUntil - clock.Now);
@@ -92,6 +121,7 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
             _voted = false;
         _state = state;
         _stateAt = clock.Now;
+        _ballot = state.Options is { Length: > 0 } options ? options.Split('\n') : [];
         if ((VoteKind)state.Kind == VoteKind.Setting)
             (_settingTitle, _settingValue) = Describe(state.Detail ?? "");
     }
@@ -99,9 +129,11 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     public void OnVoteCooldown(VoteCooldown cooldown)
     {
         log.Msg($"[SourceSharp/Vote] {(VoteRefusal)cooldown.Refusal}, {cooldown.Seconds:0}s until the next call\n");
-        if (cooldown.Seconds > 0f)
+        // Only the caller's own cooldown holds their next call: a failed issue's wait is that issue's.
+        if (cooldown.Seconds > 0f && (VoteRefusal)cooldown.Refusal is VoteRefusal.None or VoteRefusal.Cooldown)
             _cooldownUntil = clock.Now + cooldown.Seconds;
         _refusal = (VoteRefusal)cooldown.Refusal;
+        _refusalReason = cooldown.Reason ?? "";
         _refusalUntil = _refusal == VoteRefusal.None ? 0f : clock.Now + RefusalSeconds;
         // The call went through, and a caller's call is their yes.
         if (_refusal == VoteRefusal.None)
@@ -145,6 +177,8 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
 
     private RadialPage Ballot()
     {
+        if (_ballot.Count > 0)
+            return new("#SS_UI_Vote_Ballot", [.. _ballot.Select((choice, i) => new RadialEntry(choice, () => Cast(i + 1)))]);
         string what = Target.Length > 0 ? Target : Title;
         return new("#SS_UI_Vote_Ballot",
         [
@@ -160,10 +194,17 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         string? why = wait > 0f ? Wait(wait) : null;
         var entries = new List<RadialEntry> { new("#SS_UI_Vote_KickPlayer", Open: KickWho, Enabled: can, Detail: why) };
         entries.Add(Folder("#SS_UI_Vote_ChangeMap", "#SS_UI_Vote_MapWhich", VoteKind.Map, "map", can, why));
+        if (_options.Any(o => o.Depth == (int)VoteKind.NextMap))
+            entries.Add(Folder("#SS_UI_Vote_NextMap", "#SS_UI_Vote_NextMapWhich", VoteKind.NextMap, "nextmap", can, why));
         entries.Add(Folder("#SS_UI_Vote_Mode", "#SS_UI_Vote_ModeWhich", VoteKind.Mode, "mode", can, why));
         entries.Add(Settings(can, why));
         if (_options.Any(o => o.Depth == (int)VoteKind.Restart))
             entries.Add(new RadialEntry("#SS_UI_Vote_Restart", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} restart"), Enabled: can, Detail: why));
+        // Listed only while a mode that can scramble plays (team deathmatch).
+        if (_options.Any(o => o.Depth == (int)VoteKind.Scramble))
+            entries.Add(new RadialEntry("#SS_UI_Vote_Scramble", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} {VoteWordScramble}"), Enabled: can, Detail: why));
+        if (_options.Any(o => o.Depth == (int)VoteKind.Extend))
+            entries.Add(new RadialEntry("#SS_UI_Vote_Extend", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} extend"), Enabled: can, Detail: why));
         return new RadialPage("#SS_UI_Vote_Call", entries);
     }
 
@@ -181,6 +222,9 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
 
     private const string VoteWordSetting = "setting";
 
+    /// <summary>The scramble issue's word on the call line (the server's VoteOptionWords.Scramble).</summary>
+    private const string VoteWordScramble = "scramble";
+
     // A place on the ring for the choices of one kind; with none to choose, it says so.
     private RadialEntry Folder(string label, string title, VoteKind kind, string word, bool can, string? why)
     {
@@ -188,7 +232,7 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         if (choices.Count == 0)
             return new RadialEntry(label, Enabled: false, Detail: "#SS_UI_Admin_Nothing");
         return new RadialEntry(label, Enabled: can, Detail: why, Open: () => new RadialPage(title,
-            [.. choices.Select(c => new RadialEntry(c.Label, () => engine.SubmitConsoleLine($"{VoteVerbs.Call} {word} {c.Id}")))]));
+            [.. choices.Select(c => new RadialEntry(c.Label, () => engine.SubmitConsoleLine(c.Id == word ? $"{VoteVerbs.Call} {word}" : $"{VoteVerbs.Call} {word} {c.Id}")))]));
     }
 
     /// <summary>"Wait 2:14".</summary>

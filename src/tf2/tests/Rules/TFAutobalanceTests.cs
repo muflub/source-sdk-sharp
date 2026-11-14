@@ -77,7 +77,7 @@ public sealed class TFAutobalanceTests
 
         public bool IsBot(EntityHandle player) => Known.Contains(player);
 
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
             => throw new NotSupportedException();
 
         public bool Kick(EntityHandle bot, string reason) => throw new NotSupportedException();

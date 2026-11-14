@@ -1,0 +1,6 @@
+// TF2Descent's startup script, seeded into cfg/ when absent, as the TF2 mod's.
+// The engine runs valve.rc instead of the command line's + commands when one
+// exists, so this must end in stuffcmds, or +map never runs. HL2MP's pack
+// answered for it on the MOD path until the mod stopped mounting HL2MP.
+exec autoexec.cfg
+stuffcmds

@@ -36,14 +36,15 @@ public class TFBlastJumpTests
     {
         owners ??= new ProjectileRig.FixedOwners();
         var rig = new PlayerRig().As(cls);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var jump = new TFBlastJumpState(rig.Carriers, conditions, rig.Engine, new NoEntities(), rig.Engine, rig.Engine);
         jump.Attach(PlayerRig.Player);
 
         var blast = new TFBlastApplier(rig.Engine, rig.Engine, rig.Engine, new TFDamageScopes(), new DamageHitGroups(),
             new DamageInflictors(), rig.Carriers, rig.Log, rig.Engine, owners,
             new AttributeHooks(), new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
-            new ProjectileRig.DirectoryView(), rig.Carriers);
+            new ProjectileRig.DirectoryView(), rig.Carriers,
+            DeclaredConVars.Fresh<TF2.Server.TFPreroundPushFromDamageEnableConVar>());
         return (rig, blast, conditions, jump);
     }
 
@@ -88,6 +89,27 @@ public class TFBlastJumpTests
         Assert.Equal("playsound", rig.Engine.Last("GameEvents.EventSetBool")!.ArgAs<string>(1));
         Assert.False(rig.Engine.Last("GameEvents.EventSetBool")!.ArgAs<bool>(2));
         Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
+    }
+
+    /// <summary>
+    /// The self push also clears the air-duck count (tf_player.cpp:10277-10278,
+    /// <c>m_Shared.SetAirDucked( 0 )</c> beside the jump's name): a soldier
+    /// riding a rocket off a teammate starts the next airtime's ducks fresh.
+    /// </summary>
+    [Fact]
+    public void The_self_blast_push_resets_the_air_duck_count()
+    {
+        var (rig, blast, _, jump) = JumpRig();
+        AirborneAtHundred(rig, EntityState.None);
+        // The push belongs to the hit (:10647-10656): the own pass pushes only
+        // when the delivery answered, so this fact answers a real hit.
+        rig.Engine.Returns("Damage.TakeDamageAnswered", 90);
+        rig.Carriers.Predicted(PlayerRig.Index)!.AirDuckedCount = 3;
+
+        RocketJump(rig, blast);
+
+        Assert.Equal(TFBlastJump.RocketJumped, jump.State);
+        Assert.Equal(0, rig.Carriers.Predicted(PlayerRig.Index)!.AirDuckedCount);
     }
 
     /// <summary>The landing (:1441-1483): the grounded tick clears the

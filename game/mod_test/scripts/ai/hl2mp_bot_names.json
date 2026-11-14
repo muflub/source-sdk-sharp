@@ -224,6 +224,24 @@
     "Nearest First",
     "Picks On Weak"
    ]
+  },
+  "teamwork": {
+   "high": [
+    "Sticks Close",
+    "Wingman",
+    "Team Player",
+    "Backup",
+    "Squadmate",
+    "Covers You"
+   ],
+   "low": [
+    "Lone Wolf",
+    "Solo",
+    "Goes Alone",
+    "Freelancer",
+    "Rogue",
+    "Off Alone"
+   ]
   }
  }
 }

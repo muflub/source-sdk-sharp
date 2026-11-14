@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using SourceSharp.Ai.Hl2mp.Chat;
 using Xunit;
+using SourceSharp.Ai.Server.Chat;
 
 namespace SourceSharp.Ai.Tests.Chat;
 
@@ -17,7 +18,7 @@ public sealed class ChatUnloadTests
 {
     private sealed class AiCopyContext() : AssemblyLoadContext("ChatUnload", isCollectible: true)
     {
-        private static readonly string[] Copied = ["SourceSharp.Ai", "SourceSharp.Ai.Hl2mp"];
+        private static readonly string[] Copied = ["SourceSharp.Ai", "SourceSharp.Ai.Server", "SourceSharp.Ai.Hl2mp"];
 
         protected override Assembly? Load(AssemblyName name)
         {
@@ -50,7 +51,7 @@ public sealed class ChatUnloadTests
     private static (WeakReference Weak, string? Line) RunAndUnload(string answering, string silent, Func<int> accepted)
     {
         var context = new AiCopyContext();
-        Assembly binding = context.LoadFromAssemblyName(new AssemblyName("SourceSharp.Ai.Hl2mp"));
+        Assembly binding = context.LoadFromAssemblyName(typeof(OllamaChatWriter).Assembly.GetName());
         Assembly core = context.LoadFromAssemblyName(new AssemblyName("SourceSharp.Ai"));
         Assert.Same(context, AssemblyLoadContext.GetLoadContext(core));
         string? line = Exercise(binding, core, answering, silent, accepted);

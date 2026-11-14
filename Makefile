@@ -204,6 +204,9 @@ DEDICATED_TIMED_LOG_ARGS ?= +con_timestamp 1 +con_logfile console-dedicated.time
 
 # Everything above plus assertions demoted to log lines. For driving the game
 # from a script, where stopping on the first assert defeats the point.
+# The headless recipe itself adds the launcher's tool-game switch after these
+# (tools/local_launch.py says what it is), so a tool that passes its own
+# HEADLESS_ARGS still runs a tool's game: off the user's own experience store.
 HEADLESS_ARGS ?= $(RUN_ARGS) -assertlog
 
 # The GPU the game must render on. Sourced by every launch below, and by
@@ -243,7 +246,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-maps windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level descent-install descent-brightness descent-reach descent-budget mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
 help:
@@ -251,13 +254,21 @@ help:
 	@echo
 	@echo "  make setup [VALVE_SDK=..]           build the farms and bin/ from the pristine Valve clone"
 	@echo "  make host-pack [HOST_ROOT=..]       build the host's SDK packages the TF2Descent mod restores from"
-	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range) in this tree"
+	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range, ss_ai_tdm) in this tree"
+	@echo "  make ai-maps-tf                     build the TF2 AI's test maps (TF_LINKED_MAPS: ss_ai_tf_jump, ss_ai_tf_course, ss_ai_tf_double) into the tf2 mod's maps"
 	@echo "  make ai-nav                         build the AI's .nav3d of NAV_MAPS (dm_lockdown) in this tree, stamped"
+	@echo "  make ai-nav-tf [MAP=ctf_2fort]      build a TF2 map's .nav3d into the tf2 mod's maps (MAPTOOLS_DIR= another map-tools tree;"
+	@echo "                                      HULL=1 its .navhull instead, which a map too tall for a .nav3d needs)"
 	@echo "  make ai-jank [MINUTES=5]            the jank score's standard run: dm_lockdown, four bots, a scripted client, recorded and scored"
-	@echo "  make mapformats-pack                pack SourceSharp.MapFormats (the AI's .nav3d reader) in MAPTOOLS_DIR at maptools.lock"
+	@echo "  make mapformats-pack                pack SourceSharp.MapFormats + MapTools (the AI's .nav3d reader and builder) in MAPTOOLS_DIR at maptools.lock"
 	@echo "  make dedicated [DEDICATED_MOD=tf2_descent] [HOSTED=1]   a dedicated server (unhosted unless HOSTED=1)"
 	@echo "  make join ADDR=host:port [JOIN_MOD=tf2_descent]         a client joining a server"
 	@echo "  make town                            generate and compile tf2_descent_town into the tf2_descent mod"
+	@echo "  make descent-rooms [DEPTH=n]         write and pack depth n's Descent room library (MAPTOOLS_DIR=...)"
+	@echo "  make descent-level DEPTH=n SEED=s    lay out, link and preview a Descent level from it"
+	@echo "  make descent-install DEPTH=n SEED=s  link that level into the tf2_descent mod's pool/maps (map tf2_descent-n-ss)"
+	@echo "  make descent-brightness|descent-reach|descent-budget [DESCENT_DEPTHS=1,2,3,4,6,7,8,9] [DESCENT_SEEDS=1,2,3]"
+	@echo "                                       the Descent levels' gates (tools/descent-gate; MAPTOOLS_DIR=...)"
 	@echo "  make mod-image [CONFIG=release] [MOD_IMAGE=ref]      build (never push) the hosted mod image"
 	@echo "  make local-hosted                    the tf2_descent mod against the host's local service"
 	@echo "  make debug      build with symbols kept in the binaries"
@@ -306,13 +317,14 @@ SETUP_ARGS ?=
 # version keeps the same package identity, so the machine-wide NuGet cache is
 # cleared of them first, or restore keeps a stale copy.
 # SourceSharp.MapFormats, the .nav3d reader the AI restores from map-tools'
-# local feed (Directory.Build.props, plan_hl2mp_ai §6.1): packed in the
+# local feed, and SourceSharp.MapTools, the builder the server runs on a map
+# with no nav (plan_bots_teams_tf2 Part E), (Directory.Build.props, plan_hl2mp_ai §6.1): packed in the
 # map-tools checkout at maptools.lock, the NuGet cache cleared of it first for
 # the reason host-pack gives.
 mapformats-pack:
 	@test "$$(git -C $(MAPTOOLS_DIR) rev-parse HEAD 2>/dev/null)" = "$$(cat maptools.lock)" || { \
 	    echo "mapformats-pack: $(MAPTOOLS_DIR) is not at maptools.lock ($$(cut -c1-12 maptools.lock))"; exit 1; }
-	rm -rf $(HOME)/.nuget/packages/sourcesharp.mapformats
+	rm -rf $(HOME)/.nuget/packages/sourcesharp.mapformats $(HOME)/.nuget/packages/sourcesharp.maptools $(HOME)/.nuget/packages/sourcesharp.roomcontracts
 	DOTNET=$(DOTNET) $(MAPTOOLS_DIR)/tools/pack-mapformats.sh
 
 host-pack:
@@ -494,7 +506,7 @@ headless: $(CONFIG)
 	$(call require-setup,$(CONFIG))
 	@mkdir -p $(RUN_TMP)
 	@echo "==> running $(MAP) from $(GAME) headless (temp dir $(RUN_TMP))"
-	@cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) $(LAUNCH_MOD) $(HEADLESS_ARGS) +map $(MAP); \
+	@cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) $(LAUNCH_MOD) $(HEADLESS_ARGS) -toolgame +map $(MAP); \
 	  status=$$?; rm -rf $(RUN_TMP); exit $$status
 
 # A DEDICATED SERVER (plan_host_sdk §2.5): the mod's engine.dedicated role
@@ -663,9 +675,142 @@ loadprof: $(CONFIG) loadprof-probe
 # NAV_MAPS>` builds it; `make ai-nav` builds them all. tools/ai-nav-build.
 NAV_MAPS := dm_lockdown
 
+# MAPTOOLS_DIR given on the command line or in the environment builds a nav
+# with that map-tools tree instead of maptools.lock's (a branch not merged
+# yet); the stamp names its commit. Without it the build is the lock's.
+NAV_TREE = $(if $(filter command line environment,$(origin MAPTOOLS_DIR)),--maptools $(MAPTOOLS_DIR))
+
 ai-nav:
 	$(call require-setup,$(CONFIG))
-	@tools/ai-nav-build $(NAV_MAPS) --config $(CONFIG)
+	@tools/ai-nav-build $(NAV_MAPS) --config $(CONFIG) $(NAV_TREE)
+
+# TF2's navigation (plan_bots_teams_tf2 P6 step 2): a stock TF map's .nav3d,
+# built from the map in the tf2 mod's content (bin/<config>/content/tf/maps)
+# into the mod's own bin/<config>/mods/tf2/maps, where its AI loader reads
+# maps/MAP.nav3d, with ssmap mounting the mod as the game does. A TF map needs
+# map-tools' compressed-map reader (main 3cec3d7) and, for maps whose skybox
+# makes them too tall (pl_badwater, koth_viaduct), its play-space clip
+# (claude/nav-tf-maps): until maptools.lock carries them, MAPTOOLS_DIR=/path/to/that tree.
+# HULL=1 builds the map's hull navigation, maps/MAP.navhull, instead (plan_bots_teams_tf2_part_g
+# G.7): the one a map too tall for a .nav3d has (a jump map, found in content/tf/download/maps
+# too), and the one the loader prefers when a map has both.
+TF_NAV_MAPS := ctf_2fort
+
+ai-nav-tf:
+	$(call require-setup,$(CONFIG))
+	@tools/ai-nav-build $(if $(filter command line environment,$(origin MAP)),$(MAP),$(TF_NAV_MAPS)) --mod tf2 --config $(CONFIG) $(NAV_TREE) $(if $(HULL),--hull)
+
+# The Descent room libraries (plan_descent_mine_levels.md tasks A13, E2):
+# `make descent-rooms DEPTH=n` has MapGen's `descent-rooms` write depth n's
+# library (the grey catalogue on the normal kit, or a boss depth's row on its
+# own kit) and its library.json into bin/<config>/descent-rooms/dNN (per-tree
+# build output, never committed), and `ssmap room` packs it.
+# `make descent-level DEPTH=n SEED=s` lays a level of depth n out of that
+# library with the rules' generator (MapGen `descent-level`; a pool that cannot
+# make the level prints the generator's reason), links it as the host does
+# (-mod-entities) into dNN/maps/tf2_descent-n-ss.bsp, links it again without
+# -mod-entities for the preview (its arrival is then an info_player_start the
+# movement report walks from; with them the mod reads the spawns from the
+# .nav3d and the report reaches nothing), keeps only its first spawn (the
+# arrival: tools/descent-preview-spawns, so the preview plans one spawn view,
+# not four of one wall), sets every face's side flag in both maps from its node
+# (tools/descent-face-sides: the linker writes it wrong in every turned room,
+# whose walls the game then draws only from behind; the preview does not cull
+# by it), and previews that with where a Heavy can go and a
+# camera in a corner of each family's first room (MapGen writes them beside
+# the level file, dNN/tf2_descent-n-ss.cameras). The map tools are $(MAPTOOLS_DIR), the
+# checkout at maptools.lock (the kit's doors stand on the floor by its
+# `door_sill floor`); a built bin/Release/ssmap.dll there is run directly,
+# else $(SSMAP).
+# DESCENT_GAME is the game directory the compile and the previews read: by
+# default the tf2_descent mod itself, through DESCENT_VIEW, so the rooms' own
+# materials (game/mod_tf2_descent/materials/descent, the door plugs) resolve
+# as they do in the game. The view is links: the mod and the two mods its
+# gameinfo names beside it, and TF2's hl2 and platform folders, because the
+# tools take |all_source_engine_paths| to be the game directory's parent
+# where the engine takes its own install (TF2's, which holds hl2/: the grey
+# dev/graygrid is only in hl2's VPKs). `ssmap room` reports no missing
+# material (it compiles one as texinfo 0), so every preview's count of
+# missing materials and models must be 0.
+DESCENT_DIR    := $(CURDIR)/bin/$(CONFIG)/descent-rooms
+DESCENT_SEED   ?= 0
+DEPTH          ?= 1
+SEED           ?= 1
+DESCENT_D      := $(DESCENT_DIR)/d$(shell printf %02d $(DEPTH))
+DESCENT_LIB    := descent_d$(shell printf %02d $(DEPTH))
+DESCENT_LEVEL  := tf2_descent-$(DEPTH)-s$(SEED)
+DESCENT_VIEW   := $(CURDIR)/bin/$(CONFIG)/descent-game
+DESCENT_GAME   ?= $(DESCENT_VIEW)/tf2_descent
+SSMAP_DESCENT  ?= $(if $(wildcard $(MAPTOOLS_DIR)/bin/Release/ssmap.dll),$(DOTNET) $(MAPTOOLS_DIR)/bin/Release/ssmap.dll,$(SSMAP))
+# Fails unless a preview log says it found every material and model.
+DESCENT_CONTENT_CHECK = grep -q ' 0 missing materials, 0 missing models'
+descent-view:
+	@test -f $(CURDIR)/bin/$(CONFIG)/mods/tf2_descent/materials/descent/grey_plug.vmt || { \
+	    echo "error: bin/$(CONFIG)/mods/tf2_descent has no materials/descent: run make setup"; exit 1; }
+	@test -d $(CURDIR)/bin/$(CONFIG)/content/hl2 || { echo "error: bin/$(CONFIG)/content (TF2) has no hl2/: run make setup"; exit 1; }
+	@mkdir -p $(DESCENT_VIEW)
+	@for m in tf2_descent tf2 test; do ln -sfn ../mods/$$m $(DESCENT_VIEW)/$$m; done
+	@for c in hl2 platform; do ln -sfn ../content/$$c $(DESCENT_VIEW)/$$c; done
+descent-rooms: descent-view
+	@test -d "$(MAPTOOLS_DIR)" || { echo "error: no map tools at $(MAPTOOLS_DIR) (MAPTOOLS_DIR)"; exit 1; }
+	@mkdir -p $(DESCENT_D)/maps
+	@$(DOTNET) run --project $(MAPGEN) -- descent-rooms $(DESCENT_D) --seed $(DESCENT_SEED) --depth $(DEPTH)
+	@echo "==> ssmap room $(DESCENT_LIB)"
+	@set -o pipefail; $(SSMAP_DESCENT) room $(DESCENT_D)/$(DESCENT_LIB).vmf -game "$(DESCENT_GAME)" -out $(DESCENT_D)/$(DESCENT_LIB).roompack 2>&1 \
+	    | grep -v 'mounted nothing' > $(DESCENT_D)/room.log || { tail -20 $(DESCENT_D)/room.log; exit 1; }
+	@grep 'wrote' $(DESCENT_D)/room.log
+descent-level: descent-view
+	@test -f $(DESCENT_D)/$(DESCENT_LIB).roompack || { echo "error: no $(DESCENT_LIB).roompack: make descent-rooms DEPTH=$(DEPTH) first"; exit 1; }
+	@mkdir -p $(DESCENT_D)/maps
+	@$(DOTNET) run --project $(MAPGEN) -- descent-level $(DESCENT_D) $(DEPTH) $(SEED) $(DESCENT_D)/$(DESCENT_LEVEL).yaml
+	@echo "==> ssmap link $(DESCENT_LEVEL) -mod-entities"
+	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack -mod-entities \
+	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp > $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
+	@grep 'map entities' $(DESCENT_D)/$(DESCENT_LEVEL).link.log
+	@tools/descent-face-sides $(DESCENT_D)/maps/$(DESCENT_LEVEL).bsp >> $(DESCENT_D)/$(DESCENT_LEVEL).link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL).link.log; exit 1; }
+	@echo "==> ssmap link $(DESCENT_LEVEL) for the preview"
+	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack \
+	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp > $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@tools/descent-preview-spawns $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@tools/descent-face-sides $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@echo "==> ssmap preview $(DESCENT_LEVEL) -movement heavy"
+	@cams=(); while IFS= read -r c; do cams+=(-camera "$$c"); done < $(DESCENT_D)/$(DESCENT_LEVEL).cameras; \
+	$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -movement heavy "$${cams[@]}" \
+	    -out $(DESCENT_D)/$(DESCENT_LEVEL)-preview > $(DESCENT_D)/$(DESCENT_LEVEL).preview.log 2>&1 \
+	    || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
+	@$(DESCENT_CONTENT_CHECK) $(DESCENT_D)/$(DESCENT_LEVEL).preview.log || { \
+	    echo "error: $(DESCENT_LEVEL) names a material or model $(DESCENT_GAME) does not hold:"; \
+	    grep 'missing' $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
+	@echo "==> $(DESCENT_D)/$(DESCENT_LEVEL)-preview/sheet.png"
+
+# `make descent-install DEPTH=n SEED=s` puts a linked level where the game
+# finds it: its .bsp, .nav3d and .map2d (the host's levelFiles) linked into
+# the tf2_descent mod's pool/maps, which its gameinfo searches and the
+# same-process hop (LevelHop) links into, so `map tf2_descent-n-ss` loads
+# it. Links, not copies: a rebuilt level is the one the game loads next. A
+# game started with -instance links the mod's entries when it starts, so make
+# pool/ (this does) before such a game starts.
+DESCENT_POOL := $(CURDIR)/bin/$(CONFIG)/mods/tf2_descent/pool/maps
+descent-install:
+	@for f in bsp nav3d map2d; do test -f $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f || { \
+	    echo "error: no $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f: make descent-level DEPTH=$(DEPTH) SEED=$(SEED) first"; exit 1; }; done
+	@mkdir -p $(DESCENT_POOL)
+	@for f in bsp nav3d map2d; do ln -sfn $(DESCENT_D)/maps/$(DESCENT_LEVEL).$$f $(DESCENT_POOL)/$(DESCENT_LEVEL).$$f; done
+	@echo "==> map $(DESCENT_LEVEL) (linked into $(DESCENT_POOL))"
+
+# The Descent levels' gates (plan tasks B4-B6), tools/descent-gate: each builds
+# DESCENT_DEPTHS' libraries and DESCENT_SEEDS' levels of each with the two
+# targets above, then reads the previews and link logs. brightness: the mean
+# lightmap brightness falls strictly from each depth to the next, nothing
+# clipped; reach: a Heavy reaches every room's floor from the spawn, no trap,
+# no stuck spawn (blast-only floor reported); budget: entities and brushes
+# inside the link's limits. The depth list is the scope: depths still grey are
+# left out of it, never let through by a looser limit.
+DESCENT_DEPTHS ?= 1,2,3,4,6,7,8,9
+DESCENT_SEEDS  ?= 1,2,3
+descent-brightness descent-reach descent-budget:
+	@tools/descent-gate $(patsubst descent-%,%,$@) --depths $(DESCENT_DEPTHS) --seeds $(DESCENT_SEEDS) \
+	    --config $(CONFIG) --maptools "$(MAPTOOLS_DIR)" $(if $(DESCENT_NO_BUILD),--no-build)
 
 # The AI's own test maps (plan_hl2mp_ai §6.6): room libraries and their
 # levels, generated by src/mapgen (`aimaps`) into game/mod_test/maps/src/ai,
@@ -673,16 +818,27 @@ ai-nav:
 # library into bin/<config>/ai-maps, `ssmap link` writes the level's bsp and
 # its .nav3d into the test mod's maps/. `make map MAP=<one of LINKED_MAPS>`;
 # `make ai-maps` builds them all.
-LINKED_MAPS := ss_ai_nav ss_ai_sight ss_ai_hearing ss_ai_duel ss_ai_routes ss_ai_range
+LINKED_MAPS := ss_ai_nav ss_ai_sight ss_ai_hearing ss_ai_duel ss_ai_routes ss_ai_range ss_ai_tdm
 AISRC       := $(MAPSRC)/src/ai
 
 ai-maps:
 	@for m in $(LINKED_MAPS); do $(MAKE) --no-print-directory map MAP=$$m || exit 1; done
 
+# The TF2 AI's own test maps (plan_bots_teams_tf2_part_g G.5): generated by
+# src/mapgen (`tfaimaps`) into game/mod_tf2/maps/src/ai and linked into the
+# tf2 mod's maps/ with its .nav3d, as LINKED_MAPS are into the test mod's.
+# `make map MAP=<one of TF_LINKED_MAPS>`; `make ai-maps-tf` builds them all.
+TF_LINKED_MAPS := ss_ai_tf_jump ss_ai_tf_course ss_ai_tf_double ss_ai_tf_wall ss_ai_tf_ends
+TFAISRC        := game/mod_tf2/maps/src/ai
+TFMOD          := $(CURDIR)/bin/$(CONFIG)/mods/tf2
+
+ai-maps-tf:
+	@for m in $(TF_LINKED_MAPS); do $(MAKE) --no-print-directory map MAP=$$m || exit 1; done
+
 ifneq ($(filter $(MAP),$(NAV_MAPS)),)
 map:
 	$(call require-setup,$(CONFIG))
-	@tools/ai-nav-build $(MAP) --config $(CONFIG)
+	@tools/ai-nav-build $(MAP) --config $(CONFIG) $(NAV_TREE)
 else ifneq ($(filter $(MAP),$(LINKED_MAPS)),)
 map:
 	$(call require-setup,$(CONFIG))
@@ -694,6 +850,17 @@ map:
 	@echo "==> ssmap link $(MAP)"
 	@set -o pipefail; $(SSMAP) link $(AISRC)/$(MAP).yaml -rooms bin/$(CONFIG)/ai-maps/$(MAP).roompack -out $(MOD)/maps/$(MAP).bsp -require-nav 2>&1 | grep -v 'mounted nothing'
 	@test -f $(MOD)/maps/$(MAP).bsp && test -f $(MOD)/maps/$(MAP).nav3d || { echo "error: no $(MAP).bsp and .nav3d in $(MOD)/maps"; exit 1; }
+else ifneq ($(filter $(MAP),$(TF_LINKED_MAPS)),)
+map:
+	$(call require-setup,$(CONFIG))
+	@tools/maptools-lock check --dir $(MAPTOOLS_DIR) >/dev/null
+	@$(DOTNET) run --project $(MAPGEN) -- tfaimaps $(CURDIR)/$(TFAISRC)
+	@mkdir -p bin/$(CONFIG)/ai-maps $(TFMOD)/maps
+	@echo "==> ssmap room $(MAP)"
+	@set -o pipefail; $(SSMAP) room $(TFAISRC)/$(MAP).vmf -game $(TFMOD) -out bin/$(CONFIG)/ai-maps/$(MAP).roompack 2>&1 | grep -v 'mounted nothing'
+	@echo "==> ssmap link $(MAP)"
+	@set -o pipefail; $(SSMAP) link $(TFAISRC)/$(MAP).yaml -rooms bin/$(CONFIG)/ai-maps/$(MAP).roompack -out $(TFMOD)/maps/$(MAP).bsp -require-nav 2>&1 | grep -v 'mounted nothing'
+	@test -f $(TFMOD)/maps/$(MAP).bsp && test -f $(TFMOD)/maps/$(MAP).nav3d || { echo "error: no $(MAP).bsp and .nav3d in $(TFMOD)/maps"; exit 1; }
 else
 map: $(if $(filter $(MAP),$(GENERATED_MAPS)),sandbox)
 	@test -d "$(MAPCOMPILE)" || { \
@@ -1095,9 +1262,12 @@ ai-test:
 
 # The jank score's standard run (plan_hl2mp_ai §3.4.5): dm_lockdown, four bots of
 # mixed presets and a scripted client, recorded and scored. MINUTES as asked (5).
+# MODE=tdm plays it as team deathmatch, 2v2 with friendly fire on, and the report
+# carries the team block (plan_bots_teams_tf2 B.8).
 MINUTES ?= 5
+MODE ?=
 ai-jank:
-	@tools/ai-scenario jank --config $(CONFIG) --minutes $(MINUTES)
+	@tools/ai-scenario jank --config $(CONFIG) --minutes $(MINUTES) $(if $(MODE),--mode $(MODE))
 
 # The oracle leg alone.
 oracle-test:

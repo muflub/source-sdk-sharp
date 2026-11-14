@@ -20,9 +20,9 @@ public sealed class TFPlayerClassTests
     private static (PlayerRig Rig, TFPlayerClass Class, TFPlayerConditions Conditions, TFPlayerConditionTicker Ticker) Make()
     {
         var rig = new PlayerRig();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var cls = new TFPlayerClass(rig.Carriers, rig.Items);
-        var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine);
+        var ticker = new TFPlayerConditionTicker(rig.Carriers, conditions, rig.Engine, new IdleHealing());
         rig.Extra.Add(cls);
         rig.Extra.Add(ticker);
         rig.Join();
@@ -117,13 +117,13 @@ public sealed class TFPlayerClassTests
     public void The_tf_block_runs_carrier_class_countdown_stun_override()
     {
         var rig = new PlayerRig();
-        var source = new TFPlayerComponents(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
-                                            new TFPlayerConditions(rig.Carriers, rig.Engine),
+        var source = ComposedComponents.Source(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
+                                            new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine),
                                             new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), rig.Engine,
                                             rig.Schema, new PoollessGiver(), rig.Engine, rig.Engine,
                                             rig.Engine, rig.Engine,
                                             new TF2.Shared.TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
-                                            new TF2.Server.Combat.TFDamageScopes());
+                                            new TF2.Server.Combat.TFDamageScopes(), rig.Engine);
 
         var block = source.Create(PlayerRig.Player).ToList();
 
@@ -131,14 +131,25 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFPlayerCarrier>(c),
             c => Assert.IsType<TFPlayerClass>(c),
             c => Assert.IsType<TFPlayerConditionTicker>(c),
+            c => Assert.IsType<TFShieldChargeMeter>(c),
+            c => Assert.IsType<TFShieldChargeEnd>(c),
             c => Assert.IsType<TFBlastJumpState>(c),
             c => Assert.IsType<TFTauntThink>(c),
             c => Assert.IsType<TFTauntAttack>(c),
+            c => Assert.IsType<TFEurekaTauntWatch>(c),
+            c => Assert.IsType<TFTauntHeal>(c),
+            c => Assert.IsType<TFScattergunKnockback>(c),
             c => Assert.IsType<TFStunStack>(c),
+            c => Assert.IsType<TFDonkVictims>(c),
+            c => Assert.IsType<TFCritMultTicker>(c),                                      // the crit meter between the donk list (33) and the respawn override (40)
             c => Assert.IsType<TFRespawnOverride>(c),
+            c => Assert.IsType<TFBuffRageTicker>(c),
+            c => Assert.IsType<TFHypeDrain>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),
+            c => Assert.IsType<TFAttributeListMirror>(c),                                 // the attribute lists after the runtime list's expiry (45)
             c => Assert.IsType<TFAmmoPoolMirror>(c),
-            c => Assert.IsType<TFWeaponClipMirror>(c));
+            c => Assert.IsType<TFWeaponClipMirror>(c),
+            c => Assert.IsType<TFItemMeterMirror>(c));
         Assert.Equal(block.Select(c => c.Order).Order(), block.Select(c => c.Order));
     }
 
@@ -171,5 +182,26 @@ public sealed class TFPlayerClassTests
         public IEnumerable<ScriptedEntity> OfClass(string className) => [];
         public bool IsRegistered(string className) => className == TFEntityNames.PlayerData;
         public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
+    }
+
+    /// <summary>The healing the countdown asks: nobody heals here, no healer ever.</summary>
+    private sealed class IdleHealing : TF2.Server.Medigun.ITFPlayerHealing
+    {
+        public int NumHealers(int patientIndex) => 0;
+        public System.Collections.Generic.IEnumerable<int> HealerIndexes(int patientIndex) => [];
+
+        public void Heal(EntityHandle patient, EntityHandle healer, float healRate, float now,
+                         float overhealBonus = TF2.Server.Medigun.ITFPlayerHealing.StandardOverhealBonus,
+                         float decayMult = TF2.Server.Medigun.ITFPlayerHealing.StandardOverhealDecayMult,
+                         bool dispenserHeal = false, int scorer = -1) { }
+        public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => 0f;
+        public void RecalculateChargeEffects(EntityHandle player, float now) { }
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) { }
+        public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => 0;
+        public bool CanReceiveMedigunChargeEffect(EntityHandle player) => false;
+        public void RemoveChargeEffect(EntityHandle player) { }
+        public void TestAndExpireChargeEffect(EntityHandle player, float now) { }
+        public void TickPatient(EntityHandle patient, float now, float frametime) { }
+        public void Extinguished(EntityHandle patient) { }
     }
 }

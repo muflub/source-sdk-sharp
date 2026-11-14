@@ -142,6 +142,8 @@ public sealed class TFPlayerCarrierStalenessTests
         public ParentProbe ParentProbe(EntityHandle entity) => _inner.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => _inner.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => _inner.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => _inner.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => _inner.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => _inner.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _inner.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _inner.DestroyPhysics(entity);
@@ -177,6 +179,7 @@ public sealed class TFPlayerCarrierStalenessTests
             recording.Ignores("Entities.GetSpawnOrigin", "Entities.GetSpawnAngles", "Entities.GetOrigin",
                               "Entities.GetAngles", "Entities.GetName", "Entities.GetClassName");
             recording.Returns("Players.GetHandle", Player);
+            recording.Returns("GameEvents.EventCreate", System.IntPtr.Zero);
             recording.Returns("Entities.IsValid", true);
             recording.Returns("Clock.Now", 0f);
             services.AddInstance<IEngineEntityRender>(recording);
@@ -191,13 +194,13 @@ public sealed class TFPlayerCarrierStalenessTests
             Registry.Directory.ShellDestroyer = Engine.Destroy;
             Engine.Registry = Registry;
 
-            var source = new TFPlayerComponents(Engine, Registry, Carriers, Log,
-                                                new TFPlayerItems(), new TFPlayerConditions(Carriers, recording),
+            var source = ComposedComponents.Source(Engine, Registry, Carriers, Log,
+                                                new TFPlayerItems(), new TFPlayerConditions(Carriers, recording, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), recording),
                                                 new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), recording,
                                                 EconTestFiles.TrimmedSchema(), new PoollessGiver(), recording, recording,
                                                 recording, recording,
                                                 new TF2.Shared.TFWeaponScripts(new RecordingLog(), TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
-                                                new TF2.Server.Combat.TFDamageScopes());
+                                                new TF2.Server.Combat.TFDamageScopes(), recording);
             Composites = new PlayerComposites(Log, new Hooks<IPlayerComponentSource>(source), recording, recording);
         }
 

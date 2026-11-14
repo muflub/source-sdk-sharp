@@ -121,6 +121,13 @@ public interface IClientModule
     MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => null;
 
     /// <summary>
+    /// The shield charge's rewrite of a walk's command (null, stock, rewrites
+    /// nothing). Runs on both sides; see <c>IMovementRules.MovementCharge</c>.
+    /// </summary>
+    MovementCharge? GetMovementCharge(int playerIndex, int buttons,
+                                      float forwardMove, float sideMove, float upMove) => null;
+
+    /// <summary>
     /// The ground-categorizing overrides of <c>CategorizePosition</c>
     /// (null, stock's body). Runs on both sides; see
     /// <c>IMovementRules.CategorizePosition</c>.
@@ -148,6 +155,18 @@ public interface IClientModule
     void GetEndCommand(int playerIndex) { }
 
     /// <summary>
+    /// The charge end the command's slow walk names. The loop asks it on the
+    /// server only, as the end's arms; see <c>IMovementRules.ChargeSlowEnd</c>.
+    /// </summary>
+    void GetChargeSlowEnd(int playerIndex) { }
+
+    /// <summary>
+    /// The charge end the blocked step's <paramref name="hit"/> names. The
+    /// loop asks it on the server only; see <c>IMovementRules.ChargeBump</c>.
+    /// </summary>
+    void GetChargeBump(int playerIndex, EntityHandle hit) { }
+
+    /// <summary>
     /// The walk's xy trim to the max after Accelerating (false, stock HL2MP:
     /// keep everything Accelerate gave). Runs on both sides; see
     /// <c>IMovementRules.ClampXY</c>.
@@ -165,6 +184,54 @@ public interface IClientModule
     /// Runs on both sides; see <c>IMovementRules.DuckSeconds</c>.
     /// </summary>
     float GetDuckSeconds(int playerIndex, float seconds) => seconds;
+
+    /// <summary>
+    /// The duck button of one command, masked before the duck reads it (the
+    /// buttons unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.DuckButtons</c>.
+    /// </summary>
+    int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime, bool ducked, bool ducking) => buttons;
+
+    /// <summary>
+    /// The air wishspeed cap of one command (the cap passed through, stock
+    /// HL2MP). Runs on both sides; see <c>IMovementRules.AirSpeedCap</c>.
+    /// </summary>
+    float GetAirSpeedCap(int playerIndex, float cap) => cap;
+
+    /// <summary>
+    /// The high-max-speed rewrite of a walk's command (null, stock, keeps both
+    /// moves as sent). Runs on both sides; see
+    /// <c>IMovementRules.HighMaxSpeed</c>.
+    /// </summary>
+    HighMaxSpeedPair? GetHighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed) => null;
+
+    /// <summary>
+    /// The duck button's release edge: the timer stamp and the air-duck count.
+    /// Runs on both sides; see <c>IMovementRules.DuckRelease</c>. Nothing by
+    /// default.
+    /// </summary>
+    void GetDuckRelease(int playerIndex, float curTime, bool inAir) { }
+
+    /// <summary>
+    /// The shield charge's clamp of a command's view yaw (the yaw unchanged,
+    /// stock HL2MP). Runs where the command's angles are prepared; see
+    /// <c>IMovementRules.ChargeYawCap</c>.
+    /// </summary>
+    float GetChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval) => yaw;
+
+    /// <summary>
+    /// The parachute's fall trim on the walk's first beat (the velocity
+    /// unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.ParachuteFallCap</c>.
+    /// </summary>
+    Vector GetParachuteFallCap(int playerIndex, Vector velocity) => velocity;
+
+    /// <summary>
+    /// The player-solid mask the command's movement traces carry (the mask
+    /// unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.PlayerSolidMask</c>.
+    /// </summary>
+    uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => mask;
 
     //-------------------------------------------------------------------------
     // The standalone entity hierarchy, client side. Same shape as the server's,

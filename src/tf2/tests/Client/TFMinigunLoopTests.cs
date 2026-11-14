@@ -13,6 +13,7 @@ using ClientLoop = client::TF2.Client.Weapons.TFMinigunLoop;
 using ClientWeapon = client::SourceSharp.Client.Standalone.ClientSsWeapon;
 using CAbi = client::SourceSharp.Abi;
 using CEffects = client::SourceSharp.Client.WeaponEffects;
+using CEcon = client::TF2.Shared.Econ;
 using CTF = client::TF2.Shared;
 
 namespace TF2.Tests.Client;
@@ -73,6 +74,43 @@ public sealed class TFMinigunLoopTests
         rig.Frame(10f);
 
         Assert.Equal("Weapon_Minigun.Spin", rig.Created.Name);
+    }
+
+    /// <summary>
+    /// The Tomislav's spin-sound gate (<c>HasSpinSounds</c>,
+    /// <c>tf_weapon_minigun.h:94</c>; the arms at :1388/:1424): with
+    /// <c>minigun_no_spin_sounds</c> the spin never gets its spin sound — the
+    /// stop-firing loop (<c>PlayStopFiringSound</c> :1498-1513, asked by the
+    /// firing-to-spinning edge of <c>OnDataChanged</c> :1135-1142) holds a
+    /// full-volume <c>special2</c> across the wind-down and the idle, past the
+    /// barrel's landing on zero (:1388-1393's keep).
+    /// </summary>
+    [Fact]
+    public void A_Tomislav_gun_holds_the_stop_firing_loop_after_firing()
+    {
+        var rig = new LoopRig();
+        rig.Owners.Item = SpinHook.Item("minigun_no_spin_sounds", 1f);
+
+        rig.Into(CTF.TFMinigunBehaviour.State.Firing);
+        rig.Frame(10f);
+        Assert.Equal("Weapon_Minigun.Fire", rig.Created.Name);
+
+        rig.Into(CTF.TFMinigunBehaviour.State.Spinning);
+        rig.Frame(10.1f);
+
+        Assert.Equal("Weapon_Minigun.WindDown", rig.Engine.Last("Sound.SoundPatchCreate")!.Value.ArgAs<string>(2));
+        Assert.Equal(2, rig.Engine.CountOf("Sound.SoundPatchCreate"));
+
+        rig.Into(CTF.TFMinigunBehaviour.State.Idle);
+        rig.Frame(10.2f);
+        rig.Frame(10.3f);
+        rig.Frame(10.4f);
+
+        // The held loop outlives the barrel: velocity lands on zero and the
+        // keep arm (:1388-1393) stops nothing.
+        Assert.Equal(2, rig.Engine.CountOf("Sound.SoundPatchCreate"));
+        Assert.Equal(1, rig.Engine.CountOf("Sound.SoundPatchFree"));
+        Assert.Equal(0f, rig.Loop.BarrelVelocity(rig.Weapon.Handle));
     }
 
     /// <summary>The dry-fire arm (:1429-1431): the empty click, looped like the rest.</summary>
@@ -335,11 +373,49 @@ public sealed class TFMinigunLoopTests
         public EntityHandle? ViewModelBearer() => Held;
     }
 
+    /// <summary>The item hook the facts hang on the held item, for the gate reads.</summary>
+    private static class SpinHook
+    {
+        private static int _nextDef = 3300;
+
+        /// <summary>A weapon item holding one int attribute under the named hook class.</summary>
+        public static CEcon.IAttributeProvider Item(string hook, float value)
+        {
+            var container = new CEcon.AttributeContainer(null, CEcon.AttributeProviderType.Weapon);
+            container.Set(CEcon.AttributeValue.OfFloat(
+                new CEcon.AttributeDefinition(_nextDef++, "attr " + hook, hook,
+                                              CEcon.AttributeDescriptionFormat.Additive,
+                                              CEcon.AttributeEffectType.Neutral, false, false,
+                                              CEcon.AttributeValueType.Default, CEcon.MergedKeys.Block("x")), value));
+            return container;
+        }
+    }
+
+    /// <summary>The client's owners: the one held item, for every name ask.</summary>
+    private sealed class TomislavOwners : CTF.ITFWeaponOwners
+    {
+        public CEcon.IAttributeProvider? Item;
+
+        public CEcon.IAttributeProvider? ItemOf(int playerIndex, string weaponName) => Item;
+        public CEcon.IAttributeProvider? ManagerOf(int playerIndex) => null;
+        public CEcon.IAttributeProvider? ActiveItemOf(int playerIndex) => Item;
+        public CTF.TFClass ClassOf(int playerIndex) => CTF.TFClass.Undefined;
+        public CTF.Conditions.TFConditions? ConditionsOf(int playerIndex) => null;
+        public float CritMult(int playerIndex) => 1f;
+        public bool WinsCrits(int playerIndex) => false;
+        public bool OffGround(int playerIndex) => false;
+        public bool EyesUnderwater(int playerIndex) => false;
+        public bool DuckingOf(int playerIndex) => false;
+        public float NoAttackExpire(int playerIndex) => 0f;
+        public (int Total, int RandomCrit)? RangedCritDamageOf(int playerIndex) => null;
+    }
+
     private sealed class LoopRig
     {
         public readonly ClientEngine Engine = new();
         public readonly SoundSpy Sounds = new();
         public readonly FixedBearer Bearer = new();
+        public readonly TomislavOwners Owners = new();
         public readonly ClientWeapon Weapon;
         public readonly ClientLoop Loop;
 
@@ -356,7 +432,7 @@ public sealed class TFMinigunLoopTests
 
             Loop = new ClientLoop(
                 new CTF.TFWeaponScripts(new ClientLog(), new FixtureFiles(WeaponFixtures.ShippedWithClasses())),
-                Sounds, Engine, Engine, Engine, Bearer);
+                Sounds, Engine, Engine, Engine, Bearer, Owners, new CEcon.AttributeHooks());
         }
 
         /// <summary>The gun in this state, with the crit latch beside it.</summary>

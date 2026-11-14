@@ -77,13 +77,13 @@ public sealed class ClientSsViewmodelAttachment : ClientStandaloneEntity
         {
             IsLocal = isLocal;
             Render.SetViewModel(Handle, isLocal);
-
-            if (!isLocal)
-                Render.SetCustomDraw(Handle, new Vector(-1, -1, -1), new Vector(1, 1, 1));
         }
 
         if (!isLocal)
         {
+            // Draws nothing, asserted on every decode, as the viewmodel's does.
+            Render.SetCustomDraw(Handle, new Vector(-1, -1, -1), new Vector(1, 1, 1));
+
             if (_mergedOnto >= 0)
             {
                 Render.SetBoneMergeSource(Handle, -1);

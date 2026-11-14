@@ -28,20 +28,41 @@ public sealed class TFPlayerMapPlayersTests
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Entities.GetHealth", health);
         var hook = new Hook();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook));
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers), hook);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook), rig.Engine);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
+        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, rig.Items, new AttributeHooks()), hook);
     }
 
-    /// <summary>The same player for the cloak facts, with the owners seam the watch's hooks ride.</summary>
-    private static (PlayerRig Rig, TFPlayerMapPlayers Players, TFPlayerConditions Conditions) MakeCloak(
-        TFClass cls, Weapons.FakeOwners owners)
+    /// <summary>The same player for the cloak facts, with the items table the watch's hooks ride.</summary>
+    private static (PlayerRig Rig, TFPlayerMapPlayers Players, TFPlayerItems Items, TFPlayerConditions Conditions) MakeCloak(
+        TFClass cls, TFPlayerItems? items = null)
     {
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Entities.GetHealth", 100);
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
-        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
-        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, owners), conditions);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine,
+                                            rig.Items, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine, equipHooks: new ListHooks<ITFWeaponEquipHook>());
+        var table = items ?? rig.Items;
+        return (rig, new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers, table, new AttributeHooks()), table, conditions);
     }
 
     [Fact]
@@ -127,7 +148,7 @@ public sealed class TFPlayerMapPlayersTests
     [Fact]
     public void The_spy_takes_cloak_and_a_moved_meter_is_the_answer()
     {
-        var (rig, players, _) = MakeCloak(TFClass.Spy, new Weapons.FakeOwners());
+        var (rig, players, _, _) = MakeCloak(TFClass.Spy);
 
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 40f));   // :9753 — a positive amount under the cap
         Assert.Equal(40f, rig.State.CloakMeter);                          // :9755
@@ -143,7 +164,7 @@ public sealed class TFPlayerMapPlayersTests
     public void A_non_spy_takes_no_cloak()
     {
         // :9727-9729 — Weapon_OwnsThisID(TF_WEAPON_INVIS): the watch is the spy's own item.
-        var (rig, players, _) = MakeCloak(TFClass.Soldier, new Weapons.FakeOwners());
+        var (rig, players, _, _) = MakeCloak(TFClass.Soldier);
 
         Assert.False(players.AddToSpyCloakMeter(PlayerRig.Player, 100f));
         Assert.Equal(0f, rig.State.CloakMeter);
@@ -153,9 +174,9 @@ public sealed class TFPlayerMapPlayersTests
     public void A_watch_that_refuses_regen_from_items_takes_no_cloak()
     {
         // :9733-9736 — mod_cloak_no_regen_from_items on the watch.
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("mod_cloak_no_regen_from_items", AttributeDescriptionFormat.Additive, 1f);
-        var (rig, players, _) = MakeCloak(TFClass.Spy, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("mod_cloak_no_regen_from_items", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Spy, items);
 
         Assert.False(players.AddToSpyCloakMeter(PlayerRig.Player, 50f));
         Assert.Equal(0f, rig.State.CloakMeter);
@@ -165,9 +186,9 @@ public sealed class TFPlayerMapPlayersTests
     public void A_watch_that_refuses_cloak_while_cloaked_takes_none_when_stealthed()
     {
         // :9740-9746 — NoCloakWhenCloaked and InCond(STEALTHED).
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("NoCloakWhenCloaked", AttributeDescriptionFormat.Additive, 1f);
-        var (rig, players, conditions) = MakeCloak(TFClass.Spy, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("NoCloakWhenCloaked", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, conditions) = MakeCloak(TFClass.Spy, items);
         conditions.Add(PlayerRig.Player, TFCond.Stealthed, 5f);
 
         Assert.False(players.AddToSpyCloakMeter(PlayerRig.Player, 50f));
@@ -182,7 +203,7 @@ public sealed class TFPlayerMapPlayersTests
     public void A_stealthed_watch_without_the_refusal_still_takes_cloak()
     {
         // :9743 — the refusal needs BOTH arms; a plain watch cloaks on regardless.
-        var (rig, players, conditions) = MakeCloak(TFClass.Spy, new Weapons.FakeOwners());
+        var (rig, players, _, conditions) = MakeCloak(TFClass.Spy);
         conditions.Add(PlayerRig.Player, TFCond.Stealthed, 5f);
 
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 50f));
@@ -194,11 +215,112 @@ public sealed class TFPlayerMapPlayersTests
     {
         // :9749 — CALL_ATTRIB_HOOK_FLOAT(pWpn, val, ReducedCloakFromAmmo):
         // a percentage of 0.5 leaves the pack's 40 arriving as 20.
-        var owners = new Weapons.FakeOwners();
-        owners.Managers[PlayerRig.Index] = ManagerHook("ReducedCloakFromAmmo", AttributeDescriptionFormat.Percentage, 0.5f);
-        var (rig, players, _) = MakeCloak(TFClass.Spy, owners);
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("ReducedCloakFromAmmo", AttributeDescriptionFormat.Percentage, 0.5f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Spy, items);
 
         Assert.True(players.AddToSpyCloakMeter(PlayerRig.Player, 40f));
         Assert.Equal(20f, rig.State.CloakMeter);
+    }
+
+    // ---- the demoman's charge from ammo (entity_ammopack.cpp:96-110) ----
+
+    [Fact]
+    public void The_persuaders_wearer_takes_charge_from_a_pack()
+    {
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Demoman, items);
+        rig.State.ChargeMeter = 30f;
+
+        Assert.True(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f)); // :98-108 — the pack's half
+        Assert.Equal(80f, rig.State.ChargeMeter);
+    }
+
+    [Fact]
+    public void A_full_charge_meter_takes_no_charge_from_a_pack()
+    {
+        var items = new TFPlayerItems();
+        items.SetManager(PlayerRig.Index, ManagerHook("ammo_gives_charge", AttributeDescriptionFormat.Additive, 1f));
+        var (rig, players, _, _) = MakeCloak(TFClass.Demoman, items);
+        rig.State.ChargeMeter = 100f;
+
+        Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f)); // :101's gate
+        Assert.Equal(100f, rig.State.ChargeMeter);
+    }
+
+    [Fact]
+    public void A_player_without_the_attribute_takes_no_charge()
+    {
+        var (rig, players, _, _) = MakeCloak(TFClass.Demoman);
+        rig.State.ChargeMeter = 30f;
+
+        Assert.False(players.AddToDemoChargeMeterFromAmmo(PlayerRig.Player, 0.5f));
+        Assert.Equal(30f, rig.State.ChargeMeter);
+    }
+
+    // ---- the spy's melted knife (entity_ammopack.cpp:91-94) ----
+
+    /// <summary>One spy over the real spy lane: the map-players arm answers
+    /// through the spy's own slice, as the server registers it.</summary>
+    private static (TF2.Tests.Spy.SpyRig Rig, TFPlayerMapPlayers Players) MakeKnife()
+    {
+        var rig = new TF2.Tests.Spy.SpyRig();
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, rig.Resupply, rig.Conditions,
+                                             rig.Carriers, new TFPlayerItems(), new AttributeHooks(),
+                                             new SpyServices(rig));
+        return (rig, players);
+    }
+
+    /// <summary>The container the knife facts run under: only the spy's slice,
+    /// which is what the map players looks up on the ask.</summary>
+    private sealed class SpyServices(TF2.Tests.Spy.SpyRig rig) : IServiceLocator
+    {
+        public object? Resolve(Type serviceType) => serviceType == typeof(ITFSpyState) ? rig.Spies : null;
+        public object? ResolveNamed(string name) => null;
+        public bool IsRegistered(Type serviceType) => serviceType == typeof(ITFSpyState);
+        public IReadOnlyCollection<Type> ServiceTypes => [typeof(ITFSpyState)];
+        public IReadOnlyCollection<string> Names => [];
+    }
+
+    [Fact]
+    public void APackShrinksTheMeltedKnifesWaitByItsShare()
+    {
+        // entity_ammopack.cpp:91-94 — AddToSpyKnife(100 * ratio, false): the half pack's
+        // 50 pulls the melt stamp earlier by 50 * 0.005 of the window
+        // (tf_weapon_knife.cpp:166-167), half a window's worth: ready at 107.5, not 110.
+        var (rig, players) = MakeKnife();
+        rig.Spies.MeltKnife(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: rig.Clock.Now, seconds: 10f);
+
+        Assert.False(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 107f));   // :523 — mid-window without a pack
+        Assert.True(players.AddToSpyKnife(TF2.Tests.Spy.SpyRig.Spy, amount: 50f));             // :168 — the stamp moved
+        Assert.True(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 107.6f));   // two and a half seconds earlier
+        Assert.Equal(97.5f, rig.State.KnifeMeltTimestamp, 4);                                  // :167 — and the carrier mirror rides along (:523)
+    }
+
+    [Fact]
+    public void AFullPackEndsTheRemainingWaitOfAMeltedKnife()
+    {
+        // :166-168 at the touch: half the 10 seconds are gone by 105.1, and the full pack's
+        // 100 * 0.005 * the window takes the rest — the knife is ready on the press itself.
+        var (rig, players) = MakeKnife();
+        rig.Spies.MeltKnife(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: rig.Clock.Now, seconds: 10f);
+        rig.Clock.Now = 105.1f;
+
+        Assert.False(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 105.1f)); // without the pack, still melting
+        Assert.True(players.AddToSpyKnife(TF2.Tests.Spy.SpyRig.Spy, amount: 100f));
+        Assert.True(rig.Spies.KnifeReady(TF2.Tests.Spy.SpyRig.Spy.EntryIndex, now: 105.1f));   // the pack ends it
+        Assert.Equal(95f, rig.State.KnifeMeltTimestamp, 4);
+    }
+
+    [Fact]
+    public void AKnifeThatExistsTakesNothingFromThePack()
+    {
+        // :163-164 — the exists gate: an unmelted knife refuses the stamp pull and
+        // answers no, so the pack on its own is not taken (:94); the stamp never moves.
+        var (rig, players) = MakeKnife();
+
+        Assert.False(players.AddToSpyKnife(TF2.Tests.Spy.SpyRig.Spy, amount: 100f));
+        Assert.Equal(0f, rig.State.KnifeMeltTimestamp, 4);                                     // the untouched initial (:77)
     }
 }

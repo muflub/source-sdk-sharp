@@ -10,6 +10,10 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
+using TF2.Shared.Player;
+using TF2.Server.Combat;
+using RevengePurse = TF2.Shared.Player.TFRevengeCrits;
 using TF2.Server.Player;
 using TF2.Server.Weapons;
 
@@ -49,7 +53,8 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                                    TFPushbackScaleConVar pushbackScale,
                                    TFPushbackScaleVerticalConVar pushbackScaleVertical,
                                    TFPlayerCarriers carriers,
-                                   ILagCompensation? lagCompensation = null)
+                                   AttributeHooks hooks, ITFPlayerResupply health, IEngineGameEvents events,
+                                   ILagCompensation lagCompensation, TFAfterburns afterburns)
     : ITFFlameEffects, IOrderedHook
 {
     /// <summary>Stage 2.11's band (+960..+979 of TF2's thousand).</summary>
@@ -58,8 +63,17 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
     /// <summary><c>DeflectProjectiles</c>' 64 (tf_weaponbase.cpp:5918).</summary>
     private const int MaxDeflected = 64;
 
+    /// <summary><c>INVALID_ITEM_DEF_INDEX</c>: stock's <c>weapon_def_index</c> for an itemless weapon.</summary>
+    private const int NoItemDefIndex = -1;
+
     /// <summary>Stock's <c>MAX_TRACE_LENGTH</c>.</summary>
     private const float MaxTraceLength = 5676f;
+
+    /// <summary>The vacuum's box half extent (<c>vHull</c>, tf_weapon_flaregun.cpp:532).</summary>
+    private const float VacuumHalfExtent = 16f;
+
+    /// <summary>The vacuum's reach, the eye plus it along the aim (tf_weapon_flaregun.cpp:535).</summary>
+    private const float VacuumReach = 256f;
 
     /// <summary>One manager per burst-holding owner, as stock's m_hFlameManager is per weapon.</summary>
     private readonly Dictionary<EntityHandle, EntityHandle> _managers = [];
@@ -69,6 +83,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
     private readonly TFPushbackScaleConVar _pushbackScale = pushbackScale;
     private readonly TFPushbackScaleVerticalConVar _pushbackVertical = pushbackScaleVertical;
     private readonly TFPlayerCarriers _carriers = carriers;
+    private readonly TFAfterburns _afterburns = afterburns;
 
     public int HookOrder => Order;
 
@@ -80,7 +95,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
 
         // The flame's session (tf_weapon_flamethrower.cpp:808, :934): the
         // per-tick cone work sees the other players where the pyro saw them.
-        lagCompensation?.Start(owner);
+        lagCompensation.Start(owner);
         try
         {
             Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
@@ -97,9 +112,15 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
 
             // UpdateDamage and AddPoint each firing interval (:892-897). Stock
             // reads the pyro's class off the attacker per collide; the seam reads
-            // classes by index, so the answer rides in here.
+            // classes by index, so the answer rides in here. Stock's behind-crit
+            // flag (:875-876) is the firing item's hook, asked the same way the
+            // airblast's extinguish heal asks its own (:164), and reaches the
+            // collide through UpdateDamage (:895): only the set's exactly one
+            // turns it on.
+            IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
             manager.UpdateDamage(script, shot, TFFlameManagerDefs.BurnFrequency,
-                                 owners.ClassOf(attack.Command.OwnerIndex) == TFClass.Pyro);
+                                 owners.ClassOf(attack.Command.OwnerIndex) == TFClass.Pyro,
+                                 hooks.Int(0, "set_flamethrower_back_crit", item) == 1);
 
             // The shooter's own velocity rides along (InitializePoint,
             // tf_flame.cpp:250-260).
@@ -108,7 +129,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         }
         finally
         {
-            lagCompensation?.Finish(owner);
+            lagCompensation.Finish(owner);
         }
     }
 
@@ -132,6 +153,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         if (directory.Get(handle) is not TFFlameManager manager)
             return null;
 
+        manager.SetAttacker(owner);
         _managers[owner] = handle;
         return manager;
     }
@@ -154,6 +176,9 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
             log.Msg($"[TF2/Flames] airblast refused, {owner} is underwater\n");
             return;
         }
+
+        // The firing item: the extinguish heal reads its hook off it.
+        IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
 
         Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
         Vector eye = entities.GetEyePosition(owner);
@@ -190,8 +215,26 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                 if (NotOwnTeam(bomb.State.TeamNumber, owner))
                     Deflect(bomb, owner, eye, forward, targetCenter);
             }
+            else if (directory.Get(target) is TFProjectileEnergyRing ring)
+            {
+                // Stock's ring is never deflected (its IsDeflectable is false —
+                // tf_projectile_energy_ring.h:57); the owner's item's
+                // energy_weapon_no_deflect, read through the entity, says the
+                // same for items that carry it.
+                if (ring.RefusesDeflect())
+                    log.Msg($"[TF2/Flames] {TFProjectileEntityNames.EnergyRing} spared by {owner}\n");
+            }
+            else if (directory.Get(target) is TFProjectileEnergyBall ball)
+            {
+                // The ball is deflectable (tf_projectile_energy_ball.h:53)
+                // unless its owner's item rules otherwise — the stock header
+                // answers plain true, the attribute answers the same way the
+                // ring's header does for its own kind.
+                if (!ball.RefusesDeflect())
+                    Deflect(ball, owner, eye, forward, targetCenter);
+            }
             else if (entities.IsPlayer(target))
-                DeflectPlayer(target, owner, eye, forward, targetCenter);
+                DeflectPlayer(item, target, owner, eye, forward, targetCenter);
         }
 
         log.Msg($"[TF2/Flames] airblast by {owner} over {count} near\n");
@@ -277,22 +320,42 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
     }
 
     /// <summary>
+    /// The mangler's ball, through the same <c>DeflectEntity</c>
+    /// (<c>tf_weaponbase.cpp:6043-6090</c>) and its own <c>Deflected</c>
+    /// (<c>tf_projectile_energy_ball.cpp:216-241</c>): the arc, then the
+    /// ownership the stock deflection carries — the deflector's team, the
+    /// deflector's active weapon, the crit under the boost.
+    /// </summary>
+    private void Deflect(TFProjectileEnergyBall ball, EntityHandle owner, Vector eye, Vector forward, Vector ballCenter)
+    {
+        TraceResult tr = world.TraceLine(eye, eye + forward * MaxTraceLength, TraceMask.ShotHull, owner);
+        Vector direction = (tr.End - ballCenter).Normalized;
+
+        ball.DeflectBy(owner, direction * entities.GetVelocity(ball.Handle).Length,
+                       conditions.InCond(owner, TFCond.Critboosted), players.GetActiveWeapon(owner));
+        log.Msg($"[TF2/Flames] {TFProjectileEntityNames.EnergyBall} deflected by {owner}\n");
+    }
+
+    /// <summary>
     /// A player (<c>CTFFlameThrower::DeflectPlayer</c>,
     /// <c>tf_weapon_flamethrower.cpp:1616-1855</c>): a burning teammate is put
-    /// out (:1620-1622) and nothing else touches them; an enemy is retested
-    /// against the cone over their collision box (:1685-1699) and, still in,
-    /// pushed by the arm <c>tf_airblast_cray</c> names — the cray force
-    /// (:1720-1762: the reflect, the remaining power and the conditions, off
-    /// the ground with the impulse) or the old pushback (:1764-1830).
+    /// out (:1620-1622) — the blaster healed by the item's
+    /// <c>extinguish_restores_health</c> (:1624-1643) — and nothing else touches them;
+    /// an enemy is retested against the cone over their collision box
+    /// (:1685-1699) and, still in, pushed by the arm <c>tf_airblast_cray</c>
+    /// names — the cray force (:1720-1762: the reflect, the remaining power
+    /// and the conditions, off the ground with the impulse) or the old
+    /// pushback (:1764-1830).
     /// </summary>
-    private void DeflectPlayer(EntityHandle target, EntityHandle owner, Vector eye, Vector forward,
-                               Vector targetCenter)
+    private void DeflectPlayer(IAttributeProvider? item, EntityHandle target, EntityHandle owner, Vector eye,
+                               Vector forward, Vector targetCenter)
     {
         if (players.GetTeam(target) == players.GetTeam(owner))
         {
             if (conditions.InCond(target, TFCond.Burning))
             {
-                conditions.Remove(target, TFCond.Burning);
+                if (conditions.Remove(target, TFCond.Burning))
+                    HealExtinguisher(item, owner);
                 log.Msg($"[TF2/Flames] airblast extinguished {target}\n");
             }
             return;
@@ -333,6 +396,92 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
     }
 
     /// <summary>
+    /// The extinguish heal (<c>tf_weapon_flamethrower.cpp:1624-1643</c>):
+    /// <c>extinguish_restores_health</c> on the firing item heals the blaster
+    /// by its value, and when anything healed the <c>player_healonhit</c>
+    /// event names the amount, the healed edict and the firing item's
+    /// defindex (stock's -1 without one).
+    /// </summary>
+    private void HealExtinguisher(IAttributeProvider? item, EntityHandle owner)
+    {
+        int restore = hooks.Int(0, "extinguish_restores_health", item);
+        if (restore <= 0)
+            return;
+
+        health.TakeHealth(owner, restore);
+
+        IntPtr ev = events.EventCreate("player_healonhit");
+        if (ev == IntPtr.Zero)
+            return;
+        events.EventSetInt(ev, "amount", restore);
+        events.EventSetInt(ev, "entindex", entities.GetIndex(owner));
+        events.EventSetInt(ev, "weapon_def_index",
+                           item is AttributeContainer { Item: { } def } ? def.Defindex : NoItemDefIndex);
+        events.EventFire(ev);
+    }
+
+    /// <summary>
+    /// The Manmelter's vacuum (<c>CTFFlareGun_Revenge::ChargePostFrame</c> over
+    /// <c>ExtinguishPlayerInternal</c>, <c>tf_weapon_flaregun.cpp:518-603</c>):
+    /// the hull box down the aim — half extents 16, 256 deep, MASK_SOLID
+    /// (:532-535) — names one target, and a burning teammate of the blaster's
+    /// is put out, the burner read before the extinguish takes the burn with
+    /// it (:540-542). An enemy's burner banks the blaster a revenge crit, the
+    /// purse's own clamp (<see cref="TFRevengeCrits"/>), and bears the
+    /// condition with it while the count stands
+    /// (<c>CTFPlayerShared::SetRevengeCrits</c>, tf_player_shared.cpp:14479-14482
+    /// — this gun is the active weapon at both ends of the count); the
+    /// teammate's fires earn nothing (:550). The heal is the enemy arm's too
+    /// (:556-575), <see cref="HealExtinguisher"/>'s ask.
+    /// </summary>
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        EntityHandle owner = players.GetHandle(attack.Command.OwnerIndex);
+        if (!entities.IsValid(owner))
+            return false;
+
+        Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
+        Vector eye = entities.GetEyePosition(owner);
+
+        Vector half = new(VacuumHalfExtent, VacuumHalfExtent, VacuumHalfExtent);
+        HullResult hit = world.TraceHull(eye, eye + forward * VacuumReach, Vector.Zero - half, half, TraceMask.Solid, owner);
+        EntityHandle target = hit.Entity;
+        if (target == EntityHandle.None || target == owner || !entities.IsPlayer(target))
+            return false;
+
+        // ExtinguishPlayerInternal's two gates (:590-592): the teammate, and
+        // the burn the vacuum is for.
+        if (players.GetTeam(target) != players.GetTeam(owner)
+            || !conditions.InCond(target, TFCond.Burning))
+            return false;
+
+        // The burner, before the removal takes the burn's answer with it
+        // (:541-542's order).
+        EntityHandle burner = _afterburns.Of(entities.GetIndex(target))?.Burn.Attacker ?? EntityHandle.None;
+
+        if (!conditions.Remove(target, TFCond.Burning))
+            return false;
+
+        log.Msg($"[TF2/Flames] manmelter vacuum extinguished {target}\n");
+
+        if (burner == EntityHandle.None
+            || !entities.IsValid(burner)
+            || players.GetTeam(burner) == players.GetTeam(owner))
+            return true;
+
+        var state = _carriers.Get(attack.Command.OwnerIndex);
+        if (state is not { })
+            return true;
+
+        state.RevengeCrits = RevengePurse.Clamped(state.RevengeCrits + 1);
+        if (!conditions.InCond(owner, TFCond.Critboosted))
+            conditions.Add(owner, TFCond.Critboosted);
+
+        HealExtinguisher(owners.ItemOf(attack.Command.OwnerIndex, script.Name), owner);
+        return true;
+    }
+
+    /// <summary>
     /// The old airblast (:1764-1830): the stun unless the target is already
     /// airborne, <c>AirBurstDamageForce</c> (:950-960 — the deflection
     /// force's own formula) along the aim and the burst's vertical kick, the
@@ -356,6 +505,12 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                                                   TFAirBlastDefs.OldAirblastPushScale)
                                   * _pushbackScale.Value)
                     + new Vector(0f, 0f, _burstZvelocity.Value * _pushbackVertical.Value);
+
+        // The pushed player's own vulnerability rides the whole push
+        // (tf_player.cpp:3384's hook over the player, so the whole walk:
+        // the Mantreads are a wearable, never held).
+        push *= hooks.Float(1f, "airblast_vulnerability_multiplier",
+                            owners.ManagerOf(target.EntryIndex));
 
         if (networking.EntityGetState(target, out _).HasFlag(EntityState.OnGround)
             && push.Z < TFAirBlastDefs.JumpMinSpeed)
@@ -389,9 +544,12 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         if (momentumAlongAim < 0f)
             result += aim * (-TFAirBlastDefs.ReflectCoeff * momentumAlongAim);
 
-        // The debug scale lands in the power the push spends
-        // (tf_weapon_flamethrower.cpp:1330-1331).
+        // The debug scale lands in the power the push spends, and the
+        // target's airblast vulnerability rides the power with it
+        // (tf_weapon_flamethrower.cpp:1330-1331, CALL_ATTRIB_HOOK_FLOAT_ON_OTHER :1326).
         float remainingPush = TFAirBlastDefs.AirBlastPower * _pushbackScale.Value
+                              * hooks.Float(1f, "airblast_vulnerability_multiplier",
+                                            owners.ManagerOf(target.EntryIndex))
                               - result.Length * TFAirBlastDefs.ReflectCostCoeff;
         if (remainingPush > 0f)
             result += aim * remainingPush;

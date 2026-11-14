@@ -1,3 +1,4 @@
+using SourceSharp.Ai.Ui;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
 
@@ -17,11 +18,11 @@ namespace SourceSharp.Ai.Hl2mp.Ui;
 /// </summary>
 public sealed class BotsPage : CreateServerPage
 {
-    private readonly ICreateServerSource _source;
-    private readonly ICreateServerActions _actions;
+    private readonly IBotSetupSource _source;
+    private readonly IBotSetupActions _actions;
     private readonly CustomBotList _list;
 
-    public BotsPage(ICreateServerSource source, ICreateServerActions actions, CustomBotList list)
+    public BotsPage(IBotSetupSource source, IBotSetupActions actions, CustomBotList list)
     {
         _source = source;
         _actions = actions;
@@ -31,23 +32,26 @@ public sealed class BotsPage : CreateServerPage
     public override string TabToken => "#Ai_CreateServer_BotsTab";
 
     /// <summary>
-    /// 560 x 800 du: the form's three rows, the custom list's header and three
+    /// 560 x 880 du: the form's four rows (the teams' a row of columns, a slider under all but the last), the custom list's header and three
     /// rows (two narrow, where the form's labels stand above their fields),
     /// and the buttons, under the window's title and tabs (at 380 tall the
     /// list ran under the buttons, seen in the minimum sample).
     /// </summary>
     public override float MinWidthDu => 560;
 
-    public override float MinHeightDu => 800;
+    public override float MinHeightDu => 880;
 
     /// <summary>The difficulty stops' keys start here, clear of the custom list's row keys (0..n).</summary>
     private const int StopKeys = 1000;
 
+    /// <summary>The team sliders' keys start here, clear of the stops'.</summary>
+    private const int TeamKeys = 2000;
+
     /// <summary>The label column of the form, du.</summary>
     public const float LabelDu = 160;
 
-    /// <summary>Narrower than this, the page stacks (its own breakpoint: the window's is 600).</summary>
-    public const float NarrowDu = 680;
+    /// <summary>Narrower than this, the page stacks (its own breakpoint: the window's is 600), as its custom bots' rows do.</summary>
+    public const float NarrowDu = CustomBotList.NarrowDu;
 
     public override string StartRefusalToken(in CreateServerChoices choices) => _source.StartRefusalToken(choices.MaxPlayers);
 
@@ -111,6 +115,44 @@ public sealed class BotsPage : CreateServerPage
                 }
             }
 
+            // Under a mode with teams (plan_bots_teams_tf2 B.6): even by auto-assign, or N Combine and M Rebels.
+            ui.Label("#Ai_CreateServer_Teams");
+            using (ui.Column(Space.XS, Align.Stretch).Width(Size.Fill))
+            {
+                if (ui.Checkbox("teams", "#Ai_CreateServer_TeamsPick", s.TeamsPicked).Clicked)
+                    _actions.SetTeamsPicked(!s.TeamsPicked);
+                if (s.TeamsPicked)
+                {
+                    // A column per team, side by side: its name and count, and a slider for every team
+                    // but the last, which takes what is left (user 2026-11-08: two to four teams).
+                    using (ui.Row(Space.M, Align.Start).Width(Size.Fill))
+                    {
+                        for (int t = 0; t < s.Teams; t++)
+                        {
+                            using (ui.Column(Space.XS, Align.Stretch).Key(TeamKeys + t).Width(Size.Fr()))
+                            {
+                                using (ui.Row(Space.XS, Align.Centre))
+                                {
+                                    ui.Number(s.BotsOn(t), Text.Label);
+                                    ui.Label(s.TeamToken(t));
+                                }
+
+                                if (t < s.Teams - 1)
+                                {
+                                    int n = (int)ui.Slider(t switch { 0 => "team0", 1 => "team1", _ => "team2" }, s.BotsOn(t), 0, s.BotCount, 1);
+                                    if (n != s.BotsOn(t))
+                                        _actions.SetBotsOn(t, n);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    ui.Text("#Ai_CreateServer_TeamsEven", Text.Body, Tone.TextMuted);
+                }
+            }
+
             ui.Label("#Ai_CreateServer_EachMap");
             if (ui.Checkbox("newbots", "#Ai_CreateServer_NewBots", s.NewBotsEachMap).Clicked)
                 _actions.SetNewBotsEachMap(!s.NewBotsEachMap);
@@ -135,63 +177,5 @@ public sealed class BotsPage : CreateServerPage
                 ui.VirtualList("custom", s.CustomCount, narrow ? CustomBotList.NarrowRowDu : CustomBotList.RowDu, _list)
                   .Size(Size.Fill, Size.Fill);
         }
-    }
-}
-
-/// <summary>
-/// One custom bot's row: its name (or that the server names it), its style's
-/// two skills, its spend as a number and a meter against the pool, and Edit
-/// (the bot editor) and Remove. Narrow, the buttons go under the name.
-/// </summary>
-public sealed class CustomBotList(ICreateServerSource source, ICreateServerActions actions) : UiPanel<int>
-{
-    public const float RowDu = 64;
-
-    public const float NarrowRowDu = 112;
-
-    public override void Describe(ref UiFrame ui, in int i)
-    {
-        CustomBotRow row = source.Custom(i);
-        bool narrow = ui.DesignWidth < BotsPage.NarrowDu;
-        using (ui.Column(Space.S, Align.Stretch).Size(Size.Fill, Size.Fill).Pad(Space.M, Space.S))
-        {
-            using (ui.Row(Space.M, Align.Centre).Width(Size.Fill))
-            {
-                using (ui.Column(Space.None, Align.Start).Width(Size.Fill))
-                {
-                    if (row.Name.Length > 0)
-                        ui.Data(row.Name, Text.Body).Elide();
-                    else
-                        ui.Text("#Ai_CreateServer_Unnamed", Text.Body, Tone.TextMuted).Elide();
-                    using (ui.Row(Space.XS, Align.Centre))
-                    {
-                        ui.Label(row.StyleFirstToken);
-                        ui.Label(row.StyleSecondToken);
-                    }
-                }
-
-                ui.Text($"{row.Spent} / {row.Pool}", Text.Body).Width(Size.Du(64)).TextAlign(Align.End);
-                ui.Meter(row.Pool > 0 ? row.Spent / (float)row.Pool : 0f, Tone.Accent, Size.Du(80));
-                if (!narrow)
-                    Buttons(ref ui, i);
-            }
-
-            if (narrow)
-            {
-                using (ui.Row(Space.M, Align.Centre).Width(Size.Fill))
-                {
-                    ui.Flex();
-                    Buttons(ref ui, i);
-                }
-            }
-        }
-    }
-
-    private void Buttons(ref UiFrame ui, int i)
-    {
-        if (ui.Button("edit", "#Ai_CreateServer_Edit").Clicked)
-            actions.EditCustom(i);
-        if (ui.Button("remove", "#Ai_CreateServer_Remove").Clicked)
-            actions.RemoveCustom(i);
     }
 }

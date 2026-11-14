@@ -167,6 +167,39 @@ public unsafe class PlayerShadowTests
         Assert.Equal(handle, engine.Last("Shadows.Init")!.Value.ArgAs<EntityHandle>(0));
     }
 
+    /// <summary>
+    /// THE BOX EVERY GENERIC ENTITY CLIP STOPS ON (docs/todo.md's missing
+    /// teammate name tag). The scripted kind gives the player shell
+    /// SOLID_BBOX, the movement loop passes its hull to traces by hand, and
+    /// the collideable's own box — the one stock sizes from the movement
+    /// hull in <c>CBasePlayer::Activate</c> (player.cpp) — stayed empty. A
+    /// clip ray that reads the collideable stops on nothing when the box is
+    /// empty, so the target ID's centre ray walked past every teammate and
+    /// painted no plate. The spawn now writes the standing hull into it.
+    /// </summary>
+    [Fact]
+    public void TheSpawnSizesTheEntityWithTheStandingHull()
+    {
+        var engine = Rig();
+        var handle = new EntityHandle((uint)((7 << 16) | 3));
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(),
+                                  shadows: new RecordingPlayerShadows(engine), entities: engine) { Handle = handle };
+        player.BindAreas(TestServices.Areas(engine));
+        player.State.BindLocal();
+
+        player.OnSpawn();
+
+        var call = engine.Last("Entities.SetBounds");
+        Assert.NotNull(call);
+        Assert.Equal(handle, call!.Value.ArgAs<EntityHandle>(0));
+
+        // The same hull the shadow carries: one opinion about how big a
+        // player is, stated by MoveConstantDefaults and read from it twice.
+        var c = MoveConstantDefaults.Stock;
+        Assert.Equal(c.HullMin, call.Value.ArgAs<Vector>(1));
+        Assert.Equal(c.HullMax, call.Value.ArgAs<Vector>(2));
+    }
+
     // -----------------------------------------------------------------------
     // The numbers, which are the game's and not the engine's
     // -----------------------------------------------------------------------
@@ -178,20 +211,68 @@ public unsafe class PlayerShadowTests
     /// A shadow of a different size from the body is a player who is stopped by
     /// a crate their shadow has not reached, or who shoves one they are not
     /// touching. Restating the hull here would be a second opinion about how big
-    /// a player is, so <see cref="SsPlayer.ShadowHulls"/> takes
-    /// <see cref="MoveConstantDefaults.Stock"/>'s and this says so.
+    /// a player is, so <see cref="SsPlayer.ShadowHulls"/> reads the movement
+    /// view the composition answers - <see cref="Movement.Current"/>'s for a
+    /// hand-built player, which is the test mod's - and this says so.
     /// </para>
     /// </summary>
     [Fact]
     public void TheShadowHullIsTheMovementHull()
     {
-        var (standMin, standMax, crouchMin, crouchMax) = SsPlayer.ShadowHulls;
+        var engine = Rig();
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+                                  TestServices.InfiniteAux(), TestServices.PrintDamage());
+        player.State.BindLocal();
+
+        var (standMin, standMax, crouchMin, crouchMax) = player.ShadowHulls;
         var c = MoveConstantDefaults.Stock;
 
         Assert.Equal(c.HullMin, standMin);
         Assert.Equal(c.HullMax, standMax);
         Assert.Equal(c.DuckHullMin, crouchMin);
         Assert.Equal(c.DuckHullMax, crouchMax);
+    }
+
+    /// <summary>
+    /// A composition that registers its own movement view resizes BOTH halves
+    /// of a player with it: the entity's bounds and the shadow's hull are the
+    /// mod's vectors, not the core's. The TF2 mod's standing box is 48x48x82
+    /// with a 62-tall crouch - a fifth shorter than the core's 72, and twice
+    /// the footprint.
+    /// </summary>
+    [Fact]
+    public void AComposedMovementViewSizesBothHalvesWithTheModsVectors()
+    {
+        var engine = Rig();
+        engine.Returns("Shadows.Init", true);
+        var handle = new EntityHandle((uint)((7 << 16) | 4));
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+                                  TestServices.InfiniteAux(), TestServices.PrintDamage(),
+                                  shadows: new RecordingPlayerShadows(engine), entities: engine,
+                                  movementParams: () => new MovementParams
+                                  {
+                                      HullMin = new Vector(-24f, -24f, 0f),
+                                      HullMax = new Vector(24f, 24f, 82f),
+                                      DuckHullMin = new Vector(-24f, -24f, 0f),
+                                      DuckHullMax = new Vector(24f, 24f, 62f),
+                                  })
+                        { Handle = handle };
+        player.BindAreas(TestServices.Areas(engine));
+        player.State.BindLocal();
+
+        player.OnSpawn();
+
+        var bounds = engine.Last("Entities.SetBounds");
+        Assert.NotNull(bounds);
+        Assert.Equal(new Vector(-24f, -24f, 0f), bounds!.Value.ArgAs<Vector>(1));
+        Assert.Equal(new Vector(24f, 24f, 82f), bounds.Value.ArgAs<Vector>(2));
+
+        var shadow = engine.Last("Shadows.Init");
+        Assert.NotNull(shadow);
+        Assert.Equal(new Vector(-24f, -24f, 0f), shadow!.Value.ArgAs<Vector>(1));
+        Assert.Equal(new Vector(24f, 24f, 82f), shadow.Value.ArgAs<Vector>(2));
+        Assert.Equal(new Vector(-24f, -24f, 0f), shadow.Value.ArgAs<Vector>(3));
+        Assert.Equal(new Vector(24f, 24f, 62f), shadow.Value.ArgAs<Vector>(4));
     }
 
     [Fact]
@@ -222,7 +303,12 @@ public unsafe class PlayerShadowTests
     [Fact]
     public void TheCrouchHullIsShorterThanTheStandingOne()
     {
-        var (_, standMax, _, crouchMax) = SsPlayer.ShadowHulls;
+        var engine = Rig();
+        var player = new SsPlayer(engine, engine, TestServices.Impacts(engine), TestServices.Fluid(),
+                                  TestServices.InfiniteAux(), TestServices.PrintDamage());
+        player.State.BindLocal();
+
+        var (_, standMax, _, crouchMax) = player.ShadowHulls;
 
         Assert.True(crouchMax.Z < standMax.Z);
     }

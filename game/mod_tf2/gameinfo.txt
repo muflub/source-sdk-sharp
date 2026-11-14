@@ -48,8 +48,13 @@
 			// The core game's own files.
 			game				|gameinfo_path|../test
 
-			// The engine's base content, wherever the engine is installed.
+			// The engine's base content, wherever the engine is installed:
+			// stock TF2's four HL2 packs, in its order. hl2_sound_misc holds
+			// the surface impact sounds (physics/concrete/...): without it a
+			// bullet or a swing on a wall made no noise.
 			game				|all_source_engine_paths|hl2/hl2_textures.vpk
+			game				|all_source_engine_paths|hl2/hl2_sound_vo_english.vpk
+			game				|all_source_engine_paths|hl2/hl2_sound_misc.vpk
 			game				|all_source_engine_paths|hl2/hl2_misc.vpk
 			platform			|all_source_engine_paths|platform/platform_misc.vpk
 			game				|all_source_engine_paths|hl2

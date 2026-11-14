@@ -7,17 +7,25 @@
     from the host repo's `make pack` output, never from nuget.org: the package is
     the contract between the two repos (plan_host_sdk §2.5). HOST_ROOT names a
     checkout other than the sibling one; `make host-pack` builds the packages.
+    HostRoot, HostPackageDir and the restore sources are the repo's (Directory.Build.props).
   -->
   <PropertyGroup>
-    <HostRoot Condition="'$(HostRoot)' == '' and '$(HOST_ROOT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(HOST_ROOT)'))</HostRoot>
-    <HostRoot Condition="'$(HostRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-sharp-host/'))</HostRoot>
-    <HostPackageDir>$(HostRoot)bin/nupkg</HostPackageDir>
     <!-- The SDK's package version is its wire version (host 594b2b1): 2.x speaks
          sourcesharp.*.v1, and the host's Booting refuses any other major. The
          rules-module contract versions on its own. -->
     <HostSdkVersion>2.6.0</HostSdkVersion>
     <HostContractsVersion>1.0.0</HostContractsVersion>
-    <RestoreAdditionalProjectSources>$(HostPackageDir)</RestoreAdditionalProjectSources>
+    <!-- The restore sources are the repo's (Directory.Build.props: the host's
+         packages and map-tools' feed). Setting them here dropped the feed, and
+         SourceSharp.MapFormats then restored only from a warm cache. -->
+    <!--
+      SourceSharp.MapFormats, map-tools' reader of a level's .nav3d and .map2d
+      (plan_descent_logic WO1: the server reads the level as data). The AI's
+      copy of this number is src/ai/Directory.Build.props' MapFormatsVersion;
+      both deploy into one bin/managed, so they must be equal, and
+      LevelReaderReferenceTests fails when they are not. Bump both with the lock.
+    -->
+    <DescentMapFormatsVersion>1.0.7</DescentMapFormatsVersion>
   </PropertyGroup>
 
   <!--

@@ -20,7 +20,8 @@ namespace SourceSharp.Tests.Ui;
 public class TFDisguiseMenuTests
 {
     private static TFDisguiseMenu Screen(FakeTFDisguiseMenuSource source, FakeTFDisguiseMenuActions? actions = null)
-        => new(source, new TFDisguiseTile(new NoArt()), new NoArt(), actions);
+        => new(source, new TFDisguiseTile(new NoArt()), new NoArt(), actions ?? new FakeTFDisguiseMenuActions(),
+               new UnlockedGroups());
 
     /// <summary>The library that misses everything: the layout facts read
     /// the fallback, not the VPK art (the art arms are TFDisguiseMenuArtTests').</summary>
@@ -59,8 +60,9 @@ public class TFDisguiseMenuTests
 
     /// <summary>The nine tiles send stock's own command naming, the raw
     /// class and the shown team as the interception names it — the enemy
-    /// team is -1 (iRemapKeyToClass :197-208, SelectDisguise :543-564,
-    /// c_tf_player.cpp:9637-9679).</summary>
+    /// team is -1, and the class is the tile's remapped TF_CLASS number,
+    /// not the position (iRemapKeyToClass :197-208, SelectDisguise
+    /// :543-564, c_tf_player.cpp:9637-9679).</summary>
     [Fact]
     public void Each_tile_sends_its_class_and_the_shown_team()
     {
@@ -72,21 +74,24 @@ public class TFDisguiseMenuTests
         for (int i = 1; i <= 9; i++)
             ClickTile(ctx, screen, $"class_item_blue_{i}");
 
-        Assert.Equal(Enumerable.Range(1, 9).Select(c => (c, -1)), actions.Disguises);
+        int[] remap = [1, 3, 7, 4, 6, 9, 5, 2, 8];           // iRemapKeyToClass, :197-208
+        Assert.Equal(remap.Select(c => (c, -1)), actions.Disguises);
     }
 
     /// <summary>The toggle flips the shown team and the send naming with
     /// it (:569-582): after the flip the tiles name the player's own
-    /// team, -2 (:607-629 arms the enemy first).</summary>
+    /// team, -2 (:607-629 arms the enemy first). The flipped word is the
+    /// source's — the adapter's key arm owns it.</summary>
     [Fact]
     public void The_toggle_flips_the_shown_team_and_the_naming()
     {
+        var source = new FakeTFDisguiseMenuSource { Team = 2 };
         var actions = new FakeTFDisguiseMenuActions();
-        var screen = Screen(new FakeTFDisguiseMenuSource { Team = 2 }, actions);
+        var screen = Screen(source, actions);
         var ctx = Drawn(screen);
         Assert.True(Count(ctx, "TFDisguiseTile[class_item_red_1]") < 0);   // red is not shown yet
 
-        screen.ToggleTeam();
+        source.Toggled = true;    // the toggle, as the adapter's key leaves it
         Frame(ctx, UiTestKit.Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
         Assert.True(Count(ctx, "TFDisguiseTile[class_item_red_1]") >= 0);
 

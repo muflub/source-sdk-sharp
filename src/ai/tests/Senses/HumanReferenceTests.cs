@@ -1,12 +1,13 @@
 using System.Reflection;
 using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp;
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 using Xunit;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
 
 namespace SourceSharp.Ai.Tests.Senses;
 
@@ -40,7 +41,7 @@ public sealed class HumanReferenceTests : IDisposable
     {
         public readonly List<BotPlayer> Made = new();
 
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             int index = Made.Count + 3;
             var player = new EntityHandle((uint)(0x0001_0000 * index + index));
@@ -68,7 +69,7 @@ public sealed class HumanReferenceTests : IDisposable
             => method?.ReturnType is { IsValueType: true } t && t != typeof(void) ? Activator.CreateInstance(t) : null;
     }
 
-    private sealed class Navigation : IHl2mpNavigation
+    private sealed class Navigation : IAiNavigation
     {
         public string? Refusal => null;
         public LoadedNav? Current => null;
@@ -88,19 +89,18 @@ public sealed class HumanReferenceTests : IDisposable
     }
 
     private readonly Players _players = new();
-    private readonly Hl2mpBots _bots;
-    private readonly Hl2mpAiSession _ai;
+    private readonly AiBots _bots;
+    private readonly ServerAiSession _ai;
     private readonly Lines _log = new();
 
     public HumanReferenceTests()
     {
-        _bots = new Hl2mpBots(_players, new Runner(), DispatchProxy.Create<IEnginePlayers, Defaults>(),
+        _bots = new AiBots(_players, new Runner(), DispatchProxy.Create<IEnginePlayers, Defaults>(),
                               DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
-                              DispatchProxy.Create<IEngineFrame, Defaults>(), new Navigation(), DispatchProxy.Create<IBotInventory, Defaults>(),
+                              DispatchProxy.Create<IEngineFrame, Defaults>(), new Navigation(), TestGames.Hl2mp(), DispatchProxy.Create<IBotInventory, Defaults>(),
                               new Names(), new ScoreboardTags(), _log);
-        _ai = new Hl2mpAiSession(new Navigation(), WeaponCatalog.Stock(), null!, null!, _log,
-            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
-            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
+        _ai = new ServerAiSession(new Navigation(), TestGames.Hl2mp(), null!, _log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>());
     }
 
     private static IEngineEntities Indexes() => FakeEngine.Of<IEngineEntities>((m, a) => m.Name switch
@@ -123,13 +123,13 @@ public sealed class HumanReferenceTests : IDisposable
 
     private static T Read<T>(byte[] payload, Func<BinaryReader, T> read) => read(new BinaryReader(new MemoryStream(payload)));
 
-    private void Start() => _ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity));
+    private void Start() => _ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, ServerAiSession.SightedCapacity));
 
     [Fact]
     public void EveryPlayersCommandIsRecordedWithTheServersTick()
     {
-        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log), _log).RunLine("Alyx hard");
-        Hl2mpBot bot = Assert.Single(_bots.Bots);
+        new AiBotAddCommand(new AiRoster(_bots, new NoProfiles(), new SourceSharp.Ai.Tests.ServerBinding.BotRosterTests.Slots(), _log, new SourceSharp.Ai.Tests.ServerBinding.FakeRosterTeams()), _log, new SourceSharp.Ai.Tests.ServerBinding.RecordingNotices()).RunLine("Alyx hard");
+        AiBot bot = Assert.Single(_bots.Bots);
         var human = new EntityHandle((uint)(0x0005_0000 * 8 + 2));   // slot 2
         var tap = new CommandTap(_ai, _bots, Indexes(), AtTick(4321));
         Start();
@@ -161,7 +161,7 @@ public sealed class HumanReferenceTests : IDisposable
         public readonly List<AiEvent> Events = new(), Observed = new();
         private int _tick;
 
-        public Sight(Hl2mpAiSession ai)
+        public Sight(ServerAiSession ai)
         {
             Bot = World.Add(1, new AiVector(0, 0, 0));
             Person = World.Add(2, new AiVector(500, 0, 0), yaw: 180f);
@@ -252,15 +252,14 @@ public sealed class HumanReferenceTests : IDisposable
     {
         (List<string> Events, long Traces) Bots(bool record)
         {
-            var ai = new Hl2mpAiSession(new Navigation(), WeaponCatalog.Stock(), null!, null!, _log,
-            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
-            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
+            var ai = new ServerAiSession(new Navigation(), TestGames.Hl2mp(), null!, _log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>());
             var s = new Sight(ai);
             s.Pass.TracesPerTick = 5;
             for (int i = 0; i < 3; i++)
                 s.World.Add(3 + i, new AiVector(300 + 40 * i, 120 * (i - 1), 0));
             if (record)
-                ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity));
+                ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, ServerAiSession.SightedCapacity));
             s.Run(60);
             ai.Recording.Stop();
             Assert.Equal(record, s.Pass.ObserverTraces > 0);
@@ -438,10 +437,10 @@ public sealed class HumanReferenceTests : IDisposable
     {
         var w = new Sight(_ai);
         var shots = new ShotTap(_ai, _bots, w.Pass, w.World.Engine(), WeaponCatalog.Stock(), Indexes(), AtTick(50));
-        var senses = new Hl2mpSenses(_bots, _ai, w.Pass, null!, null!, null!, _log, w.Reference);
-        var meter = new AimMeter(_bots, w.Pass, _ai, AtTick(50), Indexes(), w.World.Engine(), WeaponCatalog.Stock());
+        var senses = new AiSenses(_bots, _ai, w.Pass, null!, null!, null!, _log, w.Reference);
+        var meter = new AimMeter(_bots, w.Pass, _ai, AtTick(50), Indexes(), w.World.Engine(), WeaponCatalog.Stock(), TestGames.Hl2mp());
         var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots, meter);
-        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter);
+        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter, new FakeTeams());
         Start();
         w.Run(1);
         weapons.OnWeaponEvent(w.Person.Handle, 3, PlayerWeaponEvent.Fired, 1);
@@ -456,7 +455,7 @@ public sealed class HumanReferenceTests : IDisposable
     public void AHitsPersonIsAnonymised()
     {
         (ShotTap tap, Sight s) = Shots();
-        _ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity), AiRecordCommand.Anonymiser(7));
+        _ai.Recording.Start(_file, new AiRecordingHeader(1, "ss_test", 0, 0, VisionPass.Slots, ServerAiSession.SightedCapacity), AiRecordCommand.Anonymiser(7));
         s.Run(1);
         tap.OnPlayerHurt(new PlayerHurt(s.Person.Handle, s.Bot.Handle, 10, 90));
         AiEvent hit = Assert.Single(Observed(Stopped(), AiEventKind.HitDealt));

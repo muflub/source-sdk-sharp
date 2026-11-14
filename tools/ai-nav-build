@@ -1,8 +1,31 @@
 #!/usr/bin/env python3
 """Build a map's .nav3d per tree with map-tools' ssmap (plan_hl2mp_ai §6.4.1).
 
-  tools/ai-nav-build MAP [--config debug] [--force]   build MOD/maps/MAP.nav3d
+  tools/ai-nav-build MAP [--config debug] [--mod test] [--maptools DIR] [--force]
+                                                      build MOD/maps/MAP.nav3d
+  tools/ai-nav-build MAP --hull [--widths 32,48] ...  build MOD/maps/MAP.navhull
   tools/ai-nav-build --self-test
+
+--mod names the mod (bin/<config>/mods/<mod>, default test): its bsp is
+MOD/maps/MAP.bsp or, for a mod whose maps ride in the content it mounts
+(tf2: bin/<config>/content/tf/maps, then the maps a server sent,
+content/tf/download/maps), there; the nav is written to
+MOD/maps either way, where the mod's AI loader reads it (NavLoader:
+maps/MAP.navhull, then maps/MAP.nav3d, on the GAME paths, the mod's own dir
+first).
+
+--hull builds the hull navigation instead (`ssmap nav3d -hull`, map-tools'
+docs/navhull-format.md): free space as boxes with a ceiling per body width,
+which holds a map too tall for a .nav3d (a jump map's 2,048 voxels against a
+.nav3d column's 255). Its widths are the game's (HULL_WIDTHS: TF2's 48-wide
+hull and the 32 it drops past a ledge as; 32 for the core game), or --widths;
+the loader refuses a file without a width its game asks, naming the widths to
+build with. The stamp is MOD/maps/MAP.navhull.stamp and also names the widths.
+
+--maptools DIR builds with the map-tools tree at DIR instead of the one
+maptools.lock pins (a branch not yet merged): no lock check, and the stamp
+names DIR's commit (with -dirty for uncommitted edits) in place of the lock.
+The default is unchanged.
 
 The navigation is a pure function of the map and the pinned tools, so it is
 built in each tree, never committed or copied between trees (CLAUDE.md, on
@@ -49,8 +72,82 @@ def tools_identity(repo):
     return lock, version
 
 
-def wanted_stamp(bsp, lock, version):
-    return {"bsp_sha256": sha256(bsp), "maptools": lock, "mapformats": version}
+# Where a mod's stock maps are when they are not in its own maps/: the loose
+# content its gameinfo mounts (bin/<config>/content links the install).
+# Each in order: the install's own maps, then the ones a server sent (a jump
+# map is a download).
+TF_MAPS = (os.path.join("content", "tf", "maps"), os.path.join("content", "tf", "download", "maps"))
+CONTENT_MAPS = {"tf2": TF_MAPS, "tf2_descent": TF_MAPS}
+
+# The body widths a mod's hull navigation is built for: what its navigation
+# profile asks (NavHullNavSource.WidthsFor; NavHullNavSourceTests pins the
+# two against the games' numbers).
+HULL_WIDTHS = {"tf2": "32,48", "tf2_descent": "32,48"}
+DEFAULT_HULL_WIDTHS = "32"
+
+
+def engine_dir(env=None, home=None):
+    """The engine install the game runs (Source SDK Base 2013 Multiplayer, the
+    directory holding hl2/), or None: $SOURCESHARP_ENGINE_DIR, as the launcher
+    reads it, else each Steam library in libraryfolders.vdf."""
+    env = os.environ if env is None else env
+    if env.get("SOURCESHARP_ENGINE_DIR"):
+        d = env["SOURCESHARP_ENGINE_DIR"]
+        return d if os.path.isdir(os.path.join(d, "hl2")) else None
+    home = os.path.expanduser("~") if home is None else home
+    for vdf in (".steam/steam/steamapps/libraryfolders.vdf", ".local/share/Steam/steamapps/libraryfolders.vdf"):
+        path = os.path.join(home, vdf)
+        if not os.path.exists(path):
+            continue
+        for line in open(path, errors="replace"):
+            bits = line.strip().split('"')
+            if len(bits) >= 4 and bits[1] == "path":
+                d = os.path.join(bits[3], "steamapps", "common", "Source SDK Base 2013 Multiplayer")
+                if os.path.isdir(os.path.join(d, "hl2")):
+                    return d
+    return None
+
+
+def mount_root(root, mods, mod_id, engine):
+    """The -game ssmap mounts a mod through so it sees what the game sees.
+
+    ssmap resolves |all_source_engine_paths| against the -game directory's
+    parent, where the engine resolves it against its own install. ROOT gets
+    the mod and its siblings as links to MODS (so |gameinfo_path|-relative
+    paths land where they do from bin/<config>/mods, ROOT being as deep) and
+    hl2 and platform as links to the engine's: a TF map's HL2 props
+    (props_c17 on pl_badwater) are mounted then, as at run time."""
+    os.makedirs(root, exist_ok=True)
+    links = {name: os.path.join(mods, name) for name in os.listdir(mods) if os.path.isdir(os.path.join(mods, name))}
+    for name in ("hl2", "platform"):
+        if engine is not None and os.path.isdir(os.path.join(engine, name)):
+            links[name] = os.path.join(engine, name)
+    for name, target in links.items():
+        link = os.path.join(root, name)
+        if os.path.islink(link) and os.readlink(link) == target:
+            continue
+        if os.path.lexists(link):
+            os.remove(link)
+        os.symlink(target, link)
+    return os.path.join(root, mod_id)
+
+
+def tree_identity(mt):
+    """The commit of the map-tools tree at MT, with -dirty when it has tracked edits."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    head = subprocess.run(["git", "-C", mt, "rev-parse", "HEAD"], capture_output=True, text=True, env=env)
+    if head.returncode != 0:
+        raise BuildError(f"{mt} is not a git checkout: {head.stderr.strip()}")
+    dirty = subprocess.run(["git", "-C", mt, "status", "--porcelain", "--untracked-files=no"],
+                           capture_output=True, text=True, env=env).stdout.strip()
+    return head.stdout.strip() + ("-dirty" if dirty else "")
+
+
+def wanted_stamp(bsp, lock, version, widths=None):
+    want = {"bsp_sha256": sha256(bsp), "maptools": lock, "mapformats": version}
+    if widths is not None:
+        want["widths"] = widths
+    return want
 
 
 def read_stamp(path):
@@ -61,27 +158,36 @@ def read_stamp(path):
         return None
 
 
-def build(repo, mod, name, ssmap, force=False, out=print):
+def build(repo, mod, name, ssmap, force=False, out=print, bsp_dirs=(), maptools=None, game=None, hull=None):
     """Build MOD/maps/NAME.nav3d unless its stamp says it is current. Answers
-    'built' or 'current'; raises BuildError naming what is wrong."""
+    'built' or 'current'; raises BuildError naming what is wrong. The bsp is
+    MOD/maps/NAME.bsp, else the first of BSP_DIRS holding it; MAPTOOLS, when
+    given, names the map-tools tree in the stamp in place of the lock. HULL,
+    when given, is the widths ("32,48") of a NAME.navhull built instead, which
+    its stamp names too."""
     maps = os.path.join(mod, "maps")
-    bsp = os.path.join(maps, name + ".bsp")
-    nav = os.path.join(maps, name + ".nav3d")
+    ext = ".nav3d" if hull is None else ".navhull"
+    nav = os.path.join(maps, name + ext)
     stamp_path = nav + ".stamp"
+    bsp = next((b for b in (os.path.join(d, name + ".bsp") for d in (maps, *bsp_dirs)) if os.path.exists(b)),
+               os.path.join(maps, name + ".bsp"))
     if not os.path.exists(bsp):
         raise BuildError(f"no {bsp}: the map must be there first")
+    os.makedirs(maps, exist_ok=True)
     lock, version = tools_identity(repo)
-    want = wanted_stamp(bsp, lock, version)
+    if maptools is not None:
+        lock = maptools
+    want = wanted_stamp(bsp, lock, version, hull)
     have = read_stamp(stamp_path)
     if not force and have is not None and os.path.exists(nav):
         if {k: have.get(k) for k in want} == want and have.get("nav_sha256") == sha256(nav):
-            out(f"ai-nav-build: {name}.nav3d is current (bsp {want['bsp_sha256'][:12]}, map-tools {lock[:12]}, "
-                f"MapFormats {version})")
+            out(f"ai-nav-build: {name}{ext} is current (bsp {want['bsp_sha256'][:12]}, map-tools {lock[:12]}, "
+                f"MapFormats {version}{'' if hull is None else ', widths ' + hull})")
             return "current"
     for p in (nav, stamp_path):
         if os.path.exists(p):
             os.remove(p)
-    cmd = ssmap + ["nav3d", bsp, "-out", nav, "-game", mod]
+    cmd = ssmap + ["nav3d", bsp, "-out", nav, "-game", game or mod] + ([] if hull is None else ["-hull", hull])
     out("ai-nav-build: " + " ".join(shlex.quote(c) for c in cmd))
     start = time.monotonic()
     p = subprocess.run(cmd, capture_output=True, text=True)
@@ -97,13 +203,18 @@ def build(repo, mod, name, ssmap, force=False, out=print):
     with open(stamp_path, "w") as f:
         json.dump(stamp, f, indent=1, sort_keys=True)
         f.write("\n")
-    out(f"ai-nav-build: {name}.nav3d built in {seconds:.1f} s ({os.path.getsize(nav):,} bytes, sha256 {stamp['nav_sha256'][:12]})")
+    out(f"ai-nav-build: {name}{ext} built in {seconds:.1f} s ({os.path.getsize(nav):,} bytes, sha256 {stamp['nav_sha256'][:12]})")
     return "built"
 
 
-def default_ssmap(repo):
+def default_ssmap(repo, maptools_dir=None):
     if os.environ.get("SSMAP"):
         return shlex.split(os.environ["SSMAP"])
+    if maptools_dir is not None:
+        project = os.path.join(maptools_dir, "src", "SourceSharp.MapCompile")
+        if not os.path.isdir(project):
+            raise BuildError(f"no map-tools tree at {maptools_dir}: {project} is missing")
+        return [DOTNET, "run", "--project", project, "-c", "Release", "--"]
     lock_tool = os.path.join(repo, "tools", "maptools-lock")
     p = subprocess.run([lock_tool, "path"], capture_output=True, text=True, check=True)
     mt = p.stdout.strip()
@@ -111,6 +222,14 @@ def default_ssmap(repo):
     if check.returncode != 0:
         raise BuildError(check.stderr.strip() or check.stdout.strip())
     return [DOTNET, "run", "--project", os.path.join(mt, "src", "SourceSharp.MapCompile"), "-c", "Release", "--"]
+
+
+def _fails(call):
+    try:
+        call()
+    except BuildError:
+        return True
+    return False
 
 
 def self_test():
@@ -135,12 +254,14 @@ def self_test():
         with open(bsp, "wb") as f:
             f.write(b"VBSP one")
         count = os.path.join(tmp, "runs")
+        hull_args = os.path.join(tmp, "args")
         fake = os.path.join(tmp, "fake-ssmap")
         # The stand-in writes the bsp's bytes reversed (a pure function of
         # its input) and counts its runs, so a rebuild is visible.
         with open(fake, "w") as f:
             f.write("#!/usr/bin/env python3\nimport sys\nargs = sys.argv[1:]\n"
                     f"open({count!r}, 'a').write('x')\n"
+                    f"open({hull_args!r}, 'a').write(' '.join(args[6:]) + '\\n')\n"
                     "assert args[0] == 'nav3d' and args[2] == '-out' and args[4] == '-game'\n"
                     "open(args[3], 'wb').write(open(args[1], 'rb').read()[::-1])\n")
         os.chmod(fake, 0o755)
@@ -188,6 +309,78 @@ def self_test():
         except BuildError as e:
             why = str(e)
         expect("a missing map fails, naming it", why is not None and "absent.bsp" in why)
+        # A mod whose maps ride in its content: the bsp is found there, the
+        # nav written to the mod's own maps/ (made if missing).
+        other = os.path.join(tmp, "other-mod")
+        content = os.path.join(tmp, "content-maps")
+        os.makedirs(content)
+        with open(os.path.join(content, "c.bsp"), "wb") as f:
+            f.write(b"VBSP content")
+        expect("a content map builds into the mod's maps",
+               build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content]) == "built"
+               and os.path.exists(os.path.join(other, "maps", "c.nav3d"))
+               and not os.path.exists(os.path.join(content, "c.nav3d")))
+        expect("without the content dir it is missing", _fails(lambda: build(repo, other, "d", [fake], out=quiet, bsp_dirs=[content])))
+        # Another map-tools tree: the stamp names it, and a change of tree rebuilds.
+        runs_before = runs()
+        expect("a tree override rebuilds a nav stamped by the lock",
+               build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content], maptools="c" * 40) == "built" and runs() == runs_before + 1)
+        expect("and stamps the tree's commit", read_stamp(os.path.join(other, "maps", "c.nav3d.stamp"))["maptools"] == "c" * 40)
+        expect("the same tree again is a no-op",
+               build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content], maptools="c" * 40) == "current")
+        expect("back on the lock it rebuilds", build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content]) == "built")
+        # A hull navigation: its own file and stamp beside the .nav3d, built with -hull and its widths.
+        hull_runs = runs()
+        nav3d_before = sha256(os.path.join(other, "maps", "c.nav3d"))
+        hull_nav = os.path.join(other, "maps", "c.navhull")
+        expect("--hull builds the .navhull", build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content], hull="32,48") == "built"
+               and os.path.exists(hull_nav) and runs() == hull_runs + 1)
+        expect("with -hull and the widths on ssmap's line", open(hull_args).read().split("\n")[-2].endswith("-hull 32,48"))
+        expect("and the .nav3d line has no -hull", "-hull" not in open(hull_args).read().split("\n")[-3])
+        expect("its stamp names the widths", read_stamp(hull_nav + ".stamp").get("widths") == "32,48")
+        expect("and leaves the .nav3d as it was", sha256(os.path.join(other, "maps", "c.nav3d")) == nav3d_before)
+        expect("a second hull build is a no-op", build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content], hull="32,48") == "current"
+               and runs() == hull_runs + 1)
+        expect("other widths rebuild it", build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content], hull="32") == "built"
+               and runs() == hull_runs + 2 and read_stamp(hull_nav + ".stamp").get("widths") == "32")
+        # A downloaded map: found in the second content dir when the first lacks it, and the first wins when both hold it.
+        downloads = os.path.join(tmp, "download-maps")
+        os.makedirs(downloads)
+        with open(os.path.join(downloads, "j.bsp"), "wb") as f:
+            f.write(b"VBSP downloaded")
+        expect("a downloaded map builds into the mod's maps",
+               build(repo, other, "j", [fake], out=quiet, bsp_dirs=[content, downloads], hull="32,48") == "built"
+               and open(os.path.join(other, "maps", "j.navhull"), "rb").read() == b"VBSP downloaded"[::-1])
+        expect("without the download dir it is missing", _fails(lambda: build(repo, other, "j2", [fake], out=quiet, bsp_dirs=[content])))
+        with open(os.path.join(downloads, "c.bsp"), "wb") as f:
+            f.write(b"VBSP a download of the same name")
+        expect("the install's map wins over a download of the same name",
+               build(repo, other, "c", [fake], out=quiet, bsp_dirs=[content, downloads], hull="32,48") == "built"
+               and open(hull_nav, "rb").read() == b"VBSP content"[::-1])
+        expect("tf2's maps are the install's and then the downloads",
+               CONTENT_MAPS["tf2"] == (os.path.join("content", "tf", "maps"), os.path.join("content", "tf", "download", "maps")))
+        expect("tf2's hull is built for 32 and 48", HULL_WIDTHS["tf2"] == "32,48")
+        # The mount root: the mod and its siblings, and the engine's hl2, side by side.
+        mods = os.path.join(tmp, "bin", "mods")
+        engine = os.path.join(tmp, "engine")
+        for d in (os.path.join(mods, "tf2"), os.path.join(mods, "test"), os.path.join(engine, "hl2"), os.path.join(engine, "platform")):
+            os.makedirs(d)
+        root = os.path.join(tmp, "bin", "nav-mounts")
+        game = mount_root(root, mods, "tf2", engine)
+        expect("the mount root holds the mod as the -game", game == os.path.join(root, "tf2") and os.path.realpath(game) == os.path.realpath(os.path.join(mods, "tf2")))
+        expect("and the engine's hl2 beside it", os.path.realpath(os.path.join(root, "hl2")) == os.path.realpath(os.path.join(engine, "hl2")))
+        expect("and the mod's siblings", os.path.realpath(os.path.join(root, "test")) == os.path.realpath(os.path.join(mods, "test")))
+        expect("a second mount is the same links", mount_root(root, mods, "tf2", engine) == game)
+        expect("without an engine there is no hl2", not os.path.lexists(os.path.join(mount_root(os.path.join(tmp, "bin", "bare"), mods, "tf2", None), "..", "hl2")))
+        expect("the engine comes from SOURCESHARP_ENGINE_DIR", engine_dir({"SOURCESHARP_ENGINE_DIR": engine}) == engine)
+        vdf = os.path.join(tmp, "home", ".steam", "steam", "steamapps")
+        os.makedirs(vdf)
+        lib = os.path.join(tmp, "lib")
+        os.makedirs(os.path.join(lib, "steamapps", "common", "Source SDK Base 2013 Multiplayer", "hl2"))
+        with open(os.path.join(vdf, "libraryfolders.vdf"), "w") as f:
+            f.write('"libraryfolders"\n{\n "0"\n {\n  "path"  "' + lib + '"\n }\n}\n')
+        expect("or from a Steam library", engine_dir({}, os.path.join(tmp, "home")) == os.path.join(lib, "steamapps", "common", "Source SDK Base 2013 Multiplayer"))
+        expect("and is none without either", engine_dir({}, os.path.join(tmp, "nohome")) is None)
     print(f"ai-nav-build self-test: {'FAILED ' + str(len(failures)) if failures else 'ok'}")
     return 1 if failures else 0
 
@@ -196,18 +389,37 @@ def main(argv):
     if argv[:1] == ["--self-test"]:
         return self_test()
     names = [a for a in argv if not a.startswith("--")]
-    config = "debug"
-    if "--config" in argv:
-        config = argv[argv.index("--config") + 1]
-        names.remove(config)
+    values = {}
+    for flag, default in (("--config", "debug"), ("--mod", "test"), ("--maptools", None), ("--widths", None)):
+        values[flag] = default
+        if flag in argv:
+            values[flag] = argv[argv.index(flag) + 1]
+            names.remove(values[flag])
+    config, mod_id, maptools_dir = values["--config"], values["--mod"], values["--maptools"]
     if not names:
         print(__doc__)
         return 2
-    mod = os.path.join(ROOT, "bin", config, "mods", "test")
+    mod = os.path.join(ROOT, "bin", config, "mods", mod_id)
+    bsp_dirs = [os.path.join(ROOT, "bin", config, d) for d in CONTENT_MAPS.get(mod_id, ())]
+    hull = None
+    if "--hull" in argv or values["--widths"] is not None:
+        hull = values["--widths"] or HULL_WIDTHS.get(mod_id, DEFAULT_HULL_WIDTHS)
     try:
-        ssmap = default_ssmap(ROOT)
+        if maptools_dir is not None:
+            maptools_dir = os.path.abspath(maptools_dir)
+        ssmap = default_ssmap(ROOT, maptools_dir)
+        identity = tree_identity(maptools_dir) if maptools_dir is not None else None
+        if identity is not None:
+            print(f"ai-nav-build: map-tools from {maptools_dir} at {identity}, not maptools.lock")
+        game = None
+        if mod_id != "test":
+            engine = engine_dir()
+            if engine is None:
+                print("ai-nav-build: warning: no engine install found (SOURCESHARP_ENGINE_DIR, or Steam's Source SDK Base 2013 "
+                      "Multiplayer): HL2 content the mod mounts from it is missing from the nav", file=sys.stderr)
+            game = mount_root(os.path.join(ROOT, "bin", config, "nav-mounts"), os.path.join(ROOT, "bin", config, "mods"), mod_id, engine)
         for name in names:
-            build(ROOT, mod, name, ssmap, force="--force" in argv)
+            build(ROOT, mod, name, ssmap, force="--force" in argv, bsp_dirs=bsp_dirs, maptools=identity, game=game, hull=hull)
     except BuildError as e:
         print(f"ai-nav-build: {e}", file=sys.stderr)
         return 1

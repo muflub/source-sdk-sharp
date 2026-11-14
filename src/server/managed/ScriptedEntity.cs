@@ -1528,6 +1528,28 @@ public abstract class ScriptedEntity
     public virtual bool UnblockableByPlayer => false;
 
     /// <summary>
+    /// Whether damage to this entity runs the mode's damage rules, as a
+    /// player's does: a character that is not a player (stock's
+    /// <c>CTFBaseBoss::OnTakeDamage</c> asks the game rules' modify rules for
+    /// itself). False for everything unless the class says so, and then the
+    /// hit as dealt is what <see cref="OnDamagedAt"/> is handed.
+    ///
+    /// <para>
+    /// A class answering yes has each hit folded through the mods'
+    /// <see cref="SourceSharp.Server.IDamageModifier"/> chain BEFORE
+    /// <see cref="OnDamagedAt"/> is handed the number, and its hits and its
+    /// death are told to the <see cref="SourceSharp.Server.IEntityHurtHook"/>
+    /// and <see cref="SourceSharp.Server.IEntityDeathHook"/> chains
+    /// (<see cref="SourceSharp.Server.ScriptedDamage"/>, asked by the registry's damage and death
+    /// routes: the class calls nothing itself). Overriding this arms the
+    /// death op as overriding <see cref="OnKilled"/> does
+    /// (<see cref="EntityOpMask.Virtuals"/>), so the death is told for a class
+    /// with no <c>OnKilled</c> of its own.
+    /// </para>
+    /// </summary>
+    public virtual bool RunsDamageRules => false;
+
+    /// <summary>
     /// Something damaged this entity. Return how much damage it actually takes —
     /// zero to ignore it entirely. Whether a breakable yields to a crowbar and
     /// shrugs off bullets is a rule, which is why the answer is here.
@@ -2681,7 +2703,7 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     public IServiceLocator? Services
     {
         get => _services;
-        set { _services = value; _resolver = null; _clock = null; }
+        set { _services = value; _resolver = null; _clock = null; _damageRules = null; _warnedNoDamageRules = false; }
     }
 
     // plan_engineapi_vtables B5: the time this registry stamps outputs, thinks
@@ -3770,9 +3792,51 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     public int Damaged(in EntityRef entity, EntityHandle attacker, float damage, int damageType,
                        Vector position = default, Vector force = default,
                        HitGroup hitGroup = HitGroup.Generic)
+    {
+        var instance = entity.Entity;
+        if (instance is null)
+            return 0;
+
         // The one place the engine's raw DMG_ word becomes typed. Native hands
         // it over as an int and every managed reader wants the domain.
-        => entity.Entity?.OnDamagedAt(attacker, damage, (DamageType)damageType, position, force, hitGroup) ?? 0;
+        var kind = (DamageType)damageType;
+
+        // An entity that runs the damage rules takes the hit through them
+        // (ScriptedDamage: the mods' modifier fold, then the hurt hooks);
+        // every other is handed the hit as dealt.
+        if (instance.RunsDamageRules && DamageRulesFor(instance) is { } rules)
+            return rules.Damaged(instance, attacker, damage, kind, position, force, hitGroup);
+
+        return instance.OnDamagedAt(attacker, damage, kind, position, force, hitGroup);
+    }
+
+    // The damage path of the entities that run the damage rules: the
+    // container's, asked for on the first such hit (ServerModule registers it;
+    // its rules and hook chains are the composition's). Dropped with the
+    // container, as the clock is.
+    private SourceSharp.Server.ScriptedDamage? _damageRules;
+    private bool _warnedNoDamageRules;
+
+    /// <summary>
+    /// The damage path for <paramref name="instance"/>, which runs the rules.
+    /// A container with none leaves the hit as dealt, and says so once: a
+    /// composition that forgot the service must not read as a quiet entity.
+    /// </summary>
+    private SourceSharp.Server.ScriptedDamage? DamageRulesFor(ScriptedEntity instance)
+    {
+        _damageRules ??= Resolver.Resolve(typeof(SourceSharp.Server.ScriptedDamage)) as SourceSharp.Server.ScriptedDamage;
+        if (_damageRules is { } rules)
+            return rules;
+
+        if (!_warnedNoDamageRules)
+        {
+            _warnedNoDamageRules = true;
+            Log.Warning($"[SourceSharp] {instance.GetType().Name} runs the damage rules, but the container has no " +
+                        $"{nameof(SourceSharp.Server.ScriptedDamage)}: its hits land as dealt and its hooks hear nothing\n");
+        }
+
+        return null;
+    }
 
     /// <summary>Routes an entity's health reaching zero.</summary>
     public bool Killed(EntityHandle handle, EntityHandle attacker)
@@ -3785,7 +3849,13 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
         if (instance is null)
             return false;
 
-        instance.OnKilled(attacker);
+        // The same split as the hit's: the death of an entity that runs the
+        // damage rules is told to the death hooks after its own OnKilled.
+        if (instance.RunsDamageRules && DamageRulesFor(instance) is { } rules)
+            rules.Killed(instance, attacker);
+        else
+            instance.OnKilled(attacker);
+
         return true;
     }
 

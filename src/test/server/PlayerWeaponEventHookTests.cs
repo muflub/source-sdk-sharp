@@ -164,7 +164,10 @@ public sealed class PlayerWeaponEventHookTests
 
         var sent = Assert.Single(temps.Sent);
         Assert.Equal((TempEntWriter.PackEHandle(Player), PlayerAnimEvent.AttackPrimary, WeaponCatalog.Stock().IndexOf(EntityNames.WeaponSmg1)), (sent.Player, sent.Event, sent.Data));
-        Assert.Equal(TeFilters.Pvs(new Vector(0f, 0f, 64f)), sent.Filter);
+        // The owner keeps their seat (the client plays no predicted body gesture);
+        // the rest of the filter is the PVS of the eyes, as before.
+        Assert.True(sent.Filter.IgnorePredictionCull);
+        Assert.Equal(new TeFilter(TeFilterKind.Pvs, new Vector(0f, 0f, 64f), 0, 0f, true), sent.Filter);
     }
 
     [Fact]

@@ -13,6 +13,8 @@ using SourceSharp.Server;
 using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
+using TF2.Shared.Weapons;
 
 namespace TF2.Server.Voice;
 
@@ -38,8 +40,9 @@ public sealed class TFConceptSpeech(
     TFSceneImage scenes,
     IEngineSound sound,
     IUniformRandom rng,
-    ITeamRoundState? round = null,
-    ILog? log = null)
+    ITeamRoundState round,
+    ITFWeaponOwners owners,
+    ILog log)
 {
     /// <summary>MP_CONCEPT_BUILDING_OBJECT (mp_shareddefs.cpp:57) — the builder's line as construction starts.</summary>
     public const string BuildingObject = "TLK_BUILDING_OBJECT";
@@ -85,6 +88,12 @@ public sealed class TFConceptSpeech(
 
     /// <summary>MP_CONCEPT_MINIGUN_FIREWEAPON, the firing concept behind its five-second gate.</summary>
     public const string MinigunFireWeapon = "TLK_MINIGUN_FIREWEAPON";
+
+    /// <summary>MP_CONCEPT_PLAYER_BATTLECRY (mp_shareddefs.cpp:40), the line a buff deploy's raise speaks.</summary>
+    public const string PlayerBattlecry = "TLK_PLAYER_BATTLECRY";
+
+    /// <summary>MP_CONCEPT_TAUNT_EUREKA_EFFECT_TELEPORT (mp_shareddefs.h:200) — the Eureka Effect's teleport taunt.</summary>
+    public const string TauntEurekaEffect = "TLK_TAUNT_EUREKA_EFFECT";
 
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
     public bool Speak(EntityHandle speaker, string concept) => Ask(speaker, concept, null).Spoke;
@@ -137,7 +146,8 @@ public sealed class TFConceptSpeech(
 
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", concept);
-        TFPlayerCriteriaWords.Append(carriers.Get(speaker.EntryIndex), teams.Team(speaker), round, criteria);
+        TFPlayerCriteriaWords.Append(carriers.Get(speaker.EntryIndex), teams.Team(speaker), round, criteria,
+                                     (owners.ActiveItemOf(speaker.EntryIndex) as AttributeContainer)?.Item);
 
         // The roll behind the percent-chance criteria (SpeakInternal): a missing key
         // fails them all, so it rides every ask.
@@ -151,15 +161,18 @@ public sealed class TFConceptSpeech(
         bool spoke;
         switch (response.Kind)
         {
-            // The scene's speak events, sounded one after another; a scene the
-            // image does not carry sounds nothing, as stock's missing scene
-            // does not play.
+            // The scene's speak events, sounded one after another. A scene the
+            // image carries speaks even when it names no sound — the
+            // gesture-only taunts (the scout's drink, taunt04_v1) are scenes,
+            // and stock's matched response is the success the taunt keys on;
+            // only a scene absent from the image plays nothing, as stock's
+            // missing scene does.
             case ResponseKind.Scene:
                 IReadOnlyList<string> sceneSounds = scenes.SceneSounds(response.Name);
                 foreach (string sceneSound in sceneSounds)
                     sound.EntityEmitSound(speaker, sceneSound);
 
-                spoke = sceneSounds.Count > 0;
+                spoke = sceneSounds.Count > 0 || scenes.HasScene(response.Name);
                 break;
 
             // RT_SOUND: the sound itself, no scene around it.
@@ -174,7 +187,7 @@ public sealed class TFConceptSpeech(
         }
 
         if (spoke)
-            log?.Msg($"[TF2/Voice] player {speaker.EntryIndex} spoke concept {concept} ({response.Kind} {response.Name})\n");
+            log.Msg($"[TF2/Voice] player {speaker.EntryIndex} spoke concept {concept} ({response.Kind} {response.Name})\n");
 
         return (spoke, response.Name);
     }

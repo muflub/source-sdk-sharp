@@ -9,6 +9,8 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
+using TF2.Shared.Rooms;
+
 namespace TF2.Server.Entities.Rooms;
 
 /// <summary>
@@ -17,21 +19,32 @@ namespace TF2.Server.Entities.Rooms;
 /// which takes the room's team and on/off state.
 ///
 /// <para>
-/// Stock sends it only to the other team's players and makes it solid only
-/// to them (<c>ShouldTransmit</c>, <c>ShouldCollide</c> by the team's
-/// contents bit). The engine seams have neither a per-client transmit nor a
-/// per-team collision, so here it is drawn for everyone while its room is
-/// active and has a team, and is solid to nobody: a wall solid to all would
-/// shut the room's own team in (docs/divergences.md). Its team, room and
-/// solid flag are kept as stock keeps them, for the seams when they come.
+/// Stock sends it always (<c>UpdateTransmitState</c>'s FL_EDICT_ALWAYS; its
+/// fuller <c>ShouldTransmit</c> sleeps behind a commented FULLCHECK) and
+/// makes it solid to the enemy through the per-entity trace arm
+/// (<see cref="TFRespawnRoomCollide"/>); the client hides it from its own
+/// team's eyes. Its team, room and solid flag are kept as stock keeps them.
+/// </para>
+///
+/// <para>
+/// The always-send is <see cref="IEngineEntityRender.SetTransmitAlways"/>,
+/// as every always-sent entity takes it, and the brush is visible to every
+/// eye on the wire: the per-team hiding is the client's own answer
+/// (<c>ClientRespawnRoomVisualizer</c>), asked at
+/// its draw. The team and the brush's box ride the wire for that draw —
+/// the team the hiding compares against, the box where the client's shimmer
+/// sits.
 /// </para>
 /// </summary>
 [ScriptedEntity(MapClass, ScriptedEntityKind.Brush)]
-public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory) : ScriptedEntity
+public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory, IEngineEntityRender render) : ScriptedEntity
 {
     public const string MapClass = "func_respawnroomvisualizer";
 
     [ScriptVars] public FuncRespawnRoomVisualizerVars VisualizerVars = new();
+
+    /// <summary>The wire state: the draw's team and the brush's box.</summary>
+    [NetState] public RespawnRoomVisualizerNetState State = new();
 
     [SaveField] private int _team;
     [SaveField] private bool _solid = true;
@@ -50,17 +63,38 @@ public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory) : Scri
     public bool SolidToEnemies => _solid;
 
     /// <summary>
-    /// Whether stock would send it to anybody (<c>ShouldTransmit</c> short of
-    /// its recipient test): its room is active (or it has none) and it has a
-    /// team. The win state's opening is not read here.
+    /// The brush's box as the client's draw needs it: where the shimmer's
+    /// centre sits off the origin, how wide it reads to an eye looking at it
+    /// (the wider of the two horizontal spans — the billboard has one width)
+    /// and how tall. Never below a unit each way, so a brush authored with an
+    /// empty box still reads as one. Stock's client side gets the same from its
+    /// own brush model; our wire carries these numbers to ours.
     /// </summary>
-    public bool Shown => (Room is null || Room.Active) && _team != 0;
+    private void PublishGeometry()
+    {
+        (Vector mins, Vector maxs) = Entities.GetBounds(Handle);
+        Vector centre = (mins + maxs) * 0.5f;
+
+        State.CenterX = centre.X;
+        State.CenterY = centre.Y;
+        State.CenterZ = centre.Z;
+        State.Width = Math.Max(Math.Max(maxs.X - mins.X, maxs.Y - mins.Y), 1f);
+        State.Height = Math.Max(maxs.Z - mins.Z, 1f);
+    }
 
     public override void OnSpawn()
     {
         _solid = VisualizerVars.SolidToEnemies;
         _team = VisualizerVars.TeamNum;
-        SetSolidity(BrushSolidity.None);
+        State.Team = (byte)_team;
+        PublishGeometry();
+
+        // Stock's UpdateTransmitState (func_respawnroom.cpp:464-469): the FULLCHECK
+        // arm is commented out, so the brush is FL_EDICT_ALWAYS and its
+        // ShouldTransmit team gate never runs — everybody gets it, and each eye
+        // hides it itself. The brush is drawn wherever an eye looks (the client's
+        // own draw answer does the hiding); nothing on the server hides it.
+        render.SetTransmitAlways(Handle, true);
         SetActive(true);
     }
 
@@ -97,6 +131,7 @@ public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory) : Scri
     public void ChangeTeam(int team)
     {
         _team = team;
+        State.Team = (byte)team;
         Apply();
     }
 
@@ -107,7 +142,21 @@ public sealed class FuncRespawnRoomVisualizer(IEntityDirectory directory) : Scri
         Apply();
     }
 
-    private void Apply() => SetVisible(Shown);
+    /// <summary>
+    /// Stock's <c>SetActive</c> (func_respawnroom.cpp:527-541) is the solid
+    /// switch: on, the brush loses FSOLID_TRIGGER and FSOLID_NOT_SOLID and
+    /// traces meet it (the per-entity arm,
+    /// <see cref="TFRespawnRoomCollide"/>, then decides who); off, both flags
+    /// return and it is a trigger again.
+    /// </summary>
+    private void Apply()
+    {
+        SetSolidity(_active ? BrushSolidity.Solid : BrushSolidity.Trigger);
+
+        // Always drawn — stock's FL_EDICT_ALWAYS leaves the hiding to the eyes,
+        // not to the send. See the client's draw arms.
+        SetVisible(true);
+    }
 }
 
 /// <summary>The map keys <see cref="FuncRespawnRoomVisualizer"/> declares (func_respawnroom.cpp's datadesc, and CBaseEntity's TeamNum).</summary>

@@ -205,6 +205,45 @@ public class WeaponCatalogTests
     }
 
     //-------------------------------------------------------------------------
+    // The carried-weapon mask: rows past its width are said, once.
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void TheFirstRowPastTheCarriedMaskIsNamedOnce()
+    {
+        // The mask is WeaponMaskBits bits, the core rows first: the row that
+        // lands past bit 63 is the (mask - core)-th appended row, the one the
+        // client can no longer select. The line names it once.
+        var rows = Enumerable.Range(1, PlayerNetState.WeaponMaskBits - CoreCount + 1)
+                             .Select(i => Row($"wep_pad_{i}"))
+                             .ToArray();
+        var log = new RecordingLog();
+
+        var catalog = With(log, new RowsSource(rows));
+
+        Assert.Equal(PlayerNetState.WeaponMaskBits + 1, catalog.Count);
+        var warning = Assert.Single(log.Lines, l => l.Warning);
+        Assert.Contains("'wep_pad_117'", warning.Text);
+    }
+
+    [Fact]
+    public void ATableThatFillsTheMaskExactlySaysNothing()
+    {
+        // The boundary: the last row the bits can carry is the mask-th row of
+        // the whole table, so a catalogue of exactly WeaponMaskBits rows is
+        // not yet the guard's finding.
+        var rows = Enumerable.Range(1, PlayerNetState.WeaponMaskBits - CoreCount)
+                             .Select(i => Row($"wep_pad_{i}"))
+                             .ToArray();
+        var log = new RecordingLog();
+
+        var catalog = With(log, new RowsSource(rows));
+
+        Assert.Equal(PlayerNetState.WeaponMaskBits, catalog.Count);
+        Assert.DoesNotContain(log.Lines, l => l.Warning);
+    }
+
+    //-------------------------------------------------------------------------
     // The ammo table: the same rules, and stock's one-based native index.
     //-------------------------------------------------------------------------
 

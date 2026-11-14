@@ -32,10 +32,11 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers players, ITFPlayerClasses classes,
                                        ITFPlayerResupply resupply, ITFPlayerConditions conditions,
                                        TFPlayerCarriers carriers,
-                                       ITFWeaponOwners? owners = null, AttributeHooks? attributes = null) : ITFMapPlayers
+                                       TFPlayerItems items, AttributeHooks attributes,
+                                       IServiceLocator? services = null) : ITFMapPlayers
 {
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly TFPlayerItems _items = items;
+    private readonly AttributeHooks _attributes = attributes;
 
     public bool IsAlive(EntityHandle player) => players.IsAlive(player);
 
@@ -92,7 +93,7 @@ public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers 
         if (carriers.Get(player.EntryIndex) is not { } state)
             return false; // the meter lives on the carrier; a player with none has none to move
 
-        var manager = _owners.ManagerOf(player.EntryIndex);
+        var manager = _items.ManagerOf(player.EntryIndex);
         if (_attributes.Int(0, "mod_cloak_no_regen_from_items", manager) != 0)
             return false; // :9733-9736 — the watch may refuse regen from items
 
@@ -106,5 +107,43 @@ public sealed class TFPlayerMapPlayers(IEngineEntities entities, IEnginePlayers 
         bool result = amount > 0f && state.CloakMeter < 100f; // :9753
         state.CloakMeter = Math.Clamp(state.CloakMeter + amount, 0f, 100f); // :9755
         return result;
+    }
+
+    /// <summary>
+    /// <c>CTFPlayer::AddToSpyKnife</c> (<c>tf_player.cpp:5092-5098</c>), the
+    /// pack's ask (<c>entity_ammopack.cpp:91-94</c>): the held knife's
+    /// <c>DecreaseRegenerationTime</c>
+    /// (<c>tf_weapon_knife.cpp:160-169</c>) — the spy slice answers it, the
+    /// stock gate and the stamp pull being the knife's own; a player with no
+    /// slice or no melted knife takes nothing. The slice is looked up on the
+    /// ask: the spy lane builds after the map players in the chain that starts
+    /// at the class skill effects, so an eager constructor hop would close a
+    /// cycle the locator's first-call answer never enters.
+    /// </summary>
+    public bool AddToSpyKnife(EntityHandle player, float amount)
+        => services?.Resolve<ITFSpyState>()?.DecreaseKnifeRegenerationTime(player.EntryIndex, amount) ?? false;
+
+    /// <summary>
+    /// <c>entity_ammopack.cpp:96-110</c>: the Persuader's
+    /// <c>ammo_gives_charge</c> on the player's own walk — the worn items with
+    /// the weapons — pays <c>100 * pack ratio</c> of charge under a full meter,
+    /// and the moved meter is the pack taken. The powerup mode's 0.2
+    /// (:103-106) waits for that mode, as the regen's does; the meter's
+    /// ceiling is the field's 0..100.
+    /// </summary>
+    public bool AddToDemoChargeMeterFromAmmo(EntityHandle player, float packRatio)
+    {
+        if (carriers.Get(player.EntryIndex) is not { } state)
+            return false; // the meter lives on the carrier; a player with none has none to move
+
+        if (_attributes.Int(0, "ammo_gives_charge", _items.ManagerOf(player.EntryIndex)) == 0)
+            return false; // :97's gate — no wearer's attribute, no charge
+
+        float charge = state.ChargeMeter;
+        if (charge >= 100f)
+            return false; // :101's gate — a full meter takes none
+
+        state.ChargeMeter = Math.Clamp(charge + packRatio * 100f, 0f, 100f); // :107
+        return true;
     }
 }

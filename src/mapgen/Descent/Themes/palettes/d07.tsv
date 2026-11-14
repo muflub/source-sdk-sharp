@@ -1,0 +1,32 @@
+# Palette of depth 7 (Dripstone), plan_descent_mine_levels.md E7 and task B2; brief p4.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p4-m*.png, p4-mod*.png).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/dirtfloor005b	material	floor	black wet dirt (the plan's), dark under the pale rock; 512 texels
+nature/blendrockgroundwallisland_interior02	material	wall	pale grey limestone in TF2's painted rock (#696562; the plan's island interior); 8 maps
+nature/blendrockgroundwallisland_interior02	material	ceiling	the same limestone overhead
+nature/blendrockgroundwallisland_interior02	material	large-wall	the limestone at 0.5 on a grotto's 2048 walls
+nature/rockwall001_island	material	block	a darker grey rock (#696562) for spires, ledges and steps
+nature/cliffface002a	material	wall-low	pale wet flowstone at the foot of the walls (#817b71)
+nature/rockwall001_island	material	door-frame	a natural rock arch of brushes round each doorway: thick jambs, a haunched head, a rough surround
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_c17/light_cagelight02_on	static	lamp	a string of caged bulbs along the walls, blue-white: the line the miners strung through the cave (the plan's rope line of lights)
+props_c17/light_cagelight02_on	static	cover-lamp	a caged bulb hung under the roof where the walls' string leaves a cave's middle dark
+props_c17/light_cagelight02_on	static	pendant	a caged bulb on a cable over a tall cave's floor
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the bulb hangs from
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable
+props_mining/rock002	static	wall-prop	a flowstone column against the rock, 278 high; 26 maps
+props_mining/rock006	static	wall-prop	a low ledge of fallen rock against a wall
+props_mining/rock006b	static	corner-pile	a flat spill of rock in a corner; not solid (17 high)
+props_mining/rock006c	static	corner-pile	a smaller spill; not solid (9 high)
+props_mining/rock001	static	floor-prop	a stalagmite boss on a cave's floor, 290 high; 32 maps
+props_mining/rock006	static	floor-prop	a low rock on the open floor
+props_island/stalagtites_med	static	hanging	stalactites hung upside down from a tall cave's roof (the plan's stalagtites, a cluster of spikes symmetric about its origin)
+props_island/stalagtites_small	static	hanging	a smaller cluster for lower roofs
+water/water_well	water	water	clear dark well water in the caves' pools (the plan's for level 8, clearer than level 8's murk)
+# rejected props_mining/tracklights_4 (the plan's): two bulbs 3 high, invisible at any distance
+# rejected props_mvm/cave_waterfall (the plan's): 1,800 high, taller than any room
+# rejected props_island/stalagtites_large: 590 high, it hangs into a hall's rocket air
+# rejected nature/blendrockgroundwallisland: a blend whose brush face draws tan, not its grey preview (round 1 sheets)

@@ -36,6 +36,33 @@ public sealed class TFClampBackSpeedConVar : FloatConVar { }
 [ConVar("tf_clamp_back_speed_min", "100", Flags = ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
 public sealed class TFClampBackSpeedMinConVar : FloatConVar { }
 
+// tf_gamemovement.cpp:52, the shield charge's speed, read by ChargeMove
+// (:508, :513) and TeamFortress_CalculateMaxSpeed (tf_player_shared.cpp:10972).
+[ConVar("tf_max_charge_speed", "750", Flags = ConVarFlags.Notify | ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
+public sealed class TFMaxChargeSpeedConVar : FloatConVar { }
+
+// tf_gamemovement.cpp:54-56, the parachute's caps, read by TF's FullWalkMove
+// (:2628-2630): the burning and plain z caps and the xy drag. Stock's defaults
+// carry the trailing f, quoted here byte for byte.
+[ConVar("tf_parachute_maxspeed_xy", "300.0f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Max XY Speed while Parachute is deployed")]
+public sealed class TFParachuteMaxSpeedXYConVar : FloatConVar { }
+
+[ConVar("tf_parachute_maxspeed_z", "-100.0f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Max Z Speed while Parachute is deployed")]
+public sealed class TFParachuteMaxSpeedZConVar : FloatConVar { }
+
+[ConVar("tf_parachute_maxspeed_onfire_z", "-100.0f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Max Z Speed when on Fire and Parachute is deployed")]
+public sealed class TFParachuteMaxSpeedOnfireZConVar : FloatConVar { }
+
+// tf_gamemovement.cpp:57, the chute's air-control multiplier, read by TF's
+// GetAirSpeedCap (:2067-2070): the air cap is times this while the chute is
+// out. Stock's default carries the trailing f, quoted here byte for byte.
+[ConVar("tf_parachute_aircontrol", "2.5f", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "Multiplier for how much air control players have when Parachute is deployed")]
+public sealed class TFParachuteAirControlConVar : FloatConVar { }
+
 [ConVar("tf_clamp_airducks", "1", Flags = ConVarFlags.Replicated)]
 public sealed class TFClampAirducksConVar : BoolConVar { }
 
@@ -57,6 +84,24 @@ public sealed class TFMovementLostFootingRestickConVar : FloatConVar { }
 [ConVar("tf_movement_lost_footing_friction", "0.1", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat,
         Help = "Ground friction for players who have lost their footing")]
 public sealed class TFMovementLostFootingFrictionConVar : FloatConVar { }
+
+// ---- shared/tf/tf_player_shared.cpp -----------------------------------------
+
+// tf_player_shared.cpp:106, outside any #if: the charge yaw cap's frametime
+// scale, read by CalculateChargeCap (:6100-6115).
+[ConVar("tf_demoman_charge_frametime_scaling", "1", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat,
+        Help = "When enabled, scale yaw limiting based on client performance (frametime).")]
+public sealed class TFDemomanChargeFrametimeScalingConVar : BoolConVar { }
+
+// tf_player_shared.cpp:176-177, the charge meter's refill and spend: the
+// regen per second off the meter and the seconds a full meter drains across
+// (UpdateChargeMeter, :6025-6028 and :6040-6053, both sides' ConditionThink).
+
+[ConVar("tf_demoman_charge_regen_rate", "8.3", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated)]
+public sealed class TFDemomanChargeRegenRateConVar : FloatConVar { }
+
+[ConVar("tf_demoman_charge_drain_time", "1.5", Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated)]
+public sealed class TFDemomanChargeDrainTimeConVar : FloatConVar { }
 
 // ---- shared/tf/tf_fx_shared.cpp ---------------------------------------------
 
@@ -114,10 +159,14 @@ public sealed class MpTournamentConVar : BoolConVar { }
         Help = "Allow only 1 of each player class type.")]
 public sealed class MpHighlanderConVar : BoolConVar { }
 
-[ConVar("mp_teams_unbalance_limit", "1", Flags = ConVarFlags.Replicated,
-        Help = "Teams are unbalanced when one team has this many more players than the other team. (0 disables check)",
-        Min = 0, Max = 30)]
-public sealed class MpTeamsUnbalanceLimitConVar : IntConVar { }
+/// <summary>
+/// Stock's <c>mp_teams_unbalance_limit</c> default, 1 (teamplayroundbased_gamerules.cpp:219).
+/// The core declares the name on both sides for team deathmatch, whose
+/// number is 0 (off); TF's row restores stock's 1 on each side, so the
+/// replicated pair agrees.
+/// </summary>
+[ConVarDefault("mp_teams_unbalance_limit", "1")]
+public sealed class TFTeamsUnbalanceLimitDefault { }
 
 [ConVar("mp_maxrounds", "0", Flags = ConVarFlags.Replicated | ConVarFlags.Notify,
         Help = "max number of rounds to play before server changes maps", Min = 0)]
@@ -247,6 +296,14 @@ public sealed class TFFlagCapsPerRoundConVar : IntConVar { }
 // though only the server's GetDamageRadius reads them
 // (tf_weapon_grenade_pipebomb.cpp:1426-1429).
 
+// ---- shared/tf/tf_weapon_grenade_pipebomb.cpp (the Loose Cannon) ------------
+
+[ConVar("tf_double_donk_window", "0.5", Flags = ConVarFlags.Cheat | ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly,
+        Help = "How long after an impact from a cannonball that an explosion will count as a double-donk.")]
+public sealed class TFDoubleDonkWindowConVar : FloatConVar { }
+
+// ---- shared/tf/tf_gamerules.cpp (the sticky's air-burst radius) -------------
+
 [ConVar("tf_sticky_radius_ramp_time", "2.0",
         Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Cheat | ConVarFlags.Replicated,
         Help = "Amount of time to get full radius after arming")]
@@ -282,3 +339,38 @@ public sealed class TFFlameThrowerFlametimeConVar : FloatConVar { }
 [ConVar("tf_grenadelauncher_livetime", "0.8",
         Flags = ConVarFlags.Cheat | ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
 public sealed class TFGrenadeLauncherLiveTimeConVar : FloatConVar { }
+
+// ---- shared/tf/tf_weapon_rocketpack.cpp --------------------------------------
+
+// The thruster landing's push scales (tf_weapon_rocketpack.cpp:69-70): the
+// landing push's force ends, read by the damage layer's fall arm together
+// with the held item's falling_impact_radius_pushback word.
+[ConVar("tf_rocketpack_impact_push_min", "100", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.Hidden)]
+public sealed class TFRocketPackImpactPushMinConVar : FloatConVar { }
+
+[ConVar("tf_rocketpack_impact_push_max", "300", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.Hidden)]
+public sealed class TFRocketPackImpactPushMaxConVar : FloatConVar { }
+
+// ---- shared/tf/tf_player_shared.cpp ------------------------------------------
+
+// tf_player_shared.cpp:172-173, shared: the scout energy drink's two rates.
+// The regen rate refills the drink meter between boosts
+// (<c>UpdateEnergyDrinkMeter</c>, :14101-14119); the consume rate is the
+// drain while boosted, read by the drink's own fall-back dead time
+// (tf_player.cpp:18644). The activation delay (:174) waits for its consumer.
+[ConVar("tf_scout_energydrink_regen_rate", "3.3",
+        Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "energy drink regen per second, up to 100 max")]
+public sealed class TFScoutEnergydrinkRegenRateConVar : FloatConVar { }
+
+[ConVar("tf_scout_energydrink_consume_rate", "12.5",
+        Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "energy drink to use per second while boosted, from 100 max")]
+public sealed class TFScoutEnergydrinkConsumeRateConVar : FloatConVar { }
+
+// ---- shared/tf/tf_weapon_wrench.cpp -----------------------------------------
+
+/// <summary>The whack's share of the build (<c>tf_weapon_wrench.cpp:333</c>, STAGING_ENGY:
+/// value literally <c>"1.5f"</c> in stock).</summary>
+[ConVar("tf_construction_build_rate_multiplier", "1.5f", Flags = ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
+public sealed class TFConstructionBuildRateConVar : FloatConVar { }

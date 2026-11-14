@@ -35,6 +35,8 @@ public enum AiEventKind : byte
 
     // gameplay (the HUD)
     ScoreboardRow = 40,
+
+    /// <summary>One team score the HUD shows (plan_bots_teams_tf2 B.2): Code the team, Code2 its score. A mode may play two to four teams.</summary>
     MatchState = 41,
 
     /// <summary>A death notice on the HUD's kill feed: who died, and who killed them.</summary>
@@ -57,6 +59,54 @@ public enum AiEventKind : byte
 
     /// <summary>The server's <c>ai_bot_streaks</c> as told to a bot (§5.5): Code 0 off, 1 on; a console's asking for one now, 2 hot, 3 cold.</summary>
     StreaksSet = 48,
+
+    /// <summary>
+    /// The <c>player_team</c> event and the scoreboard's team column, as every client has them
+    /// (plan_bots_teams_tf2 B.2, B.9): Other is now on team Code (0 when the mode plays no teams),
+    /// coming from Code2. The bot itself is told of its own change too.
+    /// </summary>
+    ActorTeam = 49,
+
+    /// <summary>The server's <c>mp_friendlyfire</c>, which every client is sent (a replicated setting): Code 1 on, 0 off (plan_bots_teams_tf2 B.5).</summary>
+    FriendlyFireSet = 54,
+
+    /// <summary>
+    /// A teammate's callout (plan_bots_teams_tf2 B.4), re-published by the session to the
+    /// speaker's teammates' lanes after its delay: Other the speaker, Position the place,
+    /// Amount the confidence, Code the <see cref="CalloutKind"/> and the count (count &lt;&lt; 8),
+    /// Code2 the subject's slot plus one (0 none).
+    /// </summary>
+    Callout = 55,
+
+    /// <summary>A teammate's order read in team chat (B.5, Q5): Other the one who said it, Code the <see cref="OrderKind"/>.</summary>
+    Order = 56,
+
+    /// <summary>
+    /// The bot's HUD marks Other as its nemesis (Code 1), or no longer (Code 0): a game's own
+    /// standing mark on someone who keeps killing the bot unanswered (plan_bots_teams_tf2_part_g
+    /// G.2.5: TF2's domination, which its scoreboard and the icon over the dominator show the
+    /// dominated player).
+    /// </summary>
+    Nemesis = 57,
+
+    /// <summary>The bot reached the place its intent last moved it to (its applier's feedback): Position the place.</summary>
+    Arrived = 58,
+
+    /// <summary>
+    /// A teammate was hurt where the bot could know of it (its pack's own channel, a game's team
+    /// callout): Other the ally, Position where it stands, Amount the damage, the attacker in Code
+    /// and Code2 (none for the world).
+    /// </summary>
+    AllyDamaged = 59,
+
+    /// <summary>A teammate died: Other the ally, Position where it fell, the killer in Code and Code2 (none for the world).</summary>
+    AllyDied = 60,
+
+    /// <summary>
+    /// A hero (a player the bot fights) went down and can be revived (Code 1), or got up again
+    /// (Code 0): Other the hero, Position where. A downed hero is no threat while it lies there.
+    /// </summary>
+    HeroDowned = 61,
 
     // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
@@ -158,8 +208,24 @@ public readonly record struct AiEvent(
     public static AiEvent KillFeed(ActorId bot, Tick tick, ActorId victim, ActorId killer)
         => new(AiEventKind.KillFeed, bot, tick, victim, default, default, 0f, killer.Slot, killer.Serial);
 
-    /// <summary>The killer of a <see cref="AiEventKind.KillFeed"/> event.</summary>
-    public ActorId Killer => Kind == AiEventKind.KillFeed ? new ActorId(Code, Code2) : ActorId.None;
+    /// <summary>The killer of a <see cref="AiEventKind.KillFeed"/> or <see cref="AiEventKind.AllyDied"/> event, the attacker of an <see cref="AiEventKind.AllyDamaged"/> one.</summary>
+    public ActorId Killer => Kind is AiEventKind.KillFeed or AiEventKind.AllyDied or AiEventKind.AllyDamaged ? new ActorId(Code, Code2) : ActorId.None;
+
+    /// <summary>The bot reached <paramref name="at"/>, where its intent last moved it.</summary>
+    public static AiEvent Arrived(ActorId bot, Tick tick, AiVector at)
+        => new(AiEventKind.Arrived, bot, tick, ActorId.None, at, default, 0f, 0, 0);
+
+    /// <summary><paramref name="ally"/>, standing at <paramref name="at"/>, took <paramref name="amount"/> damage from <paramref name="attacker"/> (none for the world).</summary>
+    public static AiEvent AllyDamaged(ActorId bot, Tick tick, ActorId ally, AiVector at, float amount, ActorId attacker)
+        => new(AiEventKind.AllyDamaged, bot, tick, ally, at, default, amount, attacker.Slot, attacker.Serial);
+
+    /// <summary><paramref name="ally"/> died at <paramref name="at"/>, killed by <paramref name="killer"/> (none for the world).</summary>
+    public static AiEvent AllyDied(ActorId bot, Tick tick, ActorId ally, AiVector at, ActorId killer)
+        => new(AiEventKind.AllyDied, bot, tick, ally, at, default, 0f, killer.Slot, killer.Serial);
+
+    /// <summary><paramref name="hero"/> went down at <paramref name="at"/> (<paramref name="down"/>), or got up again.</summary>
+    public static AiEvent HeroDowned(ActorId bot, Tick tick, ActorId hero, AiVector at, bool down)
+        => new(AiEventKind.HeroDowned, bot, tick, hero, at, default, 0f, down ? 1 : 0, 0);
 
     public static AiEvent Holdings(ActorId bot, Tick tick, int heldKinds)
         => new(AiEventKind.Holdings, bot, tick, ActorId.None, default, default, 0f, heldKinds, 0);
@@ -171,6 +237,36 @@ public readonly record struct AiEvent(
 
     public static AiEvent StreaksSet(ActorId bot, Tick tick, int code)
         => new(AiEventKind.StreaksSet, bot, tick, ActorId.None, default, default, 0f, code, 0);
+
+    /// <summary>The <c>player_team</c> event as a client is told it: <paramref name="actor"/> went from <paramref name="oldTeam"/> to <paramref name="team"/>.</summary>
+    public static AiEvent ActorTeam(ActorId bot, Tick tick, ActorId actor, int team, int oldTeam)
+        => new(AiEventKind.ActorTeam, bot, tick, actor, default, default, 0f, team, oldTeam);
+
+    /// <summary>What every callout is worth to the one who hears it (B.4): heard, not seen.</summary>
+    public const float CalloutConfidence = 0.5f;
+
+    public static AiEvent Callout(ActorId bot, Tick tick, ActorId speaker, in SayIntent say)
+        => new(AiEventKind.Callout, bot, tick, speaker, say.Place, default, CalloutConfidence, (byte)say.Kind | (say.Count << 8), say.Subject);
+
+    /// <summary>A <see cref="AiEventKind.Callout"/>'s kind.</summary>
+    public CalloutKind CalloutKind => Kind == AiEventKind.Callout ? (CalloutKind)(Code & 0xFF) : CalloutKind.None;
+
+    /// <summary>A <see cref="AiEventKind.Callout"/>'s count.</summary>
+    public int CalloutCount => Kind == AiEventKind.Callout ? Code >> 8 : 0;
+
+    public static AiEvent Order(ActorId bot, Tick tick, ActorId from, OrderKind order)
+        => new(AiEventKind.Order, bot, tick, from, default, default, 0f, (int)order, 0);
+
+    /// <summary>The bot's HUD began (<paramref name="marked"/>) or stopped marking <paramref name="actor"/> as its nemesis.</summary>
+    public static AiEvent Nemesis(ActorId bot, Tick tick, ActorId actor, bool marked)
+        => new(AiEventKind.Nemesis, bot, tick, actor, default, default, 0f, marked ? 1 : 0, 0);
+
+    public static AiEvent FriendlyFireSet(ActorId bot, Tick tick, bool on)
+        => new(AiEventKind.FriendlyFireSet, bot, tick, ActorId.None, default, default, 0f, on ? 1 : 0, 0);
+
+    /// <summary>A team score the bot's HUD shows: <paramref name="team"/>'s.</summary>
+    public static AiEvent MatchState(ActorId bot, Tick tick, int team, int score)
+        => new(AiEventKind.MatchState, bot, tick, ActorId.None, default, default, 0f, team, score);
 
     public static AiEvent ActorSpectating(ActorId bot, Tick tick, ActorId actor, bool spectating)
         => new(AiEventKind.ActorSpectating, bot, tick, actor, default, default, 0f, spectating ? 1 : 0, 0);
@@ -213,7 +309,11 @@ public readonly record struct AiEvent(
     public static AiEvent CommandRejected(ActorId bot, Tick tick, int seq, RejectReason why)
         => new(AiEventKind.CommandRejected, bot, tick, ActorId.None, default, default, 0f, (int)why, seq);
 
-    /// <summary>One scoreboard row as the bot's HUD shows it: an actor's frags, deaths and rank (1 the leader, in <see cref="Amount"/>).</summary>
-    public static AiEvent ScoreboardRow(ActorId bot, Tick tick, ActorId actor, int frags, int deaths, int rank = 0)
-        => new(AiEventKind.ScoreboardRow, bot, tick, actor, default, default, rank, frags, deaths);
+    /// <summary>
+    /// One scoreboard row as the bot's HUD shows it: an actor's frags, deaths and rank (1 the leader, in
+    /// <see cref="Amount"/>), and the team and class the row shows (plan_bots_teams_tf2 C.2; 0 for none),
+    /// carried in <see cref="Position"/>'s X and Y so the recording's layout stays.
+    /// </summary>
+    public static AiEvent ScoreboardRow(ActorId bot, Tick tick, ActorId actor, int frags, int deaths, int rank = 0, int team = 0, int playerClass = 0)
+        => new(AiEventKind.ScoreboardRow, bot, tick, actor, new AiVector(team, playerClass, 0f), default, rank, frags, deaths);
 }

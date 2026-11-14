@@ -1,0 +1,36 @@
+# Palette of depth 3 (the Timber Stopes), plan_descent_mine_levels.md E7 and task B2.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why.
+# Chosen by query of /home/lodle/assetdb (category, average_colour luminance L, maps of the
+# mine set pl_upward/pl_goldrush/cp_dustbowl/pl_frontier/... that use it as 'mine n/m') and looked at.
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/dirtground002	material	floor	dark packed dirt (#5b4c38), darker than the old dirtground004 so the floor is not the walls' orange; 13 maps
+nature/rockwall012	material	wall	red blocky rock (the town's rock), L98; mine 2/21
+wood/wood_wall001	material	ceiling	pale grey weathered planks for the lagged roof (#9e938a), paler timber than the rock; 115 maps
+wood/wood_wall003	material	block	paler planks for decks and pillars (#99735c); 44 maps
+wood/wood_wall008a	material	trim	pale weathered timber for the sets (#9b8e84); 27 maps
+wood/wood_wall008a	material	door-frame	the door frame of brushes (review 2026-11-10): a timber set, two posts and a cap running past them, the classic mine doorway, in the sets' pale timber
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs; no prop_data so it stays static; mine 13/75
+props_2fort/lantern001	dynamic	lamp	the lantern set down by the walls in pools of warm light; not a static prop, so a prop_dynamic within the budget; mine 8/106
+props_mining/support_wall001a	static	wall-prop	timber lagging against the rock, 248 high, so only in rooms above a drift; mine 12/67
+props_trainyard/distillery_barrel001	static	corner-pile	a wooden barrel without prop_data; mine 2/40
+props_hydro/barrel_crate_half	static	corner-pile	a timber crate; mine 11/141
+props_farm/wood_pile	static	floor-prop	a pile of sawn timber for the sets; mine 17/142
+# rejected props_farm/wooden_barrel (the plan's): has prop_data, so the room compile deletes it as a static prop
+# rejected props_coalmines/wood_support_256 (the plan's): a scaffold platform, not a tunnel set; the sets are brushes in the trim
+# rejected props_mining/tunnel_truss01 (the plan's): 128 wide, a doll's set in a 256 drift
+# rejected props_2fort/lantern001_off: the static lantern, but its glass is black
+# rejected props_lights/hangingbulb (the plan's): hangs from the ceiling, lost under a hall's 1024 roof
+# rejected props_farm/doorframe001b: a braced timber frame that suits the stopes, but 256 high, taller than a 256 drift
+# rejected nature/rockwall013 (the plan's): it is level 2's roof; nature/dirtground006 and dirtground_canyon4: gravel again
+props_2fort/lantern001	dynamic	cover-lamp	a lantern hung on a wall or a post at head height where the pools leave floor dark; never on the floor (review 2026-11-10)
+props_2fort/miningcrate002	static	lamp-stand	the powder crate a lantern stands on when no timber set is near (review 2026-11-10); no prop_data; 43 high
+props_2fort/miningcrate002	static	companion	a powder crate beside a pile
+props_2fort/oildrum	static	companion	an oil drum beside a pile
+nature/rockwall001_island	material	seam	a grey rock (#696562) cut through the red rock as an ore seam from 144 to 272; 5 maps
+props_lights/hangingbulb	static	pendant	a bare bulb strung on a cable down a tall stope: an older working's light, not a lantern (review 2026-11-10: overhead interest, no entity); 111 maps
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the bulb hangs from, stacked to the roof; no collision; 14 maps
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable; 6 maps
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable; 5 maps
+nature/rockwall012	material	large-wall	the same red rock at 0.5 on a great hall's 2048 walls, which at 0.25 tile into a brick pattern (brief p4)
+props_mining/rock004	static	floor-prop	an ore heap on the floor of a room with the floor for it (a great hall), beside the lagging stacks (brief p4)

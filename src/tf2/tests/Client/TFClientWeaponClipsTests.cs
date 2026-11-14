@@ -45,7 +45,7 @@ public sealed class TFClientWeaponClipsTests
     }
 
     [Fact]
-    public void A_row_past_the_carriers_width_is_unpublished()
+    public void A_row_the_player_does_not_carry_is_unpublished()
     {
         var (carriers, engine) = Carrier();
 
@@ -55,8 +55,20 @@ public sealed class TFClientWeaponClipsTests
         Assert.Equal(-1, clip);
     }
 
+    /// <summary>A row far past the slots' count reads through its slot: the jar was row 33 on 2fort.</summary>
+    [Fact]
+    public void A_row_far_past_the_carriers_slots_reads_through_its_slot()
+    {
+        var (carriers, engine) = Carrier(row: 120);
+
+        var probe = new ClientProbe(carriers, engine);
+
+        Assert.True(probe.ClipOf(120, out int clip));
+        Assert.Equal(5, clip);
+    }
+
     /// <summary>The local player's carrier, holding one word: row 2 is 5.</summary>
-    private static (ClientCarriers, client::SourceSharp.Abi.RecordingEngine) Carrier()
+    private static (ClientCarriers, client::SourceSharp.Abi.RecordingEngine) Carrier(int row = 2)
     {
         var engine = new client::SourceSharp.Abi.RecordingEngine();
         engine.Returns("Hud.LocalPlayerIndex", Local);
@@ -72,7 +84,8 @@ public sealed class TFClientWeaponClipsTests
         data.State.BindLocal();
         data.State.OwnerIndex = Local;
         data.OnSpawn();
-        data.State.Clips[2] = 5;
+        data.State.CarriedRows[0] = row + 1;
+        data.State.Clips[0] = 5;
         return (carriers, engine);
     }
 

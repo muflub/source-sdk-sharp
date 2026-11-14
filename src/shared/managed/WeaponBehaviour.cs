@@ -158,6 +158,31 @@ public interface IWeaponBehaviour
     int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex) => clipSize;
 
     /// <summary>
+    /// The rounds ONE shot of the pool burns when the row has no clip: stock's
+    /// <c>CTFWeaponBaseGun::GetAmmoPerShot</c> (<c>shared/tf/tf_weaponbase_gun.cpp:458-471</c>),
+    /// whose item attribute can price a shot above the one round every
+    /// clipless weapon otherwise spends. Asked with the row's own answer;
+    /// return it for a weapon that pays a round a shot. A weapon whose pool
+    /// holds less than the answer fires nothing (the machine clicks it, at
+    /// <c>tf_weaponbase_gun.cpp:123-131</c>). <paramref name="ownerIndex"/>
+    /// is the player whose trigger is held, as in <see cref="ModifyFireInterval"/>.
+    /// </summary>
+    int PrimaryAmmoPerShot(in WeaponType type, int ownerIndex, int perShot) => perShot;
+
+    /// <summary>
+    /// The ammo pool this owner's primary draws on and its clips reload from,
+    /// where the row's own is not the answer: stock points
+    /// <c>m_iPrimaryAmmoType</c> at <c>TF_AMMO_METAL</c> at spawn
+    /// (<c>shared/basecombatweapon_shared.cpp:269-276</c>), so the engineer's
+    /// metal is what the gun spends and what every pool read sees. Null for
+    /// the row's own. The pool is the authority the server's books settle
+    /// against — the machine only ever sees the mirrored number — so the
+    /// answer must come from the row and this owner index alone, as
+    /// <see cref="ModifyFireInterval"/>'s does.
+    /// </summary>
+    string? PrimaryAmmoPool(in WeaponType type, int ownerIndex) => null;
+
+    /// <summary>
     /// The seconds a reload takes, before a behaviour has an opinion on it:
     /// the machine's reload animation's duration, asked at the moments the
     /// machine sets a reload's clock. Stock's TF weapons run every such clock
@@ -195,6 +220,33 @@ public interface IWeaponBehaviour
                            float secondsSincePreviousDeploy) => duration;
 
     /// <summary>
+    /// The seconds the item meter takes to fill from empty for this row and
+    /// player — the question the active tick already answers through the
+    /// row's own charge words, asked here for the weapons NOT in the hands:
+    /// stock charges every carried item's meter each frame, held or holstered
+    /// (<c>CTFPlayerShared::UpdateItemChargeMeters</c>,
+    /// <c>tf_player_shared.cpp:7870-7904</c>), and the side restoring a
+    /// holstered meter — the server's deploy and the client's mirror alike —
+    /// advances the stored pair by this many seconds per second, so both
+    /// write the same bytes. Zero or less is no meter: the row does not
+    /// recharge, and nothing is restored. The answer must come from the row
+    /// and the owner index alone, as <see cref="ModifyDeployTime"/>'s: the
+    /// restored meter is predicted state.
+    /// </summary>
+    float ItemMeterSeconds(in WeaponType type, int ownerIndex) => 0f;
+
+    /// <summary>
+    /// The outgoing weapon's holster-animation seconds for this row and
+    /// owner — stock's <c>holster_anim_time</c> hook on the active weapon's
+    /// item (<c>tf_player_shared.cpp:11804-11816</c>): the first switch away
+    /// starts the anim and the real switch waits that long. Zero switches at
+    /// once, as stock's <c>flHolsterAnimTime &gt; 0</c> gate says. Answered
+    /// from the row and the owner index alone, like
+    /// <see cref="ItemMeterSeconds"/>.
+    /// </summary>
+    float HolsterSeconds(in WeaponType type, int ownerIndex) => 0f;
+
+    /// <summary>
     /// Asked when the weapon comes into the hands, after the side has set the
     /// deploy's timers and sent the draw: stock's per-class Deploy tail.
     /// </summary>
@@ -202,6 +254,18 @@ public interface IWeaponBehaviour
 
     /// <summary>Whether the weapon may be put away now (stock's CanHolster).</summary>
     bool CanHolster(in WeaponAttackContext attack) => true;
+
+    /// <summary>
+    /// Whether the weapon may come into the hands now — stock's
+    /// <c>CBaseCombatWeapon::CanDeploy</c>
+    /// (<c>shared/basecombatweapon_shared.h:230</c>, base true), asked of a
+    /// holstered candidate by the exhausted switch's same-weight handover
+    /// (<c>Weapon_CanSwitchTo</c>, <c>shared/multiplay_gamerules.cpp:550</c>
+    /// through <c>basecombatcharacter_shared.cpp:88</c>). The context is the
+    /// synthesized stand-in a holstered row answers with: its own words are
+    /// the row and the carrier, never the live pair.
+    /// </summary>
+    bool CanDeploy(in WeaponAttackContext attack) => true;
 
     /// <summary>
     /// Asked as the weapon leaves the hands — a switch, a death, a strip, a

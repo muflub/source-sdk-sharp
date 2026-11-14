@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Bot setup's client contract, the same in every game (plan_hl2mp_ai §3.5,
+    plan_bots_teams_tf2 C.2): the data the bot-setup screens read and the
+    actions they ask for (AiUiSources.cs). Interfaces, enums and pure data only
+    (SS0030, role "interface"). Its own assembly, as TF2.Client.Interface is
+    TF2's: the UI loader holds the screens (SourceSharp.Ai.Ui and each game's
+    bots page) in its collectible context and resolves everything else from
+    the core's, so this assembly is the one interface identity both
+    SourceSharp.Ai.Client's adapters and the screens name.
+  -->
+</Project>

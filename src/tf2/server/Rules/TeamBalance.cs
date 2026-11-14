@@ -32,9 +32,9 @@ namespace TF2.Server.Rules;
 [SideService(Side.Server)]
 public sealed class TeamBalance(ITeamRoundSettings settings, ITeamRoundRoster roster, IRoundAnnouncer announcer,
                                 IRoundTimers timers, IGameClock clock, ILog log,
-                                ITFPlayerClasses? classes = null) : IGameLifecycle
+                                ITFPlayerClasses classes) : IGameLifecycle
 {
-    private readonly ITFPlayerClasses? _classes = classes;
+    private readonly ITFPlayerClasses _classes = classes;
     // Who was first seen when (the connection time CalculateTeamBalanceScore
     // reads; a divergence row: the first spawn stands for the connection),
     // and who was last switched by force.
@@ -168,7 +168,7 @@ public sealed class TeamBalance(ITeamRoundSettings settings, ITeamRoundRoster ro
         if (_lastForcedSwitch.TryGetValue(player.Value, out float switched) && switched > 0f && Now - switched < 300f)
             score -= 10000;
 
-        if (_classes?.ClassOf(player) == TFClass.Engineer)
+        if (_classes.ClassOf(player) == TFClass.Engineer)
             score -= 120;
 
         return score;

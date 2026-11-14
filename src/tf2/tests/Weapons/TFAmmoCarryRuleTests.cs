@@ -23,7 +23,7 @@ public sealed class TFAmmoCarryRuleTests
         var owners = new FakeOwners();
         owners.Classes[Scout] = TFClass.Scout;
         owners.Classes[Heavy] = TFClass.HeavyWeapons;
-        return (new TFAmmoCarryRule(new TFClassTable(new RecordingLog(), files), owners), owners);
+        return (new TFAmmoCarryRule(new TFClassTable(new RecordingLog(), files), owners, new AttributeHooks()), owners);
     }
 
     private static AmmoType Row(TFAmmo ammo) => new TFAmmoTypes().Rows().Single(r => r.Name == TFAmmoNames.Name(ammo));
@@ -73,7 +73,8 @@ public sealed class TFAmmoCarryRuleTests
     [Fact]
     public void Without_a_carrier_every_player_is_classless()
     {
-        var rule = new TFAmmoCarryRule(new TFClassTable(new RecordingLog(), TFClassTableTests.Files.Shipped()));
+        var rule = new TFAmmoCarryRule(new TFClassTable(new RecordingLog(), TFClassTableTests.Files.Shipped()),
+                                       new NoTFWeaponOwners(), new AttributeHooks());
         var primary = Row(TFAmmo.Primary);
 
         Assert.Equal(primary.MaxCarry, rule.MaxCarry(Scout, in primary, primary.MaxCarry));

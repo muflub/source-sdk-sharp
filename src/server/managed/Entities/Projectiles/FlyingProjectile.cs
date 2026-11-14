@@ -94,6 +94,13 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// </summary>
     protected virtual Vector HullExtent => Vector.Zero;
 
+    /// <summary>
+    /// What stops the sweep (<c>PhysicsSolidMaskForEntity</c>). The shot mask finds a
+    /// player's hitboxes, which is the crossbow's rule; a mask without hitboxes finds
+    /// the hull, which is a rocket's.
+    /// </summary>
+    protected virtual TraceMask SweepMask => TraceMask.Shot;
+
     /// <summary>The flight struck <paramref name="struck"/> with this normal, just before <see cref="OnTouch"/>.</summary>
     protected internal virtual void OnStruckSurface(Vector normal, EntityHandle struck) { }
 
@@ -145,7 +152,7 @@ public abstract class FlyingProjectile : AnimatingEntity
         // (plan_entity.md step 2f). SetVelocity above still goes to the shell,
         // and is not redundant: it is what EntityGetVelocity, the save state
         // and the mover's "whose velocity is this" rule all read.
-        Motion.Launch(Handle, velocity, GravityScale, Bounces, shooter, LaunchSpin, HullExtent);
+        Motion.Launch(Handle, velocity, GravityScale, Bounces, shooter, LaunchSpin, HullExtent, SweepMask);
     }
 
     public override void OnTouch(EntityHandle toucher)
@@ -184,14 +191,15 @@ public abstract class FlyingProjectile : AnimatingEntity
             Entities.SetAngles(Handle, Angles.FromVector(_keepVelocity));
             Entities.SetVelocity(Handle, _keepVelocity);
             Physics.SetGravity(Handle, _keepGravity);
-            Motion.Launch(Handle, _keepVelocity, _keepGravity, Bounces, Shooter, hull: HullExtent);
+            Motion.Launch(Handle, _keepVelocity, _keepGravity, Bounces, Shooter, hull: HullExtent, mask: SweepMask);
             return;
         }
 
         if (_lingerFor >= 0f)
         {
-            // Stopped where it is, unseen; gone when the time is up.
-            SetVisible(false);
+            // Stopped where it is, unseen where the subclass hides; gone when
+            // the time is up.
+            SetVisible(!LingerHides);
             _lingering = true;
             SetNextThink(_lingerFor);
             return;
@@ -226,6 +234,15 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// </summary>
     protected void Linger(float seconds) => _lingerFor = seconds;
 
+    /// <summary>
+    /// Whether the linger hides the body. Every projectile that lingers is
+    /// stock's <c>EF_NODRAW</c> and the answer stays yes -- the cleaver's
+    /// world arm is the exception, whose <c>Explode</c>
+    /// (<c>tf_weapon_jar.cpp:1083-1096</c>) books the removal think over a
+    /// body that keeps its model.
+    /// </summary>
+    protected virtual bool LingerHides => true;
+
     private bool _keepFlying;
     private Vector _keepVelocity;
     private float _keepGravity;
@@ -246,7 +263,7 @@ public abstract class FlyingProjectile : AnimatingEntity
     protected void Steer(Vector velocity, float gravityScale)
     {
         Entities.SetVelocity(Handle, velocity);
-        Motion.Launch(Handle, velocity, gravityScale, Bounces, Shooter, LaunchSpin, HullExtent);
+        Motion.Launch(Handle, velocity, gravityScale, Bounces, Shooter, LaunchSpin, HullExtent, SweepMask);
     }
 
     /// <summary>

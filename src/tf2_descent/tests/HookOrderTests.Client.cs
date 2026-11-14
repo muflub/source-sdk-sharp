@@ -41,7 +41,7 @@ public sealed partial class HookOrderTests
         assembly.GetTypes()
             .Where(t => t is { IsClass: true, IsAbstract: false } && hook.IsAssignableFrom(t)
                         && t.GetCustomAttributes<ClientSideServiceAttribute>().Any(a => a.Side == side))
-            .Select(t => (t.Name, OrderOf(RuntimeHelpers.GetUninitializedObject(t), hook)))
+            .Select(t => (t.Name, (RuntimeHelpers.GetUninitializedObject(t) as ClientOrderedHook)?.HookOrder ?? 0))
             .ToArray();
 
     /// <summary>Each class in <paramref name="assembly"/> implementing IClientLevelHook, with the order the client's Hooks sorts by.</summary>

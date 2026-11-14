@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 using Xunit;
 
@@ -119,5 +120,36 @@ public sealed class TFFixedWeaponSpreadTests
         (right, up) = TFWeaponBehaviour.WidePattern(12, stream);  // (-1, -0.5) beside its draws
         Assert.InRange(right - -1f, -0.07f, 0.07f);
         Assert.InRange(up - -0.5f, -0.07f, 0.07f);
+    }
+
+    /// <summary>An attribute the stock formats as a switch: an additive value
+    /// over the hook's zero base, the way <c>CALL_ATTRIB_HOOK_INT</c> reads it.</summary>
+    private static AttributeContainer AdditiveItem(int defIndex, string hook, float value)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(defIndex, "attr " + defIndex, hook, AttributeDescriptionFormat.Additive,
+                                                                AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("x")), value));
+        return item;
+    }
+
+    /// <summary>
+    /// <c>IsFixedWeaponSpreadEnabled</c>' weapon arm
+    /// (<c>tf_fx_shared.cpp:425-431</c>): with the convar and the match group
+    /// quiet, the held item's own non-zero <c>fixed_shot_pattern</c> turns the
+    /// table on — the buckshot load leaves in the fixed pattern through the
+    /// machine. Beside it, <see cref="The_convar_unset_the_load_stays_random"/>
+    /// is the same press without the attribute, still random.
+    /// </summary>
+    [Fact]
+    public void The_held_items_fixed_shot_pattern_turns_the_table_on_without_the_convar()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9131, "fixed_shot_pattern", 1f);
+        var (w, vm) = world.Armed("tf_weapon_scattergun", clip: 6, reserve: 32);
+
+        world.Run(w, vm, AttackButton, now: 10f);
+
+        Assert.NotNull(world.Arms.Bullets[^1].Fixed);
     }
 }

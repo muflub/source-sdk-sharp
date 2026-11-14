@@ -1,22 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     The HL2MP server binding of the AI core (docs/plans/plan_hl2mp_ai.md §1.3):
-    a mod assembly, listed in mods.yaml's test mod, under the mod analyzers
+    HL2MP's decider, weapon knowledge, appearance, name pools and chat over the
+    generic server binding, SourceSharp.Ai.Server (plan_bots_teams_tf2 C.2),
+    which it answers through IBotGame. A mod assembly, listed in mods.yaml's
+    test mod after SourceSharp.Ai.Server, under the mod analyzers
     (SS0010-SS0013: the core reached only by injection) and the static-state
     one (Directory.Build.props).
   -->
-  <PropertyGroup>
-    <!-- The bootstrap loads assemblies by simple name from bin/<config>/bin/managed,
-         so SourceSharp.MapFormats must be copied there: a class library does not
-         copy its packages by default. -->
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-  </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <!-- map-tools' .nav3d reader (§6.1), from MAPTOOLS_DIR/bin/nupkg (Directory.Build.props). -->
-    <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
+    <ProjectReference Include="..\..\server\SourceSharp.Ai.Server.csproj" />
     <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\..\server\managed\SourceSharp.Server.csproj" />

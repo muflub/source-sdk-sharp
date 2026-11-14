@@ -32,6 +32,21 @@ internal static class DescentPartGallery
                 }
         });
 
+    [UiGallery("TownStatusLine", "refused, done, done with data")]
+    private static UiScreen TownStatus(UiSampleServices s)
+    {
+        var line = new TownStatusLine();
+        return new UiPartPreview("TownStatusLine", (ref UiFrame ui) =>
+        {
+            using (ui.Panel().Pad(Space.S, Space.S).Fill(Tone.Surface).Width(Size.Du(480)))
+            {
+                ui.Sub("refused", line, new TownStatusProps("#Descent_Town_not_enough_australium", "", true));
+                ui.Sub("done", line, new TownStatusProps("#Descent_Town_Done_buy", "Rocket Launcher", false));
+                ui.Sub("code", line, new TownStatusProps("#Descent_Town_Refused", "host:Conflict:lease_lost", true));
+            }
+        });
+    }
+
     [UiGallery("ItemSlot", "inspectable: the corner button")]
     private static UiScreen SlotInspectable(UiSampleServices s)
         => new UiPartPreview("ItemSlot", (ref UiFrame ui) =>
@@ -114,6 +129,24 @@ internal static class DescentPartGallery
     [UiGallery("BeltStrip", "two potions, one on cooldown")]
     private static UiScreen Belt(UiSampleServices s)
         => new UiPanelPreview("BeltStrip", new BeltStrip(new FakeBelt { SlotReady = false, Names = ["Healing Buff", "Vitality", "", ""], Counts = [4, 1, 0, 0] }));
+
+    [UiGallery("SkillSlotsStrip", "cooling down, one charging")]
+    private static UiScreen SkillSlots(UiSampleServices s)
+        => new UiPanelPreview<SkillSlotsProps>("SkillSlotsStrip", new SkillSlotsStrip(new FakeSkillSlots
+        {
+            Names = ["#Descent_SkillName_patriot_missile", "#Descent_SkillName_rocket_leap", "", "#Descent_SkillName_rain_of_freedom", "", ""],
+            Cooldowns = [0.6f, 0f, 0f, 0.2f, 0f, 0f],
+            Charging = 2,
+        }), default);
+
+    [UiGallery("SkillSlotsStrip", "armed to take a skill")]
+    private static UiScreen SkillSlotsArmed(UiSampleServices s)
+        => new UiPanelPreview<SkillSlotsProps>("SkillSlotsStrip", new SkillSlotsStrip(new FakeSkillSlots()),
+                                               new SkillSlotsProps(Armed: true, OnSlot: _ => { }), layer: UiLayerKind.Menu);
+
+    [UiGallery("StatusRow", "a refusal shown")]
+    private static UiScreen Status(UiSampleServices s)
+        => new UiPanelPreview("StatusRow", new StatusRow(new FakeWindowStatus()), layer: UiLayerKind.Menu);
 
     [UiGallery("PartyPill", "healthy, low, downed, hardcore, reviving")]
     private static UiScreen Pills(UiSampleServices s)
@@ -450,4 +483,11 @@ file sealed class FakeAutomapFlat : IDescentAutomap
     public float HeroY => 448;
     public float HeroHeadingDeg => 0;
     public int FocusStorey => 1;
+}
+
+/// <summary>A window status line for the samples: a refusal's reason, shown.</summary>
+public sealed class FakeWindowStatus : IDescentWindowStatus
+{
+    public bool Showing { get; init; } = true;
+    public string Text { get; init; } = "Requirement not met: Direct Hit";
 }

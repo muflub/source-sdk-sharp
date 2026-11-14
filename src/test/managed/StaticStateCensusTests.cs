@@ -75,13 +75,22 @@ public class StaticStateCensusTests
         Assembly.Load("SourceSharp.Client.Ui.Toolkit"),
         Assembly.Load("SourceSharp.Client.Ui"),
         // plan_hl2mp_ai §1.3: the AI core (worker threads read it, so a static
-        // would be shared between brains) and its HL2MP server binding.
+        // would be shared between brains), its generic server binding
+        // (plan_bots_teams_tf2 C.2) and the HL2MP binding over it.
         Assembly.Load("SourceSharp.Ai"),
+        // The server binding's service-free navigation, its own assembly so Descent can reference it.
+        Assembly.Load("SourceSharp.Ai.Nav"),
+        Assembly.Load("SourceSharp.Ai.Server"),
         Assembly.Load("SourceSharp.Ai.Hl2mp"),
         // Phase 5c: its client side, the screens' contract and the screens.
         Assembly.Load("SourceSharp.Ai.Hl2mp.Client"),
-        Assembly.Load("SourceSharp.Ai.Hl2mp.Client.Interface"),
+        Assembly.Load("SourceSharp.Ai.Client"),
+        Assembly.Load("SourceSharp.Ai.Client.Interface"),
         Assembly.Load("SourceSharp.Ai.Hl2mp.Ui"),
+        Assembly.Load("SourceSharp.Ai.Ui"),
+        // P6 step 8: TF2's bot setup client and its bots page.
+        Assembly.Load("SourceSharp.Ai.TF2.Client"),
+        Assembly.Load("SourceSharp.Ai.TF2.Ui"),
     };
 
     private static bool IsConstantType(Type t)

@@ -9,6 +9,7 @@ using Xunit;
 
 using Adapter = client::TF2.Client.Ui.TFHudTargetId;
 using Carrier = client::TF2.Shared.Player.TFPlayerNetState;
+using Clock = client::SourceSharp.Abi.IGameClock;
 using PlayerData = client::TF2.Shared.Player.ITFPlayerData;
 using ClientViews = client::TF2.Shared.Player.TFPlayerNetStateViews;
 using CondMask = client::TF2.Shared.Conditions.TFCondMask;
@@ -60,6 +61,7 @@ public sealed class TFHudTargetIdTests
         public readonly Directory Stands = new();
         public readonly Roster Names = new((Local, "Gordon"), (Target, "Alyx"), (3, "Barney"));
         public readonly ViewSource View = new();
+        public readonly TickClock Clock = new();
         public readonly Catalog Catalog;
         public readonly client::TF2.Shared.TFClassTable Classes;
         public readonly Adapter Source;
@@ -80,8 +82,27 @@ public sealed class TFHudTargetIdTests
                 scripts, classes,
                 new client::TF2.Shared.Econ.ItemSchema(files, log))], log);
 
-            Source = new Adapter(Engine, Engine, View, Stands, Carriers, Resources, Names, Catalog, classes);
+            Owners = new ClientOwners();
+            Source = new Adapter(Engine, Engine, View, Stands, Carriers, Resources, Names, Catalog, classes,
+                                 Owners, new client::TF2.Shared.Econ.AttributeHooks(), Clock);
             Classes = classes;
+        }
+
+        /// <summary>The loadout the panel's attribute arms read; empty until a fact sets one.</summary>
+        public ClientOwners Owners { get; }
+
+        /// <summary>The local player wears the Solemn Vow's see_enemy_health on the melee row.</summary>
+        public void SolemnVow(float value = 1f) => Owners.Item = Holder(value);
+
+        private static client::TF2.Shared.Econ.IAttributeProvider Holder(float value)
+        {
+            var def = new client::TF2.Shared.Econ.AttributeDefinition(30047, "see enemy health", "see_enemy_health",
+                client::TF2.Shared.Econ.AttributeDescriptionFormat.Additive,
+                client::TF2.Shared.Econ.AttributeEffectType.Neutral, false, false,
+                client::TF2.Shared.Econ.AttributeValueType.Default, client::TF2.Shared.Econ.MergedKeys.Block("see"));
+            var holder = new client::TF2.Shared.Econ.AttributeContainer(null, client::TF2.Shared.Econ.AttributeProviderType.Generic);
+            holder.Set(client::TF2.Shared.Econ.AttributeValue.OfFloat(def, value));
+            return holder;
         }
 
         /// <summary>The target's carried weapon — the medigun, or another
@@ -225,6 +246,31 @@ public sealed class TFHudTargetIdTests
     }
 
     /// <summary>The g_PR role: the two players named, the rest nobody.</summary>
+    private sealed class ClientOwners : client::TF2.Shared.ITFWeaponOwners
+    {
+        public client::TF2.Shared.Econ.IAttributeProvider? Item;
+
+        public client::TF2.Shared.Econ.IAttributeProvider? ItemOf(int playerIndex, string weaponName) => Item;
+
+        public client::TF2.Shared.TFClass ClassOf(int playerIndex) => client::TF2.Shared.TFClass.Undefined;
+
+        public client::TF2.Shared.Conditions.TFConditions? ConditionsOf(int playerIndex) => null;
+
+        public float CritMult(int playerIndex) => 1f;
+
+        public bool WinsCrits(int playerIndex) => false;
+
+        public client::TF2.Shared.Econ.IAttributeProvider? ActiveItemOf(int playerIndex) => null;
+
+        public client::TF2.Shared.Econ.IAttributeProvider? ManagerOf(int playerIndex) => null;
+
+        public bool OffGround(int playerIndex) => false;
+
+        public bool EyesUnderwater(int playerIndex) => false;
+
+        public bool DuckingOf(int playerIndex) => false;
+    }
+
     private sealed class Roster(params (int Slot, string Name)[] rows) : Names
     {
         public bool TryGet(int slot, out ClientPlayerInfo info)
@@ -239,6 +285,14 @@ public sealed class TFHudTargetIdTests
             info = default;
             return false;
         }
+    }
+
+    /// <summary>The clock the panel re-resolves on each tick, as stock's ShouldDraw
+    /// re-scans every frame (:540-593). A fact advances it to walk ticks; reads
+    /// inside one tick share the tick's resolution.</summary>
+    private sealed class TickClock : Clock
+    {
+        public float Now { get; set; } = 1f;
     }
 
     [Fact]
@@ -256,6 +310,28 @@ public sealed class TFHudTargetIdTests
         Assert.Equal(80, rig.Source.Health);
         Assert.Equal(125, rig.Source.MaxHealth);
         Assert.Equal(LineKind.None, rig.Source.Line.Kind);
+    }
+
+    /// <summary>A player who arrives while the camera stands still becomes the
+    /// target on the next tick: stock's ShouldDraw re-scans every frame
+    /// (tf_hud_target_id.cpp:540-593), so the panel follows the crosshair
+    /// without needing camera motion.</summary>
+    [Fact]
+    public void A_player_who_arrives_while_the_camera_is_still_shows_on_the_next_tick()
+    {
+        var rig = new Rig();
+        rig.ArriveResources();
+        rig.TargetCarrier(TFClassId.Soldier);
+        rig.LocalCarrier(TFClassId.Scout);
+        rig.WallBetween();
+
+        Assert.False(rig.Source.Present);
+
+        rig.RayHits(Target);
+        rig.Clock.Now += 0.016f;
+
+        Assert.True(rig.Source.Present);
+        Assert.Equal("Alyx", rig.Source.Name);
     }
 
     [Fact]
@@ -285,6 +361,40 @@ public sealed class TFHudTargetIdTests
         Assert.Equal("Alyx", rig.Source.Name);
         Assert.Equal(3, rig.Source.Team);
         Assert.True(rig.Source.ShowsHealth);
+    }
+
+    // ---- the Solemn Vow's see_enemy_health (:407-424, :455; :78-112) ------------------------
+
+    [Fact]
+    public void The_solemn_vows_wearer_reads_an_enemy_health()
+    {
+        // The validity disjunct (:455): a plain enemy is nobody's target until
+        // the worn melee's see_enemy_health says otherwise — and the health
+        // cross's own gate (:107) shows the bar with the panel.
+        var rig = new Rig();
+        rig.ArriveResources(targetTeam: 3);
+        rig.TargetCarrier(TFClassId.Soldier, team: 3);
+        rig.LocalCarrier(TFClassId.Scout);
+        rig.SolemnVow();
+
+        Assert.True(rig.Source.Present);
+        Assert.True(rig.Source.ShowsHealth);
+        Assert.Equal(80, rig.Source.Health);
+        Assert.Equal(125, rig.Source.MaxHealth);
+    }
+
+    [Fact]
+    public void A_scout_with_a_plain_melee_keeps_his_enemy_nameless()
+    {
+        // The same scene without the attribute: stock's zero default, the
+        // validity disjunct fails and nothing shows.
+        var rig = new Rig();
+        rig.ArriveResources(targetTeam: 3);
+        rig.TargetCarrier(TFClassId.Soldier, team: 3);
+        rig.LocalCarrier(TFClassId.Scout);
+
+        Assert.False(rig.Source.Present);
+        Assert.False(rig.Source.ShowsHealth);
     }
 
     [Fact]

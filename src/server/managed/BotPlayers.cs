@@ -21,8 +21,10 @@ public interface IBotPlayers
     /// player carries <c>FL_FAKECLIENT</c>; <c>name</c> and each of
     /// <paramref name="userInfo"/> are set as its USERINFO convars, as stock
     /// HL2MP sets <c>name</c> and <c>cl_playermodel</c> (hl2mp_bot.cpp:256-257).
+    /// A non-zero <paramref name="team"/> is the team the bot is brought in
+    /// for, which <see cref="IWantedTeams"/> answers from its first spawn on.
     /// </summary>
-    EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal);
+    EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0);
 
     /// <summary>Whether <paramref name="player"/> carries <c>FL_FAKECLIENT</c> (stock's CBasePlayer::IsBot).</summary>
     bool IsBot(EntityHandle player);
@@ -59,12 +61,22 @@ public interface IBotPlayers
 /// inactivates the clients (InactivateClients), so the bots are forgotten at the level's shutdown and a
 /// later client in a bot's old slot is never taken for one.
 /// </para>
+///
+/// <para>
+/// THE WANTED TEAM is claimed with the client, at the put-in-server, because
+/// the engine spawns the player before CreateFakeClientEx returns and the
+/// first spawn is where a mode assigns a team: set after, the bot had
+/// already landed on the auto-assigned team.
+/// </para>
 /// </summary>
 public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, IConnectedClients clients,
-                               ServerPlayerMoves moves, IEngineEnvironment environment) : IBotPlayers, IClientLifecycle, IGameLifecycle
+                               ServerPlayerMoves moves, IEngineEnvironment environment)
+    : IBotPlayers, IWantedTeams, IClientLifecycle, IGameLifecycle
 {
     private readonly List<BotPlayer> _bots = new();
+    private readonly Dictionary<int, int> _wantedTeams = new();
     private IReadOnlyList<KeyValuePair<string, string>> _pendingInfo = [];
+    private int _pendingTeam;
 
     // Set while Add waits in CreateFakeClientEx: the claim of the client the
     // engine puts in meanwhile.
@@ -78,7 +90,7 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
 
     public IReadOnlyList<BotPlayer> Bots => _bots;
 
-    public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+    public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
     {
         ArgumentNullException.ThrowIfNull(userInfo);
         if (string.IsNullOrWhiteSpace(name))
@@ -98,6 +110,7 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
         _claimedIndex = 0;
         _claimedName = "";
         _pendingInfo = userInfo;
+        _pendingTeam = team;
         try
         {
             index = engine.CreateFakeClient(name);
@@ -106,6 +119,7 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
         {
             _pending = false;
             _pendingInfo = [];
+            _pendingTeam = 0;
         }
 
         if (index <= 0)
@@ -153,7 +167,26 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
             // every bot wore the fallback, and the change was "too soon" (user report 2026-11-02).
             foreach (KeyValuePair<string, string> pair in _pendingInfo)
                 engine.SetFakeClientConVar(entIndex, pair.Key, pair.Value);
+
+            if (_pendingTeam != 0)
+                _wantedTeams[entIndex] = _pendingTeam;
+            else
+                _wantedTeams.Remove(entIndex);
         }
+        else
+        {
+            // Anyone else put in the slot is not the bot that wanted a team.
+            _wantedTeams.Remove(entIndex);
+        }
+    }
+
+    /// <summary>The team the bot in <paramref name="player"/>'s slot was added for; 0 for none, or for anyone else.</summary>
+    public int WantedTeam(EntityHandle player)
+    {
+        int index = player.EntryIndex;
+        return player != EntityHandle.None && _wantedTeams.TryGetValue(index, out int team) && players.GetHandle(index) == player
+            ? team
+            : 0;
     }
 
     public bool IsBot(EntityHandle player)
@@ -191,10 +224,18 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
     }
 
     /// <summary>A bot's client left (kicked, or the server's own disconnect): it is no longer one of these.</summary>
-    public void OnClientDisconnected(int entIndex) => _bots.RemoveAll(b => b.EntIndex == entIndex);
+    public void OnClientDisconnected(int entIndex)
+    {
+        _bots.RemoveAll(b => b.EntIndex == entIndex);
+        _wantedTeams.Remove(entIndex);
+    }
 
     /// <summary>The engine drops its fake clients with the level (InactivateClients).</summary>
-    public void OnLevelShutdown() => _bots.Clear();
+    public void OnLevelShutdown()
+    {
+        _bots.Clear();
+        _wantedTeams.Clear();
+    }
 
     private void Mark(EntityHandle player)
         => moves.For(player).Move.Flags |= ServerCommandRules.FlClient | ServerCommandRules.FlFakeClient;

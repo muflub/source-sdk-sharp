@@ -121,7 +121,7 @@ public partial struct AdminChallenge
     public partial byte[] Nonce { get; set; }
 }
 
-/// <summary>A piece of the admin menu: lines of depth, action id (empty for a folder), label and whether it keeps the menu up, tab-separated, as long as it takes.</summary>
+/// <summary>A piece of the admin menu: lines of depth, action id (empty for a folder), label, whether it keeps the menu up and why it is unavailable, tab-separated, as long as it takes.</summary>
 public partial struct AdminMenuPiece
 {
     public partial byte Index { get; set; }
@@ -192,24 +192,48 @@ public sealed class AdminRefusedMessage : IUserMessage<AdminRefused>
     public void OnReceived(AdminRefused message) => _hooks?.Each(nameof(IAdminHook.OnAdminRefused), h => h.OnAdminRefused(message));
 }
 
-/// <summary>One line of the admin menu: its nesting, what taking it runs (empty for a folder), what it says, and whether the menu stays up after it.</summary>
-public readonly record struct AdminMenuLine(int Depth, string Id, string Label, bool Stay = false);
+/// <summary>
+/// One line of the admin menu: its nesting, what taking it runs (empty for a folder), what it says,
+/// whether the menu stays up after it, and why it cannot be taken now (empty when it can).
+/// </summary>
+public readonly record struct AdminMenuLine(int Depth, string Id, string Label, bool Stay = false, string Unavailable = "");
 
 /// <summary>
 /// A place in the admin menu, as the server builds it for one admin: a folder of
 /// <see cref="Children"/>, or an action with an <see cref="Id"/> that <see cref="Run"/>
 /// carries out. The client only ever names an id; what it does is decided here, on a
-/// fresh build, so a stale or forged id finds nothing.
+/// fresh build, so a stale or forged id finds nothing. An action the server cannot
+/// take now says why in <see cref="Unavailable"/>, which the client shows in its place;
+/// one that may still be refused when taken is an <see cref="Attempt"/>, which answers why.
 /// </summary>
-public sealed record AdminNode(string Label, string Id = "", Action? Run = null, IReadOnlyList<AdminNode>? Children = null, bool Stay = false)
+public sealed record AdminNode(string Label, string Id = "", Action? Run = null, IReadOnlyList<AdminNode>? Children = null, bool Stay = false,
+                               string? Unavailable = null)
 {
+    /// <summary>What taking it runs when it can be refused there: null when it was done, else why not.</summary>
+    public Func<string?>? Attempt { get; init; }
+
     public static AdminNode Folder(string label, IReadOnlyList<AdminNode> children) => new(label, Children: children);
+
+    /// <summary>An action that answers why it was refused, or null; with <paramref name="unavailable"/>, one that cannot be taken now.</summary>
+    public static AdminNode Refusable(string label, string id, Func<string?> attempt, bool stay = false, string? unavailable = null)
+        => new(label, id, Stay: stay, Unavailable: unavailable) { Attempt = attempt };
+
+    /// <summary>Takes this action: null when it was done, else why it was not (it is unavailable, or its attempt was refused).</summary>
+    public string? Take()
+    {
+        if (Unavailable is { Length: > 0 } why)
+            return why;
+        if (Attempt is { } attempt)
+            return attempt();
+        Run?.Invoke();
+        return null;
+    }
 
     public static IEnumerable<AdminMenuLine> Flatten(IEnumerable<AdminNode> nodes, int depth = 0)
     {
         foreach (var node in nodes)
         {
-            yield return new AdminMenuLine(depth, node.Id, node.Label, node.Stay);
+            yield return new AdminMenuLine(depth, node.Id, node.Label, node.Stay, node.Unavailable ?? "");
             foreach (var line in Flatten(node.Children ?? [], depth + 1))
                 yield return line;
         }
@@ -221,7 +245,7 @@ public sealed record AdminNode(string Label, string Id = "", Action? Run = null,
             return null;
         foreach (var node in nodes)
         {
-            if (node.Id == id && node.Run is not null)
+            if (node.Id == id && (node.Run is not null || node.Attempt is not null))
                 return node;
             if (Find(node.Children ?? [], id) is { } found)
                 return found;
@@ -242,8 +266,9 @@ public static class AdminMenuText
     /// <summary>Under a user message's 255 bytes, with the piece's own header.</summary>
     public const int PieceBytes = 200;
 
+    /// <summary>Each line: depth, id, label, stay, and why it is unavailable (empty when it is not), tab-separated.</summary>
     public static string Write(IEnumerable<AdminMenuLine> lines)
-        => string.Join('\n', lines.Select(l => $"{l.Depth}\t{Clean(l.Id)}\t{Clean(l.Label)}\t{(l.Stay ? 1 : 0)}"));
+        => string.Join('\n', lines.Select(l => $"{l.Depth}\t{Clean(l.Id)}\t{Clean(l.Label)}\t{(l.Stay ? 1 : 0)}\t{Clean(l.Unavailable)}"));
 
     // A name with a tab or a newline in it (a player's) must not forge a line.
     private static string Clean(string text) => text.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
@@ -254,8 +279,8 @@ public static class AdminMenuText
         foreach (string line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var f = line.Split('\t');
-            if (f.Length == 4 && int.TryParse(f[0], out int depth))
-                lines.Add(new AdminMenuLine(depth, f[1], f[2], f[3] == "1"));
+            if (f.Length == 5 && int.TryParse(f[0], out int depth))
+                lines.Add(new AdminMenuLine(depth, f[1], f[2], f[3] == "1", f[4]));
         }
         return lines;
     }

@@ -215,6 +215,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             locator => new Hooks<IClientCommandHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IVoteStateHook>>(
             locator => new Hooks<IVoteStateHook>(locator, locator.Require<ILog>()));
+        _services.AddFactory<IHooks<IModeCatalogHook>>(
+            locator => new Hooks<IModeCatalogHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IPlayerMarkerHook>>(
             locator => new Hooks<IPlayerMarkerHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IAdminHook>>(
@@ -238,7 +240,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                    new MoveSoundsOf(() => _serverSounds), this, _movement,
                                                    _moveConstants.Read,
                                                    new PlayerMovePublisher(h => _entities?.Get(h) as SsPlayer),
-                                                   _services.Require<IEngineEnvironment>());
+                                                   _services.Require<IEngineEnvironment>(),
+                                                   _services.Require<IEngineEntities>());
         _services.AddInstance(_playerMoves);
         _services.AddInstance(_moveData);
         _services.AddInstance(_serverCommands);
@@ -314,6 +317,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     /// <summary>The entity dispatch the root builds, which feeds this composition's liveness mirror.</summary>
     internal EntitiesBinding NewEntitiesBinding()
         => new(_engine.Crossings, Log, this, _liveness, _services.Require<EntityRemovalRoutes>());
+
+    /// <summary>
+    /// The client-lifecycle binding, with the transmit rule's two deps: the
+    /// edict-to-handle look the FULLCHECK ask is answered through (the
+    /// registry's own directory, so a rule sees the handle every other seam
+    /// does), and the mod chain, resolved from the container on first ask.
+    /// </summary>
+    internal ClientsBinding NewClientsBinding()
+        => new(_engine.Crossings, Log, this,
+               i => _entities?.Directory.HandleOf(i) ?? EntityHandle.None,
+               _services.Require<IHooks<ITransmitRule>>());
 
     /// <summary>The frame handler the root builds, which clears this composition's liveness mirror at level shutdown.</summary>
 
@@ -762,6 +776,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<INameChangeGate>>(locator => new Hooks<INameChangeGate>(locator, log));
         _services.AddFactory<IHooks<IRespawnGate>>(locator => new Hooks<IRespawnGate>(locator, log));
         _services.AddFactory<IHooks<IRoundEndGate>>(locator => new Hooks<IRoundEndGate>(locator, log));
+        _services.AddFactory<IHooks<IIntermissionHook>>(locator => new Hooks<IIntermissionHook>(locator, log));
         // A mod's WantsLagCompensationOnEntity (TF2's CTFPlayer override).
         _services.AddFactory<IHooks<ILagCompensationTargets>>(locator => new Hooks<ILagCompensationTargets>(locator, log));
         // THE MOVEMENT RULES (phase 0.3) are a SINGLE-OWNER hook: a mod marks
@@ -784,6 +799,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // nothing; a chain because each mod's override sat on its own gamerules.
         _services.AddFactory<IHooks<ISpawnPlacement>>(locator => new Hooks<ISpawnPlacement>(locator, log));
         _services.AddFactory<IHooks<ISpawnFragRule>>(locator => new Hooks<ISpawnFragRule>(locator, log));
+        // The per-entity trace arm (tf2 F04): a mod's IEntityCollideRule chain,
+        // asked by the trace filter between the pass checks and the group
+        // matrix; a mod registering none leaves the filter as stock answers it.
+        _services.AddFactory<IHooks<IEntityCollideRule>>(locator => new Hooks<IEntityCollideRule>(locator, log));
+        // The per-client transmit arm (tf2 F06): a mod's ITransmitRule chain,
+        // asked by CheckTransmit for the entities its FULLCHECK flag opted in;
+        // a mod registering none leaves every edict to the PVS check.
+        _services.AddFactory<IHooks<ITransmitRule>>(locator => new Hooks<ITransmitRule>(locator, log));
         _services.AddFactory<IHooks<IPlayerDamagePushRule>>(locator => new Hooks<IPlayerDamagePushRule>(locator, log));
         // The team-change watchers (tf2 smallfix): every watcher runs after a
         // join that actually moved the player — TF2's live-switch kill
@@ -791,11 +814,21 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // is the rule. A chain because every mod's arm belongs; the core
         // itself kills nobody.
         _services.AddFactory<IHooks<ITeamChangeWatcher>>(locator => new Hooks<ITeamChangeWatcher>(locator, log));
+        // A mod's own totals kept across a rejoin (plan_bots_teams_tf2 A.6,
+        // TF2's stats): a chain, every mod's state its own.
+        _services.AddFactory<IHooks<IRejoinScoreHook>>(locator => new Hooks<IRejoinScoreHook>(locator, log));
+        // A new match on the same level (plan A.6): every reset of the
+        // players' scores the rules make (mp_restartgame, a mode switch, a
+        // mod's own game restart) tells this chain; the rejoin table forgets.
+        _services.AddFactory<IHooks<IMatchResetHook>>(locator => new Hooks<IMatchResetHook>(locator, log));
         // tf2 stage 0.7: the mode selector is a chain (first non-null answer
         // names the mode; the core's "null" answers last inside GameModes,
         // not as a registered selector). Lazy, so a selector may take the
         // services its own mode needs.
         _services.AddFactory<IHooks<IGameModeSelector>>(locator => new Hooks<IGameModeSelector>(locator, log));
+        // Who hears a mode switch (plan_bots_teams_tf2 D.2): votes, the catalog's
+        // publisher, a binding that plays.
+        _services.AddFactory<IHooks<IModeSwitchHook>>(locator => new Hooks<IModeSwitchHook>(locator, log));
         // The per-player composite's sources (tf2 stage 0.7 part B): every
         // mod's IPlayerComponentSource, TF2's and Descent's alike, asked once
         // per player and merged. A chain because that is the ruling — two
@@ -850,6 +883,18 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // (MapCleanup): unregistered, each of these was built with no chain.
         _services.AddFactory<IHooks<IPlayerWeaponEventHook>>(locator => new Hooks<IPlayerWeaponEventHook>(locator, log));
         _services.AddFactory<IHooks<IPlayerHurtHook>>(locator => new Hooks<IPlayerHurtHook>(locator, log));
+        // The damage path of an entity that runs the damage rules
+        // (ScriptedEntity.RunsDamageRules) and the mods' taps on its hits and
+        // its death. Built on the first such hit: the registry asks for it
+        // then, long after the rules and the hitgroups below are registered.
+        _services.AddFactory<IHooks<IEntityHurtHook>>(locator => new Hooks<IEntityHurtHook>(locator, log));
+        _services.AddFactory<IHooks<IEntityDeathHook>>(locator => new Hooks<IEntityDeathHook>(locator, log));
+        _services.Add<ScriptedDamage>();
+        // The modes' third-person weapon gestures (IWeaponGestureRule): which
+        // player-animation event a shot, swing or reload shows. The server
+        // asks alone — the event goes out once over TE_PlayerAnimEvent.
+        _services.AddFactory<IHooks<SourceSharp.Shared.Anim.IWeaponGestureRule>>(
+            locator => new Hooks<SourceSharp.Shared.Anim.IWeaponGestureRule>(locator, log));
         _services.AddFactory<IHooks<IMapCleanupPreserve>>(locator => new Hooks<IMapCleanupPreserve>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
@@ -904,7 +949,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedEntities",
                       v => ManagedAreaFactory.Create(v, NewEntitiesBinding()));
         _bindings.Add("IManagedClients",
-                      v => ManagedAreaFactory.Create(v, new ClientsBinding(_engine.Crossings, Log, this)));
+                      v => ManagedAreaFactory.Create(v, NewClientsBinding()));
         _bindings.Add("IManagedEvents",
                       v => ManagedAreaFactory.Create(v, new EventsBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUserMessages",
@@ -1081,11 +1126,24 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(new ViewmodelActivity(_services.Require<IHooks<IViewmodelActivityRule>>(), Log));
         _services.AddInstance(new ViewmodelModel(_services.Require<IHooks<IViewmodelModelRule>>(), Log));
         _services.AddInstance(new ViewmodelSkin(_services.Require<IHooks<IViewmodelSkinRule>>(), Log));
+        // The carried weapon's model chain (IWorldModelRule): what everyone
+        // else sees, asked by the server's Arsenal beside the viewmodel's —
+        // the model is networked state, not predicted input.
+        _services.AddFactory<IHooks<IWorldModelRule>>(locator => new Hooks<IWorldModelRule>(locator, log));
+        _services.AddInstance(new WorldModel(_services.Require<IHooks<IWorldModelRule>>(), Log));
         _services.AddInstance(new TeamNames(_services.Require<IHooks<ITeamNameRule>>(), Log));
+        // The gesture chain, beside the hooks it reads; the arsenal takes it
+        // from the container like every other optional tail.
+        _services.AddInstance(new SourceSharp.Shared.Anim.WeaponGestures(
+            _services.Require<IHooks<SourceSharp.Shared.Anim.IWeaponGestureRule>>(), Log));
 
         // The skin a server entity is drawn with, sent as m_nSkin (2026-10-19).
         // Before the arsenal, whose attachment dressing writes through it.
         _services.AddInstance<IServerSkins>(ServerSkins.For(_engine));
+
+        // The bodygroup pair the entities share (m_nBody), built on its first
+        // ask over the skins seam above and the model cache registered later.
+        _services.Add<ServerBodygroups>();
 
         // The animation layer chain's composition (phase 0.10): the mods'
         // IAnimStateLayer services, asked lazily on the first player's chain,
@@ -1179,6 +1237,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var bots = _services.Create<BotPlayers>();
         _services.AddInstance(bots);
         _services.AddInstance<IBotPlayers>(bots);
+        _services.AddInstance<IWantedTeams>(bots);
 
         // A short label per player beside its name on the scoreboard, which a
         // mod sets (user ruling 2026-11-01: a bot's skill) and the player
@@ -1514,6 +1573,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                        _services.Require<IEngineDamage>(), _services.Require<Hl2mpSpawnFragFallbackRadiusConVar>(), new Random(),
                                        _services.Resolve<IHooks<ISpawnPlacement>>(),
                                        _services.Resolve<IHooks<ISpawnFragRule>>(), Log);
+        // Registered for the modes that walk their own spawn classes with the
+        // core's machine (team deathmatch's TeamSpawnSelector).
+        _services.AddInstance(_spawnPoints);
         _clock = _services.Require<IGameClock>();
 
         _chapterTitle = new ChapterTitle(Log, _send);
@@ -1816,12 +1878,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // rules' reset, its warmup gate before their think).
         var modes = _services.Create<GameModes>();
         _services.AddInstance(modes);
+        // The core's own mode pick, asked by the proxy after the mods' chain.
+        _services.AddInstance(_services.Create<TeamplayModeSelector>());
         _services.AddInstance<ISpawnWeapon>(DefaultSpawnWeapon.Of(_arsenal, _services.Require<IEngineEntities>(), _engineServer));
         // The rules' restart walk (stock's RestartGame) respawns through the
         // player directory, so the contract is registered BEFORE the Create:
         // Create resolves constructor arguments eagerly, and a registration
         // that comes after the Create throws at server startup.
         _services.AddInstance<IPlayerDirectory>(_players);
+        // A leaving human's score, kept for their rejoin (plan A.6); a member
+        // of the match-reset chain the rules' restart raises.
+        _services.AddInstance(_services.Create<RejoinScores>());
         _rules = _services.Create<GameRules>();
         modes.Attach(_rules);
         // And the death cycle gets the proxy too (tf2 stage 0.7 part C): the
@@ -1830,6 +1897,18 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // cannot be Create'd at the Players creation site above, which runs
         // before the proxy is composed.
         _players.AttachModes(modes);
+
+        // Teammates walk through each other in a mode that says so (plan
+        // A.7): the core's collide rule on the trace filter's chain, and the
+        // frame participant that publishes its answer to the clients.
+        var teammatesPass = _services.Create<TeammatesPassRule>();
+        _services.AddInstance(teammatesPass);
+        // And a bot's command gets the push-apart of overlapping teammates a
+        // human's gets from the client's CreateMove: the runner the bots queue
+        // through is re-registered DECORATED (its users resolve it after
+        // composition, as IEnginePlayers' do).
+        _services.AddInstance<IPlayerCommandRunner>(new BotTeammatePushaway(_services.Require<IPlayerCommandRunner>(),
+            teammatesPass, _services.Require<MpTeammatesPushawayConVar>(), _entities, _services.Require<IEnginePlayers>()));
 
         // And the say relay gets it too: say_team asks the active mode whether
         // it plays with teams before it sends the line to teammates.
@@ -1914,6 +1993,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // is asked for below the scan.
         var teams = _services.Create<Teams>();
         _services.AddInstance<ITeams>(teams);
+        _services.AddInstance<ITeamAssignment>(teams);
+        // HL2DM's team deathmatch (plan_bots_teams_tf2 Part A): a mode of the
+        // registry beside the core's own "null", built on its first ask —
+        // after the team service and the spawn walk it takes.
+        _services.Add(typeof(TeamDeathmatchMode), typeof(TeamDeathmatchMode));
         // What each player wears: SsPlayer asks at a spawn, and it watches team changes.
         _services.AddInstance(_services.Create<PlayerModels>());
         // What a hit on each part of a player is worth, first of the damage modifiers.
@@ -1966,16 +2050,95 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _netTraffic = _services.Create<NetTrafficProfiler>();
         _services.AddInstance<INetTrafficProfiler>(_netTraffic);
 
+        // The game-mode catalog (plan_bots_teams_tf2 D.2): the registered modes'
+        // specs and the rows every mode gets, and which modes a map's lump
+        // can play. Votes, the admin menu and the client's copy read it.
+        _services.AddFactory<IHooks<IModeSettingsProvider>>(locator => new Hooks<IModeSettingsProvider>(locator, locator.Require<ILog>()));
+        _services.Add<ILoadedMapClasses, SpawnedMapClasses>();
+        _services.Add<IMapEntityClasses, BspEntityClasses>();
+        _services.Add<GameModeCatalog>();
+        // The one validated path a setting is changed by (votes, the admin menu, ss_setting).
+        _services.Add<ModeSettingWrites>();
+        // The mode asked for by name (sv_mode_next), first on the selector chain.
+        _services.Add<RequestedModeSelector>();
+        // The catalog's way to the clients: sv_mode_active and the catalog's pieces.
+        _services.Add(typeof(ModeCatalogPublisher), typeof(ModeCatalogPublisher));
+
         // Voting and its console verbs: a core service, the mods' words before it.
-        _services.Add<IVoteOptions, GameVoteOptions>();
+        // The issues players may call, each its own class (plan_bots_teams_tf2 D.3), and their list.
+        _services.AddFactory<IHooks<IVoteIssue>>(locator => new Hooks<IVoteIssue>(locator, locator.Require<ILog>()));
+        // The maps a vote or the admin menu may change to: installed, of the cycle, with their modes and nav.
+        _services.Add<MapCandidates>();
+        _services.Add<ChangeLevelVoteIssue>();
+        _services.Add<NextLevelVoteIssue>();
+        _services.Add<ModeVoteIssue>();
+        _services.Add<SettingVoteIssue>();
+        _services.Add<ExtendVoteIssue>();
+        _services.Add<RestartVoteIssue>();
+        _services.Add<ScrambleVoteIssue>();
+        _services.Add<IVoteOptions, VoteIssueList>();
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));
+        // The server's own choice of the next map when a level's round ends.
+        _services.Add<EndOfMapVote>();
+        // The web UI's Match card: the mode, its settings, the vote on now and the next map (dev API, read only).
+        _services.Add(typeof(MatchRoutes), typeof(MatchRoutes));
+        // The admin menu's Teams folder, under team deathmatch.
+        _services.Add(typeof(TeamAdminMenu), typeof(TeamAdminMenu));
 
         // Who is an admin, and the menu they get.
         _services.Add<IAdminMenu, AdminMenuBuilder>();
+        // Why the server said no, to the one player who asked (an admin's choice, a typed command).
+        _services.Add<IPlayerNotices, PlayerNotices>();
         _services.AddFactory(locator => ServerAdmins.For(locator.Require<IEngineHost>(), locator.Require<IEngineFiles>(), locator.Require<AdminAddressConVar>(),
                                                          locator.Require<IBoundPort>(), locator.Require<IUserMessageSender>(), locator.Require<IAdminMenu>(),
-                                                         locator.Require<IGameClock>(), locator.Require<ILog>()));
+                                                         locator.Require<IPlayerNotices>(), locator.Require<IGameClock>(), locator.Require<ILog>(),
+                                                         locator.Resolve<PlayerNames>(), locator.Resolve<IConnectedClients>()));
         _services.AddFactory<IAdminStatus>(locator => locator.Require<ServerAdmins>());
+
+        // THE SERVER'S SKELETONS (plan physics_bones_native_zero step 1.2):
+        // posed in managed code from the engine's model cache, copied as bytes.
+        // A lifecycle participant (level shutdown drops every skeleton and
+        // image), so registered before the driver below.
+        StudioModels studioModels = new(_services.Require<IStudioMemory>());
+        _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
+                                         studioModels,
+                                         _services.Require<IGameClock>(), Log,
+                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
+        _services.AddInstance(_skeletons);
+        // The buildings' bodygroup helpers read the model's body parts through
+        // the same cache the skeletons pose from (animation.cpp:863's hdr).
+        _services.AddInstance<IBoneModels>(studioModels);
+        _arsenal.Attachments = _skeletons;
+
+        // THE LAG COMPENSATION (player_lagcompensation.cpp's CLagCompensationManager):
+        // a frame participant that records every player after the hierarchy's
+        // frame, and the rewind the arsenal's and the mods' attacks wrap their
+        // traces in. After the skeletons, whose animation it records and
+        // rewinds; the commands each player is running are the module's
+        // (OnStandalonePlayerCommand). Before the mod's services, whose scan
+        // materialises a [SideService] graph that reaches the weapon's required
+        // lag here — the medigun's composition, built at the mode check.
+        _services.AddInstance<IServerEntityPlacement>(ServerEntityPlacement.For(_engine, _services.Require<IEngineEntities>()));
+        _services.AddInstance(_currentCommands);
+        _services.AddInstance<ILagCompensationWorld>(
+            new EngineLagCompensationWorld(_services.Require<IEngineEnvironment>(), _services.Require<IEnginePlayers>(),
+                                           _services.Require<IEngineEntities>(), _services.Require<IEngineWorldQuery>(),
+                                           _services.Require<SvMinUpdateRateConVar>(), _services.Require<SvMaxUpdateRateConVar>(),
+                                           _services.Require<SvClientMinInterpRatioConVar>(), _services.Require<SvClientMaxInterpRatioConVar>(),
+                                           _services.Require<IClientInfo>(),
+                                           _engineServer, _services.Require<IServerEntityPlacement>(), _skeletons,
+                                           _playerMoves));
+        var lagCompensation = new LagCompensation(
+            _services.Require<ILagCompensationWorld>(),
+            new LagCompensationConVars(
+                _services.Require<SvUnlagConVar>(),
+                _services.Require<SvMaxUnlagConVar>(),
+                _services.Require<SvLagFlushBoneCacheConVar>(),
+                _services.Require<SvLagCompensationTeleportDistConVar>()),
+            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
+        _services.AddInstance(lagCompensation);
+        _services.AddInstance<ILagCompensation>(lagCompensation);
+        _arsenal.LagCompensation = lagCompensation;
 
         // The mod's services: every [SideService(Side.Server)] class and server
         // registrar in the loaded assemblies (mods.yaml lists them), registered
@@ -2023,6 +2186,29 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the ABI getters below; Create built it over this container, so the
         // hook count already includes every assembly the scan found.
         _services.AddInstance(_movementRules);
+
+        // THE PLAYER'S HULLS FROM THE SAME RESOLVED VIEW as the walk's, for
+        // the two halves that size a player: SsPlayer's ctor reads the
+        // composed movement params through the container (its
+        // ShadowHulls - the entity's spawn bounds and the shadow init), and
+        // PlayerShadow.Step's climb trace reads them through its HullSource,
+        // so the box the entity carries and the box the shadow traces with
+        // are the mod's vectors where the mod registers them (TF2's
+        // 48x48x82 standing, 48x48x62 ducked), HL2's where none does -
+        // exactly the numbers the movement loop already walks with.
+        _services.AddInstance<Func<MovementParams>>(
+            () => _movementRules?.Constants ?? Movement.Current);
+        _playerCommands.Shadow.HullSource = () =>
+        {
+            MovementParams c = _movementRules?.Constants ?? Movement.Current;
+            return new MoveConstants
+            {
+                HullMin = c.HullMin,
+                HullMax = c.HullMax,
+                DuckHullMin = c.DuckHullMin,
+                DuckHullMax = c.DuckHullMax,
+            };
+        };
 
         // THE PUSHER'S PLAYER-PUSH HOOK, resolved once now the mods are in:
         // the pusher is composed above the scan, so its hook joins here. A
@@ -2082,44 +2268,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.AddInstance(_physicsFrame);
         }
 
-        // THE SERVER'S SKELETONS (plan physics_bones_native_zero step 1.2):
-        // posed in managed code from the engine's model cache, copied as bytes.
-        // A lifecycle participant (level shutdown drops every skeleton and
-        // image), so registered before the driver below.
-        _skeletons = new ServerSkeletons(new EngineStandaloneBlocks(_services.Require<IEngineEntities>()),
-                                         new StudioModels(_services.Require<IStudioMemory>()),
-                                         _services.Require<IGameClock>(), Log,
-                                         _surfaceProps, _services.Require<AnimThreeWayBlendConVar>());
-        _services.AddInstance(_skeletons);
-        _arsenal.Attachments = _skeletons;
-
-        // THE LAG COMPENSATION (player_lagcompensation.cpp's CLagCompensationManager):
-        // a frame participant that records every player after the hierarchy's
-        // frame, and the rewind the arsenal's and the mods' attacks wrap their
-        // traces in. After the skeletons, whose animation it records and
-        // rewinds; the commands each player is running are the module's
-        // (OnStandalonePlayerCommand).
-        _services.AddInstance<IServerEntityPlacement>(ServerEntityPlacement.For(_engine, _services.Require<IEngineEntities>()));
-        _services.AddInstance(_currentCommands);
-        _services.AddInstance<ILagCompensationWorld>(
-            new EngineLagCompensationWorld(_services.Require<IEngineEnvironment>(), _services.Require<IEnginePlayers>(),
-                                           _services.Require<IEngineEntities>(), _services.Require<IEngineWorldQuery>(),
-                                           _services.Require<SvMinUpdateRateConVar>(), _services.Require<SvMaxUpdateRateConVar>(),
-                                           _services.Require<SvClientMinInterpRatioConVar>(), _services.Require<SvClientMaxInterpRatioConVar>(),
-                                           _services.Require<IClientInfo>(),
-                                           _engineServer, _services.Require<IServerEntityPlacement>(), _skeletons,
-                                           _playerMoves));
-        var lagCompensation = new LagCompensation(
-            _services.Require<ILagCompensationWorld>(),
-            new LagCompensationConVars(
-                _services.Require<SvUnlagConVar>(),
-                _services.Require<SvMaxUnlagConVar>(),
-                _services.Require<SvLagFlushBoneCacheConVar>(),
-                _services.Require<SvLagCompensationTeleportDistConVar>()),
-            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
-        _services.AddInstance(lagCompensation);
-        _services.AddInstance<ILagCompensation>(lagCompensation);
-        _arsenal.LagCompensation = lagCompensation;
+        // The registry's removal notify writes the composition's liveness
+        // mirror through the skeletons, posed above the mod scan.
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
         // The model descriptors are read from the same studio headers
@@ -2465,7 +2615,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // compensation reads.
         using PlayerCurrentCommands.Scope running = _currentCommands.Begin(player, in cmd);
 
-        _arsenal.OnPlayerCommand(player, in cmd, firstTime);
+        _arsenal.OnPlayerCommand(player, in cmd, firstTime, CommandClock(player));
 
         // The impulse cheats, AFTER the weapon frame — stock's order: player.cpp
         // ran ImpulseCommands at the end of ItemPostFrame. The sv_cheats gate is
@@ -2479,6 +2629,31 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // CHL2_Player::ItemPostFrame's tail, after its base's weapons and impulses.
         _playerUse.AfterMove(player);
+    }
+
+    /// <summary>
+    /// The clock this command runs on: the player's server-tracked tick base
+    /// times the tick interval — stock's <c>CPlayerMove::RunCommand</c>, which
+    /// writes <c>gpGlobals-&gt;curtime = m_nTickBase * TICK_INTERVAL</c> before
+    /// each queued command runs (player_command.cpp:336), and whose tick base
+    /// the command loop's stage 2 steps only AFTER the weapon frame (the same
+    /// order stock keeps: the advance sits after RunPostThink, :450-460). A
+    /// burst held to one frame therefore runs command by command on its own
+    /// tick, which is exactly the clock the predicting client derives from the
+    /// command's tick base. Never the command's claimed tick count: a client
+    /// could send one tick ahead and fire before its refire time.
+    /// </summary>
+    private float CommandClock(EntityHandle player)
+    {
+        ServerPlayerMove m = _playerMoves.For(player);
+
+        // A tick base never placed (0) names no clock yet: the frame's own.
+        if (m.TickBase <= 0)
+            return _clock.Now;
+
+        Globals g = _services.Require<IEngineEnvironment>().Globals;
+        float tick = g.IsAvailable ? g.IntervalPerTick : ServerGameDll.DefaultTickInterval;
+        return m.TickBase * tick;
     }
 
     /// <summary>
@@ -3087,6 +3262,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         SwitchOutcome.NoSuchSlot      => "no weapon in that slot",
         SwitchOutcome.NoHistory       => "nothing was held before this",
         SwitchOutcome.CannotHolster   => "the weapon in the hands will not be put away (it is holding something, or its missile is flying)",
+        SwitchOutcome.CannotDeploy    => "the weapon will not come out yet (its behaviour refused the deploy)",
         _                             => outcome.ToString(),
     };
 
@@ -3560,6 +3736,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private sealed class WeaponSoundsOf(Func<ServerSounds?> sounds, PredictionSuppression prediction) : IWeaponSounds
     {
         public void Emit(EntityHandle owner, string soundName) => sounds()?.EmitPredicted(owner, soundName, prediction);
+
+        public void Emit(EntityHandle owner, string soundName, float pitchMultiplier)
+            => sounds()?.EmitPredicted(owner, soundName, prediction, pitchMultiplier);
     }
 
     private sealed class MoveSoundsOf(Func<IMoveSoundSink?> sink) : IMoveSoundSink
@@ -4411,6 +4590,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => _movementRules.Rules.Taunt(playerIndex, frameTime, forwardMove);
 
+    public MovementCharge? GetMovementCharge(int playerIndex, int buttons, float forwardMove, float sideMove, float upMove) => _movementRules.Rules.Charge(playerIndex, buttons, forwardMove, sideMove, upMove);
+
     public CategorizePositionRules? GetCategorizePosition(int playerIndex) => _movementRules.Rules.Categorize(playerIndex);
 
     public FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => _movementRules.Rules.Footing(playerIndex, velocity, planeNormal);
@@ -4419,11 +4600,29 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
 
+    public void GetChargeSlowEnd(int playerIndex) => _movementRules.Rules.ChargeSlowEnd(playerIndex);
+
+    public void GetChargeBump(int playerIndex, EntityHandle hit) => _movementRules.Rules.ChargeBump(playerIndex, hit);
+
     public bool GetClampXY(int playerIndex) => _movementRules.Rules.ClampXY(playerIndex);
 
     public bool GetKeepGround(int playerIndex) => _movementRules.Rules.KeepGround(playerIndex);
 
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
+
+    public int GetDuckButtons(int playerIndex, int buttons, bool onGround, int waterLevel, float curTime, bool ducked, bool ducking) => _movementRules.Rules.DuckButtons(playerIndex, buttons, onGround, waterLevel, curTime, ducked, ducking);
+
+    public float GetAirSpeedCap(int playerIndex, float cap) => _movementRules.Rules.AirSpeedCap(playerIndex, cap);
+
+    public HighMaxSpeedPair? GetHighMaxSpeed(int playerIndex, float forwardMove, float sideMove, float maxSpeed) => _movementRules.Rules.HighMaxSpeed(playerIndex, forwardMove, sideMove, maxSpeed);
+
+    public void GetDuckRelease(int playerIndex, float curTime, bool inAir) => _movementRules.Rules.DuckRelease(playerIndex, curTime, inAir);
+
+    public float GetChargeYawCap(int playerIndex, float yaw, float frametime, float tickInterval) => _movementRules.Rules.ChargeYawCap(playerIndex, yaw, frametime, tickInterval);
+
+    public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
+
+    public uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => _movementRules.Rules.SolidMask(playerIndex, mask, brushOnly);
 
     // The engine's InfoPanel table, through its own string-table interfaces. A
     // server whose container cannot be acquired still loads (the message of the

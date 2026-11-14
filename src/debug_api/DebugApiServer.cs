@@ -1393,7 +1393,7 @@ public sealed class DebugApiServer : IDebugApi
             "POST /command  (body=cmd)":   "run a console command on the game thread; ?capture=1 answers what it printed",
             "GET  /convar?name=X&value=Y": "read a convar, or set it if value is given",
             "GET  /entities?class=X":      "list entities of a class",
-            "GET  /entity?index=|handle=|name=": "one entity: origin, angles, velocity, speed, asleep, ground",
+            "GET  /entity?index=|handle=|name=": "one entity: its model, origin, angles, velocity, speed, asleep, ground",
             "GET  /convars?source=X":      "convars: source=managed (default), native, or all",
             "GET  /commands?source=X":     "commands: source=managed (default), native, or all",
             "GET  /entityclasses":         "declared entity classes, with inputs and outputs",
@@ -2141,6 +2141,7 @@ public sealed class DebugApiServer : IDebugApi
             .Append(",\"index\":").Append(world.GetIndex(entity))
             .Append(",\"classname\":").Append(Quote(world.GetClassName(entity)))
             .Append(",\"name\":").Append(Quote(world.GetName(entity)))
+            .Append(",\"model\":").Append(Quote(world.GetModelName(entity)))
             .Append(",\"health\":").Append(world.GetHealth(entity))
             .Append(",\"origin\":[").Append(F(origin.X)).Append(',').Append(F(origin.Y)).Append(',').Append(F(origin.Z))
             .Append("],\"angles\":[").Append(F(angles.X)).Append(',').Append(F(angles.Y)).Append(',').Append(F(angles.Z))

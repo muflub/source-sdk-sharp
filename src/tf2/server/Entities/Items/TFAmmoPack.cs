@@ -14,6 +14,14 @@ using TF2.Shared;
 
 namespace TF2.Server.Entities.Items;
 
+/// <summary><c>AmmoPackType_t</c> (<c>tf_ammo_pack.h:15-21</c>): the three looks a pack can wear.</summary>
+public enum AmmoPackType
+{
+    Normal = 0,
+    Halloween,
+    Christmas,
+}
+
 /// <summary>
 /// <c>tf_ammo_pack</c> — the pack a TF2 death leaves behind, stock's
 /// <c>CTFAmmoPack</c> (tf_ammo_pack.cpp). A throwaway physics prop that
@@ -34,21 +42,30 @@ namespace TF2.Server.Entities.Items;
 public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
                                TFWeaponRagdollVelocityMinConVar velocityMin, TFWeaponRagdollVelocityMaxConVar velocityMax,
                                TFWeaponRagdollMaxSpeedConVar ragdollMaxSpeed,
-                               IUniformRandom random, IEngineEntityRender render,
-                               ITFPlayerStats? stats = null) : ScriptedEntity
+                               TFObjGibVelocityMinConVar gibVelocityMin, TFObjGibVelocityMaxConVar gibVelocityMax,
+                               TFObjGibMaxSpeedConVar gibMaxSpeed,
+                               IUniformRandom random,
+                               ITFPlayerStats stats, ServerBodygroups bodygroups,
+                               IServerSkins skins) : ScriptedEntity
 {
     public const string Class = "tf_ammo_pack";
 
     /// <summary><c>CGameStats::Event_PlayerAmmokitPickup</c> (:434).</summary>
-    private readonly ITFPlayerStats? _stats = stats;
+    private readonly ITFPlayerStats _stats = stats;
 
     /// <summary>
     /// The model <c>DropAmmoPack</c> names at the call (<c>CTFAmmoPack::Create</c>,
-    /// tf_player.cpp:13103) — the same one every normal pack wears. The
-    /// halloween and christmas models (tf_ammo_pack.cpp:79-98) are deferred
-    /// (docs/plans/tf2/deferred.tsv).
+    /// tf_player.cpp:13103) — the same one every normal pack wears. It is also
+    /// the fallback <see cref="OnSpawn"/> falls to when its maker named no
+    /// model: the first of stock's three <c>Precache</c> looks (:79-98).
     /// </summary>
     public const string Model = "models/items/ammopack_medium.mdl";
+
+    /// <summary>The halloween look (<c>HALLOWEEN_MODEL</c>, tf_ammo_pack.cpp:40, precached :87).</summary>
+    public const string HalloweenModel = "models/props_halloween/pumpkin_loot.mdl";
+
+    /// <summary>The christmas look (<c>CHRISTMAS_MODEL</c>, tf_ammo_pack.cpp:41, precached :93).</summary>
+    public const string ChristmasModel = "models/items/tf_gift.mdl";
 
     /// <summary>The <c>FlyThink</c> delay (:50): the flight every pickup waits out.</summary>
     public const float FlyTime = 0.75f;
@@ -76,6 +93,22 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
     [SaveField] private int _ammoGrenades1;
     [SaveField] private int _weaponId;
     [SaveField] private int _skin;
+
+    // m_bObjGib (tf_obj.cpp:2315): the destroyed building's pack, not a
+    // death drop's. The engineer achievement's read of it (:358-361) is
+    // deferred (docs/plans/tf2/deferred.tsv); the flag is kept as stock's
+    // member is kept, for the achievement row to pick up.
+    [SaveField] private bool _objGib;
+    [SaveField] private int _body;
+
+    // m_PackType (tf_ammo_pack.h:31): the ctor's AP_NORMAL is the field's own
+    // default; the holiday draw (:123-134) that would raise it is deferred.
+    [SaveField] private AmmoPackType _packType = AmmoPackType.Normal;
+
+    // Stock's m_szModelName ride: the maker names the model at Create, before
+    // DispatchSpawn (tf_ammo_pack.cpp:100-110), so it is held here already when
+    // OnSpawn runs and the solver's object is built from it.
+    private string? _chosenModel;
 
     /// <summary><c>GetOwnerEntity()</c>: whose death this pack is.</summary>
     public EntityHandle PackOwner => new(_owner);
@@ -123,21 +156,54 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
     /// <summary><c>m_nSkin</c>, set from <c>InitAmmoPack</c> (:181).</summary>
     public int Skin => _skin;
 
+    /// <summary><c>m_bObjGib</c>: a destroyed building's pack (<see cref="InitGib"/>).</summary>
+    public bool ObjGib => _objGib;
+
+    /// <summary>
+    /// The model this pack wears: set it before the spawn, and
+    /// <see cref="OnSpawn"/> puts it on the entity while the solver's object
+    /// is still being made (stock's <c>SetModelName</c> at the <c>Create</c>
+    /// call, tf_ammo_pack.cpp:105, before <c>DispatchSpawn</c> at :106). With
+    /// none chosen, <see cref="OnSpawn"/> wears the pack's own type answer.
+    /// </summary>
+    public void ChooseModel(string model) => _chosenModel = model;
+
+    /// <summary>
+    /// The model an undressed pack wears, by its type — stock's <c>Precache</c>
+    /// order (:79-98): the medium box first (:81), then the halloween (:87)
+    /// and christmas (:93) looks.
+    /// </summary>
+    private static string ModelFor(AmmoPackType packType) => packType switch
+    {
+        AmmoPackType.Halloween => HalloweenModel,
+        AmmoPackType.Christmas => ChristmasModel,
+        _ => Model,
+    };
+
     /// <summary>
     /// <c>CTFAmmoPack::Spawn</c> (:43-77): the model, the fly-and-die think
     /// schedule, and the creation stamp the cleanup oldest-sorts on. The
-    /// debris collision group (:184) lands HERE rather than in
+    /// model is the maker's chosen one — stock's <c>Create</c> sets the model
+    /// name before <c>DispatchSpawn</c> (:100-110) and stock's Spawn wears
+    /// exactly that name (:46), so the maker hands it over before the spawn
+    /// (<see cref="ChooseModel"/>) and it is already on the entity when this
+    /// runs; with none chosen, the pack's own type decides, in stock's
+    /// <c>Precache</c> order (:79-98): medium first (:81), then the halloween
+    /// (:87) and christmas (:93) looks. The model is decided HERE for the same
+    /// reason the debris collision group (:184) lands HERE rather than in
     /// <see cref="Init"/>: the Prop kind hands the solver an object when the
     /// managed spawn returns (EntityPhysicsCreation's <c>Spawned</c>), and
-    /// the group has to be the one that object is born with — the same
-    /// placement <c>Grenade</c> makes for the same reason. The holiday
-    /// precache (:79-98) and the X360 <c>EF_ITEM_BLINK</c> removal are not
-    /// ported (docs/plans/tf2/deferred.tsv); <c>m_takedamage = DAMAGE_YES</c>
+    /// both the hull and the group have to be the ones that object is born
+    /// with — the same placement <c>Grenade</c> makes for the same reason.
+    /// The holiday precache (:79-98) and the X360 <c>EF_ITEM_BLINK</c> removal
+    /// are not ported (docs/plans/tf2/deferred.tsv); <c>m_takedamage = DAMAGE_YES</c>
     /// (:185) is the Prop kind's own default (<see cref="ScriptedEntity.TakesDamage"/>).
     /// </summary>
     public override void OnSpawn()
     {
-        SetModel(Model);                       // :46, :81
+        // The maker's name wins when it gave one (:105); otherwise the pack's
+        // own type answers, in stock's Precache order (:79-98).
+        SetModel(_chosenModel is { Length: > 0 } chosen ? chosen : ModelFor(_packType));
         SetNextThink(FlyTime);                 // :49-50
         SetContextThink("DieContext", Lifetime); // :71
         _creationTime = GameTime;              // :54
@@ -171,10 +237,12 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
     /// <param name="isSuicide"><c>bIsSuicide</c> — stock reads it only in the
     /// holiday arms (:123-134, deferred), so the port records the arm and carries the value.</param>
     /// <param name="ammoRatio"><c>flAmmoRatio</c>: stock's default, half.</param>
+    /// <param name="packType"><c>m_PackType</c>: which holiday dressed the pack;
+    /// the draw itself (<c>:123-134</c>) stays deferred, so the caller names the answer.</param>
     public void Init(EntityHandle owner, int weaponId, TFClass ownerClass,
                      int primary, int secondary, int metal,
                      int skin = 0, bool empty = false, bool isSuicide = false,
-                     float ammoRatio = 0.5f)
+                     float ammoRatio = 0.5f, AmmoPackType packType = AmmoPackType.Normal)
     {
         _owner = owner.Value;
         _weaponId = weaponId;
@@ -183,8 +251,11 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         if (!empty)
         {
             // The holiday-pack draw (:123-134) is deferred with the holiday
-            // calendar and m_PackType; isSuicide is read only there.
+            // calendar (docs/plans/tf2/deferred.tsv); the answer it reaches —
+            // the pack's type — rides in on packType, and isSuicide is read
+            // only by that draw.
             _ = isSuicide;
+            _packType = packType; // m_PackType, the ctor's AP_NORMAL until dressed
 
             // Fill the pack with the dead player's ammo, at a stock minimum (:137-139).
             StoreAmmo(Math.Max(5, primary), TFAmmo.Primary);       // :142, "recalculated in PackTouch"
@@ -222,10 +293,11 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         // SetInitialVelocity (:179) feeds the respawn system — deferred with it.
 
         _skin = skin; // :181, m_nSkin
-        render.SetSkin(Handle, skin);
+        skins.SetSkin(Handle, skin);
 
         Health = 900; // :186, "so that trains can destroy it"
-        // SetBodygroup(1, 1) (:188) needs the bodygroup seam — deferred.
+
+        _body = bodygroups.SetBodygroup(Handle, _body, 1, 1); // :188, the box look group at its one model
     }
 
     /// <summary>
@@ -250,14 +322,23 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
 
     /// <summary>
     /// <c>PackTouch</c> (:271-446): who may take it, what they get, and the
-    /// pack going when they do. The world z-damp (:275-280), the spy's
-    /// stealthed-empty skip (:302-304), the knife and charge arms
+    /// pack going when they do — world-push and owner first (:275-280,
+    /// :302-304). The knife meter and the demoman's charge arm
     /// (:371-391 — TFPlayerShared meters this build does not port), the
     /// objgib achievement (:358-361) and the holiday arms (:399-430) are
     /// deferred (docs/plans/tf2/deferred.tsv).
     /// </summary>
     public override void OnTouch(EntityHandle toucher)
     {
+        // :275-280: the worldbrush flattens only a dressed pack — the gift
+        // must keep its bounce; a normal pack's push rides on untouched.
+        if (toucher.EntryIndex == 0 && _packType != AmmoPackType.Normal)
+        {
+            var velocity = Entities.GetVelocity(Handle);
+            Entities.SetVelocity(Handle, new Vector(0f, 0f, velocity.Z));
+            return;
+        }
+
         if (!Entities.IsPlayer(toucher))
             return; // :282
 
@@ -274,6 +355,16 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
 
         if (_emptyPack)
         {
+            // :302-304 — stock's comment: "we never pick up our own empties
+            // while stealthed", the Dead Ringer's fakeout staying put. The
+            // IsStealthed triad (:8112-8116) plus the blink condition.
+            if (toucher == PackOwner
+                && (players.InCond(toucher, TFCond.Stealthed)
+                    || players.InCond(toucher, TFCond.StealthedUserBuff)
+                    || players.InCond(toucher, TFCond.StealthedUserBuffFading)
+                    || players.InCond(toucher, TFCond.StealthedBlink)))
+                return;
+
             // :299-311: the fakeout is pickable — and it is full of nothing.
             StoreAmmo(1, TFAmmo.Primary); // :308 — the member store; the picker gets no arm
             Remove();
@@ -316,13 +407,61 @@ public sealed class TFAmmoPack(ITFMapPlayers players, ITFPickupNotices notices,
         if (taken > 0) // :432-445 — the quirk kept: gave nothing, keep the pack.
         {
             notices.ItemPickupEvent(toucher, Class);
-            _stats?.Increment(toucher, TFStat.Ammokits); // :434 — Event_PlayerAmmokitPickup
+            _stats.Increment(toucher, TFStat.Ammokits); // :434 — Event_PlayerAmmokitPickup
             Remove();
         }
     }
 
     /// <summary>The stock <c>UTIL_Remove</c>s of this file, exposed for the arms' callers.</summary>
     new public void Remove() => base.Remove();
+
+    /// <summary>
+    /// The metal a destroyed building's gibs carry, through the member store
+    /// (<c>GiveAmmo</c>, tf_ammo_pack.cpp:240-251): the gibs' maker names the
+    /// count before the pack is picked up.
+    /// </summary>
+    public void GiveMetal(int count) => StoreAmmo(count, TFAmmo.Metal);
+
+    /// <summary>
+    /// <c>CBaseObject::CreateAmmoPack</c> (tf_obj.cpp:2276-2324): the pack a
+    /// destroyed building throws for one break piece. The piece's own model,
+    /// the piece's share of the metal, the axis-aligned tumble (the stock
+    /// impulse is drawn per axis, :2288, not along the eye like <see cref="Init"/>'s),
+    /// capped at <c>tf_obj_gib_maxspeed</c> (:2292-2297), the building's team's
+    /// skin (:2309), health 900 (:2314) and the objgib flag (:2315). The mini's
+    /// scale and the collision group are the caller's and <see cref="OnSpawn"/>'s.
+    /// </summary>
+    /// <param name="pieceModel">The break piece's model, from the building's own break list.</param>
+    /// <param name="metal">This pack's share of the building's metal (<c>nMetal</c>).</param>
+    /// <param name="skin">The building's team's skin: red 0, blu 1 (:2309).</param>
+    public void InitGib(string pieceModel, int metal, int skin)
+    {
+        _chosenModel ??= pieceModel; // :2278, the model named at Create — carried in by the maker's ChooseModel before the spawn
+        GiveMetal(metal);            // GiveAmmo(nMetal, TF_AMMO_METAL), :2285
+
+        // The tumble (:2288-2296): a fresh axis-aligned draw, normalised,
+        // scaled into the gib band and capped at its ceiling. Stock guards
+        // the instantaneous velocity on VPhysicsGetObject(); the Prop kind
+        // hands the solver its object at spawn, so the port takes the arm
+        // directly, as Init does for the mass.
+        var impulse = new Vector(random.RandomFloat(-0.5f, 0.5f),
+                                 random.RandomFloat(-0.5f, 0.5f),
+                                 random.RandomFloat(0.75f, 1.25f)).Normalized;   // VectorNormalize, :2289
+        impulse *= random.RandomFloat(gibVelocityMin.Value, gibVelocityMax.Value);   // :2290
+        float speed = impulse.Length;                                              // :2293
+        if (speed > gibMaxSpeed.Value)                                             // :2294
+            impulse *= gibMaxSpeed.Value / speed;                                  // :2296
+
+        Entities.SetVelocity(Handle, impulse);                                                                  // :2304
+        Entities.SetAngularVelocity(Handle, new Vector(0f, random.RandomFloat(0f, 100f), 0f));                   // :2303
+        // SetInitialVelocity (:2307) feeds the respawn system — deferred with it.
+
+        _skin = skin; // :2309, m_nSkin: the building's team
+        skins.SetSkin(Handle, skin);
+
+        Health = 900; // :2314, "so that trains can destroy it"
+        _objGib = true; // :2315, m_bObjGib
+    }
 
     /// <summary>
     /// <c>CTFAmmoPack::GiveAmmo</c> (:240-251) — the MEMBER store: it only

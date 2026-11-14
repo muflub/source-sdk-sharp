@@ -147,4 +147,71 @@ public sealed class TFBowBehaviourTests
         Assert.Equal(0f, w.BehaviourMeter, 4);
         Assert.False(world.Owners.Of(Owner).Has(TFCond.Aiming));
     }
+
+    [Fact]
+    public void The_draw_pulls_at_the_refire_rate_and_the_hands_ride_it()
+    {
+        var world = Drawn(out var w, out var vm);
+
+        // The tail of the draw (:212-248): the rate through the bow's chain
+        // (one by default) inverted; the viewmodel rate takes it and the pull
+        // sounds once through the command at the rate's pitch. The held
+        // trigger's held ticks (the else of :254-263) add no second pull.
+        Assert.Equal("Weapon_CompoundBow.SinglePull @1", Assert.Single(world.Arms.Sounds));
+        Assert.Equal(1f, vm.PlaybackRate, 4);
+
+        world.Run(w, vm, Attack, 10.5f, NoCrit);
+        Assert.Equal("Weapon_CompoundBow.SinglePull @1", Assert.Single(world.Arms.Sounds));
+    }
+
+    [Fact]
+    public void The_fire_anims_round_fills_the_clip_back_while_the_delay_runs()
+    {
+        var world = Drawn(out var w, out var vm);
+        world.Run(w, vm, Attack, 10.5f, NoCrit);
+        world.Run(w, vm, 0, 10.515f, NoCrit);
+
+        // The launch leaves one round out (:171-173's empty clip); the fire
+        // animation's AE_WPN_INCREMENTAMMO (:446) pulls one back from the pool
+        // while the script's two-second delay is still running — the machine's
+        // own reload could not at this tick, its gate is the delay's expiry.
+        world.Run(w, vm, 0, 11.5f, NoCrit);
+
+        Assert.Equal(1, w.Clip);
+        Assert.Equal(11, w.Reserve);
+        Assert.Equal(0, w.AnimEvent);
+    }
+
+    [Fact]
+    public void The_held_charge_returns_to_the_held_idle_when_full()
+    {
+        var world = Drawn(out var w, out var vm);
+        world.Arms.Sequences[WeaponAnim.IdleBow] = 11;
+        Assert.Equal(7, vm.Sequence);
+
+        // Held inside the charge window the full-charge ask (:468-471) takes
+        // the plain held bow idle, ACT_ITEM2_VM_IDLE_2 (:401-427).
+        world.Run(w, vm, Attack, 11.5f, NoCrit);
+        Assert.Equal(11, vm.Sequence);
+    }
+
+    [Fact]
+    public void The_tired_held_idle_enters_on_the_charge_idle_and_settles()
+    {
+        var world = Drawn(out var w, out var vm);
+        world.Arms.Sequences[WeaponAnim.IdleBowChargeFull] = 13;
+        world.Arms.Sequences[WeaponAnim.IdleBowFull] = 12;
+
+        // Past the tired window (:495's gate, five seconds) the held idle
+        // enters on CHARGE_IDLE_3 (:419), settles on IDLE_3 (:415) one tick
+        // later, and holds it (:401-427's pair).
+        world.Run(w, vm, Attack, 15.5f, NoCrit);
+        Assert.Equal(13, vm.Sequence);
+
+        world.Run(w, vm, Attack, 16.5f, NoCrit);
+        Assert.Equal(12, vm.Sequence);
+
+        world.Run(w, vm, Attack, 17.5f, NoCrit);
+        Assert.Equal(12, vm.Sequence);
+    }
 }

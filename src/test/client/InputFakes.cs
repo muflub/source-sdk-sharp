@@ -1,3 +1,4 @@
+using SourceSharp.Abi;
 using SourceSharp.Client.Input;
 using SourceSharp.Shared;
 using SourceSharp.Client;
@@ -79,9 +80,10 @@ internal sealed class InputRig
     public readonly ClientInput Input;
     public readonly Dictionary<string, Action<string?>> Commands;
 
-    public InputRig(bool init = true)
+    public InputRig(bool init = true, IHooks<IChargeYawCap>? chargeCap = null)
     {
-        Input = new ClientInput(Host, Devices, Cvars, Cheats, DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), Menu);
+        Input = new ClientInput(Host, Devices, Cvars, Cheats, DeclaredConVars.Fresh<JoyXControllerFoundConVar>(), Menu,
+                                chargeCap: chargeCap);
         Commands = InputCommands.For(Input, Host, Cvars).ToDictionary(c => c.Name, c => c.Run, StringComparer.OrdinalIgnoreCase);
         if (init)
         {

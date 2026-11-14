@@ -2,23 +2,43 @@ using System.Collections.Immutable;
 
 namespace SourceSharp.Ai;
 
-/// <summary>Which body sizes may stand in a cell (plan_hl2mp_ai §6.2).</summary>
+/// <summary>
+/// Which body sizes may stand in a cell (plan_hl2mp_ai §6.2): the game's own body standing and
+/// crouched, and up to six more hulls a game's numbers may class its cells for
+/// (<see cref="Hull2"/> to <see cref="Hull7"/>; none unless it does). A class's bit is 1 shifted
+/// by its <see cref="ClearanceClass"/>.
+/// </summary>
 [Flags]
 public enum ClearanceClasses : byte
 {
     None = 0,
     Stand = 1 << 0,
     Crouch = 1 << 1,
+    Hull2 = 1 << 2,
+    Hull3 = 1 << 3,
+    Hull4 = 1 << 4,
+    Hull5 = 1 << 5,
+    Hull6 = 1 << 6,
+    Hull7 = 1 << 7,
 }
 
-/// <summary>The body size a path is planned for.</summary>
+/// <summary>
+/// The body size a path is planned for: the game's own body standing or crouched, or one of the
+/// extra hulls its graph was classed for (which hull each is, the game that asked for them says).
+/// </summary>
 public enum ClearanceClass : byte
 {
     Stand = 0,
     Crouch = 1,
+    Hull2 = 2,
+    Hull3 = 3,
+    Hull4 = 4,
+    Hull5 = 5,
+    Hull6 = 6,
+    Hull7 = 7,
 }
 
-/// <summary>How an edge is crossed (§6.2): the six types, each a different usercmd.</summary>
+/// <summary>How an edge is crossed (§6.2): each type a different usercmd.</summary>
 public enum NavEdgeType : byte
 {
     Walk = 0,
@@ -27,6 +47,37 @@ public enum NavEdgeType : byte
     Drop,
     Ladder,
     Door,
+
+    /// <summary>
+    /// A rise past the crouch jump that a second jump in the air reaches (TF's
+    /// Scout, plan_bots_teams_tf2 C.7): taken only by an agent whose
+    /// <see cref="NavObstacleState.Reach"/> has <see cref="JumpReach.Double"/>.
+    /// </summary>
+    DoubleJump,
+
+    /// <summary>
+    /// A link beside the graph (<see cref="NavLinks"/>: a blast jump), as a <see cref="FlowField"/> says its
+    /// next step is one (<see cref="FlowField.LinkFrom"/> names it). Never an edge: no derivation makes one and
+    /// no graph holds one.
+    /// </summary>
+    Link,
+}
+
+/// <summary>
+/// The jump reaches beyond a plain and a crouched jump that an agent has
+/// (plan_bots_teams_tf2 C.7): a class's movement, not its body, so one graph
+/// serves every class and each agent's searches leave out the edges it cannot take.
+/// </summary>
+[Flags]
+public enum JumpReach : byte
+{
+    None = 0,
+
+    /// <summary>A second jump in the air (<see cref="NavEdgeType.DoubleJump"/>).</summary>
+    Double = 1 << 0,
+
+    /// <summary>A blast jump: the links of <see cref="NavLinkKind.Blast"/> beside the graph (<see cref="NavLinks"/>).</summary>
+    Blast = 1 << 1,
 }
 
 /// <summary>A cell's flags beyond its clearance.</summary>
@@ -55,10 +106,11 @@ public readonly record struct NavCell(
     /// <summary>The centre of the footprint, on the floor.</summary>
     public AiVector Centre => new((MinX + MaxX) * 0.5f, (MinY + MaxY) * 0.5f, FloorZ);
 
-    public bool Admits(ClearanceClass c) => (Classes & (c == ClearanceClass.Stand ? ClearanceClasses.Stand : ClearanceClasses.Crouch)) != 0;
+    /// <summary>Whether a body of <paramref name="c"/> stands here: the cell holds that class's own bit.</summary>
+    public bool Admits(ClearanceClass c) => (uint)c < 8u && ((int)Classes & (1 << (int)c)) != 0;
 
-    /// <summary>Only a crouched body fits.</summary>
-    public bool CrouchOnly => Classes == ClearanceClasses.Crouch;
+    /// <summary>Of the game's own body, only a crouched one fits (whatever extra hulls do).</summary>
+    public bool CrouchOnly => (Classes & (ClearanceClasses.Stand | ClearanceClasses.Crouch)) == ClearanceClasses.Crouch;
 }
 
 /// <summary>
@@ -254,6 +306,7 @@ public sealed class NavGraph
     /// </summary>
     public bool Admits(in NavEdge e, ClearanceClass cls, NavObstacleState obstacles)
         => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls)
+           && (e.Type != NavEdgeType.DoubleJump || (obstacles.Reach & JumpReach.Double) != 0)
            && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle) || (obstacles.OpenDoors && e.Type == NavEdgeType.Door));
 
     /// <summary>
@@ -409,8 +462,17 @@ public sealed class NavObstacleState
         set => _cells = value;
     }
 
+    /// <summary>
+    /// The cells closed to this state's owner's team alone (a volume solid to every team but
+    /// another's: TF's respawn room visualizers), or null for none. Kept by every copy: a shove
+    /// moves no such volume.
+    /// </summary>
+    public NavCellBlocks? TeamCells { get; set; }
+
     /// <summary>Whether no route goes through <paramref name="cell"/>.</summary>
-    public bool CellBlocked(int cell) => Cells is { } cells && cells.State(cell) == NavCellBlocks.Blocked;
+    public bool CellBlocked(int cell)
+        => (Cells is { } cells && cells.State(cell) == NavCellBlocks.Blocked)
+           || (TeamCells is { } team && team.State(cell) == NavCellBlocks.Blocked);
 
     /// <summary>What a step into <paramref name="cell"/> costs over the edge's own.</summary>
     public float CellExtra(int cell) => Cells?.State(cell) switch
@@ -434,6 +496,74 @@ public sealed class NavObstacleState
     public bool OpenDoors { get; set; }
 
     public void Set(int obstacle, bool blocking) => _blocking[obstacle] = blocking;
+
+    /// <summary>
+    /// The jump reaches this state's owner has (its class's movement): an edge of a
+    /// reach it lacks is no way for it. <see cref="JumpReach.None"/> unless the game's
+    /// binding says otherwise, which every HL2MP player is.
+    /// </summary>
+    public JumpReach Reach { get; set; }
+
+    /// <summary>
+    /// The health a search may spend on one link (<see cref="NavLinks.Admits"/>): a link that
+    /// costs more is no way for this state's owner, so a hurt bot's routes leave it out. 0
+    /// (no link) unless the game's binding says otherwise. A <see cref="Shoved"/> copy follows its
+    /// original's, as it follows its cells: a lane refreshes the original each step.
+    /// </summary>
+    public float LinkHealth
+    {
+        get => _live is not null ? _live.LinkHealth : _linkHealth;
+        set => _linkHealth = value;
+    }
+
+    private float _linkHealth;
+
+    /// <summary>
+    /// The links beside the graph a search of this state's owner may take (the level's blast jumps,
+    /// lane G5c-2b), or null for none: each is still taken only with its reach and its health. A
+    /// <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public NavLinks? Links
+    {
+        get => _live is not null ? _live.Links : _links;
+        set => _links = value;
+    }
+
+    private NavLinks? _links;
+
+    /// <summary>
+    /// The links of <see cref="Links"/> the experience leaves out (lane G5e: links the bots' own tries say fail), or null for
+    /// none: a search takes no shut link. A mask of another set shuts nothing. A <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public NavLinkMask? LinksShut
+    {
+        get => _live is not null ? _live.LinksShut : _linksShut;
+        set => _linksShut = value;
+    }
+
+    private NavLinkMask? _linksShut;
+
+    /// <summary>
+    /// How deadly each cell is for this state's owner's side (lane G4a: what players did there), or
+    /// null for none: a search makes a step into a cell dearer by <see cref="NavCellHazard.Scale"/> at
+    /// <see cref="HazardWeight"/>. A <see cref="Shoved"/> copy follows its original's.
+    /// </summary>
+    public NavCellHazard? Hazard
+    {
+        get => _live is not null ? _live.Hazard : _hazard;
+        set => _hazard = value;
+    }
+
+    private NavCellHazard? _hazard;
+
+    /// <summary>How much this state's owner minds <see cref="Hazard"/> (a bot's Cunning): 0, the default, minds none of it. A <see cref="Shoved"/> copy follows its original's.</summary>
+    public float HazardWeight
+    {
+        get => _live is not null ? _live.HazardWeight : _hazardWeight;
+        set => _hazardWeight = value;
+    }
+
+    private float _hazardWeight;
 
     /// <summary>Says a player can get through <paramref name="obstacle"/> by walking into it: a prop that moves when pushed.</summary>
     public void SetShovable(int obstacle) => (_shovable ??= new bool[_blocking.Length])[obstacle] = true;
@@ -463,13 +593,20 @@ public sealed class NavObstacleState
         other._blocking.CopyTo(_blocking, 0);
         _shovable = other._shovable;
         OpenDoors = other.OpenDoors;
+        Reach = other.Reach;
+        LinkHealth = other.LinkHealth;
+        Links = other.Links;
+        LinksShut = other.LinksShut;
+        Hazard = other.Hazard;
+        HazardWeight = other.HazardWeight;
+        TeamCells = other.TeamCells;
         _cells = other.Cells;
     }
 
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {
-        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors };
+        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors, Reach = Reach, LinkHealth = LinkHealth, Links = Links, LinksShut = LinksShut, Hazard = Hazard, HazardWeight = HazardWeight, TeamCells = TeamCells };
         _blocking.CopyTo(copy._blocking, 0);
         copy._shovable = _shovable;
         copy._cells = Cells;

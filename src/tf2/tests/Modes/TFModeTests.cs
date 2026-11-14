@@ -219,7 +219,7 @@ public sealed class TFModeTests
 
         Assert.Equal(1, rig.Ctf.Scoring!.TeamScore((int)TFTeam.Blue));
         Assert.Equal(0, rig.Ctf.Scoring.TeamScore((int)TFTeam.Red));
-        Assert.True(rig.Ctf.Scoring.TeamScore((int)TFTeam.Spectator) < 0);
+        Assert.Null(rig.Ctf.Scoring.TeamScore((int)TFTeam.Spectator));
     }
 
     [Fact]

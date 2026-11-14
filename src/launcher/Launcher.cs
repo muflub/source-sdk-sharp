@@ -92,6 +92,19 @@ internal sealed class Launcher(
     public const string InstanceFlag = "-instance";
 
     /// <summary>
+    /// -toolgame: a game a tool, a gate or a lane started, as against one a
+    /// person plays (make run, a dedicated server). It keeps no file of the
+    /// user's own play: the bots' experience store (ai_experience_db) stays
+    /// off unless the launch names a path of its own, so no gate depends on
+    /// what this box has played (plan_bots_teams_tf2 Part G, G.3). One of
+    /// <see cref="OurSwitches"/>, so a tool may pass it; and the launcher adds
+    /// it to every <see cref="BackgroundFlag"/> or <see cref="InstanceFlag"/>
+    /// game, which is what every tool's launch is (tools/local_launch.py,
+    /// make headless), so a launch path cannot forget it.
+    /// </summary>
+    public const string ToolGameFlag = "-toolgame";
+
+    /// <summary>
     /// The files in a mod dir the engine rewrites in place: an instance gets a
     /// private copy of each, seeded from the tree's (strace, 2026-10-05).
     /// </summary>
@@ -128,10 +141,11 @@ internal sealed class Launcher(
     /// (DebugApiLoader), -debugapisocket (DebugApiServer), -debugui
     /// (DebugApiClientLoader), -debuguiserve and -debuguipublic
     /// (DebugChannelListener), -assertlog and -assertstack (native
-    /// shell_diagnostics.cpp), -unhosted (tf2_descent HostLink).
+    /// shell_diagnostics.cpp), -unhosted (tf2_descent HostLink), -toolgame
+    /// (the AI's ExperienceService).
     /// </summary>
     internal static readonly string[] OurSwitches =
-        ["-debugapi", "-debugapisocket", "-debugui", "-debuguiserve", "-debuguipublic", "-assertlog", "-assertstack", "-unhosted"];
+        ["-debugapi", "-debugapisocket", "-debugui", "-debuguiserve", "-debuguipublic", "-assertlog", "-assertstack", "-unhosted", ToolGameFlag];
 
     /// <summary>
     /// SourceSharp's options, each with the value after it: -debugapiport
@@ -310,6 +324,9 @@ internal sealed class Launcher(
         }
 
         List<string> ours = TakeOurFlags(args);
+        // A background or an instance game is a tool's (ToolGameFlag), said or not.
+        if ((background || instance) && !ours.Contains(ToolGameFlag, StringComparer.OrdinalIgnoreCase))
+            ours.Add(ToolGameFlag);
         Dictionary<string, string> env = GameEnvironment(environment, install, libraryInstall, role, mod, config.Path, Platform);
         env.Remove(LaunchArgsVariable);
         if (ours.Count > 0)
@@ -1174,6 +1191,9 @@ internal sealed class Launcher(
         stdout.WriteLine("writes; console.log and +con_logfile still land in the mod dir.");
         stdout.WriteLine("Its console commands (+name value) go to cfg/sslaunch.cfg there, run");
         stdout.WriteLine("with one +exec; those the engine reads by name (+map, +connect, ...) stay.");
+        stdout.WriteLine("-toolgame says a tool started the game, not a player (-background and");
+        stdout.WriteLine("-instance imply it): the bots' experience store (ai_experience_db) stays");
+        stdout.WriteLine("off unless the launch names a path for it.");
         stdout.WriteLine("SourceSharp's own flags (-debugapi, -assertlog, -debuguiport <n>, ...)");
         stdout.WriteLine("reach the game through SOURCESHARP_ARGS, not the engine's command line,");
         stdout.WriteLine("which the engine refuses past 512 bytes.");

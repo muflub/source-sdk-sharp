@@ -40,13 +40,14 @@ public sealed class TFMapInfo : UiScreen
 {
     private readonly ITFMapInfoSource _source;
     private readonly IUiTextureLibrary _textures;
-    private readonly ITFMapInfoActions? _actions;
+    private readonly ITFMapInfoActions _actions;
 
     /// <param name="textures">The art library the shaded bar and the map
     /// photo come from; a miss leaves the layout without them.</param>
-    /// <param name="actions">What CONTINUE and BACK do; none in a
-    /// sample.</param>
-    public TFMapInfo(ITFMapInfoSource source, IUiTextureLibrary textures, ITFMapInfoActions? actions = null)
+    /// <param name="actions">What CONTINUE and BACK do: every dependency
+    /// is injected, so a missing one fails the composition by name rather
+    /// than leaving the gates silent.</param>
+    public TFMapInfo(ITFMapInfoSource source, IUiTextureLibrary textures, ITFMapInfoActions actions)
     {
         _source = source;
         _textures = textures;
@@ -118,13 +119,13 @@ public sealed class TFMapInfo : UiScreen
         }
 
         // BACK, only without a team (:230-240).
-        if (_source.Team <= 1 && Gate(ref ui, Stock.Back, "#TF2_MapInfo_Back", "back") && _actions is { } acts)
-            acts.Back();
+        if (_source.Team <= 1 && Gate(ref ui, Stock.Back, "#TF2_MapInfo_Back", "back"))
+            _actions.Back();
 
         // CONTINUE — CLOSE once a team is chosen (:241-250).
         var label = _source.Team <= 1 ? "#TF2_MapInfo_Continue" : "#TF2_MapInfo_Close";
-        if (Gate(ref ui, Stock.Continue, label, "continue") && _actions is { } acts2)
-            acts2.Continue();
+        if (Gate(ref ui, Stock.Continue, label, "continue"))
+            _actions.Continue();
     }
 
     // ---- the stacked canvas (narrow screens) ----
@@ -163,10 +164,10 @@ public sealed class TFMapInfo : UiScreen
             using (ui.Row(Space.M, Align.Centre).Width(Size.Fill).Height(Size.Du(48f)))
             {
                 if (_source.Team <= 1 && ui.Button("back", "#TF2_MapInfo_Back").Clicked)
-                    _actions?.Back();
+                    _actions.Back();
                 ui.Flex();
                 if (ui.Button("continue", _source.Team <= 1 ? "#TF2_MapInfo_Continue" : "#TF2_MapInfo_Close").Clicked)
-                    _actions?.Continue();
+                    _actions.Continue();
             }
         }
     }

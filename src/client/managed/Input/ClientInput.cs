@@ -77,12 +77,17 @@ public sealed partial class ClientInput
     private readonly SvCheatsConVar _cheats;
     private readonly JoyXControllerFoundConVar _xControllerFound;
 
+    // The mods' charge cap on every yaw the input applies (CAM_CapYaw); an
+    // empty chain leaves each arm's amount as the base's answer.
+    private readonly IHooks<IChargeYawCap>? _chargeCap;
+
     public ClientInput(IInputHost host, IInputDevices devices, InputCvars cvars,
                        SvCheatsConVar cheats, JoyXControllerFoundConVar xControllerFound,
                        IMenuInputGate? menu = null, bool isPc = true, IInputMailbox? mailbox = null,
-                       IHudProcessInput? hud = null)
+                       IHudProcessInput? hud = null, IHooks<IChargeYawCap>? chargeCap = null)
     {
         _hud = hud;
+        _chargeCap = chargeCap;
         _cheats = cheats;
         _xControllerFound = xControllerFound;
         _mailbox = mailbox;
@@ -306,8 +311,16 @@ public sealed partial class ClientInput
     {
         if ((Buttons.Strafe.State & 1) == 0)
         {
-            viewAngles.Yaw -= speed * _cvars.YawSpeed.Float * KeyState(Buttons.Right);
-            viewAngles.Yaw += speed * _cvars.YawSpeed.Float * KeyState(Buttons.Left);
+            // Stock builds the two key terms first and caps each on its own
+            // (tf_input_main.cpp:88-103), so the cap lands per term.
+            float yawRight = speed * _cvars.YawSpeed.Float * KeyState(Buttons.Right);
+            float yawLeft = speed * _cvars.YawSpeed.Float * KeyState(Buttons.Left);
+
+            yawRight = CamCapYaw(yawRight);
+            yawLeft = CamCapYaw(yawLeft);
+
+            viewAngles.Yaw -= yawRight;
+            viewAngles.Yaw += yawLeft;
         }
 
         // Third-person platformer: the movement keys aim the player relative to

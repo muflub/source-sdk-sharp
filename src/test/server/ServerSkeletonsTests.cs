@@ -652,4 +652,91 @@ public class ServerSkeletonsTests
     {
         Assert.False(new Rig().Skeletons.Capture(Other, new SkeletonAnimation()));
     }
+
+    // ---- a bone named, by the player that wears the model ------------------
+
+    private const int BipModel = 5;
+    private static readonly EntityHandle Player = new(0x0001000Au);
+
+    /// <summary>A shipped soldier model's shape, in its real bone names: a
+    /// survival root, the pelvis ten above it, the right hand four forward
+    /// and six up from there.</summary>
+    private static byte[] Bip()
+    {
+        StudioHdrBuilder b = new();
+        b.ModelName = "test/bip.mdl";
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "bip_survival", Parent = -1, Flags = UsedByAnything });
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "bip_pelvis", Parent = 0, Flags = UsedByAnything, Pos = new NVector(0f, 0f, 10f) });
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "bip_hand_r", Parent = 1, Flags = UsedByAnything, Pos = new NVector(4f, 0f, 6f) });
+
+        short[] pos0 = [3 | (3 << 8), 0, 10, 20];
+        b.Anims.Add(new StudioHdrBuilder.AnimDef
+        {
+            Name = "ramp", NumFrames = 3, Fps = 30f,
+            Bones = { new StudioHdrBuilder.BoneAnimDef { Bone = 0, Flags = StudioConstants.STUDIO_ANIM_ANIMPOS, Pos0 = pos0 } },
+        });
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "ramp", AnimTable = [0], Flags = StudioConstants.STUDIO_LOOPING, Weights = [1f, 1f, 1f] });
+
+        byte[] image = b.Build();
+
+        // Solid bones, and the hand's surfaceprop named "flesh" at the end —
+        // the same grown tail Chain carries.
+        byte[] name = "flesh\0"u8.ToArray();
+        byte[] grown = new byte[image.Length + name.Length];
+        image.CopyTo(grown, 0);
+        name.CopyTo(grown, image.Length);
+        int bones = BinaryPrimitives.ReadInt32LittleEndian(grown.AsSpan(160, 4));
+        for (int i = 0; i < 3; i++)
+            BinaryPrimitives.WriteInt32LittleEndian(grown.AsSpan(bones + 216 * i + 180, 4), BoneSetupTrace.ContentsSolid);
+        BinaryPrimitives.WriteInt32LittleEndian(grown.AsSpan(bones + 216 * 2 + 176, 4), image.Length - (bones + 216 * 2));
+        return grown;
+    }
+
+    /// <summary>A player entity: its own handle, its own block, the bip model.</summary>
+    private static ServerSkeletons BipRig()
+    {
+        Blocks blocks = new();
+        Memory memory = new();
+        Clock clock = new();
+        RecordingLog log = new();
+        Props props = new();
+        memory.Models[BipModel] = Bip();
+        blocks.Held[Player] = Block(new NVector(100f, 0f, 0f), model: BipModel);
+        return new ServerSkeletons(blocks, new StudioModels(memory), clock, log, props);
+    }
+
+    /// <summary>Stock's <c>LookupBone</c> (:18465): the player answers the
+    /// named bone from its own block model — the ZERO-based index, stock's
+    /// -1 for a name the model does not carry.</summary>
+    [Fact]
+    public void APlayerAnswersBoneLookUpByNameFromItsBlock()
+    {
+        ServerSkeletons s = BipRig();
+
+        Assert.Equal(2, s.LookupBone(Player, "bip_hand_r"));
+        Assert.Equal(-1, s.LookupBone(Player, "bip_missing"));
+    }
+
+    /// <summary>Stock's <c>GetBonePosition</c> (:18468): the bone-to-world
+    /// matrix's origin — the hand at its bind offsets under the pelvis and the
+    /// root, on the player's block origin.</summary>
+    [Fact]
+    public void ThePlayersBonePositionIsTheBoneToWorldOrigin()
+    {
+        ServerSkeletons s = BipRig();
+
+        Assert.True(s.GetBonePosition(Player, s.LookupBone(Player, "bip_hand_r"), out Vector origin));
+        Assert.Equal((104f, 0f, 16f), (origin.X, origin.Y, origin.Z));
+    }
+
+    /// <summary>No such bone, and no block: stock skips the blast (:18466),
+    /// and so answers false.</summary>
+    [Fact]
+    public void ABoneThatIsNotThereHasNoPosition()
+    {
+        ServerSkeletons s = BipRig();
+
+        Assert.False(s.GetBonePosition(Player, 3, out _));   // the model carries three bones
+        Assert.False(s.GetBonePosition(Other, 1, out _));    // a handle with no block
+    }
 }

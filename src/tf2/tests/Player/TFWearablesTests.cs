@@ -4,6 +4,7 @@ using SourceSharp.Server;
 using TF2.Server.Econ;
 using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
@@ -39,6 +40,7 @@ public sealed class TFWearablesTests
         public readonly TFLoadoutProvider Loadout;
         public readonly TFWearables Wearables;
         public readonly TFWearableSpawns Spawns;
+        public readonly RecordingSkins Skins = new();
 
         private uint _next = 0x0003_0050;
         private bool _joined;
@@ -50,9 +52,12 @@ public sealed class TFWearablesTests
                 new InventoryStore(new ModInfo(_ => null), Player.Schema, Player.Log),
                 Player.Schema, new NoSteam(), Player.Log);
             Inventory.OnClientActive(PlayerRig.Index);
-            Loadout = new TFLoadoutProvider(Inventory, Player.Schema, Player.Carriers, Player.Items, Player.Classes);
+            Loadout = LoadoutDeps.Loadout(Inventory, Player.Schema, classes: Player.Carriers, items: Player.Items,
+                                                table: Player.Classes, players: Player.Engine,
+                                                precache: Player.Engine, log: Player.Log);
 
-            Wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine, Player.Log);
+            Wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine,
+                                        Player.Engine, Player.Log, Skins, Player.Items);
             Player.Extra.Add(Wearables);
             Spawns = new TFWearableSpawns(Player.Carriers, Loadout, Player.Engine, Player.Log);
         }
@@ -130,6 +135,154 @@ public sealed class TFWearablesTests
 
     private static int WearableCreates(WearableRig rig)
         => rig.Player.Engine.AllOf("Entities.Create").Count(c => c.ArgAs<string>(0) == TFEntityNames.Wearable);
+
+    /// <summary>The skin seams the rig's wearables wrote to.</summary>
+    internal sealed class RecordingSkins : IServerSkins
+    {
+        public readonly List<(EntityHandle Entity, int Skin)> Set = [];
+
+        public void SetSkin(EntityHandle entity, int skin) => Set.Add((entity, skin));
+
+        public void SetBody(EntityHandle entity, int body) { }
+    }
+
+    /// <summary>
+    /// Stock's <c>CEconWearable::Spawn</c> names the player display model
+    /// (econ_wearable.cpp:96) — the block's model, the client's renderable's
+    /// whole subject — on the render BEFORE the spawn (the created-and-dressed
+    /// shape: no managed half exists to carry it until the spawn's own callback
+    /// builds it, seen live as "#426 is not a tf_wearable"), and the spawn
+    /// marks the entity always transmitted, the carrier's own flag.
+    /// </summary>
+    /// <summary>
+    /// A disguised owner's wearables hide from every eye
+    /// (<c>CTFWearable::ShouldDraw</c>, tf_item_wearable.cpp:343), and come back after.
+    /// </summary>
+    [Fact]
+    public void A_disguise_hides_the_wearables_and_its_end_shows_them()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        EntityHandle wearable = rig.Wearables.Wearables[0];
+
+        rig.Player.State.SetConditions(TFCondMask.Of(TFCond.Disguised));
+        rig.Wearables.Tick(1f);
+        var hide = Assert.Single(rig.Player.Engine.AllOf("EntityRender.SetVisible"));
+        Assert.Equal(wearable, hide.ArgAs<EntityHandle>(0));
+        Assert.False(hide.ArgAs<bool>(1));
+
+        rig.Wearables.Tick(2f);
+        Assert.Single(rig.Player.Engine.AllOf("EntityRender.SetVisible"));
+
+        rig.Player.State.SetConditions(default);
+        rig.Wearables.Tick(3f);
+        Assert.True(rig.Player.Engine.AllOf("EntityRender.SetVisible").Last().ArgAs<bool>(1));
+    }
+
+    [Fact]
+    public void A_cloak_hides_the_wearables()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+
+        rig.Player.State.SetConditions(TFCondMask.Of(TFCond.Stealthed));
+        rig.Wearables.Tick(1f);
+
+        Assert.False(Assert.Single(rig.Player.Engine.AllOf("EntityRender.SetVisible")).ArgAs<bool>(1));
+    }
+
+    [Fact]
+    public void Another_condition_leaves_the_wearables_alone()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+
+        rig.Player.State.SetConditions(TFCondMask.Of(TFCond.Burning));
+        rig.Wearables.Tick(1f);
+
+        Assert.Empty(rig.Player.Engine.AllOf("EntityRender.SetVisible"));
+    }
+
+    /// <summary>
+    /// The tick parks every wearable at the owner's origin — the server half of
+    /// stock's <c>FollowEntity</c> (<c>CEconWearable::Equip</c>,
+    /// econ_wearable.cpp:192), which this engine's parallel hierarchy composes
+    /// per frame as the carried weapon's sweep does.
+    /// </summary>
+    [Fact]
+    public void The_tick_parks_the_wearables_at_their_owner()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        EntityHandle wearable = rig.Wearables.Wearables[0];
+        int parked = rig.Player.Engine.AllOf("Entities.SetOrigin").Count();
+
+        var at = new Vector(12f, 34f, 56f);
+        rig.Player.Engine.Returns("Entities.GetOrigin", at);
+        rig.Wearables.Tick(1f);
+
+        // Exactly one more placement than the spawn's own, at the owner.
+        var parks = rig.Player.Engine.AllOf("Entities.SetOrigin").Skip(parked).ToList();
+        var park = Assert.Single(parks);
+        Assert.Equal(wearable, park.ArgAs<EntityHandle>(0));
+        Assert.Equal(at, park.ArgAs<Vector>(1));
+    }
+
+    [Fact]
+    public void The_spawn_names_the_display_model_and_rides_every_eye()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Scout, Canteen);
+        rig.SpawnAs(TFClass.Scout);
+        EntityHandle wearable = rig.Wearables.Wearables[0];
+
+        var model = Assert.Single(rig.Player.Engine.AllOf("EntityRender.SetModel"));
+        Assert.Equal(wearable, model.ArgAs<EntityHandle>(0));
+        Assert.Equal(CanteenModel, model.ArgAs<string>(1));
+
+        // Dressed before the spawn that shows it.
+        var calls = rig.Player.Engine.Calls;
+        int modelAt = -1, spawnAt = -1;
+        for (int i = 0; i < calls.Count; i++)
+        {
+            if (calls[i].Member == "EntityRender.SetModel")
+                modelAt = i;
+            if (calls[i].Member == "Entities.Spawn" && calls[i].ArgAs<EntityHandle>(0) == wearable)
+                spawnAt = i;
+        }
+
+        Assert.True(modelAt >= 0 && spawnAt >= 0 && modelAt < spawnAt,
+                    "the model was not on the entity before its spawn");
+
+        // The spawn's native half runs OnSpawn (shell_dispatch's
+        // OnManagedSpawn) with the handle the shell bound; the rig's recorded
+        // Spawn does not, so bind and run it here.
+        var entity = rig.Directory.Wearable(wearable)!;
+        entity.Handle = wearable;
+        entity.OnSpawn();
+
+        Assert.Contains(rig.Player.Engine.AllOf("EntityRender.SetTransmitAlways"),
+                        c => c.ArgAs<EntityHandle>(0).Equals(wearable) && c.ArgAs<bool>(1));
+    }
+
+    /// <summary><c>CTFWearable::Equip</c>'s <c>m_nSkin = GetSkin()</c>
+    /// (tf_item_wearable.cpp:741) reaches the skin seam, the render skin the
+    /// client's own arm starts from.</summary>
+    [Fact]
+    public void The_equipped_skin_reaches_the_skin_seam()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Scout, Canteen);
+        rig.Player.Engine.Returns("Players.GetTeam", (int)TFTeam.Red);
+        rig.SpawnAs(TFClass.Scout);
+        EntityHandle wearable = rig.Wearables.Wearables[0];
+
+        Assert.Equal([(wearable, 0)], rig.Skins.Set);
+    }
 
     [Fact]
     public void A_spawn_with_one_equipped_wearable_creates_one_tf_wearable()
@@ -241,6 +394,37 @@ public sealed class TFWearablesTests
     }
 
     /// <summary>
+    /// Stock's <c>CEconEntity::ReapplyProvision</c> (econ_entity.cpp:285-308):
+    /// the worn item's own container provides to the owner's attribute
+    /// manager, so a player-level hook — the charge meter's regen, the kill's
+    /// refill — reads the wearables with the weapons; the strip is stock's
+    /// <c>StopProvidingTo</c>, run as the wearable dies with its player
+    /// (<c>CEconWearable::UpdateOnRemove</c>, econ_wearable.cpp:196). The grant
+    /// goes first, as stock's <c>GiveDefaultItems</c> arms the weapons before
+    /// <c>ManageRegularWeapons</c> wears.
+    /// </summary>
+    [Fact]
+    public void The_worn_item_provides_to_the_players_manager_and_the_strip_stops_it()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Scout, Canteen);
+        rig.Player.Carriers.SetClass(PlayerRig.Index, TFClass.Scout);
+        // The kit grant: the player's manager enters here, as the weapons arm of the spawn.
+        rig.Loadout.Weapons(PlayerRig.Player).ToList();
+
+        rig.SpawnAs(TFClass.Scout);
+
+        var manager = Assert.IsType<AttributeContainer>(rig.Player.Items.ManagerOf(PlayerRig.Index));
+        static bool Wears(IAttributeProvider? p)
+            => p is AttributeContainer { Item: { } def } && def.Defindex == Canteen;
+        Assert.Contains(manager.Providers, Wears);
+
+        rig.Die();
+
+        Assert.DoesNotContain(manager.Providers, Wears);
+    }
+
+    /// <summary>
     /// The connect's first spawn comes before the player's components attach,
     /// and the player has no class yet: nothing to wear, and nothing to say
     /// (seen live: it warned "has no wearable component" at every join).
@@ -253,5 +437,54 @@ public sealed class TFWearablesTests
         rig.Spawns.OnSpawned(PlayerRig.Player, 0f);
 
         Assert.DoesNotContain(rig.Player.Log.Lines, l => l.Text.Contains("[TF2/Wearables]"));
+    }
+
+    /// <summary>The worn part of the spy's loadout as the item sources answer it now.</summary>
+    private static List<LoadoutItem> WornNow(WearableRig rig)
+        => TFWearables.Worn(rig.Loadout.Loadout(PlayerRig.Index, TFClass.Spy));
+
+    [Fact]
+    public void Settling_the_same_items_keeps_the_wearable_entities()
+    {
+        // ValidateWearables: a wearable whose item still matches stays.
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        EntityHandle worn = Assert.Single(rig.Wearables.Wearables);
+
+        Assert.False(rig.Wearables.Settle(PlayerRig.Player, TFClass.Spy, TFTeam.Red, WornNow(rig)));
+
+        Assert.Equal(worn, Assert.Single(rig.Wearables.Wearables));
+        Assert.Equal(0, rig.Player.Engine.CountOf("Entities.Remove"));
+    }
+
+    [Fact]
+    public void Settling_changed_items_rebuilds_the_wearables()
+    {
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        EntityHandle worn = Assert.Single(rig.Wearables.Wearables);
+        rig.Equip(TFClass.Spy, GrapplingHook);
+
+        Assert.True(rig.Wearables.Settle(PlayerRig.Player, TFClass.Spy, TFTeam.Red, WornNow(rig)));
+
+        Assert.NotEqual(worn, Assert.Single(rig.Wearables.Wearables));
+    }
+
+    [Fact]
+    public void Settling_after_the_strip_wears_the_items_again()
+    {
+        // The death's RemoveAll forgets what was worn: the same items are a
+        // change to a player wearing nothing.
+        var rig = new WearableRig();
+        rig.Equip(TFClass.Spy, Canteen);
+        rig.SpawnAs(TFClass.Spy);
+        rig.Die();
+        Assert.Empty(rig.Wearables.Wearables);
+
+        Assert.True(rig.Wearables.Settle(PlayerRig.Player, TFClass.Spy, TFTeam.Red, WornNow(rig)));
+
+        Assert.Single(rig.Wearables.Wearables);
     }
 }

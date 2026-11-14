@@ -688,6 +688,19 @@ public sealed class RecordingEngine :
         return Value<int>("Entities.LookupAttachmentAny");
     }
 
+    int IEngineEntities.LookupBone(EntityHandle entity, string boneName)
+    {
+        RecordVoid("Entities.LookupBone", entity, boneName);
+        return Value<int>("Entities.LookupBone");
+    }
+
+    bool IEngineEntities.GetBonePosition(EntityHandle entity, int bone, out Vector origin)
+    {
+        origin = Value<Vector>("Entities.GetBonePosition.origin");
+        RecordVoid("Entities.GetBonePosition", entity, bone);
+        return Value<bool>("Entities.GetBonePosition");
+    }
+
     EntityHandle IEngineEntities.FindBaseByName(string name)
     {
         RecordVoid("Entities.FindBaseByName", name);
@@ -907,8 +920,10 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.SetCycle(EntityHandle entity, float cycle) => RecordVoid("EntityRender.SetCycle", entity, cycle);
     void IEngineEntityRender.SetSkin(EntityHandle entity, int skin) => RecordVoid("EntityRender.SetSkin", entity, skin);
     void IEngineEntityRender.SetModelOverride(EntityHandle entity, string model) => RecordVoid("EntityRender.SetModelOverride", entity, model);
+    void IEngineEntityRender.SetMaterialOverride(EntityHandle entity, string material) => RecordVoid("EntityRender.SetMaterialOverride", entity, material);
     void IEngineEntityRender.SetTextureFrame(EntityHandle entity, int frame) => RecordVoid("EntityRender.SetTextureFrame", entity, frame);
     void IEngineEntityRender.SetTransmitAlways(EntityHandle entity, bool always) => RecordVoid("EntityRender.SetTransmitAlways", entity, always);
+    void IEngineEntityRender.SetTransmitFullCheck(EntityHandle entity, bool on) => RecordVoid("EntityRender.SetTransmitFullCheck", entity, on);
     bool IEngineEntityRender.DetectInSkybox(EntityHandle entity) => Record<bool>("EntityRender.DetectInSkybox", entity);
     void IEngineEntityRender.SetVisible(EntityHandle entity, bool visible) => RecordVoid("EntityRender.SetVisible", entity, visible);
 
@@ -934,7 +949,16 @@ public sealed class RecordingEngine :
     // Players
     void IEnginePlayers.SetPunch(EntityHandle player, Vector punch, Vector velocity) => RecordVoid("Players.SetPunch", player, punch, velocity);
     void IEnginePlayers.BreakInterpolation(EntityHandle player) => RecordVoid("Players.BreakInterpolation", player);
-    Vector IEnginePlayers.GetPunch(EntityHandle player) => Vector.Zero;
+    Vector IEnginePlayers.GetPunch(EntityHandle player)
+    {
+        // The view's rest punch, answered even unstubbed -- the read has a
+        // stock zero the way Clock.Now does -- but a stub's punch wins.
+        if (!_answers.TryGetValue("Players.GetPunch", out var answer))
+            return Vector.Zero;
+        if (answer is Func<object?> each)
+            answer = each();
+        return answer is Vector punch ? punch : Vector.Zero;
+    }
     void IEnginePlayers.AddScore(EntityHandle player, int points, bool allowNegative) => RecordVoid("Players.AddScore", player, points, allowNegative);
     void IEnginePlayers.PlaceAtSpawn(EntityHandle player, Vector origin, Vector angles) => RecordVoid("Players.PlaceAtSpawn", player, origin, angles);
     bool IEnginePlayers.DeployLastWeapon(EntityHandle player) => Record<bool>("Players.DeployLastWeapon", player);
@@ -1083,6 +1107,7 @@ public sealed class RecordingEngine :
     void IEngineSound.EntityEmitSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityEmitSound", entity, soundName);
     void IEngineSound.EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) => RecordVoid("Sound.EntityEmitSoundAs", entity, soundName, volume, pitch);
     void IEngineSound.EmitSoundToTeam(int team, EntityHandle entity, string soundName) => RecordVoid("Sound.EmitSoundToTeam", team, entity, soundName);
+    void IEngineSound.EmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable) => RecordVoid("Sound.EmitSoundToPlayer", player, entity, soundName, reliable);
     void IEngineSound.EntityStopSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityStopSound", entity, soundName);
     void IEngineSound.SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption) => RecordVoid("Sound.SoundPatchEmit", patch, volume01, pitch, flags, startTime, emitCaption);
     void IEngineSound.SoundPatchStop(int patch) => RecordVoid("Sound.SoundPatchStop", patch);

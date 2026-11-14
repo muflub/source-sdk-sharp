@@ -83,7 +83,7 @@ public sealed class Chat : UiScreen
                 for (int i = first; i < _chat.Count; i++)
                 {
                     var line = _chat.Line(i);
-                    var tone = line.Team == 2 ? Tone.TeamA : line.Team == 3 ? Tone.TeamB : Tone.Warning;
+                    var tone = UiTeams.ToneOf(line.Team, Tone.Warning);
                     using (ui.Row(Space.S, Align.Start).Opacity(line.Alpha).Key(i))
                     {
                         if (line.Dead)

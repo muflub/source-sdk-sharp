@@ -22,9 +22,15 @@ namespace TF2.Server.Entities;
 /// None, which is the core's walk (stock answers the world entity).
 /// </summary>
 [SideService(Side.Server)]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one (the
+/// class owner and the carriers through the carriers' own <c>SideService</c>
+/// row, the entity directory through the engine's registration), so a missing
+/// one fails the composition by name instead of answering a default.
+/// </summary>
 public sealed class TFSpawnSelector(ITeams teams, IObjectiveEntities objectives, IEngineEntities entities,
-                                    IEngineWorldQuery world, ITFPlayerClasses? classes = null,
-                                    Player.TFPlayerCarriers? carriers = null, IEntityDirectory? directory = null)
+                                    IEngineWorldQuery world, ITFPlayerClasses classes,
+                                    Player.TFPlayerCarriers carriers, IEntityDirectory directory)
     : ISpawnSelector, IGameLifecycle
 {
     /// <summary>VEC_HULL_MIN / VEC_HULL_MAX: the mod's one copy of g_TFViewVectors (<see cref="TFViewVectors"/>).</summary>
@@ -53,8 +59,7 @@ public sealed class TFSpawnSelector(ITeams teams, IObjectiveEntities objectives,
         // loop over same-named entities is this build's one find-by-name
         // answer, and a named spot that is not a team spawn is invalid here
         // (docs/divergences.md).
-        if (carriers is not null && directory is not null
-            && carriers.Part<Player.TFRespawnOverride>(player.EntryIndex) is { Location: { Length: > 0 } location })
+        if (carriers.Part<Player.TFRespawnOverride>(player.EntryIndex) is { Location: { Length: > 0 } location })
         {
             if (directory.FindByName<InfoPlayerTeamSpawn>(location) is { } named
                 && IsSpawnPointValid(named, player, teams.Team(player), ignorePlayers: true, TeamSpawnMode.Triggered))
@@ -104,7 +109,7 @@ public sealed class TFSpawnSelector(ITeams teams, IObjectiveEntities objectives,
         bool restrictByClass = true;
         // The spawnflags name the classes a spawn admits (post-2016 maps); with no
         // class owner registered yet every player is Undefined and the class pass is skipped.
-        TFClass playerClass = classes?.ClassOf(player) ?? TFClass.Undefined;
+        TFClass playerClass = classes.ClassOf(player);
 
         var first = spot;
         do

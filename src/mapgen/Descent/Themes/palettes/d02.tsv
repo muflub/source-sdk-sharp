@@ -1,0 +1,47 @@
+# Palette of depth 2 (Haulage), plan_descent_mine_levels.md E7 and task B2.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why.
+# Chosen by query of /home/lodle/assetdb (category, average_colour luminance L, maps of the
+# mine set pl_upward/pl_goldrush/cp_dustbowl/pl_frontier/... that use it as 'mine n/m') and looked at.
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/gravelground001	material	floor	loose gravel for the track bed at 0.125 (at 0.25 its stones read as cobbles), L102; mine 4/16
+metal/wall016d	material	wall	blue-grey painted corrugated steel: the act's one cold colour, L127; mine 10/79
+nature/rockwall013	material	ceiling	tan rock overhead: corrugated sides under a rock roof, L118; mine 2/18
+concrete/concretewall001e	material	block	pale grey poured concrete (#908881) for stairs, decks and square piers (diamond plate read wrong in a corrugated level, review 2026-11-10); 91 maps
+metal/ibeam001b	material	trim	dark steel for the steel sets along the drifts, L99, 512 texels; mine 19/222
+metal/ibeam001b	material	door-frame	the door frame of brushes (review 2026-11-10: one frame per theme): a steel channel, posts and head of the sets' dark steel with a flange on the wall round the opening
+wood/wood_floor002	material	crossing	planks across every joined threshold: a track that stops at a door reads as a level crossing, not a cut (review 2026-11-10); 123 maps
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs; no prop_data so it stays static; mine 13/75
+props_lights/flood_light_left001	static	lamp	a flood head pointing down as a light_spot over the path; mine 13/126
+props_lights/flood_light_left001	static	tall-lamp	the same flood on the walls of tall rooms, aimed down into the room
+props_2fort/corrugated_metal001	static	wall-prop	loose sheets leaned on the walls; mine 16/101
+props_well/hand_truck01	static	wall-prop	a hand truck; mine 15/156
+props_farm/spool_rope	static	wall-prop	a rope drum for haulage; mine 15/92
+props_2fort/oildrum	static	corner-pile	oil drums; mine 20/185
+props_lakeside/wood_crate_01	static	corner-pile	a large freight crate in the loading bays; mine 2/41
+props_vehicles/mining_car_metal	static	floor-prop	an ore cart with collision; mine 10/50
+props_mining/track_straight_256	static	rail	track laid along the giant's route; no collision, 7 high; mine 13/80
+# rejected pl_barnblitz/metalroof_panels001 (the plan's): slate roof shingles, not a wall
+# rejected metal/metaltrack001 (the plan's floor): a thin strip texture for rails, not a floor
+# rejected metal/wall011 and metal/wall021: corrugated with a painted-in black doorway that repeats
+# rejected props_vehicles/mining_cart_supplies001 and props_trainyard/cart_base_separate (the plan's): no collision
+# rejected props_mining/industrial_ceiling_lamp02 (the plan's): level 1's pendant again; the plan asks each level for a new lamp
+nature/rockwall013	material	wall-low	rock below the steel to 192: a tall wall's second material, its foot in the rock the drift was cut from (review 2026-11-10)
+props_farm/conduit_pipe02	static	wall-prop	a cable conduit 144 up the wall; no prop_data; 105 maps
+props_mining/track_straight_128	static	rail	a half length that finishes a run of track to its door; no collision; 67 maps
+props_mining/track_straight_64	static	rail	a quarter length that finishes a run; no collision; 64 maps
+props_vehicles/mining_car_metal	static	siding	the ore cart on a siding beside the track
+props_hydro/2pipe_straight_256	static	ceiling-run	a pair of service pipes along the walls under the roof (pipe and cable runs, review 2026-11-10); 82 maps
+props_2fort/oildrum	static	companion	an oil drum beside a pile
+props_2fort/tire002	static	companion	a spare tyre leaned by a pile; no prop_data; 112 maps
+props_2fort/miningcrate002	static	companion	a powder crate beside a pile; no prop_data
+props_mining/track_arc_90degree_256	static	rail	a quarter curve of radius 228 joining two runs at a corner; no collision; 49 maps
+props_trainstation/trackends01	static	rail	the rail-end stops that end a run at a capped door, a spur or a blocked run; no collision
+props_farm/vent001	static	hung	a square louvred vent high on the steel walls; no collision; 179 maps
+props_c17/light_industrialbell01_on	static	pendant	a galvanised bell shade hung on a cable in the halls, low enough to light the floor (review 2026-11-10: overhead interest); 1 map
+props_island/gantry_support_cable_128	static	pendant-cord	a steel cable a pendant hangs from, stacked to the roof; no collision; 14 maps
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable that finishes a cord to the roof; 6 maps
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable; 5 maps
+props_mining/rock004	static	centrepiece	an ore heap on the yard hall's plinth, where the lines meet; collision, no prop_data; 36 maps
+props_mining/cranehook001	static	gantry-hook	the overhead crane's hook, hung from its bridge over the hall's floor (review 2026-11-10: a gantry in the halls); 42 maps
+props_island/gantry_support_cable_64	static	gantry-cable	the short cable the hook hangs from

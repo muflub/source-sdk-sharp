@@ -261,6 +261,7 @@ public:
 	virtual int32_t EntityPayloadAgreement(uint32_t hEntity, int32_t* pOutWords, int32_t* pOutFirstBadWord) = 0;
 	virtual void* EntityGetEngineBlock(uint32_t hEntity, int32_t* pOutSize) = 0;
 	virtual void EntitySetTransmitAlways(uint32_t hEntity, int32_t bAlways) = 0;
+	virtual void EntitySetTransmitFullCheck(uint32_t hEntity, int32_t bOn) = 0;
 };
 
 abstract_class IShimModelsServer : public IShimModels

@@ -59,6 +59,22 @@ public sealed class TFDisguiseWeaponTests
         Assert.Equal([(Weapon, rocket)], models);
     }
 
+    /// <summary>The dress as a read (plan_bots_teams_tf2 C.3): the row every client draws in the spy's hands, none before or after.</summary>
+    [Fact]
+    public void The_dress_is_read_as_the_disguise_class_primary_while_it_stands()
+    {
+        var rig = new SpyRig { ActiveWeapon = "tf_weapon_revolver" };
+        Assert.Null(rig.DisguiseWeapons.DressOf(SpyRig.Spy.EntryIndex));
+
+        Assert.True(rig.Slice.Disguise(100f, TFClass.Soldier, TFTeam.Blue));
+        rig.Slice.Tick(102.1f);
+        Assert.Equal("tf_weapon_rocketlauncher", rig.DisguiseWeapons.DressOf(SpyRig.Spy.EntryIndex));
+
+        Assert.True(rig.Slice.Disguise(103f, TFClass.Spy, TFTeam.Red));
+        rig.Slice.Tick(103.1f);
+        Assert.Null(rig.DisguiseWeapons.DressOf(SpyRig.Spy.EntryIndex));
+    }
+
     [Fact]
     public void A_deploy_while_disguised_dresses_the_disguise_back()
     {

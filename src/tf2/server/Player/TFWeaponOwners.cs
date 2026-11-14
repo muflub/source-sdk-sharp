@@ -14,6 +14,8 @@ using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
+using TF2.Server.Medigun;
+
 namespace TF2.Server.Player;
 
 /// <summary>
@@ -30,13 +32,18 @@ namespace TF2.Server.Player;
 /// <para>
 /// Dependency-light on purpose, as <see cref="TFPlayerCarriers"/> is: the
 /// weapon parts that take it are built when the core's weapon catalogue is
-/// first read, before the player composite is registered.
+/// first read, before the player composite is registered. The medigun is the
+/// one cross-link, the pomson drain's road — required here, and cycle-free
+/// because the medigun's own former owners link reads the items table
+/// directly (<see cref="TFMedigunWeapon"/>), leaving no path back here.
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFWeaponOwners)])]
 public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinners winners,
                                          TFPlayerItems items, IEnginePlayers players,
-                                         IEntityDirectory directory, ITFPlayerStats stats) : ITFWeaponOwners
+                                         IEntityDirectory directory, ITFPlayerStats stats,
+                                         ITFMedigunWeapons mediguns, ItemSchema schema,
+                                         IWeaponGiver arsenal, WeaponCatalog weapons) : ITFWeaponOwners
 {
     public TFClass ClassOf(int playerIndex) => carriers.Get(playerIndex)?.Class() ?? TFClass.Undefined;
 
@@ -57,7 +64,37 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
         return name.Length > 0 ? items.Of(playerIndex, name) : null;
     }
 
+    /// <summary>Stock's <c>curtime - pTFActiveWeapon->GetLastDeployTime()</c>
+    /// (<c>tf_player_shared.cpp:12870</c>), read off the held weapon's entity through
+    /// the door <see cref="RocketPackRefireOf"/>'s walk takes: the held clock under
+    /// the hour, or the hour itself so the Atomizer's hold refuses nowhere.</summary>
+    public float ActiveWeaponDeployAge(int playerIndex, float now)
+        => directory.Get(players.GetActiveWeaponEntity(players.GetHandle(playerIndex))) is SsWeapon { State: { } live }
+            ? now - live.LastDeployTime
+            : now;
+
     public IAttributeProvider? ManagerOf(int playerIndex) => items.ManagerOf(playerIndex);
+
+    /// <summary>
+    /// <c>IsShieldEquipped</c>'s walk (<c>GetEquippedDemoShield</c>,
+    /// tf_player_shared.cpp:626-643): the demoshield item class over the
+    /// player's worn wearables, the gate the speed walk's shield toll takes
+    /// (:11005). No wearables part is no shield, as the null walk.
+    /// </summary>
+    public bool ShieldEquipped(int playerIndex)
+    {
+        if (carriers.Part<TFWearables>(playerIndex) is not { } wearables)
+            return false;
+
+        foreach (EntityHandle wearable in wearables.Wearables)
+        {
+            if (directory.Get(wearable) is TFWearableEntity entity
+                && schema.Item(entity.State.ItemDefIndex)?.ItemClass == TFShieldCharge.ShieldItemClass)
+                return true;
+        }
+
+        return false;
+    }
 
     public bool OffGround(int playerIndex)
         => directory.Get(players.GetHandle(playerIndex)) is SsPlayer p
@@ -86,6 +123,36 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
     public float NoAttackExpire(int playerIndex) => carriers.Get(playerIndex)?.NoAttackExpire ?? 0f;
 
     /// <summary>
+    /// The owned Thermal Thruster's refire clock (<c>Weapon_OwnsThisID</c> →
+    /// <c>GetRefireTime</c>, tf_player_shared.cpp:3137-3140): the hands'
+    /// answer while the pack is out, the last holster's bank the rest of the
+    /// time. No pack carried, no answer — stock's null <c>pRocketPack</c>.
+    /// </summary>
+    public bool RocketPackRefireOf(int playerIndex, out float refire)
+    {
+        refire = 0f;
+        EntityHandle player = players.GetHandle(playerIndex);
+
+        if (TFWeaponNames.IdOf(players.GetActiveWeapon(player)) == TFWeaponId.Rocketpack
+            && directory.Get(players.GetActiveWeaponEntity(player)) is SsWeapon { State: { } live })
+        {
+            refire = live.NextSecondaryAttack;
+            return true;
+        }
+
+        return PackRow >= 0
+            && arsenal.CarriedRefireOf(player, PackRow, out refire);
+    }
+
+    /// <summary>The thruster's catalog row, resolved once from the side's table; -1 before there is one.</summary>
+    private int PackRow => _packRow ??= weapons.IndexOf(TFWeaponNames.Name(TFWeaponId.Rocketpack).ToLowerInvariant());
+
+    private int? _packRow;
+
+    /// <summary>The carrier's banked decapitations, the death hook's count (<see cref="TFDecapitations"/>).</summary>
+    public int DecapitationsOf(int playerIndex) => carriers.Get(playerIndex)?.Decapitations ?? 0;
+
+    /// <summary>
     /// The drawn bow holds the jump (<c>CTFCompoundBow::OwnerCanJump</c>,
     /// tf_weapon_compound_bow.cpp:657-660, asked by <c>CanJump</c> at
     /// tf_gamemovement.cpp:1210): the active weapon the bow and its charge
@@ -101,6 +168,44 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
         return TFWeaponNames.IdOf(players.GetActiveWeapon(player)) != TFWeaponId.CompoundBow
             || directory.Get(players.GetActiveWeaponEntity(player)) is not SsWeapon { State: { } state }
             || !TFBowBehaviour.Drawn(state);
+    }
+
+    /// <summary>
+    /// The pomson's ring hit (stock's <c>ApplyPostHitEffects</c>,
+    /// <c>tf_weaponbase.cpp:5568</c>, :5592): the medic'sÜberCharge rides the
+    /// medigun their class owns — stock's <c>Weapon_OwnsWhatever(TF_WEAPON_MEDIGUN)</c>
+    /// walk (:5571), the port's <see cref="ITFMedigunWeapons.SubtractCharge"/>,
+    /// whose service holds the canonical meter whichever hand holds the gun —
+    /// the spy's cloak rides their own carrier meter; the caller's scaled
+    /// percentages come off each, clamped at zero — the hundred-point cloak
+    /// takes a hundred times the fraction (the port's cloak meter's own unit,
+    /// <see cref="TFPlayerNetState.CloakMeter"/>). The medic's meter stands only
+    /// while the release is not running — stock's <c>!IsReleasingCharge()</c>
+    /// (:5572), the carrier's published release word. The medigun is the
+    /// constructor's own (<see cref="TFMedigunWeapon"/>, whose former owners
+    /// link reads the items table directly, leaving this cycle-free). Answers
+    /// whether a meter moved, stock's <c>bDidDrain</c> (:5555): the drain's
+    /// telling stands on it.
+    /// </summary>
+    public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+    {
+        bool drained = false;
+
+        if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
+            && carriers.Get(playerIndex)?.ChargeReleasing != true
+            && mediguns.SubtractCharge(playerIndex, medicFraction))
+        {
+            drained = true;
+        }
+
+        if (spyFraction > 0f && ClassOf(playerIndex) == TFClass.Spy
+            && carriers.Get(playerIndex) is { } state)
+        {
+            state.CloakMeter = Math.Max(0f, state.CloakMeter - spyFraction * 100f);
+            drained = true;
+        }
+
+        return drained;
     }
 }
 
@@ -135,6 +240,7 @@ public sealed class TFPlayerItems : IGameLifecycle
 {
     private readonly Dictionary<int, Dictionary<string, IAttributeProvider>> _byPlayer = new();
     private readonly Dictionary<int, IAttributeProvider> _managers = new();
+    private readonly Dictionary<int, IReadOnlyList<AttributeContainer>> _standing = new();
 
     /// <summary>A stage of its own in the TF player's band.</summary>
     public int LifecycleOrder => TFPlayerOrders.PlayerItems;
@@ -149,6 +255,22 @@ public sealed class TFPlayerItems : IGameLifecycle
 
     /// <summary>How many items the player holds.</summary>
     public int Count(int playerIndex) => _byPlayer.GetValueOrDefault(playerIndex)?.Count ?? 0;
+
+    /// <summary>The items of the player's kit, in no order: what a new kit's grants replace.</summary>
+    public IReadOnlyCollection<IAttributeProvider> Kit(int playerIndex)
+        => _byPlayer.TryGetValue(playerIndex, out var items) ? items.Values : [];
+
+    /// <summary>
+    /// The providers the attribute sources handed the player's manager when
+    /// it was last built (<see cref="ITFPlayerAttributeSource"/>): asked for
+    /// again at the next build, so the last ones are let go there.
+    /// </summary>
+    public void SetStanding(int playerIndex, IReadOnlyList<AttributeContainer> standing)
+        => _standing[playerIndex] = standing;
+
+    /// <summary>The sources' providers on the player's manager now; none before a first kit.</summary>
+    public IReadOnlyList<AttributeContainer> StandingOf(int playerIndex)
+        => _standing.GetValueOrDefault(playerIndex) ?? [];
 
     /// <summary>
     /// The player's own attribute manager (stock's <c>m_AttributeManager</c>,
@@ -169,11 +291,13 @@ public sealed class TFPlayerItems : IGameLifecycle
     {
         _byPlayer.Remove(playerIndex);
         _managers.Remove(playerIndex);
+        _standing.Remove(playerIndex);
     }
 
     void IGameLifecycle.OnLevelShutdown()
     {
         _byPlayer.Clear();
         _managers.Clear();
+        _standing.Clear();
     }
 }

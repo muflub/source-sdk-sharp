@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    TF2Descent's client contract assembly (SS0030, role "interface";
+    plan_descent_logic UI1): the IDescent* data the Descent screens read
+    (DescentUiSources.cs, DescentScreenSources.cs). Interfaces, enums and pure
+    data only. The UI loader holds TF2.Descent.Client.Ui in its collectible
+    context and resolves everything else from the core's, so this assembly is
+    the one interface identity both TF2.Descent.Client's sources and
+    TF2.Descent.Client.Ui's screens name, as TF2.Client.Interface is TF2's.
+    It references nothing.
+  -->
+</Project>

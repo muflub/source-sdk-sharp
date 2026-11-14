@@ -69,6 +69,17 @@ public enum ClientKeyBinding
     Jump,
     Strafe,
     CancelSelect,
+    Slot1,
+    Slot2,
+    Slot3,
+    Slot4,
+    Slot5,
+    Slot6,
+    Slot7,
+    Slot8,
+    Slot9,
+    Slot10,
+    DisguiseTeam,
 }
 
 /// <summary>The engine's mute questions (IGameClientExports' IsPlayerGameVoiceMuted and its two setters).</summary>
@@ -144,6 +155,11 @@ public sealed class UiClientBinding(Crossings crossings, Func<IUiClientEvents?> 
         if (b.SequenceEqual("+attack2"u8)) return ClientKeyBinding.Attack2;
         if (b.SequenceEqual("+jump"u8)) return ClientKeyBinding.Jump;
         if (b.SequenceEqual("+strafe"u8)) return ClientKeyBinding.Strafe;
+        if (b.Length == 5 && b[0] == (byte)'s' && b[1] == (byte)'l' && b[2] == (byte)'o' && b[3] == (byte)'t'
+            && b[4] >= (byte)'1' && b[4] <= (byte)'9')
+            return ClientKeyBinding.Slot1 + (b[4] - '1');
+        if (b.SequenceEqual("slot10"u8)) return ClientKeyBinding.Slot10;
+        if (b.SequenceEqual("disguiseteam"u8)) return ClientKeyBinding.DisguiseTeam;
         return ClientKeyBinding.Other;
     }
 

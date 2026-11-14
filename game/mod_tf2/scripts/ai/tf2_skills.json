@@ -1,0 +1,991 @@
+{
+ "format": 1,
+ "note": "TF2's skill curves (plan_bots_teams_tf2 C.5): each parameter the brain reads is a value per level 0..10 of one skill. One set for every class until P7's per-class sections; P6 starts from the HL2MP numbers. Read by the server through the game's file seam (TFSkillCurves) and handed to the AI core as data.",
+ "hitRateRatios": {
+  "easy": 0.48,
+  "normal": 1.0,
+  "hard": 1.2,
+  "expert": 1.35
+ },
+ "parameters": {
+  "aimErrorDeg": {
+   "skill": "accuracy",
+   "direction": "down",
+   "note": "the aim's error about the target point once settled: its standard deviation, degrees; it drifts (no new draw per decide) and starts wider at first sight (Hl2mpDecider.AimSettleExtra)",
+   "levels": [
+    11.2,
+    9.2,
+    7.8,
+    4.7,
+    1.55,
+    1.2,
+    0.8,
+    0.5,
+    0.2,
+    0.16,
+    0.12
+   ]
+  },
+  "leadQuality": {
+   "skill": "accuracy",
+   "direction": "up",
+   "note": "the share of the projectile lead the bot aims with (\u00a75.3.3)",
+   "levels": [
+    0.2,
+    0.28,
+    0.36,
+    0.44,
+    0.52,
+    0.62,
+    0.74,
+    0.85,
+    0.95,
+    0.98,
+    1.0
+   ]
+  },
+  "glanceRate": {
+   "skill": "alertness",
+   "direction": "up",
+   "note": "glances off the path per second while moving and unengaged",
+   "levels": [
+    0.05,
+    0.085,
+    0.12,
+    0.155,
+    0.19,
+    0.225,
+    0.26,
+    0.295,
+    0.33,
+    0.365,
+    0.4
+   ]
+  },
+  "preferredRangeScale": {
+   "skill": "aggression",
+   "direction": "down",
+   "note": "the weapon family's preferred engagement range is scaled by this",
+   "reads": "style",
+   "levels": [
+    1.4,
+    1.32,
+    1.24,
+    1.16,
+    1.08,
+    1.0,
+    0.92,
+    0.84,
+    0.76,
+    0.68,
+    0.6
+   ]
+  },
+  "chaseSeconds": {
+   "skill": "aggression",
+   "direction": "up",
+   "note": "how long the bot chases an opponent it lost sight of before it searches",
+   "reads": "style",
+   "levels": [
+    1.0,
+    1.7,
+    2.4,
+    3.1,
+    3.8,
+    4.5,
+    5.2,
+    5.9,
+    6.6,
+    7.3,
+    8.0
+   ]
+  },
+  "coverWeight": {
+   "skill": "cover",
+   "direction": "up",
+   "note": "how much a fighting bot prefers a spot the opponent cannot see",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "reloadBelowPct": {
+   "skill": "cover",
+   "direction": "up",
+   "note": "the clip share under which the bot reloads when nobody is sighted",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.06,
+    0.12,
+    0.18,
+    0.24,
+    0.3,
+    0.36,
+    0.42,
+    0.48,
+    0.54,
+    0.6
+   ]
+  },
+  "searchSeconds": {
+   "skill": "tenacity",
+   "direction": "up",
+   "note": "how long the bot searches the belief's cells before it gives up",
+   "reads": "style",
+   "levels": [
+    3.0,
+    5.2,
+    7.4,
+    9.6,
+    11.8,
+    14.0,
+    16.2,
+    18.4,
+    20.6,
+    22.8,
+    25.0
+   ]
+  },
+  "grudgeWeight": {
+   "skill": "tenacity",
+   "direction": "up",
+   "note": "how much who killed the bot most weighs when it has a choice of opponent",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5
+   ]
+  },
+  "ambushWeight": {
+   "skill": "cunning",
+   "direction": "up",
+   "note": "Ambush's utility when an opponent's route is known",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.08,
+    0.16,
+    0.24,
+    0.32,
+    0.4,
+    0.48,
+    0.56,
+    0.64,
+    0.72,
+    0.8
+   ]
+  },
+  "routeAltWeight": {
+   "skill": "cunning",
+   "direction": "up",
+   "note": "the cost added to the shortest approach's cells, so a cunning bot comes another way",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.06,
+    0.12,
+    0.18,
+    0.24,
+    0.3,
+    0.36,
+    0.42,
+    0.48,
+    0.54,
+    0.6
+   ]
+  },
+  "fireRangeGate": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "the bot fires up to this many times the weapon's effective range",
+   "levels": [
+    2.0,
+    1.9,
+    1.8,
+    1.7,
+    1.6,
+    1.5,
+    1.4,
+    1.3,
+    1.2,
+    1.1,
+    1.0
+   ]
+  },
+  "pushTrust": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "P(empty) + P(reloading) the push needs (\u00a75.4): 0.6 at 10, 99 (never) at 0",
+   "levels": [
+    99.0,
+    1.5,
+    1.4,
+    1.3,
+    1.2,
+    1.1,
+    1.0,
+    0.9,
+    0.8,
+    0.7,
+    0.6
+   ]
+  },
+  "pushMarginSeconds": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "the push's margin: it must arrive this long before the reload ends",
+   "levels": [
+    1.0,
+    0.92,
+    0.84,
+    0.76,
+    0.68,
+    0.6,
+    0.52,
+    0.44,
+    0.36,
+    0.28,
+    0.2
+   ]
+  },
+  "strafeWeight": {
+   "skill": "agility",
+   "direction": "up",
+   "note": "the share of a fight's ticks spent strafing",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "strafeMeanSeconds": {
+   "skill": "agility",
+   "direction": "down",
+   "note": "the mean time between strafe turns (drawn, never periodic)",
+   "levels": [
+    1.2,
+    1.115,
+    1.03,
+    0.945,
+    0.86,
+    0.775,
+    0.69,
+    0.605,
+    0.52,
+    0.435,
+    0.35
+   ]
+  },
+  "retreatHealthPct": {
+   "skill": "nerve",
+   "direction": "down",
+   "note": "the health share under which the bot retreats from an approaching opponent",
+   "reads": "style",
+   "levels": [
+    0.6,
+    0.55,
+    0.5,
+    0.45,
+    0.4,
+    0.35,
+    0.3,
+    0.25,
+    0.2,
+    0.15,
+    0.1
+   ]
+  },
+  "rankBonus": {
+   "skill": "headhunter",
+   "direction": "up",
+   "note": "the target-priority weight of the opponent's scoreboard rank (\u00a75.4)",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "pathCapMultiplier": {
+   "skill": "headhunter",
+   "direction": "up",
+   "note": "how much farther than the nearest opponent the bot will walk to its target",
+   "reads": "style",
+   "levels": [
+    1.0,
+    1.2,
+    1.4,
+    1.6,
+    1.8,
+    2.0,
+    2.2,
+    2.4,
+    2.6,
+    2.8,
+    3.0
+   ]
+  },
+  "easyTargetDiscount": {
+   "skill": "headhunter",
+   "direction": "down",
+   "note": "the priority a nearer, easier target keeps against the leader",
+   "reads": "style",
+   "levels": [
+    1.0,
+    0.93,
+    0.86,
+    0.79,
+    0.72,
+    0.65,
+    0.58,
+    0.51,
+    0.44,
+    0.37,
+    0.3
+   ]
+  },
+  "reactionMs": {
+   "skill": "alertness",
+   "direction": "down",
+   "note": "after a target is recognised, before the view starts toward it and before the first shot (\u00a73.4.1); ms",
+   "levels": [
+    240.0,
+    190.0,
+    160.0,
+    130.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0
+   ]
+  },
+  "trackingLagMs": {
+   "skill": "accuracy",
+   "direction": "down",
+   "note": "how far behind a moving target the view's pursuit runs, ms",
+   "levels": [
+    250.0,
+    231.0,
+    212.0,
+    193.0,
+    174.0,
+    150.0,
+    125.0,
+    100.0,
+    75.0,
+    65.0,
+    60.0
+   ]
+  },
+  "flickOvershootPct": {
+   "skill": "accuracy",
+   "direction": "down",
+   "note": "how far past or short of the target a flick lands, at most, in percent of its length",
+   "levels": [
+    25.0,
+    22.8,
+    20.6,
+    18.4,
+    16.2,
+    14.0,
+    11.8,
+    9.6,
+    7.4,
+    5.2,
+    3.0
+   ]
+  },
+  "fragKnack": {
+   "skill": "cunning",
+   "direction": "up",
+   "note": "how much of fragChance a bot's level of Cunning lets through: knowing a grenade is what this moment wants. The difficulty's say in it, where fragChance is the bot's taste (\u00a75.4, \u00a712.3)",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.45,
+    0.75,
+    0.9,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "fragChance": {
+   "skill": "aggression",
+   "direction": "up",
+   "reads": "style",
+   "note": "how readily a bot with a reason switches to a frag, drawn at most once per Hl2mpDecider.FragCheckSeconds (\u00a75.4, ruling 2026-11-03): a favourite shows at any difficulty",
+   "levels": [
+    0.02,
+    0.03,
+    0.05,
+    0.07,
+    0.1,
+    0.13,
+    0.16,
+    0.2,
+    0.25,
+    0.3,
+    0.35
+   ]
+  },
+  "fragAimDeg": {
+   "skill": "cunning",
+   "direction": "down",
+   "note": "the standard deviation of where a throw goes, degrees, one draw a throw: nobody's arc is perfect",
+   "levels": [
+    14,
+    12,
+    10,
+    8,
+    6.5,
+    5,
+    4,
+    3,
+    2.5,
+    2,
+    1.5
+   ]
+  },
+  "fragCareless": {
+   "skill": "cunning",
+   "direction": "down",
+   "note": "the chance a bot does not look before it throws, so a rail or a door frame can send one back: a person's mistake, and none from Hard's spend up (SkillCurves.CarefulFromPoints)",
+   "levels": [
+    0.3,
+    0.25,
+    0.2,
+    0.15,
+    0.1,
+    0.05,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "aimRise": {
+   "skill": "accuracy",
+   "direction": "up",
+   "note": "how far over the shoulder point a good hand keeps its crosshair, units: nearer the head, three times the damage. Hard's height, none at Medium's level (\u00a73.4.1, user 2026-11-03: Hard may rise a little, its aimErrorDeg does not change for it)",
+   "levels": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    2.0,
+    2.0,
+    2.0,
+    2.0,
+    2.0
+   ]
+  },
+  "altFireChance": {
+   "skill": "cunning",
+   "direction": "up",
+   "note": "the chance a bot with a reason takes its second trigger, drawn at most once per Hl2mpDecider.AltCheckSeconds (\u00a75.4, ruling 2026-11-03): knowing when a grenade or a ball pays. Reads its level, not its height: Hard must not get harder than the ruling allows, and this is where that is set",
+   "levels": [
+    0.0,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7
+   ]
+  },
+  "prefireChance": {
+   "skill": "cunning",
+   "direction": "up",
+   "reads": "style",
+   "note": "the chance a bot with a belief fires a burst at the place it thinks someone is, drawn at most once per Hl2mpDecider.PrefireCheckSeconds (\u00a75.4): using a prediction",
+   "levels": [
+    0.0,
+    0.25,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.85,
+    0.9,
+    0.95,
+    1.0
+   ]
+  },
+  "prefireThrift": {
+   "skill": "discipline",
+   "direction": "down",
+   "reads": "style",
+   "note": "prefireChance is multiplied by this: a disciplined bot saves its ammo for what it can see (\u00a75.4)",
+   "levels": [
+    1.0,
+    1.0,
+    0.92,
+    0.84,
+    0.76,
+    0.68,
+    0.6,
+    0.52,
+    0.44,
+    0.32,
+    0.2
+   ]
+  },
+  "prefireBurstSeconds": {
+   "skill": "discipline",
+   "direction": "down",
+   "reads": "style",
+   "note": "how long a prefire holds the trigger: a person sprays a corner for under a second, then checks (\u00a75.4)",
+   "levels": [
+    0.9,
+    0.84,
+    0.78,
+    0.72,
+    0.66,
+    0.6,
+    0.54,
+    0.48,
+    0.42,
+    0.36,
+    0.3
+   ]
+  },
+  "giveUpHealth": {
+   "skill": "tenacity",
+   "direction": "down",
+   "reads": "style",
+   "note": "below this share of its health, with someone on it, a bot leaves the fight whatever its nerve (the low-Tenacity names: Runs Away, Quitter, Bails Out)",
+   "levels": [
+    0.6,
+    0.3,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "crouchShare": {
+   "skill": "cover",
+   "direction": "up",
+   "reads": "style",
+   "note": "the share of a fight at range, holding position, a bot spends crouched while it fires (\u00a75.4, ruling 2026-11-02); Medium's height reads about what the user's recordings show of a person: rarely",
+   "levels": [
+    0.0,
+    0.005,
+    0.01,
+    0.015,
+    0.02,
+    0.03,
+    0.05,
+    0.09,
+    0.15,
+    0.22,
+    0.3
+   ]
+  },
+  "recoilControl": {
+   "skill": "accuracy",
+   "direction": "up",
+   "note": "the share of a climb the view pulls down against while it fires (\u00a73.4.1, recoil 2026-11-02): as far as skill allows, never all of it, and through the view's own lag and turn limits",
+   "levels": [
+    0.0,
+    0.08,
+    0.16,
+    0.26,
+    0.38,
+    0.5,
+    0.6,
+    0.68,
+    0.75,
+    0.8,
+    0.85
+   ]
+  },
+  "burstSeconds": {
+   "skill": "discipline",
+   "direction": "down",
+   "reads": "style",
+   "note": "how long the trigger stays down on a machine gun before letting the climb settle; twice that close, where a body is wide",
+   "levels": [
+    1.5,
+    1.25,
+    1.05,
+    0.9,
+    0.75,
+    0.65,
+    0.55,
+    0.48,
+    0.42,
+    0.37,
+    0.32
+   ]
+  },
+  "recoilSettleDeg": {
+   "skill": "discipline",
+   "direction": "down",
+   "reads": "style",
+   "note": "how far the crosshair has to come back before the next shot or burst: a careless bot fires with it still up",
+   "levels": [
+    9.0,
+    7.5,
+    6.0,
+    5.0,
+    4.0,
+    3.0,
+    2.4,
+    1.9,
+    1.5,
+    1.2,
+    1.0
+   ]
+  },
+  "calloutDelayMs": {
+   "skill": "alertness",
+   "direction": "down",
+   "note": "how long after a bot sees an enemy its callout reaches its teammates, ms (plan_bots_teams_tf2 B.4; never under the session's 26-tick floor)",
+   "levels": [
+    1200.0,
+    1120.0,
+    1040.0,
+    960.0,
+    880.0,
+    800.0,
+    720.0,
+    640.0,
+    560.0,
+    480.0,
+    400.0
+   ]
+  },
+  "leashUnits": {
+   "skill": "teamwork",
+   "direction": "down",
+   "note": "Stick (B.5): beyond this from the nearest teammate it knows of, a bot walks back toward them, units",
+   "levels": [
+    1500.0,
+    1380.0,
+    1260.0,
+    1140.0,
+    1020.0,
+    900.0,
+    780.0,
+    660.0,
+    540.0,
+    420.0,
+    300.0
+   ]
+  },
+  "calloutChance": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "the chance a newly sighted enemy is called out to the team (B.4)",
+   "levels": [
+    0.45,
+    0.49,
+    0.53,
+    0.57,
+    0.61,
+    0.65,
+    0.69,
+    0.73,
+    0.77,
+    0.81,
+    0.85
+   ]
+  },
+  "followSeconds": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "how long a teammate's order holds, and how late a bot comes to a rally (its shortfall from the top), seconds (B.5)",
+   "levels": [
+    5.0,
+    7.5,
+    10.0,
+    12.5,
+    15.0,
+    17.5,
+    20.0,
+    22.5,
+    25.0,
+    27.5,
+    30.0
+   ]
+  },
+  "teamCoverWeight": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "Cover (B.5): the weight of seeing a teammate's called fight from another angle",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "tradeWeight": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "Trade (B.5): the chance a teammate's death in sight is traded, one draw a death",
+   "levels": [
+    0.2,
+    0.27,
+    0.34,
+    0.41,
+    0.48,
+    0.55,
+    0.62,
+    0.69,
+    0.76,
+    0.83,
+    0.9
+   ]
+  },
+  "crossfireWeight": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "Crossfire (B.5): the chance the teammate behind on one way to a known enemy goes round by the other, one draw an enemy",
+   "levels": [
+    0.0,
+    0.08,
+    0.16,
+    0.24,
+    0.32,
+    0.4,
+    0.48,
+    0.56,
+    0.64,
+    0.72,
+    0.8
+   ]
+  },
+  "fightDrive": {
+   "skill": "aggression",
+   "direction": "up",
+   "note": "what Aggression makes of the scores of a fight and of going for the enemy's objective (plan_bots_teams_tf2_part_g G.2.2): a factor on them, 1 leaves them as the tree scores them",
+   "reads": "style",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "chaseDrive": {
+   "skill": "tenacity",
+   "direction": "up",
+   "note": "what Tenacity makes of the score of chasing the enemy who carries the team's flag: a factor on it",
+   "reads": "style",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "holdDrive": {
+   "skill": "discipline",
+   "direction": "up",
+   "note": "what Discipline makes of the scores of defending the team's flag and of guarding it dropped: a factor on them",
+   "reads": "style",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "escortDrive": {
+   "skill": "teamwork",
+   "direction": "up",
+   "note": "what Teamwork makes of the score of going with the teammate who carries the flag: a factor on it",
+   "levels": [
+    0.7,
+    0.76,
+    0.82,
+    0.88,
+    0.94,
+    1.0,
+    1.06,
+    1.12,
+    1.18,
+    1.24,
+    1.3
+   ]
+  },
+  "surviveDrive": {
+   "skill": "nerve",
+   "direction": "down",
+   "note": "what Nerve makes of the score of leaving for health: a factor on it, a timid bot's above 1",
+   "reads": "style",
+   "levels": [
+    1.3,
+    1.24,
+    1.18,
+    1.12,
+    1.06,
+    1.0,
+    0.94,
+    0.88,
+    0.82,
+    0.76,
+    0.7
+   ]
+  },
+  "scoreNoise": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "how far each of a bot's scores wanders about its own value (ScoreNoise): the most a score is off by, as a share of it",
+   "levels": [
+    0.1,
+    0.094,
+    0.088,
+    0.082,
+    0.076,
+    0.07,
+    0.064,
+    0.058,
+    0.052,
+    0.046,
+    0.04
+   ]
+  },
+  "dodgeChance": {
+   "skill": "agility",
+   "direction": "up",
+   "note": "the share of the rockets and pipes coming its way that the bot gets out of the way of (plan_bots_teams_tf2_part_g G.2.3): drawn once for each",
+   "levels": [
+    0.05,
+    0.14,
+    0.23,
+    0.32,
+    0.41,
+    0.5,
+    0.59,
+    0.68,
+    0.77,
+    0.86,
+    0.95
+   ]
+  },
+  "dodgeLateMs": {
+   "skill": "agility",
+   "direction": "down",
+   "note": "how long after its reaction the bot starts to get out of a blast's way, ms: a clumsy bot's sidestep comes late",
+   "levels": [
+    500.0,
+    450.0,
+    400.0,
+    350.0,
+    300.0,
+    250.0,
+    200.0,
+    150.0,
+    100.0,
+    50.0,
+    0.0
+   ]
+  },
+  "voiceEverySeconds": {
+   "skill": "teamwork",
+   "direction": "down",
+   "note": "the least time between two of the bot's lines on the voice menu, seconds (G.2.4)",
+   "levels": [
+    45.0,
+    41.3,
+    37.6,
+    33.9,
+    30.2,
+    26.5,
+    22.8,
+    19.1,
+    15.4,
+    11.7,
+    8.0
+   ]
+  }
+ },
+ "styleNote": "A parameter that reads 'style' is read at a skill's height above the bot's own mean (SkillCurves.StyleLevel, \u00a710, ruling 2026-11-02), not its level, so a bot's favourite shows at any difficulty; the rest read the level itself, so difficulty still means skill."
+}

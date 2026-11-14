@@ -52,18 +52,25 @@ public static class TFJump
     /// popper's hype up to <see cref="HypeDashes"/>; else fewer than
     /// <paramref name="dashCount"/> — <c>tf_scout_air_dash_count</c> with the
     /// active weapon's <c>air_dash_count</c> walked over it
-    /// (<c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c>, :12861-12862) — so far, and not
-    /// with <c>set_scout_doublejump_disabled</c> 1 on the player (:12875-12878).
-    /// Not ported (deferred.tsv): the Atomizer's third-jump deploy delay.
+    /// (<c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c>, :12861-12862) — so far; held
+    /// longer than seven-tenths of a second, the Atomizer's hold on what would
+    /// be the third dash (:12867-12873); and not with
+    /// <c>set_scout_doublejump_disabled</c> 1 on the player (:12875-12878).
     /// </summary>
     /// <param name="activeWeapon">The active weapon's item, the ON_OTHER root
     /// of the dash count; null for none, as stock's null <c>pTFActiveWeapon</c>.</param>
-    /// <param name="attribs">The side's attribute walk, the player's own manager
-    /// as its root; null for none, every hook then unset.</param>
-    /// <param name="playerAttributes"><c>m_AttributeManager</c>.</param>
+    /// <param name="attribs">The side's attribute walk, injected through its
+    /// side's registration (the <see cref="AttributeHooks"/> seam answers on both
+    /// sides), the player's own manager as its root.</param>
+    /// <param name="playerAttributes"><c>m_AttributeManager</c>; null for none,
+    /// as stock's manager-less arm.</param>
+    /// <param name="secondsSinceDeploy">How long the active weapon has been in
+    /// the hands — stock's <c>curtime - pTFActiveWeapon->GetLastDeployTime()</c>
+    /// (:12870). Null skips the hold, the arm no caller with a clock to ask
+    /// needs to answer.</param>
     public static bool CanAirDash(TFClass playerClass, in TFCondMask conditions, int airDash, int dashCount,
-                                  IAttributeProvider? activeWeapon = null, AttributeHooks? attribs = null,
-                                  IAttributeProvider? playerAttributes = null)
+                                  IAttributeProvider? activeWeapon, AttributeHooks attribs,
+                                  IAttributeProvider? playerAttributes, float? secondsSinceDeploy = null)
     {
         if (conditions.Has(TFCond.HalloweenKart))
             return false;
@@ -77,13 +84,20 @@ public static class TFJump
         if (conditions.Has(TFCond.SodapopperHype))
             return airDash < HypeDashes;
 
-        if (attribs is not null)
-            dashCount = attribs.Int(dashCount, AirDashCountAttrib, activeWeapon);
+        dashCount = attribs.Int(dashCount, AirDashCountAttrib, activeWeapon);
 
         if (airDash >= dashCount)
             return false;
 
-        return attribs?.Int(0, DoubleJumpDisabledAttrib, playerAttributes) != 1;
+        // The Atomizer's hold (:12867-12873): only over a held weapon, and
+        // only the dash that would be the third — the count under two and the
+        // first dash are never held. The weapon in the hands less than seven
+        // tenths of a second refuses it (:12871); no clock answer skips.
+        if (activeWeapon is not null && secondsSinceDeploy is { } sinceDeploy
+            && dashCount >= 2 && airDash == 1 && sinceDeploy < 0.7f)
+            return false;
+
+        return attribs.Int(0, DoubleJumpDisabledAttrib, playerAttributes) != 1;
     }
 
     /// <summary>
@@ -95,14 +109,15 @@ public static class TFJump
     /// (deferred.tsv).
     /// </summary>
     public static float AirDash(TFClass playerClass, in TFCondMask conditions, int airDash, int dashCount,
-                                IAttributeProvider? activeWeapon = null, AttributeHooks? attribs = null,
-                                IAttributeProvider? playerAttributes = null)
+                                IAttributeProvider? activeWeapon, AttributeHooks attribs,
+                                IAttributeProvider? playerAttributes, float? secondsSinceDeploy = null)
     {
-        if (!CanAirDash(playerClass, in conditions, airDash, dashCount, activeWeapon, attribs, playerAttributes))
+        if (!CanAirDash(playerClass, in conditions, airDash, dashCount, activeWeapon, attribs, playerAttributes,
+                        secondsSinceDeploy))
             return 0f;
 
-        float jumpMod = attribs?.Float(1f, JumpHeightAttrib, playerAttributes) ?? 1f;
-        jumpMod = attribs?.Float(jumpMod, JumpHeightFromWeaponAttrib, activeWeapon) ?? jumpMod;
+        float jumpMod = attribs.Float(1f, JumpHeightAttrib, playerAttributes);
+        jumpMod = attribs.Float(jumpMod, JumpHeightFromWeaponAttrib, activeWeapon);
         return DashSpeed * jumpMod;
     }
 }

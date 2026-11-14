@@ -39,6 +39,9 @@ public sealed class Brain
     /// <summary>The game's decision layer, or null for a brain that holds (a fact's, or one with no curves).</summary>
     public IDecider? Decider { get; }
 
+    /// <summary>What this brain's steps cost by part, for an instrument (<see cref="StepCost"/>); null in a game.</summary>
+    public StepCost? Cost { get; init; }
+
     /// <summary>The last tick this brain stepped at, or null before its first step.</summary>
     public Tick? LastStep { get; private set; }
 
@@ -54,8 +57,11 @@ public sealed class Brain
             throw new ArgumentOutOfRangeException(nameof(tick), tick.Value, $"a brain steps forward; it last stepped at {last}");
 
         LastStep = tick;
+        Cost?.Begin();
         Memory?.Step(tick, view, events);
         _ = _random;
-        return Decider is { } d ? d.Decide(tick, view, ++_seq) : IntentCommand.Hold(Bot, tick, ++_seq);
+        IntentCommand intent = Decider is { } d ? d.Decide(tick, view, ++_seq) : IntentCommand.Hold(Bot, tick, ++_seq);
+        Cost?.Mark(StepPart.Decide);
+        return intent;
     }
 }

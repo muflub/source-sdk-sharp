@@ -43,14 +43,48 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
-## A 12-bot game died inside vphysics.so once (2026-11-03)
+## ModImageTests races another leg for bin/debug/bin/linux64 (2026-11-09)
 
-One 5-minute run of four on dm_lockdown with 12 bots segfaulted on the main thread in
-`vphysics.so` during the server's frame, reading address 0x28
-(`/tmp/dumps/crash_20261103063512_2.dmp`, `vphysics.so+0x112f61`, reached from
-`libss_fwd_server.so+0x1a3f1`), in a burst of kills with ragdolls and an `entityflame`. Bot
-chat is not on the stack. About 20 minutes of 12 bots: too few to rate it. Next: a longer
-12-bot soak with the stack resolved, to see what it was simulating.
+`ModImageTests.The_image_carries_the_mod_its_resolved_settings_and_the_core_and_nothing_mounted`
+failed once in a landing's `make test` (managed-server leg, 1 of 9765, at the F172 landing over
+`de4f2a056`) with `tar: ./bin/linux64: file changed as we read it`; the rerun passed. Its
+`PlantedGame` symlinks into the real `bin/debug`, and `tools/mod-image --dry-run` tars through the
+links with `tar -ch` (tools/mod-image:74), so a leg that writes `bin/debug/bin/linux64` while it runs
+fails it. Which leg writes there was not found. **Next:** find the writer, or plant a copy of
+`bin/linux64` (or a listing) instead of a link to the live directory.
+
+## The daily gate's rope and overlay flake follows knock-loose (2026-11-08)
+
+`rope-settle` and `debug-overlay` came back FLAKY (2 of 3) in the daily gate. Lanes F143 and
+F152 (no code changed) found: each step alone passes 3/3, and so do `join,<step>,rope-settle,debug-overlay`
+for `projectile`, `skinned-model`, `viewmodel-merge` and `gib-ragdoll`; with `knock-loose`
+it went PASS FAIL FAIL, then 5/5 and 8/8 on reruns, so it is about 1 in 3 and load (50-80)
+modulates it. The failure is a delay, not a loss: after the between-pass `map`, the client's
+rope strips freeze for 4-10 s while the spans' thinks keep advancing, then recover by
+themselves; `cs_cl_rope_spans` shows all four spans throughout. So the stall is upstream of
+`ClientRopeSystem.Draw` (engine renderables or the draw call not arriving), not its own
+early-outs. `debug-overlay`'s UI check failed the same way on passes 2-4 of one run.
+**Next:** sample the `ClientStandaloneDraw` and `ClientStandaloneDrawBatch` crossings across a
+failing pass (the dev API; lanes could not reach it). What `knock-loose` leaves that the reload
+doesn't reset is unknown.
+
+`gib-ragdoll`'s position check is a race, not a divergence: it reads the first ragdoll root
+0.5 s after a 400 u/s shot and wants it within 256 u, which holds only for reads within about
+0.64 s; the failing point `[-3468.3, 2907.0, 10.5]` lies on the shot axis. The port matches
+stock (`Gibs.cs` `ThrowRagdoll`). **Next:** bound it by the flight envelope or read the root
+at rest.
+
+## Collision rule changes stock tells vphysics of and ours does not (2026-11-03)
+
+A 12-bot game's segfault in `vphysics.so` was a player's rules changing with no recheck: a
+player's physics is its shadow hull, the entity's own object is NULL, so `SetSolidity` told
+nobody. vphysics re-asks the filter for an object as it wakes and deletes what it refuses, here a
+mindist whose impact was running, and the friction pair lookup read the freed one (the fix's commit
+has the stack). Fixed for solidity and group. Stock's `CollisionRulesChanged` also runs from
+`SetOwnerEntity`, `SetMoveType` and `SetParent`; ours are in `SetOwnerHandle` and managed's block
+writes and do not recheck. 0 stale pairs measured without them (88 game-minutes, debug, 12
+bots), and `live-gate`'s log check now fails on any: `DebugCheckContacts` prints the pair. Next
+if a pair shows: call it from that setter. Debug builds only: release does not check its contacts.
 
 ## live-gate's render budget went over once, on ClientDetailPrepare (2026-11-02)
 
@@ -1319,12 +1353,9 @@ and where its record lives now.
 
 ## TF2: small differences seen while checking the name tag (2026-11-03)
 
-- A teammate may get no name tag. In a two-client run on one team, each player's ray at the other missed: 0 hits in 3 samples from the joiner, 0 in 11 from the host, against 2 of 3 from the joiner on opposite teams. Too few samples to call it a rule, and the host missed on opposite teams too. Next: a real count at one pose, then `CWorldQueryClient::ClientClipRayToEntities`'s solid and contents gates.
 - The window in 2fort's red spawn: the shutter behind the glass reads 105.7 in stock and 69.6 in ours; inside the room with no glass they match at 1.00. 2fort has no `func_reflective_glass`, so that isn't the path. Something about the pane still differs.
 - F38's quality prefix reaches the loadout screens, not yet the scoreboard or target ID.
-- A crit-boosted player's HUD portrait is tinted red in stock and not in ours (same-pose shots, soldier with `addcond 34`). The first-person glow matches.
 - `TFConceptSpeech`'s scene arm counts a scene with no sounds as not spoken, which refuses a taunt whose scene is silent; stock plays any scene it finds. The three kill scenes all have sounds. Nothing has been measured for the others.
-- A taunt kill's kill feed names the weapon (`fists`, `knife`). Stock has a `taunt_*` name for each (tf_gamerules.cpp:12213); check the icon against stock.
 - The minigun's flash draws at the muzzle now; stock's core may read brighter than ours. It flickers, so compare several frames before calling it a difference.
 
 ## Performance: what the 2026-11-03 pass left (release, AMD, five bots fighting)
@@ -1367,3 +1398,21 @@ Per event:
 Not resolved: `ServiceContainer.Resolve` builds `Add<T>()` services on first ask (31 registrations, not traced); `UiForm.IsDirty`'s `EqualityComparer<T>.Default` on struct fields without `IEquatable`; reflection-based JSON in `TF2DescentRules` and `InventoryStore`.
 
 Worth adding: the crash fix's material thread marks are proven only live, with no live-gate step (`MaterialConfigConVars`).
+
+## AI nav: a hull wider than the game's cannot climb stairs (2026-11-11)
+
+Found by the Descent CR3 lane (`docs/plans/tf2_descent/plan_descent_logic.md`). `NavGraphFromNav3d` raises an extra hull (`NavNumbers.ExtraHulls`) by one step only, so a box that reaches the step two up is admitted on no step: on `ctf_2fort` at map-tools 3551fa8 a 49 by 83 hull has 0 of 4 spawn-to-flag ways and an 86 by 145 hull 0 of 4, where the game's own 48 by 82 has 4 of 4. The fixture is `src/ai/tests/ServerNav/NavExtraHullStairTests.cs`, which pins today's answer and is the red-to-green fact for the fix.
+
+The fix, as the AI coordinator ruled it on 2026-11-11: stand the hull on the highest step under its footprint, with each rise within `StepHeight`. It is a Descent lane's, for when Descent needs giants on stairs, based on main after the coordinator's lane p6e (which is in `NavGraphFromNav3d` for the 2fort traps) has landed. Existing numbers stay byte-identical: the checks CR3 ran (`NumbersKey`, cache names, the dm_lockdown and ctf_2fort graph hashes, the HL2MP replays).
+
+## TF2 bots on ctf_2fort: what P6 left (2026-11-11)
+
+From lane p6e (main after `694f4f618`). Its runs and notes were in that lane's `.scratch`, and the numbers are in `docs/plans/plan_bots_teams_tf2.md` §8.1.
+
+- **The host's client never loads the next map after `changelevel pl_badwater` with 12 bots.** In one of p6e's `bots-ctf` hand-runs, the server loaded the map but the listen host's client did not repaint within 180 s. The same changelevel with no bots repainted fine. That is one occurrence in three hand-runs. `bots-ctf` will go red on it if it recurs. Find out whether it is the bots' disconnect, the map's size or the client's load.
+- **The flag rooms (±600 ∓3427):** live, bots stand next to the intel dais at (444 -3420 -176) reporting "OffGraph cell -1, next none", 15-22 reports per 6 runs. An offline probe at the same spot finds a cell and a 39 u crouch-jump, so it is not reproduced.
+- **"Dropped flag trace started solid!":** the TF2 mod sometimes leaves a dropped flag in mid-air, and bots gather under it. Seen at (371.5 2339.5 224.6), (168.8 749.1 6.9), (266.1 -2918.9 -151.0), (150.4 -2206.0 -57.5), (-419.2 3401.3 -125.0), (179.7 1516.4 262.5) on ctf_2fort, and at (1055 424) on ss_ai_tf_jump. This is a TF2 game fault (src/tf2), not the AI's.
+
+## Descent: make descent-install then any build is refused as stale (2026-11-11)
+
+Found by the Descent horde spike (`docs/plans/tf2_descent/plan_descent_logic.md` 3.11). `make descent-install` links a linked level into the mod's `pool/maps`; the setup check that `make debug` and `make headless` run then calls those links stale and stops ("remove stale ..."). The spike copied the three files (`.bsp`, `.nav3d`, `.map2d`) into `bin/<config>/mods/tf2_descent/pool/maps/` instead. Either the install copies, or the setup check knows the pool. The map session owns both.

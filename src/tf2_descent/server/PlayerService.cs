@@ -1,12 +1,16 @@
 using SourceSharp.Abi;
 using SourceSharp.Host.Sdk;
 
+using TF2.Descent.Server.Hero;
+
 namespace TF2.Descent.Server;
 
 /// <summary>
 /// Players in the hosting service (spec §5): a client that becomes active joins
 /// with its character leased; one that leaves checkpoints, releases and leaves;
 /// everyone is checkpointed every minute; a lost lease removes the player.
+/// Each checkpoint, the leave's included, carries the hero's sheet as
+/// <see cref="HeroSheets"/> holds it now, with the evidence it drains.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class PlayerService(
@@ -15,12 +19,15 @@ public sealed class PlayerService(
     IConnectedClients clients,
     ClientMessages messages,
     IFrameScheduler scheduler,
-    ILog log) : IClientLifecycle, IHostBootHook, ILeaseHook, IHostConnectionHook, IOrderedHook
+    ILog log,
+    HeroSheets sheets) : IClientLifecycle, IHostBootHook, ILeaseHook, IHostConnectionHook, IOrderedHook
 {
     /// <summary>A joined player: who they are to the engine and to the service.
     /// <paramref name="Name"/> is the character's name as the join answered it —
-    /// what the party is told when this player dies (plan_descent_death §4 M2.3).</summary>
-    public sealed record Entry(int EntIndex, string SteamId, string Peer, string CharacterId, string? Name = null);
+    /// what the party is told when this player dies (plan_descent_death §4 M2.3).
+    /// <paramref name="ReachedDepth"/> is the deepest level the character had
+    /// reached when the join answered: what the town's cage may offer them.</summary>
+    public sealed record Entry(int EntIndex, string SteamId, string Peer, string CharacterId, string? Name = null, int ReachedDepth = 0);
 
     private readonly Dictionary<int, Entry> _byEntity = new();
 
@@ -116,7 +123,16 @@ public sealed class PlayerService(
             return;
         }
 
-        _byEntity[entIndex] = new Entry(entIndex, steamId, peer, outcome.CharacterId!, outcome.Name);
+        // The leased sheet is the hero's from here on; one the rules cannot read is no hero.
+        if (sheets.Leased(entIndex, steamId, outcome.Sheet, outcome.ClassName, outcome.Name) is { } unplayable)
+        {
+            log.Msg($"[TF2Descent] {steamId} refused: {unplayable}\n");
+            clients.Kick(entIndex, unplayable);
+            _ = link.Leave(steamId, peer, null);
+            return;
+        }
+
+        _byEntity[entIndex] = new Entry(entIndex, steamId, peer, outcome.CharacterId!, outcome.Name, outcome.ReachedDepth);
         link.Players(_byEntity.Count);
         messages.Instance(entIndex, boot.InstanceKind, boot.Depth);
         log.Msg($"[TF2Descent] {steamId} ({outcome.ClientAddr ?? "address unknown"}) joined as {outcome.Name} ({outcome.ClassName}), reached depth {outcome.ReachedDepth}\n");
@@ -132,6 +148,7 @@ public sealed class PlayerService(
     {
         _byEntity.Clear();
         _suspended.Clear();
+        sheets.ForgetHosted();
         link.Players(0);
 
         var waiting = _waitingForBoot.ToList();
@@ -153,12 +170,38 @@ public sealed class PlayerService(
             Leave(entry);
     }
 
-    /// <summary>Checkpoint, release and PlayerLeft for one player, and the count reported.</summary>
+    /// <summary>Checkpoint (the hero's sheet now), release and PlayerLeft for one player, and the count reported.</summary>
     public Task Leave(Entry entry)
     {
         _byEntity.Remove(entry.EntIndex);
         link.Players(_byEntity.Count);
-        return link.Leave(entry.SteamId, entry.Peer);
+        var final = sheets.TakeCheckpoint(entry.SteamId);
+        sheets.Left(entry.SteamId);
+        return link.Leave(entry.SteamId, entry.Peer, final?.Payload);
+    }
+
+    /// <summary>
+    /// One checkpoint of the player's hero: the sheet now, with the evidence
+    /// earned since the last checkpoint the host took. Evidence the host did
+    /// not take is owed again by the next one.
+    /// </summary>
+    public async Task<bool> Checkpoint(string steamId)
+    {
+        var taken = sheets.TakeCheckpoint(steamId);
+        bool saved;
+        try
+        {
+            saved = await link.Checkpoint(steamId, taken?.Payload);
+        }
+        catch (Exception e)
+        {
+            log.Warning($"[TF2Descent] checkpoint for {steamId} failed: {e.Message}\n");
+            saved = false;
+        }
+
+        if (!saved && taken is not null)
+            sheets.Restore(taken);
+        return saved;
     }
 
     public void OnLive()
@@ -176,7 +219,7 @@ public sealed class PlayerService(
             {
                 await scheduler.Delay(CheckpointInterval, stop);
                 foreach (var entry in _byEntity.Values.ToArray())
-                    _ = link.Checkpoint(entry.SteamId);
+                    _ = Checkpoint(entry.SteamId);
             }
         }
         catch (OperationCanceledException)
@@ -198,6 +241,7 @@ public sealed class PlayerService(
         // and whenever the connection comes back. Stale or revoked is final.
         if (reason != LeaseLostReason.Unreachable)
         {
+            sheets.Left(steamId);
             clients.Kick(entry.EntIndex, $"Your character is no longer held here ({reason}).");
             return;
         }
@@ -244,7 +288,9 @@ public sealed class PlayerService(
             return;
         }
 
-        _byEntity[entry.EntIndex] = entry with { CharacterId = outcome.CharacterId! };
+        // The hero held here keeps its sheet: it is ahead of the host's by what its evidence explains.
+        sheets.Leased(entry.EntIndex, entry.SteamId, outcome.Sheet, outcome.ClassName, outcome.Name);
+        _byEntity[entry.EntIndex] = entry with { CharacterId = outcome.CharacterId!, ReachedDepth = outcome.ReachedDepth };
         link.Players(_byEntity.Count);
         messages.Notice(entry.EntIndex, "Reconnected: your character is held here again.");
         log.Msg($"[TF2Descent] {entry.SteamId} re-leased\n");
@@ -255,6 +301,9 @@ public sealed class PlayerService(
         await scheduler.Delay(SuspendBound);
 
         if (_suspended.Remove(entry.SteamId))
+        {
+            sheets.Left(entry.SteamId);
             clients.Kick(entry.EntIndex, "Your character could not be held here again (the hosting service did not come back).");
+        }
     }
 }

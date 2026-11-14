@@ -174,6 +174,9 @@ public sealed class ConsoleCompletionsPanel : UiPanel<ConsoleCompletionsProps>
         float width = MathF.Min(narrow ? 560 : 860, props.WindowWidthDu - 2 * UiWindowWidget.Ring - 2 * (float)Space.L);
         int shown = Math.Min(Shown, c.CompletionCount);
         int first = Math.Max(0, c.SelectedCompletion - shown + 1);
+        // A take rebuilds the source's list, so it waits until every row is drawn:
+        // taken mid-loop, the rows after it read past the shrunk list's end.
+        int take = -1;
         // Up over the log: the field is the window's foot, and a list opened below it was
         // pushed back over the field on a short screen, hiding what is being typed.
         using (ui.Overlay("suggest").AnchorTo(props.Field, UiAnchor.TopLeft, UiAnchor.BottomLeft).Inset(Space.None, Space.XS))
@@ -187,7 +190,7 @@ public sealed class ConsoleCompletionsPanel : UiPanel<ConsoleCompletionsProps>
                 var row = ui.Row(Space.M).Key(i).Size(Size.Fill, Size.Du(32)).Pad(Space.S, Space.None).Round(Radius.S);
                 var hit = ui.Interact(row);
                 if (hit.Clicked)
-                    _actions?.TakeCompletion(i);
+                    take = i;
                 row.Fill(selected ? ((UiPaint)Tone.Accent).WithOpacity(0.18f) : hit.Hovered ? Tone.SurfaceRaised : Tone.None);
                 using (row)
                 {
@@ -202,6 +205,8 @@ public sealed class ConsoleCompletionsPanel : UiPanel<ConsoleCompletionsProps>
                         ui.Data(item.Help, Text.Caption, Tone.TextMuted).Width(Size.Fill).Elide();
                 }
             }
+            if (take >= 0)
+                _actions?.TakeCompletion(take);
             using (ui.Row(Space.XS).Pad(Space.S, Space.XS))
             {
                 ui.Text($"{c.CompletionCount}", Text.Label, Tone.TextMuted);

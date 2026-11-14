@@ -32,7 +32,7 @@ namespace TF2.Client.Ui;
 /// (docs/plans/tf2/deferred.tsv).
 /// </summary>
 public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, IUiFontMetrics fonts,
-                               ITFRenderGroups? groups = null) : UiScreen
+                               ITFRenderGroups groups) : UiScreen
 {
     public override string Name => "tftargetid";
 
@@ -41,7 +41,7 @@ public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, I
     // Stock's hud elements stand down for the scoreboard's locked "global"
     // group (ITFRenderGroups): the layer skips a screen whose Visible is
     // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
-    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
+    public override bool Visible => base.Visible && groups.GlobalLocked != true;
 
     // The stock numbers, in the 640x480 .res space; resolved to du per Describe.
     private static class Stock

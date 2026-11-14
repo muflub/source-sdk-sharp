@@ -49,13 +49,15 @@ mods:
   test:
     title: SourceSharp test mod
     # HL2MP is the core itself; its AI binding is a mod assembly beside it
-    # (docs/plans/plan_hl2mp_ai.md §1.3). A mod restates the whole list.
+    # (docs/plans/plan_hl2mp_ai.md §1.3), over the generic server binding
+    # before it (plan_bots_teams_tf2 C.2). A mod restates the whole list.
     assemblies:
-      server: [SourceSharp.Server, SourceSharp.Ai.Hl2mp]
+      server: [SourceSharp.Server, SourceSharp.Ai.Server, SourceSharp.Ai.Hl2mp]
       # Bot setup when creating a server (plan_hl2mp_ai §3.5): the profile
-      # store and the commands, and the create-server and bot-editor screens.
-      client: [SourceSharp.Client, SourceSharp.Ai.Hl2mp.Client]
-      client_ui: [SourceSharp.Ai.Hl2mp.Ui]
+      # store and the commands (game-neutral, plan_bots_teams_tf2 C.2) and
+      # HL2MP's teams, and the create-server and bot-editor screens.
+      client: [SourceSharp.Client, SourceSharp.Ai.Client, SourceSharp.Ai.Hl2mp.Client]
+      client_ui: [SourceSharp.Ai.Ui, SourceSharp.Ai.Hl2mp.Ui]
   # Stock TF2 logic ported to SourceSharp, on TF2's content.
   tf2:
     title: TF2
@@ -74,19 +76,34 @@ mods:
     # print-name lookups and the server's precache reach the GAME paths; the
     # TF side reaches the same content through TFEncryption.Key).
     encryption_key: E2NcUkG2
+    # TF2's AI binding (plan_bots_teams_tf2 C.2) over the generic server
+    # binding before it, as the test mod lists HL2MP's. SourceSharp.Ai.Store
+    # is the bots' experience database (Part G, G.3): TF2's bots keep one,
+    # HL2MP's do not, so only this list names it. Its client side is bot
+    # setup (P6 step 8): the game-neutral profile store and models, TF2's
+    # teams, classes and names, the bots page and the editor.
     assemblies:
-      server: [SourceSharp.Server, TF2.Server]
-      client: [SourceSharp.Client, TF2.Client]
-      client_ui: [TF2.Client.Ui]
+      server: [SourceSharp.Server, TF2.Server, SourceSharp.Ai.Store, SourceSharp.Ai.Server, SourceSharp.Ai.TF2]
+      client: [SourceSharp.Client, TF2.Client, SourceSharp.Ai.Client, SourceSharp.Ai.TF2.Client]
+      client_ui: [TF2.Client.Ui, SourceSharp.Ai.Ui, SourceSharp.Ai.TF2.Ui]
   # TF2Descent builds on the TF2 mod: its assemblies load after TF2's.
   tf2_descent:
     title: TF2Descent
     # TF2's sealed weapon scripts, as the tf2 row: a mod inherits only the
     # defaults, and this one runs TF2's assemblies over TF2's content.
     encryption_key: E2NcUkG2
+    # TF2's strings, as the tf2 row reads them (stock's chat and panel tokens),
+    # and the TF2 mod's own UI strings (resource/tf2_english.txt, on the GAME
+    # path through ../tf2): a hero's HUD and menus are TF2's.
+    localisation: [resource/tf2_english.txt, resource/tf_english.txt, resource/tf_items_english.txt]
+    # TF2's HUD and menus (ammo, crosshair, the class menu, the kill feed),
+    # then the Descent screens over the sources TF2.Descent.Client registers
+    # (plan UI1): the Descent HUD takes TF2's health corner for its life orb.
+    # No SourceSharp.Ai assembly: Descent loads no TF2 bots.
     assemblies:
       server: [SourceSharp.Server, TF2.Server, TF2.Descent.Server]
       client: [SourceSharp.Client, TF2.Client, TF2.Descent.Client]
+      client_ui: [TF2.Client.Ui, TF2.Descent.Client.Ui]
     # The hosted server-browser entry (host plan_steam_auth S-18): source#
     # -resolve -dedicated writes it into mod.dedicated.yaml, and the game
     # server hands it to the host SDK before Booting. name, description,

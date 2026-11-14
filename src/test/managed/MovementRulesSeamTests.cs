@@ -287,6 +287,9 @@ public class MovementRulesSeamTests
                 "GetClampXY" => rules.ClampXY((int)a![0]!),
                 "GetKeepGround" => rules.KeepGround((int)a![0]!),
                 "GetDuckSeconds" => rules.DuckSeconds((int)a![0]!, (float)a[1]!),
+                "GetDuckButtons" => rules.DuckButtons((int)a![0]!, (int)a[1]!, (bool)a[2]!, (int)a[3]!, (float)a[4]!, (bool)a[5]!, (bool)a[6]!),
+                "GetAirSpeedCap" => rules.AirSpeedCap((int)a![0]!, (float)a[1]!),
+                "GetHighMaxSpeed" => HighSpeed(rules, method, (int)a![0]!, (float)a[1]!, (float)a[2]!, (float)a[3]!),
                 _ => throw new NotSupportedException(method.Name + " is not a movement getter"),
             };
         }
@@ -332,6 +335,18 @@ public class MovementRulesSeamTests
             return method.ReturnType == typeof(client::SourceSharp.Abi.MovementTaunt?)
                 ? new client::SourceSharp.Abi.MovementTaunt(rewrite.Value.MaxSpeed, rewrite.Value.ForwardMove,
                                                              rewrite.Value.ClientMaxSpeed)
+                : rewrite;
+        }
+
+        /// <summary>The high-max-speed pair as the proxied side spells it, like the rewrites above.</summary>
+        private static object? HighSpeed(MovementRules rules, MethodInfo method, int playerIndex,
+                                         float forwardMove, float sideMove, float maxSpeed)
+        {
+            var rewrite = rules.HighMaxSpeed(playerIndex, forwardMove, sideMove, maxSpeed);
+            if (rewrite is null)
+                return null;
+            return method.ReturnType == typeof(client::SourceSharp.Abi.HighMaxSpeedPair?)
+                ? new client::SourceSharp.Abi.HighMaxSpeedPair(rewrite.Value.ForwardMove, rewrite.Value.SideMove)
                 : rewrite;
         }
 

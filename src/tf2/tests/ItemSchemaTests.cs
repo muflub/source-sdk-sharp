@@ -340,8 +340,8 @@ public sealed class ItemSchemaTests
         Assert.True(schema.IsLoaded);
         Assert.NotNull(schema.Item(13));
         Assert.Single(files.Reads);
-        Assert.Equal(37, schema.Stats!.Items);
-        Assert.Contains(log.Lines, l => !l.Warning && l.Text.Contains("37 items, 27 attributes, 28 prefabs, 36 base items"));
+        Assert.Equal(41, schema.Stats!.Items);
+        Assert.Contains(log.Lines, l => !l.Warning && l.Text.Contains("41 items, 30 attributes, 29 prefabs, 36 base items"));
     }
 
     [Fact]
@@ -379,7 +379,7 @@ public sealed class ItemSchemaTests
     {
         string text = SchemaDumpCommand.Describe(EconTestFiles.TrimmedSchema(), "");
 
-        Assert.Contains("37 items", text);
+        Assert.Contains("41 items", text);
         Assert.DoesNotContain("TF_WEAPON", text);
     }
 }

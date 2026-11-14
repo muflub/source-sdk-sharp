@@ -8,6 +8,8 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Shared.Econ;
+
 namespace TF2.Shared.Anim;
 
 /// <summary>
@@ -37,12 +39,24 @@ namespace TF2.Shared.Anim;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable classes, ITFWeaponOwners? owners = null) : IViewmodelModelRule, IOrderedHook
+public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable classes, ITFWeaponOwners owners,
+                                         AttributeHooks hooks) : IViewmodelModelRule, IOrderedHook
 {
     /// <summary>The rule's order: the weapons band, after the act table (+220).</summary>
     public const int Order = 1_000_000 - 1_000 + 221;
 
-    private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
+    /// <summary>The player attribute the hand index reads, stock's only holder the Gunslinger
+    /// (<c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER ... wrench_builds_minisentry</c>, tf_weaponbase.cpp:662).</summary>
+    public const string WrenchBuildsMinisentry = "wrench_builds_minisentry";
+
+    /// <summary>Stock's <c>g_HACK_GunslingerEngineerArmsOverride</c>
+    /// (tf_playerclass_shared.cpp:159): the hand model of hand index one, the
+    /// engineer's mechanical arm. Stock precaches it in CTFRobotArm.</summary>
+    public const string GunslingerArms = "models/weapons/c_models/c_engineer_gunslinger.mdl";
+
+    private readonly ITFWeaponOwners _owners = owners;
+
+    private readonly AttributeHooks _hooks = hooks;
 
     /// <inheritdoc />
     public int HookOrder => Order;
@@ -57,7 +71,13 @@ public sealed class TFViewmodelHandsRule(TFWeaponTypes types, TFClassTable class
         if (cls <= TFClass.Undefined || cls >= TFClass.CountAll)
             return chosen;
 
-        string hands = classes[cls].ModelHands;
+        // The hand index is the holder's wrench_builds_minisentry
+        // (tf_weaponbase.cpp:658-663): 0 the class's own hands, anything
+        // else the Gunslinger's arm (GetHandModelName,
+        // tf_playerclass_shared.cpp:161-166).
+        string hands = _hooks.Int(0, WrenchBuildsMinisentry, _owners.ManagerOf(playerIndex)) != 0
+            ? GunslingerArms
+            : classes[cls].ModelHands;
         return hands.Length > 0 ? hands : chosen;
     }
 }

@@ -48,6 +48,10 @@ public sealed class SpellBook : UiScreen, IUiWindowed
 
     public override string Name => "spellbook";
 
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_spellbook";
+
     public string WindowId => "spellbook";
 
     /// <summary>

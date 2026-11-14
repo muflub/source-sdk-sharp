@@ -1,0 +1,27 @@
+WeaponData
+{
+	"printname"			"#TF_Weapon_RocketPack"
+	"BuiltRightHanded"		"0"
+	"MeleeWeapon"			"1"
+	"weight"			"1"
+	"WeaponType"			"melee"
+	"ITEM_FLAG_NOITEMPICKUP" 	"1"
+	"Damage"			"35"
+	"TimeFireDelay"			"0.5"
+	"TimeIdle"			"5.0"
+	"primary_ammo"			"TF_AMMO_GRENADES1"
+	"secondary_ammo"		"None"
+	clip_size			"-1"
+	default_clip			"2"
+	"bucket"			"1"
+	"bucket_position"		"0"
+	"viewmodel"			"models/weapons/c_models/c_rocketpack/c_rocketpack.mdl"
+	"playermodel"			"models/weapons/c_models/c_rocketpack/c_rocketpack.mdl"
+	SoundData
+	{
+		"melee_miss"		"Weapon_FireAxe.Miss"
+		"melee_hit"			"Weapon_FireAxe.HitFlesh"
+		"melee_hit_world"	"Weapon_FireAxe.HitWorld"
+		"burst"			"Weapon_FireAxe.MissCrit"
+	}
+}

@@ -1,8 +1,8 @@
-using SourceSharp.Ai.Hl2mp.Nav;
 using SourceSharp.Ai.Hl2mp.Trees;
-using SourceSharp.Ai.Tests.Hl2mpNav;
 using SourceSharp.MapFormats.Nav;
 using Xunit;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Tests.ServerNav;
 
 namespace SourceSharp.Ai.Tests.Record;
 
@@ -26,7 +26,7 @@ public sealed class LiveRecordingTests
     {
         NavLoadResult l = NavLoader.Load(Map, p => File.ReadAllBytes(p.EndsWith(".nav3d", StringComparison.Ordinal) ? PerTreeNav.NavPath(Map) : PerTreeNav.BspPath(Map)), null);
         Assert.True(l.Nav is not null, l.Refusal);
-        return (l.Nav!.Nav.Graph, NavSight.Build(l.Nav.Nav.Graph, new Nav3dVoxelSpace(l.Nav.Reader)));
+        return (l.Nav!.Nav.Graph, NavSight.Build(l.Nav.Nav.Graph, l.Nav.File.Space));
     });
 
     internal static AiReplayResult Replay(IAiTransport transport)

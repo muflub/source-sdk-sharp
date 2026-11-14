@@ -49,9 +49,9 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking networking, IGameClock clock,
-                                   IEnginePlayers engine, TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
-                                   Voice.TFSceneImage? scenes = null)
+                                   IEnginePlayers engine, TFPlayerCarriers carriers, TFConceptSpeech speech,
+                                   ITFWeaponOwners owners, AttributeHooks hooks,
+                                   Voice.TFSceneImage scenes)
     : IClientCommandHook, IOrderedHook
 {
     /// <summary><c>taunt</c> / <c>weapon_taunt</c> (:7507).</summary>
@@ -97,29 +97,44 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
         if (!IsAllowedToTaunt(player))
             return true;
 
-        // The speak the taunt is (tf_player.cpp:17858-17870): MP_CONCEPT_PLAYER_TAUNT
-        // with the held weapon's word; no answer, no taunt — and no window,
-        // stock's stamp living inside OnTauntSucceeded (:17744). The matched
-        // scene comes back with the yes (:17862's buffer), and the timed
-        // attack keys on it (:17979); a failed speak zeroes any pending one
-        // (:17874-17875).
-        string scene = "";
-        if (speech is { } voice)
-        {
-            if (!voice.Speak(player, TFConceptSpeech.PlayerTaunt, engine.GetActiveWeapon(player), out scene))
-            {
-                Attack(player)?.Clear();
-                return true;
-            }
+        Begin(player, TFConceptSpeech.PlayerTaunt);
+        return true;
+    }
 
-            Attack(player)?.Arm(scene, now);
+    /// <summary>The gates and the taunt in one ask — the special taunts' entry, stock's
+    /// <c>Taunt</c> running its own <c>CanStartTaunt</c> checks: the caller
+    /// that has not gated asks here (the Eureka Effect's does).</summary>
+    internal bool TauntNow(EntityHandle player, string concept)
+        => IsAllowedToTaunt(player) && Begin(player, concept);
+
+    /// <summary>
+    /// The taunt itself, stock's <c>CTFPlayer::Taunt</c> past its gates
+    /// (:17732-17768): the speak — <paramref name="concept"/> with the held
+    /// weapon's word, no answer no taunt — the matched scene keyed into the
+    /// timed attack (:17979), the duration with its tail over
+    /// <c>mult_gesture_time</c>, the condition, and the next-start stamp
+    /// (:17744). The command's <c>TLK_PLAYER_TAUNT</c> and the special
+    /// taunts — the Eureka Effect's teleport's
+    /// MP_CONCEPT_TAUNT_EUREKA_EFFECT_TELEPORT (tf_player.cpp:7734) — meet here.
+    /// </summary>
+    internal bool Begin(EntityHandle player, string concept)
+    {
+        // The speak the taunt is (tf_player.cpp:17858-17870): the matched
+        // scene comes back with the yes (:17862's buffer); a failed speak
+        // zeroes any pending one (:17874-17875).
+        if (!speech.Speak(player, concept, engine.GetActiveWeapon(player), out string scene))
+        {
+            Attack(player)?.Clear();
+            return false;
         }
+
+        Attack(player)?.Arm(scene, clock.Now);
 
         // OnTauntSucceeded (:17732-17768): the duration with its tail, the
         // condition, and the next-start stamp at start + duration (:17744).
         float duration = TauntDuration(player, scene);
         players.AddCond(player, TFCond.Taunting, duration);
-        _nextStart[player.EntryIndex] = now + duration;
+        _nextStart[player.EntryIndex] = clock.Now + duration;
         return true;
     }
 
@@ -131,8 +146,8 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
     /// </summary>
     private float TauntDuration(EntityHandle player, string scene)
     {
-        float mod = hooks?.Float(1f, "mult_gesture_time", owners?.ManagerOf(player.EntryIndex)) ?? 1f;
-        float length = scenes?.SceneDuration(scene) ?? BaseTauntSceneSeconds;
+        float mod = hooks.Float(1f, "mult_gesture_time", owners.ManagerOf(player.EntryIndex));
+        float length = scenes.SceneDuration(scene);
         return (length + TauntTailSeconds) / mod;
     }
 

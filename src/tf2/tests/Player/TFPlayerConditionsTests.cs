@@ -28,7 +28,7 @@ public sealed class TFPlayerConditionsTests
     {
         var rig = new PlayerRig().Join();
         var hook = new RecordingHook();
-        return (rig, new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook)), hook);
+        return (rig, new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(hook), rig.Engine), hook);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class TFPlayerConditionsTests
     public void A_player_with_no_carrier_takes_no_condition()
     {
         var rig = new PlayerRig();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>(), rig.Engine);
 
         Assert.Equal(TFCondAdd.Refused, conditions.Add(PlayerRig.Player, TFCond.Burning, 4f));
         Assert.False(conditions.InCond(PlayerRig.Player, TFCond.Burning));

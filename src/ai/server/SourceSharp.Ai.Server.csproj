@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The generic server binding of the AI core (plan_bots_teams_tf2 C.2): the
+    bots, their command applier and drive lanes, the navigation (the .nav3d
+    loader, derivation, cache, validator, obstacle field), the senses and
+    taps, the roster and the ai_* verbs, the recorder and the dev-API routes,
+    the chat worker's server half. A game's binding (SourceSharp.Ai.Hl2mp,
+    later SourceSharp.Ai.TF2) references it and answers IBotGame; it names no
+    game. A mod assembly, listed in mods.yaml before each binding, under the
+    mod analyzers (SS0010-SS0013) and the static-state one
+    (Directory.Build.props).
+  -->
+  <PropertyGroup>
+    <!-- The bootstrap loads assemblies by simple name from bin/<config>/bin/managed,
+         so SourceSharp.MapFormats and SourceSharp.MapTools must be copied there: a class library does not
+         copy its packages by default. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- map-tools' .nav3d reader (plan_hl2mp_ai §6.1), from MAPTOOLS_DIR/bin/nupkg (Directory.Build.props). -->
+    <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
+    <!-- map-tools' .nav3d builder (plan_bots_teams_tf2 Part E): a map with no nav is built in-process. -->
+    <PackageReference Include="SourceSharp.MapTools" Version="$(MapToolsVersion)" />
+    <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\nav\SourceSharp.Ai.Nav.csproj" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
+  </ItemGroup>
+</Project>

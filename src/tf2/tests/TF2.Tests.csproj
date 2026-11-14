@@ -28,6 +28,10 @@
     <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
     <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />
     <ProjectReference Include="..\interface\TF2.Client.Interface.csproj" />
+    <!-- The tf2 mod's server row (game/mods.yaml) loads the AI binding beside
+         TF2.Server, so the hook-chain census reads it too. -->
+    <ProjectReference Include="..\..\ai\server\SourceSharp.Ai.Server.csproj" />
+    <ProjectReference Include="..\..\ai\tf2\server\SourceSharp.Ai.TF2.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- So facts can read the farm/fork the way core tests do. -->
@@ -50,6 +54,7 @@
     <Compile Include="..\..\test\common\TestMapSpawner.cs" Link="common\TestMapSpawner.cs" />
     <Compile Include="..\..\test\common\RecordingDecals.cs" Link="common\RecordingDecals.cs" />
     <Compile Include="..\..\test\common\RecordingServerSkins.cs" Link="common\RecordingServerSkins.cs" />
+    <Compile Include="..\..\test\common\StudioHdrBuilder.cs" Link="common\StudioHdrBuilder.cs" />
     <Compile Include="..\..\test\common\LagWorld.cs" Link="common\LagWorld.cs" />
     <Compile Include="..\..\test\common\RecordingEffectDispatch.cs" Link="common\RecordingEffectDispatch.cs" />
     <Compile Include="..\..\test\common\RecordingJointTables.cs" Link="common\RecordingJointTables.cs" />

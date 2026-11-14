@@ -7,4 +7,12 @@
   <ItemGroup>
     <PackageReference Include="SourceSharp.Host.Contracts" Version="$(HostContractsVersion)" />
   </ItemGroup>
+  <!--
+    The content tables (plan_descent_logic RU1, E3) ship inside this assembly, so the
+    game and the host read the same bytes. Content/<table>.json is the resource
+    TF2.Descent.Rules.Content.<table>.json (EmbeddedContentSource).
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Content/*.json" LogicalName="TF2.Descent.Rules.Content.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

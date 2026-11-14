@@ -74,6 +74,38 @@ public class TFBuilderPlacementTests
     }
 
     [Fact]
+    public void AGunslingersPlacedSentryIsAMiniAtTheMiniCost()
+    {
+        var (rig, placement, engineer) = AField();
+        rig.Owners.Items[engineer.EntryIndex] = rig.AttributeItem(
+            "wrench_builds_minisentry", TF2.Shared.Econ.AttributeDescriptionFormat.Additive, 1);
+        Assert.True(placement.BeginOrder(engineer, TFObjectType.Sentrygun, 0));
+        placement.StartPlacement(3);
+
+        Assert.True(placement.Place(3));
+
+        Assert.Equal(100, Assert.Single(rig.Purse.Paid).Item2);   // 130 less the wrench's 30
+        var sentry = (TFBaseObject)rig.Registry.Get(Assert.Single(rig.Spawner.Placed).Key)!;
+        Assert.True(sentry.IsMiniBuilding);
+    }
+
+    [Fact]
+    public void AGunslingersPlacedDispenserIsNoMini()
+    {
+        var (rig, placement, engineer) = AField();
+        rig.Owners.Items[engineer.EntryIndex] = rig.AttributeItem(
+            "wrench_builds_minisentry", TF2.Shared.Econ.AttributeDescriptionFormat.Additive, 1);
+        Assert.True(placement.BeginOrder(engineer, TFObjectType.Dispenser, 0));
+        placement.StartPlacement(3);
+
+        Assert.True(placement.Place(3));
+
+        Assert.Equal(TFObjectInfo.Of(TFObjectType.Dispenser)!.Cost, Assert.Single(rig.Purse.Paid).Item2);
+        var dispenser = (TFBaseObject)rig.Registry.Get(Assert.Single(rig.Spawner.Placed).Key)!;
+        Assert.False(dispenser.IsMiniBuilding);
+    }
+
+    [Fact]
     public void TheTriggerPaysTheMetalAndStartsTheBuild()
     {
         var (rig, placement, engineer) = AField();
@@ -288,7 +320,7 @@ public class TFBuilderPlacementTests
     public void AWalkWithNoSappableHidesTheGhostAndLeavesItStanding()
     {
         var (rig, placement, spy, _) = ASappable();
-        rig.Buildings().OwnedBy().First().DestroyObject();   // the field empties
+        rig.Buildings().OwnedBy(null, null, null).First().DestroyObject();   // the field empties
 
         placement.StartAttachmentPlacement(spy.EntryIndex);
         placement.UpdatePlacement(spy.EntryIndex);

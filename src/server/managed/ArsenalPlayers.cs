@@ -102,7 +102,8 @@ public sealed class ArsenalPlayers : IEnginePlayers
 
     public bool DeployLastWeapon(EntityHandle player) => _inner.DeployLastWeapon(player);
     public EntityHandle FindByUserId(int userId) => _inner.FindByUserId(userId);
-    public EntityHandle GetActiveWeaponEntity(EntityHandle player) => _inner.GetActiveWeaponEntity(player);
+    public EntityHandle GetActiveWeaponEntity(EntityHandle player)
+        => IsStandalone(player) ? _arsenal.CarriedPair(player).Weapon : _inner.GetActiveWeaponEntity(player);
     public EntityHandle GetWeaponEntity(EntityHandle player, int slot) => _inner.GetWeaponEntity(player, slot);
     public EntityHandle GetViewModelEntity(EntityHandle player) => _inner.GetViewModelEntity(player);
     public EntityHandle GetHandle(int playerIndex) => _inner.GetHandle(playerIndex);

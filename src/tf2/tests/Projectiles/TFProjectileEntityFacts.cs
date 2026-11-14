@@ -56,6 +56,16 @@ public sealed class TFProjectileEntityFacts
         => EngineCallFacts.ArgAs<float>(rig.Engine.Calls.Last(
             c => c.Member == "Damage.TakeDamageAnswered" && victim.Equals(c.Args[0])), 2);
 
+    /// <summary>
+    /// The bits the blast dealt <paramref name="victim"/> with, by handle: the
+    /// rig's shooter stands in the blast too, and stock's own pass
+    /// (<c>RadiusDamage</c>'s second sweep, tf_gamerules.cpp:5661-5714) hits
+    /// him after the victim.
+    /// </summary>
+    private static DamageType BitsTo(ProjectileRig rig, EntityHandle victim)
+        => EngineCallFacts.ArgAs<DamageType>(rig.Engine.Calls.Last(
+            c => c.Member == "Damage.TakeDamageAnswered" && victim.Equals(c.Args[0])), 3);
+
     /// <summary>A second player, exactly 100 from the blast along x.</summary>
     private static readonly EntityHandle SecondVictim = new(0x0001_0000u | 6);
 
@@ -209,8 +219,8 @@ public sealed class TFProjectileEntityFacts
 
         rocket.OnTouch(EntityHandle.None); // the wall
 
-        Assert.Equal(71.5f, SeenDamage(rig), 1f);
-        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Rocketlauncher), SeenBits(rig));
+        Assert.Equal(71.5f, DamageTo(rig, ProjectileRig.Victim), 1f);
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Rocketlauncher), BitsTo(rig, ProjectileRig.Victim));
         // The touch removes it once; the explosion does not remove it again.
         Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
     }
@@ -227,12 +237,12 @@ public sealed class TFProjectileEntityFacts
         pipe.OnThink(); // the fuse
 
         // 60% of 90 at the fuse, half kept at the edge: 54 - 27 * 60/146.
-        Assert.Equal(42.9f, SeenDamage(rig), 1f);
+        Assert.Equal(42.9f, DamageTo(rig, ProjectileRig.Victim), 1f);
         // GetWeaponID answers TF_WEAPON_GRENADE_DEMOMAN for a regular pipe
         // (tf_weapon_grenade_pipebomb.cpp:142), whose
         // g_aWeaponDamageTypes row is a half-falloff blast with no
         // DMG_USEDISTANCEMOD (tf_shareddefs.cpp:770).
-        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.GrenadeDemoman), SeenBits(rig));
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.GrenadeDemoman), BitsTo(rig, ProjectileRig.Victim));
     }
 
     // ==== The touch's enemy test (PipebombTouch, tf_weapon_grenade_pipebomb.cpp:759):
@@ -365,7 +375,7 @@ public sealed class TFProjectileEntityFacts
         // 90 * 0.6 (the throw's timer reduction, :476) * 0.75 — a second
         // contact must not take the 0.75 again — half kept at the victim's
         // 60 over 146: 40.5 - 20.25 * 60/146.
-        Assert.Equal(32.2f, SeenDamage(rig), 1f);
+        Assert.Equal(32.2f, DamageTo(rig, ProjectileRig.Victim), 1f);
     }
 
     [Fact]
@@ -387,6 +397,257 @@ public sealed class TFProjectileEntityFacts
     }
 
     [Fact]
+    public void The_lochs_shattering_pipe_fizzles_on_its_first_contact()
+    {
+        // VPhysicsCollision's shatter arm (tf_weapon_grenade_pipebomb.cpp:859-864):
+        // the stamped pipe's first collision is Fizzle then Detonate, whose
+        // m_bFizzle arm (:606-617) sparks and Destroys — no blast, no fuse.
+        // The plain launcher's pipe takes the contact and waits for its fuse.
+        var rig = VictimAtSixty();
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 2);
+        var loch = ThrownPipe(rig);
+        Assert.True(loch.WallShatter);
+
+        loch.OnTouch(EntityHandle.None);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+
+        var plain = VictimAtSixty();
+        var pipe = ThrownPipe(plain);
+        Assert.False(pipe.WallShatter);
+
+        pipe.OnTouch(EntityHandle.None);
+
+        Assert.Equal(0, plain.Engine.CountOf("Entities.Remove"));
+    }
+
+    [Fact]
+    public void The_launchers_explosion_radius_scales_the_pipes_blast()
+    {
+        // The pipe's GetDamageRadius is the base one
+        // (tf_weaponbase_grenadeproj.cpp:137-142): the thrown radius under the
+        // launcher's mult_explosion_radius — the Loch-n-Load's 0.75 of 90 is
+        // 109.5, so the fuse's 54 at 60 out keeps 54 - 27 * 60/109.5.
+        var rig = VictimAtSixty();
+        rig.Owners.Item = rig.AttributeItem("mult_explosion_radius",
+                                            AttributeDescriptionFormat.Percentage, 0.75f);
+        var pipe = ThrownPipe(rig);
+
+        pipe.OnThink(); // the fuse
+
+        Assert.Equal(39.2f, DamageTo(rig, ProjectileRig.Victim), 1f);
+    }
+
+    [Fact]
+    public void The_iron_bombers_fuse_is_the_shorter_one()
+    {
+        // Spawn's fuse booking (tf_weapon_grenade_pipebomb.cpp:521) through
+        // SetDetonateTimerLength (tf_weaponbase_grenadeproj.cpp:481-490): the
+        // 2 s fuse under the launcher's fuse_mult — the Iron Bomber's 0.7 —
+        // books the think at 1.4.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("fuse_mult", AttributeDescriptionFormat.Percentage, 0.7f);
+        var pipe = rig.Pipebomb();
+        var thinks = new ThinkScheduler();
+        pipe.BindThinks(thinks);
+
+        pipe.ThrownBy(ProjectileRig.Player, new Vector(1200f, 0f, 0f), 90f, 146f,
+                      TFWeaponId.Grenadelauncher, "tf_weapon_grenadelauncher", critical: false);
+
+        Assert.Equal(1.4f, Assert.Single(thinks.Bookings()).Time, 4);
+    }
+
+    [Fact]
+    public void The_iron_bombers_pipe_sinks_its_first_bounce()
+    {
+        // VPhysicsCollision's no-bounce arm (tf_weapon_grenade_pipebomb.cpp:887-899):
+        // grenade_no_bounce on the launcher — the Iron Bomber's — takes the
+        // first world contact's bounce to a tenth, the fuse damage scale
+        // beside it untouched.
+        var rig = VictimAtSixty();
+        rig.Owners.Item = rig.AttributeItem("grenade_no_bounce", AttributeDescriptionFormat.Additive, 1);
+        var pipe = ThrownPipe(rig);
+        rig.Engine.Returns("Entities.GetVelocity", new Vector(600f, 0f, 200f));
+        rig.Engine.Returns("WorldQuery.TraceLineSurface",
+                           new SurfaceTraceResult(true, 1f, new Vector(600f, 0f, 200f),
+                                                  new Vector(0f, 0f, 1f), EntityHandle.None, 0, 0));
+
+        pipe.OnTouch(EntityHandle.None);
+
+        var slowed = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(slowed);
+        Assert.Equal(60f, slowed!.ArgAs<Vector>(1).X, 1);
+    }
+
+    // ==== The Loose Cannon's ball (PipebombTouch's TF_GL_MODE_CANNONBALL arm,
+    // tf_weapon_grenade_pipebomb.cpp:772-817) ====
+
+    /// <summary>The thrown ball: cannonball mode, the cannon's name.</summary>
+    private static TFPipebomb ThrownCannonball(ProjectileRig rig)
+    {
+        var ball = rig.Pipebomb();
+        ball.OnSpawn();
+        ball.ThrownBy(ProjectileRig.Player, new Vector(1200f, 0f, 0f), 90f, 146f,
+                      TFWeaponId.Cannon, "tf_weapon_cannonball", critical: false,
+                      TFProjectileDefs.GrenadeModeCannonball);
+        return ball;
+    }
+
+    [Fact]
+    public void The_cannonball_is_the_reshelled_pipe()
+    {
+        // Spawn's CANNONBALL arm (tf_weapon_grenade_pipebomb.cpp:513-516):
+        // the pipe entity carries w_cannonball and the mode stamp the touch
+        // and the blast bits read.
+        var rig = new ProjectileRig();
+        var ball = ThrownCannonball(rig);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeCannonball, ball.PipebombMode);
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.CannonballModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void The_cannonballs_touch_pushes_the_enemy_and_flies_on()
+    {
+        // The impact (:776-817): the wound at the distance's remap — the
+        // centres 300 apart, the near end's 50 — on the cannon's row, the
+        // ground stun and the shove 400 out and 350 up; no blast, the ball
+        // flies on (:816), and the second touch on the same body is neither
+        // (:779's already-through).
+        var rig = new ProjectileRig();
+        EnemyTouch(rig);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.ReturnsEachCall("Entities.GetOrigin", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim
+                ? new Vector(300f, 0f, 0f) : default(Vector));
+        rig.Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim
+                ? new Vector(300f, 0f, 0f) : default(Vector));
+        rig.Engine.Returns("Entities.GetBounds",
+                           (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        TFStunStack stuns = rig.AttachStun(ProjectileRig.Victim);
+        var ball = ThrownCannonball(rig);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(50f, SeenDamage(rig, "Damage.TakeDamage"), 1);
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Cannon), SeenBits(rig, "Damage.TakeDamage"));
+        Assert.NotNull(stuns.ActiveStun);
+        Assert.Equal(0.5f, stuns.ActiveStun!.Duration, 3);
+        var push = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(push);
+        Assert.Equal(new Vector(400f, 0f, 350f), push!.ArgAs<Vector>(1));
+        Assert.Equal(0, rig.Engine.CountOf("Entities.Remove"));
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(1, rig.Engine.CountOf("Damage.TakeDamage"));
+    }
+
+    [Fact]
+    public void The_push_opens_the_donks_window_on_the_shoved_victim()
+    {
+        // AddDonkVictim (:808-814): the push enters the victim on the
+        // thrower's list for tf_double_donk_window — and the second touch, the
+        // already-through arm, adds nothing new to it.
+        var rig = new ProjectileRig();
+        EnemyTouch(rig);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.ReturnsEachCall("Entities.GetOrigin", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim
+                ? new Vector(300f, 0f, 0f) : default(Vector));
+        rig.Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter", () =>
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h && h == ProjectileRig.Victim
+                ? new Vector(300f, 0f, 0f) : default(Vector));
+        rig.Engine.Returns("Entities.GetBounds",
+                           (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        rig.AttachStun(ProjectileRig.Victim);
+        rig.Engine.Returns("Clock.Now", 10f);
+        var donks = new TFDonkVictims(rig.Carriers, rig.Engine, DeclaredConVars.Fresh<TFDoubleDonkWindowConVar>());
+        donks.Attach(ProjectileRig.Player);
+        var ball = ThrownCannonball(rig);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.True(donks.Donked(ProjectileRig.Victim));
+
+        rig.Engine.Returns("Clock.Now", 10.6f);
+
+        Assert.False(donks.Donked(ProjectileRig.Victim));
+    }
+
+    [Fact]
+    public void The_cannonball_explodes_on_the_hostile_thing_the_push_skips()
+    {
+        // The arm's own gate (:776): no thrower or a victim that is neither
+        // player nor building, and the touch falls through to the blast every
+        // pipe takes (:820-826).
+        var rig = VictimAtSixty();
+        EnemyTouch(rig);
+        rig.Directory.Instance = new TouchTarget(true);
+        var ball = ThrownCannonball(rig);
+
+        ball.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Cannon), SeenBits(rig));
+    }
+
+    [Fact]
+    public void The_cannonballs_blast_carries_the_cannons_bits()
+    {
+        // GetWeaponID (tf_weapon_grenade_pipebomb.cpp:137-140): the ball's
+        // blast is TF_WEAPON_CANNON's row, where the plain pipe's is the
+        // grenade's (:142).
+        var rig = VictimAtSixty();
+        var ball = ThrownCannonball(rig);
+
+        ball.OnThink(); // the fuse
+
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Cannon), SeenBits(rig));
+    }
+
+    [Fact]
+    public void The_cannonballs_charged_fuse_is_the_window_left()
+    {
+        // FireProjectileInternal's charged fuse
+        // (tf_weapon_grenadelauncher.cpp:277-287): the held shot's remaining
+        // window replaces the spawn's 2 s, the same SetDetonateTimerLength
+        // under the launcher's fuse_mult.
+        var rig = new ProjectileRig();
+        var ball = rig.Pipebomb();
+        var thinks = new ThinkScheduler();
+        ball.BindThinks(thinks);
+        ball.OnSpawn();
+        ball.ThrownBy(ProjectileRig.Player, new Vector(1200f, 0f, 0f), 90f, 146f,
+                      TFWeaponId.Cannon, "tf_weapon_cannonball", critical: false,
+                      TFProjectileDefs.GrenadeModeCannonball);
+
+        ball.ChargedFuse(1.5f);
+
+        Assert.Equal(1.5f, Assert.Single(thinks.Bookings()).Time, 3);
+    }
+
+    [Fact]
+    public void The_held_nothing_shot_goes_off_where_it_was_born()
+    {
+        // :281-286 — a window spent to none detonates the ball at once, at
+        // the fuse damage it was born with. Stock's trace to the eye would
+        // move the blast behind a wall; born at the muzzle, here it goes off
+        // where it stands (the divergence ChargedFuse's doc carries).
+        var rig = VictimAtSixty();
+        var ball = ThrownCannonball(rig);
+
+        ball.ChargedFuse(0f);
+
+        Assert.Equal(1, rig.Engine.CountOf("Entities.Remove"));
+        Assert.Equal(42.9f, DamageTo(rig, ProjectileRig.Victim), 1);
+    }
+
+    [Fact]
     public void The_stickys_detonation_carries_the_pipebomb_launchers_bits()
     {
         var rig = VictimAtSixty();
@@ -401,13 +662,33 @@ public sealed class TFProjectileEntityFacts
         // Never touched the world, so the blast comes in at the air-burst
         // scale (GetDamageRadius, tf_weapon_grenade_pipebomb.cpp:1417-1434):
         // 146 * 0.85 = 124.1, and 90 - 45 * 60/124.1.
-        Assert.Equal(68.24f, SeenDamage(rig), 1f);
+        Assert.Equal(68.24f, DamageTo(rig, ProjectileRig.Victim), 1f);
         // GetDamageType (tf_weapon_grenade_pipebomb.cpp:148-162): a
         // remote-detonate pipe within 5 s of its creation ORs
         // DMG_USEDISTANCEMOD onto its row — this sticky was thrown the
         // command before it went, so it is young.
         Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Pipebomblauncher) | TFDamageBits.UseDistanceMod,
-                     SeenBits(rig));
+                     BitsTo(rig, ProjectileRig.Victim));
+    }
+
+    [Fact]
+    public void The_stickybomb_jumpers_practice_bomb_detonates_on_the_bare_row()
+    {
+        // GetDamageType's gate (tf_weapon_grenade_pipebomb.cpp:153): only the
+        // remote-detonate mode ORs DMG_USEDISTANCEMOD — the jumper's practice
+        // bomb (TF_GL_MODE_REMOTE_DETONATE_PRACTICE, Create :446-450) reads
+        // the bare row however young.
+        var rig = VictimAtSixty();
+        var sticky = rig.Sticky();
+        sticky.OnSpawn();
+        sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
+                        TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false,
+                        TFProjectileDefs.GrenadeModeRemoteDetonatePractice);
+        sticky.OnThink(); // arms
+
+        sticky.Detonate();
+
+        Assert.Equal(TFWeaponDamageTypes.Of(TFWeaponId.Pipebomblauncher), SeenBits(rig));
     }
 
     [Fact]
@@ -444,7 +725,7 @@ public sealed class TFProjectileEntityFacts
 
         rocket.OnTouch(EntityHandle.None);
 
-        Assert.Equal(71.5f, SeenDamage(rig), 1f);
+        Assert.Equal(71.5f, DamageTo(rig, ProjectileRig.Victim), 1f);
     }
 
     [Fact]
@@ -468,7 +749,11 @@ public sealed class TFProjectileEntityFacts
 
         rocket.OnTouch(EntityHandle.None);
 
-        Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
+        // The shooter, unplaced at the source, takes his own pass: the blast
+        // went off, and its 43.8 spared the victim.
+        var hits = rig.Engine.AllOf("Damage.TakeDamageAnswered").ToArray();
+        Assert.Contains(hits, c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Player);
+        Assert.DoesNotContain(hits, c => c.ArgAs<EntityHandle>(0) == ProjectileRig.Victim);
     }
 
     [Fact]
@@ -531,6 +816,68 @@ public sealed class TFProjectileEntityFacts
 
         Assert.Equal(90f, DamageTo(rig, ProjectileRig.Victim), 0.1f);
         Assert.Equal(66.29f, DamageTo(rig, SecondVictim), 0.1f);
+    }
+
+    [Fact]
+    public void A_blast_jumping_air_strikes_rocket_blasts_at_0_80_of_the_radius()
+    {
+        // GetRadius's airstrike arm (tf_weaponbase_rocket.cpp:602-613): an
+        // owner in TF_COND_BLASTJUMPING whose item keys the Air Strike
+        // (rocketjump_attackrate_bonus answering anything but one) takes
+        // 0.80 of the radius — 116.8, so the 100-out victim keeps
+        // 90 - 45 * 100/116.8 = 51.5 of the grounded 59.2.
+        var rig = VictimAtHundred();
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        Place(rig, ProjectileRig.Victim, new Vector(100f, 0f, 1f),
+              ProjectileRig.Victim, new Vector(100f, 0f, 1f));
+        rig.Owners.Item = rig.AttributeItem("rocketjump_attackrate_bonus",
+                                            AttributeDescriptionFormat.Percentage, 2f);
+        rig.RocketConds.BlastJumping = true;
+        var rocket = rig.Rocket();
+        rocket.OnSpawn();
+        rocket.ArmedBy(90f, TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher_airstrike",
+                       critical: false, ownerIndex: 3);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+
+        rocket.OnTouch(EntityHandle.None);
+
+        Assert.Equal(51.47f, DamageTo(rig, ProjectileRig.Victim), 0.1f);
+    }
+
+    [Fact]
+    public void The_blast_radius_stands_without_the_jump_and_the_attribute_together()
+    {
+        // The same arm's negatives (:604, :609): the condition and the
+        // keying attribute must both hold. The grounded Air Strike and the
+        // stock launcher fired mid-jump keep the stock 146 — the 100-out
+        // victim keeps 59.2 either way.
+        var grounded = VictimAtHundred();
+        grounded.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        Place(grounded, ProjectileRig.Victim, new Vector(100f, 0f, 1f),
+              ProjectileRig.Victim, new Vector(100f, 0f, 1f));
+        grounded.Owners.Item = grounded.AttributeItem("rocketjump_attackrate_bonus",
+                                                      AttributeDescriptionFormat.Percentage, 2f);
+        var groundedRocket = grounded.Rocket();
+        groundedRocket.OnSpawn();
+        groundedRocket.ArmedBy(90f, TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher_airstrike",
+                               critical: false, ownerIndex: 3);
+        groundedRocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+        groundedRocket.OnTouch(EntityHandle.None);
+
+        var plainJumping = VictimAtHundred();
+        plainJumping.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+        Place(plainJumping, ProjectileRig.Victim, new Vector(100f, 0f, 1f),
+              ProjectileRig.Victim, new Vector(100f, 0f, 1f));
+        plainJumping.RocketConds.BlastJumping = true;
+        var plainRocket = plainJumping.Rocket();
+        plainRocket.OnSpawn();
+        plainRocket.ArmedBy(90f, TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher",
+                            critical: false, ownerIndex: 3);
+        plainRocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+        plainRocket.OnTouch(EntityHandle.None);
+
+        Assert.Equal(59.17f, DamageTo(grounded, ProjectileRig.Victim), 0.1f);
+        Assert.Equal(59.17f, DamageTo(plainJumping, ProjectileRig.Victim), 0.1f);
     }
 
     /// <summary>

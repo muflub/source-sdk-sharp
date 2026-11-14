@@ -29,6 +29,8 @@ public class ClientSkeletonRouteTests
         }
 
         public int LookupAttachment(EntityHandle entity, string name) { Calls.Add("lookup"); return 7; }
+        public int LookupBone(EntityHandle entity, string name) { Calls.Add("bonelook"); return -1; }
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) { Calls.Add("bonepos"); origin = default; return false; }
         public int CachedBoneCount(EntityHandle entity) { Calls.Add("count"); return 9; }
         public StandaloneBones? BoneMatrices(EntityHandle entity) { Calls.Add("matrices"); return null; }
         public bool IsPoseable(EntityHandle entity) { Calls.Add("poseable"); return true; }

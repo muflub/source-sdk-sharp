@@ -1,0 +1,17 @@
+{
+  "backpack": { "base": 12, "perRank": 4, "skill": "deep_pockets", "maxRank": 7 },
+  "stash": { "base": 20, "perRank": 16, "skill": "storage_plan", "maxRank": 5 },
+  "equipment": [
+    { "id": "primary", "accepts": "primary" },
+    { "id": "secondary", "accepts": "secondary" },
+    { "id": "melee", "accepts": "melee" },
+    { "id": "hat", "accepts": "hat" },
+    { "id": "body", "accepts": "body" },
+    { "id": "feet", "accepts": "feet" },
+    { "id": "trinket1", "accepts": "trinket" },
+    { "id": "trinket2", "accepts": "trinket" },
+    { "id": "amulet", "accepts": "amulet" }
+  ],
+  "belt": { "slots": 4, "accepts": "belt" },
+  "buyBack": 6
+}

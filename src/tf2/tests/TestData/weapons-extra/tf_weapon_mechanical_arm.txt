@@ -1,0 +1,7 @@
+WeaponData
+{
+	"WeaponType"			"secondary"
+	"primary_ammo"			"TF_AMMO_METAL"
+	clip_size				"-1"
+	"AmmoPerShot"			"0"
+}

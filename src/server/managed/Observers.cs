@@ -177,10 +177,10 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     /// respawn's stop, so it is left running here. The team store is
     /// <see cref="Teams.Join"/>'s.
     /// </summary>
-    public JoinTeamResult JoinTeam(SsPlayer player, string? arg, float now)
+    public JoinTeamResult JoinTeam(SsPlayer player, string? arg, float now, int lastTeam = LastTeam)
     {
         int team = Atoi(arg);
-        if (!IsValidTeamNumber(team))
+        if (!IsValidTeamNumber(team, lastTeam))
         {
             log.Warning($"HandleCommand_JoinTeam( {team} ) - invalid team index.\n");
             return JoinTeamResult.Invalid;
@@ -211,7 +211,13 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     /// route that asks first (<see cref="Teams.Join"/>) and the arm that
     /// refuses cannot drift apart.
     /// </summary>
-    public static bool IsValidTeamNumber(int team) => team is >= TeamSpectator and <= LastTeam;
+    public static bool IsValidTeamNumber(int team) => IsValidTeamNumber(team, LastTeam);
+
+    /// <summary>
+    /// <see cref="IsValidTeamNumber(int)"/> with a mode's own last team (team
+    /// deathmatch's third and fourth team, <see cref="ITeamCount"/>).
+    /// </summary>
+    public static bool IsValidTeamNumber(int team, int lastTeam) => team >= TeamSpectator && team <= lastTeam;
 
     /// <summary>
     /// C's <c>atoi</c>, as stock's command handlers parse a team number: the

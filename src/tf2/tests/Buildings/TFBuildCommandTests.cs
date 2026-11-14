@@ -70,7 +70,7 @@ public class TFBuildCommandTests
         Assert.Single(rig.Spawner.Placed);  // the blueprint out
 
         Assert.True(placement.Place(3));    // the trigger
-        TFBaseObject standing = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
+        TFBaseObject standing = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
         Assert.IsType<TFSentryGun>(standing);
         Assert.Equal(370, rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)]);
     }
@@ -189,7 +189,7 @@ public class TFBuildCommandTests
         Assert.True(command.Handle(engineer, "build", ["3"]));
 
         placement.StartPlacement(3);        // the deploy: the exit blueprint out
-        TFTeleporter exit = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Teleporter)
+        TFTeleporter exit = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Teleporter, null)
                                                  .OfType<TFTeleporter>());
         Assert.Equal(1, exit.Mode);
     }
@@ -203,7 +203,7 @@ public class TFBuildCommandTests
 
         Assert.True(destroy.Handle(engineer, "destroy", ["2"]));
 
-        Assert.Empty(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
+        Assert.Empty(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
         Assert.Contains("destroyed Sentrygun 0", rig.Announcer.Said);
     }
 
@@ -227,7 +227,7 @@ public class TFBuildCommandTests
         Assert.True(destroy.Handle(engineer, "destroy", ["1", "1"]));
 
         // One of the pair: GetObjectOfType names one (tf_player.cpp:8189).
-        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Teleporter));
+        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Teleporter, null));
         Assert.Contains("destroyed Teleporter 1", rig.Announcer.Said);
     }
 
@@ -241,7 +241,7 @@ public class TFBuildCommandTests
         Assert.True(destroy.Handle(engineer, "destroy", ["3"]));
 
         // Fixup old binds (tf_player.cpp:7676-7685): 3 became mode 1.
-        TFTeleporter entrance = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Teleporter)
+        TFTeleporter entrance = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Teleporter, null)
                                                           .OfType<TFTeleporter>());
         Assert.Equal(0, entrance.Mode);
         Assert.Contains("destroyed Teleporter 1", rig.Announcer.Said);
@@ -252,7 +252,7 @@ public class TFBuildCommandTests
     {
         var (rig, _, destroy, engineer) = AField();
         rig.Builder().Build(engineer, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
-        var sentry = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
+        var sentry = Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
         sapper.StartPlacement(spy);
@@ -263,7 +263,7 @@ public class TFBuildCommandTests
         Assert.True(destroy.Handle(engineer, "destroy", ["2"]));
 
         // HasSapper refuses the detonation (tf_player.cpp:8193).
-        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
+        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
     }
 
     [Fact]
@@ -277,7 +277,7 @@ public class TFBuildCommandTests
 
         // Spies can't destroy buildings (sappers) — the class gate
         // (tf_player.cpp:7669).
-        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));
+        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));
     }
 
     [Fact]
@@ -290,7 +290,7 @@ public class TFBuildCommandTests
 
         Assert.True(destroy.Handle(engineer, "destroy", ["2"]));
 
-        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun));   // still standing
+        Assert.Single(rig.Buildings().OwnedBy(engineer, TFObjectType.Sentrygun, null));   // still standing
     }
 
     [Fact]

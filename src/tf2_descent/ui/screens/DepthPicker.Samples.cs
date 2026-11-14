@@ -18,6 +18,14 @@ public static class DepthPickerSamples
         return s.Create<DepthPicker>();
     }
 
+    /// <summary>UI4: a pick the server refused, on the status line.</summary>
+    [UiSample("refused: depth closed")]
+    private static UiScreen Refused(UiSampleServices s)
+    {
+        s.Add<IDescentTownStatus>(new FakeTownStatus("#Descent_Town_depth_closed", "", true));
+        return Solo7(s);
+    }
+
     /// <summary>Solo, the account reached depth 7 — four rows sit behind the Lock.</summary>
     [UiSample("solo reached 7")]
     private static UiScreen Solo7(UiSampleServices s)

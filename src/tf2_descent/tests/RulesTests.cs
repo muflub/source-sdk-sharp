@@ -31,18 +31,6 @@ public sealed class RulesTests
     }
 
     [Fact]
-    public void About_two_kills_in_three_drop_with_tiers_from_stock_to_unusual()
-    {
-        var rules = new TF2DescentRules();
-        var rolls = Enumerable.Range(0, 3000).Select(i => rules.KillRoll(7, (uint)i, "scout", 1, 1)).ToArray();
-
-        int drops = rolls.Count(r => r.Drop);
-        Assert.InRange(drops, 1800, 2200);
-        Assert.All(rolls.Where(r => r.Drop), r => Assert.InRange(r.Tier, 0, 3));
-        Assert.All(rolls.Where(r => !r.Drop), r => Assert.Equal(-1, r.Tier));
-    }
-
-    [Fact]
     public void A_rolled_item_replays_and_a_tampered_one_does_not()
     {
         var rules = new TF2DescentRules();

@@ -47,7 +47,7 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // The UI's assemblies beside the tests, as a deploy puts them in the
         // mod's managed dir the loader reads (the UiLoaderTests way).
         string from = AppContext.BaseDirectory;
-        foreach (string name in UiLoader.Assemblies.Concat([ModUiAssembly]))
+        foreach (string name in UiLoader.Assemblies.Concat([ModUiAssembly, DescentUiAssembly]))
             foreach (string ext in new[] { ".dll", ".pdb" })
                 if (File.Exists(Path.Combine(from, name + ext)))
                     File.Copy(Path.Combine(from, name + ext), Path.Combine(_dir, name + ext));
@@ -122,13 +122,57 @@ public sealed class TF2MenuCompositionTests : IDisposable
     /// names it and ClientModule hands it to both the loader and the composition.</summary>
     private const string ModUiAssembly = "TF2.Client.Ui";
 
+    /// <summary>TF2Descent's screens, which its row lists after TF2's (plan_descent_logic UI1).</summary>
+    private const string DescentUiAssembly = "TF2.Descent.Client.Ui";
+
     [Fact]
     public void The_ui_loads_with_the_TF2_menus_as_the_game_registers_them()
+    {
+        var (loader, log) = Loaded([ModUiAssembly], typeof(TFMenuNavigation).Assembly.GetTypes());
+
+        Assert.True(loader.Load(),
+            "the UI loaded with the TF2 team and class menus on its screens; the loader logged: " +
+            string.Join(" / ", log.Lines.Select(l => l.Text.TrimEnd())));
+        Assert.True(loader.Current!.Has("tf2teammenu"), "the team menu is on the layer");
+        Assert.True(loader.Current.Has("tf2classmenu"), "and the class menu");
+        Assert.True(loader.Current.Has("tf2textwindow"), "and the text window, whose motd data the container answers for");
+        Assert.True(loader.Current.Has("tf2mainmenu"),
+                    "and the main menu, over the core's IMainMenuSource and TF2's art and actions");
+        loader.Dispose();
+    }
+
+    /// <summary>
+    /// TF2Descent's row (plan_descent_logic UI1): TF2's screens, then the Descent
+    /// screens over TF2.Descent.Client's sources, as mods.yaml lists them. A
+    /// Descent screen whose constructor the client's registrations cannot fill
+    /// throws in the composition, and the loader logs that the UI did not load.
+    /// </summary>
+    [Fact]
+    public void The_ui_loads_with_TF2s_and_the_Descent_screens_as_the_game_registers_them()
+    {
+        var (loader, log) = Loaded([ModUiAssembly, DescentUiAssembly],
+                                   [.. typeof(TFMenuNavigation).Assembly.GetTypes(),
+                                    .. typeof(TF2.Descent.Client.Ui.VitalsSource).Assembly.GetTypes()]);
+
+        Assert.True(loader.Load(),
+            "the UI loaded with TF2's and the Descent screens; the loader logged: " +
+            string.Join(" / ", log.Lines.Select(l => l.Text.TrimEnd())));
+        Assert.True(loader.Current!.Has("tfhud"), "TF2's HUD is on the layer");
+        Assert.True(loader.Current.Has("descenthud"), "and the Descent HUD beside it");
+        Assert.True(loader.Current.Has("inventory") && loader.Current.Has("charsheet") && loader.Current.Has("skilltree"),
+                    "and the Descent windows");
+        Assert.True(loader.Current.Answers("descent_inventory"), "the inventory answers its panel");
+        loader.Dispose();
+    }
+
+    /// <summary>The loader over the module's container as it is when the UI composes,
+    /// listing <paramref name="uiAssemblies"/> and registering <paramref name="sideTypes"/>' side services.</summary>
+    private (UiLoader Loader, RecordingLog Log) Loaded(string[] uiAssemblies, Type[] sideTypes)
     {
         var hud = new Hud(new RecordingLog(), _engine, _engine, new DamageMessage(), new HudMsgMessage(),
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         var services = UiHostKit.RuntimeServices(_engine, _surface, _dir,
-            k => k == ModInfo.Keys.ClientUiAssemblies ? ModUiAssembly : null);
+            k => k == ModInfo.Keys.ClientUiAssemblies ? string.Join(';', uiAssemblies) : null);
 
         // What the module's container holds when it reaches the UI section,
         // added as the composition asks them: the forwarders' engine client,
@@ -140,8 +184,8 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // ClientModule's slice of the same engine client: the menu background's name.
         services.AddInstance<IMenuBackgroundName>(new DefaultForwarders.NoEngineClient());
         var convars = ConVarRegistry.For(new RecordingEngine { Strict = false }.Returns("Console.FindConVarFlags", -1));
-        convars.RegisterTypes([.. typeof(TFClassLimitConVar).Assembly.GetTypes(), .. typeof(TFHudFlag).Assembly.GetTypes(),
-                               .. typeof(ClMpTimeLimitConVar).Assembly.GetTypes()]);
+        convars.RegisterTypes([.. new[] { typeof(TFClassLimitConVar).Assembly, typeof(TFHudFlag).Assembly, typeof(ClMpTimeLimitConVar).Assembly }
+                                     .Concat(sideTypes.Select(t => t.Assembly)).Distinct().SelectMany(a => a.GetTypes())]);
         convars.PublishTo(services);
         services.AddInstance<ILog>(new RecordingLog()).AddInstance<IEngineFiles>(_engine);
         services.AddInstance<ILocalArsenal>(new UiHostKit.NoArsenal());
@@ -155,6 +199,8 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // The kill feed's player resolver (the module registers KillFeedPlayers):
         // the composition's fake answers the empty resource.
         services.AddInstance<IKillFeedPlayers>(new EmptyPlayers());
+        // ... and the killer-name chain every feed asks (ClientModule registers it beside the listeners).
+        services.AddFactory<IHooks<IKillFeedKillerNames>>(locator => new Hooks<IKillFeedKillerNames>(locator, locator.Require<ILog>()));
         // The weapon selection state, as the module holds it before its UI
         // section (ClientModule's own build over the local player): the
         // composition's world holds nothing selected.
@@ -181,6 +227,10 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // the still projector answers the one read the paint makes.
         services.AddInstance<IClientBeamExecutor>(new StillProjector());
         services.AddInstance(new ViewReadout());
+        // The minimap's world and the world markers' view (the module registers the engine's
+        // by factory): the Descent automap and robot bars read them; nobody about, nothing seen.
+        services.AddInstance<IMinimapWorld>(new NoMinimapWorld());
+        services.AddInstance<IMarkerView>(new NoMarkerView());
         services.AddInstance(NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
         // The game events' own objects, as the module's container holds them
         // before its UI section (ClientModule): the death link's EventLink
@@ -190,23 +240,33 @@ public sealed class TF2MenuCompositionTests : IDisposable
         foreach (Type area in _engine.GetType().GetInterfaces().Where(i => i.Namespace == "SourceSharp.Abi" && i.Name.StartsWith("IEngine")))
             if (!services.IsRegistered(area))
                 services.AddInstance(area, _engine);
-        SideServices.Register(services, Side.Client, typeof(TFMenuNavigation).Assembly.GetTypes());
+        SideServices.Register(services, Side.Client, sideTypes);
 
         var runtime = new UiRuntimeServices(services, new RecordingLog(), hud, new UiHostKit.NoArsenal(), null,
                                             new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
         var log = new RecordingLog();
         var loader = new UiLoader(log, _engine, _dir, () => runtime,
-                                  parent: AssemblyLoadContext.Default, modAssemblies: [ModUiAssembly]);
+                                  parent: AssemblyLoadContext.Default, modAssemblies: uiAssemblies);
+        return (loader, log);
+    }
 
-        Assert.True(loader.Load(),
-            "the UI loaded with the TF2 team and class menus on its screens; the loader logged: " +
-            string.Join(" / ", log.Lines.Select(l => l.Text.TrimEnd())));
-        Assert.True(loader.Current!.Has("tf2teammenu"), "the team menu is on the layer");
-        Assert.True(loader.Current.Has("tf2classmenu"), "and the class menu");
-        Assert.True(loader.Current.Has("tf2textwindow"), "and the text window, whose motd data the container answers for");
-        Assert.True(loader.Current.Has("tf2mainmenu"),
-                    "and the main menu, over the core's IMainMenuSource and TF2's art and actions");
-        loader.Dispose();
+    private sealed class NoMinimapWorld : IMinimapWorld
+    {
+        public Vector LocalOrigin => default;
+        public float LocalYaw => 0f;
+        public void OtherPlayers(List<Vector> into) { }
+        public bool OnScreen(Vector origin) => false;
+    }
+
+    private sealed class NoMarkerView : IMarkerView
+    {
+        public Vector LocalOrigin => default;
+
+        public bool ToScreen(Vector world, out float x, out float y)
+        {
+            x = y = 0.5f;
+            return false;
+        }
     }
 
     /// <summary>The selection's world, the four arms one object answers (the
@@ -219,9 +279,9 @@ public sealed class TF2MenuCompositionTests : IDisposable
 
         public bool FrozenOrDead => true;
 
-        public ulong Carried => 0ul;
+        public UInt128 Carried => 0ul;
 
-        public ulong Empty => 0ul;
+        public UInt128 Empty => 0ul;
 
         public int Active => -1;
 

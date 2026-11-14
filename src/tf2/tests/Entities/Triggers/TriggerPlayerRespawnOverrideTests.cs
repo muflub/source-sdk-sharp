@@ -183,6 +183,12 @@ public sealed class TriggerPlayerRespawnOverrideTests
         public EntityHandle SelectSpawn(EntityHandle player) => EntityHandle.None;
     }
 
+    /// <summary>The class owner as the walk's facts need it: every player Undefined.</summary>
+    private sealed class Classes : TF2.Server.Econ.ITFPlayerClasses
+    {
+        public TFClass ClassOf(EntityHandle player) => TFClass.Undefined;
+    }
+
     private static InfoPlayerTeamSpawn TeamSpawn(ObjectiveRig rig, TFTeam team, string? name = null)
         => rig.Spawn<InfoPlayerTeamSpawn>(InfoPlayerTeamSpawn.MapClass,
             ("TeamNum", ((int)team).ToString()),
@@ -196,7 +202,7 @@ public sealed class TriggerPlayerRespawnOverrideTests
         var carriers = new TFPlayerCarriers();
         TeamSpawn(rig, TFTeam.Red, "plain"); // the walk's own answer, met first
         var named = TeamSpawn(rig, TFTeam.Red, "red_room");
-        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, null, carriers, rig.Registry);
+        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, new Classes(), carriers, rig.Registry);
         var player = rig.NewHandle();
         teams.Of[player] = (int)TFTeam.Red;
         var ov = new TFRespawnOverride(carriers, rig.Clock);
@@ -214,7 +220,7 @@ public sealed class TriggerPlayerRespawnOverrideTests
         var carriers = new TFPlayerCarriers();
         TeamSpawn(rig, TFTeam.Blue, "blue_room"); // not this red player's spot
         var redSpawn = TeamSpawn(rig, TFTeam.Red);
-        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, null, carriers, rig.Registry);
+        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, new Classes(), carriers, rig.Registry);
         var player = rig.NewHandle();
         teams.Of[player] = (int)TFTeam.Red;
         var ov = new TFRespawnOverride(carriers, rig.Clock);
@@ -232,7 +238,7 @@ public sealed class TriggerPlayerRespawnOverrideTests
         var carriers = new TFPlayerCarriers();
         var first = TeamSpawn(rig, TFTeam.Red, "plain");
         TeamSpawn(rig, TFTeam.Red, "red_room"); // the name stands, but the pair does not
-        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, null, carriers, rig.Registry);
+        var selector = new TFSpawnSelector(teams, rig.Entities, rig.Engine, rig.Engine, new Classes(), carriers, rig.Registry);
         var player = rig.NewHandle();
         teams.Of[player] = (int)TFTeam.Red;
         var ov = new TFRespawnOverride(carriers, rig.Clock);

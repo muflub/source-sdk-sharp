@@ -52,7 +52,8 @@ public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string
 
 /// <summary>
 /// What a recording was made under: the match seed, the map, the nav graph's
-/// hash, the skill parameters' hash, and the session's sizes.
+/// hash, the skill parameters' hash, the session's sizes, and how the session
+/// ran (<see cref="Flags"/>, format 8: 0 in an older file).
 /// </summary>
 public readonly record struct AiRecordingHeader(
     ulong MatchSeed,
@@ -60,7 +61,15 @@ public readonly record struct AiRecordingHeader(
     ulong NavGraphHash,
     ulong SkillParamsHash,
     int Slots,
-    int SightedCapacity);
+    int SightedCapacity,
+    byte Flags = 0)
+{
+    /// <summary>The session ran without its team layer (<see cref="AiSession.TeamCallouts"/> false): a replay runs without it too.</summary>
+    public const byte TeamLayerOff = 1;
+
+    /// <summary>Whether the session that made the recording ran its team layer.</summary>
+    public bool TeamCallouts => (Flags & TeamLayerOff) == 0;
+}
 
 /// <summary>The file's framing and every payload's encoding. Pure functions; the stream is the caller's.</summary>
 public static class AiRecordFormat
@@ -73,9 +82,14 @@ public static class AiRecordFormat
     /// added the World record, format 3 the Frame and Observed records, format
     /// 4 the DecisionTree record, format 5 a tail on the World and Snapshot
     /// records: the weapons' second triggers and each view's pool for one and its frags. A
-    /// record with no tail, an older one, has none of either).
+    /// record with no tail, an older one, has none of either; format 6 a second tail on the
+    /// Snapshot record, each view's own team and its sighted actors' (plan_bots_teams_tf2 B.2),
+    /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something);
+    /// format 7 a second tail on the World record, the map's team spawns (B.5); format 8 a tail on the
+    /// Header record, its flags (<see cref="AiRecordingHeader.TeamLayerOff"/>), and one on the BotAdded
+    /// record, the bot's home point when it has one (cf's Descent proposals 4 and 6).
     /// </summary>
-    public const ushort Version = 5;
+    public const ushort Version = 8;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -152,6 +166,8 @@ public static class AiRecordFormat
         w.Write(h.SkillParamsHash);
         w.Write(h.Slots);
         w.Write(h.SightedCapacity);
+        // Format 8's tail: how the session ran.
+        w.Write(h.Flags);
     }
 
     public static void Write(BinaryWriter w, AiRecordedWorld world)
@@ -201,6 +217,14 @@ public static class AiRecordFormat
             w.Write(f.Alt.AmmoCost);
             w.Write(f.Alt.FromClip);
         }
+
+        // Format 7's tail: the teams' own spawns.
+        w.Write(world.Map.TeamSpawns.Length);
+        foreach (TeamSpawn t in world.Map.TeamSpawns)
+        {
+            w.Write((byte)t.Team);
+            Write(w, t.Position);
+        }
     }
 
     public static void Write(BinaryWriter w, AiDecisionTree tree)
@@ -249,7 +273,10 @@ public static class AiRecordFormat
             }
         }
 
-        return new AiRecordedWorld(new MapKnowledge(map, [.. items], [.. spawns], new WeaponKnowledge(weapons)), tick, curves, nav);
+        var teamSpawns = new TeamSpawn[More(r) ? Count(r) : 0];
+        for (int i = 0; i < teamSpawns.Length; i++)
+            teamSpawns[i] = new TeamSpawn(r.ReadByte(), ReadVector(r));
+        return new AiRecordedWorld(new MapKnowledge(map, [.. items], [.. spawns], new WeaponKnowledge(weapons), [.. teamSpawns]), tick, curves, nav);
     }
 
     /// <summary>Whether the record has a tail: a payload is read from a stream of its own.</summary>
@@ -276,7 +303,30 @@ public static class AiRecordFormat
     {
         ulong seed = r.ReadUInt64();
         string map = Encoding.UTF8.GetString(r.ReadBytes(r.ReadUInt16()));
-        return new AiRecordingHeader(seed, map, r.ReadUInt64(), r.ReadUInt64(), r.ReadInt32(), r.ReadInt32());
+        var header = new AiRecordingHeader(seed, map, r.ReadUInt64(), r.ReadUInt64(), r.ReadInt32(), r.ReadInt32());
+        return More(r) ? header with { Flags = r.ReadByte() } : header;
+    }
+
+    /// <summary>A BotAdded record's payload: the bot, its seed, its skill levels and (format 8's tail) its home point.</summary>
+    public static void WriteBotAdded(BinaryWriter w, ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels, AiVector? home)
+    {
+        Write(w, bot);
+        w.Write(seed);
+        w.Write((ushort)skillLevels.Length);
+        w.Write(skillLevels);
+        w.Write(home.HasValue);
+        if (home is { } at)
+            Write(w, at);
+    }
+
+    /// <summary>Reads a BotAdded record's payload; an older record (no tail) has no home point.</summary>
+    public static (ActorId Bot, ulong Seed, byte[] Skills, AiVector? Home) ReadBotAdded(BinaryReader r)
+    {
+        ActorId bot = ReadActor(r);
+        ulong seed = r.ReadUInt64();
+        byte[] skills = r.ReadBytes(r.ReadUInt16());
+        AiVector? home = More(r) && r.ReadBoolean() ? ReadVector(r) : null;
+        return (bot, seed, skills, home);
     }
 
     public static void Write(BinaryWriter w, ActorId a)
@@ -385,6 +435,16 @@ public static class AiRecordFormat
                 w.Write(view.Self.Grenades);
             }
         }
+
+        // Format 6's tail: each view's own team, then each sighted actor's, in the same order.
+        for (int slot = 0; slot < s.Slots; slot++)
+        {
+            if (s.ViewFor(slot) is not { } view)
+                continue;
+            w.Write((byte)view.Self.Team);
+            foreach (ref readonly ActorFacts f in view.Sighted)
+                w.Write((byte)f.Team);
+        }
     }
 
     /// <summary>Reads a snapshot payload into <paramref name="ring"/>'s slot for its tick (not yet published).</summary>
@@ -410,6 +470,20 @@ public static class AiRecordFormat
                     int alt = r.ReadInt32();
                     view.SetAltAmmo(alt, r.ReadInt32());
                 }
+            }
+        }
+
+        if (More(r))
+        {
+            for (int slot = 0; slot < s.Slots; slot++)
+            {
+                if (s.ViewFor(slot) is not { } view)
+                    continue;
+                int self = r.ReadByte();
+                int[] teams = new int[view.SightedCount];
+                for (int i = 0; i < teams.Length; i++)
+                    teams[i] = r.ReadByte();
+                view.SetTeams(self, teams);
             }
         }
 
@@ -454,6 +528,20 @@ public static class AiRecordFormat
         w.Write(d.Utility);
         w.Write(d.ScoreboardTerm);
         w.Write(d.AmmoTerm);
+
+        // Format 6's tail, only when the intent says something: an intent that does not
+        // encodes as format 5's did, so a recording made before callouts compares byte for byte.
+        SayIntent say = i.Say;
+        if (say.Says)
+        {
+            w.Write((byte)say.Kind);
+            Write(w, say.Place);
+            w.Write(say.Count);
+            w.Write(say.Subject);
+            w.Write(say.DelayTicks);
+            w.Write((byte)say.Team);
+            w.Write(say.Text);
+        }
     }
 
     public static IntentCommand ReadIntent(BinaryReader r)
@@ -468,7 +556,10 @@ public static class AiRecordFormat
                                   r.ReadSingle(), r.ReadInt32());
         var action = new ActionIntent((ActionKind)r.ReadByte(), (FireStyle)r.ReadByte(), r.ReadInt32(), r.ReadInt32());
         var reason = new DecisionReason(r.ReadInt32(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
-        return new IntentCommand(bot, from, seq, expires, move, look, action, reason);
+        SayIntent say = More(r)
+            ? new SayIntent((CalloutKind)r.ReadByte(), ReadVector(r), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadByte(), r.ReadBoolean())
+            : default;
+        return new IntentCommand(bot, from, seq, expires, move, look, action, reason, say);
     }
 
     public static void Write(BinaryWriter w, in AiUserCmd c)

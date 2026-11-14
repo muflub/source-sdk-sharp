@@ -22,12 +22,16 @@ public sealed class DepthPicker : UiScreen
     private readonly IDescentDescentActions _actions;
     private readonly IDescentParty _party;
     private readonly PartyPill _pill;
+    private readonly IDescentTownStatus? _status;
+    private readonly TownStatusLine _statusLine = new();
 
     /// <summary>Pills per party row: two compact pills always fit the dialog body.</summary>
     public const int PillsPerRow = 2;
 
-    public DepthPicker(IDescentDescent descent, IDescentDescentActions actions, IDescentParty party, PartyPill pill)
+    public DepthPicker(IDescentDescent descent, IDescentDescentActions actions, IDescentParty party, PartyPill pill,
+                       IDescentTownStatus? status = null)
     {
+        _status = status;
         _descent = descent;
         _actions = actions;
         _party = party;
@@ -35,6 +39,10 @@ public sealed class DepthPicker : UiScreen
     }
 
     public override string Name => "depthpicker";
+
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_depthpicker";
 
     /// <summary>The dialog's width, du: two window-variant pills (288 du each) plus
     /// the body and row padding fit side by side without touching the clip.</summary>
@@ -46,7 +54,9 @@ public sealed class DepthPicker : UiScreen
     public override void Describe(ref UiFrame ui)
     {
         // Keep the list inside the screen: past this the rows scroll.
-        float listCapDu = MathF.Max(240f, ui.DesignHeight - 260f);
+        // The status line (UI4) takes its own row above the buttons: the list gives it the room.
+        bool status = _status is { StatusToken.Length: > 0 };
+        float listCapDu = MathF.Max(240f, ui.DesignHeight - (status ? 320f : 260f));
         using (ui.Dialog("depthpicker", "#Descent_Depth_Title", WidthDu))
         {
             // D8: the party follows the leader, so the picker names whose reach the rows show.
@@ -134,6 +144,9 @@ public sealed class DepthPicker : UiScreen
                     }
                 }
             }
+            // UI4: the server's word on the last pick (a closed depth, no level installed).
+            if (_status is { } st)
+                ui.Sub("status", _statusLine, new TownStatusProps(st.StatusToken, st.StatusData, st.StatusError));
             using (ui.DialogButtons())
             {
                 var descend = ui.Button("descend", "#Descent_Depth_Descend", primary: true, enabled: (known ? open : fallbackOpen > 0));

@@ -12,6 +12,7 @@ using SourceSharp.Shared;
 using TF2.Server.Medigun;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Anim;
 using TF2.Shared.Conditions;
 
 namespace TF2.Server.Player;
@@ -89,11 +90,10 @@ public sealed class TFPlayerClass(TFPlayerCarriers carriers, TFPlayerItems items
 /// over the frame's time, once per player per server frame, and the removal
 /// arms of what ran out (<see cref="TFPlayerConditions.Expire"/>). The healer
 /// count comes from the medigun lane's healing (2.9), which
-/// <c>GetNumHealers</c> answers; without it (a container with no medigun lane)
-/// the count is none, as 2.3 had it.
+/// <c>GetNumHealers</c> answers.
 /// </summary>
 public sealed class TFPlayerConditionTicker(TFPlayerCarriers carriers, TFPlayerConditions conditions,
-                                            IEngineNetworking networking, ITFPlayerHealing? healing = null)
+                                            IEngineNetworking networking, ITFPlayerHealing healing)
     : IPlayerComponent
 {
     private readonly TFConditionEffects _effects = new();
@@ -130,7 +130,7 @@ public sealed class TFPlayerConditionTicker(TFPlayerCarriers carriers, TFPlayerC
         if (frametime <= 0f)
             return;
 
-        TFCondMask expired = set.Tick(frametime, healers: healing?.NumHealers(_player.EntryIndex) ?? 0,
+        TFCondMask expired = set.Tick(frametime, healers: healing.NumHealers(_player.EntryIndex),
                                        _effects.ExpiresFastUnderHealing);
         if (!expired.IsEmpty)
             conditions.Expire(_player, in expired);
@@ -168,5 +168,10 @@ public sealed class TFClassModels(TFClassTable classes, IEnginePrecache precache
             if (classes[c].ModelHands is { Length: > 0 } hands)
                 precache.PrecacheModel(hands);
         }
+
+        // The Gunslinger's arm, the hand index's other answer: stock precaches
+        // it in CTFRobotArm's Spawn (tf_playerclass_shared.cpp:165), an entity
+        // the sentry build makes; the level load stands in until there is one.
+        precache.PrecacheModel(TFViewmodelHandsRule.GunslingerArms);
     }
 }

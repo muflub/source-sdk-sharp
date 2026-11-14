@@ -5,7 +5,9 @@ using SourceSharp.Tests;
 using TF2.Server.Medigun;
 using TF2.Server.Weapons;
 using TF2.Shared;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 
 using Xunit;
 
@@ -120,6 +122,38 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(5, w.Clip);
     }
 
+    /// <summary>
+    /// Stock's <c>m_iConsecutiveShots++</c> rides <c>FireBullet</c> itself
+    /// (<c>tf_weaponbase_gun.cpp:355</c>), not an effect gate: every prediction
+    /// pass — the live one and the replays behind it — counts its shot once, so
+    /// the acked slot holds the streak the server's run of the same command
+    /// counted. A replay that skipped the cone's ask also skipped the streak
+    /// behind it, and the meter stood one press behind the arrival (the
+    /// BehaviourMeterB=2|3 miss). The melee answer beside it matches stock's
+    /// swing, which reaches neither: a swing is not a <c>FireBullet</c> shot.
+    /// </summary>
+    [Fact]
+    public void The_shot_streak_counts_on_a_replayed_run_like_the_live_one()
+    {
+        var world = new TFWeaponWorld();
+        var (live, liveVm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        world.Run(live, liveVm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.Equal(1f, live.BehaviourMeterB, 4);
+
+        var (replay, replayVm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        world.Run(replay, replayVm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000), live: false);
+        Assert.Equal(live.BehaviourMeterB, replay.BehaviourMeterB, 4);
+
+        // The swing's answer beside it: neither run of a melee press reaches
+        // the streak, both sides alike — stock counts only FireBullet shots.
+        var (swing, swingVm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+        world.Run(swing, swingVm, Attack, now: 10f);
+        Assert.Equal(0f, swing.BehaviourMeterB, 4);
+        var (swingReplay, swingReplayVm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+        world.Run(swingReplay, swingReplayVm, Attack, now: 10f, live: false);
+        Assert.Equal(0f, swingReplay.BehaviourMeterB, 4);
+    }
+
     private static AttributeContainer PercentageItem(int defIndex, string hook, float value)
     {
         var item = new AttributeContainer();
@@ -153,6 +187,16 @@ public sealed class TFWeaponBehaviourTests
         world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9101, "mult_clipsize", 2f);
 
         Assert.Equal(12, world.Behaviour(Scattergun).ModifyClipSize(world.Row(Scattergun), world.Row(Scattergun).ClipSize, TFWeaponWorld.Owner));
+    }
+
+    /// <summary>The predicted carrier a panic fact hands the hook: bound so the
+    /// class read answers, with the class the table holds the maximum for.</summary>
+    private static TFPlayerNetState HealthCarrier(TFClass playerClass)
+    {
+        var state = new TFPlayerNetState();
+        state.BindLocal();
+        state.SetClass(playerClass);
+        return state;
     }
 
     /// <summary>
@@ -242,6 +286,106 @@ public sealed class TFWeaponBehaviourTests
         world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
 
         Assert.Equal(new ShotDamage(6f, true), Assert.Single(world.Arms.Bullets).Shot);
+    }
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>'s first arm
+    /// (<c>tf_weaponbase_gun.cpp:844-847</c>, Tomislav, the Back Scatter): the
+    /// held item's <c>mult_spread_scale</c> scales the cone's sine before the
+    /// pellets sample it, so a doubled item fires at the angle of twice the
+    /// script sine (<c>asin(0.0675 × 2)</c>), not a widened sample of the plain
+    /// cone.
+    /// </summary>
+    [Fact]
+    public void An_items_spread_scale_widens_the_shot_whole_before_the_pellets()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9105, "mult_spread_scale", 2f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.135f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// The same shot under a scale of one keeps the script cone the row was
+    /// dressed with: the walk multiplies, so the identity is the plain cone.
+    /// </summary>
+    [Fact]
+    public void Without_a_spread_scale_the_shot_keeps_the_scripts_cone()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9106, "mult_spread_scale", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>' second arm
+    /// (<c>tf_weaponbase_gun.cpp:866-872</c>, the Panic Attack): the item's
+    /// <c>panic_attack_negative</c> scales the cone by the owner's health
+    /// fraction between 20 and 90 percent. At the band's bottom (the scout's
+    /// 25 of its 125) the remap sits on the attribute itself, so the sine is
+    /// the plain cone's times the value (<c>asin(0.0675 × 0.4)</c>).
+    /// </summary>
+    [Fact]
+    public void AHurtOwnersPanicAttackScalesTheConeToTheItemsValue()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Scout) });
+        world.Engine.Returns("Entities.GetHealth", 25);
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9107, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.027f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// The same arm at the band's top (<c>:870</c>'s clamp): a scout at 113 of
+    /// its 125 sits past the 90 percent end, so the remap answers one and the
+    /// cone stays the plain script cone the row was dressed with.
+    /// </summary>
+    [Fact]
+    public void AnAlmostFullPanicOwnerKeepsThePlainCone()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Scout) });
+        world.Engine.Returns("Entities.GetHealth", 113);
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9108, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// Halfway through the band (<c>:870</c>, the soldier at 110 of its 200):
+    /// the remap lands halfway between the attribute and one, so the cone
+    /// tightens to the plain sine's 0.7 — the scale a wrong band or an
+    /// unclamped walk would move.
+    /// </summary>
+    [Fact]
+    public void AHalfHurtPanicOwnerGetsTheHalfwayCone()
+    {
+        var world = new TFWeaponWorld(new FakePredictedData { Carrier = HealthCarrier(TFClass.Soldier) });
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.Soldier;
+        world.Engine.Returns("Entities.GetHealth", 110);
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9109, "panic_attack_negative", 0.4f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.04725f), shot.Spread, 4);
     }
 
     [Fact]
@@ -382,6 +526,41 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(new ShotDamage(9f), world.Behaviour(Scattergun).ModifyShot(world.Attack(w, vm, 10f, TFWeaponWorld.GunSeed(200, 10000)), default));
     }
 
+    /// <summary>mult_dmg_disguised (the Enforcer), stock's disguised branch of
+    /// <c>GetProjectileDamage</c> (<c>tf_weaponbase_gun.cpp:913-917</c>): while the
+    /// owner wears the disguise, the multiplier rides onto the shot.</summary>
+    [Fact]
+    public void A_disguised_owners_shot_takes_the_disguised_multiplier()
+    {
+        var world = new TFWeaponWorld();
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(9002, "disguise bonus", "mult_dmg_disguised", AttributeDescriptionFormat.Percentage,
+                                                               AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                               MergedKeys.Block("x")), 1.5f));
+        world.Owners.Items[TFWeaponWorld.Owner] = item;
+        world.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.Disguised);   // stock's InCond(TF_COND_DISGUISED), :913
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        // Base 6 times the x1.5 multiplier of the walk (:916).
+        Assert.Equal(new ShotDamage(9f), world.Behaviour(Scattergun).ModifyShot(world.Attack(w, vm, 10f, TFWeaponWorld.GunSeed(200, 10000)), default));
+    }
+
+    /// <summary>The gate of stock's arm (:913-914): with no disguise on the
+    /// owner the multiplier does not ride, whatever the item says.</summary>
+    [Fact]
+    public void An_undisguised_owners_shot_ignores_the_disguised_multiplier()
+    {
+        var world = new TFWeaponWorld();
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(9002, "disguise bonus", "mult_dmg_disguised", AttributeDescriptionFormat.Percentage,
+                                                               AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                               MergedKeys.Block("x")), 1.5f));
+        world.Owners.Items[TFWeaponWorld.Owner] = item;
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        Assert.Equal(new ShotDamage(6f), world.Behaviour(Scattergun).ModifyShot(world.Attack(w, vm, 10f, TFWeaponWorld.GunSeed(200, 10000)), default));
+    }
+
     [Fact]
     public void A_damage_hook_reaches_the_arms()
     {
@@ -498,6 +677,165 @@ public sealed class TFWeaponBehaviourTests
         world.Run(w, vm, 0, now: 10.5f);
         Assert.Equal(12, w.Clip);
         Assert.Equal(24, w.Reserve);
+    }
+
+    /// <summary>
+    /// TF_RELOAD_FINISH's gate (tf_weaponbase.cpp:2064): only a gun that does
+    /// not overload ends its shell-by-shell load on full-or-empty. The Beggar's
+    /// Bazooka's <c>can_overload</c> (<c>CanOverload</c>, tf_weaponbase.cpp:1887-1893)
+    /// holds the reload open at the full clip, sampled on every tick from the
+    /// first full one — and the held trigger's press then carries rounds out
+    /// through the abort arm, which is its finish.
+    /// </summary>
+    [Fact]
+    public void An_overloading_single_shell_loader_holds_the_reload_open_at_a_full_clip()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9121, "can_overload", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        bool heldAtFull = false;
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+        {
+            world.Run(w, vm, buttons: 0, now: t);
+            if (w.Clip >= 6)   // every tick from the first full one: sampled, not just the last
+            {
+                Assert.True(w.InReload);
+                heldAtFull = true;
+            }
+        }
+
+        Assert.True(heldAtFull);     // the clip did come full inside the window
+        Assert.Equal(6, w.Clip);
+        Assert.True(w.InReload);
+    }
+
+    /// <summary>The press that carries the rounds out: with the reload held
+    /// open, a press with a shell in hand finishes it (the abort arm,
+    /// tf_weaponbase.cpp:2398-2425) and the next command fires.</summary>
+    [Fact]
+    public void The_press_after_the_held_reload_finishes_the_overload_and_fires()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9122, "can_overload", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+            world.Run(w, vm, buttons: 0, now: t);
+        Assert.True(w.InReload);                       // held open by the attribute
+
+        world.Run(w, vm, Attack, now: 14.05f);         // the abort arm
+        Assert.False(w.InReload);
+
+        world.Run(w, vm, Attack, now: 14.07f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.Single(world.Arms.Bullets);             // the press carried a round out
+        Assert.Equal(5, w.Clip);
+    }
+
+    /// <summary>Without the attribute the loader finishes on full exactly as
+    /// before the overload arm (:2064's plain gate).</summary>
+    [Fact]
+    public void A_plain_single_shell_loader_still_finishes_at_a_full_clip()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+            world.Run(w, vm, buttons: 0, now: t);
+
+        Assert.Equal(6, w.Clip);
+        Assert.False(w.InReload);
+    }
+
+    /// <summary>
+    /// The held load of the rocket gun (<c>ReloadsSingly</c> with
+    /// <c>IncrementAmmo</c>, tf_weaponbase.cpp:2043-2075 and :2097-2117):
+    /// the clip starts empty and each cycle of the held load moves ONE round
+    /// from the reserve into the clip — after the script's start-plus-round
+    /// time, then one <c>TimeReload</c> later each — until the clip is full
+    /// (the script's clip size through <c>ModifyClip</c>), where a plain gun
+    /// finishes; rounds beyond the cap are never loaded.
+    /// </summary>
+    [Fact]
+    public void The_held_load_moves_one_round_from_the_reserve_at_a_time_up_to_the_cap()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 0, reserve: 32);
+
+        // The empty press opens the machine's load (the empty-click arm).
+        world.Run(w, vm, Attack, now: 10f);
+        Assert.True(w.InReload);
+        Assert.Equal(0, w.Clip);
+
+        // The first round lands after TimeReloadStart + TimeReload (:893): 10.93.
+        world.Run(w, vm, buttons: 0, now: 10.9f);
+        Assert.Equal(0, w.Clip);                       // not yet: the cycle is still running
+        world.Run(w, vm, buttons: 0, now: 10.95f);
+        Assert.Equal(1, w.Clip);                       // one round, and its price out of the reserve
+        Assert.Equal(31, w.Reserve);
+
+        // Each next one a TimeReload later on the timer's own chain.
+        world.Run(w, vm, buttons: 0, now: 11.8f);      // past 11.76
+        Assert.Equal(2, w.Clip);
+        world.Run(w, vm, buttons: 0, now: 12.65f);     // past 12.59
+        Assert.Equal(3, w.Clip);
+        world.Run(w, vm, buttons: 0, now: 13.5f);      // past 13.42 — the cap: the script's clip size 4
+        Assert.Equal(4, w.Clip);
+
+        world.Run(w, vm, buttons: 0, now: 14.4f);      // holding longer loads nothing past the cap
+        Assert.Equal(4, w.Clip);
+        Assert.Equal(28, w.Reserve);
+        Assert.False(w.InReload);                      // and the plain gun finishes on full (:2064)
+    }
+
+    /// <summary>
+    /// What the live press saw: whatever the hold loaded, ONE press carries
+    /// out exactly one rocket (<c>PrimaryAttack</c>, tf_weaponbase_gun.cpp:77-216),
+    /// each press's round priced out of the loaded clip.
+    /// </summary>
+    [Fact]
+    public void One_press_after_the_held_load_carries_out_one_rocket()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 0, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f);
+        foreach (var now in new[] { 10.95f, 11.8f, 12.65f, 13.5f, 14.4f })
+            world.Run(w, vm, buttons: 0, now);         // the hold loads to the cap: four rounds, then finishes
+        Assert.Equal(4, w.Clip);
+        Assert.False(w.InReload);
+
+        world.Run(w, vm, Attack, now: 15f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.Single(world.Effects.Projectiles);       // one press, one rocket
+        Assert.Equal(3, w.Clip);
+
+        // The next press after the script's fire delay (0.8) carries the next one.
+        world.Run(w, vm, Attack, now: 16f, seed: TFWeaponWorld.GunSeed(201, 10001));
+        Assert.Equal(2, world.Effects.Projectiles.Count);
+        Assert.Equal(2, w.Clip);
+    }
+
+    /// <summary>The Beggar's <c>can_overload</c> on the rocket gun holds the
+    /// load open at the full clip and loads nothing past it — the cap is the
+    /// script's clip size with the item's <c>mult_clipsize</c> over it
+    /// (<c>IncrementAmmo</c>'s check, tf_weaponbase.cpp:2110), and the press
+    /// still carries out one rocket at a time.</summary>
+    [Fact]
+    public void The_overloaded_rocket_gun_loads_to_the_cap_and_holds_the_load_open()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9123, "can_overload", 1f);
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 0, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f);
+        foreach (var now in new[] { 10.95f, 11.8f, 12.65f, 13.5f, 14.4f, 15.4f })
+            world.Run(w, vm, buttons: 0, now);
+
+        Assert.Equal(4, w.Clip);       // loaded to the cap...
+        Assert.True(w.InReload);       // ...and held open by the attribute (:2064)
     }
 
     // The viewmodel animations of a single-shell reload, stock's
@@ -762,6 +1100,8 @@ public sealed class TFWeaponBehaviourTests
     {
         public int NumHealers(int patientIndex) => count;
 
+        public IEnumerable<int> HealerIndexes(int patientIndex) => [];
+
         public void Heal(EntityHandle patient, EntityHandle healer, float healRate, float now,
                          float overhealBonus = ITFPlayerHealing.StandardOverhealBonus,
                          float decayMult = ITFPlayerHealing.StandardOverhealDecayMult,
@@ -769,7 +1109,7 @@ public sealed class TFWeaponBehaviourTests
             => throw new InvalidOperationException();
         public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => throw new InvalidOperationException();
         public void RecalculateChargeEffects(EntityHandle player, float now) => throw new InvalidOperationException();
-        public void NoteReleasing(int playerIndex, bool releasing) => throw new InvalidOperationException();
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) => throw new InvalidOperationException();
         public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => throw new InvalidOperationException();
         public bool CanReceiveMedigunChargeEffect(EntityHandle player) => throw new InvalidOperationException();
         public void RemoveChargeEffect(EntityHandle player) => throw new InvalidOperationException();
@@ -960,6 +1300,90 @@ public sealed class TFWeaponBehaviourTests
         world.Run(w, vm, 0, now: 10.6f);
         Assert.Equal(1, w.Clip);        // one shell only — the whole clip is not loaded yet
         Assert.True(w.InReload);
+    }
+
+    //-------------------------------------------------------------------------
+    // The consecutive-shot cone (mult_spread_scales_consecutive, tf_weaponbase_gun.cpp:874-882)
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>mult_spread_scales_consecutive</c>
+    /// (<c>tf_weaponbase_gun.cpp:874-882</c>): the stock comment's entry is the
+    /// second shot — the count lands after the shot is generated (:355), so the
+    /// first keeps the plain cone and the second walks the
+    /// <c>RemapValClamped(count, 1, 5, 1.125, 1.5)</c> of :879, the clamp's top
+    /// reached at the count of five, the sixth shot. Six presses sample every
+    /// value the arm answers.
+    /// </summary>
+    [Fact]
+    public void The_consecutive_shot_scale_widens_the_cone_from_the_second_shot_on()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9130, "mult_spread_scales_consecutive", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        float[] scalers = [1f, 1.125f, 1.21875f, 1.3125f, 1.40625f, 1.5f];
+        float now = 10f;
+        for (int k = 0; k < scalers.Length; k++)
+        {
+            world.Run(w, vm, Attack, now, seed);
+            Assert.Equal(k + 1, world.Arms.Bullets.Count);     // the press fired its shot, every tick
+            Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f * scalers[k]), world.Arms.Bullets[^1].Spread, 4);
+            now += 1f;
+        }
+    }
+
+    /// <summary>
+    /// The same six presses without the item's attribute: stock's gate at :876
+    /// asks the hook over zero and stays out, so every shot keeps the script's
+    /// plain cone and the streak is nobody's business.
+    /// </summary>
+    [Fact]
+    public void Without_the_attribute_every_shot_keeps_the_plain_cone()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f, seed);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
+
+        world.Run(w, vm, Attack, now: 12f, seed);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
+
+        world.Run(w, vm, Attack, now: 14f, seed);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
+    }
+
+    /// <summary>
+    /// The machine's ground-contact tail (<c>GroundConditions</c>, stock's
+    /// <c>ConditionThink</c> parachute pair removal,
+    /// <c>tf_player_shared.cpp:3124-3131</c>) runs on the command frame: with
+    /// the owner airborne the pair stands (:907's gate), and once grounded the
+    /// next command's tail takes the pair off the carrier (:3130-3131) — the
+    /// live chute closing on landing, through the real press.
+    /// </summary>
+    [Fact]
+    public void LandingThroughTheMachineRemovesTheParachutePairFromTheCarrier()
+    {
+        var world = new TFWeaponWorld();
+        var conditions = world.Owners.Of(TFWeaponWorld.Owner);
+        conditions.Add(TFCond.ParachuteActive);
+        conditions.Add(TFCond.ParachuteDeployed);
+
+        // Airborne at the press: the gate keeps the pair (:907).
+        world.Owners.Airborne = true;
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.True(conditions.Has(TFCond.ParachuteActive));
+        Assert.True(conditions.Has(TFCond.ParachuteDeployed));
+
+        // Grounded on the next command: the pair goes with the landing.
+        world.Owners.Airborne = false;
+        world.Run(w, vm, Attack, now: 11f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.False(conditions.Has(TFCond.ParachuteActive));
+        Assert.False(conditions.Has(TFCond.ParachuteDeployed));
     }
 }
 

@@ -26,6 +26,14 @@ public interface IServerSoundRoute
     /// </summary>
     void EntityEmitSoundToTeam(int team, EntityHandle entity, string soundName);
 
+    /// <summary>
+    /// A sound from an entity heard by one player alone wherever they stand
+    /// (stock's <c>CSingleUserRecipientFilter</c> arms): that one player hears
+    /// it from the entity's index, nobody else. Nothing when the player's slot
+    /// holds no player. Unreliable where the caller says so, reliable otherwise.
+    /// </summary>
+    void EntityEmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable = true);
+
     /// <summary>Every wave of the sound stopped on the index it played from.</summary>
     void EntityStopSound(EntityHandle entity, string soundName);
 

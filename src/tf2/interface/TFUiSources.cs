@@ -65,6 +65,15 @@ public interface ITFLocalPlayer
     /// hudplayerclass.res).</summary>
     int Team { get; }
 
+    /// <summary>Whether the local player rides a crit boost — the
+    /// <c>IsCritBoosted</c> family of condition words
+    /// (<c>tf_player_shared.cpp:8058-8069</c>), the same gate the weapon's
+    /// glow wears (:7578-7584). Stock's HUD portrait takes the glow into
+    /// its render (the model panel's eye-glow arm,
+    /// tf_hud_playerstatus.cpp:391-401); the HUD's portrait ink rides this
+    /// word.</summary>
+    bool Boosted { get; }
+
     /// <summary>The pool behind the clip (<c>GetAmmoCount</c> of the
     /// primary type, the <c>nAmmo2</c> of the clip arm,
     /// tf_hud_ammostatus.cpp:284-287) — and on a clip-less weapon the
@@ -985,6 +994,12 @@ public interface ITFDisguiseMenuSource
     /// constructor default RED.</summary>
     int Team { get; }
 
+    /// <summary>Stock's m_iShowingTeam as the toggle's state
+    /// (tf_hud_menu_spy_disguise.cpp:569-582): false shows the enemy
+    /// team, true the player's own — the draw and the key arm read the
+    /// same word, the hud element's one copy.</summary>
+    bool Toggled { get; }
+
     /// <summary>The toggle sentence — the #Hud_Menu_Spy_Minus_Toggle
     /// token with <c>%disguiseteam%</c> and <c>%reload%</c> replaced by
     /// the keys they are bound to (stock's SetDialogVariable,
@@ -1016,6 +1031,11 @@ public interface ITFDisguiseMenuActions
     /// <summary>Stock's cancel: lastinv (slot10 and KEY_0, :294-298,
     /// :395-398).</summary>
     void Cancel();
+
+    /// <summary>The toggle arm (stock's disguiseteam key,
+    /// :308-312, over ToggleDisguiseTeam :569-582): the hud input layer
+    /// calls it when a bound key lands while the menu is up.</summary>
+    void ToggleTeam();
 }
 
 /// <summary>
@@ -1034,6 +1054,54 @@ public interface ITFBuildMenuActions
 
     /// <summary>Stock's cancel: KEY_0 and slot10 run <c>lastinv</c>
     /// (:425-430, :389-394).</summary>
+    void Cancel();
+}
+
+/// <summary>
+/// The Eureka Effect's teleport menu data (stock's
+/// CHudEurekaEffectTeleportMenu, game/client/tf/tf_hud_menu_eureka_teleport.cpp):
+/// whether the want stands — the wrench's +reload press laid it down
+/// (ItemPostFrame, tf_weapon_wrench.cpp:221-235) — whether the wrench is still
+/// the held weapon (CanTeleport's TF_WEAPON_WRENCH test, :180), and whether the
+/// builder's exit stands placed (OnTick's availability read, :397-405).
+/// </summary>
+public interface ITFEurekaMenuSource
+{
+    /// <summary>The +reload press armed the teleport and no choice or
+    /// cleared wrench has spent it (m_bWantsToTeleport, :351-354, :103).</summary>
+    bool WantsTeleport { get; }
+
+    /// <summary>The wrench the menu serves is the active weapon
+    /// (CanTeleport's <c>GetWeaponID() == TF_WEAPON_WRENCH</c>, :180).</summary>
+    bool WrenchActive { get; }
+
+    /// <summary>The builder's own exit stands past its construction — the
+    /// built, uncarried row of OnTick's
+    /// <c>GetObjectOfType(OBJ_TELEPORTER, MODE_TELEPORTER_EXIT)</c> read
+    /// (:397-405). Stock's placing and upgrading refusals wait with the
+    /// mirror's words of them (the build status carries neither).</summary>
+    bool ExitStanding { get; }
+
+    /// <summary>The Cancel sentence — the build menu's token with
+    /// <c>%lastinv%</c> (stock's SetDialogVariable("lastinv"), :128-134).</summary>
+    string CancelLabel { get; }
+}
+
+/// <summary>
+/// What the teleport menu's choices do (stock's SendTeleportMessage and the
+/// cancel keys, tf_hud_menu_eureka_teleport.cpp): the chosen
+/// eEurekaTeleportTargets out as <c>eureka_teleport %d</c> (:206-208), and the
+/// close the lastinv keys are (KEY_0 / slot10, :320-325, :289-294). Whether a
+/// choice sends at all is the screen's availability gate (:200), stock's own.
+/// </summary>
+public interface ITFEurekaMenuActions
+{
+    /// <summary>The target chosen, stock's eEurekaTeleportTargets (0 home, 1
+    /// the exit; tf_shareddefs.h:1843) out as <c>eureka_teleport %d</c>
+    /// (:207) — the spend that closes the menu (:189).</summary>
+    void Teleport(int target);
+
+    /// <summary>Stock's cancel: lastinv (:292, :324).</summary>
     void Cancel();
 }
 

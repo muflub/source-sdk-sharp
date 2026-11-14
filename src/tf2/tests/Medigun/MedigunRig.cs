@@ -40,6 +40,10 @@ internal sealed class MedigunRig
     public readonly TFHealingStats Stats = new();
     public readonly TFHealingEvents Events = new();
     public readonly TFHealingCtf Ctf = new();
+
+    /// <summary>The healing's flag-rule ask rides the locator it resolves at use (the
+    /// composition cycle's late edge), so the fake stands behind it as the game's does.</summary>
+    public readonly ServiceContainer Services = new();
     public readonly TFHealingClients Clients = new();
     public readonly TFDamageRecords Records = new();
     public readonly TFHealingPlayerData Data = new();
@@ -49,7 +53,12 @@ internal sealed class MedigunRig
     public readonly MedigunRooms Rooms = new();
     public readonly AttributeHooks Hooks = new();
     public readonly FakeOwners Owners = new();
+    public readonly TFPlayerItems Items = new();
     public readonly FakeRoundSetup Setup = new();
+
+    /// <summary>The shipped class scripts behind GetDisguiseMaxHealth (:8358-8369), the
+    /// same fixture the health-kit and movement facts stand on.</summary>
+    public readonly TFClassTable Classes = TFMovementFixtures.Server();
 
     /// <summary>Players this rig says are dead; everyone the rig <see cref="Give"/>s is alive by default.</summary>
     public readonly HashSet<int> Dead = new();
@@ -58,6 +67,8 @@ internal sealed class MedigunRig
     /// <summary>Eye positions and world centers by entry index; unlisted players sit at the origin.</summary>
     public readonly Dictionary<int, Vector> Eyes = new();
     public readonly Dictionary<int, Vector> Centers = new();
+    /// <summary>Origins by entry index, for the radius asks; unlisted players sit at the origin.</summary>
+    public readonly Dictionary<int, Vector> Origins = new();
     /// <summary>The traces the world answers, in order; an exhausted queue answers a miss.</summary>
     public readonly List<TraceResult> TraceQueue = new();
 
@@ -76,21 +87,34 @@ internal sealed class MedigunRig
         Engine.ReturnsEachCall("Entities.GetEyePosition", () => Eyes.TryGetValue(A<EntityHandle>(0).EntryIndex, out var v) ? v : Vector.Zero);
         Engine.Returns("Entities.GetEyeAngles", Vector.Zero);
         Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter", () => Centers.TryGetValue(A<EntityHandle>(0).EntryIndex, out var v) ? v : Vector.Zero);
+        Engine.ReturnsEachCall("Entities.GetOrigin", () => Origins.TryGetValue(A<EntityHandle>(0).EntryIndex, out var v) ? v : Vector.Zero);
         Engine.ReturnsEachCall("WorldQuery.TraceLine", () => NextTrace());
         Engine.Returns("Players.GetActiveWeapon", "tf_weapon_medigun");
         Engine.WhenCalled("Entities.SetHealth", c => healths[c.ArgAs<EntityHandle>(0).EntryIndex] = c.ArgAs<int>(1));
+        Services.AddInstance<ICtfRules>(Ctf);
         Healing = new TFPlayerHealing(Engine, Engine, Conditions, Resupply,
                                       ConVars.Declared<TFMaxHealthBoostConVar>(), ConVars.Declared<TFBoostDrainTimeConVar>(),
                                       ConVars.Declared<TFInvulnTimeConVar>(), new FakeClock(),
-                                      Stats, Records, Events, Ctf, Data, Owners);
+                                      Stats, Records, Events, Ctf, Data, Items, Hooks, Engine, Classes);
     }
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon
-    /// reports its release to the healing, which holds the answer the recalc reads.</summary>
-    public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null)
+    /// reports its release to the healing, which holds the answer the recalc reads. The
+    /// idle lag and round view are the no-session and no-round answers the weapon
+    /// now carries named.</summary>
+    public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null, TF2.Shared.Rules.ITFRoundStateView? rounds = null)
         => new(Engine, Engine, Engine, Healing, Conditions, Resupply, ConVars.Declared<TFInvulnTimeConVar>(),
-               ConVars.Declared<WeaponMedigunChargeRateConVar>(), Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup,
-               ConVars.Declared<TFMedigunLagCompConVar>(), lag);
+               ConVars.Declared<WeaponMedigunChargeRateConVar>(), Rooms, Hooks, Items, Stats, Events, Clients, Data, Setup,
+               ConVars.Declared<TFMedigunLagCompConVar>(), lag ?? new Player.ComposedComponents.IdleLag(),
+               rounds ?? new IdleRounds());
+
+    /// <summary>No round: the Init state, the null view's standing answer.</summary>
+    private sealed class IdleRounds : TF2.Shared.Rules.ITFRoundStateView
+    {
+        public TF2.Shared.Rules.RoundState State => TF2.Shared.Rules.RoundState.Init;
+
+        public TFTeam Winner => TFTeam.Unassigned;
+    }
 
     public void QueueHit(EntityHandle hit) => TraceQueue.Add(new TraceResult(true, 1f, default, default, hit));
     public void QueueMiss() => TraceQueue.Add(new TraceResult(false, 1f, default, default, default));
@@ -286,9 +310,10 @@ internal sealed class TFHealingClients : IConnectedClients
     public void Reconnect(int entIndex) => throw new NotSupportedException();
 }
 
-/// <summary>The CTF rules seam for the flag-carrier refusal arm; the flag-list
+/// <summary>The CTF seams the healing's flag-carrier refusal arm reads — the
+/// carriers leaf the healing holds, and the rules behind it; the flag-list
 /// members answer nothing — this fact's subject is <c>CarriedBy</c>.</summary>
-internal sealed class TFHealingCtf : ICtfRules
+internal sealed class TFHealingCtf : ICtfRules, IFlagCarriers
 {
     /// <summary>The players this fake says carry a flag; their CarriedBy answers an uninitialized item.</summary>
     public readonly HashSet<int> Carriers = new();
@@ -300,6 +325,14 @@ internal sealed class TFHealingCtf : ICtfRules
 
     public bool OvertimeAllowedForCtf => true;
     public void SetOvertimeAllowedForCtf(bool allowed) { }
+    public int HudType => 0;
+    public void SetHudType(int hudType) { }
+    public bool HolidayLightsAllowed => true;
+    public void SetHolidayLightsAllowed(bool allowed) { }
+    public bool MapForcedTruceDuringBossFight => false;
+    public void SetMapForcedTruceDuringBossFight(bool forced) { }
+    public string CustomUpgradesFile => string.Empty;
+    public void SetCustomUpgradesFile(string file) { }
     public bool FlagsMayBeCapped => true;
     public bool InWaitingForPlayers => false;
     public bool InStalemate => false;

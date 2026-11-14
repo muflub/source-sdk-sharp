@@ -58,11 +58,6 @@ public sealed class SpectatorTarget(ISpectatorTargetSource target) : UiScreen
         }
     }
 
-    /// <summary>The team's colour: HL2DM's Combine and Rebels; a plain line for no team.</summary>
-    private static Tone TeamTone(int team) => team switch
-    {
-        2 => Tone.TeamA,
-        3 => Tone.TeamB,
-        _ => Tone.Line,
-    };
+    /// <summary>The team's colour (<see cref="UiTeams.ToneOf"/>); a plain line for no team.</summary>
+    private static Tone TeamTone(int team) => UiTeams.ToneOf(team, Tone.Line);
 }

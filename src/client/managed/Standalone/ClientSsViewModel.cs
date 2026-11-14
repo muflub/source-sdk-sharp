@@ -110,13 +110,17 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
 
             if (!isLocal)
             {
-                // Out of the pass and back to drawing nothing — the class
-                // remarks say why a world-drawn viewmodel is worse than none.
-                Render.SetCustomDraw(Handle, new Vector(-1, -1, -1), new Vector(1, 1, 1));
                 ShownSequence = -1;
                 ShownParity = -1;
             }
         }
+
+        // Anyone else's draws nothing, asserted on every decode: the class remarks say
+        // why a world-drawn viewmodel is worse than none, and another player's never
+        // crosses the edge above, so only OnSpawn would have said so, and live it didn't
+        // hold: two arms stood beside every remote player.
+        if (!isLocal)
+            Render.SetCustomDraw(Handle, new Vector(-1, -1, -1), new Vector(1, 1, 1));
 
         // The server's word. When the replay is also pushing, Present's edge
         // gate makes the second writer free: a held prediction decodes to the

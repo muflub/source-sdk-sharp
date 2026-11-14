@@ -3,12 +3,14 @@ extern alias client;
 using System.Reflection;
 using Xunit;
 
-using CreateServerModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.CreateServerModel;
-using CustomBot = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBot;
-using CustomBots = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBots;
+using CreateServerModel = client::SourceSharp.Ai.Client.Setup.CreateServerModel;
+using CustomBot = client::SourceSharp.Ai.Client.Setup.CustomBot;
+using CustomBots = client::SourceSharp.Ai.Client.Setup.CustomBots;
 using IFwdEngineClient = client::SourceSharp.Abi.IFwdEngineClient;
-using BotEditorModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.BotEditorModel;
-using AiBotRerollOnMapConVar = client::SourceSharp.Ai.Hl2mp.Client.Setup.AiBotRerollOnMapConVar;
+using BotEditorModel = client::SourceSharp.Ai.Client.Setup.BotEditorModel;
+using AiBotRerollOnMapConVar = client::SourceSharp.Ai.Client.Setup.AiBotRerollOnMapConVar;
+using ClTdmTeamsConVar = client::SourceSharp.Client.Vgui.ClTdmTeamsConVar;
+using Hl2mpBotSetup = client::SourceSharp.Ai.Hl2mp.Client.Hl2mpBotSetup;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
@@ -40,11 +42,12 @@ public class CreateServerModelTests
     private readonly IFwdEngineClient _engine = DispatchProxy.Create<IFwdEngineClient, Lines>();
     private readonly AiBotRerollOnMapConVar _reroll = DeclaredClientConVars.Fresh<AiBotRerollOnMapConVar>();
     private readonly CustomBots _customs = new();
+    private readonly ClTdmTeamsConVar _teams = DeclaredClientConVars.Fresh<ClTdmTeamsConVar>();
     private readonly CreateServerModel _model;
 
     public CreateServerModelTests()
     {
-        _model = new CreateServerModel(_engine, _reroll, _customs, BotEditorModelTests.Editor(_customs));
+        _model = new CreateServerModel(_engine, _reroll, _customs, BotEditorModelTests.Editor(_customs), new Hl2mpBotSetup(_teams));
     }
 
     private List<string> Sent => ((Lines)(object)_engine).Sent;
@@ -194,5 +197,68 @@ public class CreateServerModelTests
         var row = _model.Custom(0);
         Assert.Equal(("Deadeye", 45, 60, "#Ai_Skill_Accuracy", "#Ai_Skill_Alertness"),
                      (row.Name, row.Spent, row.Pool, row.StyleFirstToken, row.StyleSecondToken));
+    }
+
+    /// <summary>Picked teams (plan_bots_teams_tf2 B.6): the first preset bots join the Combine, the rest the Rebels, written as team=.</summary>
+    [Fact]
+    public void PickedTeamsAreWrittenIntoTheRoster()
+    {
+        _model.SetBotCount(3);
+        _model.SetTeamsPicked(true);
+        _model.SetBotsOn(0, 1);
+        Assert.Equal("normal:team=2;normal:team=3;normal:team=3", _model.RosterSpecText());
+    }
+
+    /// <summary>The control: unpicked, every bot joins as auto-assign does, and the line carries no team.</summary>
+    [Fact]
+    public void UnpickedTeamsLeaveTheRosterToAutoAssign()
+    {
+        _model.SetBotCount(3);
+        Assert.Equal("normal;normal;normal", _model.RosterSpecText());
+    }
+
+    /// <summary>Picking starts even, and the Combine's count never passes the bots there are.</summary>
+    [Fact]
+    public void PickingStartsEvenAndStaysWithinTheBots()
+    {
+        _model.SetBotCount(4);
+        _model.SetTeamsPicked(true);
+        Assert.Equal((2, 2), (_model.BotsOn(0), _model.BotsOn(1)));
+        _model.SetBotsOn(0, 9);
+        Assert.Equal((4, 0), (_model.BotsOn(0), _model.BotsOn(1)));
+        _model.SetBotCount(1);
+        Assert.Equal(1, _model.BotsOn(0));
+    }
+
+    /// <summary>mp_tdm_teams 4 (user 2026-11-08): seven bots picked over four teams start 2, 2, 2, 1 and are written so.</summary>
+    [Fact]
+    public void FourTeamsSpreadThePickedBotsOverAll()
+    {
+        _teams.Hold("4");
+        _model.SetBotCount(7);
+        _model.SetTeamsPicked(true);
+        Assert.Equal([2, 2, 2, 1], Enumerable.Range(0, 4).Select(_model.BotsOn));
+        Assert.Equal("normal:team=2;normal:team=2;normal:team=3;normal:team=3;normal:team=4;normal:team=4;normal:team=5", _model.RosterSpecText());
+    }
+
+    /// <summary>The control: at the default two teams nothing is written for teams 4 and 5.</summary>
+    [Fact]
+    public void TwoTeamsWriteOnlyTeamsTwoAndThree()
+    {
+        _model.SetBotCount(7);
+        _model.SetTeamsPicked(true);
+        Assert.DoesNotContain("team=4", _model.RosterSpecText(), StringComparison.Ordinal);
+        Assert.Equal(2, _model.Teams);
+    }
+
+    /// <summary>HL2MP's team deathmatch lets an uneven split stand at its default (mp_teams_unbalance_limit 0), so its page writes no unbalance line.</summary>
+    [Fact]
+    public void AnUnevenHl2mpSplitWritesNoUnbalanceLine()
+    {
+        _model.SetBotCount(6);
+        _model.SetTeamsPicked(true);
+        _model.SetBotsOn(0, 5);
+        Assert.True(_model.Uneven);   // the stimulus reaches the subject
+        Assert.DoesNotContain(BeforeMap(), l => l.StartsWith("mp_teams_unbalance_limit", StringComparison.Ordinal));
     }
 }

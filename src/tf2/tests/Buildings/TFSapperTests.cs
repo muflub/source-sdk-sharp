@@ -4,6 +4,8 @@ using SourceSharp.Shared;
 using TF2.Server;
 using TF2.Server.Buildings;
 using TF2.Shared;
+using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 using Xunit;
 
 namespace TF2.Tests.Buildings;
@@ -207,5 +209,147 @@ public class TFSapperTests
         rig.Clock.Now += TFSapper.RemoveDisableTime;
         Assert.False(building.IsDisabled);
         Assert.False(building.IsPlasmaDisabled);
+    }
+
+    /// <summary>Stock's drain walk (tf_obj_sapper.cpp:493-495): the builder's active item
+    /// scales the drain by <c>mult_sapper_damage</c> — the double pays double over the
+    /// second the plain rate would pay its 25.</summary>
+    [Fact]
+    public void TheBuildersHeldItemScalesTheDrain()
+    {
+        var (rig, _, sapper) = ASappedBuilding();
+        rig.Owners.Held[0] = "tf_weapon_builder";
+        rig.Owners.Items[0] = rig.AttributeItem("mult_sapper_damage", AttributeDescriptionFormat.Percentage, 2f);
+
+        rig.Clock.Now += 1f;
+        sapper.OnThink(TFSapper.SapperThinkContext);
+
+        EngineCall blow = Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));
+        Assert.Equal(50f, blow.ArgAs<float>(2));   // the doubled 25/s
+    }
+
+    /// <summary>Stock stamps the recorder's kind when the builder's item degenerates the
+    /// building (tf_obj_sapper.cpp:515-519): the blow rides the scope so the kill feed can
+    /// name it — the kind, no weapon of its own.</summary>
+    [Fact]
+    public void ARecodingDeathCarriesTheRecorderKindOnItsBlow()
+    {
+        var (rig, _, sapper) = ASappedBuilding();
+        rig.Owners.Held[0] = "tf_weapon_builder";
+        rig.Owners.Items[0] = rig.AttributeItem("sapper_degenerates_buildings", AttributeDescriptionFormat.Additive, 1f);
+
+        (TFDamageCustom, TFWeaponId, string)? scope = null;
+        rig.Engine.WhenCalled("Damage.TakeDamage", _ =>
+        {
+            rig.Scopes.TryCurrent(out var custom, out var weapon, out var name);
+            scope = (custom, weapon, name);
+        });
+
+        rig.Clock.Now += 1f;
+        sapper.OnThink(TFSapper.SapperThinkContext);
+
+        Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));
+        Assert.Equal((TFDamageCustom.SapperRecorderDeath, TFWeaponId.None, ""), scope);
+    }
+
+    /// <summary>Stock's Wheatley machine (tf_weapon_builder.cpp:584-589, :751-771): only an
+    /// item holding <c>sapper_voice_pak</c> == 1 speaks a placement, and only to its owner —
+    /// the rig's coin answers its floor on both draws, the PW line.</summary>
+    [Fact]
+    public void APakSapperSpeaksItsLineToItsOwnerWhenPlaced()
+    {
+        var rig = new BuildingsRig();
+        EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        var building = rig.Spawn<TestBuilding>(TestBuilding.MapClass);
+        building.StartPlacement(engineer);
+        rig.Clock.Now = 100f;
+        building.StartBuilding();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        building.OnThink();
+
+        rig.Owners.Held[0] = "tf_weapon_builder";
+        rig.Owners.Items[0] = rig.AttributeItem("sapper_voice_pak", AttributeDescriptionFormat.Additive, 1f);
+
+        var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
+        sapper.StartPlacement(spy);
+        sapper.AttachTo(building);
+        sapper.StartBuilding();
+        sapper.OnThink();   // the instant build: OnGoActive speaks
+
+        // The building's own concept words ride the seam too; the pak's line is the last.
+        EngineCall speak = rig.Engine.AllOf("Sound.EntityEmitSound").Last();
+        Assert.Equal(spy, speak.ArgAs<EntityHandle>(0));
+        Assert.Equal("PSap.AttachedPW", speak.ArgAs<string>(1));
+    }
+
+    /// <summary>The gate before the machine (:586): a plain held item, however present,
+    /// keeps the placement silent.</summary>
+    [Fact]
+    public void APlainSapperPlacementSpeaksNothing()
+    {
+        var rig = new BuildingsRig();
+        EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        var building = rig.Spawn<TestBuilding>(TestBuilding.MapClass);
+        building.StartPlacement(engineer);
+        rig.Clock.Now = 100f;
+        building.StartBuilding();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        building.OnThink();
+
+        rig.Owners.Held[0] = "tf_weapon_builder";
+        rig.Owners.Items[0] = rig.AttributeItem("mult_sapper_damage", AttributeDescriptionFormat.Percentage, 2f);
+
+        var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
+        sapper.StartPlacement(spy);
+        sapper.AttachTo(building);
+        sapper.StartBuilding();
+        sapper.OnThink();
+
+        // The building's concept words still ride the seam; what must stay absent
+        // is the pak's line for the plain item.
+        Assert.DoesNotContain("PSap.AttachedPW",
+                              rig.Engine.AllOf("Sound.EntityEmitSound").Select(c => c.ArgAs<string>(1)));
+    }
+
+    /// <summary>Stock's sapper-crit arm (tf_obj.cpp:269-283): the building that goes
+    /// while a live sapper rides it pays the sapper's owner one stored crit before
+    /// the riding sapper is taken down itself.</summary>
+    [Fact]
+    public void ARemovedBuildingPaysItsSappersOwnerACrit()
+    {
+        var rig = new BuildingsRig();
+        var bucket = new RecordingCrits();
+        rig.Services.AddInstance<ITFRevengeCrits>(bucket);
+        EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        var building = rig.Spawn<TestBuilding>(TestBuilding.MapClass);
+        building.StartPlacement(engineer);
+        rig.Clock.Now = 100f;
+        building.StartBuilding();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        building.OnThink();
+
+        var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
+        sapper.StartPlacement(spy);
+        sapper.AttachTo(building);
+        sapper.StartBuilding();
+        sapper.OnThink();   // live and riding
+
+        building.OnKilled(rig.NewHandle());
+
+        Assert.Equal(spy, Assert.Single(bucket.Granted));   // the owner, before the take-down
+        Assert.True(sapper.IsDead);
+    }
+
+    /// <summary>The bucket as the buildings' facts see it: who was paid.</summary>
+    private sealed class RecordingCrits : ITFRevengeCrits
+    {
+        public readonly List<EntityHandle> Granted = new();
+
+        public void Grant(EntityHandle owner) => Granted.Add(owner);
+
+        public void SpendOnShot(int ownerIndex) { }
     }
 }

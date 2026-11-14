@@ -719,6 +719,10 @@ public sealed class FakeLocalPlayer : ITFLocalPlayer
     /// (teambg_2 before teambg_3).</summary>
     public int Team { get; init; } = 2;
 
+    /// <summary>Crit-boosted by the networked condition words, which the
+    /// portrait's glow ink follows; at rest an ordinary hero shows.</summary>
+    public bool Boosted { get; init; }
+
     /// <summary>The weapon reads, at rest for a hero with empty hands:
     /// no readout, no clip, an empty pool.</summary>
     public bool ShowsAmmo { get; init; }

@@ -4,10 +4,18 @@ namespace SourceSharp.Ai;
 /// What a bot's memory works over for one map (plan_hl2mp_ai §5.0): the map's
 /// knowledge, its graph (null with no navigation), the tick length, the
 /// identity an opponent's habits are kept under (§5.2), and the map's static
-/// sight between cells for planning cover (null with none).
+/// sight between cells for planning cover (null with none). Its
+/// <see cref="Experience"/> is what players did on the map before
+/// (plan_bots_teams_tf2 Part G, G.3), never null: empty with no store.
 /// </summary>
 public sealed record MemoryWorld(MapKnowledge Map, NavGraph? Graph, float TickSeconds, Func<ActorId, string> IdentityOf, ICellSight? Sight = null, ChokeSlot? Chokes = null)
 {
+    /// <summary>Where the map's experience turns up and is replaced at a round's start; a world made without one holds an empty one.</summary>
+    public ExperienceSlot ExperienceSlot { get; init; } = new();
+
+    /// <summary>The snapshot of the map's experience a decide reads now.</summary>
+    public MapExperience Experience => ExperienceSlot.Current;
+
     public static MemoryWorld Empty(float tickSeconds = 0.015f)
         => new(MapKnowledge.Empty(new WeaponKnowledge([])), null, tickSeconds, id => id.ToString());
 }
@@ -46,18 +54,40 @@ public sealed class BotMemory
         Board = new Blackboard(slots);
         Board.KnowItems(world.Map);
         _track = new Track[slots];
-        if (world.Graph is { } graph)
-        {
-            var scratch = new PredictorScratch(graph.CellCount);
-            for (int i = 0; i < slots; i++)
-                Board.Actor(i).Where = new PositionPredictor(graph, scratch);
-        }
     }
 
-    /// <summary>The speed an unseen opponent is predicted to move at: HL2MP's run (190 u/s, hl2mp_player.cpp).</summary>
-    public const float OpponentSpeed = 190f;
+    // The one working block this memory's predictors share (they step one after another on the
+    // bot's own thread), made with the first of them.
+    private PredictorScratch? _scratch;
+
+    /// <summary>
+    /// The belief of where <paramref name="a"/> is, made when the bot first has a place on the graph
+    /// to believe it at (<paramref name="at"/>): the callers are an enemy lost from sight, heard, or
+    /// called out, never a teammate (B.3). Null with no nav graph, or before such a place. A slot
+    /// nobody was lost in holds none: a memory of many slots pays some 40 KB for each opponent it
+    /// has met, not for each slot.
+    /// </summary>
+    private PositionPredictor? Belief(KnownActor a, CellId at)
+    {
+        if (a.Where is null && at.IsValid && World.Graph is { } graph)
+            a.Where = new PositionPredictor(graph, _scratch ??= new PredictorScratch(graph.CellCount));
+        return a.Where;
+    }
+
+    /// <summary>
+    /// The speed <paramref name="a"/> is believed to move at while unseen: its class's run, as the
+    /// game's knowledge has it (<see cref="MapKnowledge.Bodies"/>), by the class the bot takes it for.
+    /// </summary>
+    public float OpponentSpeed(KnownActor a)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        return World.Map.Bodies.Of(a.ClassBelieved).RunSpeed;
+    }
 
     public ActorId Bot { get; }
+
+    /// <summary>What the bot's steps cost by part, for an instrument (<see cref="StepCost"/>): the memory marks its own parts. Null in a game.</summary>
+    public StepCost? Cost { get; init; }
 
     /// <summary>The last time the bot killed someone it held a grudge against (§5.5).</summary>
     public (ActorId Who, Tick When) LastRevenge { get; private set; }
@@ -72,6 +102,71 @@ public sealed class BotMemory
     public AiVector Self { get; private set; }
 
     public bool Alive { get; private set; }
+
+    /// <summary>The bot's own team, as its HUD shows it (plan_bots_teams_tf2 B.2); 0 when the mode plays none.</summary>
+    public int Team { get; private set; }
+
+    /// <summary>Whether <paramref name="a"/> is on the bot's team now (<see cref="TeamRule.Friends"/>).</summary>
+    public bool IsFriend(KnownActor a) => TeamRule.Friends(Team, a.Team);
+
+    /// <summary>
+    /// The last teammate whose hit or kill the bot took (plan_bots_teams_tf2 B.3): a
+    /// <c>friendly_fire</c> moment, never a grudge. Who the attacker was is judged by
+    /// the team on its row when the hit is applied, so a swapper's earlier hits stay a foe's.
+    /// </summary>
+    public (ActorId Who, Tick When) LastFriendlyFire { get; private set; }
+
+    /// <summary>Whether a teammate can be hurt (<c>mp_friendlyfire</c>, as the bot was told): the splash gate's (B.5).</summary>
+    public bool FriendlyFireOn { get; private set; }
+
+    /// <summary>A teammate's callout as the bot heard it (plan_bots_teams_tf2 B.4).</summary>
+    public readonly record struct HeardCallout(CalloutKind Kind, AiVector Place, int Count, Tick Tick, ActorId Speaker);
+
+    /// <summary>The last enemy callout heard from a teammate; Kind None before one.</summary>
+    public HeardCallout LastEnemyCall { get; private set; }
+
+    /// <summary>The last rally call heard (or made: the caller hears its own words); Kind None before one.</summary>
+    public HeardCallout LastRally { get; private set; }
+
+    /// <summary>The last push call heard.</summary>
+    public HeardCallout LastPush { get; private set; }
+
+    /// <summary>The last "going around" heard.</summary>
+    public HeardCallout LastGoingAround { get; private set; }
+
+    /// <summary>The last teammate's call for help heard (its count 1: for a healer), and the last warning of something to keep away from.</summary>
+    public HeardCallout LastHelpCall { get; private set; }
+
+    public HeardCallout LastHazardCall { get; private set; }
+
+    /// <summary>A teammate the bot saw die to an enemy it also saw (B.5's Trade): the killer and when; none before one.</summary>
+    public (ActorId Killer, Tick When) TradeChance { get; private set; }
+
+    /// <summary>When the bot's team last killed an enemy, the bot's own kills included (B.5's no-progress read); tick 0 for never.</summary>
+    public Tick LastTeamKill { get; private set; }
+
+    /// <summary>Callouts taken, and those dropped (a speaker no longer a friend, or about someone who now is).</summary>
+    public int CalloutsHeard { get; private set; }
+
+    public int CalloutsDropped { get; private set; }
+
+    /// <summary>How many hits and kills by a teammate the bot has taken.</summary>
+    public int FriendlyFireTaken { get; private set; }
+
+    // An enemy's memory is built; a teammate's never is (B.3): no ammo estimate, habits or grudge,
+    // and no belief of where it is (KnownActor.Where). Losing sight of a teammate, or hearing one,
+    // starts no spread over the graph: a target, a prefire and a pincer read an enemy's belief, and
+    // on ctf_2fort with twelve bots the teammates' beliefs were five in six of every hop the brains
+    // made, which was 99 % of a decide's time (tools/ai-replay cost). KnownActor.BelievedAt of a
+    // teammate is where it was last seen or heard (HL2MP's DenyItem asks it of anyone with habits,
+    // a teammate who was an enemy before among them).
+    private bool Foe(KnownActor a) => !IsFriend(a);
+
+    private void FriendlyFire(ActorId who, Tick tick)
+    {
+        LastFriendlyFire = (who, tick);
+        FriendlyFireTaken++;
+    }
 
     /// <summary>The weapons the bot holds (its HUD), a mask of catalog kinds; 0 before the first <see cref="AiEventKind.Holdings"/>.</summary>
     public int HeldKinds { get; private set; }
@@ -137,9 +232,22 @@ public sealed class BotMemory
     /// <summary>One decide step's inputs: the events since the last, then the view, then time.</summary>
     public void Step(Tick tick, PerceivedView view, ReadOnlySpan<AiEvent> events)
     {
+        ArgumentNullException.ThrowIfNull(view);
+        // The teams the view renders hold for this step's events too: a newly seen
+        // teammate's sight is a teammate's from its first event.
+        if (view.Self.Team != Team)
+            Swapped(view.Self.Team, tick);
+        foreach (ref readonly ActorFacts f in view.Sighted)
+        {
+            if (Board.Of(f.Id, make: true) is { } seen && seen.Team != f.Team)
+                Reclassified(seen, f.Team, tick);
+        }
+
         foreach (AiEvent e in events)
             Apply(e);
+        Cost?.Mark(StepPart.Events, events.Length);
         Observe(view);
+        Cost?.Mark(StepPart.Observe, view.SightedCount);
         Advance(tick);
     }
 
@@ -147,6 +255,13 @@ public sealed class BotMemory
     {
         // The bot is not one of the actors it remembers (its own scoreboard
         // row and kill-feed line are its HUD's, not an opponent's).
+        if (e.Kind == AiEventKind.ActorTeam && e.Other == Bot)
+        {
+            if (e.Code != Team)
+                Swapped(e.Code, e.Tick);
+            return;
+        }
+
         if (e.Other == Bot && e.Kind is not (AiEventKind.Killed or AiEventKind.Damaged))
             return;
 
@@ -197,8 +312,16 @@ public sealed class BotMemory
             case AiEventKind.Damaged:
                 Board.LastDamageDir = e.Position;
                 Board.LastDamageTick = e.Tick;
+                if (e.Other.IsValid && e.Other != Bot)
+                    Board.LastAttackTick = e.Tick;
                 if (Board.Of(e.Other, make: true) is { } attacker)
                 {
+                    if (!Foe(attacker))
+                    {
+                        FriendlyFire(attacker.Id, e.Tick);
+                        break;
+                    }
+
                     attacker.DamageTakenFrom += e.Amount;
                     if (attacker.EverSeen)
                         HabitsOf(attacker.Id).Engaged(Self.DistanceTo(attacker.LastSeenPos));
@@ -209,6 +332,8 @@ public sealed class BotMemory
                 if (Board.Of(e.Other, make: true) is { } victim)
                 {
                     victim.HealthEstimate = e.Code;
+                    if (!Foe(victim))
+                        break;
                     victim.TimesEngaged++;
                     _track[victim.Id.Slot].HurtTick = e.Tick;
                     _track[victim.Id.Slot].Hurt = true;
@@ -222,9 +347,10 @@ public sealed class BotMemory
                     OwnKills = (e.Tick, OwnKills.Last);
                 if (Board.Of(e.Other, make: true) is { } dead)
                 {
+                    TeamKillFeed(dead, e.Killer, e.Tick);
                     // It comes back at full health with a clip nobody knows (§5.2).
                     // Seen where it fell, a moment ago: one more time found there (§5.5).
-                    if (dead.EverSeen && (e.Tick - dead.LastSeenTick) * World.TickSeconds < CampSeconds && World.Graph is { } graph)
+                    if (Foe(dead) && dead.EverSeen && (e.Tick - dead.LastSeenTick) * World.TickSeconds < CampSeconds && World.Graph is { } graph)
                     {
                         CellId fell = graph.FindCell(dead.LastSeenPos + new AiVector(0f, 0f, 1f));
                         if (fell.IsValid)
@@ -232,12 +358,13 @@ public sealed class BotMemory
                     }
 
                     dead.Dead = true;
+                    dead.Downed = false;
                     dead.InSight = false;
                     dead.HealthEstimate = 100;
                     dead.Ammo.Reset();
                     dead.Where?.Clear();
                     dead.Confidence = 0f;
-                    if (new ActorId(e.Code, e.Code2) == Bot && dead.GrudgeAt(e.Tick, World.TickSeconds) > 0f)
+                    if (new ActorId(e.Code, e.Code2) == Bot && Foe(dead) && dead.GrudgeAt(e.Tick, World.TickSeconds) > 0f)
                     {
                         dead.Avenged(e.Tick, World.TickSeconds);
                         LastRevenge = (dead.Id, e.Tick);
@@ -248,7 +375,13 @@ public sealed class BotMemory
             case AiEventKind.Killed:
                 OwnDeaths = (e.Tick, OwnDeaths.Last);
                 if (e.Other != Bot && Board.Of(e.Other, make: true) is { } killer)
-                    killer.AddGrudge(e.Tick, World.TickSeconds, 1f);
+                {
+                    if (Foe(killer))
+                        killer.AddGrudge(e.Tick, World.TickSeconds, 1f);
+                    else
+                        FriendlyFire(killer.Id, e.Tick);
+                }
+
                 Board.ForgetLife();
                 break;
             case AiEventKind.ScoreboardRow:
@@ -257,13 +390,209 @@ public sealed class BotMemory
                     row.Frags = e.Code;
                     row.Deaths = e.Code2;
                     row.Rank = (int)e.Amount;
+                    row.BoardTeam = (int)e.Position.X;
+                    row.BoardClass = (int)e.Position.Y;
                 }
 
                 break;
             case AiEventKind.ItemSeen:
                 Board.SeeItem(e.Code, e.Code2 != 0, e.Tick, Dt);
                 break;
+            case AiEventKind.ActorTeam:
+                if (Board.Of(e.Other, make: true) is { } swapped)
+                    Reclassified(swapped, e.Code, e.Tick);
+                break;
+            case AiEventKind.MatchState:
+                Board.SetTeamScore(e.Code, e.Code2);
+                break;
+            case AiEventKind.FriendlyFireSet:
+                FriendlyFireOn = e.Code != 0;
+                break;
+            case AiEventKind.Nemesis:
+                if (Board.Of(e.Other, make: true) is { } marked)
+                    marked.Nemesis = e.Code != 0;
+                break;
+            case AiEventKind.Callout:
+                Callout(e);
+                break;
+            case AiEventKind.Arrived:
+                LastArrived = (e.Tick, e.Position);
+                break;
+            case AiEventKind.AllyDamaged:
+                LastAllyHurt = (e.Other, e.Killer, e.Tick, e.Position);
+                break;
+            case AiEventKind.AllyDied:
+                LastAllyDied = (e.Other, e.Killer, e.Tick, e.Position);
+                AlliesLost++;
+                if (Board.Of(e.Other, make: false) is { } fallen)
+                {
+                    fallen.Dead = true;
+                    fallen.InSight = false;
+                }
+
+                break;
+            case AiEventKind.HeroDowned:
+                if (Board.Of(e.Other, make: true) is { } hero)
+                    hero.Downed = e.Code != 0;
+                break;
+            case AiEventKind.Order:
+                // A teammate's order only (B.9: one who swapped away is not listened to).
+                if (Board.Of(e.Other, make: true) is { } from && IsFriend(from))
+                    LastOrder = ((OrderKind)e.Code, e.Other, e.Tick);
+                break;
         }
+    }
+
+    /// <summary>The last order a teammate gave in team chat (B.5, Q5): what, who, when; None before one.</summary>
+    public (OrderKind Kind, ActorId From, Tick When) LastOrder { get; private set; }
+
+    /// <summary>When and where the bot last reached the place its intent moved it to (<see cref="AiEventKind.Arrived"/>); tick 0 before.</summary>
+    public (Tick When, AiVector Where) LastArrived { get; private set; }
+
+    /// <summary>The last teammate the bot knew hurt (<see cref="AiEventKind.AllyDamaged"/>): who, by whom, when, where; None before one.</summary>
+    public (ActorId Ally, ActorId Attacker, Tick When, AiVector Where) LastAllyHurt { get; private set; }
+
+    /// <summary>The last teammate the bot knew killed (<see cref="AiEventKind.AllyDied"/>): who, by whom, when, where; None before one.</summary>
+    public (ActorId Ally, ActorId Killer, Tick When, AiVector Where) LastAllyDied { get; private set; }
+
+    /// <summary>How many teammates the bot has known to die this level (a morale's count, <see cref="AiEventKind.AllyDied"/>).</summary>
+    public int AlliesLost { get; private set; }
+
+    /// <summary>When the bot's own team last changed (B.9): its role and goal end there.</summary>
+    public Tick OwnSwap { get; private set; }
+
+    /// <summary>
+    /// The bot itself was moved (B.9: roster balancing, a vote's scramble): its beliefs
+    /// reset for the new friend list (every ammo estimate, every belief of where someone
+    /// is, the sounds to look into); who it knows, their habits and its grudges stay.
+    /// </summary>
+    private void Swapped(int team, Tick tick)
+    {
+        bool had = TeamRule.IsGameTeam(Team);
+        Team = team;
+        if (!had)
+            return;
+        OwnSwap = tick;
+        Board.ForgetLife();
+        for (int s = 0; s < Board.Slots; s++)
+            Board.Actor(s).Where?.Clear();
+    }
+
+    /// <summary>
+    /// Someone changed team (B.9's table): turned friend, what was tracked of them as an
+    /// enemy goes (ammo, belief), habits and a dormant grudge stay; turned enemy, they are a
+    /// target only after a recognition, their last seen place kept as it was.
+    /// </summary>
+    private void Reclassified(KnownActor a, int team, Tick tick)
+    {
+        bool wasFriend = IsFriend(a);
+        a.Team = team;
+        bool friend = IsFriend(a);
+        if (friend && !wasFriend)
+        {
+            a.Ammo.Reset();
+            a.Where?.Clear();
+        }
+        else if (wasFriend && !friend)
+        {
+            a.FoeSince = tick;
+        }
+    }
+
+    /// <summary>
+    /// A teammate's callout (B.4, B.9): taken only while its speaker is a friend, and
+    /// dropped when it is about someone who has since become one. An enemy's place is
+    /// somewhere to look, heard rather than seen; the rest are kept for the team's roles.
+    /// </summary>
+    private void Callout(in AiEvent e)
+    {
+        if (Board.Of(e.Other, make: false) is not { } speaker || !IsFriend(speaker))
+        {
+            CalloutsDropped++;
+            return;
+        }
+
+        int subject = e.Code2 - 1;
+        KnownActor? about = (uint)subject < (uint)Board.Slots && Board.Actor(subject).Known ? Board.Actor(subject) : null;
+        if (about is not null && IsFriend(about))
+        {
+            CalloutsDropped++;
+            return;
+        }
+
+        CalloutsHeard++;
+        var heard = new HeardCallout(e.CalloutKind, e.Position, e.CalloutCount, e.Tick, e.Other);
+        switch (heard.Kind)
+        {
+            case CalloutKind.Enemy:
+                LastEnemyCall = heard;
+                if (about is { InSight: false, Dead: false })
+                {
+                    about.EverHeard = true;
+                    about.LastHeardPos = e.Position;
+                    about.LastHeardTick = e.Tick;
+                    about.Confidence = Math.Max(about.Confidence, e.Amount);
+                    about.LastKnownCell = CellAt(e.Position);
+                    Belief(about, about.LastKnownCell)?.Heard(about.LastKnownCell, CalloutSpread);
+                }
+
+                Board.Investigate(new Investigation(e.Position, e.Amount, e.Tick, SoundKind.Unknown, ActorId.None), e.Tick, Dt);
+                break;
+            case CalloutKind.Rally:
+                LastRally = heard;
+                break;
+            case CalloutKind.Push:
+                LastPush = heard;
+                break;
+            case CalloutKind.GoingAround:
+                LastGoingAround = heard;
+                break;
+            case CalloutKind.Help:
+                LastHelpCall = heard;
+                break;
+            case CalloutKind.Hazard:
+                LastHazardCall = heard;
+                break;
+        }
+    }
+
+    /// <summary>How wide a called place is: a room's worth, not a point.</summary>
+    public const float CalloutSpread = 256f;
+
+    /// <summary>
+    /// The kill feed as a team reads it (B.5): a teammate dying in sight to an enemy in
+    /// sight is a chance to trade; an enemy dying to the bot or a teammate is the team's progress.
+    /// </summary>
+    private void TeamKillFeed(KnownActor dead, ActorId killer, Tick tick)
+    {
+        if (!TeamRule.IsGameTeam(Team))
+            return;
+        KnownActor? by = killer == Bot ? null : Board.Of(killer, make: false);
+        if (!Foe(dead) && SawDie(dead, tick) && by is { InSight: true } && Foe(by))
+            TradeChance = (by.Id, tick);
+        if (Foe(dead) && (killer == Bot || by is not null && !Foe(by)))
+            LastTeamKill = tick;
+    }
+
+    /// <summary>A body leaves sight as it falls: a teammate seen this lately before the kill feed was seen to die.</summary>
+    public const float DeathSightSeconds = 0.5f;
+
+    /// <summary>
+    /// Whether the bot saw <paramref name="dead"/> die: in sight, or lost from sight within
+    /// <see cref="DeathSightSeconds"/> of the kill feed. The game drops a body from sight the
+    /// tick it dies, the same tick as or before the kill feed arrives (ss_ai_tdm's trade scene).
+    /// </summary>
+    private bool SawDie(KnownActor dead, Tick tick)
+        => dead.InSight || (dead.EverSeen && (tick - dead.LastSeenTick) * World.TickSeconds <= DeathSightSeconds);
+
+    /// <summary>The bot's own rally or push call: it hears its own words as its teammates will.</summary>
+    public void Said(CalloutKind kind, AiVector place, Tick tick)
+    {
+        var said = new HeardCallout(kind, place, 0, tick, Bot);
+        if (kind == CalloutKind.Rally)
+            LastRally = said;
+        else if (kind == CalloutKind.Push)
+            LastPush = said;
     }
 
     /// <summary>
@@ -311,7 +640,9 @@ public sealed class BotMemory
         a.LastSeenVel = e.Velocity;
         a.LastSeenTick = e.Tick;
         a.LastKnownCell = CellAt(e.Position);
-        a.Where?.LostAt(a.LastKnownCell, e.Velocity);
+        if (!Foe(a))
+            return;
+        Belief(a, a.LastKnownCell)?.LostAt(a.LastKnownCell, e.Velocity);
         ref Track t = ref _track[a.Id.Slot];
         OpponentHabits h = HabitsOf(a.Id);
         h.LostSight(t.Hurt && (e.Tick - t.HurtTick) * Dt <= HurtRetreatSeconds);
@@ -330,6 +661,12 @@ public sealed class BotMemory
         a.LastSeenTick = tick;
         a.Confidence = 1f;
         CellId cell = CellAt(pos);
+        if (!Foe(a))
+        {
+            a.LastKnownCell = cell;
+            return;
+        }
+
         ref Track t = ref _track[a.Id.Slot];
         if (cell != a.LastKnownCell)
         {
@@ -375,11 +712,12 @@ public sealed class BotMemory
             {
                 a.Confidence = Math.Max(a.Confidence, 0.5f + 0.5f * e.Amount);
                 a.LastKnownCell = CellAt(e.Position);
-                // Heard: the mass collapses round the heard place, its error's width (§5.3.1).
-                a.Where?.Heard(a.LastKnownCell, MathF.Max(64f, Self.DistanceTo(e.Position) * 0.15f));
+                // Heard: an enemy's mass collapses round the heard place, its error's width (§5.3.1).
+                if (Foe(a))
+                    Belief(a, a.LastKnownCell)?.Heard(a.LastKnownCell, MathF.Max(64f, Self.DistanceTo(e.Position) * 0.15f));
             }
 
-            if (e.Code2 >= 0)
+            if (e.Code2 >= 0 && Foe(a))
             {
                 switch (kind)
                 {
@@ -399,8 +737,12 @@ public sealed class BotMemory
             }
         }
 
+        // A teammate's own noise (steps, a reload, a pickup) is recognised for what it is;
+        // its fight's (gunfire, a blast, pain) is still somewhere worth going.
+        bool friendsNoise = a is not null && !Foe(a) && kind is SoundKind.Footstep or SoundKind.Reload or SoundKind.Pickup or SoundKind.DryFire or SoundKind.Door;
+
         // Unexplained: a sound whose source the bot does not see.
-        if (a is null || !a.InSight)
+        if (!friendsNoise && (a is null || !a.InSight))
             Board.Investigate(new Investigation(e.Position, e.Amount, e.Tick, kind, e.Other), e.Tick, Dt);
     }
 
@@ -410,6 +752,13 @@ public sealed class BotMemory
     /// </summary>
     private void Fired(KnownActor a, int weapon, int rounds, Tick tick)
     {
+        if (!Foe(a))
+        {
+            if (weapon >= 0)
+                a.WeaponSeen = weapon;
+            return;
+        }
+
         ref Track t = ref _track[a.Id.Slot];
         int counted = t.ShotTick == tick ? t.ShotRounds : 0;
         int add = rounds - counted;
@@ -425,7 +774,7 @@ public sealed class BotMemory
 
     private void Reload(KnownActor a, int weapon, ReloadPhase phase, int rounds, Tick tick)
     {
-        if (!Facts(weapon, out WeaponFacts f))
+        if (!Foe(a) || !Facts(weapon, out WeaponFacts f))
             return;
         ref Track t = ref _track[a.Id.Slot];
         switch (phase)
@@ -470,20 +819,27 @@ public sealed class BotMemory
         ArgumentNullException.ThrowIfNull(view);
         Self = view.Self.Origin;
         Alive = view.Self.Alive;
+        if (view.Self.Team != Team)
+            Swapped(view.Self.Team, view.Tick);
         foreach (ref readonly ActorFacts f in view.Sighted)
         {
             if (Board.Of(f.Id, make: true) is not { } a)
                 continue;
+            if (a.Team != f.Team)
+                Reclassified(a, f.Team, view.Tick);
             a.InSight = true;
             a.Dead = false;
+            a.ClassSeen = f.Class;
             Seen(a, f.Origin, f.Velocity, view.Tick);
             if (f.WeaponSeen != a.WeaponSeen && f.WeaponSeen >= 0)
             {
                 a.WeaponSeen = f.WeaponSeen;
-                if (Facts(f.WeaponSeen, out WeaponFacts w))
+                if (Foe(a) && Facts(f.WeaponSeen, out WeaponFacts w))
                     a.Ammo.SeeWeapon(w, view.Tick);
             }
 
+            if (!Foe(a))
+                continue;
             ref Track t = ref _track[a.Id.Slot];
             if (!t.ContactJudged && (view.Tick - t.ContactTick) * Dt >= ContactSeconds)
             {
@@ -505,15 +861,19 @@ public sealed class BotMemory
                 a.Ammo.Advance(g, now, Dt);
         }
 
+        Cost?.Mark(StepPart.Ammo);
         if (_lastAdvance.Value > 0 && now > _lastAdvance)
         {
             float step = (now - _lastAdvance) * Dt;
+            int hops = 0;
             for (int s = 0; s < Board.Slots; s++)
             {
                 KnownActor a = Board.Actor(s);
                 if (a.Known && !a.InSight && !a.Dead && a.Where is { Active: true } where)
-                    where.Step(step, OpponentSpeed, TryHabits(a.Id, out OpponentHabits? h) ? h!.Route : []);
+                    hops += where.Step(step, OpponentSpeed(a), TryHabits(a.Id, out OpponentHabits? h) ? h!.Route : []);
             }
+
+            Cost?.Mark(StepPart.Predict, hops);
         }
 
         Board.Decay(now, Dt, _params);
@@ -529,6 +889,7 @@ public sealed class BotMemory
         }
 
         _lastAdvance = now;
+        Cost?.Mark(StepPart.Decay);
     }
 
     /// <summary>How long after hearing an opponent the bot takes its silence as evidence (§5.1).</summary>

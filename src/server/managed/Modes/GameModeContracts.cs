@@ -54,6 +54,18 @@ public interface IGameMode
     bool Teamplay => false;
 
     /// <summary>
+    /// Whether two players on the same team walk through each other (plan
+    /// A.7, ruled 2026-11-02): under true, the player-movement collision test
+    /// skips a teammate on both sides (<see cref="TeammatesPassRule"/> and the
+    /// client's prediction, which reads <c>mp_teammates_pass</c>), unless
+    /// <c>mp_teammates_collide</c> says teammates collide. Only movement:
+    /// bullets, blast and physics still hit a teammate. The core's answer is
+    /// stock HL2MP's (<c>CHL2MPRules::ShouldCollide</c> has no team test):
+    /// everyone blocks.
+    /// </summary>
+    bool TeammatesPass => false;
+
+    /// <summary>
     /// The join rule of the active mode, asked by <see cref="Teams.Join"/> BEFORE
     /// the registered <see cref="IJoinTeamPolicy"/> owner — the same order
     /// <see cref="Spawns"/> keeps with the selector chain. Null leaves the join
@@ -66,6 +78,14 @@ public interface IGameMode
 
     /// <summary>What a round needs prepared; null prepares nothing.</summary>
     IModeSetup? Setup => null;
+
+    /// <summary>
+    /// The mode as the menus see it (plan_bots_teams_tf2 D.2): its title, its
+    /// settings and the entity classes a map must hold to play it, which
+    /// <see cref="GameModeCatalog"/> publishes to votes, the admin menu and the
+    /// client. Null is a mode titled by its id with no settings, on any map.
+    /// </summary>
+    IModeSettings? Settings => null;
 
     /// <summary>
     /// What this mode's round reset keeps across stock's <c>CleanUpMap</c>
@@ -165,11 +185,40 @@ public interface IScoring
     /// <summary>One death's extra writes, after the core's own have been made.</summary>
     void OnDeath(PlayerDeathArgs death);
 
-    /// <summary>A team's current score, for the scoreboard; negative for "no such team".</summary>
-    int TeamScore(int team);
+    /// <summary>
+    /// A team's current score, for the scoreboard; null for "no such team".
+    /// A real score may be negative (stock <c>CTeam::m_iScore</c> is a signed
+    /// int: a team kill or a suicide costs a point), so "no such team" is
+    /// not a number.
+    /// </summary>
+    int? TeamScore(int team);
 
     /// <summary>Per-round state: the mode's own score totals go back to zero.</summary>
     void ResetRound();
+}
+
+/// <summary>
+/// A mode's half of the game-mode catalog (plan_bots_teams_tf2 D.2): what the
+/// menus call it, the settings that mean something in it (each a convar, with
+/// when a change applies), and the entity classes a map must hold one of to
+/// play it. The id and team play are the mode's own (<see cref="IGameMode"/>).
+/// </summary>
+public interface IModeSettings
+{
+    /// <summary>The title token the menus show.</summary>
+    string Title { get; }
+
+    IReadOnlyList<SettingSpec> Settings { get; }
+
+    /// <summary>The entity classes a map must hold one of; empty is any map.</summary>
+    IReadOnlyList<string> RequiresAnyOf { get; }
+}
+
+/// <summary>A mode's catalog half as plain data.</summary>
+public sealed record ModeSettings(string Title, IReadOnlyList<SettingSpec> Settings, IReadOnlyList<string> RequiresAnyOf) : IModeSettings
+{
+    /// <summary>The settings half of a spec the core builds for both sides (<see cref="CoreModeSpecs"/>).</summary>
+    public static ModeSettings Of(ModeSpec spec) => new(spec.Title, spec.Settings, spec.RequiresAnyOf);
 }
 
 /// <summary>
@@ -187,6 +236,32 @@ public interface IModeSetup
 {
     /// <summary>Arrange the world for this mode, once per switch and level init.</summary>
     void SetupRound(float now);
+}
+
+/// <summary>
+/// What a mode undoes when a switch leaves it, implemented beside
+/// <see cref="IGameMode"/> by a mode that changed the players for its round
+/// (team deathmatch put everyone on a team). Called by
+/// <see cref="GameModes.SwitchTo"/> on the mode being left, after the flush
+/// and before the next mode's setup; never at a level change, whose players
+/// come back fresh.
+/// </summary>
+public interface IModeTeardown
+{
+    /// <summary>The round is leaving this mode for <paramref name="next"/>.</summary>
+    void TeardownRound(IGameMode next, float now);
+}
+
+/// <summary>
+/// Told of a mode switch once the next mode's round is set up (plan_bots_teams_tf2
+/// D.2): a chain, so votes resend what can be voted on, the client's copy of
+/// the catalog moves, and a binding that plays (the AI) re-adds its players
+/// under the new mode. Never at a level change, whose pick is a fresh start.
+/// </summary>
+public interface IModeSwitchHook
+{
+    /// <summary>The round left <paramref name="previous"/> (null before any pick) for <paramref name="next"/>.</summary>
+    void OnModeSwitched(IGameMode? previous, IGameMode next);
 }
 
 /// <summary>

@@ -34,6 +34,9 @@ public static class TeamRoundOrders
     /// <summary><see cref="TFWelcomeMenuCommands"/>: the welcome menu's close.</summary>
     public const int WelcomeMenu = Band + 12;
 
+    /// <summary><see cref="TFOwnedEntitiesRemoval"/>: the owner's projectiles and buildings, on a team change, a departure or a class change.</summary>
+    public const int OwnedEntitiesRemoval = Band + 13;
+
     /// <summary>TF2's mode selector, in the <c>IGameModeSelector</c> chain.</summary>
     public const int ModeSelector = Band + 20;
 

@@ -39,7 +39,8 @@ public interface IPlayerModelOwner
 /// </summary>
 public sealed class PlayerModels(IConnectedClients clients, IEngineEntities entities, IEngineEntityRender render,
                                  IEnginePlayers players, IEnginePrecache precache, IGameClock clock, IChat chat,
-                                 ITeams teams, TeamPlayConVar teamplay, IHooks<IPlayerModelOwner>? owners = null)
+                                 ITeams teams, TeamPlayConVar teamplay, IHooks<IPlayerModelOwner>? owners = null,
+                                 GameModes? modes = null)
     : IGameLifecycle, ITeamChangeWatcher
 {
     public const string ConVarName = "cl_playermodel";
@@ -76,15 +77,20 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
 
     private readonly Dictionary<EntityHandle, Worn> _worn = new();
 
-    private int _lastCitizen;
-    private int _lastCombine;
+    // Each team's rotation (stock's _lastCombine/_lastCitizen, one per side).
+    private readonly Dictionary<int, int> _lastByTeam = new();
 
     private readonly record struct Worn(string Model, float NextChange);
 
     /// <summary>Whether this game's players wear HL2MP's models at all.</summary>
     private bool Applies => owners is not { All.Count: > 0 };
 
-    private bool Teamplay => teamplay.Value;
+    /// <summary>
+    /// Whether the round plays with teams: the active mode's answer (team
+    /// deathmatch, however it was switched to), or <c>mp_teamplay</c> where no
+    /// mode proxy is composed.
+    /// </summary>
+    private bool Teamplay => modes is not null ? modes.Active?.Teamplay is true : teamplay.Value;
 
     int IGameLifecycle.LifecycleOrder => (int)LifecycleStage.PlayerModels;
 
@@ -147,7 +153,7 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
         if (Teamplay)
         {
             // The move lands in TeamChanged, which dresses them for the new side.
-            teams.Join(player, wanted.Contains(HumanModels, StringComparison.OrdinalIgnoreCase) ? TeamRebels : TeamCombine);
+            teams.Join(player, TeamOwning(wanted, TeamCount));
             return;
         }
 
@@ -188,7 +194,13 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
         return current;
     }
 
-    /// <summary>SetPlayerTeamModel: what they asked for if it suits their side, else the side's next model.</summary>
+    /// <summary>
+    /// SetPlayerTeamModel: what they asked for if it suits their side, else the
+    /// side's next model. With two teams the sides are stock's (every combine
+    /// model, every citizen); with team deathmatch's third team Metro Police
+    /// wears <c>police.mdl</c> and Combine gives it up, and with a fourth
+    /// Resistance wears the female citizens and Rebels give them up.
+    /// </summary>
     private string TeamModel(EntityHandle player)
     {
         int index = entities.GetIndex(player);
@@ -199,20 +211,48 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
             clients.ClientCommand(index, $"{ConVarName} {wanted}\n");
         }
 
-        bool human = wanted!.Contains(HumanModels, StringComparison.OrdinalIgnoreCase);
         int team = players.GetTeam(player);
-        if (team == TeamCombine && human)
-        {
-            _lastCombine = (_lastCombine + 1) % Combine.Count;
-            return Combine[_lastCombine];
-        }
+        IReadOnlyList<string> side = ModelsOf(team, TeamCount);
+        if (side.Count == 0 || side.Contains(wanted!, StringComparer.OrdinalIgnoreCase))
+            return wanted!;
 
-        if (team == TeamRebels && !human)
-        {
-            _lastCitizen = (_lastCitizen + 1) % Citizens.Count;
-            return Citizens[_lastCitizen];
-        }
-
-        return wanted;
+        int next = (_lastByTeam.GetValueOrDefault(team) + 1) % side.Count;
+        _lastByTeam[team] = next;
+        return side[next];
     }
+
+    /// <summary>Metro Police's one model (team deathmatch's third team).</summary>
+    public const string PoliceModel = "models/police.mdl";
+
+    /// <summary>
+    /// The models <paramref name="team"/> wears when <paramref name="teamCount"/>
+    /// teams play; empty for a team that has no side (Unassigned, Spectator).
+    /// </summary>
+    public static IReadOnlyList<string> ModelsOf(int team, int teamCount) => team switch
+    {
+        TeamCombine => teamCount >= 3 ? [.. Combine.Where(m => !IsPolice(m))] : Combine,
+        TeamRebels => teamCount >= 4 ? [.. Citizens.Where(m => !IsFemale(m))] : Citizens,
+        TeamDeathmatchMode.TeamMetroPolice when teamCount >= 3 => [PoliceModel],
+        TeamDeathmatchMode.TeamResistance when teamCount >= 4 => [.. Citizens.Where(IsFemale)],
+        _ => [],
+    };
+
+    /// <summary>The team a model implies under team play (stock's cl_playermodel arm): the team that wears it.</summary>
+    public static int TeamOwning(string model, int teamCount)
+    {
+        for (int team = TeamDeathmatchMode.TeamResistance; team >= TeamCombine; team--)
+        {
+            if (ModelsOf(team, teamCount).Contains(model, StringComparer.OrdinalIgnoreCase))
+                return team;
+        }
+
+        return model.Contains(HumanModels, StringComparison.OrdinalIgnoreCase) ? TeamRebels : TeamCombine;
+    }
+
+    private static bool IsPolice(string model) => string.Equals(model, PoliceModel, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsFemale(string model) => model.Contains("/female_", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>How many teams play: team deathmatch's count, else stock's two.</summary>
+    private int TeamCount => modes?.Active is TeamDeathmatchMode tdm ? tdm.TeamCount : 2;
 }

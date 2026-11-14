@@ -26,6 +26,29 @@ public sealed class SkillCurves
     ];
 
     /// <summary>
+    /// The team parameters (plan_bots_teams_tf2 B.4, B.7): read from the file when it has them,
+    /// else from the plan's own numbers, so curves written before teams still parse.
+    /// </summary>
+    public static readonly ImmutableArray<string> Team =
+        ["calloutDelayMs", "leashUnits", "calloutChance", "followSeconds", "teamCoverWeight", "tradeWeight", "crossfireWeight"];
+
+    /// <summary>
+    /// The personality parameters (plan_bots_teams_tf2_part_g G.2.2): what a bot's traits make of
+    /// the scores its tree ranks its branches by, each a factor about 1, and the size of the noise
+    /// on them. Read from the file when it has them, else neutral (a factor of 1, no noise), so a
+    /// game whose tree does not weigh its scores, and curves written before these, decide as before.
+    /// </summary>
+    public static readonly ImmutableArray<string> Drives = ["fightDrive", "chaseDrive", "holdDrive", "escortDrive", "surviveDrive", "scoreNoise"];
+
+    /// <summary>
+    /// What a bot does about what it sees and says (plan_bots_teams_tf2_part_g G.2.3, G.2.4): how
+    /// often it gets out of a blast's way and how late (Agility), and how long it leaves between
+    /// two lines on the voice menu (Teamwork). Read from the file when it has them, else from the
+    /// numbers here.
+    /// </summary>
+    public static readonly ImmutableArray<string> Reactions = ["dodgeChance", "dodgeLateMs", "voiceEverySeconds"];
+
+    /// <summary>
     /// The style level of a skill at its own mean. Spending points on favourites puts
     /// the rest about half a spread under the mean, so a bot's other skills read about
     /// 3.25, where Medium's levels 3 and 4 are: a favourite stands out against a bot
@@ -46,16 +69,27 @@ public sealed class SkillCurves
     /// </summary>
     public static float StyleLevel(int level, float mean, float spread) => Math.Clamp(StyleMid + StyleGain * (level - mean) / Math.Max(1f, spread), 0f, StandardSkills.Cap);
 
-    /// <summary>A profile's levels' mean and standard deviation.</summary>
+    /// <summary>
+    /// A profile's levels' mean and standard deviation, over the ten: Teamwork (plan_bots_teams_tf2
+    /// B.7) moves nothing a deathmatch reads, so it moves no style of the ten either.
+    /// </summary>
     public static (float Mean, float Spread) OwnSpread(SkillProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        int n = profile.Levels.Length;
-        if (n == 0)
+        int skip = profile.IndexOf(StandardSkills.Teamwork.Key);
+        int n = profile.Levels.Length - (skip >= 0 ? 1 : 0);
+        if (n <= 0)
             return (0f, 0f);
-        float mean = (float)profile.Levels.Sum() / n, sum = 0f;
-        foreach (int l in profile.Levels)
-            sum += (l - mean) * (l - mean);
+        float total = 0f;
+        for (int i = 0; i < profile.Levels.Length; i++)
+            total += i == skip ? 0 : profile.Levels[i];
+        float mean = total / n, sum = 0f;
+        for (int i = 0; i < profile.Levels.Length; i++)
+        {
+            if (i != skip)
+                sum += (profile.Levels[i] - mean) * (profile.Levels[i] - mean);
+        }
+
         return (mean, MathF.Sqrt(sum / n));
     }
 
@@ -103,7 +137,7 @@ public sealed class SkillCurves
         foreach (JsonProperty p in root.GetProperty("parameters").EnumerateObject())
         {
             string skill = p.Value.GetProperty("skill").GetString() ?? "";
-            if (!StandardSkills.Ten.Any(s => s.Key == skill))
+            if (!StandardSkills.Eleven.Any(s => s.Key == skill))
                 throw new InvalidDataException($"skill curves: '{p.Name}' names no skill '{skill}'");
             string direction = p.Value.GetProperty("direction").GetString() ?? "";
             if (direction is not ("up" or "down"))
@@ -246,6 +280,28 @@ public sealed class SkillCurves
             return c.Style ? c.At(StyleLevel(level, mean, spread)) : c.At(level);
         }
 
+        // The team rows (plan_bots_teams_tf2 B.4, B.7): read from the file when it has them,
+        // else from the plan's own numbers, so curves written before teams still parse.
+        float Optional(string p, string skill, float atZero, float atTop)
+        {
+            if (_curves.ContainsKey(p) && skill != StandardSkills.Teamwork.Key)
+                return V(p);
+            float level;
+            if (skill == StandardSkills.Teamwork.Key)
+            {
+                level = StandardSkills.TeamworkOf(profile);
+                if (_curves.TryGetValue(p, out Curve? c))
+                    return c.At(level);
+            }
+            else
+            {
+                int i = profile.IndexOf(skill);
+                level = i < 0 ? 0 : profile.Levels[i];
+            }
+
+            return atZero + (atTop - atZero) * level / StandardSkills.Cap;
+        }
+
         return new DecisionParams(V("aimErrorDeg"), V("leadQuality"), V("glanceRate"), V("preferredRangeScale"), V("chaseSeconds"),
                                   V("coverWeight"), V("reloadBelowPct"), V("searchSeconds"), V("ambushWeight"), V("routeAltWeight"),
                                   V("fireRangeGate"), V("pushTrust"), V("pushMarginSeconds"), V("strafeWeight"), V("strafeMeanSeconds"),
@@ -253,7 +309,21 @@ public sealed class SkillCurves
                                   V("reactionMs"), V("trackingLagMs"), V("flickOvershootPct"), V("grudgeWeight"),
                                   V("prefireChance"), V("prefireThrift"), V("prefireBurstSeconds"), V("giveUpHealth"), V("crouchShare"), V("recoilControl"), V("burstSeconds"), V("recoilSettleDeg"),
                                   Streak(profile, HotLevel), Streak(profile, ColdLevel), VisionCurves.For(profile).RecognizeSeconds, V("altFireChance"), V("aimRise"),
-                                  V("fragChance"), V("fragKnack"), V("fragAimDeg"), profile.Spent >= CarefulFromPoints ? 0f : V("fragCareless"));
+                                  V("fragChance"), V("fragKnack"), V("fragAimDeg"), profile.Spent >= CarefulFromPoints ? 0f : V("fragCareless"),
+                                  Optional("calloutDelayMs", "alertness", 1200f, 400f),
+                                  Optional("leashUnits", "teamwork", 1500f, 300f), Optional("calloutChance", "teamwork", 0.45f, 0.85f),
+                                  Optional("followSeconds", "teamwork", 5f, 30f), Optional("teamCoverWeight", "teamwork", 0f, 1f),
+                                  Optional("tradeWeight", "teamwork", 0.2f, 0.9f), Optional("crossfireWeight", "teamwork", 0f, 0.8f),
+                                  StandardSkills.TeamworkOf(profile),
+                                  FightDrive: Optional("fightDrive", "aggression", 1f, 1f), ChaseDrive: Optional("chaseDrive", "tenacity", 1f, 1f),
+                                  HoldDrive: Optional("holdDrive", "discipline", 1f, 1f), EscortDrive: Optional("escortDrive", "teamwork", 1f, 1f),
+                                  SurviveDrive: Optional("surviveDrive", "nerve", 1f, 1f), ScoreNoise: Optional("scoreNoise", "discipline", 0f, 0f),
+                                  DodgeChance: Optional("dodgeChance", "agility", 0.05f, 0.95f), DodgeLateMs: Optional("dodgeLateMs", "agility", 500f, 0f),
+                                  VoiceEverySeconds: Optional("voiceEverySeconds", "teamwork", 45f, 8f),
+                                  DangerLookChance: Optional("dangerLookChance", "alertness", 0.2f, 0.95f),
+                                  DangerLookSeconds: Optional("dangerLookSeconds", "alertness", 0.5f, 1.4f),
+                                  SpotTrust: Optional("spotTrust", "discipline", 0.1f, 0.95f),
+                                  FamilyTrust: Optional("familyTrust", "cunning", 0.1f, 0.95f));
     }
 }
 
@@ -298,7 +368,39 @@ public readonly record struct DecisionParams(
     float FragChance = 0f,
     float FragKnack = 0f,
     float FragAimDeg = 0f,
-    float FragCareless = 0f);
+    float FragCareless = 0f,
+    float CalloutDelayMs = 800f,
+    float LeashUnits = 900f,
+    float CalloutChance = 0.65f,
+    float FollowSeconds = 17.5f,
+    float TeamCoverWeight = 0.5f,
+    float TradeWeight = 0.55f,
+    float CrossfireWeight = 0.4f,
+    float Teamwork = 5f,
+    // The personality in a tree's scores (plan_bots_teams_tf2_part_g G.2.2; SkillCurves.Drives): each a
+    // factor on the branches its trait leans to (Aggression on a fight and an objective to take, Tenacity
+    // on a chase, Discipline on a post held, Teamwork on going with a teammate, Nerve, falling, on
+    // leaving for health), and how large the seeded noise on every score is. Neutral without the curves.
+    float FightDrive = 1f,
+    float ChaseDrive = 1f,
+    float HoldDrive = 1f,
+    float EscortDrive = 1f,
+    float SurviveDrive = 1f,
+    float ScoreNoise = 0f,
+    // What it does about a blast coming its way (G.2.3; SkillCurves.Reactions): the share of them it gets out of
+    // the way of, and how long after its reaction it starts to. And the least time between two voice lines (G.2.4).
+    float DodgeChance = 0.5f,
+    float DodgeLateMs = 250f,
+    float VoiceEverySeconds = 26.5f,
+    // What the experience store's danger places make of a look (G.4, lane G4b; Alertness): the chance a bot coming into
+    // the spot where its side keeps dying checks the place death came from, and how long it looks.
+    float DangerLookChance = 0.575f,
+    float DangerLookSeconds = 0.95f,
+    // How readily a defender holds where its side's players held (G.4's spots, lane G4b; Discipline).
+    float SpotTrust = 0.525f,
+    // How readily an attacker takes the way into the enemy's base that its draw over what worked chose (G.4's outcomes,
+    // lane G4b; Cunning).
+    float FamilyTrust = 0.525f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

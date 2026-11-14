@@ -199,6 +199,22 @@ public sealed class ClientAdminTests : IDisposable
     }
 
     [Fact]
+    public void Running_an_item_by_id_sends_the_id_as_the_radial_does()
+    {
+        _admin.Run("restart");
+        Assert.Equal(AdminWire.WriteRun("restart"), Assert.Single(_sent));
+    }
+
+    [Fact]
+    public void Running_out_of_a_game_or_with_no_id_sends_nothing()
+    {
+        _admin.Run("");
+        _engine.InGame = false;
+        _admin.Run("restart");
+        Assert.Empty(_sent);
+    }
+
+    [Fact]
     public void Out_of_a_game_the_key_asks_nothing()
     {
         _engine.InGame = false;
@@ -318,6 +334,59 @@ public sealed class ClientAdminTests : IDisposable
 
         _radial.Choose(1);
         Assert.False(_radial.Showing);
+    }
+
+    [Fact]
+    public void An_unavailable_item_shows_why_and_cannot_be_chosen()
+    {
+        _admin.Open();
+        Menu(new AdminMenuLine(0, "bots:add:easy", "Easy", Stay: true, Unavailable: "Bots need navigation"), new AdminMenuLine(0, "restart", "#Restart"));
+
+        Assert.Equal("Easy", _radial.Item(0).Label);
+        Assert.Equal("Bots need navigation", _radial.Item(0).Detail);
+        Assert.False(_radial.Item(0).Enabled);
+        Assert.True(_radial.Item(1).Enabled);
+    }
+
+    [Fact]
+    public void Clicking_an_unavailable_item_sends_nothing()
+    {
+        _admin.Open();
+        _sent.Clear();
+        Menu(new AdminMenuLine(0, "bots:add:easy", "Easy", Stay: true, Unavailable: "Bots need navigation"), new AdminMenuLine(0, "restart", "#Restart"));
+
+        _radial.Choose(0);
+        _radial.Hover(0);
+        _radial.Release(_admin);
+
+        Assert.Empty(_sent);
+    }
+
+    /// <summary>
+    /// The server's Teams folder (user 2026-11-08, "make sure to add vote and admin
+    /// menus for teams"), three deep: Teams, a player by name, a team to move them
+    /// to by its token; the leaf sends the move's id.
+    /// </summary>
+    [Fact]
+    public void The_teams_folder_moves_a_player_three_folders_down()
+    {
+        _admin.Open();
+        _sent.Clear();
+        Menu(new AdminMenuLine(0, "", "#SS_UI_Admin_Teams"),
+             new AdminMenuLine(1, "", "alyx"),
+             new AdminMenuLine(2, "teams:move:7:3", "#SS_UI_Team_3"),
+             new AdminMenuLine(2, "teams:move:7:4", "#SS_UI_Team_4"),
+             new AdminMenuLine(2, "teams:move:7:1", "#SS_UI_Admin_Spectate"),
+             new AdminMenuLine(1, "teams:scramble", "#SS_UI_Admin_Scramble"),
+             new AdminMenuLine(1, "teams:balance", "#SS_UI_Admin_Balance"));
+
+        _radial.Choose(0);
+        Assert.Equal(["alyx", "#SS_UI_Admin_Scramble", "#SS_UI_Admin_Balance"], Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+        _radial.Choose(0);
+        Assert.Equal(["#SS_UI_Team_3", "#SS_UI_Team_4", "#SS_UI_Admin_Spectate"], Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+        _radial.Choose(1);
+
+        Assert.Equal(AdminWire.WriteRun("teams:move:7:4"), Assert.Single(_sent));
     }
 
     [Fact]

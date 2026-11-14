@@ -19,7 +19,8 @@ namespace SourceSharp.Tests.Ui;
 public class TFDestroyMenuTests
 {
     private static TFDestroyMenu Screen(FakeTFDestroyMenuSource source, FakeTFDestroyMenuActions? actions = null)
-        => new(source, new TFDestroyTile(new NoArt()), new NoArt(), actions);
+        => new(source, new TFDestroyTile(new NoArt()), new NoArt(), actions ?? new FakeTFDestroyMenuActions(),
+               new UnlockedGroups());
 
     /// <summary>The library that misses everything: the layout facts read
     /// the fallback, not the VPK art (the art arms are TFDestroyMenuArtTests').</summary>

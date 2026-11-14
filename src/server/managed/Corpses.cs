@@ -53,6 +53,11 @@ public sealed class Corpses : IGameLifecycle
     /// <summary>The bodies currently standing, oldest first. See <see cref="Limit"/>.</summary>
     private readonly List<EntityHandle> _live = new();
 
+    // The body each player's death left, by that player: stock's m_hRagdoll
+    // (tf_player.h), whose whole rule is that the next death destroys the
+    // body the last one left (tf_player.cpp:15659-15666).
+    private readonly Dictionary<EntityHandle, EntityHandle> _byPlayer = new();
+
     public Corpses(ILog log, IEngineEntities entities, IEngineEntityRender render,
                    IEntityDirectory directory, ViolenceConVars? violence = null,
                    IEnginePlayers? players = null)
@@ -136,10 +141,11 @@ public sealed class Corpses : IGameLifecycle
     /// would exceed it.
     ///
     /// <para>
-    /// A CAP AND NOT ONLY A TIMER, because the two bound different things.
-    /// <see cref="SsRagdoll.Lifetime"/> bounds how long one body lasts; this
-    /// bounds how many a busy firefight can pile up inside that time, which on
-    /// a full server is a much larger number than the map ever has players.
+    /// A CAP AND NOT ONLY A LIFETIME, because the two bound different things.
+    /// The visible bound on one body is the client's fade
+    /// (<c>cl_ragdoll_fade_time</c>); this bounds how many a busy firefight
+    /// can pile up inside it, which on a full server is a much larger number
+    /// than the map ever has players.
     /// Stock's equivalent is <c>g_ragdoll_maxcount</c>, which stock's
     /// <c>ragdoll_shared.cpp</c> defaults to EIGHT — and this is twelve,
     /// deliberately: eight is a single-player number for a map with one player
@@ -200,6 +206,7 @@ public sealed class Corpses : IGameLifecycle
             return EntityHandle.None;
         }
 
+        Replace(player);
         Forget();
         Trim();
 
@@ -279,8 +286,9 @@ public sealed class Corpses : IGameLifecycle
         }
 
         _live.Add(body);
+        _byPlayer[player] = body;
 
-        _log.Msg($"[SourceSharp/Corpse] {player} left a body at {origin} " +
+        _log.Msg($"[SourceSharp/Corpse] {player} left a body (entity {body.EntryIndex}) at {origin} " +
                 $"({_live.Count} of {Limit})\n");
 
         return body;
@@ -305,23 +313,32 @@ public sealed class Corpses : IGameLifecycle
     private void Forget() => _live.RemoveAll(h => !_entities.IsValid(h));
 
     /// <summary>
+    /// THE BODY THE LAST DEATH LEFT GOES HERE — stock's
+    /// <c>CTFPlayer::CreateRagdollEntity</c> destroying the old m_hRagdoll
+    /// before making the new one (tf_player.cpp:15659-15666), which is the
+    /// ONLY thing that retires a body short of the cap or a round reset. A
+    /// body with no owner left, or whose entity is already gone, is left to
+    /// <see cref="Forget"/> and the cap; one <see cref="Keep"/> took out of
+    /// the sweep is not ours to end either.
+    /// </summary>
+    private void Replace(EntityHandle player)
+    {
+        if (!_byPlayer.Remove(player, out EntityHandle earlier) || !_entities.IsValid(earlier))
+            return;
+
+        if (_directory.Get(earlier) is not SsRagdoll || !_live.Remove(earlier))
+            return;
+
+        _entities.Remove(earlier);
+    }
+
+    /// <summary>
     /// Keeps a body this service made until the level ends: out of the
-    /// <see cref="Limit"/> sweep, and past <see cref="SsRagdoll.Lifetime"/>.
-    /// For a mod whose dead stay on the ground (TF2Descent's corpses). Returns
+    /// <see cref="Limit"/> sweep and out of the replace, for a mod whose dead
+    /// stay put however often they die again (TF2Descent's corpses). Returns
     /// false for a body this service is not holding.
     /// </summary>
-    public bool Keep(EntityHandle body)
-    {
-        if (!_live.Remove(body))
-            return false;
-
-        if (_directory.Get(body) is SsRagdoll ragdoll)
-            ragdoll.Kept = true;
-        else
-            _log.Warning($"[SourceSharp/Corpse] {body} has no managed SsRagdoll; it will still go at its lifetime\n");
-
-        return true;
-    }
+    public bool Keep(EntityHandle body) => _live.Remove(body);
 
     /// <summary>
     /// Removes the oldest bodies until there is room for one more.
@@ -379,5 +396,9 @@ public sealed class Corpses : IGameLifecycle
     /// survive a map change, and keeping them would leave this holding entries
     /// for entities whose handles may since have been reused by something else.
     /// </summary>
-    public void Reset() => _live.Clear();
+    public void Reset()
+    {
+        _live.Clear();
+        _byPlayer.Clear();
+    }
 }

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "fireball", "name": "Fireball", "maxRank": 5, "damageType": "fire",
+    "manaCost": { "from": 8, "to": 16 }, "cooldown": 2, "smarts": { "perRank": 10 },
+    "effect": [
+      { "primitive": "projectile", "target": "enemies", "damage": { "from": 40, "to": 120 }, "radius": 200, "speed": 1100 },
+      { "primitive": "debuff", "target": "enemies", "radius": 200, "duration": 5, "conditions": [ "burn" ] } ]
+  },
+  {
+    "id": "lightning_ball", "name": "Lightning Ball", "maxRank": 5, "damageType": "shock",
+    "manaCost": { "from": 12, "to": 20 }, "cooldown": 4, "smarts": { "perRank": 10 },
+    "effect": [
+      { "primitive": "projectile", "target": "enemies", "damage": { "from": 15, "to": 40 }, "radius": 200, "speed": 300, "duration": 5 } ]
+  },
+  {
+    "id": "pumpkin_mirv", "name": "Pumpkin MIRV", "maxRank": 5, "damageType": "blast",
+    "manaCost": { "from": 14, "to": 24 }, "cooldown": 6, "smarts": { "perRank": 10 },
+    "effect": [
+      { "primitive": "projectile", "target": "enemies", "damage": { "from": 30, "to": 80 }, "radius": 150 },
+      { "primitive": "area_burst", "target": "enemies", "damage": { "from": 25, "to": 60 }, "radius": 120, "count": 6, "delay": 2, "area": 300 } ]
+  },
+  {
+    "id": "blast_jump", "name": "Blast Jump", "maxRank": 5, "damageType": "blast",
+    "manaCost": { "from": 10, "to": 6 }, "cooldown": { "from": 6, "to": 3 }, "smarts": { "perRank": 10 },
+    "effect": [
+      { "primitive": "dash", "target": "self", "impulse": 800, "conditions": [ "blast_jumping" ] },
+      { "primitive": "heal", "target": "self", "amount": 25 },
+      { "primitive": "area_burst", "target": "enemies", "damage": { "from": 20, "to": 50 }, "radius": 100, "conditions": [ "knock_up" ] } ]
+  }
+]

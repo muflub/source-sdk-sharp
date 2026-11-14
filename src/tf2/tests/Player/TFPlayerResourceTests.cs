@@ -32,16 +32,30 @@ public sealed class TFPlayerResourceTests
     }
 
     private static (PlayerRig Rig, TFPlayerStats Stats, TFPlayerResourceRows Rows, TFPlayerResourceNetState State) Make(
-        TFClass cls, TF2.Server.Combat.TFDominations? dominations = null, TF2.Server.Rules.ITeamRoundState? rounds = null)
+        TFClass cls, TF2.Server.Combat.TFDominations? dominations = null, TF2.Server.Rules.ITeamRoundState? rounds = null,
+        bool koth = false)
     {
         var rig = new PlayerRig().As(cls);
         rig.Engine.Returns("Players.GetObserverMode", ObserverMode.None);
         var stats = new TFPlayerStats();
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
-                                            new TFPlayerConditions(rig.Carriers, rig.Engine), rig.Loadout, rig.Engine);
+                                            new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine), rig.Loadout, rig.Engine,
+                                            rig.Items, new TF2.Shared.Econ.AttributeHooks(),
+                                            scripts: new TFWeaponScripts(rig.Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
+                                            catalog: rig.Catalog,
+                                            arsenal: new SourceSharp.Server.Arsenal(rig.Log, rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    rig.Engine, rig.Engine, rig.Engine, rig.Engine,
+                                                                                    new ScriptedEntityRegistry(TestEngines.Server()), rig.Engine,
+                                                                                    new SourceSharp.Server.DamageHitGroups()),
+                                            hpMin: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainHpMinConVar>(null),
+                                            deployCost: DeclaredConVars.Holding<TF2.Server.TFMaxHealthDrainDeployCostConVar>(null),
+                                            clock: rig.Engine, equipHooks: new TF2.Tests.Rules.ListHooks<ITFWeaponEquipHook>());
         var state = new TFPlayerResourceNetState();
         state.BindLocal();
-        return (rig, stats, new TFPlayerResourceRows(rig.Carriers, resupply, stats, rig.Engine, new Waves(), dominations, rounds), state);
+        return (rig, stats, new TFPlayerResourceRows(rig.Carriers, resupply, stats, rig.Engine, new Waves(),
+                                                     dominations ?? new TF2.Server.Combat.TFDominations(new TFPlayerCarriers()),
+                                                     rounds ?? new FixedRounds(RoundState.RoundRunning),
+                                                     new KothFlag(koth)), state);
     }
 
     [Fact]
@@ -195,7 +209,7 @@ public sealed class TFPlayerResourceTests
     [Fact]
     public void A_dominating_players_row_carries_their_domination_count()
     {
-        var dominations = new TF2.Server.Combat.TFDominations();
+        var dominations = new TF2.Server.Combat.TFDominations(new TFPlayerCarriers());
         var (_, _, rows, state) = Make(TFClass.Soldier, dominations);
         dominations.DeathFlags(9, PlayerRig.Index, -1);
         dominations.DeathFlags(9, PlayerRig.Index, -1);
@@ -304,6 +318,32 @@ public sealed class TFPlayerResourceTests
         Assert.Equal((byte)0, state.InSetup);
     }
 
+    /// <summary>The KOTH word rides beside the other gamerules words: stock's
+    /// <c>m_bPlayingKoth</c> read through <c>IsInKothMode</c>
+    /// (teamplay_round_timer.cpp:768), what the timer warning's KOTH arm
+    /// answers with on the client.</summary>
+    [Fact]
+    public void The_rows_carry_the_koth_word()
+    {
+        var (_, _, rows, state) = Make(TFClass.Soldier, koth: true);
+
+        rows.Update(state, 10f);
+
+        Assert.Equal((byte)1, state.KothMode);
+    }
+
+    /// <summary>Outside a KOTH round the word is zero, so the arm closes and
+    /// only the HUD election answers.</summary>
+    [Fact]
+    public void The_rows_clear_the_koth_word_outside_a_koth_round()
+    {
+        var (_, _, rows, state) = Make(TFClass.Soldier);
+
+        rows.Update(state, 10f);
+
+        Assert.Equal((byte)0, state.KothMode);
+    }
+
     /// <summary>A stand-in round machine for the words the rows write.</summary>
     private sealed class FixedRounds(RoundState state, TFTeam winning = TFTeam.Unassigned,
                                      bool waiting = false, float mapReset = 0f, bool setup = false)
@@ -320,5 +360,19 @@ public sealed class TFPlayerResourceTests
         public bool InSetup => setup;
 
         public TFTeam WinningTeam => winning;
+    }
+
+    /// <summary>The rules' KOTH flag as a fact needs it: the answer
+    /// <see cref="TF2.Server.Entities.KothRoundState"/> finds in the entity
+    /// directory, held by hand.</summary>
+    private sealed class KothFlag(bool on) : TF2.Server.Entities.IKothRoundState
+    {
+        public bool InKothMode => on;
+
+        public void SetKothTeamTimer(TFTeam team, TF2.Server.Rules.TeamRoundTimer? timer) { }
+
+        public TF2.Server.Rules.TeamRoundTimer? KothTeamTimer(TFTeam team) => null;
+
+        public bool WinMayStand(TFTeam winner) => true;
     }
 }

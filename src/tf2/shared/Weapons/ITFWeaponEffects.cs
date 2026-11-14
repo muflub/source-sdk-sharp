@@ -24,11 +24,34 @@ public interface ITFWeaponEffects
     /// <summary>The stickybomb launcher's secondary: detonate this owner's stickybombs.</summary>
     void Detonate(in WeaponAttackContext attack, TFWeaponScript script);
 
+    /// <summary>
+    /// The Shortstop's shove (<c>CTFPistol_ScoutPrimary::Push</c>,
+    /// <c>tf_weapon_pistol.cpp:119-197</c>): the enemy in front of the muzzle
+    /// takes the push and the point of damage.
+    /// </summary>
+    void Shove(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <summary>
+    /// The Short Circuit's shock attack (<c>CTFMechanicalArm::SecondaryAttack</c>'s
+    /// <c>ShockAttack</c> arm plus its spawn,
+    /// <c>tf_weapon_mechanical_arm.cpp:246-287</c>): the orb out at the eye's
+    /// forty forward, the gates and the metal already paid.
+    /// </summary>
+    void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script);
+
     /// <summary>One flamethrower tick's flames at <paramref name="shot"/>'s damage and crit.</summary>
     void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot);
 
     /// <summary>The flamethrower's airblast: the deflect, the push and the extinguish.</summary>
     void AirBlast(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <summary>
+    /// The Manmelter's vacuum (the secondary's beam): the reached burning
+    /// teammate put out, the revenge crit banked and the heal paid. Answers
+    /// whether a burn went out — the beam's clock stamps on one alone
+    /// (<c>m_fLastExtinguishTime</c>, <c>tf_weapon_flaregun.cpp:547</c>).
+    /// </summary>
+    bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script);
 
     /// <summary>The medigun's beam this command: held or let go.</summary>
     void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held);
@@ -54,6 +77,14 @@ public interface ITFWeaponEffects
     bool ClassSpecialSkill(in WeaponAttackContext attack);
 
     /// <summary>
+    /// <c>CTFPlayer::EndClassSpecialSkill</c>
+    /// (<c>tf_player_shared.cpp:12389-12416</c>): the class's special wound
+    /// back — the melee swing's ask (<c>tf_weaponbase_melee.cpp:201</c>),
+    /// the charged demoman's shield grant before the swing's crit helpers.
+    /// </summary>
+    void EndClassSpecialSkill(in WeaponAttackContext attack);
+
+    /// <summary>
     /// The PDA's trigger: the owner goes back to the item held before this
     /// (<c>CTFWeaponPDA::PrimaryAttack</c>'s <c>SelectLastItem</c>,
     /// <c>shared/tf/tf_weapon_pda.cpp:97</c> over
@@ -70,6 +101,14 @@ public interface ITFWeaponEffects
     /// damage and crit flag, over <paramref name="swing"/>'s trace.
     /// </summary>
     void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace);
+
+    /// <summary>
+    /// The swing's start, when a clean miss would hurt its owner: stock's
+    /// <c>Swing</c> notes the living enemies inside its loose reach
+    /// (<c>tf_weaponbase_melee.cpp:305-319</c>), and one still alive at the
+    /// smack spares the owner the miss tax (:742-753).
+    /// </summary>
+    void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange);
 
     /// <summary>
     /// The minigun's projectile sweep
@@ -118,34 +157,105 @@ public interface ITFWeaponEffects
     /// <c>MP_CONCEPT_MINIGUN_FIREWEAPON</c>, once past its five-second gate.
     /// </summary>
     void FiringSpeech(in WeaponAttackContext attack);
+
+    /// <summary>
+    /// The lunchbox's eat (<c>CTFPlayer::Taunt</c> by the sandvich's ask,
+    /// tf_weapon_lunchbox.cpp:182): the taunt scene, the
+    /// <c>TF_COND_TAUNTING</c> condition and the heavy's bite clock arm there.
+    /// </summary>
+    void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <summary>
+    /// The lunchbox's throw (<c>CTFLunchBox::SecondaryAttack</c>'s body,
+    /// tf_weapon_lunchbox.cpp:199-288): the health kit behind
+    /// <paramref name="mode"/>'s plate, the previous throw removed, the
+    /// owner's 0.3 s pickup delay set.
+    /// </summary>
+    void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode);
+    /// One buff pulse (<c>CTFPlayerShared::PulseRageBuff</c>,
+    /// <c>tf_player_shared.cpp:13923-14019</c>): the buff named by
+    /// <paramref name="buffType"/>'s <c>set_buff_type</c> reaches the owner's
+    /// living teammates inside the buff's reach, the deployer among them,
+    /// for the pulse's seconds, stock's 1.2 (<c>tf_player_shared.cpp:14006</c>).
+    /// </summary>
+    void DeployBuff(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The deploy's horn (<c>CTFBuffItem::BlowHorn</c>,
+    /// <c>tf_weapon_buff_item.cpp:170-222</c>): the held item's horn sound —
+    /// the Concheror's conch (:186-189), the Buff Banner's bugle (:191-201)
+    /// and the Battalion's horn (:202-212), the Blue horn for Blue and the
+    /// Red horn for everyone else — asked on the live run when the press
+    /// holds (:134's hold).
+    /// </summary>
+    void BlowBuffHorn(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The deploy's raise (<c>CTFBuffItem::RaiseFlag</c>, :227-256): the
+    /// <c>deploy_buff_banner</c> event with the buff type and the owner's
+    /// userid goes before the buff's raise (:242), the flag sound follows it
+    /// (:251), and the battle cry rides the voice lane (:252).
+    /// </summary>
+    void RaiseBuffBanner(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The rage press (<c>CTFFlameThrower::UseRage</c> through
+    /// <c>SecondaryAttack</c>'s buff arm, <c>tf_weapon_flamethrower.cpp:1196
+    /// -1200</c>): the taunt whose <c>OnTauntSucceeded</c> arm — a pyro with
+    /// this very weapon out, the meter the burn arms filled and the plain
+    /// taunt's scene — lights the rage (<c>tf_player.cpp:17897-17921</c>,
+    /// <c>ActivateRageBuff</c>, tf_player_shared.cpp:13753). The press's own
+    /// gates are the behaviour's; this is the ask.
+    /// </summary>
+    void UseRage(in WeaponAttackContext attack, int buffType);
 }
 
 /// <summary>
 /// The swing <see cref="ITFWeaponEffects.Melee"/> traces: the reach and the
 /// hull box, what the behaviour decided for this smack — stock's
 /// <c>DoSwingTraceInternal</c> reads them off the weapon
-/// (<c>tf_weaponbase_melee.cpp:392-425</c>) — and whether the hit asks the
-/// <c>crit_from_behind</c> arm (:819-833).
+/// (<c>tf_weaponbase_melee.cpp:392-425</c>) — whether the hit asks the
+/// <c>crit_from_behind</c> arm (:819-833) and whether a clean miss hurts its
+/// own owner, the <c>hit_self_on_miss</c> arm (:755-763), whether the held item
+/// asks the forced laugh (<c>crit_forces_victim_to_laugh</c>, :884-901, the
+/// crit gate itself at the hit), and whether it tickles same-weaponed enemies
+/// (<c>tickle_enemies_wielding_same_weapon</c>, :903-927).
 /// </summary>
-public readonly record struct SwingTrace(float Range, float Hull, bool CritFromBehind);
+public readonly record struct SwingTrace(float Range, float Hull, bool CritFromBehind, bool SelfOnMiss = false,
+                                         bool ForcesLaugh = false, bool TicklesSameWeapon = false);
 
 /// <summary>No effects: what a side without Stage 2's arms does (the shot is spent and nothing appears).</summary>
 public sealed class NoTFWeaponEffects : ITFWeaponEffects
 {
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) { }
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    public void Shove(in WeaponAttackContext attack, TFWeaponScript script) { }
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    public bool ExtinguishBeam(in WeaponAttackContext attack, TFWeaponScript script) => false;
     public void Heal(in WeaponAttackContext attack, TFWeaponScript script, bool held) { }
     public void Zoom(in WeaponAttackContext attack, TFWeaponScript script, bool zoomed) { }
     public void Tracer(in WeaponAttackContext attack, TFWeaponScript script) { }
     public bool ClassSpecialSkill(in WeaponAttackContext attack) => false;
+    public void EndClassSpecialSkill(in WeaponAttackContext attack) { }
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }
+
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange) { }
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) { }
     public void RingOfFire(in WeaponAttackContext attack, int damage) { }
     public void Rearmed(in WeaponAttackContext attack) { }
     public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) { }
     public void ClearWeaponFireScene(in WeaponAttackContext attack) { }
     public void FiringSpeech(in WeaponAttackContext attack) { }
+    public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+    public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+    public void DeployBuff(in WeaponAttackContext attack, int buffType) { }
+    public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) { }
+    public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) { }
+
+    public void UseRage(in WeaponAttackContext attack, int buffType) { }
 }

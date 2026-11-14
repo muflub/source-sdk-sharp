@@ -30,13 +30,11 @@ public sealed class AiRecorder : IAiRecordSink
     /// <summary>How many records have been written, the header included.</summary>
     public int Records { get; private set; }
 
-    public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels)
+    public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels) => BotAdded(bot, seed, skillLevels, null);
+
+    public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels, AiVector? home)
     {
-        BinaryWriter w = Begin();
-        AiRecordFormat.Write(w, _actors?.Map(bot) ?? bot);
-        w.Write(seed);
-        w.Write((ushort)skillLevels.Length);
-        w.Write(skillLevels);
+        AiRecordFormat.WriteBotAdded(Begin(), _actors?.Map(bot) ?? bot, seed, skillLevels, home);
         End(AiRecordType.BotAdded);
     }
 

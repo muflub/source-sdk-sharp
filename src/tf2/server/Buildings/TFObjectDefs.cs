@@ -25,9 +25,16 @@ namespace TF2.Server.Buildings;
 /// has no row on purpose: it is not the engineer's table to build, and its
 /// zero build time is the <see cref="TFBaseObject"/> fallback.
 /// </para>
+///
+/// <para>
+/// The row's own metal count for a destroyed building's gibs, stock's
+/// <c>m_iMetalToDropInGibs</c> (<c>tf_obj.cpp:2255</c>): when set it is the
+/// whole pool instead of half the cost. No shipped row names one, so the
+/// rows here all leave it at zero and the half-cost arm runs.
+/// </para>
 /// </summary>
 public sealed record TFObjectInfo(TFObjectType Type, int Cost, float BuildTime, int MaxObjects, int Modes,
-                                  int UpgradeCost, float UpgradeDuration)
+                                  int UpgradeCost, float UpgradeDuration, int MetalToDropInGibs = 0)
 {
     /// <summary>The row for a buildable type, null for the sapper and anything past it.</summary>
     public static TFObjectInfo? Of(TFObjectType type) => type switch

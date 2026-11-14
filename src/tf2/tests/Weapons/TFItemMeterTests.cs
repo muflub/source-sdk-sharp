@@ -48,6 +48,92 @@ public sealed class TFItemMeterTests
         return owners;
     }
 
+    /// <summary>The meter kind as the shipped items name it: stock's ordinal on the hook.</summary>
+    private static void SetChargeType(AttributeContainer item, int chargeType) =>
+        item.Set(AttributeValue.OfFloat(Def(903, TFItemMeter.ChargeTypeAttribute), chargeType));
+
+    private static WeaponNetState HitMeter()
+    {
+        var weapon = new WeaponNetState();
+        weapon.BindLocal();
+        return weapon;
+    }
+
+    [Fact]
+    public void The_damage_meters_fill_by_the_hits_share()
+    {
+        // OnDealtDamage (:10012, :10037): DAMAGE and COMBO meters both ride
+        // dealt damage, the hit adding its share of the item's full charge —
+        // ten of fifty is a fifth of the bar, on both kinds.
+        var combo = new AttributeContainer();
+        SetChargeType(combo, TFItemMeter.ChargeTypeCombo);
+        combo.Set(AttributeValue.OfFloat(Def(904, TFItemMeter.DamageFullChargeAttribute), 50));
+
+        var weapon = HitMeter();
+        TFItemMeter.DamageCharge(weapon, 10f, new AttributeHooks(), OwnersWith(combo), Owner, WeaponName);
+        Assert.Equal(0.2f, TFItemMeter.MeterOf(weapon), 4);
+
+        var damageMeter = new AttributeContainer();
+        SetChargeType(damageMeter, TFItemMeter.ChargeTypeDamage);
+        damageMeter.Set(AttributeValue.OfFloat(Def(904, TFItemMeter.DamageFullChargeAttribute), 50));
+
+        var second = HitMeter();
+        TFItemMeter.DamageCharge(second, 10f, new AttributeHooks(), OwnersWith(damageMeter), Owner, WeaponName);
+        Assert.Equal(0.2f, TFItemMeter.MeterOf(second), 4);
+    }
+
+    [Fact]
+    public void A_timed_meter_keeps_its_bar_under_a_hit()
+    {
+        // The timed kind walks only the clock (:10012): TIME answers the
+        // gate with nothing, the carried bar stands where the last tick left
+        // it. Ten of the same fifty would have moved a DAMAGE meter to 0.2.
+        var item = new AttributeContainer();
+        SetChargeType(item, TFItemMeter.ChargeTypeTime);
+        item.Set(AttributeValue.OfFloat(Def(904, TFItemMeter.DamageFullChargeAttribute), 50));
+
+        var weapon = HitMeter();
+        weapon.ItemMeter = 0.1f;
+        TFItemMeter.DamageCharge(weapon, 10f, new AttributeHooks(), OwnersWith(item), Owner, WeaponName);
+
+        Assert.Equal(0.1f, TFItemMeter.MeterOf(weapon), 4);
+    }
+
+    [Fact]
+    public void An_item_naming_no_full_charge_skips_the_damage_fill()
+    {
+        // The absent pool is stock's skip (:10029-10030): with no full charge
+        // the hit pays nothing. Without the skip the divide by zero would
+        // slam the bar to full, so the answer separates the arms.
+        var item = new AttributeContainer();
+        SetChargeType(item, TFItemMeter.ChargeTypeCombo);
+
+        var weapon = HitMeter();
+        weapon.ItemMeter = 0.1f;
+        TFItemMeter.DamageCharge(weapon, 10f, new AttributeHooks(), OwnersWith(item), Owner, WeaponName);
+
+        Assert.Equal(0.1f, TFItemMeter.MeterOf(weapon), 4);
+    }
+
+    [Fact]
+    public void The_charge_rate_mod_stretches_the_damage_pool()
+    {
+        // The mod rides the pool (:10033-10035): fifty under the double is a
+        // hundred, and the same ten-unity hit is a tenth of the bar.
+        var item = new AttributeContainer();
+        SetChargeType(item, TFItemMeter.ChargeTypeCombo);
+        item.Set(AttributeValue.OfFloat(Def(904, TFItemMeter.DamageFullChargeAttribute), 50));
+        item.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(905, TFItemMeter.ChargeRateModAttribute, TFItemMeter.ChargeRateModAttribute,
+                AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral, false, false,
+                AttributeValueType.Default, MergedKeys.Block("x")), 2f));
+
+        var weapon = HitMeter();
+        TFItemMeter.DamageCharge(weapon, 10f, new AttributeHooks(), OwnersWith(item), Owner, WeaponName);
+
+        Assert.Equal(0.1f, TFItemMeter.MeterOf(weapon), 4);
+    }
+
     [Fact]
     public void AUsedBarRefillsOverItsRegenTime()
     {
@@ -101,6 +187,39 @@ public sealed class TFItemMeterTests
         var hooks = new AttributeHooks();
         TFItemMeter.Tick(weapon, 0.5f, hooks, OwnersWith(MeteredItem(2f, 1f)), Owner, WeaponName);
         Assert.True(TFItemMeter.CanUse(weapon));
+    }
+
+    [Fact]
+    public void TheWrapAssassinsBarChargesOverItsTenSeconds()
+    {
+        // The giftwrap bat's override (tf_weapon_bat.h:91): no item, the
+        // base alone — five seconds is half the bar.
+        var weapon = new WeaponNetState();
+        weapon.BindLocal();
+
+        TFItemMeter.Tick(weapon, 5f, new AttributeHooks(), new FakeOwners(), Owner,
+                         "tf_weapon_bat_giftwrap", TFWeaponId.BatGiftwrap);
+
+        Assert.Equal(0.5f, TFItemMeter.MeterOf(weapon));
+    }
+
+    [Fact]
+    public void TheEffectBarsRechargeAttrStretchesTheBar()
+    {
+        // GetEffectBarRechargeTime's percentage (tf_weaponbase.h:629): the
+        // attr doubles the base, ten seconds becomes twenty.
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(902, TFItemMeter.EffectBarRechargeAttribute,
+            TFItemMeter.EffectBarRechargeAttribute, AttributeDescriptionFormat.Percentage,
+            AttributeEffectType.Neutral, false, false, AttributeValueType.Default,
+            MergedKeys.Block("x")), 2f));
+        var weapon = new WeaponNetState();
+        weapon.BindLocal();
+
+        TFItemMeter.Tick(weapon, 1f, new AttributeHooks(), OwnersWith(item), Owner,
+                         WeaponName, TFWeaponId.BatGiftwrap);
+
+        Assert.Equal(0.05f, TFItemMeter.MeterOf(weapon), 4);
     }
 
     [Fact]

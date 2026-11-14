@@ -1,0 +1,9 @@
+[
+  { "id": "burning_flames", "name": "Burning Flames", "particle": "superrare_burning1", "weight": 10, "proc": { "id": "ignite_on_hit", "chance": 0.15, "amount": 0 } },
+  { "id": "scorching_flames", "name": "Scorching Flames", "particle": "superrare_burning2", "weight": 6, "proc": { "id": "ignite_on_hit", "chance": 0.25, "amount": 0 } },
+  { "id": "green_energy", "name": "Green Energy", "particle": "superrare_greenenergy", "weight": 10, "proc": { "id": "mana_on_hit", "chance": 1, "amount": 2 } },
+  { "id": "purple_energy", "name": "Purple Energy", "particle": "superrare_purpleenergy", "weight": 8, "proc": { "id": "mana_on_hit", "chance": 1, "amount": 3 } },
+  { "id": "sunbeams", "name": "Sunbeams", "particle": "superrare_beams1", "weight": 6, "proc": { "id": "heal_aura", "chance": 1, "amount": 3 } },
+  { "id": "haunted_ghosts", "name": "Haunted Ghosts", "particle": "superrare_ghosts", "weight": 8, "proc": { "id": "fear_on_hit", "chance": 0.1, "amount": 2 } },
+  { "id": "circling_tf_logo", "name": "Circling TF Logo", "particle": "superrare_circling_tf", "weight": 4, "proc": { "id": "crit_on_kill", "chance": 1, "amount": 3 } }
+]

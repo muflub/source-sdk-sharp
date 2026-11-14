@@ -26,6 +26,17 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\mods\SourceSharp.Mods.csproj" />
+    <!-- The SDK's implicit compiler (10.0.11 under SDK 10.0.400) carries
+         GHSA-p3jp-9v83-76w9, which NuGet audit fails the restore on. The
+         SDK's own pack row moves to the patched build: an explicit
+         PackageReference beside PublishAot draws the SDK's
+         delete-the-reference warning. Only on an SDK whose runtime is older
+         than the patch: the compiler must not be older than the runtime pack
+         it links, and SDK 10.0.115 (runtime 10.0.15) refused 10.0.14's
+         CoreLib ("Overriding System.Private.CoreLib.dll with a newer version
+         is not supported"), so a newer SDK keeps its own. -->
+    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" ILCompilerPackVersion="10.0.14"
+                         Condition="$([MSBuild]::VersionLessThan('$(BundledNETCoreAppPackageVersion)', '10.0.14'))" />
     <InternalsVisibleTo Include="SourceSharp.Shared.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />

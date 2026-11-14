@@ -359,13 +359,15 @@ public sealed unsafe class PlayerShadow
         // A climb the controller does itself is first traced up from the
         // shadow, so it never teleports into solid (A19). The hull is the
         // shadow's current one, as stock's UTIL_TraceEntity( this, ... ) is,
-        // but from MoveConstantDefaults.Stock rather than the player's scaled hulls
-        // (player.cpp:4834-4835): coupled to SsPlayer.ShadowHulls, which reads
-        // the same constants, and both change together if a composition ever
-        // registers others.
+        // but from the composition's movement view rather than the player's
+        // scaled hulls (player.cpp:4834-4835): coupled to
+        // SsPlayer.ShadowHulls, which reads the same constants through the
+        // same composition (the composition hands both this HullSource and
+        // the player's func), and both change together. With no composition,
+        // MoveConstantDefaults.Stock answers, as the core's own numbers.
         if (plan.StepUp == StepClimb)
         {
-            MoveConstants hulls = MoveConstantDefaults.Stock;
+            MoveConstants hulls = HullSource?.Invoke() ?? MoveConstantDefaults.Stock;
             bool crouched = state.State == StateCrouch;
             Vector mins = crouched ? hulls.DuckHullMin : hulls.HullMin;
             Vector maxs = crouched ? hulls.DuckHullMax : hulls.HullMax;
@@ -392,6 +394,16 @@ public sealed unsafe class PlayerShadow
     /// Null steps nothing, which is what a side with no physics is.
     /// </summary>
     public PlayerShadowBodies? Bodies { get; set; }
+
+    /// <summary>
+    /// The movement view the climb trace sizes itself with — the same
+    /// constants the composition builds the movement loop on, handed here by
+    /// the composition itself so the shadow's clip hull and the player's
+    /// bounds (<c>SsPlayer.ShadowHulls</c>) stay one set of vectors. Null on
+    /// a side no composition has attached, where the core's stock numbers
+    /// answer.
+    /// </summary>
+    public Func<MoveConstants>? HullSource { get; set; }
 
     /// <summary>
     /// Stock's "don't ever teleport into solid" for a climb of four units or

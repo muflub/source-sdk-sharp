@@ -43,9 +43,11 @@ public sealed class TFConVarsTests
     private const string PlayerShared = "src/game/shared/tf/tf_player_shared.cpp";
     private const string TFPlayer = "src/game/server/tf/tf_player.cpp";
     private const string Medigun = "src/game/shared/tf/tf_weapon_medigun.cpp";
+    private const string Wrench = "src/game/shared/tf/tf_weapon_wrench.cpp";
     private const string TFPlayerClient = "src/game/client/tf/c_tf_player.cpp";
     private const string ClientMode = "src/game/client/tf/clientmode_tf.cpp";
     private const string Pipebomb = "src/game/shared/tf/tf_weapon_grenade_pipebomb.cpp";
+    private const string GrenadeLauncher = "src/game/shared/tf/tf_weapon_grenadelauncher.cpp";
     private const string AmmoPack = "src/game/server/tf/tf_ammo_pack.cpp";
     private const string DroppedWeapon = "src/game/shared/tf/tf_dropped_weapon.cpp";
     private const string TFAccount = "src/game/client/tf/tf_hud_account.cpp";
@@ -58,6 +60,8 @@ public sealed class TFConVarsTests
     private const string Flamethrower = "src/game/shared/tf/tf_weapon_flamethrower.cpp";
     private const string FxShared = "src/game/shared/tf/tf_fx_shared.cpp";
     private const string SharedDefs = "src/game/shared/shareddefs.h";
+    private const string RocketPack = "src/game/shared/tf/tf_weapon_rocketpack.cpp";
+    private const string Obj = "src/game/server/tf/tf_obj.cpp";
 
     private const string ConVarAttributeName = "SourceSharp.Abi.ConVarAttribute";
     private const uint DllFlags = (1u << 2) | (1u << 3); // FCVAR_GAMEDLL | FCVAR_CLIENTDLL
@@ -86,6 +90,18 @@ public sealed class TFConVarsTests
         { "tf_movement_aircurrent_aircontrol_mult", Movement, StockSide.Both },
         { "tf_movement_lost_footing_restick", Movement, StockSide.Both },
         { "tf_movement_lost_footing_friction", Movement, StockSide.Both },
+        // tf_gamemovement.cpp:52 ConVar tf_max_charge_speed( ..., FCVAR_NOTIFY |
+        // FCVAR_REPLICATED | FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY ); the shield
+        // charge's speed, ChargeMove (:508, :513) and the speed walk read.
+        { "tf_max_charge_speed", Movement, StockSide.Both },
+        // tf_gamemovement.cpp:54-56, the parachute trio TF's FullWalkMove reads
+        // (:2628-2630): defaults quoted byte for byte, the trailing f included,
+        // FCVAR_DEVELOPMENTONLY | FCVAR_REPLICATED, help text. Outside any #if.
+        { "tf_parachute_maxspeed_xy", Movement, StockSide.Both },
+        { "tf_parachute_maxspeed_z", Movement, StockSide.Both },
+        { "tf_parachute_maxspeed_onfire_z", Movement, StockSide.Both },
+        // tf_gamemovement.cpp:57 tf_parachute_aircontrol( ..., "2.5f", FCVAR_DEVELOPMENTONLY | FCVAR_REPLICATED, help ): the chute's air-control multiplier TF's GetAirSpeedCap reads (:2067-2070). Outside any #if, the default quoted byte for byte.
+        { "tf_parachute_aircontrol", Movement, StockSide.Both },
         // tf_weaponbase.cpp:277 ConVar tf_weapon_criticals( "tf_weapon_criticals", "1", FCVAR_REPLICATED | FCVAR_NOTIFY, "Whether or not random crits are enabled" );
         { "tf_weapon_criticals", WeaponBase, StockSide.Both },
         // tf_weaponbase.cpp:83 ConVar tf_weapon_criticals_nopred( "tf_weapon_criticals_nopred", "1.0", FCVAR_REPLICATED | FCVAR_CHEAT );
@@ -105,7 +121,6 @@ public sealed class TFConVarsTests
         { "mp_capdeteriorate_time", RoundRules, StockSide.Both },
         { "mp_tournament", RoundRules, StockSide.Both },
         { "mp_highlander", RoundRules, StockSide.Both },
-        { "mp_teams_unbalance_limit", RoundRules, StockSide.Both },
         { "mp_maxrounds", RoundRules, StockSide.Both },
         { "mp_winlimit", RoundRules, StockSide.Both },
         // tf_gamerules.cpp:810-811 (shared): the lead that ends the map, and its floor.
@@ -150,13 +165,26 @@ public sealed class TFConVarsTests
         // stage 2.7's damage layer: tf_player_shared.cpp:170 (shared), tf_gamerules.cpp:733-734 and
         // :13366 (#ifdef GAME_DLL), server/tf/tf_player.cpp:197 and :8791 (a server file).
         { "tf_damage_disablespread", PlayerShared, StockSide.Both },
+        // the drink's dead time: tf_player_shared.cpp:173 (shared), read by the scout raise.
+        { "tf_scout_energydrink_regen_rate", PlayerShared, StockSide.Both },
+        { "tf_scout_energydrink_consume_rate", PlayerShared, StockSide.Both },
         { "tf_weapon_criticals_distance_falloff", TFRules, StockSide.Server },
         { "tf_weapon_minicrits_distance_falloff", TFRules, StockSide.Server },
         { "tf_fall_damage_disablespread", TFRules, StockSide.Server },
         { "tf_damage_range", TFPlayer, StockSide.Server },
         { "tf_debug_damage", TFPlayer, StockSide.Server },
+        // the crit meter's event life: tf_player_shared.cpp:156, inside the file's GAME_DLL arm (:135), FCVAR_DEVELOPMENTONLY, no help.
+        { "tf_damage_events_track_for", PlayerShared, StockSide.Server },
+        // the thruster's landing push: tf_weapon_rocketpack.cpp:69-70 (shared), read by the fall's impact ring (:8997).
+        { "tf_rocketpack_impact_push_min", RocketPack, StockSide.Both },
+        { "tf_rocketpack_impact_push_max", RocketPack, StockSide.Both },
         // stage 2.3's gib rule: tf_player.cpp:188 (server), the ShouldGib mode.
         { "tf_playergib", TFPlayer, StockSide.Server },
+        // the Gloves' drain floor and deploy cost: tf_player.cpp:273-274 (server),
+        // read by GetMaxHealthForBuffing at :14306-14327.
+        { "tf_construction_build_rate_multiplier", Wrench, StockSide.Both },
+        { "tf_maxhealth_drain_hp_min", TFPlayer, StockSide.Server },
+        { "tf_maxhealth_drain_deploy_cost", TFPlayer, StockSide.Server },
         // stage 2.12's cloaked spy: tf_gamerules.cpp:690, inside the GAME_DLL block (672-741).
         { "tf_stealth_damage_reduction", TFRules, StockSide.Server },
         // stage 2.14's humans' team: tf_gamerules.cpp:838, inside the GAME_DLL block (834+).
@@ -185,6 +213,13 @@ public sealed class TFConVarsTests
         { "tf_max_health_boost", PlayerShared, StockSide.Both },
         { "tf_invuln_time", PlayerShared, StockSide.Both },
         { "tf_boost_drain_time", PlayerShared, StockSide.Server },
+        // the demoman shield's meter: tf_player_shared.cpp:176-177 (shared), the
+        // refill and the seconds a full charge lasts (UpdateChargeMeter).
+        { "tf_demoman_charge_regen_rate", PlayerShared, StockSide.Both },
+        { "tf_demoman_charge_drain_time", PlayerShared, StockSide.Both },
+        // tf_player_shared.cpp:106, outside any #if: the charge yaw cap's frametime
+        // scale, "1" REPLICATED | CHEAT with help — CalculateChargeCap (:6100-6115) reads it.
+        { "tf_demoman_charge_frametime_scaling", PlayerShared, StockSide.Both },
         // tf_weapon_medigun.cpp:76, outside any #if: the meter's build, read by the
         // server's charge arm and the client's predicted replay alike.
         { "weapon_medigun_charge_rate", Medigun, StockSide.Both },
@@ -226,6 +261,10 @@ public sealed class TFConVarsTests
         // the deflected count's clock: tf_weapon_grenade_pipebomb.cpp:954
         // (the same GAME_DLL block), "10.0", CHEAT | DEVELOPMENTONLY, no help.
         { "tf_pipebomb_deflect_reset_time", Pipebomb, StockSide.Server },
+        // the Loose Cannon's double-donk window: tf_weapon_grenadelauncher.cpp:27
+        // (shared, outside any GAME_DLL arm), "0.5", CHEAT | REPLICATED |
+        // DEVELOPMENTONLY, help text; the donk stamp reads it at :447.
+        { "tf_double_donk_window", GrenadeLauncher, StockSide.Both },
         // stage 2.8's sticky air burst: tf_gamerules.cpp:859-860 — outside any
         // GAME_DLL arm (both DLLs declare them), though only the server's
         // GetDamageRadius reads them.
@@ -252,6 +291,12 @@ public sealed class TFConVarsTests
         { "tf_weapon_ragdoll_velocity_min", AmmoPack, StockSide.Server },
         { "tf_weapon_ragdoll_velocity_max", AmmoPack, StockSide.Server },
         { "tf_weapon_ragdoll_maxspeed", AmmoPack, StockSide.Server },
+        // The destroyed building's gib throw: server/tf/tf_obj.cpp:96-98 (a
+        // server file), "100" / "450" / "800", FCVAR_CHEAT | DEVELOPMENTONLY,
+        // no help, no bounds — CreateAmmoPack reads them (:2290-2296).
+        { "tf_obj_gib_velocity_min", Obj, StockSide.Server },
+        { "tf_obj_gib_velocity_max", Obj, StockSide.Server },
+        { "tf_obj_gib_maxspeed", Obj, StockSide.Server },
         // the dropped weapon's lifetime: shared/tf/tf_dropped_weapon.cpp:27 (a
         // GAME_DLL arm), "30", FCVAR_CHEAT, no help, no bounds.
         { "tf_dropped_weapon_lifetime", DroppedWeapon, StockSide.Server },
@@ -277,6 +322,9 @@ public sealed class TFConVarsTests
         // the sentry's shells: tf_obj_sentrygun.cpp:134 (a server file), "16",
         // CHEAT | DEVELOPMENTONLY, no help.
         { "tf_sentrygun_damage", SentryGun, StockSide.Server },
+        // the mini's shells: tf_obj_sentrygun.cpp:135 (a server file), "8",
+        // CHEAT | DEVELOPMENTONLY, no help.
+        { "tf_sentrygun_mini_damage", SentryGun, StockSide.Server },
         // the sapper's drain: tf_obj_sapper.cpp:43 (a server file), "25", no flags.
         { "obj_sapper_amount", Sapper, StockSide.Server },
         // the airblast's arm: tf_weapon_flamethrower.cpp:84, inside GAME_DLL, "1", CHEAT.

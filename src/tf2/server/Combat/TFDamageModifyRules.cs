@@ -38,14 +38,20 @@ namespace TF2.Server.Combat;
 /// <param name="DirectRocketHit">The inflictor is a rocket whose enemy is this victim, its owner carrying
 /// rocket_specialist (<c>tf_gamerules.cpp:6299-6306</c>): the long-range falloff is skipped.</param>
 /// <param name="VictimItem">The victim's ACTIVE weapon as an attribute provider, stock's <c>pVictim-&gt;GetActiveTFWeapon()</c> as the resists' ON_OTHER root; null when they hold none.</param>
+/// <param name="AfterburnDuration">The burn's seconds left as the consume arm sees it (<c>CTFPlayerShared::GetAfterburnDuration</c>, tf_player_shared.cpp); null for no burn clock read.</param>
+/// <param name="DoubleDonk">The victim stands in the attacker's cannon's donk window (<c>CTFGrenadeLauncher::IsDoubleDonk</c> through tf_gamerules.cpp:6205, <see cref="TFDonkVictims"/>); the layer asks only under a cannon's blast.</param>
+/// <param name="VictimIsPlayer">The victim is a TF player (stock's <c>pVictim</c>, <c>ToTFPlayer( pVictimBaseEntity )</c>, :5919). False for a
+/// victim that is not one and still runs the rules, as <c>CTFBaseBoss::OnTakeDamage</c> does (tf_base_boss.cpp:442): the arms stock keeps
+/// behind <c>if ( pVictim )</c> are skipped, and the layer hands such a victim no conditions, no eye angles and no water.</param>
 public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCustom Custom, bool SelfDamage,
                                     bool AttackerIsPlayer, TFWeaponId Weapon, float? Distance,
-                                    TFCondMask Victim, TFCondMask Attacker, IAttributeProvider? WeaponItem = null,
-                                    bool SameClass = false, int VictimWaterLevel = 0, bool DeflectedProjectile = false,
-                                    Vector? VictimEyeAngles = null, Vector? ToVictim = null,
-                                    bool AttackerAirborne = false, bool VictimAirborne = false,
-                                    bool DirectRocketHit = false,
-                                    IAttributeProvider? VictimItem = null);
+                                    TFCondMask Victim, TFCondMask Attacker, IAttributeProvider? WeaponItem,
+                                    bool SameClass, int VictimWaterLevel, bool DeflectedProjectile,
+                                    Vector? VictimEyeAngles, Vector? ToVictim,
+                                    bool AttackerAirborne, bool VictimAirborne,
+                                    bool DirectRocketHit,
+                                    IAttributeProvider? VictimItem, float? AfterburnDuration,
+                                    bool DoubleDonk, bool VictimIsPlayer = true);
 
 /// <summary>
 /// What the rules made of a hit: the damage to take, the bits and kind it now
@@ -53,7 +59,7 @@ public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCusto
 /// :6786-6789) — the split the alive rules' resists reassemble.
 /// </summary>
 public readonly record struct TFHitResult(float Damage, DamageType Bits, TFCritType Crit, TFDamageCustom Custom,
-                                          float Bonus = 0f);
+                                          float Bonus);
 
 /// <summary>The convars the modify rules read, as values (the live ones are the damage layer's, <c>TFDamageLayer</c>).</summary>
 /// <param name="DamageRange"><c>tf_damage_range</c>: the variance's half-width as a fraction of the damage.</param>
@@ -61,10 +67,10 @@ public readonly record struct TFHitResult(float Damage, DamageType Bits, TFCritT
 /// <param name="CritFalloff"><c>tf_weapon_criticals_distance_falloff</c>.</param>
 /// <param name="MiniCritFalloff"><c>tf_weapon_minicrits_distance_falloff</c>.</param>
 public readonly record struct TFDamageSettings(float DamageRange, bool DisableSpread,
-                                               bool CritFalloff = false, bool MiniCritFalloff = false)
+                                               bool CritFalloff, bool MiniCritFalloff)
 {
     /// <summary>Every convar at its stock default (<c>tf_damage_range</c> 0.5, the spread off).</summary>
-    public static TFDamageSettings Defaults => new(0.5f, DisableSpread: true);
+    public static TFDamageSettings Defaults => new(0.5f, DisableSpread: true, CritFalloff: false, MiniCritFalloff: false);
 }
 
 /// <summary>
@@ -152,11 +158,12 @@ public static class TFDamageModifyRules
     /// carries a weapon item.
     /// </summary>
     public static TFHitResult Apply(in TFHit hit, in TFDamageSettings settings, Func<float, float, float> random,
-                                    AttributeHooks? hooks = null)
+                                    AttributeHooks hooks)
     {
         float damage = hit.Damage;
         DamageType bits = hit.Bits;
         var crit = TFCritType.None;
+        var custom = hit.Custom;
         var effects = new TFConditionEffects();
 
         // Damage type was already crit (flares, headshots, the weapon's roll).
@@ -168,7 +175,10 @@ public static class TFDamageModifyRules
         // stock's condition_to_attribute_translation table
         // (tf_shareddefs.cpp:249-274) tested against the victim. Either hit is
         // a full crit; the disguised-crit client flag rides the crit itself.
-        if (hooks is not null && hit.WeaponItem is not null
+        // This arm and the next two stand inside stock's if ( pVictim ) (:5959):
+        // a victim that is not a player has no conditions to be tested, and
+        // "not in the condition" must not read as a crit on it.
+        if (hit.VictimIsPlayer && hit.WeaponItem is not null
             && (CritVsCondition(hooks.Int(0, "or_crit_vs_playercond", hit.WeaponItem), hit.Victim, want: true)
                 || CritVsCondition(hooks.Int(0, "or_crit_vs_not_playercond", hit.WeaponItem), hit.Victim, want: false)))
         {
@@ -180,7 +190,7 @@ public static class TFDamageModifyRules
         // or the victim in the water. The exited-recently prong has no clock
         // here and the breakable sign's SetBroken is the weapon's, not the
         // hit's (docs/plans/tf2/deferred.tsv).
-        if (hooks is not null && hit.WeaponItem is not null
+        if (hit.VictimIsPlayer && hit.WeaponItem is not null
             && hooks.Int(0, "crit_vs_wet_players", hit.WeaponItem) != 0
             && ((hit.Victim.Has(TFCond.Urine) || hit.Victim.Has(TFCond.MadMilk) || hit.Victim.Has(TFCond.Gas))
                 || hit.VictimWaterLevel > 0))
@@ -192,7 +202,7 @@ public static class TFDamageModifyRules
         // axtinguisher_properties (:6044-6070): on a burning victim the hit
         // from behind — the way to the victim along the victim's facing, within
         // 90° of right behind — is a full crit; any other the mini-crit.
-        if (hooks is not null && hit.WeaponItem is not null
+        if (hit.VictimIsPlayer && hit.WeaponItem is not null
             && hooks.Int(0, "axtinguisher_properties", hit.WeaponItem) != 0
             && hit.Victim.Has(TFCond.Burning)
             && hit.VictimEyeAngles is { } eyeAngles && hit.ToVictim is { } toVictim)
@@ -213,12 +223,29 @@ public static class TFDamageModifyRules
         // pick and under the mini-crit ladder. No powerup mode is ported, so
         // the arm's !IsPowerupMode gate is vacuous (docs/plans/tf2/deferred.tsv
         // row 63 keeps the mode's own arms).
-        if (hooks is not null && hit.WeaponItem is not null
+        if (hit.WeaponItem is not null
             && hooks.Int(0, "crit_while_airborne", hit.WeaponItem) != 0
             && hit.AttackerAirborne)
         {
             bits |= TFDamageBits.Critical;
             crit = TFCritType.Full;
+        }
+
+        // attack_minicrits_and_consumes_burning (:6098-6117): the melee hit of
+        // the held weapon on a burning victim consumes their flames — the hit
+        // gains the bonus the RemapValClamped over the burn's seconds left
+        // answers (:6105), a plain hit becomes a mini-crit, and the kill is
+        // stamped AxtinguisherBoosted (:6116); the burn's removal and the
+        // flame-out sound (:6107-6108) are the layer's. Never on oneself (:6096).
+        if (!hit.SelfDamage && hit.AttackerIsPlayer && hit.Victim.Has(TFCond.Burning)
+            && hit.WeaponItem is { } consumedItem && (bits & TFDamageBits.Melee) != 0
+            && hooks.Int(0, "attack_minicrits_and_consumes_burning", consumedItem) != 0)
+        {
+            damage += RemapValClamped(hit.AfterburnDuration ?? 0f, TFCombatDefs.BurningFrequency,
+                                      TFCombatDefs.BurningFlameLife, 20f, TFCombatDefs.BurningDamage * 20);
+            if (crit == TFCritType.None)
+                crit = TFCritType.Mini;
+            custom = TFDamageCustom.AxtinguisherBoosted;
         }
 
         // Mini-crits, never on oneself.
@@ -228,6 +255,12 @@ public static class TFDamageModifyRules
             if (effects.TakesMiniCrits(in victim)
                 || (hit.AttackerIsPlayer && effects.DealsMiniCrits(in attacker)))
                 crit = TFCritType.Mini;
+            // The first sword, bottle or wrench blow after a charge
+            // (:6152-6158): the melee hit's DMG_RADIUS_MAX is the charge's
+            // mini-crit, the swing the end's grant rode.
+            else if (hit.AttackerIsPlayer && (bits & TFDamageBits.RadiusMax) != 0
+                && hit.Weapon is TFWeaponId.Sword or TFWeaponId.Bottle or TFWeaponId.Wrench)
+                crit = TFCritType.Mini;
             // Reflected rockets and grenades (:6159-6164): the blast of a
             // projectile a deflection sent back mini-crits, between the buffed
             // attacker and the crit drink as stock orders the ladder. The
@@ -236,27 +269,48 @@ public static class TFDamageModifyRules
             // detonate modes — the pipe, never the sticky.
             else if (hit.DeflectedProjectile)
                 crit = TFCritType.Mini;
+            // The Cow Mangler's charged shot (:6165-6170): a hit carrying
+            // TF_DMG_CUSTOM_PLASMA_CHARGED mini-crits, between the deflected
+            // blast and the cleaver as stock orders the ladder.
+            else if (custom == TFDamageCustom.PlasmaCharged)
+                crit = TFCritType.Mini;
+            // The cleaver's long-range hit (:6171-6175): a hit carrying
+            // TF_DMG_CUSTOM_CLEAVER_CRIT mini-crits, between the charged
+            // plasma and the energy buff as stock orders the ladder.
+            else if (custom == TFDamageCustom.CleaverCrit)
+                crit = TFCritType.Mini;
             else if (hit.AttackerIsPlayer && attacker.Has(TFCond.EnergyBuff))
                 crit = TFCritType.Mini;
             // The chain's (:6247-6262): a weapon forcing mini-crits on burning
             // victims, the hit no burn tick itself.
-            else if (hooks is not null && hit.WeaponItem is not null
+            else if (hit.WeaponItem is not null
                 && hooks.Int(0, "or_minicrit_vs_playercond_burning", hit.WeaponItem) == 1
                 && victim.Has(TFCond.Burning) && (bits & DamageType.Burn) == 0)
                 crit = TFCritType.Mini;
             // mini_crit_airborne (:6264-6278): a victim knocked into the air by
             // an enemy blast mini-crits — the chain's next arm, before the
             // backattack's own if.
-            else if (hooks is not null && hit.WeaponItem is not null
+            else if (hit.WeaponItem is not null
                 && hooks.Int(0, "mini_crit_airborne", hit.WeaponItem) == 1
                 && hit.VictimAirborne)
                 crit = TFCritType.Mini;
+            // The Loose Cannon's double donk (:6202-6212): the cannon's blast
+            // on a victim the ball just shoved mini-crits, and pays at least
+            // the damage the info was born with — GetMaxDamage is the
+            // constructor's copy (takedamageinfo.cpp:55), so the shove's
+            // wound floors the blast's falloff.
+            else if (hit.DoubleDonk && hit.Weapon == TFWeaponId.Cannon
+                && (bits & DamageType.Blast) != 0)
+            {
+                crit = TFCritType.Mini;
+                damage = MathF.Max(damage, hit.Damage);
+            }
 
             // closerange_backattack_minicrits (:6314-6333): still inside the
             // no-crit gate, a player's hit inside 512 units whose way to the
             // victim runs along the victim's facing, within 75° of right
             // behind, mini-crits.
-            if (hit.AttackerIsPlayer && hooks is not null && hit.WeaponItem is not null
+            if (hit.AttackerIsPlayer && hit.WeaponItem is not null
                 && hooks.Int(0, "closerange_backattack_minicrits", hit.WeaponItem) == 1
                 && hit.ToVictim is { } backToVictim && hit.VictimEyeAngles is { } backEyeAngles
                 && backToVictim.LengthSquared < BackattackRangeSquared
@@ -270,7 +324,7 @@ public static class TFDamageModifyRules
         // scales by vs-players, again vs the same class, and — for a victim
         // not burning, unless the attacker is crit-boosted — a refused crit
         // and the non-burning multiplier.
-        if (hooks is not null && hit.WeaponItem is not null)
+        if (hit.WeaponItem is not null)
         {
             if (crit == TFCritType.Mini && hooks.Int(0, "minicrits_become_crits", hit.WeaponItem) == 1)
             {
@@ -283,7 +337,10 @@ public static class TFDamageModifyRules
             if (hit.SameClass)
                 damage = hooks.Float(damage, "mult_dmg_vs_same_class", hit.WeaponItem);
 
-            if (!hit.Victim.Has(TFCond.Burning))
+            // Stock's if ( pVictim && !InCond( TF_COND_BURNING ) ) (:6413): a
+            // victim that is not a player is neither refused the crit nor
+            // scaled as a non-burning one.
+            if (hit.VictimIsPlayer && !hit.Victim.Has(TFCond.Burning))
             {
                 if ((bits & TFDamageBits.Critical) != 0 && hit.AttackerIsPlayer
                     && !effects.IsCritBoosted(hit.Attacker, clientSide: false)
@@ -297,8 +354,9 @@ public static class TFDamageModifyRules
             }
         }
 
-        // The defense buffs, unless a backstab or crush damage.
-        if (hit.Custom != TFDamageCustom.Backstab && (bits & DamageType.Crush) == 0)
+        // The defense buffs, unless a backstab or crush damage. Stock asks
+        // info.GetDamageCustom() here, which the consume arm has already set.
+        if (custom != TFDamageCustom.Backstab && (bits & DamageType.Crush) == 0)
         {
             if (hit.Victim.Has(TFCond.Defensebuff))
             {
@@ -320,7 +378,16 @@ public static class TFDamageModifyRules
         {
             bool mini = crit == TFCritType.Mini;
             bool distanceMod = (bits & TFDamageBits.UseDistanceMod) != 0;
-            bool forceCritFalloff = distanceMod && ((fullCrit && settings.CritFalloff) || (mini && settings.MiniCritFalloff));
+
+            // crit_dmg_falloff (tf_gamerules.cpp:6527-6534): the weapon's
+            // attribute forces the crit's long-range falloff on, OR'd into
+            // the arm the settings' crit-falloff flags feed, inside the same
+            // distance-mod gate and ungated by the crit kind.
+            bool forcedByItem = hit.WeaponItem is not null
+                                 && hooks.Int(0, "crit_dmg_falloff", hit.WeaponItem) != 0;
+
+            bool forceCritFalloff = distanceMod && ((fullCrit && settings.CritFalloff)
+                                                     || (mini && settings.MiniCritFalloff) || forcedByItem);
             bool shortRangeIncrease = !fullCrit || mini;
 
             // The rocket specialist's direct hit ignores the long-range arm
@@ -341,13 +408,28 @@ public static class TFDamageModifyRules
             }
             else if (fullCrit)
             {
-                bonus = (TFDamage.CritMultiplier - 1f) * damage;
+                // crits_become_minicrits (:6764-6777): the held weapon's hook
+                // demotes the full crit to a mini one. Stock clears the
+                // Critical bit only to shut up the lambda's assert, which then
+                // re-or's it — net, the bit stays set and only the crit kind
+                // and the bonus change.
+                if (hit.WeaponItem is not null
+                    && hooks.Int(0, "crits_become_minicrits", hit.WeaponItem) != 0)
+                {
+                    bonus = (TFDamage.MinicritMultiplier - 1f) * damage;
+                    bits |= TFDamageBits.Critical;
+                    crit = TFCritType.Mini;
+                }
+                else
+                {
+                    bonus = (TFDamage.CritMultiplier - 1f) * damage;
+                }
             }
 
             damage += bonus;
         }
 
-        return new TFHitResult(damage, bits, crit, hit.Custom, bonus);
+        return new TFHitResult(damage, bits, crit, custom, bonus);
     }
 
     /// <summary><c>condition_to_attribute_translation</c>'s length (<c>tf_shareddefs.cpp:249-274</c>).</summary>

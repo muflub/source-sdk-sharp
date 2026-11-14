@@ -18,7 +18,9 @@ namespace TF2.Descent.Shared;
 /// <summary>A line from the server or the hosting service to show on the HUD.</summary>
 public interface INoticeHook
 {
-    void OnNotice(string text);
+    /// <param name="text">The line, or a <c>#Token</c> of the mod's language file.</param>
+    /// <param name="arg">What a token's <c>%s1</c> stands for; empty when it has none.</param>
+    void OnNotice(string text, string arg);
 }
 
 /// <summary>Which instance the player is on: the town, or a level and its depth.</summary>
@@ -27,14 +29,24 @@ public interface IInstanceHook
     void OnInstance(string kind, int depth);
 }
 
-/// <summary>A notice's payload: one line of text, cut to <see cref="MaxText"/>.</summary>
+/// <summary>
+/// A notice's payload: one line of text, cut to <see cref="MaxText"/>, or a
+/// <c>#Token</c> the client localises, with the text its <c>%s1</c> stands
+/// for in <see cref="Arg"/> (a wait's seconds, a refusal's reason).
+/// </summary>
 public partial struct Notice
 {
     /// <summary>The longest text a notice carries; longer is cut.</summary>
     public const int MaxText = 200;
 
+    /// <summary>The longest argument a notice carries; longer is cut. Text and argument fit one user message.</summary>
+    public const int MaxArg = 48;
+
     [UserMessageString(MaxLength = MaxText)]
     public partial string Text { get; set; }
+
+    [UserMessageString(MaxLength = MaxArg)]
+    public partial string Arg { get; set; }
 }
 
 [UserMessage(Name)]
@@ -47,8 +59,8 @@ public sealed class NoticeMessage(IHooks<INoticeHook>? hooks) : IUserMessage<Not
 
     public void OnReceived(Notice message)
     {
-        string text = message.Text;
-        hooks?.Each(nameof(INoticeHook.OnNotice), h => h.OnNotice(text));
+        string text = message.Text, arg = message.Arg;
+        hooks?.Each(nameof(INoticeHook.OnNotice), h => h.OnNotice(text, arg));
     }
 }
 

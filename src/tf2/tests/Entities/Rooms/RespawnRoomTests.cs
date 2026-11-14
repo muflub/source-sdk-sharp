@@ -141,16 +141,17 @@ public sealed class RespawnRoomTests
         var room = rig.Room(TFTeam.Blue);
         var viz = rig.Map.Spawn<FuncRespawnRoomVisualizer>(FuncRespawnRoomVisualizer.MapClass, ("respawnroomname", "room"));
 
-        Assert.False(viz.Shown); // no team yet
+        // Always drawn to every eye (stock's FL_EDICT_ALWAYS): the visibility
+        // write lands at the spawn itself, before any team stands.
+        Assert.Contains(true, rig.Map.Engine.AllOf("EntityRender.SetVisible").Select(c => c.Arg(1)).ToList());
         rig.Map.Input(viz, "RoundActivate");
 
         Assert.Same(room, viz.Room);
         Assert.Equal((int)TFTeam.Blue, viz.Team);
-        Assert.True(viz.Shown);
+        Assert.Equal((byte)(int)TFTeam.Blue, viz.State.Team);
         Assert.Contains(viz, room.Visualizers);
 
         rig.Map.Input(room, "SetInactive");
-        Assert.False(viz.Shown);
         Assert.False(viz.Active);
     }
 
@@ -223,7 +224,7 @@ public sealed class RespawnRoomTests
     }
 
     [Fact]
-    public void A_visualizer_is_never_made_solid()
+    public void A_solid_visualizer_spawns_solid_to_traces()
     {
         var rig = new Rig();
         var viz = rig.Map.Spawn<FuncRespawnRoomVisualizer>(FuncRespawnRoomVisualizer.MapClass, ("solid_to_enemies", "1"));
@@ -231,6 +232,6 @@ public sealed class RespawnRoomTests
         Assert.True(viz.SolidToEnemies);
         var solidity = rig.Map.Engine.AllOf("EntityPhysics.SetBrushSolidity").Select(c => c.Arg(1)).ToList();
         Assert.NotEmpty(solidity);
-        Assert.All(solidity, s => Assert.Equal(BrushSolidity.None, s));
+        Assert.Contains(BrushSolidity.Solid, solidity);
     }
 }

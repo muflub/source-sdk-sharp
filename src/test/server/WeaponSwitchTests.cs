@@ -160,6 +160,8 @@ public class WeaponSwitchTests
         public ParentProbe ParentProbe(EntityHandle entity) => _engine.ParentProbe(entity);
         public bool GetAttachmentFrame(EntityHandle entity, int attachment, out Vector origin, out QAngle angles) => _engine.GetAttachmentFrame(entity, attachment, out origin, out angles);
         public int LookupAttachmentAny(EntityHandle entity, string attachmentName) => _engine.LookupAttachmentAny(entity, attachmentName);
+        public int LookupBone(EntityHandle entity, string boneName) => _engine.LookupBone(entity, boneName);
+        public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin) => _engine.GetBonePosition(entity, bone, out origin);
         public EntityHandle FindBaseByName(string name) => _engine.FindBaseByName(name);
         public Span<byte> GetEngineBlock(EntityHandle entity) => _engine.GetEngineBlock(entity);
         public void DestroyPhysics(EntityHandle entity) => _engine.DestroyPhysics(entity);
@@ -187,7 +189,7 @@ public class WeaponSwitchTests
     internal static (Arsenal arsenal, RecordingEngine engine, SpawningEntities world) World(
         out ScriptedEntityRegistry carried, ViewmodelModel? viewmodelModel,
         ViewmodelSkin? viewmodelSkin = null, IServerSkins? skins = null, RecordingLog? log = null,
-        WeaponCatalog? weapons = null)
+        WeaponCatalog? weapons = null, WorldModel? worldModel = null)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
             .Returns("Entities.GetClassName", EntityNames.Player)
@@ -234,7 +236,7 @@ public class WeaponSwitchTests
         var arsenal = new Arsenal(log ?? new RecordingLog(), world, engine, engine, engine, engine, engine,
                                   engine, engine, registry, engine, new DamageHitGroups(),
                                   weapons: weapons, viewmodelModel: viewmodelModel,
-                                  viewmodelSkin: viewmodelSkin, skins: skins);
+                                  viewmodelSkin: viewmodelSkin, skins: skins, worldModel: worldModel);
 
         carried = registry;
         return (arsenal, engine, world);
@@ -409,6 +411,12 @@ public class WeaponSwitchTests
         }
     }
 
+    /// <summary>The world chain's stand-in for an item rule: names one model, always.</summary>
+    private sealed class WorldRule(string model) : IWorldModelRule
+    {
+        public string? Model(int playerIndex, WeaponType type, string? chosen) => model;
+    }
+
     [Fact]
     public void ARuleDressesTheViewModelInTheModelItNames()
     {
@@ -541,6 +549,51 @@ public class WeaponSwitchTests
 
         Assert.True(world.AttachmentHandles.Count == 0,
             "no chain, no attachment: the viewmodel already IS the row's own model");
+    }
+
+    //-------------------------------------------------------------------------
+    // The world chain (stock's CTFWeaponBase::GetWorldModel beside the
+    // viewmodel's): what the carried WEAPON entity wears, which the
+    // attachment renders too — an unlock's own shape, not the row's.
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void AWorldRuleDressesTheCarriedWeaponInTheModelItNames()
+    {
+        const string item = "models/workshop/weapons/c_models/c_gloves/c_gloves.mdl";
+        var (arsenal, engine, world) = World(out _, viewmodelModel: null,
+            worldModel: new WorldModel(new ListHooks<IWorldModelRule>(new WorldRule(item))));
+
+        Assert.True(arsenal.GiveWeapon(Player, "weapon_crowbar"), "the weapon is taken and deploys");
+
+        var models = DressedModels(engine, world.WeaponHandles);
+        Assert.True(models.Count == 1 && models[0] == item,
+            $"the world chain's answer is what the weapon wears, not {string.Join(", ", models)}");
+    }
+
+    [Fact]
+    public void AnAttachToHandsUnlockDressesTheHandsAndTheItem()
+    {
+        // Stock's attach_to_hands item (the Gloves): the hands rule names the
+        // arms the viewmodel wears, the item rule the c_model the weapon
+        // entity wears — the pair a first person shows as hands plus item,
+        // the attachment riding the hands (C_ViewmodelAttachmentModel).
+        const string hands = "models/weapons/c_models/c_heavy_sans_gloves.mdl";
+        const int item = 0x51;
+
+        var (arsenal, engine, world) = World(out _,
+            new ViewmodelModel(new ListHooks<IViewmodelModelRule>(new HandsRule(hands))),
+            worldModel: new WorldModel(new ListHooks<IWorldModelRule>(new WorldRule(item.ToString()))));
+
+        Assert.True(arsenal.GiveWeapon(Player, "weapon_crowbar"), "the weapon is taken and deploys");
+
+        var shown = DressedModels(engine, world.ViewModelHandles);
+        Assert.True(shown.Count == 1 && shown[0] == hands,
+            $"the hands are on the viewmodel, not {string.Join(", ", shown)}");
+
+        var worn = DressedModels(engine, world.AttachmentHandles);
+        Assert.True(worn.Count == 1 && worn[0] == item.ToString(),
+            $"the item is what the weapon entity wears beside them, not {string.Join(", ", worn)}");
     }
 
     private sealed class ConditionalHandsRule(string forName, string hands) : IViewmodelModelRule

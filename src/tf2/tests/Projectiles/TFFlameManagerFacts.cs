@@ -9,6 +9,7 @@ using TF2.Server.Projectiles;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Tests.Buildings;
 using TF2.Tests.Combat;
 using TF2.Tests.Weapons;
@@ -45,25 +46,38 @@ internal sealed class ManagerRig
 
     private int _teamAsk;
 
+    public TFAfterburns Afterburns { get; }
+
     public ManagerRig()
     {
-        Damage = new ScopedDamage(Scopes);
+        Damage = new ScopedDamage(Scopes, HitGroups);
+        // The teammate arm's class gate now runs on every flame (the manager's
+        // owners are required): a victim of no recorded class, never the Sniper.
+        Engine.Returns("Entities.GetIndex", 3);
         Convars.RegisterAll(typeof(TF2.Server.Medigun.TFPlayerHealing).Assembly);
+        Afterburns = new TFAfterburns(Carriers, Conditions, Engine, Engine, Damage, Directory, Scopes,
+                                      new CombatRig.HealingSpy(), Owners, new AttributeHooks(), Carriers);
         BoxSize = DeclaredConVars.Holding<TF2.Shared.TFFlameThrowerBoxSizeConVar>("12");
-        Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, BoxSize);
+        Manager = new TFFlameManager(Engine, Damage, Engine, Engine, Conditions, Scopes, HitGroups, BoxSize,
+                                     Owners, Directory);
         Manager.BindAreas(TestServices.Areas(Engine));
         Effects = new TFFlameEffects(Engine, Engine, Directory, Engine, Engine, Conditions, Owners, Log,
                                      Convars.Declared<TFAirBlastCrayConVar>(),
                                      Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                      Convars.Declared<TFPushbackScaleConVar>(),
-                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers);
+                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers,
+                                     new TF2.Shared.Econ.AttributeHooks(), new ProjectileRig.Resupply(), Engine,
+                                     new TF2.Tests.Player.ComposedComponents.IdleLag(), Afterburns);
 
         Engine.Returns("Entities.Create", ManagerHandle);
         Engine.Returns("Players.GetHandle", Attacker);
         Engine.Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f));
         Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));
         Engine.Returns("Entities.GetVelocity", default(Vector));
-        Engine.Returns("Entities.IsValid", true);
+        // The none handle is invalid here as it is live: a manager nobody gave an
+        // attacker burns nothing, which a blanket true hid for a whole port.
+        Engine.ReturnsEachCall("Entities.IsValid",
+                               () => Engine.Calls[^1].Args[0] is EntityHandle h && h != EntityHandle.None);
         // The victim reads as a living player.
         Engine.Returns("Entities.IsPlayer", true);
         Engine.Returns("Players.IsAlive", true);
@@ -84,6 +98,9 @@ internal sealed class ManagerRig
     public static SurfaceTraceResult Hit(EntityHandle who) =>
         new(true, 0.5f, new Vector(150f, 0f, 0f), new Vector(0f, 1f, 0f), who, 0, 0);
 
+    /// <summary>Leave the manager without an attacker, as nothing but the weapon's path sets one.</summary>
+    public bool Unattributed { get; set; }
+
     /// <summary>Everyone on one team, so a collide reaches no damage.</summary>
     public void SameTeams() => Engine.Returns("Players.GetTeam", (int)TFTeam.Red);
 
@@ -94,6 +111,9 @@ internal sealed class ManagerRig
     /// </summary>
     public TFFlameManager.PointView Flame(float now, SurfaceTraceResult trace)
     {
+        if (!Unattributed)
+            Manager.SetAttacker(Attacker);
+
         Manager.UpdateDamage(WeaponFixtures.Parse("tf_weapon_flamethrower"),
                              new ShotDamage(TFFlamethrowerBehaviour.DamagePerTick),
                              TFFlameManagerDefs.BurnFrequency, attackerIsPyro: false);
@@ -115,6 +135,16 @@ internal sealed class ManagerRig
 
 public class TFFlameManagerFacts
 {
+    [Fact]
+    public void A_manager_with_no_attacker_burns_nothing()
+    {
+        var rig = new ManagerRig { Unattributed = true };
+
+        rig.Flame(0.1f, ManagerRig.Hit(ManagerRig.Victim));
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
     [Fact]
     public void TheDamageFallsToThreeQuartersAtHalfTheLife()
     {
@@ -235,6 +265,7 @@ public class TFFlameManagerFacts
         // The pyro arm (:756-773): the victim takes TF_COND_HEALING_DEBUFF
         // for 2 s from the attacker.
         var rig = new ManagerRig();
+        rig.Manager.SetAttacker(ManagerRig.Attacker);
         rig.Manager.UpdateDamage(WeaponFixtures.Parse("tf_weapon_flamethrower"),
                                  new ShotDamage(TFFlamethrowerBehaviour.DamagePerTick),
                                  TFFlameManagerDefs.BurnFrequency, attackerIsPyro: true);
@@ -270,6 +301,28 @@ public class TFFlameEffectsFacts
         null!, new WeaponCommand(1, 5, owner));
 
     private static TFWeaponScript Script() => WeaponFixtures.Parse("tf_weapon_flamethrower");
+
+    /// <summary>
+    /// A flame fired through the weapon burns as its owner (<c>CTFFlameManager::Create</c>
+    /// sets <c>m_hAttacker</c>). The manager had no attacker from the port until a
+    /// two-player boot showed 1.5 s of flame costing an enemy nothing.
+    /// </summary>
+    [Fact]
+    public void A_flame_from_the_weapon_burns_as_its_owner()
+    {
+        var rig = new ManagerRig();
+        rig.Directory.Instance = rig.Manager;
+        rig.Owners.Classes[3] = TFClass.Pyro;
+
+        rig.Effects.Flames(Attack(3), Script(), new ShotDamage(13f));
+        rig.Engine.Returns("Host.CurrentTime", 0.1f);
+        rig.Engine.Returns("WorldQuery.TraceBox", ManagerRig.Hit(ManagerRig.Victim));
+        rig.Manager.OnThink();
+
+        var hit = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(ManagerRig.Victim, hit.Victim);
+        Assert.Equal(ManagerRig.Attacker, hit.Attacker);
+    }
 
     [Fact]
     public void TheTickAsksAManagerForAFlamePointAtTheMuzzle()
@@ -307,5 +360,97 @@ public class TFFlameEffectsFacts
 
         Assert.Equal(1, rig.Engine.CountOf("Entities.Create"));
         Assert.Equal(2, rig.Manager.PointCount);
+    }
+
+    /// <summary>
+    /// <c>set_flamethrower_back_crit</c> (<c>tf_weapon_flamethrower.cpp:875-</c>
+    /// 876, <c>tf_flame.cpp:730-745</c>): the item's exactly-one flag turns the
+    /// behind arm on. One tick of clear sky moves the point along its aim; the
+    /// collide on the next asks the flame's travel against the victim's facing
+    /// and, past the behind's 0.8, burns critical.
+    /// </summary>
+    [Fact]
+    public void AFlameReachingFromBehindCritsWithTheAttribute()
+    {
+        var rig = new ManagerRig();
+        rig.Directory.Instance = rig.Manager;
+        rig.Owners.Items[Attack(3).Command.OwnerIndex] =
+            ItemWith("set_flamethrower_back_crit", AttributeDescriptionFormat.Additive, 1f);
+        rig.Effects.Flames(Attack(3), Script(), new ShotDamage(13f));
+
+        rig.Again(0.015f, ManagerRig.Clear);
+        rig.Engine.Returns("Entities.GetAngles", new Vector(0f, 0f, 0f));
+        rig.Again(0.09f, ManagerRig.Hit(ManagerRig.Victim));
+
+        Assert.True(Assert.Single(rig.Damage.Hits).Critical);
+    }
+
+    /// <summary>
+    /// A victim close enough to meet the flame on its first tick still crits: the
+    /// point hasn't moved yet, so the travel is to the contact, not to its position.
+    /// </summary>
+    [Fact]
+    public void AFlameMeetingTheVictimOnItsFirstTickCritsFromBehind()
+    {
+        var rig = new ManagerRig();
+        rig.Directory.Instance = rig.Manager;
+        rig.Owners.Items[Attack(3).Command.OwnerIndex] =
+            ItemWith("set_flamethrower_back_crit", AttributeDescriptionFormat.Additive, 1f);
+        rig.Effects.Flames(Attack(3), Script(), new ShotDamage(13f));
+
+        rig.Engine.Returns("Entities.GetAngles", new Vector(0f, 0f, 0f));
+        rig.Again(0.015f, ManagerRig.Hit(ManagerRig.Victim));
+
+        Assert.True(Assert.Single(rig.Damage.Hits).Critical);
+    }
+
+    /// <summary>
+    /// The same collide on a victim facing the flame (yaw 180 against the
+    /// flame's +X travel, the dot's −1) is a hit in front: no crit, flag or
+    /// no flag.
+    /// </summary>
+    [Fact]
+    public void AFlameInTheFrontNeverCrits()
+    {
+        var rig = new ManagerRig();
+        rig.Directory.Instance = rig.Manager;
+        rig.Owners.Items[Attack(3).Command.OwnerIndex] =
+            ItemWith("set_flamethrower_back_crit", AttributeDescriptionFormat.Additive, 1f);
+        rig.Effects.Flames(Attack(3), Script(), new ShotDamage(13f));
+
+        rig.Again(0.015f, ManagerRig.Clear);
+        rig.Engine.Returns("Entities.GetAngles", new Vector(0f, 180f, 0f));
+        rig.Again(0.09f, ManagerRig.Hit(ManagerRig.Victim));
+
+        Assert.False(Assert.Single(rig.Damage.Hits).Critical);
+    }
+
+    /// <summary>Behind geometry with no item on the gun answers no crit: the
+    /// flag arm gates on the attribute's exactly one.</summary>
+    [Fact]
+    public void BehindWithoutTheAttributeDoesNotCrit()
+    {
+        var rig = new ManagerRig();
+        rig.Directory.Instance = rig.Manager;
+        rig.Effects.Flames(Attack(3), Script(), new ShotDamage(13f));
+
+        rig.Again(0.015f, ManagerRig.Clear);
+        rig.Engine.Returns("Entities.GetAngles", new Vector(0f, 0f, 0f));
+        rig.Again(0.09f, ManagerRig.Hit(ManagerRig.Victim));
+
+        Assert.False(Assert.Single(rig.Damage.Hits).Critical);
+    }
+
+    private static int _nextDef = 5500;
+
+    /// <summary>An item holding one attribute under the named hook class.</summary>
+    private static IAttributeProvider ItemWith(string hook, AttributeDescriptionFormat format, float value)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(_nextDef++, "attr " + _nextDef, hook, format,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
     }
 }

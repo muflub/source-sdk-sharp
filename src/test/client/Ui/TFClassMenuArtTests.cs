@@ -39,7 +39,8 @@ public class TFClassMenuArtTests
     {
         var lib = new RecordingLibrary();
         var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
-        var screen = new TFClassMenu(new FakeTFClassMenuSource { Team = 3 }, new TFClassTile(lib), lib);
+        var screen = new TFClassMenu(new FakeTFClassMenuSource { Team = 3 }, new TFClassTile(lib), lib,
+                                     new FakeTFClassMenuActions(), new UnboundKeys());
         UiSamples.Render(ctx, screen, UiSamples.Screen(1920, 1080), 100.0);
 
         Assert.Contains("vgui/class_sel_sm_medic_blu", lib.Asked);

@@ -3,13 +3,6 @@ using SourceSharp.Client.Ui.Toolkit;
 
 namespace TF2.Descent.Client.Ui.Parts;
 
-/// <summary>Room names the canvas may draw (supplied by the caller — the
-/// canvas itself reads only the map shape).</summary>
-public interface IAutomapRoomLabels
-{
-    string RoomLabel(int room);
-}
-
 /// <summary>What an <see cref="AutomapCanvas"/> draws and how big. The storey,
 /// heading, label and marker-size props are additive; their defaults keep the
 /// corner minimap's behaviour for the full automap overlay's scaled-up canvas.

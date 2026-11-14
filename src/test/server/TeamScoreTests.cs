@@ -25,7 +25,7 @@ public class TeamScoreTests
     }
 
     /// <summary>
-    /// The mode under test: per-team numbers from a dictionary, negative for
+    /// The mode under test: per-team numbers from a dictionary, null for
     /// "no such team", the asks counted, and an optional throw so the
     /// broken-mode fact can watch the last-known numbers survive.
     /// </summary>
@@ -37,12 +37,12 @@ public class TeamScoreTests
         public void OnDeath(PlayerDeathArgs death) { }
         public void ResetRound() { }
 
-        public int TeamScore(int team)
+        public int? TeamScore(int team)
         {
             Asks++;
             if (throws && team == ThrowingTeams)
                 throw new InvalidOperationException("broken mode");
-            return scores is not null && scores.TryGetValue(team, out int v) ? v : -1;
+            return scores is not null && scores.TryGetValue(team, out int v) ? v : null;
         }
     }
 
@@ -200,6 +200,37 @@ public class TeamScoreTests
 
         Assert.True(resource.State.TeamScore[2] == short.MaxValue,
             "32,768 wrapped would draw as a team in enormous deficit");
+    }
+
+    /// <summary>
+    /// A team below zero is a real score (stock <c>CTeam::m_iScore</c> is a
+    /// signed int: a team kill or a suicide costs a point), not "no such
+    /// team": the wire carries the -1, where it once read 0.
+    /// </summary>
+    [Fact]
+    public void ANegativeTeamScoreReachesTheWire()
+    {
+        var rig = new Rig();
+        rig.Use(new Mode("arena", new Scoring(new() { [2] = 3, [3] = -1 })));
+        PlayerResource resource = rig.Spawn();
+
+        resource.UpdateTeamScores();
+
+        Assert.True(resource.State.TeamScore[2] == 3, "the positive team arrived (the pass ran)");
+        Assert.True(resource.State.TeamScore[3] == -1, $"team 3's -1 read {resource.State.TeamScore[3]} on the wire");
+    }
+
+    [Fact]
+    public void AnUndersizeTeamScoreClampsRatherThanWraps()
+    {
+        var rig = new Rig();
+        rig.Use(new Mode("arena", new Scoring(new() { [2] = -40000 })));
+        PlayerResource resource = rig.Spawn();
+
+        resource.UpdateTeamScores();
+
+        Assert.True(resource.State.TeamScore[2] == short.MinValue,
+            "-40,000 wrapped would draw as a team far ahead");
     }
 
     [Fact]

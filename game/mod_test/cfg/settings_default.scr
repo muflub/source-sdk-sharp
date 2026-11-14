@@ -1,0 +1,11 @@
+// The create-server Game page's script for the test mod (stock's
+// cfg/settings_default.scr format, read before cfg/settings.scr). The game
+// mode and its settings come from the game-mode catalog
+// (docs/plans/plan_bots_teams_tf2.md D.2); this script holds only rows the
+// catalog does not.
+
+VERSION 1.0
+
+DESCRIPTION SERVER_OPTIONS
+{
+}

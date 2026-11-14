@@ -105,6 +105,7 @@ internal sealed unsafe class DefaultNetworkServerArea : DefaultNetworkArea, INet
     public int EntityPayloadAgreement(uint a0, int* a1, int* a2) => default;
     public void* EntityGetEngineBlock(uint a0, int* a1) => default;
     public void EntitySetTransmitAlways(uint a0, int a1) { }
+    public void EntitySetTransmitFullCheck(uint a0, int a1) { }
 }
 
 /// <summary><see cref="IModelsServerArea"/> for a test with no engine: every call answers its default.</summary>
@@ -429,6 +430,7 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void ClientInterpAdmitted(uint* a0, int a1) { }
     public void EntitySetModelOverride(uint a0, byte* a1) { }
     public void StandaloneSetShadowHull(uint a0, int a1) { }
+    public void EntitySetMaterialOverride(uint a0, byte* a1) { }
 }
 
 /// <summary><see cref="IViewClientArea"/> for a test with no engine: every call answers its default.</summary>

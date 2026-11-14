@@ -5,7 +5,8 @@ namespace SourceSharp.Client.Ui.Screens;
 
 /// <summary>
 /// The team menu (stock: CTeamMenu, on the server's VGUIMenu "team"): a modal
-/// dialog with one card per team (colour, name, head count, score, Join), then
+/// dialog with one card per team (two, or team deathmatch's three or four:
+/// colour, name, head count, score, Join), then
 /// Spectate, Cancel and the primary Auto assign. A full team's card says so and
 /// cannot be joined; the team you are on is marked. Slot: <c>teammenu.footer</c>.
 ///
@@ -30,6 +31,9 @@ public sealed class TeamMenu : UiScreen
 
     public override string Name => "teammenu";
 
+    /// <summary>The wide dialog's width, du, for <paramref name="cards"/> team cards: 800 for two, 280 more a card.</summary>
+    public static float DialogDu(int cards) => 800 + 280 * Math.Max(0, cards - 2);
+
     /// <summary>The team number last clicked (0 auto assign, 1 spectate, -1 none yet).</summary>
     public int Chosen { get; private set; } = -1;
 
@@ -43,8 +47,11 @@ public sealed class TeamMenu : UiScreen
     {
         // Narrow: the cards stack, in a dialog no wider than the screen allows.
         bool wide = !ui.Narrow;
+        int count = _source.ChoiceCount;
 
-        using (ui.Dialog("teammenu", "#SS_UI_TeamMenu_Title", wide ? 800 : MathF.Min(560, ui.DesignWidth - 64)))
+        // Team deathmatch's three or four teams widen the dialog a card's worth each.
+        using (ui.Dialog("teammenu", "#SS_UI_TeamMenu_Title",
+                         MathF.Min(wide ? DialogDu(count) : count > 2 ? 800 : 560, ui.DesignWidth - 64)))
         {
             using (ui.Row(Space.S))
             {
@@ -53,16 +60,30 @@ public sealed class TeamMenu : UiScreen
                 ui.Data(_source.MapName, Text.Label, Tone.TextMuted);
             }
 
-            var cards = wide ? ui.Row(Space.L, Align.Stretch) : ui.Column(Space.M);
-            using (cards.Width(Size.Fill))
+            // Wide: the cards in one row. Narrow: stacked, two to a row when
+            // team deathmatch runs three or four, so they fit a short screen.
+            int across = wide ? Math.Max(count, 1) : count > 2 ? 2 : 1;
+            using (ui.Column(Space.M).Width(Size.Fill))
             {
-                for (int i = 0; i < _source.ChoiceCount; i++)
+                for (int row = 0; row < count; row += across)
                 {
-                    var choice = _source.Choice(i);
-                    var props = new TeamCardProps(choice, i == 0 ? Tone.TeamA : Tone.TeamB, choice.Number == _source.CurrentTeam);
-                    ui.Sub(choice.Number, _card, props).Width(wide ? Size.Fr() : Size.Fill);
-                    if (_card.Clicked)
-                        Choose(choice.Number);
+                    using (ui.Row(wide ? Space.L : Space.M, Align.Stretch).Width(Size.Fill).Key(-1 - row))
+                    {
+                        for (int i = row; i < row + across; i++)
+                        {
+                            if (i >= count)
+                            {
+                                ui.Spacer(Size.Fr(), Size.Du(1));
+                                continue;
+                            }
+                            var choice = _source.Choice(i);
+                            var props = new TeamCardProps(choice, UiTeams.ToneOf(choice.Number, i == 0 ? Tone.TeamA : Tone.TeamB),
+                                                          choice.Number == _source.CurrentTeam);
+                            ui.Sub(choice.Number, _card, props).Width(Size.Fr());
+                            if (_card.Clicked)
+                                Choose(choice.Number);
+                        }
+                    }
                 }
             }
 
@@ -114,7 +135,7 @@ public sealed class TeamCard : UiPanel<TeamCardProps>
             {
                 using (ui.Row(Space.S).Width(Size.Fill))
                 {
-                    ui.Data(c.Name, Text.Title, p.Tone);
+                    ui.Data(c.Name, Text.Title, p.Tone).Elide();
                     ui.Flex();
                     if (p.Current)
                         ui.Text("#SS_UI_TeamMenu_Current", Text.Label, Tone.Text);

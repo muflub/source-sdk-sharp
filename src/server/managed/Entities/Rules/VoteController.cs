@@ -17,12 +17,16 @@ namespace SourceSharp.Server;
 /// <param name="PassCommand">The server command a pass runs, or empty for a vote that only reports.</param>
 /// <param name="TeamRestricted">Whether only the caller's team may vote and see it.</param>
 /// <param name="Options">The choices, or null for the usual Yes/No.</param>
+/// <param name="OptionCommands">With <paramref name="Options"/>: the command each choice runs when it wins, in place of <paramref name="PassCommand"/>.</param>
+/// <param name="QuorumRatio">The issue's own quorum (stock's <c>GetQuorumRatio</c>), or null for <c>sv_vote_quorum_ratio</c>.</param>
 public readonly record struct VoteIssue(
     string Name,
     string Details,
     string PassCommand,
     bool TeamRestricted = false,
-    string[]? Options = null);
+    string[]? Options = null,
+    string[]? OptionCommands = null,
+    float? QuorumRatio = null);
 
 /// <summary>Whether a ballot was accepted, and if not, why not.</summary>
 public enum VoteCast
@@ -151,6 +155,8 @@ public sealed class VoteController : ScriptedEntity
 
     private VoteIssue? _issue;
     private IReadOnlyList<string> _options = YesNo;
+    private bool _yesNo = true;
+    private int _winner = -1;
     private readonly int[] _counts = new int[MaxOptions];
 
     // By entity handle rather than by SteamID, which is what stock keys on. See
@@ -158,6 +164,11 @@ public sealed class VoteController : ScriptedEntity
     // who reconnects mid-vote is a new voter here.
     private readonly Dictionary<uint, int> _castBy = new();
     private readonly Dictionary<uint, float> _callerCooldowns = new();
+
+    // Stock's CBaseIssue::OnVoteFailed: an issue with the same details that failed waits
+    // sv_vote_failure_timer, whoever calls it next; a vote the server held records nothing.
+    // Per level, as stock's issues are the level's controller's.
+    private readonly Dictionary<string, float> _failedUntil = new(StringComparer.Ordinal);
 
     private EntityHandle _holder = EntityHandle.None;
     private int _onlyTeam;
@@ -195,6 +206,9 @@ public sealed class VoteController : ScriptedEntity
 
     /// <summary>Whether a vote is running or its result is still being shown.</summary>
     public bool IsVoteActive => _issue is not null;
+
+    /// <summary>Whether a vote is still open, or has passed and not yet run what it decided.</summary>
+    public bool IsUnresolved => _issue is not null && (_ballotClosesAt >= 0f || _executeAt >= 0f);
 
     /// <summary>The issue being voted on, if there is one.</summary>
     public VoteIssue? ActiveIssue => _issue;
@@ -237,7 +251,11 @@ public sealed class VoteController : ScriptedEntity
     }
 
     /// <summary>Whether this ballot is the two-choice kind, where a tie fails.</summary>
-    public bool IsYesNoVote => _options.Count == 2;
+    /// <summary>A Yes/No ballot, not a choice among options (which may also number two).</summary>
+    public bool IsYesNoVote => _yesNo;
+
+    /// <summary>The choices of a multiple-choice ballot, in order; empty for Yes/No.</summary>
+    public IReadOnlyList<string> Options => _yesNo ? [] : _options;
 
     //-------------------------------------------------------------------------
     // Running a vote.
@@ -278,7 +296,9 @@ public sealed class VoteController : ScriptedEntity
             return false;
 
         _issue = issue;
-        _options = (issue.Options is { Length: >= 2 }) ? issue.Options : YesNo;
+        _yesNo = issue.Options is not { Length: >= 2 };
+        _options = _yesNo ? YesNo : issue.Options!.Take(MaxOptions).ToArray();
+        _winner = -1;
         Array.Clear(_counts);
         _castBy.Clear();
 
@@ -301,7 +321,9 @@ public sealed class VoteController : ScriptedEntity
         _executeAt = Never;
         _resetAt = Never;
 
-        _callerCooldowns[caller.Value] = now + _convars.CreationTimer.Value;
+        // The server's own call earns no cooldown: it is no caller (stock's DEDICATED_SERVER skips it too).
+        if (caller != EntityHandle.None)
+            _callerCooldowns[caller.Value] = now + _convars.CreationTimer.Value;
 
         // Calling a yes/no vote is agreeing with it, unless the server lets the
         // caller vote against their own motion.
@@ -347,6 +369,9 @@ public sealed class VoteController : ScriptedEntity
         if (IsYesNoVote && option > 2)
             option = 2;
 
+        if (!IsYesNoVote && option > _options.Count)
+            return VoteCast.BadOption;
+
         _counts[option - 1]++;
         _castBy[voter.Value] = option;
 
@@ -382,7 +407,10 @@ public sealed class VoteController : ScriptedEntity
         {
             _executeAt = Never;
 
-            string command = _issue.Value.PassCommand;
+            // A multiple-choice ballot runs its winner's command, where it names one per choice.
+            string command = !IsYesNoVote && _issue.Value.OptionCommands is { } commands && _winner >= 0 && _winner < commands.Length
+                ? commands[_winner]
+                : _issue.Value.PassCommand;
             if (command.Length > 0)
                 Console.ExecuteServerCommand(command);
         }
@@ -394,10 +422,12 @@ public sealed class VoteController : ScriptedEntity
     private void Decide(float now)
     {
         int leading = LeadingOption(_counts, IsYesNoVote);
-        bool passed = Passes(VotesCast, _potentialVoters, _convars.QuorumRatio.Value,
+        bool passed = Passes(VotesCast, _potentialVoters, _issue!.Value.QuorumRatio ?? _convars.QuorumRatio.Value,
                              leading, IsYesNoVote);
 
         Outcome = passed ? VoteOutcome.Passed : VoteOutcome.Failed;
+        if (!passed && _holder != EntityHandle.None)
+            _failedUntil[_issue!.Value.Name + "\n" + _issue.Value.Details] = now + _convars.FailureTimer.Value;
 
         if (passed)
         {
@@ -405,7 +435,10 @@ public sealed class VoteController : ScriptedEntity
             // so a caller that built its command from the detail gets the choice
             // the server actually made rather than the one it proposed.
             if (!IsYesNoVote && leading >= 0 && leading < _options.Count)
+            {
                 _issue = _issue!.Value with { Details = _options[leading] };
+                _winner = leading;
+            }
 
             _executeAt = now + _convars.CommandDelay.Value;
         }
@@ -414,10 +447,19 @@ public sealed class VoteController : ScriptedEntity
         Report();
     }
 
+    /// <summary>An admin's cancel: the ballot ends now, with no result and no failure recorded.</summary>
+    public void Cancel()
+    {
+        if (_issue is not null)
+            Reset();
+    }
+
     private void Reset()
     {
         _issue = null;
         _options = YesNo;
+        _yesNo = true;
+        _winner = -1;
         Array.Clear(_counts);
         _castBy.Clear();
 
@@ -502,6 +544,24 @@ public sealed class VoteController : ScriptedEntity
     /// with an invalid handle, which costs a no-op rather than a crossing to ask
     /// how many there are.
     /// </summary>
+    /// <summary>How many could vote on a ballot called now: the humans in play (sv_vote_min_voters is judged on it).</summary>
+    public int EligibleVoters() => CountPotentialVoters();
+
+    /// <summary>Whether fewer could vote now than <c>sv_vote_min_voters</c> asks (plan_bots_teams_tf2 D.3, §8.2 Q2).</summary>
+    public bool TooFewVoters(out int eligible, out int needed)
+    {
+        eligible = EligibleVoters();
+        needed = Math.Max(1, _convars.MinVoters.Value);
+        return eligible < needed;
+    }
+
+    /// <summary>Whether the issue <paramref name="name"/> with <paramref name="details"/> failed less than <c>sv_vote_failure_timer</c> ago, and how long is left.</summary>
+    public bool FailedLately(string name, string details, float now, out float wait)
+    {
+        wait = _failedUntil.TryGetValue(name + "\n" + details, out float until) ? until - now : 0f;
+        return wait > 0f;
+    }
+
     private int CountPotentialVoters()
     {
         var players = new List<(int Team, bool Bot)>();
@@ -511,7 +571,7 @@ public sealed class VoteController : ScriptedEntity
             if (Entities.IsValid(player))
                 players.Add((Players.GetTeam(player), _bots?.IsBot(player) ?? false));
         }
-        return CountVoters(players, _convars.AllowSpectators.Value, _convars.BotsAllowed.Value, _onlyTeam);
+        return CountVoters(players, _convars.AllowSpectators.Value, _onlyTeam);
     }
 
     /// <summary>
@@ -520,13 +580,15 @@ public sealed class VoteController : ScriptedEntity
     /// games have teams and take an unassigned player for one yet to join; a deathmatch
     /// has no teams, everyone is unassigned, and with no one on a team they all count.
     /// </summary>
-    internal static int CountVoters(IReadOnlyList<(int Team, bool Bot)> players, bool allowSpectators, bool botsCount, int onlyTeam)
+    internal static int CountVoters(IReadOnlyList<(int Team, bool Bot)> players, bool allowSpectators, int onlyTeam)
     {
         bool teamGame = players.Any(p => p.Team > TeamSpectator);
         int voters = 0;
         foreach (var (team, bot) in players)
         {
-            if (bot && !botsCount)
+            // Bots neither call nor cast nor count (plan_bots_teams_tf2 D.3, ruled
+            // "bots dont vote"): a vote nobody can cast cannot be allowed.
+            if (bot)
                 continue;
             bool mayVote = team == TeamUnassigned ? !teamGame : IsVoterTeam(team, allowSpectators);
             if (mayVote && (onlyTeam == TeamUnassigned || team == onlyTeam))

@@ -12,14 +12,22 @@ namespace TF2.Server.Commands;
 /// <summary>
 /// <c>tf2_give &lt;player&gt; &lt;defindex&gt;</c>: grants an item into a
 /// player's local inventory (stage1 1.6; dev, cheat-flagged: there is no GC
-/// to say no). The player is the client's entity index.
+/// to say no). The player is the client's entity index. A player whose
+/// local inventory a gate closes (<see cref="ITFLocalInventoryGate"/>) is
+/// granted nothing.
 /// </summary>
 [ConCommand("tf2_give", Help = "tf2_give <player entindex> <defindex>: grant an item into the local inventory.",
             Flags = ConVarFlags.Cheat)]
-public sealed class GiveItemCommand(LocalInventory inventory, ILog log)
+public sealed class GiveItemCommand(LocalInventory inventory, ILog log, TFLocalInventoryAccess access)
 {
     public void Execute(int player, int defindex)
     {
+        if (!access.IsOpen(player, out string closed))
+        {
+            log.Warning($"[TF2/Inventory] tf2_give: the inventory of client {player} is closed: {closed}\n");
+            return;
+        }
+
         if (inventory.Grant(player, defindex) is { } item)
             log.Msg($"[TF2/Inventory] granted {item} to client {player}\n");
     }
@@ -32,7 +40,7 @@ public sealed class GiveItemCommand(LocalInventory inventory, ILog log)
 /// </summary>
 [ConCommand("tf2_loadout", Help = "tf2_loadout <player entindex> [class]: the class loadout, slot by slot.")]
 public sealed class LoadoutCommand(TFLoadoutProvider loadout, LocalInventory inventory, ILog log,
-                                   ITFPlayerClasses? classes = null)
+                                   ITFPlayerClasses classes)
 {
     public void Execute(int player, [Complete("scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer")] string? className = null) => log.Msg(Describe(player, className));
 
@@ -49,7 +57,7 @@ public sealed class LoadoutCommand(TFLoadoutProvider loadout, LocalInventory inv
         }
         else
         {
-            cls = classes?.ClassOf(new EntityHandle((uint)player)) ?? TFClass.Undefined;
+            cls = classes.ClassOf(new EntityHandle((uint)player));
         }
 
         var sb = new StringBuilder();

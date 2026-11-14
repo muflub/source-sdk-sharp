@@ -70,7 +70,28 @@ public sealed class KnownActor
     /// <summary>Its scoreboard rank, 1 the leader; 0 before the bot's HUD showed it.</summary>
     public int Rank { get; internal set; }
 
+    /// <summary>The team and class its scoreboard row shows (plan_bots_teams_tf2 C.2): 0 when the board shows none.</summary>
+    public int BoardTeam { get; internal set; }
+
+    public int BoardClass { get; internal set; }
+
+    /// <summary>The class the bot's client last drew it as (<see cref="ActorFacts.Class"/>: a disguise's, when it wore one); 0 before it was seen, and for a game without classes.</summary>
+    public int ClassSeen { get; internal set; }
+
+    /// <summary>The class the bot takes it for: as last drawn, else as its scoreboard row shows; 0 unknown.</summary>
+    public int ClassBelieved => ClassSeen != 0 ? ClassSeen : BoardClass;
+
     public bool Dead { get; internal set; }
+
+    /// <summary>
+    /// The team it was last shown on (plan_bots_teams_tf2 B.3): its rendered team when
+    /// sighted, the <c>player_team</c> event and the scoreboard's column otherwise; 0 none.
+    /// Friend or foe is read from this each decide (<see cref="TeamRule.Friends"/>), never kept.
+    /// </summary>
+    public int Team { get; internal set; }
+
+    /// <summary>When it last turned from a teammate into an enemy (B.9): it is a target once the bot has had time to recognise it so.</summary>
+    public Tick FoeSince { get; internal set; }
 
     public AmmoEstimate Ammo { get; } = new();
 
@@ -97,8 +118,32 @@ public sealed class KnownActor
         _grudgeTick = now;
     }
 
-    /// <summary>Where it is now while unseen (§5.3.1), or null with no nav graph.</summary>
+    /// <summary>
+    /// The bot's HUD marks it as the bot's nemesis (<see cref="AiEventKind.Nemesis"/>: TF2's domination,
+    /// plan_bots_teams_tf2_part_g G.2.5): while it does, the bot's grudge against it weighs more (<see cref="TargetScore.Grudge"/>).
+    /// </summary>
+    public bool Nemesis { get; internal set; }
+
+    /// <summary>It lies downed and can be revived (<see cref="AiEventKind.HeroDowned"/>): no threat until it gets up, dies or respawns.</summary>
+    public bool Downed { get; internal set; }
+
+    /// <summary>
+    /// Where it is now while unseen (§5.3.1). Null with no nav graph, for a teammate, and until an
+    /// enemy has a place on the graph to be believed at: the memory makes it then, not before.
+    /// </summary>
     public PositionPredictor? Where { get; internal set; }
+
+    /// <summary>
+    /// Where the bot believes it is while unseen (§5.3.1): the likeliest cell of its belief over
+    /// <paramref name="graph"/> (the one <see cref="Where"/> spreads on), else where it was last
+    /// seen or heard, whichever is the later.
+    /// </summary>
+    public AiVector BelievedAt(NavGraph? graph)
+    {
+        if (Where is { Active: true } w && graph is not null && w.ArgMax.IsValid)
+            return graph.Cell(w.ArgMax).Centre;
+        return LastHeardTick > LastSeenTick ? LastHeardPos : LastSeenPos;
+    }
 
     /// <summary>The last perception of any kind.</summary>
     public Tick LastPerceivedTick => LastSeenTick > LastHeardTick ? LastSeenTick : LastHeardTick;
@@ -121,16 +166,18 @@ public sealed class KnownActor
         Spectating = false;
         LastSeenPos = LastSeenVel = LastHeardPos = default;
         LastSeenTick = LastHeardTick = default;
-        EverSeen = EverHeard = InSight = Dead = false;
+        EverSeen = EverHeard = InSight = Dead = Nemesis = Downed = false;
         _grudge = 0f;
         LastHeardKind = SoundKind.Unknown;
         Confidence = 0f;
         HealthEstimate = 100;
         WeaponSeen = -1;
+        ClassSeen = 0;
         LastKnownCell = CellId.None;
         TimesEngaged = 0;
         DamageTakenFrom = 0f;
-        Frags = Deaths = Rank = 0;
+        Frags = Deaths = Rank = Team = 0;
+        FoeSince = default;
         Ammo.Reset();
         Where?.Clear();
     }
@@ -206,6 +253,36 @@ public sealed class Blackboard
     public AiVector LastDamageDir { get; internal set; }
 
     public Tick LastDamageTick { get; internal set; }
+
+    /// <summary>
+    /// When someone else last hurt the bot: a hit whose attacker its HUD names and who is not
+    /// itself. Its own blast and the world's hurt (a fall) move <see cref="LastDamageTick"/> only.
+    /// </summary>
+    public Tick LastAttackTick { get; internal set; }
+
+    private readonly int[] _teamScores = new int[TeamRule.LastGameTeam + 1];
+
+    /// <summary>The score the bot's HUD shows for <paramref name="team"/> (plan_bots_teams_tf2 B.2); 0 for none.</summary>
+    public int TeamScore(int team) => (uint)team < (uint)_teamScores.Length ? _teamScores[team] : 0;
+
+    internal void SetTeamScore(int team, int score)
+    {
+        if ((uint)team < (uint)_teamScores.Length)
+            _teamScores[team] = score;
+    }
+
+    /// <summary>Whether some team's score is above <paramref name="team"/>'s: it is not leading (B.5's "losing").</summary>
+    public bool Behind(int team)
+    {
+        int mine = TeamScore(team);
+        for (int t = TeamRule.FirstGameTeam; t <= TeamRule.LastGameTeam; t++)
+        {
+            if (t != team && _teamScores[t] > mine)
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>Sizes the items to the map's spawns, each at the game's respawn rule.</summary>
     public void KnowItems(MapKnowledge map)
@@ -344,5 +421,6 @@ public sealed class Blackboard
         foreach (KnownActor a in _actors)
             a.Clear();
         _items = [];
+        Array.Clear(_teamScores);
     }
 }

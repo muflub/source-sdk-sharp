@@ -44,7 +44,7 @@ namespace TF2.Server.Rules;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessageSender messages,
-                                      MpHumansMustJoinTeamConVar? humansTeam = null, IBotPlayers? bots = null)
+                                      MpHumansMustJoinTeamConVar humansTeam, IBotPlayers bots)
     : IClientCommandHook, IOrderedHook
 {
     /// <summary>The stock word.</summary>
@@ -61,7 +61,7 @@ public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessage
 
     public int HookOrder => TeamRoundOrders.JoinTeamCommand;
 
-    private readonly IBotPlayers? _bots = bots;
+    private readonly IBotPlayers _bots = bots;
 
     public bool Handle(EntityHandle player, string command, ReadOnlySpan<string> args)
     {
@@ -84,7 +84,7 @@ public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessage
             // names any team, and the join counts as auto-teamed. It stands
             // ahead of the same-team return, so a pick the override sends
             // home is one; the IsBot arm is :6281's !IsBot().
-            if (requested != (int)TFTeam.Spectator && _bots?.IsBot(player) != true && HumanTeam() is { } forced)
+            if (requested != (int)TFTeam.Spectator && !_bots.IsBot(player) && HumanTeam() is { } forced)
                 requested = (int)forced;
 
             // Stock's early return: already on that team, so neither the
@@ -118,7 +118,7 @@ public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessage
     /// </summary>
     private TFTeam? HumanTeam()
     {
-        string name = humansTeam?.Value ?? "any";
+        string name = humansTeam.Value;
         if (string.Equals(name, "blue", StringComparison.OrdinalIgnoreCase))
             return TFTeam.Blue;
         if (string.Equals(name, "red", StringComparison.OrdinalIgnoreCase))

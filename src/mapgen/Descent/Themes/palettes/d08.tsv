@@ -1,0 +1,37 @@
+# Palette of depth 8 (the Sunken Galleries), plan_descent_mine_levels.md E7 and task B2; brief p4.
+# One row per asset the theme names: asset, kind (material, static, dynamic, water), role, why.
+# Chosen by query of /home/lodle/assetdb (average_colour, maps_used) and looked at (.scratch/p4-m*.png, p4-mod*.png).
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+swamp/nature/blendswampmudtodirt001	material	floor	dark swamp mud (#3c3228) under the standing water; 4 maps
+nature/rockwall006a	material	wall	mossy dark olive rock (#55513f; the plan's), wet and green
+nature/rockwall006a	material	ceiling	the same rock overhead
+nature/rockwall006a	material	large-wall	the rock at 0.5 on a flooded gallery's 2048 walls
+swamp/wood/swampwall015	material	block	grey weathered planks for the walkways and decks over the water ("planks over murky water", §7)
+swamp/metal/swampmetal001	material	trim	rusted steel for the galleries' sets, posts and roof beam; 14 maps
+swamp/concrete/swampcrete001	material	wall-low	the galleries' green concrete lining at a wall's foot (#504f42); the plan's swampcrete
+swamp/metal/swampmetal001	material	door-frame	a rusted steel flood-door frame of brushes: a heavy channel round each doorway
+swamp/metal/swampmetal001	material	crossing	steel plates on the flood door's sill
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs (the kit's sill)
+props_swamp/lamp_post001	static	lamp	a lamp post on a timber stump by the walls, dim green-yellow (the plan's): light off the water; 8 maps
+props_c17/light_industrialbell01_on	static	cover-lamp	a bell lamp under the roof where the posts leave a room's middle dark (level 2 hangs it white; here green)
+props_c17/light_industrialbell01_on	static	pendant	a bell lamp on a long cable over a tall gallery's water
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the bell lamp hangs from
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable
+props_2fort/waterpump001	static	wall-prop	a hand pump against the wall: the pumps that lost the galleries (brief p4); 8 maps
+props_swamp/oildrum_open	static	wall-prop	an open drum against the wall
+props_swamp/karst_rock_05	static	corner-pile	a low karst rock in a corner (the plan's karst)
+props_coalmines/wood_debris3	static	corner-pile	drifted timber in a corner (the plan's wood debris)
+props_swamp/karst_rock_01	static	floor-prop	a karst rock standing out of the water, 113 high
+props_swamp/row_boat_ref	static	floor-prop	a rowing boat left in the flood
+props_swamp/crate_ref	static	floor-prop	a flat crate in the water, 10 high
+props_trainyard/drainage_grate01	static	hung	an arched drain grate on a wall, 96 up; 17 maps
+props_swamp/oildrum_open	static	companion	an open drum beside a pile
+props_swamp/ropepile	static	companion	a coil of rope beside a pile
+props_swamp/crate_ref	static	companion	a flat crate beside a pile
+props_swamp/row_boat_ref	static	centrepiece	a rowing boat in a flooded gallery's middle
+swamp/water/water_murky	water	water	murky green swamp water standing on the floors and in the pools
+# rejected props_island/island_drainage_pipe (the plan's): 535 long and 259 high, a building's pipe, not a gallery's
+# rejected swamp/nature/karst_rock001 (the plan's): flat, reads as painted plaster on a large wall
+# rejected water/water_well: clear; it is level 7's, and level 8's water is the murk

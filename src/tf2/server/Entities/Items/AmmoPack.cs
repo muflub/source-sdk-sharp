@@ -29,8 +29,9 @@ public static class TFAmmoPackRules
 
     /// <summary>
     /// Gives a pack of <paramref name="ratio"/>; true when anything was
-    /// taken. The spy's knife meter and the demoman's
-    /// <c>ammo_gives_charge</c> are not ported (docs/plans/tf2/deferred.tsv).
+    /// taken — the cloak, the melted Spy-cicle's regen wait and the
+    /// Persuader's charge all ride the pack's share
+    /// (<c>entity_ammopack.cpp:86-110</c>).
     /// </summary>
     public static bool Give(ITFMapPlayers players, EntityHandle player, float ratio)
     {
@@ -42,6 +43,12 @@ public static class TFAmmoPackRules
         // :86-89 — a spy riding by gets cloak by the pack's own fraction, and
         // a cloak that moved is a pack taken even from a fully stocked player.
         success |= players.AddToSpyCloakMeter(player, 100f * ratio);
+
+        // :91-94 — and a melted Spy-cicle's wait shrinks by the pack's own fraction.
+        success |= players.AddToSpyKnife(player, 100f * ratio);
+
+        // :96-110 — and the Persuader's wearer charge by the same fraction.
+        success |= players.AddToDemoChargeMeterFromAmmo(player, ratio);
 
         if (players.ClassOf(player) == TFClass.Engineer)
             success |= GiveShare(players, player, TFAmmo.Grenades1, ratio);
@@ -58,13 +65,13 @@ public static class TFAmmoPackRules
 [ScriptedEntity(MapClass, ScriptedEntityKind.Item)]
 public class AmmoPack(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                      ITFPlayerStats? stats = null)
+                      ITFPlayerStats stats)
     : TFPowerup(players, files, world, placed)
 {
     public const string MapClass = "item_ammopack_full";
 
     /// <summary><c>CGameStats::Event_PlayerAmmokitPickup</c> (:127).</summary>
-    protected readonly ITFPlayerStats? _stats = stats;
+    protected readonly ITFPlayerStats _stats = stats;
 
     public override PowerupSize Size => PowerupSize.Full;
 
@@ -83,7 +90,7 @@ public class AmmoPack(ITFMapPlayers players, IEngineFiles files, IEngineWorldQue
 
         notices.Sound(player, TFAmmoPackRules.PickupSound);
         notices.ItemPickupEvent(player, AmmoPackName);
-        _stats?.Increment(player, TFStat.Ammokits); // :127 — Event_PlayerAmmokitPickup
+        _stats.Increment(player, TFStat.Ammokits); // :127 — Event_PlayerAmmokitPickup
         return true;
     }
 }
@@ -92,7 +99,7 @@ public class AmmoPack(ITFMapPlayers players, IEngineFiles files, IEngineWorldQue
 [ScriptedEntity(SmallClass, ScriptedEntityKind.Item)]
 public sealed class AmmoPackSmall(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                 ITFPlayerStats? stats = null)
+                                 ITFPlayerStats stats)
     : AmmoPack(players, files, world, placed, notices, stats)
 {
     public const string SmallClass = "item_ammopack_small";
@@ -108,7 +115,7 @@ public sealed class AmmoPackSmall(ITFMapPlayers players, IEngineFiles files, IEn
 [ScriptedEntity(MediumClass, ScriptedEntityKind.Item)]
 public sealed class AmmoPackMedium(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                   ITFPlayerStats? stats = null)
+                                   ITFPlayerStats stats)
     : AmmoPack(players, files, world, placed, notices, stats)
 {
     public const string MediumClass = "item_ammopack_medium";
@@ -130,9 +137,9 @@ public sealed class AmmoPackMedium(ITFMapPlayers players, IEngineFiles files, IE
 [ScriptedEntity(MapClass, ScriptedEntityKind.Item)]
 public sealed class HealthAmmoKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQuery world, PlacedObjects placed,
         ITFPickupNotices notices,
-                                  ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
-                                  ITFPlayerStats? stats = null, TF2.Server.Combat.TFDamageRecords? records = null,
-                                  ITFPlayerData? disguises = null, TFClassTable? classes = null)
+                                  ITFWeaponOwners owners, AttributeHooks attributes,
+                                  ITFPlayerStats stats, TF2.Server.Combat.TFDamageRecords records,
+                                  ITFPlayerData disguises, TFClassTable classes)
     : HealthKit(players, files, world, placed, notices, owners, attributes, stats, records, disguises, classes)
 {
     public new const string MapClass = "item_healthammokit";

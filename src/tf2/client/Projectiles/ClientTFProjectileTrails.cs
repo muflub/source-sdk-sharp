@@ -382,3 +382,182 @@ public sealed class ClientTFStickybomb : TFProjectileTrail
 
     protected override string? ExtraName() => State.Pulsed ? PulseName() : CritName();
 }
+
+/// <summary>
+/// The flare's mirror: stock's <c>GetFlareTrailParticleName</c>
+/// (<c>c_tf_projectile_flare.cpp:55-83</c>) — <c>flaregun_trail_blue</c> or
+/// <c>flaregun_trail_red</c> by the owner's team, the crit's name in the SAME
+/// system (<c>flaregun_trail_crit_*</c>), no second glow as the rocket wears.
+/// Attached at <c>PATTACH_ABSORIGIN_FOLLOW</c> (<c>CreateTrails</c>, :88-108),
+/// the shell's point 0.
+///
+/// <para>
+/// Not here (docs/plans/tf2/deferred.tsv): the Scorch Shot's
+/// <c>scorchshot_trail_*</c> and the Manmelter's <c>drg_manmelter_projectile</c>
+/// read the launcher's flare-gun mode (<c>C_TFFlareGun::GetFlareGunType</c>),
+/// which waits on those weapons' modes as they do.
+/// </para>
+/// </summary>
+[ClientStandaloneEntity(TFFlareNetState.ClassName)]
+public sealed class ClientTFFlare : TFProjectileTrail
+{
+    public ClientTFFlare(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFFlareNetState.ClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFFlareNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, State.Critical);
+
+    protected override string TrailName()
+    {
+        return State.TeamNumber == (int)TFTeam.Blue
+            ? Critical("flaregun_trail_blue", "flaregun_trail_crit_blue")
+            : Critical("flaregun_trail_red", "flaregun_trail_crit_red");
+    }
+
+    /// <summary>The crit's name in the trail's own slot; stock keeps one system.</summary>
+    private string Critical(string plain, string crit) => State.Critical ? crit : plain;
+
+    /// <summary>The trail carries the crit; the Extra slot stays empty, as stock's
+    /// flare has no second system.</summary>
+    protected override string? CritName() => null;
+}
+
+/// <summary>
+/// The jarate's mirror: stock's <c>C_TFProjectile_Jar::GetTrailParticleName</c>
+/// (<c>tf_weapon_jar.cpp:766-776</c>) — the leaking jar's trail, by team and
+/// nothing else. No crit glow: the glow names in that family are the
+/// cleaver's (<c>tf_weapon_jar.cpp:1155-1165</c>).
+/// </summary>
+[ClientStandaloneEntity(TFJarNetState.ClassName)]
+public sealed class ClientTFJar : TFProjectileTrail
+{
+    public ClientTFJar(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFJarNetState.ClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFJarNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, State.Critical);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "peejar_trail_blu"
+        : "peejar_trail_red";
+
+    /// <summary>The trail is the whole wear; the Extra slot stays empty.</summary>
+    protected override string? CritName() => null;
+}
+
+/// <summary>
+/// The mad milk's mirror: stock's <c>C_TFProjectile_JarMilk</c> overrides
+/// nothing the trail reads — the same leaking trail under the milk's name
+/// (<c>tf_weapon_jar.h:196-216</c>), so the same declaration again, the
+/// alias the wire rides.
+/// </summary>
+[ClientStandaloneEntity(TFJarNetState.MilkClassName)]
+public sealed class ClientTFJarMilk : TFProjectileTrail
+{
+    public ClientTFJarMilk(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFJarNetState.MilkClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFJarNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, State.Critical);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "peejar_trail_blu"
+        : "peejar_trail_red";
+
+    protected override string? CritName() => null;
+}
+
+/// <summary>
+/// The gas jar's mirror: stock's <c>CTFProjectile_JarGas</c> derives from the
+/// jar and overrides nothing the trail reads (<c>tf_weapon_jar_gas.h:69-90</c>),
+/// so the leaking trail again, under the gas's name and the jar's table.
+/// </summary>
+[ClientStandaloneEntity(TFJarNetState.GasClassName)]
+public sealed class ClientTFJarGas : TFProjectileTrail
+{
+    public ClientTFJarGas(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFJarNetState.GasClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFJarNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, State.Critical);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "peejar_trail_blu"
+        : "peejar_trail_red";
+
+    protected override string? CritName() => null;
+}
+
+/// <summary>
+/// The cleaver's mirror: stock's
+/// <c>C_TFProjectile_Cleaver::GetTrailParticleName</c>
+/// (<c>tf_weapon_jar.cpp:1155-1165</c>) — the leaking trail's glow pair, by
+/// team and nothing else. No crit glow: the pair is the whole wear.
+/// </summary>
+[ClientStandaloneEntity(TFCleaverNetState.ClassName)]
+public sealed class ClientTFCleaver : TFProjectileTrail
+{
+    public ClientTFCleaver(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFCleaverNetState.ClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFCleaverNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, false);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "peejar_trail_blu_glow"
+        : "peejar_trail_red_glow";
+
+    /// <summary>The trail is the whole wear; the Extra slot stays empty.</summary>
+    protected override string? CritName() => null;
+}
+
+/// <summary>
+/// The healing bolt's mirror: stock's
+/// <c>C_TFProjectile_HealingBolt::OnDataChanged</c>
+/// (<c>c_tf_projectile_arrow.cpp:194-210</c>) starts
+/// <c>healshot_trail_blue</c> / <c>healshot_trail_red</c> by the owner's team
+/// at <c>DATA_UPDATE_CREATED</c>, <c>PATTACH_ABSORIGIN_FOLLOW</c> — the
+/// shell's point 0. No crit arm: the wire carries the team alone
+/// (<see cref="TFHealingBoltNetState"/>), stock's empty
+/// <c>DT_TFProjectile_HealingBolt</c> beside it.
+/// </summary>
+[ClientStandaloneEntity(TFHealingBoltNetState.ClassName)]
+public sealed class ClientTFHealingBolt : TFProjectileTrail
+{
+    public ClientTFHealingBolt(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFHealingBoltNetState.ClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFHealingBoltNetState State = new();
+
+    /// <summary>No crit rides the wire; the pair is the whole restart key.</summary>
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, false);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "healshot_trail_blue"
+        : "healshot_trail_red";
+
+    protected override string? CritName() => null;
+}

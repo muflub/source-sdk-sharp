@@ -44,7 +44,7 @@ public sealed class TFConditionCommandsTests
     private static (PlayerRig Rig, TFConditionCommands Commands, TFPlayerConditions Conditions, RecordingLog Log) Rig(string cheats = "1")
     {
         var rig = new PlayerRig().Join();
-        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), rig.Engine);
         var commands = new TFConditionCommands(conditions, new NamedRoster(), DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>(cheats), rig.Log);
         return (rig, commands, conditions, rig.Log);
     }

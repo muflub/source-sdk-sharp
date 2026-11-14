@@ -23,6 +23,11 @@ public class UiGoldenTests
     {
         { "scoreboard", "12-players-two-teams" },
         { "scoreboard", "deathmatch-with-bots" },
+        // Team deathmatch's three and four teams (user 2026-11-08): two tables to a row.
+        { "scoreboard", "team-deathmatch-three-teams" },
+        { "scoreboard", "team-deathmatch-four-teams-of-four" },
+        { "teammenu", "team-deathmatch-three-teams" },
+        { "teammenu", "team-deathmatch-four-teams" },
         { "hud", "full-health-smg" },
         { "hud", "low-health-hurt-from-the-left" },
         { "hud", "smg-2-of-3-grenades" },
@@ -147,6 +152,11 @@ public class UiGoldenTests
         { "boteditor", "mid-edit-with-points-left" },
         { "boteditor", "full-spend" },
         { "boteditor", "revisions-open" },
+        // TF2's bots page (plan_bots_teams_tf2 P6 step 8), under the tf2 mod's
+        // theme: its defaults (even teams, the Soldier, names from TF2's pool),
+        // and RED against BLU picked beside the custom bots' rows.
+        { "createserver-tfbotspage", "default" },
+        { "createserver-tfbotspage", "with-custom-bots" },
         // The TF2 weapon selection: the soldier's three slots with the
         // shotgun's card large, and the empty magazine on BLUE — the red
         // note and the team's border arm.

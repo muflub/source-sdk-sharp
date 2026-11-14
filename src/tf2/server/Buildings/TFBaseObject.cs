@@ -8,11 +8,14 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Buildings;
+using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -66,11 +69,21 @@ public sealed class TFObjectAnnouncer(ILog log) : ITFObjectAnnouncer
 /// (shell_standalone_base.cpp:1199-1213) — so <see cref="Health"/> reads and
 /// writes through the engine and managed keeps no second copy to go stale.
 /// </para>
+///
+/// <para>
+/// Every dependency is injected: the side's registrations hold each one (the
+/// carrier word, the speech, the owners, the hooks, the scopes and the
+/// sapper-crit bucket are all <c>SideService</c> rows), so a composition
+/// missing one fails at the activator, naming the parameter.
+/// </para>
 /// </summary>
 public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer announcer,
                                    IEnginePrecache precache, IEngineEntityRender render,
-                                   ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
-                                   TFConceptSpeech? speech = null) : ScriptedEntity
+                                   ITFAmmoPurse purse, TFPlayerCarriers carriers,
+                                   TFConceptSpeech speech, ITFWeaponOwners owners,
+                                   AttributeHooks hooks, TFDamageScopes scopes,
+                                   ITFRevengeCrits crits, ServerBodygroups bodygroups,
+                                   IServerSkins skins) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -80,6 +93,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary><c>OBJ_MAX_UPGRADE_LEVEL</c> (tf_obj.h:34).</summary>
     public const int MaxUpgradeLevel = 3;
+
+    /// <summary><c>SENTRYGUN_MAX_LEVEL_MINI</c> (tf_obj_sentrygun.cpp:66): a mini building's ceiling.</summary>
+    public const int MiniUpgradeLevelCap = 1;
+
+    /// <summary><c>GetMiniBuildingStartingHealth</c>: <c>SENTRYGUN_MINI_MAX_HEALTH</c> for the sentry (tf_obj_sentrygun.h:33, :109), the base's own 100 for the rest (tf_obj.h:284).</summary>
+    public const int MiniBuildingStartingHealth = 100;
 
     /// <summary><c>tf_obj_upgrade_per_hit</c> (tf_obj.cpp:99): the metal a swing pours into the upgrade.</summary>
     public const int UpgradePerHit = 25;
@@ -100,6 +119,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary><c>BASE_OBJECT_THINK_DELAY</c>: the base think's period.</summary>
     public const float BaseObjectThinkDelay = 0.1f;
 
+    /// <summary><c>PLASMA_DISABLE_TIME</c> (tf_obj.cpp:126): the charged ball's hold-off seconds.</summary>
+    public const float PlasmaDisableTime = 4f;
+
     /// <summary>The players the object reads and feeds.</summary>
     protected readonly ITFMapPlayers Players = players;
 
@@ -112,11 +134,26 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary>Where the build animation's sequence is asked and played.</summary>
     protected readonly IEngineEntityRender Render = render;
 
+    /// <summary>The server's own skin write, so the chosen skin reaches the client.</summary>
+    protected readonly IServerSkins Skins = skins;
+
     /// <summary>Where the wrench's metal comes from and goes (<c>CTFPlayer</c>'s ammo pool).</summary>
     protected readonly ITFAmmoPurse Purse = purse;
 
     /// <summary>The response rules the build, the loss and the sapping are told through.</summary>
-    protected readonly TFConceptSpeech? Speech = speech;
+    protected readonly TFConceptSpeech Speech = speech;
+
+    /// <summary>The carrier the held-item attribute asks go through (<see cref="OnDamaged"/>).</summary>
+    protected readonly ITFWeaponOwners Owners = owners;
+
+    /// <summary>The attribute hooks a held item is asked through (<see cref="OnDamaged"/>).</summary>
+    protected readonly AttributeHooks Hooks = hooks;
+
+    /// <summary>The damage scopes the plasma-resistance arm reads at the hit (<see cref="OnDamaged"/>).</summary>
+    protected readonly TFDamageScopes Scopes = scopes;
+
+    /// <summary>The sapper's crit bucket (<see cref="ITFRevengeCrits"/>): the removal cascade pays it (<see cref="RemoveAttachedSapper"/>).</summary>
+    protected readonly ITFRevengeCrits Crits = crits;
 
     [SaveField] private EntityHandle _builder;
     [SaveField] private int _team;
@@ -135,6 +172,13 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private bool _carryDeploy;
     [SaveField] private int _healthOnPickup;
     [SaveField] private float _buildRate = 1f;
+    [SaveField] private float _constructedFraction;
+    [SaveField] private float _constructedTime = -1f;
+
+    /// <summary>The whacks still standing (<c>m_ConstructorList</c>, tf_obj.cpp:2143): one
+    /// entry per builder, its value and expiry. Transient — a save/load inside
+    /// the hit's second loses a boost stock would keep.</summary>
+    private readonly List<(int Player, float Value, float Expire)> _constructors = new();
     [SaveField] private int _desiredBuildRotations;
     [SaveField] private int _level = 1;
     [SaveField] private int _upgradeMetal;
@@ -142,6 +186,27 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private float _upgradeCompleteTime;
     [SaveField] private int _kills;
     [SaveField] private int _assists;
+    [SaveField] private bool _miniBuilding;
+    [SaveField] private int _body;
+
+    /// <summary>The bodygroup pair the side registers (<see cref="ServerBodygroups"/>);
+    /// the body it composes is this building's own <c>_body</c>.</summary>
+    protected readonly ServerBodygroups Bodygroups = bodygroups;
+
+    /// <summary>
+    /// <c>FindBodygroupByName</c> (animation.cpp:927): the group of this
+    /// model named <paramref name="name"/>, or the stock -1 — no model hdr
+    /// answers the -1 arm too (animation.cpp:929).
+    /// </summary>
+    protected int FindBodygroupByName(string name) => Bodygroups.FindBodygroupByName(Handle, name);
+
+    /// <summary>
+    /// <c>CBaseAnimating::SetBodygroup</c> (baseanimating.cpp:2294-2302):
+    /// compose one group's digit into this building's body over the model's
+    /// own groups (animation.cpp:863-879) and send it as <c>m_nBody</c>. A
+    /// model with no hdr leaves the body as it stands, the stock early-return arm.
+    /// </summary>
+    protected void SetBodygroup(int iGroup, int iValue) => _body = Bodygroups.SetBodygroup(Handle, _body, iGroup, iValue);
 
     /// <summary>The build state the client's shadow arm reads; <see cref="SetPlacing"/> keeps it with <see cref="_placing"/>.</summary>
     [NetState] public TFObjectNetState State = new();
@@ -176,6 +241,40 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary><c>m_bDead</c>: gone, or on the way.</summary>
     public bool IsDead => _dead;
 
+    /// <summary><c>m_bMiniBuilding</c>/<c>IsMiniBuilding</c> (tf_obj.h:336): the builder's wrench
+    /// carried the mini-sentry attribute when the building came down.</summary>
+    public bool IsMiniBuilding => _miniBuilding;
+
+    /// <summary><c>MINI_SENTRY_SCALE</c> (tf_obj_sentrygun.cpp:67): the mini's model scale.</summary>
+    public const float MiniSentryScale = 0.75f;
+
+    /// <summary>The mini's gib pack scale (<c>SetModelScale(0.6f)</c>, tf_obj.cpp:2317-2320).</summary>
+    public const float GibModelScale = 0.6f;
+
+    /// <summary>
+    /// <c>CBaseObject::MakeMiniBuilding</c> (tf_obj.cpp:1510-1516): the flag, once. Stock's
+    /// builder question — <c>ShouldBeMiniBuilding</c> (:1486-1504), the wrench's
+    /// <c>wrench_builds_minisentry</c> hook (tf_weapon_wrench.cpp:255) — is answered by the
+    /// caller, the builder, over the builder's attribute manager. The sentry's override
+    /// (:367-380) adds the model scale — the hulls ride on it, which is why
+    /// <c>SetBuildingSize</c> needs nothing besides (:2146-2150) — and the base's placement
+    /// tail sets the team skin (tf_obj.cpp:1469-1473): red's second skin, blu's third,
+    /// never the dispenser's. The bodygroup (<c>mini_sentry_light</c>, tf_obj_sentrygun.cpp:343-346,
+    /// :398-401) rides the body-parts read: <see cref="SetBodygroup"/> answers it on the
+    /// sentry's <see cref="StartBuilding"/> and <c>OnGoActive</c> arms.
+    /// </summary>
+    public void MakeMiniBuilding()
+    {
+        _miniBuilding = true;
+        State.Mini = true;                      // the client's deferred arms read it (DT_BaseObject)
+
+        if (Type == TFObjectType.Sentrygun)
+            Render.SetModelScale(Handle, MiniSentryScale);
+
+        if (Type != TFObjectType.Dispenser)
+            Skins.SetSkin(Handle, Team == (int)TFTeam.Red ? 2 : 3);
+    }
+
     /// <summary><c>GetLevel</c>: the upgrade level, 1 until the wrench raises it.</summary>
     public int Level => _level;
 
@@ -199,12 +298,16 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     public void IncrementAssists() => _assists++;
 
     /// <summary>
-    /// <c>GetMaxHealthForCurrentLevel</c> (tf_obj.cpp:3808-3823): the base
-    /// health times <c>UPGRADE_LEVEL_HEALTH_MULTIPLIER</c> to the level
-    /// beyond the first — 150, 180, 216 — truncated as stock's cast is.
+    /// <c>GetMaxHealthForCurrentLevel</c> (tf_obj.cpp:3808-3823): the mini's own starting health
+    /// (:3810, <c>GetMiniBuildingStartingHealth</c> — tf_obj.h:284, overridden to the same 100 by
+    /// the sentry tf_obj_sentrygun.h:109/:33); otherwise the base health times
+    /// <c>UPGRADE_LEVEL_HEALTH_MULTIPLIER</c> to the level beyond the first — 150, 180, 216 —
+    /// truncated as stock's cast is. The multiplier skips mini buildings (:3816, whose level
+    /// never climbs past one anyway).
     /// </summary>
     public virtual int MaxHealthForCurrentLevel
-        => (int)(ObjectMaxHealth * MathF.Pow(UpgradeLevelHealthMultiplier, _level - 1));
+        => _miniBuilding ? MiniBuildingStartingHealth
+           : (int)(ObjectMaxHealth * MathF.Pow(UpgradeLevelHealthMultiplier, _level - 1));
 
     /// <summary>
     /// The object's health, as the native shell holds it
@@ -285,7 +388,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     {
         _hasSapper = true;
         _sapper = sapper;
-        Speech?.Speak(_builder, TFConceptSpeech.SpySapper, "objtype", ResponseModifier());
+        Speech.Speak(_builder, TFConceptSpeech.SpySapper, "objtype", ResponseModifier());
     }
 
     /// <summary>
@@ -301,7 +404,13 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             return;
 
         if (FindByHandle<TFSapper>(_sapper) is { IsDead: false } sapper)
+        {
+            // Stock's sapper-crit arm (tf_obj.cpp:269-283): the building that goes while a
+            // sapper rides pays the sapper's owner one stored crit, before the riding
+            // sapper is taken down itself.
+            Crits.Grant(sapper.Builder);
             sapper.DestroyObject();
+        }
 
         _sapper = EntityHandle.None;
     }
@@ -326,7 +435,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     private void SetCarriedObject(EntityHandle carrier, bool carrying)
     {
         if (carrier != EntityHandle.None)
-            carriers?.Get(carrier.EntryIndex)?.CarryingObject = carrying;
+            carriers.Get(carrier.EntryIndex)?.CarryingObject = carrying;
     }
 
     public void MakeCarriedObject(EntityHandle carrier)
@@ -425,14 +534,18 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary>
     /// <c>CBaseObject::StartPlacement</c>: the builder's, and on the builder's
-    /// team. (The build box and the NOT_SOLID switch ride with the placement
-    /// trace, which is the click-to-place's to own — deferred.)
+    /// team, wearing that team's skin (tf_obj.cpp:901-902; a mini's
+    /// <see cref="MakeMiniBuilding"/> re-dresses it after). (The build box and
+    /// the NOT_SOLID switch ride with the placement trace, which is the
+    /// click-to-place's to own — deferred.)
     /// </summary>
     public void StartPlacement(EntityHandle builder)
     {
         _builder = builder;
         _team = Players.Team(builder);
+        State.Team = (byte)_team;   // the client's friendly-building arm reads the team off the wire
         SetPlacing(true);
+        Skins.SetSkin(Handle, _team == (int)TFTeam.Red ? 0 : 1);
     }
 
     /// <summary>
@@ -466,18 +579,20 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <paramref name="buildRate"/> (stock's build-speed multiplier,
     /// tf_player.cpp:8237: the redeploy's +2 sentry, +3 the others).
     /// </summary>
-    public void StartBuilding(float buildRate = 1f)
+    public virtual void StartBuilding(float buildRate = 1f)
     {
         SetPlacing(false);
         _building = true;
         _built = false;
         _constructedHealth = 0;
+        _constructedFraction = 0f;
+        _constructedTime = -1f;
         _buildRate = MathF.Max(1f, buildRate);
 
         // The builder's line (tf_obj.cpp:1339, :1349): the redeploy's own
         // where the object came out of the arms, else the building's — each
         // with the object type the rules' Is* criteria read.
-        Speech?.Speak(_builder, _carryDeploy ? TFConceptSpeech.RedeployBuilding : TFConceptSpeech.BuildingObject,
+        Speech.Speak(_builder, _carryDeploy ? TFConceptSpeech.RedeployBuilding : TFConceptSpeech.BuildingObject,
                       "objtype", ResponseModifier());
 
         // SetStartBuildingModel + RemoveSolidFlags(FSOLID_NOT_SOLID)
@@ -507,10 +622,19 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                 Render.PlaySequence(Handle, sequence, _buildRate * 0.5f, restart: true);
         }
 
-        Health = _carryDeploy ? _healthOnPickup : (int)ConstructionStartHealth;
+        Health = _carryDeploy ? _healthOnPickup : ConstructionStartHealthForBuilding;
         _builtStartTime = GameTime;
         SetNextThink(BaseObjectThinkDelay);
     }
+
+    /// <summary>
+    /// The health the build starts at: <see cref="ConstructionStartHealth"/>, or half the
+    /// level's maximum for a mini — <c>MakeMiniBuilding</c>'s <c>SetHealth(iHealth / 2.0f)</c>
+    /// (tf_obj_sentrygun.cpp:375-378), which also halves the per-tick construction heals
+    /// (tf_obj.cpp:2120-2124).
+    /// </summary>
+    private int ConstructionStartHealthForBuilding
+        => _miniBuilding ? (int)(MaxHealthForCurrentLevel / 2f) : (int)ConstructionStartHealth;
 
     /// <summary>
     /// <c>CBaseObject::BaseObjectThink</c>: constructs while the build is up,
@@ -535,6 +659,8 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
         if (_building)
             Construct();
+        else if (ReversesBuildingConstructionSpeed() > 0f)
+            DoReverseBuild();   // the sapped building's think arm (tf_obj.cpp:623-626)
 
         UpdateMetal();
         SetNextThink(BaseObjectThinkDelay);
@@ -548,23 +674,35 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// stands (tf_obj.cpp:1532 → :2124, <c>SetHealth(m_flHealth + flHealth)</c>)
     /// — wounds and all, never a rewrite from the clock — and at full time
     /// the object goes active. The slice is the max minus the start spread
-    /// over the total time; the whole part paid so far is remembered so a
-    /// wound between ticks is not paid for twice.
+    /// over the total time, scaled by <see cref="ConstructionMultiplier"/>:
+    /// the build's covered fraction <see cref="_constructedFraction"/> accrues
+    /// per tick, so a whack's boost that expires between ticks keeps the
+    /// share it paid (stock's <c>m_flConstructionTimeLeft</c> decrement
+    /// integrates the same way, :2102-2109). The whole part paid so far is
+    /// remembered so a wound between ticks is not paid for twice.
     /// </summary>
     private void Construct()
     {
-        TFObjectInfo? info = TFObjectInfo.Of(Type);
-        float buildTime = (info?.BuildTime ?? 0f) / _buildRate;
-        float flPercentBuilt = buildTime > 0f ? (GameTime - _builtStartTime) / buildTime : 1f;
-
-        if (flPercentBuilt >= 1f)
+        float buildTime = TFObjectInfo.Of(Type)?.BuildTime ?? 0f;
+        if (buildTime <= 0f)
         {
             FinishedBuilding();
             return;
         }
 
-        int constructed = (int)(((double)MaxHealthForCurrentLevel - ConstructionStartHealth)
-                                * ((GameTime - _builtStartTime) / buildTime));
+        float now = GameTime;
+        float elapsed = now - (_constructedTime < 0f ? _builtStartTime : _constructedTime);
+        _constructedTime = now;
+        _constructedFraction += elapsed * ConstructionMultiplier() / buildTime;
+
+        if (_constructedFraction >= 1f)
+        {
+            FinishedBuilding();
+            return;
+        }
+
+        int constructed = (int)(((double)MaxHealthForCurrentLevel - ConstructionStartHealthForBuilding)
+                                * _constructedFraction);
         int slice = constructed - _constructedHealth;
         if (slice > 0)
         {
@@ -575,6 +713,73 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                                        : MaxHealthForCurrentLevel;
             Health = Math.Min(ceiling, Health + slice);
         }
+    }
+
+    /// <summary>
+    /// <c>CBaseObject::GetConstructionMultiplier</c> (tf_obj.cpp:2178-2212):
+    /// the placement's build rate plus every unexpired whack's value — each
+    /// builder's <see cref="OnConstructionHit"/> entry stands for the second
+    /// after its swing, expired ones pruned on the walk as stock's is — plus
+    /// the builder's own build-rate arm (<c>GetObjectBuildSpeedMultiplier</c>,
+    /// asked at :2208 every multiplier read).
+    /// </summary>
+    private float ConstructionMultiplier()
+    {
+        float now = GameTime;
+        float boost = 0f;
+        for (int i = _constructors.Count - 1; i >= 0; i--)
+        {
+            if (_constructors[i].Expire < now)
+                _constructors.RemoveAt(i);
+            else
+                boost += _constructors[i].Value;
+        }
+
+        return _buildRate + boost + BuildRateBonus();
+    }
+
+    /// <summary>
+    /// <c>CTFPlayer::GetObjectBuildSpeedMultiplier</c>'s attribute arm
+    /// (tf_player.cpp:8237-8260): the builder's build-rate attribute over
+    /// the whole player, as stock's <c>CALL_ATTRIB_HOOK_FLOAT</c> walk is —
+    /// <c>sentry_build_rate_multiplier</c> for the sentry, the teleporter's
+    /// spelling for the dispenser too (:8254, stock's own shared name). The
+    /// switch's other half, the carried redeploy's 2 and 3, is
+    /// <see cref="_buildRate"/>'s: <see cref="StartRedeploy"/> passes them
+    /// where the first build passes nothing, on the same 1 the field starts
+    /// at — so here only the attribute is added, fresh at every ask.
+    /// </summary>
+    private float BuildRateBonus()
+    {
+        if (Builder == EntityHandle.None)
+            return 0f;
+
+        string attribute = Type switch
+        {
+            TFObjectType.Sentrygun => "sentry_build_rate_multiplier",
+            TFObjectType.Teleporter or TFObjectType.Dispenser => "teleporter_build_rate_multiplier",
+            _ => "",
+        };
+
+        return attribute.Length > 0
+            ? Hooks.Float(1f, attribute, Owners.ManagerOf(Builder.EntryIndex)) - 1f   // :8239, :8259
+            : 0f;
+    }
+
+    /// <summary>The whack's window (tf_obj.cpp:2160: <c>curtime + 1.0</c>).</summary>
+    public const float ConstructionHitWindow = 1f;
+
+    /// <summary>
+    /// <c>CBaseObject::OnConstructionHit</c> (tf_obj.cpp:2154-2175) without
+    /// the particle: the builder's entry is inserted or refreshed to the
+    /// window's edge carrying <paramref name="value"/>, the swing's
+    /// <c>GetConstructionValue</c>.
+    /// </summary>
+    private void OnConstructionHit(EntityHandle player, float value)
+    {
+        int index = player.EntryIndex;
+        _constructors.RemoveAll(entry => entry.Player == index);
+        _constructors.Add((index, value, GameTime + ConstructionHitWindow));
     }
 
     /// <summary>
@@ -595,6 +800,10 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         if (TFObjectModels.Finished(Type, _level).Length > 0)
             Dress(TFObjectModels.Finished(Type, _level));
 
+        // FinishedBuilding sets no health of its own (tf_obj.cpp:1553-1590); the
+        // construction ramp has already climbed to the level's maximum by now
+        // (:2124), and a mini's half start (:1390-1397) only halves the rate of
+        // that climb, not its end — one completion arm for every building.
         Health = MaxHealthForCurrentLevel;
         OnGoActive();
         Announcer.Built(_builder, Type, _mode);
@@ -610,16 +819,20 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <c>CBaseObject::InputWrenchHit</c> (tf_obj.cpp:2746-2802) without the
     /// sapper arm — that lives with the swing (<see cref="TFSapperUse"/>),
     /// which lands the blow on the attached leech. A standing object takes
-    /// <see cref="OnWrenchHit"/>; one still building answers stock's
-    /// <c>OnConstructionHit</c> instead, which is not this milestone's.
+    /// <see cref="OnWrenchHit"/>; one still building takes the whack instead
+    /// (:2785-2789), whose <paramref name="constructionValue"/> — the swing's
+    /// <c>GetConstructionValue</c> — hurries the build for the window.
     /// </summary>
-    public bool WrenchHit(EntityHandle player)
+    public bool WrenchHit(EntityHandle player, float constructionValue = 0f)
     {
         if (_dead || _placing || _carried)
             return false;
 
         if (_building && !_built)
-            return false;
+        {
+            OnConstructionHit(player, constructionValue);
+            return true;
+        }
 
         return OnWrenchHit(player);
     }
@@ -639,27 +852,65 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary>
     /// <c>CBaseObject::Command_Repair</c> (tf_obj.cpp:2942-3005): up to
-    /// <see cref="WrenchRepairAmount"/> health at the ratio's cost in metal,
-    /// the cost clipped to what the player holds — what cannot be afforded
-    /// repairs what it can. Returns the repaired amount, 0 for a swing that
-    /// mended nothing (full health, or no metal for even one point).
+    /// <paramref name="amount"/> × <paramref name="repairMod"/> health at
+    /// <paramref name="repairToMetalRatio"/> metal the health, the cost clipped
+    /// to what the player holds — what cannot be afforded repairs what it can.
+    /// A carry-deploy rebuilding where its builder put it down gains nothing
+    /// past the health the lift remembered (:2965-2971), for no metal. Returns
+    /// the repaired amount, 0 for a swing that mended nothing (full health, or
+    /// no metal for even one point). Stock's building_healed event and the
+    /// repair-team achievement are the caller's bells, not carried here.
     /// </summary>
-    private int RepairFrom(EntityHandle player)
+    public int CommandRepair(EntityHandle player, float amount, float repairMod, float repairToMetalRatio)
     {
-        int repairAmount = Math.Min((int)WrenchRepairAmount, MaxHealthForCurrentLevel - Health);
+        int repairAmount = Math.Min(RoundToInt(amount * repairMod), MaxHealthForCurrentLevel - Health);
         if (repairAmount <= 0)
             return 0;
 
         string metalName = TFAmmoNames.Name(TFAmmo.Metal);
-        int cost = (int)MathF.Ceiling(repairAmount / RepairMetalRatio);
+        int cost = (int)MathF.Ceiling(repairAmount / repairToMetalRatio);
         cost = Math.Min(cost, Purse.Pools(player).GetValueOrDefault(metalName));
         if (cost <= 0)
             return 0;
 
-        repairAmount = (int)(cost * RepairMetalRatio);
-        Health = Math.Min(MaxHealthForCurrentLevel, Health + repairAmount);
-        Purse.TakeAmmo(player, cost, metalName);
-        return repairAmount;
+        int repaired = (int)(cost * repairToMetalRatio);
+        int newHealth = Math.Min(MaxHealthForCurrentLevel, Health + repaired);
+        if (IsCarryDeploy && newHealth > HealthOnPickup)
+        {
+            // Re-deploying after being carried gains no more health than the
+            // lift remembered, until the deploy is done — and no metal either.
+            newHealth = HealthOnPickup;
+            repaired = 0;
+        }
+        else
+        {
+            Purse.TakeAmmo(player, cost, metalName);
+        }
+
+        Health = newHealth;
+        return repaired;
+    }
+
+    /// <summary>Stock's <c>RoundFloatToInt</c> (<c>mathlib.h:1175</c>), through the hooks' own.</summary>
+    private int RoundToInt(float f) => AttributeHooks.RoundFloatToInt(f);
+
+    /// <summary>
+    /// <c>CBaseObject::OnWrenchHit</c>'s repair arm, through
+    /// <see cref="CommandRepair"/>: the swung wrench's
+    /// <c>mult_repair_value</c> over the hundred.
+    /// </summary>
+    private int RepairFrom(EntityHandle player)
+    {
+        // CTFWrench::GetRepairAmount's own arm (tf_weapon_wrench.cpp:344-349):
+        // the hundred, times the swung wrench's mult_repair_value. Stock's
+        // second arm — the same attribute on the slot-one weapon
+        // (CALL_ATTRIB_HOOK_FLOAT_ON_OTHER, :351-360) — has no slot view on
+        // the owners seam, and no shipped primary carries the attribute;
+        // recorded with the row.
+        float repair = WrenchRepairAmount;
+        repair = Hooks.Float(repair, "mult_repair_value", Owners.ActiveItemOf(player.EntryIndex));
+
+        return CommandRepair(player, repair, 1f, RepairMetalRatio);
     }
 
     /// <summary>
@@ -697,20 +948,24 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary><c>GetObjectInfo( GetType() )->m_UpgradeCost</c> (tf_obj.cpp:2639-2642).</summary>
     /// <summary>This level's upgrade price (<c>m_iUpgradeMetal</c>'s target,
     /// TFObjectInfo's <c>UpgradeCost</c>): the status panel's upgrade bar
-    /// divides the collected metal by it.</summary>
-    public int RequiredUpgradeMetal => TFObjectInfo.Of(Type)?.UpgradeCost ?? 0;
+    /// divides the collected metal by it. The teleporter's builder-priced
+    /// override is <see cref="TFTeleporter.RequiredUpgradeMetal"/>.</summary>
+    public virtual int RequiredUpgradeMetal => TFObjectInfo.Of(Type)?.UpgradeCost ?? 0;
 
     /// <summary>
     /// <c>CBaseObject::CanBeUpgraded</c> (tf_obj.cpp:2919-2937): not already
     /// mid-upgrade, not on the redeploy arm, the player the trade belongs to
     /// (<c>ClassCanBuild</c> — all three buildables are the engineer's), and
-    /// a level left to climb.
+    /// a level left to climb — the mini's ceiling being
+    /// <c>SENTRYGUN_MAX_LEVEL_MINI</c>: the mini never upgrades
+    /// (tf_obj.cpp:2925-2926, tf_obj.h:351; <c>GetMaxUpgradeLevel</c>'s arm,
+    /// tf_obj_sentrygun.cpp:383-389).
     /// </summary>
     public bool CanBeUpgraded(EntityHandle player)
         => !_upgrading
            && !_carryDeploy
            && Players.ClassOf(player) == TFClass.Engineer
-           && _level < MaxUpgradeLevel;
+           && _level < (_miniBuilding ? MiniUpgradeLevelCap : MaxUpgradeLevel);
 
     /// <summary>
     /// <c>CBaseObject::StartUpgrading</c> (tf_obj.cpp:3010-3063): the level
@@ -725,7 +980,14 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
         _level++;
         _upgrading = true;
-        _upgradeCompleteTime = GameTime + (TFObjectInfo.Of(Type)?.UpgradeDuration ?? 0f);
+
+        // The reverse build's clock (tf_obj.cpp:3044-3048): the sapper's speed
+        // divides the upgrade's duration, so the degeneration runs at its pace.
+        float duration = TFObjectInfo.Of(Type)?.UpgradeDuration ?? 0f;
+        float reverse = ReversesBuildingConstructionSpeed();
+        if (reverse > 0f)
+            duration /= reverse;
+        _upgradeCompleteTime = GameTime + duration;
 
         Health = MaxHealthForCurrentLevel;
 
@@ -752,6 +1014,59 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             Dress(TFObjectModels.Finished(Type, _level));
 
         OnFinishUpgrade();
+
+        // The reverse build's cascade (tf_obj.cpp:3076-3080): a sapped
+        // building's finished upgrade steps the level down and unwinds again
+        // — DoReverseBuild's cap, or at the first level the build itself.
+        if (ReversesBuildingConstructionSpeed() > 0f)
+        {
+            _level--;
+            DoReverseBuild();
+        }
+    }
+
+    /// <summary>
+    /// <c>CBaseObject::GetReversesBuildingConstructionSpeed</c>
+    /// (tf_obj.cpp:3754-3761): the riding sapper's speed; no sapper, none.
+    /// </summary>
+    private float ReversesBuildingConstructionSpeed()
+        => FindByHandle<TFSapper>(_sapper) is { IsDead: false } sapper
+               ? sapper.ReversesBuildingConstructionSpeed()
+               : 0f;
+
+    /// <summary>
+    /// <c>CBaseObject::DoReverseBuild</c> (tf_obj.cpp:3723-3749): the sapped
+    /// building's upgrade back — the metal pool empties, the health is capped
+    /// at the level's maximum, and the build steps down: a level lower and
+    /// climbing again, or at the first, back under construction from the
+    /// start. (Stock's highest-level note has no holder here: the port carries
+    /// no <c>m_iHighestUpgradeLevel</c>.)
+    /// </summary>
+    private void DoReverseBuild()
+    {
+        _upgradeMetal = 0;
+
+        int maxHealth = MaxHealthForCurrentLevel;
+        if (Health > maxHealth)
+            Health = maxHealth;
+
+        if (_level > 1)
+        {
+            _level--;
+            StartUpgrading();
+        }
+        else
+        {
+            _building = true;
+            _built = false;
+            _carryDeploy = false;
+            _constructedFraction = 0f;
+            _constructedTime = -1f;
+            _builtStartTime = GameTime;
+
+            if (TFObjectInfo.Of(Type) is not null)
+                Dress(TFObjectModels.Building(Type));   // SetStartBuildingModel (:3746)
+        }
     }
 
     /// <summary>The subclass's last word on an upgrade — the sentry reloads, the state returns.</summary>
@@ -835,6 +1150,35 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         if (attacker != EntityHandle.None && Entities.IsPlayer(attacker) && Players.Team(attacker) == _team)
             return 0;
 
+        // Plasma resistance (tf_obj.cpp:1896-1908): against a plasma hit the
+        // building keeps a fifth of the blow, and the charged ball's hit also
+        // holds the building off for PLASMA_DISABLE_TIME seconds. The custom
+        // rides the blast's scope beside the hit, as the sapper's wrench-fix
+        // gate reads it.
+        if (Scopes.TryCurrent(out var plasma, out _, out _))
+        {
+            if (plasma is TFDamageCustom.Plasma or TFDamageCustom.PlasmaCharged)
+                damage *= 0.2f;
+            if (plasma == TFDamageCustom.PlasmaCharged)
+                SetPlasmaDisabled(PlasmaDisableTime);
+        }
+
+        // mult_dmg_vs_buildings on the weapon that made the blow, stock's
+        // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER behind the weapon-caused gate
+        // (tf_obj.cpp:1922-1927): the item's multiplier rides the health lost.
+        // Stock asks info.GetWeapon(), the launcher the hit carries
+        // (shared/takedamageinfo.h:49-52), not what the attacker happens to
+        // hold when the blow lands: the blast's scope names that launcher
+        // item, and only with no scope item — a hitscan's held weapon, whose
+        // stock pointer is the held weapon itself — does the held answer.
+        if (attacker != EntityHandle.None)
+        {
+            IAttributeProvider? launcher = Scopes.TryLauncher(out var scopeItem)
+                                             ? scopeItem
+                                             : Owners.ActiveItemOf(Entities.GetIndex(attacker));
+            damage = Hooks.Float(damage, "mult_dmg_vs_buildings", launcher);
+        }
+
         return (int)damage;
     }
 
@@ -856,10 +1200,82 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
         // The builder's line (tf_obj.cpp:2041-2045): the blow's death tells
         // its builder, the same object word beside it.
-        Speech?.Speak(_builder, TFConceptSpeech.LostObject, "objtype", ResponseModifier());
+        Speech.Speak(_builder, TFConceptSpeech.LostObject, "objtype", ResponseModifier());
         OnDestroyed();
         RemoveAttachedSapper();
+
+        // Explode → CreateObjectGibs (tf_obj.cpp:2217): the dying building
+        // throws its break pieces — one pack each — before it leaves.
+        DropDestroyedObjectGibs();
+
         StopThinking();
         Remove();
+    }
+
+    /// <summary>
+    /// <c>CreateObjectGibs</c> and <c>CreateAmmoPack</c> (tf_obj.cpp:2244-2324):
+    /// the dying building throws one ammo pack per break piece of the model it
+    /// wears when it dies — the pieces its <c>SetModel</c> drew into the break
+    /// list (:3542-3552, read here through the precache seam with its defaults,
+    /// burst scale one and the plain collision group). The metal pool is the
+    /// row's own number when set, else half the build cost (:2254-2255), split
+    /// evenly over the pieces with the int remainder on the first pack so the
+    /// whole pool lands (:2258-2259, :2272); a mini zeroes both (:2261-2266)
+    /// and every pack it leaves takes the mini's scale (:2317-2320). Each pack
+    /// wears its PIECE's model (:2278), the building's team skin (:2309), and
+    /// the tumble and health dressing beside them in <see cref="TFAmmoPack.InitGib"/>.
+    /// The quiet removal (<see cref="DestroyObject"/>) stays gibless — stock's
+    /// <c>DestroyObject</c> (:814) never calls Explode.
+    /// </summary>
+    private void DropDestroyedObjectGibs()
+    {
+        // No break pieces, no packs (:2246-2249): the m_aGibs guard.
+        string model = Render.GetModelName(Handle);           // the model worn at death (:3542)
+        int count = Precache.BreakPieceCount(model);          // m_aGibs.Count()
+        if (count == 0)
+            return;
+
+        // The pool: the row's MetalToDropInGibs when named, half the cost otherwise (:2254-2255).
+        TFObjectInfo? info = TFObjectInfo.Of(Type);
+        int totalMetal = info is { MetalToDropInGibs: > 0 } ? info.MetalToDropInGibs : (info?.Cost ?? 0) / 2;
+
+        // Even over the pieces, remainder to the first ("include left over
+        // from int math", :2272); a mini zeroes both arms (:2261-2266).
+        int perPiece = IsMiniBuilding ? 0 : totalMetal / count;
+        int leftover = IsMiniBuilding ? 0 : totalMetal % count;
+
+        int skin = Team == (int)TFTeam.Red ? 0 : 1;   // m_nSkin from the building's team (:2309)
+
+        for (int i = 0; i < count; i++)
+        {
+            // BuildGibList's defaults, the pair SetModel hands the break list (:3552).
+            if (!Precache.BreakPieceAt(model, i, 1f, CollisionGroup.None, out string pieceModel, out _))
+                continue;
+
+            EntityHandle pack = Entities.Create(TFAmmoPack.Class);   // CreateAmmoPack :2278
+            if (!Entities.IsValid(pack))
+                continue;
+
+            Entities.SetOwner(pack, Handle);           // the pack's pOwner, the building itself
+            Entities.SetOrigin(pack, Origin);          // GetAbsOrigin at :2278, no piece offset
+
+            // Stock's CreateAmmoPack names the piece model at Create, before
+            // DispatchSpawn (tf_obj.cpp:2276-2285), so the solver's object is
+            // born with the piece's hull. The KeyValue is the native half of
+            // the name; the managed instance the same call reaches answers
+            // ChooseModel with it, which is what OnSpawn wears at the return.
+            Entities.SetKeyValue(pack, "model", pieceModel);   // the model named at Create, :2278
+            if (FindByHandle<TFAmmoPack>(pack) is { } made)
+                made.ChooseModel(pieceModel);
+
+            Entities.Spawn(pack);
+
+            if (FindByHandle<TFAmmoPack>(pack) is { } ammoPack)
+            {
+                ammoPack.InitGib(pieceModel, perPiece + (i == 0 ? leftover : 0), skin);   // GiveAmmo(nMetal, METAL), :2285
+                if (IsMiniBuilding)
+                    Render.SetModelScale(pack, GibModelScale);   // SetModelScale(0.6f), :2319
+            }
+        }
     }
 }

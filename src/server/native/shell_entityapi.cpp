@@ -744,6 +744,27 @@ void CServerNetwork::EntitySetTransmitAlways(uint32_t hEntity, int32_t bAlways)
 	}
 }
 
+// Puts an entity's per-client fate in the managed transmit rule's hands: the
+// FULLCHECK flag is the opt-in (CheckTransmit asks the rule for exactly these),
+// off returns it to the ordinary PVS check (stock's FL_EDICT_FULLCHECK edicts,
+// whose ShouldTransmit the rule now answers).
+void CServerNetwork::EntitySetTransmitFullCheck(uint32_t hEntity, int32_t bOn)
+{
+	const SourceSharpEntity_t ent = m_Entities.Resolve(hEntity);
+
+	if (CStandaloneEntity* pStandalone = ent.pStandalone)
+	{
+		edict_t* pEdict = pStandalone->GetEdict();
+		if (!pEdict)
+			return;
+
+		// CheckTransmit decides from one transmit flag, so the old one is cleared first.
+		pEdict->ClearTransmitState();
+		pEdict->m_fStateFlags |= (bOn ? FL_EDICT_FULLCHECK : FL_EDICT_PVSCHECK);
+		return;
+	}
+}
+
 // Hands a map keyvalue to a spawned entity; the shell or its managed class claims it.
 int32_t CServerEntities::EntitySetKeyValue(uint32_t hEntity, const char* pKey, const char* pValue)
 {

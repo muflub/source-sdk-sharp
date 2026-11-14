@@ -1292,12 +1292,23 @@ internal sealed unsafe partial class EngineEntityRender
         fixed (byte* p = bytes) { _standaloneClientArea.EntitySetModelOverride(entity.Value, p); }
     }
 
+    /// <summary>
+    /// A named material over the entity's model for each draw — the golden and
+    /// the ice corpse's statues (<see cref="Client.Standalone.ClientSsRagdoll"/>).
+    /// </summary>
+    public void SetMaterialOverride(EntityHandle entity, string material)
+    {
+        var bytes = Encoding.UTF8.GetBytes(material + "\0");
+        fixed (byte* p = bytes) { _standaloneClientArea.EntitySetMaterialOverride(entity.Value, p); }
+    }
+
     private partial bool EngineIsDormant(EntityHandle entity) => E.StandaloneIsDormant(_standaloneClientArea, entity);
 
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void SetModel(EntityHandle entity, string model) { }
     public void SetTransmitAlways(EntityHandle entity, bool always) { }
+    public void SetTransmitFullCheck(EntityHandle entity, bool on) { }
     public void SetVisible(EntityHandle entity, bool visible) { }
 }
 
@@ -1735,6 +1746,8 @@ internal sealed unsafe partial class EngineSound
     public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
 
     public void EmitSoundToTeam(int team, EntityHandle entity, string soundName) { }
+
+    public void EmitSoundToPlayer(EntityHandle player, EntityHandle entity, string soundName, bool reliable = true) { }
 }
 
 internal sealed unsafe partial class EngineVisibility

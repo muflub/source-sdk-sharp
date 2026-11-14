@@ -188,6 +188,97 @@ public sealed class BotMemoryTests
         Assert.NotEmpty(IlCallCensus.Callers(m => m.DeclaringType == typeof(OpponentHabits), core));
     }
 
+    /// <summary>The HUD's nemesis mark (plan_bots_teams_tf2_part_g G.2.5) is on someone for as long as the HUD shows it, and on nobody else.</summary>
+    [Fact]
+    public void TheHudsNemesisMarkIsKeptUntilTheHudTakesItOff()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.ScoreboardRow(Bot, new Tick(1), new ActorId(4, 9), 0, 0, 2));
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(5), Them, true));
+        Assert.Equal((true, false), (m.Board.Actor(Them.Slot).Nemesis, m.Board.Actor(4).Nemesis));
+        m.Apply(AiEvent.Nemesis(Bot, new Tick(9), Them, false));
+        Assert.False(m.Board.Actor(Them.Slot).Nemesis);
+    }
+
+    /// <summary>The applier's arrival is kept as when and where the bot got to (cf's Descent proposal 5).</summary>
+    [Fact]
+    public void AnArrivalIsKeptAsWhenAndWhere()
+    {
+        BotMemory m = Memory();
+        Assert.Equal(default, m.LastArrived);
+        m.Apply(AiEvent.Arrived(Bot, new Tick(7), new AiVector(10, 20, 30)));
+        Assert.Equal((new Tick(7), new AiVector(10, 20, 30)), m.LastArrived);
+    }
+
+    /// <summary>A teammate's hurt is kept with who hurt it, where, and when; the world hurts with no attacker.</summary>
+    [Fact]
+    public void AnAllysHurtIsKeptWithItsAttacker()
+    {
+        BotMemory m = Memory();
+        var ally = new ActorId(4, 9);
+        m.Apply(AiEvent.AllyDamaged(Bot, new Tick(5), ally, new AiVector(1, 2, 3), 25f, Them));
+        Assert.Equal((ally, Them, new Tick(5), new AiVector(1, 2, 3)), m.LastAllyHurt);
+        m.Apply(AiEvent.AllyDamaged(Bot, new Tick(6), ally, new AiVector(4, 5, 6), 10f, ActorId.None));
+        Assert.Equal((ally, ActorId.None, new Tick(6), new AiVector(4, 5, 6)), m.LastAllyHurt);
+    }
+
+    /// <summary>A teammate's death is counted (a morale's input), kept with its killer, and marks the ally dead on the board.</summary>
+    [Fact]
+    public void AnAllysDeathIsCountedAndMarksItDead()
+    {
+        BotMemory m = Memory();
+        var ally = new ActorId(4, 9);
+        m.Apply(AiEvent.ScoreboardRow(Bot, new Tick(1), ally, 0, 0, 2));
+        Assert.False(m.Board.Actor(ally.Slot).Dead);
+        m.Apply(AiEvent.AllyDied(Bot, new Tick(8), ally, new AiVector(7, 8, 9), Them));
+        Assert.Equal((1, ally, Them, new Tick(8)), (m.AlliesLost, m.LastAllyDied.Ally, m.LastAllyDied.Killer, m.LastAllyDied.When));
+        Assert.True(m.Board.Actor(ally.Slot).Dead);
+        m.Apply(AiEvent.AllyDied(Bot, new Tick(12), new ActorId(5, 3), new AiVector(0, 0, 0), ActorId.None));
+        Assert.Equal(2, m.AlliesLost);
+    }
+
+    /// <summary>A downed hero is marked so until it gets up, and a death or respawn ends it.</summary>
+    [Fact]
+    public void ADownedHeroIsMarkedUntilItGetsUpOrDies()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.HeroDowned(Bot, new Tick(3), Them, new AiVector(1, 1, 1), down: true));
+        Assert.True(m.Board.Actor(Them.Slot).Downed);
+        m.Apply(AiEvent.HeroDowned(Bot, new Tick(4), Them, new AiVector(1, 1, 1), down: false));
+        Assert.False(m.Board.Actor(Them.Slot).Downed);
+        m.Apply(AiEvent.HeroDowned(Bot, new Tick(5), Them, new AiVector(1, 1, 1), down: true));
+        m.Apply(AiEvent.KillFeed(Bot, new Tick(6), Them, ActorId.None));
+        Assert.Equal((false, true), (m.Board.Actor(Them.Slot).Downed, m.Board.Actor(Them.Slot).Dead));
+    }
+
+    [Fact]
+    public void AnothersHitIsAnAttack()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.Damaged(Bot, new Tick(40), Them, 20f, new AiVector(1, 0, 0), 0));
+        Assert.Equal((new Tick(40), new Tick(40)), (m.Board.LastDamageTick, m.Board.LastAttackTick));
+    }
+
+    /// <summary>The bot's own blast (plan_bots_teams_tf2_part_g G.13: a rocket jump) is damage on its HUD and nobody's attack.</summary>
+    [Fact]
+    public void TheBotsOwnBlastIsDamageAndNoAttack()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.Damaged(Bot, new Tick(40), Them, 20f, new AiVector(1, 0, 0), 0));
+        m.Apply(AiEvent.Damaged(Bot, new Tick(90), Bot, 45f, default, 0));
+        Assert.Equal((new Tick(90), new Tick(40)), (m.Board.LastDamageTick, m.Board.LastAttackTick));
+    }
+
+    /// <summary>A hurt with no attacker (a fall, the water) is damage and nobody's attack.</summary>
+    [Fact]
+    public void TheWorldsHurtIsDamageAndNoAttack()
+    {
+        BotMemory m = Memory();
+        m.Apply(AiEvent.Damaged(Bot, new Tick(40), Them, 20f, new AiVector(1, 0, 0), 0));
+        m.Apply(AiEvent.Damaged(Bot, new Tick(90), ActorId.None, 12f, default, 0));
+        Assert.Equal((new Tick(90), new Tick(40)), (m.Board.LastDamageTick, m.Board.LastAttackTick));
+    }
+
     // Live, dm_lockdown (2026-11-02): a bot's memory listed itself and its
     // scoreboard-only rivals with a decaying confidence.
     [Fact]

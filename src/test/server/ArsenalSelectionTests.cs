@@ -127,4 +127,37 @@ public class ArsenalSelectionTests
 
         Assert.Equal(0u, state.EmptyWeapons);
     }
+
+    /// <summary>
+    /// Rows past bit 63: the padded catalog lands "wep_pad_52" on type index
+    /// 64, the first row the old 64-bit mask could not hold. The bit rides the
+    /// Extra word, and the CarriedMask reader must still see it — a reader
+    /// that composes the words in a ulong loses that bit.
+    /// </summary>
+    [Fact]
+    public void AWeaponPastBit64IsCarriedOnTheWire()
+    {
+        var padRows = new WeaponType[53];
+        for (int i = 0; i < padRows.Length; i++)
+            padRows[i] = new WeaponType($"wep_pad_{i}", Interval: 0.5f);
+        var padded = new WeaponCatalog(() => new IWeaponTypeSource[] { new PadSource(padRows) }, new RecordingLog());
+        Assert.Equal(64, padded.IndexOf("wep_pad_52"));
+
+        var (_, engine, world, registry) = WeaponDeathTests.LiveWorld();
+        var pastMask = new Arsenal(new RecordingLog(), world, engine, engine, engine, engine, engine, engine, engine,
+                                   registry, engine, new DamageHitGroups(), weapons: padded);
+        Assert.True(pastMask.GiveWeapon(Player, "wep_pad_52"));
+        pastMask.Frame();
+
+        var paddedState = ((SsPlayer)registry.Get(Player)!).State;
+        Assert.Equal(0u, paddedState.CarriedWeapons);          // the bit is not in the low word
+        Assert.Equal(1u, paddedState.CarriedWeaponsExtra);     // it rides the Extra word
+        Assert.True((paddedState.CarriedMask & ((UInt128)1 << 64)) != 0);
+    }
+
+    /// <summary>A padded rows source, as WeaponCatalogTests builds one.</summary>
+    private sealed class PadSource(params WeaponType[] rows) : IWeaponTypeSource
+    {
+        public IEnumerable<WeaponType> Rows() => rows;
+    }
 }

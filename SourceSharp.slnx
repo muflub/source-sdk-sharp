@@ -10,7 +10,9 @@
   <Project Path="src/client/ui/host/SourceSharp.Client.Ui.Host.csproj" />
   <Project Path="src/client/ui/analyzers/SourceSharp.Client.Ui.Analyzers.csproj" />
   <Project Path="src/client/ui/analyzers.codefixes/SourceSharp.Client.Ui.Analyzers.CodeFixes.csproj" />
+  <Project Path="src/tf2_descent/ai/TF2.Descent.Ai.csproj" />
   <Project Path="src/tf2_descent/client/TF2.Descent.Client.csproj" />
+  <Project Path="src/tf2_descent/interface/TF2.Descent.Client.Interface.csproj" />
   <Project Path="src/tf2_descent/rules/TF2.Descent.Rules.csproj" />
   <Project Path="src/tf2_descent/server/TF2.Descent.Server.csproj" />
   <Project Path="src/tf2_descent/tests/TF2.Descent.Tests.csproj" />
@@ -42,10 +44,18 @@
   <Project Path="src/debug_api/interfaces/Debug.Api.Server.Interfaces.csproj" />
   <Project Path="src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj" />
   <Project Path="src/ai/core/SourceSharp.Ai.csproj" />
+  <Project Path="src/ai/nav/SourceSharp.Ai.Nav.csproj" />
+  <Project Path="src/ai/server/SourceSharp.Ai.Server.csproj" />
+  <Project Path="src/ai/client/SourceSharp.Ai.Client.csproj" />
+  <Project Path="src/ai/interface/SourceSharp.Ai.Client.Interface.csproj" />
   <Project Path="src/ai/hl2mp/server/SourceSharp.Ai.Hl2mp.csproj" />
   <Project Path="src/ai/hl2mp/client/SourceSharp.Ai.Hl2mp.Client.csproj" />
-  <Project Path="src/ai/hl2mp/interface/SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
   <Project Path="src/ai/hl2mp/ui/SourceSharp.Ai.Hl2mp.Ui.csproj" />
+  <Project Path="src/ai/ui/SourceSharp.Ai.Ui.csproj" />
+  <Project Path="src/ai/tf2/server/SourceSharp.Ai.TF2.csproj" />
+  <Project Path="src/ai/tf2/client/SourceSharp.Ai.TF2.Client.csproj" />
+  <Project Path="src/ai/tf2/ui/SourceSharp.Ai.TF2.Ui.csproj" />
+  <Project Path="src/ai/store/SourceSharp.Ai.Store.csproj" />
   <Project Path="src/ai/tests/SourceSharp.Ai.Tests.csproj" />
   <Project Path="src/ai/replay/SourceSharp.Ai.Replay.csproj" />
 </Solution>

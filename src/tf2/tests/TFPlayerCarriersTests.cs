@@ -52,19 +52,20 @@ public sealed class TFPlayerCarriersTests
             Engine.Returns("Entities.GetIndex", PlayerIndex);
             Engine.Returns("Entities.GetOrigin", default(Vector));
             Engine.Returns("Players.GetHandle", Player);
+            Engine.Returns("GameEvents.EventCreate", IntPtr.Zero);
             Engine.Returns("Clock.Now", 0f);
 
             Entity = new TFPlayerDataEntity(Engine);
             Entity.State.BindLocal();
 
             Carriers = new TFPlayerCarriers();
-            var source = new TFPlayerComponents(Engine, new Directory(CarrierHandle, Entity), Carriers, Log, new TFPlayerItems(),
-                                                new TFPlayerConditions(Carriers, Engine),
+            var source = ComposedComponents.Source(Engine, new Directory(CarrierHandle, Entity), Carriers, Log, new TFPlayerItems(),
+                                                new TFPlayerConditions(Carriers, Engine, new TF2.Tests.Rules.ListHooks<ITFConditionHook>(), Engine),
                                                 new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), Engine,
                                                 EconTestFiles.TrimmedSchema(), new PoollessGiver(), Engine, Engine,
                                                 Engine, Engine,
                                                 new TF2.Shared.TFWeaponScripts(Log, TF2.Tests.Weapons.WeaponFixtures.ShippedWithClasses()),
-                                                new TF2.Server.Combat.TFDamageScopes());
+                                                new TF2.Server.Combat.TFDamageScopes(), Engine);
             Composites = new PlayerComposites(Log, new Hooks<IPlayerComponentSource>(source), Engine, Engine);
         }
 

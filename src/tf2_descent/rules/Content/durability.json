@@ -1,0 +1,30 @@
+{
+  "wear": {
+    "families": [
+      { "family": "rocket_launcher", "usesPerPoint": 4 },
+      { "family": "grenade_launcher", "usesPerPoint": 4 },
+      { "family": "stickybomb_launcher", "usesPerPoint": 4 },
+      { "family": "flamethrower", "usesPerPoint": 30 },
+      { "family": "flare_gun", "usesPerPoint": 3 },
+      { "family": "scattergun", "usesPerPoint": 6 },
+      { "family": "shotgun", "usesPerPoint": 6 },
+      { "family": "pistol", "usesPerPoint": 10 },
+      { "family": "revolver", "usesPerPoint": 5 },
+      { "family": "smg", "usesPerPoint": 15 },
+      { "family": "minigun", "usesPerPoint": 40 },
+      { "family": "syringe_gun", "usesPerPoint": 15 },
+      { "family": "medigun", "usesPerPoint": 30 },
+      { "family": "sniper_rifle", "usesPerPoint": 3 },
+      { "family": "bow", "usesPerPoint": 3 },
+      { "family": "energy_weapon", "usesPerPoint": 5 },
+      { "family": "cleaver", "usesPerPoint": 2 },
+      { "family": "melee", "usesPerPoint": 8 }
+    ],
+    "armourHitsPerPoint": 3,
+    "rateStat": "wear_rate_pct",
+    "indestructibleStat": "indestructible"
+  },
+  "repair": { "base": 5, "perPoint": 2, "perItemLevel": 0.05 },
+  "fieldRepair": { "recipe": "field_repair", "kit": "repair_kit", "levelOffset": 9, "minLoss": 1 },
+  "warning": { "pct": 25 }
+}

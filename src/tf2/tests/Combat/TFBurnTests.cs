@@ -24,14 +24,13 @@ public sealed class TFBurnTests
     /// <summary>Thinks every server tick from <paramref name="start"/> until the fire is out; the ticks' times and damages.</summary>
     private static (List<(float Time, float Damage)> Ticks, float OutAt) Run(TFBurn burn, TFCondMask conds, float start,
                                                                             TFClass victim = TFClass.Soldier, int water = 0,
-                                                                            AttributeHooks? hooks = null,
                                                                             IAttributeProvider? burnWeapon = null)
     {
         var ticks = new List<(float, float)>();
         for (int i = 1; i < 66 * 30; i++)
         {
             float now = start + i * Tick;
-            var think = burn.Think(now, Tick, victim, conds, water, hooks, burnWeapon);
+            var think = burn.Think(now, Tick, victim, conds, water, burnWeapon);
             if (think.Extinguish)
                 return (ticks, now);
             if (think.TickDamage > 0f)
@@ -40,11 +39,13 @@ public sealed class TFBurnTests
         throw new InvalidOperationException("the fire never went out");
     }
 
+    private static TFBurn Burn() => new(new AttributeHooks());
+
     [Fact]
     public void A_first_ignition_adds_burning_and_the_healing_debuff_and_the_flamethrowers_duration()
     {
-        var burn = new TFBurn();
-        var conds = burn.Ignite(10f, alive: true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "tf_weapon_flamethrower");
+        var burn = Burn();
+        var conds = burn.Ignite(10f, alive: true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "tf_weapon_flamethrower", [], null);
 
         Assert.True(conds.Has(TFCond.Burning) && conds.Has(TFCond.HealingDebuff));
         Assert.Equal(3.4f, burn.AfterburnDuration, 4);   // 3 initial + 0.4 on hit
@@ -54,9 +55,9 @@ public sealed class TFBurnTests
     [Fact]
     public void Afterburn_ticks_four_every_half_second_until_its_duration_is_spent()
     {
-        var burn = new TFBurn();
+        var burn = Burn();
         var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "tf_weapon_flamethrower",
-                                burningTime: TFBurn.MaxDuration);
+                                [], null, burningTime: TFBurn.MaxDuration);
 
         var (ticks, outAt) = Run(burn, conds, 0f);
 
@@ -72,10 +73,10 @@ public sealed class TFBurnTests
     [Fact]
     public void Each_hit_feeds_the_fire_and_the_fire_never_exceeds_ten_seconds()
     {
-        var burn = new TFBurn();
-        var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f");
+        var burn = Burn();
+        var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f", [], null);
         for (int i = 0; i < 40; i++)
-            conds = burn.Ignite(0f, true, TFClass.Soldier, conds, Pyro, TFWeaponId.Flamethrower, "f");
+            conds = burn.Ignite(0f, true, TFClass.Soldier, conds, Pyro, TFWeaponId.Flamethrower, "f", [], null);
 
         Assert.Equal(TFBurn.MaxDuration, burn.AfterburnDuration);
     }
@@ -83,18 +84,19 @@ public sealed class TFBurnTests
     [Fact]
     public void Water_to_the_waist_puts_the_fire_out()
     {
-        var burn = new TFBurn();
-        var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f");
+        var burn = Burn();
+        var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f", [], null);
 
-        Assert.False(burn.Think(Tick, Tick, TFClass.Soldier, conds, waterLevel: 1).Extinguish);
-        Assert.True(burn.Think(2 * Tick, Tick, TFClass.Soldier, conds, waterLevel: TFBurn.WaterLevelWaist).Extinguish);
+        Assert.False(burn.Think(Tick, Tick, TFClass.Soldier, conds, waterLevel: 1, null).Extinguish);
+        Assert.True(burn.Think(2 * Tick, Tick, TFClass.Soldier, conds, waterLevel: TFBurn.WaterLevelWaist, null).Extinguish);
     }
 
     [Fact]
     public void Healers_wear_the_burn_off_three_times_as_fast()
     {
-        var burn = new TFBurn();
-        var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f", burningTime: 10f);
+        var burn = Burn();
+        var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f",
+                                [], null, burningTime: 10f);
         conds.Set(TFCond.HealthBuff);
 
         var (ticks, _) = Run(burn, conds, 0f);
@@ -107,8 +109,8 @@ public sealed class TFBurnTests
     [Fact]
     public void A_pyro_burns_briefly_and_takes_no_afterburn()
     {
-        var burn = new TFBurn();
-        var conds = burn.Ignite(0f, true, TFClass.Pyro, default, Pyro, TFWeaponId.Flamethrower, "f");
+        var burn = Burn();
+        var conds = burn.Ignite(0f, true, TFClass.Pyro, default, Pyro, TFWeaponId.Flamethrower, "f", [], null);
         Assert.Equal(TFCombatDefs.BurningFlameLifePyro, burn.AfterburnDuration);
 
         var (ticks, _) = Run(burn, conds, 0f, victim: TFClass.Pyro);
@@ -118,18 +120,18 @@ public sealed class TFBurnTests
     [Fact]
     public void The_dead_and_the_phased_are_not_set_alight()
     {
-        var burn = new TFBurn();
-        Assert.False(burn.Ignite(0f, alive: false, TFClass.Scout, default, Pyro, TFWeaponId.Flamethrower, "f").Has(TFCond.Burning));
-        Assert.False(burn.Ignite(0f, true, TFClass.Scout, TFCondMask.Of(TFCond.Phase), Pyro, TFWeaponId.Flamethrower, "f").Has(TFCond.Burning));
+        var burn = Burn();
+        Assert.False(burn.Ignite(0f, alive: false, TFClass.Scout, default, Pyro, TFWeaponId.Flamethrower, "f", [], null).Has(TFCond.Burning));
+        Assert.False(burn.Ignite(0f, true, TFClass.Scout, TFCondMask.Of(TFCond.Phase), Pyro, TFWeaponId.Flamethrower, "f", [], null).Has(TFCond.Burning));
     }
 
     [Fact]
     public void A_flare_burns_as_the_flares_kind()
     {
-        var burn = new TFBurn();
-        var conds = burn.Ignite(0f, true, TFClass.Scout, default, Pyro, TFWeaponId.Flaregun, "tf_weapon_flaregun");
+        var burn = Burn();
+        var conds = burn.Ignite(0f, true, TFClass.Scout, default, Pyro, TFWeaponId.Flaregun, "tf_weapon_flaregun", [], null);
         Assert.Equal(7.5f, burn.AfterburnDuration, 4);
-        var think = burn.Think(0.5f, 0.5f, TFClass.Scout, conds, 0);
+        var think = burn.Think(0.5f, 0.5f, TFClass.Scout, conds, 0, null);
         Assert.Equal(TFDamageCustom.BurningFlare, think.Custom);
     }
 
@@ -152,9 +154,9 @@ public sealed class TFBurnTests
         // afterburn_immunity into the pyro's own, and the immune life is
         // TF_BURNING_FLAME_LIFE_PYRO either way (:6724-6726).
         var source = Item(7001, TFBurn.ImmunityAttrib, AttributeDescriptionFormat.Additive, 1f);
-        var burn = new TFBurn();
+        var burn = Burn();
         burn.Ignite(0f, true, TFClass.Scout, default, Pyro, TFWeaponId.Flamethrower, "f",
-                    hooks: new AttributeHooks(), immunitySources: [source]);
+                    [source], null);
 
         Assert.Equal(TFCombatDefs.BurningFlameLifePyro, burn.AfterburnDuration, 4);
     }
@@ -166,9 +168,9 @@ public sealed class TFBurnTests
         // on the flame life — the on-hit 0.4, doubled; the initial 3 is the
         // duration the first ignition starts from, not the flame life.
         var weapon = Item(7002, TFBurn.BurnTimeAttrib, AttributeDescriptionFormat.Percentage, 2f);
-        var burn = new TFBurn();
+        var burn = Burn();
         burn.Ignite(0f, true, TFClass.Scout, default, Pyro, TFWeaponId.Flamethrower, "f",
-                    hooks: new AttributeHooks(), burnWeapon: weapon);
+                    [], weapon);
 
         Assert.Equal(3.8f, burn.AfterburnDuration, 4);
     }
@@ -179,13 +181,22 @@ public sealed class TFBurnTests
         // mult_wpn_burndmg on the burn weapon (tf_player_shared.cpp:2898),
         // before the degree multipliers (both 1 here).
         var weapon = Item(7003, TFBurn.BurnDamageAttrib, AttributeDescriptionFormat.Percentage, 2f);
-        var burn = new TFBurn();
+        var burn = Burn();
         var conds = burn.Ignite(0f, true, TFClass.Soldier, default, Pyro, TFWeaponId.Flamethrower, "f",
-                                burningTime: TFBurn.MaxDuration, hooks: new AttributeHooks(), burnWeapon: weapon);
+                                [], weapon, burningTime: TFBurn.MaxDuration);
 
-        var (ticks, _) = Run(burn, conds, 0f, hooks: new AttributeHooks(), burnWeapon: weapon);
+        var (ticks, _) = Run(burn, conds, 0f, burnWeapon: weapon);
 
         Assert.Equal(20, ticks.Count);
         Assert.All(ticks, t => Assert.Equal(2 * TFCombatDefs.BurningDamage, t.Damage, 4));
+    }
+
+    [Theory]
+    [InlineData(TFWeaponId.FlaregunRevenge, 7.5f)]
+    [InlineData(TFWeaponId.ParticleCannon, 6f)]
+    [InlineData(TFWeaponId.JarGas, 10f)]
+    public void The_weapon_that_lights_a_victim_names_its_burn(TFWeaponId weapon, float seconds)
+    {
+        Assert.Equal(seconds, TFBurn.AfterburnRateOnHit(weapon));
     }
 }

@@ -1,0 +1,45 @@
+# Palette of depth 1 (the Collar), plan_descent_mine_levels.md E7 and task B2.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why.
+# Chosen by query of /home/lodle/assetdb (category, average_colour luminance L, maps of the
+# mine set pl_upward/pl_goldrush/cp_dustbowl/pl_frontier/... that use it as 'mine n/m') and looked at.
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+concrete/concretefloor002b	material	floor	pale swept concrete, L166, the brightest floor of the act; mine 2/26
+concrete/computerwall003c	material	wall	pale painted concrete with a red painted skirting at the floor (scale 0.5 puts the band at the floor of every low and chamber room), L159; mine 14/79
+concrete/concretewall011	material	ceiling	plain pale concrete panels, L174; the most used pale concrete in the mine set, mine 16/101
+metal/wall029	material	block	cream painted corrugated steel for decks and pillars, L174; mine 6/28
+props_farm/doorframe002d	static	door-frame	the only framed doorway that leaves a giant 192x183 under a 256 drift; timber reads as mine work at every Act I depth; mine 4/19
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs; no prop_data so it stays static; mine 13/75
+props_mining/industrial_ceiling_lamp	static	lamp	the plan's industrial pendant, close together; mine 12/61
+props_lights/walllight001a	static	tall-lamp	a bulkhead light for walls of rooms too tall to hang a pendant; mine 15/111
+props_gameplay/uniform_locker	static	wall-prop	miners' lockers: a new, occupied pit bottom; mine 14/137
+props_mining/junctionbox03	static	wall-prop	switchgear on the walls of an electrified level; mine 17/130
+props_mining/computer_industrial04	static	wall-prop	a control panel; mine 14/75
+props_mining/sign001	static	wall-prop	a danger sign: the level is signed (§6 'straight, square, signed'); mine 13/71
+props_2fort/miningcrate002	static	corner-pile	powder crate without prop_data (miningcrate001 has prop_data and the room compile deletes it); mine 19/188
+props_mvm/sack_stack	static	corner-pile	Mann Co. cement sacks: the collar is new construction; mine 1/19
+props_farm/spool_wire	static	floor-prop	a cable drum on the floor of an electrified level; mine 17/104
+props_farm/pallet001	static	floor-prop	a pallet; mine 18/178
+props_mining/industrial_pipe01_256_01	static	ceiling-run	a white pipe along the walls under the ceiling; its origin is on its axis, so it hangs inside the room; mine 16/95
+# rejected concrete/concretewall011c: a red band too, but only 11 mine maps and a darker band; computerwall003c reads cleaner
+# rejected concrete/concretefloor003 (the plan's): mid brown L118, darker than the walls; the collar's floor is pale
+# rejected metal/wall027 (the plan's level 1 wall): dark rusted panels, L83; it is level 4's
+# rejected coalmines/red_wall1_middle (the plan's): whitewashed planks, but used in 7 maps and reads as a barn
+# rejected props_2fort/miningcrate001 (the plan's): has prop_data, so the room compile deletes it as a static prop
+# rejected props_mining/ceiling_pipe_256_thick: its origin is 12 above its mesh, which would stand in the ceiling slab
+# rejected props_trainyard/handrail128 (the plan's): a rail needs a deck edge, which the dresser does not read yet
+props_2fort/miningcrate002	static	companion	a powder crate set beside a pile or a locker, so clutter stands in groups (review 2026-11-10); no prop_data
+props_2fort/oildrum	static	companion	an oil drum beside a pile; mine 20/185
+props_spytech/wall_clock	static	hung	a station clock high on a wall; no collision; 119 maps
+props_spytech/corkboard01	static	hung	a notice board at eye height; no collision; 95 maps
+props_spytech/exit_sign01	static	hung	an exit sign above head height; no collision; 102 maps
+concrete/concretefloor002b	material	arrival-floor	the Collar's own concrete at the shaft's foot (review 2026-11-10: rock read as level 3)
+concrete/computerwall003c	material	arrival-wall	the Collar's pale painted wall at the shaft's foot
+concrete/concretewall011	material	arrival-ceiling	the Collar's ceiling
+metal/wall029	material	arrival-block	the Collar's cream painted steel decks
+nature/rockwall012	material	arrival-wall-low	the town's rock kept only as one band at the shaft's foot, L98
+props_farm/doorframe002d	static	arrival-door-frame	the kit's frame
+props_gameplay/door_grate003_floorplate	static	arrival-door-sill	the kit's sill
+props_mining/industrial_ceiling_lamp	static	arrival-lamp	the Collar's ceiling lamp, in daylight white
+props_lights/walllight001a	static	arrival-tall-lamp	the Collar's bulkhead, in daylight white
+props_lights/flood_light_left001	static	arrival-work-lamp	daylight-white work floods at the shaft's foot

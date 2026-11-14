@@ -17,8 +17,8 @@ public class KeyActionsOracleTests
 {
     private static readonly System.Reflection.Assembly Core = typeof(KeyActions).Assembly;
 
-    /// <summary>Ours and not stock's: stock's vote panel answered F1 and F2, ours is a radial menu on a key of its own, and the admin menu is one more.</summary>
-    private static readonly string[] Ours = ["callvote", "adminmenu"];
+    /// <summary>Ours and not stock's: stock's vote panel answered F1 and F2, ours is a radial menu on a key of its own, the admin menu is one more, and team play's team menu (HL2DM has none) another.</summary>
+    private static readonly string[] Ours = ["callvote", "adminmenu", "changeteam"];
 
     private static List<(string, string)> Pairs(string file)
         => Regex.Matches(File.ReadAllText(file), "\"([^\"]*)\"\\s+\"([^\"]*)\"").Select(m => (m.Groups[1].Value, m.Groups[2].Value)).ToList();

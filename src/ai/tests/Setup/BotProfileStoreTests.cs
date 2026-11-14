@@ -4,11 +4,11 @@ using System.Collections.Immutable;
 using System.Text;
 using Xunit;
 
-using BotProfileStore = client::SourceSharp.Ai.Hl2mp.Client.Profiles.BotProfileStore;
+using BotProfileStore = client::SourceSharp.Ai.Client.Profiles.BotProfileStore;
 using IFwdBaseFileSystem = client::SourceSharp.Abi.IFwdBaseFileSystem;
 using IModInfo = client::SourceSharp.Abi.IModInfo;
-using IProfileDisk = client::SourceSharp.Ai.Hl2mp.Client.Profiles.IProfileDisk;
-using ModProfileDisk = client::SourceSharp.Ai.Hl2mp.Client.Profiles.ModProfileDisk;
+using IProfileDisk = client::SourceSharp.Ai.Client.Profiles.IProfileDisk;
+using ModProfileDisk = client::SourceSharp.Ai.Client.Profiles.ModProfileDisk;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
@@ -34,7 +34,9 @@ public class BotProfileStoreTests
 
     private static readonly DateTimeOffset T0 = new(2026, 11, 1, 10, 0, 0, TimeSpan.Zero);
 
-    private static SkillProfile Profile(string name, params int[] levels) => new(name, StandardSkills.Ten, [.. levels]);
+    /// <summary>A profile over the eleven: ten levels given are the ten skills, Teamwork 0.</summary>
+    private static SkillProfile Profile(string name, params int[] levels)
+        => new(name, StandardSkills.Eleven, levels.Length == 10 ? [.. levels, 0] : [.. levels]);
 
     [Fact]
     public void ASavedProfileLoadsWithItsRevisions()
@@ -74,7 +76,41 @@ public class BotProfileStoreTests
     public void APresetLoadsWithoutAFile()
     {
         Assert.True(new BotProfileStore(new MemoryDisk()).Load("expert", out BotProfileDocument? doc).Accepted);
-        Assert.Equal((string.Join(",", SkillPresets.ExpertLevels), 0), (string.Join(",", doc!.Profile.Levels), doc.Revisions.Length));
+        // Expert spends the whole pool: the Teamwork it is given is what is left, none.
+        Assert.Equal((string.Join(",", SkillPresets.ExpertLevels) + ",0", 0), (string.Join(",", doc!.Profile.Levels), doc.Revisions.Length));
+    }
+
+    /// <summary>A preset is given the Teamwork it plays at (B.7): Medium's even share, 35 over ten skills, is 3.</summary>
+    [Fact]
+    public void APresetIsGivenTheTeamworkItPlaysAt()
+    {
+        Assert.True(new BotProfileStore(new MemoryDisk()).Load("normal", out BotProfileDocument? doc).Accepted);
+        Assert.Equal(("teamwork", 3, 38), (doc!.Profile.Skills[10].Key, doc.Profile.Levels[10], doc.Profile.Spent));
+    }
+
+    /// <summary>A profile saved before teams has no Teamwork: it reads with its even share, and its revisions too.</summary>
+    [Fact]
+    public void AProfileSavedBeforeTeamsReadsWithItsEvenShareOfTeamwork()
+    {
+        var disk = new MemoryDisk();
+        var old = new SkillProfile("Deadeye", StandardSkills.Ten, [8, 7, 6, 6, 6, 6, 1, 1, 2, 2]);
+        disk.Files[BotProfileStore.PathOf("Deadeye")] = ProfileFile.Write(new BotProfileDocument(old, 60, [new ProfileRevision(1, T0, "first", old.Levels)]));
+        Assert.True(new BotProfileStore(disk).Load("Deadeye", out BotProfileDocument? doc).Accepted);
+        Assert.Equal((4, 49, 4), (doc!.Profile.Levels[10], doc.Profile.Spent, doc.Revisions[0].Levels[10]));
+    }
+
+    /// <summary>The control: a profile with Teamwork keeps its own, and a full one before teams is given none it cannot pay for.</summary>
+    [Fact]
+    public void ASavedTeamworkIsKeptAndAFullPoolGivesNone()
+    {
+        var disk = new MemoryDisk();
+        var store = new BotProfileStore(disk);
+        Assert.True(store.Save(Profile("Glued", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9), []).Accepted);
+        var full = new SkillProfile("Full", StandardSkills.Ten, [.. SkillPresets.ExpertLevels]);
+        disk.Files[BotProfileStore.PathOf("Full")] = ProfileFile.Write(new BotProfileDocument(full, 60, []));
+        Assert.True(store.Load("Glued", out BotProfileDocument? glued).Accepted);
+        Assert.True(store.Load("Full", out BotProfileDocument? read).Accepted);
+        Assert.Equal((9, 0), (glued!.Profile.Levels[10], read!.Profile.Levels[10]));
     }
 
     [Fact]

@@ -105,7 +105,7 @@ public class ServerTracerTests
 
     private static (ServerTracer Tracer, Engine Engine, TraceFilterSink Sink) Build(Candidates candidates)
     {
-        var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, CollisionRules.BuildMatrix()), new Crossings());
+        var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, CollisionRules.BuildMatrix(), new LagHooks<SourceSharp.Shared.IEntityCollideRule>()), new Crossings());
         var engine = new Engine(sink);
         return (new ServerTracer(engine, sink, new Handles(), 0xF00D), engine, sink);
     }

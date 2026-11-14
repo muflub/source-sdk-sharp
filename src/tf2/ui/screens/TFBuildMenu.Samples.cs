@@ -15,6 +15,7 @@ public static class TFBuildMenuSamples
     {
         s.Add<ITFBuildMenuSource>(source ?? new FakeTFBuildMenuSource());
         s.Add<ITFBuildMenuActions>(actions ?? new FakeTFBuildMenuActions());
+        s.Add<ITFRenderGroups>(new UnlockedGroups());
         return s.Create<TFBuildMenu>();
     }
 

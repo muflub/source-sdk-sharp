@@ -65,6 +65,24 @@ public sealed class TFSceneImageTests
     }
 
     [Fact]
+    public void AStoredSceneWithoutSoundsIsStillCarried()
+    {
+        // The gesture-only scenes (the scout's drink taunt,
+        // scenes/player/scout/low/taunt04_v1, ships with no speak event): the
+        // entry stands, its duration reads, and only the sounds are empty.
+        byte[] image = Image(("scenes/Player/Scout/low/taunt04_v1.vcd", 968, Array.Empty<string>()));
+        var scenes = new TFSceneImage(Files(("scenes/scenes.image", image)));
+
+        Assert.True(scenes.HasScene("scenes\\Player\\SCOUT\\low\\taunt04_v1"));
+        Assert.Empty(scenes.SceneSounds("scenes/Player/Scout/low/taunt04_v1.vcd"));
+        Assert.Equal(0.968f, scenes.SceneDuration("scenes/player/scout/low/taunt04_v1.vcd"), 3);
+
+        // ... and an image that names no scene carries none.
+        Assert.False(scenes.HasScene("scenes/Player/Scout/low/taunt05_v1.vcd"));
+        Assert.False(new TFSceneImage(Files()).HasScene("scenes/any.vcd"));
+    }
+
+    [Fact]
     public void AMissingImageAndAMalformedOneReadAsEmptyRatherThanThrowing()
     {
         var absent = new TFSceneImage(Files());

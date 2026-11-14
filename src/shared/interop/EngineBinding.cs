@@ -694,6 +694,20 @@ internal sealed unsafe partial class EngineEntities : IEngineEntities
         => _skeletons.Skeletons is { } skeletons
             ? skeletons.LookupAttachment(entity, attachmentName)
             : 0;
+
+    public int LookupBone(EntityHandle entity, string boneName)
+        // The same route as the attachments: the managed skeleton names the
+        // bone, and with no route the answer is stock's own missing-bone -1.
+        => _skeletons.Skeletons is { } skeletons
+            ? skeletons.LookupBone(entity, boneName)
+            : -1;
+
+    public bool GetBonePosition(EntityHandle entity, int bone, out Vector origin)
+    {
+        origin = default;
+        return _skeletons.Skeletons is { } skeletons
+            && skeletons.GetBonePosition(entity, bone, out origin);
+    }
     // No engine answer since plan_server_native_v2 T2: no stock-hierarchy entity is ever registered on the server, so the SDK's find-by-name has no population; the managed directory's walk is the answer and every caller asks it first.
     public EntityHandle FindBaseByName(string name) => EntityHandle.None;
 

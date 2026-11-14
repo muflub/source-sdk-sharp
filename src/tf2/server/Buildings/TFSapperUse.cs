@@ -13,6 +13,7 @@ using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -61,10 +62,18 @@ namespace TF2.Server.Buildings;
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFSapperState)])]
+/// <summary>
+/// Every dependency is injected: the side's registrations hold each one
+/// (the convars through the registry's publish, the seams through their
+/// <see cref="SideServiceAttribute"/>), so a missing one fails the
+/// composition by name instead of answering a default.
+/// </summary>
 public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                 IEngineWorldQuery world, ITFBuildings buildings, IEngineDamage damage,
                                 TFDamageScopes scopes, ITFObjectSpawner spawner, ILog log,
-                                ITFBuilderArms? arms = null, ILagCompensation? lagCompensation = null) : ITFSapperState
+                                TFConstructionBuildRateConVar constructionRate, ITFWeaponOwners owners,
+                                AttributeHooks hooks, ITFBuilderArms arms, ILagCompensation lagCompensation)
+    : ITFSapperState
 {
     /// <summary>The player's <c>m_flFieldOfView</c> (player.cpp:5108).</summary>
     public const float FieldOfView = 0.766f;
@@ -89,7 +98,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         // The placed sapper leaves the hands for the last weapon
         // (SwitchOwnersWeaponToLast, tf_weapon_builder.cpp:421) — the sapper
         // row carries no OF_ALLOW_REPEAT_PLACEMENT to hold it out.
-        arms?.SwitchLast(spy);
+        arms.SwitchLast(spy);
         return true;
     }
 
@@ -125,7 +134,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         Vector bestPoint = default;
         float bestDistance = MaxAttachDistance;
 
-        foreach (TFBaseObject candidate in buildings.OwnedBy())
+        foreach (TFBaseObject candidate in buildings.OwnedBy(null, null, null))
         {
             // The hostile attachment looks at the other team's objects only,
             // and never at one being placed or already sapped — the one
@@ -189,66 +198,30 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         return true;
     }
 
-    public bool WrenchSmack(int ownerIndex, float range)
+    /// <summary>The last smack's outcome per owner, the pair of hands the
+    /// smack's frame reads its building sound from. An instance array, not a
+    /// static: the composition owns one of these per side's registrations.</summary>
+    private readonly WrenchSmackResult[] _lastSmack = new WrenchSmackResult[EngineLimits.MaxEdicts];
+
+    public WrenchSmackResult WrenchSmack(int ownerIndex, float range)
     {
         EntityHandle player = enginePlayers.GetHandle(ownerIndex);
         if (player == EntityHandle.None)
-            return false;
+            return Store(ownerIndex, WrenchSmackResult.None);
 
         // The wrench's session (tf_weapon_wrench.cpp:497, :521): the swing's
         // trace and the building pick see the other players where the
         // engineer saw them.
-        lagCompensation?.Start(player);
+        lagCompensation.Start(player);
         try
         {
-            int team = players.Team(player);
-            Vector eye = enginePlayers.GetShootOrigin(player);
-            Vector aim = Angles.Vectors(entities.GetEyeAngles(player)).Forward;
-            Vector reach = eye + aim * range;
-
-            // Stock's line trace shortens the swing to what it reaches: a wall
-            // before a point stops the blow. One trace serves every candidate.
-            TraceResult wall = world.TraceLine(eye, reach, TraceMask.Brushes, player);
-
-            TFBaseObject? best = null;
-            TFSapper? bestSapper = null;
-            float bestAlong = 0f;
-
-            foreach (TFBaseObject building in buildings.OwnedBy())
-            {
-                // OnFriendlyBuildingHit: the building is the engineer's team's.
-                if (building.Team != team)
-                    continue;
-
-                // The swing's ±18 hull reaches a building whose centre sits this
-                // close to the swing's line (buildings are non-solid, so the
-                // hull sweep stands in as a point distance).
-                Vector point = entities.GetWorldSpaceCenter(building.Handle);
-                if (PointLineDistance(eye, reach, point) > SwingHull)
-                    continue;
-
-                // Stock's trace lands the blow on the nearest hit along the
-                // swing (tf_weapon_wrench.cpp:170-186) — the engine's answer is
-                // the closest entity, not the first enumerated.
-                float along = (point - eye).Dot(aim);
-                if (wall.Hit && wall.Fraction * range < along)
-                    continue;
-
-                if (best is not null && along >= bestAlong)
-                    continue;
-
-                best = building;
-                bestSapper = building.HasSapper ? SapperOn(building) : null;
-                bestAlong = along;
-            }
-
-            if (best is null)
-                return false;
+            if (PickFriendlyBuilding(player, range) is not { } hit)
+                return Store(ownerIndex, WrenchSmackResult.None);
 
             // InputWrenchHit's arms (tf_obj.cpp:2746-2794): a sapped building's
             // blow goes to its sapper; anything else is the building's own
             // OnWrenchHit — the repair, the refill and the upgrade metal.
-            if (bestSapper is not null)
+            if (hit.Sapper is { } bestSapper)
             {
                 using (scopes.Push(TFDamageCustom.WrenchFix, TFWeaponId.Wrench, TFWrenchHook.WrenchScript))
                 {
@@ -257,7 +230,7 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
 
                     // The pair block of CObjectSapper::OnTakeDamage: the match's
                     // sapper takes the same blow, wherever it rides.
-                    if (best is TFTeleporter tp
+                    if (hit.Building is TFTeleporter tp
                         && tp.Match is { } match && match.HasSapper
                         && SapperOn(match) is { } twin)
                     {
@@ -265,20 +238,179 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
                     }
                 }
 
-                return true;
+                return Store(ownerIndex, WrenchSmackResult.Useful);
             }
 
-            return best.WrenchHit(player);
+            // The whack's value (CTFWrench::GetConstructionValue,
+            // tf_weapon_wrench.cpp:334-339): the build-rate convar, times the
+            // swung wrench's mult_construction_value — the active weapon at
+            // the smack is the melee.
+            float constructionValue = hooks.Float(constructionRate.Value, "mult_construction_value",
+                                                  owners.ActiveItemOf(player.EntryIndex));
+
+            return Store(ownerIndex,
+                         hit.Building.WrenchHit(player, constructionValue)
+                             ? WrenchSmackResult.Useful
+                             : WrenchSmackResult.Futile);
         }
         finally
         {
-            lagCompensation?.Finish(player);
+            lagCompensation.Finish(player);
         }
+    }
+
+    /// <summary>Keeps the swing's outcome for the smack's frame, which asks it by name.</summary>
+    private WrenchSmackResult Store(int ownerIndex, WrenchSmackResult result)
+    {
+        if (ownerIndex > 0 && ownerIndex < _lastSmack.Length)
+            _lastSmack[ownerIndex] = result;
+        return result;
+    }
+
+    public string? TakeWrenchSound(int ownerIndex)
+    {
+        if (ownerIndex <= 0 || ownerIndex >= _lastSmack.Length)
+            return null;
+
+        // Hand out once: the next swing's Store overwrites the slot, and a
+        // smack already paid for its sound does not ask twice.
+        WrenchSmackResult met = _lastSmack[ownerIndex];
+        _lastSmack[ownerIndex] = WrenchSmackResult.None;
+        return met switch
+        {
+            WrenchSmackResult.Useful => TFWrenchHook.SuccessSound,
+            WrenchSmackResult.Futile => TFWrenchHook.FailureSound,
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// The melee's sapper arm (<c>DoSwingTraceInternal</c>'s
+    /// <c>set_dmg_apply_to_sapper</c> pass, tf_weaponbase_melee.cpp:469-494):
+    /// the swing of a weapon bearing the attribute, over a friendly building
+    /// inside its reach, hurts the sapper riding it with the swing's own
+    /// blow; the teleporter pair's twin takes the same blow, stock's pair
+    /// block. The melee's own blow to the building is the effects' — here
+    /// only the riding sapper is asked.
+    /// </summary>
+    public bool MeleeSmack(int ownerIndex, float range, float amount)
+    {
+        EntityHandle player = enginePlayers.GetHandle(ownerIndex);
+        if (player == EntityHandle.None)
+            return false;
+
+        lagCompensation.Start(player);
+        try
+        {
+            if (PickFriendlyBuilding(player, range) is not { } hit || hit.Sapper is not { } bestSapper)
+                return false;
+
+            // The swing's own blow, as DoMeleeDamage hands it to what the
+            // trace found (tf_weaponbase_melee.cpp:865-877): the sapper
+            // takes it in the building's place.
+            damage.TakeDamage(bestSapper.Handle, player, amount, DamageType.Club);
+
+            if (hit.Building is TFTeleporter tp
+                && tp.Match is { } match && match.HasSapper
+                && SapperOn(match) is { } twin)
+            {
+                damage.TakeDamage(twin.Handle, player, amount, DamageType.Club);
+            }
+
+            return true;
+        }
+        finally
+        {
+            lagCompensation.Finish(player);
+        }
+    }
+
+    /// <summary>
+    /// The friendly building the swing stops on, with the sapper riding it
+    /// (null when none): the pick both smacks share — stock's <c>Smack</c>
+    /// traces the swing's line against the world first and, when the thin
+    /// line stops on nothing, sweeps the ±18 hull along the same stretch
+    /// (tf_weapon_wrench.cpp:170-186). Buildings are solid, so the trace
+    /// names the building itself: the hit entity is the pick, stock's
+    /// <c>trace.m_pEnt</c> read the same way. Players are ignored through
+    /// the seam's ignore handle — stock's <c>CTraceFilterIgnorePlayers</c>
+    /// ignores them all; the seam answers one.
+    /// </summary>
+    private (TFBaseObject Building, TFSapper? Sapper)? PickFriendlyBuilding(EntityHandle player, float range)
+    {
+        int team = players.Team(player);
+        Vector eye = enginePlayers.GetShootOrigin(player);
+        Vector aim = Angles.Vectors(entities.GetEyeAngles(player)).Forward;
+        Vector reach = eye + aim * range;
+
+        // Stock's order: the line first, the hull only when it misses
+        // (tf_weapon_wrench.cpp:173-177).
+        TraceResult line = world.TraceLine(eye, reach, TraceMask.Solid, player);
+        EntityHandle struck = EntityHandle.None;
+        if (!line.Hit)
+        {
+            HullResult hull = world.TraceHull(eye, reach, new Vector(-SwingHull, -SwingHull, -SwingHull),
+                                              new Vector(SwingHull, SwingHull, SwingHull), TraceMask.Solid, player);
+            if (hull.Blocked)
+                struck = hull.Entity;
+        }
+        else
+        {
+            struck = line.Entity;
+        }
+
+        foreach (TFBaseObject building in buildings.OwnedBy(null, null, null))
+        {
+            if (building.Handle != struck)
+                continue;
+
+            // OnFriendlyBuildingHit: the building is the engineer's team's.
+            if (building.Team != team)
+                return null;
+
+            return (building, building.HasSapper ? SapperOn(building) : null);
+        }
+
+        if (struck != EntityHandle.None)
+            return null;   // stock's else arm: whatever stopped the line is no friendly building
+
+        TFBaseObject? best = null;
+        TFSapper? bestSapper = null;
+        float bestAlong = 0f;
+
+        // Nothing named — the brush that stops a real swing, or an unarmed
+        // world: the reach stands in. Stock's line shortens the swing to
+        // what it reaches (a wall before a point stops the blow), and the
+        // hull's ±18 half-width reaches a centre this close to the line; the
+        // nearest hit along it wins (tf_weapon_wrench.cpp:170-186).
+        foreach (TFBaseObject building in buildings.OwnedBy(null, null, null))
+        {
+            if (building.Team != team)
+                continue;
+
+            Vector point = entities.GetWorldSpaceCenter(building.Handle);
+            if (PointLineDistance(eye, reach, point) > SwingHull)
+                continue;
+
+            float along = (point - eye).Dot(aim);
+            if (line.Hit && line.Fraction * range < along)
+                continue;
+
+            // The engine's answer is the closest entity, not the first enumerated.
+            if (best is not null && along >= bestAlong)
+                continue;
+
+            best = building;
+            bestSapper = building.HasSapper ? SapperOn(building) : null;
+            bestAlong = along;
+        }
+
+        return best is null ? null : (best, bestSapper);
     }
 
     /// <summary>The sapper riding <paramref name="building"/>, as the use layer keeps it.</summary>
     private TFSapper? SapperOn(TFBaseObject building) =>
-        buildings.OwnedBy(type: TFObjectType.AttachmentSapper).OfType<TFSapper>()
+        buildings.OwnedBy(null, TFObjectType.AttachmentSapper, null).OfType<TFSapper>()
                  .FirstOrDefault(s => s.BuiltOn == building.Handle);
 
     /// <summary>Stock's z-flattened normalize; a zero vector stays zero.</summary>

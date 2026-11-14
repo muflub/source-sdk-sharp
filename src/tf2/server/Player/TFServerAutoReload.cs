@@ -22,10 +22,10 @@ namespace TF2.Server.Player;
 
 /// <summary>The player's <c>cl_autoreload</c>, as they told the server.</summary>
 [SideService(Side.Server, As = [typeof(ITFAutoReload)])]
-public sealed class TFServerAutoReload(IConnectedClients? clients = null) : ITFAutoReload
+public sealed class TFServerAutoReload(IConnectedClients clients) : ITFAutoReload
 {
     public bool Wants(int ownerIndex) =>
         ownerIndex > 0
-        && int.TryParse(clients?.ClientConVar(ownerIndex, "cl_autoreload"), out int wish)
+        && int.TryParse(clients.ClientConVar(ownerIndex, "cl_autoreload"), out int wish)
         && wish > 0;
 }

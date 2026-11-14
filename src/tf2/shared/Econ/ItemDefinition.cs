@@ -32,6 +32,9 @@ public sealed class ItemDefinition
     /// <summary><c>k_unItemQuality_Any</c> (econ_item_constants.h): the quality of an item that names none.</summary>
     public const int QualityAny = 0xFF;
 
+    /// <summary><c>AE_NORMAL</c> (econ_item_constants.h): the plain quality.</summary>
+    public const int QualityNormal = 0;
+
     private readonly int[] _loadoutSlots;
     private readonly string?[] _playerModels;
     private readonly AttributeValue[] _attributes;
@@ -70,6 +73,7 @@ public sealed class ItemDefinition
         Name = keys.GetString("name", null) ?? string.Empty;
         ItemClass = keys.GetString("item_class", null);
         ItemName = keys.GetString("item_name", "") ?? string.Empty;
+        ItemTypeName = keys.GetString("item_type_name", "") ?? string.Empty;
         InventoryImage = keys.GetString("image_inventory", null) ?? string.Empty;
         Enabled = keys.GetBool("enabled");
         BaseItem = keys.GetInt("baseitem", 0) != 0;
@@ -160,6 +164,9 @@ public sealed class ItemDefinition
 
     /// <summary><c>item_name</c>: the localisation token.</summary>
     public string ItemName { get; }
+
+    /// <summary><c>item_type_name</c>: the type's localisation token (<c>GetItemTypeName</c>'s static).</summary>
+    public string ItemTypeName { get; }
 
     /// <summary><c>image_inventory</c>: the backpack art the item panels
     /// draw (<c>CEconItemView::GetInventoryImage</c>'s static), empty when

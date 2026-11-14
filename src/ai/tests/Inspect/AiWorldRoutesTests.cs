@@ -2,10 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp;
-using SourceSharp.Ai.Hl2mp.Nav;
-using SourceSharp.Ai.Hl2mp.Senses;
 using SourceSharp.Ai.Hl2mp.Trees;
-using SourceSharp.Ai.Tests.Hl2mpNav;
 using SourceSharp.Ai.Tests.Senses;
 using SourceSharp.Server;
 using SourceSharp.Server.Interop;
@@ -13,6 +10,10 @@ using SourceSharp.MapFormats.Nav;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 using Xunit;
+using SourceSharp.Ai.Server;
+using SourceSharp.Ai.Server.Nav;
+using SourceSharp.Ai.Server.Senses;
+using SourceSharp.Ai.Tests.ServerNav;
 
 namespace SourceSharp.Ai.Tests.Inspect;
 
@@ -41,7 +42,7 @@ public sealed class AiWorldRoutesTests
         public void Warning(string message) { }
     }
 
-    private sealed class Navigation : IHl2mpNavigation
+    private sealed class Navigation : IAiNavigation
     {
         public LoadedNav? Current => Course.Value;
 
@@ -79,7 +80,7 @@ public sealed class AiWorldRoutesTests
     {
         public readonly List<BotPlayer> Made = new();
 
-        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal, int team = 0)
         {
             SenseWorld.Player p = world.Players.First(x => Made.All(b => b.Player != x.Handle) && x.Slot != Rig.HumanSlot);
             Made.Add(new BotPlayer(p.Handle, p.Slot, name));
@@ -101,8 +102,8 @@ public sealed class AiWorldRoutesTests
         public readonly SenseWorld World = new();
         public readonly SenseWorld.Player Human, Alyx, Barney;
         public readonly VisionPass Vision;
-        public readonly Hl2mpBots Bots;
-        public readonly Hl2mpAiSession Ai;
+        public readonly AiBots Bots;
+        public readonly ServerAiSession Ai;
         public readonly HeardLog Heard = new();
         public readonly AiWorldRoutes Routes;
         public readonly PlayerNames Names;
@@ -122,23 +123,22 @@ public sealed class AiWorldRoutesTests
             IEngineEntities entities = Entities();
             IEnginePlayers players = DispatchProxy.Create<IEnginePlayers, Defaults>();
             IEngineFrame frame = FakeEngine.Of<IEngineFrame>((m, _) => m.Name == "TickCount" ? _tick : throw FakeEngine.Unasked(m));
-            Bots = new Hl2mpBots(new WorldPlayers(World), new Runner(), Alive(players), entities, WeaponCatalog.Stock(), frame, _nav, new NoHoldings(),
+            Bots = new AiBots(new WorldPlayers(World), new Runner(), Alive(players), entities, WeaponCatalog.Stock(), frame, _nav, TestGames.Hl2mp(), new NoHoldings(),
                                  DispatchProxy.Create<IBotNameSource, Defaults>(), new ScoreboardTags(), log);
             Vision = new VisionPass(World.Engine(), entities, World.Traces());
-            Ai = new Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, log,
-            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>(),
-            DeclaredConVars.Fresh<WeaponRespawnTimeConVar>(), DeclaredConVars.Fresh<ItemRespawnTimeConVar>());
+            Ai = new ServerAiSession(_nav, TestGames.Hl2mp(), null!, log,
+            DeclaredConVars.Fresh<AiThreadsConVar>(), DeclaredConVars.Fresh<AiSyncConVar>());
             Names = new PlayerNames(DispatchProxy.Create<IEngineGameEvents, Defaults>());
             Names.PutInServer(HumanSlot, "Gordon");
             Routes = new AiWorldRoutes(Bots, Vision, Ai, Heard, frame, entities, World.Traces(), Names, _nav);
             Ai.Session.World = new MemoryWorld(new MapKnowledge("course", [], [], new WeaponKnowledge([new WeaponFacts(3, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f)])),
-                                               _graph, Hl2mpAiSession.TickSeconds, id => id.ToString());
+                                               _graph, ServerAiSession.TickSeconds, id => id.ToString());
             Ai.Session.Curves = Skills.Curves.Game();
             Ai.Session.Deciders = setup => new Hl2mpDecider(setup);
             SkillPresets.TryGet("hard", out SkillProfile? hard);
             Assert.Null(Bots.Add("Alyx", hard!));
             Assert.Null(Bots.Add("Barney", hard!));
-            foreach (Hl2mpBot b in Bots.Bots)
+            foreach (AiBot b in Bots.Bots)
             {
                 Vision.Add(b.Id);
                 Ai.Session.AddBot(b.Id, (ulong)b.Id.Slot, [.. hard!.Levels.Select(l => (byte)l)]);
@@ -163,7 +163,7 @@ public sealed class AiWorldRoutesTests
         {
             SensedBot[] sensed = [.. Bots.Bots.Select(b => new SensedBot(b.Id, Bots.Applier.PlayerOf(b.Id), new VisionParams(6000f, 90f, 0.3f, 0.5f)))];
             for (int i = 0; i < ticks; i++)
-                Vision.Run(new Tick(++_tick), Hl2mpAiSession.TickSeconds, sensed, World.Living(sensed), []);
+                Vision.Run(new Tick(++_tick), ServerAiSession.TickSeconds, sensed, World.Living(sensed), []);
         }
 
         public AiWorld World0() => Routes.Build();
@@ -325,7 +325,7 @@ public sealed class AiWorldRoutesTests
         Assert.Equal((1, new AiVector(11, 22, 33), r.Tick, "gunfire", 0.75f), (h.Source, h.At, h.Tick, h.Kind, h.Loudness));
         Assert.Empty(r.Bot("Barney").Beliefs.Heard);
 
-        r.Sense((int)(AiWorldRoutes.HeardSeconds / Hl2mpAiSession.TickSeconds) + 2);
+        r.Sense((int)(AiWorldRoutes.HeardSeconds / ServerAiSession.TickSeconds) + 2);
         Assert.Empty(r.Bot("Alyx").Beliefs.Heard);
     }
 

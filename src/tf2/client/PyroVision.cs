@@ -6,8 +6,12 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Client;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Render;
+
+using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Client;
 
@@ -17,13 +21,19 @@ namespace TF2.Client;
 /// a vignette of randomised sides that fade in and out is drawn into
 /// _rt_ResolvedFullFrameDepth, and dev/pyro_post draws its border bars over
 /// the frame. The core calls it at stock's vision point; its pyro_* convars
-/// are read by name.
+/// are read by name. The held item's <c>vision_opt_in_flags</c> attribute
+/// ors its bits into the same gate, stock's attribute hook in
+/// <c>GetVisionFilterFlags</c>.
 /// </summary>
 [SideService(Side.Client)]
-public sealed class PyroVision(IUniformRandom random, PyroVisionConVars convars) : IPostProcessContributor
+public sealed class PyroVision(IUniformRandom random, PyroVisionConVars convars,
+                               IEngineHud? screen = null, ITFWeaponOwners? owners = null) : IPostProcessContributor
 {
     private const int MaxSides = 50;
     private const int Segments = 8;
+
+    /// <summary>The item attribute that opts the holder into the vision filters (<c>vision_opt_in_flags</c>).</summary>
+    public const string VisionOptInAttribute = "vision_opt_in_flags";
 
     /// <summary>One side (TPyroSide).</summary>
     public struct PyroSide
@@ -34,6 +44,7 @@ public sealed class PyroVision(IUniformRandom random, PyroVisionConVars convars)
     }
 
     private readonly PyroSide[] _sides = new PyroSide[MaxSides];
+    private readonly AttributeHooks _hooks = new();
     private bool _initialised;
     private int _nextSide;
 
@@ -51,10 +62,19 @@ public sealed class PyroVision(IUniformRandom random, PyroVisionConVars convars)
         ? v switch { 0 => (0f, 0f), 1 => (0f, 1f), 2 => (1f, 1f), 3 => (1f, 1f), 4 => (0f, 0f), _ => (1f, 0f) }
         : v switch { 0 => (0f, 0f), 1 => (1f, 0f), 2 => (1f, 1f), 3 => (1f, 1f), 4 => (0f, 0f), _ => (0f, 1f) };
 
+    // C_TFPlayer::GetVisionFilterFlags (c_tf_player.cpp:8028-8105): the walk
+    // starts at zero, CALL_ATTRIB_HOOK_INT merges the held item's attribute
+    // (vision_opt_in_flags, value_is_or, ors its bits), and the convar half
+    // (spectator pyrovision, holidays — folded into our one convar here) rides
+    // on the same answer. No owners composed yet answers the convar alone.
+    private int VisionFilterFlags() =>
+        _hooks.Int(0, VisionOptInAttribute, owners?.ActiveItemOf(screen?.LocalPlayerIndex ?? 0))
+        | convars.VisionFlags.Value;
+
     public void AtVisionPoint(PostVisionContext context, IPostOps ops)
     {
         PostProcessInputs input = context.Inputs;
-        bool vision = (convars.VisionFlags.Value & 0x01) != 0;
+        bool vision = (VisionFilterFlags() & 0x01) != 0;
         int vignette = (int)convars.Vignette.Value;
         if (!vision || input.SupportsPixelShaders20 == 0 || vignette <= 0)
             return;
