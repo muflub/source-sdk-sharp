@@ -33,7 +33,7 @@ public sealed class TFItemMeterChargeGateFacts
     /// A TIME meter refills on the clock: the bitten sandvich's count is
     /// back after the hold, on the attribute's strength alone.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void ATimeMeterRefillsOnTheClock()
     {
         var world = GateWorld.Hold(chargeType: 1f);   // TIME
@@ -62,7 +62,7 @@ public sealed class TFItemMeterChargeGateFacts
     /// count stays gone through the same hold the TIME arm spent. The pair's
     /// non-zero half is the arm above.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void ASimpleMeterDoesNotRefillOnTheClock()
     {
         var world = GateWorld.Hold(chargeType: 2f);   // SIMPLE

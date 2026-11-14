@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Rules.Items;
@@ -19,7 +20,7 @@ public sealed class HeroKitSourceFacts
     /// <summary>The stock rocket launcher's defindex in TF's schema.</summary>
     private const int RocketLauncher = 18;
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_first_kits_launcher_is_the_primary_TF2_hands_out()
     {
         var rig = new EquipmentRig();
@@ -31,7 +32,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal((ulong)rig.Held.Inventory.Equipped["primary"].Id, answer.Item.Id);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_rolled_TF_affix_rides_the_item_as_its_attribute()
     {
         var rig = new EquipmentRig();
@@ -44,7 +45,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal(1.2f, value.AsFloat, 0.0001f);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_faster_refire_rolls_as_the_schemas_bonus_not_its_penalty()
     {
         // Rapid: mult_postfiredelay below 1 is a bonus (lower is better for this class).
@@ -59,7 +60,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal(AttributeEffectType.Positive, value.Definition.EffectType);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_rolled_damage_launchers_damage_hook_answers_its_multiple()
     {
         // The weapon's container is the item's as the kit builds it
@@ -73,7 +74,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal(120f, new AttributeHooks().Float(100f, "mult_dmg", weapon), 0.01f);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_stock_launcher_carries_no_damage_bonus()
     {
         // The control for the fact above: the first kit's launcher.
@@ -84,7 +85,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal(100f, new AttributeHooks().Float(100f, "mult_dmg", weapon), 0.01f);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_broken_weapon_is_handed_over_as_its_stock_self()
     {
         var rig = new EquipmentRig();
@@ -97,7 +98,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal(rig.Schema.Quality("unique"), item.Quality);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_inactive_weapon_is_handed_over_as_its_stock_self()
     {
         // The Black Box asks level 9 and brawn 35 of a level 1 soldier with 20.
@@ -111,7 +112,7 @@ public sealed class HeroKitSourceFacts
         Assert.Empty(item.Attributes);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_empty_weapon_slot_is_empty_in_TF2()
     {
         var rig = new EquipmentRig();
@@ -126,7 +127,7 @@ public sealed class HeroKitSourceFacts
     /// <summary>The stock shovel's defindex in TF's schema.</summary>
     private const int Shovel = 6;
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_empty_melee_slot_swings_the_classs_stock_melee()
     {
         var rig = new EquipmentRig();
@@ -139,7 +140,7 @@ public sealed class HeroKitSourceFacts
         Assert.DoesNotContain(rig.Held.Inventory.Items, h => (ulong)h.Id == answer.Item.Id);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_melee_equipped_replaces_the_fallback()
     {
         var rig = new EquipmentRig();
@@ -155,7 +156,7 @@ public sealed class HeroKitSourceFacts
         Assert.False(answer.SameAs(fallback));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_hero_stripped_by_a_death_keeps_a_melee_and_nothing_else()
     {
         var rig = new EquipmentRig();
@@ -166,7 +167,7 @@ public sealed class HeroKitSourceFacts
         Assert.Equal(Shovel, rig.Answer(TFLoadoutSlot.Melee).Item!.Defindex);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_slot_that_is_no_weapon_slot_is_TF2s()
     {
         var rig = new EquipmentRig();
@@ -175,7 +176,7 @@ public sealed class HeroKitSourceFacts
         Assert.True(rig.Answer(TFLoadoutSlot.Primary).HasOpinion); // the stimulus: the hero is claimed
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_player_who_is_no_hero_gets_no_opinion()
     {
         var rig = new EquipmentRig();
@@ -183,7 +184,7 @@ public sealed class HeroKitSourceFacts
         Assert.False(rig.Answer(TFLoadoutSlot.Primary, index: EquipmentRig.Index + 1).HasOpinion);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_bot_gets_no_opinion()
     {
         var rig = new EquipmentRig();
@@ -192,7 +193,7 @@ public sealed class HeroKitSourceFacts
         Assert.False(rig.Answer(TFLoadoutSlot.Primary).HasOpinion);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Outside_the_Descent_mode_there_is_no_opinion()
     {
         var rig = new EquipmentRig();
@@ -203,7 +204,7 @@ public sealed class HeroKitSourceFacts
         Assert.False(rig.Answer(TFLoadoutSlot.Primary).HasOpinion);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_item_the_class_may_not_use_leaves_its_slot_empty()
     {
         // A planted pyro flamethrower in a soldier's primary (the rules refuse to equip it).
@@ -216,7 +217,7 @@ public sealed class HeroKitSourceFacts
         Assert.Null(answer.Item);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_fresh_answer_for_the_same_item_is_the_same_item_to_a_kit()
     {
         var rig = new EquipmentRig();

@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using TF2.Descent.Rules.Skills;
 using TF2.Descent.Server.Skills;
 using TF2.Descent.Shared;
@@ -14,7 +15,7 @@ public sealed class OwnerSkillSenderTests
 
     private static SkillRanks Last(OwnerRig rig) => rig.Of<SkillRanks>().Last();
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Every_skill_of_the_table_is_sent_in_its_order()
     {
         var rig = new OwnerRig();
@@ -29,7 +30,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal(total, ranks.NextLevel.Length);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_skill_above_the_heros_level_is_refused_below_level_with_the_level_it_asks()
     {
         var rig = new OwnerRig();
@@ -42,7 +43,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal(6, ranks.NextLevel[salvo]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_tier_one_skill_with_a_point_to_spend_is_buyable()
     {
         var rig = new OwnerRig();
@@ -51,7 +52,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal((byte)SkillWhy.Buyable, Last(rig).Why[SkillIndex(rig, "patriot_missile")]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void With_no_point_a_tier_one_skill_says_so()
     {
         var rig = new OwnerRig();
@@ -59,7 +60,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal((byte)SkillWhy.NoPoints, Last(rig).Why[SkillIndex(rig, "patriot_missile")]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_skill_whose_prerequisite_is_missing_says_so()
     {
         var rig = new OwnerRig();
@@ -68,7 +69,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal((byte)SkillWhy.Prerequisite, Last(rig).Why[SkillIndex(rig, "salvo")]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_skill_below_its_level_still_says_whether_its_prerequisites_are_held()
     {
         var rig = new OwnerRig();
@@ -81,7 +82,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal(1, ranks.Prerequisites[SkillIndex(rig, "patriot_missile")]);    // none to hold
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Buying_a_rank_sends_the_new_rank()
     {
         var rig = new OwnerRig();
@@ -93,7 +94,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Equal(1, rig.Of<SkillRanks>(from).Single().Ranks[SkillIndex(rig, "patriot_missile")]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Ranks_that_did_not_change_are_not_sent_again()
     {
         var rig = new OwnerRig();
@@ -104,7 +105,7 @@ public sealed class OwnerSkillSenderTests
         Assert.Empty(rig.Of<SkillRanks>(from));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_whole_table_fits_one_message()
     {
         var rig = new OwnerRig();

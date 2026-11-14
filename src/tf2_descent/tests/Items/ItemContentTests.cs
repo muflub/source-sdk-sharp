@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using TF2.Descent.Rules.Content;
@@ -105,7 +106,7 @@ public sealed class ItemContentTests
             Assert.Contains(armour, b => b.Slot == slot && b.Classes.Count == 0 && b.Level == 1 && b.Requires.Count == 0));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Every_tf_attribute_an_affix_names_is_an_attribute_class_of_tfs_item_schema()
     {
         var schema = ItemsGameText();
@@ -117,7 +118,7 @@ public sealed class ItemContentTests
         Assert.All(tf, n => Assert.True(names.Contains(n), $"{n} is not an attribute_class"));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Every_unusual_effect_names_a_particle_system_of_tfs_item_schema()
     {
         var schema = ItemsGameText();

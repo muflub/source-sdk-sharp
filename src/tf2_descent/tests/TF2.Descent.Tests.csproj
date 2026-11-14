@@ -34,6 +34,7 @@
   <ItemGroup>
     <!-- So facts can read the mods' gameinfo files from this repository. -->
     <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\..\test\common\NotOnCiFactAttribute.cs" Link="common\NotOnCiFactAttribute.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
   </ItemGroup>

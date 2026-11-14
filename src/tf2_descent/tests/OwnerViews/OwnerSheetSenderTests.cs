@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using TF2.Descent.Server.OwnerViews;
 using TF2.Descent.Shared;
 
@@ -11,7 +12,7 @@ public sealed class OwnerSheetSenderTests
     private static int AttributeIndex(OwnerRig rig, string id) =>
         rig.Rules.Content.Attributes.Rows.ToList().FindIndex(a => a.Id == id);
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_attributes_are_the_sheets_base_the_stats_now_and_the_class_cap()
     {
         var rig = new OwnerRig();
@@ -25,7 +26,7 @@ public sealed class OwnerSheetSenderTests
         Assert.Equal(attributes.Select(a => (short)soldier.Bounds(a.Id).Cap), numbers.Cap);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void One_more_point_of_grit_adds_the_soldiers_life_per_point()
     {
         var rig = new OwnerRig();
@@ -38,7 +39,7 @@ public sealed class OwnerSheetSenderTests
         Assert.Equal(0, numbers.LifePerPointTenths[AttributeIndex(rig, "aim")]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_resistances_armour_and_crit_are_the_stats()
     {
         var rig = new OwnerRig();
@@ -53,7 +54,7 @@ public sealed class OwnerSheetSenderTests
         Assert.True(numbers.CritTenths > 0, "a Soldier's aim gives some crit");   // the stimulus is not zero
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_damage_range_is_the_weapon_in_hands()
     {
         var rig = new OwnerRig();
@@ -64,7 +65,7 @@ public sealed class OwnerSheetSenderTests
         Assert.Equal((55, 99), ((int)numbers.DamageMin, (int)numbers.DamageMax));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_sheet_change_sends_the_new_numbers_to_the_owner_alone()
     {
         var rig = new OwnerRig();
@@ -78,7 +79,7 @@ public sealed class OwnerSheetSenderTests
         Assert.All(rig.Sent, s => Assert.Equal(OwnerRig.Index, s.Player));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_same_numbers_are_not_sent_twice()
     {
         var rig = new OwnerRig();
@@ -89,7 +90,7 @@ public sealed class OwnerSheetSenderTests
         Assert.Empty(rig.Of<SheetNumbers>(from));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_spawn_sends_the_numbers_again()
     {
         var rig = new OwnerRig();
@@ -100,7 +101,7 @@ public sealed class OwnerSheetSenderTests
         Assert.Single(rig.Of<SheetNumbers>(from));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_new_weapon_range_is_sent_at_the_next_look()
     {
         var rig = new OwnerRig();

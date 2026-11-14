@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Host.Contracts;
 
@@ -24,7 +25,7 @@ public sealed class TownVerbTests
     // A shop
     //-------------------------------------------------------------------------
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Buying_pays_the_rules_price_and_the_item_is_in_the_backpack()
     {
         var rig = new TownRig();
@@ -44,7 +45,7 @@ public sealed class TownVerbTests
         Assert.Equal(ware.Item.Id, rig.Status.Item);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Buying_without_the_australium_is_refused_on_the_status_line_and_changes_nothing()
     {
         var rig = new TownRig();
@@ -62,7 +63,7 @@ public sealed class TownVerbTests
         Assert.Equal(0, rig.Purse);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Buying_into_a_full_backpack_is_refused()
     {
         var rig = new TownRig();
@@ -80,7 +81,7 @@ public sealed class TownVerbTests
         Assert.Equal(100_000, rig.Purse);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Selling_raises_the_purse_by_the_sell_price_and_buying_back_costs_the_same()
     {
         var rig = new TownRig();
@@ -104,7 +105,7 @@ public sealed class TownVerbTests
         Assert.Contains(rig.Held.Inventory.Backpack.Values, v => v.Item.Seed == item.Seed);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Haggler_lowers_a_buy_price_by_the_rules()
     {
         var rig = new TownRig();
@@ -131,7 +132,7 @@ public sealed class TownVerbTests
     // Where a verb may run
     //-------------------------------------------------------------------------
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_verb_at_the_wrong_stall_is_refused()
     {
         var rig = new TownRig();
@@ -145,7 +146,7 @@ public sealed class TownVerbTests
         Assert.False(rig.Held.Inventory.Backpack[slot].Item.Identified);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_verb_out_of_reach_is_refused_and_its_window_closes()
     {
         var rig = new TownRig();
@@ -162,7 +163,7 @@ public sealed class TownVerbTests
         Assert.Equal(100_000, rig.Purse);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_verb_off_the_town_is_refused()
     {
         var rig = new TownRig();
@@ -175,7 +176,7 @@ public sealed class TownVerbTests
         Assert.Equal("#Descent_Town_" + TownRefusals.NotInTown, rig.Status.Token);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_verb_with_no_window_open_is_refused()
     {
         var rig = new TownRig();
@@ -190,7 +191,7 @@ public sealed class TownVerbTests
     // The Spy and the Engineer
     //-------------------------------------------------------------------------
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_spy_identifies_for_the_fee_he_quoted()
     {
         var rig = new TownRig();
@@ -212,7 +213,7 @@ public sealed class TownVerbTests
         Assert.Equal(10_000 - fee, rig.Purse);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_engineer_repairs_a_worn_launcher_to_its_maximum_for_the_rules_price_and_the_maximum_holds()
     {
         var rig = new TownRig();
@@ -235,7 +236,7 @@ public sealed class TownVerbTests
         Assert.Equal(10_000 - window.RepairAll, rig.Purse);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task An_item_a_field_repair_made_unusable_is_not_repaired_back()
     {
         var rig = new TownRig();
@@ -259,7 +260,7 @@ public sealed class TownVerbTests
     // The bench, the crate, the stash
     //-------------------------------------------------------------------------
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_bench_consumes_exactly_its_recipe()
     {
         var rig = new TownRig();
@@ -275,7 +276,7 @@ public sealed class TownVerbTests
         Assert.Equal(kits + 1, rig.Held.Inventory.Backpack.Values.Count(v => v.Item.BaseId == "repair_kit"));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_bench_short_of_metal_refuses_and_consumes_nothing()
     {
         var rig = new TownRig();
@@ -289,7 +290,7 @@ public sealed class TownVerbTests
         Assert.Equal(2, rig.Craft.Metal(rig.Held));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_crate_charges_the_scouts_price_and_its_item_is_the_rules_seeded_roll_unidentified()
     {
         var rig = new TownRig();
@@ -312,7 +313,7 @@ public sealed class TownVerbTests
         Assert.DoesNotContain(rig.Held.Inventory.Backpack.Values, v => v.Item.BaseId == crateItem.BaseId);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task The_stash_keeps_an_item_across_a_level_change()
     {
         var rig = new TownRig();
@@ -333,7 +334,7 @@ public sealed class TownVerbTests
         Assert.Contains(rig.Held.Inventory.Backpack.Values, v => v.Item.Seed == item.Seed);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_stash_window_carries_the_rules_capacity()
     {
         var rig = new TownRig();

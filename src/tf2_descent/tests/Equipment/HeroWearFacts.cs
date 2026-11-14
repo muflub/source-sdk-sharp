@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
@@ -54,7 +55,7 @@ public sealed class HeroWearFacts
             new AttributeHooks().Float(100f, "mult_dmg", TFLoadoutProvider.Attributes(Gear.Answer(TFLoadoutSlot.Primary).Item!));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_shot_is_pending_wear_and_writes_nothing_until_it_costs_a_point()
     {
         var rig = new Rig();
@@ -66,7 +67,7 @@ public sealed class HeroWearFacts
         Assert.Equal(60, rig.Primary.Item.Durability);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_shot_that_costs_a_point_writes_it_through_the_ledger()
     {
         var rig = new Rig();
@@ -78,7 +79,7 @@ public sealed class HeroWearFacts
         Assert.Equal((0, 0), rig.Wear.Pending(EquipmentRig.Key, rig.Primary.Id));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hundred_shots_are_twenty_five_writes_one_a_point_lost()
     {
         var rig = new Rig();
@@ -89,7 +90,7 @@ public sealed class HeroWearFacts
         Assert.Equal(25, rig.Wear.Writes);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_levels_end_writes_the_progress_below_a_point_and_no_wear_is_lost_across_the_change()
     {
         var rig = new Rig();
@@ -103,7 +104,7 @@ public sealed class HeroWearFacts
         Assert.Equal(59, rig.Primary.Item.Durability);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_disconnect_writes_the_heroes_pending_wear()
     {
         var rig = new Rig();
@@ -115,7 +116,7 @@ public sealed class HeroWearFacts
         Assert.Equal((0, 0), rig.Wear.Pending(EquipmentRig.Key, rig.Primary.Id));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Taking_the_weapon_off_writes_its_pending_wear_to_it_in_the_backpack()
     {
         var rig = new Rig();
@@ -128,7 +129,7 @@ public sealed class HeroWearFacts
         Assert.False(rig.Wear.HasPending(EquipmentRig.Key, id));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Hits_taken_wear_the_armour_worn_and_not_the_weapons()
     {
         var rig = new Rig();
@@ -145,7 +146,7 @@ public sealed class HeroWearFacts
         Assert.Equal(60, rig.Primary.Item.Durability);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_shot_of_a_weapon_the_hero_does_not_wear_costs_nothing()
     {
         var rig = new Rig();
@@ -156,7 +157,7 @@ public sealed class HeroWearFacts
         Assert.False(rig.Wear.HasPending(EquipmentRig.Key, rig.Primary.Id));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_launcher_worn_to_zero_by_its_shots_does_the_stock_damage_and_a_repair_restores_its_bonus()
     {
         var rig = new Rig();
@@ -178,7 +179,7 @@ public sealed class HeroWearFacts
         Assert.Equal(rebuilt + 1, rig.Gear.Refresh.Rebuilt);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_broken_weapon_gathers_no_more_wear()
     {
         var rig = new Rig();
@@ -190,7 +191,7 @@ public sealed class HeroWearFacts
         Assert.Equal(0, rig.Wear.Writes);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Broken_armour_contributes_nothing()
     {
         var rig = new Rig();
@@ -208,7 +209,7 @@ public sealed class HeroWearFacts
         Assert.Equal(before - 6, rig.Gear.HeroComponent.Stats!.Armour, 6);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_item_field_repaired_to_a_maximum_of_zero_cannot_be_equipped_and_stays_in_the_backpack()
     {
         var rig = new Rig();
@@ -233,7 +234,7 @@ public sealed class HeroWearFacts
 
     private static SourceSharp.Shared.WeaponAttackContext Live(bool live) => default(SourceSharp.Shared.WeaponAttackContext) with { EffectsLive = live };
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_weapon_chains_after_fire_of_a_live_shot_is_a_use_and_a_replayed_one_is_not()
     {
         var rig = new Rig();
@@ -247,7 +248,7 @@ public sealed class HeroWearFacts
         Assert.Equal((1, 0), rig.Wear.Pending(EquipmentRig.Key, rig.Primary.Id));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Outside_the_descent_mode_a_shot_wears_nothing()
     {
         var rig = new Rig();
@@ -258,7 +259,7 @@ public sealed class HeroWearFacts
         Assert.False(rig.Wear.HasPending(EquipmentRig.Key, rig.Primary.Id));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hit_from_another_wears_armour_and_the_heroes_own_blast_does_not()
     {
         var rig = new Rig();

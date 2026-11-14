@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using TF2.Descent.Rules.Items;
 using TF2.Descent.Server.Gear;
 
@@ -8,7 +9,7 @@ namespace TF2.Descent.Tests.Gear;
 /// <summary>What the equipment's dev commands print (<see cref="GearReport"/>, <c>tf2_descent_gear</c>).</summary>
 public sealed class EquipmentCommandFacts
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_gear_print_shows_an_inactive_item_and_the_attributes_handed_to_TF2()
     {
         var rig = new EquipmentRig();
@@ -25,7 +26,7 @@ public sealed class EquipmentCommandFacts
         Assert.Contains("  amulet: empty\n", text);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_gear_print_shows_the_wear_written_and_the_wear_pending()
     {
         var rig = new EquipmentRig();
@@ -40,7 +41,7 @@ public sealed class EquipmentCommandFacts
 
         Assert.Contains("rocket_launcher stock ilvl 1 dur 59/60 Active\n    wear: 2 toward the next point, pending 1 uses 0 hits\n", text);
     }
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_repair_command_repairs_in_the_town_for_its_price_and_in_the_field_at_a_cost_to_the_maximum()
     {
         var rig = new EquipmentRig();
@@ -61,7 +62,7 @@ public sealed class EquipmentCommandFacts
         Assert.Contains(rig.Log.Lines, l => l.Text.Contains("town repair of primary (rocket_launcher): dur 30/60 -> 60/60, paid " + price, StringComparison.Ordinal));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_wear_command_sets_a_worn_items_durability()
     {
         var rig = new EquipmentRig();

@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using TF2.Descent.Rules.Spells;
 using TF2.Descent.Server.Hero;
 
@@ -12,7 +13,7 @@ namespace TF2.Descent.Tests.Hero;
 /// </summary>
 public sealed class ConsumableFacts
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_first_tome_teaches_its_spell_at_rank_one_and_is_used_up()
     {
         var rig = new BeltRig();
@@ -25,7 +26,7 @@ public sealed class ConsumableFacts
         Assert.False(rig.Held.Inventory.Backpack.ContainsKey(slot));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_sheet_command_shows_the_spell_a_tome_taught()
     {
         var rig = new BeltRig();
@@ -36,7 +37,7 @@ public sealed class ConsumableFacts
         Assert.Contains("| spells fireball 1 |", HeroCommandGate.Describe(BeltRig.Index, rig.Hero));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_second_tome_raises_the_spell_a_rank()
     {
         var rig = new BeltRig();
@@ -48,7 +49,7 @@ public sealed class ConsumableFacts
         Assert.True(rig.Gear.Rules.Heroes.Audit(rig.Hero.Sheet!).Ok);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_sixth_tome_is_refused_and_kept()
     {
         var rig = new BeltRig();
@@ -63,7 +64,7 @@ public sealed class ConsumableFacts
         Assert.Equal("tome_fireball", rig.Held.Inventory.Backpack[sixth].Item.BaseId);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_dossier_identifies_its_target_and_one_is_used()
     {
         var rig = new BeltRig();
@@ -78,7 +79,7 @@ public sealed class ConsumableFacts
         Assert.Equal(1, Assert.Single(items, h => h.Item.BaseId == "dossier").Item.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_dossier_with_no_target_is_refused_and_kept()
     {
         var rig = new BeltRig();
@@ -88,7 +89,7 @@ public sealed class ConsumableFacts
         Assert.Equal(2, rig.Held.Inventory.Backpack[dossier].Item.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_portal_that_does_not_open_refuses_and_the_blueprint_is_kept()
     {
         var rig = new BeltRig();
@@ -102,7 +103,7 @@ public sealed class ConsumableFacts
         Assert.Equal(3, rig.Held.Inventory.Backpack[scroll].Item.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_portal_that_opens_uses_one_blueprint()
     {
         var rig = new BeltRig();
@@ -113,7 +114,7 @@ public sealed class ConsumableFacts
         Assert.Equal(2, rig.Held.Inventory.Backpack[scroll].Item.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_potion_in_the_backpack_is_not_used_from_there()
     {
         var rig = new BeltRig();
@@ -123,7 +124,7 @@ public sealed class ConsumableFacts
         Assert.True(rig.Held.Inventory.Backpack.ContainsKey(potion));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_dead_hero_reads_nothing()
     {
         var rig = new BeltRig();

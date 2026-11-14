@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Rules.Economy;
@@ -16,7 +17,7 @@ namespace TF2.Descent.Tests.Town;
 /// </summary>
 public sealed class TownWireTests
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_vendors_stock_goes_to_its_customer_alone_one_ware_a_message_within_a_user_message()
     {
         var rig = new TownRig();
@@ -45,7 +46,7 @@ public sealed class TownWireTests
         Assert.InRange(full.Write(new byte[255]), 1, 255);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_window_opened_again_sends_its_stock_again()
     {
         var rig = new TownRig();
@@ -60,7 +61,7 @@ public sealed class TownWireTests
         Assert.Single(rig.Of<VendorList>(mark), l => l.List == (byte)TownList.Stock);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_restock_sends_an_open_window_another_stock()
     {
         var rig = new TownRig();
@@ -77,7 +78,7 @@ public sealed class TownWireTests
         Assert.Empty(next.Intersect(first));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task An_unidentified_ware_carries_no_affix_on_the_wire()
     {
         var rig = new TownRig();
@@ -95,7 +96,7 @@ public sealed class TownWireTests
         Assert.NotEmpty(item.Affixes);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_crate_stall_publishes_the_rules_odds_out_of_a_hundred_thousand()
     {
         var rig = new TownRig();
@@ -110,7 +111,7 @@ public sealed class TownWireTests
         Assert.Equal(TownWindow.OddsScale, window.OddsWeights.Sum());
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_depth_picker_offers_the_depths_the_rules_allow()
     {
         var rig = new TownRig();
@@ -128,7 +129,7 @@ public sealed class TownWireTests
         Assert.Equal((TownRig.Index, "descent_depthpicker", true), rig.World.Panels.Last());
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_depth_the_rules_do_not_allow_is_refused_and_one_they_do_goes_down_and_closes_the_picker()
     {
         var rig = new TownRig();
@@ -144,7 +145,7 @@ public sealed class TownWireTests
         Assert.Null(rig.Service.Open(TownRig.Index));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Unhosted_with_no_level_of_that_depth_installed_the_descent_is_refused_and_the_picker_stays()
     {
         var rig = new TownRig();
@@ -158,7 +159,7 @@ public sealed class TownWireTests
         Assert.Equal(TownScreen.Depth, rig.Service.Open(TownRig.Index)?.Screen);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_bench_quotes_its_recipes_by_the_rules()
     {
         var rig = new TownRig();

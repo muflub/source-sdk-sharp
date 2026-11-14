@@ -379,7 +379,7 @@ public sealed class TFPlayerLoadoutTests
     /// <summary>The shipped schema's B.A.S.E. Jumper, the soldier's backpack secondary.</summary>
     private const int ParachuteDefindex = 1101;
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void TheEquippedParachuteAnswersItsAttributeOnThePlayersManager()
     {
         // The shipped game's backpack case: the soldier equips the B.A.S.E.

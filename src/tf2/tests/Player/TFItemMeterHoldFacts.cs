@@ -40,7 +40,7 @@ public sealed class TFItemMeterHoldFacts
 {
     private const int Attack = (int)InputButtons.Attack;
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AThrownJarComesBackWhilePutAway()
     {
         var world = new HoldWorld(TFClass.Sniper, HoldWorld.Jar, HoldWorld.JarDefindex);
@@ -79,7 +79,7 @@ public sealed class TFItemMeterHoldFacts
         Assert.Equal(0, world.Count);           // the second throw spends it
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AnEatenSandvichComesBackWhilePutAway()
     {
         var world = HoldWorld.Sandvich();
@@ -119,7 +119,7 @@ public sealed class TFItemMeterHoldFacts
         Assert.Equal(purse - 1, world.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void SelectingAnEmptyJarDoesNothing()
     {
         var world = new HoldWorld(TFClass.Sniper, HoldWorld.Jar, HoldWorld.JarDefindex);
@@ -151,7 +151,7 @@ public sealed class TFItemMeterHoldFacts
         Assert.Equal(SwitchOutcome.Switched, world.Arsenal.Switch(PlayerRig.Player, HoldWorld.Jar));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void TheHolsteredChargeNeitherSpendsNorDoubles()
     {
         var world = new HoldWorld(TFClass.Sniper, HoldWorld.Jar, HoldWorld.JarDefindex);

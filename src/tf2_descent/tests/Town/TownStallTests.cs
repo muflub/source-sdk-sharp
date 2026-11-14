@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Server.Town;
@@ -14,7 +15,7 @@ namespace TF2.Descent.Tests.Town;
 /// </summary>
 public sealed class TownStallTests
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void In_the_town_every_stall_stands_at_its_marker_or_beside_the_smithy()
     {
         var rig = new TownRig();
@@ -29,7 +30,7 @@ public sealed class TownStallTests
         Assert.Equal(TownStalls.Beside, TownStalls.Find("bench")!.Offset.X);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_stall_faces_the_street()
     {
         var rig = new TownRig();
@@ -37,7 +38,7 @@ public sealed class TownStallTests
         Assert.All(rig.World.Made, m => Assert.Equal(rig.World.Markers[m.Stall.Marker].Y > 0 ? 270f : 90f, m.Yaw));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Off_the_town_no_stall_stands()
     {
         var rig = new TownRig(place: false);
@@ -48,7 +49,7 @@ public sealed class TownStallTests
         Assert.False(rig.Service.InTown);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_stall_whose_marker_the_map_lacks_stands_nowhere_and_the_rest_stand()
     {
         var rig = new TownRig(place: false);
@@ -61,7 +62,7 @@ public sealed class TownStallTests
         Assert.Contains(rig.Owner.Gear.Log.Lines, l => l.Warning && l.Text.Contains("shop_saloon", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Using_a_stall_sends_its_window_before_the_panel_to_its_hero_alone()
     {
         var rig = new TownRig();
@@ -80,7 +81,7 @@ public sealed class TownStallTests
         Assert.Equal((TownRig.Index, "descent_vendor", true), rig.World.Panels.Last());
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Walking_away_from_a_stall_closes_its_window_on_the_client()
     {
         var rig = new TownRig();
@@ -95,7 +96,7 @@ public sealed class TownStallTests
         Assert.Equal((TownRig.Index, "descent_vendor", false), rig.World.Panels.Last());
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_window_opened_by_the_dev_command_stays_open_however_far_the_hero_is()
     {
         var rig = new TownRig();
@@ -107,7 +108,7 @@ public sealed class TownStallTests
         Assert.Equal(TownScreen.Crate, rig.Service.Open(TownRig.Index)?.Screen);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Each_screen_opens_its_own_panel()
     {
         var rig = new TownRig();
@@ -120,7 +121,7 @@ public sealed class TownStallTests
         }
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Opening_another_stall_closes_the_last_ones_panel_first()
     {
         var rig = new TownRig();

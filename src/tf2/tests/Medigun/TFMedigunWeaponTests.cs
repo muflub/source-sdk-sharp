@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -582,7 +583,7 @@ public sealed class TFMedigunWeaponTests
     /// <c>mult_medigun_uberchargerate</c> 1.25 through the real definition, on the
     /// medic's manager as the loadout carries it — one and a quarter of that.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_shipped_kritzkriegs_meter_builds_stock_times_one_point_two_five()
     {
         var kritz = ShippedSchema().Item(35)

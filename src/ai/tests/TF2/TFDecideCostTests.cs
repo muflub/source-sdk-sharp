@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Ai.Replay;
 using SourceSharp.Ai.Server.Senses;
 using SourceSharp.Ai.Tests.Nav;
@@ -118,7 +119,7 @@ public sealed class TFDecideCostTests
         Assert.True(hops >= Bots * 40, $"the control: {hops} hops over the twelve brains");
     }
 
-    [Fact]
+    [NotOnCiFact("a CPU-time bound measured on the owner's machine: a shared runner's slower CPU misses it, and make check holds it here")]
     public void ADecideCostsAtMostTheBound()
     {
         // The thread's CPU time; where a system has no such clock, the wall's.

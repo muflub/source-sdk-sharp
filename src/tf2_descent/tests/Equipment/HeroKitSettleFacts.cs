@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Rules.Hero;
@@ -20,7 +21,7 @@ public sealed class HeroKitSettleFacts
 {
     private static string Primary => TFAmmoNames.Name(TFAmmo.Primary);
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_first_kit_puts_the_starting_weapons_on()
     {
         var rig = new EquipmentRig();
@@ -31,7 +32,7 @@ public sealed class HeroKitSettleFacts
         Assert.Contains("first kit equipped: primary rocket_launcher", rig.Log.Text);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_first_kit_is_put_on_once()
     {
         var rig = new EquipmentRig();
@@ -46,7 +47,7 @@ public sealed class HeroKitSettleFacts
         Assert.Contains(EquipmentRig.Key, rig.Settle.FirstKitDone); // the stimulus: it ran the first time
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Equipping_rebuilds_the_kit_once()
     {
         var rig = new EquipmentRig();
@@ -59,7 +60,7 @@ public sealed class HeroKitSettleFacts
         Assert.Single(rig.Refresh.Holding[TFLoadoutSlot.Primary]!.Attributes);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Equipping_neither_heals_nor_moves_the_hero()
     {
         var rig = new EquipmentRig();
@@ -75,7 +76,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(0, rig.Hero.Engine.CountOf("Entities.Teleport"));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hero_with_no_class_yet_has_no_kit_to_rebuild()
     {
         // Seen live after a map change: a joining hero is "alive" before he has a class, and
@@ -92,7 +93,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(asked, rig.Refresh.Asked);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_maximum_that_falls_holds_the_health_under_it()
     {
         var rig = new EquipmentRig();
@@ -105,7 +106,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(175, rig.Health);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_maximum_that_falls_holds_the_ammo_under_it()
     {
         var rig = new EquipmentRig();
@@ -117,7 +118,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(15, rig.Ammo.Counts[Primary]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_maximum_that_rises_raises_nothing()
     {
         var rig = new EquipmentRig();
@@ -136,7 +137,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(7, rig.Ammo.Counts[Primary]);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_health_under_a_fallen_maximum_stays()
     {
         var rig = new EquipmentRig();
@@ -149,7 +150,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(90, rig.Health);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_change_that_leaves_the_weapons_as_they_were_rebuilds_nothing()
     {
         var rig = new EquipmentRig();
@@ -161,7 +162,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(asked, rig.Refresh.Asked);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_change_that_leaves_the_weapons_as_they_were_still_recomputes_the_sheet()
     {
         // Dog Tags: +5 maximum life.
@@ -174,7 +175,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(life + 5, rig.HeroComponent.Stats!.MaxLife, 3);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_sheet_change_that_wakes_a_weapon_rebuilds_the_kit_at_the_frames_end()
     {
         var rig = InactivePainTrain();
@@ -186,7 +187,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(rebuilt + 1, rig.Refresh.Rebuilt);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Meeting_a_requirement_later_activates_the_item_with_nothing_moved()
     {
         var rig = InactivePainTrain();
@@ -199,7 +200,7 @@ public sealed class HeroKitSettleFacts
         Assert.Same(equipped, rig.Held.Inventory.Equipped);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_sheet_change_that_wakes_nothing_rebuilds_nothing()
     {
         var rig = new EquipmentRig();
@@ -212,7 +213,7 @@ public sealed class HeroKitSettleFacts
         Assert.Empty(rig.Settle.Pending);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_unidentified_item_is_refused_with_the_rules_reason_and_changes_nothing()
     {
         var rig = new EquipmentRig();
@@ -227,7 +228,7 @@ public sealed class HeroKitSettleFacts
         Assert.Equal(rebuilt, rig.Refresh.Rebuilt);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_wrong_class_item_is_refused_with_the_rules_reason_and_changes_nothing()
     {
         var rig = new EquipmentRig();
@@ -240,7 +241,7 @@ public sealed class HeroKitSettleFacts
         Assert.Same(before.Inventory, rig.Held.Inventory);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_equip_asks_the_rules_with_the_heros_live_sheet()
     {
         // The Pain Train asks level 6: the ledger's own copy of the sheet is a new level 1

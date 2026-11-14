@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
@@ -18,7 +19,7 @@ namespace TF2.Descent.Tests.Hero;
 /// </summary>
 public sealed class BeltFacts
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_drink_restores_a_quarter_of_max_life_and_the_count_falls_by_one_through_the_ledger()
     {
         var rig = new BeltRig();
@@ -32,7 +33,7 @@ public sealed class BeltFacts
         Assert.Equal(2, rig.BeltSlot(0)!.Item.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_drink_starts_the_belts_three_second_cooldown_in_ticks()
     {
         var rig = new BeltRig();
@@ -43,7 +44,7 @@ public sealed class BeltFacts
         Assert.Equal((rig.Clock.Tick + 200, 200), rig.Belt.CooldownOf(BeltRig.Index));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_second_drink_inside_the_cooldown_is_refused_and_uses_nothing_and_one_after_it_goes_down()
     {
         var rig = new BeltRig();
@@ -60,7 +61,7 @@ public sealed class BeltFacts
         Assert.Equal(1, rig.BeltSlot(0)!.Item.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Field_rations_raises_the_restore_and_shortens_the_cooldown()
     {
         var rig = new BeltRig();
@@ -74,7 +75,7 @@ public sealed class BeltFacts
         Assert.Equal(140, rig.Belt.CooldownOf(BeltRig.Index).CooldownTicks);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_mana_potion_restores_mana_through_the_hero()
     {
         var rig = new BeltRig();
@@ -88,7 +89,7 @@ public sealed class BeltFacts
         Assert.Equal(max * 0.25, rig.Hero.Mana, 6);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_dead_hero_cannot_drink_and_keeps_the_potion()
     {
         var rig = new BeltRig();
@@ -98,7 +99,7 @@ public sealed class BeltFacts
         Assert.NotNull(rig.BeltSlot(0));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_stunned_hero_cannot_drink_and_keeps_the_potion()
     {
         var rig = new BeltRig();
@@ -109,7 +110,7 @@ public sealed class BeltFacts
         Assert.Equal(100, rig.Gear.Health);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_drink_from_an_empty_slot_is_refused()
     {
         var rig = new BeltRig();
@@ -118,7 +119,7 @@ public sealed class BeltFacts
         Assert.Equal(BeltRefusals.NoSuchSlot, rig.Drink(5).Refusal);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_drink_at_full_life_is_refused_and_uses_nothing_and_starts_no_cooldown()
     {
         var rig = new BeltRig();
@@ -131,7 +132,7 @@ public sealed class BeltFacts
         Assert.Equal((0, 0), rig.Belt.CooldownOf(BeltRig.Index));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_refusal_is_told_to_the_hero()
     {
         var rig = new BeltRig();
@@ -143,7 +144,7 @@ public sealed class BeltFacts
                                                 && c.ArgAs<string>(0).EndsWith(":notice", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_last_potion_of_a_slot_drunk_refills_it_from_the_backpack()
     {
         var rig = new BeltRig();
@@ -159,7 +160,7 @@ public sealed class BeltFacts
     // The belt on the wire
     //-------------------------------------------------------------------------
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void After_a_drink_the_owner_is_sent_his_belt_with_the_count_and_the_cooldown_at_the_frames_end()
     {
         var rig = new BeltRig();
@@ -177,7 +178,7 @@ public sealed class BeltFacts
         Assert.Equal((rig.Clock.Tick + 200, 200), (view.ReadyTick, view.CooldownTicks));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_unchanged_belt_is_not_sent_again_but_a_level_change_sends_it_again()
     {
         var rig = new BeltRig();
@@ -196,7 +197,7 @@ public sealed class BeltFacts
         Assert.Equal((0, 0), (rig.Sent.Seen[^1].Belt.ReadyTick, rig.Sent.Seen[^1].Belt.CooldownTicks));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_frame_with_no_change_sends_nothing()
     {
         var rig = new BeltRig();
@@ -208,7 +209,7 @@ public sealed class BeltFacts
         Assert.Single(rig.Sent.Seen);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_spawn_sends_the_belt_again()
     {
         var rig = new BeltRig();
@@ -221,7 +222,7 @@ public sealed class BeltFacts
         Assert.Equal(2, rig.Sent.Seen.Count);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_belts_bytes_go_to_the_owner_alone()
     {
         var rig = new BeltRig();

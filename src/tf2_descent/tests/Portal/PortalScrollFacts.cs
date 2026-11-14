@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using TF2.Descent.Server;
 using TF2.Descent.Server.Hero;
 using TF2.Descent.Server.Portal;
@@ -33,7 +34,7 @@ public sealed class PortalScrollFacts
         public int Count(int slot) => Belt.Held.Inventory.Backpack.TryGetValue(slot, out var held) ? held.Item.Count : 0;
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_blueprint_read_on_a_level_opens_a_portal_and_uses_one()
     {
         var rig = new ScrollRig();
@@ -47,7 +48,7 @@ public sealed class PortalScrollFacts
         Assert.Equal(PortalState.Open, Assert.Single(rig.Portal.Portals.All).State);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_blueprint_read_in_town_is_refused_and_kept()
     {
         var rig = new ScrollRig();
@@ -60,7 +61,7 @@ public sealed class PortalScrollFacts
         Assert.Equal(3, rig.Count(scroll));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_blueprint_read_with_no_room_in_front_is_refused_and_kept()
     {
         var rig = new ScrollRig();
@@ -74,7 +75,7 @@ public sealed class PortalScrollFacts
         Assert.Equal(3, rig.Count(scroll));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_blueprint_read_by_a_dead_hero_is_refused_and_kept()
     {
         var rig = new ScrollRig();
@@ -89,7 +90,7 @@ public sealed class PortalScrollFacts
         Assert.Empty(rig.Portal.Portals.All);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_second_blueprint_moves_the_portal_and_uses_another()
     {
         var rig = new ScrollRig();

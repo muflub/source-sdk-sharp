@@ -2050,7 +2050,7 @@ public sealed class TFDamageLayerTests
     /// definition on the medic's held item: five saw swings on the victim pay the
     /// quarters — four to the full meter, the fifth held by the cap.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_shipped_ubersaws_hits_pay_a_quarter_of_the_meter_apiece()
     {
         var ubersaw = ShippedSchema().Item(37)
@@ -2714,7 +2714,7 @@ public sealed class TFDamageLayerTests
     /// counts the organ and asks the medigun to keep its 0.15 — the rig facts' ask,
     /// from the item as shipped.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_shipped_vita_saws_melee_hit_banks_an_organ()
     {
         var vita = ShippedSchema().Item(173)

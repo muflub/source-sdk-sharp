@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
@@ -45,7 +46,7 @@ public sealed class GearWearFacts
         }
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_arriving_hero_is_sent_each_worn_slot_as_ok_and_nothing_for_an_empty_one()
     {
         var rig = new Rig();
@@ -55,7 +56,7 @@ public sealed class GearWearFacts
         Assert.Equal(("Rocket Launcher", 60, 60), (rig.Sent.Seen[0].Wear.Name, rig.Sent.Seen[0].Wear.Durability, rig.Sent.Seen[0].Wear.MaxDurability));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Wear_above_the_warning_line_sends_nothing_and_the_point_that_crosses_it_sends_low()
     {
         var rig = new Rig();
@@ -70,7 +71,7 @@ public sealed class GearWearFacts
         Assert.Equal((EquipmentRig.Index, "primary", GearWearLevel.Low, 15, 60), (player, wear.Slot, wear.Level, wear.Durability, wear.MaxDurability));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task Broken_and_then_unusable_are_each_sent_once()
     {
         var rig = new Rig();
@@ -83,7 +84,7 @@ public sealed class GearWearFacts
         Assert.Equal([GearWearLevel.Broken, GearWearLevel.Unusable], rig.Sent.Seen.Select(s => s.Wear.Level));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public async Task A_level_change_sends_every_worn_slot_again()
     {
         var rig = new Rig();
@@ -98,7 +99,7 @@ public sealed class GearWearFacts
         Assert.Equal(GearWearLevel.Low, rig.Sent.Seen.Single(s => s.Wear.Slot == "primary").Wear.Level);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Taking_an_item_off_sends_its_slot_empty()
     {
         var rig = new Rig();

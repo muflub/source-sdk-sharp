@@ -1,5 +1,6 @@
 extern alias client;
 
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Server.OwnerViews;
@@ -199,7 +200,7 @@ public sealed class OwnerCachesTests
         Assert.Single(wire.Log.Warnings);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_servers_own_view_of_a_hero_arrives_whole()
     {
         // The server's sender over a real hero, its bytes delivered to the client's cache.

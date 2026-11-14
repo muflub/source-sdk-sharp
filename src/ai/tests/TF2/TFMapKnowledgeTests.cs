@@ -66,7 +66,7 @@ public sealed class TFMapKnowledgeTests
     /// and says why. Should a reader learn LZMA, this goes red and the knowledge can come from the
     /// lump again.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 content: the Steam install under bin/<config>/content")]
     public void TheShippedTwoFortsEntityLumpIsCompressed()
     {
         string path = RepoLayout.Repo("bin", RepoLayout.Config, "content", "tf", "maps", "ctf_2fort.bsp");

@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using TF2.Descent.Rules.Hero;
 using TF2.Descent.Server.OwnerViews;
 using TF2.Descent.Server.Skills;
@@ -15,7 +16,7 @@ namespace TF2.Descent.Tests.OwnerViews;
 /// </summary>
 public sealed class OwnerClientCommandsTests
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Spending_a_point_on_the_sheet_changes_the_servers_sheet()
     {
         var rig = new OwnerRig();
@@ -29,7 +30,7 @@ public sealed class OwnerClientCommandsTests
         Assert.True(rig.Rules.Heroes.Audit(rig.Hero.Sheet!).Ok);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_spend_with_no_points_changes_nothing_and_tells_why()
     {
         var rig = new OwnerRig();
@@ -41,7 +42,7 @@ public sealed class OwnerClientCommandsTests
         Assert.Equal(("#Descent_Refused_NoPoints", "Aim"), rig.Told.Single());
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_spend_on_no_attribute_changes_nothing_and_tells_why()
     {
         var rig = new OwnerRig();
@@ -54,7 +55,7 @@ public sealed class OwnerClientCommandsTests
         Assert.Equal("#Descent_Refused_UnknownAttribute", rig.Told.Single().Text);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_verb_from_a_player_with_no_hero_passes_on()
     {
         var rig = new OwnerRig();
@@ -62,7 +63,7 @@ public sealed class OwnerClientCommandsTests
         Assert.False(rig.Commands.Handle(TF2.Descent.Tests.Hero.HeroRig.PlayerOf(OwnerRig.Index + 1), OwnerClientCommands.Spend, ["aim", "1"]));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Another_command_passes_on()
     {
         var rig = new OwnerRig();
@@ -70,7 +71,7 @@ public sealed class OwnerClientCommandsTests
         Assert.False(rig.Command("say", "hello"));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Unequipping_and_equipping_through_the_verbs_moves_the_shovel()
     {
         var rig = new OwnerRig();
@@ -86,7 +87,7 @@ public sealed class OwnerClientCommandsTests
         Assert.Empty(rig.Told);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Equipping_an_item_the_hero_fails_is_refused_with_the_reason_and_changes_nothing()
     {
         var rig = new OwnerRig();
@@ -100,7 +101,7 @@ public sealed class OwnerClientCommandsTests
         Assert.Equal(("#Descent_Refused_requirement", "Direct Hit"), rig.Told.Single());
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Moving_a_backpack_item_through_the_verb_moves_it()
     {
         var rig = new OwnerRig();
@@ -112,7 +113,7 @@ public sealed class OwnerClientCommandsTests
         Assert.Equal(id, rig.Gear.Held.Inventory.Backpack[7].Id);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Dropping_a_backpack_item_through_the_verb_puts_it_on_the_floor()
     {
         var rig = new OwnerRig();
@@ -125,7 +126,7 @@ public sealed class OwnerClientCommandsTests
         Assert.Contains(rig.Gear.Ledger.Floor, f => f.Id == id);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Equipping_an_empty_cell_is_refused_as_no_item()
     {
         var rig = new OwnerRig();

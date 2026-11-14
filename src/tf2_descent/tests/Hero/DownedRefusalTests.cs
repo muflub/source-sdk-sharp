@@ -1,5 +1,6 @@
 extern alias client;
 
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -43,7 +44,7 @@ public sealed class DownedRefusalTests
         Assert.Empty(rig.World.Spawned);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_downed_hero_drinks_nothing_and_keeps_the_potion()
     {
         var rig = new BeltRig();
@@ -53,7 +54,7 @@ public sealed class DownedRefusalTests
         Assert.NotNull(rig.BeltSlot(0));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_downed_hero_reads_no_tome_and_keeps_it()
     {
         var rig = new BeltRig();

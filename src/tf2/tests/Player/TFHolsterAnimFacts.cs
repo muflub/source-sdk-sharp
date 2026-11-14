@@ -30,7 +30,7 @@ public sealed class TFHolsterAnimFacts
     /// item's own word — asks inside the window keep the sandwich in the
     /// hands, and the ask past the window's 0.8 s completes the switch.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void TheHolsterAnimHoldsTheSwitchUntilItsWindowPasses()
     {
         var world = HolsterWorld.Hold(holsterSeconds: 0.8f);
@@ -60,7 +60,7 @@ public sealed class TFHolsterAnimFacts
     /// An outgoing item that names no holster time switches at once — the
     /// non-zero arm's control, the same rig with the word off the item.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AnItemWithoutAHolsterTimeSwitchesAtOnce()
     {
         var world = HolsterWorld.Hold(holsterSeconds: null);

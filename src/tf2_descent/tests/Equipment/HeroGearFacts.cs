@@ -1,3 +1,4 @@
+using SourceSharp.Tests;
 using SourceSharp.Abi;
 
 using TF2.Descent.Rules.Hero;
@@ -18,7 +19,7 @@ namespace TF2.Descent.Tests.Gear;
 /// </summary>
 public sealed class HeroGearFacts
 {
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_contributions_are_the_rules_resolution_of_the_equipped_items()
     {
         var rig = new EquipmentRig();
@@ -34,7 +35,7 @@ public sealed class HeroGearFacts
         Assert.Equal(expected, given);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void Armour_counts_on_the_sheet_though_it_has_no_TF_item()
     {
         // The Padded Vest: armour 10, and no TF row.
@@ -47,7 +48,7 @@ public sealed class HeroGearFacts
         Assert.Null(rig.Equipment.TFItemOf(rig.Equipment.Of(EquipmentRig.Index)!, "body"));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void An_inactive_items_contributions_count_for_nothing()
     {
         // A planted Steel Helmet (level 10, brawn 25) on a level 1 soldier.
@@ -63,7 +64,7 @@ public sealed class HeroGearFacts
         Assert.Equal(armour, rig.HeroComponent.Stats!.Armour, 3);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_player_who_is_no_hero_contributes_nothing()
     {
         var rig = new EquipmentRig();
@@ -71,7 +72,7 @@ public sealed class HeroGearFacts
         Assert.Empty(rig.Gear.ContributionsOf(EquipmentRig.Index + 1, rig.HeroComponent.Sheet!));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_hosted_ledger_claims_no_hero()
     {
         // The host's SDK has no equip yet: a hosted hero keeps TF2's own kit.

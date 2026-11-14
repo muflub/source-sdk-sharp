@@ -36,7 +36,7 @@ public sealed class TFJarSpawnFacts
 {
     private const int Attack = (int)InputButtons.Attack;
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AJarIsFullAtSpawn()
     {
         var world = new JarWorld();
@@ -46,7 +46,7 @@ public sealed class TFJarSpawnFacts
         Assert.Equal(1f, world.JarMeter);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_denied_bar_keeps_the_charge_it_carries()
     {
         // Regenerate's deny walk (tf_player.cpp:4103-4112, and the respawn
@@ -63,7 +63,7 @@ public sealed class TFJarSpawnFacts
         Assert.Equal(0.25f, world.JarMeter);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AJarMadeReadyMidLifeIsFull()
     {
         // A kit refresh's fresh give (ITFFreshWeapons): the bar starts as the
@@ -78,7 +78,7 @@ public sealed class TFJarSpawnFacts
         Assert.Equal(1f, world.JarMeter);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void A_denied_bar_made_ready_keeps_its_charge()
     {
         var world = new JarWorld(deniedBar: true);
@@ -97,7 +97,7 @@ public sealed class TFJarSpawnFacts
             AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
             false, false, AttributeValueType.Default, MergedKeys.Block("x"));
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void ASpawnLeavesTheJarFullToo()
     {
         var world = new JarWorld();
@@ -111,7 +111,7 @@ public sealed class TFJarSpawnFacts
         Assert.Equal(1f, world.JarMeter);
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void SelectingAFullJarKeepsItInHand()
     {
         var world = new JarWorld();
@@ -128,7 +128,7 @@ public sealed class TFJarSpawnFacts
         Assert.Equal(JarWorld.Jar, world.Arsenal.ActiveWeaponName(PlayerRig.Player));
     }
 
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void AfterTheThrowTheBarChargesAndTheJarComesBack()
     {
         var world = new JarWorld();

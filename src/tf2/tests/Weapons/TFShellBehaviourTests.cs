@@ -311,7 +311,7 @@ public sealed class TFShellBehaviourTests
     /// crit from its third hit; through this chain nothing does, so the press's
     /// roll is not where that flag came from.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void The_shipped_backburners_burst_rolls_no_crit()
     {
         var world = new TFWeaponWorld();
