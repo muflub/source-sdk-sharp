@@ -246,7 +246,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-nav-tf ai-maps ai-maps-tf windows-cross dedicated join town descent-view descent-rooms descent-level descent-brightness descent-reach descent-budget mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
 help:
@@ -265,6 +265,8 @@ help:
 	@echo "  make town                            generate and compile tf2_descent_town into the tf2_descent mod"
 	@echo "  make descent-rooms [DEPTH=n]         write and pack depth n's Descent room library (MAPTOOLS_DIR=...)"
 	@echo "  make descent-level DEPTH=n SEED=s    lay out, link and preview a Descent level from it"
+	@echo "  make descent-brightness|descent-reach|descent-budget [DESCENT_DEPTHS=1,2,3,4] [DESCENT_SEEDS=1,2,3]"
+	@echo "                                       the Descent levels' gates (tools/descent-gate; MAPTOOLS_DIR=...)"
 	@echo "  make mod-image [CONFIG=release] [MOD_IMAGE=ref]      build (never push) the hosted mod image"
 	@echo "  make local-hosted                    the tf2_descent mod against the host's local service"
 	@echo "  make debug      build with symbols kept in the binaries"
@@ -704,11 +706,14 @@ ai-nav-tf:
 # (-mod-entities) into dNN/maps/tf2_descent-n-ss.bsp, links it again without
 # -mod-entities for the preview (its arrival is then an info_player_start the
 # movement report walks from; with them the mod reads the spawns from the
-# .nav3d and the report reaches nothing), and previews that with where a
-# Heavy can go. The map tools are $(MAPTOOLS_DIR) (the plan's kit needs a
-# checkout whose doors stand on the floor at any height, e.g.
-# MAPTOOLS_DIR=../mt-descent-rooms); a built bin/Release/ssmap.dll there is run
-# directly, else $(SSMAP).
+# .nav3d and the report reaches nothing), keeps only its first spawn (the
+# arrival: tools/descent-preview-spawns, so the preview plans one spawn view,
+# not four of one wall), and previews that with where a Heavy can go and a
+# camera in a corner of each family's first room (MapGen writes them beside
+# the level file, dNN/tf2_descent-n-ss.cameras). The map tools are $(MAPTOOLS_DIR), the
+# checkout at maptools.lock (the kit's doors stand on the floor by its
+# `door_sill floor`); a built bin/Release/ssmap.dll there is run directly,
+# else $(SSMAP).
 # DESCENT_GAME is the game directory the compile and the previews read: by
 # default the tf2_descent mod itself, through DESCENT_VIEW, so the rooms' own
 # materials (game/mod_tf2_descent/materials/descent, the door plugs) resolve
@@ -757,14 +762,30 @@ descent-level: descent-view
 	@echo "==> ssmap link $(DESCENT_LEVEL) for the preview"
 	@$(SSMAP_DESCENT) link $(DESCENT_D)/$(DESCENT_LEVEL).yaml -rooms $(DESCENT_D)/$(DESCENT_LIB).roompack \
 	    -out $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp > $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
+	@tools/descent-preview-spawns $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp >> $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log 2>&1 || { tail -5 $(DESCENT_D)/$(DESCENT_LEVEL)-preview.link.log; exit 1; }
 	@echo "==> ssmap preview $(DESCENT_LEVEL) -movement heavy"
-	@$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -movement heavy \
+	@cams=(); while IFS= read -r c; do cams+=(-camera "$$c"); done < $(DESCENT_D)/$(DESCENT_LEVEL).cameras; \
+	$(SSMAP_DESCENT) preview $(DESCENT_D)/maps/$(DESCENT_LEVEL)-preview.bsp -game "$(DESCENT_GAME)" -movement heavy "$${cams[@]}" \
 	    -out $(DESCENT_D)/$(DESCENT_LEVEL)-preview > $(DESCENT_D)/$(DESCENT_LEVEL).preview.log 2>&1 \
 	    || { tail -20 $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
 	@$(DESCENT_CONTENT_CHECK) $(DESCENT_D)/$(DESCENT_LEVEL).preview.log || { \
 	    echo "error: $(DESCENT_LEVEL) names a material or model $(DESCENT_GAME) does not hold:"; \
 	    grep 'missing' $(DESCENT_D)/$(DESCENT_LEVEL).preview.log; exit 1; }
 	@echo "==> $(DESCENT_D)/$(DESCENT_LEVEL)-preview/sheet.png"
+
+# The Descent levels' gates (plan tasks B4-B6), tools/descent-gate: each builds
+# DESCENT_DEPTHS' libraries and DESCENT_SEEDS' levels of each with the two
+# targets above, then reads the previews and link logs. brightness: the mean
+# lightmap brightness falls strictly from each depth to the next, nothing
+# clipped; reach: a Heavy reaches every room's floor from the spawn, no trap,
+# no stuck spawn (blast-only floor reported); budget: entities and brushes
+# inside the link's limits. The depth list is the scope: depths still grey are
+# left out of it, never let through by a looser limit.
+DESCENT_DEPTHS ?= 1,2,3,4
+DESCENT_SEEDS  ?= 1,2,3
+descent-brightness descent-reach descent-budget:
+	@tools/descent-gate $(patsubst descent-%,%,$@) --depths $(DESCENT_DEPTHS) --seeds $(DESCENT_SEEDS) \
+	    --config $(CONFIG) --maptools "$(MAPTOOLS_DIR)" $(if $(DESCENT_NO_BUILD),--no-build)
 
 # The AI's own test maps (plan_hl2mp_ai §6.6): room libraries and their
 # levels, generated by src/mapgen (`aimaps`) into game/mod_test/maps/src/ai,

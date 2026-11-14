@@ -1,6 +1,6 @@
 # plan_descent_mine_levels.md: the fifteen levels of the Descent mine shaft
 
-Status: reviewed and committed 2026-11-10. Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), waiting on the user's checkpoint.
+Status: reviewed and committed 2026-11-10. Phases 0 to 2 done; Phase 3 (Act I) built and reviewed from its preview sheets on 2026-11-10 (section 1.3a, section 11's status table), a third review pass the same day (brief p3c: the great halls' interiors, a door frame per theme, the boss arenas on the 1024 kit), waiting on the user's checkpoint.
 
 This plan designs the fifteen dungeon levels of TF2 Descent as one mine shaft
 under the town: what each level looks and plays like, the room shapes they are
@@ -50,6 +50,9 @@ nothing more.
 | M22 | A room need not fill its cell. Only the doors are fixed; outlines vary, from variant to variant and from family to family. |
 | M23 | Door frames are static props lining each room's half of a joined doorway, and the kit is cut to the frame. |
 | M24 | Multi-cell rooms and fixed door slots are being added to the map tools. The Descent side adopts them after Act I: footprints in the layout, 2x2 and 3x3 caverns and arenas, and the boss levels off their oversized kits. |
+| M25 | (2026-11-10, the coordinator's brief p3b for the user) Map tools #149 is adopted: `maptools.lock` at 7cdfe4d (SourceSharp.MapFormats 1.0.5, MapTools 1.0.2), the kit asks for `door_sill floor`, and multi-cell rooms join the levels: a footprint in the room name, 2x2 halls from level 2, 2x2 and 3x3 grottos from 6, 2x2 flooded galleries from 8, at most one at 2-4, two at 6-9, three at 11-14 (`DepthTable.BigRoomsAt`). Door slots are adopted in the tools' kit but not yet used by Descent (section 3.2). |
+| M27 | (2026-11-10, the coordinator's brief p3c for the user) Act I's third review: the 2x2 halls become set pieces (a loading dock, a plinth yard, a gallery over the doors) dressed by their theme (track through level 2's yard, a timber headframe at 3, machines and an overhead crane at 2 and 4); tall rooms hang lamps on long cords; one door frame per theme (level 1 the farm frame, 2 a steel channel with planks across its thresholds, 3 a timber set, 4 a heavy steel frame with the stripe on its head); the boss arenas move to the 1024 kit as 2x2, 3x3 and 4x4 rooms that open only where their row joins them, and the oversized kits go. |
+| M26 | (2026-11-10, same brief) Act I's second review: level 1's way in is the Collar's concrete with the town's rock as one band; level 1 hangs boards, a clock and signs on its walls; level 2's track is one line through the tunnels and yards, meeting at the cell faces, with curves and buffer stops, and concrete stairs and square piers; level 3 is broken by a grey seam, paler timber, a darker floor and a cool fill; level 4 keeps one hazard stripe at door heads and deck edges, under paler sodium. |
 
 ### 1.3 Measured in Phase 0 (2026-11-10)
 
@@ -75,15 +78,13 @@ speed and is 15 % too high; that is a report for the map-tools session.
 **The kit.** Commit 064d762ff (`src/mapgen/Descent/`), measured with the
 tools at 9d600ed on a loaded box, so times are about twice noisy.
 
-- **The tools refuse the plan's door.** At 9d600ed a door is centred up the
+- **The tools refused the plan's door.** At 9d600ed a door is centred up the
   cell face and must stand on the floor, which forces `door_height` to
   `cell - 2 x wall` (960 on a 1024 cell) and so allows no room lower than its
-  cell. A two-line change puts the sill on the floor at any door height. It
-  is committed on a local branch of our own clone
-  (`../mt-descent-rooms`, `descent/floor-sill`, 2b3bd46) and everything in
-  this plan is built with that clone. Ten of the tools' 2,390 room facts fail
-  under it: three test the old rule itself, seven use test kits whose doors
-  hang in mid-wall. Upstream needs it as a proper option; that is task H4.
+  cell. Map tools #149 (7cdfe4d, `maptools.lock` since 2026-11-10) added the
+  kit key `door_sill floor`, which stands every door on the floor at any
+  height; every Descent `info_room` writes it (`RoomKit.SillKey`), and the
+  rooms build with the locked tools (task H4, done).
 - **Navigation allows 128 voxels along a cell.** The boss kits use a 32-unit
   voxel (`nav_voxel_size`); the normal kit keeps 16.
 - **Cost.** A six-room normal library packs in 4 to 12 seconds into 17 MB;
@@ -125,9 +126,8 @@ a `gameinfo.txt` mount.
 ### 1.3a Measured in Phase 3, Act I (2026-11-10)
 
 Act I's four levels on the free-form layouts (M19) with the real shapes and
-the dressing, branch `descent-mine-plan`, map tools at
-`../mt-descent-rooms` (`descent/floor-sill`), debug build, three seeds a
-depth. Logs and the review of every sheet: `.scratch/p3-merge/` (untracked).
+the dressing, branch `descent-mine-plan`, map tools at 7cdfe4d (the kit's
+`door_sill floor`), debug build, three seeds a depth. Logs and the review of every sheet: `.scratch/p3-merge/` (untracked).
 
 **Libraries.** 65 rooms a depth at levels 1 to 4 (19 families). Dressed,
 linted and packed by `make descent-rooms` in about two and a half minutes a
@@ -149,16 +149,18 @@ seeds, level 1 scaled to 100):
 
 | Level | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
-| Mean (seeds 1, 2, 3) | 0.2417 (0.228, 0.253, 0.245) | 0.1876 (0.180, 0.189, 0.194) | 0.1511 (0.155, 0.144, 0.155) | 0.1349 (0.137, 0.133, 0.134) |
-| Scaled | 100 | 77.6 | 62.5 | 55.8 |
+| Mean (seeds 1, 2, 3) | 0.2281 (0.213, 0.240, 0.231) | 0.1856 (0.181, 0.187, 0.189) | 0.1682 (0.169, 0.164, 0.172) | 0.1429 (0.139, 0.144, 0.146) |
+| Scaled | 100 | 81.4 | 73.7 | 62.6 |
 | Target (section 6) | 100 | 85 | 70 | 60 |
-| Most clipped | 0.0136 | 0.0175 | 0.0177 | 0.0012 |
+| Most clipped | 0.0094 | 0.0131 | 0.0161 | 0.0010 |
 
-Levels 2 to 4 sit 4 to 8 points under their targets, each step down at least
-6 points: pushing levels 2 and 3 higher put their clipping over 0.02 (floods
-over low drifts, lanterns by walls). Level 3's map entities fell from 315 to
-329 a level to 167 to 171 when its lanterns went from a ring round every room
-to pools.
+After the second review (M26, 2026-11-10, `.scratch/p3b-REVIEW.md`):
+level 2 sits 3.6 under its target, 3 and 4 just over theirs, with more,
+weaker lamps (level 2's floods 140 every 288, level 3's cool fill, level
+4's two work floods at 100). Before it (step 2, map tools 7cdfe4d) the row
+read 100 / 77.7 / 62.6 / 55.9. Level 3 spends 412 to 426 map entities, up
+from 167 to 171 with the cool fill's lights; every level of 2 to 4 holds a
+2x2 hall.
 
 Level 1's way in is the level's brightest view on all three seeds: the
 spawn view from the cage, 0.173 (the preview's per-view mean), against 0.146
@@ -174,11 +176,54 @@ generator error, no jump fallback, no hallway dead end, no dead-end
 fallback, no capped or wasted door, the room budget exact, and every family
 the mix counts a fewest of present.
 
+### 1.3b Measured in the third review (brief p3c, 2026-11-10)
+
+Branch `descent-mine-plan`, map tools 7cdfe4d, debug, three seeds a depth,
+four depths built at once on a loaded box (`.scratch/p3c-build.sh`; review
+log `.scratch/p3c-REVIEW.md`).
+
+**Libraries.** Act I's libraries dress in 100 to 290 s each and pack in 36
+to 175 s, to 242 MB (level 1) and 548 to 634 MB (2 to 4); the larger rooms
+and their dressing roughly doubled packs 2 to 4 (390 MB before).
+
+**Levels** (`make descent-budget`): map entities 105-131 / 167-182 /
+227-241 / 268-287 (levels 1 to 4), brushes 729-790 / 1650-1899 / 2192-2255 /
+2350-2404; level 3 from 412-431, the cool fill one wide light a cell
+instead of one every 384 (its lights 337 of 407 classes before). The
+brush door frames cost one map entity per joined socket per room.
+
+**Brightness** (`make descent-brightness`, at 3c68dd05b; now also every
+room's view under 2 % white, which level 1's shaft foot failed at 0.043):
+
+| Level | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| Mean (seeds 1, 2, 3) | 0.2162 (0.201, 0.229, 0.219) | 0.1884 (0.178, 0.189, 0.198) | 0.1634 (0.168, 0.163, 0.160) | 0.1313 (0.134, 0.129, 0.132) |
+| Scaled | 100 | 87.1 | 75.6 | 60.7 |
+| Target (section 6) | 100 | 85 | 70 | 60 |
+| Most clipped | 0.0065 | 0.0091 | 0.0113 | 0.0004 |
+
+Level 1's spawn view 0.0132 white (mean 0.222), still its brightest. Level
+3 sits over its target: below about 75 its tall rooms read black.
+
+**Boss levels** on the 1024 kit (`make descent-reach` and `descent-budget`
+at depths 5, 10, 15, seeds 1-3, all pass): libraries pack in 9.9 s / 26 MB
+(5), 17.0 s / 33 MB (10), 14.4 s / 34 MB (15); levels link in 3 to 9 s to
+maps of 2 to 3 MB with 45, 65 and 85 map entities.
+
+**The Bore's track on a 3x3** (interior 3040 square, the four outer
+pillars at 896 from the middle, radius 144, the roof pillar radius 224): a
+spiral one lap round the arena 1232 from the middle (clear of the outer
+pillars by 192 for the Tank) is four legs of 2,464, then a fifth of about
+860 in to the roof pillar: about 10,700 units, over section 7's 9,000. The
+spiral still fits; at section 7's 30 units a second the moving time is
+about six minutes instead of five, or the legs run 1,800 with the stations
+nearer the corners.
+
 ### 1.2 Defaults I chose (overrule by editing this table)
 
 | # | Gap | Default |
 |---|---|---|
-| E1 | Cell size and door kit | Normal levels: 1024-unit cell, door 256 wide by 192 high, wall depth 32. Boss levels use a larger cell (section 3.2). |
+| E1 | Cell size and door kit | Every level: 1024-unit cell, door 208 wide by 192 high, wall depth 16 (section 3.1). Boss arenas are rooms of 2x2 to 4x4 cells (section 3.2). |
 | E2 | Libraries | One room library per depth, fifteen in all, each made by the shared shape generators with that depth's theme. The host links one library per level today, and a library carries the level's fog and tone map, which is what makes the darkness a property of the depth. |
 | E3 | Layout | The Descent rules module lays levels out (`TF2DescentRules.GenerateLayout`), not the tools' own generator, because boss placement, the low-room rule and the per-depth sizes are game rules. |
 | E4 | R19's 60 % jump-room share | Held per act (levels 1-5, 6-10, 11-15), not per level, so level 1 can be hallways and level 9 can be low crypts. |
@@ -308,7 +353,7 @@ each room's frame lines exactly its half of a joined doorway.
 | `cell_size` | 1024 | R19's room: a rocket jump needs about 512 of clear air and a 768 run. |
 | Door opening | 208 by 192 | TF2's `props_farm/doorframe002d`, the only framed doorway found that leaves a giant (92 by 156, R16) room under a 256 drift. |
 | `wall_depth` | 16 | Half the frame's 16-unit depth rounded up to the voxel; a wall of 8 packed a library into twice the space and time. |
-| Navigation voxel | 16 (32 on the boss kits) | The tools allow 128 voxels along a cell. Every height and every marker height is a whole number of voxels. |
+| Navigation voxel | 16 | The tools allow 128 voxels along a cell. Every height and every marker height is a whole number of voxels. |
 | Doorway floor | let down 2 under the plug, sill planks over it | `props_gameplay/door_grate003_floorplate` covers the joined doorway's floor, whose faces the room compile culls. |
 | Rooms | any outline inside the cell (M22) | Only the doors are fixed; a room is the union of rectangles, cut on the diagonal or rounded, with necks to its doors. |
 
@@ -323,16 +368,23 @@ Room heights come in four classes:
 
 ### 3.2 Boss levels
 
-A boss arena must be one room, because rooms never open into each other. So
-each boss level has its own kit with a larger cell: 2048 for level 5, 3072
-for level 15, and 4096 for level 10, whose Tank needs a long track (M14). The few other rooms of a boss level are generated on
-that same kit by the same shape generators, so they are larger and grander
-than a normal level's. Section 7 has the arenas.
+A boss arena is one room larger than one cell on the normal kit (M24, M27):
+level 5's 2x2, level 10's 3x3 and level 15's 4x4, each opening only where
+its row joins it (`RoomBuilder.WithSockets`): level 5 in at its west wall's
+south cell and out at its east wall's north cell, level 10 at the middle of
+its west and east walls, level 15 at its west wall's second cell only (the
+bottom). An arena with a socket on every perimeter edge packed in 14.8 s /
+24.9 MB (2x2), 43.1 s / 65.4 MB (3x3) and 118.6 s / 111 MB (4x4); with only
+its row's sockets in 5.8 s / 7.8 MB, 10.5 s / 14.0 MB and 19.0 s / 19.2 MB
+(measured 2026-11-10, `.scratch/p3b-arena`). The name codec spells chosen
+sockets after their side's letter (`arena_b-e1w1-s-3x3-j.s2.b2`), and the
+boss row lays the arena unturned with the arrival and antechamber on its
+west socket's row and the exit off its east socket. The other rooms of a
+boss level are the normal ones. The 2048, 3072 and 4096 kits are gone.
 
-Open areas wider than one cell need multi-cell rooms, which the map tools
-are adding with fixed door slots (M24). The Descent side adopts them after
-Act I: footprints in the layout, 2x2 and 3x3 caverns and arenas, and the
-boss levels moved off their oversized kits.
+Open areas wider than one cell elsewhere are the same multi-cell rooms
+(M24, M25; map tools 7cdfe4d): 2x2 halls (levels 2-4), 2x2 and 3x3 grottos
+(6 on) and 2x2 flooded galleries (8 on).
 
 ## 4. Jump space
 
@@ -446,7 +498,7 @@ depth table, the layout's test catalogue and these generators are held to.
 | Treasure | tag `treasure` | 3 one-door vaults: a cut vault, a round vault behind a turn, a dais up crate steps. |
 | Camp | `room_role up` | Levels 6 and 11 only (M10). |
 | Antechamber | none | Boss levels: the room before the arena. |
-| Arena | `boss_arena` | One per boss kit (§7); level 15's has one door, since it is the bottom. |
+| Arena | `boss_arena` | One per boss depth, a room of 2x2, 3x3 or 4x4 cells (§3.2, §7); level 15's has one socket, since it is the bottom. |
 
 Every combat room declares markers as `info_poi` points, which cost no
 entity: robot pack spawns, and the furniture markers of R24 (shrine,
@@ -510,7 +562,7 @@ at yet; Phase 3 onward opens each one's preview before using it.
 | Light | 100: warm white, daylight down the shaft | 85: white with shadowed side bays | 70: lantern pools | 60: sodium yellow, dusty fog |
 | Way down | Cage | Cage | Cage | Cage |
 
-**Level 5, the Powder Magazine. Boss: Sir Nukesalot.** Kit cell 2048.
+**Level 5, the Powder Magazine. Boss: Sir Nukesalot.** A 2x2 arena on the 1024 kit.
 
 - The level: the lift's last station, an antechamber, the arena. A fixed row
   of three or four rooms; the antechamber is drawn from several variants and
@@ -542,7 +594,7 @@ at yet; Phase 3 onward opens each one's preview before using it.
 Level 6's arrival is a camp (M10): a lit, dressed room with a hoist to the
 town, opened by the level 5 kill.
 
-**Level 10, the Bore. Boss: Major Crits with a Tank.** Kit cell 4096.
+**Level 10, the Bore. Boss: Major Crits with a Tank.** A 3x3 arena on the 1024 kit (its track's fit: section 1.3b).
 
 - The level: arrival, antechamber, arena.
 - The arena: a cavern about 3900 across and 1280 high that Gray Mann's
@@ -586,7 +638,7 @@ town, opened by the level 5 kill.
 
 Level 11's arrival is the second camp (M10), opened by the level 10 kill.
 
-**Level 15, the Pit. Boss: Captain Punch.** Kit cell 3072. `down: none`.
+**Level 15, the Pit. Boss: Captain Punch.** A 4x4 arena on the 1024 kit. `down: none`.
 
 - The level: arrival by the slime slide, a short antechamber, the arena.
 - The arena: a black slime lake about 2900 across under a roof lost in the
@@ -767,23 +819,23 @@ facts and the three gates. "Not done" is what is left.
 | A5 | `JumpTable`, read by every jump feature. | |
 | A6 | Every family of section 5, with a one-door variant of every chamber, hall and shaft; the crypt (new). | Act II and III dressing of them. |
 | A7 | Ways in and down by act, the two camps, antechambers. | |
-| A8 | Placeholder arenas on the boss kits (level 15's of one door). | The Phase 6 arenas, the Bore's track, the breakaway platform. |
-| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`). | Depths 5 to 15 are the grey. |
-| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off. | Handrails on ledges and decks (they stand in the air a ledge's jump needs, which the dressing keeps clear); a door frame per theme (no TF2 frame of a 16 depth fits the kit but the farm frame; a surround is the way). |
+| A8 | Placeholder arenas as 2x2, 3x3 and 4x4 rooms on the normal kit with only their row's sockets (M27); the oversized kits gone. | The Phase 6 arenas, the Bore's track, the breakaway platform. |
+| A9 | Act I's four themes (`Themes/ActOne.cs`, `palettes/d01-d04.tsv`), after the third review (M27): a door frame per theme (the farm model at 1, brush frames at 2 to 4), pendants, the halls' set pieces. | Depths 5 to 15 are the grey. |
+| A10 | The dressing pass: lamps by the route and a cover pass by the lint's own `lit` rule, pools hung from sets or on crates, work lamps, pendants on cords in tall rooms, track on the doors' axes with sidings, sets, pilasters, trim bands and a lower wall band, clutter in groups, machines sized to the room, nothing cutting floor off; larger rooms dressed whole (M27) with their set pieces (a centrepiece on the plinth, a headframe, an overhead crane, a pipe run at height, track through level 2's yard kept per joined socket). | Handrails on ledges and decks (they stand in the air a ledge's jump needs, which the dressing keeps clear); a large jump hall's open floor stays bare (its rocket air). |
 | A11 | `info_poi` markers of every kind, map labels and markers. | |
 | A12 | `library.json` with tags, weights, depths, jump, low, markers, doors, height, focus and a preview camera. | |
 | A13 | `make descent-rooms` and `make descent-level`. | |
 | A14 | Level 1's sky shaft under the town's sun and sky; work floods at its foot. | The sun still cannot reach the cage down 192 of shaft. |
-| A15 | Door frames as static props lining each half of a joined doorway, sill planks, cap panels (M23). | |
-| B1 | Lint facts per rule, plus a giant's reach of every pack spawn. | |
+| A15 | Door frames lining each half of a joined doorway (the farm model as a static prop, or a theme's brush frame as one non-solid `func_brush` per joined socket), sill planks, cap panels (M23, M27); level 2's frames lay planks across the threshold. | |
+| B1 | Lint facts per rule, plus a giant's reach of every pack spawn; the room lint and the dress lint read a larger room's whole footprint and every socket (M27). | |
 | B2 | `DescentPaletteTests` against the database at `~/assetdb`. | |
 | B3 | `DescentMineShaftTests` holds the town to `MineShaft`; level 1's way in is built from the same class. | No fact reads level 1's library for the same values. |
-| B4 | `make descent-brightness`. | Depths 5 to 15 (still grey). |
+| B4 | `make descent-brightness`, with every room's view under 2 % white (M27: level 1's shaft foot was white while the level's share passed). | Depths 5 to 15 (still grey). |
 | B5 | `make descent-reach`, reading every island (`tools/descent-islands`) and accepting a trap only inside the exit's volume. | The per-class report (Scout, Soldier, Demoman floor) of Phase 7. |
 | B6 | `make descent-budget`, with the fog and tone map controllers checked against the library. | |
-| C1 | `LevelLayout`: free-form growth to the room budget (M19), no hallway dead ends (M18), a room at every tunnel's end and no capped door (M20), the adaptive mix (M21). | |
+| C1 | `LevelLayout`: free-form growth to the room budget (M19), no hallway dead ends (M18), a room at every tunnel's end and no capped door (M20), the adaptive mix (M21); rooms larger than one cell (M25, `DepthTable.BigRoomsAt`), laid off a fill room and counted once; chosen sockets in the name codec. | A larger room on the critical path of a normal level (they stand on branches); door slots. |
 | C2 | `DepthTable`, with the mix of section 7 per depth. | |
-| C3 | The boss levels' rows. | |
+| C3 | The boss levels' rows, round a larger arena (M27). | |
 | C4 | 10,000 seeds a depth on the synthetic catalogue; 200 seeds a depth on the real one with no shortfall of any kind. | |
 | C5 | `TownDescents`. | The host and picker wiring (G6, E1). |
 
@@ -846,7 +898,7 @@ Requests to that session; this plan changes nothing there.
 | H1 | Blast-jump reach in the movement simulator | On the branch `claude/blast-reach` |
 | H2 | Scout double and triple jumps in the simulator | To be confirmed |
 | H3 | A full HL2 import into the asset database | TF2 and SDK Base only; needs HL2 installed |
-| H4 | A door that stands on the floor at any height, as an option of the kit | A local two-line change in our clone (section 1.3) |
+| H4 | A door that stands on the floor at any height, as an option of the kit | Done: `door_sill floor`, map tools 7cdfe4d (section 1.3) |
 | H5 | The Scout's air dash at stock's speed in the simulator | 15 % too high |
 | H6 | Faces for a joined doorway's sides, sill and head, or socket furniture kept on both sides | Each joined door costs two `func_brush` entities today |
 
@@ -868,8 +920,8 @@ only one linked level to work against.
    Phase 0's import of full HL2 comes first; then the cave levels (6, 7),
    the flooded and slime levels (8, 12, 14) are re-picked with HL2's caves,
    antlion hive and canal content in the pool.
-4. **Boss arena size.** 2048, 3072 and 4096 are guesses until the bosses
-   exist. A 4096 room is the largest single room anything here has compiled;
-   Phase 0 builds one to see what it costs.
+4. **Boss arena size.** 2x2, 3x3 and 4x4 cells (2048, 3072, 4096 across) are
+   guesses until the bosses exist (they moved to the 1024 kit, M27; their
+   costs are in section 1.3b).
 5. **Room count.** About 32 rooms a library is 480 rooms to compile and
    keep. Phase 0's timing says whether that is cheap.

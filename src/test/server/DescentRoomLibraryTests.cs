@@ -57,6 +57,15 @@ public sealed class DescentRoomLibraryTests
     }
 
     [Fact]
+    public void Every_info_room_asks_the_tools_to_stand_its_doors_on_the_floor()
+    {
+        RoomLibrary lib = Library();
+        var keys = Keys(InfoRoom(lib.Build(), "hall"));
+
+        Assert.Equal("floor", keys["door_sill"]);
+    }
+
+    [Fact]
     public void A_low_room_writes_its_room_height()
     {
         Assert.Equal("256", Keys(InfoRoom(Library().Build(), "drift"))["room_height"]);
@@ -126,7 +135,7 @@ public sealed class DescentRoomLibraryTests
     [Fact]
     public void A_room_on_another_kit_is_refused()
     {
-        Room arena = new RoomBuilder("arena", RoomKit.Boss3072, RoomTheme.Mine).Build();
+        Room arena = new RoomBuilder("arena", RoomKit.For("other", 2048, FrameModel.FarmDoorframe), RoomTheme.Mine).Build();
 
         Assert.Throws<ArgumentException>(() => new RoomLibrary(Kit).Add(arena));
     }
@@ -140,9 +149,10 @@ public sealed class DescentRoomLibraryTests
     }
 
     [Fact]
-    public void A_boss_library_sets_the_navigation_voxel_its_cell_needs()
+    public void A_library_on_a_32_voxel_kit_sets_the_navigation_voxel_its_cell_needs()
     {
-        var lib = new RoomLibrary(RoomKit.Boss4096).Add(new RoomBuilder("arena", RoomKit.Boss4096, RoomTheme.Mine).WithHeight(1280).Build());
+        RoomKit big = RoomKit.For("voxel32", 4096, FrameModel.FarmDoorframe, navVoxel: 32);
+        var lib = new RoomLibrary(big).Add(new RoomBuilder("arena", big, RoomTheme.Mine).WithHeight(1280).Build());
 
         Assert.Contains(new KeyValuePair<string, string>("nav_voxel_size", "32"), lib.Build().World);
     }
@@ -156,7 +166,7 @@ public sealed class DescentRoomLibraryTests
     [Fact]
     public void A_library_on_the_tools_default_voxel_leaves_it_unwritten()
     {
-        Assert.DoesNotContain(new RoomLibrary(RoomKit.Boss2048).Build().World, kv => kv.Key == "nav_voxel_size");
+        Assert.DoesNotContain(new RoomLibrary(RoomKit.For("big", 2048, FrameModel.FarmDoorframe)).Build().World, kv => kv.Key == "nav_voxel_size");
     }
 
     [Fact]

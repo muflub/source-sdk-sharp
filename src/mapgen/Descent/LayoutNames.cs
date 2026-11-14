@@ -73,7 +73,14 @@ public static class LayoutNames
         string prefix = family + "_";
         if (!room.Name.StartsWith(prefix, StringComparison.Ordinal) || room.Name.Length == prefix.Length)
             throw new ArgumentException($"family {family} made a room called {room.Name}; its rooms are named {family}_<variant>");
-        return new LayoutShape(family, room.Name[prefix.Length..], DoorsOf(room.Doors), HeightClassOf(room.Height), FlagsOf(room));
+        return new LayoutShape(family, room.Name[prefix.Length..], DoorsOf(room.Doors), HeightClassOf(room.Height), FlagsOf(room))
+        {
+            CellsX = room.Cells,
+            CellsY = room.Cells,
+            SocketMask = room.SocketEdges is { } edges
+                ? edges.Aggregate(0UL, (m, s) => m | LayoutShape.SocketBit(DoorsOf([s.Face]), s.Offset))
+                : 0,
+        };
     }
 
     /// <summary>The codec's name of a room its author named <c>family_variant</c>.</summary>

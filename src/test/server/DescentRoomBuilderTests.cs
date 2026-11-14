@@ -276,4 +276,23 @@ public sealed class DescentRoomBuilderTests
 
         return (false, seen.Count);
     }
+
+    private static readonly RoomTheme Banded = Theme with { WallLow = new Surface("t/low"), WallBand = 128 };
+
+    [Fact]
+    public void A_tall_wall_is_cut_at_the_band_in_the_low_surface()
+    {
+        Room room = new RoomBuilder("r", Kit, Banded).WithHeight(512).WithDoors(CellFace.West).WithOutline(new Rect(Kit.WallDepth, 256, 768, 768)).Build();
+
+        Assert.Contains(room.World, b => b.Material == "t/low" && b.Mins.Z == Kit.Sill && b.Maxs.Z == Kit.Sill + 128);
+        Assert.DoesNotContain(room.World, b => b.Material == Theme.Wall.Material && b.Mins.Z == Kit.Sill);
+    }
+
+    [Fact]
+    public void A_low_wall_keeps_one_surface()
+    {
+        Room room = new RoomBuilder("r", Kit, Banded).WithHeight(256).WithDoors(CellFace.West).WithOutline(new Rect(Kit.WallDepth, 384, 768, 640)).Build();
+
+        Assert.DoesNotContain(room.World, b => b.Material == "t/low");
+    }
 }

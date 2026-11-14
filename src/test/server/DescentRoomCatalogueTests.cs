@@ -51,7 +51,7 @@ public sealed class DescentRoomCatalogueTests
         var names = Rooms(3).Select(r => r.Name).ToArray();
 
         Assert.Equal(names.Length, names.Distinct().Count());
-        Assert.All(names, n => Assert.True(n.StartsWith("drift_", StringComparison.Ordinal) || n.StartsWith("hall_", StringComparison.Ordinal), n));
+        Assert.All(names, n => Assert.True(n.StartsWith("drift_", StringComparison.Ordinal) || n.StartsWith("gallery_", StringComparison.Ordinal), n));
     }
 
     [Fact]
@@ -63,11 +63,11 @@ public sealed class DescentRoomCatalogueTests
     }
 
     [Fact]
-    public void The_demonstration_drift_is_a_low_corridor_and_the_halls_are_jump_rooms()
+    public void The_demonstration_drift_is_a_low_corridor_and_the_galleries_are_jump_rooms()
     {
         var rooms = Rooms(5);
 
         Assert.All(rooms.Where(r => r.Name.StartsWith("drift_", StringComparison.Ordinal)), r => Assert.True(r.Entry.Low && r.Entry.Tags.Contains("corridor")));
-        Assert.All(rooms.Where(r => r.Name.StartsWith("hall_", StringComparison.Ordinal)), r => Assert.True(r.Entry.Jump));
+        Assert.All(rooms.Where(r => r.Name.StartsWith("gallery_", StringComparison.Ordinal)), r => Assert.True(r.Entry.Jump));
     }
 }

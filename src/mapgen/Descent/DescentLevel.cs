@@ -87,6 +87,9 @@ public static class DescentLevel
     /// each column is padded to its widest cell.
     /// </summary>
     /// <exception cref="ArgumentException">A plan the format cannot hold.</exception>
+    /// <summary>The token of a cell a larger room covers besides its anchor.</summary>
+    public const string CoveredCell = "+";
+
     public static string Write(LevelPlan plan, string library, LevelKeys? keys, IEnumerable<string>? comments = null)
     {
         if (plan.Rows < 1 || plan.Columns < 1 || (long)plan.Rows * plan.Columns > MaxCells)
@@ -102,6 +105,29 @@ public static class DescentLevel
             if (cell is { } taken)
                 throw new ArgumentException($"row {p.Row}, column {p.Column} holds '{taken.Room}' and '{p.Room}'");
             cell = (p.Room, ((p.Rotation / 90) % 4 + 4) % 4);
+        }
+
+        // A room larger than one cell (M24) is written in its anchor, the south-west cell as placed;
+        // every other cell it covers holds '+' (map tools' level file).
+        foreach (Placement p in plan.Placements)
+        {
+            if (!RoomName.TryParse(p.Room, out var shape, out _) || !shape!.IsMultiCell)
+                continue;
+            bool turned = (p.Rotation / 90) % 2 != 0;
+            int w = turned ? shape.CellsY : shape.CellsX, d = turned ? shape.CellsX : shape.CellsY;
+            for (int r = 0; r < d; r++)
+                for (int x = 0; x < w; x++)
+                {
+                    if (r == 0 && x == 0)
+                        continue;
+                    int row = p.Row + r, column = p.Column + x;
+                    if (row >= plan.Rows || column >= plan.Columns)
+                        throw new ArgumentException($"'{p.Room}' at row {p.Row}, column {p.Column} covers ({row}, {column}), outside the {plan.Rows}x{plan.Columns} grid");
+                    ref var covered = ref cells[row * plan.Columns + column];
+                    if (covered is { } taken)
+                        throw new ArgumentException($"'{p.Room}' covers row {row}, column {column}, which holds '{taken.Room}'");
+                    covered = (CoveredCell, 0);
+                }
         }
 
         var text = new StringBuilder();
@@ -188,10 +214,125 @@ public static class DescentLevel
         + (report.JumpFallbackReason is { } why ? "; fallback: " + why : ""),
     ];
 
+    /// <summary>The most per-room cameras a preview gets (one per family placed).</summary>
+    public const int MaxCameras = 12;
+
+    /// <summary>
+    /// The preview's per-room cameras (<c>ssmap preview -camera</c>), one per
+    /// family the level places, at most <see cref="MaxCameras"/>: the room's
+    /// own corner camera from <c>library.json</c> (<see cref="PreviewCamera"/>,
+    /// at a player's eye in a corner of its body looking across it at its
+    /// focus), turned with the room; for a manifest without one, at a
+    /// player's eye on the line from the family's first placed room's first
+    /// door to its focus, 448 short of the focus (96 in from the door at
+    /// least), looking at the focus. Each is labelled with the room's name.
+    /// Each is "x y z pitch yaw fov label" in the linked map's frame: cell
+    /// (row, column) at (column, row) × the cell, turned counter-clockwise
+    /// about its centre by the placement's rotation.
+    /// </summary>
+    public static IReadOnlyList<string> Cameras(LevelPlan plan, string manifestJson)
+    {
+        using var doc = JsonDocument.Parse(manifestJson);
+        var rooms = doc.RootElement.GetProperty("rooms");
+        var cameras = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Placement p in plan.Placements.OrderBy(p => p.Row).ThenBy(p => p.Column))
+        {
+            if (!rooms.TryGetProperty(p.Room, out JsonElement room) || !RoomName.TryParse(p.Room, out var shape, out _) || !seen.Add(shape!.Family))
+                continue;
+            string[] doors = [.. room.GetProperty("doors").EnumerateArray().Select(d => d.GetString() ?? "")];
+            if (doors.Length == 0 || !room.TryGetProperty("focus", out JsonElement f) || !room.TryGetProperty("cell", out JsonElement cellSize))
+                continue;
+            // A larger room turns about its footprint's middle.
+            float cell = cellSize.GetSingle(), m = shape.CellsX * cell / 2;
+            float[] focus = [.. f.EnumerateArray().Select(v => v.GetSingle())];
+            float floor = focus[2];
+            (float X, float Y) Turn((float X, float Y) q)
+            {
+                double a = p.Rotation * Math.PI / 180;
+                float dx = q.X - m, dy = q.Y - m;
+                return (p.Column * cell + m + (float)(dx * Math.Cos(a) - dy * Math.Sin(a)), p.Row * cell + m + (float)(dx * Math.Sin(a) + dy * Math.Cos(a)));
+            }
+
+            // The room's own corner camera (PreviewCamera), turned with the room.
+            if (room.TryGetProperty("camera", out JsonElement cam))
+            {
+                float[] c = [.. cam.EnumerateArray().Select(v => v.GetSingle())];
+                var corner = Turn((c[0], c[1]));
+                cameras.Add(string.Create(CultureInfo.InvariantCulture, $"{Math.Round(corner.X)} {Math.Round(corner.Y)} {c[2]} 6 {Math.Round(((c[3] + p.Rotation) % 360 + 360) % 360)} 90 {p.Room}"));
+                if (cameras.Count == MaxCameras)
+                    break;
+                continue;
+            }
+
+            // On the line from the first door to the focus, 448 short of the focus and 96 in at least:
+            // just inside the room's door.
+            // The door's middle on its wall: a larger room's whole side (its first socket's wall).
+            float e = shape.CellsX * cell;
+            (float X, float Y) door = doors[0] switch
+            {
+                "east" => (e, m),
+                "west" => (0, m),
+                "north" => (m, e),
+                _ => (m, 0),
+            };
+            float fx = focus[0] - door.X, fy = focus[1] - door.Y, length = MathF.Sqrt(fx * fx + fy * fy);
+            float inward = length > 0 ? Math.Max(96, length - 448) / length : 0;
+            (float X, float Y) eye = (door.X + fx * inward, door.Y + fy * inward);
+
+            var at = Turn(eye);
+            var look = Turn((focus[0], focus[1]));
+            double yaw = Math.Atan2(look.Y - at.Y, look.X - at.X) * 180 / Math.PI;
+            cameras.Add(string.Create(CultureInfo.InvariantCulture, $"{Math.Round(at.X)} {Math.Round(at.Y)} {floor + 64} 12 {Math.Round((yaw + 360) % 360)} 90 {p.Room}"));
+            if (cameras.Count == MaxCameras)
+                break;
+        }
+
+        return cameras;
+    }
+
+    /// <summary>
+    /// A preview camera on one joined doorway of the level (the review of 0c79c6fc2: the door frames
+    /// and the track at a door were not in any view): from inside one room of a joint, 320 in and 96
+    /// to the side, looking at the doorway's middle. A joint between a room whose family carries
+    /// track (<paramref name="tracked"/>) and one that does not is chosen first, so the view shows
+    /// how a track that stops at a door reads; null when the level has no joint of rooms of one cell.
+    /// </summary>
+    public static string? DoorwayCamera(LevelPlan plan, IReadOnlySet<string> tracked, int cell = 1024)
+    {
+        var at = new Dictionary<(int, int), (Placement P, Doors Doors, string Family)>();
+        foreach (Placement p in plan.Placements)
+            if (RoomName.TryParse(p.Room, out var shape, out _) && !shape!.IsMultiCell)
+                at[(p.Row, p.Column)] = (p, DoorSets.Rotate(shape.Doors, p.Rotation), shape.Family);
+        (Placement P, Doors Side, int Score)? best = null;
+        foreach (var ((row, column), (p, doors, family)) in at.OrderBy(kv => kv.Key.Item1).ThenBy(kv => kv.Key.Item2))
+            foreach (Doors side in (Doors[])[Doors.North, Doors.East, Doors.South, Doors.West])
+            {
+                if ((doors & side) == 0)
+                    continue;
+                var next = side switch { Doors.North => (row + 1, column), Doors.South => (row - 1, column), Doors.East => (row, column + 1), _ => (row, column - 1) };
+                if (!at.TryGetValue(next, out var other) || (other.Doors & DoorSets.Opposite(side)) == 0)
+                    continue;
+                int score = tracked.Contains(family) && !tracked.Contains(other.Family) ? 2 : tracked.Contains(family) ? 1 : 0;
+                if (best is not { } b || score > b.Score)
+                    best = (p, side, score);
+            }
+        if (best is not { } chosen)
+            return null;
+        float h = cell / 2f, cx = chosen.P.Column * cell + h, cy = chosen.P.Row * cell + h;
+        var (dx, dy) = chosen.Side switch { Doors.North => (0, 1), Doors.South => (0, -1), Doors.East => (1, 0), _ => (-1, 0) };
+        float doorX = cx + dx * h, doorY = cy + dy * h;
+        float eyeX = doorX - dx * 320 + dy * 96, eyeY = doorY - dy * 320 + dx * 96;
+        double yaw = Math.Atan2(doorY - eyeY, doorX - eyeX) * 180 / Math.PI;
+        return string.Create(CultureInfo.InvariantCulture, $"{Math.Round(eyeX)} {Math.Round(eyeY)} 80 6 {Math.Round((yaw + 360) % 360)} 90 doorway {chosen.P.Room}");
+    }
+
     /// <summary>
     /// Lays out a level of <paramref name="depth"/> from the library in
     /// <paramref name="libraryDir"/> and writes its level file to
-    /// <paramref name="output"/>; the layout's error when the pool cannot make one.
+    /// <paramref name="output"/>, and beside it the preview's per-room
+    /// cameras, a line each (<c>.cameras</c>); the layout's error when the
+    /// pool cannot make one.
     /// </summary>
     public static (string? Error, LayoutReport? Report) Generate(string libraryDir, int depth, ulong seed, string output)
     {
@@ -200,6 +341,10 @@ public static class DescentLevel
         if (!result.Ok)
             return (result.Error, null);
         File.WriteAllText(output, Write(result.Plan!, library, LevelKeys.ForDepth(depth), Comments(depth, seed, result.Report!)));
+        var cameras = Cameras(result.Plan!, File.ReadAllText(Path.Combine(libraryDir, "library.json"))).ToList();
+        if (DoorwayCamera(result.Plan!, DescentRooms.ThemeFor(depth).Props.RailFamilies) is { } doorway)
+            cameras.Add(doorway);
+        File.WriteAllLines(Path.ChangeExtension(output, ".cameras"), cameras);
         return (null, result.Report);
     }
 }

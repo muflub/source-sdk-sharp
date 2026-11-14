@@ -8,8 +8,8 @@ namespace SourceSharp.MapGen.Descent.Shapes;
 /// alcove. Levels 7 to 10: the foot of a rubble ramp up to a blocked tunnel
 /// mouth. Levels 12 to 15: under a chute's mouth, a signal bell to be drawn
 /// up. Each with one door, two opposite and two at a corner; each with its
-/// arrival facing into the room and four spawns round it. On a boss kit the
-/// room is a body of the normal size with necks to its doors.
+/// arrival facing into the room and four spawns round it: a body with necks
+/// to its doors.
 /// </summary>
 public static class ArrivalShape
 {
@@ -20,8 +20,7 @@ public static class ArrivalShape
         var rng = new RoomSeed(seed, "arrival");
         foreach (var (id, doors) in DoorSets)
         {
-            if (kit.Cell == 1024)
-                yield return Shaft("arrival_shaft" + id, kit, theme, doors, rng);
+            yield return Shaft("arrival_shaft" + id, kit, theme, doors, rng);
             yield return Cage("arrival_cage" + id, kit, theme, doors, rng);
             yield return Rubble("arrival_rubble" + id, kit, theme, doors, rng);
             yield return Chute("arrival_chute" + id, kit, theme, doors, rng);
@@ -31,7 +30,7 @@ public static class ArrivalShape
     /// <summary>The door sets every way in comes in: one door, two opposite, two at a corner.</summary>
     public static IReadOnlyList<(string Id, CellFace[] Doors)> DoorSets { get; } = [("a", Parts.E), ("b", Parts.WE), ("c", Parts.NE)];
 
-    /// <summary>The room's body: 672 by 640 in the cell's middle (on a boss kit too), room for a cage's alcove off any side.</summary>
+    /// <summary>The room's body: 672 by 640 in the cell's middle, room for a cage's alcove off any side.</summary>
     public static Rect Body(RoomKit kit) => Rect.Around(kit.Cell / 2f, kit.Cell / 2f - 32, 672, 640);
 
     /// <summary>The body and its necks to <paramref name="doors"/>.</summary>

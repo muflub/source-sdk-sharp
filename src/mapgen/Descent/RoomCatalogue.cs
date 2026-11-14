@@ -58,48 +58,60 @@ public sealed class RoomSeed
 
 /// <summary>
 /// The room catalogue: the shape families a library is made of, and the
-/// library and manifest they make. Phase 1's catalogue holds the two
-/// demonstration families; the twenty of plan §5 join it.
+/// library and manifest they make: the mine's families of plan §5 for a
+/// normal depth, a boss level's row, and two of them as a demonstration.
 /// </summary>
 public static class RoomCatalogue
 {
-    /// <summary>The demonstration families: a drift and a hall.</summary>
+    /// <summary>The demonstration families: a connector and a jump hall.</summary>
     public static IReadOnlyList<RoomShape> Demonstration { get; } =
     [
         new("drift", Shapes.DriftShape.Variants),
-        new("hall", Shapes.HallShape.Variants),
+        new("gallery", Shapes.GalleryShape.Variants),
     ];
 
     /// <summary>
-    /// Phase 1's grey catalogue for a normal depth: plain placeholder families
-    /// enough for the layout to make every normal level (connectors of one to
-    /// four doors, chambers and halls of two to four, a shaft, the treasure
-    /// room, the ways in and down and the camps). Each family is its own file in
-    /// <c>Shapes/</c>, so the real shapes of plan §5 replace them one by one.
+    /// The mine's catalogue for a normal depth (plan §5): the real shape
+    /// families, each its own file in <c>Shapes/</c>, with the role rooms each
+    /// depth draws its ways in and down from by their depth ranges.
     /// </summary>
-    public static IReadOnlyList<RoomShape> Grey { get; } =
+    public static IReadOnlyList<RoomShape> Mine { get; } =
     [
         new("drift", Shapes.DriftShape.Variants),
         new("bend", Shapes.BendShape.Variants),
         new("tee", Shapes.TeeShape.Variants),
         new("cross", Shapes.CrossShape.Variants),
+        new("dogleg", Shapes.DoglegShape.Variants),
         new("stub", Shapes.StubShape.Variants),
-        new("chamber", Shapes.ChamberShape.Variants),
-        new("hall", Shapes.HallShape.Variants),
-        new("shaft", Shapes.ShaftShape.Variants),
+        new("widedrift", Shapes.WideDriftShape.Variants),
+        new("pillar", Shapes.PillarShape.Variants),
+        new("split", Shapes.SplitShape.Variants),
+        new("pit", Shapes.PitShape.Variants),
+        new("store", Shapes.StoreShape.Variants),
+        new("yard", Shapes.YardShape.Variants),
+        new("pool", Shapes.PoolShape.Variants),
+        new("stope", Shapes.StopeShape.Variants),
+        new("gallery", Shapes.GalleryShape.Variants),
+        new("chasm", Shapes.ChasmShape.Variants),
+        new("chimney", Shapes.ChimneyShape.Variants),
+        new("cavern", Shapes.CavernShape.Variants),
+        new("hall", Shapes.BigShapes.Hall),
+        new("grotto", Shapes.BigShapes.Grotto),
+        new("flood", Shapes.BigShapes.Flood),
+        new("crypt", Shapes.CryptShape.Variants),
         new("treasure", Shapes.TreasureShape.Variants),
-        new("start", Shapes.StartShape.Variants),
-        new("stairs", Shapes.StairsShape.Variants),
+        new("arrival", Shapes.ArrivalShape.Variants),
+        new("exit", Shapes.ExitShape.Variants),
         new("camp", Shapes.CampShape.Variants),
     ];
 
-    /// <summary>A boss level's row (plan C3): the way in, the antechamber, the arena and the way down, on the boss kit.</summary>
+    /// <summary>A boss level's row (plan C3): the way in, the antechamber, the arena (a room of several cells) and the way down.</summary>
     public static IReadOnlyList<RoomShape> Boss { get; } =
     [
-        new("start", Shapes.StartShape.Variants),
+        new("arrival", Shapes.ArrivalShape.Variants),
         new("antechamber", Shapes.AntechamberShape.Variants),
         new("arena", Shapes.ArenaShape.Variants),
-        new("stairs", Shapes.StairsShape.Variants),
+        new("exit", Shapes.ExitShape.Variants),
     ];
 
     /// <summary>
@@ -121,12 +133,15 @@ public static class RoomCatalogue
     public static Room Named(IEnumerable<Room> rooms, string stem) =>
         rooms.Single(r => r.Name.StartsWith(stem + "-", StringComparison.Ordinal));
 
-    /// <summary>The library of <paramref name="rooms"/> on <paramref name="kit"/>.</summary>
+    /// <summary>The library of <paramref name="rooms"/> on <paramref name="kit"/>, under the town's sky, with the town's sun when a room opens on the sky.</summary>
     public static RoomLibrary Library(RoomKit kit, IEnumerable<Room> rooms)
     {
-        var library = new RoomLibrary(kit);
+        var library = new RoomLibrary(kit, sky: MineShaft.Sky);
         foreach (Room room in rooms)
             library.Add(room);
+        // A sky ceiling (level 1's shaft) is lit by the town's sun (plan §8).
+        if (library.Rooms.Any(r => r.HasSky))
+            library.WithSun(MineShaft.Sun);
         return library;
     }
 }

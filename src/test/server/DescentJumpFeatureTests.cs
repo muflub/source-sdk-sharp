@@ -120,7 +120,7 @@ public sealed class DescentJumpFeatureTests
     [Fact]
     public void A_ledge_on_a_32_voxel_kit_stands_on_a_whole_voxel()
     {
-        RoomKit big = RoomKit.Boss4096;
+        RoomKit big = RoomKit.For("voxel32", 4096, FrameModel.FarmDoorframe, navVoxel: 32);
         Room room = new RoomBuilder("r", big, RoomTheme.Grey).WithHeight(1280).WithDoors(CellFace.West)
             .RocketShelf(CellFace.North, 1800, 2200, t: 0.4f).SteppingPillars(1500, 1500, Compass.East, JumpTier.S2).Build();
 
@@ -130,7 +130,7 @@ public sealed class DescentJumpFeatureTests
     [Fact]
     public void A_triple_jumps_pillars_cannot_stand_on_a_32_voxel_kit()
     {
-        var b = new RoomBuilder("r", RoomKit.Boss4096, RoomTheme.Grey).WithHeight(1280).WithDoors(CellFace.West);
+        var b = new RoomBuilder("r", RoomKit.For("voxel32", 4096, FrameModel.FarmDoorframe, navVoxel: 32), RoomTheme.Grey).WithHeight(1280).WithDoors(CellFace.West);
 
         Assert.Throws<InvalidOperationException>(() => b.SteppingPillars(1500, 1500, Compass.East, JumpTier.S3));
     }

@@ -11,11 +11,11 @@ namespace SourceSharp.Tests;
 /// own facts: its doors, its height class, <c>j</c> from its entry and a flag per
 /// jump tier whose feature it holds.
 /// </summary>
-public sealed class DescentRoomNameTests
+public sealed class DescentRoomNameTests(DescentLibraries libs) : IClassFixture<DescentLibraries>
 {
     /// <summary>Every room of every depth's library.</summary>
-    private static IReadOnlyList<Room> Catalogue() =>
-        [.. Enumerable.Range(1, 15).SelectMany(d => DescentRooms.Rooms(d, 0))];
+    private IReadOnlyList<Room> Catalogue() =>
+        [.. Enumerable.Range(1, 15).SelectMany(d => libs.Rooms(d, 0))];
 
     private static IEnumerable<JumpTier> TiersOf(JumpFlags flags)
     {
@@ -66,11 +66,11 @@ public sealed class DescentRoomNameTests
     }
 
     [Fact]
-    public void The_hall_is_named_from_its_doors_height_and_features()
+    public void A_gallery_is_named_from_its_doors_height_and_features()
     {
-        Room hall = RoomCatalogue.Named(DescentRooms.Rooms(1, 0), "hall_we");
+        Room gallery = RoomCatalogue.Named(libs.Rooms(1, 0), "gallery_b");
 
-        Assert.Equal("hall_we-ew-h-j.s2.b1", hall.Name);
+        Assert.Equal("gallery_b-ew-h-j.b1.b2", gallery.Name);
     }
 
     [Theory]

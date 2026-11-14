@@ -50,6 +50,7 @@ public static class RoomLint
     /// <summary>Every finding for the room, rule by rule.</summary>
     public static IReadOnlyList<LintFinding> Check(Room room)
     {
+        // A larger room is read over its whole footprint and every socket it has (M24).
         var columns = new RoomColumns(room);
         return [.. CheckSealed(room), .. CheckDoorsOnKit(room), .. CheckMarkerFloor(room, columns), .. CheckJumpClearAir(room, columns),
                 .. CheckLedgePays(room, columns), .. CheckInsideCell(room), .. CheckFrameClear(room), .. CheckDoorPath(room, columns),
@@ -63,7 +64,7 @@ public static class RoomLint
     public static IEnumerable<LintFinding> CheckSealed(Room room)
     {
         RoomKit kit = room.Kit;
-        int n = kit.Cell / Grid, nz = room.Height / Grid;
+        int n = room.Extent / Grid, nz = room.Height / Grid;
         var solid = new bool[n, n, nz];
         foreach (Brush b in room.World)
         {
@@ -76,9 +77,9 @@ public static class RoomLint
 
         var seen = new bool[n, n, nz];
         var queue = new Queue<(int X, int Y, int Z)>();
-        foreach (CellFace face in room.Doors)
+        foreach (var (face, offset) in room.Sockets)
         {
-            Point inside = DoorInside(kit, face, 48) with { Z = kit.Sill + 40 };
+            Point inside = room.DoorInside(face, offset, 48) with { Z = kit.Sill + 40 };
             var (x, y, z) = ((int)(inside.X / Grid), (int)(inside.Y / Grid), (int)(inside.Z / Grid));
             if (!solid[x, y, z] && !seen[x, y, z])
             {
@@ -117,21 +118,21 @@ public static class RoomLint
     {
         RoomKit kit = room.Kit;
         var plugMaterials = new HashSet<string>(StringComparer.Ordinal);
-        foreach (CellFace face in room.Doors)
+        foreach (var (face, offset) in room.Sockets)
         {
-            var (mins, maxs) = kit.PlugBox(face);
+            var (mins, maxs) = room.PlugBox(face, offset);
             var plugs = room.World.Where(b => b.IsBox && b.Mins == mins && b.Maxs == maxs).ToArray();
             if (plugs.Length != 1)
             {
                 yield return new LintFinding(DoorsOnKit, room.Name,
-                    $"its {RoomBuilder.WallName(face)} door has {plugs.Length} plugs filling the kit's opening ({mins})-({maxs}); a socket has one");
+                    $"its {room.SocketName(face, offset)} door has {plugs.Length} plugs filling the kit's opening ({mins})-({maxs}); a socket has one");
                 continue;
             }
 
             plugMaterials.Add(plugs[0].Material);
         }
 
-        var openings = room.Doors.Select(kit.PlugBox).ToHashSet();
+        var openings = room.Sockets.Select(s => room.PlugBox(s.Face, s.Offset)).ToHashSet();
         foreach (Brush b in room.World.Where(b => plugMaterials.Contains(b.Material) && !openings.Contains((b.Mins, b.Maxs))))
             yield return new LintFinding(DoorsOnKit, room.Name,
                 $"a {b.Material} brush ({b.Mins})-({b.Maxs}) is a plug off the kit's openings");
@@ -196,7 +197,7 @@ public static class RoomLint
     {
         if (!room.Entry.Jump)
             yield break;
-        var reached = columns.ReachableAtT1(room.Doors.Select(face => DoorInside(room.Kit, face, 48)));
+        var reached = columns.ReachableAtT1(room.Sockets.Select(s => room.DoorInside(s.Face, s.Offset, 48)));
         var (clear, floor, run) = columns.ClearAir(JumpTable.RocketClearAir, reached);
         if (clear * 2 < floor)
             yield return new LintFinding(JumpClearAir, room.Name,
@@ -213,7 +214,7 @@ public static class RoomLint
     public static IEnumerable<LintFinding> CheckLedgePays(Room room, RoomColumns columns)
     {
         RoomKit kit = room.Kit;
-        var starts = room.Doors.Select(face => DoorInside(kit, face, 48)).ToArray();
+        var starts = room.Sockets.Select(s => room.DoorInside(s.Face, s.Offset, 48)).ToArray();
         var reached = columns.ReachableAtT1(starts);
         int reach = JumpTable.CriticalPathReach;
         float floor = kit.Sill;
@@ -244,7 +245,7 @@ public static class RoomLint
 
     public static IEnumerable<LintFinding> CheckInsideCell(Room room)
     {
-        float c = room.Kit.Cell, h = room.Height;
+        float c = room.Extent, h = room.Height;
         bool Inside(Point p) => p.X >= 0 && p.Y >= 0 && p.Z >= 0 && p.X <= c && p.Y <= c && p.Z <= h;
         foreach (Brush b in room.World.Concat(room.Entities.SelectMany(e => e.Brushes)))
             if (!Inside(b.Mins) || !Inside(b.Maxs))
@@ -260,14 +261,15 @@ public static class RoomLint
     public static IEnumerable<LintFinding> CheckFrameClear(Room room)
     {
         RoomKit kit = room.Kit;
-        if (room.Doors.Count > 0 && (kit.ClearWidth < RoomKit.GiantWidth || kit.ClearHeight < RoomKit.GiantHeight))
+        if (room.Sockets.Any() && (kit.ClearWidth < RoomKit.GiantWidth || kit.ClearHeight < RoomKit.GiantHeight))
             yield return new LintFinding(FrameClear, room.Name,
                 $"the {kit.Name} kit's frame ({kit.Frame.Model}) leaves {kit.ClearWidth} by {kit.ClearHeight}, less than a giant's {RoomKit.GiantWidth} by {RoomKit.GiantHeight}");
-        foreach (CellFace face in room.Doors)
+        foreach (var (face, offset) in room.Sockets)
         {
-            string wall = RoomBuilder.WallName(face);
+            string wall = room.SocketName(face, offset);
             var pieces = room.Entities.Where(e => e.ClassName == "prop_static" && e.Key("room_needs") == "joined_" + wall).ToArray();
-            int frames = pieces.Count(e => e.Key("model") == kit.Frame.Model);
+            var brushFrames = room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("room_needs") == "joined_" + wall).ToArray();
+            int frames = pieces.Count(e => e.Key("model") == kit.Frame.Model) + brushFrames.Length;
             int sills = kit.Frame.Sill is { } sill ? pieces.Count(e => e.Key("model") == sill.Model) : 0;
             int need = RoomBuilder.SillInsets(kit).Count;
             if (frames != 1 || sills != need)
@@ -277,8 +279,21 @@ public static class RoomLint
                 continue;
             }
 
-            if (pieces.Any(e => e.Key("solid") != "0"))
+            if (pieces.Any(e => e.Key("solid") != "0") || brushFrames.Any(e => e.Key("Solidity") != "1"))
+            {
                 yield return new LintFinding(FrameClear, room.Name, $"its {wall} door's frame is solid; only the brushes may make the passage");
+                continue;
+            }
+
+            // A brush frame leaves a giant's 92 by 156 through the opening (planks a step high are walked over).
+            var (pmins, pmaxs) = room.PlugBox(face, offset);
+            bool alongY = face is CellFace.East or CellFace.West;
+            float mid = alongY ? (pmins.Y + pmaxs.Y) / 2 : (pmins.X + pmaxs.X) / 2, g = RoomKit.GiantWidth / 2f;
+            Point gmin = alongY ? new(pmins.X - 64, mid - g, kit.Sill + Step) : new(mid - g, pmins.Y - 64, kit.Sill + Step);
+            Point gmax = alongY ? new(pmaxs.X + 64, mid + g, kit.Sill + RoomKit.GiantHeight) : new(mid + g, pmaxs.Y + 64, kit.Sill + RoomKit.GiantHeight);
+            if (brushFrames.SelectMany(e => e.Brushes).FirstOrDefault(b => b.Overlaps(gmin, gmax)) is { } narrow)
+                yield return new LintFinding(FrameClear, room.Name,
+                    $"its {wall} door's frame brush ({narrow.Mins})-({narrow.Maxs}) stands in a giant's {RoomKit.GiantWidth} by {RoomKit.GiantHeight} way through");
         }
     }
 
@@ -291,9 +306,10 @@ public static class RoomLint
         // A pack's robots come in at its spawn and walk out to the doors, giants among them: a giant
         // walks from a door to every pack spawn on the floor, in a room of one door too (a vault whose
         // mouth its corners close is floor no giant, and barely a Heavy, reaches).
-        if (room.Doors.Count > 0)
+        var sockets = room.Sockets.ToArray();
+        if (sockets.Length > 0)
         {
-            var fromDoor = columns.ReachableWalking([DoorInside(room.Kit, room.Doors[0], 48)], GiantWidth, GiantHeight);
+            var fromDoor = columns.ReachableWalking([room.DoorInside(sockets[0].Face, sockets[0].Offset, 48)], GiantWidth, GiantHeight);
             // Within a giant's half-width and a column of the spawn: a pack spawns over a radius, and a
             // spawn by a wall or a pillar is closer to it than a giant's middle can stand.
             const float near = GiantWidth / 2f + Grid;
@@ -305,21 +321,19 @@ public static class RoomLint
                                                              && columns.SurfaceUnder(m.At.X, m.At.Y, m.At.Z + Step) is { } s && Math.Abs(s.Z - m.At.Z) <= Step))
                 if (!Reached(at))
                     yield return new LintFinding(DoorPath, room.Name,
-                        $"a giant ({GiantWidth} by {GiantHeight}) walking from its {RoomBuilder.WallName(room.Doors[0])} door does not reach the pack spawn at ({at})");
+                        $"a giant ({GiantWidth} by {GiantHeight}) walking from its {room.SocketName(sockets[0].Face, sockets[0].Offset)} door does not reach the pack spawn at ({at})");
         }
 
-        if (room.Doors.Count < 2)
+        if (sockets.Length < 2)
             yield break;
-        foreach (CellFace from in room.Doors)
+        // Every pair: a walk may drop off a ledge it cannot climb back, so reach is not symmetric.
+        foreach (var (from, fromOffset) in sockets)
         {
-            var reached = columns.ReachableWalking([DoorInside(room.Kit, from, 48)], GiantWidth, GiantHeight);
-            foreach (CellFace to in room.Doors.Where(d => d != from))
-            {
-                Point p = DoorInside(room.Kit, to, 48);
-                if (!columns.Reaches(reached, p))
+            var reached = columns.ReachableWalking([room.DoorInside(from, fromOffset, 48)], GiantWidth, GiantHeight);
+            foreach (var (to, toOffset) in sockets.Where(s => s != (from, fromOffset)))
+                if (!columns.Reaches(reached, room.DoorInside(to, toOffset, 48)))
                     yield return new LintFinding(DoorPath, room.Name,
-                        $"a giant ({GiantWidth} by {GiantHeight}) walking on steps of {Step} from its {RoomBuilder.WallName(from)} door does not reach its {RoomBuilder.WallName(to)} door");
-            }
+                        $"a giant ({GiantWidth} by {GiantHeight}) walking on steps of {Step} from its {room.SocketName(from, fromOffset)} door does not reach its {room.SocketName(to, toOffset)} door");
         }
     }
 
@@ -343,11 +357,11 @@ public static class RoomLint
         if (packs.Length is < 2 or > 4)
             yield return new LintFinding(MarkerCount, room.Name, $"a combat room has {packs.Length} pack spawns; it has 2 to 4");
         foreach (var (_, at) in packs)
-            foreach (CellFace face in room.Doors)
+            foreach (var (face, offset) in room.Sockets)
             {
-                Point door = DoorInside(room.Kit, face, 0);
+                Point door = room.DoorInside(face, offset, 0);
                 if (Math.Sqrt((at.X - door.X) * (at.X - door.X) + (at.Y - door.Y) * (at.Y - door.Y)) < PackFromDoor)
-                    yield return new LintFinding(MarkerCount, room.Name, $"a pack spawn at ({at}) is within {PackFromDoor} of its {RoomBuilder.WallName(face)} door");
+                    yield return new LintFinding(MarkerCount, room.Name, $"a pack spawn at ({at}) is within {PackFromDoor} of its {room.SocketName(face, offset)} door");
             }
 
         int furniture = markers.Count(m => m.Kind is MarkerKind.Shrine or MarkerKind.Container or MarkerKind.Dispenser or MarkerKind.Barrel or MarkerKind.Trap
@@ -412,7 +426,7 @@ public static class RoomLint
     /// <summary>The floor the lit rule reads: every surface a standing player walks to from one of the room's doors.</summary>
     public static IReadOnlyList<RoomColumns.Surface> WalkedFloor(Room room, RoomColumns columns)
     {
-        var reached = columns.ReachableWalking(room.Doors.Select(f => DoorInside(room.Kit, f, 48)), RoomLint.HullWidth, RoomLint.HullHeight);
+        var reached = columns.ReachableWalking(room.Sockets.Select(s => room.DoorInside(s.Face, s.Offset, 48)), RoomLint.HullWidth, RoomLint.HullHeight);
         return [.. columns.Surfaces().Where(s => reached.Contains(s.Key))];
     }
 
@@ -486,10 +500,10 @@ public sealed class RoomColumns
     {
         this.room = room;
         RoomKit kit = room.Kit;
-        n = kit.Cell / RoomLint.Grid;
-        var plugs = room.Doors.Select(kit.PlugBox).ToHashSet();
+        n = room.Extent / RoomLint.Grid;
+        var plugs = room.Sockets.Select(s => room.PlugBox(s.Face, s.Offset)).ToHashSet();
         var solids = room.World.Where(b => !(b.IsBox && plugs.Contains((b.Mins, b.Maxs))))
-            .Concat(room.Entities.Where(e => e.ClassName == "func_brush").SelectMany(e => e.Brushes)).ToArray();
+            .Concat(room.Entities.Where(e => e.ClassName == "func_brush" && e.Key("Solidity") != "1").SelectMany(e => e.Brushes)).ToArray();
         Solids = solids;
         columns = new Surface[n * n][];
         for (int i = 0; i < n; i++)

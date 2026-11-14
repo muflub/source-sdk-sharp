@@ -84,7 +84,9 @@ public static class JumpFeatures
         {
             at = Along(new(x, y, 0), toward, i * pitch);
             int h = i == 0 ? first : top;
-            b.WithBrush(Brush.Prism(at.X, at.Y, radius, 12, b.Floor, b.Floor + h, b.Theme.Block));
+            b.WithBrush(b.Theme.SquarePillars
+                ? Brush.Box(new(at.X - radius, at.Y - radius, b.Floor), new(at.X + radius, at.Y + radius, b.Floor + h), b.Theme.Block)
+                : Brush.Prism(at.X, at.Y, radius, 12, b.Floor, b.Floor + h, b.Theme.Block));
             if (i == count - 1)
                 b.WithMarker(reward, new(at.X, at.Y, b.Floor + h));
         }

@@ -22,10 +22,10 @@ public static class Parts
     public static Lamp ConnectorLamp { get; } = Lamp.Default with { Brightness = 45 };
 
     /// <summary>A chamber's lamp: reaching a 512 room's floor from under its ceiling.</summary>
-    public static Lamp ChamberLamp { get; } = Lamp.Default with { Brightness = 80, FiftyPercent = 320, ZeroPercent = 900 };
+    public static Lamp ChamberLamp { get; } = Lamp.Default with { Brightness = 70, FiftyPercent = 320, ZeroPercent = 900 };
 
     /// <summary>A hall's lamp, hung about 448 up.</summary>
-    public static Lamp HallLamp { get; } = Lamp.Default with { Brightness = 100, FiftyPercent = 384, ZeroPercent = 1024 };
+    public static Lamp HallLamp { get; } = Lamp.Default with { Brightness = 85, FiftyPercent = 384, ZeroPercent = 1024 };
 
     /// <summary>A lamp hung high in a shaft over its ledges.</summary>
     public static Lamp HighLamp { get; } = HallLamp with { Brightness = 70 };
@@ -34,7 +34,7 @@ public static class Parts
     public const int ConnectorLampAbove = 168;
 
     /// <summary>Where a chamber's lamps hang, above its floor.</summary>
-    public const int ChamberLampAbove = 384;
+    public const int ChamberLampAbove = 320;
 
     /// <summary>Where a hall's lamps hang, above its floor.</summary>
     public const int HallLampAbove = 448;
@@ -185,7 +185,11 @@ public static class Parts
 
     /// <summary>A round pillar, floor to ceiling, in the theme's block.</summary>
     public static RoomBuilder Pillar(this RoomBuilder b, float x, float y, float radius, int sides = 8)
-        => b.WithBrush(Brush.Prism(x, y, radius, sides, b.Floor, b.CeilingUnderside, b.Theme.Block, startDegrees: 180f / sides));
+        => b.WithBrush(b.Theme.SquarePillars
+            // A square pier no wider than the round pillar's flats (the inscribed square of its circle).
+            ? Brush.Box(new(x - MathF.Round(radius * 0.7f), y - MathF.Round(radius * 0.7f), b.Floor),
+                new(x + MathF.Round(radius * 0.7f), y + MathF.Round(radius * 0.7f), b.CeilingUnderside), b.Theme.Block)
+            : Brush.Prism(x, y, radius, sides, b.Floor, b.CeilingUnderside, b.Theme.Block, startDegrees: 180f / sides));
 
     /// <summary>A square post, floor to ceiling, in the theme's block.</summary>
     public static RoomBuilder Post(this RoomBuilder b, float x, float y, float half)

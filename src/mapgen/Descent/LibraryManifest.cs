@@ -28,7 +28,9 @@ public sealed record RoomEntry(IReadOnlyList<string> Tags, int Weight = 1, int M
 /// <c>weight</c>, <c>depths</c> [min, max], <c>jump</c>, <c>low</c> and
 /// <c>markers</c>, the fields its lint reads; plus <c>doors</c> (the walls a
 /// room opens on) and <c>height</c>, which plan task G1 asks the host to
-/// read and which it ignores until then.
+/// read and which it ignores until then, and <c>focus</c> (where a
+/// visitor's eye goes, room-local) and <c>cell</c>, which the preview's
+/// per-room cameras read (<see cref="DescentLevel.Cameras"/>).
 /// </summary>
 public static class LibraryManifestWriter
 {
@@ -76,6 +78,21 @@ public static class LibraryManifestWriter
                     w.WriteStringValue(RoomBuilder.WallName(face));
                 w.WriteEndArray();
                 w.WriteNumber("height", room.Height);
+                w.WriteStartArray("focus");
+                w.WriteNumberValue(room.Focus.X);
+                w.WriteNumberValue(room.Focus.Y);
+                w.WriteNumberValue(room.Focus.Z);
+                w.WriteEndArray();
+                w.WriteNumber("cell", room.Kit.Cell);
+                if (room.Cells > 1)
+                    w.WriteNumber("cells", room.Cells);
+                var (at, yaw) = PreviewCamera.Of(room);
+                w.WriteStartArray("camera");
+                w.WriteNumberValue(at.X);
+                w.WriteNumberValue(at.Y);
+                w.WriteNumberValue(at.Z);
+                w.WriteNumberValue(yaw);
+                w.WriteEndArray();
                 w.WriteEndObject();
             }
 

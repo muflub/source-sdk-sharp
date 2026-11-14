@@ -15,25 +15,15 @@ public sealed class DescentRoomKitTests
         Assert.Equal((1024, 208, 192, 16, 16), (kit.Cell, kit.DoorWidth, kit.DoorHeight, kit.WallDepth, kit.NavVoxel));
     }
 
-    [Theory]
-    [InlineData("boss2048", 2048, 16)]
-    [InlineData("boss3072", 3072, 32)]
-    [InlineData("boss4096", 4096, 32)]
-    public void A_boss_kit_keeps_the_frames_door_on_its_larger_cell_with_a_wall_of_one_voxel(string name, int cell, int voxel)
-    {
-        RoomKit kit = new[] { RoomKit.Boss2048, RoomKit.Boss3072, RoomKit.Boss4096 }.Single(k => k.Name == name);
-
-        Assert.Equal((cell, 208, 192, voxel, voxel), (kit.Cell, kit.DoorWidth, kit.DoorHeight, kit.WallDepth, kit.NavVoxel));
-    }
+    /// <summary>A kit on a 32-unit voxel, as a cell over 2048 would take (the tools allow 128 voxels a cell).</summary>
+    private static readonly RoomKit Voxel32 = RoomKit.For("voxel32", 3072, FrameModel.FarmDoorframe, navVoxel: 32);
 
     [Theory]
     [InlineData("normal")]
-    [InlineData("boss2048")]
-    [InlineData("boss3072")]
-    [InlineData("boss4096")]
+    [InlineData("voxel32")]
     public void Every_kits_floor_is_a_whole_number_of_navigation_voxels(string name)
     {
-        RoomKit kit = new[] { RoomKit.Normal, RoomKit.Boss2048, RoomKit.Boss3072, RoomKit.Boss4096 }.Single(k => k.Name == name);
+        RoomKit kit = new[] { RoomKit.Normal, Voxel32 }.Single(k => k.Name == name);
 
         Assert.Equal(0, kit.Sill % kit.NavVoxel);
     }
@@ -63,22 +53,12 @@ public sealed class DescentRoomKitTests
         Assert.Equal(kit.Cell, outer);
     }
 
-    [Fact]
-    public void The_pinned_tools_refuse_the_plans_kit_and_take_its_full_height_door_variant()
-    {
-        Assert.False(RoomKit.Normal.ToolsAccept);
-        Assert.True(RoomKit.Normal.WithFullHeightDoors().ToolsAccept);
-        Assert.Equal(RoomKit.Normal.Interior, RoomKit.Normal.WithFullHeightDoors().DoorHeight);
-    }
-
     [Theory]
     [InlineData("normal")]
-    [InlineData("boss2048")]
-    [InlineData("boss3072")]
-    [InlineData("boss4096")]
+    [InlineData("voxel32")]
     public void Every_kit_fits_its_cell_in_the_tools_navigation_voxel_limit(string name)
     {
-        RoomKit kit = new[] { RoomKit.Normal, RoomKit.Boss2048, RoomKit.Boss3072, RoomKit.Boss4096 }.Single(k => k.Name == name);
+        RoomKit kit = new[] { RoomKit.Normal, Voxel32 }.Single(k => k.Name == name);
 
         Assert.InRange(kit.Cell / kit.NavVoxel, 1, RoomKit.MaxNavVoxelsPerCell);
         Assert.Equal(0, kit.Cell % kit.NavVoxel);

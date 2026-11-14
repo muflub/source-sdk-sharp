@@ -1,0 +1,43 @@
+# Palette of depth 4 (the Mill), plan_descent_mine_levels.md E7 and task B2.
+# One row per asset the theme names: asset, kind (material, static, dynamic), role, why.
+# Chosen by query of /home/lodle/assetdb (category, average_colour luminance L, maps of the
+# mine set pl_upward/pl_goldrush/cp_dustbowl/pl_frontier/... that use it as 'mine n/m') and looked at.
+# DescentPaletteTests holds every row to the theme and to the database. '# rejected' lines are notes.
+asset	kind	role	why
+nature/gravelcoal001	material	floor	coal gravel, L58, the darkest floor of the act; the plan's
+metal/wall021	material	wall	dark grey steel plates, L93, neutral: under sodium light the yellow is the light's, not the wall's (review 2026-11-10: 'one mustard colour'); mine set 64 maps
+concrete/concretefloor007b	material	ceiling	grey cracked concrete roof, L96; mine 12/99
+metal/imetal002	material	block	dark blue-grey diamond plate for decks and pillars, L91; 53 maps
+metal/ibeam001b	material	trim	dark steel sets, L99; mine 19/222
+metal/ibeam001b	material	door-frame	the door frame of brushes (review 2026-11-10): a heavy steel frame, posts and head of the sets' steel with a wide flange round the opening
+props/hazardstrip001a	material	door-frame-stripe	the hazard stripe on the frame's head flange, the Mill's one stripe at door heads
+props_gameplay/door_grate003_floorplate	static	door-sill	covers the doorway's floor under the plugs; no prop_data so it stays static; mine 13/75
+props_gameplay/security_fence_light01	static	lamp	a gooseneck yard lamp on the walls, sodium yellow, few; mine 17/120
+props_farm/welding_machine01	static	wall-prop	a welding set; mine 14/88
+props_mining/junctionbox02	static	wall-prop	switchgear; mine 17/133
+props_mining/computer_industrial04	static	wall-prop	a machine panel; mine 14/75
+props_badlands/barrel01	static	corner-pile	yellow hazard drums; mine 8/69
+props_badlands/barrel03	static	corner-pile	yellow radioactive drums; mine 7/69
+props_mining/factory_pipe003	static	corner-pile	a big duct bend in the corners of halls; mine 7/58
+props_mining/generator01	static	floor-prop	the plan's generator, 232 across, only on a hall's open floor; mine 2/14
+props_hydro/3pipe_straight_256	static	ceiling-run	three pipes along the walls under the roof; mine 8/85
+# rejected metal/metalgrate011a (the plan's floor): alpha-tested, so a floor slab of it would show the void
+# rejected props_mining/crane001_small (the plan's): no collision
+# rejected props_hydro/construction_light (the plan's): a small box light with its origin at its top, hung from nothing
+# rejected props_spytech/doorframe004d: a steel frame, but 140 high, under a giant's 156
+# rejected metal/wall026 (the plan's wall) and metal/wall027 as walls: rust under sodium light reads as level 3's orange again
+# replaced 2026-11-10 (review: 'level 4 is one mustard colour'): metal/imetal006 walls (grey-olive, went mustard under sodium) by metal/wall021; metal/wall027 decks by metal/imetal002
+# rejected metal/imetal001 as the roof: a second diamond plate over diamond-plate walls
+metal/metalpanel01	material	wall-low	machine-green painted steel below 192: the painted colour of the machinery, which sodium light greys but does not turn yellow (review 2026-11-10); 39 maps
+props/hazardstrip001a	material	hazard	yellow and black hazard stripes, one band over door heads and along deck and ledge edges only
+props_lights/flood_light_left001	static	work-lamp	one cold white work flood in each large room, so not all the light is sodium (review 2026-11-10); mine 13/126
+props_2fort/oildrum	static	companion	an oil drum beside a pile
+props_2fort/tire002	static	companion	a spare tyre by a pile; no prop_data
+props_badlands/siloroom_light2	static	pendant	a caged mill lamp hung on a cable over the halls' floors, in sodium (review 2026-11-10: overhead interest); 14 maps
+props_island/gantry_support_cable_128	static	pendant-cord	the cable the lamp hangs from, stacked to the roof; no collision; 14 maps
+props_island/gantry_support_cable_64	static	pendant-cord	a half length of the cable; 6 maps
+props_island/gantry_support_cable_32	static	pendant-cord	a quarter length of the cable; 5 maps
+props_mining/generator01	static	centrepiece	the mill's generator on the yard hall's plinth, its machine set piece
+props_mining/generator_machine01	static	centrepiece	a smaller machine for a plinth the generator does not fit; collision, no prop_data; 19 maps
+props_mining/cranehook001	static	gantry-hook	the overhead crane's hook over the hall's floor (review 2026-11-10: a gantry in the halls); 42 maps
+props_island/gantry_support_cable_64	static	gantry-cable	the short cable the hook hangs from

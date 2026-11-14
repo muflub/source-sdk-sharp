@@ -47,3 +47,5 @@ maptools-lock	routine	tools/maptools-lock --self-test
 ai-nav-build	routine	tools/ai-nav-build --self-test
 unity-check	routine	tools/unity-check --self-test && tools/unity-check --config $SOURCESHARP_CONFIG
 convar-typeinfo	routine	tools/convar-typeinfo --self-test && tools/convar-typeinfo --config $SOURCESHARP_CONFIG
+descent-gate	routine	tools/descent-gate --self-test
+descent-preview-spawns	routine	tools/descent-preview-spawns --self-test

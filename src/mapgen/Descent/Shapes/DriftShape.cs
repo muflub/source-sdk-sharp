@@ -12,9 +12,6 @@ public static class DriftShape
     /// <summary>The drift's height class: low (plan §3.1).</summary>
     public const int Height = 256;
 
-    /// <summary>A drift's lamp: the default, at less than half its brightness.</summary>
-    public static Lamp DriftLamp { get; } = Lamp.Default with { Brightness = 60 };
-
     public static IEnumerable<Room> Variants(RoomKit kit, RoomTheme theme, ulong seed)
     {
         var rng = new RoomSeed(seed, "drift");
@@ -38,12 +35,14 @@ public static class DriftShape
             .Mark(MarkerKind.Barrel, bay.X0 + 40, bay.Y1 - 40);
         yield return b.Build();
 
-        // c: narrow necks swelling into a 448 chamber, posts at its corners and its corners cut.
+        // c: narrow necks swelling into a 448 chamber, posts at its corners and its corners cut. The posts
+        // stand 96 off the walls, a giant's width with a skirting: at 64 a post and a chamfer left a slot
+        // the navigation reached one node of (depth 3, seed 2, 2026-11-10).
         var hub = new Rect(m - 224, m - 224, m + 224, m + 224);
         var cc = New("drift_c", kit, theme).WithOutline(new Rect(t, m - 120, c - t, m + 120), hub).WithBody(hub)
             .Chamfers(hub, 96);
         foreach (float x in (float[])[hub.X0 + 112, hub.X1 - 112])
-            foreach (float y in (float[])[hub.Y0 + 80, hub.Y1 - 80])
+            foreach (float y in (float[])[hub.Y0 + 112, hub.Y1 - 112])
                 cc.Post(x, y, 16);
         cc.LampsAlong(Parts.DoorPoint(kit, CellFace.West, 0), Parts.DoorPoint(kit, CellFace.East, 0), 256, Parts.ConnectorLampAbove, Parts.ConnectorLamp)
             .Pack(m, m + 112);

@@ -37,20 +37,18 @@ public readonly record struct RoomBox(Point Mins, Point Maxs, Surface Surface)
 /// opening, so any two rooms' doors meet.
 /// </para>
 /// <para>
-/// map-tools at 9d600ed centres the opening on the cell face vertically as
-/// well (<c>SocketKit.OpeningUnit</c>) and refuses a kit whose centred sill is
-/// not the floor (<c>PlayerHull.DoorProblem</c>): it accepts only
-/// <see cref="DoorHeight"/> = cell − 2 × wall, which for the 1024 cell is a
-/// 960-high door, and then no room may be lower than its cell. The plan's kit
-/// needs that rule changed in map-tools; <see cref="ToolsAccept"/> says which
-/// kits the pinned tools take, and <see cref="WithFullHeightDoors"/> is the
-/// nearest one they do.
+/// The tools stand a door on the floor at any height only for a kit that says
+/// so: every <c>info_room</c> writes <see cref="SillKey"/> (map-tools'
+/// <c>door_sill floor</c>, merged at 7cdfe4d), without which the tools centre
+/// the opening up the cell face and refuse every door lower than the cell's
+/// interior.
 /// </para>
 /// <para>
 /// <b>The navigation voxel</b> is the kit's too: map-tools builds a room's
 /// navigation in at most 128 voxels along a cell, so the 16-unit default
-/// stops at a 2048 cell, and the 3072 and 4096 arenas take a 32-unit voxel
-/// (every door, wall and height of theirs is a multiple of it).
+/// stops at a 2048 cell; a larger cell would take a 32-unit voxel (every
+/// door, wall and height a multiple of it). Every depth builds on the normal
+/// kit since the boss arenas became rooms of several cells (plan §3.2).
 /// </para>
 /// </remarks>
 public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeight, int WallDepth, int NavVoxel = RoomKit.DefaultNavVoxel)
@@ -124,15 +122,6 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
     /// </summary>
     public static RoomKit Normal { get; } = For("normal", 1024, FrameModel.FarmDoorframe);
 
-    /// <summary>Level 5's arena kit (§3.2).</summary>
-    public static RoomKit Boss2048 { get; } = For("boss2048", 2048, FrameModel.FarmDoorframe);
-
-    /// <summary>Level 15's arena kit (§3.2).</summary>
-    public static RoomKit Boss3072 { get; } = For("boss3072", 3072, FrameModel.FarmDoorframe, navVoxel: 32);
-
-    /// <summary>Level 10's arena kit, for the Tank's track (§3.2, M14).</summary>
-    public static RoomKit Boss4096 { get; } = For("boss4096", 4096, FrameModel.FarmDoorframe, navVoxel: 32);
-
     /// <summary>The door opening's low edge along its wall, cell-local.</summary>
     public int DoorLow => (Cell - DoorWidth) / 2;
 
@@ -152,23 +141,28 @@ public sealed record RoomKit(string Name, int Cell, int DoorWidth, int DoorHeigh
     public int Interior => Cell - 2 * WallDepth;
 
     /// <summary>
-    /// Whether map-tools at 9d600ed accepts this kit: its door, centred on the
-    /// face, must have its sill on the floor, so the door is the cell's whole
-    /// interior height.
+    /// The <c>info_room</c> key and value that stand the kit's doors on the
+    /// floor (map-tools' <c>door_sill floor</c>): the sill at
+    /// <see cref="WallDepth"/>, the head at <see cref="Head"/>, at any cell.
     /// </summary>
-    public bool ToolsAccept => DoorHeight == Interior;
-
-    /// <summary>This kit with the door the full interior height, the one the pinned tools accept.</summary>
-    public RoomKit WithFullHeightDoors() => this with { Name = Name + "_fullheight", DoorHeight = Interior };
+    public static (string Key, string Value) SillKey => ("door_sill", "floor");
 
     /// <summary>
     /// A socket's plug box, room-local: the opening, <see cref="WallDepth"/>
     /// deep inward from the cell face, so two jointed rooms' plugs meet face to
     /// face on the shared cell face.
     /// </summary>
-    public (Point Mins, Point Maxs) PlugBox(CellFace face)
+    public (Point Mins, Point Maxs) PlugBox(CellFace face) => PlugBox(face, 0, 1);
+
+    /// <summary>
+    /// The plug box of a socket of a room <paramref name="cells"/> cells a side
+    /// (M24): the opening on the cell edge <paramref name="offset"/> cells along
+    /// its wall (from the south on east and west walls, from the west on north
+    /// and south), room-local.
+    /// </summary>
+    public (Point Mins, Point Maxs) PlugBox(CellFace face, int offset, int cells)
     {
-        float c = Cell, t = WallDepth, lo = DoorLow, hi = DoorHigh, z0 = Sill, z1 = Head;
+        float c = cells * Cell, t = WallDepth, lo = DoorLow + offset * Cell, hi = DoorHigh + offset * Cell, z0 = Sill, z1 = Head;
         return face switch
         {
             CellFace.East => (new(c - t, lo, z0), new(c, hi, z1)),
@@ -252,6 +246,42 @@ public sealed record FrameModel(string Model, float MinX, float MaxX, int Width,
     public float CentreX => (MinX + MaxX) / 2;
 }
 
+/// <summary>
+/// A theme's door frame built of brushes instead of a model (the review of 0c79c6fc2: one frame per
+/// theme, and the farm frame is the only model that fits the kit): a <c>func_brush</c> per socket kept
+/// only where it is joined (<c>room_needs joined_&lt;socket&gt;</c>), never solid, lining the room's
+/// half of the doorway with two posts and a head standing <see cref="Proud"/> into the room, and on
+/// the wall round the opening a flange (a steel channel), a cap past the posts (a timber set) or a
+/// stripe over the head, and planks across the threshold in the room. Its faces inside the doorway
+/// were in the plug when the room was lit, so it carries a <c>_minlight</c>.
+/// </summary>
+/// <param name="PostWidth">A post's width across the opening, inside it.</param>
+/// <param name="HeadDepth">The head's depth under the opening's top, inside it.</param>
+/// <param name="Proud">How far posts and head stand into the room past the wall's face.</param>
+public sealed record BrushFrame(Surface Post, Surface Head, int PostWidth, int HeadDepth, int Proud)
+{
+    /// <summary>A flange's width on the wall round the opening (0: none), standing <see cref="FlangeDepth"/> off it.</summary>
+    public int Flange { get; init; }
+
+    /// <summary>How far a flange stands off the wall.</summary>
+    public int FlangeDepth { get; init; } = 4;
+
+    /// <summary>The flange over the head in its own surface (the Mill's hazard stripe), or null for the head's.</summary>
+    public Surface? HeadFace { get; init; }
+
+    /// <summary>A cap beam on the wall over the opening running this far past each post (a timber set's), or 0.</summary>
+    public int CapOverhang { get; init; }
+
+    /// <summary>Planks across the threshold on the room's floor (a level crossing), or null.</summary>
+    public Surface? Crossing { get; init; }
+
+    /// <summary>How far into the room the threshold's planks run.</summary>
+    public int CrossingDepth { get; init; } = 72;
+
+    /// <summary>The light the frame's faces in the doorway get at least.</summary>
+    public const string MinLight = "0.35";
+}
+
 /// <summary>A flat prop laid across a doorway's floor (<see cref="FrameModel.Sill"/>), its depth along x and its width along y.</summary>
 /// <param name="Floor">The height in the model's frame that stands on the floor's top.</param>
 public sealed record SillModel(string Model, float MinX, float MaxX, float Width, float Floor)
@@ -261,80 +291,4 @@ public sealed record SillModel(string Model, float MinX, float MaxX, float Width
 
     /// <summary>The middle of the mesh along its depth axis.</summary>
     public float CentreX => (MinX + MaxX) / 2;
-}
-
-/// <summary>
-/// The surfaces a room is drawn in: each a material and its texture scale. A
-/// depth's theme (plan §6, task A9) will be one of these. Every surface tiles
-/// a whole number of times along a 1024 cell at its scale, so the walls of
-/// two rooms side by side line up (<see cref="Brush.ToVmf"/> starts every
-/// room's textures at its cell's corner).
-/// </summary>
-public sealed record RoomTheme(Surface Floor, Surface Wall, Surface Ceiling, Surface Block, Surface Plug, Surface Trigger)
-{
-    /// <summary>The frame model the theme's doorways are lined with, which a depth's kit is cut to (<see cref="RoomKit.For"/>).</summary>
-    public FrameModel DoorFrame { get; init; } = FrameModel.FarmDoorframe;
-
-    /// <summary>The folder under <c>materials/</c> the Descent rooms' own materials live in.</summary>
-    public const string MaterialFolder = "descent";
-
-    /// <summary>
-    /// The theme's door plug material: the wall's base texture with
-    /// <c>%compileTrigger</c> and nothing else. The trigger flag is what the
-    /// link finds a plug by (it strips a joined socket's plug faces); leaving
-    /// out <c>%compileNonsolid</c> keeps the plug solid, so a room's compile is
-    /// sealed. It draws the wall's texture, but unlit (see
-    /// <see cref="RoomBuilder.CapThickness"/>), so a capped socket's plug is
-    /// still covered by the cap panel.
-    /// </summary>
-    public static Surface PlugOf(string name, Surface wall) => new($"{MaterialFolder}/{name}_plug", wall.Scale);
-
-    /// <summary>
-    /// The <c>.vmt</c> text of a plug material over <paramref name="baseTexture"/>
-    /// (each theme's wall material's own base texture has its name, as the asset
-    /// database records for <c>dev/graygrid</c> and <c>nature/rockwall012</c>).
-    /// </summary>
-    public static string PlugVmt(string baseTexture) =>
-        $"\"LightmappedGeneric\"\n{{\n\t\"$basetexture\" \"{baseTexture}\"\n\t\"%compileTrigger\" \"1\"\n}}\n";
-
-    /// <summary>The materials the theme names that ship with the mod, as paths under <c>materials/</c> and their text.</summary>
-    public IReadOnlyList<(string Path, string Text)> OwnMaterials =>
-        Plug.Material.StartsWith(MaterialFolder + "/", StringComparison.Ordinal)
-            ? [(Plug.Material + ".vmt", PlugVmt(Wall.Material))]
-            : [];
-
-    /// <summary>Every theme the generators draw rooms in.</summary>
-    public static IReadOnlyList<RoomTheme> All => [Grey, Mine];
-
-    /// <summary>
-    /// The town's TF2 mining set, every entry already proven present in TF2's
-    /// VPKs by the town's palette fact. The rock is <c>nature/rockwall012</c>,
-    /// blocky rock at the town's 0.25 (a 1024 texture every 256 units);
-    /// <c>rockwall011</c>, Phase 0's, is a banded sandstone that reads as
-    /// stripes on a wall of any height.
-    /// </summary>
-    public static RoomTheme Mine { get; } = new(
-        Floor: MineShaft.Floor,
-        Wall: "nature/rockwall012",
-        Ceiling: "nature/rockwall012",
-        Block: MineShaft.Beam,
-        // The pipeline finds a plug by its trigger surfaces (PlugOf).
-        Plug: PlugOf("mine", "nature/rockwall012"),
-        Trigger: "TOOLS/TOOLSTRIGGER");
-
-    /// <summary>
-    /// Phase 1's grey rooms: TF2's measuring textures at scale 1, so a grid
-    /// line is every 64 units (<c>dev/graygrid</c>, 512 texels) and a floor
-    /// square 64 (<c>dev/dev_measuregeneric01b</c>, 128 texels in four), and
-    /// a height can be read off a wall. Blocks, decks and pillars are the
-    /// orange <c>dev/dev_measuregeneric01</c>, so features stand out.
-    /// </summary>
-    public static RoomTheme Grey { get; } = new(
-        Floor: new("dev/dev_measuregeneric01b", 1f),
-        Wall: new("dev/graygrid", 1f),
-        Ceiling: new("dev/graygrid", 1f),
-        Block: new("dev/dev_measuregeneric01", 1f),
-        Plug: PlugOf("grey", new("dev/graygrid", 1f)),
-        Trigger: "TOOLS/TOOLSTRIGGER")
-;
 }

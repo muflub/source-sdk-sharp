@@ -54,11 +54,10 @@ public sealed record LayoutRoom(RoomInfo Info, RoomShape Shape)
 
     /// <summary>
     /// A hallway room (M18): tagged <c>corridor</c> or <c>junction</c>, or of a low connector
-    /// family (drift, bend, tee, cross, dogleg, wide drift, stub).
+    /// family (<see cref="RoomFamilies.Connectors"/>: drift, bend, tee, cross, dogleg, wide drift, stub).
     /// </summary>
     public bool IsConnector =>
-        Has(RoomTags.Corridor) || Has(RoomTags.Junction)
-        || Shape.Family is "drift" or "bend" or "tee" or "cross" or "dogleg" or "widedrift" or RoomTags.StubFamily;
+        Has(RoomTags.Corridor) || Has(RoomTags.Junction) || RoomFamilies.Connectors.Contains(Shape.Family);
 
     /// <summary>
     /// A room a branch may end in (M18): the treasure room, a stub with a purpose (a

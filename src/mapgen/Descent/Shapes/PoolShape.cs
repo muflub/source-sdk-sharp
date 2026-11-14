@@ -14,6 +14,9 @@ public static class PoolShape
 {
     public const int Height = 512;
 
+    /// <summary>The first depth a pool stands at: the flooded level 8 (plan §7; levels 8, 12 and 14 ask for pools).</summary>
+    public const int FirstDepth = 8;
+
     /// <summary>The walkways' height above the floor.</summary>
     public const int Walk = 64;
 
@@ -113,5 +116,5 @@ public static class PoolShape
 
     private static RoomBuilder New(string name, RoomKit kit, RoomTheme theme, CellFace[] doors) =>
         new RoomBuilder(name, kit, theme).WithHeight(Height).WithDoors(doors)
-            .WithEntry(new RoomEntry([])).WithMapLabel("Pool");
+            .WithEntry(new RoomEntry([], MinDepth: FirstDepth)).WithMapLabel("Pool");
 }

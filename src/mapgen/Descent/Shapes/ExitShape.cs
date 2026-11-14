@@ -7,7 +7,7 @@ namespace SourceSharp.MapGen.Descent.Shapes;
 /// gone down by a rubble ramp or a drop (level 5's is the hole the boss's
 /// blast leaves, level 10's the bore hole). Levels 11 to 14: a chute too
 /// steep to stand on, or a fissure to drop down. One door, two opposite and
-/// two at a corner; on a boss kit, the body of the normal size with necks.
+/// two at a corner: a body with necks to its doors.
 /// </summary>
 public static class ExitShape
 {

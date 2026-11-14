@@ -25,6 +25,19 @@ public static class Stations
         _ => 0,
     };
 
+    /// <summary>
+    /// The yaw from (<paramref name="x"/>, <paramref name="y"/>) to the room's
+    /// first door, in whole degrees: a party arriving faces its way on, not
+    /// the wall across the room. <paramref name="none"/> for a room of no door.
+    /// </summary>
+    public static int Toward(RoomBuilder b, float x, float y, int none)
+    {
+        if (b.Doors.Count == 0)
+            return none;
+        Point d = Parts.DoorPoint(b.Kit, b.Doors[0], 0);
+        return ((int)MathF.Round(MathF.Atan2(d.Y - y, d.X - x) * 180 / MathF.PI) + 360) % 360;
+    }
+
     /// <summary>A point given along <paramref name="wall"/> of <paramref name="body"/> (x for north and south, y for east and west) and out past it (negative is into the room).</summary>
     public static (float X, float Y) Out(Rect body, CellFace wall, float along, float outward) => wall switch
     {
@@ -77,7 +90,7 @@ public static class Stations
         Rect inside = OutRect(body, wall, along - half, 16, along + half - 8, 16 + MineShaft.CageSize);
         b.WithTransitionBox(new Point(inside.X0, inside.Y0, f + 8), new Point(inside.X1, inside.Y1, f + 72));
         var (ax, ay) = Out(body, wall, along, -64);
-        b.WithRole(role, new Point(ax, ay, f), Inward(wall));
+        b.WithRole(role, new Point(ax, ay, f), role == RoomRole.Up ? Toward(b, ax, ay, Inward(wall)) : Inward(wall));
         b.Spawns(body, wall, along, -144);
         var (lx, ly) = Out(body, wall, along, -48);
         return b.LampAt(lx, ly, 192, MineShaft.Lantern);

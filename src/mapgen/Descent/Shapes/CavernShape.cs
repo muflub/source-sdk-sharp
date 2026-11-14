@@ -10,6 +10,9 @@ namespace SourceSharp.MapGen.Descent.Shapes;
 /// </summary>
 public static class CavernShape
 {
+    /// <summary>The first depth a cavern stands at: level 6, where the mine breaks into the cave (plan §7, M4); Act I is the engineered mine.</summary>
+    public const int FirstDepth = 6;
+
     public static IEnumerable<Room> Variants(RoomKit kit, RoomTheme theme, ulong seed)
     {
         var rng = new RoomSeed(seed, "cavern");
@@ -22,6 +25,7 @@ public static class CavernShape
         Rock(a, oval, rng, 256, CellFace.North, CellFace.South);
         Mound(a, new Rect(256, 352, 448, 544), rng);
         Stalactites(a, oval, rng, 5);
+        Roof(a, oval.Grow(-96), rng, 128);
         a.Shelf(JumpTier.B2, CellFace.West, 400, 624, depth: 144, t: rng.Fraction());
         Lamps(a, oval);
         a.Pack(560, 320).Pack(560, 704).Pack(352, 704)
@@ -38,6 +42,8 @@ public static class CavernShape
         Rock(b, east, rng, 192, CellFace.South);
         Mound(b, new Rect(640, 576, 832, 752), rng);
         Stalactites(b, new Rect(t, 128, c - t, 848), rng, 6);
+        Roof(b, west.Grow(-96), rng, 128);
+        Roof(b, east.Grow(-96), rng, 112);
         b.Shelf(JumpTier.B2, CellFace.North, 128, 352, depth: 128, t: rng.Fraction());
         Lamps(b, west);
         Lamps(b, east);
@@ -53,6 +59,7 @@ public static class CavernShape
         Rock(cc, wide, rng, 256, CellFace.South);
         Mound(cc, new Rect(224, 640, 400, 816), rng);
         Stalactites(cc, wide, rng, 6);
+        Roof(cc, wide.Grow(-128), rng, 144);
         cc.Shelf(JumpTier.B2, CellFace.South, 432, 592, depth: 128, t: rng.Fraction());
         Lamps(cc, wide);
         cc.Pack(320, 400).Pack(704, 400).Pack(704, 720)
@@ -67,6 +74,7 @@ public static class CavernShape
             .RoundCorners(round, 288, 4);
         Mound(d, new Rect(224, 592, 416, 784), rng);
         Stalactites(d, round, rng, 8);
+        Roof(d, round.Grow(-128), rng, 192);
         Spire(d, 720, 720, 64, JumpTier.B3, rng);
         Spire(d, 320, 320, 56, JumpTier.B2, rng);
         Lamps(d, round);
@@ -76,11 +84,20 @@ public static class CavernShape
         yield return d.Build();
     }
 
-    /// <summary>Rough rock: a slab against each named wall of <paramref name="r"/>, its face pushed into the room by up to 48.</summary>
+    /// <summary>How far a cave wall bulges into the room at most, above head height; at the floor a third of it.</summary>
+    public const int Bulge = 96;
+
+    /// <summary>
+    /// Rough rock: a slab against each named wall of <paramref name="r"/>, its
+    /// face pushed into the room by up to <see cref="Bulge"/> over a player's
+    /// head and a third of that at the floor, in lumps along and up it.
+    /// </summary>
     private static void Rock(RoomBuilder b, Rect r, RoomSeed rng, float inset, params CellFace[] walls)
     {
         float phase = rng.Fraction() * 6.283f, top = b.CeilingUnderside;
-        float Relief(float u, float v) => MathF.Round(48 * MathF.Sin(MathF.PI * u) * (0.55f + 0.45f * MathF.Sin(9 * u + 5 * v + phase)) * MathF.Min(1, v * 6));
+        float Relief(float u, float v) => MathF.Round(Bulge * MathF.Sin(MathF.PI * u)
+            * (0.5f + 0.3f * MathF.Sin(9 * u + 5 * v + phase) + 0.2f * MathF.Sin(17 * u - 11 * v + 2 * phase))
+            * (0.33f + 0.67f * MathF.Min(1, v * 4)));
         foreach (CellFace wall in walls)
         {
             // Inset from the rectangle's corners, which are rounded.
@@ -98,12 +115,24 @@ public static class CavernShape
         }
     }
 
-    /// <summary>A rubble mound over <paramref name="r"/>: a slab 8 high whose top rises to a crest toward its east side.</summary>
+    /// <summary>
+    /// A mound over <paramref name="r"/>: a slab 2 high whose top rises to a
+    /// crest toward its east side, no higher than a step over the floor, so
+    /// the walked floor is uneven and still walked.
+    /// </summary>
     private static void Mound(RoomBuilder b, Rect r, RoomSeed rng)
     {
-        float crest = 24 + 8 * rng.Int(0, 3);
-        b.WithBrush(Brush.DisplacedBox(new(r.X0, r.Y0, b.Floor), new(r.X1, r.Y1, b.Floor + 8), 3,
+        float crest = 12 + 2 * rng.Int(0, 3);
+        b.WithBrush(Brush.DisplacedBox(new(r.X0, r.Y0, b.Floor), new(r.X1, r.Y1, b.Floor + 2), 3,
             (u, v) => MathF.Round(crest * MathF.Sin(MathF.PI * v) * MathF.Sin(MathF.PI * u * 0.75f) * (0.4f + 0.6f * u)), b.Theme.Floor));
+    }
+
+    /// <summary>An uneven roof over <paramref name="r"/>: a slab under the ceiling whose underside hangs down in lumps by up to <paramref name="drop"/>.</summary>
+    private static void Roof(RoomBuilder b, Rect r, RoomSeed rng, float drop)
+    {
+        float phase = rng.Fraction() * 6.283f, top = b.CeilingUnderside;
+        b.WithBrush(Brush.DisplacedUnder(new(r.X0, r.Y0, top - 16), new(r.X1, r.Y1, top), 3,
+            (u, v) => MathF.Round(drop * MathF.Sin(MathF.PI * u) * MathF.Sin(MathF.PI * v) * (0.6f + 0.4f * MathF.Sin(7 * u + 5 * v + phase))), b.Theme.Ceiling));
     }
 
     /// <summary>Stalactites from the roof over <paramref name="r"/>, high enough to clear the jump air.</summary>
@@ -141,5 +170,5 @@ public static class CavernShape
 
     private static RoomBuilder New(string name, RoomKit kit, RoomTheme theme, CellFace[] doors, int height) =>
         new RoomBuilder(name, kit, theme).WithHeight(height).WithDoors(doors)
-            .WithEntry(new RoomEntry([], Jump: true)).WithMapLabel("Cavern");
+            .WithEntry(new RoomEntry([], MinDepth: FirstDepth, Jump: true)).WithMapLabel("Cavern");
 }

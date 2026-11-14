@@ -109,7 +109,7 @@ public sealed class DescentRoomLintTests
     [Fact]
     public void Marker_floor_refuses_a_marker_off_the_kits_navigation_voxel()
     {
-        RoomKit big = RoomKit.Boss3072;
+        RoomKit big = RoomKit.For("voxel32", 3072, FrameModel.FarmDoorframe, navVoxel: 32);
         float f = big.Sill;
         Room onGrid = new RoomBuilder("r", big, RoomTheme.Grey).WithHeight(512).WithDoors(CellFace.West)
             .WithBox(new(1400, 1400, f), new(1600, 1600, f + 32)).WithMarker(MarkerKind.Shrine, new(1500, 1500, f + 32)).Build();

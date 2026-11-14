@@ -15,10 +15,10 @@ public sealed class DescentDoorFrameTests
 {
     private static readonly RoomKit Kit = RoomKit.Normal;
 
-    public static TheoryData<string> Kits => new() { "normal", "boss2048", "boss3072", "boss4096" };
+    public static TheoryData<string> Kits => new() { "normal", "voxel32" };
 
     private static RoomKit KitNamed(string name) =>
-        new[] { RoomKit.Normal, RoomKit.Boss2048, RoomKit.Boss3072, RoomKit.Boss4096 }.Single(k => k.Name == name);
+        new[] { RoomKit.Normal, RoomKit.For("voxel32", 3072, FrameModel.FarmDoorframe, navVoxel: 32) }.Single(k => k.Name == name);
 
     private static Room Chamber(params CellFace[] doors) =>
         new RoomBuilder("c", Kit, RoomTheme.Grey).WithHeight(512).WithDoors(doors).Build();

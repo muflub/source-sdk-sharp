@@ -180,6 +180,8 @@ public sealed class LevelLayout
     {
         if (pool.Of(RoomKind.Arena).Count == 0)
             return Fail($"depth {profile.Depth} is a boss level and the pool has no room tagged '{RoomTags.BossArena}'");
+        if (pool.Of(RoomKind.Arena).Any(r => r.Shape.IsMultiCell))
+            return LargerArenaRow(profile, pool, rng);
         var kinds = new List<RoomKind> { RoomKind.Arrival };
         var antechamber = pool.Of(RoomKind.Antechamber).Count > 0;
         if (antechamber) kinds.Add(RoomKind.Antechamber);
@@ -197,6 +199,33 @@ public sealed class LevelLayout
         foreach (var cell in a.Path)
             if (a.Place(cell, rng) is { } why)
                 return Fail($"depth {profile.Depth}: {why}");
+        return new LayoutResult(a.ToPlan(), a.ToReport(0, null, antechamber), null);
+    }
+
+    /// <summary>
+    /// A boss level whose arena is larger than one cell (plan section 3.2, M24): the arrival and the
+    /// antechamber in a row to its west socket, the arena's square, and the exit off its east socket
+    /// (none at the bottom of the shaft). The arena stands unturned, so its sockets are where its
+    /// author put them; the grid is the arena's cells high and the row long.
+    /// </summary>
+    private static LayoutResult LargerArenaRow(DepthProfile profile, Pool pool, LayoutRandom rng)
+    {
+        var arenas = pool.Of(RoomKind.Arena).Where(r => r.Shape.IsMultiCell).ToList();
+        var arena = arenas[rng.Weighted(arenas.Select(r => (long)Math.Max(1, r.Info.Weight)).ToList())];
+        int n = arena.Shape.CellsX;
+        if (arena.Shape.CellsY != n)
+            return Fail($"depth {profile.Depth}: the arena {arena.Name} is not square");
+        var west = Enumerable.Range(0, n).Where(k => arena.Shape.HasSocket(Doors.West, k)).DefaultIfEmpty(-1).First();
+        var east = Enumerable.Range(0, n).Where(k => arena.Shape.HasSocket(Doors.East, k)).DefaultIfEmpty(-1).First();
+        if (west < 0)
+            return Fail($"depth {profile.Depth}: the arena {arena.Name} has no west socket for the way in");
+        if (profile.HasDownExit && east < 0)
+            return Fail($"depth {profile.Depth}: the arena {arena.Name} has no east socket for the way down");
+        var antechamber = pool.Of(RoomKind.Antechamber).Count > 0;
+        int columns = (antechamber ? 2 : 1) + n + (profile.HasDownExit ? 1 : 0);
+        var a = new Attempt(n, columns, Math.Max(n, columns), profile, pool);
+        if (a.LargerArenaRow(arena, west, profile.HasDownExit ? east : -1, antechamber, rng) is { } why)
+            return Fail($"depth {profile.Depth}: {why}");
         return new LayoutResult(a.ToPlan(), a.ToReport(0, null, antechamber), null);
     }
 
@@ -477,6 +506,63 @@ public sealed class LevelLayout
 
         /// <summary>A cell of a room larger than one cell.</summary>
         private bool InBlock(int cell) => _block[cell] >= 0;
+
+        /// <summary>
+        /// The boss row round a larger arena (<see cref="LevelLayout.LargerArenaRow"/>): the arrival and the
+        /// antechamber on the row of the arena's west socket, the arena's square unturned, the exit on the row
+        /// of its east socket (<paramref name="east"/> -1: none). The critical path walks the arena's cells from
+        /// its west socket to its east one. Null, or why not.
+        /// </summary>
+        public string? LargerArenaRow(LayoutRoom arena, int west, int east, bool antechamber, LayoutRandom rng)
+        {
+            int n = arena.Shape.CellsX, at = antechamber ? 2 : 1;
+            int Cell(int row, int column) => row * _columns + column;
+            var anchor = Cell(0, at);
+            for (var r = 0; r < n; r++)
+                for (var c = 0; c < n; c++)
+                {
+                    var cell = anchor + r * _columns + c;
+                    Occupy(cell, RoomKind.Arena);
+                    _block[cell] = anchor;
+                    _room[cell] = arena;
+                    _turn[cell] = 0;
+                }
+            _extraCells += n * n - 1;
+            _bigRooms++;
+            Tally(arena, +1);
+
+            var path = new List<int> { Cell(west, 0) };
+            Occupy(Cell(west, 0), RoomKind.Arrival);
+            if (antechamber)
+            {
+                Occupy(Cell(west, 1), RoomKind.Antechamber);
+                path.Add(Cell(west, 1));
+            }
+            // Across the arena: along the way-in's row to its east side, then to the way-down's row.
+            var exitRow = east >= 0 ? east : west;
+            for (var c = at; c < at + n; c++)
+                path.Add(Cell(west, c));
+            for (var r = west; r != exitRow; r += Math.Sign(exitRow - west))
+                path.Add(Cell(r + Math.Sign(exitRow - west), at + n - 1));
+            if (east >= 0)
+            {
+                Occupy(Cell(east, at + n), RoomKind.Exit);
+                path.Add(Cell(east, at + n));
+            }
+            for (var i = 0; i < path.Count; i++)
+            {
+                PathIndex[path[i]] = i;
+                Path.Add(path[i]);
+            }
+
+            Join(Cell(west, 0), Doors.East);
+            if (antechamber) Join(Cell(west, 1), Doors.East);
+            if (east >= 0) Join(Cell(east, at + n - 1), Doors.East);
+            foreach (var cell in path.Where(c => !InBlock(c)))
+                if (Place(cell, rng) is { } why)
+                    return why;
+            return null;
+        }
 
         /// <summary>The cells of the room larger than one cell that holds <paramref name="cell"/>.</summary>
         private IEnumerable<int> Mates(int cell)
@@ -1126,10 +1212,15 @@ public sealed class LevelLayout
         private Doors DoorsOf(int cell, LayoutRoom room)
         {
             if (!InBlock(cell)) return DoorSets.Rotate(room.Shape.Doors, _turn[cell] * 90);
-            // A larger room's socket on each cell edge of its perimeter.
+            // A larger room's socket on each cell edge of its perimeter, or on the edges it chose (a boss
+            // arena, laid unturned): the edge's number runs from the west along north and south, from
+            // the south along east and west.
             var doors = Doors.None;
+            int dr = cell / _columns - _block[cell] / _columns, dc = cell % _columns - _block[cell] % _columns;
             for (var s = 0; s < 4; s++)
-                if (Neighbour(cell, Side(s)) is var next && (next < 0 || _block[next] != _block[cell])) doors |= Side(s);
+                if (Neighbour(cell, Side(s)) is var next && (next < 0 || _block[next] != _block[cell])
+                    && room.Shape.HasSocket(Side(s), Side(s) is Doors.North or Doors.South ? dc : dr))
+                    doors |= Side(s);
             return doors;
         }
 

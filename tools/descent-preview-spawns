@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""tools/descent-preview-spawns -- one spawn view in a Descent level's preview.
+
+    tools/descent-preview-spawns <preview.bsp>      keep the first info_player_start
+    tools/descent-preview-spawns --self-test
+
+`make descent-level` links a level a second time for `ssmap preview`, without
+-mod-entities, so its arrival and the four party spawns round it become five
+info_player_starts. The preview plans a player's-eye view from up to four of
+them, and four views from one spot of one room tell nothing the first does not
+(user review, 2026-11-10: "drop the four spawn views that stare at a wall to
+one"). This rewrites the preview map's entity lump in place keeping the first
+info_player_start (the arrival, the room's way in, which faces into the room)
+and dropping the others. Only the preview's own copy is changed: the level the
+host links (-mod-entities) is another file, and the movement report walks
+from the one spawn that is left, which stands in the same room as the others.
+
+The entity lump is written at the end of the file and the header points at it,
+so no other lump moves. A map with no info_player_start is refused.
+"""
+import os
+import re
+import struct
+import sys
+import tempfile
+
+ENTITIES = 0
+HEADER_LUMPS = 64
+
+
+def entity_blocks(text):
+    return re.findall(r'\{[^{}]*\}', text)
+
+
+def keep_first_spawn(text):
+    """The entity text with every info_player_start after the first dropped; returns (text, dropped)."""
+    blocks = entity_blocks(text)
+    out, seen, dropped = [], False, 0
+    for b in blocks:
+        if re.search(r'"classname"\s+"info_player_start"', b):
+            if seen:
+                dropped += 1
+                continue
+            seen = True
+        out.append(b)
+    if not seen:
+        raise ValueError('the map has no info_player_start')
+    return '\n'.join(out) + '\n\x00', dropped
+
+
+def rewrite(path):
+    with open(path, 'rb') as f:
+        data = bytearray(f.read())
+    if data[:4] != b'VBSP':
+        raise ValueError('%s is not a BSP' % path)
+    off, length, version, fourcc = struct.unpack_from('<iiii', data, 8 + 16 * ENTITIES)
+    text = bytes(data[off:off + length]).decode('latin1').rstrip('\x00')
+    new, dropped = keep_first_spawn(text)
+    blob = new.encode('latin1')
+    # Append the new lump on a 4-byte boundary and point the header at it.
+    while len(data) % 4:
+        data.append(0)
+    at = len(data)
+    data += blob
+    struct.pack_into('<iiii', data, 8 + 16 * ENTITIES, at, len(blob), version, fourcc)
+    tmp = path + '.tmp'
+    with open(tmp, 'wb') as f:
+        f.write(data)
+    os.replace(tmp, path)
+    return dropped
+
+
+def self_test():
+    bad = []
+    text = ('{\n"classname" "worldspawn"\n}\n{\n"classname" "info_player_start"\n"origin" "1 2 3"\n}\n'
+            '{\n"classname" "info_player_start"\n"origin" "4 5 6"\n}\n{\n"classname" "light"\n}\n')
+    new, dropped = keep_first_spawn(text)
+    if dropped != 1 or '"1 2 3"' not in new or '"4 5 6"' in new or '"light"' not in new:
+        bad.append('the second spawn was not the one dropped, or another entity went')
+    try:
+        keep_first_spawn('{\n"classname" "worldspawn"\n}\n')
+        bad.append('a map without a spawn was accepted')
+    except ValueError:
+        pass
+    # A round trip through a minimal BSP: the lump moves, the text is the kept one.
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, 'm.bsp')
+        body = text.encode('latin1') + b'\x00'
+        head = bytearray(b'VBSP' + struct.pack('<i', 20) + b'\x00' * (16 * HEADER_LUMPS) + b'\x00\x00\x00\x00')
+        struct.pack_into('<iiii', head, 8, len(head), len(body), 0, 0)
+        with open(path, 'wb') as f:
+            f.write(head + body)
+        if rewrite(path) != 1:
+            bad.append('the rewrite dropped the wrong number of spawns')
+        with open(path, 'rb') as f:
+            data = f.read()
+        off, length = struct.unpack_from('<ii', data, 8)
+        kept = data[off:off + length].decode('latin1')
+        if kept.count('info_player_start') != 1 or '"1 2 3"' not in kept:
+            bad.append('the rewritten lump is not the kept text')
+    for b in bad:
+        print('descent-preview-spawns self-test: FAIL: ' + b)
+    print('descent-preview-spawns self-test: %s' % ('FAIL' if bad else 'ok'))
+    return 1 if bad else 0
+
+
+def main(argv):
+    if argv == ['--self-test']:
+        return self_test()
+    if len(argv) != 1:
+        print(__doc__.strip().splitlines()[2], file=sys.stderr)
+        return 2
+    try:
+        dropped = rewrite(argv[0])
+    except (OSError, ValueError) as e:
+        print('descent-preview-spawns: %s' % e, file=sys.stderr)
+        return 1
+    print('descent-preview-spawns: kept the arrival, dropped %d spawn(s) from %s' % (dropped, argv[0]))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

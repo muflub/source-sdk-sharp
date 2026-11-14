@@ -11,7 +11,7 @@ namespace SourceSharp.Tests;
 /// room's shell, its sky ceiling and water, the role overrides the stations
 /// use, the brushes that bend an outline, and the ways in and down by depth.
 /// </summary>
-public sealed class DescentOutlineRoomTests
+public sealed class DescentOutlineRoomTests(DescentLibraries libs) : IClassFixture<DescentLibraries>
 {
     private static readonly RoomKit Kit = RoomKit.Normal;
     private static readonly float T = Kit.WallDepth, C = Kit.Cell, M = Kit.Cell / 2f;
@@ -160,7 +160,7 @@ public sealed class DescentOutlineRoomTests
     [MemberData(nameof(NormalDepths))]
     public void Every_normal_depth_has_a_way_in_and_a_way_down(int depth)
     {
-        var rooms = DescentRooms.Rooms(depth, 0);
+        var rooms = libs.Rooms(depth, 0);
 
         Assert.Contains(rooms, r => r.Role == RoomRole.Up);
         Assert.Contains(rooms, r => r.Role == RoomRole.Down);
@@ -173,7 +173,7 @@ public sealed class DescentOutlineRoomTests
     [InlineData(13, "arrival_chute")]
     public void A_depth_draws_its_way_in_from_its_acts_station(int depth, string family)
     {
-        var ways = DescentRooms.Rooms(depth, 0).Where(r => r.Entry.Tags.Contains("start")).Select(r => r.Name).ToArray();
+        var ways = libs.Rooms(depth, 0).Where(r => r.Entry.Tags.Contains("start")).Select(r => r.Name).ToArray();
 
         Assert.NotEmpty(ways);
         Assert.All(ways, n => Assert.StartsWith(family, n, StringComparison.Ordinal));
@@ -185,7 +185,7 @@ public sealed class DescentOutlineRoomTests
     [InlineData(12, "exit_")]
     public void A_depth_draws_its_way_down_from_its_acts_exits(int depth, string family)
     {
-        var ways = DescentRooms.Rooms(depth, 0).Where(r => r.Role == RoomRole.Down).Select(r => r.Name).ToArray();
+        var ways = libs.Rooms(depth, 0).Where(r => r.Role == RoomRole.Down).Select(r => r.Name).ToArray();
 
         Assert.NotEmpty(ways);
         Assert.All(ways, n => Assert.StartsWith(family, n, StringComparison.Ordinal));
@@ -196,13 +196,13 @@ public sealed class DescentOutlineRoomTests
     [Fact]
     public void The_bottom_has_no_way_down()
     {
-        Assert.DoesNotContain(DescentRooms.Rooms(15, 0), r => r.Role == RoomRole.Down);
+        Assert.DoesNotContain(libs.Rooms(15, 0), r => r.Role == RoomRole.Down);
     }
 
     [Fact]
     public void Level_ones_arrival_is_the_towns_shaft_open_to_the_sky_over_the_towns_cage()
     {
-        var shafts = DescentRooms.Rooms(1, 0).Where(r => r.Name.StartsWith("arrival_shaft", StringComparison.Ordinal)).ToArray();
+        var shafts = libs.Rooms(1, 0).Where(r => r.Name.StartsWith("arrival_shaft", StringComparison.Ordinal)).ToArray();
 
         Assert.NotEmpty(shafts);
         Assert.All(shafts, r =>
@@ -217,7 +217,7 @@ public sealed class DescentOutlineRoomTests
     [Fact]
     public void Every_way_in_has_four_spawns_round_its_arrival()
     {
-        var ways = DescentRooms.Rooms(3, 0).Where(r => r.Role == RoomRole.Up).ToArray();
+        var ways = libs.Rooms(3, 0).Where(r => r.Role == RoomRole.Up).ToArray();
 
         Assert.All(ways, r => Assert.Equal(4, r.Markers.Count(m => m.Kind == MarkerKind.Spawn)));
     }
@@ -228,7 +228,7 @@ public sealed class DescentOutlineRoomTests
     [InlineData(15)]
     public void A_boss_arena_is_lit_over_all_its_floor(int depth)
     {
-        Room arena = Assert.Single(DescentRooms.Rooms(depth, 0), r => r.Entry.Tags.Contains("boss_arena"));
+        Room arena = Assert.Single(libs.Rooms(depth, 0), r => r.Entry.Tags.Contains("boss_arena"));
 
         Assert.Empty(RoomLint.CheckLit(arena, new RoomColumns(arena)));
         Assert.True(arena.Markers.Count(m => m.Kind == MarkerKind.PackSpawn) >= 2);
@@ -239,7 +239,7 @@ public sealed class DescentOutlineRoomTests
     {
         foreach (int depth in (int[])[2, 7, 12])
         {
-            var roles = DescentRooms.Rooms(depth, 0).Where(r => r.Role != RoomRole.None).ToArray();
+            var roles = libs.Rooms(depth, 0).Where(r => r.Role != RoomRole.None).ToArray();
             Assert.Contains(roles, r => r.Role == RoomRole.Up && LayoutNames.DoorsOf(r.Doors) == (Doors.West | Doors.East));
             Assert.Contains(roles, r => r.Role == RoomRole.Down && LayoutNames.DoorsOf(r.Doors) == (Doors.North | Doors.East));
         }

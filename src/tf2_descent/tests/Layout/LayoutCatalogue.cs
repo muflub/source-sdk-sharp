@@ -83,8 +83,8 @@ internal static class LayoutCatalogue
         R("pool_c-ne-h-j.s3.b1", 8, 14),
         R("pool_d-e-c-j.s2", 8, 14),
         // Treasure rooms.
-        R("vault_a-e-c", 1, 14, 1, "treasure"),
-        R("vault_b-n-h-j.b1", 1, 14, 1, "treasure"),
+        R("treasure_a-e-c", 1, 14, 1, "treasure"),
+        R("treasure_b-n-h-j.b1", 1, 14, 1, "treasure"),
         // Arrivals: cage stations, the act II and III ways in, the camps.
         R("arrival_cage-e-c", 1, 4, 1, "start"),
         R("arrival_station-ew-c", 1, 4, 1, "start"),

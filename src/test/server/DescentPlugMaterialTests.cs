@@ -12,9 +12,9 @@ namespace SourceSharp.Tests;
 /// </summary>
 public sealed class DescentPlugMaterialTests
 {
-    public static TheoryData<string> Themes => new() { "grey", "mine" };
+    public static TheoryData<string> Themes => new(RoomTheme.All.Select(t => t.Name));
 
-    private static RoomTheme Theme(string name) => name == "grey" ? RoomTheme.Grey : RoomTheme.Mine;
+    private static RoomTheme Theme(string name) => RoomTheme.All.Single(t => t.Name == name);
 
     [Theory]
     [MemberData(nameof(Themes))]
@@ -55,7 +55,10 @@ public sealed class DescentPlugMaterialTests
         {
             var written = DescentRooms.WriteMaterials(dir).Select(f => Path.GetRelativePath(dir, f).Replace('\\', '/')).Order();
 
-            Assert.Equal(["materials/descent/grey_plug.vmt", "materials/descent/mine_plug.vmt"], written);
+            Assert.Equal(
+                ["materials/descent/collar_plug.vmt", "materials/descent/grey_plug.vmt", "materials/descent/haulage_plug.vmt",
+                 "materials/descent/mill_plug.vmt", "materials/descent/mine_plug.vmt", "materials/descent/stopes_plug.vmt"],
+                written);
         }
         finally
         {

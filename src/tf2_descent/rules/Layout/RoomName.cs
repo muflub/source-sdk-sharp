@@ -70,6 +70,26 @@ public sealed record RoomShape(string Family, string Variant, Doors Doors, Heigh
     /// <summary>A room larger than one cell: its sockets are one per cell edge of its perimeter, and its doors name the faces that have one on every edge.</summary>
     public bool IsMultiCell => CellsX > 1 || CellsY > 1;
 
+    /// <summary>
+    /// A larger room that declares only some of its cell edges as sockets (a boss arena): 16 bits a side,
+    /// north's lowest, then east, south, west; bit k is the edge k cells along the side (from the west on
+    /// north and south, from the south on east and west). 0 means a socket on every edge of every door side.
+    /// </summary>
+    public ulong SocketMask { get; init; }
+
+    /// <summary>Whether the room has a socket on the edge <paramref name="offset"/> cells along <paramref name="side"/> (unturned).</summary>
+    public bool HasSocket(Doors side, int offset)
+    {
+        if ((Doors & side) == 0) return false;
+        if (SocketMask == 0) return true;
+        var i = side switch { Doors.North => 0, Doors.East => 1, Doors.South => 2, _ => 3 };
+        return ((SocketMask >> (16 * i + offset)) & 1) != 0;
+    }
+
+    /// <summary>The mask bit of one socket (<see cref="SocketMask"/>).</summary>
+    public static ulong SocketBit(Doors side, int offset) =>
+        1UL << (16 * (side switch { Doors.North => 0, Doors.East => 1, Doors.South => 2, _ => 3 }) + offset);
+
     /// <summary>The name these facts are spelled as (<see cref="RoomName.Format"/>).</summary>
     public string Name => RoomName.Format(this);
 }
@@ -83,7 +103,10 @@ public sealed record RoomShape(string Family, string Variant, Doors Doors, Heigh
 /// <item><c>family</c>: a lower-case letter then lower-case letters and digits;
 /// <c>variant</c>: lower-case letters and digits.</item>
 /// <item><c>doors</c>: the walls the room opens on unrotated, from <c>n e s w</c>
-/// in that order, at least one.</item>
+/// in that order, at least one. A larger room that has sockets on only some cell edges of a
+/// side spells that side's letter followed by the edges' numbers in order (<c>e1w1</c>, a 3x3
+/// arena opening only in the middle of its east and west walls); a side with a socket on every
+/// edge is spelled bare.</item>
 /// <item><c>height</c>: <c>l</c> low, <c>c</c> chamber, <c>h</c> hall, <c>s</c> shaft.</item>
 /// <item><c>W</c>x<c>D</c>: the footprint of a room larger than one cell (map tools'
 /// <c>room_footprint</c>, 1 to 16 cells a side), never spelled for one cell. Its doors are the
@@ -112,13 +135,13 @@ public static class RoomName
     public static bool TryParse(string? name, out RoomShape? shape, out string? error)
     {
         shape = null;
-        error = Check(name, out var family, out var variant, out var doors, out var height, out var jumps, out var cellsX, out var cellsY);
+        error = Check(name, out var family, out var variant, out var doors, out var height, out var jumps, out var cellsX, out var cellsY, out var mask);
         if (error is not null)
         {
             error = $"room name '{name}': {error}; a layout room is named <family>_<variant>-<doors>-<height>[-<flags>], e.g. drift_a-ew-l";
             return false;
         }
-        shape = new RoomShape(family, variant, doors, height, jumps) { CellsX = cellsX, CellsY = cellsY };
+        shape = new RoomShape(family, variant, doors, height, jumps) { CellsX = cellsX, CellsY = cellsY, SocketMask = mask };
         return true;
     }
 
@@ -138,11 +161,31 @@ public static class RoomName
         if ((shape.Jumps & ~allFlags) != 0)
             throw new ArgumentException($"jump flags {shape.Jumps} hold an unknown flag", nameof(shape));
 
-        var doors = "";
-        for (var i = 0; i < 4; i++)
-            if ((shape.Doors & DoorAt(i)) != 0) doors += DoorLetters[i];
         if (shape.CellsX is < 1 or > MaxCells || shape.CellsY is < 1 or > MaxCells)
             throw new ArgumentException($"footprint {shape.CellsX}x{shape.CellsY} is not 1 to {MaxCells} cells a side", nameof(shape));
+        if (shape.SocketMask != 0 && (!shape.IsMultiCell || Math.Max(shape.CellsX, shape.CellsY) > 10))
+            throw new ArgumentException("only a larger room of at most 10 cells a side chooses its sockets", nameof(shape));
+        var doors = "";
+        for (var i = 0; i < 4; i++)
+        {
+            if ((shape.Doors & DoorAt(i)) == 0)
+            {
+                if (shape.SocketMask != 0 && ((shape.SocketMask >> (16 * i)) & 0xFFFF) != 0)
+                    throw new ArgumentException($"a socket on side {DoorLetters[i]}, which is not a door", nameof(shape));
+                continue;
+            }
+            doors += DoorLetters[i];
+            if (shape.SocketMask == 0) continue;
+            var length = i is 0 or 2 ? shape.CellsX : shape.CellsY;
+            var bits = (shape.SocketMask >> (16 * i)) & 0xFFFF;
+            if (bits == 0)
+                throw new ArgumentException($"door side {DoorLetters[i]} has no socket", nameof(shape));
+            if (bits >> length != 0)
+                throw new ArgumentException($"a socket on side {DoorLetters[i]} past its {length} cells", nameof(shape));
+            if (bits != (1UL << length) - 1)
+                for (var k = 0; k < length; k++)
+                    if (((bits >> k) & 1) != 0) doors += (char)('0' + k);
+        }
         var name = $"{shape.Family}_{shape.Variant}-{doors}-{HeightLetters[(int)shape.Height]}";
         if (shape.IsMultiCell) name += $"-{shape.CellsX}x{shape.CellsY}";
         if (shape.Jumps == JumpFlags.None) return name;
@@ -153,8 +196,9 @@ public static class RoomName
     }
 
     private static string? Check(string? name, out string family, out string variant, out Doors doors, out HeightClass height, out JumpFlags jumps,
-        out int cellsX, out int cellsY)
+        out int cellsX, out int cellsY, out ulong mask)
     {
+        mask = 0;
         cellsX = cellsY = 1;
         family = variant = "";
         doors = Doors.None;
@@ -174,12 +218,23 @@ public static class RoomName
 
         var last = -1;
         if (parts[1].Length == 0) return "the doors are empty: a room opens on at least one of n, e, s, w";
+        var edges = new List<(int Side, int Offset)>();
+        var lastEdge = -1;
         foreach (var c in parts[1])
         {
+            if (c is >= '0' and <= '9')
+            {
+                if (last < 0) return $"doors '{parts[1]}' start with a socket number, not a side";
+                if (c - '0' <= lastEdge) return $"doors '{parts[1]}': side {DoorLetters[last]}'s socket numbers are not rising";
+                lastEdge = c - '0';
+                edges.Add((last, lastEdge));
+                continue;
+            }
             var i = DoorLetters.IndexOf(c);
             if (i < 0) return $"door '{c}' is not one of n, e, s, w";
             if (i <= last) return $"doors '{parts[1]}' are not in the order n, e, s, w without repeats";
             last = i;
+            lastEdge = -1;
             doors |= DoorAt(i);
         }
 
@@ -197,6 +252,21 @@ public static class RoomName
                 return $"footprint '{parts[next]}' is not <W>x<D> of 1 to {MaxCells} cells a side";
             if (cellsX == 1 && cellsY == 1) return "footprint '1x1' is a room of one cell, which spells no footprint";
             next++;
+        }
+        if (edges.Count > 0)
+        {
+            if (cellsX == 1 && cellsY == 1) return $"doors '{parts[1]}' number sockets, which only a larger room does";
+            if (Math.Max(cellsX, cellsY) > 10) return "a room choosing its sockets is at most 10 cells a side";
+            for (var i = 0; i < 4; i++)
+            {
+                if ((doors & DoorAt(i)) == 0) continue;
+                var length = i is 0 or 2 ? cellsX : cellsY;
+                var mine = edges.Where(e => e.Side == i).Select(e => e.Offset).ToList();
+                if (mine.Any(o => o >= length)) return $"side {DoorLetters[i]} numbers a socket past its {length} cells";
+                if (mine.Count == length) return $"side {DoorLetters[i]} numbers every one of its sockets; spell it bare";
+                var bits = mine.Count == 0 ? (1UL << length) - 1 : mine.Aggregate(0UL, (m, o) => m | (1UL << o));
+                mask |= bits << (16 * i);
+            }
         }
         if (parts.Length > next + 1) return $"'{parts[next]}' is followed by another part, but only a footprint <W>x<D> comes before the flags";
         if (parts.Length == next + 1)

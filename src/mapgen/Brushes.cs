@@ -479,6 +479,18 @@ public sealed class Brush
     }
 
     /// <summary>
+    /// A box whose bottom face is a displacement hanging down from it (an
+    /// uneven cave roof): heights from <paramref name="height"/>(u, v), down.
+    /// </summary>
+    public static Brush DisplacedUnder(Point mins, Point maxs, int power, Func<float, float, float> height, Surface surface)
+    {
+        Brush box = Box(mins, maxs, surface);
+        var faces = box.Faces.ToArray();
+        faces[1] = faces[1] with { Displacement = new Displacement(power, height, new(0, 0, -1)) };
+        return new(faces, surface);
+    }
+
+    /// <summary>
     /// A box whose face toward <paramref name="facing"/> is a displacement
     /// (a cave wall's relief): heights along that face's outward normal from
     /// <paramref name="height"/>(u, v), u along the face, v up it.

@@ -61,7 +61,7 @@ public sealed class RoomLibrary
     }
 
     /// <summary>The low corner of the cell of the room at <paramref name="index"/>.</summary>
-    public Point Corner(int index) => new(index * (Kit.Cell + Gap), 0, 0);
+    public Point Corner(int index) => new(rooms.Take(index).Sum(r => r.Extent + Gap), 0, 0);
 
     /// <summary>Where the singletons stand: the middle of the gap after the first cell, at half a cell's height.</summary>
     public Point SingletonSpot => new(Kit.Cell + Gap / 2f, Kit.Cell / 2f, Kit.Cell / 2f);
@@ -80,7 +80,7 @@ public sealed class RoomLibrary
         if (sun is { } s)
             map.Entities.Add(Entity("light_environment", at, ("angles", s.Angles), ("pitch", s.Pitch),
                 ("_light", s.Light), ("_ambient", s.Ambient)));
-        map.Entities.Add(Entity("env_fog_controller", at, ("targetname", "descent_fog"), ("fogenable", "1"),
+        map.Entities.Add(Entity("env_fog_controller", at, ("targetname", "descent_fog"), ("fogenable", Fog.Enabled ? "1" : "0"),
             ("fogcolor", Fog.Colour), ("fogcolor2", Fog.Colour), ("fogstart", Num(Fog.Start)), ("fogend", Num(Fog.End)),
             ("fogmaxdensity", Num(Fog.MaxDensity)), ("farz", "-1")));
         map.Entities.Add(Entity("env_tonemap_controller", at, ("targetname", "descent_tonemap"),
@@ -95,9 +95,11 @@ public sealed class RoomLibrary
         var e = new VmfEntity { ClassName = "info_room" };
         e.Set("origin", corner.ToString()).Set("name", room.Name).Set("cell_size", Num(room.Kit.Cell))
          .Set("door_width", Num(room.Kit.DoorWidth)).Set("door_height", Num(room.Kit.DoorHeight))
-         .Set("wall_depth", Num(room.Kit.WallDepth));
+         .Set("wall_depth", Num(room.Kit.WallDepth)).Set(RoomKit.SillKey.Key, RoomKit.SillKey.Value);
         if (room.IsShaped)
             e.Set("room_height", Num(room.Height));
+        if (room.Cells > 1)
+            e.Set("room_footprint", $"{room.Cells} {room.Cells}");
         if (room.Role != RoomRole.None)
             e.Set("room_role", room.Role == RoomRole.Up ? "up" : "down");
         if (room.MapLabel is { } label)
@@ -147,8 +149,14 @@ public sealed record Sun(string Angles, string Pitch, string Light, string Ambie
 /// <summary>A library's fog (<c>env_fog_controller</c>).</summary>
 public sealed record Fog(string Colour, float Start, float End, float MaxDensity)
 {
-    /// <summary>Level 1's: a light haze that ends past a hall's length.</summary>
+    /// <summary>Whether the fog is drawn (<c>fogenable</c>); a depth with no fog still writes its controller, switched off.</summary>
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>Phase 1's: a light haze that ends past a hall's length.</summary>
     public static Fog Mine { get; } = new("40 36 30", 512, 4096, 0.6f);
+
+    /// <summary>No fog (level 1, §6: fog is off at level 1).</summary>
+    public static Fog None { get; } = new("0 0 0", 0, 0, 0) { Enabled = false };
 }
 
 /// <summary>A library's tone map (<c>env_tonemap_controller</c>).</summary>

@@ -67,6 +67,50 @@ public sealed record Room(
 
     /// <summary>Where a visitor's eye goes in the room: the middle of its main space, on its floor.</summary>
     public Point Focus { get; init; }
+
+    /// <summary>The room's main space (<see cref="RoomBuilder.WithBody"/>), the interior square by default.</summary>
+    public Rect Body { get; init; }
+
+    /// <summary>
+    /// The cells the room covers along each side (map tools' <c>room_footprint</c>, M24): 1 for a room
+    /// of one cell. A larger room is square, has a socket on every cell edge of its perimeter, and its
+    /// <see cref="Doors"/> are the four faces.
+    /// </summary>
+    public int Cells { get; init; } = 1;
+
+    /// <summary>The room's box along x and y: its cells times the kit's cell.</summary>
+    public int Extent => Cells * Kit.Cell;
+
+    /// <summary>
+    /// The sockets of a larger room that declares only some of its cell edges
+    /// (<see cref="RoomBuilder.WithSockets"/>: a boss arena joined only where its
+    /// row meets it), or null for every edge of its door faces.
+    /// </summary>
+    public IReadOnlyList<(CellFace Face, int Offset)>? SocketEdges { get; init; }
+
+    /// <summary>Every socket: a wall and the cell edge along it (0 for a room of one cell).</summary>
+    public IEnumerable<(CellFace Face, int Offset)> Sockets =>
+        SocketEdges ?? (Cells == 1 ? Doors.Select(f => (f, 0)) : Doors.SelectMany(f => Enumerable.Range(0, Cells).Select(k => (f, k))));
+
+    /// <summary>A socket's plug box, room-local (<see cref="RoomKit.PlugBox(CellFace, int, int)"/>).</summary>
+    public (Point Mins, Point Maxs) PlugBox(CellFace face, int offset) => Kit.PlugBox(face, offset, Cells);
+
+    /// <summary>A socket's name as the tools spell it: the wall's, and in a larger room its cell edge's number after it.</summary>
+    public string SocketName(CellFace face, int offset) =>
+        Cells == 1 ? RoomBuilder.WallName(face) : RoomBuilder.WallName(face) + offset.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A point <paramref name="depth"/> inside the room from a socket's wall, at the socket's middle, on the floor.</summary>
+    public Point DoorInside(CellFace face, int offset, float depth)
+    {
+        float c = Extent, m = Kit.Cell / 2f + offset * Kit.Cell, d = Kit.WallDepth + depth;
+        return face switch
+        {
+            CellFace.East => new(c - d, m, Kit.Sill),
+            CellFace.West => new(d, m, Kit.Sill),
+            CellFace.North => new(m, c - d, Kit.Sill),
+            _ => new(m, d, Kit.Sill),
+        };
+    }
 }
 
 /// <summary>
@@ -113,6 +157,7 @@ public sealed class RoomBuilder
     private Point arrival;
     private int arrivalYaw;
     private bool frames = true;
+    private int cells = 1;
     private string? mapLabel;
     private RoomEntry entry = RoomEntry.Default;
     private readonly HashSet<JumpTier> tiers = [];
@@ -239,14 +284,71 @@ public sealed class RoomBuilder
         return this;
     }
 
+    /// <summary>
+    /// Makes the room <paramref name="n"/> by <paramref name="n"/> cells (M24, map tools'
+    /// <c>room_footprint</c>): its box is <c>[0, n x cell]</c> along x and y, it has a door on every
+    /// cell edge of its perimeter (sockets <c>east0</c> to <c>east{n-1}</c> and so on, each framed and
+    /// capped as any door), and its open floor is the whole interior. No surface may lie on one of
+    /// its internal cell faces (the tools refuse it); <see cref="Build"/> checks.
+    /// </summary>
+    public RoomBuilder WithFootprint(int n)
+    {
+        if (n is < 2 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(n), n, $"room {name}: a larger room is 2 to 4 cells a side");
+        cells = n;
+        doors.Clear();
+        doors.AddRange([CellFace.East, CellFace.West, CellFace.North, CellFace.South]);
+        return this;
+    }
+
+    /// <summary>
+    /// Makes a larger room's sockets only <paramref name="sockets"/> (a wall and the cell edge along
+    /// it), not one on every cell edge of its perimeter: the rest of the perimeter is plain wall with
+    /// no brush the shape of a door's box (the tools count one as a socket). Its doors are then the
+    /// walls with a socket. A boss arena opens only where its row joins it, which packs it in a
+    /// fraction of the time and space (plan §3.2).
+    /// </summary>
+    public RoomBuilder WithSockets(params (CellFace Face, int Offset)[] sockets)
+    {
+        if (cells == 1)
+            throw new InvalidOperationException($"room {name}: only a larger room (WithFootprint) chooses its sockets");
+        if (sockets.Length == 0 || sockets.Distinct().Count() != sockets.Length || sockets.Any(s => s.Offset < 0 || s.Offset >= cells))
+            throw new ArgumentException($"room {name}: sockets must be distinct cell edges 0 to {cells - 1}", nameof(sockets));
+        socketEdges = [.. sockets.OrderBy(s => Array.IndexOf(FaceOrder, s.Face)).ThenBy(s => s.Offset)];
+        doors.Clear();
+        doors.AddRange(FaceOrder.Where(f => sockets.Any(s => s.Face == f)));
+        return this;
+    }
+
+    private static readonly CellFace[] FaceOrder = [CellFace.East, CellFace.West, CellFace.North, CellFace.South];
+
+    private List<(CellFace Face, int Offset)>? socketEdges;
+
+    /// <summary>The cells a side (1 unless <see cref="WithFootprint"/>).</summary>
+    public int Cells => cells;
+
+    /// <summary>The room's box along x and y.</summary>
+    public float Extent => cells * kit.Cell;
+
+    /// <summary>Every socket: a wall and the cell edge along it.</summary>
+    public IEnumerable<(CellFace Face, int Offset)> Sockets =>
+        socketEdges ?? (cells == 1 ? doors.Select(f => (f, 0)) : doors.SelectMany(f => Enumerable.Range(0, cells).Select(k => (f, k))));
+
+    /// <summary>The walls the room has doors on, in the order given.</summary>
+    public IReadOnlyList<CellFace> Doors => doors;
+
     /// <summary>The room's main space as features see it (<see cref="WithBody"/>).</summary>
-    public Rect Body => body ?? new Rect(InteriorLow, InteriorLow, InteriorHigh, InteriorHigh);
+    public Rect Body => body ?? (cells > 1
+        ? new Rect(kit.WallDepth, kit.WallDepth, Extent - kit.WallDepth, Extent - kit.WallDepth)
+        : new Rect(InteriorLow, InteriorLow, InteriorHigh, InteriorHigh));
 
     /// <summary>The open floor plan so far (empty for the centred plus).</summary>
     public IReadOnlyList<Rect> Outline => outline;
 
     public RoomBuilder WithDoors(params CellFace[] faces)
     {
+        if (cells > 1)
+            throw new InvalidOperationException($"room {name}: a larger room has a door on every cell edge already");
         foreach (CellFace face in faces)
         {
             if (doors.Contains(face))
@@ -316,9 +418,16 @@ public sealed class RoomBuilder
     public const int DoorApproach = 96;
 
     /// <summary>The box in front of the door on <paramref name="face"/> that features must keep clear, room-local.</summary>
-    public (Point Mins, Point Maxs) ApproachBox(CellFace face)
+    public (Point Mins, Point Maxs) ApproachBox(CellFace face, int offset = 0)
     {
-        var box = Face(face, kit.Cell - kit.WallDepth - DoorApproach, kit.Cell, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, theme.Block);
+        var box = Face(face, Extent - kit.WallDepth - DoorApproach, Extent, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, theme.Block, offset);
+        return (box.Mins, box.Maxs);
+    }
+
+    /// <summary>A socket's plug box, room-local: the kit's opening on the cell edge <paramref name="offset"/> along the wall.</summary>
+    public (Point Mins, Point Maxs) PlugBox(CellFace face, int offset = 0)
+    {
+        var box = Face(face, Extent - kit.WallDepth, Extent, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, theme.Plug, offset);
         return (box.Mins, box.Maxs);
     }
 
@@ -412,33 +521,38 @@ public sealed class RoomBuilder
     {
         Validate();
         var shell = new List<RoomBox>();
-        if (outline.Count > 0)
+        if (cells > 1)
+            MultiShell(shell);
+        else if (outline.Count > 0)
             OutlineShell(shell);
         else
             Shell(shell);
-        Merge(shell);
+        if (cells == 1)
+            Merge(shell);
         var world = shell.Select(b => b.ToBrush()).ToList();
         world.AddRange(SkyCeiling());
         foreach (Brush brush in features)
         {
             if (!Inside(brush.Mins, brush.Maxs))
                 throw new ArgumentException($"room {name}: a brush ({brush.Mins})-({brush.Maxs}) leaves the room's cell");
-            foreach (CellFace face in doors)
+            foreach (var (face, offset) in Sockets)
             {
-                var (mins, maxs) = ApproachBox(face);
+                var (mins, maxs) = ApproachBox(face, offset);
                 if (brush.Overlaps(mins, maxs))
-                    throw new ArgumentException($"room {name}: a brush ({brush.Mins})-({brush.Maxs}) stands in front of its {WallName(face)} door");
+                    throw new ArgumentException($"room {name}: a brush ({brush.Mins})-({brush.Maxs}) stands in front of its {SocketName(face, offset)} door");
             }
 
             world.Add(brush);
         }
 
+        if (cells > 1)
+            CheckCellFaces(world);
         var all = new List<RoomEntity>(entities);
         if (frames)
-            foreach (CellFace face in doors)
+            foreach (var (face, offset) in Sockets)
             {
-                all.AddRange(FramePieces(face));
-                all.Add(Cap(face));
+                all.AddRange(FramePieces(face, offset));
+                all.Add(Cap(face, offset));
             }
         if (role != RoomRole.None)
             RolePieces(all);
@@ -452,6 +566,9 @@ public sealed class RoomBuilder
             HasSky = sky.Count > 0,
             Outline = [.. outline],
             Focus = focus ?? new Point(main.CentreX, main.CentreY, kit.Sill),
+            Body = main,
+            Cells = cells,
+            SocketEdges = socketEdges is null ? null : [.. socketEdges],
         };
     }
 
@@ -463,6 +580,8 @@ public sealed class RoomBuilder
         if (height % kit.NavVoxel != 0)
             throw new ArgumentOutOfRangeException(nameof(height), height,
                 $"room {name}: {height} is not a whole number of the kit's {kit.NavVoxel}-unit navigation voxels");
+        if (cells > 1 && outline.Count > 0)
+            throw new ArgumentException($"room {name}: a larger room's open floor is its whole interior");
         if (width < kit.DoorWidth || width > kit.Interior)
             throw new ArgumentOutOfRangeException(nameof(width), width,
                 $"room {name}: width {width} is outside the door's {kit.DoorWidth} to the cell's {kit.Interior}");
@@ -491,7 +610,64 @@ public sealed class RoomBuilder
     }
 
     private bool Inside(Point mins, Point maxs)
-        => mins.X >= 0 && mins.Y >= 0 && mins.Z >= 0 && maxs.X <= kit.Cell && maxs.Y <= kit.Cell && maxs.Z <= height;
+        => mins.X >= 0 && mins.Y >= 0 && mins.Z >= 0 && maxs.X <= Extent && maxs.Y <= Extent && maxs.Z <= height;
+
+    /// <summary>The socket's name as the tools spell it: the wall's, and in a larger room the cell edge's number after it.</summary>
+    public string SocketName(CellFace face, int offset) => cells == 1 ? WallName(face) : WallName(face) + offset.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The map tools refuse a larger room with a visible surface lying on one of its internal cell
+    /// faces (the link routes each cell to its own part of the room and would drop it): no face of a
+    /// brush may lie wholly in the plane x or y = k x cell, 0 &lt; k &lt; its cells.
+    /// </summary>
+    private void CheckCellFaces(IEnumerable<Brush> world)
+    {
+        float c = kit.Cell;
+        foreach (Brush b in world)
+            foreach (BrushFace f in b.Faces)
+                for (int k = 1; k < cells; k++)
+                {
+                    float plane = k * c;
+                    if (f.Polygon.All(v => Math.Abs(v.X - plane) < 0.01f) || f.Polygon.All(v => Math.Abs(v.Y - plane) < 0.01f))
+                        throw new ArgumentException($"room {name}: a face of the brush ({b.Mins})-({b.Maxs}) lies on the internal cell face at {plane}; move it off, or let the brush cross it");
+                }
+    }
+
+    /// <summary>
+    /// A larger room's shell: the floor slab over the footprint, let down under each socket; the
+    /// ceiling slab; each wall along its whole side with the kit's opening on every cell edge, a
+    /// lintel over each and its plug. The east and west walls run the whole side, the north and south
+    /// between them, so no two meet face to face, and no piece ends on an internal cell face.
+    /// </summary>
+    private void MultiShell(List<RoomBox> world)
+    {
+        float e = Extent, t = kit.WallDepth, h = height, z0 = t, z1 = h - t, c = kit.Cell;
+        Floors(world);
+        Ceilings(world);
+        var sockets = Sockets.ToHashSet();
+        foreach (CellFace face in FaceOrder)
+        {
+            bool full = face is CellFace.East or CellFace.West;
+            float start = full ? 0 : t, end = full ? e : e - t, a = start;
+            for (int k = 0; k < cells; k++)
+            {
+                // A cell edge with no socket is wall: the side runs on past it.
+                if (!sockets.Contains((face, k)))
+                    continue;
+                float lo = kit.DoorLow + k * c, hi = kit.DoorHigh + k * c;
+                world.Add(Face(face, e - t, e, a, lo, z0, z1, theme.Wall));
+                if (kit.Head < z1)
+                    world.Add(Face(face, e - t, e, lo, hi, kit.Head, z1, theme.Wall));
+                var plug = PlugBox(face, k);
+                world.Add(new RoomBox(plug.Mins, plug.Maxs, theme.Plug));
+                a = hi;
+            }
+
+            world.Add(Face(face, e - t, e, a, end, z0, z1, theme.Wall));
+        }
+
+        Band(world, z0, z1);
+    }
 
     private void Shell(List<RoomBox> world)
     {
@@ -537,6 +713,52 @@ public sealed class RoomBuilder
             var plug = kit.PlugBox(face);
             world.Add(new RoomBox(plug.Mins, plug.Maxs, theme.Plug));
         }
+
+        Band(world, z0, z1);
+    }
+
+    /// <summary>
+    /// The theme's lower band (<see cref="RoomTheme.WallLow"/>): every wall box
+    /// standing on the floor is cut at <see cref="RoomTheme.WallBand"/> above
+    /// it, the part below in the band's surface, in a room whose wall is tall
+    /// enough to show both (twice the band).
+    /// </summary>
+    private void Band(List<RoomBox> world, float z0, float z1)
+    {
+        Seam(world, z0, z1);
+        if (theme.WallLow is not { } low || z1 - z0 < 2 * theme.WallBand)
+            return;
+        float cut = z0 + theme.WallBand;
+        for (int k = world.Count - 1; k >= 0; k--)
+        {
+            RoomBox w = world[k];
+            if (w.Surface != theme.Wall || w.Mins.Z != z0 || w.Maxs.Z <= cut)
+                continue;
+            world[k] = w with { Mins = w.Mins with { Z = cut } };
+            world.Add(new RoomBox(w.Mins, w.Maxs with { Z = cut }, low));
+        }
+    }
+
+    /// <summary>
+    /// The theme's seam (<see cref="RoomTheme.WallSeam"/>): every wall box
+    /// standing on the floor and reaching a voxel over the seam's top is cut
+    /// at the seam's two heights, the part between in the seam's surface (a
+    /// grey ore band through level 3's red rock).
+    /// </summary>
+    private void Seam(List<RoomBox> world, float z0, float z1)
+    {
+        if (theme.WallSeam is not { } seam || z1 - z0 < seam.To + kit.NavVoxel)
+            return;
+        float a = z0 + seam.From, b = z0 + seam.To;
+        for (int k = world.Count - 1; k >= 0; k--)
+        {
+            RoomBox w = world[k];
+            if (w.Surface != theme.Wall || w.Mins.Z != z0 || w.Maxs.Z < b + kit.NavVoxel)
+                continue;
+            world[k] = w with { Maxs = w.Maxs with { Z = a } };
+            world.Add(new RoomBox(w.Mins with { Z = a }, w.Maxs with { Z = b }, seam.Surface));
+            world.Add(new RoomBox(w.Mins with { Z = b }, w.Maxs, theme.Wall));
+        }
     }
 
     /// <summary>
@@ -561,6 +783,8 @@ public sealed class RoomBuilder
                 world.Add(new RoomBox(plug.Mins with { Z = kit.Head }, plug.Maxs with { Z = z1 }, theme.Wall));
             world.Add(new RoomBox(plug.Mins, plug.Maxs, theme.Plug));
         }
+
+        Band(world, z0, z1);
     }
 
     /// <summary>
@@ -588,9 +812,9 @@ public sealed class RoomBuilder
     public const int DoorwayDipShort = 1;
 
     /// <summary>A door's dip under its plug, room-local, on the floor plan.</summary>
-    public Rect DipOf(CellFace face)
+    public Rect DipOf(CellFace face, int offset = 0)
     {
-        float c = kit.Cell, t = kit.WallDepth, s = DoorwayDipShort, lo = kit.DoorLow, hi = kit.DoorHigh;
+        float c = Extent, t = kit.WallDepth, s = DoorwayDipShort, lo = kit.DoorLow + offset * kit.Cell, hi = kit.DoorHigh + offset * kit.Cell;
         return face switch
         {
             CellFace.East => new(c - t, lo, c - s, hi),
@@ -603,7 +827,7 @@ public sealed class RoomBuilder
     /// <summary>The ceiling slab over the cell, less its sky areas.</summary>
     private void Ceilings(List<RoomBox> world)
     {
-        float c = kit.Cell, t = kit.WallDepth, h = height;
+        float c = Extent, t = kit.WallDepth, h = height;
         foreach (Rect r in Rects.Subtract(new Rect(0, 0, c, c), sky))
             world.Add(new RoomBox(new(r.X0, r.Y0, h - t), new(r.X1, r.Y1, h), theme.Ceiling));
     }
@@ -611,7 +835,7 @@ public sealed class RoomBuilder
     /// <summary>The floor slab: the whole cell, its top let down under each door (<see cref="DoorwayDip"/>).</summary>
     private void Floors(List<RoomBox> world)
     {
-        float c = kit.Cell, t = kit.WallDepth, d = t - DoorwayDip;
+        float c = Extent, t = kit.WallDepth, d = t - DoorwayDip;
         if (doors.Count == 0)
         {
             world.Add(new RoomBox(new(0, 0, 0), new(c, c, t), theme.Floor));
@@ -619,7 +843,7 @@ public sealed class RoomBuilder
         }
 
         world.Add(new RoomBox(new(0, 0, 0), new(c, c, d), theme.Floor));
-        foreach (Rect r in Rects.Subtract(new Rect(0, 0, c, c), doors.Select(DipOf)))
+        foreach (Rect r in Rects.Subtract(new Rect(0, 0, c, c), Sockets.Select(s => DipOf(s.Face, s.Offset))))
             world.Add(new RoomBox(new(r.X0, r.Y0, d), new(r.X1, r.Y1, t), theme.Floor));
     }
 
@@ -671,9 +895,11 @@ public sealed class RoomBuilder
     /// across range this class asks for is symmetric about the cell's centre
     /// line in pairs, so the mirror needs no across flip.
     /// </summary>
-    private RoomBox Face(CellFace face, float out0, float out1, float across0, float across1, float z0, float z1, Surface material)
+    private RoomBox Face(CellFace face, float out0, float out1, float across0, float across1, float z0, float z1, Surface material, int offset = 0)
     {
-        float c = kit.Cell;
+        float c = Extent, shift = offset * kit.Cell;
+        across0 += shift;
+        across1 += shift;
         return face switch
         {
             CellFace.East => new RoomBox(new(out0, across0, z0), new(out1, across1, z1), material),
@@ -713,13 +939,55 @@ public sealed class RoomBuilder
     /// room would have its origin outside that room's cell once it is deeper
     /// than the frame's asymmetric half, where the library has no room for it.
     /// </remarks>
-    private IEnumerable<RoomEntity> FramePieces(CellFace face)
+    private IEnumerable<RoomEntity> FramePieces(CellFace face, int offset = 0)
     {
         FrameModel f = kit.Frame;
-        yield return ConditionalProp(face, f.Model, Math.Max(f.Depth, kit.WallDepth) + PropProud, f.MinX, kit.Sill - f.Bottom);
+        if (theme.FrameBrushes is { } brushes)
+            yield return BrushFramePiece(brushes, face, offset);
+        else
+            yield return ConditionalProp(face, f.Model, Math.Max(f.Depth, kit.WallDepth) + PropProud, f.MinX, kit.Sill - f.Bottom, offset);
         if (f.Sill is { } sill)
             foreach (float inset in SillInsets(kit))
-                yield return ConditionalProp(face, sill.Model, inset, sill.MinX, kit.Sill - DoorwayDip - sill.Floor);
+                yield return ConditionalProp(face, sill.Model, inset, sill.MinX, kit.Sill - DoorwayDip - sill.Floor, offset);
+    }
+
+    /// <summary>
+    /// A theme's brush frame (<see cref="BrushFrame"/>) for the socket on <paramref name="face"/>: one
+    /// non-solid <c>func_brush</c> kept only where the socket is joined, its posts and head lining the
+    /// room's half of the doorway and standing proud into the room, its flange or cap on the wall round
+    /// the opening, its planks across the threshold.
+    /// </summary>
+    private RoomEntity BrushFramePiece(BrushFrame fr, CellFace face, int offset)
+    {
+        float e = Extent, wall = e - kit.WallDepth, inner = wall - fr.Proud, lo = kit.DoorLow, hi = kit.DoorHigh, sill = kit.Sill, head = kit.Head;
+        var boxes = new List<RoomBox>
+        {
+            Face(face, inner, e, lo, lo + fr.PostWidth, sill, head, fr.Post, offset),
+            Face(face, inner, e, hi - fr.PostWidth, hi, sill, head, fr.Post, offset),
+            Face(face, inner, e, lo + fr.PostWidth, hi - fr.PostWidth, head - fr.HeadDepth, head, fr.Head, offset),
+        };
+        if (fr.Flange > 0)
+        {
+            float out0 = wall - fr.FlangeDepth, w = fr.Flange;
+            boxes.Add(Face(face, out0, wall, lo - w, lo, sill, head + w, fr.Post, offset));
+            boxes.Add(Face(face, out0, wall, hi, hi + w, sill, head + w, fr.Post, offset));
+            boxes.Add(Face(face, out0, wall, lo, hi, head, head + w, fr.HeadFace ?? fr.Head, offset));
+        }
+
+        if (fr.CapOverhang > 0)
+            boxes.Add(Face(face, inner, wall, lo - fr.CapOverhang, hi + fr.CapOverhang, head, head + fr.HeadDepth, fr.HeadFace ?? fr.Head, offset));
+        if (fr.Crossing is { } planks)
+            // Three boards across the threshold, a hand apart, a unit and a half high: the floor of a level crossing.
+            for (int k = 0; k < 3; k++)
+            {
+                float b1 = wall - k * (fr.CrossingDepth / 3f), b0 = b1 - fr.CrossingDepth / 3f + 6;
+                boxes.Add(Face(face, b0, b1, lo + fr.PostWidth, hi - fr.PostWidth, sill, sill + 1.5f, planks, offset));
+            }
+
+        return new RoomEntity("func_brush", null,
+            [new("room_needs", "joined_" + SocketName(face, offset)), new("Solidity", "1"), new("vrad_brush_cast_shadows", "0"),
+             new("disableshadows", "1"), new("_minlight", BrushFrame.MinLight)],
+            [], [.. boxes.Select(b => b.ToBrush())]);
     }
 
     /// <summary>
@@ -749,9 +1017,9 @@ public sealed class RoomBuilder
     /// <paramref name="inset"/> in from the cell face, its origin
     /// <paramref name="z"/> up, kept only where the socket is joined.
     /// </summary>
-    private RoomEntity ConditionalProp(CellFace face, string model, float inset, float minX, float z)
+    private RoomEntity ConditionalProp(CellFace face, string model, float inset, float minX, float z, int offset = 0)
     {
-        float c = kit.Cell, m = c / 2f, along = -inset - minX;
+        float c = Extent, m = kit.Cell / 2f + offset * kit.Cell, along = -inset - minX;
         (Point at, int yaw) = face switch
         {
             CellFace.East => (new Point(c + along, m, z), 0),
@@ -761,7 +1029,7 @@ public sealed class RoomBuilder
         };
         return new RoomEntity("prop_static", at,
             [new("model", model), new("angles", Angles(yaw)), new("solid", "0"), new("disableshadows", "1"),
-             new("room_needs", "joined_" + WallName(face))],
+             new("room_needs", "joined_" + SocketName(face, offset))],
             [], []);
     }
 
@@ -783,12 +1051,12 @@ public sealed class RoomBuilder
     /// surface over the opening, <see cref="CapThickness"/> in front of the
     /// plug, kept by the link only where the socket is capped.
     /// </summary>
-    private RoomEntity Cap(CellFace face)
+    private RoomEntity Cap(CellFace face, int offset = 0)
     {
-        float c = kit.Cell, t = kit.WallDepth;
-        Brush panel = Face(face, c - t - CapThickness, c - t, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, theme.Wall).ToBrush();
+        float c = Extent, t = kit.WallDepth;
+        Brush panel = Face(face, c - t - CapThickness, c - t, kit.DoorLow, kit.DoorHigh, kit.Sill, kit.Head, theme.Wall, offset).ToBrush();
         return new RoomEntity("func_brush", null,
-            [new("room_needs", "!joined_" + WallName(face)), new("Solidity", "2"), new("vrad_brush_cast_shadows", "0")],
+            [new("room_needs", "!joined_" + SocketName(face, offset)), new("Solidity", "2"), new("vrad_brush_cast_shadows", "0")],
             [], [panel]);
     }
 
