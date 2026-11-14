@@ -38,7 +38,7 @@ internal sealed class SkillRig
 
     public SkillRig()
     {
-        Slots = new SkillSlotStore(Heroes.Sheets);
+        Slots = new SkillSlotStore(Heroes.Heroes, Heroes.Sheets);
         Binders = new SkillBinders(World, Heroes.Heroes, Buffs, Robots, Heroes.Log);
         Attributes = new SkillAttributes(new ModeOn(), new NoBots(), new ItemSchema(new SchemaFiles(), Heroes.Log));
         Runtime = new SkillRuntime(Heroes.Rules, Heroes.Heroes, Casters, Slots, Buffs, Binders, Attributes, Told, Heroes.Log);

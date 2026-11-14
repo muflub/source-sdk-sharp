@@ -19,7 +19,7 @@ public sealed class WeaponFamilyTests
     /// build and disguise tools, consumables, banners, throwables that deal no damage of
     /// their own, the Wrangler (it aims the sentry), movement items and wearables.
     /// </summary>
-    private static readonly string[] NotWeapons =
+    internal static readonly string[] NotWeapons =
     [
         "tf_weapon_builder", "tf_weapon_sapper", "tf_weapon_invis", "tf_weapon_pda_engineer_destroy",
         "tf_weapon_lunchbox", "tf_weapon_lunchbox_drink", "tf_weapon_buff_item",
@@ -49,7 +49,7 @@ public sealed class WeaponFamilyTests
         new ContentLoader().Load(new EmbeddedContentSource(typeof(TF2DescentRules).Assembly)).OrThrow();
 
     /// <summary>The rows of items_working.tsv as (item_class, slot, status), header dropped.</summary>
-    private static IReadOnlyList<(string ItemClass, string Slot, string Status)> ItemsWorking()
+    internal static IReadOnlyList<(string ItemClass, string Slot, string Status)> ItemsWorking()
     {
         string root = RepoRoot();
         string path = Path.Combine(root, "game", "mod_tf2", "scripts", "items", "items_working.tsv");

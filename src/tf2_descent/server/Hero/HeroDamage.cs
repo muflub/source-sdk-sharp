@@ -23,53 +23,25 @@ public sealed class HeroDebugDamageConVar : BoolConVar { }
 /// and the damage TYPE a TF hit is resisted as (<see cref="HeroStats.Resist"/>).
 ///
 /// <para>
-/// The rules name four kinds a weapon's hit can be (melee, blast, bullet,
-/// projectile; "action" is a skill's) and give each family one damage type,
-/// but do not say which kinds a family's hit is. The table here does, until
-/// the families carry it: a launcher's hit is blast and projectile (the
-/// rules' own example, a rocket), every hitscan gun's is bullet, a thrown or
-/// fired object's is projectile, a melee weapon's is melee, and a
-/// flamethrower's and a medigun's are none of them (the all-damage stat
-/// still applies).
+/// Both come from the content: a family's kinds are families.json's
+/// (<see cref="FamilyRow.Kinds"/>: a launcher's hit is blast and projectile,
+/// a flamethrower's the plain weapon kind), and a weapon's family is the
+/// rules' one lookup, class words and all (<see cref="DescentContent.TryGetFamilyOfItemClass"/>).
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HeroHitKinds(TF2DescentRules rules)
 {
-    /// <summary>The trailing class word TF2 gives a class's copy of a shared weapon (<c>tf_weapon_shotgun_soldier</c>).</summary>
-    private readonly string[] _classSuffixes = ["_scout", "_soldier", "_pyro", "_demoman", "_hwg", "_heavy", "_engineer", "_medic", "_sniper", "_spy", "_primary"];
-
-    /// <summary>The kinds a hit of <paramref name="familyId"/> counts as; none for a family the table does not know.</summary>
-    public static string[] KindsOf(string familyId) => familyId switch
-    {
-        "rocket_launcher" or "grenade_launcher" or "stickybomb_launcher" => ["blast", "projectile"],
-        "scattergun" or "shotgun" or "pistol" or "revolver" or "smg" or "minigun" or "sniper_rifle" => ["bullet"],
-        "flare_gun" or "syringe_gun" or "bow" or "energy_weapon" or "cleaver" => ["projectile"],
-        "melee" => ["melee"],
-        _ => [],
-    };
+    /// <summary>The kinds a hit of <paramref name="family"/> counts as: the content's.</summary>
+    public static string[] KindsOf(FamilyRow family) => [.. family.Kinds];
 
     /// <summary>
-    /// The family of a weapon's item class: the class itself, else the class
-    /// without TF2's per-class word (the Soldier's stock shotgun is
-    /// <c>tf_weapon_shotgun_soldier</c>; the family names <c>tf_weapon_shotgun</c>).
+    /// The family of a weapon's item class, from the rules (the Soldier's stock
+    /// shotgun, <c>tf_weapon_shotgun_soldier</c>, is the shotgun family's); null
+    /// for no weapon or one no family holds.
     /// </summary>
-    public FamilyRow? FamilyOf(string? itemClass)
-    {
-        if (string.IsNullOrEmpty(itemClass))
-            return null;
-        if (rules.Content.TryGetFamilyOfItemClass(itemClass, out var family))
-            return family;
-
-        foreach (string suffix in _classSuffixes)
-        {
-            if (itemClass.EndsWith(suffix, StringComparison.Ordinal)
-                && rules.Content.TryGetFamilyOfItemClass(itemClass[..^suffix.Length], out family))
-                return family;
-        }
-
-        return null;
-    }
+    public FamilyRow? FamilyOf(string? itemClass) =>
+        !string.IsNullOrEmpty(itemClass) && rules.Content.TryGetFamilyOfItemClass(itemClass, out var family) ? family : null;
 
     /// <summary>
     /// The damage type a TF hit is resisted as, from its bits, first match
@@ -146,7 +118,7 @@ public sealed class HeroDamage(IDescentModeState mode, Heroes heroes, IEngineEnt
             // damage kinds are not its, so only the sheet's action and all-damage shares apply.
             string? skill = skillHits.Current();
             var family = skill is null ? hitKinds.FamilyOf(weapons.ActiveItemClass(hit.Attacker)) : null;
-            string[] kinds = skill is not null ? _actionKinds : family is null ? [] : HeroHitKinds.KindsOf(family.Id);
+            string[] kinds = skill is not null ? _actionKinds : family is null ? [] : HeroHitKinds.KindsOf(family);
             double multiplier = attacker.DamageMultiplier(kinds);
             damage = (float)(damage * multiplier);
             if (debug.Value)

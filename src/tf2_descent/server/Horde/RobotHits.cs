@@ -42,10 +42,11 @@ public interface IRobotHitSink
 }
 
 /// <summary>
-/// The sink until those packages land: counts the hits and keeps the last, for
-/// the dev command and the live proofs. Changes nothing.
+/// The first member of the sink's chain (<c>Motion.RobotHitChain</c>): counts
+/// the hits and keeps the last, for the dev command and the live proofs.
+/// Changes nothing.
 /// </summary>
-[SideService(Side.Server, As = [typeof(IRobotHitSink)])]
+[SideService(Side.Server)]
 public sealed class RobotHitTally : IRobotHitSink
 {
     public int Hits { get; private set; }

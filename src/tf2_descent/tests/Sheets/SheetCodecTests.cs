@@ -45,13 +45,13 @@ public sealed class SheetCodecTests
         """{"ClassName":"soldier","Name":"Old","Level":4,"Xp":0,"ReachedDepth":3,"Hardcore":false,"Fallen":false}""";
 
     [Fact]
-    public void A_new_character_is_a_schema_2_sheet_of_a_level_1_hero()
+    public void A_new_character_is_a_schema_3_sheet_of_a_level_1_hero()
     {
         var sheet = Rules.NewCharacter("Medic", "Ludwig", hardcore: true);
         var hero = Codec.Read(sheet);
 
-        Assert.Equal(2, sheet.SchemaVersion);
-        Assert.Equal(2, Rules.Sheets.SchemaVersion);
+        Assert.Equal(3, sheet.SchemaVersion);
+        Assert.Equal(3, Rules.Sheets.SchemaVersion);
         Assert.Equal(("medic", "Ludwig", 1, true), (hero.ClassId, hero.Name, hero.Level, hero.Hardcore));
         Assert.True(Heroes.Audit(hero).Ok);
     }
@@ -99,24 +99,24 @@ public sealed class SheetCodecTests
     }
 
     [Fact]
-    public void A_schema_1_sheet_round_trips_into_schema_2_and_validates()
+    public void A_schema_1_sheet_round_trips_into_schema_3_and_validates()
     {
         var v1 = new CharacterSheet(Encoding.UTF8.GetBytes(V1), 1);
 
         var v2 = Codec.Write(Codec.Read(v1));
 
-        Assert.Equal(2, v2.SchemaVersion);
+        Assert.Equal(3, v2.SchemaVersion);
         Assert.Equal(v2.Data, Codec.Write(Codec.Read(v2)).Data);
         Assert.True(Rules.ValidateCheckpoint(v1, v2, new CheckpointEvidence([], 0)).Ok);
         Assert.True(Rules.ValidateCheckpoint(v1, v1, new CheckpointEvidence([], 0)).Ok);
     }
 
     [Fact]
-    public void Schema_1_json_is_taken_by_the_admin_path_and_comes_back_as_schema_2()
+    public void Schema_1_json_is_taken_by_the_admin_path_and_comes_back_as_schema_3()
     {
         var sheet = Rules.Sheets.FromJson(V1);
 
-        Assert.Equal(2, sheet.SchemaVersion);
+        Assert.Equal(3, sheet.SchemaVersion);
         Assert.Equal("soldier", Codec.Read(sheet).ClassId);
     }
 
@@ -143,7 +143,7 @@ public sealed class SheetCodecTests
     {
         var sheet = Codec.Write(Full());
 
-        Assert.Throws<InvalidDataException>(() => Codec.Read(sheet with { SchemaVersion = 3 }));
+        Assert.Throws<InvalidDataException>(() => Codec.Read(sheet with { SchemaVersion = 4 }));
     }
 
     [Fact]

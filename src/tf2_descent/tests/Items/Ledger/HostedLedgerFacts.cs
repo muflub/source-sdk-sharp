@@ -158,6 +158,32 @@ public sealed class HostedLedgerFacts : LedgerFacts
     }
 
     [Fact]
+    public async Task Collecting_Australium_is_refused_as_not_supported_by_the_host_and_asks_nothing()
+    {
+        await _ledger.Load(A);
+        string before = Snapshot(A);
+        _host.Calls.Clear();
+
+        var collect = await _ledger.CollectAustralium(A, 37);
+
+        Assert.Equal(LedgerRefusals.HostUnsupported, collect.Refusal);
+        Assert.Equal(before, Snapshot(A));
+        Assert.Empty(_host.Calls);
+    }
+
+    [Fact]
+    public async Task A_potion_drop_is_refused_as_not_supported_by_the_host()
+    {
+        await _ledger.Load(A);
+        _host.Calls.Clear();
+
+        var drop = await _ledger.PotionDrop(A, "health_small", 9, 2, default);
+
+        Assert.Equal(LedgerRefusals.HostUnsupported, drop.Refusal);
+        Assert.Empty(_host.Calls);
+    }
+
+    [Fact]
     public async Task A_salvage_reads_back_every_output_the_host_made()
     {
         await _ledger.Load(A);

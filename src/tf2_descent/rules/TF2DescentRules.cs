@@ -89,7 +89,7 @@ public sealed class TF2DescentRules : IGameRules
     /// <summary>The hero sheet's rules over that content (RU2).</summary>
     public HeroRules Heroes { get; }
 
-    /// <summary>The sheet's bytes, schema 2 (RU13); schema 1 still decodes.</summary>
+    /// <summary>The sheet's bytes, schema 3 (RU13, the skill bar); schemas 1 and 2 still decode.</summary>
     public SheetCodec SheetCodec { get; }
 
     /// <summary>The checkpoint evidence's bytes (RU13).</summary>
@@ -145,6 +145,14 @@ public sealed class TF2DescentRules : IGameRules
     /// <summary>Vendor stock (RU5).</summary>
     public Vendors Vendors { get; }
 
+    /// <summary>
+    /// What a new hero of <paramref name="classId"/> starts with (starting_kits.json, HE0): the
+    /// gear bases for the backpack and the potions for the belt. An empty kit for a class the
+    /// table does not name.
+    /// </summary>
+    public StartingKitRow StartingKit(string classId) =>
+        Content.StartingKits.TryGet(classId, out var kit) ? kit : new StartingKitRow(classId, [], []);
+
     /// <summary>The content's SHA-256, for the game and the host to log side by side.</summary>
     public string ContentHash => Content.Hash;
 
@@ -187,7 +195,7 @@ public sealed class TF2DescentRules : IGameRules
     /// <summary>Stash capacity: the highest storage rank among the account's living characters (RU5, D4).</summary>
     public int StashSlots(IReadOnlyList<CharacterSheet> living) => Inventory.StashSlots(living.Select(SheetCodec.Read));
 
-    /// <summary>A level 1 hero of the class at its class starts (schema 2). An unknown class throws, naming the nine.</summary>
+    /// <summary>A level 1 hero of the class at its class starts (schema 3). An unknown class throws, naming the nine.</summary>
     public CharacterSheet NewCharacter(string className, string name, bool hardcore) =>
         SheetCodec.Write(Heroes.New(className, name) with { Hardcore = hardcore });
 

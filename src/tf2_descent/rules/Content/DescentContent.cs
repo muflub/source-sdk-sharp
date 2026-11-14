@@ -95,8 +95,28 @@ public sealed class DescentContent
         return new ItemBaseKeys(ids, names);
     }
 
-    /// <summary>The family a TF item class (items_working.tsv's item_class) belongs to; false for a class no family holds.</summary>
+    /// <summary>
+    /// The family a TF item class (items_working.tsv's item_class) or weapon entity belongs
+    /// to; false for a class no family holds. A class a family names is that family's; else
+    /// a class ending in "_" and a class's item class word (<see cref="ClassRow.ItemClassWords"/>:
+    /// <c>tf_weapon_shotgun_soldier</c>, <c>tf_weapon_shotgun_hwg</c>) is the family of the
+    /// class without it. The one place the server finds a weapon's family.
+    /// </summary>
     public bool TryGetFamilyOfItemClass(string itemClass, out FamilyRow family)
+    {
+        if (TryGetFamilyNamed(itemClass, out family))
+            return true;
+        foreach (var c in Classes.Rows)
+            foreach (var word in c.ItemClassWords)
+                if (itemClass.Length > word.Length + 1 && itemClass.EndsWith(word, StringComparison.Ordinal)
+                    && itemClass[^(word.Length + 1)] == '_'
+                    && TryGetFamilyNamed(itemClass[..^(word.Length + 1)], out family))
+                    return true;
+        family = null!;
+        return false;
+    }
+
+    private bool TryGetFamilyNamed(string itemClass, out FamilyRow family)
     {
         foreach (var f in Families.Rows)
             if (f.ItemClasses.Contains(itemClass, StringComparer.Ordinal))
@@ -146,6 +166,9 @@ public sealed class DescentContent
 
     /// <summary>What a kill's XP is scaled by, hero level against monster level (RU4, D10).</summary>
     public Loot.ExperienceSettings Experience => Get<Loot.ExperienceSettings>(TF2.Descent.Rules.Loot.ExperienceTable.TableName);
+
+    /// <summary>Each class's starting backpack and belt (HE0).</summary>
+    public Table<StartingKitRow> StartingKits => Get<Table<StartingKitRow>>(StartingKitTable.TableName);
 
     /// <summary>The shipped content; throws <see cref="ContentLoadException"/> naming every error if it does not load.</summary>
     public static DescentContent Shipped() => new ContentLoader().Load(new EmbeddedContentSource()).OrThrow();

@@ -65,7 +65,7 @@ public static class DescentHudSamples
     private static UiScreen Bare(UiSampleServices s) => Build(s,
         new FakeVitals { HasHero = false, Life = 0, Mana = 0 },
         new FakeBelt { Names = ["", "", "", ""], Ready = true },
-        new FakeXp { Xp = 0, SkillPoints = 0 });
+        new FakeXp { Level = 0, Xp = 0, SkillPoints = 0 });
 }
 
 // ---- fakes -------------------------------------------------------------------

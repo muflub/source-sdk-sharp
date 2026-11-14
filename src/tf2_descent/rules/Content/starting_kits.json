@@ -1,0 +1,11 @@
+[
+  { "id": "scout", "backpack": ["scattergun", "pistol", "bat"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "soldier", "backpack": ["rocket_launcher", "shotgun", "shovel"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "pyro", "backpack": ["flamethrower", "flare_gun", "fire_axe"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "demoman", "backpack": ["grenade_launcher", "stickybomb_launcher", "bottle"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "heavy", "backpack": ["minigun", "fists"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "engineer", "backpack": ["pistol", "wrench"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "medic", "backpack": ["syringe_gun", "medigun", "bonesaw"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "sniper", "backpack": ["sniper_rifle", "smg", "kukri"], "belt": ["health_small", "health_small", "mana_small"] },
+  { "id": "spy", "backpack": ["revolver", "knife"], "belt": ["health_small", "health_small", "mana_small"] }
+]

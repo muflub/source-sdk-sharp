@@ -119,44 +119,42 @@ public sealed class SkillCasters
 }
 
 /// <summary>
-/// Which skill is in which of a hero's <see cref="SkillBar.Slots"/> slots,
-/// held under the key the hero's sheet is held by (<see cref="HeroSheets.KeyOf"/>):
-/// unhosted, as long as the sheet, through respawns, level changes and
-/// reconnects. HOSTED IT IS NOT PERSISTED: the sheet's codec carries skill
-/// ranks and the belt, not slot assignments, so a hosted hero's bar is empty
-/// on each new process (reported, plan_descent_logic HE6).
+/// Which skill is in which of a hero's <see cref="SkillBar.Slots"/> slots: the
+/// sheet's skill bar (<see cref="HeroSheet.SkillSlots"/>, sheet schema 3), read
+/// from the hero's sheet and changed through the hero's audited apply
+/// (<see cref="HeroComponent.Apply"/>, or <see cref="HeroSheets.Apply"/> for a
+/// sheet with no hero in the world), so it lives as long as the sheet does:
+/// unhosted through respawns, level changes and reconnects, hosted in the
+/// checkpoints the host keeps. A respec empties it (the rules' respec).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class SkillSlotStore(HeroSheets sheets)
+public sealed class SkillSlotStore(Heroes heroes, HeroSheets sheets)
 {
-    private readonly Dictionary<string, string?[]> _byKey = new(StringComparer.Ordinal);
-
-    /// <summary>The slots of the hero in <paramref name="playerIndex"/>, slot 1 first; empty slots null.</summary>
-    public IReadOnlyList<string?> Of(int playerIndex) => SlotsOf(playerIndex);
+    /// <summary>The slots of the hero in <paramref name="playerIndex"/>, slot 1 first; empty slots null (all null with no sheet).</summary>
+    public IReadOnlyList<string?> Of(int playerIndex)
+    {
+        var bar = sheets.Of(playerIndex)?.SkillSlots ?? [];
+        var slots = new string?[SkillBar.Slots];
+        for (int i = 0; i < slots.Length && i < bar.Length; i++)
+            slots[i] = bar[i].Length > 0 ? bar[i] : null;
+        return slots;
+    }
 
     /// <summary>The skill in <paramref name="slot"/> (1-based), or null.</summary>
     public string? In(int playerIndex, int slot) =>
-        slot is >= 1 and <= SkillBar.Slots ? SlotsOf(playerIndex)[slot - 1] : null;
+        slot is >= 1 and <= SkillBar.Slots ? Of(playerIndex)[slot - 1] : null;
 
-    /// <summary>Puts <paramref name="skillId"/> in <paramref name="slot"/> (null empties it); a skill already in another slot leaves it.</summary>
-    public void Set(int playerIndex, int slot, string? skillId)
+    /// <summary>
+    /// Puts <paramref name="skillId"/> in <paramref name="slot"/> (null empties it) on the
+    /// hero's sheet; a skill already in another slot leaves it. The sheet's audit decides:
+    /// a refusal leaves the bar as it was.
+    /// </summary>
+    public AuditResult Set(int playerIndex, int slot, string? skillId)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(slot, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(slot, SkillBar.Slots);
-        var slots = SlotsOf(playerIndex);
-        if (skillId is not null)
-            for (int i = 0; i < slots.Length; i++)
-                if (slots[i] == skillId)
-                    slots[i] = null;
-        slots[slot - 1] = skillId;
-    }
-
-    private string?[] SlotsOf(int playerIndex)
-    {
-        string key = sheets.KeyOf(playerIndex) ?? "slot " + playerIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        if (!_byKey.TryGetValue(key, out var slots))
-            _byKey[key] = slots = new string?[SkillBar.Slots];
-        return slots;
+        HeroSheet Change(HeroSheet sheet) => sheets.Rules.Heroes.WithSlot(sheet, slot, skillId);
+        return heroes.Of(playerIndex) is { } hero ? hero.Apply(Change) : sheets.Apply(playerIndex, Change);
     }
 }
 

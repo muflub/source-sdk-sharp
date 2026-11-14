@@ -54,11 +54,16 @@ public sealed class HeroStats
     /// <summary>
     /// The damage multiplier of a hit of the given kinds (a rocket is blast and
     /// projectile): one plus the all-damage stat and each kind's stat, added, never below 0.
+    /// A hit of any weapon kind is also a weapon hit (<see cref="WeaponHit"/>): the weapon
+    /// stat joins it once, however many weapon kinds it is. An action's hit never takes it.
     /// </summary>
     public double DamageMultiplier(params string[] kinds)
     {
+        var counted = new HashSet<string>(kinds, StringComparer.Ordinal);
+        if (kinds.Any(k => _s.WeaponHit.Kinds.Contains(k, StringComparer.Ordinal)))
+            counted.Add(_s.WeaponHit.Kind);
         double pct = Total(_s.DamageAllStat);
-        foreach (var k in kinds)
+        foreach (var k in counted)
             pct += Total(Kind(_s.DamageKinds, k, "damage kind").Stat);
         return Math.Max(0, 1 + pct / 100);
     }

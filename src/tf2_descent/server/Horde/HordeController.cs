@@ -5,8 +5,10 @@ using TF2.Descent.Ai.Bodies;
 using TF2.Descent.Ai.Embodiment;
 using TF2.Descent.Ai.Far;
 using TF2.Descent.Ai.Level;
+using TF2.Descent.Ai.Motion;
 using TF2.Descent.Ai.Roster;
 using TF2.Descent.Rules.Horde;
+using TF2.Descent.Server.Horde.Motion;
 
 namespace TF2.Descent.Server.Horde;
 
@@ -19,8 +21,8 @@ namespace TF2.Descent.Server.Horde;
 /// from <see cref="Tick"/>.
 ///
 /// <para>
-/// <b>The tick</b>, on the game thread, every server tick: the dev walkers
-/// step; at <see cref="DecideHz"/> the bodies' places go to the roster, the
+/// <b>The tick</b>, on the game thread, every server tick: the bodies'
+/// motion steps (HO3); at <see cref="DecideHz"/> the bodies' places go to the roster, the
 /// heroes are gathered, and the embodiment rules observe, decide and are
 /// applied; at horde.json's far rate (2 Hz) the far simulation ticks. Every
 /// call the later session package (HO4) moves to the AI workers is in
@@ -28,8 +30,9 @@ namespace TF2.Descent.Server.Horde;
 /// </para>
 /// </summary>
 [ScriptedEntity(EntityClass, ScriptedEntityKind.Logical)]
-public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, HordeParking parking, IRobotHitSink hits,
-                                    IEngineEntityRender render, ISightWorld sightWorld, IHordeHeroes heroes, ILog log) : ScriptedEntity
+public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, HordeParking parking, IHooks<IRobotHitSink> hits,
+                                    IEngineEntityRender render, ISightWorld sightWorld, IHordeHeroes heroes, RobotMotion motion,
+                                    IHordeActors actors, ILog log, Session.IHordeBrainHost brains) : ScriptedEntity
 {
     public const string EntityClass = "tf2_descent_horde";
 
@@ -47,8 +50,6 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     private HordeOrderApplier? _applier;
     private FarSimulation? _far;
     private long _decideInterval, _farInterval, _nextDecide, _nextFar;
-    private bool[] _walking = [];
-    private AiVector[] _walkHome = [];
 
     // The dev cycle: one lend or one return a tick.
     private int _cycleRow = -1, _cycleLeft;
@@ -131,10 +132,11 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
             weapons[b] = weapon;
         }
 
-        Bodies = new RobotBodies(bodies, Roster, level, r, parking, hits, render);
+        Bodies = new RobotBodies(bodies, Roster, level, r, parking, new RobotHitChain(hits), render);
         for (int b = 1; b <= Pool.LastBody; b++)
             bodies[b].Join(Bodies, b, weapons[b]);
         Bodies.ParkAll();
+        motion.Begin(new HordeMotionBodies(Bodies, Roster, r, render), actors, MotionSettings.Default, ticksPerSecond);
 
         Sight = HeroSight.For(sightWorld, level, MaxHeroes);
         _embodiment = EmbodimentRules.For(settings, level, ticksPerSecond);
@@ -145,9 +147,8 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         _farInterval = FarSimulation.Interval(settings, ticksPerSecond);
         _nextDecide = now;
         _nextFar = now;
-        _walking = new bool[Pool.LastBody + 1];
-        _walkHome = new AiVector[Pool.LastBody + 1];
         Begun = true;
+        brains.Begin(this, now);
         return true;
     }
 
@@ -164,8 +165,9 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
             return;
 
         Ticks++;
-        StepWalkers();
         StepCycle(now);
+        brains.Tick(now);
+        motion.Tick(now);
 
         bool decide = now >= _nextDecide, far = now >= _nextFar;
         if (!decide && !far)
@@ -189,7 +191,7 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         if (far)
         {
             _nextFar = now + _farInterval;
-            _far!.Tick(Roster!, Sight, ReadOnlySpan<SoundEvent>.Empty, now);
+            _far!.Tick(Roster!, Sight, brains.TakeFarSounds(), now);
             FarTicks++;
         }
     }
@@ -197,6 +199,8 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
     /// <summary>The level is going: drops everything it owns. The engine removes the entities themselves with the level.</summary>
     public void End()
     {
+        brains.End();
+        motion.End();
         Begun = false;
         Level = null;
         Roster = null;
@@ -208,8 +212,6 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         _orders = null;
         _applier = null;
         _far = null;
-        _walking = [];
-        _walkHome = [];
         _cycleRow = -1;
         _cycleLeft = 0;
     }
@@ -268,7 +270,6 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         var id = roster.Id(row);
         var end = Bodies!.End(lease, id);
         Pool!.Return(roster.Demote(row, end, now));
-        _walking[lease.Body] = false;
         HandReturns++;
         why = $"robot {row} gave body {lease.Body} back";
         return true;
@@ -306,45 +307,6 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         return id;
     }
 
-    /// <summary>Starts or stops the dev walk of the body robot row <paramref name="row"/> holds: a 48-unit circle round where it stands.</summary>
-    public bool Walk(int row, bool on, out string why)
-    {
-        if (!Ready(row, out why))
-            return false;
-
-        int body = Roster!.Body(row);
-        if (body == 0)
-        {
-            why = $"robot {row} holds no body";
-            return false;
-        }
-
-        _walking[body] = on;
-        _walkHome[body] = Bodies!.Body(body).Position;
-        why = $"robot {row} (body {body}) {(on ? "walks" : "stands")}";
-        return true;
-    }
-
-    /// <summary>Walks or stops every lent body; answers how many.</summary>
-    public int WalkAll(bool on)
-    {
-        if (!Begun)
-            return 0;
-
-        int n = 0;
-        for (int b = 1; b < _walking.Length; b++)
-        {
-            var body = Bodies!.Body(b);
-            if (body.Parked)
-                continue;
-            _walking[b] = on;
-            _walkHome[b] = body.Position;
-            n++;
-        }
-
-        return n;
-    }
-
     /// <summary>Lends and returns robot row <paramref name="row"/>'s body <paramref name="cycles"/> times, one step a tick.</summary>
     public bool Cycle(int row, int cycles, out string why)
     {
@@ -371,26 +333,6 @@ public sealed class HordeController(IHordeRules rules, IHordeSpawner spawner, Ho
         {
             log.Warning($"[TF2Descent/Horde] cycle stopped: {why}\n");
             _cycleLeft = 0;
-        }
-    }
-
-    private void StepWalkers()
-    {
-        for (int b = 1; b < _walking.Length; b++)
-        {
-            if (!_walking[b])
-                continue;
-
-            var body = Bodies!.Body(b);
-            if (body.Parked)
-            {
-                _walking[b] = false;
-                continue;
-            }
-
-            float a = Ticks * 0.03f + b * 0.37f;
-            var home = _walkHome[b];
-            body.MoveTo(new AiVector(home.X + 48f * MathF.Cos(a), home.Y + 48f * MathF.Sin(a), home.Z), a * (180f / MathF.PI) + 90f);
         }
     }
 

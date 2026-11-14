@@ -57,6 +57,7 @@ public static class ContentTables
         new Inventory.InventoryTable(), new Economy.VendorTable(),
         new HordeTable(),
         new Loot.LootTable(), new Loot.ExperienceTable(),
+        new Items.StartingKitTable(),
     ];
 
     /// <summary>The names of <see cref="All"/>, in order.</summary>
@@ -138,6 +139,14 @@ public sealed record ClassRow(
     IReadOnlyList<StatAmount> PerLevel,
     IReadOnlyList<PointAmount> PerPoint) : IContentRow
 {
+    /// <summary>
+    /// The words TF2 appends to a shared weapon's item class for this class's copy
+    /// (<c>tf_weapon_shotgun</c> is the Soldier's <c>tf_weapon_shotgun_soldier</c>, the Heavy's
+    /// <c>_hwg</c>): <see cref="DescentContent.TryGetFamilyOfItemClass"/> strips one to find the
+    /// family. No word belongs to two classes.
+    /// </summary>
+    public IReadOnlyList<string> ItemClassWords { get; init; } = [];
+
     public AttributeBounds Bounds(string attribute) =>
         Attributes.FirstOrDefault(a => a.Attribute == attribute)
         ?? throw new KeyNotFoundException($"class '{Id}' has no bounds for '{attribute}'");
@@ -164,7 +173,17 @@ public sealed class ClassTable : RowTable<ClassRow>
             p.End();
         }
         return new ClassRow(f.Str("id"), f.Str("name"), bounds,
-            StatAmount.List(f, "base"), StatAmount.List(f, "perLevel"), perPoint);
+            StatAmount.List(f, "base"), StatAmount.List(f, "perLevel"), perPoint)
+        { ItemClassWords = f.Strings("itemClassWords", required: true) };
+    }
+
+    protected override void ValidateTable(DescentContent content, Table<ClassRow> table, ContentErrors errors)
+    {
+        var owner = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var row in table.Rows)
+            foreach (var word in row.ItemClassWords)
+                if (!owner.TryAdd(word, row.Id))
+                    errors.Add(Name, row.Id, ContentRule.DuplicateId, $"item class word '{word}' is already class '{owner[word]}''s");
     }
 
     protected override void ValidateRow(DescentContent content, ClassRow row, ContentErrors errors)
@@ -178,6 +197,10 @@ public sealed class ClassTable : RowTable<ClassRow>
         if (content.TryGet<Table<AttributeRow>>(ContentTables.Attributes, out var attributes))
             foreach (var a in attributes.Rows.Where(a => row.Attributes.All(b => b.Attribute != a.Id)))
                 errors.Add(Name, row.Id, ContentRule.DanglingReference, $"attribute '{a.Id}' has no start and cap in this class");
+        if (row.ItemClassWords.Count == 0)
+            errors.Add(Name, row.Id, ContentRule.Malformed, "'itemClassWords' names no word");
+        foreach (var word in row.ItemClassWords.Where(w => w.Length == 0 || !w.All(char.IsAsciiLetterLower)))
+            errors.Add(Name, row.Id, ContentRule.Malformed, $"item class word '{word}' is not lower-case letters");
         foreach (var s in row.Base.Concat(row.PerLevel))
             ContentChecks.Stat(content, errors, Name, row.Id, s.Stat, s.Amount);
         foreach (var p in row.PerPoint)

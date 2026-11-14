@@ -29,7 +29,6 @@ public sealed class RobotBodies : IRobotBodies
     private readonly IRobotHitSink _hits;
     private readonly IEngineEntityRender _render;
     private readonly Dictionary<(string Model, string Sequence), int> _sequences = new();
-    private readonly AiVector[] _lastPosition;   // by body index: where the last sync found it
 
     public RobotBodies(RobotBody[] bodies, RobotRoster roster, HordeLevel level, TF2DescentRules rules, HordeParking parking,
                        IRobotHitSink hits, IEngineEntityRender render)
@@ -41,7 +40,6 @@ public sealed class RobotBodies : IRobotBodies
         _parking = parking;
         _hits = hits;
         _render = render;
-        _lastPosition = new AiVector[bodies.Length];
     }
 
     /// <summary>The highest body index.</summary>
@@ -86,7 +84,6 @@ public sealed class RobotBodies : IRobotBodies
                   TemplateId(t.Id), (byte)Math.Clamp(_roster.MonsterLevel(i), 0, 255), flags, StatusBits(start.Statuses));
         body.Play(Sequence(body, model, RobotLooks.IdleSequence(t)), running: false);
         body.Weapon?.Show(RobotLooks.WeaponModel(t));
-        _lastPosition[lease.Body] = start.Position;
         _parking.Unpark(body.Handle);
         if (body.Weapon is { } w)
             _parking.Unpark(w.Handle);
@@ -107,10 +104,9 @@ public sealed class RobotBodies : IRobotBodies
     }
 
     /// <summary>
-    /// Each lent body's place to its roster row (<see cref="RobotRoster.SetPose"/>),
-    /// its animation (the run sequence while its place changed since the last
-    /// sync, else the stand), its status flags. Run each decision tick, before
-    /// the decision reads the roster.
+    /// Each lent body's place to its roster row (<see cref="RobotRoster.SetPose"/>)
+    /// and its status flags. Run each decision tick, before the decision reads
+    /// the roster. Its animation is its motion's (Motion.RobotMotion, HO3).
     /// </summary>
     public void Sync()
     {
@@ -123,15 +119,6 @@ public sealed class RobotBodies : IRobotBodies
             int i = body.Robot.Index;
             int room = _level.RoomAt(body.Position);
             _roster.SetPose(i, room >= 0 ? room : _roster.Room(i), body.Position, body.Yaw);
-
-            bool moved = body.Position != _lastPosition[b];
-            _lastPosition[b] = body.Position;
-            if (moved != body.Running)
-            {
-                var t = _rules.Robots.Template(_roster.Template(i));
-                body.Play(Sequence(body, body.Model, moved ? RobotLooks.RunSequence(t) : RobotLooks.IdleSequence(t)), moved);
-            }
-
             body.SetStatuses(StatusBits(_roster.Statuses(i)));
         }
     }

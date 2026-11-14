@@ -53,5 +53,12 @@ public sealed record HeroSheet
     /// <summary>The bosses this hero has killed, by template id (the camps of mine plan D4).</summary>
     public ImmutableSortedSet<string> BossKills { get; init; } = ImmutableSortedSet.Create<string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The skill bar: the skill in each of its slots, slot 1 first, "" for an empty slot
+    /// (skill_settings.json's barSlots of them). A slotted skill is a cast skill the hero has
+    /// a real rank in (<see cref="HeroRules.Audit"/>); a respec empties the bar.
+    /// </summary>
+    public ImmutableArray<string> SkillSlots { get; init; } = [];
+
     public int Base(string attribute) => Attributes.TryGetValue(attribute, out var v) ? v : 0;
 }

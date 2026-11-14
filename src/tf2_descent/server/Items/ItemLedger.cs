@@ -62,7 +62,10 @@ public sealed class ItemLedger(
     public void SetSheet(string hero, HeroSheet sheet) => Current.SetSheet(hero, sheet);
     public Task<DropResult> KillDrop(KillDrop kill) => Current.KillDrop(kill);
     public Task<DropResult> BossDrop(BossDrop boss) => Current.BossDrop(boss);
+    public Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position) =>
+        Current.PotionDrop(hero, potionBase, killSeq, depth, position);
     public Task<LedgerResult> Claim(string hero, long floorId) => Current.Claim(hero, floorId);
+    public Task<LedgerResult> CollectAustralium(string hero, long amount) => Current.CollectAustralium(hero, amount);
     public Task<LedgerResult> Drop(string hero, int slot, Vector position) => Current.Drop(hero, slot, position);
     public Task<LedgerResult> Move(string hero, int from, int to) => Current.Move(hero, from, to);
     public Task<LedgerResult> Stack(string hero, int from, int to) => Current.Stack(hero, from, to);

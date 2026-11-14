@@ -8,12 +8,13 @@ namespace TF2.Descent.Tests;
 public sealed partial class LanguageTokensTests
 {
     [Fact]
-    public void The_refused_class_line_is_in_the_language_file_and_names_the_class()
+    public void The_refused_class_line_is_in_the_language_file_and_reads_whole_without_a_class()
     {
         var tokens = Tokens();
 
+        // joinclass random refused names no class (an empty %s1 read "class:  is not yours." live).
         Assert.True(tokens.TryGetValue(HeroClassGate.Reason, out string? text), HeroClassGate.Reason + " is missing");
-        Assert.Contains("%s1", text);
+        Assert.DoesNotContain("%s1", text);
     }
 
     [Fact]

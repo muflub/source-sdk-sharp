@@ -5,12 +5,14 @@ using TF2.Descent.Client.Ui.Parts;
 namespace TF2.Descent.Client.Ui.Screens;
 
 /// <summary>
-/// The descent HUD (plan §Descent.Client, Appendix C.4): the twin orbs, XP
-/// bar, potion belt and party frames in the bottom-left corner like Diablo's,
-/// the boss bar top-centre, the gear warning and cast bar bottom-centre, and
-/// the corner minimap top-right. One screen, one budget: its whole life is
-/// the in-game look. The sub-panels draw their content; this screen owns all
-/// anchoring, so nothing can drift onto anything else.
+/// The descent HUD (plan §Descent.Client, Appendix C.4): the twin orbs,
+/// potion belt and party frames in the bottom-left corner like Diablo's (the
+/// belt beside the orbs, so the corner stays under TF2's chat), the XP bar
+/// across the top (plan_descent_logic L5) with the boss bar under it,
+/// the gear warning and cast bar bottom-centre, and the corner minimap
+/// top-right once the automap has a room to show. One screen, one budget:
+/// its whole life is the in-game look. The sub-panels draw their content;
+/// this screen owns all anchoring, so nothing can drift onto anything else.
 /// </summary>
 public sealed class DescentHud(
     OrbPair orbs,
@@ -20,10 +22,26 @@ public sealed class DescentHud(
     BossBarPanel boss,
     CastBarPanel cast,
     GearWarnPanel gear,
-    AutomapCanvas minimap) : UiScreen
+    AutomapCanvas minimap,
+    IDescentAutomap map) : UiScreen
 {
     public override string Name => "descenthud";
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    /// <summary>
+    /// TF2's player status corner (its class portrait and health cross, the
+    /// element TF2's HUD names <c>tf.playerstatus</c>): the life orb is the
+    /// hero's health, and the corner column stands where that corner was.
+    /// TF2's ammo, crosshair, chat and kill feed stay.
+    /// </summary>
+    public const string TFPlayerStatus = "tf.playerstatus";
+
+    /// <summary>TF2's team status across the top centre (<c>tf.teamstatus</c>):
+    /// the XP bar stands there, and a hero's party is the party frames.</summary>
+    public const string TFTeamStatus = "tf.teamstatus";
+
+    private readonly string[] _takes = [TFPlayerStatus, TFTeamStatus];
+    public override IReadOnlyList<string> Takes => _takes;
 
     /// <summary>The narrow corner column's width, du (the panel, padding included).</summary>
     public const float NarrowColumnDu = 264;
@@ -34,31 +52,47 @@ public sealed class DescentHud(
     public override void Describe(ref UiFrame ui)
     {
         // Bottom-left corner, Diablo's stack on one opaque panel: party frames
-        // above the orbs, then XP, then the belt. The panel is what gives every
-        // caption in it the theme's contrast over the world.
+        // above the orbs, the belt beside them (under them when narrow). The
+        // panel is what gives every caption in it the theme's contrast over
+        // the world. Kept low: TF2's chat sits above this corner.
         bool narrow = ui.Narrow;
 
         // Bottom-left corner, Diablo's stack on one opaque panel. On a narrow
         // screen the minimap, gear toast and cast bar join the column too —
         // centred or top-right they would collide with the boss bar there.
-        using (ui.Box().At(UiAnchor.BottomLeft).Inset(Space.M, Space.M)
+        using (ui.Box().At(UiAnchor.BottomLeft).Inset(Space.M, Space.S)
                  .Width(narrow ? Size.Du(NarrowColumnDu) : Size.Auto)
                  .Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.S).Key("corner"))
             using (ui.Column(Space.S, Align.Start))
             {
                 if (narrow)
                 {
-                    ui.Sub("minimap", minimap, new AutomapProps(140, 140, HeroHeading: true));
+                    if (map.RoomCount > 0)
+                        ui.Sub("minimap", minimap, new AutomapProps(140, 140, HeroHeading: true));
                     ui.Sub("gear", gear);
                     ui.Sub("cast", cast);
                 }
                 ui.Sub("party", party);
-                ui.Sub("orbs", orbs);
-                ui.Sub("xp", xpBar);
-                ui.Sub("belt", belt);
+                if (narrow)
+                {
+                    ui.Sub("orbs", orbs);
+                    ui.Sub("belt", belt);
+                }
+                else
+                {
+                    using (ui.Row(Space.S, Align.End))
+                    {
+                        ui.Sub("orbs", orbs);
+                        ui.Sub("belt", belt);
+                    }
+                }
             }
 
-        ui.Sub("boss", boss);   // boss bar, top-centre when engaged
+        // Top-centre, the XP bar across the top of the screen (L5); the boss
+        // bar hangs under it when one is engaged.
+        using (ui.Column(Space.None, Align.Centre).At(UiAnchor.Top).Inset(Space.None, Space.S).Key("top"))
+            ui.Sub("xp", xpBar);
+        ui.Sub("boss", boss);
 
         if (!narrow)
         {
@@ -71,9 +105,12 @@ public sealed class DescentHud(
 
             // Corner minimap, top-right: the plan §2.2's 240×180 du
             // panel; the hero reads as an accent triangle (HeroHeading).
-            using (ui.Box().At(UiAnchor.TopRight).Inset(Space.M, Space.M)
-                     .Fill(Tone.Surface).Border(Tone.Line, 1).Round(Radius.M).Pad(Space.S, Space.S))
-                ui.Sub("minimap", minimap, new AutomapProps(240, 180, HeroHeading: true));
+            // Nothing revealed, no panel: an empty frame there would sit
+            // over TF2's kill feed for nothing.
+            if (map.RoomCount > 0)
+                using (ui.Box().At(UiAnchor.TopRight).Inset(Space.M, Space.M)
+                         .Fill(Tone.Surface).Border(Tone.Line, 1).Round(Radius.M).Pad(Space.S, Space.S))
+                    ui.Sub("minimap", minimap, new AutomapProps(240, 180, HeroHeading: true));
         }
     }
 }
@@ -100,7 +137,8 @@ public sealed class BossBarPanel(IDescentBoss boss) : UiPanel
     {
         if (!boss.Present || boss.Name.Length == 0)
             return;
-        using (ui.Box().At(UiAnchor.Top).Inset(Space.None, Space.XXL).Size(Size.Du(ui.Narrow ? 320 : 400), Size.Du(56))
+        // Under the XP bar across the top (L5).
+        using (ui.Box().At(UiAnchor.Top).Inset(Space.None, Space.Huge).Size(Size.Du(ui.Narrow ? 320 : 400), Size.Du(56))
                  .Fill(Tone.Surface).Border(Tone.Line, 1).Round(Radius.M).Pad(Space.S, Space.M).Key("boss"))
         {
             using (ui.Column(Space.XS, Align.Start))

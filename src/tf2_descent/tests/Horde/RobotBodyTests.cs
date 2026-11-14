@@ -139,29 +139,6 @@ public sealed class RobotBodyTests
     }
 
     [Fact]
-    public void A_still_body_stands_and_a_moved_one_runs()
-    {
-        var rig = new ServerHordeRig();
-        var (_, body) = rig.Lent("soldier");
-        byte serial = body.State.SequenceSerial;
-
-        rig.Bodies.Sync();
-        Assert.False(body.Running);
-        Assert.Equal(serial, body.State.SequenceSerial);
-
-        body.MoveTo(body.Position + new AiVector(8, 0, 0), 0f);
-        rig.Bodies.Sync();
-        Assert.True(body.Running);
-        Assert.Equal(1f, body.State.MoveX);
-        Assert.Equal((byte)(serial + 1), body.State.SequenceSerial);
-        Assert.Contains(rig.Engine.AllOf("EntityRender.LookupSequence"), c => c.ArgAs<string>(1) == "run_PRIMARY");
-
-        rig.Bodies.Sync();
-        Assert.False(body.Running);
-        Assert.Equal(0f, body.State.MoveX);
-    }
-
-    [Fact]
     public void A_sync_puts_each_lent_bodys_place_on_its_roster_row()
     {
         var rig = new ServerHordeRig();

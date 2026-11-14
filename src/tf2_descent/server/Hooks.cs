@@ -115,6 +115,8 @@ public sealed class TF2DescentServerRegistrar : ISideServiceRegistrar
         registry.AddHooks<ILeaseHook>();
         registry.AddHooks<IHostConnectionHook>();
         registry.AddHooks<IHopReadyHold>();
+        // A robot's hits go to every member (HO3's blast push beside the tally).
+        registry.AddHooks<Horde.IRobotHitSink>();
         // One rules instance, under its own type (the hero's services read its
         // sheet codec and hero rules) and under the contract.
         registry.Add<TF2.Descent.Rules.TF2DescentRules, TF2.Descent.Rules.TF2DescentRules>();

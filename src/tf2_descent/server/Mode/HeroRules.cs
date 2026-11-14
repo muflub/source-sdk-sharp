@@ -73,7 +73,7 @@ public sealed class HeroInventoryGate(IDescentModeState mode) : ITFLocalInventor
 public sealed class HeroClassGate(IDescentModeState mode, IEnginePlayers players, IBotPlayers bots, IHeroClass heroClass)
     : ITFClassChangeGate, IOrderedHook
 {
-    /// <summary>What the hero is told: the refused class is its <c>%s1</c>.</summary>
+    /// <summary>What the hero is told; it names no class, since a refused <c>random</c> has none.</summary>
     public const string Reason = "#Descent_Hero_ClassIsTheSheets";
 
     /// <summary>After TF2's band, at TF2 Descent's first mode stage.</summary>

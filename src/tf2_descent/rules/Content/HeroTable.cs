@@ -10,6 +10,14 @@ public sealed record ClampedStat(string Stat, double Base, double Min, double Ma
 public sealed record KindStat(string Id, string Stat);
 
 /// <summary>
+/// What makes a hit a weapon's (R17, Appendix A: "all weapons: +3 %/rank damage"): a hit of
+/// any of <paramref name="Kinds"/> also counts as <paramref name="Kind"/>, whose stat
+/// (damage_weapon_pct) every weapon upgrade grants. A family whose hit is none of those kinds
+/// (a flamethrower) names <paramref name="Kind"/> itself; an action's hit is never one.
+/// </summary>
+public sealed record WeaponHit(string Kind, IReadOnlyList<string> Kinds);
+
+/// <summary>
 /// One sustain total (plan_tf2_rpg 2a, A.5): (base + the stat) raised by the bonus stat
 /// in percent, and never above the cap. Units: percent of max life or mana per second
 /// for regeneration, percent of damage dealt for leech.
@@ -56,7 +64,11 @@ public sealed record HeroSettings(
     SustainRule ManaRegen,
     SustainRule ManaLeech,
     long RespecPrice,
-    double RespecGrowth);
+    double RespecGrowth)
+{
+    /// <summary>What makes a hit a weapon's: <see cref="WeaponHit"/>.</summary>
+    public WeaponHit WeaponHit { get; init; } = new("", []);
+}
 
 public sealed class HeroTable : SingleTable<HeroSettings>
 {
@@ -68,6 +80,7 @@ public sealed class HeroTable : SingleTable<HeroSettings>
         var armour = f.Obj("armour");
         var respec = f.Obj("respec");
         var sustain = f.Obj("sustain");
+        var weapon = f.Obj("weaponHit");
         var settings = new HeroSettings(
             f.Int("levelCap"),
             f.Int("attributePointsPerLevel"),
@@ -95,8 +108,10 @@ public sealed class HeroTable : SingleTable<HeroSettings>
             Sustain(sustain.Obj("manaRegen")),
             Sustain(sustain.Obj("manaLeech")),
             (long)respec.Num("price"),
-            respec.Num("growth"));
+            respec.Num("growth"))
+        { WeaponHit = new WeaponHit(weapon.Str("kind"), weapon.Strings("kinds", required: true)) };
         xp.End();
+        weapon.End();
         armour.End();
         respec.End();
         sustain.End();
@@ -169,6 +184,14 @@ public sealed class HeroTable : SingleTable<HeroSettings>
                 ContentChecks.Stat(content, errors, t, k.Id, k.Stat);
             }
         }
+
+        var damageKinds = h.DamageKinds.Select(k => k.Id).ToHashSet(StringComparer.Ordinal);
+        if (!damageKinds.Contains(h.WeaponHit.Kind))
+            errors.Add(t, null, ContentRule.DanglingReference, $"'weaponHit.kind' names '{h.WeaponHit.Kind}', not one of the damage kinds");
+        if (h.WeaponHit.Kinds.Count == 0)
+            errors.Add(t, null, ContentRule.Malformed, "'weaponHit.kinds' names no kind");
+        foreach (var k in h.WeaponHit.Kinds.Where(k => !damageKinds.Contains(k) || k == h.WeaponHit.Kind))
+            errors.Add(t, null, ContentRule.DanglingReference, $"'weaponHit.kinds' names '{k}', not a damage kind other than '{h.WeaponHit.Kind}'");
 
         foreach (var (field, s) in new[] { ("lifeRegen", h.LifeRegen), ("lifeLeech", h.LifeLeech), ("manaRegen", h.ManaRegen), ("manaLeech", h.ManaLeech) })
         {

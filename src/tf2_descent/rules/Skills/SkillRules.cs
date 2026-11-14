@@ -110,6 +110,15 @@ public sealed class SkillRules
 
     public SkillDef Skill(string id) => Find(id) ?? throw new ArgumentException($"'{id}' is not a skill", nameof(id));
 
+    /// <summary>
+    /// The damage type <paramref name="skillId"/>'s hits are resisted as (damage_types.json):
+    /// the type the skill declares (R25: every action declares exactly one), never the bits
+    /// of whatever projectile carries it (EMP Charge flies as TF2's energy ball, whose hit
+    /// carries blast bits, and is shock). Null for a skill that declares none (an upgrade)
+    /// or an id that is no skill.
+    /// </summary>
+    public string? DamageTypeOf(string skillId) => Find(skillId)?.DamageType;
+
     /// <summary>Whether a hero of <paramref name="classId"/> may hold <paramref name="skill"/>: its own class's, or the shared tab's.</summary>
     public bool OpenTo(string classId, SkillDef skill) => skill.Class == classId || skill.Class == S.SharedClass;
 

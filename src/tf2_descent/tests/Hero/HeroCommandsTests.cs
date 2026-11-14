@@ -101,6 +101,19 @@ public sealed class HeroCommandsTests
     }
 
     [Fact]
+    public void Sheet_prints_the_bestiarys_kills()
+    {
+        var rig = new HeroRig();
+        var hero = rig.Join()!;
+        Assert.True(hero.Apply(s => TF2.Descent.Rules.Bestiary.BestiaryRules.RecordKill(
+            TF2.Descent.Rules.Bestiary.BestiaryRules.RecordKill(s, "runt_scout"), "runt_scout")).Ok);
+
+        new HeroSheetCommand(Cheats(true), rig.Heroes, rig.Log).Execute(HeroRig.Index);
+
+        Assert.True(Logged(rig, "| bestiary runt_scout 2\n"), string.Join("", rig.Log.Lines.Select(l => l.Text)));
+    }
+
+    [Fact]
     public void A_slot_with_no_hero_is_named()
     {
         var rig = new HeroRig();

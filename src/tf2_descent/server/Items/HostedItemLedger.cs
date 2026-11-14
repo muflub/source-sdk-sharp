@@ -249,7 +249,7 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
                 return await Reloaded(predicted, null);
             }
             default:
-                // stack, equip, unequip, to_belt, from_belt, drink, give: no host call carries them.
+                // stack, equip, unequip, to_belt, from_belt, drink, give, australium: no host call carries them.
                 return Unsupported;
         }
     }
@@ -317,6 +317,10 @@ public sealed class HostedItemLedger(IGameRules rules, IHooks<IItemLedgerHook> h
             log.Warning($"[TF2Descent] reveal of kill {kill.KillSeq} for {kill.Hero} failed: {e.Message}\n");
         }
     }
+
+    /// <summary>Refused: a potion is no item to the host's <c>KillRoll</c>, and no host call mints one.</summary>
+    public override Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position) =>
+        Task.FromResult(DropResult.Refused(LedgerRefusals.HostUnsupported));
 
     public override async Task<DropResult> BossDrop(BossDrop boss)
     {

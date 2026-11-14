@@ -3,12 +3,15 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-11, night.** On main at `ff7ce14ae`: CR1, CR3 to CR6,
-CR8 to CR10; every rules package but RU4 and RU14 (RU0 to RU3, RU5 to
-RU13); HE1 (the mode, the TF content mount); WO7. Measured and written up:
-HO0 (section 3.11). Ruled and not built: CR2. Running: RU4 then RU14
-(`descent-ru-d`), HE0 (`descent-he0`), HE2 (`descent-he2`), HO1
-(`descent-ho1`). Not started: CR7, CR11 and the rest.
+**Status, 2026-11-11, late.** On main at `7ef3fecbf`: CR1, CR3 to CR6, CR8
+to CR10; every rules package but RU14 (its retune and model are held on
+`descent-ru-d` for a ruling); HE0 to HE7 with the class gate; HO0 to HO5,
+joined, and HO10; WO1, WO2, WO7; UI1 and UI2 (UI1's item-view cache went to
+UI3). Ruled and not built: CR2. Running: HO8 (`descent-ho8`), HO6 with HO7
+(`descent-ho7`), HE8 with HE9 (`descent-he8`), UI3 (`descent-ui3`), WO3
+(`descent-wo3`). Not started: CR7, CR11, HE10, HO9, HO11 to HO13, WO4 to
+WO6, WO8, WO9, UI4 to UI7. Section 4.7 says what each landed package gave
+and found.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -604,6 +607,113 @@ them, and replaces a screen's sample data in game.
 | UI6 | **Robot health bars.** Name, style, resist icons, IMMUNE, each gated by the bestiary (L6). | HO8, RU12 | a first kill shows the count only; the thirtieth shows resistances |
 | UI7 | **Downed.** | WO6 | live screenshot of the bleed-out and the revive bar |
 
+### 4.7 What landed after `ff7ce14ae`, and what it found
+
+Seams by name, for the packages that build on them; then what did not hold.
+
+**Hero.**
+- HE0: `IItemLedger` (`InMemoryItemLedger` unhosted, `HostedItemLedger`),
+  `IItemLedgerHook`, `IHostItems`. HE2: `HeroSheets`, `HeroComponent`, the
+  `tf2_descent_hero` entity, `IHeroStates` on the client. HE3: `HeroStats`,
+  `HeroAttributes`, `HeroDamage`, `HeroLeech`, `HeroRegen`,
+  `IHeroContributionSource`, `IAttackerLevel`, `tf2_descent_dummy`.
+- HE4 (`TF2.Descent.Server.Gear`): `HeroEquipment`, `HeroKitSource`,
+  `HeroKitSettle`; TF2 gained `ITFFreshWeapons`. HE5: `IRobotKillHook` (the
+  one seam that tells a robot's death once), `HeroExperience`, the class gate
+  over TF2's `ITFClassChangeGate`.
+- HE6 and HE7: `SkillRuntime`, the binders, `ISkillHits`, `IRobotStatusSink`
+  (its only registration answers NotAvailable until HO8), keys 4 to 9, the
+  user message `TF2.Descent:skill_bar`. The rules follow-ups put the skill
+  bar on the sheet (schema 3), made `damage_weapon_pct` a damage kind every
+  weapon hit carries, and moved a family's damage kinds, the class words and
+  the starting kits into content.
+- Found: about seventeen Soldier and Mercenary skills do nothing, or less
+  than their tooltip, in play. Most wait on HO8 (stun, slow, knock-up, marks,
+  threat); the rest on stat readers nobody wrote (spread, reload, fire rate,
+  projectile speed, crit damage, damage taken, prices, potions, item find).
+  Gear's bonus ranks are never read. Heavy and Engineer have no shotgun in
+  their starting kits, because the shotgun bases are Soldier's and Pyro's.
+
+**Horde.**
+- HO1 and HO2: `RobotRoster`, `EmbodimentRules`, `FarSimulation`,
+  `HordeController`, `HordeService`, `RobotBodies`, `RobotBody`, the hit chain
+  `IHooks<IRobotHitSink>` (`RobotHitTally` 0, `HordeHitSense` First+515,
+  `RobotBlastPush` First+520), `HeroSight`, the census.
+- HO3: `RobotMotion` (`IRobotMotion`, `IRobotImpulse`,
+  `IRobotMotionReports`), `IMotionWorld`, `IMotionStepper`
+  (`InlineMotionStepper` ships; `WorkerMotionStepper` is proven only over a
+  box world), `DoorRoute`, the dev drive. The motion is handed its
+  `IHordeActors` at `Begin`: the session answers that seam and is itself
+  given the motion, a cycle no constructor pair can build.
+- The fix after the join: robots are one team. `RobotsPassRobots` (an
+  `IEntityCollideRule`, First+530) lets a trace that passes a robot body miss
+  other robot bodies, and the motion pushes overlapping bodies apart with the
+  port of stock's teammate pushaway. "Blocked by Robot" now means held up in
+  a crowd for 33 ticks.
+- HO4 and HO5: `HordeSession` (`IHordeBrainHost`, `IHordeActors`) over
+  `HordeBrains`, 54 slots, `HordeWorkers`, `HuntDecider`,
+  `HordeDeciders.Register(family, factory)`, `IRobotActionSink` (its only
+  registration counts and drops until HO7), sight (32 lines a tick,
+  round-robin), hearing through `HordeHearingTap`, `HeroLandings`.
+  Recordings replay byte-identical inline and at 1, 2 and 4 threads.
+- HO10: `LootRewards`, a member of the kill chain at First+310, after
+  `HeroExperience` (+300).
+- **Section 3.7 did not hold.** The Descent server cannot reference
+  `SourceSharp.Ai.Server` or `SourceSharp.Ai.TF2`: the loader sweeps the
+  reference closure and registers every `[SideService]` in it, so TF2's bot
+  services would join every Descent game. So robots route door to door
+  through the room graph, straight inside a room, and the motion steps on the
+  main thread with engine traces. Release cost: 634 us for 34 stepped bodies
+  (HO3), 797 us mean for 24 with the pushaway on; the session's own tick is
+  157 us mean for 48 brains. The 1.5 ms budget does not hold at 48 walking
+  bodies until the steps leave the main thread.
+- What unblocks it (on main since `f8f9fd1a1`, by the user's ruling of
+  2026-11-11): `SourceSharp.Ai.Nav`, a library with no service in it, holding
+  the nav graph derivation, the follower, the voxel columns and
+  `VoxelMoveWorld`. It needs the Abi, so `TF2.Descent.Server` references it,
+  not `TF2.Descent.Ai`. The same day `src/ai` gained the event kinds Arrived,
+  AllyDamaged, AllyDied and HeroDowned, record format 8 (a header flag for a
+  session with the team layer off, a home point on a brain) and a drain that
+  allocates nothing. A horde lane adopts these after HO6 to HO8 land.
+- Found: a pack is lent on one marker, inside itself (HO9 should place a
+  pack's members apart); a hull of scale 1.9 does not fit the exit cage; a
+  static prop answers a trace as World.
+
+**World.**
+- WO1: `ILevelData`, `LevelAdapters`, `ArrivalSpawns`; the level-to-horde
+  join (`LevelHordeSource`).
+- WO2: `tf2_descent_loot`, a pool of 64 made at level ready (the census went
+  123 to 187), `LootFloor`, `LootTransmit`, `ILootRooms`, `ILootParty`,
+  `ILootOnFloor` on the client; `IItemLedger.CollectAustralium` and
+  `PotionDrop`. Seats stay private because the entity carries a drop number
+  only: each seat's contents go to its owner in a reliable user message. A
+  65th drop folds the oldest to data and loses nothing.
+- Found: Australium is split into per-hero shares at the drop, where the
+  design asked for one pickup split on collection, which would show every
+  client the others' seats. Hosted, the ledger refuses floor Australium and
+  potion drops: the host has no credit on pickup and no potion mint.
+
+**UI.**
+- UI1: `TF2.Descent.Client.Interface` holds every `IDescent*` contract;
+  every source has a client implementation (live or an honest empty one);
+  `mods.yaml` lists `TF2.Descent.Client.Ui`; windows claim `descent_<name>`;
+  keys C, I and K (they take TF2's `+voice_menu_3`, `showmapinfo` and
+  `cl_decline_first_notification`); Escape closes one window a press (a fix
+  in the toolkit: a closed window stayed on top, and one press closed two).
+- UI2: vitals, XP at the top, party and cast bar on live data. TF2's HUD
+  gained two named elements a mod HUD may take (`tf.playerstatus`,
+  `tf.teamstatus`).
+- Found: the client cannot reference `TF2.Descent.Rules` (it brings
+  Host.Contracts), so it has no skill or item names; UI3 decides the route.
+  The cast bar needs the charge's length on the wire. A party of two reaches
+  one row into TF2's chat.
+
+**For every lane.** A wall-clock bound in a fact fails on a loaded box: the
+horde's stall fact failed three landings at 255 to 440 ms against 250 and
+now holds the decide at a gate instead. Two lanes that each register a
+stand-in for the other's seam must be booted joined: each one's live proof
+ran over the other's stand-in, and the pack deadlock showed only on the join.
+
 ---
 
 ## 5. Order
@@ -652,7 +762,9 @@ wave 5   HO13, the other eight classes (RPG plan Phase 12), balance and soak (Ph
   and `tf2_descent`, and read both console logs for `EXCEPTION IN`.
 - Never write to `../source-sdk-sharp-host`, `../source-sdk-map-tools`, the
   fork or the Valve clone. A gap there is reported, not patched.
-- `src/ai` belongs to the TF2 AI coordinator's lanes; `src/mapgen` and
+- `src/ai` has no single owner since 2026-11-11 (Part G is one session's;
+  the core's and the nav's owner is gone): ask the sessions with lanes there
+  before touching it. `src/mapgen` and
   `src/tf2_descent/rules/Layout` to the map session; `src/tf2_descent/ui`
   screens to the UI work. A package that needs a change there asks.
 - New files that port Valve logic start with `tools/valve-header.txt` and
@@ -675,7 +787,9 @@ Nothing here is done by a lane of this plan.
 | X5 | host | No `IGameRules` member reports the rules' content hash; the host can log it only by reaching into the concrete type. |
 | Y1 | map session | What a linked level ships that the server can read at load: rooms and their bounds, door links, marker positions. Whether the server should rebuild the layout from Rules (`GenerateLayout` needs the library's room list) or read a sidecar. WO1 waits on this. |
 | Y2 | map session | Door portals as data (position, normal, width) for the far simulation's queue points and the door shove. |
-| Y3 | AI coordinator | CR3 and CR4: agree the shape before a lane touches `src/ai/core`. |
+| Y3 | AI coordinator | CR3 and CR4: agree the shape before a lane touches `src/ai/core`. Done. The six later asks (the service-free nav library, the drain, the pool, the team-layer flag, four event kinds, a brain's home) landed 2026-11-11 (`70a734e52` to `a108dbc72`). |
+| X6 | host | Equip, belt use and consume are not in the SDK, so hosted play cannot change a kit, drink or read a tome. No credit of Australium on pickup, no potion mint, no report of items left on a floor. A hosted `KillDrop` that completes after a level change leaves an item on the new level's ledger floor. |
+| Y4 | map session | A level's `.map2d` checksum is stale after `tools/descent-face-sides`; props are not in the nav; a pack's members share one marker. |
 
 ---
 
@@ -707,3 +821,14 @@ Nothing here is done by a lane of this plan.
    clone) as the reference for what each does.
 7. Appendix D's undecided rows: quests and story (2), elixirs (7), named
    uniques (10).
+8. **Waiting on the user** (2026-11-11): the economy retune and model on
+   `descent-ru-d` (two of its gates still fail); whether plain TF2 always
+   sends attribute lists; giants for the classes with no giant model
+   (Engineer, Medic, Sniper, Spy): scale the ordinary model or drop them;
+   whether C, I and K may take three of TF2's binds; Australium split at
+   the drop instead of on collection.
+9. **Robot traces pass robots** (the team rule above) for every trace a body
+   makes, attacks included: a robot's rocket or bullet will not stop on
+   another robot, as a teammate's does not in TF2. L12 (a robot is hurt by
+   its own blast) still holds through the blast path.
+

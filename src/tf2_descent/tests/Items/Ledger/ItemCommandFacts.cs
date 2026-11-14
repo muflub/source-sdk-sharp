@@ -30,7 +30,7 @@ public sealed class ItemCommandFacts
     [Fact]
     public async Task The_inventory_print_shows_each_item_as_its_owner_may_see_it()
     {
-        var ledger = new InMemoryItemLedger(R, new NoHooks(), new StartingKit());
+        var ledger = new InMemoryItemLedger(R, new NoHooks(), new StartingKit(R));
         await ledger.Load("h");
         var hidden = R.ItemRules.Roller.Roll(Ctx(2, 10, table: "base:rocket_launcher", source: "dev_give"), 5);
         Assert.False(hidden.Identified);

@@ -27,6 +27,9 @@ public sealed record SkillSettings(
 {
     /// <summary>The hero level tier <paramref name="tier"/> (1-based) unlocks at.</summary>
     public int TierLevel(int tier) => TierLevels[tier - 1];
+
+    /// <summary>The skill bar's slots: how many cast skills a hero keeps slotted (<see cref="Hero.HeroSheet.SkillSlots"/>).</summary>
+    public int BarSlots { get; init; }
 }
 
 public sealed class SkillSettingsTable : SingleTable<SkillSettings>
@@ -52,7 +55,8 @@ public sealed class SkillSettingsTable : SingleTable<SkillSettings>
         var s = new SkillSettings(tiers, maxRank, f.Str("sharedClass"), f.Int("sharedMaxRank"), f.Int("bonusRankCap"),
             damage.Num("perHeroLevel"), damage.Num("attributeDivisor"), f.Str("manaCostStat"),
             orders.Str("durationStat"), orders.Str("radiusStat"), orders.Str("cooldownStat"),
-            spells.Int("maxRank"), spells.Int("scrollStack"), spells.Str("attribute"));
+            spells.Int("maxRank"), spells.Int("scrollStack"), spells.Str("attribute"))
+        { BarSlots = f.Int("barSlots") };
         damage.End();
         orders.End();
         spells.End();
@@ -74,6 +78,7 @@ public sealed class SkillSettingsTable : SingleTable<SkillSettings>
         ContentChecks.Range(errors, Name, null, "damage.attributeDivisor", s.DamageAttributeDivisor, 1e-9, 1e9);
         ContentChecks.Range(errors, Name, null, "spells.maxRank", s.SpellMaxRank, 1, 100);
         ContentChecks.Range(errors, Name, null, "spells.scrollStack", s.ScrollStack, 1, 1000);
+        ContentChecks.Range(errors, Name, null, "barSlots", s.BarSlots, 1, 32);
         foreach (var stat in new[] { s.ManaCostStat, s.OrderDurationStat, s.OrderRadiusStat, s.OrderCooldownStat })
             ContentChecks.Stat(content, errors, Name, null, stat);
         ContentChecks.Reference<AttributeRow>(content, errors, Name, null, "spells.attribute", s.SpellAttribute, ContentTables.Attributes);

@@ -66,7 +66,7 @@ internal sealed class EquipmentRig
 
     public EquipmentRig(bool join = true)
     {
-        Ledger = new InMemoryItemLedger(Rules, new HeroRig.ListHooks<IItemLedgerHook>(LedgerHooks), new StartingKit());
+        Ledger = new InMemoryItemLedger(Rules, new HeroRig.ListHooks<IItemLedgerHook>(LedgerHooks), new StartingKit(Rules));
         var link = new UnhostedLink();
         var players = new PlayerService(link, Hero.Host, Hero.Players, new ClientMessages(new RecordingEngine()),
                                         new NeverScheduler(), Log, Hero.Sheets);
@@ -74,7 +74,7 @@ internal sealed class EquipmentRig
         Equipment = new HeroEquipment(Ledger, Keys, Hero.Sheets, Rules, Schema, new Mode(this), BotList, Hero.Engine, Log);
         Source = new HeroKitSource(Equipment);
         Refresh = new Kit(Source);
-        Settle = new HeroKitSettle(Equipment, Source, Hero.Heroes, new StartingKit(), Refresh, Resupply, Ammo, new Classes(this),
+        Settle = new HeroKitSettle(Equipment, Source, Hero.Heroes, new StartingKit(Rules), Refresh, Resupply, Ammo, new Classes(this),
                                    Hero.Engine, Hero.Engine, Log);
         Gear = new HeroGearContributions(Equipment, Settle);
         LedgerHooks.Add(Settle);

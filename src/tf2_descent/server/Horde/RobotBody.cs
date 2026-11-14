@@ -180,6 +180,19 @@ public sealed class RobotBody(IEngineEntityRender render) : ScriptedEntity
         State.MoveX = running ? 1f : 0f;
     }
 
+    /// <summary>The four pose dials the client blends on (move_x, move_y, body_yaw, body_pitch), each written only when it changed (HO3).</summary>
+    internal void Pose(float moveX, float moveY, float bodyYaw, float bodyPitch)
+    {
+        if (State.MoveX != moveX)
+            State.MoveX = moveX;
+        if (State.MoveY != moveY)
+            State.MoveY = moveY;
+        if (State.BodyYaw != bodyYaw)
+            State.BodyYaw = bodyYaw;
+        if (State.BodyPitch != bodyPitch)
+            State.BodyPitch = bodyPitch;
+    }
+
     /// <summary>The health bar's fraction, 0 to 255.</summary>
     internal void SetLife(double life, double lifeMax) =>
         State.Life = (byte)Math.Clamp((int)Math.Ceiling(255 * (lifeMax > 0 ? life / lifeMax : 0)), 0, 255);

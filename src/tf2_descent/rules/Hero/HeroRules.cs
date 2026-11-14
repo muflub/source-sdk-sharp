@@ -78,7 +78,31 @@ public sealed class HeroRules
             ClassId = cls.Id,
             Name = name,
             Attributes = Starts(cls),
+            SkillSlots = EmptyBar(),
         };
+    }
+
+    /// <summary>A skill bar with every slot empty (skill_settings.json's barSlots).</summary>
+    public ImmutableArray<string> EmptyBar() => [.. Enumerable.Repeat("", _content.SkillSettings.BarSlots)];
+
+    /// <summary>
+    /// The sheet with <paramref name="skillId"/> in bar slot <paramref name="slot"/> (1-based;
+    /// null or "" empties it); the skill leaves any other slot it was in. Whether the skill may
+    /// sit there is the audit's (<see cref="Audit"/>).
+    /// </summary>
+    public HeroSheet WithSlot(HeroSheet sheet, int slot, string? skillId)
+    {
+        var bar = sheet.SkillSlots.Length == _content.SkillSettings.BarSlots ? sheet.SkillSlots : EmptyBar();
+        ArgumentOutOfRangeException.ThrowIfLessThan(slot, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(slot, bar.Length);
+        string id = skillId ?? "";
+        var slots = bar.ToBuilder();
+        if (id.Length > 0)
+            for (int i = 0; i < slots.Count; i++)
+                if (slots[i] == id)
+                    slots[i] = "";
+        slots[slot - 1] = id;
+        return sheet with { SkillSlots = slots.ToImmutable() };
     }
 
     /// <summary>Every attribute of the class at its start.</summary>
@@ -186,8 +210,8 @@ public sealed class HeroRules
 
     /// <summary>
     /// Every invested point back (C.3): each attribute to its class start, every skill
-    /// rank cleared, all points earned by level unspent. The count rises, and so does the
-    /// next price.
+    /// rank cleared, all points earned by level unspent, and the skill bar emptied (no
+    /// slotted skill keeps a rank). The count rises, and so does the next price.
     /// </summary>
     public RespecResult Respec(HeroSheet sheet)
     {
@@ -199,6 +223,7 @@ public sealed class HeroRules
             SkillRanks = sheet.SkillRanks.Clear(),
             SkillPoints = SkillPointsFor(sheet.Level),
             RespecCount = sheet.RespecCount + 1,
+            SkillSlots = EmptyBar(),
         };
         return new RespecResult(after, RespecPrice(sheet));
     }
@@ -251,6 +276,28 @@ public sealed class HeroRules
         if (ranks + sheet.SkillPoints != skillEarned)
             return AuditResult.Fail("skill_points",
                 $"{ranks} ranks + {sheet.SkillPoints} unspent is not the {skillEarned} earned by level {sheet.Level}");
+        return AuditBar(sheet);
+    }
+
+    /// <summary>
+    /// The skill bar: barSlots slots, each empty or a cast skill (an action, toggle or
+    /// capstone) the hero has a real rank in, no skill twice.
+    /// </summary>
+    private AuditResult AuditBar(HeroSheet sheet)
+    {
+        int slots = _content.SkillSettings.BarSlots;
+        if (sheet.SkillSlots.Length != slots)
+            return AuditResult.Fail("skill_slots", $"{sheet.SkillSlots.Length} bar slots, not {slots}");
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in sheet.SkillSlots.Where(s => s.Length > 0))
+        {
+            if (!seen.Add(id))
+                return AuditResult.Fail("slot_duplicate", $"'{id}' is in two bar slots");
+            if (!_content.Skills.TryGet(id, out var skill) || !skill.IsCast)
+                return AuditResult.Fail("slot_not_castable", $"'{id}' in the bar is no skill to cast");
+            if (!sheet.SkillRanks.TryGetValue(id, out var rank) || rank <= 0)
+                return AuditResult.Fail("slot_unlearned", $"'{id}' in the bar has no rank");
+        }
         return AuditResult.Pass;
     }
 

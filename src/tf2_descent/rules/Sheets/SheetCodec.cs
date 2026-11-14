@@ -8,13 +8,14 @@ using TF2.Descent.Rules.Hero;
 namespace TF2.Descent.Rules.Sheets;
 
 /// <summary>
-/// The character sheet's bytes (plan_descent_logic RU13): the whole hero, schema 2.
+/// The character sheet's bytes (plan_descent_logic RU13): the whole hero, schema 3.
 /// <list type="bullet">
-/// <item>Schema 2 is canonical JSON: fields in a fixed order, maps sorted by key, no
+/// <item>Schema 3 is canonical JSON: fields in a fixed order, maps sorted by key, no
 /// whitespace, so encoding a decoded sheet gives the same bytes (the host's admin edit
-/// checks that round trip).</item>
+/// checks that round trip). It is schema 2 and the skill bar ("slots").</item>
+/// <item>Schema 2 (no bar) still decodes, with every bar slot empty.</item>
 /// <item>Schema 1 (seven fields: class, name, level, xp, reached depth, hardcore, fallen)
-/// still decodes, into a schema 2 hero at its class starts with every point its level
+/// still decodes, into a hero at its class starts with every point its level
 /// earned unspent, and its experience raised to at least what its level takes.</item>
 /// </list>
 /// Hand-written over <see cref="JsonDocument"/> and <see cref="Utf8JsonWriter"/>: a field
@@ -22,8 +23,9 @@ namespace TF2.Descent.Rules.Sheets;
 /// </summary>
 public sealed class SheetCodec : ISheetCodec
 {
-    public const int Schema = 2;
+    public const int Schema = 3;
     public const int Schema1 = 1;
+    public const int Schema2 = 2;
 
     private readonly HeroRules _heroes;
 
@@ -36,9 +38,10 @@ public sealed class SheetCodec : ISheetCodec
     /// <summary>The hero in a sheet of either schema.</summary>
     public HeroSheet Read(CharacterSheet sheet) => sheet.SchemaVersion switch
     {
-        Schema => DecodeV2(sheet.Data),
+        Schema => Decode(sheet.Data, withBar: true),
+        Schema2 => Decode(sheet.Data, withBar: false),
         Schema1 => UpgradeV1(sheet.Data),
-        _ => throw new InvalidDataException($"sheet schema {sheet.SchemaVersion} is not 1 or 2"),
+        _ => throw new InvalidDataException($"sheet schema {sheet.SchemaVersion} is not 1, 2 or 3"),
     };
 
     public SheetSummary Summarize(CharacterSheet sheet)
@@ -47,20 +50,25 @@ public sealed class SheetCodec : ISheetCodec
         return new SheetSummary(s.ClassId, s.Name, s.Level, s.Xp, s.ReachedDepth, s.Hardcore, s.Fallen);
     }
 
-    /// <summary>The sheet as schema 2 JSON, whatever schema it was written in.</summary>
+    /// <summary>The sheet as schema 3 JSON, whatever schema it was written in.</summary>
     public string ToJson(CharacterSheet sheet) => Encoding.UTF8.GetString(Encode(Read(sheet)));
 
-    /// <summary>A schema 2 sheet from JSON of schema 2, or of schema 1 (told apart by its "ClassName" field).</summary>
+    /// <summary>
+    /// A schema 3 sheet from JSON of schema 3, 2 (no "slots" field) or 1 (told apart by its
+    /// "ClassName" field).
+    /// </summary>
     public CharacterSheet FromJson(string json)
     {
         var bytes = Encoding.UTF8.GetBytes(json);
         using var doc = Parse(bytes);
-        bool v1 = doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("ClassName", out _);
-        return Write(v1 ? UpgradeV1(bytes) : DecodeV2(bytes));
+        bool isObject = doc.RootElement.ValueKind == JsonValueKind.Object;
+        if (isObject && doc.RootElement.TryGetProperty("ClassName", out _))
+            return Write(UpgradeV1(bytes));
+        return Write(Decode(bytes, withBar: !isObject || doc.RootElement.TryGetProperty("slots", out _)));
     }
 
     //-------------------------------------------------------------------------
-    // Schema 2
+    // Schema 3 (schema 2 and the bar)
     //-------------------------------------------------------------------------
 
     public static byte[] Encode(HeroSheet s)
@@ -89,6 +97,9 @@ public sealed class SheetCodec : ISheetCodec
             w.WriteStartArray("bossKills");
             foreach (var id in s.BossKills) w.WriteStringValue(id);
             w.WriteEndArray();
+            w.WriteStartArray("slots");
+            foreach (var id in s.SkillSlots) w.WriteStringValue(id);
+            w.WriteEndArray();
             w.WriteEndObject();
         }
         return buffer.ToArray();
@@ -101,7 +112,8 @@ public sealed class SheetCodec : ISheetCodec
         w.WriteEndObject();
     }
 
-    private HeroSheet DecodeV2(byte[] data)
+    /// <summary>A schema 3 sheet, or with <paramref name="withBar"/> false a schema 2 one, whose bar is empty.</summary>
+    private HeroSheet Decode(byte[] data, bool withBar)
     {
         using var doc = Parse(data);
         var errors = new ContentErrors();
@@ -124,6 +136,7 @@ public sealed class SheetCodec : ISheetCodec
             Belt = [.. Strings(f, "belt")],
             RespecCount = f.Int("respecs"),
             BossKills = [.. Strings(f, "bossKills")],
+            SkillSlots = withBar ? [.. Strings(f, "slots")] : _heroes.EmptyBar(),
         };
         f.End();
         Throw(errors);
@@ -157,7 +170,7 @@ public sealed class SheetCodec : ISheetCodec
     //-------------------------------------------------------------------------
 
     /// <summary>
-    /// A schema 1 sheet as a schema 2 hero: its class's starts, zero points spent (so all
+    /// A schema 1 sheet as a schema 3 hero (its bar empty): its class's starts, zero points spent (so all
     /// 5 · (level − 1) unspent, and level − 1 skill points), and its experience raised to
     /// the least its level takes, since schema 1 never kept experience in step with level.
     /// </summary>

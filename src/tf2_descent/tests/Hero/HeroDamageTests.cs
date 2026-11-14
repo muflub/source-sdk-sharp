@@ -49,7 +49,7 @@ public sealed class HeroDamageTests
                                                                                          float tf, float expected)
     {
         var rig = new HeroStatsRig(sheet);
-        var kinds = HeroHitKinds.KindsOf(new HeroHitKinds(rig.Rig.Rules).FamilyOf(weapon)!.Id);
+        var kinds = HeroHitKinds.KindsOf(new HeroHitKinds(rig.Rig.Rules).FamilyOf(weapon)!);
 
         float dealt = rig.Hit(Target, rig.Player, tf, DamageType.Blast, weapon);
 
@@ -154,14 +154,13 @@ public sealed class HeroDamageTests
     }
 
     [Fact]
-    public void Every_family_the_rules_ship_has_its_kinds_stated_or_is_named_as_none()
+    public void Every_family_the_rules_ship_has_its_kinds_stated()
     {
-        var families = new TF2.Descent.Rules.TF2DescentRules().Content.Families.Rows.Select(f => f.Id).ToArray();
-        string[] none = ["flamethrower", "medigun"];
+        var families = new TF2.Descent.Rules.TF2DescentRules().Content.Families.Rows;
 
-        var unstated = families.Where(f => HeroHitKinds.KindsOf(f).Length == 0 && !none.Contains(f)).ToArray();
+        var unstated = families.Where(f => HeroHitKinds.KindsOf(f).Length == 0).Select(f => f.Id).ToArray();
 
-        Assert.True(families.Length >= 18, $"only {families.Length} families");
+        Assert.True(families.Count >= 18, $"only {families.Count} families");
         Assert.Empty(unstated);
     }
 

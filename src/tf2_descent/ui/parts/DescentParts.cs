@@ -227,8 +227,9 @@ public sealed class OrbPair : UiPanel
 /// The potion belt: four keycaps with counts, and the shared-cooldown wipe
 /// (D16). The keycap sits in a fixed chip at the slot's top-left so the
 /// number row aligns across slots; the name takes the rest of the top row.
-/// Narrow, the belt joins the HUD's fixed-width corner column, so it wraps to
-/// two columns there (2 x 112 + 8 du): one row of four hung 224 du past the panel.
+/// Two columns of two (2 x 112 + 8 du): beside the orbs in the HUD's corner,
+/// as tall as they are, and inside the narrow column's fixed width, where one
+/// row of four hung 224 du past the panel.
 /// </summary>
 public sealed class BeltStrip : UiPanel
 {
@@ -241,7 +242,7 @@ public sealed class BeltStrip : UiPanel
 
     public override void Describe(ref UiFrame ui)
     {
-        using (ui.Narrow ? ui.Grid(_pair, Space.S, Space.S).Key("belt") : ui.Row(Space.S, Align.Centre).Key("belt"))
+        using (ui.Grid(_pair, Space.S, Space.S).Key("belt"))
         {
             for (int i = 0; i < _belt.SlotCount; i++)
             {
@@ -331,7 +332,11 @@ public sealed class RankPips : UiPanel<RankPipsProps>
     }
 }
 
-/// <summary>The XP bar with its level beside it and the unspent-points chip.</summary>
+/// <summary>
+/// The XP bar across the top of the HUD (plan_descent_logic L5): the level
+/// chip, the bar, and the unspent-points chip, on its own panel. Level 0 is
+/// no hero yet: the bar draws nothing.
+/// </summary>
 public sealed class XpBar : UiPanel
 {
     private readonly IDescentXp _xp;
@@ -340,14 +345,16 @@ public sealed class XpBar : UiPanel
 
     public override void Describe(ref UiFrame ui)
     {
+        if (_xp.Level <= 0)
+            return;
         float f = _xp.XpToNext > 0 ? System.Math.Clamp(_xp.Xp / (float)_xp.XpToNext, 0f, 1f) : 1f;
-        using (ui.Row(Space.S, Align.Centre).Key("xp"))
+        using (ui.Row(Space.S, Align.Centre).Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.XS).Key("xp"))
         {
-            ui.Meter(ui.Animate("xp", f, Motion.Standard), Tone.Accent, Size.Du(ui.Narrow ? 160 : 208), 4);
             // The level reads as a chip: over the world (a gallery, a bare HUD
             // corner) muted Text would have nothing behind it.
             using (ui.Box().Fill(Tone.SurfaceRaised).Round(Radius.S).Pad(Space.XS, Space.None))
                 ui.Text($"Lv {_xp.Level}", Text.Caption, Tone.TextMuted);
+            ui.Meter(ui.Animate("xp", f, Motion.Standard), Tone.Accent, Size.Du(ui.Narrow ? 240 : 480), 8);
             int points = _xp.AttributePoints + _xp.SkillPoints;
             if (points > 0)
             {

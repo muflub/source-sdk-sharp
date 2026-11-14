@@ -107,6 +107,10 @@ public sealed partial class HookOrderTests
             (typeof(TF2.Server.Player.ITFClassChangeGate), false),
             // HE5's kill seam hears a robot body's death from the core's entity death chain.
             (typeof(IEntityDeathHook), false),
+            // HO2's parking and WO2's floor answer the transmit walk beside TF2's teammate glow.
+            (typeof(ITransmitRule), true),
+            // HO3b: robots pass robots, beside TF2's team collide rule in the trace filter's chain.
+            (typeof(IEntityCollideRule), true),
         ];
         var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
         Assembly[] others =

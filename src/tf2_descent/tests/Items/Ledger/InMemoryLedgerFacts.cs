@@ -12,7 +12,7 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
 {
     private readonly InMemoryItemLedger _ledger;
 
-    public InMemoryLedgerFacts() => _ledger = new InMemoryItemLedger(R, new Hooks(Changes), new StartingKit());
+    public InMemoryLedgerFacts() => _ledger = new InMemoryItemLedger(R, new Hooks(Changes), new StartingKit(R));
 
     protected override ItemLedgerBase Ledger => _ledger;
 
@@ -92,7 +92,7 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
     [Fact]
     public async Task A_kill_drop_is_the_same_item_for_the_same_session_kill_and_hero()
     {
-        var other = new InMemoryItemLedger(R, new Hooks(), new StartingKit());
+        var other = new InMemoryItemLedger(R, new Hooks(), new StartingKit(R));
         var kill = new KillDrop(A, 2, 41, "soldier", 4, default);
         await other.Load(A);
         await other.Give(A, "shovel", 1, 5);           // other rolls first: the kill's seed must not count them
@@ -172,5 +172,56 @@ public sealed class InMemoryLedgerFacts : LedgerFacts
         Assert.True(stack.Ok, stack.Refusal);
         Assert.Equal([a], stack.Change!.Gone);
         Assert.Equal(15, _ledger.Find(A)!.Inventory.Backpack.Values.Single(h => h.Id == b).Item.Count);
+    }
+    [Fact]
+    public async Task Collected_Australium_goes_into_the_purse_and_is_told_once()
+    {
+        await _ledger.Load(A);
+        long before = _ledger.Find(A)!.Inventory.Australium;
+        Changes.Seen.Clear();
+
+        var collect = await _ledger.CollectAustralium(A, 37);
+
+        Assert.True(collect.Ok, collect.Refusal);
+        Assert.Equal(before + 37, _ledger.Find(A)!.Inventory.Australium);
+        var change = Assert.Single(Changes.Seen);
+        Assert.Equal((before, before + 37), (change.AustraliumBefore, change.AustraliumAfter));
+    }
+
+    [Fact]
+    public async Task Collecting_no_Australium_is_refused_and_changes_nothing()
+    {
+        await _ledger.Load(A);
+        string before = Snapshot(A);
+
+        var collect = await _ledger.CollectAustralium(A, 0);
+
+        Assert.Equal(LedgerRefusals.BadAmount, collect.Refusal);
+        Assert.Equal(before, Snapshot(A));
+    }
+
+    [Fact]
+    public async Task A_kill_potion_lies_on_the_floor_for_its_hero_and_replays()
+    {
+        await _ledger.Load(A);
+
+        var drop = await _ledger.PotionDrop(A, "health_small", 9, 2, new Vector(1, 2, 3));
+
+        Assert.True(drop.Ok, drop.Refusal);
+        var potion = Assert.Single(drop.Items);
+        Assert.Equal(("health_small", A, new Vector(1, 2, 3)), (potion.Item.BaseId, potion.ForHero, potion.Position));
+        Assert.Contains(_ledger.Floor, f => f.Id == potion.Id);
+        Assert.True(R.Replays(R.ItemRules.Codec.ToRolled(potion.Item)), "a dropped potion does not replay");
+    }
+
+    [Fact]
+    public async Task A_potion_of_an_unknown_base_is_refused()
+    {
+        await _ledger.Load(A);
+
+        var drop = await _ledger.PotionDrop(A, "no_such_potion", 9, 2, default);
+
+        Assert.Equal(LedgerRefusals.UnknownBase, drop.Refusal);
+        Assert.Empty(_ledger.Floor);
     }
 }

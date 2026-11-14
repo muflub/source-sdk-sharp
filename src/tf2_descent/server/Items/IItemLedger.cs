@@ -118,6 +118,9 @@ public static class LedgerRefusals
     /// <summary>No item base of that id.</summary>
     public const string UnknownBase = "unknown_base";
 
+    /// <summary>An amount of Australium that is not more than nothing.</summary>
+    public const string BadAmount = "bad_amount";
+
     /// <summary>No such item in the vendor's stock.</summary>
     public const string NotInStock = "not_in_stock";
 
@@ -161,8 +164,23 @@ public interface IItemLedger
     /// <summary>A boss's or champion's drops, one table a hero.</summary>
     Task<DropResult> BossDrop(BossDrop boss);
 
+    /// <summary>
+    /// A potion a kill's roll dropped (the rules' <c>LootOutcome.Potion</c>, of base
+    /// <paramref name="potionBase"/>) put on the floor for its hero. Hosted it is refused
+    /// (<see cref="LedgerRefusals.HostUnsupported"/>): a potion is no item to the host's
+    /// <c>KillRoll</c>, and the host has no call that mints one.
+    /// </summary>
+    Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position);
+
     /// <summary>Picks a floor item up into the first free backpack slot; refused when full or another hero's.</summary>
     Task<LedgerResult> Claim(string hero, long floorId);
+
+    /// <summary>
+    /// Australium picked up off the floor (WO2) into the hero's purse. Hosted it is refused
+    /// (<see cref="LedgerRefusals.HostUnsupported"/>): the host books a kill's Australium itself
+    /// at the reveal and has no call that credits more.
+    /// </summary>
+    Task<LedgerResult> CollectAustralium(string hero, long amount);
 
     /// <summary>Drops the item in a backpack slot onto the floor at <paramref name="position"/>.</summary>
     Task<LedgerResult> Drop(string hero, int slot, Vector position);

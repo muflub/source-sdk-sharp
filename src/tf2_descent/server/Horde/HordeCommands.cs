@@ -16,7 +16,7 @@ namespace TF2.Descent.Server.Horde;
 /// </summary>
 [ConCommand("tf2_descent_horde", Flags = ConVarFlags.Cheat,
             Help = "tf2_descent_horde [robot]: the horde's roster, pool and census; with a robot row, that robot and its body")]
-public sealed class HordeCommand(HordeService horde, HordeCensus census, IRobotHitSink hits, IHordeClock clock, ILog log)
+public sealed class HordeCommand(HordeService horde, HordeCensus census, RobotHitTally hits, Session.HordeSession ai, IHordeClock clock, ILog log)
 {
     public void Execute(int robot = -1)
     {
@@ -65,6 +65,7 @@ public sealed class HordeCommand(HordeService horde, HordeCensus census, IRobotH
         }
         log.Msg(sb.Append('\n').ToString());
         log.Msg($"[TF2Descent/Horde] {census.Line(c)}\n");
+        log.Msg($"[TF2Descent/Horde] {ai.Line()}\n");
         for (int r = 0; r < c.Level!.RoomCount; r++)
             log.Msg($"[TF2Descent/Horde]   room {r}: {(roster.RoomAwake(r) ? "awake" : "asleep")}, {c.Level.Rooms[r].Markers.Length} markers\n");
     }
@@ -166,30 +167,6 @@ public sealed class HordeCycleCommand(HordeService horde, ILog log)
 
         c.Cycle(robot, cycles, out string why);
         log.Msg($"[TF2Descent/Horde] cycle: {why}\n");
-    }
-}
-
-/// <summary><c>tf2_descent_horde_walk &lt;robot|-1&gt; [0|1]</c>: walks a lent body (or all, -1) in a small circle, for the animation proofs.</summary>
-[ConCommand("tf2_descent_horde_walk", Flags = ConVarFlags.Cheat,
-            Help = "tf2_descent_horde_walk <robot|-1> [0|1]: walk a robot's body (-1: every lent body) in a 48-unit circle, or stop")]
-public sealed class HordeWalkCommand(HordeService horde, ILog log)
-{
-    public void Execute(int robot, int on = 1)
-    {
-        if (horde.Current is not { Begun: true } c)
-        {
-            log.Msg("[TF2Descent/Horde] walk: no horde this level\n");
-            return;
-        }
-
-        if (robot < 0)
-        {
-            log.Msg($"[TF2Descent/Horde] walk: {c.WalkAll(on != 0)} bodies {(on != 0 ? "walk" : "stand")}\n");
-            return;
-        }
-
-        c.Walk(robot, on != 0, out string why);
-        log.Msg($"[TF2Descent/Horde] walk: {why}\n");
     }
 }
 

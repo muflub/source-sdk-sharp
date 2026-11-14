@@ -92,6 +92,8 @@ public abstract class ItemLedgerBase : IItemLedger
 
     public abstract Task<DropResult> BossDrop(BossDrop boss);
 
+    public abstract Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position);
+
     public abstract Task<bool> RecordDeath(string hero, Vector position);
 
     public abstract Task<LootAnswer> LootCorpse(string hero);
@@ -215,6 +217,20 @@ public abstract class ItemLedgerBase : IItemLedger
             return LedgerResult.Refused(LedgerRefusals.WrongOwner, h);
         var result = Inv.Pickup(h.Inventory, h.Stash, h.Sheet, new Held(item.Id, item.Item));
         return await Settle(new Op("claim", Id: item.Id), h, result, () => _floor.Remove(floorId));
+    });
+
+    /// <summary>Australium off the floor into the purse, as an operation of its own the ledger confirms (the host has none).</summary>
+    public Task<LedgerResult> CollectAustralium(string hero, long amount) => Serial(hero, async () =>
+    {
+        if (await Ensure(hero) is not { } h)
+            return LedgerResult.Refused(LedgerRefusals.NoHero);
+        if (amount <= 0)
+            return LedgerResult.Refused(LedgerRefusals.BadAmount, h);
+        var predicted = h with { Inventory = h.Inventory with { Australium = h.Inventory.Australium + amount } };
+        var confirmed = await Confirm(new Op("australium", Id: amount), h, predicted);
+        if (confirmed.Refusal is not null)
+            return LedgerResult.Refused(confirmed.Refusal, Find(h.Hero));
+        return Commit("australium", h, confirmed.After!, []);
     });
 
     public Task<LedgerResult> Drop(string hero, int slot, Vector position) => Serial(hero, async () =>

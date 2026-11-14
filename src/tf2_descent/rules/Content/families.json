@@ -1,74 +1,74 @@
 [
   {
-    "id": "rocket_launcher", "name": "Rocket Launchers", "slots": ["primary"], "damageType": "blast",
+    "id": "rocket_launcher", "name": "Rocket Launchers", "slots": ["primary"], "damageType": "blast", "kinds": ["blast", "projectile"],
     "itemClasses": ["tf_weapon_rocketlauncher", "tf_weapon_rocketlauncher_directhit", "tf_weapon_rocketlauncher_airstrike"]
   },
   {
-    "id": "grenade_launcher", "name": "Grenade Launchers", "slots": ["primary"], "damageType": "blast",
+    "id": "grenade_launcher", "name": "Grenade Launchers", "slots": ["primary"], "damageType": "blast", "kinds": ["blast", "projectile"],
     "itemClasses": ["tf_weapon_grenadelauncher", "tf_weapon_cannon"]
   },
   {
-    "id": "stickybomb_launcher", "name": "Stickybomb Launchers", "slots": ["secondary"], "damageType": "blast",
+    "id": "stickybomb_launcher", "name": "Stickybomb Launchers", "slots": ["secondary"], "damageType": "blast", "kinds": ["blast", "projectile"],
     "itemClasses": ["tf_weapon_pipebomblauncher"]
   },
   {
-    "id": "flamethrower", "name": "Flamethrowers", "slots": ["primary"], "damageType": "fire",
+    "id": "flamethrower", "name": "Flamethrowers", "slots": ["primary"], "damageType": "fire", "kinds": ["weapon"],
     "itemClasses": ["tf_weapon_flamethrower", "tf_weapon_rocketlauncher_fireball"]
   },
   {
-    "id": "flare_gun", "name": "Flare Guns", "slots": ["secondary"], "damageType": "fire",
+    "id": "flare_gun", "name": "Flare Guns", "slots": ["secondary"], "damageType": "fire", "kinds": ["projectile"],
     "itemClasses": ["tf_weapon_flaregun", "tf_weapon_flaregun_revenge"]
   },
   {
-    "id": "scattergun", "name": "Scatterguns", "slots": ["primary"], "damageType": "bullet",
+    "id": "scattergun", "name": "Scatterguns", "slots": ["primary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_scattergun", "tf_weapon_soda_popper", "tf_weapon_handgun_scout_primary", "tf_weapon_pep_brawler_blaster"]
   },
   {
-    "id": "shotgun", "name": "Shotguns", "slots": ["primary", "secondary"], "damageType": "bullet",
+    "id": "shotgun", "name": "Shotguns", "slots": ["primary", "secondary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_shotgun", "tf_weapon_shotgun_primary", "tf_weapon_sentry_revenge", "tf_weapon_shotgun_building_rescue"]
   },
   {
-    "id": "pistol", "name": "Pistols", "slots": ["secondary"], "damageType": "bullet",
+    "id": "pistol", "name": "Pistols", "slots": ["secondary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_pistol", "tf_weapon_handgun_scout_secondary"]
   },
   {
-    "id": "revolver", "name": "Revolvers", "slots": ["secondary"], "damageType": "bullet",
+    "id": "revolver", "name": "Revolvers", "slots": ["secondary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_revolver"]
   },
   {
-    "id": "smg", "name": "SMGs", "slots": ["secondary"], "damageType": "bullet",
+    "id": "smg", "name": "SMGs", "slots": ["secondary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_smg", "tf_weapon_charged_smg"]
   },
   {
-    "id": "minigun", "name": "Miniguns", "slots": ["primary"], "damageType": "bullet",
+    "id": "minigun", "name": "Miniguns", "slots": ["primary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_minigun"]
   },
   {
-    "id": "syringe_gun", "name": "Syringe Guns", "slots": ["primary"], "damageType": "bullet",
+    "id": "syringe_gun", "name": "Syringe Guns", "slots": ["primary"], "damageType": "bullet", "kinds": ["projectile"],
     "itemClasses": ["tf_weapon_syringegun_medic"]
   },
   {
-    "id": "medigun", "name": "Mediguns", "slots": ["secondary"], "damageType": "shock",
+    "id": "medigun", "name": "Mediguns", "slots": ["secondary"], "damageType": "shock", "kinds": ["weapon"],
     "itemClasses": ["tf_weapon_medigun"]
   },
   {
-    "id": "sniper_rifle", "name": "Sniper Rifles", "slots": ["primary"], "damageType": "bullet",
+    "id": "sniper_rifle", "name": "Sniper Rifles", "slots": ["primary"], "damageType": "bullet", "kinds": ["bullet"],
     "itemClasses": ["tf_weapon_sniperrifle", "tf_weapon_sniperrifle_decap", "tf_weapon_sniperrifle_classic"]
   },
   {
-    "id": "bow", "name": "Bows", "slots": ["primary"], "damageType": "bullet",
+    "id": "bow", "name": "Bows", "slots": ["primary"], "damageType": "bullet", "kinds": ["projectile"],
     "itemClasses": ["tf_weapon_compound_bow", "tf_weapon_crossbow"]
   },
   {
-    "id": "energy_weapon", "name": "Energy Weapons", "slots": ["primary", "secondary"], "damageType": "shock",
+    "id": "energy_weapon", "name": "Energy Weapons", "slots": ["primary", "secondary"], "damageType": "shock", "kinds": ["projectile"],
     "itemClasses": ["tf_weapon_raygun", "tf_weapon_drg_pomson", "tf_weapon_particle_cannon", "tf_weapon_mechanical_arm"]
   },
   {
-    "id": "cleaver", "name": "Cleavers", "slots": ["secondary"], "damageType": "bullet",
+    "id": "cleaver", "name": "Cleavers", "slots": ["secondary"], "damageType": "bullet", "kinds": ["projectile"],
     "itemClasses": ["tf_weapon_cleaver"]
   },
   {
-    "id": "melee", "name": "Melee Weapons", "slots": ["melee"], "damageType": "bullet",
+    "id": "melee", "name": "Melee Weapons", "slots": ["melee"], "damageType": "bullet", "kinds": ["melee"],
     "itemClasses": [
       "tf_weapon_bat", "tf_weapon_bat_wood", "tf_weapon_bat_fish", "tf_weapon_bat_giftwrap",
       "tf_weapon_bottle", "tf_weapon_bonesaw", "tf_weapon_breakable_sign", "tf_weapon_club",

@@ -6,6 +6,7 @@ using TF2.Descent.Ai.Level;
 using TF2.Descent.Ai.Roster;
 using TF2.Descent.Rules;
 using TF2.Descent.Server.Horde;
+using TF2.Descent.Server.Horde.Motion;
 using static TF2.Descent.Tests.Horde.HordeFixtures;
 
 namespace TF2.Descent.Tests.Horde;
@@ -74,6 +75,18 @@ internal sealed class RigHits : IRobotHitSink
     public void OnRobotHit(in RobotHit hit) => Hits.Add(hit);
 }
 
+/// <summary>The hit chain as the controller is handed it: the members a fact names, in order.</summary>
+internal sealed class RigHitHooks(IReadOnlyList<IRobotHitSink> members) : IHooks<IRobotHitSink>
+{
+    public IReadOnlyList<IRobotHitSink> All => members;
+
+    public void Each(string what, Action<IRobotHitSink> call)
+    {
+        foreach (var m in members)
+            call(m);
+    }
+}
+
 /// <summary>A world where nothing blocks a line and every box is in every PVS, unless a fact says otherwise.</summary>
 internal sealed class RigSightWorld : ISightWorld
 {
@@ -124,7 +137,8 @@ internal sealed class ServerHordeRig
 {
     public const double Tps = 1 / 0.015;
 
-    public ServerHordeRig(HordeLevel? level = null, bool begin = true)
+    /// <param name="brains">The controller's AI session (HO4); none given, one that does nothing (<see cref="IdleBrains"/>).</param>
+    public ServerHordeRig(HordeLevel? level = null, bool begin = true, Func<ServerHordeRig, TF2.Descent.Server.Horde.Session.IHordeBrainHost>? brains = null)
     {
         Level = level ?? Row(4, markers: 3);
         Engine = RecordingEngine.Default();
@@ -146,8 +160,14 @@ internal sealed class ServerHordeRig
         services.AddInstance<IHordeSpawner>(Spawner);
         services.AddInstance(Parking);
         services.AddInstance<IRobotHitSink>(Hits);
+        HitMembers.Add(Hits);
+        services.AddInstance<IHooks<IRobotHitSink>>(new RigHitHooks(HitMembers));
+        Motion = new RobotMotion(World);
+        services.AddInstance<IHordeActors>(Actors);
+        services.AddInstance(Motion);
         services.AddInstance<ISightWorld>(SightWorld);
         services.AddInstance<IHordeHeroes>(Heroes);
+        services.AddInstance(brains?.Invoke(this) ?? new IdleBrains());
         Registry.Services = services;
 
         if (begin)
@@ -165,8 +185,19 @@ internal sealed class ServerHordeRig
     public RecordingLog Log { get; } = new();
     public HordeParking Parking { get; } = new();
     public RigHits Hits { get; } = new();
+
+    /// <summary>The hit chain's members, in order: <see cref="Hits"/> first; a fact may add more.</summary>
+    public List<IRobotHitSink> HitMembers { get; } = [];
     public RigSightWorld SightWorld { get; } = new();
     public RigHeroes Heroes { get; } = new();
+
+    /// <summary>The world the bodies' motion sweeps: a floor a unit under the level's (a body put down at z 0 settles onto it), and the boxes a fact puts down.</summary>
+    public BoxMotionWorld World { get; } = new() { FloorZ = -1f };
+
+    public RigActors Actors { get; } = new();
+
+    public RobotMotion Motion { get; }
+
     public HordeController Controller { get; } = null!;
     public long Now { get; set; } = 1000;
 

@@ -127,4 +127,12 @@ public static class RobotLooks
 
     /// <summary>The running sequence for what the template holds.</summary>
     public static string RunSequence(RobotTemplate t) => t.Family == "melee" ? "run_MELEE" : "run_PRIMARY";
+
+    /// <summary>
+    /// The airborne loop for what the template holds (HO3): every robot model
+    /// has <c>airwalk_PRIMARY</c> and <c>airwalk_MELEE</c> but the Spy, which
+    /// has no primary (its lookup answers none and the body keeps its gait's
+    /// last sequence). Only the Scout, Soldier and Medic have a jump float.
+    /// </summary>
+    public static string AirSequence(RobotTemplate t) => t.Family == "melee" ? "airwalk_MELEE" : "airwalk_PRIMARY";
 }

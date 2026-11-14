@@ -35,7 +35,15 @@ public sealed record FamilyRow(
     string Name,
     IReadOnlyList<string> Slots,
     string DamageType,
-    IReadOnlyList<string> ItemClasses) : IContentRow;
+    IReadOnlyList<string> ItemClasses) : IContentRow
+{
+    /// <summary>
+    /// The damage kinds a hit of the family counts as (hero.json's damageKinds, outgoing
+    /// multipliers): a launcher's rocket is blast and projectile; a family whose hit is none of
+    /// the weapon kinds (a flamethrower) names the plain weapon kind. Never empty, never "action".
+    /// </summary>
+    public IReadOnlyList<string> Kinds { get; init; } = [];
+}
 
 public sealed class FamilyTable : RowTable<FamilyRow>
 {
@@ -45,7 +53,8 @@ public sealed class FamilyTable : RowTable<FamilyRow>
     public override string Name => ContentTables.Families;
 
     protected override FamilyRow ReadRow(JsonFields f) =>
-        new(f.Str("id"), f.Str("name"), Strings(f, "slots"), f.Str("damageType"), Strings(f, "itemClasses"));
+        new(f.Str("id"), f.Str("name"), Strings(f, "slots"), f.Str("damageType"), Strings(f, "itemClasses"))
+        { Kinds = Strings(f, "kinds") };
 
     private static IReadOnlyList<string> Strings(JsonFields f, string field)
     {
@@ -69,6 +78,20 @@ public sealed class FamilyTable : RowTable<FamilyRow>
             errors.Add(Name, row.Id, ContentRule.OutOfRange, $"'slots' names '{slot}', not one of {string.Join(", ", SlotKinds)}");
         if (row.ItemClasses.Count == 0)
             errors.Add(Name, row.Id, ContentRule.Malformed, "'itemClasses' names no item class");
+        if (row.Kinds.Count == 0)
+            errors.Add(Name, row.Id, ContentRule.Malformed, "'kinds' names no damage kind");
+        if (content.TryGet<HeroSettings>(ContentTables.Hero, out var hero))
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var kind in row.Kinds)
+            {
+                if (kind != hero.WeaponHit.Kind && !hero.WeaponHit.Kinds.Contains(kind, StringComparer.Ordinal))
+                    errors.Add(Name, row.Id, ContentRule.DanglingReference,
+                        $"'kinds' names '{kind}', not a weapon's damage kind ({hero.WeaponHit.Kind}, {string.Join(", ", hero.WeaponHit.Kinds)})");
+                else if (!seen.Add(kind))
+                    errors.Add(Name, row.Id, ContentRule.DuplicateId, $"'kinds' names '{kind}' more than once");
+            }
+        }
     }
 
     protected override void ValidateTable(DescentContent content, Table<FamilyRow> table, ContentErrors errors)

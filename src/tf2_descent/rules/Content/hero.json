@@ -17,8 +17,10 @@
     { "id": "blast", "stat": "damage_blast_pct" },
     { "id": "bullet", "stat": "damage_bullet_pct" },
     { "id": "projectile", "stat": "damage_projectile_pct" },
-    { "id": "action", "stat": "damage_action_pct" }
+    { "id": "action", "stat": "damage_action_pct" },
+    { "id": "weapon", "stat": "damage_weapon_pct" }
   ],
+  "weaponHit": { "kind": "weapon", "kinds": ["melee", "blast", "bullet", "projectile"] },
   "resistAll": "resist_all_pct",
   "resistCap": 75,
   "resistFloor": -100,

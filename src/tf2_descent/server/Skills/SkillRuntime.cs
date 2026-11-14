@@ -204,9 +204,10 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
         if (heroes.Of(playerIndex) is not { Sheet: { } sheet })
             return "no hero";
 
+        AuditResult set;
         if (skillId is "none" or "")
         {
-            slots.Set(playerIndex, slot, null);
+            set = slots.Set(playerIndex, slot, null);
         }
         else
         {
@@ -216,8 +217,10 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
                 return $"{def.Name} is an upgrade: nothing to cast";
             if (SkillRules.RealRank(sheet, skillId) <= 0)
                 return $"{def.Name} is not learned";
-            slots.Set(playerIndex, slot, skillId);
+            set = slots.Set(playerIndex, slot, skillId);
         }
+        if (!set.Ok)
+            return $"the sheet refused it: {set.Rule}";
 
         log.Msg(Line(playerIndex, $"slot {slot} holds {slots.In(playerIndex, slot) ?? "nothing"}"));
         if (casters.Of(playerIndex) is { } caster)
@@ -412,16 +415,9 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
         SendBar(caster);
     }
 
-    /// <summary>The family of an item class: the class itself, else without TF2's per-class word (<c>tf_weapon_shotgun_soldier</c>).</summary>
-    public string? FamilyOf(string? itemClass)
-    {
-        if (string.IsNullOrEmpty(itemClass))
-            return null;
-        if (rules.Content.TryGetFamilyOfItemClass(itemClass, out var family))
-            return family.Id;
-        int cut = itemClass.LastIndexOf('_');
-        return cut > "tf_weapon".Length && rules.Content.TryGetFamilyOfItemClass(itemClass[..cut], out family) ? family.Id : null;
-    }
+    /// <summary>The family of an item class, from the rules' one lookup (class words and all: <c>tf_weapon_shotgun_soldier</c> is a shotgun).</summary>
+    public string? FamilyOf(string? itemClass) =>
+        !string.IsNullOrEmpty(itemClass) && rules.Content.TryGetFamilyOfItemClass(itemClass, out var family) ? family.Id : null;
 
     private bool Misfired(HeroSheet sheet, HeroStats stats, SkillCharge charge, int now)
     {

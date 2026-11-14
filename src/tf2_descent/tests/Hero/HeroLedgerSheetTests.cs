@@ -51,7 +51,7 @@ public sealed class HeroLedgerSheetTests
     {
         var rig = new HeroRig();
         rig.Engine.Returns("Players.IsAlive", true);
-        var inner = new InMemoryItemLedger(rig.Rules, new NoHooks(), new StartingKit());
+        var inner = new InMemoryItemLedger(rig.Rules, new NoHooks(), new StartingKit(rig.Rules));
         var ledger = DispatchProxy.Create<IItemLedger, CountingLedger>();
         var counted = (CountingLedger)(object)ledger;
         counted.Inner = inner;

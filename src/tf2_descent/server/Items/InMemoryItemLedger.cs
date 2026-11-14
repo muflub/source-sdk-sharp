@@ -37,8 +37,9 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         var inventory = new HeroInventory();
         foreach (var b in kit.WeaponsOf(sheet.ClassId))
             inventory = inventory with { Backpack = inventory.Backpack.Add(inventory.Backpack.Count, KitItem(sheet, b)) };
-        for (int i = 0; i < kit.Potions.Count; i++)
-            inventory = inventory with { Belt = inventory.Belt.Add(i, KitItem(sheet, kit.Potions[i])) };
+        var potions = kit.PotionsOf(sheet.ClassId);
+        for (int i = 0; i < potions.Count; i++)
+            inventory = inventory with { Belt = inventory.Belt.Add(i, KitItem(sheet, potions[i])) };
         return Task.FromResult<LedgerHero?>(new LedgerHero(hero, sheet, inventory, new StashState()));
     }
 
@@ -79,6 +80,22 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         var ctx = new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, kill.Depth, row.ItemLevel, kill.Tier, row.LootTable, "reserve");
         var item = Rules.ItemRules.Roller.Roll(ctx, KillSeed(kill.KillSeq, kill.Hero));
         return new DropResult(true, null, [Place(new FloorItem(NextId(), item, kill.Hero, kill.Position))]);
+    }
+
+    /// <summary>The seed of a kill's potion for one hero: as <see cref="KillSeed"/>, under a name of its own.</summary>
+    public ulong PotionSeed(uint killSeq, string hero) => TF2DescentRules.Hash("ledger_potion", SessionSeed, killSeq, hero);
+
+    /// <summary>A potion of the base at the depth's item level, rolled as the starting kit's are, on the floor for the hero.</summary>
+    public override async Task<DropResult> PotionDrop(string hero, string potionBase, uint killSeq, int depth, Vector position)
+    {
+        if (!Rules.Content.ItemBases.Contains(potionBase))
+            return DropResult.Refused(LedgerRefusals.UnknownBase);
+        if (await Ensure(hero) is not { } h)
+            return DropResult.Refused(LedgerRefusals.NoHero);
+        var ctx = new ItemRollContext(h.Sheet.ClassId, h.Sheet.Level, depth, Rules.LevelTable(depth).ItemLevel, 0,
+            Rules.Content.ItemSettings.ForcedBasePrefix + potionBase, "potion");
+        var item = Rules.ItemRules.Roller.Roll(ctx, PotionSeed(killSeq, hero));
+        return new DropResult(true, null, [Place(new FloorItem(NextId(), item, hero, position))]);
     }
 
     public override async Task<DropResult> BossDrop(BossDrop boss)
