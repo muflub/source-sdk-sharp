@@ -23,7 +23,7 @@ public interface IBotFightClock
 /// </summary>
 [SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(IBotFightClock)])]
 public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, IEnginePlayers players, IEngineEntities entities,
-                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock
+                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim, IRenderedTeams teams) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock
 {
     /// <summary>How often the scoreboard is read: twice a second.</summary>
     public const int ScoreTicks = 33;
@@ -38,6 +38,10 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
     private readonly Dictionary<ActorId, (int Frags, int Deaths, int Rank)> _shown = new();
     private readonly Dictionary<int, bool> _alive = new();
     private readonly Dictionary<int, int> _lastHit = new();
+    private readonly Dictionary<(ActorId Bot, ActorId Actor), int> _toldTeam = new();
+    private readonly Dictionary<(ActorId Bot, int Team), int> _toldScores = new();
+    private readonly List<(ActorId Actor, int Team)> _teamRows = new();
+    private readonly Dictionary<ActorId, bool> _toldFriendlyFire = new();
 
     public int LastHitTick(int slot) => _lastHit.GetValueOrDefault(slot, -1);
 
@@ -50,6 +54,9 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         _shown.Clear();
         _alive.Clear();
         _lastHit.Clear();
+        _toldTeam.Clear();
+        _toldScores.Clear();
+        _toldFriendlyFire.Clear();
         Array.Clear(_watching);
     }
 
@@ -161,7 +168,11 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         _events.Clear();
         Lives(tick);
         if (tick.Value % SpectatorTicks == 0)
+        {
             Watchers(tick);
+            Teams(tick);
+        }
+
         if (tick.Value % ScoreTicks == 0)
             Scores(tick);
         Push();
@@ -229,6 +240,76 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
                 continue;
             ActorId bot = botIn(slot);
             into.Add(new ScoreRow(bot.IsValid ? bot : ActorDirectory.HumanActor(slot, player), record.Kills, record.Deaths));
+        }
+    }
+
+    /// <summary>
+    /// Every player's team column and the team scores as each bot's HUD has them
+    /// (plan_bots_teams_tf2 B.2, B.9): a change, or a bot that has not been told, is an
+    /// <c>ActorTeam</c> (the bot's own included) and a <c>MatchState</c>.
+    /// </summary>
+    private void Teams(Tick tick)
+    {
+        _teamRows.Clear();
+        foreach ((EntityHandle player, PlayerRecord _) in directory.All)
+        {
+            int slot = entities.GetIndex(player);
+            if (slot is < 1 or >= VisionPass.Slots || Spectators.Is(players, player))
+                continue;
+            ActorId bot = BotIn(slot);
+            _teamRows.Add((bot.IsValid ? bot : ActorDirectory.HumanActor(slot, player), teams.TeamOf(player)));
+        }
+
+        ActorId[] ids = BotIds();
+        TellTeams(_teamRows, ids, _toldTeam, tick, _events);
+        for (int team = TeamRule.FirstGameTeam; team <= TeamRule.LastGameTeam; team++)
+            TellScore(team, teams.Score(team), ids, _toldScores, tick, _events);
+        bool ff = teams.FriendlyFire;
+        foreach (ActorId b in ids)
+        {
+            if (_toldFriendlyFire.TryGetValue(b, out bool was) && was == ff)
+                continue;
+            _toldFriendlyFire[b] = ff;
+            _events.Add(AiEvent.FriendlyFireSet(b, tick, ff));
+        }
+    }
+
+    /// <summary>
+    /// Each bot is told each row's team when it differs from what that bot was last told
+    /// (nothing for a team 0 it was never told otherwise): the <c>player_team</c> event a
+    /// client gets, and the column a client joining later reads.
+    /// </summary>
+    public static void TellTeams(IReadOnlyList<(ActorId Actor, int Team)> rows, ReadOnlySpan<ActorId> bots,
+                                 Dictionary<(ActorId Bot, ActorId Actor), int> told, Tick tick, List<AiEvent> into)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(told);
+        ArgumentNullException.ThrowIfNull(into);
+        foreach (ActorId b in bots)
+        {
+            foreach ((ActorId actor, int team) in rows)
+            {
+                int was = told.GetValueOrDefault((b, actor));
+                if (was == team)
+                    continue;
+                told[(b, actor)] = team;
+                into.Add(AiEvent.ActorTeam(b, tick, actor, team, was));
+            }
+        }
+    }
+
+    /// <summary>Each bot is told <paramref name="team"/>'s score when it differs from what it was last told (0 before).</summary>
+    public static void TellScore(int team, int score, ReadOnlySpan<ActorId> bots, Dictionary<(ActorId Bot, int Team), int> told,
+                                 Tick tick, List<AiEvent> into)
+    {
+        ArgumentNullException.ThrowIfNull(told);
+        ArgumentNullException.ThrowIfNull(into);
+        foreach (ActorId b in bots)
+        {
+            if (told.GetValueOrDefault((b, team)) == score)
+                continue;
+            told[(b, team)] = score;
+            into.Add(AiEvent.MatchState(b, tick, team, score));
         }
     }
 

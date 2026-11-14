@@ -182,6 +182,11 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
             }
         }
 
+        // The core's own pick after every mod's: team deathmatch under
+        // mp_teamplay 1 (TeamplayModeSelector), else the core's "null".
+        if (asked is null && _services.Resolve<TeamplayModeSelector>() is { } teamplay)
+            asked = teamplay.PickMode();
+
         AskedId = asked ??= NullModeId;   // the core's own answer, last
         _active = Find(asked);
 
@@ -326,6 +331,24 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
         AskedId = next.Id;
 
         FlushRound(previous, next);
+
+        // The mode being left undoes what it did to the players (team
+        // deathmatch's teams), before the next one arranges its world. A
+        // switch to the mode already playing leaves nothing.
+        if (previous is IModeTeardown teardown && !ReferenceEquals(previous, next))
+        {
+            try
+            {
+                teardown.TeardownRound(next, now);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Modes] mode '{previous.Id}' teardown threw: {e}\n");
+            }
+        }
+
+        // A mode switch is a new match: no departed player's score is brought into it.
+        _services.Resolve<RejoinScores>()?.Clear("mode switch");
 
         _log.Msg($"[SourceSharp/Modes] switched to '{next.Id}'\n");
         Setup(next);

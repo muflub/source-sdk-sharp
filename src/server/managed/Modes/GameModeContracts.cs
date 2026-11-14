@@ -190,6 +190,20 @@ public interface IModeSetup
 }
 
 /// <summary>
+/// What a mode undoes when a switch leaves it, implemented beside
+/// <see cref="IGameMode"/> by a mode that changed the players for its round
+/// (team deathmatch put everyone on a team). Called by
+/// <see cref="GameModes.SwitchTo"/> on the mode being left, after the flush
+/// and before the next mode's setup; never at a level change, whose players
+/// come back fresh.
+/// </summary>
+public interface IModeTeardown
+{
+    /// <summary>The round is leaving this mode for <paramref name="next"/>.</summary>
+    void TeardownRound(IGameMode next, float now);
+}
+
+/// <summary>
 /// Who is playing: the mode-selector chain, asked at level init.
 ///
 /// <para>

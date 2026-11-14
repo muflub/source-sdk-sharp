@@ -118,6 +118,45 @@ public readonly record struct ActionIntent(
     public static ActionIntent None => default;
 }
 
+/// <summary>What a callout says (plan_bots_teams_tf2 B.4): the words a player on a team would use.</summary>
+public enum CalloutKind : byte
+{
+    None = 0,
+
+    /// <summary>"Enemy at the lower hall": an enemy kind, a place, a count.</summary>
+    Enemy,
+
+    /// <summary>"Regroup at ...": a rally call on no progress (B.5).</summary>
+    Rally,
+
+    /// <summary>"Push!": the rally has gathered, or its time ran out.</summary>
+    Push,
+
+    /// <summary>"Going around": the speaker takes the other route to the enemy (Crossfire).</summary>
+    GoingAround,
+}
+
+/// <summary>
+/// The say slot of an intent (plan_bots_teams_tf2 B.4): a callout to the speaker's
+/// teammates, re-published by the session to their lanes <see cref="DelayTicks"/>
+/// after the intent's tick, in slot order. A place, never a cell or an exact
+/// position; <see cref="Subject"/> is the slot the callout is about plus one (0 none);
+/// <see cref="Text"/> asks for a <c>say_team</c> line too, for the humans on the team.
+/// </summary>
+public readonly record struct SayIntent(
+    CalloutKind Kind,
+    AiVector Place,
+    int Count,
+    int Subject,
+    int DelayTicks,
+    int Team,
+    bool Text)
+{
+    public static SayIntent Nothing => default;
+
+    public bool Says => Kind != CalloutKind.None;
+}
+
 /// <summary>Why the brain chose this intent: for the inspector only; the applier ignores it.</summary>
 public readonly record struct DecisionReason(
     int NodeId,
@@ -137,7 +176,8 @@ public readonly record struct IntentCommand(
     MoveIntent Move,
     LookIntent Look,
     ActionIntent Action,
-    DecisionReason Reason)
+    DecisionReason Reason,
+    SayIntent Say = default)
 {
     /// <summary>How many ticks an intent lives (§2.4).</summary>
     public const int LifetimeTicks = 16;

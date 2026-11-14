@@ -337,7 +337,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         foreach (SensedActor a in _actors)
         {
             if (vision.ReadOf(a.Id.Slot) is { } read)
-                _nearby.Add(new NearbyPlayer(a.Id.Slot, read.Origin));
+                _nearby.Add(new NearbyPlayer(a.Id.Slot, read.Origin, builder.RenderedTeam(read.Player)));
         }
 
         bots.Players = [.. _nearby];

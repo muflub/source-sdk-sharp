@@ -92,6 +92,9 @@ public static class AiReplayer
                     break;
                 case AiRecordType.Event:
                     AiEvent pushed = AiRecordFormat.ReadEvent(r);
+                    // A callout is the session's own output (B.4): the replay's session says it again.
+                    if (pushed.Kind == AiEventKind.Callout)
+                        break;
                     if (pushed.Kind == AiEventKind.ChokesKnown && session.World is { Graph: { } chokeGraph, Chokes: { } chokes } chokeWorld)
                         chokes.EnsureFor(chokeGraph, chokeWorld.Map);
                     session.Push(pushed);

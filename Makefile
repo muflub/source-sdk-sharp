@@ -251,7 +251,7 @@ help:
 	@echo
 	@echo "  make setup [VALVE_SDK=..]           build the farms and bin/ from the pristine Valve clone"
 	@echo "  make host-pack [HOST_ROOT=..]       build the host's SDK packages the TF2Descent mod restores from"
-	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range) in this tree"
+	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range, ss_ai_tdm) in this tree"
 	@echo "  make ai-nav                         build the AI's .nav3d of NAV_MAPS (dm_lockdown) in this tree, stamped"
 	@echo "  make ai-jank [MINUTES=5]            the jank score's standard run: dm_lockdown, four bots, a scripted client, recorded and scored"
 	@echo "  make mapformats-pack                pack SourceSharp.MapFormats (the AI's .nav3d reader) in MAPTOOLS_DIR at maptools.lock"
@@ -673,7 +673,7 @@ ai-nav:
 # library into bin/<config>/ai-maps, `ssmap link` writes the level's bsp and
 # its .nav3d into the test mod's maps/. `make map MAP=<one of LINKED_MAPS>`;
 # `make ai-maps` builds them all.
-LINKED_MAPS := ss_ai_nav ss_ai_sight ss_ai_hearing ss_ai_duel ss_ai_routes ss_ai_range
+LINKED_MAPS := ss_ai_nav ss_ai_sight ss_ai_hearing ss_ai_duel ss_ai_routes ss_ai_range ss_ai_tdm
 AISRC       := $(MAPSRC)/src/ai
 
 ai-maps:

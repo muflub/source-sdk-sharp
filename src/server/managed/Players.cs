@@ -32,6 +32,13 @@ public sealed class PlayerRecord
 
     public int Kills { get; set; }
     public int Deaths { get; set; }
+
+    /// <summary>
+    /// Whether the player has spawned since the record was made: a record
+    /// made first by a rejoin's restored score (<see cref="RejoinScores"/>)
+    /// is still a fresh player's at their first spawn.
+    /// </summary>
+    public bool Spawned { get; set; }
 }
 
 /// <summary>
@@ -278,10 +285,11 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
     {
         // A player the server has not seen before spectates in DeathView
         // (m_iObserverLastMode) until they choose a mode (spec_mode).
-        if (!Knows(player) && _directory?.Get(player) is SsPlayer fresh)
-            fresh.Observer.LastMode = DeathView;
-
         var record = this[player];
+
+        if (!record.Spawned && _directory?.Get(player) is SsPlayer fresh)
+            fresh.Observer.LastMode = DeathView;
+        record.Spawned = true;
 
         record.SpawnedAt = now;
         record.DiedAt = -1f;
@@ -292,8 +300,8 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
     /// Records a death and scores it, as stock's
     /// <c>CMultiplayRules::PlayerKilled</c> does under HL2MP's rules (no
     /// teamplay, <c>UseSuicidePenalty</c>): a death against the victim; a kill
-    /// by another PLAYER is a frag to them (<c>IPointsForKill</c>, 1); a kill
-    /// by yourself, the world or anything that is not a player costs the victim
+    /// by another PLAYER is a frag to them (<c>IPointsForKill</c>, 1, or -1
+    /// for a teammate under a mode that plays with teams); a kill by yourself, the world or anything that is not a player costs the victim
     /// a frag. <see cref="PlayerRecord.Kills"/> is stock's frag count, which is
     /// what the scoreboard shows, so it can go below zero.
     /// </summary>
@@ -310,8 +318,12 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
         bool scorer = attacker != EntityHandle.None && attacker != player
                    && _entities.IsPlayer(attacker);
 
+        // IPointsForKill: a teamkill under a mode that plays with teams is
+        // worth -1 to the killer (CTeamplayRules, teamplay_gamerules.cpp:415-423).
         if (scorer)
-            this[attacker].Kills++;
+            this[attacker].Kills += _modes?.Active?.Teamplay is true
+                ? GameRules.PointsForKill(true, _players.GetTeam(attacker), _players.GetTeam(player))
+                : 1;
         else
             record.Kills--;
 

@@ -75,6 +75,13 @@ to write, and the commands that prove the stage. Do only that stage.
   it prints `== stopped game <pid>`). Success is the console lines the stage
   names; `grep -c` them in the console log it prints. A screenshot is never
   your proof: the coordinator opens images; you report a count or a line.
+
+The evidence a `works` row needs is what the server itself says: `tf2_conds`
+(one line of a player's server state) and `tf2_conds_watch` (the same line every
+tick until a death) are that readout, and their console lines are the evidence.
+The client's prediction and misprediction lines are its guess about the same
+frames, not the server's state; quote them only beside the server's own line,
+never in place of it.
 - Gate steps go through `tools/tf2-gate --steps <name>`; its report is
   `tools/.tf2-gate/<run>/report.tsv` with one row per step and PASS/FAIL.
 

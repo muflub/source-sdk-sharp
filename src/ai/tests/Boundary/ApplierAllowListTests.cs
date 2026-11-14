@@ -59,7 +59,11 @@ public class ApplierAllowListTests
         // ai_nav_probe: the ground under a point, by hand.
         "ITraceQueries::Line", "TraceAnswer::get_End", "TraceAnswer::get_Hit",
         "IEngineEntities::GetIndex", "Vector::.ctor",
-        // ActorDirectory: the living players by slot, a human's actor from its handle (Phase 4 step 1).
+        // EngineRenderedTeams (plan_bots_teams_tf2 B.2): whether the active mode plays teams, and the HUD's team scores.
+        "GameModes::get_Active", "IGameMode::get_Teamplay", "IGameMode::get_Scoring", "IScoring::TeamScore",
+        // EngineRosterTeams (B.6): a bot's jointeam through the team service, the route a player's takes; who is a bot.
+        "ITeams::Join", "IBotPlayers::IsBot",
+                // ActorDirectory: the living players by slot, a human's actor from its handle (Phase 4 step 1).
         "IEngineEnvironment::get_Globals", "IEnginePlayers::GetTeam", "IEngineEntityRender::GetModelName", "Globals::get_IsAvailable", "Globals::get_MaxClients", "IEnginePlayers::GetHandle",
         "EntityHandle::get_Value",
         // VisionPass (§4.1): other players' origin, eye, velocity and the bot's view; the engine's PVS; the sight lines.

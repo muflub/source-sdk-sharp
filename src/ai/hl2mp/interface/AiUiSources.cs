@@ -51,6 +51,22 @@ public interface ICreateServerSource
     /// <summary>Whether every bot is drawn anew on each new level (<c>ai_bot_reroll_on_map</c>).</summary>
     bool NewBotsEachMap { get; }
 
+    /// <summary>
+    /// Whether the preset bots' teams are picked here (plan_bots_teams_tf2 B.6): then
+    /// <see cref="BotsOn"/> of them join each team; else each joins as a player's
+    /// auto-assign does, which keeps the teams even. Only a mode with teams reads it.
+    /// </summary>
+    bool TeamsPicked { get; }
+
+    /// <summary>How many teams play (<c>mp_tdm_teams</c>, 2 to 4; user 2026-11-08), numbered from 2.</summary>
+    int Teams { get; }
+
+    /// <summary>The preset bots on the team at <paramref name="index"/> (0 the Combine, team 2) when picked; they add up to <see cref="BotCount"/>.</summary>
+    int BotsOn(int index);
+
+    /// <summary>The team at <paramref name="index"/>'s name (#Ai_CreateServer_Team2 ...).</summary>
+    string TeamToken(int index);
+
     /// <summary>Why Start is refused with <paramref name="maxPlayers"/> slots (#Ai_Start_*), or "" when it is allowed.</summary>
     string StartRefusalToken(int maxPlayers);
 }
@@ -74,6 +90,11 @@ public interface ICreateServerActions
     void RemoveCustom(int i);
 
     void SetNewBotsEachMap(bool on);
+
+    void SetTeamsPicked(bool on);
+
+    /// <summary>Puts <paramref name="count"/> bots on the team at <paramref name="index"/>; the last team takes what is left.</summary>
+    void SetBotsOn(int index, int count);
 
     /// <summary>The console lines Start runs for the bots, after the server's size and before the map (the roster).</summary>
     void BeforeMap(List<string> lines);

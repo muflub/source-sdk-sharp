@@ -153,7 +153,9 @@ public sealed class ChatCensusTests
     {
         string[] callers = IlCallCensus.Callers(m => m.DeclaringType is { } t && (IsChatType(t.FullName) || IsCoreChat(t.FullName ?? "")), Binding, Core);
         string[] outside = [.. callers.Where(c => !IsChatType(c) && !IsCoreChat(c) && !c.StartsWith("SourceSharp.Ai.Chat", StringComparison.Ordinal))];
-        Assert.Equal([typeof(AiBotRoutes).FullName!], outside);
+        // The team callouts' words (plan_bots_teams_tf2 B.4): ChatPlaces names a place for the humans' say_team
+        // line, after the brain spoke; nothing reads the words back.
+        Assert.Equal([typeof(CalloutWords).FullName!, typeof(AiBotRoutes).FullName!, typeof(SourceSharp.Ai.Hl2mp.Teams.TeamCalloutChat).FullName!], outside);
     }
 
     /// <summary>A recording's events have no chat kind: chat is not in <c>.airec</c> (by ruling).</summary>

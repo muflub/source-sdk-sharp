@@ -33,6 +33,34 @@ public static class StandardSkills
 
     /// <summary>The pool the ten are spent from.</summary>
     public static SkillPool StandardPool() => new(Ten, Pool, Cap);
+
+    /// <summary>
+    /// Teamwork (plan_bots_teams_tf2 B.7, Q4): 0 a lone wolf, 10 glued to the team. The
+    /// eleventh row, after the ten: a profile that carries it spends pool points on it
+    /// like any skill; one that does not (a preset, a profile made before teams) reads it
+    /// at its own mean level (<see cref="TeamworkOf"/>), so a deathmatch bot spends
+    /// nothing on it and draws no favourite from it. Under deathmatch rules it drives nothing.
+    /// </summary>
+    public static readonly SkillDefinition Teamwork = new("teamwork", "Teamwork");
+
+    /// <summary>The ten and Teamwork.</summary>
+    public static readonly ImmutableArray<SkillDefinition> Eleven = [.. Ten, Teamwork];
+
+    /// <summary>The pool the eleven are spent from: the same 60 points and cap (110 possible, so a full pool leaves 50 on the table).</summary>
+    public static SkillPool TeamPool() => new(Eleven, Pool, Cap);
+
+    /// <summary>The pool a <c>skills=</c> list of <paramref name="levels"/> levels is over: eleven with Teamwork, else the ten.</summary>
+    public static SkillPool PoolFor(int levels) => levels == Eleven.Length ? TeamPool() : StandardPool();
+
+    /// <summary>A profile's Teamwork level: its own row, else its mean level rounded down (an even share of what it spends).</summary>
+    public static float TeamworkOf(SkillProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        int i = profile.IndexOf(Teamwork.Key);
+        if (i >= 0)
+            return profile.Levels[i];
+        return profile.Levels.Length == 0 ? 0f : MathF.Floor((float)profile.Levels.Sum() / profile.Levels.Length);
+    }
 }
 
 /// <summary>

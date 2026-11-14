@@ -106,7 +106,7 @@ public class BotRosterTests
                               DispatchProxy.Create<IEngineEntities, Unasked>(), WeaponCatalog.Stock(),
                               DispatchProxy.Create<IEngineFrame, Unasked>(), new Navigation(), DispatchProxy.Create<IBotInventory, Unasked>(),
                               new DataFileNames(), _tags, _log);
-        _roster = new Hl2mpRoster(_bots, _disk, _slots, _log);
+        _roster = new Hl2mpRoster(_bots, _disk, _slots, _log, new FakeRosterTeams());
     }
 
     private string[] Labels() => [.. _bots.Bots.Select(b => $"{b.Skills.Name} {b.Skills.Spent}")];

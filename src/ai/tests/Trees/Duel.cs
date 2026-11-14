@@ -97,6 +97,20 @@ public sealed class Duel
         return Brain.Step(tick, _view, events);
     }
 
+    /// <summary>A step with each of <paramref name="sighted"/> in sight on its team (plan_bots_teams_tf2 B.2).</summary>
+    public IntentCommand StepTeams(SelfState self, (ActorId Id, AiVector At, int Team)[] sighted, params AiEvent[] events)
+    {
+        _tick += 6;
+        var tick = new Tick(_tick);
+        _view.Reset(_bot, tick, self);
+        foreach ((ActorId id, AiVector at, int team) in sighted)
+            _view.AddSighted(new ActorFacts(id, at, AiVector.Zero, Smg1, ActorActivity.None, 1f, team));
+        return Brain.Step(tick, _view, events);
+    }
+
+    /// <summary>Lets <paramref name="ticks"/> pass with no decide (a long wait, read only by what times itself).</summary>
+    public void Skip(int ticks) => _tick += ticks;
+
     public AiEvent[] SeeAt(ActorId who, AiVector at) => [AiEvent.SightGained(Bot, new Tick(_tick + 6), who, at, AiVector.Zero, 1f)];
 
     public AiEvent Shots(ActorId who, int rounds) => AiEvent.SeenFire(Bot, new Tick(_tick + 6), who, Smg1, rounds);

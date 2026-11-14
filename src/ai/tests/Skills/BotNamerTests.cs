@@ -122,7 +122,7 @@ public sealed class BotNamerTests
     {
         BotNamePools pools = Pools.Value;
         int shortest = pools.First.Min(f => f.Length);
-        Assert.Equal(StandardSkills.Ten.Select(s => s.Key).Order(), pools.Traits.Keys.Order());
+        Assert.Equal(StandardSkills.Eleven.Select(s => s.Key).Order(), pools.Traits.Keys.Order());
         foreach ((string skill, TraitPools t) in pools.Traits)
         {
             foreach (ImmutableArray<string> pool in (ImmutableArray<string>[])[t.High, t.Low])
@@ -154,7 +154,7 @@ public sealed class BotNamerTests
             }
         }
 
-        Assert.True(pools.First.Length > 0 && pools.Traits.Count == 10, "the data file was read");
+        Assert.True(pools.First.Length > 0 && pools.Traits.Count == StandardSkills.Eleven.Length, "the data file was read");
         Assert.True(bad.Count == 0, string.Join("; ", bad));
     }
 }

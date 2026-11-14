@@ -19,7 +19,7 @@ public sealed class SnapshotBuilderTests
 
     private static readonly VisionParams Eyes = new(6000f, 90f, 0.3f, 0.5f);
 
-    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f, bool ducked = false)
+    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f, bool ducked = false, bool teams = false)
     {
         var w = new SenseWorld();
         SenseWorld.Player bot = w.Add(1, new AiVector(0, 0, 0));
@@ -37,7 +37,10 @@ public sealed class SnapshotBuilderTests
         for (int t = 1; t <= 60; t++)
             pass.Run(new Tick(t), 0.015f, [sensed], w.Living(sensed), events);
 
-        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77), w.Stance());
+        var rendered = new FakeTeams();
+        if (teams)
+            rendered.Put(bot.Handle, 2).Put(seen.Handle, 3);
+        var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77), w.Stance(), rendered);
         var ring = new SnapshotRing(2, VisionPass.Slots, 8);
         AiSnapshot snap = ring.BeginWrite(new Tick(60));
         builder.Build(snap, [sensed], pass, slot => slot == 2 || (selfReloading && slot == 1) ? ActorActivity.Reloading : ActorActivity.None);
@@ -102,5 +105,24 @@ public sealed class SnapshotBuilderTests
     {
         Assert.True((Build(selfReloading: true).View.Self.Flags & SelfFlags.Reloading) != 0);
         Assert.True((Build().View.Self.Flags & SelfFlags.Reloading) == 0);
+    }
+
+    /// <summary>A team mode's view carries the bot's team and each sighted actor's as a client renders them (plan_bots_teams_tf2 B.2).</summary>
+    [Fact]
+    public void ATeamModesViewCarriesEachTeam()
+    {
+        (PerceivedView view, ActorId seen, _) = Build(teams: true);
+        Assert.Equal(2, view.Self.Team);
+        Assert.True(view.TryActor(seen, out ActorFacts f));
+        Assert.Equal(3, f.Team);
+    }
+
+    /// <summary>The control: with no teams rendered every team reads 0, so nobody is a friend.</summary>
+    [Fact]
+    public void ADeathmatchViewCarriesNoTeam()
+    {
+        (PerceivedView view, ActorId seen, _) = Build();
+        Assert.True(view.TryActor(seen, out ActorFacts f));
+        Assert.Equal((0, 0), (view.Self.Team, f.Team));
     }
 }

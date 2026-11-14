@@ -21,7 +21,11 @@ public static class BotSkillSpec
             s = "normal";
 
         if (s.StartsWith("skills=", StringComparison.Ordinal))
-            return StandardSkills.StandardPool().TryParse(name, s["skills=".Length..], out profile);
+        {
+            // Eleven levels carry Teamwork (plan_bots_teams_tf2 B.7); ten are the deathmatch ten.
+            string list = s["skills=".Length..];
+            return StandardSkills.PoolFor(list.Split(',').Length).TryParse(name, list, out profile);
+        }
 
         if (SkillPresets.TryGet(s, out SkillProfile? preset))
         {
@@ -39,20 +43,39 @@ public static class BotSkillSpec
 /// (§3.5.1); a name is used as given. The bot joins the roster (§3.5); a
 /// preset bot draws its levels from its seed.
 /// </summary>
-[ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]: add a bot (no name: one is drawn)")]
+[ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j] [team=auto|2|3|4|5]: add a bot (no name: one is drawn; team: under a mode with teams)")]
 public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log)
 {
     private IEnumerable<string> Presets() => SkillPresets.Names;
 
-    public void Execute([Complete(From = nameof(Presets))] string? nameOrSkills = null, [Complete(From = nameof(Presets))] string? skills = null)
+    public void Execute([Complete(From = nameof(Presets))] string? nameOrSkills = null, [Complete(From = nameof(Presets))] string? skills = null, string? team = null)
     {
+        // team= may stand in any place (plan_bots_teams_tf2 B.6).
+        string? teamField = team;
+        if (nameOrSkills?.StartsWith("team=", StringComparison.Ordinal) == true)
+            (teamField, nameOrSkills, skills) = (nameOrSkills, skills, null);
+        else if (skills?.StartsWith("team=", StringComparison.Ordinal) == true)
+            (teamField, skills) = (skills, null);
+        int wanted = RosterTeam.Auto;
+        if (teamField is not null)
+        {
+            string value = teamField.StartsWith("team=", StringComparison.Ordinal) ? teamField["team=".Length..] : teamField;
+            if (RosterTeam.Parse(value, out string? bad) is not { } parsed)
+            {
+                log.Warning($"[SourceSharp/Ai] ai_bot_add refused: {bad}\n");
+                return;
+            }
+
+            wanted = parsed;
+        }
+
         // One word is a skill spec when it reads as one, else a name.
         bool specOnly = skills is null && nameOrSkills is not null
                         && (nameOrSkills.StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.TryGet(nameOrSkills, out _));
         string? name = specOnly ? null : nameOrSkills;
         string? spec = specOnly ? nameOrSkills : skills;
         string who = name ?? "(unnamed)";
-        if (roster.Add(name, spec) is { } refusal)
+        if (roster.Add(name, spec, wanted) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_add {who} refused: {refusal}\n");
     }
 }

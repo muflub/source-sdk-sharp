@@ -46,16 +46,27 @@ public sealed class SkillCurves
     /// </summary>
     public static float StyleLevel(int level, float mean, float spread) => Math.Clamp(StyleMid + StyleGain * (level - mean) / Math.Max(1f, spread), 0f, StandardSkills.Cap);
 
-    /// <summary>A profile's levels' mean and standard deviation.</summary>
+    /// <summary>
+    /// A profile's levels' mean and standard deviation, over the ten: Teamwork (plan_bots_teams_tf2
+    /// B.7) moves nothing a deathmatch reads, so it moves no style of the ten either.
+    /// </summary>
     public static (float Mean, float Spread) OwnSpread(SkillProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        int n = profile.Levels.Length;
-        if (n == 0)
+        int skip = profile.IndexOf(StandardSkills.Teamwork.Key);
+        int n = profile.Levels.Length - (skip >= 0 ? 1 : 0);
+        if (n <= 0)
             return (0f, 0f);
-        float mean = (float)profile.Levels.Sum() / n, sum = 0f;
-        foreach (int l in profile.Levels)
-            sum += (l - mean) * (l - mean);
+        float total = 0f;
+        for (int i = 0; i < profile.Levels.Length; i++)
+            total += i == skip ? 0 : profile.Levels[i];
+        float mean = total / n, sum = 0f;
+        for (int i = 0; i < profile.Levels.Length; i++)
+        {
+            if (i != skip)
+                sum += (profile.Levels[i] - mean) * (profile.Levels[i] - mean);
+        }
+
         return (mean, MathF.Sqrt(sum / n));
     }
 
@@ -103,7 +114,7 @@ public sealed class SkillCurves
         foreach (JsonProperty p in root.GetProperty("parameters").EnumerateObject())
         {
             string skill = p.Value.GetProperty("skill").GetString() ?? "";
-            if (!StandardSkills.Ten.Any(s => s.Key == skill))
+            if (!StandardSkills.Eleven.Any(s => s.Key == skill))
                 throw new InvalidDataException($"skill curves: '{p.Name}' names no skill '{skill}'");
             string direction = p.Value.GetProperty("direction").GetString() ?? "";
             if (direction is not ("up" or "down"))
@@ -246,6 +257,28 @@ public sealed class SkillCurves
             return c.Style ? c.At(StyleLevel(level, mean, spread)) : c.At(level);
         }
 
+        // The team rows (plan_bots_teams_tf2 B.4, B.7): read from the file when it has them,
+        // else from the plan's own numbers, so curves written before teams still parse.
+        float Optional(string p, string skill, float atZero, float atTop)
+        {
+            if (_curves.ContainsKey(p) && skill != StandardSkills.Teamwork.Key)
+                return V(p);
+            float level;
+            if (skill == StandardSkills.Teamwork.Key)
+            {
+                level = StandardSkills.TeamworkOf(profile);
+                if (_curves.TryGetValue(p, out Curve? c))
+                    return c.At(level);
+            }
+            else
+            {
+                int i = profile.IndexOf(skill);
+                level = i < 0 ? 0 : profile.Levels[i];
+            }
+
+            return atZero + (atTop - atZero) * level / StandardSkills.Cap;
+        }
+
         return new DecisionParams(V("aimErrorDeg"), V("leadQuality"), V("glanceRate"), V("preferredRangeScale"), V("chaseSeconds"),
                                   V("coverWeight"), V("reloadBelowPct"), V("searchSeconds"), V("ambushWeight"), V("routeAltWeight"),
                                   V("fireRangeGate"), V("pushTrust"), V("pushMarginSeconds"), V("strafeWeight"), V("strafeMeanSeconds"),
@@ -253,7 +286,12 @@ public sealed class SkillCurves
                                   V("reactionMs"), V("trackingLagMs"), V("flickOvershootPct"), V("grudgeWeight"),
                                   V("prefireChance"), V("prefireThrift"), V("prefireBurstSeconds"), V("giveUpHealth"), V("crouchShare"), V("recoilControl"), V("burstSeconds"), V("recoilSettleDeg"),
                                   Streak(profile, HotLevel), Streak(profile, ColdLevel), VisionCurves.For(profile).RecognizeSeconds, V("altFireChance"), V("aimRise"),
-                                  V("fragChance"), V("fragKnack"), V("fragAimDeg"), profile.Spent >= CarefulFromPoints ? 0f : V("fragCareless"));
+                                  V("fragChance"), V("fragKnack"), V("fragAimDeg"), profile.Spent >= CarefulFromPoints ? 0f : V("fragCareless"),
+                                  Optional("calloutDelayMs", "alertness", 1200f, 400f),
+                                  Optional("leashUnits", "teamwork", 1500f, 300f), Optional("calloutChance", "teamwork", 0.45f, 0.85f),
+                                  Optional("followSeconds", "teamwork", 5f, 30f), Optional("teamCoverWeight", "teamwork", 0f, 1f),
+                                  Optional("tradeWeight", "teamwork", 0.2f, 0.9f), Optional("crossfireWeight", "teamwork", 0f, 0.8f),
+                                  StandardSkills.TeamworkOf(profile));
     }
 }
 
@@ -298,7 +336,15 @@ public readonly record struct DecisionParams(
     float FragChance = 0f,
     float FragKnack = 0f,
     float FragAimDeg = 0f,
-    float FragCareless = 0f);
+    float FragCareless = 0f,
+    float CalloutDelayMs = 800f,
+    float LeashUnits = 900f,
+    float CalloutChance = 0.65f,
+    float FollowSeconds = 17.5f,
+    float TeamCoverWeight = 0.5f,
+    float TradeWeight = 0.55f,
+    float CrossfireWeight = 0.4f,
+    float Teamwork = 5f);
 
 /// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
 public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

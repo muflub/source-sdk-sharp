@@ -31,17 +31,20 @@ public sealed class BotsPage : CreateServerPage
     public override string TabToken => "#Ai_CreateServer_BotsTab";
 
     /// <summary>
-    /// 560 x 800 du: the form's three rows, the custom list's header and three
+    /// 560 x 880 du: the form's four rows (the teams' a row of columns, a slider under all but the last), the custom list's header and three
     /// rows (two narrow, where the form's labels stand above their fields),
     /// and the buttons, under the window's title and tabs (at 380 tall the
     /// list ran under the buttons, seen in the minimum sample).
     /// </summary>
     public override float MinWidthDu => 560;
 
-    public override float MinHeightDu => 800;
+    public override float MinHeightDu => 880;
 
     /// <summary>The difficulty stops' keys start here, clear of the custom list's row keys (0..n).</summary>
     private const int StopKeys = 1000;
+
+    /// <summary>The team sliders' keys start here, clear of the stops'.</summary>
+    private const int TeamKeys = 2000;
 
     /// <summary>The label column of the form, du.</summary>
     public const float LabelDu = 160;
@@ -108,6 +111,44 @@ public sealed class BotsPage : CreateServerPage
                     }
 
                     ui.Spacer(Size.Du(40), Size.Du(1));
+                }
+            }
+
+            // Under a mode with teams (plan_bots_teams_tf2 B.6): even by auto-assign, or N Combine and M Rebels.
+            ui.Label("#Ai_CreateServer_Teams");
+            using (ui.Column(Space.XS, Align.Stretch).Width(Size.Fill))
+            {
+                if (ui.Checkbox("teams", "#Ai_CreateServer_TeamsPick", s.TeamsPicked).Clicked)
+                    _actions.SetTeamsPicked(!s.TeamsPicked);
+                if (s.TeamsPicked)
+                {
+                    // A column per team, side by side: its name and count, and a slider for every team
+                    // but the last, which takes what is left (user 2026-11-08: two to four teams).
+                    using (ui.Row(Space.M, Align.Start).Width(Size.Fill))
+                    {
+                        for (int t = 0; t < s.Teams; t++)
+                        {
+                            using (ui.Column(Space.XS, Align.Stretch).Key(TeamKeys + t).Width(Size.Fr()))
+                            {
+                                using (ui.Row(Space.XS, Align.Centre))
+                                {
+                                    ui.Number(s.BotsOn(t), Text.Label);
+                                    ui.Label(s.TeamToken(t));
+                                }
+
+                                if (t < s.Teams - 1)
+                                {
+                                    int n = (int)ui.Slider(t switch { 0 => "team0", 1 => "team1", _ => "team2" }, s.BotsOn(t), 0, s.BotCount, 1);
+                                    if (n != s.BotsOn(t))
+                                        _actions.SetBotsOn(t, n);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    ui.Text("#Ai_CreateServer_TeamsEven", Text.Body, Tone.TextMuted);
                 }
             }
 

@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Ai.Hl2mp.Teams;
 
 namespace SourceSharp.Ai.Hl2mp;
 
@@ -121,6 +122,12 @@ public sealed class RosterBot(int ordinal, string? givenName, RosterKind kind, S
 
     /// <summary>The level whose start last refused it: it waits for the next level (a map with no nav).</summary>
     public int RefusedOnLevel { get; set; } = -1;
+
+    /// <summary>The team it joins under a mode with teams (plan_bots_teams_tf2 B.6): <see cref="RosterTeam.Auto"/>, 2 or 3.</summary>
+    public int Team { get; set; }
+
+    /// <summary>The tick it last asked to join a team (a refusal is asked again later, not every frame).</summary>
+    public int AskedTeamAt { get; set; } = int.MinValue;
 }
 
 /// <summary>
@@ -150,8 +157,14 @@ public sealed class RosterBot(int ordinal, string? givenName, RosterKind kind, S
 /// refused entry is a console line naming it and the fault, and joins nothing.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, IServerSlots slots, ILog log)
+public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, IServerSlots slots, ILog log, IRosterTeams teams)
 {
+    /// <summary>A refused team join is asked again this long after (5 s).</summary>
+    public const int TeamRetryTicks = 336;
+
+    // The people on each playing team at the last count, by team number: a join is seen as the team that grew (B.6's yield).
+    private readonly int[] _humansOn = new int[TeamRule.LastGameTeam + 1];
+
     public const string ProfileDirectory = "cfg/ai/bots";
 
     /// <summary>The slots no bot takes, so a person can always connect (<c>ai_bot_reserve_slots</c>).</summary>
@@ -170,6 +183,8 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
     private int _nextOrdinal;
     private long _benchCount;
     private int _holdUntil;
+    private int _askTick;
+    private int _balancedAt = int.MinValue / 2;
     private int _humans;
     private int _level;
     private bool _recount = true;
@@ -194,7 +209,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
     /// <c>ai_bot_add</c>: a bot joins the roster, and the game when there is
     /// room (else it waits, benched). Answers null, or why it did not join.
     /// </summary>
-    public string? Add(string? name, string? spec)
+    public string? Add(string? name, string? spec, int team = RosterTeam.Auto)
     {
         SkillVerdict verdict = BotSkillSpec.Parse(name ?? "custom", spec, out SkillProfile? skills);
         if (!verdict.Accepted)
@@ -209,6 +224,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
 
         Count();
         RosterBot bot = _bots[^1];
+        bot.Team = team;
         if (_bots.Count(b => b.Active) >= Room)
         {
             Bench(bot, NoRoom());
@@ -305,6 +321,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
                 continue;
             }
 
+            _bots[^1].Team = entry.Team;
             Bench(_bots[^1], "the level is starting");
         }
 
@@ -371,6 +388,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
     /// <summary>One frame, after the binding has followed the engine: bots that left, then the slots.</summary>
     public void Reconcile(int tick)
     {
+        _askTick = tick;
         foreach (RosterBot bot in _bots)
         {
             if (bot.Active && !bots.Bots.Any(b => b.Id == bot.Actor))
@@ -387,11 +405,9 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
         Count();
 
         int room = Room, active = _bots.Count(b => b.Active);
-        for (int i = _bots.Count - 1; i >= 0 && active > room; i--)
+        int joinedTeam = JoinedTeam();
+        while (active > room && YieldFrom(joinedTeam) is { } bot)
         {
-            RosterBot bot = _bots[i];
-            if (!bot.Active)
-                continue;
             bots.Kick(bot.Actor, "benched: a player took its slot");
             bot.Actor = ActorId.None;
             Bench(bot, NoRoom());
@@ -400,6 +416,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
             _holdUntil = tick + RestoreHoldTicks;
         }
 
+        Teams(tick);
         if (active >= room || _bots.Count == active || tick < _holdUntil)
         {
             SayRoom(active, room);
@@ -423,6 +440,108 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
         }
 
         SayRoom(active, room);
+    }
+
+    /// <summary>
+    /// The bot to bench for a person who took a slot (B.6): the newest active bot on the
+    /// team the person landed on, so their join keeps the teams' count; with no team
+    /// (deathmatch, or the person not yet on one), the newest active bot.
+    /// </summary>
+    private RosterBot? YieldFrom(int joinedTeam)
+    {
+        RosterBot? newest = null;
+        for (int i = _bots.Count - 1; i >= 0; i--)
+        {
+            RosterBot bot = _bots[i];
+            if (!bot.Active)
+                continue;
+            newest ??= bot;
+            if (joinedTeam != 0 && teams.TeamOf(bot.Actor) == joinedTeam)
+                return bot;
+        }
+
+        return newest;
+    }
+
+    /// <summary>The playing team whose people grew since the last count, or 0.</summary>
+    private int JoinedTeam()
+    {
+        if (!teams.Teamplay)
+            return 0;
+        int joined = 0;
+        for (int team = TeamRule.FirstGameTeam; team <= TeamRule.LastGameTeam; team++)
+        {
+            int now = teams.HumansOn(team);
+            if (joined == 0 && now > _humansOn[team])
+                joined = team;
+            _humansOn[team] = now;
+        }
+
+        return joined;
+    }
+
+    /// <summary>The teams that play now: 2 up to 1 + the mode's count (two to four).</summary>
+    private int LastTeam => TeamRule.FirstGameTeam + Math.Clamp(teams.TeamCount, 2, TeamRule.MostTeams) - 1;
+
+    /// <summary>A bot's wanted team, if it still plays; one that does not (four teams became two) is auto.</summary>
+    private int Wanted(RosterBot bot) => bot.Team <= LastTeam ? bot.Team : RosterTeam.Auto;
+
+    /// <summary>
+    /// The teams under a mode with them (plan_bots_teams_tf2 B.6): an active bot on no
+    /// playing team, or a fixed-team bot off its own, asks to join as a player would
+    /// (<c>jointeam</c>: 0 for auto, the mode's rule decides); and when the teams, people
+    /// counted, differ by two or more, the newest auto bot on the larger team moves to the
+    /// smaller one. People are never moved: a bot moves, and dies doing so as anyone does.
+    /// </summary>
+    private void Teams(int tick)
+    {
+        if (!teams.Teamplay)
+            return;
+        int last = LastTeam;
+        Span<int> count = stackalloc int[TeamRule.LastGameTeam + 1];
+        for (int team = TeamRule.FirstGameTeam; team <= last; team++)
+            count[team] = teams.HumansOn(team);
+        foreach (RosterBot bot in _bots)
+        {
+            if (!bot.Active)
+                continue;
+            int on = teams.TeamOf(bot.Actor), wanted = Wanted(bot);
+            if (on >= TeamRule.FirstGameTeam && on <= last)
+                count[on]++;
+            bool placed = wanted == RosterTeam.Auto ? on >= TeamRule.FirstGameTeam && on <= last : on == wanted;
+            if (!placed && tick - bot.AskedTeamAt >= TeamRetryTicks)
+            {
+                bot.AskedTeamAt = tick;
+                teams.Join(bot.Actor, wanted);
+            }
+        }
+
+        // The largest and the smallest team, the lowest number first among equals.
+        int largest = TeamRule.FirstGameTeam, smallest = TeamRule.FirstGameTeam;
+        for (int team = TeamRule.FirstGameTeam + 1; team <= last; team++)
+        {
+            if (count[team] > count[largest])
+                largest = team;
+            if (count[team] < count[smallest])
+                smallest = team;
+        }
+
+        if (count[largest] - count[smallest] < 2)
+            return;
+        // One move, then a while for it to take before the next (the switch dies and respawns).
+        if (tick - _balancedAt < TeamRetryTicks)
+            return;
+        for (int i = _bots.Count - 1; i >= 0; i--)
+        {
+            RosterBot bot = _bots[i];
+            if (bot.Active && Wanted(bot) == RosterTeam.Auto && teams.TeamOf(bot.Actor) == largest)
+            {
+                _balancedAt = bot.AskedTeamAt = tick;
+                teams.Join(bot.Actor, smallest);
+                log.Msg($"[SourceSharp/Ai] bot {bot.Name} moves to team {smallest}: it had {count[largest]}, that one {count[smallest]}\n");
+                return;
+            }
+        }
     }
 
     /// <summary>Whatever was said of a benched bot before, once the slots are full what keeps it out is the room.</summary>
@@ -452,10 +571,17 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
     {
         // Someone may have come in called this since it was named.
         bot.Name = Unique(bot.Name, bot);
-        if (bots.Add(bot.Name, bot.Skills, bot.SeedIndex, out ActorId id) is { } refusal)
+        if (bots.Add(bot.Name, bot.Skills, bot.SeedIndex, out ActorId id, teams.Teamplay ? Wanted(bot) : RosterTeam.Auto, teams.TeamCount) is { } refusal)
             return refusal;
         bot.Actor = id;
         bot.Reason = "";
+        // A player's first act under a mode with teams: the team menu's jointeam.
+        if (teams.Teamplay)
+        {
+            bot.AskedTeamAt = _askTick;
+            teams.Join(id, Wanted(bot));
+        }
+
         return null;
     }
 
@@ -469,7 +595,8 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
             $"[SourceSharp/Ai] bots: {_bots.Count(b => b.Active)} active, {Benched} benched of {_bots.Count} wanted ({_humans} human(s), {slots.MaxClients} slots, {Reserve} kept free)\n");
         foreach (RosterBot bot in _bots)
         {
-            string skills = $"{BotSkillLabel.For(bot.Skills)} {bot.Skills.Name} ({bot.Skills.Spent} points, {bot.Skills.StyleName}) [{string.Join(",", bot.Skills.Levels)}]";
+            string skills = $"{BotSkillLabel.For(bot.Skills)} {bot.Skills.Name} ({bot.Skills.Spent} points, {bot.Skills.StyleName}) [{string.Join(",", bot.Skills.Levels)}]"
+                            + (bot.Team == RosterTeam.Auto ? "" : $", team {bot.Team}");
             yield return bot.Active
                 ? $"[SourceSharp/Ai]   {bot.Name}: client {bot.Actor.Slot}, {skills}\n"
                 : $"[SourceSharp/Ai]   {bot.Name}: benched, {bot.Reason}, {skills}\n";
@@ -508,6 +635,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
             w.Write(at + "reason", b.Reason);
             w.Write(at + "benchOrder", b.BenchOrder.ToString(System.Globalization.CultureInfo.InvariantCulture));
             w.Write(at + "refused", b.RefusedOnLevel);
+            w.Write(at + "team", b.Team);
         }
     }
 
@@ -591,6 +719,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
                 Reason = r.ReadString(at + "reason"),
                 BenchOrder = long.Parse(r.ReadString(at + "benchOrder", "0"), culture),
                 RefusedOnLevel = r.ReadInt(at + "refused", -1),
+                Team = r.ReadInt(at + "team", RosterTeam.Auto),
             };
             _bots.Add(bot);
             int slot = r.ReadInt(at + "slot");
@@ -601,8 +730,8 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
 
     private static SkillProfile? CarriedProfile(string name, string levels)
     {
-        var skills = StandardSkills.StandardPool().Skills;
         string[] parts = levels.Split(',');
+        var skills = StandardSkills.PoolFor(parts.Length).Skills;
         if (parts.Length != skills.Length)
             return null;
         var read = System.Collections.Immutable.ImmutableArray.CreateBuilder<int>(parts.Length);
@@ -641,7 +770,11 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
         string path = $"{ProfileDirectory}/{profile}.json";
         if (profiles.Read(path) is not { } bytes)
             return SkillVerdict.Refuse($"no profile '{profile}' on this server: expected {path}");
-        SkillVerdict verdict = ProfileFile.Read(bytes, path, profile, StandardSkills.StandardPool(), out BotProfileDocument? doc);
+        // A profile that spends on Teamwork (plan_bots_teams_tf2 B.7) is over the eleven; any other over the ten.
+        SkillPool pool = System.Text.Encoding.UTF8.GetString(bytes).Contains("\"teamwork\"", StringComparison.Ordinal)
+            ? StandardSkills.TeamPool()
+            : StandardSkills.StandardPool();
+        SkillVerdict verdict = ProfileFile.Read(bytes, path, profile, pool, out BotProfileDocument? doc);
         if (!verdict.Accepted)
             return verdict;
         // A profile's own name wins unless the entry names the bot.

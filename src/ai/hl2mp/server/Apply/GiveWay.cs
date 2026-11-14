@@ -3,7 +3,8 @@ using SourceSharp.Ai.Hl2mp.Nav;
 namespace SourceSharp.Ai.Hl2mp;
 
 /// <summary>A player where the driver can feel them: a slot and a place.</summary>
-public readonly record struct NearbyPlayer(int Slot, AiVector Origin);
+/// <summary>A player near the bots this tick: its slot, where it stands, and the team a client renders it on (0 none).</summary>
+public readonly record struct NearbyPlayer(int Slot, AiVector Origin, int Team = 0);
 
 /// <summary>
 /// Two players who want each other's place (user report 2026-11-02: "head
@@ -196,10 +197,18 @@ public sealed class GiveWay
     {
         NearbyPlayer? best = null;
         float nearest = ClearRadius;
-        for (int i = 0; i < players.Count; i++)
+        int team = 0, count = players.Count;
+        for (int i = 0; i < count; i++)
+        {
+            if (players[i].Slot == slot)
+                team = players[i].Team;
+        }
+
+        for (int i = 0; i < count; i++)
         {
             NearbyPlayer p = players[i];
-            if (p.Slot == slot || MathF.Abs(p.Origin.Z - origin.Z) > 56f)
+            // A teammate is walked through (plan_bots_teams_tf2 A.7): nobody to give way to, or to stand off a goal for.
+            if (p.Slot == slot || MathF.Abs(p.Origin.Z - origin.Z) > 56f || TeamRule.Friends(team, p.Team))
                 continue;
             float flat = new AiVector(p.Origin.X - origin.X, p.Origin.Y - origin.Y, 0f).Length;
             if (flat < nearest)

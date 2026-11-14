@@ -51,21 +51,25 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
 /// tick, as a client draws them: where, how fast, the weapon model in their
 /// hands and what their animation shows. Never another player's health, clip
 /// or reserve (the IL census over its callees holds that); one of the two
-/// types that read another actor (§4.4).
+/// types that read another actor (§4.4). Each view carries the team a client
+/// renders the bot and each actor on (plan_bots_teams_tf2 B.2).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances)
+public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud, IPlayerStances stances, IRenderedTeams teams)
 {
     /// <summary>
     /// Adds a view for every bot in <paramref name="bots"/> to
     /// <paramref name="snapshot"/>; <paramref name="activityOf"/> answers what
     /// a client sees an actor's animation doing (the reload gesture, §4.5).
     /// </summary>
+    /// <summary>The team a client renders <paramref name="player"/> on (plan_bots_teams_tf2 B.2): for the walk's give-way list.</summary>
+    public int RenderedTeam(EntityHandle player) => teams.TeamOf(player);
+
     public void Build(AiSnapshot snapshot, ReadOnlySpan<SensedBot> bots, VisionPass vision, Func<int, ActorActivity> activityOf)
     {
         foreach (SensedBot b in bots)
         {
-            SelfState self = hud.Read(b.Player);
+            SelfState self = hud.Read(b.Player) with { Team = teams.TeamOf(b.Player) };
             // The bot's own reload, as its own client shows it (its view model
             // and HUD): the weapon tap's reload state of its own slot.
             if ((activityOf(b.Id.Slot) & ActorActivity.Reloading) != 0)
@@ -79,7 +83,7 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                     continue;
                 int weapon = weapons.IndexOf(players.GetActiveWeapon(them.Player));
                 ActorActivity activity = activityOf(t) | (stances.Ducked(them.Player) ? ActorActivity.Crouched : ActorActivity.None);
-                view.AddSighted(new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t)));
+                view.AddSighted(new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t), teams.TeamOf(them.Player)));
             }
         }
     }

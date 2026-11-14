@@ -19,7 +19,8 @@ public enum SelfFlags : byte
 /// and the ammo of the weapon in its hands. <see cref="ActiveWeapon"/> is the
 /// binding's weapon-kind index. <see cref="AltAmmo"/> is what the HUD shows of the second trigger's
 /// pool for that weapon (the SMG's grenades, the AR2's balls), <see cref="Grenades"/> what its weapon list
-/// shows of the frags it carries.
+/// shows of the frags it carries. <see cref="Team"/> is the team its own HUD shows it on: the binding's
+/// number, 0 when the mode plays no teams (plan_bots_teams_tf2 B.2).
 /// </summary>
 public readonly record struct SelfState(
     AiVector Origin,
@@ -32,7 +33,8 @@ public readonly record struct SelfState(
     int Reserve,
     SelfFlags Flags,
     int AltAmmo = 0,
-    int Grenades = 0)
+    int Grenades = 0,
+    int Team = 0)
 {
     public bool Alive => (Flags & SelfFlags.Alive) != 0;
 }
@@ -51,7 +53,8 @@ public enum ActorActivity : byte
 /// Another actor as a client at the bot's eyes would draw it. There is no
 /// health, clip or reserve field, on purpose: a client is never sent them, so
 /// the type cannot carry them (§4.3; ActorFactsShapeTests holds the member
-/// list).
+/// list). <see cref="Team"/> is the team a client at the bot's eyes would render it on (plan_bots_teams_tf2
+/// B.2: in HL2DM the model's team, in TF2 a disguise's), 0 when the mode plays no teams.
 /// </summary>
 public readonly record struct ActorFacts(
     ActorId Id,
@@ -59,7 +62,8 @@ public readonly record struct ActorFacts(
     AiVector Velocity,
     int WeaponSeen,
     ActorActivity Activity,
-    float VisibleFraction);
+    float VisibleFraction,
+    int Team = 0);
 
 /// <summary>
 /// One bot's perception at one tick: its own state, and the actors it holds
@@ -103,6 +107,14 @@ public sealed class PerceivedView
 
     /// <summary>The self's second-trigger pool and frags, read after the view (format 5's tail, <see cref="AiRecordFormat"/>).</summary>
     internal void SetAltAmmo(int altAmmo, int grenades) => Self = Self with { AltAmmo = altAmmo, Grenades = grenades };
+
+    /// <summary>The self's team and each sighted actor's, read after the view (format 6's tail); a missing one stays 0.</summary>
+    internal void SetTeams(int self, ReadOnlySpan<int> sighted)
+    {
+        Self = Self with { Team = self };
+        for (int i = 0; i < SightedCount && i < sighted.Length; i++)
+            _sighted[i] = _sighted[i] with { Team = sighted[i] };
+    }
 
     /// <summary>Makes this view a copy of <paramref name="other"/> (a step's own copy, so the ring can move on, §2.7).</summary>
     public void CopyFrom(PerceivedView other)

@@ -141,21 +141,33 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
                 return selected;
         }
 
-        return Walk(player);
+        return Walk(player, Pickups.SpawnPointClasses, teamAware: false);
     }
 
     /// <summary>
-    /// The core's walk. Deathmatch points first, and info_player_start only if
-    /// there are none. They are not peers: a map with both means the deathmatch
-    /// ones, and mixing them would drop a player at the single-player start now
-    /// and then for no stated reason.
+    /// The core's walk over <paramref name="classes"/>, the first class with a
+    /// usable point winning: deathmatch points first, and info_player_start
+    /// only if there are none. They are not peers: a map with both means the
+    /// deathmatch ones, and mixing them would drop a player at the
+    /// single-player start now and then for no stated reason. A mode that
+    /// plays with teams walks its team's class first (stock
+    /// <c>CHL2MP_Player::EntSelectSpawnPoint</c>, hl2mp_player.cpp:1397-1414).
+    ///
+    /// <para>
+    /// <paramref name="teamAware"/> is the teamplay arm of the spawn frag
+    /// (plan_bots_teams_tf2 A.7, ruled 2026-11-02, a divergence: stock kills
+    /// anyone there): with every point taken, the spot settled on is the
+    /// first, from the random start, with no teammate of the spawning player
+    /// inside the frag radius, and the frag never kills a teammate. A
+    /// teammate standing on a point still makes it taken.
+    /// </para>
     /// </summary>
-    private EntityHandle Walk(EntityHandle player)
+    public EntityHandle Walk(EntityHandle player, IReadOnlyList<string> classes, bool teamAware)
     {
         var candidates = new List<EntityHandle>();
         string? walked = null;
 
-        foreach (string className in Pickups.SpawnPointClasses)
+        foreach (string className in classes)
         {
             walked = className;
 
@@ -190,9 +202,30 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
 
         EntityHandle settled = candidates[first];
 
-        if (walked == EntityNames.InfoPlayerDeathmatch && Frags(player))
-            KillAround(settled, player);
+        // Stock kills at whatever point class it walked; only the
+        // info_player_start fallback is placed on without asking who is there.
+        if (walked == EntityNames.InfoPlayerStart || !Frags(player))
+            return settled;
 
+        if (!teamAware)
+        {
+            KillAround(settled, player, spareTeam: -1);
+            return settled;
+        }
+
+        int team = players.GetTeam(player);
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            var spot = candidates[(first + i) % candidates.Count];
+
+            if (!TeammateNear(spot, player, team))
+            {
+                settled = spot;
+                break;
+            }
+        }
+
+        KillAround(settled, player, spareTeam: team);
         return settled;
     }
 
@@ -214,8 +247,14 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
     /// <summary>
     /// Stock's loop: every player in the convar's sphere but the one spawning takes
     /// 300 generic from the world, through the same damage as any other hit.
+    ///
+    /// <para>
+    /// <paramref name="spareTeam"/>, when it is a game team, spares that
+    /// team's players (the teamplay arm of <see cref="Walk"/>); -1 kills
+    /// everyone there, as stock does.
+    /// </para>
     /// </summary>
-    private void KillAround(EntityHandle spot, EntityHandle spawning)
+    private void KillAround(EntityHandle spot, EntityHandle spawning, int spareTeam)
     {
         float radius = fragRadius.Value;
 
@@ -224,9 +263,30 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
 
         for (int i = 0; i < found; i++)
         {
-            if (nearby[i] != spawning && entities.IsPlayer(nearby[i]))
-                damage.TakeDamage(nearby[i], World, FragDamage, DamageType.Generic);
+            if (nearby[i] == spawning || !entities.IsPlayer(nearby[i]))
+                continue;
+
+            if (spareTeam >= GameRules.FirstGameTeam && GameRules.Teammates(spareTeam, players.GetTeam(nearby[i])))
+                continue;
+
+            damage.TakeDamage(nearby[i], World, FragDamage, DamageType.Generic);
         }
+    }
+
+    /// <summary>Whether a teammate of <paramref name="team"/> stands inside the frag radius of <paramref name="spot"/>.</summary>
+    private bool TeammateNear(EntityHandle spot, EntityHandle spawning, int team)
+    {
+        Span<EntityHandle> nearby = stackalloc EntityHandle[MaxNearASpot];
+        int found = world.EntitiesInSphere(entities.GetOrigin(spot), fragRadius.Value, nearby);
+
+        for (int i = 0; i < found; i++)
+        {
+            if (nearby[i] != spawning && entities.IsPlayer(nearby[i])
+                && GameRules.Teammates(team, players.GetTeam(nearby[i])))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -35,6 +35,8 @@ public enum AiEventKind : byte
 
     // gameplay (the HUD)
     ScoreboardRow = 40,
+
+    /// <summary>One team score the HUD shows (plan_bots_teams_tf2 B.2): Code the team, Code2 its score. A mode may play two to four teams.</summary>
     MatchState = 41,
 
     /// <summary>A death notice on the HUD's kill feed: who died, and who killed them.</summary>
@@ -57,6 +59,27 @@ public enum AiEventKind : byte
 
     /// <summary>The server's <c>ai_bot_streaks</c> as told to a bot (§5.5): Code 0 off, 1 on; a console's asking for one now, 2 hot, 3 cold.</summary>
     StreaksSet = 48,
+
+    /// <summary>
+    /// The <c>player_team</c> event and the scoreboard's team column, as every client has them
+    /// (plan_bots_teams_tf2 B.2, B.9): Other is now on team Code (0 when the mode plays no teams),
+    /// coming from Code2. The bot itself is told of its own change too.
+    /// </summary>
+    ActorTeam = 49,
+
+    /// <summary>The server's <c>mp_friendlyfire</c>, which every client is sent (a replicated setting): Code 1 on, 0 off (plan_bots_teams_tf2 B.5).</summary>
+    FriendlyFireSet = 54,
+
+    /// <summary>
+    /// A teammate's callout (plan_bots_teams_tf2 B.4), re-published by the session to the
+    /// speaker's teammates' lanes after its delay: Other the speaker, Position the place,
+    /// Amount the confidence, Code the <see cref="CalloutKind"/> and the count (count &lt;&lt; 8),
+    /// Code2 the subject's slot plus one (0 none).
+    /// </summary>
+    Callout = 55,
+
+    /// <summary>A teammate's order read in team chat (B.5, Q5): Other the one who said it, Code the <see cref="OrderKind"/>.</summary>
+    Order = 56,
 
     // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
@@ -171,6 +194,32 @@ public readonly record struct AiEvent(
 
     public static AiEvent StreaksSet(ActorId bot, Tick tick, int code)
         => new(AiEventKind.StreaksSet, bot, tick, ActorId.None, default, default, 0f, code, 0);
+
+    /// <summary>The <c>player_team</c> event as a client is told it: <paramref name="actor"/> went from <paramref name="oldTeam"/> to <paramref name="team"/>.</summary>
+    public static AiEvent ActorTeam(ActorId bot, Tick tick, ActorId actor, int team, int oldTeam)
+        => new(AiEventKind.ActorTeam, bot, tick, actor, default, default, 0f, team, oldTeam);
+
+    /// <summary>What every callout is worth to the one who hears it (B.4): heard, not seen.</summary>
+    public const float CalloutConfidence = 0.5f;
+
+    public static AiEvent Callout(ActorId bot, Tick tick, ActorId speaker, in SayIntent say)
+        => new(AiEventKind.Callout, bot, tick, speaker, say.Place, default, CalloutConfidence, (byte)say.Kind | (say.Count << 8), say.Subject);
+
+    /// <summary>A <see cref="AiEventKind.Callout"/>'s kind.</summary>
+    public CalloutKind CalloutKind => Kind == AiEventKind.Callout ? (CalloutKind)(Code & 0xFF) : CalloutKind.None;
+
+    /// <summary>A <see cref="AiEventKind.Callout"/>'s count.</summary>
+    public int CalloutCount => Kind == AiEventKind.Callout ? Code >> 8 : 0;
+
+    public static AiEvent Order(ActorId bot, Tick tick, ActorId from, OrderKind order)
+        => new(AiEventKind.Order, bot, tick, from, default, default, 0f, (int)order, 0);
+
+    public static AiEvent FriendlyFireSet(ActorId bot, Tick tick, bool on)
+        => new(AiEventKind.FriendlyFireSet, bot, tick, ActorId.None, default, default, 0f, on ? 1 : 0, 0);
+
+    /// <summary>A team score the bot's HUD shows: <paramref name="team"/>'s.</summary>
+    public static AiEvent MatchState(ActorId bot, Tick tick, int team, int score)
+        => new(AiEventKind.MatchState, bot, tick, ActorId.None, default, default, 0f, team, score);
 
     public static AiEvent ActorSpectating(ActorId bot, Tick tick, ActorId actor, bool spectating)
         => new(AiEventKind.ActorSpectating, bot, tick, actor, default, default, 0f, spectating ? 1 : 0, 0);

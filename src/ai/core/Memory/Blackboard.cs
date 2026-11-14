@@ -72,6 +72,16 @@ public sealed class KnownActor
 
     public bool Dead { get; internal set; }
 
+    /// <summary>
+    /// The team it was last shown on (plan_bots_teams_tf2 B.3): its rendered team when
+    /// sighted, the <c>player_team</c> event and the scoreboard's column otherwise; 0 none.
+    /// Friend or foe is read from this each decide (<see cref="TeamRule.Friends"/>), never kept.
+    /// </summary>
+    public int Team { get; internal set; }
+
+    /// <summary>When it last turned from a teammate into an enemy (B.9): it is a target once the bot has had time to recognise it so.</summary>
+    public Tick FoeSince { get; internal set; }
+
     public AmmoEstimate Ammo { get; } = new();
 
     private float _grudge;
@@ -130,7 +140,8 @@ public sealed class KnownActor
         LastKnownCell = CellId.None;
         TimesEngaged = 0;
         DamageTakenFrom = 0f;
-        Frags = Deaths = Rank = 0;
+        Frags = Deaths = Rank = Team = 0;
+        FoeSince = default;
         Ammo.Reset();
         Where?.Clear();
     }
@@ -206,6 +217,30 @@ public sealed class Blackboard
     public AiVector LastDamageDir { get; internal set; }
 
     public Tick LastDamageTick { get; internal set; }
+
+    private readonly int[] _teamScores = new int[TeamRule.LastGameTeam + 1];
+
+    /// <summary>The score the bot's HUD shows for <paramref name="team"/> (plan_bots_teams_tf2 B.2); 0 for none.</summary>
+    public int TeamScore(int team) => (uint)team < (uint)_teamScores.Length ? _teamScores[team] : 0;
+
+    internal void SetTeamScore(int team, int score)
+    {
+        if ((uint)team < (uint)_teamScores.Length)
+            _teamScores[team] = score;
+    }
+
+    /// <summary>Whether some team's score is above <paramref name="team"/>'s: it is not leading (B.5's "losing").</summary>
+    public bool Behind(int team)
+    {
+        int mine = TeamScore(team);
+        for (int t = TeamRule.FirstGameTeam; t <= TeamRule.LastGameTeam; t++)
+        {
+            if (t != team && _teamScores[t] > mine)
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>Sizes the items to the map's spawns, each at the game's respawn rule.</summary>
     public void KnowItems(MapKnowledge map)
@@ -344,5 +379,6 @@ public sealed class Blackboard
         foreach (KnownActor a in _actors)
             a.Clear();
         _items = [];
+        Array.Clear(_teamScores);
     }
 }

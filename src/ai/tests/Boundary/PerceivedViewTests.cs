@@ -49,7 +49,7 @@ public class PerceivedViewTests
     {
         // What a client is sent of another player, and nothing else (§2.2, §4.3).
         string[] members = typeof(ActorFacts).GetProperties().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray();
-        Assert.Equal(["Activity", "Id", "Origin", "Velocity", "VisibleFraction", "WeaponSeen"], members);
+        Assert.Equal(["Activity", "Id", "Origin", "Team", "Velocity", "VisibleFraction", "WeaponSeen"], members);
     }
 
     [Fact]

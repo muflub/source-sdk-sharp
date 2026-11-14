@@ -97,7 +97,7 @@ public class BotCommandsTests
                                  DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
                                  DispatchProxy.Create<IEngineFrame, Defaults>(), _nav, DispatchProxy.Create<IBotInventory, Defaults>(),
                                  new DataFileNames(), _tags, _log);
-        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log), _log).RunLine("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log, new FakeRosterTeams()), _log).RunLine("Alyx hard");
         Assert.Null(bots.Act("Alyx", ActionKind.Fire, 5f, 0));
         bots.OnPreThink(0.015f);
         Assert.Equal(0L, bots.Applier.Refused(IntentRefusal.UnknownBot) + bots.Applier.Refused(IntentRefusal.StaleSerial));
@@ -159,7 +159,7 @@ public class BotCommandsTests
                               DispatchProxy.Create<IEngineEntities, Unasked>(), WeaponCatalog.Stock(),
                               DispatchProxy.Create<IEngineFrame, Unasked>(), _nav, DispatchProxy.Create<IBotInventory, Unasked>(),
                               new DataFileNames(), _tags, _log);
-        _roster = new Hl2mpRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log);
+        _roster = new Hl2mpRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log, new FakeRosterTeams());
     }
 
     private void Add(string args) => new AiBotAddCommand(_roster, _log).RunLine(args, _log.Msg);
@@ -240,13 +240,23 @@ public class BotCommandsTests
     }
 
     [Fact]
-    public void AddTakesAtMostANameAndASpec()
+    public void AddTakesAtMostANameASpecAndATeam()
     {
         var said = new List<string>();
 
-        new AiBotAddCommand(_roster, _log).RunLine("Alyx hard extra", said.Add);
+        new AiBotAddCommand(_roster, _log).RunLine("Alyx hard team=2 extra", said.Add);
 
         Assert.Contains("'extra' is one argument too many", Assert.Single(said));
+        Assert.Empty(_players.Asked);
+    }
+
+    /// <summary>A third word that is no team (plan_bots_teams_tf2 B.6) is refused, naming it, and adds nobody.</summary>
+    [Fact]
+    public void AThirdWordThatIsNoTeamIsRefused()
+    {
+        new AiBotAddCommand(_roster, _log).RunLine("Alyx hard extra");
+
+        Assert.Contains(_log.All, l => l.Contains("team 'extra' is not auto or 2 to 5", StringComparison.Ordinal));
         Assert.Empty(_players.Asked);
     }
 

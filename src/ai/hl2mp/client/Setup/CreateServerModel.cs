@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Client.Vgui;
 using SourceSharp.Ai.Hl2mp.Ui;
 using SourceSharp.Shared;
 
@@ -17,7 +18,7 @@ public sealed class AiBotRerollOnMapConVar : BoolConVar { }
 /// bot again.
 /// </summary>
 [SideService(Side.Client, As = [typeof(ICreateServerSource), typeof(ICreateServerActions)])]
-public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapConVar reroll, CustomBots customs, BotEditorModel editor)
+public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapConVar reroll, CustomBots customs, BotEditorModel editor, ClTdmTeamsConVar teamCount)
     : ICreateServerSource, ICreateServerActions
 {
     public const int PlayersMin = 2;
@@ -92,6 +93,47 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
 
     public void SetNewBotsEachMap(bool on) => NewBotsEachMap = on;
 
+    public bool TeamsPicked { get; private set; }
+
+    // The bots wanted on each team but the last; the last takes what is left of the preset bots.
+    private readonly int[] _perTeam = new int[MostTeams];
+
+    /// <summary>The most teams a mode plays (2 to 5).</summary>
+    public const int MostTeams = 4;
+
+    public int Teams => Math.Clamp(teamCount.Value, 2, MostTeams);
+
+    /// <summary>The bots on the team at <paramref name="index"/>: as asked, within what the teams before it left; the last team the rest.</summary>
+    public int BotsOn(int index)
+    {
+        if ((uint)index >= (uint)Teams)
+            return 0;
+        int left = BotCount;
+        for (int t = 0; t < index; t++)
+            left -= Math.Min(_perTeam[t], left);
+        return index == Teams - 1 ? left : Math.Min(_perTeam[index], left);
+    }
+
+    public string TeamToken(int index) => $"#Ai_CreateServer_Team{index + CombineTeam}";
+
+    /// <summary>Picking starts the bots spread evenly over the teams, the first teams taking the odd ones.</summary>
+    public void SetTeamsPicked(bool on)
+    {
+        if (on && !TeamsPicked)
+        {
+            for (int t = 0; t < MostTeams; t++)
+                _perTeam[t] = BotCount / Teams + (t < BotCount % Teams ? 1 : 0);
+        }
+
+        TeamsPicked = on;
+    }
+
+    public void SetBotsOn(int index, int count)
+    {
+        if ((uint)index < (uint)MostTeams)
+            _perTeam[index] = Math.Clamp(count, 0, BotCount);
+    }
+
     public void SetMaxPlayers(int count)
     {
         MaxPlayers = Math.Clamp(count, PlayersMin, PlayersMax);
@@ -128,12 +170,28 @@ public sealed class CreateServerModel(IFwdEngineClient engine, AiBotRerollOnMapC
             customs.RemoveAt(i);
     }
 
-    /// <summary>The roster Start sets: the preset bots, then each custom bot.</summary>
+    /// <summary>The Combine team's number (hl2mp_gamerules.h's TEAM_COMBINE): the first; the others follow it.</summary>
+    public const int CombineTeam = 2;
+
+    /// <summary>The team the <paramref name="bot"/>th preset bot joins when the teams are picked.</summary>
+    private int TeamOfBot(int bot)
+    {
+        for (int t = 0, upTo = 0; t < Teams; t++)
+        {
+            upTo += BotsOn(t);
+            if (bot < upTo)
+                return CombineTeam + t;
+        }
+
+        return RosterTeam.Auto;
+    }
+
+    /// <summary>The roster Start sets: the preset bots (with their teams when picked: team=, B.6), then each custom bot.</summary>
     public string RosterSpecText()
     {
         var entries = new List<RosterEntry>();
         for (int i = 0; i < BotCount; i++)
-            entries.Add(new RosterEntry(null, StopPreset(Difficulty)));
+            entries.Add(new RosterEntry(null, StopPreset(Difficulty), !TeamsPicked ? RosterTeam.Auto : TeamOfBot(i)));
         foreach (CustomBot bot in customs.All)
             entries.Add(bot.Entry);
         return RosterSpec.Format(entries);

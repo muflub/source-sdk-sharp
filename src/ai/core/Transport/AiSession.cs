@@ -44,6 +44,12 @@ public sealed class AiCounters
     /// <summary>Decides not run because the session was held for stepping (<c>ai_step</c>).</summary>
     public long StepsHeld { get; internal set; }
 
+    /// <summary>Callouts re-published to a teammate's lane (plan_bots_teams_tf2 B.4), one per receiver.</summary>
+    public long CalloutsDelivered { get; internal set; }
+
+    /// <summary>Ticks on which the main thread waited for a step old enough that its callouts were due (B.4's determinism).</summary>
+    public long CalloutWaits { get; internal set; }
+
     /// <summary>Steps handed over and not yet taken back (a pool's backlog).</summary>
     public int InFlight { get; internal set; }
 
@@ -88,6 +94,17 @@ public sealed class AiSession
     private readonly Lane?[] _lanes;
     private readonly Queue<BrainStepJob> _handed = new();
     private readonly int _sightedCapacity;
+    private readonly List<ScheduledCallout> _callouts = new();
+    private readonly List<SpokenCallout> _spoken = new();
+    private bool _teamed;
+
+    /// <summary>
+    /// The shortest delay a callout may have (plan_bots_teams_tf2 B.4: 400 ms at the
+    /// 15 ms tick). The session holds this as the bound that keeps re-publishing the
+    /// same at any thread count: before a tick's deliveries, every step at least this
+    /// many ticks old has been taken back, so every callout due by then is known.
+    /// </summary>
+    public const int CalloutMinDelayTicks = 26;
 
     public AiSession(IAiTransport transport, IAiRecordSink sink, int slots, int sightedCapacity)
     {
@@ -147,17 +164,21 @@ public sealed class AiSession
             throw new InvalidOperationException($"slot {id.Slot} already holds {held.Brain.Bot}");
 
         BotMemory? memory = null;
+        // Ten levels, or eleven with Teamwork (plan_bots_teams_tf2 B.7): a recording made before teams has ten.
+        bool skilled = skillLevels.Length == StandardSkills.Ten.Length || skillLevels.Length == StandardSkills.Eleven.Length;
+        SkillProfile? profile = skilled
+            ? new SkillProfile("session", skillLevels.Length == StandardSkills.Ten.Length ? StandardSkills.Ten : StandardSkills.Eleven,
+                               [.. skillLevels.ToArray().Select(b => (int)b)])
+            : null;
         if (World is { } world)
         {
-            MemoryParams p = skillLevels.Length == StandardSkills.Ten.Length
-                ? MemoryParams.For(new SkillProfile("session", StandardSkills.Ten, [.. skillLevels.ToArray().Select(b => (int)b)]))
+            MemoryParams p = profile is not null
+                ? MemoryParams.For(profile)
                 : new MemoryParams(5f, MemoryParams.HabitHalfLife);
             memory = new BotMemory(id, _lanes.Length, p, world, habits ?? new HabitStore());
         }
 
-        DecisionParams? decisions = Curves is { } curves && skillLevels.Length == StandardSkills.Ten.Length
-            ? curves.For(new SkillProfile("session", StandardSkills.Ten, [.. skillLevels.ToArray().Select(b => (int)b)]))
-            : null;
+        DecisionParams? decisions = Curves is { } curves && profile is not null ? curves.For(profile) : null;
         IDecider? decider = memory is not null && decisions is { } dp && Deciders is { } make
             ? make(new BrainSetup(id, seed, memory, dp, World!.TickSeconds))
             : null;
@@ -224,6 +245,7 @@ public sealed class AiSession
             _sink.Snapshot(snapshot);
 
         Tick tick = snapshot.Tick;
+        Callouts(snapshot);
         for (int slot = 0; slot < _lanes.Length; slot++)
         {
             if (_lanes[slot] is not { } lane || !DecideSchedule.IsDecideTick(tick, slot))
@@ -253,6 +275,104 @@ public sealed class AiSession
             StepTicks--;
         Drain();
     }
+
+    /// <summary>
+    /// The team layer (plan_bots_teams_tf2 B.4): each lane's team as its newest view
+    /// shows it; once any bot has been on a team, the steps old enough to have said
+    /// something due now are taken back first (waiting if a pool is that far behind),
+    /// then every callout due by this tick goes to each lane on the speaker's team but
+    /// the speaker's own, in (due tick, spoken tick, slot) order. Its inputs are the
+    /// snapshots and the steps' intents, so the stream is the same at any thread count.
+    /// </summary>
+    private void Callouts(AiSnapshot snapshot)
+    {
+        Tick tick = snapshot.Tick;
+        for (int slot = 0; slot < _lanes.Length; slot++)
+        {
+            if (_lanes[slot] is { } lane && snapshot.ViewFor(slot) is { } view && view.Bot == lane.Brain.Bot)
+            {
+                lane.Team = view.Self.Team;
+                _teamed |= TeamRule.IsGameTeam(lane.Team);
+            }
+        }
+
+        if (!_teamed)
+            return;
+        DrainThrough(new Tick(tick.Value - CalloutMinDelayTicks));
+        if (_callouts.Count == 0)
+            return;
+        _callouts.Sort(static (a, b) => a.Due != b.Due ? a.Due.Value.CompareTo(b.Due.Value)
+                                     : a.Spoken != b.Spoken ? a.Spoken.Value.CompareTo(b.Spoken.Value)
+                                     : a.Speaker.Slot.CompareTo(b.Speaker.Slot));
+        int kept = 0;
+        for (int i = 0; i < _callouts.Count; i++)
+        {
+            ScheduledCallout c = _callouts[i];
+            if (c.Due > tick)
+            {
+                _callouts[kept++] = c;
+                continue;
+            }
+
+            foreach (Lane? lane in _lanes)
+            {
+                if (lane is null || lane.Brain.Bot == c.Speaker || !TeamRule.Friends(lane.Team, c.Say.Team))
+                    continue;
+                AiEvent e = AiEvent.Callout(lane.Brain.Bot, c.Due, c.Speaker, c.Say) with { Velocity = new AiVector(c.Spoken.Value, 0f, 0f) };
+                Counters.EventsIn++;
+                Counters.CalloutsDelivered++;
+                _sink.Event(e);
+                lane.Pending.Add(e);
+            }
+        }
+
+        _callouts.RemoveRange(kept, _callouts.Count - kept);
+    }
+
+    /// <summary>Takes back every step handed over at or before <paramref name="through"/>, waiting for one that has not finished.</summary>
+    private void DrainThrough(Tick through)
+    {
+        Drain();
+        bool waited = false;
+        while (_handed.TryPeek(out BrainStepJob? job) && job.Tick <= through)
+        {
+            if (job.State is JobState.Queued or JobState.Running)
+            {
+                if (job.Lane.Start() && !Transport.Dispatch(job.Lane))
+                {
+                    job.Lane.Idle();
+                    throw new InvalidOperationException("a step waits on a transport that runs nothing");
+                }
+
+                SpinWait.SpinUntil(() => job.State is not (JobState.Queued or JobState.Running));
+                waited = true;
+            }
+
+            Drain();
+        }
+
+        if (waited)
+            Counters.CalloutWaits++;
+    }
+
+    /// <summary>
+    /// The callouts spoken since the last call that asked for a <c>say_team</c> line
+    /// (<see cref="SayIntent.Text"/>), for the binding's chat: main thread, in the
+    /// order their steps were taken back.
+    /// </summary>
+    public IReadOnlyList<SpokenCallout> TakeSpoken()
+    {
+        if (_spoken.Count == 0)
+            return [];
+        SpokenCallout[] taken = [.. _spoken];
+        _spoken.Clear();
+        return taken;
+    }
+
+    /// <summary>Callouts said and not yet due.</summary>
+    public int CalloutsInFlight => _callouts.Count;
+
+    private readonly record struct ScheduledCallout(Tick Due, Tick Spoken, ActorId Speaker, SayIntent Say);
 
     private void Hand(Lane lane, BrainStepJob job)
     {
@@ -313,6 +433,14 @@ public sealed class AiSession
                 }
 
                 _sink.Intent(job.Intent);
+                // Scheduled whether or not the speaker is still in its slot: a removal's
+                // timing against the take-back varies with the threads, the words said do not.
+                if (job.Intent.Say is { Says: true } say)
+                {
+                    _callouts.Add(new ScheduledCallout(job.Tick + Math.Max(CalloutMinDelayTicks, say.DelayTicks), job.Tick, job.Intent.Bot, say));
+                    if (say.Text)
+                        _spoken.Add(new SpokenCallout(job.Intent.Bot, say, job.Tick));
+                }
             }
             else if (state == JobState.Faulted)
             {
@@ -341,6 +469,9 @@ public sealed class AiSession
 
         foreach (Lane? lane in _lanes)
             lane?.Reset();
+        _callouts.Clear();
+        _spoken.Clear();
+        _teamed = false;
     }
 
     /// <summary>
@@ -428,6 +559,9 @@ public sealed class AiSession
 
         public DoingRecord? LastDoing { get; set; }
 
+        /// <summary>The bot's team as its newest view showed it (plan_bots_teams_tf2 B.4).</summary>
+        public int Team { get; set; }
+
         public BrainStepJob Take() => _free.Count > 0 ? _free.Pop() : new BrainStepJob(sightedCapacity);
 
         public void Return(BrainStepJob job)
@@ -513,6 +647,9 @@ public sealed class AiSession
         }
     }
 }
+
+/// <summary>A callout that asked for a <c>say_team</c> line: who said it, what, and the tick of the step that said it.</summary>
+public readonly record struct SpokenCallout(ActorId Speaker, SayIntent Say, Tick Tick);
 
 /// <summary>
 /// One brain step handed over: the bot's lane, its decide tick, its own copy

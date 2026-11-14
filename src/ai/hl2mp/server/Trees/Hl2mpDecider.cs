@@ -57,7 +57,7 @@ public static class Hl2mpStyle
 /// carry out (§3): a goal to walk to, a point or an actor to look at, a
 /// button to hold or press.
 /// </summary>
-public sealed class Hl2mpDecider : IDecider
+public sealed partial class Hl2mpDecider : IDecider
 {
     /// <summary>HL2MP's run speed (hl2_normspeed), the push test's.</summary>
     public const float RunSpeed = 190f;
@@ -183,7 +183,7 @@ public sealed class Hl2mpDecider : IDecider
     private int _momentSeq;
     private string _momentKind = "";
     private ActorId _momentOther;
-    private Tick _lastSpotMoment, _revengeSeen;
+    private Tick _lastSpotMoment, _revengeSeen, _friendlyFireSeen;
     private Tick _damageSeen, _goalHeldSince, _progressTick;
     private AiVector _heldGoal, _progressAt;
     private KnownActor? _heldFor, _lastTarget;
@@ -354,6 +354,7 @@ public sealed class Hl2mpDecider : IDecider
         _fragRng = new AiRandom(setup.Seed ^ 0x4652_4147UL);
         _crouchRng = new AiRandom(setup.Seed ^ 0x4455_434BUL);
         _streakRng = new AiRandom(setup.Seed ^ 0x484F_5421UL);
+        _calloutRng = new AiRandom(setup.Seed ^ 0x4341_4C4CUL);
         _campSeed = setup.Seed ^ 0x4341_4D50UL;
         Array.Fill(_watched, new AiVector(float.MaxValue, float.MaxValue, float.MaxValue));
         _coverSeen = new int[_graph?.CellCount ?? 0];
@@ -390,6 +391,7 @@ public sealed class Hl2mpDecider : IDecider
         _ammoTerm = 0f;
         _window = default;
         _hasGoal = false;
+        _say = SayIntent.Nothing;
         Streaks();
 
         if (!_self.Alive)
@@ -410,6 +412,7 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         _ownHasFacts = _map.Weapons.TryGet(_self.ActiveWeapon, out _ownFacts);
+        NoteOwnSwap();
         NoteDry();
         _use = Hl2mpWeaponRanges.For(_ownHasFacts ? _ownFacts.Name : "");
         ChooseTarget();
@@ -420,6 +423,7 @@ public sealed class Hl2mpDecider : IDecider
 
         _interrupted = NoteInterrupts();
         _tree.Decide(this, _run, tick);
+        TeamRoles();
         HoldGoal();
         PreAim();
         if (_fragState == FragState.Idle)
@@ -433,8 +437,10 @@ public sealed class Hl2mpDecider : IDecider
         if (!_targetSighted && _hasGoal && _look.Kind == LookKind.Path)
             Glance();
         Overlays();
+        FriendGate();
+        Callout();
 
-        string branch = _root.Chosen?.Name ?? "none";
+        string branch = _teamRole.Length > 0 ? "Team" : _root.Chosen?.Name ?? "none";
         var reason = new DecisionReason(LeafId(), _root.Chosen is null ? 0f : Utility(_root.Chosen), _scoreboardTerm, _ammoTerm);
         Trace.End(in reason);
         Tick expires = tick + IntentCommand.LifetimeTicks;
@@ -443,7 +449,7 @@ public sealed class Hl2mpDecider : IDecider
                                 _grudgeTerm, _preAiming, _habitKnown ? _habitSpot : default, _momentSeq, _momentKind, _momentOther,
                                 _lineAsk, _lineAt, _prefireState, _prefireAiming ? _prefireSpot : default, StreakName,
                                 _streak == 0 ? 0f : StreakNow.AimErrorDeg, _streak == 0 ? 0f : StreakNow.ReactionMs, _streak == 0 ? 0f : StreakNow.RecognizeSeconds, _altState);
-        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason);
+        return new IntentCommand(_bot, tick, seq, expires, _move, _look, _action, reason, _say);
     }
 
     private static float Utility(BtScored<Hl2mpDecider> n) => n.LastScore;
@@ -532,6 +538,13 @@ public sealed class Hl2mpDecider : IDecider
         {
             _revengeSeen = when;
             Moment("revenge", who);
+        }
+
+        (ActorId mate, Tick hitAt) = _memory.LastFriendlyFire;
+        if (mate.IsValid && hitAt != _friendlyFireSeen)
+        {
+            _friendlyFireSeen = hitAt;
+            Moment("friendly_fire", mate);
         }
 
         bool gained = _targetSighted && !_wasSighted;
@@ -1594,17 +1607,21 @@ public sealed class Hl2mpDecider : IDecider
         int rows = 0;
         bool close = false;
         Blackboard board = _memory.Board;
+        // On a team, Headhunter ranks the enemy rows only (plan_bots_teams_tf2 B.5): a leader on its own team is no target.
+        bool teamed = TeamRule.IsGameTeam(_memory.Team);
         for (int s = 0; s < board.Slots; s++)
         {
             KnownActor a = board.Actor(s);
-            if (a.Known && a.Rank > rows)
-                rows = a.Rank;
+            if (!a.Known || (teamed && _memory.IsFriend(a)))
+                continue;
+            if (teamed ? a.Rank > 0 : a.Rank > rows)
+                rows = teamed ? rows + 1 : a.Rank;
         }
 
         for (int s = 0; s < board.Slots; s++)
         {
             KnownActor a = board.Actor(s);
-            if (!a.Known || a.Dead)
+            if (!a.Known || a.Dead || _memory.IsFriend(a) || NotYetRecognised(a))
                 continue;
             bool sighted = _view.TryActor(a.Id, out ActorFacts f);
             AiVector at = sighted ? f.Origin : Where(a);
@@ -1615,7 +1632,7 @@ public sealed class Hl2mpDecider : IDecider
                     continue;
             }
 
-            float rankTerm = _p.RankBonus * RankBonus(a.Rank, rows);
+            float rankTerm = _p.RankBonus * RankBonus(teamed ? EnemyRank(a) : a.Rank, rows);
             float grudgeTerm = _p.GrudgeWeight * Math.Min(1f, a.GrudgeAt(_now, _tick) / GrudgeFull);
             float proximity = 1f / (1f + dist / 768f);
             float priority = (sighted ? 1f : 0.5f * a.Confidence) * (proximity * _p.EasyTargetDiscount + rankTerm + grudgeTerm);
@@ -1644,6 +1661,23 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         _lastTarget = _target;
+    }
+
+    /// <summary>An enemy's rank among the enemy rows the bot knows: 1 for the best of them, 0 with no row.</summary>
+    private int EnemyRank(KnownActor a)
+    {
+        if (a.Rank <= 0)
+            return 0;
+        int above = 0;
+        Blackboard board = _memory.Board;
+        for (int s = 0; s < board.Slots; s++)
+        {
+            KnownActor o = board.Actor(s);
+            if (o.Known && !_memory.IsFriend(o) && o.Rank > 0 && o.Rank < a.Rank)
+                above++;
+        }
+
+        return above + 1;
     }
 
     /// <summary>§5.4's rankBonus: rank 1 is 1, falling linearly to 0 at the bottom of the rows; no rank, nothing.</summary>
@@ -2608,6 +2642,65 @@ public sealed class Hl2mpDecider : IDecider
 
     /// <summary>A frag in hand with someone inside its blast: nobody throws one at their own feet.</summary>
     private bool FragTooClose => _ownHasFacts && _ownFacts.Alt.Kind == AltFireKind.Underhand && _targetDist < _ownFacts.Alt.BlastRadius * Hl2mpAltFire.SafeShare;
+
+    /// <summary>Decides on which fire was held for a teammate in the way (plan_bots_teams_tf2 B.5), a jank part.</summary>
+    public int HeldFireFriend { get; private set; }
+
+    /// <summary>The eye height a shot's line is drawn from and a body's top is taken at.</summary>
+    private const float EyeHeight = 64f;
+
+    /// <summary>
+    /// Not shooting a teammate (plan_bots_teams_tf2 B.5), as a player's eyes would: fire is
+    /// held when a sighted friend nearer than the aim point is within <see cref="AimCone"/> of
+    /// the line to it or of the view's own line, and, with friendly fire on, when a friend
+    /// stands inside the blast of a grenade or a ball the bot is about to send. Only actors
+    /// the bot sees: no trace, no server truth.
+    /// </summary>
+    private void FriendGate()
+    {
+        if (_action.Kind is not (ActionKind.Fire or ActionKind.AltFire) || !TeamRule.IsGameTeam(_self.Team))
+            return;
+        AiVector eye = _self.Origin + new AiVector(0f, 0f, EyeHeight);
+        AiVector viewDir = VisionMath.Forward(_self.Eye);
+        bool aimed = _look.Kind is LookKind.Actor or LookKind.CornerCheck or LookKind.Point;
+        AiVector aimAt = aimed ? _look.Point : eye + viewDir * HuntReach;
+        float reach = (aimAt - eye).Length;
+        AiVector aimDir = reach > 0f ? (aimAt - eye) * (1f / reach) : viewDir;
+        float blast = FriendlyBlast();
+        foreach (ref readonly ActorFacts f in _view.Sighted)
+        {
+            if (!TeamRule.Friends(_self.Team, f.Team))
+                continue;
+            float d = (f.Origin - eye).Length;
+            bool inLine = d < reach && (AimCone.Holds(AngleToBody(aimDir, eye, f.Origin), d) || AimCone.Holds(AngleToBody(viewDir, eye, f.Origin), d));
+            bool inBlast = blast > 0f && f.Origin.DistanceTo(aimAt) <= blast + AimCone.BodyHalfWidth;
+            if (inLine || inBlast)
+            {
+                _action = ActionIntent.None;
+                HeldFireFriend++;
+                _verdict = "held fire (teammate)";
+                return;
+            }
+        }
+    }
+
+    /// <summary>The blast a teammate must be clear of under friendly fire: the explosive about to go, else 0.</summary>
+    private float FriendlyBlast()
+    {
+        if (!_memory.FriendlyFireOn || !_ownHasFacts)
+            return 0f;
+        bool explosive = _action.Kind == ActionKind.AltFire || _ownFacts.Alt.Kind == AltFireKind.Underhand;
+        return explosive ? _ownFacts.Alt.BlastRadius : 0f;
+    }
+
+    /// <summary>The angle from a line along <paramref name="dir"/> to a standing body at <paramref name="origin"/>, at the shooter's own height on it (<see cref="AimCone.AngleToBody"/>'s rule).</summary>
+    private static double AngleToBody(AiVector dir, AiVector eye, AiVector origin)
+    {
+        AiVector axis = new(0f, 0f, EyeHeight);
+        float u = Math.Clamp((eye - origin).Dot(axis) / axis.LengthSquared, 0f, 1f);
+        AiVector to = (origin + axis * u - eye).Normalised();
+        return Math.Acos(Math.Clamp(dir.Dot(to), -1f, 1f)) * (180.0 / Math.PI);
+    }
 
     private bool CanFire()
     {

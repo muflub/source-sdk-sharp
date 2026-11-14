@@ -221,6 +221,11 @@ if (args.Length > 0 && args[0] == "aimaps")
     File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.vmf"), routes.Write());
     File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.yaml"), AiTestMaps.Level("ss_ai_routes.vmf", ["west", "middle", "east"]));
     Console.WriteLine($"{Path.Combine(args[1], "ss_ai_routes.vmf")}: {routes.Entities.Count} entities, {routes.WorldSolids.Count} world brushes");
+
+    var tdm = AiTestMaps.Tdm();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tdm.vmf"), tdm.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_tdm.yaml"), AiTestMaps.TdmLevel("ss_ai_tdm.vmf"));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_tdm.vmf")}: {tdm.Entities.Count} entities, {tdm.WorldSolids.Count} world brushes");
     return 0;
 }
 

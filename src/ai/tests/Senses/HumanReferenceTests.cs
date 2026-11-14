@@ -128,7 +128,7 @@ public sealed class HumanReferenceTests : IDisposable
     [Fact]
     public void EveryPlayersCommandIsRecordedWithTheServersTick()
     {
-        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log), _log).RunLine("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(_bots, new NoProfiles(), new Hl2mp.BotRosterTests.Slots(), _log, new Hl2mp.FakeRosterTeams()), _log).RunLine("Alyx hard");
         Hl2mpBot bot = Assert.Single(_bots.Bots);
         var human = new EntityHandle((uint)(0x0005_0000 * 8 + 2));   // slot 2
         var tap = new CommandTap(_ai, _bots, Indexes(), AtTick(4321));
@@ -441,7 +441,7 @@ public sealed class HumanReferenceTests : IDisposable
         var senses = new Hl2mpSenses(_bots, _ai, w.Pass, null!, null!, null!, _log, w.Reference);
         var meter = new AimMeter(_bots, w.Pass, _ai, AtTick(50), Indexes(), w.World.Engine(), WeaponCatalog.Stock());
         var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots, meter);
-        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter);
+        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter, new FakeTeams());
         Start();
         w.Run(1);
         weapons.OnWeaponEvent(w.Person.Handle, 3, PlayerWeaponEvent.Fired, 1);

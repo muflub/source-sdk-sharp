@@ -39,7 +39,8 @@ public interface IPlayerModelOwner
 /// </summary>
 public sealed class PlayerModels(IConnectedClients clients, IEngineEntities entities, IEngineEntityRender render,
                                  IEnginePlayers players, IEnginePrecache precache, IGameClock clock, IChat chat,
-                                 ITeams teams, TeamPlayConVar teamplay, IHooks<IPlayerModelOwner>? owners = null)
+                                 ITeams teams, TeamPlayConVar teamplay, IHooks<IPlayerModelOwner>? owners = null,
+                                 GameModes? modes = null)
     : IGameLifecycle, ITeamChangeWatcher
 {
     public const string ConVarName = "cl_playermodel";
@@ -84,7 +85,12 @@ public sealed class PlayerModels(IConnectedClients clients, IEngineEntities enti
     /// <summary>Whether this game's players wear HL2MP's models at all.</summary>
     private bool Applies => owners is not { All.Count: > 0 };
 
-    private bool Teamplay => teamplay.Value;
+    /// <summary>
+    /// Whether the round plays with teams: the active mode's answer (team
+    /// deathmatch, however it was switched to), or <c>mp_teamplay</c> where no
+    /// mode proxy is composed.
+    /// </summary>
+    private bool Teamplay => modes is not null ? modes.Active?.Teamplay is true : teamplay.Value;
 
     int IGameLifecycle.LifecycleOrder => (int)LifecycleStage.PlayerModels;
 

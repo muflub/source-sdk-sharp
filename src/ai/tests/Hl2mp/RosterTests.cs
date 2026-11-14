@@ -103,17 +103,19 @@ public sealed class RosterTests
         public readonly Navigation Nav = new();
         public readonly Hl2mpBots Bots;
         public readonly Hl2mpRoster Roster;
+        public readonly FakeRosterTeams Teams;
 
-        public Rig(Players? players = null)
+        public Rig(Players? players = null, FakeRosterTeams? teams = null)
         {
+            Teams = teams ?? new FakeRosterTeams();
             Players = players ?? new Players();
             Bots = new Hl2mpBots(Players, new Runner(), DispatchProxy.Create<IEnginePlayers, Defaults>(), DispatchProxy.Create<IEngineEntities, Defaults>(),
                                  WeaponCatalog.Stock(), DispatchProxy.Create<IEngineFrame, Defaults>(), Nav, DispatchProxy.Create<IBotInventory, Defaults>(),
                                  new Names(), Tags, Log);
-            Roster = new Hl2mpRoster(Bots, new NoProfiles(), Slots, Log);
+            Roster = new Hl2mpRoster(Bots, new NoProfiles(), Slots, Log, Teams);
         }
 
-        public string? Add(string? name, string? spec) => Roster.Add(name, spec);
+        public string? Add(string? name, string? spec, int team = 0) => Roster.Add(name, spec, team);
 
         /// <summary>A frame: the binding follows the engine, then the roster reconciles.</summary>
         public void Frame(int tick)
@@ -742,5 +744,281 @@ public sealed class RosterTests
     {
         ConVarAttribute a = typeof(AiBotRerollConVar).GetCustomAttribute<ConVarAttribute>()!;
         Assert.Equal(("ai_bot_reroll_on_map", "0", ConVarFlags.Archive), (a.Name, a.DefaultValue, a.Flags & ConVarFlags.Archive));
+    }
+
+    // ---- teams (plan_bots_teams_tf2 B.6) ---------------------------------------
+
+    private static Rig Teamed(int maxClients = 12, int teams = 2)
+    {
+        var r = new Rig(teams: new FakeRosterTeams { Teamplay = true, Teams = teams });
+        r.Slots.MaxClients = maxClients;
+        return r;
+    }
+
+    private static ActorId Actor(Rig r, string name) => r.Roster.Bots.Single(b => b.Name == name).Actor;
+
+    [Fact]
+    public void UnderTeamsAnAutoBotAsksForJointeamZero()
+    {
+        Rig r = Teamed();
+        Assert.Null(r.Add("Alyx", "hard"));
+        Assert.Equal((Actor(r, "Alyx"), 0), Assert.Single(r.Teams.Joins));
+    }
+
+    [Fact]
+    public void AFixedTeamBotAsksForItsTeam()
+    {
+        Rig r = Teamed();
+        Assert.Null(r.Add("Alyx", "hard", 3));
+        Assert.Equal(3, Assert.Single(r.Teams.Joins).Asked);
+    }
+
+    /// <summary>The control: in a deathmatch no bot asks for a team at all.</summary>
+    [Fact]
+    public void InADeathmatchNoBotAsksForATeam()
+    {
+        var r = new Rig();
+        Assert.Null(r.Add("Alyx", "hard"));
+        r.Frame(8);
+        Assert.Empty(r.Teams.Joins);
+    }
+
+    /// <summary>Two people on team 2: the next two auto bots fill team 3.</summary>
+    [Fact]
+    public void AutoBotsEvenTheTeamsCountingPeople()
+    {
+        Rig r = Teamed();
+        r.Slots.Humans = 2;
+        r.Teams.Humans[2] = 2;
+        Assert.Null(r.Add("Alyx", "hard"));
+        Assert.Null(r.Add("Barney", "hard"));
+        r.Frame(8);
+        Assert.Equal((2, 2), (r.Teams.Count(2), r.Teams.Count(3)));
+    }
+
+    /// <summary>2v2 bots, then two people join team 2: the newest bot on team 2 moves, within one recount; no person is moved.</summary>
+    [Fact]
+    public void PeopleJoiningOneTeamMoveTheNewestBotOnIt()
+    {
+        Rig r = Teamed();
+        foreach (string n in new[] { "A", "B", "C", "D" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        Assert.Equal((2, 2), (r.Teams.Count(2), r.Teams.Count(3)));
+        ActorId newestOnTwo = r.Roster.Bots.Last(b => r.Teams.TeamOf(b.Actor) == 2).Actor;
+        int joinsBefore = r.Teams.Joins.Count;
+        r.Slots.Humans = 3;
+        r.Teams.Humans[2] = 2;
+        r.Frame(16 + Hl2mpRoster.RecountTicks);
+        Assert.Equal((newestOnTwo, 3), r.Teams.Joins[joinsBefore]);
+        Assert.Equal((3, 3), (r.Teams.Count(2), r.Teams.Count(3)));
+    }
+
+    /// <summary>The control: one more person on a side is a difference of one, and nobody moves.</summary>
+    [Fact]
+    public void ADifferenceOfOneMovesNobody()
+    {
+        Rig r = Teamed();
+        foreach (string n in new[] { "A", "B", "C", "D" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        int joins = r.Teams.Joins.Count;
+        r.Slots.Humans = 2;
+        r.Teams.Humans[2] = 1;
+        r.Frame(16 + Hl2mpRoster.RecountTicks);
+        Assert.Equal(joins, r.Teams.Joins.Count);
+    }
+
+    /// <summary>A bot asked for a team is never balanced off it.</summary>
+    [Fact]
+    public void AFixedTeamBotIsNotMovedByTheBalance()
+    {
+        Rig r = Teamed();
+        Assert.Null(r.Add("A", "normal", 2));
+        Assert.Null(r.Add("B", "normal", 2));
+        Assert.Null(r.Add("C", "normal", 2));
+        r.Frame(8);
+        Assert.DoesNotContain(r.Teams.Joins, j => j.Asked != 2);
+    }
+
+    /// <summary>The server is full and a person lands on team 2: the newest bot on team 2 is benched, not the newest of all.</summary>
+    [Fact]
+    public void APersonWithNoRoomBenchesABotFromTheTeamTheyLandedOn()
+    {
+        Rig r = Teamed(maxClients: 6);
+        foreach (string n in new[] { "A", "B", "C", "D" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        RosterBot newest = r.Roster.Bots[^1];
+        RosterBot onTwo = r.Roster.Bots.Last(b => r.Teams.TeamOf(b.Actor) == 2);
+        Assert.NotEqual(newest.Name, onTwo.Name);
+        r.Slots.Humans = 2;
+        r.Teams.Humans[2] = 1;
+        r.Frame(16);
+        Assert.False(onTwo.Active);
+        Assert.True(newest.Active);
+    }
+
+    /// <summary>The control: in a deathmatch the newest bot of all is the one benched.</summary>
+    [Fact]
+    public void InADeathmatchThePersonBenchesTheNewestBot()
+    {
+        var r = new Rig();
+        r.Slots.MaxClients = 6;
+        foreach (string n in new[] { "A", "B", "C", "D" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        r.Slots.Humans = 2;
+        r.Frame(16);
+        Assert.False(r.Roster.Bots[^1].Active);
+    }
+
+    /// <summary>A bot whose join the mode refused asks again only after a while.</summary>
+    [Fact]
+    public void ARefusedJoinIsAskedAgainLaterNotEveryFrame()
+    {
+        Rig r = Teamed();
+        r.Teams.Refuses = true;
+        Assert.Null(r.Add("A", "normal"));
+        for (int t = 8; t <= 8 * 20; t += 8)
+            r.Frame(t);
+        Assert.Single(r.Teams.Joins);
+        r.Frame(8 + Hl2mpRoster.TeamRetryTicks);
+        Assert.Equal(2, r.Teams.Joins.Count);
+    }
+
+    /// <summary>A bot on a fixed team dresses in its team's models; with no team, the whole list.</summary>
+    [Fact]
+    public void ATeamBotWearsItsTeamsModel()
+    {
+        for (int draw = 0; draw < BotAppearance.ModelCount; draw++)
+        {
+            Assert.Contains(BotAppearance.ModelFor(draw, BotAppearance.Combine), new[] { "models/combine_soldier.mdl", "models/combine_soldier_prisonguard.mdl", "models/combine_super_soldier.mdl", "models/police.mdl" });
+            Assert.Contains("/humans/", BotAppearance.ModelFor(draw, BotAppearance.Rebels));
+            Assert.Equal(BotAppearance.Model(draw), BotAppearance.ModelFor(draw, 0));
+        }
+    }
+
+    [Fact]
+    public void ARosterEntrysTeamRoundTrips()
+    {
+        var refusals = new List<string>();
+        string spec = RosterSpec.Format([new RosterEntry("Alyx", "hard", 3), new RosterEntry(null, "easy")]);
+        Assert.Equal("name=Alyx:hard:team=3;easy", spec);
+        IReadOnlyList<RosterEntry> back = RosterSpec.Parse(spec + ";normal:team=auto", refusals);
+        Assert.Empty(refusals);
+        Assert.Equal([3, 0, 0], back.Select(e => e.Team));
+    }
+
+    [Fact]
+    public void ATeamThatIsNoTeamIsRefused()
+    {
+        var refusals = new List<string>();
+        Assert.Empty(RosterSpec.Parse("hard:team=1", refusals));
+        Assert.Contains("team '1'", Assert.Single(refusals), StringComparison.Ordinal);
+        refusals.Clear();
+        Assert.Equal(5, Assert.Single(RosterSpec.Parse("hard:team=5", refusals)).Team);
+        Assert.Empty(RosterSpec.Parse("hard:team=6", refusals));
+    }
+
+    [Fact]
+    public void TheRosterSpecsTeamReachesTheBot()
+    {
+        Rig r = Teamed();
+        r.Roster.Take("name=A:hard:team=3");
+        r.Frame(8);
+        Assert.Equal(3, r.Roster.Bots.Single().Team);
+        Assert.Contains(r.Teams.Joins, j => j.Asked == 3);
+    }
+
+    [Fact]
+    public void AiBotAddTakesATeam()
+    {
+        Rig r = Teamed();
+        new AiBotAddCommand(r.Roster, r.Log).Execute("Alyx", "hard", "team=3");
+        new AiBotAddCommand(r.Roster, r.Log).Execute("team=2");
+        Assert.Equal([3, 2], r.Roster.Bots.Select(b => b.Team));
+    }
+
+    // ---- two to four teams (user 2026-11-08: "also support 2/3/4 teams") -------
+
+    /// <summary>Four teams, a person on team 2: seven auto bots fill the others first, and no team is two apart.</summary>
+    [Fact]
+    public void BotsEvenOutFourTeamsWithAPersonOnOne()
+    {
+        Rig r = Teamed(maxClients: 16, teams: 4);
+        r.Slots.Humans = 1;
+        r.Teams.Humans[2] = 1;
+        foreach (string n in new[] { "A", "B", "C", "D", "E", "F", "G" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        int[] counts = [.. Enumerable.Range(2, 4).Select(r.Teams.Count)];
+        Assert.Equal([2, 2, 2, 2], counts);
+    }
+
+    /// <summary>Three teams, two people join team 4: the newest bot on the largest team moves to the smallest.</summary>
+    [Fact]
+    public void ThePeoplesLargestOfThreeTeamsLosesItsNewestBot()
+    {
+        Rig r = Teamed(teams: 3);
+        foreach (string n in new[] { "A", "B", "C" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        Assert.Equal([1, 1, 1], Enumerable.Range(2, 3).Select(r.Teams.Count));
+        ActorId onFour = r.Roster.Bots.Single(b => r.Teams.TeamOf(b.Actor) == 4).Actor;
+        int joins = r.Teams.Joins.Count;
+        r.Slots.Humans = 3;
+        r.Teams.Humans[4] = 2;
+        r.Frame(16 + Hl2mpRoster.RecountTicks);
+        (ActorId moved, int to) = r.Teams.Joins[joins];
+        Assert.Equal(onFour, moved);
+        Assert.Contains(to, new[] { 2, 3 });
+    }
+
+    /// <summary>A bot wanted on team 5 while two teams play joins as auto: a team that does not play is no team.</summary>
+    [Fact]
+    public void ATeamThatDoesNotPlayIsAuto()
+    {
+        Rig r = Teamed(teams: 2);
+        Assert.Null(r.Add("A", "normal", 5));
+        Assert.Equal(0, Assert.Single(r.Teams.Joins).Asked);
+    }
+
+    /// <summary>The control: with four teams the same bot asks for team 5.</summary>
+    [Fact]
+    public void WithFourTeamsTeamFiveIsAsked()
+    {
+        Rig r = Teamed(teams: 4);
+        Assert.Null(r.Add("A", "normal", 5));
+        Assert.Equal(5, Assert.Single(r.Teams.Joins).Asked);
+    }
+
+    /// <summary>A person with no room left lands on team 4 of four: the newest bot on team 4 is benched, not the newest of all.</summary>
+    [Fact]
+    public void YieldingWorksOnTheThirdOfFourTeams()
+    {
+        Rig r = Teamed(maxClients: 6, teams: 4);
+        foreach (string n in new[] { "A", "B", "C", "D" })
+            Assert.Null(r.Add(n, "normal"));
+        r.Frame(8);
+        RosterBot onFour = r.Roster.Bots.Single(b => r.Teams.TeamOf(b.Actor) == 4);
+        Assert.NotSame(r.Roster.Bots[^1], onFour);
+        r.Slots.Humans = 2;
+        r.Teams.Humans[4] = 1;
+        r.Frame(16);
+        Assert.False(onFour.Active);
+        Assert.True(r.Roster.Bots[^1].Active);
+    }
+
+    /// <summary>The models split only at three and four teams (user 2026-11-08): Metro Police take police.mdl, the Resistance the women.</summary>
+    [Fact]
+    public void TheModelsSplitOnlyAtThreeAndFourTeams()
+    {
+        Assert.Contains(BotAppearance.Police, BotAppearance.ModelsOf(BotAppearance.Combine, 2));
+        Assert.DoesNotContain(BotAppearance.Police, BotAppearance.ModelsOf(BotAppearance.Combine, 3));
+        Assert.Equal([BotAppearance.Police], BotAppearance.ModelsOf(BotAppearance.MetroPolice, 3));
+        Assert.Contains(2, BotAppearance.ModelsOf(BotAppearance.Rebels, 3));
+        Assert.DoesNotContain(2, BotAppearance.ModelsOf(BotAppearance.Rebels, 4));
+        Assert.All(BotAppearance.ModelsOf(BotAppearance.Resistance, 4), i => Assert.Contains("/female_", BotAppearance.Model(i)));
     }
 }

@@ -73,9 +73,11 @@ public static class AiRecordFormat
     /// added the World record, format 3 the Frame and Observed records, format
     /// 4 the DecisionTree record, format 5 a tail on the World and Snapshot
     /// records: the weapons' second triggers and each view's pool for one and its frags. A
-    /// record with no tail, an older one, has none of either).
+    /// record with no tail, an older one, has none of either; format 6 a second tail on the
+    /// Snapshot record, each view's own team and its sighted actors' (plan_bots_teams_tf2 B.2),
+    /// and an optional tail on the Intent record, its say slot (B.4), written only when it says something).
     /// </summary>
-    public const ushort Version = 5;
+    public const ushort Version = 6;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -385,6 +387,16 @@ public static class AiRecordFormat
                 w.Write(view.Self.Grenades);
             }
         }
+
+        // Format 6's tail: each view's own team, then each sighted actor's, in the same order.
+        for (int slot = 0; slot < s.Slots; slot++)
+        {
+            if (s.ViewFor(slot) is not { } view)
+                continue;
+            w.Write((byte)view.Self.Team);
+            foreach (ref readonly ActorFacts f in view.Sighted)
+                w.Write((byte)f.Team);
+        }
     }
 
     /// <summary>Reads a snapshot payload into <paramref name="ring"/>'s slot for its tick (not yet published).</summary>
@@ -410,6 +422,20 @@ public static class AiRecordFormat
                     int alt = r.ReadInt32();
                     view.SetAltAmmo(alt, r.ReadInt32());
                 }
+            }
+        }
+
+        if (More(r))
+        {
+            for (int slot = 0; slot < s.Slots; slot++)
+            {
+                if (s.ViewFor(slot) is not { } view)
+                    continue;
+                int self = r.ReadByte();
+                int[] teams = new int[view.SightedCount];
+                for (int i = 0; i < teams.Length; i++)
+                    teams[i] = r.ReadByte();
+                view.SetTeams(self, teams);
             }
         }
 
@@ -454,6 +480,20 @@ public static class AiRecordFormat
         w.Write(d.Utility);
         w.Write(d.ScoreboardTerm);
         w.Write(d.AmmoTerm);
+
+        // Format 6's tail, only when the intent says something: an intent that does not
+        // encodes as format 5's did, so a recording made before callouts compares byte for byte.
+        SayIntent say = i.Say;
+        if (say.Says)
+        {
+            w.Write((byte)say.Kind);
+            Write(w, say.Place);
+            w.Write(say.Count);
+            w.Write(say.Subject);
+            w.Write(say.DelayTicks);
+            w.Write((byte)say.Team);
+            w.Write(say.Text);
+        }
     }
 
     public static IntentCommand ReadIntent(BinaryReader r)
@@ -468,7 +508,10 @@ public static class AiRecordFormat
                                   r.ReadSingle(), r.ReadInt32());
         var action = new ActionIntent((ActionKind)r.ReadByte(), (FireStyle)r.ReadByte(), r.ReadInt32(), r.ReadInt32());
         var reason = new DecisionReason(r.ReadInt32(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
-        return new IntentCommand(bot, from, seq, expires, move, look, action, reason);
+        SayIntent say = More(r)
+            ? new SayIntent((CalloutKind)r.ReadByte(), ReadVector(r), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadByte(), r.ReadBoolean())
+            : default;
+        return new IntentCommand(bot, from, seq, expires, move, look, action, reason, say);
     }
 
     public static void Write(BinaryWriter w, in AiUserCmd c)

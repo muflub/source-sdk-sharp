@@ -810,6 +810,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // is the rule. A chain because every mod's arm belongs; the core
         // itself kills nobody.
         _services.AddFactory<IHooks<ITeamChangeWatcher>>(locator => new Hooks<ITeamChangeWatcher>(locator, log));
+        // A mod's own totals kept across a rejoin (plan_bots_teams_tf2 A.6,
+        // TF2's stats): a chain, every mod's state its own.
+        _services.AddFactory<IHooks<IRejoinScoreHook>>(locator => new Hooks<IRejoinScoreHook>(locator, log));
         // tf2 stage 0.7: the mode selector is a chain (first non-null answer
         // names the mode; the core's "null" answers last inside GameModes,
         // not as a registered selector). Lazy, so a selector may take the
@@ -1547,6 +1550,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                        _services.Require<IEngineDamage>(), _services.Require<Hl2mpSpawnFragFallbackRadiusConVar>(), new Random(),
                                        _services.Resolve<IHooks<ISpawnPlacement>>(),
                                        _services.Resolve<IHooks<ISpawnFragRule>>(), Log);
+        // Registered for the modes that walk their own spawn classes with the
+        // core's machine (team deathmatch's TeamSpawnSelector).
+        _services.AddInstance(_spawnPoints);
         _clock = _services.Require<IGameClock>();
 
         _chapterTitle = new ChapterTitle(Log, _send);
@@ -1849,12 +1855,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // rules' reset, its warmup gate before their think).
         var modes = _services.Create<GameModes>();
         _services.AddInstance(modes);
+        // The core's own mode pick, asked by the proxy after the mods' chain.
+        _services.AddInstance(_services.Create<TeamplayModeSelector>());
         _services.AddInstance<ISpawnWeapon>(DefaultSpawnWeapon.Of(_arsenal, _services.Require<IEngineEntities>(), _engineServer));
         // The rules' restart walk (stock's RestartGame) respawns through the
         // player directory, so the contract is registered BEFORE the Create:
         // Create resolves constructor arguments eagerly, and a registration
         // that comes after the Create throws at server startup.
         _services.AddInstance<IPlayerDirectory>(_players);
+        // A leaving human's score, kept for their rejoin (plan A.6): before
+        // the rules, whose restart clears it.
+        _services.AddInstance(_services.Create<RejoinScores>());
         _rules = _services.Create<GameRules>();
         modes.Attach(_rules);
         // And the death cycle gets the proxy too (tf2 stage 0.7 part C): the
@@ -1947,6 +1958,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // is asked for below the scan.
         var teams = _services.Create<Teams>();
         _services.AddInstance<ITeams>(teams);
+        _services.AddInstance<ITeamAssignment>(teams);
+        // HL2DM's team deathmatch (plan_bots_teams_tf2 Part A): a mode of the
+        // registry beside the core's own "null", built on its first ask —
+        // after the team service and the spawn walk it takes.
+        _services.Add(typeof(TeamDeathmatchMode), typeof(TeamDeathmatchMode));
         // What each player wears: SsPlayer asks at a spawn, and it watches team changes.
         _services.AddInstance(_services.Create<PlayerModels>());
         // What a hit on each part of a player is worth, first of the damage modifiers.
@@ -2002,6 +2018,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Voting and its console verbs: a core service, the mods' words before it.
         _services.Add<IVoteOptions, GameVoteOptions>();
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));
+        // The change-team key's word: the team menu again, under a team mode.
+        _services.Add(typeof(TeamMenuCommand), typeof(TeamMenuCommand));
 
         // Who is an admin, and the menu they get.
         _services.Add<IAdminMenu, AdminMenuBuilder>();

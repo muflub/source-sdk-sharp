@@ -6,7 +6,7 @@ using SourceSharp.Ai.Hl2mp.Nav;
 
 namespace SourceSharp.Ai.Hl2mp;
 
-/// <summary>A moment a player would recognise (§5.5): "revenge" on someone it held a grudge against, "spot" for someone found at the corner it pre-aimed.</summary>
+/// <summary>A moment a player would recognise (§5.5): "revenge" on someone it held a grudge against, "spot" for someone found at the corner it pre-aimed, "friendly_fire" for a teammate's hit (plan_bots_teams_tf2 B.3).</summary>
 public readonly record struct BotMoment(int Slot, string Kind, ActorId Other);
 
 /// <summary>
@@ -119,16 +119,17 @@ public sealed class Hl2mpBots : IFrameLifecycle
     /// <summary>
     /// Adds a bot called <paramref name="name"/> whose seeds are
     /// <paramref name="seedIndex"/>'s (the roster's: the same when it comes
-    /// back); <paramref name="id"/> is its actor. Answers null, or why not.
+    /// back); <paramref name="id"/> is its actor; a bot joining a fixed <paramref name="team"/>
+    /// dresses in that team's models (plan_bots_teams_tf2 B.6). Answers null, or why not.
     /// </summary>
-    public string? Add(string name, SkillProfile skills, int seedIndex, out ActorId id)
+    public string? Add(string name, SkillProfile skills, int seedIndex, out ActorId id, int team = 0, int teamCount = 2)
     {
         id = ActorId.None;
         if (AddRefusal is { } refused)
             return refused;
         int serial = _serial + 1;
         var stream = new AiRandom(AiRandom.SeedFor(MatchSeed, seedIndex));
-        EntityHandle player = _players.Add(name, BotAppearance.For(stream), out string refusal);
+        EntityHandle player = _players.Add(name, BotAppearance.For(stream, team, teamCount), out string refusal);
         if (player == EntityHandle.None)
             return refusal;
 

@@ -371,6 +371,14 @@ public enum LifecycleStage
 
     /// <summary>A player in the game hears what can be voted on.</summary>
     Votes = 2520,
+
+    /// <summary>
+    /// A leaving human's score is kept and a rejoining one's written back
+    /// (RejoinScores). Before every mod's client order, so a mod's own totals
+    /// are captured before the mod forgets them; its level arm clears the
+    /// table and reads nothing of anyone else's.
+    /// </summary>
+    RejoinScores = 2530,
 }
 
 /// <summary>

@@ -161,6 +161,38 @@ public sealed class GiveWayTests
         Assert.True(through, $"stopped at {at}, behind the player at {standing}");
     }
 
+    /// <summary>Walks a bot on <paramref name="team"/> at someone on <paramref name="theirs"/> standing in its way; the times it gave way.</summary>
+    private static long YieldsTo(int team, int theirs)
+    {
+        var (g, ids) = Grids.Parse(
+            ".........",
+            ".........",
+            ".........",
+            ".........",
+            ".........");
+        AiVector start = g.Cell(Grids.At(ids, 0, 2)).Centre, goal = g.Cell(Grids.At(ids, 8, 2)).Centre, standing = g.Cell(Grids.At(ids, 4, 2)).Centre;
+        var d = new BrainDriver();
+        // A higher slot than the one standing, so it is the one that gives way.
+        var bot = new ActorId(6, 1);
+        var open = new NavObstacleState(0);
+        AiVector at = start;
+        for (int t = 2; t < 600; t++)
+        {
+            d.Players = [new NearbyPlayer(bot.Slot, at, team), new NearbyPlayer(5, standing, theirs)];
+            at = Moved(g, at, Wish(d.Drive(Brain(bot, goal, t), at, new Tick(t), t, g, open).Move, at), standing);
+        }
+
+        return d.Yields;
+    }
+
+    /// <summary>A teammate in the way is walked through (plan_bots_teams_tf2 A.7): nobody to give way to.</summary>
+    [Fact]
+    public void ABotGivesNoWayToATeammate() => Assert.Equal(0, YieldsTo(2, 2));
+
+    /// <summary>The control: an enemy in the same place is given way to.</summary>
+    [Fact]
+    public void ABotStillGivesWayToAnEnemy() => Assert.True(YieldsTo(2, 3) > 0);
+
     /// <summary>
     /// Two bots with one goal in the open: both make way toward it, one gets
     /// there, and the other stands off the place rather than push them.
