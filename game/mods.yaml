@@ -92,9 +92,18 @@ mods:
     # TF2's sealed weapon scripts, as the tf2 row: a mod inherits only the
     # defaults, and this one runs TF2's assemblies over TF2's content.
     encryption_key: E2NcUkG2
+    # TF2's strings, as the tf2 row reads them (stock's chat and panel tokens),
+    # and the TF2 mod's own UI strings (resource/tf2_english.txt, on the GAME
+    # path through ../tf2): a hero's HUD and menus are TF2's.
+    localisation: [resource/tf2_english.txt, resource/tf_english.txt, resource/tf_items_english.txt]
+    # TF2's HUD and menus (health, ammo, crosshair, the class menu, the kill
+    # feed): without them a hero sees the core's HL2 HUD and no class menu.
+    # TF2.Descent.Client.Ui joins when its screens' sources exist (plan
+    # CR8, UI1); no SourceSharp.Ai assembly: Descent loads no TF2 bots.
     assemblies:
       server: [SourceSharp.Server, TF2.Server, TF2.Descent.Server]
       client: [SourceSharp.Client, TF2.Client, TF2.Descent.Client]
+      client_ui: [TF2.Client.Ui]
     # The hosted server-browser entry (host plan_steam_auth S-18): source#
     # -resolve -dedicated writes it into mod.dedicated.yaml, and the game
     # server hands it to the host SDK before Booting. name, description,

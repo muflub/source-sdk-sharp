@@ -1200,6 +1200,11 @@ public sealed class ClientPlayerPrediction
         _previouslyPredictedOrigin = default;
         _seedSeen = false;   // the handshake happens once per map
 
+        // Stock's error lives on a C_BasePlayer made per map; the clock
+        // restarts, and an old stamp ahead of it multiplies the owed error.
+        _smoothError = Vector.Zero;
+        _smoothStamp = 0;
+
         LastReplayed = 0;
         Driving = false;
         DrivenHandle = EntityHandle.None;

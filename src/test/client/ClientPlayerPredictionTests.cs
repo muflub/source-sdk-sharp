@@ -1797,6 +1797,34 @@ public class ClientPlayerPredictionTests
     }
 
     /// <summary>
+    /// A new map owes the eye nothing. Stock's C_BasePlayer is made again per
+    /// map, so its m_vecPredictionError never outlives the level; ours lives on
+    /// the service, and the clock restarts. An error noted at 50 s on the last
+    /// map, read at 5 s on this one, scaled the offset by 1 - (5 - 50) / 0.1:
+    /// the daily gate's eye stood 1,600 units off after knock-loose's walk into
+    /// its crate and crept back at ~35 u/s, out of sight of the ropes.
+    /// </summary>
+    [Fact]
+    public void ANewLevelDropsTheEaseTheLastLevelOwed()
+    {
+        var clock = new SmoothClock(50f);
+        var bench = BuildSmooth(clock, ringCommands: [11]);
+
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-32f, bench.Replay.LastViewOffset.X);
+
+        bench.Prediction.LevelInit();
+        clock.Now = 5f;
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.Equal(0f, bench.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>
     /// The window is stock's: a difference at or under <c>MIN_PREDICTION_EPSILON</c>
     /// is noise the eye is not eased for, and one past <c>MAX_PREDICTION_ERROR</c>
     /// reads as a teleport and clears instead of easing (prediction.cpp:173-180).

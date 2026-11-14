@@ -5166,9 +5166,18 @@ def step_teardown(run, state):
 # ---------------------------------------------------------------------------
 BOT_STEPS = ("bots-ctf", "bots-payload")
 
-# Six a side, as C.8 asks; three minutes of play.
+# Six a side, as C.8 asks. The window is the first capture's time with margin: MEASURED
+# 2026-11-11 (lane p6e at 6756c06e0, main's TF2 hull: four tools/ai-cost live runs of 12 bots and
+# two hand-runs of this step) the first capture came 165-209 s after the bots were added, a
+# clock that includes the waiting for players and the pre-round a freshly booted game plays. The
+# window is twice the slowest: 180 s missed the first capture in four of those six games.
 BOTS_CTF_BOTS = 12
-BOTS_CTF_SECONDS = 180.0
+BOTS_CTF_SECONDS = 420.0
+# The AI's main-thread CPU a tick (/ai/counters' ai.main.cpu.us, the thread's own CPU time, not
+# the wall's: a busy box stretches the wall rows). MEASURED 2026-11-11 (lane p6e) with 12 bots on
+# ctf_2fort: per-run medians 328-519 us, the most of any 10 s sample 742 us (load1 up to 124).
+# The budget is twice that most: a step over it has a main-thread cost that has grown.
+BOTS_CTF_MAIN_CPU_US = 1500.0
 # The process's threads after the second load may differ from before the bots
 # by the engine's own comings and goings, never by the AI's pool (4 workers).
 BOTS_THREAD_SLACK = 2
@@ -5193,13 +5202,18 @@ def bot_faults(text):
     return [line for line in (text or "").splitlines() if any(rx.search(line) for rx in BOT_FAULTS)]
 
 
-def bots_ctf_verdict(captures, faults, threads_before, threads_after, slack=BOTS_THREAD_SLACK):
-    """(ok, why) for the bots-ctf step's numbers. A thread count it could not
-    read is a failure, never a pass. PURE."""
+def bots_ctf_verdict(captures, faults, threads_before, threads_after, slack=BOTS_THREAD_SLACK, main_cpu_us=0.0,
+                     budget_us=BOTS_CTF_MAIN_CPU_US):
+    """(ok, why) for the bots-ctf step's numbers. A thread count or a main-thread
+    cost it could not read is a failure, never a pass. PURE."""
     if faults:
         return False, "%d fault line(s), the first: %s" % (len(faults), faults[0][:200])
     if not captures:
         return False, "no capture in %d s of bots on %s" % (BOTS_CTF_SECONDS, MAP)
+    if not isinstance(main_cpu_us, (int, float)) or isinstance(main_cpu_us, bool):
+        return False, "the AI's main-thread cost could not be read (ai.main.cpu.us %r)" % (main_cpu_us,)
+    if main_cpu_us > budget_us:
+        return False, "the AI's main thread took %.0f us a tick, over the budget of %.0f" % (main_cpu_us, budget_us)
     if threads_before is None or threads_after is None:
         return False, "the server's thread count could not be read (%r, %r)" % (threads_before, threads_after)
     if abs(threads_after - threads_before) > slack:
@@ -5209,9 +5223,9 @@ def bots_ctf_verdict(captures, faults, threads_before, threads_after, slack=BOTS
 
 def step_bots_ctf(run, state):
     """P6 step 10, bots-ctf: twelve bots (six a side, Soldiers by their own
-    joinclass) on ctf_2fort for three minutes, with at least one capture by
+    joinclass) on ctf_2fort for BOTS_CTF_SECONDS, with at least one capture by
     bots alone; the AI's main-thread cost read from /ai/counters (ai.sense.us,
-    ai.publish.us); then a changelevel to pl_badwater, THE SECOND MAP LOAD,
+    ai.publish.us, and ai.main.cpu.us held under BOTS_CTF_MAIN_CPU_US); then a changelevel to pl_badwater, THE SECOND MAP LOAD,
     after which the server's thread count is back at its count before the
     bots. Any managed exception or refused acquisition in the step's lines
     fails it. pl_badwater has no TF2 nav at map-tools' lock (55bc945; its
@@ -5253,7 +5267,7 @@ def step_bots_ctf(run, state):
             numbers["detail"] = "the server exited during the bots' play"
             return "FAIL", numbers
     counters = run.srv.get("route", "/ai/counters")
-    for key in ("ai.sense.us", "ai.publish.us", "ai.main.us", "ai.apply.ability.sequences", "ai.apply.fire.feet", "bots"):
+    for key in ("ai.sense.us", "ai.publish.us", "ai.main.us", "ai.main.cpu.us", "ai.apply.ability.sequences", "ai.apply.fire.feet", "bots"):
         numbers[key] = counters.get(key)
     played = run.read_console_since_mark()
     captures = ctf_captures(played)
@@ -5274,7 +5288,7 @@ def step_bots_ctf(run, state):
     faults = bot_faults(run.read_console_since_mark())
     numbers["faults"] = len(faults)
     run.srv.cmd("ai_bot_kick all")
-    ok, why = bots_ctf_verdict(captures, faults, threads_before, threads_after)
+    ok, why = bots_ctf_verdict(captures, faults, threads_before, threads_after, main_cpu_us=numbers.get("ai.main.cpu.us"))
     if not ok:
         numbers["detail"] = why
         return "FAIL", numbers
@@ -5849,11 +5863,13 @@ def self_test():
           "a pickup is no capture")
     exc = "[SourceSharp] ===== EXCEPTION IN IManagedClients.OnPlayerKilled (managed vtable) ====="
     check(bot_faults("ok\n" + exc) == [exc], "an EXCEPTION IN line is a bot step's fault")
-    check(bots_ctf_verdict([("Blue", 4)], [], 77, 77)[0], "a capture, no fault, the threads back: a pass")
-    check(not bots_ctf_verdict([], [], 77, 77)[0], "no capture is a failure")
-    check(not bots_ctf_verdict([("Blue", 4)], [exc], 77, 77)[0], "a fault fails it whatever else holds")
-    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 81)[0], "threads not back fail it")
-    check(not bots_ctf_verdict([("Blue", 4)], [], None, 77)[0], "an unread thread count never passes")
+    check(bots_ctf_verdict([("Blue", 4)], [], 77, 77, main_cpu_us=400.0)[0], "a capture, no fault, the threads back, in budget: a pass")
+    check(not bots_ctf_verdict([], [], 77, 77, main_cpu_us=400.0)[0], "no capture is a failure")
+    check(not bots_ctf_verdict([("Blue", 4)], [exc], 77, 77, main_cpu_us=400.0)[0], "a fault fails it whatever else holds")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 81, main_cpu_us=400.0)[0], "threads not back fail it")
+    check(not bots_ctf_verdict([("Blue", 4)], [], None, 77, main_cpu_us=400.0)[0], "an unread thread count never passes")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 77, main_cpu_us=None)[0], "an unread main-thread cost never passes")
+    check(not bots_ctf_verdict([("Blue", 4)], [], 77, 77, main_cpu_us=BOTS_CTF_MAIN_CPU_US + 1.0)[0], "over the main-thread budget fails it")
     check(select_steps("join,bots-ctf") == ["join", "bots-ctf"], "a bots step runs when named")
     check("bots-ctf" not in DEFAULT_STEPS and "bots-payload" not in DEFAULT_STEPS,
           "the bots' steps are not in the default run until their cost is recorded")

@@ -1404,3 +1404,11 @@ Worth adding: the crash fix's material thread marks are proven only live, with n
 Found by the Descent CR3 lane (`docs/plans/tf2_descent/plan_descent_logic.md`). `NavGraphFromNav3d` raises an extra hull (`NavNumbers.ExtraHulls`) by one step only, so a box that reaches the step two up is admitted on no step: on `ctf_2fort` at map-tools 3551fa8 a 49 by 83 hull has 0 of 4 spawn-to-flag ways and an 86 by 145 hull 0 of 4, where the game's own 48 by 82 has 4 of 4. The fixture is `src/ai/tests/ServerNav/NavExtraHullStairTests.cs`, which pins today's answer and is the red-to-green fact for the fix.
 
 The fix, as the AI coordinator ruled it on 2026-11-11: stand the hull on the highest step under its footprint, with each rise within `StepHeight`. It is a Descent lane's, for when Descent needs giants on stairs, based on main after the coordinator's lane p6e (which is in `NavGraphFromNav3d` for the 2fort traps) has landed. Existing numbers stay byte-identical: the checks CR3 ran (`NumbersKey`, cache names, the dm_lockdown and ctf_2fort graph hashes, the HL2MP replays).
+
+## TF2 bots on ctf_2fort: what P6 left (2026-11-11)
+
+From lane p6e (main after `694f4f618`). Its runs and notes were in that lane's `.scratch`, and the numbers are in `docs/plans/plan_bots_teams_tf2.md` §8.1.
+
+- **The host's client never loads the next map after `changelevel pl_badwater` with 12 bots.** In one of p6e's `bots-ctf` hand-runs, the server loaded the map but the listen host's client did not repaint within 180 s. The same changelevel with no bots repainted fine. That is one occurrence in three hand-runs. `bots-ctf` will go red on it if it recurs. Find out whether it is the bots' disconnect, the map's size or the client's load.
+- **The flag rooms (±600 ∓3427):** live, bots stand next to the intel dais at (444 -3420 -176) reporting "OffGraph cell -1, next none", 15-22 reports per 6 runs. An offline probe at the same spot finds a cell and a 39 u crouch-jump, so it is not reproduced.
+- **"Dropped flag trace started solid!":** the TF2 mod sometimes leaves a dropped flag in mid-air, and bots gather under it. Seen at (371.5 2339.5 224.6), (168.8 749.1 6.9), (266.1 -2918.9 -151.0), (150.4 -2206.0 -57.5), (-419.2 3401.3 -125.0), (179.7 1516.4 262.5) on ctf_2fort, and at (1055 424) on ss_ai_tf_jump. This is a TF2 game fault (src/tf2), not the AI's.
