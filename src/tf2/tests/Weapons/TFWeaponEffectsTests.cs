@@ -26,6 +26,9 @@ public sealed class TFWeaponEffectsTests
 
         public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Calls.Add($"detonate {script.Name}");
 
+        public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
+            => Calls.Add($"shockattack {script.Name}");
+
         public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot)
             => Calls.Add($"flames {script.Name} {shot.Damage} {shot.Critical}");
 

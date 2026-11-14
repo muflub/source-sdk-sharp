@@ -274,6 +274,17 @@ public sealed class SsPlayer : AnimatingEntity
     public int GroundIndex
         => State.GroundEntity == GroundWireNone ? -1 : State.GroundEntity & GroundWireIndexMask;
 
+    /// <summary>
+    /// The entity index the running move stands this player on, -1 for
+    /// nothing: the move's own answer, which a landing's fall damage reads
+    /// before the command's end publishes <see cref="GroundIndex"/>. With no
+    /// move service it is the published word.
+    /// </summary>
+    public int MoveGroundIndex
+        => _moves?.Find(Handle) is { } record
+            ? record.Ground == EntityHandle.None ? -1 : record.Ground.EntryIndex
+            : GroundIndex;
+
     /// <summary>ground_handle_wire.h's GROUNDWIRE_NONE.</summary>
     public const int GroundWireNone = (1 << 21) - 1;
 

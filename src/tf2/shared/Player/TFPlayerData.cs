@@ -79,6 +79,16 @@ public interface ITFPlayerData
     /// nothing, the predicted velocity above being its whole half.
     /// </summary>
     void ScattergunKnock(int playerIndex, Vector velocity) { }
+
+    /// <summary>
+    /// The Thermal Thruster's launch, its real half (<c>CTFRocketPack::RocketLaunchPlayer</c>'s
+    /// <c>SetAbsVelocity</c> and <c>ApplyAbsVelocityImpulse</c> under the preserve-convars'
+    /// zeroing, tf_weapon_rocketpack.cpp:465-477, with the half-second movement stun :461):
+    /// <paramref name="velocity"/> becomes the player's own and the stun lands. The server's
+    /// carriers answer; the client's replay inherits the default nothing, the predicted
+    /// velocity above being its whole half. The pop and the flight each call it once.
+    /// </summary>
+    void ThrusterLaunch(int playerIndex, Vector velocity) { }
 }
 
 /// <summary>Typed views over <see cref="TFPlayerNetState"/>'s words.</summary>

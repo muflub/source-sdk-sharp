@@ -214,6 +214,22 @@ public sealed class TFSniperRifleBehaviourTests
     }
 
     [Fact]
+    public void OnlyFireZoomedLetsTheZoomedShotThrough()
+    {
+        // Fire's deny arm (:794-800) bites only while !IsZoomed(): the zoomed
+        // press passes it and goes out at the held charge, as the live boot
+        // showed (badge 25 held through the zoom, spent across the press).
+        var (world, w, vm) = ItemSniper(FlagItem(9130, "sniper_only_fire_zoomed"));
+        world.Run(w, vm, Attack2, 10f);
+        float t = Hold(world, w, vm, 0, 10.015f, 13.5f);
+        world.Run(w, vm, Attack, t, TFWeaponWorld.GunSeed(200, 10000));
+
+        int shots = world.Arms.Bullets.Count;
+        Assert.Equal(1, shots);
+        Assert.Equal(TFSniperRifleBehaviour.DamageMax, world.Arms.Bullets[0].Shot.Damage, 1);
+    }
+
+    [Fact]
     public void AStockRifleFiresUnzoomed()
     {
         // Without the attribute the plain rifle keeps its unzoomed shot
@@ -240,6 +256,41 @@ public sealed class TFSniperRifleBehaviourTests
         ChargedShot(plain, pw, pvm, 11f);
 
         Assert.Equal(0, plain.Effects.TracerCount);
+    }
+
+    [Fact]
+    public void FiresTracerFollowsTheChargeRageBuff()
+    {
+        // MaybeDrawRailgunBeam's buff arm (tf_player_shared.cpp:10113-10115):
+        // with the shooter carrying the charge rage buff, the fired shot asks
+        // the tracer once even though the item's own hooks stand unset (the
+        // Hitmaker's rage riding onto its shot).
+        var (buffed, bw, bvm) = ItemSniper(null);
+        buffed.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.SniperchargeRageBuff);
+        ChargedShot(buffed, bw, bvm, 11f);
+
+        Assert.Equal(1, buffed.Effects.TracerCount);
+    }
+
+    [Fact]
+    public void The_rage_buff_holds_the_scope_up_between_shots()
+    {
+        // Fire's buff arm (tf_weapon_sniperrifle.cpp:815): a shooter carrying
+        // TF_COND_SNIPERCHARGE_RAGE_BUFF skips the shot's SetRezoom whole, so
+        // the scope stays up between shots — the plain rifle's half-second out
+        // and 0.9 back (A_zoomed_shot_unzooms_half_a_second_later_and_rezooms_after_more)
+        // is what the buff lifts. The live boot showed the same on the held
+        // trigger: ammo 25 to 23 across the press with the scope circle up.
+        var (buffed, bw, bvm) = Sniper();
+        buffed.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.SniperchargeRageBuff);
+        buffed.Run(bw, bvm, Attack2, 10f);
+        float t = Hold(buffed, bw, bvm, 0, 10.015f, 11f);
+        buffed.Run(bw, bvm, Attack, t, TFWeaponWorld.GunSeed(200, 10000));
+
+        Hold(buffed, bw, bvm, 0, t + Tick, t + 1.5f);
+
+        Assert.True(buffed.Owners.Of(TFWeaponWorld.Owner).Has(TFCond.Zoomed));
+        Assert.Equal(new[] { true }, buffed.Effects.Zooms);
     }
 
     // ---- the decay and the jump (ItemPostFrame :360-402) --------------------

@@ -45,10 +45,12 @@ public static class TFProjectileEntityNames
     public const string Flare = "tf_projectile_flare";
     public const string Jar = "tf_projectile_jar";
     public const string JarMilk = "tf_projectile_jar_milk";
+    public const string JarGas = "tf_projectile_jar_gas";
     public const string BallOfFire = "tf_projectile_balloffire";
     public const string BallOrnament = "tf_projectile_ball_ornament";
     public const string EnergyRing = "tf_projectile_energy_ring";
     public const string EnergyBall = "tf_projectile_energy_ball";
+    public const string MechanicalArmOrb = "tf_projectile_mechanicalarmorb";
 }
 
 /// <summary>
@@ -1489,21 +1491,40 @@ public sealed class TFArrow : FlyingProjectile
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
     private readonly IEngineDamage Damage;
+    private readonly IEntityDirectory Directory;
+    private readonly ITFWeaponOwners Owners;
+    private readonly AttributeHooks Hooks;
+    private readonly IEnginePlayers Players;
+    private readonly ITempEnts Temps;
+    private readonly IEnginePrecache Precache;
 
     private float _gravity = TFProjectileDefs.ArrowGravity(0f);
+    private TFProjectile _projectile = TFProjectile.Arrow;
 
     public TFArrow(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
-                   TFDamageScopes scopes, DamageHitGroups hitGroups)
+                   TFDamageScopes scopes, DamageHitGroups hitGroups, IEntityDirectory directory,
+                   ITFWeaponOwners owners, AttributeHooks hooks, IEnginePlayers players,
+                   ITempEnts temps, IEnginePrecache precache)
         : base(physics, motion)
     {
         Damage = damage;
         Scopes = scopes;
         HitGroups = hitGroups;
+        Directory = directory;
+        Owners = owners;
+        Hooks = hooks;
+        Players = players;
+        Temps = temps;
+        Precache = precache;
     }
 
     protected override float GravityScale => _gravity;
 
-    protected override string ProjectileModel => TFProjectileDefs.ArrowModel;
+    // Spawn's arm (tf_projectile_arrow.cpp:204-207): the rescue bolt's claw
+    // where the bow's arrow is the regular shaft.
+    protected override string ProjectileModel
+        => _projectile == TFProjectile.BuildingRepairBolt ? TFProjectileDefs.RepairClawModel
+                                                          : TFProjectileDefs.ArrowModel;
 
     public TFWeaponId Weapon { get; private set; }
     public string WeaponName { get; private set; } = "";
@@ -1514,7 +1535,8 @@ public sealed class TFArrow : FlyingProjectile
 
     /// <summary>The shot the bow dealt: its charge, and whether the flame had lit it.</summary>
     public void ArmedBy(TFWeaponId weapon, string weaponName, bool critical, bool lit,
-                        float damage, float gravity)
+                        float damage, float gravity,
+                        TFProjectile projectile = TFProjectile.Arrow)
     {
         Weapon = weapon;
         WeaponName = weaponName;
@@ -1522,15 +1544,32 @@ public sealed class TFArrow : FlyingProjectile
         Lit = lit;
         ShotDamage = damage;
         _gravity = gravity;
+        _projectile = projectile;
     }
 
     /// <summary>The stock bow's shot, scaled by its charge (<see cref="ArmedBy"/>).</summary>
     public float ShotDamage { get; private set; } = TFProjectileDefs.ArrowBaseDamage;
 
+    /// <summary><c>arrow_heals_buildings</c>, the repair the fired item's worth names (<c>tf_projectile_arrow.cpp:667</c>).</summary>
+    private const string HealBuildingsAttribute = "arrow_heals_buildings";
+
+    /// <summary>
+    /// <c>BuildingHealingArrow</c>'s repair ratio, the caller's four
+    /// (<c>tf_projectile_arrow.cpp:681</c>): four health the metal.
+    /// </summary>
+    private const float RescueRepairRatio = 4f;
+
     protected override void Impact(EntityHandle hit)
     {
         if (hit == EntityHandle.None)
             return;
+
+        // OnArrowImpactObject's arm for one of the team's buildings
+        // (:633-640 → BuildingHealingArrow, :651-688): the fired item's
+        // arrow_heals_buildings pays the repair — no sapper, plasma hold,
+        // blueprint or placement on the building, and the wrangler's shielded
+        // plate a third of it — and the claw's particle tells where it mended.
+        RepairBuilding(hit);
 
         // Stock's bits are the bow's own (g_aWeaponDamageTypes), the ignite bit
         // and the flying-burn custom added on the lit arm (:486-490) — inside
@@ -1547,6 +1586,43 @@ public sealed class TFArrow : FlyingProjectile
         using (Scopes.Push(custom, Weapon, WeaponName))
             Damage.TakeDamage(hit, Attribution, ShotDamage, bits);
     }
+
+    /// <summary><c>BuildingHealingArrow</c> (<c>tf_projectile_arrow.cpp:651-688</c>).</summary>
+    private void RepairBuilding(EntityHandle hit)
+    {
+        // The scorer is the shot's player (:658-660), the building his team's
+        // (:663-664); anything else is the blow's alone.
+        if (Shooter == EntityHandle.None
+            || Directory.Get(hit) is not TFBaseObject building
+            || building.Team != Players.GetTeam(Shooter))
+            return;
+
+        int amount = Hooks.Int(0, HealBuildingsAttribute, Owners.ItemOf(Shooter.EntryIndex, WeaponName));
+        if (amount <= 0)
+            return;
+
+        if (building.HasSapper || building.IsPlasmaDisabled || building.IsBuilding || building.IsPlacing)
+            return;
+
+        // The shielded plate's third (:676-679, SHIELD_NORMAL_VALUE's scale).
+        if (building is TFSentryGun { ShieldLevel: TFSentryGun.ShieldNormal })
+            amount = (int)(amount * TFSentryGun.ShieldDamageScale);
+
+        if (building.CommandRepair(Shooter, amount, repairMod: 1f, RescueRepairRatio) <= 0)
+            return;
+
+        // The tell, on the arrow's own position (:684-687).
+        Vector at = Entities.GetOrigin(Handle);
+        bool red = Players.GetTeam(Shooter) != (int)TFTeam.Blue;
+        var mend = new TeEffectData
+        {
+            Origin = at,
+            Start = at,
+            HitBox = Precache.ParticleSystemIndex(red ? TFProjectileDefs.RepairClawHealRed
+                                                      : TFProjectileDefs.RepairClawHealBlue),
+        };
+        Temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in mend);
+    }
 }
 
 /// <summary>
@@ -1559,6 +1635,8 @@ public sealed class TFArrow : FlyingProjectile
 /// arm (<c>tf_obj.cpp:1896-1899</c>) reads at the half-tenth scale.
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.EnergyRing, ScriptedEntityKind.Projectile)]
+[Precache(PrecacheKind.ParticleSystem, TFProjectileDefs.EnergyDrainEffect)]
+[Precache(PrecacheKind.Sound, TFProjectileDefs.EnergyDrainSound)]
 public sealed class TFProjectileEnergyRing : FlyingProjectile
 {
     private readonly TFDamageScopes Scopes;
@@ -1568,11 +1646,15 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
     private readonly AttributeHooks Hooks;
     private readonly IEnginePlayers Players;
     private readonly IGameClock Clock;
+    private readonly ITempEnts Temps;
+    private readonly IEnginePrecache Precache;
+    private readonly IEngineSound Sound;
 
     public TFProjectileEnergyRing(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
                                   TFDamageScopes scopes, DamageHitGroups hitGroups,
                                   ITFWeaponOwners owners, AttributeHooks hooks,
-                                  IEnginePlayers players, IGameClock clock)
+                                  IEnginePlayers players, IGameClock clock,
+                                  ITempEnts temps, IEnginePrecache precache, IEngineSound sound)
         : base(physics, motion)
     {
         Players = players;
@@ -1582,6 +1664,9 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
         HitGroups = hitGroups;
         Owners = owners;
         Hooks = hooks;
+        Temps = temps;
+        Precache = precache;
+        Sound = sound;
     }
 
     /// <summary><c>tf_bison_tick_time</c> (tf_projectile_energy_ring.cpp:67).</summary>
@@ -1707,7 +1792,8 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
         using (Scopes.Push(TFDamageCustom.Plasma, Weapon, WeaponName))
             Damage.TakeDamage(hit, Attribution, ShotDamage, TFWeaponDamageTypes.Of(Weapon));
 
-        DrainVictim(hit, item);
+        if (DrainVictim(hit, item))
+            DrainFeedback(hit);
     }
 
     /// <summary>
@@ -1720,14 +1806,15 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
     /// Stock drains once per shot, guarded by the last-victim timer (:5562);
     /// this entity's one touch is spent in the base's <c>Spend</c>, which
     /// carries the same once-per-shot. Zero attributes answer the no-op, as
-    /// stock's arms only run on a positive (:5569, :5593).
+    /// stock's arms only run on a positive (:5569, :5593). Answers whether a
+    /// meter moved — the telling stands on it.
     /// </summary>
-    private void DrainVictim(EntityHandle hit, IAttributeProvider? item)
+    private bool DrainVictim(EntityHandle hit, IAttributeProvider? item)
     {
         int medicCharge = Hooks.Int(0, "subtract_victim_medigun_charge_onhit", item);
         int cloak = Hooks.Int(0, "subtract_victim_cloak_on_hit", item);
         if (medicCharge <= 0 && cloak <= 0)
-            return;
+            return false;
 
         // Stock's distance scale on the squared eye-to-victim (:5576-5579);
         // RemapValClamped clamps both ends, so the >512 guard needs no twin.
@@ -1735,9 +1822,42 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
         float scale = TFDamageModifyRules.RemapValClamped(to.X * to.X + to.Y * to.Y + to.Z * to.Z,
                                                           512f * 512f, 1536f * 1536f, 1f, 0f);
 
-        Owners.DrainOnHitMeters(Entities.GetIndex(hit),
-                                medicCharge > 0 ? medicCharge / 100f * scale : 0f,
-                                cloak > 0 ? cloak / 100f * scale : 0f);
+        return Owners.DrainOnHitMeters(Entities.GetIndex(hit),
+                                       medicCharge > 0 ? medicCharge / 100f * scale : 0f,
+                                       cloak > 0 ? cloak / 100f * scale : 0f);
+    }
+
+    /// <summary>
+    /// The drain's telling (<c>ApplyPostHitEffects</c>' tail,
+    /// <c>tf_weaponbase.cpp:5615-5640</c>): the drain particle over the victim
+    /// and the sound on them, only when no disguise or cloak hides the hit
+    /// (:5616-5617 — the conditions' absence is a visible victim, as every
+    /// null walk here is). Stock hangs the particle off the victim's head
+    /// bone; the plain position form carries the same record at the same
+    /// place, as the orb's particles do. Stock's two filters part the
+    /// attacker's ears from the victim-position sound; the one entity sound
+    /// is the record the seam carries.
+    /// </summary>
+    private void DrainFeedback(EntityHandle victim)
+    {
+        if (Owners.ConditionsOf(Entities.GetIndex(victim)) is { } seen
+            && (seen.Has(TFCond.Disguised) || seen.Has(TFCond.Stealthed)))
+            return;
+
+        bool red = Players.GetTeam(Players.GetHandle(_ownerIndex)) == (int)TFTeam.Red;
+        Vector at = Entities.GetWorldSpaceCenter(victim);
+        TeEffectData drain = new()
+        {
+            Scale = 1f,
+            HitBox = Precache.ParticleSystemIndex(TFProjectileDefs.EnergyDrainEffect),
+            Origin = at,
+            Start = at,
+            CustomColors = true,
+            Color1 = red ? TFProjectileDefs.ParticleWeaponRed1 : TFProjectileDefs.ParticleWeaponBlue1,
+            Color2 = red ? TFProjectileDefs.ParticleWeaponRed2 : TFProjectileDefs.ParticleWeaponBlue2,
+        };
+        Temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in drain);
+        Sound.EntityEmitSound(victim, TFProjectileDefs.EnergyDrainSound);
     }
 }
 
@@ -1776,10 +1896,12 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
     private readonly ITempEnts Temps;
     private readonly IEnginePrecache Precache;
     private readonly IScreenEffects Screen;
+    private readonly IEngineSound Sound;
 
     public TFProjectileEnergyBall(IEngineEntityPhysics physics, EntityMotion motion, TFBlastApplier blastApplier,
                                   ITFWeaponOwners owners, AttributeHooks attributes, IEnginePlayers players,
-                                  ITempEnts temps, IEnginePrecache precache, IScreenEffects screen)
+                                  ITempEnts temps, IEnginePrecache precache, IScreenEffects screen,
+                                  IEngineSound sound)
         : base(physics, motion)
     {
         Blast = blastApplier;
@@ -1789,6 +1911,7 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
         Temps = temps;
         Precache = precache;
         Screen = screen;
+        Sound = sound;
     }
 
     protected override float GravityScale => TFProjectileDefs.EnergyGravity;
@@ -1872,7 +1995,8 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
                     TFProjectileDefs.RocketRadiusForRocketJumps * (Charged ? 1.33f : 1f), ShotDamage,
                     Charged ? TFDamageCustom.PlasmaCharged : TFDamageCustom.Plasma);
 
-        DrainVictim(hit, item);
+        if (DrainVictim(hit, item))
+            DrainFeedback(hit);
     }
 
     /// <summary>
@@ -1917,22 +2041,46 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
     /// The pomson's two on-hit drains on the ball's touch too, the same arms
     /// as the ring's <see cref="TFProjectileEnergyRing"/> — stock's
     /// <c>ApplyPostHitEffects</c> is called by the firing weapon for either
-    /// energy projectile (<c>tf_weaponbase.cpp:5553-5613</c>).
+    /// energy projectile (<c>tf_weaponbase.cpp:5553-5613</c>). Answers whether
+    /// a meter moved, as the ring's does.
     /// </summary>
-    private void DrainVictim(EntityHandle hit, IAttributeProvider? item)
+    private bool DrainVictim(EntityHandle hit, IAttributeProvider? item)
     {
         int medicCharge = Hooks.Int(0, "subtract_victim_medigun_charge_onhit", item);
         int cloak = Hooks.Int(0, "subtract_victim_cloak_on_hit", item);
         if (medicCharge <= 0 && cloak <= 0)
-            return;
+            return false;
 
         Vector to = Entities.GetOrigin(hit) - Entities.GetOrigin(Attribution);
         float scale = TFDamageModifyRules.RemapValClamped(to.X * to.X + to.Y * to.Y + to.Z * to.Z,
                                                           512f * 512f, 1536f * 1536f, 1f, 0f);
 
-        Owners.DrainOnHitMeters(Entities.GetIndex(hit),
-                                medicCharge > 0 ? medicCharge / 100f * scale : 0f,
-                                cloak > 0 ? cloak / 100f * scale : 0f);
+        return Owners.DrainOnHitMeters(Entities.GetIndex(hit),
+                                       medicCharge > 0 ? medicCharge / 100f * scale : 0f,
+                                       cloak > 0 ? cloak / 100f * scale : 0f);
+    }
+
+    /// <summary>The drain's telling, the ring's <see cref="TFProjectileEnergyRing"/> word for word.</summary>
+    private void DrainFeedback(EntityHandle victim)
+    {
+        if (Owners.ConditionsOf(Entities.GetIndex(victim)) is { } seen
+            && (seen.Has(TFCond.Disguised) || seen.Has(TFCond.Stealthed)))
+            return;
+
+        bool red = Players.GetTeam(Players.GetHandle(_ownerIndex)) == (int)TFTeam.Red;
+        Vector at = Entities.GetWorldSpaceCenter(victim);
+        TeEffectData drain = new()
+        {
+            Scale = 1f,
+            HitBox = Precache.ParticleSystemIndex(TFProjectileDefs.EnergyDrainEffect),
+            Origin = at,
+            Start = at,
+            CustomColors = true,
+            Color1 = red ? TFProjectileDefs.ParticleWeaponRed1 : TFProjectileDefs.ParticleWeaponBlue1,
+            Color2 = red ? TFProjectileDefs.ParticleWeaponRed2 : TFProjectileDefs.ParticleWeaponBlue2,
+        };
+        Temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in drain);
+        Sound.EntityEmitSound(victim, TFProjectileDefs.EnergyDrainSound);
     }
 }
 
@@ -2796,6 +2944,7 @@ public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDea
 /// </summary>
 [ScriptedEntity(TFProjectileEntityNames.Jar, ScriptedEntityKind.Projectile)]
 [ScriptedEntity(TFProjectileEntityNames.JarMilk, ScriptedEntityKind.Projectile)]
+[ScriptedEntity(TFProjectileEntityNames.JarGas, ScriptedEntityKind.Projectile)]
 public sealed class TFJar : FlyingProjectile
 {
     /// <summary>Skybox surface bit (<c>SURF_SKY</c>), the pipebomb's own sky trace's bit.</summary>
@@ -2832,6 +2981,9 @@ public sealed class TFJar : FlyingProjectile
 
     /// <summary>The milk face of the shared class.</summary>
     public bool Milk => ClassName == TFProjectileEntityNames.JarMilk;
+
+    /// <summary>The gas face of the shared class (<c>CTFJarGas</c>, <c>tf_weapon_jar_gas.cpp</c>).</summary>
+    public bool Gas => ClassName == TFProjectileEntityNames.JarGas;
 
     /// <summary>The pipebomb's arc: stock spawns under <c>SetPipebombMode</c>.</summary>
     protected override float GravityScale => TFProjectileDefs.PipebombGravity;
@@ -2935,7 +3087,7 @@ public sealed class TFJar : FlyingProjectile
         Span<EntityHandle> nearby = stackalloc EntityHandle[MaxJarredExceptions];
         int count = World.EntitiesInSphere(at, TFProjectileDefs.JarRadius, nearby);
         int myTeam = OwnerTeam();
-        TFCond cond = Milk ? TFCond.MadMilk : TFCond.Urine;
+        TFCond cond = Milk ? TFCond.MadMilk : Gas ? TFCond.Gas : TFCond.Urine;
 
         for (int i = 0; i < count; i++)
         {
@@ -2979,6 +3131,14 @@ public sealed class TFJar : FlyingProjectile
                 continue;
 
             Conditions.Add(victim, cond, TFProjectileDefs.JarDuration, Attribution);
+
+            // The gas's own lighting (<c>CTFJarGas::JarExplode</c>): a
+            // gassed enemy also burns for the item's afterburn rate, stock's
+            // <c>TF_GAS_AFTERBURN_RATE</c> as <see
+            // cref="TFBurn.AfterburnRateOnHit"/> answers it.
+            if (Gas)
+                Conditions.Add(victim, TFCond.Burning,
+                               TFBurn.AfterburnRateOnHit(TFWeaponId.JarGas), Attribution);
         }
     }
 

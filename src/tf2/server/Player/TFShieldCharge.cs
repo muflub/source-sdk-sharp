@@ -253,11 +253,23 @@ public sealed class TFShieldCharge(TFPlayerCarriers carriers, IEntityDirectory d
 /// tf_player_shared.cpp:6017-6065), the server's half of the shared think
 /// (<c>ConditionThink</c>, :3118): the drain while the charge stands — the
 /// meter empty ends it — and the refill while it does not, capped at full.
+///
+/// <para>
+/// The frame is integrated as the ticks it carried, one <c>IntervalPerTick</c>
+/// add each, because the client's replay
+/// (<see cref="TF2.Client.Player.TFPlayerPrediction"/>'s charge tick) makes
+/// exactly that add once per command: one add of a whole frame's span rounds
+/// differently from the tick-sized adds it stands for, and the rounding is the
+/// byte the prediction compare counts. A frame's tick count comes from the
+/// clock the frame advanced, so the two sides make the same adds in the same
+/// order and the chains agree bit for bit.
+/// </para>
 /// </summary>
 public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerConditions conditions,
                                         TFPlayerItems items, AttributeHooks? hooks,
                                         TFDemomanChargeDrainTimeConVar? drainTime,
-                                        TFDemomanChargeRegenRateConVar? regenRate)
+                                        TFDemomanChargeRegenRateConVar? regenRate,
+                                        IEngineEnvironment? environment = null)
     : IPlayerComponent
 {
     private EntityHandle _player = EntityHandle.None;
@@ -280,33 +292,44 @@ public sealed class TFShieldChargeMeter(TFPlayerCarriers carriers, TFPlayerCondi
             || (TFClass)state.PlayerClass != TFClass.Demoman)                 // :6019-6020
             return;
 
-        float frametime = float.IsNaN(_last) ? 0f : now - _last;
+        float frame = float.IsNaN(_last) ? 0f : now - _last;
         _last = now;
-        if (frametime <= 0f)
+        if (frame <= 0f)
             return;
 
-        if (set.Has(TFCond.ShieldCharge))                                     // :6022
+        // No engine, no tick to slice by: the whole frame is one add, the
+        // shape the no-engine caller (a test) stands for.
+        float interval = environment?.Globals is { IsAvailable: true } globals
+            ? globals.IntervalPerTick
+            : 0f;
+        int slices = interval > 0f ? Math.Max(1, (int)MathF.Round(frame / interval)) : 1;
+        float dt = interval > 0f ? interval : frame;
+
+        for (int slice = 0; slice < slices; slice++)
         {
-            // The drain: the seconds a full meter lasts, the hook on the
-            // player as stock's ON_OTHER walk is (:6025-6026).
-            float drain = hooks?.Float(drainTime?.Value ?? 1.5f, "mod_charge_time", items.ManagerOf(_player.EntryIndex))
-                          ?? drainTime?.Value ?? 1.5f;
-            state.ChargeMeter -= frametime * (100f / drain);                  // :6027-6028
-            if (state.ChargeMeter <= 0f)                                      // :6029
+            if (set.Has(TFCond.ShieldCharge))                                 // :6022
             {
-                state.ChargeMeter = 0f;                                       // :6031
-                conditions.Remove(_player, TFCond.ShieldCharge);              // :6032
+                // The drain: the seconds a full meter lasts, the hook on the
+                // player as stock's ON_OTHER walk is (:6025-6026).
+                float drain = hooks?.Float(drainTime?.Value ?? 1.5f, "mod_charge_time", items.ManagerOf(_player.EntryIndex))
+                              ?? drainTime?.Value ?? 1.5f;
+                state.ChargeMeter -= dt * (100f / drain);                     // :6027-6028
+                if (state.ChargeMeter <= 0f)                                  // :6029
+                {
+                    state.ChargeMeter = 0f;                                   // :6031
+                    conditions.Remove(_player, TFCond.ShieldCharge);          // :6032
+                }
             }
-        }
-        else if (state.ChargeMeter < 100f)                                    // :6037
-        {
-            // The refill: per second, the hook on the player (:6040-6041), at
-            // least a point (:6052), capped at full (:6054-6057). The
-            // powerup-mode multipliers (:6042-6050) wait for that mode.
-            float regen = hooks?.Float(regenRate?.Value ?? 8.3f, "charge_recharge_rate", items.ManagerOf(_player.EntryIndex))
-                          ?? regenRate?.Value ?? 8.3f;
-            regen = MathF.Max(regen, 1f);                                     // :6052
-            state.ChargeMeter = MathF.Min(100f, state.ChargeMeter + frametime * regen);  // :6053-6057
+            else if (state.ChargeMeter < 100f)                                // :6037
+            {
+                // The refill: per second, the hook on the player (:6040-6041),
+                // at least a point (:6052), capped at full (:6054-6057). The
+                // powerup-mode multipliers (:6042-6050) wait for that mode.
+                float regen = hooks?.Float(regenRate?.Value ?? 8.3f, "charge_recharge_rate", items.ManagerOf(_player.EntryIndex))
+                              ?? regenRate?.Value ?? 8.3f;
+                regen = MathF.Max(regen, 1f);                                 // :6052
+                state.ChargeMeter = MathF.Min(100f, state.ChargeMeter + dt * regen);  // :6053-6057
+            }
         }
     }
 

@@ -83,9 +83,12 @@ public interface ITFSpyState
     /// (<c>:15674-15697</c>): a hit that lands on an armed spy plays them
     /// dead — the cloak meter halves, the burning and the bleed go off, and
     /// the feign-death, stealth and boost conditions ride. Answers whether
-    /// the spy played dead.
+    /// the spy played dead. <paramref name="attacker"/> is the hit's inflictor
+    /// owner, what the fake death's notice and pack name as the killer
+    /// (<c>tf_player.cpp:15736</c>); <see cref="EntityHandle.None"/> for a hit
+    /// from the world.
     /// </summary>
-    bool FeignDeathHit(int victimIndex);
+    bool FeignDeathHit(int victimIndex, EntityHandle attacker = default);
 
     /// <summary>
     /// <c>CTFKnife::CanDeploy</c> (<c>tf_weapon_knife.cpp:521-531</c>): the

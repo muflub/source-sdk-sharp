@@ -149,6 +149,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        IEnginePlayers enginePlayers, IEngineGameEvents events,
                                        IEngineWorldQuery world, IEngineDamage damage,
                                        TFWeaponScripts weaponScripts, TFDamageScopes damageScopes,
+                                       IEngineEnvironment? environment = null,
                                        TFDamageLayer? damageLayer = null,
                                        ITFPlayerHealing? healing = null,
                                        ITFLunchboxEffects? lunchbox = null,
@@ -169,7 +170,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFPlayerCarrier(entities, directory, carriers, log);
         yield return new TFPlayerClass(carriers, items);
         yield return new TFPlayerConditionTicker(carriers, conditions, networking, healing);
-        yield return new TFShieldChargeMeter(carriers, conditions, items, hooks, chargeDrain, chargeRegen);
+        yield return new TFShieldChargeMeter(carriers, conditions, items, hooks, chargeDrain, chargeRegen, environment);
         yield return new TFShieldChargeEnd(carriers, shields, hooks, clock);
         yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFTauntThink(conditions, directory);
@@ -245,6 +246,10 @@ public sealed class TFPlayerCarriers : ITFPlayerData, ITFPlayerClasses
     /// <inheritdoc cref="ITFPlayerData.ScattergunKnock"/>
     public void ScattergunKnock(int playerIndex, Vector velocity)
         => Part<TFScattergunKnockback>(playerIndex)?.Knock(velocity);
+
+    /// <inheritdoc cref="ITFPlayerData.ThrusterLaunch"/>
+    public void ThrusterLaunch(int playerIndex, Vector velocity)
+        => Part<TFScattergunKnockback>(playerIndex)?.Thrust(velocity);
 
     /// <inheritdoc cref="ITFPlayerData.IsPlayerEntity"/>
     public bool IsPlayerEntity(EntityHandle entity)

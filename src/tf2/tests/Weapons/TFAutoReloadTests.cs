@@ -45,8 +45,9 @@ public sealed class TFAutoReloadTests
 
     private static TFWeaponWorld World(bool wish = true, ITFWeaponHook? hook = null) =>
         hook is null
-            ? new TFWeaponWorld(null, null, new Wish(TFWeaponWorld.Owner, wish))
-            : new TFWeaponWorld(null, null, new Wish(TFWeaponWorld.Owner, wish), null, null, hook);
+            ? new TFWeaponWorld(autoReload: new Wish(TFWeaponWorld.Owner, wish))
+            : new TFWeaponWorld(autoReload: new Wish(TFWeaponWorld.Owner, wish), bucket: null,
+                                hooks: new ITFWeaponHook[] { hook! });
 
     private static IWeaponBehaviour Behaviour(TFWeaponWorld world, string weapon) => world.Behaviour(weapon);
 

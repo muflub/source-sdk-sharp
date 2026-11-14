@@ -93,7 +93,8 @@ internal sealed class MeleeRig
     /// <summary>The conditions the laugh arms add, recorded whole.</summary>
     public FakeConditions Conditions { get; } = new();
 
-    public MeleeRig(ITFWeaponOwners? owners = null, AttributeHooks? hooks = null, ITFPlayerConditions? conditions = null)
+    public MeleeRig(ITFWeaponOwners? owners = null, AttributeHooks? hooks = null, ITFPlayerConditions? conditions = null,
+                    ITFPlayerResupply? health = null)
     {
         Engine.ReturnsEachCall("Players.GetHandle",
                                () => Engine.Calls[^1].Args[0] is int slot && Slots.TryGetValue(slot, out var h) ? h : Owner);
@@ -116,7 +117,7 @@ internal sealed class MeleeRig
 
         Damage = new MeleeDamage(HitGroups);
         Effects = new TFMeleeEffects(Engine, Engine, Engine, Damage, HitGroups, Log, owners ?? Owners, hooks,
-                                     conditions: conditions ?? Conditions);
+                                     conditions: conditions ?? Conditions, health: health);
     }
 
     /// <summary>What the engine says the hit target is.</summary>
@@ -915,5 +916,103 @@ public sealed class TFMeleeSpeedBuffTests
         plainOwners.Melee();
 
         Assert.Empty(noItem.Adds);
+    }
+}
+
+/// <summary>
+/// The melee swing's half-health arms (<c>CTFWeaponBaseMelee::GetMeleeDamage</c>,
+/// shared/tf/tf_weaponbase_melee.cpp:1004-1015): the swinger under half their
+/// maximum takes the held item's <c>mult_dmg_bonus_while_half_dead</c>, at half
+/// or above its <c>mult_dmg_penalty_while_half_alive</c>, each multiplied onto
+/// the swing through the held item's walk.
+/// </summary>
+public sealed class TFMeleeHalfHealthTests
+{
+    /// <summary>The supply the health gate reads: a hundred maximum unless a fact says otherwise.</summary>
+    private sealed class Supply : ITFPlayerResupply
+    {
+        public int MaxHealthAnswer { get; init; } = 100;
+
+        public int MaxHealth(EntityHandle player) => MaxHealthAnswer;
+        public void Regenerate(EntityHandle player, bool refillHealthAndAmmo = true) { }
+        public int TakeHealth(EntityHandle player, float health, bool ignoreMaxHealth = false) => 0;
+        public int MaxAmmo(EntityHandle player, TFAmmo ammo) => 0;
+        public int GiveAmmo(EntityHandle player, int count, TFAmmo ammo) => 0;
+    }
+
+    /// <summary>An item wearing one percentage arm.</summary>
+    private static IAttributeProvider Wearing(string hook, float multiplier)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(6101, "attr " + hook, hook,
+                                    AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral,
+                                    false, false, AttributeValueType.Default, MergedKeys.Block("h")), multiplier));
+        return container;
+    }
+
+    /// <summary>A bat swinger (slot 3) at the named health over a hundred-max, their item
+    /// wearing <paramref name="hook"/>; the hull's hit records the blow.</summary>
+    private static MeleeRig HalfSwing(string hook, float multiplier, int health)
+    {
+        var owners = new FakeOwners();
+        owners.Items[3] = Wearing(hook, multiplier);
+        var rig = new MeleeRig(owners, new AttributeHooks(), health: new Supply())
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+        rig.Engine.Returns("Entities.GetHealth", health);
+        return rig;
+    }
+
+    private static MeleeHit Swing(MeleeRig rig)
+    {
+        rig.Melee();
+        return Assert.Single(rig.Damage.Hits);
+    }
+
+    [Fact]
+    public void ASwingUnderHalfHealthTakesTheBonusMultiplier()
+    {
+        // 30 under half of a hundred: the bonus percentage rides the swing.
+        var hit = Swing(HalfSwing("mult_dmg_bonus_while_half_dead", 2f, health: 30));
+
+        Assert.Equal(70f, hit.Damage, 4);
+    }
+
+    [Fact]
+    public void ASwingAtHalfHealthTakesThePenaltyMultiplier()
+    {
+        // Exactly half is not under half (the strict less-than at :1008): the
+        // penalty percentage rides instead.
+        var hit = Swing(HalfSwing("mult_dmg_penalty_while_half_alive", 0.5f, health: 50));
+
+        Assert.Equal(17.5f, hit.Damage, 4);
+    }
+
+    [Fact]
+    public void ASwingWithoutTheHealthArmsStaysWhole()
+    {
+        var owners = new FakeOwners();
+        owners.Items[3] = new AttributeContainer(null, AttributeProviderType.Generic);
+        var low = new MeleeRig(owners, new AttributeHooks(), health: new Supply())
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+        low.Engine.Returns("Entities.GetHealth", 30);
+        low.Melee();
+
+        var high = new MeleeRig(owners, new AttributeHooks(), health: new Supply())
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+        high.Engine.Returns("Entities.GetHealth", 80);
+        high.Melee();
+
+        Assert.Equal(35f, Assert.Single(low.Damage.Hits).Damage, 4);
+        Assert.Equal(35f, Assert.Single(high.Damage.Hits).Damage, 4);
     }
 }

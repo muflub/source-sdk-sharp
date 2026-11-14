@@ -127,7 +127,8 @@ public class TFArrowAlightTests
         // shot — at full charge a 10-damage row's arrow lands 50 + 10.
         var rig = new ProjectileRig();
         var hits = new ScopedDamage(rig.Scopes);
-        var arrow = new TFArrow(rig.Engine, rig.Motion, hits, rig.Scopes, rig.HitGroups);
+        var arrow = new TFArrow(rig.Engine, rig.Motion, hits, rig.Scopes, rig.HitGroups,
+                                rig.Directory, rig.Owners, rig.Hooks, rig.Engine, rig.Temps, rig.Engine);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.ArmedBy(TFWeaponId.CompoundBow, "tf_weapon_compound_bow", critical: false, lit: true,
                       TFProjectileDefs.ArrowDamage(10f, 1f), TFProjectileDefs.ArrowGravity(1f));
@@ -151,7 +152,8 @@ public class TFArrowAlightTests
         // An uncharged bow shoots at its row's damage: the 50 base.
         var rig = new ProjectileRig();
         var hits = new ScopedDamage(rig.Scopes);
-        var arrow = new TFArrow(rig.Engine, rig.Motion, hits, rig.Scopes, rig.HitGroups);
+        var arrow = new TFArrow(rig.Engine, rig.Motion, hits, rig.Scopes, rig.HitGroups,
+                                rig.Directory, rig.Owners, rig.Hooks, rig.Engine, rig.Temps, rig.Engine);
         arrow.BindAreas(TestServices.Areas(rig.Engine));
         arrow.ArmedBy(TFWeaponId.CompoundBow, "tf_weapon_compound_bow", critical: false, lit: false,
                       TFProjectileDefs.ArrowDamage(10f, 0f), TFProjectileDefs.ArrowGravity(0f));

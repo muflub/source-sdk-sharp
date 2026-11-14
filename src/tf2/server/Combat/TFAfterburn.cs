@@ -119,6 +119,12 @@ public sealed class TFAfterburn : IPlayerComponent
         if (!before.Has(TFCond.Burning) && after.Has(TFCond.Burning))
             state.BurnEffectStartTime = now;
 
+        // The burn's bookkeeping, networked for the attacker's rage mirror (the
+        // fields' story): whose fire, when it ticks, how long it burns.
+        state.BurnAttackerIndex = attacker == EntityHandle.None ? -1 : attacker.EntryIndex;
+        state.BurnNextTickTime = Burn.FlameBurnTime;
+        state.BurnDuration = Burn.AfterburnDuration;
+
         _wasBurning = after.Has(TFCond.Burning);
     }
 
@@ -157,6 +163,7 @@ public sealed class TFAfterburn : IPlayerComponent
             if (_wasBurning)
                 Burn.Extinguished();
             _wasBurning = false;
+            BurnStateCleared(state);
             return;
         }
 
@@ -179,8 +186,14 @@ public sealed class TFAfterburn : IPlayerComponent
             _healing.Extinguished(_player);
             Burn.Extinguished();
             _wasBurning = false;
+            BurnStateCleared(state);
             return;
         }
+
+        // The clock and the fire left, every frame: the burn runs outside any
+        // command, and the attacker's mirror reads both (the fields' story).
+        state.BurnNextTickTime = Burn.FlameBurnTime;
+        state.BurnDuration = Burn.AfterburnDuration;
 
         if (think.TickDamage > 0f)
         {
@@ -201,6 +214,14 @@ public sealed class TFAfterburn : IPlayerComponent
 
     /// <summary><c>GetWaterLevel</c>: the player's movement state's, 0 for a player with none.</summary>
     private int WaterLevel() => _directory.Get(_player) is SsPlayer player ? player.State.WaterLevel : 0;
+
+    /// <summary>The networked burn bookkeeping, out: no fire, no tick, no time.</summary>
+    private static void BurnStateCleared(TFPlayerNetState state)
+    {
+        state.BurnAttackerIndex = -1;
+        state.BurnNextTickTime = 0f;
+        state.BurnDuration = 0f;
+    }
 }
 
 /// <summary>

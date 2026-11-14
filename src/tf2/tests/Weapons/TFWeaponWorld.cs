@@ -103,6 +103,7 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public readonly List<(string Weapon, int Mode)> LunchboxDrops = new();
     public int LunchboxEats;
     public readonly List<(int Owner, int BuffType)> Buffs = new();
+    public readonly List<string> ShockAttacks = new();
 
     /// <summary>
     /// The server's lunchbox side the eat is handed to, the way
@@ -114,6 +115,8 @@ internal sealed class RecordingEffects : ITFWeaponEffects
 
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) => Projectiles.Add((script.Name, shot, charge));
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Detonations++;
+
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) => ShockAttacks.Add(script.Name);
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) => FlameTicks.Add((script.Name, shot));
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) => AirBlasts.Add(script.Name);
     public readonly List<string> ExtinguishBeams = new();
@@ -265,21 +268,25 @@ internal sealed class TFWeaponWorld
     public AmmoCatalog Ammo { get; }
     public WeaponLogic Machine { get; }
 
-    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, null, null, hooks) { }
+    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, null, null, null, hooks) { }
 
     /// <summary>A world over the extras set too (<see cref="WeaponFixtures.WithExtras"/>): the facts whose
     /// weapon lives in TestData/weapons-extra.</summary>
     public TFWeaponWorld(bool extras)
         : this(null, null, null, extras ? WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()) : null,
-               null, Array.Empty<ITFWeaponHook>()) { }
+               null, null, Array.Empty<ITFWeaponHook>()) { }
 
     /// <summary>A world whose parts carry a predicted-data fake (the client's replay arm).</summary>
-    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, null, null, hooks) { }
+    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, null, null, null, hooks) { }
 
-    /// <summary>A world whose parts carry a bound convar (the fixed spread's facts).</summary>
+    /// <summary>A world whose parts carry a bound convar (the fixed spread's
+    /// facts), or whose parts speak through a given effects — the real beam's
+    /// facts hand the rig's <c>TFFlameEffects</c> so the press runs the real
+    /// chain.</summary>
     public TFWeaponWorld(FakePredictedData? data = null, TFUseFixedWeaponspreadsConVar? fixedSpread = null,
                          ITFAutoReload? autoReload = null, TFClassTableTests.Files? files = null,
-                         ITFRevengeCrits? bucket = null, params ITFWeaponHook[] hooks)
+                         ITFRevengeCrits? bucket = null, ITFWeaponEffects? effects = null,
+                         params ITFWeaponHook[] hooks)
     {
         var shipped = files ?? WeaponFixtures.ShippedWithClasses();
         var scripts = new TFWeaponScripts(Log, shipped);
@@ -288,7 +295,7 @@ internal sealed class TFWeaponWorld
         var chain = TFWeaponHookChain.Of([new TFSwordHook(attributes), new TFAttributeWeaponHook(attributes),
                                           new TFCritBoostHook(), new TFKingReloadHook(), .. hooks]);
 
-        Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, Effects, Builder, data,
+        Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, effects ?? Effects, Builder, data,
                                   Round, fixedSpread: fixedSpread, autoReload: autoReload,
                                   flamethrowerBurstammo: Burstammo, sapper: Sapper, sentryWrangle: Wrangle,
                                   revengeCrits: bucket);

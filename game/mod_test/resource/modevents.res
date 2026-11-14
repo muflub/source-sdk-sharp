@@ -75,4 +75,10 @@
 		"player"	"byte"		// entindex of the player
 		"achievement"	"short"		// achievement ID
 	}
+
+	"deadringer_cheat_death"		// the Dead Ringer's scale saved the spy (tf_gamerules.cpp:7415)
+	{
+		"spy"	"short"		// user ID of the saved spy
+		"attacker"	"short"		// user ID of the attacker, -1 when none
+	}
 }

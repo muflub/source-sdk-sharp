@@ -83,7 +83,7 @@ public sealed class TFBurn
     public const string BurnTimeAttrib = "mult_wpn_burntime";
 
     /// <summary>The burn weapon's tick arm, before the degree multipliers (<c>tf_player_shared.cpp:2898</c>).</summary>
-    public const string BurnDamageAttrib = "mult_wpn_burndmg";
+    public const string BurnDamageAttrib = TFCombatDefs.BurnDamageAttribute;
 
     /// <summary><c>WL_Waist</c> (<c>shared/shareddefs.h</c>): water this deep puts the fire out.</summary>
     public const int WaterLevelWaist = 2;

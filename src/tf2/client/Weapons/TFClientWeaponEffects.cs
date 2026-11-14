@@ -34,6 +34,11 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
 
+    /// <summary>The orb is the server's spawn; the client's muzzle fizzle
+    /// (<c>dxhr_sniper_fizzle</c>, tf_weapon_mechanical_arm.cpp:294-299) waits
+    /// with the particle arm, as every client effect here does.</summary>
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) { }
+
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
 
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }

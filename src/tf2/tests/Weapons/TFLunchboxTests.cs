@@ -184,4 +184,57 @@ public sealed class TFLunchboxTests
         Assert.Equal(0.5f, w.ItemMeter, 4);
         Assert.Equal(0, w.Reserve);
     }
+
+    /// <summary>
+    /// The eat's stamp, every pass: stock's client arm (<c>:188</c>) writes its
+    /// constant on every prediction of the press, so the replay of a command
+    /// already predicted lands on the same bytes however the condition words
+    /// move between passes — the condition's remainder is the server's arm
+    /// (<c>:186</c>, <c>GAME_DLL</c>), and the compare judges one answer against
+    /// the arrival, not a stamp that chases the arrival's age.
+    /// </summary>
+    [Fact]
+    public void The_replay_stamps_the_eat_repeat_off_the_condition_words()
+    {
+        var (world, w, vm) = Heavy();
+
+        world.Run(w, vm, Attack, now: 10f);
+        float stamped = w.NextPrimaryAttack;
+
+        // The taunt's words arrive with the decode after the press; the replay
+        // of the same command runs over a state that carries them.
+        world.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.Taunting, 1.8f);
+        var (w2, vm2) = world.Armed(Lunchbox, clip: 0, reserve: 1);
+
+        world.Run(w2, vm2, Attack, now: 10f, live: false);
+
+        // :188: the constant on every pass, the same clock the press wrote.
+        Assert.Equal(stamped, w2.NextPrimaryAttack, 4);
+        Assert.Equal(10f + TFLunchboxBehaviour.ClientEatRepeat, w2.NextPrimaryAttack, 4);
+    }
+
+    /// <summary>
+    /// The meter's clock through the press and the replay of it: the machine's
+    /// tail stamps <see cref="WeaponNetState.ItemMeterTime"/> on the command
+    /// that carries the eat's spend, and the replay of that command writes the
+    /// same stamp off its own clock — the replayed bytes are the judged ones.
+    /// </summary>
+    [Fact]
+    public void The_replay_stamps_the_meters_clock_on_the_same_command()
+    {
+        var (world, w, vm) = Heavy();
+        world.Owners.Items[TFWeaponWorld.Owner] = Item(911, TFItemMeter.ChargeRateAttribute, 1f);
+
+        // The press: the eat spends, and the tail moves the clock to the press's own second.
+        world.Run(w, vm, Attack, now: 10f);
+        Assert.Equal(10f, w.ItemMeterTime, 4);
+
+        // The replay of that command over the state the decode carries — the
+        // held stamp the arrival brings — writes the same second again.
+        var (w2, vm2) = world.Armed(Lunchbox, clip: 0, reserve: 1);
+        w2.ItemMeterTime = 9f;
+
+        world.Run(w2, vm2, Attack, now: 10f, live: false);
+        Assert.Equal(10f, w2.ItemMeterTime, 4);
+    }
 }

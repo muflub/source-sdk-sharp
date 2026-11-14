@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 using SourceSharp.Abi;
@@ -5,6 +6,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using TF2.Server.Buildings;
 using TF2.Shared;
+using TF2.Shared.Combat;
 using Xunit;
 
 namespace TF2.Tests.Buildings;
@@ -272,5 +274,26 @@ public class TFWrangledSentryTests
         wrangle.Release(1);
         sentry.OnThink("SentryThink");
         Assert.False(sentry.IsPlayerControlled);
+    }
+
+    /// <summary>The wrangled shell's custom (<c>ModifyFireBulletsDamage</c>,
+    /// tf_obj_sentrygun.cpp:1651-1657): the kill feed's sentry arm reads it
+    /// for the pointer's name.</summary>
+    [Fact]
+    public void TheWrangledShellCarriesTheSentryCustom()
+    {
+        var (rig, sentry, _) = AStandingSentry();
+        AnEnemyOnTheLine(rig);
+        var customs = new List<TFDamageCustom>();
+        rig.Engine.WhenCalled("Damage.TakeDamage",
+                              call => customs.Add(rig.Scopes.TryCurrent(out var custom, out _, out _) ? custom : TFDamageCustom.None));
+
+        sentry.LaserAim(TheDot(600f));
+        sentry.OnThink("SentryThink");
+        rig.Clock.Now += 0.1f;
+        sentry.LaserFire();
+        sentry.OnThink("SentryThink");           // the held trigger: the shell
+
+        Assert.Equal(new[] { TFDamageCustom.PlayerSentry }, customs);
     }
 }

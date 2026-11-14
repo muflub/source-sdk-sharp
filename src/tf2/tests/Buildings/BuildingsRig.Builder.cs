@@ -183,7 +183,8 @@ internal sealed partial class BuildingsRig
 
     /// <summary>The real lift over the rig's fakes; a round state is handed in when a fact needs one.</summary>
     public TFBuildingPickup Pickup(ITeamRoundState? rounds = null, ITFBuilderPlacement? builder = null)
-        => new(Players, Buildings(), Engine, Engine, builder ?? Placement(), rounds, Carriers);
+        => new(Players, Buildings(), Engine, Engine, builder ?? Placement(), rounds, Carriers,
+               Services.Resolve<TF2.Shared.Econ.AttributeHooks>()!, Owners, Purse, Effects, Engine, Engine);
 
     /// <summary>
     /// The click-to-place half over the rig: the traces answer flat ground at

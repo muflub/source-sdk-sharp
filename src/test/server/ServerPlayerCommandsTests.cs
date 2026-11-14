@@ -793,6 +793,28 @@ public sealed class ServerPlayerMovementRulesTests
     public void APunchReachesTheGroundedOrAnAirPunchesAnyone(bool onGround, bool inAir, bool reaches)
         => Assert.Equal(reaches, ServerPlayerMovement.PunchReachesPlayer(onGround, inAir));
 
+    [Fact]
+    public void A_landing_names_the_ground_before_the_fall_hit_reads_it()
+    {
+        var host = new ServerPlayerMove { Ground = EntityHandle.None };
+        var under = new EntityHandle(0x0001_0002u);
+
+        ServerMoveWorld.NameLandedGround(host, under);
+
+        Assert.Equal(under, host.Ground);
+    }
+
+    [Fact]
+    public void A_landing_with_no_ground_found_leaves_the_record()
+    {
+        var held = new EntityHandle(0x0001_0002u);
+        var host = new ServerPlayerMove { Ground = held };
+
+        ServerMoveWorld.NameLandedGround(host, EntityHandle.None);
+
+        Assert.Equal(held, host.Ground);
+    }
+
     [Theory]
     [InlineData(0x43, 0x43)]
     [InlineData(0xC3, -61)]

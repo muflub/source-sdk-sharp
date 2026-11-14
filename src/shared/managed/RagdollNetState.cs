@@ -192,6 +192,22 @@ public partial class RagdollNetState
     public partial byte Team { get; set; }
 
     /// <summary>
+    /// The dead player's class, stamped by the server when the body is made.
+    ///
+    /// <para>
+    /// Stock's ragdoll <c>m_iClass</c>, carried beside <see cref="Team"/> by the
+    /// same death walk (<c>pRagdoll-&gt;m_iClass = GetPlayerClass()-&gt;GetClassIndex()</c>,
+    /// tf_player.cpp:15626, and the disguised arm's
+    /// <c>m_iClass = m_Shared.GetDisguiseClass()</c>, :15873): the client reads it
+    /// when it builds the body, for the class-specific poses and skins — the
+    /// zombie override adjusts the skin by it
+    /// (<c>AdjustSkinForZombie(m_iClass, ...)</c>, c_tf_player.cpp:725). Stored as
+    /// a TF class index, 0 when no class ever stood here.
+    /// </para>
+    /// </summary>
+    public partial byte Class { get; set; }
+
+    /// <summary>
     /// When this body began to dissolve, 0 for a body that does not: stock's
     /// CEntityDissolve::m_flStartTime, as a word on the body rather than an entity
     /// parented to it, since the body is the one thing it ever dissolves here.

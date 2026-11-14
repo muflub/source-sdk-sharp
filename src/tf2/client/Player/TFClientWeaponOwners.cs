@@ -118,11 +118,18 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
            && live.State.WinningTeam == live.State.Team[playerIndex];
 
     public IAttributeProvider? ItemOf(int playerIndex, string weaponName)
-    {
-        if (itemSchema is null || catalog is null)
-            return null;
+        => ItemOf(itemSchema, catalog, data.Networked(playerIndex), weaponName);
 
-        if (data.Networked(playerIndex) is not { } state)
+    /// <summary>
+    /// The item walk itself, static so the replay's press reads the same table
+    /// this does: the row the carrier's defindex array names, looked up in the
+    /// parsed schema. Null schema, catalog or carrier — or a row and defindex
+    /// that name nothing — is no item.
+    /// </summary>
+    internal static IAttributeProvider? ItemOf(ItemSchema? itemSchema, WeaponCatalog? catalog,
+                                               TFPlayerNetState? state, string weaponName)
+    {
+        if (itemSchema is null || catalog is null || state is null)
             return null;
 
         int row = catalog.IndexOf(weaponName);
@@ -190,16 +197,26 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
     /// are predicted, so nobody else is drained here — the server's decoded
     /// words carry theirs.
     /// </summary>
-    public void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+    public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
     {
+        bool drained = false;
+
         if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
             && arsenal?.TryGetActive(out _, out _, out _) == true
             && arsenal.ActiveWeaponState is { } weapon)
+        {
             weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - medicFraction);
+            drained = true;
+        }
 
         if (spyFraction > 0f && ClassOf(playerIndex) == TFClass.Spy
             && data.Predicted(playerIndex) is { } state)
+        {
             state.CloakMeter = Math.Max(0f, state.CloakMeter - spyFraction * 100f);
+            drained = true;
+        }
+
+        return drained;
     }
 
     private TFPlayerNetState? State(int playerIndex) => data.Predicted(playerIndex) ?? data.Networked(playerIndex);

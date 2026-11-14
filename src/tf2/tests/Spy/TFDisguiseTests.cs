@@ -47,6 +47,54 @@ public sealed class TFDisguiseTests
     }
 
     [Fact]
+    public void The_disguises_wish_and_deadline_land_on_the_carrier()
+    {
+        var rig = new SpyRig();
+
+        Assert.True(rig.Slice.Disguise(100f, TFClass.HeavyWeapons, TFTeam.Blue));
+
+        // The press's writes (tf_player_shared.cpp:8246-8247, :8268): the
+        // replay completes the disguise from them, so they ride the carrier.
+        Assert.Equal((int)TFClass.HeavyWeapons, rig.State.DesiredDisguiseClass);
+        Assert.Equal((int)TFTeam.Blue, rig.State.DesiredDisguiseTeam);
+        Assert.Equal(102f, rig.State.DisguiseCompleteTime, 4);
+
+        // The boundary tick itself completes nothing: stock's
+        // CheckDisguiseTimer compares strictly, curtime > completeTime (:3309).
+        rig.Slice.Tick(102f);
+        Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));
+
+        rig.Slice.Tick(102.1f);
+
+        // Completed, the deadline zeroed (:8343) and the wish's team ended
+        // with the disguising (OnRemoveDisguising, :7218) — the class stands,
+        // the lastdisguise key's.
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguised));
+        Assert.Equal(0f, rig.State.DisguiseCompleteTime, 4);
+        Assert.Equal((int)TFTeam.Unassigned, rig.State.DesiredDisguiseTeam);
+        Assert.Equal((int)TFClass.HeavyWeapons, rig.State.DesiredDisguiseClass);
+    }
+
+    [Fact]
+    public void A_spy_disguised_as_a_spys_wear_a_mask_of_the_nine_classes()
+    {
+        var rig = new SpyRig();
+        rig.Random.Int = 9;
+
+        // Not a spy's disguise: stock's roll is inside the class branch
+        // (:8307), so the mask is whatever the last one drew.
+        Assert.True(rig.Slice.Disguise(100f, TFClass.HeavyWeapons, TFTeam.Blue));
+        rig.Slice.Tick(102.1f);
+        Assert.Equal(0, rig.State.MaskClass);
+
+        // Disguised as a spy: the draw is the rig's die, 1..9
+        // (tf_player_shared.cpp:8309) — nine here.
+        Assert.True(rig.Slice.Disguise(103f, TFClass.Spy, TFTeam.Blue));
+        rig.Slice.Tick(105.1f);
+        Assert.Equal(9, rig.State.MaskClass);
+    }
+
+    [Fact]
     public void A_disguise_while_disguised_is_quick()
     {
         var rig = Disguised();

@@ -223,6 +223,9 @@ public sealed class TFClientCarriers
     /// <summary>How many carriers are live.</summary>
     public int Count => _live.Count;
 
+    /// <summary>The live carriers, for the walks that ask every player — the rage mirror's burners.</summary>
+    public IReadOnlyList<ClientTFPlayerData> Live => _live;
+
     public void Track(ClientTFPlayerData carrier)
     {
         if (!_live.Contains(carrier))

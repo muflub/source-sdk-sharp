@@ -88,6 +88,45 @@ public partial class TFPlayerNetState
     public partial int DisguiseTeam { get; set; }
 
     /// <summary>
+    /// <c>m_nDesiredDisguiseClass</c>: the class of the disguise now going on
+    /// (tf_player_shared.cpp:8246, where stock predicts it :465 and sends it
+    /// :512). Sent, not predicted, here: the ask is a console line the server
+    /// takes (<c>disguise</c>), outside the usercmd the replay reads, so the
+    /// write is the arrival's word (the <see cref="NoAttackExpire"/> rule)
+    /// and the completion — the field's reader — rides the same snapshot
+    /// into the replay's <c>DisguiseTick</c>.
+    /// </summary>
+    public partial int DesiredDisguiseClass { get; set; }
+
+    /// <summary>
+    /// <c>m_nDesiredDisguiseTeam</c>: the team of the disguise now going on
+    /// (tf_player_shared.cpp:8247, :466, :513). Sent, not predicted, as its
+    /// class above; <c>OnRemoveDisguising</c> :7218 sends it back undefined
+    /// with the disguising's end, on both sides.
+    /// </summary>
+    public partial int DesiredDisguiseTeam { get; set; }
+
+    /// <summary>
+    /// <c>m_flDisguiseCompleteTime</c>: when the disguising completes
+    /// (tf_player_shared.cpp:8268, a plain <c>DEFINE_FIELD</c> :474). Stock
+    /// sends it nowhere because its client runs the press and completes the
+    /// disguise locally; here the press is the server's, so the deadline
+    /// rides to the replay that honours it — sent, not predicted, the
+    /// arrival's word. Zero once a completion has run (:8343).
+    /// </summary>
+    public partial float DisguiseCompleteTime { get; set; }
+
+    /// <summary>
+    /// <c>m_nMaskClass</c>: the class whose mask a spy disguised as a spy
+    /// wears (tf_player_shared.cpp:8309, drawn at the completion). Sent, not
+    /// predicted, as the target above: the roll is the server's
+    /// <c>rand()</c>, no replay reproduces it, and the model that wears it is
+    /// the disguise-display lane (docs/plans/tf2/deferred.tsv) — stock's
+    /// readers are the masked skin and bodygroup, c_tf_player.cpp:7857, :9774.
+    /// </summary>
+    public partial int MaskClass { get; set; }
+
+    /// <summary>
     /// <c>m_flCloakMeter</c>: the spy's cloak charge, 0..100 (tf_player_shared.cpp:475,
     /// predicted; drained by <c>UpdateCloakMeter</c>:14165 and filled by
     /// <c>m_flCloakRegenRate</c>). The invisibility watch's activation gates on
@@ -117,6 +156,16 @@ public partial class TFPlayerNetState
     /// believes the snapshot, so the refusal reads it on both sides.
     /// </summary>
     public partial float NoAttackExpire { get; set; }
+
+    /// <summary>
+    /// <c>m_bFeignDeathReady</c>: the Dead Ringer's armed-and-waiting bit
+    /// (tf_player_shared.h:1087, sent by SendPropBool :583 and predicted
+    /// :468). The watch's press arms it from a full meter and the feigned
+    /// death spends it (tf_weapon_invis.cpp:237-241, tf_player.cpp:9678);
+    /// the feign condition's own add takes it back (tf_player_shared.cpp:7188).
+    /// </summary>
+    [Predicted]
+    public partial bool FeignDeathReady { get; set; }
 
     /// <summary><c>m_iAirDash</c>: air dashes taken since the player last stood on ground.</summary>
     [Predicted]
@@ -297,6 +346,32 @@ public partial class TFPlayerNetState
     /// entity index; -1 for none.</summary>
     [Predicted]
     public partial int HealTargetIndex { get; set; }
+
+    /// <summary>
+    /// The burn's attacker, as an entity index; -1 none. Stock keeps
+    /// <c>m_hBurnAttacker</c> server-side (<c>Burn</c>, tf_player_shared.cpp:6751),
+    /// but the burn tick's rage credits the attacker through the victim's
+    /// OnTakeDamage (tf_player.cpp:9730-9735) — news the attacker's client
+    /// cannot predict without knowing the fire is its own. Sent, not
+    /// predicted, with the clock and life below: the burn is the server's to
+    /// run (the <see cref="BurnEffectStartTime"/> rule).
+    /// </summary>
+    public partial int BurnAttackerIndex { get; set; }
+
+    /// <summary>
+    /// <c>m_flFlameBurnTime</c>: when the victim's next burn tick is due. Sent,
+    /// not predicted, with <see cref="BurnAttackerIndex"/>: the tick schedule is
+    /// the server's think (<c>ConditionGameRulesThink</c>,
+    /// tf_player_shared.cpp:2895), outside any command.
+    /// </summary>
+    public partial float BurnNextTickTime { get; set; }
+
+    /// <summary>
+    /// <c>m_flAfterburnDuration</c>: the seconds of fire the victim has left.
+    /// Sent, not predicted, with <see cref="BurnAttackerIndex"/> — the drain
+    /// runs in the server's think, outside any command.
+    /// </summary>
+    public partial float BurnDuration { get; set; }
 
     /// <summary>
     /// <c>m_flRageMeter</c>: the soldier's buff meter, 0..100 — predicted

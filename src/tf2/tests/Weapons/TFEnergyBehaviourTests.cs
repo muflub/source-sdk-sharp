@@ -3,6 +3,7 @@ using SourceSharp.Shared;
 
 using TF2.Server.Projectiles;
 using TF2.Shared;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Tests.Projectiles;
 
@@ -167,13 +168,17 @@ public sealed class TFEnergyBehaviourTests
         Assert.Equal(5, w.Reserve);
     }
 
-    /// <summary>A ring over the projectile rig, armed for the pomson's shot.</summary>
+    /// <summary>A ring over the projectile rig, armed for the pomson's shot. The
+    /// telling's reads stand answered: the owner red, the victim's centre the origin.</summary>
     private static ProjectileRig PomsonRing(out TFProjectileEnergyRing ring, string hook = "", float amount = 0f)
     {
         var rig = new ProjectileRig();
         if (hook.Length > 0)
             rig.Owners.Item = rig.AttributeItem(hook, AttributeDescriptionFormat.Additive, amount);
 
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", default(Vector));
+        rig.Engine.Returns("Players.GetHandle", ProjectileRig.Player);
+        rig.Engine.Returns("Precache.ParticleSystemIndex", 9);
         ring = rig.Ring();
         ring.ArmedBy(60f, TFWeaponId.DrgPomson, "tf_weapon_drg_pomson", false, Owner);
         return rig;
@@ -363,6 +368,57 @@ public sealed class TFEnergyBehaviourTests
         // The arms only run on a positive attribute (:5569, :5593): no item,
         // no drain call at all.
         Assert.Empty(rig.Owners.Drains);
+    }
+
+    [Fact]
+    public void A_draining_hit_tells_its_particle_and_sound()
+    {
+        var rig = PomsonRing(out var ring, "subtract_victim_medigun_charge_onhit", 40f);
+        rig.Engine.Returns("Players.GetTeam", (int)TFTeam.Red);
+
+        ring.OnTouch(ProjectileRig.Victim);
+
+        // The telling (ApplyPostHitEffects' tail, tf_weaponbase.cpp:5619-5635):
+        // the drain particle over the victim in the owner's team's colours,
+        // the sound on the victim.
+        var sent = Assert.Single(rig.Temps.Effects);
+        Assert.Equal("ParticleEffect", sent.Name);
+        Assert.True(sent.Data.CustomColors);
+        Assert.Equal(TFProjectileDefs.ParticleWeaponRed1, sent.Data.Color1);
+        Assert.Equal(TFProjectileDefs.ParticleWeaponRed2, sent.Data.Color2);
+        Assert.Equal(sent.Data.Origin, sent.Data.Start);
+        var sound = rig.Engine.Last("Sound.EntityEmitSound")!;
+        Assert.Equal(ProjectileRig.Victim, sound.ArgAs<EntityHandle>(0));
+        Assert.Equal(TFProjectileDefs.EnergyDrainSound, sound.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void A_hidden_victim_hears_no_drain()
+    {
+        var rig = PomsonRing(out var ring, "subtract_victim_cloak_on_hit", 35f);
+        rig.Owners.Conditions = new TFConditions(true);
+        rig.Owners.Conditions.Add(TFCond.Stealthed);
+
+        ring.OnTouch(ProjectileRig.Victim);
+
+        // The cloak eats the telling, not the drain (:5616-5617).
+        Assert.Single(rig.Owners.Drains);
+        Assert.Empty(rig.Temps.Effects);
+    }
+
+    [Fact]
+    public void A_meter_that_stood_nowhere_tells_nothing()
+    {
+        var rig = PomsonRing(out var ring, "subtract_victim_medigun_charge_onhit", 40f);
+        rig.Owners.MeterStood = false;
+
+        ring.OnTouch(ProjectileRig.Victim);
+
+        // No meter moved, no bDidDrain (:5555, :5619): the record stands, the
+        // telling does not.
+        Assert.Single(rig.Owners.Drains);
+        Assert.Empty(rig.Temps.Effects);
+        Assert.Equal(0, rig.Engine.CountOf("Sound.EntityEmitSound"));
     }
 
     private const int Attack2 = (int)InputButtons.Attack2;

@@ -49,7 +49,8 @@ public sealed class TFSpyComponent(
     TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
     ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
     ICtfRules? ctf = null, ILagCompensation? lagCompensation = null,
-    ITFPlayerResupply? resupply = null) : IPlayerComponent
+    ITFPlayerResupply? resupply = null, DeathNotice? notice = null, Corpses? corpses = null,
+    TFDeathDrops? drops = null, TFFeignRagdoll? feignRagdoll = null) : IPlayerComponent
 {
     /// <summary><c>TF_TIME_TO_DISGUISE</c> (tf_shareddefs.h:674).</summary>
     public const float TimeToDisguise = 2.0f;
@@ -62,8 +63,9 @@ public sealed class TFSpyComponent(
 
     /// <summary><c>INVIS_FEIGN_DEATH</c> (<c>tf_weapon_invis.h:22-27</c>): the
     /// watch's <c>set_weapon_mode</c> the Dead Ringer wears
-    /// (<c>HasFeignDeath</c>, :67).</summary>
-    public const int InvisFeignDeathMode = 1;
+    /// (<c>HasFeignDeath</c>, :67). The shared enum's home is
+    /// <see cref="TFInvisibility.InvisFeignDeathMode"/>.</summary>
+    public const int InvisFeignDeathMode = TFInvisibility.InvisFeignDeathMode;
 
     /// <summary><c>tf_feign_death_duration</c>'s stock default
     /// (tf_player_shared.cpp:180): the seconds the feign condition rides.</summary>
@@ -80,8 +82,10 @@ public sealed class TFSpyComponent(
     // old clock difference's first-tick zero did.
     private bool _drained;
 
-    // The disguise in the air (stock's m_nDesiredDisguise*, m_flDisguiseCompleteTime).
-    private float _disguiseCompleteTime;
+    // The disguise in the air (stock's m_nDesiredDisguise*). The deadline and
+    // the carrier's copy of the desire live on the carrier itself
+    // (DisguiseCompleteTime, DesiredDisguiseClass/Team): the replay completes
+    // from them, so one copy serves both sides.
     private TFClass _desiredClass = TFClass.Undefined;
     private TFTeam _desiredTeam = TFTeam.Unassigned;
 
@@ -92,10 +96,9 @@ public sealed class TFSpyComponent(
     // tf_weapon_invis.cpp's m_flStealthNextChangeTime, the toggle's cooldown.
     private float _stealthNextChangeTime;
 
-    // The Dead Ringer's ready bit (stock's m_bFeignDeathReady,
-    // tf_player_shared.h:1087): armed and spent by the watch's presses and the
-    // hits that answer them.
-    private bool _feignDeathReady;
+    // Stock's m_flFeignDeathEnd (tf_player_shared.cpp:7190): when the feign ends,
+    // the buffs' window; checked every think (:2997-3002).
+    private float _feignDeathEndStamp;
 
     // The swing just made backstabbed, until the next one; the victim it named
     // (stock's m_hBackstabVictim, read by DisguiseOnKill).
@@ -138,7 +141,17 @@ public sealed class TFSpyComponent(
 
         UpdateCloakMeter(now, frametime, state);
 
-        if (state.Conditions().Has(TFCond.Disguising) && now >= _disguiseCompleteTime)
+        // The feign's own early end (:2997-3002): once the buffs' window closes,
+        // the think takes the feign condition off; the stamp rides in from the
+        // add (:7190), strict-less than stock's check (:2999).
+        if (state.Conditions().Has(TFCond.FeignDeath) && _feignDeathEndStamp < now)
+            conditions.Remove(_player, TFCond.FeignDeath);                                 // :3001
+
+        // CheckDisguiseTimer's arm (tf_player_shared.cpp:3305-3314): the
+        // disguising ends past its deadline, never on it — stock compares
+        // strictly, and the replay's DisguiseTick compares the same way.
+        if (state.Conditions().Has(TFCond.Disguising) && state.DisguiseCompleteTime > 0f
+            && now > state.DisguiseCompleteTime)
             CompleteDisguise(state);
 
         // The disguise weapon (DetermineDisguiseWeapon's dress): the tick's
@@ -271,10 +284,10 @@ public sealed class TFSpyComponent(
             // The HasFeignDeath arm (tf_weapon_invis.cpp:230-242): the Dead
             // Ringer's watch toggles its ready bit instead of cloaking — off
             // whenever armed (:232-236), on only from a full meter (:237-241).
-            if (_feignDeathReady)
-                _feignDeathReady = false;
+            if (state.FeignDeathReady)
+                state.FeignDeathReady = false;
             else if (state.CloakMeter == 100f)
-                _feignDeathReady = true;
+                state.FeignDeathReady = true;
         }
         else if (CanGoInvisible() && state.CloakMeter > CloakStartMeter)
         {
@@ -302,7 +315,7 @@ public sealed class TFSpyComponent(
     /// instant cloak land through <see cref="FeignDeathAdded"/> on the add.
     /// Answers whether the spy played dead.
     /// </summary>
-    public bool FeignDeathHit(float now)
+    public bool FeignDeathHit(float now, EntityHandle attacker = default)
     {
         if (_players.Predicted(_index) is not { } state)
             return false;
@@ -312,9 +325,9 @@ public sealed class TFSpyComponent(
             && custom is TFDamageCustom.Telefrag or TFDamageCustom.Croc)
             return false;
 
-        if (!_feignDeathReady)
+        if (!state.FeignDeathReady)
             return false;
-        _feignDeathReady = false;                                        // :9678
+        state.FeignDeathReady = false;                                   // :9678
 
         if (!enginePlayers.IsAlive(_player)                              // :15677
             || state.Conditions().Has(TFCond.Stealthed)                  // :15681
@@ -325,8 +338,32 @@ public sealed class TFSpyComponent(
             return false;
 
         state.CloakMeter = 50f;                                          // :15688
+
+        // The two answers the corpse itself wears, both read before the strip
+        // below takes the burn off him: stock's bDisguised (:15713, the
+        // disguise only when it is a teammate's) and bBurning (:15716, the
+        // burn that survives unless the disguise was a pyro's).
+        bool disguised = state.Conditions().Has(TFCond.Disguised)
+                     && state.DisguiseTeam == enginePlayers.GetTeam(_player);
+        bool burning = state.Conditions().Has(TFCond.Burning)
+                    && (!disguised || (TFClass.Pyro != (TFClass)state.DisguiseClass));   // :15716
+
         conditions.Remove(_player, TFCond.Burning);                      // :15719
         conditions.Remove(_player, TFCond.Bleeding);                     // :15720
+
+        // The fake death's body, in FeignDeath's own order (:15702-15782):
+        // the audio (:15724-15726), the notice (:15733-15737), the empty pack
+        // (:15740-15743) and the corpse (:15782). The concept line and the
+        // class grunt (:15725-15726) wait with the voice-over lane
+        // (docs/plans/tf2/deferred.tsv); the flag, rune, medieval, laugh,
+        // calling-card and ghost arms (:15704-15778) wait with their modes.
+        sound.EntityEmitSound(_player, "BaseCombatCharacter.StopWeaponSounds");   // :15724
+        notice?.Fire(_player, attacker);                                           // :15736
+        drops?.OnFeignDeathDropped(new PlayerDeath(_player, _index, attacker,
+                                                   entities.GetOrigin(_player), EntityHandle.None));   // :15742
+        EntityHandle corpse = corpses?.Make(_player) ?? EntityHandle.None;         // :15782
+        feignRagdoll?.Dress(_player, corpse, state, disguised, burning);           // :15816-15817, :15870-15879
+
         conditions.Add(_player, TFCond.FeignDeath, FeignDeathSeconds);   // :15695
         return true;
     }
@@ -347,7 +384,8 @@ public sealed class TFSpyComponent(
             conditions.Add(_player, TFCond.Stealthed, TFConditions.Permanent, _player);   // :7180
         conditions.Add(_player, TFCond.SpeedBoost, FeignDeathSpeedSeconds, _player);       // :7185
         conditions.Add(_player, TFCond.AfterburnImmune, FeignDeathSpeedSeconds, _player);  // :7186
-        _feignDeathReady = false;                                                          // :7188
+        state.FeignDeathReady = false;                                                     // :7188
+        _feignDeathEndStamp = now + FeignDeathSpeedSeconds;                              // :7190
     }
 
     // ---- the disguise ------------------------------------------------------
@@ -412,10 +450,15 @@ public sealed class TFSpyComponent(
         _desiredTeam = disguiseTeam;
         _wasLastOwnTeam = (int)disguiseTeam == realTeam;
 
+        // The wish goes on the carrier (stock's m_nDesiredDisguiseTeam/Class,
+        // :8246-8247): the replay completes the disguise from it.
+        state.DesiredDisguiseClass = (int)disguiseClass;
+        state.DesiredDisguiseTeam = (int)disguiseTeam;
+
         conditions.Add(_player, TFCond.Disguising, TFConditions.Permanent, _player);
 
         float time = state.Conditions().Has(TFCond.Disguised) ? TimeToQuickDisguise : TimeToDisguise;
-        _disguiseCompleteTime = now + time;
+        state.DisguiseCompleteTime = now + time;
         return true;
     }
 
@@ -431,8 +474,14 @@ public sealed class TFSpyComponent(
         conditions.Add(_player, TFCond.Disguised, TFConditions.Permanent, _player);
         state.DisguiseClass = (int)_desiredClass;
         state.DisguiseTeam = (int)_desiredTeam;
+
+        // The mask's roll (:8307-8310): a spy disguised as a spy wears one of
+        // the nine classes' masks, drawn here and sent — the arrival's word.
+        if ((TFClass)state.DisguiseClass == TFClass.Spy)
+            state.MaskClass = random.RandomInt(1, 9);
+
         conditions.Remove(_player, TFCond.Disguising);
-        _disguiseCompleteTime = 0f;
+        state.DisguiseCompleteTime = 0f;
 
         // Stock's m_pOuter->UpdateModel() (:8316) re-asserts the SPY's own
         // model: the server never wears the disguise body — that is the
@@ -841,7 +890,9 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
                           TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
                           ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
                           ICtfRules? ctf = null, ILagCompensation? lagCompensation = null,
-                          ITFPlayerResupply? resupply = null)
+                          ITFPlayerResupply? resupply = null, DeathNotice? notice = null,
+                          Corpses? corpses = null, TFDeathDrops? drops = null,
+                          TFFeignRagdoll? feignRagdoll = null)
     : IPlayerComponentSource, IOrderedHook, ITFSpyState, ITFConditionHook
 {
     private readonly Dictionary<int, TFSpyComponent> _byIndex = new();
@@ -860,7 +911,7 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
         yield return new TFSpyComponent(players, conditions, enginePlayers, entities, world, damage,
                                         hitGroups, scopes, random, classes, this, winners,
                                         rooms, hooks, owners, sound, disguiseWeapons, ctf, lagCompensation,
-                                        resupply);
+                                        resupply, notice, corpses, drops, feignRagdoll);
     }
 
     internal TFSpyCloakConsumeRateConVar ConsumeRate => consumeRate;
@@ -915,8 +966,8 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     public bool ActivateInvisibilityWatch(int playerIndex) =>
         Of(playerIndex)?.ActivateInvisibilityWatch(clock.Now) ?? false;
 
-    public bool FeignDeathHit(int victimIndex) =>
-        Of(victimIndex)?.FeignDeathHit(clock.Now) ?? false;
+    public bool FeignDeathHit(int victimIndex, EntityHandle attacker = default) =>
+        Of(victimIndex)?.FeignDeathHit(clock.Now, attacker) ?? false;
 
     public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) =>
         Of(playerIndex)?.Disguise(clock.Now, disguiseClass, disguiseTeam) ?? false;
@@ -967,7 +1018,11 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     public void OnRemoved(EntityHandle player, TFCond cond)
     {
         if (cond == TFCond.Disguising)
+        {
             Of(player.EntryIndex)?.ForgetDesiredTeam();
+            if (players.Predicted(player.EntryIndex) is { } disguising)
+                disguising.DesiredDisguiseTeam = (int)TFTeam.Unassigned;
+        }
         else if (cond == TFCond.Disguised && players.Predicted(player.EntryIndex) is { } state)
         {
             state.DisguiseClass = (int)TFClass.Undefined;

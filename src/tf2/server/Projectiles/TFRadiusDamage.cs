@@ -31,6 +31,46 @@ public static class TFProjectileDefs
     /// <summary>The rocket's launch speed (<c>CTFBaseRocket::Create</c>, <c>tf_weaponbase_rocket.cpp</c>).</summary>
     public const float RocketSpeed = 1100f;
 
+    /// <summary>
+    /// The energy drain's telling (<c>ApplyPostHitEffects</c>' tail,
+    /// <c>tf_weaponbase.cpp:5619-5635</c>): the particle over the victim and
+    /// the sound on them. The colours are stock's weapon-particle constants
+    /// (<c>tf_weaponbase.h:256-259</c>), the owner's team picking the row.
+    /// </summary>
+    public const string EnergyDrainEffect = "drg_pomson_impact_drain";
+    public const string EnergyDrainSound = "Weapon_Pomson.DrainedVictim";
+
+    /// <summary>The weapon-particle colours (<c>tf_weaponbase.h:256-259</c>).</summary>
+    public static Vector ParticleWeaponRed1 => new(0.72f, 0.22f, 0.23f);
+    public static Vector ParticleWeaponRed2 => new(0.5f, 0.18f, 0.125f);
+    public static Vector ParticleWeaponBlue1 => new(0.345f, 0.52f, 0.635f);
+    public static Vector ParticleWeaponBlue2 => new(0.145f, 0.427f, 0.55f);
+
+    /// <summary>
+    /// The Short Circuit's orb, the shared file's own constants
+    /// (<c>tf_weapon_mechanical_arm.cpp:46-51</c>): the reach, the flight, the
+    /// price, the zap and its clock, the life.
+    /// </summary>
+    public const float MechanicalArmOrbSize = 100f;
+    public const float MechanicalArmOrbSpeed = 700f;
+    public const int MechanicalArmOrbCost = 65;
+    public const int MechanicalArmOrbZapTargets = 2;
+    public const float MechanicalArmOrbZapDamage = 15f;
+    public const float MechanicalArmOrbLifetime = 1.2f;
+
+    /// <summary>The orb think's cadence and the zap's refire (<c>OrbThink</c>, :890, <c>CheckForPlayers</c>, :803).</summary>
+    public const float MechanicalArmOrbThink = 0.1f;
+    public const float MechanicalArmOrbZapRefire = 0.15f;
+
+    /// <summary>
+    /// The orb's muzzle (<c>CTFMechanicalArm::SecondaryAttack</c>,
+    /// <c>tf_weapon_mechanical_arm.cpp:260</c>): forward 40, right 15 (the
+    /// mirrored view flips it), up −10, off the eye.
+    /// </summary>
+    public const float MechanicalArmMuzzleForward = 40f;
+    public const float MechanicalArmMuzzleRight = 15f;
+    public const float MechanicalArmMuzzleUp = -10f;
+
     /// <summary>The pipe's launch speed (<c>TF_GRENADE_LAUNCER_MIN_VEL</c>, <c>tf_weapon_grenadelauncher.cpp:83</c>).</summary>
     public const float PipeSpeed = 1200f;
 
@@ -289,6 +329,27 @@ public static class TFProjectileDefs
     /// </summary>
     public const float CrossbowSpeed = 2400f;
     public const float CrossbowGravity = 0.2f;
+
+    /// <summary>
+    /// The Rescue Ranger's bolt, <c>MODEL_ARROW_BUILDING_REPAIR</c>'s spelling
+    /// (<c>g_pszArrowModels</c>, <c>tf_shareddefs.cpp:1145</c>): the claw the
+    /// <c>TF_PROJECTILE_BUILDING_REPAIR_BOLT</c> spawn dresses
+    /// (<c>tf_projectile_arrow.cpp:204-207</c>).
+    /// </summary>
+    public const string RepairClawModel = "models/weapons/w_models/w_repair_claw.mdl";
+
+    /// <summary>The claw's mend particle, per team (<c>CLAW_REPAIR_EFFECT_</c>, <c>tf_projectile_arrow.cpp:50-51</c>).</summary>
+    public const string RepairClawHealRed = "repair_claw_heal_red";
+    public const string RepairClawHealBlue = "repair_claw_heal_blue";
+
+    /// <summary>
+    /// The rescue bolt's flight (<c>CTFShotgunBuildingRescue::GetProjectileSpeed</c>
+    /// and <c>.GetProjectileGravity</c>, <c>tf_weapon_shotgun.cpp:507-516</c>):
+    /// the same constant-0.75 remap the crossbow's run, so the same answers —
+    /// the aliases name the reader, the shared constants the number.
+    /// </summary>
+    public const float RescueBoltSpeed = CrossbowSpeed;
+    public const float RescueBoltGravity = CrossbowGravity;
 
     /// <summary>
     /// InitGrenade's <c>SetElasticity( 0.45f )</c>

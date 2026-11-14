@@ -35,6 +35,7 @@ public sealed class TFWeaponBehaviours(TFWeaponParts parts) : IWeaponBehaviourSo
         TFWeaponKind.Pda => new TFPDABehaviour(parts),
         TFWeaponKind.Builder => new TFBuilderBehaviour(parts),
         TFWeaponKind.BuffItem => new TFBuffItemBehaviour(parts),
+        TFWeaponKind.RocketPack => new TFRocketPackBehaviour(parts),
         TFWeaponKind.Energy => new TFEnergyBehaviour(parts),
         TFWeaponKind.Inert => new TFInertBehaviour(parts),
         TFWeaponKind.LaserPointer => new TFWranglerBehaviour(parts),

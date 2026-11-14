@@ -24,6 +24,14 @@ public interface ITFWeaponEffects
     /// <summary>The stickybomb launcher's secondary: detonate this owner's stickybombs.</summary>
     void Detonate(in WeaponAttackContext attack, TFWeaponScript script);
 
+    /// <summary>
+    /// The Short Circuit's shock attack (<c>CTFMechanicalArm::SecondaryAttack</c>'s
+    /// <c>ShockAttack</c> arm plus its spawn,
+    /// <c>tf_weapon_mechanical_arm.cpp:246-287</c>): the orb out at the eye's
+    /// forty forward, the gates and the metal already paid.
+    /// </summary>
+    void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script);
+
     /// <summary>One flamethrower tick's flames at <paramref name="shot"/>'s damage and crit.</summary>
     void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot);
 
@@ -214,6 +222,7 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
 {
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) { }
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) { }
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot) { }
     public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) { }
 

@@ -25,6 +25,12 @@ public static class TFInvisibility
     /// <summary><c>TF_SPY_STEALTH_BLINKSCALE</c> (tf_player_shared.cpp:215).</summary>
     public const float BlinkScale = 0.85f;
 
+    /// <summary><c>INVIS_FEIGN_DEATH</c> (<c>invis_weapontypes_t</c>,
+    /// tf_weapon_invis.h:22-27): the watch's <c>set_weapon_mode</c> the Dead
+    /// Ringer wears, the <c>HasFeignDeath</c> press answers through
+    /// (:66-67). Shared, as stock's enum is.</summary>
+    public const int InvisFeignDeathMode = 1;
+
     /// <summary>How invisible the player is, 0..1, at <paramref name="now"/>.</summary>
     public static float Percent(TFPlayerNetState state, float now)
     {

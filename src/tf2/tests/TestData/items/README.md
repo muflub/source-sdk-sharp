@@ -9,7 +9,9 @@
   those items name, transitively (28); the attribute definitions their
   `static_attrs`/`attributes` blocks name (27), plus `hidden maxhealth non
   buffed` (140, the Dalokohs bite's maxhealth the resupply walk and the
-  lunchbox's runtime grant both read; added 2026-11-03). Each kept block is copied
+  lunchbox's runtime grant both read; added 2026-11-03), plus item 594, the
+  Phlogistinator, whose `set_buff_type` the burn-rage mirror's facts read
+  (added 2026-11-05). Each kept block is copied
   verbatim; line endings are LF. Everything else (game_info, rarities, loot
   lists, recipes, ...) is dropped.
 - `prefab_order.txt`: synthetic, not from the game. Three items over the same

@@ -291,11 +291,11 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             // team differs hands the blow over instead of taking it: ten plus thrice the whole
             // fall to the one stood on, nothing to the faller (:8968-8973). It runs before the
             // thruster's landing below, which still opens its ring and floors the faller's
-            // nothing at one (:9037). The ground word is the mover's own
-            // (<c>SsPlayer.GroundIndex</c>), as the mover's publisher fills it.
+            // nothing at one (:9037). The ground is the running move's own: this hit lands
+            // inside CheckFalling, before the command's end publishes the ground word.
             if (directory.Get(hit.Victim) is SsPlayer faller
-                && faller.GroundIndex >= 0
-                && enginePlayers.GetHandle(faller.GroundIndex) is { } under
+                && faller.MoveGroundIndex >= 0
+                && enginePlayers.GetHandle(faller.MoveGroundIndex) is { } under
                 && entities.IsValid(under) && entities.IsPlayer(under)
                 && (victimConds.Has(TFCond.Rocketpack)
                     || attributes.Int(0, "boots_falling_stomp", owners.ManagerOf(victimIndex)) != 0)
@@ -457,11 +457,38 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         bool fromSentry = inflictors.TryCurrent(out EntityHandle sentryInflictor, out _)
             && directory.Get(sentryInflictor) is TFSentryGun;
 
+        // The health the feign arm's save check compares against (:7413), read
+        // only where that arm answers — behind the same gate the rules' arm
+        // puts on itself, so a plain hit asks the engine nothing extra.
+        float feignHealth = victim.Class() == TFClass.Spy && custom != TFDamageCustom.Telefrag
+            && !victimConds.Has(TFCond.Taunting)
+            && (victimConds.Has(TFCond.FeignDeath) || victim.FeignDeathReady)
+            ? entities.GetHealth(hit.Victim) : 0f;
+
         result = result with
         {
             Damage = TFDamageAliveRules.Resist(result, in input, attributes, owners.ManagerOf(victimIndex),
-                                               victim.Class(), stealth.Value, spunUp, fromSentry)
+                                               victim.Class(), stealth.Value, spunUp, fromSentry,
+                                               victim.CloakMeter, victim.FeignDeathReady, feignHealth,
+                                               out bool savedByFeign)
         };
+
+        // THE DEAD RINGER'S SAVE (tf_gamerules.cpp:7412-7422): the scale that
+        // would have killed and did not tells the server, spy and attacker by
+        // user id, the hit broadcast to nobody (:7420). An event the game's
+        // event files never declared answers a zero handle from the create,
+        // which stock's own guard skips just the same (:7416).
+        if (savedByFeign)
+        {
+            IntPtr save = events.EventCreate("deadringer_cheat_death");
+            if (save != IntPtr.Zero)
+            {
+                events.EventSetInt(save, "spy", enginePlayers.GetUserId(hit.Victim));
+                events.EventSetInt(save, "attacker",
+                                   hit.Attacker != EntityHandle.None ? enginePlayers.GetUserId(hit.Attacker) : -1);
+                events.EventFire(save, true);                            // dontBroadcast (:7420)
+            }
+        }
 
         if (debug.Value)
             log.Msg($"[TF2/Damage] {hit.Victim} from {hit.Attacker} ({weaponName}): {hit.Damage:F2} -> {result.Damage:F2}, "
@@ -678,7 +705,7 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // tail, right where the held weapon's post-hit effects follow
         // (:9695-9698), so it stands beside them here.
         if (victim.Class() == TFClass.Spy)
-            spies?.FeignDeathHit(victimIndex);
+            spies?.FeignDeathHit(victimIndex, hit.Attacker);
 
         // THE SCATTERGUN'S SHOVE (CTFScatterGun::ApplyPostHitEffects,
         // tf_weapon_shotgun.cpp:369-409, called from the tail of the victim's
@@ -696,9 +723,10 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // Stock's hit is the SHOT'S: its FireBullets walks the pellets into a
         // multi-damage (tf_fx_shared.cpp:396's ApplyMultiDamage), so the
         // OnTakeDamage that reaches here carries every pellet's summed damage
-        // and the :52 gate reads the whole blast. Ours applies per pellet, the
-        // layer once each — no pellet of a real shot reaches the 30 alone — so
-        // the arm banks the pellet's share and the shot's total decides at the
+        // and the :52 gate reads the whole blast. So does ours: the arsenal
+        // banks the shot's pellets into one hit (the ten-pellet fact), the
+        // layer once per blast — but a banked entry can hold several of the
+        // frame's shots, so the arm still defers to the shot's total at the
         // frame's flush (<see cref="FlushShoves"/>, the victim's
         // TFScattergunKnockback tick).
         if (!fromScope && attackerIsPlayer && weaponName.Length > 0
@@ -877,6 +905,18 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             int boostSeconds = attributes.Int(0, "speed_boost_on_hit", weaponItem);   // :5165-5166
             if (boostSeconds != 0)                                                     // :5167
                 conditions.Add(hit.Attacker, TFCond.SpeedBoost, boostSeconds);         // :5169
+        }
+
+        // THE CARBINE'S BOOST (CTFChargedSMG::ApplyOnHitAttributes, tf_weapon_smg.cpp:178-196): while
+        // the owner's buff is cold (:184), hits charge the SMG's own boost meter — the hit's surviving
+        // damage times the held item's minicrit_boost_charge_rate (:186-189), capped at the meter's
+        // 100 (:190-193). The charge is the weapon entity's, the gate the hit weapon's class.
+        if (attackerIsPlayer && weapon == TFWeaponId.ChargedSmg && !attackerConds.Has(TFCond.EnergyBuff)
+            && directory.Get(enginePlayers.GetActiveWeaponEntity(hit.Attacker)) is SsWeapon { State: { } boost })
+        {
+            boost.BehaviourMeter = Math.Min(TFWeaponBehaviour.ChargedSmgMeterCap,
+                                            boost.BehaviourMeter
+                                            + result.Damage * attributes.Float(0f, "minicrit_boost_charge_rate", weaponItem));
         }
 
         // THE UBERSAW'S CHARGE (stock tf_weaponbase.cpp:5259-5281): a medic's hit fills the
@@ -1171,7 +1211,19 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             shovedState.WeaponKnockback = true;
 
         conditions.Add(victim, TFCond.KnockedIntoAir);
-        entities.ApplyVelocityImpulse(victim, shove, clearGround: true);
+
+        // The aim's brace on the shove (<c>CTFPlayer::ApplyAbsVelocityImpulse</c>,
+        // tf_player.cpp:3339-3363): a sniper holding their aim takes every
+        // impulse through the held item's <c>mult_aiming_knockback_resistance</c>
+        // (:3344-3346), the whole shove landing scaled (:3363). The brace is the
+        // walk over the victim's own active item, as stock's hook walks the
+        // aiming player.
+        float brace = 1f;
+        if (players.Predicted(victimIndex) is { } steady && steady.Class() == TFClass.Sniper
+            && conditions.InCond(victim, TFCond.Aiming))
+            brace = attributes.Float(brace, "mult_aiming_knockback_resistance", owners.ActiveItemOf(victimIndex));
+
+        entities.ApplyVelocityImpulse(victim, shove * brace, clearGround: true);
         carriers.Part<TFStunStack>(victimIndex)?.Stun(victim, TFScattergunBehaviour.StunTime, 1f,
             TFStunFlags.Movement | TFStunFlags.MovementForwardOnly, attacker);
     }

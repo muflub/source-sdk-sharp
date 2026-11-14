@@ -377,6 +377,10 @@ public sealed class TFDeathDropsTests
     {
         public readonly List<(EntityHandle Player, TFCond Cond, float Seconds)> Added = [];
 
+        /// <summary>What <see cref="InCond"/> answers: the sniper buff's
+        /// exemption arm sets it; the kill facts leave it false.</summary>
+        public bool SniperBuffed { get; init; }
+
         public TFConditions? Of(int playerIndex) => null;
         public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent,
                              EntityHandle provider = default)
@@ -386,7 +390,7 @@ public sealed class TFDeathDropsTests
         }
         public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
         public TFCondMask RemoveAll(EntityHandle player) => default;
-        public bool InCond(EntityHandle player, TFCond cond) => false;
+        public bool InCond(EntityHandle player, TFCond cond) => SniperBuffed;
     }
 
     //------------------------------------------------------------------
@@ -466,6 +470,34 @@ public sealed class TFDeathDropsTests
         Assert.DoesNotContain(rig.World.CreatedClasses, c => c.StartsWith("tf_weapon_", StringComparison.Ordinal));
         var pack = Assert.Single(rig.Packs.Packs);
         Assert.Equal(rig.Dead.Handle, pack.PackOwner);
+    }
+
+    /// <summary>
+    /// The feign's pack (<c>DropAmmoPack(info, true /*Empty*/, bDisguised)</c>,
+    /// tf_player.cpp:15740-15743): the pack arm runs whole as on a real death
+    /// (:13096-13100 — the dropped weapon unaffected), but <c>bEmpty</c> reaches
+    /// only the contents (<c>InitAmmoPack</c> tf_ammo_pack.cpp:120-151): the
+    /// flag is set and the counts' stores (:137-139) are skipped.
+    /// </summary>
+    [Fact]
+    public void A_feign_drops_the_same_pack_empty_and_skips_the_counts()
+    {
+        var rig = new Rig();
+        rig.Give(rig.Dead.Handle, Rocket);
+        rig.GiveAmmo(rig.Dead.Handle, 30, 12, 200);
+        var hook = new TFDeathDrops(rig.Log, rig.Arsenal, rig.Scripts, rig.Map, rig.Packs,
+                                    new Players(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine, NoButtons),
+                                    rig.World, rig.Engine, rig.Medigun);
+
+        hook.OnFeignDeathDropped(new PlayerDeath(rig.Dead.Handle, rig.Dead.Handle.EntryIndex,
+                                                 EntityHandle.None, DiedAt, EntityHandle.None));
+
+        Assert.Contains(TFAmmoPack.Class, rig.World.CreatedClasses);   // :15740, the pack arm runs whole
+        var pack = Assert.Single(rig.Packs.Packs);
+        Assert.Equal(rig.Dead.Handle, pack.PackOwner);                 // the same owner walk as a real death (:13103)
+        Assert.True(pack.EmptyPack);                                   // MakeEmptyPack (:130 of tf_ammo_pack.cpp's store)
+        Assert.Equal(0, pack.AmmoPrimary);                             // the counts skipped (:137-139)
+        Assert.Equal(0, pack.AmmoSecondary);
     }
 
     [Fact]
@@ -1249,6 +1281,145 @@ public sealed class TFDeathDropsTests
            .OnPlayerDied(rig.Death with { Attacker = attacker });
 
         Assert.Empty(conditions.Added);
+    }
+
+    // ---- the sniper's kill rage (rage_on_kill; tf_player.cpp:11364-11376) ----
+
+    /// <summary>A predicted sniper killer holding a rifle whose item carries
+    /// <c>rage_on_kill</c>: the walked gain rides onto the meter.</summary>
+    private static TFPlayerNetState SniperKiller(float fromMeter)
+    {
+        var killer = new TFPlayerNetState();
+        killer.BindLocal();
+        killer.PlayerClass = (int)TFClass.Sniper;
+        killer.RageMeter = fromMeter;
+        return killer;
+    }
+
+    /// <summary>The held rifle's item with one walked attribute.</summary>
+    private static AttributeContainer Heatmaker(string hook, float value)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30060, hook, hook,
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("h")), value));
+        return item;
+    }
+
+    [Fact]
+    public void A_sniper_kill_with_the_heatmaker_gain_lands_on_the_meter()
+    {
+        // Event_Killed's sniper arm (:11364-11376): the killing weapon's item
+        // answers rage_on_kill and ModifyRage books the gain on the killer.
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_sniperrifle";
+        owners.Items[3] = Heatmaker("rage_on_kill", 0.5f);
+        var killer = SniperKiller(20f);
+
+        rig.Hook(new AttributeHooks(), owners, new KillConditions(), records,
+                 new FakePredictedData { Carrier = killer })
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(20.5f, killer.RageMeter, 4);   // ModifyRage: meter plus gain
+    }
+
+    [Fact]
+    public void The_rage_gain_holds_the_meter_at_a_hundred()
+    {
+        // SetRageMeter's cap (tf_player_shared.cpp:13883): MIN(val, 100).
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_sniperrifle";
+        owners.Items[3] = Heatmaker("rage_on_kill", 10f);
+        var killer = SniperKiller(95f);
+
+        rig.Hook(new AttributeHooks(), owners, new KillConditions(), records,
+                 new FakePredictedData { Carrier = killer })
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(100f, killer.RageMeter, 4);
+    }
+
+    [Fact]
+    public void A_sniper_kill_without_the_attribute_gains_no_rage()
+    {
+        // :11371: a walked zero writes nothing.
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_sniperrifle";
+        owners.Items[3] = new AttributeContainer();
+        var killer = SniperKiller(20f);
+
+        rig.Hook(new AttributeHooks(), owners, new KillConditions(), records,
+                 new FakePredictedData { Carrier = killer })
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(20f, killer.RageMeter, 4);
+    }
+
+    [Fact]
+    public void A_draining_owner_refuses_a_fresh_rage_gain()
+    {
+        // SetRageMeter's drain refusal (:13873-13876), with neither exemption
+        // of :13873 in place.
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_sniperrifle";
+        owners.Items[3] = Heatmaker("rage_on_kill", 0.5f);
+        var killer = SniperKiller(10f);
+        killer.RageDraining = true;
+
+        rig.Hook(new AttributeHooks(), owners, new KillConditions(), records,
+                 new FakePredictedData { Carrier = killer })
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(10f, killer.RageMeter, 4);
+    }
+
+    [Fact]
+    public void The_sniper_charge_buff_exempts_the_gain_from_the_drain()
+    {
+        // :13873: while TF_COND_SNIPERCHARGE_RAGE_BUFF rides the owner the
+        // drain no longer refuses the gain.
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_sniperrifle", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_sniperrifle";
+        owners.Items[3] = Heatmaker("rage_on_kill", 0.5f);
+        var killer = SniperKiller(10f);
+        killer.RageDraining = true;
+
+        rig.Hook(new AttributeHooks(), owners, new KillConditions { SniperBuffed = true }, records,
+                 new FakePredictedData { Carrier = killer })
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Equal(10.5f, killer.RageMeter, 4);
     }
 
     /// <summary>Stock's null-arm (:11135-11136): with no hit behind the death

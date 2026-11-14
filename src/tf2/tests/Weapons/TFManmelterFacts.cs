@@ -4,6 +4,7 @@ using SourceSharp.Shared;
 
 using TF2.Server.Player;
 using TF2.Server.Combat;
+using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
@@ -151,6 +152,35 @@ public sealed class TFManmelterFacts
         Assert.Single(world.Effects.Projectiles);
         Assert.Equal(4, w.Clip);
         Assert.Equal(20, w.Reserve);
+    }
+
+    [Fact]
+    public void The_held_press_puts_the_burning_teammate_out_through_the_real_beam()
+    {
+        var rig = new FlameRig();
+        BeamWorld(rig, Burner());
+        rig.Engine.ReturnsEachCall("GameEvents.EventCreate", () => new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+        rig.Owners.Items[TFWeaponWorld.Owner] = rig.AttributeItem("extinguish_restores_health",
+                                                                  AttributeDescriptionFormat.Additive, 20f);
+
+        // The press a player presses, the beam the server speaks: the world's
+        // parts speak through the real effects composite over the rig's
+        // TFFlameEffects, whose engine stubs answer as the live side does —
+        // the run reaches the real ExtinguishBeam, burner, grant, condition
+        // and heal in one.
+        var world = new TFWeaponWorld(files: WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()),
+                                      effects: new TFWeaponEffects(flames: rig.Effects));
+        var (w, vm) = world.Armed(Manmelter, clip: -1, reserve: 20);
+
+        world.Run(w, vm, Attack2, 10f);
+        world.Run(w, vm, Attack2, 10.015f);
+
+        Assert.Equal((FlameRig.Victim, TFCond.Burning), Assert.Single(rig.Conditions.Removed));
+        Assert.Equal(1, rig.Carriers.Get(TFWeaponWorld.Owner)?.RevengeCrits);
+        Assert.Contains((FlameRig.Player, TFCond.Critboosted), rig.Conditions.Added.Select(a => (a.Player, a.Cond)));
+        var healed = Assert.Single(rig.Health.HealthTaken);
+        Assert.Equal((FlameRig.Player, 20), (healed.Who, healed.Amount));
     }
 
     // ---- the beam (the server's arm, TFFlameEffects.ExtinguishBeam) ---------

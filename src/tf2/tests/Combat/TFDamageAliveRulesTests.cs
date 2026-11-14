@@ -473,14 +473,14 @@ public sealed class TFDamageAliveRulesTests
     }
 
     [Fact]
-    public void A_feigning_spy_takes_no_stealth_reduction()
+    public void A_feigning_spy_takes_the_feign_scale_not_the_stealth_one()
     {
-        // The feign arm ahead of the stealth one (:7393-7423) is the dead
-        // ringer's; until its ready bit lands the else-if leaves a feigning
-        // spy the plain hit.
+        // The feign arm ahead of the stealth one (:7393-7407) answers the
+        // hit itself once the cond holds: the meter, clamped to the 50-to-0
+        // range, sits the scale at the feign scale (:7396).
         const DamageType bullets = DamageType.Bullet;
-        Assert.Equal(10f, Resist(10f, bullets, victimClass: TFClass.Spy,
-                                 victimConds: TFCondMask.Of([TFCond.FeignDeath, TFCond.Stealthed])), 4);
+        Assert.Equal(3.5f, Resist(10f, bullets, victimClass: TFClass.Spy,
+                                  victimConds: TFCondMask.Of([TFCond.FeignDeath, TFCond.Stealthed])), 4);
     }
 
     [Fact]

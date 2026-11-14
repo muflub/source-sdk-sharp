@@ -67,4 +67,22 @@ public sealed class TFScattergunKnockback(TFPlayerCarriers carriers, IEngineEnti
             TFStunFlags.Movement | TFStunFlags.MovementForwardOnly, EntityHandle.None);
         entities.ApplyVelocityImpulse(_player, shoved - entities.GetVelocity(_player), clearGround: true);
     }
+
+    /// <summary>
+    /// The Thermal Thruster's launch, the server's half of
+    /// <see cref="TFRocketPackBehaviour"/>'s ask (<c>RocketLaunchPlayer</c>,
+    /// tf_weapon_rocketpack.cpp:453-478): the preserve-convars' default zeroes
+    /// the carrier before the impulse (:465-477), so the flight force is the
+    /// whole velocity — the ground flag stays, unlike the knock's — and the
+    /// half-second movement stun lands under the cond's guard (:461). The pop
+    /// calls with its smaller velocity the same way.
+    /// </summary>
+    public void Thrust(Vector velocity)
+    {
+        if (_player == EntityHandle.None || !entities.IsValid(_player))
+            return;
+
+        carriers.Part<TFStunStack>(_index)?.Stun(_player, 0.5f, 1f, TFStunFlags.Movement, EntityHandle.None);
+        entities.ApplyVelocityImpulse(_player, velocity - entities.GetVelocity(_player), clearGround: false);
+    }
 }

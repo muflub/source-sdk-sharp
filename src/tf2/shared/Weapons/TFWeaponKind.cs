@@ -76,6 +76,13 @@ public enum TFWeaponKind
     /// </summary>
     BuffItem,
     /// <summary>
+    /// The Thermal Thruster (<c>CTFRocketPack</c>, tf_weapon_rocketpack.cpp):
+    /// the press pops its owner off the ground and lands the flight force at
+    /// the launch delay, spending half the item meter
+    /// (<see cref="TFRocketPackBehaviour"/>).
+    /// </summary>
+    RocketPack,
+    /// <summary>
     /// The energy-weapon family (<c>CTFRaygun</c> and kin): no ammo pool —
     /// energy in whole shots (<c>Energy_GetMaxEnergy</c>,
     /// <c>tf_weaponbase.cpp:6357-6416</c>), spent per shot and recharged on the
@@ -114,6 +121,7 @@ public static class TFWeaponKinds
         TFWeaponKind.Pda => "tf2.pda",
         TFWeaponKind.Builder => "tf2.builder",
         TFWeaponKind.BuffItem => "tf2.buff",
+        TFWeaponKind.RocketPack => "tf2.rocketpack",
         TFWeaponKind.Energy => "tf2.energy",
         TFWeaponKind.Inert => "tf2.inert",
         TFWeaponKind.LaserPointer => "tf2.laserpointer",
@@ -145,6 +153,10 @@ public static class TFWeaponKinds
             case TFWeaponId.ShotgunHwg:
             case TFWeaponId.ShotgunPyro:
                 return TFWeaponKind.Shotgun;
+            // The Rescue Ranger: CTFShotgunBuildingRescue : CTFShotgun
+            // (tf_weapon_shotgun.h:183), the shotgun shell behind the bolt.
+            case TFWeaponId.ShotgunBuildingRescue:
+                return TFWeaponKind.Projectile;
             case TFWeaponId.Minigun:
                 return TFWeaponKind.Minigun;
             case TFWeaponId.Sniperrifle:
@@ -167,6 +179,11 @@ public static class TFWeaponKinds
             case TFWeaponId.Pipebomblauncher:
             case TFWeaponId.SyringegunMedic:
             case TFWeaponId.Flaregun:
+            // The Short Circuit: CTFMechanicalArm : CTFWeaponBaseGun
+            // (tf_weapon_mechanical_arm.h), the engineer's secondary whose
+            // shot is the orb entity its own secondary throws.
+            case TFWeaponId.MechanicalArm:
+                return TFWeaponKind.Projectile;
             // The Manmelter: CTFFlareGun_Revenge : CTFFlareGun
             // (tf_weapon_flaregun.h), the vacuum riding the flare gun's shell.
             case TFWeaponId.FlaregunRevenge:
@@ -195,6 +212,10 @@ public static class TFWeaponKinds
                 return TFWeaponKind.Lunchbox;
             case TFWeaponId.BuffItem:
                 return TFWeaponKind.BuffItem;
+            // The Thermal Thruster: CTFRocketPack, its own ItemPostFrame that
+            // fires no shot (tf_weapon_rocketpack.cpp:752-841).
+            case TFWeaponId.Rocketpack:
+                return TFWeaponKind.RocketPack;
             // The Wrangler: the engineer's unlock, held only as an equipped
             // item — the triggers command the sentry (CTFLaserPointer's
             // overrides, tf_weapon_laser_pointer.cpp:192-237), no shot of
@@ -245,6 +266,7 @@ public static class TFWeaponKinds
     /// </summary>
     public static bool ReloadsSingly(TFWeaponId id) => id is TFWeaponId.Scattergun
         or TFWeaponId.ShotgunPrimary or TFWeaponId.ShotgunSoldier or TFWeaponId.ShotgunHwg or TFWeaponId.ShotgunPyro
+        or TFWeaponId.ShotgunBuildingRescue
         or TFWeaponId.Rocketlauncher or TFWeaponId.RocketlauncherDirecthit
         or TFWeaponId.Grenadelauncher or TFWeaponId.Pipebomblauncher
         or TFWeaponId.Crossbow;

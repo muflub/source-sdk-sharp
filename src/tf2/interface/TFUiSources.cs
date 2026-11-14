@@ -1038,6 +1038,54 @@ public interface ITFBuildMenuActions
 }
 
 /// <summary>
+/// The Eureka Effect's teleport menu data (stock's
+/// CHudEurekaEffectTeleportMenu, game/client/tf/tf_hud_menu_eureka_teleport.cpp):
+/// whether the want stands — the wrench's +reload press laid it down
+/// (ItemPostFrame, tf_weapon_wrench.cpp:221-235) — whether the wrench is still
+/// the held weapon (CanTeleport's TF_WEAPON_WRENCH test, :180), and whether the
+/// builder's exit stands placed (OnTick's availability read, :397-405).
+/// </summary>
+public interface ITFEurekaMenuSource
+{
+    /// <summary>The +reload press armed the teleport and no choice or
+    /// cleared wrench has spent it (m_bWantsToTeleport, :351-354, :103).</summary>
+    bool WantsTeleport { get; }
+
+    /// <summary>The wrench the menu serves is the active weapon
+    /// (CanTeleport's <c>GetWeaponID() == TF_WEAPON_WRENCH</c>, :180).</summary>
+    bool WrenchActive { get; }
+
+    /// <summary>The builder's own exit stands past its construction — the
+    /// built, uncarried row of OnTick's
+    /// <c>GetObjectOfType(OBJ_TELEPORTER, MODE_TELEPORTER_EXIT)</c> read
+    /// (:397-405). Stock's placing and upgrading refusals wait with the
+    /// mirror's words of them (the build status carries neither).</summary>
+    bool ExitStanding { get; }
+
+    /// <summary>The Cancel sentence — the build menu's token with
+    /// <c>%lastinv%</c> (stock's SetDialogVariable("lastinv"), :128-134).</summary>
+    string CancelLabel { get; }
+}
+
+/// <summary>
+/// What the teleport menu's choices do (stock's SendTeleportMessage and the
+/// cancel keys, tf_hud_menu_eureka_teleport.cpp): the chosen
+/// eEurekaTeleportTargets out as <c>eureka_teleport %d</c> (:206-208), and the
+/// close the lastinv keys are (KEY_0 / slot10, :320-325, :289-294). Whether a
+/// choice sends at all is the screen's availability gate (:200), stock's own.
+/// </summary>
+public interface ITFEurekaMenuActions
+{
+    /// <summary>The target chosen, stock's eEurekaTeleportTargets (0 home, 1
+    /// the exit; tf_shareddefs.h:1843) out as <c>eureka_teleport %d</c>
+    /// (:207) — the spend that closes the menu (:189).</summary>
+    void Teleport(int target);
+
+    /// <summary>Stock's cancel: lastinv (:292, :324).</summary>
+    void Cancel();
+}
+
+/// <summary>
 /// One line of the death notices, as stock's <c>DeathNoticeItem</c>
 /// (hud_basedeathnotice.h:27-80) carries it after the TF decode: the names
 /// and their raw teams (2 RED, 3 BLU), the icon resolved through the

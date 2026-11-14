@@ -68,10 +68,28 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         // the ammo pack (:12161) and the killer's health pack (:12307). Each
         // runs whether or not the others bailed, so none rides inside another's
         // early returns.
+        AddKillRage(death);        // Event_Killed's sniper rage (:11364-11376), before the killed-other call at :11693
         AddKillCritBoost(death);   // Event_KilledOther, asked of the recent damager (:11693)
         DropAmmoPack(death);       // :12161, in Event_Killed's own order
-        DropHealthPack(death);     // :12307, the last of the three
+        DropHealthPack(death, death.Attacker);   // :12307, the killer's held item answering
         GrowClipOnKill(death);     // GetMaxClip1's blast arm (:594-600), folded onto the kill
+    }
+
+    /// <summary>
+    /// The Dead Ringer's feign (<c>FeignDeath</c>, tf_player.cpp:15740-15743):
+    /// the same dress, model and owner walk as a real death's pack, but the
+    /// pack itself is an empty one — stock's <c>DropAmmoPack(info, true
+    /// /*Empty*/, bDisguised)</c>, where <c>bEmpty</c> reaches only the pack's
+    /// contents (<c>InitAmmoPack</c>, tf_ammo_pack.cpp:120-151), the dropped
+    /// weapon unaffected (:13096-13100). None of the kill-side arms rides a
+    /// feign: <c>Event_KilledOther</c> and the clip's blast arm are a real
+    /// kill's; the feign's own health-pack asks (:15745-15758) ride here with
+    /// the medieval mode's answer deferred beside its modes.
+    /// </summary>
+    public void OnFeignDeathDropped(PlayerDeath death)
+    {
+        DropAmmoPack(death, empty: true);            // :15740-15743, stock's empty pack
+        DropHealthPack(death, death.Player);         // :15750-15757, the spy's own held item answering
     }
 
     /// <summary>
@@ -79,7 +97,7 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
     /// <c>ShouldDropAmmoPack</c> (:13015-13024), with the
     /// <c>AmmoPackCleanUp</c> (:13110) that follows the create.
     /// </summary>
-    private void DropAmmoPack(PlayerDeath death)
+    private void DropAmmoPack(PlayerDeath death, bool empty = false)
     {
         // ShouldDropAmmoPack's gates (:13017-13021) ask the MvM and arena modes,
         // deferred with them (docs/plans/tf2/deferred.tsv): nothing to ask here.
@@ -201,7 +219,7 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
 
         ammoPack.Init(death.Player, (int)(pickedScript?.Id ?? TFWeaponId.None),
                       mapPlayers.ClassOf(death.Player), primary, secondary, metal,
-                      skin: skin, isSuicide: isSuicide); // :13107, nSkin the team colour
+                      skin: skin, empty: empty, isSuicide: isSuicide); // :13107, nSkin the team colour
 
         log.Msg($"[SourceSharp/TFDeathDrops] dropped {TFAmmoPack.Class} dressed as {pickedName}\n");
 
@@ -216,9 +234,11 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
     /// lands at the dying player's world-space centre (:13142-13143) with an
     /// impulse of two random XY draws in [-1,1], z pinned to 1, normalised and
     /// times 250 (:13146-13150), through <c>DropSingleInstance</c> owned by the
-    /// dying player with the thrower's own-touch delay 0 (:13151).
+    /// dying player with the thrower's own-touch delay 0 (:13151). Each caller
+    /// names whose held item answers (:12307 the killer's, :15750 the feigning
+    /// spy's own): <paramref name="subject"/>.
     /// </summary>
-    private void DropHealthPack(PlayerDeath death)
+    private void DropHealthPack(PlayerDeath death, EntityHandle subject)
     {
         if (death.Attacker == EntityHandle.None) // :12307 `if (pPlayerAttacker)`
             return;
@@ -226,7 +246,7 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         if (hooks is not { } walk || owners is not { } holder || random is not { } draw)
             return;
 
-        if (walk.Int(0, "drop_health_pack_on_kill", holder.ActiveItemOf(death.Attacker.EntryIndex)) != 1)
+        if (walk.Int(0, "drop_health_pack_on_kill", holder.ActiveItemOf(subject.EntryIndex)) != 1)
             return; // :12311
 
         var kit = entities.Create(HealthKitSmall.SmallClass); // :13143
@@ -306,6 +326,50 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
                              holder.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
         if (boost != 0) // :11142
             shared.Add(death.Attacker, TFCond.CritboostedOnKill, boost + 1f); // :11145
+    }
+
+    /// <summary>
+    /// <c>rage_on_kill</c> (the Hitmaker's charge), the sniper arm of
+    /// <c>Event_Killed</c> (:11364-11376): a killing sniper walks the killing
+    /// weapon's item for the gain, and a non-zero one rides onto the killer's
+    /// rage meter through <c>ModifyRage</c>
+    /// (<c>tf_player_shared.cpp:13903-13906</c>) — which is
+    /// <c>SetRageMeter</c> over meter plus gain: the deploy's drain refuses a
+    /// fresh gain unless the sniper charge buff already rides the owner or
+    /// the owner is the spy (:13873), and the meter holds at the hundred
+    /// (:13883). The assist half (<c>tf_gamerules.cpp:11415-11427</c>,
+    /// <c>rage_on_assists</c> over the credited assister) waits with the
+    /// healer/assist track it reads (<c>m_Shared.m_aHealers</c>, the same
+    /// deferred state as the heal-assist counts); named in the row's evidence.
+    /// </summary>
+    private void AddKillRage(PlayerDeath death)
+    {
+        if (death.Attacker == EntityHandle.None)
+            return; // :11365 with no killing player there is no sniper to ask
+
+        if (hooks is not { } walk || owners is not { } holder || hitRecords is not { } notes
+            || conditions is not { } shared || carriers is not { } states)
+            return;
+
+        if (notes.LastHit(death.EntIndex) is not { } wound)
+            return; // info.GetWeapon()'s record: no wound, no killing weapon to walk
+
+        if (states.Predicted(death.Attacker.EntryIndex) is not { } killer)
+            return; // the owner of the gain, stock's m_Shared on the killing player
+
+        if (killer.Class() != TFClass.Sniper)
+            return; // :11365 IsPlayerClass(TF_CLASS_SNIPER)
+
+        float gain = walk.Float(0f, "rage_on_kill",
+                                holder.ItemOf(death.Attacker.EntryIndex, wound.WeaponName));
+        if (gain == 0f) // :11371
+            return;
+
+        // :13873: the drain only refuses while no sniper buff rides the owner
+        // and the owner is not the spy; :13883 caps the write.
+        if (!killer.RageDraining || killer.Class() == TFClass.Spy
+            || shared.InCond(death.Attacker, TFCond.SniperchargeRageBuff))
+            killer.RageMeter = Math.Min(TFRageMeter.FullMeter, killer.RageMeter + gain);
     }
 
     /// <summary>

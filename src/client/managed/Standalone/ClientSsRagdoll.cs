@@ -63,11 +63,12 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     public ClientSsRagdoll(IEngineEntityRender render, IEngineEffects effects, IGameClock clock,
                            IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls,
                            Ragdolls.IRagdollDissolves? dissolves = null, Ragdolls.IRagdollAsh? ash = null,
-                           Sounds.IClientEntitySounds? sounds = null)
+                           Ragdolls.IIceRagdolls? ice = null, Sounds.IClientEntitySounds? sounds = null)
         : base(render)
     {
         _dissolves = dissolves;
         _ash = ash;
+        _ice = ice;
         _sounds = sounds;
         _effects = effects;
         _clock = clock;
@@ -80,6 +81,8 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     private readonly Ragdolls.IRagdollDissolves? _dissolves;
 
     private readonly Ragdolls.IRagdollAsh? _ash;
+
+    private readonly Ragdolls.IIceRagdolls? _ice;
 
     private readonly Sounds.IClientEntitySounds? _sounds;
 
@@ -187,6 +190,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     {
         _dissolves?.End(Handle);
         _ash?.End(Handle);
+        _ice?.End(Handle);
 
         if (BurnStartTime > 0f)
             _effects.ParticleSystemStop(Handle);
@@ -240,9 +244,12 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         // A refusal is an ordinary answer and not an error: BecomeRagdoll says
         // no for a model with no jointed body in its .phy, which is most
         // models and would be a bug in what got spawned rather than here.
-        // A gilded body is the exception stock builds too (m_bFixedConstraints,
-        // c_tf_player.cpp:733): every joint fixed, a statue and not a collapse.
-        IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _, fixedConstraints: State.Gold);
+        // A gilded or frozen body is the exception stock builds too
+        // (m_bFixedConstraints, c_tf_player.cpp:733 and :859): every joint
+        // fixed, a statue and not a collapse -- the ice until its thaw
+        // (RagdollIce), the gold for good.
+        IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _,
+                                     fixedConstraints: State.Gold || State.Ice);
 
         if (IsRagdoll && !State.Velocity.Equals(Vector.Zero))
             _ragdolls.AddVelocity(Handle, State.Velocity);
@@ -375,11 +382,12 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 
     /// <summary>Stock's ice arrival (c_tf_player.cpp:736-742): a body frozen by a
     /// Spy-cicle backstab — the killing weapon's <c>freeze_backstab_victim</c>,
-    /// read at <see cref="TFPlayerGib"/> — plays the turn-to-ice sound and raises
-    /// stock's dry-ice frost over itself. Once, on the flag's arrival. The freeze
-    /// timers stock starts beside the sound (:740-741) wait with the solver's
-    /// frozen-constraint lane; the ice texture is
-    /// <see cref="IceMaterial"/>.</summary>
+    /// read at <see cref="TFPlayerGib"/> — plays the turn-to-ice sound, raises
+    /// stock's dry-ice frost over itself, and starts the frozen hold
+    /// (<see cref="RagdollIce"/>, stock's m_frozenTimer at :741). Once, on the
+    /// flag's arrival. The ice texture is <see cref="IceMaterial"/>; the statue
+    /// itself is the collapse's shape, fixed like the gold's (:859 backs the
+    /// midair arm) until <see cref="RagdollIce"/> thaws it.</summary>
     public const string IceSound = "Icicle.TurnToIce";
 
     public const string IceParticle = "xms_icicle_impact_dryice";
@@ -407,6 +415,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         _sounds?.EmitFrom(Handle, IceSound);
 
         Render.SetMaterialOverride(Handle, IceMaterial);
+        _ice?.Begin(Handle, _clock.Now);
 
         if (!_effects.ParticleSystemStartSlot(Handle, IceParticle, IceSlot))
             Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +

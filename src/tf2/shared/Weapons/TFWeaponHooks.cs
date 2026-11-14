@@ -204,6 +204,10 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     public float ModifyChargeRate(in TFWeaponHookContext weapon, float rate) =>
         attributes.Float(rate, "mult_sniper_charge_per_sec", weapon.Item);
 
+    /// <summary>The boost buff's seconds (tf_weapon_smg.cpp:164-170, stock from a plain zero).</summary>
+    public float MinicritBoostSeconds(in TFWeaponHookContext weapon, float seconds) =>
+        attributes.Float(seconds, "minicrit_boost_when_charged", weapon.Item);
+
     /// <summary>The charged shot's pierce (tf_weapon_sniperrifle.cpp:762-764).</summary>
     public bool PenetratesPlayersWhenCharged(in TFWeaponHookContext weapon) =>
         weapon.Item is { } item && attributes.Int(0, "sniper_penetrate_players_when_charged", item) > 0;

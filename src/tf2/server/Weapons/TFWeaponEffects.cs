@@ -14,6 +14,9 @@ public interface ITFProjectileEffects
 
     /// <inheritdoc cref="ITFWeaponEffects.Detonate"/>
     void Detonate(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <inheritdoc cref="ITFWeaponEffects.ShockAttack"/>
+    void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script);
 }
 
 /// <summary>Stage 2.11's arm: a flamethrower tick's flames and the airblast. One owner, <c>As = [typeof(ITFFlameEffects)]</c>.</summary>
@@ -163,6 +166,9 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script)
         => projectiles?.Detonate(in attack, script);
+
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
+        => projectiles?.ShockAttack(in attack, script);
 
     public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot)
         => flames?.Flames(in attack, script, shot);

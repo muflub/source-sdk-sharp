@@ -5,6 +5,7 @@ using SourceSharp.Shared;
 
 using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Shared.Anim;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Movement;
@@ -1263,6 +1264,90 @@ public sealed class TFMovementRulesTests
         owners.ByName[Index][TFHype.BrawlerScript] = new AttributeContainer();
         players.Predicted(Index)!.SetClass(TFClass.HeavyWeapons);
         Assert.Equal(230f, rules.MaxSpeedScale(Index, 230f, false, 0));
+    }
+
+    /// <summary>Holds the shovel in hand for the rules' held-weapon reads.</summary>
+    private sealed class HeldShovel : ITFAnimWeapons
+    {
+        public TFAnimWeapon? ActiveWeapon(int playerIndex) => new(default, TFWeaponId.Shovel);
+        public TFAnimWeapon? DisguiseWeapon(int playerIndex) => null;
+    }
+
+    /// <summary>Holds another weapon, so the shovel's arm can answer to its own kind.</summary>
+    private sealed class HeldOther : ITFAnimWeapons
+    {
+        public TFAnimWeapon? ActiveWeapon(int playerIndex) => new(default, TFWeaponId.Minigun);
+        public TFAnimWeapon? DisguiseWeapon(int playerIndex) => null;
+    }
+
+    /// <summary>The held item's mode, as the shipped schema carries it on the item.</summary>
+    private static AttributeContainer ShovelItem(float mode)
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(6101, "attr 6101", "set_weapon_mode",
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), mode));
+        return item;
+    }
+
+    /// <summary>
+    /// <c>CTFShovel::GetSpeedMod</c> (tf_weapon_shovel.cpp:123-143): the held SHOVEL_SPEED_BOOST
+    /// shovel scales the soldier's 240 walk by the health tiers — 1 above 80%, then 1.1,
+    /// 1.2, 1.4 and 1.6 — and every command re-reads them as the health moves.
+    /// </summary>
+    [Fact]
+    public void The_held_shovel_speeds_the_walk_as_the_health_goes()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Soldier);
+        var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(2f) };
+        var engine = new RecordingEngine();
+        engine.Returns("Entities.GetHealth", 200);
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
+                                        hooks: new AttributeHooks(), weapons: new HeldShovel(), entities: engine);
+
+        // A full canteen: ratio 1, the plain soldier walk.
+        Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+
+        // The ticks as hurtme bites through the bands (soldier health_max 200):
+        engine.Returns("Entities.GetHealth", 160);   // ratio .8 -> the 1.1 band
+        Assert.Equal(264f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+
+        engine.Returns("Entities.GetHealth", 89);    // ratio .445 -> the 1.2 band
+        Assert.Equal(288f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+
+        engine.Returns("Entities.GetHealth", 40);    // ratio .2 -> the 1.6 band
+        Assert.Equal(384f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+    }
+
+    /// <summary>The Equalizer's mode (the damage boost) leaves the walk at one times itself.</summary>
+    [Fact]
+    public void The_damage_mode_shovel_leaves_the_walk_one_times_itself()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Soldier);
+        var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(1f) };
+        var engine = new RecordingEngine();
+        engine.Returns("Entities.GetHealth", 40);
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
+                                        hooks: new AttributeHooks(), weapons: new HeldShovel(), entities: engine);
+
+        Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+    }
+
+    /// <summary>The speed arm is the shovel's: another held weapon with the same mode stays plain.</summary>
+    [Fact]
+    public void The_shovel_speed_is_the_shovels_alone()
+    {
+        var players = new TFMovementFixtures.Players();
+        players.Add(Index, TFClass.Soldier);
+        var owners = new OwnersOf(new TFPlayerItems()) { Active = ShovelItem(2f) };
+        var engine = new RecordingEngine();
+        engine.Returns("Entities.GetHealth", 40);
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners,
+                                        hooks: new AttributeHooks(), weapons: new HeldOther(), entities: engine);
+
+        Assert.Equal(240f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
     }
 
     /// <summary>The dash count and the jump height walk the ACTIVE weapon's item, both sides alike.</summary>

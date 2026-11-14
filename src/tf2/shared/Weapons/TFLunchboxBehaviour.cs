@@ -73,10 +73,15 @@ public class TFLunchboxBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         if (attack.EffectsLive)
             Parts.Effects.LunchboxEat(in attack, script);
 
-        // The next bite waits for the taunt's end (:186; the client's :188,
-        // whose 2.0 the game server corrects): the condition's remainder when
-        // it stands, stock's client constant when it does not.
-        float taunt = attack.Command.OwnerIndex > 0
+        // The next bite waits for the taunt's end on the side that decides it
+        // (:186's <c>GAME_DLL</c> arm, the live pass — the server's run and the
+        // press's own prediction, whose own side has the condition the press
+        // just stamped); stock's client arm (:188) answers its constant to
+        // every other pass and lets the game server correct it, so the replay
+        // writes the constant too and every replay of the command lands on one
+        // stamp — a remainder read through the arriving words ages between the
+        // passes and would judge a different byte each time.
+        float taunt = attack.EffectsLive && attack.Command.OwnerIndex > 0
             ? Parts.Owners.ConditionsOf(attack.Command.OwnerIndex)?.Duration(TFCond.Taunting) ?? 0f
             : 0f;
         weapon.NextPrimaryAttack = attack.Now + (taunt > 0f ? taunt + EatTail : ClientEatRepeat);

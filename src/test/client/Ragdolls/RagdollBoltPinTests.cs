@@ -46,6 +46,7 @@ public class RagdollBoltPinTests
 
         public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal, bool fixedConstraints = false) =>
             throw new NotSupportedException();
+        public bool Thaw(EntityHandle owner) => throw new NotSupportedException();
         public bool TryRoot(EntityHandle owner, out Vector position)
         {
             position = default;

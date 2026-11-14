@@ -6,6 +6,7 @@ using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Conditions;
 using TF2.Shared.Player;
 
@@ -412,5 +413,107 @@ public class TFBuildingPickupTests
         ((IPlayerDeathHook)rig.Pickup()).OnPlayerDied(new PlayerDeath(engineer, 3, EntityHandle.None, Vector.Zero, EntityHandle.None));
 
         Assert.False(state.CarryingObject);
+    }
+
+    // ---- the Rescue Ranger's far lift (building_teleporting_pickup,
+    // tf_player_shared.cpp:12481-12507 and :12622-12647) -----
+
+    /// <summary>The rescue item on the engineer's held gun, worth <paramref name="cost"/> metal.</summary>
+    private static void AHeldRescue(BuildingsRig rig, EntityHandle engineer, float cost = 100f)
+    {
+        rig.Owners.Held[engineer.EntryIndex] = "tf_weapon_shotgun_building_rescue";
+        rig.Owners.Items[engineer.EntryIndex] =
+            rig.AttributeItem("building_teleporting_pickup", AttributeDescriptionFormat.Additive, cost);
+    }
+
+    [Fact]
+    public void TheRescueReachesPastTheArms()
+    {
+        // The held item's reach (:12553-12557): 5500 where the bare arms lift
+        // inside 150 — the same far sentry the plain lift refuses.
+        var (rig, engineer, sentry) = AField();
+        rig.Origins[sentry.Handle] = new Vector(600f, 0f, 0f);
+        rig.Centers[sentry.Handle] = new Vector(600f, 0f, 24f);
+
+        Assert.False(rig.Pickup().TryPickup(engineer));
+        Assert.False(sentry.IsCarried);
+
+        AHeldRescue(rig, engineer);
+
+        Assert.True(rig.Pickup().TryPickup(engineer));
+        Assert.True(sentry.IsCarried);
+    }
+
+    [Fact]
+    public void TheDeadzoneRefusesTheRescueToo()
+    {
+        // Between the arms' reach and 250 neither lift answers (:12504-12506).
+        var (rig, engineer, sentry) = AField();
+        rig.Origins[sentry.Handle] = new Vector(200f, 0f, 0f);
+        rig.Centers[sentry.Handle] = new Vector(200f, 0f, 24f);
+        AHeldRescue(rig, engineer);
+
+        Assert.False(rig.Pickup().TryPickup(engineer));
+
+        Assert.False(sentry.IsCarried);
+    }
+
+    [Fact]
+    public void TheFarLiftCostsTheWorth()
+    {
+        // Past 250 the purse pays (:12507-12508, :12628): an empty one
+        // refuses, a funded one pays the item's hundred once.
+        var (rig, engineer, sentry) = AField();
+        rig.Origins[sentry.Handle] = new Vector(600f, 0f, 0f);
+        rig.Centers[sentry.Handle] = new Vector(600f, 0f, 24f);
+        AHeldRescue(rig, engineer);
+        rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 0;
+
+        Assert.False(rig.Pickup().TryPickup(engineer));
+
+        int paidByTheBuild = rig.Purse.Paid.Count;
+        rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 100;
+        Assert.True(rig.Pickup().TryPickup(engineer));
+
+        Assert.Equal((engineer, 100, TFAmmoNames.Name(TFAmmo.Metal)), rig.Purse.Paid[paidByTheBuild]);
+    }
+
+    [Fact]
+    public void TheNearLiftPaysNothing()
+    {
+        // Inside the arms' reach the rescue changes nothing (:12503's fall
+        // through): the lift is free.
+        var (rig, engineer, sentry) = AField();
+        AHeldRescue(rig, engineer);
+        int paidByTheBuild = rig.Purse.Paid.Count;
+
+        Assert.True(rig.Pickup().TryPickup(engineer));
+
+        Assert.Equal(paidByTheBuild, rig.Purse.Paid.Count);
+    }
+
+    [Fact]
+    public void TheFarLiftTellsWhere()
+    {
+        // The tell (:12630-12645): the teleport's puff on the building, the
+        // rail at the engineer, the send on the building and the receive on
+        // him — none of it on a near lift.
+        var (rig, engineer, sentry) = AField();
+        rig.Origins[sentry.Handle] = new Vector(600f, 0f, 0f);
+        rig.Centers[sentry.Handle] = new Vector(600f, 0f, 24f);
+        AHeldRescue(rig, engineer);
+
+        Assert.True(rig.Pickup().TryPickup(engineer));
+
+        var told = rig.Effects.Dispatched.Where(e => e.Name == "ParticleEffect").ToArray();
+        Assert.Equal(2, told.Length);
+        Assert.Equal(rig.ParticleIndices["teleported_red"], told[0].Data.HitBox);
+        Assert.Equal(new Vector(600f, 0f, 0f), told[0].Data.Origin);
+        Assert.Equal(rig.ParticleIndices["dxhr_sniper_rail_red"], told[1].Data.HitBox);
+
+        string[] sounded = rig.Engine.Calls.Where(c => c.Member == "Sound.EntityEmitSound")
+                                           .Select(c => c.ArgAs<string>(1))
+                                           .ToArray();
+        Assert.Equal(new[] { "Building_Teleporter.Send", "Building_Teleporter.Receive" }, sounded[^2..]);
     }
 }

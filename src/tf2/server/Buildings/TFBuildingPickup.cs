@@ -13,6 +13,7 @@ using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 using TF2.Shared.Rules;
 
@@ -42,16 +43,54 @@ public interface ITFBuildingPickup
 /// that must reach one (<c>EnumerateEntities</c> over the pickup ray,
 /// tf_player_shared.cpp:12578-12620), <see cref="CanPickup"/>'s gates, and
 /// the carried state the redeploy arms.
+///
+/// <para>
+/// The Rescue Ranger's arm (<c>building_teleporting_pickup</c>,
+/// tf_player_shared.cpp:12481-12507 and :12622-12647): the held item's worth
+/// is the metal the far lift pays and its reach <see cref="RescueMaxRange"/>,
+/// with the deadzone between the plain reach and 250 refusing both. Stock's
+/// teleport is the complex control-point dispatch (:12640, the rail's point
+/// the building); here the plain position form carries both records, the
+/// rail's at the engineer, as the orb's trail waits with the complex arm.
+/// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFBuildingPickup)])]
+[Precache(PrecacheKind.ParticleSystem, RescueRailRed)]
+[Precache(PrecacheKind.ParticleSystem, RescueRailBlue)]
+[Precache(PrecacheKind.ParticleSystem, RescueTeleportRed)]
+[Precache(PrecacheKind.ParticleSystem, RescueTeleportBlue)]
+[Precache(PrecacheKind.Sound, RescueSendSound)]
+[Precache(PrecacheKind.Sound, RescueReceiveSound)]
 public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildings,
                                      IEngineEntities entities, IEngineWorldQuery world,
                                      ITFBuilderPlacement? builder = null, ITeamRoundState? rounds = null,
-                                     TFPlayerCarriers? carriers = null)
+                                     TFPlayerCarriers? carriers = null, AttributeHooks? hooks = null,
+                                     ITFWeaponOwners? owners = null, ITFAmmoPurse? purse = null,
+                                     ITempEnts? temps = null, IEnginePrecache? precache = null,
+                                     IEngineSound? sound = null)
     : ITFBuildingPickup, IPlayerDeathHook, IOrderedHook
 {
     /// <summary>A stage of its own in TF2's thousand.</summary>
     public const int Order = 1_000_000 - 1_000 + 932;
+
+    /// <summary><c>building_teleporting_pickup</c>, the rescue arm's ask (:12481, :12553).</summary>
+    private const string RescueAttribute = "building_teleporting_pickup";
+
+    /// <summary>The rescue's far tell, per team (:12635, :12636).</summary>
+    private const string RescueRailRed = "dxhr_sniper_rail_red";
+    private const string RescueRailBlue = "dxhr_sniper_rail_blue";
+    private const string RescueTeleportRed = "teleported_red";
+    private const string RescueTeleportBlue = "teleported_blue";
+
+    /// <summary>The far lift's pair (:12644, :12645), the send on the building.</summary>
+    private const string RescueSendSound = "Building_Teleporter.Send";
+    private const string RescueReceiveSound = "Building_Teleporter.Receive";
+
+    /// <summary><c>TF_BUILDING_RESCUE_MIN_RANGE_SQ</c> (tf_player_shared.cpp:218): 250 squared, the deadzone's far edge.</summary>
+    public const float RescueMinRangeSq = 62500f;
+
+    /// <summary><c>TF_BUILDING_RESCUE_MAX_RANGE</c> (tf_player_shared.cpp:219): the held rescue's reach.</summary>
+    public const float RescueMaxRange = 5500f;
 
     /// <summary><c>TF_BUILDING_PICKUP_RANGE</c> (tf_player_shared.cpp:217): 150.</summary>
     public const float PickupRange = 150f;
@@ -84,12 +123,15 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
             return false;
 
         // The eye ray (:12566-12579) and the owned buildings walked nearest
-        // first (:12591-12620), the closest one the ray reaches winning.
+        // first (:12591-12620), the closest one the ray reaches winning —
+        // the held rescue's reach when its arm is on (:12553-12557).
+        int rescue = RescueCost(player);
+        float reach = rescue != 0 ? RescueMaxRange : PickupRange;
         Vector eye = entities.GetEyePosition(player);
         Vector forward = Angles.Forward(entities.GetEyeAngles(player));
         Vector origin = entities.GetOrigin(player);
         TFBaseObject? picked = null;
-        float bestSq = PickupRange * PickupRange;
+        float bestSq = reach * reach;
 
         foreach (TFBaseObject owned in buildings.OwnedBy(player))
         {
@@ -122,11 +164,19 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
         if (picked is null)
             return false;
 
-        if (!CanPickup(player, picked))
+        if (!CanLift(player, picked, rescue))
         {
             // Player.UseDeny (:12622-12631); the sound is the sapper lane's.
             return false;
         }
+
+        // The far lift's fare and its tell (:12622-12646), past the deadzone
+        // only: the worth's metal, the teleport's puff on the building and
+        // the rail from the engineer, the send on the building and the
+        // receive on him.
+        float liftedSq = (entities.GetOrigin(picked.Handle) - entities.GetEyePosition(player)).LengthSquared;
+        if (rescue != 0 && liftedSq > RescueMinRangeSq)
+            RescueTell(player, picked, rescue);
 
         picked.MakeCarriedObject(player);
 
@@ -139,6 +189,9 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
     }
 
     public bool CanPickup(EntityHandle player, TFBaseObject candidate)
+        => CanLift(player, candidate, RescueCost(player));
+
+    private bool CanLift(EntityHandle player, TFBaseObject candidate, int rescue)
     {
         if (candidate is null || candidate.IsDead || candidate.IsCarried)
             return false;
@@ -171,10 +224,63 @@ public sealed class TFBuildingPickup(ITFMapPlayers players, ITFBuildings buildin
             && state.State is not (RoundState.RoundRunning or RoundState.Stalemate or RoundState.BetweenRounds))
             return false;
 
-        // Within reach of the eye (:12494-12511).
+        // The reach (:12493-12511): the plain lift inside the 150; the held
+        // rescue's arm instead — the deadzone between the plain reach and
+        // 250 refuses both, and past 250 the purse must hold the worth.
         Vector eye = entities.GetEyePosition(player);
-        Vector toObject = entities.GetOrigin(candidate.Handle) - eye;
-        return toObject.LengthSquared <= PickupRange * PickupRange;
+        float distSq = (entities.GetOrigin(candidate.Handle) - eye).LengthSquared;
+        float nearSq = PickupRange * PickupRange;
+        if (rescue == 0)
+            return distSq <= nearSq;
+
+        // False on the deadzone (:12504-12506).
+        if (distSq > nearSq && distSq < RescueMinRangeSq)
+            return false;
+
+        // The far lift's metal (:12507-12508).
+        return distSq < RescueMinRangeSq
+               || (purse?.Pools(player).GetValueOrDefault(TFAmmoNames.Name(TFAmmo.Metal)) ?? 0) >= rescue;
+    }
+
+    /// <summary>
+    /// The held weapon's <c>building_teleporting_pickup</c>
+    /// (:12551-12553, the active item through CALL_ATTRIB_HOOK_INT_ON_OTHER):
+    /// 0 when no rescue is out, else the metal the far lift costs.
+    /// </summary>
+    private int RescueCost(EntityHandle player)
+        => hooks is not null && owners?.ActiveItemOf(player.EntryIndex) is { } item
+            ? hooks.Int(0, RescueAttribute, item)
+            : 0;
+
+    /// <summary>The far lift's fare and tell (:12622-12646).</summary>
+    private void RescueTell(EntityHandle player, TFBaseObject picked, int fare)
+    {
+        purse?.TakeAmmo(player, fare, TFAmmoNames.Name(TFAmmo.Metal));
+
+        bool red = (TFTeam)players.Team(player) != TFTeam.Blue;
+
+        Vector at = entities.GetOrigin(picked.Handle);
+        var gone = new TeEffectData
+        {
+            Origin = at,
+            Start = at,
+            HitBox = precache!.ParticleSystemIndex(red ? RescueTeleportRed : RescueTeleportBlue),
+        };
+        temps!.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in gone);
+
+        // The rail from the engineer; the complex dispatch's control point on
+        // the building waits with that form, as the orb's trail does.
+        Vector from = entities.GetOrigin(player);
+        var beam = new TeEffectData
+        {
+            Origin = from,
+            Start = from,
+            HitBox = precache.ParticleSystemIndex(red ? RescueRailRed : RescueRailBlue),
+        };
+        temps.DispatchEffect(TeFilters.Pvs(from), 0f, "ParticleEffect", in beam);
+
+        sound?.EntityEmitSound(picked.Handle, RescueSendSound);
+        sound?.EntityEmitSound(player, RescueReceiveSound);
     }
 
     /// <summary><c>CTFPlayerShared::IsLoser</c> (tf_player_shared.cpp:13673): the round is won and not by the player's team.</summary>

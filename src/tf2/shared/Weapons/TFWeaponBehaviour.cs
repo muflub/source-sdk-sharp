@@ -93,6 +93,9 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// <summary>The class skill's refire (<c>tf_weaponbase_gun.cpp:250</c>'s 0.5).</summary>
     public const float ClassSkillRefire = 0.5f;
 
+    /// <summary><c>DAMAGE_TO_FILL_MINICRIT_METER</c> (tf_weapon_smg.cpp:8): the carbine's boost meter.</summary>
+    public const float ChargedSmgMeterCap = 100f;
+
     /// <summary>
     /// How much earlier than the reload animation a whole-clip reload ends
     /// (<c>tf_weaponbase.cpp:2225</c>'s 0.2 s — so a held trigger does not
@@ -664,6 +667,33 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// arms.
     /// </summary>
     public virtual void SecondaryAttack(in WeaponAttackContext attack)
+    {
+        // THE CARBINE'S BOOST (CTFChargedSMG, tf_weapon_smg.cpp:101-172): the alt-fire's door is
+        // the full boost meter (:101-104) — with the meter short the press answers nothing, the
+        // gate and the refire included. Past the door the press runs the gun base's half (:157),
+        // spends the meter (:159) and holds the mini-crit buff for the held item's seconds
+        // (:164-170), the buff half riding on whether the base's debounce answered or not, as in
+        // stock.
+        if (ScriptOf(attack.Type) is { Id: TFWeaponId.ChargedSmg } carbine)
+        {
+            if (attack.Weapon.BehaviourMeter < ChargedSmgMeterCap)
+                return;
+
+            GenericSecondary(in attack);
+            attack.Weapon.BehaviourMeter = 0f;
+
+            float seconds = Parts.Hooks.MinicritBoostSeconds(Context(in attack, carbine), 0f);
+            if (seconds > 0f && attack.Command.OwnerIndex > 0
+                && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } conditions)
+                conditions.Add(TFCond.EnergyBuff, seconds);
+            return;
+        }
+
+        GenericSecondary(in attack);
+    }
+
+    /// <summary>See <see cref="SecondaryAttack"/>: the gun base's half alone.</summary>
+    private void GenericSecondary(in WeaponAttackContext attack)
     {
         var weapon = attack.Weapon;
         if ((weapon.BehaviourMode & ModeInAttack2) != 0)

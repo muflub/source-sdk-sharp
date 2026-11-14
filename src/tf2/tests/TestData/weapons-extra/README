@@ -82,3 +82,30 @@ tf_weapon_jar_gas: the Gas Passer (items_working.tsv:330), the pyro's gas
 jar, for the meter rows (TFItemMeter's charge seconds, TFWeaponScript's
 ProjectileType of projectile_jar_gas). Extracted and trimmed exactly as
 TestData/weapons/README describes.
+
+tf_weapon_breakable_sign: the Neon Annihilator and its Promo skin
+(items_working.tsv:813, :834), the melee held as the equipped item whose
+class is its own row (TFSharedDefs's TF_WEAPON_BREAKABLE_SIGN), for the
+works rows' kind and catalogue facts (TFWeaponKinds.Of's melee answer, the
+plasma fade the kill stamps beside it). Extracted and trimmed exactly as
+TestData/weapons/README describes.
+
+tf_weapon_mechanical_arm: the Short Circuit (items_working.tsv:164), the
+engineer's secondary whose trigger is the shock attack (TFWeaponKinds.Of's
+MechanicalArm id, TFMechanicalArmFacts' gates, the orb entity). Rows only
+where stock's C++ states them - the pack's .ctx waits with the extraction
+(tools/vpk-extract refused this session); the primary's purse is the
+mod_ammo_per_shot hook no side carries yet.
+
+tf_weapon_charged_smg: the Cleaner's Carbine's row (items_working.tsv:751),
+the charged SMG whose alt-fire spends the boost meter on the mini-crit buff
+(TFWeaponBehaviour's ChargedSmg arm, the boost facts; stock
+CTFChargedSMG, tf_weapon_smg.cpp). Built on the SMG's block, the spread and
+brass the Carbine's shipped schema names. Extracted and trimmed exactly as
+TestData/weapons/README describes.
+
+tf_weapon_shotgun_building_rescue: the Rescue Ranger (items_working.tsv:997),
+the engineer's shotgun whose shot is the repair bolt (TFWeaponKinds.Of's
+Projectile row, TFProjectileEffects' BuildingRepairBolt case over the
+arrow entity, TFArrow's BuildingHealingArrow arm). Extracted and trimmed
+exactly as TestData/weapons/README describes.

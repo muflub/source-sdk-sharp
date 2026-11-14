@@ -101,6 +101,71 @@ public sealed class TFWeaponOwnersTests
         Assert.Equal(TFClass.Undefined, owners.ClassOf(PlayerRig.Index + 1));
     }
 
+    /// <summary>A medic's registry over a held medigun whose meter stands at <paramref name="meter"/>.</summary>
+    private static (PlayerRig Rig, TFServerWeaponOwners Owners, GroundDirectory Directory, SsWeapon Medigun)
+        Medic(float meter = 0.8f)
+    {
+        var rig = new PlayerRig().As(TFClass.Medic);
+        var directory = new GroundDirectory();
+        var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
+                                              rig.Engine, directory, new TFPlayerStats());
+        var medigun = new SsWeapon { Handle = new EntityHandle(0x0002_0000u | 9) };
+        medigun.State.BindLocal();
+        medigun.State.BehaviourMeter = meter;
+        directory.Weapon = medigun;
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", medigun.Handle);
+        return (rig, owners, directory, medigun);
+    }
+
+    [Fact]
+    public void The_drain_takes_the_medics_meter_and_names_it()
+    {
+        var (_, owners, _, medigun) = Medic();
+
+        // ApplyPostHitEffects' medic arm (tf_weaponbase.cpp:5565-5585): the
+        // caller's fraction off the held meter, and the true the telling asks.
+        Assert.True(owners.DrainOnHitMeters(PlayerRig.Index, 0.3f, 0f));
+        Assert.Equal(0.5f, medigun.State.BehaviourMeter, 4);
+    }
+
+    [Fact]
+    public void A_releasing_uber_keeps_its_meter()
+    {
+        var (rig, owners, _, medigun) = Medic();
+        rig.State.ChargeReleasing = true;
+
+        // Stock's !IsReleasingCharge gate (:5572): while the ubersaw's release
+        // runs, the drain stands nowhere.
+        Assert.False(owners.DrainOnHitMeters(PlayerRig.Index, 0.3f, 0f));
+        Assert.Equal(0.8f, medigun.State.BehaviourMeter, 4);
+    }
+
+    [Fact]
+    public void The_drain_takes_the_spys_cloak_points()
+    {
+        var rig = new PlayerRig().As(TFClass.Spy);
+        var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
+                                              rig.Engine, new GroundDirectory(), new TFPlayerStats());
+        rig.State.CloakMeter = 100f;
+
+        // The cloak arm (:5589-5612): the raw attribute off the hundred-point
+        // meter, clamped at zero, and the true beside it.
+        Assert.True(owners.DrainOnHitMeters(PlayerRig.Index, 0f, 0.35f));
+        Assert.Equal(65f, rig.State.CloakMeter, 4);
+    }
+
+    [Fact]
+    public void A_class_the_arms_do_not_name_is_undrained()
+    {
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
+                                              rig.Engine, new GroundDirectory(), new TFPlayerStats());
+
+        // Neither arm names the soldier (:5565, :5589): nothing moves, and the
+        // false says so.
+        Assert.False(owners.DrainOnHitMeters(PlayerRig.Index, 0.3f, 0.35f));
+    }
+
     [Fact]
     public void The_conditions_are_the_carriers_one_set()
     {

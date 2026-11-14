@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
 
 using SourceSharp.Shared;
 
@@ -65,6 +66,51 @@ public sealed class TFJarFacts
         rig.Effects.Projectile(Attack(3), JarScript("tf_weapon_jar"), default, 0f);
 
         Assert.Equal(TFProjectileEntityNames.Jar, rig.Engine.Last("Entities.Create")!.Value.ArgAs<string>(0));
+    }
+
+    /// <summary>
+    /// <c>FireProjectile</c>'s jar arm (<c>tf_weaponbase_gun.cpp:303-311</c>): the
+    /// festive and bread-monster items override the projectile type, and every
+    /// one of them still throws a jar.
+    /// </summary>
+    [Theory]
+    [InlineData(22f, TFProjectileEntityNames.Jar)]
+    [InlineData(24f, TFProjectileEntityNames.Jar)]
+    [InlineData(25f, TFProjectileEntityNames.JarMilk)]
+    public void An_overridden_jar_is_still_thrown(float face, string thrown)
+    {
+        var rig = new ProjectileRig();
+        rig.Directory.Instance = null;
+        rig.Owners.Item = rig.AttributeItem("override_projectile_type",
+                                            AttributeDescriptionFormat.Additive, face);
+
+        rig.Effects.Projectile(Attack(3), JarScript("tf_weapon_jar"), default, 0f);
+
+        Assert.Equal(thrown, rig.Engine.Last("Entities.Create")!.Value.ArgAs<string>(0));
+    }
+
+    /// <summary>
+    /// The arrow arm of the same switch (<c>tf_weaponbase_gun.cpp:314-320</c>):
+    /// the festive bow and crossbow override the type, and still fire their
+    /// arrow and bolt.
+    /// </summary>
+    [Theory]
+    [InlineData(TFProjectile.FestiveArrow, "tf_weapon_compound_bow", TFProjectileEntityNames.Arrow)]
+    [InlineData(TFProjectile.FestiveHealingBolt, "tf_weapon_crossbow", TFProjectileEntityNames.HealingBolt)]
+    public void An_overridden_arrow_is_still_fired(TFProjectile face, string weapon, string fired)
+    {
+        var rig = new ProjectileRig();
+        rig.Directory.Instance = null;
+        rig.Owners.Item = rig.AttributeItem("override_projectile_type",
+                                            AttributeDescriptionFormat.Additive, (float)face);
+
+        var bow = new WeaponNetState();
+        bow.BindLocal();
+        var drawn = new WeaponAttackContext(default!, bow, null!, 1f, true, null!,
+                                            new WeaponCommand(1, 5, 3));
+        rig.Effects.Projectile(drawn, JarScript(weapon), default, 1f);
+
+        Assert.Equal(fired, rig.Engine.Last("Entities.Create")!.Value.ArgAs<string>(0));
     }
 
     [Fact]
@@ -255,6 +301,54 @@ public sealed class TFJarFacts
         Assert.Equal(ProjectileRig.Victim, doused.Item1);
         Assert.Equal(TFCond.Burning, doused.Item2);
         Assert.Empty(rig.Wet.Added);
+    }
+
+    /// <summary>The refund behind the extinguish (JarExplode :452-468): a held
+    /// item's extinguish_reduces_cooldown is the fraction of the wait the
+    /// extinguisher keeps; the rest lands on the jar's refill at once.</summary>
+    [Fact]
+    public void Putting_out_an_ally_hands_the_refund_to_the_launchers_refill()
+    {
+        var (rig, jar) = LandedJar();
+        rig.Wet.Burning.Add(ProjectileRig.Victim);
+        rig.Engine.Returns("Players.GetTeam", 2); // the same side, both
+        var (gun, gunHandle) = HeldJar(rig);
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", gunHandle);
+        // Percentage over the held one: the hook's answer is the kept fraction.
+        rig.Owners.Active = rig.AttributeItem("extinguish_reduces_cooldown",
+                                              AttributeDescriptionFormat.Percentage, 0.5f);
+
+        jar.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(0.5f, gun.State.ItemMeter);   // half the wait kept, half handed back
+    }
+
+    /// <summary>No attribute, no refund: the held default of one is the whole
+    /// wait kept, and the bar stands where the launch left it.</summary>
+    [Fact]
+    public void A_plain_jar_hands_nothing_back_for_the_extinguish()
+    {
+        var (rig, jar) = LandedJar();
+        rig.Wet.Burning.Add(ProjectileRig.Victim);
+        rig.Engine.Returns("Players.GetTeam", 2);
+        var (gun, gunHandle) = HeldJar(rig);
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", gunHandle);
+
+        jar.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(0f, gun.State.ItemMeter);
+    }
+
+    /// <summary>The held launcher: a weapon entity behind the active-weapon
+    /// ask, its bar the refund lands on.</summary>
+    private static (SsWeapon Gun, EntityHandle Handle) HeldJar(ProjectileRig rig)
+    {
+        var handle = new EntityHandle(0x0004_0000u | 11);
+        var gun = new SsWeapon();
+        gun.Handle = handle;
+        gun.State.BindLocal();
+        rig.Directory.Holds(handle, gun);
+        return (gun, handle);
     }
 
     [Fact]

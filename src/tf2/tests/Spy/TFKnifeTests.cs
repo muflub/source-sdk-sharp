@@ -571,7 +571,7 @@ public sealed class TFKnifeTests
         public void RemoveDisguise(int playerIndex) { }
         public void RemoveInvisibility(int playerIndex) { }
         public bool ActivateInvisibilityWatch(int playerIndex) => false;
-        public bool FeignDeathHit(int victimIndex) => false;
+        public bool FeignDeathHit(int victimIndex, EntityHandle attacker = default) => false;
         public bool KnifeReady(int ownerIndex, float now) => true;
         public void MeltKnife(int ownerIndex, float now, float seconds) => Melted.Add((ownerIndex, now, seconds));
         public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) => false;

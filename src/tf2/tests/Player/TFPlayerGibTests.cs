@@ -56,14 +56,15 @@ public sealed class TFPlayerGibTests
         public string? ValueOf(string name) => _names.Contains(name) ? _values[_names.IndexOf(name)] : null;
     }
 
-    private static TFPlayerGib Hook(ScriptedEntity? body, TFDamageRecords records, IEngineEntities entities,
+    private static TFPlayerGib Hook(ScriptedEntity? body, TFDamageRecords records, RecordingEngine engine,
                                     out ConVarRegistry convars,
                                     AttributeHooks? hooks = null, ITFWeaponOwners? owners = null)
     {
         convars = new ConVarRegistry(new Backend());
         convars.RegisterTypes([typeof(TFPlayerGibConVar)]);
-        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, entities, new Directory(body),
-                               hooks, owners);
+        // The engine doubles as the clock: RecordingEngine answers both seams.
+        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, engine, new Directory(body),
+                               engine, hooks, owners);
     }
 
     private static SsRagdoll Corpse()
@@ -330,6 +331,96 @@ public sealed class TFPlayerGibTests
         hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
 
         Assert.False(body.State.Gold);
+    }
+
+    // ---- the dissolve the Neon Annihilator asks (ragdolls_plasma_effect) ----
+
+    /// <summary>ragdolls_plasma_effect (the Neon Annihilator), stock's second
+    /// stamp in the ragdoll's making (tf_player.cpp:15851-15859): the kill asks
+    /// a plasma corpse, which the client fades instead of gibbing it
+    /// (c_tf_player.cpp:1202-1210). The MiniBoss arm of that gate has no case
+    /// here — this mod has no minibosses.</summary>
+    [Fact]
+    public void A_kill_from_a_plasma_weapon_dissolves_the_body_and_leaves_no_gib()
+    {
+        var attacker = new EntityHandle(0x0001_0006u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Blast, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_breakable_sign", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -50);   // a blast this deep would gib on its own
+        engine.Returns("Clock.Now", 12f);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(813, "neon plasma", "ragdolls_plasma_effect",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("p")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.Equal(12f, body.State.DissolveStart);   // the fade starts at once
+        Assert.False(body.State.Gib);                  // the dissolve stands in its place (:1209)
+    }
+
+    /// <summary>Ash wins the fade away (the <c>!m_bBecomeAsh</c> of the plasma
+    /// gate, c_tf_player.cpp:1204), while the gib stays off all the same.</summary>
+    [Fact]
+    public void Ash_wins_the_plasma_fade_and_the_kill_still_leaves_no_gib()
+    {
+        var attacker = new EntityHandle(0x0001_0006u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Blast, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_breakable_sign", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -50);
+        engine.Returns("Clock.Now", 12f);
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30665, "star ash", "ragdolls_become_ash",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("a")), 1f));
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(813, "neon plasma", "ragdolls_plasma_effect",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("p")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ash);
+        Assert.Equal(0f, body.State.DissolveStart);    // the ash keeps the fade (:1204)
+        Assert.False(body.State.Gib);                  // but the gib is off either way (:1209)
+    }
+
+    /// <summary>The plain kill's own answer beside the plasma arm: a blast past
+    /// the gib threshold gibs, and nothing fades.</summary>
+    [Fact]
+    public void A_plain_kill_gibs_the_deep_blast_and_dissolves_nothing()
+    {
+        var attacker = new EntityHandle(0x0001_0006u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Blast, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_breakable_sign", 1f),
+                     damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", -50);
+        engine.Returns("Clock.Now", 12f);
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), new FakeOwners());
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gib);
+        Assert.Equal(0f, body.State.DissolveStart);
     }
 
     // ---- the hard hit the Classic asks (crit_on_hard_hit) -------------------

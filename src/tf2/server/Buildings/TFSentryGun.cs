@@ -14,6 +14,7 @@ using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Voice;
 using TF2.Shared;
+using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
@@ -859,7 +860,16 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         // the smaller body (:1542-1546).
         float shellDamage = IsMiniBuilding ? _miniSentryDamage.Value : _sentryDamage.Value;
         using (_inflictors.Push(Handle, Origin))
-            _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+        {
+            // The wrangled shell's custom (ModifyFireBulletsDamage,
+            // tf_obj_sentrygun.cpp:1651-1657): the kill feed's sentry arm
+            // reads it for the pointer's name.
+            if (_playerControlled && Scopes is { } scopes)
+                using (scopes.Push(TFDamageCustom.PlayerSentry, TFWeaponId.None, ""))
+                    _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+            else
+                _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+        }
     }
 
     /// <summary>

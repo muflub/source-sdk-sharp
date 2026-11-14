@@ -72,6 +72,9 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
     public const int Order = 1_000_000 - 1_000 + 703;
 
+    /// <summary><c>TF_DEATH_AUSTRALIUM</c> (tf_shareddefs.h:1816): the gilded death's background.</summary>
+    public const int Australium = 0x0400;
+
     public int HookOrder => Order;
 
     public void Fill(in DeathNoticeFacts death, IDeathNoticeFields fields)
@@ -130,9 +133,21 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             silentKill = hook.Int(0, "set_silent_killer",
                                   own.ItemOf(scorer.EntryIndex, players.GetActiveWeapon(scorer))) == 1;   // :6188
         fields.SetBool("silent_kill", silentKill);
-        fields.SetInt("death_flags", dominations?.DeathFlags(victimIndex,
+        int deathFlags = dominations?.DeathFlags(victimIndex,
             scorer != EntityHandle.None ? entities.GetIndex(scorer) : -1,
-            assister != EntityHandle.None ? entities.GetIndex(assister) : -1) ?? 0);
+            assister != EntityHandle.None ? entities.GetIndex(assister) : -1) ?? 0;
+
+        // The gilded deaths (tf_gamerules.cpp:13092-13108): the killing blow's
+        // weapon wearing is_australium_item or set_turn_to_gold — the Golden
+        // Wrench's gold among them — gilds the flag the notice's background
+        // reads.
+        if (hit is { } killing && scorer != EntityHandle.None
+            && owners?.ItemOf(scorer.EntryIndex, killing.WeaponName) is { } killer
+            && (attributes!.Int(0, "is_australium_item", killer) != 0
+                || attributes.Int(0, "set_turn_to_gold", killer) != 0))
+            deathFlags |= Australium; // MUTATED
+
+        fields.SetInt("death_flags", deathFlags);
         fields.SetInt("stun_flags", 0);
         // Stock reads the victim's state directly (tf_gamerules.cpp:13116,
         // RocketJumped() == 1): a death in the air carries the word, one after
@@ -181,6 +196,11 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
                 break;
             case TFDamageCustom.SapperRecorderDeath:       // tf_gamerules.cpp:12333-12336
                 name = "recorder";
+                break;
+            case TFDamageCustom.PlayerSentry:              // :12296-12311
+                name = scorer != EntityHandle.None && owners is { } own
+                       && attributes!.Int(0, "is_giger_counter", own.ActiveItemOf(scorer.EntryIndex)) > 0
+                    ? "giger_counter" : "wrangler_kill";
                 break;
             default:
                 if (scorer != EntityHandle.None && inflictor != EntityHandle.None && inflictor == scorer)

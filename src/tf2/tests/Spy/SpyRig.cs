@@ -6,8 +6,11 @@ using SourceSharp.Shared;
 using SourceSharp.Tests;
 
 using TF2.Server.Combat;
+
+using TF2.Server;
 using TF2.Server.Entities.Ctf;
 using TF2.Server.Entities.Rooms;
+using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
@@ -16,6 +19,7 @@ using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using TF2.Tests.Combat;
+using TF2.Tests.Entities.Items;
 using TF2.Tests.Weapons;
 
 namespace TF2.Tests.Spy;
@@ -138,6 +142,9 @@ internal sealed class SpyRig
     /// <summary>The spy's carried weapon entity.</summary>
     public static readonly EntityHandle WeaponEntity = new(0x0003_0001u);
 
+    /// <summary>The body the fake death leaves (<see cref="Corpses"/>'s creation answer).</summary>
+    public static readonly EntityHandle Corpse = new(0x0002_0001u);
+
     private readonly TFMovementFixtures.Players _states = new();
 
     public RecordingEngine Engine { get; } = TestServices.Fake();
@@ -223,6 +230,36 @@ internal sealed class SpyRig
     /// <summary>The resupply seam the kunai's sanguisuge heal asks.</summary>
     public SpyResupply Resupply { get; } = new();
 
+    /// <summary>The weapon scripts the fake death's pack dress reads.</summary>
+    public TFWeaponScripts Scripts { get; }
+
+    /// <summary>The carried weapons the pack dresses as.</summary>
+    public Arsenal Arsenal { get; }
+
+    /// <summary>The map's teams, for the pack's suicide read (:13094).</summary>
+    public FakeMapPlayers Map { get; }
+
+    /// <summary>The notice the fake death fires (:15736), over the rig's engine.</summary>
+    public DeathNotice Notices { get; }
+
+    /// <summary>The corpses the fake death leaves (:15782).</summary>
+    public Corpses Corpses { get; }
+
+    /// <summary>The managed body the fake death's corpse is (<see cref="Corpse"/>).</summary>
+    public SsRagdoll CorpseBody { get; }
+
+    /// <summary>The feign corpse's dress (<see cref="TFFeignRagdoll"/>), over the rig's armory.</summary>
+    public TFFeignRagdoll FeignRagdoll { get; }
+
+    /// <summary>The hits the feign's corpse gibs by (the recorded blow the dress reads).</summary>
+    public TFDamageRecords Records { get; } = new();
+
+    /// <summary>The gib walk the fake corpse's pieces ask (<see cref="TFPlayerGib.LastHitGibs"/>).</summary>
+    public TFPlayerGib Gibs { get; }
+
+    /// <summary>The death hook whose empty pack the fake death drops (:15740).</summary>
+    public TFDeathDrops Drops { get; }
+
     /// <summary>The engine's active-weapon answer, for the dress's restore.</summary>
     public string ActiveWeapon { set => Engine.Returns("Players.GetActiveWeapon", value); }
 
@@ -250,7 +287,17 @@ internal sealed class SpyRig
                                                      : EntityHandle.None)
               .Returns("Entities.GetHealth", 100)
               .ReturnsEachCall("WorldQuery.TraceLine", () => new TraceResult(TraceHits, 1f, TraceEnd, default, Victim))
-              .Returns("WorldQuery.TraceBox", default(SurfaceTraceResult));
+              .Returns("WorldQuery.TraceBox", default(SurfaceTraceResult))
+              .Returns("Entities.IsValid", true)                                 // the attacker behind the fake death's notice (:15736)
+              .Returns("Entities.GetOrigin", new Vector(0f, 0f, 64f))
+              .Returns("Entities.GetAngles", default(Vector))
+              .Returns("Entities.GetVelocity", default(Vector))
+              .Returns("Entities.Create", Corpse)                               // the corpse the fake death leaves (:15782)
+              .ReturnsEachCall("Entities.GetIndex", () => Arg() is EntityHandle h ? h.EntryIndex : 0)
+              .Returns("EntityRender.GetModelName", "models/player/scout.mdl")
+              .Returns("Players.GetUserId", 103)
+              .Returns("Players.GetActiveWeapon", "spy_watch")
+              .Returns("GameEvents.EventCreate", IntPtr.Zero);                  // the notice ends at create unless a fact arms it
 
         ConVars = ConVarRegistry.For(TestServices.UnattachedConsole());
         ConVars.RegisterAll(typeof(TFSpy).Assembly);
@@ -268,18 +315,42 @@ internal sealed class SpyRig
         Armory = new RigArmory();
         if (withWeapon)
             Armory.Give(WeaponEntity, Spy.EntryIndex);
+
+        // The body the fake death leaves, standing in the armory's directory
+        // where the dress reads it (the same directory the corpses service
+        // makes the body through).
+        var corpseBody = new SsRagdoll(Engine) { Handle = Corpse };
+        corpseBody.BindEngine(Engine);
+        corpseBody.State.BindLocal();
+        Armory.Adopt(corpseBody);
+        CorpseBody = corpseBody;
         DisguiseWeapons = new TFDisguiseWeapons(Engine, Armory, Engine, Schema, Classes, Catalog);
+
+        // The fake death's body seams (:15724-15782), over the same engine:
+        // the notice, the corpses and the drops, as production registers them.
+        Scripts = new TFWeaponScripts(Log, WeaponFixtures.ShippedWithClasses());
+        Arsenal = new Arsenal(Log, Engine, Engine, Engine, Engine, Engine, Engine, Damage, Engine,
+                              Armory, Clock, HitGroups, weapons: Catalog);
+        Map = new FakeMapPlayers();
+        Notices = new DeathNotice(Engine, Engine, Engine, new DamageInflictors());
+        Corpses = new Corpses(Log, Engine, Engine, Armory);
+        Gibs = new TFPlayerGib(ConVars.Declared<TFPlayerGibConVar>(), Records, Engine, Armory, Clock, Hooks, Owners);
+        FeignRagdoll = new TFFeignRagdoll(Armory, Engine, Gibs);
+        Drops = new TFDeathDrops(Log, Arsenal, Scripts, Map, Armory, new SpyRecords(), Engine, Engine,
+                                 new SpyMedigun(), Hooks, Owners, Random, Conditions);
 
         Spies = new TFSpy(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random, Classes,
                           Clock, Engine,
                           ConVars.Declared<TFSpyCloakConsumeRateConVar>(), ConVars.Declared<TFSpyCloakRegenRateConVar>(),
                           ConVars.Declared<TFSpyInvisTimeConVar>(), ConVars.Declared<TFSpyInvisUnstealthTimeConVar>(),
                           ConVars.Declared<TFSpyCloakNoAttackTimeConVar>(),
-                          Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag, Resupply);
+                          Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag, Resupply,
+                          Notices, Corpses, Drops, FeignRagdoll);
         Conditions.Spies = Spies;   // the rig's chain: removals run the disguise arms
         var component = new TFSpyComponent(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random,
                                            Classes, Spies,
-                                           Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag, Resupply);
+                                           Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag, Resupply,
+                          Notices, Corpses, Drops, FeignRagdoll);
         component.Attach(Spy);
         Slice = component;
     }
@@ -376,6 +447,15 @@ internal sealed class RigArmory : IEntityDirectory
     /// <summary>The spy's carried weapon, when the rig gave one.</summary>
     public SsWeapon? Held { get; private set; }
 
+    private readonly Dictionary<EntityHandle, SsRagdoll> _ragdolls = new();
+
+    /// <summary>Stands a body in the directory, where the corpse dress reads it.</summary>
+    public SsRagdoll Adopt(SsRagdoll ragdoll)
+    {
+        _ragdolls[ragdoll.Handle] = ragdoll;
+        return ragdoll;
+    }
+
     public SsWeapon Give(EntityHandle handle, int ownerIndex)
     {
         var weapon = new SsWeapon();
@@ -396,7 +476,8 @@ internal sealed class RigArmory : IEntityDirectory
             held.State.DeployEpoch++;
     }
 
-    ScriptedEntity? IEntityDirectory.Get(EntityHandle h) => _byHandle.GetValueOrDefault(h);
+    ScriptedEntity? IEntityDirectory.Get(EntityHandle h)
+        => (ScriptedEntity?)_byHandle.GetValueOrDefault(h) ?? _ragdolls.GetValueOrDefault(h);
 
     public ScriptedEntity? FindByName(string name) => null;
 
@@ -406,4 +487,34 @@ internal sealed class RigArmory : IEntityDirectory
     public bool IsRegistered(string className) => className == EntityNames.SsWeapon;
 
     public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
+}
+
+/// <summary>The player roster the drops ask: membership alone, no records.</summary>
+internal sealed class SpyRecords : IPlayerDirectory
+{
+    public PlayerRecord this[EntityHandle player] => new();
+    public bool Knows(EntityHandle player) => false;
+    public IEnumerable<(EntityHandle Player, PlayerRecord Record)> All => [];
+    public float WaitRemaining(EntityHandle player, float now) => 0f;
+    public float RespawnDelay { get; set; } = 3f;
+    public ObserverMode DeathView { get; set; }
+    public bool DropWeaponOnDeath { get; set; }
+    public float DropSpeed { get; set; }
+    public void OnSpawned(EntityHandle player, float now) { }
+    public void OnKilled(EntityHandle player, EntityHandle attacker, float now) { }
+    public void Forget(EntityHandle player) { }
+}
+
+/// <summary>The medigun seam the pack's charge read asks; the meter alone.</summary>
+internal sealed class SpyMedigun : ITFMedigunWeapons
+{
+    public float ChargeLevel(int ownerIndex) => 0f;
+    public void SetChargeLevel(int ownerIndex, float level) { }
+    public void TickMedic(int ownerIndex, float now, float frametime) { }
+    public void Holster(int ownerIndex, float now) { }
+    public void Unholster(int ownerIndex, float now) { }
+    public void RemoveMedigun(int ownerIndex, float now) { }
+    public void PreserveCharge(int ownerIndex, float amount) { }
+    public int HealingTargetIndex(int ownerIndex) => -1;
+    public bool IsReleasing(int ownerIndex) => false;
 }

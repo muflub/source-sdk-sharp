@@ -15,12 +15,17 @@ using Prediction = client::TF2.Client.Player.TFPlayerPrediction;
 using Cond = client::TF2.Shared.TFCond;
 using CondMask = client::TF2.Shared.Conditions.TFCondMask;
 using TFClass = client::TF2.Shared.TFClass;
+using TFTeam = client::TF2.Shared.TFTeam;
 using CloakConsumeVar = client::TF2.Shared.TFSpyCloakConsumeRateConVar;
 using CloakRegenVar = client::TF2.Shared.TFSpyCloakRegenRateConVar;
 using InvisTimeVar = client::TF2.Shared.TFSpyInvisTimeConVar;
 using InvisUnstealthVar = client::TF2.Shared.TFSpyInvisUnstealthTimeConVar;
 using Views = client::TF2.Shared.Player.TFPlayerNetStateViews;
+using ClientItemSchema = client::TF2.Shared.Econ.ItemSchema;
+using ClientWeaponCatalog = client::SourceSharp.Shared.WeaponCatalog;
 using ClientShared = client::SourceSharp.Shared;
+
+using TF2.Tests.Weapons;
 
 namespace TF2.Tests;
 
@@ -56,7 +61,7 @@ public sealed class TFPlayerPredictionTests
         public readonly PlayerData OtherCarrier;
         public readonly Prediction Prediction;
 
-        public Frame()
+        public Frame(ClientItemSchema? itemSchema = null, ClientWeaponCatalog? itemCatalog = null)
         {
             Engine.Returns("Environment.Globals", new AbiGlobals(GlobalsBlock));
             var convars = SpyConVars();
@@ -66,7 +71,8 @@ public sealed class TFPlayerPredictionTests
             Prediction = new Prediction(Log, Carriers, NetStateCatalog.Of(typeof(PlayerData).Assembly, Log),
                 new NoStandalones(), Engine,
                 convars.Declared<CloakConsumeVar>(), convars.Declared<CloakRegenVar>(),
-                convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>());
+                convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>(),
+                itemSchema: itemSchema, weaponCatalog: itemCatalog);
         }
 
         /// <summary>The clock of the window's k-th command: the anchor plus the place in it.</summary>
@@ -509,5 +515,310 @@ public sealed class TFPlayerPredictionTests
         Views.SetConditions(frame.Working, default);
         frame.Working.CloakMeter = 100f;
         Assert.True(effects.ClassSpecialSkill(Attack(Local, now: 1f)));
+    }
+
+    //-------------------------------------------------------------------------
+    // The Dead Ringer's press: the replay's feign arm, fed by the client's
+    // real item path — the watch row the carrier's defindex names, looked up
+    // in the schema the client parses (TFClientWeaponOwners.ItemOf).
+    //-------------------------------------------------------------------------
+
+    /// <summary>The Dead Ringer's defindex, as the trimmed schema carries it.</summary>
+    private const int DeadRinger = 59;
+
+    /// <summary><c>TF_WEAPON_INVIS</c> as the rows spell it.</summary>
+    private const string InvisWatch = "tf_weapon_invis";
+
+    /// <summary>The frame whose local player's watch is the item
+    /// <paramref name="defindex"/> names, on the wire as defindex + 1.</summary>
+    private static Frame WatchFrame(int defindex)
+    {
+        var items = ClientItems();
+        var frame = new Frame(items.Schema, items.Catalog);
+        frame.Carrier.State.WeaponItemDefIndex[items.Catalog.IndexOf(InvisWatch)] = defindex + 1;
+        Views.SetClass(frame.Carrier.State, TFClass.Spy);
+        frame.Prediction.ResetBasis(LocalPlayer, 10);
+        return frame;
+    }
+
+    [Fact]
+    public void The_dead_ringers_press_arms_the_ready_bit_and_leaves_the_cloak_off()
+    {
+        var frame = WatchFrame(DeadRinger);
+        frame.Working.CloakMeter = 100f;
+        var effects = new ClientEffects(frame.Prediction);
+
+        bool ran = effects.ClassSpecialSkill(Attack(Local, now: 3f));
+
+        // The feign arm (tf_weapon_invis.cpp:230-242): the bit arms from the
+        // full meter and no cloak word moves — the press's own state is the
+        // bit's, the field stock predicts (tf_player_shared.cpp:468).
+        Assert.False(ran);
+        Assert.True(frame.Working.FeignDeathReady);
+        Assert.False(Views.InCond(frame.Working, Cond.Stealthed));
+        Assert.Equal(0f, frame.Working.InvisChangeCompleteTime, 4);
+    }
+
+    [Fact]
+    public void The_armed_press_spends_the_bit_back_off()
+    {
+        var frame = WatchFrame(DeadRinger);
+        frame.Working.CloakMeter = 100f;
+        var effects = new ClientEffects(frame.Prediction);
+
+        Assert.False(effects.ClassSpecialSkill(Attack(Local, now: 3f)));
+        Assert.True(frame.Working.FeignDeathReady);
+
+        // Past the 0.1 s the no-skill press stamps (tf_weapon_invis.cpp:259).
+        Assert.False(effects.ClassSpecialSkill(Attack(Local, now: 3.2f)));
+        Assert.False(frame.Working.FeignDeathReady);
+        Assert.False(Views.InCond(frame.Working, Cond.Stealthed));
+    }
+
+    //-------------------------------------------------------------------------
+    // The pyro's rage: the burn arm of HandleRageGain replayed from the
+    // victims' carriers — the client's real item path, the flame row the
+    // carrier's defindex names, looked up in the schema the client parses
+    // (TFClientWeaponOwners.ItemOf).
+    //-------------------------------------------------------------------------
+
+    /// <summary>The Phlogistinator's defindex, as the trimmed schema carries it.</summary>
+    private const int Phlogistinator = 594;
+
+    /// <summary><c>TF_WEAPON_FLAMETHROWER</c> as the rows spell it.</summary>
+    private const string Flamethrower = "tf_weapon_flamethrower";
+
+    /// <summary>The frame whose local pyro's flame is the Phlogistinator, on the wire as defindex + 1.</summary>
+    private static Frame BurnFrame()
+    {
+        var items = ClientItems();
+        var frame = new Frame(items.Schema, items.Catalog);
+        frame.Carrier.State.WeaponItemDefIndex[items.Catalog.IndexOf(Flamethrower)] = Phlogistinator + 1;
+        return frame;
+    }
+
+    [Fact]
+    public void A_victims_burn_tick_gains_the_rage_meter_as_the_servers_tick_did()
+    {
+        var frame = BurnFrame();
+
+        // The victim burns, this player its attacker: the fire's first tick is
+        // due now — the window's first command's clock, the anchor's — and the
+        // server's tick of it books a point and a third on the pyro's meter
+        // (TF_BURNING_DMG 4 over the burn arm's divisor 3, the phlog's buff
+        // type 5 the only scale-1 row).
+        frame.OtherCarrier.State.BurnAttackerIndex = Local;
+        frame.OtherCarrier.State.BurnNextTickTime = 0f;
+        frame.OtherCarrier.State.BurnDuration = 3f;
+
+        frame.Prediction.ResetBasis(LocalPlayer, 10);
+        Assert.Equal(0f, frame.Working.RageMeter);
+        frame.Prediction.CommandRan(LocalPlayer, 11, firstTime: true);
+
+        Assert.Equal(4f / 3f, frame.Working.RageMeter);
+
+        // The server's word, the same gain: the slot holds and nothing stands.
+        frame.Arrive(c => c.State.RageMeter = 4f / 3f);
+        frame.Prediction.ResetBasis(LocalPlayer, 11);
+
+        var counts = frame.Prediction.Counts;
+        Assert.Equal(0, counts.Mispredicts);
+        Assert.Equal(1, counts.Holds);
+    }
+
+    [Fact]
+    public void A_burn_tick_without_the_flame_gains_nothing()
+    {
+        // No item world: the flame row names nothing, the buff type is none,
+        // and the flag test's no-op the server's arm is (tf_player.cpp:8749).
+        var frame = new Frame();
+
+        frame.OtherCarrier.State.BurnAttackerIndex = Local;
+        frame.OtherCarrier.State.BurnNextTickTime = 0f;
+        frame.OtherCarrier.State.BurnDuration = 3f;
+
+        frame.Prediction.ResetBasis(LocalPlayer, 10);
+        frame.Prediction.CommandRan(LocalPlayer, 11, firstTime: true);
+
+        Assert.Equal(0f, frame.Working.RageMeter);
+    }
+
+    /// <summary>The client's item world: the shipped scripts' catalogue rows
+    /// over the trimmed schema — the pack the client really parses at boot.</summary>
+    /// <summary>The press's word, as the server's <c>disguise</c> leaves it on
+    /// the carrier (tf_player_shared.cpp:8246-8247, :8268): disguising as a
+    /// blue soldier, done at the 132nd tick.</summary>
+    private static void Press(PlayerData carrier)
+    {
+        Views.SetConditions(carrier.State, CondMask.Of(Cond.Disguising));
+        carrier.State.CloakMeter = 100f; // the regen the server's ticks paid in
+        carrier.State.DesiredDisguiseClass = (int)TFClass.Soldier;
+        carrier.State.DesiredDisguiseTeam = (int)TFTeam.Blue;
+        carrier.State.DisguiseCompleteTime = 132 * Tick;
+    }
+
+    /// <summary>The completion's word, the server's tick past the deadline
+    /// (:8302-8312, :8343, OnRemoveDisguising :7218).</summary>
+    private static void Completed(PlayerData carrier)
+    {
+        Views.SetConditions(carrier.State, CondMask.Of(Cond.Disguised));
+        carrier.State.DisguiseClass = (int)TFClass.Soldier;
+        carrier.State.DisguiseTeam = (int)TFTeam.Blue;
+        carrier.State.DesiredDisguiseTeam = (int)TFTeam.Unassigned;
+        carrier.State.DisguiseCompleteTime = 0f;
+        carrier.State.CloakMeter = 100f;
+    }
+
+    /// <summary>The round restart's respawn: the spawn's RemoveAll removes
+    /// Disguised, whose <c>OnRemoved</c> clears the disguise outside any
+    /// command (TFSpy.OnRemoved; stock keeps the clear in the server's arm,
+    /// tf_player_shared.cpp:7267-7273 — the client's own arm is display-only
+    /// and skips a predictable entity during the sync, :7236 — so the reset
+    /// rides the networked fields and the compare's single error is the
+    /// agreement).</summary>
+    private static void Respawned(PlayerData carrier)
+    {
+        Views.SetConditions(carrier.State, default);
+        carrier.State.DisguiseClass = (int)TFClass.Undefined;
+        carrier.State.DisguiseTeam = (int)TFTeam.Unassigned;
+        carrier.State.DisguiseTargetIndex = -1;
+        carrier.State.DisguiseHealth = 0;
+    }
+
+    [Fact]
+    public void The_replay_completes_the_disguise_past_the_deadline_never_on_it()
+    {
+        var frame = Spy();
+
+        frame.Arrive(Press);
+        frame.Prediction.ResetBasis(LocalPlayer, 11);
+
+        // Commands run at (command - 12) ticks past the anchor; 144's is the
+        // deadline itself and completes nothing — CheckDisguiseTimer compares
+        // strictly, curtime > completeTime (tf_player_shared.cpp:3309), the
+        // server's tick beside it.
+        for (int command = 12; command <= 144; command++)
+            frame.Prediction.CommandRan(LocalPlayer, command, firstTime: true);
+
+        Assert.True(Views.InCond(frame.Working, Cond.Disguising));
+        Assert.False(Views.InCond(frame.Working, Cond.Disguised));
+        Assert.Equal(0, (int)frame.Working.DisguiseClass);
+
+        frame.Prediction.CommandRan(LocalPlayer, 145, firstTime: true);
+
+        // CompleteDisguise's shared half (:8302-8312): the disguise names the
+        // wish, the bits trade, the deadline clears and the wish's team ends
+        // with the disguising (OnRemoveDisguising, :7218) — the class stands.
+        Assert.True(Views.InCond(frame.Working, Cond.Disguised));
+        Assert.False(Views.InCond(frame.Working, Cond.Disguising));
+        Assert.Equal((int)TFClass.Soldier, frame.Working.DisguiseClass);
+        Assert.Equal((int)TFTeam.Blue, frame.Working.DisguiseTeam);
+        Assert.Equal(0f, frame.Working.DisguiseCompleteTime, 4);
+        Assert.Equal((int)TFTeam.Unassigned, frame.Working.DesiredDisguiseTeam);
+        Assert.Equal((int)TFClass.Soldier, frame.Working.DesiredDisguiseClass);
+    }
+
+    [Fact]
+    public void The_replayed_completions_word_is_held_not_mispredicted()
+    {
+        var frame = Spy();
+
+        frame.Arrive(Press);
+        frame.Prediction.ResetBasis(LocalPlayer, 11);
+
+        // The window replays well past the deadline; the ring carries the
+        // completion the mirror ran.
+        for (int command = 12; command <= 200; command++)
+            frame.Prediction.CommandRan(LocalPlayer, command, firstTime: true);
+
+        // The server completed on the same command; its word says so.
+        frame.Arrive(Completed);
+        frame.Prediction.ResetBasis(LocalPlayer, 200);
+
+        var counts = frame.Prediction.Counts;
+        Assert.Equal(0, counts.Mispredicts);
+        Assert.Equal((int)TFClass.Soldier, frame.Working.DisguiseClass);
+        Assert.True(Views.InCond(frame.Working, Cond.Disguised));
+    }
+
+    [Fact]
+    public void The_respawns_reset_of_the_disguise_is_one_named_misprediction()
+    {
+        var frame = Spy();
+
+        frame.Arrive(Press);
+        frame.Prediction.ResetBasis(LocalPlayer, 11);
+
+        for (int command = 12; command <= 200; command++)
+            frame.Prediction.CommandRan(LocalPlayer, command, firstTime: true);
+
+        frame.Arrive(Completed);
+        frame.Prediction.ResetBasis(LocalPlayer, 200);
+
+        // The respawn arrives outside any command: the disguise's fields the
+        // spawn cleared stand against the ring's completed run — exactly the
+        // one error stock's client absorbs too (its re-prediction from the
+        // arrival, prediction.cpp:1440-1565, has no respawn branch). The
+        // fields stay in the compare, named; the conditions' words are the
+        // news arm's, not theirs.
+        frame.Arrive(Respawned);
+        frame.Prediction.ResetBasis(LocalPlayer, 200);
+
+        var counts = frame.Prediction.Counts;
+        Assert.Equal(1, counts.Mispredicts);
+        Assert.Contains("MISPREDICTION at command 200", frame.Log.Text);
+        Assert.Contains("DisguiseClass, DisguiseTeam", frame.Log.Text);
+        Assert.Equal((int)TFClass.Undefined, frame.Working.DisguiseClass);
+        Assert.Equal((int)TFTeam.Unassigned, frame.Working.DisguiseTeam);
+        Assert.False(Views.InCond(frame.Working, Cond.Disguised));
+    }
+
+    [Fact]
+    public void The_disguises_press_rides_the_arrival_never_a_misprediction()
+    {
+        var frame = Spy();
+        frame.Working.CloakMeter = 100f; // the basis's word: the meter arrived full
+        frame.Prediction.CommandRan(LocalPlayer, 11, firstTime: true);
+
+        // The press lands on the server between commands; its wish, deadline
+        // and disguising bit ride the next snapshot — the bit as the
+        // conditions' news, the pair and deadline sent not predicted, the
+        // arrival's word. Nothing the ring could have known is judged.
+        frame.Arrive(Press);
+        frame.Prediction.ResetBasis(LocalPlayer, 11);
+
+        var counts = frame.Prediction.Counts;
+        Assert.Equal(0, counts.Mispredicts);
+        Assert.True(Views.InCond(frame.Working, Cond.Disguising));
+    }
+
+    private static (ClientItemSchema Schema, ClientWeaponCatalog Catalog) ClientItems()
+    {
+        var files = new SideFiles();
+        return (new ClientItemSchema(files, new ClientLog()),
+                new ClientWeaponCatalog(
+                    () => [new client::TF2.Shared.TFWeaponTypes(
+                        new client::TF2.Shared.TFWeaponScripts(new ClientLog(), files),
+                        new client::TF2.Shared.TFClassTable(new ClientLog(), files),
+                        new ClientItemSchema(files, new ClientLog()))],
+                    new ClientLog()));
+    }
+
+    /// <summary>The shipped scripts and the trimmed schema, served as the
+    /// client's file seam — the pack the client really has at boot (a test
+    /// served GAME path; a missing file is the schema refusing, never a
+    /// silent pass).</summary>
+    private sealed class SideFiles : ClientAbi.IEngineFiles
+    {
+        private readonly TFClassTableTests.Files _files = WeaponFixtures.ShippedWithClasses();
+
+        public SideFiles() =>
+            _files.Bytes[client::TF2.Shared.Econ.ItemSchema.FilePath] =
+                System.Text.Encoding.UTF8.GetBytes(EconTestFiles.Fixture("items_game.trimmed.txt"));
+
+        public int GameFileSize(string path) => _files.GameFileSize(path);
+        public string? ReadGameFile(string path) => _files.ReadGameFile(path);
+        public byte[]? ReadGameFileBytes(string path) => _files.ReadGameFileBytes(path);
+        public byte[]? ReadFileOnPath(string path, string pathId) => _files.ReadFileOnPath(path, pathId);
     }
 }

@@ -238,6 +238,30 @@ public sealed class TFDamageLayerTests
         Assert.Equal(10f + 18.75f * 3f, rig.Damage.Hits[^1].Damage, 4);   // :8968 over the scout's own fall
     }
 
+    /// <summary>
+    /// The fall hit lands inside <c>CheckFalling</c>, before the command's end
+    /// publishes the ground word: the word still reads nothing, and the move
+    /// already stands the faller on the one below.
+    /// </summary>
+    [Fact]
+    public void TheStompReadsTheGroundTheMoveJustFound()
+    {
+        var rig = new CombatRig();
+        var moves = new SourceSharp.Server.Interop.ServerPlayerMoves();
+        var victim = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid(), TestServices.InfiniteAux(), TestServices.PrintDamage(), moves: moves)
+            { Handle = CombatRig.Victim };
+        victim.State.BindLocal();
+        victim.State.GroundEntity = SsPlayer.GroundWireNone;
+        moves.For(CombatRig.Victim).Ground = CombatRig.Third;
+        rig.Entities.Placed[CombatRig.Victim] = victim;
+        rig.Engine.Returns("Players.GetHandle", CombatRig.Third);
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Rocketpack));
+
+        rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+
+        Assert.Equal(CombatRig.Third, Assert.Single(rig.Damage.Hits).Victim);
+    }
+
     // ---- the airborne state (CTFPlayer::InAirDueToExplosion, tf_player.h:599)
 
     private static SsPlayer RigPlayer(CombatRig rig, EntityHandle handle)
@@ -852,6 +876,42 @@ public sealed class TFDamageLayerTests
     }
 
     [Fact]
+    public void The_burning_victims_carrier_carries_the_burns_bookkeeping()
+    {
+        // The burn's attacker, tick clock and fire life ride the victim's
+        // networked state for the attacker's client mirror (the fields'
+        // story): stamped at the ignition, kept current by every think.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_flamethrower" };
+        var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
+        slice.Attach(CombatRig.Victim);
+
+        rig.Hit(13f, DamageType.Burn | TFDamageBits.Ignite);
+        Assert.Equal(CombatRig.Attacker.EntryIndex, rig.VictimState.BurnAttackerIndex);
+        Assert.Equal(100.5f, rig.VictimState.BurnNextTickTime, 4);   // the first tick, TF_BURNING_FREQUENCY on
+        Assert.Equal(3.4f, rig.VictimState.BurnDuration, 4);
+
+        slice.Tick(100.5f);
+        Assert.Equal(101f, rig.VictimState.BurnNextTickTime, 4);     // the tick ran, the next half second on
+        Assert.Equal(2.9f, rig.VictimState.BurnDuration, 4);
+    }
+
+    [Fact]
+    public void The_burns_bookkeeping_leaves_with_the_fire()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_flamethrower" };
+        var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
+        slice.Attach(CombatRig.Victim);
+
+        rig.Hit(13f, DamageType.Burn | TFDamageBits.Ignite);
+        for (float t = 100f; t <= 104f; t += 1f / 66f)
+            slice.Tick(t);                                           // the 3.4 s burn runs out
+
+        Assert.Equal(-1, rig.VictimState.BurnAttackerIndex);
+        Assert.Equal(0f, rig.VictimState.BurnNextTickTime, 4);
+        Assert.Equal(0f, rig.VictimState.BurnDuration, 4);
+    }
+
+    [Fact]
     public void A_burn_survives_the_players_condition_countdown()
     {
         // The burn's conditions are the player's: added through the one
@@ -1026,6 +1086,35 @@ public sealed class TFDamageLayerTests
             rig.Hit(13f, DamageType.Bullet);
 
         Assert.False(rig.VictimState.Conditions().Has(TFCond.Burning));
+    }
+
+    /// <summary>
+    /// <c>CTFMinigun::GetInitialAfterburnDuration</c>'s ring arm
+    /// (<c>tf_weapon_minigun.cpp:686-695</c>, held at
+    /// <see cref="TFBurn.RingOfFireBurn"/>): the first burn of a hit from a
+    /// minigun whose item wears <c>ring_of_fire_while_aiming</c> starts at
+    /// the ring's eight seconds; the minigun's own rates add nothing to it.
+    /// </summary>
+    [Fact]
+    public void The_huo_longs_ring_of_fire_starts_the_first_burn_at_eight_seconds()
+    {
+        // The hit lights through the item (the ignite-bit arm beside this
+        // section's first fact); the ring's clock rides the same item — one
+        // container wears both attributes.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_minigun" };
+        var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
+        slice.Attach(CombatRig.Victim);
+
+        var item = (AttributeContainer)rig.AttackerItem("set_dmgtype_ignite", AttributeDescriptionFormat.Additive, 1f);
+        item.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(9501, "ring of fire", "ring_of_fire_while_aiming",
+                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), 1f));
+
+        rig.Hit(13f, DamageType.Bullet);
+
+        Assert.True(rig.VictimState.Conditions().Has(TFCond.Burning));
+        Assert.Equal(TFBurn.RingOfFireBurn, slice.Burn.AfterburnDuration, 4);
     }
 
     // ---- the bleed ----------------------------------------------------------
@@ -1264,6 +1353,72 @@ public sealed class TFDamageLayerTests
 
         Assert.DoesNotContain(far.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
         Assert.Null(farStuns.ActiveStun);
+    }
+
+    // ---- the aim's brace on the shove (tf_player.cpp:3339-3363) -------------
+
+    /// <summary>One shove's whole impulse, as the arm scales it.</summary>
+    private static Vector ShovedImpulse(CombatRig rig, float dealt, float brace)
+        => new(-TFRadiusDamage.DamageForce(new Vector(32f, 32f, 72f), dealt,
+                                           TFDamageLayer.ScattergunKnockbackForceScale) * brace,
+               0f, TFAirBlastDefs.JumpMinSpeed * brace);
+
+    private static CombatRig ShoveReady(CombatRig rig)
+    {
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+        rig.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = rig.VictimWeapon;   // the brace's active-item walk
+        return rig;
+    }
+
+    [Fact]
+    public void An_aiming_sniper_takes_the_shove_through_the_items_scale()
+    {
+        // The brace arm (tf_player.cpp:3339-3363): a sniper holding their aim
+        // takes every impulse through the held item's
+        // mult_aiming_knockback_resistance (:3344-3346), the whole shove landing
+        // scaled (:3363) — here half its bite on both axes.
+        var rig = ShoveReady(new CombatRig { AttackerWeapon = "tf_weapon_scattergun",
+                                             AttackerAt = new Vector(100f, 0f, 0f) });
+        rig.VictimState.PlayerClass = (int)TFClass.Sniper;
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
+        rig.ItemOn(CombatRig.Victim, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
+
+        float dealt = rig.Hit(60f, DamageType.Bullet);
+        rig.ShoveFlush.Tick(1f);
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Vector impulse = pushed!.ArgAs<Vector>(1);
+        Vector scaled = ShovedImpulse(rig, dealt, 0.5f);
+        Assert.Equal(scaled.X, impulse.X, 3f);
+        Assert.Equal(scaled.Z, impulse.Z, 3f);
+    }
+
+    [Fact]
+    public void The_brace_needs_the_class_and_the_aim()
+    {
+        // Both gates, stock's pair at :3344: no class match leaves the shove
+        // whole, and so does aiming without matching the class.
+        var wrongClass = ShoveReady(new CombatRig { AttackerWeapon = "tf_weapon_scattergun",
+                                                    AttackerAt = new Vector(100f, 0f, 0f) });
+        wrongClass.VictimState.SetConditions(TFCondMask.Of(TFCond.Aiming));
+        wrongClass.ItemOn(CombatRig.Victim, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
+        float wrongDealt = wrongClass.Hit(60f, DamageType.Bullet);
+        wrongClass.ShoveFlush.Tick(1f);
+        Vector plain = ShovedImpulse(wrongClass, wrongDealt, 1f);
+        Assert.Equal(plain.X, wrongClass.Engine.Last("Entities.ApplyVelocityImpulse")!.ArgAs<Vector>(1).X, 3f);
+
+        var unaimed = ShoveReady(new CombatRig { AttackerWeapon = "tf_weapon_scattergun",
+                                                 AttackerAt = new Vector(100f, 0f, 0f) });
+        unaimed.VictimState.PlayerClass = (int)TFClass.Sniper;
+        unaimed.ItemOn(CombatRig.Victim, "mult_aiming_knockback_resistance", AttributeDescriptionFormat.Percentage, 0.5f);
+        float unaimedDealt = unaimed.Hit(60f, DamageType.Bullet);
+        unaimed.ShoveFlush.Tick(1f);
+        Vector plainAgain = ShovedImpulse(unaimed, unaimedDealt, 1f);
+        Assert.Equal(plainAgain.X, unaimed.Engine.Last("Entities.ApplyVelocityImpulse")!.ArgAs<Vector>(1).X, 3f);
     }
 
     [Fact]
@@ -2243,6 +2398,60 @@ public sealed class TFDamageLayerTests
         rig.Hit(10f, TFDamageBits.Melee | DamageType.Club);
 
         Assert.Equal(100f, rig.AttackerState.ChargeMeter, 4);
+    }
+
+    /// <summary>
+    /// The carbine's arm (<c>CTFChargedSMG::ApplyOnHitAttributes</c>, stock
+    /// tf_weapon_smg.cpp:178-196): while the owner's buff is cold, a hit's
+    /// surviving damage times the held item's charge rate rides onto the SMG's
+    /// own boost meter (:186-189), capped at the meter's 100 (:190-193).
+    /// </summary>
+    [Fact]
+    public void A_hit_on_the_carbine_charges_the_boost_meter()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_charged_smg" };
+        rig.AttackerItem("minicrit_boost_charge_rate", AttributeDescriptionFormat.Additive, 0.5f);
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+        rig.Entities.WeaponEntity.State.BehaviourMeter = 10f;
+
+        rig.Hit(20f, DamageType.Bullet);
+
+        // Twenty of damage at the half rate: the whole surviving hit lands on
+        // the weapon's own meter, not a tenth of it.
+        Assert.Equal(20f, rig.Entities.WeaponEntity.State.BehaviourMeter, 4);
+    }
+
+    [Fact]
+    public void The_carbine_boost_caps_at_the_meters_hundred()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_charged_smg" };
+        rig.AttackerItem("minicrit_boost_charge_rate", AttributeDescriptionFormat.Additive, 1f);
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+        rig.Entities.WeaponEntity.State.BehaviourMeter = 95f;
+
+        rig.Hit(20f, DamageType.Club);
+
+        Assert.Equal(TFWeaponBehaviour.ChargedSmgMeterCap,
+                     rig.Entities.WeaponEntity.State.BehaviourMeter, 4);
+    }
+
+    [Fact]
+    public void The_living_carbine_buff_leaves_the_boost_meter_still()
+    {
+        // The owner's live buff keeps the meter cold (:184), and the hit it
+        // does land is the buff's own mini-crit — the buffed attacker's arm
+        // (tf_gamerules.cpp:6177-6182), twenty at the mini multiplier is 27.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_charged_smg" };
+        rig.AttackerItem("minicrit_boost_charge_rate", AttributeDescriptionFormat.Additive, 0.5f);
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+        rig.Entities.WeaponEntity.State.BehaviourMeter = 10f;
+        rig.Conditions.Add(CombatRig.Attacker, TFCond.EnergyBuff);
+
+        Assert.Equal(27f, rig.Hit(20f, DamageType.Bullet), 3);
+        Assert.Equal(10f, rig.Entities.WeaponEntity.State.BehaviourMeter, 4);
     }
 
     [Fact]

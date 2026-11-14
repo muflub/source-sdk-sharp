@@ -165,6 +165,8 @@ public unsafe class ClientSkeletonsTests
             return false;
         }
 
+        public bool Thaw(EntityHandle owner) => false;
+
         public bool TryRoot(EntityHandle owner, out Vector position)
         {
             position = default;

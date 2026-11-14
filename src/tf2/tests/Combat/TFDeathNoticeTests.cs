@@ -348,4 +348,82 @@ public sealed class TFDeathNoticeTests
 
         Assert.False((bool)FillSilent(rig)["silent_kill"]);
     }
+
+    // ---- the gilded death (TF_DEATH_AUSTRALIUM, tf_gamerules.cpp:13092-13108) ----
+
+    /// <summary>The notice over the rig with the owners and the attribute walk
+    /// armed, as <see cref="FillSilent"/> does but for the plain kill's name.</summary>
+    private static Dictionary<string, object> FillGilded(CombatRig rig)
+    {
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, rig.Level,
+                                       null, rig.Owners, new AttributeHooks());
+        var fields = new Fields();
+        notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker, CombatRig.Attacker,
+                                         "tf_weapon_wrench"), fields);
+        return fields.Set;
+    }
+
+    /// <summary>IsAustraliumItem on the killing weapon's item: the Golden
+    /// Wrench's set_turn_to_gold gilds the death flag (:13102-13104).</summary>
+    [Fact]
+    public void A_kill_by_a_gold_turning_wrench_gilds_the_death_flag()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_wrench" };
+        rig.AttackerItem("set_turn_to_gold", AttributeDescriptionFormat.Additive, 1f);
+        rig.Hit(60f, DamageType.Crush);
+
+        Assert.True(((int)FillGilded(rig)["death_flags"] & TFDeathNotice.Australium) != 0);
+    }
+
+    /// <summary>The australium item wear gilds too, the same ask's other arm
+    /// (the Golden Frying Pan's; :13098-13100).</summary>
+    [Fact]
+    public void A_kill_by_an_australium_item_gilds_the_death_flag()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_wrench" };
+        rig.AttackerItem("is_australium_item", AttributeDescriptionFormat.Additive, 1f);
+        rig.Hit(60f, DamageType.Crush);
+
+        Assert.True(((int)FillGilded(rig)["death_flags"] & TFDeathNotice.Australium) != 0);
+    }
+
+    /// <summary>A plain wrench keeps the flag down: neither wear, no gold.</summary>
+    [Fact]
+    public void A_kill_by_a_plain_wrench_keeps_the_death_flag_ungilded()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_wrench" };
+        rig.Hit(60f, DamageType.Crush);
+
+        Assert.Equal(0, (int)FillGilded(rig)["death_flags"]);
+    }
+
+    // ---- the wrangler's kills (TF_DMG_CUSTOM_PLAYER_SENTRY,
+    // tf_gamerules.cpp:12296-12311) ----
+
+    /// <summary>The plain pointer's kill is the wrangler's, whatever sentry
+    /// fired: the custom's own name (:12310).</summary>
+    [Fact]
+    public void A_wrangled_sentry_kill_is_the_wranglers_kill()
+    {
+        var rig = new CombatRig();
+        using (rig.Scopes.Push(TFDamageCustom.PlayerSentry, TFWeaponId.None, ""))
+            rig.Hit(8f, DamageType.Bullet);
+
+        Assert.Equal("wrangler_kill", Fill(rig, CombatRig.Attacker)["weapon"]);
+    }
+
+    /// <summary>A pointer wearing <c>is_giger_counter</c> — the Giger
+    /// Counter's — names the counter (:12298-12307), the scorer's item
+    /// through the owners.</summary>
+    [Fact]
+    public void A_wrangled_sentry_kill_by_a_giger_counter_names_the_counter()
+    {
+        var rig = new CombatRig();
+        rig.Owners.Held[CombatRig.Attacker.EntryIndex] = "tf_weapon_laser_pointer";
+        rig.AttackerItem("is_giger_counter", AttributeDescriptionFormat.Additive, 1f);
+        using (rig.Scopes.Push(TFDamageCustom.PlayerSentry, TFWeaponId.None, ""))
+            rig.Hit(8f, DamageType.Bullet);
+
+        Assert.Equal("giger_counter", FillGilded(rig)["weapon"]);
+    }
 }

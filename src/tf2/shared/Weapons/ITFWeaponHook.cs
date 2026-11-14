@@ -164,6 +164,15 @@ public interface ITFWeaponHook : IOrderedHook
     float ModifyChargeRate(in TFWeaponHookContext weapon, float rate) => rate;
 
     /// <summary>
+    /// The seconds the carbine's boost buff holds once the alt-fire spends a
+    /// full meter (<c>minicrit_boost_when_charged</c>,
+    /// <c>CTFChargedSMG::SecondaryAttack</c>, tf_weapon_smg.cpp:164-170), a
+    /// plain zero before the hook walks the held item, the short buff not
+    /// granted at all (:166).
+    /// </summary>
+    float MinicritBoostSeconds(in TFWeaponHookContext weapon, float seconds) => seconds;
+
+    /// <summary>
     /// The seconds the minigun's wind-up takes (<c>mult_minigun_spinup_time</c>,
     /// <c>CTFMinigun::SharedAttack</c>'s idle case, tf_weapon_minigun.cpp:259-260).
     /// The damage and spread ramps keep the plain constant, as stock's
@@ -497,6 +506,13 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         foreach (var hook in All)
             rate = Guard(hook, nameof(ITFWeaponHook.ModifyChargeRate), rate, weapon, static (h, w, v) => h.ModifyChargeRate(in w, v));
         return rate;
+    }
+
+    public float MinicritBoostSeconds(in TFWeaponHookContext weapon, float seconds)
+    {
+        foreach (var hook in All)
+            seconds = Guard(hook, nameof(ITFWeaponHook.MinicritBoostSeconds), seconds, weapon, static (h, w, v) => h.MinicritBoostSeconds(in w, v));
+        return seconds;
     }
 
     public float ModifySpinUpTime(in TFWeaponHookContext weapon, float seconds)

@@ -811,10 +811,52 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary>
     /// <c>CBaseObject::Command_Repair</c> (tf_obj.cpp:2942-3005): up to
-    /// <see cref="WrenchRepairAmount"/> health at the ratio's cost in metal,
-    /// the cost clipped to what the player holds — what cannot be afforded
-    /// repairs what it can. Returns the repaired amount, 0 for a swing that
-    /// mended nothing (full health, or no metal for even one point).
+    /// <paramref name="amount"/> × <paramref name="repairMod"/> health at
+    /// <paramref name="repairToMetalRatio"/> metal the health, the cost clipped
+    /// to what the player holds — what cannot be afforded repairs what it can.
+    /// A carry-deploy rebuilding where its builder put it down gains nothing
+    /// past the health the lift remembered (:2965-2971), for no metal. Returns
+    /// the repaired amount, 0 for a swing that mended nothing (full health, or
+    /// no metal for even one point). Stock's building_healed event and the
+    /// repair-team achievement are the caller's bells, not carried here.
+    /// </summary>
+    public int CommandRepair(EntityHandle player, float amount, float repairMod, float repairToMetalRatio)
+    {
+        int repairAmount = Math.Min(RoundToInt(amount * repairMod), MaxHealthForCurrentLevel - Health);
+        if (repairAmount <= 0)
+            return 0;
+
+        string metalName = TFAmmoNames.Name(TFAmmo.Metal);
+        int cost = (int)MathF.Ceiling(repairAmount / repairToMetalRatio);
+        cost = Math.Min(cost, Purse.Pools(player).GetValueOrDefault(metalName));
+        if (cost <= 0)
+            return 0;
+
+        int repaired = (int)(cost * repairToMetalRatio);
+        int newHealth = Math.Min(MaxHealthForCurrentLevel, Health + repaired);
+        if (IsCarryDeploy && newHealth > HealthOnPickup)
+        {
+            // Re-deploying after being carried gains no more health than the
+            // lift remembered, until the deploy is done — and no metal either.
+            newHealth = HealthOnPickup;
+            repaired = 0;
+        }
+        else
+        {
+            Purse.TakeAmmo(player, cost, metalName);
+        }
+
+        Health = newHealth;
+        return repaired;
+    }
+
+    /// <summary>Stock's <c>RoundFloatToInt</c> (<c>mathlib.h:1175</c>), through the hooks' own.</summary>
+    private int RoundToInt(float f) => AttributeHooks.RoundFloatToInt(f);
+
+    /// <summary>
+    /// <c>CBaseObject::OnWrenchHit</c>'s repair arm, through
+    /// <see cref="CommandRepair"/>: the swung wrench's
+    /// <c>mult_repair_value</c> over the hundred.
     /// </summary>
     private int RepairFrom(EntityHandle player)
     {
@@ -828,20 +870,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         if (Hooks is not null && Owners is not null)
             repair = Hooks.Float(repair, "mult_repair_value", Owners.ActiveItemOf(player.EntryIndex));
 
-        int repairAmount = Math.Min((int)repair, MaxHealthForCurrentLevel - Health);
-        if (repairAmount <= 0)
-            return 0;
-
-        string metalName = TFAmmoNames.Name(TFAmmo.Metal);
-        int cost = (int)MathF.Ceiling(repairAmount / RepairMetalRatio);
-        cost = Math.Min(cost, Purse.Pools(player).GetValueOrDefault(metalName));
-        if (cost <= 0)
-            return 0;
-
-        repairAmount = (int)(cost * RepairMetalRatio);
-        Health = Math.Min(MaxHealthForCurrentLevel, Health + repairAmount);
-        Purse.TakeAmmo(player, cost, metalName);
-        return repairAmount;
+        return CommandRepair(player, repair, 1f, RepairMetalRatio);
     }
 
     /// <summary>

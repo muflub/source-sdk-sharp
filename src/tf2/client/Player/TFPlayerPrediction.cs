@@ -3,9 +3,12 @@ using System.Reflection;
 using SourceSharp.Abi;
 using SourceSharp.Client;
 using SourceSharp.Client.Standalone;
+using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Client.Player;
@@ -60,6 +63,15 @@ namespace TF2.Client.Player;
 /// rides no packet, so each basis re-derives it from the ring — the last
 /// saved toggle is the last pair of slots whose stealth bit moved.
 /// </para>
+///
+/// <para>
+/// The pyro's rage is predicted here from the other side of the damage: the
+/// burn ticks are the victims' <c>ConditionGameRulesThink</c>, no replay of
+/// this player's runs one, so the meter's gains are news the client mirrors —
+/// each carrier whose burn names this player the attacker is replayed through
+/// the tick's own gates, <see cref="TFRageMeter.GainOnBurnDamage"/> booking
+/// what the server's <c>HandleRageGain</c> (tf_player.cpp:9730-9735) booked.
+/// </para>
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITFPlayerData)])]
 public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, ITFPlayerData
@@ -79,6 +91,13 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     private readonly TFDemomanChargeDrainTimeConVar? _chargeDrain;
     private readonly TFDemomanChargeRegenRateConVar? _chargeRegen;
     private readonly TFScoutEnergydrinkConsumeRateConVar? _hypeConsume;
+
+    // The client's item world, for the watch's own mode read: the same pair
+    // TFClientWeaponOwners walks, and the same null story — without them the
+    // press cannot name a Dead Ringer and the plain cloak stands.
+    private readonly ItemSchema? _itemSchema;
+    private readonly WeaponCatalog? _weaponCatalog;
+    private readonly AttributeHooks _hooks = new();
 
     private readonly TFPlayerNetState _working = new();
     private readonly PredictionRing _ring = new();
@@ -114,16 +133,26 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     // on the first compare, as the unpredicted spans are.
     private (int Offset, int Bytes)[]? _conditionWords;
 
+    // The rage mirror's tick list: the carriers whose burn names this player
+    // the attacker, each with the tick clock and the fire life the basis's
+    // decode carries, walked per replayed command; and this player's own
+    // flamethrower item, the burn arm's hook's subject, found once a basis.
+    private readonly List<(ClientTFPlayerData Carrier, float Next, float Duration)> _burners = new();
+    private IAttributeProvider? _flame;
+
     public TFPlayerPrediction(ILog log, TFClientCarriers carriers, NetStateCatalog catalog,
                               IClientStandalones standalones, IEngineEnvironment environment,
                               TFSpyCloakConsumeRateConVar cloakConsume, TFSpyCloakRegenRateConVar cloakRegen,
                               TFSpyInvisTimeConVar invisTime, TFSpyInvisUnstealthTimeConVar invisUnstealth,
                               TFDemomanChargeDrainTimeConVar? chargeDrain = null,
                               TFDemomanChargeRegenRateConVar? chargeRegen = null,
-                              TFScoutEnergydrinkConsumeRateConVar? hypeConsume = null)
+                              TFScoutEnergydrinkConsumeRateConVar? hypeConsume = null,
+                              ItemSchema? itemSchema = null, WeaponCatalog? weaponCatalog = null)
     {
         _log = log;
         _carriers = carriers;
+        _itemSchema = itemSchema;
+        _weaponCatalog = weaponCatalog;
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _standalones = standalones;
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
@@ -197,6 +226,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
             : 0f;
         _cloakCommands = 0;
         StealthDebounceFromRing(acknowledged);
+        BurnSeed();
     }
 
     public void CommandRan(EntityHandle player, int commandNumber, bool firstTime)
@@ -216,6 +246,8 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         CloakTick(now);
         ChargeTick(now);
         HypeTick();
+        BurnTick(now);
+        DisguiseTick(now);
 
         if (_scratch.Length > 0 && _working.CopyTo(_scratch) == _scratch.Length
             && _ring.SaveCommand(commandNumber, _scratch))
@@ -477,6 +509,18 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         {
             CloakFade(1f, now);
         }
+        else if (FeignDeathWatched(ownerIndex))
+        {
+            // The HasFeignDeath arm (tf_weapon_invis.cpp:230-242): the Dead
+            // Ringer's watch toggles its ready bit instead of cloaking — off
+            // whenever armed (:232-236), on only from a full meter (:237-241).
+            // The bit is the state's own (m_bFeignDeathReady, predicted
+            // tf_player_shared.cpp:468), so the replay's basis carries it.
+            if (_working.FeignDeathReady)
+                _working.FeignDeathReady = false;
+            else if (_working.CloakMeter == 100f)
+                _working.FeignDeathReady = true;
+        }
         else if (_working.CloakMeter > CloakStartMeter)
         {
             _working.SetConditions(_working.Conditions() | TFCondMask.Of(TFCond.Stealthed));
@@ -491,6 +535,17 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     }
 
     private void CloakClearStealth() => _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.Stealthed));
+
+    /// <summary>
+    /// Whether the watch's press is the Dead Ringer's
+    /// (<c>HasFeignDeath</c>, tf_weapon_invis.h:66-67): the held watch's
+    /// <c>set_weapon_mode</c>, read off the item row this carrier names —
+    /// <see cref="TFClientWeaponOwners.ItemOf"/>'s walk over the networked
+    /// defindex, the loadout's word and not a prediction (its rule).
+    /// </summary>
+    private bool FeignDeathWatched(int ownerIndex)
+        => TFClientWeaponOwners.ItemOf(_itemSchema, _weaponCatalog, Networked(ownerIndex), "tf_weapon_invis") is { } watch
+           && _hooks.Int(0, "set_weapon_mode", watch) == TFInvisibility.InvisFeignDeathMode;
 
     /// <summary>
     /// The charge meter's tick, the client arm of <c>ConditionThink</c>'s
@@ -546,6 +601,121 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         _working.HypeMeter -= dt * (_hypeConsume?.Value ?? 12.5f) * 0.75f;    // :14073, no clamp
         if (_working.HypeMeter <= 0f)                                         // :14074
             _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.SodapopperHype));
+    }
+
+    /// <summary>
+    /// The rage mirror's basis: the carriers whose burn names this player the
+    /// attacker (<see cref="TFPlayerNetState.BurnAttackerIndex"/>, the sent
+    /// word the server's <c>m_hBurnAttacker</c> rides) start the window with
+    /// the tick clock and fire life that decode carries, and this player's
+    /// own flamethrower item — the burn arm's hook's subject — is the one
+    /// <see cref="TFWeaponNames.Name"/> names, found once a basis as the
+    /// server's <c>Weapon_OwnsThisID(TF_WEAPON_FLAMETHROWER)</c> is.
+    ///
+    /// <para>
+    /// The burn fields ride the VICTIM's carrier, so the seed's word is that
+    /// carrier's last decode — the same lag class the compare's own pair
+    /// carries, its premise and not this mirror's invention: a tick the
+    /// server ran between that decode and this basis is re-derived below,
+    /// from the same command clock the cloak's is.
+    /// </para>
+    /// </summary>
+    private void BurnSeed()
+    {
+        _burners.Clear();
+        _flame = TFClientWeaponOwners.ItemOf(_itemSchema, _weaponCatalog, Networked(_localIndex),
+                                             TFWeaponNames.Name(TFWeaponId.Flamethrower).ToLowerInvariant());
+
+        foreach (ClientTFPlayerData carrier in _carriers.Live)
+        {
+            if (carrier.State.BurnAttackerIndex == _localIndex && carrier.State.BurnDuration > 0f)
+                _burners.Add((carrier, carrier.State.BurnNextTickTime, carrier.State.BurnDuration));
+        }
+    }
+
+    /// <summary>
+    /// The pyro's rage, the burn arm of <c>HandleRageGain</c>'s caller
+    /// (tf_player.cpp:9730-9735) as the replay walks it: each burning victim's
+    /// tick due at this command's clock deals its damage — the shape of the
+    /// server's burning think (<c>ConditionGameRulesThink</c>,
+    /// tf_player_shared.cpp:2768-2958) — and the gain books on this player's
+    /// meter, <see cref="TFRageMeter.GainOnBurnDamage"/>.
+    /// </summary>
+    private void BurnTick(float now)
+    {
+        if (_burners.Count == 0)
+            return;
+
+        float dt = Interval;
+
+        for (int i = _burners.Count - 1; i >= 0; i--)
+        {
+            (ClientTFPlayerData Carrier, float Next, float Duration) burner = _burners[i];
+            TFCondMask cond = burner.Carrier.State.Conditions();
+
+            if (cond.Has(TFCond.HealthBuff))                                   // tf_player_shared.cpp:2676-2681
+                burner.Duration -= 2f * dt;
+
+            if (burner.Duration <= 0f)                                         // :2774-2778
+            {
+                _burners.RemoveAt(i);
+                continue;
+            }
+
+            if (now < burner.Next)                                             // :2880
+            {
+                _burners[i] = burner;
+                continue;
+            }
+
+            // A victim that is not a pyro, or burns as one, takes the damage
+            // (:2895) whose rage arm this is; the degree multipliers are
+            // stock's, both 1 (:191-192). The attacker's half of the gate — a
+            // pyro, holding the flame — is the item read itself: no
+            // flamethrower, or one without the phlog's set_buff_type, and
+            // <see cref="TFRageMeter.BurnBuffScale"/> answers none, the same
+            // flag test's no-op the server's arm is.
+            if (burner.Carrier.State.PlayerClass != (int)TFClass.Pyro
+                || cond.Has(TFCond.BurningPyro))
+            {
+                float damage = _hooks.Float(TFCombatDefs.BurningDamage,        // :2898
+                                            TFCombatDefs.BurnDamageAttribute, _flame);
+                TFRageMeter.GainOnBurnDamage(_working, damage,
+                                             _hooks.Float(1f, TFRageMeter.GivingScaleAttribute, _flame),
+                                             _hooks.Int(0, TFRageMeter.BuffTypeAttribute, _flame));
+            }
+
+            burner.Next += TFCombatDefs.BurningFrequency;                      // :2949
+            burner.Duration -= TFCombatDefs.BurningFrequency;                  // :2952
+            _burners[i] = burner;
+        }
+    }
+
+    /// <summary>
+    /// The disguise's completion, the client arm of <c>CheckDisguiseTimer</c>
+    /// (<c>ConditionThink</c> → :3305-3314): past the deadline, never on it,
+    /// <c>TF_COND_DISGUISED</c> replaces <c>TF_COND_DISGUISING</c> and the
+    /// disguise names the desired class and team (:8302-8312); the deadline
+    /// clears (:8343) and the desired team goes undefined with the
+    /// disguising's end (<c>OnRemoveDisguising</c>, :7218 — the desired
+    /// class stands, the <c>lastdisguise</c> key's). The press itself is the
+    /// server's console line, so its wish and deadline are the snapshot's;
+    /// the mask, target, health and weapon are the server's dress, sent not
+    /// predicted. The server's half is the <c>TFSpyComponent</c> tick, the
+    /// same strict comparison — the two ends complete on the same command.
+    /// </summary>
+    private void DisguiseTick(float now)
+    {
+        if (!_working.InCond(TFCond.Disguising) || _working.DisguiseCompleteTime <= 0f
+            || now <= _working.DisguiseCompleteTime)                          // :3307-3309
+            return;
+
+        _working.SetConditions(_working.Conditions() | TFCondMask.Of(TFCond.Disguised));   // :8302
+        _working.DisguiseClass = _working.DesiredDisguiseClass;               // :8304
+        _working.DisguiseTeam = _working.DesiredDisguiseTeam;                 // :8305
+        _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.Disguising)); // :8312
+        _working.DesiredDisguiseTeam = (int)TFTeam.Unassigned;                // :7218
+        _working.DisguiseCompleteTime = 0f;                                   // :8343
     }
 
     /// <summary>

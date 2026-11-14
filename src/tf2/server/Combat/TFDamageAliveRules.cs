@@ -40,6 +40,16 @@ public static class TFDamageAliveRules
     /// <summary>The spun-up gate's fraction (<c>&lt;= 0.5f</c>, :7266).</summary>
     public const float HalfHealth = 0.5f;
 
+    /// <summary><c>tf_feign_death_damage_scale</c>'s stock default
+    /// (<c>tf_gamerules.cpp:689</c>): the scale a half-full cloak meter
+    /// answers on the feign arm.</summary>
+    public const float FeignDeathDamageScale = 0.35f;
+
+    /// <summary><c>tf_feign_death_activate_damage_scale</c>'s stock default
+    /// (<c>tf_gamerules.cpp:688</c>): the scale while the watch's ready bit
+    /// still answers.</summary>
+    public const float FeignDeathActivateDamageScale = 0.25f;
+
     /// <summary>
     /// The hit after the resists. <paramref name="hit"/> is the modify rules'
     /// answer, its <see cref="TFHitResult.Bonus"/> the crit portion stock
@@ -57,8 +67,26 @@ public static class TFDamageAliveRules
     public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks? hooks, IAttributeProvider? victimItem,
                                TFClass victimClass, float stealthReduction,
                                bool spunUp = false, bool fromSentry = false)
+        => Resist(hit, in input, hooks, victimItem, victimClass, stealthReduction, spunUp, fromSentry,
+                  cloakMeter: 100f, feignReady: false, health: 0f, out _);
+
+    /// <summary>
+    /// The same pass with the Dead Ringer's half of the spy's arm (:7389-7429)
+    /// in reach: <paramref name="cloakMeter"/> is the victim's cloak meter and
+    /// <paramref name="feignReady"/> the watch's ready bit, both read from the
+    /// predicted carrier before the call (the bit is still armed at the
+    /// scale's time — stock clears it later, in the hit's own tail,
+    /// tf_player.cpp:9678); <paramref name="health"/> is the victim's health,
+    /// the save check's floor (:7413). <paramref name="savedFromDeath"/>
+    /// answers whether the scale saved the spy from the hit (:7412-7422), the
+    /// fact that makes the watch's save event.
+    /// </summary>
+    public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks? hooks, IAttributeProvider? victimItem,
+                               TFClass victimClass, float stealthReduction, bool spunUp, bool fromSentry,
+                               float cloakMeter, bool feignReady, float health, out bool savedFromDeath)
     {
         float damage = hit.Damage;
+        savedFromDeath = false;
         if (hooks is null)
             return damage;
 
@@ -143,17 +171,35 @@ public static class TFDamageAliveRules
         }
 
         // The cloaked spy (:7390-7428): a spy's hit that is no telefrag, not
-        // while taunting and no pierce. The feign-death arm ahead of the
-        // stealth one (:7393-7423) waits on the Dead Ringer's ready bit, so
-        // the stealth arm stands only where no feign is running.
+        // while taunting and no pierce. The feign arm of the pair (:7393-7423)
+        // answers while the feign holds or the watch's ready bit still stands:
+        // the scale rides the cloak meter's place on the 50-to-0 range, from
+        // the feign scale to the stealth reduction (:7396), and while the bit
+        // is armed the activate scale stands in its place (:7399-7401). Only
+        // behind the feign does the plain stealth arm answer (:7425-7428).
         if (victimClass == TFClass.Spy
             && hit.Custom != TFDamageCustom.Telefrag
             && !input.Victim.Has(TFCond.Taunting)
-            && pierce == 0
-            && !input.Victim.Has(TFCond.FeignDeath)
-            && input.Victim.Has(TFCond.Stealthed))
+            && pierce == 0)
         {
-            damage *= stealthReduction;
+            if (input.Victim.Has(TFCond.FeignDeath) || feignReady)
+            {
+                float scale = TFDamageModifyRules.RemapValClamped(cloakMeter, 50f, 0f,
+                                                                  FeignDeathDamageScale, stealthReduction);
+                if (feignReady)
+                    scale = FeignDeathActivateDamageScale;
+
+                float before = damage;
+                damage *= scale;
+
+                // The save the scale won (:7413): the hit would have killed
+                // as it stood and does not as scaled.
+                savedFromDeath = before >= health && damage < health;
+            }
+            else if (input.Victim.Has(TFCond.Stealthed))
+            {
+                damage *= stealthReduction;
+            }
         }
 
         return damage;

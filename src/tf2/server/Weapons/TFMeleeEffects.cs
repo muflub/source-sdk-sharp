@@ -44,7 +44,8 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
                                    DamageHitGroups hitGroups, ILog log,
                                    ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
                                    ILagCompensation? lagCompensation = null, TFDamageScopes? scopes = null,
-                                   ITFPlayerConditions? conditions = null, TFBlastApplier? blast = null) : ITFMeleeEffects
+                                   ITFPlayerConditions? conditions = null, TFBlastApplier? blast = null,
+                                   ITFPlayerResupply? health = null) : ITFMeleeEffects
 {
     /// <summary><c>tf_meleeattackforcescale</c>'s 80 (<c>tf_weaponbase_melee.cpp:50</c>).</summary>
     public const float ForceScale = 80f;
@@ -66,6 +67,8 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
     private readonly ITFWeaponOwners? _owners = owners;
 
     private readonly AttributeHooks? _hooks = hooks;
+
+    private readonly ITFPlayerResupply? _health = health;
 
     /// <summary>Stock's <c>looseSwingRange</c> over <c>GetSwingRange</c> (<c>tf_weaponbase_melee.cpp:309</c>).</summary>
     public const float LooseSwingScale = 1.2f;
@@ -221,6 +224,23 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         // their crit-rate accounting (DMG_DONT_COUNT_DAMAGE_TOWARDS_CRIT_RATE,
         // tf_shareddefs.h:1171).
         float strike = shot.Damage;
+
+        // GetMeleeDamage's health arms (tf_weaponbase_melee.cpp:1004-1015): the
+        // swinger under half their maximum takes the held item's
+        // mult_dmg_bonus_while_half_dead, at half or above its
+        // mult_dmg_penalty_while_half_alive — each through the walk over the
+        // melee's own item (stock's CALL_ATTRIB_HOOK_FLOAT over the owner's
+        // health fraction). The honourbound floor below rides the outcome, as
+        // stock's katana override rides its base call.
+        if (entities.IsPlayer(owner) && _owners is { } halfHold && _hooks is { } halfWalk
+            && _health is { } supply)
+        {
+            IAttributeProvider? halfItem = halfHold.ItemOf(attack.Command.OwnerIndex, script.Name);
+            strike = entities.GetHealth(owner) < supply.MaxHealth(owner) * 0.5f
+                ? halfWalk.Float(strike, "mult_dmg_bonus_while_half_dead", halfItem)
+                : halfWalk.Float(strike, "mult_dmg_penalty_while_half_alive", halfItem);
+        }
+
         if (string.Equals(script.Name, TFWeaponTypes.Katana, StringComparison.Ordinal)
             && _owners is { } owners && _hooks is { } hooks && entities.IsPlayer(target)
             && HonourBound(hooks, owners.ItemOf(attack.Command.OwnerIndex, script.Name))

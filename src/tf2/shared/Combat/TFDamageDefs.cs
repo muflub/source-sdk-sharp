@@ -176,6 +176,12 @@ public static class TFCombatDefs
     /// <summary><c>TF_BURNING_DMG</c>: one afterburn tick's damage.</summary>
     public const int BurningDamage = 4;
 
+    /// <summary>The burn weapon's tick arm, before the degree multipliers
+    /// (<c>mult_wpn_burndmg</c>, tf_player_shared.cpp:2898): named here because
+    /// the client's rage mirror walks the same hook over the same burn weapon
+    /// the server's tick did, and one literal cannot be two constants.</summary>
+    public const string BurnDamageAttribute = "mult_wpn_burndmg";
+
     /// <summary><c>TF_BLEEDING_FREQUENCY</c> (<c>tf_shareddefs.h:670</c>): seconds between bleed ticks.</summary>
     public const float BleedingFrequency = 0.5f;
 

@@ -7,6 +7,7 @@ using SourceSharp.Shared;
 using TF2.Server;
 using TF2.Server.Buildings;
 using TF2.Shared;
+using TF2.Shared.Combat;
 using Xunit;
 
 namespace TF2.Tests.Buildings;
@@ -196,6 +197,28 @@ public class TFSentryGunTests
         Assert.Equal(rig.Convars.Declared<TFSentryGunDamageConVar>().Value, shot.ArgAs<float>(2));
         Assert.Equal(DamageType.Bullet, shot.ArgAs<DamageType>(3));
         Assert.Equal(TFSentryGun.MaxShellsLevel1 - 1, sentry.Shells);
+    }
+
+    /// <summary>The turret's own shell rides no custom (ModifyFireBulletsDamage's
+    /// <c>m_bPlayerControlled</c> gate, tf_obj_sentrygun.cpp:1653): the kill
+    /// feed names the gun, not the pointer's arm.</summary>
+    [Fact]
+    public void TheTurretsOwnShellCarriesNoCustom()
+    {
+        var (rig, sentry, _) = AWorkingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.FillsSphere(enemy);
+
+        List<TFDamageCustom> during = new();
+        rig.Engine.WhenCalled("Damage.TakeDamage",
+                              call => during.Add(rig.Scopes.TryCurrent(out var custom, out _, out _) ? custom : TFDamageCustom.None));
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the shot
+
+        Assert.Equal(new[] { TFDamageCustom.None }, during);
     }
 
     [Fact]

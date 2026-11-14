@@ -50,7 +50,11 @@ public sealed class TFShieldChargeTests
 
         private uint _next = 0x0003_0050;
 
-        public ChargeRig()
+        /// <param name="replayClock">
+        /// Bind the rig's engine as the meter's environment, so its tick is
+        /// sliced by the interval the client's replay steps in.
+        /// </param>
+        public ChargeRig(bool replayClock = false)
         {
             // What a bash asks: a forward, a miss unless a fact says otherwise, the shake's centre.
             Player.Engine.Returns("Entities.GetEyeAngles", default(Vector));
@@ -60,6 +64,8 @@ public sealed class TFShieldChargeTests
             Player.Engine.Returns("Entities.GetWorldSpaceCenter", default(Vector));
             Player.Engine.Returns("Networking.EntityGetState", default(EntityState));
             Player.Engine.Returns("Networking.EntityGetState.moveType", default(MoveType));
+            if (replayClock)
+                Player.Engine.Returns("Environment.Globals", new Globals(PredictionDeps.SharedGlobals()));
             Conditions = new(Player.Carriers, Player.Engine);
             Ticker = new(Player.Carriers, Conditions, Player.Engine);
             var wearables = new TFWearables(Player.Carriers, Player.Engine, Directory, Player.Engine, Player.Engine, Player.Log);
@@ -68,7 +74,9 @@ public sealed class TFShieldChargeTests
                           new ScreenEffects(Player.Engine, Player.Engine, Player.Engine, Player.Engine),
                           Player.Log);
             var end = new TFShieldChargeEnd(Player.Carriers, Shields, null, Player.Engine);
-            Meter = new(Player.Carriers, Conditions, Player.Items, null, null, null);
+            Meter = replayClock
+                ? new(Player.Carriers, Conditions, Player.Items, null, null, null, Player.Engine)
+                : new(Player.Carriers, Conditions, Player.Items, null, null, null);
             Player.Extra.AddRange([Ticker, wearables, end, Meter]);
             Skill = new(Player.Carriers, Player.Engine, owners: null, shields: Shields);
 
@@ -219,6 +227,56 @@ public sealed class TFShieldChargeTests
     /// spends (:384). The mini rides the smack's hit as the charge's
     /// mini-crit, never over a roll the swing made itself (:855-863).
     /// </summary>
+    /// <summary>
+    /// The server's meter is integrated once per tick, the add the client's
+    /// replay makes once per command — a frame's ticks sliced, not one add of
+    /// the frame's whole span, whose rounding is the byte the prediction
+    /// compare counts (<c>TFPlayerPrediction</>'s charge tick against this
+    /// component). The drain runs to empty and the refill that follows, the
+    /// whole shape a charge leaves behind.
+    /// </summary>
+    [Fact]
+    public void TheServerIntegratesTheMeterOncePerTickAsTheReplayDoes()
+    {
+        const float interval = PredictionDeps.Tick;
+        var rig = new ChargeRig(replayClock: true);
+        rig.Charging(64f);
+        rig.Meter.Tick(0f);   // the attach frame: the prime that starts the clock, no integration
+
+        // The replay's own chain, the client arm's expressions over the same
+        // numbers: the drain to empty, then the refill toward full.
+        float replay = 64f;
+        bool charging = true;
+
+        float now = 0f;
+        for (int frame = 0; frame < 240; frame++)
+        {
+            for (int tick = 0; tick < 1 + frame % 3; tick++)   // frames of one, two and three ticks
+            {
+                now += interval;
+
+                if (charging)
+                {
+                    replay -= interval * (100f / 1.5f);
+                    if (replay <= 0f)
+                    {
+                        replay = 0f;
+                        charging = false;
+                    }
+                }
+                else if (replay < 100f)
+                {
+                    replay = MathF.Min(100f, replay + interval * MathF.Max(8.3f, 1f));
+                }
+            }
+
+            rig.Meter.Tick(now);
+        }
+
+        Assert.Equal(BitConverter.SingleToInt32Bits(replay),
+                     BitConverter.SingleToInt32Bits(rig.Player.State.ChargeMeter));
+    }
+
     [Fact]
     public void AChargedSwingCrits()
     {

@@ -374,6 +374,32 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private readonly Dictionary<uint, Carry> _carries = new();
 
     /// <summary>
+    /// The command's reserve window: while the machine's command is on the
+    /// floor (<see cref="OnPlayerCommand"/>'s run), a pool grant INSIDE it —
+    /// the damage arms' on-hit refund, <c>TFDamageLayer</c>'s
+    /// <c>GiveAmmo</c> — must not mirror into the reserve the coming settle
+    /// measures. The mirror writes the pool's word over the machine's, and
+    /// the pool does not hold the command's spend until the settle: the
+    /// shot's cost vanishes from the settle's delta, the reserve the client
+    /// decodes keeps a pool that never paid it — the Widowmaker's HUD a shot
+    /// high — and the grant lands twice. The window counts the mirrors it
+    /// stood down; the command's tail pays them back, once, from the pool
+    /// the settle made true.
+    /// </summary>
+    private bool _commandLive;
+
+    /// <summary>The mirrors the live command stood down; the tail's debt.</summary>
+    private int _commandMirrors;
+
+    /// <summary>
+    /// The live command's grants, saved for its tail: stock keeps an on-hit
+    /// refund in <c>m_iAmmoToAdd</c> (tf_weaponbase.cpp:5064-5078) and gives it
+    /// after the shot's ammo comes off (tf_weaponbase_gun.cpp:387-394), so a
+    /// full pool pays the shot before the refund meets the cap.
+    /// </summary>
+    private readonly List<(EntityHandle Player, int Count, string Ammo)> _commandGrants = new();
+
+    /// <summary>
     /// Whether a handle is a hierarchy player — the only kind this serves.
     ///
     /// <para>
@@ -591,7 +617,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// <summary>
     /// Adds to a pool, honouring the player's carry limit for it
     /// (<see cref="MaxCarryOf"/>). Answers how much was actually taken, zero
-    /// for a full pool — which is what leaves the box on the floor.
+    /// for a full pool — which is what leaves the box on the floor. Inside a
+    /// weapon command the grant is saved for the command's tail and the answer
+    /// is the count asked (see <c>_commandGrants</c>).
     /// </summary>
     public int GiveAmmo(EntityHandle player, int count, string ammoName)
     {
@@ -606,6 +634,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         {
             _log.Warning($"[SourceSharp/Arsenal] no ammo row for '{ammoName}'\n");
             return 0;
+        }
+
+        // Inside a command the grant waits for the spend (see _commandGrants);
+        // the tail gives it, and the answer here is what was asked.
+        if (_commandLive)
+        {
+            _commandGrants.Add((player, count, ammoName));
+            return count;
         }
 
         var carry = CarryFor(player);
@@ -1365,6 +1401,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// </summary>
     private void RefreshReserves(Carry carry)
     {
+        // A command's floor: its settle has not carried the spend yet, so a
+        // mirror here would write a pool without it over the machine's word.
+        // Count the debt; the command's tail pays it.
+        if (_commandLive)
+        {
+            _commandMirrors++;
+            return;
+        }
+
         if (_directory.Get(carry.Weapon) is not SsWeapon weapon)
             return;
 
@@ -1452,16 +1497,29 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // IsPredictingWeapons(): the shooter's client plays this command's
         // weapon sounds and impacts itself, so the server's copies skip it.
         int index = _entities.GetIndex(player);
-        using (_prediction is not null && _prediction.PredictsWeapons(index)
-                   ? _prediction.Suppress(index)
-                   : default)
+        // The command's window: the machine's run and the settle. A pool grant
+        // inside it (the damage arms' refund) stands the reserve mirror down
+        // until the settle has carried the spend; the tail pays the debt.
+        _commandLive = true;
+        _commandMirrors = 0;
+        _commandGrants.Clear();
+        try
         {
-            // The command's seed and the pair's indices, as the client's replay
-            // of this command derives them (WeaponCommand.For), for a behaviour's roll.
-            carry.Arms.ResetGestureAsks();
-            carry.Machine.RunCommand(weapon.State, viewModel.State,
-                                     cmd.Buttons, _clock.Now, effectsLive: firstTime,
-                                     WeaponCommand.For(in cmd, carry.Weapon, player));
+            using (_prediction is not null && _prediction.PredictsWeapons(index)
+                       ? _prediction.Suppress(index)
+                       : default)
+            {
+                // The command's seed and the pair's indices, as the client's replay
+                // of this command derives them (WeaponCommand.For), for a behaviour's roll.
+                carry.Arms.ResetGestureAsks();
+                carry.Machine.RunCommand(weapon.State, viewModel.State,
+                                         cmd.Buttons, _clock.Now, effectsLive: firstTime,
+                                         WeaponCommand.For(in cmd, carry.Weapon, player));
+            }
+        }
+        finally
+        {
+            _commandLive = false;
         }
 
         if (firstTime && typeBefore == weapon.State.WeaponTypeId)
@@ -1473,6 +1531,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    before - weapon.State.Reserve);
         SettlePool(carry, weapon.State.WeaponTypeId, primary: false,
                    beforeSecondary - weapon.State.SecondaryReserve);
+
+        // The spend is in the pool and the command's grants with it: where the
+        // window stood mirrors down, the reserve mirrors the authority once,
+        // here — never where nothing stood, a command whose pool nobody
+        // touched (a rig's hand-seeded reserve stays the word it was given).
+        if (_commandMirrors > 0)
+            RefreshReserves(carry);
+
+        // The saved grants, now that the spend is in the pool.
+        foreach (var (who, count, ammoName) in _commandGrants)
+            GiveAmmo(who, count, ammoName);
+        _commandGrants.Clear();
 
         // The held-aside meters charge on the command too, and a finished one
         // grants, stock's walk over every slot each frame
@@ -2448,6 +2518,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         public PlayerNetState? Carrier => (_arsenal._directory.Get(_carry.Player) as SsPlayer)?.State;
 
+        // The same pair the shot traces from: the shoot origin and the entity's
+        // own eye angles, the server's answer to the arms' aim ask
+        // (Angles.Forward over the reads, as ShootPellets builds its aim).
+        public bool Aim(out Vector eye, out Vector forward)
+        {
+            eye = _arsenal._players.GetShootOrigin(_carry.Player);
+            forward = Angles.Forward(_arsenal._entities.GetEyeAngles(_carry.Player));
+            return true;
+        }
+
         public void ChargedFlash() => _arsenal._screen?.Fade(_carry.Player, 255, 255, 255, 64, 0.1f, 0f, FadeFlags.In);
 
         // The state only mirrors the movement record, which the next command would write back.
@@ -2547,8 +2627,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </para>
         ///
         /// <para>
-        /// AT <paramref name="shot"/>'S DAMAGE per bullet, its crit flag open
-        /// beside each damage call with the trace's hitgroup
+        /// AT <paramref name="shot"/>'S DAMAGE per bullet, banked per victim
+        /// over the fire and applied as ONE damage — the shot's multi-damage,
+        /// stock's <c>CDmgAccumulator</c> over <c>FX_FireBullets</c> and its
+        /// closing <c>ApplyMultiDamage</c> (<c>tf_fx_shared.cpp:388-396</c>) —
+        /// the crit flag and the last hitgroup open beside it
         /// (<see cref="DamageHitGroups"/>). The ammo row still names the damage
         /// type and the push; the blood is sized by the damage dealt. A shot
         /// that asks for the weapon script's damage (the machine's stock shot)
@@ -2633,6 +2716,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             float spread = ShotSpread.SpreadOf(spreadDegrees);
             int seed = ShotSpread.FirstSeed(CommandRandomSeed);
 
+            // The shot's bank, per victim: stock's CDmgAccumulator over the fire
+            // (tf_fx_shared.cpp:294's GetDmgAccumulator, :389-391's Process) —
+            // every pellet's TraceAttack banks its share and the shot ends in
+            // ONE TakeDamage per victim, the damages and forces summed, the
+            // last position standing (:2536-2539).
+            var banked = new Dictionary<EntityHandle, BankedShot>();
+
             for (int i = 0; i < pellets; i++)
             {
                 // The pellet's spread, seeded per pellet from the command, so the
@@ -2641,8 +2731,28 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 // otherwise.
                 Vector dir = ShotSpread.Direction(aim, spread, seed + i, _spread, fixedPellets, i).Normalized;
 
-                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo, penetrate);
+                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo, penetrate, banked);
             }
+
+            // The shot's multi-damage, applied (:396's ApplyMultiDamage, one
+            // TakeDamage of the sum per victim): the crit flag and the hitgroup
+            // ride beside the call as each pellet's would have.
+            foreach ((EntityHandle victim, BankedShot shot) in banked)
+                using (_arsenal._prediction?.Lifted() ?? default)
+                using (_arsenal._hitGroups.Push(shot.HitGroup, critical))
+                    _arsenal._damage.ApplyAt(victim, _carry.Player, shot.Damage, shot.Type, shot.Force, shot.Position);
+        }
+
+        /// <summary>A banked victim's share of the shot: the accumulated
+        /// <c>CTakeDamageInfo</c> — the damages and forces summed, the type
+        /// ORed, the last hit's position and hitgroup standing.</summary>
+        private sealed class BankedShot
+        {
+            public float Damage;
+            public Vector Force;
+            public DamageType Type;
+            public Vector Position;
+            public HitGroup HitGroup;
         }
 
         /// <summary>
@@ -2651,7 +2761,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// a glass func_breakable (HandleShotImpactingGlass).
         /// </summary>
         private void Round(Vector from, Vector dir, float distance, float damage, DamageType damageType, bool critical,
-                           in AmmoType ammo, bool penetrate = false)
+                           in AmmoType ammo, bool penetrate, Dictionary<EntityHandle, BankedShot> banked)
         {
             var trace = _arsenal._world.TraceLineSurface(from, from + dir * distance,
                                                          TraceMask.Shot, _carry.Player);
@@ -2675,14 +2785,14 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                                trace.SurfaceProps, ammo.DamageType,
                                                trace.Entity);
 
-            Strike(in trace, from, dir, damage, damageType, critical, in ammo);
+            Strike(in trace, from, dir, damage, damageType, critical, in ammo, banked);
 
             // FireBullets' glass rule: a round through the glass of a
             // func_breakable carries on (the registry answers what was hit).
             if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
                 && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
                                              breakable.ClassName, breakable.SpawnFlags))
-                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo);
+                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo, banked);
 
             // The piercing tail (stock's penetrated walk's per-victim trace,
             // tf_player_shared.cpp:10373-10402): past the player the round
@@ -2701,7 +2811,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 if (!next.Hit)
                     break;
 
-                Strike(in next, beyond, dir, damage, damageType, critical, in ammo);
+                Strike(in next, beyond, dir, damage, damageType, critical, in ammo, banked);
 
                 if (!_arsenal.IsStandalonePlayer(next.Entity))
                 {
@@ -2727,7 +2837,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// — and the blood a player's wound sheds.
         /// </summary>
         private void Strike(in SurfaceTraceResult trace, Vector from, Vector dir, float damage, DamageType damageType,
-                            bool critical, in AmmoType ammo)
+                            bool critical, in AmmoType ammo, Dictionary<EntityHandle, BankedShot> banked)
         {
             // DispatchTraceAttack: an entity that answers the traced hit
             // itself (a pane of glass) takes it in place of the damage.
@@ -2737,17 +2847,20 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             }
             else if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
             {
-                // FireBullets' CalculateBulletDamageForce: the ammo's force
-                // along the shot, acting where it landed, so the victim's
-                // OnTakeDamage can push its physics object (A30). The
-                // trace's hitgroup rides beside the call (stock hands the
-                // trace itself to TraceAttack): see DamageHitGroups.
-                using (_arsenal._prediction?.Lifted() ?? default)
-                using (_arsenal._hitGroups.Push(trace.HitGroup, critical))
-                    _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
-                                             damage, damageType,
-                                             DamageForceRules.BulletForce(dir, ammo.DamageForce),
-                                             trace.End);
+                // The pellet's share banked onto its victim's multi-damage
+                // (CDmgAccumulator::AccumulateMultiDamage, and AddMultiDamage's
+                // own sums at takedamageinfo.cpp:242-248): the damages and
+                // forces add, the type ORs, the last hit's position stands.
+                // The whole shot is ONE TakeDamage per victim, applied when
+                // the fire ends (ShootPellets's flush) — stock's
+                // OnTakeDamage sees the blast, never a pellet.
+                if (!banked.TryGetValue(trace.Entity, out BankedShot? shot))
+                    banked[trace.Entity] = shot = new BankedShot();
+                shot.Damage += damage;
+                shot.Force += DamageForceRules.BulletForce(dir, ammo.DamageForce);
+                shot.Type |= damageType;
+                shot.Position = trace.End;
+                shot.HitGroup = trace.HitGroup;
 
                 if (_arsenal.IsStandalonePlayer(trace.Entity))
                     _arsenal._effects.BloodEffect(trace.End, dir, BloodColor.Red, damage);
@@ -2765,7 +2878,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// solid (here, at no distance), or finds nothing, stops it.
         /// </summary>
         private void ThroughGlass(in SurfaceTraceResult trace, Vector dir, float distance, float damage,
-                                  DamageType damageType, bool critical, in AmmoType ammo)
+                                  DamageType damageType, bool critical, in AmmoType ammo,
+                                  Dictionary<EntityHandle, BankedShot> banked)
         {
             GlassImpact(trace.End, trace.Normal);
 
@@ -2778,7 +2892,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                            ammo.DamageType, back.Entity);
             GlassImpact(back.End, back.Normal);
 
-            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, critical, in ammo);
+            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, critical, in ammo, false, banked);
         }
 
         /// <summary>DispatchEffect( "GlassImpact" ): the shards, to the PAS of where they fly.</summary>

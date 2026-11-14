@@ -155,6 +155,11 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
     /// </summary>
     public bool PlayerFallingDamage(float damage)
     {
+        // The hit reads what stands under them, and stock's SetGroundEntity
+        // has already named it by CheckFalling: ours waits for the command's
+        // end (WriteBackGround), so the record is told first.
+        NameLandedGround(Host, LastGround);
+
         bool alive = api.PlayerFallDamage(movement, Player, damage);
 
         // From where the shell is after the hit, as the helper's
@@ -163,6 +168,13 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
             sounds.MoveSoundScript(EntIndex, api.EntityGetOrigin(Player), "Player.FallDamage");
 
         return alive;
+    }
+
+    /// <summary>The landing's ground on the record, when a trace found one.</summary>
+    internal static void NameLandedGround(ServerPlayerMove? host, EntityHandle lastGround)
+    {
+        if (host is not null && lastGround != EntityHandle.None)
+            host.Ground = lastGround;
     }
 
     /// <summary><c>CHL2MP_Player::PlayStepSound</c>, the server's arm (<see cref="PlayerStepSounds.Play"/>).</summary>

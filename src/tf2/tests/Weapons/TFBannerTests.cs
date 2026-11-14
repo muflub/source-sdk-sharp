@@ -443,6 +443,9 @@ public sealed class TFBannerTests
         public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge)
             => effects.Projectile(in attack, script, shot, charge);
         public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => effects.Detonate(in attack, script);
+
+        public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
+            => effects.ShockAttack(in attack, script);
         public void Flames(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot)
             => effects.Flames(in attack, script, shot);
         public void AirBlast(in WeaponAttackContext attack, TFWeaponScript script) => effects.AirBlast(in attack, script);

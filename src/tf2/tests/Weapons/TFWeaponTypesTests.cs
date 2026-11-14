@@ -45,7 +45,7 @@ public sealed class TFWeaponTypesTests
         // and the seeded item-carried weapons (the flare gun, the crossbow, the
         // Gunslinger's arm, the Wrangler, the lunchbox and its drink, the soldier's buff item,
         // the katana and the jars, none named by a class script's weaponN; their own facts
-        // stand them up).
+        // stand them up). The engineer's rescue shotgun seeds the same way.
         // The energy family joins them as the equipped unlocks their rows: the bison,
         // the mangler, the pomson — and the scout's hype pair the same way.
         Assert.Equal(
@@ -55,13 +55,17 @@ public sealed class TFWeaponTypesTests
                 .Append("tf_weapon_rocketlauncher_airstrike")
                 .Append("tf_weapon_flaregun_revenge")
                 .Append("tf_weapon_sniperrifle_decap").Append("tf_weapon_sniperrifle_classic")
-                .Append("tf_weapon_jar").Append("tf_weapon_jar_milk")
+                .Append("tf_weapon_jar").Append("tf_weapon_jar_gas").Append("tf_weapon_jar_milk")
                 .Append("tf_weapon_rocketlauncher_fireball")
                 .Append("tf_weapon_bat_giftwrap")
                 .Append("tf_weapon_sentry_revenge")
                 .Append("tf_weapon_raygun").Append("tf_weapon_particle_cannon")
                 .Append("tf_weapon_drg_pomson")
                 .Append("tf_weapon_soda_popper").Append("tf_weapon_pep_brawler_blaster")
+                .Append("tf_weapon_rocketpack")
+                .Append("tf_weapon_mechanical_arm")
+                .Append("tf_weapon_charged_smg")
+                .Append("tf_weapon_shotgun_building_rescue")
                 .Order(StringComparer.Ordinal).ToArray(),
             names);
         Assert.Contains("tf_weapon_minigun", names);

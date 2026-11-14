@@ -132,9 +132,10 @@ public interface ITFWeaponOwners
     /// meter (0..1, held as the held medigun's charge), the spy the same
     /// fraction of the hundred-point cloak meter. Zero amounts change nothing;
     /// the no-carrier answer is the no-op, as stock's arms only run for a
-    /// classed victim.
+    /// classed victim. Answers whether a meter moved — stock's
+    /// <c>bDidDrain</c> (:5555), the drain's telling stands on it.
     /// </summary>
-    void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction) { }
+    bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction) => false;
 
     /// <summary>
     /// The player's banked decapitations — stock's

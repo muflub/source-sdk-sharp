@@ -150,6 +150,9 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(new TFPushbackScaleConVar());
         c.AddInstance(new TFPushbackScaleVerticalConVar());
         c.AddInstance(new WeaponMedigunChargeRateConVar());
+        // The feign corpse's dress (the Dead Ringer's arm) pulls the death
+        // walk's gib rule, whose tf_playergib joins as the game's own.
+        c.AddInstance(new TFPlayerGibConVar());
         // The airblast's underwater refusal (2.11) reads the networking state.
         c.AddInstance<IEngineNetworking>(engine);
         // The cloak-consuming disguise (2.12) emits the use-deny vo through the sound area.
@@ -193,6 +196,11 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<TF2.Server.Buildings.ITFBuilderArms>(new TF2.Tests.Buildings.FakeBuilderArms());
         c.AddInstance<TF2.Server.Entities.Rooms.ITFNoBuildAreas>(new TF2.Tests.Buildings.FakeNoBuildAreas());
         c.AddInstance<TF2.Server.Entities.Rooms.ITFRespawnRooms>(new TF2.Tests.Buildings.FakeRespawnRooms());
+        // The death drops (the ammo pack's hook, tf_player.cpp:13103) ask the
+        // core's player records; ServerModule registers them over the engine's
+        // own, so they join here too — the rig's records answer membership
+        // alone, the way the drops read them.
+        c.AddInstance<SourceSharp.Server.IPlayerDirectory>(new TF2.Tests.Spy.SpyRecords());
         return c;
     }
 

@@ -181,6 +181,10 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     private bool IsAiming(in WeaponAttackContext attack) =>
         attack.Command.OwnerIndex > 0 && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } c && c.Has(TFCond.Aiming);
 
+    /// <summary>The shooter's charge rage buff, stock's <c>TF_COND_SNIPERCHARGE_RAGE_BUFF</c>.</summary>
+    private bool HasChargeRageBuff(in WeaponAttackContext attack) =>
+        attack.Command.OwnerIndex > 0 && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } c && c.Has(TFCond.SniperchargeRageBuff);
+
     /// <summary>The half-second floor between deny clicks (HandleNoScopeFireDeny's <c>m_flNextEmptySoundTime</c>, tf_weapon_sniperrifle.cpp:729).</summary>
     public const float DenyClickInterval = 0.5f;
 
@@ -216,11 +220,23 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
         ClearDecayClock(weapon);
         if (IsZoomed(in attack))
         {
-            // SetRezoom: out in half a second, and back in when there is more to fire.
-            weapon.BehaviourTimeA = attack.Now + UnzoomDelay;
-            weapon.BehaviourMode = weapon.Reserve > 0
-                ? weapon.BehaviourMode | ModeRezoomAfterShot
-                : weapon.BehaviourMode & ~ModeRezoomAfterShot;
+            if (weapon.Reserve > 0)
+            {
+                // SetRezoom(true): out in half a second and back in — but a
+                // shooter under the charge rage buff skips the whole arm
+                // (:815), so the scope stays up between shots.
+                if (!HasChargeRageBuff(in attack))
+                {
+                    weapon.BehaviourTimeA = attack.Now + UnzoomDelay;
+                    weapon.BehaviourMode |= ModeRezoomAfterShot;
+                }
+            }
+            else
+            {
+                // SetRezoom(false): just zoom out in half a second (:832).
+                weapon.BehaviourTimeA = attack.Now + UnzoomDelay;
+                weapon.BehaviourMode &= ~ModeRezoomAfterShot;
+            }
         }
         else
         {

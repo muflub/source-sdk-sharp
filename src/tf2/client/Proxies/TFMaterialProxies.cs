@@ -159,6 +159,15 @@ internal sealed class TFProxyPlayers(ITFPlayerData players, IClientStandalones s
     public float RagdollBurnStart(int entityIndex) => standalones.GetByIndex(entityIndex)
         is ClientSsRagdoll body ? body.BurnStartTime : 0f;
 
+    /// <summary>The team a bound corpse wears: its OWN, the <see cref="RagdollNetState.Team"/>
+    /// the death stamped — stock's ragdoll <c>m_iTeam</c>, the read
+    /// c_tf_player.cpp:712 makes the skin from and the one
+    /// <c>GetRenderTeamNumber</c> answers for a body — never the owner's row,
+    /// which moves when the owner switches sides after dying. Null when the
+    /// bind is no ragdoll, the player arm's cue.</summary>
+    public int? BodyTeam(int entityIndex) => standalones.GetByIndex(entityIndex)
+        is ClientSsRagdoll body ? body.State.Team : null;
+
     /// <summary>Who the charge proxy reads, stock's
     /// <c>CProxySniperRifleCharge::OnBind</c> walk (tf_weapon_sniperrifle.cpp:
     /// 1327-1332): the local player, or the spectator's in-eye target while one
@@ -844,7 +853,18 @@ internal sealed class TFProxyTeamTexture(TFProxyPlayers players) : MaterialProxy
             return;
 
         ProxyEntity entity = bind.Entity();
-        if (entity.IsEntity && players.OfEntity(entity.EntIndex) is { } player)
+        if (!entity.IsEntity)
+            return;
+
+        // The corpse's own team (c_tf_player.cpp:712): a body keeps the one
+        // it died on, however its owner's row moves afterwards.
+        if (players.BodyTeam(entity.EntIndex) is { } bodyTeam)
+        {
+            bind.SetInt(_frame, bodyTeam - 2);
+            return;
+        }
+
+        if (players.OfEntity(entity.EntIndex) is { } player)
             bind.SetInt(_frame, player.Team - 2);
     }
 }

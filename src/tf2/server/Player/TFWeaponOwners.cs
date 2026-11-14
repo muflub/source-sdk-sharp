@@ -135,18 +135,32 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
     /// the caller's scaled percentages come off each, clamped at zero — the
     /// hundred-point cloak takes a hundred times the fraction (the port's
     /// cloak meter's own unit, <see cref="TFPlayerNetState.CloakMeter"/>).
+    /// The medic's meter stands only while the release is not running —
+    /// stock's <c>!IsReleasingCharge()</c> (:5572), the carrier's published
+    /// release word. Answers whether a meter moved, stock's <c>bDidDrain</c>
+    /// (:5555): the drain's telling stands on it.
     /// </summary>
-    public void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+    public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
     {
+        bool drained = false;
         EntityHandle victim = players.GetHandle(playerIndex);
 
         if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
+            && carriers.Get(playerIndex)?.ChargeReleasing != true
             && directory.Get(players.GetActiveWeaponEntity(victim)) is SsWeapon { State: { } weapon })
+        {
             weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - medicFraction);
+            drained = true;
+        }
 
         if (spyFraction > 0f && ClassOf(playerIndex) == TFClass.Spy
             && carriers.Get(playerIndex) is { } state)
+        {
             state.CloakMeter = Math.Max(0f, state.CloakMeter - spyFraction * 100f);
+            drained = true;
+        }
+
+        return drained;
     }
 }
 

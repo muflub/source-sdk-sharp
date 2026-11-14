@@ -139,6 +139,10 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // whose shot is the effect bar).
             TFWeaponNames.Name(TFWeaponId.Jar).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.JarMilk).ToLowerInvariant(),
+            // The gas face of the jars: the pyro's Gas Passer
+            // (items_working.tsv:330), the CTFJarGas equipped item whose
+            // class is its own row, no class script's weaponN names it.
+            TFWeaponNames.Name(TFWeaponId.JarGas).ToLowerInvariant(),
             // The Wrangler: the engineer's second unlock, held as the loadout
             // item whose triggers drive the sentry (tf_weapon_laser_pointer,
             // the item's own row).
@@ -150,6 +154,13 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // weaponN names either.
             TFWeaponNames.Name(TFWeaponId.SniperrifleDecap).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.SniperrifleClassic).ToLowerInvariant(),
+            // The Cleaner's Carbine: the sniper's unlock SMG, held as the
+            // equipped item whose class is its own row
+            // (tf_weapon_charged_smg, items_working.tsv:751) — no class
+            // script's weaponN names it (the stock secondary is the plain
+            // smg), so it seeds with its rifle cousins. Its SecondaryAttack
+            // boost lives in TFWeaponBehaviour.
+            TFWeaponNames.Name(TFWeaponId.ChargedSmg).ToLowerInvariant(),
             // The scout's energy drink, the lunchbox family's own script name:
             // Bonk! and cousins are equipped items, no class script's weaponN
             // names them either, so the drink seeds beside its plate.
@@ -189,6 +200,20 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // is their own row — no class script's weaponN names either.
             TFWeaponNames.Name(TFWeaponId.SodaPopper).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.PepBrawlerBlaster).ToLowerInvariant(),
+            // The Thermal Thruster: the soldier's backpack unlock, held as the
+            // equipped item whose class is its own row
+            // (items_working.tsv:329), no class script's weaponN names either.
+            TFWeaponNames.Name(TFWeaponId.Rocketpack).ToLowerInvariant(),
+            // The Short Circuit (items_working.tsv:164): the engineer's
+            // unlock secondary, whose trigger is the shock attack the orb
+            // entity answers (CTFMechanicalArm, tf_weapon_mechanical_arm) —
+            // the equipped-item seed the Manmelter is.
+            TFWeaponNames.Name(TFWeaponId.MechanicalArm).ToLowerInvariant(),
+            // The Rescue Ranger (items_working.tsv:997): the engineer's shotgun
+            // whose shot is the repair bolt (CTFShotgunBuildingRescue) — the
+            // equipped item whose class is its own row, no class script's
+            // weaponN naming it.
+            TFWeaponNames.Name(TFWeaponId.ShotgunBuildingRescue).ToLowerInvariant(),
         };
 
         for (var c = TFClass.Scout; c < TFClass.CountAll; c++)

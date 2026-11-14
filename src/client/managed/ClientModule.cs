@@ -871,6 +871,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // hooks resolve lazily, so the empty chain when no mod joins costs
         // nothing.
         _services.AddFactory<IHooks<IClientFrameThink>>(locator => new Hooks<IClientFrameThink>(locator, log));
+        // The hud menus' own keys (stock ClientModeTFNormal::KeyInput's
+        // HudElementKeyInput walk): the walk lives on the key input below, and
+        // resolves lazily like the rest, after the mods registered.
+        _services.AddFactory<IHooks<Vgui.IHudMenuKeys>>(locator => new Hooks<Vgui.IHudMenuKeys>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         // The wall clock, for what reads the date (TF2's holiday calendar).
@@ -1676,6 +1680,16 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _services.Require<IEngineEffects>(), _services.Require<IGameClock>());
         _services.AddInstance<Ragdolls.IRagdollAsh>(ashing);
         _services.AddInstance<IClientFrameThink>(ashing);
+
+        // The ice statue's hold (ClientSsRagdoll's ice arm): the thaw needs
+        // the bodies and a roll, so it stands with them.
+        if (_ragdolls is { } frozenBodies)
+        {
+            var ice = new Ragdolls.RagdollIce(frozenBodies, _services.Require<IUniformRandom>(),
+                _services.Require<IGameClock>());
+            _services.AddInstance<Ragdolls.IIceRagdolls>(ice);
+            _services.AddInstance<IClientFrameThink>(ice);
+        }
         _services.AddInstance<IClientImpactSparks>(_sparks);
         // fx_water.cpp's routines (lane c5-particles): the splashes and the
         // ripple, behind the watersplash / gunshotsplash / waterripple effects.
@@ -2217,7 +2231,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new Vgui.ViewportPanelCommand(_uiLoader));
         var uiLoader = _uiLoader;
         _services.AddInstance(new Vgui.ShowInfo(() => uiLoader.Current, Log));
-        _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient, _weaponSelection);
+        _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient, _weaponSelection,
+                                        _services.Require<IHooks<Vgui.IHudMenuKeys>>());
 
         // THE PLAYER'S REPLAY (plan_entity.md step 6f). After the arsenal,
         // which it drives: the weapon machine's two phases are direct calls

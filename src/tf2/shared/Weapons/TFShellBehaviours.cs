@@ -102,6 +102,55 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     /// <summary>The Manmelter, stock's <c>CTFFlareGun_Revenge</c> over the shell's id split.</summary>
     private static bool IsManmelter(TFWeaponScript script) => script.Id == TFWeaponId.FlaregunRevenge;
 
+    /// <summary>The Short Circuit, stock's <c>CTFMechanicalArm</c>.</summary>
+    private static bool IsShortCircuit(TFWeaponScript script) => script.Id == TFWeaponId.MechanicalArm;
+
+    /// <summary>
+    /// The orb's price, metal (<c>tf_mecharm_orb_cost</c>,
+    /// <c>tf_weapon_mechanical_arm.cpp:48</c>): the count
+    /// <c>ShockAttack</c> gates and spends (:109-133).
+    /// </summary>
+    public const int MechanicalArmCost = 65;
+
+    /// <summary>The empty refire the water arm books (<c>SecondaryAttack</c>, :238).</summary>
+    public const float MechanicalArmEmptyRefire = 0.67f;
+
+    /// <summary>
+    /// The shock attack, stock's own order (:222-292): the metal purse and
+    /// the eyes under water refuse with the empty sound and the 0.67 s
+    /// refire (:232-241) — the purse is this weapon's reserve, the metal the
+    /// machine's pool prices; <c>CanAttack</c> silently refuses (:243); the
+    /// count under the price is the empty sound and nothing else, stock's
+    /// own else (:289-292) booking no refire; the shot is the SPECIAL3
+    /// sound (:248) and, live, the orb.
+    /// </summary>
+    private void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        var weapon = attack.Weapon;
+        var context = Context(in attack, script);
+
+        if (Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
+        {
+            PlaySound(in attack, script, WeaponScriptSound.Empty);
+            weapon.NextSecondaryAttack = attack.Now + MechanicalArmEmptyRefire;
+            return;
+        }
+
+        if (!CanAttack(in attack, in context))
+            return;
+
+        if (weapon.Reserve < MechanicalArmCost)
+        {
+            PlaySound(in attack, script, WeaponScriptSound.Empty);
+            return;
+        }
+        weapon.Reserve -= MechanicalArmCost;
+
+        PlaySound(in attack, script, WeaponScriptSound.Special3);
+        if (attack.EffectsLive)
+            Parts.Effects.ShockAttack(in attack, script);
+    }
+
     /// <summary>
     /// The jars: the stock <c>CTFJar</c> family's pair whose shot is the meter
     /// itself (<c>tf_weapon_jar.h:41</c>, the milk its second face).
@@ -120,6 +169,16 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     {
         if (ScriptOf(attack.Type) is { } script)
         {
+            // The Short Circuit's own secondary is the shock attack
+            // (CTFMechanicalArm::SecondaryAttack,
+            // tf_weapon_mechanical_arm.cpp:222-292); no class skill stands
+            // behind the engineer's, as none behind the Manmelter's.
+            if (IsShortCircuit(script))
+            {
+                ShockAttack(in attack, script);
+                return;
+            }
+
             if (Charges(script))
                 return;
 

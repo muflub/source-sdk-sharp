@@ -645,6 +645,94 @@ public sealed class TFWeaponBehaviourTests
         Assert.False(w.InReload);
     }
 
+    /// <summary>
+    /// The held load of the rocket gun (<c>ReloadsSingly</c> with
+    /// <c>IncrementAmmo</c>, tf_weaponbase.cpp:2043-2075 and :2097-2117):
+    /// the clip starts empty and each cycle of the held load moves ONE round
+    /// from the reserve into the clip — after the script's start-plus-round
+    /// time, then one <c>TimeReload</c> later each — until the clip is full
+    /// (the script's clip size through <c>ModifyClip</c>), where a plain gun
+    /// finishes; rounds beyond the cap are never loaded.
+    /// </summary>
+    [Fact]
+    public void The_held_load_moves_one_round_from_the_reserve_at_a_time_up_to_the_cap()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 0, reserve: 32);
+
+        // The empty press opens the machine's load (the empty-click arm).
+        world.Run(w, vm, Attack, now: 10f);
+        Assert.True(w.InReload);
+        Assert.Equal(0, w.Clip);
+
+        // The first round lands after TimeReloadStart + TimeReload (:893): 10.93.
+        world.Run(w, vm, buttons: 0, now: 10.9f);
+        Assert.Equal(0, w.Clip);                       // not yet: the cycle is still running
+        world.Run(w, vm, buttons: 0, now: 10.95f);
+        Assert.Equal(1, w.Clip);                       // one round, and its price out of the reserve
+        Assert.Equal(31, w.Reserve);
+
+        // Each next one a TimeReload later on the timer's own chain.
+        world.Run(w, vm, buttons: 0, now: 11.8f);      // past 11.76
+        Assert.Equal(2, w.Clip);
+        world.Run(w, vm, buttons: 0, now: 12.65f);     // past 12.59
+        Assert.Equal(3, w.Clip);
+        world.Run(w, vm, buttons: 0, now: 13.5f);      // past 13.42 — the cap: the script's clip size 4
+        Assert.Equal(4, w.Clip);
+
+        world.Run(w, vm, buttons: 0, now: 14.4f);      // holding longer loads nothing past the cap
+        Assert.Equal(4, w.Clip);
+        Assert.Equal(28, w.Reserve);
+        Assert.False(w.InReload);                      // and the plain gun finishes on full (:2064)
+    }
+
+    /// <summary>
+    /// What the live press saw: whatever the hold loaded, ONE press carries
+    /// out exactly one rocket (<c>PrimaryAttack</c>, tf_weaponbase_gun.cpp:77-216),
+    /// each press's round priced out of the loaded clip.
+    /// </summary>
+    [Fact]
+    public void One_press_after_the_held_load_carries_out_one_rocket()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 0, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f);
+        foreach (var now in new[] { 10.95f, 11.8f, 12.65f, 13.5f, 14.4f })
+            world.Run(w, vm, buttons: 0, now);         // the hold loads to the cap: four rounds, then finishes
+        Assert.Equal(4, w.Clip);
+        Assert.False(w.InReload);
+
+        world.Run(w, vm, Attack, now: 15f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.Single(world.Effects.Projectiles);       // one press, one rocket
+        Assert.Equal(3, w.Clip);
+
+        // The next press after the script's fire delay (0.8) carries the next one.
+        world.Run(w, vm, Attack, now: 16f, seed: TFWeaponWorld.GunSeed(201, 10001));
+        Assert.Equal(2, world.Effects.Projectiles.Count);
+        Assert.Equal(2, w.Clip);
+    }
+
+    /// <summary>The Beggar's <c>can_overload</c> on the rocket gun holds the
+    /// load open at the full clip and loads nothing past it — the cap is the
+    /// script's clip size with the item's <c>mult_clipsize</c> over it
+    /// (<c>IncrementAmmo</c>'s check, tf_weaponbase.cpp:2110), and the press
+    /// still carries out one rocket at a time.</summary>
+    [Fact]
+    public void The_overloaded_rocket_gun_loads_to_the_cap_and_holds_the_load_open()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9123, "can_overload", 1f);
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 0, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f);
+        foreach (var now in new[] { 10.95f, 11.8f, 12.65f, 13.5f, 14.4f, 15.4f })
+            world.Run(w, vm, buttons: 0, now);
+
+        Assert.Equal(4, w.Clip);       // loaded to the cap...
+        Assert.True(w.InReload);       // ...and held open by the attribute (:2064)
+    }
+
     // The viewmodel animations of a single-shell reload, stock's
     // CTFWeaponBase::ReloadSingly arms: the start when the reload begins
     // (tf_weaponbase.cpp:1978), the reload again with each shell (:2013) and

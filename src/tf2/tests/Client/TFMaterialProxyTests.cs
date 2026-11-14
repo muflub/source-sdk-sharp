@@ -1132,6 +1132,36 @@ public sealed class TFMaterialProxyTests
     }
 
     [Fact]
+    public void AProxyOnABodyReadsTheBodysTeam()
+    {
+        var st = new Standalones();
+        var (players, screen) = World(st: st);
+        var body = new Standalone.ClientSsRagdoll(screen, screen, screen, st,
+                                                  new ClientSide.Ragdolls.NoClientRagdolls());
+        body.BindEngine(screen, screen);
+        body.State.BindLocal();
+
+        // A corpse that died BLU, its recorded owner's row RED: the row is
+        // the LIVE player's and moves when they switch sides after dying —
+        // the body wears the team the death stamped on it
+        // (RagdollNetState.Team, stock's m_iTeam; the read c_tf_player.cpp
+        // :712 makes the skin from).
+        body.State.Team = 3;
+        body.State.PlayerIndex = 2;
+        st.ByIndex[16] = body;
+        Assert.Equal(2, ((Standalone.ClientPlayerResource)st.ByIndex[30]!).State.Team[2]);
+
+        var proxy = new Proxies.TFProxyTeamTexture(players);
+        Assert.True(proxy.Init(new InitFake()));
+
+        var bound = new BindFake { Arg = 16 };
+        proxy.Bind(bound);
+
+        // BLU: frame 1, the owner's RED row would have said 0.
+        Assert.Equal((0, 1), Assert.Single(bound.Ints));
+    }
+
+    [Fact]
     public void The_building_cloak_writes_zero_for_a_building_and_nothing_otherwise()
     {
         var st = new Standalones();

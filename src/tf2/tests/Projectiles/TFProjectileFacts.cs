@@ -139,6 +139,7 @@ internal sealed class ProjectileRig
         // The deflection takes the deflector's active weapon (the airblast's
         // flamethrower); a fact's Returns turns it.
         Engine.Returns("Players.GetActiveWeapon", "tf_flamethrower");
+        Engine.Returns("Players.GetActiveWeaponEntity", EntityHandle.None);
         Engine.Returns("Entities.GetEyeAngles", new Vector(0f, 0f, 0f));
         Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));
         // The firing basis at yaw 0 is mathlib's AngleVectors (Angles.RightUp):
@@ -218,7 +219,8 @@ internal sealed class ProjectileRig
     /// <summary>An arrow with its areas bound, launchable by the effects.</summary>
     public TFArrow Arrow()
     {
-        var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups);
+        var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups,
+                                Directory, Owners, Hooks, Engine, Temps, Engine);
         arrow.BindAreas(TestServices.Areas(Engine));
         return BindStates(arrow);
     }
@@ -261,7 +263,8 @@ internal sealed class ProjectileRig
     /// </summary>
     public TFProjectileEnergyRing Ring()
     {
-        var ring = new TFProjectileEnergyRing(Engine, Motion, Engine, Scopes, HitGroups, Owners, Hooks, Engine, Engine);
+        var ring = new TFProjectileEnergyRing(Engine, Motion, Engine, Scopes, HitGroups, Owners, Hooks, Engine, Engine,
+                                              Temps, Engine, Engine);
         ring.BindAreas(TestServices.Areas(Engine));
         return BindStates(ring);
     }
@@ -272,7 +275,8 @@ internal sealed class ProjectileRig
     /// <summary>An energy ball with its areas bound, over the blast, owners and hooks fakes.</summary>
     public TFProjectileEnergyBall Ball()
     {
-        var ball = new TFProjectileEnergyBall(Engine, Motion, Blast, Owners, Hooks, Engine, Temps, Engine, Screen);
+        var ball = new TFProjectileEnergyBall(Engine, Motion, Blast, Owners, Hooks, Engine, Temps, Engine, Screen,
+                                              Engine);
         ball.BindAreas(TestServices.Areas(Engine));
         return BindStates(ball);
     }
@@ -412,7 +416,12 @@ internal sealed class ProjectileRig
         public IAttributeProvider? Active { get; set; }
 
         public TFClass ClassOf(int playerIndex) => TFClass.Undefined;
-        public TFConditions? ConditionsOf(int playerIndex) => null;
+
+        /// <summary>The victim's conditions, for the drain telling's visible gate.</summary>
+        public TFConditions? Conditions { get; set; }
+
+        public TFConditions? ConditionsOf(int playerIndex) => Conditions;
+
         public float CritMult(int playerIndex) => 1f;
         public bool WinsCrits(int playerIndex) => false;
         public IAttributeProvider? ItemOf(int playerIndex, string weaponName) => Item;
@@ -425,8 +434,14 @@ internal sealed class ProjectileRig
         /// <summary>The pomson's drains, recorded as (whose, medic fraction, spy fraction).</summary>
         public List<(int Player, float Medic, float Spy)> Drains { get; } = new();
 
-        public void DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction) =>
+        /// <summary>Whether a meter stood under the last drain, as the real registry answers.</summary>
+        public bool MeterStood { get; set; } = true;
+
+        public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
+        {
             Drains.Add((playerIndex, medicFraction, spyFraction));
+            return MeterStood;
+        }
     }
 
     /// <summary>

@@ -75,6 +75,8 @@ public sealed class TFMovementRules : IMovementRules
     private readonly TFMovementLostFootingRestickConVar? _lostFootingRestick;
     private readonly TFMovementLostFootingFrictionConVar? _lostFootingFriction;
     private readonly TFMaxChargeSpeedConVar? _chargeSpeed;
+    private readonly Anim.ITFAnimWeapons? _weapons;
+    private readonly IEngineEntities? _entities;
 
     public TFMovementRules(TFClassTable classes, ITFPlayerData players,
                            TFScoutAirDashCountConVar? dashCount = null,
@@ -87,7 +89,9 @@ public sealed class TFMovementRules : IMovementRules
                            TFMovementAircurrentFrictionMultConVar? airCurrentFriction = null,
                            TFMovementLostFootingRestickConVar? lostFootingRestick = null,
                            TFMovementLostFootingFrictionConVar? lostFootingFriction = null,
-                           TFMaxChargeSpeedConVar? chargeSpeed = null)
+                           TFMaxChargeSpeedConVar? chargeSpeed = null,
+                           Anim.ITFAnimWeapons? weapons = null,
+                           IEngineEntities? entities = null)
     {
         _classes = classes;
         _players = players;
@@ -103,6 +107,8 @@ public sealed class TFMovementRules : IMovementRules
         _lostFootingRestick = lostFootingRestick;
         _lostFootingFriction = lostFootingFriction;
         _chargeSpeed = chargeSpeed;
+        _weapons = weapons;
+        _entities = entities;
     }
 
     /// <summary><c>tf_max_charge_speed</c> (default 750, tf_gamemovement.cpp:52).</summary>
@@ -208,6 +214,27 @@ public sealed class TFMovementRules : IMovementRules
         // the remap the input carries (1 without the item, the walk's no-op).
         if (inputs.Class == TFClass.Scout && _owners?.ItemOf(playerIndex, TFHype.BrawlerScript) is not null)
             inputs = inputs with { HypeSpeedScale = TFHype.SpeedScale(state.HypeMeter) };
+
+        // THE SHOVEL'S HELD SPEED (CTFShovel::GetSpeedMod, tf_weapon_shovel.cpp:123-143):
+        // the held SHOVEL_SPEED_BOOST shovel — the Escape Plan's set_weapon_mode 2,
+        // which CTFShovel::HasSpeedBoost reads through GetShovelType's hook over the
+        // held item (tf_weapon_shovel.h:42-44); the Equalizer's mode is the damage
+        // boost and leaves the walk at one. The tiers ride the owner's health ratio
+        // (tf_weapon_shovel.cpp:132-142), the held id opens TFMaxSpeed's multiply
+        // arm exactly as stock's GetActiveTFWeapon gate does (:10956-10959).
+        if (_owners is { } own && _hooks is { } hooks && _weapons is not null && _entities is not null
+            && _weapons.ActiveWeapon(playerIndex)?.Id == TFWeaponId.Shovel
+            && own.ActiveItemOf(playerIndex) is { } held
+            && hooks.Int(0, "set_weapon_mode", held) == ShovelSpeedBoostMode)
+        {
+            float maxHealth = _classes[state.Class()].MaxHealth;
+            float health = _entities.GetHealth(new EntityHandle((uint)playerIndex));
+            inputs = inputs with
+            {
+                ActiveWeapon = TFWeaponId.Shovel,
+                WeaponSpeedMod = ShovelSpeedTier(maxHealth > 0f ? health / maxHealth : 1f),
+            };
+        }
 
         if (inputs.Class != TFClass.Demoman
             || _owners?.ItemOf(playerIndex, TFSwordHook.SwordScript) is not { } sword
@@ -417,6 +444,25 @@ public sealed class TFMovementRules : IMovementRules
         bits.Clear(cond);
         state.SetConditions(in bits);
     }
+
+    /// <summary><c>SHOVEL_SPEED_BOOST</c>, the Escape Plan's shovel mode
+    /// (<c>tf_weapon_shovel.h:23</c>); the Equalizer's <c>SHOVEL_DAMAGE_BOOST</c>
+    /// is 1 and never reaches the speed tiers.</summary>
+    private const int ShovelSpeedBoostMode = 2;
+
+    /// <summary>
+    /// <c>CTFShovel::GetSpeedMod</c>'s tiers over the owner's health ratio
+    /// (tf_weapon_shovel.cpp:133-142): one above 80%, then 1.1, 1.2, 1.4 and
+    /// 1.6 by the tenths below — the slower bands only as the health goes.
+    /// </summary>
+    private static float ShovelSpeedTier(float healthRatio) => healthRatio switch
+    {
+        > 0.8f => 1f,
+        > 0.6f => 1.1f,
+        > 0.4f => 1.2f,
+        > 0.2f => 1.4f,
+        _ => 1.6f,
+    };
 
     /// <summary>
     /// Stock's <c>BUNNYJUMP_MAX_SPEED_FACTOR</c> (tf_gamemovement.cpp:1087):

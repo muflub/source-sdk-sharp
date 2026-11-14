@@ -341,6 +341,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                 }
 
             case TFProjectile.Arrow:
+            case TFProjectile.FestiveArrow:
                 {
                     // The tired draw's wild shot (GetProjectileFireSetup's tail,
                     // tf_weapon_compound_bow.cpp:490-503): TF_ARROW_MAX_CHARGE_TIME
@@ -374,7 +375,30 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     break;
                 }
 
+            case TFProjectile.BuildingRepairBolt:
+                {
+                    // The Rescue Ranger's bolt: the arrow's own fire (FireArrow's
+                    // TF_PROJECTILE_BUILDING_REPAIR_BOLT arm,
+                    // tf_weaponbase_gun.cpp:314-322) — same muzzle, same entity
+                    // name, the claw the spawn dresses
+                    // (tf_projectile_arrow.cpp:204-207) — at the rescue's fixed
+                    // charge (tf_weapon_shotgun.cpp:507-516). The charge ramp is
+                    // the bow's alone, and no lit flag rides a shotgun's shot.
+                    if (Born(TFProjectileEntityNames.Arrow, owner, forward, right, up,
+                             TFProjectileDefs.ArrowMuzzleForward, TFProjectileDefs.ArrowMuzzleRight,
+                             TFProjectileDefs.ArrowMuzzleUp) is not TFArrow arrow)
+                        return;
+
+                    arrow.ArmedBy(script.Id, script.Name, shot.Critical, false,
+                                  shot.Damage, TFProjectileDefs.RescueBoltGravity,
+                                  TFProjectile.BuildingRepairBolt);
+                    arrow.FiredBy(owner, forward * TFProjectileDefs.RescueBoltSpeed);
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Arrow} created by {owner}\n");
+                    break;
+                }
+
             case TFProjectile.HealingBolt:
+            case TFProjectile.FestiveHealingBolt:
                 {
                     // FireArrow's vecOffset (tf_weaponbase_gun.cpp:784): the
                     // arrow's muzzle, no ducked height to fold.
@@ -490,6 +514,10 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
             case TFProjectile.Jar:
             case TFProjectile.JarMilk:
+            case TFProjectile.FestiveJar:
+            case TFProjectile.BreadmonsterJarate:
+            case TFProjectile.BreadmonsterMadmilk:
+            case TFProjectile.JarGas:
                 {
                     // The jar's lob is the pipe's own arc read off the plain
                     // numbers (GetVelocityVector, tf_weapon_jar.cpp:153-157:
@@ -498,9 +526,15 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     // :176-182). No hook touches either: the jar's
                     // GetProjectileSpeed is the bare 1000 (tf_weapon_jar.cpp
                     // :103), the flight under SetPipebombMode's gravity.
-                    string name = mode.Projectile == TFProjectile.JarMilk
-                        ? TFProjectileEntityNames.JarMilk
-                        : TFProjectileEntityNames.Jar;
+                    // The jar faces pick their entity name by the projectile
+                    // type: milk, gas (CTFJarGas, tf_weapon_jar_gas.h) and the
+                    // plain jarate, the overriding items' faces with them.
+                    string name = mode.Projectile switch
+                    {
+                        TFProjectile.JarMilk or TFProjectile.BreadmonsterMadmilk => TFProjectileEntityNames.JarMilk,
+                        TFProjectile.JarGas => TFProjectileEntityNames.JarGas,
+                        _ => TFProjectileEntityNames.Jar,
+                    };
                     if (Born(name, owner, forward, right, up,
                              TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
                              TFProjectileDefs.PipeMuzzleUp) is not TFJar jar)
@@ -612,6 +646,34 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
     /// <summary>The crosshair cone (<c>tf_weapon_pipebomblauncher.cpp:605</c>).</summary>
     private const float AimedDot = 0.975f;
+
+    /// <summary>
+    /// The Short Circuit's spawn (<c>CTFMechanicalArm::SecondaryAttack</c>'s
+    /// GAME_DLL tail, <c>tf_weapon_mechanical_arm.cpp:250-286</c>): the orb at
+    /// the eye's 40 forward, 15 right and −10 up along the aim, out at
+    /// <c>tf_mecharm_orb_speed</c>, the owner's team, never critical. The
+    /// eye→muzzle hull trace that stands between (:264-268) is the same deferral
+    /// the pipes' launch carries — the seam's trace arms no
+    /// <c>StartSolid</c>, and a wall at the muzzle is the born orb's own
+    /// touch to settle. Stock's mirrored-view flip of the right waits with
+    /// the view-flip seam, as every muzzle's does.
+    /// </summary>
+    public void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        EntityHandle owner = players.GetHandle(attack.Command.OwnerIndex);
+        Vector eyes = entities.GetEyeAngles(owner);
+        Vector forward = Angles.Forward(eyes);
+        (Vector right, Vector up) = Angles.RightUp(forward);
+
+        if (Born(TFProjectileEntityNames.MechanicalArmOrb, owner, forward, right, up,
+                 TFProjectileDefs.MechanicalArmMuzzleForward, TFProjectileDefs.MechanicalArmMuzzleRight,
+                 TFProjectileDefs.MechanicalArmMuzzleUp) is not TFMechanicalArmOrb orb)
+            return;
+
+        orb.ArmedBy(attack.Command.OwnerIndex);
+        orb.FiredBy(owner, forward * TFProjectileDefs.MechanicalArmOrbSpeed);
+        log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.MechanicalArmOrb} created by {owner}\n");
+    }
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script)
     {

@@ -162,4 +162,10 @@ public static class TFPlayerOrders
     /// command beside the taunt's, on +107.
     /// </summary>
     public const int EurekaTeleport = Band + 107;
+
+    /// <summary>
+    /// The team and class a death's body wears (<see cref="TFRagdollTeam"/>):
+    /// the death walk after the gib's, whose marks the same body carries, on +108.
+    /// </summary>
+    public const int RagdollTeam = Band + 108;
 }
