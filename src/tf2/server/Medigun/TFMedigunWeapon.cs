@@ -235,7 +235,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     {
         var state = State(ownerIndex);
         state.Holstered = false;
-        healing.NoteReleasing(ownerIndex, state.Releasing);   // IsReleasingCharge = releasing and not holstered
+        healing.NoteReleasing(ownerIndex, state.Releasing, state.ChargeType);   // IsReleasingCharge = releasing and not holstered
         if (state.Releasing)
             healing.RecalculateChargeEffects(players.GetHandle(ownerIndex), now);
         state.NextTargetCheckTime = now;
@@ -253,7 +253,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             return;
         RemoveHealingTarget(ownerIndex, state, now);
         state.Holstered = true;
-        healing.NoteReleasing(ownerIndex, false);              // IsReleasingCharge includes not-holstered
+        healing.NoteReleasing(ownerIndex, false, state.ChargeType);              // IsReleasingCharge includes not-holstered
         healing.RemoveChargeEffect(players.GetHandle(ownerIndex));
         Publish(ownerIndex, state);
     }
@@ -275,7 +275,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             healing.StopHealing(patient, players.GetHandle(ownerIndex), now);
         }
         state.Releasing = false;
-        healing.NoteReleasing(ownerIndex, false);
+        healing.NoteReleasing(ownerIndex, false, state.ChargeType);
         healing.RemoveChargeEffect(players.GetHandle(ownerIndex));
         Publish(ownerIndex, state);
         medics.Remove(ownerIndex);
@@ -507,13 +507,27 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
             return;
 
         state.Releasing = true;
-        healing.NoteReleasing(owner, true);
+        // Stock's GetChargeType (tf_weapon_medigun.cpp:818-832): the item's set_charge_type
+        // attribute names the charge effect — MEDIGUN_CHARGE_INVULN = 0 stays the plain über,
+        // MEDIGUN_CHARGE_CRITICALBOOST = 1 and MEDIGUN_CHARGE_MEGAHEAL = 2
+        // (tf_shareddefs.h:587-598) name their g_MedigunEffects rows
+        // (tf_weapon_medigun.cpp:49-53). The Vaccinator's resist arm is its later stage.
+        state.ChargeType = hooks.Int(0, "set_charge_type", owners.ManagerOf(owner));
+        healing.NoteReleasing(owner, true, state.ChargeType);
 
-        Fire("player_invulnerable", e => events!.EventSetInt(e, "userid", players.GetUserId(ownerHandle)));
+        // The player_invulned event is the recalc's grant arm (SendNewInvulnGameEvent,
+        // TFPlayerHealing), not the pop's; Event_PlayerInvulnerable (:1897) is the stat above.
         stats?.Increment(ownerHandle, TFStat.Invulns, 1);
+
+        // The condition itself is nobody's to add here: stock's pop only recalculate the
+        // affected shares (tf_weapon_medigun.cpp:1903-1915), whose SetChargeEffect grants
+        // the row to the covered player — medic and patient alike — for the release rate
+        // plus the provider's add_uber_time, plus one (tf_player_shared.cpp:9053-9055,
+        // :9074). The release's length is the drain's, not this add's.
         healing.RecalculateChargeEffects(ownerHandle, now);
         if (state.HealingTarget >= 0)
             healing.RecalculateChargeEffects(players.GetHandle(state.HealingTarget), now);
+
         Fire("player_chargedeployed", e =>
         {
             events!.EventSetInt(e, "userid", players.GetUserId(ownerHandle));
@@ -582,7 +596,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
                 // the release — wears its uber off.
                 state.Charge = 0f;
                 state.Releasing = false;
-                healing.NoteReleasing(ownerIndex, false);
+                healing.NoteReleasing(ownerIndex, false, state.ChargeType);
                 healing.RecalculateChargeEffects(ownerHandle, now);
                 if (state.HealingTarget >= 0)
                     healing.RecalculateChargeEffects(players.GetHandle(state.HealingTarget), now);
@@ -638,6 +652,7 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     {
         public float Charge;
         public bool Releasing;
+        public int ChargeType;              // the released medigun_charge_types row (GetChargeType at the pop)
         public bool Holstered;
         public int HealingTarget = -1;
         public bool Healing;

@@ -40,7 +40,7 @@ namespace TF2.Server.Player;
 public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers players, IEngineEntities entities,
                                   IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers enginePlayers,
                                   IEngineNetworking networking, TFWeaponScripts scripts, TFDamageScopes scopes,
-                                  IEntityDirectory directory)
+                                  IEntityDirectory directory, ITFLunchboxEffects? lunchbox = null)
     : IPlayerComponent
 {
     /// <summary>After the taunt think (26): the same PostThink, stock's stop asked before the window fires.</summary>
@@ -79,12 +79,23 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     /// <summary>The launch's pitch, up and over (:18401, :18631): the force's direction, never the aim's.</summary>
     public const float LaunchPitch = -45f;
 
+    /// <summary>
+    /// The heavy's eat clock, the arm (:17937) and every next bite (:18566)
+    /// alike: a second of sandvich each.
+    /// </summary>
+    public const float HeavyEatSeconds = 1f;
+
+    /// <summary>The scout drink's delay, the arm's own (:17928): nine tenths of a second of raise.</summary>
+    public const float ScoutDrinkSeconds = 0.9f;
+
     /// <summary>The attack waiting to land.</summary>
     private enum Attack
     {
         None = 0,
         PyroHadouken,
         HeavyHighNoon,
+        HeavyEat,
+        ScoutDrink,
         SpyFencingSlashA,
         SpyFencingSlashB,
         SpyFencingStab,
@@ -93,6 +104,7 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     private Attack _attack = Attack.None;
     private float _fireAt;
     private EntityHandle _player = EntityHandle.None;
+    private readonly ITFLunchboxEffects? _lunchbox = lunchbox;
 
     public void Attach(EntityHandle player)
     {
@@ -124,8 +136,23 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
                 Arm(Attack.PyroHadouken, 2.1f, now);
                 break;
 
+            // The scout's drink arm (:17922-17932): the lunchbox family's
+            // drink in the hand and no phase on — the buff's own remainder
+            // refuses the next press, as the drink's arm does in stock.
+            case TFClass.Scout when WeaponOf() == TFWeaponId.Lunchbox && !players.InCond(_player, TFCond.Phase):
+                Arm(Attack.ScoutDrink, ScoutDrinkSeconds, now);
+                break;
+
             case TFClass.HeavyWeapons when SceneIs(scene, HeavyHighNoonScene):
                 Arm(Attack.HeavyHighNoon, 1.8f, now);
+                break;
+
+            // The sandvich arm is the weapon's, not the scene's (:17933-17947):
+            // any taunt scene while the lunchbox is the hand arms the eat. The
+            // eat response is never the high noon's, so the scene's arm stands
+            // first here as stock's later keying does.
+            case TFClass.HeavyWeapons when WeaponOf() == TFWeaponId.Lunchbox:
+                Arm(Attack.HeavyEat, HeavyEatSeconds, now);
                 break;
 
             case TFClass.Spy when scene.StartsWith(SpyFencingScenePrefix, StringComparison.OrdinalIgnoreCase):
@@ -161,6 +188,25 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
 
         if (attack == Attack.HeavyHighNoon)
             HighNoon();
+        else if (attack == Attack.HeavyEat)
+        {
+            // The bite, the held lunchbox's only (:18557-18562); then the next
+            // one, a second on, till the condition ends (:18564-18566 — the
+            // gate at the head is the chain's end either way).
+            if (WeaponOf() == TFWeaponId.Lunchbox)
+                _lunchbox?.Bite(_player.EntryIndex);
+
+            Arm(Attack.HeavyEat, HeavyEatSeconds, now);
+        }
+        else if (attack == Attack.ScoutDrink)
+        {
+            // The drink (:18636-18675): the lunchbox family's in the hand, the
+            // stun gate and the cond the mode names are the drink's own
+            // (:18638-18673). Once per press — the phase the plain drink leaves
+            // behind refuses the next arm (:17924).
+            if (WeaponOf() == TFWeaponId.Lunchbox)
+                _lunchbox?.Drink(_player.EntryIndex);
+        }
         else
             BoxAttack(attack);
 

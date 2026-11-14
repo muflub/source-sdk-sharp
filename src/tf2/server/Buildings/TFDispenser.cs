@@ -13,6 +13,7 @@ using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -48,8 +49,9 @@ namespace TF2.Server.Buildings;
 public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                                  IEngineEntityRender render, IEngineWorldQuery world, ITFAmmoPurse purse,
                                  ITFPlayerHealing healing, TFPlayerCarriers? carriers = null,
-                                 TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
+                                 TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
+                                 AttributeHooks? hooks = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks)
 {
     public const string MapClass = "obj_dispenser";
 

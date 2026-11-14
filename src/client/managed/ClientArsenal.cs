@@ -117,6 +117,12 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // spawn give's arithmetic stands in.
     private readonly ILocalWeaponClips? _localWeaponClips;
 
+    // The local player's held-aside item meters, as a side published them —
+    // the pair each carried weapon holstered with, what the switch's restore
+    // advances. Null in a composition without a publisher: the meter the
+    // hands' last deploy left stands, as the server's own row-word does.
+    private readonly ILocalItemMeters? _localItemMeters;
+
     // The viewmodel's skin chain, the server's twin: the mirror dresses the
     // same skin the server's deploy wrote, so the compare judges the switch
     // instead of mispredicting the byte for a round trip. Null in a
@@ -132,11 +138,13 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
                          ILocalWeaponWatcher? localWeapons = null,
                          ILocalAmmoPools? localAmmoPools = null,
                          ILocalWeaponClips? localWeaponClips = null,
+                         ILocalItemMeters? localItemMeters = null,
                          ViewmodelSkin? viewmodelSkin = null)
     {
         _localWeapons = localWeapons;
         _localAmmoPools = localAmmoPools;
         _localWeaponClips = localWeaponClips;
+        _localItemMeters = localItemMeters;
         _viewmodelSkin = viewmodelSkin;
         _fx = fx;
         _log = log;
@@ -352,9 +360,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     //-------------------------------------------------------------------------
 
     // The carry's bookkeeping, as the client can hold it: the stored special
-    // per catalog type. The pools and the carried clips are not here — the
-    // published per player's words, or the spawn give's arithmetic for a
-    // weapon nothing has named yet.
+    // per catalog type. The pools, the carried clips and the held-aside
+    // meters are not here — the published per player's words, or the spawn
+    // give's arithmetic for a weapon nothing has named yet.
     private readonly Dictionary<int, (int Special, float SpecialTime)> _specialByType = new();
 
     private void MirrorDeploy(int typeIndex, float now)
@@ -405,6 +413,14 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         _weapon.LastDeployTime = now;
         _weapon.LastButtons = 0;
         (_weapon.Special, _weapon.SpecialTime) = _specialByType.GetValueOrDefault(typeIndex);
+
+        // The meter, as the server's deploy restores it: the published pair
+        // advanced by the behaviour's seconds to this command's time, the
+        // server's own arithmetic on the server's own word (Arsenal
+        // RestoreItemMeter, the pair ILocalItemMeters publishes). No
+        // publisher, or a row the behaviour meters not: what stands stands,
+        // and the server wrote nothing to overturn it.
+        RestoreItemMeter(typeIndex, in type, now);
         _weapon.Redraw = false;
         _weapon.DrawbackFinished = false;
         _weapon.AnimEvent = 0;
@@ -437,6 +453,31 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private static int FreshClip(WeaponType type)
         => type.DefaultClip > 0 ? Math.Min(type.DefaultClip, type.ClipSize)
                                 : type.ClipSize;
+
+    /// <summary>
+    /// The switch's meter, the server deploy's own arithmetic on the server's
+    /// own word: the published pair (what the weapon holstered with, and the
+    /// server second that was) advanced by the behaviour's seconds to this
+    /// command's time, the same expression server-side
+    /// (Arsenal.RestoreItemMeter), so the replayed bytes are the judged ones.
+    /// No publisher, or a row no behaviour meters: nothing written, what
+    /// stands stands — the server's restore wrote nothing either.
+    /// </summary>
+    private void RestoreItemMeter(int typeIndex, in WeaponType type, float now)
+    {
+        if (_behaviours.For(type.Behaviour) is not { } behaviour)
+            return;
+
+        float seconds = behaviour.ItemMeterSeconds(in type, _localIndex);
+
+        if (seconds <= 0f
+            || _localItemMeters is null
+            || !_localItemMeters.MeterOf(typeIndex, out float meter, out float stamp))
+            return;
+
+        _weapon.ItemMeter = Math.Min(1f, meter + Math.Max(0f, now - stamp) / seconds);
+        _weapon.ItemMeterTime = now;
+    }
 
     // The switch's clip: the published carried clip (the server's own word, the
     // resupply's rewrite included) where the side names one; the fresh give

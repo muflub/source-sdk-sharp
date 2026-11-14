@@ -1087,4 +1087,221 @@ public sealed class TFMedigunWeaponTests
 
         Assert.Equal(2, weapon.HealingTargetIndex(1));       // stock's equality arm: no Lower here
     }
+
+    // ---- charge types: Kritzkrieg critboost, Quick-Fix megaheal ----------------------------
+
+    [Fact]
+    public void AResistChargeTypeWithNoRowPopsThePlainCharge()
+    {
+        // The Vaccinator's set_charge_type is a resist row (MEDIGUN_CHARGE_BULLET_RESIST = 3,
+        // tf_shareddefs.h:587-598), which is its later stage: the pop must not walk off the rows.
+        var rig = Standing();
+        rig.Owners.Managers[1] = ChargeHolder(3f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Invulnerable));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
+    }
+
+    [Fact]
+    public void AKritzkriegPopCritBoostsTheTarget()
+    {
+        // tf_weapon_medigun.cpp:818-832 reads the item's charge type through the
+        // set_charge_type hook (MEDIGUN_CHARGE_CRITICALBOOST = 1, tf_shareddefs.h:587-598);
+        // the pop then hands medic and patient the crit boost of the g_MedigunEffects row
+        // (tf_weapon_medigun.cpp:52) for the release seconds
+        // (tf_player_shared.cpp:8905, 9053-9074).
+        var rig = Standing();
+        rig.Owners.Managers[1] = ChargeHolder(1f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Critboosted));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+        Assert.DoesNotContain("add 3 Invulnerable d9 p1", rig.Conditions.Calls);
+    }
+
+    [Fact]
+    public void AQuickFixPopMegaHealsTheTarget()
+    {
+        // MEDIGUN_CHARGE_MEGAHEAL = 2 on the set_charge_type hook: the pop gives the mega heal
+        // of the g_MedigunEffects row (tf_weapon_medigun.cpp:53), whose heal multiplier is the
+        // ×3 the heal accumulation pays out (tf_player_shared.cpp:2487-2495).
+        var rig = Standing();
+        rig.Owners.Managers[1] = ChargeHolder(2f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Megaheal));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Megaheal));
+    }
+
+    [Fact]
+    public void AddUberTimeExtendsTheCharge()
+    {
+        // tf_player_shared.cpp:9053-9055: the charge's seconds are the release rate plus the
+        // add_uber_time attribute, plus the stock's one; the crit boost rides that length.
+        var rig = Standing();
+        var holder = ChargeHolder(1f);
+        var seconds = new AttributeDefinition(30046, "added seconds", "add_uber_time",
+                                              AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                              false, false, AttributeValueType.Default, MergedKeys.Block("seconds"));
+        holder.Set(AttributeValue.OfFloat(seconds, 8f));
+        rig.Owners.Managers[1] = holder;
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.Contains("add 1 Critboosted d17 p1", rig.Conditions.Calls);
+        Assert.Contains("add 3 Critboosted d17 p1", rig.Conditions.Calls);
+    }
+
+    [Fact]
+    public void AStockMedigunStillPopsInvulnerability()
+    {
+        // The stock medigun's charge type is MEDIGUN_CHARGE_INVULN = 0 (tf_shareddefs.h:590):
+        // without a set_charge_type attribute the pop goes on giving the plain über.
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.True(rig.Conditions.Holds(1, TFCond.Invulnerable));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
+    }
+
+    [Fact]
+    public void AKritzkriegMedicWhoSwitchesPatientCritBoostsTheNewOneAlone()
+    {
+        // The grant is the recalc every heal change re-runs (tf_player_shared.cpp:8808, 8844):
+        // a patient taken under a still-releasing Kritzkrieg takes the crit boost and the
+        // one let go wears it off — nobody is handed the pop's condition a second time, and
+        // the new patient takes no part in the invulnerable row the release is not.
+        var rig = Standing();
+        rig.Give(2, 100, 100);
+        rig.Owners.Managers[1] = ChargeHolder(1f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);   // the pop, on patient 3
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+
+        Command(rig, weapon, held: false, now: 11f);          // the beam drops; the release drains on
+        rig.QueueHit(H(2));
+        rig.QueueHit(H(2));
+        Command(rig, weapon, held: true, now: 11.5f);         // the beam lands on patient 2
+
+        Assert.True(rig.Conditions.Holds(2, TFCond.Critboosted));
+        Assert.False(rig.Conditions.Holds(2, TFCond.Invulnerable));
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 11.6f);
+        Assert.False(rig.Conditions.Holds(3, TFCond.Critboosted));
+    }
+
+    [Fact]
+    public void AQuickFixMedicWhoSwitchesPatientMegaHealsTheNewOneAlone()
+    {
+        // The mega-heal row of the same recalc (tf_player_shared.cpp:8906): the switched-to
+        // patient is mega-healed, the switched-from one wears it off at once.
+        var rig = Standing();
+        rig.Give(2, 100, 100);
+        rig.Owners.Managers[1] = ChargeHolder(2f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+        Assert.True(rig.Conditions.Holds(3, TFCond.Megaheal));
+
+        Command(rig, weapon, held: false, now: 11f);
+        rig.QueueHit(H(2));
+        rig.QueueHit(H(2));
+        Command(rig, weapon, held: true, now: 11.5f);
+
+        Assert.True(rig.Conditions.Holds(2, TFCond.Megaheal));
+        Assert.False(rig.Conditions.Holds(2, TFCond.Invulnerable));
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 11.6f);
+        Assert.False(rig.Conditions.Holds(3, TFCond.Megaheal));
+    }
+
+    [Fact]
+    public void TheCritBoostWearsOffWhenTheReleaseDrainsEmptyNotAtThePopSeconds()
+    {
+        // SubtractChargeAndUpdateDeployState (tf_weapon_medigun.cpp:1472): at empty the
+        // release dies and its recalc turns the row off — the wear-off ends it, never the
+        // fixed span the grant carried.
+        var rig = Standing();
+        rig.Owners.Managers[1] = ChargeHolder(1f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+
+        weapon.TickMedic(1, now: 20f, frametime: 9f);    // 9 seconds at the 8-second release: empty
+
+        Assert.False(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));   // pending, not yet expired
+        rig.Healing.TestAndExpireChargeEffect(H(3), now: 20.1f);
+        Assert.False(rig.Conditions.Holds(3, TFCond.Critboosted));
+        rig.Healing.TestAndExpireChargeEffect(H(1), now: 20.1f);
+        Assert.False(rig.Conditions.Holds(1, TFCond.Critboosted));
+    }
+
+    [Fact]
+    public void AReleaseHolsteredMidDrainWearsOffAndReturnsOnUnholster()
+    {
+        // Holster takes the owner's own effect at once (RecalcEffectOnTarget pOwner, true,
+        // tf_weapon_medigun.cpp:441); IsReleasingCharge is release and not holstered, so the
+        // unholster's report re-grants it with no new pop (:444-446).
+        var rig = Standing();
+        rig.Owners.Managers[1] = ChargeHolder(1f);
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 1f);
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+        Assert.True(rig.Conditions.Holds(1, TFCond.Critboosted));
+
+        weapon.Holster(1, now: 11f);
+        Assert.False(rig.Conditions.Holds(1, TFCond.Critboosted));
+
+        weapon.Unholster(1, now: 11.5f);
+        Assert.True(weapon.IsReleasing(1));
+        Assert.True(rig.Conditions.Holds(1, TFCond.Critboosted));
+    }
+
+    /// <summary>An attribute manager holding the set_charge_type lookup the item definitions carry.</summary>
+    private static AttributeContainer ChargeHolder(float chargeType)
+    {
+        var def = new AttributeDefinition(30045, "charge type", "set_charge_type",
+                                          AttributeDescriptionFormat.FromLookupTable, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("charge"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, chargeType));
+        return manager;
+    }
 }

@@ -13,9 +13,13 @@ using SourceSharp.Shared;
 
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
+using TF2.Shared.Player;
 using TF2.Shared.Projectiles;
 using TF2.Server.Combat;
+using TF2.Server.Entities.Items;
+using TF2.Server.Medigun;
 using TF2.Server.Player;
 
 namespace TF2.Server.Projectiles;
@@ -24,8 +28,9 @@ namespace TF2.Server.Projectiles;
 /// Stock's classnames (<c>LINK_ENTITY_TO_CLASS</c>): the rocket
 /// (<c>tf_projectile_rocket.cpp:18</c>), the demoman's two pipebombs
 /// (<c>tf_weapon_grenade_pipebomb.cpp:406-409</c>), the medic's syringe
-/// (<c>tf_projectile_nail.cpp:31</c>) and the huntsman's arrow
-/// (<c>tf_projectile_arrow.cpp:53</c>).
+/// (<c>tf_projectile_nail.cpp:31</c>), the huntsman's arrow
+/// (<c>tf_projectile_arrow.cpp:53</c>) and the pyro's flare
+/// (<c>tf_projectile_flare.cpp:24</c>).
 /// </summary>
 public static class TFProjectileEntityNames
 {
@@ -34,6 +39,10 @@ public static class TFProjectileEntityNames
     public const string Stickybomb = "tf_projectile_pipe_remote";
     public const string Syringe = "tf_projectile_syringe";
     public const string Arrow = "tf_projectile_arrow";
+    public const string HealingBolt = "tf_projectile_healing_bolt";
+    public const string Flare = "tf_projectile_flare";
+    public const string Jar = "tf_projectile_jar";
+    public const string JarMilk = "tf_projectile_jar_milk";
 }
 
 /// <summary>
@@ -1314,6 +1323,518 @@ public sealed class TFArrow : FlyingProjectile
 }
 
 /// <summary>
+/// The medic's healing bolt (<c>CTFProjectile_HealingBolt</c>,
+/// <c>game/server/tf/tf_projectile_arrow.cpp:1186</c>, the arrow's flight
+/// under the crossbow's fixed charge): the syringe's model at three times
+/// the scale (<c>Spawn</c>, :213-217), flying at
+/// <see cref="TFProjectileDefs.CrossbowSpeed"/> under
+/// <see cref="TFProjectileDefs.CrossbowGravity"/>.
+///
+/// <para>
+/// The first touch falls either way of the team, stock's
+/// <c>StrikeTarget</c> split (:478-545): an enemy takes the shot — the ramp
+/// <c>GetDamage</c> rides (:315-324, half strength at birth, full a sixth of
+/// a second in) — and a teammate player the heal (<c>ImpactTeamPlayer</c>,
+/// :1198-1289): the blocked-healing refusal, double the ramped shot under
+/// the victim's heal mult and active weapon's penalty, health to the class
+/// max, the impact cue, the two events, the shooter's medigun uber at the
+/// healed-per-second rate the time-since-damage scales, and the overheal
+/// cond. Not here (docs/plans/tf2/deferred.tsv): the <c>crossbow_heal</c>
+/// event, the kill-eater tick and the stat's heal booking; the
+/// <c>arrow_heals_buildings</c> arm, whose friendly buildings the damage
+/// pass already serves as the arrow's do.
+/// </para>
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.HealingBolt, ScriptedEntityKind.Projectile)]
+[Precache(PrecacheKind.Sound, HealSound)]
+public sealed class TFHealingBolt : FlyingProjectile
+{
+    /// <summary>The heal's cue, on the bolt (<c>ImpactSound</c>, :1235).</summary>
+    internal const string HealSound = "Weapon_Arrow.ImpactFleshCrossbowHeal";
+
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly IEngineDamage Damage;
+    private readonly IEnginePlayers Players;
+    private readonly ITFWeaponOwners Owners;
+    private readonly AttributeHooks Hooks;
+    private readonly ITFPlayerConditions Conditions;
+    private readonly ITFMedigunWeapons Mediguns;
+    private readonly ITFPlayerResupply Resupply;
+    private readonly ITFPickupNotices Notices;
+    private readonly IEngineSound Sound;
+    private readonly IGameClock Clock;
+    private readonly IEngineFrame Frame;
+    private readonly TFDamageRecords Records;
+
+    public TFHealingBolt(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
+                         TFDamageScopes scopes, DamageHitGroups hitGroups, IEnginePlayers players,
+                         ITFWeaponOwners owners, AttributeHooks hooks, ITFPlayerConditions conditions,
+                         ITFMedigunWeapons mediguns, ITFPlayerResupply resupply, ITFPickupNotices notices,
+                         IEngineSound sound, IGameClock clock, IEngineFrame frame, TFDamageRecords records)
+        : base(physics, motion)
+    {
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+        Players = players;
+        Owners = owners;
+        Hooks = hooks;
+        Conditions = conditions;
+        Mediguns = mediguns;
+        Resupply = resupply;
+        Notices = notices;
+        Sound = sound;
+        Clock = clock;
+        Frame = frame;
+        Records = records;
+    }
+
+    protected override float GravityScale => TFProjectileDefs.CrossbowGravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.SyringeModel;
+
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+        SetModelScale(3f, 0f);
+    }
+
+    /// <summary>What the client's trail mirror reads.</summary>
+    [NetState] public TFHealingBoltNetState State = new();
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+    public bool Critical { get; private set; }
+
+    /// <summary>The shot the crossbow dealt, before <see cref="Ramped"/>'s life scale.</summary>
+    public float ShotDamage { get; private set; }
+
+    private float _createdAt;
+    private int _ownerIndex;
+
+    /// <summary>The shot the crossbow dealt, and whose it is.</summary>
+    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, int ownerIndex)
+    {
+        ShotDamage = damage;
+        Weapon = weapon;
+        WeaponName = weaponName;
+        Critical = critical;
+        _ownerIndex = ownerIndex;
+
+        // The trail's team, as the flare's ArmedBy writes its own; the ramp's
+        // age runs from here, the launch frame the spawn stands in.
+        State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
+        _createdAt = Clock.Now;
+    }
+
+    protected override void Impact(EntityHandle hit)
+    {
+        if (hit == EntityHandle.None)
+            return;
+
+        // The arrow's split (:478-545): the owner's team heals, everyone
+        // else takes the shot. A friendly building gets the same blow here and
+        // refuses it in TFBaseObject.OnDamaged, which leaves it as stock does.
+        float damage = Ramped;
+        if (Entities.IsPlayer(hit) && Players.GetTeam(hit) == State.TeamNumber)
+        {
+            Heal(hit, damage);
+            return;
+        }
+
+        // The crossbow's own bits (g_aWeaponDamageTypes); the bolt no-headshots
+        // (:301-306) and the crit flag rides, as everywhere in this port.
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        using (Scopes.Push(TFDamageCustom.None, Weapon, WeaponName))
+            Damage.TakeDamage(hit, Attribution, damage, TFWeaponDamageTypes.Of(Weapon));
+    }
+
+    /// <summary>The shot under <c>GetDamage</c>'s life ramp (:315-324).</summary>
+    private float Ramped
+        => ShotDamage * TFDamageModifyRules.RemapValClamped(Clock.Now - _createdAt, 0f, 0.6f, 0.5f, 1.0f);
+
+    /// <summary><c>ImpactTeamPlayer</c> (:1198-1289), the heal arm.</summary>
+    private void Heal(EntityHandle victim, float damage)
+    {
+        int victimIndex = victim.EntryIndex;
+
+        // Don't heal players using a weapon that blocks healing (:1208-1216).
+        IAttributeProvider? active = Owners.ActiveItemOf(victimIndex);
+        if (active is not null && Hooks.Int(0, "weapon_blocks_healing", active) != 0)
+            return;
+
+        // Double the shot, the victim's own heal mult over it and the active
+        // weapon's penalty with it (:1218-1228) — the ON_OTHER hooks walk the
+        // player's attribute manager and the held item, as everywhere here.
+        float heal = damage * 2f;
+        heal = Hooks.Float(heal, "mult_healing_from_medics", Owners.ManagerOf(victimIndex));
+        if (active is not null)
+            heal = Hooks.Float(heal, "mult_health_fromhealers_penalty_active", active);
+
+        // DMG_GENERIC's TakeHealth: up to the class max, never past it (:1230).
+        int healed = Resupply.TakeHealth(victim, heal);
+        if (healed <= 0)
+            return;
+
+        Sound.EntityEmitSound(Handle, HealSound);
+
+        // Both events carry stock's flHealth, the ask rather than the taken
+        // (:1248, :1255).
+        int reported = (int)heal;
+        Notices.PlayerHealed(victim, Players.GetHandle(_ownerIndex), reported);
+        Notices.PlayerHealOnHit(victim, reported);
+
+        // The uber (:1275-1285): the medigun's heal rate, twenty-four a
+        // second, scaled by the wound's age — the fresher the slower, three
+        // at ten seconds, one at fifteen — across the frame the touch stands
+        // in. A player never hit stands outside every scale, stock's zero
+        // stamp answering huge.
+        float sinceDamage = Records.LastHit(victimIndex) is { } record ? Clock.Now - record.Time : float.PositiveInfinity;
+        float scale = TFDamageModifyRules.RemapValClamped(sinceDamage, 10f, 15f, 3f, 1f);
+        Mediguns.SetChargeLevel(_ownerIndex, Mediguns.ChargeLevel(_ownerIndex) + healed / (24f * scale) * Frame.GetFrameTime());
+
+        // And the cond, a tenth plus a tenth (:1286).
+        Conditions.Add(victim, TFCond.HealthOverhealed, 1.2f);
+    }
+}
+
+/// <summary>
+/// The pyro's flare (<c>CTFProjectile_Flare</c>, <c>tf_projectile_flare.cpp</c>
+/// over the nail base's flight): the arc at <see cref="TFProjectileDefs.FlareGravity"/>,
+/// and on its first touch the shot at <see cref="TFProjectileDefs.FlareSpeed"/>'s
+/// class — a victim already burning takes it as a crit, the flag set before the
+/// damage so the hit itself carries it (<c>Explode</c>, :340-347), every hit
+/// through <c>TF_DMG_CUSTOM_BURNING_FLARE</c> (:346). A player hit is gone at
+/// once (:370-376); anything else sticks where it landed for a tenth of a
+/// second, unseen, then goes (:350-359, ImpactThink :478-498) — the seam's
+/// linger, where stock's stays drawn the tenth.
+///
+/// <para>
+/// The detonating modes go instead at <see cref="Detonate"/> (<c>Explode_Air</c>
+/// through <c>Detonate</c>, :382-447): the world-struck flare of a Detonator
+/// or Scorch Shot blasts where it landed rather than sticking (:362-366, the
+/// Scorch's arm full-radius, the Detonator's own radius none), the alt-fire
+/// and the impact sharing the one blast — half falloff, the flare custom, the
+/// owner's own pass always armed at <see cref="TFProjectileDefs.FlareJumpRadius"/>
+/// (:419-421, <c>TF_FLARE_RADIUS_FOR_FJS</c>). The burning-player crit is the
+/// plain flare's alone (:341's <c>!bDetonate &amp;&amp; !bNoRandomCrit</c>).
+/// </para>
+///
+/// <para>
+/// Not here (docs/plans/tf2/deferred.tsv): the spawn's eye-to-flare brush trace that
+/// fizzles a flared-through-wall (the same gap as the launch trace) and the
+/// impact sounds and effects; the heat-seek and the taunt flag.
+/// </para>
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.Flare, ScriptedEntityKind.Projectile)]
+[Precache(PrecacheKind.Sound, TFFlare.ScorchImpactSound)]
+public sealed class TFFlare : FlyingProjectile
+{
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly IEngineDamage Damage;
+    private readonly ITFPlayerConditions Conditions;
+    private readonly IEnginePlayers Players;
+    private readonly TFBlastApplier Blast;
+    private readonly AttributeHooks Attributes;
+    private readonly ITFWeaponOwners Owners;
+    private readonly TFFlareTray Tray;
+    private readonly TFPlayerCarriers Carriers;
+    private readonly IEngineSound Sound;
+    private readonly IUniformRandom Random;
+
+    private float _gravity = TFProjectileDefs.FlareGravity;
+    private Vector _spin = Vector.Zero;
+
+    public TFFlare(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
+                   TFDamageScopes scopes, DamageHitGroups hitGroups,
+                   ITFPlayerConditions conditions, IEnginePlayers players,
+                   TFBlastApplier blast, AttributeHooks attributes, ITFWeaponOwners owners,
+                   TFFlareTray tray, TFPlayerCarriers carriers, IEngineSound sound,
+                   IUniformRandom random)
+        : base(physics, motion)
+    {
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+        Conditions = conditions;
+        Players = players;
+        Blast = blast;
+        Attributes = attributes;
+        Owners = owners;
+        Tray = tray;
+        Carriers = carriers;
+        Sound = sound;
+        Random = random;
+    }
+
+    protected override float GravityScale => _gravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.FlareModel;
+
+    /// <summary>What the client's trail mirror reads.</summary>
+    [NetState] public TFFlareNetState State = new();
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+    public bool Critical { get; private set; }
+
+    /// <summary>
+    /// The firing gun's mode, stock's <c>GetFlareGunType</c> read at the fire
+    /// (<c>FlareGunTypes_t</c>, <c>tf_weapon_flaregun.h:23-29</c>): the
+    /// impact's stick-or-blast and the burning crit both ask it.
+    /// </summary>
+    public int FlareMode { get; private set; }
+
+    /// <summary>The shot the launcher dealt, what the touch is worth.</summary>
+    public float ShotDamage { get; private set; }
+
+    public void ArmedBy(float damage, TFWeaponId weapon, string weaponName, bool critical, float gravity,
+                        int ownerIndex, int flareMode)
+    {
+        ShotDamage = damage;
+        Weapon = weapon;
+        WeaponName = weaponName;
+        Critical = critical;
+        FlareMode = flareMode;
+        OwnerIndex = ownerIndex;
+        _gravity = gravity;
+
+        // The trail's pair, as the rocket's ArmedBy writes its own: the
+        // owner's team and the crit the shot carries.
+        State.Critical = critical;
+        State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
+    }
+
+    private int OwnerIndex { get; set; }
+
+    /// <summary>
+    /// The flare leaves the launcher's list with itself
+    /// (<c>SendDeathNotice</c> → <c>DeathNotice</c> → <c>FindAndRemove</c>,
+    /// <c>tf_projectile_flare.cpp:462-473</c>,
+    /// <c>tf_weapon_flaregun.cpp:191-200</c>): the tray's unregister is this
+    /// port's notice, so no removed flare is left a handle there.
+    /// </summary>
+    public override void OnRemoved() => Tray.Unregister(OwnerIndex, this);
+
+    /// <summary>
+    /// The blast (<c>Detonate</c> → <c>Explode_Air</c>,
+    /// <c>tf_projectile_flare.cpp:436-447, :382-431</c>): the shot's damage
+    /// over <see cref="GetRadius"/> unless it is the owner's arm alone, the
+    /// weapon's own bits under half falloff — the blast bit when the self
+    /// arm is the whole of it, stock's <c>| DMG_BLAST</c> (:415) — and the
+    /// flare custom. The owner's own pass rides every blast at
+    /// <see cref="TFProjectileDefs.FlareJumpRadius"/> for the base damage, as
+    /// stock's <c>flRJRadius</c> arms it (:419-421, :5661-5714).
+    /// </summary>
+    public void Detonate(bool selfOnly)
+    {
+        BlastAt(selfOnly);
+        Remove();
+    }
+
+    /// <summary>The blast alone: the touch's arm, which <see cref="Spend"/>'s tail removes after.</summary>
+    private void BlastAt(bool selfOnly)
+    {
+        DamageType bits = TFWeaponDamageTypes.Of(Weapon) | TFDamageBits.HalfFalloff;
+        if (selfOnly)
+            bits |= DamageType.Blast;
+
+        Blast.Apply(Origin, TFBlast.Of(ShotDamage, selfOnly ? 0f : GetRadius(), bits),
+                    Attribution, Handle, ignored: Handle, Weapon, WeaponName, Critical,
+                    directVictim: EntityHandle.None,
+                    selfRadius: TFProjectileDefs.FlareJumpRadius, selfBaseDamage: ShotDamage,
+                    custom: TFDamageCustom.FlareExplosion);
+        Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Flare} detonated at {Origin}\n");
+    }
+
+    /// <summary>The blast's reach (<c>GetRadius</c>, <c>tf_projectile_flare.cpp:452-457</c>).</summary>
+    private float GetRadius() =>
+        Attributes.Float(TFProjectileDefs.FlareDetRadius, "mult_explosion_radius",
+                         Owners.ItemOf(OwnerIndex, WeaponName));
+
+    protected override void Impact(EntityHandle hit)
+    {
+        if (hit != EntityHandle.None)
+        {
+            // The Scorch Shot's player arm (:228-296) ends in a return of its
+            // own — the hurt, the shove, the bounce — and never reaches the
+            // common damage below.
+            if (FlareMode == TFProjectileBehaviour.FlareScorch && Entities.IsPlayer(hit))
+            {
+                ScorchHit(hit);
+                return;
+            }
+
+            // Flares that hit a burning player crit (:340-344): before the
+            // damage, so this very hit carries the flag. A detonating mode's
+            // does not — :341's !bDetonate && !bNoRandomCrit, every mode past
+            // the plain one.
+            bool plain = FlareMode == TFProjectileBehaviour.FlareNormal;
+            if (plain && Conditions.InCond(hit, TFCond.Burning))
+                Critical = true;
+
+            using (HitGroups.Push(HitGroup.Generic, Critical))
+            using (Scopes.Push(TFDamageCustom.BurningFlare, Weapon, WeaponName))
+                // The flare gun's own bits (g_aWeaponDamageTypes): a bullet
+                // that ignites what it lands on.
+                Damage.TakeDamage(hit, Attribution, ShotDamage, TFWeaponDamageTypes.Of(Weapon));
+        }
+
+        // A player hit is the end (:370-376). The world's is the stick —
+        // unless the gun detonates its flares (:362-366): the blast is the
+        // stick's replacement, the Scorch's full-radius, the Detonator's
+        // bare. The Detonate's Remove is the end stock's ImpactThink never
+        // reaches, its think cleared under the removal (:441).
+        if (Entities.IsPlayer(hit))
+            return;
+
+        if (FlareMode is TFProjectileBehaviour.FlareDetonate or TFProjectileBehaviour.FlareScorch)
+        {
+            // The blast of Detonate (:362-366 through :436-447) without its
+            // removal: the touch's own is the one the shell grants, stock's
+            // single UTIL_Remove inside Explode_Air (:444).
+            BlastAt(selfOnly: FlareMode != TFProjectileBehaviour.FlareScorch);
+            return;
+        }
+
+        Linger(TFProjectileDefs.FlareStickTime);
+    }
+
+    /// <summary>The Scorch Shot's impact sound (:287).</summary>
+    internal const string ScorchImpactSound = "Rubber.BulletImpact";
+
+    /// <summary>
+    /// The Scorch Shot's player hit (<c>Explode</c>, <c>tf_projectile_flare.cpp:228-296</c>):
+    /// the shot without its push force (:243 — the shove below is the whole of
+    /// it), then, for an enemy not immune to pushback, the knockback along the
+    /// flight's line — 400 into a burning victim, 100 otherwise (:264) — with
+    /// the ground stun when they are not already airborne (:259-262). The
+    /// flare itself survives as debris, almost stopped, popping up to 100 u/s
+    /// under a random tilt (:268-284), audible (:287).
+    /// </summary>
+    private void ScorchHit(EntityHandle victim)
+    {
+        Vector velocity = Entities.GetVelocity(Handle);
+
+        // Now it only collides with the world (:234).
+        Physics.SetCollisionGroup(Handle, CollisionGroup.Debris);
+
+        bool burning = Conditions.InCond(victim, TFCond.Burning);
+
+        // The taunted hit's TF_DMG_CUSTOM_FLARE_PELLET (:246) waits on the
+        // taunt flag (docs/plans/tf2/deferred.tsv, with the heat-seek).
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        using (Scopes.Push(TFDamageCustom.None, Weapon, WeaponName))
+            Damage.TakeDamage(victim, Attribution, ShotDamage,
+                              TFWeaponDamageTypes.Of(Weapon) | DamageType.PreventPhysicsForce);
+
+        int attackerTeam = Players.GetTeam(Attribution);
+        if (!Conditions.InCond(victim, TFCond.ImmuneToPushback)
+            && attackerTeam != Players.GetTeam(victim))
+        {
+            Vector along = velocity.Normalized;
+            Vector direction = new(along.X, along.Y, 1f);
+
+            if (!Conditions.InCond(victim, TFCond.KnockedIntoAir))
+                Carriers.Part<TFStunStack>(victim.EntryIndex)?.Stun(victim, ScorchStunTime, ScorchStunStrength,
+                                                                   TFStunFlags.Movement, Attribution);
+
+            Entities.ApplyVelocityImpulse(victim, direction * (burning ? ScorchPushBurning : ScorchPush),
+                                          clearGround: false);
+        }
+
+        // Almost all of its speed gone, popping into the air (:268-272); the
+        // new facing rides the keep-flying's own VectorAngles (:275-277).
+        Vector bounce = new Vector(velocity.X * ScorchBounceKeep, velocity.Y * ScorchBounceKeep, ScorchPopSpeed)
+            + new Vector(Jitter(), Jitter(), Jitter());
+        _spin = new Vector(SignedSpin(), SignedSpin(), SignedSpin());
+        KeepFlying(bounce, _gravity);
+        Sound.EntityEmitSound(Handle, ScorchImpactSound);
+    }
+
+    /// <summary>One axis of the bounce's RandomVector(-2, 2) (:272).</summary>
+    private float Jitter() => Random.RandomFloat(-ScorchJitter, ScorchJitter);
+
+    /// <summary>
+    /// One axis of the tumble, RandomAngle(180, 720) signed by a coin per
+    /// axis (:279-282).
+    /// </summary>
+    private float SignedSpin() => Random.RandomFloat(180f, 720f) * (Random.RandomInt(0, 1) == 0 ? 1f : -1f);
+
+    /// <summary>The flare points as it tumbles (<c>LaunchSpin</c> rides every launch).</summary>
+    protected override Vector LaunchSpin => _spin;
+
+    /// <summary>The shove, burning victim (:264).</summary>
+    private const float ScorchPushBurning = 400f;
+
+    /// <summary>The shove, everyone else (:264).</summary>
+    private const float ScorchPush = 100f;
+
+    /// <summary>The half of the speed the bounce keeps (:269-270).</summary>
+    private const float ScorchBounceKeep = 0.07f;
+
+    /// <summary>The pop's upward speed (:271).</summary>
+    private const float ScorchPopSpeed = 100f;
+
+    /// <summary>The pop's per-axis jitter, RandomVector's bound (:272).</summary>
+    private const float ScorchJitter = 2f;
+
+    /// <summary>The ground stun, StunPlayer's 0.5 s (:261).</summary>
+    private const float ScorchStunTime = 0.5f;
+
+    /// <summary>The ground stun's strength (:261).</summary>
+    private const float ScorchStunStrength = 1f;
+}
+
+/// <summary>
+/// A Detonator's live flares, in the order they were fired — stock's
+/// <c>m_Flares</c> on the gun (<c>CTFFlareGun::AddFlare</c>,
+/// <c>tf_weapon_flaregun.cpp:179-186</c>, the list kept only by the
+/// detonating mode, <c>tf_weaponbase_gun.cpp:760-763</c>). The alt-fire
+/// detonates the lot (<c>SecondaryAttack</c>, :147-173) and a flare the
+/// world takes leaves through <see cref="TFFlare.OnRemoved"/> — the
+/// <c>DeathNotice</c> the port's per-owner trays stand in for, as the
+/// stickybomb launcher's does (<see cref="TFStickyTray"/>).
+/// </summary>
+[SideService(Side.Server)]
+public sealed class TFFlareTray
+{
+    private readonly Dictionary<int, List<TFFlare>> _trays = new();
+
+    public void Register(int ownerIndex, TFFlare flare)
+    {
+        if (!_trays.TryGetValue(ownerIndex, out var tray))
+            _trays[ownerIndex] = tray = new List<TFFlare>();
+        tray.Add(flare);
+    }
+
+    /// <summary>The <c>FindAndRemove</c> of <c>DeathNotice</c> (:191-200).</summary>
+    public void Unregister(int ownerIndex, TFFlare flare)
+    {
+        if (_trays.TryGetValue(ownerIndex, out var tray))
+            tray.Remove(flare);
+    }
+
+    /// <summary>
+    /// The alt-fire (<c>SecondaryAttack</c>, <c>tf_weapon_flaregun.cpp:160-171</c>):
+    /// every live flare detonates, whole-radius — stock walks the list as it
+    /// stands, each <c>Detonate</c>'s own removal already seen to here.
+    /// </summary>
+    public void DetonateAll(int ownerIndex)
+    {
+        if (!_trays.TryGetValue(ownerIndex, out var tray))
+            return;
+
+        for (int i = tray.Count - 1; i >= 0; i--)
+            tray[i].Detonate(selfOnly: false);
+
+        tray.Clear();
+    }
+}
+
+/// <summary>
 /// A launcher's stickies, in the order they were fired — stock's eight-slot
 /// <c>m_Pipebombs</c> (<c>CTFPipebombLauncher::PrimaryAttack</c>,
 /// <c>tf_weapon_pipebomblauncher.cpp</c>). The ninth arrival removes the
@@ -1467,4 +1988,209 @@ public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDea
 
         state.PipebombCount = Count(ownerIndex);
     }
+}
+
+/// <summary>
+/// The jarate and the mad milk in flight (<c>CTFProjectile_Jar</c> and
+/// <c>CTFProjectile_JarMilk</c>, <c>tf_weapon_jar.cpp</c>): one lobbed
+/// projectile under the pipebomb's arc — stock's
+/// <c>SetPipebombMode</c> before spawn (<c>tf_weapon_jar.cpp:296</c>) is the
+/// gravity, the spin and the touch rules — that shatters on its first solid
+/// or player contact and throws its effect over <see cref="TFProjectileDefs.JarRadius"/>.
+///
+/// <para>
+/// One class wears both names: the milk is stock's
+/// <c>CTFProjectile_JarMilk</c>, which overrides nothing but the impact
+/// effect, the condition and the model (its header comment,
+/// <c>tf_weapon_jar.h:196-216</c>) — here the <see cref="Milk"/> test on the
+/// spawned name. The damage is stock's own zero (<c>m_flFullDamage = 0</c>,
+/// <c>tf_weapon_jar.cpp:300</c>): the jar wounds nobody, it only conditions.
+/// </para>
+///
+/// <para>Deferred (<c>docs/plans/tf2/deferred.tsv</c>, jarate rows): the
+/// attacker credit and kill-eater arms, the
+/// <c>PlayerJarated</c>/<c>PlayerExtinguished</c> usermessages and events, the
+/// achievements and the concepts; the truce and passtime refusals; the
+/// <c>wet_immunity</c> and <c>applies_snare_effect</c> attribute reads; the
+/// burning teammate's cooldown refund. The burning teammate's drench itself
+/// is kept — it is the jar's second half of the trade.</para>
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.Jar, ScriptedEntityKind.Projectile)]
+[ScriptedEntity(TFProjectileEntityNames.JarMilk, ScriptedEntityKind.Projectile)]
+public sealed class TFJar : FlyingProjectile
+{
+    /// <summary>Skybox surface bit (<c>SURF_SKY</c>), the pipebomb's own sky trace's bit.</summary>
+    private const int JarSkySurface = 0x0004;
+
+    private const int MaxJarredExceptions = 512;
+
+    private readonly IEngineWorldQuery World;
+    private readonly ITFPlayerConditions Conditions;
+    private readonly IEnginePlayers Players;
+    private readonly ITempEnts Temps;
+    private readonly IEnginePrecache Precache;
+    private readonly IEngineSound Sound;
+
+    public TFJar(IEngineEntityPhysics physics, EntityMotion motion, IEngineWorldQuery world,
+                 ITFPlayerConditions conditions, IEnginePlayers players,
+                 ITempEnts temps, IEnginePrecache precache, IEngineSound sound)
+        : base(physics, motion)
+    {
+        World = world;
+        Conditions = conditions;
+        Players = players;
+        Temps = temps;
+        Precache = precache;
+        Sound = sound;
+    }
+
+    /// <summary>The milk face of the shared class.</summary>
+    public bool Milk => ClassName == TFProjectileEntityNames.JarMilk;
+
+    /// <summary>The pipebomb's arc: stock spawns under <c>SetPipebombMode</c>.</summary>
+    protected override float GravityScale => TFProjectileDefs.PipebombGravity;
+
+    protected override string ProjectileModel => Milk
+        ? TFProjectileDefs.JarMilkModel
+        : TFProjectileDefs.JarModel;
+
+    /// <summary>Stock's tumble about the roll axis only (<c>GetAngularImpulse</c>, <c>tf_weapon_jar.h:66</c>).</summary>
+    protected override Vector LaunchSpin => new(0f, 0f, TFProjectileDefs.JarSpinRoll);
+
+    /// <summary>What the client's trail mirror reads; the same pair the flare's carries.</summary>
+    [NetState] public TFJarNetState State = new();
+
+    /// <summary>The thrower's team and the shot's crit, as every projectile's <c>ArmedBy</c> writes them.</summary>
+    public void ArmedBy(bool critical, int ownerIndex)
+    {
+        State.Critical = critical;
+        State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
+    }
+
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+
+        // The shatter, heard before it is seen — both precached at spawn as
+        // stock's Precache is (<c>tf_weapon_jar.cpp:118-123</c>).
+        Precache.PrecacheParticleSystem(ImpactEffect);
+        Precache.PrecacheSound(TFProjectileDefs.JarExplodeSound);
+    }
+
+    /// <summary>The shatter's particle, stock's <c>GetImpactEffect</c>.</summary>
+    private string ImpactEffect => Milk
+        ? TFProjectileDefs.JarMilkImpactEffect
+        : TFProjectileDefs.JarImpactEffect;
+
+    protected override void Impact(EntityHandle hit)
+    {
+        // The touch rules are the pipebomb's own, worn by the
+        // SetPipebombMode the jar's Create called first
+        // (PipebombTouch, tf_weapon_jar.cpp:505-534): a jar never breaks on
+        // its thrower — the base's OnTouch already skipped him — and flies
+        // through anything that is neither world nor player.
+        if (hit != EntityHandle.None && !Entities.IsPlayer(hit))
+        {
+            KeepFlying(Entities.GetVelocity(Handle), GravityScale);
+            return;
+        }
+
+        // The teammate grace (:521-528): a dry teammate is flown through
+        // too; only a burning one is worth the drench.
+        if (hit != EntityHandle.None
+            && Players.GetTeam(hit) == OwnerTeam()
+            && !Conditions.InCond(hit, TFCond.Burning))
+        {
+            KeepFlying(Entities.GetVelocity(Handle), GravityScale);
+            return;
+        }
+
+        // Handle hitting skybox (PipebombTouch :530-540, the pipebomb's own
+        // trace): a jar that would shatter on the sky is simply gone, no
+        // splash. The base's Spend removes what this declines to arm.
+        Vector velocity = Entities.GetVelocity(Handle);
+        if (velocity.LengthSquared > 0f)
+        {
+            Vector dir = velocity.Normalized;
+            Vector spot = Origin - dir * 32f;
+            SurfaceTraceResult sky = World.TraceLineSurface(spot, spot + dir * 64f, TraceMask.Solid, Handle);
+            if (sky.Fraction < 1f && (sky.SurfaceFlags & JarSkySurface) != 0)
+                return;
+        }
+
+        Splash();
+    }
+
+    /// <summary>
+    /// JarExplode at the contact (<c>tf_weapon_jar.cpp:318-473</c>): the
+    /// particle and the sound where the jar burst, then every living player
+    /// in the radius whose centre the burst sees — the enemy takes the
+    /// condition for <see cref="TFProjectileDefs.JarDuration"/> seconds from
+    /// the thrower, a burning teammate is put out.
+    /// </summary>
+    private void Splash()
+    {
+        Vector at = Origin;
+
+        TeEffectData splat = new()
+        {
+            Scale = 1f,
+            HitBox = Precache.ParticleSystemIndex(ImpactEffect),
+            Origin = at,
+            Start = at,
+        };
+        Temps.DispatchEffect(TeFilters.Pvs(at), 0f, "ParticleEffect", in splat);
+        Sound.EmitSoundAtPosition(TFProjectileDefs.JarExplodeSound, at);
+
+        // Stock's sweep flags the FL_CLIENT and FL_NPC flags; this build has
+        // no NPCs, so the players are the whole sweep.
+        Span<EntityHandle> nearby = stackalloc EntityHandle[MaxJarredExceptions];
+        int count = World.EntitiesInSphere(at, TFProjectileDefs.JarRadius, nearby);
+        int myTeam = OwnerTeam();
+        TFCond cond = Milk ? TFCond.MadMilk : TFCond.Urine;
+
+        for (int i = 0; i < count; i++)
+        {
+            EntityHandle victim = nearby[i];
+            if (victim == EntityHandle.None || !Entities.IsPlayer(victim))
+                continue;
+
+            // Skip dead players and the blind ones: stock's !IsAlive gate,
+            // then the line-of-sight trace (MASK_SHOT & ~CONTENTS_HITBOX --
+            // the MASK_SHOT_HULL the fold names), whose world hit is the
+            // only blocker stock honours; its ignore-players filter lets
+            // the port's trace stop on one and still see.
+            if (!Players.IsAlive(victim))
+                continue;
+
+            TraceResult los = World.TraceLine(at, Entities.GetWorldSpaceCenter(victim),
+                                              TraceMask.ShotHull, Handle);
+            if (los.Fraction < 1f && IsWorld(los.Entity))
+                continue;
+
+            if (Players.GetTeam(victim) == myTeam)
+            {
+                // The burning teammate (JarExplode's ExtinguishPlayer arm,
+                // :452-456): the same bare removal the port's airblast
+                // makes, its bonus-point and event tails deferred above.
+                if (Conditions.InCond(victim, TFCond.Burning))
+                    Conditions.Remove(victim, TFCond.Burning);
+                continue;
+            }
+
+            // The enemy (JarExplode's wet arm, :420-446): invulnerable and
+            // phased players stay dry, the rest wear the condition from the
+            // thrower. The truce and passtime refusals and the wet_immunity
+            // read are deferred with the credit arms.
+            if (Conditions.Of(victim.EntryIndex) is { } state
+                && (new TFConditionEffects().IsInvulnerable(state.Bits) || state.Has(TFCond.Phase)))
+                continue;
+
+            Conditions.Add(victim, cond, TFProjectileDefs.JarDuration, Attribution);
+        }
+    }
+
+    private bool IsWorld(EntityHandle entity) => entity != EntityHandle.None && Entities.GetIndex(entity) == 0;
+
+    private int OwnerTeam() => Entities.IsValid(Attribution) ? Players.GetTeam(Attribution) : 0;
 }

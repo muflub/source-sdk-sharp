@@ -7,6 +7,7 @@ using TF2.Server.Buildings;
 using TF2.Server.Combat;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 using TF2.Tests.Entities.Items;
 using TF2.Tests.Weapons;
 
@@ -365,6 +366,28 @@ public sealed class TFSapperUseTests
         Assert.Equal(TFSapper.SapperMaxHealth - TFSapperUse.WrenchDmgVsSapper, sapper.Health);
     }
 
+    /// <summary>
+    /// The second acceptance arm of <c>CObjectSapper::OnTakeDamage</c>
+    /// (tf_obj_sapper.cpp:562-610): past the wrench's fix, the sapper also
+    /// takes the blow of a held weapon bearing <c>set_dmg_apply_to_sapper</c>
+    /// — the Homewrecker's and the Maul's arm — and one without stays refused.
+    /// </summary>
+    [Fact]
+    public void A_sapper_takes_the_melee_blow_of_a_weapon_bearing_the_attribute()
+    {
+        var (rig, sapper, _, engineer) = ASappedBuilding();
+        rig.Owners.Held[0] = "tf_weapon_fireaxe";   // the Homewrecker's row
+        rig.Owners.Items[0] = rig.AttributeItem("set_dmg_apply_to_sapper",
+                                                AttributeDescriptionFormat.Additive, 1f);
+
+        Assert.Equal(35, BuildingsRig.Hit(sapper, engineer, 35f, DamageType.Club));
+        Assert.Equal(TFSapper.SapperMaxHealth - 35, sapper.Health);
+
+        // The plain arm stands beside it: no item, no blow lands.
+        var (plainRig, plainSapper, _, plainEngineer) = ASappedBuilding();
+        Assert.Equal(0, BuildingsRig.Hit(plainSapper, plainEngineer, 35f, DamageType.Club));
+    }
+
     [Fact]
     public void The_wrenchs_smack_hurts_the_sapper_on_a_friendly_building()
     {
@@ -632,6 +655,7 @@ public sealed class TFSapperUseTests
     private sealed class RecordingSappers : ITFSapperState
     {
         public List<(int Owner, float Range)> Smacks { get; } = new();
+        public List<(int Owner, float Range, float Amount)> Melecs { get; } = new();
         public int Placements { get; private set; }
 
         public bool PlaceSapper(int ownerIndex)
@@ -650,6 +674,12 @@ public sealed class TFSapperUseTests
         public bool WrenchSmack(int ownerIndex, float range)
         {
             Smacks.Add((ownerIndex, range));
+            return true;
+        }
+
+        public bool MeleeSmack(int ownerIndex, float range, float amount)
+        {
+            Melecs.Add((ownerIndex, range, amount));
             return true;
         }
     }
@@ -677,6 +707,55 @@ public sealed class TFSapperUseTests
         world.Run(w, vm, Attack, now: 10f, seed: 1);
 
         Assert.Empty(sappers.Smacks);
+    }
+
+    [Fact]
+    public void AMeleeWithDmgApplyToSapperHitsTheSapperOnAFriendlyBuilding()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("set_dmg_apply_to_sapper",
+                                                            AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        Assert.Empty(world.Sapper.Melecs);   // the ask rides the smack, like the swing's own hit
+
+        world.Run(w, vm, 0, now: 10.25f);
+
+        // The Homewrecker's and the Maul's swing (set_dmg_apply_to_sapper,
+        // tf_weaponbase_melee.cpp:469-494): the smack asks the seam for the
+        // sapper on the friendly building, at the swing's reach and blow.
+        Assert.Equal((TFWeaponWorld.Owner, TFWeaponTypes.SwingRange, 35f),
+                     Assert.Single(world.Sapper.Melecs));
+        Assert.Single(world.Effects.Swings);   // the swing's own hit stands beside it
+    }
+
+    [Fact]
+    public void AMeleeWithoutItHitsTheBuilding()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_bat", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.MeleeSeed(1500, 10000));
+        world.Run(w, vm, 0, now: 10.25f);
+
+        // Without the attribute the swing runs its plain trace and nothing
+        // asks for the sapper.
+        Assert.Empty(world.Sapper.Melecs);
+        Assert.Single(world.Effects.Swings);
+    }
+
+    /// <summary>An item holding one named attribute, the melee tests' shape.</summary>
+    private static TF2.Shared.Econ.IAttributeProvider ItemWith(string hook, AttributeDescriptionFormat format,
+                                                               float value)
+    {
+        int defindex = 1;
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(defindex, "attr " + defindex, hook, format,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
     }
 
     [Fact]

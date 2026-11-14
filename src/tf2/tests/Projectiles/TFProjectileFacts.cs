@@ -6,6 +6,8 @@ using SourceSharp.Tests;
 using TF2.Server;
 using TF2.Server.Combat;
 using TF2.Server.Econ;
+using TF2.Server.Medigun;
+using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
@@ -44,6 +46,7 @@ internal sealed class ProjectileRig
     public DamageHitGroups HitGroups { get; } = new();
     public DamageInflictors Inflictors { get; } = new();
     public TFStickyTray Tray { get; } = new();
+    public TFFlareTray FlareTray { get; } = new();
     public FixedClasses Classes { get; } = new();
 
     /// <summary>The carrier registry the rocket's stun arm asks.</summary>
@@ -120,7 +123,7 @@ internal sealed class ProjectileRig
         StickyVars.ForceFromBlast.Hold("0");
         StickyVars.ForceToMove.Hold("0");
         StickyVars.ForceSleepTime.Hold("0");
-        Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
+        Effects = new(Engine, Directory, Engine, Tray, FlareTray, Log, Owners, Random, Hooks, Temps, Engine, Engine, StickyVars);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
         Engine.Returns("Players.GetHandle", Player);
@@ -216,6 +219,139 @@ internal sealed class ProjectileRig
         return BindStates(arrow);
     }
 
+    /// <summary>A flare with its areas bound, over <see cref="Conditions"/>.</summary>
+    public TFFlare Flare()
+    {
+        var flare = new TFFlare(Engine, Motion, Engine, Scopes, HitGroups, Conditions, Engine,
+                                Blast, Hooks, Owners, FlareTray, Carriers, Engine, Random);
+        flare.BindAreas(TestServices.Areas(Engine));
+        return BindStates(flare);
+    }
+
+    /// <summary>A jar with its areas bound, over <see cref="Wet"/> and the temp sink.</summary>
+    public TFJar Jar()
+    {
+        var jar = new TFJar(Engine, Motion, Engine, Wet, Engine, Temps, Engine, Engine);
+        jar.BindAreas(TestServices.Areas(Engine));
+        return BindStates(jar);
+    }
+
+    /// <summary>
+    /// A healing bolt with its areas bound, over the medigun, notice and
+    /// record fakes below: everything <see cref="TFHealingBoltFacts"/> reads.
+    /// </summary>
+    public TFHealingBolt Bolt()
+    {
+        var bolt = new TFHealingBolt(Engine, Motion, Engine, Scopes, HitGroups, Engine, Owners, Hooks,
+                                     Conditions, Mediguns, Health, Notices, Engine, Engine, Engine, Records);
+        bolt.BindAreas(TestServices.Areas(Engine));
+        return BindStates(bolt);
+    }
+
+    /// <summary>The wounds the combat layer has stood on record, for the uber's age scale.</summary>
+    public TFDamageRecords Records { get; } = new();
+
+    /// <summary>The shooter's medigun, as the uber charge asks it.</summary>
+    public MedigunSpies Mediguns { get; } = new();
+
+    /// <summary>The pickup events, as the heal's two ask the HUD.</summary>
+    public NoticeSpies Notices { get; } = new();
+
+    /// <summary>The medigun seam at its smallest: a level and its writes.</summary>
+    public sealed class MedigunSpies : ITFMedigunWeapons
+    {
+        public float Level { get; set; }
+
+        /// <summary>Every <see cref="SetChargeLevel"/>, as (whose, what).</summary>
+        public List<(int Owner, float Level)> Writes { get; } = new();
+
+        public void TickMedic(int ownerIndex, float now, float frametime) { }
+        public void Holster(int ownerIndex, float now) { }
+        public void Unholster(int ownerIndex, float now) { }
+        public void RemoveMedigun(int ownerIndex, float now) { }
+        public float ChargeLevel(int ownerIndex) => Level;
+        public void SetChargeLevel(int ownerIndex, float level)
+        {
+            Level = level;
+            Writes.Add((ownerIndex, level));
+        }
+
+        public int HealingTargetIndex(int ownerIndex) => -1;
+        public bool IsReleasing(int ownerIndex) => false;
+    }
+
+    /// <summary>The notice seam at its smallest: the heal events, recorded.</summary>
+    public sealed class NoticeSpies : ITFPickupNotices
+    {
+        public List<(EntityHandle Patient, EntityHandle Healer, int Amount)> Healed { get; } = new();
+        public List<(EntityHandle Player, int Amount)> HealOnHit { get; } = new();
+
+        public void ItemPickup(EntityHandle player, string className) { }
+        public void ItemPickupEvent(EntityHandle player, string item) { }
+        public void PlayerHealed(EntityHandle patient, EntityHandle healer, int amount) => Healed.Add((patient, healer, amount));
+        public void PlayerHealOnHit(EntityHandle player, int amount) => HealOnHit.Add((player, amount));
+        public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker) { }
+        public void Sound(EntityHandle player, string sound) { }
+    }
+
+    /// <summary>
+    /// The condition seam the flare's burning-crit reads, at its smallest:
+    /// everybody burns or nobody does, as the fact sets <see cref="EveryoneBurns"/>.
+    /// </summary>
+    public sealed class FlareConditions : ITFPlayerConditions
+    {
+        public bool EveryoneBurns { get; set; }
+
+        /// <summary>Every cond add, for the facts that read one back.</summary>
+        public List<(EntityHandle Player, TFCond Cond, float Duration)> Added { get; } = new();
+
+        public TFConditions? Of(int playerIndex) => null;
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent, EntityHandle provider = default)
+        {
+            Added.Add((player, cond, duration));
+            return TFCondAdd.Refused;
+        }
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+        public bool InCond(EntityHandle player, TFCond cond) => EveryoneBurns && cond == TFCond.Burning;
+    }
+
+    /// <summary>The condition answers the flare's crit arm reads.</summary>
+    public FlareConditions Conditions { get; } = new();
+
+    /// <summary>
+    /// The wet seams the jar's splash writes, recorded: the conditions added
+    /// and removed, who burns, and the condition states the dry gates read.
+    /// </summary>
+    public sealed class JarConditions : ITFPlayerConditions
+    {
+        public readonly List<(EntityHandle Player, TFCond Cond, float Duration, EntityHandle Provider)> Added = new();
+        public readonly List<(EntityHandle Player, TFCond Cond)> Removed = new();
+        public readonly HashSet<EntityHandle> Burning = new();
+        public readonly Dictionary<int, TFConditions> States = new();
+
+        public TFConditions? Of(int playerIndex) => States.TryGetValue(playerIndex, out var state) ? state : null;
+
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent, EntityHandle provider = default)
+        {
+            Added.Add((player, cond, duration, provider));
+            return TFCondAdd.Added;
+        }
+
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false)
+        {
+            Removed.Add((player, cond));
+            return true;
+        }
+
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+
+        public bool InCond(EntityHandle player, TFCond cond) => cond == TFCond.Burning && Burning.Contains(player);
+    }
+
+    /// <summary>The wet seams the jar's splash asks.</summary>
+    public JarConditions Wet { get; } = new();
+
     /// <summary>
     /// The registry's bind, for an entity built by hand: its netstates get
     /// managed storage, so the trail writes land somewhere.
@@ -245,11 +381,15 @@ internal sealed class ProjectileRig
         /// <summary>The crouch answer, for the rocket muzzle's folded offset.</summary>
         public bool Ducking { get; set; }
 
+        /// <summary>The held weapon, for the arms that read it off the victim.</summary>
+        public IAttributeProvider? Active { get; set; }
+
         public TFClass ClassOf(int playerIndex) => TFClass.Undefined;
         public TFConditions? ConditionsOf(int playerIndex) => null;
         public float CritMult(int playerIndex) => 1f;
         public bool WinsCrits(int playerIndex) => false;
         public IAttributeProvider? ItemOf(int playerIndex, string weaponName) => Item;
+        public IAttributeProvider? ActiveItemOf(int playerIndex) => Active;
         public IAttributeProvider? ManagerOf(int playerIndex) => Manager;
         public bool OffGround(int playerIndex) => false;
         public bool EyesUnderwater(int playerIndex) => false;
@@ -266,13 +406,21 @@ internal sealed class ProjectileRig
         /// <summary>Every TakeHealth, as (who, what). The blast facts count and read these.</summary>
         public List<(SourceSharp.Abi.EntityHandle Who, int Amount)> HealthTaken { get; } = new();
 
+        /// <summary>The class ceiling the takes ride against; null answers unbounded.</summary>
+        public int? Ceiling { get; set; }
+
+        /// <summary>The <c>ignoreMaxHealth</c> flag of every take, in order.</summary>
+        public List<bool> Unbounded { get; } = new();
+
         public void Regenerate(SourceSharp.Abi.EntityHandle player, bool refillHealthAndAmmo = true) { }
         public int MaxHealth(SourceSharp.Abi.EntityHandle player) => 0;
 
         public int TakeHealth(SourceSharp.Abi.EntityHandle player, float health, bool ignoreMaxHealth = false)
         {
-            HealthTaken.Add((player, (int)health));
-            return (int)health;
+            Unbounded.Add(ignoreMaxHealth);
+            int taken = Ceiling is int ceiling ? Math.Min((int)health, ceiling) : (int)health;
+            HealthTaken.Add((player, taken));
+            return taken;
         }
 
         public int MaxAmmo(SourceSharp.Abi.EntityHandle player, TF2.Shared.TFAmmo ammo) => 0;
@@ -1810,6 +1958,36 @@ public class TFProjectileEffectsFacts
         Assert.Equal(ProjectileRig.ProjectileHandle, spawned!.ArgAs<EntityHandle>(0));
     }
 
+    /// <summary>
+    /// A rocket carries the shot the hooks answered, not the script's number
+    /// (<c>SetDamage( GetProjectileDamage() )</c>, tf_weaponbase_gun.cpp:505-793, whose
+    /// first arm is <c>mult_dmg</c>, :909-910): every projectile gun with a damage
+    /// attribute fired at script damage until this was seen on a real enemy.
+    /// </summary>
+    [Fact]
+    public void A_rocket_carries_the_shot_the_hooks_answered()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rig.Directory.Instance = rocket;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_rocketlauncher"), new ShotDamage(112.5f), 0f);
+
+        Assert.Equal(112.5f, rocket.Damage, 0.01f);
+    }
+
+    [Fact]
+    public void A_pipe_carries_the_shot_the_hooks_answered()
+    {
+        var rig = new ProjectileRig();
+        var pipe = rig.Pipebomb();
+        rig.Directory.Instance = pipe;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), new ShotDamage(72f), 0f);
+
+        Assert.Equal(72f, pipe.FullDamage, 0.01f);
+    }
+
     [Fact]
     public void TheRocketLauncherArmsItsRocketAtTheLaunchSpeed()
     {
@@ -1824,6 +2002,24 @@ public class TFProjectileEffectsFacts
         Assert.NotNull(velocity);
         Assert.Equal(TFProjectileDefs.Speed(script.Primary.ProjectileSpeed, TFProjectileDefs.RocketSpeed),
                      velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void ProjectileSpeedScalesTheLaunch()
+    {
+        // mult_projectile_speed on the launcher's item rides the launch
+        // speed before the specialist's remap (tf_weaponbase_rocket.cpp:274-275):
+        // the 0.5 halves the stock 1100 to 550.
+        var rig = new ProjectileRig();
+        var script = Script("tf_weapon_rocketlauncher");
+        rig.Directory.Instance = rig.Rocket();
+        rig.Owners.Item = rig.AttributeItem("mult_projectile_speed", AttributeDescriptionFormat.Percentage, 0.5f);
+
+        rig.Effects.Projectile(Attack(3), script, default, 0f);
+
+        var velocity = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(velocity);
+        Assert.Equal(550f, velocity!.ArgAs<Vector>(1).X, 0.5f);
     }
 
     [Fact]

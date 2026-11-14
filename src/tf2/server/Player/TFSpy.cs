@@ -48,7 +48,8 @@ public sealed class TFSpyComponent(
     TFDamageScopes scopes, IUniformRandom random, TFClassTable classes, TFSpy source,
     TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
     ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
-    ICtfRules? ctf = null, ILagCompensation? lagCompensation = null) : IPlayerComponent
+    ICtfRules? ctf = null, ILagCompensation? lagCompensation = null,
+    ITFPlayerResupply? resupply = null) : IPlayerComponent
 {
     /// <summary><c>TF_TIME_TO_DISGUISE</c> (tf_shareddefs.h:674).</summary>
     public const float TimeToDisguise = 2.0f;
@@ -552,7 +553,8 @@ public sealed class TFSpyComponent(
                 // set_blockbackstab_once zeroes this one backstab and then hides itself, so the
                 // next one lands plain.
                 var blockManager = owners.ManagerOf(trace.Entity.EntryIndex);
-                float backstab = entities.GetHealth(trace.Entity) * 2f;
+                int victimHealth = entities.GetHealth(trace.Entity);   // the heal's base, read before the hit (:210)
+                float backstab = victimHealth * 2f;
                 if (hooks.Int(0, "set_blockbackstab_once", blockManager) != 0)
                 {
                     backstab = 0f;
@@ -567,6 +569,24 @@ public sealed class TFSpyComponent(
                     damage.ApplyAt(trace.Entity, _player, backstab, DamageType.Club,
                                    DamageForceRules.MeleeForce(aim.Forward, backstab),
                                    trace.End);
+
+                // sanguisuge (Conniver's Kunai), stock's CTFKnife::PrimaryAttack
+                // heal arm (tf_weapon_knife.cpp:267-289): when the backstab just
+                // killed the victim, the spy takes health up to three times the
+                // class maximum, the victim's health before the hit as the base
+                // (at least 75). The rune bonus and the reflect-rune zero that
+                // share stock's arm are deferred (docs/plans/tf2/deferred.tsv).
+                if (!enginePlayers.IsAlive(trace.Entity)
+                    && hooks.Int(0, "sanguisuge", owners.ItemOf(_index, TFKnifeHook.KnifeScript)) > 0
+                    && resupply is { } heal)
+                {
+                    int spyHealth = entities.GetHealth(_player);
+                    int newHealth = Math.Min(spyHealth + Math.Max(victimHealth, 75),
+                                             heal.MaxHealth(_player) * 3);
+                    int gained = newHealth - spyHealth;
+                    if (gained > 0)
+                        heal.TakeHealth(_player, gained, ignoreMaxHealth: true);
+                }
 
                 return true;
             }
@@ -627,7 +647,8 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
                           TFSpyCloakNoAttackTimeConVar noAttackTime,
                           TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
                           ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
-                          ICtfRules? ctf = null, ILagCompensation? lagCompensation = null)
+                          ICtfRules? ctf = null, ILagCompensation? lagCompensation = null,
+                          ITFPlayerResupply? resupply = null)
     : IPlayerComponentSource, IOrderedHook, ITFSpyState, ITFConditionHook
 {
     private readonly Dictionary<int, TFSpyComponent> _byIndex = new();
@@ -645,7 +666,8 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     {
         yield return new TFSpyComponent(players, conditions, enginePlayers, entities, world, damage,
                                         hitGroups, scopes, random, classes, this, winners,
-                                        rooms, hooks, owners, sound, disguiseWeapons, ctf, lagCompensation);
+                                        rooms, hooks, owners, sound, disguiseWeapons, ctf, lagCompensation,
+                                        resupply);
     }
 
     internal TFSpyCloakConsumeRateConVar ConsumeRate => consumeRate;

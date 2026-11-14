@@ -51,8 +51,8 @@ namespace TF2.Server.Projectiles;
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFProjectileEffects)])]
 public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirectory directory,
-                                        IEnginePlayers players, TFStickyTray tray, ILog log,
-                                        ITFWeaponOwners owners, IUniformRandom random,
+                                        IEnginePlayers players, TFStickyTray tray, TFFlareTray flareTray,
+                                        ILog log, ITFWeaponOwners owners, IUniformRandom random,
                                         AttributeHooks attributes, ITempEnts temps,
                                         IEnginePrecache precache, IEngineEntityRender render,
                                         TFStickybombConVars stickyConVars)
@@ -104,14 +104,17 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     // speed and capped at 3000. Stock reads the attribute on
                     // the owner entity, a sentry's rocket asking its builder —
                     // the rockets this fires are always a player's.
-                    float speed = Speed(scriptSpeed, TFProjectileDefs.RocketSpeed);
-                    int specialist = attributes.Int(0, "rocket_specialist",
-                                                    owners.ItemOf(attack.Command.OwnerIndex, script.Name));
+                    // mult_projectile_speed rides the launcher's item first,
+                    // before the specialist's remap (:274-275).
+                    IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
+                    float speed = attributes.Float(Speed(scriptSpeed, TFProjectileDefs.RocketSpeed),
+                                                   "mult_projectile_speed", item);
+                    int specialist = attributes.Int(0, "rocket_specialist", item);
                     if (specialist != 0)
                         speed = MathF.Min(speed * TFDamageModifyRules.RemapValClamped(specialist, 1f, 4f, 1.15f, 1.6f),
                                           SpecialistSpeedCap);
 
-                    rocket.ArmedBy(mode.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
+                    rocket.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
                     rocket.FiredBy(owner, forward * speed);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Rocket} created by {owner}"
                           + $" at {Speed(scriptSpeed, TFProjectileDefs.RocketSpeed):F0} u/s\n");
@@ -132,7 +135,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                              TFProjectileDefs.PipeMuzzleUp) is not TFPipebomb pipe)
                         return;
                     pipe.ThrownBy(owner, Lob(forward, speed, right, up),
-                                  mode.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
+                                  shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
                     Spin(pipe, item);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} created by {owner}\n");
                     break;
@@ -156,7 +159,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                                                        "sticky_arm_time", item));
 
                     sticky.ThrownBy(owner, Lob(forward, speed, right, up),
-                                    mode.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
+                                    shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
                     Spin(sticky, item);
 
                     // FireProjectile's cap (tf_weapon_pipebomblauncher.cpp:381-392):
@@ -236,8 +239,8 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     }
 
                     if (Born(TFProjectileEntityNames.Arrow, owner, forward, right, up,
-                             TFProjectileDefs.SyringeMuzzleForward, TFProjectileDefs.SyringeMuzzleRight,
-                             TFProjectileDefs.SyringeMuzzleUp) is not TFArrow arrow)
+                             TFProjectileDefs.ArrowMuzzleForward, TFProjectileDefs.ArrowMuzzleRight,
+                             TFProjectileDefs.ArrowMuzzleUp) is not TFArrow arrow)
                         return;
 
                     // The bow hands its alight flag to the arrow and loses it
@@ -246,10 +249,96 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     attack.Weapon.ArrowAlight = false;
 
                     arrow.ArmedBy(script.Id, script.Name, shot.Critical, lit,
-                                  TFProjectileDefs.ArrowDamage(mode.Damage, charge),
+                                  TFProjectileDefs.ArrowDamage(shot.Damage, charge),
                                   TFProjectileDefs.ArrowGravity(charge));
                     arrow.FiredBy(owner, forward * TFProjectileDefs.ArrowSpeed(charge));
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Arrow} created by {owner}\n");
+                    break;
+                }
+
+            case TFProjectile.HealingBolt:
+                {
+                    // FireArrow's vecOffset (tf_weaponbase_gun.cpp:784): the
+                    // arrow's muzzle, no ducked height to fold.
+                    if (Born(TFProjectileEntityNames.HealingBolt, owner, forward, right, up,
+                             TFProjectileDefs.ArrowMuzzleForward, TFProjectileDefs.ArrowMuzzleRight,
+                             TFProjectileDefs.ArrowMuzzleUp) is not TFHealingBolt bolt)
+                        return;
+
+                    // The crossbow's fixed charge (CTFCrossbow::GetProjectileSpeed,
+                    // tf_weapon_rocketlauncher.cpp:751-754): no ramp to read.
+                    bolt.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, attack.Command.OwnerIndex);
+                    bolt.FiredBy(owner, forward * TFProjectileDefs.CrossbowSpeed);
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.HealingBolt} created by {owner}\n");
+                    break;
+                }
+
+            case TFProjectile.Flare:
+                {
+                    // FireFlare's vecOffset, folded to the ducked height when
+                    // the shooter crouches (tf_weaponbase_gun.cpp:746-750) —
+                    // the rocket's numbers again.
+                    float muzzleUp = owners.DuckingOf(attack.Command.OwnerIndex)
+                        ? TFProjectileDefs.FlareMuzzleUpDucked
+                        : TFProjectileDefs.FlareMuzzleUp;
+                    if (Born(TFProjectileEntityNames.Flare, owner, forward, right, up,
+                             TFProjectileDefs.FlareMuzzleForward, TFProjectileDefs.FlareMuzzleRight,
+                             muzzleUp) is not TFFlare flare)
+                        return;
+
+                    // GetProjectileSpeed (tf_projectile_flare.cpp:617-623) and
+                    // the gravity it flies under (Create, :90-92): the same
+                    // mult_projectile_speed hook carries both.
+                    IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
+                    float speed = attributes.Float(Speed(scriptSpeed, TFProjectileDefs.FlareSpeed),
+                                                   "mult_projectile_speed", item);
+                    float gravity = attributes.Float(TFProjectileDefs.FlareGravity,
+                                                     "mult_projectile_speed", item);
+
+                    // GetFlareGunType (tf_weapon_flaregun.h:63), read once
+                    // for the flight: the modes the impact and the alt-fire
+                    // both ask.
+                    int flareMode = attributes.Int(0, TFProjectileBehaviour.FlareModeAttribute, item);
+
+                    // The shot as the hooks answered it (FireFlare's
+                    // SetDamage(GetProjectileDamage()),
+                    // tf_weaponbase_gun.cpp:758; the multiplier at :909-910):
+                    // the Detonator's damage penalty rides the touch.
+                    flare.ArmedBy(shot.Damage, script.Id, script.Name, shot.Critical, gravity,
+                                  attack.Command.OwnerIndex, flareMode);
+                    flare.FiredBy(owner, forward * speed);
+
+                    // FireFlare's list (tf_weaponbase_gun.cpp:760-763): a
+                    // detonating gun's flare joins it, the alt-fire's fuel.
+                    if (flareMode == TFProjectileBehaviour.FlareDetonate)
+                        flareTray.Register(attack.Command.OwnerIndex, flare);
+
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Flare} created by {owner}"
+                          + $" at {speed:F0} u/s\n");
+                    break;
+                }
+
+            case TFProjectile.Jar:
+            case TFProjectile.JarMilk:
+                {
+                    // The jar's lob is the pipe's own arc read off the plain
+                    // numbers (GetVelocityVector, tf_weapon_jar.cpp:153-157:
+                    // forward at TF_JAR_LAUNCH_SPEED, +200 up, the two-draw
+                    // jitter), from the pipe's muzzle offset (TossJarThink
+                    // :176-182). No hook touches either: the jar's
+                    // GetProjectileSpeed is the bare 1000 (tf_weapon_jar.cpp
+                    // :103), the flight under SetPipebombMode's gravity.
+                    string name = mode.Projectile == TFProjectile.JarMilk
+                        ? TFProjectileEntityNames.JarMilk
+                        : TFProjectileEntityNames.Jar;
+                    if (Born(name, owner, forward, right, up,
+                             TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
+                             TFProjectileDefs.PipeMuzzleUp) is not TFJar jar)
+                        return;
+
+                    jar.ArmedBy(shot.Critical, attack.Command.OwnerIndex);
+                    jar.FiredBy(owner, Lob(forward, TFProjectileDefs.JarSpeed, right, up));
+                    log.Msg($"[TF2/Projectiles] {name} created by {owner}\n");
                     break;
                 }
 
@@ -359,6 +448,15 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script)
     {
+        // The Detonator's alt (CTFFlareGun::SecondaryAttack,
+        // tf_weapon_flaregun.cpp:147-173): every live flare goes, the tray
+        // the fire armed. The behaviour gates the mode; this is its arm.
+        if (script.Id == TFWeaponId.Flaregun)
+        {
+            flareTray.DetonateAll(attack.Command.OwnerIndex);
+            return;
+        }
+
         // CanDestroyStickies (tf_weapon_pipebomblauncher.h:80): the launcher's
         // stickies_detonate_stickies arms each bomb's sphere sweep, before
         // its own Detonate (tf_weapon_pipebomblauncher.cpp:561-567).

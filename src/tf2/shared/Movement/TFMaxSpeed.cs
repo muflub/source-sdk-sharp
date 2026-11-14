@@ -57,7 +57,8 @@ public readonly record struct TFMoveInputs(
 /// </summary>
 /// <param name="Index">The entity index the inputs belong to — the walk's re-entry check is keyed by it.</param>
 public sealed record TFPeerInput(int Index, TFMoveInputs Inputs,
-                                 AttributeHooks? Attribs = null, IAttributeProvider? Manager = null);
+                                 AttributeHooks? Attribs = null, IAttributeProvider? Manager = null,
+                                 IAttributeProvider? ActiveItem = null);
 
 /// <summary>
 /// <c>CTFPlayer::TeamFortress_CalculateMaxSpeed</c>
@@ -99,6 +100,9 @@ public static class TFMaxSpeed
     /// <summary><c>mult_player_movespeed</c>, the final speed's hook (:11003).</summary>
     public const string MoveSpeedAttrib = "mult_player_movespeed";
 
+    /// <summary><c>mult_player_movespeed_active</c>, the held weapon item's hook on the active weapon (:11059).</summary>
+    public const string ActiveSpeedAttrib = "mult_player_movespeed_active";
+
     /// <summary>The player's maximum speed.</summary>
     /// <param name="spyMaxCloakedSpeed"><c>tf_spy_max_cloaked_speed</c>.</param>
     /// <param name="attribs">The side's attribute walk, with the player's own
@@ -109,14 +113,20 @@ public static class TFMaxSpeed
     /// medic's match; null for none, the arm then stands down.</param>
     /// <param name="playerIndex">The caller's entity index, the re-entry
     /// check's key; -1 for a caller with none, the match then unable to run.</param>
+    /// <param name="activeItem">The active weapon's item, the root of the
+    /// <c>mult_player_movespeed_active</c> hook (stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> on the held weapon); null for
+    /// none, the hook arm then the value unchanged.</param>
     public static float Calculate(TFClassTable classes, in TFMoveInputs inputs, float spyMaxCloakedSpeed,
                                   AttributeHooks? attribs = null, IAttributeProvider? playerAttributes = null,
-                                  Func<int, TFPeerInput?>? peers = null, int playerIndex = -1)
-        => Walk(classes, inputs, spyMaxCloakedSpeed, attribs, playerAttributes, peers, playerIndex, null);
+                                  Func<int, TFPeerInput?>? peers = null, int playerIndex = -1,
+                                  IAttributeProvider? activeItem = null)
+        => Walk(classes, inputs, spyMaxCloakedSpeed, attribs, playerAttributes, peers, playerIndex, null, activeItem);
 
     private static float Walk(TFClassTable classes, in TFMoveInputs inputs, float spyMaxCloakedSpeed,
                               AttributeHooks? attribs, IAttributeProvider? playerAttributes,
-                              Func<int, TFPeerInput?>? peers, int playerIndex, HashSet<int>? inFlight)
+                              Func<int, TFPeerInput?>? peers, int playerIndex, HashSet<int>? inFlight,
+                              IAttributeProvider? activeItem)
     {
         TFClass playerClass = inputs.Class;
         if (playerClass == TFClass.Undefined)
@@ -196,8 +206,19 @@ public static class TFMaxSpeed
             {
                 maxfbspeed = MathF.Max(maxfbspeed, Walk(classes, target.Inputs, spyMaxCloakedSpeed,
                                                         target.Attribs, target.Manager, peers,
-                                                        target.Index, inFlight));
+                                                        target.Index, inFlight, target.ActiveItem));
             }
+        }
+
+        // mult_player_movespeed_active (:11058-11063): the held weapon's item,
+        // hooked on the active weapon after the medic's match — the running
+        // Gloves of Running Urgently. The walk starts the mod at one, as the
+        // hook does; only a differing one scales the speed.
+        if (attribs is not null && activeItem is not null)
+        {
+            float itemSpeedMod = attribs.Float(1f, ActiveSpeedAttrib, activeItem);
+            if (itemSpeedMod != 1f)
+                maxfbspeed *= itemSpeedMod;
         }
 
         return maxfbspeed;

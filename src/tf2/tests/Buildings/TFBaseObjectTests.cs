@@ -4,6 +4,7 @@ using TF2.Server.Buildings;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using Xunit;
 
 namespace TF2.Tests.Buildings;
@@ -19,8 +20,9 @@ public sealed class TestBuilding : TFBaseObject
 
     public TestBuilding(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                         IEngineEntityRender render, ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
-                        TF2.Server.Voice.TFConceptSpeech? speech = null)
-        : base(players, announcer, precache, render, purse, carriers, speech) { }
+                        TF2.Server.Voice.TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
+                        AttributeHooks? hooks = null)
+        : base(players, announcer, precache, render, purse, carriers, speech, owners, hooks) { }
 
     public override TFObjectType Type => TFObjectType.Sentrygun;
 }
@@ -229,6 +231,32 @@ public class TFBaseObjectTests
         // a corpse schedules nothing, where a live think keeps the 0.1 s beat.
         Assert.True(building.NextThinkDelay() < 0f,
                     $"a destroyed building kept a think booking ({building.NextThinkDelay()} s)");
+    }
+
+    /// <summary>
+    /// mult_dmg_vs_buildings (stock's CALL_ATTRIB_HOOK_FLOAT_ON_OTHER behind
+    /// the weapon-caused gate, tf_obj.cpp:1922-1927): the held weapon's item
+    /// multiplier rides the health the object loses, and without the item the
+    /// blow lands exactly as asked.
+    /// </summary>
+    [Fact]
+    public void DamageVsBuildingsScalesAWeaponsHitOnABuilding()
+    {
+        // The plain arm first: no item, the blow is the damage asked.
+        var (plainRig, plainBuilding, _) = ABuildingUnderConstruction();
+        EntityHandle plainEnemy = plainRig.AddBuilder(TFTeam.Blue);
+        Assert.Equal(40, BuildingsRig.Hit(plainBuilding, plainEnemy, 40f, DamageType.Bullet));
+
+        // The hook arm: the held weapon's Percentage item scales it (the rig
+        // answers GetIndex with one player index, as the blast facts do).
+        var (rig, building, _) = ABuildingUnderConstruction();
+        rig.Owners.Held[0] = "tf_weapon_shotgun";
+        rig.Owners.Items[0] = rig.AttributeItem("mult_dmg_vs_buildings",
+                                                AttributeDescriptionFormat.Percentage, 1.5f);
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+
+        Assert.Equal(60, BuildingsRig.Hit(building, enemy, 40f, DamageType.Bullet));
+        Assert.True(building.IsDead);   // the scaled blow is the one that kills: 1 health, 60 taken
     }
 
     // ---- the life in the world: the models --------------------------------

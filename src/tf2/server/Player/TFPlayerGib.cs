@@ -9,7 +9,9 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Combat;
+using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Player;
 
@@ -22,10 +24,11 @@ namespace TF2.Server.Player;
 /// <para>
 /// Arms this port does not carry, named rather than silently dropped: the
 /// Mann vs. Machine refusal (this mod has no MvM); the
-/// <c>crit_kill_will_gib</c> and <c>crit_on_hard_hit</c> item attributes
-/// (no item attributes yet — their absence makes the hard-hit gate below
+/// <c>crit_on_hard_hit</c> attribute (its absence makes the hard-hit gate below
 /// permanent, which is stock's own behaviour at the attribute's default); and
 /// the feign-death roll, which lives in the feign's own death path. The
+/// <c>crit_kill_will_gib</c> walk rides on the death hook, over the killing
+/// weapon's item. The
 /// <c>DMG_HALF_FALLOFF</c> arm of the blast gate has no bit in
 /// <see cref="DamageType"/> to spell it with, so the gate is blast alone.
 /// </para>
@@ -36,9 +39,11 @@ public static class TFPlayerGibRule
     /// The gib answer for a death by <paramref name="bits"/> of damage that
     /// left <paramref name="health"/>, under <c>tf_playergib</c>
     /// <paramref name="mode"/> — in stock's order, each arm falling through to
-    /// the next.
+    /// the next; <paramref name="gibOnCrit"/> is the killing weapon's walked
+    /// <c>crit_kill_will_gib</c>.
     /// </summary>
-    public static bool ShouldGib(int mode, DamageType bits, TFCritType crit, TFDamageCustom custom, int health)
+    public static bool ShouldGib(int mode, DamageType bits, TFCritType crit, TFDamageCustom custom, int health,
+                                 bool gibOnCrit = false)
     {
         // tf_playergib != 1 decides alone: 0 never gibbing, 2 always (:10914-10923).
         if (mode != 1)
@@ -49,6 +54,11 @@ public static class TFPlayerGibRule
         // (PlayerCheatCommands.Explode) — the death reads it here once either
         // way, and a corpse does not die twice to un-consume it.
         if ((bits & DamageType.AlwaysGib) != 0)
+            return true;
+
+        // A crit from a weapon holding crit_kill_will_gib always gibs
+        // (tf_player.cpp:10936-10943), the walk answered by the death hook.
+        if (crit != TFCritType.None && gibOnCrit)
             return true;
 
         if (custom == TFDamageCustom.Croc)          // :10945
@@ -77,7 +87,8 @@ public static class TFPlayerGibRule
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords records, IEngineEntities entities,
-    IEntityDirectory directory) : IPlayerDeathHook, IOrderedHook
+    IEntityDirectory directory, AttributeHooks? hooks = null, ITFWeaponOwners? owners = null)
+    : IPlayerDeathHook, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.PlayerGib;
 
@@ -90,8 +101,14 @@ public sealed class TFPlayerGib(TFPlayerGibConVar playerGib, TFDamageRecords rec
         // stock's fall-through: an unrecorded blow is none of the arms.
         TFHitRecord? hit = records.LastHit(death.EntIndex);
 
+        // The killing weapon's crit_kill_will_gib, stock's ON_OTHER hook over
+        // the hit's weapon entity (tf_player.cpp:10939-10940): the killing
+        // player's item under the hit's weapon name answers the walk.
+        bool gibOnCrit = hit is { Crit: not TFCritType.None } w && hooks is { } walk && owners is { } holder
+                         && walk.Int(0, "crit_kill_will_gib", holder.ItemOf(w.Attacker.EntryIndex, w.WeaponName)) > 0;
+
         body.State.Gib = TFPlayerGibRule.ShouldGib(playerGib.Value,
             hit?.Bits ?? DamageType.None, hit?.Crit ?? TFCritType.None,
-            hit?.Custom ?? TFDamageCustom.None, entities.GetHealth(death.Player));
+            hit?.Custom ?? TFDamageCustom.None, entities.GetHealth(death.Player), gibOnCrit);
     }
 }

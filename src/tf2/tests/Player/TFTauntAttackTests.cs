@@ -1,9 +1,11 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Shared;
 using SourceSharp.Tests;
 
 using TF2.Server.Combat;
 using TF2.Server.Player;
+using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
@@ -78,7 +80,7 @@ public sealed class TFTauntAttackTests
         public TFPlayerCarriers Carriers { get; } = new();
         public TFDamageScopes Scopes { get; } = new();
         public TauntDamage Damage { get; }
-        public TFWeaponScripts Scripts { get; } = new(new RecordingLog(), WeaponFixtures.ShippedWithClasses());
+        public TFWeaponScripts Scripts { get; } = new(new RecordingLog(), WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()));
 
         /// <summary>The tick's fighter, alive: the fired gate's leg a fact can drop.</summary>
         public bool Alive { set => Players.All[Fighter].Alive = value; }
@@ -94,14 +96,14 @@ public sealed class TFTauntAttackTests
 
         public TFTauntAttack Attack { get; }
 
-        public TauntRig(TFClass playerClass)
+        public TauntRig(TFClass playerClass, TF2.Server.Weapons.ITFLunchboxEffects? lunchbox = null)
         {
             (Fighter, _) = Players.Add(TFTeam.Red, playerClass);
             (Victim, _) = Players.Add(TFTeam.Blue, TFClass.HeavyWeapons);
             Players.All[Fighter].Conditions.Add(TFCond.Taunting);
 
             Damage = new TauntDamage(Scopes);
-            Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities());
+            Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities(), lunchbox);
             Attack.Attach(Fighter);
 
             Engine.Returns("Networking.EntityGetState", EntityState.Solid);
@@ -411,5 +413,62 @@ public sealed class TFTauntAttackTests
         pyro.Attack.Tick(101.9f);
 
         Assert.Empty(pyro.Damage.Hits);
+    }
+
+    [Fact]
+    public void TheSandvichArmBitesTheHeldLunchboxAndKeepsEating()
+    {
+        // The weapon-keyed arm (:17933-17947): any scene while the lunchbox is
+        // the hand, the heavy's eat — then a bite a second on (:18564-18566),
+        // till the taunt ends and the gate at the head drops the chain.
+        var lunch = new LunchboxStub();
+        var rig = new TauntRig(TFClass.HeavyWeapons, lunch);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_lunchbox");
+        rig.Attack.Arm("scenes/player/heavy/low/taunt01.vcd", 100f);
+
+        rig.Attack.Tick(101.1f);
+        Assert.Equal(new[] { rig.Fighter.EntryIndex }, lunch.Bites);
+
+        rig.Attack.Tick(102.2f);
+        Assert.Equal(2, lunch.Bites.Count);
+
+        rig.Players.All[rig.Fighter].Conditions.Remove(TFCond.Taunting);
+        rig.Attack.Tick(103.3f);
+        Assert.Equal(2, lunch.Bites.Count);
+    }
+
+    [Fact]
+    public void TheEatKeepsItsClockThroughALunchboxlessBite()
+    {
+        // :18564's re-arm sits outside the cast's if (:18557-18562): the bite
+        // needs the lunchbox, the next one is armed regardless — the hand put
+        // away mid-taunt is caught again on the following bite.
+        var lunch = new LunchboxStub();
+        var rig = new TauntRig(TFClass.HeavyWeapons, lunch);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_lunchbox");
+        rig.Attack.Arm("scenes/player/heavy/low/taunt01.vcd", 100f);
+
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_scattergun");
+        rig.Attack.Tick(101.1f);
+        Assert.Empty(lunch.Bites);
+
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_lunchbox");
+        rig.Attack.Tick(102.2f);
+        Assert.Equal(new[] { rig.Fighter.EntryIndex }, lunch.Bites);
+    }
+
+    /// <summary>The bite counter the eat arm's facts read.</summary>
+    private sealed class LunchboxStub : TF2.Server.Weapons.ITFLunchboxEffects
+    {
+        public List<int> Bites { get; } = [];
+        public List<int> Drinks { get; } = [];
+
+        public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+        public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+
+        public void Bite(int playerIndex) => Bites.Add(playerIndex);
+
+        public void Drink(int playerIndex) => Drinks.Add(playerIndex);
     }
 }

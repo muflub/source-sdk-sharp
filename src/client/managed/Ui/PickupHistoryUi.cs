@@ -1,4 +1,5 @@
 using SourceSharp.Client.Ui;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Vgui;
 
@@ -26,7 +27,8 @@ public sealed class PickupHistoryUi(PickupHistory history, LocalPickupHistory lo
 
         bool caution = e.Type switch
         {
-            PickupHistory.Kind.Weapon => e.Id is >= 0 and < 32 && (local.EmptyWeapons & (1u << e.Id)) != 0,
+            PickupHistory.Kind.Weapon => e.Id is >= 0 and < PlayerNetState.WeaponMaskBits
+                                         && (local.EmptyWeapons & ((UInt128)1 << e.Id)) != 0,
             PickupHistory.Kind.AmmoDenied => true,
             _ => false,
         };

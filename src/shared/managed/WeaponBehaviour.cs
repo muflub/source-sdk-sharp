@@ -195,6 +195,22 @@ public interface IWeaponBehaviour
                            float secondsSincePreviousDeploy) => duration;
 
     /// <summary>
+    /// The seconds the item meter takes to fill from empty for this row and
+    /// player — the question the active tick already answers through the
+    /// row's own charge words, asked here for the weapons NOT in the hands:
+    /// stock charges every carried item's meter each frame, held or holstered
+    /// (<c>CTFPlayerShared::UpdateItemChargeMeters</c>,
+    /// <c>tf_player_shared.cpp:7870-7904</c>), and the side restoring a
+    /// holstered meter — the server's deploy and the client's mirror alike —
+    /// advances the stored pair by this many seconds per second, so both
+    /// write the same bytes. Zero or less is no meter: the row does not
+    /// recharge, and nothing is restored. The answer must come from the row
+    /// and the owner index alone, as <see cref="ModifyDeployTime"/>'s: the
+    /// restored meter is predicted state.
+    /// </summary>
+    float ItemMeterSeconds(in WeaponType type, int ownerIndex) => 0f;
+
+    /// <summary>
     /// Asked when the weapon comes into the hands, after the side has set the
     /// deploy's timers and sent the draw: stock's per-class Deploy tail.
     /// </summary>

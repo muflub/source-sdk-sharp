@@ -102,6 +102,9 @@ public static class TFClientConditionOrders
 
     /// <summary>The blast jump's feet smoke (the smoke arm).</summary>
     public const int BlastJumpSmoke = Band + 7;
+
+    /// <summary>The wearables' disguise re-skin (the wearables arm).</summary>
+    public const int WearableSkins = Band + 8;
 }
 
 /// <summary>The TF2 client's condition seam: the driver's chain, which only a registrar can name.</summary>

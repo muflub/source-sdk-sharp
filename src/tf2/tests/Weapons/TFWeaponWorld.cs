@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
@@ -47,12 +48,22 @@ internal sealed class RecordingArms : IWeaponArms
         Bullets.Add((type.Name, pellets, spreadDegrees, shot, fixedPellets));
     public void MeleeSwing(in WeaponType type) => throw new InvalidOperationException("the core swings a TF weapon with its damage");
     public void MeleeSwing(in WeaponType type, ShotDamage shot) => Swings.Add((type.Name, shot));
+    public int SwingsShown { get; private set; }
+    public void SwingShown() => SwingsShown++;
+    public readonly List<SourceSharp.Shared.Anim.WeaponGestureTrigger> Gestures = new();
+
+    public void GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger trigger) => Gestures.Add(trigger);
     public void Launch(in WeaponType type, string projectile, float speed, bool thrown) => Launches.Add(projectile);
     public int LookupSequence(WeaponAnim anim)
         => Sequences.TryGetValue(anim, out int sequence) ? sequence : anim == WeaponAnim.Reload && ReloadSeconds > 0f ? 7 : -1;
     public float AnimDuration(WeaponAnim anim) => anim == WeaponAnim.Reload ? ReloadSeconds : 0f;
     public void SetFov(int fov, float time) => Fovs.Add((fov, time));
     public void MuzzleFlash(in WeaponType type, string particleEffect) => Flashes.Add((type.Name, particleEffect));
+
+    /// <summary>How often the hands were asked for the next best weapon (the lunchbox throw's tail).</summary>
+    public int NextBestSwitches;
+
+    public bool SwitchToNextBest() { NextBestSwitches++; return true; }
 }
 
 /// <summary>Records what the TF effects were asked to do.</summary>
@@ -74,6 +85,17 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public readonly List<string> Speeches = new();
     public int SceneClears;
     public readonly List<string> Firings = new();
+    public readonly List<(string Weapon, int Mode)> LunchboxDrops = new();
+    public int LunchboxEats;
+    public readonly List<(int Owner, int BuffType)> Buffs = new();
+
+    /// <summary>
+    /// The server's lunchbox side the eat is handed to, the way
+    /// <see cref="TFWeaponEffects"/> hands it: a real-press fact sets it and
+    /// the eat runs the whole taunt chain behind the count. Unset keeps the
+    /// record-only shape every counting fact reads.
+    /// </summary>
+    public ITFLunchboxEffects? LunchboxEffects;
 
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) => Projectiles.Add((script.Name, shot, charge));
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Detonations++;
@@ -88,6 +110,8 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     }
 
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) => SelectLasts.Add(script.Name);
+    public readonly List<float> SwingStarts = new();
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange) => SwingStarts.Add(swingRange);
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) => Swings.Add((script.Name, shot, trace));
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) => Sweeps.Add((projectiles, critical));
     public void RingOfFire(in WeaponAttackContext attack, int damage) => Rings.Add(damage);
@@ -96,6 +120,21 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) => Speeches.Add(concept);
     public void ClearWeaponFireScene(in WeaponAttackContext attack) => SceneClears++;
     public void FiringSpeech(in WeaponAttackContext attack) => Firings.Add("TLK_MINIGUN_FIREWEAPON");
+    public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        LunchboxEats++;
+        LunchboxEffects?.LunchboxEat(in attack, script);
+    }
+
+    public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) => LunchboxDrops.Add((script.Name, mode));
+
+    public void DeployBuff(in WeaponAttackContext attack, int buffType) => Buffs.Add((attack.Command.OwnerIndex, buffType));
+
+    public readonly List<(int Owner, int BuffType)> Horns = new();
+    public readonly List<(int Owner, int BuffType)> Raises = new();
+
+    public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) => Horns.Add((attack.Command.OwnerIndex, buffType));
+    public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) => Raises.Add((attack.Command.OwnerIndex, buffType));
 }
 
 /// <summary>What the builder's placement was asked, for the builder's facts.</summary>
@@ -118,6 +157,7 @@ internal sealed class RecordingBuilderPlacement : ITFBuilderPlacement
 internal sealed class RecordingSapperState : ITFSapperState
 {
     public readonly List<string> Asked = new();
+    public readonly List<(int Owner, float Range, float Amount)> Melecs = new();
 
     /// <summary>What the next place answers; a fact turns it for the refused arm.</summary>
     public bool Places { get; set; } = true;
@@ -128,6 +168,23 @@ internal sealed class RecordingSapperState : ITFSapperState
     { Asked.Add($"findsappable {ownerIndex}"); building = EntityHandle.None; point = Vector.Zero; return false; }
 
     public bool WrenchSmack(int ownerIndex, float range) { Asked.Add($"wrench {ownerIndex} {range}"); return true; }
+
+    public bool MeleeSmack(int ownerIndex, float range, float amount)
+    { Melecs.Add((ownerIndex, range, amount)); return true; }
+}
+
+/// <summary>What the Wrangler's triggers asked, in order: the seam recorded.</summary>
+internal sealed class RecordingSentryWrangle : ITFSentryWrangle
+{
+    public readonly List<string> Asked = new();
+
+    public void Aim(int ownerIndex) => Asked.Add($"aim {ownerIndex}");
+
+    public void Fire(int ownerIndex) => Asked.Add($"fire {ownerIndex}");
+
+    public void FireRockets(int ownerIndex) => Asked.Add($"rockets {ownerIndex}");
+
+    public void Release(int ownerIndex) => Asked.Add($"release {ownerIndex}");
 }
 
 /// <summary>The predicted carrier a replay arm reads (the client's own).</summary>
@@ -163,6 +220,9 @@ internal sealed class TFWeaponWorld
     public RecordingEffects Effects { get; } = new();
     public RecordingBuilderPlacement Builder { get; } = new();
     public RecordingSapperState Sapper { get; } = new();
+
+    /// <summary>What the Wrangler's triggers asked, for its facts.</summary>
+    public RecordingSentryWrangle Wrangle { get; } = new();
     public RecordingLog Log { get; } = new();
 
     /// <summary>The airblast's ammunition convar, bound to its declared
@@ -175,24 +235,31 @@ internal sealed class TFWeaponWorld
     public AmmoCatalog Ammo { get; }
     public WeaponLogic Machine { get; }
 
-    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, hooks) { }
+    public TFWeaponWorld(params ITFWeaponHook[] hooks) : this(null, null, null, null, hooks) { }
+
+    /// <summary>A world over the extras set too (<see cref="WeaponFixtures.WithExtras"/>): the facts whose
+    /// weapon lives in TestData/weapons-extra.</summary>
+    public TFWeaponWorld(bool extras)
+        : this(null, null, null, extras ? WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()) : null,
+               Array.Empty<ITFWeaponHook>()) { }
 
     /// <summary>A world whose parts carry a predicted-data fake (the client's replay arm).</summary>
-    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, hooks) { }
+    public TFWeaponWorld(FakePredictedData? data, params ITFWeaponHook[] hooks) : this(data, null, null, null, hooks) { }
 
     /// <summary>A world whose parts carry a bound convar (the fixed spread's facts).</summary>
     public TFWeaponWorld(FakePredictedData? data = null, TFUseFixedWeaponspreadsConVar? fixedSpread = null,
-                         ITFAutoReload? autoReload = null, params ITFWeaponHook[] hooks)
+                         ITFAutoReload? autoReload = null, TFClassTableTests.Files? files = null,
+                         params ITFWeaponHook[] hooks)
     {
-        var files = WeaponFixtures.ShippedWithClasses();
-        var scripts = new TFWeaponScripts(Log, files);
-        var types = new TFWeaponTypes(scripts, new TFClassTable(Log, files), new ItemSchema(files, Log));
+        var shipped = files ?? WeaponFixtures.ShippedWithClasses();
+        var scripts = new TFWeaponScripts(Log, shipped);
+        var types = new TFWeaponTypes(scripts, new TFClassTable(Log, shipped), new ItemSchema(shipped, Log));
         var chain = TFWeaponHookChain.Of([new TFAttributeWeaponHook(new AttributeHooks()), new TFCritBoostHook(),
                                           new TFKingReloadHook(), .. hooks]);
 
         Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, Effects, Builder, data,
                                   Round, fixedSpread: fixedSpread, autoReload: autoReload,
-                                  flamethrowerBurstammo: Burstammo, sapper: Sapper);
+                                  flamethrowerBurstammo: Burstammo, sapper: Sapper, sentryWrangle: Wrangle);
         Catalog = new WeaponCatalog(() => [types], Log);
         Behaviours = new WeaponBehaviours(() => [new TFWeaponBehaviours(Parts)], Log);
         Ammo = new AmmoCatalog(() => [new TFAmmoTypes()], Log);

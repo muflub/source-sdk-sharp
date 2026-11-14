@@ -5,6 +5,7 @@ using TF2.Server;
 using TF2.Server.Projectiles;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Tests.Weapons;
 
 using Xunit;
@@ -538,6 +539,60 @@ public class TFAirBlastFacts
         Assert.Equal(FlameRig.Victim, removed.Player);
         Assert.Equal(TFCond.Burning, removed.Cond);
         Assert.Null(rig.Engine.Last("Entities.ApplyVelocityImpulse"));
+    }
+
+    [Fact]
+    public void ExtinguishingATeammateRestoresHealthWhenSet()
+    {
+        // extinguish_restores_health (tf_weapon_flamethrower.cpp:1624-1643):
+        // the hook value heals the blaster, and player_healonhit names the
+        // amount, the healed edict and the firing item's defindex (-1 here,
+        // a bare hook item).
+        var rig = new FlameRig();
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        Teams(rig, targetTeam: 2, blasterTeam: 2); // the same team
+        rig.Conditions.Grant(FlameRig.Victim, TFCond.Burning);
+        rig.Engine.ReturnsEachCall("GameEvents.EventCreate", () => new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+        rig.Owners.Items[3] = rig.AttributeItem("extinguish_restores_health",
+                                                AttributeDescriptionFormat.Additive, 25f);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        var healed = Assert.Single(rig.Health.HealthTaken);
+        Assert.Equal(FlameRig.Player, healed.Who);
+        Assert.Equal(25, healed.Amount);
+
+        var created = rig.Engine.Last("GameEvents.EventCreate");
+        Assert.NotNull(created);
+        Assert.Equal("player_healonhit", created!.ArgAs<string>(0));
+        var sets = rig.Engine.Calls.Where(c => c.Member == "GameEvents.EventSetInt").ToList();
+        Assert.Equal(
+            new (string, int)[] { ("amount", 25), ("entindex", 1), ("weapon_def_index", -1) },
+            sets.Select(c => (c.ArgAs<string>(1), c.ArgAs<int>(2))).ToArray());
+        Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
+    }
+
+    [Fact]
+    public void AStockFlareRestoresNothing()
+    {
+        // Stock's answer: no item, no hooks — the extinguish lands, but with
+        // nothing healed and no player_healonhit fired (:1628's gate closes
+        // on an unset attribute).
+        var rig = new FlameRig();
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        Teams(rig, targetTeam: 2, blasterTeam: 2); // the same team
+        rig.Conditions.Grant(FlameRig.Victim, TFCond.Burning);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        Assert.Single(rig.Conditions.Removed);
+        Assert.Empty(rig.Health.HealthTaken);
+        Assert.Equal(0, rig.Engine.CountOf("GameEvents.EventCreate"));
     }
 
     [Fact]

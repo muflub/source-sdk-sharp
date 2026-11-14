@@ -150,6 +150,8 @@ public sealed class TFConVarsTests
         // stage 2.7's damage layer: tf_player_shared.cpp:170 (shared), tf_gamerules.cpp:733-734 and
         // :13366 (#ifdef GAME_DLL), server/tf/tf_player.cpp:197 and :8791 (a server file).
         { "tf_damage_disablespread", PlayerShared, StockSide.Both },
+        // the drink's dead time: tf_player_shared.cpp:173 (shared), read by the scout raise.
+        { "tf_scout_energydrink_consume_rate", PlayerShared, StockSide.Both },
         { "tf_weapon_criticals_distance_falloff", TFRules, StockSide.Server },
         { "tf_weapon_minicrits_distance_falloff", TFRules, StockSide.Server },
         { "tf_fall_damage_disablespread", TFRules, StockSide.Server },
@@ -157,6 +159,10 @@ public sealed class TFConVarsTests
         { "tf_debug_damage", TFPlayer, StockSide.Server },
         // stage 2.3's gib rule: tf_player.cpp:188 (server), the ShouldGib mode.
         { "tf_playergib", TFPlayer, StockSide.Server },
+        // the Gloves' drain floor and deploy cost: tf_player.cpp:273-274 (server),
+        // read by GetMaxHealthForBuffing at :14306-14327.
+        { "tf_maxhealth_drain_hp_min", TFPlayer, StockSide.Server },
+        { "tf_maxhealth_drain_deploy_cost", TFPlayer, StockSide.Server },
         // stage 2.12's cloaked spy: tf_gamerules.cpp:690, inside the GAME_DLL block (672-741).
         { "tf_stealth_damage_reduction", TFRules, StockSide.Server },
         // stage 2.14's humans' team: tf_gamerules.cpp:838, inside the GAME_DLL block (834+).
@@ -277,6 +283,9 @@ public sealed class TFConVarsTests
         // the sentry's shells: tf_obj_sentrygun.cpp:134 (a server file), "16",
         // CHEAT | DEVELOPMENTONLY, no help.
         { "tf_sentrygun_damage", SentryGun, StockSide.Server },
+        // the mini's shells: tf_obj_sentrygun.cpp:135 (a server file), "8",
+        // CHEAT | DEVELOPMENTONLY, no help.
+        { "tf_sentrygun_mini_damage", SentryGun, StockSide.Server },
         // the sapper's drain: tf_obj_sapper.cpp:43 (a server file), "25", no flags.
         { "obj_sapper_amount", Sapper, StockSide.Server },
         // the airblast's arm: tf_weapon_flamethrower.cpp:84, inside GAME_DLL, "1", CHEAT.

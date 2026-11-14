@@ -157,6 +157,27 @@ public static class TFProjectileDefs
         => TFRadiusDamage.RemapClamped(charge, 0f, ArrowChargeTime, 0.5f, 0.1f);
 
     /// <summary>
+    /// The arrow's — and the healing bolt's — muzzle offset
+    /// (<c>CTFWeaponBaseGun::FireArrow</c>'s <c>vecOffset</c>,
+    /// <c>tf_weaponbase_gun.cpp:784</c>): no ducked height, stock's arrow
+    /// spawn reads none.
+    /// </summary>
+    public const float ArrowMuzzleForward = 23.5f;
+    public const float ArrowMuzzleRight = -8f;
+    public const float ArrowMuzzleUp = -3f;
+
+    /// <summary>
+    /// The crossbow's flight, its fixed charge answer: stock's
+    /// <c>CTFCrossbow::GetProjectileSpeed</c> and <c>.GetProjectileGravity</c>
+    /// (<c>tf_weapon_rocketlauncher.cpp:751-762</c>) remap the constant 0.75 —
+    /// "Temp, if we want to ramp" — so the speed is
+    /// <c>RemapValClamped(0.75, 0, 1, 1800, 2600)</c> and the gravity
+    /// <c>RemapValClamped(0.75, 0, 1, 0.5, 0.1)</c>.
+    /// </summary>
+    public const float CrossbowSpeed = 2400f;
+    public const float CrossbowGravity = 0.2f;
+
+    /// <summary>
     /// InitGrenade's <c>SetElasticity( 0.45f )</c>
     /// (<c>tf_weaponbase_grenadeproj.cpp:247</c>) — not the
     /// <c>TF_WEAPON_PIPEBOMB_ELASTICITY</c> define (the same 0.45), which no
@@ -214,6 +235,43 @@ public static class TFProjectileDefs
     /// <summary><c>CTFBaseRocket</c>'s model (<c>models/weapons/w_models/w_rocket.mdl</c>).</summary>
     public const string RocketModel = "models/weapons/w_models/w_rocket.mdl";
 
+    /// <summary><c>FLARE_MODEL</c> (<c>tf_projectile_flare.cpp:18</c>).</summary>
+    public const string FlareModel = "models/weapons/w_models/w_flaregun_shell.mdl";
+
+    /// <summary><c>FLARE_GRAVITY</c> (<c>tf_projectile_flare.cpp:19</c>).</summary>
+    public const float FlareGravity = 0.3f;
+
+    /// <summary><c>FLARE_SPEED</c> (<c>tf_projectile_flare.cpp:20</c>), the base of <c>GetProjectileSpeed</c> (:617-623).</summary>
+    public const float FlareSpeed = 2000f;
+
+    /// <summary>How long a world-struck flare sticks before it goes (<c>m_flImpactTime</c>, <c>tf_projectile_flare.cpp:356</c>).</summary>
+    public const float FlareStickTime = 0.1f;
+
+    /// <summary>
+    /// <c>TF_FLARE_DET_RADIUS</c> (<c>tf_weaponbase_rocket.h:27</c>): the
+    /// detonating flare's blast, the <c>mult_explosion_radius</c> hook over it
+    /// (<c>GetRadius</c>, <c>tf_projectile_flare.cpp:452-457</c>).
+    /// </summary>
+    public const float FlareDetRadius = 110f;
+
+    /// <summary>
+    /// <c>TF_FLARE_RADIUS_FOR_FJS</c> (<c>tf_weaponbase_rocket.h:28</c>): the
+    /// radius the flare's own pass always runs at (<c>Explode_Air</c>'s
+    /// <c>CTFRadiusDamageInfo</c>, <c>tf_projectile_flare.cpp:420</c>).
+    /// </summary>
+    public const float FlareJumpRadius = 100f;
+
+    /// <summary>
+    /// The flare gun's muzzle offset (<c>FireFlare</c>'s <c>vecOffset</c>,
+    /// <c>tf_weaponbase_gun.cpp:746</c>) — the rocket's numbers again.
+    /// </summary>
+    public const float FlareMuzzleForward = 23.5f;
+    public const float FlareMuzzleRight = 12f;
+    public const float FlareMuzzleUp = -3f;
+
+    /// <summary>The flare's crouched muzzle height (<c>GetFlags() &amp; FL_DUCKING</c>, :747-750).</summary>
+    public const float FlareMuzzleUpDucked = 8f;
+
     /// <summary>
     /// The rocket's muzzle offset along the shooter's (forward, right, up):
     /// <c>vecOffset</c>, <c>CTFWeaponBaseGun::FireRocket</c>,
@@ -264,6 +322,29 @@ public static class TFProjectileDefs
     /// </summary>
     public const float PipeSpinRoll = 600f;
     public const int PipeSpinPitchMax = 1200;
+
+    /// <summary>The jars' models: <c>TF_WEAPON_PEEJAR_MODEL</c> and <c>TF_WEAPON_MILKJAR_MODEL</c> (<c>tf_weapon_jar.cpp:86, 88</c>), the spawned jar's <c>SetModel</c>s (:283, :854). The festive and bread-monster faces are the item's own model rows.</summary>
+    public const string JarModel = "models/weapons/c_models/urinejar.mdl";
+    public const string JarMilkModel = "models/workshop/weapons/c_models/c_madmilk/c_madmilk.mdl";
+
+    /// <summary><c>TF_JAR_LAUNCH_SPEED</c> (<c>tf_weapon_jar.h:31</c>), the base of <c>GetProjectileSpeed</c> (:103-109).</summary>
+    public const float JarSpeed = 1000f;
+
+    /// <summary><c>JAR_EXPLODE_RADIUS</c> (<c>tf_weapon_jar.h:34</c>), the splashed radius.</summary>
+    public const float JarRadius = 200f;
+
+    /// <summary>The jar's seconds on a victim: <c>JarExplode</c>'s <c>AddCond(·, 10.0f, ·)</c> (<c>tf_weapon_jar.cpp:479</c>).</summary>
+    public const float JarDuration = 10f;
+
+    /// <summary>The jar's spin: <c>GetAngularImpulse</c>'s roll about x (<c>tf_weapon_jar.h:66</c>).</summary>
+    public const float JarSpinRoll = 300f;
+
+    /// <summary>The impact particle each face sheds (<c>JarExplode</c>'s effect, <c>tf_weapon_jar.cpp:458-462</c>).</summary>
+    public const string JarImpactEffect = "peejar_impact";
+    public const string JarMilkImpactEffect = "peejar_impact_milk";
+
+    /// <summary><c>TF_WEAPON_PEEJAR_EXPLODE_SOUND</c> (<c>tf_weapon_jar.h:35</c>), broadcast at the break.</summary>
+    public const string JarExplodeSound = "Jar.Explode";
 }
 
 /// <summary>

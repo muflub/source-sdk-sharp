@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using Xunit;
@@ -19,6 +20,19 @@ public sealed class TFShellBehaviourTests
     private const int Attack2 = (int)InputButtons.Attack2;
     private const float Tick = 0.015f;
     private static int NoCrit => TFWeaponWorld.GunSeed(200, 10000);
+
+    private static int _nextDef = 5400;
+
+    /// <summary>An item holding one attribute under the named hook class (the deploy-time facts' shape).</summary>
+    private static IAttributeProvider ItemWith(string hook, AttributeDescriptionFormat format, float value)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(_nextDef++, "attr " + _nextDef, hook, format,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
+    }
 
     [Fact]
     public void A_rocket_is_one_round_at_ninety_asked_of_the_server()
@@ -218,6 +232,32 @@ public sealed class TFShellBehaviourTests
         Assert.Empty(world.Arms.Flashes);
     }
 
+    /// <summary>
+    /// The shipped Backburner's burst into a wall rolls no random crit: item
+    /// 40's <c>crit mod disabled hidden</c> is 0 over class
+    /// <c>mult_crit_chance</c>, so the rapid-fire roll's chance is nought
+    /// (<c>tf_weaponbase.cpp:1680, 1693</b>) and the burst's every tick is
+    /// plain — the rear-crit is the collide's (<c>set_flamethrower_back_crit</c>),
+    /// never the tick's.
+    /// </summary>
+    [Fact]
+    public void The_backburners_burst_rolls_no_random_crit_through_the_shipped_crit_mod()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.ByName[TFWeaponWorld.Owner] = new Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_flamethrower"] =
+                ItemWith("mult_crit_chance", AttributeDescriptionFormat.Percentage, 0f),
+        };
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 400);
+
+        for (int k = 0; k < 84; k++)
+            world.Run(w, vm, Attack, 10f + k * 0.03f, NoCrit);
+
+        Assert.NotEmpty(world.Effects.FlameTicks);
+        Assert.All(world.Effects.FlameTicks, f => Assert.False(f.Shot.Critical));
+    }
+
     [Fact]
     public void The_flamethrower_burns_fourteen_rounds_a_second_through_a_remainder()
     {
@@ -260,6 +300,150 @@ public sealed class TFShellBehaviourTests
 
         WeaponFixtures.Says(WeaponFixtures.Text("tf_weapon_flamethrower"), "TimeFireDelay", "0.04");
         Assert.Equal(10.02f, w.NextPrimaryAttack, 4);
+    }
+
+    [Fact]
+    public void The_flames_first_puff_asks_the_wind_up_and_nothing_else_does()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack, 10f, NoCrit);
+        Assert.Equal(new[] { SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp }, world.Arms.Gestures);
+
+        // The burn's own commands ask no gesture: the PRE was the start's.
+        world.Run(w, vm, Attack, 10.015f, NoCrit);
+        Assert.Equal(new[] { SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp }, world.Arms.Gestures);
+    }
+
+    [Fact]
+    public void The_burns_attack_pose_rearms_every_second_and_a_half()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+        void Burn(float until)
+        {
+            for (float t = 10.015f; t < until; t += Tick)
+                world.Run(w, vm, Attack, t, NoCrit);
+        }
+
+        Burn(11.0f);
+        // The STARTFIRING hand-over stamps the clock (:771); the next command
+        // past it fires the loop's pose, the next re-arm 1.4 s on (:777-781).
+        Assert.Equal(1, world.Arms.Gestures.Count(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.SustainedFire));
+
+        Burn(12.0f);
+        Assert.Equal(2, world.Arms.Gestures.Count(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.SustainedFire));
+    }
+
+    [Fact]
+    public void The_release_asks_the_wind_down_once()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+        for (float t = 10.015f; t < 10.3f; t += Tick)
+            world.Run(w, vm, Attack, t, NoCrit);
+
+        world.Run(w, vm, 0, 10.3f, NoCrit);
+        Assert.Equal(new[] { SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown },
+                     world.Arms.Gestures.Where(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown));
+
+        // The idle commands after it ask nothing further.
+        world.Run(w, vm, 0, 10.315f, NoCrit);
+        Assert.Equal(1, world.Arms.Gestures.Count(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown));
+    }
+
+    [Fact]
+    public void Running_dry_with_the_trigger_held_asks_the_wind_down_once()
+    {
+        // Stock's release arm is the else of "alive, trigger and ammo"
+        // (tf_weapon_flamethrower.cpp:599, :604-608): the empty gun takes it too.
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 8);
+        for (float t = 10.015f; t < 13f; t += Tick)
+            world.Run(w, vm, Attack, t, NoCrit);
+
+        Assert.Equal(0, w.Reserve);
+        Assert.Equal(1, world.Arms.Gestures.Count(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown));
+    }
+
+    [Fact]
+    public void The_airblast_asks_the_secondary_as_the_blast_lands()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        int blast = new TFFlamethrowerBehaviour(world.Parts).AirBlastAmmo;
+        Assert.Equal(200 - blast, w.Reserve);
+        Assert.Equal(new[] { SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary }, world.Arms.Gestures);
+    }
+
+    /// <summary>
+    /// <c>mult_airblast_cost</c> (<c>CTFFlameThrower::SecondaryAttack</c>,
+    /// tf_weapon_flamethrower.cpp:1192-1194): the burst ammo walks the item's
+    /// percentage and the product lands in the int member as
+    /// <c>RoundFloatToInt</c> rounds. The Backburner's 2.5 over the convar's
+    /// 20 is 50 — and the one number is both the reserve check and the spend.
+    /// </summary>
+    [Fact]
+    public void The_airblast_costs_the_scaled_rounds()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] =
+            ItemWith("mult_airblast_cost", AttributeDescriptionFormat.Percentage, 2.5f);
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Equal(150, w.Reserve);
+    }
+
+    /// <summary>
+    /// The check sees the scaled number too: a reserve exactly one under the
+    /// scaled cost refuses the blast, the spend and all (:1192).
+    /// </summary>
+    [Fact]
+    public void The_scaled_blast_refuses_at_one_short_of_its_cost()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] =
+            ItemWith("mult_airblast_cost", AttributeDescriptionFormat.Percentage, 2.5f);
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 49);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Equal(49, w.Reserve);
+    }
+
+    /// <summary>With no item on the gun the convar's rounds stand: twenty.</summary>
+    [Fact]
+    public void The_plain_airblast_still_costs_the_convars_rounds()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Equal(180, w.Reserve);
+    }
+
+    /// <summary>
+    /// Stock assigns the product to <c>int iAmmoPerShot</c>
+    /// (tf_weapon_flamethrower.cpp:1194), which truncates: 20 * 1.33 is 26.6, so 26.
+    /// </summary>
+    [Fact]
+    public void The_scaled_cost_truncates()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] =
+            ItemWith("mult_airblast_cost", AttributeDescriptionFormat.Percentage, 1.33f);
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 200);
+
+        world.Run(w, vm, Attack2, 10f, NoCrit);
+
+        Assert.Equal(174, w.Reserve);
     }
 
     [Fact]

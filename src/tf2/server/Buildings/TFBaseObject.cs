@@ -13,6 +13,7 @@ using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Buildings;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -70,7 +71,8 @@ public sealed class TFObjectAnnouncer(ILog log) : ITFObjectAnnouncer
 public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer announcer,
                                    IEnginePrecache precache, IEngineEntityRender render,
                                    ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
-                                   TFConceptSpeech? speech = null) : ScriptedEntity
+                                   TFConceptSpeech? speech = null, ITFWeaponOwners? owners = null,
+                                   AttributeHooks? hooks = null) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -80,6 +82,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary><c>OBJ_MAX_UPGRADE_LEVEL</c> (tf_obj.h:34).</summary>
     public const int MaxUpgradeLevel = 3;
+
+    /// <summary><c>SENTRYGUN_MAX_LEVEL_MINI</c> (tf_obj_sentrygun.cpp:66): a mini building's ceiling.</summary>
+    public const int MiniUpgradeLevelCap = 1;
+
+    /// <summary><c>GetMiniBuildingStartingHealth</c>: <c>SENTRYGUN_MINI_MAX_HEALTH</c> for the sentry (tf_obj_sentrygun.h:33, :109), the base's own 100 for the rest (tf_obj.h:284).</summary>
+    public const int MiniBuildingStartingHealth = 100;
 
     /// <summary><c>tf_obj_upgrade_per_hit</c> (tf_obj.cpp:99): the metal a swing pours into the upgrade.</summary>
     public const int UpgradePerHit = 25;
@@ -118,6 +126,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary>The response rules the build, the loss and the sapping are told through.</summary>
     protected readonly TFConceptSpeech? Speech = speech;
 
+    /// <summary>The carrier the held-item attribute asks go through (<see cref="OnDamaged"/>).</summary>
+    protected readonly ITFWeaponOwners? Owners = owners;
+
+    /// <summary>The attribute hooks a held item is asked through (<see cref="OnDamaged"/>).</summary>
+    protected readonly AttributeHooks? Hooks = hooks;
+
     [SaveField] private EntityHandle _builder;
     [SaveField] private int _team;
     [SaveField] private int _mode;
@@ -142,6 +156,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private float _upgradeCompleteTime;
     [SaveField] private int _kills;
     [SaveField] private int _assists;
+    [SaveField] private bool _miniBuilding;
 
     /// <summary>The build state the client's shadow arm reads; <see cref="SetPlacing"/> keeps it with <see cref="_placing"/>.</summary>
     [NetState] public TFObjectNetState State = new();
@@ -176,6 +191,36 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary><c>m_bDead</c>: gone, or on the way.</summary>
     public bool IsDead => _dead;
 
+    /// <summary><c>m_bMiniBuilding</c>/<c>IsMiniBuilding</c> (tf_obj.h:336): the builder's wrench
+    /// carried the mini-sentry attribute when the building came down.</summary>
+    public bool IsMiniBuilding => _miniBuilding;
+
+    /// <summary><c>MINI_SENTRY_SCALE</c> (tf_obj_sentrygun.cpp:67): the mini's model scale.</summary>
+    public const float MiniSentryScale = 0.75f;
+
+    /// <summary>
+    /// <c>CBaseObject::MakeMiniBuilding</c> (tf_obj.cpp:1510-1516): the flag, once. Stock's
+    /// builder question — <c>ShouldBeMiniBuilding</c> (:1486-1504), the wrench's
+    /// <c>wrench_builds_minisentry</c> hook (tf_weapon_wrench.cpp:255) — is answered by the
+    /// caller, the builder, over the builder's attribute manager. The sentry's override
+    /// (:367-380) adds the model scale — the hulls ride on it, which is why
+    /// <c>SetBuildingSize</c> needs nothing besides (:2146-2150) — and the base's placement
+    /// tail sets the team skin (tf_obj.cpp:1469-1473): red's second skin, blu's third,
+    /// never the dispenser's. The bodygroup (<c>mini_sentry_light</c>, tf_obj_sentrygun.cpp:343-346,
+    /// :398-401) has no engine seam: a deferred row.
+    /// </summary>
+    public void MakeMiniBuilding()
+    {
+        _miniBuilding = true;
+        State.Mini = true;                      // the client's deferred arms read it (DT_BaseObject)
+
+        if (Type == TFObjectType.Sentrygun)
+            Render.SetModelScale(Handle, MiniSentryScale);
+
+        if (Type != TFObjectType.Dispenser)
+            Render.SetSkin(Handle, Team == (int)TFTeam.Red ? 2 : 3);
+    }
+
     /// <summary><c>GetLevel</c>: the upgrade level, 1 until the wrench raises it.</summary>
     public int Level => _level;
 
@@ -199,12 +244,16 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     public void IncrementAssists() => _assists++;
 
     /// <summary>
-    /// <c>GetMaxHealthForCurrentLevel</c> (tf_obj.cpp:3808-3823): the base
-    /// health times <c>UPGRADE_LEVEL_HEALTH_MULTIPLIER</c> to the level
-    /// beyond the first — 150, 180, 216 — truncated as stock's cast is.
+    /// <c>GetMaxHealthForCurrentLevel</c> (tf_obj.cpp:3808-3823): the mini's own starting health
+    /// (:3810, <c>GetMiniBuildingStartingHealth</c> — tf_obj.h:284, overridden to the same 100 by
+    /// the sentry tf_obj_sentrygun.h:109/:33); otherwise the base health times
+    /// <c>UPGRADE_LEVEL_HEALTH_MULTIPLIER</c> to the level beyond the first — 150, 180, 216 —
+    /// truncated as stock's cast is. The multiplier skips mini buildings (:3816, whose level
+    /// never climbs past one anyway).
     /// </summary>
     public virtual int MaxHealthForCurrentLevel
-        => (int)(ObjectMaxHealth * MathF.Pow(UpgradeLevelHealthMultiplier, _level - 1));
+        => _miniBuilding ? MiniBuildingStartingHealth
+           : (int)(ObjectMaxHealth * MathF.Pow(UpgradeLevelHealthMultiplier, _level - 1));
 
     /// <summary>
     /// The object's health, as the native shell holds it
@@ -507,10 +556,19 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                 Render.PlaySequence(Handle, sequence, _buildRate * 0.5f, restart: true);
         }
 
-        Health = _carryDeploy ? _healthOnPickup : (int)ConstructionStartHealth;
+        Health = _carryDeploy ? _healthOnPickup : ConstructionStartHealthForBuilding;
         _builtStartTime = GameTime;
         SetNextThink(BaseObjectThinkDelay);
     }
+
+    /// <summary>
+    /// The health the build starts at: <see cref="ConstructionStartHealth"/>, or half the
+    /// level's maximum for a mini — <c>MakeMiniBuilding</c>'s <c>SetHealth(iHealth / 2.0f)</c>
+    /// (tf_obj_sentrygun.cpp:375-378), which also halves the per-tick construction heals
+    /// (tf_obj.cpp:2120-2124).
+    /// </summary>
+    private int ConstructionStartHealthForBuilding
+        => _miniBuilding ? (int)(MaxHealthForCurrentLevel / 2f) : (int)ConstructionStartHealth;
 
     /// <summary>
     /// <c>CBaseObject::BaseObjectThink</c>: constructs while the build is up,
@@ -563,7 +621,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             return;
         }
 
-        int constructed = (int)(((double)MaxHealthForCurrentLevel - ConstructionStartHealth)
+        int constructed = (int)(((double)MaxHealthForCurrentLevel - ConstructionStartHealthForBuilding)
                                 * ((GameTime - _builtStartTime) / buildTime));
         int slice = constructed - _constructedHealth;
         if (slice > 0)
@@ -595,6 +653,10 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         if (TFObjectModels.Finished(Type, _level).Length > 0)
             Dress(TFObjectModels.Finished(Type, _level));
 
+        // FinishedBuilding sets no health of its own (tf_obj.cpp:1553-1590); the
+        // construction ramp has already climbed to the level's maximum by now
+        // (:2124), and a mini's half start (:1390-1397) only halves the rate of
+        // that climb, not its end — one completion arm for every building.
         Health = MaxHealthForCurrentLevel;
         OnGoActive();
         Announcer.Built(_builder, Type, _mode);
@@ -704,13 +766,16 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <c>CBaseObject::CanBeUpgraded</c> (tf_obj.cpp:2919-2937): not already
     /// mid-upgrade, not on the redeploy arm, the player the trade belongs to
     /// (<c>ClassCanBuild</c> — all three buildables are the engineer's), and
-    /// a level left to climb.
+    /// a level left to climb — the mini's ceiling being
+    /// <c>SENTRYGUN_MAX_LEVEL_MINI</c>: the mini never upgrades
+    /// (tf_obj.cpp:2925-2926, tf_obj.h:351; <c>GetMaxUpgradeLevel</c>'s arm,
+    /// tf_obj_sentrygun.cpp:383-389).
     /// </summary>
     public bool CanBeUpgraded(EntityHandle player)
         => !_upgrading
            && !_carryDeploy
            && Players.ClassOf(player) == TFClass.Engineer
-           && _level < MaxUpgradeLevel;
+           && _level < (_miniBuilding ? MiniUpgradeLevelCap : MaxUpgradeLevel);
 
     /// <summary>
     /// <c>CBaseObject::StartUpgrading</c> (tf_obj.cpp:3010-3063): the level
@@ -834,6 +899,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         // muzzle reaches this too; the sapper's blow names no player at all).
         if (attacker != EntityHandle.None && Entities.IsPlayer(attacker) && Players.Team(attacker) == _team)
             return 0;
+
+        // mult_dmg_vs_buildings on the attacker's held weapon, stock's
+        // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER behind the weapon-caused gate
+        // (tf_obj.cpp:1922-1927): the item's multiplier rides the health lost.
+        if (attacker != EntityHandle.None && Hooks is not null && Owners is not null)
+            damage = Hooks.Float(damage, "mult_dmg_vs_buildings", Owners.ActiveItemOf(Entities.GetIndex(attacker)));
 
         return (int)damage;
     }

@@ -172,11 +172,13 @@ internal sealed partial class BuildingsRig
     /// <summary>The rig's one buildings directory, as the builder sees it.</summary>
     public TFBuildings Buildings() => (TFBuildings)Services.Resolve<ITFBuildings>()!;
 
-    /// <summary>The real builder over the rig's fakes and the real buildings directory.</summary>
+    /// <summary>The real builder over the rig's fakes and the real buildings directory,
+    /// over the owners carrier and the hook walker the rig registers.</summary>
     public TFObjectBuilder Builder()
     {
         EnsureBuilderSeams();
-        return new TFObjectBuilder(Players, Buildings(), NoBuild, Rooms, Purse, Spawner, Log);
+        return new TFObjectBuilder(Players, Buildings(), NoBuild, Rooms, Purse, Spawner, Log, Owners,
+                                   Services.Resolve<TF2.Shared.Econ.AttributeHooks>()!);
     }
 
     /// <summary>The real lift over the rig's fakes; a round state is handed in when a fact needs one.</summary>

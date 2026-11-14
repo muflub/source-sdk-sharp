@@ -67,6 +67,12 @@ public sealed class TFEquipCommand(LocalInventory inventory, ItemSchema schema, 
             return;
         }
 
+        // The parse's own fold (CTFItemDefinition::BInitFromKV,
+        // tf_item_schema.cpp:946-949): a head item is stored in the misc slot,
+        // so the head word names that slot here too.
+        if (string.Equals(slotWord, "head", StringComparison.OrdinalIgnoreCase))
+            slotWord = "misc";
+
         int slotIndex = TFItemStrings.ClassSlotIndex(slotWord);
         if (slotIndex is < 0 or > (int)TFLoadoutSlot.Misc2)
         {

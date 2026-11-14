@@ -226,6 +226,24 @@ public sealed class TFMaxSpeedTests
                                  attribs: Hooks, manager: manager));
     }
 
+    // ---- the held weapon's hook (tf_player_shared.cpp:11058-11063) ----------
+
+    [Fact]
+    public void TheGlovesSpeedTheActiveCarrier()
+    {
+        // mult_player_movespeed_active (tf_player_shared.cpp:11058-11063):
+        // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER on the ACTIVE weapon — the Gloves
+        // item, not the player's manager. The heavy's script speed of 230 is
+        // scaled only when the held item carries the hook.
+        var held = ManagerWith(TFMaxSpeed.ActiveSpeedAttrib, 1.3f);
+        var playerManager = ManagerWith(TFMaxSpeed.ActiveSpeedAttrib, 1.3f);
+
+        Assert.Equal(230f, TFMaxSpeed.Calculate(Classes, new TFMoveInputs(TFClass.HeavyWeapons, default), 999f,
+                                                Hooks, playerManager, null, -1, null));
+        Assert.Equal(299f, TFMaxSpeed.Calculate(Classes, new TFMoveInputs(TFClass.HeavyWeapons, default), 999f,
+                                                Hooks, null, null, -1, held));
+    }
+
     // ---- the loser state's slow (tf_player_shared.cpp:10989-11000) ----------
 
     [Fact]

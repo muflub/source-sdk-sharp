@@ -65,6 +65,14 @@ public static class TFDamageAliveRules
         float bonus = hit.Bonus;
         float baseDamage = damage - bonus;
 
+        // Crit-A-Cola and Steak Sandwich — only increase normal damage
+        // (:6792-6797): the buffed victim's own multiplier rides the base
+        // half ahead of every typed resist, and a crit or mini-crit hit
+        // skips it whole. CALL_ATTRIB_HOOK_FLOAT_ON_OTHER on the victim is
+        // this repo's victimItem provider.
+        if (hit.Crit == TFCritType.None && input.Victim.Has(TFCond.EnergyBuff))
+            baseDamage = hooks.Float(baseDamage, "energy_buff_dmg_taken_multiplier", victimItem);
+
         // The pierce, asked once (:7112-7113): the typed resists (:7209) and
         // the held weapon's final ones (:7375) stand down behind the same
         // gate.

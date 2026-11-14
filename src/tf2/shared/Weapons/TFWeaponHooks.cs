@@ -57,6 +57,25 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
         AttributeHooks.RoundFloatToInt(attributes.Float(pellets, "mult_bullets_per_shot", weapon.Item));
 
     /// <summary>
+    /// The airblast's rounds (<c>tf_weapon_flamethrower.cpp:1192-1194</c>): the
+    /// burst ammo times the item's <c>mult_airblast_cost</c>, truncated into
+    /// stock's <c>int iAmmoPerShot</c>. With no attribute the convar's rounds
+    /// stand.
+    /// </summary>
+    public int ModifyAirBlastCost(in TFWeaponHookContext weapon, int ammo) =>
+        (int)(ammo * attributes.Float(1f, "mult_airblast_cost", weapon.Item));
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>'s multiplier
+    /// (<c>tf_weaponbase_gun.cpp:844-847</c>): the held item's
+    /// <c>mult_spread_scale</c> over the shot cone's sine, stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT</c> of the loaded spread — Tomislav and the
+    /// Back Scatter wear it as a percentage, so the cone scales whole.
+    /// </summary>
+    public float ModifySpread(in TFWeaponHookContext weapon, float spread) =>
+        attributes.Float(spread, "mult_spread_scale", weapon.Item);
+
+    /// <summary>
     /// <c>CTFWeaponBase::SetReloadTimer</c>'s four multiplies
     /// (<c>tf_weaponbase.cpp:2274-2277</c>): the item's
     /// <c>mult_reload_time</c>, <c>mult_reload_time_hidden</c> and
@@ -70,8 +89,19 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
                  * attributes.Float(1f, "fast_reload", weapon.Item)
                  * attributes.Float(1f, "hwn_mult_reload_time", weapon.Manager);
 
-    public float ModifyDamage(in TFWeaponHookContext weapon, float damage) =>
-        attributes.Float(damage, "mult_dmg", weapon.Item);
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetProjectileDamage</c>'s first two arms
+    /// (<c>tf_weaponbase_gun.cpp:909-917</c>): the item's <c>mult_dmg</c> (:910),
+    /// then the disguised arm (<c>InCond(TF_COND_DISGUISED)</c> at :913-914, the
+    /// Enforcer's multiplier at :916) only while the owner wears the disguise.
+    /// </summary>
+    public float ModifyDamage(in TFWeaponHookContext weapon, float damage)
+    {
+        float scaled = attributes.Float(damage, "mult_dmg", weapon.Item);   // :910
+        if (weapon.Conditions?.Has(TFCond.Disguised) == true)               // :913-914
+            scaled = attributes.Float(scaled, "mult_dmg_disguised", weapon.Item);   // :916
+        return scaled;
+    }
 
     /// <summary><c>AutoFiresFullClip</c>'s attribute (tf_weaponbase.cpp:1871-1876).</summary>
     public bool FiresFullClip(in TFWeaponHookContext weapon) =>
@@ -141,6 +171,23 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     /// <summary>The smack's behind-crit ask, the item's <c>crit_from_behind</c> over zero (tf_weaponbase_melee.cpp:819-820).</summary>
     public bool CritFromBehind(in TFWeaponHookContext weapon) =>
         attributes.Int(0, "crit_from_behind", weapon.Item) > 0;
+
+    /// <summary>
+    /// The melee's sapper arm (<c>tf_weaponbase_melee.cpp:469-494</c>): stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> of <c>set_dmg_apply_to_sapper</c> over zero;
+    /// any non-zero turns the arm on.
+    /// </summary>
+    public bool DmgApplyToSapper(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "set_dmg_apply_to_sapper", weapon.Item) != 0;
+
+    /// <summary>
+    /// The Boston Basher's miss tax (<c>tf_weaponbase_melee.cpp:755-763</c>):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> of <c>hit_self_on_miss</c> gates on
+    /// equality with one — the attribute answers a boolean, and only the exact
+    /// one turns the arm on.
+    /// </summary>
+    public bool HitSelfOnMiss(in TFWeaponHookContext weapon) =>
+        attributes.Int(0, "hit_self_on_miss", weapon.Item) == 1;
 
     public TFCritOwner CritPolicy(in TFWeaponHookContext weapon, TFCritOwner policy) =>
         policy with { ChanceScale = policy.ChanceScale * attributes.Float(1f, "mult_crit_chance", weapon.Item) };

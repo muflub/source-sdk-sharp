@@ -24,11 +24,15 @@ namespace TF2.Server.Player;
 /// Stock's <c>CEconWearable::Spawn</c> (econ_wearable.cpp:105-122) sets the
 /// item's player display model, adds <c>EF_BONEMERGE</c> so the item rides its
 /// owner's skeleton, and drops collision; the server here carries only the
-/// networked fields and the model index — the bone merge and the drawing are
-/// the client's, Stage 3.3. Effect kind (no model, no collision on the native
-/// side) and ALWAYS TRANSMITTED: a wearable is only ever seen beside its
-/// owner, and it sits wherever it was made, so a PVS check on its own spot
-/// would drop it — the carrier's reason, the same flag.
+/// networked fields and the model index — the model itself is the spawner's,
+/// set on the render before the spawn as every created-and-dressed entity's
+/// is (the dropped weapon's <c>SetModelName</c>), because the managed half of
+/// a runtime creation comes to exist inside the spawn's own callback. The
+/// bone merge and the drawing are the client's, Stage 3.3. Effect kind (no
+/// model, no collision on the native side) and ALWAYS TRANSMITTED: a wearable
+/// is only ever seen beside its owner, and it sits wherever it was made, so a
+/// PVS check on its own spot would drop it — the carrier's reason, the same
+/// flag.
 /// </para>
 /// </summary>
 [ScriptedEntity(TFEntityNames.Wearable, ScriptedEntityKind.Effect)]

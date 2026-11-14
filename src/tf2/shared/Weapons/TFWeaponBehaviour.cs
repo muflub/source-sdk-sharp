@@ -106,7 +106,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     protected TFWeaponParts Parts { get; } = parts ?? throw new ArgumentNullException(nameof(parts));
 
     /// <summary>The item attribute reads the charge meter asks through; the composition's own, else the bare chain.</summary>
-    private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    protected readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
 
     /// <summary>The script behind a row, or null for a row without one (it then behaves as stock).</summary>
     protected TFWeaponScript? ScriptOf(in WeaponType type) => Parts.Scripts.Get(type.Name);
@@ -142,6 +142,17 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
 
     public virtual float ModifyReloadTime(in WeaponType type, float duration, int ownerIndex) =>
         ScriptOf(in type) is { } script ? Parts.Hooks.ModifyReloadTime(ContextFor(in type, script, ownerIndex), duration) : duration;
+
+    /// <summary>
+    /// The held-aside meter's seconds, the machine tail's own question asked
+    /// from the row and the owner alone (the ItemPostFrame charge reads the
+    /// same item words, tf_player_shared.cpp:7881-7884): the deploy's
+    /// restore and the client's mirror advance the banked pair by it, so the
+    /// replayed switch writes the bytes the server's did.
+    /// </summary>
+    public virtual float ItemMeterSeconds(in WeaponType type, int ownerIndex) =>
+        TFItemMeter.ChargeSeconds(_attributes, Parts.Owners, ownerIndex, type.Name,
+                                  ScriptOf(in type)?.Id ?? TFWeaponId.None);
 
     /// <summary>
     /// Stock's <c>CTFWeaponBase::Deploy</c> multiplier (<c>tf_weaponbase.cpp:1255-</c>),
@@ -198,6 +209,10 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             return true;
         var conditions = context.Conditions;
         if (Parts.Owners.NoAttackExpire(owner) > attack.Now && conditions?.Has(TFCond.StealthedUserBuff) != true)
+            return false;
+        // The phase arm (:12246-12250): a bonked scout swings nothing until the
+        // phase's slow-down has paid.
+        if (conditions?.Has(TFCond.Phase) == true)
             return false;
         return conditions?.Has(TFCond.Stealthed) != true;
     }
@@ -329,6 +344,26 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
         => ScriptOf(attack.Type) is { } script && !attack.Type.IsMelee && attack.Type.Projectile.Length == 0
             ? script.Sound(shot.Critical ? WeaponScriptSound.Burst : WeaponScriptSound.Single)
             : null;
+
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>'s first arm
+    /// (<c>tf_weaponbase_gun.cpp:844-847</c>): the script cone through the
+    /// item's <c>mult_spread_scale</c> (Tomislav, the Back Scatter), stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT</c> over the loaded spread — asked before the
+    /// rune, panic and consecutive-shot arms of the function, which wait with
+    /// their carriers. Stock scales the cone's sine and hands it to the shot;
+    /// the row keeps its cone as degrees, so the walk lands on the sine and the
+    /// answer converts back through the pair the row was dressed with
+    /// (<see cref="ShotSpread.SpreadOf"/>, <see cref="TFWeaponTypes.SpreadDegrees"/>).
+    /// </summary>
+    public virtual float? BulletSpread(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script)
+            return null;
+
+        return TFWeaponTypes.SpreadDegrees(Parts.Hooks.ModifySpread(Context(in attack, script),
+                                                                    ShotSpread.SpreadOf(attack.Type.Spread)));
+    }
 
     /// <summary>
     /// <c>tf_use_fixed_weaponspreads</c>: a buckshot load of more than one
@@ -574,6 +609,16 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     private float ScaleReloadTime(in WeaponType type, float duration, int ownerIndex) =>
         MathF.Max(ModifyReloadTime(in type, duration, ownerIndex), 0.00001f);
 
+    /// <summary>
+    /// The head of one command, before the machine's own decisions read the
+    /// weapon (its empty check among them) — the interface's
+    /// <c>ItemPreFrame</c> as a virtual, so a shell's override is the
+    /// implementation the dispatch finds.
+    /// </summary>
+    public virtual void ItemPreFrame(in WeaponAttackContext attack, int buttons)
+    {
+    }
+
     public virtual void ItemPostFrame(in WeaponAttackContext attack)
     {
         var weapon = attack.Weapon;
@@ -606,10 +651,12 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
         // base rates and the bar stands, stock's skip (:7886-7887).
         float meterDt = attack.Now - weapon.ItemMeterTime;
         weapon.ItemMeterTime = attack.Now;
+        var metered = ScriptOf(attack.Type);
         if (meterDt is >= 0f and <= 1f)
-            TFItemMeter.Tick(weapon, meterDt, _attributes, Parts.Owners, attack.Command.OwnerIndex, attack.Type.Name);
+            TFItemMeter.Tick(weapon, meterDt, _attributes, Parts.Owners, attack.Command.OwnerIndex, attack.Type.Name,
+                             metered?.Id ?? TFWeaponId.None);
 
-        if (ScriptOf(attack.Type) is not { } script)
+        if (metered is not { } script)
             return;
 
         if ((weapon.BehaviourMode & ModeReloadingSingly) != 0)

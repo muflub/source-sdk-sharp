@@ -282,3 +282,14 @@ public sealed class TFFlameThrowerFlametimeConVar : FloatConVar { }
 [ConVar("tf_grenadelauncher_livetime", "0.8",
         Flags = ConVarFlags.Cheat | ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
 public sealed class TFGrenadeLauncherLiveTimeConVar : FloatConVar { }
+
+// ---- shared/tf/tf_player_shared.cpp ------------------------------------------
+
+// tf_player_shared.cpp:173, shared: the scout energy drink's drain, read by
+// the drink's own fall-back dead time (tf_player.cpp:18644). The regen rate
+// (:172) rides with the meter refill the lunchbox behaviour already keeps,
+// and the activation delay (:174) waits for its consumer.
+[ConVar("tf_scout_energydrink_consume_rate", "12.5",
+        Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
+        Help = "energy drink to use per second while boosted, from 100 max")]
+public sealed class TFScoutEnergydrinkConsumeRateConVar : FloatConVar { }

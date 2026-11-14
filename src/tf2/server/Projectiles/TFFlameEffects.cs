@@ -10,6 +10,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Server.Player;
 using TF2.Server.Weapons;
 
@@ -49,6 +50,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                                    TFPushbackScaleConVar pushbackScale,
                                    TFPushbackScaleVerticalConVar pushbackScaleVertical,
                                    TFPlayerCarriers carriers,
+                                   AttributeHooks hooks, ITFPlayerResupply health, IEngineGameEvents events,
                                    ILagCompensation? lagCompensation = null)
     : ITFFlameEffects, IOrderedHook
 {
@@ -57,6 +59,9 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
 
     /// <summary><c>DeflectProjectiles</c>' 64 (tf_weaponbase.cpp:5918).</summary>
     private const int MaxDeflected = 64;
+
+    /// <summary><c>INVALID_ITEM_DEF_INDEX</c>: stock's <c>weapon_def_index</c> for an itemless weapon.</summary>
+    private const int NoItemDefIndex = -1;
 
     /// <summary>Stock's <c>MAX_TRACE_LENGTH</c>.</summary>
     private const float MaxTraceLength = 5676f;
@@ -97,9 +102,15 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
 
             // UpdateDamage and AddPoint each firing interval (:892-897). Stock
             // reads the pyro's class off the attacker per collide; the seam reads
-            // classes by index, so the answer rides in here.
+            // classes by index, so the answer rides in here. Stock's behind-crit
+            // flag (:875-876) is the firing item's hook, asked the same way the
+            // airblast's extinguish heal asks its own (:164), and reaches the
+            // collide through UpdateDamage (:895): only the set's exactly one
+            // turns it on.
+            IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
             manager.UpdateDamage(script, shot, TFFlameManagerDefs.BurnFrequency,
-                                 owners.ClassOf(attack.Command.OwnerIndex) == TFClass.Pyro);
+                                 owners.ClassOf(attack.Command.OwnerIndex) == TFClass.Pyro,
+                                 hooks.Int(0, "set_flamethrower_back_crit", item) == 1);
 
             // The shooter's own velocity rides along (InitializePoint,
             // tf_flame.cpp:250-260).
@@ -132,6 +143,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         if (directory.Get(handle) is not TFFlameManager manager)
             return null;
 
+        manager.SetAttacker(owner);
         _managers[owner] = handle;
         return manager;
     }
@@ -154,6 +166,9 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
             log.Msg($"[TF2/Flames] airblast refused, {owner} is underwater\n");
             return;
         }
+
+        // The firing item: the extinguish heal reads its hook off it.
+        IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
 
         Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
         Vector eye = entities.GetEyePosition(owner);
@@ -191,7 +206,7 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                     Deflect(bomb, owner, eye, forward, targetCenter);
             }
             else if (entities.IsPlayer(target))
-                DeflectPlayer(target, owner, eye, forward, targetCenter);
+                DeflectPlayer(item, target, owner, eye, forward, targetCenter);
         }
 
         log.Msg($"[TF2/Flames] airblast by {owner} over {count} near\n");
@@ -279,20 +294,23 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
     /// <summary>
     /// A player (<c>CTFFlameThrower::DeflectPlayer</c>,
     /// <c>tf_weapon_flamethrower.cpp:1616-1855</c>): a burning teammate is put
-    /// out (:1620-1622) and nothing else touches them; an enemy is retested
-    /// against the cone over their collision box (:1685-1699) and, still in,
-    /// pushed by the arm <c>tf_airblast_cray</c> names — the cray force
-    /// (:1720-1762: the reflect, the remaining power and the conditions, off
-    /// the ground with the impulse) or the old pushback (:1764-1830).
+    /// out (:1620-1622) — the blaster healed by the item's
+    /// <c>extinguish_restores_health</c> (:1624-1643) — and nothing else touches them;
+    /// an enemy is retested against the cone over their collision box
+    /// (:1685-1699) and, still in, pushed by the arm <c>tf_airblast_cray</c>
+    /// names — the cray force (:1720-1762: the reflect, the remaining power
+    /// and the conditions, off the ground with the impulse) or the old
+    /// pushback (:1764-1830).
     /// </summary>
-    private void DeflectPlayer(EntityHandle target, EntityHandle owner, Vector eye, Vector forward,
-                               Vector targetCenter)
+    private void DeflectPlayer(IAttributeProvider? item, EntityHandle target, EntityHandle owner, Vector eye,
+                               Vector forward, Vector targetCenter)
     {
         if (players.GetTeam(target) == players.GetTeam(owner))
         {
             if (conditions.InCond(target, TFCond.Burning))
             {
-                conditions.Remove(target, TFCond.Burning);
+                if (conditions.Remove(target, TFCond.Burning))
+                    HealExtinguisher(item, owner);
                 log.Msg($"[TF2/Flames] airblast extinguished {target}\n");
             }
             return;
@@ -330,6 +348,31 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         }
 
         log.Msg($"[TF2/Flames] airblast pushed {target}\n");
+    }
+
+    /// <summary>
+    /// The extinguish heal (<c>tf_weapon_flamethrower.cpp:1624-1643</c>):
+    /// <c>extinguish_restores_health</c> on the firing item heals the blaster
+    /// by its value, and when anything healed the <c>player_healonhit</c>
+    /// event names the amount, the healed edict and the firing item's
+    /// defindex (stock's -1 without one).
+    /// </summary>
+    private void HealExtinguisher(IAttributeProvider? item, EntityHandle owner)
+    {
+        int restore = hooks.Int(0, "extinguish_restores_health", item);
+        if (restore <= 0)
+            return;
+
+        health.TakeHealth(owner, restore);
+
+        IntPtr ev = events.EventCreate("player_healonhit");
+        if (ev == IntPtr.Zero)
+            return;
+        events.EventSetInt(ev, "amount", restore);
+        events.EventSetInt(ev, "entindex", entities.GetIndex(owner));
+        events.EventSetInt(ev, "weapon_def_index",
+                           item is AttributeContainer { Item: { } def } ? def.Defindex : NoItemDefIndex);
+        events.EventFire(ev);
     }
 
     /// <summary>

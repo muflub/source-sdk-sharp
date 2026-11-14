@@ -219,6 +219,49 @@ public partial class TFPlayerNetState
     public partial int HealTargetIndex { get; set; }
 
     /// <summary>
+    /// <c>m_flRageMeter</c>: the soldier's buff meter, 0..100 — predicted
+    /// (<c>tf_player_shared.cpp:448</c>) and sent bounded 0..100 (:517). It
+    /// builds from damage dealt (<see cref="TFRageMeter.GainOnDamageDealt"/>)
+    /// and the buff item's HUD bar is the meter over 100
+    /// (<c>CTFBuffItem::GetProgress</c>, tf_weapon_buff_item.cpp:444-451).
+    /// </summary>
+    [Predicted]
+    public partial float RageMeter { get; set; }
+
+    /// <summary>
+    /// <c>m_bRageDraining</c>: the buff deploy's drain is on — stock stamps it
+    /// at the deploy (<c>ActivateRageBuff</c>, tf_player_shared.cpp:13794) and
+    /// clears it as the meter empties (:13834); predicted (:449). While it is
+    /// on, gains are refused (<c>SetRageMeter</c>, :13875).
+    /// </summary>
+    [Predicted]
+    public partial bool RageDraining { get; set; }
+
+    /// <summary>
+    /// <c>m_iBuffTypeActive</c>: the deployed buff's type — stock's slot stamp
+    /// of <c>SetupRageBuffTimer</c> (tf_player_shared.cpp:13743), so every pulse
+    /// asks the buff the deploy was made with even after the held item changes.
+    /// Sent, not predicted: the server's deploy bookkeeping, news rather than a
+    /// misprediction (CritMult's rule).
+    /// </summary>
+    public partial int RageBuffType { get; set; }
+
+    /// <summary>
+    /// <c>m_iBuffPulseCount</c>: the pulses the deployed buff still owes —
+    /// stock stamps it the buff's pulse count at the deploy
+    /// (<c>SetupRageBuffTimer</c>, tf_player_shared.cpp:13744) and spends one per
+    /// pulse second (:13859). Sent, not predicted (CritMult's rule).
+    /// </summary>
+    public partial int RageBuffPulsesLeft { get; set; }
+
+    /// <summary>
+    /// <c>m_flNextBuffPulseTime</c>: when the deployed buff pulses next — the
+    /// deploy stamps it one second out (:13745) and each pulse advances it a
+    /// second (:13858). Sent, not predicted (CritMult's rule).
+    /// </summary>
+    public partial float RageBuffNextPulseTime { get; set; }
+
+    /// <summary>
     /// How many weapon-catalogue rows <see cref="WeaponItemDefIndex"/> covers.
     /// The core's table is twelve rows and the TF mod's source adds its
     /// class-weapons, builder and sapper, so this stands well above what the
@@ -344,14 +387,34 @@ public partial class TFPlayerNetState
     /// </summary>
     [NetArray(AmmoSlots)] public partial NetArray<int> Ammo { get; }
 
-    /// <summary>How many rows <see cref="Clips"/> covers: the weapon catalog's
-    /// rows, which TF2's <see cref="TFWeaponTypes"/> names (the composition
-    /// fact's 33, the bow's the last; a row past this width is a weapon the
-    /// carrier cannot name — the fact tied to the count says so).</summary>
-    public const int ClipRows = 33;
+    /// <summary>How many weapons the carrier names: a player's kit, every class's
+    /// loadout plus its builder and PDAs, is well inside this. Keyed by what's carried
+    /// and not by catalog row, because the shipped schema's rows run far past what a
+    /// 2048-byte carrier could hold one word each for.</summary>
+    public const int CarriedSlots = 12;
+
+    /// <summary>The catalog row each carried slot holds, plus one; zero, an empty slot.
+    /// <see cref="Clips"/>, <see cref="ItemMeters"/> and <see cref="ItemMeterTimes"/>
+    /// read by the same slot.</summary>
+    [NetArray(CarriedSlots)] public partial NetArray<int> CarriedRows { get; }
+
+    /// <summary>The carried slot holding catalog row <paramref name="typeIndex"/>; minus one, none.</summary>
+    public int CarriedSlotOf(int typeIndex)
+    {
+        if (typeIndex < 0)
+            return -1;
+
+        for (int slot = 0; slot < CarriedRows.Length; slot++)
+        {
+            if (CarriedRows[slot] == typeIndex + 1)
+                return slot;
+        }
+
+        return -1;
+    }
 
     /// <summary>
-    /// The player's carried clips, by weapon-catalog row — the server's word on
+    /// The player's carried clips, by carried slot — the server's word on
     /// the stored clip of each weapon it carries (stock's <c>m_iClip1</c>, a
     /// field of every weapon entity's send table,
     /// <c>basecombatweapon_shared.cpp</c>, so a holstered weapon's clip reaches
@@ -361,13 +424,34 @@ public partial class TFPlayerNetState
     /// only the active weapon's last clip.
     ///
     /// <para>
-    /// Minus one is no clip: a row the player does not carry, a weapon without
+    /// Minus one is no clip: an empty slot, a weapon without
     /// one, or a carrier that has not spoken yet. Sent, not predicted, on the
     /// <see cref="Ammo"/> row's showing: the mirror runs no holstered-clip
     /// arithmetic between commands, the switch reads the arrival.
     /// </para>
     /// </summary>
-    [NetArray(ClipRows)] public partial NetArray<int> Clips { get; }
+    [NetArray(CarriedSlots)] public partial NetArray<int> Clips { get; }
+
+    /// <summary>
+    /// The player's held-aside item meters, by carried slot — the
+    /// server's word on the charge each carried weapon holstered with, and,
+    /// beside it in <see cref="ItemMeterTimes"/>, the server second that was:
+    /// the pair stock's per-slot charge rides the inventory with
+    /// (tf_player_shared.cpp:7870-7904), read once, at the switch whose
+    /// restore advances it. The hands' own meter is the blob's
+    /// (<see cref="SourceSharp.Shared.WeaponNetState.ItemMeter"/>), predicted
+    /// as it charges.
+    ///
+    /// <para>
+    /// Sent, not predicted, on the <see cref="Clips"/> row's showing: the
+    /// mirror runs no held-aside arithmetic between commands, the switch
+    /// reads the arrival — the restore's one advance is the deploy's own.
+    /// </para>
+    /// </summary>
+    [NetArray(CarriedSlots)] public partial NetArray<float> ItemMeters { get; }
+
+    /// <summary>The server second each <see cref="ItemMeters"/> row was; zero, a charge that has run since the world's own zero.</summary>
+    [NetArray(CarriedSlots)] public partial NetArray<float> ItemMeterTimes { get; }
 
     /// <summary>
     /// The sticky bombs this player has out — stock's pipebomb launcher's

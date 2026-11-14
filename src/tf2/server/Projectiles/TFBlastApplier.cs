@@ -125,11 +125,14 @@ public sealed class TFBlastApplier
     /// what the projectile touched (scored at distance zero, stock's
     /// <c>GetEnemy()</c>); <paramref name="selfRadius"/> and
     /// <paramref name="selfBaseDamage"/> arm the attacker's own pass, and
-    /// with them the own-pass attribute arm.
+    /// with them the own-pass attribute arm; <paramref name="custom"/> is the
+    /// damage custom the hits carry (stock's <c>info.SetDamageCustom</c>,
+    /// the flare explosion's <c>TF_DMG_CUSTOM_FLARE_EXPLOSION</c>).
     /// </summary>
     public void Apply(Vector origin, in TFBlast blast, EntityHandle attacker, EntityHandle inflictor,
                       EntityHandle ignored, TFWeaponId weapon, string weaponName, bool critical,
-                      EntityHandle directVictim = default, float selfRadius = 0f, float selfBaseDamage = 0f)
+                      EntityHandle directVictim = default, float selfRadius = 0f, float selfBaseDamage = 0f,
+                      TFDamageCustom custom = TFDamageCustom.None)
     {
         Vector source = origin + new Vector(0f, 0f, GroundLift);
         EntityHandle passThrough = ignored != EntityHandle.None ? ignored : inflictor;
@@ -154,6 +157,11 @@ public sealed class TFBlastApplier
         // DamagedOtherPlayers flag only when an own pass is armed (:5673).
         float damageDealt = 0f;
         int enemiesDamaged = 0;
+
+        // The detonator's flare jump (ApplyPushFromDamage's own-damage arm,
+        // tf_player.cpp:10290-10293): a flare-explosion custom on the self
+        // push is what names it, the pyro's 8.5 scale beside the 9.
+        bool flareJump = custom == TFDamageCustom.FlareExplosion;
 
         if (active.Radius > 0f)
         {
@@ -223,11 +231,11 @@ public sealed class TFBlastApplier
                 // arms zeroed is no refusal (below).
                 int answered = victimDamage > 0f
                     ? Deliver(victim, attacker, victimDamage, active.Bits, weapon, weaponName, critical,
-                              inflictor, origin)
+                              inflictor, origin, custom)
                     : 0;
                 if (answered <= 0 && victimDamage <= 0f)
                 {
-                    Push(victim, source, active, forceDamage, self: true, pyroFlareJump: false,
+                    Push(victim, source, active, forceDamage, self: true, pyroFlareJump: flareJump,
                          selfPushMult: selfPushMult);
                 }
                 else if (answered > 0)
@@ -238,7 +246,7 @@ public sealed class TFBlastApplier
                         damageDealt += answered;
                         enemiesDamaged++;
                     }
-                    Push(victim, source, active, forceDamage, self: self, pyroFlareJump: false,
+                    Push(victim, source, active, forceDamage, self: self, pyroFlareJump: flareJump,
                          selfPushMult: selfPushMult);
                 }
             }
@@ -285,9 +293,9 @@ public sealed class TFBlastApplier
                     ClaimBlastJump(attacker, selfDamage, selfBlast.Bits, item);
                     bool hit = selfDamage <= 0f
                                || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
-                                          inflictor, origin) > 0;
+                                          inflictor, origin, custom) > 0;
                     if (hit && forceDamage > 0f)
-                        Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: false,
+                        Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
                              selfPushMult: selfPushMult);
                 }
             }
@@ -421,10 +429,10 @@ public sealed class TFBlastApplier
     /// </summary>
     private int Deliver(EntityHandle victim, EntityHandle attacker, float victimDamage,
                         DamageType bits, TFWeaponId weapon, string weaponName, bool critical,
-                        EntityHandle inflictor, Vector origin)
+                        EntityHandle inflictor, Vector origin, TFDamageCustom custom)
     {
         using (HitGroups.Push(HitGroup.Generic, critical))
-        using (Scopes.Push(TFDamageCustom.None, weapon, weaponName))
+        using (Scopes.Push(custom, weapon, weaponName))
         using (Inflictors.Push(inflictor, origin))
             return Damage.TakeDamageAnswered(victim, attacker, victimDamage, bits);
     }

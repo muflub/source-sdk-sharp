@@ -64,19 +64,23 @@ public interface ITFPlayerHealing
     int NumHealers(int patientIndex);
 
     /// <summary>
-    /// <c>RecalculateChargeEffects</c>: recompute the invulnerable condition
-    /// from this player's own and their healers' released charges.
+    /// <c>RecalculateChargeEffects</c> (:8854): recompute every medigun charge effect —
+    /// the invulnerable, crit-boost and mega-heal rows of <c>g_MedigunEffects</c> — from
+    /// this player's own and their healers' released charges, each with its provider.
     /// </summary>
     void RecalculateChargeEffects(EntityHandle player, float now);
 
     /// <summary>
-    /// Which mediguns say they are releasing — the answer stock's
+    /// Which mediguns say they are releasing, and as what — the answer stock's
     /// <c>CTFPlayer::GetChargeEffectBeingProvided</c> (tf_player.cpp:20416) reads off the
-    /// player's live active medigun. The port cannot ask the weapon (each would need the
-    /// other built: the container's cycle rule), so the medigun reports in at the moments
-    /// its release begins and ends and this holds the answer (docs/divergences.md).
+    /// player's live active medigun, whose <c>GetChargeType</c> is the item's
+    /// <c>set_charge_type</c> (tf_weapon_medigun.cpp:818-832). The port cannot ask the
+    /// weapon (each would need the other built: the container's cycle rule), so the
+    /// medigun reports in at the moments its release begins and ends, carrying the
+    /// medigun_charge_types row it released, and this holds the answer
+    /// (docs/divergences.md).
     /// </summary>
-    void NoteReleasing(int playerIndex, bool releasing);
+    void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0);
 
     /// <summary>
     /// <c>CTFPlayerShared::GetMaxBuffedHealth</c> (:2235) for the standard player: the class max
@@ -95,8 +99,9 @@ public interface ITFPlayerHealing
     void RemoveChargeEffect(EntityHandle player);
 
     /// <summary>
-    /// <c>CTFPlayerShared::TestAndExpireChargeEffect</c> (:8915), the INVULN slot: a condition
-    /// wearing off for longer than <c>tf_invuln_time</c> is taken away.
+    /// <c>CTFPlayerShared::TestAndExpireChargeEffect</c> (:8915), every row: a charge
+    /// condition whose wear-off time has passed — the invulnerable row after
+    /// <c>tf_invuln_time</c>, the others at once — is taken away.
     /// </summary>
     void TestAndExpireChargeEffect(EntityHandle player, float now);
 
@@ -146,10 +151,11 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     private readonly ICtfRules? ctf;
     private readonly ITFPlayerData? data;
     private readonly ITFWeaponOwners? owners;
+    private readonly AttributeHooks? hooks;
 
     private readonly Dictionary<int, PatientHealing> patients = new();
-    private readonly Dictionary<int, ChargeState> charges = new();
-    private readonly HashSet<int> releasers = new();
+    private readonly Dictionary<int, float[]> chargeOffTimes = new();
+    private readonly Dictionary<int, int> releasers = new();
 
     public TFPlayerHealing(IEnginePlayers players, IEngineEntities entities,
                            ITFPlayerConditions conditions, ITFPlayerResupply resupply,
@@ -158,7 +164,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                            ITFPlayerStats? stats = null, TFDamageRecords? records = null,
                            IEngineGameEvents? events = null,
                            ICtfRules? ctf = null, ITFPlayerData? data = null,
-                           ITFWeaponOwners? owners = null)
+                           ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
     {
         this.players = players;
         this.entities = entities;
@@ -174,6 +180,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         this.ctf = ctf;
         this.data = data;
         this.owners = owners;
+        this.hooks = hooks;
     }
 
     public int HookOrder => TFMedigunOrders.Healing;
@@ -185,14 +192,14 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     public void OnLevelShutdown()
     {
         patients.Clear();
-        charges.Clear();
+        chargeOffTimes.Clear();
         releasers.Clear();
     }
 
     public void OnClientDisconnected(int playerIndex)
     {
         patients.Remove(playerIndex);
-        charges.Remove(playerIndex);
+        chargeOffTimes.Remove(playerIndex);
         releasers.Remove(playerIndex);
     }
 
@@ -266,46 +273,68 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
             state.HealFraction = 0f;
     }
 
-    // ---- the charge effects: who is invulnerable because of a released medigun --
+    // ---- the charge effects: the g_MedigunEffects rows a released medigun grants ------------
+
+    /// <summary>
+    /// One row of stock's <c>g_MedigunEffects</c> (tf_weapon_medigun.cpp:49-53), the slice
+    /// <c>RecalculateChargeEffects</c> walks (tf_player_shared.cpp:8904-8906): the condition
+    /// the charge grants, the wearing-off condition that rides its removal
+    /// (<c>TF_COND_LAST</c> on the rows that have none) and whether the wear-off takes
+    /// <c>tf_invuln_time</c> seconds — stock passes 0.0 for every row but the invulnerable
+    /// one, whose pending expiry the next tick clears.
+    /// </summary>
+    private readonly record struct ChargeRow(int Type, TFCond Condition, bool HasWearingOff, TFCond WearingOff, bool Timed);
+
+    private static ChargeRow Row(int chargeType) => chargeType switch
+    {
+        1 => new(1, TFCond.Critboosted, false, default, false),    // MEDIGUN_CHARGE_CRITICALBOOST
+        2 => new(2, TFCond.Megaheal, false, default, false),       // MEDIGUN_CHARGE_MEGAHEAL
+        _ => new(0, TFCond.Invulnerable, true, TFCond.InvulnerableWearingoff, true),  // MEDIGUN_CHARGE_INVULN
+    };
+
+    private const int ChargeRowCount = 3;   // MEDIGUN_NUM_CHARGE_TYPES' standard rows; the Vaccinator's resists are its later stage
 
     public void RecalculateChargeEffects(EntityHandle player, float now)
     {
-        // CTFPlayerShared::RecalculateChargeEffects (tf_player_shared.cpp:8854), the INVULN slot:
-        // the player's own released medigun, or a healer's, with that player as the provider.
-        bool on = false;
-        EntityHandle provider = default;
-        if (releasers.Contains(player.EntryIndex))
-        {
-            on = true;
-            provider = player;
-        }
-        if (!on && patients.TryGetValue(player.EntryIndex, out var state))
+        // CTFPlayerShared::RecalculateChargeEffects (tf_player_shared.cpp:8854): per row, the
+        // player's own released medigun or a healer's, with that player as the provider.
+        Span<(bool On, EntityHandle Provider)> charges = stackalloc (bool, EntityHandle)[ChargeRowCount];
+        for (int i = 0; i < ChargeRowCount; i++)
+            charges[i] = (false, default);
+
+        if (releasers.TryGetValue(player.EntryIndex, out int ownType))
+            charges[ownType] = (true, player);
+
+        if (patients.TryGetValue(player.EntryIndex, out var state))
         {
             foreach (int healerIndex in state.Healers.Keys)
             {
-                if (!releasers.Contains(healerIndex))
+                if (!releasers.TryGetValue(healerIndex, out int healerType))
                     continue;
-                on = true;
-                provider = players.GetHandle(healerIndex);
-                break;
+                charges[healerType] = (true, players.GetHandle(healerIndex));
             }
         }
 
+        // Stock's line after the loop (:8899-8902): the flag-carrier refusal takes only the
+        // invulnerable row back off — a covered carrier keeps every other charge effect.
         if (!CanReceiveMedigunChargeEffect(player))
-            on = false;
+            charges[0].On = false;
 
-        SetChargeEffect(player, on, provider, instantRemove: false, now);
+        for (int i = 0; i < ChargeRowCount; i++)
+            SetChargeEffect(player, Row(i), charges[i].On, charges[i].Provider, instantRemove: false, now);
     }
 
     /// <summary>
-    /// The medigun's report of its release: stock reads this off the live weapon in
-    /// <c>GetChargeEffectBeingProvided</c>; the port's answer is pushed (see the interface's
-    /// <c>NoteReleasing</c> and docs/divergences.md).
+    /// The medigun's report of its release and of the <c>set_charge_type</c> row it rides:
+    /// stock reads both off the live weapon in <c>GetChargeEffectBeingProvided</c>; the
+    /// port's answer is pushed (see the interface's <c>NoteReleasing</c> and
+    /// docs/divergences.md).
     /// </summary>
-    public void NoteReleasing(int playerIndex, bool releasing)
+    public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0)
     {
+        // A row this port has not got (the Vaccinator's resists) stays the plain charge.
         if (releasing)
-            releasers.Add(playerIndex);
+            releasers[playerIndex] = chargeType is >= 0 and < ChargeRowCount ? chargeType : 0;
         else
             releasers.Remove(playerIndex);
     }
@@ -318,69 +347,134 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// </summary>
     public bool CanReceiveMedigunChargeEffect(EntityHandle player) => ctf?.CarriedBy(player) is null;
 
-    /// <summary><c>CTFPlayerShared::SetChargeEffect</c> (tf_player_shared.cpp:9017), the INVULN slot.</summary>
-    private void SetChargeEffect(EntityHandle player, bool on, EntityHandle provider, bool instantRemove, float now)
+    /// <summary><c>CTFPlayerShared::SetChargeEffect</c> (tf_player_shared.cpp:9017), one row of it.</summary>
+    private void SetChargeEffect(EntityHandle player, ChargeRow row, bool on, EntityHandle provider,
+                                 bool instantRemove, float now)
     {
-        charges.TryGetValue(player.EntryIndex, out var charge);
-        bool active = conditions.InCond(player, TFCond.Invulnerable);
+        float[] offTimes = OffTimes(player.EntryIndex);
+        int slot = row.Type;
+        bool active = conditions.InCond(player, row.Condition);
         if (active == on)
         {
             // Stock: coming back to the state already held clears a pending wear-off.
-            if (charge is not null && charge.OffTime != 0f)
+            if (on && offTimes[slot] != 0f)
             {
-                charge.OffTime = 0f;
-                conditions.Remove(player, TFCond.InvulnerableWearingoff);
+                offTimes[slot] = 0f;
+                if (row.HasWearingOff)
+                    conditions.Remove(player, row.WearingOff);
+                SendNewInvulnGameEvent(player);
             }
             return;
         }
         // Stock: already in the process of turning it off — the pending expiry stands
         // (tf_player_shared.cpp:9112-9114).
-        if (!on && !instantRemove && charge is not null && charge.OffTime != 0f)
+        if (!on && !instantRemove && offTimes[slot] != 0f)
             return;
 
         if (on)
         {
-            conditions.Add(player, TFCond.Invulnerable, UberDuration, provider);
-            if (charge is not null)
-                charge.OffTime = 0f;
+            if (offTimes[slot] != 0f)
+            {
+                offTimes[slot] = 0f;
+                if (row.HasWearingOff)
+                    conditions.Remove(player, row.WearingOff);
+            }
+            conditions.Add(player, row.Condition, ChargeSeconds(provider), provider);
+            SendNewInvulnGameEvent(player);
             return;
         }
 
         if (instantRemove)
         {
-            conditions.Remove(player, TFCond.Invulnerable);
-            conditions.Remove(player, TFCond.InvulnerableWearingoff);
-            if (charge is not null)
-                charge.OffTime = 0f;
+            offTimes[slot] = 0f;
+            conditions.Remove(player, row.Condition);
+            if (row.HasWearingOff)
+                conditions.Remove(player, row.WearingOff);
             return;
         }
 
-        charges[player.EntryIndex] = charge ??= new ChargeState();
-        conditions.Add(player, TFCond.InvulnerableWearingoff, provider: provider);
-        charge.OffTime = now + invulnTime.Value;
+        if (row.HasWearingOff)
+            conditions.Add(player, row.WearingOff, provider: provider);
+        offTimes[slot] = now + (row.Timed ? invulnTime.Value : 0f);
     }
 
     /// <summary>
-    /// <c>CTFPlayerShared::TestAndExpireChargeEffect</c> (:8915), the INVULN slot, without the
+    /// The seconds a granted charge condition carries, stock's <c>flNonBotMaxDuration</c>
+    /// (tf_player_shared.cpp:9053-9055): the release rate, plus the provider's
+    /// <c>add_uber_time</c>, plus one.
+    /// </summary>
+    private float ChargeSeconds(EntityHandle provider)
+    {
+        if (provider == default)
+            return UberDuration;
+        float added = hooks?.Float(0f, "add_uber_time", owners?.ManagerOf(provider.EntryIndex)) ?? 0f;
+        return TFMedigunBehaviour.ChargeReleaseRate + added + 1f;
+    }
+
+    /// <summary>
+    /// <c>CTFPlayerShared::SendNewInvulnGameEvent</c> (tf_player_shared.cpp:8993): per healer
+    /// of the player, a <c>player_invulned</c> naming the pair. Stock fires it from
+    /// <c>SetChargeEffect</c> on every row's grant — the invulnerable one and the rest
+    /// alike — so the event rides the release, not the pop.
+    /// </summary>
+    private void SendNewInvulnGameEvent(EntityHandle player)
+    {
+        if (!patients.TryGetValue(player.EntryIndex, out var state))
+            return;
+        foreach (int healerIndex in state.Healers.Keys)
+        {
+            if (!entities.IsPlayer(players.GetHandle(healerIndex)))
+                continue;    // stock's ToTFPlayer skip: a dispenser heals but is no medic
+            Fire("player_invulned", e =>
+            {
+                events!.EventSetInt(e, "userid", players.GetUserId(player));
+                events.EventSetInt(e, "medic_userid", players.GetUserId(players.GetHandle(healerIndex)));
+            });
+        }
+    }
+
+    /// <summary>
+    /// <c>CTFPlayerShared::TestAndExpireChargeEffect</c> (:8915), every row, without the
     /// exploit arm (which needs the provider's user-command age and a forced melee).
     /// </summary>
     public void TestAndExpireChargeEffect(EntityHandle player, float now)
     {
-        if (charges.TryGetValue(player.EntryIndex, out var charge) && charge.OffTime != 0f && now > charge.OffTime)
+        if (!chargeOffTimes.TryGetValue(player.EntryIndex, out var offTimes))
+            return;
+        for (int i = 0; i < ChargeRowCount; i++)
         {
-            charge.OffTime = 0f;
-            conditions.Remove(player, TFCond.Invulnerable);
-            conditions.Remove(player, TFCond.InvulnerableWearingoff);
+            if (offTimes[i] == 0f || now <= offTimes[i])
+                continue;
+            offTimes[i] = 0f;
+            var row = Row(i);
+            conditions.Remove(player, row.Condition);
+            if (row.HasWearingOff)
+                conditions.Remove(player, row.WearingOff);
         }
     }
 
     /// <summary>The player's instant uber loss: stock's <c>RecalcEffectOnTarget(target, true)</c>.</summary>
     public void RemoveChargeEffect(EntityHandle player)
     {
-        if (charges.TryGetValue(player.EntryIndex, out var charge) && charge.OffTime != 0f)
-            charge.OffTime = 0f;
-        conditions.Remove(player, TFCond.Invulnerable);
-        conditions.Remove(player, TFCond.InvulnerableWearingoff);
+        if (chargeOffTimes.TryGetValue(player.EntryIndex, out var offTimes))
+            for (int i = 0; i < ChargeRowCount; i++)
+                offTimes[i] = 0f;
+        for (int i = 0; i < ChargeRowCount; i++)
+        {
+            var row = Row(i);
+            conditions.Remove(player, row.Condition);
+            if (row.HasWearingOff)
+                conditions.Remove(player, row.WearingOff);
+        }
+    }
+
+    private float[] OffTimes(int playerIndex)
+    {
+        if (chargeOffTimes.TryGetValue(playerIndex, out var offTimes))
+            return offTimes;
+        var fresh = new float[ChargeRowCount];
+        chargeOffTimes[playerIndex] = fresh;
+        return fresh;
     }
 
     // ---- CTFPlayerShared::ConditionGameRulesThink: the heal, the cap, the drain --
@@ -407,6 +501,24 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                 float flTimeSinceDamage = TimeSinceLastDamage(patient.EntryIndex, now);
                 float scale = RemapValClamped(flTimeSinceDamage, 10f, 15f, 1f, 3f);
 
+                // Stock's heal-rate attribute walk (:2403-2411): what the held
+                // items say multiplies every healer's amount — mult_health_fromhealers
+                // is asked on the patient's own manager, its penalty on the active
+                // weapon (:2408), and the result rides both fraction arms (:2503, :2520).
+                float attribModScale = 1f;
+                if (hooks is { } walk && owners is { } holder)
+                {
+                    attribModScale = walk.Float(attribModScale, "mult_health_fromhealers",
+                                                holder.ManagerOf(patient.EntryIndex));   // :2406
+                    attribModScale = walk.Float(attribModScale, "mult_health_fromhealers_penalty_active",
+                                                holder.ActiveItemOf(patient.EntryIndex)); // :2410
+                }
+
+                // Stock's heal multiplier for the mega-healed patient (tf_player_shared.cpp:2486-2495):
+                // the Quick-Fix charge triples what its healer banks toward the next heal.
+                if (conditions.InCond(patient, TFCond.Megaheal))
+                    scale *= 3f;
+
                 // Stock divides by the class max and, past it, re-bases on the buffing max; for the
                 // standard player the buffing max IS the class max, so both arms answer health/max.
                 float curOverheal = (float)prevHealth / max;
@@ -427,10 +539,19 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                         continue;
                     decayHealth = false;
 
+                    // Stock's per-healer walk (:2519): the patient's own
+                    // mult_healing_from_medics rides the out-of-combat scale for
+                    // every medigun heal — asked on the patient's manager, like
+                    // the two walks above. The dispenser arm takes its rate whole,
+                    // which is what the ternary below keeps (:2503).
+                    if (!entry.DispenserHeal && hooks is { } heal && owners is { } patientHolder)
+                        scale = heal.Float(scale, "mult_healing_from_medics", patientHolder.ManagerOf(patient.EntryIndex));   // :2519
+
                     // Dispensers heal at a constant rate, ignoring the out-of-combat
                     // scale (tf_player_shared.cpp:2497-2513); a medigun's heal is
-                    // scaled (:2514-2526).
-                    float fraction = entry.DispenserHeal ? frametime * entry.Amount : frametime * entry.Amount * scale;
+                    // scaled (:2514-2526). The attribute scale rides both arms
+                    // (:2503, :2520).
+                    float fraction = frametime * entry.Amount * attribModScale * (entry.DispenserHeal ? 1f : scale);
                     state.HealFraction += fraction;
                     if (entry.DispenserHeal)
                     {
@@ -678,10 +799,5 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
         public float HealFraction;
         public float BestDecayMult = -1f;
         public float HealedPerSecondTimer;
-    }
-
-    private sealed class ChargeState
-    {
-        public float OffTime;
     }
 }

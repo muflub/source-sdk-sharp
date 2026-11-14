@@ -9,6 +9,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Buildings;
+using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
@@ -90,6 +91,7 @@ namespace TF2.Server.Combat;
 public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                   IEntityDirectory directory, TFWeaponScripts scripts, TFClassTable classes,
                                   ITFWeaponOwners owners, ITFPlayerResupply resupply, AttributeHooks attributes,
+                                  TFPlayerCarriers carriers,
                                   IUniformRandom random, IGameClock clock, TFDamageRecords records,
                                   TFDamageScopes scopes, TFAfterburns afterburns, TFBleeds bleeds,
                                   TFDamageRangeConVar range, TFDamageDisableSpreadConVar disableSpread,
@@ -98,7 +100,9 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                   TFFallDamageDisableSpreadConVar fallDisableSpread,
                                   TFDebugDamageConVar debug, TFZoomTimes zoomTimes, ILog log,
                                   ITFPlayerStats stats, DamageInflictors inflictors, TFSentryDamages sentryDamages,
-                                  TFStealthDamageReductionConVar stealth)
+                                  TFStealthDamageReductionConVar stealth, ITFPlayerConditions conditions,
+                                  IEngineSound sound, IEngineGameEvents events, ITFMedigunWeapons mediguns,
+                                  IEngineDamage hurt, ITFPlayerHealing healing)
     : IDamageModifier, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -111,6 +115,13 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     /// number (5000) goes with the rest of MvM.
     /// </summary>
     public const int InsaneDamageTaken = 1500;
+
+    /// <summary><c>INVALID_ITEM_DEF_INDEX</c>: the <c>player_healonhit</c>
+    /// event's <c>weapon_def_index</c> when the held item has none
+    /// (<c>tf_weaponbase.cpp:5249</c>).</summary>
+    private const int NoItemDefIndex = -1;
+    /// <summary>The milk's payback: <c>info.GetDamage() * 0.6f</c> (<c>tf_weaponbase.cpp:5176</c>).</summary>
+    public const float MilkHealFraction = 0.6f;
 
     public int HookOrder => Order;
 
@@ -158,7 +169,12 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // hit lights fires. The crit flag rides on top.
         if (!fromScope && attackerIsPlayer && !self && weapon != TFWeaponId.None)
         {
-            bits = (bits & TFDamageBits.Critical) | TFWeaponDamageTypes.Of(weapon);
+            // Stock's melee attack builds its info with DMG_MELEE beside the
+            // club bit (tf_weaponbase_melee.cpp:817), and the consume arm reads
+            // the melee flag off the info (tf_gamerules.cpp:6103), so the
+            // caller's Melee bit rides on with the crit flag while the weapon
+            // table's own bits answer the rest.
+            bits = (bits & (TFDamageBits.Critical | TFDamageBits.Melee)) | TFWeaponDamageTypes.Of(weapon);
 
             // CTFSniperRifle::GetDamageType (tf_weapon_sniperrifle.cpp:907-917):
             // the rifle strips DMG_USE_HITLOCATIONS unless its owner is
@@ -275,9 +291,22 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                               AttackerAirborne: InAirDueToExplosion(hit.Attacker, attackerConds),
                               VictimAirborne: InAirDueToExplosion(hit.Victim, victimConds),
                               DirectRocketHit: directRocketHit,
-                              VictimItem: owners.ActiveItemOf(victimIndex));
+                              VictimItem: owners.ActiveItemOf(victimIndex),
+                              AfterburnDuration: afterburns.Of(victimIndex)?.Burn.AfterburnDuration);
         var settings = new TFDamageSettings(range.Value, disableSpread.Value, critFalloff.Value, miniCritFalloff.Value);
         var result = TFDamageModifyRules.Apply(in input, in settings, random.RandomFloat, attributes);
+
+        // The consume arm's side effects (:6107-6108), run right where stock's
+        // consume arm is: the flames come off the victim and the flame-out
+        // sounds over them — the burn slice clears its clock on the next think
+        // (<c>TFAfterburn.Tick</c>), as stock's <c>OnRemoveBurning</c> forgets
+        // the burn when the condition goes. Before the alive rules read the
+        // victim again (:7191), as stock orders them.
+        if (result.Custom == TFDamageCustom.AxtinguisherBoosted && !self && attackerIsPlayer)
+        {
+            conditions.Remove(hit.Victim, TFCond.Burning);
+            sound.EntityEmitSound(hit.Victim, "TFPlayer.FlameOut");
+        }
 
         // The alive rules' resists (ApplyOnDamageAliveModifyRules,
         // tf_gamerules.cpp:7191-7336) over the modified hit, the victim's own
@@ -320,7 +349,18 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             && directory.Get(sentryHitBy) is TFSentryGun)
             sentryDamages.Note(victimIndex, hit.Attacker, sentryHitBy, now);
 
-        if ((result.Bits & TFDamageBits.Ignite) != 0 && attackerIsPlayer && WaterLevel(hit.Victim) < TFBurn.WaterLevelWaist
+        // THE IGNITE BIT AND ITS ATTRIBUTE (tf_gamerules.cpp:7117-7133):
+        // the hit's own DMG_IGNITE sets the victim alight out of the water;
+        // beside it, a held item's set_dmgtype_ignite adds the bit to a
+        // non-DOT hit (:7122-7130, IsDOTDmg :1295-1301) so the Sharpened
+        // Volcano Fragment lights an airblast that carries no ignite of its
+        // own. The DOT guard keeps the burn's ticks from re-lighting; the
+        // fire-immune hard-out is stock's :7148-7152.
+        bool igniting = (result.Bits & TFDamageBits.Ignite) != 0
+                        || (custom is not (TFDamageCustom.Burning or TFDamageCustom.BurningFlare
+                                           or TFDamageCustom.BurningArrow or TFDamageCustom.Bleeding)
+                            && attributes.Int(0, "set_dmgtype_ignite", weaponItem) != 0);
+        if (igniting && attackerIsPlayer && WaterLevel(hit.Victim) < TFBurn.WaterLevelWaist
             && !victimConds.Has(TFCond.FireImmune))
             afterburns.Of(victimIndex)?.Ignite(now, hit.Attacker, weapon, weaponName);
 
@@ -336,6 +376,51 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             if (bleedingTime > 0f)
                 bleeds.Of(victimIndex)?.Make(now, enginePlayers.IsAlive(hit.Victim), hit.Attacker,
                                              weapon, weaponName, bleedingTime);
+        }
+
+        // THE SPY'S CLOAK (tf_gamerules.cpp:6802-6813): a Spy attacker with an
+        // active weapon whose item carries add_cloak_on_hit fills their own
+        // cloak meter by the attribute. Stock calls the shared
+        // AddToSpyCloakMeter with bForce true (:6810): the watch's regen hooks
+        // are skipped, the amount lands straight on the meter, clamped to
+        // 0..100 (tf_player_shared.cpp:9731, :9753-9755); the watch's own gate
+        // (:9727-9729) is the spy's class, as the heal and ammo-pack lanes
+        // ask it. The weapon gate (:6804) is the held weapon's name.
+        if (attackerIsPlayer && attackerPlayer is { } spy && spy.Class() == TFClass.Spy
+            && weaponName.Length > 0)
+        {
+            int cloakOnHit = attributes.Int(0, "add_cloak_on_hit", weaponItem); // :6807
+            if (cloakOnHit > 0)                                                  // :6808
+            {
+                spy.CloakMeter = Math.Clamp(spy.CloakMeter + cloakOnHit, 0f, 100f); // :9755
+            }
+        }
+
+        // THE ENEMY SLOW (CTFWeaponBase::ApplyOnHitAttributes's slow arms,
+        // tf_weaponbase.cpp:5443-5467): the held item's
+        // <c>mult_onhit_enemyspeed</c> is the chance — the plain uniform roll
+        // against the attribute (:5450) — that a hit slows the victim's feet
+        // for 0.2 s, its strength remapped over the squared distance from 0.6
+        // at 512 units to nothing at 1536 (:5454-5457); TF_STUN_MOVEMENT,
+        // dealt by the attacker. The <c>_major</c> variant, asked next, needs
+        // no roll: the attribute is the stun's seconds and the strength is the
+        // fixed 0.4 (:5461-5466). Both arms are inside the health-buff gate
+        // (:5444): a victim riding a medic's heal buff (<c>TF_COND_HEALTH_BUFF</c>)
+        // keeps their feet. Stock's stun is the shared <see cref="TFStunStack"/>.
+        if (attackerIsPlayer && !victimConds.Has(TFCond.HealthBuff))
+        {
+            float slowEnemy = attributes.Float(0f, "mult_onhit_enemyspeed", weaponItem);
+            if (slowEnemy != 0f && random.RandomFloat(0f, 1f) < slowEnemy)
+            {
+                float length = distance ?? 0f;
+                carriers.Part<TFStunStack>(victimIndex)?.Stun(hit.Victim, 0.2f,
+                    TFDamageModifyRules.RemapValClamped(length * length, 512f * 512f, 1536f * 1536f, 0.6f, 0f),
+                    TFStunFlags.Movement, hit.Attacker);
+            }
+
+            float slowMajor = attributes.Float(0f, "mult_onhit_enemyspeed_major", weaponItem);
+            if (slowMajor != 0f)
+                carriers.Part<TFStunStack>(victimIndex)?.Stun(hit.Victim, slowMajor, 0.4f, TFStunFlags.Movement, hit.Attacker);
         }
 
         // THE GAME STATS (Event_PlayerDamage, tf_gamestats.cpp:1033-1089,
@@ -365,6 +450,122 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             if ((result.Bits & TFDamageBits.Critical) != 0
                 && !new TFConditionEffects().IsCritBoosted(attackerConds, clientSide: false))
                 stats.Increment(hit.Attacker, TFStat.DamageRangedCritRandom, taken);
+        }
+
+        // THE RAGE GAIN (CTFPlayer::HandleRageGain, tf_player.cpp:8718-8741,
+        // run for the attacker at the tail of OnTakeDamage, :9717-9722): a hit
+        // that bit fills the soldier's buff meter from the damage dealt — the
+        // buff's scale over the damage and the divisor 6, the item's
+        // rage_giving_scale riding on it (:9714-9715). Stock's owning test is
+        // Weapon_OwnsThisID(TF_WEAPON_BUFF_ITEM) (:8725), here the loadout
+        // row's item behind the buff weapon. The meter caps at full and
+        // refuses gains while the deploy drains (SetRageMeter,
+        // tf_player_shared.cpp:13870-13898).
+        if (attackerIsPlayer && !self && result.Damage > 0f && attackerPlayer is { } attackerState
+            && attackerState.Class() == TFClass.Soldier)
+        {
+            var buffItem = owners.ItemOf(hit.Attacker.EntryIndex,
+                                         TFWeaponNames.Name(TFWeaponId.BuffItem).ToLowerInvariant());
+            TFRageMeter.GainOnDamageDealt(attackerState, result.Damage,
+                                          attributes.Float(1f, TFRageMeter.GivingScaleAttribute, weaponItem),
+                                          attributes.Int(0, TFRageMeter.BuffTypeAttribute, buffItem));
+        }
+
+        // THE ON-HIT HEALTH (stock tf_weaponbase.cpp:5142-5257): one accumulator in stock's
+        // order. The held item's add_onhit_addhealth opens it (:5144), scaled down by how much
+        // of the dealt damage survived into the modified hit (:5148) and floored at three when
+        // set (:5149). A milked victim pays back sixty percent of the hit on top (:5176), and
+        // the Concheror's buff adds its recover percentage of the hit (:5215, the scale's
+        // float truncated into the int that heals). Nonzero heals through the resupply's
+        // TakeHealth (:5231), which caps the heal at the item-inclusive max health the way
+        // stock's TakeHealth does; a negative total hurts the carrier instead (:5241). Either
+        // way the player_healonhit game event (:5244-5256) names the signed amount, the healed
+        // edict and the held item's defindex (stock's -1 without a
+        // GetAttributeContainer()->GetItem()). The buff's other half, the carried speed boost,
+        // rides the conds' TF_COND_SPEED_BOOST (tf_player_shared.cpp:4234-4259), and the milk's
+        // provider walk — the assist stat, the player_healed event and the provider's own
+        // meter trickle (:5179-5209) — waits on that lane's carrier
+        // (docs/plans/tf2/deferred.tsv). Stock's heal stat (:5236) is likewise not booked yet.
+        int healOnHit = attributes.Int(0, "add_onhit_addhealth", weaponItem);             // :5144
+        if (healOnHit != 0)
+        {
+            // :5148's Clamp(damage dealt over damage as dealt, 0, 1); the floor of three is stock's (:5149).
+            float scale = Math.Clamp(hit.Damage > 0f ? result.Damage / hit.Damage : 1f, 0f, 1f);
+            healOnHit = Math.Max(3, (int)(healOnHit * scale));
+        }
+
+        if (attackerIsPlayer && victimConds.Has(TFCond.MadMilk) && result.Damage > 0f)
+            healOnHit += (int)(result.Damage * MilkHealFraction);                          // :5176's truncation
+        if (attackerIsPlayer && !self && result.Damage > 0f
+            && attackerConds.Has(TFCond.Regenondamagebuff) && attackerPlayer is { })
+            healOnHit += (int)(result.Damage * TFRageMeter.HealOnHitScale);                // :5215's truncation
+
+        if (healOnHit != 0)                                                                // :5227: heal-or-nothing
+        {
+            if (healOnHit > 0)
+                resupply.TakeHealth(hit.Attacker, healOnHit);                              // :5231's TakeHealth(DMG_GENERIC)
+            else
+                hurt.TakeDamage(hit.Attacker, hit.Attacker, -healOnHit, DamageType.Generic); // :5241 hurts the carrier itself
+
+            IntPtr ev = events.EventCreate("player_healonhit");                            // :5244
+            if (ev != IntPtr.Zero)                                                         // :5245
+            {
+                events.EventSetInt(ev, "amount", healOnHit);                               // :5247
+                events.EventSetInt(ev, "entindex", entities.GetIndex(hit.Attacker));      // :5248
+                events.EventSetInt(ev, "weapon_def_index",                                 // :5249-5254
+                                   weaponItem is AttributeContainer { Item: { } def }
+                                       ? def.Defindex : NoItemDefIndex);
+                events.EventFire(ev);                                                      // :5255
+            }
+        }
+
+        // THE UBERSAW'S CHARGE (stock tf_weaponbase.cpp:5259-5281): a medic's hit fills the
+        // medic's own ÜberCharge meter from the held item's add_onhit_ubercharge, a float the
+        // hook walks over the held weapon's attribute manager — providers and the wearer's
+        // manager included. Stock's powerup-mode scaling of the bonus (:5269-5277) has no
+        // carrier yet, the same way the crit arm's !IsPowerupMode gate is vacuous
+        // (docs/plans/tf2/deferred.tsv); the bonus reaches AddCharge as it came through. The
+        // meter's own clamp is the setter's (AddCharge caps at one, tf_weapon_medigun.cpp:1061,
+        // and SetChargeLevel keeps the floor). Only a medic carries the arm (:5260); the
+        // medic's medigun is asked through the medigun service, stock's Weapon_OwnsThisID
+        // (TF_WEAPON_MEDIGUN). With no item attribute the meter stands.
+        if (attackerIsPlayer && attackerPlayer is { } medic && medic.Class() == TFClass.Medic)
+        {
+            float bonus = attributes.Float(0f, "add_onhit_ubercharge", weaponItem);
+            if (bonus != 0f)
+                mediguns.SetChargeLevel(hit.Attacker.EntryIndex, mediguns.ChargeLevel(hit.Attacker.EntryIndex) + bonus);
+        }
+
+        // THE KILL HEAL (stock tf_player.cpp:11545-11564, inside OnKilledOther_Effects, which
+        // Event_KilledOther reaches once the victim is dead): the held item's heal_on_kill heals
+        // the killer — MIN of the attribute and the headroom between the killer's health and the
+        // item-inclusive buffed max — through TakeHealth (:11549), and fires player_healonhit
+        // with the signed amount, the killer's edict and the held item's defindex (:11552-11563).
+        // Stock's death is detected by the engine at the kill itself; here the kill is the same
+        // before-minus-final arithmetic the spun-up gate uses, since the seam runs before the hit
+        // is applied. The spy's cloak-on-kill (:11513-11521), the restore-to-percentage arm
+        // (:11527-11543) and the speed boost (:11567 onward) wait on their lanes' carriers.
+        if (attackerIsPlayer && !self)
+        {
+            int healOnKill = attributes.Int(0, "heal_on_kill", weaponItem);          // :11545
+            if (healOnKill != 0                                                      // :11546
+                && entities.GetHealth(hit.Victim) - result.Damage <= 0)              // the kill: before-minus-final health
+            {
+                // :11548: MIN of the attribute and the headroom under the buffed max.
+                int amount = Math.Min(healOnKill, healing.MaxBuffedHealth(hit.Attacker) - entities.GetHealth(hit.Attacker));
+                resupply.TakeHealth(hit.Attacker, amount);                             // :11549's TakeHealth(DMG_GENERIC)
+
+                IntPtr ev = events.EventCreate("player_healonhit");                   // :11552
+                if (ev != IntPtr.Zero)                                                // :11553
+                {
+                    events.EventSetInt(ev, "amount", amount);                         // :11555
+                    events.EventSetInt(ev, "entindex", entities.GetIndex(hit.Attacker)); // :11556
+                    events.EventSetInt(ev, "weapon_def_index",                        // :11557-11562
+                                       weaponItem is AttributeContainer { Item: { } def }
+                                           ? def.Defindex : NoItemDefIndex);
+                    events.EventFire(ev);                                             // :11563
+                }
+            }
         }
 
         return result.Damage;
@@ -412,7 +613,8 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
 /// spawnflag, and a hit that arrived carrying the telefrag custom.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFDamageRules(ITFPlayerData players, IEngineEntities entities, TFDamageScopes scopes)
+public sealed class TFDamageRules(ITFPlayerData players, IEngineEntities entities, TFDamageScopes scopes,
+                                  TFPlayerCarriers? carriers = null)
     : IDamageRule, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -435,6 +637,23 @@ public sealed class TFDamageRules(ITFPlayerData players, IEngineEntities entitie
             return Decision.UseStockRule;
 
         TFCondMask conds = victim.Conditions();
+
+        // Stock's phase arm (tf_player.cpp:9329-9361): while phasing (or on
+        // PASS Time interception), nothing lands while the caller asked the
+        // plain way; the dodged damage is tallied on the phase for the
+        // slowdown the phase's end pays out (:9355-9359, only the phase
+        // itself tallies). What arrives carrying the allow-damage names —
+        // the same inflictor arms the über's passthrough asks about — passes
+        // the refuse as stock's <c>bAllowDamage == false</c> gate does.
+        if (conds.Has(TFCond.Phase) || conds.Has(TFCond.PasstimeInterception))
+        {
+            if (TriggerHurtCustom(in hit))
+                return Decision.UseStockRule;
+
+            carriers?.ConditionsOf(hit.Victim.EntryIndex)?.AddPreventedDamage(TFCond.Phase, (int)hit.Damage);
+            return Decision.No;
+        }
+
         if (!new TFConditionEffects().IsInvulnerable(in conds))
             return Decision.UseStockRule;
 

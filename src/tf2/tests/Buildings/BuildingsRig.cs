@@ -255,6 +255,7 @@ internal sealed partial class BuildingsRig
         Services.AddInstance(Convars.Declared<TFTeleporterFovStartConVar>());
         Services.AddInstance(Convars.Declared<TFTeleporterFovTimeConVar>());
         Services.AddInstance(Convars.Declared<TFSentryGunDamageConVar>());
+        Services.AddInstance(Convars.Declared<TFSentryGunMiniDamageConVar>());
         Services.AddInstance(Convars.Declared<ObjSapperAmountConVar>());
 
         RegisterHealing();

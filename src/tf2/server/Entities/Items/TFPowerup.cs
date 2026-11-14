@@ -42,6 +42,13 @@ public abstract class TFPowerup(ITFMapPlayers players, IEngineFiles files, IEngi
     /// </summary>
     public const float ItemRespawnTime = 10f;
 
+    /// <summary><c>TF_POWERUP_LIFETIME</c> (tf_powerup.h:16): a thrown pack
+    /// lives half a minute.</summary>
+    public const float ThrownLifetime = 30f;
+
+    /// <summary><c>DropSingleInstance</c>'s removal think (tf_powerup.cpp:208).</summary>
+    public const string ThrownRemoveThink = "PowerupRemoveThink";
+
     /// <summary>The players this item acts on.</summary>
     protected readonly ITFMapPlayers Players = players;
 

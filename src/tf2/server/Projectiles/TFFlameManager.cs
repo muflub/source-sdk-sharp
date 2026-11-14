@@ -63,6 +63,9 @@ public static class TFFlameManagerDefs
     public const float BurnIndexRemapX = 10f;
     public const float BurnIndexRemapY = 50f;
     public const float BurnIndexDamageScaleMin = 0.5f;
+
+    /// <summary>The behind threshold of stock's flame collide, the dot a hit must pass to count as behind (<c>tf_flame.cpp:730-745</c>).</summary>
+    public const float BehindCritThreshold = 0.8f;
 }
 
 /// <summary>
@@ -88,10 +91,11 @@ public static class TFFlameManagerDefs
 /// reflection stomp, the reflection life and damage reduction and the
 /// distance damage mode are all behind attributes that default off, so the
 /// wall hit slides (<c>OnPointHitWall</c>'s tangent) and the damage scale is
-/// the time curve. The sniper's arrow-lighting and the from-behind crit read
-/// surfaces the seam does not carry (another player's active weapon, a
-/// victim's abs angles), so a teammate burns nothing and the crit flag is
-/// the shot's own.
+/// the time curve. The sniper's arrow-lighting reads a surface the seam does
+/// not carry (another player's active weapon), so a teammate burns nothing.
+/// Behind the item's flag the collide's crit arm reads the flame's travel and
+/// the victim's angles and adds the crit past the behind threshold
+/// (<c>tf_flame.cpp:730-745</c>).
 /// </para>
 /// </summary>
 [ScriptedEntity(TFFlameManagerDefs.ClassName, ScriptedEntityKind.Logical)]
@@ -156,6 +160,7 @@ public sealed class TFFlameManager : ScriptedEntity
     private string _weaponName = "";
     private float _burnFrequency = TFFlameManagerDefs.BurnFrequency;
     private bool _attackerIsPyro;
+    private bool _critFromBehind;
 
     private readonly Dictionary<EntityHandle, Burnt> _burnt = [];
 
@@ -168,12 +173,14 @@ public sealed class TFFlameManager : ScriptedEntity
     /// <summary>
     /// The weapon's deal each firing interval (<c>UpdateDamage</c>,
     /// <c>tf_flame.cpp:459-506</c>): whose flame, what damage, how often a
-    /// victim may burn and whether the attacker is the pyro whose victims
-    /// take the healing debuff. Stock reads the pyro's class off
-    /// <c>m_hAttacker</c> per collide; the seam reads classes by index, so
-    /// the weapon's side hands the answer in.
+    /// victim may burn, whether the attacker is the pyro whose victims
+    /// take the healing debuff, and whether the item asks the behind-crit of
+    /// <c>OnCollide</c> (<c>tf_weapon_flamethrower.cpp:875-876, 895</c>). Stock
+    /// reads the pyro's class off <c>m_hAttacker</c> per collide; the seam reads
+    /// classes by index, so the weapon's side hands the answer in.
     /// </summary>
-    public void UpdateDamage(TFWeaponScript script, in ShotDamage shot, float burnFrequency, bool attackerIsPyro)
+    public void UpdateDamage(TFWeaponScript script, in ShotDamage shot, float burnFrequency, bool attackerIsPyro,
+                             bool critFromBehind = false)
     {
         _weapon = script.Id;
         _weaponName = script.Name;
@@ -181,7 +188,15 @@ public sealed class TFFlameManager : ScriptedEntity
         _critical = shot.Critical;
         _burnFrequency = burnFrequency;
         _attackerIsPyro = attackerIsPyro;
+        _critFromBehind = critFromBehind;
     }
+
+    /// <summary>
+    /// Who the flames belong to (<c>m_hAttacker</c>, set in
+    /// <c>CTFFlameManager::Create</c>, <c>tf_flame.cpp</c>). With none, nothing is a
+    /// burn target.
+    /// </summary>
+    public void SetAttacker(EntityHandle attacker) => _attacker = attacker;
 
     /// <summary>
     /// One more flame (<c>AddPoint</c> → <c>InitializePoint</c>,
@@ -324,7 +339,7 @@ public sealed class TFFlameManager : ScriptedEntity
             // The special pumpkin-bomb collide is stock's only entity read
             // here (:341-355); the swept box reached a burn target, so burn it.
             if (tr.Entity != EntityHandle.None && IsValidBurnTarget(tr.Entity))
-                OnCollide(tr.Entity, point, now);
+                OnCollide(tr.Entity, point, now, tr.End);
 
             // The slide along the wall: the reflection stomp is behind the
             // default-off shouldReflect, the added life behind a 0 default.
@@ -349,6 +364,24 @@ public sealed class TFFlameManager : ScriptedEntity
         point.PrevPosition = point.Position;
         point.Position = newPos;
         return true;
+    }
+
+    /// <summary>
+    /// Stock's behind test (<c>tf_flame.cpp:730-745</c>): the flame's general
+    /// direction — its travel from the muzzle to this contact, because stock's
+    /// Touch runs after the point moved (tf_point_manager.cpp:105-126), while here
+    /// the sweep runs before — against the victim's forward
+    /// with z zeroed, both normalized; past the behind threshold the victim
+    /// faces away from the flame, the hit is behind them, and with the item's
+    /// flag it crits. The victim's angles come from the entities area.
+    /// </summary>
+    private bool CritsFromBehind(FlamePoint point, EntityHandle victim, Vector contact)
+    {
+        Vector flameDir = (contact - point.InitialPosition).Normalized;
+        Vector forward = Angles.Forward(Entities.GetAngles(victim));
+        forward = new Vector(forward.X, forward.Y, 0f).Normalized;
+
+        return flameDir.Dot(forward) > TFFlameManagerDefs.BehindCritThreshold;
     }
 
     /// <summary>
@@ -384,7 +417,7 @@ public sealed class TFFlameManager : ScriptedEntity
     /// healing debuff. The burn-list write closes it either way (:809-817),
     /// but not behind the frequency gate's early return (:702).
     /// </summary>
-    private void OnCollide(EntityHandle victim, FlamePoint point, float now)
+    private void OnCollide(EntityHandle victim, FlamePoint point, float now, Vector contact)
     {
         bool known = _burnt.TryGetValue(victim, out Burnt? burnt);
         if (known)
@@ -406,10 +439,17 @@ public sealed class TFFlameManager : ScriptedEntity
             float scale = GetFlameDamageScale(point, victim);
             float damage = MathF.Max(scale * _baseDamage, 1f);
 
+            // Stock's behind test (:730-741): with the item's flag set, a
+            // flame that reaches the victim from behind crits. The flag
+            // itself rode in through UpdateDamage; the geometry is asked
+            // here, at the collide, as stock asks it.
+            bool critical = _critical
+                            || (_critFromBehind && CritsFromBehind(point, victim, contact));
+
             // The flamethrower's own bits carry DMG_IGNITE
             // (g_aWeaponDamageTypes), so the damage layer lights the victim;
             // the kill's custom kind is TF_DMG_CUSTOM_BURNING.
-            using (HitGroups.Push(HitGroup.Generic, _critical))
+            using (HitGroups.Push(HitGroup.Generic, critical))
             using (Scopes.Push(TFDamageCustom.Burning, _weapon, _weaponName))
                 Damage.TakeDamage(victim, _attacker, damage, TFWeaponDamageTypes.Of(_weapon));
 

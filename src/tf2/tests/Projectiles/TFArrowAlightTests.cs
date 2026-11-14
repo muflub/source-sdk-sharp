@@ -48,6 +48,7 @@ public class TFArrowAlightTests
     /// </summary>
     private static void FlameOnce(TFFlameManager manager, ManagerRig rig, SurfaceTraceResult trace)
     {
+        manager.SetAttacker(ManagerRig.Attacker);
         manager.UpdateDamage(WeaponFixtures.Parse("tf_weapon_flamethrower"),
                              new ShotDamage(TFFlamethrowerBehaviour.DamagePerTick),
                              TFFlameManagerDefs.BurnFrequency, attackerIsPyro: false);

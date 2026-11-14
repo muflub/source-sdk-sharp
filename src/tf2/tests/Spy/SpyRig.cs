@@ -95,6 +95,32 @@ internal sealed class SpyDamage(TFDamageScopes scopes, DamageHitGroups groups) :
     }
 }
 
+/// <summary>The resupply seam the kunai's heal asks: answers a class maximum
+/// and records each <c>TakeHealth</c> as one line (the index, the health, the
+/// ignore-max flag).</summary>
+internal sealed class SpyResupply : ITFPlayerResupply
+{
+    /// <summary>The answer to <see cref="MaxHealth"/>.</summary>
+    public int MaxAnswer { get; set; } = 100;
+
+    /// <summary>One entry per call.</summary>
+    public readonly List<string> Takes = new();
+
+    public void Regenerate(EntityHandle player, bool refillHealthAndAmmo = true) { }
+
+    public int MaxHealth(EntityHandle player) => MaxAnswer;
+
+    public int TakeHealth(EntityHandle player, float health, bool ignoreMaxHealth = false)
+    {
+        Takes.Add($"take {player.EntryIndex} {(int)health} {ignoreMaxHealth}");
+        return (int)health;
+    }
+
+    public int MaxAmmo(EntityHandle player, TFAmmo ammo) => 0;
+
+    public int GiveAmmo(EntityHandle player, int count, TFAmmo ammo) => 0;
+}
+
 /// <summary>
 /// One spy on his carrier (entity 3, red, at the origin facing +X) and one
 /// enemy (entity 4, blue, 64 units ahead of him): the convars at their
@@ -194,6 +220,9 @@ internal sealed class SpyRig
     /// <summary>The item owners whose per-player managers the hook reads.</summary>
     public FakeOwners Owners { get; } = new();
 
+    /// <summary>The resupply seam the kunai's sanguisuge heal asks.</summary>
+    public SpyResupply Resupply { get; } = new();
+
     /// <summary>The engine's active-weapon answer, for the dress's restore.</summary>
     public string ActiveWeapon { set => Engine.Returns("Players.GetActiveWeapon", value); }
 
@@ -245,11 +274,11 @@ internal sealed class SpyRig
                           ConVars.Declared<TFSpyCloakConsumeRateConVar>(), ConVars.Declared<TFSpyCloakRegenRateConVar>(),
                           ConVars.Declared<TFSpyInvisTimeConVar>(), ConVars.Declared<TFSpyInvisUnstealthTimeConVar>(),
                           ConVars.Declared<TFSpyCloakNoAttackTimeConVar>(),
-                          Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag);
+                          Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag, Resupply);
         Conditions.Spies = Spies;   // the rig's chain: removals run the disguise arms
         var component = new TFSpyComponent(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random,
                                            Classes, Spies,
-                                           Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag);
+                                           Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag, Resupply);
         component.Attach(Spy);
         Slice = component;
     }

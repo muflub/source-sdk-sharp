@@ -234,4 +234,79 @@ public sealed class TFKnifeTests
         Assert.Empty(rig.Damage.Hits);
         Assert.Equal(35f, Assert.Single(world.Effects.Swings).Shot.Damage, 4);
     }
+
+    /// <summary>sanguisuge (the Conniver's Kunai), stock's heal arm
+    /// (<c>CTFKnife::PrimaryAttack</c>, tf_weapon_knife.cpp:267-289): when the
+    /// backstab kills the victim, the spy takes the victim's health before the
+    /// hit on top of his own, past the class maximum but capped at three times
+    /// it, through <c>TakeHealth</c> with <c>DMG_IGNORE_MAXHEALTH</c>.</summary>
+    [Fact]
+    public void A_kunai_backstab_that_kills_heals_the_spy()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;   // stock's bSuccessfulBackstab is the dead victim (:243)
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30046, "attr 30046", "sanguisuge",
+                                                                  AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                  false, false, AttributeValueType.Default,
+                                                                  MergedKeys.Block("k")), 1f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+
+        // spyHealth 100 + max(victimHealthBeforeHit 100, 75), under the cap of
+        // three times the answered maximum of 100 (:274-276).
+        Assert.Equal($"take {SpyRig.Spy.EntryIndex} 100 True", Assert.Single(rig.Resupply.Takes));
+    }
+
+    /// <summary>The cap of stock's arm (:274): three times the class maximum,
+    /// however much the victim carried.</summary>
+    [Fact]
+    public void The_kunai_heal_stops_at_three_times_the_class_maximum()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;
+        rig.Resupply.MaxAnswer = 40;                       // cap: 120
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30046, "attr 30046", "sanguisuge",
+                                                                  AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                  false, false, AttributeValueType.Default,
+                                                                  MergedKeys.Block("k")), 1f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+
+        rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+
+        Assert.Equal($"take {SpyRig.Spy.EntryIndex} 20 True", Assert.Single(rig.Resupply.Takes));
+    }
+
+    /// <summary>The gate of stock's arm (:270): the heal needs the kill — a
+    /// victim standing after the hit heals no one.</summary>
+    [Fact]
+    public void A_kunai_backstab_on_a_living_victim_heals_nothing()
+    {
+        var rig = new SpyRig();
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30046, "attr 30046", "sanguisuge",
+                                                                  AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                  false, false, AttributeValueType.Default,
+                                                                  MergedKeys.Block("k")), 1f));
+        rig.Owners.Items[SpyRig.Spy.EntryIndex] = knife;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));   // VictimAlive stays true
+
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
+    /// <summary>The attribute half of the gate (:269-270): without the kunai's
+    /// own <c>sanguisuge</c> on the knife, a kill heals no one.</summary>
+    [Fact]
+    public void A_knife_without_the_attribute_heals_no_one_on_a_kill()
+    {
+        var rig = new SpyRig();
+        rig.VictimAlive = false;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+
+        Assert.Empty(rig.Resupply.Takes);
+    }
 }

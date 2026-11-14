@@ -668,4 +668,287 @@ public class TFSentryGunTests
         Assert.Equal(-sentry.Yaw, poses[1].ArgAs<float>(2), 3);
         Assert.NotEqual(0f, poses[1].ArgAs<float>(2));
     }
+
+    /// <summary>A funded engineer whose arm item carries the Gunslinger's
+    /// <c>wrench_builds_minisentry</c> — stock reads it off the wrench the
+    /// builder owns (<c>tf_obj.cpp:1491</c>, <c>tf_weapon_wrench.h:42</c>).</summary>
+    private static EntityHandle AGunslinger(BuildingsRig rig, int metal = 500)
+    {
+        EntityHandle builder = rig.AddBuilder();
+        rig.Owners.Items[builder.EntryIndex] = rig.AttributeItem(
+            "wrench_builds_minisentry", TF2.Shared.Econ.AttributeDescriptionFormat.Additive, 1);
+        rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = metal;
+        return builder;
+    }
+
+    /// <summary>A built mini, completed: the stock-time think after the row's build time.</summary>
+    private static (BuildingsRig Rig, EntityHandle Builder, TFSentryGun Sentry) ACompletedMini(int metal = 500)
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = AGunslinger(rig, metal);
+        var outcome = rig.Builder().Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
+        Assert.Equal(TFCanBuildResult.CanBuild, outcome.Result);
+        var sentry = (TFSentryGun)outcome.Building!;
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();
+        return (rig, builder, sentry);
+    }
+
+    [Fact]
+    public void AGunslingerWrenchBuildsAMiniSentry()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = AGunslinger(rig);
+
+        var outcome = rig.Builder().Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
+
+        Assert.Equal(TFCanBuildResult.CanBuild, outcome.Result);
+        var sentry = (TFSentryGun)outcome.Building!;
+
+        // MakeMiniBuilding's flag and half-of-max start
+        // (tf_obj_sentrygun.cpp:367-380): the attribute on the wrench makes
+        // the build a mini, standing at half its hundred.
+        Assert.True(sentry.IsMiniBuilding);
+        Assert.Equal(50, sentry.Health);
+
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();                        // complete: construction's ramp reached the max (:2124)
+        Assert.False(sentry.IsBuilding);
+        Assert.Equal(100, sentry.Health);
+    }
+
+    [Fact]
+    public void AMiniSentryNeverUpgrades()
+    {
+        var (rig, builder, sentry) = ACompletedMini();
+
+        // Construction's ramp leaves the mini whole, so every swing feeds
+        // the upgrade pot — and the mini's ceiling is the one it stands on
+        // (GetMaxUpgradeLevel's mini arm, tf_obj_sentrygun.cpp:383-389;
+        // CanBeUpgraded's refusal, tf_obj.cpp:2925-2926).
+        for (int swing = 0; swing < 12; swing++)
+            sentry.WrenchHit(builder);
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.UpgradeDuration;
+        sentry.OnThink();
+
+        Assert.Equal(1, sentry.Level);
+    }
+
+    [Fact]
+    public void AMiniSentryCostsStocksMetal()
+    {
+        // The PDQ's arm takes 30 off the sentry's price
+        // (tf_player_shared.cpp:11531-11536): a hundred pays for a mini.
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = AGunslinger(rig, metal: 100);
+
+        var outcome = rig.Builder().Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
+
+        Assert.Equal(TFCanBuildResult.CanBuild, outcome.Result);
+        var paid = Assert.Single(rig.Purse.Paid);
+        Assert.Equal(100, paid.Count);
+
+        // The plain wrench pays the row's 130, and 100 is short of it.
+        var plain = new BuildingsRig();
+        plain.StubWorld();
+        EntityHandle engy = plain.AddBuilder();
+        plain.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 100;
+        Assert.Equal(TFCanBuildResult.NeedResources,
+                     plain.Builder().Build(engy, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero).Result);
+    }
+
+    [Fact]
+    public void AMiniSentryBuildsInStocksTime()
+    {
+        // GetTotalTime has no mini arm (tf_obj.cpp:857-874): the row's ten
+        // seconds stand for a mini as for any sentry.
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = AGunslinger(rig);
+        var sentry = (TFSentryGun)rig.Builder()
+                                     .Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero)
+                                     .Building!;
+
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime / 2f;
+        sentry.OnThink();
+        Assert.True(sentry.IsBuilding);            // halfway: still assembling
+
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime / 2f;
+        sentry.OnThink();
+        Assert.False(sentry.IsBuilding);           // the row's full time stands
+        Assert.Equal(100, sentry.Health);          // the ramp reaches the mini's hundred (:2124)
+    }
+
+    [Fact]
+    public void AStockWrenchBuildsALevelOneSentry()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = rig.AddBuilder();
+        rig.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 500;
+
+        var outcome = rig.Builder().Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
+
+        Assert.Equal(TFCanBuildResult.CanBuild, outcome.Result);
+        var sentry = (TFSentryGun)outcome.Building!;
+        Assert.False(sentry.IsMiniBuilding);
+        var paid = Assert.Single(rig.Purse.Paid);
+        Assert.Equal(TFObjectInfo.Of(TFObjectType.Sentrygun)!.Cost, paid.Count);   // the row's metal, no discount
+
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();
+        Assert.Equal(1, sentry.Level);
+        Assert.Equal(TFBaseObject.ObjectMaxHealth, sentry.Health);                 // full hundred and fifty
+    }
+
+    [Fact]
+    public void AMiniShootsMiniNumbers()
+    {
+        // The mini's shells: the mini's damage and the quarter-slower beat
+        // (tf_obj_sentrygun.cpp:1542-1546, :1278-1281).
+        var (rig, _, sentry) = ACompletedMini();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.FillsSphere(enemy);
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the first shell
+        rig.Clock.Now += 0.18f;                  // inside the plain 0.2 beat, past the mini's 0.15
+        sentry.OnThink("SentryThink");
+
+        EngineCall[] shells = rig.Engine.AllOf("Damage.TakeDamage").ToArray();
+        Assert.Equal(2, shells.Length);          // the second landed inside the shorter beat
+        Assert.Equal(rig.Convars.Declared<TFSentryGunMiniDamageConVar>().Value, shells[0].ArgAs<float>(2));
+        Assert.NotEqual(rig.Convars.Declared<TFSentryGunDamageConVar>().Value, shells[0].ArgAs<float>(2));
+    }
+
+    [Fact]
+    public void TheMiniScalesToThreeQuartersAndWearsItsBuildersTeamSkin()
+    {
+        // MakeMiniBuilding's scale arm (tf_obj_sentrygun.cpp:373, :2146-2150) and
+        // StartPlacement's tail for a mini (tf_obj.cpp:1469-1473): red's second skin,
+        // blu's third — both through the builder's real Build path.
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = AGunslinger(rig);
+        var sentry = (TFSentryGun)rig.Builder()
+                                     .Build(builder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero)
+                                     .Building!;
+        Assert.True(sentry.IsMiniBuilding);
+
+        var scale = rig.Engine.Last("EntityRender.SetModelScale");
+        Assert.NotNull(scale);
+        Assert.Equal(TFBaseObject.MiniSentryScale, scale!.Value.ArgAs<float>(1));   // MINI_SENTRY_SCALE
+
+        var skin = rig.Engine.Last("EntityRender.SetSkin");
+        Assert.NotNull(skin);
+        Assert.Equal(2, skin!.Value.ArgAs<int>(1));                                 // the rig's builder stands red
+
+        // A blu builder's mini wears the third skin (:1472).
+        var blu = new BuildingsRig();
+        blu.StubWorld();
+        EntityHandle bluBuilder = blu.AddBuilder(TFTeam.Blue);
+        blu.Owners.Items[bluBuilder.EntryIndex] = blu.AttributeItem(
+            "wrench_builds_minisentry", TF2.Shared.Econ.AttributeDescriptionFormat.Additive, 1);
+        blu.Purse.Pockets[TFAmmoNames.Name(TFAmmo.Metal)] = 500;
+        blu.Builder().Build(bluBuilder, TFObjectType.Sentrygun, 0, Vector.Zero, Vector.Zero);
+
+        var bluSkin = blu.Engine.Last("EntityRender.SetSkin");
+        Assert.NotNull(bluSkin);
+        Assert.Equal(3, bluSkin!.Value.ArgAs<int>(1));
+    }
+
+    [Fact]
+    public void TheMiniTurnsThirtyFiveHundredthsQuicker()
+    {
+        // MoveTurret's mini arm (tf_obj_sentrygun.cpp:1825-1830): the pitch step of
+        // one think is the base rate's five, lifted — 2.025 where the plain turret's
+        // downhill fact reads 1.5 (TheAimReadsADownhillTargetAsStocksPitch).
+        // Completed first, as the plain downhill fact's sentry is: the first
+        // think of an unfinished build is the construction tick, not the aim.
+        var (rig, _, sentry) = ACompletedMini();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = new Vector(300f, 0f, TFSentryGun.EyeHeightForLevel(1) - 40f);   // 40 below the eye
+        rig.FillsSphere(enemy);
+
+        rig.Clock.Now += TFSentryGun.SentryThinkDelay;
+        sentry.OnThink("SentryThink");
+
+        Assert.Equal(30f * TFSentryGun.MiniTurnRateMultiplier * TFSentryGun.SentryThinkDelay,
+                     sentry.Pitch, 2);                                             // 2.025: the lifted step
+    }
+
+    [Fact]
+    public void TheMiniSoundsItsOwnReportAtPitchesHigh()
+    {
+        // The mini's fire branch (:1569-1577): its own sound at the script's pitch;
+        // and once the hopper runs dry, EmitSentrySound's mini arm (:2214-2219)
+        // rides the empty click up to PITCH_HIGH. Through the real Fire path.
+        var (rig, _, sentry) = ACompletedMini();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.FillsSphere(enemy);
+
+        sentry.OnThink("SentryThink");             // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");             // the first shell: its report
+
+        var report = rig.Engine.Last("Sound.EntityEmitSound");
+        Assert.NotNull(report);
+        Assert.Equal(TFSentryGun.MiniFireSound, report!.Value.ArgAs<string>(1));
+
+        // The hopper runs dry at the mini's beat; one beat past the last shell
+        // the empty click sounds — at PITCH_HIGH (:2214-2219).
+        int guard = 0;
+        while (sentry.Shells > 0 && guard++ < 400)
+        {
+            rig.Clock.Now += TFSentryGun.ShellIntervalLevel1 * TFSentryGun.MiniFireRateMultiplier;
+            sentry.OnThink("SentryThink");
+        }
+
+        rig.Clock.Now += TFSentryGun.ShellIntervalLevel1 * TFSentryGun.MiniFireRateMultiplier;
+        sentry.OnThink("SentryThink");
+
+        var empty = rig.Engine.Last("Sound.EntityEmitSoundAs");
+        Assert.NotNull(empty);
+        Assert.Equal(TFSentryGun.EmptySoundName, empty!.Value.ArgAs<string>(1));
+        Assert.Equal(TFSentryGun.PitchHigh, empty!.Value.ArgAs<int>(3));
+    }
+
+    [Fact]
+    public void ThePlainSentryFiresItsOwnLevelReportAndPlainClick()
+    {
+        // The non-mini branch (:1579-1596): the level's named sound, and the
+        // empty click at the script's own pitch (:2227-2242).
+        var (rig, sentry, _) = AWorkingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.FillsSphere(enemy);
+
+        sentry.OnThink("SentryThink");             // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");             // the first shell
+
+        var report = rig.Engine.Last("Sound.EntityEmitSound");
+        Assert.NotNull(report);
+        Assert.Equal(TFSentryGun.FireSoundLevel1, report!.Value.ArgAs<string>(1));
+
+        int guard = 0;
+        while (sentry.Shells > 0 && guard++ < 400)
+        {
+            rig.Clock.Now += TFSentryGun.ShellIntervalLevel1;
+            sentry.OnThink("SentryThink");
+        }
+
+        rig.Clock.Now += TFSentryGun.ShellIntervalLevel1;
+        sentry.OnThink("SentryThink");
+
+        var empty = rig.Engine.Last("Sound.EntityEmitSound");
+        Assert.NotNull(empty);
+        Assert.Equal(TFSentryGun.EmptySoundName, empty!.Value.ArgAs<string>(1));
+    }
 }

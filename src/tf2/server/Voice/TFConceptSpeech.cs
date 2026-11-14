@@ -86,6 +86,9 @@ public sealed class TFConceptSpeech(
     /// <summary>MP_CONCEPT_MINIGUN_FIREWEAPON, the firing concept behind its five-second gate.</summary>
     public const string MinigunFireWeapon = "TLK_MINIGUN_FIREWEAPON";
 
+    /// <summary>MP_CONCEPT_PLAYER_BATTLECRY (mp_shareddefs.cpp:40), the line a buff deploy's raise speaks.</summary>
+    public const string PlayerBattlecry = "TLK_PLAYER_BATTLECRY";
+
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
     public bool Speak(EntityHandle speaker, string concept) => Ask(speaker, concept, null).Spoke;
 
@@ -151,15 +154,18 @@ public sealed class TFConceptSpeech(
         bool spoke;
         switch (response.Kind)
         {
-            // The scene's speak events, sounded one after another; a scene the
-            // image does not carry sounds nothing, as stock's missing scene
-            // does not play.
+            // The scene's speak events, sounded one after another. A scene the
+            // image carries speaks even when it names no sound — the
+            // gesture-only taunts (the scout's drink, taunt04_v1) are scenes,
+            // and stock's matched response is the success the taunt keys on;
+            // only a scene absent from the image plays nothing, as stock's
+            // missing scene does.
             case ResponseKind.Scene:
                 IReadOnlyList<string> sceneSounds = scenes.SceneSounds(response.Name);
                 foreach (string sceneSound in sceneSounds)
                     sound.EntityEmitSound(speaker, sceneSound);
 
-                spoke = sceneSounds.Count > 0;
+                spoke = sceneSounds.Count > 0 || scenes.HasScene(response.Name);
                 break;
 
             // RT_SOUND: the sound itself, no scene around it.

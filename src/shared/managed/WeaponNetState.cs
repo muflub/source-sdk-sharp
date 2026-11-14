@@ -360,8 +360,9 @@ public partial class WeaponNetState
     /// the carrier's weapon blob and stands the same way — clear it on every
     /// deploy would refuse the item after a plain weapon switch, where stock's
     /// slot meter has charged on. The one float covers the one weapon the
-    /// carrier holds; the behaviour that owns it is the item's lane, and the
-    /// refill rule lives with it (the TF2 assembly's TFItemMeter).
+    /// carrier holds; the behaviour that owns it is the item's lane, the held
+    /// refill is the machine tail's tick and the holstered one the deploy
+    /// pair's (the TF2 assembly's TFItemMeter, the arsenal's settle).
     /// </summary>
     [Predicted]
     public partial float ItemMeter { get; set; }

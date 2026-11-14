@@ -219,9 +219,9 @@ public sealed class TF2MenuCompositionTests : IDisposable
 
         public bool FrozenOrDead => true;
 
-        public ulong Carried => 0ul;
+        public UInt128 Carried => 0ul;
 
-        public ulong Empty => 0ul;
+        public UInt128 Empty => 0ul;
 
         public int Active => -1;
 

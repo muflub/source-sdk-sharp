@@ -25,9 +25,12 @@ public sealed class TFWeaponBehaviours(TFWeaponParts parts) : IWeaponBehaviourSo
         TFWeaponKind.Bow => new TFBowBehaviour(parts),
         TFWeaponKind.Flamethrower => new TFFlamethrowerBehaviour(parts),
         TFWeaponKind.Medigun => new TFMedigunBehaviour(parts),
+        TFWeaponKind.Lunchbox => new TFLunchboxBehaviour(parts),
         TFWeaponKind.Pda => new TFPDABehaviour(parts),
         TFWeaponKind.Builder => new TFBuilderBehaviour(parts),
+        TFWeaponKind.BuffItem => new TFBuffItemBehaviour(parts),
         TFWeaponKind.Inert => new TFInertBehaviour(parts),
+        TFWeaponKind.LaserPointer => new TFWranglerBehaviour(parts),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 

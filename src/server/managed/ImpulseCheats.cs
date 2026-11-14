@@ -52,6 +52,29 @@ public interface IWeaponGiver
     /// answers minus one for everything.
     /// </summary>
     int CarriedClipOf(EntityHandle player, int typeIndex) => -1;
+
+    /// <summary>
+    /// The catalog row of the player's <paramref name="slot"/>th carried
+    /// weapon. Minus one: nothing carried there. A giver with no carry answers
+    /// minus one for everything.
+    /// </summary>
+    int CarriedRowAt(EntityHandle player, int slot) => -1;
+
+    /// <summary>
+    /// The item meter the player's carried weapon of catalog row
+    /// <paramref name="typeIndex"/> holstered with, and the server second it
+    /// was that — the pair the next deploy's restore advances from, as stock's
+    /// per-slot charge rides the inventory (<c>CTFPlayerShared::
+    /// UpdateItemChargeMeters</c>, tf_player_shared.cpp:7870-7904). False: the
+    /// player carries no such weapon, or nothing ever metered it. A giver with
+    /// no carry answers false for everything.
+    /// </summary>
+    bool CarriedMeterOf(EntityHandle player, int typeIndex, out float meter, out float stamp)
+    {
+        meter = 0f;
+        stamp = 0f;
+        return false;
+    }
 }
 
 /// <summary>

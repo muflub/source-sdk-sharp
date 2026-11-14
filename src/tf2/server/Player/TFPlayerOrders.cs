@@ -119,4 +119,10 @@ public static class TFPlayerOrders
     /// them, on +94 — the last free value in the band, after the spawn walks.
     /// </summary>
     public const int ResponsePrecache = Band + 94;
+
+    /// <summary>
+    /// The spawned kit's effect bars (<see cref="TFPlayerResupply"/>): the
+    /// regen's fill beside the spawn walk, on +101 past the taunt.
+    /// </summary>
+    public const int SpawnEffectBars = Band + 101;
 }

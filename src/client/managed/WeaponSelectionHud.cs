@@ -25,11 +25,11 @@ public interface IWeaponSelectionPlayer
     /// <summary>FL_FROZEN or dead: OnThink closes an open selection.</summary>
     bool FrozenOrDead { get; }
 
-    /// <summary>PlayerNetState.CarriedWeapons: bit per WeaponTypes index.</summary>
-    ulong Carried { get; }
+    /// <summary>PlayerNetState.CarriedMask: bit per WeaponTypes index.</summary>
+    UInt128 Carried { get; }
 
-    /// <summary>PlayerNetState.EmptyWeapons: the carried ones CanBeSelected refuses.</summary>
-    ulong Empty { get; }
+    /// <summary>PlayerNetState.EmptyMask: the carried ones CanBeSelected refuses.</summary>
+    UInt128 Empty { get; }
 
     /// <summary>The weapon in hand, as a WeaponTypes index; -1 for none.</summary>
     int Active { get; }
@@ -283,10 +283,10 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     public int LastPositionInSlot(int slot)
     {
         int last = -1;
-        ulong carried = _player.Carried;
+        UInt128 carried = _player.Carried;
         for (int t = 0; t < TypeCount; t++)
         {
-            if ((carried & (1ul << t)) != 0 && _slots.VisibleInSelection(t) && _slots.Slot(t) == slot
+            if ((carried & ((UInt128)1 << t)) != 0 && _slots.VisibleInSelection(t) && _slots.Slot(t) == slot
                 && _slots.Position(t) > last)
                 last = _slots.Position(t);
         }
@@ -297,10 +297,10 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     /// <summary>GetWeaponInSlot: the carried weapon at a bucket's position, -1 for none.</summary>
     public int WeaponInSlot(int slot, int position)
     {
-        ulong carried = _player.Carried;
+        UInt128 carried = _player.Carried;
         for (int t = 0; t < TypeCount; t++)
         {
-            if ((carried & (1ul << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) == position)
+            if ((carried & ((UInt128)1 << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) == position)
                 return t;
         }
 
@@ -309,7 +309,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
 
     /// <summary>CanBeSelected for a carried weapon: it has something to fire.</summary>
     public bool CanBeSelected(int weaponType)
-        => weaponType >= 0 && weaponType < MaskBits && (_player.Empty & (1ul << weaponType)) == 0;
+        => weaponType >= 0 && weaponType < MaskBits && (_player.Empty & ((UInt128)1 << weaponType)) == 0;
 
     //-------------------------------------------------------------------------
     // The binds.
@@ -608,7 +608,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     private bool CanBeSelectedInHud(int weaponType)
         => _slots.VisibleInSelection(weaponType) && CanBeSelected(weaponType);
 
-    private bool Carries(int weaponType) => (_player.Carried & (1ul << weaponType)) != 0;
+    private bool Carries(int weaponType) => (_player.Carried & ((UInt128)1 << weaponType)) != 0;
 
     /// <summary>GetFirstPos: the lowest shown position carried in a bucket
     /// (weapon_selection.cpp:622-649, the visibility arm only).</summary>

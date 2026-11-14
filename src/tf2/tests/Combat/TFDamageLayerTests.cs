@@ -5,6 +5,7 @@ using SourceSharp.Tests;
 
 using TF2.Server.Buildings;
 using TF2.Server.Combat;
+using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Rules;
 using TF2.Shared;
@@ -601,7 +602,7 @@ public sealed class TFDamageLayerTests
             slice.Tick(t);
 
         var tick = Assert.Single(rig.Damage.Hits);
-        Assert.Equal((CombatRig.Victim, CombatRig.Attacker, 4f, TFBurn.TickDamageType, TFDamageCustom.Burning, TFWeaponId.Flamethrower), tick);
+        Assert.Equal((CombatRig.Victim, CombatRig.Attacker, 4f, TFBurn.TickDamageType, TFDamageCustom.Burning, TFWeaponId.Flamethrower, false), tick);
     }
 
     [Fact]
@@ -714,6 +715,57 @@ public sealed class TFDamageLayerTests
         Assert.Equal(100f, rig.VictimState.BurnEffectStartTime, 4);
     }
 
+    // ---- set_dmgtype_ignite (tf_gamerules.cpp:7117-7133) --------------------
+
+    private static void AttachBurn(CombatRig rig)
+    {
+        var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
+        slice.Attach(CombatRig.Victim);
+    }
+
+    [Fact]
+    public void The_set_dmgtype_ignite_lights_a_plain_hit_that_carries_no_ignite_bit()
+    {
+        // :7122-7130: the held item's set_dmgtype_ignite adds DMG_IGNITE to a
+        // non-DOT hit, so the Sharpened Volcano Fragment lights its airblast.
+        var rig = new CombatRig();
+        AttachBurn(rig);
+        rig.AttackerItem("set_dmgtype_ignite", AttributeDescriptionFormat.Additive, 1f);
+
+        rig.Hit(13f, DamageType.Bullet);
+
+        Assert.True(rig.VictimState.Conditions().Has(TFCond.Burning));
+    }
+
+    [Fact]
+    public void A_plain_weapon_without_the_attribute_leaves_the_victim_dry()
+    {
+        var rig = new CombatRig();
+        AttachBurn(rig);
+
+        rig.Hit(13f, DamageType.Bullet);
+
+        Assert.False(rig.VictimState.Conditions().Has(TFCond.Burning)); // :7117 — plain Bullet bits carry no DMG_IGNITE
+    }
+
+    [Fact]
+    public void The_ignite_attribute_does_not_re_light_a_burn_tick()
+    {
+        // The DOT guard (:7122, IsDOTDmg tf_shareddefs.h:1295-1301): the
+        // burn's own ticks never ask the attribute, so they never re-light.
+        // The held-item fallback keeps the item reachable through the scope,
+        // as the burn tick's asks the holder's held weapon (:277-278).
+        var rig = new CombatRig();
+        AttachBurn(rig);
+        rig.AttackerItem("set_dmgtype_ignite", AttributeDescriptionFormat.Additive, 1f);
+        rig.Owners.Held[CombatRig.Attacker.EntryIndex] = "tf_weapon_pistol";
+
+        using (rig.Scopes.Push(TFDamageCustom.Burning, TFWeaponId.Pistol, "tf_weapon_pistol"))
+            rig.Hit(13f, DamageType.Bullet);
+
+        Assert.False(rig.VictimState.Conditions().Has(TFCond.Burning));
+    }
+
     // ---- the bleed ----------------------------------------------------------
 
     private static TFBleed BleedSlice(CombatRig rig)
@@ -782,7 +834,106 @@ public sealed class TFDamageLayerTests
 
         var tick = Assert.Single(rig.Damage.Hits);
         Assert.Equal((CombatRig.Victim, CombatRig.Attacker, (float)TFCombatDefs.BleedingDamage,
-                      TFBleed.TickDamageType, TFDamageCustom.Bleeding, TFWeaponId.Bat), tick);
+                     TFBleed.TickDamageType, TFDamageCustom.Bleeding, TFWeaponId.Bat, false), tick);
+    }
+
+    // ---- the on-hit enemy slow (mult_onhit_enemyspeed, tf_weaponbase.cpp:5443-5467) ----
+
+    [Fact]
+    public void The_onhit_slow_stuns_the_victim_and_a_plain_weapon_does_not()
+    {
+        // A roll of 0.5 under the attribute's 0.6 lands the stun (:5450): 0.2 s,
+        // its strength at the clamp's ceiling — the stock rig sits exactly 512 units
+        // apart (:5454-5457) — the stack holding it remapped onto its 0..255 scale,
+        // movement only, dealt by the attacker.
+        var rig = new CombatRig();
+        TFStunStack stuns = rig.AttachStun(CombatRig.Victim);
+        rig.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+
+        rig.Hit(10f, Ranged);
+
+        Assert.NotNull(stuns.ActiveStun);
+        Assert.Equal(0.2f, stuns.ActiveStun!.Duration, 4);
+        Assert.Equal(255f * Math.Clamp(0.6f, 0f, 1f), stuns.ActiveStun.Amount, 3);
+        Assert.Equal(TFStunFlags.Movement, stuns.ActiveStun.Flags);
+        Assert.Equal(CombatRig.Attacker, stuns.ActiveStun.Attacker);
+
+        var plain = new CombatRig();
+        TFStunStack plainStuns = plain.AttachStun(CombatRig.Victim);
+        plain.Hit(10f, Ranged);
+        Assert.Null(plainStuns.ActiveStun);
+    }
+
+    [Fact]
+    public void The_onhit_slow_falls_off_from_half_a_thousand_units_out()
+    {
+        // The remap runs on the squared distance: full at 512, spent by 1536 (:5455).
+        var near = new CombatRig();
+        TFStunStack nearStuns = near.AttachStun(CombatRig.Victim);
+        near.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+        near.Hit(10f, Ranged);
+        Assert.NotNull(nearStuns.ActiveStun);
+        Assert.Equal(255f * Math.Clamp(0.6f, 0f, 1f), nearStuns.ActiveStun!.Amount, 3);
+
+        var far = new CombatRig { AttackerAt = new Vector(1600f, 0f, 0f) };
+        TFStunStack farStuns = far.AttachStun(CombatRig.Victim);
+        far.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+        far.Hit(10f, Ranged);
+        Assert.NotNull(farStuns.ActiveStun); // the stun lands; only its strength is gone
+        Assert.Equal(0f, farStuns.ActiveStun!.Amount, 3);
+    }
+
+    [Fact]
+    public void The_onhit_slow_lands_only_as_often_as_the_attribute_says()
+    {
+        // The plain uniform roll against the attribute is the whole gate (:5450).
+        var lucky = new CombatRig(roll: 0.5f);
+        TFStunStack luckyStuns = lucky.AttachStun(CombatRig.Victim);
+        lucky.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+        lucky.Hit(10f, Ranged);
+        Assert.NotNull(luckyStuns.ActiveStun); // 0.5 < 0.6: the roll lands
+
+        var unlucky = new CombatRig(roll: 0.7f);
+        TFStunStack unluckyStuns = unlucky.AttachStun(CombatRig.Victim);
+        unlucky.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+        unlucky.Hit(10f, Ranged);
+        Assert.Null(unluckyStuns.ActiveStun); // 0.7 fails the same ask
+    }
+
+    [Fact]
+    public void A_medic_healed_victim_keeps_their_feet_under_the_slow()
+    {
+        // Both slow arms live inside the health-buff gate (:5444): TF_COND_HEALTH_BUFF
+        // on the victim exempts them; a plain victim still falls to the stun.
+        var healed = new CombatRig();
+        TFStunStack healedStuns = healed.AttachStun(CombatRig.Victim);
+        healed.VictimState.SetConditions(TFCondMask.Of(TFCond.HealthBuff));
+        healed.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+        healed.Hit(10f, Ranged);
+        Assert.Null(healedStuns.ActiveStun);
+
+        var plain = new CombatRig();
+        TFStunStack plainStuns = plain.AttachStun(CombatRig.Victim);
+        plain.AttackerItem("mult_onhit_enemyspeed", AttributeDescriptionFormat.Additive, 0.6f);
+        plain.Hit(10f, Ranged);
+        Assert.NotNull(plainStuns.ActiveStun);
+    }
+
+    [Fact]
+    public void The_major_slow_stuns_for_the_set_seconds_at_a_fixed_strength()
+    {
+        // No roll gates the major arm (:5461-5466): the attribute is the stun's seconds
+        // and the strength the fixed 0.4 — even under a roll that would fail the minor arm.
+        var rig = new CombatRig(roll: 0.9f);
+        TFStunStack stuns = rig.AttachStun(CombatRig.Victim);
+        rig.AttackerItem("mult_onhit_enemyspeed_major", AttributeDescriptionFormat.Additive, 3f);
+
+        rig.Hit(10f, Ranged);
+
+        Assert.NotNull(stuns.ActiveStun);
+        Assert.Equal(3f, stuns.ActiveStun!.Duration, 4);
+        Assert.Equal(255f * Math.Clamp(0.4f, 0f, 1f), stuns.ActiveStun.Amount, 3);
+        Assert.Equal(TFStunFlags.Movement, stuns.ActiveStun.Flags);
     }
 
     // ---- invulnerability ----------------------------------------------------
@@ -1025,5 +1176,377 @@ public sealed class TFDamageLayerTests
         before.Conditions.Add(CombatRig.Victim, TFCond.Burning);
         before.AttackerItem("axtinguisher_properties", AttributeDescriptionFormat.Additive, 1f);
         Assert.Equal(13.5f, before.Hit(10f, TFDamageBits.Melee), 4);
+    }
+
+    // ---- the consume-flames arm (tf_gamerules.cpp:6098-6117) ------------------
+
+    /// <summary>
+    /// <c>attack_minicrits_and_consumes_burning</c> (:6098-6117): the held weapon's
+    /// melee hit on a burning victim consumes their flames — the hit gains the
+    /// bonus the RemapValClamped over the burn's seconds left answers (:6105), the
+    /// flames come off with the condition (:6107) and the flame-out sound sounds
+    /// (:6108); a plain hit becomes a mini-crit (:6110-6114) and the kill is stamped
+    /// AxtinguisherBoosted (:6116). Never on oneself (:6096).
+    /// </summary>
+    [Fact]
+    public void TheAxtinguisherMiniCritsAndPutsOutABurningVictim()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_flamethrower" };
+        var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
+        slice.Attach(CombatRig.Victim);
+        rig.Hit(13f, DamageType.Burn | TFDamageBits.Ignite);
+        Assert.True(rig.VictimState.Conditions().Has(TFCond.Burning));
+        rig.AttackerWeapon = "tf_weapon_fireaxe";
+        rig.AttackerItem("attack_minicrits_and_consumes_burning", AttributeDescriptionFormat.Additive, 1f);
+
+        // The burn's seconds left (tf_player_shared.cpp's GetAfterburnDuration,
+        // read at :6105) and the stock formula the bonus takes from it.
+        float left = slice.Burn.AfterburnDuration;
+        float consumeBonus = TFDamageModifyRules.RemapValClamped(
+            left, TFCombatDefs.BurningFrequency, TFCombatDefs.BurningFlameLife, 20f, TFCombatDefs.BurningDamage * 20);
+        float afterConsume = 10f + consumeBonus;
+
+        float damage = rig.Hit(10f, TFDamageBits.Melee);
+
+        Assert.Equal(afterConsume + (TFDamage.MinicritMultiplier - 1f) * afterConsume, damage, 4);
+        var record = rig.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value;
+        Assert.Equal(TFCritType.Mini, record.Crit);
+        Assert.Equal(TFDamageCustom.AxtinguisherBoosted, record.Custom);
+        Assert.False(rig.VictimState.Conditions().Has(TFCond.Burning));
+        Assert.Equal("TFPlayer.FlameOut", Assert.Single(rig.Engine.AllOf("Sound.EntityEmitSound")).ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// The arm's first gate (:6099-6103): a held weapon whose item asks no
+    /// consume — the stock axe — leaves the flames, the number and the kind of
+    /// the plain hit alike (:6110's NONE keeps its answer).
+    /// </summary>
+    [Fact]
+    public void AStockAxeLeavesTheFlames()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_flamethrower" };
+        var slice = (TFAfterburn)Assert.Single(rig.Afterburns.Create(CombatRig.Victim));
+        slice.Attach(CombatRig.Victim);
+        rig.Hit(13f, DamageType.Burn | TFDamageBits.Ignite);
+        rig.AttackerWeapon = "tf_weapon_fireaxe";
+
+        float damage = rig.Hit(10f, TFDamageBits.Melee);
+
+        Assert.Equal(10f, damage, 4);
+        Assert.Equal(TFDamageCustom.None, rig.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Custom);
+        Assert.True(rig.VictimState.Conditions().Has(TFCond.Burning));
+        Assert.Empty(rig.Engine.AllOf("Sound.EntityEmitSound"));
+        Assert.NotNull(slice);
+    }
+
+    /// <summary>
+    /// The gate's burning half (:6099): the same item's melee hit on a victim
+    /// not on fire is plain — the bonus needs the flames to consume.
+    /// </summary>
+    [Fact]
+    public void AnAxtinguisherHitOnANonBurningVictimIsPlain()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_fireaxe" };
+        rig.AttackerItem("attack_minicrits_and_consumes_burning", AttributeDescriptionFormat.Additive, 1f);
+
+        float damage = rig.Hit(10f, TFDamageBits.Melee);
+
+        Assert.Equal(10f, damage, 4);
+        Assert.False(rig.VictimState.Conditions().Has(TFCond.Burning));
+        Assert.Empty(rig.Engine.AllOf("Sound.EntityEmitSound"));
+    }
+
+    // ---- the mad milk's payback (tf_weaponbase.cpp:5172-5177) --------------
+
+    [Fact]
+    public void A_hit_on_a_milky_victim_heals_the_attacker_six_parts_in_ten()
+    {
+        var rig = new CombatRig();
+        rig.Engine.Returns("GameEvents.EventCreate", IntPtr.Zero);
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.MadMilk));
+
+        rig.Hit(10f, Ranged);
+
+        var heal = Assert.Single(rig.Resupply.HealthTaken);
+        Assert.Equal(CombatRig.Attacker, heal.Who);
+        Assert.Equal(6f, heal.Amount, 4);
+    }
+
+    [Fact]
+    public void A_hit_on_a_dry_victim_heals_the_attacker_nothing()
+    {
+        var rig = new CombatRig();
+
+        rig.Hit(10f, Ranged);
+
+        Assert.Empty(rig.Resupply.HealthTaken);
+    }
+
+    // ---- the on-hit arms (tf_weaponbase.cpp:5142-5281) ----------------------
+
+    /// <summary>
+    /// The medic's melee arm (:5259-5281): the medic's hit fills their own ÜberCharge
+    /// meter from the held item's <c>add_onhit_ubercharge</c> — a half-second attribute
+    /// onto an empty meter gives the level a half, asked of the medigun service's setter
+    /// with its cap (<c>AddCharge</c> caps at one, tf_weapon_medigun.cpp:1061). The hit
+    /// itself is untouched: twenty stays twenty. Stock's powerup-mode scaling
+    /// (:5269-5277) waits on the mode's carrier.
+    /// </summary>
+    [Fact]
+    public void AUbersawHitAddsToTheMedicChargeMeter()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.PlayerClass = (int)TFClass.Medic;
+        rig.AttackerItem("add_onhit_ubercharge", AttributeDescriptionFormat.Additive, 0.5f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.Equal(0.5f, rig.Mediguns.ChargeLevel(CombatRig.Attacker.EntryIndex), 4);
+        Assert.Equal("charge 4 0.5", Assert.Single(rig.Mediguns.Sets));
+    }
+
+    /// <summary>
+    /// The arm's nonzero gate (:5264): the medic's hit with the stock item — no attribute
+    /// on it — leaves the meter where it stands.
+    /// </summary>
+    [Fact]
+    public void AMedicHitWithAPlainItemLeavesTheMeterAlone()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.PlayerClass = (int)TFClass.Medic;
+
+        rig.Hit(20f, Ranged);
+
+        Assert.Equal(0f, rig.Mediguns.ChargeLevel(CombatRig.Attacker.EntryIndex), 4);
+        Assert.Empty(rig.Mediguns.Sets);
+    }
+
+    /// <summary>
+    /// The class gate (:5260): the same attributed item on a non-medic attacker's hit
+    /// adds nothing — the arm belongs to the medic alone.
+    /// </summary>
+    [Fact]
+    public void ANonMedicHitWithTheChargeAttributeLeavesTheMeterAlone()
+    {
+        var rig = new CombatRig();   // the rig's attacker is a sniper
+        rig.AttackerItem("add_onhit_ubercharge", AttributeDescriptionFormat.Additive, 0.5f);
+
+        rig.Hit(20f, Ranged);
+
+        Assert.Equal(0f, rig.Mediguns.ChargeLevel(CombatRig.Attacker.EntryIndex), 4);
+        Assert.Empty(rig.Mediguns.Sets);
+    }
+
+    /// <summary>
+    /// The Blutsauger arm (:5144-5149, :5227-5231): a hit whose held item carries
+    /// <c>add_onhit_addhealth</c> heals the attacker themselves by that amount — five heals
+    /// five through the resupply's <c>TakeHealth</c>, and the hit itself is untouched: twenty
+    /// stays twenty at full reach, where the distance scale leaves the number as it stands.
+    /// </summary>
+    [Fact]
+    public void ABlutsaugerHitHealsTheAttackerForTheAttribute()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+        rig.AttackerItem("add_onhit_addhealth", AttributeDescriptionFormat.Additive, 5f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.Equal(5, rig.Resupply.HealthAnswer);
+        Assert.Equal("take 4 5 False", Assert.Single(rig.Resupply.Takes));
+        // the player_healonhit event (:5244-5255): the signed amount, the healed
+        // edict and the held item's defindex — the rig's item has none, stock's -1.
+        Assert.Equal(5, rig.Engine.Calls.Last(c => c.Member == "GameEvents.EventSetInt"
+                                                  && c.ArgAs<string>(1) == "amount").ArgAs<int>(2));
+        Assert.Equal(CombatRig.Attacker.EntryIndex,
+                     rig.Engine.Calls.Last(c => c.Member == "GameEvents.EventSetInt"
+                                                && c.ArgAs<string>(1) == "entindex").ArgAs<int>(2));
+        Assert.Equal(-1, rig.Engine.Calls.Last(c => c.Member == "GameEvents.EventSetInt"
+                                                     && c.ArgAs<string>(1) == "weapon_def_index").ArgAs<int>(2));
+        Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
+    }
+
+    /// <summary>
+    /// The floor (:5149): one point of the attribute still heals three — stock's minimum
+    /// applies whenever the attribute is set at all.
+    /// </summary>
+    [Fact]
+    public void ASmallOnHitHealStillHealsThree()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+        rig.Engine.Returns("GameEvents.EventCreate", IntPtr.Zero);
+        rig.AttackerItem("add_onhit_addhealth", AttributeDescriptionFormat.Additive, 1f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.Equal(3, rig.Resupply.HealthAnswer);
+        Assert.Equal("take 4 3 False", Assert.Single(rig.Resupply.Takes));
+    }
+
+    /// <summary>
+    /// Milk's payback (:5176): a hit on a milked victim pays the attacker sixty percent of
+    /// the hit on top of the attribute — no attribute, twelve on twenty, same TakeHealth.
+    /// </summary>
+    [Fact]
+    public void AHitOnAMilkedVictimPaysBackSixtyPercent()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+        rig.Engine.Returns("GameEvents.EventCreate", IntPtr.Zero);
+        rig.Conditions.Add(CombatRig.Victim, TFCond.MadMilk);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.Equal(12, rig.Resupply.HealthAnswer);
+        Assert.Equal("take 4 12 False", Assert.Single(rig.Resupply.Takes));
+    }
+
+    /// <summary>
+    /// The heal-or-nothing gate (:5227): a hit with the stock item on a clean victim
+    /// heals nobody — no attribute, no milk, no take.
+    /// </summary>
+    [Fact]
+    public void AHitWithAPlainItemHealsNobody()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);
+
+        Assert.Equal(0, rig.Resupply.HealthAnswer);
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
+    // ---- the kill heal (tf_player.cpp:11545-11564) ---------------------------
+
+    /// <summary>
+    /// The Powerjack arm (:11545-11556): a killing hit whose held item carries
+    /// <c>heal_on_kill</c> heals the killer through <c>TakeHealth</c> — five heals five while the
+    /// headroom under the buffed max allows it (thirty of forty) — and the <c>player_healonhit</c>
+    /// event carries the healed amount, the killer's edict and the stock -1 defindex (:11552-11563).
+    /// </summary>
+    [Fact]
+    public void AKillHealsTheKillerFromTheAttribute()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+        rig.Healing.MaxBuffedAnswer = 40;
+        rig.Engine.ReturnsEachCall("Entities.GetHealth", () =>
+            (rig.Engine.Last("Entities.GetHealth") ?? default).ArgAs<EntityHandle>(0) == CombatRig.Attacker ? 30 : 15);
+        rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(7));
+        rig.Engine.Returns("GameEvents.EventFire", true);
+        rig.AttackerItem("heal_on_kill", AttributeDescriptionFormat.Additive, 5f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);   // twenty over the victim's fifteen: the kill
+
+        Assert.Equal(5, rig.Resupply.HealthAnswer);                                  // MIN(5, 40-30) — the whole attribute
+        Assert.Equal("take 4 5 False", Assert.Single(rig.Resupply.Takes));           // :11549's TakeHealth(DMG_GENERIC)
+        Assert.Equal(5, rig.Engine.Calls.Last(c => c.Member == "GameEvents.EventSetInt"
+                                                   && c.ArgAs<string>(1) == "amount").ArgAs<int>(2));
+        Assert.Equal(CombatRig.Attacker.EntryIndex,
+                     rig.Engine.Calls.Last(c => c.Member == "GameEvents.EventSetInt"
+                                                && c.ArgAs<string>(1) == "entindex").ArgAs<int>(2));
+        Assert.Equal(-1, rig.Engine.Calls.Last(c => c.Member == "GameEvents.EventSetInt"
+                                                     && c.ArgAs<string>(1) == "weapon_def_index").ArgAs<int>(2));
+        Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
+    }
+
+    /// <summary>
+    /// The headroom cap (:11548): two hundred points of attribute on a killer at thirty of a
+    /// buffed forty heals ten — the MIN of attribute and headroom, no more.
+    /// </summary>
+    [Fact]
+    public void AKillHealCapsAtTheBuffedMaxHeadroom()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+        rig.Healing.MaxBuffedAnswer = 40;
+        rig.Engine.ReturnsEachCall("Entities.GetHealth", () =>
+            (rig.Engine.Last("Entities.GetHealth") ?? default).ArgAs<EntityHandle>(0) == CombatRig.Attacker ? 30 : 15);
+        rig.Engine.Returns("GameEvents.EventCreate", IntPtr.Zero);
+        rig.AttackerItem("heal_on_kill", AttributeDescriptionFormat.Additive, 200f);
+
+        rig.Hit(20f, Ranged);
+
+        Assert.Equal(10, rig.Resupply.HealthAnswer);                                 // min(200, 40-30)
+        Assert.Equal("take 4 10 False", Assert.Single(rig.Resupply.Takes));
+    }
+
+    /// <summary>
+    /// The kill gate: a hit the victim survives (their fifteen against the survivor's hundred)
+    /// heals nobody — the arm belongs to the kill. The killer's health is never even asked.
+    /// </summary>
+    [Fact]
+    public void ASurvivingHitHealsNobodyFromTheKillArm()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+        rig.Healing.MaxBuffedAnswer = 40;
+        rig.Engine.ReturnsEachCall("Entities.GetHealth", () =>
+            (rig.Engine.Last("Entities.GetHealth") ?? default).ArgAs<EntityHandle>(0) == CombatRig.Attacker ? 30 : 100);
+        rig.AttackerItem("heal_on_kill", AttributeDescriptionFormat.Additive, 5f);
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);                                  // twenty under a hundred: survives
+
+        Assert.Equal(0, rig.Resupply.HealthAnswer);
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
+    /// <summary>
+    /// The stock item (:11546): the same kill without the attribute heals nobody.
+    /// </summary>
+    [Fact]
+    public void AKillWithAPlainItemHealsNobody()
+    {
+        var rig = new CombatRig();
+        rig.Resupply.MaxHealthAnswer = 100;
+
+        Assert.Equal(20f, rig.Hit(20f, Ranged), 4);   // the victim has no health asked: nothing to cap
+
+        Assert.Equal(0, rig.Resupply.HealthAnswer);
+        Assert.Empty(rig.Resupply.Takes);
+    }
+
+    // ---- the spy's cloak on hit (tf_gamerules.cpp:6802-6813) ---------------
+
+    [Fact]
+    public void A_spy_hit_with_add_cloak_on_hit_fills_the_spy_cloak_meter()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.SetClass(TFClass.Spy);
+        rig.AttackerState.CloakMeter = 30f;
+        rig.AttackerItem("add_cloak_on_hit", AttributeDescriptionFormat.Additive, 25f);
+
+        rig.Hit(10f, Ranged);
+
+        Assert.Equal(55f, rig.AttackerState.CloakMeter, 4); // :6810 — the amount lands on the spy's own meter
+    }
+
+    [Fact]
+    public void The_cloak_on_hit_fills_only_a_spy_cloak_meter()
+    {
+        var rig = new CombatRig(); // the rig's attacker is a Sniper, and the arm gates on the spy class (:6802)
+        rig.AttackerState.CloakMeter = 30f;
+        rig.AttackerItem("add_cloak_on_hit", AttributeDescriptionFormat.Additive, 25f);
+
+        rig.Hit(10f, Ranged);
+
+        Assert.Equal(30f, rig.AttackerState.CloakMeter, 4);
+    }
+
+    [Fact]
+    public void The_cloak_on_hit_caps_the_meter_at_one_hundred()
+    {
+        var rig = new CombatRig();
+        rig.AttackerState.SetClass(TFClass.Spy);
+        rig.AttackerState.CloakMeter = 90f;
+        rig.AttackerItem("add_cloak_on_hit", AttributeDescriptionFormat.Additive, 25f);
+
+        rig.Hit(10f, Ranged);
+
+        Assert.Equal(100f, rig.AttackerState.CloakMeter, 4); // :9755 — clamp to 0..100
     }
 }

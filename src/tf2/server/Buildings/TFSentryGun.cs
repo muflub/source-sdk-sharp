@@ -13,6 +13,7 @@ using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Voice;
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -46,12 +47,19 @@ namespace TF2.Server.Buildings;
 /// </para>
 /// </summary>
 [ScriptedEntity(TFSentryGun.MapClass, ScriptedEntityKind.Item)]
+[Precache(PrecacheKind.Sound, "Building_MiniSentrygun.Fire")]
+[Precache(PrecacheKind.Sound, "Building_Sentrygun.Fire")]
+[Precache(PrecacheKind.Sound, "Building_Sentrygun.Fire2")]
+[Precache(PrecacheKind.Sound, "Building_Sentrygun.Fire3")]
+[Precache(PrecacheKind.Sound, "Building_Sentrygun.Empty")]
 public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                                  IEngineEntityRender render, IEngineWorldQuery world, IEngineDamage damage,
                                  IUniformRandom random, ITFAmmoPurse purse, TFBlastApplier blast,
                                  DamageInflictors inflictors, TFSentryGunDamageConVar sentryDamage,
-                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
+                                 TFSentryGunMiniDamageConVar miniSentryDamage, IEngineSound sound,
+                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
+                                 ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks)
 {
     public const string MapClass = "obj_sentrygun";
 
@@ -91,6 +99,25 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     /// <summary>Stock's beats: the first shell a find ago, the level 1 hopper's 0.2 and the twin guns' 0.1 (tf_obj_sentrygun.cpp:1288-1296).</summary>
     public const float FoundAttackDelay = 0.05f, ShellIntervalLevel1 = 0.2f, ShellIntervalLevel2 = 0.1f;
 
+    /// <summary>The mini's beat multiplier (<c>tf_obj_sentrygun.cpp:1278-1281</c>): the interval shrinks to three quarters, shells a quarter quicker.</summary>
+    public const float MiniFireRateMultiplier = 0.75f;
+
+    /// <summary><c>MoveTurret</c>'s mini arm (tf_obj_sentrygun.cpp:1825-1830): the base turn rate, thirty-five hundredths quicker on both axes.</summary>
+    public const float MiniTurnRateMultiplier = 1.35f;
+
+    /// <summary>The report's script sounds (:1569-1612): the mini's own, and the plain turret's per level.</summary>
+    public const string MiniFireSound = "Building_MiniSentrygun.Fire",
+                        FireSoundLevel1 = "Building_Sentrygun.Fire",
+                        FireSoundLevel2 = "Building_Sentrygun.Fire2",
+                        FireSoundLevel3 = "Building_Sentrygun.Fire3",
+                        EmptySoundName = "Building_Sentrygun.Empty";
+
+    /// <summary><c>PITCH_HIGH</c> as <c>EmitSentrySound</c> sets it for a mini (tf_obj_sentrygun.cpp:2214-2219; the pitch scale of iesound.h).</summary>
+    public const int PitchHigh = 120;
+
+    /// <summary>The mini's turn-rate scale (<see cref="MiniTurnRateMultiplier"/>), nothing otherwise.</summary>
+    private float TurnRateScale => IsMiniBuilding ? MiniTurnRateMultiplier : 1f;
+
     /// <summary>Level 3's rocket cadence (tf_obj_sentrygun.cpp:1376).</summary>
     public const float RocketInterval = 3f;
 
@@ -110,6 +137,24 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     /// </summary>
     public const float DisabledPitch = 30f;
 
+    /// <summary><c>WRANGLER_DISABLE_TIME</c> (tf_obj_sentrygun.cpp:71): how long the shield lingers.</summary>
+    public const float WranglerShieldFade = 3f;
+
+    /// <summary><c>SHIELD_NORMAL</c> as the levels number (tf_obj.h:61-63).</summary>
+    public const int ShieldNone = 0, ShieldNormal = 1;
+
+    /// <summary><c>SHIELD_NORMAL_VALUE</c> (tf_obj.h:66): the damage a shielded hull takes.</summary>
+    public const float ShieldDamageScale = 0.33f;
+
+    /// <summary>The wrangled beat's half (<c>m_flFireRate *= 0.5f</c>, tf_obj_sentrygun.cpp:1275).</summary>
+    public const float WrangledFireRateScale = 0.5f;
+
+    /// <summary>How far past its dot a wrangled shell flies (<c>flDistToTarget + 100</c>, tf_obj_sentrygun.cpp:1539).</summary>
+    public const float WranglerShellOvershoot = 100f;
+
+    /// <summary>The dot's minimum standoff (tf_obj_sentrygun.cpp:907): closer and the turret stands down.</summary>
+    public const float WranglerMinAimDistance = 30f;
+
     private const string SentryThink = "SentryThink";
     private const int SphereCapacity = 32;
 
@@ -119,6 +164,8 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     private readonly TFBlastApplier _blast = blast;
     private readonly DamageInflictors _inflictors = inflictors;
     private readonly TFSentryGunDamageConVar _sentryDamage = sentryDamage;
+    private readonly TFSentryGunMiniDamageConVar _miniSentryDamage = miniSentryDamage;
+    private readonly IEngineSound _sound = sound;
     private readonly EntityHandle[] _sphere = new EntityHandle[SphereCapacity];
 
     [SaveField] private int _shells = MaxShellsLevel1;
@@ -132,6 +179,16 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     [SaveField] private float _turnRate;
     [SaveField] private bool _turningRight = true;
     [SaveField] private bool _disabledHold;
+
+    // The wrangle (m_bPlayerControlled and the shield, tf_obj_sentrygun.cpp
+    // :121-122's networked pair): the builder's laser pointer holds the
+    // turret on its dot. The aim and the one-shot flags are the commands'
+    // own, re-set every command and consumed by a think.
+    [SaveField] private bool _playerControlled;
+    [SaveField] private int _shieldLevel;
+    [SaveField] private float _shieldFadeTime;
+    private bool _wrangled, _fireNextFrame, _rocketNextFrame;
+    private Vector _laserAim;
 
     // The pose parameters against the model worn — stock re-derives them
     // after every model change (tf_obj_sentrygun.cpp:2130-2131), so they are
@@ -168,6 +225,38 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     public float Yaw => _yaw;
 
     public float Pitch => _pitch;
+
+    /// <summary><c>m_bPlayerControlled</c>: the builder's pointer holds the turret.</summary>
+    public bool IsPlayerControlled => _playerControlled;
+
+    /// <summary><c>m_nShieldLevel</c>: <see cref="ShieldNone"/> or <see cref="ShieldNormal"/>.</summary>
+    public int ShieldLevel => _shieldLevel;
+
+    /// <summary>
+    /// The wrangle's word, one command of it (<see cref="TFSentryWrangle"/>):
+    /// where the dot stands, and the triggers held. The control engages at
+    /// the next think, the shield with it.
+    /// </summary>
+    public void LaserAim(Vector aim) => (_laserAim, _wrangled) = (aim, true);
+
+    /// <summary><c>FireNextFrame</c> (tf_obj_sentrygun.h:83).</summary>
+    public void LaserFire() => _fireNextFrame = true;
+
+    /// <summary><c>FireRocketNextFrame</c> (tf_obj_sentrygun.h:84).</summary>
+    public void LaserFireRockets() => _rocketNextFrame = true;
+
+    /// <summary>
+    /// <c>ClearTarget</c> through <c>DestroyLaserDot</c>
+    /// (tf_weapon_laser_pointer.cpp:265-284): the pointer left the hands.
+    /// The shield fades from the last controlled think's arm
+    /// (<c>WRANGLER_DISABLE_TIME</c>, tf_obj_sentrygun.cpp:790).
+    /// </summary>
+    public void LaserReleased()
+    {
+        _wrangled = false;
+        _fireNextFrame = false;
+        _rocketNextFrame = false;
+    }
 
     /// <summary>
     /// <c>CTFSentryGun::OnGoActive</c>: state SEARCHING, loaded, and the
@@ -213,6 +302,16 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                 _rockets = MaxRocketsStored;
         }
     }
+
+    /// <summary>
+    /// <c>CObjectSentrygun::OnTakeDamage</c>'s shield
+    /// (tf_obj_sentrygun.cpp:1970-1975): a hull under the player's control
+    /// takes <c>SHIELD_NORMAL_VALUE</c> of the blow — sapped none of it, the
+    /// shield and the sapper not stacking — before the base's refusals and
+    /// the shell's subtract.
+    /// </summary>
+    public override int OnDamaged(EntityHandle attacker, float damage, DamageType damageType)
+        => base.OnDamaged(attacker, _shieldLevel > 0 && !HasSapper ? damage * ShieldDamageScale : damage, damageType);
 
     /// <summary>
     /// <c>CObjectSentrygun::OnWrenchHit</c>'s ammo arms
@@ -319,7 +418,15 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         }
         else
         {
-            AimAndFire(_target);
+            AimAndFire();
+        }
+
+        // The shield's fade (tf_obj_sentrygun.cpp:299-303): past its arm the
+        // level drops and the aim levels with it.
+        if (_shieldLevel > 0 && GameTime > _shieldFadeTime)
+        {
+            _shieldLevel = ShieldNone;
+            _goalPitch = 0f;
         }
 
         SetContextThink(SentryThink, SentryThinkDelay);
@@ -346,15 +453,55 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     }
 
     /// <summary>
-    /// <c>CTFSentryGun::FindTarget</c>: the nearest valid enemy the turret
-    /// can see, by squared centre-to-eye distance — the held one included,
-    /// which is how an attack revalidates its line of sight (:1084). The
-    /// players are scanned first; the objects loop runs only when no player
-    /// stood (:998). A changed find resets the first shell's beat
-    /// (FoundTarget, tf_obj_sentrygun.cpp:1190); true when something stands.
+    /// <c>CTFSentryGun::FindTarget</c>: the wrangled arm first — the builder's
+    /// pointer deployed is the control (:862-920), the dot the target and the
+    /// shield with it, no seek under the shield (:924) — then the nearest
+    /// valid enemy the turret can see, by squared centre-to-eye distance —
+    /// the held one included, which is how an attack revalidates its line of
+    /// sight (:1084). The players are scanned first; the objects loop runs
+    /// only when no player stood (:998). A changed find resets the first
+    /// shell's beat (FoundTarget, tf_obj_sentrygun.cpp:1190); true when
+    /// something stands.
     /// </summary>
     private bool FindTarget()
     {
+        // m_bPlayerControlled resets each find and the wrangle re-arms it
+        // (:788-792, :871): the control is the behaviour's last word, the
+        // shield's arm the think's own while it holds (:790's re-arm).
+        bool wasControlled = _playerControlled;
+        _playerControlled = _wrangled;
+
+        if (_playerControlled)
+        {
+            _shieldLevel = ShieldNormal;
+            _shieldFadeTime = GameTime + WranglerShieldFade;
+
+            // The dot nearer than its standoff is no target (:907-918): the
+            // turret stands to the shield gate, controlled and sweeping.
+            if ((_laserAim - Origin).Length > WranglerMinAimDistance)
+            {
+                // The engage's FoundTarget (:911): a beat before the first
+                // shell, the same find keeping the turret.
+                if (!_attacking)
+                    _nextAttackTime = GameTime + FoundAttackDelay;
+
+                _attacking = true;
+                _target = EntityHandle.None;
+                return true;
+            }
+        }
+        else if (wasControlled)
+        {
+            // The find that drops the control arms the fade once more
+            // (:788-790) — the release path's own arm stands beside it.
+            _shieldFadeTime = GameTime + WranglerShieldFade;
+        }
+
+        // Don't auto track to targets while under the shield (:922-925): the
+        // fade runs its three seconds after the control let go.
+        if (_shieldLevel > 0)
+            return false;
+
         Vector eye = EyePosition;
         int count = _world.EntitiesInSphere(eye, SentryMaxRange, _sphere);
 
@@ -462,27 +609,30 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
 
         // The hunt's ramp (tf_obj_sentrygun.cpp:1871-1883): climbs while
         // far — the cap tested before the add, so the last climb lands one
-        // step past YawSweepMax — and eases back near the bound.
+        // step past YawSweepMax — and eases back near the bound. Every rate
+        // of it rides on MoveTurret's base, so the mini's thirty-five
+        // hundredths lift the caps, the climbs and the floors alike (:1825-1830).
+        float scale = TurnRateScale;
         if (ShortAngleDelta(_yaw, bound) > 30f)
         {
-            if (_turnRate < YawSweepMax)
-                _turnRate += YawTurnRate;
+            if (_turnRate < YawSweepMax * scale)
+                _turnRate += YawTurnRate * scale;
         }
-        else if (_turnRate > YawFloorRate)
+        else if (_turnRate > YawFloorRate * scale)
         {
-            _turnRate -= YawTurnRate;
+            _turnRate -= YawTurnRate * scale;
         }
 
         float step = _turnRate * SentryThinkDelay;
         _goalYaw = bound;
         float yaw = Turn(_yaw, bound, step);
-        float pitch = TurnPitch(_pitch, _goalPitch, PitchTurnRate * SentryThinkDelay);
+        float pitch = TurnPitch(_pitch, _goalPitch, PitchTurnRate * scale * SentryThinkDelay);
 
         // MoveTurret's answer is whether either axis moved (:1942-1945): a
         // sweep standing at its goal — or a stalled rate — floors the rate.
         bool moved = yaw != _yaw || pitch != _pitch;
         if (!moved || _turnRate <= 0f)
-            _turnRate = YawFloorRate;
+            _turnRate = YawFloorRate * scale;
 
         _yaw = yaw;
         _pitch = pitch;
@@ -533,14 +683,18 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     /// <summary>
     /// <c>SetIdealPitchAndYaw</c> and <c>MoveTurret</c>, then
     /// <c>CTFSentryGun::Attack</c>'s moment: the goal is the angle onto the
-    /// target's centre — the yaw only angle-modded, the pitch clamped to
-    /// ±50 (tf_obj_sentrygun.cpp:1240-1257; the deployment bounds are the
-    /// idle sweep's alone) — and the shells run only once the aim has
-    /// settled and the beat has come.
+    /// target's centre — the wrangled turret's, the dot's position
+    /// (<c>GetEnemyAimPosition</c> of the laser dot, its own origin) — the
+    /// yaw only angle-modded, the pitch clamped to ±50
+    /// (tf_obj_sentrygun.cpp:1240-1257; the deployment bounds are the idle
+    /// sweep's alone). The shells run once the aim has settled and the beat
+    /// has come — under the control, only on the held trigger's word
+    /// (:1264), the beat half its own (:1275) — and the rockets ride the
+    /// alt-fire's flag past the aim gate (:1303-1307).
     /// </summary>
-    private void AimAndFire(EntityHandle target)
+    private void AimAndFire()
     {
-        Vector to = Entities.GetWorldSpaceCenter(target) - EyePosition;
+        Vector to = (_playerControlled ? _laserAim : Entities.GetWorldSpaceCenter(_target)) - EyePosition;
         _goalYaw = Normalize(MathF.Atan2(to.Y, to.X) * (180f / MathF.PI));
         float horizontal = MathF.Sqrt(to.X * to.X + to.Y * to.Y);
         _goalPitch = Math.Clamp(MathF.Atan2(-to.Z, horizontal) * (180f / MathF.PI), MinPitch, MaxPitch);
@@ -548,34 +702,65 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         // The tracking ramp (tf_obj_sentrygun.cpp:1885-1895): while the
         // target is far the rate climbs three base rates a think — the cap
         // tested before the add, so the last climb lands one step past
-        // YawTrackMax.
-        if (ShortAngleDelta(_yaw, _goalYaw) > 30f && _turnRate < YawTrackMax)
-            _turnRate += YawTurnRate * 3f;
+        // YawTrackMax. The mini lifts the whole ramp with its base (:1825-1830).
+        float scale = TurnRateScale;
+        if (ShortAngleDelta(_yaw, _goalYaw) > 30f && _turnRate < YawTrackMax * scale)
+            _turnRate += YawTurnRate * scale * 3f;
 
         float yaw = Turn(_yaw, _goalYaw, _turnRate * SentryThinkDelay);
-        float pitch = TurnPitch(_pitch, _goalPitch, PitchTurnRate * SentryThinkDelay);
+        float pitch = TurnPitch(_pitch, _goalPitch, PitchTurnRate * scale * SentryThinkDelay);
 
         // MoveTurret's reset (:1942-1945): an aim settled on both axes —
         // or a stalled rate — stands back at the floor.
         if ((yaw == _yaw && pitch == _pitch) || _turnRate <= 0f)
-            _turnRate = YawFloorRate;
+            _turnRate = YawFloorRate * scale;
 
         _yaw = yaw;
         _pitch = pitch;
         AimPose();
-
-        if (_nextAttackTime > GameTime)
-            return;
 
         // Stock's moment (:1262): the two axes as one vector's length, the
         // raw difference of the angle-modded angles — across the 0/360 seam
         // it runs the long way round and refuses.
         float yawDelta = _goalYaw - _yaw;
         float pitchDelta = _goalPitch - _pitch;
-        if (MathF.Sqrt(yawDelta * yawDelta + pitchDelta * pitchDelta) > FireTolerance)
-            return;
+        if (_nextAttackTime <= GameTime && MathF.Sqrt(yawDelta * yawDelta + pitchDelta * pitchDelta) <= FireTolerance)
+        {
+            // Under the control the shells wait for the trigger (:1264-1268);
+            // the beat runs either way (:1270-1296), the control's at half.
+            if (!_playerControlled || _fireNextFrame)
+            {
+                _fireNextFrame = false;
+                Fire();
+            }
+            else
+            {
+                _nextAttackTime = GameTime + ShellInterval();
+            }
+        }
 
-        Fire(target);
+        // The rockets, past the aim gate as stock orders them (:1303-1307):
+        // the flag alone, the pod's own cadence and magazine inside.
+        if (_playerControlled && _rocketNextFrame)
+        {
+            _rocketNextFrame = false;
+            if (Level == 3 && _rockets > 0 && _nextRocketTime <= GameTime && FireRocket(_laserAim))
+                _nextRocketTime = GameTime + RocketInterval;
+        }
+    }
+
+    /// <summary>The hopper's beat (<c>m_flFireRate</c>'s shape, tf_obj_sentrygun.cpp:1270-1296).</summary>
+    private float ShellInterval()
+    {
+        float interval = Level == 1 ? ShellIntervalLevel1 : ShellIntervalLevel2;
+
+        if (IsMiniBuilding)
+            interval *= MiniFireRateMultiplier;
+
+        if (_playerControlled)
+            interval *= WrangledFireRateScale;
+
+        return interval;
     }
 
     /// <summary>
@@ -585,59 +770,99 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     /// gives up a shell whether the trace hit or not, and the beat is the
     /// level's (0.2 s at level 1, 0.1 s on the twin guns,
     /// tf_obj_sentrygun.cpp:1288-1296). A level 3 pod with rockets and its
-    /// beat run fires one first (:1451-1457).
+    /// beat run fires one first — the wrangled turret's rockets are the
+    /// trigger's (:1451-1454's <c>!m_bPlayerControlled</c>).
     /// </summary>
-    private void Fire(EntityHandle target)
+    private void Fire()
     {
-        float shellInterval = Level == 1 ? ShellIntervalLevel1 : ShellIntervalLevel2;
+        float shellInterval = ShellInterval();
 
         // Level 3 fires a rocket every three seconds its magazine backs
         // (tf_obj_sentrygun.cpp:1450-1457), before the shell.
-        if (Level == 3 && _rockets > 0 && _nextRocketTime <= GameTime)
+        if (Level == 3 && _rockets > 0 && _nextRocketTime <= GameTime && !_playerControlled)
         {
-            if (FireRocket(target))
+            if (FireRocket(Entities.GetWorldSpaceCenter(_target)))
                 _nextRocketTime = GameTime + RocketInterval;
         }
 
         // The empty hopper (tf_obj_sentrygun.cpp:1631-1639): the beat runs
-        // again, no shell and no damage.
+        // again, no shell and no damage — and the empty click tells it.
         if (_shells <= 0)
         {
             _nextAttackTime = GameTime + shellInterval;
+            EmitSentrySound(EmptySoundName);
             return;
         }
 
         _shells--;
         _nextAttackTime = GameTime + shellInterval;
 
-        TraceResult trace = _world.TraceLine(EyePosition, Entities.GetWorldSpaceCenter(target), TraceMask.Shot, Handle);
-        EntityHandle victim = trace.Hit ? trace.Entity : target;
+        // The report (:1569-1612): the mini has its own sound, the plain
+        // turret's climbs with its level — both after the muzzle flash of
+        // the deferred model, as stock orders them.
+        if (IsMiniBuilding)
+            _sound.EntityEmitSound(Handle, MiniFireSound);
+        else
+            EmitSentrySound(Level switch
+            {
+                2 => FireSoundLevel2,
+                3 => FireSoundLevel3,
+                _ => FireSoundLevel1,
+            });
+
+        // The aim: the target's centre, or the wrangled dot's own position
+        // (GetEnemyAimPosition of a non-player, tf_obj_sentrygun.cpp:240).
+        Vector aim = _playerControlled ? _laserAim : Entities.GetWorldSpaceCenter(_target);
+
+        // A wrangled shell flies a hundred units past its dot (info.m_flDistance's
+        // flDistToTarget + 100, tf_obj_sentrygun.cpp): the dot sits on the surface it
+        // found, so a trace that stopped there would reach nothing.
+        Vector end = _playerControlled ? aim + (aim - EyePosition).Normalized * WranglerShellOvershoot : aim;
+        TraceResult trace = _world.TraceLine(EyePosition, end, TraceMask.Shot, Handle);
+        EntityHandle victim = trace.Hit ? trace.Entity : _target;
 
         // A wall stops the shell; a clear line or an enemy (or an unwitting
-        // fellow in the way) takes it.
-        if (trace.Hit && victim == EntityHandle.None)
+        // fellow in the way) takes it. A wrangled shell has no target to fall back on.
+        if ((trace.Hit && victim == EntityHandle.None) || (!trace.Hit && _playerControlled))
             return;
 
         // The sentry is the hit's inflictor (stock's CTakeDamageInfo(this,
         // this, ...) at :1622-1630): the kill feed names obj_sentrygun, the
         // death rules credit the object, and the sentry-damager history
         // records the wound.
+        // The mini's shells hit for the mini's number, the halved damage of
+        // the smaller body (:1542-1546).
+        float shellDamage = IsMiniBuilding ? _miniSentryDamage.Value : _sentryDamage.Value;
         using (_inflictors.Push(Handle, Origin))
-            _damage.TakeDamage(victim, Builder, _sentryDamage.Value, DamageType.Bullet);
+            _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+    }
+
+    /// <summary>
+    /// <c>EmitSentrySound</c> (:2206-2222): a mini's click rides a quarter-tone
+    /// high (<c>SND_CHANGE_PITCH</c> at <c>PITCH_HIGH</c>, :2214-2219 — the
+    /// pitch scale of iesound.h); otherwise the sound keeps its script's own.
+    /// </summary>
+    private void EmitSentrySound(string soundName)
+    {
+        if (IsMiniBuilding)
+            _sound.EntityEmitSoundAs(Handle, soundName, volume: 1f, PitchHigh);
+        else
+            _sound.EntityEmitSound(Handle, soundName);
     }
 
     /// <summary>
     /// <c>CObjectSentrygun::FireRocket</c> (tf_obj_sentrygun.cpp:1313-1388)
-    /// without its sounds and gesture: the line to the target's centre is
-    /// traced first, and only a clear one (or one ending on something that is
+    /// towards <paramref name="aim"/> — the target's centre, or the wrangled
+    /// dot's — without its sounds and gesture: the line is traced first, and
+    /// only a clear one (or one ending on something that is
     /// not the world) is fired down (:1347-1349); the pod's spawn is the eye
     /// point — the rocket attachments ride with the deferred model — and the
     /// magazine gives up a rocket.
     /// </summary>
-    private bool FireRocket(EntityHandle target)
+    private bool FireRocket(Vector aimPoint)
     {
         Vector from = EyePosition;
-        Vector to = Entities.GetWorldSpaceCenter(target);
+        Vector to = aimPoint;
 
         // The MASK_SOLID wall check (:1334-1349): a blocked line to the
         // world fires nothing — the pod is not an artillery piece.

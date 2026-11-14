@@ -1086,6 +1086,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(new ViewmodelActivity(_services.Require<IHooks<IViewmodelActivityRule>>(), Log));
         _services.AddInstance(new ViewmodelModel(_services.Require<IHooks<IViewmodelModelRule>>(), Log));
         _services.AddInstance(new ViewmodelSkin(_services.Require<IHooks<IViewmodelSkinRule>>(), Log));
+        // The carried weapon's model chain (IWorldModelRule): what everyone
+        // else sees, asked by the server's Arsenal beside the viewmodel's —
+        // the model is networked state, not predicted input.
+        _services.AddFactory<IHooks<IWorldModelRule>>(locator => new Hooks<IWorldModelRule>(locator, log));
+        _services.AddInstance(new WorldModel(_services.Require<IHooks<IWorldModelRule>>(), Log));
         _services.AddInstance(new TeamNames(_services.Require<IHooks<ITeamNameRule>>(), Log));
         // The gesture chain, beside the hooks it reads; the arsenal takes it
         // from the container like every other optional tail.

@@ -241,6 +241,72 @@ public sealed class TFLoadoutServerTests : IDisposable
         Assert.Empty(_sent.Sent);
     }
 
+    /// <summary>A schema of one hat: the head word the parse folds to misc
+    /// (<c>CTFItemDefinition::BInitFromKV</c>, tf_item_schema.cpp:946-949), so
+    /// the item's stored slot is misc for every class that wears it.</summary>
+    private const string HatSchema = """
+        "items_game"
+        {
+            "qualities"
+            {
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "117"
+                {
+                    "name"         "TF_SNIPER_HAT"
+                    "item_class"   "tf_wearable"
+                    "item_name"    "#TF_SniperHat"
+                    "item_slot"    "head"
+                    "item_quality" "normal"
+                    "min_ilevel"   "1"
+                    "max_ilevel"   "1"
+                    "used_by_classes"
+                    {
+                        "sniper"    "1"
+                    }
+                }
+            }
+        }
+        """;
+
+    /// <summary>An inventory over <see cref="HatSchema"/> with the hat granted, and that schema.</summary>
+    private (ItemSchema Schema, LocalInventory Inventory, ItemInstance Hat) HatUp()
+    {
+        var schema = EconTestFiles.Schema(HatSchema);
+        _clients.SteamIds[Seat] = Steam;
+        var inventory = new LocalInventory(
+            new InventoryStore(new ModInfo(key => key == ModInfo.Keys.GameDir ? _gameDir : null), schema, _log),
+            schema, _clients, _log);
+        inventory.OnClientActive(Seat);
+        return (schema, inventory, inventory.Grant(Seat, 117)!);
+    }
+
+    private TFEquipCommand HatCommand(ItemSchema schema, LocalInventory inventory) =>
+        new(inventory, schema, new TFLoadoutServer(inventory, schema, _sent, _log), _log);
+
+    /// <summary>
+    /// The screen's head tab: the hat sits in the misc slot the parse folded
+    /// it into, and the head word must reach that same slot, not the empty
+    /// head one the word table also answers.
+    /// </summary>
+    [Fact]
+    public void TheHeadWordEquipsTheHat()
+    {
+        var (schema, inventory, hat) = HatUp();
+        var command = HatCommand(schema, inventory);
+
+        Assert.True(command.Handle(Player, "tf2_equip", ["sniper", "head", "117"]));
+
+        var worn = inventory.Of(Seat)!.ItemInLoadout(TFClass.Sniper, TFLoadoutSlot.Misc, schema);
+        Assert.NotNull(worn);
+        Assert.Equal(hat.Defindex, worn.Defindex);
+        Assert.Single(_sent.Sent);
+    }
+
     [Fact]
     public void AnotherCommandIsNotClaimed()
     {

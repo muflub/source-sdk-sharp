@@ -14,6 +14,7 @@ using TF2.Server.Player;
 using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -53,8 +54,9 @@ namespace TF2.Server.Buildings;
 public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                              IEngineEntityRender render, IEngineDamage damage, TFDamageScopes scopes,
                              ITFAmmoPurse purse, ObjSapperAmountConVar sapperAmount,
-                             TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
+                             TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
+                             ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech, owners, hooks)
 {
     public const string MapClass = "obj_attachment_sapper";
 
@@ -164,14 +166,26 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
     }
 
     /// <summary>
-    /// <c>CObjectSapper::OnTakeDamage</c>'s gate: nothing lands on a sapper
-    /// but the wrench's fix (<c>TF_DMG_WRENCH_FIX</c>). Stock's
-    /// <c>set_dmg_apply_to_sapper</c> attribute arm is a deferred row.
+    /// <c>CObjectSapper::OnTakeDamage</c>'s gate (tf_obj_sapper.cpp:562-575):
+    /// the wrench's fix (<c>TF_DMG_WRENCH_FIX</c>) always lands; anything else
+    /// lands only from a held weapon bearing <c>set_dmg_apply_to_sapper</c>
+    /// — the Homewrecker's and the Maul's arm — asked of the attacker's held
+    /// item the way <c>mult_dmg_vs_buildings</c> is.
     /// </summary>
     public override int OnDamaged(EntityHandle attacker, float damage, DamageType damageType)
     {
-        if (!_scopes.TryCurrent(out TFDamageCustom custom, out _, out _) || custom != TFDamageCustom.WrenchFix)
+        bool wrenchFix = _scopes.TryCurrent(out TFDamageCustom custom, out _, out _)
+                      && custom == TFDamageCustom.WrenchFix;
+
+        // The attribute arm of stock's gate: the held weapon's
+        // set_dmg_apply_to_sapper over zero, the same held-item walk the
+        // building's blow takes (TFBaseObject.OnDamaged).
+        if (!wrenchFix
+            && !(attacker != EntityHandle.None && Hooks is { } attr && Owners is { } holders
+                 && attr.Int(0, "set_dmg_apply_to_sapper", holders.ActiveItemOf(Entities.GetIndex(attacker))) != 0))
+        {
             return 0;
+        }
 
         return base.OnDamaged(attacker, damage, damageType);
     }

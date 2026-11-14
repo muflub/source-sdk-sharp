@@ -16,6 +16,10 @@ using CAbi = client::SourceSharp.Abi;
 using ClientRocket = client::TF2.Client.Projectiles.ClientTFRocket;
 using ClientPipe = client::TF2.Client.Projectiles.ClientTFPipebomb;
 using ClientSticky = client::TF2.Client.Projectiles.ClientTFStickybomb;
+using ClientFlare = client::TF2.Client.Projectiles.ClientTFFlare;
+using ClientJar = client::TF2.Client.Projectiles.ClientTFJar;
+using ClientJarMilk = client::TF2.Client.Projectiles.ClientTFJarMilk;
+using ClientHealingBolt = client::TF2.Client.Projectiles.ClientTFHealingBolt;
 
 namespace TF2.Tests.Projectiles;
 
@@ -566,6 +570,114 @@ public sealed class TFProjectileTrailTests
     }
 
     // =====================================================================
+    // The flare's names.
+    // =====================================================================
+
+    /// <summary>The wire's team colours the trail and the crit names it, one
+    /// system wearing both as stock's single <c>pEffect</c> does.</summary>
+    [Fact]
+    public void The_flare_trail_names_the_team_and_the_crit()
+    {
+        var red = new TrailRig();
+        red.Flare(FlareBlob(team: 2));
+        Assert.Equal("flaregun_trail_red",
+                     red.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+
+        var blue = new TrailRig();
+        blue.Flare(FlareBlob(team: 3));
+        Assert.Equal("flaregun_trail_blue",
+                     blue.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+
+        var redCrit = new TrailRig();
+        redCrit.Flare(FlareBlob(team: 2, critical: true));
+        Assert.Equal("flaregun_trail_crit_red",
+                     redCrit.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+
+        var blueCrit = new TrailRig();
+        blueCrit.Flare(FlareBlob(team: 3, critical: true));
+        Assert.Equal("flaregun_trail_crit_blue",
+                     blueCrit.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+    }
+
+    /// <summary>Stock's flare keeps ONE system: the crit lives in the trail's
+    /// own name, and no second glow joins it (the rocket's pair it is not).</summary>
+    [Fact]
+    public void A_critical_flare_starts_no_second_system()
+    {
+        var client = new TrailRig();
+        client.Flare(FlareBlob(team: 2, critical: true));
+
+        Assert.Equal(1, client.Engine.CountOf("Effects.ParticleSystemStart"));
+        Assert.Equal(0, client.Engine.CountOf("Effects.ParticleSystemStartExtra"));
+    }
+
+    [Fact]
+    public void The_flare_trail_follows_the_origin()
+    {
+        var client = new TrailRig();
+        client.Flare(FlareBlob(team: 2));
+
+        // PATTACH_ABSORIGIN_FOLLOW is point 0, the shell's fed origin.
+        Assert.Equal(0b1, client.Engine.Last("Effects.ParticleSystemFollowPoints")!.Value.ArgAs<int>(1));
+    }
+
+    /// <summary>The healing bolt's mirror: the team's healshot trail, stock's
+    /// DATA_UPDATE_CREATED start (<c>c_tf_projectile_arrow.cpp:194-210</c>) —
+    /// and no crit arm, the wire carrying the team alone.</summary>
+    [Fact]
+    public void The_healing_bolt_mirror_wears_the_teams_trail()
+    {
+        var blue = new TrailRig();
+        blue.Bolt(BoltBlob(team: 3));
+        Assert.Equal("healshot_trail_blue",
+                     blue.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+        Assert.Equal(0b1, blue.Engine.Last("Effects.ParticleSystemFollowPoints")!.Value.ArgAs<int>(1));
+
+        var red = new TrailRig();
+        red.Bolt(BoltBlob(team: 2));
+        Assert.Equal("healshot_trail_red",
+                     red.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+        Assert.Equal(0, red.Engine.CountOf("Effects.ParticleSystemStartExtra"));
+    }
+
+    // =====================================================================
+    // The jars' names.
+    // =====================================================================
+
+    /// <summary>The leaking jar's trail, by team and nothing else — the milk
+    /// the same wear under its own name (<c>tf_weapon_jar.cpp:766-776</c>).</summary>
+    [Fact]
+    public void The_jar_trail_names_the_team_and_the_milk_wears_it_too()
+    {
+        var red = new TrailRig();
+        red.Jar(JarBlob(team: 2));
+        Assert.Equal("peejar_trail_red",
+                     red.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+
+        var blue = new TrailRig();
+        blue.Jar(JarBlob(team: 3));
+        Assert.Equal("peejar_trail_blu",
+                     blue.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+
+        var milk = new TrailRig();
+        milk.JarMilk(JarBlob(team: 2));
+        Assert.Equal("peejar_trail_red",
+                     milk.Engine.Last("Effects.ParticleSystemStart")!.Value.ArgAs<string>(1));
+    }
+
+    /// <summary>The jar's trail is the whole wear: no crit glow joins it, the
+    /// glow names in that family being the cleaver's.</summary>
+    [Fact]
+    public void A_critical_jar_starts_no_second_system()
+    {
+        var client = new TrailRig();
+        client.Jar(JarBlob(team: 2, critical: true));
+
+        Assert.Equal(1, client.Engine.CountOf("Effects.ParticleSystemStart"));
+        Assert.Equal(0, client.Engine.CountOf("Effects.ParticleSystemStartExtra"));
+    }
+
+    // =====================================================================
     // Rigs.
     // =====================================================================
 
@@ -595,6 +707,32 @@ public sealed class TFProjectileTrailTests
         state.TeamNumber = team;
         state.Critical = critical;
         state.Pulsed = pulsed;
+        return state.Snapshot();
+    }
+
+    private static byte[] FlareBlob(int team, bool critical = false)
+    {
+        var state = new TFFlareNetState();
+        state.BindLocal();
+        state.TeamNumber = team;
+        state.Critical = critical;
+        return state.Snapshot();
+    }
+
+    private static byte[] JarBlob(int team, bool critical = false)
+    {
+        var state = new TFJarNetState();
+        state.BindLocal();
+        state.TeamNumber = team;
+        state.Critical = critical;
+        return state.Snapshot();
+    }
+
+    private static byte[] BoltBlob(int team)
+    {
+        var state = new TFHealingBoltNetState();
+        state.BindLocal();
+        state.TeamNumber = team;
         return state.Snapshot();
     }
 
@@ -643,6 +781,42 @@ public sealed class TFProjectileTrailTests
         public ClientSticky Sticky(byte[] blob)
         {
             var mirror = new ClientSticky(Engine, Engine);
+            mirror.State.BindLocal();
+            mirror.State.Decode(blob);
+            mirror.OnDataChanged(blob, DataUpdateType.Created);
+            return mirror;
+        }
+
+        public ClientFlare Flare(byte[] blob)
+        {
+            var mirror = new ClientFlare(Engine, Engine);
+            mirror.State.BindLocal();
+            mirror.State.Decode(blob);
+            mirror.OnDataChanged(blob, DataUpdateType.Created);
+            return mirror;
+        }
+
+        public ClientJar Jar(byte[] blob)
+        {
+            var mirror = new ClientJar(Engine, Engine);
+            mirror.State.BindLocal();
+            mirror.State.Decode(blob);
+            mirror.OnDataChanged(blob, DataUpdateType.Created);
+            return mirror;
+        }
+
+        public ClientJarMilk JarMilk(byte[] blob)
+        {
+            var mirror = new ClientJarMilk(Engine, Engine);
+            mirror.State.BindLocal();
+            mirror.State.Decode(blob);
+            mirror.OnDataChanged(blob, DataUpdateType.Created);
+            return mirror;
+        }
+
+        public ClientHealingBolt Bolt(byte[] blob)
+        {
+            var mirror = new ClientHealingBolt(Engine, Engine);
             mirror.State.BindLocal();
             mirror.State.Decode(blob);
             mirror.OnDataChanged(blob, DataUpdateType.Created);

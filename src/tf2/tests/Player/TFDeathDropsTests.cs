@@ -7,10 +7,13 @@ using SourceSharp.Shared;
 using SourceSharp.Tests;
 
 using TF2.Server;
+using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Shared;
+using TF2.Shared.Combat;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 
 using TF2.Tests.Entities.Items;
@@ -82,6 +85,9 @@ public sealed class TFDeathDropsTests
         public readonly ConVarRegistry ConVars;
         public readonly FakeSeeds Seeds = new();
         public readonly PackDirectory Packs = new();
+
+        /// <summary>The kit entity's own engine: the container's recording engine.</summary>
+        public readonly RecordingEngine KitEngine;
         public readonly FakeMedigun Medigun = new();
         public readonly TFWeaponScripts Scripts;
         public readonly Arsenal Arsenal;
@@ -100,7 +106,21 @@ public sealed class TFDeathDropsTests
 
             Registry = new ScriptedEntityRegistry(TestEngines.Server());
             Registry.RegisterAll(typeof(SsWeapon).Assembly);
-            Registry.Services = Services(out _);
+            Registry.RegisterAll(typeof(HealthKitSmall).Assembly);   // the death's health kit, spawned for real
+
+            // The health kit is a map item: its spawn reads the players seam and
+            // announces through the notices, so the container answers both.
+            var container = Services(out _);
+            container.AddInstance<ITFMapPlayers>(Map);
+            container.AddInstance<ITFPickupNotices>(Notices);
+            Registry.Services = container;
+
+            // The entity's own engine, as the kit records its throw on it.
+            KitEngine = (RecordingEngine)container.Resolve<IEngineEntities>()!;
+            KitEngine.Returns("Entities.GetSpawnFlags", 0)
+                     .Returns("EntityPhysics.InitPhysics", false)
+                     .Returns("Entities.GetHealth", 1)
+                     .Returns("Files.GameFileSize", -1);
 
             Dead = Map.Add();
             Registry.KeyValue(Dead.Handle, EntityNames.Player, "targetname", "fixture_player");
@@ -135,9 +155,13 @@ public sealed class TFDeathDropsTests
             Packs.Build = BuildPack;
             Packs.BuildDropped = BuildDropped;
             Packs.ClassOf = World.CreatedClassOf;
+            Packs.KitOf = Registry.Get;   // the spawned kit, as the directory hands it over
         }
 
-        public TFDeathDrops Hook() => new(Log, Arsenal, Scripts, Map, Packs, Roster, World, Engine, Medigun);
+        public TFDeathDrops Hook(AttributeHooks? hooks = null, ITFWeaponOwners? owners = null,
+                                 ITFPlayerConditions? conditions = null, TFDamageRecords? hitRecords = null)
+            => new(Log, Arsenal, Scripts, Map, Packs, Roster, World, Engine, Medigun, hooks, owners, Seeds,
+                   conditions, hitRecords);
 
         public PlayerDeath Death => new(Dead.Handle, 3, EntityHandle.None, DiedAt, EntityHandle.None);
 
@@ -227,6 +251,16 @@ public sealed class TFDeathDropsTests
         public Func<float, (TFAmmoPack Pack, RecordingEngine Engine)>? Build;
         public Func<float, (TFDroppedWeapon Dropped, RecordingEngine Engine)>? BuildDropped;
 
+        /// <summary>
+        /// The registry's view of a spawned kit: the death's health pack is
+        /// spawned for real through the registry, so the directory hands over
+        /// what the registry built (<see cref="Rig"/>'s <c>KitOf</c> wiring).
+        /// </summary>
+        public Func<EntityHandle, ScriptedEntity?>? KitOf;
+
+        /// <summary>The health kits the hook dropped, in creation order.</summary>
+        public readonly List<HealthKit> Kits = new();
+
         /// <summary>The class a created handle carries — the SpawningEntities double's book.</summary>
         public Func<EntityHandle, string?>? ClassOf;
 
@@ -269,6 +303,15 @@ public sealed class TFDeathDropsTests
                 DroppedEngines[dropped] = droppedEngine;
                 _known[handle.Value] = dropped;
                 return dropped;
+            }
+
+            if (ClassOf?.Invoke(handle) == HealthKitSmall.SmallClass)
+            {
+                var kitEntity = KitOf?.Invoke(handle);
+                _known[handle.Value] = kitEntity!;
+                if (kitEntity is HealthKit kit)
+                    Kits.Add(kit);
+                return kitEntity;
             }
 
             var (pack, engine) = Build!.Invoke(NextClock);
@@ -323,6 +366,23 @@ public sealed class TFDeathDropsTests
         public void RemoveMedigun(int ownerIndex, float now) { }
         public int HealingTargetIndex(int ownerIndex) => -1;
         public bool IsReleasing(int ownerIndex) => false;
+    }
+
+    /// <summary>Condition adds the kill arm stamps, recorded in order.</summary>
+    private sealed class KillConditions : ITFPlayerConditions
+    {
+        public readonly List<(EntityHandle Player, TFCond Cond, float Seconds)> Added = [];
+
+        public TFConditions? Of(int playerIndex) => null;
+        public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent,
+                             EntityHandle provider = default)
+        {
+            Added.Add((player, cond, duration));
+            return default;
+        }
+        public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
+        public TFCondMask RemoveAll(EntityHandle player) => default;
+        public bool InCond(EntityHandle player, TFCond cond) => false;
     }
 
     //------------------------------------------------------------------
@@ -1054,6 +1114,162 @@ public sealed class TFDeathDropsTests
         Assert.DoesNotContain("Entities.Remove", otherEngine.Calls.Select(c => c.Member));
     }
 
+    // ---- the killer's health pack (drop_health_pack_on_kill) ---------------
+
+    [Fact]
+    public void A_kill_with_the_candy_cane_drops_a_small_kit_where_the_victim_fell()
+    {
+        // Stock's Event_Killed arm (tf_player.cpp:12307-12314) and DropHealthPack
+        // (:13140-13153): the small kit lands at the dying player's world-space
+        // centre with the random up-push — XY drawn in [-1,1], z pinned to 1,
+        // normalised, times 250 — and flies as a thrown single-instance owned
+        // by the dying player, delay 0. The victim carries nothing: the ammo
+        // arm bails on an empty inventory, the kit arm still runs — Event_
+        // Killed's two drop arms are independent.
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(1f, 2f, 3f));
+        var owners = new FakeOwners();
+        owners.Held[attacker.EntryIndex] = "tf_weapon_candy_cane";
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30048, "kill drop", "drop_health_pack_on_kill",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 1f));
+        owners.Items[attacker.EntryIndex] = item;
+
+        rig.Hook(new AttributeHooks(), owners)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Contains(HealthKitSmall.SmallClass, rig.World.CreatedClasses);
+        Assert.Equal(new Vector(1f, 2f, 3f), rig.Engine.Last("Entities.SetOrigin").ArgAs<Vector>(1)); // :13142
+        var kit = Assert.Single(rig.Packs.Kits);
+        Assert.True(kit.ThrownSingleInstance);               // DropSingleInstance, tf_powerup.cpp:202
+        Assert.Equal(rig.Dead.Handle, kit.OwnerEntity);      // :204, owned by the dying player
+        var thrown = rig.KitEngine.Last("Entities.SetVelocity").ArgAs<Vector>(1); // tf_powerup.cpp:192
+        Assert.Equal(250f, thrown.Length, 3);                // :13150, the normalised impulse times 250
+        Assert.True(thrown.Z > 0f);                          // :13147, z pinned to 1
+    }
+
+    /// <summary>The gate half (:12311): stock compares the walked value against
+    /// exactly one — a held item with no attribute keeps the kit in the bag.</summary>
+    [Fact]
+    public void A_kill_without_the_attribute_drops_no_kit()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(1f, 2f, 3f));
+        var owners = new FakeOwners();                                  // held, but holding nothing
+        owners.Held[attacker.EntryIndex] = "tf_weapon_pistol";
+        owners.Items[attacker.EntryIndex] = new AttributeContainer();
+
+        rig.Hook(new AttributeHooks(), owners)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.DoesNotContain(HealthKitSmall.SmallClass, rig.World.CreatedClasses);
+        Assert.Empty(rig.Packs.Kits);
+    }
+
+    /// <summary>The arm is asked only when the death has a killing player at
+    /// all (:12307): no attacker, no walk, no kit.</summary>
+    [Fact]
+    public void A_death_with_no_killing_player_drops_no_kit()
+    {
+        var rig = new Rig();
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_candy_cane";
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30049, "kill drop", "drop_health_pack_on_kill",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 1f));
+        owners.Items[3] = item;
+
+        rig.Hook(new AttributeHooks(), owners).OnPlayerDied(rig.Death);   // Attacker is None
+
+        Assert.DoesNotContain(HealthKitSmall.SmallClass, rig.World.CreatedClasses);
+    }
+
+    // ---- the killer's crit boost (add_onkill_critboost_time) ----------------
+
+    [Fact]
+    public void A_kill_with_the_gloves_boosts_the_killer_for_the_walked_plus_one_second()
+    {
+        // Event_KilledOther (:11135-11146): the killing weapon's item answers
+        // add_onkill_critboost_time, and any non-zero answer stamps TF_COND_
+        // CRITBOOSTED_ON_KILL on the killing player for the walked seconds plus
+        // the perceptual one (:11145). The walk is over the hit's own weapon,
+        // stock's info.GetWeapon() at :11135.
+        var attacker = new EntityHandle(0x0001_0003u);   // EntryIndex 3, the hit record's killer
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_gloves_boxing", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_gloves_boxing";
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30050, "kill boost", "add_onkill_critboost_time",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 4f));
+        owners.Items[3] = item;
+        var conditions = new KillConditions();
+
+        rig.Hook(new AttributeHooks(), owners, conditions, records)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        var (who, cond, seconds) = Assert.Single(conditions.Added);
+        Assert.Equal(attacker, who);
+        Assert.Equal(TFCond.CritboostedOnKill, cond);
+        Assert.Equal(5f, seconds);                       // :11145, the walked four plus the perceptual one
+    }
+
+    /// <summary>The gate half (:11142): no attribute on the killing weapon, no
+    /// condition on the killer.</summary>
+    [Fact]
+    public void A_kill_from_a_plain_weapon_adds_no_boost()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.None,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_handgun", 1f),
+                     damager: true);
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_handgun";
+        owners.Items[3] = new AttributeContainer();      // the glove's row, holding nothing
+        var conditions = new KillConditions();
+
+        rig.Hook(new AttributeHooks(), owners, conditions, records)
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Empty(conditions.Added);
+    }
+
+    /// <summary>Stock's null-arm (:11135-11136): with no hit behind the death
+    /// there is no killing weapon to ask, and the boost stays unwalked.</summary>
+    [Fact]
+    public void A_kill_the_damage_layer_never_saw_adds_no_boost()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var rig = new Rig();
+        var owners = new FakeOwners();
+        owners.Held[3] = "tf_weapon_gloves_boxing";
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30051, "kill boost", "add_onkill_critboost_time",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("c")), 4f));
+        owners.Items[3] = item;
+        var conditions = new KillConditions();
+
+        rig.Hook(new AttributeHooks(), owners, conditions, new TFDamageRecords())   // no hit noted
+           .OnPlayerDied(rig.Death with { Attacker = attacker });
+
+        Assert.Empty(conditions.Added);
+    }
+
     private sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class
     {
         public IReadOnlyList<T> All => hooks;
@@ -1118,11 +1334,12 @@ public sealed class TFDeathDropsTests
 
         public void Spawn(EntityHandle entity)
         {
-            // The carried pair spawns for real, through the registry as the
-            // game's spawn event does; the ammo pack's managed half is this
-            // fixture's directory's to hand over, so its spawn just records.
+            // The carried pair and the health kit spawn for real, through the
+            // registry as the game's spawn event does; the ammo pack's managed
+            // half is this fixture's directory's to hand over, so its spawn
+            // just records.
             if (_created.TryGetValue(entity.Value, out string? className)
-                && className is EntityNames.SsWeapon or EntityNames.PredictedViewModel)
+                && className is EntityNames.SsWeapon or EntityNames.PredictedViewModel or HealthKitSmall.SmallClass)
                 _registry.Spawn(entity, className);
             else
                 _engine.Spawn(entity);

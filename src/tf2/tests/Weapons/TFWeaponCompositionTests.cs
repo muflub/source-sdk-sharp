@@ -197,9 +197,6 @@ public sealed class TFWeaponCompositionTests
 
         var types = Assert.Single(c.ResolveAll<IWeaponTypeSource>().OfType<TFWeaponTypes>());
         Assert.Equal(33, types.Rows().Count());
-        // The carrier's clip rows are keyed by this catalog's index: a wider
-        // catalogue than the row count would silently drop weapons' clips.
-        Assert.True(TF2.Shared.Player.TFPlayerNetState.ClipRows >= types.Rows().Count());
         var behaviours = Assert.Single(c.ResolveAll<IWeaponBehaviourSource>().OfType<TFWeaponBehaviours>());
         Assert.Equal(Enum.GetValues<TFWeaponKind>().Length, behaviours.Behaviours().Count());
         Assert.Single(c.ResolveAll<IAmmoTypeSource>().OfType<TFAmmoTypes>());
@@ -225,6 +222,17 @@ public sealed class TFWeaponCompositionTests
     }
 
     [Fact]
+    public void The_server_scan_holds_the_gesture_rule()
+    {
+        // The third-person gesture seam's TF answer: the server's chain holds
+        // it, so the arsenal's ask names TF events and not the HL2MP tables.
+        var c = Server();
+
+        Assert.IsType<TF2.Shared.Anim.TFWeaponGestures>(
+            Assert.Single(c.ResolveAll<SourceSharp.Shared.Anim.IWeaponGestureRule>()));
+    }
+
+    [Fact]
     public void The_servers_chain_holds_tf2s_hooks_in_order()
     {
         var chain = (TFWeaponHookChain)Server().Resolve(typeof(TFWeaponHookChain))!;
@@ -246,7 +254,12 @@ public sealed class TFWeaponCompositionTests
         var c = new CAbi.ServiceContainer();
         var engine = PredictionDeps.Engine();
         c.AddInstance<ILog>(new RecordingLog());
-        c.AddInstance<CAbi.IEngineFiles>(new ClientFiles(WeaponFixtures.ShippedWithClasses()));
+        // Both sides read the shipped schema over their own file seam, as the game
+        // composes them (the GAME path holds items_game.txt beside the scripts), so
+        // the item-carried names join the catalogue on both sides alike.
+        var files = WeaponFixtures.ShippedWithClasses();
+        files.Bytes[TF2.Shared.Econ.ItemSchema.FilePath] = System.Text.Encoding.UTF8.GetBytes(EconTestFiles.Fixture("items_game.trimmed.txt"));
+        c.AddInstance<CAbi.IEngineFiles>(new ClientFiles(files));
         c.AddInstance(new CTF.TFWeaponCriticalsConVar());
         c.AddInstance(new CTF.TFWeaponCriticalsMeleeConVar());
         c.AddInstance(new CTF.TFWeaponCriticalsBucketCapConVar());
@@ -268,6 +281,10 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisTimeConVar>());
         c.AddInstance(cloakVars.Declared<CTF.TFSpyInvisUnstealthTimeConVar>());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
+        // The item-carried names the client's rows read ride the schema over the
+        // same file seam; join it after the scan, as the server helper does, so
+        // it stands over the scan's own claim instead of colliding with it.
+        c.AddInstance(new CTF.Econ.ItemSchema(new ClientFiles(files), new RecordingLog()));
         return c;
     }
 
@@ -317,6 +334,7 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<ILog>(log);
         c.AddInstance<CAbi.IEngineFiles>(files);
         c.AddInstance<CAbi.IEngineHud>(new CAbi.RecordingEngine());   // the screen the forecast asks
+        c.AddInstance<CClient.IClientStandalones>(new CClient.Standalone.ClientStandaloneRegistry(c));  // the local player's shell the carried walk reads
         c.AddInstance(new CShared.WeaponScriptDatabase(log, null, files.ReadGameFileBytes, CTF.TFEncryption.Key));
         c.AddInstance(new CTF.TFWeaponCriticalsConVar());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());

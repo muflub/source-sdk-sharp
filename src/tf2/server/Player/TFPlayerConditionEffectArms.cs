@@ -28,7 +28,8 @@ namespace TF2.Server.Player;
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFPlayerConditionEffectArms(IEngineSound sound) : ITFConditionHook, IOrderedHook
+public sealed class TFPlayerConditionEffectArms(IEngineSound sound, TFPlayerCarriers? carriers = null)
+    : ITFConditionHook, IOrderedHook
 {
     public int HookOrder => TFPlayerOrders.ConditionEffectArms;
 
@@ -45,7 +46,33 @@ public sealed class TFPlayerConditionEffectArms(IEngineSound sound) : ITFConditi
     /// <c>OnRemoveBurning</c>'s server half (<c>m_hBurnAttacker</c> and the
     /// afterburn forgotten) is <see cref="TF2.Server.Combat.TFBurn.Extinguished"/>,
     /// and its <c>TF_COND_HEALING_DEBUFF</c> clear is a condition-only arm
-    /// (<see cref="TFConditionArms"/>); what is left is the disguise pair.
+    /// (<see cref="TFConditionArms"/>); what is left is the disguise pair and
+    /// the phase's slow-down below.
     /// </summary>
-    public void OnRemoved(EntityHandle player, TFCond cond) { }
+    public void OnRemoved(EntityHandle player, TFCond cond)
+    {
+        // OnRemovePhase (:3551-3577): once the phase is gone, the damage it
+        // dodded pays in a five-second slow, scaled by what was dodded
+        // (:3566-3572). The tally is still readable here — the removal
+        // clears it after the hooks (TFPlayerConditions.Remove). Stock's
+        // TF_STUN_SOUND bit (:3571, tf_shareddefs.h:1342) has no member in
+        // this build's enum; its consumer, the stun sound, is out (the
+        // stack's own note).
+        if (cond != TFCond.Phase || carriers?.ConditionsOf(player.EntryIndex) is not { } conditions)
+            return;
+
+        int prevented = conditions.PreventedDamage(TFCond.Phase);
+        if (prevented == 0)
+            return;
+
+        carriers.Part<TFStunStack>(player.EntryIndex)?.Stun(player, SlowDuration,
+                                                            SlowAmount(prevented), TFStunFlags.Movement, player);
+    }
+
+    /// <summary>The slow's fixed five seconds (:3569 — the remap that follows it in stock is commented out there).</summary>
+    public const float SlowDuration = 5f;
+
+    /// <summary>Stock's <c>RemapValClamped( nPreventedDamage, 10.f, 200.f, 0.25f, 0.5f )</c> (:3570).</summary>
+    public static float SlowAmount(int prevented) =>
+        0.25f + Math.Clamp((prevented - 10f) / 190f, 0f, 1f) * 0.25f;
 }

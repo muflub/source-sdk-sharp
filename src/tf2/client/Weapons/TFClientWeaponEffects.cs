@@ -45,6 +45,8 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
 
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }
 
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange) { }
+
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) { }
 
     public void RingOfFire(in WeaponAttackContext attack, int damage) { }
@@ -56,4 +58,13 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public void ClearWeaponFireScene(in WeaponAttackContext attack) { }
 
     public void FiringSpeech(in WeaponAttackContext attack) { }
+
+    public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+
+    public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+    public void DeployBuff(in WeaponAttackContext attack, int buffType) { }
+
+    public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) { }
+
+    public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) { }
 }

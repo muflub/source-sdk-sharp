@@ -59,6 +59,9 @@ public interface ITFMeleeEffects
 {
     /// <inheritdoc cref="ITFWeaponEffects.Melee"/>
     void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace swing);
+
+    /// <inheritdoc cref="ITFWeaponEffects.MeleeSwingStarted"/>
+    void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange);
 }
 
 /// <summary>
@@ -70,6 +73,23 @@ public interface ITFClassSkillEffects
 {
     /// <inheritdoc cref="ITFWeaponEffects.ClassSpecialSkill"/>
     bool DoSpecialSkill(int ownerIndex);
+}
+
+/// <summary>
+/// The soldier's buff pulse: the deploy's reach and its condition
+/// (<c>CTFPlayerShared::PulseRageBuff</c>, <c>tf_player_shared.cpp:13923-14019</c>).
+/// One owner, <c>As = [typeof(ITFBuffEffects)]</c>.
+/// </summary>
+public interface ITFBuffEffects
+{
+    /// <inheritdoc cref="ITFWeaponEffects.DeployBuff"/>
+    void DeployBuff(int ownerIndex, int buffType);
+
+    /// <inheritdoc cref="ITFWeaponEffects.BlowBuffHorn"/>
+    void BlowBuffHorn(int ownerIndex, int buffType);
+
+    /// <inheritdoc cref="ITFWeaponEffects.RaiseBuffBanner"/>
+    void RaiseBuffBanner(int ownerIndex, int buffType);
 }
 
 /// <summary>Stage 2.3's arm: the minigun's projectile sweep and ring of fire. One owner, <c>As = [typeof(ITFMinigunEffects)]</c>.</summary>
@@ -85,6 +105,31 @@ public interface ITFMinigunEffects
     void Rearmed(in WeaponAttackContext attack);
 }
 
+/// <summary>The lunchbox's arms: the eat's taunt, the thrown plate and the bite. One owner, <c>As = [typeof(ITFLunchboxEffects)]</c>.</summary>
+public interface ITFLunchboxEffects
+{
+    /// <inheritdoc cref="ITFWeaponEffects.LunchboxEat"/>
+    void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <inheritdoc cref="ITFWeaponEffects.LunchboxDrop"/>
+    void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode);
+
+    /// <summary>
+    /// One bite of the held lunch (<c>CTFLunchBox::ApplyBiteEffects</c> through
+    /// the heavy's eat arm, tf_player.cpp:18555-18584): the heal, the mode's
+    /// buff — asked by the taunt attack while the eat runs.
+    /// </summary>
+    void Bite(int playerIndex);
+
+    /// <summary>
+    /// The scout's drink (<c>DoTauntAttack</c>'s scout arm through the held
+    /// energy drink, tf_player.cpp:18636-18675): the buff the held drink's mode
+    /// names, the steered hand and the last item back — asked by the taunt
+    /// attack at the end of the raise.
+    /// </summary>
+    void Drink(int playerIndex);
+}
+
 /// <summary>
 /// The server's <see cref="ITFWeaponEffects"/>: one owner for the shared
 /// behaviours' effect calls, which hands each to the stage that owns that
@@ -98,7 +143,8 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
                                     ITFHealEffects? heal = null, ITFZoomEffects? zoom = null,
                                     ITFClassSkillEffects? skills = null, ITFItemSwitchEffects? itemSwitch = null,
                                     ITFMeleeEffects? melee = null, ITFMinigunEffects? minigun = null,
-                                    ITFTracerEffects? tracer = null,
+                                    ITFTracerEffects? tracer = null, ITFLunchboxEffects? lunchbox = null,
+                                    ITFBuffEffects? buffs = null,
                                     TFConceptSpeech? speech = null) : ITFWeaponEffects
 {
     private readonly TFConceptSpeech? _speech = speech;
@@ -133,6 +179,9 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
         => melee?.Melee(in attack, script, shot, in trace);
 
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange)
+        => melee?.MeleeSwingStarted(in attack, swingRange);
+
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical)
         => minigun?.AttackEnemyProjectiles(in attack, projectiles, critical);
 
@@ -141,6 +190,12 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
 
     public void Rearmed(in WeaponAttackContext attack)
         => minigun?.Rearmed(in attack);
+
+    public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script)
+        => lunchbox?.LunchboxEat(in attack, script);
+
+    public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode)
+        => lunchbox?.LunchboxDrop(in attack, script, mode);
 
     /// <summary>The scene clock's window and the firing gate's (tf_player.cpp:20158-20183).</summary>
     public const float SpeechWindow = 5f;
@@ -199,5 +254,25 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
         _firingGate[owner] = attack.Now + SpeechWindow;
         _speech.Speak(owner, TFConceptSpeech.MinigunFireWeapon, attack.Type.Name,
                       TFMinigunBehaviour.FiringDuration(attack.Weapon, attack.Now));
+    }
+
+    public void DeployBuff(in WeaponAttackContext attack, int buffType)
+        => buffs?.DeployBuff(attack.Command.OwnerIndex, buffType);
+
+    public void BlowBuffHorn(in WeaponAttackContext attack, int buffType)
+        => buffs?.BlowBuffHorn(attack.Command.OwnerIndex, buffType);
+
+    /// <summary>
+    /// The raise, then the battle cry (<c>RaiseFlag</c>'s order :242-252):
+    /// the seam runs the event and the flag sound, the cry rides the voice
+    /// lane after them, still before the buff's raise in
+    /// <see cref="DeployBuff"/>.
+    /// </summary>
+    public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType)
+    {
+        int owner = attack.Command.OwnerIndex;
+        buffs?.RaiseBuffBanner(owner, buffType);
+        if (owner > 0 && _speech is { })
+            _speech.Speak(owner, TFConceptSpeech.PlayerBattlecry);
     }
 }

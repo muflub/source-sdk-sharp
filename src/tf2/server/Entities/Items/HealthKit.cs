@@ -176,6 +176,66 @@ public class HealthKit(ITFMapPlayers players, IEngineFiles files, IEngineWorldQu
     /// <summary>Whether this kit came from a lunchbox throw rather than the map.</summary>
     public bool ThrownSingleInstance => _thrownSingleInstance;
 
+    /// <summary>
+    /// <c>m_flThrowerTouchTime</c>: the owner cannot take their own throw
+    /// back until it has passed (tf_powerup.cpp:205, the −1 start the
+    /// constructor gives it).
+    /// </summary>
+    [SaveField] private float _throwerTouchTime = -1f;
+
+    /// <summary>
+    /// <c>CTFPowerup::DropSingleInstance</c> (tf_powerup.cpp:190-209): the
+    /// lunchbox's thrown pack — thrown by <paramref name="thrower"/> at
+    /// <paramref name="launchVelocity"/>, untouchable by them for
+    /// <paramref name="throwerTouchDelay"/>, gone after
+    /// <see cref="TFPowerup.ThrownLifetime"/>.
+    ///
+    /// <para>
+    /// Stock also flips the flight mode and solid flag and asks the physics
+    /// to wake when at rest; this kit's spawn-built trigger already carries
+    /// both, and the rest wake changes nothing a pickup reads — recorded in
+    /// docs/plans/tf2/deferred.tsv with the throw.
+    /// </para>
+    /// </summary>
+    public void DropSingleInstance(Vector launchVelocity, EntityHandle thrower, float throwerTouchDelay)
+    {
+        Entities.SetVelocity(Handle, launchVelocity); // :192, the flight itself
+        SetThrownSingleInstance(); // :202
+        SetOwner(thrower); // :204
+        _throwerTouchTime = GameTime + throwerTouchDelay; // :205
+        SetContextThink(TFPowerup.ThrownRemoveThink, TFPowerup.ThrownLifetime); // :208
+    }
+
+    /// <summary>
+    /// <c>CTFPowerup::ItemCanBeTouchedByPlayer</c>'s thrower arm
+    /// (tf_powerup.cpp:296-307): the owner waits out their own throw.
+    /// </summary>
+    protected override bool ValidTouch(EntityHandle player)
+    {
+        if (player == OwnerEntity && _throwerTouchTime > 0f && GameTime < _throwerTouchTime)
+            return false;
+
+        return base.ValidTouch(player);
+    }
+
+    /// <summary>
+    /// <c>SF_NORESPAWN</c> rides the throw (tf_powerup.cpp:203): a thrown
+    /// pack picked up is gone, not back in ten seconds.
+    /// </summary>
+    protected override float RespawnDelay => ThrownSingleInstance ? 0f : base.RespawnDelay;
+
+    /// <summary>The thrown pack's removal think (tf_powerup.cpp:208) beside the rest wake.</summary>
+    public override void OnThink(string context)
+    {
+        if (context == TFPowerup.ThrownRemoveThink)
+        {
+            Remove();
+            return;
+        }
+
+        base.OnThink(context);
+    }
+
     public override PowerupSize Size => PowerupSize.Full;
 
     protected override string DefaultModel => "models/items/medkit_large.mdl";

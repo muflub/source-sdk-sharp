@@ -50,6 +50,15 @@ public interface ITFSapperState
     /// Answers whether one was hit.
     /// </summary>
     bool WrenchSmack(int ownerIndex, float range);
+
+    /// <summary>
+    /// The melee's sapper arm (<c>CTFWeaponBaseMelee::DoSwingTraceInternal</c>'s
+    /// <c>set_dmg_apply_to_sapper</c> pass, tf_weaponbase_melee.cpp:469-494):
+    /// the swing of a weapon bearing the attribute, over a friendly building
+    /// inside its reach, hurts the sapper that rides it with the swing's own
+    /// blow. Answers whether one was hit.
+    /// </summary>
+    bool MeleeSmack(int ownerIndex, float range, float amount);
 }
 
 /// <summary>

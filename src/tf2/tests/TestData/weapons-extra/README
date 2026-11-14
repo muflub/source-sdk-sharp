@@ -5,3 +5,24 @@ that name them, through WeaponFixtures.WithExtras.
 tf_weapon_handgun_scout_secondary: the scout's back_headshot pistol class, for
 TFDamageLayerTests' hit-location fact (CTFPistol_ScoutSecondary::GetDamageType).
 Extracted and trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_flaregun: the pyro's secondary, for the flare facts' kind, fire and
+damage rows (TFWeaponKinds.Of's Projectile case, the tf_projectile_flare entity).
+Extracted and trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_robot_arm: the Gunslinger's own row (items_working.tsv:58), the melee
+the kit stands the engineer's unlock wrench on (TFWeaponTypes' WrenchArm seed).
+tf_weapon_lunchbox: the heavy's sandvich, for the lunchbox behaviour's facts
+(TFLunchboxBehaviour's eat and throw over TFLunchboxTests' world).
+tf_weapon_jar, tf_weapon_jar_milk: the sniper's and the scout's jars, for the
+jar facts' kind, meter and launch rows (TFWeaponKinds.Of's Projectile case, the
+tf_projectile_jar entity, the effect-bar purse).
+Extracted and trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_crossbow: the medic's Crusader's Crossbow, for the healing bolt's kind
+and reload rows (TFWeaponKinds.Of's Projectile case, tf_projectile_healing_bolt).
+Extracted and trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_laser_pointer: the Wrangler, for the row, kind and behaviour facts
+(TFWeaponKinds.Of's LaserPointer case, TFWranglerBehaviour's vetoed triggers).
+Extracted and trimmed exactly as TestData/weapons/README describes.

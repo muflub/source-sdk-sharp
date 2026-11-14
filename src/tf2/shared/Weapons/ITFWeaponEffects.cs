@@ -72,6 +72,14 @@ public interface ITFWeaponEffects
     void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace);
 
     /// <summary>
+    /// The swing's start, when a clean miss would hurt its owner: stock's
+    /// <c>Swing</c> notes the living enemies inside its loose reach
+    /// (<c>tf_weaponbase_melee.cpp:305-319</c>), and one still alive at the
+    /// smack spares the owner the miss tax (:742-753).
+    /// </summary>
+    void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange);
+
+    /// <summary>
     /// The minigun's projectile sweep
     /// (<c>CTFMinigun::AttackEnemyProjectiles</c>,
     /// <c>shared/tf/tf_weapon_minigun.cpp:564-654</c>), asked on each fired
@@ -118,16 +126,57 @@ public interface ITFWeaponEffects
     /// <c>MP_CONCEPT_MINIGUN_FIREWEAPON</c>, once past its five-second gate.
     /// </summary>
     void FiringSpeech(in WeaponAttackContext attack);
+
+    /// <summary>
+    /// The lunchbox's eat (<c>CTFPlayer::Taunt</c> by the sandvich's ask,
+    /// tf_weapon_lunchbox.cpp:182): the taunt scene, the
+    /// <c>TF_COND_TAUNTING</c> condition and the heavy's bite clock arm there.
+    /// </summary>
+    void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script);
+
+    /// <summary>
+    /// The lunchbox's throw (<c>CTFLunchBox::SecondaryAttack</c>'s body,
+    /// tf_weapon_lunchbox.cpp:199-288): the health kit behind
+    /// <paramref name="mode"/>'s plate, the previous throw removed, the
+    /// owner's 0.3 s pickup delay set.
+    /// </summary>
+    void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode);
+    /// One buff pulse (<c>CTFPlayerShared::PulseRageBuff</c>,
+    /// <c>tf_player_shared.cpp:13923-14019</c>): the buff named by
+    /// <paramref name="buffType"/>'s <c>set_buff_type</c> reaches the owner's
+    /// living teammates inside the buff's reach, the deployer among them,
+    /// for the pulse's seconds, stock's 1.2 (<c>tf_player_shared.cpp:14006</c>).
+    /// </summary>
+    void DeployBuff(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The deploy's horn (<c>CTFBuffItem::BlowHorn</c>,
+    /// <c>tf_weapon_buff_item.cpp:170-222</c>): the held item's horn sound —
+    /// the Concheror's conch (:186-189), the Buff Banner's bugle (:191-201)
+    /// and the Battalion's horn (:202-212), the Blue horn for Blue and the
+    /// Red horn for everyone else — asked on the live run when the press
+    /// holds (:134's hold).
+    /// </summary>
+    void BlowBuffHorn(in WeaponAttackContext attack, int buffType);
+
+    /// <summary>
+    /// The deploy's raise (<c>CTFBuffItem::RaiseFlag</c>, :227-256): the
+    /// <c>deploy_buff_banner</c> event with the buff type and the owner's
+    /// userid goes before the buff's raise (:242), the flag sound follows it
+    /// (:251), and the battle cry rides the voice lane (:252).
+    /// </summary>
+    void RaiseBuffBanner(in WeaponAttackContext attack, int buffType);
 }
 
 /// <summary>
 /// The swing <see cref="ITFWeaponEffects.Melee"/> traces: the reach and the
 /// hull box, what the behaviour decided for this smack — stock's
 /// <c>DoSwingTraceInternal</c> reads them off the weapon
-/// (<c>tf_weaponbase_melee.cpp:392-425</c>) — and whether the hit asks the
-/// <c>crit_from_behind</c> arm (:819-833).
+/// (<c>tf_weaponbase_melee.cpp:392-425</c>) — whether the hit asks the
+/// <c>crit_from_behind</c> arm (:819-833) and whether a clean miss hurts its
+/// own owner, the <c>hit_self_on_miss</c> arm (:755-763).
 /// </summary>
-public readonly record struct SwingTrace(float Range, float Hull, bool CritFromBehind);
+public readonly record struct SwingTrace(float Range, float Hull, bool CritFromBehind, bool SelfOnMiss = false);
 
 /// <summary>No effects: what a side without Stage 2's arms does (the shot is spent and nothing appears).</summary>
 public sealed class NoTFWeaponEffects : ITFWeaponEffects
@@ -142,10 +191,17 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
     public bool ClassSpecialSkill(in WeaponAttackContext attack) => false;
     public void SelectLast(in WeaponAttackContext attack, TFWeaponScript script) { }
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace) { }
+
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange) { }
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) { }
     public void RingOfFire(in WeaponAttackContext attack, int damage) { }
     public void Rearmed(in WeaponAttackContext attack) { }
     public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) { }
     public void ClearWeaponFireScene(in WeaponAttackContext attack) { }
     public void FiringSpeech(in WeaponAttackContext attack) { }
+    public void LunchboxEat(in WeaponAttackContext attack, TFWeaponScript script) { }
+    public void LunchboxDrop(in WeaponAttackContext attack, TFWeaponScript script, int mode) { }
+    public void DeployBuff(in WeaponAttackContext attack, int buffType) { }
+    public void BlowBuffHorn(in WeaponAttackContext attack, int buffType) { }
+    public void RaiseBuffBanner(in WeaponAttackContext attack, int buffType) { }
 }

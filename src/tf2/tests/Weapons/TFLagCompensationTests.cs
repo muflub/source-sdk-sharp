@@ -318,6 +318,8 @@ public sealed class TFFlameTickLagTests
                                          Flame.Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                          Flame.Convars.Declared<TFPushbackScaleConVar>(),
                                          Flame.Convars.Declared<TFPushbackScaleVerticalConVar>(), Flame.Carriers,
+                                         new TF2.Shared.Econ.AttributeHooks(), new ProjectileRig.Resupply(),
+                                         Flame.Engine,
                                          withSession ? Lag : null);
             Swinger.Latency = 5 * LagWorld.Tick;
             Flame.Directory.Instance = Flame.Manager;

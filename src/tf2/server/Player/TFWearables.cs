@@ -56,12 +56,19 @@ public static class TFWearableOrders
 /// </para>
 /// </summary>
 public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entities, IEntityDirectory directory,
-                                IEnginePrecache precache, ILog log)
+                                IEnginePrecache precache, IEngineEntityRender render, ILog log,
+                                IServerSkins? skins = null)
     : IPlayerComponent
 {
     private readonly List<EntityHandle> _wearables = [];
 
     private int _index = -1;
+
+    // The owner, held from the attach: the park below needs their origin every
+    // frame, and an index would have to be resolved to a handle to read it.
+    private EntityHandle _player = EntityHandle.None;
+
+    private bool _hidden;
 
     /// <summary>After the condition ticker (20): the wearables ride the class and its kit.</summary>
     public int Order => 30;
@@ -75,10 +82,41 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
     public void Attach(EntityHandle player)
     {
         _index = player.EntryIndex;
+        _player = player;
         carriers.EnterPart(_index, this);
     }
 
-    public void Tick(float now) { }
+    /// <summary>
+    /// The frame arms: the park, then the hide. The park is the wearable's
+    /// stock parentage (<c>CEconWearable::Equip</c>'s <c>FollowEntity</c>,
+    /// econ_wearable.cpp:192) cut to what the parallel hierarchy needs — the
+    /// server composes the child at the owner each frame, as the carried
+    /// weapon's frame sweep does (<c>Arsenal.Frame</c>); the client's bone
+    /// merge does the fine placement on the head. The hide is the owner's two
+    /// states that hide a wearable from every eye: a disguise
+    /// (<c>CTFWearable::ShouldDraw</c>, tf_item_wearable.cpp:343) and the cloak,
+    /// which stock fades through the wearable's material and we hide outright
+    /// (docs/divergences.md). Nodraw is networked, so this is the server's to say.
+    /// </summary>
+    public void Tick(float now)
+    {
+        if (_player != EntityHandle.None && entities.IsValid(_player))
+        {
+            Vector at = entities.GetOrigin(_player);
+            foreach (var wearable in _wearables)
+                if (entities.IsValid(wearable))
+                    entities.SetOrigin(wearable, at);
+        }
+
+        bool hidden = carriers.Get(_index) is { } state && (state.InCond(TFCond.Disguised) || state.IsStealthed());
+        if (hidden == _hidden)
+            return;
+
+        _hidden = hidden;
+        foreach (var wearable in _wearables)
+            if (entities.IsValid(wearable))
+                render.SetVisible(wearable, !hidden);
+    }
 
     public void Detach()
     {
@@ -86,6 +124,7 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
         if (_index >= 0)
             carriers.LeavePart(_index, this);
         _index = -1;
+        _player = EntityHandle.None;
     }
 
     /// <summary>
@@ -126,14 +165,26 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
                 continue;
             }
 
+            // The created-and-dressed shape every spawn-from-code wears (the
+            // dropped weapon's CreateNoSpawn + SetModelName + DispatchSpawn):
+            // origin and the player display model on the entity BEFORE the
+            // spawn — CEconWearable::Spawn's SetModel (econ_wearable.cpp:96),
+            // the block's model the client's renderable draws — because the
+            // managed half of a runtime creation comes to exist inside the
+            // spawn's own callback, and nothing on the entity is reachable
+            // before it.
             entities.SetOrigin(wearable, entities.GetOrigin(player));
+            render.SetModel(wearable, model);
             entities.Spawn(wearable);
             _wearables.Add(wearable);
 
+            // The instance the spawn's callback built: the networked state, the
+            // team skin and the item ride on from here.
             if (directory.Get(wearable) is not TFWearableEntity entity)
             {
                 log.Warning($"[TF2/Wearables] {wearable} is not a {TFEntityNames.Wearable}; " +
                             $"item {def.Defindex} does not show\n");
+                entities.Remove(wearable);
                 continue;
             }
 
@@ -141,6 +192,11 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             entity.State.ModelIndex = modelIndex;
             entity.State.Skin = skin;
             entity.State.ItemDefIndex = def.Defindex;
+
+            // CTFWearable::Equip's m_nSkin = GetSkin() (tf_item_wearable.cpp:741):
+            // the render skin, networked on the block. The netstate's Skin above
+            // is the declared copy the client's own skin arm reads.
+            skins?.SetSkin(wearable, skin);
             // The item rides its entity (stock's CEconEntity::m_Item), so the
             // ON_OTHER arms against the wearable find its attributes.
             entity.Item = Econ.TFLoadoutProvider.Attributes(entry.Item);
@@ -154,6 +210,7 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
             if (entities.IsValid(wearable))
                 entities.Remove(wearable);
         _wearables.Clear();
+        _hidden = false;
     }
 }
 
@@ -164,13 +221,15 @@ public sealed class TFWearables(TFPlayerCarriers carriers, IEngineEntities entit
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFWearableComponents(TFPlayerCarriers carriers, IEngineEntities entities,
-                                         IEntityDirectory directory, IEnginePrecache precache, ILog log)
+                                         IEntityDirectory directory, IEnginePrecache precache,
+                                         IEngineEntityRender render, ILog log,
+                                         IServerSkins? skins = null)
     : IPlayerComponentSource, IOrderedHook
 {
     public int HookOrder => TFWearableOrders.Components;
 
     public IEnumerable<IPlayerComponent> Create(EntityHandle player)
-        => [new TFWearables(carriers, entities, directory, precache, log)];
+        => [new TFWearables(carriers, entities, directory, precache, render, log, skins)];
 }
 
 /// <summary>

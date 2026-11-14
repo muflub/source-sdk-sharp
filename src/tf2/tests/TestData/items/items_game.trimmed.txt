@@ -2065,6 +2065,15 @@
 			"mouse_pressed_sound"	"ui/item_heavy_gun_pickup.wav"
 			"drop_sound"		"ui/item_heavy_gun_drop.wav"
 		}
+		"1156"
+		{
+			"name"	"TF2 Tests Gloves Fixture"
+			"prefab"	"weapon_fists"
+			"enabled"	"1"
+			"item_quality"	"unique"
+			"model_player"	"models/workshop/weapons/c_models/c_gloves/c_gloves.mdl"
+			"model_world"	"models/workshop/weapons/c_models/c_gloves/c_gloves_wearable.mdl"
+		}
 	}
 	"attributes"
 	{
@@ -2084,6 +2093,16 @@
 			"name"	"lunchbox adds minicrits"
 			"attribute_class"	"set_weapon_mode"
 			"description_string"	"#Attrib_LunchboxAddsMinicrits"
+			"description_format"	"value_is_additive"
+			"hidden"	"1"
+			"effect_type"	"neutral"
+			"stored_as_integer"	"0"
+		}
+		"140"
+		{
+			"name"	"hidden maxhealth non buffed"
+			"attribute_class"	"add_maxhealth_nonbuffed"
+			"description_string"	"#Attrib_MaxHealthNonBuffed"
 			"description_format"	"value_is_additive"
 			"hidden"	"1"
 			"effect_type"	"neutral"

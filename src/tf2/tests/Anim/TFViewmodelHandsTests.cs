@@ -23,26 +23,62 @@ public sealed class TFViewmodelHandsTests
 {
     private const int Player = 3;
 
-    private sealed class Owner(TFClass cls) : ITFWeaponOwners
+    private abstract class Owner(TFClass cls) : ITFWeaponOwners
     {
-        public TFClass ClassOf(int playerIndex) => cls;
-        public TFConditions? ConditionsOf(int playerIndex) => null;
-        public float CritMult(int playerIndex) => 1f;
-        public bool WinsCrits(int playerIndex) => false;
-        public IAttributeProvider? ItemOf(int playerIndex, string weaponName) => null;
-        public IAttributeProvider? ManagerOf(int playerIndex) => null;
-        public bool OffGround(int playerIndex) => false;
-        public bool EyesUnderwater(int playerIndex) => false;
-        public bool DuckingOf(int playerIndex) => false;
+        public virtual TFClass ClassOf(int playerIndex) => cls;
+        public virtual TFConditions? ConditionsOf(int playerIndex) => null;
+        public virtual float CritMult(int playerIndex) => 1f;
+        public virtual bool WinsCrits(int playerIndex) => false;
+        public virtual IAttributeProvider? ItemOf(int playerIndex, string weaponName) => null;
+        public virtual IAttributeProvider? ManagerOf(int playerIndex) => null;
+        public virtual bool OffGround(int playerIndex) => false;
+        public virtual bool EyesUnderwater(int playerIndex) => false;
+        public virtual bool DuckingOf(int playerIndex) => false;
     }
 
     private static TFWeaponTypes Types() => WeaponFixtures.Types(EconTestFiles.Fixture("items_game.trimmed.txt"));
 
     private static TFClassTable Classes() => new(new RecordingLog(), WeaponFixtures.ShippedWithClasses());
 
-    private static TFViewmodelHandsRule Rule(TFClass cls) => new(Types(), Classes(), new Owner(cls));
+    private static TFViewmodelHandsRule Rule(TFClass cls) => new(Types(), Classes(), new Plain(cls));
+
+    /// <summary>The owner every earlier fact held: a class, no manager.</summary>
+    private sealed class Plain(TFClass cls) : Owner(cls);
 
     private static WeaponType Row(TFWeaponTypes types, string name) => types.Rows().First(r => r.Name == name);
+
+    /// <summary>An owner whose player manager answers <paramref name="manager"/>: the walk the hand index reads.</summary>
+    private sealed class Owned(TFClass cls, IAttributeProvider? manager) : Owner(cls)
+    {
+        public override IAttributeProvider? ManagerOf(int playerIndex) => manager;
+    }
+
+    /// <summary>The Gunslinger's hand index: the holder's wrench_builds_minisentry
+    /// is nonzero, and the mechanical arm answers over the class's own hands
+    /// (tf_weaponbase.cpp:658-669 over tf_playerclass_shared.cpp:159-166).</summary>
+    [Fact]
+    public void A_gunslingers_wrench_dresses_the_hands_in_the_mechanical_arm()
+    {
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(5001, "gunslinger test", TFViewmodelHandsRule.WrenchBuildsMinisentry,
+                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), 1f));
+
+        var rule = new TFViewmodelHandsRule(Types(), Classes(), new Owned(TFClass.Engineer, manager), new AttributeHooks());
+
+        Assert.Equal(TFViewmodelHandsRule.GunslingerArms,
+                     rule.Model(Player, Row(Types(), "tf_weapon_wrench"), null));
+    }
+
+    [Fact]
+    public void A_plain_wrench_keeps_the_class_hands()
+    {
+        var rule = new TFViewmodelHandsRule(Types(), Classes(), new Owned(TFClass.Engineer, null), new AttributeHooks());
+
+        Assert.Equal("models/weapons/c_models/c_engineer_arms.mdl",
+                     rule.Model(Player, Row(Types(), "tf_weapon_wrench"), null));
+    }
 
     [Fact]
     public void The_rocket_launcher_dresses_the_viewmodel_in_the_holders_hands()

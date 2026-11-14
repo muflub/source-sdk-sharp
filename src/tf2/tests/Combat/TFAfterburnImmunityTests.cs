@@ -56,7 +56,7 @@ public sealed class TFAfterburnImmunityTests
         ItemSchema schema = EconTestFiles.TrimmedSchema();
         var item = new ItemInstance(1, schema.Item(Canteen)!, 6, [attribute]);
 
-        var wearables = new TFWearables(rig.Carriers, rig.Engine, rig.Entities, rig.Engine, rig.Log);
+        var wearables = new TFWearables(rig.Carriers, rig.Engine, rig.Entities, rig.Engine, rig.Engine, rig.Log);
         wearables.Attach(Victim);
 
         rig.Engine.Returns("Entities.GetOrigin", default(Vector));

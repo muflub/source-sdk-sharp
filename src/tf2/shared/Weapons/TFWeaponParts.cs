@@ -41,7 +41,8 @@ public sealed class TFWeaponParts(
     ITFAutoReload? autoReload = null,
     TFFlameThrowerBurstammoConVar? flamethrowerBurstammo = null,
     ITFMedigunPrediction? medigunPrediction = null,
-    ITFSapperState? sapper = null)
+    ITFSapperState? sapper = null,
+    ITFSentryWrangle? sentryWrangle = null)
 {
     public TFWeaponScripts Scripts { get; } = scripts ?? throw new ArgumentNullException(nameof(scripts));
 
@@ -109,4 +110,10 @@ public sealed class TFWeaponParts(
     /// until the server composes it (the replay asks nothing).
     /// </summary>
     public ITFSapperState? Sapper { get; } = sapper;
+
+    /// <summary>
+    /// The Wrangler's word to the sentries (<see cref="TFWranglerBehaviour"/>)
+    /// — nothing until the server composes it (the replay asks nothing).
+    /// </summary>
+    public ITFSentryWrangle? SentryWrangle { get; } = sentryWrangle;
 }

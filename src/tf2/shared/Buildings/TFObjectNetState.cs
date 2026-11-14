@@ -30,4 +30,14 @@ public partial class TFObjectNetState
 {
     /// <summary><c>m_bPlacing</c>: not paid for yet — the blueprint is worn and the shadow is the collision hull.</summary>
     public partial bool Placing { get; set; }
+
+    /// <summary>
+    /// <c>m_bMiniBuilding</c> (tf_obj.h:336, net in DT_BaseObject): the Gunslinger's
+    /// small sentry. The client's arms that read it — the siren effect
+    /// (<c>c_obj_sentrygun.cpp:216</c>), the target-ID's mini string and its
+    /// no-upgrade-progress arm (<c>c_baseobject.cpp:912</c>, :1013) — are deferred rows
+    /// of <c>docs/plans/tf2/deferred.tsv</c>; the flag itself crosses now so those arms
+    /// have something to read when they land.
+    /// </summary>
+    public partial bool Mini { get; set; }
 }

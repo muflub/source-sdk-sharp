@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Player;
 
 namespace TF2.Server.Weapons;
 
@@ -40,6 +41,53 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
 {
     /// <summary><c>tf_meleeattackforcescale</c>'s 80 (<c>tf_weaponbase_melee.cpp:50</c>).</summary>
     public const float ForceScale = 80f;
+
+    /// <summary>Stock's <c>looseSwingRange</c> over <c>GetSwingRange</c> (<c>tf_weaponbase_melee.cpp:309</c>).</summary>
+    public const float LooseSwingScale = 1.2f;
+
+    private readonly Dictionary<int, List<EntityHandle>> potentialVictims = new();
+
+    public void MeleeSwingStarted(in WeaponAttackContext attack, float swingRange)
+    {
+        int ownerIndex = attack.Command.OwnerIndex;
+        if (!potentialVictims.TryGetValue(ownerIndex, out List<EntityHandle>? victims))
+            potentialVictims[ownerIndex] = victims = new List<EntityHandle>();
+
+        victims.Clear();
+        EntityHandle owner = players.GetHandle(ownerIndex);
+        if (!entities.IsValid(owner))
+            return;
+
+        int team = players.GetTeam(owner);
+        Vector eye = players.GetShootOrigin(owner);
+        float reachSquared = LooseSwingScale * swingRange * (LooseSwingScale * swingRange);
+        for (int index = 1; index < TFPlayerResourceNetState.Slots; index++)
+        {
+            EntityHandle player = players.GetHandle(index);
+            int theirs = entities.IsValid(player) ? players.GetTeam(player) : 0;
+            if (theirs != team && theirs is (int)TFTeam.Red or (int)TFTeam.Blue && players.IsAlive(player)
+                && (entities.GetWorldSpaceCenter(player) - eye).LengthSquared < reachSquared)
+                victims.Add(player);
+        }
+    }
+
+    /// <summary>
+    /// Stock's clean miss (:742-753): nobody the swing started near is still
+    /// alive, so nobody was dodging it.
+    /// </summary>
+    private bool IsCleanMiss(int ownerIndex)
+    {
+        if (!potentialVictims.TryGetValue(ownerIndex, out List<EntityHandle>? victims))
+            return true;
+
+        foreach (EntityHandle victim in victims)
+        {
+            if (entities.IsValid(victim) && players.IsAlive(victim))
+                return false;
+        }
+
+        return true;
+    }
 
     public void Melee(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace)
     {
@@ -80,6 +128,20 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         if (!hull.Hit)
         {
             log.Msg($"[TF2/Melee] swing by {owner} met nothing (from {from} to {to})\n");
+
+            // hit_self_on_miss (:755-763): a clean miss hurts its own owner at half the melee
+            // blow — DoMeleeDamage's half-modifier path (:802-835), the same melee bits and
+            // force, the miss's own contact position, and the swing's crit (:855-858).
+            if (trace.SelfOnMiss && IsCleanMiss(attack.Command.OwnerIndex))
+            {
+                float halfDamage = shot.Damage * 0.5f;
+                DamageType missTaxType = TFDamageBits.Melee | DamageType.NeverGib | DamageType.Club;
+                Vector missTaxForce = MathF.Abs(halfDamage) >= 1f
+                    ? DamageForceRules.MeleeForce(forward, halfDamage, scale: ForceScale / halfDamage)
+                    : default;
+                using (hitGroups.Push(HitGroup.Generic, shot.Critical))
+                    damage.ApplyAt(owner, owner, halfDamage, missTaxType, missTaxForce, hull.End);
+            }
             return;
         }
 

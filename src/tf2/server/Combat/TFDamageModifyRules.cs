@@ -38,6 +38,7 @@ namespace TF2.Server.Combat;
 /// <param name="DirectRocketHit">The inflictor is a rocket whose enemy is this victim, its owner carrying
 /// rocket_specialist (<c>tf_gamerules.cpp:6299-6306</c>): the long-range falloff is skipped.</param>
 /// <param name="VictimItem">The victim's ACTIVE weapon as an attribute provider, stock's <c>pVictim-&gt;GetActiveTFWeapon()</c> as the resists' ON_OTHER root; null when they hold none.</param>
+/// <param name="AfterburnDuration">The burn's seconds left as the consume arm sees it (<c>CTFPlayerShared::GetAfterburnDuration</c>, tf_player_shared.cpp); null for no burn clock read.</param>
 public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCustom Custom, bool SelfDamage,
                                     bool AttackerIsPlayer, TFWeaponId Weapon, float? Distance,
                                     TFCondMask Victim, TFCondMask Attacker, IAttributeProvider? WeaponItem = null,
@@ -45,7 +46,7 @@ public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCusto
                                     Vector? VictimEyeAngles = null, Vector? ToVictim = null,
                                     bool AttackerAirborne = false, bool VictimAirborne = false,
                                     bool DirectRocketHit = false,
-                                    IAttributeProvider? VictimItem = null);
+                                    IAttributeProvider? VictimItem = null, float? AfterburnDuration = null);
 
 /// <summary>
 /// What the rules made of a hit: the damage to take, the bits and kind it now
@@ -157,6 +158,7 @@ public static class TFDamageModifyRules
         float damage = hit.Damage;
         DamageType bits = hit.Bits;
         var crit = TFCritType.None;
+        var custom = hit.Custom;
         var effects = new TFConditionEffects();
 
         // Damage type was already crit (flares, headshots, the weapon's roll).
@@ -219,6 +221,23 @@ public static class TFDamageModifyRules
         {
             bits |= TFDamageBits.Critical;
             crit = TFCritType.Full;
+        }
+
+        // attack_minicrits_and_consumes_burning (:6098-6117): the melee hit of
+        // the held weapon on a burning victim consumes their flames — the hit
+        // gains the bonus the RemapValClamped over the burn's seconds left
+        // answers (:6105), a plain hit becomes a mini-crit, and the kill is
+        // stamped AxtinguisherBoosted (:6116); the burn's removal and the
+        // flame-out sound (:6107-6108) are the layer's. Never on oneself (:6096).
+        if (!hit.SelfDamage && hit.AttackerIsPlayer && hit.Victim.Has(TFCond.Burning)
+            && hit.WeaponItem is { } consumedItem && (bits & TFDamageBits.Melee) != 0
+            && hooks is not null && hooks.Int(0, "attack_minicrits_and_consumes_burning", consumedItem) != 0)
+        {
+            damage += RemapValClamped(hit.AfterburnDuration ?? 0f, TFCombatDefs.BurningFrequency,
+                                      TFCombatDefs.BurningFlameLife, 20f, TFCombatDefs.BurningDamage * 20);
+            if (crit == TFCritType.None)
+                crit = TFCritType.Mini;
+            custom = TFDamageCustom.AxtinguisherBoosted;
         }
 
         // Mini-crits, never on oneself.
@@ -297,8 +316,9 @@ public static class TFDamageModifyRules
             }
         }
 
-        // The defense buffs, unless a backstab or crush damage.
-        if (hit.Custom != TFDamageCustom.Backstab && (bits & DamageType.Crush) == 0)
+        // The defense buffs, unless a backstab or crush damage. Stock asks
+        // info.GetDamageCustom() here, which the consume arm has already set.
+        if (custom != TFDamageCustom.Backstab && (bits & DamageType.Crush) == 0)
         {
             if (hit.Victim.Has(TFCond.Defensebuff))
             {
@@ -320,7 +340,16 @@ public static class TFDamageModifyRules
         {
             bool mini = crit == TFCritType.Mini;
             bool distanceMod = (bits & TFDamageBits.UseDistanceMod) != 0;
-            bool forceCritFalloff = distanceMod && ((fullCrit && settings.CritFalloff) || (mini && settings.MiniCritFalloff));
+
+            // crit_dmg_falloff (tf_gamerules.cpp:6527-6534): the weapon's
+            // attribute forces the crit's long-range falloff on, OR'd into
+            // the arm the settings' crit-falloff flags feed, inside the same
+            // distance-mod gate and ungated by the crit kind.
+            bool forcedByItem = hooks is not null && hit.WeaponItem is not null
+                                 && hooks.Int(0, "crit_dmg_falloff", hit.WeaponItem) != 0;
+
+            bool forceCritFalloff = distanceMod && ((fullCrit && settings.CritFalloff)
+                                                     || (mini && settings.MiniCritFalloff) || forcedByItem);
             bool shortRangeIncrease = !fullCrit || mini;
 
             // The rocket specialist's direct hit ignores the long-range arm
@@ -347,7 +376,7 @@ public static class TFDamageModifyRules
             damage += bonus;
         }
 
-        return new TFHitResult(damage, bits, crit, hit.Custom, bonus);
+        return new TFHitResult(damage, bits, crit, custom, bonus);
     }
 
     /// <summary><c>condition_to_attribute_translation</c>'s length (<c>tf_shareddefs.cpp:249-274</c>).</summary>

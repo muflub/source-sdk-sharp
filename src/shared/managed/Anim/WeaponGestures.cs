@@ -34,6 +34,28 @@ public enum WeaponGestureTrigger
 
     /// <summary>A reload finished or was abandoned.</summary>
     ReloadEnd,
+
+    /// <summary>
+    /// The weapon began its wind-up: stock's <c>PLAYERANIMEVENT_ATTACK_PRE</c>
+    /// asks, the minigun's spin-up start (tf_weapon_minigun.cpp:276) and the
+    /// flamethrower's first puff (tf_weapon_flamethrower.cpp:749).
+    /// </summary>
+    WindUp,
+
+    /// <summary>
+    /// The weapon came back down: stock's <c>PLAYERANIMEVENT_ATTACK_POST</c>,
+    /// the minigun's settle in WeaponIdle (tf_weapon_minigun.cpp:910) and the
+    /// flamethrower's release home (tf_weapon_flamethrower.cpp:607).
+    /// </summary>
+    WindDown,
+
+    /// <summary>
+    /// A sustained fire re-armed its attack gesture: the flamethrower's
+    /// <c>PLAYERANIMEVENT_ATTACK_PRIMARY</c> every 1.4 s while the nozzle
+    /// streams (tf_weapon_flamethrower.cpp:777-781), the timer the per-command
+    /// ask cannot see.
+    /// </summary>
+    SustainedFire,
 }
 
 /// <summary>

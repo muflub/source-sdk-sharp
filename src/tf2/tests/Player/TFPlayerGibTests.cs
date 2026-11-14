@@ -8,6 +8,10 @@ using TF2.Server.Combat;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
+using TF2.Shared.Weapons;
+
+using TF2.Tests.Weapons;
 
 using Xunit;
 using static SourceSharp.Tests.TestServices;
@@ -53,11 +57,13 @@ public sealed class TFPlayerGibTests
     }
 
     private static TFPlayerGib Hook(ScriptedEntity? body, TFDamageRecords records, IEngineEntities entities,
-                                    out ConVarRegistry convars)
+                                    out ConVarRegistry convars,
+                                    AttributeHooks? hooks = null, ITFWeaponOwners? owners = null)
     {
         convars = new ConVarRegistry(new Backend());
         convars.RegisterTypes([typeof(TFPlayerGibConVar)]);
-        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, entities, new Directory(body));
+        return new TFPlayerGib(convars.Declared<TFPlayerGibConVar>(), records, entities, new Directory(body),
+                               hooks, owners);
     }
 
     private static SsRagdoll Corpse()
@@ -153,6 +159,54 @@ public sealed class TFPlayerGibTests
         engine.Returns("Entities.GetHealth", 2);
         var hook = Hook(body, records, engine, out _);   // no SetValue: the declared 1
 
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.False(body.State.Gib);
+    }
+
+    /// <summary>crit_kill_will_gib (the Apoco-Fists), stock's crit arm of
+    /// <c>CTFPlayer::ShouldGib</c> (tf_player.cpp:10936-10943): a crit kill from a
+    /// weapon holding the attribute gibs past the blast gate, the killing
+    /// player's item walked at the death hook (:10939-10940).</summary>
+    [Fact]
+    public void A_crit_from_a_fisted_weapon_gibs_past_the_blast_gate()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.Full,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_pistol", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);                       // above -10: the blast gate would refuse
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(30047, "fist gib", "crit_kill_will_gib",
+                                                                AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                false, false, AttributeValueType.Default,
+                                                                MergedKeys.Block("g")), 1f));
+        var owners = new FakeOwners();
+        owners.Items[attacker.EntryIndex] = item;
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Gib);                                    // :10941
+    }
+
+    /// <summary>The attribute half of the arm (:10939-10942): a crit bullet from
+    /// a plain weapon still falls through the blast gate (:10953).</summary>
+    [Fact]
+    public void A_crit_from_a_plain_weapon_still_falls_through_the_blast_gate()
+    {
+        var attacker = new EntityHandle(0x0001_0003u);
+        var body = Corpse();
+        var records = new TFDamageRecords();
+        records.Note(3, new TFHitRecord(attacker, 40f, DamageType.Bullet, TFCritType.Full,
+                                        TFDamageCustom.None, TFWeaponId.None, "tf_weapon_pistol", 1f), damager: true);
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);
+        var owners = new FakeOwners();                                  // no item on the killing player
+
+        var hook = Hook(body, records, engine, out _, new AttributeHooks(), owners);
         hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
 
         Assert.False(body.State.Gib);

@@ -160,6 +160,24 @@ public interface IWeaponArms
     /// </summary>
     void MeleeSwing(in WeaponType type, ShotDamage shot) => MeleeSwing(in type);
 
+    /// <summary>
+    /// A swing a behaviour runs through its own effects rather than
+    /// <see cref="MeleeSwing(in WeaponType, ShotDamage)"/>: the arsenal's tell
+    /// that the command swung, which the swing's gesture reads. Nothing happens
+    /// on a side with no gesture to send.
+    /// </summary>
+    void SwingShown() { }
+
+    /// <summary>
+    /// A behaviour's own gesture ask, for the moments no state delta shows: the
+    /// wind-up, the settle and the sustained fire's re-arm are the machine's
+    /// transitions, and the flamethrower's blast pays the primary pool, which
+    /// the alt-fire delta never sees. The command's asks are tallied and the
+    /// gesture chain reads them; nothing happens on a side with no gesture to
+    /// send.
+    /// </summary>
+    void GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger trigger) { }
+
     /// <summary>Sends what the weapon launches instead of a bullet.</summary>
     void Launch(in WeaponType type, string projectile, float speed, bool thrown);
 

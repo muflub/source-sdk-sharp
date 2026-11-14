@@ -35,7 +35,26 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     /// <summary><c>TF_PIPEBOMB_MAX_CHARGE_TIME</c> (<c>tf_weapon_pipebomblauncher.h:21</c>).</summary>
     public const float MaxChargeTime = 4f;
 
+    /// <summary>
+    /// <c>FlareGunTypes_t</c> (<c>tf_weapon_flaregun.h:23-29</c>), what
+    /// <see cref="FlareModeAttribute"/> names: the plain flare, the
+    /// Detonator's, the Grordbort gun's and the Scorch Shot's.
+    /// </summary>
+    public const int FlareNormal = 0;
+    public const int FlareDetonate = 1;
+    public const int FlareGrordbort = 2;
+    public const int FlareScorch = 3;
+
+    /// <summary>The flare gun's mode attribute (<c>GetFlareGunType</c>, tf_weapon_flaregun.h:63's <c>CALL_ATTRIB_HOOK_INT</c>).</summary>
+    public const string FlareModeAttribute = "set_weapon_mode";
+
     private static bool Charges(TFWeaponScript script) => script.Id == TFWeaponId.Pipebomblauncher;
+
+    /// <summary>
+    /// The jars: the stock <c>CTFJar</c> family's pair whose shot is the meter
+    /// itself (<c>tf_weapon_jar.h:41</c>, the milk its second face).
+    /// </summary>
+    private static bool IsJar(TFWeaponScript script) => script.Id is TFWeaponId.Jar or TFWeaponId.JarMilk;
 
     /// <summary>
     /// The stickybomb launcher's own secondary is the detonation, not the
@@ -51,6 +70,28 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
             return;
 
         base.SecondaryAttack(in attack);
+    }
+
+    /// <summary>
+    /// The jar's count, restocked before the machine's own empty check reads
+    /// it: stock grants the round when the regen's time is past
+    /// (<c>CTFWeaponBase::CheckEffectBarRegen</c>,
+    /// <c>tf_weaponbase.cpp:6544-6562</c>), and the frame that follows sees a
+    /// count of one. Ours derives both purses from the bar at the head of the
+    /// command — <see cref="WeaponLogic"/> refuses an empty weapon before it
+    /// ever reaches the veto below, so a grant in the veto would be a round
+    /// too late (<c>CTFJar::PrimaryAttack</c>'s own first refusal,
+    /// <c>tf_weapon_jar.cpp:114-128</c>, is the count gate). The pool is the
+    /// count the shipped script spends (clip_size -1 over TF_AMMO_GRENADES1,
+    /// the fixture); the clip joins it for a clipful shape.
+    /// </summary>
+    public override void ItemPreFrame(in WeaponAttackContext attack, int buttons)
+    {
+        if (ScriptOf(attack.Type) is not { } script || !IsJar(script))
+            return;
+
+        var weapon = attack.Weapon;
+        (weapon.Clip, weapon.Reserve) = TFItemMeter.RegenFinished(weapon) ? (1, 1) : (0, 0);
     }
 
     public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
@@ -87,21 +128,37 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
 
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
-        if (ScriptOf(attack.Type) is { } script && Charges(script))
+        if (ScriptOf(attack.Type) is { } script)
         {
             var weapon = attack.Weapon;
-            bool held = (weapon.LastButtons & (int)InputButtons.Attack) != 0;
+            if (Charges(script))
+            {
+                bool held = (weapon.LastButtons & (int)InputButtons.Attack) != 0;
 
-            if (weapon.BehaviourMeter > 0f
-                && ((!held && weapon.Clip > 0) || attack.Now - weapon.BehaviourMeter >= MaxChargeTime))
-                Launch(in attack, script, Context(in attack, script));
+                if (weapon.BehaviourMeter > 0f
+                    && ((!held && weapon.Clip > 0) || attack.Now - weapon.BehaviourMeter >= MaxChargeTime))
+                    Launch(in attack, script, Context(in attack, script));
 
-            if ((weapon.LastButtons & (int)InputButtons.Attack2) != 0 && attack.EffectsLive)
+                if ((weapon.LastButtons & (int)InputButtons.Attack2) != 0 && attack.EffectsLive)
+                    Parts.Effects.Detonate(in attack, script);
+            }
+            else if (FlareModeOf(in attack, script) == FlareDetonate
+                     && (weapon.LastButtons & (int)InputButtons.Attack2) != 0 && attack.EffectsLive)
+            {
+                // The Detonator's alt (CTFFlareGun::SecondaryAttack,
+                // tf_weapon_flaregun.cpp:147-173): CanAttack's gate is the
+                // sticky's shape here too, the frame tail running it every
+                // command the trigger is down.
                 Parts.Effects.Detonate(in attack, script);
+            }
         }
 
         base.ItemPostFrame(in attack);
     }
+
+    /// <summary>The held gun's mode, stock's <c>GetFlareGunType</c> (tf_weapon_flaregun.h:63).</summary>
+    private int FlareModeOf(in WeaponAttackContext attack, TFWeaponScript script) =>
+        (int)_attributes.Float(0f, FlareModeAttribute, Context(in attack, script).Item);
 
     private void Launch(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context)
     {
@@ -124,6 +181,12 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
                 return;
             weapon.Reserve -= cost;
         }
+
+        // The jar's second purse empties with the round: the bar restart
+        // stock's FireJar opens (StartEffectBarRegen, tf_weapon_jar.cpp:135),
+        // the meter back at zero for the regen the frame tail runs.
+        if (IsJar(script))
+            TFItemMeter.Use(weapon);
 
         var shot = ModifyShot(in attack, default);
 
@@ -207,11 +270,24 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
     public const float DamagePerTick = 13f;
     public const float AmmoPerSecond = 14f;
 
-    /// <summary><c>tf_flamethrower_burstammo</c> (<c>tf_weapon_flamethrower.cpp:70</c>): the airblast's ammunition.</summary>
+    /// <summary><c>tf_flamethrower_burstammo</c> (<c>tf_weapon_flamethrower.cpp:70</c>): the airblast's ammunition before the item's scale.</summary>
     public int AirBlastAmmo => Parts.FlamethrowerBurstammo;
+
+    /// <summary>
+    /// Stock's <c>iAmmoPerShot</c> (<c>tf_weapon_flamethrower.cpp:1192-1194</c>):
+    /// the burst ammo through the item's <c>mult_airblast_cost</c>. The blast's
+    /// check and its spend both see this one number.
+    /// </summary>
+    public int AirBlastCost(in WeaponAttackContext attack) =>
+        ScriptOf(attack.Type) is { } script
+            ? Parts.Hooks.ModifyAirBlastCost(Context(in attack, script), Parts.FlamethrowerBurstammo)
+            : Parts.FlamethrowerBurstammo;
 
     /// <summary><c>FireAirBlast</c>'s refires (<c>tf_weapon_flamethrower.cpp:1044-1045</c>).</summary>
     public const float AirBlastRefire = 0.75f;
+
+    /// <summary>The burning loop's gesture re-arm (<c>tf_weapon_flamethrower.cpp:780</c>, "fewer than 45!").</summary>
+    public const float SustainedAnimRefire = 1.4f;
     public const float AirBlastPrimaryRefire = 1.0f;
 
     protected override float ShotBaseDamage(in WeaponAttackContext attack, TFWeaponScript script) => DamagePerTick;
@@ -229,12 +305,14 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
     /// </summary>
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
-        // The release (ItemPostFrame :604-611): no trigger over a burning
-        // state comes home to idle, the crit with it — the SECONDARY state
-        // stock exempts stays.
-        if ((attack.Weapon.LastButtons & (int)InputButtons.Attack) == 0
+        // The release (ItemPostFrame :599, :604-611): no trigger, or no ammo
+        // under a held one, over a burning state comes home to idle, the crit
+        // with it — the SECONDARY state stock exempts stays.
+        if (((attack.Weapon.LastButtons & (int)InputButtons.Attack) == 0 || attack.Weapon.Reserve <= 0)
             && StateOf(attack.Weapon) is not (FlameState.Idle or FlameState.Secondary))
         {
+            // The release's POST (ItemPostFrame :606-607), before the home.
+            attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown);
             SetState(attack.Weapon, FlameState.Idle);
             attack.Weapon.BehaviourMode &= ~CritLatchMask;
         }
@@ -255,13 +333,19 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
         if (Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
             return false;
 
-        if (weapon.Reserve < AirBlastAmmo)
+        // The one scaled number of stock's :1194: the reserve check and the
+        // spend both see it.
+        int ammo = AirBlastCost(in attack);
+
+        if (weapon.Reserve < ammo)
             return false;
 
-        weapon.Reserve -= AirBlastAmmo;
+        weapon.Reserve -= ammo;
 
         // The blast's state (FireAirBlast :978); the client answers it with
-        // the blast's puff, the flame stopped.
+        // the blast's puff, the flame stopped. Its SECONDARY ask rides the
+        // same arm (:981, beside the SendWeaponAnim).
+        attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary);
         SetState(weapon, FlameState.Secondary);
 
         if (attack.EffectsLive)
@@ -288,17 +372,31 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
 
         // The state machine (PrimaryAttack :743-787): the start's window is
         // 0.16 s (:753, our <see cref="StartFiringDelay"/> in BehaviourTimeC),
-        // the firing state after it (:768-771). The player animation events
-        // and the min-burst window wait with the player-anim layer.
+        // the firing state after it (:768-771). The firing gesture's clock is
+        // BehaviourTimeC too — stock's m_flNextPrimaryAttackAnim (:771, :780),
+        // a member of its own — so the rapid-fire crit's clocks keep
+        // BehaviourTimeA/B (m_flCritTime, m_flLastCritCheckTime) to themselves.
+        // The player animation events and the min-burst window wait with the
+        // player-anim layer.
         switch (StateOf(weapon))
         {
             case FlameState.Idle:
+                // Just started, play PRE (:749) and start looping view model anim.
+                attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp);
                 weapon.BehaviourTimeC = attack.Now + StartFiringDelay;
                 SetState(weapon, FlameState.StartFiring);
                 break;
 
             case FlameState.StartFiring when attack.Now > weapon.BehaviourTimeC:
                 SetState(weapon, FlameState.Firing);
+                weapon.BehaviourTimeC = attack.Now;
+                break;
+
+            case FlameState.Firing when attack.Now >= weapon.BehaviourTimeC:
+                // The loop's own gesture, 1.4 s at a time (:777-781): the
+                // ATTACK_PRIMARY the per-command ask cannot cadence.
+                attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.SustainedFire);
+                weapon.BehaviourTimeC = attack.Now + SustainedAnimRefire;
                 break;
         }
 

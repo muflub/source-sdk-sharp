@@ -41,9 +41,10 @@ public sealed class TFDamageAliveRulesTests
     private static float Resist(float damage, DamageType bits, IAttributeProvider? victim = null,
                                 IAttributeProvider? weaponItem = null, bool self = false, float bonus = 0f,
                                 IAttributeProvider? held = null, TFCondMask victimConds = default,
-                                TFClass victimClass = TFClass.Undefined, TFDamageCustom custom = TFDamageCustom.None)
+                                TFClass victimClass = TFClass.Undefined, TFDamageCustom custom = TFDamageCustom.None,
+                                TFCritType crit = TFCritType.None)
     {
-        var hit = new TFHitResult(damage, bits, TFCritType.None, custom, bonus);
+        var hit = new TFHitResult(damage, bits, crit, custom, bonus);
         TFHit input = new(damage, bits, custom, self, AttackerIsPlayer: true, TFWeaponId.Pistol,
                           null, victimConds, default, weaponItem, VictimItem: held);
         return TFDamageAliveRules.Resist(hit, in input, new AttributeHooks(), victim, victimClass, 0.8f);
@@ -143,6 +144,47 @@ public sealed class TFDamageAliveRulesTests
         const DamageType bullets = DamageType.Bullet;
         var victim = Victim(("mult_dmgtaken_from_bullets", 0.5f), ("mult_dmgtaken", 0.5f));
         Assert.Equal(2.5f, Resist(10f, bullets, victim: victim), 4);
+    }
+
+    // ---- the lunchbox buff's taken multiplier (:6792-6797) ------------------
+
+    [Fact]
+    public void An_energy_buffed_victim_takes_the_multiplier_on_a_plain_hit()
+    {
+        // The buff's own multiplier rides the base half of a plain hit.
+        const DamageType bullets = DamageType.Bullet;
+        var victim = Victim(("energy_buff_dmg_taken_multiplier", 0.5f));
+        Assert.Equal(5f, Resist(10f, bullets, victim: victim,
+                                victimConds: TFCondMask.Of(TFCond.EnergyBuff)), 4);
+    }
+
+    [Fact]
+    public void An_unbuffed_victim_takes_no_energy_buff_multiplier()
+    {
+        // Same item, no TF_COND_ENERGY_BUFF: the arm stands down.
+        const DamageType bullets = DamageType.Bullet;
+        var victim = Victim(("energy_buff_dmg_taken_multiplier", 0.5f));
+        Assert.Equal(10f, Resist(10f, bullets, victim: victim), 4);
+    }
+
+    [Fact]
+    public void The_energy_buff_multiplier_leaves_a_crit_hit_the_whole_hit()
+    {
+        // Stock's gate asks for no crit and no mini-crit (:6792): a crit hit
+        // keeps all 30 even buffed, the bonus and the base alike.
+        const DamageType bullets = DamageType.Bullet;
+        var victim = Victim(("energy_buff_dmg_taken_multiplier", 0.5f));
+        Assert.Equal(30f, Resist(30f, bullets, victim: victim, bonus: 20f,
+                                 victimConds: TFCondMask.Of(TFCond.EnergyBuff), crit: TFCritType.Full), 4);
+    }
+
+    [Fact]
+    public void The_energy_buff_multiplier_leaves_a_mini_crit_hit_the_whole_hit_too()
+    {
+        const DamageType bullets = DamageType.Bullet;
+        var victim = Victim(("energy_buff_dmg_taken_multiplier", 0.5f));
+        Assert.Equal(30f, Resist(30f, bullets, victim: victim, bonus: 20f,
+                                 victimConds: TFCondMask.Of(TFCond.EnergyBuff), crit: TFCritType.Mini), 4);
     }
 
     // ---- the pierce ---------------------------------------------------------

@@ -138,7 +138,8 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFRespawnOverride>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),
             c => Assert.IsType<TFAmmoPoolMirror>(c),
-            c => Assert.IsType<TFWeaponClipMirror>(c));
+            c => Assert.IsType<TFWeaponClipMirror>(c),
+            c => Assert.IsType<TFItemMeterMirror>(c));
         Assert.Equal(block.Select(c => c.Order).Order(), block.Select(c => c.Order));
     }
 

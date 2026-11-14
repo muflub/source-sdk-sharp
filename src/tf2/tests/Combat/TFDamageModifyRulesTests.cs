@@ -176,6 +176,31 @@ public sealed class TFDamageModifyRulesTests
         => Assert.Equal(15.84f, Damage(Hit(bits: Ranged | TFDamageBits.Critical, distance: 1024f),
                                        Stock with { CritFalloff = true }), 4);
 
+    /// <summary>
+    /// <c>crit_dmg_falloff</c> (the Ambassador's attribute,
+    /// <c>tf_gamerules.cpp:6527-6534</c>): the weapon's attribute forces the
+    /// crit through the long-range decrease even with the settings' flag off —
+    /// the same 5.28 * 3 the settings' flag answers, off the item alone.
+    /// </summary>
+    [Fact]
+    public void Crit_dmg_falloff_on_the_item_falls_a_far_crit_off()
+    {
+        var hooks = new AttributeHooks();
+        // 10 - 4.72 variance = 5.28, then the crit's x3 = 15.84.
+        var hit = Hit(bits: Ranged | TFDamageBits.Critical, distance: 1024f,
+                      item: Item(61, "crit_dmg_falloff", 1f));
+        Assert.Equal(15.84f, TFDamageModifyRules.Apply(in hit, Stock, NoRandom, hooks).Damage, 4);
+    }
+
+    /// <summary>The stock arm with nothing on the item: a far crit keeps its full triple.</summary>
+    [Fact]
+    public void Without_the_attribute_a_far_crit_keeps_its_full_triple()
+    {
+        var hooks = new AttributeHooks();
+        var hit = Hit(bits: Ranged | TFDamageBits.Critical, distance: 1024f);
+        Assert.Equal(30f, TFDamageModifyRules.Apply(in hit, Stock, NoRandom, hooks).Damage, 4);
+    }
+
     [Fact]
     public void A_victims_jarate_mini_crits_with_the_near_bonus_and_no_falloff()
     {

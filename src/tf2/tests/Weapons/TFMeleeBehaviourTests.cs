@@ -19,6 +19,21 @@ public sealed class TFMeleeBehaviourTests
     private static int Crit => TFWeaponWorld.MeleeSeed(0, 1500);
 
     [Fact]
+    public void A_swing_shows_its_gesture_once_at_the_swing_and_not_again_at_the_smack()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+        Assert.Equal(0, world.Arms.SwingsShown);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        Assert.Equal(1, world.Arms.SwingsShown);
+
+        world.Run(w, vm, 0, now: 10.215f);
+        Assert.Single(world.Effects.Swings);
+        Assert.Equal(1, world.Arms.SwingsShown);
+    }
+
+    [Fact]
     public void A_swing_hits_a_smack_delay_later_at_the_scripts_damage()
     {
         var world = new TFWeaponWorld();
@@ -168,6 +183,50 @@ public sealed class TFMeleeBehaviourTests
         world.Run(w, vm, 0, now: 10.25f);
 
         Assert.True(Assert.Single(world.Effects.Swings).Trace.CritFromBehind);
+    }
+
+    [Fact]
+    public void A_hit_self_on_miss_item_asks_the_arm_at_the_smack()
+    {
+        // hit_self_on_miss == 1 (tf_weaponbase_melee.cpp:759): the held item's
+        // one turns the miss tax on, and the smack carries the flag.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("hit_self_on_miss", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.True(Assert.Single(world.Effects.Swings).Trace.SelfOnMiss);
+    }
+
+    [Fact]
+    public void A_hit_self_on_miss_item_notes_the_reach_at_the_swing_start()
+    {
+        // Stock's Swing notes the potential victims before the smack
+        // (tf_weaponbase_melee.cpp:305-319), over the swing's own range.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("hit_self_on_miss", AttributeDescriptionFormat.Additive, 1f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.Equal(TFWeaponTypes.SwingRange, Assert.Single(world.Effects.SwingStarts));
+    }
+
+    [Fact]
+    public void A_hit_self_on_miss_two_does_not_ask_the_arm()
+    {
+        // Stock's gate is equality with one (:759), not mere nonzero: a two
+        // leaves the miss tax off.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = ItemWith("hit_self_on_miss", AttributeDescriptionFormat.Additive, 2f);
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+        world.Run(w, vm, 0, now: 10.25f);
+
+        Assert.False(Assert.Single(world.Effects.Swings).Trace.SelfOnMiss);
     }
 
     // The c_heavy_arms table (HeavyArmsSequences): the fists' cells and the

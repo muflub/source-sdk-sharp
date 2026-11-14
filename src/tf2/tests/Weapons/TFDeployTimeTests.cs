@@ -66,6 +66,29 @@ public sealed class TFDeployTimeTests
     }
 
     /// <summary>
+    /// <c>mult_switch_from_wep_deploy_time</c> at full strength
+    /// (<c>tf_weaponbase.cpp:1270</c>): the Bread Bite's own item is a whole
+    /// and a half, and the axe it is switched from had been up well past the
+    /// switch time — the draw lands half again as long, the held axe's own
+    /// seconds answering the :1262 gate.
+    /// </summary>
+    [Fact]
+    public void SwitchingFromTheAxeSlowsTheDeploy()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.ByName[Incoming] = new System.Collections.Generic.Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_fireaxe"] = Item("mult_switch_from_wep_deploy_time", 1.5f),
+        };
+        var row = world.Row(Scattergun);
+
+        float delay = world.Behaviour(Scattergun)
+            .ModifyDeployTime(row, TFWeaponTypes.DeployTime, Incoming, "tf_weapon_fireaxe", secondsSincePreviousDeploy: 10f);
+
+        Assert.Equal(TFWeaponTypes.DeployTime * 1.5f, delay, precision: 4);
+    }
+
+    /// <summary>
     /// The condition beside the second hook (<c>tf_weaponbase.cpp:1262-</c>):
     /// the last weapon was NOT held longer than the switch time, so its item
     /// is not asked and the draw keeps its length.

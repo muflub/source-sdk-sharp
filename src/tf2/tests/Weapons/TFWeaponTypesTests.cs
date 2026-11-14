@@ -40,8 +40,18 @@ public sealed class TFWeaponTypesTests
     {
         var names = WeaponFixtures.Types().Names();
 
-        // Every fixture is one: the 30 class weapons, the bow, builder, sapper.
-        Assert.Equal(WeaponFixtures.Names().ToArray(), names);
+        // Every fixture is one: the 30 class weapons, the bow, builder, sapper —
+        // and the seeded item-carried weapons (the flare gun, the crossbow, the
+        // Gunslinger's arm, the Wrangler, the lunchbox and its drink, the soldier's buff item
+        // and the jars, none named by a class script's weaponN; their own facts
+        // stand them up).
+        Assert.Equal(
+            WeaponFixtures.Names().Append("tf_weapon_flaregun").Append("tf_weapon_crossbow")
+                .Append("tf_weapon_robot_arm").Append("tf_weapon_laser_pointer").Append("tf_weapon_lunchbox").Append("tf_weapon_lunchbox_drink")
+                .Append("tf_weapon_buff_item")
+                .Append("tf_weapon_jar").Append("tf_weapon_jar_milk")
+                .Order(StringComparer.Ordinal).ToArray(),
+            names);
         Assert.Contains("tf_weapon_minigun", names);
         Assert.Contains("tf_weapon_builder", names);
         Assert.Contains("tf_weapon_sapper", names);
@@ -127,6 +137,80 @@ public sealed class TFWeaponTypesTests
         Assert.Equal(TFWeaponKinds.Key(kind), Rows()[name].Behaviour);
     }
 
+    /// <summary>The composed rows over the shipped scripts plus the extras (weapons-extra/README).</summary>
+    private static Dictionary<string, WeaponType> ExtrasRows()
+    {
+        var files = WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses());
+        var log = new RecordingLog();
+        return new TFWeaponTypes(new TFWeaponScripts(log, files), new TFClassTable(log, files), new ItemSchema(files, log))
+            .Rows().ToDictionary(r => r.Name);
+    }
+
+    [Fact]
+    public void The_flare_gun_is_a_row_the_kit_stands_up()
+    {
+        // No class script's weaponN names it: the pyro carries the flare gun as
+        // an equipped item, and the row is what the kit's spawn gate stands the
+        // entity on (stock gives the item's own weapon entity,
+        // ManageRegularWeapons over GetLoadoutItem, tf_player.cpp:4496).
+        Assert.True(ExtrasRows().TryGetValue("tf_weapon_flaregun", out WeaponType row), "no flare gun row");
+
+        Assert.Equal("tf2.projectile", row.Behaviour);
+        Assert.Equal("TF_AMMO_SECONDARY", row.AmmoName);
+    }
+
+    [Fact]
+    public void The_gunslinger_arm_is_a_row_the_kit_stands_up()
+    {
+        // The Gunslinger's entity class is the item's own row
+        // (items_working.tsv:58): the engineer's unlock wrench, held as an
+        // equipped item, its script a melee the kit deploys on. The held-item
+        // attribute asks ride the same name (TFObjectBuilder's wrench lookup).
+        Assert.True(ExtrasRows().TryGetValue(TFWeaponTypes.WrenchArm, out WeaponType row), "no robot arm row");
+
+        Assert.True(row.IsMelee);
+        Assert.Equal("tf2.melee", row.Behaviour);
+    }
+
+    [Fact]
+    public void The_buff_item_is_a_row_the_kit_stands_up()
+    {
+        // The soldier's buff items carry the tf_weapon_buff_item class
+        // (items_working.tsv:51, :100, :128): held as equipped items, the one
+        // press they have deploys the item's buff (TFBuffItemBehaviour,
+        // tf_weapon_buff_item.cpp:116-135).
+        Assert.True(ExtrasRows().TryGetValue("tf_weapon_buff_item", out WeaponType row), "no buff item row");
+
+        // No bullets of its own: the core's plain-row shape, with no swing —
+        // the press deploys the buff, it fires nothing.
+        Assert.Equal("", row.AmmoName);
+        Assert.Equal(0f, row.MeleeRange, 4);
+        Assert.Equal("tf2.buff", row.Behaviour);
+    }
+
+    [Fact]
+    public void The_crossbow_is_a_row_the_kit_stands_up()
+    {
+        // The medic's unlock (items 305/1079), held as an equipped item: the
+        // row is what the kit's spawn gate stands the entity on, the flare
+        // gun's rule. Its clip of one reloads each shot (the inherited
+        // m_bReloadsSingly, CTFCrossbow : CTFRocketLauncher,
+        // tf_weapon_rocketlauncher.h:166).
+        Assert.True(ExtrasRows().TryGetValue("tf_weapon_crossbow", out WeaponType row), "no crossbow row");
+
+        Assert.Equal("tf2.projectile", row.Behaviour);
+        Assert.Equal("TF_AMMO_PRIMARY", row.AmmoName);
+        Assert.Equal(1, row.ClipSize);
+        Assert.Equal(0.23f, row.Interval);
+    }
+
+    [Fact]
+    public void The_crossbow_reloads_one_bolt_at_a_time()
+    {
+        Assert.True(TFWeaponKinds.ReloadsSingly(TFWeaponId.Crossbow));
+        Assert.False(TFWeaponKinds.ReloadsSingly(TFWeaponId.Flamethrower));
+    }
+
     [Fact]
     public void The_spread_cone_is_the_angle_whose_sine_the_script_gives()
     {
@@ -161,6 +245,224 @@ public sealed class TFWeaponTypesTests
         // sapper's world model stock reads off the object anyway.
         var rows = types.Rows().ToDictionary(r => r.Name);
         Assert.Equal("models/weapons/c_models/c_sapper/c_sapper.mdl", rows["tf_weapon_sapper"].WorldModel);
+    }
+
+    /// <summary>A schema of classes with nothing behind them, plus one real weapon.</summary>
+    private const string BranchSchema = """
+        "items_game"
+        {
+            "qualities"
+            {
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "101"
+                {
+                    "name"        "TF_WEARABLE_101"
+                    "item_class"  "tf_wearable"
+                    "item_name"   "#Item_101"
+                    "item_slot"   "secondary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+                "102"
+                {
+                    "name"        "ITEM_102"
+                    "item_class"  "tf_powerup_bottle"
+                    "item_name"   "#Item_102"
+                    "item_slot"   "secondary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+                "103"
+                {
+                    "name"        "ITEM_103"
+                    "item_class"  "tf_weapon_spellbook"
+                    "item_name"   "#Item_103"
+                    "item_slot"   "secondary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+                "104"
+                {
+                    "name"        "ITEM_104"
+                    "item_class"  "tf_weapon_syringegun_medic"
+                    "item_name"   "#Item_104"
+                    "item_slot"   "secondary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "scout"    "1"
+                    }
+                }
+            }
+        }
+        """;
+
+    /// <summary>
+    /// The shipped game's shape: every row costs a bit of the carried-weapon
+    /// mask, so the schema branch keeps only what is a real weapon with a
+    /// running behaviour — a tf_weapon_ class with a script whose kind is not
+    /// the Inert arm — and the cosmetic classes the schema also names are not
+    /// rows. A class a script does name is catalogued whatever its kind
+    /// (the invis watch keeps the row its behaviour needs).
+    /// </summary>
+    [Fact]
+    public void A_schema_name_is_only_a_row_when_a_script_behind_it_runs()
+    {
+        var names = WeaponFixtures.Types(BranchSchema).Names();
+
+        // The real weapon the schema names earns its row.
+        Assert.Contains("tf_weapon_syringegun_medic", names);
+        // The cosmetic classes the schema also names (the shipped items_game
+        // spells them bundle, craft_item, tf_wearable, no_entity): no bit for
+        // a class no script backs.
+        Assert.DoesNotContain("tf_wearable", names);
+        Assert.DoesNotContain("tf_powerup_bottle", names);
+        // A tf_weapon_ spelling with no script file at all is refused by the
+        // script arm, read quiet: a miss is an absent row, not a finding.
+        Assert.DoesNotContain("tf_weapon_spellbook", names);
+        // The spy's watch: its script answers the Inert kind, but its class
+        // script names it, so its row (and the cloak its behaviour runs)
+        // stands.
+        Assert.Contains("tf_weapon_invis", names);
+    }
+
+    /// <summary>A schema whose base items end at the launch weapons: the Huntsman is a plain item, twice over.</summary>
+    private const string HuntsmanSchema = """
+        "items_game"
+        {
+            "qualities"
+            {
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "56"
+                {
+                    "name"        "TF_WEAPON_COMPOUND_BOW"
+                    "item_class"  "tf_weapon_compound_bow"
+                    "item_name"   "#TF_Weapon_CompoundBow"
+                    "item_slot"   "primary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "sniper"    "1"
+                    }
+                    "attach_to_hands" "1"
+                    "model_player"    "models/weapons/c_models/c_bow/c_bow.mdl"
+                }
+                "1092"
+                {
+                    "name"        "TF_WEAPON_COMPOUND_BOW_LONGBOW"
+                    "item_class"  "tf_weapon_compound_bow"
+                    "item_name"   "#TF_Weapon_CompoundBow_Lonbow"
+                    "item_slot"   "primary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "sniper"    "1"
+                    }
+                    "attach_to_hands" "1"
+                    "model_player"    "models/weapons/c_models/c_bow_lonbow/c_bow_lonbow.mdl"
+                }
+            }
+        }
+        """;
+
+    /// <summary>No base items, and two item classes that are both stems of one weapon name, longer one first.</summary>
+    private const string StemSchema = """
+        "items_game"
+        {
+            "qualities"
+            {
+            }
+            "attributes"
+            {
+            }
+            "items"
+            {
+                "70"
+                {
+                    "name"        "ITEM_70"
+                    "item_class"  "tf_weapon_stem_long"
+                    "item_name"   "#Item_70"
+                    "item_slot"   "primary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "sniper"    "1"
+                    }
+                }
+                "71"
+                {
+                    "name"        "ITEM_71"
+                    "item_class"  "tf_weapon_stem"
+                    "item_name"   "#Item_71"
+                    "item_slot"   "primary"
+                    "item_quality" "normal"
+                    "min_ilevel"  "1"
+                    "max_ilevel"  "1"
+                    "used_by_classes"
+                    {
+                        "sniper"    "1"
+                    }
+                }
+            }
+        }
+        """;
+
+    [Fact]
+    public void A_class_the_base_items_miss_takes_the_longest_stem_among_all_items()
+    {
+        // The same rule the base-item walk keeps: the walk's later, shorter
+        // stem must not replace the longer one it already found.
+        var types = WeaponFixtures.Types(StemSchema);
+
+        Assert.Equal(70, types.BaseItemFor("tf_weapon_stem_long_red")?.Defindex);
+    }
+
+    [Fact]
+    public void A_class_the_base_items_miss_wears_the_classs_lowest_item()
+    {
+        // The Huntsman: the base items end at the launch weapons, so
+        // tf_weapon_compound_bow wears no base item, and stock's dress reads
+        // the equipped item (CTFWeaponBase::GetViewModel,
+        // tf_weaponbase.cpp:651-676). The class's lowest defindex stands in.
+        var types = WeaponFixtures.Types(HuntsmanSchema);
+        var rows = types.Rows().ToDictionary(r => r.Name);
+
+        Assert.Equal(56, types.BaseItemFor("tf_weapon_compound_bow")?.Defindex);
+        Assert.Equal("models/weapons/c_models/c_bow/c_bow.mdl", rows["tf_weapon_compound_bow"].ViewModel);
+        Assert.Equal("models/weapons/c_models/c_bow/c_bow.mdl", rows["tf_weapon_compound_bow"].WorldModel);
     }
 
     [Fact]

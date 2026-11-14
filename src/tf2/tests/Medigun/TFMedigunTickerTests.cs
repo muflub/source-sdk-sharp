@@ -43,7 +43,7 @@ public sealed class TFMedigunTickerTests
             => throw new InvalidOperationException();
         public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => throw new InvalidOperationException();
         public void RecalculateChargeEffects(EntityHandle player, float now) => throw new InvalidOperationException();
-        public void NoteReleasing(int playerIndex, bool releasing) => throw new InvalidOperationException();
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) => throw new InvalidOperationException();
         public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => throw new InvalidOperationException();
         public bool CanReceiveMedigunChargeEffect(EntityHandle player) => throw new InvalidOperationException();
         public void RemoveChargeEffect(EntityHandle player) => throw new InvalidOperationException();

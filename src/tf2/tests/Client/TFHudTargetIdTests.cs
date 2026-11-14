@@ -80,8 +80,27 @@ public sealed class TFHudTargetIdTests
                 scripts, classes,
                 new client::TF2.Shared.Econ.ItemSchema(files, log))], log);
 
-            Source = new Adapter(Engine, Engine, View, Stands, Carriers, Resources, Names, Catalog, classes);
+            Owners = new ClientOwners();
+            Source = new Adapter(Engine, Engine, View, Stands, Carriers, Resources, Names, Catalog, classes,
+                                 Owners, new client::TF2.Shared.Econ.AttributeHooks());
             Classes = classes;
+        }
+
+        /// <summary>The loadout the panel's attribute arms read; empty until a fact sets one.</summary>
+        public ClientOwners Owners { get; }
+
+        /// <summary>The local player wears the Solemn Vow's see_enemy_health on the melee row.</summary>
+        public void SolemnVow(float value = 1f) => Owners.Item = Holder(value);
+
+        private static client::TF2.Shared.Econ.IAttributeProvider Holder(float value)
+        {
+            var def = new client::TF2.Shared.Econ.AttributeDefinition(30047, "see enemy health", "see_enemy_health",
+                client::TF2.Shared.Econ.AttributeDescriptionFormat.Additive,
+                client::TF2.Shared.Econ.AttributeEffectType.Neutral, false, false,
+                client::TF2.Shared.Econ.AttributeValueType.Default, client::TF2.Shared.Econ.MergedKeys.Block("see"));
+            var holder = new client::TF2.Shared.Econ.AttributeContainer(null, client::TF2.Shared.Econ.AttributeProviderType.Generic);
+            holder.Set(client::TF2.Shared.Econ.AttributeValue.OfFloat(def, value));
+            return holder;
         }
 
         /// <summary>The target's carried weapon — the medigun, or another
@@ -225,6 +244,31 @@ public sealed class TFHudTargetIdTests
     }
 
     /// <summary>The g_PR role: the two players named, the rest nobody.</summary>
+    private sealed class ClientOwners : client::TF2.Shared.ITFWeaponOwners
+    {
+        public client::TF2.Shared.Econ.IAttributeProvider? Item;
+
+        public client::TF2.Shared.Econ.IAttributeProvider? ItemOf(int playerIndex, string weaponName) => Item;
+
+        public client::TF2.Shared.TFClass ClassOf(int playerIndex) => client::TF2.Shared.TFClass.Undefined;
+
+        public client::TF2.Shared.Conditions.TFConditions? ConditionsOf(int playerIndex) => null;
+
+        public float CritMult(int playerIndex) => 1f;
+
+        public bool WinsCrits(int playerIndex) => false;
+
+        public client::TF2.Shared.Econ.IAttributeProvider? ActiveItemOf(int playerIndex) => null;
+
+        public client::TF2.Shared.Econ.IAttributeProvider? ManagerOf(int playerIndex) => null;
+
+        public bool OffGround(int playerIndex) => false;
+
+        public bool EyesUnderwater(int playerIndex) => false;
+
+        public bool DuckingOf(int playerIndex) => false;
+    }
+
     private sealed class Roster(params (int Slot, string Name)[] rows) : Names
     {
         public bool TryGet(int slot, out ClientPlayerInfo info)
@@ -285,6 +329,40 @@ public sealed class TFHudTargetIdTests
         Assert.Equal("Alyx", rig.Source.Name);
         Assert.Equal(3, rig.Source.Team);
         Assert.True(rig.Source.ShowsHealth);
+    }
+
+    // ---- the Solemn Vow's see_enemy_health (:407-424, :455; :78-112) ------------------------
+
+    [Fact]
+    public void The_solemn_vows_wearer_reads_an_enemy_health()
+    {
+        // The validity disjunct (:455): a plain enemy is nobody's target until
+        // the worn melee's see_enemy_health says otherwise — and the health
+        // cross's own gate (:107) shows the bar with the panel.
+        var rig = new Rig();
+        rig.ArriveResources(targetTeam: 3);
+        rig.TargetCarrier(TFClassId.Soldier, team: 3);
+        rig.LocalCarrier(TFClassId.Scout);
+        rig.SolemnVow();
+
+        Assert.True(rig.Source.Present);
+        Assert.True(rig.Source.ShowsHealth);
+        Assert.Equal(80, rig.Source.Health);
+        Assert.Equal(125, rig.Source.MaxHealth);
+    }
+
+    [Fact]
+    public void A_scout_with_a_plain_melee_keeps_his_enemy_nameless()
+    {
+        // The same scene without the attribute: stock's zero default, the
+        // validity disjunct fails and nothing shows.
+        var rig = new Rig();
+        rig.ArriveResources(targetTeam: 3);
+        rig.TargetCarrier(TFClassId.Soldier, team: 3);
+        rig.LocalCarrier(TFClassId.Scout);
+
+        Assert.False(rig.Source.Present);
+        Assert.False(rig.Source.ShowsHealth);
     }
 
     [Fact]

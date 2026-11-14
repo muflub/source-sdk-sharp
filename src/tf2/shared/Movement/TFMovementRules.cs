@@ -159,7 +159,7 @@ public sealed class TFMovementRules : IMovementRules
         // none, both arms then the value unchanged.
         return TFMaxSpeed.Calculate(_classes, TFMoveInputs.Of(state), CloakedCap,
                                     _hooks, _owners?.ManagerOf(playerIndex),
-                                    PeerInputs, playerIndex);
+                                    PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
     }
 
     /// <summary>
@@ -175,7 +175,8 @@ public sealed class TFMovementRules : IMovementRules
             return null;
 
         return new TFPeerInput(playerIndex, TFMoveInputs.Of(state),
-                               _hooks, _owners?.ManagerOf(playerIndex));
+                               _hooks, _owners?.ManagerOf(playerIndex),
+                               _owners?.ActiveItemOf(playerIndex));
     }
 
     public float AirJump(in JumpRequest request)

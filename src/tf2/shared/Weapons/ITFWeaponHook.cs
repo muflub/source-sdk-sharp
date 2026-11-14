@@ -62,6 +62,24 @@ public interface ITFWeaponHook : IOrderedHook
     int ModifyPellets(in TFWeaponHookContext weapon, int pellets) => pellets;
 
     /// <summary>
+    /// The rounds one airblast needs and spends (<c>mult_airblast_cost</c>,
+    /// <c>CTFFlameThrower::SecondaryAttack</c>, tf_weapon_flamethrower.cpp:1192-1194):
+    /// stock's <c>CALL_ATTRIB_HOOK_FLOAT</c> over the burst ammo through the
+    /// item's scale, the product truncated into the int. The one number is both what the blast
+    /// checks against the reserve and what it spends.
+    /// </summary>
+    int ModifyAirBlastCost(in TFWeaponHookContext weapon, int ammo) => ammo;
+
+    /// <summary>
+    /// The shot cone through the item's multiplier (<c>mult_spread_scale</c>,
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>'s first arm,
+    /// <c>tf_weaponbase_gun.cpp:844-847</c>): asked with the cone's sine as the
+    /// script dressed it, so a percentage item scales the cone whole before the
+    /// pellets sample it.
+    /// </summary>
+    float ModifySpread(in TFWeaponHookContext weapon, float spread) => spread;
+
+    /// <summary>
     /// The seconds a reload takes — <c>CTFWeaponBase::SetReloadTimer</c>'s
     /// scaled duration (<c>tf_weaponbase.cpp:2266-2331</c>): the script's or
     /// the animation's time as it would stand, which the hooks multiply. The
@@ -170,6 +188,22 @@ public interface ITFWeaponHook : IOrderedHook
     bool CritFromBehind(in TFWeaponHookContext weapon) => false;
 
     /// <summary>
+    /// Whether the smack's blow also reaches the sapper riding a friendly
+    /// building (<c>set_dmg_apply_to_sapper</c>, the melee's sapper arm,
+    /// <c>tf_weaponbase_melee.cpp:469-494</c>). Stock's
+    /// <c>CALL_ATTRIB_HOOK_INT</c> gate over zero.
+    /// </summary>
+    bool DmgApplyToSapper(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
+    /// Whether a clean miss hurts its own owner (<c>hit_self_on_miss</c>, the
+    /// Boston Basher's miss tax, <c>tf_weaponbase_melee.cpp:755-763</c>):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> gates on equality with one, so only
+    /// the attribute answering exactly one turns the arm on.
+    /// </summary>
+    bool HitSelfOnMiss(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
     /// Whether the load leaves whole (<c>auto_fires_full_clip</c>,
     /// <c>CTFWeaponBase::AutoFiresFullClip</c>, tf_weaponbase.cpp:1871-1876):
     /// such a weapon reloads by its own arm and never the idle top-up.
@@ -251,6 +285,20 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         foreach (var hook in All)
             pellets = Guard(hook, nameof(ITFWeaponHook.ModifyPellets), pellets, weapon, static (h, w, v) => h.ModifyPellets(in w, v));
         return pellets;
+    }
+
+    public int ModifyAirBlastCost(in TFWeaponHookContext weapon, int ammo)
+    {
+        foreach (var hook in All)
+            ammo = Guard(hook, nameof(ITFWeaponHook.ModifyAirBlastCost), ammo, weapon, static (h, w, v) => h.ModifyAirBlastCost(in w, v));
+        return ammo;
+    }
+
+    public float ModifySpread(in TFWeaponHookContext weapon, float spread)
+    {
+        foreach (var hook in All)
+            spread = Guard(hook, nameof(ITFWeaponHook.ModifySpread), spread, weapon, static (h, w, v) => h.ModifySpread(in w, v));
+        return spread;
     }
 
     public float ModifyReloadTime(in TFWeaponHookContext weapon, float duration)
@@ -343,6 +391,44 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
             catch (Exception e)
             {
                 Report(hook, nameof(ITFWeaponHook.CritFromBehind), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook answering the attribute with exactly one turns the miss tax on.</summary>
+    public bool HitSelfOnMiss(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.HitSelfOnMiss(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.HitSelfOnMiss), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook bearing the attribute turns the sapper arm on.</summary>
+    public bool DmgApplyToSapper(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.DmgApplyToSapper(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.DmgApplyToSapper), e);
             }
         }
 

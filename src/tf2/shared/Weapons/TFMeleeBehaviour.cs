@@ -102,6 +102,12 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         weapon.TimeWeaponIdle = weapon.NextPrimaryAttack + script.Primary.TimeIdleEmpty;
 
         SendAnim(in attack, SwingAnim(script, crit, secondary));
+        // The third-person swing, hit or miss, at its start (Smash's
+        // DoAnimationEvent, tf_weaponbase_melee.cpp:348-351).
+        attack.Arms.SwingShown();
+        if (attack.EffectsLive && Parts.Hooks.HitSelfOnMiss(in context))
+            Parts.Effects.MeleeSwingStarted(in attack, Parts.Hooks.ModifyMeleeRange(in context, attack.Type.MeleeRange));
+
         PlaySound(in attack, script, crit ? WeaponScriptSound.Burst : WeaponScriptSound.MeleeMiss);
 
         weapon.BehaviourMode = (weapon.BehaviourMode & ~(ModeSwinging | ModeSwingCrit))
@@ -140,12 +146,22 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
             float damage = Parts.Hooks.ModifyDamage(in context, script.Primary.Damage);
             // The swing DoSwingTraceInternal traces: the reach and the hull,
             // each through the chain (tf_weaponbase_melee.cpp:399, :420), and
-            // whether the hit asks the behind-crit arm (:819-820).
+            // whether the hit asks the behind-crit arm (:819-820) or a clean
+            // miss hurts its own owner (:755-763).
             var trace = new SwingTrace(Parts.Hooks.ModifyMeleeRange(in context, attack.Type.MeleeRange),
                                        Parts.Hooks.ModifyMeleeBounds(in context, SwingHull),
-                                       Parts.Hooks.CritFromBehind(in context));
+                                       Parts.Hooks.CritFromBehind(in context),
+                                       Parts.Hooks.HitSelfOnMiss(in context));
             if (attack.EffectsLive)
+            {
+                // The melee's sapper arm (tf_weaponbase_melee.cpp:469-494): a held
+                // weapon bearing set_dmg_apply_to_sapper lets the swing reach the
+                // sapper riding a friendly building, at the swing's own blow.
+                if (Parts.Hooks.DmgApplyToSapper(in context) && Parts.Sapper is { } state)
+                    state.MeleeSmack(attack.Command.OwnerIndex, trace.Range, damage);
+
                 Parts.Effects.Melee(in attack, script, crit ? Critical(damage) : new ShotDamage(damage), in trace);
+            }
         }
 
         base.ItemPostFrame(in attack);

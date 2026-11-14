@@ -50,6 +50,18 @@ public sealed class TFPlayerResupplyTests
     }
 
     [Fact]
+    public void Regenerate_fills_to_the_max_the_kit_gives()
+    {
+        // InitClass's SetHealth( GetMaxHealth() ): a Gunslinger's engineer spawns full at 150.
+        var resupply = OwnedResupply(out PlayerRig rig, managers: true);
+
+        resupply.Regenerate(PlayerRig.Player);
+
+        Assert.Equal(resupply.MaxHealth(PlayerRig.Player), HealthSet(rig));
+        Assert.Equal(175, HealthSet(rig));
+    }
+
+    [Fact]
     public void Max_health_adds_the_buffing_arm()
     {
         // GetMaxHealthForBuffing's add_maxhealth (tf_player.cpp:14268-14269), the
@@ -80,6 +92,118 @@ public sealed class TFPlayerResupplyTests
 
         Assert.Equal(45, resupply.TakeHealth(PlayerRig.Player, 25f));    // 50 asked, 45 the room left
         Assert.Equal(125, HealthSet(rig));
+    }
+
+    [Fact]
+    public void ARegenerateForgetsADrainedMaximum()
+    {
+        // Regenerate's ResetMaxHealthDrain (tf_player.cpp:4031), ahead of its
+        // recomputed maximum. The rate still reaching the player's own manager
+        // would otherwise refill slowly from the drained bucket.
+        var rig = new PlayerRig().As(TFClass.Scout);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
+        rig.Engine.Returns("Clock.Now", 10f);
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_shotgun_primary"] =
+            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) };
+        owners.Managers[PlayerRig.Index] = Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5011);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            clock: rig.Engine);
+        Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));
+
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_scattergun");
+        resupply.Regenerate(PlayerRig.Player);
+
+        Assert.Equal(125, HealthSet(rig));
+        Assert.Equal(125, resupply.MaxHealth(PlayerRig.Player));
+    }
+
+    [Fact]
+    public void TheGlovesDrainMaxHealthWhileDeployed()
+    {
+        // GetMaxHealthForBuffing's drain block (tf_player.cpp:14293-14359): the
+        // held Gloves drain the max toward tf_maxhealth_drain_hp_min at the
+        // hook's per-second rate, once a tf_maxhealth_drain_deploy_cost on the
+        // flip from refilling to deployed (:14306-14320). Scout maxes at 125,
+        // the hp_min floor at 100: the deploy costs 20 at once, and each
+        // second on top takes the hook's half. The health follows its own
+        // percentage of the same rate (:14343-14352).
+        var rig = new PlayerRig().As(TFClass.Scout);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
+        rig.Engine.Returns("Clock.Now", 10f);
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_shotgun_primary"] =
+            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) };
+
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            clock: rig.Engine);
+
+        // The deploy's first ask: the full cost at once — 125 down to 105 —
+        // and the health by its percentage: 100 * (20 / 125) = 16 gone.
+        Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));
+        Assert.Equal(84, HealthSet(rig));
+
+        // Same clock: no elapsed time, no further drain.
+        Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));
+
+        // Two seconds with the Gloves up take the hook's half per second:
+        // the bucket holds 21, so the max is 125 - 21 = 104 — above the
+        // hp_min floor of 100, which holds at one.
+        rig.Engine.Returns("Clock.Now", 12f);
+        Assert.Equal(104, resupply.MaxHealth(PlayerRig.Player));
+    }
+
+    [Fact]
+    public void PuttingTheGlovesAwayRefillsThem()
+    {
+        // Stock's refill half of the drain block (:14360-14429): the attribute
+        // off the held item, the max climbs back at the rate still reaching
+        // the player's own manager, and the health with it. Drain two seconds
+        // first — bucket 21 — then switch out: one second back at two a
+        // second gives the bucket two of its 21, and the health its
+        // percentage of the same two.
+        var rig = new PlayerRig().As(TFClass.Scout);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_shotgun_primary");
+        rig.Engine.Returns("Clock.Now", 10f);
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_shotgun_primary"] =
+            Arm("mod_maxhealth_drain_rate", 0.5f, AttributeDescriptionFormat.Additive, 5010) };
+        owners.Managers[PlayerRig.Index] =
+            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5011);
+
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            clock: rig.Engine);
+
+        Assert.Equal(105, resupply.MaxHealth(PlayerRig.Player));   // the deploy's cost
+        Assert.Equal(84, HealthSet(rig));
+        rig.Engine.Returns("Clock.Now", 12f);
+        rig.Engine.Returns("Entities.GetHealth", 84);
+        Assert.Equal(104, resupply.MaxHealth(PlayerRig.Player));   // half a second's more
+
+        // Put away: the held item is another weapon's, and its item carries no
+        // drain; the manager's still answers two a second. A second off the
+        // last stamp gives back two of the twenty-one — bucket 19, max 106 —
+        // while the health's fraction (84 / 104 of two, less the 0.8 left by
+        // the draining second) has not crossed one yet (:14399-14412).
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_pistol");
+        rig.Engine.Returns("Clock.Now", 13f);
+        Assert.Equal(106, resupply.MaxHealth(PlayerRig.Player));
+        Assert.Equal(84, HealthSet(rig));
+
+        // The next second crosses the whole: the bucket is 17 (max 108) and
+        // two of health are back, the cap of the nonbuffed maximum never met.
+        rig.Engine.Returns("Clock.Now", 14f);
+        Assert.Equal(108, resupply.MaxHealth(PlayerRig.Player));
+        Assert.Equal(86, HealthSet(rig));
     }
 
     /// <summary>A resupply over a rig whose player manager holds the asked arms; the

@@ -31,8 +31,8 @@ public class WeaponSelectionTests
         public bool Exists => true;
         public bool HudAllowed => true;
         public bool FrozenOrDead => false;
-        public ulong Carried => 0b111;
-        public ulong Empty => 0;
+        public UInt128 Carried => 0b111;
+        public UInt128 Empty => 0;
         public int Active { get; set; } = 1;
         public float Now => 10f;
 

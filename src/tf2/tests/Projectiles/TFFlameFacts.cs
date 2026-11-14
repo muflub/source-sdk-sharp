@@ -90,6 +90,28 @@ internal sealed class FlameRig
         return stack;
     }
 
+    /// <summary>The resupply the extinguish heal lands through.</summary>
+    public ProjectileRig.Resupply Health { get; } = new();
+
+    /// <summary>The real hook walk the extinguish arms read through.</summary>
+    public TF2.Shared.Econ.AttributeHooks Hooks { get; } = new();
+
+    private int _nextDef = 5000;
+
+    /// <summary>A launcher item carrying one attribute, the shape the projectile rig's hook facts build.</summary>
+    public TF2.Shared.Econ.IAttributeProvider AttributeItem(string hook,
+                                                            TF2.Shared.Econ.AttributeDescriptionFormat format,
+                                                            float value)
+    {
+        var container = new TF2.Shared.Econ.AttributeContainer(null, TF2.Shared.Econ.AttributeProviderType.Generic);
+        container.Set(TF2.Shared.Econ.AttributeValue.OfFloat(
+            new TF2.Shared.Econ.AttributeDefinition(_nextDef++, "attr " + _nextDef, hook, format,
+                                                    TF2.Shared.Econ.AttributeEffectType.Neutral, false, false,
+                                                    TF2.Shared.Econ.AttributeValueType.Default,
+                                                    TF2.Shared.Econ.MergedKeys.Block("x")), value));
+        return container;
+    }
+
     public TFFlameEffects Effects { get; }
     public TFRocket Rocket { get; }
     public TFPipebomb Pipebomb { get; }
@@ -107,7 +129,8 @@ internal sealed class FlameRig
                                      Convars.Declared<TFAirBlastCrayConVar>(),
                                      Convars.Declared<TFFlameThrowerBurstZvelocityConVar>(),
                                      Convars.Declared<TFPushbackScaleConVar>(),
-                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers);
+                                     Convars.Declared<TFPushbackScaleVerticalConVar>(), Carriers,
+                                     Hooks, Health, Engine);
 
         var motionLog = new RecordingLog();
         var motionDirectory = new EntityDirectory(motionLog);

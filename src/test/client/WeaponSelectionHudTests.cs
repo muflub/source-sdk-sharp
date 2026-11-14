@@ -21,8 +21,8 @@ public class WeaponSelectionHudTests
         public bool Exists { get; set; } = true;
         public bool HudAllowed { get; set; } = true;
         public bool FrozenOrDead { get; set; }
-        public ulong Carried { get; set; } = 0b1111;
-        public ulong Empty { get; set; }
+        public UInt128 Carried { get; set; } = 0b1111;
+        public UInt128 Empty { get; set; }
         public int Active { get; set; } = Pistol;
         public float Now { get; set; } = 10f;
         public int FastSwitch;
@@ -136,6 +136,21 @@ public class WeaponSelectionHudTests
 
         Assert.True(rig.Hud.Open);
         Assert.Equal(39, rig.Hud.Selected);
+    }
+
+    [Fact]
+    public void TheHudSelectsARowPastBit64()
+    {
+        // The engineer's slot3 rows sit past bit 63 in the TF2 catalogue:
+        // the bucket must still open on the carried bit there. A mask
+        // composed in a ulong wraps the shift count mod 64 and the bucket
+        // comes up empty - Expected True here is the bucket opening.
+        var rig = new Rig { Types = 71, Carried = (UInt128)1 << 70 };
+
+        rig.Hud.SlotCommand(3);
+
+        Assert.True(rig.Hud.Open);
+        Assert.Equal(70, rig.Hud.Selected);
     }
 
     [Fact]

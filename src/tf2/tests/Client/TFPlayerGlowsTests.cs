@@ -40,6 +40,16 @@ public sealed class TFPlayerGlowsTests
     }
 
     [Fact]
+    public void A_carrier_with_no_player_yet_glows_nothing()
+    {
+        var rig = New();
+
+        rig.Arm.OnAdded(EntityHandle.None, Cond.TeamGlows);
+
+        Assert.False(rig.Glow.HasGlowEffect(EntityHandle.None));
+    }
+
+    [Fact]
     public void The_glow_shows_through_occlusion_only()
     {
         var rig = New();

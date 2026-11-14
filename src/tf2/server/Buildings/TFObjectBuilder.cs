@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 using TF2.Server.Entities.Items;
 using TF2.Server.Entities.Rooms;
 using TF2.Shared;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Buildings;
 
@@ -55,6 +56,16 @@ public interface ITFObjectBuilder
     /// <summary><c>CTFPlayer::CanBuild</c>, for the facts and the command's message.</summary>
     TFCanBuildResult CanBuild(EntityHandle player, TFObjectType type, int mode);
 
+    /// <summary><c>InternalCalculateObjectCost</c>: the metal this builder pays for the object.</summary>
+    int CostFor(EntityHandle player, TFObjectType type);
+
+    /// <summary>
+    /// The sentry's <c>MakeMiniBuilding</c> (tf_obj_sentrygun.cpp:367-380), asked at its
+    /// <c>StartPlacement</c> and again at <c>StartBuilding</c> (:325, :337-339): the
+    /// builder's wrench decides, and only a sentry ever goes mini.
+    /// </summary>
+    void MakeMiniFor(EntityHandle player, TFBaseObject building);
+
     /// <summary>
     /// <c>StartBuildingObjectOfType</c>'s whole of a build at a spot —
     /// checks, spawn, placement, pay, construction. A refusal never pays.
@@ -89,11 +100,43 @@ public interface ITFObjectBuilder
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFObjectBuilder)])]
 public sealed class TFObjectBuilder(ITFMapPlayers players, ITFBuildings buildings, ITFNoBuildAreas noBuild,
-                                     ITFRespawnRooms rooms, ITFAmmoPurse purse, ITFObjectSpawner spawner, ILog log)
+                                     ITFRespawnRooms rooms, ITFAmmoPurse purse, ITFObjectSpawner spawner, ILog log,
+                                     ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
     : ITFObjectBuilder
 {
+    private readonly ITFWeaponOwners? _owners = owners;
+    private readonly AttributeHooks _hooks = hooks ?? new AttributeHooks();
+
     /// <summary>The metal an engineer pays with: the class script's <c>AmmoMax</c> key.</summary>
     private static string MetalName => TFAmmoNames.Name(TFAmmo.Metal);
+
+    /// <summary>The arm's item name, stock's <c>Weapon_OwnsThisID( TF_WEAPON_WRENCH )</c> lookup
+    /// (<c>tf_obj.cpp:1491</c>); the Gunslinger row carries it (<c>items_working.tsv:58</c>).</summary>
+    private const string WrenchItemName = "tf_weapon_robot_arm";
+
+    /// <summary>The metal the PDQ arm takes off a sentry (<c>tf_player_shared.cpp:11531-11536</c>).</summary>
+    private const int MiniSentryCostDiscount = 30;
+
+    /// <summary>Whether the builder's wrench carries <c>wrench_builds_minisentry</c>: stock's
+    /// <c>IsPDQ</c> (<c>tf_weapon_wrench.h:42</c>), the hook summed and read as exactly 1.</summary>
+    private bool IsMiniWrench(EntityHandle player)
+        => _hooks.Int(0, "wrench_builds_minisentry", _owners?.ItemOf(player.EntryIndex, WrenchItemName)) == 1;
+
+    /// <summary><c>InternalCalculateObjectCost</c> (<c>tf_player_shared.cpp:11529-11536</c>): the row's cost,
+    /// the PDQ's mini sentry 30 cheaper.</summary>
+    public int CostFor(EntityHandle player, TFObjectType type)
+    {
+        int cost = TFObjectInfo.Of(type)!.Cost;
+        if (type == TFObjectType.Sentrygun && IsMiniWrench(player))
+            cost -= MiniSentryCostDiscount;
+        return cost;
+    }
+
+    public void MakeMiniFor(EntityHandle player, TFBaseObject building)
+    {
+        if (building.Type == TFObjectType.Sentrygun && IsMiniWrench(player))
+            building.MakeMiniBuilding();
+    }
 
     public TFCanBuildResult CanBuild(EntityHandle player, TFObjectType type, int mode)
     {
@@ -113,7 +156,7 @@ public sealed class TFObjectBuilder(ITFMapPlayers players, ITFBuildings building
         if (count >= info.MaxObjects)
             return TFCanBuildResult.LimitReached;
 
-        if (purse.Pools(player).GetValueOrDefault(MetalName) < info.Cost)
+        if (purse.Pools(player).GetValueOrDefault(MetalName) < CostFor(player, type))
             return TFCanBuildResult.NeedResources;
 
         return TFCanBuildResult.CanBuild;
@@ -151,9 +194,17 @@ public sealed class TFObjectBuilder(ITFMapPlayers players, ITFBuildings building
         // StartedBuildingObject's pay, after the spot is known good: an
         // unfunded build has cost nothing. (Stock's pay sits in
         // StartedBuildingObject; the order — pay only once placed — is kept.)
-        int cost = TFObjectInfo.Of(type)!.Cost;
+        int cost = CostFor(player, type);
         if (purse.TakeAmmo(player, cost, MetalName) < cost)
             return Refused(building, TFCanBuildResult.NeedResources);
+
+        // MakeMiniBuilding, re-called at StartBuilding in case the weapon
+        // changed since placement (tf_obj_sentrygun.cpp:337-339; stock also
+        // asks at StartPlacement :325 — the StartBuilding answer is the one
+        // that holds). The upgrade-maps arm of ShouldBeMiniBuilding
+        // (tf_obj.cpp:1495-1499) cannot fire here: the row allows one sentry,
+        // so a builder with one never answers CB_CAN_BUILD again.
+        MakeMiniFor(player, building);
 
         building.StartBuilding();
         log.Msg($"[TF2/Build] {TFObjectClassNames.Raw(type)} mode {mode} placed at "

@@ -6,6 +6,7 @@ using SourceSharp.Tests;
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 using Xunit;
@@ -32,6 +33,8 @@ public sealed class TFPlayerSpawnsTests
         public readonly TFBlastJumpState Jump;
         public readonly Observers Observers;
         public readonly ConVarRegistry ConVars;
+        public readonly TF2.Tests.Weapons.FakeOwners Owners = new();
+        public readonly TFPlayerResupply Resupply;
 
         public Rig()
         {
@@ -51,8 +54,10 @@ public sealed class TFPlayerSpawnsTests
             Player.Extra.Add(Jump);
             Player.Extra.Add(Class);
             Player.Join();
+            Resupply = new TFPlayerResupply(Player.Carriers, Player.Classes, engine, engine, Conditions,
+                                            Player.Loadout, engine, Owners, new TF2.Shared.Econ.AttributeHooks());
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
-                                        directory, Observers, new Carried(Weapon),
+                                        directory, Observers, new Carried(Weapon), Resupply,
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), Player.Log);
         }
 
@@ -243,6 +248,35 @@ public sealed class TFPlayerSpawnsTests
         Assert.Equal(model, rig.Player.Engine.AllOf("EntityRender.SetModel").Single().ArgAs<string>(1));
     }
 
+    /// <summary>The spawn's health is the kit's maximum, not the class table's:
+    /// <c>InitClass</c> sets it after the items, so the items'
+    /// <c>add_maxhealth</c> counts (tf_player.cpp:4159-4162, the maximum
+    /// <c>GetMaxHealth</c> computes at :14241-14249). Conniver's Kunai's
+    /// <c>add_maxhealth</c> -55 (item 356) puts a spy's spawn at 70; the
+    /// class's 125 would sit above the new maximum and decay away as an
+    /// overheal does.</summary>
+    [Fact]
+    public void The_spawn_health_is_the_kits_max_health()
+    {
+        var rig = new Rig();
+        rig.Owners.Managers[PlayerRig.Index] = Arm("add_maxhealth", -55f, AttributeDescriptionFormat.Additive, 356);
+        rig.Class.Desired = TFClass.Spy;
+
+        rig.Spawn();
+
+        Assert.Equal(70, rig.Player.Engine.AllOf("Entities.SetHealth").Single().ArgAs<int>(1));
+    }
+
+    private static IAttributeProvider Arm(string name, float value, AttributeDescriptionFormat format, int defindex)
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(defindex, $"attr {defindex}", name, format,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), value));
+        return container;
+    }
+
     [Fact]
     public void The_kits_weapon_gets_a_fresh_crit_bucket()
     {
@@ -306,6 +340,9 @@ public sealed class TFPlayerSpawnsTests
         var spawns = new TFPlayerSpawns(carriers, new PlayerRig().Classes, engine, engine, engine,
                                         new TFPlayerConditions(carriers, engine), new TFCritBuckets(),
                                         registry, observers, new Carried(EntityHandle.None),
+                                        new TFPlayerResupply(carriers, new PlayerRig().Classes, engine, engine,
+                                                             new TFPlayerConditions(carriers, engine),
+                                                             new PlayerRig().Loadout, engine),
                                         convars.Declared<TFSpawnGlowsDurationConVar>(), log);
 
         spawns.OnSpawned(PlayerRig.Player, 1f);

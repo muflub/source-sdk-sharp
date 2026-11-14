@@ -18,9 +18,10 @@ namespace TF2.Shared;
 /// TF2's weapon rows (stage1 1.9): one <see cref="WeaponType"/> per milestone
 /// weapon, read from its stock script (<see cref="TFWeaponScripts"/>) and
 /// dressed from the item schema. The milestone weapons are every
-/// <c>weaponN</c> the class scripts name (<see cref="TFClassTable"/>) plus the
-/// engineer's builder and the spy's sapper, ordered by name so both sides
-/// number them alike (the index is the wire format).
+/// <c>weaponN</c> the class scripts name (<see cref="TFClassTable"/>), the
+/// engineer's builder, the spy's sapper and the item-carried weapons seeded
+/// below, ordered by name so both sides number them alike (the index is the
+/// wire format).
 ///
 /// <para>
 /// A row carries the script's primary mode in the core's terms: the fire
@@ -47,6 +48,20 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
     /// <summary>The spy's sapper: <c>LINK_ENTITY_TO_CLASS( tf_weapon_sapper, CTFWeaponSapper )</c>, a builder with its own script.</summary>
     public const string Sapper = "tf_weapon_sapper";
 
+    /// <summary>The Gunslinger's entity class, the item's own row (items_working.tsv:58): the held wrench the mini-sentry attribute is asked of.</summary>
+    public const string WrenchArm = "tf_weapon_robot_arm";
+
+    /// <summary>
+    /// The energy drink's entity class (<c>LINK_ENTITY_TO_CLASS(
+    /// tf_weapon_lunchbox_drink, CTFLunchBox_Drink )</c>,
+    /// tf_weapon_lunchbox.cpp:56): Bonk!, Crit-a-Cola and the festive Bonk are
+    /// its rows. The class has no id of its own — stock's
+    /// <c>CTFLunchBox::GetWeaponID</c> answers <c>TF_WEAPON_LUNCHBOX</c> for
+    /// the whole family (tf_weapon_lunchbox.h:56) — so the drink carries the
+    /// lunchbox kind; only the script name and the row are its own.
+    /// </summary>
+    public const string Drink = "tf_weapon_lunchbox_drink";
+
     private readonly TFWeaponScripts _scripts;
     private readonly TFClassTable _classes;
     private readonly ItemSchema _schema;
@@ -58,7 +73,15 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
         _schema = schema ?? throw new ArgumentNullException(nameof(schema));
     }
 
-    /// <summary>The milestone weapon names, ordered: each class's weapons, the builder and the sapper.</summary>
+    /// <summary>
+    /// The catalogued weapon names, ordered: each class's weapons, the builder
+    /// and the sapper, the seeded item-carried weapons, and every class an item
+    /// of the schema names by its <c>item_class</c> (stock gives an equipped
+    /// item its own weapon entity — <c>ManageRegularWeapons</c> over
+    /// <c>GetLoadoutItem</c>, tf_player.cpp:4496 — so the kit's give only hands
+    /// the unlock out when the name has a row; a class no script backs still
+    /// gets none, which <see cref="Rows"/>' script filter keeps).
+    /// </summary>
     public IReadOnlyList<string> Names()
     {
         var names = new SortedSet<string>(StringComparer.Ordinal)
@@ -68,6 +91,43 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             TFWeaponNames.Name(TFWeaponId.CompoundBow).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.Builder).ToLowerInvariant(),
             Sapper,
+            // The flare gun is no class script's weaponN: the pyro holds it only
+            // as an equipped item, whose class is the entity stock names
+            // (tf_weapon_flaregun, the item's own row). The kit's spawn gate
+            // reads this table, so the item-carried weapons seed here as they
+            // land — the catalogue cannot learn them from the class scripts.
+            TFWeaponNames.Name(TFWeaponId.Flaregun).ToLowerInvariant(),
+            // The Crusader's Crossbow: the medic's unlock, held only as an
+            // equipped item — no class script's weaponN names it either, and
+            // its behaviour is the projectile's, so it seeds beside the
+            // flare gun.
+            TFWeaponNames.Name(TFWeaponId.Crossbow).ToLowerInvariant(),
+            // The Gunslinger: the engineer's unlock wrench, whose entity class
+            // is the item's own row (items_working.tsv:58). No class script's
+            // weaponN names it either, so it seeds beside the flare gun.
+            WrenchArm,
+            // The lunchbox the same way: the heavy holds it as the loadout's
+            // secondaries slot (the sandvich), no class script's weaponN.
+            TFWeaponNames.Name(TFWeaponId.Lunchbox).ToLowerInvariant(),
+            // The soldier's buff items: Buff Banner, Battalion's Backup and the
+            // Concheror all carry the tf_weapon_buff_item class
+            // (items_working.tsv:51, :100, :128); the soldier class script's
+            // weaponN's name the shovel, the shotgun and the launcher, so the
+            // buff item is the third held-everything item and seeds here too.
+            TFWeaponNames.Name(TFWeaponId.BuffItem).ToLowerInvariant(),
+            // The jars: the sniper's and the thrown milk, held as equipped
+            // items too (tf_weapon_jar, tf_weapon_jar_milk — the CTFJar pair
+            // whose shot is the effect bar).
+            TFWeaponNames.Name(TFWeaponId.Jar).ToLowerInvariant(),
+            TFWeaponNames.Name(TFWeaponId.JarMilk).ToLowerInvariant(),
+            // The Wrangler: the engineer's second unlock, held as the loadout
+            // item whose triggers drive the sentry (tf_weapon_laser_pointer,
+            // the item's own row).
+            TFWeaponNames.Name(TFWeaponId.LaserPointer).ToLowerInvariant(),
+            // The scout's energy drink, the lunchbox family's own script name:
+            // Bonk! and cousins are equipped items, no class script's weaponN
+            // names them either, so the drink seeds beside its plate.
+            Drink,
         };
 
         for (var c = TFClass.Scout; c < TFClass.CountAll; c++)
@@ -79,6 +139,30 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             }
         }
 
+        // An equipped unlock is given by its own entity name: the kit hands out
+        // each slot item's item_class, translated to the class's own spelling
+        // (ManageRegularWeapons over GetLoadoutItem, tf_player.cpp:4496), so a
+        // class the schema names is catalogued too — but only as a real weapon:
+        // the schema also names the cosmetic classes (bundle, craft_item,
+        // tf_wearable), classes no script backs, and classes whose script runs
+        // no behaviour of its own (the Inert arm of TFWeaponKinds.Of). Each
+        // row costs a bit of the carried-weapon mask
+        // (PlayerNetState.WeaponMaskBits), so a name without a running weapon
+        // behind it is refused here, read quiet: a miss is an absent row, not
+        // a finding. What falls out of the catalogue falls back to the slot's
+        // base item when equipped (TFLoadoutProvider.Weapons).
+        foreach (var item in _schema.Items)
+        {
+            if (item.ItemClass is not { Length: > 0 } itemClass
+                || !itemClass.StartsWith("tf_weapon_", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            string name = itemClass.ToLowerInvariant();
+            if (_scripts.GetQuiet(name) is { } script
+                && TFWeaponKinds.Of(script) != TFWeaponKind.Inert)
+                names.Add(name);
+        }
+
         return names.ToArray();
     }
 
@@ -86,7 +170,11 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
     {
         foreach (string name in Names())
         {
-            if (_scripts.Get(name) is { } script)
+            // Quiet like the schema walk above: in the catalogue a miss is an
+            // absent row, not a finding — the shipped scripts for every seed
+            // name and class weapon are there, and a fixture without one of
+            // them is no reason to raise a line per missing name.
+            if (_scripts.GetQuiet(name) is { } script)
                 yield return Row(script, BaseItemFor(name));
         }
     }
@@ -147,7 +235,12 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
     /// The base item a weapon name wears: the schema's base item whose
     /// <c>item_class</c> is the name, else the longest whose class is the
     /// name's stem (<c>tf_weapon_shotgun</c> for <c>tf_weapon_shotgun_soldier</c>,
-    /// the per-class spellings stock's loadout translates to).
+    /// the per-class spellings stock's loadout translates to). A class no
+    /// base item wears at all — the later unlocks, plain items like the
+    /// Huntsman's <c>tf_weapon_compound_bow</c> — takes its lowest defindex
+    /// instead: the canonical look the base item is for the launch weapons
+    /// (stock reads the equipped item per instance, <c>CTFWeaponBase::GetViewModel</c>,
+    /// tf_weaponbase.cpp:651-676; the row is one dress for the class).
     /// </summary>
     public ItemDefinition? BaseItemFor(string weaponName)
     {
@@ -181,8 +274,29 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             }
         }
 
+        if (best is null)
+        {
+            foreach (var item in ItemsByDefindex())
+            {
+                if (item.ItemClass is not { Length: > 0 } itemClass)
+                    continue;
+                if (string.Equals(itemClass, weaponName, StringComparison.OrdinalIgnoreCase))
+                    return item;
+                if (weaponName.Length > itemClass.Length && weaponName[itemClass.Length] == '_'
+                    && weaponName.StartsWith(itemClass, StringComparison.OrdinalIgnoreCase)
+                    && (best?.ItemClass is null || itemClass.Length > best.ItemClass.Length))
+                    best = item;
+            }
+        }
+
         return best;
     }
+
+    private ItemDefinition[]? _itemsByDefindex;
+
+    /// <summary>Every definition by rising defindex: the fallback walk's order.</summary>
+    private ItemDefinition[] ItemsByDefindex() =>
+        _itemsByDefindex ??= _schema.Items.OrderBy(i => i.Defindex).ToArray();
 
     /// <summary>
     /// <c>CTFWeaponBase::GetActivityWeaponRole</c> (tf_weaponbase.cpp:4185-4205)

@@ -154,6 +154,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
             }
 
             blueprint.SetObjectMode(order.Mode);
+            objects.MakeMiniFor(player, blueprint);
             blueprint.StartPlacement(player);
             _placing[player] = new Placing { Blueprint = blueprint, Mode = order.Mode };
             log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(order.Type)} mode {order.Mode} blueprint out for {player}\n");
@@ -284,7 +285,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
         else
         {
             // StartedBuildingObject's pay: a short purse aborts (tf_obj.cpp:1330-1336).
-            int cost = TFObjectInfo.Of(blueprint.Type)!.Cost;
+            int cost = objects.CostFor(player, blueprint.Type);
             if (purse.TakeAmmo(player, cost, MetalName) < cost)
             {
                 log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} unpaid; the blueprint comes down\n");
@@ -293,6 +294,7 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
                 return false;
             }
 
+            objects.MakeMiniFor(player, blueprint);
             blueprint.StartBuilding();
             log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(blueprint.Type)} mode {placing.Mode} placed at "
                      + $"({origin.X}, {origin.Y}, {origin.Z}) for {player}\n");

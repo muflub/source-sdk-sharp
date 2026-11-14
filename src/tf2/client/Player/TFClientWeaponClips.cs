@@ -17,7 +17,7 @@ namespace TF2.Client.Player;
 /// (<see cref="TFPlayerNetState.Clips"/>), by weapon-catalog row — the word
 /// stock's client receives on each weapon entity, held or holstered
 /// (<c>basecombatweapon_shared.cpp</c>'s send table), and its switch deploys
-/// with. A row past the carrier's width, or a player whose carrier has not
+/// with. A row the player does not carry, or a player whose carrier has not
 /// arrived, is unpublished and the arsenal keeps its own answer.
 /// </summary>
 [SideService(Side.Client, As = [typeof(ILocalWeaponClips)])]
@@ -27,12 +27,11 @@ public sealed class TFClientWeaponClips(TFClientCarriers carriers, IEngineHud hu
     public bool ClipOf(int typeIndex, out int clip)
     {
         clip = -1;
-        if (typeIndex < 0
-            || carriers.Of(hud.LocalPlayerIndex)?.State is not { } state
-            || typeIndex >= state.Clips.Length)
+        if (carriers.Of(hud.LocalPlayerIndex)?.State is not { } state
+            || state.CarriedSlotOf(typeIndex) is not (>= 0 and var slot))
             return false;
 
-        clip = state.Clips[typeIndex];
+        clip = state.Clips[slot];
         return true;
     }
 }

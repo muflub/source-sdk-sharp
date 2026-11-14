@@ -507,6 +507,13 @@ public static class TFWeaponNames
         if (string.IsNullOrEmpty(name))
             return TFWeaponId.None;
 
+        // The energy drink has no enum entry of its own (g_aWeaponNames has
+        // none): stock's CTFLunchBox::GetWeaponID answers TF_WEAPON_LUNCHBOX
+        // for the whole family, the inherited arm included
+        // (tf_weapon_lunchbox.h:56, CTFLunchBox_Drink deriving from it).
+        if (string.Equals(name, TFWeaponTypes.Drink, StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.Lunchbox;
+
         for (var id = TFWeaponId.None; id < TFWeaponId.Count; id++)
         {
             if (string.Equals(name, Name(id), StringComparison.OrdinalIgnoreCase))

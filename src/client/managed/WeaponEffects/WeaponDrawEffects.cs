@@ -164,6 +164,11 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
     private readonly IWeaponDrawStates? _states;
     private readonly Dictionary<string, IWeaponDrawEffect> _byName = new(StringComparer.Ordinal);
 
+    // The name-less effects: an empty WeaponName is every kind's — stock's
+    // muzzle-flash parity path is the weapon base's, not one class's — so they
+    // run beside the named one, and no draw point ever asks them.
+    private readonly List<IWeaponDrawEffect> _always = [];
+
     // The effects that also turn a bone, kept beside the name so the render
     // pass asks them without walking every effect.
     private readonly Dictionary<string, IWeaponBoneSpin> _boneSpin = new(StringComparer.Ordinal);
@@ -172,6 +177,7 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
     // switch: this build's carried weapon is one entity per player) or a
     // removal lets the old kind's effect go.
     private readonly Dictionary<EntityHandle, IWeaponDrawEffect> _framed = [];
+    private readonly HashSet<EntityHandle> _alwaysFramed = [];
     private readonly List<EntityHandle> _gone = [];
     private readonly HashSet<EntityHandle> _seen = [];
 
@@ -191,9 +197,12 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
         _weapons = weapons;
         foreach (IWeaponDrawEffect effect in effects)
         {
-            _byName[effect.WeaponName] = effect;
+            if (effect.WeaponName.Length == 0)
+                _always.Add(effect);
+            else
+                _byName[effect.WeaponName] = effect;
 
-            if (effect is IWeaponBoneSpin spin)
+            if (effect is IWeaponBoneSpin spin && effect.WeaponName.Length > 0)
                 _boneSpin[effect.WeaponName] = spin;
         }
     }
@@ -320,7 +329,8 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
                 continue;
 
             _seen.Add(weapon.Handle);
-            IWeaponDrawEffect? effect = weapon.State.OwnerIndex > 0 ? For(weapon.State.WeaponTypeId) : null;
+            bool carried = weapon.State.OwnerIndex > 0;
+            IWeaponDrawEffect? effect = carried ? For(weapon.State.WeaponTypeId) : null;
 
             if (_framed.TryGetValue(weapon.Handle, out IWeaponDrawEffect? was) && was != effect)
             {
@@ -328,11 +338,23 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
                 _framed.Remove(weapon.Handle);
             }
 
-            if (effect is null)
-                continue;
+            if (carried)
+            {
+                // The name-less effects ride every carried weapon, the named
+                // one's frame or none: one context, both reads.
+                var context = Context(weapon);
 
-            _framed[weapon.Handle] = effect;
-            effect.Think(Context(weapon));
+                foreach (IWeaponDrawEffect always in _always)
+                    always.Think(in context);
+
+                _alwaysFramed.Add(weapon.Handle);
+
+                if (effect is not null)
+                {
+                    _framed[weapon.Handle] = effect;
+                    effect.Think(in context);
+                }
+            }
         }
 
         _gone.Clear();
@@ -346,6 +368,24 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
         {
             _framed[gone].Forget(gone);
             _framed.Remove(gone);
+        }
+
+        _gone.Clear();
+        foreach (EntityHandle framed in _alwaysFramed)
+        {
+            if (!_seen.Contains(framed))
+                _gone.Add(framed);
+        }
+
+        if (_gone.Count > 0)
+        {
+            foreach (EntityHandle gone in _gone)
+            {
+                foreach (IWeaponDrawEffect always in _always)
+                    always.Forget(gone);
+
+                _alwaysFramed.Remove(gone);
+            }
         }
     }
 }

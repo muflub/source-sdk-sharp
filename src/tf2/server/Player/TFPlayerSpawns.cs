@@ -40,6 +40,7 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
                                    IEngineEntities entities, IEngineEntityRender render,
                                    TFPlayerConditions conditions, TFCritBuckets buckets,
                                    IEntityDirectory directory, Observers observers, ITFCarriedWeapons weapons,
+                                   ITFPlayerResupply resupply,
                                    TFSpawnGlowsDurationConVar spawnGlows, ILog log)
     : IPlayerSpawnHook, IOrderedHook
 {
@@ -93,7 +94,13 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
         }
 
         var data = classes[cls];
-        entities.SetHealth(player, data.MaxHealth);
+
+        // InitClass's SetHealth( GetMaxHealth() ) after the items
+        // (tf_player.cpp:4161-4162): the maximum GetMaxHealth computes
+        // (:14241-14249), the kit's add_maxhealth counted — a Kunai spy
+        // spawns at 70, not at the class's 125 above it.
+        int health = resupply.MaxHealth(player);
+        entities.SetHealth(player, health);
 
         // Spawn's team glows for a while after the respawn
         // (tf_player.cpp:3635-3636, inside the TF_STATE_ACTIVE arm this classed
@@ -113,7 +120,7 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
             buckets.Reset(entities.GetIndex(weapon));
 
         log.Msg($"[TF2/Player] player {player.EntryIndex} spawned as {TFClassNames.NonLocalized(cls)}: " +
-                $"{data.MaxHealth} health, {data.Model}\n");
+                $"{health} health, {data.Model}\n");
     }
 
     /// <summary>The classless player watches: fixed before a team, the chase cam on one.</summary>

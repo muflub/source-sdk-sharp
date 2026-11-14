@@ -5,6 +5,7 @@ using SourceSharp.Tests;
 using TF2.Server.Medigun;
 using TF2.Server.Weapons;
 using TF2.Shared;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 
 using Xunit;
@@ -244,6 +245,44 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(new ShotDamage(6f, true), Assert.Single(world.Arms.Bullets).Shot);
     }
 
+    /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>'s first arm
+    /// (<c>tf_weaponbase_gun.cpp:844-847</c>, Tomislav, the Back Scatter): the
+    /// held item's <c>mult_spread_scale</c> scales the cone's sine before the
+    /// pellets sample it, so a doubled item fires at the angle of twice the
+    /// script sine (<c>asin(0.0675 × 2)</c>), not a widened sample of the plain
+    /// cone.
+    /// </summary>
+    [Fact]
+    public void An_items_spread_scale_widens_the_shot_whole_before_the_pellets()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9105, "mult_spread_scale", 2f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.135f), shot.Spread, 4);
+    }
+
+    /// <summary>
+    /// The same shot under a scale of one keeps the script cone the row was
+    /// dressed with: the walk multiplies, so the identity is the plain cone.
+    /// </summary>
+    [Fact]
+    public void Without_a_spread_scale_the_shot_keeps_the_scripts_cone()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = PercentageItem(9106, "mult_spread_scale", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack, now: 10f, seed: TFWeaponWorld.GunSeed(200, 10000));
+
+        var shot = Assert.Single(world.Arms.Bullets);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), shot.Spread, 4);
+    }
+
     [Fact]
     public void The_server_and_a_client_roll_one_command_alike()
     {
@@ -380,6 +419,41 @@ public sealed class TFWeaponBehaviourTests
         var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
 
         Assert.Equal(new ShotDamage(9f), world.Behaviour(Scattergun).ModifyShot(world.Attack(w, vm, 10f, TFWeaponWorld.GunSeed(200, 10000)), default));
+    }
+
+    /// <summary>mult_dmg_disguised (the Enforcer), stock's disguised branch of
+    /// <c>GetProjectileDamage</c> (<c>tf_weaponbase_gun.cpp:913-917</c>): while the
+    /// owner wears the disguise, the multiplier rides onto the shot.</summary>
+    [Fact]
+    public void A_disguised_owners_shot_takes_the_disguised_multiplier()
+    {
+        var world = new TFWeaponWorld();
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(9002, "disguise bonus", "mult_dmg_disguised", AttributeDescriptionFormat.Percentage,
+                                                               AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                               MergedKeys.Block("x")), 1.5f));
+        world.Owners.Items[TFWeaponWorld.Owner] = item;
+        world.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.Disguised);   // stock's InCond(TF_COND_DISGUISED), :913
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        // Base 6 times the x1.5 multiplier of the walk (:916).
+        Assert.Equal(new ShotDamage(9f), world.Behaviour(Scattergun).ModifyShot(world.Attack(w, vm, 10f, TFWeaponWorld.GunSeed(200, 10000)), default));
+    }
+
+    /// <summary>The gate of stock's arm (:913-914): with no disguise on the
+    /// owner the multiplier does not ride, whatever the item says.</summary>
+    [Fact]
+    public void An_undisguised_owners_shot_ignores_the_disguised_multiplier()
+    {
+        var world = new TFWeaponWorld();
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(9002, "disguise bonus", "mult_dmg_disguised", AttributeDescriptionFormat.Percentage,
+                                                               AttributeEffectType.Positive, false, false, AttributeValueType.Default,
+                                                               MergedKeys.Block("x")), 1.5f));
+        world.Owners.Items[TFWeaponWorld.Owner] = item;
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        Assert.Equal(new ShotDamage(6f), world.Behaviour(Scattergun).ModifyShot(world.Attack(w, vm, 10f, TFWeaponWorld.GunSeed(200, 10000)), default));
     }
 
     [Fact]
@@ -769,7 +843,7 @@ public sealed class TFWeaponBehaviourTests
             => throw new InvalidOperationException();
         public float StopHealing(EntityHandle patient, EntityHandle healer, float now) => throw new InvalidOperationException();
         public void RecalculateChargeEffects(EntityHandle player, float now) => throw new InvalidOperationException();
-        public void NoteReleasing(int playerIndex, bool releasing) => throw new InvalidOperationException();
+        public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0) => throw new InvalidOperationException();
         public int MaxBuffedHealth(EntityHandle patient, bool ignoreHealthOverMax = false) => throw new InvalidOperationException();
         public bool CanReceiveMedigunChargeEffect(EntityHandle player) => throw new InvalidOperationException();
         public void RemoveChargeEffect(EntityHandle player) => throw new InvalidOperationException();

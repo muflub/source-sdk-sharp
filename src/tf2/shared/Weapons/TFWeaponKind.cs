@@ -38,6 +38,11 @@ public enum TFWeaponKind
     Bow,
     Flamethrower,
     Medigun,
+    /// <summary>
+    /// The lunchbox family (<c>CTFLunchBox</c>): the primary taunt-eats and the
+    /// secondary throws the plate (<c>tf_weapon_lunchbox.cpp</c>).
+    /// </summary>
+    Lunchbox,
     /// <summary>A PDA (<c>WeaponType "pda"</c>): its trigger hands the owner back to the previous item.</summary>
     Pda,
     /// <summary>
@@ -50,8 +55,21 @@ public enum TFWeaponKind
     /// use, the sapper seam (<see cref="TFWeaponParts.Sapper"/>).
     /// </summary>
     Builder,
+    /// <summary>
+    /// The soldier's buff item (<c>CTFBuffItem</c>): +attack with a full rage
+    /// meter deploys the item's buff to the team in reach
+    /// (<c>tf_weapon_buff_item.cpp:116-135</c>,
+    /// <c>tf_player_shared.cpp:13753-13796</c>).
+    /// </summary>
+    BuffItem,
     /// <summary>A weapon with no attack of its own (the invis watch).</summary>
     Inert,
+    /// <summary>
+    /// The Wrangler (<c>CTFLaserPointer : CTFWeaponBaseGun</c>,
+    /// tf_weapon_laser_pointer.h:47): no shot of its own — the triggers
+    /// drive the builder's sentry (<see cref="TFWranglerBehaviour"/>).
+    /// </summary>
+    LaserPointer,
 }
 
 /// <summary>The kind of each TF weapon, and the behaviour keys the rows name.</summary>
@@ -70,9 +88,12 @@ public static class TFWeaponKinds
         TFWeaponKind.Bow => "tf2.bow",
         TFWeaponKind.Flamethrower => "tf2.flamethrower",
         TFWeaponKind.Medigun => "tf2.medigun",
+        TFWeaponKind.Lunchbox => "tf2.lunchbox",
         TFWeaponKind.Pda => "tf2.pda",
         TFWeaponKind.Builder => "tf2.builder",
+        TFWeaponKind.BuffItem => "tf2.buff",
         TFWeaponKind.Inert => "tf2.inert",
+        TFWeaponKind.LaserPointer => "tf2.laserpointer",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
@@ -100,9 +121,21 @@ public static class TFWeaponKinds
             case TFWeaponId.Revolver:
                 return TFWeaponKind.Revolver;
             case TFWeaponId.Rocketlauncher:
+            // The Direct Hit's jump rockets: the stock jump weapon rides the
+            // rocket launcher's firing (CTFWeaponJumpRocketLauncher).
+            case TFWeaponId.RocketlauncherDirecthit:
             case TFWeaponId.Grenadelauncher:
             case TFWeaponId.Pipebomblauncher:
             case TFWeaponId.SyringegunMedic:
+            case TFWeaponId.Flaregun:
+            // The jars (CTFJar : CTFWeaponBaseGun, tf_weapon_jar.h:41): a
+            // grenade lobbed at the meter, the milk its second face.
+            case TFWeaponId.Jar:
+            case TFWeaponId.JarMilk:
+            // The Crusader's Crossbow: CTFCrossbow : CTFRocketLauncher
+            // (tf_weapon_rocketlauncher.cpp:670), the launcher's projectile
+            // behaviour behind the healing bolt.
+            case TFWeaponId.Crossbow:
                 return TFWeaponKind.Projectile;
             case TFWeaponId.CompoundBow:
                 return TFWeaponKind.Bow;
@@ -112,6 +145,16 @@ public static class TFWeaponKinds
                 return TFWeaponKind.Medigun;
             case TFWeaponId.Builder:
                 return TFWeaponKind.Builder;
+            case TFWeaponId.Lunchbox:
+                return TFWeaponKind.Lunchbox;
+            case TFWeaponId.BuffItem:
+                return TFWeaponKind.BuffItem;
+            // The Wrangler: the engineer's unlock, held only as an equipped
+            // item — the triggers command the sentry (CTFLaserPointer's
+            // overrides, tf_weapon_laser_pointer.cpp:192-237), no shot of
+            // the pointer's own.
+            case TFWeaponId.LaserPointer:
+                return TFWeaponKind.LaserPointer;
         }
 
         return script.Category switch
@@ -131,9 +174,14 @@ public static class TFWeaponKinds
     /// Whether the weapon reloads one round at a time (<c>m_bReloadsSingly</c>,
     /// set by the shotgun, rocket, grenade and stickybomb launcher constructors:
     /// <c>tf_weapon_shotgun.cpp:68</c>, <c>tf_weapon_rocketlauncher.cpp:159</c>,
-    /// <c>tf_weapon_grenadelauncher.cpp:100</c>, <c>tf_weapon_pipebomblauncher.cpp:86</c>).
+    /// <c>tf_weapon_grenadelauncher.cpp:100</c>,
+    /// <c>tf_weapon_pipebomblauncher.cpp:86</c>). The crossbow inherits the
+    /// rocket launcher's flag with its class
+    /// (<c>CTFCrossbow : CTFRocketLauncher</c>, tf_weapon_rocketlauncher.h:166).
     /// </summary>
     public static bool ReloadsSingly(TFWeaponId id) => id is TFWeaponId.Scattergun
         or TFWeaponId.ShotgunPrimary or TFWeaponId.ShotgunSoldier or TFWeaponId.ShotgunHwg or TFWeaponId.ShotgunPyro
-        or TFWeaponId.Rocketlauncher or TFWeaponId.Grenadelauncher or TFWeaponId.Pipebomblauncher;
+        or TFWeaponId.Rocketlauncher or TFWeaponId.RocketlauncherDirecthit
+        or TFWeaponId.Grenadelauncher or TFWeaponId.Pipebomblauncher
+        or TFWeaponId.Crossbow;
 }

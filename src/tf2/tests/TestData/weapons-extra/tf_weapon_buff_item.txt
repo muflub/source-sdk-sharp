@@ -1,0 +1,14 @@
+WeaponData
+{
+	// Weapon data is loaded by both the Game and Client Modules.
+	"printname"	"#TF_Weapon_Buff_Banner"
+	"BuiltRightHanded"	"0"
+	"weight"	"1"
+	"ITEM_FLAG_NOITEMPICKUP" 	"1"
+
+	// Budget
+	"bucket"	"1"
+	"bucket_position"	"0"
+
+	"anim_prefix"		"bash"
+}

@@ -43,8 +43,12 @@ public sealed class TFWeaponClipMirror(IEngineEntities entities, TFPlayerCarrier
             || _carriers.Get(_entities.GetIndex(_player)) is not { } state)
             return;
 
-        for (int row = 0; row < state.Clips.Length; row++)
-            state.Clips[row] = _arsenal.CarriedClipOf(_player, row);
+        for (int slot = 0; slot < state.Clips.Length; slot++)
+        {
+            int row = _arsenal.CarriedRowAt(_player, slot);
+            state.CarriedRows[slot] = row + 1;
+            state.Clips[slot] = row >= 0 ? _arsenal.CarriedClipOf(_player, row) : -1;
+        }
     }
 
     public void Detach() => _player = EntityHandle.None;

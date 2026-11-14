@@ -48,11 +48,13 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
                                       ITeamRoundState? round = null, ITFStalemateSettings? stalemate = null,
                                       WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null,
                                       BotInventory? botInventory = null, IBotPlayers? bots = null,
-                                      AttributeHooks? hooks = null, IEnginePlayers? players = null)
+                                      AttributeHooks? hooks = null, IEnginePlayers? players = null,
+                                      IEnginePrecache? precache = null, ILog? log = null)
     : ILoadoutProvider, IOrderedHook
 {
     private readonly ITeamRoundState? _round = round;
     private readonly ITFStalemateSettings? _stalemate = stalemate;
+    private readonly IEnginePrecache? _precache = precache;
 
     /// <summary>TF2's range (999,000-999,999), so a further mod's provider (from ModStages.First) runs after TF2's.</summary>
     public const int Order = 1_000_000 - 1_000 + 60;
@@ -92,10 +94,43 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
                 continue;
 
             string weapon = table is null ? itemClass : TFItemClassTranslation.Translate(itemClass, table[cls]);
+            var equipped = entry.Item;
+
+            // An equipped class the catalogue holds no row for must not leave
+            // the slot empty: the kit then wears the slot's base item, the
+            // same answer GetItemInLoadout gives when the equipped item
+            // cannot fit (tf_item_inventory.cpp:1443-1470), said once with a
+            // line naming the swap. Without the check a no-row name reaches
+            // the client as a weapon nothing resolves.
+            if (catalog is not null && !catalog.Contains(weapon)
+                && schema.BaseItem(cls, entry.Slot) is { } baseDefinition && baseDefinition.ItemClass is { Length: > 0 } baseClass)
+            {
+                string baseWeapon = table is null ? baseClass : TFItemClassTranslation.Translate(baseClass, table[cls]);
+                log?.Warning($"[TF2/Loadout] {itemClass} has no weapon row; {cls}'s {entry.Slot} keeps its base {baseWeapon}\n");
+                weapon = baseWeapon;
+                equipped = ItemInstance.Base(baseDefinition);
+            }
+
             weapons.Add(weapon);
-            var container = Attributes(entry.Item);
+            var container = Attributes(equipped);
             byWeapon[weapon] = container;
             granted.Add((weapon, container));
+
+            // The models the item wears, precached as its grant lands — the
+            // wearable's arm (CEconWearable::Spawn precaches its display
+            // model): the world rule's answers, so a kit swap to an unlock
+            // the level has not seen is a model, not an error.
+            if (_precache is { } models)
+            {
+                if (entry.Item.Definition.ModelWorld is { Length: > 0 } world)
+                    models.PrecacheModel(world);
+
+                string? playerModel = entry.Item.Definition.PlayerModel(cls);
+                if (string.IsNullOrEmpty(playerModel))
+                    playerModel = entry.Item.Definition.ModelPlayer;
+                if (playerModel is { Length: > 0 })
+                    models.PrecacheModel(playerModel);
+            }
         }
 
         if (items is { } kit)

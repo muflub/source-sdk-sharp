@@ -177,6 +177,16 @@ public sealed class TFDroppedWeaponLifetimeConVar : FloatConVar { }
         Help = "Allow player gibbing. 0: never, 1: normal, 2: always", Min = 0, Max = 2)]
 public sealed class TFPlayerGibConVar : IntConVar { }
 
+/// <summary>The floor the deployed Gloves drain their carrier's max health to
+/// (stock <c>tf_player.cpp:273</c>, read by <c>GetMaxHealthForBuffing</c> at :14327).</summary>
+[ConVar("tf_maxhealth_drain_hp_min", "100", Flags = ConVarFlags.DevelopmentOnly)]
+public sealed class TFMaxHealthDrainHpMinConVar : IntConVar { }
+
+/// <summary>The one-shot max-health cost of deploying Gloves that drain
+/// (<c>tf_player.cpp:274</c>, read at :14309).</summary>
+[ConVar("tf_maxhealth_drain_deploy_cost", "20", Flags = ConVarFlags.DevelopmentOnly)]
+public sealed class TFMaxHealthDrainDeployCostConVar : IntConVar { }
+
 // ---- server/tf/tf_obj_teleporter.cpp -----------------------------------------
 
 /// <summary>The arrival unzoom's foot (<c>tf_obj_teleporter.cpp:82</c>): the scoped width the view eases back from.</summary>
@@ -191,10 +201,13 @@ public sealed class TFTeleporterFovTimeConVar : FloatConVar { }
 
 // ---- server/tf/tf_obj_sentrygun.cpp -----------------------------------------
 
-/// <summary>The shells' damage (<c>tf_obj_sentrygun.cpp:134</c>, no help in stock;
-/// the mini building's own <c>tf_sentrygun_mini_damage</c> has no arm here yet).</summary>
+/// <summary>The shells' damage (<c>tf_obj_sentrygun.cpp:134</c>, no help in stock).</summary>
 [ConVar("tf_sentrygun_damage", "16", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
 public sealed class TFSentryGunDamageConVar : FloatConVar { }
+
+/// <summary>The mini building's shell damage (<c>tf_obj_sentrygun.cpp:135</c>, no help in stock).</summary>
+[ConVar("tf_sentrygun_mini_damage", "8", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
+public sealed class TFSentryGunMiniDamageConVar : FloatConVar { }
 
 // ---- server/tf/tf_obj_sapper.cpp --------------------------------------------
 

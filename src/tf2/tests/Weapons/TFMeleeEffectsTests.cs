@@ -61,6 +61,18 @@ internal sealed class MeleeRig
     /// <summary>What each entity answers facing, for the behind-crit and the swing.</summary>
     public readonly Dictionary<EntityHandle, Vector> EyeAngles = new();
 
+    /// <summary>Who holds a player slot; every other slot answers the owner.</summary>
+    public readonly Dictionary<int, EntityHandle> Slots = new();
+
+    /// <summary>Each player's team; red unless a fact says otherwise.</summary>
+    public readonly Dictionary<EntityHandle, int> Teams = new();
+
+    /// <summary>Where each player's middle stands, for the swing's loose reach.</summary>
+    public readonly Dictionary<EntityHandle, Vector> Centres = new();
+
+    /// <summary>Who has died since the swing started.</summary>
+    public readonly HashSet<EntityHandle> Dead = new();
+
     /// <summary>What the swing's line names; a miss unless a fact says otherwise.</summary>
     public TraceResult Line { get; set; } = new(false, 1f, default, default, EntityHandle.None);
 
@@ -72,7 +84,14 @@ internal sealed class MeleeRig
 
     public MeleeRig()
     {
-        Engine.Returns("Players.GetHandle", Owner);
+        Engine.ReturnsEachCall("Players.GetHandle",
+                               () => Engine.Calls[^1].Args[0] is int slot && Slots.TryGetValue(slot, out var h) ? h : Owner);
+        Engine.ReturnsEachCall("Players.GetTeam",
+                               () => Engine.Calls[^1].Args[0] is EntityHandle h && Teams.TryGetValue(h, out var t) ? t : (int)TFTeam.Red);
+        Engine.ReturnsEachCall("Players.IsAlive",
+                               () => Engine.Calls[^1].Args[0] is EntityHandle h && !Dead.Contains(h));
+        Engine.ReturnsEachCall("Entities.GetWorldSpaceCenter",
+                               () => Engine.Calls[^1].Args[0] is EntityHandle h && Centres.TryGetValue(h, out var c) ? c : default);
         Engine.Returns("Players.GetShootOrigin", new Vector(0f, 0f, 64f));
         Engine.ReturnsEachCall("Entities.GetEyeAngles",
                                () => Engine.Calls[^1].Args[0] is EntityHandle h && EyeAngles.TryGetValue(h, out var a) ? a : default(Vector));
@@ -92,9 +111,19 @@ internal sealed class MeleeRig
         set => Engine.Returns("Entities.IsPlayer", value);
     }
 
-    public void Melee(ShotDamage? shot = null, float? range = null, float? hull = null, bool behind = false) =>
+    /// <summary>A blue enemy in slot 7, its middle this far along the swing from the eye.</summary>
+    public void EnemyAt(float along)
+    {
+        Slots[7] = Victim;
+        Teams[Victim] = (int)TFTeam.Blue;
+        Centres[Victim] = new Vector(along, 0f, 64f);
+    }
+
+    public void SwingStarted(float range = TFWeaponTypes.SwingRange) => Effects.MeleeSwingStarted(Attack(AttackArms), range);
+
+    public void Melee(ShotDamage? shot = null, float? range = null, float? hull = null, bool behind = false, bool self = false) =>
         Effects.Melee(Attack(AttackArms), WeaponFixtures.Parse("tf_weapon_bat"), shot ?? new ShotDamage(35f),
-                      new SwingTrace(range ?? TFWeaponTypes.SwingRange, hull ?? TFMeleeBehaviour.SwingHull, behind));
+                      new SwingTrace(range ?? TFWeaponTypes.SwingRange, hull ?? TFMeleeBehaviour.SwingHull, behind, self));
 
     /// <summary>The melee attack: the bat's row, its owner, the live run.</summary>
     public static WeaponAttackContext Attack(IWeaponArms arms) => new(
@@ -300,6 +329,107 @@ public sealed class TFMeleeSwingTraceTests
         rig.Melee(new ShotDamage(0.5f));
 
         Assert.Equal(default, Assert.Single(rig.Damage.Hits).Force);
+    }
+
+    /// <summary>
+    /// The Boston Basher's miss tax (tf_weaponbase_melee.cpp:755-763, :802-835):
+    /// a swing that met nothing hurts its own owner for half the melee blow —
+    /// seventeen and a half of thirty-five — with the melee bits and no crit.
+    /// </summary>
+    [Fact]
+    public void A_clean_miss_with_the_self_hit_attribute_hurts_the_owner()
+    {
+        var rig = new MeleeRig();
+
+        rig.Melee(self: true);
+
+        var hurt = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(MeleeRig.Owner, hurt.Victim);            // stock's DoMeleeDamage: the owner hurts themselves
+        Assert.Equal(17.5f, hurt.Damage, 4);
+        Assert.Equal(TFDamageBits.Melee | DamageType.NeverGib | DamageType.Club, hurt.Type);
+        Assert.False(hurt.Critical);
+    }
+
+    /// <summary>A critical swing's miss tax is critical too (:855-858 runs whatever the target).</summary>
+    [Fact]
+    public void A_critical_clean_miss_crits_its_owner()
+    {
+        var rig = new MeleeRig();
+
+        rig.Melee(new ShotDamage(35f) with { Critical = true }, self: true);
+
+        Assert.True(Assert.Single(rig.Damage.Hits).Critical);
+    }
+
+    /// <summary>
+    /// An enemy inside the swing's loose reach at its start and still alive at the
+    /// smack makes this no clean miss (:745-751): swinging at a dodger costs nothing.
+    /// </summary>
+    [Fact]
+    public void A_miss_at_a_living_enemy_in_reach_hurts_nobody()
+    {
+        var rig = new MeleeRig();
+        rig.EnemyAt(TFWeaponTypes.SwingRange);
+
+        rig.SwingStarted();
+        rig.Melee(self: true);
+
+        Assert.Empty(rig.Damage.Hits);
+    }
+
+    /// <summary>The enemy noted at the swing's start has died by the smack: nobody spares the owner.</summary>
+    [Fact]
+    public void A_miss_at_an_enemy_killed_during_the_swing_hurts_the_owner()
+    {
+        var rig = new MeleeRig();
+        rig.EnemyAt(TFWeaponTypes.SwingRange);
+
+        rig.SwingStarted();
+        rig.Dead.Add(MeleeRig.Victim);
+        rig.Melee(self: true);
+
+        Assert.Equal(MeleeRig.Owner, Assert.Single(rig.Damage.Hits).Victim);
+    }
+
+    /// <summary>Past the loose reach (:309, 1.2 of the swing's) an enemy is nobody's reason to spare the owner.</summary>
+    [Fact]
+    public void A_miss_with_the_enemy_past_the_loose_reach_hurts_the_owner()
+    {
+        var rig = new MeleeRig();
+        rig.EnemyAt(TFWeaponTypes.SwingRange * TFMeleeEffects.LooseSwingScale + 1f);
+
+        rig.SwingStarted();
+        rig.Melee(self: true);
+
+        Assert.Equal(MeleeRig.Owner, Assert.Single(rig.Damage.Hits).Victim);
+    }
+
+    /// <summary>A teammate standing close does not count (:305's enemy team only).</summary>
+    [Fact]
+    public void A_miss_beside_a_teammate_hurts_the_owner()
+    {
+        var rig = new MeleeRig();
+        rig.EnemyAt(TFWeaponTypes.SwingRange);
+        rig.Teams[MeleeRig.Victim] = (int)TFTeam.Red;
+
+        rig.SwingStarted();
+        rig.Melee(self: true);
+
+        Assert.Equal(MeleeRig.Owner, Assert.Single(rig.Damage.Hits).Victim);
+    }
+
+    /// <summary>
+    /// The plain stock miss: the same nothing-hit swing with the attribute off
+    /// hurts nobody — the line, then the hull, then silence.
+    /// </summary>
+    [Fact]
+    public void A_clean_miss_without_the_attribute_hurts_nobody()
+    {
+        var rig = new MeleeRig();
+
+        rig.Melee();
+
+        Assert.Empty(rig.Damage.Hits);
     }
 }
 

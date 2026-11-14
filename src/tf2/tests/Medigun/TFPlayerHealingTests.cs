@@ -106,6 +106,77 @@ public sealed class TFPlayerHealingTests
     }
 
     [Fact]
+    public void A_mega_healed_patient_takes_three_times_the_scaled_heal()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 80, 200);                   // buffed max 300: room for the tripled payout
+        rig.Conditions.Add(H(3), TFCond.Megaheal);   // the Quick-Fix charge's own condition
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 100f, frametime: 1f);     // scale 3 × megaheal 3: pays out 216
+
+        Assert.Contains("take 3 216 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 72 True", rig.Resupply.Takes);   // without the condition the same tick pays 72
+    }
+
+    [Fact]
+    public void The_patients_mult_healing_from_medics_multiplies_the_medigun_heal()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 80, 200);
+        rig.NoteDamage(3, time: 10f);                     // recent: scale starts at 1
+        rig.Owners.Managers[3] = HealScale("mult_healing_from_medics", 2f);   // :2519 — asked on the patient's own manager
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 walked to 3: pays out 72
+
+        Assert.Contains("take 3 72 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // :2519 — without the attribute the same tick pays 24
+    }
+
+    /// <summary>An attribute manager holding one Additive class, the shape the
+    /// heal-scale facts declare (<c>AddedSeconds</c>, <c>TFMedigunWeaponTests</c>).</summary>
+    private static AttributeContainer HealScale(string attributeClass, float value)
+    {
+        var def = new AttributeDefinition(30045, "heal scale", attributeClass,
+                                          AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("healscale"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, value));
+        return manager;
+    }
+
+    [Fact]
+    public void The_held_mult_health_fromhealers_multiplies_what_healers_give()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.NoteDamage(3, time: 10f);                     // recent: scale 1
+        rig.Owners.Managers[3] = HealScale("mult_health_fromhealers", 0.5f);   // :2406 — asked on the patient's own manager
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 × attribute scale 1.5
+
+        Assert.Contains("take 3 36 True", rig.Resupply.Takes);
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // :2403-2411 — without the attribute the same tick pays 24
+    }
+
+    [Fact]
+    public void The_penalty_on_the_held_weapon_is_asked_next_and_multiplies_the_heal_too()
+    {
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.NoteDamage(3, time: 10f);
+        rig.Owners.Items[3] = HealScale("mult_health_fromhealers_penalty_active", 0.25f);   // :2410 — asked on the active weapon
+        rig.Owners.Held[3] = "tf_weapon_pistol";
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // scale 1 × attribute scale 1.25
+
+        Assert.Contains("take 3 30 True", rig.Resupply.Takes);   // :2503/:2520 — the penalty rides the healer fraction
+    }
+
+    [Fact]
     public void The_heal_stops_at_the_buffed_max()
     {
         var rig = new MedigunRig();
@@ -345,6 +416,24 @@ public sealed class TFPlayerHealingTests
 
         Assert.False(rig.Conditions.Holds(3, TFCond.Invulnerable));
         Assert.DoesNotContain("add 3 Invulnerable d9 p1", rig.Conditions.Calls);
+    }
+
+    [Fact]
+    public void A_flag_carrier_keeps_a_crit_boost_but_receives_no_invulnerability()
+    {
+        // The refusal after the recalc's loop clears only the invulnerable row
+        // (tf_player_shared.cpp:8899-8902): a covered carrier keeps every other
+        // charge effect their healer is providing.
+        var rig = new MedigunRig();
+        rig.Give(3, 100, 125);
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+        rig.Healing.NoteReleasing(1, true, chargeType: 1);   // the Kritzkrieg
+        rig.Ctf.Carriers.Add(3);
+
+        rig.Healing.RecalculateChargeEffects(H(3), now: 10f);
+
+        Assert.True(rig.Conditions.Holds(3, TFCond.Critboosted));
+        Assert.False(rig.Conditions.Holds(3, TFCond.Invulnerable));
     }
 
     [Fact]

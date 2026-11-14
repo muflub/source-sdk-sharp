@@ -49,6 +49,34 @@ public sealed class TFMinigunBehaviourTests
         Assert.Empty(world.Arms.Bullets);
     }
 
+    [Fact]
+    public void A_pull_asks_the_wind_up_and_the_held_burn_asks_no_more()
+    {
+        var (world, w, vm) = Heavy();
+
+        world.Run(w, vm, Attack, now: 10f);
+        Assert.Equal(new[] { SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp }, world.Arms.Gestures);
+
+        // The spin's own commands ask nothing: the PRE was the start's (:276).
+        world.Run(w, vm, Attack, now: 10.015f);
+        Assert.Equal(new[] { SourceSharp.Shared.Anim.WeaponGestureTrigger.WindUp }, world.Arms.Gestures);
+    }
+
+    [Fact]
+    public void The_settle_asks_the_wind_down_once()
+    {
+        var (world, w, vm) = Heavy();
+
+        Hold(world, w, vm, Attack, 10f, 10.5f);
+        float after = Hold(world, w, vm, 0, 10.5f, 11.0f);
+
+        // The idle come due asks the POST once (:910); the idles after the
+        // settle are the gun at rest and ask nothing further.
+        Assert.Equal(1, world.Arms.Gestures.Count(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown));
+        Hold(world, w, vm, 0, after, after + 0.2f);
+        Assert.Equal(1, world.Arms.Gestures.Count(g => g == SourceSharp.Shared.Anim.WeaponGestureTrigger.WindDown));
+    }
+
     /// <summary>The item whose named hook the <paramref name="scale"/> sets, percentage multiplied or additive added.</summary>
     private static AttributeContainer Scaling(string hook, float scale, AttributeDescriptionFormat format = AttributeDescriptionFormat.Percentage)
     {
