@@ -806,6 +806,8 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             TFItemMeter.Tick(weapon, meterDt, _attributes, Parts.Owners, attack.Command.OwnerIndex, attack.Type.Name,
                              metered?.Id ?? TFWeaponId.None);
 
+        GroundConditions(in attack);
+
         if (metered is not { } script)
             return;
 
@@ -820,6 +822,51 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
 
         if (!HoldsAiming(in attack))
             ClearAiming(attack.Command.OwnerIndex);
+    }
+
+    /// <summary>
+    /// <c>ConditionThink</c>'s ground-contact arm (tf_player_shared.cpp:
+    /// 3124-3164), on the machine's tail so it runs whichever weapon is out —
+    /// stock's runs from <c>SharedThink</c>, per tick, weapon-blind. Grounded,
+    /// the parachute pair goes (:3130-3131) and, past the owned rocket pack's
+    /// refire clock (:3137-3140 — the held pack's own secondary, carrying the
+    /// refire merge in <see cref="TFRocketPackBehaviour"/>, else the owners'
+    /// answer for the holstered one), the rocket-pack cond goes with the
+    /// shutdown and land sounds once (:3142-3151, the live run standing in
+    /// for the first-prediction guard). Stock's <c>rocketpack_landed</c> event
+    /// (:3153-3160) waits for the engine event arm that consumes it.
+    /// </summary>
+    private void GroundConditions(in WeaponAttackContext attack)
+    {
+        int owner = attack.Command.OwnerIndex;
+        if (owner <= 0 || Parts.Owners.OffGround(owner))
+            return;
+
+        if (Parts.Owners.ConditionsOf(owner) is not { } conditions)
+            return;
+
+        conditions.Remove(TFCond.ParachuteActive);    // (:3130)
+        conditions.Remove(TFCond.ParachuteDeployed);  // (:3131)
+
+        if (!conditions.Has(TFCond.Rocketpack))       // (:3133)
+            return;
+
+        float refire;
+        if (attack.Type.Behaviour == TFWeaponKinds.Key(TFWeaponKind.RocketPack))
+            refire = attack.Weapon.NextSecondaryAttack;   // the hands' own clock
+        else if (!Parts.Owners.RocketPackRefireOf(owner, out refire))
+            return;                                       // no owned pack: stock's null (:3138)
+
+        if (attack.Now <= refire)                         // (:3140)
+            return;
+
+        if (attack.EffectsLive)
+        {
+            attack.Arms.Sound(TFRocketPackBehaviour.BoostersShutdownSound);   // (:3148)
+            attack.Arms.Sound(TFRocketPackBehaviour.LandSound);           // (:3149)
+        }
+
+        conditions.Remove(TFCond.Rocketpack);             // (:3151)
     }
 
     /// <summary>

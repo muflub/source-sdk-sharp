@@ -232,6 +232,16 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         if (TFItemMeter.EffectBarSeconds(script.Id) <= 0f)
             return;
 
+        // The refill's denial (tf_player.cpp:4103-4112, and the respawn walk
+        // of tf_player_shared.cpp:1006-1010): the item answering over zero on
+        // item_meter_resupply_denied keeps the bar it carries — the locker
+        // and the regen leave the charge where it stands. The hook is the
+        // stock ON_OTHER root, the item behind the named weapon.
+        int deny = _attributes.Int(0, "item_meter_resupply_denied",
+                                   _owners.ItemOf(entities.GetIndex(player), weapon));
+        if (deny > 0)
+            return;
+
         _arsenal.SetItemMeter(player, weapon, 1f);
     }
 
@@ -476,6 +486,21 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
         if (ammo == TFAmmo.Metal)
             count = (int)(_attributes.Float(1f, "mult_metal_pickup",
                                             _owners.ManagerOf(player.EntryIndex)) * count);
+
+        // The grenades pools' denial (AddSecondaryAmmo, tf_player.cpp:14117-14136):
+        // outside the resource-meter refill, a held item answering over zero on
+        // grenades<N>_resupply_denied takes none of that pool from a pickup —
+        // the stock call hooks the player themselves, the held item's manager.
+        if (ammo is >= TFAmmo.Grenades1 and <= TFAmmo.Grenades3)
+        {
+            // The pool's name in the hook is the one-based stock ordinal
+            // (grenades1..grenades3), the enum's four-on value minus the band.
+            int deny = _attributes.Int(0,
+                                       $"grenades{(int)ammo - (int)TFAmmo.Grenades1 + 1}_resupply_denied",
+                                       _owners.ActiveItemOf(player.EntryIndex));
+            if (deny > 0)
+                return 0;
+        }
 
         // The core's pool clamps to the carry rule, which is the class's AmmoMax.
         return players.GiveAmmo(player, count, TFAmmoNames.Name(ammo));

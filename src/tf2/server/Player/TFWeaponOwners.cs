@@ -14,6 +14,8 @@ using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
+using TF2.Server.Medigun;
+
 namespace TF2.Server.Player;
 
 /// <summary>
@@ -30,14 +32,17 @@ namespace TF2.Server.Player;
 /// <para>
 /// Dependency-light on purpose, as <see cref="TFPlayerCarriers"/> is: the
 /// weapon parts that take it are built when the core's weapon catalogue is
-/// first read, before the player composite is registered.
+/// first read, before the player composite is registered. The one late link
+/// is the locator, the pomson drain's road to the medigun — each service
+/// wants the other at construction, and the container refuses that cycle.
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(ITFWeaponOwners)])]
 public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinners winners,
                                          TFPlayerItems items, IEnginePlayers players,
                                          IEntityDirectory directory, ITFPlayerStats stats,
-                                         ItemSchema? schema = null) : ITFWeaponOwners
+                                         IServiceLocator? locator = null, ItemSchema? schema = null,
+                                         IWeaponGiver? arsenal = null, WeaponCatalog? weapons = null) : ITFWeaponOwners
 {
     public TFClass ClassOf(int playerIndex) => carriers.Get(playerIndex)?.Class() ?? TFClass.Undefined;
 
@@ -107,6 +112,35 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
 
     public float NoAttackExpire(int playerIndex) => carriers.Get(playerIndex)?.NoAttackExpire ?? 0f;
 
+    /// <summary>
+    /// The owned Thermal Thruster's refire clock (<c>Weapon_OwnsThisID</c> →
+    /// <c>GetRefireTime</c>, tf_player_shared.cpp:3137-3140): the hands'
+    /// answer while the pack is out, the last holster's bank the rest of the
+    /// time. No pack carried, no answer — stock's null <c>pRocketPack</c>.
+    /// </summary>
+    public bool RocketPackRefireOf(int playerIndex, out float refire)
+    {
+        refire = 0f;
+        EntityHandle player = players.GetHandle(playerIndex);
+
+        if (TFWeaponNames.IdOf(players.GetActiveWeapon(player)) == TFWeaponId.Rocketpack
+            && directory.Get(players.GetActiveWeaponEntity(player)) is SsWeapon { State: { } live })
+        {
+            refire = live.NextSecondaryAttack;
+            return true;
+        }
+
+        return arsenal is not null
+            && weapons is not null
+            && PackRow >= 0
+            && arsenal.CarriedRefireOf(player, PackRow, out refire);
+    }
+
+    /// <summary>The thruster's catalog row, resolved once from the side's table; -1 before there is one.</summary>
+    private int PackRow => _packRow ??= weapons?.IndexOf(TFWeaponNames.Name(TFWeaponId.Rocketpack).ToLowerInvariant()) ?? -1;
+
+    private int? _packRow;
+
     /// <summary>The carrier's banked decapitations, the death hook's count (<see cref="TFDecapitations"/>).</summary>
     public int DecapitationsOf(int playerIndex) => carriers.Get(playerIndex)?.Decapitations ?? 0;
 
@@ -130,26 +164,31 @@ public sealed class TFServerWeaponOwners(TFPlayerCarriers carriers, TFRoundWinne
 
     /// <summary>
     /// The pomson's ring hit (stock's <c>ApplyPostHitEffects</c>,
-    /// <c>tf_weaponbase.cpp:5568</c>, :5592): the medic'sÜberCharge rides their
-    /// held medigun's charge meter, the spy's cloak rides their own meter, and
-    /// the caller's scaled percentages come off each, clamped at zero — the
-    /// hundred-point cloak takes a hundred times the fraction (the port's
-    /// cloak meter's own unit, <see cref="TFPlayerNetState.CloakMeter"/>).
-    /// The medic's meter stands only while the release is not running —
-    /// stock's <c>!IsReleasingCharge()</c> (:5572), the carrier's published
-    /// release word. Answers whether a meter moved, stock's <c>bDidDrain</c>
-    /// (:5555): the drain's telling stands on it.
+    /// <c>tf_weaponbase.cpp:5568</c>, :5592): the medic'sÜberCharge rides the
+    /// medigun their class owns — stock's <c>Weapon_OwnsWhatever(TF_WEAPON_MEDIGUN)</c>
+    /// walk (:5571), the port's <see cref="ITFMedigunWeapons.SubtractCharge"/>,
+    /// whose service holds the canonical meter whichever hand holds the gun —
+    /// the spy's cloak rides their own carrier meter; the caller's scaled
+    /// percentages come off each, clamped at zero — the hundred-point cloak
+    /// takes a hundred times the fraction (the port's cloak meter's own unit,
+    /// <see cref="TFPlayerNetState.CloakMeter"/>). The medic's meter stands only
+    /// while the release is not running — stock's <c>!IsReleasingCharge()</c>
+    /// (:5572), the carrier's published release word. The medigun arrives
+    /// through the locator at the drain, the two services each needing the
+    /// other built and the container refusing the cycle at construction
+    /// (<see cref="TFMedigunWeapon"/>'s own owners link). Answers whether a
+    /// meter moved, stock's <c>bDidDrain</c> (:5555): the drain's telling
+    /// stands on it.
     /// </summary>
     public bool DrainOnHitMeters(int playerIndex, float medicFraction, float spyFraction)
     {
         bool drained = false;
-        EntityHandle victim = players.GetHandle(playerIndex);
 
         if (medicFraction > 0f && ClassOf(playerIndex) == TFClass.Medic
             && carriers.Get(playerIndex)?.ChargeReleasing != true
-            && directory.Get(players.GetActiveWeaponEntity(victim)) is SsWeapon { State: { } weapon })
+            && locator?.Resolve<ITFMedigunWeapons>() is { } mediguns
+            && mediguns.SubtractCharge(playerIndex, medicFraction))
         {
-            weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - medicFraction);
             drained = true;
         }
 

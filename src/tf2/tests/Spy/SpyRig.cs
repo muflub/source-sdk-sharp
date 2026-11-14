@@ -517,4 +517,5 @@ internal sealed class SpyMedigun : ITFMedigunWeapons
     public void PreserveCharge(int ownerIndex, float amount) { }
     public int HealingTargetIndex(int ownerIndex) => -1;
     public bool IsReleasing(int ownerIndex) => false;
+    public bool SubtractCharge(int ownerIndex, float amount) => false;
 }

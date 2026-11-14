@@ -47,6 +47,36 @@ public sealed class TFJarSpawnFacts
     }
 
     [Fact]
+    public void A_denied_bar_keeps_the_charge_it_carries()
+    {
+        // Regenerate's deny walk (tf_player.cpp:4103-4112, and the respawn
+        // walk tf_player_shared.cpp:1006-1010): the item answering over zero
+        // on item_meter_resupply_denied keeps the bar it carries — the
+        // refills leave the charge where it stands, unlike the plain fill of
+        // AJarIsFullAtSpawn. Held to 0.25 by the denial, the refill arm would
+        // otherwise slam it to the full the other facts hold.
+        var world = new JarWorld();
+        world.PrimeMeter(0.25f);
+        world.Weapons.Owners.Items[PlayerRig.Index] = DeniedBar();
+
+        world.Resupply.Regenerate(PlayerRig.Player);
+
+        Assert.Equal(0.25f, world.JarMeter);
+    }
+
+    /// <summary>The held item's denial, the hook's stock ordinal.</summary>
+    private static AttributeContainer DeniedBar()
+    {
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(906, "item_meter_resupply_denied", "item_meter_resupply_denied",
+                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                    false, false, AttributeValueType.Default,
+                                    MergedKeys.Block("x")), 1f));
+        return item;
+    }
+
+    [Fact]
     public void ASpawnLeavesTheJarFullToo()
     {
         var world = new JarWorld();
@@ -216,6 +246,10 @@ public sealed class TFJarSpawnFacts
 
         /// <summary>The carried bar, as the live blob holds it.</summary>
         public float JarMeter => ((SsWeapon)Registry.Get(_weapon)!).State.ItemMeter;
+
+        /// <summary>Sets the carried bar before a refill runs, so a fact can
+        /// tell "kept" from "filled": the denial must leave this value.</summary>
+        public void PrimeMeter(float meter) => ((SsWeapon)Registry.Get(_weapon)!).State.ItemMeter = meter;
 
         public IReadOnlyList<(string Weapon, ShotDamage Shot, float Charge)> Launches => Weapons.Effects.Projectiles;
     }

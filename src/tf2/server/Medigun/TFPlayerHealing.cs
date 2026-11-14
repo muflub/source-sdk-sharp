@@ -288,7 +288,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     // ---- the charge effects: the g_MedigunEffects rows a released medigun grants ------------
 
     /// <summary>
-    /// One row of stock's <c>g_MedigunEffects</c> (tf_weapon_medigun.cpp:49-53), the slice
+    /// One row of stock's <c>g_MedigunEffects</c> (tf_weapon_medigun.cpp:49-56), the slice
     /// <c>RecalculateChargeEffects</c> walks (tf_player_shared.cpp:8904-8906): the condition
     /// the charge grants, the wearing-off condition that rides its removal
     /// (<c>TF_COND_LAST</c> on the rows that have none) and whether the wear-off takes
@@ -301,10 +301,14 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     {
         1 => new(1, TFCond.Critboosted, false, default, false),    // MEDIGUN_CHARGE_CRITICALBOOST
         2 => new(2, TFCond.Megaheal, false, default, false),       // MEDIGUN_CHARGE_MEGAHEAL
+        // The Vaccinator's three typed bubbles (tf_weapon_medigun.cpp:54-56).
+        3 => new(3, TFCond.MedigunUberBulletResist, false, default, false),     // MEDIGUN_CHARGE_BULLET_RESIST
+        4 => new(4, TFCond.MedigunUberBlastResist, false, default, false),      // MEDIGUN_CHARGE_BLAST_RESIST
+        5 => new(5, TFCond.MedigunUberFireResist, false, default, false),       // MEDIGUN_CHARGE_FIRE_RESIST
         _ => new(0, TFCond.Invulnerable, true, TFCond.InvulnerableWearingoff, true),  // MEDIGUN_CHARGE_INVULN
     };
 
-    private const int ChargeRowCount = 3;   // MEDIGUN_NUM_CHARGE_TYPES' standard rows; the Vaccinator's resists are its later stage
+    private const int ChargeRowCount = 6;   // MEDIGUN_NUM_CHARGE_TYPES (tf_shareddefs.h:587-598): the plain three and the Vaccinator's three resists
 
     public void RecalculateChargeEffects(EntityHandle player, float now)
     {
@@ -344,7 +348,7 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
     /// </summary>
     public void NoteReleasing(int playerIndex, bool releasing, int chargeType = 0)
     {
-        // A row this port has not got (the Vaccinator's resists) stays the plain charge.
+        // Outside MEDIGUN_NUM_CHARGE_TYPES' six rows the plain charge stands.
         if (releasing)
             releasers[playerIndex] = chargeType is >= 0 and < ChargeRowCount ? chargeType : 0;
         else
@@ -539,6 +543,14 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                 List<(int Index, HealerEntry Entry)> healing = new(state.Healers.Count);
                 foreach (var (index, entry) in state.Healers)
                 {
+                    // Stock's per-healer overheal walk (:2429-2434): once the patient is
+                    // past the class max, the healer's own overheal_fill_rate rides their
+                    // heal — asked on the healer's manager, and only for a player's heal,
+                    // never the dispenser's.
+                    float perHealerScale = 1f;
+                    if (curOverheal > 1f && !entry.DispenserHeal && hooks is { } over && owners is { } healerHolders)
+                        perHealerScale = over.Float(1f, "overheal_fill_rate", healerHolders.ManagerOf(index));
+
                     // Stock's dispenser arm runs before the overheal check: the cloak
                     // refills even when the dispenser heals no health
                     // (tf_player_shared.cpp:2440-2443).
@@ -562,8 +574,10 @@ public sealed class TFPlayerHealing : ITFPlayerHealing, ITFConditionHook, IGameL
                     // Dispensers heal at a constant rate, ignoring the out-of-combat
                     // scale (tf_player_shared.cpp:2497-2513); a medigun's heal is
                     // scaled (:2514-2526). The attribute scale rides both arms
-                    // (:2503, :2520).
-                    float fraction = frametime * entry.Amount * attribModScale * (entry.DispenserHeal ? 1f : scale);
+                    // (:2503, :2520); the per-healer overheal scale rides the medigun
+                    // arm alone (:2520).
+                    float fraction = frametime * entry.Amount * attribModScale
+                                   * (entry.DispenserHeal ? 1f : scale * perHealerScale);
                     state.HealFraction += fraction;
                     if (entry.DispenserHeal)
                     {

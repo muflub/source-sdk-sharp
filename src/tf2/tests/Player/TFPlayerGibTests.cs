@@ -11,6 +11,7 @@ using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 using TF2.Shared.Weapons;
 
+using TF2.Tests.Combat;
 using TF2.Tests.Weapons;
 
 using Xunit;
@@ -282,6 +283,28 @@ public sealed class TFPlayerGibTests
         hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
 
         Assert.False(body.State.Ash);
+    }
+
+    /// <summary>The C.A.P.P.E.R's kill through the layer itself (the pistol's
+    /// <c>ragdolls_become_ash</c>): the damage layer records the blow the way
+    /// production does, and the death walk's ash arm reads that record — the
+    /// killing pistol's item, walked at the hit's attacker, marks the corpse
+    /// ash (tf_player.cpp:12723-12727, :15844-15849).</summary>
+    [Fact]
+    public void The_cappers_kill_through_the_layer_leaves_an_ash_corpse()
+    {
+        var body = Corpse();
+        var rig = new CombatRig();
+        rig.AttackerItem("ragdolls_become_ash", AttributeDescriptionFormat.Additive, 1);
+        rig.Hit(40f, DamageType.Bullet);            // the killing blow, recorded as production records it
+        var engine = Mock();
+        engine.Returns("Entities.GetHealth", 30);   // above the gib threshold: the body itself stays whole
+        var hook = Hook(body, rig.Records, engine, out _, new AttributeHooks(), rig.Owners);
+
+        hook.OnPlayerDied(new PlayerDeath(Body, 3, EntityHandle.None, default(Vector), Body));
+
+        Assert.True(body.State.Ash);
+        Assert.False(body.State.Gib);
     }
 
     // ---- the gold the Golden Wrench asks (set_turn_to_gold) ----------------

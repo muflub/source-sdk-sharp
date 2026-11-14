@@ -181,10 +181,7 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
             // sapper_degenerates_buildings (:515-519, the GetReversesBuildingConstructionSpeed
             // walk at :780-786); the kill feed reads that kind as "recorder"
             // (tf_gamerules.cpp:12333-12336). The scope carries the kind to the hit record.
-            bool reverses = Owners is { } rev && Hooks is { } revAttr && Builder != EntityHandle.None
-                         && revAttr.Float(0f, "sapper_degenerates_buildings",
-                                           rev.ActiveItemOf(Entities.GetIndex(Builder))) != 0f;
-            if (reverses)
+            if (ReversesBuildingConstructionSpeed() != 0f)
             {
                 using (_scopes.Push(TFDamageCustom.SapperRecorderDeath, TFWeaponId.None, ""))
                     _damage.TakeDamage(parent.Handle, Handle, hurt, DamageType.Crush);
@@ -208,6 +205,18 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
         ResolveParent()?.SetPlasmaDisabled(RemoveDisableTime);
         base.OnKilled(attacker);
     }
+
+    /// <summary>
+    /// <c>CObjectSapper::GetReversesBuildingConstructionSpeed</c>
+    /// (tf_obj_sapper.cpp:780-786): the builder's held item's
+    /// <c>sapper_degenerates_buildings</c> — the speed the riding building
+    /// unwinds its upgrade by, and the recorder stamp's gate.
+    /// </summary>
+    public float ReversesBuildingConstructionSpeed()
+        => Owners is { } holders && Hooks is { } hooks && Builder != EntityHandle.None
+               ? hooks.Float(0f, "sapper_degenerates_buildings",
+                             holders.ActiveItemOf(Entities.GetIndex(Builder)))
+               : 0f;
 
     /// <summary>
     /// <c>CObjectSapper::OnTakeDamage</c>'s gate (tf_obj_sapper.cpp:562-575):

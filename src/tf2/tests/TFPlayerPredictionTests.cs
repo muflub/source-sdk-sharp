@@ -61,7 +61,8 @@ public sealed class TFPlayerPredictionTests
         public readonly PlayerData OtherCarrier;
         public readonly Prediction Prediction;
 
-        public Frame(ClientItemSchema? itemSchema = null, ClientWeaponCatalog? itemCatalog = null)
+        public Frame(ClientItemSchema? itemSchema = null, ClientWeaponCatalog? itemCatalog = null,
+            client::SourceSharp.Client.IClientStandalones? standalones = null)
         {
             Engine.Returns("Environment.Globals", new AbiGlobals(GlobalsBlock));
             var convars = SpyConVars();
@@ -69,7 +70,7 @@ public sealed class TFPlayerPredictionTests
             Carrier = Data(Carriers, Local);
             OtherCarrier = Data(Carriers, Other);
             Prediction = new Prediction(Log, Carriers, NetStateCatalog.Of(typeof(PlayerData).Assembly, Log),
-                new NoStandalones(), Engine,
+                standalones ?? new NoStandalones(), Engine,
                 convars.Declared<CloakConsumeVar>(), convars.Declared<CloakRegenVar>(),
                 convars.Declared<InvisTimeVar>(), convars.Declared<InvisUnstealthVar>(),
                 itemSchema: itemSchema, weaponCatalog: itemCatalog);
@@ -114,6 +115,25 @@ public sealed class TFPlayerPredictionTests
     {
         public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live() => [];
         public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+    }
+
+    /// <summary>One client player entity, the machine's standalones: the epoch
+    /// is the fact's dial, the spawn the compare straddles.</summary>
+    private sealed class SpawnStandalones : client::SourceSharp.Client.IClientStandalones
+    {
+        public readonly client::SourceSharp.Client.Standalone.ClientSsPlayer Player = NewPlayer();
+
+        public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live() => [Player];
+
+        public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => Player;
+
+        private static client::SourceSharp.Client.Standalone.ClientSsPlayer NewPlayer()
+        {
+            var player =
+                new client::SourceSharp.Client.Standalone.ClientSsPlayer(new ClientEngine());
+            player.State.BindLocal();
+            return player;
+        }
     }
 
     [Fact]
@@ -387,9 +407,10 @@ public sealed class TFPlayerPredictionTests
     //-------------------------------------------------------------------------
 
     /// <summary>The frame with the local player spawned a spy and the basis reset.</summary>
-    private static Frame Spy(bool stealthed = false)
+    private static Frame Spy(bool stealthed = false,
+        client::SourceSharp.Client.IClientStandalones? standalones = null)
     {
-        var frame = new Frame();
+        var frame = new Frame(standalones: standalones);
         Views.SetClass(frame.Carrier.State, TFClass.Spy);
 
         // The arrival's word carries the bit; the tick reads the state the
@@ -768,6 +789,38 @@ public sealed class TFPlayerPredictionTests
         Assert.Equal(1, counts.Mispredicts);
         Assert.Contains("MISPREDICTION at command 200", frame.Log.Text);
         Assert.Contains("DisguiseClass, DisguiseTeam", frame.Log.Text);
+        Assert.Equal((int)TFClass.Undefined, frame.Working.DisguiseClass);
+        Assert.Equal((int)TFTeam.Unassigned, frame.Working.DisguiseTeam);
+        Assert.False(Views.InCond(frame.Working, Cond.Disguised));
+    }
+
+    [Fact]
+    public void A_spawn_the_compare_straddles_is_adopted_never_a_misprediction()
+    {
+        var standalones = new SpawnStandalones();
+        var frame = Spy(standalones: standalones);
+
+        frame.Arrive(Press);
+        frame.Prediction.ResetBasis(LocalPlayer, 11);
+
+        for (int command = 12; command <= 200; command++)
+            frame.Prediction.CommandRan(LocalPlayer, command, firstTime: true);
+
+        frame.Arrive(Completed);
+        frame.Prediction.ResetBasis(LocalPlayer, 200);
+
+        // The spawn's stamp moves under the compare's feet: the ring's
+        // completed run was saved under the last epoch, the arrival carries
+        // the next — the core's SpawnedOutOfBand adoption, the machine's
+        // shadow of it. The verdict is the arrival's, not a misprediction.
+        standalones.Player.State.SpawnEpoch = 4;
+
+        frame.Arrive(Respawned);
+        frame.Prediction.ResetBasis(LocalPlayer, 200);
+
+        var counts = frame.Prediction.Counts;
+        Assert.Equal(0, counts.Mispredicts);
+        Assert.Equal(1, counts.SpawnAdoptions);
         Assert.Equal((int)TFClass.Undefined, frame.Working.DisguiseClass);
         Assert.Equal((int)TFTeam.Unassigned, frame.Working.DisguiseTeam);
         Assert.False(Views.InCond(frame.Working, Cond.Disguised));

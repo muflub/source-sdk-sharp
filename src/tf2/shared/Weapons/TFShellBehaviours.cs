@@ -122,7 +122,9 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     /// machine's pool prices; <c>CanAttack</c> silently refuses (:243); the
     /// count under the price is the empty sound and nothing else, stock's
     /// own else (:289-292) booking no refire; the shot is the SPECIAL3
-    /// sound (:248) and, live, the orb.
+    /// sound (:248) and, live, the orb, then both attacks wait the shot's
+    /// 0.67 out (:305-306), the held button one orb per refire and not one
+    /// a tick.
     /// </summary>
     private void ShockAttack(in WeaponAttackContext attack, TFWeaponScript script)
     {
@@ -149,13 +151,22 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         PlaySound(in attack, script, WeaponScriptSound.Special3);
         if (attack.EffectsLive)
             Parts.Effects.ShockAttack(in attack, script);
+
+        weapon.NextPrimaryAttack = attack.Now + MechanicalArmEmptyRefire;
+        weapon.NextSecondaryAttack = attack.Now + MechanicalArmEmptyRefire;
     }
 
     /// <summary>
     /// The jars: the stock <c>CTFJar</c> family's pair whose shot is the meter
-    /// itself (<c>tf_weapon_jar.h:41</c>, the milk its second face).
+    /// itself (<c>tf_weapon_jar.h:41</c>, the milk its second face), with the
+    /// gas face beside them (<c>CTFJarGas</c>, <c>tf_weapon_jar_gas.cpp</c>):
+    /// the plain jars' purse is the effect bar, the gas's the COMBO meter —
+    /// for both the count the press spends is the bar's refill, the
+    /// <c>OnResourceMeterFilled</c>' grenade back (:102-109) standing in the
+    /// same place the plain jar's regen grants its round.
     /// </summary>
-    private static bool IsJar(TFWeaponScript script) => script.Id is TFWeaponId.Jar or TFWeaponId.JarMilk;
+    private static bool IsJar(TFWeaponScript script) =>
+        script.Id is TFWeaponId.Jar or TFWeaponId.JarMilk or TFWeaponId.JarGas;
 
     /// <summary>
     /// The stickybomb launcher's own secondary is the detonation, not the
@@ -327,7 +338,14 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         float charge = MathF.Min(held, window);
         weapon.BehaviourMeter = 0f;
 
-        int cost = Math.Max(1, script.Primary.AmmoPerShot);
+        // GetAmmoPerShot's chain (tf_weaponbase_gun.cpp:458-471) over the
+        // launch's pool: the item's mod_ammo_per_shot — the Short Circuit's
+        // five (CTFMechanicalArm::PrimaryAttack's CALL_ATTRIB_HOOK_INT over
+        // RemoveAmmo, tf_weapon_mechanical_arm.cpp:467-469) — the stock gate
+        // reads its own zero-answer override and spends the attr regardless;
+        // the shell prices the shot and refuses under it, the base gun's
+        // :123-131 arm.
+        int cost = PrimaryAmmoPerShot(attack.Type, attack.Command.OwnerIndex, script.Primary.AmmoPerShot);
 
         // The energy weapon's pool is none (the Manmelter's
         // energy_weapon_no_ammo): the shot spends nothing, the clip standing
@@ -350,7 +368,10 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
 
         // The jar's second purse empties with the round: the bar restart
         // stock's FireJar opens (StartEffectBarRegen, tf_weapon_jar.cpp:135),
-        // the meter back at zero for the regen the frame tail runs.
+        // the meter back at zero for the regen the frame tail runs; the gas
+        // face's spend is the same zero under RemoveJarGas
+        // (tf_weapon_jar_gas.cpp:255-265), the grenade behind it the purse
+        // arm above spends.
         if (IsJar(script))
             TFItemMeter.Use(weapon);
 

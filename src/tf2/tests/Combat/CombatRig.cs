@@ -200,6 +200,7 @@ internal sealed class RigMediguns : ITFMedigunWeapons
     public void RemoveMedigun(int ownerIndex, float now) { }
     public int HealingTargetIndex(int ownerIndex) => -1;
     public bool IsReleasing(int ownerIndex) => false;
+    public bool SubtractCharge(int ownerIndex, float amount) => false;
 
     public void PreserveCharge(int ownerIndex, float amount)
         => Sets.Add($"preserve {ownerIndex} {amount}");

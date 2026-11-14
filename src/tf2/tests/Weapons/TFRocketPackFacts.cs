@@ -211,6 +211,83 @@ public sealed class TFRocketPackFacts
         Assert.Equal(new Vector(810f, 0f, 315f), server.PlayerState.Velocity);
     }
 
+    [Fact]
+    public void The_landing_clears_the_cond_for_a_plain_second_launch()
+    {
+        var world = Rig(out PlayerNetState carrier);
+        var (w, vm) = world.Armed("tf_weapon_rocketpack", clip: 2, reserve: 2);
+        w.ItemMeter = 1f;
+
+        ArmAndFly(world, w, vm);
+
+        // The landing (ConditionThink's ground arm, tf_player_shared.cpp
+        // :3133-3161): grounded past the press clock, the flight over, the
+        // rocket-pack cond goes — stock's :3151 — and the next press is a
+        // fresh launch no air-launch item is needed for.
+        world.Run(w, vm, buttons: 0, now: 12f);
+        Assert.False(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.Rocketpack));
+
+        // So the plain thruster's second launch pops and flies again, the
+        // last half of the bar with it (:483-516, :521-548).
+        world.Run(w, vm, Attack, now: 13f);
+        Assert.Equal(new Vector(810f, 0f, 665f), carrier.Velocity);
+        world.Run(w, vm, buttons: 0, now: 14.3f);
+        Assert.Equal(new Vector(810f, 0f, 315f), carrier.Velocity);
+        Assert.Equal(0f, w.ItemMeter);
+    }
+
+    [Fact]
+    public void The_server_second_launch_fires_after_the_landing()
+    {
+        var server = new ServerPress();
+        server.Weapons.Owners.Conditions[TFWeaponWorld.Owner] = new TFConditions(authoritative: true);
+
+        Assert.True(server.Arsenal.GiveWeapon(PlayerRig.Player, "tf_weapon_rocketpack"),
+                    "the thruster is taken and deploys itself");
+        server.WeaponState.ItemMeter = 1f;
+
+        for (int k = 0; k < 100 && server.WeaponState.NextSecondaryAttack > server.Now; k++)
+            server.Command(0);
+
+        server.Command(Attack);
+        Assert.Equal(new Vector(0f, 0f, 350f), server.PlayerState.Velocity);
+
+        for (int k = 0; k < 50; k++)
+            server.Command(0);
+
+        Assert.Equal(new Vector(810f, 0f, 315f), server.PlayerState.Velocity);
+
+        // Idle commands to past the press clock: on the ground the landing
+        // clears the cond, and the plain second press pops again.
+        for (int k = 0; k < 100 && server.WeaponState.NextSecondaryAttack >= server.Now; k++)
+            server.Command(0);
+
+        Assert.False(server.Weapons.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.Rocketpack));
+
+        server.Command(Attack);
+        Assert.Equal(new Vector(810f, 0f, 665f), server.PlayerState.Velocity);
+    }
+
+    [Fact]
+    public void A_ground_touch_drops_the_parachute_before_the_landing()
+    {
+        var world = Rig(out PlayerNetState carrier);
+        var (w, vm) = world.Armed("tf_weapon_rocketpack", clip: 2, reserve: 2);
+        w.ItemMeter = 1f;
+
+        world.Run(w, vm, Attack, now: 10f);
+        Assert.True(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.ParachuteActive));
+
+        // Grounded again before the flight's delay — the head-bonk fall
+        // stock's arm stands for (ConditionThink's ground arm, :3130): the
+        // parachute goes at the touch, the launch still lands at its own.
+        world.Run(w, vm, buttons: 0, now: 10.3f);
+        Assert.False(world.Owners.ConditionsOf(TFWeaponWorld.Owner)!.Has(TFCond.ParachuteActive));
+
+        world.Run(w, vm, buttons: 0, now: 10.7f);
+        Assert.Equal(new Vector(810f, 0f, 315f), carrier.Velocity);
+    }
+
     /// <summary>
     /// One server's world wearing the thruster: the core arsenal carrying the
     /// TF behaviours over the extras catalogue, the carried pair pre-spawned

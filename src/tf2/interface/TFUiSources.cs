@@ -985,6 +985,12 @@ public interface ITFDisguiseMenuSource
     /// constructor default RED.</summary>
     int Team { get; }
 
+    /// <summary>Stock's m_iShowingTeam as the toggle's state
+    /// (tf_hud_menu_spy_disguise.cpp:569-582): false shows the enemy
+    /// team, true the player's own — the draw and the key arm read the
+    /// same word, the hud element's one copy.</summary>
+    bool Toggled { get; }
+
     /// <summary>The toggle sentence — the #Hud_Menu_Spy_Minus_Toggle
     /// token with <c>%disguiseteam%</c> and <c>%reload%</c> replaced by
     /// the keys they are bound to (stock's SetDialogVariable,
@@ -1016,6 +1022,11 @@ public interface ITFDisguiseMenuActions
     /// <summary>Stock's cancel: lastinv (slot10 and KEY_0, :294-298,
     /// :395-398).</summary>
     void Cancel();
+
+    /// <summary>The toggle arm (stock's disguiseteam key,
+    /// :308-312, over ToggleDisguiseTeam :569-582): the hud input layer
+    /// calls it when a bound key lands while the menu is up.</summary>
+    void ToggleTeam();
 }
 
 /// <summary>

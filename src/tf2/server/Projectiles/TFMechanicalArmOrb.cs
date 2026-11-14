@@ -227,15 +227,16 @@ public sealed class TFMechanicalArmOrb(IEngineEntityPhysics physics, EntityMotio
                 continue;
 
             // FVisible over MASK_OPAQUE (:767): no wall between, whatever the
-            // shot line below says.
-            TraceResult seen = _world.TraceLine(Origin, Entities.GetWorldSpaceCenter(victim), TraceMask.Solid);
+            // shot line below says. Both lines start inside the orb, so both
+            // skip it, as FVisible's and the team filter's traces do.
+            TraceResult seen = _world.TraceLine(Origin, Entities.GetWorldSpaceCenter(victim), TraceMask.Opaque, Handle);
             if (seen.Fraction != 1f && seen.Entity != victim)
                 continue;
 
-            // The zap's line (:781): MASK_SHOT less the hitboxes, the world
-            // between orb and victim refusing it.
-            TraceResult shot = _world.TraceLine(Origin, Entities.GetOrigin(victim), TraceMask.ShotHull);
-            if (shot.Fraction != 1f && shot.Entity != victim)
+            // The zap's line (:781-783): MASK_SHOT less the hitboxes, only
+            // the world between orb and victim refusing it.
+            TraceResult shot = _world.TraceLine(Origin, Entities.GetOrigin(victim), TraceMask.ShotHull, Handle);
+            if (shot.Fraction != 1f && IsOrbWorld(shot.Entity))
                 continue;
 
             Zap(victim);
@@ -253,6 +254,9 @@ public sealed class TFMechanicalArmOrb(IEngineEntityPhysics physics, EntityMotio
 
         _nextAttack = GameTime + TFProjectileDefs.MechanicalArmOrbZapRefire;
     }
+
+    /// <summary><c>DidHitWorld</c>: entry 0, the world entity.</summary>
+    private bool IsOrbWorld(EntityHandle hit) => hit != EntityHandle.None && Entities.GetIndex(hit) == 0;
 
     /// <summary>
     /// The zap (<c>ZapPlayer</c>, :701-722): the hit particle at the victim

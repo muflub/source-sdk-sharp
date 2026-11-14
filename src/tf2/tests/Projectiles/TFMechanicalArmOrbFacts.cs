@@ -234,4 +234,59 @@ public sealed class TFMechanicalArmOrbFacts
         Assert.Equal(0, rig.Particles);
         Assert.Equal(0, rig.Base.Engine.CountOf("Sound.EntityEmitSound"));
     }
+
+    [Fact]
+    public void TheZapLinesSkipTheOrbTheyStartIn()
+    {
+        var rig = new OrbRig();
+        var engine = rig.Base.Engine;
+        engine.FillsSphere(OrbRig.Victim);
+        // A line that starts inside the orb stops on it at once unless the
+        // trace skips it, as FVisible's and the team filter's do (:767, :781).
+        engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
+        {
+            var call = engine.Calls[^1];
+            return call.ArgAs<EntityHandle>(3) == ProjectileRig.ProjectileHandle
+                ? new TraceResult(false, 1f, call.ArgAs<Vector>(1), Vector.Zero, EntityHandle.None)
+                : new TraceResult(true, 0f, call.ArgAs<Vector>(0), Vector.Zero, ProjectileRig.ProjectileHandle);
+        });
+        engine.ReturnsEachCall("Entities.GetIndex",
+            () => engine.Calls[^1].ArgAs<EntityHandle>(0).EntryIndex);
+
+        rig.Think();
+
+        Assert.Equal(OrbRig.Victim, rig.Hits[0].ArgAs<EntityHandle>(0));
+    }
+
+    [Fact]
+    public void OnlyTheWorldOnTheShotLineRefusesTheZap()
+    {
+        var prop = new EntityHandle(0x0004_0000u | 40);
+        var world = new EntityHandle(0u);
+
+        // The shot line refuses only DidHitWorld (:782-783): a prop between
+        // orb and victim lets the zap through, the world does not.
+        Assert.Equal(OrbRig.Victim, ZapsWithShotLineOn(prop)[0].ArgAs<EntityHandle>(0));
+        Assert.Empty(ZapsWithShotLineOn(world));
+    }
+
+    private static IReadOnlyList<EngineCall> ZapsWithShotLineOn(EntityHandle blocker)
+    {
+        var rig = new OrbRig();
+        var engine = rig.Base.Engine;
+        engine.FillsSphere(OrbRig.Victim);
+        engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
+        {
+            var call = engine.Calls[^1];
+            return call.ArgAs<TraceMask>(2) == TraceMask.ShotHull
+                ? new TraceResult(true, 0.5f, call.ArgAs<Vector>(1), Vector.Zero, blocker)
+                : new TraceResult(false, 1f, call.ArgAs<Vector>(1), Vector.Zero, EntityHandle.None);
+        });
+        engine.ReturnsEachCall("Entities.GetIndex",
+            () => engine.Calls[^1].ArgAs<EntityHandle>(0).EntryIndex);
+
+        rig.Think();
+
+        return rig.Hits;
+    }
 }

@@ -1,6 +1,11 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
+using SourceSharp.Shared;
+using SourceSharp.Tests;
 
+using TF2.Tests.Weapons;
 using TF2.Shared;
+using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 
@@ -278,7 +283,7 @@ public sealed class TFDisguiseTests
     public void The_disguise_command_maps_stocks_team_numbers()
     {
         var rig = new SpyRig();
-        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine);
+        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine, Carried());
 
         // Stock's client intercept: -1 is the enemy team (1 is BLUE, anything
         // else RED, -2 the player's own). A red spy asking class 1 on -1.
@@ -304,7 +309,7 @@ public sealed class TFDisguiseTests
         Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguising));
 
         // The commands answer consumed, but nothing starts (CanDisguise's gate).
-        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine);
+        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine, Carried());
         Assert.True(command.Handle(SpyRig.Spy, "disguise", new[] { "6", "3" }));
         Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguising));
     }
@@ -359,7 +364,7 @@ public sealed class TFDisguiseTests
     public void A_disguise_command_that_parses_nothing_is_consumed()
     {
         var rig = new SpyRig();
-        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine);
+        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine, Carried());
 
         // Two arguments, so the parse arm is reached and not the arity check.
         Assert.True(command.Handle(SpyRig.Spy, "disguise", new[] { "banana", "-1" }));
@@ -370,10 +375,91 @@ public sealed class TFDisguiseTests
     public void A_command_that_is_not_the_spy_ones_is_left_alone()
     {
         var rig = new SpyRig();
-        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine);
+        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine, Carried());
 
         Assert.False(command.Handle(SpyRig.Spy, "jointeam", new[] { "red" }));
         Assert.False(command.Handle(SpyRig.Spy, "disguise", new[] { "notanumber" }));
         Assert.False(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguising));
+    }
+
+    /// <summary>What is in the hands, by classname — the same walk the
+    /// selection facts read.</summary>
+    private static string Held(Arsenal hands)
+    {
+        foreach (var (className, _, active) in hands.Holdings(SpyRig.Spy))
+            if (active)
+                return className;
+
+        return "";
+    }
+
+    /// <summary>A second arsenal over the shipped rows, holding the spy's
+    /// revolver and his kit with the kit in the hands and the revolver the
+    /// last — the state the taken disguise's tail walks
+    /// (<c>ProcessDisguiseImpulse</c>'s switch, tf_player_shared.cpp:8720-8724).
+    /// Its engine is its own: only this player lives there, and the entities
+    /// the deploy makes come from the queue, as the item-switch fact's do.</summary>
+    private static Arsenal Carried()
+    {
+        var engine = TestServices.Mock()
+            .Returns("Entities.IsValid", true).Returns("Entities.GetIndex", SpyRig.Spy.EntryIndex)
+            .Returns("Entities.GetClassName", EntityNames.Player)
+            .Returns("Entities.GetOrigin", new Vector(0, 0, 64))
+            .Returns("WorldQuery.TraceLine",
+                     new TraceResult(true, 0.5f, new Vector(0f, 0f, 8f), new Vector(0f, 0f, 1f), EntityHandle.None))
+            .Returns("Clock.Now", 100f)
+            .Ignores("EntityRender.LookupSequenceByActivity");
+
+        engine.ReturnsEachCall("Players.IsAlive", () => engine.Calls[^1].ArgAs<EntityHandle>(0) == SpyRig.Spy);
+
+        var weapon = new EntityHandle(0x0500u);
+        var viewModel = new EntityHandle(0x0501u);
+        var created = new Queue<EntityHandle>([weapon, viewModel]);
+        engine.ReturnsEachCall("Entities.Create", () => created.Dequeue());
+
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(SsWeapon).Assembly);
+        registry.Services = TestServices.Services(out _);
+        registry.KeyValue(SpyRig.Spy, EntityNames.Player, "targetname", "disguise_fixture_player");
+        registry.Spawn(weapon, EntityNames.SsWeapon);
+        registry.Spawn(viewModel, EntityNames.PredictedViewModel);
+
+        var world = new TFWeaponWorld();
+        var hands = new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
+                                engine, engine, registry, engine, new DamageHitGroups(),
+                                weapons: world.Catalog, ammo: world.Ammo);
+
+        Assert.True(hands.GiveWeapon(SpyRig.Spy, "tf_weapon_revolver"), "the arsenal gives the revolver");
+        Assert.True(hands.GiveWeapon(SpyRig.Spy, "tf_weapon_pda_spy"), "and the kit");
+        Assert.True(hands.SwitchSlot(SpyRig.Spy, 1) == SwitchOutcome.Switched, "the kit is in the hands");
+        return hands;
+    }
+
+    [Fact]
+    public void The_taken_disguise_takes_the_kit_out_of_the_hands()
+    {
+        var rig = new SpyRig();
+        var hands = Carried();
+        rig.ActiveWeapon = "tf_weapon_pda_spy";    // the kit is what the menu shows under
+        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine, hands);
+
+        Assert.True(command.Handle(SpyRig.Spy, "disguise", new[] { "3", "-1" }));
+        Assert.True(rig.Conditions.InCond(SpyRig.Spy, TFCond.Disguising));
+
+        // Stock's tail (:8720-8724): the kit goes back, the weapon before it
+        // returns — the menu's own show arm is the kit in the hands.
+        Assert.Equal("tf_weapon_revolver", Held(hands));
+    }
+
+    [Fact]
+    public void A_disguise_with_another_weapon_out_leaves_the_hands()
+    {
+        var rig = new SpyRig();
+        var hands = Carried();
+        rig.ActiveWeapon = "tf_weapon_revolver";   // not the kit: no tail
+        var command = new TF2.Server.Player.TFSpyDisguiseCommand(rig.Spies, rig.Engine, hands);
+
+        Assert.True(command.Handle(SpyRig.Spy, "disguise", new[] { "3", "-1" }));
+        Assert.Equal("tf_weapon_pda_spy", Held(hands));
     }
 }

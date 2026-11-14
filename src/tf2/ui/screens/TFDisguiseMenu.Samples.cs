@@ -31,14 +31,17 @@ public static class TFDisguiseMenuSamples
 }
 
 /// <summary>The disguise kit's world as the menu reads it: the local
-/// player's team and whether the kit is out (the in-game adapter's team
-/// read is the player manager's).</summary>
+/// player's team, whether the kit is out (the in-game adapter's team
+/// read is the player manager's) and the toggle's word.</summary>
 public sealed class FakeTFDisguiseMenuSource : ITFDisguiseMenuSource
 {
     public bool DisguiseKitEquipped { get; init; } = true;
 
     /// <summary>The local player's team, the raw TF number (2 RED, 3 BLU).</summary>
     public int Team { get; init; }
+
+    /// <summary>The toggle's state, as the adapter's key leaves it.</summary>
+    public bool Toggled { get; set; }
 
     public string ToggleLabel { get; init; } = "Hit 'x' or 'r' to Toggle Team";
 
@@ -54,5 +57,8 @@ public sealed class FakeTFDisguiseMenuActions : ITFDisguiseMenuActions
     public void Disguise(int classNumber, int team) => Disguises.Add((classNumber, team));
 
     public void Cancel()
+    { }
+
+    public void ToggleTeam()
     { }
 }

@@ -329,6 +329,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // zero, as stock's first frame does.
         public float Meter;
         public float MeterTime;
+
+        // The refire clock the weapon holstered with (WeaponNetState
+        // .NextSecondaryAttack), banked as the clip is: the ground arm's gate
+        // reads the owned pack's while another weapon is out
+        // (tf_player_shared.cpp:3137-3140, whose m_flRefireTime rides the
+        // entity through the switch).
+        public float Refire;
     }
 
     internal sealed class Carry
@@ -608,6 +615,36 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             meter = owned.Meter;
             stamp = owned.MeterTime;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc cref="IWeaponGiver.CarriedRefireOf"/>
+    public bool CarriedRefireOf(EntityHandle player, int typeIndex, out float stamp)
+    {
+        stamp = 0f;
+
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return false;
+
+        foreach (var owned in carry.Weapons)
+        {
+            if (owned.TypeIndex != typeIndex)
+                continue;
+
+            // The held weapon's clock is the live blob's, the holstered one
+            // the last holster's bank, as the carried meter's pair is.
+            if (carry.ActiveSlot >= 0 && carry.ActiveSlot < carry.Weapons.Count
+                && carry.Weapons[carry.ActiveSlot].TypeIndex == typeIndex
+                && _directory.Get(carry.Weapon) is SsWeapon live)
+            {
+                stamp = live.State.NextSecondaryAttack;
+                return true;
+            }
+
+            stamp = owned.Refire;
             return true;
         }
 
@@ -1146,6 +1183,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         owned.SpecialTime = weapon.State.SpecialTime;
         owned.Meter = weapon.State.ItemMeter;
         owned.MeterTime = weapon.State.ItemMeterTime;
+        owned.Refire = weapon.State.NextSecondaryAttack;
     }
 
     /// <summary>

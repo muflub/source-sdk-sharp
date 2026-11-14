@@ -22,6 +22,7 @@ public sealed class TFMedigunWeaponTests
     private static readonly TFWeaponScript Medigun = WeaponFixtures.Parse("tf_weapon_medigun");
     private const int Attack1 = (int)WeaponButtons.Attack;
     private const int Attack2 = (int)WeaponButtons.Attack2;
+    private const int Reload = (int)WeaponButtons.Reload;
 
     private static EntityHandle H(int index) => MedigunRig.HandleFor(index);
 
@@ -574,6 +575,54 @@ public sealed class TFMedigunWeaponTests
         Assert.Equal(3f / 40f, weapon.ChargeLevel(1), 5);
     }
 
+    /// <summary>
+    /// The same start, the same hurt patient (100 of 125, past the crawl floor, short of
+    /// the full-health bonus's own mult) and ten seconds of held beam: the plain gun
+    /// answers 10 of 40, and the shipped Kritzkrieg — item 35's
+    /// <c>mult_medigun_uberchargerate</c> 1.25 through the real definition, on the
+    /// medic's manager as the loadout carries it — one and a quarter of that.
+    /// </summary>
+    [Fact]
+    public void The_shipped_kritzkriegs_meter_builds_stock_times_one_point_two_five()
+    {
+        var kritz = ShippedSchema().Item(35)
+            ?? throw new InvalidOperationException("the shipped schema has no item 35");
+
+        var stock = Standing();
+        var stockWeapon = stock.NewWeapon();
+        var krig = Standing();
+        krig.Owners.Managers[1] = new AttributeContainer(kritz, AttributeProviderType.Weapon);
+        var kritzWeapon = krig.NewWeapon();
+
+        for (int second = 0; second <= 10; second++)
+        {
+            if (second == 0)
+            {
+                QueueFound(stock);
+                QueueFound(krig);
+            }
+            else
+            {
+                QueueKept(stock);
+                QueueKept(krig);
+            }
+            Command(stock, stockWeapon, held: true, now: 10f + second);
+            Command(krig, kritzWeapon, held: true, now: 10f + second);
+        }
+
+        Assert.Equal(0.25f, stockWeapon.ChargeLevel(1), 5);
+        Assert.Equal(0.3125f, kritzWeapon.ChargeLevel(1), 5);
+        Assert.Equal(1.25f, kritzWeapon.ChargeLevel(1) / stockWeapon.ChargeLevel(1), 3);
+    }
+
+    /// <summary>The game's own schema, from the content dir the game runs (the shell facts' helper).</summary>
+    private static ItemSchema ShippedSchema()
+    {
+        string path = global::SourceSharp.Tests.RepoLayout.Repo("bin", global::SourceSharp.Tests.RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        return EconTestFiles.Schema(File.ReadAllText(path));
+    }
+
     [Fact]
     public void The_overheal_uberchargerate_applies_when_the_patient_is_at_full_health()
     {
@@ -784,6 +833,45 @@ public sealed class TFMedigunWeaponTests
         Assert.Equal(2, weapon.HealingTargetIndex(1));
         Assert.Contains("remove 3 HealthBuff", rig.Conditions.Calls);
         Assert.Contains("add 2 HealthBuff d-1 p1", rig.Conditions.Calls);
+    }
+
+    // ---- the on-hit drain (CWeaponMedigun::SubtractCharge, tf_weapon_medigun.cpp:1067) --------------
+
+    [Fact]
+    public void The_pomson_s_drain_leaves_the_meter_at_its_floor()
+    {
+        // The ask off the meter, floored at zero (SubtractCharge's Max and
+        // SubtractChargeAndUpdateDeployState's :1472); no release runs, so the
+        // deploy-state arm has nothing to stop.
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+        weapon.SetChargeLevel(1, 0.8f);
+
+        Assert.True(weapon.SubtractCharge(1, 0.3f));
+        Assert.Equal(0.5f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_drain_past_the_meter_stops_at_zero_and_answers()
+    {
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+        weapon.SetChargeLevel(1, 0.1f);
+
+        Assert.True(weapon.SubtractCharge(1, 0.3f));
+        Assert.Equal(0f, weapon.ChargeLevel(1), 5);
+    }
+
+    [Fact]
+    public void A_medic_with_no_medigun_state_is_no_drain()
+    {
+        // Stock's null pMedigun (tf_weaponbase.cpp:5571): no state, no meter,
+        // the false the caller's bDidDrain reads.
+        var rig = Standing();
+        var weapon = rig.NewWeapon();
+
+        Assert.False(weapon.SubtractCharge(2, 0.3f));
+        Assert.Equal(0f, weapon.ChargeLevel(2), 5);
     }
 
     // ---- the ÜberCharge ---------------------------------------------------------------
@@ -1162,7 +1250,8 @@ public sealed class TFMedigunWeaponTests
     public void AResistChargeTypeWithNoRowPopsThePlainCharge()
     {
         // The Vaccinator's set_charge_type is a resist row (MEDIGUN_CHARGE_BULLET_RESIST = 3,
-        // tf_shareddefs.h:587-598), which is its later stage: the pop must not walk off the rows.
+        // tf_shareddefs.h:587-598): the g_MedigunEffects rows run to six (:49-57), so the pop
+        // of a bullet-resist charge hands the typed bullet bubble, not the plain über.
         var rig = Standing();
         rig.Owners.Managers[1] = ChargeHolder(3f);
         var weapon = rig.NewWeapon();
@@ -1173,8 +1262,8 @@ public sealed class TFMedigunWeaponTests
         Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
 
         Assert.True(weapon.IsReleasing(1));
-        Assert.True(rig.Conditions.Holds(1, TFCond.Invulnerable));
-        Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
+        Assert.True(rig.Conditions.Holds(1, TFCond.MedigunUberBulletResist));
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunUberBulletResist));
     }
 
     [Fact]
@@ -1258,6 +1347,131 @@ public sealed class TFMedigunWeaponTests
 
         Assert.True(rig.Conditions.Holds(1, TFCond.Invulnerable));
         Assert.True(rig.Conditions.Holds(3, TFCond.Invulnerable));
+    }
+
+    // ---- the Vaccinator: the attach pair, the reload cycle, the typed bubble ------------------
+
+    [Fact]
+    public void AVaccinatorAttachPutsItsSmallBulletResistOnPatientAndMedic()
+    {
+        // The resist gun's attach (:1032-1037): the small bullet resist lands on the patient
+        // and on the medic, the medic its provider — set_weapon_mode 3, MEDIGUN_RESIST
+        // (tf_weapon_medigun.h:23-29).
+        var rig = Standing();
+        rig.Owners.Managers[1] = ResistMode();
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+
+        Command(rig, weapon, held: true, now: 10f);
+
+        Assert.Contains("add 3 MedigunSmallBulletResist d-1 p1", rig.Conditions.Calls);
+        Assert.Contains("add 1 MedigunSmallBulletResist d-1 p1", rig.Conditions.Calls);
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+    }
+
+    [Fact]
+    public void AVaccinatorReloadStepsBulletToBlastThenFireAndWrapsBack()
+    {
+        // One step per reload press (:838-901): bullet, blast, fire, wrap; the old pair
+        // comes off patient and medic before the new one lands (:853-872). The autoheal
+        // convar keeps the beam over the button release (:1563-1573).
+        var rig = Standing();
+        rig.Clients.ConVars[(1, "tf_medigun_autoheal")] = "1";
+        rig.Owners.Managers[1] = ResistMode();
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);      // the attach: the bullet pair
+
+        Command(rig, weapon, held: false, now: 10.5f, extraButtons: Reload);      // the press edge: step
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBlastResist));
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+        Assert.Contains("remove 3 MedigunSmallBulletResist", rig.Conditions.Calls);
+
+        Command(rig, weapon, held: false, now: 10.6f);                            // the release: the arm re-arms
+        Command(rig, weapon, held: false, now: 10.7f, extraButtons: Reload);
+        Assert.True(rig.Conditions.Holds(1, TFCond.MedigunSmallFireResist));
+
+        Command(rig, weapon, held: false, now: 10.8f);
+        Command(rig, weapon, held: false, now: 10.9f, extraButtons: Reload);      // the third step wraps
+        Assert.True(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunSmallFireResist));
+    }
+
+    [Fact]
+    public void APlainGunIgnoresTheReloadResistStep()
+    {
+        // CycleResistType refuses outside the resist mode (:841): a reload press on a
+        // gun that is not the Vaccinator hands nobody a resist.
+        var rig = Standing();
+        rig.Clients.ConVars[(1, "tf_medigun_autoheal")] = "1";
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+
+        Command(rig, weapon, held: false, now: 10.5f, extraButtons: Reload);
+
+        Assert.DoesNotContain("add 3 MedigunSmallBulletResist d-1 p1", rig.Conditions.Calls);
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunSmallBulletResist));
+    }
+
+    [Fact]
+    public void AVaccinatorPopsTheBulletBubbleAtQuarterChargeOnBoth()
+    {
+        // The resist pop (:1979-1991): one quarter of the meter (GetMinChargeAmount
+        // :803-813), the typed bubble three seconds on medic then patient (:1986, :1990),
+        // the plain release flag untouched, the deployed event riding every mode
+        // (:1920-1929); a still-held button on a worn bubble answers nothing (:1822-1834).
+        var rig = Standing();
+        rig.Owners.Managers[1] = ResistMode();
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 0.5f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.Contains("add 1 MedigunUberBulletResist d3 p1", rig.Conditions.Calls);
+        Assert.Contains("add 3 MedigunUberBulletResist d3 p1", rig.Conditions.Calls);
+        Assert.Equal(0.2625f, weapon.ChargeLevel(1), 5);               // the heal banks its 0.0125 (:1327), the chunk pays its 0.25 (:1987)
+        Assert.False(weapon.IsReleasing(1));                           // the resist arm sets no release (:1883)
+        Assert.Contains("event=player_chargedeployed targetid=103 userid=101", rig.Events.Fired);   // the medic 1, the patient 3 (:1920-1929)
+
+        Command(rig, weapon, held: true, now: 10.6f, extraButtons: Attack2);       // held on: the early out
+        Assert.Equal(0.265f, weapon.ChargeLevel(1), 5);                // the heal bank for the tenth of a second; no second chunk, no second bubble
+        Assert.Equal(2, rig.Conditions.Calls.FindAll(c => c.Contains("MedigunUberBulletResist")).Count);
+        Assert.Single(rig.Events.Fired);                               // the early out returns before the fire (:1822-1834)
+        Assert.Equal(2, rig.Conditions.Calls.FindAll(c => c.Contains("MedigunUberBulletResist")).Count);
+    }
+
+    [Fact]
+    public void AVaccinatorUnderOneChunkRefusesThePop()
+    {
+        // The deny (:1839-1844) against the quarter-chunk floor (:803-813): under a
+        // quarter the Vaccinator gives no bubble and fires nothing.
+        var rig = Standing();
+        rig.Owners.Managers[1] = ResistMode();
+        var weapon = rig.NewWeapon();
+        QueueFound(rig);
+        Command(rig, weapon, held: true, now: 10f);
+        weapon.SetChargeLevel(1, 0.2f);
+
+        Command(rig, weapon, held: true, now: 10.5f, extraButtons: Attack2);
+
+        Assert.False(rig.Conditions.Holds(3, TFCond.MedigunUberBulletResist));
+        Assert.Equal(0.2125f, weapon.ChargeLevel(1), 5);      // only the heal's own bank; the refused pop pays nothing
+        Assert.Empty(rig.Events.Fired);
+    }
+
+    /// <summary>The Vaccinator's manager: <c>set_weapon_mode</c> 3, MEDIGUN_RESIST
+    /// (tf_weapon_medigun.h:23-29), as the item hands it out.</summary>
+    private static AttributeContainer ResistMode()
+    {
+        var def = new AttributeDefinition(30047, "weapon mode", "set_weapon_mode",
+                                          AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                          false, false, AttributeValueType.Default, MergedKeys.Block("mode"));
+        var manager = new AttributeContainer(null, AttributeProviderType.Generic);
+        manager.Set(AttributeValue.OfFloat(def, 3f));
+        return manager;
     }
 
     [Fact]

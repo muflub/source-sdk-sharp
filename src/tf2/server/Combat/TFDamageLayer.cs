@@ -115,6 +115,9 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
     public const int Order = 1_000_000 - 1_000 + 701;
 
+    /// <summary>The Gas Passer's weapon class, the gas burn's weapon.</summary>
+    private const string GasCanName = "tf_weapon_jar_gas";
+
     /// <summary>
     /// <c>INSANE_PLAYER_DAMAGE</c> (<c>tf_gamestats.cpp:1036</c>): the most
     /// a hit may have taken and still be booked at all — stock's "defensive
@@ -465,12 +468,19 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             && (victimConds.Has(TFCond.FeignDeath) || victim.FeignDeathReady)
             ? entities.GetHealth(hit.Victim) : 0f;
 
+        // The medic's resist walks the condition's provider (:6961): whose ever bubble the
+        // victim wears, that player's manager is the ON_OTHER root; nobody's cond asks nothing.
+        Func<TFCond, IAttributeProvider?> medicOf = cond =>
+            conditions.Of(victimIndex)?.Provider(cond) is { } medic && medic != default
+                ? owners.ManagerOf(medic.EntryIndex)
+                : null;
+
         result = result with
         {
             Damage = TFDamageAliveRules.Resist(result, in input, attributes, owners.ManagerOf(victimIndex),
                                                victim.Class(), stealth.Value, spunUp, fromSentry,
                                                victim.CloakMeter, victim.FeignDeathReady, feignHealth,
-                                               out bool savedByFeign)
+                                               out bool savedByFeign, medicOf)
         };
 
         // THE DEAD RINGER'S SAVE (tf_gamerules.cpp:7412-7422): the scale that
@@ -535,6 +545,18 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                      result.Crit, result.Custom, weapon, weaponName, now),
                      damager: enemy);
 
+        // OnDealtDamage's meter walk (tf_player.cpp:9968-10038), stock's call
+        // on the attacker at the end of the victim's OnTakeDamage (:9790-9796):
+        // the hitting item's DAMAGE or COMBO meter fills by the hit's share of
+        // its item_meter_damage_for_full_charge — the Gas Passer's burning
+        // ticks, credited to the thrower, ride this arm.
+        if (enemy && attackerValid
+            && directory.Get(enginePlayers.GetActiveWeaponEntity(hit.Attacker)) is SsWeapon { State: { } hitMeter })
+        {
+            TFItemMeter.DamageCharge(hitMeter, result.Damage, attributes, owners,
+                                     hit.Attacker.EntryIndex, weaponName);
+        }
+
         // The sentry-damager history (tf_player.cpp:9050-9055): an enemy
         // player's hit whose inflictor is the sentry records the pair, for
         // PlayerKilled's sentry assist (TFBuildingScores).
@@ -556,6 +578,27 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         if (igniting && attackerIsPlayer && WaterLevel(hit.Victim) < TFBurn.WaterLevelWaist
             && !victimConds.Has(TFCond.FireImmune))
             afterburns.Of(victimIndex)?.Ignite(now, hit.Attacker, weapon, weaponName);
+
+        // THE GAS IGNITION (tf_player.cpp:9869-9896): gas takes any damage — a
+        // gassed player who takes damage is lit from the tosser's can, burned
+        // for tf_afterburn_max_duration's ten (:9895, the constant at
+        // tf_player_shared.cpp:188), the gas gone behind it (:9896), and a pyro
+        // victim also wears BurningPyro for the same (:9884-9887). Stock's Burn
+        // credits the tosser, and the victim when nobody tossed (:9895) — not
+        // the flame-hitter — so the burn rides the condition's provider.
+        if (victimConds.Has(TFCond.Gas) && result.Damage > 0f)
+        {
+            EntityHandle tosser = conditions.Of(victimIndex)?.Provider(TFCond.Gas) ?? EntityHandle.None;
+            if (victim.Class() == TFClass.Pyro)
+                conditions.Add(hit.Victim, TFCond.BurningPyro, TFBurn.MaxDuration);
+            // The burn's weapon is the tosser's gas can, never the hitter's
+            // (:9889-9895); with nobody tossing, no weapon.
+            bool tossed = tosser != EntityHandle.None;
+            afterburns.Of(victimIndex)?.Ignite(now, tossed ? tosser : hit.Victim,
+                                               tossed ? TFWeaponId.JarGas : TFWeaponId.None,
+                                               tossed ? GasCanName : "", TFBurn.MaxDuration);
+            conditions.Remove(hit.Victim, TFCond.Gas);
+        }
 
         // THE SPY-CICLE (tf_weaponbase.cpp:5528-5547, tf_weapon_knife.cpp:118-157): fire reaching a
         // player answers through the knife held in hand — stock calls the held weapon's

@@ -417,6 +417,32 @@ public sealed class TFPlayerResupplyTests
     }
 
     [Fact]
+    public void A_denied_held_item_takes_no_grenade_from_the_pickup()
+    {
+        // AddSecondaryAmmo's denial (tf_player.cpp:14117-14136): outside the
+        // resource-meter refill the held item's grenades1_resupply_denied
+        // over zero leaves the sandvich's one-grenade grant at zero. The
+        // stock hook answers the player themselves — the held item's manager.
+        var rig = new PlayerRig().As(TFClass.HeavyWeapons);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        owners.Held[PlayerRig.Index] = "tf_weapon_shotgun_hwg";
+        owners.Items[PlayerRig.Index] = Arm("grenades1_resupply_denied", 1f,
+                                            AttributeDescriptionFormat.Additive, 5031);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks());
+        rig.Engine.Returns("Players.GiveAmmo", 50);
+
+        Assert.Equal(0, resupply.GiveAmmo(PlayerRig.Player, 1, TFAmmo.Grenades1));
+        Assert.Equal(0, rig.Engine.CountOf("Players.GiveAmmo"));
+
+        // Without the denial the same grant pays the pool.
+        owners.Items.Remove(PlayerRig.Index);
+        Assert.Equal(50, resupply.GiveAmmo(PlayerRig.Player, 1, TFAmmo.Grenades1));
+        Assert.Equal(1, rig.Engine.AllOf("Players.GiveAmmo").Last().ArgAs<int>(1));
+    }
+
+    [Fact]
     public void Regenerate_fills_health_to_the_class_max()
     {
         var (rig, resupply, _) = Make(TFClass.HeavyWeapons);

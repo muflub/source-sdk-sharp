@@ -32,8 +32,9 @@ namespace TF2.Client.Ui;
 /// team go out in the interception's own naming, the enemy team -1 and
 /// the player's own -2, because the menu's numbers do not match the
 /// defines (c_tf_player.cpp:9637-9679; TFSpyDisguiseCommand's mapping).
-/// The key arms (slot1-9, disguiseteam, next_disguise, :184-436) are
-/// the HUD input layer's, deferred with the build menu's.
+/// The key arms (slot1-9, disguiseteam, :184-436) are the hud input
+/// layer's, the adapter's (<see cref="TFDisguiseMenuUi"/>), whose
+/// toggled word this screen draws by.
 /// </para>
 /// </summary>
 public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile tile,
@@ -43,10 +44,6 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
 {
     /// <summary>How many class tiles the menu holds.</summary>
     internal const int ClassCount = 9;
-
-    // Stock's m_iShowingTeam as a toggle: false shows the enemy team,
-    // true the player's own (ToggleDisguiseTeam, :569-582).
-    private bool _toggled;
 
     private readonly ITFDisguiseMenuSource _source = source;
     private readonly TFDisguiseTile _tile = tile;
@@ -65,28 +62,20 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
 
     /// <summary>The team the tiles show, the raw TF number (2 RED, 3
     /// BLU): the enemy until toggled (:607-629, :569-582); no team yet
-    /// and stock's constructor default RED stands.</summary>
+    /// and stock's constructor default RED stands. The toggle's state is
+    /// the source's — the hud element's own word, the same one the key
+    /// arm reads.</summary>
     internal int ShowingTeam
     {
         get
         {
             int team = _source.Team is 2 or 3 ? _source.Team : 2;
-            return _toggled ? team : (team == 2 ? 3 : 2);
+            return _source.Toggled ? team : (team == 2 ? 3 : 2);
         }
     }
 
-    /// <summary>The toggle arm (stock's disguiseteam/+reload keys,
-    /// :308-312, over ToggleDisguiseTeam :569-582). The HUD input layer
-    /// calls it when a bound key lands while the menu is up.</summary>
-    public void ToggleTeam() => _toggled = !_toggled;
-
     public override void Describe(ref UiFrame ui)
     {
-        // A redeploy re-arms the enemy team (the spy_pda_reset event,
-        // :613-624): the toggle lives for one kit deployment.
-        if (!_source.DisguiseKitEquipped)
-            _toggled = false;
-
         if (ui.Narrow)
             DescribeStacked(ref ui);
         else
@@ -139,15 +128,15 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
         {
             var at = Stock.At(Stock.Slot(slot), ui.Screen);
             ui.Sub(SubKey(slot, blue), _tile,
-                   new TFDisguiseTileProps(slot + 1, Icon(slot, blue), slot + 1))
+                   new TFDisguiseTileProps(RemapClass(slot), Icon(slot, blue), slot + 1))
                 .Size(Size.Du(at.Wide), Size.Du(at.Tall))
                 .AtRes(UiAnchor.BottomLeft, at.Left, at.Bottom).Layered();
             // Stock's SelectDisguise (:543-564): the class and the shown
             // team, in the interception's naming — the enemy -1, the
             // player's own -2 (c_tf_player.cpp:9637-9679).
             if (_tile.Clicked)
-                _actions?.Disguise(slot + 1, blue ? (_source.Team == 3 ? -2 : -1)
-                                                  : (_source.Team == 2 ? -2 : -1));
+                _actions?.Disguise(RemapClass(slot), blue ? (_source.Team == 3 ? -2 : -1)
+                                                          : (_source.Team == 2 ? -2 : -1));
         }
 
         // The toggle and cancel sentences with their bindings already in
@@ -217,11 +206,11 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
                     {
                         int slot = row * perRow + col;
                         ui.Sub(SubKey(slot, blue), _tile,
-                               new TFDisguiseTileProps(slot + 1, Icon(slot, blue), slot + 1))
+                               new TFDisguiseTileProps(RemapClass(slot), Icon(slot, blue), slot + 1))
                             .Size(Size.Du(TFDisguiseTile.Stock.WideDu), Size.Du(TFDisguiseTile.Stock.TallDu));
                         if (_tile.Clicked)
-                            _actions?.Disguise(slot + 1, blue ? (_source.Team == 3 ? -2 : -1)
-                                                              : (_source.Team == 2 ? -2 : -1));
+                            _actions?.Disguise(RemapClass(slot), blue ? (_source.Team == 3 ? -2 : -1)
+                                                                      : (_source.Team == 2 ? -2 : -1));
                     }
                 }
             }
@@ -240,6 +229,25 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
 
     // The scheme colour the divider's fill names (clientscheme.res :19-29).
     private static readonly UiColor DividerFill = new(255, 222, 208, 255);
+
+    /// <summary>Stock's <c>iRemapKeyToClass</c>
+    /// (tf_hud_menu_spy_disguise.cpp:197-208): the TF_CLASS number the
+    /// 0-based tile position sends — the menu's order is not the
+    /// defines' (the table's own remark). The class numbers are stock's
+    /// ETFClass order (tf_shareddefs.h:203-215), spelled here because
+    /// the UI assembly holds no TF2.Shared reference.</summary>
+    internal static int RemapClass(int slot) => slot switch
+    {
+        0 => 1,   // TF_CLASS_SCOUT
+        1 => 3,   // TF_CLASS_SOLDIER
+        2 => 7,   // TF_CLASS_PYRO
+        3 => 4,   // TF_CLASS_DEMOMAN
+        4 => 6,   // TF_CLASS_HEAVYWEAPONS
+        5 => 9,   // TF_CLASS_ENGINEER
+        6 => 5,   // TF_CLASS_MEDIC
+        7 => 2,   // TF_CLASS_SNIPER
+        _ => 8,   // TF_CLASS_SPY
+    };
 
     /// <summary>The tile's class art, per team (the per-class .res's
     /// ClassIcon icon key, e.g. scout_red.res:35 "hud_menu_scout_red";

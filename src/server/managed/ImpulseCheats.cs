@@ -75,6 +75,19 @@ public interface IWeaponGiver
         stamp = 0f;
         return false;
     }
+
+    /// <summary>
+    /// The server second the player's carried weapon of catalog row
+    /// <paramref name="typeIndex"/> may next be used — the banked
+    /// <c>NextSecondaryAttack</c> the last holster left (the live word is the
+    /// held weapon entity's, the caller's own to read). False: the player
+    /// carries no such weapon. A giver with no carry answers false.
+    /// </summary>
+    bool CarriedRefireOf(EntityHandle player, int typeIndex, out float stamp)
+    {
+        stamp = 0f;
+        return false;
+    }
 }
 
 /// <summary>

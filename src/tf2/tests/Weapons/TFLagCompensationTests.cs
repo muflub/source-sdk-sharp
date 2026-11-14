@@ -130,6 +130,7 @@ public sealed class TFLagCompensationTargetsTests
         public void SetChargeLevel(int ownerIndex, float level) { }
         public int HealingTargetIndex(int ownerIndex) => patient;
         public bool IsReleasing(int ownerIndex) => false;
+        public bool SubtractCharge(int ownerIndex, float amount) => false;
     }
 
     private static (TFLagCompensationTargets Rule, ConVarRegistry ConVars) Rule(string weapon, TFClass cls,

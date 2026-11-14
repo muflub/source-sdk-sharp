@@ -42,12 +42,13 @@ public sealed class TFDamageAliveRulesTests
                                 IAttributeProvider? weaponItem = null, bool self = false, float bonus = 0f,
                                 IAttributeProvider? held = null, TFCondMask victimConds = default,
                                 TFClass victimClass = TFClass.Undefined, TFDamageCustom custom = TFDamageCustom.None,
-                                TFCritType crit = TFCritType.None)
+                                TFCritType crit = TFCritType.None, Func<TFCond, IAttributeProvider?>? medicOf = null)
     {
         var hit = new TFHitResult(damage, bits, crit, custom, bonus);
         TFHit input = new(damage, bits, custom, self, AttackerIsPlayer: true, TFWeaponId.Pistol,
                           null, victimConds, default, weaponItem, VictimItem: held);
-        return TFDamageAliveRules.Resist(hit, in input, new AttributeHooks(), victim, victimClass, 0.8f);
+        return TFDamageAliveRules.Resist(hit, in input, new AttributeHooks(), victim, victimClass, 0.8f,
+                                         medicOf: medicOf);
     }
 
     // ---- one resist per damage type ---------------------------------------
@@ -498,5 +499,97 @@ public sealed class TFDamageAliveRulesTests
         var rig = new CombatRig();
         rig.VictimState.SetClass(TFClass.Spy);
         Assert.Equal(10f, rig.Hit(10f, DamageType.Bullet), 4);
+    }
+
+    // ---- the Vaccinator's medic resist (CheckMedicResist, tf_gamerules.cpp:6939-7072) ----
+
+    [Fact]
+    public void A_small_bullet_resist_takes_a_share_of_a_bullet_hit()
+    {
+        // The attach's passive (:6971-7011): the provider's scale walks, then the flip
+        // 1 − scale rides the base — a 0.4 scale leaves 60%.
+        const DamageType bullets = DamageType.Bullet;
+        Assert.Equal(6f, Resist(10f, bullets,
+                                victimConds: TFCondMask.Of(TFCond.MedigunSmallBulletResist),
+                                medicOf: _ => Item(AttributeDescriptionFormat.Additive,
+                                                   ("medigun_bullet_resist_passive", 0.4f))), 4);
+    }
+
+    [Fact]
+    public void A_deployed_bubble_answers_the_deployed_name_under_both()
+    {
+        // The bubble outranks the passive (:6945-6958): with both conditions worn it is
+        // the deployed attribute that walks — the passive's 0.8 would leave 2.
+        const DamageType bullets = DamageType.Bullet;
+        Assert.Equal(5f, Resist(10f, bullets,
+                                victimConds: TFCondMask.Of([TFCond.MedigunSmallBulletResist, TFCond.MedigunUberBulletResist]),
+                                medicOf: _ => Item(AttributeDescriptionFormat.Additive,
+                                                   ("medigun_bullet_resist_passive", 0.8f),
+                                                   ("medigun_bullet_resist_deployed", 0.5f))), 4);
+    }
+
+    [Fact]
+    public void A_crit_under_a_bubble_loses_its_bonus()
+    {
+        // The bubble's crit arm (:7053-7056): with a provider and no heal debuff the
+        // bonus zeros — the base 6 walks on whole through the empty scale.
+        const DamageType hit = DamageType.Bullet | TFDamageBits.Critical;
+        Assert.Equal(6f, Resist(10f, hit, bonus: 4f, crit: TFCritType.Full,
+                                victimConds: TFCondMask.Of(TFCond.MedigunUberBulletResist),
+                                medicOf: _ => Mixed()), 4);
+    }
+
+    [Fact]
+    public void A_crit_under_the_heal_debuff_keeps_a_fifth_of_its_bonus()
+    {
+        // The debuffed half (:7014-7017, :7055): the bubble still takes the crit, but a
+        // fifth survives the afterburn's reduction — 4 becomes 0.8 beside the whole base.
+        const DamageType hit = DamageType.Bullet | TFDamageBits.Critical;
+        Assert.Equal(6.8f, Resist(10f, hit, bonus: 4f, crit: TFCritType.Full,
+                                  victimConds: TFCondMask.Of([TFCond.MedigunUberBulletResist, TFCond.HealingDebuff]),
+                                  medicOf: _ => Mixed()), 4);
+    }
+
+    [Fact]
+    public void A_blast_bubble_takes_from_the_blast_name()
+    {
+        const DamageType blast = DamageType.Blast;
+        Assert.Equal(5f, Resist(10f, blast,
+                                victimConds: TFCondMask.Of(TFCond.MedigunUberBlastResist),
+                                medicOf: _ => Item(AttributeDescriptionFormat.Additive,
+                                                   ("medigun_blast_resist_deployed", 0.5f))), 4);
+    }
+
+    [Fact]
+    public void A_fire_bubble_takes_from_the_fire_name()
+    {
+        const DamageType burn = DamageType.Burn;
+        Assert.Equal(5f, Resist(10f, burn,
+                                victimConds: TFCondMask.Of(TFCond.MedigunUberFireResist),
+                                medicOf: _ => Item(AttributeDescriptionFormat.Additive,
+                                                   ("medigun_fire_resist_deployed", 0.5f))), 4);
+    }
+
+    [Fact]
+    public void A_bubble_nobody_granted_leaves_the_hit_whole()
+    {
+        // The NULL provider (:6969): the scale walk answers nothing, the crit arm asks
+        // nobody — the hit and its bonus pass whole.
+        const DamageType hit = DamageType.Bullet | TFDamageBits.Critical;
+        Assert.Equal(10f, Resist(10f, hit, bonus: 4f, crit: TFCritType.Full,
+                                 victimConds: TFCondMask.Of(TFCond.MedigunUberBulletResist),
+                                 medicOf: _ => null), 4);
+    }
+
+    [Fact]
+    public void The_layer_asks_the_provider_behind_the_victims_bubble()
+    {
+        // The layer's resolver (:7113's walk root at :6961-6974): the provider stored on
+        // the condition names whose manager answers the scale.
+        var rig = new CombatRig();
+        rig.Owners.Managers[CombatRig.Attacker.EntryIndex] = Item(AttributeDescriptionFormat.Additive,
+                                                                  ("medigun_bullet_resist_deployed", 0.5f));
+        rig.Conditions.Add(CombatRig.Victim, TFCond.MedigunUberBulletResist, provider: CombatRig.Attacker);
+        Assert.Equal(5f, rig.Hit(10f, DamageType.Bullet), 4);
     }
 }

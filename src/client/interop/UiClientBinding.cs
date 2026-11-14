@@ -79,6 +79,7 @@ public enum ClientKeyBinding
     Slot8,
     Slot9,
     Slot10,
+    DisguiseTeam,
 }
 
 /// <summary>The engine's mute questions (IGameClientExports' IsPlayerGameVoiceMuted and its two setters).</summary>
@@ -158,6 +159,7 @@ public sealed class UiClientBinding(Crossings crossings, Func<IUiClientEvents?> 
             && b[4] >= (byte)'1' && b[4] <= (byte)'9')
             return ClientKeyBinding.Slot1 + (b[4] - '1');
         if (b.SequenceEqual("slot10"u8)) return ClientKeyBinding.Slot10;
+        if (b.SequenceEqual("disguiseteam"u8)) return ClientKeyBinding.DisguiseTeam;
         return ClientKeyBinding.Other;
     }
 

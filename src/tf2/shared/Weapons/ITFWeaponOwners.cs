@@ -146,6 +146,20 @@ public interface ITFWeaponOwners
     /// sides; 0 when this side keeps no carrier.
     /// </summary>
     int DecapitationsOf(int playerIndex) => 0;
+
+    /// <summary>
+    /// Until when the player's owned Thermal Thruster refuses the next press —
+    /// stock's <c>Weapon_OwnsThisID(TF_WEAPON_ROCKETPACK)</c> and its
+    /// <c>GetRefireTime()</c>, the ground arm's gate
+    /// (tf_player_shared.cpp:3137-3140). False names no owned pack, stock's
+    /// null <c>pRocketPack</c>; the held pack's clock is the caller's own blob
+    /// and need not pass here.
+    /// </summary>
+    bool RocketPackRefireOf(int playerIndex, out float refire)
+    {
+        refire = 0f;
+        return false;
+    }
 }
 
 /// <summary>The answer when no carrier is composed: a classless player, as <see cref="ITFWeaponOwners"/> says.</summary>

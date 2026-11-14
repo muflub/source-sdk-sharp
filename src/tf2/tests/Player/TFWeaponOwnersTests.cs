@@ -5,6 +5,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server.Medigun;
 using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
@@ -101,43 +102,42 @@ public sealed class TFWeaponOwnersTests
         Assert.Equal(TFClass.Undefined, owners.ClassOf(PlayerRig.Index + 1));
     }
 
-    /// <summary>A medic's registry over a held medigun whose meter stands at <paramref name="meter"/>.</summary>
-    private static (PlayerRig Rig, TFServerWeaponOwners Owners, GroundDirectory Directory, SsWeapon Medigun)
+    /// <summary>A medic's registry over an owned medigun whose meter stands at <paramref name="meter"/>.</summary>
+    private static (PlayerRig Rig, TFServerWeaponOwners Owners, MeterMediguns Medigun)
         Medic(float meter = 0.8f)
     {
         var rig = new PlayerRig().As(TFClass.Medic);
-        var directory = new GroundDirectory();
+        var medigun = new MeterMediguns { Charges = { [PlayerRig.Index] = meter } };
         var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
-                                              rig.Engine, directory, new TFPlayerStats());
-        var medigun = new SsWeapon { Handle = new EntityHandle(0x0002_0000u | 9) };
-        medigun.State.BindLocal();
-        medigun.State.BehaviourMeter = meter;
-        directory.Weapon = medigun;
-        rig.Engine.Returns("Players.GetActiveWeaponEntity", medigun.Handle);
-        return (rig, owners, directory, medigun);
+                                              rig.Engine, new GroundDirectory(), new TFPlayerStats(),
+                                              new LocatorOf(medigun));
+        return (rig, owners, medigun);
     }
 
     [Fact]
     public void The_drain_takes_the_medics_meter_and_names_it()
     {
-        var (_, owners, _, medigun) = Medic();
+        var (_, owners, medigun) = Medic();
 
         // ApplyPostHitEffects' medic arm (tf_weaponbase.cpp:5565-5585): the
-        // caller's fraction off the held meter, and the true the telling asks.
+        // caller's fraction off the medigun the class owns — stock's
+        // Weapon_OwnsThisID walk, whichever hand holds it — and the true the
+        // telling asks.
         Assert.True(owners.DrainOnHitMeters(PlayerRig.Index, 0.3f, 0f));
-        Assert.Equal(0.5f, medigun.State.BehaviourMeter, 4);
+        Assert.Equal(0.5f, medigun.Charges[PlayerRig.Index], 4);
+        Assert.Equal((PlayerRig.Index, 0.3f), Assert.Single(medigun.Drains));
     }
 
     [Fact]
     public void A_releasing_uber_keeps_its_meter()
     {
-        var (rig, owners, _, medigun) = Medic();
+        var (rig, owners, medigun) = Medic();
         rig.State.ChargeReleasing = true;
 
         // Stock's !IsReleasingCharge gate (:5572): while the ubersaw's release
         // runs, the drain stands nowhere.
         Assert.False(owners.DrainOnHitMeters(PlayerRig.Index, 0.3f, 0f));
-        Assert.Equal(0.8f, medigun.State.BehaviourMeter, 4);
+        Assert.Empty(medigun.Drains);
     }
 
     [Fact]
@@ -817,5 +817,47 @@ public sealed class TFWeaponOwnersTests
         stats.Increment(PlayerRig.Player, TFStat.DamageRangedCritBoosted, 40);   // not the random one
 
         Assert.Equal((100, 30), owners.RangedCritDamageOf(PlayerRig.Index));
+    }
+
+    /// <summary>The medigun seam the drain's medic arm asks: the meters, and the subtractions.</summary>
+    private sealed class MeterMediguns : ITFMedigunWeapons
+    {
+        public readonly Dictionary<int, float> Charges = new();
+        public readonly List<(int Player, float Amount)> Drains = new();
+
+        public bool SubtractCharge(int playerIndex, float amount)
+        {
+            if (!Charges.TryGetValue(playerIndex, out var charge))
+                return false;
+
+            Charges[playerIndex] = MathF.Max(0f, charge - amount);
+            Drains.Add((playerIndex, amount));
+            return true;
+        }
+
+        public float ChargeLevel(int playerIndex) => Charges.GetValueOrDefault(playerIndex);
+        public void SetChargeLevel(int playerIndex, float level) => Charges[playerIndex] = level;
+        public void TickMedic(int ownerIndex, float now, float frametime) { }
+        public void Holster(int ownerIndex, float now) { }
+        public void Unholster(int ownerIndex, float now) { }
+        public void RemoveMedigun(int ownerIndex, float now) { }
+        public void PreserveCharge(int ownerIndex, float amount) { }
+        public int HealingTargetIndex(int ownerIndex) => -1;
+        public bool IsReleasing(int ownerIndex) => false;
+    }
+
+    /// <summary>The one link the drain resolves the medigun through.</summary>
+    private sealed class LocatorOf(ITFMedigunWeapons mediguns) : IServiceLocator
+    {
+        public object? Resolve(Type serviceType)
+            => serviceType == typeof(ITFMedigunWeapons) ? mediguns : null;
+
+        public object? ResolveNamed(string name) => null;
+
+        public bool IsRegistered(Type serviceType) => serviceType == typeof(ITFMedigunWeapons);
+
+        public IReadOnlyCollection<Type> ServiceTypes => [typeof(ITFMedigunWeapons)];
+
+        public IReadOnlyCollection<string> Names => [];
     }
 }

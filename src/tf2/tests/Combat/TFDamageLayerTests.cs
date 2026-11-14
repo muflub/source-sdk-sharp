@@ -147,6 +147,42 @@ public sealed class TFDamageLayerTests
         Assert.Equal(TFCritType.Mini, rig.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Crit);
     }
 
+    /// <summary>OnDealtDamage's meter walk (tf_player.cpp:10002-10037), riding
+    /// the attacker's held weapon: a COMBO meter fills by the hit's share of
+    /// the item's full charge — twenty of a fifty pool is a fifth of the
+    /// carried bar.</summary>
+    [Fact]
+    public void AHeldDamageMeterFillsByTheHitsShareThroughTheLayer()
+    {
+        var rig = new CombatRig();
+        var item = (AttributeContainer)rig.AttackerItem("item_meter_charge_type",
+                                                        AttributeDescriptionFormat.Additive, 3f);
+        item.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(9310, "attr 9310", "item_meter_damage_for_full_charge",
+                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                    false, false, AttributeValueType.Default, MergedKeys.Block("x")), 50f));
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+
+        rig.Hit(20f, DamageType.Bullet);
+
+        Assert.Equal(0.4f, rig.Entities.WeaponEntity.State.ItemMeter, 4);
+    }
+
+    /// <summary>The gate of :10012: a timed meter answers the hit with nothing.</summary>
+    [Fact]
+    public void AHeldTimedMeterStandsStillUnderTheHit()
+    {
+        var rig = new CombatRig();
+        rig.AttackerItem("item_meter_charge_type", AttributeDescriptionFormat.Additive, 1f);
+        rig.Entities.WeaponEntity = new SsWeapon { Handle = RigEntities.Weapon };
+        rig.Entities.WeaponEntity.State.BindLocal();
+
+        rig.Hit(20f, DamageType.Bullet);
+
+        Assert.Equal(0f, rig.Entities.WeaponEntity.State.ItemMeter, 4);
+    }
+
     // ---- the boots' stomp (boots_falling_stomp, tf_player_shared.cpp:7909-7918; tf_player.cpp:8955-8979)
 
     /// <summary>An item attribute the stock reads as a switch over the player,

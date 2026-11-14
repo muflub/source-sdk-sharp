@@ -134,6 +134,26 @@ public sealed class TFPlayerHealingTests
         Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // :2519 — without the attribute the same tick pays 24
     }
 
+    [Fact]
+    public void The_healers_overheal_fill_rate_rides_the_heal_past_the_class_max()
+    {
+        // tf_player_shared.cpp:2429-2434, :2520: once the patient stands past their class
+        // max, the healer's own overheal_fill_rate walks onto their heal — asked on the
+        // healer's manager, and only for a player's heal. Past the max the payout lands in
+        // the boost room above it (:2506-2507), so the attribute's tripple of the
+        // accumulate is what fills it.
+        var rig = new MedigunRig();
+        rig.Give(3, 110, 100);                     // past the class max: the walk runs
+        rig.NoteDamage(3, time: 10f);              // recent: scale starts at 1
+        rig.Owners.Managers[1] = HealScale("overheal_fill_rate", 2f);   // healer's manager, not the patient's
+        rig.Healing.Heal(H(3), H(1), 24f, 10f);
+
+        rig.Healing.TickPatient(H(3), now: 10f, frametime: 1f);   // 24 walked to 72, the room to the boost max takes 40
+
+        Assert.Contains("take 3 40 True", rig.Resupply.Takes);     // the boost-max room, filled by the walked heal
+        Assert.DoesNotContain("take 3 24 True", rig.Resupply.Takes);   // without the attribute the same tick pays 24
+    }
+
     /// <summary>An attribute manager holding one Additive class, the shape the
     /// heal-scale facts declare (<c>AddedSeconds</c>, <c>TFMedigunWeaponTests</c>).</summary>
     private static AttributeContainer HealScale(string attributeClass, float value)

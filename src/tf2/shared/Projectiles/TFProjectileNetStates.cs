@@ -111,10 +111,12 @@ public partial class TFFlareNetState
 /// <c>GetTrailParticleName</c> over the team). Both jar faces wear it — the
 /// milk is <c>tf_projectile_jar_milk</c>'s alias of the same table, its
 /// classname the one field apart the mirror's <see cref="ClassName"/> rows
-/// are written by.
+/// are written by. The Gas Passer's jar (<c>tf_projectile_jar_gas</c>) is the
+/// third face, under the same table.
 /// </summary>
 [StandaloneNetState(TFJarNetState.ClassName)]
 [StandaloneNetStateAlias(MilkClassName)]
+[StandaloneNetStateAlias(GasClassName)]
 public partial class TFJarNetState
 {
     /// <summary>The entity's classname.</summary>
@@ -122,6 +124,9 @@ public partial class TFJarNetState
 
     /// <summary>The milk, networked under the jar's table.</summary>
     public const string MilkClassName = "tf_projectile_jar_milk";
+
+    /// <summary>The Gas Passer's jar, networked under the jar's table.</summary>
+    public const string GasClassName = "tf_projectile_jar_gas";
 
     public partial bool Critical { get; set; }
 

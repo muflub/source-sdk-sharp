@@ -18,10 +18,13 @@ namespace TF2.Server.Player;
 /// (<c>cc_tf_player_disguise</c>, c_tf_player.cpp:9637-9679, over the
 /// server's <see cref="ITFSpyState"/>). Stock's client intercepts the team
 /// value because the menu's numbers do not match the defines: -1 is the
-/// enemy team, -2 the player's own, 1 is BLUE and anything else RED.
+/// enemy team, -2 the player's own, 1 is BLUE and anything else RED. The
+/// taken ask's tail is stock's <c>ProcessDisguiseImpulse</c> switch
+/// (tf_player_shared.cpp:8720-8724): the disguise PDA in the hands goes
+/// back to the weapon before it, which is what puts the menu away.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFSpyDisguiseCommand(ITFSpyState spies, IEnginePlayers players) : IClientCommandHook, IOrderedHook
+public sealed class TFSpyDisguiseCommand(ITFSpyState spies, IEnginePlayers players, Arsenal arsenal) : IClientCommandHook, IOrderedHook
 {
     public const string Verb = "disguise";
 
@@ -46,7 +49,15 @@ public sealed class TFSpyDisguiseCommand(ITFSpyState spies, IEnginePlayers playe
             _ => nTeam == 1 ? TFTeam.Blue : TFTeam.Red,
         };
 
-        spies.Disguise(player.EntryIndex, (TFClass)nClass, team);
+        // The taken ask also takes the kit down (stock's
+        // ProcessDisguiseImpulse tail, tf_player_shared.cpp:8720-8724): while
+        // the disguise PDA is the active weapon, the spy goes back to the
+        // weapon before it, which is what puts the menu away — the menu shows
+        // only while the kit is held (the build PDA's OnDataChanged pair).
+        bool acted = spies.Disguise(player.EntryIndex, (TFClass)nClass, team);
+        if (acted && TFWeaponNames.IdOf(players.GetActiveWeapon(player)) == TFWeaponId.PdaSpy)
+            arsenal.SwitchLast(player);
+
         return true;
     }
 }

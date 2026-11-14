@@ -480,6 +480,31 @@ public sealed class ClientTFJarMilk : TFProjectileTrail
 }
 
 /// <summary>
+/// The gas jar's mirror: stock's <c>CTFProjectile_JarGas</c> derives from the
+/// jar and overrides nothing the trail reads (<c>tf_weapon_jar_gas.h:69-90</c>),
+/// so the leaking trail again, under the gas's name and the jar's table.
+/// </summary>
+[ClientStandaloneEntity(TFJarNetState.GasClassName)]
+public sealed class ClientTFJarGas : TFProjectileTrail
+{
+    public ClientTFJarGas(IEngineEntityRender render, IEngineEffects effects)
+        : base(render, effects) { }
+
+    public override string ClassName => TFJarNetState.GasClassName;
+
+    /// <summary>The same declaration the server writes through.</summary>
+    [NetState] public TFJarNetState State = new();
+
+    protected override (int Team, bool Critical) Wire() => (State.TeamNumber, State.Critical);
+
+    protected override string TrailName() => State.TeamNumber == (int)TFTeam.Blue
+        ? "peejar_trail_blu"
+        : "peejar_trail_red";
+
+    protected override string? CritName() => null;
+}
+
+/// <summary>
 /// The healing bolt's mirror: stock's
 /// <c>C_TFProjectile_HealingBolt::OnDataChanged</c>
 /// (<c>c_tf_projectile_arrow.cpp:194-210</c>) starts

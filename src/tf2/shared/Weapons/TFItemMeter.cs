@@ -48,8 +48,17 @@ public static class TFItemMeter
     /// <summary><c>ATTRIBUTE_METER_TYPE_TIME</c>: the bar fills on the clock.</summary>
     public const int ChargeTypeTime = 1;
 
+    /// <summary><c>ATTRIBUTE_METER_TYPE_DAMAGE</c>: the bar fills on damage dealt.</summary>
+    public const int ChargeTypeDamage = 2;
+
     /// <summary><c>ATTRIBUTE_METER_TYPE_COMBO</c>: the timed bar with a count beside it.</summary>
     public const int ChargeTypeCombo = 3;
+
+    /// <summary>
+    /// The damage the hit's share is taken from (<c>item_meter_damage_for_full_charge</c>,
+    /// stock's <c>OnDealtDamage</c> hook, <c>tf_player.cpp:10028</c>).
+    /// </summary>
+    public const string DamageFullChargeAttribute = "item_meter_damage_for_full_charge";
 
     /// <summary>The words drawn beside the bar (<c>meter_label</c>, stock's HUD string hook, <c>tf_hud_itemeffectmeter.cpp</c>).</summary>
     public const string LabelAttribute = "meter_label";
@@ -135,6 +144,32 @@ public static class TFItemMeter
                 return seconds;
         }
         return EffectBarRecharge(hooks, item, weaponId);
+    }
+
+    /// <summary>
+    /// The hit's share of the bar (<c>CTFPlayer::OnDealtDamage</c>,
+    /// <c>tf_player.cpp:10002-10037</c>): only DAMAGE and COMBO meters ride
+    /// dealt damage (:10012), an item naming no full charge keeps its bar
+    /// (:10029-10030), the rate's mod stretches the pool (:10033-10035) and
+    /// the hit adds its share of the full charge (:10037 — stock's percent,
+    /// ours the same ratio on the 0..1 scale). Stock's pyro-upgrade skip
+    /// (:10016-10021) needs the upgrade pools this build does not run.
+    /// </summary>
+    public static void DamageCharge(WeaponNetState weapon, float damage, AttributeHooks hooks,
+                                    ITFWeaponOwners owners, int playerIndex, string weaponName)
+    {
+        IAttributeProvider? item = owners.ItemOf(playerIndex, weaponName);
+
+        int chargeType = hooks.Int(0, ChargeTypeAttribute, item);
+        if (chargeType != ChargeTypeDamage && chargeType != ChargeTypeCombo)
+            return;
+
+        float full = hooks.Float(0f, DamageFullChargeAttribute, item);
+        if (full <= 0f)
+            return;
+
+        full *= hooks.Float(1f, ChargeRateModAttribute, item);
+        weapon.ItemMeter = Math.Min(1f, weapon.ItemMeter + damage / full);
     }
 
     /// <summary>

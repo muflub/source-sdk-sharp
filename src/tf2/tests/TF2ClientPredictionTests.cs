@@ -582,7 +582,7 @@ public sealed class TF2ClientPredictionTests
         frame.Arrive(c => Views.SetConditions(c.State, ClientCondMask.Of(ClientCond.Aiming)));
         frame.Prediction.ResetBasis(LocalPlayer, 11);
 
-        var (saves, holds, tolerated, mispredicts, _, _, _) = frame.Prediction.Counts;
+        var (saves, holds, tolerated, mispredicts, _, _, _, _) = frame.Prediction.Counts;
         Assert.Equal((1, 1, 0, 0), (saves, holds, tolerated, mispredicts));
         Assert.Equal(110f, rules.MaxSpeedScale(Local, 230f, false, 0));   // no correction: the client had it
     }
@@ -605,7 +605,7 @@ public sealed class TF2ClientPredictionTests
         frame.Arrive(c => c.State.AirDash = 1);
         frame.Prediction.ResetBasis(LocalPlayer, 11);
 
-        var (saves, holds, tolerated, mispredicts, _, _, _) = frame.Prediction.Counts;
+        var (saves, holds, tolerated, mispredicts, _, _, _, _) = frame.Prediction.Counts;
         Assert.Equal((1, 1, 0, 0), (saves, holds, tolerated, mispredicts));
         Assert.Equal(1, frame.Working.AirDash);
     }
@@ -623,7 +623,7 @@ public sealed class TF2ClientPredictionTests
         frame.Arrive(c => c.State.Ammo[1] = 20);
         frame.Prediction.ResetBasis(LocalPlayer, 11);
 
-        var (saves, holds, tolerated, mispredicts, _, _, _) = frame.Prediction.Counts;
+        var (saves, holds, tolerated, mispredicts, _, _, _, _) = frame.Prediction.Counts;
         Assert.Equal((1, 1, 0, 0), (saves, holds, tolerated, mispredicts));
         Assert.Equal(20, frame.Working.Ammo[1]);
     }

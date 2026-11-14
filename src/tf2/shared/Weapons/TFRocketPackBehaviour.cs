@@ -80,6 +80,14 @@ public sealed class TFRocketPackBehaviour(TFWeaponParts parts, AttributeHooks? a
     /// <summary>The item's air-launch attribute (:199).</summary>
     public const string AirLaunchAttribute = "thermal_thruster_air_launch";
 
+    /// <summary>The landing's shutdown sound, the ground arm's own
+    /// (<c>Weapon_RocketPack.BoostersShutdown</c>, tf_player_shared.cpp:3148).</summary>
+    public const string BoostersShutdownSound = "Weapon_RocketPack.BoostersShutdown";
+
+    /// <summary>The landing's thud, the ground arm's other
+    /// (<c>Weapon_RocketPack.Land</c>, tf_player_shared.cpp:3149).</summary>
+    public const string LandSound = "Weapon_RocketPack.Land";
+
     /// <summary>Stock's launch direction is the eyes'; its pitch window is ±15° (:386).</summary>
     private const float PitchWindow = 0.2588190f; // sin 15°, the vertical part a level-enough aim can carry
 

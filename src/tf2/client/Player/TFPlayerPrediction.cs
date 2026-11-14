@@ -113,7 +113,8 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     private EntityHandle _lastComparedCarrier = EntityHandle.None;
     private int _lastComparedDecode = -1;
 
-    private int _saves, _holds, _tolerated, _mispredicts, _noBasis, _classNews, _conditionNews;
+    private int _saves, _holds, _tolerated, _mispredicts, _noBasis, _classNews, _conditionNews,
+        _spawnAdoptions;
     private int _lastArrivedClass = -1;
     private TFCondMask _lastArrivedConditions;
     private bool _seenArrivedConditions;
@@ -132,6 +133,12 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     // The five condition words' spans in the image, for the news overlay; made
     // on the first compare, as the unpredicted spans are.
     private (int Offset, int Bytes)[]? _conditionWords;
+
+    // The spawn stamp each slot was saved under, the shadow of the ring: the
+    // core's pair (PlayerNetState.SpawnEpoch) is in ITS image, this carrier's
+    // has no room for one, so the stamp rides beside the save and the compare
+    // that straddles a bump adopts on it.
+    private int[] _slotEpochs = [];
 
     // The rage mirror's tick list: the carriers whose burn names this player
     // the attacker, each with the tick clock and the fire life the basis's
@@ -211,6 +218,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         {
             _ring.Init(basis.Length);
             _scratch = new byte[basis.Length];
+            _slotEpochs = new int[PredictionRing.Slots];
         }
 
         if (basis.Length > 0)
@@ -253,12 +261,21 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
             && _ring.SaveCommand(commandNumber, _scratch))
         {
             _saves++;
+            _slotEpochs[commandNumber % _slotEpochs.Length] = SpawnEpochNow();
         }
     }
 
     //-------------------------------------------------------------------------
     // The compare.
     //-------------------------------------------------------------------------
+
+    /// <summary>The spawn stamp the player's entity carries now — the core's
+    /// <c>SpawnEpoch</c>, zero where no standalones answers (the tests' stub
+    /// and the pre-entity frames), which pins the arm off rather than on.</summary>
+    private int SpawnEpochNow()
+        => _standalones.GetByIndex(_localIndex) is ClientSsPlayer local
+            ? local.State.SpawnEpoch
+            : 0;
 
     private void Compare(int acknowledged)
     {
@@ -291,6 +308,20 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         if (arrived.Length != predicted.Length)
         {
             _noBasis++;
+            return;
+        }
+
+        // A spawn the save and this compare straddle (the round restart's
+        // RemoveAll chain, TFSpy.OnRemoved): the disguise fields stand away by
+        // a write no replay ran, the same moment the core adopts instead of
+        // judging (ClientPlayerPrediction.SpawnedOutOfBand, over the pair its
+        // PlayerNetState.SpawnEpoch is, stock's InitPredictable re-seed,
+        // c_baseentity.cpp:4578). The stamp is the shadow's, taken at the
+        // save; the class arm below stays for a stamp-less standalones.
+        if (_slotEpochs.Length > 0
+            && _slotEpochs[acknowledged % _slotEpochs.Length] != SpawnEpochNow())
+        {
+            _spawnAdoptions++;
             return;
         }
 
@@ -781,7 +812,8 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
             $"[TF2] player data prediction: carrier {(_local is not null ? "present" : "absent")} " +
             $"(player {_localIndex}), {_ring.BlobBytes} byte(s) ringed — {_saves} save(s), " +
             $"{_holds} hold(s) ({_tolerated} tolerated), {_mispredicts} misprediction(s), " +
-            $"{_noBasis} no-basis, {_classNews} class news, {_conditionNews} condition news";
+            $"{_noBasis} no-basis, {_classNews} class news, {_conditionNews} condition news, " +
+            $"{_spawnAdoptions} spawn adoptions";
 
         if (_lastMissCommand >= 0)
             line += $"\n  last mismatch: command {_lastMissCommand}: {_lastMissFields}";
@@ -790,8 +822,10 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     }
 
     /// <summary>The meter's counts, for facts.</summary>
-    public (int Saves, int Holds, int Tolerated, int Mispredicts, int NoBasis, int ClassNews, int ConditionNews) Counts
-        => (_saves, _holds, _tolerated, _mispredicts, _noBasis, _classNews, _conditionNews);
+    public (int Saves, int Holds, int Tolerated, int Mispredicts, int NoBasis, int ClassNews,
+             int ConditionNews, int SpawnAdoptions) Counts
+        => (_saves, _holds, _tolerated, _mispredicts, _noBasis, _classNews, _conditionNews,
+            _spawnAdoptions);
 }
 
 /// <summary>The console door onto the meter, beside cs_cl_weapon_predict_report.</summary>

@@ -620,6 +620,8 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
         if (_building)
             Construct();
+        else if (ReversesBuildingConstructionSpeed() > 0f)
+            DoReverseBuild();   // the sapped building's think arm (tf_obj.cpp:623-626)
 
         UpdateMetal();
         SetNextThink(BaseObjectThinkDelay);
@@ -940,7 +942,14 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
         _level++;
         _upgrading = true;
-        _upgradeCompleteTime = GameTime + (TFObjectInfo.Of(Type)?.UpgradeDuration ?? 0f);
+
+        // The reverse build's clock (tf_obj.cpp:3044-3048): the sapper's speed
+        // divides the upgrade's duration, so the degeneration runs at its pace.
+        float duration = TFObjectInfo.Of(Type)?.UpgradeDuration ?? 0f;
+        float reverse = ReversesBuildingConstructionSpeed();
+        if (reverse > 0f)
+            duration /= reverse;
+        _upgradeCompleteTime = GameTime + duration;
 
         Health = MaxHealthForCurrentLevel;
 
@@ -967,6 +976,59 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
             Dress(TFObjectModels.Finished(Type, _level));
 
         OnFinishUpgrade();
+
+        // The reverse build's cascade (tf_obj.cpp:3076-3080): a sapped
+        // building's finished upgrade steps the level down and unwinds again
+        // — DoReverseBuild's cap, or at the first level the build itself.
+        if (ReversesBuildingConstructionSpeed() > 0f)
+        {
+            _level--;
+            DoReverseBuild();
+        }
+    }
+
+    /// <summary>
+    /// <c>CBaseObject::GetReversesBuildingConstructionSpeed</c>
+    /// (tf_obj.cpp:3754-3761): the riding sapper's speed; no sapper, none.
+    /// </summary>
+    private float ReversesBuildingConstructionSpeed()
+        => FindByHandle<TFSapper>(_sapper) is { IsDead: false } sapper
+               ? sapper.ReversesBuildingConstructionSpeed()
+               : 0f;
+
+    /// <summary>
+    /// <c>CBaseObject::DoReverseBuild</c> (tf_obj.cpp:3723-3749): the sapped
+    /// building's upgrade back — the metal pool empties, the health is capped
+    /// at the level's maximum, and the build steps down: a level lower and
+    /// climbing again, or at the first, back under construction from the
+    /// start. (Stock's highest-level note has no holder here: the port carries
+    /// no <c>m_iHighestUpgradeLevel</c>.)
+    /// </summary>
+    private void DoReverseBuild()
+    {
+        _upgradeMetal = 0;
+
+        int maxHealth = MaxHealthForCurrentLevel;
+        if (Health > maxHealth)
+            Health = maxHealth;
+
+        if (_level > 1)
+        {
+            _level--;
+            StartUpgrading();
+        }
+        else
+        {
+            _building = true;
+            _built = false;
+            _carryDeploy = false;
+            _constructedFraction = 0f;
+            _constructedTime = -1f;
+            _builtStartTime = GameTime;
+
+            if (TFObjectInfo.Of(Type) is not null)
+                Dress(TFObjectModels.Building(Type));   // SetStartBuildingModel (:3746)
+        }
     }
 
     /// <summary>The subclass's last word on an upgrade — the sentry reloads, the state returns.</summary>

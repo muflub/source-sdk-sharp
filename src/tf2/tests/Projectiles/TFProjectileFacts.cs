@@ -309,6 +309,7 @@ internal sealed class ProjectileRig
 
         public int HealingTargetIndex(int ownerIndex) => -1;
         public bool IsReleasing(int ownerIndex) => false;
+        public bool SubtractCharge(int ownerIndex, float amount) => false;
     }
 
     /// <summary>The notice seam at its smallest: the heal events, recorded.</summary>

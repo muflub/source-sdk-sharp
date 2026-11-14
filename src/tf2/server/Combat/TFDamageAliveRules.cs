@@ -28,7 +28,8 @@ namespace TF2.Server.Combat;
 /// </para>
 ///
 /// <para>
-/// Not here: the medic resist and absorb (<c>CheckMedicResist</c>), the
+/// Not here: the medic resist's <c>damage_resisted</c> event, the absorb
+/// arm, the
 /// MvM, rune and feign-death arms, <c>set_dmgtype_ignite</c>,
 /// <c>uber_on_damage_taken</c>, <c>disguise_no_burn</c>, rage, hype and
 /// snare arms, and the reduction sounds —
@@ -62,13 +63,18 @@ public static class TFDamageAliveRules
     /// <c>tf_stealth_damage_reduction</c>. <paramref name="spunUp"/> is the
     /// heavy-and-aiming gate's answer over the hit as it entered (:7266);
     /// <paramref name="fromSentry"/> whether the hit's inflictor is the
-    /// sentry itself (:7330-7337).
+    /// sentry itself (:7330-7337). <paramref name="medicOf"/> answers, for
+    /// whichever medic resist condition the victim wears, the attribute
+    /// manager of the player who granted it — stock's
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> root for the medic's take
+    /// (:6961-6974).
     /// </summary>
     public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks? hooks, IAttributeProvider? victimItem,
                                TFClass victimClass, float stealthReduction,
-                               bool spunUp = false, bool fromSentry = false)
+                               bool spunUp = false, bool fromSentry = false,
+                               Func<TFCond, IAttributeProvider?>? medicOf = null)
         => Resist(hit, in input, hooks, victimItem, victimClass, stealthReduction, spunUp, fromSentry,
-                  cloakMeter: 100f, feignReady: false, health: 0f, out _);
+                  cloakMeter: 100f, feignReady: false, health: 0f, out _, medicOf);
 
     /// <summary>
     /// The same pass with the Dead Ringer's half of the spy's arm (:7389-7429)
@@ -83,7 +89,8 @@ public static class TFDamageAliveRules
     /// </summary>
     public static float Resist(TFHitResult hit, in TFHit input, AttributeHooks? hooks, IAttributeProvider? victimItem,
                                TFClass victimClass, float stealthReduction, bool spunUp, bool fromSentry,
-                               float cloakMeter, bool feignReady, float health, out bool savedFromDeath)
+                               float cloakMeter, bool feignReady, float health, out bool savedFromDeath,
+                               Func<TFCond, IAttributeProvider?>? medicOf = null)
     {
         float damage = hit.Damage;
         savedFromDeath = false;
@@ -108,9 +115,11 @@ public static class TFDamageAliveRules
 
         if (pierce == 0)
         {
+            bool crit = (hit.Bits & TFDamageBits.Critical) != 0;    // stock's bCrit (:7212)
+
             // The crit resist takes its share of the bonus only (:7211-7217):
             // "Reduce only the crit portion of the damage with crit resist".
-            if ((hit.Bits & TFDamageBits.Critical) != 0)
+            if (crit)
                 bonus = hooks.Float(bonus, "mult_dmgtaken_from_crit", victimItem);
 
             // Flaregun hits carry both bits, as stock's own comment asks
@@ -121,6 +130,9 @@ public static class TFDamageAliveRules
 
                 // The weapon the victim holds (:7223), beside the victim's own.
                 baseDamage = hooks.Float(baseDamage, "mult_dmgtaken_from_fire_active", input.VictimItem);
+
+                MedicResist(in input, TFCond.MedigunSmallFireResist, TFCond.MedigunUberFireResist, hooks, medicOf,
+                            crit, ref baseDamage, ref bonus);        // :7226
             }
 
             // The attacker's held weapon's damage vs burning (:7229-7232): any
@@ -132,10 +144,20 @@ public static class TFDamageAliveRules
             // A blast the victim dealt itself takes no resist; only another's
             // does (:7238-7242). MvM's always-reduce arm rides its mode.
             if ((hit.Bits & DamageType.Blast) != 0 && !input.SelfDamage)
+            {
                 baseDamage = hooks.Float(baseDamage, "mult_dmgtaken_from_explosions", victimItem);
 
+                MedicResist(in input, TFCond.MedigunSmallBlastResist, TFCond.MedigunUberBlastResist, hooks, medicOf,
+                            crit, ref baseDamage, ref bonus);        // :7249
+            }
+
             if ((hit.Bits & (DamageType.Bullet | DamageType.Buckshot)) != 0)
+            {
                 baseDamage = hooks.Float(baseDamage, "mult_dmgtaken_from_bullets", victimItem);
+
+                MedicResist(in input, TFCond.MedigunSmallBulletResist, TFCond.MedigunUberBulletResist, hooks, medicOf,
+                            crit, ref baseDamage, ref bonus);        // :7258
+            }
 
             if ((hit.Bits & TFDamageBits.Melee) != 0)
                 baseDamage = hooks.Float(baseDamage, "mult_dmgtaken_from_melee", victimItem);
@@ -204,4 +226,55 @@ public static class TFDamageAliveRules
 
         return damage;
     }
+
+    /// <summary>
+    /// <c>CheckMedicResist</c> (<c>tf_gamerules.cpp:6939-7072</c>): the Vaccinator's
+    /// resist under its own conditions — the deployed bubble first, the attach's small
+    /// passive beside it (:6945-6958). The take walks on the condition's provider item
+    /// (:6971-7011), the deployed row for the bubble, the passive one for the attach; a
+    /// cond whose provider is nobody asks nothing (:6969). The afterburn's debuff shrinks
+    /// a bubble's take (<c>PYRO_AFTERBURN_HEALING_REDUCTION</c>, :7014-7017), and what is
+    /// left of one scales the hit, floored at nothing (:7019-7021). A crit under a bubble
+    /// keeps a fifth of its bonus through the debuff and none without it (:7053-7056).
+    /// The <c>damage_resisted</c> event (:7046-7051) waits on the deferred list.
+    /// </summary>
+    private static void MedicResist(in TFHit input, TFCond passiveCond, TFCond deployedCond, AttributeHooks hooks,
+                                    Func<TFCond, IAttributeProvider?>? medicOf, bool crit,
+                                    ref float baseDamage, ref float bonus)
+    {
+        bool deployed = input.Victim.Has(deployedCond);
+        bool passive = !deployed && input.Victim.Has(passiveCond);
+        if (!deployed && !passive)
+            return;                                       // no resist worn, the hit passes whole (:6957)
+
+        var activeCond = deployed ? deployedCond : passiveCond;
+        var medicItem = medicOf?.Invoke(activeCond);
+
+        float scale = hooks.Float(0f, deployed ? DeployedHookName(activeCond) : PassiveHookName(activeCond),
+                                  medicItem);            // the walk answers a NULL provider whole (:6969)
+
+        if (deployed && input.Victim.Has(TFCond.HealingDebuff))
+            scale *= 1f - TFConditionEffects.AfterburnHealingReduction;
+
+        baseDamage *= Math.Max(0f, 1f - scale);
+
+        if (crit && medicItem is not null && deployed)
+            bonus = input.Victim.Has(TFCond.HealingDebuff) ? bonus * TFConditionEffects.AfterburnHealingReduction : 0f;
+    }
+
+    /// <summary>The deployed bubble's hook names (<c>tf_gamerules.cpp:6973-7006</c>).</summary>
+    private static string DeployedHookName(TFCond cond) => cond switch
+    {
+        TFCond.MedigunUberBlastResist => "medigun_blast_resist_deployed",
+        TFCond.MedigunUberFireResist => "medigun_fire_resist_deployed",
+        _ => "medigun_bullet_resist_deployed",
+    };
+
+    /// <summary>The attach's passive hook names (<c>tf_gamerules.cpp:6982-7009</c>).</summary>
+    private static string PassiveHookName(TFCond cond) => cond switch
+    {
+        TFCond.MedigunSmallBlastResist => "medigun_blast_resist_passive",
+        TFCond.MedigunSmallFireResist => "medigun_fire_resist_passive",
+        _ => "medigun_bullet_resist_passive",
+    };
 }

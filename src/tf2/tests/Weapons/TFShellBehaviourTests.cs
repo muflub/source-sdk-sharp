@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
+using SourceSharp.Tests;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
@@ -300,6 +301,41 @@ public sealed class TFShellBehaviourTests
 
         Assert.NotEmpty(world.Effects.FlameTicks);
         Assert.All(world.Effects.FlameTicks, f => Assert.False(f.Shot.Critical));
+    }
+
+    /// <summary>
+    /// The same burst with the game's own schema behind the item: the
+    /// loadout's container shape (<see cref="Server.Econ.TFLoadoutProvider.Attributes"/>)
+    /// over item 40 as shipped — <c>crit mod disabled hidden</c> 0, the rear
+    /// and airblast arms aboard. The front burst the 2026-11-04 boot burned
+    /// crit from its third hit; through this chain nothing does, so the press's
+    /// roll is not where that flag came from.
+    /// </summary>
+    [Fact]
+    public void The_shipped_backburners_burst_rolls_no_crit()
+    {
+        var world = new TFWeaponWorld();
+        var backburner = ShippedSchema().Item(40)
+            ?? throw new InvalidOperationException("the shipped schema has no item 40");
+        world.Owners.ByName[TFWeaponWorld.Owner] = new Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_flamethrower"] = new AttributeContainer(backburner, AttributeProviderType.Weapon),
+        };
+        var (w, vm) = world.Armed("tf_weapon_flamethrower", clip: -1, reserve: 400);
+
+        for (int k = 0; k < 84; k++)
+            world.Run(w, vm, Attack, 10f + k * 0.03f, NoCrit);
+
+        Assert.NotEmpty(world.Effects.FlameTicks);
+        Assert.All(world.Effects.FlameTicks, f => Assert.False(f.Shot.Critical));
+    }
+
+    /// <summary>The game's own schema, from the content dir the game runs (<see cref="TFItemMeterChargeGateFacts"/>).</summary>
+    private static ItemSchema ShippedSchema()
+    {
+        string path = RepoLayout.Repo("bin", RepoLayout.Config, "content", "tf", "scripts", "items", "items_game.txt");
+        Assert.True(File.Exists(path), $"{path} is missing: the game's content dir holds the shipped schema");
+        return EconTestFiles.Schema(File.ReadAllText(path));
     }
 
     [Fact]
