@@ -2241,7 +2241,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // chat keys open the chat, an observer's keys run spec_*.
         var chatOpener = new Vgui.ChatOpener(_uiLoader, chatInput);
         _services.AddInstance(chatOpener);
-        _services.AddInstance(new Vgui.ViewportPanelCommand(_uiLoader));
+        var viewportPanels = new Vgui.ViewportPanelCommand(_uiLoader);
+        _services.AddInstance(viewportPanels).AddInstance<Vgui.IViewportPanels>(viewportPanels);
         var uiLoader = _uiLoader;
         _services.AddInstance(new Vgui.ShowInfo(() => uiLoader.Current, Log));
         _keys = new Vgui.ClientKeyInput(chatOpener, observer, _engineClient, _weaponSelection,
@@ -3379,6 +3380,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
 
     public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
+
+    public uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => _movementRules.Rules.SolidMask(playerIndex, mask, brushOnly);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

@@ -315,6 +315,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     internal EntitiesBinding NewEntitiesBinding()
         => new(_engine.Crossings, Log, this, _liveness, _services.Require<EntityRemovalRoutes>());
 
+    /// <summary>
+    /// The client-lifecycle binding, with the transmit rule's two deps: the
+    /// edict-to-handle look the FULLCHECK ask is answered through (the
+    /// registry's own directory, so a rule sees the handle every other seam
+    /// does), and the mod chain, resolved from the container on first ask.
+    /// </summary>
+    internal ClientsBinding NewClientsBinding()
+        => new(_engine.Crossings, Log, this,
+               i => _entities?.Directory.HandleOf(i) ?? EntityHandle.None,
+               _services.Require<IHooks<ITransmitRule>>());
+
     /// <summary>The frame handler the root builds, which clears this composition's liveness mirror at level shutdown.</summary>
 
     /// <summary>
@@ -784,6 +795,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // nothing; a chain because each mod's override sat on its own gamerules.
         _services.AddFactory<IHooks<ISpawnPlacement>>(locator => new Hooks<ISpawnPlacement>(locator, log));
         _services.AddFactory<IHooks<ISpawnFragRule>>(locator => new Hooks<ISpawnFragRule>(locator, log));
+        // The per-entity trace arm (tf2 F04): a mod's IEntityCollideRule chain,
+        // asked by the trace filter between the pass checks and the group
+        // matrix; a mod registering none leaves the filter as stock answers it.
+        _services.AddFactory<IHooks<IEntityCollideRule>>(locator => new Hooks<IEntityCollideRule>(locator, log));
+        // The per-client transmit arm (tf2 F06): a mod's ITransmitRule chain,
+        // asked by CheckTransmit for the entities its FULLCHECK flag opted in;
+        // a mod registering none leaves every edict to the PVS check.
+        _services.AddFactory<IHooks<ITransmitRule>>(locator => new Hooks<ITransmitRule>(locator, log));
         _services.AddFactory<IHooks<IPlayerDamagePushRule>>(locator => new Hooks<IPlayerDamagePushRule>(locator, log));
         // The team-change watchers (tf2 smallfix): every watcher runs after a
         // join that actually moved the player — TF2's live-switch kill
@@ -909,7 +928,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _bindings.Add("IManagedEntities",
                       v => ManagedAreaFactory.Create(v, NewEntitiesBinding()));
         _bindings.Add("IManagedClients",
-                      v => ManagedAreaFactory.Create(v, new ClientsBinding(_engine.Crossings, Log, this)));
+                      v => ManagedAreaFactory.Create(v, NewClientsBinding()));
         _bindings.Add("IManagedEvents",
                       v => ManagedAreaFactory.Create(v, new EventsBinding(_engine.Crossings, this)));
         _bindings.Add("IManagedUserMessages",
@@ -4477,6 +4496,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
 
     public Vector GetParachuteFallCap(int playerIndex, Vector velocity) => _movementRules.Rules.ParachuteFallCap(playerIndex, velocity);
+
+    public uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => _movementRules.Rules.SolidMask(playerIndex, mask, brushOnly);
 
     // The engine's InfoPanel table, through its own string-table interfaces. A
     // server whose container cannot be acquired still loads (the message of the

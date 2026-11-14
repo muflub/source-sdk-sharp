@@ -231,7 +231,7 @@ public class UiLintTests
                 ui.Data("Heading", Text.Heading, Tone.TextMuted);
                 ui.Data("Body", Text.Body, Tone.Accent);
                 ui.Data("Label", Text.Label, Tone.TeamA);
-                ui.Data("Caption", Text.Caption, Tone.TeamB);
+                ui.Data("Caption", Text.Caption, Tone.Warning);
                 ui.Rect(Tone.Positive, Size.Du(40), Size.Du(4));
                 ui.Rect(Tone.Danger, Size.Du(40), Size.Du(4));
             }
@@ -253,6 +253,28 @@ public class UiLintTests
             }
         });
         Assert.Empty(Of(good, "budget"));
+    }
+
+    [Fact]
+    public void Budget_counts_the_team_colours_as_one_tone()
+    {
+        // Five tones and four team colours: six in the budget, as a two-team board's.
+        var four = Lint((ref UiFrame ui) =>
+        {
+            using (ui.Panel().At(UiAnchor.Centre))
+            {
+                ui.Data("Text", Text.Body, Tone.Text);
+                ui.Data("Muted", Text.Body, Tone.TextMuted);
+                ui.Data("Accent", Text.Body, Tone.Accent);
+                ui.Data("Danger", Text.Body, Tone.Danger);
+                ui.Data("Positive", Text.Body, Tone.Positive);
+                ui.Data("Combine", Text.Label, Tone.TeamA);
+                ui.Data("Rebels", Text.Label, Tone.TeamB);
+                ui.Data("Police", Text.Label, Tone.TeamC);
+                ui.Data("Resistance", Text.Label, Tone.TeamD);
+            }
+        });
+        Assert.Empty(Of(four, "budget"));
     }
 
     [Fact]

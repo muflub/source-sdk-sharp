@@ -394,12 +394,17 @@ public sealed class UiLint
     }
 
     /// <summary>The structural tones: surfaces, lines and the scrim are the page, not its colours.</summary>
+    /// <summary>The tone a colour counts as in the budget: every team colour is the first's.</summary>
+    private static Tone BudgetTone(Tone t) => t is Tone.TeamB or Tone.TeamC or Tone.TeamD ? Tone.TeamA : t;
+
     private static bool IsStructural(Tone t) => t is Tone.None or Tone.Surface or Tone.SurfaceRaised or Tone.Line or Tone.Scrim or Tone.Window;
 
     /// <summary>
     /// budget: at most four type roles and six colour tones (surfaces, lines and
     /// the scrim not counted) on one screen. Past that a screen stops reading
-    /// as one design.
+    /// as one design. The team colours count as one tone: they are one role, a
+    /// team's colour, drawn in as many hues as the game has teams (team
+    /// deathmatch's four).
     /// </summary>
     private static void Budget(Frame f)
     {
@@ -419,9 +424,9 @@ public sealed class UiLint
             if (f.Elements[i].Kind == UiElementKind.Text)
                 g.Roles.Add(report.RoleOf(i));
             if (!IsStructural(report.TextToneOf(i)))
-                g.Tones.Add(report.TextToneOf(i));
+                g.Tones.Add(BudgetTone(report.TextToneOf(i)));
             if (!IsStructural(report.FillToneOf(i)))
-                g.Tones.Add(report.FillToneOf(i));
+                g.Tones.Add(BudgetTone(report.FillToneOf(i)));
         }
         foreach (var (owner, g) in groups)
         {

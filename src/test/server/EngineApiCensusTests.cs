@@ -232,8 +232,9 @@ public partial class EngineApiCensusTests
     // tf2 ruling N2: MapSpawnCreateAt, the round cleanup's create into a map
     // entity's old edict (112 + 1 = 113). tf2 projectile parity:
     // IShimDamage.EntityTakeDamageAnswered, the damage asked so a blast's push
-    // can gate on landing (113 + 1 = 114).
-    private const int ServerOnly = 114;
+    // can gate on landing (113 + 1 = 114). tf2 F06: EntitySetTransmitFullCheck,
+    // the FULLCHECK opt-in the per-client transmit rule answers behind (114 + 1 = 115).
+    private const int ServerOnly = 115;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.

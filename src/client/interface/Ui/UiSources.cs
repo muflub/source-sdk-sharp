@@ -75,6 +75,23 @@ public interface IPlayerSuitPower
     int SuitDevices { get; }
 }
 
+/// <summary>
+/// The local player's team, for stock HL2MP's team line (CTeamPlayHud): shown
+/// only under team play, which the client reads from the roster (a player on a
+/// playing team, 2 or 3; under deathmatch everyone is on 0).
+/// </summary>
+public interface IPlayerTeam
+{
+    /// <summary>Whether the game is team play.</summary>
+    bool Teamplay { get; }
+
+    /// <summary>The local player's team number (2 Combine, 3 Rebels; 0 none, 1 spectating).</summary>
+    int Team { get; }
+
+    /// <summary>The team's name as the player reads it (the mods' team name rules applied).</summary>
+    string TeamName { get; }
+}
+
 /// <summary>The weapon in the local player's hands.</summary>
 public interface IPlayerWeapon
 {

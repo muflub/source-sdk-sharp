@@ -161,6 +161,18 @@ public static class HudSamples
     [UiSample("aux power low, under water")]
     private static UiScreen AuxPowerLow(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 18f, SuitDevices = 4 });
 
+    [UiSample("team play, Combine")]
+    private static UiScreen TeamCombine(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { Teamplay = true, Team = 2, TeamName = "Combine" });
+
+    [UiSample("team play, Rebels, no suit")]
+    private static UiScreen TeamRebels(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { Teamplay = true, Team = 3, TeamName = "Rebels", Armour = 0 });
+
+    [UiSample("team play, aux power draining in the team line's place")]
+    private static UiScreen TeamAux(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { Teamplay = true, Team = 2, TeamName = "Combine", SuitPower = 62f, SuitDevices = 1 });
+
     [UiSample("SMG, 2 of 3 grenades")]
     private static UiScreen SmgGrenades(UiSampleServices s) => Build(s, new FakeLocalPlayer { Secondary = 2, SecondaryMax = 3 });
 

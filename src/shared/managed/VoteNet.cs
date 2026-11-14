@@ -19,6 +19,9 @@ public enum VoteKind : byte
     Mode,
     Restart,
     Setting,
+
+    /// <summary>Reshuffle the players across the teams in play and restart the round (team deathmatch).</summary>
+    Scramble,
 }
 
 /// <summary>Why a call was refused; <see cref="None"/> is a call accepted.</summary>

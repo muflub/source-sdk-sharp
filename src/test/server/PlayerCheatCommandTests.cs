@@ -143,17 +143,17 @@ public class PlayerCheatCommandTests
     }
 
     /// <summary>
-    /// THE ATTACKER IS NOBODY, which is what makes a suicide read as one rather
-    /// than as a kill by the victim — the score, the death message and the
-    /// managed death rules all read the attacker. The native spelling passed a
-    /// NULL <c>CTakeDamageInfo</c> attacker for the same reason.
+    /// THE ATTACKER IS THE PLAYER, as stock's <c>CommitSuicide</c> builds it
+    /// (<c>CTakeDamageInfo( this, this, ... )</c>, player.cpp:5454): team
+    /// deathmatch reads an attacker who is the victim as a suicide and takes a
+    /// point from their team, which an attacker of nobody never did.
     /// </summary>
     [Fact]
-    public void ASuicideHasNoAttacker()
+    public void ASuicideIsItsOwnAttacker()
     {
         var (engine, _) = Run<KillCommand>();
 
-        Assert.Equal(EntityHandle.None, Assert.Single(Of(engine, "Damage.Apply")).ArgAs<EntityHandle>(1));
+        Assert.Equal(Player, Assert.Single(Of(engine, "Damage.Apply")).ArgAs<EntityHandle>(1));
     }
 
     /// <summary>

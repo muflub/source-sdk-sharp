@@ -910,6 +910,7 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.SetMaterialOverride(EntityHandle entity, string material) => RecordVoid("EntityRender.SetMaterialOverride", entity, material);
     void IEngineEntityRender.SetTextureFrame(EntityHandle entity, int frame) => RecordVoid("EntityRender.SetTextureFrame", entity, frame);
     void IEngineEntityRender.SetTransmitAlways(EntityHandle entity, bool always) => RecordVoid("EntityRender.SetTransmitAlways", entity, always);
+    void IEngineEntityRender.SetTransmitFullCheck(EntityHandle entity, bool on) => RecordVoid("EntityRender.SetTransmitFullCheck", entity, on);
     bool IEngineEntityRender.DetectInSkybox(EntityHandle entity) => Record<bool>("EntityRender.DetectInSkybox", entity);
     void IEngineEntityRender.SetVisible(EntityHandle entity, bool visible) => RecordVoid("EntityRender.SetVisible", entity, visible);
 

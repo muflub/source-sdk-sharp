@@ -13,14 +13,17 @@ namespace SourceSharp.Client.Vgui;
 /// </summary>
 public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, IFwdEngineClient engine,
                                  IPlayerNames names, HostnameConVar hostname, IEngineEnvironment environment,
-                                 TeamNames? teamNames = null) : IScoreboardSource
+                                 TeamNames? teamNames = null, ClTdmTeamsConVar? tdmTeams = null) : IScoreboardSource
 {
     private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
 
     private const int Slots = PlayerResourceNetState.Slots;
 
+    /// <summary>The most playing teams there are: team deathmatch's four, numbered 2 to 5.</summary>
+    public const int MaxTeams = 4;
+
     private readonly ScoreboardPlayer[] _players = new ScoreboardPlayer[Slots];
-    private readonly ScoreboardTeam[] _teams = new ScoreboardTeam[2];
+    private readonly ScoreboardTeam[] _teams = new ScoreboardTeam[MaxTeams];
     private readonly string[] _names = new string[Slots];
     private readonly int[] _nameUserIds = new int[Slots];
     private readonly bool[] _fake = new bool[Slots];
@@ -53,20 +56,29 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 
     public int TeamCount => _teamCount;
 
+    /// <summary>
+    /// The playing teams the server runs: the replicated <c>mp_tdm_teams</c>,
+    /// clamped to 2..4 (2 with no copy of it), so a team nobody is on yet is
+    /// still one to show and to join.
+    /// </summary>
+    public int ConfiguredTeams => Math.Clamp(tdmTeams?.Value ?? 2, 2, MaxTeams);
+
     public ScoreboardTeam Team(int i) => _teams[i];
 
     public int PlayerCount => _count;
 
     public ScoreboardPlayer Player(int i) => _players[i];
 
-    /// <summary>Team 2 and 3's names, as HL2MP's teams are called.</summary>
     /// <summary>A team's name as the player reads it: the table below through the mods' <see cref="ITeamNameRule"/>s.</summary>
     public string NameOf(int team) => _teamNames.Of(team, TeamName(team));
 
+    /// <summary>The playing teams' names: HL2MP's two (2 Combine, 3 Rebels), then team deathmatch's third and fourth.</summary>
     public static string TeamName(int team) => team switch
     {
         2 => "Combine",
         3 => "Rebels",
+        4 => "Metro Police",
+        5 => "Resistance",
         _ => "Deathmatch",
     };
 
@@ -108,6 +120,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 
         int local = screen.LocalPlayerIndex;
         bool teams = false;
+        int highest = 0;
         var state = r.State;
         for (int slot = 1; slot < Slots; slot++)
         {
@@ -125,6 +138,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
             bool fake = _fake[slot];
             int team = state.Team[slot];
             teams |= team >= 2;
+            highest = Math.Max(highest, team);
             _players[_count++] = new ScoreboardPlayer(slot, _names[slot], team, state.Score[slot], state.Deaths[slot],
                 state.Ping[slot],
                 state.HasFlag(slot, PlayerResourceNetState.FlagAlive), fake, slot == local, TagOf(state, slot));
@@ -143,11 +157,19 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
             _players[b + 1] = v;
         }
 
+        // Team play: each team's total is the server's team score off the player
+        // resource (stock's header, GetTeam(i)->Get_Score(),
+        // hl2mpclientscoreboard.cpp:355,386), not the sum of its members' frags:
+        // a teamkill gives the team a point while the killer's frags drop, and a
+        // suicide takes one (CTeamplayRules::IPointsForKill, hl2mp_player.cpp:1327-1334).
+        // As many tables as the server runs teams (mp_tdm_teams), and never fewer
+        // than a player's team reaches: a count just lowered leaves a player on a
+        // team it no longer runs until the server moves them.
         if (teams)
         {
-            _teamCount = 2;
-            _teams[0] = new ScoreboardTeam(2, NameOf(2), Sum(2));
-            _teams[1] = new ScoreboardTeam(3, NameOf(3), Sum(3));
+            _teamCount = Math.Clamp(Math.Max(ConfiguredTeams, highest - 1), 2, MaxTeams);
+            for (int t = 0; t < _teamCount; t++)
+                _teams[t] = new ScoreboardTeam(t + 2, NameOf(t + 2), state.TeamScore[t + 2]);
         }
         else
         {
@@ -167,21 +189,23 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 }
 
 /// <summary>
-/// The team menu in game: the two teams, by their names, with their player counts and
-/// frags from the scoreboard's rows; a choice is sent to the server as
+/// The team menu in game: the two teams, by their names, with their player counts
+/// from the scoreboard's rows and their scores from its team totals; a choice is sent to the server as
 /// <c>jointeam N</c> (0 auto-assign, 1 spectate) and closes the menu.
 /// </summary>
 public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, IFwdEngineClient engine, ILog log)
     : ITeamMenuSource, ITeamMenuActions
 {
-    private readonly TeamChoice[] _choices = new TeamChoice[2];
+    private readonly TeamChoice[] _choices = new TeamChoice[ScoreboardUi.MaxTeams];
+    private int _choiceCount = 2;
 
     /// <summary>Set by the host: what closes the menu.</summary>
     public Action? Close { get; set; }
 
     public string MapName => scores.MapName;
 
-    public int ChoiceCount => 2;
+    /// <summary>One card per team the server runs (mp_tdm_teams: 2 to 4).</summary>
+    public int ChoiceCount => _choiceCount;
 
     public TeamChoice Choice(int i) => _choices[i];
 
@@ -191,21 +215,22 @@ public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, IFwdEngin
     {
         scores.Refresh();
         int local = screen.LocalPlayerIndex;
-        Span<int> players = stackalloc int[2], frags = stackalloc int[2];
+        Span<int> players = stackalloc int[ScoreboardUi.MaxTeams];
         CurrentTeam = 0;
         for (int i = 0; i < scores.PlayerCount; i++)
         {
             var p = scores.Player(i);
             if (p.Index == local)
                 CurrentTeam = p.Team;
-            if (p.Team is 2 or 3)
-            {
+            if (p.Team >= 2 && p.Team < 2 + ScoreboardUi.MaxTeams)
                 players[p.Team - 2]++;
-                frags[p.Team - 2] += p.Frags;
-            }
         }
-        _choices[0] = new TeamChoice(2, scores.NameOf(2), players[0], frags[0], false);
-        _choices[1] = new TeamChoice(3, scores.NameOf(3), players[1], frags[1], false);
+        // The scores are the scoreboard's team totals (the server's team score);
+        // with nobody on a team there are none.
+        bool teams = scores.TeamCount >= 2;
+        _choiceCount = teams ? scores.TeamCount : scores.ConfiguredTeams;
+        for (int t = 0; t < _choiceCount; t++)
+            _choices[t] = new TeamChoice(t + 2, scores.NameOf(t + 2), players[t], teams ? scores.Team(t).Score : 0, false);
     }
 
     public void Choose(int team)

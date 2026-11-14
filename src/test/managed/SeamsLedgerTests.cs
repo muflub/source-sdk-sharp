@@ -25,6 +25,13 @@ public sealed class SeamsLedgerIndex
     private readonly Assembly _client = typeof(client::SourceSharp.Client.ClientModule).Assembly;
     private readonly Assembly _ui = typeof(SourceSharp.Client.Ui.Toolkit.UiScreen).Assembly;
 
+    // A side's contract assembly (the *.Interface its seams live in): the
+    // shared seam sources (src/shared/interface) compile there rather than in
+    // the core, so a shared seam's type may be a contract type, as tf2 F04's
+    // IEntityCollideRule is. Anchored on types only those assemblies declare.
+    private readonly Assembly _serverContract = typeof(SourceSharp.Server.Interop.IPhysicsFrameNative).Assembly;
+    private readonly Assembly _clientContract = typeof(client::SourceSharp.Client.Interop.IClientBeamExecutor).Assembly;
+
     private readonly Dictionary<string, SyntaxNode> _trees = new(StringComparer.Ordinal);
     private (string Path, string Text)[]? _tests;
 
@@ -115,12 +122,21 @@ public sealed class SeamsLedgerIndex
             _ => [_client, _ui],
         };
 
-        // "shared" means BOTH sides compile it; the others need it on one.
-        var found = where.Select(a => Resolve(a, name)).ToArray();
-        bool ok = side == "shared" ? found.All(x => x) : found.Any(x => x);
+        // "shared" means BOTH sides compile it; the others need it on one. A
+        // side has it in its core or its contract assembly.
+        bool ok = side switch
+        {
+            "shared" => OnSide(_server, _serverContract, name) && OnSide(_client, _clientContract, name),
+            "server" => where.Length == 1 && Resolve(where[0], name),
+            _ => where.Any(a => Resolve(a, name)),
+        };
         if (!ok)
             problems.Add($"{name}: no such type or member in the {side} core assemblies");
     }
+
+    /// <summary>Whether a side's core or its contract assembly has the type.</summary>
+    private static bool OnSide(Assembly core, Assembly contracts, string name)
+        => Resolve(core, name) || Resolve(contracts, name);
 
     /// <summary>A type by full name, or a type's member as <c>Namespace.Type.Member</c>.</summary>
     private static bool Resolve(Assembly assembly, string name)

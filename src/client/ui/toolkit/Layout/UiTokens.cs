@@ -89,6 +89,10 @@ public enum Tone : byte
     /// <summary>Stock's HUD black: the sniper scope's side and fallback fill
     /// (CHudScope::Paint's DrawSetColor(0,0,0,255), tf_hud_scope.cpp:504-523).</summary>
     Black,
+    /// <summary>A third team's colour (team deathmatch's Metro Police, team 4): green.</summary>
+    TeamC,
+    /// <summary>A fourth team's colour (team deathmatch's Resistance, team 5): yellow.</summary>
+    TeamD,
 }
 
 /// <summary>How far a surface stands off what is under it.</summary>

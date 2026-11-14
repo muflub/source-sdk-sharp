@@ -962,6 +962,9 @@ public enum CrossingOp
     ServerConCommandSuggest = 386,
     /// <summary>IManagedCommandsClient: how a console line can go on.</summary>
     ClientConCommandSuggest = 387,
+
+    /// <summary>IManagedClients::ServerShouldTransmit, CheckTransmit's per-edict ask for a FL_EDICT_FULLCHECK entity's fate (the managed transmit rule, F06).</summary>
+    ServerShouldTransmit = 388,
 }
 
 /// <summary>

@@ -310,6 +310,13 @@ public interface IServerModule
     /// </summary>
     Vector GetParachuteFallCap(int playerIndex, Vector velocity) => velocity;
 
+    /// <summary>
+    /// The player-solid mask the command's movement traces carry (the mask
+    /// unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.PlayerSolidMask</c>.
+    /// </summary>
+    uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => mask;
+
     //-------------------------------------------------------------------------
     // The game DLL, in the five subjects it splits into.
     //

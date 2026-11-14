@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="0" y="0" width="2560" height="1080" fill="#040507" fill-opacity="0.59" data-e="1"/>
+<rect x="728" y="319" width="1104" height="454" rx="20" fill="#000000" fill-opacity="0.17" data-e="3"/>
+<rect x="734" y="325" width="1092" height="442" rx="14" fill="#000000" fill-opacity="0.43" data-e="3"/>
+<rect x="740" y="325" width="1080" height="430" rx="8" fill="#0d0f13" fill-opacity="0.84" data-e="3"/>
+<clipPath id="c0"><rect x="740" y="325" width="1080" height="430"/></clipPath><g clip-path="url(#c0)" data-e="3">
+<rect x="740" y="325" width="1080" height="71" fill="#2c3038" fill-opacity="0.82" data-e="4"/>
+<rect x="764" y="348" width="4" height="24" fill="#ffb52e" data-e="5"/>
+<text x="781" y="372.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="6">CHOOSE YOUR SIDE</text>
+<text x="780" y="371.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="6">CHOOSE YOUR SIDE</text>
+<text x="765" y="439.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="9">Pick a team to spawn, or watch the match first.</text>
+<text x="764" y="438.45" font-family="IBM Plex Sans" font-size="18" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="9">Pick a team to spawn, or watch the match first.</text>
+<text x="1714" y="436.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="11">dm_lockdown</text>
+<rect x="764" y="460" width="333" height="215" rx="8" fill="#2c3038" fill-opacity="0.82" data-e="15"/>
+<rect x="765" y="461" width="331" height="213" rx="7" fill="none" stroke="#7ebaf6" stroke-opacity="0.35" stroke-width="2" data-e="15"/>
+<clipPath id="c1"><rect x="764" y="460" width="333" height="215"/></clipPath><g clip-path="url(#c1)" data-e="15">
+<rect x="764" y="460" width="333" height="8" fill="#7ebaf6" data-e="16"/>
+<text x="789" y="523.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="19">Combine</text>
+<text x="788" y="522.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#7ebaf6" xml:space="preserve" data-e="19">Combine</text>
+<text x="788" y="569.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="23">3</text>
+<text x="788" y="590.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="24">PLAYERS</text>
+<text x="890" y="569.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="26">21</text>
+<text x="890" y="590.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="27">SCORE</text>
+<rect x="788" y="611" width="285" height="40" rx="4" fill="#7ebaf6" fill-opacity="0.18" data-e="28"/>
+<text x="907" y="638.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="29">JOIN</text>
+</g>
+<rect x="1113" y="460" width="334" height="215" rx="8" fill="#2c3038" fill-opacity="0.82" data-e="31"/>
+<rect x="1114" y="461" width="332" height="213" rx="7" fill="none" stroke="#f6705e" stroke-opacity="0.35" stroke-width="2" data-e="31"/>
+<clipPath id="c2"><rect x="1113" y="460" width="334" height="215"/></clipPath><g clip-path="url(#c2)" data-e="31">
+<rect x="1113" y="460" width="334" height="8" fill="#f6705e" data-e="32"/>
+<text x="1138" y="523.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="35">Rebels</text>
+<text x="1137" y="522.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#f6705e" xml:space="preserve" data-e="35">Rebels</text>
+<text x="1137" y="569.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="39">2</text>
+<text x="1137" y="590.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="40">PLAYERS</text>
+<text x="1239" y="569.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="42">18</text>
+<text x="1239" y="590.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="43">SCORE</text>
+<rect x="1137" y="611" width="286" height="40" rx="4" fill="#f6705e" fill-opacity="0.18" data-e="44"/>
+<text x="1256" y="638.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="45">JOIN</text>
+</g>
+<rect x="1463" y="460" width="333" height="215" rx="8" fill="#2c3038" fill-opacity="0.82" data-e="47"/>
+<rect x="1464" y="461" width="331" height="213" rx="7" fill="none" stroke="#70d080" stroke-opacity="0.35" stroke-width="2" data-e="47"/>
+<clipPath id="c3"><rect x="1463" y="460" width="333" height="215"/></clipPath><g clip-path="url(#c3)" data-e="47">
+<rect x="1463" y="460" width="333" height="8" fill="#70d080" data-e="48"/>
+<text x="1488" y="523.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#000000" fill-opacity="0.6" xml:space="preserve" data-e="51">Metro Police</text>
+<text x="1487" y="522.75" font-family="IBM Plex Sans Condensed" font-size="30" font-weight="600" fill="#70d080" xml:space="preserve" data-e="51">Metro Police</text>
+<text x="1701" y="516.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#f2eee6" xml:space="preserve" data-e="53">YOUR TEAM</text>
+<text x="1487" y="569.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="56">3</text>
+<text x="1487" y="590.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="57">PLAYERS</text>
+<text x="1589" y="569.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="59">24</text>
+<text x="1589" y="590.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="60">SCORE</text>
+<rect x="1487" y="611" width="285" height="40" rx="4" fill="#70d080" fill-opacity="0.18" data-e="61"/>
+<text x="1605" y="638.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="62">JOIN</text>
+</g>
+<rect x="764" y="691" width="130" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="65"/>
+<text x="780" y="718.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="66">SPECTATE</text>
+<rect x="1500" y="691" width="120" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="68"/>
+<text x="1522" y="718.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="69">CANCEL</text>
+<rect x="1632" y="691" width="164" height="40" rx="4" fill="#ffb52e" data-e="70"/>
+<text x="1648" y="718.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#1a1204" xml:space="preserve" data-e="71">AUTO ASSIGN</text>
+</g>
+</svg>

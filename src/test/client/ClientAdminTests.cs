@@ -320,6 +320,33 @@ public sealed class ClientAdminTests : IDisposable
         Assert.False(_radial.Showing);
     }
 
+    /// <summary>
+    /// The server's Teams folder (user 2026-11-08, "make sure to add vote and admin
+    /// menus for teams"), three deep: Teams, a player by name, a team to move them
+    /// to by its token; the leaf sends the move's id.
+    /// </summary>
+    [Fact]
+    public void The_teams_folder_moves_a_player_three_folders_down()
+    {
+        _admin.Open();
+        _sent.Clear();
+        Menu(new AdminMenuLine(0, "", "#SS_UI_Admin_Teams"),
+             new AdminMenuLine(1, "", "alyx"),
+             new AdminMenuLine(2, "teams:move:7:3", "#SS_UI_Team_3"),
+             new AdminMenuLine(2, "teams:move:7:4", "#SS_UI_Team_4"),
+             new AdminMenuLine(2, "teams:move:7:1", "#SS_UI_Admin_Spectate"),
+             new AdminMenuLine(1, "teams:scramble", "#SS_UI_Admin_Scramble"),
+             new AdminMenuLine(1, "teams:balance", "#SS_UI_Admin_Balance"));
+
+        _radial.Choose(0);
+        Assert.Equal(["alyx", "#SS_UI_Admin_Scramble", "#SS_UI_Admin_Balance"], Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+        _radial.Choose(0);
+        Assert.Equal(["#SS_UI_Team_3", "#SS_UI_Team_4", "#SS_UI_Admin_Spectate"], Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+        _radial.Choose(1);
+
+        Assert.Equal(AdminWire.WriteRun("teams:move:7:4"), Assert.Single(_sent));
+    }
+
     [Fact]
     public void An_empty_folder_cannot_be_opened()
     {

@@ -85,13 +85,14 @@ public sealed class ChatNotices(IEngineHud hud, ILog log, ITextMessageChat chat,
            || name.StartsWith("unconnected", StringComparison.OrdinalIgnoreCase)
            || name.Equals("NULLNAME", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>HL2MP's team names (CTeam's, as the server's teams are made); the number for any other.</summary>
+    /// <summary>HL2MP's team names (CTeam's, as the server's teams are made), team deathmatch's third and fourth; the number for any other.</summary>
     public static string TeamName(int team) => team switch
     {
         0 => "Unassigned",
         1 => "Spectator",
         2 => "Combine",
         3 => "Rebels",
+        4 or 5 => ScoreboardUi.TeamName(team),
         _ => team.ToString(System.Globalization.CultureInfo.InvariantCulture),
     };
 

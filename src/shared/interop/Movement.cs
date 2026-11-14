@@ -552,7 +552,8 @@ public readonly record struct MovementRules(
     Func<int, int, float, float, float, MovementCharge?> Charge,
     Action<int> ChargeSlowEnd,
     Action<int, EntityHandle> ChargeBump,
-    Func<int, Vector, Vector> ParachuteFallCap)
+    Func<int, Vector, Vector> ParachuteFallCap,
+    Func<int, uint, bool, uint> SolidMask)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -577,7 +578,8 @@ public readonly record struct MovementRules(
         static (_, _, _, _, _) => null,
         static _ => { },
         static (_, _) => { },
-        static (_, v) => v);
+        static (_, v) => v,
+        static (_, mask, _) => mask);
 }
 
 /// <summary>
@@ -1337,9 +1339,14 @@ public sealed partial class GameMovement
 
     private bool IsObserver() => _s.ObserverMode != 0;
 
-    /// <summary><c>PlayerSolidMask</c> (gamemovement.cpp:715).</summary>
-    private static uint PlayerSolidMask(bool brushOnly = false)
-        => brushOnly ? MaskPlayerSolidBrushOnly : MaskPlayerSolid;
+    /// <summary>
+    /// <c>PlayerSolidMask</c> (gamemovement.cpp:715), through the rules' mask
+    /// arm: the stock mask, or the mod's over it (stock TF's
+    /// <c>CTFGameMovement::PlayerSolidMask</c> adds the other team's contents
+    /// bit, tf_gamemovement.cpp:259-284).
+    /// </summary>
+    private uint PlayerSolidMask(bool brushOnly = false)
+        => Rules.SolidMask(_s.EntIndex, brushOnly ? MaskPlayerSolidBrushOnly : MaskPlayerSolid, brushOnly);
 
     private enum IntervalType { Ground, Stuck, Ladder }
 

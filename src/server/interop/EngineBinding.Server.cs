@@ -1491,6 +1491,16 @@ internal sealed unsafe partial class EngineEntityRender
         _networkServerArea.EntitySetTransmitAlways(entity.Value, always ? 1 : 0);
     }
 
+    /// <summary>
+    /// The ITransmitRule chain's opt-in, the IShimNetworkServer
+    /// EntitySetTransmitFullCheck slot: in the FULLCHECK state the transmit walk
+    /// asks the chain per client instead of the PVS check.
+    /// </summary>
+    public void SetTransmitFullCheck(EntityHandle entity, bool on)
+    {
+        _networkServerArea.EntitySetTransmitFullCheck(entity.Value, on ? 1 : 0);
+    }
+
     /// <summary>Whether a brush is drawn.</summary>
     public void SetVisible(EntityHandle entity, bool visible)
     {

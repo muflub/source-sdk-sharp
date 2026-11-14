@@ -6,7 +6,8 @@ namespace SourceSharp.Client.Ui.Screens;
 /// <summary>
 /// The scoreboard (stock: CClientScoreBoardDialog, on +showscores): the server
 /// and map in a header, then one <see cref="TeamTable"/> per team, side by side
-/// on a wide screen and stacked on a narrow one; an empty server says so.
+/// on a wide screen (two to a row when team deathmatch runs three or four) and
+/// stacked on a narrow one; an empty server says so.
 /// Slot: <c>scoreboard.footer</c>.
 /// </summary>
 public sealed class Scoreboard : UiScreen
@@ -32,7 +33,7 @@ public sealed class Scoreboard : UiScreen
 
         // Narrow: the teams stack in one column; when they are taller than the
         // screen, the panel takes the screen's height and the column scrolls.
-        bool scrolls = !wide && StackedHeightDu() > ui.DesignHeight - 2 * (float)Space.Huge;
+        bool scrolls = StackedHeightDu(wide) > ui.DesignHeight - 2 * (float)Space.Huge;
 
         // A margin all round, so a narrow screen's panel does not meet its edges.
         using (ui.Box().Size(Size.Fill, Size.Fill).Pad(Space.XL, Space.Huge))
@@ -48,15 +49,34 @@ public sealed class Scoreboard : UiScreen
             }
             else
             {
-                var teams = wide ? ui.Row(Space.XL, Align.Start)
-                          : scrolls ? ui.Scroll("teams", Space.L).Height(Size.Fill)
-                          : ui.Column(Space.L);
-                using (teams)
+                int count = Math.Min(_source.TeamCount, MaxTeams);
+                var teams = scrolls ? ui.Scroll("teams", Space.L).Height(Size.Fill) : ui.Column(Space.L);
+                using (teams.Width(Size.Fill))
                 {
-                    for (int t = 0; t < _source.TeamCount && t < 2; t++)
+                    if (!wide)
                     {
-                        var tone = t == 0 ? Tone.TeamA : Tone.TeamB;
-                        ui.Sub(t, _table, new TeamTableProps(t, tone)).Width(wide ? Size.Fr() : Size.Fill);
+                        for (int t = 0; t < count; t++)
+                            ui.Sub(t, _table, Props(t)).Width(Size.Fill);
+                    }
+                    else
+                    {
+                        // Two teams side by side, three or four two to a row: a
+                        // third team's table keeps a column's width, not the row's.
+                        int across = count <= 2 ? Math.Max(count, 1) : 2;
+                        for (int row = 0; row < count; row += across)
+                        {
+                            // Keyed apart from the tables' Sub keys (the team indices).
+                            using (ui.Row(Space.XL, Align.Start).Width(Size.Fill).Key(-1 - row))
+                            {
+                                for (int t = row; t < row + across; t++)
+                                {
+                                    if (t < count)
+                                        ui.Sub(t, _table, Props(t)).Width(Size.Fr());
+                                    else
+                                        ui.Spacer(Size.Fr(), Size.Du(1));
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -65,13 +85,39 @@ public sealed class Scoreboard : UiScreen
         }
     }
 
-    /// <summary>The stacked panel's height, du: header, then per team its band, column header and rows.</summary>
-    private float StackedHeightDu()
+    /// <summary>The most tables the board draws: team deathmatch's four teams.</summary>
+    public const int MaxTeams = 4;
+
+    /// <summary>A team's table: its tone by its number, deathmatch's one table the first team tone.</summary>
+    private TeamTableProps Props(int t)
+        => new(t, UiTeams.ToneOf(_source.Team(t).Number, t == 0 ? Tone.TeamA : Tone.TeamB));
+
+    /// <summary>
+    /// The panel's height, du: the header, then per row of tables its band and
+    /// column header and its longest table's rows (one table a row when stacked).
+    /// </summary>
+    private float StackedHeightDu(bool wide)
     {
+        int count = Math.Min(_source.TeamCount, MaxTeams);
+        int across = wide ? 2 : 1;
         float h = 140;
-        for (int t = 0; t < _source.TeamCount && t < 2; t++)
-            h += 110;
-        return h + 36 * _source.PlayerCount;
+        for (int row = 0; row < count; row += across)
+        {
+            int rows = 0;
+            for (int t = row; t < row + across && t < count; t++)
+                rows = Math.Max(rows, Members(_source.Team(t).Number));
+            h += 110 + 36 * rows;
+        }
+        return h;
+    }
+
+    private int Members(int team)
+    {
+        int n = 0;
+        for (int i = 0; i < _source.PlayerCount; i++)
+            if (_source.Player(i).Team == team)
+                n++;
+        return n;
     }
 
     private void Header(ref UiFrame ui)

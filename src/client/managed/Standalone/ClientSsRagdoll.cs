@@ -306,9 +306,21 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// skin 0 for red, skin 1 otherwise — from the team the server stamped on
     /// it (<see cref="RagdollNetState.Team"/>). Without it every corpse draws
     /// in the model's skin 0 and a BLU death leaves a RED body.
+    ///
+    /// <para>
+    /// ONLY A TF BODY, the one a class was stamped on
+    /// (<see cref="RagdollNetState.Class"/>, TF2's death walk alone writes it).
+    /// HL2MP's <c>C_HL2MPRagdoll</c> sets no skin, so its body wears its
+    /// model's own, as the living player did: the TF rule turned an Unassigned
+    /// or Rebel corpse to skin 1, a body that no longer looked like the player
+    /// who died in it (plan_bots_teams_tf2 A.8).
+    /// </para>
     /// </summary>
     private void DressSkin()
     {
+        if (State.Class == 0)
+            return;
+
         int skin = State.Team == TeamRed ? 0 : 1;
 
         if (skin == _shownSkin)

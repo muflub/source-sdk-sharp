@@ -59,7 +59,8 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
             (i, b, f, s, u) => game.GetMovementCharge(i, b, f, s, u),
             i => game.GetChargeSlowEnd(i),
             (i, h) => game.GetChargeBump(i, h),
-            (i, v) => game.GetParachuteFallCap(i, v));
+            (i, v) => game.GetParachuteFallCap(i, v),
+            (i, m, b) => game.GetPlayerSolidMask(i, m, b));
 
         if (serverCommands is not null)
             serverCommands.Rules = rules;

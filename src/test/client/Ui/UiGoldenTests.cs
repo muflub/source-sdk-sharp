@@ -23,6 +23,11 @@ public class UiGoldenTests
     {
         { "scoreboard", "12-players-two-teams" },
         { "scoreboard", "deathmatch-with-bots" },
+        // Team deathmatch's three and four teams (user 2026-11-08): two tables to a row.
+        { "scoreboard", "team-deathmatch-three-teams" },
+        { "scoreboard", "team-deathmatch-four-teams-of-four" },
+        { "teammenu", "team-deathmatch-three-teams" },
+        { "teammenu", "team-deathmatch-four-teams" },
         { "hud", "full-health-smg" },
         { "hud", "low-health-hurt-from-the-left" },
         { "hud", "smg-2-of-3-grenades" },

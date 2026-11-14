@@ -183,7 +183,7 @@ public static class ClientUi
             mod.EncryptionKey);
         var names = new WeaponNames(c => scripts.ReadScript(c)?.PrintName, localiser.Find);
         var standalones = services.Require<IClientStandalones>();
-        var player = new LocalPlayerUi(screen, arsenal, hud, standalones, names, services.Resolve<ViewReadout>());
+        var player = new LocalPlayerUi(screen, arsenal, hud, standalones, names, services.Resolve<ViewReadout>(), services.Resolve<TeamNames>());
 
         // THE SCOREBOARD'S DATA, before the mod screens: a mod screen that
         // replaces the core's takes it over by constructor, and the mod's UI
@@ -191,7 +191,8 @@ public static class ClientUi
         // reaches them as the IScoreboardSource the container now answers for.
         var scores = new ScoreboardUi(standalones, screen, engine, services.Require<IPlayerNames>(),
                                       services.Require<HostnameConVar>(),
-                                      services.Require<IEngineEnvironment>(), services.Resolve<TeamNames>());
+                                      services.Require<IEngineEnvironment>(), services.Resolve<TeamNames>(),
+                                      services.Resolve<ClTdmTeamsConVar>());
         services.AddInstance<IScoreboardSource>(scores);
 
         // THE TEXT WINDOW'S DATA, before the mod screens, as the scoreboard's:
@@ -233,7 +234,7 @@ public static class ClientUi
         var selectionHud = services.Resolve<WeaponSelectionHud>();
 
         // THE HUD LAYER: its own context, so the menu's hit-testing never reads the HUD's frame.
-        var hudScreen = new Ui.Screens.Hud(player, new VitalsPanel(player, player, new AuxPowerPanel(player)), new AmmoPanel(player, player),
+        var hudScreen = new Ui.Screens.Hud(player, new VitalsPanel(player, player, new AuxPowerPanel(player), new TeamLinePanel(player, player)), new AmmoPanel(player, player),
                                            new CrosshairPanel(), new DamagePanel(player), new MapTextPanel(messages),
                                            new HintsPanel(hints), new BuildStampPanel(build),
                                            new KillFeedPanel(services.Require<IKillFeedSource>()),

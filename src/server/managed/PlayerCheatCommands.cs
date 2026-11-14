@@ -95,13 +95,16 @@ public abstract class PlayerSelfCommand : DevCommand
     /// </para>
     ///
     /// <para>
-    /// The attacker is nobody — <see cref="EntityHandle.None"/> — which is what
-    /// the native spelling passed (a NULL <c>CTakeDamageInfo</c> attacker) and
-    /// is what makes a suicide read as one rather than as a kill by the victim.
+    /// The attacker is the player: stock's <c>CommitSuicide</c> builds
+    /// <c>CTakeDamageInfo( this, this, ... )</c> (player.cpp:5454), so a suicide
+    /// is a kill by the victim. The board treats it as uncredited (-1, the
+    /// same as a death to the world), and team deathmatch's score takes one
+    /// from the victim's team, as stock's <c>Event_Killed</c> does for an
+    /// attacker that is the victim (hl2mp_player.cpp:1327-1334).
     /// </para>
     /// </summary>
     protected void Suicide(EntityHandle player, DamageType type)
-        => Damage.Apply(player, EntityHandle.None, SuicideDamage, type);
+        => Damage.Apply(player, player, SuicideDamage, type);
 
     /// <summary>
     /// The number the native spelling used. Large enough that no armour, buff

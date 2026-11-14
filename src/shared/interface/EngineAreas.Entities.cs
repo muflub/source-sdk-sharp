@@ -687,6 +687,15 @@ public interface IEngineEntityRender
     void SetTransmitAlways(EntityHandle entity, bool always);
 
     /// <summary>
+    /// The per-client transmit rule's opt-in (the ITransmitRule chain, F06): in
+    /// the FULLCHECK state the engine's transmit walk asks the rule for this
+    /// entity's fate with each client instead of the PVS check; off returns it
+    /// to the ordinary check. See <see cref="SetTransmitAlways"/> for the
+    /// broadcast form.
+    /// </summary>
+    void SetTransmitFullCheck(EntityHandle entity, bool on);
+
+    /// <summary>
     /// Stock's <c>CBaseEntity::DetectInSkybox</c>: raises <c>EFL_IN_SKYBOX</c>
     /// if this entity stands inside a 3D skybox, and answers whether it does.
     ///

@@ -343,6 +343,7 @@ struct SSManagedClientsTable
 	int32_t (*ServerTransmitAlwaysForClient)(IManagedClients* self, int32_t iClientEdict);
 	int32_t (*ServerAreaPortalVisibility)(IManagedClients* self, const float* pOriginXYZ,
 										  float flFovDistanceAdjustFactor, uint8_t* pPortalBits, int32_t nPortalBytes);
+	int32_t (*ServerShouldTransmit)(IManagedClients* self, int32_t iClientEdict, int32_t iEdict);
 };
 
 class IManagedClients : public IManagedObject
@@ -402,16 +403,21 @@ public:
 												   nPortalBytes);
 	}
 
+	int32_t ServerShouldTransmit(int32_t iClientEdict, int32_t iEdict)
+	{
+		return Table()->ServerShouldTransmit(this, iClientEdict, iEdict);
+	}
+
 private:
 	const SSManagedClientsTable* Table() const { return static_cast<const SSManagedClientsTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedClientsSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x994fbbfe, 0xeed27821, 0x7fb639b8, 0x8a6f1a50, 0x8a6f1a50, 0xc2a9f6e4,
-	0x021a56ce, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a, 0xa45f061a, 0x9546130c,
+	0x021a56ce, 0x17365172, 0x17365172, 0x4a9e65fd, 0xa45f061a, 0xa45f061a, 0x9546130c, 0xecb3ae59,
 };
-static const int32_t kIManagedClientsSlotCount = 15;
-static_assert(sizeof(SSManagedClientsTable) == 15 * sizeof(void*), "SSManagedClientsTable is one pointer per slot");
+static const int32_t kIManagedClientsSlotCount = 16;
+static_assert(sizeof(SSManagedClientsTable) == 16 * sizeof(void*), "SSManagedClientsTable is one pointer per slot");
 
 class IManagedEvents;
 

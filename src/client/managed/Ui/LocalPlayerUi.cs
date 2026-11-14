@@ -1,5 +1,6 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Ui;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Vgui;
 
@@ -14,15 +15,25 @@ namespace SourceSharp.Client.Vgui;
 /// secondary pool is the active weapon's alt-fire ammunition against its carry
 /// cap; the damage direction is the last hit's origin against the current view
 /// (NaN, every edge, when the hit had no origin). The weapon's name is its
-/// script's print name, localised (<see cref="WeaponNames"/>). Each optional
-/// source left out answers "none".
+/// script's print name, localised (<see cref="WeaponNames"/>). The team is the
+/// local slot's on the player resource, team play the roster's answer
+/// (<see cref="TeamPlay"/>), and the team's name the scoreboard's through the
+/// mods' rules (<see cref="TeamNames"/>). Each optional source left out
+/// answers "none".
 /// </para>
 /// </summary>
 public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud hud,
                                   IClientStandalones? standalones = null, WeaponNames? names = null,
-                                  ViewReadout? view = null)
-    : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage, IPlayerSuitPower
+                                  ViewReadout? view = null, TeamNames? teamNames = null)
+    : IPlayerLife, IPlayerHealth, IPlayerArmour, IPlayerWeapon, IPlayerAmmo, IPlayerDamage, IPlayerSuitPower, IPlayerTeam
 {
+    private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
+    private Standalone.ClientPlayerResource? _resource;
+    private bool _teamplay;
+    private int _team;
+    private string _teamName = string.Empty;
+    private int _teamNamed = -1;
+
     private int _armour;
     private float _suitPower = 100f;
     private int _suitDevices;
@@ -56,6 +67,29 @@ public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud 
         }
 
         _damageYaw = view is { Known: true } ? DamageYaw(view.Eye, view.Yaw, hud.LastDamageOrigin) : float.NaN;
+        RefreshTeam();
+    }
+
+    /// <summary>The local slot's team and whether the game is team play, off the player resource.</summary>
+    private void RefreshTeam()
+    {
+        (_teamplay, _team) = (false, 0);
+        if (standalones is null)
+            return;
+        // Found again only when the one held has left (a new level): no search a frame.
+        if (_resource is null || !standalones.Live().Contains(_resource))
+            _resource = standalones.OfClass(EntityNames.PlayerManager).OfType<Standalone.ClientPlayerResource>().FirstOrDefault();
+        if (_resource is not { } r)
+            return;
+        var state = r.State;
+        _teamplay = TeamPlay.FromRoster(state);
+        int local = screen.LocalPlayerIndex;
+        _team = local > 0 && local < PlayerResourceNetState.Slots ? state.Team[local] : 0;
+        if (_team != _teamNamed)
+        {
+            _teamNamed = _team;
+            _teamName = _teamNames.Of(_team, ScoreboardUi.TeamName(_team));
+        }
     }
 
     /// <summary>
@@ -111,4 +145,10 @@ public sealed class LocalPlayerUi(IEngineHud screen, ILocalArsenal arsenal, Hud 
     public double LastDamageAt => hud.LastDamageAt;
 
     public float LastDamageYaw => _damageYaw;
+
+    public bool Teamplay => _teamplay;
+
+    public int Team => _team;
+
+    public string TeamName => _teamName;
 }

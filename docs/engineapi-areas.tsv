@@ -34,7 +34,8 @@ EntityBindBlob	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNet
 EntityMarkBlockChanged	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityMarkBlockChanged	uint, int, void	
 EntityPayloadAgreement	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityPayloadAgreement	uint, int*, int*, int	
 EntityGetEngineBlock	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntityGetEngineBlock	uint, int*, void*	
-EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntitySetTransmitAlways	uint, int, void	
+EntitySetTransmitAlways	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntitySetTransmitAlways	uint, int, void
+EntitySetTransmitFullCheck	EngineApi	IShimNetworkServer	ext	IShimNetwork	server	-	CServerNetwork::EntitySetTransmitFullCheck	uint, int, void
 EntityGetModelName	EngineApi	IShimModels	shared		both	-	CServerModels::EntityGetModelName	uint, byte*, int, void	CStandaloneClients::EntityGetModelName
 EntitiesInvalidateMdlCacheAll	EngineApi	IShimModels	shared		both	-	CServerModels::EntitiesInvalidateMdlCacheAll	int	SourceSharp_ClientEntitiesInvalidateMdlCacheAll
 StandaloneSetModelScale	EngineApi	IShimModels	shared		both	-	CServerModels::StandaloneSetModelScale	uint, float, void	CStandaloneClients::StandaloneSetModelScale

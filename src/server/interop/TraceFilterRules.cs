@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Server.Interop;
 
@@ -74,8 +75,10 @@ public readonly record struct TraceFilterQuery(
 ///   Ownership is compared as handles: the block stores the owner as one.</item>
 ///   <item>THE ENTITY AND THE RULES: anything that is not a game entity is not
 ///   hit; a game entity's own <c>ShouldCollide</c> is CStandaloneEntity's,
-///   which answers true; the rules' group matrix (CollisionRules' rows, stock's
-///   predicate) decides the pair; out of range is true.</item>
+///   which answers true, with a registered <see cref="IEntityCollideRule"/>
+///   chain able to except a single entity (every rule must agree); the rules'
+///   group matrix (CollisionRules' rows, stock's predicate) decides the pair;
+///   out of range is true.</item>
 /// </list>
 ///
 /// <para>
@@ -112,25 +115,29 @@ public sealed class TraceFilterRules
 
     private readonly ITraceCandidates _candidates;
     private readonly uint[] _rows;
+    private readonly IHooks<IEntityCollideRule> _collideRules;
 
     /// <param name="candidates">The blocks and the model table.</param>
     /// <param name="collisionRows">CollisionRules.BuildMatrix(): bit b of row a
     /// is "group a collides with group b".</param>
-    public static TraceFilterRules Over(ITraceCandidates candidates, uint[] collisionRows)
+    /// <param name="collideRules">The registered <see cref="IEntityCollideRule"/> chain; with no rule registered, stock's answer alone.</param>
+    public static TraceFilterRules Over(ITraceCandidates candidates, uint[] collisionRows, IHooks<IEntityCollideRule> collideRules)
     {
         ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(collideRules);
         ArgumentNullException.ThrowIfNull(collisionRows);
         if (collisionRows.Length != GroupCount)
             throw new ArgumentException($"the collision matrix has {GroupCount} rows, not {collisionRows.Length}", nameof(collisionRows));
-        return new TraceFilterRules(candidates, (uint[])collisionRows.Clone());
+        return new TraceFilterRules(candidates, (uint[])collisionRows.Clone(), collideRules);
     }
 
     // The rows are a copy Over made, checked there (a constructor only stores,
     // by the interop layer's rule).
-    private TraceFilterRules(ITraceCandidates candidates, uint[] rows)
+    private TraceFilterRules(ITraceCandidates candidates, uint[] rows, IHooks<IEntityCollideRule> collideRules)
     {
         _candidates = candidates;
         _rows = rows;
+        _collideRules = collideRules;
     }
 
     /// <summary>Whether a raw handle is a static prop's (<c>IStaticPropMgr::IsStaticProp</c>).</summary>
@@ -188,6 +195,18 @@ public sealed class TraceFilterRules
         // Not a game entity: not hit.
         if (!game)
             return false;
+
+        // The per-entity rules (a mod's IEntityCollideRule chain, every rule in
+        // agreement, as SpawnPoints.Frags asks its ISpawnFragRules): asked here,
+        // after the pass checks and before the matrix, for game entities only,
+        // with the trace's own group, as stock hands the entity m_collisionGroup
+        // (util_shared.cpp:305; CTFPlayer::ShouldCollide tests it for
+        // COLLISION_GROUP_PLAYER_MOVEMENT).
+        foreach (IEntityCollideRule rule in _collideRules.All)
+        {
+            if (!rule.ShouldCollide(touch, (CollisionGroup)query.CollisionGroup, contentsMask))
+                return false;
+        }
 
         // CStandaloneEntity::ShouldCollide answers true; the rules decide the pair.
         return GroupsCollide(query.CollisionGroup, candidate.CollisionGroup);

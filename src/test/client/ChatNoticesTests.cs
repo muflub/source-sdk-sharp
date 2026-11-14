@@ -70,6 +70,15 @@ public class ChatNoticesTests
         Assert.Equal(["Player alyx joined team Rebels", "Player barney was automatically assigned to team Combine"], chat.Lines);
     }
 
+    [Fact]
+    public void A_join_to_team_deathmatch_s_third_or_fourth_team_names_it()
+    {
+        var (n, chat, _) = Make();
+        n.OnTeam(new PlayerTeamArgs(7, 4, 0, false, AutoTeam: false, Name: "alyx"));
+        n.OnTeam(new PlayerTeamArgs(8, 5, 0, false, AutoTeam: true, Name: "barney"));
+        Assert.Equal(["Player alyx joined team Metro Police", "Player barney was automatically assigned to team Resistance"], chat.Lines);
+    }
+
     private sealed class RedBlue : ITeamNameRule, IOrderedHook
     {
         public int HookOrder => 1;

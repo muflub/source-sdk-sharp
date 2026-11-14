@@ -1227,7 +1227,7 @@ internal unsafe struct ShimEventsServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimNetworkServer</c> through its forwarders (SSFwd_ShimNetworkServer): 10 slot(s).
+/// <c>IShimNetworkServer</c> through its forwarders (SSFwd_ShimNetworkServer): 11 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimNetworkServerFwd : IForwarderTable
@@ -1264,6 +1264,9 @@ internal unsafe struct ShimNetworkServerFwd : IForwarderTable
 
     // void IShimNetworkServer::EntitySetTransmitAlways( uint32_t, int32_t )
     public delegate* unmanaged<void*, uint, int, void> EntitySetTransmitAlways;
+
+    // void IShimNetworkServer::EntitySetTransmitFullCheck( uint32_t, int32_t )
+    public delegate* unmanaged<void*, uint, int, void> EntitySetTransmitFullCheck;
 }
 
 /// <summary>

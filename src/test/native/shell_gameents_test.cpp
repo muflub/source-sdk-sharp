@@ -90,9 +90,11 @@ public:
 };
 
 // The managed clients table: every recipient's skybox area is 3 unless a fact declines it,
-// and the edict always sent to it is s_nAlways (none by default).
+// and the edict always sent to it is s_nAlways (none by default). The FULLCHECK answer
+// is s_nRule: 0 never, 1 always, 2 the PVS check.
 bool s_bDeclineRecipient = false;
 int s_nAlways = 0;
+int s_nRule = 2;
 
 int32_t SkyboxAreaThree(IManagedClients*, int32_t, int32_t* pOutArea)
 {
@@ -105,6 +107,11 @@ int32_t AlwaysSent(IManagedClients*, int32_t)
 	return s_nAlways;
 }
 
+int32_t RuleAnswer(IManagedClients*, int32_t, int32_t)
+{
+	return s_nRule;
+}
+
 class ServerGameEnts : public ::testing::Test
 {
 protected:
@@ -112,8 +119,10 @@ protected:
 	{
 		s_bDeclineRecipient = false;
 		s_nAlways = 0;
+		s_nRule = 2;
 		m_Table.ServerSkyboxAreaForClient = SkyboxAreaThree;
 		m_Table.ServerTransmitAlwaysForClient = AlwaysSent;
+		m_Table.ServerShouldTransmit = RuleAnswer;
 		m_Managed.m_pClients = &m_ManagedClients;
 		m_Info.m_pClientEnt = &m_Engine.m_Edicts[1];
 		m_Info.m_nPVSSize = 0;
@@ -203,6 +212,63 @@ TEST_F(ServerGameEnts, ARecipientManagedDeclinesIsSentNothing)
 	Walk();
 
 	EXPECT_FALSE(m_Sent.Get(2));
+}
+
+// A FULLCHECK edict's fate is the rule's answer, carried out: always is sent
+// however far outside the PVS its box sits.
+TEST_F(ServerGameEnts, AFullcheckEdictTheRuleSendsIsSentOutsideThePvs)
+{
+	s_nRule = 1;
+	Flag(4, FL_EDICT_FULL | FL_EDICT_FULLCHECK);
+	m_Entities.push_back(std::make_unique<CBoxEntity>(-10.0f));
+	m_Engine.m_Edicts[4].SetEdict(m_Entities.back().get(), true);
+
+	Walk();
+
+	EXPECT_TRUE(m_Sent.Get(4));
+}
+
+// ... and never is not sent even though the box is in the PVS.
+TEST_F(ServerGameEnts, AFullcheckEdictTheRuleNeverAnswersIsNotSentEvenInThePvs)
+{
+	s_nRule = 0;
+	Flag(4, FL_EDICT_FULL | FL_EDICT_FULLCHECK);
+	m_Entities.push_back(std::make_unique<CBoxEntity>(10.0f));
+	m_Engine.m_Edicts[4].SetEdict(m_Entities.back().get(), true);
+
+	Walk();
+
+	EXPECT_FALSE(m_Sent.Get(4));
+}
+
+// The default answer is the PVS check, the same test an FL_EDICT_PVSCHECK edict gets.
+TEST_F(ServerGameEnts, AFullcheckEdictsDefaultAnswerIsThePvsCheck)
+{
+	Flag(4, FL_EDICT_FULL | FL_EDICT_FULLCHECK);
+	m_Entities.push_back(std::make_unique<CBoxEntity>(10.0f));
+	m_Engine.m_Edicts[4].SetEdict(m_Entities.back().get(), true);
+	Flag(5, FL_EDICT_FULL | FL_EDICT_FULLCHECK);
+	m_Entities.push_back(std::make_unique<CBoxEntity>(-10.0f));
+	m_Engine.m_Edicts[5].SetEdict(m_Entities.back().get(), true);
+
+	Walk();
+
+	EXPECT_TRUE(m_Sent.Get(4));
+	EXPECT_FALSE(m_Sent.Get(5));
+}
+
+// With the managed side down the recipient gate declines first (the walk's early
+// return), so the FULLCHECK edict is sent nothing, like every other kind.
+TEST_F(ServerGameEnts, AFullcheckEdictWithTheManagedSideDownIsSentNothing)
+{
+	m_bManagedLoaded = false;
+	Flag(4, FL_EDICT_FULL | FL_EDICT_FULLCHECK);
+	m_Entities.push_back(std::make_unique<CBoxEntity>(10.0f));
+	m_Engine.m_Edicts[4].SetEdict(m_Entities.back().get(), true);
+
+	Walk();
+
+	EXPECT_FALSE(m_Sent.Get(4));
 }
 
 TEST_F(ServerGameEnts, AnArmedCaptureRecordsTheSentSetAndTheSkyboxArea)

@@ -841,6 +841,7 @@ public class CorpseTests
 
         var body = Viewer(engine);
         body.State.Team = 3; // stock's TF_TEAM_BLUE
+        body.State.Class = 3; // a TF body: TF2's death walk stamps the class
 
         body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
 
@@ -862,6 +863,7 @@ public class CorpseTests
 
         var body = Viewer(engine);
         body.State.Team = 2; // stock's TF_TEAM_RED
+        body.State.Class = 3; // a TF body: TF2's death walk stamps the class
 
         body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
 

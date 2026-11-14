@@ -192,6 +192,13 @@ public interface IClientModule
     /// </summary>
     Vector GetParachuteFallCap(int playerIndex, Vector velocity) => velocity;
 
+    /// <summary>
+    /// The player-solid mask the command's movement traces carry (the mask
+    /// unchanged, stock HL2MP). Runs on both sides; see
+    /// <c>IMovementRules.PlayerSolidMask</c>.
+    /// </summary>
+    uint GetPlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => mask;
+
     //-------------------------------------------------------------------------
     // The standalone entity hierarchy, client side. Same shape as the server's,
     // asked at a different moment — see ClientStandaloneRegistry.

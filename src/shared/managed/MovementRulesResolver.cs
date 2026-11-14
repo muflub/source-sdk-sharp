@@ -264,6 +264,17 @@ public interface IMovementRules
     /// :2641). The velocity unchanged is the default and stock Half-Life.
     /// </summary>
     Vector ParachuteFallCap(int playerIndex, Vector velocity) => velocity;
+
+    /// <summary>
+    /// The player-solid mask every movement trace of this command carries: the
+    /// mask the loop was about to trace with (<see cref="MovementRules.Stock"/>'s
+    /// <c>MaskPlayerSolid</c>, or its brush-only shape), replaced whole by the
+    /// mod's — stock TF's <c>CTFGameMovement::PlayerSolidMask</c> ORs the other
+    /// team's contents bit into the base's (tf_gamemovement.cpp:259-284). The
+    /// mask unchanged is the default and stock Half-Life. Asked once per
+    /// movement trace, on both sides, so a replay's mask is the server's.
+    /// </summary>
+    uint PlayerSolidMask(int playerIndex, uint mask, bool brushOnly) => mask;
 }
 
 /// <summary>
@@ -368,7 +379,8 @@ public sealed class MovementRulesResolver
                 (i, b, f, s, u) => _rules.MovementCharge(i, b, f, s, u),
                 i => _rules.ChargeSlowEnd(i),
                 (i, h) => _rules.ChargeBump(i, h),
-                (i, v) => _rules.ParachuteFallCap(i, v));
+                (i, v) => _rules.ParachuteFallCap(i, v),
+                (i, m, b) => _rules.PlayerSolidMask(i, m, b));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

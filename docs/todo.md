@@ -43,6 +43,27 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## The daily gate's rope and overlay flake follows knock-loose (2026-11-08)
+
+`rope-settle` and `debug-overlay` came back FLAKY (2 of 3) in the daily gate. Lanes F143 and
+F152 (no code changed) found: each step alone passes 3/3, and so do `join,<step>,rope-settle,debug-overlay`
+for `projectile`, `skinned-model`, `viewmodel-merge` and `gib-ragdoll`; with `knock-loose`
+it went PASS FAIL FAIL, then 5/5 and 8/8 on reruns, so it is about 1 in 3 and load (50-80)
+modulates it. The failure is a delay, not a loss: after the between-pass `map`, the client's
+rope strips freeze for 4-10 s while the spans' thinks keep advancing, then recover by
+themselves; `cs_cl_rope_spans` shows all four spans throughout. So the stall is upstream of
+`ClientRopeSystem.Draw` (engine renderables or the draw call not arriving), not its own
+early-outs. `debug-overlay`'s UI check failed the same way on passes 2-4 of one run.
+**Next:** sample the `ClientStandaloneDraw` and `ClientStandaloneDrawBatch` crossings across a
+failing pass (the dev API; lanes could not reach it). What `knock-loose` leaves that the reload
+doesn't reset is unknown.
+
+`gib-ragdoll`'s position check is a race, not a divergence: it reads the first ragdoll root
+0.5 s after a 400 u/s shot and wants it within 256 u, which holds only for reads within about
+0.64 s; the failing point `[-3468.3, 2907.0, 10.5]` lies on the shot axis. The port matches
+stock (`Gibs.cs` `ThrowRagdoll`). **Next:** bound it by the flight envelope or read the root
+at rest.
+
 ## Collision rule changes stock tells vphysics of and ours does not (2026-11-03)
 
 A 12-bot game's segfault in `vphysics.so` was a player's rules changing with no recheck: a

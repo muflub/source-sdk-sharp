@@ -1308,6 +1308,7 @@ internal sealed unsafe partial class EngineEntityRender
     // attach guard answered here, where the server's areas are never attached.
     public void SetModel(EntityHandle entity, string model) { }
     public void SetTransmitAlways(EntityHandle entity, bool always) { }
+    public void SetTransmitFullCheck(EntityHandle entity, bool on) { }
     public void SetVisible(EntityHandle entity, bool visible) { }
 }
 

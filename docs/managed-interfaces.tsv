@@ -68,6 +68,7 @@ IManagedClients	OnClientNetMessage	int32_t	int32_t nEntIndex, const char *pKey, 
 IManagedClients	OnClientSettingsChanged	int32_t	int32_t nEntIndex
 IManagedClients	ServerTransmitAlwaysForClient	int32_t	int32_t iClientEdict
 IManagedClients	ServerAreaPortalVisibility	int32_t	const float *pOriginXYZ, float flFovDistanceAdjustFactor, uint8_t *pPortalBits, int32_t nPortalBytes
+IManagedClients	ServerShouldTransmit	int32_t	int32_t iClientEdict, int32_t iEdict
 IManagedEvents	OnGameEvent	void	const char *pEventName, void *hEvent
 IManagedUserMessages	GetUserMessageInfo	bool	int32_t nIndex, char *pName, int32_t nMaxName, int32_t *pSize
 IManagedDiagnostics	CrossingsReport	int32_t	char *pBuffer, int32_t nBytes, int32_t bReset

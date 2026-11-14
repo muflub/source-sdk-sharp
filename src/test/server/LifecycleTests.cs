@@ -608,6 +608,10 @@ public class LifecycleTests
         (typeof(LagCompensation),  1120),  // CLagCompensationManager's ClearHistory
                                            // at level shutdown. In the 1100/1150
                                            // gap; none moved.
+        (typeof(RejoinScores),     2530),  // plan_bots_teams_tf2 A.6: the departed
+                                           // players' scores, cleared at level
+                                           // init (a map change is a new match).
+                                           // After Votes' 2520; none moved.
     };
 
     [Fact]

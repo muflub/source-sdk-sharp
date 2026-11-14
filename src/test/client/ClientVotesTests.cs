@@ -232,4 +232,78 @@ public class ClientVotesOpenTests
         votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Map, Detail = "dm_a" });
         Assert.Null(votes.ResultSubject);
     }
+
+    // ---- votes for teams (user 2026-11-08, "make sure to add vote and admin menus for teams") ----
+
+    private static readonly AdminMenuLine Scramble = new((int)VoteKind.Scramble, "scramble", "");
+
+    [Fact]
+    public void A_listed_scramble_is_a_place_on_the_ring_after_the_restart()
+    {
+        var votes = Calling();
+        Options(votes, Restart, Scramble);
+        votes.Open();
+        Assert.Equal("#SS_UI_Vote_Scramble", _radial.Item(5).Label);
+    }
+
+    [Fact]
+    public void A_scramble_is_called_straight_away()
+    {
+        var votes = Calling();
+        Options(votes, Scramble);
+        votes.Open();
+        _radial.Choose(4);
+        Assert.Equal(["ss_callvote scramble"], _sent);
+    }
+
+    [Fact]
+    public void Without_teams_there_is_no_scramble_to_call()
+    {
+        var votes = Calling();
+        Options(votes, Restart);
+        votes.Open();
+        Assert.DoesNotContain(Enumerable.Range(0, _radial.ItemCount), i => _radial.Item(i).Label == "#SS_UI_Vote_Scramble");
+    }
+
+    [Fact]
+    public void The_panel_titles_a_scramble()
+    {
+        var votes = Calling();
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Scramble, Detail = "" });
+        Assert.Equal(("#SS_UI_Vote_ScrambleTitle", ""), (votes.Title, votes.Target));
+    }
+
+    [Fact]
+    public void The_mode_ring_shows_each_mode_by_its_name()
+    {
+        var votes = Calling();
+        Options(votes, new AdminMenuLine((int)VoteKind.Mode, "tdm", "#SS_UI_Mode_TeamDeathmatch"));
+        votes.Open();
+        _radial.Choose(2);
+        Assert.Equal("#SS_UI_Mode_TeamDeathmatch", _radial.Item(0).Label);
+        _radial.Choose(0);
+        Assert.Equal(["ss_callvote mode tdm"], _sent);
+    }
+
+    [Fact]
+    public void The_panel_names_the_mode_as_the_list_does()
+    {
+        var votes = Calling();
+        Options(votes, new AdminMenuLine((int)VoteKind.Mode, "tdm", "#SS_UI_Mode_TeamDeathmatch"));
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Mode, Detail = "tdm" });
+        Assert.Equal("#SS_UI_Mode_TeamDeathmatch", votes.Target);
+    }
+
+    [Fact]
+    public void The_team_count_is_a_setting_like_any_other()
+    {
+        var votes = Calling();
+        Options(votes, Setting("mp_tdm_teams=3", "3"), Setting("mp_tdm_teams=4", "4"));
+        votes.Open();
+        _radial.Choose(3);
+        Assert.Equal(["#SS_UI_Vote_Setting_mp_tdm_teams"], Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+        _radial.Choose(0);
+        _radial.Choose(1);
+        Assert.Equal(["ss_callvote setting mp_tdm_teams=4"], _sent);
+    }
 }

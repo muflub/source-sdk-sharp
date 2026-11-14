@@ -1,4 +1,6 @@
 using SourceSharp.Abi;
+using SourceSharp.Shared;
+using SourceSharp.Shared.Interop;
 
 namespace SourceSharp.Server.Interop;
 
@@ -32,7 +34,8 @@ public static class ServerTraceRouting
         INetworkServerArea network = side.Attachment.Areas.Require<INetworkServerArea>();
         var candidates = new EngineTraceCandidates(h => side.GetEntityBlock(network, h), side.EntityGetIndex,
                                                    modelInfo);
-        var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, collisionRows), engine.Crossings);
+        var sink = new TraceFilterSink(TraceFilterRules.Over(candidates, collisionRows,
+                                                    services.Require<IHooks<IEntityCollideRule>>()), engine.Crossings);
         ManagedVtable block = TraceFilterSink.Create(vtables, sink);
         nint nativeFilter = filters.Build(block, TraceFilterRules.TraceEverything);
 

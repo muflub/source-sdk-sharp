@@ -152,9 +152,27 @@ void CServerGameEnts::CheckTransmit(CCheckTransmitInfo* pInfo, const unsigned sh
 			continue;
 		}
 
-		// Visibility alone: these entities have no ShouldTransmit, hierarchy or area.
-		if (!(nFlags & FL_EDICT_PVSCHECK))
-			continue;
+		// A FULLCHECK edict — none of the flags above; FL_EDICT_FULLCHECK is 0,
+		// stock's fake — has its fate answered by the managed transmit rule,
+		// carried out here (native carries out a decision, never makes one):
+		// 0 never, 1 always. The rule's default, as with a managed side down,
+		// is the PVS check below, where the PVSCHECK edicts live too.
+		if (!(nFlags & (FL_EDICT_ALWAYS | FL_EDICT_PVSCHECK)))
+		{
+			IManagedClients* pRules = m_bManagedLoaded ? m_Managed.m_pClients : NULL;
+			if (pRules)
+			{
+				const int nAnswer = pRules->ServerShouldTransmit(nRecipientIndex, iEdict);
+				if (nAnswer == 0)
+					continue;
+
+				if (nAnswer == 1)
+				{
+					pInfo->m_pTransmitEdict->Set(iEdict);
+					continue;
+				}
+			}
+		}
 
 		ICollideable* pCollide = pEdict->GetCollideable();
 		if (!pCollide)

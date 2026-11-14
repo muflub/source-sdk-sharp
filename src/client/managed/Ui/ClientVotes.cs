@@ -44,6 +44,7 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         VoteKind.Map => "#SS_UI_Vote_MapTitle",
         VoteKind.Mode => "#SS_UI_Vote_ModeTitle",
         VoteKind.Restart => "#SS_UI_Vote_RestartTitle",
+        VoteKind.Scramble => "#SS_UI_Vote_ScrambleTitle",
         VoteKind.Setting => _settingTitle,
         _ => "#SS_UI_Vote_KickTitle",
     };
@@ -54,8 +55,22 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     {
         VoteKind.Kick => NameOf(_state.Target),
         VoteKind.Setting => _settingValue,
+        VoteKind.Mode => LabelOf(VoteKind.Mode, _state.Detail ?? ""),
         _ => _state.Detail ?? "",
     };
+
+    /// <summary>
+    /// What the server's list calls the choice <paramref name="id"/> of <paramref name="kind"/>
+    /// (a mode's readable name, "#SS_UI_Mode_TeamDeathmatch" for tdm), or the id itself
+    /// when the list does not have it.
+    /// </summary>
+    private string LabelOf(VoteKind kind, string id)
+    {
+        foreach (var option in _options)
+            if (option.Depth == (int)kind && option.Id == id && option.Label.Length > 0)
+                return option.Label;
+        return id;
+    }
 
     public string Caller => NameOf(_state.Caller);
 
@@ -164,6 +179,9 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
         entries.Add(Settings(can, why));
         if (_options.Any(o => o.Depth == (int)VoteKind.Restart))
             entries.Add(new RadialEntry("#SS_UI_Vote_Restart", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} restart"), Enabled: can, Detail: why));
+        // Listed only while a mode that can scramble plays (team deathmatch).
+        if (_options.Any(o => o.Depth == (int)VoteKind.Scramble))
+            entries.Add(new RadialEntry("#SS_UI_Vote_Scramble", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} {VoteWordScramble}"), Enabled: can, Detail: why));
         return new RadialPage("#SS_UI_Vote_Call", entries);
     }
 
@@ -180,6 +198,9 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     }
 
     private const string VoteWordSetting = "setting";
+
+    /// <summary>The scramble issue's word on the call line (the server's VoteOptionWords.Scramble).</summary>
+    private const string VoteWordScramble = "scramble";
 
     // A place on the ring for the choices of one kind; with none to choose, it says so.
     private RadialEntry Folder(string label, string title, VoteKind kind, string word, bool can, string? why)
