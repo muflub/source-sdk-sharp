@@ -85,7 +85,7 @@ public sealed class HordeChainTests
     {
         var bare = HordeFixtures.TheRules.Content.Robots.Rows.Where(t => RobotLooks.WeaponModel(t) is null).Select(t => t.Id);
 
-        Assert.Equal(["sentry_buster", "captain_punch"], bare);
+        Assert.Equal(["sentry_buster", "captain_punch", "tank"], bare);   // HO13: the Tank holds nothing
     }
 
     [Fact]

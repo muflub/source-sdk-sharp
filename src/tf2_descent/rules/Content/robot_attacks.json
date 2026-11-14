@@ -29,6 +29,18 @@
       "damageType": "bullet", "backstabMultiplier": 3, "backstabConeDegrees": 90 },
     { "id": "sentry_buster", "kind": "blast", "intervalSeconds": 10, "windupSeconds": 2.0, "damageShare": 1, "clip": 0, "reloadSeconds": 0,
       "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 0, "coneDegrees": 0, "projectile": "", "speed": 0,
-      "damageType": "blast", "blastRadius": 300, "triggerUnits": 100, "telegraph": "spin" }
+      "damageType": "blast", "blastRadius": 300, "triggerUnits": 100, "telegraph": "spin" },
+    { "id": "nuke_cannon", "kind": "projectile", "intervalSeconds": 1.2, "windupSeconds": 0, "damageShare": 1, "clip": 4, "reloadSeconds": 3.0,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 0, "coneDegrees": 0, "projectile": "tf_projectile_pipe", "speed": 1200,
+      "gravity": 320, "damageType": "blast" },
+    { "id": "crit_rockets", "kind": "projectile", "intervalSeconds": 0.8, "windupSeconds": 0, "damageShare": 1, "clip": 4, "reloadSeconds": 2.4,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 0, "coneDegrees": 0, "projectile": "tf_projectile_rocket", "speed": 1100,
+      "damageType": "blast" },
+    { "id": "boss_fists", "kind": "melee", "intervalSeconds": 1.0, "windupSeconds": 0.25, "damageShare": 1, "clip": 0, "reloadSeconds": 0,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 36, "coneDegrees": 0, "projectile": "", "speed": 0,
+      "damageType": "bullet" },
+    { "id": "tank_track", "kind": "melee", "intervalSeconds": 60, "windupSeconds": 0, "damageShare": 0, "clip": 0, "reloadSeconds": 0,
+      "pellets": 1, "spreadDegrees": 0, "rangeUnits": 0, "hullUnits": 1, "coneDegrees": 0, "projectile": "", "speed": 0,
+      "damageType": "blast" }
   ]
 }

@@ -184,6 +184,9 @@ public sealed class DescentContent
     /// <summary>The hazards' cadence and kinds: lava, slime (HE10, mine plan D8).</summary>
     public World.HazardSettings Hazards => Get<World.HazardSettings>(World.HazardTable.TableName);
 
+    /// <summary>The three bosses' scripts, their specials and the Tank (HO13, D13).</summary>
+    public Bosses.BossSettings Bosses => Get<Bosses.BossSettings>(TF2.Descent.Rules.Bosses.BossTable.TableName);
+
     /// <summary>The shipped content; throws <see cref="ContentLoadException"/> naming every error if it does not load.</summary>
     public static DescentContent Shipped() => new ContentLoader().Load(new EmbeddedContentSource()).OrThrow();
 }

@@ -27,7 +27,7 @@ public sealed class DeathRulesTests
         Assert.Equal(new DeathDrops(true, true, true, true), d.Drops);
         Assert.Equal(900, d.CorpseLingerSeconds);
         Assert.Equal(25, d.LostAndFoundFeePct);
-        Assert.Equal(new DownedSettings(20, 5, 5, 3, 96, 30, 2, 6), d.Downed);
+        Assert.Equal(new DownedSettings(20, 5, 5, 3, 96, 30, 2, 6, 60), d.Downed);
     }
 
     [Fact]
@@ -143,6 +143,16 @@ public sealed class DeathRulesTests
 
         var e = Assert.Single(errors);
         Assert.Equal((ContentTables.Death, ContentRule.OutOfRange), (e.Table, e.Rule));
+    }
+
+    [Fact]
+    public void A_respawn_blind_time_past_two_minutes_is_a_load_error()
+    {
+        var errors = new ContentLoader().Load(Source(n => n["downed"]!["respawnBlindSeconds"] = 121)).Errors;
+
+        var e = Assert.Single(errors);
+        Assert.Equal((ContentTables.Death, ContentRule.OutOfRange), (e.Table, e.Rule));
+        Assert.Contains("respawnBlindSeconds", e.Message);
     }
 
     //-------------------------------------------------------------------------

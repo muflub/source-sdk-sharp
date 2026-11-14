@@ -41,7 +41,7 @@ public sealed class LevelHordeSourceTests
         var shipped = Shipped();
         var world = new World();
         var log = new RecordingLog();
-        var source = new LevelHordeSource(new Levels(shipped), new StandInLevelSource(world, log), log);
+        var source = new LevelHordeSource(new Levels(shipped), new StandInLevelSource(world, log), new RigRules(), log);
 
         var given = source.LevelFor("tf2_descent-3-s7", 3, 7);
 
@@ -55,7 +55,7 @@ public sealed class LevelHordeSourceTests
     {
         var world = new World();
         var log = new RecordingLog();
-        var source = new LevelHordeSource(new Levels(null), new StandInLevelSource(world, log), log);
+        var source = new LevelHordeSource(new Levels(null), new StandInLevelSource(world, log), new RigRules(), log);
 
         var given = source.LevelFor("tf2_descent-1-s1", 1, 1);
 

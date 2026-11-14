@@ -272,6 +272,73 @@ public sealed class HordeReplayTests
     }
 
     /// <summary>
+    /// A boss fight (HO13): Major Crits in room 2 with his Tank, and Captain Punch in room 3, over
+    /// the families and the bosses as the game registers them, while a hero runs across the rooms and
+    /// the bosses are hurt through their phases; every special, summons and station they ask is kept.
+    /// </summary>
+    private static (byte[] Recording, HordeLevel Level, int Intents) RecordBossFight()
+    {
+        var level = Row(4, markers: 3);
+        var bytes = new MemoryStream();
+        var recorder = new AiRecorder(bytes, HordeBrains.Header(level));
+        recorder.World(HordeBrains.RecordedWorld(0.015f));
+        var log = new EventLog();
+        var numbers = FamilyNumbers.For(TheRules);
+        var rig = new BrainRig(level, sink: new Both(recorder, log), register: d =>
+        {
+            HordeFamilies.Register(d, numbers);
+            TF2.Descent.Ai.Boss.BossFamilies.Register(d, TheRules, numbers);
+        });
+        var crits = rig.Robot(Centre(2) + At(60, 0), "major_crits", seed: 81);
+        var tank = rig.Robot(Centre(2) + At(-150, -150), "tank", seed: 82);
+        var punch = rig.Robot(Centre(3), "captain_punch", seed: 83);
+        foreach (var id in new[] { crits, tank, punch })
+            rig.Lend(id, yaw: 180f);
+
+        const int ticks = 2400;
+        for (int t = 0; t < ticks; t++)
+        {
+            float x = 300f + 1500f * MathF.Abs(MathF.Sin(t * 0.003f));
+            rig.Hero(1, At(x, 250 + 60 * MathF.Sin(t * 0.03f)));
+            if (t % 300 == 150)
+            {
+                foreach (var boss in new[] { crits, punch })
+                    rig.Roster.Hurt(boss.Index, rig.Roster.Stats(boss.Index).Life * 0.2);
+            }
+
+            rig.Tick();
+        }
+
+        rig.Brains.Session.Drain(wait: true);
+        var asks = log.Intents.Where(i => i.Action.Kind == ActionKind.Ability).Select(i => i.Action.WeaponSlot).ToHashSet();
+        Assert.Contains(HordeAbilities.BossSpecial, asks);
+        Assert.Contains(HordeAbilities.BossSummon, asks);
+        Assert.Contains(HordeAbilities.TankStation, asks);
+        var nodes = log.Intents.Select(i => (FamilyNode)i.Reason.NodeId).ToHashSet();
+        Assert.True(nodes.IsSupersetOf([FamilyNode.Telegraph, FamilyNode.Summon, FamilyNode.Track, FamilyNode.Drill]), string.Join(", ", nodes.Order()));
+        return (bytes.ToArray(), level, log.Intents.Count);
+    }
+
+    [Fact]
+    public void A_recorded_boss_fight_replays_to_the_same_intents_inline_and_at_one_two_and_four_threads()
+    {
+        var (recording, level, intents) = RecordBossFight();
+
+        var inline = Replay(recording, level, new InlineTransport(), families: true);
+        Assert.True(inline.RecordedIntentCount == intents && intents > 0, $"the control: {inline.RecordedIntentCount} intents recorded, {intents} made");
+        Assert.True(inline.Identical, "inline: the boss fight's intent stream differs from the recording's");
+
+        foreach (int threads in new[] { 1, 2, 4 })
+        {
+            using var pool = new AiWorkerPool();
+            pool.Start(threads);
+            var pooled = Replay(recording, level, new PooledTransport(pool), families: true);
+            Assert.Equal(inline.ReplayedIntentCount, pooled.ReplayedIntentCount);
+            Assert.True(pooled.Identical, $"{threads} thread(s): the boss fight's intent stream differs from the recording's");
+        }
+    }
+
+    /// <summary>
     /// Record format 8 (2026-11-11): the horde's session runs with its team layer off, its header
     /// says so, and the replayer's own path reads it and runs its session the same way.
     /// </summary>

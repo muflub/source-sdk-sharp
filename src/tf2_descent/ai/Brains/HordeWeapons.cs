@@ -14,8 +14,11 @@ public static class HordeWeapons
     public const int None = 0, Melee = 1, Scattergun = 2, RocketLauncher = 3, GrenadeLauncher = 4, Flamethrower = 5,
                      Minigun = 6, Shotgun = 7, SyringeGun = 8, SniperRifle = 9, Knife = 10, SentryBuster = 11;
 
+    /// <summary>HO13: each boss fights with an attack row of its own (Sir Nukesalot's cannon, Major Crits' rockets, Captain Punch's fists), and the Tank rides its track.</summary>
+    public const int NukeCannon = 12, CritRockets = 13, BossFists = 14, TankTrack = 15;
+
     /// <summary>Family numbers in use, and one for none: 0 to <see cref="Count"/> - 1.</summary>
-    public const int Count = 12;
+    public const int Count = 16;
 
     /// <summary>The family number of robot_attacks.json's row <paramref name="family"/> (a template's <c>Attack</c>); <see cref="None"/> for one the table does not know.</summary>
     public static int Of(string? family) => family switch
@@ -31,6 +34,10 @@ public static class HordeWeapons
         "shotgun" => Shotgun,
         "syringe_gun" => SyringeGun,
         "sniper_rifle" => SniperRifle,
+        "nuke_cannon" => NukeCannon,
+        "crit_rockets" => CritRockets,
+        "boss_fists" => BossFists,
+        "tank_track" => TankTrack,
         _ => None,
     };
 
@@ -48,6 +55,10 @@ public static class HordeWeapons
         SniperRifle => 1600f,
         Knife => 64f,
         SentryBuster => 100f,
+        NukeCannon => 560f,
+        CritRockets => 640f,
+        BossFists => 64f,
+        TankTrack => 0f,
         _ => 256f,
     };
 
@@ -65,6 +76,10 @@ public static class HordeWeapons
         SniperRifle => "sniper_rifle",
         Knife => "knife",
         SentryBuster => "sentry_buster",
+        NukeCannon => "nuke_cannon",
+        CritRockets => "crit_rockets",
+        BossFists => "boss_fists",
+        TankTrack => "tank_track",
         _ => "no family",
     };
 }

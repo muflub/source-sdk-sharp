@@ -299,6 +299,10 @@ public sealed class AutomapService(ILevelData levels, Heroes heroes, HeroSheets 
             marks.Add((k, at));
         }
 
+        // HO13: the boss's arena carries the boss's mark where it stands.
+        if (_level.BossArena == id && marks.Count < AutomapRoomWire.MaxMarks && LevelAdapters.BossSpot(_level) is { } boss)
+            marks.Add((AutomapMarkKind.Boss, new Vector(boss.Position.X, boss.Position.Y, boss.Position.Z)));
+
         string label = room.Label.Length > AutomapRoomWire.MaxLabel ? room.Label[..AutomapRoomWire.MaxLabel] : room.Label;
         return new AutomapRoomWire
         {

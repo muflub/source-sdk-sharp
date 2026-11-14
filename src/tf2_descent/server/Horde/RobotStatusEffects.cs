@@ -161,6 +161,8 @@ public sealed class RobotStatusEffects(IHordeCurrent horde, IEntityDirectory dir
             return RobotStatusAnswer.NotARobot;
 
         var r = rules.Rules;
+        if (r.Bosses.Shrugs(roster.Template(i), condition))
+            return RobotStatusAnswer.Immune;   // HO13: the Tank is not stunned, slowed or thrown
         if (r.Conditions.Of(condition) is not { } word)
             return RobotStatusAnswer.NotAvailable;
 

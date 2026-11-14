@@ -157,6 +157,39 @@ public sealed class RobotStatusEffectsTests
         Assert.True(rig.Roster.SpeedFactor(0) < 1f);
     }
 
+    /// <summary>HO13: the Tank is a machine on its track: it shrugs a stun, a slow and a throw, and burns as any robot.</summary>
+    [Fact]
+    public void The_tank_shrugs_a_stun_a_slow_and_a_knock_up_and_still_burns()
+    {
+        var k = Make();
+        var (id, body) = k.Rig.Lent("tank");
+
+        Assert.Equal(RobotStatusAnswer.Immune, k.Sink.Apply(body.Handle, "emp_stun", 2, Hero, "emp_charge", "enemy_minions"));
+        Assert.Equal(RobotStatusAnswer.Immune, k.Sink.Apply(body.Handle, "slowed", 2, Hero, "emp_charge", "enemies"));
+        Assert.Equal(RobotStatusAnswer.Immune, k.Sink.Apply(body.Handle, "knock_up", 0, Hero, "stomp", "enemies"));
+        Assert.Equal(RobotStatusAnswer.Applied, k.Sink.Apply(body.Handle, "burn", 3, Hero, "flare", "enemies"));
+        Assert.False(k.Rig.Roster.Stunned(id.Index));
+        Assert.Equal(1f, k.Rig.Roster.SpeedFactor(id.Index));
+    }
+
+    /// <summary>HO13: a blast does not throw the Tank: its motion body resists all of a push; a soldier's resists little.</summary>
+    [Fact]
+    public void The_tank_s_motion_body_resists_every_push()
+    {
+        var k = Make();
+        var (_, tank) = k.Rig.Lent("tank");
+        var (_, soldier) = k.Rig.Lent("soldier");
+
+        Assert.True(k.Rig.Motion.TryBody(tank.Index, out var t));
+        Assert.True(k.Rig.Motion.TryBody(soldier.Index, out var s));
+
+        Assert.Equal(100, t.KnockbackResistPct);
+        Assert.True(s.KnockbackResistPct < 100);
+        var blast = new TF2.Descent.Rules.Robots.BlastForce(new TF2.Descent.Rules.Robots.Vec3(500, 0, 0), 80, TF2.Descent.Rules.Robots.BlastOwner.Other);
+        var push = TheRules.BlastPush.VelocityChange(blast, t.Scale, t.KnockbackResistPct, t.Heavy);
+        Assert.Equal((0.0, 0.0, 0.0), (push.X, push.Y, push.Z));
+    }
+
     [Fact]
     public void A_minion_is_stunned_by_an_effect_for_minions_and_not_slowed_by_one_for_bosses()
     {

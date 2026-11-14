@@ -29,6 +29,7 @@ internal sealed class DownedRig
     public readonly HeroRig Heroes = new();
     public readonly World Clock = new();
     public readonly Listener Told = new();
+    public readonly RespawnGraces Graces = new();
     public readonly Bodies Corpses = new();
     public readonly RecordingEngine Messages = new();
     public readonly HeroDowned Downed;
@@ -57,7 +58,7 @@ internal sealed class DownedRig
         Keys = Heroes.Keys();
         Parties = new InMemoryParties(Heroes.Rules, new HeroRig.ListHooks<IPartyHook>([]));
         Roster = new PartyRoster(Parties, new EnginePartySlots(Heroes.Heroes, Keys));
-        Downed = new HeroDowned(mode, Heroes.Heroes, Heroes.Rules, Clock, new HeroRig.ListHooks<IHeroDownedListener>([Told]), Roster, Heroes.Log);
+        Downed = new HeroDowned(mode, Heroes.Heroes, Heroes.Rules, Clock, new HeroRig.ListHooks<IHeroDownedListener>([Told]), Roster, Graces, Heroes.Log);
         Killers = new RobotKillerNames(mode, Robots, Heroes.Engine);
         Damage = new DownedDamage(mode, Downed, Heroes.Heroes, Heroes.Engine, Clock, Killers);
         Ledger = new InMemoryItemLedger(Heroes.Rules, new HeroRig.ListHooks<IItemLedgerHook>([]), new StartingKit(Heroes.Rules));

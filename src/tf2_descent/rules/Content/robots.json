@@ -70,7 +70,7 @@
       { "skill": "soloness", "level": 6 }, { "skill": "alertness", "level": 8 }, { "skill": "tenacity", "level": 10 },
       { "skill": "discipline", "level": 10 }, { "skill": "agility", "level": 2 }, { "skill": "cunning", "level": 10 }, { "skill": "nerve", "level": 10 }
     ],
-    "flags": ["miniboss", "use_boss_health_bar", "hold_fire_until_full_reload"] },
+    "flags": ["miniboss", "use_boss_health_bar", "hold_fire_until_full_reload"], "attack": "nuke_cannon" },
   { "id": "major_crits", "name": "Major Crits", "class": "soldier", "family": "rocket_launcher", "size": "boss", "scaleMin": 1.75, "scaleMax": 1.75,
     "life": 3200, "damage": 135, "speed": 240, "reach": 48, "xp": 3000,
     "resist": { "blast": 50, "bullet": 25, "shock": -50 }, "weights": {}, "caps": {},
@@ -79,7 +79,7 @@
       { "skill": "soloness", "level": 4 }, { "skill": "alertness", "level": 10 }, { "skill": "tenacity", "level": 8 },
       { "skill": "discipline", "level": 10 }, { "skill": "agility", "level": 6 }, { "skill": "cunning", "level": 0 }, { "skill": "nerve", "level": 10 }
     ],
-    "flags": ["miniboss", "use_boss_health_bar", "always_crit"] },
+    "flags": ["miniboss", "use_boss_health_bar", "always_crit"], "attack": "crit_rockets" },
   { "id": "captain_punch", "name": "Captain Punch", "class": "heavy", "family": "melee", "size": "boss", "scaleMin": 1.9, "scaleMax": 1.9,
     "life": 5000, "damage": 195, "speed": 230, "reach": 48, "xp": 6000,
     "resist": { "bullet": 50, "fire": 25, "shock": -50 }, "weights": {}, "caps": {},
@@ -88,5 +88,9 @@
       { "skill": "soloness", "level": 10 }, { "skill": "alertness", "level": 10 }, { "skill": "tenacity", "level": 10 },
       { "skill": "discipline", "level": 10 }, { "skill": "agility", "level": 0 }, { "skill": "cunning", "level": 10 }, { "skill": "nerve", "level": 10 }
     ],
-    "flags": ["miniboss", "use_boss_health_bar"] }
+    "flags": ["miniboss", "use_boss_health_bar"], "attack": "boss_fists" },
+
+  { "id": "tank", "name": "Tank", "class": "tank", "family": "melee", "size": "ordinary", "scaleMin": 1.0, "scaleMax": 1.0,
+    "life": 4000, "damage": 0, "speed": 75, "reach": 48, "xp": 800,
+    "resist": { "bullet": 25, "fire": 50, "shock": -50 }, "weights": { "tenacity": 4, "discipline": 4 }, "caps": {}, "flags": [], "attack": "tank_track" }
 ]

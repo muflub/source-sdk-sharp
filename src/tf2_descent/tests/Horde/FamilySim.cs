@@ -92,6 +92,9 @@ internal sealed class FamilySim
             : null;
 
         public IDecider? Decider(FamilySim sim) => sim._s.BrainIn(Id.Slot)?.Decider;
+
+        /// <summary>The family's decider the brain runs (HO13: a boss's and the Tank's own, out of the horde's wrapper).</summary>
+        public IDecider? Fights(FamilySim sim) => Decider(sim) is { } d ? HordeDeciders.Unwrap(d) : null;
     }
 
     public sealed class HeroIn

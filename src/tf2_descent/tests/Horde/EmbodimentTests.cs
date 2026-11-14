@@ -306,6 +306,31 @@ public sealed class EmbodimentTests
         Assert.Equal([0], rig.Promoted());
     }
 
+    /// <summary>HO13: a hero brought straight into the arena (a teleport, a portal) sees the boss's spot; the boss still takes its body.</summary>
+    [Fact]
+    public void The_boss_takes_its_body_in_view_once_a_hero_stands_in_its_arena()
+    {
+        var rig = BossLevel();
+        rig.HeroIn(2);
+        rig.Sight.SeePointsIn[2] = true;
+
+        rig.Decide();
+
+        Assert.Contains(0, rig.Promoted());
+    }
+
+    [Fact]
+    public void The_boss_waits_out_of_view_while_no_hero_stands_in_its_arena()
+    {
+        var rig = BossLevel();
+        rig.HeroIn(1);
+        rig.Sight.SeePointsIn[2] = true;   // a hero next door looking in
+
+        rig.Decide();
+
+        Assert.DoesNotContain(0, rig.Promoted());
+    }
+
     [Fact]
     public void The_boss_is_not_demoted_while_a_hero_is_in_its_arena()
     {

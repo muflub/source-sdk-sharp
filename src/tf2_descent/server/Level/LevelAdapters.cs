@@ -45,15 +45,21 @@ public static class LevelAdapters
         var doors = level.Doors.GroupBy(d => (d.RoomA, d.RoomB)).Select(g => g.MinBy(d => d.Id)!).OrderBy(d => d.Id)
             .Select(d => new HordeDoor(d.RoomA, d.RoomB, Ai(d.Position), Ai(d.Normal), d.Width, d.Height));
         HordeBoss? boss = null;
-        if (bossTemplate is not null && level.BossArena is int arena)
-        {
-            LevelRoom room = level.Rooms[arena];
-            var spot = level.In(arena).FirstOrDefault(m => m.Kind == LevelMarkerKind.PackSpawn) is { } first
-                ? new PackMarker(Ai(first.Position), first.Yaw)
-                : new PackMarker(new AiVector(room.Centre.X, room.Centre.Y, room.Min.Z), 0);
+        if (bossTemplate is not null && level.BossArena is int arena && BossSpot(level) is { } spot)
             boss = new HordeBoss(bossTemplate, arena, spot);
-        }
         return HordeLevel.Create(seed, level.Depth, rooms, doors, boss);
+    }
+
+    /// <summary>Where a level's boss stands: its arena's first pack marker, or the arena's floor centre when it has none; null with no arena (HO13 marks it on the automap).</summary>
+    public static PackMarker? BossSpot(LevelData level)
+    {
+        ArgumentNullException.ThrowIfNull(level);
+        if (level.BossArena is not int arena)
+            return null;
+        LevelRoom room = level.Rooms[arena];
+        return level.In(arena).FirstOrDefault(m => m.Kind == LevelMarkerKind.PackSpawn) is { } first
+            ? new PackMarker(Ai(first.Position), first.Yaw)
+            : new PackMarker(new AiVector(room.Centre.X, room.Centre.Y, room.Min.Z), 0);
     }
 
     /// <summary>The level as the horde sees it, rolled from the level's own seed; throws when the level has none yet.</summary>

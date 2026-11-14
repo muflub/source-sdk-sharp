@@ -37,7 +37,7 @@ public sealed class RobotAttackRulesTests
     {
         var attacks = Rules.Content.Robots.Rows.Select(r => r.Attack).Distinct().ToList();
 
-        Assert.Equal(11, attacks.Count);
+        Assert.Equal(14, attacks.Count);   // HO13: the three bosses' rows and the Tank's; no robot holds the bare melee row now
         Assert.All(Rules.Content.Robots.Rows, t => Assert.Equal(t.Attack, Rules.Attacks.Of(t).Id));
     }
 
@@ -136,10 +136,10 @@ public sealed class RobotAttackRulesTests
         var errors = Errors(n =>
         {
             var attacks = n["attacks"]!.AsArray();
-            attacks.Remove(Row(n, "melee"));
+            attacks.Remove(Row(n, "minigun"));   // HO13: no robot holds a bare melee family now (Captain Punch names his fists)
         });
 
-        Assert.Contains(errors, e => e.Rule == ContentRule.DanglingReference && e.Message.Contains("family 'melee'"));
+        Assert.Contains(errors, e => e.Rule == ContentRule.DanglingReference && e.Message.Contains("family 'minigun'"));
     }
 
     [Fact]

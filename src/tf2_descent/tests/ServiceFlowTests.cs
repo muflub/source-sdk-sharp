@@ -606,6 +606,8 @@ public sealed partial class ServiceFlowTests
             Asked.Add(characterId);
             return depths;
         }
+
+        public IReadOnlyCollection<int> DepthsOf(int player) => depths;
     }
 
     /// <param name="reached">The depth the joining character has reached (the join's answer).</param>
@@ -698,10 +700,6 @@ public sealed partial class ServiceFlowTests
         Assert.Equal(offered, AskedTheHost(w));
         Assert.Equal(["c-1"], kills.Asked);   // the requesting player's own character
     }
-
-    [Fact]
-    public void Until_a_boss_kill_is_recorded_no_character_has_one()
-        => Assert.Empty(new NoBossKills().Depths("c-1"));
 
     [Fact]
     public void Down_from_a_level_is_not_held_to_the_towns_depths()

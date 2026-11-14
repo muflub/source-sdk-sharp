@@ -71,14 +71,27 @@ public sealed class HordeSessionShapeTests
         Assert.All(members, m => Assert.True(m.Order >= ModStages.First));
     }
 
-    /// <summary>HO12's tickers: the champions' guards alone, at an order of their own.</summary>
+    /// <summary>HO12's tickers, the champions' guards, and HO13's boss encounter and its verbs, each at an order of its own; the encounter's phase is current before a windup lands.</summary>
     [Fact]
-    public void The_hordes_tickers_are_the_champions_guards()
+    public void The_hordes_tickers_are_the_champions_guards_and_the_boss_fight()
     {
         var members = Members(typeof(HordeSession).Assembly, typeof(IHordeTicker));
 
+        Assert.Equal([nameof(TF2.Descent.Server.Horde.Boss.BossAbilities), nameof(TF2.Descent.Server.Horde.Boss.BossEncounter),
+                      nameof(TF2.Descent.Server.Horde.Champions.ChampionGuards)], members.Select(m => m.Name).Order());
+        Assert.Equal(members.Length, members.Select(m => m.Order).Distinct().Count());
+        Assert.All(members, m => Assert.True(m.Order >= ModStages.First));
+        Assert.True(members.Single(m => m.Name == "BossAbilities").Order > members.Single(m => m.Name == "BossEncounter").Order);
+    }
+
+    /// <summary>HO13's ability chain: the bosses' verbs alone, at an order of their own.</summary>
+    [Fact]
+    public void The_ability_chain_is_the_bosses_verbs()
+    {
+        var members = Members(typeof(HordeSession).Assembly, typeof(TF2.Descent.Server.Horde.Boss.IRobotAbility));
+
         var only = Assert.Single(members);
-        Assert.Equal(nameof(TF2.Descent.Server.Horde.Champions.ChampionGuards), only.Name);
+        Assert.Equal(nameof(TF2.Descent.Server.Horde.Boss.BossAbilities), only.Name);
         Assert.True(only.Order >= ModStages.First);
     }
 

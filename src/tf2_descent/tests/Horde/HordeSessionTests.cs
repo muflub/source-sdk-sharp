@@ -58,6 +58,16 @@ internal sealed class RigClock(ServerHordeRig? rig) : IHordeClock
     public double TicksPerSecond => ServerHordeRig.Tps;
 }
 
+/// <summary>Every hero seen at <see cref="Scale"/> times a robot's range (1 unless a fact sets it).</summary>
+internal sealed class RigVisibility : TF2.Descent.Server.Lamp.IHeroVisibility
+{
+    public double Scale { get; set; } = 1.0;
+
+    public double SightScale(EntityHandle hero) => Scale;
+
+    public string Describe(EntityHandle hero) => $"scale {Scale}: the rig's";
+}
+
 internal sealed class NoLandings : IHeroLandings
 {
     public bool Landed(EntityHandle hero) => false;
@@ -95,7 +105,7 @@ public sealed class HordeSessionTests
 
             session = new HordeSession(motion, new CountingActions(), r.SightWorld, r.Heroes, new RigRules(), clock, new NoLandings(), workers,
                                        sync, t, DeclaredConVars.Fresh<HordeAiRecordConVar>(), new RigMod(Path.GetTempPath()), r.Log, new RigAttackWorld(),
-                                       r.Nav(clock: clock), r.Motion);
+                                       r.Nav(clock: clock), r.Motion, new TF2.Descent.Server.Hero.RespawnGraces(), new RigVisibility());
             return session;
         });
         clock.Rig = rig;

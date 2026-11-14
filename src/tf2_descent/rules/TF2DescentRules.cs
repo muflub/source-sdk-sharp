@@ -56,6 +56,7 @@ public sealed class TF2DescentRules : IGameRules
         Conditions = new RobotConditionRules(Content);
         BlastPush = new BlastPushRules(Content);
         Attacks = new RobotAttackRules(Content);
+        Bosses = new Bosses.BossRules(Content);
         Skills = new SkillRules(Content, Heroes);
         Casting = new CastRules(Skills);
         Spells = new SpellRules(Content, Skills, Casting);
@@ -136,6 +137,9 @@ public sealed class TF2DescentRules : IGameRules
 
     /// <summary>A robot's attack in numbers and a medic's heal (HO6, HO7).</summary>
     public RobotAttackRules Attacks { get; }
+
+    /// <summary>The bosses' scripts and phases, the Tank, the camps a kill opens (HO13).</summary>
+    public Bosses.BossRules Bosses { get; }
     /// <summary>The items' rules (RU3): the roll, the codec, the views, equipment.</summary>
     public ItemRules ItemRules { get; }
 

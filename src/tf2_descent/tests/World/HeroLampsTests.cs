@@ -174,17 +174,3 @@ public sealed class HeroLampsTests
         Assert.False(verbs.Handle(HeroRig.PlayerOf(9), LampClientCommands.Toggle, []));
     }
 }
-
-/// <summary>The sight-in-the-dark seam (HE10): its stand-in answers a robot's own range for every hero, lamp lit or not.</summary>
-public sealed class HeroVisibilityTests
-{
-    [Fact]
-    public void Every_hero_is_seen_at_a_robots_own_range_until_a_lane_scales_it()
-    {
-        IHeroVisibility visibility = new NeutralHeroVisibility();
-
-        Assert.Equal(1.0, visibility.SightScale(HeroRig.PlayerOf(1)));
-        Assert.Equal(1.0, visibility.SightScale(HeroRig.PlayerOf(4)));
-        Assert.Equal(1.0, visibility.SightScale(EntityHandle.None));
-    }
-}

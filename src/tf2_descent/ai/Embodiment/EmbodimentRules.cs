@@ -24,7 +24,8 @@ namespace TF2.Descent.Ai.Embodiment;
 /// <see cref="HordeSettings.DemoteDelaySeconds"/>. Under pressure, a claimant with no free body
 /// takes the lowest-ranked unseen body that ranks below it.</item>
 /// <item><b>The boss</b> takes only the boss body, is never taken under pressure, and is not
-/// demoted while a hero stands in its arena.</item>
+/// demoted while a hero stands in its arena; once a hero stands there it takes its body even in
+/// view (HO13: its entrance).</item>
 /// <item><b>Sleep.</b> An awake room with no hero within the wake distance for
 /// <see cref="HordeSettings.SleepDelaySeconds"/> and no body standing in it sleeps.</item>
 /// <item>A dead robot's body is released at once.</item>
@@ -151,7 +152,9 @@ public sealed class EmbodimentRules
             if (roster.BossAt(i))
             {
                 int bossBody = pool.BossBody;
-                if (bossBody != 0 && _free[bossBody] && !sight.CanSee(roster.PositionRef(i)))
+                // HO13: once a hero stands in its arena the boss takes its body in view: its entrance (a hero
+                // brought straight in, by a portal or a teleport, must not find an empty arena).
+                if (bossBody != 0 && _free[bossBody] && (!sight.CanSee(roster.PositionRef(i)) || HeroIn(heroes, roster.HomeRoom(i))))
                 {
                     orders.Add(HordeOrder.Promote(roster.Id(i), bossBody, room, roster.PositionRef(i), roster.YawRef(i)));
                     _free[bossBody] = false;

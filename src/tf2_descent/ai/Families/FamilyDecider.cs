@@ -76,6 +76,21 @@ public enum FamilyNode : short
 
     /// <summary>A sentry buster at its hero: spinning up its blast.</summary>
     Detonate,
+
+    /// <summary>A boss asking its special: the windup the heroes see and hear before it lands (HO13).</summary>
+    Telegraph,
+
+    /// <summary>A boss calling its phase's adds into its arena (HO13).</summary>
+    Summon,
+
+    /// <summary>A boss held inside its arena: its fight would have taken it out (HO13).</summary>
+    Arena,
+
+    /// <summary>The Tank rolling along its track to its next station (HO13).</summary>
+    Track,
+
+    /// <summary>The Tank stopped at a station, drilling (HO13).</summary>
+    Drill,
 }
 
 /// <summary>
@@ -117,7 +132,7 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
     public static ImmutableArray<string> Names => [.. Enum.GetValues<FamilyNode>().Select(NameOf)];
 
     /// <summary>Each node's branch: the hunt's own, then one a fight.</summary>
-    public static ImmutableArray<int> Branches => [.. HuntDecider.Branches, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 10, 11, 12, 13, 13, 14, 14, 14, 15, 15];
+    public static ImmutableArray<int> Branches => [.. HuntDecider.Branches, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 10, 11, 12, 13, 13, 14, 14, 14, 15, 15, 16, 16, 16, 17, 17];
 
     public IReadOnlyList<string> NodeNames => Names;
 
@@ -149,6 +164,11 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
             FamilyNode.Flank => "flank",
             FamilyNode.Stab => "stab",
             FamilyNode.Run => "run",
+            FamilyNode.Telegraph => "telegraph",
+            FamilyNode.Summon => "summon",
+            FamilyNode.Arena => "arena",
+            FamilyNode.Track => "track",
+            FamilyNode.Drill => "drill",
             _ => "detonate",
         };
 
@@ -156,6 +176,11 @@ public abstract class FamilyDecider : IDecider, IHordeRouted
     {
         ArgumentNullException.ThrowIfNull(view);
         Trace.Begin(tick);
+        // A hero in sight is the fight: what the robot heard and took before it is that fight (the
+        // hunt's own sighted branch says so when it decides; a family fights without asking it), so
+        // once the fight ends, with the hero dead or gone, it is not a lead to go and search.
+        if (NearestHero(view, view.Self.Origin, out _))
+            _hunt.Fought(tick);
         return Decide(tick, view, seq, view.Self.Origin);
     }
 

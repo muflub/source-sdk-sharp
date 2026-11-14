@@ -96,6 +96,78 @@ public sealed class RespawnGraceTests
         Assert.Equal([A], rig.Told.Respawned);
     }
 
+    //-------------------------------------------------------------------------
+    // The board the horde reads (RespawnGraces): written by the downed state only.
+
+    [Fact]
+    public void His_respawn_puts_his_grace_on_the_board_the_horde_reads()
+    {
+        var rig = Respawned();
+
+        Assert.True(rig.Graces.TryGet(A, out var g));
+        Assert.False(g.Acted);
+        Assert.Equal(60, g.Until - g.From);   // six seconds at the rig's ten ticks a second
+        Assert.True(rig.Graces.Untouchable(A, rig.Clock.Tick));
+        Assert.Equal(rig.Downed.Untouchable(A), rig.Graces.Untouchable(A, rig.Clock.Tick));
+    }
+
+    [Fact]
+    public void The_board_and_the_downed_state_agree_his_grace_lapses_at_the_same_tick()
+    {
+        var rig = Respawned();
+        rig.Graces.TryGet(A, out var g);
+
+        rig.RunTo((int)g.Until - 1);
+        Assert.Equal((true, true), (rig.Downed.Untouchable(A), rig.Graces.Untouchable(A, rig.Clock.Tick)));
+        rig.RunTo((int)g.Until);
+        Assert.Equal((false, false), (rig.Downed.Untouchable(A), rig.Graces.Untouchable(A, rig.Clock.Tick)));
+    }
+
+    [Fact]
+    public void His_first_act_is_marked_on_the_board()
+    {
+        var rig = Respawned();
+
+        rig.Hero(A).Acted();
+        rig.Think();
+
+        Assert.True(rig.Graces.TryGet(A, out var g) && g.Acted);
+        Assert.False(rig.Graces.Untouchable(A, rig.Clock.Tick));
+    }
+
+    [Fact]
+    public void His_death_marks_him_dead_on_the_board()
+    {
+        var rig = Respawned();
+        rig.RunTo(1011 + 60);
+
+        rig.Hit(A, 5000);
+
+        Assert.True(rig.Graces.TryGet(A, out var g) && g.Dead);
+        Assert.False(rig.Graces.Untouchable(A, rig.Clock.Tick));
+    }
+
+    [Fact]
+    public void His_first_death_marks_him_dead_on_the_board()
+    {
+        var rig = new DownedRig(A);
+        Assert.False(rig.Graces.TryGet(A, out _));
+
+        rig.Hit(A, 500);
+
+        Assert.True(rig.Graces.TryGet(A, out var g) && g.Dead);
+    }
+
+    [Fact]
+    public void A_new_level_clears_the_board()
+    {
+        var rig = Respawned();
+
+        rig.Downed.OnLevelInit("tf2_descent-1-s1");
+
+        Assert.False(rig.Graces.TryGet(A, out _));
+    }
+
     [Fact]
     public void A_downed_hero_revived_is_not_untouchable()
     {

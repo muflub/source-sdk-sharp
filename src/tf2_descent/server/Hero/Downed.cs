@@ -141,7 +141,7 @@ public enum LethalAnswer
 /// </summary>
 [SideService(Side.Server)]
 public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2DescentRules rules, IDownedWorld world,
-                               IHooks<IHeroDownedListener> listeners, IPartyRoster roster, ILog log) : IGameLifecycle
+                               IHooks<IHeroDownedListener> listeners, IPartyRoster roster, RespawnGraces graces, ILog log) : IGameLifecycle
 {
     /// <summary>In TF2 Descent's downed block.</summary>
     public const int Order = ModStages.First + 950;
@@ -519,6 +519,7 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
                 }
                 log.Msg($"[TF2Descent/Downed] player {d.Member} DIES ({d.Cause}) at tick {now}\n");
                 _actsAtRespawn.Remove(index);
+                graces.Died(index);
                 if (hero is not null)
                     TellDied(hero);
                 // The machine's own deaths are dealt here; a lethal hit or a hook's death deal their own. A
@@ -541,6 +542,7 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
             case DownedOutcome.Respawned r when heroes.Of(IndexOf(r.Member)) is { } hero:
             {
                 _actsAtRespawn[hero.PlayerIndex] = hero.Acts;
+                graces.Began(hero.PlayerIndex, now, r.GraceUntilTick);
                 log.Msg(string.Create(CultureInfo.InvariantCulture,
                     $"[TF2Descent/Downed] player {r.Member} RESPAWNED at tick {now}: no damage to tick {r.GraceUntilTick} ({(r.GraceUntilTick - now) / world.TicksPerSecond:0.0}s) unless he acts\n"));
                 RespawnsTold++;
@@ -551,6 +553,7 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
             }
             case DownedOutcome.GraceEnded g:
                 _actsAtRespawn.Remove(IndexOf(g.Member));
+                graces.Acted(IndexOf(g.Member));
                 log.Msg($"[TF2Descent/Downed] player {g.Member} acted at tick {now}: his respawn's grace ends\n");
                 break;
             case DownedOutcome.ReviveStarted s when heroes.Of(IndexOf(s.Target)) is { } target:
@@ -589,6 +592,7 @@ public sealed class HeroDowned(IDescentModeState mode, Heroes heroes, TF2Descent
         _machines.Clear();
         _in.Clear();
         _actsAtRespawn.Clear();
+        graces.Clear();
         _killing.Clear();
         _devHolds.Clear();
     }
@@ -678,18 +682,20 @@ public sealed class DownedRegistrar : ISideServiceRegistrar
 /// session's own feed (<see cref="Horde.Session.HordeSession.HeroDowned"/>).
 ///
 /// <para>
-/// A DEATH IS NOT A CAMP (this lane's rule; the plan is silent): when a hero
-/// dies, every brain with a body forgets him as the core forgets a player
-/// gone to watch (<see cref="AiEvent.ActorSpectating"/>: his last place,
-/// what it heard of him, nothing learnt while he is gone), so no robot runs
-/// to where he fell to search: with nothing left to hunt it walks home. When
-/// he respawns he is back, a stranger: a robot finds him again only by
-/// seeing or hearing him. The session already carries any core event to its
-/// brains; no decider changed.
+/// A DEATH IS NOT A CAMP (the plan is silent; this rule and the respawn's veil are
+/// the lanes' own): when a hero dies, every brain with a body forgets him as the core
+/// forgets a player gone to watch (<see cref="AiEvent.ActorSpectating"/>: his last
+/// place, what it heard of him, nothing learnt while he is gone), nothing on the roster
+/// keeps his seat (a row's carried target, threat and taunt; a pack's contact), and his
+/// unheard sounds are dropped (<see cref="Horde.Session.HordeSession.HeroGone"/>), so no
+/// robot runs to where he fell, now or when it is lent a body later: with nothing left to
+/// hunt it walks home. When he respawns he is back, a stranger, and in his grace the robots
+/// cannot see or hear him (<see cref="Horde.Session.HordeSession.VeilOf"/>): a robot finds
+/// him again only by seeing or hearing him after it.
 /// </para>
 /// </summary>
 [SideService(Side.Server)]
-public sealed class DownedHordeTap(Horde.Session.HordeSession session, Horde.IHordeClock clock) : IHeroDownedListener, IOrderedHook
+public sealed class DownedHordeTap(Horde.Session.HordeSession session) : IHeroDownedListener, IOrderedHook
 {
     public const int Order = ModStages.First + 955;
 
@@ -702,27 +708,7 @@ public sealed class DownedHordeTap(Horde.Session.HordeSession session, Horde.IHo
 
     public void HeroDowned(int playerIndex, bool down, Vector at) => session.HeroDowned(playerIndex, down, at);
 
-    public void HeroDied(int playerIndex, Vector at) => Tell(playerIndex, gone: true);
+    public void HeroDied(int playerIndex, Vector at) => Forgotten += session.HeroGone(playerIndex);
 
-    public void HeroRespawned(int playerIndex, Vector at) => Tell(playerIndex, gone: false);
-
-    private void Tell(int seat, bool gone)
-    {
-        if (session.Brains is not { } brains || session.Horde?.Bodies is not { } bodies || seat <= 0)
-            return;
-        ActorId hero = brains.HeroSlots.ActorOf(seat);
-        if (!hero.IsValid)
-            return;
-        var tick = new Tick((int)clock.Tick);
-        for (int b = 1; b <= bodies.LastBody; b++)
-        {
-            if (brains.BrainAt(b) is not { IsValid: true } brain)
-                continue;
-            brains.Session.Push(AiEvent.ActorSpectating(brain, tick, hero, gone));
-            if (gone)
-                Forgotten++;
-            else
-                Returned++;
-        }
-    }
+    public void HeroRespawned(int playerIndex, Vector at) => Returned += session.HeroBack(playerIndex);
 }

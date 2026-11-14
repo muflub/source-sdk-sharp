@@ -259,7 +259,9 @@ public sealed class RobotStatsTests
     [Fact]
     public void Every_template_is_more_threatening_one_depth_deeper()
     {
-        foreach (var t in Rules.Content.Robots.Rows)
+        // HO13: the Tank deals no damage (it drills, it does not fight), so its threat is nothing at every depth.
+        Assert.Equal(["tank"], Rules.Content.Robots.Rows.Where(t => t.Damage == 0).Select(t => t.Id));
+        foreach (var t in Rules.Content.Robots.Rows.Where(t => t.Damage > 0))
             for (int d = 2; d <= 15; d++)
             {
                 var shallow = Robots.Stats(t, t.ScaleMin, Robots.MonsterLevel(d - 1), []);

@@ -3,15 +3,15 @@
 Measured at `ce143b36b` (main, 2026-11-10). Reviewed and committed that day
 ("commit it and start on CR").
 
-**Status, 2026-11-12, late.** On main at `8aa183777`: 61 of the 66
-packages. CR1, CR3 to CR6, CR8 to CR10; every rules package but RU14 (its
-retune and model are held on `descent-ru-d` for a ruling); HE0 to HE10 with
-the class gate; HO0 to HO12; WO1 to WO9; UI1 to UI7. Ruled and not built:
-CR2. Running: HO13 (`descent-ho13`) and a lane on how robots come to know of
-a hero (`descent-sight`). Not started, held for the user: CR7, CR11.
-Section 4.7 says what each landed package gave and found. Each part of
-section 5's "first blood" milestone has been seen live in an unhosted game;
-the whole run has not yet been played through in one sitting.
+**Status, 2026-11-13.** On main at `6875df092`: 62 of the 66 packages, and
+every hero, horde, world and UI package. CR1, CR3 to CR6, CR8 to CR10; every
+rules package but RU14 (its retune and model are held on `descent-ru-d` for
+a ruling); HE0 to HE10 with the class gate; HO0 to HO13; WO1 to WO9; UI1 to
+UI7. Ruled and not built: CR2. Not started, held for the user: CR7, CR11.
+No lane is running. Section 4.7 says what each landed package gave and
+found. Each part of section 5's milestones has been seen live in an unhosted
+game, one package's proof at a time; no whole run has been played through in
+one sitting, and nothing has been run hosted.
 
 The design is `plan_tf2_rpg.md` (rulings R1 to R29, defaults D1 to D25,
 appendices A to D). This file does not restate it. It says what to build in
@@ -871,6 +871,45 @@ Seams by name, for the packages that build on them; then what did not hold.
   party on `BootInfo`.
 - Descent's keys now take six of TF2's binds: C, I, K, M, L and P.
 
+**Landed 2026-11-13 (`8aa183777` to `6875df092`).**
+- HO13: `bosses.json` (Sir Nukesalot at depth 5, Major Crits with the Tank
+  at 10, Captain Punch at 15: phases by life, a telegraphed special a phase,
+  adds once a phase); `BossDecider` (`src/tf2_descent/ai/Boss`) wraps the
+  boss's family decider; `BossEncounter`, `BossAbilities` (the chain
+  `IHooks<IRobotAbility>`), `IBossAdds`, `IBossExit` (the way down is held
+  by the server until the kill: the levels ship no exit brush), `BossFallen`
+  (kill chain First+1300: the kill on each paid hero's sheet, read by the
+  town's destinations), the `boss_bar` message and the live `IDescentBoss`.
+  The boss resets after 10 s with no living hero in its arena. The Tank
+  loops the arena's markers, drills at stations and brings the roof down.
+  Release, a boss beside 42 bodies: the horde tick is 466 us mean, about
+  600 us p95. Not seen live: Punch's slam, the Tank's roof. **Balance:** a
+  solo hero of level 30 (305 life) dies to one volley pipe (398) or one
+  fist (955); the bosses hold 26.8k, 75.4k and 431k life for one hero. Asks
+  of the map session: a Tank track and stations, a boss spot, an exit brush,
+  pillars (the arenas are placeholders).
+- How robots come to know of a hero (`descent-sight`): a hero in his
+  respawn grace is veiled from every brain's senses (`RespawnGraces`, a
+  passive board the downed state writes and the session reads;
+  `HordeHeroes.Gather` is unchanged, so the bodies round him do not thrash);
+  a robot that watched him through the grace stays blind to him until it
+  loses view of him once, for at most `death.json` `respawnBlindSeconds`
+  (60); his first act ends both. A death forgets him for good
+  (`RobotRoster.ForgetSeat`, `HordeBrains.HeroGone`: carried targets, pack
+  alerts, far packs' convergence, queued sounds). **The death loop is
+  closed:** die alone, respawn, do nothing: alive a minute later, twice in
+  the coordinator's boot (before: three deaths in 27 s). `HeroVisibility`
+  folds the lamp and the depth's darkness into a robot's sight range
+  (`lamp.json` `sight`: dark from depth 11; lamp off is a quarter of the
+  range in the black); `tf2_descent_horde_sight` says why a robot does or
+  does not see a hero. Found: a robot back at its post faces along its last
+  path, not its post's yaw; one robot sat with a stalled step count while
+  following and not blocked; an explosion carries no seat, so a far pack it
+  alerts keeps the contact 30 s after the hero's death.
+- A hook chain is no constructor need: `Hooks<T>` collects its members the
+  first time it is asked. The composition fact that guards the session and
+  the downed state against a constructor cycle stops at a chain.
+
 **For every lane.** A wall-clock bound in a fact fails on a loaded box: the
 horde's stall fact failed three landings at 255 to 440 ms against 250 and
 now holds the decide at a gate instead. Two lanes that each register a
@@ -953,6 +992,7 @@ Nothing here is done by a lane of this plan.
 | Y3 | AI coordinator | CR3 and CR4: agree the shape before a lane touches `src/ai/core`. Done. The six later asks (the service-free nav library, the drain, the pool, the team-layer flag, four event kinds, a brain's home) landed 2026-11-11 (`70a734e52` to `a108dbc72`). |
 | X6 | host | Equip, belt use and consume are not in the SDK, so hosted play cannot change a kit, drink or read a tome. No credit of Australium on pickup, no potion mint, no report of items left on a floor. A hosted `KillDrop` that completes after a level change leaves an item on the new level's ledger floor. |
 | Y4 | map session | A level's `.map2d` checksum is stale after `tools/descent-face-sides`; props are not in the nav; a pack's members share one marker. |
+| Y5 | map session | A light level per room in the level data the server reads (`ILevelData`'s rooms carry bounds, doors and markers, no light): the preview's lightmap mean over the room's luxels would do, on the mine plan's scale (level 1's mean is 100). Until then the horde's sight reads the depth's darkness from lamp.json's `sight.darkness` (lit to depth 10, black at 15) in place of the room's (2026-11-12, the sight lane). |
 
 ---
 

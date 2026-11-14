@@ -155,11 +155,11 @@ internal sealed class BrainRig
         Poses.Places.Remove(body);
     }
 
-    /// <summary>A hero in seat <paramref name="seat"/> standing at <paramref name="feet"/>.</summary>
-    public void Hero(int seat, AiVector feet, float yaw = 0f)
+    /// <summary>A hero in seat <paramref name="seat"/> standing at <paramref name="feet"/>, seen at <paramref name="sightScale"/> times a robot's range, under <paramref name="veil"/>.</summary>
+    public void Hero(int seat, AiVector feet, float yaw = 0f, float sightScale = 1f, HeroVeil veil = HeroVeil.None)
     {
         Heroes.RemoveAll(h => h.Seat == seat);
-        Heroes.Add(new HeroPose(seat, feet, feet + new AiVector(0f, 0f, 64f), Level.RoomAt(feet), yaw));
+        Heroes.Add(new HeroPose(seat, feet, feet + new AiVector(0f, 0f, 64f), Level.RoomAt(feet), yaw, sightScale, veil));
     }
 
     /// <summary>One server tick: heroes, apply, sync, sight, hearing, the slide, publish.</summary>

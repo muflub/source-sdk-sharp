@@ -25,8 +25,14 @@ public interface IHordeOrders
     void Act(int body, in ActionIntent action);
 }
 
-/// <summary>A hero this tick: its seat (player index), feet, eye, room, and the yaw its eyes face, degrees (HO12: the spy reads it).</summary>
-public readonly record struct HeroPose(int Seat, AiVector Feet, AiVector Eye, int Room, float Yaw = 0f);
+/// <summary>
+/// A hero this tick: its seat (player index), feet, eye, room, and the yaw its eyes face, degrees
+/// (HO12: the spy reads it); how far robots see him (<see cref="SightScale"/>, a multiplier on
+/// their range: his lamp and the dark) and whether they may recognise him at all
+/// (<see cref="Veil"/>: his respawn's grace). The server decides both; the vision reads them.
+/// </summary>
+public readonly record struct HeroPose(int Seat, AiVector Feet, AiVector Eye, int Room, float Yaw = 0f, float SightScale = 1f,
+                                       Senses.HeroVeil Veil = Senses.HeroVeil.None);
 
 /// <summary>
 /// A sound the horde may hear (plan_tf2_rpg B.3): what it was, where, how far

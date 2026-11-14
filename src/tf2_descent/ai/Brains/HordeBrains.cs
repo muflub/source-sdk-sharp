@@ -86,6 +86,7 @@ public sealed class HordeBrains : IHordeSightSink
     private readonly Hero[] _hero = new Hero[HordeSlots.Heroes];
     private readonly BodyEye[] _eyes;
     private readonly HeroTarget[] _targets = new HeroTarget[HordeSlots.Heroes];
+    private readonly bool[] _gone = new bool[HordeSlots.Heroes];
     private long _now;
     private readonly int[] _added;
     private readonly int[] _mates = new int[HordeView.PackMates];
@@ -241,6 +242,8 @@ public sealed class HordeBrains : IHordeSightSink
             hero.Eye = pose.Eye;
             hero.Yaw = pose.Yaw;
             hero.Room = pose.Room;
+            hero.SightScale = pose.SightScale;
+            hero.Veil = pose.Veil;
             hero.SeenAt = now;
         }
     }
@@ -424,13 +427,79 @@ public sealed class HordeBrains : IHordeSightSink
 
         for (int h = 0; h < _hero.Length; h++)
         {
+            // A hero gone since the last look (HeroGone): his pairs go untold, so no robot "loses sight" of the dead.
+            if (_gone[h])
+            {
+                _vision.ForgetHero(h);
+                _gone[h] = false;
+            }
+
             ref readonly Hero hero = ref _hero[h];
             _targets[h] = hero.Present
-                ? new HeroTarget(true, hero.Eye, hero.Feet + new AiVector(0f, 0f, 0.6f * (hero.Eye.Z - hero.Feet.Z)), hero.Feet, hero.Velocity)
+                ? new HeroTarget(true, hero.Eye, hero.Feet + new AiVector(0f, 0f, 0.6f * (hero.Eye.Z - hero.Feet.Z)), hero.Feet, hero.Velocity,
+                                 hero.SightScale, hero.Veil)
                 : default;
         }
 
         _vision.Run(now, _eyes, _targets, lines, this);
+    }
+
+    /// <summary>
+    /// Every stage of <paramref name="body"/>'s sight of hero slot <paramref name="hero"/> (0 to 3) as of
+    /// the last <see cref="See"/>, its lines traced through <paramref name="lines"/> now (the dev print's);
+    /// false when the body has no brain or the hero was not there.
+    /// </summary>
+    public bool ProbeSight(int body, int hero, IHordeLines lines, out SightProbe probe, out float sightScale)
+    {
+        probe = default;
+        sightScale = 0f;
+        if ((uint)body >= (uint)_body.Length || (uint)hero >= (uint)_targets.Length || !_eyes[body].Present || !_targets[hero].Present)
+            return false;
+        probe = _vision.Probe(body, hero, in _eyes[body], in _targets[hero], lines);
+        sightScale = _targets[hero].SightScale;
+        return true;
+    }
+
+    /// <summary>
+    /// A hero is dead (this lane's rule; plan_descent_logic 3.3, 3.5): every brain with a body is
+    /// told to forget him as the core forgets a player gone to watch (<see cref="AiEvent.ActorSpectating"/>:
+    /// his last place, what it heard of him, nothing learnt while he is gone); nothing on the
+    /// roster keeps his seat (<see cref="RobotRoster.ForgetSeat"/>: each row's carried target,
+    /// threat and taunt, each pack's contact); and at the next look his sight pairs are dropped
+    /// untold. Answers the brains told.
+    /// </summary>
+    public int HeroGone(long now, int seat)
+    {
+        _now = now;
+        ActorId hero = _heroes.ActorOf(seat);
+        _roster.ForgetSeat(seat);
+        if (!hero.IsValid)
+            return 0;
+        _gone[hero.Slot - HordeSlots.FirstHero] = true;
+        return TellSpectating(hero, now, gone: true);
+    }
+
+    /// <summary>A dead hero stands again: every brain with a body is told he is back, a stranger it finds again only by its senses. Answers the brains told.</summary>
+    public int HeroBack(long now, int seat)
+    {
+        _now = now;
+        ActorId hero = _heroes.ActorOf(seat);
+        return hero.IsValid ? TellSpectating(hero, now, gone: false) : 0;
+    }
+
+    private int TellSpectating(ActorId hero, long now, bool gone)
+    {
+        int told = 0;
+        var tick = new Tick((int)now);
+        for (int b = 1; b < _body.Length; b++)
+        {
+            if (!_body[b].Brain.IsValid)
+                continue;
+            Push(b, AiEvent.ActorSpectating(_body[b].Brain, tick, hero, gone));
+            told++;
+        }
+
+        return told;
     }
 
     void IHordeSightSink.Gained(int body, int hero, AiVector at, AiVector velocity, float fraction)
@@ -504,8 +573,10 @@ public sealed class HordeBrains : IHordeSightSink
     /// stands; to each pack-mate's brain in earshot B.3's <c>AllyDamaged</c> or
     /// <c>AllyDied</c> (the ally, where it stands, the damage, the hero); and to the
     /// brain of a robot of another pack in earshot its pain or death, heard as a
-    /// sound where it stands. Earshot is the walk from the hit within the pain's or
-    /// the death's reach times the hearer's hearing.
+    /// sound where it stands, the hero who caused it its source (so the cry is a lead
+    /// to him, and goes when he dies: the core forgets a dead hero's sounds). Earshot
+    /// is the walk from the hit within the pain's or the death's reach times the
+    /// hearer's hearing.
     /// </summary>
     public void Hit(long now, RobotId robot, int attackerSeat, float taken, bool killed, AiVector at)
     {
@@ -543,7 +614,7 @@ public sealed class HordeBrains : IHordeSightSink
             }
             else
             {
-                Push(b, AiEvent.SoundHeard(s.Brain, tick, killed ? SoundKind.Death : SoundKind.Pain, at, loudness, ActorId.None, -1));
+                Push(b, AiEvent.SoundHeard(s.Brain, tick, killed ? SoundKind.Death : SoundKind.Pain, at, loudness, attacker, -1));
             }
         }
     }
@@ -852,6 +923,8 @@ public sealed class HordeBrains : IHordeSightSink
         public AiVector Velocity;
         public float Yaw;
         public int Room;
+        public float SightScale;
+        public HeroVeil Veil;
         public long SeenAt;
     }
 }

@@ -48,6 +48,9 @@ internal sealed class HeroRig
     private int _created;
     private readonly IHostLink _link;
 
+    /// <summary>The player service over the rig's host and sheets (HO13's camps find a character's sheet through it).</summary>
+    public PlayerService NewPlayers() => new(_link, Host, Players, new ClientMessages(Engine), new NeverScheduler(), Log, Sheets);
+
     /// <summary>The item ledger's names for the slots, as the item commands derive them (HE5's ledger sheet).</summary>
     public TF2.Descent.Server.Items.HeroKeys Keys() => KeysOver(Players);
 

@@ -166,7 +166,9 @@ public static class HordeFamilies
     public static HordeDeciders Deciders(HordeLevel level, TF2DescentRules rules, IHordePaths? paths = null)
     {
         var deciders = HordeDeciders.For(level, paths);
-        Register(deciders, FamilyNumbers.For(rules));
+        var numbers = FamilyNumbers.For(rules);
+        Register(deciders, numbers);
+        Boss.BossFamilies.Register(deciders, rules, numbers);   // HO13: the bosses and the Tank, over the families
         return deciders;
     }
 

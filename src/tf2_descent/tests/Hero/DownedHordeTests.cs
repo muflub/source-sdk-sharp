@@ -27,7 +27,8 @@ public sealed class DownedHordeTests
             session = new HordeSession(new RecordingMotion(), new CountingActions(), r.SightWorld, r.Heroes, new RigRules(), clock,
                                        new NoLandings(), new HordeWorkers(), DeclaredConVars.Holding<HordeAiSyncConVar>("1"),
                                        DeclaredConVars.Holding<HordeAiThreadsConVar>("1"), DeclaredConVars.Fresh<HordeAiRecordConVar>(),
-                                       new RigMod(Path.GetTempPath()), r.Log, new RigAttackWorld(), r.Nav(clock: clock), r.Motion);
+                                       new RigMod(Path.GetTempPath()), r.Log, new RigAttackWorld(), r.Nav(clock: clock), r.Motion,
+                                       new RespawnGraces(), new RigVisibility());
             return session;
         });
         clock.Rig = rig;
@@ -56,7 +57,7 @@ public sealed class DownedHordeTests
         var (_, session) = WithAHeroSeen();
         long before = session.Brains!.Session.Counters.EventsIn;
 
-        new DownedHordeTap(session, new RigClock(null)).HeroDowned(1, down: true, new Vector(0, 0, 0));
+        new DownedHordeTap(session).HeroDowned(1, down: true, new Vector(0, 0, 0));
 
         Assert.Equal(1, session.HeroDowns);
         Assert.Equal(before + 1, session.Brains.Session.Counters.EventsIn);
@@ -67,7 +68,7 @@ public sealed class DownedHordeTests
     {
         var (_, session) = WithAHeroSeen();
 
-        new DownedHordeTap(session, new RigClock(null)).HeroDowned(1, down: false, default);
+        new DownedHordeTap(session).HeroDowned(1, down: false, default);
 
         Assert.Equal((0L, 1L), (session.HeroDowns, session.HeroUps));
     }
@@ -77,7 +78,7 @@ public sealed class DownedHordeTests
     {
         var (_, session, clock) = WithAHeroSeenAndClock();
         long before = session.Brains!.Session.Counters.EventsIn;
-        var tap = new DownedHordeTap(session, clock);
+        var tap = new DownedHordeTap(session);
 
         tap.HeroDied(1, default);
 
@@ -90,7 +91,7 @@ public sealed class DownedHordeTests
     public void A_heros_respawn_tells_every_brain_he_is_back()
     {
         var (_, session, clock) = WithAHeroSeenAndClock();
-        var tap = new DownedHordeTap(session, clock);
+        var tap = new DownedHordeTap(session);
         tap.HeroDied(1, default);
         long before = session.Brains!.Session.Counters.EventsIn;
 
@@ -104,7 +105,7 @@ public sealed class DownedHordeTests
     public void A_seat_with_no_hero_slot_is_forgotten_by_nobody()
     {
         var (_, session, clock) = WithAHeroSeenAndClock();
-        var tap = new DownedHordeTap(session, clock);
+        var tap = new DownedHordeTap(session);
 
         tap.HeroDied(9, default);
 

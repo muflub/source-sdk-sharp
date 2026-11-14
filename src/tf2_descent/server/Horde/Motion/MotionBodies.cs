@@ -69,6 +69,7 @@ public sealed class HordeMotionBodies : IMotionBodies
     private readonly Dictionary<(string Model, string Sequence), int> _sequences = new();
     private readonly int[] _serial, _stand, _run, _air;
     private readonly bool[] _heavy;
+    private readonly bool[] _immovable;
 
     public HordeMotionBodies(RobotBodies bodies, RobotRoster roster, TF2DescentRules rules, IEngineEntityRender render)
     {
@@ -82,6 +83,7 @@ public sealed class HordeMotionBodies : IMotionBodies
         _run = new int[n];
         _air = new int[n];
         _heavy = new bool[n];
+        _immovable = new bool[n];
     }
 
     public int LastBody => _bodies.LastBody;
@@ -104,7 +106,7 @@ public sealed class HordeMotionBodies : IMotionBodies
 
         var stats = _roster.Stats(i);
         info = new MotionBody(b.Handle, b.Lease.Serial, b.Robot, b.Scale, b.Position, b.Yaw, (float)stats.Speed * _roster.SpeedFactor(i),
-                              _roster.Stunned(i), stats.KnockbackResistPct, _heavy[body]);
+                              _roster.Stunned(i), _immovable[body] ? 100 : stats.KnockbackResistPct, _heavy[body]);
         return true;
     }
 
@@ -125,6 +127,9 @@ public sealed class HordeMotionBodies : IMotionBodies
 
     public void Pose(int body, in MotionPose pose) => _bodies.Body(body).Pose(pose.MoveX, pose.MoveY, pose.BodyYaw, pose.BodyPitch);
 
+    /// <summary>The condition word a body that cannot be thrown shrugs (bosses.json's Tank).</summary>
+    private const string KnockUp = "knock_up";
+
     private void Learn(int body, RobotBody b, int i)
     {
         var t = _rules.Robots.Template(_roster.Template(i));
@@ -133,6 +138,7 @@ public sealed class HordeMotionBodies : IMotionBodies
         _run[body] = Sequence(b, RobotLooks.RunSequence(t));
         _air[body] = Sequence(b, RobotLooks.AirSequence(t));
         _heavy[body] = t.Class == "heavy";
+        _immovable[body] = _rules.Bosses.Shrugs(t.Id, KnockUp);   // HO13: the Tank is not thrown
     }
 
     private int Sequence(RobotBody b, string name)

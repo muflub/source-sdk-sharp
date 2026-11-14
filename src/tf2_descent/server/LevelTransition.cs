@@ -11,10 +11,12 @@ namespace TF2.Descent.Server;
 /// <c>map</c> is the linker's record of where it leads: the service decides
 /// the actual destination. In the town a way down opens the depth picker
 /// instead (plan_descent_logic WO8, mine plan E1): the hero picks the depth,
-/// and the picker's choice travels.
+/// and the picker's choice travels. On a boss level the way down is closed while the boss
+/// stands (mine plan D6, HO13: <see cref="Horde.Boss.IBossExit"/>): a hero who asks is told why
+/// and nothing fires.
 /// </summary>
 [ScriptedEntity("logic_level_transition")]
-public sealed class LevelTransition(TravelService travel, Town.TownService town) : ScriptedEntity
+public sealed class LevelTransition(TravelService travel, Town.TownService town, Horde.Boss.IBossExit bossExit) : ScriptedEntity
 {
     public readonly Output OnTransition = new();
 
@@ -38,8 +40,11 @@ public sealed class LevelTransition(TravelService travel, Town.TownService town)
             ? TravelDirection.Up
             : TravelDirection.Down;
 
-        OnTransition.Fire();
         int player = Entities.GetIndex(input.Activator);
+        if (direction == TravelDirection.Down && !town.InTown && !bossExit.MayLeave(player))
+            return;
+
+        OnTransition.Fire();
         if (direction == TravelDirection.Down && town.InTown && town.OpenDepth(player))
             return;
         travel.Request(player, direction, DepthOf(Vars.Map));

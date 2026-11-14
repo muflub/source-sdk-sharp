@@ -131,7 +131,8 @@ internal sealed class AttackRig
         Horde = new ServerHordeRig();
         Clock = new RigClock(Horde);
         Shaping = new TF2.Descent.Server.Horde.Champions.ChampionShaping(new RigRules(), new RigHordeCurrent(Horde));
-        Attacks = new RobotAttacks(new RigRules(), World, Horde.Heroes, Motion, Clock, Shaping, new RigHooks<IHordeTicker>(Tickers));
+        Attacks = new RobotAttacks(new RigRules(), World, Horde.Heroes, Motion, Clock, Shaping, new RigHooks<IHordeTicker>(Tickers),
+                                   new RigHooks<TF2.Descent.Server.Horde.Boss.IRobotAbility>(Abilities));
         Attacks.Begin(Horde.Controller, Horde.Now);
     }
 
@@ -146,6 +147,9 @@ internal sealed class AttackRig
 
     /// <summary>The tickers the hands tick, in order (none unless a fact adds them).</summary>
     public List<IHordeTicker> Tickers { get; } = [];
+
+    /// <summary>HO13's ability chain the hands hand an unknown ability to.</summary>
+    public List<TF2.Descent.Server.Horde.Boss.IRobotAbility> Abilities { get; } = [];
     public long Now => Horde.Now;
     public RobotRoster Roster => Horde.Roster;
 

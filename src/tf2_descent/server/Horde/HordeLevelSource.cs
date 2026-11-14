@@ -199,15 +199,25 @@ public sealed class EngineStandInWorld(IEngineEntities entities, IEngineWorldQue
 /// as its files ship them (<see cref="Level.ILevelData.Horde"/>, read at level
 /// init, before the horde asks at level ready), and the stand-in only when the
 /// level has none to give (its files missing or unreadable, or no seed yet),
-/// said in one line so a horde on a stand-in is never mistaken for the level's.
+/// said in one line so a horde on a stand-in is never mistaken for the level's. HO13: a boss
+/// depth's level whose files name its arena holds its boss (bosses.json's for the depth, D13), on
+/// the arena's first pack marker (<see cref="Level.LevelAdapters.ToHorde(Level.LevelData, ulong, string?)"/>).
 /// </summary>
 [SideService(Side.Server, As = [typeof(IHordeLevelSource)])]
-public sealed class LevelHordeSource(Level.ILevelData levels, StandInLevelSource standIn, ILog log) : IHordeLevelSource
+public sealed class LevelHordeSource(Level.ILevelData levels, StandInLevelSource standIn, IHordeRules rules, ILog log) : IHordeLevelSource
 {
     public HordeLevel? LevelFor(string mapName, int depth, ulong seed)
     {
         if (levels.Horde is { } level)
+        {
+            if (level.Boss is null && levels.Current is { BossArena: int arena } data && rules.Rules.Bosses.AtDepth(data.Depth) is { } boss)
+            {
+                level = Level.LevelAdapters.ToHorde(data, level.Seed, boss.Id);
+                log.Msg($"[TF2Descent/Horde] {mapName}: the boss {boss.Id} holds arena room {arena} at ({level.Boss!.Spot.Position.X:0},{level.Boss.Spot.Position.Y:0},{level.Boss.Spot.Position.Z:0})\n");
+            }
+
             return level;
+        }
 
         log.Msg($"[TF2Descent/Horde] {mapName}: the level gave no rooms for the horde: the stand-in level\n");
         return standIn.LevelFor(mapName, depth, seed);

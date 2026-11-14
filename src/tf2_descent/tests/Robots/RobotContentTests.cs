@@ -22,7 +22,7 @@ public sealed class RobotContentTests
     {
         string[] classes = ["scout", "soldier", "pyro", "demoman", "heavy", "engineer", "medic", "sniper", "spy"];
 
-        var ordinary = Content.Robots.Rows.Where(r => r.Size == "ordinary").ToList();
+        var ordinary = Content.Robots.Rows.Where(r => r.Size == "ordinary" && r.Class != "tank").ToList();   // HO13: the Tank is a machine of its own
 
         Assert.Equal(classes.Order(), ordinary.Select(r => r.Class).Order());
         Assert.All(ordinary, r => Assert.Equal((0.85, 1.15), (r.ScaleMin, r.ScaleMax)));

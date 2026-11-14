@@ -46,6 +46,9 @@ public sealed class HordeDeciders
     /// <summary>A brain's decider: it becomes its family's at the first decide (the session's <see cref="AiSession.Deciders"/>).</summary>
     public IDecider Make(BrainSetup setup) => new FamilyDecider(setup, this);
 
+    /// <summary>The family's decider a brain's decider runs once its family is known (HO13: a boss's state is read through it); <paramref name="decider"/> itself when it is not the horde's wrapper.</summary>
+    public static IDecider Unwrap(IDecider decider) => decider is FamilyDecider { Inner: { } inner } ? inner : decider;
+
     /// <summary>The decider for <paramref name="family"/>.</summary>
     public IDecider ForFamily(int family, BrainSetup setup) =>
         _families.TryGetValue(family, out var make) ? make(setup, _routes) : new HuntDecider(setup, _routes.NewRoute(setup.Bot.Slot));
@@ -59,6 +62,8 @@ public sealed class HordeDeciders
     {
         private readonly BtTrace _empty = new();
         private IDecider? _inner;
+
+        public IDecider? Inner => _inner;
 
         public HordeRoute? Route => (_inner as IHordeRouted)?.Route;
 

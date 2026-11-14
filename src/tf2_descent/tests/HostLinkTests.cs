@@ -193,18 +193,46 @@ public sealed class HostLinkTests
     [Fact]
     public void Stop_waits_for_its_async_last_step_to_finish()
     {
-        var thread = new SdkThread("test-sdk", TimeSpan.FromMilliseconds(5), () => { });
+        // The step is finished from a thread of the test's own, once the SDK
+        // thread has pumped with the step pending and nothing queued. No timer
+        // and no pool thread takes part, so a busy box only makes this slower
+        // (a Task.Delay's continuation once waited past a 5 s bound for a pool
+        // thread, in a whole-leg run under load).
+        var pumpedWhilePending = new ManualResetEventSlim();
+        var step = new TaskCompletionSource();
+        bool awaiting = false;
+        var thread = new SdkThread("test-sdk", TimeSpan.FromMilliseconds(5), () =>
+        {
+            if (awaiting)
+                pumpedWhilePending.Set();
+        });
+        var finisher = new Thread(() =>
+        {
+            pumpedWhilePending.Wait();
+            step.SetResult();
+        }) { IsBackground = true };
+        finisher.Start();
         thread.Start();
         bool finished = false;
 
-        bool stopped = thread.Stop(async () =>
+        try
         {
-            await Task.Delay(50);
-            finished = true;
-        }, TimeSpan.FromSeconds(5));
+            // The bound is a guard against a hang, never a pace.
+            bool stopped = thread.Stop(async () =>
+            {
+                awaiting = true;
+                await step.Task;
+                finished = true;
+            }, TimeSpan.FromSeconds(60));
 
-        Assert.True(stopped);
-        Assert.True(finished);
+            Assert.True(stopped);
+            Assert.True(finished);
+        }
+        finally
+        {
+            pumpedWhilePending.Set();
+            finisher.Join();
+        }
     }
 
     //-------------------------------------------------------------------------

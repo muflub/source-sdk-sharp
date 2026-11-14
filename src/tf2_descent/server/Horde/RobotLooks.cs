@@ -87,6 +87,12 @@ public static class RobotLooks
     /// <summary>MvM's sentry buster (stock's <c>bot_sentry_buster.mdl</c>, the demoman's skeleton): a template that fights with the buster's blast wears it.</summary>
     public const string SentryBusterModel = "models/bots/demo/bot_sentry_buster.mdl";
 
+    /// <summary>MvM's Tank (HO13; mine plan D11): its body (the model's own treads and drill parts are not driven).</summary>
+    public const string TankModel = "models/bots/boss_bot/boss_tank.mdl";
+
+    /// <summary>The Tank's one sequence: its treads rolling.</summary>
+    public const string TankSequence = "movement";
+
     /// <summary>The attack row a sentry buster fights with (robot_attacks.json).</summary>
     public const string SentryBusterAttack = "sentry_buster";
 
@@ -105,6 +111,7 @@ public static class RobotLooks
 
     public static string BodyModel(RobotTemplate t) => t.Attack == SentryBusterAttack ? SentryBusterModel : (t.Class, IsBig(t)) switch
     {
+        ("tank", _) => TankModel,
         ("scout", true) => GiantScoutModel,
         ("soldier", true) => GiantSoldierModel,
         ("pyro", true) => GiantPyroModel,
@@ -133,15 +140,15 @@ public static class RobotLooks
         "shotgun" => Shotgun,
         "syringe_gun" => SyringeGun,
         "sniper_rifle" => SniperRifle,
-        "melee" => t.Class == "spy" ? Knife : null,
+        "melee" => t.Class == "spy" ? Knife : null,   // a melee heavy's fists, and the Tank's nothing
         _ => throw new ArgumentException($"robot template '{t.Id}' holds family '{t.Family}', which has no robot weapon model"),
     };
 
     /// <summary>The player animations' standing sequence for what the template holds (plan 3.11 row 2: the robot models carry the player's).</summary>
-    public static string IdleSequence(RobotTemplate t) => t.Family == "melee" ? "stand_MELEE" : "stand_PRIMARY";
+    public static string IdleSequence(RobotTemplate t) => t.Class == "tank" ? TankSequence : t.Family == "melee" ? "stand_MELEE" : "stand_PRIMARY";
 
     /// <summary>The running sequence for what the template holds.</summary>
-    public static string RunSequence(RobotTemplate t) => t.Family == "melee" ? "run_MELEE" : "run_PRIMARY";
+    public static string RunSequence(RobotTemplate t) => t.Class == "tank" ? TankSequence : t.Family == "melee" ? "run_MELEE" : "run_PRIMARY";
 
     /// <summary>
     /// The airborne loop for what the template holds (HO3): every robot model
@@ -149,5 +156,5 @@ public static class RobotLooks
     /// has no primary (its lookup answers none and the body keeps its gait's
     /// last sequence). Only the Scout, Soldier and Medic have a jump float.
     /// </summary>
-    public static string AirSequence(RobotTemplate t) => t.Family == "melee" ? "airwalk_MELEE" : "airwalk_PRIMARY";
+    public static string AirSequence(RobotTemplate t) => t.Class == "tank" ? TankSequence : t.Family == "melee" ? "airwalk_MELEE" : "airwalk_PRIMARY";
 }

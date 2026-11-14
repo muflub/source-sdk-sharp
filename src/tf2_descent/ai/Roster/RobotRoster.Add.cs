@@ -19,9 +19,11 @@ public sealed partial class RobotRoster
     /// With <paramref name="joinLastPack"/> it joins the newest pack instead of
     /// starting its own (a dev command's pack-mate, a fact's pack): only the
     /// newest, so a pack's rows stay one run; with no pack yet it starts one.
+    /// With <paramref name="boss"/> (HO13: a dev boss on a level with no arena) the row is a boss:
+    /// it takes only the boss body, as the level's boss does.
     /// </summary>
     public RobotId Add(string template, double? scale, int room, PackMarker at, ulong seed, int partySize = 1,
-                       IReadOnlyList<string>? affixes = null, bool joinLastPack = false)
+                       IReadOnlyList<string>? affixes = null, bool joinLastPack = false, bool boss = false)
     {
         var level = Level ?? throw new InvalidOperationException("the roster has no level: Load it first");
         if ((uint)room >= (uint)level.RoomCount)
@@ -38,7 +40,7 @@ public sealed partial class RobotRoster
         int p = joinLastPack && PackCount > 0 && _packFirst[PackCount - 1] + _packSize[PackCount - 1] == Count
             ? PackCount - 1
             : BeginPack(room, seed);
-        Put(p, t.Id, Seeded.From(seed, "robot", 0).NextULong(), monsterLevel, s, stats, temperament, champion, false, room, -1, at);
+        Put(p, t.Id, Seeded.From(seed, "robot", 0).NextULong(), monsterLevel, s, stats, temperament, champion, boss, room, -1, at);
         int i = Count - 1;
         _state[i] = RobotState.Far;
         return Id(i);

@@ -42,7 +42,8 @@ namespace TF2.Descent.Server.Horde.Session;
 public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, ISightWorld sightWorld, IHordeHeroes heroes,
                                  IHordeRules rules, IHordeClock clock, IHeroLandings landings, HordeWorkers workers,
                                  HordeAiSyncConVar sync, HordeAiThreadsConVar threads, HordeAiRecordConVar record, IModInfo mod, ILog log,
-                                 Attacks.IRobotAttackWorld fireLines, Nav.HordeNav nav, IRobotMotionReports reports)
+                                 Attacks.IRobotAttackWorld fireLines, Nav.HordeNav nav, IRobotMotionReports reports,
+                                 Hero.RespawnGraces graces, Lamp.IHeroVisibility visibility)
     : IHordeBrainHost, IHordeActors, IRobotTaunts
 {
     /// <summary>Sounds the taps may queue between two ticks; one more is counted and the gate fails (B.3: never dropped silently).</summary>
@@ -57,6 +58,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
     private readonly HeroEye[] _eyes = new HeroEye[MaxPlayers];
     private readonly HeroPose[] _poses = new HeroPose[MaxPlayers];
     private readonly EntityHandle[] _heroPlayer = new EntityHandle[HordeSlots.Heroes];
+    private readonly bool[] _dead = new bool[MaxPlayers + 1];   // by seat: dead, his respawn not told yet
     private readonly Queued[] _queue = new Queued[SoundCapacity];
     private readonly HordeSound[] _heard = new HordeSound[SoundCapacity];
     private readonly SoundEvent[] _far = new SoundEvent[SoundCapacity];
@@ -180,7 +182,8 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         int n = heroes.Gather(level, _places, _eyes);
         _gathered = n;
         for (int k = 0; k < n; k++)
-            _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room, _eyes[k].Yaw);
+            _poses[k] = new HeroPose(_places[k].Seat, _places[k].Position, HordeVectors.ToAi(_eyes[k].Eye), _places[k].Room, _eyes[k].Yaw,
+                                     (float)visibility.SightScale(_eyes[k].Player), VeilOf(_places[k].Seat, now));
         brains.Heroes(now, _poses.AsSpan(0, n));
         for (int k = 0; k < n; k++)
         {
@@ -216,9 +219,22 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         for (int i = 0; i < _queued; i++)
         {
             ref readonly Queued q = ref _queue[i];
+            if ((uint)q.Owner < (uint)_dead.Length && _dead[q.Owner])
+            {
+                // A dead hero's own sounds (his death cry, emitted after the death was told) are no lead to anyone.
+                DeadSilenced++;
+                continue;
+            }
+
             int seat = SeatOf(q.Owner);
             if (seat == RobotOwner)
                 continue;
+            if (seat > 0 && q.Kind is SoundKind.Footstep or SoundKind.Door && VeilOf(seat, now) == HeroVeil.Hidden)
+            {
+                // A hero in his respawn's grace is not there for the robots: his steps, landings and doors go unheard (his shot ends the grace).
+                GraceSilenced++;
+                continue;
+            }
             int room = level.RoomAt(q.At);
             if (room < 0)
                 continue;
@@ -270,6 +286,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         _farCount = 0;
         Array.Clear(_heroPlayer);
         Array.Clear(_recent);
+        Array.Clear(_dead);
     }
 
     /// <summary>A sound the taps heard: queued for the next tick; refused and counted when the queue is full.</summary>
@@ -303,6 +320,78 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         Taunts++;
         brains.Hit(clock.Tick, robot, seat, 0f, false, bodies.Body(body).Position);
     }
+
+    /// <summary>A graced hero's own steps, landings and doors left unheard (<see cref="VeilOf"/>), since the module started.</summary>
+    public long GraceSilenced { get; private set; }
+
+    /// <summary>Sounds owned by a dead hero (from his death until his respawn is told) left unheard, since the module started.</summary>
+    public long DeadSilenced { get; private set; }
+
+    /// <summary>
+    /// What the robots may know of the hero in <paramref name="seat"/> at <paramref name="now"/>
+    /// (this lane's rule; plan_descent_logic 4.7, death.json): in his respawn's grace he is
+    /// <see cref="HeroVeil.Hidden"/> (and from his death until his respawn is told); once it lapses by time, <see cref="HeroVeil.Watched"/> to
+    /// <c>respawnBlindSeconds</c> after the respawn (a robot that had him in view through the grace
+    /// stays blind to him until it has lost him from view once); after that, or from his first act,
+    /// <see cref="HeroVeil.None"/>.
+    /// </summary>
+    public HeroVeil VeilOf(int seat, long now)
+    {
+        if (!graces.TryGet(seat, out var g) || g.Acted)
+            return HeroVeil.None;
+        if (g.Dead || g.Untouchable(now))
+            return HeroVeil.Hidden;   // dead: standing again before his respawn is told (see RespawnGraces.Died)
+        long blind = (long)Math.Ceiling(rules.Rules.Content.Death.Downed.RespawnBlindSeconds * clock.TicksPerSecond);
+        return now < g.From + blind ? HeroVeil.Watched : HeroVeil.None;
+    }
+
+    /// <summary>
+    /// A hero died (the downed state's listener, <c>DownedHordeTap</c>): every brain with a body
+    /// forgets him, nothing on the roster keeps his seat, and the sounds he made that no robot has
+    /// heard yet (queued, for the far simulation, the last second's) are dropped
+    /// (<see cref="HordeBrains.HeroGone"/>), as is every sound he owns until his respawn is told
+    /// (his death cry comes after the death is told). Answers the brains told.
+    /// </summary>
+    public int HeroGone(int seat)
+    {
+        if (_brains is not { } brains || seat <= 0)
+            return 0;
+        if (seat < _dead.Length)
+            _dead[seat] = true;
+        int kept = 0;
+        for (int i = 0; i < _queued; i++)
+            if (_queue[i].Owner != seat)
+                _queue[kept++] = _queue[i];
+        _queued = kept;
+        kept = 0;
+        for (int i = 0; i < _farCount; i++)
+            if (_far[i].Seat != seat)
+                _far[kept++] = _far[i];
+        _farCount = kept;
+        for (int i = 0; i < _recent.Length; i++)
+            if (_recent[i].Sound.Seat == seat)
+                _recent[i] = (_recent[i].Sound with { Room = -1 }, _recent[i].Tick);   // a room of -1 is heard by nobody
+        return brains.HeroGone(clock.Tick, seat);
+    }
+
+    /// <summary>A dead hero respawned: every brain with a body is told he is back, a stranger (<see cref="HordeBrains.HeroBack"/>). Answers the brains told.</summary>
+    public int HeroBack(int seat)
+    {
+        if ((uint)seat < (uint)_dead.Length)
+            _dead[seat] = false;
+        return _brains is { } brains && seat > 0 ? brains.HeroBack(clock.Tick, seat) : 0;
+    }
+
+    /// <summary>Every stage of body <paramref name="body"/>'s sight of hero slot <paramref name="hero"/> now (the dev print's); false with no brain or no hero.</summary>
+    public bool ProbeSight(int body, int hero, out SightProbe probe, out float sightScale)
+    {
+        probe = default;
+        sightScale = 0f;
+        return _brains is { } brains && _adapters is { } a && brains.ProbeSight(body, hero, a, out probe, out sightScale);
+    }
+
+    /// <summary>The player the hero slot <paramref name="hero"/> (0 to 3) was last gathered as, or none.</summary>
+    public EntityHandle HeroPlayer(int hero) => (uint)hero < (uint)_heroPlayer.Length ? _heroPlayer[hero] : EntityHandle.None;
 
     /// <summary>A hero died (the death hook): told to the robots that held sight of it.</summary>
     public void HeroDied(int seat, int killerIndex)
@@ -367,7 +456,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             + $"events in {c.EventsIn} processed {c.EventsProcessed} waiting {b.EventsWaiting} discarded {b.EventsDiscarded} dropped {c.EventsDropped}; "
             + $"steps run {c.StepsRun} skipped {c.StepsSkipped} faulted {c.StepsFaulted} in flight {c.InFlight} (most {c.InFlightMax}), brain cpu {c.BrainCpuMicrosMean:0.0} us a decide; "
             + $"sight traces {v.Traces} (last tick {v.TracesThisTick}, most {v.MostTraces} of {v.Budget}, candidates {v.CandidatesThisTick}, unserved {v.UnservedThisTick}, longest wait {v.LongestWait} ticks), gained {v.Gains} lost {v.Losses}; "
-            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}, arrived told {b.ArrivalsTold}, allies told {b.AlliesTold}; "
+            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}, unheard from the dead {DeadSilenced} and the graced {GraceSilenced}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}, arrived told {b.ArrivalsTold}, allies told {b.AlliesTold}; "
             + $"hero slots {HeroSlotsLine(b)}{(SoundsOverflowed > 0 || FarOverflowed > 0 || c.EventsDropped > 0 ? "; EVENTS LOST" : "")}")
             + (c.StepsFaulted > 0 && c.LastFault is { } fault ? "; LAST FAULT: " + fault : "");
     }

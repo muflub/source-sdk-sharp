@@ -13,11 +13,24 @@ namespace TF2.Descent.Rules.World;
 public sealed record LampLight(double Radius, double InnerAngle, double OuterAngle, int Red, int Green, int Blue, int Exponent, double Forward);
 
 /// <summary>
-/// lamp.json: the light, the depth from which a hero's lamp is on when he arrives
-/// (<see cref="OnFromDepth"/>: the town is depth 0), and the step the hero's look is sent in
-/// (<see cref="PitchStep"/> degrees: every client points another hero's lamp by it).
+/// How the dark and the lamp change how far a robot sees a hero (lamp.json's <c>sight</c>;
+/// plan_tf2_rpg B.3: "darkness [is a] multiplier on range"; mine plan M9 and section 6).
+/// <see cref="Darkness"/> is each depth's darkness from 0 (lit: the lamp changes nothing) to 1
+/// (black), depth 1 first; a deeper level takes the last. The levels carry no light the server
+/// can read, so the depth stands for the room (mine plan 6: lit to level 10, "side rooms may be
+/// fully dark from level 11 down", level 15 the darkest). In the dark a hero is seen from
+/// <see cref="LampOn"/> times a robot's range with his lamp lit and <see cref="LampOff"/> times
+/// it with it out, each eased in by the darkness (<see cref="LampRules.SightScale"/>).
 /// </summary>
-public sealed record LampSettings(LampLight Light, int OnFromDepth, double PitchStep);
+public sealed record LampSight(IReadOnlyList<double> Darkness, double LampOn, double LampOff);
+
+/// <summary>
+/// lamp.json: the light, the depth from which a hero's lamp is on when he arrives
+/// (<see cref="OnFromDepth"/>: the town is depth 0), the step the hero's look is sent in
+/// (<see cref="PitchStep"/> degrees: every client points another hero's lamp by it), and what the
+/// dark and the lamp do to a robot's sight of him (<see cref="Sight"/>).
+/// </summary>
+public sealed record LampSettings(LampLight Light, int OnFromDepth, double PitchStep, LampSight Sight);
 
 /// <summary>
 /// The lamp table. Load errors: a radius, cone, colour, exponent, offset, depth or pitch step out
@@ -37,7 +50,19 @@ public sealed class LampTable : SingleTable<LampSettings>
             colour.Int("r"), colour.Int("g"), colour.Int("b"), l.Int("exponent"), l.Num("forward"));
         colour.End();
         l.End();
-        return new LampSettings(light, f.Int("onFromDepth"), f.Num("pitchStep"));
+        var sight = f.Obj("sight");
+        var darkness = new List<double>();
+        foreach (var e in sight.Array("darkness"))
+        {
+            if (e.ValueKind == System.Text.Json.JsonValueKind.Number)
+                darkness.Add(e.GetDouble());
+            else
+                f.Errors.Add(f.Table, f.Row, ContentRule.Malformed, "'sight.darkness' must hold only numbers");
+        }
+
+        var lampSight = new LampSight(darkness, sight.Num("lampOn"), sight.Num("lampOff"));
+        sight.End();
+        return new LampSettings(light, f.Int("onFromDepth"), f.Num("pitchStep"), lampSight);
     }
 
     protected override void Validate(DescentContent content, LampSettings s, ContentErrors errors)
@@ -57,6 +82,12 @@ public sealed class LampTable : SingleTable<LampSettings>
         ContentChecks.Range(errors, t, null, "onFromDepth", s.OnFromDepth, 0, 99);
         // 1.5 degrees is 120 steps: the most the wire's 7 bits hold.
         ContentChecks.Range(errors, t, null, "pitchStep", s.PitchStep, 1.5, 30);
+        if (s.Sight.Darkness.Count == 0)
+            errors.Add(t, null, ContentRule.OutOfRange, "'sight.darkness' names no depth");
+        for (int d = 0; d < s.Sight.Darkness.Count; d++)
+            ContentChecks.Range(errors, t, null, $"sight.darkness[{d}]", s.Sight.Darkness[d], 0, 1);
+        ContentChecks.Range(errors, t, null, "sight.lampOn", s.Sight.LampOn, 0.05, 4);
+        ContentChecks.Range(errors, t, null, "sight.lampOff", s.Sight.LampOff, 0.05, 4);
     }
 }
 
@@ -84,6 +115,25 @@ public static class LampRules
 
     /// <summary>The pitch in degrees a wire step count stands for.</summary>
     public static double PitchOf(LampSettings s, int steps) => Math.Clamp(PitchFloor + steps * s.PitchStep, PitchFloor, -PitchFloor);
+
+    /// <summary>The darkness of <paramref name="depth"/> (0 lit to 1 black): the town (0 and below) is lit; past the table, its last.</summary>
+    public static double Darkness(LampSettings s, int depth)
+    {
+        var table = s.Sight.Darkness;
+        return depth <= 0 || table.Count == 0 ? 0 : table[Math.Min(depth, table.Count) - 1];
+    }
+
+    /// <summary>
+    /// The multiplier on a robot's sight range for a hero in <paramref name="darkness"/> (held to
+    /// [0, 1]) with his lamp <paramref name="lit"/>: <c>1 + darkness · (lamp − 1)</c>, the lamp's
+    /// <see cref="LampSight.LampOn"/> or <see cref="LampSight.LampOff"/>. Lit (0) is exactly 1,
+    /// whatever the lamp.
+    /// </summary>
+    public static double SightScale(LampSettings s, double darkness, bool lit)
+    {
+        double d = double.IsNaN(darkness) ? 0 : Math.Clamp(darkness, 0, 1);
+        return 1 + d * ((lit ? s.Sight.LampOn : s.Sight.LampOff) - 1);
+    }
 
     /// <summary>The most steps the wire carries: what its field's width must hold.</summary>
     public static int MaxSteps(LampSettings s) => (int)Math.Round(-2 * PitchFloor / s.PitchStep, MidpointRounding.AwayFromZero);

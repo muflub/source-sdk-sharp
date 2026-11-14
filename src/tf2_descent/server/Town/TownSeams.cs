@@ -121,7 +121,7 @@ public sealed class EngineTownWorld(HostService host, HeroKeys keys, Heroes hero
     public IReadOnlyList<int> Destinations(int player)
     {
         var entry = host.Mode == HostingMode.Hosted ? players.ByEntity(player) : null;
-        return TownDescents.Destinations(Math.Max(entry?.ReachedDepth ?? 0, 0), entry is null ? [] : bossKills.Depths(entry.CharacterId));
+        return TownDescents.Destinations(Math.Max(entry?.ReachedDepth ?? 0, 0), entry is null ? bossKills.DepthsOf(player) : bossKills.Depths(entry.CharacterId));
     }
 
     public string? Descend(int player, int depth)

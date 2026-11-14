@@ -8,5 +8,10 @@
     "forward": 8
   },
   "onFromDepth": 1,
-  "pitchStep": 3
+  "pitchStep": 3,
+  "sight": {
+    "darkness": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.2, 0.4, 0.6, 0.8, 1],
+    "lampOn": 1,
+    "lampOff": 0.25
+  }
 }

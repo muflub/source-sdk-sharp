@@ -15,4 +15,16 @@ public static class HordeAbilities
 
     /// <summary>A spy's cloak off (HO12): the uncloak's sound and fade-in, its telegraph before a stab.</summary>
     public const int Decloak = 3;
+
+    /// <summary>A boss's special (HO13): the windup of its phase's big attack; the ask's <c>OneShotSeq</c> is the phase.</summary>
+    public const int BossSpecial = 4;
+
+    /// <summary>A boss calling its phase's adds (HO13); the ask's <c>OneShotSeq</c> is the phase.</summary>
+    public const int BossSummon = 5;
+
+    /// <summary>The Tank stopped at a station of its track (HO13); the ask's <c>OneShotSeq</c> is the station, the last its final.</summary>
+    public const int TankStation = 6;
+
+    /// <summary>The Tank has drilled its last station: the roof comes down (HO13).</summary>
+    public const int TankRoof = 7;
 }

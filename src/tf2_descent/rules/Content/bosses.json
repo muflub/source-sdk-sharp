@@ -1,0 +1,49 @@
+{
+  "resetSeconds": 10,
+  "arenaMargin": 96,
+  "addSpacing": 96,
+  "bosses": [
+    {
+      "id": "sir_nukesalot", "depth": 5, "companion": "",
+      "phases": [
+        { "at": 100, "special": "nuke_volley", "specialSeconds": 12, "adds": [] },
+        { "at": 66, "special": "nuke_volley", "specialSeconds": 9, "adds": [ { "template": "demoman", "count": 2 } ] },
+        { "at": 33, "special": "nuke_volley", "specialSeconds": 6, "adds": [ { "template": "runt_demoman", "count": 3 } ] }
+      ]
+    },
+    {
+      "id": "major_crits", "depth": 10, "companion": "tank",
+      "phases": [
+        { "at": 100, "special": "crit_salvo", "specialSeconds": 14, "adds": [] },
+        { "at": 66, "special": "crit_salvo", "specialSeconds": 10, "adds": [ { "template": "soldier", "count": 2 } ] },
+        { "at": 33, "special": "crit_salvo", "specialSeconds": 7, "adds": [ { "template": "giant_soldier", "count": 1 } ] }
+      ]
+    },
+    {
+      "id": "captain_punch", "depth": 15, "companion": "",
+      "phases": [
+        { "at": 100, "special": "", "specialSeconds": 0, "adds": [] },
+        { "at": 75, "special": "ground_slam", "specialSeconds": 10, "adds": [ { "template": "heavy", "count": 2 } ] },
+        { "at": 50, "special": "ground_slam", "specialSeconds": 8, "adds": [ { "template": "giant_heavy", "count": 1 } ] },
+        { "at": 25, "special": "ground_slam", "specialSeconds": 5, "adds": [ { "template": "heavy", "count": 3 } ] }
+      ]
+    }
+  ],
+  "specials": [
+    { "id": "nuke_volley", "kind": "volley", "windupSeconds": 1.5, "sound": "MVM.Warning", "particle": "mvm_pow_crit",
+      "attack": "nuke_cannon", "shots": 5, "fanDegrees": 12, "damageShare": 1, "crit": false, "radius": 0, "damageType": "" },
+    { "id": "crit_salvo", "kind": "volley", "windupSeconds": 1.2, "sound": "MVM.Warning", "particle": "mvm_pow_crit",
+      "attack": "crit_rockets", "shots": 4, "fanDegrees": 8, "damageShare": 1, "crit": true, "radius": 0, "damageType": "" },
+    { "id": "ground_slam", "kind": "slam", "windupSeconds": 1.0, "sound": "MVM.TankSmash", "particle": "fluidSmokeExpl_ring_mvm",
+      "attack": "", "shots": 1, "fanDegrees": 0, "damageShare": 1.5, "crit": false, "radius": 400, "damageType": "blast" }
+  ],
+  "tank": {
+    "template": "tank", "stopSeconds": 30, "finalSeconds": 45, "arriveUnits": 64, "centreClearUnits": 320, "roofDamage": 5000,
+    "immune": ["stun", "emp_stun", "slowed", "knock_up"]
+  },
+  "sounds": {
+    "intro": "MVM.GiantHeavyEntrance", "phase": "MVM.Siren", "death": "MVM.GiantCommonExplodes", "exitOpens": "MVM.BombExplodes",
+    "tankStart": "MVM.TankStart", "tankStop": "MVM.TankPing", "tankDrill": "MVM.TankDeploy", "tankDeath": "MVM.TankExplodes",
+    "tankDeathParticle": "mvm_tank_destroy", "roof": "MVM.BombExplodes"
+  }
+}

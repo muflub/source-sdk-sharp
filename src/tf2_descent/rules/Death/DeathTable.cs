@@ -11,7 +11,11 @@ public sealed record DeathDrops(bool Equipped, bool Backpack, bool Belt, bool Au
 /// under <see cref="WindowFloorSeconds"/>; a revive is <see cref="ReviveHoldSeconds"/> of held
 /// use within <see cref="ReviveRange"/> units, and leaves the hero at
 /// <see cref="ReviveLifePct"/> of maximum life with <see cref="GraceSeconds"/> of grace. A hero
-/// who respawns takes no damage for <see cref="RespawnGraceSeconds"/>, or until he acts.
+/// who respawns takes no damage for <see cref="RespawnGraceSeconds"/>, or until he acts, and no
+/// robot recognises him in it. <see cref="RespawnBlindSeconds"/> (this lane's rule, plan_descent_logic
+/// 4.7; 0 turns it off): when the grace lapses by time, a robot that had him in view during it stays
+/// blind to him until it has lost him from view once, at most this long after the respawn; his
+/// first act ends it at once.
 /// </summary>
 public sealed record DownedSettings(
     double WindowSeconds,
@@ -21,7 +25,8 @@ public sealed record DownedSettings(
     double ReviveRange,
     double ReviveLifePct,
     double GraceSeconds,
-    double RespawnGraceSeconds);
+    double RespawnGraceSeconds,
+    double RespawnBlindSeconds);
 
 /// <summary>
 /// death.json (plan_tf2_rpg 2g, D6, D7, R5, R26; plan_descent_logic RU10): what drops,
@@ -51,7 +56,8 @@ public sealed class DeathTable : SingleTable<DeathSettings>
                 downed.Num("reviveRange"),
                 downed.Num("reviveLifePct"),
                 downed.Num("graceSeconds"),
-                downed.Num("respawnGraceSeconds")));
+                downed.Num("respawnGraceSeconds"),
+                downed.Num("respawnBlindSeconds")));
         drops.End();
         corpse.End();
         downed.End();
@@ -72,5 +78,6 @@ public sealed class DeathTable : SingleTable<DeathSettings>
         ContentChecks.Range(errors, t, null, "downed.reviveLifePct", w.ReviveLifePct, 1, 100);
         ContentChecks.Range(errors, t, null, "downed.graceSeconds", w.GraceSeconds, 0, 60);
         ContentChecks.Range(errors, t, null, "downed.respawnGraceSeconds", w.RespawnGraceSeconds, 0, 60);
+        ContentChecks.Range(errors, t, null, "downed.respawnBlindSeconds", w.RespawnBlindSeconds, 0, 120);
     }
 }

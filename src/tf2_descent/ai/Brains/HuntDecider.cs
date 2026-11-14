@@ -183,6 +183,20 @@ public sealed class HuntDecider : IDecider, IHordeRouted
         return End(tick, seq, Node.Hold, MoveIntent.Hold, LookIntent.AlongPath, _post, ActorId.None);
     }
 
+    /// <summary>
+    /// The robot fought a hero in sight at <paramref name="tick"/> (a family decider fighting on its
+    /// own): as this hunt's sighted branch does, every sound, hit and hurt pack-mate before it is
+    /// that fight, searched, and no goal is held.
+    /// </summary>
+    public void Fought(Tick tick)
+    {
+        _goal = GoalKind.None;
+        _searching = false;
+        _searchedSound = tick;
+        _searchedHit = tick;
+        _searchedAlly = tick;
+    }
+
     /// <summary>The goal to go to; a new one (another kind or a newer stamp) starts its search over.</summary>
     private void Aim(GoalKind kind, AiVector at, Tick stamp)
     {
@@ -256,16 +270,21 @@ public sealed class HuntDecider : IDecider, IHordeRouted
         if (hit > _searchedHit && hit.Value > 0 && (kind == GoalKind.None || hit > stamp))
             (kind, at, stamp) = (GoalKind.Hit, self + board.LastDamageDir.Normalised() * engage, hit);
 
-        // A pack-mate hurt or killed (B.3's AllyDamaged, AllyDied): it goes to where the mate was.
+        // A pack-mate hurt or killed (B.3's AllyDamaged, AllyDied): it goes to where the mate was,
+        // unless the hero who did it has gone (dead: the core holds him as gone to watch).
         BotMemory memory = _setup.Memory;
-        var (allyAt, allyTick) = memory.LastAllyDied.When > memory.LastAllyHurt.When
-            ? (memory.LastAllyDied.Where, memory.LastAllyDied.When)
-            : (memory.LastAllyHurt.Where, memory.LastAllyHurt.When);
-        if (allyTick > _searchedAlly && allyTick.Value > 0 && (kind == GoalKind.None || allyTick > stamp))
+        var (allyAt, allyTick, by) = memory.LastAllyDied.When > memory.LastAllyHurt.When
+            ? (memory.LastAllyDied.Where, memory.LastAllyDied.When, memory.LastAllyDied.Killer)
+            : (memory.LastAllyHurt.Where, memory.LastAllyHurt.When, memory.LastAllyHurt.Attacker);
+        if (allyTick > _searchedAlly && allyTick.Value > 0 && !Gone(board, by) && (kind == GoalKind.None || allyTick > stamp))
             (kind, at, stamp) = (GoalKind.Ally, allyAt, allyTick);
 
         return kind != GoalKind.None;
     }
+
+    /// <summary>Whether <paramref name="who"/> is an actor the board holds as gone to watch (a dead hero, forgotten).</summary>
+    private static bool Gone(Blackboard board, ActorId who) =>
+        who.IsValid && (uint)who.Slot < (uint)board.Slots && board.Actor(who.Slot) is { Spectating: true } a && a.Id == who;
 
     private IntentCommand End(Tick tick, int seq, Node node, in MoveIntent move, in LookIntent look, AiVector goal, ActorId target)
     {

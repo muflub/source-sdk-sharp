@@ -449,9 +449,8 @@ public sealed class HudSourcesTests
     }
 
     [Fact]
-    public void No_boss_and_no_gear_warning_are_shown()
+    public void No_gear_warning_is_shown()
     {
-        Assert.False(new Src.BossSource().Present);
         Assert.False(new Src.GearWarningSource(new GearWearState()).Present);
     }
 

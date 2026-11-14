@@ -103,13 +103,17 @@ public enum AttackRefusal
 /// </summary>
 [SideService(Side.Server, As = [typeof(IRobotActionSink)])]
 public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHordeHeroes heroes, IRobotMotionReports motion,
-                                 IHordeClock clock, Champions.IRobotAttackShaping shaping, IHooks<IHordeTicker> tickers)
-    : IRobotActionSink, IPlayerHurtHook, IRobotDamageGuard, IOrderedHook
+                                 IHordeClock clock, Champions.IRobotAttackShaping shaping, IHooks<IHordeTicker> tickers,
+                                 IHooks<Boss.IRobotAbility> abilities)
+    : IRobotActionSink, IPlayerHurtHook, IRobotDamageGuard, IOrderedHook, Boss.IRobotAbilityHands
 {
     /// <summary>The sounds and effects HO12's attacks play (TF2's and MvM's own).</summary>
     public const string MinigunWindUp = "Weapon_Minigun.WindUp", BusterSpin = "MvM.SentryBusterSpin", BusterExplode = "MVM.SentryBusterExplode",
                         CloakSound = "Player.Spy_Cloak", UncloakSound = "Player.Spy_UnCloak", BusterSpinSequence = "sentry_buster_preExplode",
                         BlastTrail = "explosionTrail_seeds_mvm", BlastRing = "fluidSmokeExpl_ring_mvm";
+
+    /// <summary>MvM's flag for a robot whose every shot is a crit (Major Crits, D13).</summary>
+    public const string AlwaysCrit = "always_crit";
 
     /// <summary>After the hero's own hurt members: it only counts.</summary>
     public const int Order = ModStages.First + 530;
@@ -337,6 +341,13 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
 
         if (action.Kind != ActionKind.Fire)
         {
+            // HO13: an ability the hands have no verb for goes to the ability chain (a boss's special, its adds, the Tank's stations).
+            if (action.Kind == ActionKind.Ability && Ability(body, b, i, action))
+            {
+                _fired[family]++;
+                return;
+            }
+
             Refuse(family, AttackRefusal.Unknown);
             return;
         }
@@ -548,7 +559,7 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
         // The champions' shaping: more shots fanned round the aim (multishot), a crit (an aura in reach), a burn on a hero hit.
         float fan = 0f;
         int shots = attack.Kind == RobotAttackKind.Melee ? 1 : Math.Max(1, shaping.Shots(i, out fan));
-        _crit = shaping.Crit(_horde, b);
+        _crit = shaping.Crit(_horde, b) || template.Flags.Contains(AlwaysCrit);   // HO13: Major Crits' MvM flag
         if (_crit)
             AuraCrits++;
         _burn = Math.Max((float)attack.AfterburnSeconds, shaping.BurnSeconds(i));
@@ -667,6 +678,45 @@ public sealed class RobotAttacks(IHordeRules rules, IRobotAttackWorld world, IHo
             world.Hurt(_victims[k].Victim, b.Handle, _victims[k].Damage, bits, fwd);
             Afterburn(_victims[k].Victim, b);
         }
+    }
+
+    /// <summary>The first member of the ability chain that takes the ask (HO13); false when none does.</summary>
+    private bool Ability(int body, RobotBody b, int row, in ActionIntent action)
+    {
+        var all = abilities.All;
+        for (int k = 0; k < all.Count; k++)
+            if (all[k].Act(_horde!, b, row, action, this, _now))
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// HO13's hands for an ability: a TF projectile in the body's name on the robots' team,
+    /// counted against the robot projectile cap as the hands' own shots are; none when the cap is
+    /// full or the engine refused it.
+    /// </summary>
+    EntityHandle Boss.IRobotAbilityHands.Launch(RobotBody body, string projectile, Vector origin, Vector velocity, float damage, bool crit)
+    {
+        if (_flying.Length == 0 || CountFlying() >= _flying.Length)
+        {
+            Refuse(0, AttackRefusal.Cap);
+            return EntityHandle.None;
+        }
+
+        var made = world.Launch(projectile, body.Handle, origin, velocity, damage, (int)TFTeam.Blue, crit);
+        if (made == EntityHandle.None)
+            return made;
+        for (int k = 0; k < _flying.Length; k++)
+        {
+            if (!world.Exists(_flying[k]))
+            {
+                _flying[k] = made;
+                break;
+            }
+        }
+
+        CountFlying();
+        return made;
     }
 
     private bool Launch(RobotBody b, RobotAttack attack, RobotStats stats, Vector eye, Vector fwd)

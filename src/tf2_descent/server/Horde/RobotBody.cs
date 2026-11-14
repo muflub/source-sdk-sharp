@@ -43,6 +43,7 @@ namespace TF2.Descent.Server.Horde;
 [Precache(PrecacheKind.Model, RobotLooks.GiantDemomanModel)]
 [Precache(PrecacheKind.Model, RobotLooks.GiantHeavyModel)]
 [Precache(PrecacheKind.Model, RobotLooks.SentryBusterModel)]
+[Precache(PrecacheKind.Model, RobotLooks.TankModel)]
 [Precache(PrecacheKind.Model, Attacks.EngineRobotAttackWorld.LaserSprite)]
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.MinigunWindUp)]
 [Precache(PrecacheKind.Sound, Attacks.RobotAttacks.BusterSpin)]
