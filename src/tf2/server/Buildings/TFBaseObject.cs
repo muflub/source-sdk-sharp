@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Bones;
 using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
@@ -184,6 +185,62 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     [SaveField] private int _assists;
     [SaveField] private bool _miniBuilding;
 
+    /// <summary><c>m_nBody</c>: the mixed body value, kept so successive
+    /// groups compose — stock's <c>::SetBodygroup</c> reads the old value
+    /// back out of it (animation.cpp:863).</summary>
+    [SaveField] private int _body;
+
+    private IServerSkins? _skins;
+    private IBoneModels? _models;
+
+    /// <summary>The two areas the bodygroup helpers ask, beside the
+    /// constructor's list: the skins write that carries <c>m_nBody</c>, and
+    /// the model cache the groups are read from.</summary>
+    private protected override void BindOwnAreas(IServiceLocator engine)
+    {
+        _skins = engine.Resolve(typeof(IServerSkins)) as IServerSkins;
+        _models = engine.Require<IBoneModels>();
+    }
+
+    private IServerSkins Skins => _skins ?? throw MissingArea(nameof(IServerSkins));
+    private IBoneModels Models => _models ?? throw MissingArea(nameof(IBoneModels));
+
+    private InvalidOperationException MissingArea(string area)
+        => new($"{GetType().Name} has no {area}: it was not built by a registry that holds one");
+
+    /// <summary>
+    /// <c>FindBodygroupByName</c> (animation.cpp:927): the group of this
+    /// model named <paramref name="name"/>, or the stock -1 — no model hdr
+    /// answers the -1 arm too (animation.cpp:929).
+    /// </summary>
+    protected int FindBodygroupByName(string name)
+    {
+        StudioHdr? hdr = StudioHdrNow();
+        return hdr is null ? -1 : hdr.FindBodygroupByName(name);
+    }
+
+    /// <summary>
+    /// <c>CBaseAnimating::SetBodygroup</c> (baseanimating.cpp:2294-2302):
+    /// compose one group's digit into <see cref="_body"/> over the model's
+    /// own groups (animation.cpp:863-879) and write the mixed value through
+    /// the skins seam — stock's <c>m_nBody</c> write is ours at
+    /// <see cref="IServerSkins.SetBody"/>. A model with no hdr leaves the
+    /// body as it stands, the stock early-return arm.
+    /// </summary>
+    protected void SetBodygroup(int iGroup, int iValue)
+    {
+        StudioHdr? hdr = StudioHdrNow();
+        if (hdr is not null)
+            _body = hdr.SetBodygroup(_body, iGroup, iValue);
+
+        Skins.SetBody(Handle, _body);
+    }
+
+    /// <summary>The entity's own hdr, as the skeletons read it
+    /// (<c>SkeletonCommands</c>): name, precache index, header.</summary>
+    private StudioHdr? StudioHdrNow()
+        => Models.OpenStudioHdr(Precache.PrecacheModel(Render.GetModelName(Handle)));
+
     /// <summary>The build state the client's shadow arm reads; <see cref="SetPlacing"/> keeps it with <see cref="_placing"/>.</summary>
     [NetState] public TFObjectNetState State = new();
 
@@ -223,6 +280,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary><c>MINI_SENTRY_SCALE</c> (tf_obj_sentrygun.cpp:67): the mini's model scale.</summary>
     public const float MiniSentryScale = 0.75f;
+
+    /// <summary>The mini's gib pack scale (<c>SetModelScale(0.6f)</c>, tf_obj.cpp:2317-2320).</summary>
+    public const float GibModelScale = 0.6f;
 
     /// <summary>
     /// <c>CBaseObject::MakeMiniBuilding</c> (tf_obj.cpp:1510-1516): the flag, once. Stock's
@@ -1131,11 +1191,21 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
                 SetPlasmaDisabled(PlasmaDisableTime);
         }
 
-        // mult_dmg_vs_buildings on the attacker's held weapon, stock's
+        // mult_dmg_vs_buildings on the weapon that made the blow, stock's
         // CALL_ATTRIB_HOOK_FLOAT_ON_OTHER behind the weapon-caused gate
         // (tf_obj.cpp:1922-1927): the item's multiplier rides the health lost.
+        // Stock asks info.GetWeapon(), the launcher the hit carries
+        // (shared/takedamageinfo.h:49-52), not what the attacker happens to
+        // hold when the blow lands: the blast's scope names that launcher
+        // item, and only with no scope item — a hitscan's held weapon, whose
+        // stock pointer is the held weapon itself — does the held answer.
         if (attacker != EntityHandle.None)
-            damage = Hooks.Float(damage, "mult_dmg_vs_buildings", Owners.ActiveItemOf(Entities.GetIndex(attacker)));
+        {
+            IAttributeProvider? launcher = Scopes.TryLauncher(out var scopeItem)
+                                             ? scopeItem
+                                             : Owners.ActiveItemOf(Entities.GetIndex(attacker));
+            damage = Hooks.Float(damage, "mult_dmg_vs_buildings", launcher);
+        }
 
         return (int)damage;
     }
@@ -1161,7 +1231,79 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         Speech.Speak(_builder, TFConceptSpeech.LostObject, "objtype", ResponseModifier());
         OnDestroyed();
         RemoveAttachedSapper();
+
+        // Explode → CreateObjectGibs (tf_obj.cpp:2217): the dying building
+        // throws its break pieces — one pack each — before it leaves.
+        DropDestroyedObjectGibs();
+
         StopThinking();
         Remove();
+    }
+
+    /// <summary>
+    /// <c>CreateObjectGibs</c> and <c>CreateAmmoPack</c> (tf_obj.cpp:2244-2324):
+    /// the dying building throws one ammo pack per break piece of the model it
+    /// wears when it dies — the pieces its <c>SetModel</c> drew into the break
+    /// list (:3542-3552, read here through the precache seam with its defaults,
+    /// burst scale one and the plain collision group). The metal pool is the
+    /// row's own number when set, else half the build cost (:2254-2255), split
+    /// evenly over the pieces with the int remainder on the first pack so the
+    /// whole pool lands (:2258-2259, :2272); a mini zeroes both (:2261-2266)
+    /// and every pack it leaves takes the mini's scale (:2317-2320). Each pack
+    /// wears its PIECE's model (:2278), the building's team skin (:2309), and
+    /// the tumble and health dressing beside them in <see cref="TFAmmoPack.InitGib"/>.
+    /// The quiet removal (<see cref="DestroyObject"/>) stays gibless — stock's
+    /// <c>DestroyObject</c> (:814) never calls Explode.
+    /// </summary>
+    private void DropDestroyedObjectGibs()
+    {
+        // No break pieces, no packs (:2246-2249): the m_aGibs guard.
+        string model = Render.GetModelName(Handle);           // the model worn at death (:3542)
+        int count = Precache.BreakPieceCount(model);          // m_aGibs.Count()
+        if (count == 0)
+            return;
+
+        // The pool: the row's MetalToDropInGibs when named, half the cost otherwise (:2254-2255).
+        TFObjectInfo? info = TFObjectInfo.Of(Type);
+        int totalMetal = info is { MetalToDropInGibs: > 0 } ? info.MetalToDropInGibs : (info?.Cost ?? 0) / 2;
+
+        // Even over the pieces, remainder to the first ("include left over
+        // from int math", :2272); a mini zeroes both arms (:2261-2266).
+        int perPiece = IsMiniBuilding ? 0 : totalMetal / count;
+        int leftover = IsMiniBuilding ? 0 : totalMetal % count;
+
+        int skin = Team == (int)TFTeam.Red ? 0 : 1;   // m_nSkin from the building's team (:2309)
+
+        for (int i = 0; i < count; i++)
+        {
+            // BuildGibList's defaults, the pair SetModel hands the break list (:3552).
+            if (!Precache.BreakPieceAt(model, i, 1f, CollisionGroup.None, out string pieceModel, out _))
+                continue;
+
+            EntityHandle pack = Entities.Create(TFAmmoPack.Class);   // CreateAmmoPack :2278
+            if (!Entities.IsValid(pack))
+                continue;
+
+            Entities.SetOwner(pack, Handle);           // the pack's pOwner, the building itself
+            Entities.SetOrigin(pack, Origin);          // GetAbsOrigin at :2278, no piece offset
+
+            // Stock's CreateAmmoPack names the piece model at Create, before
+            // DispatchSpawn (tf_obj.cpp:2276-2285), so the solver's object is
+            // born with the piece's hull. The KeyValue is the native half of
+            // the name; the managed instance the same call reaches answers
+            // ChooseModel with it, which is what OnSpawn wears at the return.
+            Entities.SetKeyValue(pack, "model", pieceModel);   // the model named at Create, :2278
+            if (FindByHandle<TFAmmoPack>(pack) is { } made)
+                made.ChooseModel(pieceModel);
+
+            Entities.Spawn(pack);
+
+            if (FindByHandle<TFAmmoPack>(pack) is { } ammoPack)
+            {
+                ammoPack.InitGib(pieceModel, perPiece + (i == 0 ? leftover : 0), skin);   // GiveAmmo(nMetal, METAL), :2285
+                if (IsMiniBuilding)
+                    Render.SetModelScale(pack, GibModelScale);   // SetModelScale(0.6f), :2319
+            }
+        }
     }
 }

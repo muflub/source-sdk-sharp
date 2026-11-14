@@ -2115,10 +2115,13 @@ public sealed class TFProjectileEnergyBall : FlyingProjectile
 /// a second in) — and a teammate player the heal (<c>ImpactTeamPlayer</c>,
 /// :1198-1289): the blocked-healing refusal, double the ramped shot under
 /// the victim's heal mult and active weapon's penalty, health to the class
-/// max, the impact cue, the two events, the shooter's medigun uber at the
-/// healed-per-second rate the time-since-damage scales, and the overheal
-/// cond. Not here (docs/plans/tf2/deferred.tsv): the <c>crossbow_heal</c>
-/// event, the kill-eater tick and the stat's heal booking; the
+/// max, the impact cue, the shooter's heal stat and the three events
+/// (<c>player_healed</c>, <c>player_healonhit</c>, <c>crossbow_heal</c>),
+/// the shooter's medigun uber at the healed-per-second rate the
+/// time-since-damage scales, and the overheal cond. Not here
+/// (docs/plans/tf2/deferred.tsv): the kill-eater tick of :1288 — stock's
+/// <c>EconEntity_OnOwnerKillEaterEvent_Batched</c>, whose kill-eater
+/// machinery this build does not carry yet; the
 /// <c>arrow_heals_buildings</c> arm, whose friendly buildings the damage
 /// pass already serves as the arrow's do.
 /// </para>
@@ -2140,6 +2143,7 @@ public sealed class TFHealingBolt : FlyingProjectile
     private readonly ITFMedigunWeapons Mediguns;
     private readonly ITFPlayerResupply Resupply;
     private readonly ITFPickupNotices Notices;
+    private readonly ITFPlayerStats Stats;
     private readonly IEngineSound Sound;
     private readonly IGameClock Clock;
     private readonly IEngineFrame Frame;
@@ -2149,7 +2153,8 @@ public sealed class TFHealingBolt : FlyingProjectile
                          TFDamageScopes scopes, DamageHitGroups hitGroups, IEnginePlayers players,
                          ITFWeaponOwners owners, AttributeHooks hooks, ITFPlayerConditions conditions,
                          ITFMedigunWeapons mediguns, ITFPlayerResupply resupply, ITFPickupNotices notices,
-                         IEngineSound sound, IGameClock clock, IEngineFrame frame, TFDamageRecords records)
+                         IEngineSound sound, IGameClock clock, IEngineFrame frame, TFDamageRecords records,
+                         ITFPlayerStats stats)
         : base(physics, motion)
     {
         Damage = damage;
@@ -2162,6 +2167,7 @@ public sealed class TFHealingBolt : FlyingProjectile
         Mediguns = mediguns;
         Resupply = resupply;
         Notices = notices;
+        Stats = stats;
         Sound = sound;
         Clock = clock;
         Frame = frame;
@@ -2257,11 +2263,17 @@ public sealed class TFHealingBolt : FlyingProjectile
 
         Sound.EntityEmitSound(Handle, HealSound);
 
-        // Both events carry stock's flHealth, the ask rather than the taken
-        // (:1248, :1255).
+        // Stock books the heal before the events (:1237): the shooter's own
+        // heal stat, under the bogus-value refusal of tf_gamestats.cpp:719-727.
         int reported = (int)heal;
+        if (reported is >= 0 and <= 1000)
+            Stats.Increment(Players.GetHandle(_ownerIndex), TFStat.Healing, reported);
+
+        // All three events carry stock's flHealth, the ask rather than the taken
+        // (:1248, :1255, :1271).
         Notices.PlayerHealed(victim, Players.GetHandle(_ownerIndex), reported);
         Notices.PlayerHealOnHit(victim, reported);
+        Notices.CrossbowHeal(Players.GetHandle(_ownerIndex), victim, reported);
 
         // The uber (:1275-1285): the medigun's heal rate, twenty-four a
         // second, scaled by the wound's age — the fresher the slower, three

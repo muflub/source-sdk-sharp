@@ -130,10 +130,18 @@ public class TFWrangledSentryTests
         sentry.OnThink("SentryThink");
 
         // Along the line to the dot, not any enemy's centre (GetEnemyAimPosition
-        // of the non-player, :240), and a hundred past it (:1539): the dot sits
-        // on the surface it found, so a line ending there meets nothing.
+        // of the non-player, :240), cone-spread under the control — the cone
+        // FireBullets samples of the shot (:1531-1538 applied at
+        // baseentity_shared.cpp:1719) — and a hundred units past it (:1539):
+        // the dot sits on the surface it found, so a line ending there meets
+        // nothing.
         EngineCall shot = rig.Engine.AllOf("WorldQuery.TraceLine").Last();
-        Assert.Equal(dot + new Vector(TFSentryGun.WranglerShellOvershoot, 0f, 0f), shot.ArgAs<Vector>(1));
+        Vector straight = new(1f, 0f, 0f);   // the eye sits on the dot's line
+        (Vector right, Vector up) = Angles.RightUp(straight);
+        Vector cone = ShotSpread.Apply(new Angles.Basis(straight, right, up),
+                                       ShotSpread.SpreadOf(TFSentryGun.WranglerSpreadHalfAngle),
+                                       0, new SeededUniformStream()).Normalized;
+        Assert.Equal(dot + cone * TFSentryGun.WranglerShellOvershoot, shot.ArgAs<Vector>(1));
     }
 
     /// <summary>

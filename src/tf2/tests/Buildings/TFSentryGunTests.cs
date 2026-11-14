@@ -7,6 +7,7 @@ using SourceSharp.Shared;
 using TF2.Server;
 using TF2.Server.Buildings;
 using TF2.Server.Player;
+using TF2.Server.Projectiles;
 using TF2.Shared.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
@@ -199,6 +200,98 @@ public class TFSentryGunTests
         Assert.Equal(rig.Convars.Declared<TFSentryGunDamageConVar>().Value, shot.ArgAs<float>(2));
         Assert.Equal(DamageType.Bullet, shot.ArgAs<DamageType>(3));
         Assert.Equal(TFSentryGun.MaxShellsLevel1 - 1, sentry.Shells);
+    }
+
+    /// <summary>An unwrangled shell keeps its straight line
+    /// (<c>info.m_vecSpread = vec3_origin</c>, tf_obj_sentrygun.cpp:1535-1537):
+    /// the cone is the Wrangler's arm (:1531-1534), nothing else's.</summary>
+    [Fact]
+    public void ThePlainShellFliesStraightToTheTarget()
+    {
+        var (rig, sentry, _) = AWorkingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        Vector centre = Ahead(enemy, 300f);
+        rig.Centers[enemy] = centre;
+        rig.FillsSphere(enemy);
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the shot flies
+
+        EngineCall shot = rig.Engine.AllOf("WorldQuery.TraceLine").Last();
+        Assert.Equal(centre, shot.ArgAs<Vector>(1));   // to the centre, coneless
+    }
+
+    /// <summary>Sentries push a lot harder (<c>ApplyPushFromDamage</c>'s sentry
+    /// arm, tf_player.cpp:10317-10334): the plain turret's shell shoves the hit
+    /// player at <c>GetPushMultiplier</c>'s plain sixteen
+    /// (tf_obj_sentrygun.cpp:1662-1668), the hit's DamageForce times it.</summary>
+    [Fact]
+    public void APlainShellShovesTheVictimAtSixteen()
+    {
+        var (rig, sentry, _) = AWorkingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.Bounds[enemy] = (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 72f));
+        rig.FillsSphere(enemy);
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the shot, then the shove
+
+        EngineCall push = rig.Engine.AllOf("Entities.ApplyVelocityImpulse").Last();
+        Assert.Equal(enemy, push.ArgAs<EntityHandle>(0));
+        float expected = TFRadiusDamage.DamageForce(new Vector(48f, 48f, 72f),
+                                                    rig.Convars.Declared<TFSentryGunDamageConVar>().Value,
+                                                    TFSentryGun.PushMultiplier);
+        Assert.Equal(new Vector(-expected, 0f, 0f), push.ArgAs<Vector>(1));
+    }
+
+    /// <summary>The mini's arm of <c>GetPushMultiplier</c> (:1662-1668): eight
+    /// instead of sixteen, on the mini's own shell damage (:1542-1546).</summary>
+    [Fact]
+    public void AMiniShellShovesTheVictimAtEight()
+    {
+        var (rig, sentry, _) = AWorkingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.Bounds[enemy] = (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 72f));
+        rig.FillsSphere(enemy);
+        sentry.MakeMiniBuilding();
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the mini's shell and shove
+
+        EngineCall push = rig.Engine.AllOf("Entities.ApplyVelocityImpulse").Last();
+        float expected = TFRadiusDamage.DamageForce(new Vector(48f, 48f, 72f),
+                                                    rig.Convars.Declared<TFSentryGunMiniDamageConVar>().Value,
+                                                    TFSentryGun.MiniPushMultiplier);
+        Assert.Equal(new Vector(-expected, 0f, 0f), push.ArgAs<Vector>(1));
+    }
+
+    /// <summary>The caller's distance arm (tf_player.cpp:10328-10332): past the
+    /// turret's own range the shove halves — a wrangled shot at distance does
+    /// not throw the whole world back.</summary>
+    [Fact]
+    public void AShellFromBeyondTheRangeHalvesItsShove()
+    {
+        var (rig, sentry, _) = AWorkingSentry();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+        rig.Centers[enemy] = Ahead(enemy, 300f);
+        rig.Bounds[enemy] = (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 72f));
+        rig.Origins[enemy] = new Vector(2000f, 0f, 0f);   // beyond 1100 squared
+        rig.FillsSphere(enemy);
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the shot, then the half shove
+
+        EngineCall push = rig.Engine.AllOf("Entities.ApplyVelocityImpulse").Last();
+        float expected = TFRadiusDamage.DamageForce(new Vector(48f, 48f, 72f),
+                                                    rig.Convars.Declared<TFSentryGunDamageConVar>().Value,
+                                                    TFSentryGun.PushMultiplier * TFSentryGun.PushDistanceScale);
+        Assert.Equal(new Vector(-expected, 0f, 0f), push.ArgAs<Vector>(1));
     }
 
     /// <summary>The turret's own shell rides no custom (ModifyFireBulletsDamage's

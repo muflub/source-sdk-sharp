@@ -30,6 +30,9 @@ public interface IPredictedWeaponFx
     /// <summary><c>WeaponSound</c> on the client: the sound, from the shooter, to the local player.</summary>
     void Sound(in PredictedShot shot, string soundScript);
 
+    /// <summary>Sound with the script's pitch scaled by the multiplier: what the bow's pull carries with its refire rate.</summary>
+    void Sound(in PredictedShot shot, string soundScript, float pitchMultiplier) => Sound(in shot, soundScript);
+
     /// <summary>The bullets' traces and their impacts (decal, particles, the surface's sound).</summary>
     void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees);
 
@@ -176,6 +179,14 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
             return;
 
         _sounds.EmitFrom(shot.Player, soundScript);
+    }
+
+    public void Sound(in PredictedShot shot, string soundScript, float pitchMultiplier)
+    {
+        if (!_predictWeapons.Value || soundScript.Length == 0)
+            return;
+
+        _sounds.EmitFrom(shot.Player, soundScript, null, pitchMultiplier);
     }
 
     public void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees)

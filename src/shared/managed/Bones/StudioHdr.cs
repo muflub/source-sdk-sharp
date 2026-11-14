@@ -698,6 +698,24 @@ public sealed class MstudioHitboxSet : StudioRecord
     public MstudioBBox Hitbox(int i) => new(Image, Base + HitboxIndex + 68 * i);
 }
 
+/// <summary>
+/// One <c>mstudiobodyparts_t</c> (16 bytes): a bodygroup — its name, how
+/// many models it offers, and the stride one group's digit takes in the
+/// mixed <c>m_nBody</c> value. Stock's <c>::SetBodygroup</c> and
+/// <c>FindBodygroupByName</c> (animation.cpp:863, :927) read these three;
+/// the record's tail is the submodel table index (@12).
+/// </summary>
+public sealed class MstudioBodyPart : StudioRecord
+{
+    internal MstudioBodyPart(byte[] image, int @base) : base(image, @base) { }
+
+    public string Name => CString(I32(0));
+    public int NumModels => I32(4);
+
+    /// <summary>Stock's <c>base</c> (@8): the weight of this group's digit.</summary>
+    public int GroupStride => I32(8);
+}
+
 /// <summary><c>mstudioikchain_t</c> (16 bytes).</summary>
 public sealed class MstudioIkChain : StudioRecord
 {
@@ -1353,6 +1371,8 @@ public sealed class StudioHdr : SourceSharp.Abi.ISequenceNodes
     private int LocalAnimIndex => ReadI32(_image, 184);
     public int NumLocalSeq => ReadI32(_image, 188);
     private int LocalSeqIndex => ReadI32(_image, 192);
+    public int NumBodyParts => ReadI32(_image, 232);
+    private int BodyPartIndex => ReadI32(_image, 236);
     public int NumLocalNodes => ReadI32(_image, 248);
     private int LocalNodeNameIndex => ReadI32(_image, 256);
     public int NumIkChains => ReadI32(_image, 284);
@@ -1685,6 +1705,48 @@ public sealed class StudioHdr : SourceSharp.Abi.ISequenceNodes
     public MstudioBoneController BoneController(int i) => new(_image, BoneControllerIndex + 56 * i);
 
     public MstudioHitboxSet HitboxSet(int i) => new(_image, HitboxSetIndex + 12 * i);
+
+    public MstudioBodyPart BodyPart(int i) => new(_image, BodyPartIndex + 16 * i);
+
+    /// <summary>Stock's <c>FindBodygroupByName</c> (animation.cpp:927-943):
+    /// walk the bodyparts answering the first group whose name matches under
+    /// stock's ASCII case-fold (<c>Q_strcasecmp</c> — the
+    /// <see cref="BoneSetupQuery.AsciiEquals"/> reading); no match is the
+    /// stock -1.</summary>
+    public int FindBodygroupByName(string name)
+    {
+        for (int i = 0; i < NumBodyParts; i++)
+        {
+            if (BoneSetupQuery.AsciiEquals(BodyPart(i).Name, name))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Stock's <c>::SetBodygroup</c> (animation.cpp:863-879):
+    /// replace one group's digit inside the mixed body value — a group
+    /// outside <c>numbodyparts</c> and a value past the group's model count
+    /// leave it untouched, the stock early-return arms. The answer is the
+    /// composed value.</summary>
+    public int SetBodygroup(int body, int iGroup, int iValue)
+    {
+        if (iGroup < 0 || iGroup >= NumBodyParts)
+        {
+            return body;
+        }
+
+        MstudioBodyPart part = BodyPart(iGroup);
+        if (iValue >= part.NumModels)
+        {
+            return body;
+        }
+
+        int iCurrent = (body / part.GroupStride) % part.NumModels;
+        return body - (iCurrent * part.GroupStride) + (iValue * part.GroupStride);
+    }
 
     private int LocalAttachmentIndex => ReadI32(_image, 244);
     public int NumAttachments => ReadI32(_image, 240);
@@ -2179,6 +2241,7 @@ public sealed class StudioHdr : SourceSharp.Abi.ISequenceNodes
             (ReadI32(image, 172), ReadI32(image, 176), 12),  // hitboxsets
             (ReadI32(image, 180), ReadI32(image, 184), 100), // localanim
             (ReadI32(image, 188), ReadI32(image, 192), 212), // localseq
+            (ReadI32(image, 232), ReadI32(image, 236), 16), // bodyparts
             (ReadI32(image, 240), ReadI32(image, 244), 92),  // attachments
             (ReadI32(image, 248), ReadI32(image, 256), 4),   // localnode name table (studio.h:2266, what NodeName reads; the numlocalnodes² transition bytes at @252 are never read)
             (ReadI32(image, 284), ReadI32(image, 288), 16),  // ikchains

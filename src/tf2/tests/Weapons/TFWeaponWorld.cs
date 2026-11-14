@@ -43,6 +43,10 @@ internal sealed class RecordingArms : IWeaponArms
     public readonly Dictionary<WeaponAnim, int> Sequences = new();
 
     public void Sound(string soundScript) => Sounds.Add(soundScript);
+
+    /// <summary>The pitched ask, recorded with its multiplier so a fact can read the rate off it.</summary>
+    public void Sound(string soundScript, float pitchMultiplier) =>
+        Sounds.Add($"{soundScript} @{Math.Round(pitchMultiplier, 3)}");
     public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) =>
         throw new InvalidOperationException("the core fires a TF shot with its damage");
     public void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot) =>

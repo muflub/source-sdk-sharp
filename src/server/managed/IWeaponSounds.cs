@@ -10,4 +10,13 @@ namespace SourceSharp.Server;
 public interface IWeaponSounds
 {
     void Emit(EntityHandle owner, string soundName);
+
+    /// <summary>
+    /// The same emit with the script's pitch scaled by the multiplier on top:
+    /// the bow's pull sound carries its refire rate there, stock's
+    /// <c>CTFCompoundBow</c> pull (<c>tf_weapon_compound_bow.cpp:243-248</c>).
+    /// The default keeps the plain sound, so an ear without pitch behaves as
+    /// it did. The pitch lands on the predicted emit in ServerSounds.
+    /// </summary>
+    void Emit(EntityHandle owner, string soundName, float pitchMultiplier) => Emit(owner, soundName);
 }

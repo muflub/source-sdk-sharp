@@ -172,6 +172,31 @@ public partial class TFPlayerNetState
     public partial int AirDash { get; set; }
 
     /// <summary>
+    /// <c>m_nAirDucked</c> (tf_player_shared.h:543-544, :1114): how many ducks
+    /// this airtime has had, counted on each duck release in the air and
+    /// refused past <c>TF_AIRDUCKED_COUNT</c> (2, tf_gamemovement.cpp:90, the
+    /// one-duck-per-air-event arm of <c>DuckOverrides</c> :3219-3222). Reset
+    /// with the air dash and the ground touch (:1258, :2959) and on the self
+    /// blast's push (tf_player.cpp:10277-10278). Predicted as stock's: the
+    /// send rides <c>SendPropInt</c> 2-bit unsigned
+    /// (tf_player_shared.cpp:541) and the replay's word is
+    /// <c>DEFINE_PRED_FIELD</c> (:456).
+    /// </summary>
+    [Predicted]
+    public partial int AirDuckedCount { get; set; }
+
+    /// <summary>
+    /// <c>m_flDuckTimer</c> (tf_player_shared.h:545, :1115): when the next duck
+    /// is allowed after a release — a release stamps it at
+    /// <c>curtime + TF_TIME_TO_DUCK</c> (0.3, tf_gamemovement.cpp:89;
+    /// <c>OnUnDuck</c> :3293-3295) and <c>DuckOverrides</c> :3194-3197 hides
+    /// the duck button while it runs and the player is on the ground.
+    /// Predicted as stock's (<c>DEFINE_PRED_FIELD</c>, tf_player_shared.cpp:457).
+    /// </summary>
+    [Predicted]
+    public partial float DuckTimer { get; set; }
+
+    /// <summary>
     /// <c>m_bScattergunJump</c> (tf_player_shared.h:1218, predicted at
     /// tf_player_shared.cpp:481): the Force-a-Nature's own shove has lifted
     /// this airtime, set by the gun's fire (<c>CTFScatterGun::FireBullet</c>,

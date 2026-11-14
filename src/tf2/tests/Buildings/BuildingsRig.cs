@@ -154,7 +154,15 @@ internal sealed partial class BuildingsRig
               // The hook facts key a manager by the index the subject reads
               // back; the answer nobody armed is the world entry.
               .Returns("Entities.GetIndex", 0)
-              .Returns("Files.GameFileSize", -1);
+              .Returns("Files.GameFileSize", -1)
+              // The break list a dying building reads off its own model
+              // (CreateObjectGibs): none by default, so the gib hunt stays
+              // out of the way of facts that only watch the death itself.
+              .Returns("Precache.BreakPieceCount", 0);
+        // The maker's model name rides the entity as a KeyValue before the
+        // spawn (the stock Create's SetModelName): a plain success answer,
+        // the callers read nothing else off it.
+        Engine.Returns("Entities.SetKeyValue", true);
         // player_healed names the healer and the patient through the engine's
         // player table (TFPlayerHealing.TickHealedPerSecond); the fake's
         // players have no user ids to give.
@@ -231,8 +239,21 @@ internal sealed partial class BuildingsRig
         Engine.WhenCalled("Entities.Spawn", c =>
         {
             EntityHandle h = c.ArgAs<EntityHandle>(0);
-            if (h != EntityHandle.None && h == LastGib)
+            if (h == EntityHandle.None)
+                return;
+            if (h == LastGib)
+            {
                 Registry.Spawn(h, EntityNames.Gib);
+                return;
+            }
+
+            // A handle the fact queued for the kill's packs already carries its
+            // instance; the spawn runs its OnSpawn over it as the game's spawn
+            // event does, so what the maker named before the spawn is what the
+            // pack wears when the spawn returns.
+            if (Registry.Get(h) is { } made)
+                Registry.Spawn(h, (Engine.Last("Entities.Create") ?? default).ArgAs<string>(0)
+                                  ?? made.GetType().Name);
         });
 
         // The blast applier the level 3 pod's rockets and the other flyers

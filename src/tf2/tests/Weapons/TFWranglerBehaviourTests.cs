@@ -88,6 +88,36 @@ public sealed class TFWranglerBehaviourTests
     }
 
     [Fact]
+    public void A_deploy_holds_the_control_a_half_second()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed("tf_weapon_laser_pointer", clip: -1, reserve: 0);
+
+        // Stock's Deploy arms the dot's creation half a second past the switch
+        // (tf_weapon_laser_pointer.cpp:110); the control rides the dot.
+        world.Behaviour("tf_weapon_laser_pointer").Deploy(world.Attack(w, vm, 10f));
+
+        world.Run(w, vm, 0, 10.4f);
+
+        // Inside the arm: no dot, no aim, no control.
+        Assert.Empty(world.Wrangle.Asked);
+    }
+
+    [Fact]
+    public void The_control_engages_past_the_arm()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed("tf_weapon_laser_pointer", clip: -1, reserve: 0);
+
+        world.Behaviour("tf_weapon_laser_pointer").Deploy(world.Attack(w, vm, 10f));
+
+        world.Run(w, vm, 0, 10.6f);
+
+        // Past the half-second the dot stands and the ask runs (:145-156).
+        Assert.Equal(["aim 3"], world.Wrangle.Asked);
+    }
+
+    [Fact]
     public void A_replay_asks_the_seam_nothing()
     {
         var world = new TFWeaponWorld(extras: true);

@@ -140,6 +140,7 @@ internal sealed class FakeNotices : ITFPickupNotices
     public void ItemPickupEvent(EntityHandle player, string item) => Said.Add($"item_pickup {item}");
     public void PlayerHealed(EntityHandle patient, EntityHandle healer, int amount) => Said.Add($"player_healed {amount} by {healer}");
     public void PlayerHealOnHit(EntityHandle player, int amount) => Said.Add($"player_healonhit {amount}");
+    public void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount) => Said.Add($"crossbow_heal {healer}->{healed} {amount}");
     public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker) => Said.Add($"player_stealsandvich {owner}->{picker}");
     public void Sound(EntityHandle player, string sound) => Said.Add($"sound {sound}");
 }

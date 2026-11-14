@@ -220,21 +220,26 @@ public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer
     /// <summary>
     /// <c>CObjectSapper::OnTakeDamage</c>'s gate (tf_obj_sapper.cpp:562-575):
     /// the wrench's fix (<c>TF_DMG_WRENCH_FIX</c>) always lands; anything else
-    /// lands only from a held weapon bearing <c>set_dmg_apply_to_sapper</c>
-    /// — the Homewrecker's and the Maul's arm — asked of the attacker's held
-    /// item the way <c>mult_dmg_vs_buildings</c> is.
+    /// lands only from the weapon bearing <c>set_dmg_apply_to_sapper</c> — the
+    /// Homewrecker's and the Maul's arm — asked of the hit's own launcher item
+    /// off the scope, the held item only where the scope carries none, the way
+    /// <c>mult_dmg_vs_buildings</c> is.
     /// </summary>
     public override int OnDamaged(EntityHandle attacker, float damage, DamageType damageType)
     {
         bool wrenchFix = _scopes.TryCurrent(out TFDamageCustom custom, out _, out _)
                       && custom == TFDamageCustom.WrenchFix;
 
-        // The attribute arm of stock's gate: the held weapon's
-        // set_dmg_apply_to_sapper over zero, the same held-item walk the
-        // building's blow takes (TFBaseObject.OnDamaged).
+        // The attribute arm of stock's gate: the making weapon's
+        // set_dmg_apply_to_sapper over zero (info.GetWeapon(),
+        // tf_obj_sapper.cpp:568-571) — the scope's launcher where the blast
+        // carries one, the held item beside a hitscan's instant touch.
         if (!wrenchFix
             && !(attacker != EntityHandle.None && Hooks is { } attr && Owners is { } holders
-                 && attr.Int(0, "set_dmg_apply_to_sapper", holders.ActiveItemOf(Entities.GetIndex(attacker))) != 0))
+                 && attr.Int(0, "set_dmg_apply_to_sapper",
+                             _scopes.TryLauncher(out var launcher)
+                                 ? launcher
+                                 : holders.ActiveItemOf(Entities.GetIndex(attacker))) != 0))
         {
             return 0;
         }

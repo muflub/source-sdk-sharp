@@ -202,16 +202,23 @@ public sealed class TFDeathDrops(ILog log, Arsenal arsenal, TFWeaponScripts scri
         }
 
         // The create (:13103): CTFAmmoPack::Create is CreateNoSpawn(origin,
-        // angles, owner) + SetModelName + DispatchSpawn (:100-110) — owner and
-        // origin ride on the entity before the spawn, the model is the pack's
-        // own Spawn's. The pack angles are the death spot's: stock's
-        // CalculateAmmoPackPositionAndAngles (:13090) dresses them off the
-        // worldmodel, deferred with it.
+        // angles, owner) + SetModelName + DispatchSpawn (:100-110) — owner,
+        // origin and model ride on the entity BEFORE the spawn, so the solver's
+        // object is born with the named model (the death pack is named the
+        // medium box, the literal at :13103). The KeyValue at the entity's
+        // handle is the managed half of SetModelName; the managed instance the
+        // same call reaches answers ChooseModel with the same name, which is
+        // what OnSpawn wears at the spawn's return. The pack angles are the
+        // death spot's: stock's CalculateAmmoPackPositionAndAngles (:13090)
+        // dresses them off the worldmodel, deferred with it.
         var pack = entities.Create(TFAmmoPack.Class); // :13103
         if (!entities.IsValid(pack))
             return;                                   // Create's null arm, :103/:105
         entities.SetOwner(pack, death.Player);        // CreateNoSpawn's pOwner
         entities.SetOrigin(pack, death.Origin);
+        entities.SetKeyValue(pack, "model", TFAmmoPack.Model); // SetModelName (:105), before DispatchSpawn (:106)
+        if (directory.Get(pack) is TFAmmoPack chosen)
+            chosen.ChooseModel(TFAmmoPack.Model);     // :13103's name on the managed half too
         entities.Spawn(pack);                         // DispatchSpawn, :106
 
         if (directory.Get(pack) is not TFAmmoPack ammoPack)

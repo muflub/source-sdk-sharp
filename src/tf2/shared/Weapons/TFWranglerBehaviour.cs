@@ -60,6 +60,11 @@ public interface ITFSentryWrangle
 /// </summary>
 public sealed class TFWranglerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts), IWeaponBehaviour
 {
+    /// <summary>The dot's creation delay, as stock arms it on every deploy
+    /// (<c>SetContextThink(CreateLaserDot, curtime + 0.5f)</c>,
+    /// tf_weapon_laser_pointer.cpp:110).</summary>
+    public const float LaserDotArmDelay = 0.5f;
+
     public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
     {
         // The veto is the whole attack (the stock override fires no bullet):
@@ -79,11 +84,23 @@ public sealed class TFWranglerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour
             Parts.SentryWrangle.FireRockets(attack.Command.OwnerIndex);
     }
 
+    public override void Deploy(in WeaponAttackContext attack)
+    {
+        // Stock arms the dot's creation half a second past the switch
+        // (tf_weapon_laser_pointer.cpp:110); the stamp rides the weapon state,
+        // and ItemPostFrame's ask waits with the dot it feeds.
+        attack.Weapon.BehaviourTimeA = attack.Now + LaserDotArmDelay;
+
+        base.Deploy(attack);
+    }
+
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
         // UpdateLaserDot, one ask per command whether or not anything is held
-        // (tf_weapon_laser_pointer.cpp:154): the dot follows the view.
-        if (attack.EffectsLive)
+        // (tf_weapon_laser_pointer.cpp:154): the dot follows the view — and no
+        // dot stands until its half-second is past (:110, :145-156), so the
+        // control the dot carries waits with it.
+        if (attack.EffectsLive && attack.Now >= attack.Weapon.BehaviourTimeA)
             Parts.SentryWrangle.Aim(attack.Command.OwnerIndex);
 
         base.ItemPostFrame(attack);

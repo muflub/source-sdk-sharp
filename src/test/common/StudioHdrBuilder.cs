@@ -327,6 +327,17 @@ public sealed partial class StudioHdrBuilder
                                 // like Studio_GetDefaultSurfaceProps does
     }
 
+    /// <summary>One <c>mstudiobodyparts_t</c> (16 bytes): a bodygroup — its
+    /// name, the models it offers, and the digit weight stock's
+    /// <c>::SetBodygroup</c> multiplies (animation.cpp:863).</summary>
+    public sealed class BodyPartDef
+    {
+        public string Name = "";
+        public int NumModels = 1;
+        public int Base = 1;
+        public int ModelIndex = -1; // stock's ctor leaves the submodel index -1
+    }
+
     /// <summary>One <c>mstudiomodelgroup_t</c> (8 bytes) — fold include.</summary>
     public sealed class IncludeDef
     {
@@ -350,6 +361,7 @@ public sealed partial class StudioHdrBuilder
     public List<PoseParamDef> PoseParams { get; } = [];
     public List<AttachmentDef> Attachments { get; } = [];
     public List<HitboxSetDef> HitboxSets { get; } = [];
+    public List<BodyPartDef> BodyParts { get; } = [];
     public List<IkLockDef> AutoPlayLocks { get; } = [];
     public List<ControllerDef> Controllers { get; } = [];
     public List<IncludeDef> Includes { get; } = [];
@@ -858,6 +870,29 @@ public sealed partial class StudioHdrBuilder
 
             Patch32(172, HitboxSets.Count);
             Patch32(176, sets);
+        }
+
+        // ---- bodyparts (contiguous; stock's pBodypart walks the table)
+        if (BodyParts.Count > 0)
+        {
+            PadTo(4);
+            int bp = Mark();
+            foreach (BodyPartDef p in BodyParts)
+            {
+                int at = Mark();
+                W32(0);            // sznameindex @0 — patched from the QueueString list
+                QueueString(at, 0, p.Name);
+                W32(p.NumModels);  // nummodels @4
+                W32(p.Base);       // base @8
+                W32(p.ModelIndex); // modelindex @12
+                if (Mark() != at + 16)
+                {
+                    throw new InvalidOperationException($"bodypart record emitted {Mark() - at} bytes, not 16");
+                }
+            }
+
+            Patch32(232, BodyParts.Count);
+            Patch32(236, bp);
         }
 
         // ---- ik chains + link tables

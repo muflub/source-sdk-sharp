@@ -78,7 +78,11 @@ public sealed class TFDeathDropsTests
             .Returns("Entities.GetEyeAngles", default(Vector)) // the Arsenal's deploy aim
             .Returns("EntityRender.LookupSequence", -1)         // the Arsenal's first Deploy
             .Returns("EntityRender.LookupSequenceByActivity", -1)
-            .Returns("Clock.Now", 10f);
+            .Returns("Clock.Now", 10f)
+            // The maker's model name rides the entity as a KeyValue before
+            // the spawn (stock's SetModelName): a plain success answer, the
+            // callers read nothing else off it.
+            .Returns("Entities.SetKeyValue", true);
         public readonly ScriptedEntityRegistry Registry;
         public readonly SpawningEntities World;
         public readonly FakeMapPlayers Map = new();
@@ -195,7 +199,10 @@ public sealed class TFDeathDropsTests
                   .Returns("EntityPhysics.InitPhysics", false);
             var pack = new TFAmmoPack(Map, Notices, ConVars.Declared<TFWeaponRagdollVelocityMinConVar>(),
                                       ConVars.Declared<TFWeaponRagdollVelocityMaxConVar>(),
-                                      ConVars.Declared<TFWeaponRagdollMaxSpeedConVar>(), Seeds, engine, Stats);
+                                      ConVars.Declared<TFWeaponRagdollMaxSpeedConVar>(),
+                                      ConVars.Declared<TFObjGibVelocityMinConVar>(),
+                                      ConVars.Declared<TFObjGibVelocityMaxConVar>(),
+                                      ConVars.Declared<TFObjGibMaxSpeedConVar>(), Seeds, engine, Stats);
             pack.BindEngine(engine);
             pack.BindAreas(TestServices.Areas(engine));
             pack.RegisteredKind = ScriptedEntityKind.Prop;
@@ -1631,6 +1638,101 @@ public sealed class TFDeathDropsTests
 
         Assert.Equal(1, heads.ByIndex[attacker.EntryIndex]!.Decapitations);
         Assert.Equal(before, rig.Arsenal.Holdings(attacker).First(h => h.ClassName == AirStrike).Clip);
+    }
+
+    /// <summary>
+    /// The type fallback <c>OnSpawn</c> answers with, in stock's Precache order
+    /// (tf_ammo_pack.cpp:79-98): a pack no one named, typed Halloween, wears the
+    /// pumpkin at the spawn's return — the model the solver's object is built
+    /// from is the dressed one, not the medium box's.
+    /// </summary>
+    [Fact]
+    public void AHalloweenPackWearsTheHalloweenModelAtTheSpawnReturn()
+    {
+        var rig = new Rig();
+        var (pack, engine) = rig.BuildPack(10f);
+        pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
+                  5, 5, 5, packType: AmmoPackType.Halloween);
+
+        pack.OnSpawn();   // the spawn, with the type already on the pack
+
+        Assert.Equal(TFAmmoPack.HalloweenModel,
+                     engine.Last("EntityRender.SetModel").ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// A pack nobody named a model for falls back to the medium box
+    /// (<see cref="TFAmmoPack.Model"/>, the literal stock names at
+    /// tf_player.cpp:13103): with no chosen model the type's own answer is
+    /// what the spawn leaves it wearing.
+    /// </summary>
+    [Fact]
+    public void APackWithNoChosenModelWearsTheMediumBox()
+    {
+        var rig = new Rig();
+        var (_, engine) = rig.BuildPack(10f);   // built and spawned as-is
+
+        Assert.Equal(TFAmmoPack.Model, engine.Last("EntityRender.SetModel").ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// The maker's name on the entity wins over the type's fallback: stock's
+    /// <c>CTFAmmoPack::Create</c> sets the model name on the entity BEFORE
+    /// <c>DispatchSpawn</c> (tf_ammo_pack.cpp:100-110), so the model the maker
+    /// chose through <see cref="TFAmmoPack.ChooseModel"/> is what OnSpawn
+    /// wears even when the type would answer something else.
+    /// </summary>
+    [Fact]
+    public void TheModelTheMakerNamedWinsOverTheTypeFallback()
+    {
+        var rig = new Rig();
+        var (pack, engine) = rig.BuildPack(10f);
+        pack.Init(rig.Dead.Handle, (int)TFWeaponId.Rocketlauncher, TFClass.Soldier,
+                  5, 5, 5, packType: AmmoPackType.Christmas);   // a fallback to lose to
+        pack.ChooseModel("models/chosen.mdl");
+
+        pack.OnSpawn();
+
+        Assert.Equal("models/chosen.mdl", engine.Last("EntityRender.SetModel").ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// The death drop's create (:13103, stock's CreateNoSpawn + SetModelName +
+    /// DispatchSpawn, tf_ammo_pack.cpp:100-110): the model is named on the
+    /// entity BEFORE the spawn — the KeyValue between Create and Spawn — and
+    /// the pack wears that named medium box at the spawn's return, so the
+    /// solver's object is born with the pack's own hull.
+    /// </summary>
+    [Fact]
+    public void TheDeathDropPackIsNamedItsModelBeforeTheSpawnAndWearsItAtTheReturn()
+    {
+        var rig = new Rig();
+        rig.Give(rig.Dead.Handle, Rocket);
+        rig.GiveAmmo(rig.Dead.Handle, 30, 12, 200);
+
+        rig.Hook().OnPlayerDied(rig.Death);
+
+        var pack = Assert.Single(rig.Packs.Packs);
+
+        // The pack's own handle book: Create answers a handle, and from the
+        // name onward every engine call about the pack carries it. (The rig's
+        // hand-built pack holds no handle itself, so the calls name it.)
+        var calls = rig.Engine.Calls.ToList();
+        int named = calls.FindIndex(c => c.Member == "Entities.SetKeyValue"
+                                         && c.ArgAs<string>(1) == "model");
+        Assert.True(named >= 0, "the hook names a model on the entity it created (:13103, :105)");
+        Assert.Equal(TFAmmoPack.Model, calls[named].ArgAs<string>(2));
+
+        EntityHandle made = calls[named].ArgAs<EntityHandle>(0);
+        Assert.Equal(TFAmmoPack.Class, rig.World.CreatedClassOf(made));   // the handle is the pack's own
+        int spawned = calls.FindIndex(named + 1,
+                                      c => c.Member == "Entities.Spawn"
+                                           && c.ArgAs<EntityHandle>(0) == made);
+        Assert.True(spawned > named,
+                    "the model is named on the entity before the spawn (:105 before :106)");
+
+        // What the spawn finds on the entity is what the pack wears at the return.
+        Assert.Equal(TFAmmoPack.Model, rig.Packs.Engines[pack].Last("EntityRender.SetModel").ArgAs<string>(1));
     }
 
     /// <summary>The per-index carrier states the kill bump reads and writes.</summary>

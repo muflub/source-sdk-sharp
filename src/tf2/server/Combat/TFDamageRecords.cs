@@ -10,6 +10,7 @@ using SourceSharp.Server;
 
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Combat;
 
@@ -32,12 +33,20 @@ public readonly record struct TFHitRecord(EntityHandle Attacker, float Damage, D
 [SideService(Side.Server)]
 public sealed class TFDamageScopes
 {
-    private readonly Stack<(TFDamageCustom Custom, TFWeaponId Weapon, string WeaponName)> _open = new();
+    private readonly Stack<(TFDamageCustom Custom, TFWeaponId Weapon, string WeaponName, IAttributeProvider? Item)> _open = new();
 
     /// <summary>Opens a scope in which every hit is <paramref name="custom"/>, by <paramref name="weapon"/>.</summary>
-    public Scope Push(TFDamageCustom custom, TFWeaponId weapon, string weaponName)
+    public Scope Push(TFDamageCustom custom, TFWeaponId weapon, string weaponName) => Push(custom, weapon, weaponName, item: null);
+
+    /// <summary>
+    /// Opens a scope whose hits also name the launching item — stock's
+    /// <c>CTakeDamageInfo::GetWeapon()</c> (<c>shared/takedamageinfo.h:49-52</c>):
+    /// the weapon that made the blow, the same one the blast's hooks read
+    /// even after its owner switched weapons before the hit landed.
+    /// </summary>
+    public Scope Push(TFDamageCustom custom, TFWeaponId weapon, string weaponName, IAttributeProvider? item)
     {
-        _open.Push((custom, weapon, weaponName));
+        _open.Push((custom, weapon, weaponName, item));
         return new Scope(this);
     }
 
@@ -46,11 +55,29 @@ public sealed class TFDamageScopes
     {
         if (_open.TryPeek(out var top))
         {
-            (custom, weapon, weaponName) = top;
+            (custom, weapon, weaponName) = (top.Custom, top.Weapon, top.WeaponName);
             return true;
         }
 
         (custom, weapon, weaponName) = (TFDamageCustom.None, TFWeaponId.None, "");
+        return false;
+    }
+
+    /// <summary>
+    /// The launcher item of the innermost open scope, if it carries one —
+    /// what the building's and the sapper's attribute asks answer to, in
+    /// place of the attacker's held item. No scope, or a scope with no
+    /// launcher, answers false and leaves the held item to the caller.
+    /// </summary>
+    public bool TryLauncher(out IAttributeProvider? item)
+    {
+        if (_open.TryPeek(out var top) && top.Item is { } launcher)
+        {
+            item = launcher;
+            return true;
+        }
+
+        item = null;
         return false;
     }
 

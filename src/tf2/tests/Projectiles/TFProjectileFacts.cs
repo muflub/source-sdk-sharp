@@ -272,10 +272,13 @@ internal sealed class ProjectileRig
     /// A healing bolt with its areas bound, over the medigun, notice and
     /// record fakes below: everything <see cref="TFHealingBoltFacts"/> reads.
     /// </summary>
+    /// <summary>The heal-stat sink the bolt's booking pays.</summary>
+    public FakeStats Stats { get; } = new();
+
     public TFHealingBolt Bolt()
     {
         var bolt = new TFHealingBolt(Engine, Motion, Engine, Scopes, HitGroups, Engine, Owners, Hooks,
-                                     Conditions, Mediguns, Health, Notices, Engine, Engine, Engine, Records);
+                                     Conditions, Mediguns, Health, Notices, Engine, Engine, Engine, Records, Stats);
         bolt.BindAreas(TestServices.Areas(Engine));
         return BindStates(bolt);
     }
@@ -343,11 +346,13 @@ internal sealed class ProjectileRig
     {
         public List<(EntityHandle Patient, EntityHandle Healer, int Amount)> Healed { get; } = new();
         public List<(EntityHandle Player, int Amount)> HealOnHit { get; } = new();
+        public List<(EntityHandle Healer, EntityHandle Healed, int Amount)> Crossbow { get; } = new();
 
         public void ItemPickup(EntityHandle player, string className) { }
         public void ItemPickupEvent(EntityHandle player, string item) { }
         public void PlayerHealed(EntityHandle patient, EntityHandle healer, int amount) => Healed.Add((patient, healer, amount));
         public void PlayerHealOnHit(EntityHandle player, int amount) => HealOnHit.Add((player, amount));
+        public void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount) => Crossbow.Add((healer, healed, amount));
         public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker) { }
         public void Sound(EntityHandle player, string sound) { }
     }

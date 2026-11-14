@@ -2722,6 +2722,23 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         /// <summary>
+        /// The same emit with the script's pitch scaled by the multiplier --
+        /// stock's bow pull carries its refire rate in the emit pitch
+        /// (tf_weapon_compound_bow.cpp:243-248). Without a predicted emitter
+        /// the plain arm stands, as the interface's default keeps it.
+        /// </summary>
+        public void Sound(string soundScript, float pitchMultiplier)
+        {
+            if (soundScript.Length == 0)
+                return;
+
+            if (_arsenal._weaponSounds is { } sounds)
+                sounds.Emit(_carry.Player, soundScript, pitchMultiplier);
+            else
+                _arsenal._sound.EntityEmitSound(_carry.Player, soundScript);
+        }
+
+        /// <summary>
         /// Hitscan fire: one trace per pellet from the eyes, damage from the
         /// ammo row, an IMPACT where the round lands, and blood where a player
         /// is hit. Stock's triangular spread sample (two uniform draws summed),

@@ -119,6 +119,31 @@ public sealed class TFHealingBoltFacts
     }
 
     [Fact]
+    public void TheCrossbowHealEventNamesHealerTargetAndAmount()
+    {
+        // The bolt's own event (:1266-1273): healer the shooter's side, target
+        // the healed one, amount the same flHealth ask the other two quote —
+        // the close shot's 75.
+        var (rig, bolt) = Flying(victimTeam: 2);
+
+        bolt.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal((ProjectileRig.Player, ProjectileRig.Victim, 75), Assert.Single(rig.Notices.Crossbow));
+    }
+
+    [Fact]
+    public void TheHealBooksTheShootersHealStatBeforeTheEvents()
+    {
+        // Event_PlayerHealedOther on the shooter (:1237), the ask under the
+        // sane-value bounds of tf_gamestats.cpp:719-727.
+        var (rig, bolt) = Flying(victimTeam: 2);
+
+        bolt.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal((ProjectileRig.Player, TFStat.Healing, 75), Assert.Single(rig.Stats.Paid));
+    }
+
+    [Fact]
     public void AWeaponThatBlocksHealingTurnTheHealAway()
     {
         // The victim's active weapon carrying weapon_blocks_healing refuses

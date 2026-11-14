@@ -7,6 +7,7 @@ using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Econ;
+using TF2.Tests.Entities.Items;   // FakeNotices, the pack's notices
 using Xunit;
 
 namespace TF2.Tests.Buildings;
@@ -38,6 +39,41 @@ public class TFBaseObjectTests
         var building = rig.Spawn<TestBuilding>(TestBuilding.MapClass);
         building.StartPlacement(builder);
         return (rig, building, builder);
+    }
+
+    /// <summary>
+    /// The services the pack's own constructor asks the container for: the
+    /// three throw bands (stock defaults through the rig's convar registry),
+    /// the pickup notices and the kit stat. Without them the registry builds
+    /// no instance behind the pack's handle.
+    /// </summary>
+    private static void ServePack(BuildingsRig rig)
+    {
+        rig.Services.AddInstance<ITFPickupNotices>(new FakeNotices());
+        rig.Services.AddInstance<ITFPlayerStats>(new TFPlayerStats());
+        rig.Services.AddInstance(rig.Convars.Declared<TF2.Server.TFWeaponRagdollVelocityMinConVar>());
+        rig.Services.AddInstance(rig.Convars.Declared<TF2.Server.TFWeaponRagdollVelocityMaxConVar>());
+        rig.Services.AddInstance(rig.Convars.Declared<TF2.Server.TFWeaponRagdollMaxSpeedConVar>());
+        rig.Services.AddInstance(rig.Convars.Declared<TF2.Server.TFObjGibVelocityMinConVar>());
+        rig.Services.AddInstance(rig.Convars.Declared<TF2.Server.TFObjGibVelocityMaxConVar>());
+        rig.Services.AddInstance(rig.Convars.Declared<TF2.Server.TFObjGibMaxSpeedConVar>());
+    }
+
+    /// <summary>
+    /// The break list the dying building's packs are made from: <paramref name="count"/>
+    /// pieces, named by index so a fact can tell the packs apart by model.
+    /// </summary>
+    private static void ArmBreakPieces(BuildingsRig rig, int count)
+    {
+        rig.Engine.Returns("EntityRender.GetModelName", "models/buildables/sentry1.mdl");
+        rig.Engine.Returns("Precache.BreakPieceCount", count);
+
+        var pieces = new (string Model, BreakPiece Piece)[count];
+        for (int i = 0; i < count; i++)
+            pieces[i] = ($"pieces/gib{i}.mdl", new BreakPiece());
+
+        rig.Engine.Returns("Precache.BreakPieceAt.pieces",
+                           (IReadOnlyList<(string Model, BreakPiece Piece)>)pieces);
     }
 
     private static (BuildingsRig Rig, TestBuilding Building, EntityHandle Builder) ABuildingUnderConstruction(float at = 100f)
@@ -254,6 +290,174 @@ public class TFBaseObjectTests
         Assert.False(building.IsBuilt);
     }
 
+    /// <summary>
+    /// The packs a kill will make: one instance per break piece, registered
+    /// up front, handed out by <c>Entities.Create</c> in piece order.
+    /// </summary>
+    private static TFAmmoPack[] QueuePackHandles(BuildingsRig rig, int count)
+    {
+        var packs = new TFAmmoPack[count];
+        for (int i = 0; i < count; i++)
+            packs[i] = rig.Spawn<TFAmmoPack>(TFAmmoPack.Class);
+
+        var queue = new Queue<EntityHandle>(packs.Select(p => p.Handle));
+        rig.Engine.ReturnsEachCall("Entities.Create", () => queue.Dequeue());
+        return packs;
+    }
+
+    /// <summary>The last model one pack was given — what it ends the kill wearing.</summary>
+    private static EngineCall LastModelFor(BuildingsRig rig, EntityHandle handle)
+        => rig.Engine.AllOf("EntityRender.SetModel").Last(c => c.ArgAs<EntityHandle>(0) == handle);
+
+    /// <summary>
+    /// <c>CreateObjectGibs</c> (:2244-2274): the destroyed building throws one
+    /// pack per break piece of the model it wears when it dies, and the metal —
+    /// half the cost (:2254-2255), split evenly over the pieces with the int
+    /// remainder on the first (:2258-2259, :2272) — adds up across them.
+    /// </summary>
+    [Fact]
+    public void AKilledBuildingDropsOnePackPerBreakPieceAndTheMetalAddsUp()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+        ServePack(rig);
+        ArmBreakPieces(rig, 3);
+        var packs = QueuePackHandles(rig, 3);
+
+        building.OnKilled(rig.NewHandle());   // Killed → Explode → the gibs
+
+        Assert.Equal(3, rig.Engine.AllOf("Entities.Create").Count());   // one pack per piece
+        Assert.Equal(TFAmmoPack.Class, (rig.Engine.Last("Entities.Create") ?? default).ArgAs<string>(0));
+
+        // BuildGibList's defaults, the pair SetModel hands it (tf_obj.cpp:3552).
+        EngineCall piece = rig.Engine.Last("Precache.BreakPieceAt") ?? default;
+        Assert.Equal(1f, piece.ArgAs<float>(2), 3);
+        Assert.Equal(CollisionGroup.None, piece.ArgAs<CollisionGroup>(3));
+
+        // The sentry's 130 cost halves to 65; over three pieces that is
+        // 21 each with the leftover 2 on the first (:2272: "make sure we
+        // drop all metal include left over from int math").
+        Assert.Equal(23, packs[0].AmmoMetal);
+        Assert.Equal(21, packs[1].AmmoMetal);
+        Assert.Equal(21, packs[2].AmmoMetal);
+        Assert.Equal(65, packs.Sum(p => p.AmmoMetal));   // half the build cost, nothing lost
+    }
+
+    /// <summary>
+    /// A mini's packs carry nothing (:2261-2266) but still each get the mini's
+    /// 0.6 scale (:2317-2320), every pack one scale, not just the first.
+    /// </summary>
+    [Fact]
+    public void TheMiniLeavesEmptyPacksScaledDown()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+        building.MakeMiniBuilding();
+        ServePack(rig);
+        ArmBreakPieces(rig, 2);
+        var packs = QueuePackHandles(rig, 2);
+
+        building.OnKilled(rig.NewHandle());
+
+        // The mini zeroes the split and the remainder alike (:2261-2266),
+        // and every pack — not one shared — takes the 0.6 scale (:2317-2320).
+        Assert.Equal(0, packs[0].AmmoMetal);
+        Assert.Equal(0, packs[1].AmmoMetal);
+
+        foreach (TFAmmoPack pack in packs)
+        {
+            EngineCall scale = rig.Engine.AllOf("EntityRender.SetModelScale")
+                                         .Last(c => c.ArgAs<EntityHandle>(0) == pack.Handle);
+            Assert.Equal(0.6f, scale.ArgAs<float>(1), 3);   // SetModelScale(0.6f), the stock value
+        }
+    }
+
+    /// <summary>
+    /// Each pack wears its PIECE's model, not the medium box, and the team's
+    /// skin: red 0, blu 1 (:2309). The building's team, not the picker's.
+    /// </summary>
+    [Fact]
+    public void ThePacksWearTheirPieceModelAndTheTeamsSkin()
+    {
+        // The blu arm: a blue builder, skin 1 on every pack.
+        var rig = new BuildingsRig();
+        var builder = rig.AddBuilder(TFTeam.Blue);
+        var building = rig.Spawn<TestBuilding>(TestBuilding.MapClass);
+        building.StartPlacement(builder);
+        ServePack(rig);
+        ArmBreakPieces(rig, 2);
+        var packs = QueuePackHandles(rig, 2);
+
+        building.OnKilled(rig.NewHandle());
+
+        // The last model each pack was given is its piece's, not ammopack_medium.
+        Assert.Equal("pieces/gib0.mdl", LastModelFor(rig, packs[0].Handle).ArgAs<string>(1));
+        Assert.Equal("pieces/gib1.mdl", LastModelFor(rig, packs[1].Handle).ArgAs<string>(1));
+
+        foreach (TFAmmoPack pack in packs)
+        {
+            EngineCall skin = rig.Engine.AllOf("EntityRender.SetSkin")
+                                        .Last(c => c.ArgAs<EntityHandle>(0) == pack.Handle);
+            Assert.Equal(1, skin.ArgAs<int>(1));   // blu (TF_TEAM_BLUE) dresses skin 1 (:2309)
+        }
+
+        // The red arm: the helper's default builder is red, skin 0.
+        var (redRig, redBuilding, _) = ABuildingUnderConstruction();
+        ServePack(redRig);
+        ArmBreakPieces(redRig, 1);
+        var redPacks = QueuePackHandles(redRig, 1);
+
+        redBuilding.OnKilled(redRig.NewHandle());
+
+        EngineCall redSkin = redRig.Engine.AllOf("EntityRender.SetSkin")
+                                          .Last(c => c.ArgAs<EntityHandle>(0) == redPacks[0].Handle);
+        Assert.Equal(0, redSkin.ArgAs<int>(1));   // red dresses skin 0 (:2309)
+    }
+
+    /// <summary>
+    /// The kill's packs, stock's <c>CreateAmmoPack</c> shape (tf_obj.cpp:2276-2285):
+    /// the piece model is named on the entity BEFORE the spawn, so at the
+    /// spawn's return each pack already wears its piece — the solver's object
+    /// is born with the piece's hull, not the medium box's.
+    /// </summary>
+    [Fact]
+    public void TheGibPackIsNamedItsPieceBeforeTheSpawnAndWearsItAtTheReturn()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+        ServePack(rig);
+        ArmBreakPieces(rig, 2);
+        var packs = QueuePackHandles(rig, 2);
+
+        building.OnKilled(rig.NewHandle());   // Killed → Explode → the gibs
+
+        var calls = rig.Engine.Calls.ToList();
+        for (int i = 0; i < packs.Length; i++)
+        {
+            EntityHandle h = packs[i].Handle;
+            int named = calls.FindIndex(c => c.Member == "Entities.SetKeyValue"
+                                             && c.ArgAs<EntityHandle>(0) == h
+                                             && c.ArgAs<string>(1) == "model");
+            int spawned = calls.FindIndex(c => c.Member == "Entities.Spawn"
+                                               && c.ArgAs<EntityHandle>(0) == h);
+            Assert.True(named >= 0 && spawned > named,
+                        $"piece {i}'s model is named on the entity before the spawn");
+            Assert.Equal($"pieces/gib{i}.mdl", calls[named].ArgAs<string>(2));
+
+            // What the spawn found on the entity is what the pack wears at the return.
+            Assert.Equal($"pieces/gib{i}.mdl", LastModelFor(rig, h).ArgAs<string>(1));
+        }
+    }
+
+    [Fact]
+    public void TheQuietRemovalDropsNoPack()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+
+        building.DestroyObject();
+
+        // DestroyObject (:814) is the quiet removal: no Explode, no gibs —
+        // only a kill leaves metal behind.
+        Assert.Null(rig.Engine.Last("Entities.Create"));
+    }
+
     [Fact]
     public void TheBaseThinkKeepsTheStockPeriod()
     {
@@ -301,6 +505,53 @@ public class TFBaseObjectTests
 
         Assert.Equal(60, BuildingsRig.Hit(building, enemy, 40f, DamageType.Bullet));
         Assert.True(building.IsDead);   // the scaled blow is the one that kills: 1 health, 60 taken
+    }
+
+    /// <summary>
+    /// The launcher's item rides the blast's scope as stock's
+    /// <c>info.GetWeapon()</c> (<c>shared/takedamageinfo.h:49-52</c>): a rocket
+    /// fired while the attributed item was up still scales off it after its
+    /// owner switched to a plain weapon — stock asks the weapon that made the
+    /// blow, not the one held when it lands (tf_obj.cpp:1922-1927).
+    /// </summary>
+    [Fact]
+    public void TheLaunchingItemScalesTheBlowAfterItsOwnerSwitchesWeapons()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+
+        // The held answer is the plain one — no item behind the row; the
+        // scope's launcher carries the multiplier the launch had on it.
+        rig.Owners.Held[0] = "";
+        rig.Owners.Items[0] = rig.AttributeItem("mult_dmg_vs_buildings",
+                                                AttributeDescriptionFormat.Percentage, 1.5f);
+
+        using (rig.Scopes.Push(TFDamageCustom.None, TFWeaponId.Rocketlauncher,
+                               "tf_weapon_rocketlauncher", rig.Owners.Items[0]))
+            Assert.Equal(60, BuildingsRig.Hit(building, enemy, 40f, DamageType.Bullet));
+    }
+
+    /// <summary>
+    /// The reverse: fired plain, switched to the attributed one — the blow
+    /// lands unscaled, stock reading the launcher item that made it rather
+    /// than what the hand holds at the landing (tf_obj.cpp:1922-1927).
+    /// </summary>
+    [Fact]
+    public void APlainLaunchStaysPlainAfterItsOwnerSwitchesToAnAttributedWeapon()
+    {
+        var (rig, building, _) = ABuildingUnderConstruction();
+        EntityHandle enemy = rig.AddBuilder(TFTeam.Blue);
+
+        // The held row now bears the multiplier; the launch did not.
+        rig.Owners.Held[0] = "tf_weapon_shotgun";
+        rig.Owners.Items[0] = rig.AttributeItem("mult_dmg_vs_buildings",
+                                                AttributeDescriptionFormat.Percentage, 1.5f);
+        IAttributeProvider plain = rig.AttributeItem("melee_range_multiplier",
+                                                     AttributeDescriptionFormat.Percentage, 3f);
+
+        using (rig.Scopes.Push(TFDamageCustom.None, TFWeaponId.Rocketlauncher,
+                               "tf_weapon_rocketlauncher", plain))
+            Assert.Equal(40, BuildingsRig.Hit(building, enemy, 40f, DamageType.Bullet));
     }
 
     // ---- the life in the world: the models --------------------------------

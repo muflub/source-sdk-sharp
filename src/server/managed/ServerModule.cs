@@ -3656,6 +3656,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     private sealed class WeaponSoundsOf(Func<ServerSounds?> sounds, PredictionSuppression prediction) : IWeaponSounds
     {
         public void Emit(EntityHandle owner, string soundName) => sounds()?.EmitPredicted(owner, soundName, prediction);
+
+        public void Emit(EntityHandle owner, string soundName, float pitchMultiplier)
+            => sounds()?.EmitPredicted(owner, soundName, prediction, pitchMultiplier);
     }
 
     private sealed class MoveSoundsOf(Func<IMoveSoundSink?> sink) : IMoveSoundSink

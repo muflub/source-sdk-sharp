@@ -158,8 +158,17 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     /// <summary>How far past its dot a wrangled shell flies (<c>flDistToTarget + 100</c>, tf_obj_sentrygun.cpp:1539).</summary>
     public const float WranglerShellOvershoot = 100f;
 
+    /// <summary><c>VECTOR_CONE_3DEGREES</c>' half-angle (<c>info.m_vecSpread</c>, tf_obj_sentrygun.cpp:1531-1538): the cone a wrangled shell flies in; an unwrangled shot keeps its straight line.</summary>
+    public const float WranglerSpreadHalfAngle = 1.5f;
+
     /// <summary>The dot's minimum standoff (tf_obj_sentrygun.cpp:907): closer and the turret stands down.</summary>
     public const float WranglerMinAimDistance = 30f;
+
+    /// <summary><c>GetPushMultiplier</c> (tf_obj_sentrygun.cpp:1662-1668): the shells' shove scale — eight for a mini, sixteen otherwise.</summary>
+    public const float MiniPushMultiplier = 8f, PushMultiplier = 16f;
+
+    /// <summary>The distance scale (<c>SENTRY_MAX_RANGE_SQRD</c>, tf_obj_sentrygun.h:35-36): past the turret's own range the shove halves (tf_player.cpp:10328-10332).</summary>
+    public const float PushDistanceScale = 0.5f;
 
     private const string SentryThink = "SentryThink";
     private const int SphereCapacity = 32;
@@ -167,6 +176,12 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
     private readonly IEngineWorldQuery _world = world;
     private readonly IEngineDamage _damage = damage;
     private readonly IUniformRandom _random = random;
+
+    /// <summary>The wrangled cone's sample stream, as stock's <c>FireBullets</c> draws it per shot (baseentity_shared.cpp:1719); held by the turret, as the flame manager's is.</summary>
+    private readonly SeededUniformStream _spreadStream = new();
+
+    /// <summary>The seed for the next wrangled cone: the shot's index, so each shell draws its own offsets.</summary>
+    private int _wrangledShots;
     private readonly TFBlastApplier _blast = blast;
     private readonly DamageInflictors _inflictors = inflictors;
     private readonly TFSentryGunDamageConVar _sentryDamage = sentryDamage;
@@ -840,10 +855,23 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         // (GetEnemyAimPosition of a non-player, tf_obj_sentrygun.cpp:240).
         Vector aim = _playerControlled ? _laserAim : Entities.GetWorldSpaceCenter(_target);
 
+        // The shot's direction, cone-spread under the Wrangler's control and
+        // straight otherwise (info.m_vecSpread, tf_obj_sentrygun.cpp:1531-1538):
+        // FireBullets applies the cone to the direction it traces (stock's
+        // baseentity_shared.cpp:1719), so the whole flight rides it.
+        Vector away = (aim - EyePosition).Normalized;
+        if (_playerControlled)
+        {
+            (Vector right, Vector up) = Angles.RightUp(away);
+            away = ShotSpread.Apply(new Angles.Basis(away, right, up),
+                                    ShotSpread.SpreadOf(WranglerSpreadHalfAngle),
+                                    _wrangledShots++, _spreadStream).Normalized;
+        }
+
         // A wrangled shell flies a hundred units past its dot (info.m_flDistance's
-        // flDistToTarget + 100, tf_obj_sentrygun.cpp): the dot sits on the surface it
+        // flDistToTarget + 100, tf_obj_sentrygun.cpp:1539): the dot sits on the surface it
         // found, so a trace that stopped there would reach nothing.
-        Vector end = _playerControlled ? aim + (aim - EyePosition).Normalized * WranglerShellOvershoot : aim;
+        Vector end = _playerControlled ? aim + away * WranglerShellOvershoot : aim;
         TraceResult trace = _world.TraceLine(EyePosition, end, TraceMask.Shot, Handle);
         EntityHandle victim = trace.Hit ? trace.Entity : _target;
 
@@ -869,6 +897,24 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                     _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
             else
                 _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+        }
+
+        // Sentries push a lot harder than a gun (:10317-10334): the shove of a
+        // bullet from a base object scales by GetPushMultiplier — eight for a
+        // mini, sixteen otherwise (:1662-1668) — and halves past the turret's
+        // own range, so a wrangled shot at distance does not throw the whole
+        // world back (:10328-10332). The arm reads a player's own damage hook
+        // (:10232), so only players take it.
+        if (Entities.IsPlayer(victim))
+        {
+            float multiplier = IsMiniBuilding ? MiniPushMultiplier : PushMultiplier;
+            Vector between = Origin - Entities.GetOrigin(victim);
+            if (between.LengthSquared > SentryMaxRange * SentryMaxRange)
+                multiplier *= PushDistanceScale;
+
+            (Vector mins, Vector maxs) = Entities.GetBounds(victim);
+            Vector push = away * -TFRadiusDamage.DamageForce(maxs - mins, shellDamage, multiplier);
+            Entities.ApplyVelocityImpulse(victim, push, clearGround: false);
         }
     }
 

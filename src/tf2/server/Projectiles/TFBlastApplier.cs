@@ -231,7 +231,7 @@ public sealed class TFBlastApplier
                 // arms zeroed is no refusal (below).
                 int answered = victimDamage > 0f
                     ? Deliver(victim, attacker, victimDamage, active.Bits, weapon, weaponName, critical,
-                              inflictor, origin, custom)
+                              inflictor, origin, custom, item)
                     : 0;
                 if (answered <= 0 && victimDamage <= 0f)
                 {
@@ -293,7 +293,7 @@ public sealed class TFBlastApplier
                     ClaimBlastJump(attacker, selfDamage, selfBlast.Bits, item);
                     bool hit = selfDamage <= 0f
                                || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
-                                          inflictor, origin, custom) > 0;
+                                          inflictor, origin, custom, item) > 0;
                     if (hit && forceDamage > 0f)
                         Push(attacker, source, selfBlast, forceDamage, self: true, pyroFlareJump: flareJump,
                              selfPushMult: selfPushMult);
@@ -429,10 +429,10 @@ public sealed class TFBlastApplier
     /// </summary>
     private int Deliver(EntityHandle victim, EntityHandle attacker, float victimDamage,
                         DamageType bits, TFWeaponId weapon, string weaponName, bool critical,
-                        EntityHandle inflictor, Vector origin, TFDamageCustom custom)
+                        EntityHandle inflictor, Vector origin, TFDamageCustom custom, IAttributeProvider? item)
     {
         using (HitGroups.Push(HitGroup.Generic, critical))
-        using (Scopes.Push(custom, weapon, weaponName))
+        using (Scopes.Push(custom, weapon, weaponName, item))
         using (Inflictors.Push(inflictor, origin))
             return Damage.TakeDamageAnswered(victim, attacker, victimDamage, bits);
     }
@@ -502,11 +502,16 @@ public sealed class TFBlastApplier
         // TF_PLAYER_ROCKET_JUMPED, with no health test and stock's silent
         // bPlaySound, so a grounded self rocket jumps too and an airborne
         // soldier is named by this arm and OnTakeDamage's (:9180) alike.
-        // The duck reset beside it (:10277, m_Shared.SetAirDucked( 0 )) is
-        // the air-duck counter's, deferred with the duck overrides
-        // (docs/plans/tf2/deferred.tsv).
+        // The duck reset beside it (:10277-10278, m_Shared.SetAirDucked( 0 ))
+        // is the air-duck counter's, on the same self-push arms as the jump's
+        // name.
         if (self && cls == TFClass.Soldier && (blast.Bits & DamageType.Blast) != 0)
+        {
             Carriers.Part<TFBlastJumpState>(victim.EntryIndex)?.Set(TFBlastJump.RocketJumped);
+
+            if (Carriers.Predicted(Entities.GetIndex(victim)) is { } duckState)
+                duckState.AirDuckedCount = 0;
+        }
 
         // The other's blast latches the victim's next rise (tf_player.cpp:
         // 10474-10477): m_bTakenBlastDamageSinceLastMovement, which the rise

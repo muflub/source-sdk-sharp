@@ -257,6 +257,47 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
         });
     }
 
+    /// <summary>
+    /// The predicted emit with the script's pitch scaled by
+    /// <paramref name="pitchMultiplier"/> on top: stock's bow pull carries its
+    /// refire rate in the emit pitch (<c>tf_weapon_compound_bow.cpp:243-248</c>),
+    /// and the change-pitch flag is what makes the resolved script answer that
+    /// pitch instead of its own. A script with no pitch on it takes the norm as
+    /// its base.
+    /// </summary>
+    public void EmitPredicted(EntityHandle owner, string soundName, PredictionSuppression prediction,
+                              float pitchMultiplier)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(owner))
+        {
+            SayUnresolved(owner, soundName);
+            return;
+        }
+
+        // The script's own pitch, multiplied; the flag makes the handle arm
+        // use the caller's pitch over the script's (SoundEmitterCore's
+        // SND_CHANGE_PITCH read, SoundEmitterCore.cs:280-281).
+        int basePitch = _emitter.Parameters(soundName) is { Pitch: > 0 } parameters
+            ? parameters.Pitch
+            : SoundEmitterCore.PitchNorm;
+
+        int index = SoundSourceIndex(owner);
+        RecipientFilter filter = _emitter.Recipients.PasAttenuation(_entities.GetWorldSpaceCenter(owner), soundName);
+        prediction.UsePredictionRules(filter);
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(owner) : null,
+            WarnOnDirectWaveReference = true,
+            Pitch = (int)(basePitch * pitchMultiplier),
+            Flags = SoundEmitterCore.SndChangePitch,
+        });
+    }
+
     private void SayUnresolved(EntityHandle entity, string soundName)
     {
         if (_saidUnresolved)

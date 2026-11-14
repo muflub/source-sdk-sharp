@@ -41,6 +41,13 @@ public interface ITFPickupNotices
     void PlayerHealOnHit(EntityHandle player, int amount);
 
     /// <summary>
+    /// The <c>crossbow_heal</c> game event (<c>tf_projectile_arrow.cpp:1266-1273</c>):
+    /// <c>healer</c> the shooter's userid, <c>target</c> the healed one's,
+    /// <c>amount</c> the heal ask.
+    /// </summary>
+    void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount);
+
+    /// <summary>
     /// The <c>player_stealsandvich</c> game event: the health pack's own
     /// (tf_ammo_pack.cpp:332-341). <c>target</c> is the picker's userid;
     /// <c>owner</c> is the owner's, and only when the pack's owner is a
@@ -85,6 +92,14 @@ public sealed class EngineTFPickupNotices(IUserMessageSender messages, IEngineGa
             events.EventSetInt(e, "amount", amount);
             events.EventSetInt(e, "entindex", entities.GetIndex(player));
             events.EventSetInt(e, "weapon_def_index", ItemDefIndexInvalid);
+        });
+
+    public void CrossbowHeal(EntityHandle healer, EntityHandle healed, int amount)
+        => Fire("crossbow_heal", e =>
+        {
+            events.EventSetInt(e, "healer", players.GetUserId(healer));
+            events.EventSetInt(e, "target", players.GetUserId(healed));
+            events.EventSetInt(e, "amount", amount);
         });
 
     public void PlayerStealsSandvich(EntityHandle owner, EntityHandle picker)

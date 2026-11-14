@@ -29,6 +29,15 @@ public interface IWeaponArms
     void Sound(string soundScript);
 
     /// <summary>
+    /// Plays a soundscript entry on the carrier with its script pitch
+    /// multiplied by <paramref name="pitchMultiplier"/> on top — stock's pull
+    /// sound carries the bow's own refire rate in the emit's pitch
+    /// (<c>tf_weapon_compound_bow.cpp:243-248</c>). The default keeps the
+    /// plain sound, so an arms that never heard of pitch behaves as it did.
+    /// </summary>
+    void Sound(string soundScript, float pitchMultiplier) => Sound(soundScript);
+
+    /// <summary>
     /// The carrier's state, whose punch a shot kicks: the server's player, the
     /// predicting client's working copy. Null where there is no carrier to kick.
     /// </summary>
@@ -515,6 +524,11 @@ public static class WeaponAnimNames
         // The bow's draw: already the role's own act, the table has no row to
         // add (tf_weapon_compound_bow.cpp:396-399 retags before the table).
         WeaponAnim.Charge       => new[] { "ACT_ITEM2_VM_CHARGE" },
+        // The bow's charged idles, the pair stock's retag alternates once the
+        // draw passes the tired window (tf_weapon_compound_bow.cpp:401-427).
+        WeaponAnim.IdleBow           => new[] { "ACT_ITEM2_VM_IDLE_2" },
+        WeaponAnim.IdleBowFull       => new[] { "ACT_ITEM2_VM_IDLE_3" },
+        WeaponAnim.IdleBowChargeFull => new[] { "ACT_ITEM2_VM_CHARGE_IDLE_3" },
         WeaponAnim.AltAttack    => new[] { "ACT_SECONDARY_VM_ALTATTACK" },
         _                  => new[] { "ACT_VM_IDLE" },
     };

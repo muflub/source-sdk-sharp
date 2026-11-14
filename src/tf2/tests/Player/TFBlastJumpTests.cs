@@ -91,6 +91,27 @@ public class TFBlastJumpTests
         Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
     }
 
+    /// <summary>
+    /// The self push also clears the air-duck count (tf_player.cpp:10277-10278,
+    /// <c>m_Shared.SetAirDucked( 0 )</c> beside the jump's name): a soldier
+    /// riding a rocket off a teammate starts the next airtime's ducks fresh.
+    /// </summary>
+    [Fact]
+    public void The_self_blast_push_resets_the_air_duck_count()
+    {
+        var (rig, blast, _, jump) = JumpRig();
+        AirborneAtHundred(rig, EntityState.None);
+        // The push belongs to the hit (:10647-10656): the own pass pushes only
+        // when the delivery answered, so this fact answers a real hit.
+        rig.Engine.Returns("Damage.TakeDamageAnswered", 90);
+        rig.Carriers.Predicted(PlayerRig.Index)!.AirDuckedCount = 3;
+
+        RocketJump(rig, blast);
+
+        Assert.Equal(TFBlastJump.RocketJumped, jump.State);
+        Assert.Equal(0, rig.Carriers.Predicted(PlayerRig.Index)!.AirDuckedCount);
+    }
+
     /// <summary>The landing (:1441-1483): the grounded tick clears the
     /// condition and fires the landed event, whose only word is the userid.</summary>
     [Fact]

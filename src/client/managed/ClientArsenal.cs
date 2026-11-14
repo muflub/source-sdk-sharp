@@ -1299,6 +1299,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         public void Sound(string soundScript) => _owner._fx?.Sound(in _owner._shot, soundScript);
 
+        public void Sound(string soundScript, float pitchMultiplier)
+            => _owner._fx?.Sound(in _owner._shot, soundScript, pitchMultiplier);
+
         public void ClientSound(string soundScript) => Sound(soundScript);
 
         public PlayerNetState? Carrier => _owner.WorkingPlayer;
