@@ -455,6 +455,24 @@ public sealed class TFDeathNoticeTests
         Assert.Equal("giger_counter", FillGilded(rig)["weapon"]);
     }
 
+    /// <summary>The plain sentry kill: the shell's scope names no weapon (stock's
+    /// <c>FireBullets</c> info holds none), so the notice falls to the inflictor
+    /// arm and names the gun from the sentry's own class — neither the empty
+    /// scope name nor the builder's held shotgun wins
+    /// (<c>GetKillingWeaponName</c>, tf_gamerules.cpp:12108-12300).</summary>
+    [Fact]
+    public void A_plain_sentry_kill_names_the_sentry_from_its_inflictor()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_shotgun_primary" };
+        rig.Engine.Returns("Entities.GetClassName", "obj_sentrygun");
+        var gun = new EntityHandle(0x0001_0009u);
+        using (rig.Inflictors.Push(gun, default))
+        using (rig.Scopes.PushNoLauncher(TFDamageCustom.None, TFWeaponId.None, ""))
+            rig.Hit(30f, DamageType.Bullet);
+
+        Assert.Equal("obj_sentrygun", Fill(rig, CombatRig.Attacker, gun)["weapon"]);
+    }
+
     // ---- the fish kill (TF_DMG_CUSTOM_FISH_KILL, tf_player.cpp:9738-9759) ----
 
     /// <summary>The notice over the rig with the owners and the attribute walk

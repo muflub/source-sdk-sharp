@@ -972,14 +972,22 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
         float shellDamage = IsMiniBuilding ? _miniSentryDamage.Value : _sentryDamage.Value;
         using (_inflictors.Push(Handle, Origin))
         {
-            // The wrangled shell's custom (ModifyFireBulletsDamage,
-            // tf_obj_sentrygun.cpp:1651-1657): the kill feed's sentry arm
-            // reads it for the pointer's name.
-            if (_playerControlled && Scopes is { } scopes)
-                using (scopes.Push(TFDamageCustom.PlayerSentry, TFWeaponId.None, ""))
+            // The shell carries no weapon (stock builds the FireBullets info
+            // without one, tf_obj_sentrygun.cpp:1520-1554): the hit's launcher
+            // is nobody's held item, so mult_dmg_vs_buildings and the sapper's
+            // gate ask nothing of this blow. The wrangled shell's custom
+            // (ModifyFireBulletsDamage, tf_obj_sentrygun.cpp:1651-1657) rides
+            // along: the kill feed's sentry arm reads it for the pointer's name.
+            if (Scopes is { } scopes)
+            {
+                using (scopes.PushNoLauncher(_playerControlled ? TFDamageCustom.PlayerSentry : TFDamageCustom.None,
+                                             TFWeaponId.None, ""))
                     _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+            }
             else
+            {
                 _damage.TakeDamage(victim, Builder, shellDamage, DamageType.Bullet);
+            }
         }
 
         // Sentries push a lot harder than a gun (:10317-10334): the shove of a

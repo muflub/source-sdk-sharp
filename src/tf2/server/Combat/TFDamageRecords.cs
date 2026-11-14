@@ -33,7 +33,7 @@ public readonly record struct TFHitRecord(EntityHandle Attacker, float Damage, D
 [SideService(Side.Server)]
 public sealed class TFDamageScopes
 {
-    private readonly Stack<(TFDamageCustom Custom, TFWeaponId Weapon, string WeaponName, IAttributeProvider? Item)> _open = new();
+    private readonly Stack<(TFDamageCustom Custom, TFWeaponId Weapon, string WeaponName, IAttributeProvider? Item, bool NoLauncher)> _open = new();
 
     /// <summary>Opens a scope in which every hit is <paramref name="custom"/>, by <paramref name="weapon"/>.</summary>
     public Scope Push(TFDamageCustom custom, TFWeaponId weapon, string weaponName) => Push(custom, weapon, weaponName, item: null);
@@ -46,7 +46,20 @@ public sealed class TFDamageScopes
     /// </summary>
     public Scope Push(TFDamageCustom custom, TFWeaponId weapon, string weaponName, IAttributeProvider? item)
     {
-        _open.Push((custom, weapon, weaponName, item));
+        _open.Push((custom, weapon, weaponName, item, false));
+        return new Scope(this);
+    }
+
+    /// <summary>
+    /// Opens a scope whose hits carry no launcher at all — stock's sentry shell,
+    /// whose <c>FireBullets</c> info holds no weapon
+    /// (<c>CObjectSentrygun::Fire</c>, <c>tf_obj_sentrygun.cpp:1520-1554</c>).
+    /// <see cref="TryLauncher"/> then answers with no item and the held weapon is
+    /// not asked, the way stock's <c>info.GetWeapon()</c> answers NULL there.
+    /// </summary>
+    public Scope PushNoLauncher(TFDamageCustom custom, TFWeaponId weapon, string weaponName)
+    {
+        _open.Push((custom, weapon, weaponName, null, true));
         return new Scope(this);
     }
 
@@ -66,15 +79,28 @@ public sealed class TFDamageScopes
     /// <summary>
     /// The launcher item of the innermost open scope, if it carries one —
     /// what the building's and the sapper's attribute asks answer to, in
-    /// place of the attacker's held item. No scope, or a scope with no
-    /// launcher, answers false and leaves the held item to the caller.
+    /// place of the attacker's held item. A scope opened through
+    /// <see cref="PushNoLauncher"/> answers true with no item at all: the
+    /// shot carries no weapon, stock's <c>info.GetWeapon()</c> being null,
+    /// so neither the scope nor the held hand scales it. No scope, or a
+    /// plain scope with no launcher, answers false and leaves the held item
+    /// to the caller.
     /// </summary>
     public bool TryLauncher(out IAttributeProvider? item)
     {
-        if (_open.TryPeek(out var top) && top.Item is { } launcher)
+        if (_open.TryPeek(out var top))
         {
-            item = launcher;
-            return true;
+            if (top.NoLauncher)
+            {
+                item = null;
+                return true;
+            }
+
+            if (top.Item is { } launcher)
+            {
+                item = launcher;
+                return true;
+            }
         }
 
         item = null;

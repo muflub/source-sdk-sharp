@@ -1812,13 +1812,17 @@ internal sealed unsafe partial class EngineNetworking
         var state = (EntityState)_entitiesServerArea.EntityGetState(entity.Value, &move);
         moveType = (MoveType)move;
 
-        // A player's move type and ground are the managed record's
-        // (plan_server_native_v2 T4g).
+        // A player's move type is the managed record's
+        // (plan_server_native_v2 T4g). Its ground is the live flag the engine
+        // side answers at the ask — stock reads the victim's own flags at the
+        // blast (tf_player.cpp:10266-10273), and a record published inside the
+        // Move stage still carries the ground the last command found while the
+        // player rides the arc above it, which read an airborne soldier as
+        // standing and gave the blast the grounded scale.
         if ((state & EntityState.Player) != 0 && _playerMoves.Target is { } moves
-            && moves.PlayerState(entity, out MoveType playerMoveType, out bool onGround))
+            && moves.PlayerState(entity, out MoveType playerMoveType, out _))
         {
             moveType = playerMoveType;
-            state = onGround ? state | EntityState.OnGround : state & ~EntityState.OnGround;
         }
 
         return state;

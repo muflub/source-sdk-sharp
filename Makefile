@@ -204,6 +204,9 @@ DEDICATED_TIMED_LOG_ARGS ?= +con_timestamp 1 +con_logfile console-dedicated.time
 
 # Everything above plus assertions demoted to log lines. For driving the game
 # from a script, where stopping on the first assert defeats the point.
+# The headless recipe itself adds the launcher's tool-game switch after these
+# (tools/local_launch.py says what it is), so a tool that passes its own
+# HEADLESS_ARGS still runs a tool's game: off the user's own experience store.
 HEADLESS_ARGS ?= $(RUN_ARGS) -assertlog
 
 # The GPU the game must render on. Sourced by every launch below, and by
@@ -497,7 +500,7 @@ headless: $(CONFIG)
 	$(call require-setup,$(CONFIG))
 	@mkdir -p $(RUN_TMP)
 	@echo "==> running $(MAP) from $(GAME) headless (temp dir $(RUN_TMP))"
-	@cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) $(LAUNCH_MOD) $(HEADLESS_ARGS) +map $(MAP); \
+	@cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) $(LAUNCH_MOD) $(HEADLESS_ARGS) -toolgame +map $(MAP); \
 	  status=$$?; rm -rf $(RUN_TMP); exit $$status
 
 # A DEDICATED SERVER (plan_host_sdk §2.5): the mod's engine.dedicated role

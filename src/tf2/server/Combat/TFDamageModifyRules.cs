@@ -40,6 +40,9 @@ namespace TF2.Server.Combat;
 /// <param name="VictimItem">The victim's ACTIVE weapon as an attribute provider, stock's <c>pVictim-&gt;GetActiveTFWeapon()</c> as the resists' ON_OTHER root; null when they hold none.</param>
 /// <param name="AfterburnDuration">The burn's seconds left as the consume arm sees it (<c>CTFPlayerShared::GetAfterburnDuration</c>, tf_player_shared.cpp); null for no burn clock read.</param>
 /// <param name="DoubleDonk">The victim stands in the attacker's cannon's donk window (<c>CTFGrenadeLauncher::IsDoubleDonk</c> through tf_gamerules.cpp:6205, <see cref="TFDonkVictims"/>); the layer asks only under a cannon's blast.</param>
+/// <param name="VictimIsPlayer">The victim is a TF player (stock's <c>pVictim</c>, <c>ToTFPlayer( pVictimBaseEntity )</c>, :5919). False for a
+/// victim that is not one and still runs the rules, as <c>CTFBaseBoss::OnTakeDamage</c> does (tf_base_boss.cpp:442): the arms stock keeps
+/// behind <c>if ( pVictim )</c> are skipped, and the layer hands such a victim no conditions, no eye angles and no water.</param>
 public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCustom Custom, bool SelfDamage,
                                     bool AttackerIsPlayer, TFWeaponId Weapon, float? Distance,
                                     TFCondMask Victim, TFCondMask Attacker, IAttributeProvider? WeaponItem,
@@ -48,7 +51,7 @@ public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCusto
                                     bool AttackerAirborne, bool VictimAirborne,
                                     bool DirectRocketHit,
                                     IAttributeProvider? VictimItem, float? AfterburnDuration,
-                                    bool DoubleDonk);
+                                    bool DoubleDonk, bool VictimIsPlayer = true);
 
 /// <summary>
 /// What the rules made of a hit: the damage to take, the bits and kind it now
@@ -172,7 +175,10 @@ public static class TFDamageModifyRules
         // stock's condition_to_attribute_translation table
         // (tf_shareddefs.cpp:249-274) tested against the victim. Either hit is
         // a full crit; the disguised-crit client flag rides the crit itself.
-        if (hit.WeaponItem is not null
+        // This arm and the next two stand inside stock's if ( pVictim ) (:5959):
+        // a victim that is not a player has no conditions to be tested, and
+        // "not in the condition" must not read as a crit on it.
+        if (hit.VictimIsPlayer && hit.WeaponItem is not null
             && (CritVsCondition(hooks.Int(0, "or_crit_vs_playercond", hit.WeaponItem), hit.Victim, want: true)
                 || CritVsCondition(hooks.Int(0, "or_crit_vs_not_playercond", hit.WeaponItem), hit.Victim, want: false)))
         {
@@ -184,7 +190,7 @@ public static class TFDamageModifyRules
         // or the victim in the water. The exited-recently prong has no clock
         // here and the breakable sign's SetBroken is the weapon's, not the
         // hit's (docs/plans/tf2/deferred.tsv).
-        if (hit.WeaponItem is not null
+        if (hit.VictimIsPlayer && hit.WeaponItem is not null
             && hooks.Int(0, "crit_vs_wet_players", hit.WeaponItem) != 0
             && ((hit.Victim.Has(TFCond.Urine) || hit.Victim.Has(TFCond.MadMilk) || hit.Victim.Has(TFCond.Gas))
                 || hit.VictimWaterLevel > 0))
@@ -196,7 +202,7 @@ public static class TFDamageModifyRules
         // axtinguisher_properties (:6044-6070): on a burning victim the hit
         // from behind — the way to the victim along the victim's facing, within
         // 90° of right behind — is a full crit; any other the mini-crit.
-        if (hit.WeaponItem is not null
+        if (hit.VictimIsPlayer && hit.WeaponItem is not null
             && hooks.Int(0, "axtinguisher_properties", hit.WeaponItem) != 0
             && hit.Victim.Has(TFCond.Burning)
             && hit.VictimEyeAngles is { } eyeAngles && hit.ToVictim is { } toVictim)
@@ -331,7 +337,10 @@ public static class TFDamageModifyRules
             if (hit.SameClass)
                 damage = hooks.Float(damage, "mult_dmg_vs_same_class", hit.WeaponItem);
 
-            if (!hit.Victim.Has(TFCond.Burning))
+            // Stock's if ( pVictim && !InCond( TF_COND_BURNING ) ) (:6413): a
+            // victim that is not a player is neither refused the crit nor
+            // scaled as a non-burning one.
+            if (hit.VictimIsPlayer && !hit.Victim.Has(TFCond.Burning))
             {
                 if ((bits & TFDamageBits.Critical) != 0 && hit.AttackerIsPlayer
                     && !effects.IsCritBoosted(hit.Attacker, clientSide: false)

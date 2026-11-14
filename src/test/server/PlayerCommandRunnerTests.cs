@@ -301,7 +301,7 @@ public sealed unsafe class PlayerCommandRunnerTests : IDisposable
         var moves = new ServerPlayerMoves();
         var commands = ServerPlayerCommands.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api), moves,
                                                 new ServerMoveData(), new NoSounds(), null, TestSides.Movement(engine),
-                                                Frame, new NoPublish(), _env);
+                                                Frame, new NoPublish(), _env, TestServices.Fake());
         return (commands, moves);
     }
 

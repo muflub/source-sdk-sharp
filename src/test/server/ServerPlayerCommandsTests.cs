@@ -31,8 +31,8 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
 
     private sealed class Published : IPlayerMovePublisher
     {
-        public readonly List<(EntityHandle Player, int TickBase)> Calls = new();
-        public void Publish(EntityHandle player, ServerPlayerMove move) => Calls.Add((player, move.TickBase));
+        public readonly List<(EntityHandle Player, int TickBase, int Flags)> Calls = new();
+        public void Publish(EntityHandle player, ServerPlayerMove move) => Calls.Add((player, move.TickBase, move.Move.Flags));
     }
 
     private sealed class NoSounds : IMoveSoundSink
@@ -69,7 +69,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         _globals->maxClients = 2;
         _commands = ServerPlayerCommands.For(_engine, EngineBound.Trace(_engine.Api), EngineBound.SurfaceProps(_engine.Api), _moves, _data, _sounds, null,
                                              TestSides.Movement(_engine), Frame, _published,
-                                             new Env { Raw = _globals });
+                                             new Env { Raw = _globals }, TestServices.Fake());
     }
 
     public void Dispose() => NativeMemory.Free(_globals);
@@ -175,7 +175,7 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
 
         Assert.Equal(1, _commands.Stage(Player, 0, 2, in cmd));
 
-        Assert.True(m.TickBase == 42 && _published.Calls.Count == 1 && _published.Calls[0] == (Player, 42),
+        Assert.True(m.TickBase == 42 && _published.Calls.Count == 1 && _published.Calls[0] == (Player, 42, 0),
                     $"tick base {m.TickBase}, published {string.Join(",", _published.Calls)}");
     }
 
@@ -203,6 +203,115 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         _commands.Stage(Player, 0, 2, in cmd);
 
         Assert.Equal(41, m.TickBase);
+    }
+
+    /// <summary>
+    /// Stock's item frame reads the duck on the SAME command that took it:
+    /// FinishDuck writes FL_DUCKING inside the move (gamemovement.cpp:4215),
+    /// and the rocket launcher picks its muzzle height from the player's
+    /// flags at fire time (tf_weaponbase_gun.cpp:521-525), after the item
+    /// frame. The queue handles this command's buttons between the move and
+    /// the finish, so the move itself must publish: the flags the buttons
+    /// read are this command's, not the last one's.
+    /// </summary>
+    [Fact]
+    public void TheMovePublishesSoThisCommandsButtonsSeeItsOwnWords()
+    {
+        ServerPlayerMove m = _moves.For(Player);
+        m.Move.Flags = GameMovement.FlDucking;
+        var cmd = new UserCmd { CommandNumber = 1, Buttons = GameMovement.InDuck };
+
+        Assert.Equal(1, Move(in cmd));
+
+        Assert.True(_published.Calls.Count == 1 && (_published.Calls[0].Flags & GameMovement.FlDucking) != 0,
+                    $"expected exactly one publish of flags with FL_DUCKING after the move alone; got {_published.Calls.Count} publish(es): "
+                    + $"[{string.Join(",", _published.Calls.Select(c => $"{c.Flags:x}"))}]");
+    }
+
+    /// <summary>A living player with nothing under it: the duck's and unduck's
+    /// in-air arms complete within their command.</summary>
+    [UnmanagedCallersOnly]
+    private static int BeginAlivePlayer(void* self, uint entIndex, PlayerCommandFacts* facts)
+    {
+        facts->Health = 100;
+        return 1;
+    }
+
+    /// <summary>An empty world: every box trace goes through (the same blob
+    /// fill MovementRunnerConstantsTests' recorder makes, so CanUnduck's head
+    /// trace finds nothing above it).</summary>
+    [UnmanagedCallersOnly]
+    private static void RecordEmptyTrace(void* self, float* start, float* end, float* mins, float* maxs,
+                                         int mask, int collisionGroup, MoveTraceBlob* blob, void* filter, uint* handles)
+    {
+        *blob = default;
+        blob->Fraction = 1f;
+        blob->EndPosX = end[0];
+        blob->EndPosY = end[1];
+        blob->EndPosZ = end[2];
+        handles[0] = 0xFFFFFFFFu;
+        handles[1] = 0xFFFFFFFFu;
+    }
+
+    private sealed class EmptyWorldFilter : IServerTraceRoute
+    {
+        public ServerTrace Line(Vector start, Vector end, uint mask, EntityHandle pass, int collisionGroup) => default;
+        public ServerTrace Hull(Vector start, Vector end, Vector mins, Vector maxs, uint mask, EntityHandle pass, int collisionGroup) => default;
+        public int PointContents(Vector point) => 0;
+        public nint Enter(EntityHandle pass, int collisionGroup) => 0;
+        public void Exit() { }
+    }
+
+    /// <summary>
+    /// THE HEAD BOX follows the duck, stock's way: FinishDuck and FinishUnDuck
+    /// resize the collideable with the duck bit inside the move
+    /// (gamemovement.cpp:4215), so a clip after the command stops on the box
+    /// the player is actually in. The hulls are the composition's movement
+    /// view's own - the numbers the loop just traced with.
+    /// </summary>
+    [Fact]
+    public void TheHeadBoxFollowsTheDuckInsideItsOwnCommands()
+    {
+        var bounds = TestServices.Fake();
+        var root = new FakeShimRoot();
+        EngineSide side = TestSides.Create(Side.Server);
+        root.Live("SourceSharpMovementServer001", "PlayerCommandBegin",
+                  (nint)(delegate* unmanaged<void*, uint, PlayerCommandFacts*, int>)&BeginAlivePlayer);
+        root.Live("SourceSharpMovementServer001", "MoveTraceServer",
+                  (nint)(delegate* unmanaged<void*, float*, float*, float*, float*, int, int, MoveTraceBlob*, void*, uint*, void>)&RecordEmptyTrace);
+        side.Attachment.Initialize();
+        Assert.True(side.Attachment.AttachShims(root.Bind(), out string why), why);
+        side.Tracer.Fill(new EmptyWorldFilter());
+
+        var engine = new ServerModuleEngine(side);
+        var commands = ServerPlayerCommands.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api),
+                                               _moves, _data, _sounds, null, TestSides.Movement(engine), Frame, _published,
+                                               new Env { Raw = _globals }, bounds);
+
+        // The pressed command ducks; the released one stands, each within its
+        // own command (the in-air arms, gamemovement.cpp:4549-4560, 4647).
+        var duckCmd = new UserCmd { CommandNumber = 1, Buttons = GameMovement.InDuck };
+        Assert.Equal(1, commands.Stage(Player, 0, 0, in duckCmd));
+        Assert.Equal(1, commands.Stage(Player, 0, 1, in duckCmd));
+        int afterDuck = bounds.Calls.Count(c => c.Member == "Entities.SetBounds");
+        var standCmd = new UserCmd { CommandNumber = 2 };
+        Assert.Equal(1, commands.Stage(Player, 0, 0, in standCmd));
+        Assert.Equal(1, commands.Stage(Player, 0, 1, in standCmd));
+
+        EngineCall[] sized = bounds.Calls.Where(c => c.Member == "Entities.SetBounds").ToArray();
+        MoveState tail = _moves.For(Player).Move;
+        Assert.True(sized.Length == 2,
+                    $"bounds calls: [{string.Join(" | ", sized.Select(c =>
+                        $"h{c.ArgAs<EntityHandle>(0).Value} ({c.ArgAs<Vector>(1).X} {c.ArgAs<Vector>(1).Y} {c.ArgAs<Vector>(1).Z}) ({c.ArgAs<Vector>(2).X} {c.ArgAs<Vector>(2).Y} {c.ArgAs<Vector>(2).Z})"))}]; "
+                    + $"tail ducked {tail.Ducked} ducking {tail.Ducking} flags {tail.Flags:x} old {tail.OldButtons:x} "
+                    + $"buttons {tail.Buttons:x} jump {tail.JumpTime} duckjumptime {tail.DuckJumpTime} ducktime {tail.DuckTime} "
+                    + $"ran {commands.Ran} afterDuck {afterDuck}");
+        Assert.Equal(new Vector(-16f, -16f, 0f), sized[0].ArgAs<Vector>(1));
+        Assert.Equal(new Vector(16f, 16f, 36f), sized[0].ArgAs<Vector>(2));
+        Assert.Equal(new Vector(-16f, -16f, 0f), sized[1].ArgAs<Vector>(1));
+        Assert.Equal(new Vector(16f, 16f, 72f), sized[1].ArgAs<Vector>(2));
+
+        root.Dispose();
     }
 
     [Fact]

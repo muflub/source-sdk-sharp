@@ -771,6 +771,59 @@ public sealed class TFDamageModifyRulesTests
     }
 
     /// <summary>A weapon item carrying one attribute, the walk's root.</summary>
+    // ---- a victim that is not a player (tf_base_boss.cpp:442: pVictim NULL) ---
+
+    /// <summary>
+    /// The arms stock keeps behind <c>if ( pVictim )</c> (:5959-6070) are
+    /// skipped for a victim that is not a player, whatever the hit says of
+    /// it: each row crits (or mini-crits) the player and leaves the other.
+    /// </summary>
+    [Theory]
+    [InlineData("or_crit_vs_not_playercond", 4f, TFCond.Invalid, 0, TFCritType.Full)]       // the player is not zoomed
+    [InlineData("or_crit_vs_playercond", 1f, TFCond.Burning, 0, TFCritType.Full)]
+    [InlineData("crit_vs_wet_players", 1f, TFCond.Invalid, 1, TFCritType.Full)]             // in the water
+    [InlineData("axtinguisher_properties", 1f, TFCond.Burning, 0, TFCritType.Mini)]         // burning, hit from the front
+    public void A_victim_side_crit_arm_is_the_players_alone(string hook, float value, TFCond victimCond, int water,
+                                                            TFCritType onAPlayer)
+    {
+        var hooks = new AttributeHooks();
+        TFHit player = Hit(item: Item(7101, hook, value), victimWaterLevel: water,
+                           victim: victimCond == TFCond.Invalid ? default : TFCondMask.Of(victimCond),
+                           victimEye: new Vector(0f, 180f, 0f), toVictim: new Vector(64f, 0f, 0f));
+        TFHit other = player with { VictimIsPlayer = false };
+
+        Assert.Equal(onAPlayer, TFDamageModifyRules.Apply(in player, Stock, NoRandom, hooks).Crit);
+        Assert.Equal(TFCritType.None, TFDamageModifyRules.Apply(in other, Stock, NoRandom, hooks).Crit);
+    }
+
+    /// <summary>
+    /// The non-burning arm is <c>if ( pVictim &amp;&amp; !InCond( TF_COND_BURNING ) )</c>
+    /// (:6413-6431): a victim that is not a player keeps its crit and is not
+    /// scaled, where the player loses the crit and takes the multiplier.
+    /// </summary>
+    [Fact]
+    public void The_nonburning_arm_is_the_players_alone()
+    {
+        var hooks = new AttributeHooks();
+        var item = new AttributeContainer();
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(7102, "attr 7102", "set_nocrit_vs_nonburning",
+                                                                AttributeDescriptionFormat.Additive,
+                                                                AttributeEffectType.Positive, false, false,
+                                                                AttributeValueType.Default, MergedKeys.Block("x")), 1f));
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(7103, "attr 7103", "mult_dmg_vs_nonburning",
+                                                                AttributeDescriptionFormat.Percentage,
+                                                                AttributeEffectType.Positive, false, false,
+                                                                AttributeValueType.Default, MergedKeys.Block("x")), 1.5f));
+        TFHit player = Hit(bits: Ranged | TFDamageBits.Critical, distance: 512f, item: item);
+        TFHit other = player with { VictimIsPlayer = false };
+
+        var onPlayer = TFDamageModifyRules.Apply(in player, Stock, NoRandom, hooks);
+        var onOther = TFDamageModifyRules.Apply(in other, Stock, NoRandom, hooks);
+
+        Assert.Equal((TFCritType.None, 15f), (onPlayer.Crit, onPlayer.Damage));
+        Assert.Equal((TFCritType.Full, 30f), (onOther.Crit, onOther.Damage));
+    }
+
     private static IAttributeProvider Item(int defindex, string hook, float value)
     {
         var item = new AttributeContainer();

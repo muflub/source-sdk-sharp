@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="568" y="74" width="784" height="944" rx="20" fill="#000000" fill-opacity="0.17" data-e="2"/>
+<rect x="574" y="80" width="772" height="932" rx="14" fill="#000000" fill-opacity="0.43" data-e="2"/>
+<rect x="580" y="80" width="760" height="920" rx="8" fill="#343037" data-e="2"/>
+<rect x="580.5" y="80.5" width="759" height="919" rx="7.5" fill="none" stroke="#d47f19" stroke-opacity="0.6" stroke-width="1" data-e="2"/>
+<rect x="1333" y="986" width="2" height="2" fill="#9d9078" data-e="11"/>
+<rect x="1330" y="990" width="2" height="2" fill="#9d9078" data-e="11"/>
+<rect x="1333" y="990" width="2" height="2" fill="#9d9078" data-e="11"/>
+<rect x="1326" y="993" width="2" height="2" fill="#9d9078" data-e="11"/>
+<rect x="1330" y="993" width="2" height="2" fill="#9d9078" data-e="11"/>
+<rect x="1333" y="993" width="2" height="2" fill="#9d9078" data-e="11"/>
+<rect x="596" y="86" width="728" height="40" rx="4" fill="#756b5e" fill-opacity="0.9" data-e="14"/>
+<rect x="608" y="96" width="4" height="20" rx="2" fill="#d47f19" data-e="15"/>
+<text x="624" y="114.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">Create server</text>
+<polygon points="1299.4,100 1310,110.6 1308.6,112 1298,101.4" fill="#9d9078" data-e="19"/>
+<polygon points="1308.6,100 1310,101.4 1299.4,112 1298,110.6" fill="#9d9078" data-e="19"/>
+<clipPath id="c0"><rect x="586" y="126" width="748" height="868"/></clipPath><g clip-path="url(#c0)" data-e="20">
+<text x="602" y="164.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="23">Server</text>
+<text x="692" y="164.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="26">Game</text>
+<text x="776" y="164.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="29">Bots</text>
+<rect x="776" y="175" width="46" height="4" fill="#d47f19" data-e="30"/>
+<text x="602" y="217.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="33">Bots</text>
+<rect x="838" y="207" width="428" height="8" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="36"/>
+<rect x="838" y="207" width="86" height="8" rx="2" fill="#d47f19" data-e="37"/>
+<rect x="921" y="199" width="12" height="24" rx="2" fill="#d47f19" data-e="38"/>
+<text x="1307" y="217.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="39">4</text>
+<text x="602" y="285.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="40">Difficulty</text>
+<rect x="838" y="251" width="428" height="8" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="44"/>
+<rect x="838" y="251" width="428" height="8" rx="2" fill="#d47f19" data-e="45"/>
+<rect x="1254" y="243" width="12" height="24" rx="2" fill="#d47f19" data-e="46"/>
+<text x="838" y="293.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="51">Easy</text>
+<text x="838" y="313.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="53">20</text>
+<text x="859" y="313.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="54">points</text>
+<text x="1018" y="293.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="56">Medium</text>
+<text x="1021" y="313.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="58">35</text>
+<text x="1042" y="313.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="59">points</text>
+<text x="1225" y="293.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#d47f19" xml:space="preserve" data-e="61">Hard</text>
+<text x="1204" y="313.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="63">50</text>
+<text x="1225" y="313.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="64">points</text>
+<text x="602" y="360.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="66">Teams</text>
+<rect x="838" y="344" width="20" height="20" rx="2" fill="#d47f19" data-e="69"/>
+<rect x="838.5" y="344.5" width="19" height="19" rx="1.5" fill="none" stroke="#d47f19" stroke-width="1" data-e="69"/>
+<polygon points="841.3,354.3 843.5,352.1 846.7,355.3 846.7,359.8" fill="#2e2b2a" data-e="70"/>
+<polygon points="846.7,359.8 844.5,357.5 852.5,348.6 854.7,350.8" fill="#2e2b2a" data-e="70"/>
+<text x="866" y="360.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="71">Pick each team's bots</text>
+<text x="1071" y="352.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="73">2</text>
+<text x="1064" y="373.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="74">RED</text>
+<rect x="1110" y="350" width="156" height="8" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="76"/>
+<rect x="1110" y="350" width="78" height="8" rx="2" fill="#d47f19" data-e="77"/>
+<rect x="1182" y="342" width="12" height="24" rx="2" fill="#d47f19" data-e="78"/>
+<text x="1291" y="352.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="80">2</text>
+<text x="1284" y="373.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="81">BLU</text>
+<text x="602" y="412.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="82">Class</text>
+<rect x="838" y="390" width="83" height="32" rx="4" fill="#d47f19" fill-opacity="0.2" data-e="84"/>
+<rect x="838.5" y="390.5" width="82" height="31" rx="3.5" fill="none" stroke="#d47f19" stroke-width="1" data-e="84"/>
+<text x="850" y="412.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="85">Soldier</text>
+<text x="929" y="412.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="86">Every bot plays it</text>
+<text x="602" y="452.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="87">Names, such as</text>
+<text x="838" y="452.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="89">Bram Deadeye</text>
+<text x="975" y="452.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="90">Mei Lookout</text>
+<text x="1092" y="452.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="91">Otto Shoots First</text>
+<text x="602" y="492.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="92">Each map</text>
+<rect x="838" y="476" width="20" height="20" rx="2" fill="#2e2b2a" fill-opacity="0.78" data-e="94"/>
+<rect x="838.5" y="476.5" width="19" height="19" rx="1.5" fill="none" stroke="#9d9078" stroke-width="1" data-e="94"/>
+<text x="866" y="492.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="95">New bots each map</text>
+<rect x="602" y="514" width="716" height="1" fill="#ebe2ca" fill-opacity="0.1" data-e="96"/>
+<text x="602" y="554.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="98">Custom bots</text>
+<text x="741" y="554.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="99">3</text>
+<rect x="1165" y="527" width="153" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="101"/>
+<text x="1181" y="554.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="102">Add custom</text>
+<rect x="602" y="579" width="716" height="343" rx="4" fill="#2e2b2a" fill-opacity="0.78" data-e="103"/>
+<clipPath id="c1"><rect x="602" y="579" width="716" height="343"/></clipPath><g clip-path="url(#c1)" data-e="103">
+<clipPath id="c2"><rect x="602" y="579" width="716" height="343"/></clipPath><g clip-path="url(#c2)" data-e="104">
+<text x="614" y="605.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="110">Rocketeer</text>
+<text x="614" y="625.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="112">Agility</text>
+<text x="659" y="625.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="113">Aggression</text>
+<text x="891" y="614.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="114">45 / 60</text>
+<rect x="962" y="606" width="80" height="6" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="115"/>
+<rect x="962" y="606" width="60" height="6" rx="2" fill="#d47f19" data-e="116"/>
+<rect x="1054" y="588" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="117"/>
+<text x="1094" y="616.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="118">Edit</text>
+<rect x="1186" y="588" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="119"/>
+<text x="1205" y="616.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="120">Remove</text>
+<text x="614" y="669.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="125">Named by the server</text>
+<text x="614" y="689.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="127">Accuracy</text>
+<text x="678" y="689.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="128">Alertness</text>
+<text x="891" y="678.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="129">35 / 60</text>
+<rect x="962" y="670" width="80" height="6" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="130"/>
+<rect x="962" y="670" width="47" height="6" rx="2" fill="#d47f19" data-e="131"/>
+<rect x="1054" y="652" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="132"/>
+<text x="1094" y="680.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="133">Edit</text>
+<rect x="1186" y="652" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="134"/>
+<text x="1205" y="680.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="135">Remove</text>
+<text x="614" y="733.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="140">The_Longest_Profile_Name_…</text>
+<text x="614" y="753.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="142">Headhunter</text>
+<text x="695" y="753.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="143">Discipline</text>
+<text x="891" y="742.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="144">60 / 60</text>
+<rect x="962" y="734" width="80" height="6" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="145"/>
+<rect x="962" y="734" width="80" height="6" rx="2" fill="#d47f19" data-e="146"/>
+<rect x="1054" y="716" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="147"/>
+<text x="1094" y="744.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="148">Edit</text>
+<rect x="1186" y="716" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="149"/>
+<text x="1205" y="744.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="150">Remove</text>
+</g>
+</g>
+<rect x="602" y="938" width="120" height="40" rx="4" fill="#756b5e" fill-opacity="0.77" data-e="153"/>
+<text x="628" y="966.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="154">Cancel</text>
+<rect x="1198" y="938" width="120" height="40" rx="4" fill="#d47f19" data-e="156"/>
+<text x="1233" y="966.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="157">Start</text>
+</g>
+</svg>

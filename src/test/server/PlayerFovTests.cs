@@ -47,7 +47,7 @@ public sealed unsafe class PlayerFovTests : IDisposable
         var commands = ServerPlayerCommands.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api),
                                                 _moves, new ServerMoveData(), new NoSounds(), null,
                                                 TestSides.Movement(engine), Frame, _published,
-                                                new Env { Raw = _globals });
+                                                new Env { Raw = _globals }, TestServices.Fake());
         _route = ServerPlayerMovement.For(engine, _moves, commands);
     }
 

@@ -239,6 +239,15 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
     public override TFObjectType Type => TFObjectType.Teleporter;
 
     /// <summary>
+    /// Stock's <c>TeleporterTouch</c> is re-called every tick while the rider
+    /// stands on the pad (tf_obj_teleporter.cpp:639-648 re-reads the velocity
+    /// on every touch), so the pad must be asked every tick it holds somebody:
+    /// a rider that only arrived once, then waited out a jog past the pad's
+    /// edge, still has to ride when it comes back to a stop on it.
+    /// </summary>
+    public override bool TouchEveryTick => true;
+
+    /// <summary>
     /// <c>CObjectTeleporter::GetUpgradeMetalRequired</c>
     /// (tf_obj_teleporter.cpp:309-322): the table's price times the builder's
     /// <c>mod_teleporter_cost</c> — the Eureka Effect's upgrades for half the

@@ -76,6 +76,7 @@ public sealed class ServerPlayerCommands
 {
     private readonly EngineSide _api;
     private readonly IMovementServerArea _movementArea;
+    private readonly IEngineEntities _entitiesArea;
     private readonly ServerPlayerMoves _moves;
     private readonly ServerMoveData _data;
     private readonly ServerMoveWorld _world;
@@ -88,13 +89,15 @@ public sealed class ServerPlayerCommands
     // The command being run: what stage 0 learnt that stage 1 reads.
     private PlayerCommandFacts _facts;
 
-    internal ServerPlayerCommands(EngineSide api, IMovementServerArea movementArea, ServerMoveWorld world,
+    internal ServerPlayerCommands(EngineSide api, IMovementServerArea movementArea, IEngineEntities entitiesArea,
+                                  ServerMoveWorld world,
                                   GameMovement loop, ServerPlayerMoves moves, ServerMoveData data,
                                   MovementRunner movement, Func<MoveFrameConstants> constants,
                                   IPlayerMovePublisher publisher, IEngineEnvironment environment)
     {
         _api = api ?? throw new ArgumentNullException(nameof(api));
         _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
+        _entitiesArea = entitiesArea ?? throw new ArgumentNullException(nameof(entitiesArea));
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _loop = loop ?? throw new ArgumentNullException(nameof(loop));
         _moves = moves ?? throw new ArgumentNullException(nameof(moves));
@@ -113,18 +116,20 @@ public sealed class ServerPlayerCommands
     /// <param name="game">The module the surface change goes to; null sends it nowhere.</param>
     /// <param name="trace">The side's engine trace, as its composition registered it.</param>
     /// <param name="surfaces">The side's surface table, as its composition registered it.</param>
+    /// <param name="entities">The entity bounds seam the head box is resized through.</param>
     public static ServerPlayerCommands For(ModuleEngine engine, IFwdEngineTrace trace, IFwdPhysicsSurfaceProps surfaces,
                                            ServerPlayerMoves moves, ServerMoveData data,
                                            IMoveSoundSink sounds, IServerModule? game,
                                            MovementRunner movement, Func<MoveFrameConstants> constants,
-                                           IPlayerMovePublisher publisher, IEngineEnvironment environment)
+                                           IPlayerMovePublisher publisher, IEngineEnvironment environment,
+                                           IEngineEntities entities)
     {
         ArgumentNullException.ThrowIfNull(engine);
         EngineSide api = engine.Api;
         IMovementServerArea movementArea = api.Attachment.Areas.Require<IMovementServerArea>();
         var world = new ServerMoveWorld(api, movementArea, trace, surfaces, sounds, game);
-        return new ServerPlayerCommands(api, movementArea, world, new GameMovement(world, default), moves, data,
-                                        movement, constants, publisher, environment);
+        return new ServerPlayerCommands(api, movementArea, entities, world, new GameMovement(world, default),
+                                        moves, data, movement, constants, publisher, environment);
     }
 
     /// <summary>The module's three movement decisions, handed to the loop for each run.</summary>
@@ -338,6 +343,7 @@ public sealed class ServerPlayerCommands
         _loop.JumpHeight = frame.JumpHeight;
         _loop.Rules = Rules;
 
+        bool duckedBefore = s.Ducked;
         bool ran;
         try
         {
@@ -386,6 +392,27 @@ public sealed class ServerPlayerCommands
 
         _world.Host = null;
         _world.ResetTouchList();
+
+        // THE HEAD BOX follows the duck, stock's way: FinishDuck and FinishUnDuck
+        // flip the collision bounds with the duck bit (gamemovement.cpp:4215,
+        // SetCollisionBounds inside the move), so every clip against the player
+        // from here on stops on the box they are actually in. The hulls are the
+        // composition's own - the same constants the loop just traced with.
+        if (ran && s.Ducked != duckedBefore)
+        {
+            MoveConstants hulls = frame.Constants;
+            _entitiesArea.SetBounds(player,
+                                    s.Ducked ? hulls.DuckHullMin : hulls.HullMin,
+                                    s.Ducked ? hulls.DuckHullMax : hulls.HullMax);
+        }
+
+        // Publish inside the move command, before the queue runs this command's
+        // buttons: stock's item frame reads the duck the move just took on the
+        // same command (the launcher's muzzle height is chosen from GetFlags()
+        // at fire time, tf_weaponbase_gun.cpp:521-525), and DuckingOf reads the
+        // published flags. A second Publish at Finish still carries the tick
+        // base; the words here are the loop's fresh decision.
+        Publish(player, m);
 
         // ProcessImpacts, after FinishMove as stock's RunCommand orders them.
         Impacts?.ProcessImpacts(player);

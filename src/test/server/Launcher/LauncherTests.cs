@@ -1240,6 +1240,59 @@ public sealed class LauncherTests : IDisposable
         Assert.Null(LaunchArgs(runner));
     }
 
+    // -toolgame: a game a tool, a gate or a lane started keeps no file of the
+    // user's own play (the bots' experience store, plan_bots_teams_tf2 Part G,
+    // G.3). Every tool launch is a -background or an -instance game, so the
+    // launcher says it for them: no launch path can forget it.
+
+    [Fact]
+    public void A_background_game_is_a_tools_game()
+    {
+        var runner = new FakeRunner(0);
+        Run(Found(), runner, TmpEnv(), "-background", "+map", "x");
+        Assert.Equal("-toolgame", LaunchArgs(runner));
+    }
+
+    [Fact]
+    public void An_instance_game_is_a_tools_game()
+    {
+        SeedSharedMod();
+        var runner = new FakeRunner(0);
+        Run(Found(), runner, TmpEnv(), "-instance", "-debugapi", "+map", "x");
+        Assert.Equal("-debugapi\n-toolgame", LaunchArgs(runner));
+    }
+
+    [Fact]
+    public void A_game_that_is_neither_is_a_players_and_is_not_marked()
+    {
+        var runner = new FakeRunner(0);
+        Run(Found(), runner, TmpEnv(), "-debugapi", "-novid", "+map", "x");
+        Assert.Equal("-debugapi", LaunchArgs(runner));
+        var dedicated = new FakeRunner(0);
+        Run(Found(), dedicated, TmpEnv(), "-novid", "+map", "x");
+        Assert.Null(LaunchArgs(dedicated));
+    }
+
+    [Fact]
+    public void A_tool_may_say_it_is_one_and_it_is_said_once()
+    {
+        var alone = new FakeRunner(0);
+        Run(Found(), alone, TmpEnv(), "-toolgame", "-novid");
+        Assert.Equal("-toolgame", LaunchArgs(alone));
+        var both = new FakeRunner(0);
+        Run(Found(), both, TmpEnv(), "-background", "-ToolGame", "-novid");
+        Assert.Equal("-ToolGame", LaunchArgs(both));
+    }
+
+    [Fact]
+    public void The_tools_game_switch_never_reaches_the_engine()
+    {
+        var runner = new FakeRunner(0);
+        Run(Found(), runner, TmpEnv(), "-background", "-toolgame", "-novid");
+        Assert.DoesNotContain(runner.Runs[0].Args, a => a.Equals("-toolgame", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("-novid", runner.Runs[0].Args);
+    }
+
     // An instance's console commands (+sv_lan 1, +fps_max 60, ...) go into a
     // cfg of its own, run with one +exec: the engine's 512-byte command line
     // then carries "+exec sslaunch" for all of them. stuffcmds turns each

@@ -240,7 +240,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                                    new MoveSoundsOf(() => _serverSounds), this, _movement,
                                                    _moveConstants.Read,
                                                    new PlayerMovePublisher(h => _entities?.Get(h) as SsPlayer),
-                                                   _services.Require<IEngineEnvironment>());
+                                                   _services.Require<IEngineEnvironment>(),
+                                                   _services.Require<IEngineEntities>());
         _services.AddInstance(_playerMoves);
         _services.AddInstance(_moveData);
         _services.AddInstance(_serverCommands);
@@ -2178,6 +2179,29 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the ABI getters below; Create built it over this container, so the
         // hook count already includes every assembly the scan found.
         _services.AddInstance(_movementRules);
+
+        // THE PLAYER'S HULLS FROM THE SAME RESOLVED VIEW as the walk's, for
+        // the two halves that size a player: SsPlayer's ctor reads the
+        // composed movement params through the container (its
+        // ShadowHulls - the entity's spawn bounds and the shadow init), and
+        // PlayerShadow.Step's climb trace reads them through its HullSource,
+        // so the box the entity carries and the box the shadow traces with
+        // are the mod's vectors where the mod registers them (TF2's
+        // 48x48x82 standing, 48x48x62 ducked), HL2's where none does -
+        // exactly the numbers the movement loop already walks with.
+        _services.AddInstance<Func<MovementParams>>(
+            () => _movementRules?.Constants ?? Movement.Current);
+        _playerCommands.Shadow.HullSource = () =>
+        {
+            MovementParams c = _movementRules?.Constants ?? Movement.Current;
+            return new MoveConstants
+            {
+                HullMin = c.HullMin,
+                HullMax = c.HullMax,
+                DuckHullMin = c.DuckHullMin,
+                DuckHullMax = c.DuckHullMax,
+            };
+        };
 
         // THE PUSHER'S PLAYER-PUSH HOOK, resolved once now the mods are in:
         // the pusher is composed above the scan, so its hook joins here. A

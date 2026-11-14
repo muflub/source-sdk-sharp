@@ -75,6 +75,14 @@ public sealed class SsPlayer : AnimatingEntity
     /// <summary>A mod's say over <see cref="PushFromDamage"/>.</summary>
     private readonly IHooks<IPlayerDamagePushRule>? _pushRules;
 
+    /// <summary>
+    /// The composition's movement view, the same one the movement loop is
+    /// built on (<see cref="ShadowHulls"/>; the mod's vectors where a mod
+    /// registers them). Null for a hand-built player, which then reads
+    /// <see cref="Movement.Current"/> as the loop's fallback does.
+    /// </summary>
+    private readonly Func<MovementParams>? _movementParams;
+
     // The table HeldWeapon indexes, for the anim target. Null for a hand-built player.
     private readonly WeaponCatalog? _weapons;
 
@@ -96,8 +104,10 @@ public sealed class SsPlayer : AnimatingEntity
                     IEngineDamage? damage = null, IEngineGameEvents? events = null,
                     IEngineEntities? entities = null, DamageHitGroups? hitGroups = null,
                     IHooks<IPlayerHurtHook>? hurtHooks = null, PlayerModels? wardrobe = null,
-                    WeaponCatalog? weapons = null, IHooks<IPlayerDamagePushRule>? pushRules = null)
+                    WeaponCatalog? weapons = null, IHooks<IPlayerDamagePushRule>? pushRules = null,
+                    Func<MovementParams>? movementParams = null)
     {
+        _movementParams = movementParams;
         _pushRules = pushRules;
         _weapons = weapons;
         _wardrobe = wardrobe;
@@ -209,26 +219,34 @@ public sealed class SsPlayer : AnimatingEntity
     /// The two hulls the shadow is built from — standing and crouched.
     ///
     /// <para>
-    /// <b>THE SAME NUMBERS THE MOVEMENT LOOP TRACES WITH</b>, taken from
-    /// <see cref="MoveConstantDefaults.Stock"/> rather than restated, because a shadow
-    /// of a different size from the body is a player who is stopped by a crate
-    /// their shadow has not reached (or shoves one they are not touching).
-    /// <c>TheShadowHullIsTheMovementHull</c> pins the agreement.
+    /// <b>THE SAME NUMBERS THE MOVEMENT LOOP TRACES WITH</b>, taken from the
+    /// composition's movement view — the mod's <see cref="MovementParams"/>
+    /// through <see cref="_movementParams"/> (TF2's vectors in the TF2 mod:
+    /// (-24,-24,0)-(24,24,82) standing, (-24,-24,0)-(24,24,62) ducked), HL2's
+    /// through <see cref="Movement.Current"/> where no mod registers its own
+    /// — rather than restated, because a shadow of a different size from the
+    /// body is a player who is stopped by a crate their shadow has not
+    /// reached (or shoves one they are not touching). The movement loop reads
+    /// the same composition (<c>GameMovement.cs</c>, the
+    /// <c>_constants()</c> frame); <c>TheShadowHullIsTheMovementHull</c>
+    /// pins the agreement.
     /// </para>
     ///
     /// <para>
     /// COUPLED TO PlayerShadow.Step's climb clamp, which traces with the same
-    /// <see cref="MoveConstantDefaults.Stock"/> hulls where stock's
+    /// composed hulls — the composition hands it the same
+    /// <see cref="MovementParams"/> through its
+    /// <see cref="PlayerShadow.HullSource"/> — where stock's
     /// <c>UTIL_TraceEntity( this, ... )</c> uses the player's scaled ones
-    /// (player.cpp:4834-4835). Consistent while both read Stock; a composition
-    /// that registers other constants or a scaled model must change both.
+    /// (player.cpp:4834-4835). Consistent while both read the composition; a
+    /// scaled model must change both.
     /// </para>
     /// </summary>
-    public static (Vector StandMin, Vector StandMax, Vector CrouchMin, Vector CrouchMax) ShadowHulls
+    public (Vector StandMin, Vector StandMax, Vector CrouchMin, Vector CrouchMax) ShadowHulls
     {
         get
         {
-            var c = MoveConstantDefaults.Stock;
+            MovementParams c = _movementParams?.Invoke() ?? SourceSharp.Shared.Movement.Current;
             return (c.HullMin, c.HullMax, c.DuckHullMin, c.DuckHullMax);
         }
     }

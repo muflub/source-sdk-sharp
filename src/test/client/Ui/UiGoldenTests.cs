@@ -152,6 +152,11 @@ public class UiGoldenTests
         { "boteditor", "mid-edit-with-points-left" },
         { "boteditor", "full-spend" },
         { "boteditor", "revisions-open" },
+        // TF2's bots page (plan_bots_teams_tf2 P6 step 8), under the tf2 mod's
+        // theme: its defaults (even teams, the Soldier, names from TF2's pool),
+        // and RED against BLU picked beside the custom bots' rows.
+        { "createserver-tfbotspage", "default" },
+        { "createserver-tfbotspage", "with-custom-bots" },
         // The TF2 weapon selection: the soldier's three slots with the
         // shotgun's card large, and the empty magazine on BLUE — the red
         // note and the team's border arm.

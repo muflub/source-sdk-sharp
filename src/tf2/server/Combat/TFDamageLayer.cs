@@ -27,7 +27,10 @@ namespace TF2.Server.Combat;
 /// registers, standing where stock's <c>CTFPlayer::OnTakeDamage</c> calls
 /// <c>CTFGameRules::ApplyOnDamageModifyRules</c> and, after it, the alive
 /// rules' ignition. One pass, in stock's order, over a hit on a TF player
-/// (one with a carrier; any other victim's hit passes untouched):
+/// (one with a carrier). A victim that is not a player and runs the damage
+/// rules (<see cref="ScriptedEntity.RunsDamageRules"/>) takes the modify rules
+/// alone, as stock's <c>CTFBaseBoss</c> does (<see cref="ModifyForOther"/>);
+/// any other victim's hit passes untouched:
 ///
 /// <para>
 /// 1. THE HIT. Its bits, <see cref="TFDamageBits.Critical"/> added when the
@@ -168,7 +171,7 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     {
         int victimIndex = hit.Victim.EntryIndex;
         if (players.Predicted(victimIndex) is not { } victim)
-            return damage;
+            return directory.Get(hit.Victim) is { RunsDamageRules: true } ? ModifyForOther(in hit, damage) : damage;
 
         bool attackerValid = hit.Attacker != EntityHandle.None && entities.IsValid(hit.Attacker);
         bool attackerIsPlayer = attackerValid && entities.IsPlayer(hit.Attacker);
@@ -359,23 +362,8 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // GetObjectOfType(OBJ_SENTRYGUN) walk, here the directory's live
         // sentries. Stock scales inside FireBullets, per trace, before the
         // modify rules read the number; the product commutes with them.
-        if (attackerIsPlayer && attackerPlayer is { } marker && marker.Class() == TFClass.Engineer)
-        {
-            float sentryMark = attributes.Float(1f, "mult_dmg_bullet_vs_sentry_target",
-                                                owners.ActiveItemOf(hit.Attacker.EntryIndex));
-            if (sentryMark > 1f)
-            {
-                foreach (ScriptedEntity candidate in directory.OfClass(TFSentryGun.MapClass))
-                {
-                    if (candidate is TFSentryGun { IsDead: false } sentry
-                        && sentry.Builder == hit.Attacker && sentry.Target == hit.Victim)
-                    {
-                        damage *= sentryMark;
-                        break;
-                    }
-                }
-            }
-        }
+        if (attackerIsPlayer)
+            damage *= SentryMark(in hit, attackerPlayer);
 
         float? distance = attackerValid && !self
             ? (entities.GetWorldSpaceCenter(hit.Victim) - entities.GetWorldSpaceCenter(hit.Attacker)).Length
@@ -389,20 +377,14 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // <c>ShouldMiniCritOnReflect()</c>, which the remote-detonate sticky
         // fails). A hit no blast dealt has no scope, and stock's projectile
         // cast of a player inflictor fails the same way.
-        bool deflectedProjectile = inflictors.TryCurrent(out EntityHandle blastInflictor, out _)
-            && directory.Get(blastInflictor) is TFRocket { Deflected: true } or TFPipebomb { DeflectedCount: > 0 };
+        bool deflectedProjectile = DeflectedProjectile();
 
         // The rocket specialist's direct hit (tf_gamerules.cpp:6299-6306): the
         // inflictor a rocket whose enemy — the touch, stock's GetEnemy — is
         // this victim, and the attacker's item carries rocket_specialist. The
         // level itself is the radius arm's; here only its presence gates the
         // long-range falloff.
-        bool directRocketHit = attackerIsPlayer
-            && inflictors.TryCurrent(out EntityHandle rocketInflictor, out _)
-            && directory.Get(rocketInflictor) is TFRocket { } directRocket
-            && directRocket.DirectVictim == hit.Victim
-            && attributes.Int(0, "rocket_specialist",
-                              owners.ItemOf(hit.Attacker.EntryIndex, weaponName)) != 0;
+        bool directRocketHit = attackerIsPlayer && DirectRocketHit(in hit, weaponName);
 
         // The econ arms' walk root: the attacker's weapon item, whose owner
         // chain runs to the wearer's manager. A scoped hit (an afterburn tick)
@@ -1125,6 +1107,133 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
 
         return result.Damage;
     }
+
+    /// <summary>
+    /// The modify rules for a victim that is not a player and runs the damage
+    /// rules (<see cref="ScriptedEntity.RunsDamageRules"/>): stock's
+    /// <c>CTFBaseBoss::OnTakeDamage</c> calling
+    /// <c>ApplyOnDamageModifyRules( info, this, true )</c>
+    /// (<c>player_vs_environment/tf_base_boss.cpp:442</c>), where
+    /// <c>pVictim</c> is NULL and every arm behind it is skipped.
+    ///
+    /// <para>
+    /// What such a victim takes is the attacker's half of the rules: the crit
+    /// the weapon rolled and the attacker-side crits and mini-crits (the
+    /// airborne attacker, the buff banner, the charge's first blow, a
+    /// deflected projectile, the crit drink), the weapon's promotions and its
+    /// vs-players multiplier (stock asks <c>mult_dmg_vs_players</c> of any
+    /// victim that reaches the rules, :6394-6398), the range ramp-up and
+    /// fall-off from the two <c>WorldSpaceCenter</c>s, and the crit
+    /// multiplier. The engineer's sentry mark stands before them as for a
+    /// player (<c>CTFPlayer::ModifyDamageInfo</c> names any target).
+    /// </para>
+    ///
+    /// <para>
+    /// What it does not take is the victim's half: no conditions (jarate,
+    /// marked for death, the defense buffs, burning), no hit locations and no
+    /// headshot (<c>CTFPlayer::TraceAttack</c>'s), no fall formula, no
+    /// resists (the alive rules' block is <c>pVictim</c>'s, :7115), no record,
+    /// no ignition, and none of the hit's effects on a player victim. The
+    /// attacker's on-hit walk and rage (<c>tf_base_boss.cpp:445-470</c>) are
+    /// not here either: <c>docs/plans/tf2/deferred.tsv</c>.
+    /// </para>
+    /// </summary>
+    private float ModifyForOther(in DamageContext hit, float damage)
+    {
+        bool attackerValid = hit.Attacker != EntityHandle.None && entities.IsValid(hit.Attacker);
+        bool attackerIsPlayer = attackerValid && entities.IsPlayer(hit.Attacker);
+        bool self = hit.Attacker == hit.Victim;
+        var attackerPlayer = attackerIsPlayer ? players.Predicted(hit.Attacker.EntryIndex) : null;
+        TFCondMask attackerConds = attackerPlayer?.Conditions() ?? default;
+
+        var bits = (DamageType)hit.DamageType;
+        if (hit.Critical)
+            bits |= TFDamageBits.Critical;
+
+        // The hit's custom kind and weapon, and the weapon's own bits over the
+        // caller's, exactly as for a player victim (Modify's opening).
+        bool fromScope = scopes.TryCurrent(out var custom, out TFWeaponId weapon, out string weaponName);
+        if (!fromScope && attackerIsPlayer)
+        {
+            weaponName = enginePlayers.GetActiveWeapon(hit.Attacker);
+            weapon = weaponName.Length > 0 && scripts.Get(weaponName) is { } script ? script.Id : TFWeaponId.None;
+        }
+
+        if (!fromScope && attackerIsPlayer && !self && weapon != TFWeaponId.None)
+            bits = (bits & (TFDamageBits.Critical | TFDamageBits.Melee | TFDamageBits.RadiusMax))
+                 | TFWeaponDamageTypes.Of(weapon);
+
+        if (attackerIsPlayer)
+            damage *= SentryMark(in hit, attackerPlayer);
+
+        float? distance = attackerValid && !self
+            ? (entities.GetWorldSpaceCenter(hit.Victim) - entities.GetWorldSpaceCenter(hit.Attacker)).Length
+            : null;
+
+        var weaponItem = !fromScope && attackerIsPlayer && weaponName.Length > 0
+            ? owners.ItemOf(hit.Attacker.EntryIndex, weaponName) : null;
+        if (weaponItem is null && attackerIsPlayer)
+            weaponItem = owners.ActiveItemOf(hit.Attacker.EntryIndex);
+
+        var input = new TFHit(damage, bits, custom, self, attackerIsPlayer, weapon, distance,
+                              Victim: default, attackerConds, weaponItem, SameClass: false,
+                              VictimWaterLevel: 0, DeflectedProjectile: DeflectedProjectile(),
+                              VictimEyeAngles: null, ToVictim: null,
+                              AttackerAirborne: InAirDueToExplosion(hit.Attacker, attackerConds),
+                              VictimAirborne: false,
+                              DirectRocketHit: attackerIsPlayer && DirectRocketHit(in hit, weaponName),
+                              VictimItem: null, AfterburnDuration: null, DoubleDonk: false,
+                              VictimIsPlayer: false);
+        var settings = new TFDamageSettings(range.Value, disableSpread.Value, critFalloff.Value, miniCritFalloff.Value);
+        var result = TFDamageModifyRules.Apply(in input, in settings, random.RandomFloat, attributes);
+
+        if (debug.Value)
+            log.Msg($"[TF2/Damage] {hit.Victim} (not a player) from {hit.Attacker} ({weaponName}): {hit.Damage:F2} -> {result.Damage:F2}, "
+                  + $"crit {result.Crit}, custom {result.Custom}, bits 0x{(int)result.Bits:X}"
+                  + (distance is { } d ? $", dist {d:F1}" : "") + "\n");
+
+        return result.Damage;
+    }
+
+    /// <summary>
+    /// THE SENTRY'S MARK's factor (<c>CTFPlayer::ModifyDamageInfo</c>,
+    /// tf_player_shared.cpp:10185-10204): the engineer's held weapon's
+    /// <c>mult_dmg_bullet_vs_sentry_target</c> while the victim is who the
+    /// builder's own live sentry aims at, one otherwise.
+    /// </summary>
+    private float SentryMark(in DamageContext hit, TFPlayerNetState? attackerPlayer)
+    {
+        if (attackerPlayer is not { } marker || marker.Class() != TFClass.Engineer)
+            return 1f;
+
+        float sentryMark = attributes.Float(1f, "mult_dmg_bullet_vs_sentry_target",
+                                            owners.ActiveItemOf(hit.Attacker.EntryIndex));
+        if (sentryMark > 1f)
+        {
+            foreach (ScriptedEntity candidate in directory.OfClass(TFSentryGun.MapClass))
+            {
+                if (candidate is TFSentryGun { IsDead: false } sentry
+                    && sentry.Builder == hit.Attacker && sentry.Target == hit.Victim)
+                    return sentryMark;
+            }
+        }
+
+        return 1f;
+    }
+
+    /// <summary>The open blast's inflictor is a rocket or regular pipe a deflection sent back (tf_gamerules.cpp:6159).</summary>
+    private bool DeflectedProjectile() =>
+        inflictors.TryCurrent(out EntityHandle blastInflictor, out _)
+        && directory.Get(blastInflictor) is TFRocket { Deflected: true } or TFPipebomb { DeflectedCount: > 0 };
+
+    /// <summary>The open blast's inflictor is a rocket whose touch was this victim, its owner's item carrying
+    /// <c>rocket_specialist</c> (tf_gamerules.cpp:6299-6306).</summary>
+    private bool DirectRocketHit(in DamageContext hit, string weaponName) =>
+        inflictors.TryCurrent(out EntityHandle rocketInflictor, out _)
+        && directory.Get(rocketInflictor) is TFRocket { } directRocket
+        && directRocket.DirectVictim == hit.Victim
+        && attributes.Int(0, "rocket_specialist",
+                          owners.ItemOf(hit.Attacker.EntryIndex, weaponName)) != 0;
 
     /// <summary>The connected hit's item attribute (<c>damage_all_connected</c>).</summary>
     public const string DamageAllConnected = "damage_all_connected";

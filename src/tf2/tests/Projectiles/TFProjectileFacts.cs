@@ -849,6 +849,21 @@ public class TFBlastApplierFacts
         Assert.Equal(damage * 5f, impulse.Z, 0.5f);
     }
 
+    /// <summary>The grounded push in whole numbers: 90 damage at the soldier's
+    /// grounded scale of 5 (:10320-10335), exactly 450, and that sits below
+    /// TFRadiusDamage.MaxForce's cap of 1000 (:10336), so the cap never trims
+    /// a soldier's own jump launch.</summary>
+    [Fact]
+    public void TheGroundedSoldierPushIsFourHundredFiftyUnderTheCap()
+    {
+        (_, float damage, Vector impulse) = SelfBlast(EntityState.OnGround);
+
+        Assert.Equal(90f, damage, 0.5f);
+        Assert.Equal(450f, impulse.Z, 3f);
+        Assert.True(impulse.Z < TFRadiusDamage.MaxForce,
+                    $"grounded push {impulse.Z} must sit below the cap {TFRadiusDamage.MaxForce}");
+    }
+
     /// <summary>The scale's FL_INWATER test; the push's own arm reads only the ground (:10265).</summary>
     [Fact]
     public void ASoldierInTheWaterTakesItAllAndIsThrownAtTheJumpsScale()

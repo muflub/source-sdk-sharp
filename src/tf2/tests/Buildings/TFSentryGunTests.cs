@@ -13,6 +13,7 @@ using TF2.Server.Projectiles;
 using TF2.Shared.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 using Xunit;
 
 namespace TF2.Tests.Buildings;
@@ -316,6 +317,36 @@ public class TFSentryGunTests
         sentry.OnThink("SentryThink");           // aimed: the shot
 
         Assert.Equal(new[] { TFDamageCustom.None }, during);
+    }
+
+    /// <summary>A sentry shell carries no weapon (stock builds its FireBullets
+    /// info without one, tf_obj_sentrygun.cpp:1520-1554), so the building's
+    /// <c>mult_dmg_vs_buildings</c> ask lands on nothing (tf_obj.cpp:1922-1927,
+    /// the hook behind <c>if (info.GetWeapon())</c>): the builder's held Jag
+    /// does not scale the shell into an enemy building.</summary>
+    [Fact]
+    public void ASentryShellIntoAnEnemyBuildingIsNotScaledByTheBuildersHeldItem()
+    {
+        var (rig, sentry, _) = AWorkingSentry();
+        rig.Owners.Held[0] = "tf_weapon_shotgun";                       // the engineer holds the attributed gun
+        rig.Owners.Items[0] = rig.AttributeItem("mult_dmg_vs_buildings",
+                                                AttributeDescriptionFormat.Percentage, 1.5f);
+        TFDispenser dispenser = ABuilding(rig, 300f);
+        rig.FillsSphere(dispenser.Handle);
+
+        // The blow as the damage layer hands it to the building shell, the
+        // shot's scope still open under it.
+        List<int> taken = new();
+        rig.Engine.WhenCalled("Damage.TakeDamage",
+                              call => taken.Add(BuildingsRig.Hit(dispenser, call.ArgAs<EntityHandle>(1),
+                                                                 call.ArgAs<float>(2), call.ArgAs<DamageType>(3))));
+
+        sentry.OnThink("SentryThink");           // the find
+        rig.Clock.Now += 0.3f;
+        sentry.OnThink("SentryThink");           // aimed: the shell lands on the dispenser
+
+        EngineCall shot = Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));
+        Assert.Equal((int)shot.ArgAs<float>(2), taken.Single());   // sixteen asked, sixteen taken: the held Jag stays out
     }
 
     [Fact]

@@ -93,7 +93,8 @@ public sealed unsafe class ServerCommandSideTests : IDisposable
 
         var commands = ServerPlayerCommands.For(engine, EngineBound.Trace(engine.Api), EngineBound.SurfaceProps(engine.Api), new ServerPlayerMoves(), new ServerMoveData(),
                                                 new NoSounds(), null,
-                                                TestSides.Movement(engine), () => default, new NoPublish(), env);
+                                                TestSides.Movement(engine), () => default, new NoPublish(), env,
+                                                TestServices.Fake());
 
         var cmd = new UserCmd { CommandNumber = 1 };
         Assert.Equal(1, commands.Stage(Player, 0, 0, in cmd));
