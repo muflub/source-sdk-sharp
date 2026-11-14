@@ -60,6 +60,8 @@ public static class BeltRefusals
     public const string NoSuchSlot = "no_such_slot";
     public const string Dead = "dead";
     public const string Stunned = "stunned";
+    /// <summary>The hero is down (WO6): he drinks nothing until he is up.</summary>
+    public const string Downed = "downed";
     public const string Empty = "empty";
     public const string NotAPotion = "not_a_potion";
     public const string OnCooldown = "on_cooldown";
@@ -121,6 +123,8 @@ public sealed class HeroBelt(TF2DescentRules rules, Heroes heroes, HeroKeys keys
             return Refuse(playerIndex, slot, BeltRefusals.NoSuchSlot);
         if (!world.IsAlive(hero.Player))
             return Refuse(playerIndex, slot, BeltRefusals.Dead);
+        if (hero.Downed)
+            return Refuse(playerIndex, slot, BeltRefusals.Downed);
         if (world.Stunned(hero.Player))
             return Refuse(playerIndex, slot, BeltRefusals.Stunned);
         if (!held.Inventory.Belt.TryGetValue(slot - 1, out var potion))

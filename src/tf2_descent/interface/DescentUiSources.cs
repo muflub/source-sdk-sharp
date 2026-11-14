@@ -4,8 +4,13 @@ namespace TF2.Descent.Client.Ui;
 // Same contract as src/client/interface/Ui/UiSources.cs: a screen never sees
 // the engine; index-and-count shapes so reading them each frame allocates
 // nothing; one interface per concern, and a panel takes only what it reads.
-// The wiring (netstate → these) lives in src/tf2_descent/client; the samples
+// The wiring (netstate → these) lives in src/tf2_descent/client/Ui; the samples
 // answer them with fixed data, which is what makes every screen previewable.
+// In TF2.Descent.Client.Interface (plan_descent_logic UI1), not beside the
+// screens: the UI loader holds the screen assembly in its own collectible
+// context while the sources live on the game side, and the container resolves
+// by interface identity, so both halves must name the one type the parent
+// context holds. The namespace stays the screens' own.
 
 /// <summary>Which of D5's rarity rungs an item sits on (0..4, the ladder order).</summary>
 public enum DescentRarity : byte
@@ -33,15 +38,6 @@ public readonly record struct DescentItemView(
 
 /// <summary>One affix line of an item tooltip (never present on an unidentified view).</summary>
 public readonly record struct DescentAffixLine(string Name, int Value);
-
-/// <summary>The four damage types heroes and robots share (R25): fire, blast, bullet, shock.</summary>
-public static class DescentDamageTypes
-{
-    public const string Fire = "#Descent_Type_Fire";
-    public const string Blast = "#Descent_Type_Blast";
-    public const string Bullet = "#Descent_Type_Bullet";
-    public const string Shock = "#Descent_Type_Shock";
-}
 
 // ---- HUD --------------------------------------------------------------------
 

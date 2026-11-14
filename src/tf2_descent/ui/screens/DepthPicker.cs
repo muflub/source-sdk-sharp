@@ -36,6 +36,10 @@ public sealed class DepthPicker : UiScreen
 
     public override string Name => "depthpicker";
 
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_depthpicker";
+
     /// <summary>The dialog's width, du: two window-variant pills (288 du each) plus
     /// the body and row padding fit side by side without touching the clip.</summary>
     public const float WidthDu = 664;

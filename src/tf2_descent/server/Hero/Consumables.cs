@@ -12,21 +12,13 @@ namespace TF2.Descent.Server.Hero;
 public readonly record struct PortalAnswer(bool Opened, string? Why);
 
 /// <summary>
-/// Opens a town portal for a hero (ruling L10: an Engineer teleporter; WO4 builds it). A
-/// Teleporter Blueprint scroll is used up only when the portal opened.
+/// Opens a town portal for a hero (ruling L10: an Engineer teleporter; WO4's
+/// <c>TF2.Descent.Server.Portal.TownPortals</c>). A Teleporter Blueprint scroll is used up
+/// only when the portal opened.
 /// </summary>
 public interface ITownPortal
 {
     PortalAnswer Open(int playerIndex);
-}
-
-/// <summary>The stand-in until WO4: no portal opens, and the scroll is kept. WO4 replaces this registration.</summary>
-[SideService(Side.Server, As = [typeof(ITownPortal)])]
-public sealed class NoTownPortal : ITownPortal
-{
-    public const string Why = "no portal yet";
-
-    public PortalAnswer Open(int playerIndex) => new(false, Why);
 }
 
 /// <summary>Why a use was refused (beside the rules' and the ledger's own words).</summary>
@@ -67,6 +59,8 @@ public sealed class HeroConsumables(TF2DescentRules rules, Heroes heroes, HeroKe
             return Refuse(playerIndex, slot, BeltRefusals.NoHero);
         if (!world.IsAlive(hero.Player))
             return Refuse(playerIndex, slot, BeltRefusals.Dead);
+        if (hero.Downed)
+            return Refuse(playerIndex, slot, BeltRefusals.Downed);
         if (!held.Inventory.Backpack.TryGetValue(slot, out var item))
             return Refuse(playerIndex, slot, BeltRefusals.Empty);
 

@@ -195,7 +195,7 @@ public sealed class DoorShoveTests
         var clock = new FixedClock();
         var service = new TF2.Descent.Server.Horde.HordeService(new ActiveMode(), new OneLevel(Row(3, markers: 0)), rig.Spawner, clock, rig.Parking,
             new TF2.Descent.Server.Horde.HordeCensus(rig.Spawner, rig.Parking, rig.Log), new TF2.Descent.Server.Horde.HordeTickTimer(), rig.Log,
-            new TF2.Descent.Server.Horde.Director.MarkerClearances(rig.World, new RigRules()), new FixedParty(1));
+            new TF2.Descent.Server.Horde.Director.MarkerClearances(rig.World, new RigRules()), new FixedParty(1), rig.Nav(clock: clock));
         service.OnLevelReady("tf2_descent-3-s7");
         rig.World.Put(new Vector(488, 232, 0), new Vector(536, 280, 82), entityIndex: 1, isPlayer: true);
         rig.Heroes.Put(service.Current!.Level!, At(512, 256));

@@ -14,6 +14,8 @@ namespace TF2.Descent.Client.Ui.Screens;
 public sealed class Crate(UiWindows windows, IDescentCrate crate, IDescentCrateActions? actions = null) : UiScreen, IUiWindowed
 {
     public override string Name => "crate";
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+    public override string? Panel => "descent_crate";
 
     public string WindowId => "crate";
 

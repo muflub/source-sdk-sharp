@@ -288,11 +288,14 @@ public enum SkillWhy : byte
 /// <summary>
 /// The owner's skill ranks, read off the wire: for skills
 /// <see cref="First"/> onward in skills.json's order, the real rank, why the
-/// next rank cannot be bought (<see cref="SkillWhy"/>), and the hero level
-/// the next rank asks; <see cref="Total"/> is the table's size.
+/// next rank cannot be bought (<see cref="SkillWhy"/>), the hero level the
+/// next rank asks, and whether every prerequisite is held (the rules check
+/// the level first, so a skill below its level says nothing of them in
+/// <see cref="Why"/>); <see cref="Total"/> is the table's size.
 /// </summary>
 public sealed record SkillRanksView(uint Fingerprint, int First, int Total, IReadOnlyList<int> Ranks,
-                                    IReadOnlyList<SkillWhy> Why, IReadOnlyList<int> NextLevel);
+                                    IReadOnlyList<SkillWhy> Why, IReadOnlyList<int> NextLevel,
+                                    IReadOnlyList<bool>? PrerequisitesMet = null);
 
 public interface ISkillRanksHook
 {
@@ -302,8 +305,8 @@ public interface ISkillRanksHook
 /// <summary>The skill ranks on the wire (<c>skill_ranks</c>): sent to the owner when a rank or a refusal changes; a table longer than <see cref="MaxSkills"/> goes in several.</summary>
 public partial struct SkillRanks
 {
-    /// <summary>The most skills one message carries.</summary>
-    public const int MaxSkills = 72;
+    /// <summary>The most skills one message carries: four arrays of them fit 255 bytes.</summary>
+    public const int MaxSkills = 60;
 
     public partial uint Fingerprint { get; set; }
     public partial byte First { get; set; }
@@ -318,9 +321,14 @@ public partial struct SkillRanks
     [UserMessageArray(MaxCount = MaxSkills)]
     public partial byte[] NextLevel { get; set; }
 
+    /// <summary>1 where every prerequisite of the skill is held at its rank.</summary>
+    [UserMessageArray(MaxCount = MaxSkills)]
+    public partial byte[] Prerequisites { get; set; }
+
     public SkillRanksView View() => new(
         Fingerprint, First, Total, Array.ConvertAll(Ranks ?? [], r => (int)r),
-        Array.ConvertAll(Why ?? [], w => (SkillWhy)w), Array.ConvertAll(NextLevel ?? [], l => (int)l));
+        Array.ConvertAll(Why ?? [], w => (SkillWhy)w), Array.ConvertAll(NextLevel ?? [], l => (int)l),
+        Array.ConvertAll(Prerequisites ?? [], p => p != 0));
 }
 
 [UserMessage(Name)]

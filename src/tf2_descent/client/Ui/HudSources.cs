@@ -3,6 +3,8 @@ using SourceSharp.Client;
 using SourceSharp.Client.Vgui;
 using SourceSharp.Shared;
 
+using TF2.Descent.Client.Belt;
+using TF2.Descent.Client.Content;
 using TF2.Descent.Client.Skills;
 
 namespace TF2.Descent.Client.Ui;
@@ -135,10 +137,9 @@ public static class HeroClassTokens
 
 /// <summary>
 /// How long a charge skill takes to fill, in server ticks: what the cast
-/// bar's fraction is measured against. The skill bar the server sends
-/// (<c>skill_bar</c>) carries the charging slot and the tick it began, not
-/// the charge's length, which the server resolves from the hero's sheet and
-/// the skill's rank (<c>SkillRuntime.StagesReached</c>); 0 is "not known".
+/// bar's fraction is measured against. The server resolves it from the hero's
+/// sheet and the skill's rank and sends it on the skill bar
+/// (<c>SkillBarView.ChargeTicks</c>); 0 is "not known".
 /// </summary>
 public interface ISkillChargeLengths
 {
@@ -147,14 +148,17 @@ public interface ISkillChargeLengths
 }
 
 /// <summary>
-/// The client knows no charge length (see <see cref="ISkillChargeLengths"/>):
-/// until the skill bar carries one, the cast bar shows the charging skill
-/// with an empty meter.
+/// The charge's length as the skill bar carries it (plan_descent_logic UI3):
+/// the bar's <c>ChargeTicks</c> for the skill charging in its slot; 0 for any
+/// other skill, or before a bar with a charge.
 /// </summary>
 [SideService(Side.Client, As = [typeof(ISkillChargeLengths)])]
-public sealed class UnknownChargeLengths : ISkillChargeLengths
+public sealed class SkillBarChargeLengths(SkillBarState bar) : ISkillChargeLengths
 {
-    public int TicksOf(string skillId) => 0;
+    public int TicksOf(string skillId) =>
+        bar.Bar is { ChargeSlot: > 0 } view && view.ChargeSlot <= view.Skills.Count && view.Skills[view.ChargeSlot - 1] == skillId
+            ? view.ChargeTicks
+            : 0;
 }
 
 /// <summary>The client's tick count: what the skill bar's server ticks are measured against.</summary>
@@ -173,18 +177,19 @@ public sealed class EngineClientTicks(IEngineEnvironment environment) : IClientT
 
 /// <summary>
 /// The cast bar (<see cref="IDescentCastBar"/>) over the skill bar: casting
-/// while a slot's key is held on a charge skill; the name is the slot's skill
-/// id (the client has no skill names: the table is the server's rules); the
-/// fraction is the ticks since the charge began over the charge's length,
-/// clamped to 0..1, and 0 while the length is unknown. The wire says nothing
-/// of an interrupted cast.
+/// while a slot's key is held on a charge skill; the name is the skill's, from
+/// the content the client embeds (its id for a skill the client does not
+/// have); the fraction is the ticks since the charge began over the charge's
+/// length, clamped to 0..1, and 0 while the length is unknown. The wire says
+/// nothing of an interrupted cast.
 /// </summary>
 [SideService(Side.Client, As = [typeof(IDescentCastBar)])]
-public sealed class CastBarSource(SkillBarState bar, ISkillChargeLengths lengths, IClientTicks ticks) : IDescentCastBar
+public sealed class CastBarSource(SkillBarState bar, ISkillChargeLengths lengths, IClientTicks ticks, DescentCatalog catalog)
+    : IDescentCastBar
 {
     public bool Casting => Charging is not null;
 
-    public string SpellName => Charging ?? "";
+    public string SpellName => Charging is { } id ? catalog.Skill(id)?.Name ?? id : "";
 
     public float Fraction
     {
@@ -206,4 +211,38 @@ public sealed class CastBarSource(SkillBarState bar, ISkillChargeLengths lengths
         => bar.Bar is { ChargeSlot: > 0 } view && view.ChargeSlot <= view.Skills.Count && view.Skills[view.ChargeSlot - 1].Length > 0
             ? view.Skills[view.ChargeSlot - 1]
             : null;
+}
+
+/// <summary>
+/// The potion belt (<see cref="IDescentBelt"/>) from the belt the server sends
+/// its owner (HE8): each slot's potion name and count, and the shared
+/// cooldown, ready once the client's tick reaches the tick the server said it
+/// ends. Before a belt arrives it is four empty slots, ready.
+/// </summary>
+[SideService(Side.Client, As = [typeof(IDescentBelt)])]
+public sealed class BeltSource(IBeltState belt, IClientTicks ticks) : IDescentBelt
+{
+    public int SlotCount => belt.SlotCount;
+
+    public string SlotName(int i) => belt.NameOf(i);
+
+    public int SlotCountOf(int i) => belt.CountOf(i);
+
+    public bool SlotReady => belt.ReadyTick == 0 || ticks.Now >= belt.ReadyTick;
+}
+
+/// <summary>
+/// The gear warning (<see cref="IDescentGearWarning"/>) from the wear levels the
+/// server sends its owner (HE9): the worst worn piece, its name and how much
+/// of its durability is left. None while every piece is above the warning line.
+/// </summary>
+[SideService(Side.Client, As = [typeof(IDescentGearWarning)])]
+public sealed class GearWarningSource(IGearWearState wear) : IDescentGearWarning
+{
+    public bool Present => wear.Warning is not null;
+
+    public string ItemName => wear.Warning?.Name ?? "";
+
+    public float Fraction =>
+        wear.Warning is { MaxDurability: > 0 } worst ? Math.Clamp(worst.Durability / (float)worst.MaxDurability, 0f, 1f) : 0f;
 }

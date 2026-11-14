@@ -51,7 +51,7 @@ public enum FamilyNode : short
 /// view's heroes and pack-mates (<see cref="HordeView"/>), a seeded stream a decide, the trace
 /// and the doing record, and the intent. A family reads only what the core's recording writes.
 /// </summary>
-public abstract class FamilyDecider : IDecider
+public abstract class FamilyDecider : IDecider, IHordeRouted
 {
     private readonly HuntDecider _hunt;
     private DoingRecord _doing;

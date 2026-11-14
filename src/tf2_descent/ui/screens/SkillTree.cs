@@ -4,21 +4,6 @@ using TF2.Descent.Client.Ui.Parts;
 
 namespace TF2.Descent.Client.Ui.Screens;
 
-/// <summary>Which group heading a Mercenary card sits under; the tab answers per group index.
-/// The shared <see cref="IDescentSkillTab"/> has no group titles, so the screen carries this
-/// narrow extension itself (flagged for the shared interface).</summary>
-public interface IDescentSkillGroups
-{
-    string GroupTitleToken(int group);
-}
-
-/// <summary>Which tab the player was last on (host state in the game, sample-fixed in previews).
-/// Not on <see cref="IDescentSkills"/>, so the screen carries this narrow extension itself.</summary>
-public interface IDescentSkillTabSelection
-{
-    int SelectedTab { get; }
-}
-
 /// <summary>
 /// The skill window (docs/plans/descent_ui.md §2.5, Appendix A): <c>ui.Tabs</c>
 /// across the top — the class's three trees and the Mercenary tab, all from
@@ -48,6 +33,7 @@ public sealed class SkillTree : UiScreen, IUiWindowed
     private readonly IDescentSkills _skills;
     private readonly IDescentSkillHover? _hover;
     private readonly HintTip? _hint;
+    private readonly IDescentSkillTabActions? _tabActions;
     private readonly SkillTreeBody _body;
 
     // Tab titles, rebuilt only when the tab count changes (describe allocates
@@ -56,16 +42,22 @@ public sealed class SkillTree : UiScreen, IUiWindowed
 
     public SkillTree(UiWindows windows, IDescentSkills skills,
                      IDescentSkillActions? actions = null,
-                     IDescentSkillHover? hover = null, HintTip? hint = null)
+                     IDescentSkillHover? hover = null, HintTip? hint = null,
+                     IDescentSkillTabActions? tabActions = null)
     {
         _windows = windows;
         _skills = skills;
         _hover = hover;
         _hint = hint;
+        _tabActions = tabActions;
         _body = new SkillTreeBody(actions, hover);
     }
 
     public override string Name => "skilltree";
+
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_skilltree";
 
     public string WindowId => "skilltree";
 
@@ -86,8 +78,8 @@ public sealed class SkillTree : UiScreen, IUiWindowed
             return;
         RefreshTitles(tabCount);
 
-        // The tab row is display-only (the toolkit's input half arrives with U3,
-        // as in ServerBrowser); which tab is open is host state, sample-fixed here.
+        // Which tab is open is host state (sample-fixed in previews); a click on a
+        // tab reports it through IDescentSkillTabActions (plan_descent_logic UI3).
         int tab = _skills is IDescentSkillTabSelection sel
             ? Math.Clamp(sel.SelectedTab, 0, tabCount - 1)
             : 0;
@@ -96,7 +88,7 @@ public sealed class SkillTree : UiScreen, IUiWindowed
         {
             using (ui.Row(Space.L, Align.End).Width(Size.Fill))
             {
-                DrawTabs(ref ui, _tabTitles, tab, ui.DesignWidth);
+                DrawTabs(ref ui, _tabTitles, tab, ui.DesignWidth, _tabActions);
                 ui.Flex();
                 using (ui.Row(Space.XS, Align.Centre))
                 {
@@ -138,7 +130,8 @@ public sealed class SkillTree : UiScreen, IUiWindowed
     /// and elided, so an unlocalised (uppercase-key) or long title shrinks
     /// instead of overflowing the row on a small screen.
     /// </summary>
-    private static void DrawTabs(ref UiFrame ui, scoped ReadOnlySpan<string> titles, int selected, float designW)
+    private static void DrawTabs(ref UiFrame ui, scoped ReadOnlySpan<string> titles, int selected, float designW,
+                                 IDescentSkillTabActions? actions)
     {
         int tabCount = titles.Length;
         float cap = MathF.Max(64f, (designW * 0.92f - (tabCount - 1) * (int)Space.XL) / tabCount);
@@ -147,8 +140,10 @@ public sealed class SkillTree : UiScreen, IUiWindowed
             for (int i = 0; i < tabCount; i++)
             {
                 bool on = i == selected;
-                using (ui.Column(Space.XS, Align.Stretch).Key(i).MaxWidth(cap))
+                using (var column = ui.Column(Space.XS, Align.Stretch).Key(i).MaxWidth(cap))
                 {
+                    if (actions is not null && ui.Interact(column).Clicked)
+                        actions.SelectTab(i);
                     ui.Text(titles[i], Text.Heading, on ? Tone.Text : Tone.TextMuted).Elide();
                     ui.Rect(on ? Tone.Accent : Tone.None, Size.Fill, Size.Du(4));
                 }

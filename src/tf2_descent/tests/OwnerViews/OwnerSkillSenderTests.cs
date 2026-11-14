@@ -69,6 +69,19 @@ public sealed class OwnerSkillSenderTests
     }
 
     [Fact]
+    public void A_skill_below_its_level_still_says_whether_its_prerequisites_are_held()
+    {
+        var rig = new OwnerRig();
+        rig.Level(3);
+
+        var ranks = Last(rig);
+
+        Assert.Equal((byte)SkillWhy.BelowLevel, ranks.Why[SkillIndex(rig, "salvo")]);
+        Assert.Equal(0, ranks.Prerequisites[SkillIndex(rig, "salvo")]);              // Patriot Missile not held
+        Assert.Equal(1, ranks.Prerequisites[SkillIndex(rig, "patriot_missile")]);    // none to hold
+    }
+
+    [Fact]
     public void Buying_a_rank_sends_the_new_rank()
     {
         var rig = new OwnerRig();

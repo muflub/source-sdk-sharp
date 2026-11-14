@@ -89,6 +89,31 @@ public sealed class DescentUiCloseCommand(UiLoader ui, ILog log)
     }
 }
 
+/// <summary>Opens a Descent screen that is closed and closes one that is open (<c>tf2_descent_ui_toggle automap</c>): what a key that shows a map does.</summary>
+[ConCommand("tf2_descent_ui_toggle", Help = "tf2_descent_ui_toggle <screen>: open a TF2 Descent screen, or close it when it is open")]
+public sealed class DescentUiToggleCommand(UiLoader ui, ILog log)
+{
+    private IEnumerable<string> Screens() => DescentScreens.Names;
+
+    public void Execute([Complete(From = nameof(Screens))] string screen = "")
+    {
+        if (DescentScreens.Find(screen) is not { } name)
+        {
+            log.Msg($"usage: tf2_descent_ui_toggle <{string.Join('|', DescentScreens.Names)}>\n");
+            return;
+        }
+        if (ui.Current is not { } runtime || !runtime.Has(name))
+        {
+            log.Msg($"tf2_descent_ui_toggle: the UI has no {name} screen (is TF2.Descent.Client.Ui in the mod's client_ui?)\n");
+            return;
+        }
+        if (runtime.IsOpen(name))
+            runtime.Close(name);
+        else
+            runtime.Open(name);
+    }
+}
+
 // The three windows a hero needs now, on the keys an ARPG puts them on. Every
 // letter is one of TF2's binds, so these take three of TF2's keys, as the
 // skill keys took 4 to 9: C from +voice_menu_3 (TF2's third voice menu), I
@@ -104,3 +129,9 @@ public sealed class InventoryKey;
 
 [KeyAction("tf2_descent_ui skilltree", "Skills", Section = "Descent", Order = 1130, Keys = ["k"])]
 public sealed class SkillTreeKey;
+
+// The automap (UI5) on M, an ARPG's map key, which it takes from TF2's
+// open_charinfo_direct: TF2's loadout, which Descent keeps closed (HE1). TAB
+// stays TF2's scoreboard. A toggle: the key that opens the map closes it.
+[KeyAction("tf2_descent_ui_toggle automap", "Automap", Section = "Descent", Order = 1140, Keys = ["m"])]
+public sealed class AutomapKey;

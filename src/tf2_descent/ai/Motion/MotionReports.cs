@@ -53,3 +53,14 @@ public readonly record struct LandedReport(long Tick, long LeftGround, float Fal
 
     public long AirTicks => Tick - LeftGround;
 }
+
+/// <summary>
+/// A body's last arrival (plan_descent_logic 3.6, the brain's <c>Arrived</c>): the tick its order's
+/// last corner was reached, where the body stood, and how many arrivals the lend has had.
+/// <see cref="Tick"/> is 0 before the first.
+/// </summary>
+public readonly record struct ArrivedReport(long Tick, SourceSharp.Ai.AiVector At, int Count)
+{
+    public bool Ever => Tick != 0;
+}
+

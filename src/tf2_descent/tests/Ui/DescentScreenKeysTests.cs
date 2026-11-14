@@ -10,8 +10,8 @@ namespace TF2.Descent.Tests.Ui;
 
 /// <summary>
 /// The Descent screens' names and keys on the client (plan_descent_logic UI1):
-/// the command's words, and the three window keys, C, I and K, which come
-/// after TF2's list and the skill keys and take three of TF2's letters.
+/// the command's words, and the window keys, C, I, K and the automap's M (UI5),
+/// which come after TF2's list and the skill keys and take four of TF2's letters.
 /// </summary>
 public sealed class DescentScreenKeysTests
 {
@@ -58,9 +58,17 @@ public sealed class DescentScreenKeysTests
     }
 
     [Fact]
+    public void M_toggles_the_automap()
+    {
+        var final = Final(Actions());
+
+        Assert.Equal("tf2_descent_ui_toggle automap", final["m"]);
+    }
+
+    [Fact]
     public void The_window_keys_are_none_of_the_skill_or_belt_keys()
     {
-        string[] windows = ["c", "i", "k"];
+        string[] windows = ["c", "i", "k", "m"];
         var reserved = SkillKeys.SlotKeys.Concat(SkillKeys.BeltKeys).ToArray();
 
         Assert.Equal(10, reserved.Length);                       // the stimulus: the skills' six and the belt's four
@@ -70,7 +78,7 @@ public sealed class DescentScreenKeysTests
     }
 
     [Fact]
-    public void The_window_keys_take_exactly_three_of_tf2s_binds()
+    public void The_window_keys_take_exactly_four_of_tf2s_binds()
     {
         var actions = Actions();
         var tf2Only = ClientKeyActions.Of(typeof(client::TF2.Client.MoveForwardKey).Assembly.GetTypes(), typeof(ClientKeyActions).Assembly);
@@ -87,6 +95,7 @@ public sealed class DescentScreenKeysTests
             ["c"] = "+voice_menu_3",
             ["i"] = "showmapinfo",
             ["k"] = "cl_decline_first_notification",
+            ["m"] = "open_charinfo_direct",        // TF2's loadout, which Descent keeps closed (HE1)
         }, displaced);
     }
 }

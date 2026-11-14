@@ -12,7 +12,8 @@ namespace TF2.Descent.Server.Horde;
 /// never the town), it asks the level source for the level, measures each pack
 /// marker's clearance (HO9), asks the party present (D11), makes the one
 /// controller, has it roll the roster through the spawn director and make the
-/// pool, and logs the census.
+/// pool, logs the census, and starts the level's navigation
+/// (<see cref="Nav.HordeNav"/>, off the game thread).
 /// Every server tick it runs the controller's tick (timed while the timer is
 /// on). At level shutdown, while the entities still exist, the controller
 /// drops what it owns and the parking table is cleared; the engine removes the
@@ -21,7 +22,7 @@ namespace TF2.Descent.Server.Horde;
 [SideService(Side.Server)]
 public sealed class HordeService(IDescentModeState mode, IHordeLevelSource levels, IHordeSpawner spawner, IHordeClock clock,
                                  HordeParking parking, HordeCensus census, HordeTickTimer timer, ILog log,
-                                 Director.IMarkerClearances clearances, Director.IHordeParty party)
+                                 Director.IMarkerClearances clearances, Director.IHordeParty party, Nav.HordeNav nav)
     : IGameLifecycle, IFrameLifecycle
 {
     public const int Order = ModStages.First + 500;
@@ -80,6 +81,7 @@ public sealed class HordeService(IDescentModeState mode, IHordeLevelSource level
         }
 
         census.LevelReady(controller, map);
+        nav.Begin(mapName, level);
     }
 
     public void OnThink(float frameTime)
@@ -88,6 +90,7 @@ public sealed class HordeService(IDescentModeState mode, IHordeLevelSource level
             return;
 
         timer.Enter();
+        nav.Tick();
         controller.Tick(clock.Tick);
         timer.Leave();
         census.Watch(controller);
@@ -98,6 +101,7 @@ public sealed class HordeService(IDescentModeState mode, IHordeLevelSource level
     private void Drop()
     {
         Current?.End();
+        nav.End();
         Current = null;
         parking.Clear();
         census.Forget();

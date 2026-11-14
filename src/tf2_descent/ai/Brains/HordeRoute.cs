@@ -3,6 +3,13 @@ using TF2.Descent.Ai.Level;
 
 namespace TF2.Descent.Ai.Brains;
 
+/// <summary>A decider that walks by a <see cref="HordeRoute"/> (the dev print reads its path).</summary>
+public interface IHordeRouted
+{
+    /// <summary>The brain's walker, or none before a decider that has one is made.</summary>
+    HordeRoute? Route { get; }
+}
+
 /// <summary>What a decider's routes are planned over: the level (the room route) and its graph's paths, when the server has them.</summary>
 public sealed class HordeRoutes(HordeLevel level, IHordePaths? paths)
 {
@@ -25,7 +32,10 @@ public sealed class HordeRoutes(HordeLevel level, IHordePaths? paths)
 /// <list type="bullet">
 /// <item><b>Reuse.</b> A path is kept while its goal moves less than <see cref="ReuseUnits"/>
 /// from the one it was planned to (its last corner follows the goal), the class is the same and
-/// the body stays near it (<see cref="OffPathUnits"/>).</item>
+/// the body stays near it (<see cref="OffPathUnits"/>). A goal that moved farther is planned
+/// again at the brain's next turn; until then the old path is kept, its last corner following
+/// the goal (live, a robot sent by the room route between its turns walked into the alcove's
+/// wall).</item>
 /// <item><b>Budget.</b> A brain searches only on its own tick of each <see cref="SearchEveryTicks"/>
 /// (five decides): the ticks where <c>(tick + slot) % SearchEveryTicks == 0</c>, one of its
 /// decide ticks, so the pool's brains take turns round the cycle; and each search expands at
@@ -63,8 +73,10 @@ public sealed class HordeRoute
 
     private readonly HordeLevel _level;
     private readonly IHordePaths? _paths;
-    private readonly AiVector[] _corners = new AiVector[MaxCorners];
-    private readonly NavEdgeType[] _arrive = new NavEdgeType[MaxCorners];
+    private AiVector[] _corners = new AiVector[MaxCorners];
+    private NavEdgeType[] _arrive = new NavEdgeType[MaxCorners];
+    private AiVector[] _nextCorners = new AiVector[MaxCorners];
+    private NavEdgeType[] _nextArrive = new NavEdgeType[MaxCorners];
     private int _count, _at;
     private bool _truncated, _has;
     private AiVector _start, _goal;
@@ -109,29 +121,41 @@ public sealed class HordeRoute
             return RoomRoute.Follow(_level, from, to, speed);
         }
 
-        if (_has && (_epoch != epoch || _class != cls || _goal.DistanceTo(to) > ReuseUnits))
-            _has = false;
-        if (_has)
+        // The path in hand: on this graph and class, the body still on it, and not run out.
+        bool usable = _has && _epoch == epoch && _class == cls;
+        if (usable)
+        {
             Advance(from);
-        if (_has && (_at >= _count || Off(from) || (_truncated && _count - _at <= 1)))
-            _has = false;
+            usable = _at < _count && !Off(from) && !(_truncated && _count - _at <= 1);
+        }
 
-        if (!_has && SearchTurn(tick, _slot))
+        bool moved = usable && _goal.DistanceTo(to) > ReuseUnits;
+        if ((!usable || moved) && SearchTurn(tick, _slot))
         {
             Searches++;
-            PathAnswer answer = paths.Find(from, to, cls, SearchBudget, _corners, _arrive, out _count, out _truncated);
-            if (answer == PathAnswer.Found && _count > 0)
+            PathAnswer answer = paths.Find(from, to, cls, SearchBudget, _nextCorners, _nextArrive, out int count, out bool truncated);
+            if (answer == PathAnswer.Found && count > 0)
             {
-                _has = true;
+                (_corners, _nextCorners) = (_nextCorners, _corners);
+                (_arrive, _nextArrive) = (_nextArrive, _arrive);
+                _count = count;
+                _truncated = truncated;
                 _at = 0;
                 _start = from;
                 _goal = to;
                 _class = cls;
                 _epoch = epoch;
+                usable = true;
                 Advance(from);
+            }
+            else
+            {
+                usable = false;
             }
         }
 
+        // Between its turns a brain whose goal moved keeps its path, the last corner following the goal.
+        _has = usable;
         if (!_has)
         {
             ByRooms++;

@@ -114,10 +114,11 @@ public sealed class HordeRouteTests
         route.Follow(new Tick(120), View(77), From, Goal, MoveSpeed.Run);
         var moved = Goal + new AiVector(0f, HordeRoute.ReuseUnits + 10f, 0f);
 
-        // A decide that is not its turn: no search; the room route meanwhile.
-        route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks - DecideSchedule.Period), View(77), From, moved, MoveSpeed.Run);
+        // A decide that is not its turn: no search; the old path meanwhile, its last corner on the moved goal.
+        var between = route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks - DecideSchedule.Period), View(77), From, moved, MoveSpeed.Run);
         Assert.Equal(1, paths.Searches);
-        Assert.Equal(1, route.ByRooms);
+        Assert.Equal(0, route.ByRooms);
+        Assert.Equal(moved, between.Corner(between.CornerCount - 1));
 
         route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks), View(77), From, moved, MoveSpeed.Run);
         Assert.Equal(2, paths.Searches);
@@ -136,6 +137,22 @@ public sealed class HordeRouteTests
         }
 
         Assert.Equal(1, paths.Searches);
+    }
+
+    [Fact]
+    public void A_search_that_fails_at_the_turn_lets_the_old_path_go_for_the_room_route()
+    {
+        var paths = new FakePaths();
+        var route = new HordeRoute(Row(4, markers: 0), paths);
+        route.Follow(new Tick(120), View(77), From, Goal, MoveSpeed.Run);
+        paths.Answer = PathAnswer.Unreachable;
+        var moved = Goal + new AiVector(0f, HordeRoute.ReuseUnits + 10f, 0f);
+
+        var move = route.Follow(new Tick(120 + HordeRoute.SearchEveryTicks), View(77), From, moved, MoveSpeed.Run);
+
+        Assert.Equal(2, paths.Searches);
+        Assert.False(route.HasPath);
+        Assert.Equal(RoomRoute.Follow(Row(4, markers: 0), From, moved, MoveSpeed.Run), move);
     }
 
     [Fact]

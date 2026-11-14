@@ -89,7 +89,7 @@ public sealed class ConsumableFacts
     }
 
     [Fact]
-    public void The_portal_stand_in_refuses_and_the_blueprint_is_kept()
+    public void A_portal_that_does_not_open_refuses_and_the_blueprint_is_kept()
     {
         var rig = new BeltRig();
         int scroll = rig.Give(BeltRig.Carried("town_portal", 3));
@@ -97,7 +97,7 @@ public sealed class ConsumableFacts
         var r = rig.Use(scroll);
 
         Assert.Equal(UseRefusals.Portal, r.Refusal);
-        Assert.Equal(NoTownPortal.Why, r.Did);
+        Assert.Equal(BeltRig.Portal.Why, r.Did);
         Assert.Equal(1, rig.Portals.Asked);
         Assert.Equal(3, rig.Held.Inventory.Backpack[scroll].Item.Count);
     }

@@ -94,13 +94,16 @@ internal sealed class BeltRig
 
     internal sealed class Portal : ITownPortal
     {
+        /// <summary>What a portal that does not open says.</summary>
+        public const string Why = "no portal here";
+
         public bool Opens { get; set; }
         public int Asked { get; private set; }
 
         public PortalAnswer Open(int playerIndex)
         {
             Asked++;
-            return Opens ? new PortalAnswer(true, null) : new NoTownPortal().Open(playerIndex);
+            return new PortalAnswer(Opens, Opens ? null : Why);
         }
     }
 

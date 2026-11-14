@@ -55,10 +55,12 @@ public sealed class HordeDeciders
     /// makes its family's and answers through it from then on. The tree a
     /// recording names (made before the first decide) is <see cref="HuntDecider"/>'s.
     /// </summary>
-    private sealed class FamilyDecider(BrainSetup setup, HordeDeciders deciders) : IDecider
+    private sealed class FamilyDecider(BrainSetup setup, HordeDeciders deciders) : IDecider, IHordeRouted
     {
         private readonly BtTrace _empty = new();
         private IDecider? _inner;
+
+        public HordeRoute? Route => (_inner as IHordeRouted)?.Route;
 
         public BtTrace Trace => _inner?.Trace ?? _empty;
 

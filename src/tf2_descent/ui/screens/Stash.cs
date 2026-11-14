@@ -91,6 +91,10 @@ public sealed class Stash : UiScreen, IUiWindowed
 
     public override string Name => "stash";
 
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_stash";
+
     public string WindowId => "stash";
 
     /// <summary>The grid's columns; the cell is <see cref="ItemSlot.SizeDu"/> wide.</summary>

@@ -14,8 +14,9 @@ namespace TF2.Descent.Server.OwnerViews;
 /// THE SKILL TREE'S RANKS, TO ITS OWNER (plan_descent_logic UI3): for every
 /// skill in the rules' table, the hero's real rank, why the next rank cannot
 /// be bought now (the rules' own <see cref="SkillRules.Buy"/> refusal, asked
-/// of the live sheet), and the hero level the next rank asks
-/// (<see cref="SkillRules.LevelFor"/>), as <see cref="SkillRanks"/>. The
+/// of the live sheet), the hero level the next rank asks
+/// (<see cref="SkillRules.LevelFor"/>) and whether its prerequisites are held,
+/// as <see cref="SkillRanks"/>. The
 /// client draws the tree from these and the content it embeds; the buy
 /// itself is the server's (<c>tf2_descent_learn</c>). Sent when the sheet
 /// changes (a rank bought, a level gained, a respec: the stats are derived
@@ -83,6 +84,7 @@ public sealed class OwnerSkillSender(IUserMessageSender sender, Heroes heroes, T
                     int rank = SkillRules.RealRank(sheet, s.Id);
                     return (byte)(rank < s.MaxRank ? Math.Clamp(rules.Skills.LevelFor(s, rank + 1), 0, byte.MaxValue) : 0);
                 })],
+                Prerequisites = [.. part.Select(s => (byte)(s.Prerequisites.All(p => p.MetBy(id => SkillRules.RealRank(sheet, id))) ? 1 : 0))],
             });
             if (skills.Count == 0)
                 break;
@@ -95,7 +97,8 @@ public sealed class OwnerSkillSender(IUserMessageSender sender, Heroes heroes, T
         if (hero.PlayerIndex <= 0 || hero.Sheet is not { } sheet)
             return;
         var messages = Of(sheet);
-        string key = string.Join("|", messages.Select(m => $"{m.First}:{Convert.ToHexString(m.Ranks)}:{Convert.ToHexString(m.Why)}:{Convert.ToHexString(m.NextLevel)}"));
+        string key = string.Join("|", messages.Select(m =>
+            $"{m.First}:{Convert.ToHexString(m.Ranks)}:{Convert.ToHexString(m.Why)}:{Convert.ToHexString(m.NextLevel)}:{Convert.ToHexString(m.Prerequisites)}"));
         if (!always && _sent.TryGetValue(hero.PlayerIndex, out var last) && last == key)
             return;
         _sent[hero.PlayerIndex] = key;

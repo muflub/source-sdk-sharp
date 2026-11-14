@@ -76,7 +76,7 @@ public sealed class DirectorServerTests
         var levels = new OneLevel(Row(4, markers: 3, depth: 3));
         var party = new FixedParty(3);
         var service = new HordeService(new ActiveMode(), levels, rig.Spawner, new FixedClock(), rig.Parking,
-            new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log, Measurer(rig.World), party);
+            new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log, Measurer(rig.World), party, rig.Nav());
 
         service.OnLevelReady("tf2_descent-3-s7");
 
@@ -113,7 +113,7 @@ public sealed class DirectorServerTests
     {
         var rig = new ServerHordeRig(begin: false);
         var service = new HordeService(new ActiveMode(), new OneLevel(Row(4, markers: 3, depth: 3)), rig.Spawner, new FixedClock(), rig.Parking,
-            new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log, Measurer(rig.World), new FixedParty(2));
+            new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log, Measurer(rig.World), new FixedParty(2), rig.Nav());
         service.OnLevelReady("tf2_descent-3-s7");
         var command = new DirectorCommand(service, new RigRules(), rig.World, rig.Log);
 

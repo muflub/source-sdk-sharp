@@ -94,7 +94,8 @@ public sealed class HordeSessionTests
             var t = DeclaredConVars.Holding<HordeAiThreadsConVar>(threads.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
             session = new HordeSession(motion, new CountingActions(), r.SightWorld, r.Heroes, new RigRules(), clock, new NoLandings(), workers,
-                                       sync, t, DeclaredConVars.Fresh<HordeAiRecordConVar>(), new RigMod(Path.GetTempPath()), r.Log, new RigAttackWorld());
+                                       sync, t, DeclaredConVars.Fresh<HordeAiRecordConVar>(), new RigMod(Path.GetTempPath()), r.Log, new RigAttackWorld(),
+                                       r.Nav(clock: clock), r.Motion);
             return session;
         });
         clock.Rig = rig;
@@ -132,6 +133,42 @@ public sealed class HordeSessionTests
         Assert.Equal(2, workers.Starts);
         second.End();
         Assert.Equal(0, workers.Pool.Alive);
+    }
+
+    [Fact]
+    public void A_body_that_arrives_where_its_motion_was_ordered_is_told_to_its_brain_the_next_tick()
+    {
+        var (rig, session, _, _) = Make(inline: true);
+        var (_, body) = rig.Lent("soldier");
+        rig.Tick(12);
+        Assert.Equal(0, session.Brains!.ArrivalsTold);
+
+        // The real motion (the session's brain orders go to a recording here) walks the body a little way.
+        rig.Motion.Order(body.Index, MotionRig.Follow(body.Position + At(120, 0)), LookIntent.AlongPath, long.MaxValue);
+        for (int t = 0; t < 300 && !rig.Motion.Arrived(body.Index).Ever; t++)
+            rig.Tick();
+        Assert.True(rig.Motion.Arrived(body.Index).Ever, "the control: the body never arrived");
+        rig.Tick();
+
+        Assert.Equal(1, session.Brains.ArrivalsTold);
+    }
+
+    [Fact]
+    public void The_path_print_names_a_robots_walker_and_its_motions_order()
+    {
+        var (rig, session, _, _) = Make(inline: true);
+        var (id, body) = rig.Lent("soldier");
+        rig.Tick(12);
+        rig.Motion.Order(body.Index, MotionRig.Follow(body.Position + At(300, 0), body.Position + At(300, 300)), LookIntent.AlongPath, long.MaxValue);
+        int from = rig.Log.Lines.Count;
+
+        new TF2.Descent.Server.Horde.Nav.HordePathCommand(session, rig.Motion, rig.Log).Execute(id.Index);
+
+        string line = Assert.Single(rig.Log.Lines.Skip(from)).Text;
+        Assert.Contains($"path: robot {id.Index} body {body.Index}", line);
+        Assert.Contains("walker room route", line);
+        Assert.Contains("motion order Follow (", line);
+        Assert.EndsWith("; arrived 0", line.TrimEnd());
     }
 
     [Fact]

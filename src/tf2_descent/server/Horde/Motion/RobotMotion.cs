@@ -58,6 +58,8 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
     private IMotionBodies? _bodies;
     private IHordeActors? _actors;
     private IMotionStepper? _stepper;
+    private IMotionStepper? _own;
+    private IMotionStepper? _chosen;
     private MotionSettings _settings = MotionSettings.Default;
     private float _tickSeconds;
     private long _now;
@@ -78,6 +80,9 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
     private BlockedReport[] _blocked = [];
     private int[] _clearRun = [];
     private LandedReport[] _landed = [];
+    private ArrivedReport[] _arrived = [];
+    private bool[] _arrivedOrder = [];
+    private AiVector[] _arrivedCorner = [];
     private long[] _airSince = [];
     private float[] _leftZ = [];
     private float[] _peakZ = [];
@@ -93,7 +98,10 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
     private int[] _bodyOfEntity = [];
     private EntityHandle[] _bodyHandle = [];
     private StepInput[] _inputs = [];
-    private int _submitted;
+    private StepInput[] _engineInputs = [];
+    private long[] _engineUntil = [];
+    private int[] _pinnedRun = [];
+    private int _submitted, _engineSubmitted;
 
     // Per tick, for the costs.
     private long _sweeps, _places, _gaits, _poses;
@@ -108,6 +116,59 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
     public MotionAudit Audit { get; } = new();
 
     public IMotionStepper? Stepper => _stepper;
+
+    /// <summary>The stepper handed to <see cref="Use"/> that runs now, or null when the motion's own (given at <see cref="Begin"/>, or the engine's inline one) does.</summary>
+    public IMotionStepper? Chosen => _chosen;
+
+    /// <summary>A server tick in seconds, as the steps are run at.</summary>
+    public float TickSeconds => _tickSeconds;
+
+    /// <summary>The most bodies a tick hands a stepper: what a stepper is made for.</summary>
+    public int Capacity => _serial.Length;
+
+    /// <summary>
+    /// Runs the steps on <paramref name="stepper"/> from the next tick (the horde's nav hands a
+    /// worker over the level's voxels), or on the motion's own again with null. Steps the stepper
+    /// left unfinished are not applied: the bodies hold a tick. The motion never disposes a
+    /// stepper handed here: its maker does.
+    /// </summary>
+    public void Use(IMotionStepper? stepper)
+    {
+        var next = stepper ?? _own;
+        if (ReferenceEquals(next, _stepper))
+            return;
+        _stepper = next;
+        _chosen = stepper;
+        _submitted = 0;
+        _engineSubmitted = 0;
+        StepperSwitches++;
+    }
+
+    /// <summary>Times <see cref="Use"/> changed the stepper.</summary>
+    public long StepperSwitches { get; private set; }
+
+    /// <summary>
+    /// Times a body stepped on a handed stepper (the voxels') was found pinned and stepped on
+    /// the engine's world for <see cref="EngineTicks"/> (<see cref="PinnedTicks"/>), and the
+    /// body steps run that way.
+    /// </summary>
+    public long EngineFallbacks { get; private set; }
+
+    public long EngineSteps { get; private set; }
+
+    /// <summary>
+    /// A body stepped off the game thread that wished to move and covered less than
+    /// <see cref="PinnedShare"/> of its wish for this many ticks in a row, held by nothing the
+    /// game's world names (no hero, robot or prop: the world, or nothing), is pinned: the voxels
+    /// and the engine disagree where it stands (it stands on a prop the voxels drop it through,
+    /// or in a voxel a wall fills that the engine leaves free). It steps on the engine's world
+    /// for <see cref="EngineTicks"/>.
+    /// </summary>
+    public const int PinnedTicks = 8;
+
+    public const float PinnedShare = 0.25f;
+
+    public const int EngineTicks = 66;
 
     public long Ticks { get; private set; }
 
@@ -154,6 +215,9 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         _blocked = new BlockedReport[n];
         _clearRun = new int[n];
         _landed = new LandedReport[n];
+        _arrived = new ArrivedReport[n];
+        _arrivedOrder = new bool[n];
+        _arrivedCorner = new AiVector[n];
         _airSince = new long[n];
         _leftZ = new float[n];
         _peakZ = new float[n];
@@ -167,6 +231,9 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         _route = new List<AiVector>?[n];
         _routeAt = new int[n];
         _inputs = new StepInput[n];
+        _engineInputs = new StepInput[n];
+        _engineUntil = new long[n];
+        _pinnedRun = new int[n];
         _bodyOfEntity = new int[MaxEntities];
         _bodyHandle = new EntityHandle[n];
         for (int b = 1; b < n; b++)
@@ -178,7 +245,9 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
                 _bodyOfEntity[index] = b;
         }
 
-        _stepper = stepper ?? new InlineMotionStepper(GameMovementStep.Create(world, _tickSeconds), n, _clock);
+        _own = stepper ?? new InlineMotionStepper(GameMovementStep.Create(world, _tickSeconds), n, _clock);
+        _stepper = _own;
+        _chosen = null;
         _bodies = bodies;
         _actors = actors;
         _submitted = 0;
@@ -187,8 +256,10 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
     /// <summary>The level is going: the stepper is stopped and every state dropped.</summary>
     public void End()
     {
-        _stepper?.Dispose();
+        _own?.Dispose();
+        _own = null;
         _stepper = null;
+        _chosen = null;
         _bodies = null;
         _actors = null;
         _bodyOfEntity = [];
@@ -283,6 +354,11 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
 
     public LandedReport Landed(int body) => (uint)body < (uint)_landed.Length ? _landed[body] : default;
 
+    public ArrivedReport Arrived(int body) => (uint)body < (uint)_arrived.Length ? _arrived[body] : default;
+
+    /// <summary>Arrivals reported, all bodies.</summary>
+    public long Arrivals { get; private set; }
+
     //-------------------------------------------------------------------------
     // The tick
     //-------------------------------------------------------------------------
@@ -313,8 +389,15 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
             Holds++;
         }
 
+        // The pinned bodies' steps, run on the engine's world beside a handed stepper.
+        if (_engineSubmitted > 0 && !ReferenceEquals(_own, _stepper) && _own!.TryTake(now, out var engine, out _))
+        {
+            for (int i = 0; i < engine.Length; i++)
+                Apply(bodies, in engine[i], now);
+        }
+
         // (2) Face and write, (3) plan.
-        int n = 0;
+        int n = 0, m = 0;
         for (int b = 1; b < _serial.Length; b++)
         {
             if (!bodies.Read(b, out var info))
@@ -330,13 +413,23 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
             _scaleOf[b] = info.Scale;
 
             Face(bodies, b, in info);
-            if (Plan(b, in info, now, out var input))
+            if (!Plan(b, in info, now, out var input))
+                continue;
+            if (_chosen is not null && _engineUntil[b] > now)
+                _engineInputs[m++] = input;
+            else
                 _inputs[n++] = input;
         }
 
         _submitted = n;
         if (n > 0)
             _stepper.Submit(now, _inputs.AsSpan(0, n));
+        _engineSubmitted = m;
+        if (m > 0)
+        {
+            _own!.Submit(now, _engineInputs.AsSpan(0, m));
+            EngineSteps += m;
+        }
 
         if (Audit.On)
             Audit.Check(this, bodies, world, now);
@@ -426,6 +519,20 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
             }
 
             Report(b, blocked, in blocker, now);
+        }
+
+        // A body pinned under a handed stepper steps on the engine's world for a while (see PinnedTicks).
+        if (_chosen is not null)
+        {
+            var kind = _blocked[b].Kind;
+            bool pinned = o.Expect > 0f && moved < PinnedShare * o.Expect && kind is not (BlockerKind.Hero or BlockerKind.Robot or BlockerKind.Prop);
+            _pinnedRun[b] = pinned ? _pinnedRun[b] + 1 : 0;
+            if (_pinnedRun[b] >= PinnedTicks && _engineUntil[b] <= now)
+            {
+                _engineUntil[b] = now + EngineTicks;
+                _pinnedRun[b] = 0;
+                EngineFallbacks++;
+            }
         }
 
         // The landed report.
@@ -617,6 +724,19 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         if (!wish.Wishing && _blocked[b].Blocked)
             _blocked[b] = BlockedReport.Clear;
 
+        // The order's last corner reached: once a distinct last corner (a brain re-sends its order each decide).
+        if (wish.Arrived && !_arrivedOrder[b])
+        {
+            _arrivedOrder[b] = true;
+            var last = _move[b].Corner(_move[b].CornerCount - 1);
+            if (!_arrived[b].Ever || (last - _arrivedCorner[b]).Length2D > ArrivedApart)
+            {
+                _arrivedCorner[b] = last;
+                _arrived[b] = new ArrivedReport(now, _written[b], _arrived[b].Count + 1);
+                Arrivals++;
+            }
+        }
+
         float speed = info.Stunned ? 0f : info.Speed * wish.SpeedShare;
         if (wish.ToLast)
             speed = MotionSteering.Arrive(speed, wish.LastDistance, _settings.BrakeRate, _settings.LeastArriveSpeed);
@@ -764,8 +884,12 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         SetOrder(b, in move, LookIntent.AlongPath, long.MaxValue);
     }
 
+    /// <summary>Two arrivals of a lend are told apart only when their orders' last corners are farther apart than this.</summary>
+    public const float ArrivedApart = 32f;
+
     private void SetOrder(int b, in MoveIntent move, in LookIntent look, long expires)
     {
+        _arrivedOrder[b] = false;
         _move[b] = move;
         _look[b] = look;
         _expires[b] = expires;
@@ -809,6 +933,10 @@ public sealed class RobotMotion(IMotionWorld world) : IRobotMotion, IRobotImpuls
         _blocked[b] = BlockedReport.Clear;
         _clearRun[b] = 0;
         _landed[b] = default;
+        _arrived[b] = default;
+        _arrivedOrder[b] = false;
+        _engineUntil[b] = 0;
+        _pinnedRun[b] = 0;
         _airSince[b] = Math.Max(1, now);
         _leftZ[b] = settled.Z;
         _peakZ[b] = settled.Z;

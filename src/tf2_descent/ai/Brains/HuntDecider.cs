@@ -32,7 +32,7 @@ namespace TF2.Descent.Ai.Brains;
 /// temperament parameter; the one number of its own is <see cref="ArriveUnits"/>,
 /// how near a point counts as there (geometry, not temperament).
 /// </summary>
-public sealed class HuntDecider : IDecider
+public sealed class HuntDecider : IDecider, IHordeRouted
 {
     /// <summary>How near a goal the robot is there.</summary>
     public const float ArriveUnits = 40f;

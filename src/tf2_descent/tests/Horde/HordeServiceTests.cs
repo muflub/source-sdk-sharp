@@ -46,8 +46,9 @@ public sealed class HordeServiceTests
             Rig = new ServerHordeRig(begin: false);
             Levels = new Levels(level ?? Row(3));
             Census = new HordeCensus(Rig.Spawner, Rig.Parking, Rig.Log);
+            Nav = Rig.Nav(clock: Clock);
             Service = new HordeService(new Mode(active), Levels, Rig.Spawner, Clock, Rig.Parking, Census, new HordeTickTimer(), Rig.Log,
-                new MarkerClearances(Rig.World, new RigRules()), Party);
+                new MarkerClearances(Rig.World, new RigRules()), Party, Nav);
         }
 
         public ServerHordeRig Rig { get; }
@@ -56,6 +57,8 @@ public sealed class HordeServiceTests
         public FixedParty Party { get; } = new(1);
         public HordeCensus Census { get; }
         public HordeService Service { get; }
+
+        public TF2.Descent.Server.Horde.Nav.HordeNav Nav { get; }
     }
 
     [Fact]

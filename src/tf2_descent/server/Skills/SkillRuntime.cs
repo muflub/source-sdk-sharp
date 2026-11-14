@@ -28,6 +28,8 @@ public enum SkillUseKind
     Misfire,
     /// <summary>The rules refused the cast (<see cref="SkillUse.Refusal"/>).</summary>
     Refused,
+    /// <summary>The hero is down (WO6): he casts nothing until he is up.</summary>
+    Downed,
 }
 
 /// <summary>One press or release: what happened, which skill, the refusal, the stages released at, the mana spent.</summary>
@@ -101,6 +103,11 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
             return default;
         if (slots.In(playerIndex, slot) is not { } id || !World.IsAlive(caster.Player))
             return default;
+        if (hero.Downed)
+        {
+            log.Msg(Line(playerIndex, $"cast {id} refused: the hero is down"));
+            return new SkillUse(SkillUseKind.Downed, id);
+        }
         if (rules.Skills.Find(id) is not { } def)
             return Refuse(caster, id, CastRefusal.UnknownSkill);
 
@@ -129,6 +136,12 @@ public sealed class SkillRuntime(TF2DescentRules rules, Heroes heroes, SkillCast
             return default;
 
         caster.Charging = null;
+        if (hero.Downed)
+        {
+            log.Msg(Line(playerIndex, $"{charge.SkillId} released while down: nothing fired"));
+            SendBar(caster);
+            return new SkillUse(SkillUseKind.Downed, charge.SkillId);
+        }
         var def = rules.Skills.Skill(charge.SkillId);
         var resolved = rules.Skills.Resolve(sheet, stats, SkillBonuses.None, def.Id);
         int reached = StagesReached(resolved, Now - charge.StartTick, binders.Ticks);

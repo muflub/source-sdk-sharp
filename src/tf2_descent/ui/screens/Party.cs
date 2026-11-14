@@ -5,22 +5,6 @@ using TF2.Descent.Client.Ui.Parts;
 namespace TF2.Descent.Client.Ui.Screens;
 
 /// <summary>
-/// What the party window asks of the server (docs/plans/descent_ui.md §4 names
-/// <c>IDescentPartyActions</c>; the shared sources file does not define it, so
-/// this lane owns the narrow form — flagged in the lane report).
-/// <see cref="PartyCode"/> is the code the field shows (what the player typed,
-/// once keyboard editing lands with input in U3); <see cref="Join"/> hands it
-/// to the server.
-/// </summary>
-public interface IDescentPartyActions
-{
-    string PartyCode { get; }
-    void Invite();
-    void Leave();
-    void Join(string code);
-}
-
-/// <summary>
 /// The party window (docs/plans/descent_ui.md §2.11, R8/R26): up to four
 /// member cards — class, level, and the <see cref="PartyPill"/> in its
 /// window (Focus) variant, which carries life, the downed caption with the
@@ -44,6 +28,10 @@ public sealed class Party : UiScreen, IUiWindowed
     }
 
     public override string Name => "party";
+
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_party";
 
     public string WindowId => "party";
 

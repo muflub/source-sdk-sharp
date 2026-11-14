@@ -1,0 +1,89 @@
+# UI3 (plan_descent_logic): the sheet's, skill tree's and inventory's live copy. tools/descent-tokens add docs/plans/tokens-ui3.tsv
+Descent_Stat_brawn	Brawn
+Descent_Stat_smarts	Smarts
+Descent_Stat_aim	Aim
+Descent_Stat_grit	Grit
+Descent_Stat_max_life	Maximum life
+Descent_Stat_max_life_pct	Maximum life %
+Descent_Stat_max_mana	Maximum mana
+Descent_Stat_max_mana_pct	Maximum mana %
+Descent_Stat_move_speed	Move speed
+Descent_Stat_move_speed_pct	Move speed %
+Descent_Stat_armour	Armour
+Descent_Stat_crit_chance_pct	Crit chance %
+Descent_Stat_knockback_resist_pct	Knockback resistance %
+Descent_Stat_spread_pct	Spread %
+Descent_Stat_damage_all_pct	All damage %
+Descent_Stat_damage_melee_pct	Melee damage %
+Descent_Stat_damage_blast_pct	Blast damage %
+Descent_Stat_damage_bullet_pct	Bullet damage %
+Descent_Stat_damage_projectile_pct	Projectile damage %
+Descent_Stat_damage_action_pct	Skill damage %
+Descent_Stat_resist_all_pct	All resistances %
+Descent_Stat_resist_fire_pct	Fire resistance %
+Descent_Stat_resist_blast_pct	Blast resistance %
+Descent_Stat_resist_bullet_pct	Bullet resistance %
+Descent_Stat_resist_shock_pct	Shock resistance %
+Descent_Stat_life_regen_pct	Life regeneration %
+Descent_Stat_life_leech_pct	Life leech %
+Descent_Stat_mana_regen_rate_pct	Mana regeneration rate %
+Descent_Stat_mana_regen_pct	Mana regeneration %
+Descent_Stat_mana_leech_pct	Mana leech %
+Descent_Stat_mana_cost_pct	Mana cost %
+Descent_Stat_damage_weapon_pct	Weapon damage %
+Descent_Stat_projectile_speed_pct	Projectile speed %
+Descent_Stat_order_duration_pct	Order duration %
+Descent_Stat_order_radius_pct	Order radius %
+Descent_Stat_order_cooldown_pct	Order cooldown %
+Descent_Stat_crit_damage_pct	Crit damage %
+Descent_Stat_reload_speed_pct	Reload speed %
+Descent_Stat_blast_radius_pct	Blast radius %
+Descent_Stat_clip_size	Clip size
+Descent_Stat_attack_speed_pct	Attack speed %
+Descent_Stat_deploy_speed_pct	Deploy speed %
+Descent_Stat_jump_force_pct	Jump force %
+Descent_Stat_self_blast_damage_pct	Self blast damage %
+Descent_Stat_damage_taken_pct	Damage taken %
+Descent_Stat_damage_vs_elite_pct	Damage against elites %
+Descent_Stat_life_regen_hp	Life regenerated a second
+Descent_Stat_item_drop_pct	Item drops %
+Descent_Stat_australium_find_pct	Australium found %
+Descent_Stat_price_buy_pct	Buying prices %
+Descent_Stat_price_sell_pct	Selling prices %
+Descent_Stat_potion_restore_pct	Potion strength %
+Descent_Stat_potion_cooldown_pct	Potion cooldown %
+Descent_Stat_wear_rate_pct	Wear rate %
+Descent_Stat_loudness_pct	Loudness %
+Descent_Stat_indestructible	Indestructible
+Descent_Stat_skill_ranks_all	All skills
+Descent_Hint_PerPoint	Each point gives
+Descent_Hint_Mana	Mana
+Descent_Hint_Cooldown	Cooldown
+Descent_Hint_Rank	Rank
+Descent_SkillWhy_Buyable	Click to learn a rank
+Descent_SkillWhy_BelowLevel	Needs a higher hero level
+Descent_SkillWhy_Prerequisite	Needs its prerequisite skills first
+Descent_SkillWhy_AtMaxRank	At its highest rank
+Descent_SkillWhy_NoPoints	No skill points to spend
+Descent_SkillWhy_OtherClass	Another class's skill
+Descent_SkillWhy_UnknownSkill	Not a skill this server knows
+Descent_SkillWhy_Slot	Assign to a skill key: tf2_descent_assign <1-6> <skill>
+Descent_Refused	Refused: %s1
+Descent_Refused_backpack_full	The backpack is full: %s1
+Descent_Refused_stash_full	The stash is full: %s1
+Descent_Refused_withdraw_only	Withdraw only: %s1
+Descent_Refused_no_item	Nothing there to use
+Descent_Refused_no_such_slot	No such slot: %s1
+Descent_Refused_wrong_slot	%s1 does not go in that slot
+Descent_Refused_wrong_class	%s1 is for another class
+Descent_Refused_level	Your level is too low for %s1
+Descent_Refused_requirement	%s1: a requirement is not met
+Descent_Refused_unidentified	%s1 must be identified first
+Descent_Refused_unusable	%s1 is unusable
+Descent_Refused_occupied	That slot is taken: %s1
+Descent_Refused_not_stackable	%s1 does not stack
+Descent_Refused_no_hero	No hero to act for
+Descent_Refused_NoPoints	No attribute points to spend
+Descent_Refused_AtCap	%s1 is at its cap
+Descent_Refused_UnknownAttribute	%s1 is not an attribute
+Descent_Refused_BadCount	Spend at least one point

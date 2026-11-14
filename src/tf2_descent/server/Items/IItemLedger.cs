@@ -52,6 +52,13 @@ public sealed record LedgerHero(string Hero, HeroSheet Sheet, HeroInventory Inve
 /// </summary>
 public sealed record FloorItem(long Id, ItemInstance Item, string? ForHero, Vector Position);
 
+/// <summary>A hero's corpse as the ledger holds it (WO5): the items' ids and the Australium on it.</summary>
+public sealed record LedgerCorpse(IReadOnlyList<long> Items, long Australium)
+{
+    /// <summary>Nothing left on it.</summary>
+    public bool Empty => Items.Count == 0 && Australium == 0;
+}
+
 /// <summary>An item a vendor offers, at its buy price.</summary>
 public sealed record VendorItem(long Id, ItemInstance Item, long Price);
 
@@ -274,6 +281,13 @@ public interface IItemLedger
 
     /// <summary>The hero's own corpse back onto them, as many as fit (hosted, <c>IHostLink.LootCorpse</c>).</summary>
     Task<LootAnswer> LootCorpse(string hero);
+
+    /// <summary>
+    /// What the hero's corpse holds (WO5): the items' ids, in the order a loot takes them, and the
+    /// Australium; null when the hero has no corpse, or when the ledger cannot say (hosted: the
+    /// host's SDK lists no corpse).
+    /// </summary>
+    LedgerCorpse? Corpse(string hero);
 
     //-------------------------------------------------------------------------
     // HE8 and HE9: consumables used, gear worn and repaired where it is worn

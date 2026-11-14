@@ -233,6 +233,13 @@ internal sealed class ServerHordeRig
 
     /// <summary>What the shove reads of each hero: no resistance and none downed, unless a fact says.</summary>
     public RigShoveTraits Traits { get; } = new();
+    /// <summary>
+    /// The horde's navigation over this rig's motion and world, reading <paramref name="files"/>
+    /// (none by default: no .nav3d, the room route), on <paramref name="clock"/> (the rig's
+    /// own by default), stepping on the game thread unless <paramref name="sync"/> is "0".
+    /// </summary>
+    public TF2.Descent.Server.Horde.Nav.HordeNav Nav(IEngineFiles? files = null, IHordeClock? clock = null, string sync = "0") =>
+        new(files ?? new TF2.Descent.Tests.Level.LevelServiceTests.LevelFilesOnDisk(null), Motion, World, DeclaredConVars.Holding<TF2.Descent.Server.Horde.Nav.HordeMotionSyncConVar>(sync), clock ?? new RigClock(this), Log);
 
     public HordeController Controller { get; } = null!;
     public long Now { get; set; } = 1000;

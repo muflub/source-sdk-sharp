@@ -46,4 +46,7 @@ public interface IRobotMotionReports
     BlockedReport Blocked(int body);
 
     LandedReport Landed(int body);
+
+    /// <summary>The body's last arrival at its order's last corner (one a distinct last corner).</summary>
+    ArrivedReport Arrived(int body);
 }

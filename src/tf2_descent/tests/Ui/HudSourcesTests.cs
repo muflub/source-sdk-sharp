@@ -18,6 +18,11 @@ using IPlayerNames = client::SourceSharp.Client.Vgui.IPlayerNames;
 using SkillBarState = client::TF2.Descent.Client.Skills.SkillBarState;
 using SkillBarView = client::TF2.Descent.Shared.SkillBarView;
 using Src = client::TF2.Descent.Client.Ui;
+using BeltState = client::TF2.Descent.Client.Belt.BeltState;
+using GearWearState = client::TF2.Descent.Client.Belt.GearWearState;
+using BeltView = client::TF2.Descent.Shared.BeltView;
+using GearWearView = client::TF2.Descent.Shared.GearWearView;
+using GearWearLevel = client::TF2.Descent.Shared.GearWearLevel;
 
 namespace TF2.Descent.Tests.Ui;
 
@@ -190,6 +195,8 @@ public sealed class HudSourcesTests
     // Cast bar
     //-------------------------------------------------------------------------
 
+    private static readonly client::TF2.Descent.Client.Content.DescentCatalog Catalog = new();
+
     private sealed class Ticks(int now) : Src.IClientTicks
     {
         public int Now { get; set; } = now;
@@ -214,10 +221,9 @@ public sealed class HudSourcesTests
     [InlineData(1500, 1f)]      // held past it: still full
     public void A_charging_slot_fills_the_cast_bar_by_ticks_held_over_the_charges_length(int now, float fraction)
     {
-        var cast = new Src.CastBarSource(Bar(chargeSlot: 2, chargeStart: 1000), new Lengths(66), new Ticks(now));
+        var cast = new Src.CastBarSource(Bar(chargeSlot: 2, chargeStart: 1000), new Lengths(66), new Ticks(now), Catalog);
 
         Assert.True(cast.Casting);
-        Assert.Equal("patriot_missile", cast.SpellName);
         Assert.Equal(fraction, cast.Fraction, 0.001f);
         Assert.False(cast.Interrupted);
     }
@@ -225,7 +231,7 @@ public sealed class HudSourcesTests
     [Fact]
     public void With_nothing_charging_there_is_no_cast()
     {
-        var cast = new Src.CastBarSource(Bar(chargeSlot: 0, chargeStart: 0), new Lengths(66), new Ticks(1033));
+        var cast = new Src.CastBarSource(Bar(chargeSlot: 0, chargeStart: 0), new Lengths(66), new Ticks(1033), Catalog);
 
         Assert.False(cast.Casting);
         Assert.Equal(("", 0f), (cast.SpellName, cast.Fraction));
@@ -234,7 +240,7 @@ public sealed class HudSourcesTests
     [Fact]
     public void Before_any_skill_bar_there_is_no_cast()
     {
-        var cast = new Src.CastBarSource(new SkillBarState(), new Lengths(66), new Ticks(1033));
+        var cast = new Src.CastBarSource(new SkillBarState(), new Lengths(66), new Ticks(1033), Catalog);
 
         Assert.False(cast.Casting);
     }
@@ -242,10 +248,51 @@ public sealed class HudSourcesTests
     [Fact]
     public void An_unknown_charge_length_shows_the_skill_with_an_empty_meter()
     {
-        var cast = new Src.CastBarSource(Bar(chargeSlot: 2, chargeStart: 1000), new Src.UnknownChargeLengths(), new Ticks(1033));
+        var bar = Bar(chargeSlot: 2, chargeStart: 1000);   // a bar that carries no length
+        var cast = new Src.CastBarSource(bar, new Src.SkillBarChargeLengths(bar), new Ticks(1033), Catalog);
 
         Assert.True(cast.Casting);
         Assert.Equal(0f, cast.Fraction);
+    }
+
+    [Fact]
+    public void The_cast_bar_names_the_charging_skill_by_its_content_name()
+    {
+        var cast = new Src.CastBarSource(Bar(chargeSlot: 2, chargeStart: 1000), new Lengths(66), new Ticks(1033), Catalog);
+
+        Assert.Equal("Patriot Missile", cast.SpellName);
+    }
+
+    [Fact]
+    public void A_skill_the_client_does_not_have_is_named_by_its_id()
+    {
+        var bar = new SkillBarState();
+        bar.OnSkillBar(new SkillBarView(["no_such_skill", "", "", "", "", ""], [0, 0, 0, 0, 0, 0], 1, 1000, 0, 66));
+        var cast = new Src.CastBarSource(bar, new Src.SkillBarChargeLengths(bar), new Ticks(1033), Catalog);
+
+        Assert.Equal("no_such_skill", cast.SpellName);
+    }
+
+    [Fact]
+    public void The_charge_length_is_the_one_the_skill_bar_carries_for_the_charging_skill()
+    {
+        var bar = new SkillBarState();
+        bar.OnSkillBar(new SkillBarView(["", "salvo", "", "", "", ""], [0, 0, 0, 0, 0, 0], 2, 1000, 0, 120));
+        var lengths = new Src.SkillBarChargeLengths(bar);
+
+        Assert.Equal(120, lengths.TicksOf("salvo"));
+        Assert.Equal(0, lengths.TicksOf("patriot_missile"));
+    }
+
+    [Fact]
+    public void A_bar_charging_for_sixty_of_its_hundred_and_twenty_ticks_reads_half()
+    {
+        var bar = new SkillBarState();
+        bar.OnSkillBar(new SkillBarView(["", "salvo", "", "", "", ""], [0, 0, 0, 0, 0, 0], 2, 1000, 0, 120));
+        var cast = new Src.CastBarSource(bar, new Src.SkillBarChargeLengths(bar), new Ticks(1060), Catalog);
+
+        Assert.Equal(0.5f, cast.Fraction, 0.001f);
+        Assert.Equal("Salvo", cast.SpellName);
     }
 
     //-------------------------------------------------------------------------
@@ -253,31 +300,97 @@ public sealed class HudSourcesTests
     //-------------------------------------------------------------------------
 
     [Fact]
-    public void The_belt_is_four_empty_slots_ready()
+    public void Before_a_belt_arrives_it_is_four_empty_slots_ready()
     {
-        var belt = new Src.BeltSource();
+        var belt = new Src.BeltSource(new BeltState(), new Ticks(500));
 
         Assert.Equal(4, belt.SlotCount);
         Assert.All(Enumerable.Range(0, 4), i => Assert.Equal(("", 0), (belt.SlotName(i), belt.SlotCountOf(i))));
         Assert.True(belt.SlotReady);
     }
 
+    private static BeltState Belt(int readyTick)
+    {
+        var state = new BeltState();
+        state.OnBelt(new BeltView(["health_small", "", "mana_small", ""], ["Sandvich Bite", "", "Bonk! Shot", ""], [3, 0, 1, 0],
+                                  readyTick, readyTick == 0 ? 0 : 200));
+        return state;
+    }
+
     [Fact]
-    public void No_boss_no_gear_warning_and_no_map_are_shown()
+    public void The_belt_shows_each_slots_potion_and_count_as_the_server_sent_them()
+    {
+        var belt = new Src.BeltSource(Belt(readyTick: 0), new Ticks(500));
+
+        Assert.Equal(("Sandvich Bite", 3), (belt.SlotName(0), belt.SlotCountOf(0)));
+        Assert.Equal(("", 0), (belt.SlotName(1), belt.SlotCountOf(1)));
+        Assert.Equal(("Bonk! Shot", 1), (belt.SlotName(2), belt.SlotCountOf(2)));
+        Assert.Equal(("", 0), (belt.SlotName(7), belt.SlotCountOf(7)));
+    }
+
+    [Theory]
+    [InlineData(599, false)]
+    [InlineData(600, true)]
+    [InlineData(900, true)]
+    public void The_belt_is_ready_once_the_clients_tick_reaches_the_cooldowns_end(int now, bool ready) =>
+        Assert.Equal(ready, new Src.BeltSource(Belt(readyTick: 600), new Ticks(now)).SlotReady);
+
+    [Fact]
+    public void A_belt_cleared_at_level_end_is_empty_and_ready_again()
+    {
+        var state = Belt(readyTick: 600);
+        state.OnLevelShutdown();
+        var belt = new Src.BeltSource(state, new Ticks(10));
+
+        Assert.Equal(("", 0), (belt.SlotName(0), belt.SlotCountOf(0)));
+        Assert.True(belt.SlotReady);
+    }
+
+    [Fact]
+    public void The_gear_warning_names_the_worst_worn_piece_and_how_much_is_left()
+    {
+        var wear = new GearWearState();
+        wear.OnGearWear(new GearWearView("primary", "Rocket Launcher", GearWearLevel.Low, 12, 60));
+        wear.OnGearWear(new GearWearView("melee", "Shovel", GearWearLevel.Ok, 80, 80));
+        var warning = new Src.GearWarningSource(wear);
+
+        Assert.True(warning.Present);
+        Assert.Equal("Rocket Launcher", warning.ItemName);
+        Assert.Equal(0.2f, warning.Fraction, 3);
+    }
+
+    [Fact]
+    public void A_broken_piece_is_warned_of_at_nothing_left()
+    {
+        var wear = new GearWearState();
+        wear.OnGearWear(new GearWearView("primary", "Rocket Launcher", GearWearLevel.Broken, 0, 60));
+        var warning = new Src.GearWarningSource(wear);
+
+        Assert.True(warning.Present);
+        Assert.Equal(0f, warning.Fraction);
+    }
+
+    [Fact]
+    public void Gear_above_the_warning_line_warns_of_nothing()
+    {
+        var wear = new GearWearState();
+        wear.OnGearWear(new GearWearView("primary", "Rocket Launcher", GearWearLevel.Ok, 59, 60));
+        var warning = new Src.GearWarningSource(wear);
+
+        Assert.False(warning.Present);
+        Assert.Equal(("", 0f), (warning.ItemName, warning.Fraction));
+    }
+
+    [Fact]
+    public void No_boss_and_no_gear_warning_are_shown()
     {
         Assert.False(new Src.BossSource().Present);
-        Assert.False(new Src.GearWarningSource().Present);
-        Assert.Equal(0, new Src.AutomapSource().RoomCount);
-        Assert.False(new Src.DownedSource().Downed);
+        Assert.False(new Src.GearWarningSource(new GearWearState()).Present);
     }
 
     [Fact]
     public void The_hero_and_town_windows_have_nothing_to_show()
     {
-        Assert.Equal((0, 0), (new Src.SheetSource().AttributeCount, new Src.SheetSource().Level));
-        Assert.Equal(0, new Src.EquipmentSource().SlotCount);
-        Assert.Equal((0, 0), (new Src.BackpackSource().CellCount, new Src.BackpackSource().Capacity));
-        Assert.Equal(0, new Src.SkillsSource().TabCount);
         Assert.Equal(0, new Src.SpellsSource().SpellCount);
         Assert.Equal((0, 0), (new Src.VendorSource().BuyCount, new Src.VendorSource().SellCount));
         Assert.Equal(0, new Src.StashSource().CellCount);
@@ -285,8 +398,5 @@ public sealed class HudSourcesTests
         Assert.Equal(0, new Src.CrateSource().OddsRowCount);
         Assert.Null(new Src.CraftSource().ItemUnderTest);
         Assert.False(new Src.InspectSource().Showing);
-        Assert.False(new Src.ItemHoverSource().Hovering);
-        Assert.False(new Src.HintTipSource().Active);
-        Assert.Equal(0L, new Src.PurseSource().Australium);
     }
 }

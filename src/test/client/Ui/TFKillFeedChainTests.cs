@@ -54,6 +54,7 @@ public class TFKillFeedChainTests
         services.AddInstance(time);
         services.AddInstance<ILog>(new RecordingLog());
         services.AddFactory<IHooks<IKillFeedListener>>(locator => new Hooks<IKillFeedListener>(locator, locator.Require<ILog>()));
+        services.AddFactory<IHooks<IKillFeedKillerNames>>(locator => new Hooks<IKillFeedKillerNames>(locator, locator.Require<ILog>()));
 
         // The chain holds exactly TF's listener, and it is the queue itself:
         // the one singleton behind both the listener hook and the ITFKillFeed

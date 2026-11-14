@@ -185,6 +185,10 @@ public sealed class InMemoryItemLedger(IGameRules rules, IHooks<IItemLedgerHook>
         return new LootAnswer(true, recovered, "");
     });
 
+    /// <summary>The hero's corpse: its items in the order a loot takes them, and its Australium; null with none.</summary>
+    public override LedgerCorpse? Corpse(string hero) =>
+        _corpses.TryGetValue(hero, out var corpse) ? new LedgerCorpse([.. corpse.Items.Select(i => i.Id)], corpse.Australium) : null;
+
     /// <summary>The process keeps every hero for its life: a leave forgets nothing.</summary>
     public override void Forget(string hero)
     {

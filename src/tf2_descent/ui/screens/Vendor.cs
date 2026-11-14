@@ -101,6 +101,10 @@ public sealed class Vendor : UiScreen, IUiWindowed
 
     public override string Name => "vendor";
 
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_vendor";
+
     public string WindowId => "vendor";
 
     /// <summary>

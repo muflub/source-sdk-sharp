@@ -57,6 +57,10 @@ public sealed class CharSheet : UiScreen, IUiWindowed
     }
 
     public override string Name => "charsheet";
+
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+
+    public override string? Panel => "descent_charsheet";
     public override UiLayerKind Layer => UiLayerKind.Menu;
     public string WindowId => "charsheet";
 

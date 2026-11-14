@@ -202,12 +202,37 @@ public sealed class HordeNavData
     }
 
     /// <summary>The cell a body of <paramref name="cls"/> standing at <paramref name="feet"/> is on (its own, or one within a hull's reach), or none.</summary>
+    /// <remarks>
+    /// A cell blocked on the graph (beside a prop: <see cref="WithBlocks"/>) is not one: a body
+    /// standing there is planned from the nearest free cell of its class within
+    /// <see cref="NavPoints.TouchReach"/> (live, a robot pressed against a crate stood in a blocked
+    /// cell, every search from it answered unreachable, and it walked the room route into the
+    /// crate).
+    /// </remarks>
     public CellId CellAt(AiVector feet, ClearanceClass cls)
     {
         CellId c = Graph.FindCell(feet + new AiVector(0f, 0f, 18f));
-        if (c.IsValid && Graph.Cell(c).Admits(cls))
+        if (c.IsValid && Graph.Cell(c).Admits(cls) && !Open.CellBlocked(c.Index))
             return c;
-        return NavPoints.CellNear(Graph, feet, cls);
+        if (BlockedCells == 0)
+            return NavPoints.CellNear(Graph, feet, cls);
+
+        var near = new List<int>();
+        float r = NavPoints.TouchReach;
+        Graph.CellsNear(feet.X - r, feet.Y - r, feet.X + r, feet.Y + r, near);
+        int best = -1;
+        float bestD = float.MaxValue;
+        foreach (int i in near)
+        {
+            NavCell cell = Graph.Cell(i);
+            if (!cell.Admits(cls) || Open.CellBlocked(i) || cell.FloorZ < feet.Z - 72f || cell.FloorZ > feet.Z + 24f)
+                continue;
+            float d = (cell.Centre - feet).Length2D;
+            if (d < bestD || (d == bestD && i < best))
+                (best, bestD) = (i, d);
+        }
+
+        return best >= 0 && bestD <= r ? new CellId(best) : CellId.None;
     }
 
     /// <summary>The cells of <paramref name="cls"/> joined to <paramref name="from"/> by passable edges, as a set by cell.</summary>

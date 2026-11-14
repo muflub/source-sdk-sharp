@@ -5,19 +5,6 @@ using TF2.Descent.Client.Ui.Parts;
 namespace TF2.Descent.Client.Ui.Screens;
 
 /// <summary>
-/// What the bench is short of, per stack (view-model-built by the wiring; the
-/// plan's <see cref="IDescentCraft"/> carries no per-metal deficiency, only
-/// <c>CanCraft</c>). Optional: unwired, the bench just says "not enough
-/// metal" instead of naming the stacks.
-/// </summary>
-public interface IDescentCraftShortage
-{
-    int ScrapShort { get; }
-    int ReclaimedShort { get; }
-    int RefinedShort { get; }
-}
-
-/// <summary>
 /// The Engineer's crafting bench (plan §2.10, D24): the recipe list over the
 /// five stances the interface names (craft-by-base, reroll, upgrade rarity,
 /// combine potions, repair kit) on the left, the item under work in the
@@ -33,6 +20,8 @@ public sealed class CraftBench(
     IDescentCraftShortage? shortage = null) : UiScreen, IUiWindowed
 {
     public override string Name => "craftbench";
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+    public override string? Panel => "descent_craftbench";
 
     public string WindowId => "craftbench";
 

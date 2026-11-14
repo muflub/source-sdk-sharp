@@ -111,6 +111,8 @@ public sealed partial class HookOrderTests
             (typeof(ITransmitRule), true),
             // HO3b: robots pass robots, beside TF2's team collide rule in the trace filter's chain.
             (typeof(IEntityCollideRule), true),
+            // WO6: the robot that killed a hero names him in TF2's death notice; TF2 registers no namer of its own.
+            (typeof(TF2.Server.Combat.ITFKillerNames), false),
         ];
         var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
         Assembly[] others =

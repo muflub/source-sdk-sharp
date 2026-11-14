@@ -87,6 +87,8 @@ internal sealed class RigMotionReports : IRobotMotionReports
     public TF2.Descent.Ai.Motion.BlockedReport Blocked(int body) => default;
 
     public TF2.Descent.Ai.Motion.LandedReport Landed(int body) => default;
+
+    public TF2.Descent.Ai.Motion.ArrivedReport Arrived(int body) => default;
 }
 
 /// <summary>

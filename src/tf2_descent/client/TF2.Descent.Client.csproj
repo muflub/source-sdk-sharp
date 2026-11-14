@@ -21,7 +21,22 @@
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
   </ItemGroup>
   <ItemGroup>
+    <!--
+      The rules' content the screens display (plan_descent_logic UI3): the SAME
+      files TF2.Descent.Rules embeds, linked, as TF2.Descent.Client.Content.<table>.json.
+      The client may not reference Rules (it references Host.Contracts), so it
+      reads names, tiers and requirements (and the robot names, champion
+      affixes and status words a health bar shows, UI6) from these bytes (Content/DescentCatalog.cs);
+      DescentCatalog.Tables lists them, and a fact holds the two lists equal.
+    -->
+    <EmbeddedResource Include="..\rules\Content\skills.json;..\rules\Content\skill_tabs.json;..\rules\Content\skill_settings.json;..\rules\Content\item_bases.json;..\rules\Content\affixes.json;..\rules\Content\attributes.json;..\rules\Content\rarities.json;..\rules\Content\families.json;..\rules\Content\damage_types.json;..\rules\Content\unusual_effects.json;..\rules\Content\uniques.json;..\rules\Content\inventory.json;..\rules\Content\robots.json;..\rules\Content\champions.json;..\rules\Content\status.json"
+                      Link="Content\%(Filename)%(Extension)"
+                      LogicalName="TF2.Descent.Client.Content.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- TF2Descent builds on the TF2 mod. -->
     <ProjectReference Include="..\..\tf2\client\TF2.Client.csproj" />
+    <!-- The Descent screens' contract (plan_descent_logic UI1): client/Ui answers it. -->
+    <ProjectReference Include="..\interface\TF2.Descent.Client.Interface.csproj" />
   </ItemGroup>
 </Project>

@@ -4,13 +4,6 @@ using TF2.Descent.Client.Ui.Parts;
 
 namespace TF2.Descent.Client.Ui.Screens;
 
-/// <summary>The Australium the character carries (D12). Lane-local: the vendor
-/// lane carries it for vendors, and §4 has no shared purse interface yet.</summary>
-public interface IDescentInvPurse
-{
-    long Australium { get; }
-}
-
 /// <summary>
 /// The inventory (D4, R29): the paper doll and the backpack in one window,
 /// 960×640. Left, TF2's silhouette as ItemSlot cells - the weapon column, the
@@ -19,7 +12,8 @@ public interface IDescentInvPurse
 /// 8 columns, the withdraw-only tail dimmed (2d). The belt strip rides along
 /// the bottom like the HUD draws it, Australium sits top-right, and the
 /// tooltip is the ItemTooltip part in an overlay anchored near the hovered
-/// slot, so it reads over the busy grid. Clicks go to IDescentItemActions.
+/// slot, so it reads over the busy grid. Clicks go to IDescentItemActions:
+/// a backpack cell by its index, a doll slot as <c>-1 - slot</c>.
 /// Narrow (a dragged-narrow window): the doll stacks above the backpack and
 /// the grid thins to the columns the width allows.
 /// </summary>
@@ -39,6 +33,8 @@ public sealed class Inventory(
     IDescentInspectActions? inspectActions = null) : UiScreen, IUiWindowed
 {
     public override string Name => "inventory";
+    /// <summary>The viewport panel the server opens this screen with (VGUIMenu): <c>descent_&lt;screen&gt;</c> (plan_descent_logic UI1).</summary>
+    public override string? Panel => "descent_inventory";
     public string WindowId => "inventory";
     private const float ColumnDu = ItemSlot.SizeDu + (float)Space.XS;
     private readonly Action<int>? _onCellHover = actions is null ? null : new Action<int>(actions.Hover);
@@ -134,7 +130,10 @@ public sealed class Inventory(
             // every click (the tooltip's overlay pattern, the Dialog's
             // centring), so the grid under it cannot be picked while the
             // item is being looked at.
-            if (_inspect is not null && _inspectModal is { } modal)
+            // Only while an item is under inspection: a modal overlay dims the
+            // window and takes every click even when the part inside draws
+            // nothing, and live the inventory could not be used at all (UI3).
+            if (_inspect is { Showing: true } && _inspectModal is { } modal)
                 using (ui.Overlay("inspect", modal: true))
                     ui.Sub("inspect", modal);
         }
@@ -181,15 +180,17 @@ public sealed class Inventory(
         {
             _anchor = box;
             _hasAnchor = true;
+            // A doll slot is keyed -1 - slot, a backpack cell by its index: one
+            // actions sink takes both (plan_descent_logic UI3).
             if (item is not null)
-                actions?.Hover(i);
+                actions?.Hover(-1 - i);
         }
         using (box)
             ui.Sub(-1 - i, slot, new ItemSlotProps(item, !earned, false, item is not null, hit.Hovered,
                                                    item is not null && _inspectActions is not null, i,
                                                    _inspectActions));
         if (hit.Clicked && item is not null)
-            actions?.Use(i);
+            actions?.Use(-1 - i);
     }
 
     /// <summary>The backpack's caption row: name, count over capacity, and the

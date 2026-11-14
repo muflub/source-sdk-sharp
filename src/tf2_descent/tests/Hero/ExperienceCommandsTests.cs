@@ -108,7 +108,7 @@ public sealed class ExperienceCommandsTests
         var rig = new ServerHordeRig(begin: false);
         var horde = new HordeService(new Mode(), new Levels(), rig.Spawner, new Clock(), rig.Parking,
                                      new HordeCensus(rig.Spawner, rig.Parking, rig.Log), new HordeTickTimer(), rig.Log,
-                                     new MarkerClearances(rig.World, new RigRules()), new FixedParty(1));
+                                     new MarkerClearances(rig.World, new RigRules()), new FixedParty(1), rig.Nav());
         horde.OnLevelReady("tf2_descent-1-s1");
         Assert.True(horde.Current!.Begun);
         var told = new Told();

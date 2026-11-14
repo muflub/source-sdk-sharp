@@ -32,15 +32,17 @@ namespace TF2.Descent.Server.Horde.Session;
 /// <c>tf2_descent_ai_record 1</c>, the core's <see cref="AiRecorder"/> to
 /// <c>&lt;game&gt;/ai_recordings</c>. <b>Seats</b>: a hero's seat is its player's
 /// entity index; the session's hero slots 50 to 53 go to the first four seats
-/// seen (<see cref="HeroSlots"/>). <b>Nav</b>: none: the deciders walk the room
-/// graph's doors (HO4's ruling, in its hand-back).
+/// seen (<see cref="HeroSlots"/>). <b>Nav</b>: the level graph's paths
+/// (<see cref="Nav.HordeNav.Paths"/>) once the level's graph is ready, the room route until then.
+/// <b>Arrivals</b>: each body's arrival at its order's last corner (the motion's report) is an
+/// <c>Arrived</c> for its brain the next tick.
 /// </para>
 /// </summary>
 [SideService(Side.Server, As = [typeof(IHordeBrainHost), typeof(IHordeActors), typeof(IRobotTaunts)])]
 public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, ISightWorld sightWorld, IHordeHeroes heroes,
                                  IHordeRules rules, IHordeClock clock, IHeroLandings landings, HordeWorkers workers,
                                  HordeAiSyncConVar sync, HordeAiThreadsConVar threads, HordeAiRecordConVar record, IModInfo mod, ILog log,
-                                 Attacks.IRobotAttackWorld fireLines)
+                                 Attacks.IRobotAttackWorld fireLines, Nav.HordeNav nav, IRobotMotionReports reports)
     : IHordeBrainHost, IHordeActors, IRobotTaunts
 {
     /// <summary>Sounds the taps may queue between two ticks; one more is counted and the gate fails (B.3: never dropped silently).</summary>
@@ -62,6 +64,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
     private readonly (HordeSound Sound, long Tick)[] _recent = new (HordeSound, long)[64];
     private readonly HordeSound[] _recentScratch = new HordeSound[64];
     private int _recentNext;
+    private long[] _arrivedSeen = [];
     private int _queued, _farCount, _gathered;
     private long _lastTick = long.MinValue;
     private HordeController? _horde;
@@ -70,6 +73,9 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
     private Adapters? _adapters;
 
     public HordeBrains? Brains => _brains;
+
+    /// <summary>The level's controller this session serves, or none between levels.</summary>
+    public HordeController? Horde => _horde;
 
     public bool Inline { get; private set; }
 
@@ -144,7 +150,8 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
 
         _adapters = new Adapters(horde.Bodies!, motion, actions, sightWorld, _heroPlayer, fireLines);
         _brains = HordeBrains.For(horde.Roster!, horde.Pool!, horde.Level!, rules.Rules, _adapters, transport, sink,
-                                  HordeFamilies.Deciders(horde.Level!, rules.Rules), clock.TicksPerSecond, aim: _adapters);
+                                  HordeFamilies.Deciders(horde.Level!, rules.Rules, nav.Paths), clock.TicksPerSecond, aim: _adapters, paths: nav.Paths);
+        _arrivedSeen = new long[horde.Pool!.LastBody + 1];
         actions.Begin(horde, now);
         _brains.Session.CpuClock = HordeThreadClock.Micros;
         _queued = 0;
@@ -153,7 +160,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         Levels++;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[TF2Descent/Horde] AI session {Levels}: {HordeSlots.Slots} slots (bodies 1-{horde.Pool!.LastBody}, heroes {HordeSlots.FirstHero}-{HordeSlots.FirstHero + HordeSlots.Heroes - 1}), transport {(Inline ? "inline" : $"pooled, {Threads} threads")}, "
-            + $"nav: the room graph's doors (no NavGraph), sight budget {_brains.Vision.Budget} lines a tick, team layer off, recording {RecordingPath ?? "off"}\n"));
+            + $"nav: the level graph's paths once ready (the room route until then), sight budget {_brains.Vision.Budget} lines a tick, team layer off, recording {RecordingPath ?? "off"}\n"));
     }
 
     public void Tick(long now)
@@ -184,6 +191,17 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             {
                 Landings++;
                 Queue(SoundKind.Footstep, _places[k].Position, LandingReach, _places[k].Seat);
+            }
+        }
+
+        // The motion's arrivals since the last tick, to the brains (the core's applier feedback).
+        for (int b = 1; b < _arrivedSeen.Length; b++)
+        {
+            var arrived = reports.Arrived(b);
+            if (arrived.Tick > _arrivedSeen[b])
+            {
+                _arrivedSeen[b] = arrived.Tick;
+                brains.Arrived(now, b, arrived.At);
             }
         }
 
@@ -299,6 +317,35 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
         brains.HeroDied(clock.Tick, seat, killer);
     }
 
+    /// <summary>Heroes told down, and up, to the brains (WO6), since the module started.</summary>
+    public long HeroDowns { get; private set; }
+
+    public long HeroUps { get; private set; }
+
+    /// <summary>
+    /// A hero went down or got up (WO6, B.3's <c>HeroDowned</c>): every brain
+    /// with a body is told, so its memory holds him as no threat until he is up,
+    /// dies or respawns (the core's blackboard). A seat that holds no hero slot
+    /// is told to nobody.
+    /// </summary>
+    public void HeroDowned(int seat, bool down, Vector at)
+    {
+        if (_brains is not { } brains || _horde?.Bodies is not { } bodies || seat <= 0)
+            return;
+        ActorId hero = brains.HeroSlots.ActorOf(seat);
+        if (!hero.IsValid)
+            return;
+        if (down)
+            HeroDowns++;
+        else
+            HeroUps++;
+        var tick = new Tick((int)clock.Tick);
+        AiVector where = HordeVectors.ToAi(at);
+        for (int b = 1; b <= bodies.LastBody; b++)
+            if (brains.BrainAt(b) is { IsValid: true } brain)
+                brains.Session.Push(AiEvent.HeroDowned(brain, tick, hero, where, down));
+    }
+
     public bool TryEye(ActorId actor, out AiVector eye)
     {
         eye = default;
@@ -320,7 +367,7 @@ public sealed class HordeSession(IRobotMotion motion, IRobotActionSink actions, 
             + $"events in {c.EventsIn} processed {c.EventsProcessed} waiting {b.EventsWaiting} discarded {b.EventsDiscarded} dropped {c.EventsDropped}; "
             + $"steps run {c.StepsRun} skipped {c.StepsSkipped} faulted {c.StepsFaulted} in flight {c.InFlight} (most {c.InFlightMax}), brain cpu {c.BrainCpuMicrosMean:0.0} us a decide; "
             + $"sight traces {v.Traces} (last tick {v.TracesThisTick}, most {v.MostTraces} of {v.Budget}, candidates {v.CandidatesThisTick}, unserved {v.UnservedThisTick}, longest wait {v.LongestWait} ticks), gained {v.Gains} lost {v.Losses}; "
-            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}; "
+            + $"sounds queued {SoundsQueued} overflowed {SoundsOverflowed} heard {b.SoundsHeard} to far {FarSounds}, landings {Landings}; hits {RobotHits}, taunts {Taunts}, hero deaths {HeroDeaths}, stuck {b.Stuck}, arrived told {b.ArrivalsTold}, allies told {b.AlliesTold}; "
             + $"hero slots {HeroSlotsLine(b)}{(SoundsOverflowed > 0 || FarOverflowed > 0 || c.EventsDropped > 0 ? "; EVENTS LOST" : "")}");
     }
 

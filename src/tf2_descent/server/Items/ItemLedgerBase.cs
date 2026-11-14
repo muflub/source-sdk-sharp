@@ -100,6 +100,9 @@ public abstract class ItemLedgerBase : IItemLedger
 
     public abstract Task<LootAnswer> LootCorpse(string hero);
 
+    /// <summary>What the hero's corpse holds; null when the ledger cannot say (the hosted ledger: the SDK lists no corpse).</summary>
+    public virtual LedgerCorpse? Corpse(string hero) => null;
+
     //-------------------------------------------------------------------------
     // State
     //-------------------------------------------------------------------------

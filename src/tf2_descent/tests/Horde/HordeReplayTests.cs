@@ -74,7 +74,8 @@ public sealed class HordeReplayTests
     /// graph made ready part way through, as the server's derivation finishes during a level: six
     /// robots in the drift south of the arrival and its alcove, a hero walking from the arrival
     /// down the drift and back, a gunshot and hits now and then. Before the graph is ready the
-    /// robots go by the room route; after, by its paths.
+    /// robots go by the room route; after, by its paths. Every body's arrival is told to its brain
+    /// (Arrived), and a hit robot's pack-mates are told (AllyDamaged).
     /// </summary>
     private static (byte[] Recording, HordeLevel Level, int Intents, HordePaths Paths) RecordWithPaths()
     {
@@ -84,7 +85,10 @@ public sealed class HordeReplayTests
         var recorder = new AiRecorder(bytes, HordeBrains.Header(level));
         recorder.World(HordeBrains.RecordedWorld(0.015f));
         var log = new EventLog();
-        var rig = new BrainRig(level, sink: new Both(recorder, log), register: d => HordeFamilies.Register(d, FamilyNumbers.For(TheRules)), paths: paths);
+        var rig = new BrainRig(level, sink: new Both(recorder, log), register: d => HordeFamilies.Register(d, FamilyNumbers.For(TheRules)), paths: paths)
+        {
+            TellArrivals = true,
+        };
         var robots = new List<TF2.Descent.Ai.Roster.RobotId>();
         string[] templates = ["soldier", "spy", "scout", "soldier", "medic", "spy"];
         for (int r = 0; r < 6; r++)
@@ -120,6 +124,8 @@ public sealed class HordeReplayTests
 
         rig.Brains.Session.Drain(wait: true);
         Assert.Equal(0, searchesBefore);
+        Assert.Contains(log.Events, e => e.Kind == AiEventKind.Arrived);
+        Assert.Contains(log.Events, e => e.Kind is AiEventKind.AllyDamaged or AiEventKind.AllyDied);
         Assert.True(paths.Found > 0, $"the control: no path was found after the graph was ready ({paths.Searches} searches)");
         Assert.Contains(log.Intents, i => i.FromTick.Value < rig.Now - Ticks + PathsReadyAt && i.Move.Kind == MoveKind.Follow);
         return (bytes.ToArray(), level, log.Intents.Count, paths);
@@ -147,6 +153,37 @@ public sealed class HordeReplayTests
             Assert.Equal(inline.ReplayedIntentCount, pooled.ReplayedIntentCount);
             Assert.True(pooled.Identical, $"{threads} thread(s): the intent stream differs from the recording's");
         }
+    }
+
+    /// <summary>
+    /// Homes in a recording (format 8's BotAdded home): robots rolled at their markers, lent away
+    /// from them, walk home with nothing to hunt; the replay's brains get the recorded homes, so
+    /// they walk to the same places.
+    /// </summary>
+    [Fact]
+    public void A_recording_of_robots_walking_home_to_their_markers_replays_to_the_same_intents()
+    {
+        var level = Row(4, markers: 2);
+        var bytes = new MemoryStream();
+        var recorder = new AiRecorder(bytes, HordeBrains.Header(level));
+        recorder.World(HordeBrains.RecordedWorld(0.015f));
+        var log = new EventLog();
+        var rig = new BrainRig(level, sink: new Both(recorder, log));
+        for (int r = 0; r < Math.Min(4, rig.Roster.Count); r++)
+        {
+            var id = rig.Roster.Id(r);
+            rig.Roster.WakeRoom(rig.Roster.HomeRoom(r));
+            int body = rig.Lend(id);
+            rig.Poses.Set(body, rig.Poses.Position(body) + At(0, 250), 0f);
+        }
+
+        rig.Tick(600);
+        rig.Brains.Session.Drain(wait: true);
+        Assert.Contains(log.Intents, i => i.Move.Kind == MoveKind.Follow);
+
+        var replay = Replay(bytes.ToArray(), level, new InlineTransport());
+
+        Assert.True(replay.RecordedIntentCount > 0 && replay.Identical, "the replay of robots walking home differs from the recording");
     }
 
     [Fact]
@@ -264,6 +301,13 @@ public sealed class HordeReplayTests
         {
             a.BotAdded(bot, seed, skillLevels);
             b.BotAdded(bot, seed, skillLevels);
+        }
+
+        /// <summary>A bot with its home (format 8): without this the interface's default drops the home on its way to the recorder.</summary>
+        public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels, AiVector? home)
+        {
+            a.BotAdded(bot, seed, skillLevels, home);
+            b.BotAdded(bot, seed, skillLevels, home);
         }
 
         public void BotRemoved(ActorId bot)

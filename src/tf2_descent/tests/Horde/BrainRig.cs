@@ -122,6 +122,9 @@ internal sealed class BrainRig
     /// <summary>Whether <see cref="Tick"/> slides the bodies along their orders.</summary>
     public bool Slide { get; set; } = true;
 
+    /// <summary>Whether the slide tells a brain its body arrived at its order's last corner (as the server's motion does).</summary>
+    public bool TellArrivals { get; set; }
+
     /// <summary>A far robot of <paramref name="template"/> at <paramref name="at"/> in its room: a pack of its own, or the newest pack's with <paramref name="joinLastPack"/>.</summary>
     public RobotId Robot(AiVector at, string template = "soldier", ulong seed = 42, bool joinLastPack = false)
     {
@@ -220,6 +223,8 @@ internal sealed class BrainRig
             {
                 at = new AiVector(to.X, to.Y, at.Z);
                 Orders.Now[body] = (move, look, expires, corner + 1);
+                if (TellArrivals && corner + 1 == move.CornerCount)
+                    Brains.Arrived(Now, body, at);
             }
             else
             {
