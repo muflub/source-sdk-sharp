@@ -108,6 +108,18 @@ public interface ITeamAutoAssign
 }
 
 /// <summary>
+/// How many playing teams the active mode plays with, implemented beside
+/// <see cref="IJoinTeamPolicy"/> by the active mode's rule: the joinable
+/// teams are Spectator (1) to <see cref="LastTeam"/>. A mode whose rule does
+/// not implement it keeps HL2MP's four teams (last team 3).
+/// </summary>
+public interface ITeamCount
+{
+    /// <summary>The highest team number a player may join.</summary>
+    int LastTeam { get; }
+}
+
+/// <summary>
 /// The rules' own team move: stock's <c>ChangeTeam</c> called by the game, not
 /// by the player's <c>jointeam</c> (<c>PickDefaultSpawnTeam</c>, a mode putting
 /// everyone back on Unassigned). No join rule is asked and nothing of the
@@ -322,10 +334,14 @@ public sealed class Teams : ITeams, ITeamAssignment
 
         string arg = requested.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
+        // The joinable teams: HL2MP's, or the active mode's own count (team
+        // deathmatch with three or four teams).
+        int lastTeam = _modes?.Active?.JoinPolicy is ITeamCount count ? count.LastTeam : Observers.LastTeam;
+
         // An out-of-range number (team 0 included) is the observers' stock
         // warning: one refusal point, and Observers keeps it.
-        if (!Observers.IsValidTeamNumber(requested))
-            return _observers.JoinTeam(joiner, arg, now);
+        if (!Observers.IsValidTeamNumber(requested, lastTeam))
+            return _observers.JoinTeam(joiner, arg, now, lastTeam);
 
         // Team 1, stock's HandleCommand_JoinTeam(TEAM_SPECTATOR): the
         // mp_allowspectators gate, then ChangeTeam(TEAM_SPECTATOR) — the team
@@ -375,7 +391,7 @@ public sealed class Teams : ITeams, ITeamAssignment
         // The observer half — stop watching, and come back if watching was
         // what this player was doing (stock's StopObserverMode and
         // STATE_ACTIVE before ChangeTeam) — then the team itself.
-        JoinTeamResult outcome = _observers.JoinTeam(joiner, arg, now);
+        JoinTeamResult outcome = _observers.JoinTeam(joiner, arg, now, lastTeam);
         ChangeTeam(player, requested);
         return outcome;
     }

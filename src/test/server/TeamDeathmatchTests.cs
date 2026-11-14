@@ -43,7 +43,7 @@ public class TeamDeathmatchTests
         }
     }
 
-    internal sealed class Bots(params EntityHandle[] bots) : IBotPlayers
+    internal sealed class BotRoster(params EntityHandle[] bots) : IBotPlayers
     {
         public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
             => throw new NotSupportedException();
@@ -75,7 +75,7 @@ public class TeamDeathmatchTests
         public readonly TeamDeathmatchMode Mode;
         public readonly SpawnPoints Spawns;
         public readonly TableTeams TeamTable;
-        public readonly Bots BotList = new(Bot);
+        public readonly BotRoster BotList = new(Bot);
         public readonly Dictionary<EntityHandle, int> Teams = new()
         {
             [CombineA] = TeamDeathmatchMode.TeamCombine,
@@ -111,11 +111,14 @@ public class TeamDeathmatchTests
                                      new Random(1));
             TeamTable = new TableTeams(Teams);
             Mode = new TeamDeathmatchMode(Modes, Host, Spawns, TeamTable, TeamTable, Host,
-                                          ConVars.Declared<TeamsUnbalanceLimitConVar>(), Host, BotList, new Random(1));
+                                          ConVars.Declared<TeamsUnbalanceLimitConVar>(), ConVars.Declared<TdmTeamsConVar>(),
+                                          Host, BotList, new Random(1));
             Services.AddInstance(Mode);
         }
 
         public void SetTime(float now) => Host.Returns("Clock.Now", now).Returns("Host.CurrentTime", now);
+
+        public void TeamCount(int n) => ConVars.Declared<TdmTeamsConVar>().Bind(-1, "mp_tdm_teams", n.ToString());
 
         public void FragLimit(int n) => ConVars.Declared<MpFragLimitConVar>().Bind(-1, "mp_fraglimit", n.ToString());
 
@@ -134,6 +137,25 @@ public class TeamDeathmatchTests
     //-------------------------------------------------------------------------
     // The mode.
     //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// A core mode is never itself an <see cref="ISpawnSelector"/>: the container
+    /// registers a type under every interface it implements, so such a mode
+    /// joined the global selector chain every mode asks, and in TF2 it sat at
+    /// TFSpawnSelector's order and spawn selection threw. A mode hands its
+    /// spawns out through <see cref="IGameMode.Spawns"/> only.
+    /// </summary>
+    [Fact]
+    public void NoCoreModeJoinsTheGlobalSpawnSelectorChain()
+    {
+        var modes = typeof(IGameMode).Assembly.GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false } && typeof(IGameMode).IsAssignableFrom(t))
+            .ToArray();
+
+        Assert.Contains(typeof(TeamDeathmatchMode), modes);
+        Assert.DoesNotContain(modes, t => typeof(ISpawnSelector).IsAssignableFrom(t));
+        Assert.NotNull(new Rig().Tdm().Mode.Spawns);
+    }
 
     [Fact]
     public void TheModeIsTdmAndPlaysWithTeams()
@@ -237,7 +259,7 @@ public class TeamDeathmatchTests
     {
         var scoring = new TeamDeathmatchScoring(Fake());
 
-        Assert.Equal((0, 0, -1), (scoring.TeamScore(0), scoring.TeamScore(1), scoring.TeamScore(4)));
+        Assert.Equal((0, 0, -1), (scoring.TeamScore(0), scoring.TeamScore(1), scoring.TeamScore(6)));
     }
 
     //-------------------------------------------------------------------------
@@ -381,27 +403,6 @@ public class TeamDeathmatchTests
         Assert.Equal(2, Menus(rig.Host).Count);
     }
 
-    [Fact]
-    public void ChangeteamUnderTdmShowsTheTeamMenu()
-    {
-        var rig = new Rig().Tdm();
-        var command = new TeamMenuCommand(rig.Modes, rig.Host);
-
-        Assert.True(command.Handle(RebelA, "changeteam", []));
-
-        Assert.Equal("team", Assert.Single(Menus(rig.Host)).Name);
-    }
-
-    [Fact]
-    public void ChangeteamUnderTheCoresRulesIsNotClaimed()
-    {
-        var rig = new Rig();
-        var command = new TeamMenuCommand(rig.Modes, rig.Host);
-
-        Assert.False(command.Handle(RebelA, "changeteam", []), "deathmatch has no teams: the word falls through");
-        Assert.Empty(Menus(rig.Host));
-    }
-
     //-------------------------------------------------------------------------
     // The pick at level init: mp_teamplay.
     //-------------------------------------------------------------------------
@@ -445,6 +446,148 @@ public class TeamDeathmatchTests
         ((IGameLifecycle)rig.Modes).OnLevelInit("dm_lockdown");
 
         Assert.Equal(GameModes.NullModeId, rig.Modes.ActiveId);
+    }
+
+    //-------------------------------------------------------------------------
+    // say_team.
+    //-------------------------------------------------------------------------
+
+    private sealed class NoClients : IConnectedClients
+    {
+        public float? AvgLatency(int entIndex) => null;
+        public ulong SteamId64(int entIndex) => 0;
+        public string? Address(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+        public int UserId(int entIndex) => 0;
+        public void Kick(int entIndex, string reason) { }
+        public void ClientCommand(int entIndex, string command) { }
+        public void Reconnect(int entIndex) { }
+    }
+
+    private static HostSay Say(Rig rig)
+    {
+        var say = new HostSay(rig.Log, rig.Host, rig.Host, new ScriptedEntityRegistry(TestEngines.Server()), rig.Host,
+                              new NoClients(), rig.Host, rig.Host);
+        say.AttachModes(rig.Modes);
+        return say;
+    }
+
+    [Fact]
+    public void UnderTdmSayTeamReachesTheSpeakersTeammatesOnly()
+    {
+        var say = Say(new Rig().Tdm());
+
+        Assert.True(say.CanHear(CombineB, CombineA, teamOnly: true), "a teammate hears the team line");
+        Assert.False(say.CanHear(RebelA, CombineA, teamOnly: true), "the other team does not");
+        Assert.True(say.CanHear(RebelA, CombineA, teamOnly: false), "everyone hears say");
+    }
+
+    [Fact]
+    public void UnderTheCoresRulesSayTeamReachesNobody()
+    {
+        var say = Say(new Rig());
+
+        Assert.False(say.CanHear(CombineB, CombineA, teamOnly: true),
+            "HL2MP's deathmatch has no teammates, even for two players on one team number");
+    }
+
+    //-------------------------------------------------------------------------
+    // Three and four teams (user 2026-11-08: "also support 2/3/4 teams").
+    //-------------------------------------------------------------------------
+
+    internal static readonly EntityHandle Resistance = new(0x0001_0006u);
+
+    [Fact]
+    public void AFourTeamFragLimitEndsOnTheFourthTeam()
+    {
+        var rig = new Rig();
+        rig.TeamCount(4);
+        rig.Teams[Resistance] = TeamDeathmatchMode.TeamResistance;
+        rig.Host.ReturnsEachCall("Players.FindByUserId", () => rig.Host.Calls[^1].Args[0] switch
+        {
+            1 => CombineA,
+            2 => CombineB,
+            3 => RebelA,
+            6 => Resistance,
+            _ => EntityHandle.None,
+        });
+        rig.Tdm();
+        rig.FragLimit(2);
+        rig.Kill(victim: 1, attacker: 6);
+        rig.Kill(victim: 3, attacker: 6);
+
+        rig.SetTime(2f);
+        rig.Rules.Think();
+
+        Assert.True(rig.Rules.RoundOver, "Resistance reached the frag limit");
+        Assert.Equal(2, rig.Mode.Scoring!.TeamScore(TeamDeathmatchMode.TeamResistance));
+        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("frag limit reached: team Resistance on 2 of 2"));
+    }
+
+    [Fact]
+    public void TheTeamCountIsClampedToTwoToFour()
+    {
+        var rig = new Rig();
+
+        rig.TeamCount(9);
+        Assert.Equal(4, rig.Mode.TeamCount);
+        rig.TeamCount(1);
+        Assert.Equal(2, rig.Mode.TeamCount);
+    }
+
+    [Fact]
+    public void FewerTeamsMidLevelReTeamsWhoeverWasOnARemovedTeamAndRestartsTheRound()
+    {
+        var rig = new Rig();
+        rig.TeamCount(4);
+        rig.Teams[Resistance] = TeamDeathmatchMode.TeamResistance;
+        rig.Tdm();
+        rig.Kill(victim: 3, attacker: 1);
+
+        rig.TeamCount(2);
+
+        Assert.True(rig.Teams[Resistance] is TeamDeathmatchMode.TeamCombine or TeamDeathmatchMode.TeamRebels,
+            $"the Resistance player is on a team in play now (team {rig.Teams[Resistance]})");
+        Assert.Equal(0, rig.Mode.Scoring!.TeamScore(TeamDeathmatchMode.TeamCombine));
+        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("switched to 'tdm'"));
+    }
+
+    [Fact]
+    public void TheTeamCountMovingUnderAnotherModeMovesNobody()
+    {
+        var rig = new Rig();
+        rig.Teams[Resistance] = TeamDeathmatchMode.TeamResistance;
+
+        rig.TeamCount(3);
+
+        Assert.Empty(rig.TeamTable.Assigned);
+    }
+
+    [Fact]
+    public void ModelsSplitOnlyAtThreeAndFourTeams()
+    {
+        Assert.Equal(PlayerModels.Combine, PlayerModels.ModelsOf(TeamDeathmatchMode.TeamCombine, 2));
+        Assert.Equal(PlayerModels.Citizens, PlayerModels.ModelsOf(TeamDeathmatchMode.TeamRebels, 3));
+        Assert.Empty(PlayerModels.ModelsOf(TeamDeathmatchMode.TeamMetroPolice, 2));
+
+        Assert.DoesNotContain(PlayerModels.PoliceModel, PlayerModels.ModelsOf(TeamDeathmatchMode.TeamCombine, 3));
+        Assert.Equal([PlayerModels.PoliceModel], PlayerModels.ModelsOf(TeamDeathmatchMode.TeamMetroPolice, 3));
+
+        var females = PlayerModels.ModelsOf(TeamDeathmatchMode.TeamResistance, 4);
+        Assert.Equal(6, females.Count);
+        Assert.All(females, m => Assert.Contains("/female_", m));
+        Assert.Empty(PlayerModels.ModelsOf(TeamDeathmatchMode.TeamRebels, 4).Intersect(females));
+    }
+
+    [Fact]
+    public void AModelImpliesTheTeamThatWearsIt()
+    {
+        string female = "models/humans/group03/female_01.mdl";
+
+        Assert.Equal(TeamDeathmatchMode.TeamCombine, PlayerModels.TeamOwning(PlayerModels.PoliceModel, 2));
+        Assert.Equal(TeamDeathmatchMode.TeamMetroPolice, PlayerModels.TeamOwning(PlayerModels.PoliceModel, 3));
+        Assert.Equal(TeamDeathmatchMode.TeamRebels, PlayerModels.TeamOwning(female, 3));
+        Assert.Equal(TeamDeathmatchMode.TeamResistance, PlayerModels.TeamOwning(female, 4));
     }
 
     [Fact]

@@ -227,7 +227,7 @@ public sealed class AdminMenuBuilder(IEngineFiles files, IEngineConsole console,
     {
         if (services.Resolve<GameModes>() is not { } modes)
             return [];
-        return modes.Registered.Select(m => new AdminNode(m.Id, "mode:" + m.Id, () => modes.SwitchTo(m.Id))).ToList();
+        return modes.Registered.Select(m => new AdminNode(GameVoteOptions.ModeLabel(m.Id), "mode:" + m.Id, () => modes.SwitchTo(m.Id))).ToList();
     }
 
     // By user id, which no later player reuses: a slot in a stale menu may have changed hands.

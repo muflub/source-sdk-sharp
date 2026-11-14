@@ -28,17 +28,18 @@ public class TeamDeathmatchJoinTests
         public readonly ConVarRegistry ConVars = ConVarRegistry.For(UnattachedConsole());
         public readonly TeamDeathmatchJoinPolicy Policy;
 
-        public PolicyRig(int combine, int rebels, int seed = 1)
+        public PolicyRig(int combine, int rebels, int seed = 1, int police = 0, int resistance = 0, int teams = 2)
         {
-            for (int i = 0; i < combine; i++)
-                Table[new EntityHandle((uint)(0x0002_0000 + i))] = TeamDeathmatchMode.TeamCombine;
-            for (int i = 0; i < rebels; i++)
-                Table[new EntityHandle((uint)(0x0003_0000 + i))] = TeamDeathmatchMode.TeamRebels;
+            foreach (var (team, count) in new[] { (2, combine), (3, rebels), (4, police), (5, resistance) })
+            {
+                for (int i = 0; i < count; i++)
+                    Table[new EntityHandle((uint)(0x0002_0000 * team + i))] = team;
+            }
             Table[Joiner] = 0;
 
             ConVars.RegisterAll(typeof(GameRules).Assembly);
             Policy = new TeamDeathmatchJoinPolicy(new TableTeams(Table), Engine, Engine,
-                                                  ConVars.Declared<TeamsUnbalanceLimitConVar>(), new Random(seed));
+                                                  ConVars.Declared<TeamsUnbalanceLimitConVar>(), new Random(seed), () => teams);
         }
 
         public void Limit(int n) => ConVars.Declared<TeamsUnbalanceLimitConVar>().Bind(-1, "cs_sv_teams_unbalance_limit", n.ToString());
@@ -73,6 +74,34 @@ public class TeamDeathmatchJoinTests
         rig.Table[Joiner] = TeamDeathmatchMode.TeamRebels;   // 1 Combine against the other Rebel: a tie without them
 
         Assert.Equal(TeamDeathmatchMode.TeamRebels, rig.Policy.AutoTeam(Joiner));
+    }
+
+    [Fact]
+    public void ThreeTeamAutoAssignFillsTheSmallest()
+    {
+        var rig = new PolicyRig(combine: 2, rebels: 2, police: 1, teams: 3);
+
+        Assert.Equal(TeamDeathmatchMode.TeamMetroPolice, rig.Policy.AutoTeam(Joiner));
+    }
+
+    [Fact]
+    public void FourTeamAutoAssignFillsTheSmallestAndTiesAreAmongTheSmallest()
+    {
+        Assert.Equal(TeamDeathmatchMode.TeamResistance,
+                     new PolicyRig(combine: 1, rebels: 1, police: 1, resistance: 0, teams: 4).Policy.AutoTeam(Joiner));
+
+        var picks = Enumerable.Range(0, 24)
+                              .Select(seed => new PolicyRig(combine: 2, rebels: 1, seed: seed, police: 2, resistance: 1, teams: 4)
+                                                  .Policy.AutoTeam(Joiner))
+                              .Distinct().Order().ToArray();
+        Assert.Equal([TeamDeathmatchMode.TeamRebels, TeamDeathmatchMode.TeamResistance], picks);
+    }
+
+    [Fact]
+    public void ATeamNotInPlayIsNeverAutoAssigned()
+    {
+        // Two teams: an empty Resistance is no candidate.
+        Assert.Equal(TeamDeathmatchMode.TeamRebels, new PolicyRig(combine: 1, rebels: 0, teams: 2).Policy.AutoTeam(Joiner));
     }
 
     //-------------------------------------------------------------------------
@@ -134,7 +163,7 @@ public class TeamDeathmatchJoinTests
     //-------------------------------------------------------------------------
 
     /// <summary>Teams over a registry whose two players are managed, with the mode as the active one.</summary>
-    private sealed class JoinRig
+    internal sealed class JoinRig
     {
         private static readonly EntityHandle[] Handles = [new(0x0001_0001u), new(0x0001_0002u)];
         public static EntityHandle Asking => Handles[0];
@@ -147,6 +176,7 @@ public class TeamDeathmatchJoinTests
         public readonly ConVarRegistry ConVars = ConVarRegistry.For(UnattachedConsole());
         public readonly Dictionary<EntityHandle, int> Table = new() { [Handles[0]] = 0, [Handles[1]] = 2 };
         public readonly Teams Teams;
+        public readonly GameModes Modes;
 
         private sealed class Roster(EntityHandle[] players) : IPlayerDirectory
         {
@@ -174,7 +204,7 @@ public class TeamDeathmatchJoinTests
             public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }
         }
 
-        public JoinRig(string mode)
+        public JoinRig(string mode, int teams = 2)
         {
             Registry.RegisterAll(typeof(SsPlayer).Assembly);
             Engine.Returns("Entities.IsValid", true)
@@ -193,18 +223,23 @@ public class TeamDeathmatchJoinTests
                 Registry.KeyValue(Handles[i], EntityNames.Player, "targetname", "p" + i);
 
             ConVars.RegisterAll(typeof(GameRules).Assembly);
+            ConVars.Declared<TdmTeamsConVar>().Bind(-1, "mp_tdm_teams", teams.ToString());
             var observers = new Observers(Log, Registry, Engine, Engine, Engine, Engine, Engine, Engine, Engine,
                                           ConVars.Declare<ForceCameraConVar>(), ConVars.Declare<AllowSpectatorsConVar>(), null);
             Services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(new Selector(mode)));
-            var modes = new GameModes(Log, Engine, Services, ConVars.Declare<SvModeSwitchWarmupConVar>(),
-                                      ConVars.Declare<MpWaitingForPlayersTimeConVar>());
+            var modes = Modes = new GameModes(Log, Engine, Services, ConVars.Declare<SvModeSwitchWarmupConVar>(),
+                                              ConVars.Declare<MpWaitingForPlayersTimeConVar>());
+            modes.Attach(new GameRules(Log, ConVars.Holder<GameRulesConVars>(), Engine, Engine, Engine,
+                                       new Scoreboard(Engine, new PlayerDisconnectEvent(), new RecordingLog()),
+                                       new PlayerDeathEvent(), modes: modes));
             Teams = new Teams(Log, Engine, Engine, Registry, new Roster(Handles), observers, Engine, Engine,
                               null, Services, null, modes, null, null);
 
             var spawns = new SpawnPoints(Engine, Engine, Engine, Engine, ConVars.Declared<Hl2mpSpawnFragFallbackRadiusConVar>(),
                                          new Random(1));
             Services.AddInstance(new TeamDeathmatchMode(modes, Engine, spawns, Teams, Teams, Engine,
-                                                        ConVars.Declared<TeamsUnbalanceLimitConVar>(), Engine, null, new Random(1)));
+                                                        ConVars.Declared<TeamsUnbalanceLimitConVar>(), ConVars.Declared<TdmTeamsConVar>(),
+                                                        Engine, null, new Random(1)));
         }
     }
 
@@ -212,6 +247,8 @@ public class TeamDeathmatchJoinTests
     public void JointeamZeroUnderTdmJoinsTheSmallerTeam()
     {
         var rig = new JoinRig(TeamDeathmatchMode.ModeId);
+        Assert.Equal(TeamDeathmatchMode.ModeId, rig.Modes.ActiveId);   // the pick (and its setup) before the join
+        rig.Table[JoinRig.Asking] = 0;
 
         rig.Teams.Join(JoinRig.Asking, 0);
 
@@ -239,6 +276,26 @@ public class TeamDeathmatchJoinTests
         Assert.Equal(3, rig.Table[JoinRig.Other]);
         var hit = Assert.Single(rig.Engine.AllOf("Damage.Apply"));
         Assert.Equal(JoinRig.Other, hit.ArgAs<EntityHandle>(0));
+    }
+
+    [Fact]
+    public void JointeamFiveIsRefusedWithTwoTeamsAndAcceptedWithFour()
+    {
+        var two = new JoinRig(TeamDeathmatchMode.ModeId);
+        Assert.Equal(JoinTeamResult.Invalid, two.Teams.Join(JoinRig.Other, 5));
+        Assert.Equal(2, two.Table[JoinRig.Other]);
+
+        var four = new JoinRig(TeamDeathmatchMode.ModeId, teams: 4);
+        four.Teams.Join(JoinRig.Other, 5);
+        Assert.Equal(5, four.Table[JoinRig.Other]);
+    }
+
+    [Fact]
+    public void JointeamFourIsRefusedUnderTheCoresRules()
+    {
+        var rig = new JoinRig(GameModes.NullModeId);
+
+        Assert.Equal(JoinTeamResult.Invalid, rig.Teams.Join(JoinRig.Asking, 4));
     }
 
     [Fact]

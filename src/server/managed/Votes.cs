@@ -51,7 +51,8 @@ public interface IVoteSettingSource
 public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, ServiceContainer services,
                                     MapCycleFileConVar mapCycle, VoteIssueChangeLevelAllowedConVar changeLevel,
                                     VoteIssueModeAllowedConVar mode, VoteIssueRestartGameAllowedConVar restart,
-                                    VoteIssueSettingsAllowedConVar settings) : IVoteOptions
+                                    VoteIssueSettingsAllowedConVar settings,
+                                    VoteIssueScrambleTeamsAllowedConVar? scramble = null) : IVoteOptions
 {
     public IReadOnlyList<VoteOption> Build()
     {
@@ -59,7 +60,8 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
         return Of(Intermission.ReadCycle(files, mapCycle.Value),
                   modes is null ? [] : [.. modes.Registered.Select(m => m.Id)], modes?.ActiveId,
                   changeLevel.Value, mode.Value, restart.Value,
-                  settings.Value ? SettingsOf(services) : [], console.FindConVarValue);
+                  settings.Value ? SettingsOf(services) : [], console.FindConVarValue,
+                  allowScramble: scramble?.Value == true && modes?.Active is ITeamScramble);
     }
 
     /// <summary>This game's settings: its mods' if any list them, else the core's.</summary>
@@ -69,13 +71,40 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
         return mods.Count > 0 ? mods.SelectMany(m => m.VoteSettings) : CoreSettings();
     }
 
-    /// <summary>What every deathmatch has.</summary>
+    /// <summary>
+    /// What every deathmatch has, and team deathmatch's own: its team count,
+    /// whether teammates collide and its unbalance limit. The team rows are
+    /// offered whatever mode plays (the list goes to a player once a level, and
+    /// a mode can switch mid-level); a convar this game does not declare is
+    /// no choice (<see cref="Of"/>).
+    /// </summary>
     public static VoteSetting[] CoreSettings() =>
     [
         FriendlyFire(),
         TimeLimit(),
         new("mp_fraglimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "10"), ("20", "20"), ("30", "30"), ("50", "50")),
+        .. TeamSettings(),
     ];
+
+    /// <summary>Team deathmatch's settings (votes and the admin menu's Settings folder).</summary>
+    public static VoteSetting[] TeamSettings() =>
+    [
+        new("mp_tdm_teams", ("2", "2"), ("3", "3"), ("4", "4")),
+        new("mp_teammates_collide", ("0", "#SS_UI_Vote_Off"), ("1", "#SS_UI_Vote_On")),
+        new("cs_sv_teams_unbalance_limit", ("0", "#SS_UI_Vote_Off"), ("1", "1"), ("2", "2")),
+    ];
+
+    /// <summary>
+    /// What the menus call a mode: the core's two by name (the core's
+    /// <c>"null"</c> is "Deathmatch", plan Q13; <c>tdm</c> is "Team
+    /// Deathmatch"); a mod's mode by its id.
+    /// </summary>
+    public static string ModeLabel(string id) => id switch
+    {
+        GameModes.NullModeId => "#SS_UI_Mode_Deathmatch",
+        TeamDeathmatchMode.ModeId => "#SS_UI_Mode_TeamDeathmatch",
+        _ => id,
+    };
 
     public static VoteSetting FriendlyFire() => new("mp_friendlyfire", ("0", "#SS_UI_Vote_Off"), ("1", "#SS_UI_Vote_On"));
 
@@ -83,15 +112,18 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
         => new("mp_timelimit", ("0", "#SS_UI_Vote_NoLimit"), ("10", "#SS_UI_Vote_Min10"), ("20", "#SS_UI_Vote_Min20"), ("30", "#SS_UI_Vote_Min30"), ("60", "#SS_UI_Vote_Min60"));
 
     public static List<VoteOption> Of(IEnumerable<string> maps, IEnumerable<string> modes, string? activeMode, bool allowMaps, bool allowModes, bool allowRestart,
-                                      IEnumerable<VoteSetting>? settings = null, Func<string, string?>? current = null)
+                                      IEnumerable<VoteSetting>? settings = null, Func<string, string?>? current = null,
+                                      bool allowScramble = false)
     {
         var options = new List<VoteOption>();
         if (allowMaps)
             options.AddRange(maps.Distinct(StringComparer.OrdinalIgnoreCase).Select(m => new VoteOption(VoteKind.Map, m, m, $"changelevel {m}")));
         if (allowModes)
-            options.AddRange(modes.Where(m => !string.Equals(m, activeMode, StringComparison.OrdinalIgnoreCase)).Select(m => new VoteOption(VoteKind.Mode, m, m, $"sv_mode {m}")));
+            options.AddRange(modes.Where(m => !string.Equals(m, activeMode, StringComparison.OrdinalIgnoreCase)).Select(m => new VoteOption(VoteKind.Mode, m, ModeLabel(m), $"sv_mode {m}")));
         if (allowRestart)
             options.Add(new VoteOption(VoteKind.Restart, VoteOptionWords.Restart, "", "mp_restartgame 1"));
+        if (allowScramble)
+            options.Add(new VoteOption(VoteKind.Scramble, VoteOptionWords.Scramble, "", TeamScrambleCommand.Name));
         foreach (var setting in settings ?? [])
         {
             // A convar this game does not have is no choice, nor the value it holds now.
@@ -113,12 +145,14 @@ public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, 
 /// <summary>A call's words to the option it names: only what the server's own list holds, so a command is never the client's.</summary>
 public static class VoteOptionWords
 {
-    public const string Map = "map", Mode = "mode", Restart = "restart", Setting = "setting";
+    public const string Map = "map", Mode = "mode", Restart = "restart", Setting = "setting", Scramble = "scramble";
 
     public static VoteOption? Find(IReadOnlyList<VoteOption> options, ReadOnlySpan<string> args)
     {
         if (args.Length == 1 && args[0] == Restart)
             return options.FirstOrDefault(o => o.Kind == VoteKind.Restart);
+        if (args.Length == 1 && args[0] == Scramble)
+            return options.FirstOrDefault(o => o.Kind == VoteKind.Scramble);
         if (args.Length != 2)
             return null;
         VoteKind? kind = args[0] switch { Map => VoteKind.Map, Mode => VoteKind.Mode, Setting => VoteKind.Setting, _ => null };
@@ -238,7 +272,7 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifec
         _office.Caller = slot;
         _office.Target = kick ? target : 0;
         _office.Kind = kick ? VoteKind.Kick : option!.Kind;
-        _office.Detail = kick || option!.Kind == VoteKind.Restart ? "" : option.Id;
+        _office.Detail = kick || option!.Kind is VoteKind.Restart or VoteKind.Scramble ? "" : option.Id;
         var issue = kick
             ? new VoteIssue("kick", target.ToString(System.Globalization.CultureInfo.InvariantCulture), $"kickid {_players.GetUserId(targetPlayer)} Voted off")
             : new VoteIssue(option!.Kind.ToString(), option.Id, option.Command);
@@ -328,6 +362,10 @@ public sealed class VoteConVars(AllowVotesConVar allow, VoteTimerDurationConVar 
 
 [ConVar("sv_vote_issue_settings_allowed", "1", Help = "Can players call votes to change game settings (friendly fire, time limit and so on)?")]
 public sealed class VoteIssueSettingsAllowedConVar : BoolConVar;
+
+/// <summary>Stock TF2's <c>sv_vote_issue_scramble_teams_allowed</c> (tf_voteissues.cpp), for team deathmatch's scramble.</summary>
+[ConVar("sv_vote_issue_scramble_teams_allowed", "1", Help = "Can players call votes to scramble the teams?")]
+public sealed class VoteIssueScrambleTeamsAllowedConVar : BoolConVar;
 
 [ConVar("sv_vote_issue_restart_game_allowed", "1", Help = "Can players call votes to restart the game?")]
 public sealed class VoteIssueRestartGameAllowedConVar : BoolConVar;

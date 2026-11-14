@@ -165,8 +165,7 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
         if (_modes?.Active?.Teamplay is not true)
             return false;
 
-        int team = players.GetTeam(a);
-        return team >= 2 && team == players.GetTeam(b);
+        return GameRules.Teammates(players.GetTeam(a), players.GetTeam(b));
     }
 
     /// <summary>CHL2MPRules::GetChatFormat for a player.</summary>
@@ -176,12 +175,17 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
 
     private string TeamNameOf(int team) => _teamNames.Of(team, TeamName(team));
 
-    /// <summary>HL2MP's team names (g_Teams): Unassigned, Spectator, Combine, Rebels.</summary>
+    /// <summary>
+    /// HL2MP's team names (g_Teams): Unassigned, Spectator, Combine, Rebels;
+    /// and team deathmatch's own third and fourth, Metro Police and Resistance.
+    /// </summary>
     public static string TeamName(int team) => team switch
     {
         1 => "Spectator",
         2 => "Combine",
         3 => "Rebels",
+        4 => "Metro Police",
+        5 => "Resistance",
         _ => "Unassigned",
     };
 

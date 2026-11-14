@@ -2018,8 +2018,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Voting and its console verbs: a core service, the mods' words before it.
         _services.Add<IVoteOptions, GameVoteOptions>();
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));
-        // The change-team key's word: the team menu again, under a team mode.
-        _services.Add(typeof(TeamMenuCommand), typeof(TeamMenuCommand));
+        // The admin menu's Teams folder, under team deathmatch.
+        _services.Add(typeof(TeamAdminMenu), typeof(TeamAdminMenu));
 
         // Who is an admin, and the menu they get.
         _services.Add<IAdminMenu, AdminMenuBuilder>();

@@ -67,19 +67,20 @@ public class RejoinScoresTests
                       () => Slots.TryGetValue((int)Engine.Calls[^1].Args[0]!, out var h) ? h : EntityHandle.None);
             Roster = new Players(new RecordingLog(), Fake(), Fake(), Fake(), NoButtons);
             Board = board ?? new Scoreboard(Engine, new PlayerDisconnectEvent(), new RecordingLog());
-            Rejoin = new RejoinScores(Clients, Engine, Roster, Board, new TeamDeathmatchTests.Bots(bots), Log,
+            Rejoin = new RejoinScores(Clients, Engine, Roster, Board, new TeamDeathmatchTests.BotRoster(bots), Log,
                                       new ListHooks<IRejoinScoreHook>(Mod));
         }
 
         /// <summary>A client in <paramref name="slot"/>: a fresh entity, its userid, its SteamID (0 for none) and name.</summary>
-        public EntityHandle Connect(int slot, ulong steam, string name = "player", int? userId = null)
+        public EntityHandle Connect(int slot, ulong steam, string name = "player", int? userId = null, bool active = true)
         {
             var handle = new EntityHandle((uint)slot | (_serial++ << 16));
             Slots[slot] = handle;
             Clients.Steam[slot] = steam;
             Clients.Names[slot] = name;
             Clients.UserIds[slot] = userId ?? (int)_serial + 100;
-            ((IClientLifecycle)Rejoin).OnClientActive(slot);
+            if (active)
+                ((IClientLifecycle)Rejoin).OnClientActive(slot);
             return handle;
         }
 
@@ -143,9 +144,12 @@ public class RejoinScoresTests
         var a = rig.Connect(1, steam: 9);
         rig.Score(a, frags: 1, deaths: 1);
         rig.Leave(1);
-        var b = rig.Connect(1, steam: 9);
+        // Back, and gone again before they were ever in the game: two departures, one person.
+        var b = rig.Connect(1, steam: 9, active: false);
         rig.Score(b, frags: 12, deaths: 4);
         rig.Leave(1);
+
+        Assert.Equal(1, rig.Rejoin.Count);
 
         var c = rig.Connect(1, steam: 9);
 
