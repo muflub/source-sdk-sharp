@@ -1211,3 +1211,5 @@ src/server/managed/Modes/TeamplayModeSelector.cs	ports the m_bTeamPlayEnabled la
 src/tf2/server/Entities/Triggers/TriggerIgniteArrows.cs	ports CTriggerIgniteArrows (tf_triggers.cpp:173-232): the brush trigger that lights a looking Sniper's held CompoundBow arrow on entry
 src/tf2/shared/Rules/TFTeamCollision.cs	ports the switch CTFPlayer::ShouldCollide and C_TFPlayer::ShouldCollide share (tf_player.cpp:10159-10178, c_tf_player.cpp:7705-7724): a player-movement trace hits a red or blue player only through a mask with that teams contents bit
 src/tf2/client/Player/TFClientTeamCollide.cs	ports C_TFPlayer::ShouldCollide (c_tf_player.cpp:7705-7724) over the player resource team: the client prediction clip passes the teammates the server passes
+src/client/managed/PredictionPlayerClip.cs	ports IntersectRayWithBox for a swept hull (collisionutils.cpp:1130-1277) and the engine trace's world/entity merge: the client prediction clips the other players' boxes
+src/shared/managed/TeammatePushaway.cs	ports C_TFPlayer::AvoidPlayers' player half (c_tf_player.cpp:6315-6576): the push-apart of overlapping teammates added to the user command

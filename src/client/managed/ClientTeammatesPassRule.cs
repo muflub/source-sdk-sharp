@@ -22,19 +22,21 @@ public sealed class ClientTeammatesPassRule(MpTeammatesPassConVar pass, IClientS
 
     public int HookOrder => Order;
 
+    /// <summary>Whether teammates walk through each other now, as the server published it.</summary>
+    public bool TeammatesPass => pass.Value;
+
     public bool ShouldCollide(EntityHandle mover, EntityHandle entity, CollisionGroup group, int contentsMask)
     {
         // The cheap refusals first: deathmatch asks no team.
         if ((int)group != TeammateCollision.PlayerMovementGroup || mover == EntityHandle.None || !pass.Value)
             return true;
 
-        return !TeammateCollision.Passes(true, (int)group, TeamOf(mover), TeamOf(entity));
+        return !TeammateCollision.Passes(true, (int)group, TeamOf(mover.EntryIndex), TeamOf(entity.EntryIndex));
     }
 
     /// <summary>The player resource's team row for a player's index; -1 for anything else.</summary>
-    private int TeamOf(EntityHandle player)
+    public int TeamOf(int index)
     {
-        int index = player.EntryIndex;
         if (index <= 0 || index >= PlayerResourceNetState.Slots || standalones.GetByIndex(index) is not ClientSsPlayer)
             return -1;
 

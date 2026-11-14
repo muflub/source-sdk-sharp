@@ -12,8 +12,9 @@ namespace SourceSharp.Tests;
 /// A body keeps the team it died on (plan_bots_teams_tf2 A.8, ruled
 /// 2026-11-02), server half: the corpse takes its model and its team off
 /// the dying player at the death and never looks at its owner again, so a
-/// swap afterwards (team deathmatch kills, then moves, then re-dresses the
-/// player) leaves the body as it was.
+/// re-dress afterwards (team deathmatch moves the player, kills them, then
+/// PlayerModels re-dresses them: TeamDeathmatchJoinTests'
+/// TheSwitchKillLandsBeforeAWatcherRedressesThePlayer) leaves the body as it was.
 /// </summary>
 public class CorpseKeepsTeamTests
 {

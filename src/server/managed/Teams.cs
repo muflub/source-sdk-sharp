@@ -420,18 +420,16 @@ public sealed class Teams : ITeams, ITeamAssignment
 
         _log.Msg($"[SourceSharp/Teams] {player} joined team {team} (was {oldTeam})\n");
 
-        // The mods' arms on the change that has happened — stock's live
-        // team-change kill (CTFPlayer::ChangeTeam's active-player arm,
-        // tf_player.cpp:6687-6696) hangs on this seam — after the store so
-        // the death belongs to the new team, and isolated per watcher so a
-        // broken mod cannot fail a join that already happened.
-        _watchers?.Each(nameof(ITeamChangeWatcher.TeamChanged),
-                        watcher => watcher.TeamChanged(player, oldTeam, team));
-
-        // And the active mode's own arm, when its join rule watches too:
-        // scoped to the round it plays, as the rule is (team deathmatch's
-        // switch kill, CHL2MP_Player::ChangeTeam's bKill). After the
-        // registered watchers, and isolated the same way.
+        // The active mode's own arm, when its join rule watches: scoped to the
+        // round it plays, as the rule is (team deathmatch's switch kill,
+        // CHL2MP_Player::ChangeTeam's bKill), after the store so the death
+        // belongs to the new team. BEFORE the registered watchers, which is
+        // not stock's order: stock re-dresses the player for the new side
+        // first, and its body wore that side. Here the body is made in the
+        // model the player died in, and PlayerModels re-dresses them after
+        // (plan_bots_teams_tf2 A.8, ruled 2026-11-02: a body keeps the team
+        // colour its owner used to be on). Isolated, so a broken mode cannot
+        // fail a join that already happened.
         if (_modes?.Active?.JoinPolicy is ITeamChangeWatcher modeWatcher)
         {
             try
@@ -443,6 +441,14 @@ public sealed class Teams : ITeams, ITeamAssignment
                 _log.Warning($"[SourceSharp/Teams] mode team-change arm {modeWatcher.GetType().FullName} threw: {e}\n");
             }
         }
+
+        // The mods' arms on the change that has happened — stock's live
+        // team-change kill (CTFPlayer::ChangeTeam's active-player arm,
+        // tf_player.cpp:6687-6696) hangs on this seam — after the store so
+        // the death belongs to the new team, and isolated per watcher so a
+        // broken mod cannot fail a join that already happened.
+        _watchers?.Each(nameof(ITeamChangeWatcher.TeamChanged),
+                        watcher => watcher.TeamChanged(player, oldTeam, team));
     }
 
     /// <inheritdoc/>

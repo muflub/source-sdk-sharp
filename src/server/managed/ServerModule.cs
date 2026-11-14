@@ -1878,7 +1878,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // Teammates walk through each other in a mode that says so (plan
         // A.7): the core's collide rule on the trace filter's chain, and the
         // frame participant that publishes its answer to the clients.
-        _services.AddInstance(_services.Create<TeammatesPassRule>());
+        var teammatesPass = _services.Create<TeammatesPassRule>();
+        _services.AddInstance(teammatesPass);
+        // And a bot's command gets the push-apart of overlapping teammates a
+        // human's gets from the client's CreateMove: the runner the bots queue
+        // through is re-registered DECORATED (its users resolve it after
+        // composition, as IEnginePlayers' do).
+        _services.AddInstance<IPlayerCommandRunner>(new BotTeammatePushaway(_services.Require<IPlayerCommandRunner>(),
+            teammatesPass, _services.Require<MpTeammatesPushawayConVar>(), _entities, _services.Require<IEnginePlayers>()));
 
         // And the say relay gets it too: say_team asks the active mode whether
         // it plays with teams before it sends the line to teammates.
@@ -2028,9 +2035,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // Who is an admin, and the menu they get.
         _services.Add<IAdminMenu, AdminMenuBuilder>();
+        // Why the server said no, to the one player who asked (an admin's choice, a typed command).
+        _services.Add<IPlayerNotices, PlayerNotices>();
         _services.AddFactory(locator => ServerAdmins.For(locator.Require<IEngineHost>(), locator.Require<IEngineFiles>(), locator.Require<AdminAddressConVar>(),
                                                          locator.Require<IBoundPort>(), locator.Require<IUserMessageSender>(), locator.Require<IAdminMenu>(),
-                                                         locator.Require<IGameClock>(), locator.Require<ILog>()));
+                                                         locator.Require<IPlayerNotices>(), locator.Require<IGameClock>(), locator.Require<ILog>()));
         _services.AddFactory<IAdminStatus>(locator => locator.Require<ServerAdmins>());
 
         // THE SERVER'S SKELETONS (plan physics_bones_native_zero step 1.2):

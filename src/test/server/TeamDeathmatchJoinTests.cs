@@ -204,7 +204,7 @@ public class TeamDeathmatchJoinTests
             public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }
         }
 
-        public JoinRig(string mode, int teams = 2)
+        public JoinRig(string mode, int teams = 2, params ITeamChangeWatcher[] watchers)
         {
             Registry.RegisterAll(typeof(SsPlayer).Assembly);
             Engine.Returns("Entities.IsValid", true)
@@ -233,7 +233,7 @@ public class TeamDeathmatchJoinTests
                                        new Scoreboard(Engine, new PlayerDisconnectEvent(), new RecordingLog()),
                                        new PlayerDeathEvent(), modes: modes));
             Teams = new Teams(Log, Engine, Engine, Registry, new Roster(Handles), observers, Engine, Engine,
-                              null, Services, null, modes, null, null);
+                              null, Services, null, modes, null, new ListHooks<ITeamChangeWatcher>(watchers));
 
             var spawns = new SpawnPoints(Engine, Engine, Engine, Engine, ConVars.Declared<Hl2mpSpawnFragFallbackRadiusConVar>(),
                                          new Random(1));
@@ -296,6 +296,34 @@ public class TeamDeathmatchJoinTests
         var rig = new JoinRig(GameModes.NullModeId);
 
         Assert.Equal(JoinTeamResult.Invalid, rig.Teams.Join(JoinRig.Asking, 4));
+    }
+
+    /// <summary>A watcher that notes whether the switch kill had landed when it was told of the move.</summary>
+    private sealed class KillSeen : ITeamChangeWatcher
+    {
+        public Func<bool> Killed = () => false;
+        public bool? KilledFirst;
+
+        public void TeamChanged(EntityHandle player, int oldTeam, int newTeam) => KilledFirst = Killed();
+    }
+
+    /// <summary>
+    /// A body keeps the side it died on (plan_bots_teams_tf2 A.8, ruled
+    /// 2026-11-02): the switch kill lands before the watchers (PlayerModels)
+    /// re-dress the player for the new team, so the body is made in the old
+    /// team's model. Stock re-dresses first (CHL2MP_Player::ChangeTeam), and its
+    /// body wore the new side.
+    /// </summary>
+    [Fact]
+    public void TheSwitchKillLandsBeforeAWatcherRedressesThePlayer()
+    {
+        var seen = new KillSeen();
+        var rig = new JoinRig(TeamDeathmatchMode.ModeId, 2, seen);
+        seen.Killed = () => rig.Engine.Called("Damage.Apply");
+
+        rig.Teams.Join(JoinRig.Other, 3);
+
+        Assert.True(seen.KilledFirst, rig.Engine.Describe());
     }
 
     [Fact]

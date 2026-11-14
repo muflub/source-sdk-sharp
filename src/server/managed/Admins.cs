@@ -58,19 +58,21 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
     private readonly bool _dedicated;
     private readonly IUserMessageSender _messages;
     private readonly IAdminMenu _menu;
+    private readonly IPlayerNotices _notices;
     private readonly ILog _log;
 
-    public ServerAdmins(AdminGate gate, bool dedicated, IUserMessageSender messages, IAdminMenu menu, ILog log)
+    public ServerAdmins(AdminGate gate, bool dedicated, IUserMessageSender messages, IAdminMenu menu, IPlayerNotices notices, ILog log)
     {
         _gate = gate;
         _dedicated = dedicated;
         _messages = messages;
         _menu = menu;
+        _notices = notices;
         _log = log;
     }
 
     public static ServerAdmins For(IEngineHost host, IEngineFiles files, AdminAddressConVar adminAddress, IBoundPort port, IUserMessageSender messages,
-                                   IAdminMenu menu, IGameClock clock, ILog log)
+                                   IAdminMenu menu, IPlayerNotices notices, IGameClock clock, ILog log)
     {
         IReadOnlyDictionary<string, string> List()
         {
@@ -84,7 +86,7 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         var gate = new AdminGate(() => clock.Now, List,
                                  address => AdminAddress.IsOurs(address, port.Read(), AdminAddress.OwnInterfaces(), adminAddress.Value),
                                  AdminGate.SecureNonce);
-        return new ServerAdmins(gate, host.IsDedicatedServer, messages, menu, log);
+        return new ServerAdmins(gate, host.IsDedicatedServer, messages, menu, notices, log);
     }
 
     public int ClientLifecycleOrder => (int)LifecycleStage.Admins;
@@ -150,16 +152,24 @@ public sealed class ServerAdmins : IAdminStatus, IClientLifecycle
         {
             _log.Warning($"[SourceSharp/Admin] slot {slot} is no admin and asked for {id}\n");
             Refuse(slot, AdminRefusal.NotAllowed);
+            _notices.Refused(slot, $"Admin: {id} refused: you are not an admin on this server");
             return;
         }
-        if (AdminNode.Find(_menu.Build(slot), id) is { Run: { } run })
+        if (AdminNode.Find(_menu.Build(slot), id) is { } node)
         {
+            if (node.Take() is { } why)
+            {
+                // The admin who chose it hears why, as a player typing the command would.
+                _log.Warning($"[SourceSharp/Admin] slot {slot} asked for {id}, refused: {why}\n");
+                _notices.Refused(slot, $"Admin: {id} refused: {why}");
+                return;
+            }
             _log.Msg($"[SourceSharp/Admin] slot {slot} ran {id}\n");
-            run();
             return;
         }
         // A player gone, or a map off the list, since the menu was sent.
         _log.Warning($"[SourceSharp/Admin] slot {slot} asked for {id}, which is not on the menu now\n");
+        _notices.Refused(slot, $"Admin: {id} refused: it is not on the menu now");
     }
 
     private void SendMenu(int slot)

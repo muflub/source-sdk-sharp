@@ -351,6 +351,21 @@ public class AdminGateTests
     }
 
     [Fact]
+    public void A_line_s_unavailable_reason_survives_the_wire()
+    {
+        var read = AdminMenuText.Read(AdminMenuText.Write([new AdminMenuLine(1, "a", "A", Unavailable: "no navigation"), new AdminMenuLine(1, "b", "B")]));
+        Assert.Equal("no navigation", read[0].Unavailable);
+        Assert.Equal("", read[1].Unavailable);
+    }
+
+    [Fact]
+    public void A_reason_cannot_forge_a_menu_line()
+    {
+        var read = AdminMenuText.Read(AdminMenuText.Write([new AdminMenuLine(0, "a", "A", Unavailable: "why\n0\tmap:evil\tEvil\t0\t")]));
+        Assert.Equal("a", Assert.Single(read).Id);
+    }
+
+    [Fact]
     public void A_long_menu_comes_back_whole_from_its_pieces()
     {
         var lines = Enumerable.Range(0, 200).Select(i => new AdminMenuLine(1, $"map:m{i}", $"Map number {i}")).ToList();

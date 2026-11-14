@@ -8,6 +8,17 @@ public readonly record struct RecentCommand(int CommandNumber, int TickCount, fl
                                             int WeaponSelect, int MouseDx, int MouseDy, int RandomSeed);
 
 /// <summary>
+/// What may change a command after the input built it and before it is sent:
+/// stock's derived <c>CreateMove</c> overrides that run after the base
+/// (<c>C_TFPlayer::CreateMove</c>'s <c>AvoidPlayers</c>).
+/// </summary>
+public interface IInputCommandAdjust
+{
+    /// <summary>Adjusts <paramref name="cmd"/> in place.</summary>
+    void Adjust(ref InputCommand cmd);
+}
+
+/// <summary>
 /// The native IInput thunk set's managed half (plan_client_novalve §2 cluster
 /// 13): the IManagedInputClient slots, answered by <see cref="ClientInput"/>
 /// and <see cref="ClientRumble"/>. Also what the input dev route reads: the
@@ -24,13 +35,15 @@ public sealed class ClientInputService : IClientInputService, IReloadParticipant
     private readonly Func<float> _curTime;
     private readonly Func<bool> _paused;
     private readonly Action<UserCmd, float, bool>? _afterCommand;
+    private readonly IInputCommandAdjust? _adjust;
     private readonly RecentCommand[] _recent = new RecentCommand[RecentCount];
     private int _recentCount;
     private int _recentNext;
 
     public ClientInputService(ClientInput input, ClientRumble? rumble, Func<bool> localPlayerAlive,
                               Action<UserCmd, float, bool>? afterCommand = null,
-                              Func<float>? curTime = null, Func<bool>? paused = null)
+                              Func<float>? curTime = null, Func<bool>? paused = null,
+                              IInputCommandAdjust? adjust = null)
     {
         _input = input;
         _rumble = rumble;
@@ -38,6 +51,7 @@ public sealed class ClientInputService : IClientInputService, IReloadParticipant
         _curTime = curTime ?? (() => 0.0f);
         _paused = paused ?? (() => false);
         _afterCommand = afterCommand;
+        _adjust = adjust;
     }
 
     public ClientInput Input => _input;
@@ -90,6 +104,7 @@ public sealed class ClientInputService : IClientInputService, IReloadParticipant
         c.TickCount = cmd.Cmd.TickCount;
 
         _input.CreateMove(sequenceNumber, sampleTime, active, ref c);
+        _adjust?.Adjust(ref c);
 
         cmd.Cmd.Pitch = c.ViewAngles.Pitch;
         cmd.Cmd.Yaw = c.ViewAngles.Yaw;

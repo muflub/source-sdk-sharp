@@ -10001,6 +10001,39 @@ def respawn_local(g, slot, seconds=20.0):
     return g.api.wait_for(pressed, seconds, 1.0)
 
 
+def bot_trace(g, slot):
+    """A bot's doing-and-planning record (/ai/bot/<slot>/trace), or None while
+    its brain is busy on a worker or it has none."""
+    try:
+        got = g.api.get("route", "/ai/bot/%d/trace" % slot)
+    except ApiError:
+        return None
+    return got if isinstance(got, dict) and "targetSlot" in got else None
+
+
+def new_body_of(g, slot, known):
+    """A body (hl2mp_ragdoll) of player `slot` whose handle is not in
+    `known`, as /entity answers it (its model), or None. By handle and not by
+    count: a body times out on its own (SsRagdoll.Lifetime), and one going as
+    another comes leaves the count where it was."""
+    for e in g.api.ents(g.scen["ragdollClass"]):
+        if e["handle"] not in known and g.api.fields(e["index"]).get("PlayerIndex") == str(slot):
+            return g.api.entity(handle=e["handle"])
+    return None
+
+
+def model_of(g, slot):
+    got = g.api.entity(index=slot)
+    return (got or {}).get("model", "")
+
+
+def combine_model(model):
+    """Team deathmatch's Combine side dresses in models/combine_* and
+    models/police (PlayerModels' team lists); the Rebels in models/humans."""
+    m = (model or "").lower()
+    return m.startswith("models/combine") or m.startswith("models/police")
+
+
 def tdm_setup(g, bots, friendly_fire=0):
     """Team deathmatch on the level now loaded: mp_teamplay 1 (so a level
     change stays team deathmatch, TeamplayModeSelector), sv_mode tdm, the
@@ -10149,6 +10182,9 @@ def step_tdm_round(g):
         g.api.cmd("mp_fraglimit %d" % TDM_FRAGLIMIT)
         intermissions = g.count_console("[SourceSharp/Rules] intermission:")
         changes = g.count_console("CHANGE LEVEL:")
+        # Counted, not the last line: the console the gate reads holds earlier games' lines too.
+        picked = "[SourceSharp/Modes] %s: mode 'tdm'" % TDM_MAP
+        picks = g.count_console(picked)
         for point in range(1, TDM_FRAGLIMIT + 1):
             attacker = human if point % 2 else ally
             victim = foe1 if alive(g, foe1) else foe2
@@ -10191,8 +10227,8 @@ def step_tdm_round(g):
         g.check(bool(loaded), "mp_chattime later the level changes to %s (%s)" % (TDM_MAP, g.last_console_line("CHANGE LEVEL:")))
         if not loaded:
             return
-        mode = g.api.wait_for(lambda: g.last_console_line("[SourceSharp/Modes] %s: mode" % TDM_MAP), 30.0)
-        g.check(bool(mode) and "'tdm'" in mode, "it is team deathmatch again (%s)" % mode)
+        mode = g.api.wait_for(lambda: g.count_console(picked) > picks or None, 30.0)
+        g.check(bool(mode), "it is team deathmatch again (%s)" % (picked if mode else g.last_console_line("[SourceSharp/Modes] %s: mode" % TDM_MAP)))
         # The bots rejoin the level as clients again: their slots are read
         # anew. The listen server's own player keeps its slot, and may be in
         # the level after the bots are.
@@ -10325,6 +10361,248 @@ def step_tdm_chat(g):
         tdm_home(g)
 
 
+def step_tdm_bots(g):
+    """The bots play team deathmatch (plan_bots_teams_tf2 B.8), a player swaps
+    sides under their eyes (B.9, A.8), teammates pass and enemies block (A.7),
+    and the teams stay even (B.8's re-team).
+
+    On the gate's map, sv_mode tdm, the gate's player and Ally on the Combine,
+    Foe1 and Foe2 on the Rebels, recorded (ai_record). Asserted:
+      * two minutes of play, five at most while a team has not scored: both
+        teams' scores move; no intent refused as stale or unknown, no step
+        faulted, no team kill; the recording's team block (tools/ai-replay
+        jank) shows the bots' callouts;
+      * the level changes to ss_ai_tdm (the SECOND MAP LOAD) with the bots held
+        (ai_think 0): every player spawns on a spawn point of its team's class;
+      * the swap (B.9, A.8), in ss_ai_tdm's mid room: the two Rebels face the
+        gate's player and target them; the player switches to the Rebels: their
+        body wears a Combine model while they wear a Rebel one, and back in front
+        of the two bots they are nobody's target; switched back, the body wears a
+        Rebel model and both bots target them again;
+      * walking (A.7): the player walks through a teammate bot and is stopped by
+        an enemy one;
+      * the player switches sides and the roster re-teams a bot: two and two,
+        the player where they asked.
+    Then back to the scenario's map.
+    """
+    c0 = ai_counters(g)
+    if c0 is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    if c0.get("nav.refusal"):
+        g.check(False, "no bots without the map's nav: %s" % c0["nav.refusal"])
+        return
+    killed_before = len(g.console_lines(" killed by #"))
+    rec = os.path.join(g.scratch, "tdm-bots-%s.airec" % time.strftime("%H%M%S"))
+    try:
+        got = tdm_setup(g, TDM_BOTS)
+        if not got:
+            return
+        slots, human = got
+        ally, foe1, foe2 = slots["Ally"], slots["Foe1"], slots["Foe2"]
+        g.api.cmd("ai_record start %s %s" % (rec, g.scen["map"]))
+        c0 = ai_counters(g) or {}
+
+        # Two minutes, five at most while a team has not scored. The gate's
+        # player stands where it spawns and comes back when killed.
+        started = time.time()
+        while True:
+            g.api.wait_ticks(AI_BUDGET_WINDOW)
+            if not alive(g, human):
+                respawn_local(g, human, 5.0)
+            scores = (team_board(g) or ({},))[0]
+            played = time.time() - started
+            if played >= 120 and scores.get(TDM_COMBINE, 0) > 0 and scores.get(TDM_REBELS, 0) > 0:
+                break
+            if played >= 300:
+                break
+        g.api.cmd("ai_record stop")
+        c = ai_counters(g) or {}
+        board = team_board(g)
+        team_of = {s: board[1].get(s, (0, 0, 0))[2] for s in board[1]}
+        kills = kills_since(g, killed_before)
+        g.say("    %.0f s of play: scores %s, %d kill(s)" % (played, team_scores(board), len(kills)))
+        g.check(board[0].get(TDM_COMBINE, 0) > 0 and board[0].get(TDM_REBELS, 0) > 0,
+                "both teams' scores moved (Combine %s, Rebels %s)" % (board[0].get(TDM_COMBINE), board[0].get(TDM_REBELS)))
+        g.check(not team_kills(kills, team_of), "no team kill among the %d (%s)" % (len(kills), team_kills(kills, team_of)))
+        for key in ("ai.refused.stale", "ai.refused.unknown"):
+            g.check(c.get(key, 0) - c0.get(key, 0) == 0, "no intent refused as %s (%d)" % (key, c.get(key, 0) - c0.get(key, 0)))
+        g.check(c.get("ai.steps.faulted", 0) == 0, "no brain step faulted (%s)" % c.get("ai.steps.faulted"))
+        g.check(c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0) > 1000,
+                "the brains decided (%d steps)" % (c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0)))
+        scored = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "jank", rec, "--config", CONFIG],
+                                cwd=ROOT, capture_output=True, text=True, timeout=600)
+        callouts = recorded_callouts(scored.stdout)
+        g.check(scored.returncode == 0 and any(v > 0 for v in callouts.values()),
+                "the recording's team block shows the bots' callouts (callouts/min by bot: %s; exit %d)"
+                % (callouts, scored.returncode))
+
+        # The second map load: ss_ai_tdm, the bots held where they spawn.
+        g.api.cmd("ai_think 0")
+        g.api.cmd("changelevel %s" % TDM_MAP)
+        loaded = g.api.wait_for(lambda: g.api.status().get("map") == TDM_MAP and g.api.player(g.scen["playerClass"]) or None, 120.0, 1.0)
+        # The bots rejoin the level as clients again: their slots are read
+        # anew. The listen server's own player keeps its slot, and may be in
+        # the level after the bots are.
+        loaded = loaded and g.api.wait_for(lambda: len(ai_bots(g)) == 3 and in_level(g, human) or None, 60.0, 1.0)
+        everyone = []
+        if loaded:
+            slots = {b["name"]: b["slot"] for b in ai_bots(g)}
+            everyone = [human] + [slots[n] for n, _ in TDM_BOTS if n in slots]
+        up = len(everyone) == 4 and g.api.wait_for(lambda: all(alive(g, s) for s in everyone) or None, 60.0, 1.0)
+        g.check(bool(up), "the level changed to %s, the player and the three bots in it alive (%s)" % (TDM_MAP, everyone))
+        if not up:
+            return
+        ally, foe1, foe2 = slots["Ally"], slots["Foe1"], slots["Foe2"]
+        on_spawns, where = spawned_on_team_spawns(g, everyone)
+        g.check(on_spawns, "each spawned on a spawn point of its team's class: %s" % where)
+
+        # Sides as the level found them: the swap needs the player and Ally on one, Foe1 and Foe2 on the other.
+        g.api.cmd("jointeam %d" % TDM_COMBINE)
+        respawn_local(g, human)
+        tdm_swap_arm(g, human, ally, foe1, foe2)
+        tdm_walk_arm(g, human)
+        tdm_reteam_arm(g, human)
+    finally:
+        tdm_home(g)
+
+
+def recorded_callouts(report):
+    """{"<actor id>": callouts a minute} for each bot row of `tools/ai-replay
+    jank`'s team block ("team | team kills/min | held fire s/min | near a
+    teammate | callouts/min | engagements"). PURE."""
+    out, inside = {}, False
+    for line in report.splitlines():
+        if line.startswith("team play"):
+            inside = True
+            continue
+        if not inside:
+            continue
+        parts = line.split("|")
+        head = parts[0].split()
+        if len(parts) < 6 or len(head) < 3:
+            inside = False
+            continue
+        if head[1] == "bot" and "#" in head[0]:
+            try:
+                out[head[0]] = float(parts[4])
+            except ValueError:
+                pass
+    return out
+
+
+def targeted_by(g, bots, slot):
+    """The bots of `bots` whose last decide targets player `slot`, or None
+    while any brain cannot be read."""
+    traces = [bot_trace(g, b) for b in bots]
+    if any(t is None for t in traces):
+        return None
+    return [b for b, t in zip(bots, traces) if t.get("targetSlot") == slot]
+
+
+def tdm_place_watch(g, human, watchers, parked):
+    """ss_ai_tdm's mid room: the player at its west side facing east, the
+    `watchers` at its east side facing them, the `parked` bots in the Combine
+    base, out of the room's sight."""
+    g.api.teleport((560, TDM_MID_Y, 17), (0, 0, 0), settle=True, player=human)
+    for i, b in enumerate(watchers):
+        g.api.teleport((980, TDM_MID_Y - 40 + 80 * i, 17), (0, 180, 0), settle=True, player=b)
+    for i, b in enumerate(parked):
+        g.api.teleport((96, 600 + 64 * i, 17), (0, 0, 0), settle=True, player=b)
+
+
+def tdm_swap_arm(g, human, ally, foe1, foe2):
+    """B.9 and A.8: a player on the Combine swaps to the Rebels and back while
+    the Rebels' two bots watch."""
+    watchers = [foe1, foe2]
+    # A bot that rejoined the level on the auto-assigned team died moving to its own: alive first.
+    g.api.wait_for(lambda: all(alive(g, b) for b in (ally, foe1, foe2)) or None, 20.0, 0.5)
+    tdm_place_watch(g, human, watchers, [ally])
+    seen = g.api.wait_for(lambda: (lambda t: t if t is not None and len(t) == 2 else None)(targeted_by(g, watchers, human)), 8.0, 0.25)
+    g.check(bool(seen), "the two Rebels target the gate's player in front of them (the control: %s)"
+            % targeted_by(g, watchers, human))
+
+    for team, side, body_is_combine in ((TDM_REBELS, "Rebels", True), (TDM_COMBINE, "Combine", False)):
+        known = {e["handle"] for e in g.api.ents(g.scen["ragdollClass"])}
+        g.api.cmd("jointeam %d" % team)
+        moved = g.api.wait_for(lambda: (lambda b: b and b[1].get(human, (0, 0, 0))[2] == team or None)(team_board(g)), 10.0)
+        body = g.api.wait_for(lambda: new_body_of(g, human, known), 5.0)
+        g.check(bool(moved) and body is not None, "the gate's player switched to the %s and the switch killed them" % side)
+        respawn_local(g, human)
+        wearing = model_of(g, human)
+        body_model = (body or {}).get("model", "")
+        g.check(body is not None and combine_model(body_model) == body_is_combine and combine_model(wearing) != body_is_combine,
+                "the body keeps the side it died on: it wears %s, its owner now %s (A.8)" % (body_model or None, wearing))
+        tdm_place_watch(g, human, watchers, [ally])
+        if team == TDM_REBELS:
+            samples, aimed = 0, []
+            ends = time.time() + 3.0
+            while time.time() < ends:
+                got = targeted_by(g, watchers, human)
+                if got is not None:
+                    samples += 1
+                    aimed += got
+                time.sleep(0.25)
+            g.check(samples >= 5 and not aimed,
+                    "a teammate now, the player is no Rebel's target (%d read(s), targeted %d time(s))" % (samples, len(aimed)))
+        else:
+            again = g.api.wait_for(lambda: (lambda t: t if t is not None and len(t) == 2 else None)(targeted_by(g, watchers, human)), 8.0, 0.25)
+            g.check(bool(again), "an enemy again, both Rebels target the player (%s)" % targeted_by(g, watchers, human))
+
+
+def tdm_walk_arm(g, human):
+    """A.7: the player walks into a teammate bot and through it, and into an
+    enemy bot and is stopped. The bots stand (ai_think 0)."""
+    board = team_board(g)
+    mine = board[1].get(human, (0, 0, 0))[2]
+    bots = [b["slot"] for b in ai_bots(g)]
+    mate = next((b for b in bots if board[1].get(b, (0, 0, 0))[2] == mine), None)
+    enemy = next((b for b in bots if board[1].get(b, (0, 0, 0))[2] not in (mine, 0)), None)
+    if mate is None or enemy is None:
+        g.check(False, "a teammate bot and an enemy bot to walk into (%s)" % (board[1],))
+        return
+    for bot, y, passes, what in ((mate, 640.0, True, "a teammate"), (enemy, 896.0, False, "an enemy")):
+        g.api.teleport((768, y, 17), (0, 180, 0), settle=True, player=bot)
+        g.api.teleport((672, y, 17), (0, 0, 0), settle=True, player=human)
+        g.api.cmd("+forward")
+        g.ticks(1.0)
+        g.api.cmd("-forward")
+        g.ticks(0.3)
+        x = next(p["origin"][0] for p in g.api.ents(g.scen["playerClass"]) if p["index"] == human)
+        if passes:
+            g.check(x > 768 + 32, "the player walks through %s (#%d at x 768): from x 672 to %.0f" % (what, bot, x))
+        else:
+            g.check(704 <= x < 768 - 16, "the player is stopped by %s (#%d at x 768): from x 672 to %.0f" % (what, bot, x))
+
+
+def tdm_reteam_arm(g, human):
+    """B.8's re-team: with bots that take any team (no team=), the player
+    switches sides and the roster moves a bot, so the teams are two and two
+    again, the player left where they asked."""
+    g.api.cmd("ai_bot_kick all")
+    g.api.wait_for(lambda: not ai_bots(g) or None, 20.0)
+    for name in ("Any1", "Any2", "Any3"):
+        g.api.cmd("ai_bot_add %s normal" % name)
+
+    def even(team=None):
+        b = team_board(g)
+        if b is None or len(ai_bots(g)) != 3 or (team is not None and b[1].get(human, (0, 0, 0))[2] != team):
+            return None
+        heads = collections.Counter(row[2] for row in b[1].values())
+        return heads if heads[TDM_COMBINE] == 2 and heads[TDM_REBELS] == 2 else None
+    g.check(bool(g.api.wait_for(even, 30.0, 0.25)), "three bots of any team join two and two with the player (%s)"
+            % collections.Counter(row[2] for row in (team_board(g) or ({}, {}))[1].values()))
+    mine = team_board(g)[1].get(human, (0, 0, 0))[2]
+    other = TDM_REBELS if mine == TDM_COMBINE else TDM_COMBINE
+    moves = g.count_console("[SourceSharp/Ai] bot Any")
+    g.api.cmd("jointeam %d" % other)
+    got = g.api.wait_for(lambda: even(other), 15.0, 0.25)
+    g.check(bool(got) and g.count_console("[SourceSharp/Ai] bot Any") > moves,
+            "the player switched to the %s and the roster moved a bot: two and two, the player where they asked (%s; %s)"
+            % (TDM_TEAM_NAMES[other], collections.Counter(row[2] for row in (team_board(g) or ({}, {}))[1].values()),
+               g.last_console_line("[SourceSharp/Ai] bot Any")))
+
+
 def step_rejoin_score(g):
     """A departed player's score comes back when they rejoin, in the same
     match only (plan_bots_teams_tf2 A.6; RejoinScores). HL2DM's half: TF2's is
@@ -10401,8 +10679,9 @@ def step_rejoin_score(g):
         back = server.wait_for(lambda: row(second) == left_with or None, 10.0)
         g.check(bool(back) and left_with is not None and left_with[0] > 0,
                 "it rejoined with the score it left with: %s, as before %s" % (row(second), left_with))
-        g.check(g.count_console("[SourceSharp/Rejoin] restored") == restored_before + 1,
-                "and the server said it restored it (%s)" % g.last_console_line("[SourceSharp/Rejoin] restored"))
+        restored = g.count_console("[SourceSharp/Rejoin] restored") == restored_before + 1
+        g.check(restored, "and the server said it restored it (%s)"
+                % (g.last_console_line("[SourceSharp/Rejoin] restored") if restored else "no new restore line"))
 
         # A new match forgets it: away over a level load, and back to nothing.
         restored_before = g.count_console("[SourceSharp/Rejoin] restored")
@@ -10415,8 +10694,9 @@ def step_rejoin_score(g):
         if not rejoined:
             return
         join_motd(g, rejoined["index"])
-        g.check(g.count_console("[SourceSharp/Rejoin] map change: forgot") > forgot_before,
-                "the server forgot the departure at the new level (%s)" % g.last_console_line("[SourceSharp/Rejoin] map change"))
+        forgot = g.count_console("[SourceSharp/Rejoin] map change: forgot") > forgot_before
+        g.check(forgot, "the server forgot the departure at the new level (%s)"
+                % (g.last_console_line("[SourceSharp/Rejoin] map change") if forgot else "no new forget line"))
         second = connect("rejoined after the new level")
         if second is None:
             return
@@ -10588,8 +10868,8 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
 # and each run by hand against a game of its own, but not yet in a gate run: a
 # stage joins EXTRA_STEPS and RUN_ORDER (after ss-ai-hearing) together with its
 # crossing-budget row, which tools/gate-budget requires and only a run records
-# (`tools/live-gate --steps tdm-round,tdm-chat,rejoin-score --passes 3
-# --record --budget <scratch copy>`, then carry the three rows). Until then
+# (`tools/live-gate --steps tdm-round,tdm-chat,tdm-bots,rejoin-score --passes 3
+# --record --budget <scratch copy>`, then carry the four rows). Until then
 # --steps runs one when it is named, after the gate's own steps.
 TDM_STEPS = [
     ("tdm-round", "team deathmatch scores kills to the attacker's team, friendly fire off, and ends the round on "
@@ -10597,6 +10877,9 @@ TDM_STEPS = [
                   "sides (not in §5; plan_bots_teams_tf2 A.5)", step_tdm_round),
     ("tdm-chat", "a bot's say_team reaches its teammates and not the other team, before and after the player "
                  "switches (not in §5; plan_bots_teams_tf2 A.5, B.9)", step_tdm_chat),
+    ("tdm-bots", "the bots play team deathmatch, both teams scoring and calling out; on ss_ai_tdm a player swaps "
+                 "sides and back under two bots' eyes, the body keeping its side, teammates pass, and the roster "
+                 "keeps the teams even (not in §5; plan_bots_teams_tf2 B.8, B.9, A.7, A.8)", step_tdm_bots),
     ("rejoin-score", "a second client leaves and rejoins with its score, and a new level forgets it "
                      "(not in §5; plan_bots_teams_tf2 A.6)", step_rejoin_score),
 ]
@@ -11528,8 +11811,17 @@ def self_test():
     ok(team_kills([(2, 1)], {1: 0, 2: 0}) == [], "and nobody off a team makes one")
     ok(nearest_spawn_class((96, 670), {"info_player_combine": [(96, 672)], "info_player_rebel": [(1440, 672)]})
        == ("info_player_combine", 2.0), "the nearest spawn point's class and distance")
+    ok(recorded_callouts("x\nteam play (B.8): team | a | b | c | callouts/min | e\n"
+                         "  1#7   human  2 |  0.00 |  0.00 |  12% |  0.00 | 1, 0%\n"
+                         "  2#1   bot    2 |  0.00 |  0.05 |  15% |  3.30 | 25, 4%\n"
+                         "  3#2   bot    3 |  0.00 |  0.00 |  13% |  0.00 | 8, 25%\n"
+                         "  bots  bot    - |  0.00 |  0.03 |  14% |  1.65 | 33, 9%\nworst places:") == {"2#1": 3.3, "3#2": 0.0},
+       "the jank report's team block: each bot's callouts a minute, the human's and the bots' total left out")
     m = TDM_CHAT_LINE.match('"Ally<3><BOT><Combine>" say_team "tdm1a"')
     ok(m is not None and m.groups() == ("Combine", "say_team"), "HostSay's chat log line gives its team and verb")
+    ok(combine_model("models/Combine_Soldier.mdl") and combine_model("models/police.mdl")
+       and not combine_model("models/humans/group03/female_01.mdl"),
+       "a Combine model by its path, a Rebel one not")
 
     #-- the registry ---------------------------------------------------------
     ok(len(STEPS) == 16, "sixteen steps, as §5 lists")

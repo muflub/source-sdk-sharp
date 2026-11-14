@@ -2379,7 +2379,16 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                                              && local.State.Alive,
                                                      afterCommand: (cmd, sampleTime, active) => OnCreateMove(ref cmd, sampleTime, active),
                                                      curTime: () => _clock.Now,
-                                                     paused: () => inputHost.IsPaused);
+                                                     paused: () => inputHost.IsPaused,
+                                                     // The push-apart of overlapping teammates (plan A.7),
+                                                     // after the input built the command, as stock's
+                                                     // C_TFPlayer::CreateMove runs AvoidPlayers.
+                                                     adjust: new LocalTeammatePushaway(_standalones, hudArea,
+                                                         _services.Require<IEngineEntityRender>(),
+                                                         _services.Require<ClientTeammatesPassRule>(),
+                                                         _services.Require<MpTeammatesPushawayConVar>(), inputCvars,
+                                                         () => _services.Require<IEngineEnvironment>() is { Globals.IsAvailable: true } env
+                                                             ? env.Globals.MaxClients : 1));
         _services.AddInstance(_inputService);
         // The slot binds' predicted path: the latch rides the input service,
         // whose next CreateMove carries the selection in the command.
