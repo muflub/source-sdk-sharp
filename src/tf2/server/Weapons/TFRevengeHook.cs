@@ -32,7 +32,7 @@ namespace TF2.Server.Weapons;
 public sealed class TFRevengeHook(TFRevengeCrits revenge) : ITFWeaponHook
 {
     /// <summary>After the boost's (+210) and the king reload's (+215) arms: the shot's own bookends.</summary>
-    public int HookOrder => 1_000_000 - 1_000 + 220;
+    public int HookOrder => 1_000_000 - 1_000 + 217;
 
     public bool BeforeFire(in TFWeaponHookContext weapon, in WeaponAttackContext attack)
     {

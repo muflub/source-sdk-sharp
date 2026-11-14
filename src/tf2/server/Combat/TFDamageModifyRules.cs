@@ -39,6 +39,7 @@ namespace TF2.Server.Combat;
 /// rocket_specialist (<c>tf_gamerules.cpp:6299-6306</c>): the long-range falloff is skipped.</param>
 /// <param name="VictimItem">The victim's ACTIVE weapon as an attribute provider, stock's <c>pVictim-&gt;GetActiveTFWeapon()</c> as the resists' ON_OTHER root; null when they hold none.</param>
 /// <param name="AfterburnDuration">The burn's seconds left as the consume arm sees it (<c>CTFPlayerShared::GetAfterburnDuration</c>, tf_player_shared.cpp); null for no burn clock read.</param>
+/// <param name="DoubleDonk">The victim stands in the attacker's cannon's donk window (<c>CTFGrenadeLauncher::IsDoubleDonk</c> through tf_gamerules.cpp:6205, <see cref="TFDonkVictims"/>); the layer asks only under a cannon's blast.</param>
 public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCustom Custom, bool SelfDamage,
                                     bool AttackerIsPlayer, TFWeaponId Weapon, float? Distance,
                                     TFCondMask Victim, TFCondMask Attacker, IAttributeProvider? WeaponItem = null,
@@ -46,7 +47,8 @@ public readonly record struct TFHit(float Damage, DamageType Bits, TFDamageCusto
                                     Vector? VictimEyeAngles = null, Vector? ToVictim = null,
                                     bool AttackerAirborne = false, bool VictimAirborne = false,
                                     bool DirectRocketHit = false,
-                                    IAttributeProvider? VictimItem = null, float? AfterburnDuration = null);
+                                    IAttributeProvider? VictimItem = null, float? AfterburnDuration = null,
+                                    bool DoubleDonk = false);
 
 /// <summary>
 /// What the rules made of a hit: the damage to take, the bits and kind it now
@@ -281,6 +283,17 @@ public static class TFDamageModifyRules
                 && hooks.Int(0, "mini_crit_airborne", hit.WeaponItem) == 1
                 && hit.VictimAirborne)
                 crit = TFCritType.Mini;
+            // The Loose Cannon's double donk (:6202-6212): the cannon's blast
+            // on a victim the ball just shoved mini-crits, and pays at least
+            // the damage the info was born with — GetMaxDamage is the
+            // constructor's copy (takedamageinfo.cpp:55), so the shove's
+            // wound floors the blast's falloff.
+            else if (hit.DoubleDonk && hit.Weapon == TFWeaponId.Cannon
+                && (bits & DamageType.Blast) != 0)
+            {
+                crit = TFCritType.Mini;
+                damage = MathF.Max(damage, hit.Damage);
+            }
 
             // closerange_backattack_minicrits (:6314-6333): still inside the
             // no-crit gate, a player's hit inside 512 units whose way to the

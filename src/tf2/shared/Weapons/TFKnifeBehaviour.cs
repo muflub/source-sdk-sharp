@@ -78,6 +78,16 @@ public interface ITFSpyState
     bool ActivateInvisibilityWatch(int playerIndex);
 
     /// <summary>
+    /// The spy arm of <c>CTFPlayer::OnTakeDamage</c>
+    /// (<c>tf_player.cpp:9673-9688</c>) over <c>SpyDeadRingerDeath</c>
+    /// (<c>:15674-15697</c>): a hit that lands on an armed spy plays them
+    /// dead — the cloak meter halves, the burning and the bleed go off, and
+    /// the feign-death, stealth and boost conditions ride. Answers whether
+    /// the spy played dead.
+    /// </summary>
+    bool FeignDeathHit(int victimIndex);
+
+    /// <summary>
     /// <c>CTFKnife::CanDeploy</c> (<c>tf_weapon_knife.cpp:521-531</c>): the
     /// Spy-cicle's melted knife answers no until
     /// <c>now - m_flKnifeMeltTimestamp &gt; m_flKnifeRegenerateDuration</c> (:523);

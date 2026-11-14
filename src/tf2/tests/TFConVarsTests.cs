@@ -43,9 +43,11 @@ public sealed class TFConVarsTests
     private const string PlayerShared = "src/game/shared/tf/tf_player_shared.cpp";
     private const string TFPlayer = "src/game/server/tf/tf_player.cpp";
     private const string Medigun = "src/game/shared/tf/tf_weapon_medigun.cpp";
+    private const string Wrench = "src/game/shared/tf/tf_weapon_wrench.cpp";
     private const string TFPlayerClient = "src/game/client/tf/c_tf_player.cpp";
     private const string ClientMode = "src/game/client/tf/clientmode_tf.cpp";
     private const string Pipebomb = "src/game/shared/tf/tf_weapon_grenade_pipebomb.cpp";
+    private const string GrenadeLauncher = "src/game/shared/tf/tf_weapon_grenadelauncher.cpp";
     private const string AmmoPack = "src/game/server/tf/tf_ammo_pack.cpp";
     private const string DroppedWeapon = "src/game/shared/tf/tf_dropped_weapon.cpp";
     private const string TFAccount = "src/game/client/tf/tf_hud_account.cpp";
@@ -58,6 +60,7 @@ public sealed class TFConVarsTests
     private const string Flamethrower = "src/game/shared/tf/tf_weapon_flamethrower.cpp";
     private const string FxShared = "src/game/shared/tf/tf_fx_shared.cpp";
     private const string SharedDefs = "src/game/shared/shareddefs.h";
+    private const string RocketPack = "src/game/shared/tf/tf_weapon_rocketpack.cpp";
 
     private const string ConVarAttributeName = "SourceSharp.Abi.ConVarAttribute";
     private const uint DllFlags = (1u << 2) | (1u << 3); // FCVAR_GAMEDLL | FCVAR_CLIENTDLL
@@ -161,10 +164,14 @@ public sealed class TFConVarsTests
         { "tf_fall_damage_disablespread", TFRules, StockSide.Server },
         { "tf_damage_range", TFPlayer, StockSide.Server },
         { "tf_debug_damage", TFPlayer, StockSide.Server },
+        // the thruster's landing push: tf_weapon_rocketpack.cpp:69-70 (shared), read by the fall's impact ring (:8997).
+        { "tf_rocketpack_impact_push_min", RocketPack, StockSide.Both },
+        { "tf_rocketpack_impact_push_max", RocketPack, StockSide.Both },
         // stage 2.3's gib rule: tf_player.cpp:188 (server), the ShouldGib mode.
         { "tf_playergib", TFPlayer, StockSide.Server },
         // the Gloves' drain floor and deploy cost: tf_player.cpp:273-274 (server),
         // read by GetMaxHealthForBuffing at :14306-14327.
+        { "tf_construction_build_rate_multiplier", Wrench, StockSide.Both },
         { "tf_maxhealth_drain_hp_min", TFPlayer, StockSide.Server },
         { "tf_maxhealth_drain_deploy_cost", TFPlayer, StockSide.Server },
         // stage 2.12's cloaked spy: tf_gamerules.cpp:690, inside the GAME_DLL block (672-741).
@@ -240,6 +247,10 @@ public sealed class TFConVarsTests
         // the deflected count's clock: tf_weapon_grenade_pipebomb.cpp:954
         // (the same GAME_DLL block), "10.0", CHEAT | DEVELOPMENTONLY, no help.
         { "tf_pipebomb_deflect_reset_time", Pipebomb, StockSide.Server },
+        // the Loose Cannon's double-donk window: tf_weapon_grenadelauncher.cpp:27
+        // (shared, outside any GAME_DLL arm), "0.5", CHEAT | REPLICATED |
+        // DEVELOPMENTONLY, help text; the donk stamp reads it at :447.
+        { "tf_double_donk_window", GrenadeLauncher, StockSide.Both },
         // stage 2.8's sticky air burst: tf_gamerules.cpp:859-860 — outside any
         // GAME_DLL arm (both DLLs declare them), though only the server's
         // GetDamageRadius reads them.

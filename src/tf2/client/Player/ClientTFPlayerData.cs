@@ -43,13 +43,12 @@ public sealed class ClientTFPlayerData : ClientStandaloneEntity
     /// the entity): empty until the first, whose adds then all run.</summary>
     private TFCondMask _syncedConditions;
 
-    /// <summary>The skin last written for this carrier's player, so a decode
-    /// that decided the same body writes nothing.</summary>
-    private int _lastSkin = -1;
-
     /// <summary>The model last overridden for this carrier's player; "" is
     /// none. Kept so a decode that decided the same body writes nothing.</summary>
     private string _lastModel = "";
+
+    /// <summary>The shell the last two were written on.</summary>
+    private EntityHandle _dressedShell;
 
     public ClientTFPlayerData(IEngineEntityRender render, TFClientCarriers carriers,
                               IClientStandalones standalones, TFClientPlayerResources resources,
@@ -101,6 +100,15 @@ public sealed class ClientTFPlayerData : ClientStandaloneEntity
     }
 
     public override void OnRemoved() => _carriers.Untrack(this);
+
+    /// <summary>
+    /// Stock asks <c>GetSkin</c> at every draw (c_tf_player.cpp:7784). A decode
+    /// alone misses it: a carrier decodes while its player is out of the view,
+    /// and when the shell arrives nothing on the carrier has changed, so a blue
+    /// player stood in the world in the red default. Once a frame, cheap when
+    /// the body hasn't moved.
+    /// </summary>
+    public void RedressBody() => DressBody();
 
     /// <summary>
     /// Stock's <c>IsEnemyPlayer</c> (c_tf_player.cpp:5384-5412): the target
@@ -159,10 +167,14 @@ public sealed class ClientTFPlayerData : ClientStandaloneEntity
         int realTeam = RealTeam();
         int localTeam = LocalTeam();
 
-        foreach (var entity in _standalones.OfClass(EntityNames.Player))
+        if (_standalones.GetByIndex(State.OwnerIndex) is { ClassName: EntityNames.Player } entity)
         {
-            if (entity.Index != State.OwnerIndex)
-                continue;
+            // A new shell starts undressed, whatever the last one wore.
+            if (entity.Handle != _dressedShell)
+            {
+                _dressedShell = entity.Handle;
+                _lastModel = "";
+            }
 
             string model = BodyClassFor(State, realTeam, localTeam) is { } body
                            && _classes[body].Model is { Length: > 0 } body_model ? body_model : "";
@@ -174,13 +186,10 @@ public sealed class ClientTFPlayerData : ClientStandaloneEntity
                 _lastModel = model;
             }
 
-            if (SkinFor(State, realTeam, localTeam) is { } wanted && wanted != _lastSkin)
-            {
+            // Every time, not on a change: a network update of the shell's own
+            // skin writes the server's 0 over it, and stock's answer is the draw's.
+            if (SkinFor(State, realTeam, localTeam) is { } wanted)
                 Render.SetSkin(entity.Handle, wanted);
-                _lastSkin = wanted;
-            }
-
-            return;
         }
     }
 
@@ -222,6 +231,13 @@ public sealed class TFClientCarriers
 
     public void Untrack(ClientTFPlayerData carrier) => _live.Remove(carrier);
 
+    /// <summary>Each carrier's body against the shell and the teams as they stand.</summary>
+    public void RedressBodies()
+    {
+        foreach (var carrier in _live)
+            carrier.RedressBody();
+    }
+
     /// <summary>The carrier owned by <paramref name="playerIndex"/>, or null.</summary>
     public ClientTFPlayerData? Of(int playerIndex)
     {
@@ -233,4 +249,11 @@ public sealed class TFClientCarriers
 
         return null;
     }
+}
+
+/// <summary>The once-a-frame ask behind <see cref="ClientTFPlayerData.RedressBody"/>.</summary>
+[SideService(Side.Client)]
+public sealed class TFClientBodyDress(TFClientCarriers carriers) : IClientFrameThink
+{
+    public void ClientThink(float frameTime) => carriers.RedressBodies();
 }

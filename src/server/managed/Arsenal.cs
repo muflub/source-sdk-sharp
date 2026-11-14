@@ -56,6 +56,15 @@ public enum SwitchOutcome
     /// which the physcannon answers no to while it holds something, the RPG while its missile flies.
     /// </summary>
     CannotHolster,
+
+    /// <summary>
+    /// The switch waits on the outgoing weapon's holster animation — stock's
+    /// <c>Weapon_Switch</c> gate on <c>holster_anim_time</c>
+    /// (<c>tf_player_shared.cpp:11798-11822</c>): the first ask starts the
+    /// anim, asks inside its window answer this, and the switch walks once the
+    /// window is past.
+    /// </summary>
+    Deferred,
 }
 
 /// <summary>
@@ -341,6 +350,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // every slot after it shifts down, so a remembered index would quietly
         // start naming a different gun. -1 means nothing to go back to.
         public int LastTypeIndex = -1;
+
+        // Stock's m_flHolsterAnimTime, the holster anim's expiry
+        // (tf_player_shared.cpp:11813): past on the first ask to switch away
+        // from an item that carries holster_anim_time, until then every ask
+        // is Deferred. Zero or less is no anim (see Take).
+        public float HolsterUntil;
+
         public WeaponLogic Machine = null!;
         public ServerWeaponArms Arms = null!;
 
@@ -856,8 +872,43 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (slot == carry.ActiveSlot)
             return SwitchOutcome.AlreadyHeld;
 
-        if (ActiveBehaviour(carry, out var context) is { } behaviour && !behaviour.CanHolster(in context))
-            return SwitchOutcome.CannotHolster;
+        // Stock's holster-animation gate on Weapon_Switch
+        // (tf_player_shared.cpp:11798-11826): the window an anim started on
+        // the first ask holds every later ask at Deferred; once it passes,
+        // the switch walks — here on the next ask rather than on stock's
+        // anim-over re-call. Stock's other halves of the first gate
+        // (m_bSwitchedClass, m_bRespawning, m_bRegenerating) are the
+        // class-change and respawn flows, whose asks Refusal turns away.
+        float now = _clock.Now;
+        bool pendingOver = false;               // the armed window's own expiry completes its switch
+        if (carry.HolsterUntil > 0f)
+        {
+            if (now < carry.HolsterUntil)
+                return SwitchOutcome.Deferred;
+            carry.HolsterUntil = 0f;            // the anim is over — the switch goes on below (:11823-11826)
+            pendingOver = true;
+        }
+
+        if (ActiveBehaviour(carry, out var context) is { } behaviour)
+        {
+            if (!behaviour.CanHolster(in context))
+                return SwitchOutcome.CannotHolster;
+
+            // The anim's length rides on the outgoing weapon's item
+            // (holster_anim_time, :11804-11816); zero switches at once. A
+            // pending window that just expired is not re-armed: stock's anim-
+            // over walk goes through with the switch it was waiting for.
+            if (!pendingOver)
+            {
+                var heldType = context.Type;               // a plain local: CS8156 otherwise
+                float holsterSeconds = behaviour.HolsterSeconds(in heldType, _entities.GetIndex(carry.Player));
+                if (holsterSeconds > 0f)
+                {
+                    carry.HolsterUntil = now + holsterSeconds;    // :11813's curtime + flHolsterAnimTime
+                    return SwitchOutcome.Deferred;
+                }
+            }
+        }
 
         Deploy(carry, slot);
         return SwitchOutcome.Switched;

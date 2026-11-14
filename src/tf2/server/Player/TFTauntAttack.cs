@@ -16,6 +16,7 @@ using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 
 namespace TF2.Server.Player;
 
@@ -40,7 +41,8 @@ namespace TF2.Server.Player;
 public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers players, IEngineEntities entities,
                                   IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers enginePlayers,
                                   IEngineNetworking networking, TFWeaponScripts scripts, TFDamageScopes scopes,
-                                  IEntityDirectory directory, ITFLunchboxEffects? lunchbox = null)
+                                  IEntityDirectory directory, ITFLunchboxEffects? lunchbox = null,
+                                  ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
     : IPlayerComponent
 {
     /// <summary>After the taunt think (26): the same PostThink, stock's stop asked before the window fires.</summary>
@@ -95,6 +97,13 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     public const float ScoutDrinkSeconds = 0.9f;
 
     /// <summary>The attack waiting to land.</summary>
+    /// <summary>The held item's attack-name word (<c>taunt attack name</c>, stock's
+    /// <c>GetTauntAttackByName</c>, tf_player.cpp:17483-17488).</summary>
+    public const string TauntAttackNameAttribute = "taunt attack name";
+
+    /// <summary>The held item's attack-delay word (<c>taunt attack time</c>, :17490-17494).</summary>
+    public const string TauntAttackTimeAttribute = "taunt attack time";
+
     private enum Attack
     {
         None = 0,
@@ -105,12 +114,15 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
         SpyFencingSlashA,
         SpyFencingSlashB,
         SpyFencingStab,
+        PyroGasBlast,
     }
 
     private Attack _attack = Attack.None;
     private float _fireAt;
     private EntityHandle _player = EntityHandle.None;
     private readonly ITFLunchboxEffects? _lunchbox = lunchbox;
+    private readonly ITFWeaponOwners? _owners = owners;
+    private readonly AttributeHooks? _hooks = hooks;
 
     /// <summary>The scene the standing taunt spoke, whose head the phlog's
     /// rage arm gates on; empty with no taunt (<c>szResponse</c>'s life, the
@@ -140,6 +152,40 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
     public void Arm(string scene, float now)
     {
         Clear();
+
+        // Stock's taunt init keys the attack on the held item's own words
+        // first (tf_player.cpp:17483-17495): a named attack walks under its
+        // own delay, and the time attribute overrides that delay; the class
+        // scene's keying answers only behind them. Stock matches the name
+        // against the enum spellings, case-insensitively
+        // (tf_shareddefs.cpp:1066-1075).
+        if (_hooks is { } attrHooks && _owners is { } attrOwners)
+        {
+            IAttributeProvider? held = attrOwners.ActiveItemOf(_player.EntryIndex);
+            string attackName = attrHooks.String("", TauntAttackNameAttribute, held) ?? "";
+            Attack named = attackName.ToUpperInvariant() switch
+            {
+                "TAUNTATK_PYRO_HADOUKEN" => Attack.PyroHadouken,
+                "TAUNTATK_PYRO_GASBLAST" => Attack.PyroGasBlast,
+                "TAUNTATK_HEAVY_HIGHNOON" => Attack.HeavyHighNoon,
+                "TAUNTATK_SPY_FENCING_SLASH_A" => Attack.SpyFencingSlashA,
+                _ => Attack.None,
+            };
+            if (named != Attack.None)
+            {
+                float delay = attrHooks.Float(0f, TauntAttackTimeAttribute, held);
+                Arm(named, delay > 0f ? delay : named switch
+                {
+                    Attack.HeavyHighNoon => 1.8f,
+                    Attack.SpyFencingSlashA => 1.8f,
+                    Attack.SpyFencingSlashB => FencingSlashDelay,
+                    Attack.SpyFencingStab => FencingStabDelay,
+                    _ => 2.1f,   // the pyro arms' scene lengths (:17982-17986)
+                }, now);
+                Scene = scene;
+                return;
+            }
+        }
 
         switch (players.ClassOf(_player))
         {
@@ -253,6 +299,7 @@ public sealed class TFTauntAttack(TFPlayerCarriers carriers, ITFMapPlayers playe
         (float hurt, DamageType type, TFDamageCustom custom, float push) = attack switch
         {
             Attack.PyroHadouken => (500f, DamageType.Burn | TFDamageBits.Ignite, TFDamageCustom.TauntatkHadouken, 25000f),
+            Attack.PyroGasBlast => (500f, DamageType.Burn | TFDamageBits.Ignite, TFDamageCustom.TauntatkGasblast, 25000f),   // :18429-18431: the gasblast's box, same numbers, its own custom
             Attack.SpyFencingSlashA or Attack.SpyFencingSlashB
                 => (25f, DamageType.Slash | DamageType.PreventPhysicsForce, TFDamageCustom.TauntatkFencing, 100f),
             Attack.SpyFencingStab => (500f, DamageType.Slash, TFDamageCustom.TauntatkFencing, 20000f),

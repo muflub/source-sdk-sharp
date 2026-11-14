@@ -156,4 +156,10 @@ public static class TFPlayerOrders
     /// the player-band death walk beside them, on +106.
     /// </summary>
     public const int RevengeCritReset = Band + 106;
+
+    /// <summary>
+    /// The Eureka Effect's teleport (<see cref="TFEurekaTeleport"/>): the
+    /// command beside the taunt's, on +107.
+    /// </summary>
+    public const int EurekaTeleport = Band + 107;
 }

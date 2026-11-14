@@ -164,10 +164,27 @@ public sealed class TFMovementRules : IMovementRules
 
         // The player's own attribute manager roots the speed hooks
         // (CALL_ATTRIB_HOOK_FLOAT on the player): null on a side that holds
-        // none, both arms then the value unchanged.
-        return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
-                                    _hooks, _owners?.ManagerOf(playerIndex),
-                                    PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
+        // none, both arms then the value unchanged. Outside a blast jump the
+        // walk's answer is the whole answer; the Mantreads' arm beside it
+        // scales the same call (below), so both bindings feed the rules the
+        // same call the same way.
+        if (!state.InCond(TFCond.Blastjumping))
+            return TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
+                                        _hooks, _owners?.ManagerOf(playerIndex),
+                                        PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
+
+        // The Mantreads' air control (tf_gamemovement.cpp:2081-2094): the blast
+        // jump's condition alone gates the scale — stock asks it inside
+        // GetAirAcceleration, which runs in the air, and the condition stands
+        // only behind a blast until landing (TFBlastJump arms it at :8701,
+        // clears it at :8710), so this answer carries the loop's air wishspeed
+        // cap exactly while blast-jumping and the ground cap outside it. The
+        // scale is stock's CALL_ATTRIB_HOOK_FLOAT_ON_OTHER over the player: the
+        // manager is the root, as for the speed hooks above.
+        float speed = TFMaxSpeed.Calculate(_classes, Inputs(playerIndex, state), CloakedCap,
+                                           _hooks, _owners?.ManagerOf(playerIndex),
+                                           PeerInputs, playerIndex, _owners?.ActiveItemOf(playerIndex));
+        return _hooks?.Float(speed, "mod_air_control_blast_jump", _owners?.ManagerOf(playerIndex)) ?? speed;
     }
 
     /// <summary>
@@ -184,6 +201,13 @@ public sealed class TFMovementRules : IMovementRules
         // IsShieldEquipped, the speed walk's shield-toll gate.
         if (_owners?.ShieldEquipped(playerIndex) == true)
             inputs = inputs with { ShieldEquipped = true };
+
+        // THE BFB'S HYPE SPEED (tf_player_shared.cpp:11080-11086): the scout
+        // owning the Baby Face's Blaster runs at the meter's scale — stock's
+        // Weapon_OwnsThisID(TF_WEAPON_PEP_BRAWLER_BLASTER) gate and class arm,
+        // the remap the input carries (1 without the item, the walk's no-op).
+        if (inputs.Class == TFClass.Scout && _owners?.ItemOf(playerIndex, TFHype.BrawlerScript) is not null)
+            inputs = inputs with { HypeSpeedScale = TFHype.SpeedScale(state.HypeMeter) };
 
         if (inputs.Class != TFClass.Demoman
             || _owners?.ItemOf(playerIndex, TFSwordHook.SwordScript) is not { } sword
@@ -221,6 +245,23 @@ public sealed class TFMovementRules : IMovementRules
 
         if (_players.Predicted(request.PlayerIndex) is not { } state)
             return 0f;
+
+        // The B.A.S.E. Jumper's toggle (tf_gamemovement.cpp:1132-1150): the airborne
+        // jump press flips TF_COND_PARACHUTE_ACTIVE when the player answers
+        // parachute_attribute — stock's CALL_ATTRIB_HOOK_INT_ON_OTHER over the
+        // player (:1135), so the manager is the root, as for the blast-jump scale
+        // above. Deployed comes off (:1139), none goes on (:1141), in the
+        // predicted state's own words (:1143); the dash behind it runs as before.
+        if (_owners is { } own
+            && (_hooks?.Int(0, "parachute_attribute", own.ManagerOf(request.PlayerIndex)) ?? 0) != 0)
+        {
+            var bits = state.Conditions();
+            if (bits.Has(TFCond.ParachuteActive))
+                bits.Clear(TFCond.ParachuteActive);          // :1139
+            else
+                bits.Set(TFCond.ParachuteActive);            // :1141
+            state.SetConditions(in bits);                     // :1143
+        }
 
         // The no-dash attribute walks the player's own manager, the dash count
         // and the weapon jump height the active weapon's item (the ON_OTHER

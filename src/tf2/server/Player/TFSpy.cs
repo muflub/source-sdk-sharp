@@ -60,6 +60,19 @@ public sealed class TFSpyComponent(
     /// <summary>tf_weapon_invis.cpp:243: "must have over 10% cloak to start".</summary>
     public const float CloakStartMeter = 8.0f;
 
+    /// <summary><c>INVIS_FEIGN_DEATH</c> (<c>tf_weapon_invis.h:22-27</c>): the
+    /// watch's <c>set_weapon_mode</c> the Dead Ringer wears
+    /// (<c>HasFeignDeath</c>, :67).</summary>
+    public const int InvisFeignDeathMode = 1;
+
+    /// <summary><c>tf_feign_death_duration</c>'s stock default
+    /// (tf_player_shared.cpp:180): the seconds the feign condition rides.</summary>
+    public const float FeignDeathSeconds = 3.0f;
+
+    /// <summary><c>tf_feign_death_speed_duration</c>'s stock default
+    /// (tf_player_shared.cpp:181): the seconds the feign's buffs ride.</summary>
+    public const float FeignDeathSpeedSeconds = 3.0f;
+
     private EntityHandle _player = EntityHandle.None;
     private int _index = -1;
 
@@ -78,6 +91,11 @@ public sealed class TFSpyComponent(
 
     // tf_weapon_invis.cpp's m_flStealthNextChangeTime, the toggle's cooldown.
     private float _stealthNextChangeTime;
+
+    // The Dead Ringer's ready bit (stock's m_bFeignDeathReady,
+    // tf_player_shared.h:1087): armed and spent by the watch's presses and the
+    // hits that answer them.
+    private bool _feignDeathReady;
 
     // The swing just made backstabbed, until the next one; the victim it named
     // (stock's m_hBackstabVictim, read by DisguiseOnKill).
@@ -222,8 +240,9 @@ public sealed class TFSpyComponent(
     /// <summary>
     /// <c>ActivateInvisibilityWatch</c> (tf_weapon_invis.cpp:206-263): decloak
     /// when cloaked; otherwise cloak from <see cref="CanGoInvisible"/> and a
-    /// meter over <see cref="CloakStartMeter"/> (:243). The Dead Ringer's
-    /// feign death and the rate attributes are that lane's.
+    /// meter over <see cref="CloakStartMeter"/> (:243). A Dead Ringer's watch
+    /// (<c>set_weapon_mode</c> one on the held item, :66) answers with the
+    /// feign-ready toggle instead of the cloak (:230-242).
     /// </summary>
     public bool ActivateInvisibilityWatch(float now)
     {
@@ -247,6 +266,16 @@ public sealed class TFSpyComponent(
         {
             FadeInvis(1f, now);
         }
+        else if (hooks.Int(0, "set_weapon_mode", owners.ManagerOf(_index)) == InvisFeignDeathMode)
+        {
+            // The HasFeignDeath arm (tf_weapon_invis.cpp:230-242): the Dead
+            // Ringer's watch toggles its ready bit instead of cloaking — off
+            // whenever armed (:232-236), on only from a full meter (:237-241).
+            if (_feignDeathReady)
+                _feignDeathReady = false;
+            else if (state.CloakMeter == 100f)
+                _feignDeathReady = true;
+        }
         else if (CanGoInvisible() && state.CloakMeter > CloakStartMeter)
         {
             conditions.Add(_player, TFCond.Stealthed, TFConditions.Permanent, _player);
@@ -259,6 +288,66 @@ public sealed class TFSpyComponent(
 
         _stealthNextChangeTime = now + (cloaked ? 0.5f : 0.1f);
         return cloaked;
+    }
+
+    /// <summary>
+    /// The spy arm of <c>CTFPlayer::OnTakeDamage</c> (<c>tf_player.cpp:9673-9688</c>)
+    /// over <c>SpyDeadRingerDeath</c> (:15674-15697): telefrag and croc hits
+    /// stand outside the arm (:9673), any other hit spends the watch's ready
+    /// bit (:9676-9678), and under a taunt nothing else runs (:9679). The
+    /// death itself refuses for a dead (:15677), already stealthed (:15681) or
+    /// uncloakable (:15685) spy; otherwise the meter halves (:15688), the
+    /// burning and the bleed go off (:15719-15720) and the feign condition
+    /// rides for <see cref="FeignDeathSeconds"/> (:15695) — its buffs and its
+    /// instant cloak land through <see cref="FeignDeathAdded"/> on the add.
+    /// Answers whether the spy played dead.
+    /// </summary>
+    public bool FeignDeathHit(float now)
+    {
+        if (_players.Predicted(_index) is not { } state)
+            return false;
+
+        // A telefrag or a croc hit never answers through the watch (:9673).
+        if (scopes.TryCurrent(out TFDamageCustom custom, out _, out _)
+            && custom is TFDamageCustom.Telefrag or TFDamageCustom.Croc)
+            return false;
+
+        if (!_feignDeathReady)
+            return false;
+        _feignDeathReady = false;                                        // :9678
+
+        if (!enginePlayers.IsAlive(_player)                              // :15677
+            || state.Conditions().Has(TFCond.Stealthed)                  // :15681
+            || !CanGoInvisible() || state.CloakMeter < 100f)             // :15685
+            return false;
+
+        if (state.Conditions().Has(TFCond.Taunting))                     // :9679
+            return false;
+
+        state.CloakMeter = 50f;                                          // :15688
+        conditions.Remove(_player, TFCond.Burning);                      // :15719
+        conditions.Remove(_player, TFCond.Bleeding);                     // :15720
+        conditions.Add(_player, TFCond.FeignDeath, FeignDeathSeconds);   // :15695
+        return true;
+    }
+
+    /// <summary>
+    /// <c>CTFPlayerShared::OnAddFeignDeath</c> (<c>tf_player_shared.cpp:7170-7191</c>):
+    /// the feign puts the cloak on when it is off (:7178-7181), and the speed
+    /// boost and the afterburn immunity ride for
+    /// <see cref="FeignDeathSpeedSeconds"/> (:7185-7186); the ready bit goes
+    /// off with the add (:7188), its end stamp being the buffs' own window.
+    /// </summary>
+    public void FeignDeathAdded(float now)
+    {
+        if (_players.Predicted(_index) is not { } state)
+            return;
+
+        if (!state.Conditions().Has(TFCond.Stealthed))
+            conditions.Add(_player, TFCond.Stealthed, TFConditions.Permanent, _player);   // :7180
+        conditions.Add(_player, TFCond.SpeedBoost, FeignDeathSpeedSeconds, _player);       // :7185
+        conditions.Add(_player, TFCond.AfterburnImmune, FeignDeathSpeedSeconds, _player);  // :7186
+        _feignDeathReady = false;                                                          // :7188
     }
 
     // ---- the disguise ------------------------------------------------------
@@ -826,6 +915,9 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     public bool ActivateInvisibilityWatch(int playerIndex) =>
         Of(playerIndex)?.ActivateInvisibilityWatch(clock.Now) ?? false;
 
+    public bool FeignDeathHit(int victimIndex) =>
+        Of(victimIndex)?.FeignDeathHit(clock.Now) ?? false;
+
     public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) =>
         Of(playerIndex)?.Disguise(clock.Now, disguiseClass, disguiseTeam) ?? false;
 
@@ -834,9 +926,32 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
 
     // ---- the disguise removal arms (tf_player_shared.cpp:7217-7224, 7267-7268) -----
 
-    /// <summary>Stock's add arms for the disguise conditions are the client's
-    /// (the disguising effect particles, :7211-7216); the server stands.</summary>
-    public void OnAdded(EntityHandle player, TFCond cond) { }
+    /// <summary>
+    /// The server add arms: the disguise conditions' arms are the client's
+    /// (the disguising effect particles, :7211-7216), while the feign's own
+    /// add (<c>OnAddFeignDeath</c>, tf_player_shared.cpp:7170-7191) lands the
+    /// cloak and the buffs through
+    /// <see cref="TFSpyComponent.FeignDeathAdded"/>, and the instant cloak of
+    /// a feigning or user-buffed spy (<c>OnAddStealthed</c>'s else half,
+    /// :6993-7004) stamps its change time at once.
+    /// </summary>
+    public void OnAdded(EntityHandle player, TFCond cond)
+    {
+        if (cond == TFCond.FeignDeath)
+        {
+            Of(player.EntryIndex)?.FeignDeathAdded(clock.Now);
+            return;
+        }
+
+        if (cond == TFCond.Stealthed && players.Predicted(player.EntryIndex) is { } state)
+        {
+            // A feigning or user-buffed spy goes stealthed immediately, with
+            // no fade to wait for (:6995-7003).
+            var conds = state.Conditions();
+            if (conds.Has(TFCond.FeignDeath) || conds.Has(TFCond.StealthedUserBuff))
+                state.InvisChangeCompleteTime = clock.Now;
+        }
+    }
 
     /// <summary>
     /// The server halves of <c>OnRemoveDisguising</c> and <c>OnRemoveDisguised</c>:

@@ -1188,3 +1188,6 @@ src/tf2/server/Player/TFScattergunJump.cs	ports the server half of CTFScatterGun
 src/tf2/shared/Player/TFHype.cs	ports CTFPlayerShared::SetScoutHypeMeter and the gamerules hype gain (tf_player_shared.cpp:14124-14141, tf_gamerules.cpp:7526-7532)
 src/tf2/server/Player/TFRevengeCrits.cs	ports CTFPlayerShared::SetRevengeCritts clamp and cond tail with CTFShotgun_Revenge::SentryKilled (tf_player_shared.cpp:14472-14488, tf_weapon_shotgun.cpp:151-163)
 src/tf2/server/Weapons/TFRevengeHook.cs	ports CTFShotgun_Revenge::PrimaryAttack spend tail and GetCustomDamageType revenge gate (tf_weapon_shotgun.cpp:132-146, 200-209)
+src/tf2/server/Player/TFDonkVictims.cs	ports CTFGrenadeLauncher m_vecDonkVictims, the cannonball donk list AddDonkVictim/IsDoubleDonk (tf_weapon_grenadelauncher.cpp:433-467)
+src/tf2/server/Player/TFHypeDrain.cs	ports CTFPlayerShared::UpdateEnergyDrinkMeter's hype half, the drain and emptied buff (tf_player_shared.cpp:14071-14078, the ConditionThink call at :3117)
+src/tf2/server/Player/TFEurekaTeleport.cs	ports CTFPlayer::ClientCommand eureka_teleport and the taunt-end landing (tf_player.cpp:7705-7739, 1560-1621)

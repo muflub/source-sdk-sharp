@@ -13,6 +13,8 @@ using SourceSharp.Server;
 using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
+using TF2.Shared.Weapons;
 
 namespace TF2.Server.Voice;
 
@@ -39,6 +41,7 @@ public sealed class TFConceptSpeech(
     IEngineSound sound,
     IUniformRandom rng,
     ITeamRoundState? round = null,
+    ITFWeaponOwners? owners = null,
     ILog? log = null)
 {
     /// <summary>MP_CONCEPT_BUILDING_OBJECT (mp_shareddefs.cpp:57) — the builder's line as construction starts.</summary>
@@ -88,6 +91,9 @@ public sealed class TFConceptSpeech(
 
     /// <summary>MP_CONCEPT_PLAYER_BATTLECRY (mp_shareddefs.cpp:40), the line a buff deploy's raise speaks.</summary>
     public const string PlayerBattlecry = "TLK_PLAYER_BATTLECRY";
+
+    /// <summary>MP_CONCEPT_TAUNT_EUREKA_EFFECT_TELEPORT (mp_shareddefs.h:200) — the Eureka Effect's teleport taunt.</summary>
+    public const string TauntEurekaEffect = "TLK_TAUNT_EUREKA_EFFECT";
 
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
     public bool Speak(EntityHandle speaker, string concept) => Ask(speaker, concept, null).Spoke;
@@ -140,7 +146,8 @@ public sealed class TFConceptSpeech(
 
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", concept);
-        TFPlayerCriteriaWords.Append(carriers.Get(speaker.EntryIndex), teams.Team(speaker), round, criteria);
+        TFPlayerCriteriaWords.Append(carriers.Get(speaker.EntryIndex), teams.Team(speaker), round, criteria,
+                                     (owners?.ActiveItemOf(speaker.EntryIndex) as AttributeContainer)?.Item);
 
         // The roll behind the percent-chance criteria (SpeakInternal): a missing key
         // fails them all, so it rides every ask.

@@ -63,6 +63,59 @@ public static class TFProjectileDefs
     public const float BallMuzzleRight = 7f;
     public const float BallMuzzleUp = -9f;
 
+    /// <summary><c>tf_scout_stunball_base_speed</c>'s default (<c>tf_weapon_bat.cpp:108</c>): the ornament's leave.</summary>
+    public const float OrnamentSpeed = 3000f;
+
+    /// <summary><c>DEFAULT_ORNAMENT_EXPLODE_RADIUS</c> (<c>tf_weapon_bat.cpp:31</c>): the ornament's blast.</summary>
+    public const float OrnamentExplodeRadius = 50f;
+
+    /// <summary>
+    /// <c>DEFAULT_ORNAMENT_EXPLODE_DAMAGE_MULT</c> (<c>tf_weapon_bat.cpp:32</c>):
+    /// the blast is this share of the shot (<c>:1312</c>).
+    /// </summary>
+    public const float OrnamentExplodeDamageMult = 0.9f;
+
+    /// <summary><c>FLIGHT_TIME_TO_MAX_STUN</c> (<c>tf_weapon_bat.cpp:708</c>): past this aloft, the hit is a crit.</summary>
+    public const float OrnamentLongFlight = 0.8f;
+
+    /// <summary>The ornament's bleed (<c>tf_weapon_bat.cpp:1172</c>): five seconds on the struck player.</summary>
+    public const float OrnamentBleedSeconds = 5f;
+
+    /// <summary>
+    /// The ornament's aloft time (<c>CTFStunBall::Spawn</c>'s context think,
+    /// <c>tf_weapon_bat.cpp:672</c>): fifteen seconds and <c>SUB_Remove</c>,
+    /// struck or not.
+    /// </summary>
+    public const float OrnamentLifetime = 15f;
+
+    /// <summary>The ornament's model (<c>TF_WEAPON_BALL_ORNAMENT_WORLD_MODEL</c>, <c>tf_weapon_bat.h</c>).</summary>
+    public const string OrnamentModel = "models/weapons/c_models/c_xms_festive_ornament.mdl";
+
+    /// <summary>
+    /// The ornament's flight, the grenade base's own numbers
+    /// (<c>CTFWeaponBaseGrenadeProj::InitGrenade</c>,
+    /// <c>tf_weaponbase_grenadeproj.cpp:245-247</c>): gravity 0.4, friction 0.2.
+    /// </summary>
+    public const float OrnamentGravity = 0.4f;
+    public const float OrnamentFriction = 0.2f;
+
+    /// <summary>
+    /// <c>GetBallDynamics</c>'s throw direction (<c>tf_weapon_bat.cpp:240-242</c>):
+    /// ten forward parts to one up, normalized, at
+    /// <see cref="OrnamentSpeed"/> — a lob, not a shot.
+    /// </summary>
+    public const float OrnamentAimForward = 10f;
+    public const float OrnamentAimUp = 1f;
+
+    /// <summary>
+    /// <c>GetBallDynamics</c>' birth (<c>tf_weapon_bat.cpp:236</c>): 50 up of the
+    /// feet and 32 along the sight, at scale 1 — the eye stands 64 over the
+    /// feet, so the seam's eye-anchored birth takes the remainder
+    /// (<see cref="TFProjectileEffects.Born"/>'s note).
+    /// </summary>
+    public const float OrnamentMuzzleForward = 32f;
+    public const float OrnamentMuzzleUp = -14f;
+
     /// <summary><c>TF_GRENADE_JUMP_RADIUS</c> (<c>tf_weaponbase_grenadeproj.cpp:300</c>): the thrower's own pass.</summary>
     public const float GrenadeJumpRadius = 146f;
 
@@ -97,6 +150,38 @@ public static class TFProjectileDefs
     /// <summary><c>TF_WEAPON_PIPEBOMB_COUNT</c> (<c>tf_shareddefs.h:391</c>): the stickies a launcher keeps.</summary>
     public const int MaxStickies = 8;
 
+    /// <summary>
+    /// The grenade-launcher modes (<c>tf_weapon_grenade_pipebomb.h:22-27</c>):
+    /// what <c>CTFGrenadePipebombProjectile::Create</c> translates a projectile
+    /// type into before the spawn (:437-458) — the sticky entity is born
+    /// remote, the practice and cannonball launches stamped over.
+    /// </summary>
+    public const int GrenadeModeRegular = 0;
+    public const int GrenadeModeRemoteDetonate = 1;
+    public const int GrenadeModeRemoteDetonatePractice = 2;
+    public const int GrenadeModeCannonball = 3;
+
+    /// <summary>Create's translation (<c>tf_weapon_grenade_pipebomb.cpp:437-458</c>).</summary>
+    public static int PipebombMode(TFProjectile projectile) => projectile switch
+    {
+        TFProjectile.PipebombRemote => GrenadeModeRemoteDetonate,
+        TFProjectile.PipebombPractice => GrenadeModeRemoteDetonatePractice,
+        TFProjectile.Cannonball => GrenadeModeCannonball,
+        _ => GrenadeModeRegular,
+    };
+
+    /// <summary>
+    /// The pipebomb launcher's <c>set_detonate_mode</c> values
+    /// (<c>tf_weapon_pipebomblauncher.h:23-25</c>), read by
+    /// <c>CTFGrenadeLauncher::GetDetonateMode</c>
+    /// (<c>tf_weapon_grenadelauncher.cpp:481-486</c>): the detonate arm
+    /// (<see cref="TFProjectileEffects.Detonate"/>) and, at AIR, the
+    /// launched pipe's wall shatter.
+    /// </summary>
+    public const int DetonateModeStandard = 0;
+    public const int DetonateModeDot = 1;
+    public const int DetonateModeAir = 2;
+
     /// <summary><c>TF_PIPEBOMB_MIN_CHARGE_VEL</c> (<c>tf_weapon_pipebomblauncher.h:28</c>).</summary>
     public const float StickyMinChargeSpeed = 900f;
 
@@ -122,10 +207,12 @@ public static class TFProjectileDefs
     /// The stickybomb's launch speed after <paramref name="charge"/> seconds:
     /// <c>CTFPipebombLauncher::GetProjectileSpeed</c>
     /// (<c>tf_weapon_pipebomblauncher.cpp:353-362</c>),
-    /// <c>RemapValClamped(charge, 0, TF_PIPEBOMB_MAX_CHARGE_TIME, 900, 2400)</c>.
+    /// <c>RemapValClamped(charge, 0, GetChargeMaxTime, 900, 2400)</c> — the
+    /// window <see cref="TFProjectileBehaviour.MaxChargeTime"/> stocks, the
+    /// launcher's <c>stickybomb_charge_rate</c> hook bends.
     /// </summary>
-    public static float StickySpeed(float charge)
-        => TFRadiusDamage.RemapClamped(charge, 0f, TFProjectileBehaviour.MaxChargeTime,
+    public static float StickySpeed(float charge, float chargeMax = TFProjectileBehaviour.MaxChargeTime)
+        => TFRadiusDamage.RemapClamped(charge, 0f, chargeMax,
                                        StickyMinChargeSpeed, StickyMaxChargeSpeed);
 
     /// <summary>
@@ -233,6 +320,15 @@ public static class TFProjectileDefs
 
     /// <summary><c>TF_WEAPON_PIPEBOMB_MODEL</c> (<c>tf_weapon_grenade_pipebomb.cpp:395</c>).</summary>
     public const string StickyModel = "models/weapons/w_models/w_stickybomb.mdl";
+
+    /// <summary><c>TF_WEAPON_PIPEBOMB2_MODEL</c> (<c>tf_weapon_grenade_pipebomb.cpp:396</c>): the practice bomb's shell.</summary>
+    public const string StickyPracticeModel = "models/weapons/w_models/w_stickybomb2.mdl";
+
+    /// <summary><c>TF_WEAPON_PIPEBOMBD_MODEL</c> (<c>tf_weapon_pipebomblauncher.cpp:31</c>): the defensive bomb's shell.</summary>
+    public const string StickyDefensiveModel = "models/weapons/w_models/w_stickybomb_d.mdl";
+
+    /// <summary><c>TF_WEAPON_CANNONBALL_MODEL</c> (<c>tf_weapon_grenade_pipebomb.cpp:394</c>).</summary>
+    public const string CannonballModel = "models/weapons/w_models/w_cannonball.mdl";
 
     /// <summary><c>SYRINGE_MODEL</c> (<c>tf_projectile_nail.cpp:28</c>).</summary>
     public const string SyringeModel = "models/weapons/w_models/w_syringe_proj.mdl";
@@ -370,9 +466,19 @@ public static class TFProjectileDefs
     public const float PipeSpinRoll = 600f;
     public const int PipeSpinPitchMax = 1200;
 
-    /// <summary>The jars' models: <c>TF_WEAPON_PEEJAR_MODEL</c> and <c>TF_WEAPON_MILKJAR_MODEL</c> (<c>tf_weapon_jar.cpp:86, 88</c>), the spawned jar's <c>SetModel</c>s (:283, :854). The festive and bread-monster faces are the item's own model rows.</summary>
+    /// <summary>The jars' models: <c>TF_WEAPON_PEEJAR_MODEL</c> and <c>TF_WEAPON_MILKJAR_MODEL</c> (<c>tf_weapon_jar.cpp:86, 88</c>), the spawned jar's <c>SetModel</c>s (:283, :854).</summary>
     public const string JarModel = "models/weapons/c_models/urinejar.mdl";
     public const string JarMilkModel = "models/workshop/weapons/c_models/c_madmilk/c_madmilk.mdl";
+
+    /// <summary>
+    /// The faces the held item's <c>override_projectile_type</c> picks
+    /// (<c>SetCustomPipebombModel</c>, <c>tf_weapon_jar.cpp:261-284</c>, the
+    /// milk's own :836-855): the festive jarate and bread-monster strings
+    /// stock's switch sets (:87, :278, :849).
+    /// </summary>
+    public const string JarFestiveModel = "models/weapons/c_models/c_xms_urinejar.mdl";
+    public const string JarBreadmonsterModel = "models/weapons/c_models/c_breadmonster/c_breadmonster.mdl";
+    public const string JarMilkBreadmonsterModel = "models/weapons/c_models/c_breadmonster/c_breadmonster_milk.mdl";
 
     /// <summary><c>TF_JAR_LAUNCH_SPEED</c> (<c>tf_weapon_jar.h:31</c>), the base of <c>GetProjectileSpeed</c> (:103-109).</summary>
     public const float JarSpeed = 1000f;

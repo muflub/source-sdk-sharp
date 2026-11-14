@@ -67,6 +67,13 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
     /// <summary>The needle's client lifetime, in seconds (<c>tf_projectile_base.cpp:220</c>'s <c>// Lifetime</c>).</summary>
     private const int SyringeLifetimeSeconds = 6;
 
+    /// <summary>
+    /// FireProjectile's override (<c>tf_weaponbase_gun.cpp:261</c>): the
+    /// item's <c>override_projectile_type</c>, the projectile the launch
+    /// fires in place of the weapon type's.
+    /// </summary>
+    public const string OverrideProjectileAttribute = "override_projectile_type";
+
     /// <summary>Stock's named syringe effect (<c>tf_projectile_nail.cpp:29</c>).</summary>
     private const string SyringeDispatchEffect = "ClientProjectile_Syringe";
 
@@ -84,6 +91,14 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
         // constants (1100 the rocket, 1200 the pipe, 1000 the syringe), which
         // is the fallback when the script says none.
         float scriptSpeed = mode.ProjectileSpeed;
+
+        // FireProjectile's override (tf_weaponbase_gun.cpp:258-268): the item's
+        // override_projectile_type fires in place of the weapon type's — the
+        // Stickybomb Jumper's practice bomb where the launcher says remote.
+        int overrideProjectile = attributes.Int(0, OverrideProjectileAttribute,
+                                                owners.ItemOf(attack.Command.OwnerIndex, script.Name));
+        if (overrideProjectile != 0)
+            mode = mode with { Projectile = (TFProjectile)overrideProjectile };
 
         // The Dragon's Fury's ball, keyed by the weapon id: stock's
         // FireProjectile spawns its entity directly, not by the script's
@@ -109,6 +124,29 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
             return;
         }
 
+        // The Wrap Assassin's ornament, keyed by the weapon id for the same
+        // reason: CTFBat_Giftwrap::CreateBall spawns its entity directly
+        // (tf_weapon_bat.cpp:1084). The lob is GetBallDynamics' own
+        // (:240-244): ten forward parts to one up of the sight basis,
+        // normalized, at the convar's speed — and the shot is the bat's
+        // damage under its mult_dmg, baked at the throw as the Fury's is.
+        if (script.Id == TFWeaponId.BatGiftwrap)
+        {
+            if (Born(TFProjectileEntityNames.BallOrnament, owner, forward, right, up,
+                     TFProjectileDefs.OrnamentMuzzleForward, 0f,
+                     TFProjectileDefs.OrnamentMuzzleUp) is not TFBallOrnament ball)
+                return;
+
+            float ballDamage = attributes.Float(script.Primary.Damage, "mult_dmg",
+                                                owners.ItemOf(attack.Command.OwnerIndex, script.Name));
+            ball.ArmedBy(ballDamage, script.Id, script.Name, shot.Critical);
+            ball.FiredBy(owner, (forward * TFProjectileDefs.OrnamentAimForward
+                                 + up * TFProjectileDefs.OrnamentAimUp).Normalized
+                               * TFProjectileDefs.OrnamentSpeed);
+            log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.BallOrnament} created by {owner}\n");
+            return;
+        }
+
         switch (mode.Projectile)
         {
             case TFProjectile.Rocket:
@@ -118,8 +156,21 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     float muzzleUp = owners.DuckingOf(attack.Command.OwnerIndex)
                         ? TFProjectileDefs.RocketMuzzleUpDucked
                         : TFProjectileDefs.RocketMuzzleUp;
+
+                    // GetProjectileFireSetup's centre-fire arm
+                    // (tf_weaponbase.cpp:5755-5760): the launcher's item
+                    // answering exactly 1 on centerfire_projectile drops the
+                    // lateral offset of the shot position; any other answer
+                    // keeps it. The item rides the launch itself, so it is
+                    // read before the rocket is born; the specialist's remap
+                    // below asks the same item.
+                    IAttributeProvider? centerItem = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
+                    float muzzleRight = attributes.Int(0, "centerfire_projectile", centerItem) == 1
+                        ? 0f
+                        : TFProjectileDefs.RocketMuzzleRight;
+
                     if (Born(TFProjectileEntityNames.Rocket, owner, forward, right, up,
-                             TFProjectileDefs.RocketMuzzleForward, TFProjectileDefs.RocketMuzzleRight,
+                             TFProjectileDefs.RocketMuzzleForward, muzzleRight,
                              muzzleUp) is not TFRocket rocket)
                         return;
 
@@ -146,30 +197,62 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                 }
 
             case TFProjectile.Pipebomb:
+            case TFProjectile.Cannonball:
                 {
                     // FirePipeBomb's arms, read off the firing item: the cone
                     // drawn onto the eye angles, and the speed through the
                     // mult_projectile_range hook (tf_weaponbase_gun.cpp:652-686).
+                    // The launch speed itself is GetProjectileSpeed's
+                    // (tf_weapon_grenadelauncher.cpp:469-479): the stock 1200
+                    // under the launcher's mult_projectile_speed, the
+                    // Loch-n-Load's 1.25, before that range hook. The cannon
+                    // rides the same arm: stock's Create translates its
+                    // projectile type into the pipe entity with the mode
+                    // stamped (tf_weapon_grenade_pipebomb.cpp:437-458), the
+                    // Loose Cannon's ball a TF_GL_MODE_CANNONBALL pipe.
+                    int grenadeMode = TFProjectileDefs.PipebombMode(mode.Projectile);
                     IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
                     (forward, right, up) = SpreadBasis(eyes, item);
                     float speed = attributes.Float(Speed(scriptSpeed, TFProjectileDefs.PipeSpeed),
-                                                   "mult_projectile_range", item);
+                                                   "mult_projectile_speed", item);
+                    speed = attributes.Float(speed, "mult_projectile_range", item);
                     if (Born(TFProjectileEntityNames.Pipebomb, owner, forward, right, up,
                              TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
                              TFProjectileDefs.PipeMuzzleUp) is not TFPipebomb pipe)
                         return;
                     pipe.ThrownBy(owner, Lob(forward, speed, right, up),
-                                  shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
+                                  shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical,
+                                  grenadeMode);
                     Spin(pipe, item);
+
+                    // FireProjectileInternal's charged fuse
+                    // (tf_weapon_grenadelauncher.cpp:277-287): the held shot's
+                    // window less the hold, through the same
+                    // SetDetonateTimerLength the spawn booked — at none, the
+                    // muzzle arm's trace-and-explode where the ball stands.
+                    if (grenadeMode == TFProjectileDefs.GrenadeModeCannonball)
+                    {
+                        float mortar = attributes.Float(0f, TFProjectileBehaviour.MortarModeAttribute, item);
+                        if (mortar > 0f)
+                            pipe.ChargedFuse(mortar - charge);
+                    }
+
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} created by {owner}\n");
                     break;
                 }
 
             case TFProjectile.PipebombRemote:
+            case TFProjectile.PipebombPractice:
                 {
                     IAttributeProvider? item = owners.ItemOf(attack.Command.OwnerIndex, script.Name);
                     (forward, right, up) = SpreadBasis(eyes, item);
-                    float speed = attributes.Float(TFProjectileDefs.StickySpeed(charge),
+
+                    // GetChargeMaxTime again (tf_weapon_pipebomblauncher.h:75): the
+                    // speed remap runs to the same window the charge clamped to, the
+                    // launcher's stickybomb_charge_rate hook bends it.
+                    float chargeMax = attributes.Float(TFProjectileBehaviour.MaxChargeTime,
+                                                       TFProjectileBehaviour.ChargeRateAttribute, item);
+                    float speed = attributes.Float(TFProjectileDefs.StickySpeed(charge, chargeMax),
                                                    "mult_projectile_range", item);
                     if (Born(TFProjectileEntityNames.Stickybomb, owner, forward, right, up,
                              TFProjectileDefs.PipeMuzzleForward, TFProjectileDefs.PipeMuzzleRight,
@@ -182,8 +265,12 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     sticky.SetArmTime(attributes.Float(stickyConVars.LiveTime.Value,
                                                        "sticky_arm_time", item));
 
+                    // Create's translation (tf_weapon_grenade_pipebomb.cpp:437-458):
+                    // the mode stamped before the spawn, the model and the
+                    // damage-type arms reading it.
                     sticky.ThrownBy(owner, Lob(forward, speed, right, up),
-                                    shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical);
+                                    shot.Damage, script.DamageRadius, script.Id, script.Name, shot.Critical,
+                                    TFProjectileDefs.PipebombMode(mode.Projectile));
                     Spin(sticky, item);
 
                     // FireProjectile's cap (tf_weapon_pipebomblauncher.cpp:381-392):
@@ -191,6 +278,13 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     // launcher's add_max_pipebombs hook; past the cap the oldest goes.
                     tray.Register(attack.Command.OwnerIndex, sticky,
                                   attributes.Int(TFProjectileDefs.MaxStickies, "add_max_pipebombs", item));
+
+                    // LaunchGrenade's DOT arm (tf_weapon_pipebomblauncher.cpp:305-309):
+                    // the Scottish Resistance's set_detonate_mode 1 dresses its
+                    // bomb in the defensive shell at the launch.
+                    if (attributes.Int(TFProjectileDefs.DetonateModeStandard, "set_detonate_mode", item)
+                        == TFProjectileDefs.DetonateModeDot)
+                        sticky.DefensiveBomb();
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Stickybomb} created by {owner}"
                           + $" ({tray.Count(attack.Command.OwnerIndex)} out)\n");
                     break;
@@ -516,9 +610,6 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
     /// <summary>The script's speed, or stock's when the script names none.</summary>
     private static float Speed(float scriptSpeed, float stock) => TFProjectileDefs.Speed(scriptSpeed, stock);
 
-    /// <summary><c>TF_DETONATE_MODE_DOT</c> (<c>tf_weapon_pipebomblauncher.h:24</c>).</summary>
-    private const int DetonateModeDot = 1;
-
     /// <summary>The crosshair cone (<c>tf_weapon_pipebomblauncher.cpp:605</c>).</summary>
     private const float AimedDot = 0.975f;
 
@@ -545,7 +636,7 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
         // (:577-638); any other mode (TF_DETONATE_MODE_STANDARD 0, stock's unset
         // default) fires the whole tray (:530-571).
         int mode = attributes.Int(0, "set_detonate_mode", item);
-        if (mode == DetonateModeDot)
+        if (mode == TFProjectileDefs.DetonateModeDot)
         {
             EntityHandle owner = players.GetHandle(attack.Command.OwnerIndex);
             Vector eyePosition = entities.GetEyePosition(owner);

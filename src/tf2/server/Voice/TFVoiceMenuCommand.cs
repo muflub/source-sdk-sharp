@@ -11,8 +11,10 @@ using SourceSharp.Server;
 using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 using TF2.Shared.Voice;
+using TF2.Shared.Weapons;
 
 namespace TF2.Server.Voice;
 
@@ -68,6 +70,7 @@ public sealed class TFVoiceMenuCommand(
     TFVoiceCommandSuspensionModeConVar suspensionMode,
     TFMaxVoiceSpeakDelayConVar speakDelay,
     ITeamRoundState? round = null,
+    ITFWeaponOwners? owners = null,
     ILog? log = null)
     : IClientCommandHook, IOrderedHook
 {
@@ -198,7 +201,8 @@ public sealed class TFVoiceMenuCommand(
         // (ai_speech.cpp: the concept, then the player's words).
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", entry.Concept);
-        TFPlayerCriteriaWords.Append(carrierState, teams.Team(player), round, criteria);
+        TFPlayerCriteriaWords.Append(carrierState, teams.Team(player), round, criteria,
+                                     (owners?.ActiveItemOf(index) as AttributeContainer)?.Item);
 
         if (!responseRules.FindBestResponse(criteria, out var response))
             return Outcome.Unmatched;

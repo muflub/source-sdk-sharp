@@ -199,13 +199,6 @@ public sealed class TFTeleporterFovStartConVar : IntConVar { }
         Help = "How quickly to restore FOV after teleport.", Min = 0)]
 public sealed class TFTeleporterFovTimeConVar : FloatConVar { }
 
-// ---- shared/tf/tf_weapon_wrench.cpp -----------------------------------------
-
-/// <summary>The whack's share of the build (<c>tf_weapon_wrench.cpp:333</c>, STAGING_ENGY:
-/// value literally <c>"1.5f"</c> in stock).</summary>
-[ConVar("tf_construction_build_rate_multiplier", "1.5", Flags = ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
-public sealed class TFConstructionBuildRateConVar : FloatConVar { }
-
 // ---- server/tf/tf_obj_sentrygun.cpp -----------------------------------------
 
 /// <summary>The shells' damage (<c>tf_obj_sentrygun.cpp:134</c>, no help in stock).</summary>

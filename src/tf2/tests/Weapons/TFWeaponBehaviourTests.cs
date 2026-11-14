@@ -574,6 +574,77 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(24, w.Reserve);
     }
 
+    /// <summary>
+    /// TF_RELOAD_FINISH's gate (tf_weaponbase.cpp:2064): only a gun that does
+    /// not overload ends its shell-by-shell load on full-or-empty. The Beggar's
+    /// Bazooka's <c>can_overload</c> (<c>CanOverload</c>, tf_weaponbase.cpp:1887-1893)
+    /// holds the reload open at the full clip, sampled on every tick from the
+    /// first full one — and the held trigger's press then carries rounds out
+    /// through the abort arm, which is its finish.
+    /// </summary>
+    [Fact]
+    public void An_overloading_single_shell_loader_holds_the_reload_open_at_a_full_clip()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9121, "can_overload", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        bool heldAtFull = false;
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+        {
+            world.Run(w, vm, buttons: 0, now: t);
+            if (w.Clip >= 6)   // every tick from the first full one: sampled, not just the last
+            {
+                Assert.True(w.InReload);
+                heldAtFull = true;
+            }
+        }
+
+        Assert.True(heldAtFull);     // the clip did come full inside the window
+        Assert.Equal(6, w.Clip);
+        Assert.True(w.InReload);
+    }
+
+    /// <summary>The press that carries the rounds out: with the reload held
+    /// open, a press with a shell in hand finishes it (the abort arm,
+    /// tf_weaponbase.cpp:2398-2425) and the next command fires.</summary>
+    [Fact]
+    public void The_press_after_the_held_reload_finishes_the_overload_and_fires()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9122, "can_overload", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+            world.Run(w, vm, buttons: 0, now: t);
+        Assert.True(w.InReload);                       // held open by the attribute
+
+        world.Run(w, vm, Attack, now: 14.05f);         // the abort arm
+        Assert.False(w.InReload);
+
+        world.Run(w, vm, Attack, now: 14.07f, seed: TFWeaponWorld.GunSeed(200, 10000));
+        Assert.Single(world.Arms.Bullets);             // the press carried a round out
+        Assert.Equal(5, w.Clip);
+    }
+
+    /// <summary>Without the attribute the loader finishes on full exactly as
+    /// before the overload arm (:2064's plain gate).</summary>
+    [Fact]
+    public void A_plain_single_shell_loader_still_finishes_at_a_full_clip()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+            world.Run(w, vm, buttons: 0, now: t);
+
+        Assert.Equal(6, w.Clip);
+        Assert.False(w.InReload);
+    }
+
     // The viewmodel animations of a single-shell reload, stock's
     // CTFWeaponBase::ReloadSingly arms: the start when the reload begins
     // (tf_weaponbase.cpp:1978), the reload again with each shell (:2013) and
@@ -1036,6 +1107,60 @@ public sealed class TFWeaponBehaviourTests
         world.Run(w, vm, 0, now: 10.6f);
         Assert.Equal(1, w.Clip);        // one shell only — the whole clip is not loaded yet
         Assert.True(w.InReload);
+    }
+
+    //-------------------------------------------------------------------------
+    // The consecutive-shot cone (mult_spread_scales_consecutive, tf_weaponbase_gun.cpp:874-882)
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>mult_spread_scales_consecutive</c>
+    /// (<c>tf_weaponbase_gun.cpp:874-882</c>): the stock comment's entry is the
+    /// second shot — the count lands after the shot is generated (:355), so the
+    /// first keeps the plain cone and the second walks the
+    /// <c>RemapValClamped(count, 1, 5, 1.125, 1.5)</c> of :879, the clamp's top
+    /// reached at the count of five, the sixth shot. Six presses sample every
+    /// value the arm answers.
+    /// </summary>
+    [Fact]
+    public void The_consecutive_shot_scale_widens_the_cone_from_the_second_shot_on()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] = AdditiveItem(9130, "mult_spread_scales_consecutive", 1f);
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        float[] scalers = [1f, 1.125f, 1.21875f, 1.3125f, 1.40625f, 1.5f];
+        float now = 10f;
+        for (int k = 0; k < scalers.Length; k++)
+        {
+            world.Run(w, vm, Attack, now, seed);
+            Assert.Equal(k + 1, world.Arms.Bullets.Count);     // the press fired its shot, every tick
+            Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f * scalers[k]), world.Arms.Bullets[^1].Spread, 4);
+            now += 1f;
+        }
+    }
+
+    /// <summary>
+    /// The same six presses without the item's attribute: stock's gate at :876
+    /// asks the hook over zero and stays out, so every shot keeps the script's
+    /// plain cone and the streak is nobody's business.
+    /// </summary>
+    [Fact]
+    public void Without_the_attribute_every_shot_keeps_the_plain_cone()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f, seed);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
+
+        world.Run(w, vm, Attack, now: 12f, seed);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
+
+        world.Run(w, vm, Attack, now: 14f, seed);
+        Assert.Equal(TFWeaponTypes.SpreadDegrees(0.0675f), world.Arms.Bullets[^1].Spread, 4);
     }
 }
 

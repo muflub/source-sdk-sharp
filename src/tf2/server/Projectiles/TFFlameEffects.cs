@@ -506,6 +506,12 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                                   * _pushbackScale.Value)
                     + new Vector(0f, 0f, _burstZvelocity.Value * _pushbackVertical.Value);
 
+        // The pushed player's own vulnerability rides the whole push
+        // (tf_player.cpp:3384's hook over the player, so the whole walk:
+        // the Mantreads are a wearable, never held).
+        push *= hooks.Float(1f, "airblast_vulnerability_multiplier",
+                            owners.ManagerOf(target.EntryIndex));
+
         if (networking.EntityGetState(target, out _).HasFlag(EntityState.OnGround)
             && push.Z < TFAirBlastDefs.JumpMinSpeed)
             push = new Vector(push.X, push.Y, TFAirBlastDefs.JumpMinSpeed);

@@ -8,6 +8,8 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Shared.Player;
+
 namespace TF2.Shared;
 
 /// <summary>
@@ -49,6 +51,43 @@ public class TFScattergunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
 
         KnockbackSelf(in attack);
         return true;
+    }
+
+    /// <summary>
+    /// The Soda Popper's drink (<c>CTFSodaPopper::SecondaryAttack</c>,
+    /// tf_weapon_shotgun.cpp:484-494): the whole secondary, stock calling no
+    /// base — a full meter arms <c>TF_COND_SODAPOPPER_HYPE</c>, the buff's
+    /// own standing the only debounce. Every other scattergun is the base's.
+    /// </summary>
+    public override void SecondaryAttack(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.SodaPopper)
+        {
+            base.SecondaryAttack(in attack);
+            return;
+        }
+
+        int owner = attack.Command.OwnerIndex;
+        if (owner <= 0
+            || Parts.Owners.ConditionsOf(owner) is not { } conditions
+            || conditions.Has(TFCond.SodapopperHype)                       // IsHypeBuffed, :487
+            || Parts.PlayerData?.Predicted(owner) is not { } state
+            || state.HypeMeter < TFHype.FullMeter)                         // :490
+            return;
+
+        conditions.Add(TFCond.SodapopperHype);                             // :492
+    }
+
+    /// <summary>The popper's busy frame drinks too (<c>ItemBusyFrame</c>, :469-481) — "so we can always activate buff when we want (similar to stickies)".</summary>
+    protected override void BusySkill(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.SodaPopper)
+        {
+            base.BusySkill(in attack);
+            return;
+        }
+
+        SecondaryAttack(in attack);
     }
 
     /// <summary>

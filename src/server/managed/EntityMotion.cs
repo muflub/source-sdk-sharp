@@ -136,6 +136,10 @@ public sealed class EntityMotion
         /// <summary>Half the box it sweeps; zero sweeps a point (a ray).</summary>
         public Vector Hull;
 
+        /// <summary>What stops its sweep: <c>PhysicsSolidMaskForEntity</c>. With
+        /// <c>CONTENTS_HITBOX</c> in it a player is his hitboxes, without it his hull.</summary>
+        public TraceMask Mask = TraceMask.Shot;
+
         /// <summary>
         /// It flies through players: a FSOLID_NOT_SOLID flyer's sweep, which
         /// PhysicsCheckSweep makes without CONTENTS_MONSTER. See <see cref="PassCharacters"/>.
@@ -184,7 +188,8 @@ public sealed class EntityMotion
     /// </para>
     /// </summary>
     public void Launch(EntityHandle entity, Vector velocity, float gravityScale,
-                       int bounces, EntityHandle owner, Vector spin = default, Vector hull = default)
+                       int bounces, EntityHandle owner, Vector spin = default, Vector hull = default,
+                       TraceMask mask = TraceMask.Shot)
     {
         // COMPARED AGAINST None RATHER THAN ASKED IsValid, here and at every
         // other handle test in this file. EntityHandle.IsValid is a NATIVE CALL
@@ -204,6 +209,7 @@ public sealed class EntityMotion
         mover.Spin = spin;
         mover.Incoming = velocity;
         mover.Hull = hull;
+        mover.Mask = mask;
         mover.Kind = gravityScale != 0f ? MotionKind.Toss : MotionKind.Fly;
     }
 
@@ -461,8 +467,8 @@ public sealed class EntityMotion
         // UTIL_TraceEntity: the entity's own box, or a point for one with none.
         Vector hull = mover.Hull;
         TraceResult trace = hull.X != 0f || hull.Y != 0f || hull.Z != 0f
-            ? Swept(_world.TraceBox(input.Origin, step.Destination, hull * -1f, hull, TraceMask.Shot, handle))
-            : _world.TraceLine(input.Origin, step.Destination, TraceMask.Shot, handle);
+            ? Swept(_world.TraceBox(input.Origin, step.Destination, hull * -1f, hull, mover.Mask, handle))
+            : _world.TraceLine(input.Origin, step.Destination, mover.Mask, handle);
 
         // AND ITS OWNER, which the filter cannot be told about — see the type's
         // remarks and abi-requests/2f.md. A rocket fired at the floor spawns

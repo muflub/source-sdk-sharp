@@ -719,6 +719,31 @@ public class TFAirBlastFacts
     }
 
     [Fact]
+    public void The_old_push_wears_the_targets_whole_walk()
+    {
+        // The generic impulse's own hook (tf_player.cpp:3384) over the player,
+        // so a wearable answers: 1.5 of the 922.5 along the aim, which a
+        // lookup through the held item could not see.
+        var rig = new FlameRig();
+        rig.Convars.Declared<TFAirBlastCrayConVar>().Bind(-1, "tf_airblast_cray", "0");
+        rig.AttachStun(FlameRig.Victim);
+        rig.Directory.Instance = null;
+        rig.Engine.FillsSphere(FlameRig.Victim);
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        InsideCone(rig);
+        Teams(rig, targetTeam: 3, blasterTeam: 2);
+        Centers(rig, targetCenter: new Vector(0f, 512f, 64f), blasterCenter: new Vector(0f, 0f, 64f));
+        rig.Owners.Managers[FlameRig.Victim.EntryIndex] =
+            rig.AttributeItem("airblast_vulnerability_multiplier", AttributeDescriptionFormat.Percentage, 1.5f);
+
+        rig.Effects.AirBlast(Attack(), Script());
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Assert.Equal(922.5f * 1.5f, pushed!.ArgAs<Vector>(1).Y, 2f);
+    }
+
+    [Fact]
     public void A_teammate_who_is_not_burning_gets_nothing()
     {
         var rig = new FlameRig();

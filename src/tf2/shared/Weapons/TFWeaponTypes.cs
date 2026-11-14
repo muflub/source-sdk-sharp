@@ -165,6 +165,8 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // rather than the misspelt g_aWeaponNames spelling, so the entity
             // name is the seed, not the id's Name() key.
             "tf_weapon_rocketlauncher_fireball",
+            // The Wrap Assassin: the scout's bat with a ball of its own (CTFBat_Giftwrap).
+            TFWeaponNames.Name(TFWeaponId.BatGiftwrap).ToLowerInvariant(),
             // The Half-Zatoichi (items_working.tsv:357) the same way: the
             // soldier's and demoman's unlock, held as the loadout item whose
             // class is the katana's own row.
@@ -182,6 +184,11 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // (tf_shareddefs.cpp:1206-1217), so it seeds by its script
             // spelling, the way the sapper and the Gunslinger do.
             "tf_weapon_rocketlauncher_airstrike",
+            // The scout's hype pair (items_working.tsv:448, :772): the Soda
+            // Popper and the Baby Face's Blaster, equipped items whose class
+            // is their own row — no class script's weaponN names either.
+            TFWeaponNames.Name(TFWeaponId.SodaPopper).ToLowerInvariant(),
+            TFWeaponNames.Name(TFWeaponId.PepBrawlerBlaster).ToLowerInvariant(),
         };
 
         for (var c = TFClass.Scout; c < TFClass.CountAll; c++)
@@ -239,7 +246,7 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
         ArgumentNullException.ThrowIfNull(script);
 
         var mode = script.Primary;
-        bool melee = script.Category == TFWeaponCategory.Melee;
+        bool melee = TFWeaponKinds.Of(script) == TFWeaponKind.Melee;
 
         return new WeaponType(script.Name, Interval: mode.TimeFireDelay,
                               Pellets: Math.Max(1, mode.BulletsPerShot),

@@ -155,7 +155,8 @@ internal sealed class FlameRig
                                                        new NetStateFields(new RecordingLog()));
 
         Pipebomb = new TFPipebomb(Engine, blast, Engine, Directory, Owners,
-                                  new TF2.Shared.Econ.AttributeHooks(), Engine, Skins, Engine, Engine);
+                                  new TF2.Shared.Econ.AttributeHooks(), Engine, Skins, Engine, Engine,
+                                  Engine, Scopes, HitGroups, Carriers, new ProjectileRig.FlareConditions());
         Pipebomb.BindAreas(TestServices.Areas(Engine));
         Pipebomb.Handle = PipebombHandle;
         Pipebomb.NetStates = NetStateBinding.AttachLocal(Pipebomb, Pipebomb.Handle,

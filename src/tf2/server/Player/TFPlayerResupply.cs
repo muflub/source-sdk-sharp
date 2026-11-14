@@ -75,10 +75,18 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     public int HookOrder => TFPlayerOrders.SpawnEffectBars;
 
     /// <summary>
-    /// Nothing: the class and the strip are <see cref="TFPlayerSpawns"/>' arms,
-    /// and this hook only reads what the kit left.
+    /// The drain bookkeeping goes with the old life: stock's <c>Respawn</c>
+    /// resets it when the bucket is not empty (tf_player.cpp:3938-3942), and
+    /// the health then reads the full maximum — a heavy re-equipped into other
+    /// draining gloves (the held item changing under one weapon name between
+    /// the lives, so the refill arm never runs for it) comes back whole, not
+    /// clamped to the old bucket's floor. The class and the strip are
+    /// <see cref="TFPlayerSpawns"/>' arms, and this hook adds nothing else.
     /// </summary>
-    public void OnSpawning(EntityHandle player, float now) { }
+    public void OnSpawning(EntityHandle player, float now)
+    {
+        _drain.Remove(entities.GetIndex(player));
+    }
 
     /// <summary>
     /// The spawned kit's bars, the regen's own (<see cref="FillEffectBar"/>):
@@ -458,6 +466,16 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
     {
         if (count <= 0 || ClassOf(player) is null)
             return 0;
+
+        // The pickups' metal toll (tf_player.cpp:14139-14147): a metal grant
+        // from anything but the resupply is the player's
+        // mult_metal_pickup times the count — the Eureka Effect's packs
+        // weigh half. The locker's own fill (:169 and the kit's walk) rides
+        // the raw core call and never sees this, stock's Resupply source
+        // branch.
+        if (ammo == TFAmmo.Metal)
+            count = (int)(_attributes.Float(1f, "mult_metal_pickup",
+                                            _owners.ManagerOf(player.EntryIndex)) * count);
 
         // The core's pool clamps to the carry rule, which is the class's AmmoMax.
         return players.GiveAmmo(player, count, TFAmmoNames.Name(ammo));

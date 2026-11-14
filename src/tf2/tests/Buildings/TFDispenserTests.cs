@@ -206,4 +206,44 @@ public class TFDispenserTests
         // (tf_obj_dispenser.cpp:606-613): 400 × 0.1 at level 1.
         Assert.Equal(TFDispenser.StartMetal + TFDispenser.RefillMetalForLevel(1), dispenser.Metal);
     }
+
+    /// <summary>DispenseAmmo's gate (tf_obj_dispenser.cpp:527, gate at :533):
+    /// the receiver's ACTIVE weapon answering non-zero on no_primary_ammo_from_dispensers
+    /// keeps its reserve from the dispenser's beat — the secondary arm and the
+    /// metal still run.</summary>
+    [Fact]
+    public void TheDispenserSkipsThePrimaryGiveWhenTheHeldWeaponSaysNo()
+    {
+        var (rig, dispenser, _) = AWorkingDispenser();
+        (EntityHandle mate, FakeMapPlayer state) = AServiced(rig, dispenser, health: 200f);
+        state.MaxAmmo[TFAmmo.Primary] = 100;
+        state.MaxAmmo[TFAmmo.Secondary] = 100;
+
+        rig.Engine.Returns("Entities.GetIndex", mate.EntryIndex);   // the seam the attribute reads by
+        rig.Owners.Held[mate.EntryIndex] = "tf_weapon_rocketlauncher";
+        rig.Owners.Items[mate.EntryIndex] = rig.AttributeItem(
+            "no_primary_ammo_from_dispensers", TF2.Shared.Econ.AttributeDescriptionFormat.Additive, 1f);
+
+        Tick(rig, dispenser, 0.6f);   // the first beat
+
+        Assert.Equal(0, state.Ammo.GetValueOrDefault(TFAmmo.Primary));     // skipped at :533
+        Assert.Equal(20, state.Ammo.GetValueOrDefault(TFAmmo.Secondary)); // the secondary arm stands
+    }
+
+    /// <summary>No attribute, no skip: the primary give rides the beat as the
+    /// plain arm always did (:533's == 0 answer).</summary>
+    [Fact]
+    public void TheDispenserGivesThePrimaryWhenTheHeldWeaponAnswersNothing()
+    {
+        var (rig, dispenser, _) = AWorkingDispenser();
+        (EntityHandle mate, FakeMapPlayer state) = AServiced(rig, dispenser, health: 200f);
+        state.MaxAmmo[TFAmmo.Primary] = 100;
+
+        rig.Engine.Returns("Entities.GetIndex", mate.EntryIndex);
+        rig.Owners.Held[mate.EntryIndex] = "tf_weapon_rocketlauncher";   // held, but with no attribute
+
+        Tick(rig, dispenser, 0.6f);
+
+        Assert.True(state.Ammo.GetValueOrDefault(TFAmmo.Primary) > 0);
+    }
 }

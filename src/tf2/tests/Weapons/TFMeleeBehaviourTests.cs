@@ -466,4 +466,70 @@ public sealed class TFMeleeBehaviourTests
         Assert.Equal((int)TFMeleeCrit.NoCrit, carrier.NextMeleeCrit);
         Assert.Equal(2, TFMeleeBehaviour.ComboOf(w));
     }
+
+    private const string Wrap = "tf_weapon_bat_giftwrap";
+
+    // tf_weapon_bat.cpp:255-287 CTFBat_Wood::SecondaryAttack, the Wrap
+    // Assassin's ball throw through it.
+    [Fact]
+    public void A_charged_alt_fire_throws_the_ball_and_empties_the_bar()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 1f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+
+        var throw1 = Assert.Single(world.Effects.Projectiles);
+        Assert.Equal(Wrap, throw1.Weapon);
+        Assert.Equal(new ShotDamage(35f), throw1.Shot);
+        Assert.Equal(0f, w.ItemMeter, 4);
+        // :276-277 both clocks, the primary gate the next press reads.
+        Assert.Equal(10.25f, w.NextPrimaryAttack, 4);
+        Assert.Equal(10.25f, w.NextSecondaryAttack, 4);
+        // :272 the launch anim; the swing pose, ACT_VM_PRIMARYATTACK.
+        Assert.Equal(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary,
+                     Assert.Single(world.Arms.Gestures));
+    }
+
+    [Fact]
+    public void A_crit_roll_flags_the_ball_at_the_throw()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 1f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: Crit);
+
+        // tf_weapon_bat.cpp:1089 CalcIsAttackCritical at CreateBall.
+        Assert.Equal(new ShotDamage(35f, true), Assert.Single(world.Effects.Projectiles).Shot);
+    }
+
+    [Fact]
+    public void An_empty_bar_refuses_the_throw()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 0f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+
+        Assert.Empty(world.Effects.Projectiles);
+        Assert.Equal(0f, w.ItemMeter, 4);
+    }
+
+    [Fact]
+    public void A_primary_clock_in_the_future_refuses_the_throw()
+    {
+        var world = new TFWeaponWorld(extras: true);
+        var (w, vm) = world.Armed(Wrap, clip: -1, reserve: 0);
+        w.ItemMeter = 1f;
+        w.NextPrimaryAttack = 20f;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+
+        // :264-265 the bat throws no ball while its swing is still owed.
+        Assert.Empty(world.Effects.Projectiles);
+        Assert.Equal(1f, w.ItemMeter, 4);
+    }
 }

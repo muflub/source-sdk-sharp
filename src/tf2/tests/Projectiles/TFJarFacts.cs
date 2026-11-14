@@ -5,6 +5,7 @@ using SourceSharp.Shared;
 using TF2.Server.Projectiles;
 using TF2.Shared;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Tests.Weapons;
 
 using Xunit;
@@ -244,6 +245,9 @@ public sealed class TFJarFacts
         var (rig, jar) = LandedJar();
         rig.Wet.Burning.Add(ProjectileRig.Victim);
         rig.Engine.Returns("Players.GetTeam", 2); // the same side, both
+        // The refund's reads on the thrower's held jar, answered the plain way.
+        rig.Engine.Returns("Entities.GetIndex", 3);
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", new EntityHandle(0x0002_0000u | 7));
 
         jar.OnTouch(ProjectileRig.Victim);
 
@@ -275,5 +279,112 @@ public sealed class TFJarFacts
 
         Assert.Equal(TFProjectileDefs.JarMilkImpactEffect,
                      rig.Engine.Last("Precache.PrecacheParticleSystem")!.Value.ArgAs<string>(0));
+    }
+
+    /// <summary>
+    /// Stock's refund behind the douse (tf_weapon_jar.cpp:452-468): half the
+    /// recharge comes back to the thrower's jarate bar while the bar is still
+    /// behind the refund, and the bar stands where it was with no hook.
+    /// </summary>
+    [Fact]
+    public void The_burning_teammate_refunds_half_the_launchers_bar()
+    {
+        var (rig, jar) = RefundRig(out var launcher, startingMeter: 0.25f);
+        rig.Owners.Active = rig.AttributeItem("extinguish_reduces_cooldown",
+                                              AttributeDescriptionFormat.Percentage, 0.5f);
+
+        jar.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(TFCond.Burning, Assert.Single(rig.Wet.Removed).Item2);
+        Assert.Equal(0.75f, launcher.State.ItemMeter, 3);
+    }
+
+    [Fact]
+    public void With_no_hook_the_launchers_bar_keeps_where_it_was()
+    {
+        var (rig, jar) = RefundRig(out var launcher, startingMeter: 0.25f);
+
+        jar.OnTouch(ProjectileRig.Victim);
+
+        Assert.Equal(TFCond.Burning, Assert.Single(rig.Wet.Removed).Item2);
+        Assert.Equal(0.25f, launcher.State.ItemMeter, 3);
+    }
+
+    /// <summary>
+    /// The douse's refund, ready to ask: a jar on the ground by a burning
+    /// teammate of the thrower's own side, the thrower's held jar on record
+    /// in the directory at the starting bar. Both facts press through the
+    /// touch, so the refund rides the same path the splash does.
+    /// </summary>
+    private static (ProjectileRig Rig, TFJar Jar) RefundRig(out SourceSharp.Server.SsWeapon launcher,
+                                                             float startingMeter)
+    {
+        var (rig, jar) = LandedJar();
+        rig.Wet.Burning.Add(ProjectileRig.Victim);
+        rig.Engine.Returns("Players.GetTeam", 2); // the same side, both
+
+        var weaponHandle = new EntityHandle(0x0002_0000u | 7);
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", weaponHandle);
+        rig.Engine.Returns("Entities.GetIndex", 3); // the thrower's own entry
+        launcher = new SourceSharp.Server.SsWeapon { Handle = weaponHandle };
+        launcher.State.BindLocal();
+        launcher.State.ItemMeter = startingMeter;
+        rig.Directory.Holds(weaponHandle, launcher);
+        return (rig, jar);
+    }
+
+    /// <summary>
+    /// <c>SetCustomPipebombModel</c> (:261-284): the festive held item
+    /// re-skins the born jar; a plain held item keeps the jar's own model.
+    /// </summary>
+    [Fact]
+    public void The_festive_held_item_wears_the_festive_jar()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Players.GetTeam", 3);
+        var jar = rig.Jar();
+        rig.Owners.Active = rig.AttributeItem("override_projectile_type",
+                                              AttributeDescriptionFormat.Additive, 22f);
+
+        jar.OnSpawn();
+        jar.ArmedBy(critical: false, ownerIndex: 3);
+
+        Assert.Equal(TFProjectileDefs.JarFestiveModel,
+                     rig.Engine.Last("EntityRender.SetModel")!.Value.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void The_plain_held_item_keeps_the_born_jar()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Players.GetTeam", 3);
+        var jar = rig.Jar();
+
+        jar.OnSpawn();
+        jar.ArmedBy(critical: false, ownerIndex: 3);
+
+        Assert.Equal(TFProjectileDefs.JarModel,
+                     rig.Engine.Last("EntityRender.SetModel")!.Value.ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// The milk's own arm (:836-855): the bread monster's face answers on the
+    /// milk too, the madmilk model beside it.
+    /// </summary>
+    [Fact]
+    public void The_milk_bread_monster_wears_the_bread_monster()
+    {
+        var rig = new ProjectileRig();
+        rig.Engine.Returns("Players.GetTeam", 3);
+        var jar = rig.Jar();
+        jar.ClassName = TFProjectileEntityNames.JarMilk;
+        rig.Owners.Active = rig.AttributeItem("override_projectile_type",
+                                              AttributeDescriptionFormat.Additive, 24f);
+
+        jar.OnSpawn();
+        jar.ArmedBy(critical: false, ownerIndex: 3);
+
+        Assert.Equal(TFProjectileDefs.JarMilkBreadmonsterModel,
+                     rig.Engine.Last("EntityRender.SetModel")!.Value.ArgAs<string>(1));
     }
 }

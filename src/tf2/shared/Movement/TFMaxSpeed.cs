@@ -50,7 +50,13 @@ public readonly record struct TFMoveInputs(
     /// reuses its state on a switch. The resource-level speed arm reads it;
     /// the zero default is a full remap to one, no bonus, the same answer
     /// stock's empty meter gives.</summary>
-    float MedicCharge = 0f)
+    float MedicCharge = 0f,
+
+    /// <summary>The scout's hype speed (<c>tf_player_shared.cpp:11085</c>):
+    /// the meter remapped 0..100 onto 1..1.45 for a Baby Face's Blaster owner
+    /// — the scale the movement rules compute (<see cref="TFHype.SpeedScale"/>),
+    /// 1 without the item, the walk's no-op.</summary>
+    float HypeSpeedScale = 1f)
 {
     /// <summary>The inputs a carrier's state holds. The weapon inputs wait for the weapons lane (1.9).</summary>
     public static TFMoveInputs Of(TFPlayerNetState state)
@@ -287,6 +293,13 @@ public static class TFMaxSpeed
             if (itemSpeedMod != 1f)
                 maxfbspeed *= itemSpeedMod;
         }
+
+        // The scout's hype speed (tf_player_shared.cpp:11080-11086): a Baby
+        // Face's Blaster owner runs at the meter's scale — stock's
+        // Weapon_OwnsThisID(TF_WEAPON_PEP_BRAWLER_BLASTER) gate is the
+        // movement rules' (a scout's class arm before it), the scale their
+        // input carries.
+        maxfbspeed *= inputs.HypeSpeedScale;
 
         return maxfbspeed;
     }

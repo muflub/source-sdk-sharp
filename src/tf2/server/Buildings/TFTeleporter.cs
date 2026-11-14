@@ -228,6 +228,26 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
 
     public override TFObjectType Type => TFObjectType.Teleporter;
 
+    /// <summary>
+    /// <c>CObjectTeleporter::GetUpgradeMetalRequired</c>
+    /// (tf_obj_teleporter.cpp:309-322): the table's price times the builder's
+    /// <c>mod_teleporter_cost</c> — the Eureka Effect's upgrades for half the
+    /// metal — the builder asked ON_OTHER over their own attributes, the
+    /// price asked whole at the pot's checks and the panel's fraction.
+    /// </summary>
+    public override int RequiredUpgradeMetal
+    {
+        get
+        {
+            int cost = base.RequiredUpgradeMetal;
+            if (Builder == EntityHandle.None)
+                return cost;
+
+            float mod = Hooks!.Float(1f, "mod_teleporter_cost", Owners!.ManagerOf(Builder.EntryIndex));
+            return mod != 1f ? (int)(cost * mod) : cost;
+        }
+    }
+
     /// <summary><c>m_eTeleporterState</c>. (<see cref="TFBaseObject.State"/>'s
     /// wire record hides behind it on the teleporter alone.)</summary>
     public new TFTeleporterState State => _state;

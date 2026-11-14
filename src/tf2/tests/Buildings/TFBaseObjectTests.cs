@@ -137,11 +137,12 @@ public class TFBaseObjectTests
     }
 
     /// <summary>The builder's manager holding one named attribute, as the hooks' walk reads it.</summary>
-    private static void Arms(BuildingsRig rig, EntityHandle builder, string attribute, float value)
+    private static void Arms(BuildingsRig rig, EntityHandle builder, string attribute, float value,
+                             AttributeDescriptionFormat format = AttributeDescriptionFormat.Additive)
     {
         var manager = new AttributeContainer(null, AttributeProviderType.Generic);
         manager.Set(AttributeValue.OfFloat(
-            new AttributeDefinition(6060, "attr 6060", attribute, AttributeDescriptionFormat.Additive,
+            new AttributeDefinition(6060, "attr 6060", attribute, format,
                                     AttributeEffectType.Neutral, false, false,
                                     AttributeValueType.Default, MergedKeys.Block("x")), value));
         rig.Owners.Managers[builder.EntryIndex] = manager;
@@ -161,6 +162,20 @@ public class TFBaseObjectTests
         // fact above) sits at half health still building.
         Assert.True(building.IsBuilt);
         Assert.Equal(150, building.Health);
+    }
+
+    [Fact]
+    public void AMultiplyingBuildRateAttrClimbsFasterToo()
+    {
+        // The walk starts from stock's 1 (tf_player.cpp:8239): a percentage-format
+        // item's two times is the same plus one (:8259), not zero.
+        var (rig, building, builder) = ABuildingUnderConstruction();
+        Arms(rig, builder, "sentry_build_rate_multiplier", 2f, AttributeDescriptionFormat.Percentage);
+
+        rig.Clock.Now += 5f;
+        building.OnThink();
+
+        Assert.True(building.IsBuilt);
     }
 
     [Fact]

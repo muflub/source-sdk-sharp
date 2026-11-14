@@ -522,6 +522,11 @@ public static class TFWeaponNames
         if (string.Equals(name, TFWeaponTypes.Drink, StringComparison.OrdinalIgnoreCase))
             return TFWeaponId.Lunchbox;
 
+        // The Gunslinger: CTFRobotArm derives from CTFWrench and inherits its
+        // GetWeaponID (tf_weapon_wrench.h:66); its script's WeaponType is item2.
+        if (string.Equals(name, TFWeaponTypes.WrenchArm, StringComparison.OrdinalIgnoreCase))
+            return TFWeaponId.Wrench;
+
         // The Dragon's Fury: stock binds the entity class at LINK_ENTITY_TO_CLASS
         // (tf_weapon_dragons_fury.cpp:42) and answers the id through the class's
         // own GetWeaponID override (tf_weapon_dragons_fury.h:45), so the script's

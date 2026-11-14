@@ -84,9 +84,10 @@ public sealed class TFMaxSpeedTests
                                TFWeaponId weapon = TFWeaponId.None, float speedMod = 1f, float cloakedCap = 999f,
                                AttributeHooks? attribs = null, IAttributeProvider? manager = null,
                                TFStunFlags stunFlags = TFStunFlags.None, bool carrying = false,
-                               int healTarget = -1, Func<int, TFPeerInput?>? peers = null, int self = -1)
+                               int healTarget = -1, Func<int, TFPeerInput?>? peers = null, int self = -1,
+                               float hypeScale = 1f)
         => TFMaxSpeed.Calculate(Classes, new TFMoveInputs(c, conditions, disguise, weapon, speedMod, stunFlags,
-                                                          carrying, healTarget),
+                                                          carrying, healTarget, HypeSpeedScale: hypeScale),
                                 cloakedCap, attribs, manager, peers, self);
 
     /// <summary>A peer table over bare classes, the patient's side of the match.</summary>
@@ -139,6 +140,14 @@ public sealed class TFMaxSpeedTests
         // 110 is the heavy's cap, 80 everyone else's: a class already slower keeps its own.
         Assert.Equal(80f, Speed(TFClass.Soldier, TFCondMask.Of(TFCond.Aiming)));
         Assert.True(Speed(TFClass.Soldier) > 80f, "the stimulus is a real cap");
+    }
+
+    [Fact]
+    public void The_hype_scale_is_the_walks_last_multiply()
+    {
+        // tf_player_shared.cpp:11085, the scout's arm after the item hooks.
+        Assert.Equal(400f * TFHype.SpeedScaleMax, Speed(TFClass.Scout, hypeScale: TFHype.SpeedScaleMax), 0.5f);
+        Assert.Equal(400f, Speed(TFClass.Scout));
     }
 
     [Fact]
@@ -1209,6 +1218,53 @@ public sealed class TFMovementRulesTests
         Assert.Equal(TFJump.DashSpeed, rules.AirJump(in request));
     }
 
+    /// <summary>
+    /// The BFB's hype speed (<c>tf_player_shared.cpp:11080-11086</c>): the
+    /// scout owning the Baby Face's Blaster runs at the meter's remap — full
+    /// 1.45, half 1.225 — and nobody else does.
+    /// </summary>
+    [Fact]
+    public void The_bfb_hype_scales_its_owners_speed()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var owners = new OwnersOf(new TFPlayerItems())
+        {
+            ByName = { [Index] = new() { [TFHype.BrawlerScript] = new AttributeContainer() } },
+        };
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners);
+
+        state.HypeMeter = TFHype.FullMeter;
+        Assert.Equal(400f * TFHype.SpeedScaleMax, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+
+        state.HypeMeter = TFHype.FullMeter / 2f;
+        Assert.Equal(400f * 1.225f, rules.MaxSpeedScale(Index, 400f, false, 0), 0.5f);
+    }
+
+    /// <summary>The hype speed is the BFB owner's alone: no item, or another class, none.</summary>
+    [Fact]
+    public void The_hype_speed_is_the_owners_alone()
+    {
+        var players = new TFMovementFixtures.Players();
+        var scout = players.Add(Index, TFClass.Scout);
+        var owners = new OwnersOf(new TFPlayerItems())
+        {
+            ByName = { [Index] = new() { [TFHype.BrawlerScript] = new AttributeContainer() } },
+        };
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players, owners: owners);
+
+        // A scout whose hype is banked but whose item is elsewhere: stock's
+        // Weapon_OwnsThisID gate is the item's.
+        scout.HypeMeter = TFHype.FullMeter;
+        owners.ByName[Index].Clear();
+        Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
+
+        // The class arm: a heavy at the item keeps the heavy's own walk.
+        owners.ByName[Index][TFHype.BrawlerScript] = new AttributeContainer();
+        players.Predicted(Index)!.SetClass(TFClass.HeavyWeapons);
+        Assert.Equal(230f, rules.MaxSpeedScale(Index, 230f, false, 0));
+    }
+
     /// <summary>The dash count and the jump height walk the ACTIVE weapon's item, both sides alike.</summary>
     [Fact]
     public void The_active_weapons_item_reaches_the_dash()
@@ -1290,11 +1346,86 @@ public sealed class TFMovementRulesTests
         Assert.Equal(1, players.Predicted(Index)!.AirDash);
     }
 
+    /// <summary>
+    /// The Mantreads' air-control scale rides the blast-jump condition alone
+    /// (tf_gamemovement.cpp:2081-2094): the attribute on the player's manager
+    /// moves the cap only while the condition stands.
+    /// </summary>
+    [Fact]
+    public void The_blast_jump_scale_sits_behind_the_condition_and_landing_ends_it()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var items = new TFPlayerItems();
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
+                                        owners: new OwnersOf(items), hooks: new AttributeHooks());
+
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5008, "attr 5008", "mod_air_control_blast_jump",
+            AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 1.25f));
+        items.SetManager(Index, manager);
+
+        // No condition: the walk never asks, the cap stands (:2081's gate).
+        Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
+
+        // The blast-jump condition on: the same attribute now scales (:2083).
+        var blast = default(TFCondMask);
+        blast.Set(TFCond.Blastjumping);
+        state.SetConditions(in blast);
+        Assert.Equal(500f, rules.MaxSpeedScale(Index, 400f, false, 0));
+
+        // Landing clears it (TFBlastJump.cs's clear): the cap stands again.
+        state.SetConditions(default);
+        Assert.Equal(400f, rules.MaxSpeedScale(Index, 400f, false, 0));
+    }
+
+    /// <summary>
+    /// The B.A.S.E. Jumper's press toggles the chute through the player's own
+    /// manager (tf_gamemovement.cpp:1132-1150): each airborne press flips the
+    /// condition, and without the attribute nothing toggles.
+    /// </summary>
+    [Fact]
+    public void The_airborne_press_toggles_the_chute_behind_the_attribute()
+    {
+        var players = new TFMovementFixtures.Players();
+        var state = players.Add(Index, TFClass.Scout);
+        var items = new TFPlayerItems();
+        var rules = new TFMovementRules(TFMovementFixtures.Server(), players,
+                                        owners: new OwnersOf(items), hooks: new AttributeHooks());
+        var request = new JumpRequest { PlayerIndex = Index, VerticalSpeed = 100f };
+
+        // No attribute yet: the press dashes and leaves the chute alone.
+        rules.AirJump(in request);
+        Assert.False(state.InCond(TFCond.ParachuteActive));
+
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5009, "attr 5009", "parachute_attribute",
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 1));
+        items.SetManager(Index, manager);
+        state.AirDash = 0;
+
+        rules.AirJump(in request);                            // :1141 — none goes on
+        Assert.True(state.InCond(TFCond.ParachuteActive));
+
+        rules.AirJump(in request);                            // :1139 — deployed comes off
+        Assert.False(state.InCond(TFCond.ParachuteActive));
+
+        // The grant goes with the player: the press keeps toggling nothing.
+        items.Forget(Index);
+        rules.AirJump(in request);
+        Assert.False(state.InCond(TFCond.ParachuteActive));
+    }
+
     /// <summary>The owners seam as the side's registry holds it: the manager grant, nothing else answerable here.</summary>
     private sealed class OwnersOf(TFPlayerItems items) : ITFWeaponOwners
     {
         /// <summary>The active weapon's item, set by the fact that needs it.</summary>
         public IAttributeProvider? Active;
+
+        /// <summary>Items by weapon row, for the name-checked asks (the BFB's hype speed).</summary>
+        public Dictionary<int, Dictionary<string, IAttributeProvider>> ByName { get; } = [];
 
         /// <summary>The drawn-bow refusal, set by the fact that needs it.</summary>
         public bool MayJump { get; set; } = true;
@@ -1303,7 +1434,10 @@ public sealed class TFMovementRulesTests
         public TFConditions? ConditionsOf(int playerIndex) => null;
         public float CritMult(int playerIndex) => 1f;
         public bool WinsCrits(int playerIndex) => false;
-        public IAttributeProvider? ItemOf(int playerIndex, string weaponName) => null;
+
+        public IAttributeProvider? ItemOf(int playerIndex, string weaponName)
+            => ByName.TryGetValue(playerIndex, out var byName) && byName.TryGetValue(weaponName, out var named) ? named : null;
+
         public IAttributeProvider? ActiveItemOf(int playerIndex) => Active;
         public IAttributeProvider? ManagerOf(int playerIndex) => items.ManagerOf(playerIndex);
         public bool OffGround(int playerIndex) => false;

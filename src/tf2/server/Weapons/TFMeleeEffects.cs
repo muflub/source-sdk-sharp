@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 
 using TF2.Server.Combat;
 using TF2.Server.Player;
+using TF2.Server.Projectiles;
 
 using TF2.Shared;
 using TF2.Shared.Combat;
@@ -43,7 +44,7 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
                                    DamageHitGroups hitGroups, ILog log,
                                    ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
                                    ILagCompensation? lagCompensation = null, TFDamageScopes? scopes = null,
-                                   ITFPlayerConditions? conditions = null) : ITFMeleeEffects
+                                   ITFPlayerConditions? conditions = null, TFBlastApplier? blast = null) : ITFMeleeEffects
 {
     /// <summary><c>tf_meleeattackforcescale</c>'s 80 (<c>tf_weaponbase_melee.cpp:50</c>).</summary>
     public const float ForceScale = 80f;
@@ -59,6 +60,8 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
     public const float ForcedLaughSeconds = TFTauntCommand.BaseTauntSceneSeconds + TFTauntCommand.TauntTailSeconds;
 
     private readonly TFDamageScopes? _scopes = scopes;
+
+    private readonly TFBlastApplier? _blast = blast;
 
     private readonly ITFWeaponOwners? _owners = owners;
 
@@ -150,6 +153,10 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         if (!hull.Hit)
         {
             log.Msg($"[TF2/Melee] swing by {owner} met nothing (from {from} to {to})\n");
+
+            // CTFRobotArm::Smack's else (tf_weapon_wrench.cpp:502-518): a clean miss ends the combo.
+            if (TFMeleeBehaviour.IsRobotArm(in script))
+                attack.Weapon.BehaviourMode &= ~TFMeleeBehaviour.ComboCountMask;
 
             // hit_self_on_miss (:755-763): a clean miss hurts its own owner at half the melee
             // blow — DoMeleeDamage's half-modifier path (:802-835), the same melee bits and
@@ -256,6 +263,26 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         using (hitGroups.Push(HitGroup.Generic, critical))
             damage.ApplyAt(target, owner, strike, type, force, end);
 
+        // The disciplinary speed boost (tf_weaponbase_melee.cpp:646-656): a melee hit
+        // that lands on a same-team player answers speed_buff_ally off the melee's
+        // own item, and both players catch TF_COND_SPEED_BOOST — the one hit for two
+        // seconds (:652), the swinger 3.6 ("give the soldier a bit of additional time
+        // to allow them to keep up better with faster classes", :653). The disguise
+        // half of the same-team gate (:646) waits with the disguise reads.
+        if (conditions is { } conds && entities.IsPlayer(target)
+            && players.GetTeam(owner) == players.GetTeam(target)
+            && _owners is { } hold && _hooks is { } hk
+            && hk.Int(0, "speed_buff_ally", hold.ItemOf(attack.Command.OwnerIndex, script.Name)) > 0)
+        {
+            conds.Add(target, TFCond.SpeedBoost, 2f);        // :652
+            conds.Add(owner, TFCond.SpeedBoost, 3.6f);       // :653
+        }
+
+        // ConnectedHit is an enemy or the world (tf_weaponbase_melee.cpp:959-966): a
+        // teammate's shoulder leaves the Caber its one blast.
+        if (players.GetTeam(target) != players.GetTeam(owner))
+            Kaboom(in attack, script, owner, critical);
+
         // The Holiday Punch's two laugh arms, stock's non-truce block after the
         // hit (tf_weaponbase_melee.cpp:882-927). Both need a living player on
         // the other team; the forced laugh additionally rides the swing's crit
@@ -288,6 +315,45 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
             && theirs is AttributeContainer { Item: { } theirItem }
             && myItem.Defindex == theirItem.Defindex;
     }
+
+    /// <summary>
+    /// The stickbomb's kaboom (<c>CTFStickBomb::Smack</c>'s tail,
+    /// <c>shared/tf/tf_weapon_bottle.cpp:219-274</c>): once, on the connected
+    /// smack after the melee hit it rode, the swing detonates — the blast from
+    /// the swing's own shoot position (<c>vecSwingStart</c>; stock computes
+    /// the swing end and never reads it), 75 through <c>mult_dmg</c> over a
+    /// radius of 100 through <c>mult_explosion_radius</c>, the bits
+    /// <c>DMG_BLAST | DMG_USEDISTANCEMOD | DMG_MELEE</c> carrying the swing's
+    /// crit and the kill its <c>TF_DMG_CUSTOM_STICKBOMB_EXPLOSION</c>. The
+    /// TE_TFExplosion is the client broadcast stock wraps it in, and the
+    /// broken body group its <c>m_bBroken</c> — both the display's, which the
+    /// weapon row's models already are.
+    /// </summary>
+    private void Kaboom(in WeaponAttackContext attack, TFWeaponScript script, EntityHandle owner, bool critical)
+    {
+        if (script.Id != TFWeaponId.Stickbomb || _blast is not { } blast
+            || TFMeleeBehaviour.Spent(attack.Weapon))
+            return;
+
+        attack.Weapon.BehaviourMode |= TFMeleeBehaviour.ModeStickbombSpent;
+
+        IAttributeProvider? item = attack.Command.OwnerIndex > 0
+            ? _owners?.ItemOf(attack.Command.OwnerIndex, script.Name)
+            : null;
+        float damage = _hooks?.Float(TFStickbombDamage, "mult_dmg", item) ?? TFStickbombDamage;
+        float radius = _hooks?.Float(TFStickbombRadius, "mult_explosion_radius", item) ?? TFStickbombRadius;
+
+        blast.Apply(players.GetShootOrigin(owner),
+                    TFBlast.Of(damage, radius, DamageType.Blast | TFDamageBits.UseDistanceMod | TFDamageBits.Melee),
+                    owner, owner, ignored: EntityHandle.None, script.Id, script.Name, critical,
+                    custom: TFDamageCustom.StickbombExplosion);
+    }
+
+    /// <summary>The kaboom's damage, stock's <c>flDamage = 75.0f</c> (:261).</summary>
+    public const float TFStickbombDamage = 75f;
+
+    /// <summary>The kaboom's radius, stock's <c>flRadius = 100.f</c> (:266).</summary>
+    public const float TFStickbombRadius = 100f;
 
     private bool HonourBound(AttributeHooks hooks, IAttributeProvider? item)
         => item is not null && hooks.Int(0, TFSwordHook.HonorBoundAttrib, item) != 0;

@@ -146,6 +146,50 @@ public sealed class TFShellBehaviourTests
     }
 
     [Fact]
+    public void A_quickiebombs_charge_rate_holds_the_auto_launch_past_the_stock_window()
+    {
+        // GetChargeMaxTime (tf_weapon_pipebomblauncher.h:75): the window the
+        // held charge runs to is TF_PIPEBOMB_MAX_CHARGE_TIME through the
+        // launcher's stickybomb_charge_rate hook — at twice the rate the bomb
+        // is still charging at the stock 4 s and leaves clamped at 8.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] =
+            ItemWith("stickybomb_charge_rate", AttributeDescriptionFormat.Percentage, 2f);
+        var (w, vm) = world.Armed("tf_weapon_pipebomblauncher", clip: 8, reserve: 24);
+
+        for (int k = 0; 10f + k * Tick < 14.1f; k++)
+            world.Run(w, vm, Attack, 10f + k * Tick, NoCrit);
+        Assert.Empty(world.Effects.Projectiles); // the stock window would have let go at 14
+
+        for (int k = 0; 14.1f + k * Tick < 18.1f; k++)
+            world.Run(w, vm, Attack, 14.1f + k * Tick, NoCrit);
+
+        var launch = Assert.Single(world.Effects.Projectiles);
+        Assert.Equal(8f, launch.Charge);
+    }
+
+    [Fact]
+    public void A_quickiebombs_charge_damage_rides_the_held_fraction_of_the_window()
+    {
+        // LaunchGrenade's charged damage (tf_weapon_pipebomblauncher.cpp:311-318):
+        // dmg += dmg * (scale - 1) * GetCurrentCharge() — the held fraction,
+        // laid on the shot the projectile is born with. Half a window at 1.25:
+        // 120 + 120 * 0.25 * 0.5 = 135.
+        var world = new TFWeaponWorld();
+        world.Owners.Items[TFWeaponWorld.Owner] =
+            ItemWith("stickybomb_charge_damage_increase", AttributeDescriptionFormat.Percentage, 1.25f);
+        var (w, vm) = world.Armed("tf_weapon_pipebomblauncher", clip: 8, reserve: 24);
+
+        int k = 0;
+        for (; 10f + k * Tick < 12f; k++)
+            world.Run(w, vm, Attack, 10f + k * Tick, NoCrit);
+        world.Run(w, vm, 0, 10f + k * Tick, NoCrit);
+
+        var launch = Assert.Single(world.Effects.Projectiles);
+        Assert.Equal(135f, launch.Shot.Damage, 0);
+    }
+
+    [Fact]
     public void The_stickybomb_secondary_detonates()
     {
         var world = new TFWeaponWorld();

@@ -206,6 +206,56 @@ public sealed class TFPlayerResupplyTests
         Assert.Equal(86, HealthSet(rig));
     }
 
+    /// <summary>
+    /// A heavy who drains on one draining glove, re-equips the melee slot to
+    /// another draining glove (<c>tf2_equip heavyweapons melee</c>) and dies
+    /// comes back at the full class maximum: stock's <c>Respawn</c> resets the
+    /// drain bookkeeping when the bucket is not empty and sets the health to
+    /// the fresh maximum (tf_player.cpp:3938-3942), so the old life's full
+    /// bucket does not clamp the new life to the hp_min floor. The same glove
+    /// twice, whose item never changes, already comes back whole (:14373 — the
+    /// held attribute still answers through the manager).
+    /// </summary>
+    [Fact]
+    public void A_respawn_after_reequipping_the_gloves_comes_back_whole()
+    {
+        var rig = new PlayerRig().As(TFClass.HeavyWeapons);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_fists");
+        rig.Engine.Returns("Clock.Now", 10f);
+        rig.Engine.Returns("Entities.GetHealth", 300);
+        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_fists"] =
+            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5010) };
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks(),
+                                            clock: rig.Engine);
+
+        // The held first glove: the deploy's twenty at once, then two a second
+        // — ninety seconds on the clock take the bucket across its cap of
+        // 300 minus the hp_min hundred.
+        Assert.Equal(280, resupply.MaxHealth(PlayerRig.Player));    // the deploy's cost only
+        Assert.Equal(280, HealthSet(rig));
+        rig.Engine.Returns("Entities.GetHealth", 100);
+        rig.Engine.Returns("Clock.Now", 100f);
+        Assert.Equal(100, resupply.MaxHealth(PlayerRig.Player));    // bucket at the cap
+
+        // tf2_equip heavyweapons melee with the other draining glove — the
+        // item behind the melee name changes defindex — then kill and respawn.
+        owners.ByName[PlayerRig.Index] = new() { ["tf_weapon_fists"] =
+            Arm("mod_maxhealth_drain_rate", 2f, AttributeDescriptionFormat.Additive, 5012) };
+        rig.Engine.Returns("Clock.Now", 112f);
+        resupply.OnSpawning(PlayerRig.Player, 112f);
+
+        // TFPlayerSpawns.OnSpawned's health arm: SetHealth(GetMaxHealth())
+        // after the fresh kit (tf_player.cpp:4161-4162).
+        var max = resupply.MaxHealth(PlayerRig.Player);
+        ((IEngineEntities)rig.Engine).SetHealth(PlayerRig.Player, max);
+
+        Assert.Equal(280, max);          // fresh bookkeeping: the new deploy's cost only
+        Assert.Equal(280, HealthSet(rig));
+    }
+
     /// <summary>A resupply over a rig whose player manager holds the asked arms; the
     /// active weapon is <c>tf_weapon_scattergun</c> with its own item when <paramref name="healing"/> is set.</summary>
     private static TFPlayerResupply OwnedResupply(out PlayerRig rig, bool managers = false, bool nonbuffed = false, float healing = 0f)
@@ -343,6 +393,27 @@ public sealed class TFPlayerResupplyTests
 
         var give = Assert.Single(rig.Engine.AllOf("Players.GiveAmmo"));
         Assert.Equal("TF_AMMO_PRIMARY", give.ArgAs<string>(2));
+    }
+
+    [Fact]
+    public void The_eurekas_metal_pickup_half_is_the_packs_toll()
+    {
+        // mult_metal_pickup (tf_player.cpp:14139-14147): the non-resupply
+        // metal grant, the count truncated under the multiplier — the
+        // Eureka Effect's half-weight packs. A non-metal grant weighs full.
+        var rig = new PlayerRig().As(TFClass.Engineer);
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
+        var owners = new TF2.Tests.Weapons.FakeOwners();
+        owners.Managers[PlayerRig.Index] = Arm("mult_metal_pickup", 0.5f, AttributeDescriptionFormat.Percentage, 5021);
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine,
+                                            conditions, rig.Loadout, rig.Engine, owners, new AttributeHooks());
+        rig.Engine.Returns("Players.GiveAmmo", 50);
+
+        Assert.Equal(50, resupply.GiveAmmo(PlayerRig.Player, 100, TFAmmo.Metal));
+        Assert.Equal(50, rig.Engine.AllOf("Players.GiveAmmo").Last().ArgAs<int>(1));
+
+        resupply.GiveAmmo(PlayerRig.Player, 40, TFAmmo.Primary);
+        Assert.Equal(40, rig.Engine.AllOf("Players.GiveAmmo").Last().ArgAs<int>(1));
     }
 
     [Fact]

@@ -81,8 +81,27 @@ public sealed class TFDamageLayerTests
     }
 
     [Fact]
-    public void A_flares_touch_never_takes_the_range()
+    public void The_donked_victims_blast_mini_crits_through_the_layer()
     {
+        // IsDoubleDonk over the scope's cannon (:6202-6205): the blast on a
+        // victim the ball shoved inside the window minicrits — 50 x 1.35 —
+        // and past it the same blast is plain. The window is the convar's 0.5.
+        var rig = new CombatRig();
+        var donks = new TFDonkVictims(rig.Carriers, rig.Clock, rig.ConVars.Declared<TFDoubleDonkWindowConVar>());
+        donks.Attach(CombatRig.Attacker);
+        donks.Donk(CombatRig.Victim);
+
+        using (rig.Scopes.Push(TFDamageCustom.None, TFWeaponId.Cannon, "tf_weapon_cannonball"))
+            Assert.Equal(67.5f, rig.Hit(50f, TFWeaponDamageTypes.Of(TFWeaponId.Cannon)), 4);
+
+        rig.Clock.Now += 0.5f;
+
+        using (rig.Scopes.Push(TFDamageCustom.None, TFWeaponId.Cannon, "tf_weapon_cannonball"))
+            Assert.Equal(50f, rig.Hit(50f, TFWeaponDamageTypes.Of(TFWeaponId.Cannon)), 4);
+    }
+
+    [Fact]
+    public void A_flares_touch_never_takes_the_range()    {
         // g_aWeaponDamageTypes: the flare gun is DMG_BULLET | DMG_IGNITE, no
         // DMG_USEDISTANCEMOD (tf_shareddefs.cpp:775), so the band never leaves
         // the middle and the touch is the shot as dealt, the scope's weapon
@@ -126,6 +145,97 @@ public sealed class TFDamageLayerTests
         rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Markedfordeath));
         Assert.Equal(13.5f, rig.Hit(10f, Ranged), 4);
         Assert.Equal(TFCritType.Mini, rig.Records.LastHit(CombatRig.Victim.EntryIndex)!.Value.Crit);
+    }
+
+    // ---- the boots' stomp (boots_falling_stomp, tf_player_shared.cpp:7909-7918; tf_player.cpp:8955-8979)
+
+    /// <summary>An item attribute the stock reads as a switch over the player,
+    /// the way <c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c> reads it.</summary>
+    private static AttributeContainer BootsItem()
+    {
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(9140, "attr 9140", "boots_falling_stomp", AttributeDescriptionFormat.Additive,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), 1f));
+        return container;
+    }
+
+    /// <summary>
+    /// <c>boots_falling_stomp</c> (<c>tf_player.cpp:8955-8979</c>): a fall that
+    /// lands on another player under the boots' answer hands the blow over —
+    /// ten plus thrice the computed fall to the one stood on, nothing left on
+    /// the faller. The plain landing beside it keeps its own fall.
+    /// </summary>
+    [Fact]
+    public void LandingOnAnEnemyUnderTheBootsPassesTheBlowOver()
+    {
+        // The plain landing first: the fall as the layer computes it for a
+        // 900 u/s drop over a scout. The stomp's number hangs on it (:8968),
+        // so it is the layer's own answer, not an invented constant.
+        var plain = new CombatRig();
+        var plainPlayer = RigPlayer(plain, CombatRig.Victim);
+        plain.Entities.Placed[CombatRig.Victim] = plainPlayer;
+        plainPlayer.State.GroundEntity = SsPlayer.GroundWireNone;    // standing on nothing: the gate stands out
+        float fall = plain.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+        Assert.Equal(18.75f, fall, 3);                               // the same answer the plain fall facts hold
+        Assert.Empty(plain.Damage.Hits);                             // a plain landing applies through the answer alone
+
+        var rig = new CombatRig();
+        var victim = RigPlayer(rig, CombatRig.Victim);
+        rig.Entities.Placed[CombatRig.Victim] = victim;
+        victim.State.GroundEntity = CombatRig.Third.EntryIndex;     // standing on the third player
+        rig.Engine.Returns("Players.GetHandle", CombatRig.Third);
+        rig.Owners.Managers[CombatRig.Victim.EntryIndex] = BootsItem();
+
+        Assert.Equal(0f, rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None), 4);
+
+        Assert.Single(rig.Damage.Hits);
+        var stomp = rig.Damage.Hits[^1];
+        Assert.Equal(CombatRig.Third, stomp.Victim);
+        Assert.Equal(10f + fall * 3f, stomp.Damage, 4);              // :8968 — ten plus thrice the fall
+    }
+
+    /// <summary>
+    /// The same landing without the boots: the gate at :7915 asks its hook over
+    /// zero and stands out, so the fall keeps its own answer and nobody else is
+    /// struck.
+    /// </summary>
+    [Fact]
+    public void WithoutTheBootsTheFallerKeepsTheirOwnFall()
+    {
+        var rig = new CombatRig();
+        var victim = RigPlayer(rig, CombatRig.Victim);
+        rig.Entities.Placed[CombatRig.Victim] = victim;
+        victim.State.GroundEntity = CombatRig.Third.EntryIndex;
+        rig.Engine.Returns("Players.GetHandle", CombatRig.Third);
+
+        float fall = rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+        Assert.Equal(18.75f, fall, 3);
+        Assert.Empty(rig.Damage.Hits);                               // the plain answer, nobody else struck
+    }
+
+    /// <summary>
+    /// The cond prong of <c>CanFallStomp</c> (<c>tf_player_shared.cpp:7911-7912</c>):
+    /// the rocketpack answers alone, item or no item, and the blow crosses whole
+    /// the same way the boots' answer takes it. The thruster's landing runs after
+    /// and floors the faller's nothing at one (<c>tf_player.cpp:9037</c>).
+    /// </summary>
+    [Fact]
+    public void TheRocketpackCondStompsWithoutAnyItem()
+    {
+        var rig = new CombatRig();
+        var victim = RigPlayer(rig, CombatRig.Victim);
+        rig.Entities.Placed[CombatRig.Victim] = victim;
+        victim.State.GroundEntity = CombatRig.Third.EntryIndex;
+        rig.Engine.Returns("Players.GetHandle", CombatRig.Third);
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Rocketpack));
+
+        Assert.Equal(1f, rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None), 4);
+
+        Assert.Single(rig.Damage.Hits);
+        Assert.Equal(CombatRig.Third, rig.Damage.Hits[^1].Victim);
+        Assert.Equal(10f + 18.75f * 3f, rig.Damage.Hits[^1].Damage, 4);   // :8968 over the scout's own fall
     }
 
     // ---- the airborne state (CTFPlayer::InAirDueToExplosion, tf_player.h:599)
@@ -1108,6 +1218,7 @@ public sealed class TFDamageLayerTests
         // A plain bullet: no distance mod, no spread — the damage the rules
         // deal is the one the force scales.
         float dealt = rig.Hit(60f, DamageType.Bullet);
+        rig.ShoveFlush.Tick(1f);
 
         var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
         Assert.NotNull(pushed);
@@ -1135,6 +1246,7 @@ public sealed class TFDamageLayerTests
         plain.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
         plain.Hit(60f, Ranged);
+        plain.ShoveFlush.Tick(1f);
 
         Assert.DoesNotContain(plain.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
         Assert.False(plain.VictimState.WeaponKnockback);
@@ -1148,6 +1260,7 @@ public sealed class TFDamageLayerTests
         far.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
         far.Hit(60f, Ranged);
+        far.ShoveFlush.Tick(1f);
 
         Assert.DoesNotContain(far.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
         Assert.Null(farStuns.ActiveStun);
@@ -1167,6 +1280,7 @@ public sealed class TFDamageLayerTests
         healed.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
         healed.Hit(60f, Ranged);
+        healed.ShoveFlush.Tick(1f);
 
         Assert.DoesNotContain(healed.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
         Assert.Null(healedStuns.ActiveStun);
@@ -1180,9 +1294,78 @@ public sealed class TFDamageLayerTests
         latched.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
 
         latched.Hit(60f, Ranged);
+        latched.ShoveFlush.Tick(1f);
 
         Assert.DoesNotContain(latched.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
         Assert.Null(latchedStuns.ActiveStun);
+    }
+
+    [Fact]
+    public void The_shove_gate_reads_the_whole_shot_not_one_pellet()
+    {
+        // Stock's OnTakeDamage carries the shot's whole multi-damage
+        // (tf_fx_shared.cpp:396's ApplyMultiDamage), so the :52 gate reads the
+        // blast: the Force-a-Nature's close shot is ten pellets of 9.6 — no
+        // pellet the 30 asks — and the banked 96 shoves once, at the flush.
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(100f, 0f, 0f) };
+        TFStunStack stuns = rig.AttachStun(CombatRig.Victim);
+        rig.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        float total = 0f;
+        for (int pellet = 0; pellet < 10; pellet++)
+            total += rig.Hit(9.6f, DamageType.Bullet);
+
+        Assert.DoesNotContain(rig.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+
+        rig.ShoveFlush.Tick(1f);
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Vector impulse = pushed!.ArgAs<Vector>(1);
+        Assert.Equal(-TFRadiusDamage.DamageForce(new Vector(32f, 32f, 72f), total,
+                                                 TFDamageLayer.ScattergunKnockbackForceScale), impulse.X, 3f);
+        Assert.True(rig.VictimState.WeaponKnockback);
+        Assert.NotNull(stuns.ActiveStun);
+
+        // The airtime's shot is spent (:383's latch): a second blast's pellets
+        // bank nothing and the next flush shoves again for nobody.
+        int shoves = rig.Engine.Calls.Count(c => c.Member == "Entities.ApplyVelocityImpulse");
+        for (int pellet = 0; pellet < 10; pellet++)
+            rig.Hit(9.6f, DamageType.Bullet);
+
+        rig.ShoveFlush.Tick(2f);
+
+        Assert.Equal(shoves, rig.Engine.Calls.Count(c => c.Member == "Entities.ApplyVelocityImpulse"));
+    }
+
+    [Fact]
+    public void A_96_damage_hit_at_150_units_shoves_on_flat_ground()
+    {
+        // The gate's own margins (tf_weapon_shotgun.cpp:40, 52): the damage a
+        // point past 30 and the 150-unit centres' 22500 square inside the
+        // 160000 — a flat-ground victim leaves the ground anyway, the hull
+        // force reversed with the jump floor (:399-401, 3388-3391).
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_scattergun", AttackerAt = new Vector(150f, 0f, 0f) };
+        TFStunStack stuns = rig.AttachStun(CombatRig.Victim);
+        rig.AttackerItem(TFScattergunBehaviour.KnockbackAttribute, AttributeDescriptionFormat.Additive, 1f);
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-16f, -16f, 0f), new Vector(16f, 16f, 72f)));
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+
+        float dealt = rig.Hit(96f, Ranged);
+        rig.ShoveFlush.Tick(1f);
+
+        var pushed = rig.Engine.Last("Entities.ApplyVelocityImpulse");
+        Assert.NotNull(pushed);
+        Vector impulse = pushed!.ArgAs<Vector>(1);
+        Assert.Equal(-TFRadiusDamage.DamageForce(new Vector(32f, 32f, 72f), dealt,
+                                                 TFDamageLayer.ScattergunKnockbackForceScale), impulse.X, 3f);
+        Assert.Equal(TFAirBlastDefs.JumpMinSpeed, impulse.Z, 3f);
+        Assert.True(rig.Conditions.InCond(CombatRig.Victim, TFCond.KnockedIntoAir));
+        Assert.NotNull(stuns.ActiveStun);
     }
 
     [Fact]
@@ -1729,6 +1912,31 @@ public sealed class TFDamageLayerTests
     }
 
     /// <summary>
+    /// The mark arm's bookkeeping (:5474-5482): the same attacker's next mark
+    /// takes the earlier victim's cond back — the one-target record stock
+    /// itself calls imperfect — and the new victim carries it, attacker the
+    /// provider still.
+    /// </summary>
+    [Fact]
+    public void ASecondMarkTakesTheFirstVictimsCondBack()
+    {
+        var rig = new CombatRig { AttackerWeapon = "tf_weapon_bat" };
+        rig.AttackerItem("mark_for_death", AttributeDescriptionFormat.Additive, 1f);
+        rig.Players.Add(CombatRig.Third.EntryIndex, TFClass.Scout);
+
+        rig.Hit(20f, Ranged);
+        rig.Hit(20f, Ranged, victim: CombatRig.Third);
+
+        var first = rig.Conditions.Of(CombatRig.Victim.EntryIndex);
+        Assert.NotNull(first);
+        Assert.False(first!.Has(TFCond.Markedfordeath));
+        var second = rig.Conditions.Of(CombatRig.Third.EntryIndex);
+        Assert.NotNull(second);
+        Assert.True(second!.Has(TFCond.Markedfordeath));
+        Assert.Equal(CombatRig.Attacker, second.Provider(TFCond.Markedfordeath));
+    }
+
+    /// <summary>
     /// Milk's payback (:5176): a hit on a milked victim pays the attacker sixty percent of
     /// the hit on top of the attribute — no attribute, twelve on twenty, same TakeHealth.
     /// </summary>
@@ -2104,5 +2312,104 @@ public sealed class TFDamageLayerTests
         Assert.Empty(ranged.Mediguns.Sets);
         Assert.Equal(0, plain.AttackerState.Decapitations);
         Assert.Empty(plain.Mediguns.Sets);
+    }
+
+    // ---- the thruster's landing (tf_player.cpp:8991-9038) -------------------
+
+    /// <summary>Puts the pushback word on the victim's held item, as the
+    /// loadout handed it out: a held weapon row, whose item the harness's
+    /// <c>ActiveItemOf</c> answers from the items dictionary.</summary>
+    private static void GivePushbackWord(CombatRig rig)
+    {
+        var item = new AttributeContainer(null, AttributeProviderType.Generic);
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(
+            9101, "pushback", "falling_impact_radius_pushback", AttributeDescriptionFormat.Additive,
+            AttributeEffectType.Neutral, false, false, AttributeValueType.Default, MergedKeys.Block("p")), 1f));
+        rig.Owners.Items[CombatRig.Victim.EntryIndex] = item;
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_pistol";
+    }
+
+    [Fact]
+    public void AThrusterLandingThrowsEnemiesAlongTheRingAndQuartersTheFall()
+    {
+        // The ring (:21509-21537): an enemy whose eye sits in it is thrown
+        // along the flat line out, z at a full unit, force between the
+        // convars' ends at the landing speed's place (:8997). At 900 u/s that
+        // is 100 + 200 · 8/9 = 277.78, and the fall keeps a quarter of its
+        // bite under the rocket-pack cond (:8937's gate, :9037).
+        var rig = new CombatRig();
+        GivePushbackWord(rig);
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Rocketpack));
+        rig.Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));
+        rig.Engine.Returns("WorldQuery.EntitiesInSphere", 1);
+        rig.Engine.FillsSphere(CombatRig.Attacker);
+
+        float damage = rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+
+        Assert.Equal(4.6875f, damage, 4);                                              // 18.75 · 0.25 (:9037)
+        var push = Assert.Single(rig.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+        Assert.Equal(CombatRig.Attacker, push.Args[0]);
+        float expected = rig.ConVars.Declared<TFRocketPackImpactPushMinConVar>().Value
+                       + (rig.ConVars.Declared<TFRocketPackImpactPushMaxConVar>().Value
+                          - rig.ConVars.Declared<TFRocketPackImpactPushMinConVar>().Value)
+                         * (900f - 100f) / (1000f - 100f);                             // :8997/:8998 ends
+        var impulse = Assert.IsType<Vector>(push.Args[1]);
+        Assert.Equal(0f, impulse.X, 3);
+        Assert.Equal(0f, impulse.Y, 3);
+        Assert.Equal(expected, impulse.Z, 3);                                          // :21524-21526
+    }
+
+    [Fact]
+    public void AThrusterWithoutThePushbackWordKeepsTheRingClosedButStillQuartersTheFall()
+    {
+        // The held item's word opens the ring (:8993); without it the push
+        // never asks, yet the quartering (:9037) rides the cond alone.
+        var rig = new CombatRig();
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Rocketpack));
+        rig.Engine.Returns("WorldQuery.EntitiesInSphere", 1);
+        rig.Engine.FillsSphere(CombatRig.Attacker);
+
+        float damage = rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+
+        Assert.Equal(4.6875f, damage, 4);
+        Assert.DoesNotContain(rig.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+    }
+
+    [Fact]
+    public void ALandingWithoutTheRocketPackCondKeepsItsFullFallAndTheRingShut()
+    {
+        var rig = new CombatRig();
+        GivePushbackWord(rig);
+        rig.Engine.Returns("WorldQuery.EntitiesInSphere", 1);
+        rig.Engine.FillsSphere(CombatRig.Attacker);
+
+        float damage = rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+
+        Assert.Equal(18.75f, damage, 4);
+        Assert.DoesNotContain(rig.Engine.Calls, c => c.Member == "Entities.ApplyVelocityImpulse");
+    }
+
+    [Fact]
+    public void ARocketPackLandingPutsOutVisibleBurningTeammatesInTheRing()
+    {
+        // The teammates' half (:9014-9034): living, of the landing team, in
+        // sight — the burning taken off and the flame-out heard. The rig's
+        // blue attacker is made the red teammate; at 128 units it sits inside
+        // the ring's 212 at the 900 u/s landing.
+        var rig = new CombatRig { AttackerAt = new Vector(128f, 0f, 0f), AttackerTeam = (int)TFTeam.Red };
+        GivePushbackWord(rig);
+        rig.VictimState.SetConditions(TFCondMask.Of(TFCond.Rocketpack));
+        rig.AttackerState.SetConditions(TFCondMask.Of(TFCond.Burning));
+        Assert.True(rig.Conditions.InCond(CombatRig.Attacker, TFCond.Burning));
+        rig.Engine.Returns("Entities.GetEyePosition", new Vector(0f, 0f, 64f));
+        rig.Engine.Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, default, default, EntityHandle.None));
+        rig.Engine.Returns("WorldQuery.EntitiesInSphere", 1);
+        rig.Engine.FillsSphere(CombatRig.Attacker);
+
+        rig.Hit(MoveMath.FallDamage(900f), DamageType.Fall, attacker: EntityHandle.None);
+
+        Assert.False(rig.Conditions.InCond(CombatRig.Attacker, TFCond.Burning));     // :9031
+        var flameOut = Assert.Single(rig.Engine.Calls, c => c.Member == "Sound.EmitSoundAtPosition");
+        Assert.Equal("TFPlayer.FlameOut", flameOut.Args[0]);                          // :9032
     }
 }

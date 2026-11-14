@@ -518,4 +518,63 @@ public sealed class TFKnifeTests
         Assert.False(conds.Has(TFCond.AfterburnImmune));
         Assert.True(conds.Has(TFCond.Burning));                                     // the igniting arm's own burn stands
     }
+
+    /// <summary>The melt half of the Spy-cicle (<c>tf_weapon_knife.cpp:122-131</c>):
+    /// a burning hit on a holder whose knife carries melts_in_fire stamps the melt
+    /// window on the spy state from the layer's own clock — the window the fact
+    /// above gates at <c>CanDeploy</c> (:523). The walk stands where the burn gate
+    /// does (:5534, :124): a knife without the attribute stamps nothing.</summary>
+    [Fact]
+    public void A_burnt_melting_knife_gets_its_window_stamped_by_the_hit()
+    {
+        var melts = new MeltRecorder();
+        var rig = new CombatRig(spies: melts);
+        rig.AttackerWeapon = "tf_weapon_flamethrower";                              // the burn bit's gate (:5534)
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_knife";           // the knife held in hand (:9504)
+        var knife = new AttributeContainer();
+        knife.Set(AttributeValue.OfFloat(new AttributeDefinition(30074, "attr 30074", "melts_in_fire",
+                                                                 AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                 false, false, AttributeValueType.Default,
+                                                                 MergedKeys.Block("m")), 10f));
+        rig.Owners.Items[CombatRig.Victim.EntryIndex] = knife;
+
+        rig.Hit(5f, DamageType.Burn, HitGroup.Chest);
+
+        // The stamp rides the layer's clock for the item's seconds (:123-131).
+        Assert.Equal([(CombatRig.Victim.EntryIndex, 100f, 10f)], melts.Melted);
+    }
+
+    /// <summary>A plain knife in hand takes the same burn with no window stamped.</summary>
+    [Fact]
+    public void A_burnt_plain_knife_stamps_no_melt_window()
+    {
+        var plain = new MeltRecorder();
+        var rig = new CombatRig(spies: plain);
+        rig.AttackerWeapon = "tf_weapon_flamethrower";
+        rig.Owners.Held[CombatRig.Victim.EntryIndex] = "tf_weapon_knife";
+        rig.Owners.Items[CombatRig.Victim.EntryIndex] = new AttributeContainer();   // no hooks on the plain knife
+        rig.Hit(5f, DamageType.Burn, HitGroup.Chest);
+
+        Assert.Empty(plain.Melted);
+    }
+
+    /// <summary>The spy state as the melt arm's seam: the melt stamps recorded,
+    /// every other answer empty.</summary>
+    private sealed class MeltRecorder : ITFSpyState
+    {
+        public List<(int Owner, float Now, float Seconds)> Melted { get; } = [];
+
+        public bool Swing(int ownerIndex, float range) => false;
+        public bool Smack(int ownerIndex) => false;
+        public bool ShouldDisguiseOnBackstab(int ownerIndex) => false;
+        public bool DisguiseOnKill(int ownerIndex) => false;
+        public void RemoveDisguise(int playerIndex) { }
+        public void RemoveInvisibility(int playerIndex) { }
+        public bool ActivateInvisibilityWatch(int playerIndex) => false;
+        public bool FeignDeathHit(int victimIndex) => false;
+        public bool KnifeReady(int ownerIndex, float now) => true;
+        public void MeltKnife(int ownerIndex, float now, float seconds) => Melted.Add((ownerIndex, now, seconds));
+        public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) => false;
+        public bool LastDisguise(int playerIndex, TFClass desired = TFClass.Undefined) => false;
+    }
 }

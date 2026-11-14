@@ -36,6 +36,25 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     public const float MaxChargeTime = 4f;
 
     /// <summary>
+    /// The charge window's hook (<c>stickybomb_charge_rate</c>,
+    /// <c>CTFPipebombLauncher::GetChargeMaxTime</c>,
+    /// tf_weapon_pipebomblauncher.h:75) and the charged shot's damage scale
+    /// (<c>stickybomb_charge_damage_increase</c>, <c>LaunchGrenade</c>,
+    /// tf_weapon_pipebomblauncher.cpp:311-318).
+    /// </summary>
+    public const string ChargeRateAttribute = "stickybomb_charge_rate";
+    public const string ChargeDamageAttribute = "stickybomb_charge_damage_increase";
+
+    /// <summary>
+    /// The Loose Cannon's charge window (<c>grenade_launcher_mortar_mode</c>,
+    /// <c>CTFGrenadeLauncher::GetMortarDetonateTimeLength</c>,
+    /// <c>tf_weapon_grenadelauncher.cpp:559-564</c>): the seconds the held
+    /// shot waits before the misfire launches it — and the fuse the ball is
+    /// born under, the window less the hold.
+    /// </summary>
+    public const string MortarModeAttribute = "grenade_launcher_mortar_mode";
+
+    /// <summary>
     /// <c>FlareGunTypes_t</c> (<c>tf_weapon_flaregun.h:23-29</c>), what
     /// <see cref="FlareModeAttribute"/> names: the plain flare, the
     /// Detonator's, the Grordbort gun's and the Scorch Shot's.
@@ -59,7 +78,26 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     /// </summary>
     public const float ManmelterRefire = 0.5f;
 
-    private static bool Charges(TFWeaponScript script) => script.Id == TFWeaponId.Pipebomblauncher;
+    private static bool Charges(TFWeaponScript script) => script.Id is TFWeaponId.Pipebomblauncher or TFWeaponId.Cannon;
+
+    /// <summary>
+    /// GetChargeMaxTime (<c>tf_weapon_pipebomblauncher.h:75</c>): the stock 4 s
+    /// through the firing item's <see cref="ChargeRateAttribute"/> — the
+    /// window every charge arm of the launch runs on, the auto-release's
+    /// (<c>PrimaryAttack</c>, :219) as well as the launch's own clamp. The
+    /// cannon's window is its own hook instead (<see cref="MortarModeAttribute"/>,
+    /// <c>CTFGrenadeLauncher::GetChargeMaxTime</c> over
+    /// <c>GetMortarDetonateTimeLength</c>, <c>tf_weapon_grenadelauncher.cpp:543-546</c>):
+    /// no attribute, no charge (<c>CanCharge</c>, :518-526), the press firing
+    /// as the plain launch does.
+    /// </summary>
+    private float ChargeWindow(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        var item = Context(in attack, script).Item;
+        return script.Id == TFWeaponId.Cannon
+            ? _attributes.Float(0f, MortarModeAttribute, item)
+            : _attributes.Float(MaxChargeTime, ChargeRateAttribute, item);
+    }
 
     /// <summary>The Manmelter, stock's <c>CTFFlareGun_Revenge</c> over the shell's id split.</summary>
     private static bool IsManmelter(TFWeaponScript script) => script.Id == TFWeaponId.FlaregunRevenge;
@@ -132,14 +170,15 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         if (weapon.Clip == 0 && ModifyClipSize(attack.Type, attack.Type.ClipSize, attack.Command.OwnerIndex) > 0)
             return true;
 
-        if (Charges(script))
+        // CanCharge (tf_weapon_grenadelauncher.cpp:518-526): a window of none is the plain launch.
+        if (Charges(script) && ChargeWindow(in attack, script) > 0f)
         {
             if (weapon.BehaviourMeter <= 0f)
             {
                 weapon.BehaviourMeter = attack.Now;
                 SendAnim(in attack, WeaponAnim.Primary);
             }
-            else if (attack.Now - weapon.BehaviourMeter >= MaxChargeTime)
+            else if (attack.Now - weapon.BehaviourMeter >= ChargeWindow(in attack, script))
             {
                 Launch(in attack, script, in context);
             }
@@ -160,7 +199,7 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
                 bool held = (weapon.LastButtons & (int)InputButtons.Attack) != 0;
 
                 if (weapon.BehaviourMeter > 0f
-                    && ((!held && weapon.Clip > 0) || attack.Now - weapon.BehaviourMeter >= MaxChargeTime))
+                    && ((!held && weapon.Clip > 0) || attack.Now - weapon.BehaviourMeter >= ChargeWindow(in attack, script)))
                     Launch(in attack, script, Context(in attack, script));
 
                 if ((weapon.LastButtons & (int)InputButtons.Attack2) != 0 && attack.EffectsLive)
@@ -220,9 +259,13 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
     private void Launch(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context)
     {
         var weapon = attack.Weapon;
-        float charge = Charges(script) && weapon.BehaviourMeter > 0f
-            ? MathF.Min(attack.Now - weapon.BehaviourMeter, MaxChargeTime)
-            : 0f;
+
+        // GetChargeMaxTime again (tf_weapon_pipebomblauncher.h:75): the window
+        // the held charge clamps to, the same number the auto-release and the
+        // speed remap run on.
+        float window = Charges(script) ? ChargeWindow(in attack, script) : MaxChargeTime;
+        float held = weapon.BehaviourMeter > 0f ? attack.Now - weapon.BehaviourMeter : 0f;
+        float charge = MathF.Min(held, window);
         weapon.BehaviourMeter = 0f;
 
         int cost = Math.Max(1, script.Primary.AmmoPerShot);
@@ -253,6 +296,17 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
             TFItemMeter.Use(weapon);
 
         var shot = ModifyShot(in attack, default);
+
+        // LaunchGrenade's charged damage (tf_weapon_pipebomblauncher.cpp:311-318):
+        // the item's scale over the held fraction of the window — stock's
+        // GetCurrentCharge, unclamped — laid on the post-mult_dmg damage the
+        // projectile is born with.
+        if (Charges(script) && window > 0f)
+        {
+            float chargeDamage = _attributes.Float(1f, ChargeDamageAttribute, context.Item);
+            if (chargeDamage != 1f)
+                shot = shot with { Damage = shot.Damage + shot.Damage * (chargeDamage - 1f) * (held / window) };
+        }
 
         SendAnim(in attack, WeaponAnim.Primary);
         PlaySound(in attack, script, shot.Critical ? WeaponScriptSound.Burst : WeaponScriptSound.Single);

@@ -10,6 +10,7 @@ using SourceSharp.Abi;
 using TF2.Server.Player;
 using TF2.Server.Rules;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Server.Voice;
@@ -20,13 +21,20 @@ namespace TF2.Server.Voice;
 /// as far as this build's carrier reads them — the class, the disguise's, the
 /// <c>disguiseclass</c> modifier winning the lookup (:19219-19231) — and
 /// <c>OnRedTeam</c> decided by the disguise too (:19233-19238) — then the
-/// condition words. The stats, weapon-role and context criteria are
-/// divergences (docs/divergences.md, the voice-menu row).
+/// condition words, then the held weapon's item words (:19334-19339). The
+/// stats, weapon-role and context criteria are divergences
+/// (docs/divergences.md, the voice-menu row).
 /// </summary>
 internal static class TFPlayerCriteriaWords
 {
-    /// <summary>Appends the words; <paramref name="team"/> is the player's real team.</summary>
-    public static void Append(TFPlayerNetState? state, int team, ITeamRoundState? round, ResponseCriteriaSet criteria)
+    /// <summary>
+    /// Appends the words; <paramref name="team"/> is the player's real team.
+    /// <paramref name="heldItem"/> is the active weapon's item definition, as
+    /// the caller reads it off its attribute container — the words stock's
+    /// active-weapon block appends (:19334-19339).
+    /// </summary>
+    public static void Append(TFPlayerNetState? state, int team, ITeamRoundState? round, ResponseCriteriaSet criteria,
+                              ItemDefinition? heldItem = null)
     {
         if (state is null)
             return;
@@ -60,5 +68,13 @@ internal static class TFPlayerCriteriaWords
         criteria.Append("snared", stunned && !controlStunned ? "1" : "0");
         criteria.Append("dodging", state.InCond(TFCond.Phase) || state.InCond(TFCond.PasstimeInterception) ? "1" : "0");
         criteria.Append("doublejumping", state.AirDash > 0 ? "1" : "0");
+
+        // The active weapon's item words (:19334-19339): a quality-bearing item
+        // names itself and its type — the WeaponIs* criteria's words.
+        if (heldItem is { } held && held.Quality != ItemDefinition.QualityNormal)
+        {
+            criteria.Append("item_name", held.Name);
+            criteria.Append("item_type_name", held.ItemTypeName);
+        }
     }
 }

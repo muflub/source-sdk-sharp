@@ -874,7 +874,9 @@ public sealed class WeaponLogic
             perShot = Math.Max(1, behaviour.PrimaryAmmoPerShot(in type, command.OwnerIndex, 1));
             if (w.Reserve < perShot)
             {
-                if (effectsLive)
+                // A one-round price is the plain dry weapon's, and has no click here:
+                // HL2MP's RPG runs this arm too.
+                if (effectsLive && perShot > 1)
                     _arms.Sound(type.EmptySound);
 
                 w.NextPrimaryAttack = now + interval;

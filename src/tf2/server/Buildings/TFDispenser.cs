@@ -239,7 +239,15 @@ public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announ
 
         foreach (EntityHandle player in Serviced())
         {
-            gave |= Give(player, TFAmmo.Primary);
+            // Stock's DispenseAmmo reads no_primary_ammo_from_dispensers on the
+            // receiver's ACTIVE weapon (tf_obj_dispenser.cpp:527, gate at :533):
+            // set, the primary give is skipped while the secondary and the
+            // metal still run. No composition without the seams: the give
+            // stands, as before the attribute had a reader.
+            bool givePrimary = Hooks is null || Owners is null
+                || Hooks.Int(0, "no_primary_ammo_from_dispensers", Owners.ActiveItemOf(Entities.GetIndex(player))) == 0;
+            if (givePrimary)
+                gave |= Give(player, TFAmmo.Primary);
             gave |= Give(player, TFAmmo.Secondary);
             gave |= GiveMetal(player);
         }

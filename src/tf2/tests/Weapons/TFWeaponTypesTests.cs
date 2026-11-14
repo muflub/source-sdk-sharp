@@ -47,7 +47,7 @@ public sealed class TFWeaponTypesTests
         // the katana and the jars, none named by a class script's weaponN; their own facts
         // stand them up).
         // The energy family joins them as the equipped unlocks their rows: the bison,
-        // the mangler, the pomson.
+        // the mangler, the pomson — and the scout's hype pair the same way.
         Assert.Equal(
             WeaponFixtures.Names().Append("tf_weapon_flaregun").Append("tf_weapon_crossbow")
                 .Append("tf_weapon_robot_arm").Append("tf_weapon_laser_pointer").Append("tf_weapon_lunchbox").Append("tf_weapon_lunchbox_drink")
@@ -57,8 +57,11 @@ public sealed class TFWeaponTypesTests
                 .Append("tf_weapon_sniperrifle_decap").Append("tf_weapon_sniperrifle_classic")
                 .Append("tf_weapon_jar").Append("tf_weapon_jar_milk")
                 .Append("tf_weapon_rocketlauncher_fireball")
+                .Append("tf_weapon_bat_giftwrap")
+                .Append("tf_weapon_sentry_revenge")
                 .Append("tf_weapon_raygun").Append("tf_weapon_particle_cannon")
                 .Append("tf_weapon_drg_pomson")
+                .Append("tf_weapon_soda_popper").Append("tf_weapon_pep_brawler_blaster")
                 .Order(StringComparer.Ordinal).ToArray(),
             names);
         Assert.Contains("tf_weapon_minigun", names);
@@ -144,6 +147,24 @@ public sealed class TFWeaponTypesTests
     {
         Assert.Equal(kind, TFWeaponKinds.Of(WeaponFixtures.Parse(name)));
         Assert.Equal(TFWeaponKinds.Key(kind), Rows()[name].Behaviour);
+    }
+
+    [Fact]
+    public void The_scouts_hype_pair_run_the_scattergun()
+    {
+        // CTFScatterGun subclasses of their own (tf_weapon_shotgun.h:154, :170):
+        // the Soda Popper and the Baby Face's Blaster. The row composes from
+        // the script alone (TFWeaponTypes.Row); the game's schema names both
+        // items (items_working.tsv:151, :199).
+        var popper = TFWeaponTypes.Row(WeaponFixtures.ParseExtra("tf_weapon_soda_popper"), null);
+        var brawler = TFWeaponTypes.Row(WeaponFixtures.ParseExtra("tf_weapon_pep_brawler_blaster"), null);
+
+        Assert.Equal(TFWeaponKind.Shotgun, TFWeaponKinds.Of(WeaponFixtures.ParseExtra("tf_weapon_soda_popper")));
+        Assert.Equal(TFWeaponKind.Shotgun, TFWeaponKinds.Of(WeaponFixtures.ParseExtra("tf_weapon_pep_brawler_blaster")));
+        Assert.Equal("tf2.shotgun", popper.Behaviour);
+        Assert.Equal("tf2.shotgun", brawler.Behaviour);
+        Assert.Equal(6, popper.ClipSize);
+        Assert.Equal(10, popper.Pellets);
     }
 
     /// <summary>The composed rows over the shipped scripts plus the extras (weapons-extra/README).</summary>

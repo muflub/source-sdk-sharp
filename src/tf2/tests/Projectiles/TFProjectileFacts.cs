@@ -77,6 +77,9 @@ internal sealed class ProjectileRig
     public TFBlastApplier Blast { get; }
     public TFProjectileEffects Effects { get; }
     public DirectoryView Directory { get; } = new();
+
+    /// <summary>The directory the motion pass resolves its flyers through.</summary>
+    public EntityDirectory MotionDirectory { get; }
     public AttributeHooks Hooks { get; } = new();
     public FixedOwners Owners { get; } = new();
 
@@ -108,7 +111,7 @@ internal sealed class ProjectileRig
     public ProjectileRig(TFPreroundPushFromDamageEnableConVar? preroundPush = null)
     {
         var motionLog = new RecordingLog();
-        var motionDirectory = new EntityDirectory(motionLog);
+        var motionDirectory = MotionDirectory = new EntityDirectory(motionLog);
         Motion = new EntityMotion(motionLog, Engine, Engine, DeclaredConVars.Holding<SvGravityConVar>("600"), DeclaredConVars.Fresh<MoversBlockedConVar>(), DeclaredConVars.Fresh<MoversPushedConVar>(), Engine, motionDirectory,
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
@@ -198,7 +201,8 @@ internal sealed class ProjectileRig
     /// <summary>A pipebomb with its areas bound.</summary>
     public TFPipebomb Pipebomb()
     {
-        var pipe = new TFPipebomb(Engine, Blast, Engine, Directory, Owners, Hooks, Engine, Skins, Engine, Engine);
+        var pipe = new TFPipebomb(Engine, Blast, Engine, Directory, Owners, Hooks, Engine, Skins, Engine, Engine,
+                                  Engine, Scopes, HitGroups, Carriers, Conditions);
         pipe.BindAreas(TestServices.Areas(Engine));
         return BindStates(pipe);
     }
@@ -231,7 +235,7 @@ internal sealed class ProjectileRig
     /// <summary>A jar with its areas bound, over <see cref="Wet"/> and the temp sink.</summary>
     public TFJar Jar()
     {
-        var jar = new TFJar(Engine, Motion, Engine, Wet, Engine, Temps, Engine, Engine);
+        var jar = new TFJar(Engine, Motion, Engine, Wet, Engine, Temps, Engine, Engine, Owners, Hooks, Directory);
         jar.BindAreas(TestServices.Areas(Engine));
         return BindStates(jar);
     }
@@ -500,6 +504,7 @@ public class TFProjectileDefsFacts
         Assert.Equal(900f, TFProjectileDefs.StickySpeed(0f));
         Assert.Equal(2400f, TFProjectileDefs.StickySpeed(TFProjectileBehaviour.MaxChargeTime));
         Assert.Equal(1650f, TFProjectileDefs.StickySpeed(TFProjectileBehaviour.MaxChargeTime / 2f));
+        Assert.Equal(1650f, TFProjectileDefs.StickySpeed(TFProjectileBehaviour.MaxChargeTime, 8f));
     }
 
     [Fact]
@@ -1832,8 +1837,27 @@ public class TFStickyDestroyFacts
         rig.Engine.Returns("Entities.GetOrigin", new Vector(60f, 0f, 0f));
         rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(60f, 0f, 0f));
         rig.Engine.ReturnsEachCall("Players.GetTeam", () =>
-            rig.Engine.Calls[^1].Args[0] is EntityHandle h && (h == ProjectileRig.Victim || h == EnemyBomb)
-                ? 3 : 2);
+            // As the player seam answers: a bomb is no player and has no team.
+            rig.Engine.Calls[^1].Args[0] is EntityHandle h
+                ? h == ProjectileRig.Victim ? 3 : h == ProjectileRig.Player ? 2 : -1
+                : -1);
+    }
+
+    [Fact]
+    public void TheSweepLeavesItsOwnTeamsBombsToBlast()
+    {
+        // The Quickiebomb and the Scottish Resistance: the sweep found the bomb
+        // that was sweeping, took it for an enemy's, and it fizzled without a blast.
+        var rig = new ProjectileRig();
+        Sees(rig);
+        var own = Detonator(rig);
+        var mine = new EntityHandle(0x0003_0000u | 11);
+        rig.Directory.Holds(mine, own);
+        rig.Engine.FillsSphere(mine);
+
+        own.DetonateStickies();
+
+        Assert.False(own.Fizzled);
     }
 
     [Fact]
@@ -2005,6 +2029,31 @@ public class TFProjectileEffectsFacts
         Assert.Equal(112.5f, rocket.Damage, 0.01f);
     }
 
+    /// <summary>
+    /// A rocket sweeps for the hull, not the hitboxes (tf_weaponbase_rocket.cpp:354-369). With
+    /// the shot mask it flew through a spy standing square in the crosshair: two clients, 0
+    /// damage from a launcher that did 105 to a heavy on the same spot.
+    /// </summary>
+    [Fact]
+    public void A_rockets_sweep_finds_a_players_hull()
+    {
+        var rig = new ProjectileRig();
+        var rocket = rig.Rocket();
+        rocket.Handle = ProjectileRig.ProjectileHandle;
+        rig.Directory.Instance = rocket;
+        rig.Engine.Returns("Entities.GetParent", EntityHandle.None)
+                  .Returns("Entities.GetOrigin", Vector.Zero)
+                  .Returns("WorldQuery.TraceLine", new TraceResult(false, 1f, Vector.Zero, Vector.Zero, EntityHandle.None))
+                  .Ignores("Entities.SetOrigin");
+
+        rig.MotionDirectory.Bind(ProjectileRig.ProjectileHandle, rocket);
+        rocket.FiredBy(ProjectileRig.Player, new Vector(1100f, 0f, 0f));
+        int moved = rig.Motion.RunFrame(0.015f);
+
+        Assert.Equal(1, moved);
+        Assert.Equal(TraceMask.Solid, rig.Engine.Last("WorldQuery.TraceLine")!.ArgAs<TraceMask>(2));
+    }
+
     [Fact]
     public void A_pipe_carries_the_shot_the_hooks_answered()
     {
@@ -2049,6 +2098,126 @@ public class TFProjectileEffectsFacts
         var velocity = rig.Engine.Last("Entities.SetVelocity");
         Assert.NotNull(velocity);
         Assert.Equal(550f, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    /// <summary>GetProjectileFireSetup's centre-fire arm (tf_weaponbase.cpp:5755-5760):
+    /// the launcher's item answering exactly 1 on centerfire_projectile drops the
+    /// lateral offset of the shot position, so the rocket is born on the sight line.</summary>
+    [Fact]
+    public void A_centerfiring_launcher_fires_the_rocket_from_the_centre()
+    {
+        var rig = new ProjectileRig();
+        rig.Directory.Instance = rig.Rocket();
+        rig.Owners.Item = rig.AttributeItem("centerfire_projectile", AttributeDescriptionFormat.Additive, 1f);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_rocketlauncher"), default, 0f);
+
+        var muzzle = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(0f, muzzle.Y, 0.5f);   // right is -Y at yaw 0; the offset is gone
+    }
+
+    /// <summary>Stock compares the answer with == exactly (tf_weaponbase.cpp:5757):
+    /// a two keeps the lateral offset.</summary>
+    [Fact]
+    public void An_answer_of_two_keeps_the_lateral_muzzle_offset()
+    {
+        var rig = new ProjectileRig();
+        rig.Directory.Instance = rig.Rocket();
+        rig.Owners.Item = rig.AttributeItem("centerfire_projectile", AttributeDescriptionFormat.Additive, 2f);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_rocketlauncher"), default, 0f);
+
+        var muzzle = rig.Engine.Last("Entities.SetOrigin")!.ArgAs<Vector>(1);
+        Assert.Equal(-TFProjectileDefs.RocketMuzzleRight, muzzle.Y, 0.5f);
+    }
+
+    [Fact]
+    public void TheLochNLoadsPipeLeavesAtItsSpedUpLaunch()
+    {
+        // GetProjectileSpeed (tf_weapon_grenadelauncher.cpp:476-478): the
+        // stock 1200 under the launcher's mult_projectile_speed — the
+        // Loch-n-Load's 1.25 — before FirePipeBomb's range hook.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("mult_projectile_speed",
+                                            AttributeDescriptionFormat.Percentage, 1.25f);
+        rig.Directory.Instance = rig.Pipebomb();
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        var velocity = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(velocity);
+        Assert.Equal(1500f, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void TheLochNLoadsLauncherStampsThePipeWallShatter()
+    {
+        // FireProjectileInternal (tf_weapon_grenadelauncher.cpp:272-275): the
+        // launcher's set_detonate_mode AIR pokes m_bWallShatter; the plain
+        // launcher's pipe carries none.
+        var rig = new ProjectileRig();
+        var loch = rig.Pipebomb();
+        rig.Directory.Instance = loch;
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 2);
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        Assert.True(loch.WallShatter);
+
+        var plainRig = new ProjectileRig();
+        var pipe = plainRig.Pipebomb();
+        plainRig.Directory.Instance = pipe;
+
+        plainRig.Effects.Projectile(Attack(3), Script("tf_weapon_grenadelauncher"), default, 0f);
+
+        Assert.False(pipe.WallShatter);
+    }
+
+    /// <summary>The launcher's script firing the cannonball, as the shipped <c>tf_weapon_cannonball</c> does (<c>projectile_cannonball</c>).</summary>
+    private static TFWeaponScript CannonballScript(TFWeaponScript script) => new()
+    {
+        Base = script.Base,
+        Primary = script.Primary with { Projectile = TFProjectile.Cannonball },
+    };
+
+    [Fact]
+    public void TheLooseCannonsShotIsTheCannonballPipe()
+    {
+        // Create's translation (tf_weapon_grenade_pipebomb.cpp:437-458): the
+        // cannonball projectile type rides the pipe entity with
+        // TF_GL_MODE_CANNONBALL stamped, the shell re-dressed in Spawn
+        // (:513-516).
+        var rig = new ProjectileRig();
+        var ball = rig.Pipebomb();
+        rig.Directory.Instance = ball;
+
+        rig.Effects.Projectile(Attack(3), CannonballScript(Script("tf_weapon_grenadelauncher")), default, 0f);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeCannonball, ball.PipebombMode);
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.CannonballModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void TheLooseCannonsChargedShotFusesAtTheWindowLeft()
+    {
+        // FireProjectileInternal's charged fuse
+        // (tf_weapon_grenadelauncher.cpp:277-287) over the launch: the window
+        // the item's grenade_launcher_mortar_mode names, less the seconds
+        // held — half a second of a 2 s window books 1.5, where the plain
+        // pipe's launch leaves the spawn's 2.
+        var rig = new ProjectileRig();
+        var ball = rig.Pipebomb();
+        rig.Directory.Instance = ball;
+        var thinks = new ThinkScheduler();
+        ball.BindThinks(thinks);
+        rig.Owners.Item = rig.AttributeItem(TFProjectileBehaviour.MortarModeAttribute,
+                                            AttributeDescriptionFormat.Additive, 2f);
+
+        rig.Effects.Projectile(Attack(3), CannonballScript(Script("tf_weapon_grenadelauncher")), default, 0.5f);
+
+        Assert.Equal(1.5f, Assert.Single(thinks.Bookings()).Time, 3);
     }
 
     [Fact]
@@ -2383,6 +2552,85 @@ public class TFProjectileEffectsFacts
         var velocity = rig.Engine.Last("Entities.SetVelocity");
         Assert.NotNull(velocity);
         Assert.Equal(TFProjectileDefs.StickyMaxChargeSpeed, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void TheQuickiebombsChargeRateStretchesTheSpeedRemap()
+    {
+        // GetProjectileSpeed (tf_weapon_pipebomblauncher.cpp:353-362) remaps
+        // over GetChargeMaxTime, the window the launcher's
+        // stickybomb_charge_rate hook bends: at twice the window a half
+        // charge reads the mid-remap 1650, not the stock window's top 2400.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem(TFProjectileBehaviour.ChargeRateAttribute,
+                                            AttributeDescriptionFormat.Percentage, 2f);
+        rig.Directory.Instance = rig.Sticky();
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 4f);
+
+        var velocity = rig.Engine.Last("Entities.SetVelocity");
+        Assert.NotNull(velocity);
+        Assert.Equal(1650f, velocity!.ArgAs<Vector>(1).X, 0.5f);
+    }
+
+    [Fact]
+    public void TheStickybombJumpersOverrideFiresThePracticeBomb()
+    {
+        // FireProjectile's override (tf_weaponbase_gun.cpp:260-268): the
+        // item's 14 is TF_PROJECTILE_PIPEBOMB_PRACTICE, so the launch rides
+        // the sticky arm with the practice mode stamped — Create's
+        // translation (:437-458), the shell and the damage-type arms read it.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem(TFProjectileEffects.OverrideProjectileAttribute,
+                                            AttributeDescriptionFormat.Additive, 14f);
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeRemoteDetonatePractice, sticky.PipebombMode);
+        var create = rig.Engine.Last("Entities.Create");
+        Assert.NotNull(create);
+        Assert.Equal(TFProjectileEntityNames.Stickybomb, create!.ArgAs<string>(0));
+
+        // Spawn's practice arm (tf_weapon_grenade_pipebomb.cpp:499-502): the
+        // stamp re-dresses the bomb w_stickybomb2.
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.StickyPracticeModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void TheScottishResistancesBombIsTheDefensiveShell()
+    {
+        // LaunchGrenade's DOT arm (tf_weapon_pipebomblauncher.cpp:305-309):
+        // set_detonate_mode 1 — the Scottish Resistance's — dresses the bomb
+        // w_stickybomb_d at the launch, beside the aimed detonate the
+        // secondary fire already runs.
+        var rig = new ProjectileRig();
+        rig.Owners.Item = rig.AttributeItem("set_detonate_mode", AttributeDescriptionFormat.Additive, 1);
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        var shell = rig.Engine.Last("EntityRender.SetModel");
+        Assert.NotNull(shell);
+        Assert.Equal(TFProjectileDefs.StickyDefensiveModel, shell!.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void APlainStickyLauncherStampsTheRemoteMode()
+    {
+        // The untranslated birth: without the override the sticky is stock's
+        // remote-detonate bomb, the young-pipe damage type's bearer.
+        var rig = new ProjectileRig();
+        var sticky = rig.Sticky();
+        rig.Directory.Instance = sticky;
+
+        rig.Effects.Projectile(Attack(3), Script("tf_weapon_pipebomblauncher"), default, 0f);
+
+        Assert.Equal(TFProjectileDefs.GrenadeModeRemoteDetonate, sticky.PipebombMode);
     }
 
     [Fact]

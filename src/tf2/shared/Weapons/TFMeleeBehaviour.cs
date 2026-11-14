@@ -87,6 +87,23 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     /// <summary><c>DoSwingTraceInternal</>'s swing box, 18 to each side (tf_weaponbase_melee.cpp:394-396).</summary>
     public const float SwingHull = 18f;
 
+    /// <summary>
+    /// The stickbomb has had its one kaboom (<c>CTFStickBomb::m_iDetonated</c>,
+    /// tf_weapon_bottle.cpp:208): the connected smack detonated it, and later
+    /// swings are plain melee until a deploy's <see cref="WeaponNetState.ResetBehaviourState"/>
+    /// clears the word as stock's <c>WeaponReset</c> does (:276-283).
+    /// </summary>
+    public const int ModeStickbombSpent = 8 << ModeKindShift;
+
+    /// <summary>Whether <paramref name="weapon"/>'s kaboom has gone.</summary>
+    public static bool Spent(WeaponNetState weapon) => (weapon.BehaviourMode & ModeStickbombSpent) != 0;
+
+    /// <summary>
+    /// The Wrap Assassin's post-throw lull (<c>tf_weapon_bat.cpp:276</c>): the
+    /// primary clock the throw arms, both triggers' next ask reading it.
+    /// </summary>
+    public const float GiftwrapRefire = 0.25f;
+
     protected override bool RollsAsMelee => true;
 
     public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
@@ -134,7 +151,21 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     /// </summary>
     public override void SecondaryAttack(in WeaponAttackContext attack)
     {
-        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.Fists)
+        if (ScriptOf(attack.Type) is not { } script)
+        {
+            base.SecondaryAttack(in attack);
+            return;
+        }
+
+        // The Wrap Assassin's ball (its own arm below) before the fist's
+        // second mitt: the bat's right click is never a class skill.
+        if (script.Id == TFWeaponId.BatGiftwrap)
+        {
+            GiftwrapBall(in attack, script);
+            return;
+        }
+
+        if (script.Id != TFWeaponId.Fists)
         {
             base.SecondaryAttack(in attack);
             return;
@@ -146,6 +177,50 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
         Swing(in attack, script, in context, secondary: true);
         Parts.Hooks.AfterFire(in context, in attack);
+    }
+
+    /// <summary>
+    /// The Wrap Assassin's ball (<c>CTFBat_Wood::SecondaryAttack</c>,
+    /// <c>tf_weapon_bat.cpp:255-287</c>): the PRIMARY clock gates the throw
+    /// (:264-265) — both triggers read it, the swing's 0.25 s tail is the
+    /// next ball's too (:276) — and the ball is the effect bar, the regen's
+    /// completion the count's one, spent with the throw. The crit rolls at
+    /// the throw (<c>CreateBall</c>'s <c>CalcIsAttackCritical</c>, :1089), the
+    /// third-person anim is the class's ATTACK_SECONDARY (:221-224) and the
+    /// viewmodel's the primary swing (:272); the ball itself is the effects'
+    /// ask, whose server arm is the <c>Projectile</c>'s BatGiftwrap key.
+    ///
+    /// <para>
+    /// Stock launches a <c>tf_scout_bat_launch_delay</c> (0.1 s) think later
+    /// (:274); ours throws at once — the wait is the swing's own frames, the
+    /// anim's. Not here: the spy's unstealth and <c>OnAttack</c> (:278-285) —
+    /// the bat never leaves the scout's hands, and the scout wears no cloak.
+    /// </para>
+    /// </summary>
+    private void GiftwrapBall(in WeaponAttackContext attack, TFWeaponScript script)
+    {
+        var weapon = attack.Weapon;
+        if (weapon.NextPrimaryAttack > attack.Now)
+            return;
+
+        if (!TFItemMeter.RegenFinished(weapon))
+            return;
+
+        var context = Context(in attack, script);
+        if (!CanAttack(in attack, in context))
+            return;
+
+        bool crit = RollCrit(in attack, script, in context);
+
+        weapon.NextPrimaryAttack = attack.Now + GiftwrapRefire;
+        weapon.NextSecondaryAttack = attack.Now + GiftwrapRefire;
+
+        SendAnim(in attack, WeaponAnim.Primary);
+        attack.Arms.GestureShown(SourceSharp.Shared.Anim.WeaponGestureTrigger.Secondary);
+        if (attack.EffectsLive)
+            Parts.Effects.Projectile(in attack, script, new ShotDamage(script.Primary.Damage, Critical: crit), charge: 0f);
+
+        TFItemMeter.Use(weapon);
     }
 
     private void Swing(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context,

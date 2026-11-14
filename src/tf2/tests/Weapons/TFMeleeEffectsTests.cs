@@ -3,9 +3,11 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server.Player;
 using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Conditions;
 using TF2.Shared.Econ;
 
 using TF2.Tests.Projectiles;
@@ -91,7 +93,7 @@ internal sealed class MeleeRig
     /// <summary>The conditions the laugh arms add, recorded whole.</summary>
     public FakeConditions Conditions { get; } = new();
 
-    public MeleeRig(ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+    public MeleeRig(ITFWeaponOwners? owners = null, AttributeHooks? hooks = null, ITFPlayerConditions? conditions = null)
     {
         Engine.ReturnsEachCall("Players.GetHandle",
                                () => Engine.Calls[^1].Args[0] is int slot && Slots.TryGetValue(slot, out var h) ? h : Owner);
@@ -114,7 +116,7 @@ internal sealed class MeleeRig
 
         Damage = new MeleeDamage(HitGroups);
         Effects = new TFMeleeEffects(Engine, Engine, Engine, Damage, HitGroups, Log, owners ?? Owners, hooks,
-                                     conditions: Conditions);
+                                     conditions: conditions ?? Conditions);
     }
 
     /// <summary>What the engine says the hit target is.</summary>
@@ -624,6 +626,20 @@ public sealed class TFKatanaDuelTests
                           new ShotDamage(65f), ArmSmackTrace);
 
     [Fact]
+    public void A_gunslinger_whiff_ends_the_combo()
+    {
+        var w = Arm();
+        var rig = ArmRig(player: true);
+        Smack(rig, w, now: 10f);
+        Assert.Equal(1, TFMeleeBehaviour.ComboOf(w));
+
+        rig.Hull = new(false, 1f, default, default, EntityHandle.None, -1, 0);
+        Smack(rig, w, now: 10.5f);
+
+        Assert.Equal(0, TFMeleeBehaviour.ComboOf(w));
+    }
+
+    [Fact]
     public void A_gunslinger_smack_into_an_enemy_counts_toward_the_third()
     {
         var w = Arm();
@@ -788,5 +804,116 @@ public sealed class TFMeleeHolidayPunchTests
         rig.Melee(new ShotDamage(35f), tickle: true);
 
         Assert.Empty(rig.Conditions.Added);
+    }
+}
+
+/// <summary>Records what the swing hands to the conditions seam.</summary>
+internal sealed class BuffRecord : ITFPlayerConditions
+{
+    public List<(EntityHandle Who, TFCond Cond, float Seconds)> Adds { get; } = [];
+
+    public TFConditions? Of(int playerIndex) => null;
+
+    public TFCondAdd Add(EntityHandle player, TFCond cond, float duration = TFConditions.Permanent,
+                         EntityHandle provider = default)
+    {
+        Adds.Add((player, cond, duration));
+        return default;
+    }
+
+    public bool Remove(EntityHandle player, TFCond cond, bool ignoreDuration = false) => false;
+
+    public TFCondMask RemoveAll(EntityHandle player) => default;
+
+    public bool InCond(EntityHandle player, TFCond cond) => false;
+}
+
+/// <summary>
+/// The disciplinary speed boost (<c>tf_weaponbase_melee.cpp:646-656</c>): a
+/// melee hit landing on a same-team player stamps both with the boost, the
+/// one hit for two seconds and the swinger 3.6.
+/// </summary>
+public sealed class TFMeleeSpeedBuffTests
+{
+    /// <summary>The bat's item holding one additive boost count.</summary>
+    private static AttributeContainer BuffItem()
+    {
+        var item = new AttributeContainer(null, AttributeProviderType.Generic);
+        item.Set(AttributeValue.OfFloat(new AttributeDefinition(5401, "attr 5401", "speed_buff_ally",
+            AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral, false, false,
+            AttributeValueType.Default, MergedKeys.Block("x")), 2f));
+        return item;
+    }
+
+    [Fact]
+    public void AHittingTheSameTeamBuffsWithTheirOwnSeconds()
+    {
+        var owners = new FakeOwners();
+        owners.ByName[3] = new System.Collections.Generic.Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_bat"] = BuffItem(),
+        };
+        var conds = new BuffRecord();
+        var rig = new MeleeRig(owners, new AttributeHooks(), conds)
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+
+        rig.Melee();
+
+        Assert.Equal(2, conds.Adds.Count);
+        Assert.Equal(TFCond.SpeedBoost, conds.Adds[0].Cond);          // :652 — the one hit
+        Assert.Equal(MeleeRig.Victim, conds.Adds[0].Who);
+        Assert.Equal(2f, conds.Adds[0].Seconds, 4);
+        Assert.Equal(TFCond.SpeedBoost, conds.Adds[1].Cond);          // :653 — the swinger keeps up
+        Assert.Equal(MeleeRig.Owner, conds.Adds[1].Who);
+        Assert.Equal(3.6f, conds.Adds[1].Seconds, 4);
+    }
+
+    [Fact]
+    public void AHittingAnEnemyOrTheWorldStampsNobody()
+    {
+        var owners = new FakeOwners();
+        owners.ByName[3] = new System.Collections.Generic.Dictionary<string, IAttributeProvider>
+        {
+            ["tf_weapon_bat"] = BuffItem(),
+        };
+        var conds = new BuffRecord();
+        var rig = new MeleeRig(owners, new AttributeHooks(), conds)
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+        rig.Teams[MeleeRig.Victim] = (int)TFTeam.Blue;                // stock's OnSameTeam gate (:646)
+
+        rig.Melee();
+
+        Assert.Empty(conds.Adds);
+
+        // The world-stop, same-team-ish and all: no entity behind it, nobody buffed.
+        var bare = new BuffRecord();
+        var plain = new MeleeRig(owners, new AttributeHooks(), bare)
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Wall, 0, 0),
+            TargetIsPlayer = false,
+        };
+
+        plain.Melee();
+
+        Assert.Empty(bare.Adds);
+
+        // Same team, but the item answers nothing: the gate (:650) asks the
+        // attribute whole, and a zero answer stamps nobody.
+        var noItem = new BuffRecord();
+        var plainOwners = new MeleeRig(new FakeOwners(), new AttributeHooks(), noItem)
+        {
+            Hull = new SurfaceTraceResult(true, 0.9f, default, default, MeleeRig.Victim, 0, 0),
+            TargetIsPlayer = true,
+        };
+
+        plainOwners.Melee();
+
+        Assert.Empty(noItem.Adds);
     }
 }

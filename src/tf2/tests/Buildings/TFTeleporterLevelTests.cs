@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Shared;
 using TF2.Server.Buildings;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Tests.Entities.Items;
 using Xunit;
 
@@ -57,6 +58,26 @@ public class TFTeleporterLevelTests
         Assert.Equal(TFTeleporterState.Recharging, exit.State);
         TickBoth(rig, entrance, exit, 0.4f);
         Assert.Equal(TFTeleporterState.Ready, exit.State);
+    }
+
+    [Fact]
+    public void TheBuildersTeleporterCostHalfPricesTheUpgrade()
+    {
+        // GetUpgradeMetalRequired (tf_obj_teleporter.cpp:309-322): the table
+        // price times the builder's mod_teleporter_cost, asked live — the
+        // Eureka Effect's levels for half. The plain pair prices full.
+        var (rig, entrance, exit, builder) = APair();
+        int full = TFObjectInfo.Of(TFObjectType.Teleporter)!.UpgradeCost;
+        Assert.Equal(full, exit.RequiredUpgradeMetal);
+
+        var container = new AttributeContainer(null, AttributeProviderType.Generic);
+        container.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(5022, "attr 5022", "mod_teleporter_cost", AttributeDescriptionFormat.Percentage,
+                                    AttributeEffectType.Neutral, false, false,
+                                    AttributeValueType.Default, MergedKeys.Block("x")), 0.5f));
+        rig.Owners.Managers[builder.EntryIndex] = container;
+
+        Assert.Equal(full / 2, exit.RequiredUpgradeMetal);
     }
 
     /// <summary>One engineer's entrance and exit, both built and thinking at t=120.</summary>

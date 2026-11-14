@@ -172,6 +172,7 @@ public sealed class FlagCarrierEffectsTests
         public void RemoveDisguise(int playerIndex) => DisguiseRemovals.Add(playerIndex);
         public void RemoveInvisibility(int playerIndex) { }
         public bool ActivateInvisibilityWatch(int playerIndex) => false;
+        public bool FeignDeathHit(int victimIndex) => false;
         public bool KnifeReady(int ownerIndex, float now) => true;
         public void MeltKnife(int ownerIndex, float now, float seconds) { }
         public bool Disguise(int playerIndex, TFClass disguiseClass, TFTeam disguiseTeam) => false;

@@ -34,6 +34,23 @@ public static class TFItemMeter
     /// <summary>Multiplies the charge seconds, default 1: the slow-charge half of the pair (<c>:7881</c>).</summary>
     public const string ChargeRateModAttribute = "mult_item_meter_charge_rate";
 
+    /// <summary>
+    /// Which of the meter kinds the item runs (<c>item_meter_charge_type</c>,
+    /// stock's <c>attrib_meter_type_t</c> read at <c>:7881</c>): the timed
+    /// refill walks only for TIME and COMBO (:7882), SIMPLE's refill is the
+    /// item's own code and NONE's none. Stock's ordinals
+    /// (<c>tf_shareddefs.h</c>): NONE 0, TIME 1, SIMPLE 2, COMBO 3. The two
+    /// shipped pyro meters carry TIME (the Thermal Thruster's 30 s bar) and
+    /// COMBO (the Gas Passer's 60 s one).
+    /// </summary>
+    public const string ChargeTypeAttribute = "item_meter_charge_type";
+
+    /// <summary><c>ATTRIBUTE_METER_TYPE_TIME</c>: the bar fills on the clock.</summary>
+    public const int ChargeTypeTime = 1;
+
+    /// <summary><c>ATTRIBUTE_METER_TYPE_COMBO</c>: the timed bar with a count beside it.</summary>
+    public const int ChargeTypeCombo = 3;
+
     /// <summary>The words drawn beside the bar (<c>meter_label</c>, stock's HUD string hook, <c>tf_hud_itemeffectmeter.cpp</c>).</summary>
     public const string LabelAttribute = "meter_label";
 
@@ -101,14 +118,23 @@ public static class TFItemMeter
     {
         IAttributeProvider? item = owners.ItemOf(playerIndex, weaponName);
 
-        // Stock reads the rate off the item with two hooks: the charge
-        // seconds off a base 0, the mod as a percentage on a base 1
-        // (tf_player_shared.cpp:7881-7884). An effect-bar weapon whose item
-        // names none charges at its own override's answer (see
-        // <see cref="EffectBarSeconds"/>) — the jar's bar, no attribute.
+        // Stock walks the timed refill only under a TIME or COMBO charge
+        // type, and only then reads the rate and its mod
+        // (tf_player_shared.cpp:7881-7892). The shipped meters carry one of
+        // the two; a harness item naming just the rate keeps charging —
+        // hooks.Int cannot tell an absent attribute from an explicit NONE,
+        // and the rate-only harness is the lane's standing representation.
+        // SIMPLE and a named NONE leave the timed answer, so the effect-bar
+        // override answers instead — the jar's bar, no attribute.
         float seconds = hooks.Float(0f, ChargeRateAttribute, item)
             * hooks.Float(1f, ChargeRateModAttribute, item);
-        return seconds > 0f ? seconds : EffectBarRecharge(hooks, item, weaponId);
+        if (seconds > 0f)
+        {
+            int chargeType = hooks.Int(0, ChargeTypeAttribute, item);
+            if (chargeType == ChargeTypeTime || chargeType == ChargeTypeCombo || chargeType == 0)
+                return seconds;
+        }
+        return EffectBarRecharge(hooks, item, weaponId);
     }
 
     /// <summary>

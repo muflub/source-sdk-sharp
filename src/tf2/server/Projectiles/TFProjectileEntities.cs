@@ -31,7 +31,8 @@ namespace TF2.Server.Projectiles;
 /// (<c>tf_weapon_grenade_pipebomb.cpp:406-409</c>), the medic's syringe
 /// (<c>tf_projectile_nail.cpp:31</c>), the huntsman's arrow
 /// (<c>tf_projectile_arrow.cpp:53</c>) and the pyro's flare
-/// (<c>tf_projectile_flare.cpp:24</c>).
+/// (<c>tf_projectile_flare.cpp:24</c>) and the Wrap Assassin's ornament
+/// (<c>tf_projectile_ball_ornament</c>, <c>tf_weapon_bat.cpp:119</c>).
 /// </summary>
 public static class TFProjectileEntityNames
 {
@@ -45,6 +46,7 @@ public static class TFProjectileEntityNames
     public const string Jar = "tf_projectile_jar";
     public const string JarMilk = "tf_projectile_jar_milk";
     public const string BallOfFire = "tf_projectile_balloffire";
+    public const string BallOrnament = "tf_projectile_ball_ornament";
     public const string EnergyRing = "tf_projectile_energy_ring";
     public const string EnergyBall = "tf_projectile_energy_ball";
 }
@@ -67,6 +69,11 @@ public static class TFProjectileEntityNames
 [Precache(PrecacheKind.ParticleSystem, "mvm_soldier_shockwave")]
 public sealed class TFRocket : FlyingProjectile
 {
+    /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
+    /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
+    /// a rocket through a spy's or a scout's arm's width of a heavy's.</summary>
+    protected override TraceMask SweepMask => TraceMask.Solid;
+
     private readonly TFBlastApplier Blast;
     private readonly ITFWeaponOwners Owners;
     private readonly IEnginePlayers Players;
@@ -315,10 +322,17 @@ public sealed class TFPipebomb : ScriptedEntity
     private readonly IServerSkins Skins;
     private readonly IGameClock Clock;
     private readonly IEngineFrame Frame;
+    private readonly IEngineDamage Damage;
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly TFPlayerCarriers Carriers;
+    private readonly ITFPlayerConditions Conditions;
 
     public TFPipebomb(IEngineEntityPhysics physics, TFBlastApplier blast, IEnginePlayers players,
                       IEntityDirectory directory, ITFWeaponOwners owners, AttributeHooks attributes,
-                      IEngineWorldQuery world, IServerSkins skins, IGameClock clock, IEngineFrame frame)
+                      IEngineWorldQuery world, IServerSkins skins, IGameClock clock, IEngineFrame frame,
+                      IEngineDamage damage, TFDamageScopes scopes, DamageHitGroups hitGroups,
+                      TFPlayerCarriers carriers, ITFPlayerConditions conditions)
     {
         Physics = physics;
         Blast = blast;
@@ -330,6 +344,11 @@ public sealed class TFPipebomb : ScriptedEntity
         Skins = skins;
         Clock = clock;
         Frame = frame;
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+        Carriers = carriers;
+        Conditions = conditions;
     }
 
     /// <summary>The model the prop shell carries (<c>TF_WEAPON_PIPEGRENADE_MODEL</c>).</summary>
@@ -340,6 +359,25 @@ public sealed class TFPipebomb : ScriptedEntity
     public TFWeaponId Weapon { get; private set; }
     public string WeaponName { get; private set; } = "";
     public bool Critical { get; private set; }
+
+    /// <summary>
+    /// Stock's <c>m_iType</c> (<c>SetPipebombMode</c>,
+    /// <c>tf_weapon_grenade_pipebomb.cpp:575-578</c>): the grenade mode the
+    /// throw stamped — the regular pipe, or the Loose Cannon's
+    /// <see cref="TFProjectileDefs.GrenadeModeCannonball"/>, whose shell
+    /// (<c>Spawn</c>, :513-516), impact (<see cref="CannonballPush"/>) and
+    /// blast bits (<c>GetWeaponID</c>, :135-143) it picks.
+    /// </summary>
+    public int PipebombMode { get; private set; }
+
+    /// <summary>
+    /// Stock's <c>m_bWallShatter</c>: the launcher's <c>set_detonate_mode</c>
+    /// AIR (<c>tf_weapon_pipebomblauncher.h:25</c>) poked onto the pipe at
+    /// <c>FireProjectileInternal</c> (<c>tf_weapon_grenadelauncher.cpp:272-275</c>) —
+    /// the Loch-n-Load's pipe shatters on its first collision instead of
+    /// blowing up or waiting for the fuse.
+    /// </summary>
+    public bool WallShatter { get; private set; }
 
     /// <summary>
     /// Stock's <c>m_iDeflected</c> (<c>tf_weapon_grenade_pipebomb.cpp:125</c>):
@@ -354,6 +392,20 @@ public sealed class TFPipebomb : ScriptedEntity
     private int _ownerIndex;
     private bool _touched;
     private float _createdAt;
+
+    /// <summary>Stock's <c>m_penetratedEntities</c> (:158): the victims the cannonball pushed.</summary>
+    private readonly List<EntityHandle> _penetrated = [];
+
+    // The cannonball impact's numbers (PipebombTouch :781-783, :794, :799-800):
+    // the damage ramp's ends, the shove and its lift, the ground stun.
+    private const float NearDistanceSq = 512f * 512f;
+    private const float FarDistanceSq = 1024f * 1024f;
+    private const float ImpactNear = 50f;
+    private const float ImpactFar = 25f;
+    private const float PushSpeed = 400f;
+    private const float PopSpeed = 350f;
+    private const float StunTime = 0.5f;
+    private const float StunStrength = 1f;
 
     /// <summary>
     /// The damage the fuse will carry: the throw's full damage times
@@ -375,9 +427,14 @@ public sealed class TFPipebomb : ScriptedEntity
         Physics.SetFriction(Handle, TFProjectileDefs.PipebombFriction);
     }
 
-    /// <summary>The thrower's deal: full damage, radius, fuse.</summary>
+    /// <summary>
+    /// The thrower's deal: full damage, radius, fuse — and the grenade mode
+    /// (<see cref="Mode"/>), whose cannonball re-shells the pipe stock's
+    /// <c>Spawn</c> arms (<c>tf_weapon_grenade_pipebomb.cpp:513-516</c>).
+    /// </summary>
     public void ThrownBy(EntityHandle thrower, Vector velocity, float fullDamage, float radius,
-                         TFWeaponId weapon, string weaponName, bool critical)
+                         TFWeaponId weapon, string weaponName, bool critical,
+                         int grenadeMode = TFProjectileDefs.GrenadeModeRegular)
     {
         _thrower = thrower;
         FullDamage = fullDamage;
@@ -385,9 +442,19 @@ public sealed class TFPipebomb : ScriptedEntity
         Weapon = weapon;
         WeaponName = weaponName;
         Critical = critical;
+        PipebombMode = grenadeMode;
+        if (grenadeMode == TFProjectileDefs.GrenadeModeCannonball)
+            SetModel(TFProjectileDefs.CannonballModel);
         _ownerIndex = Entities.GetIndex(thrower);
         _createdAt = Clock.Now; // m_flCreationTime, as the sticky's (its ThrownBy)
         _fuseDamage = TFProjectileDefs.PipeTimerDamageScale * fullDamage;
+
+        // FireProjectileInternal's shatter poke (:272-275), read off the
+        // launcher item as stock's GetDetonateMode does
+        // (tf_weapon_grenadelauncher.cpp:481-486).
+        IAttributeProvider? item = Owners.ItemOf(_ownerIndex, WeaponName);
+        WallShatter = Attributes.Int(TFProjectileDefs.DetonateModeStandard, "set_detonate_mode", item)
+                      == TFProjectileDefs.DetonateModeAir;
 
         // The client's CreateTrailParticles reads the team off the projectile.
         State.Critical = critical;
@@ -395,7 +462,35 @@ public sealed class TFPipebomb : ScriptedEntity
 
         Entities.SetOwner(Handle, thrower);
         Entities.SetVelocity(Handle, velocity);
-        SetNextThink(TFProjectileDefs.PipeFuse);
+
+        // Spawn's fuse booking (tf_weapon_grenade_pipebomb.cpp:521) through
+        // SetDetonateTimerLength (tf_weaponbase_grenadeproj.cpp:481-490): the
+        // 2 s scale under the launcher's fuse_mult — the Iron Bomber's 0.7.
+        SetNextThink(TFProjectileDefs.PipeFuse * Attributes.Float(1f, "fuse_mult",
+                                                                Owners.ItemOf(_ownerIndex, WeaponName)));
+    }
+
+    /// <summary>
+    /// <c>FireProjectileInternal</c>'s charged fuse
+    /// (<c>tf_weapon_grenadelauncher.cpp:277-287</c>): the held shot
+    /// overrides the spawn's timer with the window it has left, through the
+    /// same <c>SetDetonateTimerLength</c> — the more of the charge spent, the
+    /// sooner the ball goes. At none the held-nothing arm's trace-and-explode
+    /// fires (<c>:281-286</c>): stock traces to the eye and detonates where a
+    /// wall stands between; the ball was born at the muzzle, so here it goes
+    /// off where it stands.
+    /// </summary>
+    public void ChargedFuse(float remaining)
+    {
+        if (remaining > 0f)
+        {
+            SetNextThink(remaining * Attributes.Float(1f, "fuse_mult",
+                                                    Owners.ItemOf(_ownerIndex, WeaponName)));
+            return;
+        }
+
+        _spent = true;
+        Explode(_fuseDamage, EntityHandle.None);
     }
 
     /// <summary>
@@ -520,10 +615,29 @@ public sealed class TFPipebomb : ScriptedEntity
         // contact (:753-754); it waits for its fuse.
         if (toucher == EntityHandle.None)
         {
+            // The wall shatter (VPhysicsCollision :859-864): the armed pipe's
+            // first collision is Fizzle then Detonate, which land in the
+            // m_bFizzle arm (:606-617) — sparks and gone, no blast. The
+            // sparks are the client's particles; the port's fizzle is the
+            // removal.
+            if (WallShatter)
+            {
+                _spent = true;
+                Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} shattered at {Origin}\n");
+                Remove();
+                return;
+            }
+
             if (!_touched)
             {
                 _touched = true;
                 _fuseDamage *= WorldContactDamageScale();
+
+                // VPhysicsCollision's no-bounce arm (:887-899): the launcher's
+                // grenade_no_bounce — the Iron Bomber's — sinks the first
+                // bounce to a tenth of the velocity, the spin untouched.
+                if (Attributes.Int(0, "grenade_no_bounce", Owners.ItemOf(_ownerIndex, WeaponName)) == 1)
+                    Entities.SetVelocity(Handle, Entities.GetVelocity(Handle) * 0.1f);
             }
             return;
         }
@@ -533,14 +647,74 @@ public sealed class TFPipebomb : ScriptedEntity
             return;
 
         // Blow up if we hit an enemy we can damage (:759): the full damage is
-        // restored first (:824), because the fuse would have taken 40% off.
+        // restored first (:824), because the fuse would have taken 40% off —
+        // unless the cannonball's push takes the touch first (:772-817).
         int toucherTeam = Players.GetTeam(toucher);
         int myTeam = Entities.IsValid(_thrower) ? Players.GetTeam(_thrower) : 0;
         if (toucherTeam != 0 && myTeam != 0 && toucherTeam != myTeam && Hurtable(toucher))
         {
+            if (PipebombMode == TFProjectileDefs.GrenadeModeCannonball && CannonballPush(toucher))
+                return;
+
             _spent = true;
             Explode(FullDamage, directVictim: toucher);
         }
+    }
+
+    /// <summary>
+    /// The cannonball's push, stock's impact numbers
+    /// (<c>tf_weapon_grenade_pipebomb.h:28</c>'s
+    /// <c>TF_GL_MODE_CANNONBALL</c> arm of <c>PipebombTouch</c>,
+    /// <c>:772-817</c>): the ball does not explode on the hit — it wounds and
+    /// shoves, once per victim, and keeps flying.
+    /// </summary>
+    private bool CannonballPush(EntityHandle victim)
+    {
+        // The push's victims (:776): a player or a building, the thrower
+        // behind the damage. Anything else hostile takes the blast
+        // (:820-826) as every pipe does.
+        if (!Entities.IsValid(_thrower) || !(Entities.IsPlayer(victim) || Directory.Get(victim) is TFBaseObject))
+            return false;
+
+        // Already through (:779): the second touch is neither damage nor
+        // shove — and still no blast (:816).
+        if (_penetrated.Contains(victim))
+            return true;
+
+        // The impact's damage scales down over the distance thrown
+        // (:781-783): <see cref="ImpactNear"/> at the feet to
+        // <see cref="ImpactFar"/> a thousand units out, the cannon's row the
+        // bits (<c>GetDamageType</c> over <c>GetWeaponID</c>, :135-143) and
+        // the push its custom kind (:785).
+        float distanceSq = (Entities.GetOrigin(victim) - Entities.GetOrigin(_thrower)).LengthSquared;
+        float impact = TFRadiusDamage.RemapClamped(distanceSq, NearDistanceSq, FarDistanceSq,
+                                                   ImpactNear, ImpactFar);
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        using (Scopes.Push(TFDamageCustom.CannonballPush, Weapon, WeaponName))
+            Damage.TakeDamage(victim, _thrower, impact, TFWeaponDamageTypes.Of(TFWeaponId.Cannon));
+
+        // The shove (:788-802): the ground stun unless the air current has
+        // them already, then the knock — the centres' line at
+        // <see cref="PushSpeed"/> and <see cref="PopSpeed"/> up, the
+        // airblast's shape (:800).
+        if (Entities.IsPlayer(victim))
+        {
+            if (!Conditions.InCond(victim, TFCond.KnockedIntoAir))
+                Carriers.Part<TFStunStack>(victim.EntryIndex)?.Stun(victim, StunTime, StunStrength,
+                                                                    TFStunFlags.Movement, _thrower);
+
+            Vector toVictim = (Entities.GetWorldSpaceCenter(victim) - Entities.GetWorldSpaceCenter(_thrower)).Normalized;
+            Entities.ApplyVelocityImpulse(victim, toVictim * PushSpeed + new Vector(0f, 0f, PopSpeed),
+                                          clearGround: false);
+        }
+
+        // The donk list (:808-814): the launcher's window opens here, the
+        // blast's double-donk mini-crit its read (TFDonkVictims); the impact's
+        // sound is the client's broadcast (:806).
+        Carriers.Part<TFDonkVictims>(_thrower.EntryIndex)?.Donk(victim);
+        _penetrated.Add(victim);
+        Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} pushed {Entities.GetClassName(victim)}\n");
+        return true;
     }
 
     /// <summary>
@@ -564,16 +738,30 @@ public sealed class TFPipebomb : ScriptedEntity
     {
         // The blast's bits are the projectile's own weapon id's
         // (g_aWeaponDamageTypes[GetWeaponID()]): a regular pipe is
-        // TF_WEAPON_GRENADE_DEMOMAN (tf_weapon_grenade_pipebomb.cpp:142),
-        // a half-falloff blast without DMG_USEDISTANCEMOD
-        // (tf_shareddefs.cpp:770) — not the launcher's row.
-        Blast.Apply(Origin, TFBlast.Of(damage, Radius, TFWeaponDamageTypes.Of(TFWeaponId.GrenadeDemoman)),
+        // TF_WEAPON_GRENADE_DEMOMAN (tf_weapon_grenade_pipebomb.cpp:142), the
+        // cannonball TF_WEAPON_CANNON (:137-140) — a half-falloff blast
+        // without DMG_USEDISTANCEMOD (tf_shareddefs.cpp:770), neither the
+        // launcher's row.
+        DamageType bits = PipebombMode == TFProjectileDefs.GrenadeModeCannonball
+            ? TFWeaponDamageTypes.Of(TFWeaponId.Cannon)
+            : TFWeaponDamageTypes.Of(TFWeaponId.GrenadeDemoman);
+        Blast.Apply(Origin, TFBlast.Of(damage, BlastRadius, bits),
                     Attribution(), Handle,
                     ignored: Handle, Weapon, WeaponName, Critical, directVictim,
                     selfRadius: TFProjectileDefs.GrenadeJumpRadius, selfBaseDamage: FullDamage);
         Log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Pipebomb} exploded at {Origin}\n");
         Remove();
     }
+
+    /// <summary>
+    /// The blast's radius, the stock pipe's <c>GetDamageRadius</c>
+    /// (<c>tf_weapon_grenade_pipebomb.cpp:1417-1433</c>'s base arm,
+    /// <c>tf_weaponbase_grenadeproj.cpp:137-142</c>): the thrown radius under
+    /// the launcher's <c>mult_explosion_radius</c>, the Loch-n-Load's 0.75.
+    /// The air-det ramp is the sticky's alone (:1424).
+    /// </summary>
+    private float BlastRadius
+        => Attributes.Float(Radius, "mult_explosion_radius", Owners.ItemOf(_ownerIndex, WeaponName));
 
     private EntityHandle Attribution() => Entities.IsValid(_thrower) ? _thrower : Handle;
 }
@@ -645,6 +833,15 @@ public sealed class TFStickybomb : ScriptedEntity
     public TFWeaponId Weapon { get; private set; }
     public string WeaponName { get; private set; } = "";
     public bool Critical { get; private set; }
+
+    /// <summary>
+    /// Stock's <c>m_iType</c> (<c>SetPipebombMode</c>,
+    /// <c>tf_weapon_grenade_pipebomb.cpp:465</c>): the <c>TF_GL_MODE_*</c> the
+    /// birth's translation (<see cref="TFProjectileDefs.PipebombMode"/>)
+    /// stamped — remote for the bare sticky, the jumper's practice and the
+    /// cannonball over it.
+    /// </summary>
+    public int PipebombMode { get; private set; } = TFProjectileDefs.GrenadeModeRemoteDetonate;
 
     private EntityHandle _thrower = EntityHandle.None;
     private float _createdAt;
@@ -976,7 +1173,8 @@ public sealed class TFStickybomb : ScriptedEntity
     }
 
     public void ThrownBy(EntityHandle thrower, Vector velocity, float fullDamage, float radius,
-                         TFWeaponId weapon, string weaponName, bool critical)
+                         TFWeaponId weapon, string weaponName, bool critical,
+                         int pipebombMode = TFProjectileDefs.GrenadeModeRemoteDetonate)
     {
         _thrower = thrower;
         _createdAt = Clock.Now; // m_flCreationTime, for the young-pipe damage type
@@ -985,6 +1183,14 @@ public sealed class TFStickybomb : ScriptedEntity
         Weapon = weapon;
         WeaponName = weaponName;
         Critical = critical;
+        PipebombMode = pipebombMode;
+
+        // Spawn's practice arm (tf_weapon_grenade_pipebomb.cpp:499-502): the
+        // w_stickybomb2 shell. The stamp is the first the mode is known —
+        // stock learns it before its Spawn, the launch here after ours — so
+        // the model change rides the stamp.
+        if (PipebombMode == TFProjectileDefs.GrenadeModeRemoteDetonatePractice)
+            SetModel(TFProjectileDefs.StickyPracticeModel);
 
         // The client's trail mirror reads the team off the projectile.
         State.Critical = critical;
@@ -993,6 +1199,18 @@ public sealed class TFStickybomb : ScriptedEntity
         Entities.SetOwner(Handle, thrower);
         Entities.SetVelocity(Handle, velocity);
     }
+
+    /// <summary>
+    /// LaunchGrenade's DOT arm (<c>tf_weapon_pipebomblauncher.cpp:305-309</c>):
+    /// the launcher whose <c>set_detonate_mode</c> is TF_DETONATE_MODE_DOT —
+    /// the Scottish Resistance's — dresses its bomb in the defensive
+    /// w_stickybomb_d shell at the launch. Stock's <c>m_bDefensiveBomb</c>
+    /// beside it drives the thrower's glow and the always-transmit
+    /// (<c>tf_weapon_grenade_pipebomb.cpp:256, 1393, 1406</c>), the client's
+    /// effects; the kill-feed custom
+    /// (<c>GetDamageCustom</c>, :1360-1362) waits on the blast's custom channel.
+    /// </summary>
+    public void DefensiveBomb() => SetModel(TFProjectileDefs.StickyDefensiveModel);
 
     /// <summary>
     /// Deflected's sticky arm (<c>tf_weapon_grenade_pipebomb.cpp:1223-1245</c>),
@@ -1107,9 +1325,12 @@ public sealed class TFStickybomb : ScriptedEntity
         for (int i = 0; i < count; i++)
         {
             EntityHandle target = nearby[i];
-            if (target == EntityHandle.None || Players.GetTeam(target) == myTeam)
+            if (target == EntityHandle.None || Directory.Get(target) is not TFStickybomb bomb || bomb._fizzled)
                 continue;
-            if (Directory.Get(target) is not TFStickybomb bomb || bomb._fizzled)
+
+            // The bomb's team is its thrower's: asked of the bomb itself the
+            // player seam answers no team, and the sweep fizzled its own bomb.
+            if (Players.GetTeam(bomb._thrower) == myTeam)
                 continue;
 
             // UTIL_TraceLine(..., MASK_SOLID_BRUSHONLY, this, ...): the
@@ -1183,12 +1404,14 @@ public sealed class TFStickybomb : ScriptedEntity
         }
 
         // GetDamageType (tf_weapon_grenade_pipebomb.cpp:148-162): the
-        // remote-detonate pipe adds DMG_USEDISTANCEMOD within 5 s of its
-        // creation. The radius is GetDamageRadius's, not the script's — an
-        // untouched bomb's air blast comes in short (:1417-1434).
-        Blast.Apply(Origin, TFBlast.Of(FullDamage, GetDamageRadius(),
-                                       TFProjectileDefs.YoungStickyBits(TFWeaponDamageTypes.Of(Weapon),
-                                                                        Clock.Now - _createdAt)),
+        // remote-detonate pipe alone adds DMG_USEDISTANCEMOD within 5 s of
+        // its creation — the jumper's practice bomb and the ball detonate on
+        // the bare row. The radius is GetDamageRadius's, not the script's —
+        // an untouched bomb's air blast comes in short (:1417-1434).
+        DamageType bits = TFWeaponDamageTypes.Of(Weapon);
+        if (PipebombMode == TFProjectileDefs.GrenadeModeRemoteDetonate)
+            bits = TFProjectileDefs.YoungStickyBits(bits, Clock.Now - _createdAt);
+        Blast.Apply(Origin, TFBlast.Of(FullDamage, GetDamageRadius(), bits),
                     Entities.IsValid(_thrower) ? _thrower : Handle, Handle, ignored: Handle,
                     Weapon, WeaponName, Critical, directVictim: EntityHandle.None,
                     selfRadius: TFProjectileDefs.GrenadeJumpRadius, selfBaseDamage: FullDamage);
@@ -1541,6 +1764,11 @@ public sealed class TFProjectileEnergyRing : FlyingProjectile
 [ScriptedEntity(TFProjectileEntityNames.EnergyBall, ScriptedEntityKind.Projectile)]
 public sealed class TFProjectileEnergyBall : FlyingProjectile
 {
+    /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
+    /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
+    /// a rocket through a spy's or a scout's arm's width of a heavy's.</summary>
+    protected override TraceMask SweepMask => TraceMask.Solid;
+
     private readonly TFBlastApplier Blast;
     private readonly ITFWeaponOwners Owners;
     private readonly AttributeHooks Hooks;
@@ -1906,6 +2134,11 @@ public sealed class TFHealingBolt : FlyingProjectile
 [ScriptedEntity(TFProjectileEntityNames.BallOfFire, ScriptedEntityKind.Projectile)]
 public sealed class TFBallOfFire : FlyingProjectile
 {
+    /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
+    /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
+    /// a rocket through a spy's or a scout's arm's width of a heavy's.</summary>
+    protected override TraceMask SweepMask => TraceMask.Solid;
+
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
     private readonly IEngineDamage Damage;
@@ -2072,6 +2305,11 @@ public sealed class TFBallOfFire : FlyingProjectile
 [Precache(PrecacheKind.Sound, TFFlare.ScorchImpactSound)]
 public sealed class TFFlare : FlyingProjectile
 {
+    /// <summary><c>CTFBaseRocket::PhysicsSolidMaskForEntity</c> (tf_weaponbase_rocket.cpp:354-369):
+    /// no <c>CONTENTS_HITBOX</c>, so the sweep finds a player's hull. A hitbox ray let
+    /// a rocket through a spy's or a scout's arm's width of a heavy's.</summary>
+    protected override TraceMask SweepMask => TraceMask.Solid;
+
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
     private readonly IEngineDamage Damage;
@@ -2571,10 +2809,14 @@ public sealed class TFJar : FlyingProjectile
     private readonly ITempEnts Temps;
     private readonly IEnginePrecache Precache;
     private readonly IEngineSound Sound;
+    private readonly ITFWeaponOwners Owners;
+    private readonly AttributeHooks Hooks;
+    private readonly IEntityDirectory Directory;
 
     public TFJar(IEngineEntityPhysics physics, EntityMotion motion, IEngineWorldQuery world,
                  ITFPlayerConditions conditions, IEnginePlayers players,
-                 ITempEnts temps, IEnginePrecache precache, IEngineSound sound)
+                 ITempEnts temps, IEnginePrecache precache, IEngineSound sound,
+                 ITFWeaponOwners owners, AttributeHooks hooks, IEntityDirectory directory)
         : base(physics, motion)
     {
         World = world;
@@ -2583,6 +2825,9 @@ public sealed class TFJar : FlyingProjectile
         Temps = temps;
         Precache = precache;
         Sound = sound;
+        Owners = owners;
+        Hooks = hooks;
+        Directory = directory;
     }
 
     /// <summary>The milk face of the shared class.</summary>
@@ -2606,6 +2851,8 @@ public sealed class TFJar : FlyingProjectile
     {
         State.Critical = critical;
         State.TeamNumber = Players.GetTeam(Players.GetHandle(ownerIndex));
+
+        ApplyCustomModel(Owners.ActiveItemOf(ownerIndex));
     }
 
     public override void OnSpawn()
@@ -2712,10 +2959,14 @@ public sealed class TFJar : FlyingProjectile
             if (Players.GetTeam(victim) == myTeam)
             {
                 // The burning teammate (JarExplode's ExtinguishPlayer arm,
-                // :452-456): the same bare removal the port's airblast
-                // makes, its bonus-point and event tails deferred above.
+                // :446-468): the same bare removal the port's airblast
+                // makes, its bonus-point and event tails deferred above,
+                // and stock's refund to the thrower's bar under it.
                 if (Conditions.InCond(victim, TFCond.Burning))
+                {
                     Conditions.Remove(victim, TFCond.Burning);
+                    RefundLauncherBar(victim);
+                }
                 continue;
             }
 
@@ -2734,4 +2985,204 @@ public sealed class TFJar : FlyingProjectile
     private bool IsWorld(EntityHandle entity) => entity != EntityHandle.None && Entities.GetIndex(entity) == 0;
 
     private int OwnerTeam() => Entities.IsValid(Attribution) ? Players.GetTeam(Attribution) : 0;
+
+    /// <summary>
+    /// Stock's refund behind the douse (<c>tf_weapon_jar.cpp:452-468</c>):
+    /// putting out someone else's fire hands a share of the refill back to
+    /// the thrower — the share their held item answers on the hook — and
+    /// stock spends it only while the bar still runs behind it
+    /// (<c>DecrementBarRegenTime</c> on the recharge, :461-465). Ours rides
+    /// the same share onto the carried meter under the same guard, held at
+    /// full as the tick holds it. The thrower dousing their own fire keeps
+    /// the whole bar (<c>pAttacker != pPlayer</c>, :454).
+    /// </summary>
+    private void RefundLauncherBar(EntityHandle ally)
+    {
+        EntityHandle launcher = Attribution;
+        if (launcher == ally || !Entities.IsValid(launcher))
+            return;
+
+        // The jars' own seconds are stock's <c>HasEffectBarRegeneration</c>
+        // gate on the launcher's weapon (:454).
+        if (TFItemMeter.EffectBarSeconds(Milk ? TFWeaponId.JarMilk : TFWeaponId.Jar) <= 0f)
+            return;
+
+        float hooked = Hooks.Float(1f, "extinguish_reduces_cooldown",
+                                   Owners.ActiveItemOf(Entities.GetIndex(launcher)));
+        float refund = 1f - hooked;
+        if (refund <= 0f)
+            return;
+
+        if (Directory.Get(Players.GetActiveWeaponEntity(launcher)) is SsWeapon { State: { } state }
+            && state.ItemMeter < refund)
+        {
+            state.ItemMeter = Math.Min(1f, state.ItemMeter + refund);
+        }
+    }
+
+    /// <summary>
+    /// <c>SetCustomPipebombModel</c> (:261-284, the milk's own :836-855): the
+    /// thrower's held item names the face the jar wears — the festive
+    /// jarate's and the bread monster's for the plain jar, the bread
+    /// monster's alone for the milk; any other answer keeps the born
+    /// model. The face numbers are the stock <c>ProjectileType_t</c> slots
+    /// (<c>tf_shareddefs.h:546-578</c>): festive jarate 22, bread monster
+    /// jarate 24 and madmilk 25.
+    /// </summary>
+    private void ApplyCustomModel(IAttributeProvider? item)
+    {
+        int face = Hooks.Int(0, "override_projectile_type", item);
+        string? model = Milk
+            ? face is 24 or 25 ? TFProjectileDefs.JarMilkBreadmonsterModel : null
+            : face switch
+            {
+                22 => TFProjectileDefs.JarFestiveModel,
+                24 or 25 => TFProjectileDefs.JarBreadmonsterModel,
+                _ => null,
+            };
+
+        if (model is { } chosen)
+            SetModel(chosen);
+    }
+}
+
+/// <summary>
+/// The Wrap Assassin's ornament (<c>CTFBall_Ornament</c>,
+/// <c>tf_weapon_bat.cpp</c>): the bat's alt-fire lobs it — ten forward parts
+/// to one up over <see cref="TFProjectileDefs.OrnamentSpeed"/> — at the
+/// grenade base's gravity and friction (<c>InitGrenade</c>,
+/// <c>tf_weaponbase_grenadeproj.cpp:245-247</c>), and its first touch is
+/// <c>PipebombTouch</c> (:1223-1244): the blast
+/// (<c>Explode</c> :1285-1321, <see cref="TFProjectileDefs.OrnamentExplodeDamageMult"/>
+/// of the shot over <see cref="TFProjectileDefs.OrnamentExplodeRadius"/>, the
+/// BLAST and no-force bits, <c>TF_DMG_CUSTOM_BASEBALL</c>), then the struck
+/// enemy player's own (<c>ApplyBallImpactEffectOnVictim</c> :1151-1218) — the
+/// five-second bleed from the launcher (:1185), and the shot again as a
+/// direct hit, the long flight's always-crit under it (:1176-1181,
+/// <see cref="TFProjectileDefs.OrnamentLongFlight"/>).
+///
+/// <para>
+/// Not here (docs/plans/tf2/deferred.tsv): <c>ShouldBallTouch</c>'s screening
+/// (the respawn-room, ladder, func_lod, projectile, skybox and train filters,
+/// :935-990) — the seam's touch carries none of those flags — and the
+/// impact's sounds and particles, the throw's random spin
+/// (<c>GetBallDynamics</c> :246) and the m_iOriginalOwnerID bookkeeping of
+/// the caught-ball mode the port's bat has none of.
+/// </para>
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.BallOrnament, ScriptedEntityKind.Projectile)]
+public sealed class TFBallOrnament : FlyingProjectile
+{
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly IEngineDamage Damage;
+    private readonly IEnginePlayers Players;
+    private readonly ITFPlayerConditions Conditions;
+    private readonly TFBleeds Bleeds;
+    private readonly TFBlastApplier Blast;
+    private readonly IGameClock Clock;
+
+    private float _createdAt;
+
+    public TFBallOrnament(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
+                          TFDamageScopes scopes, DamageHitGroups hitGroups, IEnginePlayers players,
+                          ITFPlayerConditions conditions, TFBleeds bleeds, TFBlastApplier blast,
+                          IGameClock clock)
+        : base(physics, motion)
+    {
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+        Players = players;
+        Conditions = conditions;
+        Bleeds = bleeds;
+        Blast = blast;
+        Clock = clock;
+    }
+
+    protected override float GravityScale => TFProjectileDefs.OrnamentGravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.OrnamentModel;
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+
+    /// <summary>The shot the throw baked, the bat's damage under its mult_dmg.</summary>
+    public float ShotDamage { get; private set; }
+
+    public bool Critical { get; private set; }
+
+    /// <summary>The thrower's deal: the shot, whose it is and its roll (<c>CreateBall</c>, :1089-1094).</summary>
+    public void ArmedBy(float damage, TFWeaponId weapon, string name, bool critical)
+    {
+        ShotDamage = damage;
+        Weapon = weapon;
+        WeaponName = name;
+        Critical = critical;
+        _createdAt = Clock.Now; // m_flCreationTime, as the sticky's (its ThrownBy)
+    }
+
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+        Physics.SetFriction(Handle, TFProjectileDefs.OrnamentFriction);
+        // CTFStunBall::Spawn's context think (:672): SUB_Remove at the
+        // literal 15.0 the think is set with, struck or not.
+        SetContextThink(ExpiryContext, TFProjectileDefs.OrnamentLifetime);
+    }
+
+    /// <summary>The spawn think's name, the expiry <see cref="TFProjectileDefs.OrnamentLifetime"/> out.</summary>
+    public const string ExpiryContext = "OrnamentExpire";
+
+    public override void OnThink(string context)
+    {
+        if (context == ExpiryContext)
+            Remove();
+        else
+            base.OnThink(context);
+    }
+
+    /// <summary>
+    /// <c>PipebombTouch</c> (:1223-1244): the blast first, every touch alike
+    /// (:1238), then the enemy player's own (:1240-1243) — invulnerable
+    /// players keep whole (:1168-1169), the long flight's hit is the crit
+    /// (:1176-1181), the bleed lands before the hurt does (:1185, :1211).
+    /// </summary>
+    protected override void Impact(EntityHandle hit)
+    {
+        // Explode (:1311-1318): the blast is never the crit — stock's info
+        // carries the bits alone.
+        Blast.Apply(Origin,
+                    TFBlast.Of(ShotDamage * TFProjectileDefs.OrnamentExplodeDamageMult,
+                               TFProjectileDefs.OrnamentExplodeRadius,
+                               DamageType.Blast | DamageType.PreventPhysicsForce),
+                    Attribution, Handle, ignored: Handle, Weapon, WeaponName,
+                    critical: false, custom: TFDamageCustom.Baseball);
+
+        if (!Entities.IsPlayer(hit) || Players.GetTeam(hit) == Players.GetTeam(Attribution))
+            return;
+
+        // Can't bleed an invul player (:1168-1169) — the whole arm, the
+        // direct hit with it. A player no condition state stands under is
+        // bare, as the jar's gate reads its null.
+        bool invulnerable = Conditions.Of(hit.EntryIndex) is { } conds
+                            && (new TFConditionEffects().IsInvulnerable(conds.Bits)
+                                || conds.Has(TFCond.InvulnerableWearingoff));
+        if (invulnerable)
+            return;
+
+        bool crit = Critical || Clock.Now - _createdAt >= TFProjectileDefs.OrnamentLongFlight;
+
+        // "just do the bleed effect directly since the bleed attribute comes
+        // from the inflictor, which is the bat" (:1183-1185).
+        Bleeds.Of(hit.EntryIndex)?.Make(Clock.Now, Players.IsAlive(hit), Attribution,
+                                        Weapon, WeaponName, TFProjectileDefs.OrnamentBleedSeconds);
+
+        // The love tap (:1194-1212): the shot again, the baseball custom, the
+        // crit bit set before the damage so the hit itself carries it.
+        using (HitGroups.Push(HitGroup.Generic, crit))
+        using (Scopes.Push(TFDamageCustom.Baseball, Weapon, WeaponName))
+            Damage.TakeDamage(hit, Attribution, ShotDamage,
+                              TFWeaponDamageTypes.Of(Weapon) | (crit ? TFDamageBits.Critical : 0));
+    }
 }

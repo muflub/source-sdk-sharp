@@ -266,6 +266,9 @@ internal sealed class CombatRig
     public ConVarRegistry ConVars { get; }
     public TFDamageLayer Layer { get; }
     public TFDamageRules Rules { get; }
+
+    /// <summary>The victim's shove flush, the component the frame's tick runs.</summary>
+    public TFScattergunKnockback ShoveFlush { get; }
     public RecordingLog Log { get; } = new();
 
     /// <summary>The per-player parts the burn's immune arm walks the wearables from.</summary>
@@ -333,7 +336,7 @@ internal sealed class CombatRig
     public TFPlayerNetState VictimState { get; }
     public TFPlayerNetState AttackerState { get; }
 
-    public CombatRig(float roll = 0.5f)
+    public CombatRig(float roll = 0.5f, ITFSpyState? spies = null)
     {
         Random = new BandRandom(roll);
         Damage = new ScopedDamage(Scopes);
@@ -369,8 +372,12 @@ internal sealed class CombatRig
                                   ConVars.Declared<TFWeaponMinicritsDistanceFalloffConVar>(),
                                   ConVars.Declared<TFFallDamageDisableSpreadConVar>(), ConVars.Declared<TFDebugDamageConVar>(), ZoomTimes, Log,
                                   Stats, Inflictors, SentryDamages, ConVars.Declared<TFStealthDamageReductionConVar>(),
-                                  Conditions, Engine, Engine, Mediguns, Damage, Healing, Temps, Engine, Engine);
+                                  Conditions, Engine, Engine, Mediguns, Damage, Healing, Temps, Engine, Engine,
+                                  Engine, ConVars.Declared<TFRocketPackImpactPushMinConVar>(),
+                                  ConVars.Declared<TFRocketPackImpactPushMaxConVar>(), spies);
         Rules = new TFDamageRules(Players, Engine, Scopes);
+        ShoveFlush = new TFScattergunKnockback(Carriers, Engine, Layer);
+        ShoveFlush.Attach(CombatRig.Victim);
     }
 
     private object? Arg() => Engine.Calls[^1].Args.Length > 0 ? Engine.Calls[^1].Args[0] : null;

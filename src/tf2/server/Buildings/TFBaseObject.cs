@@ -721,7 +721,7 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         };
 
         return attribute.Length > 0
-            ? Hooks.Float(0f, attribute, Owners.ManagerOf(Builder.EntryIndex))
+            ? Hooks.Float(1f, attribute, Owners.ManagerOf(Builder.EntryIndex)) - 1f   // :8239, :8259
             : 0f;
     }
 
@@ -879,8 +879,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <summary><c>GetObjectInfo( GetType() )->m_UpgradeCost</c> (tf_obj.cpp:2639-2642).</summary>
     /// <summary>This level's upgrade price (<c>m_iUpgradeMetal</c>'s target,
     /// TFObjectInfo's <c>UpgradeCost</c>): the status panel's upgrade bar
-    /// divides the collected metal by it.</summary>
-    public int RequiredUpgradeMetal => TFObjectInfo.Of(Type)?.UpgradeCost ?? 0;
+    /// divides the collected metal by it. The teleporter's builder-priced
+    /// override is <see cref="TFTeleporter.RequiredUpgradeMetal"/>.</summary>
+    public virtual int RequiredUpgradeMetal => TFObjectInfo.Of(Type)?.UpgradeCost ?? 0;
 
     /// <summary>
     /// <c>CBaseObject::CanBeUpgraded</c> (tf_obj.cpp:2919-2937): not already

@@ -35,10 +35,10 @@ public sealed class TFDamageModifyRulesTests
                              bool sameClass = false, int victimWaterLevel = 0, bool deflectedRocket = false,
                              Vector? victimEye = null, Vector? toVictim = null,
                              bool attackerAirborne = false, bool victimAirborne = false,
-                             bool directRocketHit = false) =>
+                             bool directRocketHit = false, bool doubleDonk = false) =>
         new(damage, bits, custom, self, AttackerIsPlayer: true, weapon, distance, victim, attacker, item, sameClass,
             victimWaterLevel, deflectedRocket, victimEye, toVictim, attackerAirborne, victimAirborne,
-            directRocketHit);
+            directRocketHit, DoubleDonk: doubleDonk);
 
     private static float Damage(in TFHit hit, TFDamageSettings? settings = null) =>
         TFDamageModifyRules.Apply(in hit, settings ?? Stock, NoRandom).Damage;
@@ -239,6 +239,27 @@ public sealed class TFDamageModifyRulesTests
     public void An_undeflected_rockets_blast_is_plain()
         => Assert.Equal(TFCritType.None, TFDamageModifyRules.Apply(
             Hit(distance: 512f, weapon: TFWeaponId.Rocketlauncher), Stock, NoRandom).Crit);
+
+    [Fact]
+    public void The_double_donks_blast_mini_crits_at_its_entry_damage()
+    {
+        // The cannon's blast on a just-shoved victim (:6202-6212): the mini's
+        // 1.35 over the 10 the info was born with — and the floor keeps the
+        // entry, which the plain blast's no-distance-mod band would leave
+        // untouched anyway. 50 x 1.35 over the ball's full wound.
+        var result = TFDamageModifyRules.Apply(Hit(damage: 50f, bits: TFWeaponDamageTypes.Of(TFWeaponId.Cannon),
+                                                   weapon: TFWeaponId.Cannon, doubleDonk: true), Stock, NoRandom);
+
+        Assert.Equal(67.5f, result.Damage, 4);
+        Assert.Equal(TFCritType.Mini, result.Crit);
+        Assert.True((result.Bits & TFDamageBits.Critical) != 0);
+    }
+
+    [Fact]
+    public void A_cannon_blast_outside_the_donks_window_is_plain()
+        => Assert.Equal(TFCritType.None, TFDamageModifyRules.Apply(
+            Hit(damage: 50f, bits: TFWeaponDamageTypes.Of(TFWeaponId.Cannon), weapon: TFWeaponId.Cannon),
+            Stock, NoRandom).Crit);
 
     [Fact]
     public void A_full_crit_stays_a_full_crit_over_a_deflected_rocket()

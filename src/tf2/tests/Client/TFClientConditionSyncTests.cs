@@ -151,6 +151,37 @@ public sealed class TFClientConditionCarrierTests
         Assert.Equal([$"+{Cond.Burning} @3"], calls.Calls);
     }
 
+    /// <summary>
+    /// A blue player seen by anyone stood in the red default: the skin was written once,
+    /// from a decode, and the shell's own network update wrote the server's 0 over it.
+    /// Stock answers at every draw (c_tf_player.cpp:7784), so a frame writes it again.
+    /// </summary>
+    [Fact]
+    public void A_blue_players_skin_is_written_again_every_frame()
+    {
+        var engine = new client::SourceSharp.Abi.RecordingEngine();
+        engine.Returns("Hud.LocalPlayerIndex", 4);
+        var resources = new client::TF2.Client.Player.TFClientPlayerResources();
+        var resource = new client::TF2.Client.Player.ClientTFPlayerResource(engine, resources);
+        resource.State.BindLocal();
+        resource.State.Team[3] = 3;
+        resources.Live = resource;
+        var log = new client::SourceSharp.Abi.RecordingLog();
+        var classes = new client::TF2.Shared.TFClassTable(log, new ClientFiles(TFClassTableTests.Files.Shipped()));
+        var data = new ClientTFPlayerData(engine, new client::TF2.Client.Player.TFClientCarriers(),
+                                          new OneShell(), resources, engine, classes,
+                                          new ClientDriver(new HookList([])), log);
+        data.State.BindLocal();
+        data.State.OwnerIndex = 3;
+
+        data.RedressBody();
+        data.RedressBody();
+
+        var writes = engine.Calls.Where(c => c.Member == "EntityRender.SetSkin").ToList();
+        Assert.Equal(2, writes.Count);
+        Assert.All(writes, c => Assert.Equal(1, (int)c.Args[1]!));
+    }
+
     /// <summary>A carrier over one shell at index 3, its words opening on the burning bit.</summary>
     private static (ClientTFPlayerData data, RecordingHook calls) Rig(client::SourceSharp.Client.IClientStandalones? shell = null)
     {

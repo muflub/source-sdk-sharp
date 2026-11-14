@@ -236,6 +236,17 @@ public interface IWeaponBehaviour
     float ItemMeterSeconds(in WeaponType type, int ownerIndex) => 0f;
 
     /// <summary>
+    /// The outgoing weapon's holster-animation seconds for this row and
+    /// owner — stock's <c>holster_anim_time</c> hook on the active weapon's
+    /// item (<c>tf_player_shared.cpp:11804-11816</c>): the first switch away
+    /// starts the anim and the real switch waits that long. Zero switches at
+    /// once, as stock's <c>flHolsterAnimTime &gt; 0</c> gate says. Answered
+    /// from the row and the owner index alone, like
+    /// <see cref="ItemMeterSeconds"/>.
+    /// </summary>
+    float HolsterSeconds(in WeaponType type, int ownerIndex) => 0f;
+
+    /// <summary>
     /// Asked when the weapon comes into the hands, after the side has set the
     /// deploy's timers and sent the draw: stock's per-class Deploy tail.
     /// </summary>

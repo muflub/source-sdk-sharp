@@ -66,6 +66,21 @@ public static class TFHype
     /// (tf_weaponbase.cpp:79).</summary>
     public const float PepMod = 1f;
 
+    /// <summary>The Baby Face's Blaster's row, the speed arm's ownership gate
+    /// (<c>Weapon_OwnsThisID(TF_WEAPON_PEP_BRAWLER_BLASTER)</c>,
+    /// tf_player_shared.cpp:11082).</summary>
+    public const string BrawlerScript = "tf_weapon_pep_brawler_blaster";
+
+    /// <summary>The hyped top speed's scale (:11085's remap ceiling —
+    /// "Make this change based on attrs, hardcode right now").</summary>
+    public const float SpeedScaleMax = 1.45f;
+
+    /// <summary>
+    /// The speed the meter buys the BFB's owner (:11085): the meter 0..100
+    /// (<see cref="FullMeter"/>) remapped onto 1..<see cref="SpeedScaleMax"/>.
+    /// </summary>
+    public static float SpeedScale(float hype) => CritBucket.RemapValClamped(hype, 0f, FullMeter, 1f, SpeedScaleMax);
+
     /// <summary>
     /// Book a dealt hit on the scout's meter: the damage remapped 1..200 onto
     /// 1..50, held at full as stock's <c>Min(100.f, ...)</c> (:7531), the

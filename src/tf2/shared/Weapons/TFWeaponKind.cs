@@ -131,7 +131,15 @@ public static class TFWeaponKinds
 
         switch (script.Id)
         {
+            // The wrench family: the Gunslinger's item2 script is a wrench all the same.
+            case TFWeaponId.Wrench:
+                return TFWeaponKind.Melee;
             case TFWeaponId.Scattergun:
+            // The Soda Popper and the Baby Face's Blaster: CTFScatterGun
+            // subclasses of their own (tf_weapon_shotgun.h:154, :170), the
+            // hype pair.
+            case TFWeaponId.SodaPopper:
+            case TFWeaponId.PepBrawlerBlaster:
             case TFWeaponId.ShotgunPrimary:
             case TFWeaponId.ShotgunSoldier:
             case TFWeaponId.ShotgunHwg:

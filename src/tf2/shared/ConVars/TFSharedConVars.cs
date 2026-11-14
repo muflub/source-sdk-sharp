@@ -264,6 +264,14 @@ public sealed class TFFlagCapsPerRoundConVar : IntConVar { }
 // though only the server's GetDamageRadius reads them
 // (tf_weapon_grenade_pipebomb.cpp:1426-1429).
 
+// ---- shared/tf/tf_weapon_grenade_pipebomb.cpp (the Loose Cannon) ------------
+
+[ConVar("tf_double_donk_window", "0.5", Flags = ConVarFlags.Cheat | ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly,
+        Help = "How long after an impact from a cannonball that an explosion will count as a double-donk.")]
+public sealed class TFDoubleDonkWindowConVar : FloatConVar { }
+
+// ---- shared/tf/tf_gamerules.cpp (the sticky's air-burst radius) -------------
+
 [ConVar("tf_sticky_radius_ramp_time", "2.0",
         Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Cheat | ConVarFlags.Replicated,
         Help = "Amount of time to get full radius after arming")]
@@ -300,6 +308,17 @@ public sealed class TFFlameThrowerFlametimeConVar : FloatConVar { }
         Flags = ConVarFlags.Cheat | ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
 public sealed class TFGrenadeLauncherLiveTimeConVar : FloatConVar { }
 
+// ---- shared/tf/tf_weapon_rocketpack.cpp --------------------------------------
+
+// The thruster landing's push scales (tf_weapon_rocketpack.cpp:69-70): the
+// landing push's force ends, read by the damage layer's fall arm together
+// with the held item's falling_impact_radius_pushback word.
+[ConVar("tf_rocketpack_impact_push_min", "100", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.Hidden)]
+public sealed class TFRocketPackImpactPushMinConVar : FloatConVar { }
+
+[ConVar("tf_rocketpack_impact_push_max", "300", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat | ConVarFlags.Hidden)]
+public sealed class TFRocketPackImpactPushMaxConVar : FloatConVar { }
+
 // ---- shared/tf/tf_player_shared.cpp ------------------------------------------
 
 // tf_player_shared.cpp:173, shared: the scout energy drink's drain, read by
@@ -310,3 +329,10 @@ public sealed class TFGrenadeLauncherLiveTimeConVar : FloatConVar { }
         Flags = ConVarFlags.DevelopmentOnly | ConVarFlags.Replicated,
         Help = "energy drink to use per second while boosted, from 100 max")]
 public sealed class TFScoutEnergydrinkConsumeRateConVar : FloatConVar { }
+
+// ---- shared/tf/tf_weapon_wrench.cpp -----------------------------------------
+
+/// <summary>The whack's share of the build (<c>tf_weapon_wrench.cpp:333</c>, STAGING_ENGY:
+/// value literally <c>"1.5f"</c> in stock).</summary>
+[ConVar("tf_construction_build_rate_multiplier", "1.5f", Flags = ConVarFlags.Replicated | ConVarFlags.DevelopmentOnly)]
+public sealed class TFConstructionBuildRateConVar : FloatConVar { }

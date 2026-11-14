@@ -94,6 +94,21 @@ public interface ITFWeaponHook : IOrderedHook
     float ModifySpread(in TFWeaponHookContext weapon, float spread) => spread;
 
     /// <summary>
+    /// The consecutive-shot gate of <c>GetWeaponSpread</c>
+    /// (<c>mult_spread_scales_consecutive</c>, <c>tf_weaponbase_gun.cpp:874-882</c>):
+    /// stock asks it over a zero scaler, so a hook answers the attribute's walk
+    /// and the cone widens by the shot streak only on a non-zero.
+    /// </summary>
+    float ModifyConsecutiveSpread(in TFWeaponHookContext weapon, float scaler) => scaler;
+
+    /// <summary>
+    /// The weapon's own word on the fixed pellet table
+    /// (<c>fixed_shot_pattern</c>, <c>tf_fx_shared.cpp:425-431</c>): true turns
+    /// the table on where the convar and the match group stand quiet.
+    /// </summary>
+    bool FixedShotPattern(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
     /// The seconds a reload takes — <c>CTFWeaponBase::SetReloadTimer</c>'s
     /// scaled duration (<c>tf_weaponbase.cpp:2266-2331</c>): the script's or
     /// the animation's time as it would stand, which the hooks multiply. The
@@ -259,6 +274,15 @@ public interface ITFWeaponHook : IOrderedHook
     bool FiresFullClip(in TFWeaponHookContext weapon) => false;
 
     /// <summary>
+    /// Whether the gun may keep loading past a full clip while the trigger is
+    /// held (<c>can_overload</c>, <c>CTFWeaponBase::CanOverload</c>,
+    /// tf_weaponbase.cpp:1887-1893): its answer gates the shell-by-shell
+    /// reload's finish (tf_weaponbase.cpp:2064), an overloading gun holding
+    /// the reload open where a plain one finishes on full.
+    /// </summary>
+    bool CanOverload(in TFWeaponHookContext weapon) => false;
+
+    /// <summary>
     /// Whether the shell-by-shell loader of its own turns its singly-reload
     /// off for this item (<c>set_scattergun_no_reload_single</c>,
     /// <c>CTFScatterGun::Reload</c>, tf_weapon_shotgun.cpp:299-309): stock's
@@ -413,6 +437,31 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
         foreach (var hook in All)
             spread = Guard(hook, nameof(ITFWeaponHook.ModifySpread), spread, weapon, static (h, w, v) => h.ModifySpread(in w, v));
         return spread;
+    }
+
+    public float ModifyConsecutiveSpread(in TFWeaponHookContext weapon, float scaler)
+    {
+        foreach (var hook in All)
+            scaler = Guard(hook, nameof(ITFWeaponHook.ModifyConsecutiveSpread), scaler, weapon, static (h, w, v) => h.ModifyConsecutiveSpread(in w, v));
+        return scaler;
+    }
+
+    public bool FixedShotPattern(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.FixedShotPattern(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.FixedShotPattern), e);
+            }
+        }
+
+        return false;
     }
 
     public float ModifyReloadTime(in TFWeaponHookContext weapon, float duration)
@@ -637,6 +686,25 @@ public sealed class TFWeaponHookChain(IHooks<ITFWeaponHook>? hooks = null, ILog?
             catch (Exception e)
             {
                 Report(hook, nameof(ITFWeaponHook.FiresFullClip), e);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Any hook overloading its clip turns the question yes.</summary>
+    public bool CanOverload(in TFWeaponHookContext weapon)
+    {
+        foreach (var hook in All)
+        {
+            try
+            {
+                if (hook.CanOverload(in weapon))
+                    return true;
+            }
+            catch (Exception e)
+            {
+                Report(hook, nameof(ITFWeaponHook.CanOverload), e);
             }
         }
 

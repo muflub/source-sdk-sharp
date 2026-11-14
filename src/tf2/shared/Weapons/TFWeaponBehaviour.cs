@@ -192,6 +192,19 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
         TFItemMeter.ChargeSeconds(_attributes, Parts.Owners, ownerIndex, type.Name,
                                   ScriptOf(in type)?.Id ?? TFWeaponId.None);
 
+    /// <summary>The outgoing weapon's item's holster animation (<c>holster_anim_time</c>).</summary>
+    public const string HolsterAnimAttribute = "holster_anim_time";
+
+    /// <summary>
+    /// The outgoing weapon's holster-animation seconds — stock's hook on the
+    /// active weapon's item (<c>tf_player_shared.cpp:11804-11816</c>), read
+    /// off the row's held item through the owners seam as every other item
+    /// word here is; an item naming none answers zero and the switch goes on
+    /// at once.
+    /// </summary>
+    public virtual float HolsterSeconds(in WeaponType type, int ownerIndex) =>
+        _attributes.Float(0f, HolsterAnimAttribute, Parts.Owners.ItemOf(ownerIndex, type.Name));
+
     /// <summary>
     /// Stock's <c>CTFWeaponBase::Deploy</c> multiplier (<c>tf_weaponbase.cpp:1255-</c>),
     /// asked where a side writes the deploy clocks. The outgoing weapon's item is
@@ -200,16 +213,37 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// weapon never named is nobody's, as an unheld slot has no stamp.
     /// </summary>
     public virtual float ModifyDeployTime(in WeaponType type, float duration, int ownerIndex, string previousWeapon,
-                                          float secondsSincePreviousDeploy) =>
-        ScriptOf(in type) is { } script
-            ? Parts.Hooks.ModifyDeployTime(
-                ContextFor(in type, script, ownerIndex) with
-                {
-                    PreviousItem = ownerIndex > 0 ? Parts.Owners.ItemOf(ownerIndex, previousWeapon) : null,
-                    SecondsSincePreviousDeploy = secondsSincePreviousDeploy,
-                },
-                duration)
-            : duration;
+                                          float secondsSincePreviousDeploy)
+    {
+        if (ScriptOf(in type) is not { } script)
+            return duration;
+
+        var context = ContextFor(in type, script, ownerIndex) with
+        {
+            PreviousItem = ownerIndex > 0 ? Parts.Owners.ItemOf(ownerIndex, previousWeapon) : null,
+            SecondsSincePreviousDeploy = secondsSincePreviousDeploy,
+        };
+
+        // The Escape Plan's mark (Holster at tf_weaponbase_melee.cpp:148-159, the
+        // held refresh at :354-365): a melee whose item answers self_mark_for_death
+        // marks its OWNER for death for the attribute's own seconds (:157, :363).
+        // Stock stamps when the plan is holstered and keeps the stamp alive every
+        // frame while it is held; this build lands both halves on the door the
+        // deploy clocks are written — the outgoing melee marks on the way out, the
+        // incoming one re-stamps on arrival, the same cadence the holstered meter
+        // banks at (Arsenal.cs's deploy note). The mark is the attribute's value
+        // itself, in seconds, and only the side that holds the item names differ.
+        if (ownerIndex > 0 && Parts.Owners.ConditionsOf(ownerIndex) is { } set)
+        {
+            int outgoing = _attributes.Int(0, "self_mark_for_death", context.PreviousItem);
+            int incoming = _attributes.Int(0, "self_mark_for_death", context.Item);
+            int mark = Math.Max(outgoing, incoming);
+            if (mark > 0)
+                set.Add(TFCond.MarkedfordeathSilent, mark);   // :157 — duration IS the attribute
+        }
+
+        return Parts.Hooks.ModifyDeployTime(context, duration);
+    }
 
     /// <summary>
     /// The fired shot's pellets through the chain — stock's
@@ -391,11 +425,12 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>'s first arm
     /// (<c>tf_weaponbase_gun.cpp:844-847</c>): the script cone through the
     /// item's <c>mult_spread_scale</c> (Tomislav, the Back Scatter), stock's
-    /// <c>CALL_ATTRIB_HOOK_FLOAT</c> over the loaded spread — asked before the
-    /// rune, panic and consecutive-shot arms of the function, which wait with
-    /// their carriers. Stock scales the cone's sine and hands it to the shot;
-    /// the row keeps its cone as degrees, so the walk lands on the sine and the
-    /// answer converts back through the pair the row was dressed with
+    /// <c>CALL_ATTRIB_HOOK_FLOAT</c> over the loaded spread — then its third arm
+    /// (<c>:874-882</c>), <c>mult_spread_scales_consecutive</c> widening the cone
+    /// by the streak behind the shot's own counter. The rune and panic arms of the
+    /// function wait with their carriers. Stock scales the cone's sine and hands it
+    /// to the shot; the row keeps its cone as degrees, so the walks land on the
+    /// sine and the answer converts back through the pair the row was dressed with
     /// (<see cref="ShotSpread.SpreadOf"/>, <see cref="TFWeaponTypes.SpreadDegrees"/>).
     /// </summary>
     public virtual float? BulletSpread(in WeaponAttackContext attack)
@@ -403,8 +438,34 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
         if (ScriptOf(attack.Type) is not { } script)
             return null;
 
-        return TFWeaponTypes.SpreadDegrees(Parts.Hooks.ModifySpread(Context(in attack, script),
-                                                                    ShotSpread.SpreadOf(attack.Type.Spread)));
+        var context = Context(in attack, script);
+        float sine = Parts.Hooks.ModifySpread(context, ShotSpread.SpreadOf(attack.Type.Spread));
+
+        // mult_spread_scales_consecutive (:874-882): stock walks the hook over a
+        // zeroed scaler and, when that walk answers non-zero and the weapon has a
+        // shot behind it, scales the cone's sine by the streak's remap — the
+        // comment's entry on the second shot, since the count lands after the
+        // generation (:355): 1.125 there, 1.5 from the sixth on. The streak rides
+        // the weapon's own net state as stock's m_iConsecutiveShots; its only
+        // reset (:974-978) sits beside the hitscan accuracy attribute and waits
+        // with its carriers.
+        float streak = attack.Weapon.BehaviourMeterB;
+        attack.Weapon.BehaviourMeterB = streak + 1f;
+        if (Parts.Hooks.ModifyConsecutiveSpread(context, 0f) != 0f && streak >= 1f)
+            sine *= ConsecutiveScaler(streak);
+
+        return TFWeaponTypes.SpreadDegrees(sine);
+    }
+
+    /// <summary>Stock's <c>RemapValClamped(m_iConsecutiveShots, 1, 5, 1.125, 1.5)</c> (<c>:879</c>).</summary>
+    private static float ConsecutiveScaler(float shots)
+    {
+        float t = (shots - 1f) / 4f;
+        if (t < 0f)
+            t = 0f;
+        else if (t > 1f)
+            t = 1f;
+        return 1.125f + t * 0.375f;
     }
 
     /// <summary>
@@ -412,17 +473,23 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     /// pellet leaves in the fixed pattern when the convar is set
     /// (<c>IsFixedWeaponSpreadEnabled</c> at the shot,
     /// <c>tf_fx_shared.cpp:302</c> — the load is the weapon's own count, before
-    /// any attribute's). Null leaves the random sample: the convar's default
-    /// and every weapon without one.
+    /// any attribute's), or when the convar and the match group stand quiet and
+    /// the held item's own <c>fixed_shot_pattern</c> answers non-zero
+    /// (<c>:425-431</c>, the Panic Attack). Null leaves the random sample: the
+    /// convar's default beside an item without one.
     /// </summary>
     public virtual PelletPattern? FixedPellets(in WeaponAttackContext attack)
     {
-        if (Parts.FixedSpread is not { } fixedSpread || !fixedSpread.Value)
+        bool convar = Parts.FixedSpread is { } fixedSpread && fixedSpread.Value;
+
+        if (ScriptOf(attack.Type) is not { } script)
+            return null;
+
+        if (!convar && !Parts.Hooks.FixedShotPattern(Context(in attack, script)))
             return null;
 
         int pellets = attack.Type.Pellets;
-        if (pellets <= 1 || ScriptOf(attack.Type) is not { } script
-            || (TFWeaponDamageTypes.Of(script.Id) & DamageType.Buckshot) == 0)
+        if (pellets <= 1 || (TFWeaponDamageTypes.Of(script.Id) & DamageType.Buckshot) == 0)
             return null;
 
         // The wide/narrow pick compares the scaled count: stock applies
@@ -571,6 +638,19 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
     }
 
     /// <summary>
+    /// The busy frame's skill, the arm above (:2388-2396): a reload does not
+    /// silence the class special — the demoman detonates mid-reload. Virtual
+    /// for the kind whose busy frame runs its own secondary instead
+    /// (<c>CTFSodaPopper::ItemBusyFrame</c>'s drink, tf_weapon_shotgun.cpp:469-481).
+    /// </summary>
+    protected virtual void BusySkill(in WeaponAttackContext attack)
+    {
+        // Ungated as the arm was: the skill's state is predicted, the replay
+        // re-runs it, the visuals gate inside.
+        Parts.Effects.ClassSpecialSkill(in attack);
+    }
+
+    /// <summary>
     /// The stock base classes' secondary: <c>CTFWeaponBaseGun::SecondaryAttack</c>
     /// (<c>tf_weaponbase_gun.cpp:234-251</c>), the melee's and the knife's
     /// (<c>tf_weaponbase_melee.cpp:244</c>, <c>tf_weapon_knife.cpp:304</c>),
@@ -677,9 +757,7 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
         else if (weapon.InReload && (weapon.BehaviourMode & ModeInAttack2) == 0)
         {
             weapon.BehaviourMode |= ModeInAttack2;
-            // Ungated as above: the skill's state is predicted, the replay
-            // re-runs it, the visuals gate inside.
-            Parts.Effects.ClassSpecialSkill(in attack);
+            BusySkill(in attack);
         }
 
         // The carried item's charge meter: stock fills it once a frame from
@@ -854,7 +932,13 @@ public class TFWeaponBehaviour(TFWeaponParts parts, AttributeHooks? attributes =
             weapon.Reserve--;
         }
 
-        if (weapon.Clip >= clipSize || weapon.Reserve <= 0)
+        // TF_RELOAD_FINISH's gate (tf_weaponbase.cpp:2064): the load finishes
+        // on full-or-empty only for a gun that does not overload; an
+        // overloading gun (the Beggar's Bazooka, <c>CanOverload</c>) holds
+        // the reload open and lets the held trigger's fire carry the rounds
+        // out — the abort arm above is its finish once one is pressed.
+        if ((weapon.Clip >= clipSize || weapon.Reserve <= 0)
+            && !Parts.Hooks.CanOverload(Context(in attack, script)))
         {
             // TF_RELOAD_FINISH, once there is nothing left to load (:2080).
             SendAnim(attack, WeaponAnim.ReloadFinish);

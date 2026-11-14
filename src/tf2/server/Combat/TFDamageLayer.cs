@@ -106,7 +106,10 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                                   IEngineSound sound, IEngineGameEvents events, ITFMedigunWeapons mediguns,
                                   IEngineDamage hurt, ITFPlayerHealing healing,
                                   ITempEnts temps, IEnginePrecache precache,
-                                  IEngineNetworking networking, ITFSpyState? spies = null)
+                                  IEngineNetworking networking, IEngineWorldQuery world,
+                                  TFRocketPackImpactPushMinConVar rocketPackPushMin,
+                                  TFRocketPackImpactPushMaxConVar rocketPackPushMax,
+                                  ITFSpyState? spies = null)
     : IDamageModifier, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -151,6 +154,10 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     /// <c>m_pMarkedForDeathTarget</c> per player: the earlier mark loses its
     /// condition when a new one lands (:5479-5482).</summary>
     private readonly Dictionary<EntityHandle, EntityHandle> _markedForDeath = [];
+
+    // The scattergun shove's banked pellet damage, per victim and attacker,
+    // until the frame's flush totals the shot (the comment at the arm).
+    private readonly List<(EntityHandle Victim, EntityHandle Attacker, float Damage)> _shoves = [];
 
     public int HookOrder => Order;
 
@@ -274,8 +281,49 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         if ((bits & DamageType.Fall) != 0)
         {
             int maxHealth = classes[victim.Class()].MaxHealth;
-            damage = TFFallDamage.Damage(TFFallDamage.FallSpeedOf(damage), maxHealth, fallDisableSpread.Value,
-                                         random.RandomFloat);
+            float fallSpeed = TFFallDamage.FallSpeedOf(damage);
+            damage = TFFallDamage.Damage(fallSpeed, maxHealth, fallDisableSpread.Value, random.RandomFloat);
+
+            // The boots' stomp (CTFPlayerShared::CanFallStomp, tf_player_shared.cpp:7909-7918;
+            // the transfer over the ground entity at tf_player.cpp:8962-8979): a faller landing
+            // on another player whose rocketpack cond or boots_falling_stomp answers — the
+            // attribute's ON_OTHER walk sits over the player, the manager's root — and whose
+            // team differs hands the blow over instead of taking it: ten plus thrice the whole
+            // fall to the one stood on, nothing to the faller (:8968-8973). It runs before the
+            // thruster's landing below, which still opens its ring and floors the faller's
+            // nothing at one (:9037). The ground word is the mover's own
+            // (<c>SsPlayer.GroundIndex</c>), as the mover's publisher fills it.
+            if (directory.Get(hit.Victim) is SsPlayer faller
+                && faller.GroundIndex >= 0
+                && enginePlayers.GetHandle(faller.GroundIndex) is { } under
+                && entities.IsValid(under) && entities.IsPlayer(under)
+                && (victimConds.Has(TFCond.Rocketpack)
+                    || attributes.Int(0, "boots_falling_stomp", owners.ManagerOf(victimIndex)) != 0)
+                && enginePlayers.GetTeam(hit.Victim) != enginePlayers.GetTeam(under))
+            {
+                hurt.TakeDamage(under, hit.Victim, 10f + damage * 3f, DamageType.Fall);
+                damage = 0f;
+            }
+
+            // The thruster's landing (tf_player.cpp:8991-9038): the held
+            // item's own word opens the impact ring, and the fall keeps a
+            // quarter of its bite under the rocket-pack cond. Stock's stun
+            // half (:9001-9007, falling_impact_radius_stun) rides the stun
+            // stack's ledger and waits for that row.
+            if (victimConds.Has(TFCond.Rocketpack))
+            {
+                if (attributes.Int(0, "falling_impact_radius_pushback",
+                                  owners.ActiveItemOf(victimIndex)) != 0)
+                {
+                    float radius = RemapClamped(fallSpeed, 100f, 1000f, 150f, 220f);   // :8998
+                    float force = RemapClamped(fallSpeed, 100f, 1000f,
+                                               rocketPackPushMin.Value, rocketPackPushMax.Value);   // :8997
+                    RocketPackImpact(hit.Victim, radius, force);   // :9009, :9013-9034
+                }
+
+                damage = Math.Max(damage * 0.25f, 1f);             // :9037
+            }
+
             if (!(damage > 0f))
                 return 0f;
         }
@@ -362,6 +410,10 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // The behind-tests' geometry (tf_gamerules.cpp:6050-6053, :6319-6323):
         // the way from the attacker to the victim, and the victim's eye angles.
         // The airborne arms' state (CTFPlayer::InAirDueToExplosion) per side.
+        // The double donk's read (:6205) runs only under its own gate's shape,
+        // a cannon's blast on a player (IsDoubleDonk, the weapon id's check).
+        bool doubleDonk = weapon == TFWeaponId.Cannon && (bits & DamageType.Blast) != 0 && attackerIsPlayer
+            && carriers.Part<TFDonkVictims>(hit.Attacker.EntryIndex) is { } donks && donks.Donked(hit.Victim);
         var input = new TFHit(damage, bits, custom, self, attackerIsPlayer, weapon, distance, victimConds, attackerConds,
                               weaponItem, SameClass: attackerPlayer is { } a && victim.Class() == a.Class(),
                               VictimWaterLevel: WaterLevel(hit.Victim), DeflectedProjectile: deflectedProjectile,
@@ -372,7 +424,8 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                               VictimAirborne: InAirDueToExplosion(hit.Victim, victimConds),
                               DirectRocketHit: directRocketHit,
                               VictimItem: owners.ActiveItemOf(victimIndex),
-                              AfterburnDuration: afterburns.Of(victimIndex)?.Burn.AfterburnDuration);
+                              AfterburnDuration: afterburns.Of(victimIndex)?.Burn.AfterburnDuration,
+                              DoubleDonk: doubleDonk);
         var settings = new TFDamageSettings(range.Value, disableSpread.Value, critFalloff.Value, miniCritFalloff.Value);
         var result = TFDamageModifyRules.Apply(in input, in settings, random.RandomFloat, attributes);
 
@@ -617,6 +670,16 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
             _markedForDeath[hit.Attacker] = hit.Victim;
         }
 
+        // THE DEAD RINGER'S FEIGN (tf_player.cpp:9673-9692): once the hit's
+        // number settled, the spy's own arm answers — telefrag and croc hits
+        // stand outside (:9673, the kinds the watch never answers through),
+        // and otherwise the watch's ready gate, the taunt guard and the death
+        // itself ride FeignDeathHit. Stock runs the arm in OnTakeDamage's
+        // tail, right where the held weapon's post-hit effects follow
+        // (:9695-9698), so it stands beside them here.
+        if (victim.Class() == TFClass.Spy)
+            spies?.FeignDeathHit(victimIndex);
+
         // THE SCATTERGUN'S SHOVE (CTFScatterGun::ApplyPostHitEffects,
         // tf_weapon_shotgun.cpp:369-409, called from the tail of the victim's
         // OnTakeDamage, tf_player.cpp:9695-9698): the Force-a-Nature's hit
@@ -629,6 +692,15 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
         // truce and rune arms and the vulnerability scales wait with the
         // airblast's (TFFlameEffects' note); the spunup immunity needs the
         // heavy's attr, carried by no row yet.
+        //
+        // Stock's hit is the SHOT'S: its FireBullets walks the pellets into a
+        // multi-damage (tf_fx_shared.cpp:396's ApplyMultiDamage), so the
+        // OnTakeDamage that reaches here carries every pellet's summed damage
+        // and the :52 gate reads the whole blast. Ours applies per pellet, the
+        // layer once each — no pellet of a real shot reaches the 30 alone — so
+        // the arm banks the pellet's share and the shot's total decides at the
+        // frame's flush (<see cref="FlushShoves"/>, the victim's
+        // TFScattergunKnockback tick).
         if (!fromScope && attackerIsPlayer && weaponName.Length > 0
             && scripts.Get(weaponName) is { } shoveScript
             && TFWeaponKinds.Of(shoveScript) == TFWeaponKind.Shotgun
@@ -636,27 +708,15 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
                               owners.ItemOf(hit.Attacker.EntryIndex, weaponName)) != 0
             && players.Predicted(victimIndex) is not { WeaponKnockback: true }
             && !victimConds.Has(TFCond.Megaheal) && !victimConds.Has(TFCond.ImmuneToPushback)
-            && result.Damage > ScattergunKnockbackMinDamage
             && distance is { } shoveDistance && shoveDistance * shoveDistance < ScattergunKnockbackMaxRangeSq)
         {
-            Vector shoveDirection = (entities.GetWorldSpaceCenter(hit.Attacker)
-                                   - entities.GetWorldSpaceCenter(hit.Victim)).Normalized;
-            (Vector shoveMins, Vector shoveMaxs) = entities.GetBounds(hit.Victim);
-            Vector shove = shoveDirection * -TFRadiusDamage.DamageForce(shoveMaxs - shoveMins, result.Damage,
-                                                                       ScattergunKnockbackForceScale)
-                         + new Vector(0f, 0f, TFAirBlastDefs.JumpMinSpeed);
-
-            if (networking.EntityGetState(hit.Victim, out _).HasFlag(EntityState.OnGround)
-                && shove.Z < TFAirBlastDefs.JumpMinSpeed)
-                shove = new Vector(shove.X, shove.Y, TFAirBlastDefs.JumpMinSpeed);
-
-            if (players.Predicted(victimIndex) is { } shovedState)
-                shovedState.WeaponKnockback = true;
-
-            conditions.Add(hit.Victim, TFCond.KnockedIntoAir);
-            entities.ApplyVelocityImpulse(hit.Victim, shove, clearGround: true);
-            carriers.Part<TFStunStack>(victimIndex)?.Stun(hit.Victim, TFScattergunBehaviour.StunTime, 1f,
-                TFStunFlags.Movement | TFStunFlags.MovementForwardOnly, hit.Attacker);
+            EntityHandle shoveVictim = hit.Victim;
+            EntityHandle shoveAttacker = hit.Attacker;
+            int at = _shoves.FindIndex(shove => shove.Victim == shoveVictim && shove.Attacker == shoveAttacker);
+            if (at >= 0)
+                _shoves[at] = (shoveVictim, shoveAttacker, _shoves[at].Damage + result.Damage);
+            else
+                _shoves.Add((shoveVictim, shoveAttacker, result.Damage));
         }
 
         // THE GAME STATS (Event_PlayerDamage, tf_gamestats.cpp:1033-1089,
@@ -987,6 +1047,134 @@ public sealed class TFDamageLayer(ITFPlayerData players, IEnginePlayers enginePl
     private bool FullyCharged(EntityHandle attacker) =>
         directory.Get(enginePlayers.GetActiveWeaponEntity(attacker)) is SsWeapon { State: { } state }
         && TFSniperRifleBehaviour.Charge(state, clock.Now) >= TFSniperRifleBehaviour.DamageMax;
+
+    /// <summary>
+    /// The landing's two impact halves: the ring of living enemies thrown up
+    /// and away (<c>CTFGameRules::PushAllPlayersAway</c>,
+    /// <c>tf_gamerules.cpp:21509-21537</c>), then the burning teammates in
+    /// sight of the landing put out (<c>tf_player.cpp:9014-9034</c>). The
+    /// bonus-points half (:9033) rides the gamestats ledger, which waits
+    /// there too.
+    /// </summary>
+    private void RocketPackImpact(EntityHandle landingPlayer, float radius, float force)
+    {
+        Vector origin = entities.GetOrigin(landingPlayer);
+        int landingTeam = enginePlayers.GetTeam(landingPlayer);
+
+        Span<EntityHandle> nearby = stackalloc EntityHandle[16];
+        int count = world.EntitiesInSphere(origin, radius, nearby);
+
+        // The ring (:21518-21530): living enemies whose eye sits inside it,
+        // thrown along the flat line out with a full unit of lift.
+        for (int i = 0; i < count; i++)
+        {
+            EntityHandle other = nearby[i];
+            if (other == EntityHandle.None || other == landingPlayer
+                || !enginePlayers.IsAlive(other) || enginePlayers.GetTeam(other) == landingTeam)
+                continue;
+
+            Vector toPlayer = entities.GetEyePosition(other) - origin;
+            float dx = toPlayer.X, dy = toPlayer.Y, dz = toPlayer.Z;
+            if (dx * dx + dy * dy + dz * dz >= radius * radius)
+                continue;
+
+            float len = MathF.Sqrt(dx * dx + dy * dy + dz * dz);                       // :21525
+            Vector away = len > 0f ? new Vector(dx / len, dy / len, 1f) : new Vector(0f, 0f, 1f);   // :21524-21526
+            entities.ApplyVelocityImpulse(other, away * force, clearGround: false);   // :21528-21530
+        }
+
+        // The teammates (:9014-9034): living, of the landing team, in sight —
+        // the burning taken off and the flame-out heard.
+        for (int i = 0; i < count; i++)
+        {
+            EntityHandle other = nearby[i];
+            if (other == EntityHandle.None || !entities.IsPlayer(other) || !enginePlayers.IsAlive(other))
+                continue;
+            if (enginePlayers.GetTeam(other) != landingTeam)
+                continue;
+
+            Vector teammateOrigin = entities.GetOrigin(other);
+            float ox = teammateOrigin.X - origin.X, oy = teammateOrigin.Y - origin.Y, oz = teammateOrigin.Z - origin.Z;
+            if (ox * ox + oy * oy + oz * oz > radius * radius)
+                continue;
+
+            if (!conditions.InCond(other, TFCond.Burning))
+                continue;
+
+            // FVisible, MASK_OPAQUE (:9028): the landing eye's line to the
+            // teammate, stopped only by the world and the teammate itself.
+            TraceResult seen = world.TraceLine(entities.GetEyePosition(landingPlayer), teammateOrigin,
+                                               TraceMask.Solid, landingPlayer);
+            if (seen.Hit && seen.Entity != other)
+                continue;
+
+            conditions.Remove(other, TFCond.Burning);                        // :9031
+            sound.EmitSoundAtPosition("TFPlayer.FlameOut", teammateOrigin);  // :9032
+        }
+    }
+
+    /// <summary><c>RemapValClamped</c> (mathlib.h): <paramref name="val"/>'s
+    /// place in the source range, taken on the destination range, ends
+    /// included.</summary>
+    private static float RemapClamped(float val, float aMin, float aMax, float bMin, float bMax)
+        => bMin + (bMax - bMin) * Math.Clamp((val - aMin) / (aMax - aMin), 0f, 1f);
+
+    /// <summary>
+    /// The victim's banked shoves, spent: the frame's tick (the victim's
+    /// <see cref="TFScattergunKnockback"/>) totals each attacker's banked
+    /// damage and, one over <see cref="ScattergunKnockbackMinDamage"/>, shoves
+    /// the pair — stock's gate over the shot's whole multi-damage
+    /// (<c>tf_weapon_shotgun.cpp:52</c>). The first shove sets the airtime's
+    /// latch; the victim's other banked pairs die with it, the same pairs
+    /// stock's per-event latch would have refused. A shot that never reaches
+    /// the gate leaves nothing banked behind.
+    /// </summary>
+    public void FlushShoves(int victimIndex)
+    {
+        bool banked = false;
+        bool shoved = false;
+
+        for (int i = 0; i < _shoves.Count; i++)
+        {
+            (EntityHandle victim, EntityHandle attacker, float damage) = _shoves[i];
+            if (victim.EntryIndex != victimIndex)
+                continue;
+
+            banked = true;
+            if (!shoved && damage > ScattergunKnockbackMinDamage)
+            {
+                Shove(victim, attacker, damage);
+                shoved = true;
+            }
+        }
+
+        if (banked)
+            _shoves.RemoveAll(shove => shove.Victim.EntryIndex == victimIndex);
+    }
+
+    /// <summary>The shove itself, the arm's body over the shot's total damage.</summary>
+    private void Shove(EntityHandle victim, EntityHandle attacker, float damage)
+    {
+        int victimIndex = victim.EntryIndex;
+        Vector shoveDirection = (entities.GetWorldSpaceCenter(attacker)
+                               - entities.GetWorldSpaceCenter(victim)).Normalized;
+        (Vector shoveMins, Vector shoveMaxs) = entities.GetBounds(victim);
+        Vector shove = shoveDirection * -TFRadiusDamage.DamageForce(shoveMaxs - shoveMins, damage,
+                                                                   ScattergunKnockbackForceScale)
+                     + new Vector(0f, 0f, TFAirBlastDefs.JumpMinSpeed);
+
+        if (networking.EntityGetState(victim, out _).HasFlag(EntityState.OnGround)
+            && shove.Z < TFAirBlastDefs.JumpMinSpeed)
+            shove = new Vector(shove.X, shove.Y, TFAirBlastDefs.JumpMinSpeed);
+
+        if (players.Predicted(victimIndex) is { } shovedState)
+            shovedState.WeaponKnockback = true;
+
+        conditions.Add(victim, TFCond.KnockedIntoAir);
+        entities.ApplyVelocityImpulse(victim, shove, clearGround: true);
+        carriers.Part<TFStunStack>(victimIndex)?.Stun(victim, TFScattergunBehaviour.StunTime, 1f,
+            TFStunFlags.Movement | TFStunFlags.MovementForwardOnly, attacker);
+    }
 }
 
 /// <summary>

@@ -58,3 +58,27 @@ tf_weapon_sentry_revenge: the Frontier Justice (items 141, 1004), the engineer's
 revenge-crit shotgun, for the hook facts' id-69 guard (TFRevengeHook's shot
 bookends, CTFShotgun_Revenge). Extracted and trimmed exactly as
 TestData/weapons/README describes.
+
+tf_weapon_cannon: the demoman's Loose Cannon, a stand-in copied from the grenade
+launcher's fixture for the table's kind and catalogue facts; the shipped script
+deploys and fires in a live boot (items_working.tsv row 996).
+tf_weapon_soda_popper, tf_weapon_pep_brawler_blaster: the scout's hype pair
+(items_working.tsv:151, :199), the two scattergun skins of CTFScatterGun
+(TFWeaponKinds.Of's Shotgun case, the Soda Popper's drink and the hype speed).
+Extracted and trimmed exactly as TestData/weapons/README describes.
+
+tf_weapon_bat_giftwrap: the Wrap Assassin (items_working.tsv:648), the scout bat
+whose alt-fire is the ornament ball (CTFBat_Giftwrap over CTFBat_Wood,
+tf_weapon_bat.cpp) — the primary_ammo TF_AMMO_GRENADES1 row the effect bar
+purse stands for. Extracted and trimmed exactly as TestData/weapons/README
+describes.
+tf_weapon_rocketpack: the Thermal Thruster (items_working.tsv:329), the
+pyro's thruster secondary, for the landing-push facts (TFDamageLayer's fall
+arm's RocketPackImpact ring, the held item's falling_impact_radius_pushback
+word, the tf_rocketpack_impact_push pair). Extracted and trimmed exactly as
+TestData/weapons/README describes.
+
+tf_weapon_jar_gas: the Gas Passer (items_working.tsv:330), the pyro's gas
+jar, for the meter rows (TFItemMeter's charge seconds, TFWeaponScript's
+ProjectileType of projectile_jar_gas). Extracted and trimmed exactly as
+TestData/weapons/README describes.

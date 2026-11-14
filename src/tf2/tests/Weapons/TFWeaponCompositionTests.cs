@@ -99,6 +99,9 @@ public sealed class TFWeaponCompositionTests
         // ITFPlayerData and ITFPlayerConditions come from TFPlayerCarriers and
         // TFPlayerConditions, the scan's own registrations.
         c.AddInstance(new SourceSharp.Server.DamageHitGroups());
+        // The melee blast (the Caber's kaboom) scopes its hits through the
+        // inflictor stack, as ServerModule registers it for the game.
+        c.AddInstance(new SourceSharp.Server.DamageInflictors());
         c.AddInstance<SourceSharp.Abi.IUniformRandom>(new TF2.Tests.Combat.BandRandom());
         c.AddInstance<SourceSharp.Abi.IGameClock>(engine);
         c.AddInstance<SourceSharp.Abi.IEngineEnvironment>(engine);
@@ -246,6 +249,7 @@ public sealed class TFWeaponCompositionTests
             h => Assert.IsType<TFCritBoostHook>(h),
             h => Assert.IsType<TFKingReloadHook>(h),
             h => Assert.IsType<TFHealedReloadHook>(h),
+            h => Assert.IsType<TF2.Server.Weapons.TFRevengeHook>(h),
             h => Assert.IsType<TFKnifeHook>(h),
             h => Assert.IsType<TFWrenchHook>(h));
     }

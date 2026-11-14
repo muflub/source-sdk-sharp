@@ -116,6 +116,26 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
         attributes.Float(spread, "mult_spread_scale", weapon.Item);
 
     /// <summary>
+    /// <c>CTFWeaponBaseGun::GetWeaponSpread</c>' third arm
+    /// (<c>tf_weaponbase_gun.cpp:874-882</c>): stock walks
+    /// <c>mult_spread_scales_consecutive</c> over a zeroed <c>flScaler</c>; the
+    /// walk's non-zero is the arm's gate, the scaler itself the streak's remap
+    /// (<see cref="TFWeaponBehaviour.BulletSpread"/>). The Panic Attack wears it.
+    /// </summary>
+    public float ModifyConsecutiveSpread(in TFWeaponHookContext weapon, float scaler) =>
+        attributes.Float(scaler, "mult_spread_scales_consecutive", weapon.Item);
+
+    /// <summary>
+    /// <c>IsFixedWeaponSpreadEnabled</c>' weapon arm
+    /// (<c>tf_fx_shared.cpp:425-431</c>): the item's <c>fixed_shot_pattern</c>
+    /// through stock's non-zero test — the weapon forces the fixed pattern on
+    /// even when the convar and the match group ask for none. The Panic Attack
+    /// wears it beside its streak.
+    /// </summary>
+    public bool FixedShotPattern(in TFWeaponHookContext weapon) =>
+        weapon.Item is { } item && attributes.Int(0, "fixed_shot_pattern", item) != 0;
+
+    /// <summary>
     /// <c>CTFWeaponBase::SetReloadTimer</c>'s four multiplies
     /// (<c>tf_weaponbase.cpp:2274-2277</c>): the item's
     /// <c>mult_reload_time</c>, <c>mult_reload_time_hidden</c> and
@@ -146,6 +166,10 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     /// <summary><c>AutoFiresFullClip</c>'s attribute (tf_weaponbase.cpp:1871-1876).</summary>
     public bool FiresFullClip(in TFWeaponHookContext weapon) =>
         weapon.Item is { } item && attributes.Int(0, "auto_fires_full_clip", item) != 0;
+
+    /// <summary><c>CanOverload</c>'s attribute (tf_weaponbase.cpp:1887-1893), the same non-zero test.</summary>
+    public bool CanOverload(in TFWeaponHookContext weapon) =>
+        weapon.Item is { } item && attributes.Int(0, "can_overload", item) != 0;
 
     /// <summary>
     /// <c>CTFScatterGun::Reload</c>'s attribute (<c>tf_weapon_shotgun.cpp:299-309</c>):

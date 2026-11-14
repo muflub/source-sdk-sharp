@@ -78,6 +78,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
     private readonly TFSpyInvisUnstealthTimeConVar _invisUnstealth;
     private readonly TFDemomanChargeDrainTimeConVar? _chargeDrain;
     private readonly TFDemomanChargeRegenRateConVar? _chargeRegen;
+    private readonly TFScoutEnergydrinkConsumeRateConVar? _hypeConsume;
 
     private readonly TFPlayerNetState _working = new();
     private readonly PredictionRing _ring = new();
@@ -118,7 +119,8 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
                               TFSpyCloakConsumeRateConVar cloakConsume, TFSpyCloakRegenRateConVar cloakRegen,
                               TFSpyInvisTimeConVar invisTime, TFSpyInvisUnstealthTimeConVar invisUnstealth,
                               TFDemomanChargeDrainTimeConVar? chargeDrain = null,
-                              TFDemomanChargeRegenRateConVar? chargeRegen = null)
+                              TFDemomanChargeRegenRateConVar? chargeRegen = null,
+                              TFScoutEnergydrinkConsumeRateConVar? hypeConsume = null)
     {
         _log = log;
         _carriers = carriers;
@@ -131,6 +133,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         _invisUnstealth = invisUnstealth;
         _chargeDrain = chargeDrain;
         _chargeRegen = chargeRegen;
+        _hypeConsume = hypeConsume;
         _working.BindLocal();
     }
 
@@ -212,6 +215,7 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
         _cloakCommands++;
         CloakTick(now);
         ChargeTick(now);
+        HypeTick();
 
         if (_scratch.Length > 0 && _working.CopyTo(_scratch) == _scratch.Length
             && _ring.SaveCommand(commandNumber, _scratch))
@@ -519,6 +523,29 @@ public sealed class TFPlayerPrediction : IClientPredictedState, IOrderedHook, IT
             float regen = MathF.Max(_chargeRegen?.Value ?? 8.3f, 1f);     // :6040-6052
             _working.ChargeMeter = MathF.Min(100f, _working.ChargeMeter + dt * regen);  // :6053-6057
         }
+    }
+
+    /// <summary>
+    /// The hype drain's replay half (<c>UpdateEnergyDrinkMeter</c> through
+    /// <c>ConditionThink</c>, tf_player_shared.cpp:14071-14078): while the
+    /// Soda Popper's buff stands, the meter pays the frame at the consume
+    /// rate times stock's 0.75, and an emptied meter takes the condition. The
+    /// server's half is the <c>TFHypeDrain</c> component; this is its mirror,
+    /// the same frame the command's own ticks run.
+    /// </summary>
+    private void HypeTick()
+    {
+        float dt = Interval;
+
+        if (_working.Class() != TFClass.Scout)                                // :14059
+            return;
+
+        if (!_working.InCond(TFCond.SodapopperHype))
+            return;
+
+        _working.HypeMeter -= dt * (_hypeConsume?.Value ?? 12.5f) * 0.75f;    // :14073, no clamp
+        if (_working.HypeMeter <= 0f)                                         // :14074
+            _working.SetConditions(_working.Conditions() & ~TFCondMask.Of(TFCond.SodapopperHype));
     }
 
     /// <summary>

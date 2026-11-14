@@ -9,6 +9,8 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
 
+using TF2.Server.Combat;
+
 using TF2.Shared;
 
 namespace TF2.Server.Player;
@@ -20,8 +22,15 @@ namespace TF2.Server.Player;
 /// ground flag is stripped — the seam's clearGround, the flag and the ground
 /// entity with it, as the airblast's comment carries — and the wielder eats
 /// the 0.3 s forward-only movement stun the fire pays for.
+///
+/// <para>
+/// The tick is the wielder's OTHER half, spent: the victim's banked shoves
+/// (<c>ApplyPostHitEffects</c>' shot-total gate, the damage layer's flush) —
+/// the frame's damage is long since dealt when this stage runs.
+/// </para>
 /// </summary>
-public sealed class TFScattergunKnockback(TFPlayerCarriers carriers, IEngineEntities entities) : IPlayerComponent
+public sealed class TFScattergunKnockback(TFPlayerCarriers carriers, IEngineEntities entities,
+                                          TFDamageLayer? layer = null) : IPlayerComponent
 {
     /// <summary>Between the taunt attack (27) and the stun stack (30): the
     /// stun lands on a stack that is already there.</summary>
@@ -37,7 +46,7 @@ public sealed class TFScattergunKnockback(TFPlayerCarriers carriers, IEngineEnti
         carriers.EnterPart(_index, this);
     }
 
-    public void Tick(float now) { }
+    public void Tick(float now) => layer?.FlushShoves(_index);
 
     public void Detach()
     {

@@ -16,9 +16,22 @@ namespace TF2.Tests.Weapons;
 public sealed class TFScattergunBehaviourTests
 {
     private const int Attack = (int)InputButtons.Attack;
+    private const int Attack2 = (int)InputButtons.Attack2;
     private const string Scattergun = "tf_weapon_scattergun";
 
     private static int _nextDef = 9100;
+
+    private const string SodaPopper = "tf_weapon_soda_popper";
+
+    /// <summary>A world over the extras whose predicted carrier is the one
+    /// <see cref="FakePredictedData"/> answers: the popper's facts, the meter
+    /// the drink reads.</summary>
+    private static TFWeaponWorld HypedWorld(TFPlayerNetState carrier)
+    {
+        var data = new FakePredictedData { Carrier = carrier };
+        carrier.BindLocal();
+        return new(data, null, null, WeaponFixtures.WithExtras(WeaponFixtures.ShippedWithClasses()), null);
+    }
 
     /// <summary>An item whose named hook holds one additive value.</summary>
     private static IAttributeProvider ItemWith(string hook, float value)
@@ -104,5 +117,80 @@ public sealed class TFScattergunBehaviourTests
 
         Assert.False(plainCarrier.ScattergunJump);
         Assert.Equal(new Vector(100f, 40f, 10f), plain.Arms.Carrier!.Velocity);
+    }
+
+    [Fact]
+    public void A_full_meter_at_the_secondary_arms_the_hype()
+    {
+        // CTFSodaPopper::SecondaryAttack (tf_weapon_shotgun.cpp:484-494): the
+        // pressed secondary is the drink, the buff's own standing the only
+        // debounce, and no base's class skill runs with it.
+        var carrier = new TFPlayerNetState();
+        var world = HypedWorld(carrier);
+        carrier.HypeMeter = TFHype.FullMeter;
+        var (w, vm) = world.Armed(SodaPopper, clip: 6, reserve: 12);
+        var conditions = world.Owners.Of(TFWeaponWorld.Owner);
+
+        world.Run(w, vm, Attack2, 10f);
+
+        Assert.True(conditions.Has(TFCond.SodapopperHype));
+        Assert.Empty(world.Effects.ClassSkills);
+    }
+
+    [Fact]
+    public void A_short_meter_or_the_standing_buff_arms_nothing()
+    {
+        var shortCarrier = new TFPlayerNetState();
+        var shortWorld = HypedWorld(shortCarrier);
+        shortCarrier.HypeMeter = TFHype.FullMeter - 1f;
+        var (sw, svm) = shortWorld.Armed(SodaPopper, clip: 6, reserve: 12);
+        var shortConditions = shortWorld.Owners.Of(TFWeaponWorld.Owner);
+
+        shortWorld.Run(sw, svm, Attack2, 10f);
+
+        Assert.False(shortConditions.Has(TFCond.SodapopperHype));
+
+        var hypedCarrier = new TFPlayerNetState();
+        var hypedWorld = HypedWorld(hypedCarrier);
+        var (hw, hvm) = hypedWorld.Armed(SodaPopper, clip: 6, reserve: 12);
+        var hypedConditions = hypedWorld.Owners.Of(TFWeaponWorld.Owner);
+        hypedConditions.Add(TFCond.SodapopperHype); // IsHypeBuffed, :487
+
+        hypedWorld.Run(hw, hvm, Attack2, 10f);
+
+        Assert.Equal(0f, hypedCarrier.HypeMeter, 4); // the drink touched no meter
+    }
+
+    [Fact]
+    public void The_reload_leaves_the_drink_open()
+    {
+        // ItemBusyFrame's arm (:469-481): the held secondary drinks while the
+        // gun reloads, the machine's own alt-fire arm behind its reload
+        // return — the busy door is the only one this press has.
+        var carrier = new TFPlayerNetState();
+        var world = HypedWorld(carrier);
+        carrier.HypeMeter = TFHype.FullMeter;
+        var (w, vm) = world.Armed(SodaPopper, clip: 0, reserve: 12);
+        var conditions = world.Owners.Of(TFWeaponWorld.Owner);
+
+        world.Run(w, vm, (int)InputButtons.Reload, 10f); // the reload starts
+        Assert.True(w.InReload);
+        world.Run(w, vm, Attack2 | (int)InputButtons.Reload, 10.1f);
+
+        Assert.True(conditions.Has(TFCond.SodapopperHype));
+    }
+
+    [Fact]
+    public void The_plain_scatterguns_secondary_is_the_bases()
+    {
+        var carrier = new TFPlayerNetState();
+        var world = HypedWorld(carrier);
+        carrier.HypeMeter = TFHype.FullMeter;
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 32);
+
+        world.Run(w, vm, Attack2, 10f);
+
+        Assert.Single(world.Effects.ClassSkills);
+        Assert.Equal(TFHype.FullMeter, carrier.HypeMeter, 4);
     }
 }

@@ -9,6 +9,7 @@ using TF2.Server.Weapons;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
+using TF2.Shared.Econ;
 using TF2.Tests.Entities.Items;
 using TF2.Tests.Weapons;
 
@@ -96,14 +97,15 @@ public sealed class TFTauntAttackTests
 
         public TFTauntAttack Attack { get; }
 
-        public TauntRig(TFClass playerClass, TF2.Server.Weapons.ITFLunchboxEffects? lunchbox = null)
+        public TauntRig(TFClass playerClass, TF2.Server.Weapons.ITFLunchboxEffects? lunchbox = null,
+                        ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
         {
             (Fighter, _) = Players.Add(TFTeam.Red, playerClass);
             (Victim, _) = Players.Add(TFTeam.Blue, TFClass.HeavyWeapons);
             Players.All[Fighter].Conditions.Add(TFCond.Taunting);
 
             Damage = new TauntDamage(Scopes);
-            Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities(), lunchbox);
+            Attack = new TFTauntAttack(Carriers, Players, Engine, Engine, Damage, Engine, Engine, Scripts, Scopes, new NoEntities(), lunchbox, owners, hooks);
             Attack.Attach(Fighter);
 
             Engine.Returns("Networking.EntityGetState", EntityState.Solid);
@@ -455,6 +457,74 @@ public sealed class TFTauntAttackTests
         rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_lunchbox");
         rig.Attack.Tick(102.2f);
         Assert.Equal(new[] { rig.Fighter.EntryIndex }, lunch.Bites);
+    }
+
+    /// <summary>The held item's own word on the attack: stock's
+    /// <c>GetTauntAttackByName</c> keys the arm on the held item's
+    /// <c>taunt attack name</c> before the scene's word
+    /// (tf_player.cpp:17483-17495, matched case-insensitively at
+    /// tf_shareddefs.cpp:1066-1075), so the gasblast's box — its own custom
+    /// behind the hadouken's (:18429-18431) — rides a pyro's hadouken taunt
+    /// when the held item says so, on the scene arm's own delay.</summary>
+    [Fact]
+    public void TheGasBlastWordInTheHeldItemNamesTheAttack()
+    {
+        var owners = new FakeOwners();
+        var hooks = new AttributeHooks();
+        var rig = new TauntRig(TFClass.Pyro, null, owners, hooks);
+        owners.Held[rig.Fighter.EntryIndex] = "tf_weapon_scattergun";
+        owners.Items[rig.Fighter.EntryIndex] = NamedItem("TAUNTATK_PYRO_GASBLAST", timeSeconds: null);
+
+        rig.Attack.Arm(TFTauntAttack.PyroHadoukenScene, 100f);
+
+        rig.Attack.Tick(102.05f);
+        Assert.Empty(rig.Damage.Hits);
+
+        rig.Attack.Tick(102.2f);            // the pyro arms' own delay still stands
+        TauntHit hit = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(TFDamageCustom.TauntatkGasblast, hit.Custom);
+    }
+
+    /// <summary>The item's second word, <c>taunt attack time</c>
+    /// (:17490-17494): it overrides the arm's own delay — the shipped
+    /// thermal thruster's 4.7 s of wind-up keeps the hit past the scene's
+    /// 2.1 s and lands it on the item's count.</summary>
+    [Fact]
+    public void TheTimeWordOfTheHeldItemSetsWhenTheAttackLands()
+    {
+        var owners = new FakeOwners();
+        var hooks = new AttributeHooks();
+        var rig = new TauntRig(TFClass.Pyro, null, owners, hooks);
+        owners.Held[rig.Fighter.EntryIndex] = "tf_weapon_scattergun";
+        owners.Items[rig.Fighter.EntryIndex] = NamedItem("TAUNTATK_PYRO_GASBLAST", timeSeconds: 4.7f);
+
+        rig.Attack.Arm(TFTauntAttack.PyroHadoukenScene, 100f);
+
+        rig.Attack.Tick(102.2f);            // the scene's own delay would have fired here
+        Assert.Empty(rig.Damage.Hits);
+
+        rig.Attack.Tick(104.8f);            // past the item's own 4.7 s
+        TauntHit hit = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(TFDamageCustom.TauntatkGasblast, hit.Custom);
+    }
+
+    /// <summary>The held item's two words, as the schema's types carry them:
+    /// the name a string attribute, the time a plain float one.</summary>
+    private static AttributeContainer NamedItem(string attackName, float? timeSeconds)
+    {
+        var item = new AttributeContainer();
+        item.Set(new AttributeValue(
+            new AttributeDefinition(9001, TFTauntAttack.TauntAttackNameAttribute, TFTauntAttack.TauntAttackNameAttribute,
+                                    AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                    false, false, AttributeValueType.String, MergedKeys.Block("tauntname")),
+            0, attackName));
+        if (timeSeconds is { } seconds)
+            item.Set(AttributeValue.OfFloat(
+                new AttributeDefinition(9002, TFTauntAttack.TauntAttackTimeAttribute, TFTauntAttack.TauntAttackTimeAttribute,
+                                        AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                        false, false, AttributeValueType.Default, MergedKeys.Block("taunttime")),
+                seconds));
+        return item;
     }
 
     /// <summary>The bite counter the eat arm's facts read.</summary>
