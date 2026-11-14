@@ -1,0 +1,66 @@
+{
+  "referenceXp": 35,
+  "qualityMin": 0.1,
+  "qualityMax": 25,
+  "itemQualityExponent": 0.5,
+  "australium": { "chancePct": 40, "base": 3, "perDepthPct": 20, "spreadPct": 50, "perExtraMemberPct": 50, "containerChancePct": 50 },
+  "champion": { "itemPctPerAffix": 50, "australiumPctPerAffix": 50, "tierRollsPerAffix": 1, "items": 1, "minRarity": "vintage" },
+  "tables": [
+    {
+      "id": "act1",
+      "outcomes": { "nothing": 80, "potion": 6, "item": 14 },
+      "potions": [ { "base": "health_small", "weight": 3 }, { "base": "mana_small", "weight": 2 }, { "base": "health_medium", "weight": 1 } ],
+      "tiers": [
+        { "rarity": "stock", "weight": 700, "perDepthPct": 0 },
+        { "rarity": "vintage", "weight": 250, "perDepthPct": 2 },
+        { "rarity": "strange", "weight": 45, "perDepthPct": 6 },
+        { "rarity": "unusual", "weight": 5, "perDepthPct": 8 },
+        { "rarity": "australium", "weight": 0, "perDepthPct": 0 }
+      ]
+    },
+    {
+      "id": "act2",
+      "outcomes": { "nothing": 80, "potion": 6, "item": 14 },
+      "potions": [ { "base": "health_medium", "weight": 3 }, { "base": "mana_medium", "weight": 2 }, { "base": "health_small", "weight": 1 } ],
+      "tiers": [
+        { "rarity": "stock", "weight": 700, "perDepthPct": 0 },
+        { "rarity": "vintage", "weight": 250, "perDepthPct": 2 },
+        { "rarity": "strange", "weight": 45, "perDepthPct": 6 },
+        { "rarity": "unusual", "weight": 5, "perDepthPct": 8 },
+        { "rarity": "australium", "weight": 0.3, "perDepthPct": 10 }
+      ]
+    },
+    {
+      "id": "act3",
+      "outcomes": { "nothing": 78, "potion": 7, "item": 15 },
+      "potions": [ { "base": "health_large", "weight": 2 }, { "base": "mana_large", "weight": 1 }, { "base": "health_medium", "weight": 2 }, { "base": "mana_medium", "weight": 1 } ],
+      "tiers": [
+        { "rarity": "stock", "weight": 700, "perDepthPct": 0 },
+        { "rarity": "vintage", "weight": 250, "perDepthPct": 2 },
+        { "rarity": "strange", "weight": 45, "perDepthPct": 6 },
+        { "rarity": "unusual", "weight": 5, "perDepthPct": 8 },
+        { "rarity": "australium", "weight": 0.3, "perDepthPct": 10 }
+      ]
+    },
+    {
+      "id": "container",
+      "outcomes": { "nothing": 30, "potion": 25, "item": 45 },
+      "potions": [ { "base": "health_small", "weight": 2 }, { "base": "mana_small", "weight": 2 }, { "base": "health_medium", "weight": 1 }, { "base": "mana_medium", "weight": 1 } ],
+      "tiers": [
+        { "rarity": "stock", "weight": 600, "perDepthPct": 0 },
+        { "rarity": "vintage", "weight": 300, "perDepthPct": 2 },
+        { "rarity": "strange", "weight": 60, "perDepthPct": 6 },
+        { "rarity": "unusual", "weight": 6, "perDepthPct": 8 },
+        { "rarity": "australium", "weight": 0, "perDepthPct": 0 }
+      ]
+    }
+  ],
+  "bosses": [
+    { "id": "sir_nukesalot", "items": 2, "potions": 2, "potion": "health_medium", "australium": 400,
+      "tiers": [ { "rarity": "vintage", "weight": 70 }, { "rarity": "strange", "weight": 25 }, { "rarity": "unusual", "weight": 4 }, { "rarity": "australium", "weight": 1 } ] },
+    { "id": "major_crits", "items": 3, "potions": 2, "potion": "health_large", "australium": 1200,
+      "tiers": [ { "rarity": "vintage", "weight": 55 }, { "rarity": "strange", "weight": 35 }, { "rarity": "unusual", "weight": 8 }, { "rarity": "australium", "weight": 2 } ] },
+    { "id": "captain_punch", "items": 4, "potions": 3, "potion": "health_large", "australium": 3000,
+      "tiers": [ { "rarity": "vintage", "weight": 40 }, { "rarity": "strange", "weight": 40 }, { "rarity": "unusual", "weight": 15 }, { "rarity": "australium", "weight": 5 } ] }
+  ]
+}

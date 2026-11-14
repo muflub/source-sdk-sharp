@@ -115,6 +115,9 @@ public sealed class TF2DescentServerRegistrar : ISideServiceRegistrar
         registry.AddHooks<ILeaseHook>();
         registry.AddHooks<IHostConnectionHook>();
         registry.AddHooks<IHopReadyHold>();
-        registry.Add<SourceSharp.Host.Contracts.IGameRules, TF2.Descent.Rules.TF2DescentRules>();
+        // One rules instance, under its own type (the hero's services read its
+        // sheet codec and hero rules) and under the contract.
+        registry.Add<TF2.Descent.Rules.TF2DescentRules, TF2.Descent.Rules.TF2DescentRules>();
+        registry.AddFactory<SourceSharp.Host.Contracts.IGameRules>(l => l.Resolve<TF2.Descent.Rules.TF2DescentRules>()!);
     }
 }

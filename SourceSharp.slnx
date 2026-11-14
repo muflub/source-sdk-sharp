@@ -10,6 +10,7 @@
   <Project Path="src/client/ui/host/SourceSharp.Client.Ui.Host.csproj" />
   <Project Path="src/client/ui/analyzers/SourceSharp.Client.Ui.Analyzers.csproj" />
   <Project Path="src/client/ui/analyzers.codefixes/SourceSharp.Client.Ui.Analyzers.CodeFixes.csproj" />
+  <Project Path="src/tf2_descent/ai/TF2.Descent.Ai.csproj" />
   <Project Path="src/tf2_descent/client/TF2.Descent.Client.csproj" />
   <Project Path="src/tf2_descent/rules/TF2.Descent.Rules.csproj" />
   <Project Path="src/tf2_descent/server/TF2.Descent.Server.csproj" />

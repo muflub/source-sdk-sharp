@@ -16,6 +16,14 @@
     <HostSdkVersion>2.6.0</HostSdkVersion>
     <HostContractsVersion>1.0.0</HostContractsVersion>
     <RestoreAdditionalProjectSources>$(HostPackageDir)</RestoreAdditionalProjectSources>
+    <!--
+      SourceSharp.MapFormats, map-tools' reader of a level's .nav3d and .map2d
+      (plan_descent_logic WO1: the server reads the level as data). The AI's
+      copy of this number is src/ai/Directory.Build.props' MapFormatsVersion;
+      both deploy into one bin/managed, so they must be equal, and
+      LevelReaderReferenceTests fails when they are not. Bump both with the lock.
+    -->
+    <DescentMapFormatsVersion>1.0.7</DescentMapFormatsVersion>
   </PropertyGroup>
 
   <!--

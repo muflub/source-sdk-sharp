@@ -2,6 +2,7 @@ using System.Text.Json;
 using TF2.Descent.Rules.Bestiary;
 using TF2.Descent.Rules.Death;
 using TF2.Descent.Rules.Furniture;
+using TF2.Descent.Rules.Horde;
 using TF2.Descent.Rules.Robots;
 
 namespace TF2.Descent.Rules.Content;
@@ -30,6 +31,7 @@ public static class ContentTables
     public const string SkillTabs = "skill_tabs";
     public const string Skills = "skills";
     public const string Spells = "spells";
+    public const string Horde = "horde";
 
     public static IReadOnlyList<ContentTable> All() =>
     [
@@ -53,6 +55,8 @@ public static class ContentTables
         new Items.DurabilityTable(),
         new Economy.EconomyTable(),
         new Inventory.InventoryTable(), new Economy.VendorTable(),
+        new HordeTable(),
+        new Loot.LootTable(), new Loot.ExperienceTable(),
     ];
 
     /// <summary>The names of <see cref="All"/>, in order.</summary>

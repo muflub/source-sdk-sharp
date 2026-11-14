@@ -47,8 +47,8 @@ public sealed class DeathServiceTests
             Calls.Add($"join {peer} {engineSteamId} {boot.InstanceKind} {className}");
             return Task.FromResult(JoinAnswer with { SteamId = engineSteamId, ClientAddr = "198.51.100.9:27005" });
         }
-        public Task<bool> Checkpoint(string steamId) { Calls.Add("checkpoint " + steamId); return Task.FromResult(true); }
-        public Task<bool> Leave(string steamId, string peer) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
+        public Task<bool> Checkpoint(string steamId, SheetCheckpoint? sheet) { Calls.Add("checkpoint " + steamId); return Task.FromResult(true); }
+        public Task<bool> Leave(string steamId, string peer, SheetCheckpoint? sheet) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
         public void ReplyExec(string commandId, string output) => Calls.Add($"reply {commandId} {output}");
         public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth)
         {
@@ -203,7 +203,8 @@ public sealed class DeathServiceTests
         var clients = new FakeClients();
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         var net = new RecordingEngine();
-        var players = new PlayerService(link, host, clients, new ClientMessages(net), new NeverScheduler(), log);
+        var players = new PlayerService(link, host, clients, new ClientMessages(net), new NeverScheduler(), log,
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), host, clients, log));
         if (mode == HostingMode.Hosted)
             players.OnClientActive(3);    // FakeLink's join is already complete
 

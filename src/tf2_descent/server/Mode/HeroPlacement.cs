@@ -12,6 +12,16 @@ public interface IHeroClassPick
     void Pick(EntityHandle player, TFClass cls);
 }
 
+/// <summary>
+/// The class a hero plays: the hero sheet's (TF2.Descent.Server.Hero's
+/// SheetHeroClass), or <see cref="DescentMode.DefaultClass"/> while the player
+/// has no sheet yet (a hosted join that has not answered).
+/// </summary>
+public interface IHeroClass
+{
+    TFClass ClassOf(int entIndex);
+}
+
 /// <summary>The pick through TF2's <c>joinclass</c>: a player with no class yet spawns as it at once.</summary>
 [SideService(Side.Server, As = [typeof(IHeroClassPick)])]
 public sealed class TFHeroClassPick(TFJoinClassCommand joinClass) : IHeroClassPick
@@ -21,13 +31,15 @@ public sealed class TFHeroClassPick(TFJoinClassCommand joinClass) : IHeroClassPi
 
 /// <summary>
 /// A joining player becomes a hero (<see cref="DescentMode"/>): on the
-/// heroes' team and the default class, the moment the client is in the game,
+/// heroes' team and the class of their hero sheet (<see cref="IHeroClass"/>),
+/// the moment the client is in the game,
 /// on every level. No team menu is asked for and none is needed; the class
 /// menu still changes the class. A bot is not a hero: robots place
 /// themselves.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class HeroPlacement(IDescentModeState mode, ITeams teams, IBotPlayers bots, IHeroClassPick classes, ILog log)
+public sealed class HeroPlacement(IDescentModeState mode, IEnginePlayers players, ITeams teams, IBotPlayers bots,
+                                  IHeroClassPick classes, IHeroClass heroClass, ILog log)
     : IClientLifecycle
 {
     /// <summary>After TF2's band, at TF2 Descent's first mode stage.</summary>
@@ -40,7 +52,10 @@ public sealed class HeroPlacement(IDescentModeState mode, ITeams teams, IBotPlay
         if (!mode.Active)
             return;
 
-        var player = new EntityHandle((uint)entIndex);
+        // The slot's own handle, serial and all: a level change frees and
+        // refills the player's entity slot, so entry N with serial 0 is no
+        // player on any load after the first (the engine answers team -1).
+        var player = players.GetHandle(entIndex);
         if (bots.IsBot(player))
             return;
 
@@ -54,7 +69,8 @@ public sealed class HeroPlacement(IDescentModeState mode, ITeams teams, IBotPlay
             return;
         }
 
-        classes.Pick(player, DescentMode.DefaultClass);
-        log.Msg($"[TF2Descent/Mode] player {entIndex} is a hero: team {hero}, {TFClassNames.Raw(DescentMode.DefaultClass)}\n");
+        var cls = heroClass.ClassOf(entIndex);
+        classes.Pick(player, cls);
+        log.Msg($"[TF2Descent/Mode] player {entIndex} is a hero: team {hero}, {TFClassNames.Raw(cls)}\n");
     }
 }

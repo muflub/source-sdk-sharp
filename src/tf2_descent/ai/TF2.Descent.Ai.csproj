@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The horde's engine-free half (plan_descent_logic section 1, HO1): the robot
+    roster, the embodiment rules and the far simulation. It references the AI
+    core and the rules and nothing else: no engine, no ABI, no server.
+    TF2.Descent.Tests' AiReferenceTests holds that over the built assembly.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\ai\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\rules\TF2.Descent.Rules.csproj" />
+  </ItemGroup>
+</Project>

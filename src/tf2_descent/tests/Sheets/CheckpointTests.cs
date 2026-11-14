@@ -77,8 +77,8 @@ public sealed class CheckpointTests
         var hero = Level(3);
         var after = Heroes.GainXp(hero, 300).Sheet;
 
-        Assert.Equal("xp_unexplained", Check(hero, after, Earned(299)).FailedRule);
-        Assert.True(Check(hero, after, Earned(300)).Ok);
+        Assert.Equal("xp_unexplained", Check(hero, after, Earned(299, ("soldier", 10))).FailedRule);
+        Assert.True(Check(hero, after, Earned(300, ("soldier", 10))).Ok);   // the kills pay for it (RU4's bound)
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class CheckpointTests
         var after = Heroes.Spend(gain.Sheet, "brawn", 5).Sheet with { SkillRanks = Map(("marksmanship", 1)), SkillPoints = gain.Sheet.SkillPoints - 1 };
 
         Assert.Equal(4, after.Level);
-        Assert.True(Check(hero, after, Earned(Heroes.XpToNext(3))).Ok);
+        Assert.True(Check(hero, after, Earned(Heroes.XpToNext(3), ("soldier", 10))).Ok);
     }
 
     [Fact]

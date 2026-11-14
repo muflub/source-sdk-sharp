@@ -26,12 +26,37 @@ public sealed class CheckpointRules
     private readonly HeroRules _heroes;
     private readonly SheetCodec _sheets;
     private readonly EvidenceCodec _evidence;
+    private readonly IKillXpBound? _bound;
 
     public CheckpointRules(HeroRules heroes, SheetCodec sheets, EvidenceCodec evidence)
+        : this(heroes, sheets, evidence, null)
+    {
+    }
+
+    /// <summary>
+    /// With <paramref name="bound"/>, the evidence's experience is also held to what its kills
+    /// could have paid (xp_beyond_kills, RU4): at most the sum over its templates of kills ×
+    /// <see cref="IKillXpBound.MostXpPerKill"/>.
+    /// </summary>
+    public CheckpointRules(HeroRules heroes, SheetCodec sheets, EvidenceCodec evidence, IKillXpBound? bound)
     {
         _heroes = heroes;
         _sheets = sheets;
         _evidence = evidence;
+        _bound = bound;
+    }
+
+    /// <summary>The most the evidence's kills could have paid; long.MaxValue with no bound.</summary>
+    public long MostXpFor(CheckpointProof proof)
+    {
+        if (_bound is null) return long.MaxValue;
+        long most = 0;
+        foreach (var (template, kills) in proof.Kills)
+        {
+            long each = _bound.MostXpPerKill(template);
+            most = each > 0 && kills > (long.MaxValue - most) / each ? long.MaxValue : most + kills * each;
+        }
+        return most;
     }
 
     public ValidationResult Validate(CharacterSheet before, CharacterSheet after, CheckpointEvidence evidence)
@@ -67,6 +92,7 @@ public sealed class CheckpointRules
         if (b.Level < a.Level) return ValidationResult.Fail("level_decreased");
         if (b.Xp < a.Xp) return ValidationResult.Fail("xp_decreased");
         if (b.Xp - a.Xp > proof.XpEarned) return ValidationResult.Fail("xp_unexplained");
+        if (proof.XpEarned > MostXpFor(proof)) return ValidationResult.Fail("xp_beyond_kills");
         if (b.ReachedDepth < a.ReachedDepth) return ValidationResult.Fail("depth_decreased");
         if (b.RespecCount < a.RespecCount) return ValidationResult.Fail("respec_count_decreased");
 

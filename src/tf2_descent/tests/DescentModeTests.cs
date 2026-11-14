@@ -64,8 +64,25 @@ public sealed class DescentModeTests
 
     private static IGameMode Mode() => new DescentMode();
 
+    private sealed class SheetClass(TFClass cls) : IHeroClass
+    {
+        public TFClass ClassOf(int entIndex) => cls;
+    }
+
     private static HeroPlacement Placement(bool active, Board teams, Picks picks, params EntityHandle[] bots)
-        => new(new ModeState(active), teams, new BotList(bots), picks, new RecordingLog());
+        => Placement(active, teams, picks, DescentMode.DefaultClass, bots);
+
+    private static HeroPlacement Placement(bool active, Board teams, Picks picks, TFClass sheetClass, params EntityHandle[] bots)
+        => Placement(active, Hero, teams, picks, sheetClass, bots);
+
+    /// <summary>A placement whose engine answers <paramref name="slotHandle"/> as the player in slot 3.</summary>
+    private static HeroPlacement Placement(bool active, EntityHandle slotHandle, Board teams, Picks picks, TFClass sheetClass,
+                                           params EntityHandle[] bots)
+    {
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", slotHandle);
+        return new(new ModeState(active), engine, teams, new BotList(bots), picks, new SheetClass(sheetClass), new RecordingLog());
+    }
 
     private static HeroFriendlyFire FriendlyFire(int attackerTeam, int victimTeam, bool active = true)
     {
@@ -166,6 +183,36 @@ public sealed class DescentModeTests
     }
 
     [Fact]
+    public void A_joining_player_is_placed_as_the_class_of_their_hero_sheet()
+    {
+        var teams = new Board();
+        var picks = new Picks();
+
+        Placement(active: true, teams, picks, TFClass.Pyro).OnClientActive(3);
+
+        Assert.Equal([(Hero, TFClass.Pyro)], picks.Made);
+    }
+
+    /// <summary>
+    /// HE1b: a level change frees and refills the player's entity slot, so the
+    /// player in slot 3 is entry 3 with a later serial. The placement moves the
+    /// player the engine names for the slot, never a handle made from the bare
+    /// index (serial 0), which the engine answers as no player (team -1).
+    /// </summary>
+    [Fact]
+    public void A_player_whose_slot_was_refilled_by_a_level_change_is_placed_by_the_slots_own_handle()
+    {
+        var later = new EntityHandle(0x0001_0003u);
+        var teams = new Board();
+        var picks = new Picks();
+
+        Placement(active: true, later, teams, picks, TFClass.Soldier).OnClientActive(3);
+
+        Assert.Equal([(later, (int)TFTeam.Red)], teams.Joins);
+        Assert.Equal([(later, TFClass.Soldier)], picks.Made);
+    }
+
+    [Fact]
     public void A_bot_is_not_placed()
     {
         var teams = new Board();
@@ -229,5 +276,41 @@ public sealed class DescentModeTests
     public void TF2s_loadout_stays_open_under_another_mode()
     {
         Assert.True(new HeroInventoryGate(new ModeState(false)).IsOpen(3, out _));
+    }
+
+    // ---- the class is the sheet's ----
+
+    /// <summary>The class gate over a sheet of <paramref name="sheetClass"/>, the engine answering <see cref="Hero"/> for slot 3.</summary>
+    private static HeroClassGate ClassGate(bool active, TFClass sheetClass, params EntityHandle[] bots)
+    {
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", Hero);
+        return new HeroClassGate(new ModeState(active), engine, new BotList(bots), new SheetClass(sheetClass));
+    }
+
+    [Fact]
+    public void A_hero_may_not_choose_a_class_other_than_his_sheets()
+    {
+        Assert.False(ClassGate(true, TFClass.Soldier).MayChoose(3, TFClass.Pyro, out string why));
+        Assert.Equal(HeroClassGate.Reason, why);
+    }
+
+    [Fact]
+    public void A_hero_may_choose_his_sheets_class()
+    {
+        Assert.True(ClassGate(true, TFClass.Soldier).MayChoose(3, TFClass.Soldier, out string why));
+        Assert.Equal(string.Empty, why);
+    }
+
+    [Fact]
+    public void The_class_gate_is_open_under_another_mode()
+    {
+        Assert.True(ClassGate(false, TFClass.Soldier).MayChoose(3, TFClass.Pyro, out _));
+    }
+
+    [Fact]
+    public void The_class_gate_leaves_a_bot_alone()
+    {
+        Assert.True(ClassGate(true, TFClass.Soldier, Hero).MayChoose(3, TFClass.Pyro, out _));
     }
 }

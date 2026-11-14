@@ -49,8 +49,22 @@ public sealed partial class ServiceFlowTests
                 ? new JoinOutcome(false, HostLink.NoSteamId)
                 : JoinAnswer with { SteamId = id, ClientAddr = "198.51.100.9:27005" });
         }
-        public Task<bool> Checkpoint(string steamId) { Calls.Add("checkpoint " + steamId); return Task.FromResult(true); }
-        public Task<bool> Leave(string steamId, string peer) { Calls.Add($"leave {steamId} {peer}"); return Task.FromResult(true); }
+        /// <summary>What each checkpoint and leave was handed, in order (null: the lease's own sheet).</summary>
+        public List<(string SteamId, SheetCheckpoint? Sheet)> Sheets { get; } = new();
+        /// <summary>What the next checkpoints answer, in order; true once the queue is empty.</summary>
+        public Queue<bool> CheckpointAnswers { get; } = new();
+        public Task<bool> Checkpoint(string steamId, SheetCheckpoint? sheet)
+        {
+            Calls.Add("checkpoint " + steamId);
+            Sheets.Add((steamId, sheet));
+            return Task.FromResult(CheckpointAnswers.Count == 0 || CheckpointAnswers.Dequeue());
+        }
+        public Task<bool> Leave(string steamId, string peer, SheetCheckpoint? sheet)
+        {
+            Calls.Add($"leave {steamId} {peer}");
+            Sheets.Add((steamId, sheet));
+            return Task.FromResult(true);
+        }
         public void ReplyExec(string commandId, string output) => Calls.Add($"reply {commandId} {output}");
         public TravelAnswer TravelAnswer { get; set; } = new(TravelState.Started, TimeSpan.Zero, "");
         public Task<TravelAnswer> Travel(string steamId, TravelDirection direction, BootInfo boot, int depth)
@@ -259,7 +273,8 @@ public sealed partial class ServiceFlowTests
             w.Host.OnLevelInit("tf2_descent_town");
         var clients = new FakeClients();
         var net = new RecordingEngine();
-        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log);
+        var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(net), new NeverScheduler(), w.Log,
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log));
         return (w, players, clients, net);
     }
 
@@ -935,7 +950,8 @@ public sealed partial class ServiceFlowTests
         w.Host.OnLevelInit("tf2_descent_town");
         var clients = new FakeClients();
         var players = new PlayerService(w.Link, w.Host, clients, new ClientMessages(new RecordingEngine()),
-                                        new NowScheduler(), w.Log);
+                                        new NowScheduler(), w.Log,
+                                        new TF2.Descent.Server.Hero.HeroSheets(new TF2.Descent.Rules.TF2DescentRules(), w.Host, clients, w.Log));
         clients.Slots[3] = (76561197960287930UL, "203.0.113.7:27005");
         players.OnClientActive(3);
 

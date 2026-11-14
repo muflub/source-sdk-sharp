@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\rules\TF2.Descent.Rules.csproj" />
+    <ProjectReference Include="..\ai\TF2.Descent.Ai.csproj" />
     <ProjectReference Include="..\server\TF2.Descent.Server.csproj" />
     <!-- Aliased: the shared source compiles into both sides, so its types exist twice (plan_side_isolation §2.5). -->
     <ProjectReference Include="..\client\TF2.Descent.Client.csproj" Aliases="client" />

@@ -12,6 +12,7 @@ using TF2.Descent.Rules.Hero;
 using TF2.Descent.Rules.Inventory;
 using TF2.Descent.Rules.Items;
 using TF2.Descent.Rules.Layout;
+using TF2.Descent.Rules.Loot;
 using TF2.Descent.Rules.Sheets;
 using TF2.Descent.Rules.Skills;
 using TF2.Descent.Rules.Spells;
@@ -43,7 +44,6 @@ public sealed class TF2DescentRules : IGameRules
         Heroes = new HeroRules(Content);
         SheetCodec = new SheetCodec(Heroes);
         Evidence = new EvidenceCodec();
-        Checkpoints = new CheckpointRules(Heroes, SheetCodec, Evidence);
         Deaths = new DeathRules(Content);
         Downed = new DownedRules(Content);
         Bestiary = new BestiaryRules(Content);
@@ -63,7 +63,16 @@ public sealed class TF2DescentRules : IGameRules
         Inventory = new InventoryRules(Content, ItemRules);
         Trades = new Trades(Inventory);
         Vendors = new Vendors(Content, ItemRules.Roller, ItemRules.Codec);
+        Loot = new LootRules(Content, Robots, ItemRules);
+        Experience = new ExperienceRules(Content, Robots);
+        Checkpoints = new CheckpointRules(Heroes, SheetCodec, Evidence, Experience);
     }
+
+    /// <summary>The XP a kill pays a hero, and the most a kill could pay (RU4, D10).</summary>
+    public ExperienceRules Experience { get; }
+
+    /// <summary>Kill rolls per seat, the Australium split, boss, champion and container loot (RU4).</summary>
+    public LootRules Loot { get; }
 
     /// <summary>Tomes, scrolls and casting spells (RU6, R27).</summary>
     public SpellRules Spells { get; }
@@ -159,18 +168,18 @@ public sealed class TF2DescentRules : IGameRules
     /// <summary>True when the item is what its context, seed and history give (RU3); a schema 1 item by its own formula.</summary>
     public bool Replays(RolledItem item) => ItemRules.Replays(item);
 
-    /// <summary>Two kills in three drop; tiers by the hash: 60 % Stock, 20 % Vintage, 10 % Strange, 10 % Unusual.</summary>
-    public KillRoll KillRoll(ulong instanceSeed, uint killSeq, string robotTemplate, int depth, int partySize)
-    {
-        var h = Hash("kill", instanceSeed, killSeq, robotTemplate, depth, partySize) + Salt;
-        var drop = h % 3 != 0;
-        var t = (int)(h / 3 % 10);
-        var tier = t < 6 ? 0 : t < 8 ? 1 : t < 9 ? 2 : 3;
-        return new KillRoll(drop, drop ? tier : -1, depth);
-    }
+    /// <summary>
+    /// One party seat's roll of a kill (RU4, <see cref="LootRules.Roll"/>): <paramref name="killSeq"/>
+    /// is <see cref="LootRules.KillSeq"/>(kill, seat), so each eligible player rolls once (R4,
+    /// X1); seat 0's roll carries the kill's Australium. <paramref name="robotTemplate"/> may
+    /// name champion affixes (<see cref="LootKey"/>). <see cref="Salt"/> is mixed into the roll.
+    /// </summary>
+    public KillRoll KillRoll(ulong instanceSeed, uint killSeq, string robotTemplate, int depth, int partySize) =>
+        LootRules.ToContract(Loot.Roll(instanceSeed, killSeq, robotTemplate, depth, partySize, Salt));
 
+    /// <summary>A boss's own table (D13) or a champion's, for one player; nothing for an ordinary robot (RU4, <see cref="LootRules.BossDrops"/>).</summary>
     public IReadOnlyList<RolledItem> BossDrops(ItemRollContext ctx, string robotTemplate, ulong seed) =>
-        [RollItem(ctx with { Tier = 2, Source = "boss:" + robotTemplate }, seed), RollItem(ctx with { Tier = 3, Source = "boss:" + robotTemplate }, seed + 1)];
+        Loot.BossDrops(ctx, robotTemplate, seed);
 
     /// <summary>Backpack capacity, derived from the sheet's skill ranks and never stored (RU5, R13, D4).</summary>
     public int BackpackSlots(CharacterSheet sheet) => Inventory.BackpackSlots(SheetCodec.Read(sheet));

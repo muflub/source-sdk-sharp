@@ -1,0 +1,130 @@
+using SourceSharp.Abi;
+using SourceSharp.Ai;
+
+using TF2.Descent.Rules.Robots;
+
+namespace TF2.Descent.Server.Horde;
+
+/// <summary>The TF player's standing hull, which a robot body scales (HO0, 3.11 row 1).</summary>
+public static class RobotHull
+{
+    public static Vector Mins => new(-24f, -24f, 0f);
+
+    public static Vector Maxs => new(24f, 24f, 82f);
+}
+
+/// <summary>The engine's vectors and the horde's.</summary>
+public static class HordeVectors
+{
+    public static AiVector ToAi(Vector v) => new(v.X, v.Y, v.Z);
+
+    public static Vector ToEngine(AiVector v) => new(v.X, v.Y, v.Z);
+}
+
+/// <summary>
+/// A hit's engine damage bits as a Descent damage type (damage_types.json): fire
+/// for burning (TF's afterburn is <see cref="DamageType.Burn"/>, its ignite
+/// <see cref="DamageType.Plasma"/>), blast, shock for shock and energy beams,
+/// and bullet for everything else, melee included (families.json gives melee
+/// weapons bullet). Fire first: a burning blast (a flare's detonation) is fire.
+/// <see cref="DamageType.SlowBurn"/> is not fire: TF reuses it as "use the
+/// distance mod" on rockets and bullets (TFDamageDefs.UseDistanceMod), as it
+/// reuses radiation as "half falloff".
+/// </summary>
+public static class RobotDamageKinds
+{
+    public const string Fire = "fire";
+    public const string Blast = "blast";
+    public const string Bullet = "bullet";
+    public const string Shock = "shock";
+
+    public static string Of(DamageType bits) =>
+        (bits & (DamageType.Burn | DamageType.Plasma)) != 0 ? Fire
+        : (bits & DamageType.Blast) != 0 ? Blast
+        : (bits & (DamageType.Shock | DamageType.EnergyBeam)) != 0 ? Shock
+        : Bullet;
+}
+
+/// <summary>
+/// What a robot looks like: its body model, the weapon model it holds, and the
+/// sequences it stands and runs with. A small table in the server for now; its
+/// place later is the rules' robots.json (a model and a weapon column a
+/// template), once something other than the server needs to know.
+///
+/// <para>
+/// Models (HO0, 3.11 row 11): a robot model for each of the nine classes; a
+/// giant model for scout, soldier, pyro, demoman and heavy. A giant or a boss
+/// of another class (the giant medic) wears the ordinary model, scaled.
+/// </para>
+/// </summary>
+public static class RobotLooks
+{
+    public const string ScoutModel = "models/bots/scout/bot_scout.mdl";
+    public const string SoldierModel = "models/bots/soldier/bot_soldier.mdl";
+    public const string PyroModel = "models/bots/pyro/bot_pyro.mdl";
+    public const string DemomanModel = "models/bots/demo/bot_demo.mdl";
+    public const string HeavyModel = "models/bots/heavy/bot_heavy.mdl";
+    public const string EngineerModel = "models/bots/engineer/bot_engineer.mdl";
+    public const string MedicModel = "models/bots/medic/bot_medic.mdl";
+    public const string SniperModel = "models/bots/sniper/bot_sniper.mdl";
+    public const string SpyModel = "models/bots/spy/bot_spy.mdl";
+
+    public const string GiantScoutModel = "models/bots/scout_boss/bot_scout_boss.mdl";
+    public const string GiantSoldierModel = "models/bots/soldier_boss/bot_soldier_boss.mdl";
+    public const string GiantPyroModel = "models/bots/pyro_boss/bot_pyro_boss.mdl";
+    public const string GiantDemomanModel = "models/bots/demo_boss/bot_demo_boss.mdl";
+    public const string GiantHeavyModel = "models/bots/heavy_boss/bot_heavy_boss.mdl";
+
+    public const string RocketLauncher = "models/weapons/c_models/c_rocketlauncher/c_rocketlauncher.mdl";
+    public const string GrenadeLauncher = "models/weapons/c_models/c_grenadelauncher/c_grenadelauncher.mdl";
+    public const string Flamethrower = "models/weapons/c_models/c_flamethrower/c_flamethrower.mdl";
+    public const string Scattergun = "models/weapons/c_models/c_scattergun.mdl";
+    public const string Minigun = "models/weapons/c_models/c_minigun/c_minigun.mdl";
+    public const string Shotgun = "models/weapons/c_models/c_shotgun/c_shotgun.mdl";
+    public const string SyringeGun = "models/weapons/c_models/c_syringegun/c_syringegun.mdl";
+    public const string SniperRifle = "models/weapons/c_models/c_sniperrifle/c_sniperrifle.mdl";
+    public const string Knife = "models/weapons/c_models/c_knife/c_knife.mdl";
+
+    /// <summary>Whether the template's size class is drawn with the giant model where its class has one.</summary>
+    public static bool IsBig(RobotTemplate t) => t.Size is "giant" or "boss";
+
+    public static string BodyModel(RobotTemplate t) => (t.Class, IsBig(t)) switch
+    {
+        ("scout", true) => GiantScoutModel,
+        ("soldier", true) => GiantSoldierModel,
+        ("pyro", true) => GiantPyroModel,
+        ("demoman", true) => GiantDemomanModel,
+        ("heavy", true) => GiantHeavyModel,
+        ("scout", _) => ScoutModel,
+        ("soldier", _) => SoldierModel,
+        ("pyro", _) => PyroModel,
+        ("demoman", _) => DemomanModel,
+        ("heavy", _) => HeavyModel,
+        ("engineer", _) => EngineerModel,
+        ("medic", _) => MedicModel,
+        ("sniper", _) => SniperModel,
+        ("spy", _) => SpyModel,
+        _ => throw new ArgumentException($"robot template '{t.Id}' has class '{t.Class}', which has no robot model"),
+    };
+
+    /// <summary>The weapon a template holds, by its family; null for bare fists (a melee heavy).</summary>
+    public static string? WeaponModel(RobotTemplate t) => t.Family switch
+    {
+        "rocket_launcher" => RocketLauncher,
+        "grenade_launcher" => GrenadeLauncher,
+        "flamethrower" => Flamethrower,
+        "scattergun" => Scattergun,
+        "minigun" => Minigun,
+        "shotgun" => Shotgun,
+        "syringe_gun" => SyringeGun,
+        "sniper_rifle" => SniperRifle,
+        "melee" => t.Class == "spy" ? Knife : null,
+        _ => throw new ArgumentException($"robot template '{t.Id}' holds family '{t.Family}', which has no robot weapon model"),
+    };
+
+    /// <summary>The player animations' standing sequence for what the template holds (plan 3.11 row 2: the robot models carry the player's).</summary>
+    public static string IdleSequence(RobotTemplate t) => t.Family == "melee" ? "stand_MELEE" : "stand_PRIMARY";
+
+    /// <summary>The running sequence for what the template holds.</summary>
+    public static string RunSequence(RobotTemplate t) => t.Family == "melee" ? "run_MELEE" : "run_PRIMARY";
+}

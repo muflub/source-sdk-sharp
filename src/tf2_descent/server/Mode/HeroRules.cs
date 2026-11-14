@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Econ;
+using TF2.Server.Player;
 using TF2.Shared;
 
 namespace TF2.Descent.Server.Mode;
@@ -57,5 +58,36 @@ public sealed class HeroInventoryGate(IDescentModeState mode) : ITFLocalInventor
         bool open = !mode.Active;
         reason = open ? string.Empty : Reason;
         return open;
+    }
+}
+
+/// <summary>
+/// A hero plays his character's class (<see cref="ITFClassChangeGate"/>):
+/// while the Descent mode plays, a hero's own <c>joinclass</c> (the class
+/// menu's) may choose only the class of his hero sheet (<see cref="IHeroClass"/>),
+/// and any other is refused with <see cref="Reason"/>. The mode's own
+/// placement (<see cref="HeroPlacement"/>) is the game's choice, which asks no
+/// gate. A bot is no hero and is not this gate's.
+/// </summary>
+[SideService(Side.Server)]
+public sealed class HeroClassGate(IDescentModeState mode, IEnginePlayers players, IBotPlayers bots, IHeroClass heroClass)
+    : ITFClassChangeGate, IOrderedHook
+{
+    /// <summary>What the hero is told: the refused class is its <c>%s1</c>.</summary>
+    public const string Reason = "#Descent_Hero_ClassIsTheSheets";
+
+    /// <summary>After TF2's band, at TF2 Descent's first mode stage.</summary>
+    public const int Order = ModStages.First + 100;
+
+    public int HookOrder => Order;
+
+    public bool MayChoose(int entIndex, TFClass cls, out string reason)
+    {
+        reason = string.Empty;
+        if (!mode.Active || bots.IsBot(players.GetHandle(entIndex)) || cls == heroClass.ClassOf(entIndex))
+            return true;
+
+        reason = Reason;
+        return false;
     }
 }

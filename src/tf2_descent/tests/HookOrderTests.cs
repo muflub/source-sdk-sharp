@@ -51,6 +51,7 @@ public sealed partial class HookOrderTests
     private static int OrderOf(object service, Type hook) =>
         hook == typeof(IClientLifecycle) ? ((IClientLifecycle)service).ClientLifecycleOrder
         : hook == typeof(IGameLifecycle) ? ((IGameLifecycle)service).LifecycleOrder
+        : hook == typeof(IFrameLifecycle) ? ((IFrameLifecycle)service).FrameOrder
         : (service as IOrderedHook)?.HookOrder ?? 0;
 
     private static void AssertDistinct(Assembly assembly, Side side, IEnumerable<Type> hooks)
@@ -95,9 +96,24 @@ public sealed partial class HookOrderTests
         [
             (typeof(IGameModeSelector), true), (typeof(IDamageRule), true),
             (typeof(TF2.Server.Econ.ITFLocalInventoryGate), false), (typeof(IClientLifecycle), true),
+            (typeof(IPlayerComponentSource), true),
+            // WO1: the arrival spawns sit in the spawn chain beside TF2's team walk.
+            (typeof(ISpawnSelector), true), (typeof(IGameLifecycle), true),
+            // HE3's: the hero's numbers after TF2's layer, its sustain taps, its TF attributes and crits; HE1b's respawn.
+            (typeof(IDamageModifier), true), (typeof(IPlayerHurtHook), false), (typeof(IEntityHurtHook), false),
+            (typeof(TF2.Server.Player.ITFPlayerAttributeSource), false), (typeof(TF2.Shared.ITFWeaponHook), true),
+            (typeof(IFrameLifecycle), true),
+            // The hero's class is his sheet's: TF2 registers no class-change gate of its own.
+            (typeof(TF2.Server.Player.ITFClassChangeGate), false),
+            // HE5's kill seam hears a robot body's death from the core's entity death chain.
+            (typeof(IEntityDeathHook), false),
         ];
         var descent = typeof(TF2.Descent.Server.Mode.DescentMode).Assembly;
-        Assembly[] others = [typeof(TF2.Server.Modes.TFGameModeSelector).Assembly, typeof(GameModes).Assembly];
+        Assembly[] others =
+        [
+            typeof(TF2.Server.Modes.TFGameModeSelector).Assembly, typeof(GameModes).Assembly,
+            typeof(TF2.Shared.TFCritRoll).Assembly,
+        ];
 
         var clashes = new List<string>();
         foreach (var (chain, shared) in chains)

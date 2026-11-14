@@ -23,9 +23,16 @@ public interface IHostLink : IDisposable
     /// <summary>Spec §5's join. The outcome's SteamId, not <paramref name="engineSteamId"/>, names the player from then on.</summary>
     Task<JoinOutcome> Join(string peer, string engineSteamId, BootInfo boot, string className);
 
-    Task<bool> Checkpoint(string steamId);
+    /// <summary>
+    /// Spec §5's checkpoint. <paramref name="sheet"/> is the hero's sheet as
+    /// the game holds it now, with the evidence of what was earned since the
+    /// last checkpoint the host took; null sends the lease's own sheet back
+    /// unchanged, with no evidence.
+    /// </summary>
+    Task<bool> Checkpoint(string steamId, SheetCheckpoint? sheet);
 
-    Task<bool> Leave(string steamId, string peer);
+    /// <summary>Spec §5's leave: the last checkpoint carries <paramref name="sheet"/> (null: the lease's own), then the release.</summary>
+    Task<bool> Leave(string steamId, string peer, SheetCheckpoint? sheet);
 
     void ReplyExec(string commandId, string output);
 
@@ -50,3 +57,11 @@ public interface IHostLink : IDisposable
     /// </summary>
     Task<LootAnswer> LootCorpse(string steamId);
 }
+
+/// <summary>
+/// What a checkpoint hands the host beside the lease: the sheet's bytes
+/// (the rules' <c>SheetCodec</c>) and the evidence of what was earned since
+/// the last checkpoint the host took (the rules' <c>EvidenceCodec</c>), which
+/// the host's rules check the sheet against (plan_descent_logic RU13).
+/// </summary>
+public sealed record SheetCheckpoint(SourceSharp.Host.Contracts.CharacterSheet Sheet, SourceSharp.Host.Contracts.CheckpointEvidence Evidence);

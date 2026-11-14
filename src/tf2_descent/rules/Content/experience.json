@@ -1,0 +1,10 @@
+{
+  "partyRangeUnits": 1500,
+  "levelDifference": [
+    { "diff": -10, "pct": 5 },
+    { "diff": -5, "pct": 50 },
+    { "diff": 0, "pct": 100 },
+    { "diff": 5, "pct": 125 },
+    { "diff": 10, "pct": 140 }
+  ]
+}

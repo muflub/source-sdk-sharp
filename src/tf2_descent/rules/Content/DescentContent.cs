@@ -4,6 +4,7 @@ using System.Text.Json;
 using TF2.Descent.Rules.Bestiary;
 using TF2.Descent.Rules.Death;
 using TF2.Descent.Rules.Furniture;
+using TF2.Descent.Rules.Horde;
 using TF2.Descent.Rules.Robots;
 using TF2.Descent.Rules.Items;
 
@@ -57,6 +58,7 @@ public sealed class DescentContent
     public Table<ChampionAffix> Champions => Get<Table<ChampionAffix>>(ContentTables.Champions);
     public Table<DepthRow> Levels => Get<Table<DepthRow>>(ContentTables.Levels);
     public Table<StatusRow> Status => Get<Table<StatusRow>>(ContentTables.Status);
+    public HordeSettings Horde => Get<HordeSettings>(ContentTables.Horde);
 
     /// <summary>The four damage types, in file order; look one up by id with the table's indexer or TryGet.</summary>
     public Table<DamageTypeRow> DamageTypes => Get<Table<DamageTypeRow>>(ContentTables.DamageTypes);
@@ -138,6 +140,12 @@ public sealed class DescentContent
 
     /// <summary>The town's vendors (RU5).</summary>
     public Table<Economy.VendorRow> Vendors => Get<Table<Economy.VendorRow>>(Economy.VendorTable.TableName);
+
+    /// <summary>The loot tables, champion and boss loot, and the Australium a kill pays (RU4).</summary>
+    public Loot.LootSettings Loot => Get<Loot.LootSettings>(TF2.Descent.Rules.Loot.LootTable.TableName);
+
+    /// <summary>What a kill's XP is scaled by, hero level against monster level (RU4, D10).</summary>
+    public Loot.ExperienceSettings Experience => Get<Loot.ExperienceSettings>(TF2.Descent.Rules.Loot.ExperienceTable.TableName);
 
     /// <summary>The shipped content; throws <see cref="ContentLoadException"/> naming every error if it does not load.</summary>
     public static DescentContent Shipped() => new ContentLoader().Load(new EmbeddedContentSource()).OrThrow();

@@ -1,0 +1,13 @@
+{
+  "rosterCapacity": 256,
+  "poolBodies": 48,
+  "bossBodies": 1,
+  "wakeRooms": 2,
+  "demoteDelaySeconds": 10,
+  "sleepDelaySeconds": 10,
+  "farTickHz": 2,
+  "patrolDwellSeconds": 4,
+  "alertMemorySeconds": 30,
+  "arriveRadius": 24,
+  "doorQueue": { "backoff": 64, "spacing": 48 }
+}
