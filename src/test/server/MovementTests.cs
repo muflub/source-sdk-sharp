@@ -1019,7 +1019,13 @@ public class MovementTests
         var carried = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
         MoveState dash = Airborne(GameMovement.InJump);
         MoveState control = Airborne(0);
-        control.Velocity = new Vector(200f, 0f, 274.75f);
+        // The flat wish's x is 200 times yaw 0's forward as MoveVec.Normalize
+        // makes it, not 200: Normalize is RSqrt, whose rsqrtss start differs
+        // in the last bit between CPUs (CI's runners read 199.99998, a Zen 5
+        // reads 200), so the control takes the same normalisation.
+        var flat = new Vector(1f, 0f, 0f);
+        MoveVec.Normalize(ref flat);
+        control.Velocity = new Vector(flat.X * 200f, 0f, 274.75f);
 
         Assert.True(dashing.ProcessMovement(dash));
         Assert.True(carried.ProcessMovement(control));
